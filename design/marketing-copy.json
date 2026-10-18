@@ -346,101 +346,105 @@
       }
     },
     "access_page": {
-      "note": "E2 (2026-10-14): copy for /access, approved by Sebastian on 2026-10-14. Field labels match the prototype. The hero subhead and form headings reuse approved copy. privacy_note is a new line under each submit button. outcomes maps the submitAccessRequest results: received (also shown for the honeypot and for duplicates, by coordinator ruling), duplicate (unused; never render it, because it reveals an earlier request), rate_limited_email, rate_limited_ip, invalid, unavailable (contact fallback) and offline. {max} is a template value. Each field value is an object: label, optional, help, error and placeholder. submitting is the button text while a request is sent.",
+      "note": "E2 (2026-10-14), revised by WP-097 (2026-10-18): copy for /access. One step form replaces the two forms. Step 1 asks who the visitor is; later steps show one or two fields. Field labels, help, errors, the privacy note and outcomes keep their approved 2026-10-14 text. New lines from 2026-10-18 for Sebastian's review: form.progress, form.back, form.continue, form.who, form.steps and organization (the church or network label replaces \"Network or church\"). form.submit reuses the planter submit label. {step}, {total} and {max} are template values. outcomes maps the submitAccessRequest results: received (also shown for the honeypot and for duplicates, by coordinator ruling), rate_limited_email, rate_limited_ip, invalid, unavailable (contact fallback) and offline. duplicate is unused; never render it, because it reveals an earlier request.",
       "hero": {
         "eyebrow": "Early access",
         "headline": "Request early access",
         "subhead": "EveryField is in early access for church planters and the churches and networks that send them."
       },
       "contact_email": "hello@everyfield.app",
-      "planter_form": {
-        "eyebrow": "For planters",
-        "headline": "Know what needs you this week.",
-        "body": "You do the work. EveryField keeps the record and points at the next step.",
-        "fields": {
-          "name": {
-            "label": "Your name",
-            "error": "Enter your name."
-          },
-          "email": {
-            "label": "Email",
-            "help": "We use your email to handle your early access request and limit spam.",
-            "error": "Enter an email address, such as name@example.com.",
-            "placeholder": "name@example.com"
-          },
-          "plant_name": {
-            "label": "Church plant name",
-            "help": "A working name is fine.",
-            "error": "Enter the name of your church plant. A working name is fine."
-          },
-          "city": {
-            "label": "City",
-            "help": "The city where you are planting.",
-            "error": "Enter the city where you are planting."
-          },
-          "phase": {
-            "label": "Phase",
-            "help": "Choose the phase you are in now.",
-            "error": "Choose the phase you are in now.",
-            "prompt": "Choose a phase"
-          },
-          "sending": {
-            "label": "Sending church or network",
-            "optional": true,
-            "help": "Leave it blank if you do not have one yet."
-          }
-        },
-        "phases": [
-          "0 \u00b7 Discovery",
-          "1 \u00b7 Core group",
-          "2 \u00b7 Launch team",
-          "3 \u00b7 Training",
-          "4 \u00b7 Pre-launch",
-          "5 \u00b7 Launch Sunday",
-          "6 \u00b7 Post-launch"
-        ],
+      "form": {
+        "progress": "Step {step} of {total}",
+        "back": "Back",
+        "continue": "Continue",
         "submit": "Request early access",
-        "submitting": "Sending your request"
-      },
-      "network_form": {
-        "eyebrow": "For networks and sending churches",
-        "headline": "Bring EveryField to your network.",
-        "body": "We are working with a small group of networks and sending churches during early access.",
-        "fields": {
-          "name": {
-            "label": "Your name",
-            "error": "Enter your name."
-          },
-          "email": {
-            "label": "Email",
-            "help": "We use your email to handle your early access request and limit spam.",
-            "error": "Enter an email address, such as name@example.com.",
-            "placeholder": "name@example.com"
-          },
-          "organization": {
-            "label": "Network or church",
-            "error": "Enter the name of your network or church."
-          },
-          "role": {
-            "label": "Your role",
-            "help": "For example, network director or sending pastor.",
-            "error": "Enter your role."
-          },
-          "plants": {
-            "label": "Plants you send or support",
-            "optional": true,
-            "help": "A rough number is fine.",
-            "error": "Enter a whole number, such as 4."
-          },
-          "message": {
-            "label": "What would you like to talk about?",
-            "optional": true,
-            "help": "Tell us about your plants or what you want to see."
+        "submitting": "Sending your request",
+        "who": {
+          "title": "Which of these describes you?",
+          "error": "Choose the one that describes you.",
+          "options": {
+            "planter": "Church planter",
+            "church": "Sending church",
+            "network": "Sending network"
           }
         },
-        "submit": "Talk to us about your network",
-        "submitting": "Sending your request"
+        "steps": {
+          "contact": "How can we reach you?",
+          "plant": "Where are you planting?",
+          "phase": "Which phase are you in?",
+          "church": "Which church are you with?",
+          "network": "Which network are you with?",
+          "more": "Anything else we should know?"
+        }
       },
+      "fields": {
+        "name": {
+          "label": "Your name",
+          "error": "Enter your name."
+        },
+        "email": {
+          "label": "Email",
+          "help": "We use your email to handle your early access request and limit spam.",
+          "error": "Enter an email address, such as name@example.com.",
+          "placeholder": "name@example.com"
+        },
+        "plant_name": {
+          "label": "Church plant name",
+          "help": "A working name is fine.",
+          "error": "Enter the name of your church plant. A working name is fine."
+        },
+        "city": {
+          "label": "City",
+          "help": "The city where you are planting.",
+          "error": "Enter the city where you are planting."
+        },
+        "phase": {
+          "label": "Phase",
+          "help": "Choose the phase you are in now.",
+          "error": "Choose the phase you are in now.",
+          "prompt": "Choose a phase"
+        },
+        "sending": {
+          "label": "Sending church or network",
+          "optional": true,
+          "help": "Leave it blank if you do not have one yet."
+        },
+        "role": {
+          "label": "Your role",
+          "help": "For example, network director or sending pastor.",
+          "error": "Enter your role."
+        },
+        "plants": {
+          "label": "Plants you send or support",
+          "optional": true,
+          "help": "A rough number is fine.",
+          "error": "Enter a whole number, such as 4."
+        },
+        "message": {
+          "label": "What would you like to talk about?",
+          "optional": true,
+          "help": "Tell us about your plants or what you want to see."
+        }
+      },
+      "organization": {
+        "church": {
+          "label": "Church name",
+          "error": "Enter the name of your church."
+        },
+        "network": {
+          "label": "Network name",
+          "error": "Enter the name of your network."
+        }
+      },
+      "phases": [
+        "0 \u00b7 Discovery",
+        "1 \u00b7 Core group",
+        "2 \u00b7 Launch team",
+        "3 \u00b7 Training",
+        "4 \u00b7 Pre-launch",
+        "5 \u00b7 Launch Sunday",
+        "6 \u00b7 Post-launch"
+      ],
       "errors": {
         "too_long": "Shorten this to {max} characters or fewer."
       },
