@@ -1,4 +1,7 @@
-import type { PoolClient } from "pg";
+import { and, eq, sql } from "@everyfield/db/query";
+import * as tables from "@everyfield/db/tables";
+import { alias } from "@everyfield/db/columns";
+import type { Transaction } from "@everyfield/db/client";
 import type { z } from "zod";
 import type { Owner, sessionId } from "@everyfield/contracts/common";
 import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
@@ -23,6 +26,8 @@ import {
 	unavailable,
 	type OrganizationEffects,
 } from "./core.ts";
+const affiliation_a = alias(tables.affiliation, "a");
+const organization_o = alias(tables.organization, "o");
 const columns = {
 	people: "share_people",
 	meetings: "share_meetings",
@@ -34,24 +39,25 @@ const columns = {
 } as const;
 export function sharingOperations(
 	effects: OrganizationEffects,
-): Pick<OrganizationAdapter<PoolClient>, "privacy.getSharing" | "privacy.setSharing"> {
+): Pick<OrganizationAdapter<Transaction>, "privacy.getSharing" | "privacy.setSharing"> {
 	return {
 		async "privacy.getSharing"(tx, session, selected, raw) {
 			const q = Q.readSharingRequest.parse(raw),
 				actor = await currentActor(tx, session, selected);
 			if (actor.status !== "active" || (!sameOwner(selected, q.plant) && !sameOwner(selected, q.organization)))
 				return unavailable();
-			const r = await tx.query<{ id: string; name: string }>(
-				"SELECT a.id,o.name FROM affiliation a JOIN organization o ON o.id=a.organization_id WHERE a.plant_id=$1 AND a.organization_id=$2",
-				[q.plant.id, q.organization.id],
-			);
-			if (!r.rows[0]) return unavailable();
-			const a = await loadAffiliation(tx, r.rows[0].id);
+			const r = await tx
+				.select({ id: affiliation_a.id, name: organization_o.name })
+				.from(affiliation_a)
+				.innerJoin(organization_o, eq(organization_o.id, affiliation_a.organization_id))
+				.where(and(eq(affiliation_a.plant_id, q.plant.id), eq(affiliation_a.organization_id, q.organization.id)));
+			if (!r[0]) return unavailable();
+			const a = await loadAffiliation(tx, r[0].id);
 			if (!a || !(await active(tx, a)) || !sameOwner(pairOf(a).organization, q.organization)) return unavailable();
 			const base = {
 				plant: q.plant,
 				organization: q.organization,
-				organizationDisplayName: r.rows[0].name,
+				organizationDisplayName: r[0].name,
 				activeAffiliation: true,
 			};
 			return Q.sharingResult.parse(
@@ -82,10 +88,14 @@ export function sharingOperations(
 			checkRevision(q.input.expectedConsentRevision, a.consent_revision);
 			if (choices(a)[q.input.category] === q.input.enabled)
 				return finishCommand(tx, c, (r) => Q.mutationResult.parse({ status: "committed", receipt: r }), [], false);
-			await tx.query(
-				`UPDATE affiliation SET ${columns[q.input.category]}=$2,consent_revision=consent_revision+1,revision=revision+1 WHERE id=$1`,
-				[a.id, q.input.enabled],
-			);
+			await tx
+				.update(tables.affiliation)
+				.set({
+					[columns[q.input.category]]: q.input.enabled,
+					consent_revision: sql`${tables.affiliation.consent_revision}+1`,
+					revision: sql`${tables.affiliation.revision}+1`,
+				})
+				.where(eq(tables.affiliation.id, a.id));
 			const next = String(BigInt(a.revision) + 1n),
 				event = await appendEvent(tx, c, a.id, "preference", "sharing.changed", a.revision, next);
 			await invalidate(tx, effects, pairOf(a), a.id, next);
@@ -106,7 +116,7 @@ export function sharingOperations(
 // Native review disclosure. Re-read before approving; this observation grants no
 // authority and never overwrites the exact pair's persisted consent on rejoin.
 export async function readSharingDisclosure(
-	tx: PoolClient,
+	tx: Transaction,
 	session: z.infer<typeof sessionId>,
 	selected: Owner,
 	raw: unknown,
@@ -115,9 +125,8 @@ export async function readSharingDisclosure(
 		actor = await currentActor(tx, session, selected);
 	if (actor.status !== "active" || !(await validPair(tx, pair)) || !(await subjectAuthority(tx, actor, pair)))
 		return unavailable();
-	const r = await tx.query<{ id: string }>(
-		"SELECT id FROM affiliation WHERE plant_id IS NOT DISTINCT FROM $1::uuid AND account_id IS NOT DISTINCT FROM $2::uuid AND sending_church_id IS NOT DISTINCT FROM $3::uuid AND organization_id=$4",
-		endpointValues(pair),
+	const r = await tx.execute<{ id: string }>(
+		sql`SELECT id FROM affiliation WHERE plant_id IS NOT DISTINCT FROM ${sql.param(endpointValues(pair)[0])}::uuid AND account_id IS NOT DISTINCT FROM ${sql.param(endpointValues(pair)[1])}::uuid AND sending_church_id IS NOT DISTINCT FROM ${sql.param(endpointValues(pair)[2])}::uuid AND organization_id=${sql.param(endpointValues(pair)[3])}`,
 	);
 	const previous = r.rows[0] ? await loadAffiliation(tx, r.rows[0].id) : null;
 	if (previous && pair.kind === "plant")

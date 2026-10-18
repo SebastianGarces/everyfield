@@ -1,13 +1,17 @@
+import * as tables from "@everyfield/db/tables";
+import { and, eq, gt, isNull, lte, or, sql } from "@everyfield/db/query";
+import { alias } from "@everyfield/db/query";
 import "server-only";
-import type { PoolClient } from "pg";
+import type { Transaction } from "@everyfield/db/client";
 import { z } from "zod";
 import { owner, type Owner, type sessionId } from "@everyfield/contracts/common";
 import { plantAffiliationGrant, discoveryRelationshipGrant, platformGrant } from "@everyfield/contracts/access";
 import { currentActor, liveOwner } from "./session.ts";
 import { isAdministrator } from "./policy.ts";
+const affiliation_a = alias(tables.affiliation, "a");
 
 export async function readPlantAffiliation(
-	tx: PoolClient,
+	tx: Transaction,
 	session: z.infer<typeof sessionId>,
 	selected: Owner,
 	plant: Owner,
@@ -15,13 +19,27 @@ export async function readPlantAffiliation(
 	if (selected.kind !== "organization" || plant.kind !== "plant" || !(await liveOwner(tx, plant))) return null;
 	const actor = await currentActor(tx, session, selected);
 	if (actor.status !== "active" || actor.context.kind !== "seat") return null;
-	const rows = await tx.query(
-		`SELECT a.* FROM affiliation a WHERE plant_id=$1 AND organization_id=$2 AND ended_at IS NULL AND accepted_at<=clock_timestamp()
-    AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.affiliation_id=a.id AND w.state NOT IN ('active','cancelled')) FOR SHARE`,
-		[plant.id, selected.id],
-	);
-	if (rows.rows.length !== 1) return null;
-	const a = rows.rows[0];
+	const rows = await tx
+		.select()
+		.from(affiliation_a)
+		.where(
+			and(
+				and(
+					and(
+						and(eq(affiliation_a.plant_id, plant.id), eq(affiliation_a.organization_id, selected.id)),
+						isNull(affiliation_a.ended_at),
+					),
+					lte(
+						affiliation_a.accepted_at,
+						sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+					),
+				),
+				sql<unknown>`(NOT EXISTS (SELECT  FROM lifecycle_witness  AS w  WHERE ((w .affiliation_id = a .id) AND (w .state NOT IN (('active'), ('cancelled'))))))`,
+			),
+		)
+		.for("share");
+	if (rows.length !== 1) return null;
+	const a = rows[0]!;
 	return plantAffiliationGrant.parse({
 		kind: "plant_affiliation",
 		id: a.id,
@@ -41,7 +59,7 @@ export async function readPlantAffiliation(
 	});
 }
 export async function readDiscoveryRelationship(
-	tx: PoolClient,
+	tx: Transaction,
 	session: z.infer<typeof sessionId>,
 	selected: Owner,
 	organization: Owner,
@@ -54,13 +72,33 @@ export async function readDiscoveryRelationship(
 		!(await liveOwner(tx, organization))
 	)
 		return null;
-	const rows = await tx.query(
-		`SELECT a.id,a.revision,a.accepted_at FROM affiliation a WHERE account_id=$1 AND organization_id=$2 AND plant_id IS NULL AND sending_church_id IS NULL AND ended_at IS NULL AND accepted_at<=clock_timestamp()
-    AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.affiliation_id=a.id AND w.state NOT IN ('active','cancelled')) FOR SHARE`,
-		[actor.accountId, organization.id],
-	);
-	if (rows.rows.length !== 1) return null;
-	const a = rows.rows[0];
+	const rows = await tx
+		.select({ id: affiliation_a.id, revision: affiliation_a.revision, accepted_at: affiliation_a.accepted_at })
+		.from(affiliation_a)
+		.where(
+			and(
+				and(
+					and(
+						and(
+							and(
+								and(eq(affiliation_a.account_id, actor.accountId), eq(affiliation_a.organization_id, organization.id)),
+								isNull(affiliation_a.plant_id),
+							),
+							isNull(affiliation_a.sending_church_id),
+						),
+						isNull(affiliation_a.ended_at),
+					),
+					lte(
+						affiliation_a.accepted_at,
+						sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+					),
+				),
+				sql<unknown>`(NOT EXISTS (SELECT  FROM lifecycle_witness  AS w  WHERE ((w .affiliation_id = a .id) AND (w .state NOT IN (('active'), ('cancelled'))))))`,
+			),
+		)
+		.for("share");
+	if (rows.length !== 1) return null;
+	const a = rows[0]!;
 	return discoveryRelationshipGrant.parse({
 		kind: "discovery_relationship",
 		id: a.id,
@@ -71,19 +109,38 @@ export async function readDiscoveryRelationship(
 	});
 }
 export async function readPlatformGrant(
-	tx: PoolClient,
+	tx: Transaction,
 	session: z.infer<typeof sessionId>,
 	selected: Owner,
 	capability: z.infer<typeof platformGrant>["capability"],
 ) {
 	const actor = await currentActor(tx, session, selected);
 	if (actor.status !== "active" || selected.kind !== "account") return null;
-	const rows = await tx.query(
-		"SELECT id,revision,expires_at FROM platform_grant WHERE account_id=$1 AND capability=$2 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>clock_timestamp()) FOR SHARE",
-		[actor.accountId, capability],
-	);
-	if (rows.rows.length !== 1) return null;
-	const g = rows.rows[0];
+	const rows = await tx
+		.select({
+			id: tables.platform_grant.id,
+			revision: tables.platform_grant.revision,
+			expires_at: tables.platform_grant.expires_at,
+		})
+		.from(tables.platform_grant)
+		.where(
+			and(
+				and(
+					and(eq(tables.platform_grant.account_id, actor.accountId), eq(tables.platform_grant.capability, capability)),
+					isNull(tables.platform_grant.revoked_at),
+				),
+				or(
+					isNull(tables.platform_grant.expires_at),
+					gt(
+						tables.platform_grant.expires_at,
+						sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+					),
+				),
+			),
+		)
+		.for("share");
+	if (rows.length !== 1) return null;
+	const g = rows[0]!;
 	return platformGrant.parse({
 		kind: "platform",
 		id: g.id,
@@ -96,7 +153,7 @@ export async function readPlatformGrant(
 // Separate native author boundary. No operation name, private DTO, count, signal
 // or history enters the shared access checker or its general projections.
 export async function checkPrivateCare(
-	tx: PoolClient,
+	tx: Transaction,
 	session: z.infer<typeof sessionId>,
 	plant: Owner,
 	weekId?: string,
@@ -105,11 +162,16 @@ export async function checkPrivateCare(
 	const actor = await currentActor(tx, session, plant);
 	if (actor.status !== "active" || !isAdministrator(actor)) return false;
 	if (weekId === undefined) return true;
-	const row = await tx.query("SELECT id FROM private_week WHERE id=$1 AND plant_id=$2 AND author_id=$3 FOR SHARE", [
-		weekId,
-		plant.id,
-		actor.accountId,
-	]);
-	return row.rows.length === 1;
+	const row = await tx
+		.select({ id: tables.private_week.id })
+		.from(tables.private_week)
+		.where(
+			and(
+				and(eq(tables.private_week.id, weekId), eq(tables.private_week.plant_id, plant.id)),
+				eq(tables.private_week.author_id, actor.accountId),
+			),
+		)
+		.for("share");
+	return row.length === 1;
 }
 export const ownAccount = (id: string) => owner.parse({ kind: "account", id });

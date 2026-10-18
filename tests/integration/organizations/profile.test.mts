@@ -1,3 +1,4 @@
+import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { before, after, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -46,7 +47,9 @@ test("AC:ORG55-001 AC:TARGET-IDN-026 exact organization Owner/Admin profile chan
 				S.command({ organization: o, patch: { organizationKind: "sending_church" } }),
 			),
 		);
-		const events = await S.db.query("SELECT action,diff,reason FROM event WHERE target_record_id=$1", [o.id]);
+		const events = await S.db.execute(
+			sql`SELECT action,diff,reason FROM event WHERE target_record_id=${sql.param(o.id)}`,
+		);
 		assert.deepEqual(events.rows, [{ action: "organization.profile_changed", diff: null, reason: null }]);
 	}
 });
@@ -57,17 +60,14 @@ test("INV-location: correction is plant settings with immutable effective histor
 		release = randomUUID(),
 		item = randomUUID(),
 		version = randomUUID();
-	await S.db.query(
-		"INSERT INTO reference_release(id,release_key,artifact_locator,chunker_version,embedding_profile,embedding_dimensions,tenant_id,manifest_hash,state,expected_passages,complete_at,validated_at,approval_hash,approval_locator) VALUES($1,$1::uuid::text,'synthetic-fixture','fixture','fixture',3,'00000000-0000-0000-0000-000000000000',$2,'validated',0,clock_timestamp(),clock_timestamp(),$2,'synthetic-approved-fixture')",
-		[release, "a".repeat(64)],
+	await S.db.execute(
+		sql`INSERT INTO reference_release(id,release_key,artifact_locator,chunker_version,embedding_profile,embedding_dimensions,tenant_id,manifest_hash,state,expected_passages,complete_at,validated_at,approval_hash,approval_locator) VALUES(${sql.param(release)},${sql.param(release)}::uuid::text,'synthetic-fixture','fixture','fixture',3,'00000000-0000-0000-0000-000000000000',${sql.param("a".repeat(64))},'validated',0,clock_timestamp(),clock_timestamp(),${sql.param("a".repeat(64))},'synthetic-approved-fixture')`,
 	);
-	await S.db.query(
-		"INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES($1,'geography_dataset',$2,'00000000-0000-0000-0000-000000000000')",
-		[item, "synthetic/" + item],
+	await S.db.execute(
+		sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${sql.param(item)},'geography_dataset',${sql.param("synthetic/" + item)},'00000000-0000-0000-0000-000000000000')`,
 	);
-	await S.db.query(
-		"INSERT INTO reference_version(id,item_id,release_id,version_number,artifact_path,content_hash,source_credit) VALUES($1,$2,$3,1,'synthetic-official-fixture',$4,'Synthetic reference fixture')",
-		[version, item, release, "a".repeat(64)],
+	await S.db.execute(
+		sql`INSERT INTO reference_version(id,item_id,release_id,version_number,artifact_path,content_hash,source_credit) VALUES(${sql.param(version)},${sql.param(item)},${sql.param(release)},1,'synthetic-official-fixture',${sql.param("a".repeat(64))},'Synthetic reference fixture')`,
 	);
 	const q = S.command({
 		plant: p,
@@ -82,16 +82,15 @@ test("INV-location: correction is plant settings with immutable effective histor
 		pa,
 		S.command({ ...q.input, locality: { city: null, stateProvince: null, country: null } }, "2"),
 	);
-	const history = await S.db.query(
-		"SELECT id,city,state_province,country,region_item_id,supersedes_id,committed_at,effective_at FROM plant_geography WHERE plant_id=$1 ORDER BY effective_at",
-		[p.id],
+	const history = await S.db.execute(
+		sql`SELECT id,city,state_province,country,region_item_id,supersedes_id,committed_at,effective_at FROM plant_geography WHERE plant_id=${sql.param(p.id)} ORDER BY effective_at`,
 	);
 	assert.equal(history.rows.length, 2);
 	assert.equal(history.rows[0].city, "City");
 	assert.equal(history.rows[1].city, null);
 	assert.equal(history.rows[1].supersedes_id, history.rows[0].id);
 	assert.equal(history.rows[0].region_item_id, null);
-	const root = await S.db.query("SELECT phase,street,revision FROM plant WHERE id=$1", [p.id]);
+	const root = await S.db.execute(sql`SELECT phase,street,revision FROM plant WHERE id=${sql.param(p.id)}`);
 	assert.deepEqual(root.rows, [{ phase: 1, street: "private street", revision: "3" }]);
 	await assert.rejects(
 		S.call("organizations.correctReportingLocation", pa, S.command({ ...q.input, regionItemId: randomUUID() }, "3")),
@@ -103,16 +102,15 @@ test("INV-authority: revoked session and lifecycle suspension block fresh reads 
 		a = await S.identity(o),
 		q = S.command({ organization: o, patch: { name: "Changed" } });
 	await S.call("organizations.updateProfile", a, q);
-	await S.db.query("DELETE FROM auth_session WHERE id=$1", [a.session]);
+	await S.db.execute(sql`DELETE FROM auth_session WHERE id=${sql.param(a.session)}`);
 	assert.deepEqual(await S.call("organizations.getProfile", a, { organization: o }), { status: "unavailable" });
 	await assert.rejects(S.call("organizations.updateProfile", a, q), /unavailable/);
 	const p = await S.tenant("plant"),
 		pa = await S.identity(p),
 		n = await S.tenant("sending_network");
 	await S.affiliation(p, n, true);
-	await S.db.query(
-		"INSERT INTO lifecycle_witness(kind,opaque_subject_id,plant_id,request_revision,state,witness_checkpoint,cleanup_state,request_id,requested_at,cancel_until) VALUES('plant',$1,$1,1,'pending_deletion',1,'not_started',$2,current_timestamp,current_timestamp+interval '30 days')",
-		[p.id, randomUUID()],
+	await S.db.execute(
+		sql`INSERT INTO lifecycle_witness(kind,opaque_subject_id,plant_id,request_revision,state,witness_checkpoint,cleanup_state,request_id,requested_at,cancel_until) VALUES('plant',${sql.param(p.id)},${sql.param(p.id)},1,'pending_deletion',1,'not_started',${sql.param(randomUUID())},current_timestamp,current_timestamp+interval '30 days')`,
 	);
 	assert.deepEqual(await S.call("privacy.getSharing", pa, { plant: p, organization: n }), { status: "unavailable" });
 });

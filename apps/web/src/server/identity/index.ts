@@ -1,7 +1,9 @@
+import * as tables from "@everyfield/db/tables";
+import { eq } from "@everyfield/db/query";
 import "server-only";
 import { after } from "next/server";
 import { createHmac } from "node:crypto";
-import pg from "pg";
+import { createDatabase } from "@everyfield/db/client";
 import { z } from "zod";
 import { createIdentityService, trustedIdentityIp } from "@everyfield/domain/identity";
 import { createMailService } from "../jobs/mail";
@@ -26,9 +28,9 @@ export function identityHandler(request: Request): Promise<Response> {
 		);
 	if (!service) {
 		const v = env.data,
-			db = new pg.Pool({ connectionString: v.IDENTITY_DATABASE_URL, max: 5 }),
-			authDb = new pg.Pool({ connectionString: v.IDENTITY_AUTH_DATABASE_URL, max: 5 }),
-			admissionDb = new pg.Pool({ connectionString: v.IDENTITY_DATABASE_URL, max: 3 });
+			db = createDatabase({ connectionString: v.IDENTITY_DATABASE_URL, max: 5 }),
+			authDb = createDatabase({ connectionString: v.IDENTITY_AUTH_DATABASE_URL, max: 5 }),
+			admissionDb = createDatabase({ connectionString: v.IDENTITY_DATABASE_URL, max: 3 });
 		const mail = createMailService({
 			db,
 			encryptionKey: Buffer.from(v.IDENTITY_MAIL_KEY, "hex"),
@@ -36,13 +38,19 @@ export function identityHandler(request: Request): Promise<Response> {
 			from: v.IDENTITY_MAIL_FROM,
 			authorize: async (tx, m) => {
 				if (m.recipient !== m.tenant || !["password_reset", "email_verification"].includes(m.purpose)) return false;
-				const row = await tx.query("SELECT auth_user_id FROM account WHERE id=$1", [m.tenant]);
-				if (!row.rowCount) return false;
-				const user = await authDb.query("SELECT email FROM auth_user WHERE id=$1", [row.rows[0]?.auth_user_id]);
+				const row = await tx
+					.select({ auth_user_id: tables.account.auth_user_id })
+					.from(tables.account)
+					.where(eq(tables.account.id, m.tenant));
+				if (!row.length) return false;
+				const user = await authDb
+					.select({ email: tables.auth_user.email })
+					.from(tables.auth_user)
+					.where(eq(tables.auth_user.id, row[0]!.auth_user_id));
 				return (
-					user.rowCount === 1 &&
+					user.length === 1 &&
 					createHmac("sha256", Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex"))
-						.update(z.email().parse(user.rows[0]?.email))
+						.update(z.email().parse(user[0]?.email))
 						.digest("hex") === m.addressHash
 				);
 			},

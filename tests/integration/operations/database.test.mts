@@ -1,3 +1,5 @@
+import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes, createHmac } from "node:crypto";
@@ -13,6 +15,7 @@ import {
 } from "../../../packages/db/src/schema/migrate.ts";
 import { executeAtomicConsequences } from "../../../packages/domain/src/operations/atomic.ts";
 import { createFixtureSwitcher } from "../../../packages/domain/src/operations/fixtures.ts";
+import { auth_user, auth_account, auth_session, auth_verification } from "../../../packages/db/src/schema/tables.ts";
 import { authStorage } from "../../../packages/db/src/schema/auth-storage.ts";
 import { operatorOperations } from "../../../packages/domain/src/operations/operator.ts";
 import { createTelemetry, telemetryConfig, traceOperation } from "../../../packages/domain/src/operations/telemetry.ts";
@@ -20,15 +23,14 @@ import { createServer } from "node:http";
 import { once } from "node:events";
 import { mountExecutor, mountCallback } from "../../../ops/maintenance/mount.mts";
 import { enqueueJob } from "../../../apps/web/src/server/jobs/queue.ts";
-const require = createRequire(new URL("../../../packages/domain/package.json", import.meta.url));
-const { Pool } = require("pg");
+
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
 if (source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech" || process.env.NODE_ENV === "production")
 	throw Error("Only approved shared development direct endpoint allowed");
 source.searchParams.set("sslmode", "verify-full");
 const schema = "wp050_" + randomUUID().replaceAll("-", ""),
 	role = "wp050_" + randomBytes(8).toString("hex");
-const admin = new Pool({
+const admin = createDatabase({
 	connectionString: source.href,
 	max: 4,
 	options: `-c search_path=${schema},pg_catalog,pg_temp`,
@@ -40,7 +42,7 @@ const actor = randomUUID(),
 	doc = randomUUID();
 const password = randomBytes(32).toString("hex");
 before(async () => {
-	await admin.query(`CREATE SCHEMA ${schema}`);
+	await admin.execute(querySql.raw(`CREATE SCHEMA ${schema}`));
 	assert.deepEqual(await applyVersionedMigration(admin, schema), [
 		"0001_early_access.sql",
 		"0002_baseline.sql",
@@ -48,37 +50,42 @@ before(async () => {
 		"0004_people.sql",
 		"0005_organization_relationships.sql",
 	]);
-	await admin.query(
-		`CREATE ROLE ${role} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
+	await admin.execute(
+		querySql.raw(
+			`CREATE ROLE ${role} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
+		),
 	);
-	await admin.query(`GRANT everyfield_runtime TO ${role}`);
+	await admin.execute(querySql.raw(`GRANT everyfield_runtime TO ${role}`));
 	const url = new URL(source);
 	url.username = role;
 	url.password = password;
-	runtime = new Pool({ connectionString: url.href, max: 4, options: `-c search_path=${schema},pg_catalog,pg_temp` });
+	runtime = createDatabase({
+		connectionString: url.href,
+		max: 4,
+		options: `-c search_path=${schema},pg_catalog,pg_temp`,
+	});
 	const user = randomUUID();
-	await admin.query("INSERT INTO auth_user(id,email,email_verified,name) VALUES($1,$2,true,'Synthetic')", [
-		user,
-		user + "@example.test",
-	]);
-	await admin.query(
-		"INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES($1,$2,'active','planter')",
-		[actor, user],
+	await admin.execute(
+		querySql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${user},${user + "@example.test"},true,'Synthetic')`,
+	);
+	await admin.execute(
+		querySql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${actor},${user},'active','planter')`,
 	);
 	for (const id of [tenant, foreign])
-		await admin.query(
-			"INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES($1,'Synthetic','UTC',7,14,1,8,1,1)",
-			[id],
+		await admin.execute(
+			querySql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${id},'Synthetic','UTC',7,14,1,8,1,1)`,
 		);
-	await admin.query("INSERT INTO document(id,tenant_id,kind,title) VALUES($1,$2,'native','before')", [doc, tenant]);
+	await admin.execute(
+		querySql`INSERT INTO document(id,tenant_id,kind,title) VALUES(${doc},${tenant},'native','before')`,
+	);
 });
 after(async () => {
-	await runtime?.end();
+	if (runtime) await closeDatabase(runtime);
 	try {
-		await admin.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
-		await admin.query(`DROP ROLE IF EXISTS ${role}`);
+		await admin.execute(querySql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
+		await admin.execute(querySql.raw(`DROP ROLE IF EXISTS ${role}`));
 	} finally {
-		await admin.end();
+		await closeDatabase(admin);
 	}
 });
 
@@ -93,8 +100,9 @@ test("AC:CASE-OPS-005 versioned migration checksums are observed at application,
 		provenance.applied.map((r) => r.provenance),
 		(await migrationArtifact()).map(() => "original"),
 	);
-	const ledger = (await admin.query("SELECT name,applied_at,sha256,provenance FROM schema_migration ORDER BY name"))
-		.rows;
+	const ledger = (
+		await admin.execute(querySql`SELECT name,applied_at,sha256,provenance FROM schema_migration ORDER BY name`)
+	).rows;
 	const dir = await mkdtemp(tmpdir() + "/wp050-migrations-");
 	try {
 		for (const row of ledger) {
@@ -107,20 +115,23 @@ test("AC:CASE-OPS-005 versioned migration checksums are observed at application,
 			/migration_checksum_conflict/,
 		);
 		assert.deepEqual(
-			(await admin.query("SELECT name,applied_at,sha256,provenance FROM schema_migration ORDER BY name")).rows,
+			(await admin.execute(querySql`SELECT name,applied_at,sha256,provenance FROM schema_migration ORDER BY name`))
+				.rows,
 			ledger,
 		);
 		const other = "wp050_" + randomUUID().replaceAll("-", "");
-		await admin.query(`CREATE SCHEMA ${other}`);
+		await admin.execute(querySql.raw(`CREATE SCHEMA ${other}`));
 		try {
-			await admin.query(
-				`CREATE TABLE ${other}.schema_migration(name text PRIMARY KEY,applied_at timestamptz NOT NULL);INSERT INTO ${other}.schema_migration VALUES('0001_early_access.sql','2026-01-01Z')`,
+			await admin.execute(
+				querySql.raw(
+					`CREATE TABLE ${other}.schema_migration(name text PRIMARY KEY,applied_at timestamptz NOT NULL);INSERT INTO ${other}.schema_migration VALUES('0001_early_access.sql','2026-01-01Z')`,
+				),
 			);
 			assert.equal((await inspectMigrationProvenance(admin, other)).state, "unverified");
 			await assert.rejects(applyVersionedMigration(admin, other), /migration_provenance_unverified/);
 			assert.equal(
-				(await admin.query(`SELECT applied_at FROM ${other}.schema_migration`)).rows[0].applied_at.toISOString(),
-				"2026-01-01T00:00:00.000Z",
+				(await admin.execute(querySql.raw(`SELECT applied_at FROM ${other}.schema_migration`))).rows[0].applied_at,
+				"2026-01-01 00:00:00+00",
 			);
 			const approved = Object.fromEntries(
 				(await migrationArtifact()).filter((r) => r.name === "0001_early_access.sql").map((r) => [r.name, r.sha256]),
@@ -133,11 +144,12 @@ test("AC:CASE-OPS-005 versioned migration checksums are observed at application,
 			assert.deepEqual(await adoptMigrationHistory(admin, other, approved), [
 				{ name: "0001_early_access.sql", provenance: "adopted" },
 			]);
-			assert.deepEqual((await admin.query(`SELECT provenance,applied_at FROM ${other}.schema_migration`)).rows, [
-				{ provenance: "adopted", applied_at: new Date("2026-01-01T00:00:00Z") },
-			]);
+			assert.deepEqual(
+				(await admin.execute(querySql.raw(`SELECT provenance,applied_at FROM ${other}.schema_migration`))).rows,
+				[{ provenance: "adopted", applied_at: "2026-01-01 00:00:00+00" }],
+			);
 		} finally {
-			await admin.query(`DROP SCHEMA ${other} CASCADE`);
+			await admin.execute(querySql.raw(`DROP SCHEMA ${other} CASCADE`));
 		}
 	} finally {
 		await rm(dir, { recursive: true });
@@ -146,28 +158,26 @@ test("AC:CASE-OPS-005 versioned migration checksums are observed at application,
 
 test("AC:OPS-ATOMIC-001 AC:OPS-PLATFORM-001 required SQL consequences roll back together; replay retains one committed intent", async () => {
 	const properties = (
-		await runtime.query("SELECT rolname,rolsuper,rolbypassrls FROM pg_roles WHERE rolname=current_user")
+		await runtime.execute(querySql`SELECT rolname,rolsuper,rolbypassrls FROM pg_roles WHERE rolname=current_user`)
 	).rows[0];
 	assert.deepEqual(properties, { rolname: role, rolsuper: false, rolbypassrls: false });
-	await assert.rejects(runtime.query("CREATE TABLE forbidden(id int)"), (e) => e.code === "42501");
-	await assert.rejects(runtime.query("SELECT * FROM auth_user"), (e) => e.code === "42501");
+	await assert.rejects(runtime.execute(querySql`CREATE TABLE forbidden(id int)`), (e) => e.cause?.code === "42501");
+	await assert.rejects(runtime.execute(querySql`SELECT * FROM auth_user`), (e) => e.cause?.code === "42501");
 	const key = randomUUID(),
 		receiptId = randomUUID();
 	const writes = {
 		facts: async (tx) => {
-			await tx.query("UPDATE document SET title='after' WHERE id=$1 AND tenant_id=$2", [doc, tenant]);
+			await tx.execute(querySql`UPDATE document SET title='after' WHERE id=${doc} AND tenant_id=${tenant}`);
 			return doc;
 		},
 		history: async (tx, id) => {
-			await tx.query(
-				`INSERT INTO event(tenant_id,target_record_id,actor_id,kind,occurred_at,recorded_at,event_key,action) VALUES($1,$2,$3,'edit',clock_timestamp(),clock_timestamp(),$4,'documents.saved') ON CONFLICT(target_record_id,event_key) DO NOTHING`,
-				[tenant, id, actor, key],
+			await tx.execute(
+				querySql`INSERT INTO event(tenant_id,target_record_id,actor_id,kind,occurred_at,recorded_at,event_key,action) VALUES(${tenant},${id},${actor},'edit',clock_timestamp(),clock_timestamp(),${key},'documents.saved') ON CONFLICT(target_record_id,event_key) DO NOTHING`,
 			);
 		},
 		receipt: async (tx) => {
-			await tx.query(
-				`INSERT INTO operation(id,tenant_id,actor_id,name,request_key,request_digest,state,outcome,started_at,completed_at,tool_calls,reserved_input,reserved_output,used_input,used_output) VALUES($1,$2,$3,'domain.executeAtomicConsequences',$4,$5,'complete','committed',clock_timestamp(),clock_timestamp(),0,0,0,0,0) ON CONFLICT(tenant_id,request_key) DO NOTHING`,
-				[receiptId, tenant, actor, key, "a".repeat(64)],
+			await tx.execute(
+				querySql`INSERT INTO operation(id,tenant_id,actor_id,name,request_key,request_digest,state,outcome,started_at,completed_at,tool_calls,reserved_input,reserved_output,used_input,used_output) VALUES(${receiptId},${tenant},${actor},'domain.executeAtomicConsequences',${key},${"a".repeat(64)},'complete','committed',clock_timestamp(),clock_timestamp(),0,0,0,0,0) ON CONFLICT(tenant_id,request_key) DO NOTHING`,
 			);
 		},
 		intents: async (tx, id) => {
@@ -191,16 +201,22 @@ test("AC:OPS-ATOMIC-001 AC:OPS-PLATFORM-001 required SQL consequences roll back 
 			}),
 			/required_writer_fault/,
 		);
-		assert.equal((await admin.query("SELECT title FROM document WHERE id=$1", [doc])).rows[0].title, "before");
+		assert.equal((await admin.execute(querySql`SELECT title FROM document WHERE id=${doc}`)).rows[0].title, "before");
 		assert.equal(
-			(await admin.query("SELECT count(*)::int n FROM event WHERE target_record_id=$1", [doc])).rows[0].n,
+			(await admin.execute(querySql`SELECT count(*)::int n FROM event WHERE target_record_id=${doc}`)).rows[0].n,
 			0,
 		);
-		assert.equal((await admin.query("SELECT count(*)::int n FROM job WHERE subject_record_id=$1", [doc])).rows[0].n, 0);
-		assert.equal((await admin.query("SELECT count(*)::int n FROM operation WHERE id=$1", [receiptId])).rows[0].n, 0);
+		assert.equal(
+			(await admin.execute(querySql`SELECT count(*)::int n FROM job WHERE subject_record_id=${doc}`)).rows[0].n,
+			0,
+		);
+		assert.equal(
+			(await admin.execute(querySql`SELECT count(*)::int n FROM operation WHERE id=${receiptId}`)).rows[0].n,
+			0,
+		);
 	}
 	const authorize = async (tx) => {
-		const r = await tx.query("SELECT id FROM document WHERE id=$1 AND tenant_id=$2 FOR UPDATE", [doc, tenant]);
+		const r = await tx.execute(querySql`SELECT id FROM document WHERE id=${doc} AND tenant_id=${tenant} FOR UPDATE`);
 		assert.equal(r.rowCount, 1);
 	};
 	const telemetry = createTelemetry(
@@ -215,13 +231,18 @@ test("AC:OPS-ATOMIC-001 AC:OPS-PLATFORM-001 required SQL consequences roll back 
 		doc,
 	);
 	assert.equal(await executeAtomicConsequences(runtime, authorize, writes), doc);
-	assert.deepEqual((await admin.query("SELECT title FROM document WHERE id=$1", [doc])).rows, [{ title: "after" }]);
-	assert.equal((await admin.query("SELECT count(*)::int n FROM event WHERE target_record_id=$1", [doc])).rows[0].n, 1);
+	assert.deepEqual((await admin.execute(querySql`SELECT title FROM document WHERE id=${doc}`)).rows, [
+		{ title: "after" },
+	]);
+	assert.equal(
+		(await admin.execute(querySql`SELECT count(*)::int n FROM event WHERE target_record_id=${doc}`)).rows[0].n,
+		1,
+	);
 	assert.deepEqual(
-		(await admin.query("SELECT kind,state,producer_key FROM job WHERE subject_record_id=$1", [doc])).rows,
+		(await admin.execute(querySql`SELECT kind,state,producer_key FROM job WHERE subject_record_id=${doc}`)).rows,
 		[{ kind: "document_render", state: "ready", producer_key: key }],
 	);
-	assert.deepEqual((await admin.query("SELECT id,state,outcome FROM operation WHERE id=$1", [receiptId])).rows, [
+	assert.deepEqual((await admin.execute(querySql`SELECT id,state,outcome FROM operation WHERE id=${receiptId}`)).rows, [
 		{ id: receiptId, state: "complete", outcome: "committed" },
 	]);
 });
@@ -231,7 +252,7 @@ test("INV-operator: exact fresh scope denies tenant roles, expired grants and fo
 	let allowed = true,
 		scopeTenant = tenant;
 	const authenticate = async (tx) => {
-		await tx.query("SELECT id FROM account WHERE id=$1 FOR SHARE", [actor]);
+		await tx.execute(querySql`SELECT id FROM account WHERE id=${actor} FOR SHARE`);
 		return allowed
 			? {
 					principal: actor,
@@ -243,7 +264,7 @@ test("INV-operator: exact fresh scope denies tenant roles, expired grants and fo
 			: null;
 	};
 	const ops = operatorOperations(runtime, authenticate);
-	await admin.query("UPDATE event SET reason='PRIVATE-CANARY',diff='{}' WHERE false");
+	await admin.execute(querySql`UPDATE event SET reason='PRIVATE-CANARY',diff='{}' WHERE false`);
 	const audit = await ops.inspectAudit({ target: doc });
 	assert.equal(audit.length, 1);
 	assert.deepEqual(Object.keys(audit[0]).sort(), [
@@ -259,9 +280,8 @@ test("INV-operator: exact fresh scope denies tenant roles, expired grants and fo
 	assert.equal((await ops.inspectLag())[0].kind, "document_render");
 	assert.deepEqual(
 		(
-			await admin.query(
-				"SELECT action,count(*)::int n FROM event WHERE target_record_id=$1 GROUP BY action ORDER BY action",
-				[tenant],
+			await admin.execute(
+				querySql`SELECT action,count(*)::int n FROM event WHERE target_record_id=${tenant} GROUP BY action ORDER BY action`,
 			)
 		).rows,
 		[
@@ -302,11 +322,9 @@ test("AC:EXEC-001 INV-mount: authenticated bounded HTTP executor and raw signed 
 		limit: 1,
 		handlers: { document_render: async () => ({ state: "succeeded" }) },
 		publish: async (tx, claim) => {
-			const current = await tx.query("SELECT id FROM document WHERE tenant_id=$1 AND id=$2 AND revision=$3 FOR SHARE", [
-				claim.tenant_id,
-				claim.subject_record_id,
-				claim.source_revision,
-			]);
+			const current = await tx.execute(
+				querySql`SELECT id FROM document WHERE tenant_id=${claim.tenant_id} AND id=${claim.subject_record_id} AND revision=${claim.source_revision} FOR SHARE`,
+			);
 			return current.rowCount === 1;
 		},
 	});
@@ -326,19 +344,19 @@ test("AC:EXEC-001 INV-mount: authenticated bounded HTTP executor and raw signed 
 			res.end(Buffer.from(await result.arrayBuffer()));
 		} catch {
 			res.writeHead(500);
-			res.end();
+			closeDatabase(res);
 		}
 	});
 	server.listen(0, "127.0.0.1");
 	await once(server, "listening");
 	const url = "http://127.0.0.1:" + server.address().port;
 	try {
-		const states = (await admin.query("SELECT id,state FROM job ORDER BY id")).rows;
+		const states = (await admin.execute(querySql`SELECT id,state FROM job ORDER BY id`)).rows;
 		for (const key of [null, "wrong"]) {
 			const r = await fetch(url + "/tick", { method: "POST", headers: key ? { authorization: "Bearer " + key } : {} });
 			assert.equal(r.status, 404);
 		}
-		assert.deepEqual((await admin.query("SELECT id,state FROM job ORDER BY id")).rows, states);
+		assert.deepEqual((await admin.execute(querySql`SELECT id,state FROM job ORDER BY id`)).rows, states);
 		const arbitrary = await fetch(url + "/tick", {
 			method: "POST",
 			headers: { authorization: "Bearer " + secret },
@@ -349,7 +367,7 @@ test("AC:EXEC-001 INV-mount: authenticated bounded HTTP executor and raw signed 
 		assert.equal(r.status, 200);
 		assert.deepEqual(await r.json(), { processed: 1 });
 		assert.equal(
-			(await admin.query("SELECT state FROM job WHERE subject_record_id=$1", [doc])).rows[0].state,
+			(await admin.execute(querySql`SELECT state FROM job WHERE subject_record_id=${doc}`)).rows[0].state,
 			"succeeded",
 		);
 		const signed = (type) => {
@@ -372,14 +390,14 @@ test("AC:EXEC-001 INV-mount: authenticated bounded HTTP executor and raw signed 
 		const known = await fetch(url + "/callback", signed("email.delivered"));
 		assert.equal(known.status, 200);
 		assert.deepEqual(await known.json(), { stored: true, result: "unmatched" });
-		const rows = (await admin.query("SELECT kind,safe_payload FROM provider_event")).rows;
+		const rows = (await admin.execute(querySql`SELECT kind,safe_payload FROM provider_event`)).rows;
 		assert.deepEqual(rows, [{ kind: "delivered", safe_payload: { hard_bounce: false } }]);
 		const unsupported = await fetch(url + "/callback", signed("email.failed"));
 		assert.equal(unsupported.status, 503);
 		const forged = signed("email.delivered");
 		forged.headers["svix-signature"] = "v1,forged";
 		assert.equal((await fetch(url + "/callback", forged)).status, 404);
-		assert.equal((await admin.query("SELECT count(*)::int n FROM provider_event")).rows[0].n, 1);
+		assert.equal((await admin.execute(querySql`SELECT count(*)::int n FROM provider_event`)).rows[0].n, 1);
 		assert.equal(JSON.stringify(rows).includes("PRIVATE-CANARY"), false);
 		assert.equal((await mountExecutor(null)(new Request(url + "/tick", { method: "POST" }))).status, 404);
 		assert.equal((await mountCallback(null)(new Request(url + "/callback", { method: "POST" }))).status, 404);
@@ -392,8 +410,13 @@ test("AC:EXEC-001 INV-mount: authenticated bounded HTTP executor and raw signed 
 test("AC:TARGET-IDN-004 fixture switching issues a real allowlisted synthetic session and refuses wrong environments and client authority", async () => {
 	const appRequire = createRequire(new URL("../../../apps/web/package.json", import.meta.url));
 	const { betterAuth } = await import(appRequire.resolve("better-auth"));
+	const { drizzleAdapter } = await import(appRequire.resolve("better-auth/adapters/drizzle"));
 	const auth = betterAuth({
-		database: admin,
+		database: drizzleAdapter(admin, {
+			provider: "pg",
+			schema: { auth_user, auth_account, auth_session, auth_verification },
+			transaction: true,
+		}),
 		baseURL: "http://localhost",
 		secret: randomBytes(32).toString("hex"),
 		...authStorage,
@@ -405,12 +428,11 @@ test("AC:TARGET-IDN-004 fixture switching issues a real allowlisted synthetic se
 		password = randomBytes(20).toString("hex"),
 		account = randomUUID();
 	const created = await auth.api.signUpEmail({ body: { email, name: "Fresh Synthetic Fixture", password } });
-	await admin.query(
-		"INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES($1,$2,'active','planter')",
-		[account, created.user.id],
+	await admin.execute(
+		querySql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${account},${created.user.id},'active','planter')`,
 	);
 	const target = (
-		await admin.query("SELECT current_database() AS database,current_user AS role,current_schema() AS schema")
+		await admin.execute(querySql`SELECT current_database() AS database,current_user AS role,current_schema() AS schema`)
 	).rows[0];
 	const c = {
 		enabled: true,
@@ -428,7 +450,8 @@ test("AC:TARGET-IDN-004 fixture switching issues a real allowlisted synthetic se
 		]),
 	);
 	const sessions = async () =>
-		(await admin.query("SELECT count(*)::int n FROM auth_session WHERE user_id=$1", [created.user.id])).rows[0].n;
+		(await admin.execute(querySql`SELECT count(*)::int n FROM auth_session WHERE user_id=${created.user.id}`)).rows[0]
+			.n;
 	try {
 		delete process.env.VERCEL_ENV;
 		process.env.NODE_ENV = "development";

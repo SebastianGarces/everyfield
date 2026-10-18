@@ -15,17 +15,16 @@
 		"freeze": "node src/build.mjs --write"
 	},
 	"dependencies": {
-		"pg": "^8.16.3",
-		"server-only": "0.0.1",
+		"@everyfield/contracts": "workspace:*",
+		"@everyfield/db": "workspace:*",
 		"@mdx-js/mdx": "3.1.1",
-		"zod": "4.6.7",
-		"@everyfield/contracts": "workspace:*"
+		"server-only": "0.0.1",
+		"zod": "4.6.7"
 	},
 	"devDependencies": {
 		"@types/node": "^24",
-		"@types/pg": "^8.15.6",
-		"typescript": "6.0.3",
 		"eslint": "^9.39.0",
+		"typescript": "6.0.3",
 		"typescript-eslint": "^8.57.0"
 	}
 }

@@ -1,5 +1,6 @@
+import { sql } from "drizzle-orm";
 import assert from "node:assert/strict";
-import type { PoolClient, Pool } from "pg";
+import type { Database, Transaction } from "../client.ts";
 import { z } from "zod";
 
 const table = z.object({
@@ -27,14 +28,16 @@ const deletionCodes: Record<string, string> = {
 
 // Inspect the fully migrated schema, never regenerated historical SQL. The same
 // comparison serves the CLI and the real database baseline regression.
-export async function assertCurrentCatalog(db: Pool | PoolClient, schema: string, raw: unknown): Promise<void> {
+export async function assertCurrentCatalog(db: Database | Transaction, schema: string, raw: unknown): Promise<void> {
 	const expected = catalog.parse(raw);
-	const columns = await db.query<{ table_name: string; column_name: string; udt_name: string; is_nullable: string }>(
-		`SELECT c.table_name,c.column_name,c.udt_name,c.is_nullable FROM information_schema.columns c
+	const columns = await db.execute<{
+		table_name: string;
+		column_name: string;
+		udt_name: string;
+		is_nullable: string;
+	}>(sql`SELECT c.table_name,c.column_name,c.udt_name,c.is_nullable FROM information_schema.columns c
      JOIN information_schema.tables t ON t.table_schema=c.table_schema AND t.table_name=c.table_name
-     WHERE c.table_schema=$1 AND t.table_type='BASE TABLE'`,
-		[schema],
-	);
+     WHERE c.table_schema=${sql.param(schema)} AND t.table_type='BASE TABLE'`);
 	assert.deepEqual(
 		sort(
 			columns.rows.map((c) => [
@@ -47,14 +50,11 @@ export async function assertCurrentCatalog(db: Pool | PoolClient, schema: string
 		sort(expected.tables.flatMap((t) => t.columns.map((c) => [t.name, c.name, c.type, c.nullable]))),
 		"Migrated columns/types/nullability differ from target.json",
 	);
-	const keys = await db.query<{ table_name: string; columns: string[] }>(
-		`SELECT c.relname AS table_name,
+	const keys = await db.execute<{ table_name: string; columns: string[] }>(sql`SELECT c.relname AS table_name,
     ARRAY(SELECT a.attname::text FROM unnest(k.conkey) WITH ORDINALITY v(attnum,position)
       JOIN pg_attribute a ON a.attrelid=k.conrelid AND a.attnum=v.attnum ORDER BY v.position) AS columns
     FROM pg_constraint k JOIN pg_class c ON c.oid=k.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace
-    WHERE n.nspname=$1 AND k.contype='p'`,
-		[schema],
-	);
+    WHERE n.nspname=${sql.param(schema)} AND k.contype='p'`);
 	assert.deepEqual(
 		sort(keys.rows),
 		sort(
@@ -62,13 +62,10 @@ export async function assertCurrentCatalog(db: Pool | PoolClient, schema: string
 		),
 		"Migrated primary keys differ from target.json",
 	);
-	const fks = await db.query(
-		`SELECT c.relname AS table_name,r.relname AS referenced_table,
+	const fks = await db.execute(sql`SELECT c.relname AS table_name,r.relname AS referenced_table,
     ARRAY(SELECT a.attname::text FROM unnest(f.conkey) WITH ORDINALITY k(attnum,position) JOIN pg_attribute a ON a.attrelid=f.conrelid AND a.attnum=k.attnum ORDER BY k.position) AS columns,
     ARRAY(SELECT a.attname::text FROM unnest(f.confkey) WITH ORDINALITY k(attnum,position) JOIN pg_attribute a ON a.attrelid=f.confrelid AND a.attnum=k.attnum ORDER BY k.position) AS referenced_columns,
-    f.confdeltype AS deletion FROM pg_constraint f JOIN pg_class c ON c.oid=f.conrelid JOIN pg_class r ON r.oid=f.confrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND f.contype='f'`,
-		[schema],
-	);
+    f.confdeltype AS deletion FROM pg_constraint f JOIN pg_class c ON c.oid=f.conrelid JOIN pg_class r ON r.oid=f.confrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=${sql.param(schema)} AND f.contype='f'`);
 	assert.deepEqual(
 		sort(fks.rows),
 		sort(

@@ -1,4 +1,7 @@
-import type { PoolClient } from "pg";
+import { and, desc, eq, isNotNull, sql } from "@everyfield/db/query";
+import * as tables from "@everyfield/db/tables";
+import { alias } from "@everyfield/db/columns";
+import type { Transaction } from "@everyfield/db/client";
 import { z } from "zod";
 import { revision } from "@everyfield/contracts/common";
 import * as Q from "@everyfield/contracts/organizations";
@@ -15,6 +18,9 @@ import {
 	unavailable,
 	type OrganizationEffects,
 } from "./core.ts";
+const reference_version_v = alias(tables.reference_version, "v");
+const reference_item_i = alias(tables.reference_item, "i");
+const reference_release_r = alias(tables.reference_release, "r");
 const profileRow = z.object({
 	name: z.string(),
 	city: z.string().nullable(),
@@ -29,7 +35,7 @@ const profileRow = z.object({
 export interface GeographyReference {
 	// Producer resolves a checksum-pinned official dataset, never a guessed location.
 	candidates(
-		tx: PoolClient,
+		tx: Transaction,
 		input: {
 			referenceVersionId: string;
 			locality: { city: string | null; stateProvince: string | null; country: string | null };
@@ -40,7 +46,7 @@ export function profileOperations(
 	effects: OrganizationEffects,
 	geography: GeographyReference,
 ): Pick<
-	OrganizationAdapter<PoolClient>,
+	OrganizationAdapter<Transaction>,
 	"organizations.getProfile" | "organizations.updateProfile" | "organizations.correctReportingLocation"
 > {
 	return {
@@ -49,7 +55,7 @@ export function profileOperations(
 				actor = await currentActor(tx, session, selected);
 			if (actor.status !== "active" || !sameOwner(selected, q.organization)) return unavailable();
 			const row = profileRow.parse(
-				(await tx.query("SELECT * FROM organization WHERE id=$1 FOR SHARE", [selected.id])).rows[0],
+				(await tx.select().from(tables.organization).where(eq(tables.organization.id, selected.id)).for("share"))[0],
 			);
 			return Q.organizationProfileResult.parse({
 				status: "available",
@@ -74,7 +80,7 @@ export function profileOperations(
 			const c = await beginCommand(tx, actor, selected, "organizations.updateProfile", q);
 			if (c.kind === "replay") return Q.mutationResult.parse(c.result);
 			const row = profileRow.parse(
-				(await tx.query("SELECT * FROM organization WHERE id=$1 FOR UPDATE", [selected.id])).rows[0],
+				(await tx.select().from(tables.organization).where(eq(tables.organization.id, selected.id)).for("update"))[0],
 			);
 			checkRevision(q.expectedRevision, row.revision);
 			const fields = {
@@ -86,15 +92,22 @@ export function profileOperations(
 				contactEmail: "contact_email",
 				contactPhone: "contact_phone",
 			} as const;
-			const entries = Object.entries(q.input.patch),
-				assignments = entries.map(
-					([key], i) =>
-						`${fields[z.enum(["name", "city", "stateProvince", "country", "description", "contactEmail", "contactPhone"]).parse(key)]}=$${i + 2}`,
-				);
-			await tx.query(`UPDATE organization SET ${assignments.join(",")},revision=revision+1 WHERE id=$1`, [
-				selected.id,
-				...entries.map(([, v]) => v),
-			]);
+			const patch: Partial<typeof tables.organization.$inferInsert> = {};
+			for (const [key, value] of Object.entries(q.input.patch)) {
+				const field =
+					fields[
+						z
+							.enum(["name", "city", "stateProvince", "country", "description", "contactEmail", "contactPhone"])
+							.parse(key)
+					];
+				if (field === "name") patch.name = z.string().parse(value);
+				else patch[field] = value;
+			}
+			await tx
+				.update(tables.organization)
+				.set({ ...patch, revision: sql`${tables.organization.revision}+1` })
+				.where(eq(tables.organization.id, selected.id));
+
 			const next = String(BigInt(row.revision) + 1n),
 				event = await appendEvent(tx, c, selected.id, "edit", "organization.profile_changed", row.revision, next);
 			return finishCommand(tx, c, (r) => Q.mutationResult.parse({ status: "committed", receipt: r }), [event]);
@@ -105,52 +118,83 @@ export function profileOperations(
 			if (actor.status !== "active" || !administrator(actor) || !sameOwner(selected, q.input.plant)) refuse();
 			const c = await beginCommand(tx, actor, selected, "organizations.correctReportingLocation", q);
 			if (c.kind === "replay") return Q.mutationResult.parse(c.result);
-			const plant = await tx.query<{ revision: string }>("SELECT revision FROM plant WHERE id=$1 FOR UPDATE", [
-				selected.id,
-			]);
-			checkRevision(q.expectedRevision, revision.parse(plant.rows[0]?.revision));
-			const official = await tx.query(
-				`SELECT v.id FROM reference_version v JOIN reference_item i ON i.id=v.item_id JOIN reference_release r ON r.id=v.release_id
-        WHERE v.id=$1 AND i.kind='geography_dataset' AND i.tenant_id='00000000-0000-0000-0000-000000000000' AND r.state='validated' AND r.validated_at IS NOT NULL FOR SHARE OF v,i,r`,
-				[q.input.referenceVersionId],
-			);
-			if (official.rowCount !== 1) refuse("reference_unavailable");
+			const plant = await tx
+				.select({ revision: tables.plant.revision })
+				.from(tables.plant)
+				.where(eq(tables.plant.id, selected.id))
+				.for("update");
+			checkRevision(q.expectedRevision, revision.parse(plant[0]?.revision));
+			const official = await tx
+				.select({ id: reference_version_v.id })
+				.from(reference_version_v)
+				.innerJoin(reference_item_i, eq(reference_item_i.id, reference_version_v.item_id))
+				.innerJoin(reference_release_r, eq(reference_release_r.id, reference_version_v.release_id))
+				.where(
+					and(
+						and(
+							and(
+								and(
+									eq(reference_version_v.id, q.input.referenceVersionId),
+									eq(reference_item_i.kind, "geography_dataset"),
+								),
+								eq(reference_item_i.tenant_id, "00000000-0000-0000-0000-000000000000"),
+							),
+							eq(reference_release_r.state, "validated"),
+						),
+						isNotNull(reference_release_r.validated_at),
+					),
+				)
+				.for("share", { of: [reference_version_v, reference_item_i, reference_release_r] });
+			if (official.length !== 1) refuse("reference_unavailable");
 			if (q.input.regionItemId !== null) {
 				const candidates = await geography.candidates(tx, {
 					referenceVersionId: q.input.referenceVersionId,
 					locality: q.input.locality,
 				});
-				const region = await tx.query(
-					"SELECT id FROM reference_item WHERE id=$1 AND kind='geography_region' AND tenant_id='00000000-0000-0000-0000-000000000000' FOR SHARE",
-					[q.input.regionItemId],
-				);
-				if (region.rowCount !== 1 || !candidates.includes(q.input.regionItemId)) refuse("region_unavailable");
+				const region = await tx
+					.select({ id: tables.reference_item.id })
+					.from(tables.reference_item)
+					.where(
+						and(
+							and(
+								eq(tables.reference_item.id, q.input.regionItemId),
+								eq(tables.reference_item.kind, "geography_region"),
+							),
+							eq(tables.reference_item.tenant_id, "00000000-0000-0000-0000-000000000000"),
+						),
+					)
+					.for("share");
+				if (region.length !== 1 || !candidates.includes(q.input.regionItemId)) refuse("region_unavailable");
 			}
-			const prior = await tx.query<{ id: string }>(
-				"SELECT id FROM plant_geography WHERE plant_id=$1 ORDER BY effective_at DESC,id DESC LIMIT 1 FOR UPDATE",
-				[selected.id],
-			);
-			await tx.query(
-				`INSERT INTO plant_geography(plant_id,city,state_province,country,region_item_id,reference_version_id,committed_at,effective_at,supersedes_id)
-        VALUES($1,$2,$3,$4,$5,$6,clock_timestamp(),clock_timestamp(),$7)`,
-				[
-					selected.id,
-					q.input.locality.city,
-					q.input.locality.stateProvince,
-					q.input.locality.country,
-					q.input.regionItemId,
-					q.input.referenceVersionId,
-					prior.rows[0]?.id ?? null,
-				],
-			);
-			await tx.query("UPDATE plant SET revision=revision+1,material_revision=material_revision+1 WHERE id=$1", [
-				selected.id,
-			]);
+			const prior = await tx
+				.select({ id: tables.plant_geography.id })
+				.from(tables.plant_geography)
+				.where(eq(tables.plant_geography.plant_id, selected.id))
+				.orderBy(desc(tables.plant_geography.effective_at), desc(tables.plant_geography.id))
+				.limit(1)
+				.for("update");
+			await tx.insert(tables.plant_geography).values({
+				plant_id: selected.id,
+				city: q.input.locality.city,
+				state_province: q.input.locality.stateProvince,
+				country: q.input.locality.country,
+				region_item_id: q.input.regionItemId,
+				reference_version_id: q.input.referenceVersionId,
+				committed_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+				effective_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+				supersedes_id: prior[0]?.id ?? null,
+			});
+			await tx
+				.update(tables.plant)
+				.set({
+					revision: sql<unknown>`(${tables.plant.revision} + 1)`,
+					material_revision: sql<unknown>`(${tables.plant.material_revision} + 1)`,
+				})
+				.where(eq(tables.plant.id, selected.id));
 			const next = String(BigInt(q.expectedRevision) + 1n),
 				event = await appendEvent(tx, c, selected.id, "correct", "plant.profile_changed", q.expectedRevision, next);
-			const orgs = await tx.query<{ organization_id: string; kind: string }>(
-				`UPDATE organization o SET material_revision=o.material_revision+1 FROM affiliation a WHERE a.organization_id=o.id AND a.plant_id=$1 AND a.ended_at IS NULL RETURNING o.id AS organization_id,o.kind`,
-				[selected.id],
+			const orgs = await tx.execute<{ organization_id: string; kind: string }>(
+				sql`UPDATE organization o SET material_revision=o.material_revision+1 FROM affiliation a WHERE a.organization_id=o.id AND a.plant_id=${sql.param(selected.id)} AND a.ended_at IS NULL RETURNING o.id AS organization_id,o.kind`,
 			);
 			for (const row of orgs.rows)
 				await effects.invalidate(tx, {

@@ -1,3 +1,6 @@
+import { getTableColumns, and, asc, eq, isNotNull, isNull, or, sql } from "@everyfield/db/query";
+import * as tables from "@everyfield/db/tables";
+import { alias } from "@everyfield/db/columns";
 import { randomUUID } from "node:crypto";
 import * as c from "@everyfield/contracts/people";
 import type { OrganizationPeopleProducer } from "@everyfield/contracts/people";
@@ -17,6 +20,13 @@ import {
 } from "./core.ts";
 import type { Context, Tx } from "./core.ts";
 import { insertPerson, retire, restore } from "./people.ts";
+const enrollment_milestone_m = alias(tables.enrollment_milestone, "m");
+const development_enrollment_e = alias(tables.development_enrollment, "e");
+const residency_link_l = alias(tables.residency_link, "l");
+const affiliation_a = alias(tables.affiliation, "a");
+const invitation_i = alias(tables.invitation, "i");
+const pipeline_stage_move_m = alias(tables.pipeline_stage_move, "m");
+const pipeline_stage_s = alias(tables.pipeline_stage, "s");
 function organization(ctx: Context) {
 	if (ctx.selected.kind !== "organization") deny();
 	return ctx.selected;
@@ -109,67 +119,176 @@ export const organizationPeople: OrganizationPeopleProducer<Tx> = {
 				await mutation(tx, ctx, "orgPeople.remove", input, async (actor, id) => {
 					const before = await person(tx, ctx, input.input.personId, true);
 					expected(before, input.expectedRevision);
-					const links = await tx.query(
-						"SELECT id,affiliation_id FROM residency_link WHERE organization_id=$1 AND person_id=$2 FOR UPDATE",
-						[org.id, before.id],
-					);
-					for (const link of links.rows) {
-						await tx.query(
-							"UPDATE residency_link SET ended_at=coalesce(ended_at,clock_timestamp()),share_foundations=false,share_milestones=false,consent_revision=consent_revision+1,revision=revision+1 WHERE id=$1",
-							[link.id],
-						);
-						await tx.query(
-							"UPDATE affiliation SET ended_at=coalesce(ended_at,clock_timestamp()),revision=revision+1 WHERE id=$1",
-							[link.affiliation_id],
-						);
+					const links = await tx
+						.select({ id: tables.residency_link.id, affiliation_id: tables.residency_link.affiliation_id })
+						.from(tables.residency_link)
+						.where(
+							and(eq(tables.residency_link.organization_id, org.id), eq(tables.residency_link.person_id, before.id)),
+						)
+						.for("update");
+					for (const link of links) {
+						await tx
+							.update(tables.residency_link)
+							.set({
+								ended_at: sql<Date>`coalesce(${tables.residency_link.ended_at}, clock_timestamp())`.mapWith(
+									(value: string) => new Date(value),
+								),
+								share_foundations: false,
+								share_milestones: false,
+								consent_revision: sql<unknown>`(${tables.residency_link.consent_revision} + 1)`,
+								revision: sql<unknown>`(${tables.residency_link.revision} + 1)`,
+							})
+							.where(eq(tables.residency_link.id, link.id));
+						await tx
+							.update(tables.affiliation)
+							.set({
+								ended_at: sql<Date>`coalesce(${tables.affiliation.ended_at}, clock_timestamp())`.mapWith(
+									(value: string) => new Date(value),
+								),
+								revision: sql<unknown>`(${tables.affiliation.revision} + 1)`,
+							})
+							.where(eq(tables.affiliation.id, link.affiliation_id));
 					}
-					await tx.query(
-						"UPDATE invitation SET state=CASE WHEN state='pending' THEN 'revoked' ELSE state END,recipient_email='removed@example.invalid',revision=revision+1 WHERE tenant_id=$1 AND resident_person_id=$2",
-						[org.id, before.id],
-					);
-					await tx.query(
-						"UPDATE person_note SET body='',removed_at=coalesce(removed_at,clock_timestamp()),revision=revision+1 WHERE tenant_id=$1 AND person_id=$2",
-						[org.id, before.id],
-					);
-					await tx.query(
-						"UPDATE leadership_conversation SET note=NULL,revision=revision+1 WHERE organization_id=$1 AND person_id=$2",
-						[org.id, before.id],
-					);
-					await tx.query(
-						"UPDATE pipeline_stage_move SET reason='Removed',revision=revision+1 WHERE organization_id=$1 AND person_id=$2",
-						[org.id, before.id],
-					);
+					await tx
+						.update(tables.invitation)
+						.set({
+							state: sql<unknown>`CASE WHEN (${tables.invitation.state} = 'pending') THEN 'revoked' ELSE ${tables.invitation.state} END`,
+							recipient_email: "removed@example.invalid",
+							revision: sql<unknown>`(${tables.invitation.revision} + 1)`,
+						})
+						.where(and(eq(tables.invitation.tenant_id, org.id), eq(tables.invitation.resident_person_id, before.id)));
+					await tx
+						.update(tables.person_note)
+						.set({
+							body: "",
+							removed_at: sql<Date>`coalesce(${tables.person_note.removed_at}, clock_timestamp())`.mapWith(
+								(value: string) => new Date(value),
+							),
+							revision: sql<unknown>`(${tables.person_note.revision} + 1)`,
+						})
+						.where(and(eq(tables.person_note.tenant_id, org.id), eq(tables.person_note.person_id, before.id)));
+					await tx
+						.update(tables.leadership_conversation)
+						.set({ note: null, revision: sql<unknown>`(${tables.leadership_conversation.revision} + 1)` })
+						.where(
+							and(
+								eq(tables.leadership_conversation.organization_id, org.id),
+								eq(tables.leadership_conversation.person_id, before.id),
+							),
+						);
+					await tx
+						.update(tables.pipeline_stage_move)
+						.set({ reason: "Removed", revision: sql<unknown>`(${tables.pipeline_stage_move.revision} + 1)` })
+						.where(
+							and(
+								eq(tables.pipeline_stage_move.organization_id, org.id),
+								eq(tables.pipeline_stage_move.person_id, before.id),
+							),
+						);
 					// Feedback bodies are not needed to preserve independently owned completions.
-					await tx.query(
-						`UPDATE assignment_feedback SET body='',withdrawn_at=coalesce(withdrawn_at,clock_timestamp()),revision=revision+1 WHERE organization_id=$1 AND enrollment_milestone_id IN(SELECT m.id FROM enrollment_milestone m JOIN development_enrollment e ON e.id=m.enrollment_id AND e.organization_id=m.organization_id WHERE e.person_id=$2 AND e.organization_id=$1)`,
-						[org.id, before.id],
-					);
-					await tx.query(
-						"UPDATE pipeline_person SET assessed_on=NULL,assessor_label=NULL,responsible_seat_id=NULL,revision=revision+1 WHERE organization_id=$1 AND person_id=$2",
-						[org.id, before.id],
-					);
-					const completions = await tx.query(
-						"SELECT m.id FROM enrollment_milestone m JOIN development_enrollment e ON e.id=m.enrollment_id AND e.organization_id=m.organization_id WHERE e.organization_id=$1 AND e.person_id=$2 AND m.completed_at IS NOT NULL",
-						[org.id, before.id],
-					);
-					const enrollments = await tx.query(
-						"UPDATE development_enrollment SET status=CASE WHEN status='active' THEN 'withdrawn' ELSE status END,cohort_label='',next_meeting_at=NULL,revision=revision+1 WHERE organization_id=$1 AND person_id=$2 RETURNING id",
-						[org.id, before.id],
-					);
-					await tx.query(
-						`UPDATE person SET display_name='Former participant',first_name=NULL,last_name=NULL,email=NULL,phone=NULL,street=NULL,city=NULL,state_province=NULL,postal_code=NULL,country=NULL,source_details=NULL,notes=NULL,birth_date=NULL,linked_account_id=NULL,photo_object_id=NULL,state='retired',retired_at=coalesce(retired_at,clock_timestamp()),revision=revision+1 WHERE id=$1`,
-						[before.id],
-					);
+					await tx
+						.update(tables.assignment_feedback)
+						.set({
+							body: "",
+							withdrawn_at: sql<Date>`coalesce(${tables.assignment_feedback.withdrawn_at}, clock_timestamp())`.mapWith(
+								(value: string) => new Date(value),
+							),
+							revision: sql<unknown>`(${tables.assignment_feedback.revision} + 1)`,
+						})
+						.where(
+							and(
+								eq(tables.assignment_feedback.organization_id, org.id),
+								sql<boolean>`(${tables.assignment_feedback.enrollment_milestone_id} IN (SELECT m .id  FROM enrollment_milestone  AS m INNER JOIN development_enrollment  AS e ON ((e .id = m .enrollment_id) AND (e .organization_id = m .organization_id))  WHERE ((e .person_id = (${before.id})) AND (e .organization_id = (${org.id})))))`,
+							),
+						);
+					await tx
+						.update(tables.pipeline_person)
+						.set({
+							assessed_on: null,
+							assessor_label: null,
+							responsible_seat_id: null,
+							revision: sql<unknown>`(${tables.pipeline_person.revision} + 1)`,
+						})
+						.where(
+							and(eq(tables.pipeline_person.organization_id, org.id), eq(tables.pipeline_person.person_id, before.id)),
+						);
+					const completions = await tx
+						.select({ id: enrollment_milestone_m.id })
+						.from(enrollment_milestone_m)
+						.innerJoin(
+							development_enrollment_e,
+							and(
+								eq(development_enrollment_e.id, enrollment_milestone_m.enrollment_id),
+								eq(development_enrollment_e.organization_id, enrollment_milestone_m.organization_id),
+							),
+						)
+						.where(
+							and(
+								and(
+									eq(development_enrollment_e.organization_id, org.id),
+									eq(development_enrollment_e.person_id, before.id),
+								),
+								isNotNull(enrollment_milestone_m.completed_at),
+							),
+						);
+					const enrollments = await tx
+						.update(tables.development_enrollment)
+						.set({
+							status: sql<unknown>`CASE WHEN (${tables.development_enrollment.status} = 'active') THEN 'withdrawn' ELSE ${tables.development_enrollment.status} END`,
+							cohort_label: "",
+							next_meeting_at: null,
+							revision: sql<unknown>`(${tables.development_enrollment.revision} + 1)`,
+						})
+						.where(
+							and(
+								eq(tables.development_enrollment.organization_id, org.id),
+								eq(tables.development_enrollment.person_id, before.id),
+							),
+						)
+						.returning({ id: tables.development_enrollment.id });
+					await tx
+						.update(tables.person)
+						.set({
+							display_name: "Former participant",
+							first_name: null,
+							last_name: null,
+							email: null,
+							phone: null,
+							street: null,
+							city: null,
+							state_province: null,
+							postal_code: null,
+							country: null,
+							source_details: null,
+							notes: null,
+							birth_date: null,
+							linked_account_id: null,
+							photo_object_id: null,
+							state: "retired",
+							retired_at: sql<Date>`coalesce(${tables.person.retired_at}, clock_timestamp())`.mapWith(
+								(value: string) => new Date(value),
+							),
+							revision: sql<unknown>`(${tables.person.revision} + 1)`,
+						})
+						.where(eq(tables.person.id, before.id));
 					const after = await person(tx, ctx, before.id, true);
 					const witness = (
-						await tx.query(
-							"INSERT INTO organization_person_removal(id,organization_id,person_record_id,removed_at,requested_by,witness_checkpoint,revision) VALUES($1,$2,$3,clock_timestamp(),$4,$5,$5) RETURNING *",
-							[randomUUID(), org.id, before.id, actor, after.revision],
-						)
-					).rows[0];
-					await tx.query("SELECT purge_organization_person_history($1,$2)", [org.id, before.id]);
+						await tx
+							.insert(tables.organization_person_removal)
+							.values({
+								id: randomUUID(),
+								organization_id: org.id,
+								person_record_id: before.id,
+								removed_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+								requested_by: actor,
+								witness_checkpoint: sql`${after.revision}`,
+								revision: sql`${after.revision}`,
+							})
+							.returning()
+					)[0]!;
+					await tx.execute(sql`SELECT purge_organization_person_history(${sql.param(org.id)},${sql.param(before.id)})`);
 					const retained = [
-						...(completions.rowCount
+						...(completions.length
 							? [
 									{
 										category: "program_completion",
@@ -178,7 +297,7 @@ export const organizationPeople: OrganizationPeopleProducer<Tx> = {
 									},
 								]
 							: []),
-						...(enrollments.rowCount
+						...(enrollments.length
 							? [
 									{
 										category: "enrollment",
@@ -187,7 +306,7 @@ export const organizationPeople: OrganizationPeopleProducer<Tx> = {
 									},
 								]
 							: []),
-						...(links.rowCount
+						...(links.length
 							? [
 									{
 										category: "relationship_receipt",
@@ -226,26 +345,102 @@ async function exportPerson(tx: Tx, ctx: Context, raw: unknown) {
 	const actor = await authorize(tx, ctx, true);
 	const p = await person(tx, ctx, input.personId),
 		dto = c.organizationPerson.parse(await project(tx, ctx, p));
-	const links = await tx.query(
-		`SELECT l.consent_revision,l.share_milestones FROM residency_link l JOIN affiliation a ON a.id=l.affiliation_id AND a.organization_id=l.organization_id JOIN invitation i ON i.id=l.invitation_id AND i.tenant_id=l.organization_id WHERE l.organization_id=$1 AND l.person_id=$2 AND l.ended_at IS NULL AND a.ended_at IS NULL AND i.state='accepted' AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.account_id=l.account_id AND w.state NOT IN ('active','cancelled')) FOR SHARE OF l,a,i`,
-		[org.id, p.id],
-	);
-	const link = links.rows[0];
-	const history = await tx.query(
-		`SELECT m.id,m.to_stage_id,m.moved_at,m.actor_id,m.new_label AS label FROM pipeline_stage_move m JOIN pipeline_stage s ON s.id=m.to_stage_id AND s.organization_id=m.organization_id WHERE m.organization_id=$1 AND m.person_id=$2 ORDER BY m.moved_at,m.id LIMIT 1001`,
-		[org.id, p.id],
-	);
-	const enrollments = await tx.query(
-		"SELECT id,program_id,status FROM development_enrollment WHERE organization_id=$1 AND person_id=$2 ORDER BY id LIMIT 1001",
-		[org.id, p.id],
-	);
-	const milestones = await tx.query(
-		`SELECT m.* FROM enrollment_milestone m JOIN development_enrollment e ON e.id=m.enrollment_id AND e.organization_id=m.organization_id WHERE e.organization_id=$1 AND e.person_id=$2 AND m.completed_at IS NOT NULL AND (m.completion_source='program_leader_recorded' OR $3) ORDER BY m.id LIMIT 1001 FOR SHARE OF m,e`,
-		[org.id, p.id, link?.share_milestones ?? false],
-	);
-	if ([history, enrollments, milestones].some((r) => r.rows.length > 1000)) deny("source_unavailable");
+	const links = await tx
+		.select({
+			consent_revision: residency_link_l.consent_revision,
+			share_milestones: residency_link_l.share_milestones,
+		})
+		.from(residency_link_l)
+		.innerJoin(
+			affiliation_a,
+			and(
+				eq(affiliation_a.id, residency_link_l.affiliation_id),
+				eq(affiliation_a.organization_id, residency_link_l.organization_id),
+			),
+		)
+		.innerJoin(
+			invitation_i,
+			and(
+				eq(invitation_i.id, residency_link_l.invitation_id),
+				eq(invitation_i.tenant_id, residency_link_l.organization_id),
+			),
+		)
+		.where(
+			and(
+				and(
+					and(
+						and(
+							and(eq(residency_link_l.organization_id, org.id), eq(residency_link_l.person_id, p.id)),
+							isNull(residency_link_l.ended_at),
+						),
+						isNull(affiliation_a.ended_at),
+					),
+					eq(invitation_i.state, "accepted"),
+				),
+				sql<unknown>`(NOT exists(SELECT  FROM lifecycle_witness  AS w  WHERE ((w .account_id = l .account_id) AND (w .state NOT IN (('active'), ('cancelled'))))))`,
+			),
+		)
+		.for("share", { of: [residency_link_l, affiliation_a, invitation_i] });
+	const link = links[0]!;
+	const history = await tx
+		.select({
+			id: pipeline_stage_move_m.id,
+			to_stage_id: pipeline_stage_move_m.to_stage_id,
+			moved_at: pipeline_stage_move_m.moved_at,
+			actor_id: pipeline_stage_move_m.actor_id,
+			label: pipeline_stage_move_m.new_label,
+		})
+		.from(pipeline_stage_move_m)
+		.innerJoin(
+			pipeline_stage_s,
+			and(
+				eq(pipeline_stage_s.id, pipeline_stage_move_m.to_stage_id),
+				eq(pipeline_stage_s.organization_id, pipeline_stage_move_m.organization_id),
+			),
+		)
+		.where(and(eq(pipeline_stage_move_m.organization_id, org.id), eq(pipeline_stage_move_m.person_id, p.id)))
+		.orderBy(asc(pipeline_stage_move_m.moved_at), asc(pipeline_stage_move_m.id))
+		.limit(1001);
+	const enrollments = await tx
+		.select({
+			id: tables.development_enrollment.id,
+			program_id: tables.development_enrollment.program_id,
+			status: tables.development_enrollment.status,
+		})
+		.from(tables.development_enrollment)
+		.where(
+			and(eq(tables.development_enrollment.organization_id, org.id), eq(tables.development_enrollment.person_id, p.id)),
+		)
+		.orderBy(asc(tables.development_enrollment.id))
+		.limit(1001);
+	const milestones = await tx
+		.select(getTableColumns(enrollment_milestone_m))
+		.from(enrollment_milestone_m)
+		.innerJoin(
+			development_enrollment_e,
+			and(
+				eq(development_enrollment_e.id, enrollment_milestone_m.enrollment_id),
+				eq(development_enrollment_e.organization_id, enrollment_milestone_m.organization_id),
+			),
+		)
+		.where(
+			and(
+				and(
+					and(eq(development_enrollment_e.organization_id, org.id), eq(development_enrollment_e.person_id, p.id)),
+					isNotNull(enrollment_milestone_m.completed_at),
+				),
+				or(
+					eq(enrollment_milestone_m.completion_source, "program_leader_recorded"),
+					sql`${link?.share_milestones ?? false}`,
+				),
+			),
+		)
+		.orderBy(asc(enrollment_milestone_m.id))
+		.limit(1001)
+		.for("share", { of: [enrollment_milestone_m, development_enrollment_e] });
+	if ([history, enrollments, milestones].some((r) => r.length > 1000)) deny("source_unavailable");
 	const stageHistory = [];
-	for (const h of history.rows)
+	for (const h of history)
 		stageHistory.push({
 			stageId: h.to_stage_id,
 			label: h.label,
@@ -253,10 +448,10 @@ async function exportPerson(tx: Tx, ctx: Context, raw: unknown) {
 			actor: await attribution(tx, h.actor_id, org.id + ":" + h.id),
 		});
 	const completions = [];
-	for (const m of milestones.rows)
+	for (const m of milestones)
 		completions.push({
 			milestoneId: m.milestone_id,
-			completedAt: m.completed_at.toISOString(),
+			completedAt: m.completed_at!.toISOString(),
 			source: m.completion_source === "resident_self" ? "resident" : "program_leader_recorded",
 			recordedBy: await attribution(tx, m.completed_by, org.id + ":" + m.id),
 			confirmation: m.confirmed_at
@@ -268,10 +463,16 @@ async function exportPerson(tx: Tx, ctx: Context, raw: unknown) {
 				: { status: "pending" },
 		});
 	const { displayName, firstName, lastName, email, phone, street, city, stateProvince, postalCode, country } = dto;
-	await tx.query(
-		`INSERT INTO event(tenant_id,target_record_id,actor_id,kind,occurred_at,recorded_at,event_key,action) VALUES($1,$2,$3,'read',clock_timestamp(),clock_timestamp(),$4,'security.bulk_export')`,
-		[org.id, p.id, actor.accountId, randomUUID()],
-	);
+	await tx.insert(tables.event).values({
+		tenant_id: org.id,
+		target_record_id: p.id,
+		actor_id: actor.accountId,
+		kind: "read",
+		occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+		recorded_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+		event_key: randomUUID(),
+		action: "security.bulk_export",
+	});
 	return c.organizationExport.parse({
 		organization: org,
 		personId: p.id,
@@ -291,7 +492,7 @@ async function exportPerson(tx: Tx, ctx: Context, raw: unknown) {
 			country,
 		},
 		stageHistory,
-		programs: enrollments.rows.map((e) => ({
+		programs: enrollments.map((e) => ({
 			programId: e.program_id,
 			status: e.status === "withdrawn" ? "ended" : e.status,
 		})),

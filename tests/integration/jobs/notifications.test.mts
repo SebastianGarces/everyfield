@@ -1,3 +1,4 @@
+import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
@@ -16,11 +17,9 @@ const account = randomUUID(),
 let sent = 0;
 const authorizer = async (tx, m) => {
 	if (m.notice) {
-		const rows = await tx.query(
-			`SELECT n.source_revision,t.revision::text AS current_revision,t.assignee_id,t.status,t.deleted_at
-  FROM notice n JOIN task t ON t.id=n.source_record_id WHERE n.id=$1 FOR SHARE OF n,t`,
-			[m.notice],
-		);
+		const rows =
+			await tx.execute(querySql`SELECT n.source_revision,t.revision::text AS current_revision,t.assignee_id,t.status,t.deleted_at
+  FROM notice n JOIN task t ON t.id=n.source_record_id WHERE n.id=${querySql.param(m.notice)} FOR SHARE OF n,t`);
 		const t = rows.rows[0];
 		if (t)
 			return (
@@ -30,9 +29,9 @@ const authorizer = async (tx, m) => {
 				!["complete", "no_longer_needed"].includes(t.status)
 			);
 	}
-	const r = await tx.query("SELECT id FROM account WHERE id=$1 AND registration_state='active' FOR SHARE", [
-		m.recipient,
-	]);
+	const r = await tx.execute(
+		querySql`SELECT id FROM account WHERE id=${querySql.param(m.recipient)} AND registration_state='active' FOR SHARE`,
+	);
 	return r.rowCount === 1;
 };
 const mail = createMailService({
@@ -52,9 +51,8 @@ const mail = createMailService({
 const notifications = createNotificationService({
 	mail,
 	eligible: async (tx, v) => {
-		const r = await tx.query(
-			"SELECT id FROM seat WHERE account_id=$1 AND (plant_id=$2 OR organization_id=$2) AND ended_at IS NULL FOR SHARE",
-			[v.recipient, v.owner.id],
+		const r = await tx.execute(
+			querySql`SELECT id FROM seat WHERE account_id=${querySql.param(v.recipient)} AND (plant_id=${querySql.param(v.owner.id)} OR organization_id=${querySql.param(v.owner.id)}) AND ended_at IS NULL FOR SHARE`,
 		);
 		return r.rowCount === 1 ? { address: "synthetic@example.test" } : null;
 	},
@@ -74,26 +72,21 @@ function base(revision = "1") {
 before(async () => {
 	await setup();
 	const user = randomUUID();
-	await db.query("INSERT INTO auth_user(id,email,email_verified,name) VALUES($1,$2,true,'Synthetic')", [
-		user,
-		user + "@example.test",
-	]);
-	await db.query(
-		"INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES($1,$2,'active','discovery')",
-		[account, user],
+	await db.execute(
+		querySql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${querySql.param(user)},${querySql.param(user + "@example.test")},true,'Synthetic')`,
 	);
-	await db.query("INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES($1,$2,'owner',now())", [
-		account,
-		tenant,
-	]);
-	await db.query(
-		"INSERT INTO task(id,plant_id,title,category,priority,status,created_at,assignee_id,due_kind,due_date) VALUES($1,$2,'Current task','general','medium','not_started',now(),$3,'date_only','2026-10-19')",
-		[task, tenant, account],
+	await db.execute(
+		querySql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${querySql.param(account)},${querySql.param(user)},'active','discovery')`,
+	);
+	await db.execute(
+		querySql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${querySql.param(account)},${querySql.param(tenant)},'owner',now())`,
+	);
+	await db.execute(
+		querySql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,assignee_id,due_kind,due_date) VALUES(${querySql.param(task)},${querySql.param(tenant)},'Current task','general','medium','not_started',now(),${querySql.param(account)},'date_only','2026-10-19')`,
 	);
 	for (const id of [org, org2])
-		await db.query(
-			"INSERT INTO organization(id,kind,name,timezone,material_revision) VALUES($1,'sending_network','Synthetic Org','UTC',1)",
-			[id],
+		await db.execute(
+			querySql`INSERT INTO organization(id,kind,name,timezone,material_revision) VALUES(${querySql.param(id)},'sending_network','Synthetic Org','UTC',1)`,
 		);
 });
 after(teardown);
@@ -121,11 +114,13 @@ test("INV-notification: resync replay retains due intents and changed source can
 		),
 		first,
 	);
-	await db.query("UPDATE job SET eligible_at='2026-01-01'");
+	await db.execute(querySql`UPDATE job SET eligible_at='2026-01-01'`);
 	const [claim] = await claimDue(runtime, ["mail"]);
 	assert.equal(claim.kind, "mail");
 	await transaction(runtime, async (tx) => {
-		await tx.query("UPDATE task SET status='complete',completed_at=now(),revision=2 WHERE id=$1", [task]);
+		await tx.execute(
+			querySql`UPDATE task SET status='complete',completed_at=now(),revision=2 WHERE id=${querySql.param(task)}`,
+		);
 		assert.deepEqual(
 			await notifications.syncTaskReminders(tx, {
 				base: base("2"),
@@ -140,8 +135,11 @@ test("INV-notification: resync replay retains due intents and changed source can
 	assert.deepEqual(await mail.dispatch(claim), { kind: "not_dispatched" });
 	assert.equal(sent, count);
 	assert.deepEqual(
-		(await db.query("SELECT state FROM mail WHERE notice_id=ANY($1::uuid[]) ORDER BY id", [first.map((x) => x.notice)]))
-			.rows,
+		(
+			await db.execute(
+				querySql`SELECT state FROM mail WHERE notice_id=ANY(${querySql.param(first.map((x) => x.notice))}::uuid[]) ORDER BY id`,
+			)
+		).rows,
 		[{ state: "cancelled" }, { state: "cancelled" }],
 	);
 	await assert.rejects(
@@ -157,21 +155,18 @@ test("INV-notification: resync replay retains due intents and changed source can
 	);
 });
 test("INV-wiki: each published upstream change yields only an in-app notice, no mail or content change", async () => {
-	await db.query("UPDATE seat SET ended_at=now() WHERE account_id=$1", [account]);
-	await db.query("INSERT INTO seat(account_id,organization_id,role,accepted_at) VALUES($1,$2,'owner',now())", [
-		account,
-		org,
-	]);
+	await db.execute(querySql`UPDATE seat SET ended_at=now() WHERE account_id=${querySql.param(account)}`);
+	await db.execute(
+		querySql`INSERT INTO seat(account_id,organization_id,role,accepted_at) VALUES(${querySql.param(account)},${querySql.param(org)},'owner',now())`,
+	);
 	const article = randomUUID(),
 		state = randomUUID();
 	// A globally owned article is a registered record; the editable state stays in the exact org.
-	await db.query(
-		"INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES($1,'article',$2,'00000000-0000-0000-0000-000000000000')",
-		[article, "synthetic-" + article],
+	await db.execute(
+		querySql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${querySql.param(article)},'article',${querySql.param("synthetic-" + article)},'00000000-0000-0000-0000-000000000000')`,
 	);
-	await db.query(
-		"INSERT INTO article_editor_state(id,organization_id,article_id,state,revision) VALUES($1,$2,$3,'published',1)",
-		[state, org, article],
+	await db.execute(
+		querySql`INSERT INTO article_editor_state(id,organization_id,article_id,state,revision) VALUES(${querySql.param(state)},${querySql.param(org)},${querySql.param(article)},'published',1)`,
 	);
 	const owner = { kind: "organization", id: org, organizationKind: "sending_network" };
 	const input = {
@@ -191,10 +186,16 @@ test("INV-wiki: each published upstream change yields only an in-app notice, no 
 	assert.notEqual(a.notice, b.notice);
 	assert.equal(a.mail, null);
 	assert.equal(b.mail, null);
-	assert.equal((await db.query("SELECT count(*)::int n FROM mail WHERE tenant_id=$1", [org])).rows[0].n, 0);
+	assert.equal(
+		(await db.execute(querySql`SELECT count(*)::int n FROM mail WHERE tenant_id=${querySql.param(org)}`)).rows[0].n,
+		0,
+	);
 	assert.deepEqual(
-		(await db.query("SELECT state,current_revision_id,revision::text FROM article_editor_state WHERE id=$1", [state]))
-			.rows[0],
+		(
+			await db.execute(
+				querySql`SELECT state,current_revision_id,revision::text FROM article_editor_state WHERE id=${querySql.param(state)}`,
+			)
+		).rows[0],
 		{ state: "published", current_revision_id: null, revision: "1" },
 	);
 	await assert.rejects(
@@ -209,19 +210,13 @@ test("INV-wiki: each published upstream change yields only an in-app notice, no 
 	);
 });
 test("AC:CASE-NTF-015 INV-discovery: an account who owns the exact organization receives one receipt without a phantom plant", async () => {
-	await db.query("INSERT INTO discovery(account_id) VALUES($1)", [account]);
+	await db.execute(querySql`INSERT INTO discovery(account_id) VALUES(${querySql.param(account)})`);
 	const association = randomUUID(),
 		operation = randomUUID();
-	await db.query(
-		`INSERT INTO affiliation(id,account_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
-  VALUES($1,$2,$3,now(),false,false,false,false,false,false,false)`,
-		[association, account, org],
-	);
-	await db.query(
-		`INSERT INTO operation(id,tenant_id,actor_id,name,request_key,request_digest,state,started_at,tool_calls,reserved_input,reserved_output,used_input,used_output)
-  VALUES($1,$2,$3,'associations.acceptInvitation',$4,$5,'complete',now(),0,0,0,0,0)`,
-		[operation, org, account, operation, "a".repeat(64)],
-	);
+	await db.execute(querySql`INSERT INTO affiliation(id,account_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
+  VALUES(${querySql.param(association)},${querySql.param(account)},${querySql.param(org)},now(),false,false,false,false,false,false,false)`);
+	await db.execute(querySql`INSERT INTO operation(id,tenant_id,actor_id,name,request_key,request_digest,state,started_at,tool_calls,reserved_input,reserved_output,used_input,used_output)
+  VALUES(${querySql.param(operation)},${querySql.param(org)},${querySql.param(account)},'associations.acceptInvitation',${querySql.param(operation)},${querySql.param("a".repeat(64))},'complete',now(),0,0,0,0,0)`);
 	const input = {
 		organization: org,
 		account,
@@ -231,20 +226,26 @@ test("AC:CASE-NTF-015 INV-discovery: an account who owns the exact organization 
 		address: async () => "synthetic@example.test",
 		now: "2026-01-01T00:00:00Z",
 		verifyOccurrence: async (tx) => {
-			const r = await tx.query(
-				"SELECT a.id FROM affiliation a JOIN operation o ON o.id=$4 AND o.tenant_id=a.organization_id WHERE a.id=$1 AND a.account_id=$2 AND a.organization_id=$3 AND a.revision=1 AND a.ended_at IS NULL FOR SHARE OF a,o",
-				[association, account, org, operation],
+			const r = await tx.execute(
+				querySql`SELECT a.id FROM affiliation a JOIN operation o ON o.id=${querySql.param(operation)} AND o.tenant_id=a.organization_id WHERE a.id=${querySql.param(association)} AND a.account_id=${querySql.param(account)} AND a.organization_id=${querySql.param(org)} AND a.revision=1 AND a.ended_at IS NULL FOR SHARE OF a,o`,
 			);
 			return r.rowCount === 1;
 		},
 	};
-	const before = (await db.query("SELECT count(*)::int n FROM plant")).rows[0].n;
+	const before = (await db.execute(querySql`SELECT count(*)::int n FROM plant`)).rows[0].n;
 	const first = await transaction(runtime, (tx) => sendDiscoveryAssociationReceipt(tx, mail, input));
 	assert.equal(first.length, 1);
 	assert.deepEqual(await transaction(runtime, (tx) => sendDiscoveryAssociationReceipt(tx, mail, input)), first);
-	assert.equal((await db.query("SELECT count(*)::int n FROM mail WHERE id=ANY($1::uuid[])", [first])).rows[0].n, 1);
-	assert.equal((await db.query("SELECT tenant_id FROM mail WHERE id=$1", [first[0]])).rows[0].tenant_id, account);
-	assert.equal((await db.query("SELECT count(*)::int n FROM plant")).rows[0].n, before);
+	assert.equal(
+		(await db.execute(querySql`SELECT count(*)::int n FROM mail WHERE id=ANY(${querySql.param(first)}::uuid[])`))
+			.rows[0].n,
+		1,
+	);
+	assert.equal(
+		(await db.execute(querySql`SELECT tenant_id FROM mail WHERE id=${querySql.param(first[0])}`)).rows[0].tenant_id,
+		account,
+	);
+	assert.equal((await db.execute(querySql`SELECT count(*)::int n FROM plant`)).rows[0].n, before);
 	await assert.rejects(
 		transaction(runtime, (tx) =>
 			sendDiscoveryAssociationReceipt(tx, mail, { ...input, verifyOccurrence: async () => false }),
@@ -253,34 +254,32 @@ test("AC:CASE-NTF-015 INV-discovery: an account who owns the exact organization 
 	);
 });
 test("INV-digest: one dated catch-up advances coverage only with its matching mail; no duplicate or empty mail", async () => {
-	await db.query("UPDATE seat SET ended_at=now() WHERE account_id=$1", [account]);
-	await db.query("INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES($1,$2,'owner',now())", [
-		account,
-		tenant,
-	]);
-	await db.query("UPDATE task SET status='not_started',completed_at=NULL,revision=3 WHERE id=$1", [task]);
+	await db.execute(querySql`UPDATE seat SET ended_at=now() WHERE account_id=${querySql.param(account)}`);
+	await db.execute(
+		querySql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${querySql.param(account)},${querySql.param(tenant)},'owner',now())`,
+	);
+	await db.execute(
+		querySql`UPDATE task SET status='not_started',completed_at=NULL,revision=3 WHERE id=${querySql.param(task)}`,
+	);
 	const digests = createDigestService({
 		origin: "https://example.test",
 		nativePath: (o) => (o.kind === "plant" ? "/tasks" : "/organization"),
 		mail,
 		eligible: async (tx, o, recipient) => {
-			const r = await tx.query(
-				"SELECT id FROM seat WHERE plant_id=$1 AND account_id=$2 AND ended_at IS NULL FOR SHARE",
-				[o.id, recipient],
+			const r = await tx.execute(
+				querySql`SELECT id FROM seat WHERE plant_id=${querySql.param(o.id)} AND account_id=${querySql.param(recipient)} AND ended_at IS NULL FOR SHARE`,
 			);
 			return r.rowCount ? { address: "synthetic@example.test", cadence: "weekly" } : null;
 		},
 		load: async (tx, o, recipient, period) => {
-			const rows = await tx.query(
-				`SELECT id,due_date::text AS date,title FROM task WHERE plant_id=$1 AND assignee_id=$2 AND status NOT IN ('complete','no_longer_needed') AND deleted_at IS NULL AND due_date<$3::date ORDER BY due_date,id LIMIT 100`,
-				[o.id, recipient, period.next],
+			const rows = await tx.execute(
+				querySql`SELECT id,due_date::text AS date,title FROM task WHERE plant_id=${querySql.param(o.id)} AND assignee_id=${querySql.param(recipient)} AND status NOT IN ('complete','no_longer_needed') AND deleted_at IS NULL AND due_date<${querySql.param(period.next)}::date ORDER BY due_date,id LIMIT 100`,
 			);
 			return { lines: rows.rows.map((r) => ({ kind: "task", ...r })), total: rows.rowCount };
 		},
 	});
-	await db.query(
-		"INSERT INTO digest_coverage(tenant_id,recipient_id,purpose,cadence,timezone,covered_through) VALUES($1,$2,'planter','weekly','America/Chicago','2026-09-27')",
-		[tenant, account],
+	await db.execute(
+		querySql`INSERT INTO digest_coverage(tenant_id,recipient_id,purpose,cadence,timezone,covered_through) VALUES(${querySql.param(tenant)},${querySql.param(account)},'planter','weekly','America/Chicago','2026-09-27')`,
 	);
 	const result = await transaction(runtime, (tx) =>
 		digests.generateOwed(tx, plantOwner, account, "2026-10-18T22:00:00Z"),
@@ -294,16 +293,16 @@ test("INV-digest: one dated catch-up advances coverage only with its matching ma
 		{ kind: "covered" },
 	);
 	assert.equal(
-		(await db.query("SELECT last_mail_id FROM digest_coverage WHERE purpose='planter'")).rows[0].last_mail_id,
+		(await db.execute(querySql`SELECT last_mail_id FROM digest_coverage WHERE purpose='planter'`)).rows[0].last_mail_id,
 		result.mail,
 	);
-	await db.query("UPDATE task SET status='complete',completed_at=now() WHERE id=$1", [task]);
+	await db.execute(querySql`UPDATE task SET status='complete',completed_at=now() WHERE id=${querySql.param(task)}`);
 	assert.deepEqual(
 		await transaction(runtime, (tx) => digests.generateOwed(tx, plantOwner, account, "2026-10-25T22:00:00Z")),
 		{ kind: "empty" },
 	);
 	assert.equal(
-		(await db.query("SELECT covered_through::text FROM digest_coverage WHERE purpose='planter'")).rows[0]
+		(await db.execute(querySql`SELECT covered_through::text FROM digest_coverage WHERE purpose='planter'`)).rows[0]
 			.covered_through,
 		"2026-10-18",
 	);
@@ -313,20 +312,16 @@ test("INV-digest: exact organization projection refuses narrative fields and ind
 		[org, true],
 		[org2, false],
 	])
-		await db.query(
-			`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
-  VALUES($1,$2,now(),false,false,false,false,false,$3,false)`,
-			[tenant, id, share],
-		);
+		await db.execute(querySql`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
+  VALUES(${querySql.param(tenant)},${querySql.param(id)},now(),false,false,false,false,false,${querySql.param(share)},false)`);
 	const digest = createDigestService({
 		origin: "https://example.test",
 		nativePath: (o) => (o.kind === "plant" ? "/tasks" : "/organization"),
 		mail,
 		eligible: async () => ({ address: "synthetic@example.test", cadence: "daily" }),
 		load: async (tx, o) => {
-			const r = await tx.query(
-				"SELECT id FROM affiliation WHERE organization_id=$1 AND plant_id=$2 AND share_activity AND ended_at IS NULL FOR SHARE",
-				[o.id, tenant],
+			const r = await tx.execute(
+				querySql`SELECT id FROM affiliation WHERE organization_id=${querySql.param(o.id)} AND plant_id=${querySql.param(tenant)} AND share_activity AND ended_at IS NULL FOR SHARE`,
 			);
 			return {
 				lines: r.rowCount ? [{ kind: "activity", date: "2026-10-17", count: 2 }] : [],

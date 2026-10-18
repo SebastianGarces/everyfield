@@ -1,4 +1,4 @@
-import type { PoolClient } from "pg";
+import type { Transaction } from "@everyfield/db/client";
 import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
 import type { OrganizationEffects } from "./core.ts";
 import type { GeographyReference } from "./profile.ts";
@@ -13,7 +13,7 @@ import { profileOperations } from "./profile.ts";
 export function createOrganizationAdapter(
 	effects: OrganizationEffects,
 	geography: GeographyReference,
-): OrganizationAdapter<PoolClient> {
+): OrganizationAdapter<Transaction> {
 	return {
 		...relationshipCommands(effects),
 		...sharingOperations(effects),

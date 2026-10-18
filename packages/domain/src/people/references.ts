@@ -1,3 +1,5 @@
+import { and, asc, eq, sql } from "@everyfield/db/query";
+import * as tables from "@everyfield/db/tables";
 import * as c from "@everyfield/contracts/people";
 import type { z } from "zod";
 import { deny, expected, live, person } from "./core.ts";
@@ -19,17 +21,27 @@ export async function lockPersonReference(tx: Tx, input: z.infer<typeof c.locked
 // Account removal keeps independently owned Person facts. Cleanup supplies the
 // real account under its lifecycle lock; creator identity never selects ownership.
 export async function detachAccountPersonLinks(tx: Tx, accountId: string) {
-	const pending = await tx.query(
-		"SELECT id FROM lifecycle_witness WHERE account_id=$1 AND state IN ('purging','purged') FOR SHARE",
-		[accountId],
-	);
-	if (!pending.rowCount) deny();
-	const persons = await tx.query("SELECT id FROM person WHERE linked_account_id=$1 ORDER BY id FOR UPDATE", [
-		accountId,
-	]);
-	await tx.query("UPDATE person SET linked_account_id=NULL,revision=revision+1 WHERE linked_account_id=$1", [
-		accountId,
-	]);
-	await tx.query("SELECT scrub_people_account_author($1)", [accountId]);
-	return { retainedPersonIds: persons.rows.map((p) => p.id) };
+	const pending = await tx
+		.select({ id: tables.lifecycle_witness.id })
+		.from(tables.lifecycle_witness)
+		.where(
+			and(
+				eq(tables.lifecycle_witness.account_id, accountId),
+				sql<boolean>`(${tables.lifecycle_witness.state} IN ('purging', 'purged'))`,
+			),
+		)
+		.for("share");
+	if (!pending.length) deny();
+	const persons = await tx
+		.select({ id: tables.person.id })
+		.from(tables.person)
+		.where(eq(tables.person.linked_account_id, accountId))
+		.orderBy(asc(tables.person.id))
+		.for("update");
+	await tx
+		.update(tables.person)
+		.set({ linked_account_id: null, revision: sql<unknown>`(${tables.person.revision} + 1)` })
+		.where(eq(tables.person.linked_account_id, accountId));
+	await tx.execute(sql`SELECT scrub_people_account_author(${sql.param(accountId)})`);
+	return { retainedPersonIds: persons.map((p) => p.id) };
 }
