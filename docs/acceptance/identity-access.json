@@ -16979,6 +16979,208 @@
           }
         }
       ]
+    },
+    {
+      "id": "WP006-IDN-029",
+      "requirement": "REQ-IDN-029",
+      "requirement_ids": [
+        "REQ-IDN-029"
+      ],
+      "feature_ids": [
+        "IDN-001",
+        "IDN-002",
+        "IDN-005",
+        "IDN-013",
+        "IDN-014",
+        "IDN-017",
+        "IDN-019",
+        "IDN-020",
+        "IDN-021",
+        "IDN-023",
+        "IDN-024",
+        "IDN-026"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-001--IDN-001",
+        "AC-IDN-002--IDN-002",
+        "AC-IDN-005--IDN-005",
+        "AC-IDN-013--IDN-013",
+        "AC-IDN-014--IDN-014",
+        "AC-IDN-017--IDN-017",
+        "AC-IDN-019--IDN-019",
+        "AC-IDN-020--IDN-020",
+        "AC-IDN-021--IDN-021",
+        "AC-IDN-023--IDN-023",
+        "AC-IDN-024--IDN-024",
+        "AC-IDN-026--IDN-026"
+      ],
+      "work_packages": [
+        "WP-006"
+      ],
+      "status": "future-not-run",
+      "description": "Access contract boundary round trip. No live session, tenant policy, SQL enforcement or native/Evry workflow proof.",
+      "given": {
+        "contract": {
+          "fixture_type": "contract_boundary",
+          "module": "@everyfield/contracts/access"
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T12:00:00Z",
+        "zone": "America/New_York"
+      },
+      "action": {
+        "operation": "build.inspectTargetCatalog",
+        "arguments": {
+          "package": "WP-006",
+          "boundary": "access",
+          "projection": "current_actor"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "caller_authority_fields_allowed": false,
+          "simultaneous_seat_contexts_allowed": false,
+          "typed_organization_required": true
+        },
+        "event": null
+      },
+      "layers": [
+        "build",
+        "contract"
+      ],
+      "coverage_notes": [
+        "Contract-only evidence. Current session/grants/consent, transactions, private-care isolation, request admission and live adapter parity remain API/integration obligations."
+      ]
+    },
+    {
+      "id": "WP006-KNOW-116",
+      "requirement": "REQ-KNOW-116",
+      "requirement_ids": [
+        "REQ-KNOW-116"
+      ],
+      "feature_ids": [
+        "EVR-020",
+        "IDN-005",
+        "LCH-006"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-005--IDN-005",
+        "AC-LCH-006--LCH-006",
+        "AC-EVR-256--EVR-256",
+        "AC-EVR-EFFECT--EVR-256",
+        "AC-EVR-257--EVR-257",
+        "AC-EVR-EFFECT--EVR-257",
+        "AC-EVR-419--EVR-419",
+        "AC-EVR-READ--EVR-419"
+      ],
+      "work_packages": [
+        "WP-006"
+      ],
+      "status": "future-not-run",
+      "description": "Access contract boundary round trip. No live session, tenant policy, SQL enforcement or native/Evry workflow proof.",
+      "given": {
+        "contract": {
+          "fixture_type": "contract_boundary",
+          "module": "@everyfield/contracts/access"
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T12:00:00Z",
+        "zone": "America/New_York"
+      },
+      "action": {
+        "operation": "build.inspectTargetCatalog",
+        "arguments": {
+          "package": "WP-006",
+          "boundary": "access",
+          "projection": "write_authority"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "expected_revision_required": true,
+          "caller_approval_allowed": false,
+          "native_and_assistant_input_equal": true
+        },
+        "event": null
+      },
+      "layers": [
+        "build",
+        "contract"
+      ],
+      "coverage_notes": [
+        "Contract-only evidence. Current session/grants/consent, transactions, private-care isolation, request admission and live adapter parity remain API/integration obligations."
+      ]
+    },
+    {
+      "id": "WP006-MUL-002",
+      "requirement": "REQ-MUL-002",
+      "requirement_ids": [
+        "REQ-MUL-002"
+      ],
+      "feature_ids": [
+        "MUL-002"
+      ],
+      "acceptance_ids": [
+        "AC-MUL-002--MUL-002"
+      ],
+      "work_packages": [
+        "WP-006"
+      ],
+      "status": "future-not-run",
+      "description": "Access contract boundary round trip. No live session, tenant policy, SQL enforcement or native/Evry workflow proof.",
+      "given": {
+        "contract": {
+          "fixture_type": "contract_boundary",
+          "module": "@everyfield/contracts/access"
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T12:00:00Z",
+        "zone": "America/New_York"
+      },
+      "action": {
+        "operation": "build.inspectTargetCatalog",
+        "arguments": {
+          "package": "WP-006",
+          "boundary": "access",
+          "projection": "restricted_projections"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "resident_internal_fields_allowed": false,
+          "director_staff_notes_allowed": false,
+          "general_result_note_body_allowed": false
+        },
+        "event": null
+      },
+      "layers": [
+        "build",
+        "contract"
+      ],
+      "coverage_notes": [
+        "Contract-only evidence. Current session/grants/consent, transactions, private-care isolation, request admission and live adapter parity remain API/integration obligations."
+      ]
     }
   ]
 }
