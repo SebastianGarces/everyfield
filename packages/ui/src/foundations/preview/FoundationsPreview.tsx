@@ -22,7 +22,7 @@ import { HoverDemo } from "./HoverDemo";
 export function FoundationsPreview() {
   return (
     <>
-      <PageHead crumb="Foundations" title="Foundations">
+      <PageHead crumb="Foundations" title="Foundations" size="xl">
         Brand, color roles, type, shape and patterns. Everything else is built from these tokens. Dark mode uses the same token names with dark values: switch it with the sun and moon in the rail.
       </PageHead>
 
@@ -32,7 +32,7 @@ export function FoundationsPreview() {
           <BrandTile className="bg-green text-ink-fixed" />
           <BrandTile className="bg-cream text-ink-fixed shadow-card" />
         </div>
-        <Note>In the app the mark is brand green and the wordmark is ink, with no background (top bar).</Note>
+        <Note className="mt-4">In the app the mark is brand green and the wordmark is ink, with no background (top bar).</Note>
       </Section>
 
       <Section index={2} title="Brand colors" code="--ef-ink · --ef-green · --ef-cream">
@@ -162,8 +162,8 @@ function Section({ index, title, code, id, children }: { index: number; title: s
   );
 }
 
-function Note({ children }: { children: ReactNode }) {
-  return <p className="mb-[18px] max-w-[760px] text-text-2">{children}</p>;
+function Note({ className, children }: { className?: string; children: ReactNode }) {
+  return <p className={cn("mb-[18px] max-w-[760px] text-text-2", className)}>{children}</p>;
 }
 
 function Specimen({ label, children }: { label: string; children: ReactNode }) {

@@ -60,7 +60,7 @@ function SamplePage({ role, nav, lastAction }: { role: PreviewRole; nav: ShellNa
   return (
     <>
       <PageHead crumb="App shell" title={title}>
-        Sample page inside the app shell. Use the top navigation and the rail to move between pages. Every page here is a placeholder.
+        Sample page inside the app shell. Use the navigation to move between pages. Every page here is a placeholder.
       </PageHead>
       <div className="grid gap-5 app-lg:grid-cols-2">
         <Panel title="Preview as" index={0}>
@@ -117,7 +117,7 @@ function RoleLink({ role, current }: { role: PreviewRole; current: boolean }) {
 }
 
 /** Page header used by the previews: breadcrumb, title and subtitle (prototype .page-header). */
-export function PageHead({ crumb, title, children }: { crumb: string; title: string; children: ReactNode }) {
+export function PageHead({ crumb, title, size = "default", children }: { crumb: string; title: string; size?: "default" | "xl"; children: ReactNode }) {
   return (
     <header className="reveal mb-[26px]" style={revealDelay(0)}>
       <p className="mb-2.5 flex items-center gap-2 text-md text-text-3">
@@ -125,7 +125,7 @@ export function PageHead({ crumb, title, children }: { crumb: string; title: str
         <Icon icon={ArrowRight01Icon} size={16} />
         <span className="text-text-2">{crumb}</span>
       </p>
-      <h1 className="text-display-sm leading-[1.05] tracking-[-0.035em] text-ink max-app-sm:text-title-lg">{title}</h1>
+      <h1 className={cn("leading-[1.05] tracking-[-0.035em] text-ink max-app-sm:text-title-lg", size === "xl" ? "text-[52px]" : "text-display-sm")}>{title}</h1>
       <p className="mt-2 max-w-[760px] text-[15px] text-text-2">{children}</p>
     </header>
   );
