@@ -120,7 +120,10 @@ node $S/publish.mjs --delete <task>/<prefix>    # one upload, the 32-hex part of
 ```
 
 Keys have the layout `evf-evidence/<task>/<prefix>/<file>`, so the link shows both parts. The
-command prints how many objects it deleted. Old links then return 404.
+`prefix` value in `$E/published.json` also works as it is:
+`node $S/publish.mjs --delete "$(node -p "require('$E/published.json').prefix")"`.
+The command prints how many objects it deleted. Then check that the old index link returns 404:
+`curl -s -o /dev/null -w '%{http_code}\n' <index link>`.
 
 ## 6. Report
 

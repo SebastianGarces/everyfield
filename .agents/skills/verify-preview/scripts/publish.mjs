@@ -2,6 +2,7 @@
 // Upload a verification evidence folder to the dedicated Tigris evidence bucket with public-read links.
 // Usage: node publish.mjs <evidence-dir> --task <task-id>
 //        node publish.mjs --delete <task-id>[/<prefix>]   delete one task's evidence, or one upload
+//        (the "prefix" value in published.json is accepted as it is)
 // Key layout: evf-evidence/<task-id>/<random 32-hex prefix>/<file>.
 // Bucket: EVF_EVIDENCE_BUCKET (default everyfield-evidence). Objects are public-read; listing is refused,
 // so each link needs its random 128-bit prefix. Credentials: AWS_* from the environment, else from
@@ -13,7 +14,7 @@ import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "
 import { dirname, extname, join, relative, resolve } from "node:path";
 
 const args = process.argv.slice(2);
-const target = args[args.indexOf("--delete") + 1];
+const target = args[args.indexOf("--delete") + 1]?.replace(/^evf-evidence\//, "");
 const deleting = args.includes("--delete");
 const dir = resolve(args[0] ?? "");
 const task = args[args.indexOf("--task") + 1];
