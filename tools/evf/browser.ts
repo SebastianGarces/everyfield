@@ -8,6 +8,7 @@ import { join } from "node:path";
 // process group (Playwright and the agent-browser daemon start their own groups). Cleanup finds
 // them by this token: by what the run started, never by a process name.
 const TAG = "EVF_BROWSER_RUN";
+const AGENT_BROWSER_DIR = join(homedir(), ".agent-browser");
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Live processes, other than this one, whose environment carries TAG=token. */
@@ -100,9 +101,13 @@ export async function browserRun(argv: string[], opts: BrowserRunOptions): Promi
 	if (child.pid) signal(-child.pid, "SIGTERM"); // anything still in the run's own group
 
 	// Let agent-browser save and close its session before the processes get a signal.
-	if (taggedProcesses(token).length)
+	if (existsSync(join(AGENT_BROWSER_DIR, `${session}.pid`)))
 		spawnSync("agent-browser", ["--session", session, "close"], { env, stdio: "ignore", timeout: 15000 });
 	const left = await stopTagged(token);
+	// A generated session belongs to this run alone; remove its state files (config, target, ...).
+	if (!opts.session && existsSync(AGENT_BROWSER_DIR))
+		for (const f of readdirSync(AGENT_BROWSER_DIR))
+			if (f.startsWith(`${session}.`)) rmSync(join(AGENT_BROWSER_DIR, f), { force: true });
 	for (const [sig, h] of handlers) process.off(sig, h);
 	rmSync(tmp, { recursive: true, force: true });
 
@@ -127,10 +132,10 @@ function seconds(etime: string): number {
 }
 
 function agentBrowserSessions(): Map<number, string> {
-	const dir = join(homedir(), ".agent-browser"),
-		sessions = new Map<number, string>();
-	for (const f of existsSync(dir) ? readdirSync(dir) : [])
-		if (f.endsWith(".pid")) sessions.set(Number(readFileSync(join(dir, f), "utf8").trim()), f.slice(0, -4));
+	const sessions = new Map<number, string>();
+	for (const f of existsSync(AGENT_BROWSER_DIR) ? readdirSync(AGENT_BROWSER_DIR) : [])
+		if (f.endsWith(".pid"))
+			sessions.set(Number(readFileSync(join(AGENT_BROWSER_DIR, f), "utf8").trim()), f.slice(0, -4));
 	return sessions;
 }
 
