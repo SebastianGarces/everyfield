@@ -50,7 +50,8 @@ Human approval (only after Sebastian approves that PR in chat)
 Upkeep
   evf test [Node test options]                               local tooling regressions on evf's Node
   evf doctor [--here]  evf gc [--apply]
-  evf principles [--apply] [--ref <sha>]                      compare or sync principles with pstack
+  evf principles [--ref <sha>] [<task>]                       compare principles with pstack
+  evf principles --apply <OPS-n> [--ref <sha>]                sync them into that task's worktree
 
 <task> is WP-NNN for a single-part package, WP-NNN/contract, WP-NNN/api, WP-NNN/ui,
 FB-<n> for public feedback issue n, or OPS-<n> for reviewed tooling maintenance.`;
@@ -118,7 +119,10 @@ function main(argv: string[]): number {
       return approve(root, n, { ownerApproval: option(args, "--owner-approval"), head: option(args, "--head") });
     }
     case "principles":
-      return principles(root, { apply: flag(args, "--apply"), ref: option(args, "--ref") });
+    {
+      const apply = flag(args, "--apply"), ref = option(args, "--ref");
+      return principles(root, { apply, ref, task: args[0] ? parseTask(args[0]) : undefined });
+    }
     case "gc":
       return gc(root, flag(args, "--apply"));
     case "plan": {
