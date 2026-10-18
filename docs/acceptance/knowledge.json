@@ -4043,7 +4043,7 @@
         "WP-035"
       ],
       "status": "future-not-run",
-      "description": "Owner reads articles 1–3 and other eligible reader 4–6; each 0.9; one article at exactly 0.80.",
+      "description": "Owner reads articles 1\u20133 and other eligible reader 4\u20136; each 0.9; one article at exactly 0.80.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -20467,6 +20467,321 @@
         "result": {
           "new_paid_commitment_allowed": false,
           "unlimited_free_usage_claimed": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "WP010-KNOW-069",
+      "requirement": "REQ-KNOW-069",
+      "requirement_ids": [
+        "REQ-KNOW-069"
+      ],
+      "feature_ids": [
+        "IDN-026"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-026--IDN-026"
+      ],
+      "work_packages": [
+        "WP-010"
+      ],
+      "status": "future-not-run",
+      "given": {
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "registration": "active"
+        },
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "revision": 7
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Owner",
+          "active": true
+        },
+        "delete-A": {
+          "fixture_type": "lifecycle_witness",
+          "subject": "A",
+          "request_id": "delete-A",
+          "state": "pending_deletion",
+          "revision": 7,
+          "requested_at": "2026-10-13T16:00:00Z",
+          "cancel_until": "2026-11-12T16:00:00Z"
+        },
+        "church-doc": {
+          "fixture_type": "document",
+          "owner": "P",
+          "creator": "A"
+        },
+        "private-doc": {
+          "fixture_type": "document",
+          "owner": "A",
+          "creator": "A"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-11-12T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "account.requestDeletion",
+        "arguments": {
+          "confirmed": true,
+          "expected_revision": 7
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "state": "pending_deletion",
+          "church_document_retained": true,
+          "creator_does_not_define_owner": true,
+          "account_document_hidden": true,
+          "avatar_hidden": true,
+          "private_care_hidden": true
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "WP010-KNOW-072",
+      "requirement": "REQ-KNOW-072",
+      "requirement_ids": [
+        "REQ-KNOW-072"
+      ],
+      "feature_ids": [
+        "IDN-026"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-026--IDN-026"
+      ],
+      "work_packages": [
+        "WP-010"
+      ],
+      "status": "future-not-run",
+      "given": {
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "registration": "active"
+        },
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "revision": 7
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Owner",
+          "active": true
+        },
+        "delete-A": {
+          "fixture_type": "lifecycle_witness",
+          "subject": "A",
+          "request_id": "delete-A",
+          "state": "purging",
+          "revision": 7,
+          "requested_at": "2026-10-13T16:00:00Z",
+          "cancel_until": "2026-11-12T16:00:00Z"
+        },
+        "church-doc": {
+          "fixture_type": "document",
+          "owner": "P",
+          "creator": "A"
+        },
+        "private-doc": {
+          "fixture_type": "document",
+          "owner": "A",
+          "creator": "A"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "fault": "private_object_delete"
+        },
+        "restricted-A": {
+          "fixture_type": "deletion_subject_proof",
+          "account": "A",
+          "request_id": "delete-A",
+          "verified": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "restricted-A",
+        "context": null
+      },
+      "clock": {
+        "now": "2026-11-12T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "account.getDeletionStatus",
+        "arguments": {
+          "request": "delete-A"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "state": "purging",
+          "normal_access": false,
+          "live_purged_at": null,
+          "retryable": true
+        },
+        "event": null
+      },
+      "subcases": [
+        {
+          "name": "coherent-retry",
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "fault": null
+            },
+            "delete-A": {
+              "fixture_type": "lifecycle_witness",
+              "subject": "A",
+              "request_id": "delete-A",
+              "state": "purged",
+              "revision": 8,
+              "requested_at": "2026-10-13T16:00:00Z",
+              "cancel_until": "2026-11-12T16:00:00Z",
+              "live_purged_at": "2026-11-12T16:00:00Z",
+              "copy_expires_at": "2026-11-19T16:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "restricted-A",
+            "context": null
+          },
+          "clock": {
+            "now": "2026-11-12T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "account.getDeletionStatus",
+            "arguments": {
+              "request": "delete-A"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "state": "purged",
+              "live_purged_at": "2026-11-12T16:00:00Z",
+              "copy_expires_at": "2026-11-19T16:00:00Z"
+            },
+            "event": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "WP010-KNOW-073",
+      "requirement": "REQ-KNOW-073",
+      "requirement_ids": [
+        "REQ-KNOW-073"
+      ],
+      "feature_ids": [
+        "IDN-026"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-026--IDN-026"
+      ],
+      "work_packages": [
+        "WP-010"
+      ],
+      "status": "future-not-run",
+      "given": {
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "registration": "active"
+        },
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "revision": 7
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Owner",
+          "active": true
+        },
+        "snapshot-A": {
+          "fixture_type": "recovery_snapshot",
+          "subject": "A",
+          "request_id": "delete-A"
+        },
+        "delete-A": {
+          "fixture_type": "lifecycle_witness",
+          "subject": "A",
+          "request_id": "delete-A",
+          "state": "purged",
+          "revision": 9,
+          "live_purged_at": "2026-11-12T16:00:00Z",
+          "copy_expires_at": "2026-11-19T16:00:00Z"
+        },
+        "restricted-A": {
+          "fixture_type": "deletion_subject_proof",
+          "account": "A",
+          "request_id": "delete-A",
+          "verified": true
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "restricted-A",
+        "context": null
+      },
+      "clock": {
+        "now": "2026-11-19T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "account.getDeletionStatus",
+        "arguments": {
+          "request": "delete-A"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "state": "purged",
+          "cancel_allowed": false,
+          "normal_access": false,
+          "copy_expires_at": "2026-11-19T16:00:00Z"
         },
         "event": null
       }
