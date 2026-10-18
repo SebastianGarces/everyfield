@@ -30,7 +30,8 @@ export type OnboardingReply<T> = { status: "ok"; value: T } |
 // ordinary role assignment; occupied roles conflict, no templates/readers/care
 // copy and no authority activation. WP-017 proves that integration separately.
 // Unsure/discerning/skip are saved answers, not phase writes. Existing journey
-// is a separate once-only reasoned attestation; phase+launch effects are one
+// is a separate once-only explicit attestation with the server-reserved reason;
+// phase+launch effects are one
 // reviewed resumable intent if their producers cannot share a short transaction.
 // no_date/skip never clear a schedule. Finish stamps completion once and material
 // source revision; it does not fill missing facts or run an assessment.

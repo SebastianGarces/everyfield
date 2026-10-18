@@ -44,8 +44,7 @@ export const answerLeadRequest = commandEnvelope(z.discriminatedUnion("answer", 
   z.strictObject({ answer: z.literal("skip") }),
 ]));
 export const journeyAnswer = z.discriminatedUnion("answer", [
-  z.strictObject({ answer: z.literal("existing"), phase: z.int().min(1).max(6),
-    reason: z.string().trim().min(1).max(2000) }),
+  z.strictObject({ answer: z.literal("existing"), phase: z.int().min(0).max(6) }),
   z.strictObject({ answer: z.literal("unsure") }),
   z.strictObject({ answer: z.literal("discerning") }),
   z.strictObject({ answer: z.literal("skip") }),
