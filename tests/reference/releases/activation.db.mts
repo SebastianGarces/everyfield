@@ -12,9 +12,17 @@ import { hash, canonical } from "../../../packages/reference/src/hash.ts";
 import { fixture } from "./fixtures.mts";
 
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-if (source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech" || process.env.NODE_ENV === "production")
-	throw Error("Only shared development direct endpoint permitted");
-source.searchParams.set("sslmode", "verify-full");
+const localCi =
+	process.env.CI === "true" &&
+	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
+	["localhost", "127.0.0.1"].includes(source.hostname) &&
+	source.pathname === "/everyfield_ci";
+if (
+	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
+	process.env.NODE_ENV === "production"
+)
+	throw Error("Only shared development or disposable CI endpoint permitted");
+if (!localCi) source.searchParams.set("sslmode", "verify-full");
 const schema = "wp032_test_" + randomUUID().replaceAll("-", "");
 const db = createDatabase({
 	connectionString: source.href,

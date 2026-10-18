@@ -4405,7 +4405,7 @@
       ],
       "checks": [
         "revision >= 1",
-        "length(btrim(body)) between 1 and 5000",
+        "(removed_at is null and length(btrim(body)) between 1 and 5000) or (removed_at is not null and body='')",
         "plant_id is null or tenant_id = plant_id",
         "participation_id is null or plant_id is not null"
       ],
@@ -4422,6 +4422,7 @@
       "producer_work_packages": [
         "WP-004",
         "WP-006",
+        "WP-011",
         "WP-014",
         "WP-098"
       ],
@@ -4432,6 +4433,7 @@
         "rule": "Union of producer packages of replaced tables.",
         "additional_producers": [
           "WP-006",
+          "WP-011",
           "WP-098"
         ]
       },
@@ -35490,15 +35492,549 @@
       "idempotency": "Source primary key prevents duplicate lineage/results.",
       "deletion": "Purge with the actual source owner; counterpart receipts retain only permitted minimal facts and scrub personal attribution.",
       "physical_verified": false
+    },
+    {
+      "name": "people_history",
+      "domain": "people",
+      "purpose": "Protected Person snapshots and original occurrence/correction lineage, separate from body-free platform audit.",
+      "library_owned": false,
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "note": "",
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "tenant_id",
+          "type": "uuid",
+          "nullable": false,
+          "note": ""
+        },
+        {
+          "name": "person_id",
+          "type": "uuid",
+          "nullable": false,
+          "note": ""
+        },
+        {
+          "name": "operation_id",
+          "type": "uuid",
+          "nullable": false,
+          "note": ""
+        },
+        {
+          "name": "actor_id",
+          "type": "uuid",
+          "nullable": true,
+          "note": ""
+        },
+        {
+          "name": "actor_token",
+          "type": "text",
+          "nullable": false,
+          "note": ""
+        },
+        {
+          "name": "action",
+          "type": "text",
+          "nullable": false,
+          "note": ""
+        },
+        {
+          "name": "occurred_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "note": ""
+        },
+        {
+          "name": "recorded_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "note": "",
+          "default": "clock_timestamp()"
+        },
+        {
+          "name": "before_revision",
+          "type": "bigint",
+          "nullable": true,
+          "note": ""
+        },
+        {
+          "name": "after_revision",
+          "type": "bigint",
+          "nullable": false,
+          "note": ""
+        },
+        {
+          "name": "before_value",
+          "type": "jsonb",
+          "nullable": true,
+          "note": ""
+        },
+        {
+          "name": "after_value",
+          "type": "jsonb",
+          "nullable": true,
+          "note": ""
+        },
+        {
+          "name": "reason",
+          "type": "text",
+          "nullable": true,
+          "note": ""
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "columns": [
+            "tenant_id"
+          ],
+          "references": {
+            "table": "tenant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action",
+          "deletion": {
+            "action": "no_action",
+            "policy": "Dependency-ordered owner cleanup or witnessed attribution scrubbing; no retained private body or new retention exemption."
+          }
+        },
+        {
+          "columns": [
+            "actor_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null",
+          "deletion": {
+            "action": "set_null",
+            "policy": "Dependency-ordered owner cleanup or witnessed attribution scrubbing; no retained private body or new retention exemption."
+          }
+        },
+        {
+          "columns": [
+            "person_id",
+            "tenant_id"
+          ],
+          "references": {
+            "table": "person",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "no_action",
+          "deletion": {
+            "action": "no_action",
+            "policy": "Dependency-ordered owner cleanup or witnessed attribution scrubbing; no retained private body or new retention exemption."
+          }
+        },
+        {
+          "columns": [
+            "operation_id",
+            "tenant_id"
+          ],
+          "references": {
+            "table": "operation",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "no_action",
+          "deletion": {
+            "action": "no_action",
+            "policy": "Dependency-ordered owner cleanup or witnessed attribution scrubbing; no retained private body or new retention exemption."
+          }
+        }
+      ],
+      "checks": [],
+      "jsonb_keys": {
+        "before_value": [
+          "id",
+          "tenant_id",
+          "plant_id",
+          "organization_id",
+          "display_name",
+          "first_name",
+          "last_name",
+          "email",
+          "phone",
+          "street",
+          "city",
+          "state_province",
+          "postal_code",
+          "country",
+          "source",
+          "source_details",
+          "notes",
+          "created_at",
+          "stage",
+          "adult_classification",
+          "birth_date",
+          "linked_account_id",
+          "household_id",
+          "household_role",
+          "photo_object_id",
+          "pipeline_position",
+          "state",
+          "retired_at",
+          "merged_into_person_id",
+          "commitment_state",
+          "revision"
+        ],
+        "after_value": [
+          "id",
+          "tenant_id",
+          "plant_id",
+          "organization_id",
+          "display_name",
+          "first_name",
+          "last_name",
+          "email",
+          "phone",
+          "street",
+          "city",
+          "state_province",
+          "postal_code",
+          "country",
+          "source",
+          "source_details",
+          "notes",
+          "created_at",
+          "stage",
+          "adult_classification",
+          "birth_date",
+          "linked_account_id",
+          "household_id",
+          "household_role",
+          "photo_object_id",
+          "pipeline_position",
+          "state",
+          "retired_at",
+          "merged_into_person_id",
+          "commitment_state",
+          "revision"
+        ]
+      },
+      "capabilities": [
+        "CAP-A-017",
+        "CAP-A-018",
+        "CAP-A-019",
+        "CAP-A-021",
+        "CAP-A-054"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-011"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-011"
+        ],
+        "rule": "WP-011 People producer storage introduced by additive migration 0004; D30/D32 current-catalog registration."
+      },
+      "feature_ids": [
+        "IDN-013",
+        "IDN-019",
+        "MUL-001",
+        "MUL-002",
+        "MUL-005",
+        "MUL-006",
+        "MUL-017",
+        "PPL-001",
+        "PPL-002",
+        "PPL-003",
+        "PPL-004",
+        "PPL-006",
+        "PPL-008",
+        "PPL-019",
+        "PPL-020",
+        "TEAM-015"
+      ],
+      "acceptance_ids": [],
+      "future_case_ids": [
+        "TARGET-PPL-004",
+        "TARGET-PPL-006",
+        "TARGET-PPL-007",
+        "GAP-PPL-023"
+      ],
+      "scope": "people",
+      "invariants": [
+        "Fresh exact owner, actor, source lifecycle and revision checks precede reads and mutations.",
+        "Protected facts, history, replay result, audit and material revision commit in the same transaction; this storage grants no access."
+      ],
+      "revision": "Append original occurrence and correction evidence; current mutable order uses expected revisions.",
+      "idempotency": "Exact operation result replays only after fresh authority checks; source rows serialize concurrent writes.",
+      "deletion": "Witnessed organization removal scrubs unnecessary bodies and attribution immediately. Account removal severs links and retains only legitimate independently owned facts with minimal scope-local attribution. Retention and recovery follow the actual owner; no new TTL or history exemption.",
+      "physical_verified": false
+    },
+    {
+      "name": "people_result",
+      "domain": "people",
+      "purpose": "Bounded producer reply retained for exact operation replay after fresh authorization.",
+      "library_owned": false,
+      "columns": [
+        {
+          "name": "operation_id",
+          "type": "uuid",
+          "nullable": false,
+          "note": ""
+        },
+        {
+          "name": "tenant_id",
+          "type": "uuid",
+          "nullable": false,
+          "note": "Exact immutable owner paired with both operation and Person."
+        },
+        {
+          "name": "person_id",
+          "type": "uuid",
+          "nullable": true,
+          "note": ""
+        },
+        {
+          "name": "value",
+          "type": "jsonb",
+          "nullable": false,
+          "note": ""
+        }
+      ],
+      "primary_key": [
+        "operation_id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "columns": [
+            "tenant_id"
+          ],
+          "references": {
+            "table": "tenant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action",
+          "deletion": {
+            "action": "no_action",
+            "policy": "Dependency-ordered owner cleanup; no retention exemption."
+          }
+        },
+        {
+          "columns": [
+            "operation_id",
+            "tenant_id"
+          ],
+          "references": {
+            "table": "operation",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "no_action",
+          "deletion": {
+            "action": "no_action",
+            "policy": "Dependency-ordered owner cleanup or witnessed attribution scrubbing; no retained private body or new retention exemption."
+          }
+        },
+        {
+          "columns": [
+            "person_id",
+            "tenant_id"
+          ],
+          "references": {
+            "table": "person",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "no_action",
+          "deletion": {
+            "action": "no_action",
+            "policy": "Dependency-ordered owner cleanup or witnessed attribution scrubbing; no retained private body or new retention exemption."
+          }
+        }
+      ],
+      "checks": [],
+      "jsonb_keys": {
+        "value": [
+          "person",
+          "receiptId",
+          "outcome",
+          "noteId",
+          "noteRevision",
+          "removedAt",
+          "columns",
+          "witness",
+          "retained"
+        ]
+      },
+      "capabilities": [
+        "CAP-A-017",
+        "CAP-A-018",
+        "CAP-A-019",
+        "CAP-A-020",
+        "CAP-A-021",
+        "CAP-A-054"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-011"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-011"
+        ],
+        "rule": "WP-011 People producer storage introduced by additive migration 0004; D30/D32 current-catalog registration."
+      },
+      "feature_ids": [
+        "IDN-013",
+        "IDN-019",
+        "MUL-001",
+        "MUL-002",
+        "MUL-005",
+        "MUL-006",
+        "MUL-017",
+        "PPL-001",
+        "PPL-002",
+        "PPL-003",
+        "PPL-004",
+        "PPL-006",
+        "PPL-007",
+        "PPL-008",
+        "PPL-019",
+        "PPL-020",
+        "TEAM-015"
+      ],
+      "acceptance_ids": [],
+      "future_case_ids": [
+        "TARGET-PPL-004",
+        "TARGET-PPL-006",
+        "TARGET-PPL-007",
+        "GAP-PPL-023"
+      ],
+      "scope": "people",
+      "invariants": [
+        "Fresh exact owner, actor, source lifecycle and revision checks precede reads and mutations.",
+        "Protected facts, history, replay result, audit and material revision commit in the same transaction; this storage grants no access."
+      ],
+      "revision": "Append original occurrence and correction evidence; current mutable order uses expected revisions.",
+      "idempotency": "Exact operation result replays only after fresh authority checks; source rows serialize concurrent writes.",
+      "deletion": "Witnessed organization removal scrubs unnecessary bodies and attribution immediately. Account removal severs links and retains only legitimate independently owned facts with minimal scope-local attribution. Retention and recovery follow the actual owner; no new TTL or history exemption.",
+      "physical_verified": false
+    },
+    {
+      "name": "people_column",
+      "domain": "people",
+      "purpose": "Revision lock for complete exact-column pipeline ordering.",
+      "library_owned": false,
+      "columns": [
+        {
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false,
+          "note": ""
+        },
+        {
+          "name": "column_name",
+          "type": "text",
+          "nullable": false,
+          "note": ""
+        },
+        {
+          "name": "revision",
+          "type": "bigint",
+          "nullable": false,
+          "note": "",
+          "default": "1"
+        }
+      ],
+      "primary_key": [
+        "plant_id",
+        "column_name"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action",
+          "deletion": {
+            "action": "no_action",
+            "policy": "Dependency-ordered owner cleanup or witnessed attribution scrubbing; no retained private body or new retention exemption."
+          }
+        }
+      ],
+      "checks": [
+        "column_name in ('prospect','attendee','following_up','interviewed','core_group')"
+      ],
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-020"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-011"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-011"
+        ],
+        "rule": "WP-011 People producer storage introduced by additive migration 0004; D30/D32 current-catalog registration."
+      },
+      "feature_ids": [
+        "PPL-007"
+      ],
+      "acceptance_ids": [],
+      "future_case_ids": [
+        "TARGET-PPL-004",
+        "TARGET-PPL-006",
+        "TARGET-PPL-007",
+        "GAP-PPL-023"
+      ],
+      "scope": "people",
+      "invariants": [
+        "Fresh exact owner, actor, source lifecycle and revision checks precede reads and mutations.",
+        "Protected facts, history, replay result, audit and material revision commit in the same transaction; this storage grants no access."
+      ],
+      "revision": "Append original occurrence and correction evidence; current mutable order uses expected revisions.",
+      "idempotency": "Exact operation result replays only after fresh authority checks; source rows serialize concurrent writes.",
+      "deletion": "Witnessed organization removal scrubs unnecessary bodies and attribution immediately. Account removal severs links and retains only legitimate independently owned facts with minimal scope-local attribution. Retention and recovery follow the actual owner; no new TTL or history exemption.",
+      "physical_verified": false
     }
   ],
   "format_version": 2,
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 123,
-  "column_count": 1428,
-  "foreign_key_count": 497,
+  "table_count": 126,
+  "column_count": 1449,
+  "foreign_key_count": 505,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -38350,6 +38886,13 @@
     "schema_migration.provenance": [
       "original",
       "adopted"
+    ],
+    "people_column.column_name": [
+      "prospect",
+      "attendee",
+      "following_up",
+      "interviewed",
+      "core_group"
     ]
   },
   "auth_adapter_configuration": {
@@ -39722,6 +40265,64 @@
         "ADR1-005",
         "ADR1-017"
       ]
+    },
+    {
+      "table": "people_history",
+      "columns": [
+        "person_id",
+        "tenant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-011",
+        "WP-015"
+      ],
+      "meaning": "Original same-owner Person identity in protected history or exact replay. This is evidence, not a new current operational reference.",
+      "lock_order": "Lock actual owner, current actor and same-owner Person lifecycle row before appending history/result; consumer operations lock source/survivor Persons in UUID order before reviewed reference moves.",
+      "merge_policy": "Preserve original Person endpoint and before/after snapshot bytes. Resolve current merged lineage only under fresh same-owner authority; never retarget original history or replay an effect.",
+      "inverse_policy": "Unmerge guards reviewed source/survivor revisions and all intervening facts; preserve original history and refuse partial inverse or resurrection after removal.",
+      "retirement_policy": "Retain necessary original evidence across retirement; append the retirement itself under the same lifecycle lock. New current references are separately denied. Removal scrubs protected bodies and replay content before recovery.",
+      "privacy_policy": "No transfer of account grants, original authorship, staff-note access, care, consent or conversation ownership.",
+      "immutable_evidence_policy": "Original occurrence, actor token and corrections remain attributable; witnessed removal may scrub unnecessary bodies and identifying attribution.",
+      "future_case_ids": [
+        "TARGET-PPL-004",
+        "TARGET-PPL-006",
+        "TARGET-PPL-008",
+        "GAP-PPL-023",
+        "ADR1-005"
+      ]
+    },
+    {
+      "table": "people_result",
+      "columns": [
+        "person_id",
+        "tenant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-011",
+        "WP-015"
+      ],
+      "meaning": "Original same-owner Person identity in protected history or exact replay. This is evidence, not a new current operational reference.",
+      "lock_order": "Lock actual owner, current actor and same-owner Person lifecycle row before appending history/result; consumer operations lock source/survivor Persons in UUID order before reviewed reference moves.",
+      "merge_policy": "Preserve original Person endpoint and before/after snapshot bytes. Resolve current merged lineage only under fresh same-owner authority; never retarget original history or replay an effect.",
+      "inverse_policy": "Unmerge guards reviewed source/survivor revisions and all intervening facts; preserve original history and refuse partial inverse or resurrection after removal.",
+      "retirement_policy": "Retain necessary original evidence across retirement; append the retirement itself under the same lifecycle lock. New current references are separately denied. Removal scrubs protected bodies and replay content before recovery.",
+      "privacy_policy": "No transfer of account grants, original authorship, staff-note access, care, consent or conversation ownership.",
+      "immutable_evidence_policy": "Original occurrence, actor token and corrections remain attributable; witnessed removal may scrub unnecessary bodies and identifying attribution.",
+      "future_case_ids": [
+        "TARGET-PPL-004",
+        "TARGET-PPL-006",
+        "TARGET-PPL-008",
+        "GAP-PPL-023",
+        "ADR1-005"
+      ]
     }
   ],
   "person_snapshot_references": [
@@ -39779,6 +40380,16 @@
       "table": "organization_person_removal",
       "field": "person_record_id",
       "policy": "Body-free removed Person identity in the exact organization. Restore reapplies this witness before reopening current records, historical projections or bytes. Never resurrect contact/note/feedback/merge snapshots or consent; retained identity grants no access."
+    },
+    {
+      "table": "people_history",
+      "field": "before_value/after_value",
+      "policy": "Frozen bounded original Person projection, including linked-account identity and lineage. Do not retarget on merge or Unmerge, transfer grants or replay effects. Fresh same-owner authorization precedes reads/replay; witnessed organization/account removal scrubs private bodies and identity before recovery."
+    },
+    {
+      "table": "people_result",
+      "field": "value",
+      "policy": "Frozen bounded original Person projection, including linked-account identity and lineage. Do not retarget on merge or Unmerge, transfer grants or replay effects. Fresh same-owner authorization precedes reads/replay; witnessed organization/account removal scrubs private bodies and identity before recovery."
     }
   ],
   "person_source_ruling": {
@@ -39820,6 +40431,10 @@
     {
       "id": "D32-CURRENT-MIGRATIONS",
       "reason": "Current target includes WP-007 consent revision, exact invitation endpoints, protected relationship history and immutable operation results. Verify the full ordered migration chain against this catalog; applied baseline and privilege migration bytes stay frozen."
+    },
+    {
+      "id": "D32-PEOPLE-PRODUCER",
+      "reason": "WP-011 additive 0004 registers protected Person history, exact results, pipeline ordering, normalized Person references and removed-note body-free tombstones; fresh full migration proof includes ordered 0004 and 0005 without rewriting applied SQL."
     }
   ]
 }

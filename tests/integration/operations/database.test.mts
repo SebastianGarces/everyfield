@@ -47,6 +47,8 @@ before(async () => {
 		"0001_early_access.sql",
 		"0002_baseline.sql",
 		"0003_access_privileges.sql",
+		"0004_people.sql",
+		"0005_organization_relationships.sql",
 	]);
 	await admin.execute(
 		querySql.raw(
@@ -96,7 +98,7 @@ test("AC:CASE-OPS-005 versioned migration checksums are observed at application,
 	assert.equal(provenance.state, "current");
 	assert.deepEqual(
 		provenance.applied.map((r) => r.provenance),
-		["original", "original", "original"],
+		(await migrationArtifact()).map(() => "original"),
 	);
 	const ledger = (
 		await admin.execute(querySql`SELECT name,applied_at,sha256,provenance FROM schema_migration ORDER BY name`)

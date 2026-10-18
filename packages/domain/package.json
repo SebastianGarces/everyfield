@@ -8,7 +8,8 @@
 		"./operations": "./src/operations/index.ts",
 		"./identity": "./src/identity/index.ts",
 		"./organizations": "./src/organizations/index.ts",
-		"./access": "./src/access/index.ts"
+		"./access": "./src/access/index.ts",
+		"./people": "./src/people/index.ts"
 	},
 	"scripts": {
 		"typecheck": "tsc --noEmit",
@@ -19,7 +20,9 @@
 		"test:identity": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/identity/*.test.mts",
 		"test:identity:production": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/identity/timing.production.mts",
 		"test:organizations": "node --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/organizations/*.test.mts",
-		"test:access": "node --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/access/*.test.mts"
+		"test:access": "node --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/access/*.test.mts",
+		"test:people": "node --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/people/*.test.mts",
+		"test:db": "pnpm test && pnpm test:people"
 	},
 	"dependencies": {
 		"@everyfield/db": "workspace:*",

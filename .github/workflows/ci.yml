@@ -112,7 +112,7 @@ jobs:
       - name: Current catalog against a fresh full migration chain
         run: python3 packages/db/src/schema/generate.py --check
       - name: Domain tests
-        run: pnpm test:access
+        run: pnpm -r --if-present test:db
 
   wiki:
     name: wiki (tooling tests)
