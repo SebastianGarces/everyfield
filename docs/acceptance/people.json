@@ -10478,7 +10478,7 @@
         "WP-014"
       ],
       "status": "future-not-run",
-      "description": "Skip prospect→leader, backward leader→attendee, same-stage retry, concurrent edits and declined open-duty handoff.",
+      "description": "Skip prospect\u2192leader, backward leader\u2192attendee, same-stage retry, concurrent edits and declined open-duty handoff.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -11943,7 +11943,7 @@
           "owner": "A",
           "plant": "P",
           "mime": "text/csv",
-          "utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
+          "utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
         },
         "intent-1": {
           "fixture_type": "import_intent",
@@ -11977,7 +11977,7 @@
         "operation": "people.executeBulkImport",
         "arguments": {
           "upload": "upload-1",
-          "original_utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n",
+          "original_utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n",
           "request_key": "import-1",
           "row_resolutions": [
             {
@@ -12102,7 +12102,7 @@
               "owner": "A",
               "plant": "P",
               "mime": "text/csv",
-              "utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
+              "utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
             },
             "intent-1": {
               "fixture_type": "import_intent",
@@ -12182,7 +12182,7 @@
               "owner": "A",
               "plant": "P",
               "mime": "text/csv",
-              "utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
+              "utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
             },
             "intent-1": {
               "fixture_type": "import_intent",
@@ -12267,7 +12267,7 @@
               "owner": "A",
               "plant": "P",
               "mime": "text/csv",
-              "utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
+              "utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
             },
             "intent-1": {
               "fixture_type": "import_intent",
@@ -12363,7 +12363,7 @@
               "owner": "A",
               "plant": "P",
               "mime": "text/csv",
-              "utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
+              "utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
             },
             "intent-1": {
               "fixture_type": "import_intent",
@@ -12446,7 +12446,7 @@
               "owner": "A",
               "plant": "P",
               "mime": "text/csv",
-              "utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
+              "utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
             },
             "intent-1": {
               "fixture_type": "import_intent",
@@ -13003,7 +13003,7 @@
         "WP-048"
       ],
       "status": "future-not-run",
-      "description": "At October 13 `asOf`, P moved prospect→attendee twice after a backward move, Q once, R is currently prospect but outside the September transition window, and S is retired/merged. Compare reconstructed September source cohort with missing original cohort history, plus foreign tenant request.",
+      "description": "At October 13 `asOf`, P moved prospect\u2192attendee twice after a backward move, Q once, R is currently prospect but outside the September transition window, and S is retired/merged. Compare reconstructed September source cohort with missing original cohort history, plus foreign tenant request.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -13166,7 +13166,7 @@
         "WP-094"
       ],
       "status": "future-not-run",
-      "description": "Register a later attendance and training consumer after WP-015; race its insert against source→survivor merge and Person retirement, then inspect every actual Person FK and inverse policy.",
+      "description": "Register a later attendance and training consumer after WP-015; race its insert against source\u2192survivor merge and Person retirement, then inspect every actual Person FK and inverse policy.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -21139,6 +21139,81 @@
       ],
       "coverage_notes": [
         "Boundary evidence only; no live authorization, transactional, delivery, export/removal, native/Evry or full-package proof."
+      ]
+    },
+    {
+      "id": "WP009-MUL-006",
+      "requirement": "REQ-MUL-006",
+      "requirement_ids": [
+        "REQ-MUL-006"
+      ],
+      "feature_ids": [
+        "MUL-006"
+      ],
+      "acceptance_ids": [
+        "AC-MUL-006--MUL-006"
+      ],
+      "work_packages": [
+        "WP-009"
+      ],
+      "status": "future-not-run",
+      "description": "Round trip the account-confirmed ordinary plant-creation boundary. Refuse organization-authored creation, seat-transfer, commissioning, geographic attestation and client-chosen phase. Runtime one-seat, transaction and creation-event proof belongs to WP-009/api.",
+      "given": {
+        "contract": {
+          "fixture_type": "contract_boundary",
+          "module": "@everyfield/contracts/onboarding"
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T15:00:00Z",
+        "zone": "America/New_York"
+      },
+      "action": {
+        "operation": "build.inspectTargetCatalog",
+        "arguments": {
+          "contract": "residency plant-creation handoff",
+          "command": {
+            "requestKey": "confirmed-creation",
+            "expectedRevision": "0",
+            "input": {
+              "name": "  Harvest Point  ",
+              "locality": {
+                "city": "  Boston  ",
+                "stateProvince": null,
+                "country": null
+              },
+              "confirmed": true
+            }
+          }
+        }
+      },
+      "expected": {
+        "state": {},
+        "event": null,
+        "result": {
+          "name": "Harvest Point",
+          "locality": {
+            "city": "Boston",
+            "stateProvince": null,
+            "country": null
+          },
+          "confirmed": true,
+          "caller_phase_allowed": false,
+          "organization_actor_allowed": false,
+          "seat_transfer_allowed": false
+        }
+      },
+      "layers": [
+        "build",
+        "contract"
+      ],
+      "coverage_notes": [
+        "Boundary evidence only. No live authorization, one-seat race, creation journal, database or commissioning implementation claim."
       ]
     }
   ]
