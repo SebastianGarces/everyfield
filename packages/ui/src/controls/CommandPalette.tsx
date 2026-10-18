@@ -6,7 +6,7 @@ import { Dialog as DialogPrimitive } from "radix-ui";
 import type { ReactNode } from "react";
 import { Icon } from "../foundations";
 import { Kbd } from "./Field";
-import { usePortalContainer } from "./overlay-portal";
+import { usePortalContainer, useReturnFocus } from "./overlay-portal";
 import { Spinner } from "./Spinner";
 
 export type CommandItem = {
@@ -45,11 +45,12 @@ type CommandPaletteProps = {
  */
 export function CommandPalette({ open, onOpenChange, groups, placeholder = "Search people, meetings, articles", query, onQueryChange, filter = true, loading, error, emptyText = "No results", hints = ["↑↓ move", "↵ open", "esc close"] }: CommandPaletteProps) {
   const container = usePortalContainer();
+  const focus = useReturnFocus();
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal container={container}>
         <DialogPrimitive.Overlay className="ef-scrim fixed inset-0 z-50 bg-ink-fixed/28 backdrop-blur-[2px]" />
-        <DialogPrimitive.Content aria-modal="true" aria-describedby={undefined} className="ef-dialog fixed top-[12vh] left-1/2 z-50 w-[calc(100vw-24px)] max-w-[620px] -translate-x-1/2 overflow-hidden rounded-[24px] bg-surface-raised text-md text-ink shadow-pop outline-none max-app-sm:top-3">
+        <DialogPrimitive.Content {...focus} aria-modal="true" aria-describedby={undefined} className="ef-dialog fixed top-[12vh] left-1/2 z-50 w-[calc(100vw-24px)] max-w-[620px] -translate-x-1/2 overflow-hidden rounded-[24px] bg-surface-raised text-md text-ink shadow-pop outline-none max-app-sm:top-3">
           <DialogPrimitive.Title className="sr-only">Search</DialogPrimitive.Title>
           <Command shouldFilter={filter} loop label="Search">
             <div className="flex items-center gap-3 border-b border-line px-5 py-[18px]">

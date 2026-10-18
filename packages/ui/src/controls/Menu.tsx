@@ -7,7 +7,14 @@ import { Kbd } from "./Field";
 import { usePortalContainer } from "./overlay-portal";
 import { popSurface } from "./Popover";
 
-export const Menu = DropdownMenu.Root;
+/**
+ * The menu root. Non-modal: the page around an open menu is not hidden from assistive technology, because a modal
+ * menu sets aria-hidden on elements that still hold focusable controls (axe aria-hidden-focus). Focus still moves
+ * into the menu, arrows move inside it, and Esc, Tab or an outside click closes it and returns focus to the trigger.
+ */
+export function Menu({ modal = false, ...props }: ComponentPropsWithRef<typeof DropdownMenu.Root>) {
+  return <DropdownMenu.Root modal={modal} {...props} />;
+}
 export const MenuTrigger = DropdownMenu.Trigger;
 export const MenuGroup = DropdownMenu.Group;
 

@@ -6,7 +6,7 @@ import { useState, type ComponentPropsWithRef, type ReactNode } from "react";
 import { cn, Icon, type IconSvgElement } from "../foundations";
 import { Button, IconButton } from "./Button";
 import { CardIcon, type Tone } from "./Card";
-import { usePortalContainer } from "./overlay-portal";
+import { usePortalContainer, useReturnFocus } from "./overlay-portal";
 
 export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
@@ -26,12 +26,13 @@ type DialogContentProps = ComponentPropsWithRef<typeof DialogPrimitive.Content> 
  * it and focus returns to the trigger. The page behind is inert. Compose it from DialogHeader, DialogBody and
  * DialogFooter. A long body scrolls inside the dialog, so the header and footer stay in view.
  */
-export function DialogContent({ size = "md", className, children, ...props }: DialogContentProps) {
+export function DialogContent({ size = "md", className, children, onOpenAutoFocus, onCloseAutoFocus, ...props }: DialogContentProps) {
   const container = usePortalContainer();
+  const focus = useReturnFocus({ onOpenAutoFocus, onCloseAutoFocus });
   return (
     <DialogPrimitive.Portal container={container}>
       <DialogPrimitive.Overlay className={SCRIM} />
-      <DialogPrimitive.Content aria-modal="true" className={cn(PANEL, WIDTH[size], className)} {...props}>
+      <DialogPrimitive.Content aria-modal="true" className={cn(PANEL, WIDTH[size], className)} {...props} {...focus}>
         {children}
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
@@ -99,6 +100,7 @@ type ConfirmDialogProps = {
  */
 export function ConfirmDialog({ open, onOpenChange, trigger, title, description, consequences, confirmLabel, cancelLabel = "Cancel", tone = "default", onConfirm }: ConfirmDialogProps) {
   const container = usePortalContainer();
+  const focus = useReturnFocus();
   const [inner, setInner] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -129,7 +131,7 @@ export function ConfirmDialog({ open, onOpenChange, trigger, title, description,
       {trigger ? <AlertDialog.Trigger asChild>{trigger}</AlertDialog.Trigger> : null}
       <AlertDialog.Portal container={container}>
         <AlertDialog.Overlay className={SCRIM} />
-        <AlertDialog.Content aria-modal="true" className={cn(PANEL, WIDTH.sm)}>
+        <AlertDialog.Content aria-modal="true" className={cn(PANEL, WIDTH.sm)} {...focus}>
           <div className="flex flex-none items-start gap-4 px-7 pt-[26px] pb-4 max-app-sm:px-5 max-app-sm:pt-5">
             {tone === "danger" ? <CardIcon icon={Alert02Icon} tone="magenta" /> : null}
             <div className="min-w-0 flex-1">
@@ -187,6 +189,7 @@ type SheetProps = {
 /** Sheet: a panel from the right edge for the Guide panel and similar side content. Full width below 640px. */
 export function Sheet({ open, onOpenChange, trigger, title, description, modal = true, actions, footer, children, className }: SheetProps) {
   const container = usePortalContainer();
+  const focus = useReturnFocus();
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange} modal={modal}>
       {trigger ? <DialogPrimitive.Trigger asChild>{trigger}</DialogPrimitive.Trigger> : null}
@@ -194,6 +197,7 @@ export function Sheet({ open, onOpenChange, trigger, title, description, modal =
         {modal ? <DialogPrimitive.Overlay className={cn(SCRIM, "bg-ink-fixed/12 backdrop-blur-none")} /> : null}
         <DialogPrimitive.Content
           aria-modal={modal ? "true" : undefined}
+          {...focus}
           onInteractOutside={modal ? undefined : (e) => e.preventDefault()}
           className={cn("ef-sheet fixed top-3 right-3 bottom-3 z-50 flex w-[420px] max-w-[calc(100vw-24px)] flex-col rounded-[26px] bg-surface-raised text-md text-ink shadow-pop outline-none max-app-sm:top-0 max-app-sm:right-0 max-app-sm:bottom-0 max-app-sm:w-full max-app-sm:max-w-none max-app-sm:rounded-none", className)}
         >
