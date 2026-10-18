@@ -1,160 +1,182 @@
 import {
-  isUiPath,
-  fail,
-  findPackage,
-  loadDag,
-  loadProgress,
-  loadContexts,
-  partsOf,
-  pathsForPart,
-  prerequisitesForPart,
-  type Package,
-  type Part,
+	isUiPath,
+	fail,
+	findPackage,
+	loadDag,
+	loadProgress,
+	loadContexts,
+	partsOf,
+	pathsForPart,
+	prerequisitesForPart,
+	type Package,
+	type Part,
 } from "./lib.ts";
-import { producerReady } from './progress.ts';
+import { producerReady } from "./progress.ts";
 
 type Block = {
-  key: string;
-  taskId: string;
-  title: string;
-  wp: string;
-  part: Part;
-  paths: string[];
-  specialist: "implementor" | "ui-designer";
-  model: string;
-  uiHandoff?: string;
-  effortHours: number;
-  dependsOn: string[];
-  conflictsWith: string[];
-  acceptanceCount: number;
+	key: string;
+	taskId: string;
+	title: string;
+	wp: string;
+	part: Part;
+	paths: string[];
+	specialist: "implementor" | "ui-designer";
+	model: string;
+	uiHandoff?: string;
+	effortHours: number;
+	dependsOn: string[];
+	conflictsWith: string[];
+	acceptanceCount: number;
 };
 
 const SHARE: Record<string, number> = { contract: 0.2, api: 0.5, ui: 0.3 };
 
 function keyOf(wp: string, part: Part): string {
-  return part ? `${wp.toLowerCase()}-${part}` : wp.toLowerCase();
+	return part ? `${wp.toLowerCase()}-${part}` : wp.toLowerCase();
 }
 
 function overlaps(a: string[], b: string[]): boolean {
-  return a.some((x) => b.some((y) => x.startsWith(y) || y.startsWith(x)));
+	return a.some((x) => b.some((y) => x.startsWith(y) || y.startsWith(x)));
 }
 
-export function selectPackages(root: string, selectors: string[], includeDone: boolean): { pkgs: Package[]; skipped: string[] } {
-  const dag = loadDag(root);
-  const progress = loadProgress(root);
-  if (selectors.length === 0) fail("Give a slice (S0..S5) or package IDs (WP-001 WP-002 ...).");
-  const ids = new Set<string>();
-  for (const s of selectors) {
-    const slice = dag.vertical_slices.find((v) => v.id.toUpperCase() === s.toUpperCase());
-    if (slice) slice.required_packages.forEach((id) => ids.add(id));
-    else ids.add(findPackage(dag, s.toUpperCase()).id);
-  }
-  const order = (dag as typeof dag & {topological_merge_order:string[]}).topological_merge_order;
-  const skipped: string[] = [];
-  const pkgs = [...ids]
-    .sort((a, b) => order.indexOf(a) - order.indexOf(b))
-    .map((id) => findPackage(dag, id))
-    .filter((p) => {
-      if (!includeDone && progress[p.id]?.status === "done") {
-        skipped.push(p.id);
-        return false;
-      }
-      return true;
-    });
-  return { pkgs, skipped };
+export function selectPackages(
+	root: string,
+	selectors: string[],
+	includeDone: boolean,
+): { pkgs: Package[]; skipped: string[] } {
+	const dag = loadDag(root);
+	const progress = loadProgress(root);
+	if (selectors.length === 0) fail("Give a slice (S0..S5) or package IDs (WP-001 WP-002 ...).");
+	const ids = new Set<string>();
+	for (const s of selectors) {
+		const slice = dag.vertical_slices.find((v) => v.id.toUpperCase() === s.toUpperCase());
+		if (slice) slice.required_packages.forEach((id) => ids.add(id));
+		else ids.add(findPackage(dag, s.toUpperCase()).id);
+	}
+	const order = (dag as typeof dag & { topological_merge_order: string[] }).topological_merge_order;
+	const skipped: string[] = [];
+	const pkgs = [...ids]
+		.sort((a, b) => order.indexOf(a) - order.indexOf(b))
+		.map((id) => findPackage(dag, id))
+		.filter((p) => {
+			if (!includeDone && progress[p.id]?.status === "done") {
+				skipped.push(p.id);
+				return false;
+			}
+			return true;
+		});
+	return { pkgs, skipped };
 }
 
 export function buildBlocks(root: string, pkgs: Package[]): { blocks: Block[]; external: string[] } {
-  const contexts = new Map(loadContexts(root).map(c => [c.id, c]));
-  const inSet = new Set(pkgs.map((p) => p.id));
-  const finalKeys = new Map(pkgs.map(p => [p.id, [keyOf(p.id, partsOf(p).includes('contract') ? 'contract' : partsOf(p).includes('api') ? 'api' : null)]]));
-  const blocks: Block[] = [];
-  const external = new Set<string>();
+	const contexts = new Map(loadContexts(root).map((c) => [c.id, c]));
+	const inSet = new Set(pkgs.map((p) => p.id));
+	const finalKeys = new Map(
+		pkgs.map((p) => [
+			p.id,
+			[keyOf(p.id, partsOf(p).includes("contract") ? "contract" : partsOf(p).includes("api") ? "api" : null)],
+		]),
+	);
+	const blocks: Block[] = [];
+	const external = new Set<string>();
 
-  for (const pkg of pkgs) {
-    const parts = partsOf(pkg);
-    const context = contexts.get(pkg.id);
-    if (!context) fail(`No current context for ${pkg.id}.`);
-    const acceptanceCount = context.acceptance_ids.length;
-    for (const part of parts) {
-      const key = keyOf(pkg.id, part);
-      const dependsOn: string[] = [];
-      for (const dep of prerequisitesForPart(pkg, part)) {
-        if (producerReady(root, dep)) continue;
-        if (inSet.has(dep)) dependsOn.push(...(finalKeys.get(dep) ?? []));
-        else external.add(dep);
-      }
-      if (part === "api" || part === "ui") {
-        const anchor = parts.includes("contract") ? keyOf(pkg.id, "contract") : part === "ui" ? keyOf(pkg.id, "api") : null;
-        if (anchor) dependsOn.push(anchor);
-      }
-      const ui = part === "ui" || (part === null && pkg.owning_paths.every(isUiPath));
-      blocks.push({
-        key,
-        taskId: part ? `${pkg.id}/${part}` : pkg.id,
-        title: `${part ? `${pkg.id}/${part}` : pkg.id}: ${pkg.title}${part ? ` (${part})` : ""}`,
-        wp: pkg.id,
-        part,
-        paths: pathsForPart(pkg, part),
-        specialist: ui ? "ui-designer" : "implementor",
-        model: ui ? "Opus 5.5 (claude-code), effort from UI tier" : "Sol 6.1 (codex, gpt-6.1-sol)",
-        ...(pkg.ui_specialist ? {uiHandoff:`UI work: ${pkg.ui_specialist} on ${pkg.ui_model}.\nUI guidance: ${pkg.ui_composition_rule ?? pkg.goal}`} : {}),
-        effortHours: Math.max(1, Math.round(pkg.estimate_engineer_days * 8 * (part ? SHARE[part] : 1))),
-        dependsOn,
-        conflictsWith: [],
-        acceptanceCount,
-      });
-    }
-  }
+	for (const pkg of pkgs) {
+		const parts = partsOf(pkg);
+		const context = contexts.get(pkg.id);
+		if (!context) fail(`No current context for ${pkg.id}.`);
+		const acceptanceCount = context.acceptance_ids.length;
+		for (const part of parts) {
+			const key = keyOf(pkg.id, part);
+			const dependsOn: string[] = [];
+			for (const dep of prerequisitesForPart(pkg, part)) {
+				if (producerReady(root, dep)) continue;
+				if (inSet.has(dep)) dependsOn.push(...(finalKeys.get(dep) ?? []));
+				else external.add(dep);
+			}
+			if (part === "api" || part === "ui") {
+				const anchor = parts.includes("contract")
+					? keyOf(pkg.id, "contract")
+					: part === "ui"
+						? keyOf(pkg.id, "api")
+						: null;
+				if (anchor) dependsOn.push(anchor);
+			}
+			const ui = part === "ui" || (part === null && pkg.owning_paths.every(isUiPath));
+			blocks.push({
+				key,
+				taskId: part ? `${pkg.id}/${part}` : pkg.id,
+				title: `${part ? `${pkg.id}/${part}` : pkg.id}: ${pkg.title}${part ? ` (${part})` : ""}`,
+				wp: pkg.id,
+				part,
+				paths: pathsForPart(pkg, part),
+				specialist: ui ? "ui-designer" : "implementor",
+				model: ui ? "Opus 5.5 (claude-code), effort from UI tier" : "Sol 6.1 (codex, gpt-6.1-sol)",
+				...(pkg.ui_specialist
+					? {
+							uiHandoff: `UI work: ${pkg.ui_specialist} on ${pkg.ui_model}.\nUI guidance: ${pkg.ui_composition_rule ?? pkg.goal}`,
+						}
+					: {}),
+				effortHours: Math.max(1, Math.round(pkg.estimate_engineer_days * 8 * (part ? SHARE[part] : 1))),
+				dependsOn,
+				conflictsWith: [],
+				acceptanceCount,
+			});
+		}
+	}
 
-  const reach = new Map<string, Set<string>>();
-  const byKey = new Map(blocks.map((b) => [b.key, b]));
-  const ancestors = (key: string): Set<string> => {
-    const hit = reach.get(key);
-    if (hit) return hit;
-    const out = new Set<string>();
-    for (const d of byKey.get(key)?.dependsOn ?? []) {
-      out.add(d);
-      ancestors(d).forEach((x) => out.add(x));
-    }
-    reach.set(key, out);
-    return out;
-  };
-  for (let i = 0; i < blocks.length; i++) {
-    for (let j = i + 1; j < blocks.length; j++) {
-      const a = blocks[i];
-      const b = blocks[j];
-      if (a.wp === b.wp) continue;
-      if (ancestors(a.key).has(b.key) || ancestors(b.key).has(a.key)) continue;
-      if (overlaps(a.paths, b.paths)) b.conflictsWith.push(a.key);
-    }
-  }
-  return { blocks, external: [...external] };
+	const reach = new Map<string, Set<string>>();
+	const byKey = new Map(blocks.map((b) => [b.key, b]));
+	const ancestors = (key: string): Set<string> => {
+		const hit = reach.get(key);
+		if (hit) return hit;
+		const out = new Set<string>();
+		for (const d of byKey.get(key)?.dependsOn ?? []) {
+			out.add(d);
+			ancestors(d).forEach((x) => out.add(x));
+		}
+		reach.set(key, out);
+		return out;
+	};
+	for (let i = 0; i < blocks.length; i++) {
+		for (let j = i + 1; j < blocks.length; j++) {
+			const a = blocks[i];
+			const b = blocks[j];
+			if (a.wp === b.wp) continue;
+			if (ancestors(a.key).has(b.key) || ancestors(b.key).has(a.key)) continue;
+			if (overlaps(a.paths, b.paths)) b.conflictsWith.push(a.key);
+		}
+	}
+	return { blocks, external: [...external] };
 }
 
 export function renderBlocks(blocks: Block[], external: string[], skipped: string[]): string {
-  const out: string[] = [];
-  out.push("<!-- Generated by `evf plan`. Paste into the coordinator's spec note. Task blocks convert to Intent task notes. -->");
-  if (skipped.length) out.push(`<!-- Already done, skipped: ${skipped.join(", ")} -->`);
-  if (external.length) {
-    out.push(`> Not ready: these prerequisites need a reviewed producer/interface milestone: ${external.join(", ")}. Plan or acknowledge their shipped milestones first.`);
-  }
-  out.push("");
-  for (const b of blocks) {
-    const attrs = [`key=${b.key}`];
-    if (b.dependsOn.length) attrs.push(`dependsOn=${b.dependsOn.join(",")}`);
-    if (b.conflictsWith.length) attrs.push(`conflictsWith=${b.conflictsWith.join(",")}`);
-    attrs.push(`effort=${b.effortHours}h`);
-    out.push(`@@@task ${attrs.join(" ")}`);
-    out.push(`# ${b.title}`);
-    out.push(`Specialist: \`${b.specialist}\`. Model: ${b.model}.`);
-    if(b.uiHandoff)out.push(b.uiHandoff);
-    if (b.specialist === "ui-designer") out.push("UI tier: coordinator sets UI-1..UI-4 before delegation (see `.agents/roles/coordinator.md`).");
-    out.push(`Owning paths: ${b.paths.map((p) => `\`${p}\``).join(", ")}.`);
-    out.push(`Selected acceptance count: ${b.acceptanceCount}.`);
-    out.push(`First command: \`evf task start ${b.taskId}\`. Full brief: \`evf task brief ${b.taskId}\`.`);
-    out.push("@@@");
-    out.push("");
-  }
-  return out.join("\n");
+	const out: string[] = [];
+	out.push(
+		"<!-- Generated by `evf plan`. Paste into the coordinator's spec note. Task blocks convert to Intent task notes. -->",
+	);
+	if (skipped.length) out.push(`<!-- Already done, skipped: ${skipped.join(", ")} -->`);
+	if (external.length) {
+		out.push(
+			`> Not ready: these prerequisites need a reviewed producer/interface milestone: ${external.join(", ")}. Plan or acknowledge their shipped milestones first.`,
+		);
+	}
+	out.push("");
+	for (const b of blocks) {
+		const attrs = [`key=${b.key}`];
+		if (b.dependsOn.length) attrs.push(`dependsOn=${b.dependsOn.join(",")}`);
+		if (b.conflictsWith.length) attrs.push(`conflictsWith=${b.conflictsWith.join(",")}`);
+		attrs.push(`effort=${b.effortHours}h`);
+		out.push(`@@@task ${attrs.join(" ")}`);
+		out.push(`# ${b.title}`);
+		out.push(`Specialist: \`${b.specialist}\`. Model: ${b.model}.`);
+		if (b.uiHandoff) out.push(b.uiHandoff);
+		if (b.specialist === "ui-designer")
+			out.push("UI tier: coordinator sets UI-1..UI-4 before delegation (see `.agents/roles/coordinator.md`).");
+		out.push(`Owning paths: ${b.paths.map((p) => `\`${p}\``).join(", ")}.`);
+		out.push(`Selected acceptance count: ${b.acceptanceCount}.`);
+		out.push(`First command: \`evf task start ${b.taskId}\`. Full brief: \`evf task brief ${b.taskId}\`.`);
+		out.push("@@@");
+		out.push("");
+	}
+	return out.join("\n");
 }
