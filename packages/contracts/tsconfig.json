@@ -11,6 +11,7 @@
   },
   "include": [
     "src/**/*.ts",
+    "src/**/*.mts",
     "../../tests/contracts/common/**/*.ts",
     "../../tests/contracts/common/**/*.mts"
   ]

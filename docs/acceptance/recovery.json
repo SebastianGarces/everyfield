@@ -3154,6 +3154,152 @@
         },
         "event": null
       }
+    },
+    {
+      "id": "WP005-KNOW-069",
+      "requirement": "REQ-KNOW-069",
+      "feature_ids": [
+        "DOC-003",
+        "DOC-015",
+        "DOC-016",
+        "IDN-006",
+        "IDN-013",
+        "IDN-026",
+        "PI-038",
+        "PI-039",
+        "PI-040",
+        "PI-041"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-003--DOC-003",
+        "AC-DOC-015--DOC-015",
+        "AC-DOC-016--DOC-016",
+        "AC-IDN-006--IDN-006",
+        "AC-IDN-013--IDN-013",
+        "AC-IDN-026--IDN-026",
+        "AC-PI-038--PI-038",
+        "AC-PI-039--PI-039",
+        "AC-PI-040--PI-040",
+        "AC-PI-041--PI-041"
+      ],
+      "work_packages": [
+        "WP-005"
+      ],
+      "status": "future-not-run",
+      "description": "Identity public contract accepts minimal retained attribution without exposing private account credentials or using creator as ownership.",
+      "given": {
+        "contract": {
+          "fixture_type": "contract_boundary",
+          "module": "@everyfield/contracts/identity"
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "build.inspectTargetCatalog",
+        "arguments": {
+          "package": "WP-005",
+          "boundary": "identity",
+          "projection": "retained_attribution"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "retained_attribution": {
+            "kind": "removed_account"
+          },
+          "credential_fields_allowed": false,
+          "creator_as_owner_allowed": false
+        },
+        "event": null
+      },
+      "coverage_notes": [
+        "Contract boundary proof only. Actual purge, shared-history retention, request fencing and byte deletion remain API/integration obligations."
+      ],
+      "layers": [
+        "build",
+        "contract"
+      ]
+    },
+    {
+      "id": "WP005-KNOW-072",
+      "requirement": "REQ-KNOW-072",
+      "feature_ids": [
+        "DOC-003",
+        "DOC-015",
+        "DOC-016",
+        "IDN-006",
+        "IDN-026",
+        "OPS-007",
+        "PI-038",
+        "PI-039",
+        "PI-040",
+        "PI-041"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-003--DOC-003",
+        "AC-DOC-015--DOC-015",
+        "AC-DOC-016--DOC-016",
+        "AC-IDN-006--IDN-006",
+        "AC-IDN-026--IDN-026",
+        "AC-OPS-007--OPS-007",
+        "AC-PI-038--PI-038",
+        "AC-PI-039--PI-039",
+        "AC-PI-040--PI-040",
+        "AC-PI-041--PI-041"
+      ],
+      "work_packages": [
+        "WP-005"
+      ],
+      "status": "future-not-run",
+      "description": "Identity lifecycle contract cannot describe purging as complete or attach completion timestamps to an incomplete purge.",
+      "given": {
+        "contract": {
+          "fixture_type": "contract_boundary",
+          "module": "@everyfield/contracts/identity"
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "build.inspectTargetCatalog",
+        "arguments": {
+          "package": "WP-005",
+          "boundary": "identity",
+          "projection": "purge_status"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "incomplete_status": "purging",
+          "incomplete_live_purged_at_allowed": false,
+          "complete_requires_live_purged_at": true
+        },
+        "event": null
+      },
+      "coverage_notes": [
+        "Contract boundary proof only. Actual purge, shared-history retention, request fencing and byte deletion remain API/integration obligations."
+      ],
+      "layers": [
+        "build",
+        "contract"
+      ]
     }
   ]
 }
