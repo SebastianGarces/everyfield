@@ -44,6 +44,8 @@ Use the pinned Kit through the single generation command, from the workspace roo
 ```sh
 corepack pnpm --filter @everyfield/db generate --name descriptive_change
 corepack pnpm --filter @everyfield/db generate --name descriptive_custom_change --custom
+# After editing the custom SQL, normalize it before review:
+corepack pnpm --filter @everyfield/db generate --normalize
 ```
 
 Do not run raw `drizzle-kit generate`, `push` or `migrate`. The command generates

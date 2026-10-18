@@ -78,8 +78,12 @@ export async function verifySnapshotBaseline(): Promise<void> {
 	const previous: Record<string, unknown> = JSON.parse(await readFile(new URL(last, directory), "utf8"));
 	const current = generateDrizzleJson(declarations);
 	// UUID links identify generation events; the actual supported definitions must agree.
-	const definitions = (snapshot: Record<string, unknown>) =>
-		Object.fromEntries(Object.entries(snapshot).filter(([key]) => !["id", "prevId"].includes(key)));
+	const definitions = (snapshot: Record<string, unknown>): unknown =>
+		JSON.parse(
+			JSON.stringify(
+				Object.fromEntries(Object.entries(snapshot).filter(([key]) => !["id", "prevId", "_meta"].includes(key))),
+			),
+		);
 	if (!isDeepStrictEqual(definitions(previous), definitions(current)))
 		throw Error("Schema declarations changed without a Kit migration; run generate and review its output");
 	if ((await generateMigration(current, current)).length) throw Error("Kit emitted SQL for an unchanged snapshot");

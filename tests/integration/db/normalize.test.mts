@@ -63,3 +63,44 @@ ALTER TABLE "account" ADD CONSTRAINT vector CHECK (true);`;
 	assert.equal(normalizeOwnTableReferences(sql, new Set(["account"])), sql);
 	assert.equal(qualifyVectorTypes(sql), sql);
 });
+
+test("committed migration checks reject raw Kit qualification and frozen-byte changes", async () => {
+	const { mkdtemp, mkdir, writeFile, rm } = await import("node:fs/promises");
+	const { tmpdir } = await import("node:os");
+	const { pathToFileURL } = await import("node:url");
+	const { createHash } = await import("node:crypto");
+	const { checkMigrationArtifacts, ownTableNames } = await import("../../../packages/db/src/schema/artifacts.ts");
+	const directory = await mkdtemp(tmpdir() + "/db1-artifacts-");
+	const url = pathToFileURL(directory + "/");
+	try {
+		await mkdir(directory + "/meta");
+		const frozen = "SELECT 1;\n";
+		await writeFile(directory + "/0001_baseline.sql", frozen);
+		await writeFile(
+			directory + "/meta/frozen.json",
+			JSON.stringify({
+				files: [{ name: "0001_baseline.sql", sha256: createHash("sha256").update(frozen).digest("hex") }],
+			}),
+		);
+		await writeFile(
+			directory + "/meta/_journal.json",
+			JSON.stringify({
+				entries: [
+					{ idx: 1, tag: "0001_baseline" },
+					{ idx: 2, tag: "0002_probe" },
+				],
+			}),
+		);
+		const kit = 'ALTER TABLE "public"."person" ADD COLUMN embedding vector[];';
+		await writeFile(directory + "/0002_probe.sql", kit);
+		await assert.rejects(checkMigrationArtifacts(url), /public-qualified/);
+		await writeFile(directory + "/0002_probe.sql", normalizeOwnTableReferences(kit, ownTableNames));
+		await assert.rejects(checkMigrationArtifacts(url), /unqualified vector/);
+		await writeFile(directory + "/0002_probe.sql", qualifyVectorTypes(normalizeOwnTableReferences(kit, ownTableNames)));
+		await assert.doesNotReject(checkMigrationArtifacts(url));
+		await writeFile(directory + "/0001_baseline.sql", frozen + "-- changed\n");
+		await assert.rejects(checkMigrationArtifacts(url), /Frozen migration changed/);
+	} finally {
+		await rm(directory, { recursive: true, force: true });
+	}
+});
