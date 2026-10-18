@@ -15153,6 +15153,524 @@
             },
             "event": null
           }
+        },
+        {
+          "name": "Retired Person refuses acceptance",
+          "given": {
+            "P": {
+              "fixture_type": "person",
+              "id": "P",
+              "tenant_id": "O",
+              "organization_id": "O",
+              "plant_id": null,
+              "display_name": "Casey Lee",
+              "stage": null,
+              "state": "retired",
+              "revision": 4,
+              "linked_account_id": null,
+              "created_at": "2026-01-01T00:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "R",
+            "session": "RS",
+            "context": null
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "residency.respondInvitation",
+            "arguments": {
+              "invitation": "Invite",
+              "person": "P",
+              "decision": "accept",
+              "share_foundations": true,
+              "share_milestones": false,
+              "expected_revision": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": [],
+            "error_code": "invitation_unavailable"
+          }
+        },
+        {
+          "name": "Merged Person refuses acceptance",
+          "given": {
+            "P": {
+              "fixture_type": "person",
+              "id": "P",
+              "tenant_id": "O",
+              "organization_id": "O",
+              "plant_id": null,
+              "display_name": "Casey Lee",
+              "stage": null,
+              "state": "merged",
+              "revision": 4,
+              "linked_account_id": null,
+              "created_at": "2026-01-01T00:00:00Z",
+              "survivor_id": "OtherPerson"
+            }
+          },
+          "actor": {
+            "account": "R",
+            "session": "RS",
+            "context": null
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "residency.respondInvitation",
+            "arguments": {
+              "invitation": "Invite",
+              "person": "P",
+              "decision": "accept",
+              "share_foundations": true,
+              "share_milestones": false,
+              "expected_revision": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": [],
+            "error_code": "invitation_unavailable"
+          }
+        },
+        {
+          "name": "Expired invitation refuses a fresh claim",
+          "given": {
+            "Invite": {
+              "fixture_type": "invitation",
+              "id": "Invite",
+              "tenant_id": "O",
+              "purpose": "residency_link",
+              "recipient_email": "resident@example.test",
+              "state": "expired",
+              "revision": 3,
+              "resident_person_id": "P"
+            }
+          },
+          "actor": {
+            "account": "R",
+            "session": "RS",
+            "context": null
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "residency.respondInvitation",
+            "arguments": {
+              "invitation": "Invite",
+              "person": "P",
+              "decision": "accept",
+              "share_foundations": true,
+              "share_milestones": false,
+              "expected_revision": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": [],
+            "error_code": "invitation_unavailable"
+          }
+        },
+        {
+          "name": "Accepted invitation refuses a fresh claim",
+          "given": {
+            "Invite": {
+              "fixture_type": "invitation",
+              "id": "Invite",
+              "tenant_id": "O",
+              "purpose": "residency_link",
+              "recipient_email": "resident@example.test",
+              "state": "accepted",
+              "revision": 3,
+              "resident_person_id": "P"
+            }
+          },
+          "actor": {
+            "account": "R",
+            "session": "RS",
+            "context": null
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "residency.respondInvitation",
+            "arguments": {
+              "invitation": "Invite",
+              "person": "P",
+              "decision": "accept",
+              "share_foundations": true,
+              "share_milestones": false,
+              "expected_revision": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": [],
+            "error_code": "invitation_unavailable"
+          }
+        },
+        {
+          "name": "Exact expiry instant refuses acceptance",
+          "given": {
+            "execution": {
+              "fixture_type": "execution_control",
+              "request_repetitions": 1
+            }
+          },
+          "actor": {
+            "account": "R",
+            "session": "RS",
+            "context": null
+          },
+          "clock": {
+            "now": "2026-10-18T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "residency.respondInvitation",
+            "arguments": {
+              "invitation": "Invite",
+              "person": "P",
+              "decision": "accept",
+              "share_foundations": true,
+              "share_milestones": false,
+              "expected_revision": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": [],
+            "error_code": "invitation_unavailable"
+          }
+        },
+        {
+          "name": "Unverified mailbox refuses acceptance",
+          "given": {
+            "proof": {
+              "fixture_type": "verified_invitation_proof",
+              "invitation": "Invite",
+              "account": "R",
+              "address_verified": false,
+              "expires_at": "2026-10-18T16:00:00Z",
+              "purpose": "residency_link",
+              "person": "P",
+              "organization": "O"
+            }
+          },
+          "actor": {
+            "account": "R",
+            "session": "RS",
+            "context": null
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "residency.respondInvitation",
+            "arguments": {
+              "invitation": "Invite",
+              "person": "P",
+              "decision": "accept",
+              "share_foundations": true,
+              "share_milestones": false,
+              "expected_revision": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": [],
+            "error_code": "invitation_unavailable"
+          }
+        },
+        {
+          "name": "Wrong addressed account refuses acceptance",
+          "given": {
+            "proof": {
+              "fixture_type": "verified_invitation_proof",
+              "invitation": "Invite",
+              "account": "A",
+              "address_verified": true,
+              "expires_at": "2026-10-18T16:00:00Z",
+              "purpose": "residency_link",
+              "person": "P",
+              "organization": "O"
+            }
+          },
+          "actor": {
+            "account": "R",
+            "session": "RS",
+            "context": null
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "residency.respondInvitation",
+            "arguments": {
+              "invitation": "Invite",
+              "person": "P",
+              "decision": "accept",
+              "share_foundations": true,
+              "share_milestones": false,
+              "expected_revision": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": [],
+            "error_code": "invitation_unavailable"
+          }
+        },
+        {
+          "name": "Wrong proof purpose refuses acceptance",
+          "given": {
+            "proof": {
+              "fixture_type": "verified_invitation_proof",
+              "invitation": "Invite",
+              "account": "R",
+              "address_verified": true,
+              "expires_at": "2026-10-18T16:00:00Z",
+              "purpose": "seat",
+              "person": "P",
+              "organization": "O"
+            }
+          },
+          "actor": {
+            "account": "R",
+            "session": "RS",
+            "context": null
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "residency.respondInvitation",
+            "arguments": {
+              "invitation": "Invite",
+              "person": "P",
+              "decision": "accept",
+              "share_foundations": true,
+              "share_milestones": false,
+              "expected_revision": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": [],
+            "error_code": "invitation_unavailable"
+          }
+        },
+        {
+          "name": "Wrong proof Person refuses acceptance",
+          "given": {
+            "proof": {
+              "fixture_type": "verified_invitation_proof",
+              "invitation": "Invite",
+              "account": "R",
+              "address_verified": true,
+              "expires_at": "2026-10-18T16:00:00Z",
+              "purpose": "residency_link",
+              "person": "OtherPerson",
+              "organization": "O"
+            }
+          },
+          "actor": {
+            "account": "R",
+            "session": "RS",
+            "context": null
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "residency.respondInvitation",
+            "arguments": {
+              "invitation": "Invite",
+              "person": "P",
+              "decision": "accept",
+              "share_foundations": true,
+              "share_milestones": false,
+              "expected_revision": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": [],
+            "error_code": "invitation_unavailable"
+          }
+        },
+        {
+          "name": "Foreign organization refuses acceptance",
+          "given": {
+            "proof": {
+              "fixture_type": "verified_invitation_proof",
+              "invitation": "Invite",
+              "account": "R",
+              "address_verified": true,
+              "expires_at": "2026-10-18T16:00:00Z",
+              "purpose": "residency_link",
+              "person": "P",
+              "organization": "OtherOrganization"
+            }
+          },
+          "actor": {
+            "account": "R",
+            "session": "RS",
+            "context": null
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "residency.respondInvitation",
+            "arguments": {
+              "invitation": "Invite",
+              "person": "P",
+              "decision": "accept",
+              "share_foundations": true,
+              "share_milestones": false,
+              "expected_revision": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": [],
+            "error_code": "invitation_unavailable"
+          }
+        },
+        {
+          "name": "Stale invitation revision refuses acceptance",
+          "given": {
+            "Invite": {
+              "fixture_type": "invitation",
+              "id": "Invite",
+              "tenant_id": "O",
+              "purpose": "residency_link",
+              "recipient_email": "resident@example.test",
+              "state": "pending",
+              "revision": 3,
+              "resident_person_id": "P"
+            }
+          },
+          "actor": {
+            "account": "R",
+            "session": "RS",
+            "context": null
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "residency.respondInvitation",
+            "arguments": {
+              "invitation": "Invite",
+              "person": "P",
+              "decision": "accept",
+              "share_foundations": true,
+              "share_milestones": false,
+              "expected_revision": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": [],
+            "error_code": "invitation_unavailable"
+          }
+        },
+        {
+          "name": "Pending personal deletion refuses acceptance",
+          "given": {
+            "R": {
+              "fixture_type": "account",
+              "id": "R",
+              "email": "resident@example.test",
+              "deletion_state": "pending"
+            }
+          },
+          "actor": {
+            "account": "R",
+            "session": "RS",
+            "context": null
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "residency.respondInvitation",
+            "arguments": {
+              "invitation": "Invite",
+              "person": "P",
+              "decision": "accept",
+              "share_foundations": true,
+              "share_milestones": false,
+              "expected_revision": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": [],
+            "error_code": "invitation_unavailable"
+          }
+        },
+        {
+          "name": "Superseded proof refuses acceptance",
+          "given": {
+            "proof": {
+              "fixture_type": "verified_invitation_proof",
+              "invitation": "Invite",
+              "account": "R",
+              "address_verified": true,
+              "expires_at": "2026-10-18T16:00:00Z",
+              "purpose": "residency_link",
+              "person": "P",
+              "organization": "O",
+              "invitation_revision": 1
+            }
+          },
+          "actor": {
+            "account": "R",
+            "session": "RS",
+            "context": null
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "residency.respondInvitation",
+            "arguments": {
+              "invitation": "Invite",
+              "person": "P",
+              "decision": "accept",
+              "share_foundations": true,
+              "share_milestones": false,
+              "expected_revision": 2
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": [],
+            "error_code": "invitation_unavailable"
+          }
         }
       ]
     },
