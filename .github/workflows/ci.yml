@@ -72,6 +72,8 @@ jobs:
           git config --global user.email "ci@everyfield.invalid"
           git config --global init.defaultBranch main
       - run: bin/evf test
+      - name: Failure reporting and internal queue invariants
+        run: node --test .github/scripts/*.test.cjs
 
   db:
     name: db (domain tests on Postgres 17)
