@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "node:fs";
+import { checkPrBody } from "./pr-body.ts";
 import { renderAc, renderBrief } from "./brief.ts";
 import { doctor, gc } from "./doctor.ts";
 import { EvfError, git, homeRoot, loadConfig, parseTask, readJson, run } from "./lib.ts";
@@ -27,6 +29,7 @@ Task loop (implementor, ui-designer)
   evf verify <task> [--quick]                                 local checks
   evf pr open <task> --body-file <file>                       push and open/update the PR
   evf pr check <PR> [--head <sha>]                            read-only Phase 7 merge checks
+  evf pr body <PR> | --body-file <file>                       body-only standard check
 
 Verification (verifier)
   evf verify <task> --role verifier [--quick]
@@ -176,6 +179,22 @@ function main(argv: string[]): number {
     case "pr": {
       const sub=args.shift();
       if(sub==='open'){const bodyFile=option(args,'--body-file');return prOpen(root,parseTask(args[0]),bodyFile);}
+      if(sub==='body') {
+        const here=git(process.cwd(),'rev-parse','--show-toplevel'),file=option(args,'--body-file');
+        let body:string;
+        if(file) {
+          if(!existsSync(file))throw new EvfError('The PR body file does not exist.');
+          body=readFileSync(file,'utf8');
+        } else {
+          const number=Number(args[0]);
+          if(!Number.isInteger(number)||number<=0)throw new EvfError('Give a PR number or --body-file <file>.');
+          const result=run('gh',['pr','view',String(number),'--json','body','--jq','.body'],{cwd:here});
+          if(result.code!==0)throw new EvfError('Cannot read the PR body from GitHub.');
+          body=result.stdout;
+        }
+        const checked=checkPrBody(here,body);
+        console.log(`PASSED PR body standard for ${checked.authorFamily}: ${checked.sections.join(', ')}`);return 0;
+      }
       if(sub==='check') {
         const head=option(args,'--head'),number=Number(args[0]);
         if(!Number.isInteger(number)||number<=0)throw new EvfError('Give the PR number.');

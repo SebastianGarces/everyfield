@@ -14,7 +14,8 @@ A verifier from another model family exercises the real branch, records an exact
 on the PR and runs `evf ship`. Ship reads the PR's required GitHub check status, refuses missing
 or nonpassing CI, verifies the recorded head and model families and checks the PR body against
 the PR standard template. It squash-merges only that head. Branch changes require fresh CI
-and review. The ship skill defines the review record and owner approval exceptions.
+and review. The verifier or coordinator runs ship; never arm GitHub auto-merge.
+The ship skill defines the review record and owner approval exceptions.
 
 Model families are `openai` and `anthropic`, not individual model names. Authors put
 `EVF-Author: <family>` in the body. Verifiers put one JSON line in their PR comment:
@@ -27,6 +28,11 @@ Use `changes_requested` for failure. The latest valid review record at that head
 These unsigned statements rely on the coordinator assigning the actual models correctly.
 They do not authenticate a model provider. GitHub comments allow agents sharing the owner's
 account to record independent review without GitHub's self-review restriction.
+
+The required PR sections come only from `.agents/skills/everyfield-pr/template.md`.
+`bin/evf pr body --body-file <file>` checks a local body. `bin/evf pr body <PR>` reads just
+that body from GitHub. Neither needs CI or a review, so the light PR-open/edit CI job can use it.
+The command uses the template in the current checkout. Missing or empty templates fail.
 
 ## Task and case checks
 

@@ -1,3 +1,4 @@
+import { checkPrBody } from '../pr-body.ts';
 import { createHash } from 'node:crypto';
 import { packageContext, loadProgress, partsOf } from '../lib.ts';
 import { feedbackPromote, feedbackIdeas } from '../feedback.ts';
@@ -367,6 +368,11 @@ test('BUG-bootstrap-reader: case and full brief preserve structured fixtures, ac
  const catalog=loadRegistry(source);assert.ok(renderAc(source,catalog.find(e=>e.case_ids.includes('REF-CASE-001'))!.id).includes(c));
 });
 
+function validPrBody() {
+ const template=readFileSync(join(source,'.agents/skills/everyfield-pr/template.md'),'utf8').replace(/<!--[^]*?-->/g,'');
+ return template.split('\n').filter(line=>line.startsWith('## ')).map(heading=>heading+'\nConcrete task evidence.').join('\n\n')+'\n\nEVF-Author: openai\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)';
+}
+
 function mergeFixture() {
  const f=fixture(),task=parseTask('OPS-1');
  f.cfg.maintenanceTasks={[task.id]:{title:'Workflow upkeep',owningPaths:['tools/evf/'],checks:f.cfg.checks}};
@@ -374,7 +380,7 @@ function mergeFixture() {
  const bare=join(f.root,'fake-bin/origin.git');execFileSync('git',['init','--bare',bare],{stdio:'ignore'});
  f.git('remote','add','origin',bare);f.git('push','-q','origin','main');
  const wt=f.task(task.slug),sha=f.git('rev-parse',task.branch),state=f.getState();
- state.pr={number:77,url:'https://github.com/test/private/pull/77',state:'OPEN',isDraft:false,headRefOid:sha,baseRefName:'main',body:'## Summary\nWorkflow change\n\nEVF-Author: openai'};
+ state.pr={number:77,url:'https://github.com/test/private/pull/77',state:'OPEN',isDraft:false,headRefOid:sha,baseRefName:'main',body:validPrBody()};
  state.requiredChecks=[{name:'CI',state:'SUCCESS',bucket:'pass',link:'https://github.com/test/private/actions/runs/1'}];
  state.comments['77']=[{body:`Verified the actual tooling behavior.\n\nEVF-Review: ${JSON.stringify({head:sha,verifierFamily:'anthropic',verdict:'approved'})}`,html_url:'https://github.com/test/private/pull/77#issuecomment-1'}];
  f.setState(state);
@@ -469,4 +475,30 @@ test('INV-phase7-progress: ship and acknowledgement preserve reviewed milestones
   assert.throws(()=>recordProgress(f.root,{...record,verification:{...record.verification,approval:{...record.verification.approval,head:'a'.repeat(40)}}},true),/independently reviewed/);
   assert.equal(readFileSync(join(f.root,'docs/build-progress.json'),'utf8'),progress);
  }finally{console.log=log;f.close();}
+});
+
+test('INV-phase7-pr-body: missing, empty and reordered required sections refuse shipping using the merged template',()=>{
+ const f=mergeFixture();try {
+  const valid=f.getState(),template=join(f.root,'.agents/skills/everyfield-pr/template.md');
+  const first='## Summary',last='## Follow-ups';
+  for(const [body,reason] of [
+   [valid.pr.body.replace(first,'## Unlisted'),/missing required sections: ## Summary/],
+   [valid.pr.body.replace(`${first}\nConcrete task evidence.`,`${first}\n<!-- Only a comment -->`),/section has no content: ## Summary/],
+   [valid.pr.body.replace(first,'TEMP').replace(last,first).replace('TEMP',last),/template order/],
+   [valid.pr.body.replace(`${last}\nConcrete task evidence.`,`${last}\n<!-- Only a comment -->`),/section has no content: ## Follow-ups/],
+   [valid.pr.body.replace(first,`\`\`\`md\n${first}\n\`\`\``),/missing required sections: ## Summary/],
+  ]) {
+   const state=structuredClone(valid);state.pr.body=body;state.calls=[];f.setState(state);
+   assert.throws(()=>ship(f.root,f.taskRef),reason);
+   assert.deepEqual(f.getState().calls.filter(c=>c.args[0]==='pr'&&c.args[1]==='merge'),[]);
+  }
+  assert.equal(checkPrBody(f.root,valid.pr.body).authorFamily,'openai');
+  // A template change takes effect without copying its headings into the checker.
+  writeFileSync(template,readFileSync(template,'utf8')+'\n## New obligation\n');
+  assert.throws(()=>checkPrBody(f.root,valid.pr.body),/missing required sections: ## New obligation/);
+  const expanded=valid.pr.body.replace('EVF-Author:','## New obligation\nSpecific evidence.\n\nEVF-Author:');
+  assert.equal(checkPrBody(f.root,expanded).sections.at(-1),'## New obligation');
+  writeFileSync(template,'<!-- ## Comment only -->');
+  assert.throws(()=>checkPrBody(f.root,expanded),/template must define distinct required sections/);
+ }finally{f.close();}
 });

@@ -50,6 +50,8 @@ FB-<n> for feedback and OPS-<n> for tooling maintenance.
 | Regression tests | `.agents/skills/test-standard/SKILL.md` |
 | Local checks and review | `.agents/skills/verify/SKILL.md` |
 | Merge rules | `.agents/skills/ship/SKILL.md` |
+| PR body standard | `.agents/skills/everyfield-pr/SKILL.md` and its template |
+| PR visual examples | `.agents/skills/pr/SKILL.md` |
 | Debugging | `.agents/skills/debug-with-traces/SKILL.md` |
 | Decisions | `.agents/skills/decisions/SKILL.md` |
 | Previews | `.agents/skills/portless-preview/SKILL.md` |

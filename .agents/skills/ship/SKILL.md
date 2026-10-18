@@ -25,7 +25,8 @@ head wins. A changed head needs new CI and real verification.
 
 `evf ship <task>` requires every required GitHub check to pass on the exact PR head, a different
 family's approval of that head and a body passing the PR standard. Missing checks refuse.
-It squash-merges with `--match-head-commit`. It never updates a branch and reuses old approval.
+The verifier or coordinator runs it; it squash-merges with `--match-head-commit`. Never arm
+GitHub auto-merge. A branch update requires fresh CI and review.
 Ordinary builds and P0/P1 feedback fixes use this route. P2/P3 feedback fixes get the same checks,
 then wait for Sebastian's chat approval and `evf approve`. Prototypes and Wiki article PRs also
 require his chat approval and `evf approve`; Wiki uses its own Opus review. Preserve these PR #13

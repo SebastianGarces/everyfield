@@ -17,6 +17,7 @@ import {
   type TaskRef,
 } from "./lib.ts";
 import { requireTaskScope } from "./policy.ts";
+import { checkPrBody } from "./pr-body.ts";
 import { recordProgress, type ShippedRecord } from './progress.ts';
 import { stack } from "./task.ts";
 import { cachedTriage, fbOwningPaths, feedbackTitle, internalIssueOf, isPrototype, onFeedbackShipped } from "./feedback.ts";
@@ -71,6 +72,10 @@ export function prOpen(root: string, task: TaskRef, bodyFile?: string): number {
   git(root,"fetch","--quiet",cfg.remote,cfg.baseBranch);
 
   if(!bodyFile||!existsSync(bodyFile))fail('Write the PR body following the PR standard, then pass --body-file <file>.');
+  const body=readFileSync(bodyFile,'utf8');
+  checkPrBody(wt,body);
+  const internal=internalIssueOf(root,task);
+  if(internal&&!body.includes(`Closes #${internal}`))fail(`Include Closes #${internal} in the PR body for this feedback task.`);
   pushBranch(wt,cfg,task);
   const proto = isPrototype(root, task);
   const existing = prFor(wt, task);
@@ -117,9 +122,7 @@ export function checkPr(root:string,number:number,expectedHead?:string):MergeEvi
  const pr:PullRequest=JSON.parse(gh(root,['pr','view',String(number),'--json','number,body,headRefOid,baseRefName,state,isDraft']));
  if(pr.state!=='OPEN'||pr.isDraft||pr.baseRefName!==cfg.baseBranch)fail('Shipping requires an open, ready PR targeting main.');
  if(expectedHead&&pr.headRefOid!==expectedHead)fail('PR head changed. Verify the new exact head before shipping.');
- const families=[...pr.body.matchAll(/^EVF-Author: (openai|anthropic)\s*$/gm)];
- if(families.length!==1)fail('PR body must record one EVF-Author model family.');
- const authorFamily=families[0][1];
+ const {authorFamily}=checkPrBody(root,pr.body);
  // gh discovers required checks from the PR's actual branch rules; absent and unreadable checks refuse.
  const result=run('gh',['pr','checks',String(number),'--required','--json','name,state,bucket,link'],{cwd:root});
  let checks:RequiredCheck[]=[];
@@ -139,7 +142,6 @@ export function checkPr(root:string,number:number,expectedHead?:string):MergeEvi
  }
  if(!selected?.url||selected.approval.verdict!=='approved')fail('Missing verifier approval for the exact PR head.');
  if(selected.approval.verifierFamily===authorFamily)fail('Verifier approval must come from a different model family.');
- // PR body section validation is added after the W4 template merges.
  const current:PullRequest=JSON.parse(gh(root,['pr','view',String(number),'--json','number,body,headRefOid,baseRefName,state,isDraft']));
  if(current.headRefOid!==pr.headRefOid||current.body!==pr.body||current.state!=='OPEN'||current.isDraft)fail('PR changed during merge checks. Run verification again.');
  return {head:pr.headRefOid,authorFamily,approval:selected.approval,approvalUrl:selected.url,checks,checkedAt:new Date().toISOString()};

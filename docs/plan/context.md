@@ -8,7 +8,7 @@ The catalog is the owner of record: requirement and case `work_packages`, and op
 
 [context-manifest.json](context-manifest.json) retains every selected requirement, case, acceptance bundle, operation and shared contract. `own_requirement_ids`, `own_case_ids` and `own_operation_ids` distinguish the package's work from consumed contracts. A referenced internal or native-only operation remains excluded from model/HTTP exposure. Read and command adapters select their own queries and commands separately; details needed to prove a denial do not grant an adapter implementation ownership.
 
-`case_ids` contains proof obligations whose owners are the package, its prerequisites or its downstream packages. Unrelated cases remain in `context_case_ids` for reading with `evf ac <case-id>` and are excluded from proof plans. The plan checker rejects an unrelated selected proof case and any fast-track declaration outside WP-097.
+`case_ids` contains proof obligations whose owners are the package, its prerequisites or its downstream packages. Unrelated cases remain in `context_case_ids` for reading with `evf ac <case-id>` and are not task verification obligations. The plan checker rejects an unrelated selected proof case and any fast-track declaration outside WP-097.
 
 `ui_depends_on` gates only a presentation task. Contract and API work use `depends_on`. UI briefs name the prototype and exact screen-map rows, including undrawn flows. WP-088/089/090 own foundations, controls and displays in separate directories. WP-091..096 split integration at core, knowledge and intelligence seams; WP-056/057 retain complete target gates with no deferrals.
 
@@ -30,4 +30,4 @@ python3 docs/package-context.py --brief-sizes --output /tmp/package-brief-sizes.
 
 The [case-action ordering ledger](case-action-ordering-baseline.json) records open later-package pairs. S0 policy is fail; warning mode is rejected. Package closure rejects open entries. See [verify](../../.agents/skills/verify/SKILL.md) for the at-start repair rule.
 
-Keep generated briefs, measurements, screenshots and proof outside the repository. These checks establish documentation/tooling consistency. Application acceptance still needs the reviewed proof plan, real applicable layers and independent verification.
+Keep generated briefs, measurements, screenshots and proof outside the repository. These checks establish documentation/tooling consistency. Application acceptance needs real checks on the branch preview and development database, applicable browser layers and independent verification by another model family.
