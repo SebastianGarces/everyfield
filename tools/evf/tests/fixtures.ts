@@ -7,7 +7,7 @@ export function fixture() {
  const root=mkdtempSync(join(tmpdir(),'evf-regression-'));
  cpSync(join(source,'docs'),join(root,'docs'),{recursive:true});
  cpSync(join(source,'design/handoff'),join(root,'design/handoff'),{recursive:true});
- cpSync(join(source,'AGENTS.md'),join(root,'AGENTS.md'));
+ cpSync(join(source,'AGENTS.md'),join(root,'AGENTS.md'));cpSync(join(source,'README.md'),join(root,'README.md'));
  cpSync(join(source,'.agents/skills/everyfield-pr'),join(root,'.agents/skills/everyfield-pr'),{recursive:true});
  cpSync(join(source,'tools/evf/templates'),join(root,'tools/evf/templates'),{recursive:true});
  const dag=JSON.parse(readFileSync(join(root,'docs/plan/dag.json'),'utf8'));
@@ -15,6 +15,7 @@ export function fixture() {
  const progress={schema_version:1,project_id:'everyfield-v3',revision:0,updated_at:null,packages:Object.fromEntries(dag.packages.map(p=>[p.id,{status:'not_started',revision:0,updated_at:null,evidence:[],notes:'Disposable active-package fixture.'}]))};
  writeFileSync(progressPath,JSON.stringify(progress));
  const cfg=JSON.parse(readFileSync(join(source,'evf.config.json'),'utf8'));
+ cfg.stack=null; // Tests that need a stack declare their own; never run the live stack command.
  cfg.checks=[{name:'fixture-check',run:[process.execPath,'-e','process.stdout.write("checked disposable fixture")']}];
  cfg.feedback={...cfg.feedback,repo:'test/feedback',botAuthor:'app-bot',botAuthorId:101,triageActorIds:[202],publicAreas:['Documents'],publicTemplates:[{category:'bug',title:'Bug report — {area}',body:'A product bug report was submitted for {area}. Private details are retained for authorized triage. Reference: {marker}.'}]};
  writeFileSync(join(root,'evf.config.json'),JSON.stringify(cfg,null,2));
@@ -32,7 +33,8 @@ s.calls.push({args:a,...(body?{body}: {})});
 let result;
 if(a[0]==='api') {
  const path=a.find(x=>x==='user'||x.startsWith('repos/')||x.startsWith('gists/'));
- if(path==='user')result=s.user;
+ if(s.api&&path in s.api)result=s.api[path];
+ else if(path==='user')result=s.user;
  else if(path==='gists/a1b2c3')result='fixture-owner';
  else if(path==='repos/test/feedback')result=s.repo;
  else if(path==='repos/test/private')result=s.internalRepo||{id:401,node_id:'R_private'};
@@ -70,7 +72,7 @@ else if(a[0]==='label')result='';
 if(result===undefined){fs.writeFileSync(p,JSON.stringify(s));throw Error('Unexpected external call: '+a.join(' '));}
 fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(typeof result==='string'?result:JSON.stringify(result));
 `);chmodSync(fake,0o755);
- writeFileSync(join(root,'.gitignore'),'fake-bin/\ngh-state.json\n');git('add','docs','design/handoff','AGENTS.md','evf.config.json','.gitignore','.agents/skills/everyfield-pr','tools/evf/templates');git('commit','-qm','Disposable context');
+ writeFileSync(join(root,'.gitignore'),'fake-bin/\ngh-state.json\n');git('add','docs','design/handoff','AGENTS.md','README.md','evf.config.json','.gitignore','.agents/skills/everyfield-pr','tools/evf/templates');git('commit','-qm','Disposable context');
  const oldPath=process.env.PATH,oldState=process.env.EVF_FAKE_GH_STATE;
  process.env.PATH=bins+':'+oldPath;process.env.EVF_FAKE_GH_STATE=statePath;
  return {root,cfg,git,

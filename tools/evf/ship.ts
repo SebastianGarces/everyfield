@@ -18,6 +18,7 @@ import {
 } from "./lib.ts";
 import { requireTaskScope } from "./policy.ts";
 import { checkPrBody } from "./pr-body.ts";
+import { formatScope, wpScope } from "./scope.ts";
 import { recordProgress, type ShippedRecord } from './progress.ts';
 import { stack } from "./task.ts";
 import { cachedTriage, fbOwningPaths, feedbackTitle, internalIssueOf, isPrototype, onFeedbackShipped } from "./feedback.ts";
@@ -94,6 +95,7 @@ export function prOpen(root: string, task: TaskRef, bodyFile?: string): number {
     console.log("next: this is a prototype. Report the PR to the coordinator; Sebastian reviews it. Do not run evf ship.");
     return 0;
   }
+  if (task.kind === "wp") console.log(formatScope(wpScope(wt, git(root, "rev-parse", baseRef(root, cfg)), task.wp, task.part)));
   console.log(`next: the coordinator delegates verification. The verifier runs: evf verify ${task.id} --role verifier, then evf ship ${task.id}`);
   return 0;
 }

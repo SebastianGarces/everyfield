@@ -54,7 +54,21 @@ An owning path naming an existing folder must end in `/`; paths without it name 
 `taskRisks` can mark sensitive work, which requires an owner decision. Paid services retain
 concrete spending approval. Doctor reports readiness without executing checks or changing settings.
 
-Use `AC:<case-id>` in passing test names or annotations. Checks can write EVF_TEST_REPORT:
+For WP tasks, `evf verify` writes `scope.json` beside checks.json and prints a summary. It lists
+each changed path as owned (from the base DAG), accepted by one narrow ruling, or outside. The
+rulings are: the package's new lock importer and nothing else in `pnpm-lock.yaml` (D14); the
+package.json, tsconfig.json and eslint.config.mjs of a new package folder (D16); appended cases
+for the package's own `case_requirements_at_start` (D16); and the context manifest, DAG and build
+plan only when the generators reproduce them from base inputs plus those cases (D16). The report
+is advisory (D18): `evf verify` and `evf pr open` print one line per accepted and outside path,
+and the verifier checks every outside path against a recorded ruling. `task start`
+fails when `stack up` fails. Stack and check commands named `node` run on evf's Node 24.
+`evf principles --apply OPS-<n>` writes into that task's worktree, never the home checkout.
+Milestones carry the four case and gate portion lists that the build explorer reads; evf leaves
+them empty (D20). `node tools/evf/progress.ts --reconcile <root>` adds them to older milestones.
+
+Use `AC:<case-id>` in passing test names or annotations. Each check gets its own EVF_TEST_REPORT path
+(also `{testReport}`), `<position>-<name>.tests.json`, so names that slug alike never share a file. Case coverage runs only when some report has an `AC:` marker (D19):
 
 ```json
 {"tests":[{"name":"AC:CASE-ID observed behavior","status":"passed"}]}
