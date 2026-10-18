@@ -4,7 +4,7 @@ The approved target has 101 active single-owner packages. WP-086 is retired into
 
 Start with a [short package brief](context.md). Read detailed clauses, cases and schema on demand. The [DAG](dag.json) owns scope and dependencies; builders choose filenames and internal structures within the owned directories.
 
-Rough scope-based effort is 280 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 98 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
+Rough scope-based effort is 280.5 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 98.5 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
 
 ## Foundation and shared UI
 
@@ -47,7 +47,7 @@ Each package stores its estimate factors in the DAG. Counts use owned selectors,
 | WP-005 | Better Auth identity/recovery | 7 | 13 | 15 | 10 | 2.5 |
 | WP-006 | Tenant and independent grant policies C1 | 8 | 7 | 20 | 6 | 2 |
 | WP-007 | Organizations and consent relationships | 10 | 19 | 47 | 9 | 2.5 |
-| WP-011 | People core and account links | 15 | 37 | 15 | 3 | 2.5 |
+| WP-011 | People core and account links | 15 | 37 | 20 | 3 | 2.5 |
 | WP-008 | Invitation lifecycle and atomic acceptance | 7 | 13 | 41 | 4 | 2 |
 | WP-009 | Onboarding and discovery conversion | 7 | 8 | 22 | 4 | 2 |
 | WP-010 | Account and settings surfaces | 20 | 21 | 35 | 5 | 2.5 |
@@ -129,11 +129,11 @@ Each package stores its estimate factors in the DAG. Counts use owned selectors,
 | WP-100 | My residency and consented progress | 2 | 3 | 2 | 0 | 3.5 |
 | WP-101 | Pipeline and development Evry adapters | 1 | 15 | 1 | 0 | 4 |
 | WP-102 | Multiplication privacy, race and parity integration | 17 | 0 | 17 | 0 | 5.5 |
-| WP-056 | Cross-module race/privacy/correction integration | 0 | 0 | 1141 | 0 | 14.5 |
+| WP-056 | Cross-module race/privacy/correction integration | 0 | 0 | 1146 | 0 | 15 |
 | WP-094 | Core browser/file/native-Evry parity integration | 4 | 0 | 6 | 0 | 1.5 |
 | WP-095 | Knowledge browser/file/native-Evry parity integration | 7 | 0 | 8 | 0 | 1.5 |
 | WP-096 | Intelligence browser/file/native-Evry parity integration | 3 | 0 | 18 | 0 | 1.5 |
-| WP-057 | Full target browser/file/capability parity gate | 0 | 0 | 1141 | 5 | 14.5 |
+| WP-057 | Full target browser/file/capability parity gate | 0 | 0 | 1146 | 5 | 14.5 |
 | WP-058 | Fresh bootstrap and release rehearsal | 12 | 0 | 29 | 0 | 2 |
 
 ## Package splits
