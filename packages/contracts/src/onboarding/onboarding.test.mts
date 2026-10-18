@@ -91,8 +91,10 @@ test("INV-onboarding-journey: saved nonattestations contain no phase and no-date
   const input = { journey: { answer: "existing", phase: 4 },
     launch: { answer: "planned", date: "2026-11-10", expectedScheduleRevision: "3" } };
   assert.deepEqual(wire(C.declareJourneyRequest, command(input)), command(input));
-  const explicitZero = { ...input, journey: { answer: "existing", phase: 0 } };
-  assert.deepEqual(wire(C.declareJourneyRequest, command(explicitZero)), command(explicitZero));
+  for (const phase of [0, 6]) {
+    const explicit = { ...input, journey: { answer: "existing", phase } };
+    assert.deepEqual(wire(C.declareJourneyRequest, command(explicit)), command(explicit));
+  }
   refuses(C.declareJourneyRequest, command({ ...input, journey: { ...input.journey, reason: "Caller reason" } }));
   refuses(C.declareJourneyRequest, command({ ...input, journey: { ...input.journey, kind: "initial_declaration" } }));
   const result = { plant, revision: "2", currentPhase: 4,
