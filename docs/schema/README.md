@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 127 tables, 1453 columns, 506 declared FKs and 21 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 129 tables, 1467 columns, 511 declared FKs and 25 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -59,6 +59,8 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `leadership_conversation` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
 | `mail_request` | Exact request/replay clock splits from the shared mail intent/attempt ledger. | WP-004, WP-028, WP-031 |
 | `mail_request_member` | Exact ordered membership splits from the shared mail intent/attempt ledger. | WP-004, WP-028, WP-031 |
+| `onboarding_result` | WP-009 additive onboarding storage. | WP-009 |
+| `onboarding_setup` | WP-009 additive onboarding storage. | WP-009 |
 | `organization_operation_result` | WP-007 native organization adapter storage introduced by forward migration 0005; D29/D32 current-catalog authority. | WP-007 |
 | `organization_person_removal` | WP-011 owns removal and WP-050 synchronizes body-free witnesses into recovery; WP-004 installs the baseline. | WP-004, WP-011, WP-050 |
 | `people_column` | WP-011 People producer storage introduced by additive migration 0004; D30/D32 current-catalog registration. | WP-011 |
@@ -397,6 +399,7 @@ Each name identifies one exact FK. The checker requires this list whenever `targ
 - `enrollment_milestone(completed_by) -> account(id)`: Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal.
 - `enrollment_milestone(confirmed_by) -> account(id)`: Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal.
 - `leadership_conversation(staff_account_id) -> account(id)`: Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal.
+- `onboarding_setup(creation_operation_id) -> operation(id)`: Creation starts in the authenticated own-account scope and atomically establishes this plant; creator, receipt and resulting plant are validated together. This pointer grants no account or plant authority.
 - `pipeline_person(responsible_seat_id) -> seat(id)`: Current eligible duty seat belongs to the exact organization. Serialized boundary checks seat tenant/kind and current authority; the relation grants no broader access.
 - `pipeline_sharing(relationship_id) -> affiliation(id)`: The affiliation must name this sending church and exact current sending network; no inherited or transitive sharing.
 - `pipeline_sharing(changed_by) -> account(id)`: Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal.

@@ -49,7 +49,7 @@ Each package stores its estimate factors in the DAG. Counts use owned selectors,
 | WP-007 | Organizations and consent relationships | 10 | 19 | 53 | 12 | 2.5 |
 | WP-011 | People core and account links | 15 | 37 | 20 | 7 | 2.5 |
 | WP-008 | Invitation lifecycle and atomic acceptance | 7 | 13 | 42 | 5 | 2.5 |
-| WP-009 | Onboarding and discovery conversion | 7 | 8 | 23 | 4 | 2 |
+| WP-009 | Onboarding and discovery conversion | 7 | 8 | 23 | 6 | 2 |
 | WP-010 | Account and settings surfaces | 20 | 21 | 39 | 5 | 2.5 |
 | WP-012 | Households tags skills and person fields | 9 | 21 | 11 | 3 | 2 |
 | WP-013 | People CSV import/export | 2 | 5 | 5 | 4 | 2 |

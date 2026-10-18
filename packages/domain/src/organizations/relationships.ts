@@ -457,6 +457,21 @@ export function relationshipCommands(
 	}
 	async function end(tx: Transaction, session: z.infer<typeof sessionId>, selected: Owner, raw: unknown) {
 		const q = Q.endRelationshipRequest.parse(raw);
+		// Shared Discovery conversion order: account, profile, then affiliation.
+		// Organization actors take the subject account lock too; the pair alone
+		// cannot arbitrate conversion against an organization ending its link.
+		if (q.input.pair.kind === "discovery") {
+			await tx
+				.select({ id: tables.account.id })
+				.from(tables.account)
+				.where(eq(tables.account.id, q.input.pair.accountId))
+				.for("update");
+			await tx
+				.select({ id: tables.discovery.id })
+				.from(tables.discovery)
+				.where(eq(tables.discovery.account_id, q.input.pair.accountId))
+				.for("update");
+		}
 		await lock(tx, "pair/" + JSON.stringify(endpointValues(q.input.pair)));
 		const a = await loadAffiliation(tx, q.input.relationshipId, true),
 			actor = await currentActor(tx, session, selected);

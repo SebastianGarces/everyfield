@@ -355,6 +355,18 @@ test("AC:TARGET-PPL-004 AC:ROLE43-003 exact account links, ambiguous contact sel
 		),
 	);
 	assert.notEqual(replacement.personId, current.id);
+	const bootstrap = (
+		await admin.execute(
+			sql`SELECT stage,adult_classification,commitment_state FROM person WHERE id=${sql.param(replacement.personId)}`,
+		)
+	).rows[0];
+	assert.deepEqual(bootstrap, { stage: "leader", adult_classification: "unknown", commitment_state: "unknown" });
+	const bootstrapHistory = (
+		await admin.execute(
+			sql`SELECT after_value->>'stage' AS stage FROM people_history WHERE person_id=${sql.param(replacement.personId)}`,
+		)
+	).rows;
+	assert.deepEqual(bootstrapHistory, [{ stage: "leader" }]);
 	const request = {
 		requestKey: randomUUID(),
 		expectedRevision: retired.person.revision,

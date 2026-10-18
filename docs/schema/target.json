@@ -70,9 +70,9 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 127,
-  "column_count": 1453,
-  "foreign_key_count": 506,
+  "table_count": 129,
+  "column_count": 1467,
+  "foreign_key_count": 511,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -1744,6 +1744,11 @@
     "obligation.kind": [
       "follow_up",
       "evaluation"
+    ],
+    "onboarding_setup.people_step": [
+      "pending",
+      "saved",
+      "skipped"
     ],
     "operation.name": [
       "access.checkOperation",
@@ -10293,6 +10298,16 @@
     },
     {
       "table": "people_result",
+      "field": "value",
+      "policy": "Frozen bounded original Person projection, including linked-account identity and lineage. Do not retarget on merge or Unmerge, transfer grants or replay effects. Fresh same-owner authorization precedes reads/replay; witnessed organization/account removal scrubs private bodies and identity before recovery."
+    },
+    {
+      "table": "onboarding_setup",
+      "field": "lead",
+      "policy": "Frozen bounded original Person projection, including linked-account identity and lineage. Do not retarget on merge or Unmerge, transfer grants or replay effects. Fresh same-owner authorization precedes reads/replay; witnessed organization/account removal scrubs private bodies and identity before recovery."
+    },
+    {
+      "table": "onboarding_result",
       "field": "value",
       "policy": "Frozen bounded original Person projection, including linked-account identity and lineage. Do not retarget on merge or Unmerge, transfer grants or replay effects. Fresh same-owner authorization precedes reads/replay; witnessed organization/account removal scrubs private bodies and identity before recovery."
     }
@@ -36886,6 +36901,342 @@
       "rls": false
     },
     {
+      "name": "onboarding_result",
+      "domain": "tenancy",
+      "purpose": "Original bounded onboarding receipt and result for exact authenticated replay.",
+      "library_owned": false,
+      "jsonb_keys": {
+        "value": [
+          "status",
+          "plant",
+          "revision",
+          "materialRevision",
+          "ownerSeat",
+          "creation",
+          "receipt",
+          "profile",
+          "lead",
+          "journey",
+          "launch",
+          "completion",
+          "relationships",
+          "documentProposals",
+          "currentPhase",
+          "discoveryId",
+          "convertedAt",
+          "initialSharing",
+          "scheduledLaunchDate"
+        ]
+      },
+      "capabilities": [
+        "CAP-A-008",
+        "CAP-A-013"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-009"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-009"
+        ],
+        "rule": "WP-009 additive onboarding storage."
+      },
+      "feature_ids": [
+        "ADM-004",
+        "IDN-013",
+        "IDN-014",
+        "IDN-015",
+        "IDN-016"
+      ],
+      "acceptance_ids": [],
+      "future_case_ids": [
+        "TARGET-IDN-013",
+        "TARGET-IDN-015"
+      ],
+      "scope": "tenancy",
+      "invariants": [
+        "Fresh exact owner, actor, source lifecycle and revision checks precede reads and mutations.",
+        "Protected facts, history, replay result, audit and material revision commit in the same transaction; this storage grants no access."
+      ],
+      "revision": "Append original occurrence and correction evidence; current mutable order uses expected revisions.",
+      "idempotency": "Exact operation result replays only after fresh authority checks; source rows serialize concurrent writes.",
+      "deletion": "Witnessed organization removal scrubs unnecessary bodies and attribution immediately. Account removal severs links and retains only legitimate independently owned facts with minimal scope-local attribution. Retention and recovery follow the actual owner; no new TTL or history exemption.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "operation_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "tenant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "value",
+          "type": "jsonb",
+          "nullable": false
+        }
+      ],
+      "primary_key": [
+        "operation_id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "no_action",
+            "policy": "Explicit dependency-ordered owner purge; no retention exemption."
+          },
+          "columns": [
+            "operation_id",
+            "tenant_id"
+          ],
+          "references": {
+            "table": "operation",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "no_action"
+        },
+        {
+          "deletion": {
+            "action": "no_action",
+            "policy": "Explicit dependency-ordered owner purge; no retention exemption."
+          },
+          "columns": [
+            "tenant_id"
+          ],
+          "references": {
+            "table": "tenant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action"
+        }
+      ],
+      "checks": [],
+      "indexes": {},
+      "constraint_names": {
+        "primary": [],
+        "unique": [],
+        "foreign": [
+          "onboarding_result_tenant_id_tenant_id_fk",
+          "onboarding_result_operation"
+        ],
+        "checks": []
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "onboarding_setup",
+      "domain": "tenancy",
+      "purpose": "Persisted independent setup answers for the actual creating Owner; no inferred checklist completion.",
+      "library_owned": false,
+      "jsonb_keys": {
+        "lead": [
+          "answer",
+          "assignment",
+          "savedAt"
+        ],
+        "journey": [
+          "status",
+          "value",
+          "savedAt"
+        ],
+        "launch": [
+          "status",
+          "value",
+          "savedAt"
+        ]
+      },
+      "capabilities": [
+        "CAP-A-008",
+        "CAP-A-013"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-009"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-009"
+        ],
+        "rule": "WP-009 additive onboarding storage."
+      },
+      "feature_ids": [
+        "ADM-004",
+        "IDN-013",
+        "IDN-014",
+        "IDN-015",
+        "IDN-016"
+      ],
+      "acceptance_ids": [],
+      "future_case_ids": [
+        "TARGET-IDN-013",
+        "TARGET-IDN-015"
+      ],
+      "scope": "tenancy",
+      "invariants": [
+        "Fresh exact owner, actor, source lifecycle and revision checks precede reads and mutations.",
+        "Protected facts, history, replay result, audit and material revision commit in the same transaction; this storage grants no access."
+      ],
+      "revision": "Append original occurrence and correction evidence; current mutable order uses expected revisions.",
+      "idempotency": "Exact operation result replays only after fresh authority checks; source rows serialize concurrent writes.",
+      "deletion": "Witnessed organization removal scrubs unnecessary bodies and attribution immediately. Account removal severs links and retains only legitimate independently owned facts with minimal scope-local attribution. Retention and recovery follow the actual owner; no new TTL or history exemption.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "account_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "creation_operation_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "lead",
+          "type": "jsonb",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "journey",
+          "type": "jsonb",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "launch",
+          "type": "jsonb",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "people_step",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "completed_material_revision",
+          "type": "bigint",
+          "nullable": true
+        }
+      ],
+      "primary_key": [
+        "plant_id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "account_id"
+          ]
+        },
+        {
+          "columns": [
+            "creation_operation_id"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "no_action",
+            "policy": "Explicit dependency-ordered owner purge; no retention exemption."
+          },
+          "columns": [
+            "account_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action"
+        },
+        {
+          "deletion": {
+            "action": "no_action",
+            "policy": "Explicit dependency-ordered owner purge; no retention exemption."
+          },
+          "scope_exception": "Creation starts in the authenticated own-account scope and atomically establishes this plant; creator, receipt and resulting plant are validated together. This pointer grants no account or plant authority.",
+          "columns": [
+            "creation_operation_id"
+          ],
+          "references": {
+            "table": "operation",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action"
+        },
+        {
+          "deletion": {
+            "action": "no_action",
+            "policy": "Explicit dependency-ordered owner purge; no retention exemption."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action"
+        }
+      ],
+      "checks": [
+        "\"onboarding_setup\".\"completed_material_revision\" IS NULL OR \"onboarding_setup\".\"completed_material_revision\" >= 1",
+        "\"onboarding_setup\".\"people_step\" IN ('pending','saved','skipped')"
+      ],
+      "indexes": {},
+      "constraint_names": {
+        "primary": [],
+        "unique": [
+          "onboarding_setup_account_id_unique",
+          "onboarding_setup_creation_operation_id_unique"
+        ],
+        "foreign": [
+          "onboarding_setup_plant_id_plant_id_fk",
+          "onboarding_setup_account_id_account_id_fk",
+          "onboarding_setup_creation_operation_id_operation_id_fk"
+        ],
+        "checks": [
+          "onboarding_people_step",
+          "onboarding_completion_revision"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
       "name": "operation",
       "domain": "operations",
       "purpose": "Native or approved assistant request identity, execution and factual final receipt. The sole global tenant identifies restricted global operational work; every other tenant_id identifies the exact owner. Security operations never persist passwords or bearer proofs here. The global variant is restricted to approved reference/platform work and body-free operational records.",
@@ -43406,6 +43757,24 @@
           "type": "bigint",
           "nullable": false,
           "default": "1"
+        },
+        {
+          "note": "Optional independently supplied locality; never inferred from another component or timezone.",
+          "name": "city",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Optional independently supplied locality; never inferred from another component or timezone.",
+          "name": "state_province",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Optional independently supplied locality; never inferred from another component or timezone.",
+          "name": "country",
+          "type": "text",
+          "nullable": true
         }
       ],
       "primary_key": [
