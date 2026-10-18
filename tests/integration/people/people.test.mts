@@ -708,7 +708,7 @@ test("AC:ADR1-001 AC:WP011-MUL-001 AC:ADR1-005 AC:WP011-MUL-005 organization pro
   assert.equal(JSON.stringify(history).includes("contact@example.test"), false);
 });
 
-test("AC:TARGET-PPL-023 AC:GAP-PPL-023 distinct transition units preserve repeated historical moves and unknown denominators", async () => {
+test("AC:TARGET-PPL-023 distinct transition units preserve repeated historical moves and unknown denominators", async () => {
   let p = await create("Metrics");
   for (const stage of ["attendee", "prospect", "attendee"])
     p = ok(
@@ -920,5 +920,332 @@ test("INV-people: reviewed assistant writes bind the exact actor, arguments, cur
         expectedRevision: changed.person.revision,
       }),
     ),
+  );
+});
+
+test("AC:GAP-PPL-023 reconstructs the actual historical cohort and counts each forward transition once", async () => {
+  const plant = randomUUID(),
+    actor = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
+  await admin.query(
+    "INSERT INTO auth_user(id,email,email_verified,name) VALUES($1,$2,true,'Synthetic metrics')",
+    [actor.user, actor.id + "@example.test"],
+  );
+  await admin.query(
+    "INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES($1,$2,'active','planter')",
+    [actor.id, actor.user],
+  );
+  await admin.query(
+    "INSERT INTO auth_session(id,user_id,token,expires_at) VALUES($1,$2,$3,clock_timestamp()+interval '1 day')",
+    [actor.session, actor.user, randomUUID()],
+  );
+  await admin.query(
+    "INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES($1,'Metrics fixture','America/New_York',7,14,1,8,1,1)",
+    [plant],
+  );
+  await admin.query(
+    "INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES($1,$2,'owner',clock_timestamp())",
+    [actor.id, plant],
+  );
+  const context = {
+    session: actor.session,
+    selected: { kind: "plant", id: plant },
+    purpose: "native",
+    origin: { kind: "native" },
+  };
+  const people = [];
+  for (const name of ["Alex", "Casey", "Jamie"])
+    people.push(
+      ok(
+        await tx((t) =>
+          write.createPerson(t, context, {
+            requestKey: randomUUID(),
+            input: { displayName: name },
+          }),
+        ),
+      ).person,
+    );
+  for (const [index, moves] of [
+    [0, ["attendee", "prospect", "attendee", "prospect"]],
+    [1, ["attendee"]],
+  ]) {
+    for (const stage of moves)
+      people[index] = ok(
+        await tx((t) =>
+          write.changeStatus(t, context, {
+            requestKey: randomUUID(),
+            expectedRevision: people[index].revision,
+            input: {
+              personId: people[index].id,
+              stage,
+              reason: "Historical fixture",
+              handoffs: [],
+            },
+          }),
+        ),
+      ).person;
+  }
+  for (const [index, p] of people.entries()) {
+    await admin.query(
+      "UPDATE person SET created_at='2026-09-01T12:00:00Z' WHERE id=$1",
+      [p.id],
+    );
+    const history = (
+      await admin.query(
+        "SELECT id,action FROM people_history WHERE person_id=$1 ORDER BY occurred_at,id",
+        [p.id],
+      )
+    ).rows;
+    for (const [i, event] of history.entries()) {
+      const at =
+        i === 0
+          ? "2026-09-01T12:00:00Z"
+          : `2026-10-${String(index === 0 ? i + 1 : 6).padStart(2, "0")}T12:00:00Z`;
+      await admin.query(
+        "UPDATE people_history SET occurred_at=$2 WHERE id=$1",
+        [event.id, at],
+      );
+    }
+  }
+  const query = {
+    asOf: "2026-10-13T16:00:00Z",
+    from: "2026-10-01",
+    through: "2026-10-13",
+  };
+  const result = ok(
+    await tx((t) => read.readPipelineMetrics(t, context, query)),
+  );
+  assert.deepEqual(
+    result.currentStages.map((r) => [r.stage, r.distinctPeople]),
+    [
+      ["prospect", 2],
+      ["attendee", 1],
+      ["following_up", 0],
+      ["interviewed", 0],
+      ["core_group", 0],
+      ["launch_team", 0],
+      ["leader", 0],
+    ],
+  );
+  assert.deepEqual(result.transitions[0], {
+    from: "prospect",
+    to: "attendee",
+    distinctPeople: 2,
+    conversion: { status: "known", cohortPeople: 3, cohortTransitionPeople: 2 },
+  });
+  const empty = ok(
+    await tx((t) =>
+      read.readPipelineMetrics(t, context, {
+        ...query,
+        from: "2026-07-01",
+        through: "2026-07-31",
+      }),
+    ),
+  );
+  assert.deepEqual(empty.transitions[0].conversion, {
+    status: "unknown",
+    reason: "empty_cohort",
+  });
+  const review = ok(
+    await tx((t) =>
+      read.getStatusWarnings(t, context, { personId: people[0].id }),
+    ),
+  ).reviewRevision;
+  ok(
+    await tx((t) =>
+      write.retirePerson(t, context, {
+        requestKey: randomUUID(),
+        expectedRevision: people[0].revision,
+        input: {
+          personId: people[0].id,
+          reviewRevision: review,
+          reason: "Historical retirement",
+          handoffs: [],
+        },
+      }),
+    ),
+  );
+  await admin.query(
+    "UPDATE person SET retired_at='2026-10-07T12:00:00Z' WHERE id=$1",
+    [people[0].id],
+  );
+  await admin.query(
+    "UPDATE people_history SET occurred_at='2026-10-07T12:00:00Z' WHERE person_id=$1 AND action='people.retired'",
+    [people[0].id],
+  );
+  const retired = ok(
+    await tx((t) => read.readPipelineMetrics(t, context, query)),
+  );
+  assert.equal(retired.currentStages[0].distinctPeople, 1);
+  assert.equal(retired.transitions[0].distinctPeople, 2);
+  await admin.query(
+    "DELETE FROM people_history WHERE person_id=$1 AND action='people.created'",
+    [people[0].id],
+  );
+  const missing = ok(
+    await tx((t) => read.readPipelineMetrics(t, context, query)),
+  );
+  assert.equal(missing.transitions[0].distinctPeople, 2);
+  assert.deepEqual(missing.transitions[0].conversion, {
+    status: "unknown",
+    reason: "cohort_unavailable",
+  });
+  refused(
+    await tx((t) =>
+      read.readPipelineMetrics(
+        t,
+        { ...ctx(2), selected: context.selected },
+        query,
+      ),
+    ),
+  );
+});
+
+test("INV-organization-removal: fresh consent gates progress and removal revokes links while preserving reported independent facts", async () => {
+  const created = ok(
+    await tx((t) =>
+      org.create(t, orgCtx(), {
+        requestKey: randomUUID(),
+        input: {
+          displayName: "Resident fixture",
+          email: "resident@example.test",
+        },
+      }),
+    ),
+  ).person;
+  const p = created.id,
+    invite = randomUUID(),
+    affiliation = randomUUID(),
+    link = randomUUID(),
+    program = randomUUID(),
+    version = randomUUID(),
+    stage = randomUUID(),
+    enrollment = randomUUID(),
+    milestone = randomUUID(),
+    completion = randomUUID(),
+    feedback = randomUUID();
+  const director = (
+    await admin.query(
+      "SELECT id FROM seat WHERE account_id=$1 AND ended_at IS NULL",
+      [actors[3].id],
+    )
+  ).rows[0].id;
+  await admin.query("UPDATE person SET linked_account_id=$2 WHERE id=$1", [
+    p,
+    actors[1].id,
+  ]);
+  await admin.query(
+    "INSERT INTO invitation(id,tenant_id,purpose,recipient_email,token_hash,state,created_at,accepted_account_id,resident_person_id) VALUES($1,$2,'residency_link','resident@example.test',$3,'accepted',clock_timestamp(),$4,$5)",
+    [invite, organization, randomUUID(), actors[1].id, p],
+  );
+  await admin.query(
+    "INSERT INTO affiliation(id,account_id,organization_id,accepted_at,invitation_id,share_people,share_meetings,share_tasks,share_ministry,share_wiki,share_activity,shared_findings) VALUES($1,$2,$3,clock_timestamp(),$4,false,false,false,false,false,false,false)",
+    [affiliation, actors[1].id, organization, invite],
+  );
+  await admin.query(
+    "INSERT INTO residency_link(id,organization_id,person_id,account_id,affiliation_id,invitation_id,accepted_at,consent_revision,share_foundations,share_milestones,revision) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp(),1,false,true,1)",
+    [link, organization, p, actors[1].id, affiliation, invite],
+  );
+  await admin.query(
+    "INSERT INTO development_program(id,organization_id,kind,name,director_seat_id,revision) VALUES($1,$2,'residency','Synthetic program',$3,1)",
+    [program, organization, director],
+  );
+  await admin.query(
+    "INSERT INTO development_program_version(id,organization_id,program_id,version_number,rhythm,expected_months,published_at,revision) VALUES($1,$2,$3,1,'Monthly',12,clock_timestamp(),1)",
+    [version, organization, program],
+  );
+  await admin.query(
+    "INSERT INTO development_stage(id,organization_id,version_id,label,position,min_months,max_months,revision) VALUES($1,$2,$3,'Training',0,2,3,1)",
+    [stage, organization, version],
+  );
+  await admin.query(
+    "INSERT INTO development_enrollment(id,organization_id,person_id,program_id,version_id,cohort_label,started_on,expected_end_on,status,current_stage_id,meeting_timezone,revision) VALUES($1,$2,$3,$4,$5,'Synthetic','2026-01-01','2026-12-31','active',$6,'America/New_York',1)",
+    [enrollment, organization, p, program, version, stage],
+  );
+  await admin.query(
+    "INSERT INTO development_milestone(id,organization_id,version_id,description,stage_id,position,revision) VALUES($1,$2,$3,'Synthetic milestone',$4,0,1)",
+    [milestone, organization, version, stage],
+  );
+  await admin.query(
+    "INSERT INTO enrollment_milestone(id,organization_id,enrollment_id,version_id,milestone_id,completed_by,completed_at,completion_source,revision) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp(),'resident_self',1)",
+    [completion, organization, enrollment, version, milestone, actors[1].id],
+  );
+  await admin.query(
+    "INSERT INTO assignment_feedback(id,organization_id,enrollment_milestone_id,author_id,recorded_at,body,revision) VALUES($1,$2,$3,$4,clock_timestamp(),$5,1)",
+    [
+      feedback,
+      organization,
+      completion,
+      actors[3].id,
+      "PRIVATE-FEEDBACK-CANARY",
+    ],
+  );
+  const note = ok(
+    await tx((t) =>
+      write.addNote(t, orgCtx(), {
+        requestKey: randomUUID(),
+        expectedRevision: created.revision,
+        input: { personId: p, body: "PRIVATE-STAFF-NOTE-CANARY" },
+      }),
+    ),
+  );
+  const exportInput = { personId: p, format: "csv" };
+  const shared = ok(await tx((t) => org.export(t, orgCtx(), exportInput)));
+  assert.equal(shared.completions.length, 1);
+  assert.equal(JSON.stringify(shared).includes("CANARY"), false);
+  await admin.query(
+    "UPDATE residency_link SET share_milestones=false,consent_revision=consent_revision+1 WHERE id=$1",
+    [link],
+  );
+  const withdrawn = ok(await tx((t) => org.export(t, orgCtx(), exportInput)));
+  assert.deepEqual(withdrawn.completions, []);
+  assert.equal(withdrawn.consentRevision, "2");
+  const current = ok(await tx((t) => org.read(t, orgCtx(), { personId: p })));
+  const removed = ok(
+    await tx((t) =>
+      org.remove(t, orgCtx(), {
+        requestKey: randomUUID(),
+        expectedRevision: current.revision,
+        input: { personId: p, reason: "Removal requested" },
+      }),
+    ),
+  );
+  assert.deepEqual(
+    new Set(removed.retained.map((x) => x.category)),
+    new Set(["enrollment", "program_completion", "relationship_receipt"]),
+  );
+  const ended = (
+    await admin.query(
+      "SELECT ended_at,share_foundations,share_milestones FROM residency_link WHERE id=$1",
+      [link],
+    )
+  ).rows[0];
+  assert.ok(ended.ended_at);
+  assert.equal(ended.share_milestones, false);
+  assert.equal(
+    (
+      await admin.query("SELECT body FROM person_note WHERE id=$1", [
+        note.noteId,
+      ])
+    ).rows[0].body,
+    "",
+  );
+  assert.equal(
+    (
+      await admin.query("SELECT body FROM assignment_feedback WHERE id=$1", [
+        feedback,
+      ])
+    ).rows[0].body,
+    "",
+  );
+  assert.ok(
+    (
+      await admin.query(
+        "SELECT completed_at FROM enrollment_milestone WHERE id=$1",
+        [completion],
+      )
+    ).rows[0].completed_at,
+  );
+  refused(
+    await tx((t) => downloadOrganizationExport(t, orgCtx(), exportInput)),
   );
 });

@@ -168,6 +168,14 @@ export const organizationPeople: OrganizationPeopleProducer<Tx> = {
               `UPDATE assignment_feedback SET body='',withdrawn_at=coalesce(withdrawn_at,clock_timestamp()),revision=revision+1 WHERE organization_id=$1 AND enrollment_milestone_id IN(SELECT m.id FROM enrollment_milestone m JOIN development_enrollment e ON e.id=m.enrollment_id AND e.organization_id=m.organization_id WHERE e.person_id=$2 AND e.organization_id=$1)`,
               [org.id, before.id],
             );
+            await tx.query(
+              "UPDATE pipeline_person SET assessed_on=NULL,assessor_label=NULL,responsible_seat_id=NULL,revision=revision+1 WHERE organization_id=$1 AND person_id=$2",
+              [org.id, before.id],
+            );
+            const completions = await tx.query(
+              "SELECT m.id FROM enrollment_milestone m JOIN development_enrollment e ON e.id=m.enrollment_id AND e.organization_id=m.organization_id WHERE e.organization_id=$1 AND e.person_id=$2 AND m.completed_at IS NOT NULL",
+              [org.id, before.id],
+            );
             const enrollments = await tx.query(
               "UPDATE development_enrollment SET status=CASE WHEN status='active' THEN 'withdrawn' ELSE status END,cohort_label='',next_meeting_at=NULL,revision=revision+1 WHERE organization_id=$1 AND person_id=$2 RETURNING id",
               [org.id, before.id],
@@ -188,6 +196,15 @@ export const organizationPeople: OrganizationPeopleProducer<Tx> = {
               before.id,
             ]);
             const retained = [
+              ...(completions.rowCount
+                ? [
+                    {
+                      category: "program_completion",
+                      reason: "independent_organization_fact",
+                      attribution: "scope_local",
+                    },
+                  ]
+                : []),
               ...(enrollments.rowCount
                 ? [
                     {
