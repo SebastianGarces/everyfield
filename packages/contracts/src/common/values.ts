@@ -32,12 +32,22 @@ export function sameOwner(a: Owner, b: Owner): boolean {
 }
 
 export const correlationId = z.uuid().brand<"CorrelationId">();
+export type RetryEligibility = "never" | "refresh" | "same_request" | "reconcile";
+// Producers define literal codes and reviewed, closed detail fields. Compose the
+// returned variants with safeError.options in their own discriminated union.
+export function defineSafeError<const Code extends string, Details extends z.ZodRawShape, const Retry extends RetryEligibility>(
+  code: string extends Code ? never : Code, details: Details, retry: Retry,
+) {
+  return z.strictObject({ code: z.literal(code), details: z.strictObject(details), correlationId, retry: z.literal(retry) });
+}
 export const safeError = z.discriminatedUnion("code", [
-  z.strictObject({ code: z.literal("invalid_input"), correlationId, retry: z.literal("never") }),
-  // Missing and forbidden share one envelope to avoid existence disclosure.
-  z.strictObject({ code: z.literal("unavailable"), correlationId, retry: z.literal("never") }),
-  z.strictObject({ code: z.literal("conflict"), correlationId, retry: z.literal("refresh") }),
-  z.strictObject({ code: z.literal("temporary"), correlationId, retry: z.literal("same_request") }),
-  z.strictObject({ code: z.literal("unknown"), correlationId, retry: z.literal("reconcile") }),
+  defineSafeError("invalid_input", {}, "never"),
+  // Inaccessible and missing records use the same empty-detail refusal.
+  defineSafeError("access_denied", {}, "never"),
+  defineSafeError("unavailable", {}, "never"),
+  defineSafeError("invalid_subject", {}, "never"),
+  defineSafeError("conflict", {}, "refresh"),
+  defineSafeError("temporary", {}, "same_request"),
+  defineSafeError("unknown", {}, "reconcile"),
 ]);
 export type SafeError = z.infer<typeof safeError>;

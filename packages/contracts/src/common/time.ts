@@ -93,4 +93,5 @@ export const resolvedTime = z.strictObject({
   entered: localDateTime, zone: timeZone,
   occurrence: z.strictObject({ instant, offsetSeconds: z.number().int().min(-86400).max(86400) }),
   resolverVersion: z.literal(1), adjustmentSeconds: z.number().int().nonnegative().max(86400),
-});
+}).refine(value => Date.parse(value.occurrence.instant) + value.occurrence.offsetSeconds * 1000 ===
+  wallMs(value.entered) + value.adjustmentSeconds * 1000, { message: "inconsistent_resolved_time" });

@@ -65,3 +65,21 @@ export interface DurableIntent<Kind extends string, Subject> {
   readonly producerKey: z.infer<typeof requestKey>;
   readonly sourceRevision: Revision;
 }
+
+// Run inside the producer's existing transaction, after its live authority,
+// lifecycle, replay and revision checks. Every required writer receives that same
+// connection. An error propagates to the owner so its transaction rolls back.
+// SQL transaction control, domain policy and provider calls remain outside this helper.
+export interface RequiredWrites<Tx, Result> {
+  facts(tx: Tx): Promise<Result>;
+  history(tx: Tx, result: Result): Promise<void>;
+  receipt(tx: Tx, result: Result): Promise<void>;
+  intents(tx: Tx, result: Result): Promise<void>;
+}
+export async function writeRequiredConsequences<Tx, Result>(tx: Tx, writes: RequiredWrites<Tx, Result>): Promise<Result> {
+  const result = await writes.facts(tx);
+  await writes.history(tx, result);
+  await writes.receipt(tx, result);
+  await writes.intents(tx, result);
+  return result;
+}

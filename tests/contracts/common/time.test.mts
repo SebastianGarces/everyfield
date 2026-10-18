@@ -32,6 +32,7 @@ test("INV-time: resolver v1 preserves earlier folds and shifts by actual gaps, i
     assert.equal(kind, "resolved");
     assert.deepEqual(resolvedTime.parse(JSON.parse(JSON.stringify(saved))), saved);
     assert.equal(resolvedTime.safeParse({ ...saved, occurrence: { ...saved.occurrence, instant: "invalid" } }).success, false);
+    assert.equal(resolvedTime.safeParse({ ...saved, occurrence: { ...saved.occurrence, instant: "2026-01-01T00:00:00Z" } }).success, false);
   }
 });
 

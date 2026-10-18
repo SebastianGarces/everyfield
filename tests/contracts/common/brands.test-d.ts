@@ -1,4 +1,5 @@
 import type { z } from "../../../packages/contracts/node_modules/zod/index.cjs";
+import { defineSafeError } from "../../../packages/contracts/src/common/index.ts";
 import type { accountId, personId, LocalDate, Instant } from "../../../packages/contracts/src/common/index.ts";
 import type { CommandScope } from "../../../packages/contracts/src/common/scope.ts";
 
@@ -10,4 +11,9 @@ export function distinctValues(account: z.infer<typeof accountId>, day: LocalDat
   // @ts-expect-error JSON-shaped authority does not construct a trusted scope.
   const scope: CommandScope = { actor: { kind: "human", accountId: account }, owner: { kind: "account", id: account }, role: null };
   return { person, deadline, scope };
+}
+
+export function refuseDynamicCode(code: string) {
+  // @ts-expect-error Error definitions require literal codes, not arbitrary strings.
+  return defineSafeError(code, {}, "never");
 }
