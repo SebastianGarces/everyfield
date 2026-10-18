@@ -113,7 +113,7 @@ function ChurchForm({
 }) {
 	const { port, viewer } = useSettings();
 	const saved = formOf(section.values);
-	const { draft, setDraft, dirty, settle } = useDraft<Form>("church", saved);
+	const { draft, setDraft, dirty, begin, settle } = useDraft<Form>("church", saved);
 	const [showErrors, setShowErrors] = useState(false);
 	const write = useWrite("plant-settings");
 	const [zoneOpen, setZoneOpen] = useState(false);
@@ -127,7 +127,7 @@ function ChurchForm({
 	const save = async () => {
 		setShowErrors(true);
 		if (Object.keys(errors).length > 0) return;
-		const sent = draft;
+		const sent = begin();
 		let current = section;
 		const patch = Object.fromEntries(
 			(["name", "street", "city", "stateProvince", "country", "description"] as const)
@@ -146,17 +146,21 @@ function ChurchForm({
 				? { kind: "digest" as const, value: draft.digest }
 				: null,
 		].filter((c) => c !== null);
+		let ok = true;
 		for (const change of changes) {
 			const input = { section: "plant" as const, plant: current.plant, change };
 			const result = await write.run({ revision: current.revision, input }, (requestKey) =>
 				port.saveSection({ requestKey, expectedRevision: current.revision, input }),
 			);
-			if (!result.ok || result.value.current.section !== "plant") return;
+			if (!result.ok || result.value.current.section !== "plant") {
+				ok = false;
+				break;
+			}
 			current = result.value.current;
 			replace(current);
 		}
-		settle(sent);
-		setShowErrors(false);
+		settle({ sent, savedNow: formOf(current.values), ok });
+		if (ok) setShowErrors(false);
 	};
 
 	const loadLatest =

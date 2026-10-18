@@ -95,7 +95,7 @@ function OrganizationForm({
 }) {
 	const { port } = useSettings();
 	const saved = formOf(values);
-	const { draft, setDraft, dirty, settle } = useDraft<Form>("organization", saved);
+	const { draft, setDraft, dirty, begin, settle } = useDraft<Form>("organization", saved);
 	const [checked, setChecked] = useState(false);
 	const write = useWrite("organization-profile");
 	const errors = validateOrganization(draft);
@@ -111,17 +111,18 @@ function OrganizationForm({
 				k === "name" ? draft.name.trim() : draft[k].trim() === "" ? null : draft[k].trim(),
 			]),
 		);
-		const sent = draft;
-		if (Object.keys(patch).length === 0) return settle(sent);
+		const sent = begin();
+		if (Object.keys(patch).length === 0) return settle({ sent, savedNow: saved, ok: true });
 		const input = { section: "organization" as const, organization: values.organization, patch };
 		const result = await write.run({ revision: values.revision, input }, (requestKey) =>
 			port.saveSection({ requestKey, expectedRevision: values.revision, input }),
 		);
-		if (result.ok) {
-			replace(result.value.current);
-			settle(sent);
-			setChecked(false);
-		}
+		const current = result.ok ? result.value.current : null;
+		const now =
+			current?.section === "organization" && current.values.status === "available" ? formOf(current.values) : saved;
+		if (current) replace(current);
+		settle({ sent, savedNow: now, ok: result.ok });
+		if (result.ok) setChecked(false);
 	};
 
 	return (
