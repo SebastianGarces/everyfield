@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID,randomBytes } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
-import { migrate } from '../../../packages/db/src/schema/migrate.ts';
+import { migrate, adoptMigrationHistory, migrationArtifact } from '../../../packages/db/src/schema/migrate.ts';
 import { pdf } from '../platform/fixtures.mjs';
 import { authStorage } from '../../../packages/db/src/schema/auth-storage.ts';
 import { canonicalTimeZone } from '../../../packages/db/src/schema/time.ts';
@@ -66,6 +66,9 @@ test('INV-migration: preserves applied 0001 bytes and ledger; retries and failed
   await pool.query(readFileSync(new URL('../../../packages/db/migrations/0001_early_access.sql',import.meta.url),'utf8'));
   await pool.query("CREATE TABLE schema_migration(name text PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now());INSERT INTO schema_migration VALUES('0001_early_access.sql','2026-10-01Z')");
   await pool.query("INSERT INTO early_access_request(kind,email,data,mail_payload) VALUES('planter','preserved@example.test','{}','{}')");
+  await assert.rejects(migrate(pool,other),/migration_provenance_unverified/);
+  const approved=Object.fromEntries((await migrationArtifact()).filter(r=>r.name==='0001_early_access.sql').map(r=>[r.name,r.sha256]));
+  assert.deepEqual(await adoptMigrationHistory(pool,other,approved),[{name:'0001_early_access.sql',provenance:'adopted'}]);
   await pool.query('CREATE TABLE file_object(id uuid)');
   await assert.rejects(migrate(pool,other),e=>e.code==='42P07');
   assert.deepEqual((await pool.query('SELECT name FROM schema_migration')).rows,[{name:'0001_early_access.sql'}]);
