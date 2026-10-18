@@ -200,7 +200,7 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, tones }
 						reduced ? "Show the next sending path" : paused ? "Play the sending paths" : "Pause the sending paths"
 					}
 					onClick={() => (reduced ? setK((c) => (c + 1) % n) : setPaused((p) => !p))}
-					className="absolute right-4 bottom-4 z-2 grid size-[34px] cursor-pointer place-items-center rounded-full border-0 bg-transparent text-ink hover:bg-white/35 max-mk-sm:right-3 max-mk-sm:bottom-3"
+					className="absolute right-4 bottom-4 z-2 grid size-[34px] cursor-pointer place-items-center rounded-sm border-0 bg-transparent text-ink hover:bg-white/35 max-mk-sm:right-3 max-mk-sm:bottom-3"
 				>
 					{reduced ? <Icon icon={ArrowRight02Icon} size={14} /> : <PlaybackGlyph paused={paused} />}
 				</button>

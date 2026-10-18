@@ -79,7 +79,7 @@ export function NetworkDash({ demo }: { demo: DashDemo }) {
 									<span
 										key={a[0]}
 										className={cn(
-											"inline-flex h-[30px] items-center gap-1.5 rounded-full px-[11px] text-[12.5px] whitespace-nowrap",
+											"inline-flex h-[30px] items-center gap-1.5 rounded-[12px] px-[11px] text-[12.5px] whitespace-nowrap",
 											i
 												? "bg-surface-raised text-ink-2 shadow-[inset_0_0_0_1px_var(--color-line-2)] [&>b]:text-ink"
 												: "bg-ink text-on-ink [&>b]:text-on-ink",

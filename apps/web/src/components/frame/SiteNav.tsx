@@ -100,7 +100,7 @@ export function SiteNav({ links, cta, logo, pillLogo, arrow, menuIcon }: Props) 
 				inert={!pillLive}
 				aria-hidden={!pillLive || undefined}
 				className={cn(
-					"fixed inset-x-0 top-3 z-60 mx-auto w-full max-w-mk rounded-full bg-white shadow-mk-pill will-change-[transform,opacity]",
+					"fixed inset-x-0 top-3 z-60 mx-auto w-full max-w-mk rounded-nav bg-white shadow-mk-pill will-change-[transform,opacity]",
 					// Slides down 360 ms with the hero ease-out; transform and opacity only. Hidden, it waits for the slide to end
 					// before it turns invisible.
 					"invisible opacity-0 [transform:translate3d(0,calc(-100%_-_16px),0)]",
@@ -132,7 +132,7 @@ type BarProps = {
 };
 
 const LINK =
-	"whitespace-nowrap rounded-full px-[11px] py-2 text-text-2 no-underline hover:bg-mk-line hover:text-ink " +
+	"whitespace-nowrap rounded-nav-item px-[11px] py-2 text-text-2 no-underline hover:bg-linen hover:text-ink " +
 	"aria-[current=page]:font-semibold aria-[current=page]:text-ink max-mk-nav:px-2 max-mk-nav:py-3 max-mk-nav:text-[16px]";
 const MENU = {
 	inflow:
@@ -173,7 +173,7 @@ function NavBar({ which, links, cta, logo, arrow, menuIcon, open, toggleRef, onT
 					<Link
 						href={cta.href}
 						aria-current={cta.current ? "page" : undefined}
-						className="mt-2 hidden h-12 items-center self-start whitespace-nowrap rounded-full bg-ink px-5 text-[16px] font-semibold text-white no-underline hover:bg-ink-2 active:translate-y-px max-mk-xs:inline-flex"
+						className="mt-2 hidden h-12 items-center self-start whitespace-nowrap rounded-md bg-ink px-5 text-[16px] font-semibold text-white no-underline hover:bg-ink-2 active:translate-y-px max-mk-xs:inline-flex"
 					>
 						{cta.label}
 					</Link>
@@ -196,8 +196,8 @@ function NavBar({ which, links, cta, logo, arrow, menuIcon, open, toggleRef, onT
 					aria-controls={menuId}
 					onClick={onToggle}
 					className={cn(
-						"hidden cursor-pointer place-items-center border-0 bg-mk-line text-ink hover:bg-mk-line-strong max-mk-nav:grid",
-						pill ? "size-11 rounded-full max-mk-sm:size-[42px]" : "size-[42px] rounded-[12px]",
+						"hidden cursor-pointer place-items-center rounded-nav-item border-0 bg-linen text-ink hover:bg-mk-surface-3 max-mk-nav:grid",
+						pill ? "size-11 max-mk-sm:size-[42px]" : "size-[42px]",
 					)}
 				>
 					{menuIcon}

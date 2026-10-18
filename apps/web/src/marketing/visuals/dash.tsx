@@ -36,12 +36,12 @@ export function AppFrame({
 					<Mark className="h-4 w-5" />
 				</span>
 				{tabs ? (
-					<span className="flex gap-0.5 rounded-full bg-surface-raised p-1 shadow-[0_0_0_1px_var(--color-line)]">
+					<span className="flex gap-0.5 rounded-[13px] bg-surface-raised p-1 shadow-[0_0_0_1px_var(--color-line)]">
 						{["Overview", "People", "Meetings", "Tasks"].map((x, i) => (
 							<span
 								key={x}
 								className={cn(
-									"rounded-full px-[13px] py-[7px] text-[13px] font-medium whitespace-nowrap",
+									"rounded-sm px-[13px] py-[7px] text-[13px] font-medium whitespace-nowrap",
 									i ? "text-text-2 max-mk-sm:hidden" : "bg-ink text-on-ink",
 								)}
 							>

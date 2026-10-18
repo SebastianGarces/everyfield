@@ -161,10 +161,10 @@ export function TalksPanel() {
 			<PanelCard kind="talks" className="min-w-0">
 				<PanelHead tone="amber" icon={ICONS.users} title="Leadership conversations" sub="Grace Church" />
 				<St i={1} className="flex gap-1.5">
-					<span className="inline-flex h-[30px] items-center rounded-full bg-ink px-[11px] text-[12.5px] font-medium text-cream">
+					<span className="inline-flex h-[30px] items-center rounded-sm bg-ink px-[11px] text-[12.5px] font-medium text-cream">
 						By month
 					</span>
-					<span className="inline-flex h-[30px] items-center rounded-full bg-surface px-[11px] text-[12.5px] font-medium text-ink-2 shadow-[inset_0_0_0_1px_var(--color-line-2)]">
+					<span className="inline-flex h-[30px] items-center rounded-sm bg-surface px-[11px] text-[12.5px] font-medium text-ink-2 shadow-[inset_0_0_0_1px_var(--color-line-2)]">
 						By quarter
 					</span>
 				</St>

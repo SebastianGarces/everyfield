@@ -55,7 +55,7 @@ export function PeoplePanel({ title, note }: { title: string; note: string }) {
 					<Move
 						as="span"
 						fx="people.added"
-						className="inline-flex h-[30px] items-center gap-[7px] rounded-full bg-green-50 pr-3 pl-2 text-[12.5px] font-semibold whitespace-nowrap text-green-700 opacity-0 shadow-mk-green-edge"
+						className="inline-flex h-[30px] items-center gap-[7px] rounded-[16px] bg-green-50 pr-3 pl-2 text-[12.5px] font-semibold whitespace-nowrap text-green-700 opacity-0 shadow-mk-green-edge"
 					>
 						<Icon icon={ICONS.check} />
 						24 people added from the sign-up form
