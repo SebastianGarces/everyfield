@@ -10,9 +10,10 @@
     "typecheck": "tsc --noEmit",
     "share-images": "node scripts/render-share-images.mjs",
     "mesh-images": "node scripts/render-mesh-images.mjs",
-    "test:unit": "node --conditions=react-server --test ../../tests/integration/platform/unit.test.mts",
+    "test:unit": "node --conditions=react-server --test ../../tests/integration/platform/unit.test.mts ../../tests/integration/jobs/calendar.test.mts",
     "test:platform": "node --conditions=react-server --env-file-if-exists=.env.local --test ../../tests/integration/platform/requests.test.mts",
-    "typecheck:ts7": "tsgo --noEmit"
+    "typecheck:ts7": "tsgo --noEmit",
+    "test:jobs": "node --conditions=react-server --env-file-if-exists=.env.local --test ../../tests/integration/jobs/*.test.mts"
   },
   "dependencies": {
     "@everyfield/db": "workspace:*",
