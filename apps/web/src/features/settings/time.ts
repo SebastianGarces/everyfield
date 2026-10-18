@@ -31,8 +31,8 @@ export function allZones(): string[] {
 	return zones;
 }
 
-/** "Mon, Oct 19, 9:00 AM" in the given zone. */
-export function formatInstant(instant: string, zone: string): string {
+/** "Mon, Oct 19, 9:00 AM" in the given zone; with `withZone`, "Mon, Oct 19, 9:00 AM CDT". */
+export function formatInstant(instant: string, zone: string, withZone = false): string {
 	return new Intl.DateTimeFormat("en-US", {
 		timeZone: zone,
 		weekday: "short",
@@ -40,6 +40,7 @@ export function formatInstant(instant: string, zone: string): string {
 		day: "numeric",
 		hour: "numeric",
 		minute: "2-digit",
+		...(withZone ? { timeZoneName: "short" as const } : {}),
 	}).format(new Date(instant));
 }
 

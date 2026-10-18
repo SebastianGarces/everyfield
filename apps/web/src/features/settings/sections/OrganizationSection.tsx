@@ -140,27 +140,27 @@ function OrganizationForm({
 						{values.organization.organizationKind === "sending_network" ? "Sending network" : "Sending church"}
 					</span>
 				</SettingRow>
-				<SettingRow label="Location">
+				<SettingRow label="Location" description="All optional.">
 					<div className="grid grid-cols-3 gap-3 max-app-sm:grid-cols-1">
-						<Field label="City" optional error={visible.city}>
+						<Field label="City" error={visible.city}>
 							<Input value={draft.city} onChange={set("city")} autoComplete="address-level2" />
 						</Field>
-						<Field label="State or province" optional error={visible.stateProvince}>
+						<Field label="State or province" error={visible.stateProvince}>
 							<Input value={draft.stateProvince} onChange={set("stateProvince")} autoComplete="address-level1" />
 						</Field>
-						<Field label="Country" optional error={visible.country}>
+						<Field label="Country" error={visible.country}>
 							<Input value={draft.country} onChange={set("country")} autoComplete="country-name" />
 						</Field>
 					</div>
 				</SettingRow>
-				<SettingRow label="About">
-					<Field label={<span className="sr-only">About the organization</span>} optional error={visible.description}>
+				<SettingRow label="About" description="Optional.">
+					<Field label={<span className="sr-only">About the organization</span>} error={visible.description}>
 						<Textarea value={draft.description} onChange={set("description")} invalid={Boolean(visible.description)} />
 					</Field>
 				</SettingRow>
-				<SettingRow label="Contact" description="Churches use this to reach you.">
+				<SettingRow label="Contact" description="Optional. Churches use this to reach you.">
 					<div className="grid grid-cols-2 gap-3 max-app-sm:grid-cols-1">
-						<Field label="Email" optional error={visible.contactEmail}>
+						<Field label="Email" error={visible.contactEmail}>
 							<Input
 								type="email"
 								value={draft.contactEmail}
@@ -169,7 +169,7 @@ function OrganizationForm({
 								invalid={Boolean(visible.contactEmail)}
 							/>
 						</Field>
-						<Field label="Phone" optional error={visible.contactPhone}>
+						<Field label="Phone" error={visible.contactPhone}>
 							<Input type="tel" value={draft.contactPhone} onChange={set("contactPhone")} autoComplete="tel" />
 						</Field>
 					</div>

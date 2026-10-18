@@ -76,26 +76,18 @@ function AccountForm({
 	return (
 		<>
 			<SectionBody>
-				<SettingRow label="Photo and name">
-					<div className="flex flex-wrap items-start gap-4">
-						<AvatarControl
-							account={account}
-							onChanged={(avatar) => replace({ ...account, avatar })}
-							onReload={reload}
+				<SettingRow label="Photo" description="Shown next to your name to people in your church.">
+					<AvatarControl account={account} onChanged={(avatar) => replace({ ...account, avatar })} onReload={reload} />
+				</SettingRow>
+				<SettingRow label="Name">
+					<Field label={<span className="sr-only">Your name</span>} error={showError ? nameError : undefined}>
+						<Input
+							value={draft.name}
+							onChange={(e) => setDraft({ name: e.target.value })}
+							autoComplete="name"
+							invalid={showError && Boolean(nameError)}
 						/>
-						<Field
-							label={<span className="sr-only">Your name</span>}
-							error={showError ? nameError : undefined}
-							className="min-w-[220px] flex-1"
-						>
-							<Input
-								value={draft.name}
-								onChange={(e) => setDraft({ name: e.target.value })}
-								autoComplete="name"
-								invalid={showError && Boolean(nameError)}
-							/>
-						</Field>
-					</div>
+					</Field>
 				</SettingRow>
 				<SettingRow label="Email" description="We send a link to the new address to confirm it.">
 					<EmailChange currentEmail={account.email} />

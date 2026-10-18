@@ -146,6 +146,13 @@ export function SettingsDialog({
 				<DialogContent
 					size="lg"
 					aria-describedby={undefined}
+					onOpenAutoFocus={(e) => {
+						// Start on the current section's link, so Tab then walks into that section.
+						const link = panel.current?.querySelector<HTMLElement>("[data-settings-nav][aria-current=page]");
+						if (!link) return;
+						e.preventDefault();
+						link.focus();
+					}}
 					className="h-[min(720px,calc(100dvh-24px))] max-w-[1040px]! overflow-hidden"
 				>
 					<div
@@ -268,10 +275,21 @@ function SectionContent({
 	}
 }
 
-/** The scrolling body of a section. */
+/**
+ * The scrolling body of a section. It is a focusable region, so keyboard users can scroll it even when it holds no
+ * control (a Member's read-only Sharing on a phone).
+ */
 export function SectionBody({ children, className }: { children: ReactNode; className?: string }) {
 	return (
-		<div className={cn("min-h-0 flex-1 overflow-y-auto px-8 pt-2 pb-8 max-app-sm:px-5", className)}>{children}</div>
+		<div
+			role="region"
+			aria-label="Section content"
+			tabIndex={0}
+			data-focus-inset=""
+			className={cn("min-h-0 flex-1 overflow-y-auto px-8 pt-2 pb-8 max-app-sm:px-5", className)}
+		>
+			{children}
+		</div>
 	);
 }
 

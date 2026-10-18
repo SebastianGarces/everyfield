@@ -113,7 +113,7 @@ export function DeletionStatusScreen({
 								? `The login for ${subject.email} is closed, and every session has ended.`
 								: "Every seat has lost access, and every session has ended. Nothing in the workspace is visible."}{" "}
 							{open
-								? `You can cancel until ${deadline}. After that, the data is deleted and cannot be brought back.`
+								? `You can cancel until ${deadline}. After that, the data is deleted, and backup copies expire within 7 more days.`
 								: `The time to cancel ended on ${deadline}.`}
 						</p>
 						{cancelError ? <SaveError message={cancelError.message} reference={cancelError.reference} /> : null}

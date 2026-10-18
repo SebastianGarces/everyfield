@@ -149,8 +149,8 @@ function PreviewList({ preview, oldZone }: { preview: PlantTimezonePreview; oldZ
 						<ul className="mt-1.5 flex flex-col gap-1 text-sm text-text-2">
 							{g.rows.slice(0, 5).map((row) => (
 								<li key={row.id} className="num">
-									{formatInstant(row.before, oldZone)} <span aria-hidden="true">→</span>
-									<span className="sr-only">becomes</span> {formatInstant(row.after, preview.newZone)}
+									{formatInstant(row.before, oldZone, true)} <span aria-hidden="true">→</span>
+									<span className="sr-only">becomes</span> {formatInstant(row.after, preview.newZone, true)}
 								</li>
 							))}
 							{g.rows.length > 5 ? <li className="text-text-3">and {g.rows.length - 5} more</li> : null}

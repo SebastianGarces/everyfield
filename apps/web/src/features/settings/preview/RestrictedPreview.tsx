@@ -6,8 +6,7 @@ import { ConfirmEmailScreen } from "../restricted/ConfirmEmailScreen";
 import { DeletionStatusScreen } from "../restricted/DeletionStatusScreen";
 import { createDeletionPort, createFixturePort, DELETION_SCENARIOS, type DeletionScenario } from "./fixtures";
 
-export type RestrictedFlow = "account-deletion" | "workspace-deletion" | "confirm-email";
-export const RESTRICTED_FLOWS: readonly RestrictedFlow[] = ["account-deletion", "workspace-deletion", "confirm-email"];
+import type { RestrictedFlow } from "./flows";
 
 /**
  * The restricted pages at /design/restricted/[flow]. `state` picks a deletion scenario (pending, late, skew, purging,

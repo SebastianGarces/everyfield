@@ -46,7 +46,10 @@ export function SettingsPreview() {
 			const [op, code] = spec.split(":");
 			if (op && code) fixture.controls.failNext(op as Operation, code as Fault);
 		}
-		(window as unknown as { __settingsFixture?: unknown }).__settingsFixture = fixture.controls;
+		const hooks = window as unknown as { __settingsFixture?: unknown; __settingsNavigate?: (href: string) => void };
+		hooks.__settingsFixture = fixture.controls;
+		// A client-side navigation the browser tests use to switch persona while settings is open.
+		hooks.__settingsNavigate = (href) => router.push(href, { scroll: false });
 		// Faults from the URL apply once per fixture.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [fixture]);

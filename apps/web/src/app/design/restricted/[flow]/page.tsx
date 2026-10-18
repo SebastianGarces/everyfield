@@ -1,4 +1,5 @@
-import { RESTRICTED_FLOWS, RestrictedPreview, type RestrictedFlow } from "@/features/settings/preview/RestrictedPreview";
+import { RESTRICTED_FLOWS, type RestrictedFlow } from "@/features/settings/preview/flows";
+import { RestrictedPreview } from "@/features/settings/preview/RestrictedPreview";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 

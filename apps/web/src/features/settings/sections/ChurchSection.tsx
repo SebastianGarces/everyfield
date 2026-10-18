@@ -179,10 +179,10 @@ function ChurchForm({
 				</SettingRow>
 				<SettingRow
 					label="Address"
-					description="Your city, region and country place you in Plant Intelligence. The street stays private to your church."
+					description="All optional. City, region and country place you in Plant Intelligence. The street stays private to your church."
 				>
 					<div className="flex flex-col gap-3">
-						<Field label="Street" optional error={visible.street}>
+						<Field label="Street" error={visible.street}>
 							<Input
 								value={draft.street}
 								onChange={(e) => set("street", e.target.value)}
@@ -190,17 +190,17 @@ function ChurchForm({
 							/>
 						</Field>
 						<div className="grid grid-cols-3 gap-3 max-app-sm:grid-cols-1">
-							<Field label="City" optional error={visible.city}>
+							<Field label="City" error={visible.city}>
 								<Input value={draft.city} onChange={(e) => set("city", e.target.value)} autoComplete="address-level2" />
 							</Field>
-							<Field label="State or province" optional error={visible.stateProvince}>
+							<Field label="State or province" error={visible.stateProvince}>
 								<Input
 									value={draft.stateProvince}
 									onChange={(e) => set("stateProvince", e.target.value)}
 									autoComplete="address-level1"
 								/>
 							</Field>
-							<Field label="Country" optional error={visible.country}>
+							<Field label="Country" error={visible.country}>
 								<Input
 									value={draft.country}
 									onChange={(e) => set("country", e.target.value)}
@@ -210,8 +210,8 @@ function ChurchForm({
 						</div>
 					</div>
 				</SettingRow>
-				<SettingRow label="About" description="A few sentences for your church page.">
-					<Field label={<span className="sr-only">About your church</span>} optional error={visible.description}>
+				<SettingRow label="About" description="Optional. A few sentences for your church page.">
+					<Field label={<span className="sr-only">About your church</span>} error={visible.description}>
 						<Textarea
 							value={draft.description}
 							onChange={(e) => set("description", e.target.value)}

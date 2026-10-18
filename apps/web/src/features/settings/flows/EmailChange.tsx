@@ -4,7 +4,7 @@ import { Mail01Icon } from "@hugeicons/core-free-icons";
 import { normalizedEmail } from "@everyfield/contracts/identity";
 import { Button, Field, Input } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { refusalOf } from "../save";
 import { useSettings } from "../store";
 
@@ -16,30 +16,26 @@ type State =
 /**
  * Changing the sign-in email (REQ-IDN-007). The new address gets a link that works for 24 hours; until it is opened
  * the current address stays. Each request replaces the one before, so only the newest link works. One request runs at
- * a time: a second Enter or click while one is sending does nothing, and Cancel waits for the answer, so the screen
- * never hides a link that was sent.
+ * a time: while it sends, Send link is loading, so a second Enter or click does nothing, and Cancel waits for the
+ * answer, so the screen never hides a link that was sent.
  */
 export function EmailChange({ currentEmail }: { currentEmail: string }) {
 	const { port } = useSettings();
 	const [state, setState] = useState<State>({ step: "idle" });
 	const start = () => setState({ step: "editing", value: "", sending: false });
 	const cancel = () => setState({ step: "idle" });
-	const inFlight = useRef(false);
 
 	const send = async () => {
-		if (state.step !== "editing" || inFlight.current) return;
+		if (state.step !== "editing") return;
 		const parsed = normalizedEmail.safeParse(state.value);
 		if (!parsed.success) return setState({ ...state, error: "Enter a full email address, like name@church.org." });
 		if (parsed.data === currentEmail) return setState({ ...state, error: "This is already your email." });
-		inFlight.current = true;
 		setState({ ...state, error: undefined, sending: true });
 		let reply;
 		try {
 			reply = await port.requestEmailChange({ newEmail: parsed.data });
 		} catch {
 			reply = null;
-		} finally {
-			inFlight.current = false;
 		}
 		if (reply?.status === "ok") return setState({ step: "sent", email: parsed.data });
 		setState((s) =>
