@@ -1,0 +1,37 @@
+/* Shared display components (WP-090). Only what utilities cannot express, scoped to the product root like
+   foundations/product.css and controls/controls.css, and loaded the same way: one import line in marketing.css. */
+
+@layer components {
+	/* Paper stays light: emails always use the light palette (design/everyfield-ui.html, Emails), and document
+     thumbnails draw printed pages, also inside a dark product page. These are the :root values of
+     design/handoff/tokens.css for every token an email part or a thumbnail uses. */
+	[data-product-root][data-theme="dark"] .ef-paper {
+		--ef-ink: #181d19;
+		--ef-ink-2: #343843;
+		--ef-text: #181d19;
+		--ef-text-2: #4d5361;
+		--ef-text-3: #666c78;
+		--ef-focus: #1c5bb5;
+		--ef-cream: #f6f0e9;
+		--ef-surface: #fafbfc;
+		--ef-surface-2: #edf0f4;
+		--ef-surface-3: #e6e8ec;
+		--ef-surface-raised: #ffffff;
+		--ef-line: rgba(22, 30, 46, 0.075);
+		--ef-line-2: rgba(22, 30, 46, 0.13);
+		--ef-on-ink: #ffffff;
+		--ef-green: #1ce362;
+		--ef-green-700: #0d6b35;
+		--ef-green-600: #0f7e3c;
+		--ef-amber-600: #9a4a0c;
+		--ef-teal-600: #11736a;
+		--ef-green-100: #dcfae7;
+		--ef-blue-600: #1c5bb5;
+		--ef-blue-100: #e3efff;
+		--ef-magenta-600: #b02a4a;
+		--ef-magenta-100: #ffe5e9;
+		--ef-violet-600: #6244cc;
+		--ef-violet-100: #eee8ff;
+		color-scheme: light;
+	}
+}
