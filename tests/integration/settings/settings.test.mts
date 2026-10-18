@@ -283,6 +283,8 @@ test("AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:ROLE43-002 AC:ROLE43-005 scoped set
 		other = await plant(),
 		adminActor = await seat(f.p),
 		member = await seat(f.p, "member");
+	denied(await call("getSection", f.a, { section: "account" }, f.p));
+	denied(await call("saveSection", f.a, command({ section: "account", name: "Wrong context" }), f.p));
 	const initial = ok(await call("getSection", f.a, { section: "plant", plant: f.p }, f.p));
 	assert.equal(initial.values.timeZone, "America/Chicago");
 	assert.deepEqual(initial.values.digest, { cadence: "weekly", weekday: 0, hour: 16 });
@@ -517,6 +519,58 @@ test("INV-lifecycle: first-witness deletion waits for an in-flight edit; later r
 	assert.equal(saved.current.name, "Serialized Name");
 	assert.equal(ok(pending).status, "pending_deletion");
 	denied(await call("saveSection", a, command({ section: "account", name: "Too Late" }, "2")));
+});
+
+test("INV-settings: concurrent account edits serialize before taking session share locks", async () => {
+	const a = await actor();
+	let entered, release;
+	const ready = new Promise((r) => (entered = r)),
+		gate = new Promise((r) => (release = r));
+	const blocking = admin.transaction(async (tx) => {
+		await tx.select().from(t.auth_user).where(eq(t.auth_user.id, a.user)).for("update");
+		entered();
+		await gate;
+	});
+	await ready;
+	const pids = [];
+	const edits = ["First name", "Second name"].map((name) =>
+		db.transaction(async (tx) => {
+			pids.push((await tx.execute(sql`SELECT pg_backend_pid() AS id`)).rows[0].id);
+			return api.saveSection(tx, ctx(a), command({ section: "account", name }));
+		}),
+	);
+	const settled = Promise.allSettled(edits);
+	try {
+		let waiting = false;
+		for (let i = 0; i < 100; i++) {
+			const rows = (
+				await admin.execute(
+					sql`SELECT pid FROM pg_stat_activity WHERE pid IN (${pids[0] ?? 0},${pids[1] ?? 0}) AND wait_event_type='Lock'`,
+				)
+			).rows;
+			if (rows.length === 2) {
+				waiting = true;
+				break;
+			}
+		}
+		assert.equal(waiting, true, "both real edits reached their lock wait");
+	} finally {
+		release();
+	}
+	await blocking;
+	const results = await settled;
+	assert.equal(
+		results.every((r) => r.status === "fulfilled"),
+		true,
+		JSON.stringify(results),
+	);
+	const replies = results.map((r) => r.value);
+	assert.equal(replies.filter((r) => r.status === "ok").length, 1);
+	denied(
+		replies.find((r) => r.status === "refused"),
+		"conflict",
+	);
+	assert.equal(ok(await call("getSection", a, { section: "account" })).revision, "2");
 });
 
 async function overdue(a, subject) {
@@ -1270,21 +1324,19 @@ test("AC:WP010-KNOW-069 AC:WP010-KNOW-072 AC:TARGET-IDN-032 account purge remove
 		key = `private/${f.a.id}/${randomUUID()}`,
 		bytes = Buffer.from("x"),
 		objects = new Map([[key, bytes]]);
-	await admin
-		.insert(t.file_object)
-		.values({
-			id: file,
-			tenant_id: f.a.id,
-			purpose: "avatar",
-			opaque_key: key,
-			media_type: "image/png",
-			max_bytes: "1",
-			byte_count: "1",
-			sha256: createHash("sha256").update(bytes).digest("hex"),
-			state: "ready",
-			upload_key: randomUUID(),
-			claim_generation: "0",
-		});
+	await admin.insert(t.file_object).values({
+		id: file,
+		tenant_id: f.a.id,
+		purpose: "avatar",
+		opaque_key: key,
+		media_type: "image/png",
+		max_bytes: "1",
+		byte_count: "1",
+		sha256: createHash("sha256").update(bytes).digest("hex"),
+		state: "ready",
+		upload_key: randomUUID(),
+		claim_generation: "0",
+	});
 	await admin.update(t.account).set({ avatar_object_id: file }).where(eq(t.account.id, f.a.id));
 	const docs = [];
 	for (const tenant of [f.a.id, f.p.id]) {
@@ -1292,92 +1344,82 @@ test("AC:WP010-KNOW-069 AC:WP010-KNOW-072 AC:TARGET-IDN-032 account purge remove
 			version = randomUUID(),
 			body = tenant === f.a.id ? "Personal document body" : "Church-owned document body";
 		await admin.insert(t.document).values({ id, tenant_id: tenant, kind: "native", title: "Synthetic document" });
-		await admin
-			.insert(t.document_revision)
-			.values({
-				id: version,
-				tenant_id: tenant,
-				document_id: id,
-				version_number: 1,
-				body,
-				content_hash: createHash("sha256").update(body).digest("hex"),
-				recorded_at: new Date(),
-			});
+		await admin.insert(t.document_revision).values({
+			id: version,
+			tenant_id: tenant,
+			document_id: id,
+			version_number: 1,
+			body,
+			content_hash: createHash("sha256").update(body).digest("hex"),
+			recorded_at: new Date(),
+		});
 		await admin.update(t.document).set({ current_revision_id: version }).where(eq(t.document.id, id));
 		docs.push({ id, version });
 	}
 	await admin.insert(t.private_calendar).values({ account_id: f.a.id });
 	const week = randomUUID();
-	await admin
-		.insert(t.private_week)
-		.values({
-			id: week,
-			plant_id: f.p.id,
-			author_id: f.a.id,
-			ordinal: "1",
-			monday: "2026-10-12",
-			timezone: "America/Chicago",
-			starts_at: new Date("2026-10-12T05:00:00Z"),
-			ends_at: new Date("2026-10-19T05:00:00Z"),
-			spiritually: "steady",
-			marriage_family: "steady",
-			financially: "steady",
-			pace: "steady",
-			note: "Synthetic private note",
-		});
+	await admin.insert(t.private_week).values({
+		id: week,
+		plant_id: f.p.id,
+		author_id: f.a.id,
+		ordinal: "1",
+		monday: "2026-10-12",
+		timezone: "America/Chicago",
+		starts_at: new Date("2026-10-12T05:00:00Z"),
+		ends_at: new Date("2026-10-19T05:00:00Z"),
+		spiritually: "steady",
+		marriage_family: "steady",
+		financially: "steady",
+		pace: "steady",
+		note: "Synthetic private note",
+	});
 	const conversation = randomUUID();
 	await admin
 		.insert(t.conversation)
 		.values({ id: conversation, tenant_id: f.p.id, owner_id: f.a.id, title: "Personal conversation", state: "open" });
-	await admin
-		.insert(t.conversation_entry)
-		.values({
-			tenant_id: f.p.id,
-			conversation_id: conversation,
-			sequence: "1",
-			kind: "message",
-			role: "user",
-			body: "Personal conversation body",
-			occurred_at: new Date(),
-			recorded_at: new Date(),
-		});
+	await admin.insert(t.conversation_entry).values({
+		tenant_id: f.p.id,
+		conversation_id: conversation,
+		sequence: "1",
+		kind: "message",
+		role: "user",
+		body: "Personal conversation body",
+		occurred_at: new Date(),
+		recorded_at: new Date(),
+	});
 	const feedback = randomUUID(),
 		publication = randomUUID();
-	await admin
-		.insert(t.feedback)
-		.values({
-			id: feedback,
-			account_id: f.a.id,
-			plant_context_id: f.p.id,
-			category: "bug",
-			description: "Private feedback original",
-			submitted_at: new Date(),
-			request_key: randomUUID(),
-			triage_state: "new",
-			revision_number: "1",
-		});
-	await admin
-		.insert(t.feedback_publication)
-		.values({
-			id: publication,
-			account_id: f.a.id,
-			feedback_id: feedback,
-			marker: randomUUID(),
-			category: "bug",
-			public_area: "settings",
-			sanitized_title: "Approved public summary",
-			sanitized_body: "Approved public summary",
-			payload_hash: "a".repeat(64),
-			repository_numeric_id: "1",
-			repository_node_id: "SyntheticRepo",
-			repository_owner: "synthetic",
-			repository_name: "synthetic",
-			state: "published",
-			issue_number: 1,
-			issue_node_id: "SyntheticIssue",
-			issue_url: "https://example.test/issues/1",
-			published_at: new Date(),
-		});
+	await admin.insert(t.feedback).values({
+		id: feedback,
+		account_id: f.a.id,
+		plant_context_id: f.p.id,
+		category: "bug",
+		description: "Private feedback original",
+		submitted_at: new Date(),
+		request_key: randomUUID(),
+		triage_state: "new",
+		revision_number: "1",
+	});
+	await admin.insert(t.feedback_publication).values({
+		id: publication,
+		account_id: f.a.id,
+		feedback_id: feedback,
+		marker: randomUUID(),
+		category: "bug",
+		public_area: "settings",
+		sanitized_title: "Approved public summary",
+		sanitized_body: "Approved public summary",
+		payload_hash: "a".repeat(64),
+		repository_numeric_id: "1",
+		repository_node_id: "SyntheticRepo",
+		repository_owner: "synthetic",
+		repository_name: "synthetic",
+		state: "published",
+		issue_number: 1,
+		issue_node_id: "SyntheticIssue",
+		issue_url: "https://example.test/issues/1",
+		published_at: new Date(),
+	});
 	const pending = await overdue(f.a, subject),
 		input = { subject, requestId: pending.requestId, revision: pending.revision };
 	let timeout = true;

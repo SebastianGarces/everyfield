@@ -62,6 +62,7 @@ export async function reply<T>(tx: Tx, body: (tx: Tx) => Promise<T>): Promise<Se
 }
 export async function actor(tx: Tx, ctx: Context, write = false) {
 	if (ctx.selected.kind === "plant") await lockSeats(tx, "workspace-seats/" + ctx.selected.id);
+	// This capability takes the account write lock before session and user share locks.
 	const raw = await tx.execute(sql`SELECT * FROM invitation_identity(${sessionId.parse(ctx.session)})`);
 	const p = z
 		.object({ account_id: accountId, display_name: z.string(), email: z.string(), verified: z.boolean() })

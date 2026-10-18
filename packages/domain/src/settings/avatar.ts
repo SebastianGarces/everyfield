@@ -52,6 +52,7 @@ export function avatarOperations(
 				native(ctx);
 				const v = parse(q.getAvatarRequest, raw);
 				const a = await self(s, ctx);
+				// The account's composite avatar foreign key already binds this reference to its tenant.
 				if (a.account.avatar_object_id !== v.versionId) deny();
 				const [file] = await s
 					.select({ id: t.file_object.id })
@@ -59,7 +60,6 @@ export function avatarOperations(
 					.where(
 						and(
 							eq(t.file_object.id, v.versionId),
-							eq(t.file_object.tenant_id, a.account.id),
 							eq(t.file_object.purpose, "avatar"),
 							eq(t.file_object.state, "ready"),
 						),
