@@ -92,7 +92,8 @@ export function createIdentityService(config: IdentityConfig) {
     const correlationId = randomUUID();
     try {
       const url = new URL(request.url), path = url.pathname.replace(/^\/api\/auth\//, '');
-      if (url.origin !== origin || request.headers.get('host') && request.headers.get('host') !== new URL(origin).host) throw new IdentityRefusal('origin_denied', 403);
+      // Next uses its private listener URL behind a proxy. Validate Host against the fixed public authority; ignore forwarded host/protocol.
+      if (request.headers.get('host') !== new URL(origin).host) throw new IdentityRefusal('origin_denied', 403);
       const gets = ['get-session', 'registration-status', 'registration-options', 'recover-invalid-session'];
       const posts = ['register', 'sign-in/email', 'sign-out', 'request-password-reset', 'reset-password', 'verify-email', 'send-verification-email', 'revoke-other-sessions', 'resume-registration'];
       if (!(request.method === 'GET' ? gets : request.method === 'POST' ? posts : []).includes(path)) return json({ code: 'unavailable' }, 404);
@@ -170,7 +171,10 @@ export function createIdentityService(config: IdentityConfig) {
         let result: Response;
         try { result = await call(request, path, { token: v.proof, newPassword: v.newPassword }); }
         catch { config.diagnostic({ correlationId, outcome: 'unknown' }); throw new IdentityRefusal('unavailable', 503); }
-        if (!result.ok) throw new IdentityRefusal('invalid_proof', 400);
+        if (!result.ok) {
+          if (result.status >= 500) { config.diagnostic({ correlationId, outcome: 'unknown' }); throw new IdentityRefusal('unavailable', 503); }
+          throw new IdentityRefusal('invalid_proof', 400);
+        }
         try {
           const user = await config.authDb.query('SELECT email FROM auth_user WHERE id=$1', [authUser]);
           await transaction(config.db, async tx => {

@@ -32,6 +32,9 @@ test('INV-identity: atomic registration admission counts malformed submissions, 
   f.setIp(null);assert.equal((await register(f,'noip@example.test')).status,503);
   assert.equal((await f.req('register',{},undefined,{'x-forwarded-for':'127.0.0.99'})).status,503);
   assert.equal((await f.db.query("SELECT count(*)::int n FROM auth_user WHERE email='noip@example.test'")).rows[0].n,0);
+  await f.db.query('ALTER TABLE admission_attempt RENAME TO admission_unavailable');
+  try { const refused=await signIn(f,'staged@example.test'); assert.equal(refused.status,503);assert.equal(cookie(refused),''); }
+  finally { await f.db.query('ALTER TABLE admission_unavailable RENAME TO admission_attempt'); }
 });
 
 test('INV-identity: normalized login and reset budgets reserve concurrently, success clears only own login failures',async()=>{
@@ -52,8 +55,10 @@ test('AC:WP005-API-RESET real single-use reset consumes one proof, rejects uncha
   const proof=await resetProof('reset@example.test');
   const lifetime=await f.db.query("SELECT extract(epoch FROM(expires_at-created_at))::int seconds FROM auth_verification WHERE identifier=$1",['reset-password:'+proof]);assert.equal(lifetime.rows[0].seconds,3600);
   assert.equal((await f.req('reset-password',{proof,newPassword:password,confirmPassword:password})).status,422);
-  f.setMailFault(true);
+  await f.db.query(`CREATE FUNCTION fail_security_event() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action='identity.credential_changed' THEN RAISE EXCEPTION 'synthetic_event_failure'; END IF; RETURN NEW; END $$`);
+  await f.db.query('CREATE TRIGGER fail_security_event BEFORE INSERT ON event FOR EACH ROW EXECUTE FUNCTION fail_security_event()');
   const results=await Promise.all(Array.from({length:2},()=>f.req('reset-password',{proof,newPassword:'Fixture-new-pass-2',confirmPassword:'Fixture-new-pass-2'})));
+  await f.db.query('DROP TRIGGER fail_security_event ON event');
   assert.deepEqual(results.map(r=>r.status).sort(),[200,400]);
   assert.deepEqual(await results.find(r=>r.status===200)!.json(),{status:'password_reset',next:'sign_in'});
   assert.equal(cookie(results.find(r=>r.status===200)!), '');
@@ -101,6 +106,8 @@ test('INV-identity: real database session renews, expired/revoked/deleted identi
 test('INV-identity: real routes reject wrong/missing origins, method and raw handler bypasses, unknown keys and unsafe returns',async()=>{
   f.setIp('127.0.0.17');
   for(const origin of ['', 'https://evil.example',f.origin.replace('http:','https:')])assert.equal((await f.req('sign-in/email',{email:'staged@example.test',password},undefined,{origin})).status,403);
+  assert.equal((await f.req('get-session',undefined,undefined,{host:'evil.example'})).status,403);
+  assert.equal((await f.req('get-session',undefined,undefined,{'x-forwarded-host':'evil.example','x-forwarded-proto':'https'})).status,200);
   for(const path of ['sign-up/email','change-password','reset-password/anything','verify-email?token=forged'])assert.equal((await f.req(path)).status,404);
   assert.equal((await f.req('sign-in/email',{email:'staged@example.test',password,actor:'forged'})).status,422);
   const safe=await f.req('sign-in/email',{email:'staged@example.test',password,returnTo:'/people?q=Alex'});assert.equal((await safe.json()).returnTo,'/people?q=Alex');
