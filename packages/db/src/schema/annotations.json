@@ -2357,13 +2357,13 @@
 			"feedback.theme": ["light", "dark"],
 			"early_access_request.kind": ["planter", "network"],
 			"early_access_request.data.phase": [
-				"0 · Discovery",
-				"1 · Core group",
-				"2 · Launch team",
-				"3 · Training",
-				"4 · Pre-launch",
-				"5 · Launch Sunday",
-				"6 · Post-launch"
+				"0 \u00b7 Discovery",
+				"1 \u00b7 Core group",
+				"2 \u00b7 Launch team",
+				"3 \u00b7 Training",
+				"4 \u00b7 Pre-launch",
+				"5 \u00b7 Launch Sunday",
+				"6 \u00b7 Post-launch"
 			],
 			"attestation.not": [
 				"values_documented",
@@ -3804,6 +3804,9 @@
 				},
 				"revision": {
 					"note": ""
+				},
+				"personal_timezone_revision": {
+					"note": "Independent confirmed personal-zone compare-and-set revision, unrelated to private calendar metadata."
 				}
 			},
 			"foreignKeys": {
@@ -4275,6 +4278,9 @@
 				},
 				"country": {
 					"note": "Optional independently supplied locality; never inferred from another component or timezone."
+				},
+				"digest_cadence": {
+					"note": "Plant scheduling gate; weekly Sunday 16:00 remains the fresh default."
 				}
 			},
 			"foreignKeys": {
@@ -5806,7 +5812,7 @@
 					"note": ""
 				},
 				"name": {
-					"note": "Trim leading/trailing spaces; 1–100 characters. Internal spaces remain significant."
+					"note": "Trim leading/trailing spaces; 1\u2013100 characters. Internal spaces remain significant."
 				},
 				"normalized_name": {
 					"note": "lower(btrim(name)); unique within plant_id. Case and surrounding spaces do not distinguish tags."
@@ -24600,6 +24606,141 @@
 					"deletion": {
 						"action": "no_action",
 						"policy": "Explicit dependency-ordered owner purge; no retention exemption."
+					}
+				}
+			}
+		},
+		"settings_result": {
+			"table": {
+				"name": "settings_result",
+				"domain": "identity",
+				"purpose": "Exact settings command receipt; no private calendar or credential payload.",
+				"library_owned": false,
+				"jsonb_keys": {
+					"value": [
+						"receipt",
+						"current",
+						"status",
+						"plant",
+						"timeZone",
+						"revision",
+						"replanIntentId",
+						"preference",
+						"deletion",
+						"result"
+					]
+				},
+				"capabilities": ["CAP-A-007", "CAP-A-011", "CAP-A-012", "CAP-A-014", "CAP-A-015"],
+				"replaces": [],
+				"producer_work_packages": ["WP-010"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-010"],
+					"rule": "WP-010 settings storage through Drizzle Kit."
+				},
+				"feature_ids": ["IDN-006", "IDN-010", "IDN-011", "IDN-012", "IDN-026", "PPL-005"],
+				"acceptance_ids": [],
+				"future_case_ids": [],
+				"scope": "identity",
+				"invariants": [
+					"Fresh exact owner, actor, source lifecycle and revision checks precede reads and mutations.",
+					"Protected facts, history, replay result, audit and material revision commit in the same transaction; this storage grants no access."
+				],
+				"revision": "Append original occurrence and correction evidence; current mutable order uses expected revisions.",
+				"idempotency": "Exact operation result replays only after fresh authority checks; source rows serialize concurrent writes.",
+				"deletion": "Witnessed organization removal scrubs unnecessary bodies and attribution immediately. Account removal severs links and retains only legitimate independently owned facts with minimal scope-local attribution. Retention and recovery follow the actual owner; no new TTL or history exemption.",
+				"physical_verified": false
+			},
+			"columns": {
+				"operation_id": {
+					"note": ""
+				},
+				"tenant_id": {
+					"note": ""
+				},
+				"value": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"operation_id,tenant_id->operation(id,tenant_id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Witnessed owner cleanup removes dependent preview/receipt bodies before eligible source content. A creator FK never changes ownership; retained root identities carry no private body."
+					}
+				},
+				"tenant_id->tenant(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Witnessed owner cleanup removes dependent preview/receipt bodies before eligible source content. A creator FK never changes ownership; retained root identities carry no private body."
+					}
+				}
+			}
+		},
+		"settings_preview": {
+			"table": {
+				"name": "settings_preview",
+				"domain": "identity",
+				"purpose": "Short-lived account-bound reviewed timezone plan; private calendar plans stay separate.",
+				"library_owned": false,
+				"jsonb_keys": {
+					"value": ["preview", "sources", "previewId", "preference", "expectedRevision", "newZone", "asOf", "expiresAt"]
+				},
+				"capabilities": ["CAP-A-007", "CAP-A-012"],
+				"replaces": [],
+				"producer_work_packages": ["WP-010"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-010"],
+					"rule": "WP-010 settings storage through Drizzle Kit."
+				},
+				"feature_ids": ["IDN-010", "IDN-011", "IDN-026"],
+				"acceptance_ids": [],
+				"future_case_ids": [],
+				"scope": "identity",
+				"invariants": [
+					"Fresh exact owner, actor, source lifecycle and revision checks precede reads and mutations.",
+					"Protected facts, history, replay result, audit and material revision commit in the same transaction; this storage grants no access."
+				],
+				"revision": "Append original occurrence and correction evidence; current mutable order uses expected revisions.",
+				"idempotency": "Exact operation result replays only after fresh authority checks; source rows serialize concurrent writes.",
+				"deletion": "Witnessed organization removal scrubs unnecessary bodies and attribution immediately. Account removal severs links and retains only legitimate independently owned facts with minimal scope-local attribution. Retention and recovery follow the actual owner; no new TTL or history exemption.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"account_id": {
+					"note": ""
+				},
+				"tenant_id": {
+					"note": ""
+				},
+				"kind": {
+					"note": ""
+				},
+				"expected_revision": {
+					"note": ""
+				},
+				"value": {
+					"note": ""
+				},
+				"expires_at": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"account_id->account(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Witnessed owner cleanup removes dependent preview/receipt bodies before eligible source content. A creator FK never changes ownership; retained root identities carry no private body."
+					}
+				},
+				"tenant_id->tenant(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Witnessed owner cleanup removes dependent preview/receipt bodies before eligible source content. A creator FK never changes ownership; retained root identities carry no private body."
 					}
 				}
 			}

@@ -64,6 +64,20 @@
       "when": 1792354410164,
       "tag": "0009_onboarding_privileges",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792363028436,
+      "tag": "0010_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792363030603,
+      "tag": "0011_settings_privileges",
+      "breakpoints": true
     }
   ]
 }

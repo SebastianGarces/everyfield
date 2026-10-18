@@ -86,29 +86,20 @@ export function sharingOperations(
 			if (c.kind === "replay") return Q.mutationResult.parse(c.result);
 			checkRevision(q.expectedRevision, a.revision);
 			checkRevision(q.input.expectedConsentRevision, a.consent_revision);
-			if (choices(a)[q.input.category] === q.input.enabled)
-				return finishCommand(tx, c, (r) => Q.mutationResult.parse({ status: "committed", receipt: r }), [], false);
-			await tx
-				.update(tables.affiliation)
-				.set({
-					[columns[q.input.category]]: q.input.enabled,
-					consent_revision: sql`${tables.affiliation.consent_revision}+1`,
-					revision: sql`${tables.affiliation.revision}+1`,
-				})
-				.where(eq(tables.affiliation.id, a.id));
-			const next = String(BigInt(a.revision) + 1n),
-				event = await appendEvent(tx, c, a.id, "preference", "sharing.changed", a.revision, next);
-			await invalidate(tx, effects, pairOf(a), a.id, next);
-			// Coarse event only. Never copy the changed category or private body to notices.
-			await effects.notice(tx, {
-				eventId: event,
-				relationshipId: a.id,
-				pair: pairOf(a),
-				kind: "sharing_changed",
-				revision: next,
-				operationId: c.id,
-			});
-			return finishCommand(tx, c, (r) => Q.mutationResult.parse({ status: "committed", receipt: r }), [event]);
+			const changed = await applySharingMutation(
+				tx,
+				a,
+				c,
+				{ ...choices(a), [q.input.category]: q.input.enabled },
+				effects,
+			);
+			return finishCommand(
+				tx,
+				c,
+				(r) => Q.mutationResult.parse({ status: "committed", receipt: r }),
+				changed.events,
+				changed.changed,
+			);
 		},
 	};
 }
@@ -150,4 +141,40 @@ export async function readSharingDisclosure(
 			shared_findings: true,
 		},
 	});
+}
+
+// Both privacy and settings use one locked revision update, audit, invalidation and
+// coarse notice. Caller has freshly checked the exact pair and both CAS revisions.
+export async function applySharingMutation(
+	tx: Transaction,
+	a: NonNullable<Awaited<ReturnType<typeof loadAffiliation>>>,
+	c: Extract<Awaited<ReturnType<typeof beginCommand>>, { kind: "new" }>,
+	nextChoices: ReturnType<typeof choices>,
+	effects: OrganizationEffects,
+) {
+	const before = choices(a);
+	const patch: Partial<typeof tables.affiliation.$inferInsert> = {};
+	for (const category of Q.sharingChoices.keyof().options)
+		if (before[category] !== nextChoices[category]) patch[columns[category]] = nextChoices[category];
+	if (!Object.keys(patch).length) return { changed: false, events: [] as string[] };
+	await tx
+		.update(tables.affiliation)
+		.set({
+			...patch,
+			consent_revision: sql`${tables.affiliation.consent_revision}+1`,
+			revision: sql`${tables.affiliation.revision}+1`,
+		})
+		.where(eq(tables.affiliation.id, a.id));
+	const next = String(BigInt(a.revision) + 1n);
+	const event = await appendEvent(tx, c, a.id, "preference", "sharing.changed", a.revision, next);
+	await invalidate(tx, effects, pairOf(a), a.id, next);
+	await effects.notice(tx, {
+		eventId: event,
+		relationshipId: a.id,
+		pair: pairOf(a),
+		kind: "sharing_changed",
+		revision: next,
+		operationId: c.id,
+	});
+	return { changed: true, events: [event] };
 }

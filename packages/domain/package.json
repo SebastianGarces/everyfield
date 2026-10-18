@@ -10,7 +10,8 @@
 		"./organizations": "./src/organizations/index.ts",
 		"./access": "./src/access/index.ts",
 		"./people": "./src/people/index.ts",
-		"./onboarding": "./src/onboarding/index.ts"
+		"./onboarding": "./src/onboarding/index.ts",
+		"./settings": "./src/settings/index.ts"
 	},
 	"scripts": {
 		"typecheck": "tsc --noEmit",
@@ -23,9 +24,10 @@
 		"test:organizations": "node --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/organizations/*.test.mts",
 		"test:access": "node --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/access/*.test.mts",
 		"test:people": "node --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/people/*.test.mts",
-		"test:db": "pnpm test && pnpm test:people && pnpm test:invitations && pnpm test:onboarding",
+		"test:db": "pnpm test && pnpm test:people && pnpm test:invitations && pnpm test:onboarding && pnpm test:settings",
 		"test:onboarding": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/onboarding/*.test.mts",
-		"test:invitations": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/identity/invitations.test.mts"
+		"test:invitations": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/identity/invitations.test.mts",
+		"test:settings": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/settings/*.test.mts"
 	},
 	"dependencies": {
 		"@everyfield/db": "workspace:*",
