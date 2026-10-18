@@ -28,7 +28,7 @@ function bodyOf(format){return format==='pdf'?pdf():office(format);}
 test('AC:PLATFORM-001 AC:PLATFORM-002 AC:SEC-10 AC:TEN-009 real Next sessions, rollback, private files, streams, callbacks and lease recovery',async(t)=>{
   const email=`wp003-${randomUUID()}@example.test`;const password='Fixture-first-password-123';
   try {
-    await t.test('proof gate and safe output',async()=>{
+    await t.test('AC:PLATFORM-003 AC:PLATFORM-004 proof gate and safe output',async()=>{
       assert.equal((await fetch(base+'/api/platform-proof/readiness')).status,404);
       assert.equal((await fetch(base+'/api/platform-proof/readiness',{headers:{'x-platform-proof':'wrong'}})).status,404);
       const r=await req('readiness');assert.equal(r.status,200);assert.equal(r.headers.get('cache-control'),'private, no-store');
