@@ -386,7 +386,7 @@ function mergeFixture() {
  const f=fixture(),task=parseTask('OPS-1');
  f.cfg.maintenanceTasks={[task.id]:{title:'Workflow upkeep',owningPaths:['tools/evf/'],checks:f.cfg.checks}};
  writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));f.commit();
- const bare=join(f.root,'fake-bin/origin.git');execFileSync('git',['init','--bare',bare],{stdio:'ignore'});
+ const bare=f.bare(join(f.root,'fake-bin/origin.git'));
  f.git('remote','add','origin',bare);f.git('push','-q','origin','main');
  const wt=f.task(task.slug),sha=f.git('rev-parse',task.branch),state=f.getState();
  state.pr={number:77,url:'https://github.com/test/private/pull/77',state:'OPEN',isDraft:false,headRefOid:sha,baseRefName:'main',body:validPrBody()};
@@ -484,8 +484,7 @@ test('BUG-c048ea5-pr-class: body checks select Wiki and prototype formats from P
 
 test('BUG-fb0159d-wiki-images: real pr-images output keeps a Wiki body valid on first upload and replacement',async()=>{
  const f=fixture(),oldGlobal=process.env.GIT_CONFIG_GLOBAL;try {
-  const gist=join(f.root,'fake-bin/screenshots.git');
-  execFileSync('git',['init','--bare',gist],{stdio:'ignore'});
+  const gist=f.bare(join(f.root,'fake-bin/screenshots.git'));
   const config=join(f.root,'fake-bin/gist.gitconfig');
   writeFileSync(config,`[url "file://${gist}"]\n\tinsteadOf = https://gist.github.com/a1b2c3.git\n`);
   process.env.GIT_CONFIG_GLOBAL=config;
@@ -765,15 +764,18 @@ test('BUG-wp003-shared-report: each check keeps its own report and only AC: repo
  }finally{f.close();}
 });
 
-test('BUG-ops6-fixture-cleanup: fixture git starts no detached maintenance, so close removes the whole fixture',()=>{
+test('BUG-ops6-fixture-cleanup: fixture commits and bare pushes start no background maintenance, so close removes the whole fixture',()=>{
  // Git's detached auto-maintenance kept writing into a fixture's .git while close() removed it (ENOTEMPTY on CI).
- const f=fixture(),traces=mkdtempSync(join(tmpdir(),'evf-trace-')),trace=join(traces,'commit.json');try{
+ const f=fixture(),traces=mkdtempSync(join(tmpdir(),'evf-trace-')),trace=join(traces,'git.json');try{
   f.git('config','gc.auto','1');
   for(let i=0;i<50;i++)writeFileSync(join(f.root,`loose-${i}.txt`),`loose object ${i}`);
   f.git('add','.');
-  execFileSync('git',['-C',f.root,'commit','-qm','Many loose objects'],{env:{...process.env,GIT_TRACE2_EVENT:trace}});
+  const traced=(...args:string[])=>execFileSync('git',['-C',f.root,...args],{env:{...process.env,GIT_TRACE2_EVENT:trace},stdio:'pipe'});
+  traced('commit','-qm','Many loose objects');
+  // The receiving side of a local push does not inherit the test's git environment.
+  traced('push','-q',f.bare(join(f.root,'fake-bin/receiver.git')),'main');
   const children=readFileSync(trace,'utf8').trim().split('\n').map(line=>JSON.parse(line)).filter(e=>e.event==='child_start').map(e=>e.argv.join(' '));
-  assert.deepEqual(children.filter(argv=>argv.includes('maintenance')||argv.includes('gc')),[]);
+  assert.deepEqual(children.filter(argv=>/\b(maintenance|gc)\b/.test(argv)),[]);
  }finally{f.close();rmSync(traces,{recursive:true,force:true});}
  assert.equal(existsSync(f.root),false);
 });
