@@ -10,8 +10,10 @@ CREATE TABLE people_history (
 );
 CREATE INDEX people_history_cursor ON people_history(tenant_id,person_id,occurred_at,id);
 CREATE TABLE people_result (
- operation_id uuid PRIMARY KEY REFERENCES operation(id), person_id uuid,
- value jsonb NOT NULL
+ operation_id uuid PRIMARY KEY, tenant_id uuid NOT NULL REFERENCES tenant(id), person_id uuid,
+ value jsonb NOT NULL,
+ FOREIGN KEY(operation_id,tenant_id) REFERENCES operation(id,tenant_id),
+ FOREIGN KEY(person_id,tenant_id) REFERENCES person(id,tenant_id)
 );
 CREATE TABLE people_column (
  plant_id uuid NOT NULL REFERENCES plant(id), column_name text NOT NULL,
@@ -67,7 +69,7 @@ BEGIN
  WHERE w.organization_id=org AND w.person_record_id=subject AND p.state='retired' FOR SHARE OF w,p;
  IF NOT FOUND THEN RAISE EXCEPTION 'removal_witness_required' USING ERRCODE='23514'; END IF;
  UPDATE people_history SET before_value=NULL,after_value=NULL,reason=NULL,actor_id=NULL WHERE tenant_id=org AND person_id=subject;
- UPDATE people_result SET value='{}' WHERE person_id=subject;
+ UPDATE people_result SET value='{}' WHERE tenant_id=org AND person_id=subject;
 END $$;
 REVOKE ALL ON FUNCTION purge_organization_person_history(uuid,uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION purge_organization_person_history(uuid,uuid) TO everyfield_runtime,everyfield_cleanup;

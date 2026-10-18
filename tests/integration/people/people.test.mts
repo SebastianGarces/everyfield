@@ -16,6 +16,7 @@ const require = createRequire(new URL("../../../packages/domain/package.json", i
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
 const localCi =
 	process.env.CI === "true" &&
+	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
 	["localhost", "127.0.0.1"].includes(source.hostname) &&
 	source.pathname === "/everyfield_ci";
 if (
@@ -961,7 +962,7 @@ test("INV-organization-removal: fresh consent gates progress and removal revokes
 		[invite, organization, randomUUID(), actors[1].id, p],
 	);
 	await admin.query(
-		"INSERT INTO affiliation(id,account_id,organization_id,accepted_at,invitation_id,share_people,share_meetings,share_tasks,share_ministry,share_wiki,share_activity,shared_findings) VALUES($1,$2,$3,clock_timestamp(),$4,false,false,false,false,false,false,false)",
+		"INSERT INTO affiliation(id,account_id,organization_id,accepted_at,invitation_id,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings) VALUES($1,$2,$3,clock_timestamp(),$4,false,false,false,false,false,false,false)",
 		[affiliation, actors[1].id, organization, invite],
 	);
 	await admin.query(

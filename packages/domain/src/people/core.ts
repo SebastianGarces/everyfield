@@ -296,8 +296,9 @@ export async function mutation<T>(
 			outcome === "noop" ? "no_effect" : "committed",
 		],
 	);
-	await tx.query("INSERT INTO people_result(operation_id,person_id,value) VALUES($1,$2,$3)", [
+	await tx.query("INSERT INTO people_result(operation_id,tenant_id,person_id,value) VALUES($1,$2,$3,$4)", [
 		operationId,
+		context.selected.id,
 		result.subject === context.selected.id ? null : result.subject,
 		JSON.stringify(result.value),
 	]);

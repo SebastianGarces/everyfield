@@ -501,6 +501,14 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `relationship_history(relationship_id)` | `affiliation(id)` | no_action |  |
 | `relationship_history(source_invitation_id)` | `invitation(id)` | no_action |  |
 | `organization_operation_result(operation_id)` | `operation(id)` | no_action |  |
+| `people_history(tenant_id)` | `tenant(id)` | no_action |  |
+| `people_history(actor_id)` | `account(id)` | set_null |  |
+| `people_history(person_id, tenant_id)` | `person(id, tenant_id)` | no_action |  |
+| `people_history(operation_id, tenant_id)` | `operation(id, tenant_id)` | no_action |  |
+| `people_result(tenant_id)` | `tenant(id)` | no_action |  |
+| `people_result(operation_id, tenant_id)` | `operation(id, tenant_id)` | no_action |  |
+| `people_result(person_id, tenant_id)` | `person(id, tenant_id)` | no_action |  |
+| `people_column(plant_id)` | `plant(id)` | no_action |  |
 
 ## Person references
 
@@ -538,3 +546,5 @@ Every declared Person FK has one registration in `target.json.person_references`
 | `leadership_conversation` | `person_id, organization_id` | WP-004, WP-098 |
 | `development_enrollment` | `person_id, organization_id` | WP-004, WP-099 |
 | `residency_link` | `person_id, organization_id` | WP-004, WP-008 |
+| `people_history` | `person_id, tenant_id` | WP-011, WP-015 |
+| `people_result` | `person_id, tenant_id` | WP-011, WP-015 |

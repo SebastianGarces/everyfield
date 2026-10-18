@@ -46,6 +46,7 @@ before(async () => {
 		"0002_baseline.sql",
 		"0003_access_privileges.sql",
 		"0004_people.sql",
+		"0005_organization_relationships.sql",
 	]);
 	await admin.query(
 		`CREATE ROLE ${role} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
@@ -90,7 +91,7 @@ test("AC:CASE-OPS-005 versioned migration checksums are observed at application,
 	assert.equal(provenance.state, "current");
 	assert.deepEqual(
 		provenance.applied.map((r) => r.provenance),
-		["original", "original", "original", "original"],
+		(await migrationArtifact()).map(() => "original"),
 	);
 	const ledger = (await admin.query("SELECT name,applied_at,sha256,provenance FROM schema_migration ORDER BY name"))
 		.rows;
