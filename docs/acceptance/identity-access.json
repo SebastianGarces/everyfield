@@ -5938,7 +5938,7 @@
         "WP-039"
       ],
       "status": "future-not-run",
-      "description": "Change church Chicago→Auckland with future wall recurrence/reminders, LocalDate deadline and fixed appointment.",
+      "description": "Change church Chicago\u2192Auckland with future wall recurrence/reminders, LocalDate deadline and fixed appointment.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6808,7 +6808,7 @@
     },
     {
       "id": "EVRY-INTERNAL-PURGEELIGIBLESUBJECT",
-      "requirement": "CAS pending_deletion→purging only at/after stored DB deadline; bounded manifest chunks commit actual cleanup checkpoints and current fence. Keep every normal path denied after failure. livePurgedAt only after every eligible live DB/file reference removed/scrubbed; minimal witness copy expiry <= livePurgedAt+7 days never reset by copying/restore. External object cleanup outside short tx, truthful attempted/unknown/confirmed state.",
+      "requirement": "CAS pending_deletion\u2192purging only at/after stored DB deadline; bounded manifest chunks commit actual cleanup checkpoints and current fence. Keep every normal path denied after failure. livePurgedAt only after every eligible live DB/file reference removed/scrubbed; minimal witness copy expiry <= livePurgedAt+7 days never reset by copying/restore. External object cleanup outside short tx, truthful attempted/unknown/confirmed state.",
       "feature_ids": [
         "IDN-026",
         "OPS-001"
@@ -8596,7 +8596,7 @@
     },
     {
       "id": "ORG55-008",
-      "requirement": "Request retains private cancellation data 30 days; after deadline coherent live purge starts≤7 day recovery-copy clock. Isolated restore enforces current deletion/access witnesses; expired/uncertain subjects stay hidden and old recopies do not reset expiry. No instant outside-copy/physical day 37 promise.",
+      "requirement": "Request retains private cancellation data 30 days; after deadline coherent live purge starts\u22647 day recovery-copy clock. Isolated restore enforces current deletion/access witnesses; expired/uncertain subjects stay hidden and old recopies do not reset expiry. No instant outside-copy/physical day 37 promise.",
       "requirement_ids": [
         "REQ-IDN-026"
       ],
@@ -8617,7 +8617,7 @@
         "WP-058"
       ],
       "status": "future-not-run",
-      "description": "Deletion request October 13; coherent live purge November 20 after retry; copy expires≤November 27; isolated old restore after expiry.",
+      "description": "Deletion request October 13; coherent live purge November 20 after retry; copy expires\u2264November 27; isolated old restore after expiry.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -12058,7 +12058,7 @@
         "WP-044"
       ],
       "status": "future-not-run",
-      "description": "Create church at 0/6 reading with no lead title and a different reader’s progress; retry after later phase transition.",
+      "description": "Create church at 0/6 reading with no lead title and a different reader\u2019s progress; retry after later phase transition.",
       "given": {
         "A": {
           "fixture_type": "account",
@@ -12431,7 +12431,7 @@
     },
     {
       "id": "ROLE43-018",
-      "requirement": "Self-only login deletion uses the finite 30 day cancellation/private hold followed by coherent live purge and≤7 day recovery-copy eligibility. Owner cannot delete another account, former lead has no perpetual access and private care never transfers.",
+      "requirement": "Self-only login deletion uses the finite 30 day cancellation/private hold followed by coherent live purge and\u22647 day recovery-copy eligibility. Owner cannot delete another account, former lead has no perpetual access and private care never transfers.",
       "requirement_ids": [
         "REQ-IDN-001",
         "REQ-IDN-007",
@@ -15423,7 +15423,7 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "Org A/B linked plants, no lead vs Owner≠lead, each category withheld/empty/populated, revoked link cached result, closed task+checklists, local count down.",
+      "description": "Org A/B linked plants, no lead vs Owner\u2260lead, each category withheld/empty/populated, revoked link cached result, closed task+checklists, local count down.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -18101,6 +18101,76 @@
           "business_access": false,
           "public_result": "continue_identity_proof",
           "grants_created": 0
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "WP010-IDN-012",
+      "requirement": "REQ-IDN-012",
+      "requirement_ids": [
+        "REQ-IDN-012"
+      ],
+      "feature_ids": [
+        "IDN-012"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-012--IDN-012"
+      ],
+      "work_packages": [
+        "WP-010"
+      ],
+      "status": "future-not-run",
+      "given": {
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "registration": "active"
+        },
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "revision": 7
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Owner",
+          "active": true
+        },
+        "suppression": {
+          "fixture_type": "suppression",
+          "mailbox": "alex@example.test",
+          "status": "suppressed"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-11-12T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "settings.getSection",
+        "arguments": {
+          "section": "notifications"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "owner_account": "A",
+          "suppression": "suppressed",
+          "private_care_fields": false
         },
         "event": null
       }
