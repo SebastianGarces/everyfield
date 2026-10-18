@@ -6328,6 +6328,280 @@
         },
         "event": null
       }
+    },
+    {
+      "id": "OPS-BACKUP-001",
+      "requirement": "REQ-KNOW-012",
+      "feature_ids": [
+        "OPS-005",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "description": "Restricted offline backup candidate validation checks database and exact byte checksums, original subject expiry and key recovery evidence. It cannot certify live provider settings.",
+      "given": {
+        "candidate": {
+          "fixture_type": "backup_candidate",
+          "artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "database_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "object_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "created_at": "2026-10-17T12:00:00Z",
+          "expires_at": "2026-10-24T12:00:00Z",
+          "subject_expires_at": "2026-10-20T12:00:00Z"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "context": "restricted-backup",
+          "key_recovery_verified": true,
+          "ordinary_runtime_has_key": false
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-operations",
+          "environment": "isolated-test",
+          "operation_ids": [
+            "ops.schemaValidate"
+          ],
+          "verified": true,
+          "authority": "explicit_scoped_operator",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          }
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T12:00:00Z",
+        "zone": "UTC"
+      },
+      "action": {
+        "operation": "ops.schemaValidate",
+        "arguments": {
+          "candidate": "candidate"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "candidate_valid": true,
+          "effective_subject_expiry": "2026-10-20T12:00:00Z",
+          "live_recovery_proven": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "OPS-PLATFORM-001",
+      "requirement": "REQ-KNOW-078",
+      "feature_ids": [
+        "OPS-005",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "description": "Inspect the actual application build and development connection privileges: app-owned auth, interactive PostgreSQL rollback, runtime distinct from migration operator, no separate worker.",
+      "given": {
+        "execution": {
+          "fixture_type": "test_execution",
+          "target": "approved-shared-development",
+          "runtime_role": "restricted_login",
+          "migration_role": "operator",
+          "fault": "required_consequence_insert",
+          "artifact": "current-head"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-operations",
+          "environment": "isolated-test",
+          "operation_ids": [
+            "ops.schemaValidate"
+          ],
+          "verified": true,
+          "authority": "explicit_scoped_operator",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          }
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T12:00:00Z",
+        "zone": "UTC"
+      },
+      "action": {
+        "operation": "ops.schemaValidate",
+        "arguments": {}
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "runtime_is_owner": false,
+          "runtime_bypasses_rls": false,
+          "runtime_can_migrate": false,
+          "faulted_transaction_writes": 0,
+          "standalone_worker": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "OPS-ATOMIC-001",
+      "requirement": "REQ-OPS-004",
+      "feature_ids": [
+        "OPS-004"
+      ],
+      "acceptance_ids": [
+        "AC-OPS-004--OPS-004"
+      ],
+      "work_packages": [
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "description": "A registered owning adapter writes source, required history/receipt and advisory job in one real transaction. Failure at a required writer rolls back all writes; success commits one durable intent even without an in-memory wakeup.",
+      "given": {
+        "execution": {
+          "fixture_type": "test_execution",
+          "source": "synthetic-document",
+          "fault": "required_history",
+          "repeat": 2
+        },
+        "source": {
+          "fixture_type": "document",
+          "id": "synthetic-document",
+          "owner": "synthetic-plant"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-operations",
+          "environment": "isolated-test",
+          "operation_ids": [
+            "domain.executeAtomicConsequences"
+          ],
+          "verified": true,
+          "authority": "registered_scoped_internal_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          }
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T12:00:00Z",
+        "zone": "UTC"
+      },
+      "action": {
+        "operation": "domain.executeAtomicConsequences",
+        "arguments": {
+          "source": "source",
+          "request_key": "atomic-1"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "faulted_transaction_writes": 0,
+          "committed_intents": 1,
+          "duplicate_effects": 0
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "OPS-EVAL-PROOF-001",
+      "requirement": "REQ-PI-036",
+      "feature_ids": [
+        "PI-036"
+      ],
+      "acceptance_ids": [
+        "AC-PI-036--PI-036"
+      ],
+      "work_packages": [
+        "WP-050"
+      ],
+      "status": "future-not-run",
+      "description": "Offline evaluation proof inspection distinguishes a declared protocol or test file from executed pinned synthetic evidence. No model call, rollout grant or provider setup follows from missing or failed evidence.",
+      "given": {
+        "evaluation": {
+          "fixture_type": "evaluation_protocol",
+          "source_version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "reference_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "fixture_release": "synthetic-v1",
+          "execution": null,
+          "gold_cases": [
+            "numeric_truth",
+            "privacy"
+          ]
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-operations",
+          "environment": "isolated-test",
+          "operation_ids": [
+            "engineering.auditProofCoverage"
+          ],
+          "verified": true,
+          "authority": "explicit_scoped_operator",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          }
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T12:00:00Z",
+        "zone": "UTC"
+      },
+      "action": {
+        "operation": "engineering.auditProofCoverage",
+        "arguments": {
+          "protocol": "evaluation"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "status": "not_run",
+          "rollout_allowed": false,
+          "live_account_proven": false
+        },
+        "event": null
+      }
     }
   ]
 }
