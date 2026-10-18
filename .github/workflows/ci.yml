@@ -1,7 +1,7 @@
 # Deterministic checks for every pull request and for main.
 # The required status check is the `ci` job. It passes only when every other job passed.
-# Not run here: the early access domain test (packages/domain), because it needs a database
-# (EARLY_ACCESS_TEST_DATABASE=1); CI skips database steps. CI uses no secrets.
+# The domain tests run against a throwaway Postgres 17 service container with a synthetic
+# password, never against Neon. CI uses no secrets.
 name: CI
 
 on:
@@ -73,6 +73,37 @@ jobs:
           git config --global init.defaultBranch main
       - run: bin/evf test
 
+  db:
+    name: db (domain tests on Postgres 17)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: everyfield_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci -d everyfield_ci"
+          --health-interval 2s --health-timeout 5s --health-retries 30
+    env:
+      DATABASE_URL: postgres://ci:ci@localhost:5432/everyfield_ci
+      EARLY_ACCESS_TEST_DATABASE: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Migrate the throwaway database
+        run: pnpm db:migrate
+      - name: Domain tests
+        run: pnpm test:access
+
   wiki:
     name: wiki (tooling tests)
     runs-on: ubuntu-24.04
@@ -102,7 +133,7 @@ jobs:
   ci:
     name: ci
     if: always()
-    needs: [app, docs, evf, wiki]
+    needs: [app, db, docs, evf, wiki]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
