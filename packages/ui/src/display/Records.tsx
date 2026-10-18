@@ -257,7 +257,7 @@ function Paper({ kind, tone, back }: { kind: ThumbKind; tone: Tone; back?: boole
 
 /**
  * DocThumb (components.md): a drawn page in the shape of the template: page, quarter (cards, two to a sheet),
- * sheet or grid-sheet. Paper stays light in dark mode (the light-token island), as printed paper does.
+ * sheet or grid-sheet. Paper stays light in dark mode (.ef-paper in display.css), as printed paper does.
  */
 export function DocThumb({
 	kind = "page",
@@ -272,7 +272,7 @@ export function DocThumb({
 		<span
 			aria-hidden="true"
 			className={cn(
-				"ef-light-island relative grid h-[150px] place-items-center overflow-hidden rounded-[14px] bg-surface-2",
+				"ef-paper relative grid h-[150px] place-items-center overflow-hidden rounded-[14px] bg-surface-2",
 				className,
 			)}
 		>

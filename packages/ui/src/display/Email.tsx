@@ -6,7 +6,7 @@ import type { Tone } from "./tone";
 /**
  * Email (components.md, Email layout): Brand, Card, Heading, Meta box, Buttons (RSVP), List, Stats, Signature and
  * Footer (address, preferences); from church or Everyfield. Emails always use the light palette, a 600px column and
- * plain structure (.ef-email in display.css keeps them light inside a dark page).
+ * plain structure (.ef-paper in display.css keeps them light inside a dark page).
  *
  * These components draw an email inside the product: the composer preview, "View email" in history and design
  * review. The HTML that is sent (inline styles, tables for Outlook) is rendered by the email delivery owner from the
@@ -36,7 +36,7 @@ export function EmailLayout({
 		<article
 			aria-label={envelope ? `Email: ${envelope.subject}` : "Email"}
 			className={cn(
-				"ef-email @container mx-auto max-w-full overflow-hidden rounded-[14px] bg-cream font-body text-ink shadow-raised transition-[width] duration-250 motion-reduce:transition-none",
+				"ef-paper @container mx-auto max-w-full overflow-hidden rounded-[14px] bg-cream font-body text-ink shadow-raised transition-[width] duration-250 motion-reduce:transition-none",
 				width === "desktop" ? "w-[600px]" : "w-[375px]",
 				className,
 			)}

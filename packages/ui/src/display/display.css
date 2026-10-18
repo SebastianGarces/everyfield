@@ -2,9 +2,10 @@
    foundations/product.css and controls/controls.css, and loaded the same way: one import line in marketing.css. */
 
 @layer components {
-	/* Emails always use the light palette (design/everyfield-ui.html, Emails), also inside a dark product page. These
-     are the :root values of design/handoff/tokens.css for every token an email part uses. */
-	[data-product-root][data-theme="dark"] .ef-email {
+	/* Paper stays light: emails always use the light palette (design/everyfield-ui.html, Emails), and document
+     thumbnails draw printed pages, also inside a dark product page. These are the :root values of
+     design/handoff/tokens.css for every token an email part or a thumbnail uses. */
+	[data-product-root][data-theme="dark"] .ef-paper {
 		--ef-ink: #181d19;
 		--ef-ink-2: #343843;
 		--ef-text: #181d19;
@@ -21,6 +22,9 @@
 		--ef-on-ink: #ffffff;
 		--ef-green: #1ce362;
 		--ef-green-700: #0d6b35;
+		--ef-green-600: #0f7e3c;
+		--ef-amber-600: #9a4a0c;
+		--ef-teal-600: #11736a;
 		--ef-green-100: #dcfae7;
 		--ef-blue-600: #1c5bb5;
 		--ef-blue-100: #e3efff;

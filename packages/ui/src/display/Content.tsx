@@ -414,7 +414,7 @@ export function WikiSourceBar({
 					</p>
 				</MenuContent>
 			</Menu>
-			<span className="min-w-0 flex-1 text-sm text-text-2">
+			<span className="min-w-[220px] flex-1 text-sm text-text-2 max-app-sm:min-w-full">
 				{current.meta}
 				{named ? "" : " · your preferred source"}
 			</span>
@@ -535,11 +535,15 @@ export function WikiEditor({
 						</span>
 					) : null}
 				</Toolbar.Root>
-				<input
+				<textarea
+					rows={1}
 					value={title}
-					onChange={(e) => onTitleChange(e.target.value)}
+					onChange={(e) => onTitleChange(e.target.value.replace(/\n/g, " "))}
+					onKeyDown={(e) => {
+						if (e.key === "Enter") e.preventDefault();
+					}}
 					aria-label="Article title"
-					className="mb-3.5 w-full border-0 bg-transparent p-0 font-display text-[38px] leading-[1.12] font-medium tracking-[-0.03em] text-ink outline-none max-app-sm:text-[28px]"
+					className="mb-3.5 field-sizing-content w-full resize-none border-0 bg-transparent p-0 font-display text-[38px] leading-[1.12] font-medium tracking-[-0.03em] text-ink outline-none max-app-sm:text-[28px]"
 				/>
 				<Prose
 					className={cn(

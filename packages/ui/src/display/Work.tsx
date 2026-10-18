@@ -441,7 +441,7 @@ export function BulkBar({
 					className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-[12px] px-3 text-sm font-medium text-on-ink transition-colors hover:bg-on-ink-soft"
 				>
 					{a.icon ? <Icon icon={a.icon} size={16} /> : null}
-					{a.label}
+					<span className={a.icon ? "max-app-sm:sr-only" : undefined}>{a.label}</span>
 				</Toolbar.Button>
 			))}
 			<Toolbar.Button
@@ -539,7 +539,7 @@ export function PipelineColumn({
 			aria-labelledby={id}
 			data-drop-target={dropTarget ? "true" : undefined}
 			className={cn(
-				"flex min-h-[420px] min-w-[220px] flex-col gap-2.5 rounded-[22px] bg-surface-2 p-2.5 transition-shadow duration-150",
+				"relative flex min-h-[420px] min-w-[220px] flex-col gap-2.5 rounded-[22px] bg-surface-2 p-2.5 transition-shadow duration-150",
 				dropTarget && "shadow-[inset_0_0_0_2px_var(--ef-green-500)]",
 				className,
 			)}
@@ -815,7 +815,7 @@ export function DrillPath({
 		<nav
 			aria-label={label}
 			className={cn(
-				"flex items-center gap-2.5 overflow-x-auto rounded-[22px] border border-[var(--ef-card-edge)] bg-surface py-2.5 pr-3 pl-[22px] shadow-card max-app-sm:pl-3",
+				"relative flex items-center gap-2.5 overflow-x-auto rounded-[22px] border border-[var(--ef-card-edge)] bg-surface py-2.5 pr-3 pl-[22px] shadow-card max-app-sm:pl-3",
 				className,
 			)}
 		>

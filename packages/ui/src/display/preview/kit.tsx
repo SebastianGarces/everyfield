@@ -53,8 +53,8 @@ export function Specimen({
 			)}
 		>
 			{title ? (
-				<CardHeader>
-					<CardHeading>
+				<CardHeader className="flex-wrap">
+					<CardHeading className="min-w-[200px]">
 						<CardTitle as="h3" size="sm">
 							{title}
 						</CardTitle>

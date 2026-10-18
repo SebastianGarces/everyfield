@@ -207,11 +207,14 @@ export function DotStrip({
 	);
 }
 
-/** Heat levels 0 to 4: green-50 to green-700. Text is ink on the light steps and white on the darkest only. */
+/**
+ * Heat levels 0 to 4: green-50 to green-700. Level 3 (the brand green in both themes) keeps the fixed ink; the other
+ * steps take the theme ink or surface, so every number keeps its contrast in light and dark.
+ */
 const HEAT = [
 	"bg-green-50 text-green-700",
 	"bg-green-100 text-green-700",
-	"bg-green-300 text-ink-fixed",
+	"bg-green-300 text-ink",
 	"bg-green-500 text-ink-fixed",
 	"bg-green-700 text-surface",
 ] as const;
@@ -239,7 +242,13 @@ export function Heatmap({
 }) {
 	const max = Math.max(0, ...rows.flatMap((r) => r.values));
 	return (
-		<div role="region" aria-label={label} tabIndex={0} data-focus-inset="" className={cn("overflow-x-auto", className)}>
+		<div
+			role="region"
+			aria-label={label}
+			tabIndex={0}
+			data-focus-inset=""
+			className={cn("relative overflow-x-auto", className)}
+		>
 			<table className="w-full min-w-[320px] border-separate border-spacing-2">
 				<caption className="sr-only">{label}</caption>
 				<thead>
@@ -406,8 +415,11 @@ export function PhaseJourney({
 	return (
 		<ol
 			aria-label={label}
-			className={cn("grid gap-1.5 max-app-sm:grid-cols-1 max-app-sm:gap-3", className)}
-			style={{ gridTemplateColumns: `repeat(${phases.length}, minmax(0, 1fr))` }}
+			className={cn(
+				"grid grid-cols-[repeat(var(--cols),minmax(0,1fr))] gap-1.5 max-app-sm:grid-cols-1 max-app-sm:gap-3",
+				className,
+			)}
+			style={{ "--cols": phases.length } as CSSProperties}
 		>
 			{phases.map((p) => (
 				<li
@@ -470,7 +482,7 @@ export function PhasePipeline({
 					<span aria-hidden="true" className="flex h-[120px] items-end">
 						{p.count > 0 ? (
 							<span
-								className="grid w-full place-items-start justify-center rounded-t-[10px] rounded-b-[4px] bg-violet-300 pt-1.5 text-[13px] font-semibold text-ink-fixed"
+								className="grid w-full place-items-start justify-center rounded-t-[10px] rounded-b-[4px] bg-violet-300 pt-1.5 text-[13px] font-semibold text-ink"
 								style={{ height: Math.max(26, (p.count / max) * 120) }}
 							>
 								{p.count}

@@ -128,7 +128,7 @@ export function DataTable<Row>({
 					aria-label={caption}
 					tabIndex={0}
 					data-focus-inset=""
-					className={cn("-mx-1 overflow-x-auto rounded-md px-1", className)}
+					className={cn("relative -mx-1 overflow-x-auto rounded-md px-1", className)}
 				>
 					<table className="w-full border-separate border-spacing-0" style={{ minWidth }}>
 						<caption className={captionHidden ? "sr-only" : "pb-3 text-left font-medium text-ink"}>{caption}</caption>
@@ -303,7 +303,7 @@ export function Pagination({
 			</button>
 			{pageItems(page, pageCount).map((p, i) =>
 				p === "gap" ? (
-					<span key={`gap${i}`} aria-hidden="true" className="w-6 text-center text-text-3">
+					<span key={`gap${i}`} aria-hidden="true" className="w-6 text-center text-text-3 max-app-sm:hidden">
 						…
 					</span>
 				) : (

@@ -3,7 +3,7 @@
 //   INV-count: an empty count is "Not recorded", never 0, and a typed 0 stays a real 0 (OutcomeField, Stat).
 //   INV-loadable: loading, error and empty never draw stale rows, and Try again recovers (DataTable, LoadableView).
 //   INV-selection: select-all, the bulk bar count and Clear selection agree (DataTable, BulkBar).
-//   INV-email-light: emails keep the light palette on a dark product page (.ef-email in display.css).
+//   INV-email-light: emails keep the light palette on a dark product page (.ef-paper in display.css).
 //   INV-evry-focus: Esc closes the non-modal Evry panel and returns focus to its opener (EvryPanel).
 // It runs against a running app: set UI_BASE_URL to the task preview.
 //   UI_BASE_URL=http://wp-090-....localhost:1355 corepack pnpm test:ui
