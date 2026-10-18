@@ -54,20 +54,28 @@ for (const file of walk(SRC).filter((f) => /\.tsx?$/.test(f))) {
 		});
 }
 
-// CSS and the share-image renderer: every font size is a scale variable or a whole pixel on the scale.
+// CSS and the share-image renderer: every font size is a scale variable or a whole pixel on the scale. Each line can
+// hold several declarations, so every one is checked; the font shorthand may only pass a size through a variable.
+const DECL = /(?:^|[\s;{])(font-size|font|--text-[a-z0-9-]+)\s*:\s*([^;}]+)/g;
 const checkCss = (label, text, extra) =>
 	text.split("\n").forEach((line, i) => {
-		const where = `${label}:${i + 1}`;
-		const decl = line.match(/(?:^|[\s;{])(font-size|--text-[a-z0-9-]+)\s*:\s*([^;}]+)[;}]?/);
-		if (!decl || decl[1].endsWith("--line-height")) return;
-		const [, prop, raw] = decl;
-		const value = raw.trim();
-		if (/^(?:var\(--(?:ef|text)-[a-z0-9-]+\)|--value\(--text-\*\))$/.test(value)) return;
-		const px = value.match(/^(\d+)px$/);
-		if (px && (SCALE.has(Number(px[1])) || NAMED[prop] === Number(px[1]) || extra.has(Number(px[1])))) return;
-		report(where, `${prop}: ${value}`);
+		for (const [, prop, raw] of line.matchAll(DECL)) {
+			if (prop.endsWith("--line-height")) continue;
+			const value = raw.trim();
+			if (/^(?:var\(--(?:ef|text)-[a-z0-9-]+\)|--value\(--text-\*\))$/.test(value)) continue;
+			if (prop === "font" && /^(?:inherit|initial|unset|revert|var\([^)]*\))$/.test(value)) continue;
+			const px = value.match(/^(\d+)px$/);
+			if (prop !== "font" && px) {
+				const n = Number(px[1]);
+				if (SCALE.has(n) || NAMED[prop] === n || extra.has(n)) continue;
+			}
+			report(`${label}:${i + 1}`, `${prop}: ${value}`);
+		}
 	});
-checkCss("src/styles/marketing.css", readFileSync(here("../src/styles/marketing.css"), "utf8"), new Set());
+for (const file of walk(SRC).filter((f) => f.endsWith(".css"))) {
+	const rel = file.slice(SRC.length + 1);
+	if (!SKIP.some((s) => rel.startsWith(s))) checkCss(`src/${rel}`, readFileSync(file, "utf8"), new Set());
+}
 // A share image may use the named hero size; it is a 1200 px picture of the hero.
 checkCss("scripts/render-share-images.mjs", readFileSync(here("./render-share-images.mjs"), "utf8"), new Set([88]));
 
