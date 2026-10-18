@@ -17181,6 +17181,320 @@
       "coverage_notes": [
         "Contract-only evidence. Current session/grants/consent, transactions, private-care isolation, request admission and live adapter parity remain API/integration obligations."
       ]
+    },
+    {
+      "id": "WP006-API-IDN-029",
+      "requirement": "REQ-IDN-029",
+      "requirement_ids": [
+        "REQ-IDN-029"
+      ],
+      "feature_ids": [
+        "IDN-001",
+        "IDN-002",
+        "IDN-005",
+        "IDN-013",
+        "IDN-014",
+        "IDN-017",
+        "IDN-019",
+        "IDN-020",
+        "IDN-021",
+        "IDN-023",
+        "IDN-024",
+        "IDN-026"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-001--IDN-001",
+        "AC-IDN-002--IDN-002",
+        "AC-IDN-005--IDN-005",
+        "AC-IDN-013--IDN-013",
+        "AC-IDN-014--IDN-014",
+        "AC-IDN-017--IDN-017",
+        "AC-IDN-019--IDN-019",
+        "AC-IDN-020--IDN-020",
+        "AC-IDN-021--IDN-021",
+        "AC-IDN-023--IDN-023",
+        "AC-IDN-024--IDN-024",
+        "AC-IDN-026--IDN-026"
+      ],
+      "work_packages": [
+        "WP-006"
+      ],
+      "status": "future-not-run",
+      "description": "Live access producer checks on the shared development PostgreSQL database. Full feature writes and product screens remain integration obligations.",
+      "given": {
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "registration": "active"
+        },
+        "S": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "UTC",
+          "revision": 7
+        },
+        "seat": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-access-caller",
+          "authority": "trusted_interactive_domain_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "access.currentActor"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "S",
+            "context": "P"
+          }
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T12:00:00Z",
+        "zone": "America/New_York"
+      },
+      "action": {
+        "operation": "access.currentActor",
+        "arguments": {}
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "status": "active",
+          "role": "admin",
+          "foreign_context": "unavailable",
+          "revoked_session": "unavailable"
+        },
+        "event": null
+      },
+      "layers": [
+        "domain/contract",
+        "PostgreSQL integration"
+      ],
+      "coverage_notes": [
+        "Only the access producer portion. No completed feature write, browser or assistant approval workflow is claimed."
+      ]
+    },
+    {
+      "id": "WP006-API-KNOW-116",
+      "requirement": "REQ-KNOW-116",
+      "requirement_ids": [
+        "REQ-KNOW-116"
+      ],
+      "feature_ids": [
+        "EVR-020",
+        "IDN-005",
+        "LCH-006"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-005--IDN-005",
+        "AC-LCH-006--LCH-006",
+        "AC-EVR-256--EVR-256",
+        "AC-EVR-EFFECT--EVR-256",
+        "AC-EVR-257--EVR-257",
+        "AC-EVR-EFFECT--EVR-257",
+        "AC-EVR-419--EVR-419",
+        "AC-EVR-READ--EVR-419"
+      ],
+      "work_packages": [
+        "WP-006"
+      ],
+      "status": "future-not-run",
+      "description": "Live access producer checks on the shared development PostgreSQL database. Full feature writes and product screens remain integration obligations.",
+      "given": {
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "registration": "active"
+        },
+        "S": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "UTC",
+          "revision": 7
+        },
+        "seat": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-access-caller",
+          "authority": "trusted_internal_application_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "access.checkOperation"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": "A",
+            "session": "S",
+            "context": "P"
+          }
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T12:00:00Z",
+        "zone": "America/New_York"
+      },
+      "action": {
+        "operation": "access.checkOperation",
+        "arguments": {
+          "operation": "launch.saveDebrief",
+          "subject": "P",
+          "expected_revision": 7
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "admin": "allowed",
+          "owner": "allowed",
+          "member": "unavailable",
+          "stale_revision": "unavailable",
+          "native_and_assistant_policy_equal": true
+        },
+        "event": null
+      },
+      "layers": [
+        "domain/contract",
+        "PostgreSQL integration"
+      ],
+      "coverage_notes": [
+        "Only the access producer portion. No completed feature write, browser or assistant approval workflow is claimed."
+      ]
+    },
+    {
+      "id": "WP006-API-MUL-002",
+      "requirement": "REQ-MUL-002",
+      "requirement_ids": [
+        "REQ-MUL-002"
+      ],
+      "feature_ids": [
+        "MUL-002"
+      ],
+      "acceptance_ids": [
+        "AC-MUL-002--MUL-002"
+      ],
+      "work_packages": [
+        "WP-006"
+      ],
+      "status": "future-not-run",
+      "description": "Live access producer checks on the shared development PostgreSQL database. Full feature writes and product screens remain integration obligations.",
+      "given": {
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "registration": "active"
+        },
+        "S": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "UTC",
+          "revision": 7
+        },
+        "seat": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "O",
+          "role": "Admin",
+          "active": true
+        },
+        "O": {
+          "fixture_type": "organization",
+          "id": "O",
+          "kind": "sending_church",
+          "revision": 7
+        },
+        "OrganizationPerson": {
+          "fixture_type": "person",
+          "id": "OrganizationPerson",
+          "tenant_id": "O",
+          "organization_id": "O",
+          "plant_id": null,
+          "display_name": "Synthetic",
+          "state": "live",
+          "revision": 1
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "S",
+        "context": "O"
+      },
+      "clock": {
+        "now": "2026-10-18T12:00:00Z",
+        "zone": "America/New_York"
+      },
+      "action": {
+        "operation": "pipelineAccess.readPerson",
+        "arguments": {
+          "person": "OrganizationPerson"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "admin": "organization_administration",
+          "responsible": "responsible_staff",
+          "director_notes": "unavailable",
+          "resident_internal": "unavailable",
+          "general_note_bodies": false
+        },
+        "event": null
+      },
+      "layers": [
+        "domain/contract",
+        "PostgreSQL integration"
+      ],
+      "coverage_notes": [
+        "Only the access producer portion. No completed feature write, browser or assistant approval workflow is claimed."
+      ]
     }
   ]
 }
