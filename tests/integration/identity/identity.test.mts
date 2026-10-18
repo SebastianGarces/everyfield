@@ -77,7 +77,7 @@ test('AC:WP005-API-RESET real single-use reset consumes one proof, rejects uncha
 test('INV-identity: recovery is nonenumerating through outbox failure and unknown provider acceptance; tokens never reach security diagnostics',async()=>{
   f.setIp('127.0.0.15');await register(f,'notice@example.test');
   const missing=await f.req('request-password-reset',{email:'missing-notice@example.test'});assert.equal(missing.status,200);assert.deepEqual(await missing.json(),{status:'accepted'});
-  f.setMailFault(true);const failed=await f.req('request-password-reset',{email:'notice@example.test'});assert.equal(failed.status,200);assert.deepEqual(await failed.json(),{status:'accepted'});f.setMailFault(false);
+  f.setMailFault(true);const failed=await f.req('request-password-reset',{email:'notice@example.test'});assert.equal(failed.status,200);assert.deepEqual(await failed.json(),{status:'accepted'});await f.runDeliveryRequests();f.setMailFault(false);
   const accepted=await f.req('request-password-reset',{email:'notice@example.test'});assert.deepEqual(await accepted.json(),{status:'accepted'});
   f.setProviderFault(true);await f.dispatch();f.setProviderFault(false);
   assert.equal((await f.db.query("SELECT count(*)::int n FROM mail WHERE state='unknown'")).rows[0].n,1);
@@ -152,4 +152,37 @@ test('INV-identity: a successful login never clears other identifiers or the tru
   const fake=new Request(f.origin,{headers:{'x-forwarded-for':'192.0.2.1','x-vercel-forwarded-for':'192.0.2.2'}});
   assert.equal(trustedIdentityIp(fake,false),null);assert.equal(trustedIdentityIp(fake,true),'192.0.2.2');
   assert.equal(trustedIdentityIp(new Request(f.origin,{headers:{'x-vercel-forwarded-for':'192.0.2.1, 192.0.2.2'}}),true),null);
+});
+
+
+test('INV-identity: outcome mail INSERT failure rolls back the success event without restoring credentials or sessions',async()=>{
+  f.setIp('127.0.0.20');await register(f,'mail-rollback@example.test');
+  const c=cookie(await signIn(f,'mail-rollback@example.test'));
+  const state=await(await f.req('get-session',undefined,c)).json();
+  const proof=await resetProof('mail-rollback@example.test');
+  await f.db.query(`CREATE FUNCTION fail_outcome_mail() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.logical_key LIKE 'password_reset/outcome/%' THEN RAISE EXCEPTION 'synthetic_mail_insert_failure'; END IF;RETURN NEW;END $$`);
+  await f.db.query('CREATE TRIGGER fail_outcome_mail BEFORE INSERT ON mail FOR EACH ROW EXECUTE FUNCTION fail_outcome_mail()');
+  const diagnosticsBefore=f.diagnostics.length;
+  try { assert.deepEqual(await(await f.req('reset-password',{proof,newPassword:'Fixture-mail-pass-5',confirmPassword:'Fixture-mail-pass-5'})).json(),{status:'password_reset',next:'sign_in'}); }
+  finally {await f.db.query('DROP TRIGGER fail_outcome_mail ON mail');}
+  assert.deepEqual((await f.db.query('SELECT action FROM event WHERE target_record_id=$1 ORDER BY recorded_at',[state.accountId])).rows,[{action:'identity.credential_observed'}]);
+  assert.equal((await f.db.query("SELECT count(*)::int n FROM mail WHERE tenant_id=$1 AND logical_key LIKE 'password_reset/outcome/%'",[state.accountId])).rows[0].n,0);
+  assert.deepEqual(await(await f.req('get-session',undefined,c)).json(),{status:'unauthenticated'});
+  assert.equal((await signIn(f,'mail-rollback@example.test',password)).status,401);
+  assert.equal((await signIn(f,'mail-rollback@example.test','Fixture-mail-pass-5')).status,200);
+  assert.ok(f.diagnostics.slice(diagnosticsBefore).some((v:unknown)=>typeof v==='object'&&v!==null&&'outcome' in v&&v.outcome==='reporting_pending'));
+});
+
+test('INV-identity: existing and missing recovery/verification requests perform no identity lookup or outbox write before their response',async()=>{
+  f.setIp('127.0.0.21');await register(f,'deferred@example.test');await f.runDeliveryRequests();
+  const proofs=(await f.db.query('SELECT count(*)::int n FROM auth_verification')).rows[0].n;
+  const mails=(await f.db.query('SELECT count(*)::int n FROM mail')).rows[0].n;
+  for(const path of ['request-password-reset','send-verification-email'])for(const email of ['deferred@example.test','absent-deferred@example.test']){
+    assert.deepEqual(await(await f.req(path,{email})).json(),{status:'accepted'});
+    assert.equal((await f.db.query('SELECT count(*)::int n FROM auth_verification')).rows[0].n,proofs);
+    assert.equal((await f.db.query('SELECT count(*)::int n FROM mail')).rows[0].n,mails);
+  }
+  assert.equal(f.pendingDeliveryCount(),4);
+  await f.dispatch();
+  assert.equal(f.effects.filter(e=>e.to==='deferred@example.test').length,2);
 });

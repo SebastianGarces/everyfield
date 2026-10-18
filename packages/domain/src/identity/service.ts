@@ -1,6 +1,5 @@
 import 'server-only';
 import { createHash, randomUUID } from 'node:crypto';
-import { performance } from 'node:perf_hooks';
 import { isIP } from 'node:net';
 import type { Pool, PoolClient } from 'pg';
 import { verifyPassword } from 'better-auth/crypto';
@@ -12,7 +11,8 @@ import { attemptBudget, IdentityRefusal, transaction } from './budget.ts';
 
 export type IdentityMail = { accountId: string; address: string; purpose: 'password_reset' | 'email_verification'; logicalKey: string; subject: string; text: string };
 export type IdentityConfig = {
-  db: Pool; authDb: Pool; origin: string; secret: string;
+  db: Pool; authDb: Pool; admissionDb: Pool; origin: string; secret: string;
+  scheduleDelivery: (work: () => Promise<void>) => void;
   // The host adapter must overwrite ingress headers. Null means no trustworthy IP.
   trustedIp: (request: Request) => string | null;
   enqueueMail: (tx: PoolClient, mail: IdentityMail) => Promise<string>;
@@ -27,7 +27,7 @@ const digest = (value: string) => createHash('sha256').update(value).digest('hex
 export function createIdentityService(config: IdentityConfig) {
   const origin = new URL(config.origin).origin;
   if (origin !== config.origin) throw Error('canonical_origin_required');
-  const budget = attemptBudget(config.db, config.secret);
+  const budget = attemptBudget(config.admissionDb, config.secret);
   const auth = identityAuth({ db: config.authDb, origin, secret: config.secret, deliver });
 
   async function account(authUser: string) {
@@ -156,13 +156,20 @@ export function createIdentityService(config: IdentityConfig) {
         return cookies(json({ status: 'signed_in', returnTo: safeReturn(v.returnTo) }), result);
       }
       if (path === 'request-password-reset' || path === 'send-verification-email') {
-        const v = passwordRecoveryRequest.parse(input), started = performance.now();
+        const v = passwordRecoveryRequest.parse(input);
         const reservation = await budget.reserve('reset', v.email, ip);
-        try { const result = await call(request, path, { email: v.email, ...(path === 'request-password-reset' ? { redirectTo: `${origin}/reset-password` } : { callbackURL: '/' }) }); if (!result.ok) config.diagnostic({ correlationId, outcome: 'delivery_failed' }); }
-        catch { config.diagnostic({ correlationId, outcome: 'delivery_failed' }); }
         await budget.finish(reservation, true);
-        // Fixed response floor bounds identifier/provider timing in the same public latency class.
-        await new Promise(resolve => setTimeout(resolve, Math.max(0, 1000 - (performance.now() - started))));
+        // Both addresses perform only admission work before responding. The host
+        // schedules proof issuance in the response lifecycle, with no cookie or secret.
+        try { config.scheduleDelivery(async () => {
+          try {
+            const deliveryRequest = new Request(`${origin}/api/auth/${path}`);
+            const result = await call(deliveryRequest, path, { email: v.email,
+              ...(path === 'request-password-reset' ? { redirectTo: `${origin}/reset-password` } : { callbackURL: '/' }) });
+            await result.body?.cancel();
+            if (!result.ok) config.diagnostic({ correlationId, outcome: 'delivery_failed' });
+          } catch { config.diagnostic({ correlationId, outcome: 'delivery_failed' }); }
+        }); } catch { config.diagnostic({ correlationId, outcome: 'delivery_failed' }); }
         return json({ status: 'accepted' });
       }
       if (path === 'reset-password') {

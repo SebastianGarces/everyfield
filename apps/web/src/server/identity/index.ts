@@ -1,4 +1,5 @@
 import 'server-only';
+import { after } from 'next/server';
 import { createHmac } from 'node:crypto';
 import pg from 'pg';
 import { z } from 'zod';
@@ -15,7 +16,8 @@ export function identityHandler(request: Request): Promise<Response> {
   if (!env.success) return Promise.resolve(Response.json({ code: 'unavailable' }, { status: 503, headers: { 'Cache-Control': 'private, no-store' } }));
   if (!service) {
     const v = env.data, db = new pg.Pool({ connectionString: v.IDENTITY_DATABASE_URL, max: 5 }),
-      authDb = new pg.Pool({ connectionString: v.IDENTITY_AUTH_DATABASE_URL, max: 5 });
+      authDb = new pg.Pool({ connectionString: v.IDENTITY_AUTH_DATABASE_URL, max: 5 }),
+      admissionDb = new pg.Pool({ connectionString: v.IDENTITY_DATABASE_URL, max: 3 });
     const mail = createMailService({ db, encryptionKey: Buffer.from(v.IDENTITY_MAIL_KEY, 'hex'), addressKey: Buffer.from(v.IDENTITY_ADDRESS_KEY, 'hex'), from: v.IDENTITY_MAIL_FROM,
       authorize: async (tx, m) => {
         if (m.recipient !== m.tenant || !['password_reset', 'email_verification'].includes(m.purpose)) return false;
@@ -27,7 +29,7 @@ export function identityHandler(request: Request): Promise<Response> {
       // This mount issues intents only. WP-031 owns dispatch; no real provider is configured here.
       transport: { async send() { return { kind: 'refused', retryable: true }; }, async lookup() { return { kind: 'unknown' }; } },
     });
-    service = createIdentityService({ db, authDb, origin: v.IDENTITY_ORIGIN, secret: v.IDENTITY_SECRET,
+    service = createIdentityService({ db, authDb, admissionDb, scheduleDelivery: after, origin: v.IDENTITY_ORIGIN, secret: v.IDENTITY_SECRET,
       trustedIp: request => trustedIdentityIp(request, process.env.VERCEL === '1'),
       enqueueMail: (tx, m) => mail.enqueue(tx, { owner: { kind: 'account', id: m.accountId }, purpose: m.purpose,
         logicalKey: m.logicalKey, recipient: m.accountId, address: m.address, content: { subject: m.subject, text: m.text },
