@@ -26,7 +26,7 @@ test('INV-privileges: fresh and upgraded grants converge without rewriting appli
     assert.equal(oldACL.find(p => p.role === 'everyfield_cleanup' && p.tab === 'record' && p.priv === 'DELETE').allowed, true);
     const before = (await db.admin.query(`SELECT name,sha256,applied_at FROM ${other}.schema_migration ORDER BY name`)).rows;
     assert.deepEqual(await migrate(db.admin, other), ['0003_access_privileges.sql','0004_people.sql']);
-    assert.deepEqual((await db.admin.query(`SELECT name,sha256,applied_at FROM ${other}.schema_migration WHERE name<>'0003_access_privileges.sql' ORDER BY name`)).rows, before);
+    assert.deepEqual((await db.admin.query(`SELECT name,sha256,applied_at FROM ${other}.schema_migration WHERE name IN ('0001_early_access.sql','0002_baseline.sql') ORDER BY name`)).rows, before);
     assert.deepEqual(await permissions(db.admin, other), await permissions(db.admin, db.schema));
     assert.deepEqual(await migrate(db.admin, other), []);
     const baseline = await readFile(new URL('../../../packages/db/migrations/0002_baseline.sql', import.meta.url));
