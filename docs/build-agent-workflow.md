@@ -1,39 +1,27 @@
 # Build progress for coordinators
 
-`docs/plan/dag.json` defines package IDs, dependencies, outputs and gates. The only progress record is
-`docs/build-progress.json`. Only evf writes it. Task notes hold work in progress and blockers; package
-owners submit no progress patches and never rewrite canonical JSON.
+The DAG defines packages and dependencies. Only evf writes `docs/build-progress.json`.
+Task notes hold progress and blockers. Owners never submit manual progress patches.
 
-## Review shipped milestones
+1. Review `bin/evf shipped`: the merge commit, exact tested head, required CI and verifier report.
+2. Acknowledge with `bin/evf shipped --clear <task>`. Records remain outside the checkout.
+   Exact replays do not advance revisions. Acknowledged producer/interface milestones unlock
+   dependents, even before the generated progress projection merges.
+3. Transfer evf's exact generated progress into one reviewed OPS worktree per coordinator round.
+   Restore the root's committed progress after transfer. Use the normal CI and review flow.
 
-1. Run `bin/evf shipped` and review the task outcome, merge commit, signed author/verifier evidence,
-   proven case/gate portions and deferred owners.
-2. Run `bin/evf shipped --clear <task>` to acknowledge the reviewed record. evf updates canonical
-   progress automatically and retains proof provenance. Exact replays do not advance revisions.
-3. Commit the exact evf-generated change through a reviewed `OPS-n` maintenance task owning only
-   `docs/build-progress.json`. Transfer it into that task worktree, restore the root to committed
-   progress, and use the normal tooling proof/review loop before the next planning round or handoff.
-   Feedback and maintenance records do not change build package status.
+Split packages expose their contract first, or API when no contract exists. A merged part leaves
+the package in_progress. Feedback and maintenance do not complete build packages.
 
-A reviewed producer/interface milestone unlocks dependent packages. Split packages expose their
-contract first, or API when no contract part exists. Full package closure is unnecessary for startup,
-so a later adapter can implement an early producer's deferred runtime portions.
+Full-target WP-056/WP-057 integration verifies every closing package's behavior and gates.
+Its verifier may include `"packageClosures":["WP-NNN"]` in the exact-head EVF-Review record.
+Acknowledgement closes those packages only after every part is reviewed, merged and acknowledged,
+direct prerequisites are done and owned acceptance cases and case actions pass their checks.
+The verifier's report must explain full coverage. File presence or successful scaffold checks
+never establish application acceptance.
 
-## Integration closure
-
-A merged part keeps the package `in_progress`. The integration owner reviews all parts, outputs, acceptance gates, integration rules and deferred
-portions. Install a reviewed full-target integration plan with `packageClosures`, an array of
-`{packageId, gateIndexes}` entries covering every closing package gate. Its selected cases must cover
-every closing package, with passing integration portions and no deferral. Acknowledging that shipped
-integration record closes the listed packages only after all merged parts are acknowledged.
-Direct prerequisites must be canonically `done` for closure, even though milestones suffice to start.
-Named passed acceptance evidence and substantive reviewed commits are required. File presence,
-scaffold checks, estimates and browser-local changes never establish completion.
-
-Keep evidence, screenshots and traces in evf's git-common evidence directory. Progress changes do not
-invalidate policy fingerprints. Explorer generation is a separate view, not a completion gate or a
-second integration patch. Its maintenance belongs to the documentation integration task.
-
-Global action gates apply to all application packages. Runtime/recovery gates require producer
-output at closure; concrete spending remains separately gated. Merge authority lives only in
-`.agents/skills/ship/SKILL.md`. This progress workflow grants no application kickoff or external setup.
+Keep media and traces outside the repository. Generate the explorer outside the checkout;
+it is a read-only progress view. Preserve WP-097's owner-approved fast-track evidence.
+Global kickoff and concrete spending approvals remain separate from milestone readiness.
+Follow the ship skill for merge authority. G-WORKFLOW closes when W0 to W5 merge and one task
+runs end to end through Phase 7. This document does not claim that closure.

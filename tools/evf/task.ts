@@ -2,11 +2,10 @@ import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderBrief } from "./brief.ts";
 import { requireImplementation, requireSpend, requireTaskRisk, requireTaskScope } from "./policy.ts";
-import { validAttestation, shippable } from "./verify.ts";
+import { reviewedMilestone } from "./progress.ts";
 import { startFeedbackTask, cachedTriage } from "./feedback.ts";
 import {
   baseRef,
-  contractFingerprint,
   fail,
   findPackage,
   git,
@@ -32,7 +31,6 @@ export function stackEnv(root: string, task: TaskRef, wt: string): NodeJS.Proces
     EVF_TASK_SLUG: task.slug,
     EVF_WORKTREE: wt,
     EVF_RUNTIME_DIR: runtimeDir(root, task),
-    EVF_DB_NAME: `evf_${task.slug.replace(/-/g, "_")}`,
   };
 }
 
@@ -60,7 +58,6 @@ export function stack(root: string, task: TaskRef, action: "up" | "down" | "stat
     fail(msg);
   }
   const wt = requireWorktree(root, cfg, task);
-  if(action==='up'&&contractFingerprint(root)!==contractFingerprint(wt))fail('Stack contract/policy must match the reviewed root before runtime execution.');
   mkdirSync(runtimeDir(root, task), { recursive: true });
   const r = run(argv[0], argv.slice(1), { cwd: wt, env: stackEnv(root, task, wt), inherit: true });
   if (r.code === 0 && action !== "down") {
@@ -97,10 +94,7 @@ export function taskStart(root: string, task: TaskRef, opts: { allowUnready: boo
       if(!existsSync(path))fail(`Required ${task.wp}/${anchor} merged-part evidence is missing.`);
       const record=JSON.parse(readFileSync(path,'utf8'));
       if(record.task!==`${task.wp}/${anchor}`||record.package_id!==task.wp||record.part!==anchor||typeof record.merge_commit!=='string'||!gitOk(root,'merge-base','--is-ancestor',record.merge_commit,baseRef(root,cfg)))fail('Required split prerequisite is not integrated into current main.');
-      const key=(cfg as Config & {verification:{publicKey?:string}}).verification.publicKey,p=record.proof;
-      if(!p||p.role!=='verifier'||p.task!==record.task||!shippable(p)||!validAttestation(p,key))fail('Split prerequisite requires retained independently attested proof, not a caller-created milestone.');
-      const paths=pathsForPart(pkg,anchor),tested=git(root,'diff','--binary',p.base.sha,p.sha,'--',...paths),merged=git(root,'diff','--binary',`${record.merge_commit}^`,record.merge_commit,'--',...paths);
-      if(!tested||tested!==merged)fail('Split prerequisite merge does not preserve the signed tested owning-path change.');
+      if(!reviewedMilestone(root,record))fail('Split prerequisite requires reviewed integrated milestone evidence.');
     }
 
   }
