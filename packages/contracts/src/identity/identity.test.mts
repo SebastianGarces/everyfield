@@ -91,9 +91,10 @@ test("AC:WP005-KNOW-069 retained attribution boundary preserves explicit church 
   assert.deepEqual(wire(retainedAttribution, { kind: "removed_account" }), { kind: "removed_account" });
   const shared = { owner: { kind: "plant", id: tenant }, attribution: { kind: "removed_account" } };
   assert.deepEqual(wire(retainedHistoryReference, shared), shared);
-  assert.deepEqual(wire(retainedHistoryReference, { ...shared, owner: { kind: "organization", id: tenant } }), { ...shared, owner: { kind: "organization", id: tenant } });
+  assert.deepEqual(wire(retainedHistoryReference, { ...shared, owner: { kind: "organization", id: tenant, organizationKind: "sending_church" } }), { ...shared, owner: { kind: "organization", id: tenant, organizationKind: "sending_church" } });
   assert.throws(() => wire(retainedHistoryReference, { ...shared, owner: { kind: "account", id: account } }), z.ZodError);
   assert.throws(() => wire(retainedHistoryReference, { ...shared, creator: account }), z.ZodError);
+  assert.throws(() => wire(retainedHistoryReference, { ...shared, owner: { kind: "plant", id: "00000000-0000-0000-0000-000000000000" } }), z.ZodError);
   for (const extra of [{ email: "private@example.test" }, { password: "private" }, { accountId: account }]) {
     assert.throws(() => wire(retainedAttribution, { kind: "removed_account", ...extra }), z.ZodError);
   }

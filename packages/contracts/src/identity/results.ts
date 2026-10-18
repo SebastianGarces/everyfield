@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { accountId, correlationId, defineSafeError, eventId, operationId, recordId, safeError, sessionId, tenantId } from "../common/values.ts";
+import { accountId, correlationId, defineSafeError, eventId, operationId, owner, recordId, safeError, sessionId } from "../common/values.ts";
 import { instant } from "../common/time.ts";
 import { accountKind } from "./requests.ts";
 
@@ -67,10 +67,11 @@ export const retainedAttribution = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("removed_account") }),
 ]);
 export const retainedHistoryReference = z.strictObject({
-  owner: z.discriminatedUnion("kind", [
-    z.strictObject({ kind: z.literal("plant"), id: tenantId }),
-    z.strictObject({ kind: z.literal("organization"), id: tenantId }),
-  ]),
+  owner: owner.transform((value, ctx) => {
+    if (value.kind === "plant" || value.kind === "organization") return value;
+    ctx.addIssue({ code: "custom", message: "Expected a plant or organization owner" });
+    return z.NEVER;
+  }),
   attribution: retainedAttribution,
 });
 // An incomplete purge has no completion timestamp. These are status contracts,
