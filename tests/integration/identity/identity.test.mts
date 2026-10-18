@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test, before, after } from 'node:test';
 import { randomUUID } from 'node:crypto';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { request as httpRequest } from 'node:http';
 import { trustedIdentityIp } from '../../../packages/domain/src/identity/index.ts';
 import { fixture, register, signIn, cookie, password } from './support.mts';
@@ -185,4 +187,52 @@ test('INV-identity: existing and missing recovery/verification requests perform 
   assert.equal(f.pendingDeliveryCount(),4);
   await f.dispatch();
   assert.equal(f.effects.filter(e=>e.to==='deferred@example.test').length,2);
+});
+
+
+test('BUG-PR94: killing post-response recovery work leaves no stuck state and permits the next budgeted request',async()=>{
+  f.setIp('127.0.0.22');
+  const serviceUrl=new URL('../../../packages/domain/src/identity/index.ts',import.meta.url).href;
+  const mailUrl=new URL('../../../apps/web/src/server/jobs/mail.ts',import.meta.url).href;
+  const packageUrl=new URL('../../../apps/web/package.json',import.meta.url).href;
+  const worker=`
+    import {createServer} from 'node:http';import {once} from 'node:events';import {createRequire} from 'node:module';
+    import {createIdentityService} from ${JSON.stringify(serviceUrl)};import {createMailService} from ${JSON.stringify(mailUrl)};
+    const chunks=[];for await(const c of process.stdin)chunks.push(c);const v=JSON.parse(Buffer.concat(chunks));
+    const {Pool}=createRequire(${JSON.stringify(packageUrl)})('pg');
+    const db=new Pool({connectionString:v.IDENTITY_DATABASE_URL}),authDb=new Pool({connectionString:v.IDENTITY_AUTH_DATABASE_URL}),admissionDb=new Pool({connectionString:v.IDENTITY_DATABASE_URL});
+    const mail=createMailService({db,encryptionKey:Buffer.from(v.IDENTITY_MAIL_KEY,'hex'),addressKey:Buffer.from(v.IDENTITY_ADDRESS_KEY,'hex'),from:v.IDENTITY_MAIL_FROM,
+      authorize:async()=>false,transport:{async send(){throw Error('producer_only')},async lookup(){throw Error('producer_only')}}});
+    const server=createServer();server.listen(0,'127.0.0.1');await once(server,'listening');const origin='http://127.0.0.1:'+server.address().port;
+    const service=createIdentityService({db,authDb,admissionDb,origin,secret:v.IDENTITY_SECRET,trustedIp:()=> '127.0.0.22',
+      scheduleDelivery:work=>setTimeout(work,5000),diagnostic:()=>{},
+      enqueueMail:(tx,m)=>mail.enqueue(tx,{owner:{kind:'account',id:m.accountId},purpose:m.purpose,logicalKey:m.logicalKey,recipient:m.accountId,address:m.address,
+        content:{subject:m.subject,text:m.text},operation:null,notice:null,eligibleAt:new Date().toISOString()})});
+    server.on('request',async(req,res)=>{const chunks=[];for await(const c of req)chunks.push(c);
+      const response=await service.handle(new Request(origin+req.url,{method:req.method,headers:req.headers,body:Buffer.concat(chunks)}));
+      res.statusCode=response.status;res.end(Buffer.from(await response.arrayBuffer()));});
+    console.log(origin);
+  `;
+  for(const [i,path] of ['request-password-reset','send-verification-email'].entries()){
+    const email=`lost-worker-${i}@example.test`;await register(f,email);
+    const c=cookie(await signIn(f,email));
+    const proofs=(await f.db.query('SELECT count(*)::int n FROM auth_verification')).rows[0].n;
+    const mails=(await f.db.query('SELECT count(*)::int n FROM mail')).rows[0].n;
+    const child=spawn(process.execPath,['--import','tsx','--conditions=react-server','--input-type=module','--eval',worker],{stdio:['pipe','pipe','ignore']});
+    child.stdin.end(JSON.stringify(f.previewSettings));
+    const exited=once(child,'exit');
+    try {
+      const [line]=await Promise.race([once(child.stdout,'data'),exited.then(()=>{throw Error('recovery_worker_exited_before_ready')})]);const origin=String(line).trim();assert.match(origin,/^http:\/\/127\.0\.0\.1:\d+$/);
+      const response=await fetch(origin+'/api/auth/'+path,{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify({email})});
+      assert.equal(response.status,200);assert.deepEqual(await response.json(),{status:'accepted'});
+      child.kill('SIGKILL');const [code,signal]=await exited;assert.equal(code,null);assert.equal(signal,'SIGKILL');
+    } finally { if(child.exitCode===null&&child.signalCode===null){child.kill('SIGKILL');await exited;} }
+    assert.equal((await f.db.query('SELECT count(*)::int n FROM auth_verification')).rows[0].n,proofs);
+    assert.equal((await f.db.query('SELECT count(*)::int n FROM mail')).rows[0].n,mails);
+    assert.equal((await(await f.req('get-session',undefined,c)).json()).status,'pending_domain');
+    assert.equal((await signIn(f,email)).status,200);
+    assert.deepEqual(await(await f.req(path,{email})).json(),{status:'accepted'});await f.dispatch();
+    assert.equal(f.effects.filter(e=>e.to===email).length,1);
+    assert.equal((await f.db.query("SELECT count(*)::int n FROM admission_attempt WHERE kind='reset' AND state='reserved'")).rows[0].n,0);
+  }
 });
