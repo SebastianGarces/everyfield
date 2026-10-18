@@ -44,6 +44,24 @@ export function formatInstant(instant: string, zone: string, withZone = false): 
 	}).format(new Date(instant));
 }
 
+/** "November 14, 2026 at 2:00 PM CST": an exact moment such as a deadline, with its zone. */
+export function formatMoment(instant: string, zone: string): string {
+	const d = new Date(instant);
+	const date = new Intl.DateTimeFormat("en-US", {
+		timeZone: zone,
+		month: "long",
+		day: "numeric",
+		year: "numeric",
+	}).format(d);
+	const time = new Intl.DateTimeFormat("en-US", {
+		timeZone: zone,
+		hour: "numeric",
+		minute: "2-digit",
+		timeZoneName: "short",
+	}).format(d);
+	return `${date} at ${time}`;
+}
+
 /** "October 19, 2026" for a deadline, in the given zone. */
 export function formatDate(instant: string, zone: string): string {
 	return new Intl.DateTimeFormat("en-US", { timeZone: zone, month: "long", day: "numeric", year: "numeric" }).format(

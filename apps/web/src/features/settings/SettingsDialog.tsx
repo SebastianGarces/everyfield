@@ -153,7 +153,7 @@ export function SettingsDialog({
 						e.preventDefault();
 						link.focus();
 					}}
-					className="h-[min(720px,calc(100dvh-24px))] max-w-[1040px]! overflow-hidden"
+					className="h-[min(720px,calc(100dvh-24px))] max-w-[1040px]! overflow-hidden bg-surface!"
 				>
 					<div
 						ref={panel}
@@ -205,7 +205,10 @@ export function SettingsDialog({
 						</nav>
 						<div className="flex min-h-0 min-w-0 flex-1 flex-col">
 							<DialogHeader
-								title={current ? SECTION_LABEL[current] : "Settings"}
+								title={
+									// The prototype's section title is 26px (the dialog header default is smaller).
+									<span className="text-[26px] leading-[1.15]">{current ? SECTION_LABEL[current] : "Settings"}</span>
+								}
 								description={allowed && current ? DESCRIPTION[current] : undefined}
 							/>
 							{current === null ? null : allowed ? (

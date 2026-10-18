@@ -4,9 +4,8 @@ import { Mail01Icon } from "@hugeicons/core-free-icons";
 import { normalizedEmail } from "@everyfield/contracts/identity";
 import { Button, Field, Input } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
-import { useState } from "react";
 import { refusalOf } from "../save";
-import { useSettings } from "../store";
+import { useFlowState, useSettings } from "../store";
 
 type State =
 	| { step: "idle" }
@@ -21,7 +20,8 @@ type State =
  */
 export function EmailChange({ currentEmail }: { currentEmail: string }) {
 	const { port } = useSettings();
-	const [state, setState] = useState<State>({ step: "idle" });
+	// Kept in the settings store: leaving Your account while a link sends, or after it was sent, keeps that step.
+	const [state, setState] = useFlowState<State>("email-change", { step: "idle" });
 	const start = () => setState({ step: "editing", value: "", sending: false });
 	const cancel = () => setState({ step: "idle" });
 
@@ -38,6 +38,8 @@ export function EmailChange({ currentEmail }: { currentEmail: string }) {
 			reply = null;
 		}
 		if (reply?.status === "ok") return setState({ step: "sent", email: parsed.data });
+		// The form stays in the store while it sends (Cancel is disabled), so the reason lands even if another section
+		// was opened meanwhile.
 		setState((s) =>
 			s.step === "editing"
 				? {

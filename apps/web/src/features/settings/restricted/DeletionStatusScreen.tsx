@@ -13,7 +13,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { DeletionPort, DeletionStatus } from "../port";
 import { refusalOf, type Refusal } from "../save";
 import { SaveError } from "../SettingsDialog";
-import { formatDate } from "../time";
+import { formatMoment } from "../time";
 
 type Subject = { kind: "account"; email: string } | { kind: "workspace"; churchName: string };
 
@@ -105,7 +105,7 @@ export function DeletionStatusScreen({
 		switch (status.status) {
 			case "pending_deletion": {
 				const open = now() < Date.parse(status.cancelUntil) && cancelError?.code !== "deadline_passed";
-				const deadline = formatDate(status.cancelUntil, zone);
+				const deadline = formatMoment(status.cancelUntil, zone);
 				return (
 					<Panel icon={<CardIcon icon={Calendar03Icon} tone="amber" />} title={`${what} is scheduled for deletion`}>
 						<p>
@@ -113,8 +113,12 @@ export function DeletionStatusScreen({
 								? `The login for ${subject.email} is closed, and every session has ended.`
 								: "Every seat has lost access, and every session has ended. Nothing in the workspace is visible."}{" "}
 							{open
-								? `You can cancel until ${deadline}. After that, the data is deleted, and backup copies expire within 7 more days.`
+								? `You can cancel until ${deadline}. After that, the data is deleted. Backup copies expire within 7 days after the deletion finishes.`
 								: `The time to cancel ended on ${deadline}.`}
+						</p>
+						<p className="text-sm text-text-3">
+							Emails already sent, files someone already downloaded and copies kept outside Everyfield cannot be called
+							back.
 						</p>
 						{cancelError ? <SaveError message={cancelError.message} reference={cancelError.reference} /> : null}
 						{open ? (
@@ -150,8 +154,10 @@ export function DeletionStatusScreen({
 				return (
 					<Panel icon={<CardIcon icon={Delete02Icon} tone="ink" />} title={`${what} was deleted`}>
 						<p>
-							Deleted on {formatDate(status.livePurgedAt, zone)}. Backup copies expire by{" "}
-							{formatDate(status.copyExpiresAt, zone)}. Records that belong to a church keep a name-free attribution.
+							Deleted on {formatMoment(status.livePurgedAt, zone)}. Backup copies expire by{" "}
+							{formatMoment(status.copyExpiresAt, zone)}. Records that belong to a church keep a name-free attribution.
+							Emails already sent, files someone already downloaded and copies kept outside Everyfield cannot be called
+							back.
 						</p>
 					</Panel>
 				);

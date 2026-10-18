@@ -234,6 +234,23 @@ for (const [name, engine] of ENGINES) {
 			}),
 		);
 
+		test("INV-email-kept: a sending or sent link survives a section switch", { timeout: 60_000 }, () =>
+			open(`${SETTINGS}/account?as=admin&delay=800`, async (page) => {
+				await dialog(page)
+					.getByRole("group", { name: "Email" })
+					.getByRole("button", { name: "Change", exact: true })
+					.click();
+				await page.getByRole("textbox", { name: "New email" }).fill("qa-settings@example.test");
+				await page.getByRole("button", { name: "Send link" }).click();
+				await dialog(page).getByRole("link", { name: "Notifications" }).click();
+				await page.getByRole("table").waitFor();
+				await page.waitForTimeout(1000);
+				await dialog(page).getByRole("link", { name: "Your account" }).click();
+				await page.getByRole("status").filter({ hasText: "We sent a link to qa-settings@example.test" }).waitFor();
+				assert.equal(await page.evaluate(() => window.__settingsFixture.calls.requestEmailChange), 1);
+			}),
+		);
+
 		test("INV-avatar-check: bad files never upload; a failed save keeps the old photo", { timeout: 60_000 }, () =>
 			open(`${SETTINGS}/account?as=owner&${FAST}&fail=finalizeAvatar:temporary`, async (page) => {
 				const input = dialog(page).locator('input[type="file"]');
@@ -317,6 +334,7 @@ for (const [name, engine] of ENGINES) {
 		test("INV-deletion-deadline: cancel only before the deadline", { timeout: 60_000 }, async () => {
 			await open("/design/restricted/account-deletion?state=pending", async (page) => {
 				assert.equal(await page.getByRole("navigation").count(), 0, "the restricted page has no navigation");
+				await page.getByText(/You can cancel until \w+ \d+, \d{4} at \d+:\d\d [AP]M [A-Z]{2,5}\./).waitFor();
 				await page.getByRole("button", { name: "Keep my account" }).click();
 				await page.getByRole("heading", { name: "Deletion cancelled" }).waitFor();
 			});

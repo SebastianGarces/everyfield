@@ -17,6 +17,8 @@ type StoreValue = {
 	drafts: Partial<Record<SectionKey, Draft>>;
 	setDraft: (key: SectionKey, value: unknown, dirty: boolean) => void;
 	settleDraft: (key: SectionKey, sent: unknown) => void;
+	flows: Record<string, unknown>;
+	setFlow: (key: string, update: (prev: unknown) => unknown) => void;
 	clearDrafts: () => void;
 	sections: Map<string, SectionResult>;
 	remember: (cacheKey: string, value: SectionResult) => void;
@@ -55,6 +57,11 @@ export function SettingsProvider({
 		[],
 	);
 	const clearDrafts = useCallback(() => setDrafts({}), []);
+	const [flows, setFlows] = useState<Record<string, unknown>>({});
+	const setFlow = useCallback(
+		(key: string, update: (prev: unknown) => unknown) => setFlows((all) => ({ ...all, [key]: update(all[key]) })),
+		[],
+	);
 	// After a successful save, drop the draft only if it is still exactly what was sent. An edit made while the
 	// save was pending stays as a draft.
 	const settleDraft = useCallback(
@@ -72,8 +79,8 @@ export function SettingsProvider({
 		[],
 	);
 	const value = useMemo(
-		() => ({ port, viewer, drafts, setDraft, settleDraft, clearDrafts, sections, remember }),
-		[port, viewer, drafts, setDraft, settleDraft, clearDrafts, sections, remember],
+		() => ({ port, viewer, drafts, setDraft, settleDraft, clearDrafts, sections, remember, flows, setFlow }),
+		[port, viewer, drafts, setDraft, settleDraft, clearDrafts, sections, remember, flows, setFlow],
 	);
 
 	// A reload or tab close with unsaved drafts asks the browser to confirm.
@@ -119,6 +126,27 @@ export function useDraft<T>(
 		settle: (sent: T) => settleDraft(key, sent),
 		reset: () => setDraft(key, saved, false),
 	};
+}
+
+/**
+ * State of a multi-step flow that must outlive its section, such as an email link that is sending or was sent.
+ * It lives in the store, so switching sections and coming back shows the same step, and a reply that arrives while
+ * another section is open still lands. Switching account remounts the store and drops it.
+ */
+export function useFlowState<T>(key: string, initial: T): [T, (next: T | ((prev: T) => T)) => void] {
+	const { flows, setFlow } = useStore();
+	const value = (key in flows ? flows[key] : initial) as T;
+	const set = useCallback(
+		(next: T | ((prev: T) => T)) =>
+			setFlow(key, (prev) => {
+				const current = (prev === undefined ? initial : prev) as T;
+				return typeof next === "function" ? (next as (p: T) => T)(current) : next;
+			}),
+		// `initial` is a constant per call site.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[key, setFlow],
+	);
+	return [value, set];
 }
 
 function cacheKeyOf(request: GetSectionRequest): string {

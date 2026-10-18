@@ -25,7 +25,8 @@ type AccountSection = Extract<SectionResult, { section: "account" }>;
 const WORKSPACE_CONSEQUENCES = [
 	"Everyone with a seat loses access at once, and every open session ends.",
 	"People, meetings, tasks, documents and files are hidden right away. Connected organizations stop seeing what you shared.",
-	"You can cancel for 30 days. After that, the church's data is deleted, and backup copies expire within 7 more days.",
+	"You can cancel for 30 days. After that, the church's data is deleted. Backup copies expire within 7 days after the deletion finishes.",
+	"Emails already sent, files someone already downloaded and copies kept outside Everyfield cannot be called back.",
 	"Each person's own account stays. Their other churches and organizations are not touched.",
 ];
 
@@ -138,7 +139,8 @@ export function AccountDeletionDialog({
 				"You are signed out on every device at once.",
 				"Records you added for your church, such as people, notes and documents, stay with the church. Your name on them is removed.",
 				"Your photo, your private weekly check-ins and documents only you own are deleted after 30 days.",
-				"You can cancel for 30 days by signing in again. Backup copies expire within 7 more days.",
+				"You can cancel for 30 days by signing in again. Backup copies expire within 7 days after the deletion finishes.",
+				"Emails already sent, files someone already downloaded and copies kept outside Everyfield cannot be called back.",
 			]}
 			cancelLabel="Keep my account"
 			confirmLabel="Delete my account"
