@@ -1586,6 +1586,9 @@
     "WP006-IDN-029": "docs/acceptance/identity-access.json",
     "WP006-KNOW-116": "docs/acceptance/identity-access.json",
     "WP006-MUL-002": "docs/acceptance/identity-access.json",
+    "WP007-KNOW-112": "docs/acceptance/identity-access.json",
+    "WP007-MUL-003": "docs/acceptance/identity-access.json",
+    "WP007-MUL-016": "docs/acceptance/identity-access.json",
     "WP011-KNOW-069": "docs/acceptance/people.json",
     "WP011-KNOW-098": "docs/acceptance/people.json",
     "WP011-KNOW-099": "docs/acceptance/people.json",
@@ -3250,7 +3253,10 @@
         "TARGET-IDN-021",
         "TARGET-IDN-022",
         "TARGET-IDN-026",
-        "TARGET-IDN-027"
+        "TARGET-IDN-027",
+        "WP007-KNOW-112",
+        "WP007-MUL-003",
+        "WP007-MUL-016"
       ],
       "own_operation_ids": [
         "associations.acceptInvitation",
@@ -3689,7 +3695,10 @@
         "WP004-KNOW-089",
         "WP005-KNOW-069",
         "WP005-KNOW-072",
-        "WP006-IDN-029"
+        "WP006-IDN-029",
+        "WP007-KNOW-112",
+        "WP007-MUL-003",
+        "WP007-MUL-016"
       ],
       "context_case_ids": [
         "B03-001",
@@ -9831,7 +9840,8 @@
         "ROLE43-016",
         "TARGET-IDN-012",
         "TARGET-IDN-022",
-        "WIKI52-002"
+        "WIKI52-002",
+        "WP007-KNOW-112"
       ],
       "context_case_ids": [
         "AF-028",
@@ -26655,6 +26665,9 @@
         "WP006-IDN-029",
         "WP006-KNOW-116",
         "WP006-MUL-002",
+        "WP007-KNOW-112",
+        "WP007-MUL-003",
+        "WP007-MUL-016",
         "WP011-KNOW-069",
         "WP011-KNOW-098",
         "WP011-KNOW-099",
@@ -32677,6 +32690,9 @@
         "WP006-IDN-029",
         "WP006-KNOW-116",
         "WP006-MUL-002",
+        "WP007-KNOW-112",
+        "WP007-MUL-003",
+        "WP007-MUL-016",
         "WP011-KNOW-069",
         "WP011-KNOW-098",
         "WP011-KNOW-099",
@@ -44068,6 +44084,8 @@
         "TARGET-PPL-024",
         "TARGET-PPL-025",
         "WP006-MUL-002",
+        "WP007-MUL-003",
+        "WP007-MUL-016",
         "WP011-MUL-001",
         "WP011-MUL-005"
       ],
