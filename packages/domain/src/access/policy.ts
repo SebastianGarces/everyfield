@@ -1,5 +1,7 @@
+import * as tables from "@everyfield/db/tables";
+import { and, eq, isNull, sql } from "@everyfield/db/query";
 import "server-only";
-import type { PoolClient } from "pg";
+import type { Transaction } from "@everyfield/db/client";
 import type { z } from "zod";
 import { sameOwner, type Owner, type sessionId, type Subject } from "@everyfield/contracts/common";
 import { sharedOperationCheckRequest, operationCheckResult, type CurrentActorResult } from "@everyfield/contracts/access";
@@ -12,7 +14,7 @@ type ActiveActor = Extract<CurrentActorResult, { status: "active" }>;
 export interface OperationPolicy {
   operation: keyof typeof operationRegistry;
   subjectKinds: readonly Subject["kind"][];
-  authorize(tx: PoolClient, actor: ActiveActor, subject: Subject, purpose: "native" | "model" | "export" | "organization_aggregate"): Promise<boolean>;
+  authorize(tx: Transaction, actor: ActiveActor, subject: Subject, purpose: "native" | "model" | "export" | "organization_aggregate"): Promise<boolean>;
 }
 export const isAdministrator = (actor: ActiveActor) => actor.context.kind === "seat" && ["owner", "admin"].includes(actor.context.role);
 
@@ -20,7 +22,7 @@ export function accessPolicies(policies: readonly OperationPolicy[]) {
   const byName = new Map<string, OperationPolicy>(policies.map(policy => [policy.operation, policy]));
   if (byName.size !== policies.length) throw Error("duplicate_access_policy");
   return {
-    async checkOperation(tx: PoolClient, session: z.infer<typeof sessionId>, selected: Owner, raw: unknown) {
+    async checkOperation(tx: Transaction, session: z.infer<typeof sessionId>, selected: Owner, raw: unknown) {
       const parsed = sharedOperationCheckRequest.safeParse(raw);
       const denied = operationCheckResult.parse({ status: "unavailable" });
       if (!parsed.success) return denied;
@@ -36,12 +38,12 @@ export function accessPolicies(policies: readonly OperationPolicy[]) {
       if (actor.status !== "active") return denied;
       if (policy.operation === "churches.requestWorkspaceDeletion" && (selected.kind !== "plant" || actor.context.kind !== "seat" || actor.context.role !== "owner")) return denied;
       if (["private_week", "private_week_revision"].includes(input.subject.kind)) return denied;
-      const record = await tx.query("SELECT kind,tenant_id FROM record WHERE id=$1", [input.subject.id]);
-      if (record.rows.length !== 1 || record.rows[0].kind !== input.subject.kind || record.rows[0].tenant_id !== selected.id) return denied;
+      const record = await tx.select({ "kind": tables.record.kind, "tenant_id": tables.record.tenant_id }).from(tables.record).where(eq(tables.record.id, input.subject.id));
+      if (record.length !== 1 || record[0]!.kind !== input.subject.kind || record[0]!.tenant_id !== selected.id) return denied;
       // Identifiers are chosen only from the closed producer subjectKinds plus
       // the canonical C0 subject parser. Values always remain SQL parameters.
-      const resource = await tx.query(`SELECT to_jsonb(r)->>'revision' AS revision FROM "${input.subject.kind}" r WHERE id=$1 FOR SHARE`, [input.subject.id]);
-      if (resource.rows.length !== 1 || (input.kind === "write" && resource.rows[0].revision !== input.expectedRevision)) return denied;
+      const resource = await tx.execute<{revision:string|null}>(sql`SELECT to_jsonb(r)->>'revision' AS revision FROM ${sql.identifier(input.subject.kind)} r WHERE id=${input.subject.id} FOR SHARE`);
+      if (resource.rows.length !== 1 || (input.kind === "write" && resource.rows[0]!.revision !== input.expectedRevision)) return denied;
       const purpose = input.kind === "read" ? input.purpose : "native";
       if (!await policy.authorize(tx, actor, input.subject, purpose)) return denied;
       return operationCheckResult.parse({ status: "allowed" });
@@ -60,7 +62,7 @@ export const ordinarySeatAdministration: OperationPolicy = {
   operation: "seats.changeOrdinaryRole", subjectKinds: ["seat"],
   async authorize(tx, actor, subject) {
     if (!isAdministrator(actor)) return false;
-    const target = await tx.query("SELECT role FROM seat WHERE id=$1 AND coalesce(plant_id,organization_id)=$2 AND ended_at IS NULL FOR SHARE", [subject.id, subject.owner.id]);
-    return target.rows.length === 1 && ["admin", "member"].includes(target.rows[0].role);
+    const target = await tx.select({ "role": tables.seat.role }).from(tables.seat).where(and(and(eq(tables.seat.id, subject.id), eq(sql<string>`coalesce(${tables.seat.plant_id}, ${tables.seat.organization_id})`, subject.owner.id)), isNull(tables.seat.ended_at))).for("share");
+    return target.length === 1 && ["admin", "member"].includes(target[0]!.role);
   },
 };

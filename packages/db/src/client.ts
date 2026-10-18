@@ -2,7 +2,7 @@ import pg from "pg";
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import type { NodePgTransaction } from "drizzle-orm/node-postgres";
 import type { ExtractTablesWithRelations } from "drizzle-orm";
-import * as schema from "./schema/tables.js";
+import * as schema from "./schema/tables.ts";
 
 export type Database = NodePgDatabase<typeof schema>;
 export type Transaction = NodePgTransaction<typeof schema, ExtractTablesWithRelations<typeof schema>>;
