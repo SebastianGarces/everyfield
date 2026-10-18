@@ -4895,6 +4895,9 @@
 				},
 				"resident_person_id": {
 					"note": ""
+				},
+				"inviter_description": {
+					"note": "Exact bounded inviter description; no account-resolution information."
 				}
 			},
 			"foreignKeys": {
@@ -24342,6 +24345,86 @@
 					"deletion": {
 						"action": "no_action",
 						"policy": "Dependency-ordered owner cleanup or witnessed attribution scrubbing; no retained private body or new retention exemption."
+					}
+				}
+			}
+		},
+		"identity_operation_result": {
+			"table": {
+				"name": "identity_operation_result",
+				"domain": "operations",
+				"purpose": "Owner-bound invitation and ordinary-seat receipts; exact replay never grants another account or moves tenancy.",
+				"library_owned": false,
+				"jsonb_keys": {
+					"receipt": ["id", "request", "completedAt", "outcome", "subjects", "eventIds", "effectIds"],
+					"result": [
+						"status",
+						"receipt",
+						"invitation",
+						"invitationId",
+						"accountId",
+						"registrationState",
+						"seat",
+						"linkId",
+						"organization",
+						"personId",
+						"consentRevision",
+						"choices",
+						"revision",
+						"outcome",
+						"duties",
+						"seatId"
+					]
+				},
+				"capabilities": ["CAP-A-005", "CAP-A-006", "CAP-A-018", "CAP-A-034", "CAP-A-055"],
+				"replaces": [],
+				"producer_work_packages": ["WP-008"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-008"],
+					"rule": "WP-008 invitation receipt persistence generated through Drizzle Kit."
+				},
+				"feature_ids": [
+					"ADM-002",
+					"IDN-005",
+					"IDN-013",
+					"IDN-014",
+					"IDN-017",
+					"IDN-019",
+					"MUL-003",
+					"MUL-004",
+					"MUL-016",
+					"PPL-003",
+					"PPL-004",
+					"TEAM-004"
+				],
+				"acceptance_ids": [],
+				"future_case_ids": [],
+				"scope": "operations",
+				"invariants": [
+					"Current actor, exact endpoint and source lifecycle must be checked by the native operation; this storage grants no access."
+				],
+				"revision": "Append immutable lineage or replace current invitation metadata under its source revision.",
+				"idempotency": "Source primary key prevents duplicate lineage/results.",
+				"deletion": "Purge with the actual source owner; counterpart receipts retain only permitted minimal facts and scrub personal attribution.",
+				"physical_verified": false
+			},
+			"columns": {
+				"operation_id": {
+					"note": ""
+				},
+				"receipt": {
+					"note": ""
+				},
+				"result": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"operation_id->operation(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Restricted dependency-ordered cleanup or permitted attribution scrubbing; no retained private body or indefinite history exemption."
 					}
 				}
 			}

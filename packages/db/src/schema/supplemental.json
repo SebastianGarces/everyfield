@@ -4846,6 +4846,11 @@
 		},
 		{
 			"arguments": "handle uuid",
+			"definition": "CREATE OR REPLACE FUNCTION <schema>.invitation_identity(handle uuid)\n RETURNS TABLE(account_id uuid, email text, display_name text, verified boolean, registration_state text)\n LANGUAGE sql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\n SELECT a.id,u.email,u.name,u.email_verified,a.registration_state\n FROM auth_session s JOIN auth_user u ON u.id=s.user_id JOIN account a ON a.auth_user_id=u.id\n WHERE s.id=handle AND s.expires_at>clock_timestamp() FOR UPDATE OF a FOR SHARE OF s,u\n$function$\n",
+			"name": "invitation_identity"
+		},
+		{
+			"arguments": "handle uuid",
 			"definition": "CREATE OR REPLACE FUNCTION <schema>.relationship_inviter_name(handle uuid)\n RETURNS text\n LANGUAGE sql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\n  SELECT u.name FROM auth_session s JOIN auth_user u ON u.id=s.user_id\n    JOIN account a ON a.auth_user_id=u.id\n    WHERE s.id=handle AND s.expires_at>clock_timestamp() AND a.registration_state='active'\n$function$\n",
 			"name": "relationship_inviter_name"
 		},
@@ -4876,8 +4881,18 @@
 		},
 		{
 			"arguments": "subject uuid",
+			"definition": "CREATE OR REPLACE FUNCTION <schema>.revoke_removed_seat_sessions(subject uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nBEGIN\n PERFORM 1 FROM seat WHERE account_id=subject AND ended_at IS NOT NULL FOR UPDATE;\n IF NOT FOUND OR EXISTS(SELECT FROM seat WHERE account_id=subject AND ended_at IS NULL)\n THEN RAISE EXCEPTION 'unavailable' USING ERRCODE='42501'; END IF;\n DELETE FROM auth_session WHERE user_id=(SELECT auth_user_id FROM account WHERE id=subject);\nEND $function$\n",
+			"name": "revoke_removed_seat_sessions"
+		},
+		{
+			"arguments": "subject uuid",
 			"definition": "CREATE OR REPLACE FUNCTION <schema>.scrub_people_account_author(subject uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nBEGIN\n PERFORM 1 FROM lifecycle_witness WHERE account_id=subject AND state IN ('purging','purged') FOR SHARE;\n IF NOT FOUND THEN RAISE EXCEPTION 'account_purge_witness_required' USING ERRCODE='23514'; END IF;\n UPDATE person_note SET author_id=NULL WHERE author_id=subject;\n UPDATE people_history SET actor_id=NULL WHERE actor_id=subject;\n UPDATE people_history SET before_value=before_value-'linked_account_id' WHERE before_value->>'linked_account_id'=subject::text;\n UPDATE people_history SET after_value=after_value-'linked_account_id' WHERE after_value->>'linked_account_id'=subject::text;\nEND $function$\n",
 			"name": "scrub_people_account_author"
+		},
+		{
+			"arguments": "subject uuid",
+			"definition": "CREATE OR REPLACE FUNCTION <schema>.seat_identity(subject uuid)\n RETURNS TABLE(display_name text, created_at timestamp with time zone)\n LANGUAGE sql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\n SELECT u.name,u.created_at FROM account a JOIN auth_user u ON u.id=a.auth_user_id WHERE a.id=subject\n$function$\n",
+			"name": "seat_identity"
 		}
 	],
 	"roles": [
@@ -5896,6 +5911,20 @@
 			"kind": "table",
 			"object": "household",
 			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "identity_operation_result",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "identity_operation_result",
+			"privilege_type": "SELECT"
 		},
 		{
 			"grantee": "everyfield_cleanup",
@@ -7511,6 +7540,13 @@
 			"grantee": "everyfield_runtime",
 			"is_grantable": false,
 			"kind": "function",
+			"object": "invitation_identity(handle uuid)",
+			"privilege_type": "EXECUTE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "function",
 			"object": "purge_organization_person_history(org uuid, subject uuid)",
 			"privilege_type": "EXECUTE"
 		},
@@ -7532,7 +7568,21 @@
 			"grantee": "everyfield_runtime",
 			"is_grantable": false,
 			"kind": "function",
+			"object": "revoke_removed_seat_sessions(subject uuid)",
+			"privilege_type": "EXECUTE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "function",
 			"object": "scrub_people_account_author(subject uuid)",
+			"privilege_type": "EXECUTE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "function",
+			"object": "seat_identity(subject uuid)",
 			"privilege_type": "EXECUTE"
 		},
 		{
@@ -8640,6 +8690,20 @@
 			"kind": "table",
 			"object": "household",
 			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "identity_operation_result",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "identity_operation_result",
+			"privilege_type": "SELECT"
 		},
 		{
 			"grantee": "everyfield_runtime",
