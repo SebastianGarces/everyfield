@@ -10,8 +10,8 @@ All UI work in EveryField is yours. Follow `implementor.md` for the task loop; t
   `better-colors`, `better-accessibility`, `better-writing`). New components come from the shadcn CLI.
 - Use the upstream `vercel-react-best-practices` skill for React and Next.js components, pages,
   data fetching, bundle size and performance work.
-- Look at your work in Intent's browser on your stack's preview URL at mobile and desktop widths.
-  Read the console. Judge hierarchy, spacing and copy, not only defects.
+- Look at your work on its portless preview at mobile and desktop widths.
+  Read the console. Judge hierarchy, spacing and copy. The verifier checks Chromium and WebKit.
 - Browser regression tests cover critical flows only, with `AC:<case-id>` markers. Use integration
   tests for other behavior and broad browser proof outside the repo. Follow `test-standard`.
 

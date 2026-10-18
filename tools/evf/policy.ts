@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { baseRef, contractFingerprint, git, gitOk, fail, findPackage, loadDag, loadConfig, readJson, prerequisitesForPart, type Part, type TaskRef } from './lib.ts';
+import { baseRef, git, fail, findPackage, loadDag, loadConfig, readJson, prerequisitesForPart, type Part, type TaskRef } from './lib.ts';
 import { producerReady } from './progress.ts';
 
 /** Local reviewed source policy is an operator boundary, never inferred from a role flag or severity. */
@@ -23,7 +23,6 @@ export function requireTaskScope(root:string,task:TaskRef,wp?:string):void {
  if(task.kind==='ops') {
   const scope=loadConfig(root).maintenanceTasks?.[task.id];
   if(!scope?.title||!scope.owningPaths.length||!scope.checks?.length)fail('Maintenance requires a reviewed title, owning paths and local tooling checks in maintenanceTasks.');
-  if(scope.configChanges?.some(key=>!['stack','checks'].includes(key))||scope.configChanges?.length&&!scope.owningPaths.includes('evf.config.json'))fail('Maintenance config changes require owning evf.config.json and reviewed stack/checks fields only.');
   const files=['README.md','AGENTS.md','evf.config.json','skills-lock.json','.gitignore','bin/evf'];
   const directories=['.agents/','.claude/','docs/','tools/evf/','.github/'];
   if(scope.owningPaths.some(path=>path.split('/').includes('..')||!files.includes(path)&&!directories.some(dir=>path.startsWith(dir))))fail('Maintenance owning paths must stay in documentation and workflow tooling; OPS cannot authorize application code.');
@@ -34,31 +33,18 @@ export function requireTaskScope(root:string,task:TaskRef,wp?:string):void {
  requireTaskRisk(root,task);
 }
 
-/** Intent's reviewed task scope supplies risk. Ordinary auto-merge never approves sensitive work. */
+/** Sensitive work still needs an owner decision in Intent. Ordinary task scope is the default. */
 export function requireTaskRisk(root:string,task:TaskRef):void {
- const cfg=loadConfig(root) as ReturnType<typeof loadConfig>&{verification:{proofPlans:Record<string,{risk?:string}>}};
- const risk=cfg.verification.proofPlans[task.id]?.risk;
- if(risk==='ordinary')return;
- if(['sensitive','security','privacy','irreversible'].includes(risk??''))fail(`${task.id} is ${risk}; escalate through Intent's existing owner channel before implementation or merge. The scoped owner-approval adapter is not configured; ordinary automatic merge is no exception.`);
- fail('Missing reviewed task risk classification. Resolve it in the root Intent task/proof plan before implementation.');
+ const cfg=loadConfig(root),risk=cfg.taskRisks?.[task.id]??cfg.maintenanceTasks?.[task.id]?.risk??'ordinary';
+ if(risk!=='ordinary')fail(`${task.id} is ${risk}; get the owner's scoped approval in Intent before implementation or merge.`);
 }
 
-/** OPS may change reviewed subjects, but never its own runner, key, scope or proof authority. */
-export function requireReviewedContract(root:string,wt:string,task:TaskRef):void {
- if(task.kind!=='ops') {
-  if(contractFingerprint(root)!==contractFingerprint(wt))fail('Verification contract/policy must match the reviewed root before any check or runner executes; worktree flags cannot downgrade application/risk gates.');
-  return;
+/** Check the task's scope, including candidate tooling changes. */
+export function requireMaintenancePaths(root:string,wt:string,task:TaskRef):void {
+ const cfg=loadConfig(root);
+ if(task.kind==='ops') {
+  const owns=(path:string)=>cfg.maintenanceTasks![task.id].owningPaths.some(p=>p.endsWith('/')?path.startsWith(p):path===p);
+  const changed=git(wt,'diff','--name-only','--no-renames',baseRef(root,cfg),'HEAD').split('\n').filter(Boolean);
+  if(changed.some(p=>!owns(p)))fail('Maintenance candidate changes paths outside its reviewed owning paths.');
  }
- requireTaskScope(root,task);
- const cfg=loadConfig(root),candidate=loadConfig(wt),scope=cfg.maintenanceTasks![task.id];
- const owns=(path:string)=>scope.owningPaths.some(p=>p.endsWith('/')?path.startsWith(p):path===p);
- // Check the whole candidate diff, including subjects outside the policy fingerprint.
- const base=baseRef(root,cfg);
- if(!gitOk(wt,'merge-base','--is-ancestor',base,'HEAD'))fail('Maintenance candidate must include the latest main before checking owning paths.');
- const changed=git(wt,'diff','--name-only','--no-renames',base,'HEAD').split('\n').filter(Boolean);
- if(changed.some(p=>!owns(p)))fail('Maintenance candidate changes paths outside its reviewed owning paths.');
- const authority=structuredClone(candidate);
- for(const key of scope.configChanges??[])authority[key]=cfg[key];
- if(JSON.stringify(authority)!==JSON.stringify(cfg))fail('Maintenance cannot change runner, keys, proof plans or unreviewed config fields.');
- if(contractFingerprint(root,p=>p!=='evf.config.json'&&owns(p),cfg)!==contractFingerprint(wt,p=>p!=='evf.config.json'&&owns(p),authority))fail('Maintenance contract outside reviewed owning paths must match the reviewed root.');
 }

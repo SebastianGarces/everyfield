@@ -46,14 +46,6 @@
     "publicAreas": [],
     "publicTemplates": []
   },
-  "verification": {
-    "kind": "tooling",
-    "applicationQualified": false,
-    "attest": null,
-    "usesPaidProviders": false,
-    "proofPlans": {},
-    "testReport": "{testReport}"
-  },
   "mergePolicy": {
     "ordinary": "automatic-after-independent-review",
     "feedbackVerifierMerge": [

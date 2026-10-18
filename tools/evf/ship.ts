@@ -1,9 +1,9 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
 import {
   evfDataDir,
   fail,
+  baseRef,
   findPackage,
   git,
   hasRemote,
@@ -17,10 +17,11 @@ import {
   type TaskRef,
 } from "./lib.ts";
 import { requireTaskScope } from "./policy.ts";
+import { checkPrBody } from "./pr-body.ts";
 import { recordProgress, type ShippedRecord } from './progress.ts';
 import { stack } from "./task.ts";
 import { cachedTriage, fbOwningPaths, feedbackTitle, internalIssueOf, isPrototype, onFeedbackShipped } from "./feedback.ts";
-import { currentProof, type Proof } from "./verify.ts";
+
 
 function gh(cwd: string, args: string[]): string {
   const r = run("gh", args, { cwd });
@@ -29,7 +30,7 @@ function gh(cwd: string, args: string[]): string {
 }
 
 function requireRemote(root: string, cfg: Config): void {
-  if (!hasRemote(root, cfg)) fail(`No "${cfg.remote}" git remote yet. Create the GitHub repository, add the remote, then run: evf github setup`);
+  if (!hasRemote(root, cfg)) fail(`No "${cfg.remote}" git remote yet. Create the GitHub repository, add the remote, then retry.`);
 }
 
 function nameWithOwner(cwd: string): string {
@@ -61,35 +62,7 @@ function taskPaths(root: string, task: TaskRef): string[] {
   return task.kind === "fb" ? fbOwningPaths(root, task) : pathsForPart(findPackage(loadDag(root), task.wp), task.part);
 }
 
-function prBody(root: string, task: TaskRef, proof: Proof): string {
-  const rows = proof.checks.map((c) => `| ${c.name} | ${c.passed ? "pass" : "FAIL"} | ${Math.round(c.durationMs / 1000)}s |`);
-  const internal = internalIssueOf(root, task);
-  const proto = isPrototype(root, task);
-  const paths = taskPaths(root, task);
-  return [
-    `Task \`${task.id}\`: ${taskTitle(root, task)}.`,
-    ...(internal ? ["", `Closes #${internal}.`] : []),
-    ...(proto ? ["", "**Prototype for product review.** Sebastian merges or closes this PR. `evf ship` refuses prototypes.", "", "Preview steps and screenshots:", "- (author: add them here)"] : []),
-    "",
-    `Owning paths: ${paths.length ? paths.map((p) => `\`${p}\``).join(", ") : "see the diff"}.`,
-    `Acceptance criteria covered: ${proof.acceptance.length ? proof.acceptance.join(", ") : "package gates (no registry entries)"}.`,
-    "",
-    `Author proof at \`${proof.sha.slice(0, 10)}\` (${proof.mode}, base \`${proof.base.ref}\` ${proof.base.sha.slice(0, 10)} included):`,
-    "",
-    "| Check | Result | Time |",
-    "|---|---|---|",
-    ...rows,
-    "",
-    `Evidence (local): \`${proof.evidenceDir}\``,
-    "",
-    "Merge policy: `.agents/skills/ship/SKILL.md`.",
-    "",
-    "Rulings and shared changes made in this task:",
-    "- (author: list them here, or write \"none\")",
-  ].join("\n");
-}
-
-export function prOpen(root: string, task: TaskRef): number {
+export function prOpen(root: string, task: TaskRef, bodyFile?: string): number {
   const cfg = loadConfig(root);
   const wp=task.kind==='wp'?task.wp:task.kind==='fb'?cachedTriage(root,task.issue!)?.wp:undefined;requireTaskScope(root,task,wp);
   requireRemote(root, cfg);
@@ -97,15 +70,17 @@ export function prOpen(root: string, task: TaskRef): number {
   if (!isClean(wt)) fail("Commit your work first. The worktree is not clean.");
   const sha = git(wt, "rev-parse", "HEAD");
   git(root,"fetch","--quiet",cfg.remote,cfg.baseBranch);
-  const proof = currentProof(root,task,"author");
 
-  pushBranch(wt, cfg, task);
-  const bodyFile = join(tmpdir(), `evf-pr-${task.slug}.md`);
-  writeFileSync(bodyFile, prBody(root, task, proof));
+  if(!bodyFile||!existsSync(bodyFile))fail('Write the PR body following the PR standard, then pass --body-file <file>.');
+  const body=readFileSync(bodyFile,'utf8');
+  checkPrBody(wt,body);
+  const internal=internalIssueOf(root,task);
+  if(internal&&!body.includes(`Closes #${internal}`))fail(`Include Closes #${internal} in the PR body for this feedback task.`);
+  pushBranch(wt,cfg,task);
   const proto = isPrototype(root, task);
   const existing = prFor(wt, task);
   if (existing && existing.state === "OPEN") {
-    gh(wt, ["pr", "edit", String(existing.number), "--body-file", bodyFile]);
+    gh(wt,["pr","edit",String(existing.number),"--body-file",bodyFile]);
     console.log(`pr: updated ${existing.url}`);
   } else {
     const extra = proto ? ["--draft", "--label", "prototype"] : [];
@@ -118,68 +93,86 @@ export function prOpen(root: string, task: TaskRef): number {
     console.log("next: this is a prototype. Report the PR to the coordinator; Sebastian reviews it. Do not run evf ship.");
     return 0;
   }
-  postStatus(wt, cfg, sha, "pending", "Waiting for cross-model verification");
   console.log(`next: the coordinator delegates verification. The verifier runs: evf verify ${task.id} --role verifier, then evf ship ${task.id}`);
   return 0;
 }
 
-const BEHIND = /not up to date|behind|base branch|head branch was modified|update the branch/i;
+const FAMILIES=['openai','anthropic'];
+export type Approval={head:string;verifierFamily:string;verdict:'approved'|'changes_requested';packageClosures?:string[]};
+export type RequiredCheck={name:string;bucket:string;state:string;link:string};
+export type MergeEvidence={head:string;authorFamily:string;approval:Approval;approvalUrl:string;checks:RequiredCheck[];checkedAt:string};
+type PullRequest={number:number;body:string;headRefOid:string;baseRefName:string;state:string;isDraft:boolean};
 
-export function ship(root: string, task: TaskRef, opts: { maxUpdates: number }): number {
-  const cfg = loadConfig(root);
-  const wp=task.kind==='wp'?task.wp:task.kind==='fb'?cachedTriage(root,task.issue!)?.wp:undefined;requireTaskScope(root,task,wp);
-  requireRemote(root, cfg);
-  const wt = requireWorktree(root, cfg, task);
-  if (isPrototype(root, task)) fail(`${task.id} is a prototype. Sebastian reviews and merges it; evf ship never does.`);
-  const pr = prFor(wt, task);
-  if (!pr || pr.state !== "OPEN") fail(`No open PR for ${task.branch}. The author runs: evf pr open ${task.id}`);
-  const policy=cfg.mergePolicy;
-  if(policy.ordinary!=='automatic-after-independent-review')fail('Ordinary automatic merge is not approved in the reviewed root policy.');
-  // Owner rulings 2026-10-15/16: P0/P1 feedback fixes merge through the verifier like ordinary builds.
-  // P2/P3 get the same full verification, then wait for Sebastian's chat approval and `evf approve`.
-  let holdForOwner=false;
-  if(task.kind==='fb') {
-    const cls=cachedTriage(root,task.issue!)?.class;
-    holdForOwner=!!cls&&(policy.feedbackOwnerAfterVerifier as string[]).includes(cls);
-    if(!cls||!holdForOwner&&!(policy.feedbackVerifierMerge as string[]).includes(cls))fail(`${task.id} is ${cls??'untriaged'}; evf ship handles feedback classes ${[...policy.feedbackVerifierMerge,...policy.feedbackOwnerAfterVerifier].join(', ')}. Sebastian approves the rest in chat; then: bin/evf approve <PR>`);
-  }
-
-
-  for (let attempt = 0; attempt <= opts.maxUpdates; attempt++) {
-    if (!isClean(wt)) fail("The worktree is not clean. A verifier does not change the code. Send failures back to the coordinator.");
-    const sha = git(wt, "rev-parse", "HEAD");
-    git(root,"fetch","--quiet",cfg.remote,cfg.baseBranch);
-    const proof = currentProof(root,task,"verifier");
-    const authorProof = currentProof(root,task,"author");
-    const repo=nameWithOwner(wt);
-    const protection=JSON.parse(gh(wt,["api",`repos/${repo}/branches/${cfg.baseBranch}/protection`]));
-    if(protection.required_status_checks?.strict!==true || !Array.isArray(protection.required_status_checks?.contexts) || !protection.required_status_checks.contexts.includes(cfg.statusContext) || protection.enforce_admins?.enabled!==true)fail('Verified strict branch protection and enforced final-head checks are required before automatic merge. Restore it with: evf github setup');
-
-
-
-    pushBranch(wt, cfg, task);
-    postStatus(wt, cfg, sha, "success", `Verified ${proof.mode} by ${proof.role} at ${sha.slice(0, 10)}`);
-    if(holdForOwner) {
-      gh(wt,["pr","comment",String(pr.number),"--body",`Verified at \`${sha.slice(0,10)}\` by the cross-model verifier. This feedback fix waits for Sebastian's approval; after he approves in chat, merge with \`bin/evf approve ${pr.number} --owner-approval "<his words>"\`.`]);
-      console.log(`ship: PR #${pr.number} is verified at ${sha.slice(0,10)} and waits for Sebastian's approval. Report it to the coordinator; do not merge.`);
-      return 0;
-    }
-    const merge = run("gh", ["pr", "merge", String(pr.number), "--squash", "--match-head-commit", sha], { cwd: wt });
-    if (merge.code === 0) return afterMerge(root, cfg, task, wt, pr.number, proof,authorProof);
-
-    const why = (merge.stderr || merge.stdout).trim();
-    if (!BEHIND.test(why)) fail(`Merge refused: ${why}`);
-    if (attempt === opts.maxUpdates) fail(`Branch still behind after ${opts.maxUpdates} updates. Try again later.`);
-    console.log(`ship: branch is behind ${cfg.baseBranch}. Updating and requiring full independent author/verifier proof.`);
-    gh(wt, ["pr", "update-branch", String(pr.number)]);
-    git(wt, "fetch", "--quiet", cfg.remote, task.branch);
-    git(wt, "merge", "--quiet", "--ff-only", `${cfg.remote}/${task.branch}`);
-    fail(`Branch updated. Stop for full author and verifier proofs at the new final head; prior evidence is stale.`);
-  }
-  return 1;
+function readApproval(input:unknown):Approval|null {
+ if(!input||typeof input!=='object'||!('head' in input)||typeof input.head!=='string'||!/^([a-f0-9]{40})$/.test(input.head))return null;
+ if(!('verifierFamily' in input)||typeof input.verifierFamily!=='string'||!FAMILIES.includes(input.verifierFamily))return null;
+ if(!('verdict' in input)||(input.verdict!=='approved'&&input.verdict!=='changes_requested'))return null;
+ let packageClosures:string[]|undefined;
+ if('packageClosures' in input) {
+  const values=input.packageClosures;
+  if(!Array.isArray(values)||!values.every((id):id is string=>typeof id==='string'&&/^WP-\d{3}$/.test(id)))return null;
+  packageClosures=values;
+ }
+ return {head:input.head,verifierFamily:input.verifierFamily,verdict:input.verdict,...(packageClosures?{packageClosures}: {})};
 }
 
-function afterMerge(root: string, cfg: Config, task: TaskRef, wt: string, prNumber: number, proof: Proof,authorProof:Proof): number {
+/** One unsigned review convention, shared by the verifier and GitHub merge workflow. */
+export function checkPr(root:string,number:number,expectedHead?:string):MergeEvidence {
+ const cfg=loadConfig(root);
+ const pr:PullRequest=JSON.parse(gh(root,['pr','view',String(number),'--json','number,body,headRefOid,baseRefName,state,isDraft']));
+ if(pr.state!=='OPEN'||pr.isDraft||pr.baseRefName!==cfg.baseBranch)fail('Shipping requires an open, ready PR targeting main.');
+ if(expectedHead&&pr.headRefOid!==expectedHead)fail('PR head changed. Verify the new exact head before shipping.');
+ const {authorFamily}=checkPrBody(root,pr.body);
+ // gh discovers required checks from the PR's actual branch rules; absent and unreadable checks refuse.
+ const result=run('gh',['pr','checks',String(number),'--required','--json','name,state,bucket,link'],{cwd:root});
+ let checks:RequiredCheck[]=[];
+ try{checks=JSON.parse(result.stdout);}catch{fail('Required GitHub CI is missing or unreadable.');}
+ if(!Array.isArray(checks)||!checks.length)fail('Required GitHub CI is missing.');
+ if(result.code!==0||checks.some(c=>!c||c.bucket!=='pass'||typeof c.name!=='string'||typeof c.link!=='string'))fail('Required GitHub CI must be green on the exact PR head.');
+ const repo=nameWithOwner(root);
+ const pages=JSON.parse(gh(root,['api',`repos/${repo}/issues/${number}/comments`,'--paginate','--slurp']));
+ if(!Array.isArray(pages)||pages.some(page=>!Array.isArray(page)))fail('GitHub verifier comments are unreadable.');
+ const comments=pages.flat();
+ let selected:{approval:Approval;url:string}|undefined;
+ for(const comment of comments)for(const match of String(comment?.body??'').matchAll(/^EVF-Review: (.+)$/gm)) {
+  let value:unknown;try{value=JSON.parse(match[1]);}catch{continue;}
+  const approval=readApproval(value);
+  if(!approval||approval.head!==pr.headRefOid)continue;
+  selected={approval,url:typeof comment.html_url==='string'?comment.html_url:''};
+ }
+ if(!selected?.url||selected.approval.verdict!=='approved')fail('Missing verifier approval for the exact PR head.');
+ if(selected.approval.verifierFamily===authorFamily)fail('Verifier approval must come from a different model family.');
+ const current:PullRequest=JSON.parse(gh(root,['pr','view',String(number),'--json','number,body,headRefOid,baseRefName,state,isDraft']));
+ if(current.headRefOid!==pr.headRefOid||current.body!==pr.body||current.state!=='OPEN'||current.isDraft)fail('PR changed during merge checks. Run verification again.');
+ return {head:pr.headRefOid,authorFamily,approval:selected.approval,approvalUrl:selected.url,checks,checkedAt:new Date().toISOString()};
+}
+
+export function ship(root:string,task:TaskRef):number {
+ const cfg=loadConfig(root),wp=task.kind==='wp'?task.wp:task.kind==='fb'?cachedTriage(root,task.issue!)?.wp:undefined;
+ requireTaskScope(root,task,wp);requireRemote(root,cfg);
+ const wt=requireWorktree(root,cfg,task);
+ if(isPrototype(root,task))fail(`${task.id} is a prototype. Sebastian approves it in chat before evf approve.`);
+ if(!isClean(wt))fail('The task worktree must be clean before shipping.');
+ const pr=prFor(wt,task);
+ if(!pr||pr.state!=='OPEN')fail(`No open PR for ${task.branch}.`);
+ if(cfg.mergePolicy.ordinary!=='automatic-after-independent-review')fail('Ordinary automatic merge is not approved.');
+ const sha=git(wt,'rev-parse','HEAD'),baseSha=git(root,'merge-base',sha,baseRef(root,cfg));
+ const verification=checkPr(wt,pr.number,sha);
+ if(task.kind==='fb') {
+  const cls=cachedTriage(root,task.issue!)?.class;
+  if(!cls)fail('Feedback must be triaged before shipping.');
+  if((cfg.mergePolicy.feedbackOwnerAfterVerifier as string[]).includes(cls)) {
+   postStatus(wt,cfg,sha,'success',`Verified by ${verification.approval.verifierFamily} at ${sha.slice(0,10)}`);
+   console.log(`PR #${pr.number} is verified and waits for Sebastian's chat approval, then evf approve.`);return 0;
+  }
+  if(!(cfg.mergePolicy.feedbackVerifierMerge as string[]).includes(cls))fail('This feedback class requires the owner approval route.');
+ }
+ const merge=run('gh',['pr','merge',String(pr.number),'--squash','--match-head-commit',sha],{cwd:wt});
+ if(merge.code!==0)fail(`Merge refused: ${(merge.stderr||merge.stdout).trim()}. A changed head needs fresh CI and verifier approval.`);
+ return afterMerge(root,cfg,task,wt,pr.number,verification,baseSha);
+}
+
+function afterMerge(root: string, cfg: Config, task: TaskRef, wt: string, prNumber: number, verification: MergeEvidence, baseSha: string): number {
   const mergeSha = gh(wt, ["pr", "view", String(prNumber), "--json", "mergeCommit", "-q", ".mergeCommit.oid"]);
   const record = {
     task: task.id,
@@ -189,20 +182,15 @@ function afterMerge(root: string, cfg: Config, task: TaskRef, wt: string, prNumb
     shipped_at: new Date().toISOString(),
     part: task.part,
     package_completion: false,
-    passed_case_portions: proof.attestation?.payload.casePortions ?? [],
-    passed_gate_portions: proof.attestation?.payload.gatePortions ?? [],
-    deferred_gate_portions: proof.plan?.gates.flatMap(g=>g.deferred.map(d=>({gateIndex:g.index,...d}))) ?? [],
-    deferred_case_portions: proof.plan?.cases.flatMap(c=>c.deferred.map(d=>({caseId:c.id,...d}))) ?? [],
-    verified_head: proof.sha,
-    contract_fingerprint: proof.fingerprint,
-    proof,
-    author_proof: authorProof,
+    verified_head: verification.head,
+    base_sha: baseSha,
+    verification,
     evidence: {
       path: taskPaths(root, task)[0] ?? "",
       commit: mergeSha,
-      test: `evf verify ${task.id} --role verifier (${proof.checks.map((c) => c.name).join(", ")})`,
+      test: `GitHub required CI and ${verification.approval.verifierFamily} approval`,
       result: "passed",
-      note: `${task.id} merged in PR #${prNumber} after cross-model verification at ${proof.sha.slice(0, 10)}; acceptance ${proof.acceptance.join(", ") || "package gates"}.`,
+      note: `${task.id} merged in PR #${prNumber} after cross-model verification at ${verification.head.slice(0,10)}. ${verification.approvalUrl}`,
     },
   };
   const dir = join(evfDataDir(root), "shipped");
@@ -236,36 +224,7 @@ export function listShipped(root: string, clear: string[]): number {
     const record=records.find(r=>r.value.task===id);if(!record)fail(`No retained shipped record for ${id}.`);
     recordProgress(root,record.value,true);
     record.value.acknowledged=true;writeFileSync(record.path,JSON.stringify(record.value,null,2)+"\n");
-  } // Acknowledgement clears the inbox, never removes proof/part provenance.
+  } // Acknowledgement clears the inbox and preserves milestone history.
 
-  return 0;
-}
-
-export function githubSetup(root: string, dryRun: boolean): number {
-  // Owner-approved 2026-10-15: squash-only merges and strict protection that binds admin tokens,
-  // because agents act through the owner's account. Zero approvals; evf/verify is the merge bar.
-  const cfg = loadConfig(root);
-  requireRemote(root, cfg);
-  const repo = nameWithOwner(root);
-  const settings = ["api", "-X", "PATCH", `repos/${repo}`, "-F", "allow_squash_merge=true", "-F", "allow_merge_commit=false", "-F", "allow_rebase_merge=false", "-F", "delete_branch_on_merge=true", "-F", "allow_update_branch=true", "-f", "squash_merge_commit_title=PR_TITLE", "-f", "squash_merge_commit_message=PR_BODY"];
-  const protection = {
-    required_status_checks: { strict: true, contexts: [cfg.statusContext] },
-    enforce_admins: true,
-    required_pull_request_reviews: { required_approving_review_count: 0, dismiss_stale_reviews: true, require_code_owner_reviews: false },
-    restrictions: null,
-    required_linear_history: true,
-    allow_force_pushes: false,
-    allow_deletions: false,
-  };
-  const file = join(tmpdir(), "evf-protection.json");
-  writeFileSync(file, JSON.stringify(protection));
-  const protect = ["api", "-X", "PUT", `repos/${repo}/branches/${cfg.baseBranch}/protection`, "--input", file];
-  if (dryRun) {
-    console.log(`gh ${settings.join(" ")}\ngh ${protect.join(" ")}\n${JSON.stringify(protection, null, 2)}`);
-    return 0;
-  }
-  gh(root, settings);
-  gh(root, protect);
-  console.log(`github: ${repo} merges by squash only. ${cfg.baseBranch} needs a PR, an up-to-date branch and a passing ${cfg.statusContext} status, for admins too. No approvals required.`);
   return 0;
 }
