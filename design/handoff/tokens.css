@@ -7,9 +7,12 @@
       Use next-themes with attribute="data-theme".
    2. shadcn/ui semantic variables (--background, --primary, ...) mapped to --ef-*.
    3. @theme inline: Tailwind utilities (bg-surface, text-text-2, rounded-card, shadow-card,
-      font-display, bg-green-500 ...) that follow the active theme. */
+      font-display, bg-green-500 ...) that follow the active theme.
 
-@import "tailwindcss";
+   This file holds tokens only. The consuming stylesheet imports Tailwind first, so Tailwind
+   resolves from the app that depends on it:
+     @import "tailwindcss";
+     @import "<path>/design/handoff/tokens.css"; */
 
 :root {
   --ef-ink: #181D19;

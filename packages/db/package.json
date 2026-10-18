@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint --max-warnings=0 .",
     "migrate": "tsx --env-file-if-exists=../../apps/web/.env.local scripts/migrate.ts",
-    "export": "tsx --env-file-if-exists=../../apps/web/.env.local scripts/export.ts"
+    "export": "tsx --env-file-if-exists=../../apps/web/.env.local scripts/export.ts",
+    "reset:dev": "tsx --env-file-if-exists=../../apps/web/.env.local scripts/reset-dev.ts"
   },
   "dependencies": {
     "pg": "^8.16.3"
