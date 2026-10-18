@@ -14,5 +14,5 @@ import { currentActor } from "./session.ts";
 import { accessPolicies, type OperationPolicy } from "./policy.ts";
 import { readPipelinePerson, readOrganizationNotes } from "./pipeline.ts";
 export function accessReader(policies: readonly OperationPolicy[]): AccessReader<Transaction> {
-  return { currentActor, ...accessPolicies(policies), readPipelinePerson, readOrganizationNotes };
+	return { currentActor, ...accessPolicies(policies), readPipelinePerson, readOrganizationNotes };
 }
