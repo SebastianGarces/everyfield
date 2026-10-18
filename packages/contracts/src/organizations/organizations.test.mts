@@ -204,7 +204,10 @@ test("INV-relationships: subject and organization history reads keep independent
   assert.deepEqual(wire(C.relationshipHistoryResult, result), result);
   assert.deepEqual(wire(C.relationshipHistoryResult, { ...result, activeRelationships: [] }), { ...result, activeRelationships: [] });
   refuses(C.relationshipHistoryResult, { ...result, activeRelationships: [{ ...active, endedAt: active.acceptedAt }] });
-  refuses(C.relationshipHistoryResult, { ...result, items: [{ ...event, pair: { ...pair, subject: { ...plant, id: other } } }] });
+  const foreignPlantPair = { ...pair, subject: { ...plant, id: "40000000-0000-4000-8000-000000000001" } };
+  assert.deepEqual(wire(C.relationshipPair, foreignPlantPair), foreignPlantPair);
+  refuses(C.relationshipHistoryResult, { ...result, activeRelationships: [{ ...active, pair: foreignPlantPair }] });
+  refuses(C.relationshipHistoryResult, { ...result, items: [{ ...event, pair: foreignPlantPair }] });
   refuses(C.relationshipHistoryResult, { ...result, items: [{ ...event, reason: { status: "withheld", value: "PRIVATE" } }] });
   const accept = command({ invitationId: id, proof: "original-address-proof", decision: "accept" });
   assert.deepEqual(wire(C.acceptInvitationRequest, accept), accept);
