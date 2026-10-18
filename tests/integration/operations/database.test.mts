@@ -70,15 +70,16 @@ test('AC:OPS-ATOMIC-001 AC:OPS-PLATFORM-001 required SQL consequences roll back 
   assert.deepEqual(properties,{rolname:role,rolsuper:false,rolbypassrls:false});
   await assert.rejects(runtime.query('CREATE TABLE forbidden(id int)'),e=>e.code==='42501');
   await assert.rejects(runtime.query('SELECT * FROM auth_user'),e=>e.code==='42501');
-  const key=randomUUID();
+  const key=randomUUID(),receiptId=randomUUID();
   const writes={facts:async tx=>{await tx.query("UPDATE document SET title='after' WHERE id=$1 AND tenant_id=$2",[doc,tenant]);return doc;},
     history:async(tx,id)=>{await tx.query(`INSERT INTO event(tenant_id,target_record_id,actor_id,kind,occurred_at,recorded_at,event_key,action) VALUES($1,$2,$3,'edit',clock_timestamp(),clock_timestamp(),$4,'documents.saved') ON CONFLICT(target_record_id,event_key) DO NOTHING`,[tenant,id,actor,key]);},
-    receipt:async()=>{},intents:async(tx,id)=>{await enqueueJob(tx,{tenant,kind:'document_render',subject:id,key,revision:'1',eligibleAt:new Date().toISOString()});}};
+    receipt:async tx=>{await tx.query(`INSERT INTO operation(id,tenant_id,actor_id,name,request_key,request_digest,state,outcome,started_at,completed_at,tool_calls,reserved_input,reserved_output,used_input,used_output) VALUES($1,$2,$3,'domain.executeAtomicConsequences',$4,$5,'complete','committed',clock_timestamp(),clock_timestamp(),0,0,0,0,0) ON CONFLICT(tenant_id,request_key) DO NOTHING`,[receiptId,tenant,actor,key,'a'.repeat(64)]);},intents:async(tx,id)=>{await enqueueJob(tx,{tenant,kind:'document_render',subject:id,key,revision:'1',eligibleAt:new Date().toISOString()});}};
   for(const slot of ['history','receipt','intents']){
-    await assert.rejects(executeAtomicConsequences(runtime,async()=>{}, {...writes,[slot]:async tx=>{await tx.query("SELECT 'required writer fault'::int");}}),e=>e.code==='22P02');
+    await assert.rejects(executeAtomicConsequences(runtime,async()=>{}, {...writes,[slot]:async()=>{throw Error('required_writer_fault');}}),/required_writer_fault/);
     assert.equal((await admin.query('SELECT title FROM document WHERE id=$1',[doc])).rows[0].title,'before');
     assert.equal((await admin.query('SELECT count(*)::int n FROM event WHERE target_record_id=$1',[doc])).rows[0].n,0);
     assert.equal((await admin.query('SELECT count(*)::int n FROM job WHERE subject_record_id=$1',[doc])).rows[0].n,0);
+    assert.equal((await admin.query('SELECT count(*)::int n FROM operation WHERE id=$1',[receiptId])).rows[0].n,0);
   }
   const authorize=async tx=>{const r=await tx.query('SELECT id FROM document WHERE id=$1 AND tenant_id=$2 FOR UPDATE',[doc,tenant]);assert.equal(r.rowCount,1);};
   const telemetry=createTelemetry(telemetryConfig({endpoint:'http://127.0.0.1:1/unreachable',token:'a'.repeat(32),timeoutMs:10}));
@@ -87,6 +88,7 @@ test('AC:OPS-ATOMIC-001 AC:OPS-PLATFORM-001 required SQL consequences roll back 
   assert.deepEqual((await admin.query('SELECT title FROM document WHERE id=$1',[doc])).rows,[{title:'after'}]);
   assert.equal((await admin.query('SELECT count(*)::int n FROM event WHERE target_record_id=$1',[doc])).rows[0].n,1);
   assert.deepEqual((await admin.query('SELECT kind,state,producer_key FROM job WHERE subject_record_id=$1',[doc])).rows,[{kind:'document_render',state:'ready',producer_key:key}]);
+  assert.deepEqual((await admin.query('SELECT id,state,outcome FROM operation WHERE id=$1',[receiptId])).rows,[{id:receiptId,state:'complete',outcome:'committed'}]);
 });
 
 test('INV-operator: exact fresh scope denies tenant roles, expired grants and foreign records; inspection is safe and audited atomically',async()=>{
