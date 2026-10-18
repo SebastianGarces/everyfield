@@ -1,15 +1,16 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
-import { baseRef, evidenceDir, fail, fill, git, gitOk, hasRemote, isClean, loadConfig, packageContext, requireWorktree, run, runtimeDir, type TaskRef } from './lib.ts';
+import { baseRef, command, evidenceDir, fail, fill, git, gitOk, hasRemote, isClean, loadConfig, packageContext, requireWorktree, run, runtimeDir, type TaskRef } from './lib.ts';
 import { stackEnv, stackInfo } from './task.ts';
 import { cachedTriage } from './feedback.ts';
 import { requireSpend, requireTaskScope, requireMaintenancePaths } from './policy.ts';
 import { caseCoverage, caseGrep } from './coverage.ts';
+import { wpScope, type ScopeReport } from './scope.ts';
 
 export type Role='author'|'verifier';
 export type Mode='full'|'quick';
 export type CheckResult={name:string;command:string[];exitCode:number;log:string;passed:boolean};
-export type CheckReport={schema:3;task:string;role:Role;mode:Mode;kind:'tooling'|'application';sha:string;baseSha:string;clean:boolean;unchanged:boolean;checks:CheckResult[];passed:boolean;evidenceDir:string;finishedAt:string};
+export type CheckReport={schema:3;task:string;role:Role;mode:Mode;kind:'tooling'|'application';sha:string;baseSha:string;clean:boolean;unchanged:boolean;checks:CheckResult[];passed:boolean;evidenceDir:string;finishedAt:string;scope?:ScopeReport};
 
 /** Local deterministic checks aid review. They never grant verifier approval or replace GitHub CI. */
 export function verify(root:string,task:TaskRef,role:Role,mode:Mode):CheckReport {
@@ -29,7 +30,7 @@ export function verify(root:string,task:TaskRef,role:Role,mode:Mode):CheckReport
  const definitions=task.kind==='ops'?cfg.maintenanceTasks![task.id].checks:cfg.checks;
  if(task.kind!=='ops'&&cfg.stack?.usesPaidProviders)requireSpend(root);
  for(const c of definitions.filter(c=>!c.modes||c.modes.includes(mode))) {
-  const argv=fill(c.run,vars),result=run(argv[0],argv.slice(1),{cwd:wt,env});
+  const argv=command(fill(c.run,vars)),result=run(argv[0],argv.slice(1),{cwd:wt,env});
   const log=join(dir,`${c.name.replace(/[^\w.-]+/g,'_')}.log`);
   writeFileSync(log,`$ ${argv.join(' ')}\n\n${result.stdout}\n${result.stderr}`);
   checks.push({name:c.name,command:argv,exitCode:result.code,log,passed:result.code===0});
@@ -40,8 +41,11 @@ export function verify(root:string,task:TaskRef,role:Role,mode:Mode):CheckReport
   writeFileSync(log,JSON.stringify(coverage,null,2));
   checks.push({name:'case-coverage',command:['evf','coverage'],exitCode:coverage.missing.length?1:0,log,passed:coverage.missing.length===0});
  }
+ // Advisory: the verifier reviews paths outside the owning paths and the narrow D14/D16 rulings.
+ const scope=task.kind==='wp'?wpScope(wt,baseSha,task.wp,task.part):undefined;
+ if(scope){writeFileSync(join(dir,'scope.json'),JSON.stringify(scope,null,2)+'\n');console.log(`scope: ${scope.owned.length} owned, ${scope.accepted.length} accepted (${scope.accepted.map(a=>`${a.path}: ${a.rule}`).join(', ')||'none'}), ${scope.outside.length} outside${scope.outside.length?`: ${scope.outside.join(', ')}. The verifier checks each against a recorded ruling`:''}.`);}
  const unchanged=git(wt,'rev-parse','HEAD')===sha&&isClean(wt)&&git(root,'rev-parse',ref)===baseSha;
- const report:CheckReport={schema:3,task:task.id,role,mode,kind:task.kind==='ops'?'tooling':'application',sha,baseSha,clean:true,unchanged,checks,passed:unchanged&&checks.length>0&&checks.every(c=>c.passed),evidenceDir:dir,finishedAt:new Date().toISOString()};
+ const report:CheckReport={schema:3,task:task.id,role,mode,kind:task.kind==='ops'?'tooling':'application',sha,baseSha,clean:true,unchanged,checks,passed:unchanged&&checks.length>0&&checks.every(c=>c.passed),evidenceDir:dir,finishedAt:new Date().toISOString(),...(scope?{scope}:{})};
  writeFileSync(join(dir,'checks.json'),JSON.stringify(report,null,2)+'\n');
  console.log(`${report.passed?'PASSED':'FAILED'} local ${report.kind} checks: ${join(dir,'checks.json')}. Independent real verification and GitHub CI are separate.`);
  return report;

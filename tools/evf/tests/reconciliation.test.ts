@@ -644,3 +644,85 @@ test('INV-phase7-pr-body: missing, empty and reordered required sections refuse 
   assert.throws(()=>checkPrBody(f.root,expanded),/template must define distinct required sections/);
  }finally{f.close();}
 });
+
+import { principles } from '../principles.ts';
+const quiet=<T>(fn:()=>T):T=>{const log=console.log;console.log=()=>{};try{return fn();}finally{console.log=log;}};
+
+test('INV-wp-scope: verify accepts only the task\'s own new-package lock importer, scaffold, at-start cases and generated projections',()=>{
+ const f=fixture();try {
+  f.authorize('WP-002');
+  const lock="lockfileVersion: '9.0'\n\nimporters:\n\n  .: {}\n\n  packages/db:\n    dependencies:\n      pg:\n        specifier: 8.0.0\n        version: 8.0.0\n\npackages:\n\n  pg@8.0.0:\n    resolution: {integrity: sha512-fixture}\n";
+  writeFileSync(join(f.root,'pnpm-lock.yaml'),lock);f.git('add','pnpm-lock.yaml');f.commit();
+  const wt=f.task('wp-002'),git=(...args:string[])=>execFileSync('git',['-C',wt,...args],{encoding:'utf8'}).trim();
+  const index=JSON.parse(readFileSync(join(wt,'docs/catalog/index.json'),'utf8'));
+  const atStart:string[]=loadDag(wt).packages.find(p=>p.id==='WP-002')!.context_scope.case_requirements_at_start;
+  const file=index.case_files.find((path:string)=>JSON.parse(readFileSync(join(wt,path),'utf8')).cases.some((c:{work_packages:string[];requirement:string})=>c.work_packages.join()==='WP-002'&&atStart.includes(c.requirement)));
+  const addCase=(id:string,requirement?:string)=>{
+   const payload=JSON.parse(readFileSync(join(wt,file),'utf8'));
+   const own=structuredClone(payload.cases.find((c:{work_packages:string[];requirement:string})=>c.work_packages.join()==='WP-002'&&atStart.includes(c.requirement)));
+   own.id=id;if(requirement){own.requirement=requirement;own.requirement_ids=[requirement];}
+   payload.cases.push(own);writeFileSync(join(wt,file),JSON.stringify(payload,null,2)+'\n');
+  };
+  const generate=()=>{for(const flag of ['--refresh-manifest','--refresh-plan'])execFileSync('python3',['docs/package-context.py',flag,'--root',wt],{cwd:wt,stdio:'ignore'});};
+  const write=(path:string,text:string)=>{mkdirSync(join(wt,path,'..'),{recursive:true});writeFileSync(join(wt,path),text);};
+  const scopeOf=()=>{git('add','-A');git('commit','-qm','Candidate');const s=quiet(()=>verify(f.root,parseTask('WP-002'),'author','full')).scope!;
+   return {owned:s.owned,accepted:Object.fromEntries(s.accepted.map(a=>[a.path,a.rule])),outside:[...s.outside].sort()};};
+  for(const name of ['package.json','tsconfig.json','eslint.config.mjs'])write(`packages/contracts/${name}`,'{}\n');
+  write('packages/contracts/src/common/values.ts','export {};\n');
+  write('apps/web/package.json','{}\n');
+  writeFileSync(join(wt,'pnpm-lock.yaml'),lock.replace('\n  packages/db:','\n  packages/contracts: {}\n\n  packages/db:'));
+  addCase('SCOPE-FIXTURE-001');generate();
+  assert.deepEqual(scopeOf(),{owned:['packages/contracts/src/common/values.ts'],accepted:{
+   [file]:'own-at-start-cases','docs/plan/build-plan.md':'generated-projection','docs/plan/context-manifest.json':'generated-projection',
+   'packages/contracts/eslint.config.mjs':'own-package-scaffold','packages/contracts/package.json':'own-package-scaffold','packages/contracts/tsconfig.json':'own-package-scaffold',
+   'pnpm-lock.yaml':'own-lock-importer'},outside:['apps/web/package.json']});
+  // Each widening stays outside: a lock entry beyond the importer, another package's case and a hand-edited projection.
+  writeFileSync(join(wt,'pnpm-lock.yaml'),readFileSync(join(wt,'pnpm-lock.yaml'),'utf8')+'\n  zod@4.0.0:\n    resolution: {integrity: sha512-extra}\n');
+  addCase('SCOPE-FIXTURE-002','REQ-KNOW-078');generate();
+  writeFileSync(join(wt,'docs/plan/build-plan.md'),readFileSync(join(wt,'docs/plan/build-plan.md'),'utf8')+'\nHand-written line.\n');
+  assert.deepEqual(scopeOf(),{owned:['packages/contracts/src/common/values.ts'],accepted:{
+   'packages/contracts/eslint.config.mjs':'own-package-scaffold','packages/contracts/package.json':'own-package-scaffold','packages/contracts/tsconfig.json':'own-package-scaffold'},
+   outside:['apps/web/package.json','docs/plan/build-plan.md','docs/plan/context-manifest.json',file,'pnpm-lock.yaml'].sort()});
+ }finally{f.close();}
+});
+
+test('BUG-ops6-stack-start: task start fails when stack up fails',()=>{
+ const f=fixture();try {
+  f.cfg.stack={usesPaidProviders:false,up:[process.execPath,'-e','process.exit(3)']};f.authorize('WP-001');f.commit();
+  assert.throws(()=>quiet(()=>taskStart(f.root,parseTask('WP-001'),{allowUnready:false,noStack:false})),/stack up failed with exit code 3/);
+ }finally{f.close();}
+});
+
+test('BUG-ops6-stack-node: stack commands named node run on evf\'s Node, not the first node on PATH',()=>{
+ const f=fixture();try {
+  writeFileSync(join(f.root,'fake-bin/node'),'#!/bin/sh\nexit 9\n');execFileSync('chmod',['+x',join(f.root,'fake-bin/node')]);
+  f.cfg.stack={usesPaidProviders:false,up:['node','-e','require("node:fs").writeFileSync(process.env.EVF_RUNTIME_DIR+"/stack.json",JSON.stringify({node:process.execPath}))']};
+  f.authorize('WP-001');f.commit();
+  const task=parseTask('WP-001');quiet(()=>taskStart(f.root,task,{allowUnready:false,noStack:true}));
+  assert.equal(quiet(()=>stack(f.root,task,'up')),0);
+  assert.equal(JSON.parse(readFileSync(join(evfDataDir(f.root),'runtime',task.slug,'stack.json'),'utf8')).node,process.execPath);
+ }finally{f.close();}
+});
+
+test('BUG-ops6-principles-target: principles --apply writes the task worktree and leaves the home checkout unchanged',()=>{
+ const f=fixture();try {
+  const skill=Buffer.from('---\nname: principle-fixture\n---\n\n# Fixture principle\n'),blob=createHash('sha1').update(`blob ${skill.length}\0`).update(skill).digest('hex'),commit='c'.repeat(40);
+  const repo='up/plugins',state=f.getState();
+  state.api={[`repos/${repo}/commits/main`]:{sha:commit,commit:{committer:{date:'2026-10-18T00:00:00Z'}}},[`repos/${repo}/commits/${commit}`]:{sha:commit,commit:{committer:{date:'2026-10-18T00:00:00Z'}}},
+   [`repos/${repo}/git/trees/${commit}?recursive=1`]:{truncated:false,tree:[{path:'pstack/skills/principle-fixture/SKILL.md',type:'blob',sha:blob}]},
+   [`repos/${repo}/git/blobs/${blob}`]:{content:skill.toString('base64'),encoding:'base64'}};
+  f.setState(state);
+  (f.cfg as Record<string,unknown>).principles={repo,path:'pstack/skills',prefix:'principle-',ref:'main'};
+  f.cfg.maintenanceTasks={'OPS-1':{title:'Principle refresh',owningPaths:['.agents/skills/','skills-lock.json'],checks:f.cfg.checks}};
+  writeFileSync(join(f.root,'skills-lock.json'),'{"version":1,"skills":{}}\n');writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));
+  f.git('add','skills-lock.json');f.commit();
+  const wt=f.task('ops-1'),homeLock=readFileSync(join(f.root,'skills-lock.json'),'utf8');
+  assert.equal(quiet(()=>principles(f.root,{apply:true,task:parseTask('OPS-1')})),0);
+  assert.equal(existsSync(join(f.root,'.agents/skills/principle-fixture')),false);
+  assert.equal(readFileSync(join(f.root,'skills-lock.json'),'utf8'),homeLock);
+  assert.deepEqual(readFileSync(join(wt,'.agents/skills/principle-fixture/SKILL.md')),skill);
+  assert.equal(JSON.parse(readFileSync(join(wt,'skills-lock.json'),'utf8')).skills['principle-fixture'].upstreamCommit,commit);
+  assert.throws(()=>principles(f.root,{apply:true}),/Give the maintenance task/);
+  assert.equal(existsSync(join(f.root,'.agents/skills/principle-fixture')),false);
+ }finally{f.close();}
+});

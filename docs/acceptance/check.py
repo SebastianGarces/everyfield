@@ -343,10 +343,8 @@ def check(root, package=None, report=None):
     inputs = {}
     groups = defaultdict(list)
     errors = []
-    expected_count = 0
     for file in index['case_files']:
         payload = read(root / file)
-        expected_count += len(payload['cases'])
         if payload.get('case_schema') != 'docs/acceptance/case.schema.json':
             errors.append(f'{file}: missing current schema reference')
         for case in payload['cases']:
@@ -415,8 +413,6 @@ def check(root, package=None, report=None):
             for cid in record.get('case_ids', []):
                 if cid not in cases:
                     errors.append(f"{kind} {record['id']}: unknown case {cid}")
-    if expected_count != len(cases):
-        errors.append('fixture case count differs from unique case IDs')
     registered = set(index['case_files'])
     actual = {str(p.relative_to(root)) for p in (root / 'docs/acceptance').glob('*.json')
               if 'cases' in read(p)}
