@@ -108,7 +108,7 @@ test('INV-operator: exact fresh scope denies tenant roles, expired grants and fo
 });
 
 
-test('INV-mount: authenticated bounded HTTP executor and raw signed callback remain separate from business authority',async()=>{
+test('AC:EXEC-001 INV-mount: authenticated bounded HTTP executor and raw signed callback remain separate from business authority',async()=>{
   const secret=randomBytes(32).toString('hex'),callbackKey=randomBytes(32),callbackSecret='whsec_'+callbackKey.toString('base64');
   const tick=mountExecutor({db:runtime,secret,limit:1,handlers:{document_render:async()=>({state:'succeeded'})},publish:async(tx,claim)=>{
     const current=await tx.query('SELECT id FROM document WHERE tenant_id=$1 AND id=$2 AND revision=$3 FOR SHARE',[claim.tenant_id,claim.subject_record_id,claim.source_revision]);return current.rowCount===1;

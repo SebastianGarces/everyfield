@@ -28,7 +28,7 @@ test('AC:OPS-EVAL-PROOF-001 pinned synthetic evidence inspection never confuses 
   assert.equal(auditProofCoverage(protocol,{...run,source:'c'.repeat(40)}).status,'not_run');
 });
 
-test('INV-recovery: encrypted exact DB/byte candidates reject corruption, expired subjects and recopy clock resets',()=>{
+test('AC:OPS-BACKUP-001 INV-recovery: encrypted exact DB/byte candidates reject corruption, expired subjects and recopy clock resets',()=>{
   const database=Buffer.from('synthetic database'),bytes=Buffer.from('synthetic ready object');
   const entry=b=>({id:randomUUID(),sha256:createHash('sha256').update(b).digest('hex'),bytes:b.length,version:'v1'});
   const subject=randomUUID(),object=entry(bytes);
