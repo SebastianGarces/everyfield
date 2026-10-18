@@ -48,6 +48,7 @@
 	--breakpoint-mk-lg: 1025px;
 	--breakpoint-mk-nav: 1121px;
 	--breakpoint-mk-xl: 1440px;
+	--breakpoint-mk-2xl: 1600px;
 
 	/* Type: every size is a step of the dashboard scale in tokens.css (12 13 14 16 18 22 28 40 56 76), plus the
 	   three named sizes below. The marketing roles start at their phone size and step up at breakpoints (see the
@@ -97,10 +98,13 @@
 	}
 	@variant mk-xl {
 		--text-mk-hero: var(--text-mk-display-xl);
-		--text-mk-h1: var(--ef-display-lg);
-		--text-mk-h2: var(--ef-display-md);
 		--text-mk-h3: var(--ef-title-lg);
 		--text-mk-lead: var(--ef-title-md);
+	}
+	/* Section headings take their largest step only where the wide columns hold them on the same lines. */
+	@variant mk-2xl {
+		--text-mk-h1: var(--ef-display-lg);
+		--text-mk-h2: var(--ef-display-md);
 	}
 }
 
