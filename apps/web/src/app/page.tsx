@@ -17,19 +17,37 @@ import { ACCESS_PATH } from "@/site";
 export const metadata: Metadata = pageMetadata(PAGES.home);
 
 export default function Home() {
-  const J = COPY.journey, h = J.hero;
-  return (
-    <Site path="/">
-      <HeroPanel headline={h.headline} subhead={h.subhead} primary={{ label: h.cta_primary, href: ACCESS_PATH }} secondary={h.cta_secondary ? { label: h.cta_secondary, href: "/#week" } : undefined}>
-        <HeroAnimation />
-      </HeroPanel>
-      <ProblemSection headline={J.problem.headline} body={J.problem.body} />
-      <WeekChapter />
-      <VisionSection headline={J.vision.headline} body={J.vision.body} bridge={J.vision.bridge} caption={J.vision.caption} />
-      <PhasesRail id="features" headline={J.features.headline} items={J.features.items} vignettes="phases" />
-      <AutoChapter id="intelligence" panels={{ focus: <FocusPanel />, facts: <FactsPanel />, evry: <EvryPanel />, share: <SharePanel /> }} revealUp />
-      <AutoChapter id="sending" panels={{ scope: <ScopePanel />, pipe: <PipePanel />, lens: <LensPanel />, top: <TopPanel /> }} />
-      <CtaSection c={J.cta} />
-    </Site>
-  );
+	const J = COPY.journey,
+		h = J.hero;
+	return (
+		<Site path="/">
+			<HeroPanel
+				headline={h.headline}
+				subhead={h.subhead}
+				primary={{ label: h.cta_primary, href: ACCESS_PATH }}
+				secondary={h.cta_secondary ? { label: h.cta_secondary, href: "/#week" } : undefined}
+			>
+				<HeroAnimation />
+			</HeroPanel>
+			<ProblemSection headline={J.problem.headline} body={J.problem.body} />
+			<WeekChapter />
+			<VisionSection
+				headline={J.vision.headline}
+				body={J.vision.body}
+				bridge={J.vision.bridge}
+				caption={J.vision.caption}
+			/>
+			<PhasesRail id="features" headline={J.features.headline} items={J.features.items} vignettes="phases" />
+			<AutoChapter
+				id="intelligence"
+				panels={{ focus: <FocusPanel />, facts: <FactsPanel />, evry: <EvryPanel />, share: <SharePanel /> }}
+				revealUp
+			/>
+			<AutoChapter
+				id="sending"
+				panels={{ scope: <ScopePanel />, pipe: <PipePanel />, lens: <LensPanel />, top: <TopPanel /> }}
+			/>
+			<CtaSection c={J.cta} />
+		</Site>
+	);
 }

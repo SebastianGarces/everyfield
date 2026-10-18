@@ -3,11 +3,19 @@ import { checkPrBody, prBodyClass, type PrBodyClass } from "./pr-body.ts";
 import { renderAc, renderBrief } from "./brief.ts";
 import { doctor, gc } from "./doctor.ts";
 import { EvfError, git, homeRoot, loadConfig, parseTask, readJson, run } from "./lib.ts";
-import { recordFastTrack } from './progress.ts';
-import { join } from 'node:path';
+import { recordFastTrack } from "./progress.ts";
+import { join } from "node:path";
 import { buildBlocks, renderBlocks, selectPackages } from "./plan.ts";
 import { principles } from "./principles.ts";
-import { feedbackIdeas, feedbackLabels, feedbackPromote, feedbackPull, feedbackStatus, feedbackTriage, feedbackQueue } from "./feedback.ts";
+import {
+	feedbackIdeas,
+	feedbackLabels,
+	feedbackPromote,
+	feedbackPull,
+	feedbackStatus,
+	feedbackTriage,
+	feedbackQueue,
+} from "./feedback.ts";
 import { listShipped, prOpen, ship, checkPr } from "./ship.ts";
 import { approve } from "./approve.ts";
 import { debugCmd, stack, taskStart } from "./task.ts";
@@ -57,174 +65,209 @@ Upkeep
 FB-<n> for public feedback issue n, or OPS-<n> for reviewed tooling maintenance.`;
 
 function flag(args: string[], name: string): boolean {
-  const i = args.indexOf(name);
-  if (i === -1) return false;
-  args.splice(i, 1);
-  return true;
+	const i = args.indexOf(name);
+	if (i === -1) return false;
+	args.splice(i, 1);
+	return true;
 }
 
 function option(args: string[], name: string): string | undefined {
-  const i = args.indexOf(name);
-  if (i === -1) return undefined;
-  const v = args[i + 1];
-  args.splice(i, 2);
-  return v;
+	const i = args.indexOf(name);
+	if (i === -1) return undefined;
+	const v = args[i + 1];
+	args.splice(i, 2);
+	return v;
 }
 
 function main(argv: string[]): number {
-  const args = [...argv];
-  const cmd = args.shift();
-  if (!cmd || cmd === "help" || cmd === "--help" || cmd === "-h") {
-    console.log(HELP);
-    return 0;
-  }
-  const root = homeRoot();
-  switch (cmd) {
-    case 'test':
-      return run(process.execPath,['--test',...args,join(git(process.cwd(),'rev-parse','--show-toplevel'),'tools/evf/tests/reconciliation.test.ts')],{cwd:process.cwd(),inherit:true}).code;
-    case "doctor": {
-      const here = flag(args, "--here");
-      return doctor(here ? git(process.cwd(), "rev-parse", "--show-toplevel") : root);
-    }
-    case "feedback": {
-      const sub = args.shift();
-      const issue = () => {
-        const n = Number(args.shift());
-        if (!Number.isInteger(n) || n <= 0) throw new EvfError("Give the public issue number.");
-        return n;
-      };
-      if (sub === "queue") { console.log(JSON.stringify(feedbackQueue(root))); return 0; }
-      if (sub === "pull") return feedbackPull(root, { json: flag(args, "--json") });
-      if (sub === "status") return feedbackStatus(root, flag(args, "--json"));
-      if (sub === "labels") return feedbackLabels(root);
-      if (sub === "ideas") return feedbackIdeas(root);
-      if (sub === "promote") return feedbackPromote(root, issue());
-      if (sub === "triage") {
-        const n = issue();
-        return feedbackTriage(root, n, {
-          cls: option(args, "--class"),
-          reason: option(args, "--reason"),
-          area: option(args, "--area"),
-          feature: option(args, "--feature"),
-          wp: option(args, "--wp"),
-          duplicateOf: option(args, "--duplicate-of"),
-          reply: option(args, "--reply"),
-        });
-      }
-      break;
-    }
-    case "approve": {
-      const n = Number(args[0]);
-      if (!Number.isInteger(n) || n <= 0) throw new EvfError('Give the PR number: evf approve <PR> --owner-approval "<his words>"');
-      return approve(root, n, { ownerApproval: option(args, "--owner-approval"), head: option(args, "--head") });
-    }
-    case "principles":
-    {
-      const apply = flag(args, "--apply"), ref = option(args, "--ref");
-      return principles(root, { apply, ref, task: args[0] ? parseTask(args[0]) : undefined });
-    }
-    case "gc":
-      return gc(root, flag(args, "--apply"));
-    case "plan": {
-      const includeDone = flag(args, "--include-done");
-      const json = flag(args, "--json");
-      const { pkgs, skipped } = selectPackages(root, args, includeDone);
-      const { blocks, external } = buildBlocks(root, pkgs);
-      console.log(json ? JSON.stringify({ blocks, external, skipped }, null, 2) : renderBlocks(blocks, external, skipped));
-      return 0;
-    }
-    case "ac":
-      console.log((args.length?args:[" "]).map(id=>renderAc(root,id)).join("\n\n"));
-      return 0;
-    case "shipped": {
-      const fastTrack=option(args,'--fast-track');
-      if(fastTrack){
-        const evidence=option(args,'--evidence');
-        if(!evidence||args.length)throw new EvfError('Use evf shipped --fast-track WP-097 --evidence <file>.');
-        const cfg=loadConfig(root);
-        const fetch=run('git',['fetch',cfg.remote,cfg.baseBranch],{cwd:root});
-        if(fetch.code!==0)throw new EvfError('Cannot confirm current main before fast-track completion.');
-        recordFastTrack(root,fastTrack,readJson<unknown>(evidence));
-        console.log('WP-097 fast-track completion recorded. Commit the evf-generated progress through reviewed maintenance.');return 0;
-      }
-      const clear: string[] = [];
-      for (let v = option(args, "--clear"); v; v = option(args, "--clear")) clear.push(v);
-      return listShipped(root, clear);
-    }
-    case "task": {
-      const sub = args.shift();
-      const uiTier = option(args, "--ui-tier");
-      if (sub === "brief") {
-        const full = flag(args, "--full");
-        console.log(renderBrief(root, parseTask(args[0]), { uiTier, full }));
-        return 0;
-      }
-      if (sub === "start") {
-        const allowUnready = flag(args, "--allow-unready");
-        const noStack = flag(args, "--no-stack");
-        const overLimit = flag(args, "--over-limit");
-        return taskStart(root, parseTask(args[0]), { allowUnready, noStack, uiTier, overLimit });
-      }
-      break;
-    }
-    case "stack": {
-      const action = args.shift();
-      if (action === "up" || action === "down" || action === "status") return stack(root, parseTask(args[0]), action);
-      break;
-    }
-    case "traces":
-    case "logs":
-      return debugCmd(root, parseTask(args.shift()), cmd, args);
-    case "verify": {
-      const role = option(args, "--role") ?? "author";
-      if (role !== "author" && role !== "verifier") break;
-      const quick = flag(args, "--quick");
-      return verify(root, parseTask(args[0]), role, quick ? "quick" : "full").passed ? 0 : 1;
-    }
-    case "pr": {
-      const sub=args.shift();
-      if(sub==='open'){const bodyFile=option(args,'--body-file');return prOpen(root,parseTask(args[0]),bodyFile);}
-      if(sub==='body') {
-        const here=git(process.cwd(),'rev-parse','--show-toplevel'),file=option(args,'--body-file'),selected=option(args,'--class');
-        if(selected!==undefined&&selected!=='ordinary'&&selected!=='wiki'&&selected!=='prototype')throw new EvfError('PR body class must be ordinary, wiki or prototype.');
-        let kind:PrBodyClass=selected??'ordinary';
-        let body:string;
-        if(file) {
-          if(!existsSync(file))throw new EvfError('The PR body file does not exist.');
-          body=readFileSync(file,'utf8');
-        } else {
-          if(selected!==undefined)throw new EvfError('--class is only for local body files. GitHub PRs use their branch, labels and changed files.');
-          const number=Number(args[0]);
-          if(!Number.isInteger(number)||number<=0)throw new EvfError('Give a PR number or --body-file <file>.');
-          const result=run('gh',['pr','view',String(number),'--json','body,headRefName,labels,files'],{cwd:here});
-          if(result.code!==0)throw new EvfError('Cannot read the PR body from GitHub.');
-          const pr:unknown=JSON.parse(result.stdout);
-          if(!pr||typeof pr!=='object'||!('body' in pr)||typeof pr.body!=='string')throw new EvfError('Cannot read the PR body from GitHub.');
-          body=pr.body;kind=prBodyClass(pr);
-        }
-        const checked=checkPrBody(here,body,kind);
-        console.log(`PASSED ${checked.kind} PR body standard for ${checked.authorFamily}: ${checked.sections.join(', ')}`);return 0;
-      }
-      if(sub==='check') {
-        const head=option(args,'--head'),number=Number(args[0]);
-        if(!Number.isInteger(number)||number<=0)throw new EvfError('Give the PR number.');
-        console.log(JSON.stringify(checkPr(root,number,head),null,2));return 0;
-      }
-      break;
-    }
-    case "ship": {
-      return ship(root, parseTask(args[0]));
-    }
-  }
-  console.error(`Unknown command: evf ${argv.join(" ")}\n\n${HELP}`);
-  return 2;
+	const args = [...argv];
+	const cmd = args.shift();
+	if (!cmd || cmd === "help" || cmd === "--help" || cmd === "-h") {
+		console.log(HELP);
+		return 0;
+	}
+	const root = homeRoot();
+	switch (cmd) {
+		case "test":
+			return run(
+				process.execPath,
+				[
+					"--test",
+					...args,
+					join(git(process.cwd(), "rev-parse", "--show-toplevel"), "tools/evf/tests/reconciliation.test.ts"),
+				],
+				{ cwd: process.cwd(), inherit: true },
+			).code;
+		case "doctor": {
+			const here = flag(args, "--here");
+			return doctor(here ? git(process.cwd(), "rev-parse", "--show-toplevel") : root);
+		}
+		case "feedback": {
+			const sub = args.shift();
+			const issue = () => {
+				const n = Number(args.shift());
+				if (!Number.isInteger(n) || n <= 0) throw new EvfError("Give the public issue number.");
+				return n;
+			};
+			if (sub === "queue") {
+				console.log(JSON.stringify(feedbackQueue(root)));
+				return 0;
+			}
+			if (sub === "pull") return feedbackPull(root, { json: flag(args, "--json") });
+			if (sub === "status") return feedbackStatus(root, flag(args, "--json"));
+			if (sub === "labels") return feedbackLabels(root);
+			if (sub === "ideas") return feedbackIdeas(root);
+			if (sub === "promote") return feedbackPromote(root, issue());
+			if (sub === "triage") {
+				const n = issue();
+				return feedbackTriage(root, n, {
+					cls: option(args, "--class"),
+					reason: option(args, "--reason"),
+					area: option(args, "--area"),
+					feature: option(args, "--feature"),
+					wp: option(args, "--wp"),
+					duplicateOf: option(args, "--duplicate-of"),
+					reply: option(args, "--reply"),
+				});
+			}
+			break;
+		}
+		case "approve": {
+			const n = Number(args[0]);
+			if (!Number.isInteger(n) || n <= 0)
+				throw new EvfError('Give the PR number: evf approve <PR> --owner-approval "<his words>"');
+			return approve(root, n, { ownerApproval: option(args, "--owner-approval"), head: option(args, "--head") });
+		}
+		case "principles": {
+			const apply = flag(args, "--apply"),
+				ref = option(args, "--ref");
+			return principles(root, { apply, ref, task: args[0] ? parseTask(args[0]) : undefined });
+		}
+		case "gc":
+			return gc(root, flag(args, "--apply"));
+		case "plan": {
+			const includeDone = flag(args, "--include-done");
+			const json = flag(args, "--json");
+			const { pkgs, skipped } = selectPackages(root, args, includeDone);
+			const { blocks, external } = buildBlocks(root, pkgs);
+			console.log(
+				json ? JSON.stringify({ blocks, external, skipped }, null, 2) : renderBlocks(blocks, external, skipped),
+			);
+			return 0;
+		}
+		case "ac":
+			console.log((args.length ? args : [" "]).map((id) => renderAc(root, id)).join("\n\n"));
+			return 0;
+		case "shipped": {
+			const fastTrack = option(args, "--fast-track");
+			if (fastTrack) {
+				const evidence = option(args, "--evidence");
+				if (!evidence || args.length) throw new EvfError("Use evf shipped --fast-track WP-097 --evidence <file>.");
+				const cfg = loadConfig(root);
+				const fetch = run("git", ["fetch", cfg.remote, cfg.baseBranch], { cwd: root });
+				if (fetch.code !== 0) throw new EvfError("Cannot confirm current main before fast-track completion.");
+				recordFastTrack(root, fastTrack, readJson<unknown>(evidence));
+				console.log(
+					"WP-097 fast-track completion recorded. Commit the evf-generated progress through reviewed maintenance.",
+				);
+				return 0;
+			}
+			const clear: string[] = [];
+			for (let v = option(args, "--clear"); v; v = option(args, "--clear")) clear.push(v);
+			return listShipped(root, clear);
+		}
+		case "task": {
+			const sub = args.shift();
+			const uiTier = option(args, "--ui-tier");
+			if (sub === "brief") {
+				const full = flag(args, "--full");
+				console.log(renderBrief(root, parseTask(args[0]), { uiTier, full }));
+				return 0;
+			}
+			if (sub === "start") {
+				const allowUnready = flag(args, "--allow-unready");
+				const noStack = flag(args, "--no-stack");
+				const overLimit = flag(args, "--over-limit");
+				return taskStart(root, parseTask(args[0]), { allowUnready, noStack, uiTier, overLimit });
+			}
+			break;
+		}
+		case "stack": {
+			const action = args.shift();
+			if (action === "up" || action === "down" || action === "status") return stack(root, parseTask(args[0]), action);
+			break;
+		}
+		case "traces":
+		case "logs":
+			return debugCmd(root, parseTask(args.shift()), cmd, args);
+		case "verify": {
+			const role = option(args, "--role") ?? "author";
+			if (role !== "author" && role !== "verifier") break;
+			const quick = flag(args, "--quick");
+			return verify(root, parseTask(args[0]), role, quick ? "quick" : "full").passed ? 0 : 1;
+		}
+		case "pr": {
+			const sub = args.shift();
+			if (sub === "open") {
+				const bodyFile = option(args, "--body-file");
+				return prOpen(root, parseTask(args[0]), bodyFile);
+			}
+			if (sub === "body") {
+				const here = git(process.cwd(), "rev-parse", "--show-toplevel"),
+					file = option(args, "--body-file"),
+					selected = option(args, "--class");
+				if (selected !== undefined && selected !== "ordinary" && selected !== "wiki" && selected !== "prototype")
+					throw new EvfError("PR body class must be ordinary, wiki or prototype.");
+				let kind: PrBodyClass = selected ?? "ordinary";
+				let body: string;
+				if (file) {
+					if (!existsSync(file)) throw new EvfError("The PR body file does not exist.");
+					body = readFileSync(file, "utf8");
+				} else {
+					if (selected !== undefined)
+						throw new EvfError(
+							"--class is only for local body files. GitHub PRs use their branch, labels and changed files.",
+						);
+					const number = Number(args[0]);
+					if (!Number.isInteger(number) || number <= 0) throw new EvfError("Give a PR number or --body-file <file>.");
+					const result = run("gh", ["pr", "view", String(number), "--json", "body,headRefName,labels,files"], {
+						cwd: here,
+					});
+					if (result.code !== 0) throw new EvfError("Cannot read the PR body from GitHub.");
+					const pr: unknown = JSON.parse(result.stdout);
+					if (!pr || typeof pr !== "object" || !("body" in pr) || typeof pr.body !== "string")
+						throw new EvfError("Cannot read the PR body from GitHub.");
+					body = pr.body;
+					kind = prBodyClass(pr);
+				}
+				const checked = checkPrBody(here, body, kind);
+				console.log(
+					`PASSED ${checked.kind} PR body standard for ${checked.authorFamily}: ${checked.sections.join(", ")}`,
+				);
+				return 0;
+			}
+			if (sub === "check") {
+				const head = option(args, "--head"),
+					number = Number(args[0]);
+				if (!Number.isInteger(number) || number <= 0) throw new EvfError("Give the PR number.");
+				console.log(JSON.stringify(checkPr(root, number, head), null, 2));
+				return 0;
+			}
+			break;
+		}
+		case "ship": {
+			return ship(root, parseTask(args[0]));
+		}
+	}
+	console.error(`Unknown command: evf ${argv.join(" ")}\n\n${HELP}`);
+	return 2;
 }
 
 try {
-  process.exitCode = main(process.argv.slice(2));
+	process.exitCode = main(process.argv.slice(2));
 } catch (e) {
-  if (e instanceof EvfError) {
-    console.error(`evf: ${e.message}`);
-    process.exitCode = 1;
-  } else throw e;
+	if (e instanceof EvfError) {
+		console.error(`evf: ${e.message}`);
+		process.exitCode = 1;
+	} else throw e;
 }

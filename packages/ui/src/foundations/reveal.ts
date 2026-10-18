@@ -6,5 +6,5 @@ import type { CSSProperties } from "react";
  * Reduced motion turns the animation off in product.css.
  */
 export function revealDelay(index: number): CSSProperties {
-  return { "--reveal-delay": `${Math.min(index * 30, 400)}ms` } as CSSProperties;
+	return { "--reveal-delay": `${Math.min(index * 30, 400)}ms` } as CSSProperties;
 }
