@@ -1591,9 +1591,17 @@
     "WP006-IDN-029": "docs/acceptance/identity-access.json",
     "WP006-KNOW-116": "docs/acceptance/identity-access.json",
     "WP006-MUL-002": "docs/acceptance/identity-access.json",
+    "WP007-API-KNOW-112": "docs/acceptance/identity-access.json",
+    "WP007-API-MUL-003": "docs/acceptance/identity-access.json",
+    "WP007-API-MUL-016": "docs/acceptance/identity-access.json",
     "WP007-KNOW-112": "docs/acceptance/identity-access.json",
     "WP007-MUL-003": "docs/acceptance/identity-access.json",
     "WP007-MUL-016": "docs/acceptance/identity-access.json",
+    "WP009-MUL-006": "docs/acceptance/people.json",
+    "WP010-IDN-012": "docs/acceptance/identity-access.json",
+    "WP010-KNOW-069": "docs/acceptance/knowledge.json",
+    "WP010-KNOW-072": "docs/acceptance/knowledge.json",
+    "WP010-KNOW-073": "docs/acceptance/knowledge.json",
     "WP011-KNOW-069": "docs/acceptance/people.json",
     "WP011-KNOW-098": "docs/acceptance/people.json",
     "WP011-KNOW-099": "docs/acceptance/people.json",
@@ -2669,6 +2677,9 @@
         "admission_attempt",
         "early_access_attempt",
         "early_access_request",
+        "organization_operation_result",
+        "relationship_history",
+        "relationship_invitation",
         "schema_migration"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -3270,6 +3281,9 @@
         "TARGET-IDN-022",
         "TARGET-IDN-026",
         "TARGET-IDN-027",
+        "WP007-API-KNOW-112",
+        "WP007-API-MUL-003",
+        "WP007-API-MUL-016",
         "WP007-KNOW-112",
         "WP007-MUL-003",
         "WP007-MUL-016"
@@ -3713,9 +3727,15 @@
         "WP005-KNOW-072",
         "WP006-API-IDN-029",
         "WP006-IDN-029",
+        "WP007-API-KNOW-112",
+        "WP007-API-MUL-003",
+        "WP007-API-MUL-016",
         "WP007-KNOW-112",
         "WP007-MUL-003",
-        "WP007-MUL-016"
+        "WP007-MUL-016",
+        "WP010-KNOW-069",
+        "WP010-KNOW-072",
+        "WP010-KNOW-073"
       ],
       "context_case_ids": [
         "B03-001",
@@ -3851,10 +3871,13 @@
         "discovery",
         "lifecycle_witness",
         "organization",
+        "organization_operation_result",
         "pipeline_sharing",
         "plant",
         "plant_geography",
         "record",
+        "relationship_history",
+        "relationship_invitation",
         "tenant"
       ],
       "consumer_table_names": [
@@ -4196,10 +4219,13 @@
         "mail_request_member",
         "operation",
         "organization",
+        "organization_operation_result",
         "person",
         "pipeline_sharing",
         "plant",
         "platform_grant",
+        "relationship_history",
+        "relationship_invitation",
         "team",
         "tenant"
       ],
@@ -4247,7 +4273,8 @@
         "TARGET-IDN-013",
         "TARGET-IDN-014",
         "TARGET-IDN-015",
-        "TARGET-IDN-016"
+        "TARGET-IDN-016",
+        "WP009-MUL-006"
       ],
       "own_operation_ids": [
         "discovery.convertToPlant",
@@ -4398,6 +4425,7 @@
         "WP005-KNOW-069",
         "WP006-API-IDN-029",
         "WP006-IDN-029",
+        "WP009-MUL-006",
         "WP011-KNOW-069"
       ],
       "context_case_ids": [
@@ -4557,7 +4585,11 @@
         "TARGET-IDN-029",
         "TARGET-IDN-031",
         "TARGET-IDN-032",
-        "TARGET-TSK-018"
+        "TARGET-TSK-018",
+        "WP010-IDN-012",
+        "WP010-KNOW-069",
+        "WP010-KNOW-072",
+        "WP010-KNOW-073"
       ],
       "own_operation_ids": [
         "account.cancelDeletion",
@@ -4850,7 +4882,11 @@
         "WP005-KNOW-069",
         "WP005-KNOW-072",
         "WP006-API-IDN-029",
-        "WP006-IDN-029"
+        "WP006-IDN-029",
+        "WP010-IDN-012",
+        "WP010-KNOW-069",
+        "WP010-KNOW-072",
+        "WP010-KNOW-073"
       ],
       "context_case_ids": [
         "AF-028",
@@ -4963,6 +4999,7 @@
         "mail",
         "notification_preference",
         "organization",
+        "organization_operation_result",
         "plant",
         "plant_geography",
         "private_calendar",
@@ -4970,6 +5007,7 @@
         "reference_item",
         "reference_release",
         "reference_version",
+        "relationship_history",
         "suppression"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -9865,6 +9903,7 @@
         "TARGET-IDN-012",
         "TARGET-IDN-022",
         "WIKI52-002",
+        "WP007-API-KNOW-112",
         "WP007-KNOW-112"
       ],
       "context_case_ids": [
@@ -9896,7 +9935,8 @@
         "SEC-06",
         "TARGET-IDN-029",
         "TEN-003",
-        "WIKI52-001"
+        "WIKI52-001",
+        "WP010-IDN-012"
       ],
       "operation_ids": [
         "church.digestSchedule.set",
@@ -9971,6 +10011,8 @@
         "event",
         "job",
         "mail",
+        "organization_operation_result",
+        "relationship_history",
         "suppression"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -13565,7 +13607,9 @@
         "assessment",
         "assessment_fact",
         "event",
-        "evidence_link"
+        "evidence_link",
+        "organization_operation_result",
+        "relationship_history"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
       "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
@@ -26696,9 +26740,17 @@
         "WP006-IDN-029",
         "WP006-KNOW-116",
         "WP006-MUL-002",
+        "WP007-API-KNOW-112",
+        "WP007-API-MUL-003",
+        "WP007-API-MUL-016",
         "WP007-KNOW-112",
         "WP007-MUL-003",
         "WP007-MUL-016",
+        "WP009-MUL-006",
+        "WP010-IDN-012",
+        "WP010-KNOW-069",
+        "WP010-KNOW-072",
+        "WP010-KNOW-073",
         "WP011-KNOW-069",
         "WP011-KNOW-098",
         "WP011-KNOW-099",
@@ -28301,6 +28353,7 @@
         "obligation",
         "operation",
         "organization",
+        "organization_operation_result",
         "organization_person_removal",
         "participation",
         "passage",
@@ -28330,6 +28383,8 @@
         "reference_item",
         "reference_release",
         "reference_version",
+        "relationship_history",
+        "relationship_invitation",
         "residency_link",
         "responsibility",
         "review",
@@ -32726,9 +32781,17 @@
         "WP006-IDN-029",
         "WP006-KNOW-116",
         "WP006-MUL-002",
+        "WP007-API-KNOW-112",
+        "WP007-API-MUL-003",
+        "WP007-API-MUL-016",
         "WP007-KNOW-112",
         "WP007-MUL-003",
         "WP007-MUL-016",
+        "WP009-MUL-006",
+        "WP010-IDN-012",
+        "WP010-KNOW-069",
+        "WP010-KNOW-072",
+        "WP010-KNOW-073",
         "WP011-KNOW-069",
         "WP011-KNOW-098",
         "WP011-KNOW-099",
@@ -34324,6 +34387,7 @@
         "obligation",
         "operation",
         "organization",
+        "organization_operation_result",
         "organization_person_removal",
         "participation",
         "passage",
@@ -34352,6 +34416,8 @@
         "reference_item",
         "reference_release",
         "reference_version",
+        "relationship_history",
+        "relationship_invitation",
         "residency_link",
         "responsibility",
         "review",
@@ -44121,13 +44187,16 @@
         "TARGET-PPL-025",
         "WP006-API-MUL-002",
         "WP006-MUL-002",
+        "WP007-API-MUL-003",
+        "WP007-API-MUL-016",
         "WP007-MUL-003",
         "WP007-MUL-016",
         "WP011-MUL-001",
         "WP011-MUL-005"
       ],
       "context_case_ids": [
-        "TARGET-IDN-029"
+        "TARGET-IDN-029",
+        "WP009-MUL-006"
       ],
       "operation_ids": [
         "development.applyVersion",

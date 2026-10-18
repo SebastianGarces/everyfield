@@ -2,7 +2,7 @@
 
 [target.json](target.json) is the only schema authority. Sebastian adopted this reviewed starting design on 2026-10-14. Builders may change it later through a reviewed migration. Application implementation is not authorized by this documentation change.
 
-The schema has 120 tables, 1412 columns, 488 declared FKs and 13 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 123 tables, 1428 columns, 497 declared FKs and 16 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -71,6 +71,9 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `pipeline_sharing` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-007 |
 | `enrollment_plan` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
 | `organization_person_removal` | WP-011 owns removal and WP-050 synchronizes body-free witnesses into recovery; WP-004 installs the baseline. | WP-004, WP-011, WP-050 |
+| `relationship_invitation` | WP-007 native organization adapter storage introduced by forward migration 0005; D29/D32 current-catalog authority. | WP-007 |
+| `relationship_history` | WP-007 native organization adapter storage introduced by forward migration 0005; D29/D32 current-catalog authority. | WP-007 |
+| `organization_operation_result` | WP-007 native organization adapter storage introduced by forward migration 0005; D29/D32 current-catalog authority. | WP-007 |
 
 `assessment_fact` also adds WP-040, which owns deterministic fact capture. Its remaining producers inherit the replaced assessment stores. Original-author care excludes generic record/history movement. The Person registry is rebuilt from all adopted Person FKs; generic person-kind record references and frozen opaque inputs are separately registered as immutable evidence.
 
@@ -396,6 +399,7 @@ Each name identifies one exact FK. The checker requires this list whenever `targ
 - `residency_link(affiliation_id) -> affiliation(id)`: The current exact account/organization affiliation must match the accepted link endpoints; it never authorizes general account or organization reads.
 - `pipeline_sharing(relationship_id) -> affiliation(id)`: The affiliation must name this sending church and exact current sending network; no inherited or transitive sharing.
 - `pipeline_sharing(changed_by) -> account(id)`: Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal.
+- `relationship_invitation(invitation_id) -> invitation(id)`: Invitation owner is the initiating endpoint. The native invitation command validates this exact typed pair and current subject authority.
 
 ## Architecture alignment amendments
 
@@ -409,5 +413,6 @@ Fix 2 records these small gap fixes to the adopted starting schema. They do not 
 | FIX2-JOB | Add document_render to job.kind for the already required durable render handler; restricted backup/expiry remain outside ordinary job dispatch. |
 | E1-ACCESS-REQUEST | Align WP-097 with applied E4 migration 0001 and its runner: early_access_request with validated data/frozen mail payload and nullable receipt fields, keyless early_access_attempt limiter facts, and schema_migration with its text key. Strict retention cutoffs and the approved E3 field/phase contract apply; no tenant or product tables are consumed. |
 | ADR001-CONTRACT | Owner-approved organization Person lifecycle, consented seatless residency and stage 1/2 pipeline/program records; stages 3/4 deferred. |
+| D32-CURRENT-MIGRATIONS | Current target includes WP-007 consent revision, exact invitation endpoints, protected relationship history and immutable operation results. Verify the full ordered migration chain against this catalog; applied baseline and privilege migration bytes stay frozen. |
 
 The architecture and Person checks compare documentation identifiers and registries with this authority. They do not execute database triggers, auth or restore. Material revisions come from intelligence-owned database triggers on assessment input tables, proved against the input builder. Before customer data, G-RECOVERY adds encrypted daily copies, witness synchronization and the restricted backup host; build recovery uses native seven-day Neon/Tigris history.

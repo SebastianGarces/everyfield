@@ -12756,7 +12756,7 @@
         "WP-040"
       ],
       "status": "future-not-run",
-      "description": "dc-022-current-target",
+      "description": "Explicit existing-journey declaration accepts an integer phase 0..6 without caller reason or kind. The server records its reserved reason and initial_declaration kind; creation remains a separate Phase 1 entry and creation retry preserves the later declared phase.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -12819,7 +12819,6 @@
         "arguments": {
           "answer": "existing",
           "phase": 4,
-          "reason": "Record the existing journey",
           "request_key": "journey-existing"
         }
       },
@@ -12828,7 +12827,9 @@
         "result": {
           "phase": 4,
           "creation_phase": 1,
-          "create_retry_demotes": false
+          "create_retry_demotes": false,
+          "declaration_kind": "initial_declaration",
+          "declaration_reason": "Declared at setup — where this plant already was when it joined EveryField."
         },
         "event": null
       },
@@ -12840,6 +12841,166 @@
               "WP-035"
             ],
             "reason": "Corrected action exercises onboarding.declareJourney; these owners cannot supply it. Retained the actual producer and downstream integration owners."
+          }
+        }
+      ],
+      "subcases": [
+        {
+          "name": "explicit-phase-0",
+          "action": {
+            "operation": "onboarding.declareJourney",
+            "arguments": {
+              "answer": "existing",
+              "phase": 0,
+              "request_key": "journey-existing"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "phase": 0,
+              "creation_phase": 1,
+              "declaration_kind": "initial_declaration",
+              "declaration_reason": "Declared at setup — where this plant already was when it joined EveryField.",
+              "create_retry_changes_phase": false
+            },
+            "event": null
+          },
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "subject": "P",
+              "creation_phase": 1,
+              "declare_existing_journey": 0,
+              "retry_create": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          }
+        },
+        {
+          "name": "explicit-phase-6",
+          "action": {
+            "operation": "onboarding.declareJourney",
+            "arguments": {
+              "answer": "existing",
+              "phase": 6,
+              "request_key": "journey-existing"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "phase": 6,
+              "creation_phase": 1,
+              "declaration_kind": "initial_declaration",
+              "declaration_reason": "Declared at setup — where this plant already was when it joined EveryField.",
+              "create_retry_changes_phase": false
+            },
+            "event": null
+          },
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "subject": "P",
+              "creation_phase": 1,
+              "declare_existing_journey": 6,
+              "retry_create": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          }
+        },
+        {
+          "name": "caller-reason-refused",
+          "action": {
+            "operation": "onboarding.declareJourney",
+            "arguments": {
+              "answer": "existing",
+              "phase": 4,
+              "request_key": "journey-existing",
+              "reason": "Caller supplied reason"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "invalid_input",
+              "domain_writes": 0,
+              "required_writes": 0
+            },
+            "event": []
+          },
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "subject": "P",
+              "creation_phase": 1,
+              "declare_existing_journey": 4,
+              "retry_create": false
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          }
+        },
+        {
+          "name": "caller-kind-refused",
+          "action": {
+            "operation": "onboarding.declareJourney",
+            "arguments": {
+              "answer": "existing",
+              "phase": 4,
+              "request_key": "journey-existing",
+              "kind": "initial_declaration"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "invalid_input",
+              "domain_writes": 0,
+              "required_writes": 0
+            },
+            "event": []
+          },
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "subject": "P",
+              "creation_phase": 1,
+              "declare_existing_journey": 4,
+              "retry_create": false
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
           }
         }
       ]

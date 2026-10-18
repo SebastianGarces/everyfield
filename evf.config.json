@@ -26,6 +26,10 @@
 		{
 			"name": "package-unit-tests",
 			"run": ["corepack", "pnpm", "-r", "--if-present", "test:unit"]
+		},
+		{
+			"name": "format",
+			"run": ["corepack", "pnpm", "format:check"]
 		}
 	],
 	"principles": {
@@ -203,6 +207,28 @@
 		"OPS-7": {
 			"title": "Transfer generated build progress",
 			"owningPaths": ["docs/build-progress.json"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		},
+		"OPS-8": {
+			"title": "Browser cleanup, agent-browser and process hygiene",
+			"owningPaths": [
+				"tools/evf/",
+				".agents/skills/verify-preview/",
+				".agents/skills/agent-browser/",
+				".agents/roles/",
+				"skills-lock.json",
+				".gitignore"
+			],
 			"checks": [
 				{
 					"name": "documentation",
