@@ -39,6 +39,10 @@ Production's host fragment is `ep-gentle-dust-b8tvq4ha`; never add it to that li
 Credentials belong only in ignored local files and provider environment settings.
 
 Drizzle declarations in `src/schema/tables.ts` own the modeled database structure.
+Append new columns at the end of an existing table declaration: PostgreSQL adds columns
+at the physical end, and the drift gate checks the order of live columns. Removing a
+column leaves an internal position gap; that gap does not count as schema drift.
+
 Use the pinned Kit through the single generation command, from the workspace root:
 
 ```sh
@@ -71,6 +75,9 @@ The next generated migration number is 0006. Runtime SQL goes through the existi
 checksum ledger; neither Kit push nor its database migrator is used.
 
 `annotations.json` retains documentary notes separately from physical declarations.
+Before generating a migration for a new table, add its table, column and foreign-key
+notes there, following the existing entries. Catalog generation requires an annotation
+entry for every declared table.
 `supplemental.json` records reviewed definitions Kit cannot express, including deferred
 foreign-key timing, functions, triggers, capability-role attributes and privileges.
 Update those expectations with the custom migration; never refresh them from an

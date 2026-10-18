@@ -5,9 +5,13 @@ import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
+import { copyFile, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { pathToFileURL } from "node:url";
+import { generateDrizzleJson, generateMigration } from "../../../packages/db/node_modules/drizzle-kit/api.mjs";
 import { verifySchemaDrift, verifySnapshotBaseline } from "../../../packages/db/src/schema/drift.ts";
 import * as declarations from "../../../packages/db/src/schema/tables.ts";
-import { pgTable, integer } from "../../../packages/db/src/columns.ts";
+import { pgTable, integer, text } from "../../../packages/db/src/columns.ts";
 import { assertCurrentCatalog } from "../../../packages/db/src/schema/catalog.ts";
 import { migrate, adoptMigrationHistory, migrationArtifact } from "../../../packages/db/src/schema/migrate.ts";
 import { pdf } from "../platform/fixtures.mjs";
@@ -132,6 +136,70 @@ after(async () => {
 	await admin.execute(querySql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
 	for (const name of [role, authRole]) await admin.execute(querySql.raw(`DROP ROLE IF EXISTS ${name}`));
 	await closeDatabase(admin);
+});
+
+test("BUG-112: a Kit column-drop migration passes the drift gate on fresh and upgraded databases", async () => {
+	const directory = await mkdtemp(tmpdir() + "/evf-drop-column-");
+	const migrations = pathToFileURL(directory + "/");
+	const fresh = "drop_fresh_" + randomUUID().replaceAll("-", "");
+	const upgraded = "drop_upgrade_" + randomUUID().replaceAll("-", "");
+	const before = {
+		...declarations,
+		drop_probe: pgTable("drop_probe", {
+			id: integer("id").notNull(),
+			obsolete: text("obsolete"),
+			kept: text("kept"),
+		}),
+	};
+	const after = {
+		...declarations,
+		drop_probe: pgTable("drop_probe", { id: integer("id").notNull(), kept: text("kept") }),
+	};
+	try {
+		const frozen = (await migrationArtifact()).map(({ name }) => name);
+		for (const name of frozen)
+			await copyFile(new URL("../../../packages/db/migrations/" + name, import.meta.url), new URL(name, migrations));
+		const create = await generateMigration(generateDrizzleJson(declarations), generateDrizzleJson(before));
+		const drop = await generateMigration(generateDrizzleJson(before), generateDrizzleJson(after));
+		assert.deepEqual(drop, ['ALTER TABLE "drop_probe" DROP COLUMN "obsolete";']);
+		await writeFile(new URL("0006_drop_probe.sql", migrations), create.join(";\n"));
+		await admin.execute(querySql`CREATE SCHEMA ${querySql.identifier(upgraded)}`);
+		assert.deepEqual(await migrate(admin, upgraded, migrations), [...frozen, "0006_drop_probe.sql"]);
+		await admin.execute(
+			querySql`INSERT INTO ${querySql.identifier(upgraded)}.drop_probe VALUES (1, 'remove', 'preserve')`,
+		);
+		await writeFile(new URL("0007_drop_column.sql", migrations), drop.join(";\n"));
+		assert.deepEqual(await migrate(admin, upgraded, migrations), ["0007_drop_column.sql"]);
+		await admin.execute(querySql`CREATE SCHEMA ${querySql.identifier(fresh)}`);
+		assert.deepEqual(await migrate(admin, fresh, migrations), [
+			...frozen,
+			"0006_drop_probe.sql",
+			"0007_drop_column.sql",
+		]);
+		const retained = await admin.execute(querySql`SELECT * FROM ${querySql.identifier(upgraded)}.drop_probe`);
+		assert.deepEqual(retained.rows, [{ id: 1, kept: "preserve" }]);
+		for (const name of [fresh, upgraded]) {
+			const live = await admin.execute(
+				querySql`SELECT a.attname AS name, a.attnum AS position FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=${name} AND c.relname='drop_probe' AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum`,
+			);
+			assert.deepEqual(live.rows, [
+				{ name: "id", position: 1 },
+				{ name: "kept", position: 3 },
+			]);
+			await verifySchemaDrift(admin, name, after);
+		}
+		await assert.rejects(
+			verifySchemaDrift(admin, fresh, {
+				...declarations,
+				drop_probe: pgTable("drop_probe", { kept: text("kept"), id: integer("id").notNull() }),
+			}),
+			/Schema drift in columns/,
+		);
+	} finally {
+		for (const name of [fresh, upgraded])
+			await admin.execute(querySql`DROP SCHEMA IF EXISTS ${querySql.identifier(name)} CASCADE`);
+		await rm(directory, { recursive: true, force: true });
+	}
 });
 
 test("INV-schema: full ordered migrations match the current catalog and reject actual schema drift", async () => {

@@ -19,7 +19,7 @@ const sorted = (rows: unknown[], schema: string) =>
 export async function modeledCatalog(db: Database | Transaction, schema: string) {
 	const [columns, constraints, indexes, tables, policies] = [
 		await db.execute(
-			sql`SELECT c.relname AS table_name,a.attnum AS ordinal,a.attname AS name,format_type(a.atttypid,a.atttypmod) AS type,a.attnotnull AS not_null,pg_get_expr(d.adbin,d.adrelid) AS default,a.attidentity AS identity,a.attgenerated AS generated FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE n.nspname=${schema} AND c.relkind IN ('r','p') AND a.attnum>0 AND NOT a.attisdropped`,
+			sql`SELECT c.relname AS table_name,(row_number() OVER (PARTITION BY a.attrelid ORDER BY a.attnum))::integer AS ordinal,a.attname AS name,format_type(a.atttypid,a.atttypmod) AS type,a.attnotnull AS not_null,pg_get_expr(d.adbin,d.adrelid) AS default,a.attidentity AS identity,a.attgenerated AS generated FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE n.nspname=${schema} AND c.relkind IN ('r','p') AND a.attnum>0 AND NOT a.attisdropped`,
 		),
 		await db.execute(
 			sql`SELECT c.relname AS table_name,k.conname AS name,k.contype AS type,regexp_replace(pg_get_constraintdef(k.oid),' DEFERRABLE( INITIALLY DEFERRED)?$','') AS definition FROM pg_constraint k JOIN pg_class c ON c.oid=k.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=${schema} AND k.contype IN ('p','u','f','c','x')`,
