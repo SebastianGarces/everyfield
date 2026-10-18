@@ -17,8 +17,16 @@
       "title": "Implementation kickoff",
       "owner": "Owner",
       "closure": "Separate explicit implementation authorization for the reviewed frozen version. Package state is recorded only in docs/build-progress.json.",
-      "status": "not-authorized",
-      "work_packages": []
+      "status": "authorized",
+      "work_packages": [],
+      "authorization": {
+        "authorized_by": "Sebastian",
+        "words": "I authorize implementation kickoff for EveryField v3.",
+        "question": "Do you give explicit implementation-kickoff approval for EveryField v3 (spec 2026-10-13.current-1)?",
+        "channel": "Intent chat, answer to the coordinator's kickoff question",
+        "authorized_at": "2026-10-18T04:29Z",
+        "specification_version": "2026-10-13.current-1"
+      }
     },
     {
       "id": "G-SPEND",
