@@ -4,12 +4,20 @@ const report = require('./fail-forward.cjs');
 
 function provider() {
   const issues = [];
+  const anchors = new Map();
   const github = { rest: {
     issues: {
-      getLabel: async () => ({}),
+      getLabel: async ({ name }) => {
+        if (!name.startsWith('evf-incident-')) return { data: {} };
+        if (!anchors.has(name)) throw Object.assign(new Error('missing'), { status: 404 });
+        return { data: anchors.get(name) };
+      },
+      createLabel: async input => { anchors.set(input.name, input); return { data: input }; },
+      updateLabel: async input => { anchors.set(input.name, input); return { data: input }; },
+      get: async ({ issue_number }) => ({ data: issues.find(i => i.number === issue_number) }),
       listForRepo: () => {},
       create: async input => {
-        const issue = { ...input, number: issues.length + 1, html_url: `https://github.com/SebastianGarces/everyfield/issues/${issues.length + 1}`, labels: input.labels.map(name => ({ name })) };
+        const issue = { ...input, state: 'open', number: issues.length + 1, html_url: `https://github.com/SebastianGarces/everyfield/issues/${issues.length + 1}`, labels: input.labels.map(name => ({ name })) };
         issues.push(issue); return { data: issue };
       },
       update: async input => {
@@ -44,9 +52,11 @@ function deployment() {
   } };
 }
 
-test('INV-fail-forward: repeated CI failure updates one incident with the failed job and real excerpt', async () => {
+test('BUG-W5: repeated CI failure updates one incident even while the issue list is stale', async () => {
   const p = provider();
   assert.equal(await report({ ...p, context: ci() }), 1);
+  const paginate = p.github.paginate;
+  p.github.paginate = async (endpoint, options) => endpoint === p.github.rest.issues.listForRepo ? [] : paginate(endpoint, options);
   assert.equal(await report({ ...p, context: ci({ head_sha: 'b'.repeat(40) }) }), 1);
   assert.equal(p.issues.length, 1);
   assert.equal(p.issues[0].title, 'P0: CI failed on main');
@@ -94,4 +104,16 @@ test('INV-fail-forward: unavailable CI logs still file an actionable incident', 
   assert.equal(await report({ ...p, context: ci() }), 1);
   assert.match(p.issues[0].body, /Job log unavailable \(410\); open the job link/);
   assert.match(p.issues[0].body, /https:\/\/github.com\/run\/3/);
+});
+
+test('INV-fail-forward: unknown creation outcome refuses retry until the issue pointer is reconciled', async () => {
+  const p = provider();
+  const create = p.github.rest.issues.create;
+  p.github.rest.issues.create = async input => { await create(input); throw new Error('Lost response'); };
+  await assert.rejects(report({ ...p, context: ci() }), /Lost response/);
+  await assert.rejects(report({ ...p, context: ci() }), /unknown issue-creation outcome/);
+  assert.equal(p.issues.length, 1);
+  await p.github.rest.issues.updateLabel({ name: 'evf-incident-ci', description: 'evf-incident:1' });
+  assert.equal(await report({ ...p, context: ci() }), 1);
+  assert.match(p.issues[0].body, /Job: https:\/\/github.com\/job\/7/);
 });
