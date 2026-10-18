@@ -142,7 +142,8 @@
     "OPS-3": {
       "title": "evf fixes",
       "owningPaths": [
-        "tools/evf/"
+        "tools/evf/",
+        ".github/workflows/pr-body.yml"
       ],
       "checks": [
         {
@@ -166,6 +167,7 @@
       "title": "Skill provenance and principle refresh",
       "owningPaths": [
         "skills-lock.json",
+        ".agents/licenses/pstack-LICENSE",
         ".agents/skills/principle-attack-the-premise/",
         ".agents/skills/principle-fix-root-causes/",
         ".agents/skills/principle-make-operations-idempotent/",
