@@ -7430,6 +7430,9 @@ export const plant = pgTable(
 		revision: int64("revision")
 			.notNull()
 			.default(sql`1`),
+		city: text("city"),
+		state_province: text("state_province"),
+		country: text("country"),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "plant_fk_0", columns: [table.id], foreignColumns: [tenant.id] })
@@ -9628,5 +9631,51 @@ export const wiki_preference = pgTable(
 			table.organization_id.asc().nullsLast(),
 			table.group_kind.asc().nullsLast(),
 		),
+	],
+);
+
+export const onboarding_setup = pgTable(
+	"onboarding_setup",
+	{
+		plant_id: uuid("plant_id")
+			.primaryKey()
+			.references(() => plant.id),
+		account_id: uuid("account_id")
+			.notNull()
+			.unique()
+			.references(() => account.id),
+		creation_operation_id: uuid("creation_operation_id")
+			.notNull()
+			.unique()
+			.references(() => operation.id),
+		lead: jsonb("lead").notNull(),
+		journey: jsonb("journey").notNull(),
+		launch: jsonb("launch").notNull(),
+		people_step: text("people_step", { enum: ["pending", "saved", "skipped"] }).notNull(),
+		completed_material_revision: int64("completed_material_revision"),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		check("onboarding_people_step", sql`${t.people_step} IN ('pending','saved','skipped')`),
+		check(
+			"onboarding_completion_revision",
+			sql`${t.completed_material_revision} IS NULL OR ${t.completed_material_revision} >= 1`,
+		),
+	],
+);
+export const onboarding_result = pgTable(
+	"onboarding_result",
+	{
+		operation_id: uuid("operation_id").primaryKey(),
+		tenant_id: uuid("tenant_id")
+			.notNull()
+			.references(() => tenant.id),
+		value: jsonb("value").notNull(),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		foreignKey({
+			name: "onboarding_result_operation",
+			columns: [t.operation_id, t.tenant_id],
+			foreignColumns: [operation.id, operation.tenant_id],
+		}),
 	],
 );

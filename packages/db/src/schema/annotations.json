@@ -3070,6 +3070,16 @@
 				"table": "people_result",
 				"field": "value",
 				"policy": "Frozen bounded original Person projection, including linked-account identity and lineage. Do not retarget on merge or Unmerge, transfer grants or replay effects. Fresh same-owner authorization precedes reads/replay; witnessed organization/account removal scrubs private bodies and identity before recovery."
+			},
+			{
+				"table": "onboarding_setup",
+				"field": "lead",
+				"policy": "Frozen bounded original Person projection, including linked-account identity and lineage. Do not retarget on merge or Unmerge, transfer grants or replay effects. Fresh same-owner authorization precedes reads/replay; witnessed organization/account removal scrubs private bodies and identity before recovery."
+			},
+			{
+				"table": "onboarding_result",
+				"field": "value",
+				"policy": "Frozen bounded original Person projection, including linked-account identity and lineage. Do not retarget on merge or Unmerge, transfer grants or replay effects. Fresh same-owner authorization precedes reads/replay; witnessed organization/account removal scrubs private bodies and identity before recovery."
 			}
 		],
 		"person_source_ruling": {
@@ -4256,6 +4266,15 @@
 				},
 				"revision": {
 					"note": ""
+				},
+				"city": {
+					"note": "Optional independently supplied locality; never inferred from another component or timezone."
+				},
+				"state_province": {
+					"note": "Optional independently supplied locality; never inferred from another component or timezone."
+				},
+				"country": {
+					"note": "Optional independently supplied locality; never inferred from another component or timezone."
 				}
 			},
 			"foreignKeys": {
@@ -24425,6 +24444,162 @@
 					"deletion": {
 						"action": "no_action",
 						"policy": "Restricted dependency-ordered cleanup or permitted attribution scrubbing; no retained private body or indefinite history exemption."
+					}
+				}
+			}
+		},
+		"onboarding_setup": {
+			"table": {
+				"name": "onboarding_setup",
+				"domain": "tenancy",
+				"purpose": "Persisted independent setup answers for the actual creating Owner; no inferred checklist completion.",
+				"library_owned": false,
+				"jsonb_keys": {
+					"lead": ["answer", "assignment", "savedAt"],
+					"journey": ["status", "value", "savedAt"],
+					"launch": ["status", "value", "savedAt"]
+				},
+				"capabilities": ["CAP-A-008", "CAP-A-013"],
+				"replaces": [],
+				"producer_work_packages": ["WP-009"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-009"],
+					"rule": "WP-009 additive onboarding storage."
+				},
+				"feature_ids": ["ADM-004", "IDN-013", "IDN-014", "IDN-015", "IDN-016"],
+				"acceptance_ids": [],
+				"future_case_ids": ["TARGET-IDN-013", "TARGET-IDN-015"],
+				"scope": "tenancy",
+				"invariants": [
+					"Fresh exact owner, actor, source lifecycle and revision checks precede reads and mutations.",
+					"Protected facts, history, replay result, audit and material revision commit in the same transaction; this storage grants no access."
+				],
+				"revision": "Append original occurrence and correction evidence; current mutable order uses expected revisions.",
+				"idempotency": "Exact operation result replays only after fresh authority checks; source rows serialize concurrent writes.",
+				"deletion": "Witnessed organization removal scrubs unnecessary bodies and attribution immediately. Account removal severs links and retains only legitimate independently owned facts with minimal scope-local attribution. Retention and recovery follow the actual owner; no new TTL or history exemption.",
+				"physical_verified": false
+			},
+			"columns": {
+				"plant_id": {
+					"note": ""
+				},
+				"account_id": {
+					"note": ""
+				},
+				"creation_operation_id": {
+					"note": ""
+				},
+				"lead": {
+					"note": ""
+				},
+				"journey": {
+					"note": ""
+				},
+				"launch": {
+					"note": ""
+				},
+				"people_step": {
+					"note": ""
+				},
+				"completed_material_revision": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Explicit dependency-ordered owner purge; no retention exemption."
+					}
+				},
+				"account_id->account(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Explicit dependency-ordered owner purge; no retention exemption."
+					}
+				},
+				"creation_operation_id->operation(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Explicit dependency-ordered owner purge; no retention exemption."
+					},
+					"scope_exception": "Creation starts in the authenticated own-account scope and atomically establishes this plant; creator, receipt and resulting plant are validated together. This pointer grants no account or plant authority."
+				}
+			}
+		},
+		"onboarding_result": {
+			"table": {
+				"name": "onboarding_result",
+				"domain": "tenancy",
+				"purpose": "Original bounded onboarding receipt and result for exact authenticated replay.",
+				"library_owned": false,
+				"jsonb_keys": {
+					"value": [
+						"status",
+						"plant",
+						"revision",
+						"materialRevision",
+						"ownerSeat",
+						"creation",
+						"receipt",
+						"profile",
+						"lead",
+						"journey",
+						"launch",
+						"completion",
+						"relationships",
+						"documentProposals",
+						"currentPhase",
+						"discoveryId",
+						"convertedAt",
+						"initialSharing",
+						"scheduledLaunchDate"
+					]
+				},
+				"capabilities": ["CAP-A-008", "CAP-A-013"],
+				"replaces": [],
+				"producer_work_packages": ["WP-009"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-009"],
+					"rule": "WP-009 additive onboarding storage."
+				},
+				"feature_ids": ["ADM-004", "IDN-013", "IDN-014", "IDN-015", "IDN-016"],
+				"acceptance_ids": [],
+				"future_case_ids": ["TARGET-IDN-013", "TARGET-IDN-015"],
+				"scope": "tenancy",
+				"invariants": [
+					"Fresh exact owner, actor, source lifecycle and revision checks precede reads and mutations.",
+					"Protected facts, history, replay result, audit and material revision commit in the same transaction; this storage grants no access."
+				],
+				"revision": "Append original occurrence and correction evidence; current mutable order uses expected revisions.",
+				"idempotency": "Exact operation result replays only after fresh authority checks; source rows serialize concurrent writes.",
+				"deletion": "Witnessed organization removal scrubs unnecessary bodies and attribution immediately. Account removal severs links and retains only legitimate independently owned facts with minimal scope-local attribution. Retention and recovery follow the actual owner; no new TTL or history exemption.",
+				"physical_verified": false
+			},
+			"columns": {
+				"operation_id": {
+					"note": ""
+				},
+				"tenant_id": {
+					"note": ""
+				},
+				"value": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"tenant_id->tenant(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Explicit dependency-ordered owner purge; no retention exemption."
+					}
+				},
+				"operation_id,tenant_id->operation(id,tenant_id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Explicit dependency-ordered owner purge; no retention exemption."
 					}
 				}
 			}

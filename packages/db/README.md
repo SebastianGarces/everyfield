@@ -38,6 +38,13 @@ replaced, review the host allowlist in `scripts/reset-dev.ts` before using it.
 Production's host fragment is `ep-gentle-dust-b8tvq4ha`; never add it to that list.
 Credentials belong only in ignored local files and provider environment settings.
 
+Discovery conversion, first-seat acceptance and relationship ending share the account
+row as their arbiter. Lock the account first, then its Discovery profile, then its
+affiliation rows in UUID order. An organization ending a Discovery relationship
+must lock that subject account too, before its profile or affiliation. Recheck
+current lifecycle, conversion state, seat and relationship revisions under those
+locks; do not retry a deadlock as a substitute for this order.
+
 Drizzle declarations in `src/schema/tables.ts` own the modeled database structure.
 Append new columns at the end of an existing table declaration: PostgreSQL adds columns
 at the physical end, and the drift gate checks the order of live columns. Removing a
@@ -71,7 +78,7 @@ Kit's file journal describes generation history; it is not a second database led
 The initial snapshot describes the exact database after frozen migrations 0001–0005.
 `migrations/frozen.json` pins their original bytes. Snapshot and file-journal metadata
 live in `migrations/meta/`; no baseline CREATE statements are applied to existing objects.
-The next generated migration number is 0006. Runtime SQL goes through the existing
+The next generated migration number is 0010. Runtime SQL goes through the existing
 checksum ledger; neither Kit push nor its database migrator is used.
 
 `annotations.json` retains documentary notes separately from physical declarations.
