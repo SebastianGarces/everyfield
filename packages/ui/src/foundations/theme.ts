@@ -6,5 +6,5 @@ export const THEME_COOKIE = "ef-theme";
 
 /** Reads the cookie value at the request boundary. Anything except "dark" is the default light theme. */
 export function parseTheme(value: string | undefined): ProductTheme {
-  return value === "dark" ? "dark" : "light";
+	return value === "dark" ? "dark" : "light";
 }

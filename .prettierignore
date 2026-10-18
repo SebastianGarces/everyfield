@@ -1,0 +1,28 @@
+# D34: source references, design and frozen migrations retain their bytes.
+docs/
+design/
+packages/db/migrations/
+
+# Generated source and frozen reference projections.
+**/*.generated.*
+**/generated/**
+**/next-env.d.ts
+packages/contracts/src/common/vocabulary.ts
+packages/reference/src/artifacts.json
+packages/reference/src/freeze.json
+**/*.lock.json
+skills-lock.json
+
+# Image approvals hash these exact source bytes alongside the generated assets.
+apps/web/scripts/render-share-images.mjs
+apps/web/scripts/render-mesh-images.mjs
+apps/web/src/marketing/logo-symbols.ts
+
+# Dependencies, build outputs and lockfiles.
+**/node_modules/
+**/.next/
+**/dist/
+**/build/
+**/out/
+**/pnpm-lock.yaml
+.worktrees/
