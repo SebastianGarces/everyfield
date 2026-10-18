@@ -1,0 +1,9 @@
+{
+  "name": "@everyfield/reference",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:unit": "node --test ../../tests/integration/reference/*.test.mjs",
+    "verify": "node verify.mjs"
+  }
+}

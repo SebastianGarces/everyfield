@@ -37,7 +37,7 @@ Each package stores its estimate factors in the DAG. Counts use owned selectors,
 | WP-097 | Early access site | 1 | 7 | 1 | 3 | 3.5 |
 | WP-087 | Local workflow and repository bootstrap | 0 | 0 | 0 | 0 | 3 |
 | WP-001 | Verify current source authority/version/hash | 0 | 0 | 0 | 0 | 1.5 |
-| WP-002 | Shared C0 contracts and transaction patterns | 5 | 2 | 4 | 0 | 1.5 |
+| WP-002 | Shared C0 contracts and transaction patterns | 5 | 2 | 8 | 0 | 1.5 |
 | WP-003 | Next.js security/auth/file/stream/execution proof | 12 | 0 | 7 | 2 | 2 |
 | WP-004 | Fresh database/storage baseline | 20 | 4 | 29 | 116 | 5 |
 | WP-031 | Outbox jobs and dispatch recovery | 17 | 17 | 20 | 8 | 2.5 |
@@ -129,11 +129,11 @@ Each package stores its estimate factors in the DAG. Counts use owned selectors,
 | WP-100 | My residency and consented progress | 2 | 3 | 2 | 0 | 3.5 |
 | WP-101 | Pipeline and development Evry adapters | 1 | 15 | 1 | 0 | 4 |
 | WP-102 | Multiplication privacy, race and parity integration | 17 | 0 | 17 | 0 | 5.5 |
-| WP-056 | Cross-module race/privacy/correction integration | 0 | 0 | 1103 | 0 | 14.5 |
+| WP-056 | Cross-module race/privacy/correction integration | 0 | 0 | 1107 | 0 | 14.5 |
 | WP-094 | Core browser/file/native-Evry parity integration | 4 | 0 | 6 | 0 | 1.5 |
 | WP-095 | Knowledge browser/file/native-Evry parity integration | 7 | 0 | 8 | 0 | 1.5 |
 | WP-096 | Intelligence browser/file/native-Evry parity integration | 3 | 0 | 18 | 0 | 1.5 |
-| WP-057 | Full target browser/file/capability parity gate | 0 | 0 | 1103 | 5 | 14 |
+| WP-057 | Full target browser/file/capability parity gate | 0 | 0 | 1107 | 5 | 14 |
 | WP-058 | Fresh bootstrap and release rehearsal | 12 | 0 | 29 | 0 | 2 |
 
 ## Package splits
