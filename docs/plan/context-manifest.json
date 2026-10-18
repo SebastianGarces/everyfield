@@ -1594,6 +1594,7 @@
     "WP007-KNOW-112": "docs/acceptance/identity-access.json",
     "WP007-MUL-003": "docs/acceptance/identity-access.json",
     "WP007-MUL-016": "docs/acceptance/identity-access.json",
+    "WP008-MUL-004-ATOMIC": "docs/acceptance/people.json",
     "WP011-KNOW-069": "docs/acceptance/people.json",
     "WP011-KNOW-098": "docs/acceptance/people.json",
     "WP011-KNOW-099": "docs/acceptance/people.json",
@@ -3947,7 +3948,8 @@
         "TARGET-IDN-019",
         "TARGET-IDN-020",
         "TARGET-IDN-030",
-        "TEN-005"
+        "TEN-005",
+        "WP008-MUL-004-ATOMIC"
       ],
       "own_operation_ids": [
         "residency.invite",
@@ -4102,7 +4104,8 @@
         "WP004-IDN-029",
         "WP005-API-STAGED",
         "WP006-API-IDN-029",
-        "WP006-IDN-029"
+        "WP006-IDN-029",
+        "WP008-MUL-004-ATOMIC"
       ],
       "context_case_ids": [
         "CASE-NTF-013",
@@ -26699,6 +26702,7 @@
         "WP007-KNOW-112",
         "WP007-MUL-003",
         "WP007-MUL-016",
+        "WP008-MUL-004-ATOMIC",
         "WP011-KNOW-069",
         "WP011-KNOW-098",
         "WP011-KNOW-099",
@@ -32729,6 +32733,7 @@
         "WP007-KNOW-112",
         "WP007-MUL-003",
         "WP007-MUL-016",
+        "WP008-MUL-004-ATOMIC",
         "WP011-KNOW-069",
         "WP011-KNOW-098",
         "WP011-KNOW-099",
@@ -44123,6 +44128,7 @@
         "WP006-MUL-002",
         "WP007-MUL-003",
         "WP007-MUL-016",
+        "WP008-MUL-004-ATOMIC",
         "WP011-MUL-001",
         "WP011-MUL-005"
       ],

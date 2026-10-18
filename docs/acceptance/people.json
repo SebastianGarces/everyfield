@@ -10478,7 +10478,7 @@
         "WP-014"
       ],
       "status": "future-not-run",
-      "description": "Skip prospect→leader, backward leader→attendee, same-stage retry, concurrent edits and declined open-duty handoff.",
+      "description": "Skip prospect\u2192leader, backward leader\u2192attendee, same-stage retry, concurrent edits and declined open-duty handoff.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -11943,7 +11943,7 @@
           "owner": "A",
           "plant": "P",
           "mime": "text/csv",
-          "utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
+          "utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
         },
         "intent-1": {
           "fixture_type": "import_intent",
@@ -11977,7 +11977,7 @@
         "operation": "people.executeBulkImport",
         "arguments": {
           "upload": "upload-1",
-          "original_utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n",
+          "original_utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n",
           "request_key": "import-1",
           "row_resolutions": [
             {
@@ -12102,7 +12102,7 @@
               "owner": "A",
               "plant": "P",
               "mime": "text/csv",
-              "utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
+              "utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
             },
             "intent-1": {
               "fixture_type": "import_intent",
@@ -12182,7 +12182,7 @@
               "owner": "A",
               "plant": "P",
               "mime": "text/csv",
-              "utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
+              "utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
             },
             "intent-1": {
               "fixture_type": "import_intent",
@@ -12267,7 +12267,7 @@
               "owner": "A",
               "plant": "P",
               "mime": "text/csv",
-              "utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
+              "utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
             },
             "intent-1": {
               "fixture_type": "import_intent",
@@ -12363,7 +12363,7 @@
               "owner": "A",
               "plant": "P",
               "mime": "text/csv",
-              "utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
+              "utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
             },
             "intent-1": {
               "fixture_type": "import_intent",
@@ -12446,7 +12446,7 @@
               "owner": "A",
               "plant": "P",
               "mime": "text/csv",
-              "utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
+              "utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
             },
             "intent-1": {
               "fixture_type": "import_intent",
@@ -13003,7 +13003,7 @@
         "WP-048"
       ],
       "status": "future-not-run",
-      "description": "At October 13 `asOf`, P moved prospect→attendee twice after a backward move, Q once, R is currently prospect but outside the September transition window, and S is retired/merged. Compare reconstructed September source cohort with missing original cohort history, plus foreign tenant request.",
+      "description": "At October 13 `asOf`, P moved prospect\u2192attendee twice after a backward move, Q once, R is currently prospect but outside the September transition window, and S is retired/merged. Compare reconstructed September source cohort with missing original cohort history, plus foreign tenant request.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -13166,7 +13166,7 @@
         "WP-094"
       ],
       "status": "future-not-run",
-      "description": "Register a later attendance and training consumer after WP-015; race its insert against source→survivor merge and Person retirement, then inspect every actual Person FK and inverse policy.",
+      "description": "Register a later attendance and training consumer after WP-015; race its insert against source\u2192survivor merge and Person retirement, then inspect every actual Person FK and inverse policy.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -21139,6 +21139,128 @@
       ],
       "coverage_notes": [
         "Boundary evidence only; no live authorization, transactional, delivery, export/removal, native/Evry or full-package proof."
+      ]
+    },
+    {
+      "id": "WP008-MUL-004-ATOMIC",
+      "requirement": "REQ-MUL-004",
+      "requirement_ids": [
+        "REQ-MUL-004"
+      ],
+      "feature_ids": [
+        "MUL-004"
+      ],
+      "acceptance_ids": [
+        "AC-MUL-004--MUL-004"
+      ],
+      "work_packages": [
+        "WP-008"
+      ],
+      "status": "future-not-run",
+      "description": "A failed required receipt or outbox write rolls back resident linking and token consumption. The authenticated original account can resume the same intent.",
+      "given": {
+        "O": {
+          "fixture_type": "organization",
+          "id": "O",
+          "kind": "sending_church",
+          "timezone": "America/Chicago",
+          "revision": 7
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "staff@example.test"
+        },
+        "S": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "staff": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "O",
+          "role": "Admin",
+          "active": true
+        },
+        "R": {
+          "fixture_type": "account",
+          "id": "R",
+          "email": "resident@example.test"
+        },
+        "RS": {
+          "fixture_type": "session",
+          "account": "R",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "P": {
+          "fixture_type": "person",
+          "id": "P",
+          "tenant_id": "O",
+          "organization_id": "O",
+          "plant_id": null,
+          "display_name": "Casey Lee",
+          "stage": null,
+          "state": "live",
+          "revision": 4,
+          "linked_account_id": null,
+          "created_at": "2026-01-01T00:00:00Z"
+        },
+        "Invite": {
+          "fixture_type": "invitation",
+          "id": "Invite",
+          "tenant_id": "O",
+          "purpose": "residency_link",
+          "recipient_email": "resident@example.test",
+          "state": "pending",
+          "revision": 2,
+          "resident_person_id": "P"
+        },
+        "execution": {
+          "fixture_type": "execution_control",
+          "request_repetitions": 2
+        },
+        "proof": {
+          "fixture_type": "verified_invitation_proof",
+          "invitation": "Invite",
+          "account": "R",
+          "address_verified": true,
+          "expires_at": "2026-10-18T16:00:00Z",
+          "purpose": "residency_link",
+          "person": "P",
+          "organization": "O"
+        }
+      },
+      "actor": {
+        "account": "R",
+        "session": "RS",
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-17T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "residency.respondInvitation",
+        "arguments": {
+          "invitation": "Invite",
+          "decision": "accept",
+          "share_foundations": true,
+          "share_milestones": false,
+          "expected_revision": 2
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "atomic_link_receipt_and_mail": true,
+          "failed_transaction_consumes_token": false,
+          "replay_new_links": 0
+        },
+        "event": null
+      },
+      "layers": [
+        "PostgreSQL integration"
       ]
     }
   ]
