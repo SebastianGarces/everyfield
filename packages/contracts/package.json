@@ -5,6 +5,7 @@
   "exports": {
     "./common": "./src/common/index.ts",
     "./common/server": "./src/common/scope.ts",
+    "./reference": "./src/reference/index.ts",
     "./identity": "./src/identity/index.ts"
   },
   "scripts": {
