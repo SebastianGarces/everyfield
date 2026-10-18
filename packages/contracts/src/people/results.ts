@@ -52,6 +52,8 @@ export const accountLinkResult = z.discriminatedUnion("status", [
 export const personMutationResult = z.strictObject({ person: personProjection,
   receiptId: operationId, outcome: z.enum(["changed", "noop"]),
   needsOwner: z.array(recordId).max(100) });
+export const noteMutationResult = z.strictObject({ receiptId: operationId, noteId: recordId,
+  revision, outcome: z.enum(["changed", "noop"]) });
 export const plantPersonMutationResult = personMutationResult.extend({ person: plantPerson });
 export const organizationPersonMutationResult = personMutationResult.extend({ person: organizationPerson });
 // A verified email may propose candidates but never selects a human identity.
@@ -82,6 +84,9 @@ export const activitiesResult = z.strictObject({ owner: plantOwner, personId,
 export const commitmentObservation = z.strictObject({ owner: plantOwner, personId,
   asOf: instant, zone: timeZone, sourceRevision: revision, lifecycle: personLifecycle,
   classification: adultClassification, current: currentCommitment, firstAcquisition });
+
+export const classificationMutationResult = z.strictObject({ receiptId: operationId,
+  outcome: z.enum(["changed", "noop"]), observation: commitmentObservation });
 const count = z.int().min(0);
 const transition = z.strictObject({ from: stage, to: stage, distinctPeople: count })
   .refine(v => stage.options.indexOf(v.to) === stage.options.indexOf(v.from) + 1);

@@ -109,6 +109,9 @@ test("INV-person-history: notes retain exact Person and revision; status changes
     { ...command, input: { personId: Q, noteId: R, body: "Changed.", reason: "Correct typo." } });
   assert.equal(people.editNoteRequest.safeParse({ ...command, input: { noteId: R, body: "Changed.", reason: "Correction." } }).success, false);
   assert.equal(people.addNoteRequest.safeParse({ ...command, input: { personId: Q, body: " ", authorId: P } }).success, false);
+  const receipt = { receiptId: R, noteId: Q, revision: "5", outcome: "changed" };
+  assert.deepEqual(roundTrip(people.noteMutationResult, receipt), receipt);
+  assert.equal(people.noteMutationResult.safeParse({ noteId: Q, revision: "5", outcome: "changed" }).success, false);
   const move = { ...command, input: { personId: Q, stage: "attendee", reason: "Correct actual stage",
     handoffs: [{ kind: "needs_owner", dutyId: R, expectedRevision: "2" }] } };
   assert.deepEqual(roundTrip(people.changeStatusRequest, move), move);
@@ -123,6 +126,8 @@ test("INV-person-evidence: current commitment is independent from genuine acquis
     current: { state: "withdrawn", evidenceId: R, kind: "core_group", occurredOn: "2026-10-10", revision: "7" },
     firstAcquisition: { status: "known", occurredOn: "2026-09-01", evidenceId: R } };
   assert.deepEqual(roundTrip(people.commitmentObservation, observation), observation);
+  const changed = { receiptId: R, outcome: "changed", observation };
+  assert.deepEqual(roundTrip(people.classificationMutationResult, changed), changed);
   assert.equal(people.commitmentObservation.safeParse({ ...observation, current: { state: "active" } }).success, false);
   assert.deepEqual(roundTrip(people.conversion, { status: "unknown", reason: "cohort_unavailable" }), { status: "unknown", reason: "cohort_unavailable" });
   assert.deepEqual(roundTrip(people.conversion, { status: "known", cohortPeople: 4, cohortTransitionPeople: 2 }), { status: "known", cohortPeople: 4, cohortTransitionPeople: 2 });
