@@ -6,6 +6,7 @@ import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { sql, eq, and } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
+import { enqueueJob } from "../../../apps/web/src/server/jobs/queue.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import foundations from "../../../docs/reference/discovery-foundations.json" with { type: "json" };
 
@@ -107,12 +108,50 @@ before(async () => {
 		},
 	});
 	api = createOnboardingProducer({
+		async invalidate(tx, input) {
+			await enqueueJob(tx, {
+				tenant: input.owner.id,
+				kind: "assessment",
+				subject: input.sourceId,
+				key: "onboarding/" + input.sourceId + "/" + input.revision,
+				revision: input.revision,
+				eligibleAt: new Date().toISOString(),
+			});
+		},
+		async notice(tx, input) {
+			const [operation] = await tx.select().from(t.operation).where(eq(t.operation.id, input.operationId));
+			const seats = await tx
+				.select({ id: t.seat.account_id })
+				.from(t.seat)
+				.where(
+					and(
+						eq(t.seat.organization_id, input.pair.organization.id),
+						eq(t.seat.role, "owner"),
+						sql`${t.seat.ended_at} IS NULL`,
+					),
+				);
+			for (const recipient of new Set([operation.actor_id, ...seats.map((s) => s.id)])) {
+				const contact = await tx.execute(sql`SELECT * FROM access_account_contact(${recipient})`);
+				await mail.enqueue(tx, {
+					owner: { kind: "account", id: recipient },
+					purpose: input.pair.kind === "discovery" ? "discovery_receipt" : "relationship_receipt",
+					logicalKey: "relationship/" + input.eventId + "/" + recipient,
+					recipient,
+					address: contact.rows[0].email,
+					content: { subject: "Relationship updated", text: "Your relationship changed." },
+					operation: null,
+					notice: null,
+					eligibleAt: new Date().toISOString(),
+				});
+			}
+			if (faults) throw Error("required_intent_fault");
+		},
 		async enqueue(tx, input) {
 			const contact = await tx.execute(sql`SELECT * FROM access_account_contact(${input.accountId})`);
 			await mail.enqueue(tx, {
 				owner: { kind: "account", id: input.accountId },
 				purpose: input.kind === "discovery_created" ? "discovery_receipt" : "notification",
-				logicalKey: `onboarding/${input.operationId}/${input.kind}/${input.relationshipId ?? ""}`,
+				logicalKey: `onboarding/${input.operationId}/${input.kind}`,
 				recipient: input.accountId,
 				address: contact.rows[0].email,
 				content: { subject: "Onboarding saved", text: "Your selected onboarding changes were saved." },
@@ -397,11 +436,17 @@ async function discovery() {
 	const result = ok(await call("createDiscovery", a, command()));
 	return { a, result };
 }
-async function relationship(account, kind = "sending_church") {
+async function relationship(account, kind = "sending_church", createOwner = true) {
 	const org = randomUUID();
 	await admin
 		.insert(t.organization)
 		.values({ id: org, kind, name: "Sending partner", timezone: "UTC", material_revision: "1" });
+	if (createOwner) {
+		const orgOwner = await actor(kind === "sending_church" ? "sending_church" : "network");
+		await admin
+			.insert(t.seat)
+			.values({ account_id: orgOwner.id, organization_id: org, role: "owner", accepted_at: new Date() });
+	}
 	const [link] = await admin
 		.insert(t.affiliation)
 		.values({
@@ -459,6 +504,27 @@ test("AC:TARGET-IDN-016 AC:AF-012 AC:DC-001 Discovery is explicit and seatless; 
 	assert.equal(chosen.length, 1);
 	assert.equal(chosen[0].organization_id, first.organization.id);
 	assert.notEqual(chosen[0].organization_id, second.organization.id);
+	const [unselectedOrganization] = await admin
+		.select()
+		.from(t.organization)
+		.where(eq(t.organization.id, second.organization.id));
+	assert.equal(unselectedOrganization.material_revision, "2");
+	const [unselectedOwner] = await admin
+		.select({ id: t.seat.account_id })
+		.from(t.seat)
+		.where(eq(t.seat.organization_id, second.organization.id));
+	const notices = await admin
+		.select()
+		.from(t.mail)
+		.where(and(eq(t.mail.recipient_account_id, unselectedOwner.id), eq(t.mail.purpose, "discovery_receipt")));
+	assert.equal(notices.length, 1);
+	assert.equal(notices[0].state, "pending");
+	const invalidations = await admin
+		.select()
+		.from(t.job)
+		.where(and(eq(t.job.kind, "assessment"), eq(t.job.subject_record_id, second.relationshipId)));
+	assert.equal(invalidations.length, 1);
+	assert.equal(invalidations[0].source_revision, "2");
 	const before = await counts(),
 		replay = ok(await call("convertDiscovery", d.a, q));
 	assert.equal(replay.status, "existing");
@@ -886,7 +952,7 @@ test("INV-discovery-race: conversion and organization ending serialize account, 
 	const { createOrganizationAdapter } = await import("../../../packages/domain/src/organizations/index.ts");
 	const { enqueueJob } = await import("../../../apps/web/src/server/jobs/queue.ts");
 	const d = await discovery(),
-		link = await relationship(d.a),
+		link = await relationship(d.a, "sending_church", false),
 		orgActor = await actor("sending_church");
 	await admin
 		.insert(t.seat)

@@ -5,9 +5,9 @@ import { and, asc, eq, isNull, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import * as c from "@everyfield/contracts/onboarding";
 import { accountId, tenantId, owner } from "@everyfield/contracts/common";
-import { sharingChoices, organizationOwner } from "@everyfield/contracts/organizations";
+import { sharingChoices, organizationOwner, plantOwner } from "@everyfield/contracts/organizations";
 import { accountPersonProducer } from "../people/index.ts";
-import { active, choices, loadAffiliation, pairOf } from "../organizations/core.ts";
+import { active, choices, loadAffiliation, pairOf, type OrganizationEffects } from "../organizations/core.ts";
 import { recordCreationEntry } from "../phases/creation-entry/index.ts";
 import {
 	actor,
@@ -26,7 +26,7 @@ import {
 } from "./core.ts";
 import { ownReading } from "./reading.ts";
 
-export interface OnboardingEffects {
+export interface OnboardingEffects extends Pick<OrganizationEffects, "notice" | "invalidate"> {
 	// Required durable mail/notice writers share Tx. They enqueue only; providers
 	// run after commit. No default noop can silently drop a required consequence.
 	enqueue(
@@ -34,11 +34,26 @@ export interface OnboardingEffects {
 		input: {
 			accountId: string;
 			operationId: string;
-			kind: "plant_created" | "discovery_created" | "relationship_converted";
+			kind: "plant_created" | "discovery_created";
 			plantId: string | null;
-			relationshipId?: string;
 		},
 	): Promise<void>;
+}
+async function notifyRelationship(
+	tx: Tx,
+	effects: OnboardingEffects,
+	input: Parameters<OrganizationEffects["notice"]>[1],
+) {
+	await tx
+		.update(t.organization)
+		.set({ material_revision: sql`${t.organization.material_revision}+1` })
+		.where(eq(t.organization.id, input.pair.organization.id));
+	await effects.invalidate(tx, {
+		owner: input.pair.organization,
+		sourceId: input.relationshipId,
+		revision: input.revision,
+	});
+	await effects.notice(tx, input);
 }
 export const off = sharingChoices.parse({
 	people: false,
@@ -139,7 +154,7 @@ async function provision(
 		await event(tx, cx, seat!.id, "membership.created", "create"),
 	];
 	return {
-		plant: owner.parse({ kind: "plant", id: plantId }),
+		plant: plantOwner.parse({ kind: "plant", id: plantId }),
 		revision: plant!.revision,
 		materialRevision: plant!.material_revision,
 		currentPhase: 1,
@@ -308,16 +323,13 @@ export function creation(effects: OnboardingEffects) {
 						relationship_id: link!.id,
 						pair: { kind: "plant", subject: result.plant, organization: selection.organization },
 					});
-					await tx
-						.update(t.organization)
-						.set({ material_revision: sql`${t.organization.material_revision}+1` })
-						.where(eq(t.organization.id, old.organization_id));
-					await effects.enqueue(tx, {
-						accountId: a.account.id,
-						operationId: cx.id,
-						kind: "relationship_converted",
-						plantId: result.plant.id,
+					await notifyRelationship(tx, effects, {
+						eventId: id,
 						relationshipId: link!.id,
+						pair: { kind: "plant", subject: result.plant, organization: selection.organization },
+						kind: "relationship_approved",
+						revision: link!.revision,
+						operationId: cx.id,
 					});
 					relationships.push(
 						c.conversionRelationship.parse({
@@ -343,6 +355,14 @@ export function creation(effects: OnboardingEffects) {
 					const original = await loadAffiliation(tx, old.id);
 					if (!original) deny();
 					await tx.insert(t.relationship_history).values({ id, relationship_id: old.id, pair: pairOf(original) });
+					await notifyRelationship(tx, effects, {
+						eventId: id,
+						relationshipId: old.id,
+						pair: pairOf(original),
+						kind: "relationship_ended",
+						revision: original.revision,
+						operationId: cx.id,
+					});
 				}
 				const [converted] = await tx
 					.update(t.discovery)
