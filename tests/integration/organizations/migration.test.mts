@@ -7,7 +7,7 @@ import { mkdtemp, copyFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { pathToFileURL } from "node:url";
 
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
+import { migrate, migrationArtifact } from "../../../packages/db/src/schema/migrate.ts";
 
 test("INV-schema: fresh and upgraded affiliation schemas use canonical ministry_teams and preserve existing consent", async () => {
 	const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
@@ -45,7 +45,10 @@ test("INV-schema: fresh and upgraded affiliation schemas use canonical ministry_
 		const ledger = await db.execute(
 			sql.raw(`SELECT name,sha256,applied_at FROM ${schema}.schema_migration ORDER BY name`),
 		);
-		assert.deepEqual(await migrate(db, schema), ["0005_organization_relationships.sql"]);
+		assert.deepEqual(
+			await migrate(db, schema),
+			(await migrationArtifact()).filter((m) => Number(m.name.slice(0, 4)) >= 5).map((m) => m.name),
+		);
 		await migrate(db, fresh);
 		const columns = async (s: string) =>
 			(
@@ -75,9 +78,7 @@ test("INV-schema: fresh and upgraded affiliation schemas use canonical ministry_
 		assert.deepEqual(
 			(
 				await db.execute(
-					sql.raw(
-						`SELECT name,sha256,applied_at FROM ${schema}.schema_migration WHERE name<>'0005_organization_relationships.sql' ORDER BY name`,
-					),
+					sql.raw(`SELECT name,sha256,applied_at FROM ${schema}.schema_migration WHERE name<'0005' ORDER BY name`),
 				)
 			).rows,
 			ledger.rows,
