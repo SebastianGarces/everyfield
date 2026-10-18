@@ -545,7 +545,8 @@ test('INV-phase7-local-checks: checks cannot pass after mutating the task worktr
 
 test('INV-phase7-readiness: doctor reports workflow and preview setup without obsolete trust requirements',()=>{
  const f=fixture();try{
-  // Set the gate states here; the live release-gates.json changes as the project moves on.
+  // Set the gate and stack states here; the live release-gates.json and evf.config.json change as the project moves on.
+  f.cfg.stack=null;writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));
   const path=join(f.root,'docs/plan/release-gates.json'),gates=JSON.parse(readFileSync(path,'utf8'));
   const missing=(workflow:string)=>{
    for(const g of gates.gates)g.status=g.id==='G-AUTH'?'not-authorized':g.id==='G-WORKFLOW'?workflow:g.status;
@@ -564,6 +565,12 @@ test('INV-phase7-readiness: doctor reports workflow and preview setup without ob
    'repository remote origin',
    'owner-approved WP-097 fast-track completion on main',
    'local preview up/status commands',
+  ]);
+  f.cfg.stack={usesPaidProviders:false,up:['node','stack','up'],status:['node','stack','status']};writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));
+  assert.deepEqual(missing('reconciled-independent-review'),[
+   'owner kickoff approval in G-AUTH',
+   'repository remote origin',
+   'owner-approved WP-097 fast-track completion on main',
   ]);
  }finally{f.close();}
 });
