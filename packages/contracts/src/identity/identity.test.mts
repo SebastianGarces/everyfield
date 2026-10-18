@@ -58,7 +58,7 @@ test("INV-identity: pending native identity has bounded self status without gran
   assert.deepEqual(wire(registrationStatus, pending), pending);
   assert.deepEqual(wire(registrationResult, pending), pending);
   assert.deepEqual(wire(registrationResult, { status: "active", accountId: account, operationId: operation }), { status: "active", accountId: account, operationId: operation });
-  const session = { ...pending, sessionId: "live-session", expiresAt: "2026-11-18T12:00:00Z" };
+  const session = { ...pending, sessionId: "live-session", expiresAt: "2026-11-18T12:00:00.000Z" };
   assert.deepEqual(wire(sessionResult, session), session);
   assert.deepEqual(wire(sessionResult, { status: "unauthenticated" }), { status: "unauthenticated" });
   for (const extra of [{ role: "owner" }, { tenantId: tenant }, { cookie: "private" }, { token: "private" }]) {
@@ -99,11 +99,11 @@ test("AC:WP005-KNOW-069 retained attribution boundary preserves explicit church 
 
 test("AC:WP005-KNOW-072 purge-status boundary refuses incomplete completion and extended copy expiry", () => {
   assert.deepEqual(wire(identityPurgeStatus, { status: "purging" }), { status: "purging" });
-  const completed = { status: "purged", livePurgedAt: "2026-11-18T12:00:00Z", copyExpiresAt: "2026-11-25T12:00:00Z" };
+  const completed = { status: "purged", livePurgedAt: "2026-11-18T12:00:00.000Z", copyExpiresAt: "2026-11-25T12:00:00.000Z" };
   assert.deepEqual(wire(identityPurgeStatus, completed), completed);
   assert.throws(() => wire(identityPurgeStatus, { status: "purging", livePurgedAt: completed.livePurgedAt }), z.ZodError);
   assert.throws(() => wire(identityPurgeStatus, { status: "purged" }), z.ZodError);
-  for (const copyExpiresAt of ["2026-11-25T12:00:00.001Z", "2026-11-18T11:59:59Z"]) {
+  for (const copyExpiresAt of ["2026-11-25T12:00:00.000001Z", "2026-11-25T12:00:00.001Z", "2026-11-18T11:59:59Z"]) {
     assert.throws(() => wire(identityPurgeStatus, { ...completed, copyExpiresAt }), z.ZodError);
   }
 });

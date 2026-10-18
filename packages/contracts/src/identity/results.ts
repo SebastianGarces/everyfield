@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { accountId, correlationId, defineSafeError, eventId, operationId, recordId, safeError, sessionId, tenantId } from "../common/values.ts";
+import { instant } from "../common/time.ts";
 import { accountKind } from "./requests.ts";
 
-const instant = z.iso.datetime();
 export const identityError = z.discriminatedUnion("code", [
   ...safeError.options,
   defineSafeError("unauthenticated", {}, "never"),
