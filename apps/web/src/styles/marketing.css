@@ -1,8 +1,10 @@
 /* Tailwind CSS v4 entry for the marketing site.
-   1. design/handoff/tokens.css is the single token source: it imports Tailwind and defines the --ef-* values,
-      the shadcn names and the @theme utilities (bg-ink, text-text-2, rounded-card, font-display ...).
+   1. Tailwind is imported here, so it resolves from apps/web. design/handoff/tokens.css is the single
+      token source: it defines the --ef-* values, the shadcn names and the @theme utilities
+      (bg-ink, text-text-2, rounded-card, font-display ...).
    2. The marketing layer below adds only what the marketing pages need and the product tokens do not have.
    Values that equal a product token use the product token (ink, ink-2, text-2, green, green-600). */
+@import "tailwindcss";
 @import "../../../../design/handoff/tokens.css";
 
 /* Data and scripts are not Tailwind sources. */
