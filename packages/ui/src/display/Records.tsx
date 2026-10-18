@@ -966,6 +966,10 @@ export type UnmergeState =
 			intro: ReactNode;
 			/** What goes back: detail rows and record counts. */
 			rows: { label: ReactNode; value: ReactNode }[];
+			/** The check the feature ran: "Nothing changed since the merge". */
+			check: ReactNode;
+			/** "The merge and the Unmerge both stay in the history." */
+			footnote?: ReactNode;
 			onCancel: () => void;
 			onUnmerge: () => void;
 			pending?: boolean;
@@ -1030,6 +1034,13 @@ export function UnmergePanel(props: UnmergeState & { className?: string }) {
 							</div>
 						))}
 					</dl>
+					<p className="mt-4 flex items-center gap-2.5 text-sm font-semibold text-green-700">
+						<span aria-hidden="true" className={cn("grid size-7 place-items-center rounded-full", TINT.green)}>
+							<Icon icon={Tick02Icon} size={16} />
+						</span>
+						{props.check}
+					</p>
+					{props.footnote ? <p className="mt-2 text-xs text-text-3">{props.footnote}</p> : null}
 					<div className="mt-5 flex flex-wrap justify-end gap-2.5">
 						<Button variant="secondary" onClick={props.onCancel} disabled={props.pending}>
 							Cancel
@@ -1092,8 +1103,8 @@ export function UnmergePanel(props: UnmergeState & { className?: string }) {
 					<dl className="mt-3 flex flex-col">
 						{props.changes.map((c) => (
 							<div key={c.label + c.value} className="flex items-center justify-between gap-3 py-2">
-								<dt className="text-text-2">{c.label}</dt>
-								<dd className="text-sm font-semibold text-ink">{c.value}</dd>
+								<dt className="min-w-0 text-text-2">{c.label}</dt>
+								<dd className="text-sm font-semibold whitespace-nowrap text-ink">{c.value}</dd>
 							</div>
 						))}
 					</dl>

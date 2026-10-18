@@ -571,6 +571,16 @@ export function RecordsSection({ index }: { index: number }) {
 						/>
 					</div>
 				</Specimen>
+				<Specimen title="What moves to James">
+					<MergeMoves
+						items={[
+							{ label: "Meeting attendance", count: 1, icon: Calendar03Icon },
+							{ label: "Tasks", count: 1, icon: Task01Icon },
+							{ label: "Emails received", count: 2, icon: Mail01Icon },
+							{ label: "Notes", count: 0, icon: Note01Icon },
+						]}
+					/>
+				</Specimen>
 				<Specimen title="Where are you now?" description="Pick the phase you are in now">
 					<PhaseOptions label="Current phase" phases={PHASES} value={phase} onValueChange={setPhase} />
 				</Specimen>
@@ -605,17 +615,7 @@ export function RecordsSection({ index }: { index: number }) {
 					/>
 				</Specimen>
 			</Grid>
-			<Grid cols={4} className="mt-5">
-				<Specimen title="What moves to James">
-					<MergeMoves
-						items={[
-							{ label: "Meeting attendance", count: 1, icon: Calendar03Icon },
-							{ label: "Tasks", count: 1, icon: Task01Icon },
-							{ label: "Emails received", count: 2, icon: Mail01Icon },
-							{ label: "Notes", count: 0, icon: Note01Icon },
-						]}
-					/>
-				</Specimen>
+			<Grid cols={3} className="mt-5">
 				<UnmergePanel
 					state="preview"
 					removed="Jim Okafor"
@@ -643,6 +643,8 @@ export function RecordsSection({ index }: { index: number }) {
 							value: "1 back to Jim",
 						},
 					]}
+					check="Nothing changed since the merge"
+					footnote="The merge and the Unmerge both stay in the history."
 					onCancel={() => undefined}
 					onUnmerge={() => undefined}
 				/>
