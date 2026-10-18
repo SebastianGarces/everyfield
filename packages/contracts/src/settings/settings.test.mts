@@ -615,3 +615,9 @@ test("AC:B03-017 changed timezone requires a committed replan intent and no-op c
 	assert.deepEqual(wire(C.plantTimezoneResult, noop), noop);
 	refuses(C.plantTimezoneResult, { ...noop, replanIntentId: id });
 });
+
+test("INV-settings-timezone: a saved personal timezone always carries a confirmed zone and revision", () => {
+	const saved = { preference: { status: "confirmed", timeZone: "America/Chicago", revision: "8" } };
+	assert.deepEqual(wire(N.personalTimezoneResult, saved), saved);
+	refuses(N.personalTimezoneResult, { preference: { status: "unconfirmed" } });
+});

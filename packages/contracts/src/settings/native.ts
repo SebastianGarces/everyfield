@@ -68,5 +68,5 @@ export const personalTimezonePreview = z
 		expiresAt: instant,
 	})
 	.refine((v) => v.expiresAt > v.asOf);
-export const personalTimezoneResult = z.strictObject({ preference: timezonePreference });
+export const personalTimezoneResult = z.strictObject({ preference: timezonePreference.options[1] });
 export type DeletionStatus = z.infer<typeof deletionStatus>;
