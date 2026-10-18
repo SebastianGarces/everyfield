@@ -38,6 +38,34 @@ replaced, review the host allowlist in `scripts/reset-dev.ts` before using it.
 Production's host fragment is `ep-gentle-dust-b8tvq4ha`; never add it to that list.
 Credentials belong only in ignored local files and provider environment settings.
 
+Discovery conversion, first-seat acceptance and relationship ending share the account
+row as their arbiter. Use this shared lock order and its non-blocking rules:
+
+1. Lock the subject account first. An organization ending a Discovery relationship
+   must lock that account too, before its profile or affiliation.
+2. Discovery operations lock the account's Discovery profile next, then affiliation
+   rows in UUID order.
+3. Resident invitation operations lock the source Person before its invitation.
+   This matches Person retirement and removal writers. Acceptance first locks the
+   addressed account. Source-only inspection, administration and mail authorization
+   do not claim an account; they still lock Person before invitation.
+4. Resident acceptance looks up an existing affiliation with `FOR UPDATE NOWAIT`
+   after locking the invitation. Contention rolls back the transaction and returns
+   the retryable `temporary` result before grants or other effects. It never waits
+   for that earlier row while holding Person or invitation locks.
+5. Ordinary acceptance checks proof before locking conflicting active seat and
+   affiliation rows under the account lock. If either exists, it refuses the whole
+   claim. Seat removal locks the target account before the target seat and session
+   revocation. Invitation and seat administration take their shared
+   `workspace-seats` advisory lock before row locks; it does not replace the
+   subject account lock.
+
+Recheck current lifecycle, conversion state, proof, seat and relationship revisions
+under the relevant locks. Keep the retirement/revocation/claim and affiliation
+contention regressions. The `NOWAIT` rule refuses contention before effects; do not
+retry a deadlock as a substitute for the shared order. Extend this list when a
+producer adds shared locks, rather than documenting a separate order.
+
 Drizzle declarations in `src/schema/tables.ts` own the modeled database structure.
 Append new columns at the end of an existing table declaration: PostgreSQL adds columns
 at the physical end, and the drift gate checks the order of live columns. Removing a
