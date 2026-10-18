@@ -20231,6 +20231,245 @@
         },
         "event": null
       }
+    },
+    {
+      "id": "PLATFORM-001",
+      "requirement": "REQ-KNOW-078",
+      "requirement_ids": [
+        "REQ-KNOW-078"
+      ],
+      "feature_ids": [
+        "DOC-015",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-015--DOC-015",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-003"
+      ],
+      "status": "future-not-run",
+      "description": "Producer proof on real Next requests and PostgreSQL sessions: exact-origin denial, expired/revoked session and forged scope, required-write rollback, lease reclaim and late-worker fence. Domain registration and full outbox integration remain downstream.",
+      "layers": [
+        "request",
+        "integration",
+        "sql"
+      ],
+      "given": {
+        "input": {
+          "fixture_type": "test_setup",
+          "runtime": "node24-next",
+          "session_store": "postgres",
+          "fault": "required_history_write"
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T08:00:00Z",
+        "zone": "UTC"
+      },
+      "action": {
+        "operation": "sql.inspectConstraints",
+        "arguments": {}
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "second_auth_service": false,
+          "cookie_cache": false,
+          "transaction_rollback": true,
+          "late_worker_publish": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "PLATFORM-002",
+      "requirement": "REQ-KNOW-080",
+      "requirement_ids": [
+        "REQ-KNOW-080"
+      ],
+      "feature_ids": [
+        "DOC-015",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-015--DOC-015",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-003"
+      ],
+      "status": "future-not-run",
+      "description": "Producer private storage proof with immutable exact-object binding, fresh authority at issue/finalize/reconnect, signature and checksum validation, finite presign expiry and no public caching. Office/PDF previews are inert text. Old bearer URLs retain only bounded expiry.",
+      "layers": [
+        "request",
+        "integration",
+        "output-inspection",
+        "configuration"
+      ],
+      "given": {
+        "input": {
+          "fixture_type": "test_setup",
+          "owner": "P",
+          "other_owner": "Q",
+          "object": "synthetic-object",
+          "format": "pdf",
+          "authority_revoked": true
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T08:00:00Z",
+        "zone": "UTC"
+      },
+      "action": {
+        "operation": "configuration.inspectMixedEnvironment",
+        "arguments": {
+          "object": "synthetic-object"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "new_url_after_revoke": null,
+          "client_key_accepted": false,
+          "cache_control": "private, no-store",
+          "max_url_ttl_seconds": 60
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "PLATFORM-003",
+      "requirement": "REQ-KNOW-013",
+      "requirement_ids": [
+        "REQ-KNOW-013",
+        "REQ-KNOW-014",
+        "REQ-KNOW-081",
+        "REQ-KNOW-083",
+        "REQ-KNOW-084",
+        "REQ-KNOW-086",
+        "REQ-KNOW-087",
+        "REQ-KNOW-088"
+      ],
+      "feature_ids": [
+        "DOC-015",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-015--DOC-015",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-003"
+      ],
+      "status": "future-not-run",
+      "description": "Producer readiness refuses customer-data clearance without actual bucket/key isolation, seven-day history, encrypted daily copies, coherent matching DB/bytes restore and measured recovery evidence. Vendor naming/config assertions are insufficient. No provider setup is performed.",
+      "layers": [
+        "configuration",
+        "output-inspection"
+      ],
+      "given": {
+        "input": {
+          "fixture_type": "test_setup",
+          "provider": "Tigris",
+          "backup_bucket_separate": true,
+          "operator_evidence": null
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T08:00:00Z",
+        "zone": "UTC"
+      },
+      "action": {
+        "operation": "configuration.inspectMixedEnvironment",
+        "arguments": {}
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "customer_data_allowed": false,
+          "recovery_proven": false,
+          "disaster_sla": null,
+          "provider_setup_authorized": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "PLATFORM-004",
+      "requirement": "REQ-KNOW-082",
+      "requirement_ids": [
+        "REQ-KNOW-082"
+      ],
+      "feature_ids": [
+        "DOC-015",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-015--DOC-015",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-003"
+      ],
+      "status": "future-not-run",
+      "description": "Development proof uses synthetic inputs and existing services. Missing concrete spending approval cannot enable a new paid service; reported free allowances never imply unlimited capacity.",
+      "layers": [
+        "configuration",
+        "output-inspection"
+      ],
+      "given": {
+        "input": {
+          "fixture_type": "test_setup",
+          "synthetic": true,
+          "paid_approval": null
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T08:00:00Z",
+        "zone": "UTC"
+      },
+      "action": {
+        "operation": "configuration.inspectMixedEnvironment",
+        "arguments": {}
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "new_paid_commitment_allowed": false,
+          "unlimited_free_usage_claimed": false
+        },
+        "event": null
+      }
     }
   ]
 }

@@ -9,7 +9,10 @@
     "lint": "eslint --max-warnings=0 . && node scripts/render-share-images.mjs --check && node scripts/render-mesh-images.mjs --check && node scripts/check-color-literals.mjs",
     "typecheck": "tsc --noEmit",
     "share-images": "node scripts/render-share-images.mjs",
-    "mesh-images": "node scripts/render-mesh-images.mjs"
+    "mesh-images": "node scripts/render-mesh-images.mjs",
+    "test:unit": "node --conditions=react-server --test ../../tests/integration/platform/unit.test.mts",
+    "test:platform": "node --conditions=react-server --env-file-if-exists=.env.local --test ../../tests/integration/platform/requests.test.mts",
+    "typecheck:ts7": "tsgo --noEmit"
   },
   "dependencies": {
     "@everyfield/db": "workspace:*",
@@ -22,7 +25,14 @@
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "server-only": "0.0.1",
-    "zod": "4.6.7"
+    "zod": "4.6.7",
+    "@everyfield/contracts": "workspace:*",
+    "better-auth": "1.7.10",
+    "pg": "8.16.3",
+    "@aws-sdk/client-s3": "3.1152.0",
+    "@aws-sdk/s3-request-presigner": "3.1152.0",
+    "fflate": "0.8.3",
+    "pdfjs-dist": "6.4.299"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",
@@ -34,6 +44,8 @@
     "playwright": "1.56.1",
     "sharp": "0.35.5",
     "tailwindcss": "4.3.3",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "@types/pg": "8.15.6",
+    "@typescript/native-preview": "7.0.0-dev.20260707.2"
   }
 }
