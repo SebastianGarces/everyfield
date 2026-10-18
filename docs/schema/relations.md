@@ -195,6 +195,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `generated_document(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `household(plant_id)` | `plant(id)` | restrict |  |
 | `household(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
+| `identity_operation_result(operation_id)` | `operation(id)` | no_action |  |
 | `identity_proof(account_id)` | `account(id)` | restrict |  |
 | `identity_proof(deletion_subject_id)` | `lifecycle_witness(id)` | restrict | Cancellation proof names the exact deletion witness; addressed proof boundary locks the witness and validates requester, subject, purpose, original deadline and current cancellation authority. |
 | `interview(plant_id)` | `plant(id)` | restrict |  |

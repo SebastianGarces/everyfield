@@ -1597,6 +1597,7 @@
     "WP007-KNOW-112": "docs/acceptance/identity-access.json",
     "WP007-MUL-003": "docs/acceptance/identity-access.json",
     "WP007-MUL-016": "docs/acceptance/identity-access.json",
+    "WP008-MUL-004-ATOMIC": "docs/acceptance/people.json",
     "WP009-MUL-006": "docs/acceptance/people.json",
     "WP010-IDN-012": "docs/acceptance/identity-access.json",
     "WP010-KNOW-069": "docs/acceptance/knowledge.json",
@@ -2677,6 +2678,7 @@
         "admission_attempt",
         "early_access_attempt",
         "early_access_request",
+        "identity_operation_result",
         "organization_operation_result",
         "people_column",
         "people_history",
@@ -3200,6 +3202,7 @@
         "auth_user",
         "auth_verification",
         "event",
+        "identity_operation_result",
         "organization_person_removal",
         "people_history",
         "people_result",
@@ -3899,6 +3902,7 @@
         "event",
         "evidence_link",
         "finding",
+        "identity_operation_result",
         "identity_proof",
         "invitation",
         "job",
@@ -3975,7 +3979,8 @@
         "TARGET-IDN-019",
         "TARGET-IDN-020",
         "TARGET-IDN-030",
-        "TEN-005"
+        "TEN-005",
+        "WP008-MUL-004-ATOMIC"
       ],
       "own_operation_ids": [
         "residency.invite",
@@ -4130,7 +4135,8 @@
         "WP004-IDN-029",
         "WP005-API-STAGED",
         "WP006-API-IDN-029",
-        "WP006-IDN-029"
+        "WP006-IDN-029",
+        "WP008-MUL-004-ATOMIC"
       ],
       "context_case_ids": [
         "CASE-NTF-013",
@@ -4207,6 +4213,7 @@
         "WP-090"
       ],
       "producer_table_names": [
+        "identity_operation_result",
         "invitation",
         "record",
         "residency_link",
@@ -4511,6 +4518,7 @@
       "consumer_table_names": [
         "account",
         "discovery",
+        "identity_operation_result",
         "operation",
         "organization",
         "organization_person_removal",
@@ -5396,6 +5404,7 @@
       "consumer_table_names": [
         "account",
         "event",
+        "identity_operation_result",
         "operation",
         "organization",
         "person_merge",
@@ -6734,6 +6743,7 @@
         "effect",
         "event",
         "evidence_link",
+        "identity_operation_result",
         "operation",
         "people_history",
         "people_result",
@@ -7158,6 +7168,7 @@
         "attestation",
         "commitment",
         "four_cs",
+        "identity_operation_result",
         "interview",
         "meeting",
         "participation",
@@ -8580,6 +8591,7 @@
         "task"
       ],
       "consumer_table_names": [
+        "identity_operation_result",
         "job",
         "mail",
         "notice",
@@ -17714,6 +17726,7 @@
       ],
       "consumer_table_names": [
         "event",
+        "identity_operation_result",
         "operation",
         "platform_grant",
         "seat",
@@ -26777,6 +26790,7 @@
         "WP007-KNOW-112",
         "WP007-MUL-003",
         "WP007-MUL-016",
+        "WP008-MUL-004-ATOMIC",
         "WP009-MUL-006",
         "WP010-IDN-012",
         "WP010-KNOW-069",
@@ -28361,6 +28375,7 @@
         "four_cs",
         "generated_document",
         "household",
+        "identity_operation_result",
         "identity_proof",
         "interview",
         "invitation",
@@ -32821,6 +32836,7 @@
         "WP007-KNOW-112",
         "WP007-MUL-003",
         "WP007-MUL-016",
+        "WP008-MUL-004-ATOMIC",
         "WP009-MUL-006",
         "WP010-IDN-012",
         "WP010-KNOW-069",
@@ -34400,6 +34416,7 @@
         "four_cs",
         "generated_document",
         "household",
+        "identity_operation_result",
         "interview",
         "invitation",
         "job",
@@ -44228,6 +44245,7 @@
         "WP007-API-MUL-016",
         "WP007-MUL-003",
         "WP007-MUL-016",
+        "WP008-MUL-004-ATOMIC",
         "WP011-MUL-001",
         "WP011-MUL-005"
       ],
@@ -44365,6 +44383,7 @@
         "development_stage",
         "enrollment_milestone",
         "enrollment_plan",
+        "identity_operation_result",
         "invitation",
         "leadership_conversation",
         "organization_person_removal",

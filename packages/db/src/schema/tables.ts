@@ -4311,6 +4311,7 @@ export const invitation = pgTable(
 			.notNull()
 			.default(sql`1`),
 		resident_person_id: uuid("resident_person_id"),
+		inviter_description: text("inviter_description").notNull().default("EveryField invitation"),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "invitation_fk_0", columns: [table.tenant_id], foreignColumns: [tenant.id] })
@@ -6430,6 +6431,24 @@ export const organization = pgTable(
 		check("organization_ck_2", sql`(length(btrim(name)) > 0)`),
 		check("organization_ck_3", sql`(id <> '00000000-0000-0000-0000-000000000000'::uuid)`),
 		check("organization_timezone_iana", sql`(timezone = ANY (${canonicalZones7}))`),
+	],
+);
+export const identity_operation_result = pgTable(
+	"identity_operation_result",
+	{
+		operation_id: uuid("operation_id").notNull(),
+		receipt: jsonb("receipt").notNull(),
+		result: jsonb("result").notNull(),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({
+			name: "identity_operation_result_operation_id_fkey",
+			columns: [table.operation_id],
+			foreignColumns: [operation.id],
+		})
+			.onDelete("no action")
+			.onUpdate("no action"),
+		primaryKey({ name: "identity_operation_result_pkey", columns: [table.operation_id] }),
 	],
 );
 export const organization_operation_result = pgTable(
