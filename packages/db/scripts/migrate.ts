@@ -1,4 +1,4 @@
-import { database } from "../src/index.js";
+import { database, closeDatabase } from "../src/client.js";
 import { migrate } from "../src/schema/migrate.js";
 const db = database();
 try {
@@ -7,4 +7,4 @@ try {
 } catch {
   console.error("Database migration failed. No credential values were logged.");
   process.exitCode = 1;
-} finally { await db.end(); }
+} finally { await closeDatabase(db); }
