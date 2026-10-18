@@ -32,6 +32,7 @@ before(async()=>{await setup();const user=randomUUID();await db.query("INSERT IN
 test('INV-notification: resync replay retains due intents and changed source cancels already-claimed obsolete mail',async()=>{
  const sync=()=>transaction(runtime,tx=>notifications.syncTaskReminders(tx,{base:base(),due:{kind:'date_only',date:'2026-10-19',zone:'America/Chicago'},open:true,asOf:'2026-10-18T12:00:00Z'}));
  const first=await sync();assert.equal(first.length,2);assert.deepEqual(await sync(),first);
+ assert.deepEqual(await transaction(runtime,tx=>notifications.syncTaskReminders(tx,{base:base(),due:{kind:'date_only',date:'2026-10-19',zone:'America/Chicago'},open:true,asOf:'2026-10-19T14:00:00Z'})),first);
  await db.query("UPDATE job SET eligible_at='2026-01-01'");const [claim]=await claimDue(runtime,['mail']);assert.equal(claim.kind,'mail');
  await transaction(runtime,async tx=>{await tx.query("UPDATE task SET status='complete',completed_at=now(),revision=2 WHERE id=$1",[task]);
   assert.deepEqual(await notifications.syncTaskReminders(tx,{base:base('2'),due:{kind:'undated'},open:false,asOf:'2026-10-18T12:00:00Z'}),[]);});

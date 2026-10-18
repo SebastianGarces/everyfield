@@ -1,6 +1,7 @@
 import 'server-only';
 import type { PoolClient } from 'pg';
 import { z } from 'zod';
+import {instant} from '@everyfield/contracts/common';
 import { createMailService, type MailIntent } from './mail.ts';
 import { taskReminderTimes,meetingReminderTimes } from './calendar.ts';
 export const category=z.enum(['task_due','task_overdue','meeting_announcement','meeting_reminder','planter_digest',
@@ -109,19 +110,21 @@ export function createNotificationService(config:{mail:ReturnType<typeof createM
   // Actual task/meeting producers run these in the mutation transaction, after their new revision.
   async function syncTaskReminders(tx:PoolClient,input:{base:Omit<NoticeInput,'category'|'occurrence'|'eligibleAt'>;
     due:Parameters<typeof taskReminderTimes>[0];open:boolean;asOf:string}) {
+    const asOf=instant.parse(input.asOf);
     await cancelForEntity(tx,input.base.owner.id,input.base.source,input.open);
     if(!input.open)return [];
     const result=[];
-    for(const t of taskReminderTimes(input.due))if(t.at>=input.asOf)result.push(await enqueue(tx,{...input.base,
+    for(const t of taskReminderTimes(input.due))if(t.at>=asOf)result.push(await enqueue(tx,{...input.base,
       category:t.slot==='due'?'task_due':'task_overdue',occurrence:t.slot,eligibleAt:t.at}));
     return result;
   }
   async function syncMeetingReminders(tx:PoolClient,input:{base:Omit<NoticeInput,'category'|'occurrence'|'eligibleAt'>;
     date:string;time:string;zone:string;scheduled:boolean;startsAt:string;asOf:string}) {
-    await cancelForEntity(tx,input.base.owner.id,input.base.source,input.scheduled&&input.startsAt>input.asOf);
-    if(!input.scheduled||input.startsAt<=input.asOf)return [];
+    const asOf=instant.parse(input.asOf),startsAt=instant.parse(input.startsAt);
+    await cancelForEntity(tx,input.base.owner.id,input.base.source,input.scheduled&&startsAt>asOf);
+    if(!input.scheduled||startsAt<=asOf)return [];
     const result=[];
-    for(const t of meetingReminderTimes(input.date,input.time,input.zone))if(t.at>=input.asOf)result.push(await enqueue(tx,{...input.base,
+    for(const t of meetingReminderTimes(input.date,input.time,input.zone))if(t.at>=asOf)result.push(await enqueue(tx,{...input.base,
       category:'meeting_reminder',occurrence:t.slot,eligibleAt:t.at}));
     return result;
   }
