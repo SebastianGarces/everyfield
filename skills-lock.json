@@ -1,6 +1,15 @@
 {
   "version": 1,
   "skills": {
+    "agent-browser": {
+      "source": "vercel-labs/agent-browser",
+      "sourceType": "github",
+      "skillPath": "skills/agent-browser/SKILL.md",
+      "upstreamVersion": "v0.39.1",
+      "upstreamCommit": "1165952d74ceed98fdc2dd97190ad41f44dd0e24",
+      "policy": "verbatim: do not edit; update together with the pinned agent-browser CLI version in verify-preview; put EveryField rules in .agents/roles/ or workflow skills",
+      "sha256": "3a7520e64de2dfaa516b6721c001e84e06e3c06a187b82af029ae721540ebfac"
+    },
     "better-accessibility": {
       "source": "jakubkrehel/skills",
       "sourceType": "github",
