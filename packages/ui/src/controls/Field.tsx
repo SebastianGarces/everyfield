@@ -79,6 +79,12 @@ export const inputFocus =
 	"has-[:focus-visible]:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)]";
 export const inputInvalid =
 	"shadow-[0_0_0_1px_var(--ef-magenta-500),0_0_0_4px_color-mix(in_srgb,var(--ef-magenta-500)_18%,transparent)]";
+/**
+ * Keyboard focus on an invalid field (D38, WCAG 2.4.7): the magenta edge stays and a solid 2px focus ring replaces the
+ * soft halo, so focus stays visible while the field is still marked invalid.
+ */
+const inputInvalidFocus = "has-[:focus-visible]:shadow-[0_0_0_1px_var(--ef-magenta-500),0_0_0_3px_var(--ef-focus)]";
+const textareaInvalidFocus = "focus-visible:shadow-[0_0_0_1px_var(--ef-magenta-500),0_0_0_3px_var(--ef-focus)]";
 
 type InputProps = Omit<ComponentPropsWithRef<"input">, "size"> & {
 	/** A leading icon, decorative. */
@@ -99,7 +105,14 @@ export function Input({ icon, trailing, invalid, boxClassName, className, id, ..
 	});
 	const isInvalid = control["aria-invalid"] === true || control["aria-invalid"] === "true";
 	return (
-		<div className={cn(inputBox, isInvalid ? inputInvalid : inputFocus, props.disabled && "opacity-60", boxClassName)}>
+		<div
+			className={cn(
+				inputBox,
+				isInvalid ? cn(inputInvalid, inputInvalidFocus) : inputFocus,
+				props.disabled && "opacity-60",
+				boxClassName,
+			)}
+		>
 			{icon ? <Icon icon={icon} size={18} className="text-text-3" /> : null}
 			<input
 				{...props}
@@ -138,7 +151,7 @@ export function Textarea({
 			className={cn(
 				"min-h-24 w-full resize-y rounded-md bg-surface-raised px-3.5 py-3 text-md leading-normal text-ink shadow-[0_0_0_1px_var(--ef-line-2)] outline-none transition-[box-shadow] duration-150 placeholder:text-text-3 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60",
 				isInvalid
-					? inputInvalid
+					? cn(inputInvalid, textareaInvalidFocus)
 					: "focus-visible:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)]",
 				className,
 			)}
