@@ -4,6 +4,12 @@ import { join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 export const source=resolve(import.meta.dirname,'../../..');
 export function fixture() {
+ // Git starts detached auto-maintenance after commits and pushes. It would write into the fixture while
+ // close() removes it, so every git process this test starts runs with auto-maintenance off.
+ const n=Number(process.env.GIT_CONFIG_COUNT??0);
+ const scoped:Record<string,string>={GIT_CONFIG_COUNT:String(n+1),[`GIT_CONFIG_KEY_${n}`]:'maintenance.auto',[`GIT_CONFIG_VALUE_${n}`]:'false'};
+ const saved=Object.fromEntries(['PATH','EVF_FAKE_GH_STATE',...Object.keys(scoped)].map(k=>[k,process.env[k]]));
+ Object.assign(process.env,scoped);
  const root=mkdtempSync(join(tmpdir(),'evf-regression-'));
  cpSync(join(source,'docs'),join(root,'docs'),{recursive:true});
  cpSync(join(source,'design/handoff'),join(root,'design/handoff'),{recursive:true});
@@ -73,8 +79,7 @@ if(result===undefined){fs.writeFileSync(p,JSON.stringify(s));throw Error('Unexpe
 fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(typeof result==='string'?result:JSON.stringify(result));
 `);chmodSync(fake,0o755);
  writeFileSync(join(root,'.gitignore'),'fake-bin/\ngh-state.json\n');git('add','docs','design/handoff','AGENTS.md','README.md','evf.config.json','.gitignore','.agents/skills/everyfield-pr','tools/evf/templates');git('commit','-qm','Disposable context');
- const oldPath=process.env.PATH,oldState=process.env.EVF_FAKE_GH_STATE;
- process.env.PATH=bins+':'+oldPath;process.env.EVF_FAKE_GH_STATE=statePath;
+ process.env.PATH=bins+':'+saved.PATH;process.env.EVF_FAKE_GH_STATE=statePath;
  return {root,cfg,git,
   getState:()=>JSON.parse(readFileSync(statePath,'utf8')),
   setState:(s:unknown)=>writeFileSync(statePath,JSON.stringify(s)),
@@ -88,6 +93,6 @@ fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(typeof result==='stri
    writeFileSync(progressPath,JSON.stringify(progress));const p=join(root,'docs/plan/release-gates.json');const d=JSON.parse(readFileSync(p,'utf8'));for(const g of d.gates)g.status=g.id==='G-AUTH'?'authorized':g.id==='G-WORKFLOW'?'reconciled-independent-review':'approved';writeFileSync(p,JSON.stringify(d));writeFileSync(join(root,'evf.config.json'),JSON.stringify(cfg));},
   task:(slug='wp-001')=>{mkdirSync(join(root,'.worktrees'),{recursive:true});git('worktree','add','-b','task/'+slug,join(root,'.worktrees',slug),'main');return join(root,'.worktrees',slug);},
   commit:()=>{git('add','docs','evf.config.json');git('commit','-qm','Reviewed fixture policy');},
-  close:()=>{process.env.PATH=oldPath;if(oldState===undefined)delete process.env.EVF_FAKE_GH_STATE;else process.env.EVF_FAKE_GH_STATE=oldState;rmSync(root,{recursive:true,force:true});}
+  close:()=>{for(const [k,v] of Object.entries(saved))if(v===undefined)delete process.env[k];else process.env[k]=v;rmSync(root,{recursive:true,force:true});}
  };
 }

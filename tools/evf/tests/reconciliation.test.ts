@@ -758,3 +758,16 @@ test('BUG-wp003-shared-report: each check keeps its own report and only AC: repo
   assert.deepEqual(JSON.parse(readFileSync(alike.checks[2].log,'utf8')).missing,ids.slice(-1));
  }finally{f.close();}
 });
+
+test('BUG-ops6-fixture-cleanup: fixture git starts no detached maintenance, so close removes the whole fixture',()=>{
+ // Git's detached auto-maintenance kept writing into a fixture's .git while close() removed it (ENOTEMPTY on CI).
+ const f=fixture(),traces=mkdtempSync(join(tmpdir(),'evf-trace-')),trace=join(traces,'commit.json');try{
+  f.git('config','gc.auto','1');
+  for(let i=0;i<50;i++)writeFileSync(join(f.root,`loose-${i}.txt`),`loose object ${i}`);
+  f.git('add','.');
+  execFileSync('git',['-C',f.root,'commit','-qm','Many loose objects'],{env:{...process.env,GIT_TRACE2_EVENT:trace}});
+  const children=readFileSync(trace,'utf8').trim().split('\n').map(line=>JSON.parse(line)).filter(e=>e.event==='child_start').map(e=>e.argv.join(' '));
+  assert.deepEqual(children.filter(argv=>argv.includes('maintenance')||argv.includes('gc')),[]);
+ }finally{f.close();rmSync(traces,{recursive:true,force:true});}
+ assert.equal(existsSync(f.root),false);
+});
