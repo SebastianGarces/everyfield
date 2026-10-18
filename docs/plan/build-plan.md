@@ -44,7 +44,7 @@ Each package stores its estimate factors in the DAG. Counts use owned selectors,
 | WP-088 | Design foundations and AppShell | 0 | 0 | 0 | 0 | 3 |
 | WP-089 | Shared controls, surfaces and overlays | 0 | 0 | 0 | 0 | 4 |
 | WP-090 | Shared data, content and domain display components | 0 | 0 | 0 | 0 | 4.5 |
-| WP-005 | Better Auth identity/recovery | 7 | 13 | 13 | 10 | 2.5 |
+| WP-005 | Better Auth identity/recovery | 7 | 13 | 15 | 10 | 2.5 |
 | WP-006 | Tenant and independent grant policies C1 | 8 | 7 | 20 | 6 | 2 |
 | WP-007 | Organizations and consent relationships | 10 | 19 | 53 | 9 | 2.5 |
 | WP-011 | People core and account links | 15 | 37 | 20 | 3 | 2.5 |
@@ -129,11 +129,11 @@ Each package stores its estimate factors in the DAG. Counts use owned selectors,
 | WP-100 | My residency and consented progress | 2 | 3 | 2 | 0 | 3.5 |
 | WP-101 | Pipeline and development Evry adapters | 1 | 15 | 1 | 0 | 4 |
 | WP-102 | Multiplication privacy, race and parity integration | 17 | 0 | 17 | 0 | 5.5 |
-| WP-056 | Cross-module race/privacy/correction integration | 0 | 0 | 1150 | 0 | 15 |
+| WP-056 | Cross-module race/privacy/correction integration | 0 | 0 | 1152 | 0 | 15 |
 | WP-094 | Core browser/file/native-Evry parity integration | 4 | 0 | 6 | 0 | 1.5 |
 | WP-095 | Knowledge browser/file/native-Evry parity integration | 7 | 0 | 8 | 0 | 1.5 |
 | WP-096 | Intelligence browser/file/native-Evry parity integration | 3 | 0 | 18 | 0 | 1.5 |
-| WP-057 | Full target browser/file/capability parity gate | 0 | 0 | 1150 | 5 | 14.5 |
+| WP-057 | Full target browser/file/capability parity gate | 0 | 0 | 1152 | 5 | 14.5 |
 | WP-058 | Fresh bootstrap and release rehearsal | 12 | 0 | 29 | 0 | 2 |
 
 ## Package splits
