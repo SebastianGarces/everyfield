@@ -6,9 +6,9 @@ import type * as R from "./results.ts";
 type Boundary<I extends z.ZodType, O extends z.ZodType> = { input: z.infer<I>; output: z.infer<O> };
 export interface OrganizationOperations {
   "associations.invite": Boundary<typeof Q.inviteRelationshipRequest, typeof R.invitationResult>;
-  "associations.acceptInvitation": Boundary<typeof Q.respondInvitationRequest, typeof R.invitationDecisionResult>;
+  "associations.acceptInvitation": Boundary<typeof Q.acceptInvitationRequest, typeof R.acceptedInvitationResult>;
   "associations.respondInvitation": Boundary<typeof Q.respondInvitationRequest, typeof R.invitationDecisionResult>;
-  "associations.declineInvitation": Boundary<typeof Q.declineInvitationRequest, typeof R.invitationDecisionResult>;
+  "associations.declineInvitation": Boundary<typeof Q.declineInvitationRequest, typeof R.declinedInvitationResult>;
   "associations.resendInvitation": Boundary<typeof Q.invitationCommandRequest, typeof R.invitationResult>;
   "associations.revokeInvitation": Boundary<typeof Q.invitationCommandRequest, typeof R.mutationResult>;
   "associations.end": Boundary<typeof Q.endRelationshipRequest, typeof R.mutationResult>;
@@ -29,6 +29,9 @@ export interface OrganizationOperations {
 // Re-read session, lifecycle, exact typed endpoint/current seat or self link,
 // revisions and consent inside it. Native/Evry use identical domain inputs;
 // trusted reviewed effects and original-address proof admission stay separate.
+// History reads authorize their whole requested scope and each returned pair.
+// Protected end reasons are withheld for Member and purpose-limited readers
+// regardless of existence; only an entitled reader receives recorded text.
 // First acceptance discloses exact-org defaults; rejoin preserves saved choices.
 // Commit facts+history+safe audit+receipt+required notice/invalidation intents
 // together. Replays return originals. Provider calls run after commit. Expiry,

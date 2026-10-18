@@ -24,12 +24,14 @@ test("INV-tenancy: relationship requests admit exactly the five endpoint kinds a
     assert.deepEqual(wire(C.inviteRelationshipRequest, input), command({ pair: endpoints, recipientEmail: "admin@example.test" }));
     const end = command({ pair: endpoints, relationshipId: id, confirmed: true, reason: null });
     assert.deepEqual(wire(C.endRelationshipRequest, end), end);
-    const history = { pair: endpoints, after: id };
+    const history = { organization: endpoints.organization, pair: endpoints, after: id };
     assert.deepEqual(wire(C.relationshipHistoryRequest, history), history);
   }
   for (const invalid of [
     { kind: "sending_church", subject: network, organization: church },
     { kind: "sending_church", subject: church, organization: church },
+    { kind: "sending_church", subject: network, organization: { ...network, id: other } },
+    { kind: "sending_church", subject: church, organization: { ...network, id: church.id } },
     { ...pair, subject: { kind: "account", id } },
     { ...pair, organization: { ...church, id } },
     { ...pair, organization: plant }, { ...pair, organization: { kind: "organization", id } },
@@ -145,10 +147,11 @@ test("INV-privacy: coarse notices and oversight lines omit restricted toggles, n
     refuses(C.relationshipNotice, { ...notice, ...extra });
     refuses(C.oversightActivityLine, { ...line, ...extra });
   }
-  const history = { status: "available", pair, items: [{ id, event: "ended", occurredAt: "2026-10-18T12:00:00.000Z",
+  const history = { status: "available", scope: { plant }, activeRelationships: [], items: [{ id, pair, event: "ended", reason: { status: "withheld" }, occurredAt: "2026-10-18T12:00:00.000Z",
     recordedAt: "2026-10-18T12:00:00.000Z", actor: { kind: "deleted_account", token: "scope-local-token" }, sourceInvitationId: null }], next: null, completeness: "partial" };
   assert.deepEqual(wire(C.relationshipHistoryResult, history), history);
   refuses(C.relationshipHistoryResult, { ...history, items: [{ ...history.items[0], reason: "PRIVATE" }] });
+  refuses(C.relationshipHistoryResult, { ...history, items: [{ ...history.items[0], privateCare: "PRIVATE" }] });
 });
 
 test("INV-privacy: committed invitation results carry safe C0 receipts and no proof or delivery claim", () => {
@@ -165,10 +168,46 @@ test("INV-privacy: committed invitation results carry safe C0 receipts and no pr
   assert.deepEqual(wire(C.invitationDecisionResult, { status: "accepted", relationship, receipt }), { status: "accepted", relationship, receipt });
   const declined = { status: "declined", invitationId: id, receipt };
   assert.deepEqual(wire(C.invitationDecisionResult, declined), declined);
+  assert.deepEqual(wire(C.declinedInvitationResult, declined), declined);
+  refuses(C.acceptedInvitationResult, declined);
+  assert.deepEqual(wire(C.acceptedInvitationResult, { status: "accepted", relationship, receipt }), { status: "accepted", relationship, receipt });
+  refuses(C.declinedInvitationResult, { status: "accepted", relationship, receipt });
   refuses(C.relationshipProjection, { ...relationship, endedAt: "2026-10-17T12:00:00.000Z" });
   const profile = { status: "available", organization: church, revision: "7", timeZone: "UTC", profile: {
     name: "Church", city: null, stateProvince: null, country: null, description: null, contactEmail: null, contactPhone: null } };
   assert.deepEqual(wire(C.organizationProfileResult, profile), profile);
   refuses(C.organizationProfileResult, { ...profile, organization: plant });
   refuses(C.organizationProfileResult, { ...profile, profile: { ...profile.profile, billing: true } });
+});
+
+test("INV-relationships: subject and organization history reads keep independent active pairs and recorded end reasons", () => {
+  const otherPair = { ...pair, organization: network };
+  const filter = { plant, pair, after: id };
+  assert.deepEqual(wire(C.relationshipHistoryRequest, { plant }), { plant });
+  assert.deepEqual(wire(C.relationshipHistoryRequest, filter), filter);
+  const sendingPair = { kind: "sending_church", subject: church, organization: network };
+  for (const scope of [{ organization: church }, { organization: network }, { sendingChurch: church }]) {
+    const query = { ...scope, pair: sendingPair };
+    assert.deepEqual(wire(C.relationshipHistoryRequest, query), query);
+  }
+  const discoveryPair = { kind: "discovery", accountId: id, organization: church };
+  assert.deepEqual(wire(C.relationshipHistoryRequest, { discoveryAccountId: id, pair: discoveryPair }), { discoveryAccountId: id, pair: discoveryPair });
+  for (const query of [{}, { pair }, { plant, organization: church },
+    { plant: { ...plant, id: other }, pair }, { sendingChurch: network },
+    { organization: { ...church, id }, pair }, { discoveryAccountId: other, pair: discoveryPair }]) refuses(C.relationshipHistoryRequest, query);
+  const active = { id, pair, revision: "7", acceptedAt: "2026-10-18T12:00:00.000Z", endedAt: null };
+  const event = { id, pair, event: "ended", reason: { status: "available", value: "Partnership concluded" },
+    occurredAt: "2026-10-18T12:00:00.000Z", recordedAt: "2026-10-18T12:00:00.000Z",
+    actor: { kind: "account", accountId: id }, sourceInvitationId: null };
+  const result = { status: "available", scope: { plant }, activeRelationships: [active, { ...active, id: other, pair: otherPair }],
+    items: [event, { ...event, id: other, pair: otherPair, reason: { status: "withheld" } }], next: null, completeness: "complete" };
+  assert.deepEqual(wire(C.relationshipHistoryResult, result), result);
+  assert.deepEqual(wire(C.relationshipHistoryResult, { ...result, activeRelationships: [] }), { ...result, activeRelationships: [] });
+  refuses(C.relationshipHistoryResult, { ...result, activeRelationships: [{ ...active, endedAt: active.acceptedAt }] });
+  refuses(C.relationshipHistoryResult, { ...result, items: [{ ...event, pair: { ...pair, subject: { ...plant, id: other } } }] });
+  refuses(C.relationshipHistoryResult, { ...result, items: [{ ...event, reason: { status: "withheld", value: "PRIVATE" } }] });
+  const accept = command({ invitationId: id, proof: "original-address-proof", decision: "accept" });
+  assert.deepEqual(wire(C.acceptInvitationRequest, accept), accept);
+  refuses(C.acceptInvitationRequest, command({ invitationId: id, decision: "accept" }));
+  refuses(C.acceptInvitationRequest, { ...accept, input: { ...accept.input, decision: "decline" } });
 });

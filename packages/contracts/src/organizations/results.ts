@@ -2,7 +2,7 @@ import { z } from "zod";
 import { accountId, eventId, recordId, revision } from "../common/values.ts";
 import { instant, timeZone } from "../common/time.ts";
 import { receipt } from "../common/transaction.ts";
-import { organizationOwner, plantOwner, relationshipPair, residentChoices, sharingChoices } from "./subjects.ts";
+import { organizationOwner, plantOwner, relationshipPair, residentChoices, sharingChoices, relationshipHistoryScope, hasHistoryEndpoint } from "./subjects.ts";
 import { profileFields } from "./requests.ts";
 
 export const unavailableResult = z.strictObject({ status: z.literal("unavailable") });
@@ -15,10 +15,11 @@ export const invitationResult = z.strictObject({ status: z.literal("pending"), i
 // A committed response never claims mail delivery. Delivery/retry is outbox-owned.
 export const mutationResult = z.union([unavailableResult,
   z.strictObject({ status: z.literal("committed"), receipt })]);
-export const invitationDecisionResult = z.union([unavailableResult,
-  z.strictObject({ status: z.literal("accepted"), relationship: relationshipProjection, receipt }),
-  z.strictObject({ status: z.literal("declined"), invitationId: recordId, receipt }),
-]);
+const acceptedInvitation = z.strictObject({ status: z.literal("accepted"), relationship: relationshipProjection, receipt });
+const declinedInvitation = z.strictObject({ status: z.literal("declined"), invitationId: recordId, receipt });
+export const acceptedInvitationResult = z.union([unavailableResult, acceptedInvitation]);
+export const declinedInvitationResult = z.union([unavailableResult, declinedInvitation]);
+export const invitationDecisionResult = z.union([unavailableResult, acceptedInvitation, declinedInvitation]);
 
 const pairInfo = { plant: plantOwner, organization: organizationOwner,
   organizationDisplayName: z.string().trim().min(1).max(200), activeAffiliation: z.boolean() };
@@ -42,16 +43,25 @@ export const sharingDisclosure = z.discriminatedUnion("kind", [
 export const organizationProfileResult = z.union([unavailableResult,
   z.strictObject({ status: z.literal("available"), organization: organizationOwner, revision, profile: profileFields, timeZone: timeZone }),
 ]);
-// Minimal typed history is separate from current entitlement and protected reason.
+// Domain history is separate from current entitlement and central audit.
 const attribution = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("account"), accountId }),
   z.strictObject({ kind: z.literal("deleted_account"), token: z.string().min(1).max(200) }),
 ]);
 export const relationshipHistoryResult = z.union([unavailableResult,
-  z.strictObject({ status: z.literal("available"), pair: relationshipPair,
-    items: z.array(z.strictObject({ id: eventId, event: z.enum(["approved", "ended"]),
+  z.strictObject({ status: z.literal("available"), scope: relationshipHistoryScope,
+    activeRelationships: z.array(relationshipProjection.refine(value => value.endedAt === null)).max(100),
+    items: z.array(z.strictObject({ id: eventId, pair: relationshipPair, event: z.enum(["approved", "ended"]),
+      // Members and other purpose-limited readers get withheld regardless of
+      // whether a reason exists. Only entitled readers receive the recorded value.
+      reason: z.discriminatedUnion("status", [
+        z.strictObject({ status: z.literal("withheld") }),
+        z.strictObject({ status: z.literal("available"), value: z.string().max(1000).nullable() }),
+      ]),
       occurredAt: instant, recordedAt: instant, actor: attribution, sourceInvitationId: recordId.nullable() })).max(100),
-    next: recordId.nullable(), completeness: z.enum(["complete", "partial"]) }),
+    next: recordId.nullable(), completeness: z.enum(["complete", "partial"]) })
+    .refine(value => value.activeRelationships.every(row => hasHistoryEndpoint(value.scope, row.pair)) &&
+      value.items.every(row => hasHistoryEndpoint(value.scope, row.pair))),
 ]);
 export const residencySharingResult = z.union([unavailableResult,
   z.strictObject({ status: z.literal("active"), linkId: recordId, organization: organizationOwner,

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { recordId, revision } from "../common/values.ts";
 import { commandEnvelope } from "../common/transaction.ts";
 import { normalizedEmail } from "../identity/requests.ts";
-import { organizationOwner, plantOwner, relationshipPair, residentChoices, sharingCategory, networkOwner } from "./subjects.ts";
+import { organizationOwner, plantOwner, relationshipPair, residentChoices, sharingCategory, networkOwner, relationshipHistoryScope, hasHistoryEndpoint } from "./subjects.ts";
 
 // Session, actor, roles, current scope, approval and clock come from server adapters.
 export const inviteRelationshipRequest = commandEnvelope(z.strictObject({ pair: relationshipPair,
@@ -13,10 +13,19 @@ export const invitationCommandRequest = commandEnvelope(invitation);
 export const respondInvitationRequest = commandEnvelope(invitation.extend({
   proof: z.string().min(1).max(4096), decision: z.enum(["accept", "decline"]),
 }));
+export const acceptInvitationRequest = commandEnvelope(invitation.extend({
+  proof: z.string().min(1).max(4096), decision: z.literal("accept"),
+}));
 export const declineInvitationRequest = commandEnvelope(invitation.extend({ decision: z.literal("decline") }));
 export const endRelationshipRequest = commandEnvelope(z.strictObject({ relationshipId: recordId,
   pair: relationshipPair, confirmed: z.literal(true), reason: z.string().trim().min(1).max(1000).nullable() }));
-export const relationshipHistoryRequest = z.strictObject({ pair: relationshipPair, after: recordId.optional() });
+const historyFilters = { pair: relationshipPair.optional(), after: recordId.optional() };
+export const relationshipHistoryRequest = z.union([
+  relationshipHistoryScope.options[0].extend(historyFilters),
+  relationshipHistoryScope.options[1].extend(historyFilters),
+  relationshipHistoryScope.options[2].extend(historyFilters),
+  relationshipHistoryScope.options[3].extend(historyFilters),
+]).refine(value => value.pair === undefined || hasHistoryEndpoint(value, value.pair));
 export const readSharingRequest = z.strictObject({ plant: plantOwner, organization: organizationOwner });
 export const setSharingRequest = commandEnvelope(readSharingRequest.extend({ relationshipId: recordId,
   expectedConsentRevision: revision, category: sharingCategory, enabled: z.boolean() }));

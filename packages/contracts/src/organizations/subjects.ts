@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { accountId, owner } from "../common/values.ts";
+import { accountId, owner, sameOwner } from "../common/values.ts";
 import { organizationOwner } from "../access/results.ts";
 
 export { organizationOwner };
@@ -33,3 +33,20 @@ export const sharingCategory = z.enum(["people", "meetings", "tasks", "ministry_
 export const sharingChoices = z.strictObject({ people: z.boolean(), meetings: z.boolean(), tasks: z.boolean(),
   ministry_teams: z.boolean(), wiki: z.boolean(), activity: z.boolean(), shared_findings: z.boolean() });
 export const residentChoices = z.strictObject({ shareFoundations: z.boolean(), shareMilestones: z.boolean() });
+
+// Scope identifies requested endpoints only. The API still authorizes current
+// subjects and organization seats; an endpoint match never grants access.
+export const relationshipHistoryScope = z.union([
+  z.strictObject({ plant: plantOwner }),
+  z.strictObject({ sendingChurch: sendingChurchOwner }),
+  z.strictObject({ discoveryAccountId: accountId }),
+  z.strictObject({ organization: organizationOwner }),
+]);
+export type RelationshipHistoryScope = z.infer<typeof relationshipHistoryScope>;
+export function hasHistoryEndpoint(scope: RelationshipHistoryScope, pair: RelationshipPair): boolean {
+  if ("plant" in scope) return pair.kind === "plant" && sameOwner(scope.plant, pair.subject);
+  if ("sendingChurch" in scope) return pair.kind === "sending_church" && sameOwner(scope.sendingChurch, pair.subject);
+  if ("discoveryAccountId" in scope) return pair.kind === "discovery" && scope.discoveryAccountId === pair.accountId;
+  return sameOwner(scope.organization, pair.organization) ||
+    (pair.kind === "sending_church" && sameOwner(scope.organization, pair.subject));
+}
