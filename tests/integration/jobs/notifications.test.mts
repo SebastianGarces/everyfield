@@ -213,7 +213,7 @@ test("AC:CASE-NTF-015 INV-discovery: an account who owns the exact organization 
 	await db.execute(querySql`INSERT INTO discovery(account_id) VALUES(${querySql.param(account)})`);
 	const association = randomUUID(),
 		operation = randomUUID();
-	await db.execute(querySql`INSERT INTO affiliation(id,account_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry,share_wiki,share_activity,shared_findings)
+	await db.execute(querySql`INSERT INTO affiliation(id,account_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
   VALUES(${querySql.param(association)},${querySql.param(account)},${querySql.param(org)},now(),false,false,false,false,false,false,false)`);
 	await db.execute(querySql`INSERT INTO operation(id,tenant_id,actor_id,name,request_key,request_digest,state,started_at,tool_calls,reserved_input,reserved_output,used_input,used_output)
   VALUES(${querySql.param(operation)},${querySql.param(org)},${querySql.param(account)},'associations.acceptInvitation',${querySql.param(operation)},${querySql.param("a".repeat(64))},'complete',now(),0,0,0,0,0)`);
@@ -312,7 +312,7 @@ test("INV-digest: exact organization projection refuses narrative fields and ind
 		[org, true],
 		[org2, false],
 	])
-		await db.execute(querySql`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry,share_wiki,share_activity,shared_findings)
+		await db.execute(querySql`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
   VALUES(${querySql.param(tenant)},${querySql.param(id)},now(),false,false,false,false,false,${querySql.param(share)},false)`);
 	const digest = createDigestService({
 		origin: "https://example.test",

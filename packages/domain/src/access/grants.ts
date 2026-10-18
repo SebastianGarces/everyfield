@@ -51,7 +51,7 @@ export async function readPlantAffiliation(
 			people: a.share_people,
 			meetings: a.share_meetings,
 			tasks: a.share_tasks,
-			ministry: a.share_ministry,
+			ministry: a.share_ministry_teams,
 			wiki: a.share_wiki,
 			activity: a.share_activity,
 			findings: a.shared_findings,

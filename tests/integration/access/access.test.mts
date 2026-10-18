@@ -220,7 +220,7 @@ test("AC:WP006-API-MUL-002 INV-pipeline: exact organization duties, protected na
 		querySql`INSERT INTO invitation(id,tenant_id,purpose,recipient_email,token_hash,state,created_at,accepted_account_id,resident_person_id) VALUES(${inv},${o.id},'residency_link','synthetic@example.test',${id()},'accepted',clock_timestamp(),${resident.id},${p})`,
 	);
 	await db.admin.execute(
-		querySql`INSERT INTO affiliation(id,account_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry,share_wiki,share_activity,shared_findings) VALUES(${aff},${resident.id},${o.id},clock_timestamp(),false,false,false,false,false,false,false)`,
+		querySql`INSERT INTO affiliation(id,account_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings) VALUES(${querySql.param(aff)},${querySql.param(resident.id)},${querySql.param(o.id)},clock_timestamp(),false,false,false,false,false,false,false)`,
 	);
 	await db.admin.execute(
 		querySql`INSERT INTO residency_link(id,organization_id,person_id,account_id,affiliation_id,invitation_id,accepted_at,consent_revision,share_foundations,share_milestones,revision) VALUES(${link},${o.id},${p},${resident.id},${aff},${inv},clock_timestamp(),1,true,false,1)`,
@@ -252,7 +252,7 @@ test("INV-grants: affiliations and sharing are independent exact pairs; platform
 	const first = id(),
 		second = id();
 	await db.admin.execute(
-		querySql`INSERT INTO affiliation(id,plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry,share_wiki,share_activity,shared_findings) VALUES(${first},${p.id},${o.id},clock_timestamp(),true,false,false,false,false,false,false),(${second},${p.id},${other.id},clock_timestamp(),false,false,false,false,false,false,false)`,
+		querySql`INSERT INTO affiliation(id,plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings) VALUES(${querySql.param(first)},${querySql.param(p.id)},${querySql.param(o.id)},clock_timestamp(),true,false,false,false,false,false,false),(${querySql.param(second)},${querySql.param(p.id)},${querySql.param(other.id)},clock_timestamp(),false,false,false,false,false,false,false)`,
 	);
 	const grant = await transaction(db.runtime, (tx) => readPlantAffiliation(tx, a.session, o, p));
 	assert.deepEqual(grant, {
@@ -279,7 +279,7 @@ test("INV-grants: affiliations and sharing are independent exact pairs; platform
 	assert.equal(await transaction(db.runtime, (tx) => readPlantAffiliation(tx, a.session, o, p)), null);
 	const relationship = id();
 	await db.admin.execute(
-		querySql`INSERT INTO affiliation(id,account_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry,share_wiki,share_activity,shared_findings) VALUES(${relationship},${a.id},${other.id},clock_timestamp(),false,false,false,false,false,false,false)`,
+		querySql`INSERT INTO affiliation(id,account_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings) VALUES(${querySql.param(relationship)},${querySql.param(a.id)},${querySql.param(other.id)},clock_timestamp(),false,false,false,false,false,false,false)`,
 	);
 	assert.equal(
 		(await transaction(db.runtime, (tx) => readDiscoveryRelationship(tx, a.session, own(a), other))).id,

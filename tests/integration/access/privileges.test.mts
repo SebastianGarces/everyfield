@@ -39,7 +39,11 @@ test("INV-privileges: fresh and upgraded grants converge without rewriting appli
 		const before = (
 			await db.admin.execute(querySql.raw(`SELECT name,sha256,applied_at FROM ${other}.schema_migration ORDER BY name`))
 		).rows;
-		assert.deepEqual(await migrate(db.admin, other), ["0003_access_privileges.sql"]);
+		await cp(
+			new URL("../../../packages/db/migrations/0003_access_privileges.sql", import.meta.url),
+			dir + "/0003_access_privileges.sql",
+		);
+		assert.deepEqual(await migrate(db.admin, other, pathToFileURL(dir + "/")), ["0003_access_privileges.sql"]);
 		assert.deepEqual(
 			(
 				await db.admin.execute(
@@ -50,6 +54,7 @@ test("INV-privileges: fresh and upgraded grants converge without rewriting appli
 			).rows,
 			before,
 		);
+		await migrate(db.admin, other);
 		assert.deepEqual(await permissions(db.admin, other), await permissions(db.admin, db.schema));
 		assert.deepEqual(await migrate(db.admin, other), []);
 		const baseline = await readFile(new URL("../../../packages/db/migrations/0002_baseline.sql", import.meta.url));

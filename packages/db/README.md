@@ -63,3 +63,14 @@ supplemental expectations alongside the migration. Apply all SQL through
 `db:migrate`: `schema_migration` remains the only database ledger, with the same
 advisory lock, atomic batches, exact-byte SHA-256 checks and explicit adoption.
 Kit's file journal describes generation history; it is not a second database ledger.
+
+`python3 packages/db/src/schema/generate.py --check` creates an isolated schema,
+applies every numbered migration and compares its columns, types, nullability,
+primary keys and foreign keys with `docs/schema/target.json`. Local checks use
+only the shared development database; CI uses its existing disposable Postgres
+service. Pass `--env-file /absolute/approved-dev-env` when needed. The command
+drops its schema in `finally` and never migrates the public schema.
+
+Applied SQL is immutable. Add a numbered forward migration and update the current
+catalog for each schema change. The generator without flags writes only current
+row types; `--check-types` checks those types offline for package unit tests.

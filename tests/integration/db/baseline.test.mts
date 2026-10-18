@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
+import { assertCurrentCatalog } from "../../../packages/db/src/schema/catalog.ts";
 import { migrate, adoptMigrationHistory, migrationArtifact } from "../../../packages/db/src/schema/migrate.ts";
 import { pdf } from "../platform/fixtures.mjs";
 import { auth_user, auth_account, auth_session, auth_verification } from "../../../packages/db/src/schema/tables.ts";
@@ -75,11 +76,10 @@ const authorizer = async (tx, file) => {
 };
 before(async () => {
 	await admin.execute(querySql.raw(`CREATE SCHEMA ${schema}`));
-	assert.deepEqual(await migrate(admin, schema), [
-		"0001_early_access.sql",
-		"0002_baseline.sql",
-		"0003_access_privileges.sql",
-	]);
+	assert.deepEqual(
+		await migrate(admin, schema),
+		(await migrationArtifact()).map((m) => m.name),
+	);
 	assert.deepEqual(await migrate(admin, schema), []);
 	await account(a);
 	await account(b);
@@ -123,39 +123,22 @@ after(async () => {
 	await closeDatabase(admin);
 });
 
-test("INV-schema: actual baseline includes every catalog column and FK without v2 imports", async () => {
+test("INV-schema: full ordered migrations match the current catalog and reject actual schema drift", async () => {
 	const catalog = JSON.parse(readFileSync(new URL("../../../docs/schema/target.json", import.meta.url), "utf8"));
-	const columns = await admin.execute(
-		querySql`SELECT table_name,column_name,is_nullable FROM information_schema.columns WHERE table_schema=${querySql.param(schema)}`,
-	);
-	const actual = columns.rows.map((r) => [r.table_name, r.column_name, r.is_nullable === "YES"]).sort();
-	const expected = catalog.tables.flatMap((t) => t.columns.map((c) => [t.name, c.name, c.nullable])).sort();
-	assert.deepEqual(actual, expected);
-	const fks = await admin.execute(querySql`SELECT c.relname AS table_name,r.relname AS referenced_table,
- ARRAY(SELECT a.attname::text FROM unnest(f.conkey) WITH ORDINALITY k(attnum,position) JOIN pg_attribute a ON a.attrelid=f.conrelid AND a.attnum=k.attnum ORDER BY k.position) AS columns,
- ARRAY(SELECT a.attname::text FROM unnest(f.confkey) WITH ORDINALITY k(attnum,position) JOIN pg_attribute a ON a.attrelid=f.confrelid AND a.attnum=k.attnum ORDER BY k.position) AS referenced_columns,
- f.confdeltype AS deletion FROM pg_constraint f JOIN pg_class c ON c.oid=f.conrelid JOIN pg_class r ON r.oid=f.confrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=${querySql.param(schema)} AND f.contype='f'`);
-	const sort = (rows) => rows.map((row) => JSON.stringify(row)).sort();
-	assert.deepEqual(
-		sort(fks.rows),
-		sort(
-			catalog.tables.flatMap((t) =>
-				t.foreign_keys.map((f) => ({
-					table_name: t.name,
-					referenced_table: f.references.table,
-					columns: f.columns,
-					referenced_columns: f.references.columns,
-					deletion: "r",
-				})),
-			),
-		),
-	);
+	await assertCurrentCatalog(admin, schema, catalog);
+	await admin.execute(querySql`ALTER TABLE affiliation RENAME COLUMN consent_revision TO consent_revision_drift`);
+	await assert.rejects(assertCurrentCatalog(admin, schema, catalog), /Migrated columns\/types\/nullability differ/);
+	await admin.execute(querySql`ALTER TABLE affiliation RENAME COLUMN consent_revision_drift TO consent_revision`);
+	await admin.execute(querySql`ALTER TABLE affiliation ALTER COLUMN consent_revision DROP NOT NULL`);
+	await assert.rejects(assertCurrentCatalog(admin, schema, catalog), /Migrated columns\/types\/nullability differ/);
+	await admin.execute(querySql`ALTER TABLE affiliation ALTER COLUMN consent_revision SET NOT NULL`);
+	await assertCurrentCatalog(admin, schema, catalog);
+
 	const ledger = await admin.execute(querySql`SELECT name FROM schema_migration ORDER BY name`);
-	assert.deepEqual(ledger.rows, [
-		{ name: "0001_early_access.sql" },
-		{ name: "0002_baseline.sql" },
-		{ name: "0003_access_privileges.sql" },
-	]);
+	assert.deepEqual(
+		ledger.rows,
+		(await migrationArtifact()).map((m) => ({ name: m.name })),
+	);
 	assert.equal((await admin.execute(querySql`SELECT count(*)::int AS n FROM early_access_request`)).rows[0].n, 0);
 });
 test("INV-migration: preserves applied 0001 bytes and ledger; retries and failed batches roll back", async () => {
@@ -192,7 +175,10 @@ test("INV-migration: preserves applied 0001 bytes and ledger; retries and failed
 		]);
 		assert.equal((await pool.execute(querySql`SELECT to_regclass('tenant') AS t`)).rows[0].t, null);
 		await pool.execute(querySql`DROP TABLE file_object`);
-		assert.deepEqual(await migrate(pool, other), ["0002_baseline.sql", "0003_access_privileges.sql"]);
+		assert.deepEqual(
+			await migrate(pool, other),
+			(await migrationArtifact()).filter((m) => m.name !== "0001_early_access.sql").map((m) => m.name),
+		);
 		assert.equal(
 			(await pool.execute(querySql`SELECT email FROM early_access_request`)).rows[0].email,
 			"preserved@example.test",
@@ -398,7 +384,10 @@ test("INV-calendar-revision: canonical named zones and full int64 precision in r
 	);
 	assert.deepEqual(
 		(await admin.execute(querySql`SELECT timezone,revision FROM plant WHERE id=${querySql.param(p)}`)).rows[0],
-		{ timezone: "America/New_York", revision: "9223372036854775807" },
+		{
+			timezone: "America/New_York",
+			revision: "9223372036854775807",
+		},
 	);
 	await rejected("UPDATE plant SET timezone='US/Eastern' WHERE id=$1", [p]);
 	await rejected("UPDATE plant SET revision=revision+1 WHERE id=$1", [p], "22003");

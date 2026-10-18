@@ -109,6 +109,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Migrate the throwaway database
         run: pnpm db:migrate
+      - name: Current catalog against a fresh full migration chain
+        run: python3 packages/db/src/schema/generate.py --check
       - name: Domain tests
         run: pnpm test:access
 

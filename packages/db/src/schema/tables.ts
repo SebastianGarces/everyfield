@@ -522,11 +522,14 @@ export const affiliation = pgTable(
 		share_people: boolean("share_people").notNull(),
 		share_meetings: boolean("share_meetings").notNull(),
 		share_tasks: boolean("share_tasks").notNull(),
-		share_ministry: boolean("share_ministry").notNull(),
+		share_ministry_teams: boolean("share_ministry_teams").notNull(),
 		share_wiki: boolean("share_wiki").notNull(),
 		share_activity: boolean("share_activity").notNull(),
 		shared_findings: boolean("shared_findings").notNull(),
 		revision: int64("revision")
+			.notNull()
+			.default(sql`1`),
+		consent_revision: int64("consent_revision")
 			.notNull()
 			.default(sql`1`),
 	},
@@ -539,8 +542,9 @@ export const affiliation = pgTable(
 		check("affiliation_ck_1", sql`num_nonnulls(plant_id, account_id, sending_church_id) = 1`),
 		check(
 			"affiliation_ck_2",
-			sql`plant_id is not null or not (share_people or share_meetings or share_tasks or share_ministry or share_wiki or share_activity or shared_findings)`,
+			sql`plant_id is not null or not (share_people or share_meetings or share_tasks or share_ministry_teams or share_wiki or share_activity or shared_findings)`,
 		),
+		check("affiliation_ck_3", sql`consent_revision >= 1`),
 		foreignKey({ name: "affiliation_fk_0", columns: [t.plant_id], foreignColumns: [plant.id] }).onDelete("restrict"),
 		foreignKey({ name: "affiliation_fk_1", columns: [t.account_id], foreignColumns: [account.id] }).onDelete(
 			"restrict",
@@ -8299,5 +8303,98 @@ export const organization_person_removal = pgTable(
 			foreignColumns: [account.id],
 		}).onDelete("restrict"),
 		index("organization_person_removal_ref_3").on(t.requested_by),
+	],
+);
+
+export const organization_operation_result = pgTable(
+	"organization_operation_result",
+	{
+		operation_id: uuid("operation_id").notNull(),
+		receipt: jsonb("receipt").notNull(),
+		result: jsonb("result").notNull(),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "organization_operation_result_pkey", columns: [t.operation_id] }),
+		foreignKey({
+			name: "organization_operation_result_fk_0",
+			columns: [t.operation_id],
+			foreignColumns: [operation.id],
+		}).onDelete("restrict"),
+	],
+);
+
+export const relationship_history = pgTable(
+	"relationship_history",
+	{
+		id: uuid("id").notNull(),
+		relationship_id: uuid("relationship_id").notNull(),
+		pair: jsonb("pair").notNull(),
+		reason: text("reason"),
+		source_invitation_id: uuid("source_invitation_id"),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "relationship_history_pkey", columns: [t.id] }),
+		check("relationship_history_ck_0", sql`jsonb_typeof(pair) = 'object'`),
+		check("relationship_history_ck_1", sql`length(reason) <= 1000`),
+		foreignKey({ name: "relationship_history_fk_0", columns: [t.id], foreignColumns: [event.id] }).onDelete("restrict"),
+		foreignKey({
+			name: "relationship_history_fk_1",
+			columns: [t.relationship_id],
+			foreignColumns: [affiliation.id],
+		}).onDelete("restrict"),
+		index("relationship_history_ref_1").on(t.relationship_id),
+		foreignKey({
+			name: "relationship_history_fk_2",
+			columns: [t.source_invitation_id],
+			foreignColumns: [invitation.id],
+		}).onDelete("restrict"),
+		index("relationship_history_ref_2").on(t.source_invitation_id),
+	],
+);
+
+export const relationship_invitation = pgTable(
+	"relationship_invitation",
+	{
+		invitation_id: uuid("invitation_id").notNull(),
+		plant_id: uuid("plant_id"),
+		account_id: uuid("account_id"),
+		sending_church_id: uuid("sending_church_id"),
+		organization_id: uuid("organization_id").notNull(),
+		inviter_description: text("inviter_description").notNull(),
+		subject_revision: int64("subject_revision").notNull(),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "relationship_invitation_pkey", columns: [t.invitation_id] }),
+		check("relationship_invitation_ck_0", sql`length(inviter_description) between 1 and 500`),
+		check("relationship_invitation_ck_1", sql`subject_revision >= 1`),
+		check("relationship_invitation_ck_2", sql`num_nonnulls(plant_id,account_id,sending_church_id) = 1`),
+		check("relationship_invitation_ck_3", sql`organization_id is distinct from sending_church_id`),
+		foreignKey({
+			name: "relationship_invitation_fk_0",
+			columns: [t.invitation_id],
+			foreignColumns: [invitation.id],
+		}).onDelete("restrict"),
+		foreignKey({ name: "relationship_invitation_fk_1", columns: [t.plant_id], foreignColumns: [plant.id] }).onDelete(
+			"restrict",
+		),
+		index("relationship_invitation_ref_1").on(t.plant_id),
+		foreignKey({
+			name: "relationship_invitation_fk_2",
+			columns: [t.account_id],
+			foreignColumns: [account.id],
+		}).onDelete("restrict"),
+		index("relationship_invitation_ref_2").on(t.account_id),
+		foreignKey({
+			name: "relationship_invitation_fk_3",
+			columns: [t.sending_church_id],
+			foreignColumns: [organization.id],
+		}).onDelete("restrict"),
+		index("relationship_invitation_ref_3").on(t.sending_church_id),
+		foreignKey({
+			name: "relationship_invitation_fk_4",
+			columns: [t.organization_id],
+			foreignColumns: [organization.id],
+		}).onDelete("restrict"),
+		index("relationship_invitation_ref_4").on(t.organization_id),
 	],
 );
