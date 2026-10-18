@@ -1577,6 +1577,8 @@
     "WP004-KNOW-088": "docs/acceptance/schema.json",
     "WP004-KNOW-089": "docs/acceptance/schema.json",
     "WP004-PPL-024": "docs/acceptance/schema.json",
+    "WP005-API-RESET": "docs/acceptance/identity-access.json",
+    "WP005-API-STAGED": "docs/acceptance/identity-access.json",
     "WP005-KNOW-069": "docs/acceptance/recovery.json",
     "WP005-KNOW-072": "docs/acceptance/recovery.json",
     "WR-001": "docs/acceptance/knowledge.json",
@@ -2686,6 +2688,8 @@
         "TARGET-IDN-009",
         "TARGET-IDN-028",
         "TARGET-IDN-030",
+        "WP005-API-RESET",
+        "WP005-API-STAGED",
         "WP005-KNOW-069",
         "WP005-KNOW-072"
       ],
@@ -2806,6 +2810,8 @@
         "TARGET-IDN-030",
         "TARGET-IDN-032",
         "WP004-IDN-029",
+        "WP005-API-RESET",
+        "WP005-API-STAGED",
         "WP005-KNOW-069",
         "WP005-KNOW-072"
       ],
@@ -4053,7 +4059,8 @@
         "TARGET-PPL-025",
         "TEN-004",
         "TEN-005",
-        "WP004-IDN-029"
+        "WP004-IDN-029",
+        "WP005-API-STAGED"
       ],
       "context_case_ids": [
         "CASE-NTF-013",
@@ -26595,6 +26602,8 @@
         "WP004-KNOW-088",
         "WP004-KNOW-089",
         "WP004-PPL-024",
+        "WP005-API-RESET",
+        "WP005-API-STAGED",
         "WP005-KNOW-069",
         "WP005-KNOW-072",
         "WR-001",
@@ -32605,6 +32614,8 @@
         "WP004-KNOW-088",
         "WP004-KNOW-089",
         "WP004-PPL-024",
+        "WP005-API-RESET",
+        "WP005-API-STAGED",
         "WP005-KNOW-069",
         "WP005-KNOW-072",
         "WR-001",
