@@ -50,6 +50,7 @@ test("INV-onboarding-creation: wire result distinguishes actual Phase 1 insertio
     { ...created, initialSharing: { ...choices, people: true } },
     { ...created, initialSharing: { people: false } },
     { ...created, receipt: { ...receipt, eventIds: [] } },
+    { ...created, receipt: { ...receipt, eventIds: [other] } },
     { ...created, receipt: { ...receipt, outcome: "noop" } },
     { ...created, receipt: { ...receipt, request: { ...receipt.request, owner: organization } } },
     { ...created, receipt: { ...receipt, request: { ...receipt.request, actorId: other } } },
@@ -76,6 +77,10 @@ test("INV-onboarding-lead: yes discloses the ordinary role proposal and no or sk
   const lead = { answer: "yes", assignment: { teamId: id, roleId: other, personId: id }, savedAt: now };
   const result = { plant, revision: "2", lead, receipt: plantReceipt("identity.answerLeadOnboarding") };
   assert.deepEqual(wire(C.leadAnswerResult, result), result);
+  for (const request of [
+    { ...result.receipt.request, owner: account },
+    { ...result.receipt.request, operation: "discovery.create" },
+  ]) refuses(C.leadAnswerResult, { ...result, receipt: { ...result.receipt, request } });
   refuses(C.leadAnswerResult, { ...result, lead: { ...lead, answer: "no" } });
   refuses(C.leadAnswerResult, { ...result, newGrants: [id] });
   refuses(C.leadAnswerResult, { ...result, lead: { answer: "pending" } });
@@ -95,6 +100,7 @@ test("INV-onboarding-journey: saved nonattestations contain no phase and no-date
     const explicit = { ...input, journey: { answer: "existing", phase } };
     assert.deepEqual(wire(C.declareJourneyRequest, command(explicit)), command(explicit));
   }
+  for (const phase of [7, 4.5]) refuses(C.declareJourneyRequest, command({ ...input, journey: { answer: "existing", phase } }));
   refuses(C.declareJourneyRequest, command({ ...input, journey: { ...input.journey, reason: "Caller reason" } }));
   refuses(C.declareJourneyRequest, command({ ...input, journey: { ...input.journey, kind: "initial_declaration" } }));
   const result = { plant, revision: "2", currentPhase: 4,
@@ -102,6 +108,10 @@ test("INV-onboarding-journey: saved nonattestations contain no phase and no-date
     launch: { status: "saved", value: { answer: "no_date" }, savedAt: now },
     scheduledLaunchDate: "2026-11-10", receipt: plantReceipt("onboarding.declareJourney") };
   assert.deepEqual(wire(C.journeyResult, result), result);
+  for (const request of [
+    { ...result.receipt.request, owner: account },
+    { ...result.receipt.request, operation: "discovery.create" },
+  ]) refuses(C.journeyResult, { ...result, receipt: { ...result.receipt, request } });
 });
 
 test("INV-onboarding-conversion: carry only selected exact-pair consent and private document references without bodies", () => {
@@ -110,6 +120,7 @@ test("INV-onboarding-conversion: carry only selected exact-pair consent and priv
   const input = { ...basics, discoveryId: id, relationships: [selected] };
   assert.deepEqual(wire(C.convertDiscoveryRequest, command(input)), command(input));
   refuses(C.convertDiscoveryRequest, command({ ...input, relationships: [selected, selected] }));
+  refuses(C.convertDiscoveryRequest, command({ ...input, relationships: [selected, { ...selected, relationshipId: other }] }));
   refuses(C.convertDiscoveryRequest, command({ ...input, relationships: [{ ...selected, organization: plant }] }));
   refuses(C.convertDiscoveryRequest, command({ ...input, relationships: [{ ...selected, choices: { wiki: true } }] }));
   refuses(C.convertDiscoveryRequest, command({ ...input, transferSeat: id }));
@@ -121,6 +132,7 @@ test("INV-onboarding-conversion: carry only selected exact-pair consent and priv
   assert.deepEqual(wire(C.convertDiscoveryResult, result), result);
   const initial = { ...result, status: "converted", currentPhase: 1 };
   assert.deepEqual(wire(C.convertDiscoveryResult, initial), initial);
+  refuses(C.convertDiscoveryResult, { ...initial, receipt: { ...initial.receipt, outcome: "noop" } });
   refuses(C.convertDiscoveryResult, { ...result, status: "converted" });
   refuses(C.convertDiscoveryResult, { ...result, relationships: [result.relationships[0], result.relationships[0]] });
   refuses(C.convertDiscoveryResult, { ...result, documentProposals: [{ ...result.documentProposals[0], body: "private" }] });
@@ -140,12 +152,15 @@ test("INV-onboarding-reading: completion carries one eligible reader and all six
     { ...complete, articles: articles.slice(0, 3) },
     { ...complete, articles: articles.map((a, i) => i === 0 ? { ...a, scrollRatio: 0.8 } : a) },
     { ...complete, articles: articles.map((a, i) => i > 2 ? { ...a, readerAccountId: other } : a) },
-    { ...complete, articles: articles.map(a => ({ ...a, articleId: id })) },
+    { ...complete, articles: articles.map(a => ({ ...a, articleId: foundations.articles[0]?.id })) },
+    { ...complete, articles: articles.map((a, i) => i === 0 ? { ...a, articleId: id } : a) },
     { ...complete, eligibility: { kind: "lead_title" } },
     { ...complete, eligibility: { kind: "current_member" } },
     { ...complete, articles: articles.map(a => ({ ...a, source: { ...a.source, owner: account } })) },
     { ...complete, articles: articles.map(a => ({ ...a, body: "retained private text" })) },
   ]) refuses(C.foundationReading, invalid);
+  assert.deepEqual(wire(C.ownDiscoveryReading, { readerAccountId: id, articles }), { readerAccountId: id, articles });
+  refuses(C.ownDiscoveryReading, { readerAccountId: id, articles: articles.map((a, i) => i === 0 ? { ...a, readerAccountId: other } : a) });
 });
 
 test("INV-onboarding-resume: completion, current phase, reading and missing facts remain independent without reprovisioning controls", () => {
@@ -154,6 +169,12 @@ test("INV-onboarding-resume: completion, current phase, reading and missing fact
     scheduledLaunchDate: "2026-11-10", peopleStep: "skipped", completion: { status: "completed", completedAt: now, materialRevision: "7" },
     reading: { status: "incomplete" }, values: "missing" };
   assert.deepEqual(wire(C.resumeResult, resume), resume);
+  const completeReading = { status: "complete", plant, readerAccountId: id, eligibility: { kind: "current_owner" },
+    articles: foundations.articles.map(a => ({ readerAccountId: id, articleId: a.id,
+      source: { owner: { kind: "global", id: "00000000-0000-0000-0000-000000000000" }, publishedRevisionId: other, revision: "1" },
+      scrollRatio: 0.81, readAt: now })) };
+  assert.deepEqual(wire(C.resumeResult, { ...resume, reading: completeReading }), { ...resume, reading: completeReading });
+  refuses(C.resumeResult, { ...resume, reading: { ...completeReading, plant: { ...plant, id } } });
   const unfinished = { ...resume, completion: { status: "unfinished" } };
   assert.deepEqual(wire(C.resumeResult, unfinished), unfinished);
   refuses(C.resumeResult, { ...resume, basics: "pending" });
@@ -164,6 +185,10 @@ test("INV-onboarding-resume: completion, current phase, reading and missing fact
   }
   const result = { plant, revision: "4", completion: resume.completion, receipt: plantReceipt("onboarding.complete") };
   assert.deepEqual(wire(C.completeOnboardingResult, result), result);
+  for (const request of [
+    { ...result.receipt.request, owner: account },
+    { ...result.receipt.request, operation: "discovery.create" },
+  ]) refuses(C.completeOnboardingResult, { ...result, receipt: { ...result.receipt, request } });
   refuses(C.completeOnboardingResult, { ...result, completion: { status: "unfinished" } });
   assert.deepEqual(wire(C.completeOnboardingRequest, command({})), command({}));
   refuses(C.completeOnboardingRequest, command({ markArticlesComplete: true }));
