@@ -1,6 +1,6 @@
 ---
 name: verify-preview
-description: "Apply when you verify a PR written by the other model family. Run the PR head on its own portless preview against the shared dev database, check UI in Chromium and WebKit and backend with a temporary script, publish the evidence, then post one PR comment with the exact-head EVF-Review line."
+description: "Apply when you verify a PR written by the other model family. Run the PR head on its own portless preview against the shared dev database, check UI in Chromium and WebKit and backend with a temporary script, drive interactive checks with agent-browser, publish the evidence, then post one PR comment with the exact-head EVF-Review line."
 ---
 
 # Verify on a preview
@@ -16,6 +16,42 @@ mkdir -p "$E"
 ```
 
 Keep scripts, logs, screenshots and videos in `$E`, never in the repository.
+
+## Browsers and processes
+
+The machine has little CPU and memory. Run one browser job at a time and close every browser you
+start (D35). These rules apply to every role that opens a browser.
+
+- Scripted checks run through `bin/evf browser run [--timeout <s>] -- <command>`. It runs the
+  command in its own process group with a timeout (default 900 s). When the command ends, fails,
+  times out or evf gets a signal, it closes the run's agent-browser session, stops every process
+  the run started and deletes the run's temporary directory, where Playwright keeps its profiles.
+- Interactive checks use agent-browser (D36), never the Playwright MCP. Give each job its own
+  session and a short idle timeout, and close it when you finish, also after a failure:
+
+  ```bash
+  ab() { agent-browser --session <task>-verify --idle-timeout 10m "$@"; }
+  ab open <branch url>; ab set viewport 390 900; ab snapshot -i; ab click @e3
+  ab screenshot "$E/shots/<name>.png"; ab errors; ab console
+  ab close
+  ```
+
+  Run `agent-browser skills get core` once for the full command guide.
+- Stop only processes you started, by PID or process group. Never stop processes by a name
+  pattern (`pkill chrome`, `killall`): other agents' browsers run on the same machine.
+- `bin/evf doctor` lists headless browsers and agent-browser daemons older than 15 minutes, with
+  PID, age and memory. It never stops them. Before you end, it must list none of yours.
+
+Install the pinned tools once per machine. Video needs `ffmpeg` on `PATH`.
+
+```bash
+npm install -g agent-browser@0.39.1     # add --prefix "$(dirname "$(dirname "$(command -v node)")")" if npm's prefix points elsewhere
+agent-browser install                    # Chrome for Testing for agent-browser
+brew install ffmpeg                      # macOS; video recording only
+```
+
+agent-browser drives Chrome only. Its Safari backend needs the iOS Simulator and Appium and
+cannot take headless 390 and 1440 px desktop shots, so WebKit parity stays in `capture.mjs`.
 
 ## 1. Read
 
@@ -54,7 +90,8 @@ export default async ({ page, side, engine, width, path }) => [
 Return `[]` for paths the flow does not cover. Then capture before and after:
 
 ```bash
-node $S/capture.mjs --before <main url> --after <branch url> --paths /,/access --flow "$E/flow.mjs" --out "$E"
+bin/evf browser run --timeout 900 -- \
+  node $S/capture.mjs --before <main url> --after <branch url> --paths /,/access --flow "$E/flow.mjs" --out "$E"
 ```
 
 It runs headless Chromium and WebKit at 390 and 1440 px. For each page it records the HTTP status,
@@ -62,6 +99,20 @@ page and console errors, a full-page screenshot per side, an axe WCAG 2.2 AA sca
 difference into `$E/ui-results.json`. The flow runs on both sides with a video. A shot fails on
 a non-200 status, a page or console error, an axe violation that main does not have, or a failed
 flow check on the branch.
+
+Then check the changed behavior by hand with agent-browser on the branch preview: open the pages,
+use the controls, read `ab errors` and `ab console`, and take screenshots of states the flow does
+not reach. When a flow matters more than a still image (an overlay, focus order, a transition, a
+multi-step form), record a short video of it on the branch preview:
+
+```bash
+ab record start "$E/videos/<flow>-after.webm"
+# the steps of the flow
+ab record stop
+```
+
+Keep each video under 30 seconds. Use synthetic data or data from the shared development
+database only. `publish.mjs` adds every video in `$E` to the evidence page.
 
 The script cannot judge quality. Open every after screenshot and compare it with the before
 screenshot and the design (`design/everyfield-ui.html` or `design/everyfield-marketing.html`).
@@ -141,6 +192,7 @@ Write `$E/report.md` in this shape. Name what you did not check.
 
 **UI:** Chromium and WebKit, 390 and 1440 px, before main <sha7>, after <sha7>. <What you saw.>
 New accessibility violations: none. Present on main too: <list or none>.
+**Videos:** <link to each flow video on the evidence page, or none>.
 **Backend:** <probe link>, <n>/<n> checks pass. <Rules and refusals covered.>
 **Not checked:** <list or none>.
 ```
@@ -163,6 +215,8 @@ A new head needs a new verification and a new comment. `ship` describes the merg
 ## 7. Clean up
 
 ```bash
+agent-browser --session <task>-verify close
 portless preview down <id>          # both previews
 git worktree remove <project>       # both verify worktrees, paths printed by preview.mjs
+bin/evf doctor                      # lists no browser of yours
 ```
