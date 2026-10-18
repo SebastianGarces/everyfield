@@ -686,6 +686,15 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 	);
 	assert.equal(deleted.revision, "3");
 	await assertNoteFeed("note_removed");
+	assert.deepEqual(
+		(
+			await admin.execute(sql`SELECT
+			(SELECT count(*)::int FROM event e JOIN operation o ON o.id=e.operation_id WHERE e.target_record_id=${p.id} AND o.name IN ('people.addNote','people.editNote','people.deleteNote')) AS audits,
+			(SELECT count(*)::int FROM people_history WHERE person_id=${p.id} AND action='note_correction') AS corrections,
+			(SELECT count(*)::int FROM people_history WHERE person_id=${p.id} AND action='people.updated') AS updates`)
+		).rows[0],
+		{ audits: 3, corrections: 2, updates: 0 },
+	);
 	assert.equal(
 		(await admin.execute(sql`SELECT body FROM person_note WHERE id=${sql.param(added.noteId)}`)).rows[0].body,
 		"",
