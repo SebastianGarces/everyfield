@@ -17380,7 +17380,7 @@
       "action": {
         "operation": "access.checkOperation",
         "arguments": {
-          "operation": "launch.saveDebrief",
+          "operation": "launch.saveDebriefDraft",
           "subject": "P",
           "expected_revision": 7
         }
