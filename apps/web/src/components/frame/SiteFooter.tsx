@@ -24,7 +24,7 @@ const columns = footer.columns
   .filter((c) => c.links.length > 0);
 
 /** The ink footer card: mark, headline and request button, the link columns, and the fine print. */
-export function SiteFooter() {
+export function SiteFooter({ headline = footer.headline }: { headline?: string }) {
   return (
     <footer className="px-page pt-[clamp(24px,4vw,48px)] pb-page">
       <div className="mx-auto grid max-w-mk grid-cols-12 gap-x-6 gap-y-8 rounded-[32px] bg-ink px-[clamp(22px,5vw,72px)] pt-[clamp(28px,5vw,72px)] pb-[clamp(22px,3vw,32px)] text-white">
@@ -33,7 +33,7 @@ export function SiteFooter() {
             <Mark className="h-[18px] w-[22px]" />
           </span>
           <Display as="h2" className="max-w-[16ch] text-[clamp(26px,2.6vw,38px)]/[1.1]">
-            {footer.headline}
+            {headline}
           </Display>
           <ButtonLink href={ACCESS_PATH} variant="inverse" size="footer" icon={<Icon icon={ArrowRight02Icon} size={17} />}>
             {footer.cta}

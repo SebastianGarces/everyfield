@@ -1,8 +1,8 @@
 import { Display } from "@/components/Display";
+import type { ReactNode } from "react";
 import { Icon } from "@/components/Icon";
 import { Reveal } from "@/components/motion/Reveal";
 import { ICONS } from "../icons";
-import { MondayOverview } from "../visuals/MondayOverview";
 import { VisionZoom } from "../visuals/VisionZoom";
 
 /**
@@ -10,7 +10,7 @@ import { VisionZoom } from "../visuals/VisionZoom";
  * The zoom's green line runs on through a small "Monday morning" label down to the Monday overview, so the plan and the
  * week read as one section. #proof stays on the overview for old links.
  */
-export function VisionSection({ headline, body, bridge, caption }: { headline: string; body: string; bridge: string; caption?: string }) {
+export function VisionSection({ headline, body, bridge, overview }: { headline: string; body: string; bridge: string; overview: ReactNode }) {
   return (
     <section id="vision" aria-labelledby="vision-title" className="relative py-section">
       <div className="mx-auto max-w-mk px-page">
@@ -30,8 +30,7 @@ export function VisionSection({ headline, body, bridge, caption }: { headline: s
           </Reveal>
         </div>
         <figure id="proof" className="relative m-0 min-w-0">
-          <MondayOverview />
-          {caption ? <figcaption className="mt-3.5 text-[14px] text-text-3">{caption}</figcaption> : null}
+          {overview}
         </figure>
       </div>
     </section>
