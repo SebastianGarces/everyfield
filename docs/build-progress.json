@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "project_id": "everyfield-v3",
-  "revision": 13,
-  "updated_at": "2026-10-18T08:00:55.237Z",
+  "revision": 14,
+  "updated_at": "2026-10-18T08:49:22.930Z",
   "packages": {
     "WP-001": {
       "status": "in_progress",
@@ -24,7 +24,11 @@
           "task": "WP-001",
           "merge_commit": "4ce81aa75c329396add898f08aebeb657a79b649",
           "acknowledged": true,
-          "stage": "producer"
+          "stage": "producer",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
         }
       }
     },
@@ -48,7 +52,11 @@
           "task": "WP-002",
           "merge_commit": "ef3c3bfce88a00e3864833291e81584debc527e9",
           "acknowledged": true,
-          "stage": "producer"
+          "stage": "producer",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
         }
       }
     },
@@ -744,7 +752,11 @@
           "task": "WP-087",
           "merge_commit": "9fd86d23a655086dfc2cd34c8dd9dd4a45796a3b",
           "acknowledged": true,
-          "stage": "producer"
+          "stage": "producer",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
         }
       }
     },
@@ -767,7 +779,11 @@
           "task": "WP-088",
           "merge_commit": "37733bc59a4c8fa918135dab364e4dbf758e4786",
           "acknowledged": true,
-          "stage": "producer"
+          "stage": "producer",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
         }
       }
     },
