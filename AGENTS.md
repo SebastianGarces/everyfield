@@ -11,8 +11,8 @@ Current requirements and cases live in `docs/catalog/index.json`. Keep this file
 3. Build inside the owning paths. Use the brief and linked current clauses as the contract.
 4. Include current main, commit, run the task checks and `bin/evf verify <task>`.
    Open a PR explaining the change, actual verification, evidence, risks and follow-ups.
-5. A verifier from a different model family checks the branch's running local preview,
-   records approval for that exact head on the PR and runs `bin/evf ship <task>`.
+5. A verifier from a different model family checks the PR head on its own preview with
+   `verify-preview`, posts the exact-head review on the PR and runs `bin/evf ship <task>`.
    Ship requires green required GitHub CI, independent approval and a valid PR body.
 
 Use `bin/evf help` for commands. IDs are WP-NNN, WP-NNN/contract, /api or /ui,
@@ -48,7 +48,8 @@ FB-<n> for feedback and OPS-<n> for tooling maintenance.
 | Task context | `docs/plan/context.md` and `docs/package-context.py` |
 | Architecture | `docs/architecture/README.md` |
 | Regression tests | `.agents/skills/test-standard/SKILL.md` |
-| Local checks and review | `.agents/skills/verify/SKILL.md` |
+| Local checks | `.agents/skills/verify/SKILL.md` |
+| Verify a PR from the other family | `.agents/skills/verify-preview/SKILL.md` |
 | Merge rules | `.agents/skills/ship/SKILL.md` |
 | PR body standard | `.agents/skills/everyfield-pr/SKILL.md` and its template |
 | PR visual examples | `.agents/skills/pr/SKILL.md` |

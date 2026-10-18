@@ -13,15 +13,9 @@ outside the checkout. It refuses dirty or stale inputs and detects changes durin
 `--role verifier` labels local logs; it grants no identity or approval. `--quick` aids iteration.
 Neither command replaces green GitHub CI or independent real verification.
 
-The verifier uses a different model family, starts from the task and PR, reads the diff against
-the requirements and exercises the branch's own portless preview. UI checks use headless Chromium
-and WebKit for behavior, accessibility, visual quality and UX, with before-main and after-branch
-media. Backend checks use temporary scripts against that preview and the shared dev database.
-Keep scripts, screenshots and traces outside the repo. Use the real verification skill when installed.
-
-Try relevant denied and failure behavior. Report what ran, what passed, what failed and what
-remains untested. Tooling tests establish tooling behavior only. If the code changes, verify the
-new exact head. Record the result on the PR as described in `ship`; never approve your own family.
+Independent verification of a PR uses [verify-preview](../verify-preview/SKILL.md): a verifier of
+the other model family runs the exact PR head on its own preview, publishes the evidence and posts
+the exact-head review. Tooling tests establish tooling behavior only.
 
 At package start, write or repair owned cases named by `case_requirements_at_start` before building.
 Run `python3 docs/acceptance/check.py --package WP-NNN` and

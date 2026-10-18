@@ -3,11 +3,10 @@
 Verify a task written by a different model family. Start with its task note and PR.
 Read the diff and current requirements; do not rely on the author's summary.
 
-Use `verify` and the real verification skill when installed. Exercise the branch's portless preview
-and shared dev database. For UI, use Chromium and WebKit and capture before and after media.
-Tooling tasks need reproducible tooling checks. Run `bin/evf verify <task> --role verifier`.
-Record actual scope, results and evidence in a PR comment, then the exact-head `EVF-Review` line
-from `ship`. Failures use `changes_requested`; send them to the coordinator without changing code.
+Follow `.agents/skills/verify-preview/SKILL.md` from start to end. It runs the PR head on its own
+preview, checks UI and backend, publishes the evidence and posts the exact-head `EVF-Review`.
+Tooling tasks rerun their commands as the probe. Also run `bin/evf verify <task> --role verifier`.
+Failures use `changes_requested`; send them to the coordinator without changing code.
 Approved ordinary work goes through `bin/evf ship <task>`. Preserve the owner approval routes.
 
 Reject hidden failure guards, compatibility layers and tests that pass without testing behavior.

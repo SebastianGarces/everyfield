@@ -21,12 +21,24 @@ async function labels(github, repo) {
 }
 
 // Prevent pings, HTML and fences in external logs from becoming issue markup.
-function excerpt(value) {
+function clean(value) {
   return String(value || 'No log excerpt was supplied by the provider.')
     .replace(/\x1b\[[0-9;]*m/g, '').replace(/@/g, '@\u200b')
-    .replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/`/g, "'")
-    .split('\n').slice(-35).join('\n').slice(-6000);
+    .replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/`/g, "'");
 }
+function excerpt(value) {
+  return clean(value).split('\n').slice(-35).join('\n').slice(-6000);
+}
+// A job log ends with post-job cleanup, so its last lines rarely hold the error. End the
+// excerpt at the first ##[error] annotation (the failing step) and keep the lines before it.
+function logExcerpt(log, chars) {
+  const lines = clean(log).split('\n');
+  const error = lines.findIndex(line => line.includes('##[error]'));
+  const end = error === -1 ? lines.length : error + 1;
+  return lines.slice(Math.max(0, end - 200), end).join('\n').slice(-chars);
+}
+// GitHub caps an issue body at 65,536 characters; share a budget across the failed jobs.
+const LOG_BUDGET = 48000;
 
 module.exports = async function report({ github, context, core }, options = {}) {
   const repo = context.repo;
@@ -36,7 +48,7 @@ module.exports = async function report({ github, context, core }, options = {}) 
   let source, sha, url, detail;
   if (context.eventName === 'workflow_run') {
     const run = context.payload.workflow_run;
-    if (!['failure', 'timed_out'].includes(run.conclusion) || run.event !== 'push' || run.head_branch !== branch ||
+    if (!['failure', 'timed_out', 'startup_failure'].includes(run.conclusion) || run.event !== 'push' || run.head_branch !== branch ||
         run.path !== workflowPath || run.head_repository?.full_name !== 'SebastianGarces/everyfield') return;
     source = 'ci'; sha = run.head_sha; url = run.html_url;
     const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
@@ -44,6 +56,7 @@ module.exports = async function report({ github, context, core }, options = {}) 
     });
     const failed = jobs.filter(job => ['failure', 'timed_out'].includes(job.conclusion));
     const details = [];
+    const chars = Math.min(12000, Math.floor(LOG_BUDGET / Math.max(1, failed.length)));
     for (const job of failed) {
       let log;
       try {
@@ -55,9 +68,11 @@ module.exports = async function report({ github, context, core }, options = {}) 
         // An issue must still be filed when a provider has expired or withheld its logs.
         log = `Job log unavailable (${error.status || error.message}); open the job link.`;
       }
-      details.push(`### ${excerpt(job.name)}\n\nJob: ${job.html_url}\nFailed steps: ${job.steps.filter(step => step.conclusion === 'failure').map(step => excerpt(step.name)).join(', ') || job.conclusion}\n\nLog excerpt:\n\n\`\`\`text\n${excerpt(log)}\n\`\`\``);
+      details.push(`### ${excerpt(job.name)}\n\nJob: ${job.html_url}\nFailed steps: ${job.steps.filter(step => step.conclusion === 'failure').map(step => excerpt(step.name)).join(', ') || job.conclusion}\n\nLog excerpt:\n\n\`\`\`text\n${logExcerpt(log, chars)}\n\`\`\``);
     }
-    detail = details.join('\n\n') || 'No failed job details were returned. Open the run link.';
+    detail = details.join('\n\n') || (run.conclusion === 'startup_failure'
+      ? 'CI did not start (startup_failure), so no job ran. A workflow file is usually invalid. Open the run link for the error.'
+      : 'No failed job details were returned. Open the run link.');
   } else if (context.eventName === 'deployment_status') {
     const { deployment: deploy, deployment_status: status } = context.payload;
     if (!['failure', 'error'].includes(status.state) || deploy.environment?.toLowerCase() !== 'production' ||

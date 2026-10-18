@@ -117,3 +117,39 @@ test('INV-fail-forward: unknown creation outcome refuses retry until the issue p
   assert.equal(await report({ ...p, context: ci() }), 1);
   assert.match(p.issues[0].body, /Job: https:\/\/github.com\/job\/7/);
 });
+
+test('INV-fail-forward: a long job log keeps the error that comes before post-job cleanup', async () => {
+  const p = provider();
+  const log = [
+    ...Array.from({ length: 400 }, (_, i) => `setup line ${i}`),
+    'src/app.ts(4,2): error TS2322: fixture type error',
+    '##[error]Process completed with exit code 2.',
+    ...Array.from({ length: 120 }, (_, i) => `Post job cleanup line ${i}`),
+  ].join('\n');
+  p.github.rest.actions.downloadJobLogsForWorkflowRun = async () => ({ url: `data:text/plain,${encodeURIComponent(log)}` });
+  assert.equal(await report({ ...p, context: ci() }), 1);
+  const body = p.issues[0].body;
+  assert.match(body, /error TS2322: fixture type error\n##\[error\]Process completed with exit code 2\.\n```/);
+  assert.doesNotMatch(body, /Post job cleanup/);
+  assert.match(body, /setup line 399/);
+  assert.doesNotMatch(body, /setup line 100\n/);
+});
+
+test('INV-fail-forward: many failed jobs stay inside the GitHub issue body limit', async () => {
+  const p = provider();
+  const jobs = Array.from({ length: 10 }, (_, i) => ({ id: i, name: `job ${i}`, conclusion: 'failure', html_url: `https://github.com/job/${i}`, steps: [] }));
+  p.github.paginate = async endpoint => endpoint === p.github.rest.issues.listForRepo ? p.issues : jobs;
+  p.github.rest.actions.downloadJobLogsForWorkflowRun = async () => ({ url: `data:text/plain,${encodeURIComponent('x'.repeat(199) + '\n').repeat(500)}` });
+  assert.equal(await report({ ...p, context: ci() }), 1);
+  assert.ok(p.issues[0].body.length < 65536, `body has ${p.issues[0].body.length} characters`);
+  assert.equal(p.issues[0].body.match(/^### job /gm).length, 10);
+});
+
+test('INV-fail-forward: a CI run that never started is reported as an incident', async () => {
+  const p = provider();
+  p.github.paginate = async endpoint => endpoint === p.github.rest.issues.listForRepo ? p.issues : [];
+  assert.equal(await report({ ...p, context: ci({ conclusion: 'startup_failure' }) }), 1);
+  assert.equal(p.issues[0].title, 'P0: CI failed on main');
+  assert.match(p.issues[0].body, /CI did not start \(startup_failure\)/);
+  assert.match(p.issues[0].body, /Source: https:\/\/github.com\/run\/3/);
+});
