@@ -186,7 +186,13 @@ for (const [name, engine] of ENGINES) {
 					"back in the section, the first save still runs",
 				);
 				await churchName(page).fill("Harvest Point Church second");
-				await saveButton.click();
+				// Click at once, as a person would. A normal click would wait for the busy button to become enabled.
+				await saveButton.click({ force: true });
+				assert.equal(
+					await page.evaluate(() => window.__settingsFixture.calls.saveSection),
+					1,
+					"a second Save during the first sends nothing",
+				);
 				await churchName(page).fill("Harvest Point Church");
 				await page.waitForFunction(() => !document.querySelector("[aria-busy=true]"), null, { timeout: 15_000 });
 				await page.waitForTimeout(300);
