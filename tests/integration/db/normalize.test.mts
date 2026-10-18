@@ -17,6 +17,11 @@ CREATE INDEX "person_id_idx" ON "public"."person" ("id");
 SELECT $$REFERENCES "public"."account"$$, public.vector_dims(embedding);
 ALTER TABLE "person" ADD FOREIGN KEY ("id") REFERENCES "other"."account"("id");
 ALTER TABLE "person" ADD FOREIGN KEY ("id") REFERENCES "public"."extension_table"("id");
+INSERT INTO "public"."person" SELECT * FROM "public"."account";
+UPDATE "public"."person" SET "id" = 1;
+DELETE FROM "public"."person";
+ALTER TABLE IF EXISTS "public"."person" DROP COLUMN old_column;
+SELECT public.account(1);
 `;
 	const expected = `CREATE TABLE "person" ("embedding" public.vector(1536), "note" text DEFAULT 'REFERENCES "public"."account"');
 ALTER TABLE "person" ADD CONSTRAINT "person_account_fk" FOREIGN KEY ("id") REFERENCES "account"("id");
@@ -26,6 +31,11 @@ CREATE INDEX "person_id_idx" ON "person" ("id");
 SELECT $$REFERENCES "public"."account"$$, public.vector_dims(embedding);
 ALTER TABLE "person" ADD FOREIGN KEY ("id") REFERENCES "other"."account"("id");
 ALTER TABLE "person" ADD FOREIGN KEY ("id") REFERENCES "public"."extension_table"("id");
+INSERT INTO "person" SELECT * FROM "account";
+UPDATE "person" SET "id" = 1;
+DELETE FROM "person";
+ALTER TABLE IF EXISTS "person" DROP COLUMN old_column;
+SELECT public.account(1);
 `;
 	assert.equal(normalizeOwnTableReferences(before, own), expected);
 	assert.equal(normalizeOwnTableReferences(expected, own), expected);
@@ -41,6 +51,7 @@ SELECT vector, "vector", vector(3), public.vector_dims(embedding), '::vector', C
 -- vector vector ::vector
 SELECT $$CREATE TABLE vector (value vector);$$;
 ALTER TABLE "vector" ADD COLUMN other_schema_vector other.vector;
+CREATE TABLE "types" ("x" "Vector", "y" VECTOR);
 `;
 	const expected = `CREATE TABLE "vector" ("vector" text, embedding public.vector(3) DEFAULT '[1,2,3]'::public.vector, vectors public.vector[] DEFAULT ARRAY[]::public.vector[], note text DEFAULT 'vector', x text DEFAULT vector_name());
 ALTER TABLE "vector" ADD COLUMN "vector_column" public.vector;
@@ -49,6 +60,7 @@ SELECT vector, "vector", vector(3), public.vector_dims(embedding), '::vector', C
 -- vector vector ::vector
 SELECT $$CREATE TABLE vector (value vector);$$;
 ALTER TABLE "vector" ADD COLUMN other_schema_vector other.vector;
+CREATE TABLE "types" ("x" "Vector", "y" public.vector);
 `;
 	assert.equal(qualifyVectorTypes(before), expected);
 	assert.equal(qualifyVectorTypes(expected), expected);

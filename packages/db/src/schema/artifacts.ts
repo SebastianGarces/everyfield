@@ -22,6 +22,14 @@ export async function checkMigrationArtifacts(directory = migrationDirectory): P
 	const registered = journal.entries.map((entry) => entry.tag + ".sql").sort();
 	if (
 		new Set(journal.entries.map((entry) => entry.idx)).size !== journal.entries.length ||
+		journal.entries.some(
+			(entry, index) =>
+				!Number.isInteger(entry.idx) ||
+				entry.idx < 0 ||
+				(index > 0 && entry.idx <= (journal.entries[index - 1]?.idx ?? -1)),
+		) ||
+		new Set(files.map((name) => name.slice(0, 4))).size !== files.length ||
+		journal.entries.some((entry) => !entry.tag.startsWith(String(entry.idx).padStart(4, "0") + "_")) ||
 		new Set(registered).size !== registered.length ||
 		JSON.stringify(files) !== JSON.stringify(registered)
 	)

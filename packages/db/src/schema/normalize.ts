@@ -76,7 +76,17 @@ export function normalizeOwnTableReferences(source: string, tableNames: Readonly
 		if (target >= tokens.length || !tableNames.has(identifier(tokens[target] ?? ""))) continue;
 		let context = i - 1;
 		while (context >= 0 && trivia(tokens[context] ?? "")) context--;
-		if (context < 0 || !["references", "table", "on"].includes(identifier(tokens[context] ?? ""))) continue;
+		while (context >= 0 && ["only", "if", "not", "exists"].includes(identifier(tokens[context] ?? ""))) {
+			context--;
+			while (context >= 0 && trivia(tokens[context] ?? "")) context--;
+		}
+		if (
+			context < 0 ||
+			!["references", "table", "on", "from", "join", "update", "into", "using", "truncate"].includes(
+				identifier(tokens[context] ?? ""),
+			)
+		)
+			continue;
 		tokens[i] = "";
 		tokens[dot] = "";
 	}
@@ -113,7 +123,7 @@ export function qualifyVectorTypes(source: string): string {
 			const frame = stack.at(-1);
 			if (frame) frame.segment = i + 1;
 		}
-		if (!["vector", '"vector"'].includes(token.value.toLowerCase()) || value(i - 1) === ".") continue;
+		if ((token.value !== '"vector"' && token.value.toLowerCase() !== "vector") || value(i - 1) === ".") continue;
 		if (value(i - 1) === ":" && value(i - 2) === ":") types.add(token.index);
 		if (value(i - 1) === "as" && stack.at(-1)?.cast) types.add(token.index);
 		const frame = stack.at(-1);

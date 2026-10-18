@@ -28,16 +28,32 @@ for (const value of Object.values(declarations))
 		for (const column of getTableConfig(value).columns) {
 			if (column.enumValues?.length) typeContracts[getTableConfig(value).name + "." + column.name] = column.enumValues;
 		}
+function literalSet(value: string) {
+	const match = value.match(/^\(?([a-z_][\w]*) = ANY \(ARRAY\[((?:'(?:''|[^'])*'::text(?:, )?)+)\]\)\)?$/);
+	if (!match?.[1] || !match[2]) return undefined;
+	return {
+		column: match[1],
+		sql: match[2].replaceAll("::text", ""),
+		values: [...match[2].matchAll(/'((?:''|[^'])*)'/g)].map((m) => (m[1] ?? "").replaceAll("''", "'")),
+	};
+}
+for (const table of Object.values(snapshot.tables))
+	for (const check of Object.values(table.checkConstraints)) {
+		const set = literalSet(check.value);
+		if (!set) continue;
+		const key = table.name + "." + set.column,
+			declared = typeContracts[key];
+		if (Array.isArray(declared) && JSON.stringify([...declared].sort()) !== JSON.stringify([...set.values].sort()))
+			throw Error("Typed enum differs from its CHECK: " + key);
+		typeContracts[key] = set.values;
+	}
 if (typeContracts["person.source"]) {
 	typeContracts.person_source = typeContracts["person.source"];
 	typeContracts.ApprovedRecruitmentSource = typeContracts["person.source"];
 }
 function displayCheck(value: string) {
-	// PostgreSQL's equivalent spelling is less readable to the documentation's enum lints.
-	const enumSet = /^\(?([a-z_][\w]*) = ANY \(ARRAY\[((?:'(?:''|[^'])*'::text(?:, )?)+)\]\)\)?$/;
-	const match = value.match(enumSet);
-	if (match) return match[1] + " in (" + match[2]?.replaceAll("::text", "") + ")";
-	return value;
+	const set = literalSet(value);
+	return set ? set.column + " in (" + set.sql + ")" : value;
 }
 const tables = Object.values(snapshot.tables)
 	.sort((a, b) => a.name.localeCompare(b.name))

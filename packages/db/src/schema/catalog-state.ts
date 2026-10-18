@@ -45,7 +45,7 @@ export async function modeledCatalog(db: Database | Transaction, schema: string)
 
 /** Objects Kit cannot model have explicit, reviewed expectations beside the Drizzle declarations. */
 export async function supplementalCatalog(db: Database | Transaction, schema: string) {
-	const [deferred, triggers, functions, roles, acl, defaults] = await Promise.all([
+	const [deferred, triggers, functions, roles, acl, defaults, extensions] = await Promise.all([
 		db.execute(
 			sql`SELECT c.relname AS table_name,k.conname AS name,k.condeferrable AS deferrable,k.condeferred AS initially_deferred FROM pg_constraint k JOIN pg_class c ON c.oid=k.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=${schema} AND k.contype='f' AND k.condeferrable`,
 		),
@@ -66,6 +66,9 @@ export async function supplementalCatalog(db: Database | Transaction, schema: st
 		db.execute(
 			sql`SELECT d.defaclobjtype AS kind,coalesce(r.rolname,'PUBLIC') AS grantee,x.privilege_type,x.is_grantable FROM pg_default_acl d JOIN pg_namespace n ON n.oid=d.defaclnamespace CROSS JOIN LATERAL aclexplode(d.defaclacl) x LEFT JOIN pg_roles r ON r.oid=x.grantee WHERE n.nspname=${schema} AND (x.grantee=0 OR r.rolname IN ('everyfield_runtime','everyfield_auth','everyfield_cleanup'))`,
 		),
+		db.execute(
+			sql`SELECT e.extname AS name,n.nspname AS schema FROM pg_extension e JOIN pg_namespace n ON n.oid=e.extnamespace WHERE e.extname='vector'`,
+		),
 	]);
 	return {
 		deferred: sorted(deferred.rows, schema),
@@ -74,5 +77,6 @@ export async function supplementalCatalog(db: Database | Transaction, schema: st
 		roles: sorted(roles.rows, schema),
 		acl: sorted(acl.rows, schema),
 		defaults: sorted(defaults.rows, schema),
+		extensions: sorted(extensions.rows, schema),
 	};
 }
