@@ -492,6 +492,15 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `organization_person_removal(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
 | `organization_person_removal(person_record_id, organization_id)` | `record(id, tenant_id)` | restrict |  |
 | `organization_person_removal(requested_by)` | `account(id)` | restrict |  |
+| `relationship_invitation(invitation_id)` | `invitation(id)` | no_action | Invitation owner is the initiating endpoint. The native invitation command validates this exact typed pair and current subject authority. |
+| `relationship_invitation(plant_id)` | `plant(id)` | no_action |  |
+| `relationship_invitation(account_id)` | `account(id)` | no_action |  |
+| `relationship_invitation(sending_church_id)` | `organization(id)` | no_action |  |
+| `relationship_invitation(organization_id)` | `organization(id)` | no_action |  |
+| `relationship_history(id)` | `event(id)` | no_action |  |
+| `relationship_history(relationship_id)` | `affiliation(id)` | no_action |  |
+| `relationship_history(source_invitation_id)` | `invitation(id)` | no_action |  |
+| `organization_operation_result(operation_id)` | `operation(id)` | no_action |  |
 
 ## Person references
 

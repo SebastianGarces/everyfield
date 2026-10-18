@@ -17668,6 +17668,319 @@
       ]
     },
     {
+      "id": "WP007-API-KNOW-112",
+      "requirement": "REQ-KNOW-112",
+      "requirement_ids": [
+        "REQ-KNOW-112"
+      ],
+      "feature_ids": [
+        "IDN-022"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-022--IDN-022"
+      ],
+      "work_packages": [
+        "WP-007"
+      ],
+      "status": "future-not-run",
+      "description": "PostgreSQL producer behavior through live current session and exact consent gates. No UI or aggregate delivery claim.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "revision": 2
+        },
+        "O": {
+          "fixture_type": "organization",
+          "id": "O",
+          "kind": "sending_church"
+        },
+        "N": {
+          "fixture_type": "organization",
+          "id": "N",
+          "kind": "sending_network"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "author@example.test"
+        },
+        "S": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-18T13:00:00Z"
+        },
+        "seat": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Owner",
+          "active": true
+        },
+        "Rel": {
+          "fixture_type": "affiliation",
+          "id": "Rel",
+          "plant_id": "P",
+          "organization_id": "O",
+          "revision": 2,
+          "ended_at": null
+        },
+        "L": {
+          "fixture_type": "residency_link",
+          "id": "L",
+          "account_id": "A",
+          "organization_id": "O",
+          "share_foundations": true,
+          "share_milestones": true,
+          "consent_revision": 2,
+          "ended_at": null
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "S",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-18T13:00:00Z",
+        "zone": "America/New_York"
+      },
+      "action": {
+        "operation": "privacy.setSharing",
+        "arguments": {
+          "relationship": "Rel",
+          "plant": "P",
+          "organization": "O",
+          "category": "shared_findings",
+          "enabled": false,
+          "expected_revision": 2,
+          "expected_consent_revision": 2
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "published_summary_access": "unavailable",
+          "other_organization": "unchanged"
+        },
+        "event": null
+      },
+      "layers": [
+        "domain",
+        "PostgreSQL integration"
+      ],
+      "coverage_notes": [
+        "Producer/API portion only. Later adapters prove browser and assistant integration."
+      ]
+    },
+    {
+      "id": "WP007-API-MUL-003",
+      "requirement": "REQ-MUL-003",
+      "requirement_ids": [
+        "REQ-MUL-003"
+      ],
+      "feature_ids": [
+        "MUL-003"
+      ],
+      "acceptance_ids": [
+        "AC-MUL-003--MUL-003"
+      ],
+      "work_packages": [
+        "WP-007"
+      ],
+      "status": "future-not-run",
+      "description": "PostgreSQL producer behavior through live current session and exact consent gates. No UI or aggregate delivery claim.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "revision": 2
+        },
+        "O": {
+          "fixture_type": "organization",
+          "id": "O",
+          "kind": "sending_church"
+        },
+        "N": {
+          "fixture_type": "organization",
+          "id": "N",
+          "kind": "sending_network"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "author@example.test"
+        },
+        "S": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-18T13:00:00Z"
+        },
+        "seat": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "N",
+          "role": "Owner",
+          "active": true
+        },
+        "Rel": {
+          "fixture_type": "affiliation",
+          "id": "Rel",
+          "plant_id": "P",
+          "organization_id": "O",
+          "revision": 2,
+          "ended_at": null
+        },
+        "L": {
+          "fixture_type": "residency_link",
+          "id": "L",
+          "account_id": "A",
+          "organization_id": "O",
+          "share_foundations": true,
+          "share_milestones": true,
+          "consent_revision": 2,
+          "ended_at": null
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "S",
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T13:00:00Z",
+        "zone": "America/New_York"
+      },
+      "action": {
+        "operation": "residency.setSharing",
+        "arguments": {
+          "link": "L",
+          "expected_consent_revision": 2,
+          "share_foundations": false,
+          "share_milestones": true
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "consent_revision": 3,
+          "foundations_access": "unavailable",
+          "milestones_access": "available",
+          "private_documents_shared": false
+        },
+        "event": null
+      },
+      "layers": [
+        "domain",
+        "PostgreSQL integration"
+      ],
+      "coverage_notes": [
+        "Producer/API portion only. Later adapters prove browser and assistant integration."
+      ]
+    },
+    {
+      "id": "WP007-API-MUL-016",
+      "requirement": "REQ-MUL-016",
+      "requirement_ids": [
+        "REQ-MUL-016"
+      ],
+      "feature_ids": [
+        "MUL-016"
+      ],
+      "acceptance_ids": [
+        "AC-MUL-016--MUL-016"
+      ],
+      "work_packages": [
+        "WP-007"
+      ],
+      "status": "future-not-run",
+      "description": "PostgreSQL producer behavior through live current session and exact consent gates. No UI or aggregate delivery claim.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "revision": 2
+        },
+        "O": {
+          "fixture_type": "organization",
+          "id": "O",
+          "kind": "sending_church"
+        },
+        "N": {
+          "fixture_type": "organization",
+          "id": "N",
+          "kind": "sending_network"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "author@example.test"
+        },
+        "S": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-18T13:00:00Z"
+        },
+        "seat": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "N",
+          "role": "Owner",
+          "active": true
+        },
+        "Rel": {
+          "fixture_type": "affiliation",
+          "id": "Rel",
+          "plant_id": "P",
+          "organization_id": "O",
+          "revision": 2,
+          "ended_at": null
+        },
+        "L": {
+          "fixture_type": "residency_link",
+          "id": "L",
+          "account_id": "A",
+          "organization_id": "O",
+          "share_foundations": true,
+          "share_milestones": true,
+          "consent_revision": 2,
+          "ended_at": null
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "S",
+        "context": "N"
+      },
+      "clock": {
+        "now": "2026-10-18T13:00:00Z",
+        "zone": "America/New_York"
+      },
+      "action": {
+        "operation": "pipelineSharing.checkAggregateAccess",
+        "arguments": {
+          "network": "N"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "allowed": false,
+          "minimum_contributors": 2,
+          "totals": null,
+          "individual_records": null
+        },
+        "event": null
+      },
+      "layers": [
+        "domain",
+        "PostgreSQL integration"
+      ],
+      "coverage_notes": [
+        "Producer/API portion only. Later adapters prove browser and assistant integration."
+      ]
+    },
+    {
       "id": "WP005-API-RESET",
       "requirement": "REQ-IDN-009",
       "feature_ids": [
