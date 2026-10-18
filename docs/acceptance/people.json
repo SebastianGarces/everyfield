@@ -21366,6 +21366,128 @@
       "coverage_notes": [
         "Boundary evidence only. No live authorization, one-seat race, creation journal, database or commissioning implementation claim."
       ]
+    },
+    {
+      "id": "WP008-MUL-004-ATOMIC",
+      "requirement": "REQ-MUL-004",
+      "requirement_ids": [
+        "REQ-MUL-004"
+      ],
+      "feature_ids": [
+        "MUL-004"
+      ],
+      "acceptance_ids": [
+        "AC-MUL-004--MUL-004"
+      ],
+      "work_packages": [
+        "WP-008"
+      ],
+      "status": "future-not-run",
+      "description": "A failed required receipt or outbox write rolls back resident linking and token consumption. The authenticated original account can resume the same intent.",
+      "given": {
+        "O": {
+          "fixture_type": "organization",
+          "id": "O",
+          "kind": "sending_church",
+          "timezone": "America/Chicago",
+          "revision": 7
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "staff@example.test"
+        },
+        "S": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "staff": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "O",
+          "role": "Admin",
+          "active": true
+        },
+        "R": {
+          "fixture_type": "account",
+          "id": "R",
+          "email": "resident@example.test"
+        },
+        "RS": {
+          "fixture_type": "session",
+          "account": "R",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "P": {
+          "fixture_type": "person",
+          "id": "P",
+          "tenant_id": "O",
+          "organization_id": "O",
+          "plant_id": null,
+          "display_name": "Casey Lee",
+          "stage": null,
+          "state": "live",
+          "revision": 4,
+          "linked_account_id": null,
+          "created_at": "2026-01-01T00:00:00Z"
+        },
+        "Invite": {
+          "fixture_type": "invitation",
+          "id": "Invite",
+          "tenant_id": "O",
+          "purpose": "residency_link",
+          "recipient_email": "resident@example.test",
+          "state": "pending",
+          "revision": 2,
+          "resident_person_id": "P"
+        },
+        "execution": {
+          "fixture_type": "execution_control",
+          "request_repetitions": 2
+        },
+        "proof": {
+          "fixture_type": "verified_invitation_proof",
+          "invitation": "Invite",
+          "account": "R",
+          "address_verified": true,
+          "expires_at": "2026-10-18T16:00:00Z",
+          "purpose": "residency_link",
+          "person": "P",
+          "organization": "O"
+        }
+      },
+      "actor": {
+        "account": "R",
+        "session": "RS",
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-17T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "residency.respondInvitation",
+        "arguments": {
+          "invitation": "Invite",
+          "decision": "accept",
+          "share_foundations": true,
+          "share_milestones": false,
+          "expected_revision": 2
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "atomic_link_receipt_and_mail": true,
+          "failed_transaction_consumes_token": false,
+          "replay_new_links": 0
+        },
+        "event": null
+      },
+      "layers": [
+        "PostgreSQL integration"
+      ]
     }
   ]
 }
