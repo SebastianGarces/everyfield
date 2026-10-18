@@ -1,75 +1,66 @@
 # EveryField v3: agent instructions
 
-EveryField v3 is a rebuild of EveryField v2. The plan is in `docs/`. Work is organized as work
-packages in `docs/plan/dag.json`, with current clauses and cases indexed by `docs/catalog/index.json`.
-Claude and Codex agents both read this file. Keep it under 150 lines (`bin/evf doctor` checks).
+EveryField v3 rebuilds v2. Packages and dependencies live in `docs/plan/dag.json`.
+Current requirements and cases live in `docs/catalog/index.json`. Keep this file under 150 lines.
 
-## How work flows
+## Task flow
 
-Intent coordinators plan and delegate. Each implementation task uses its own worktree and
-reviewed proof plan. Current authorization and prerequisite gates apply before execution.
-Merge policy and review requirements live in `.agents/skills/ship/SKILL.md`.
+1. Read your Intent task note and role below. The coordinator plans and delegates.
+2. `bin/evf task start <task>` creates the isolated worktree and prints its brief.
+   Register that path with Intent. Edit and commit there, never in the workspace root.
+3. Build inside the owning paths. Use the brief and linked current clauses as the contract.
+4. Include current main, commit, run the task checks and `bin/evf verify <task>`.
+   Open a PR explaining the change, actual verification, evidence, risks and follow-ups.
+5. A verifier from a different model family checks the branch's running local preview,
+   records approval for that exact head on the PR and runs `bin/evf ship <task>`.
+   Ship requires green required GitHub CI, independent approval and a valid PR body.
 
-1. `bin/evf task start <task>`: worktree, stack and your task brief. Read the brief first.
-2. Build inside your owning paths. Tests follow the `test-standard` skill.
-3. `bin/evf verify <task>` on a clean commit that includes the latest `main`.
-4. `bin/evf pr open <task>`. A verifier runs `bin/evf verify <task> --role verifier`, then `bin/evf ship <task>`.
+Use `bin/evf help` for commands. IDs are WP-NNN, WP-NNN/contract, /api or /ui,
+FB-<n> for feedback and OPS-<n> for tooling maintenance.
 
-Task IDs: `WP-NNN`, or `WP-NNN/contract`, `WP-NNN/api`, `WP-NNN/ui` when a package splits.
-`OPS-<n>` is reviewed tooling maintenance. Feedback routing lives in `.agents/roles/feedback-desk.md`.
-Run `bin/evf help` for every command.
+## Rules
 
-## Hard rules
+- Follow `.agents/skills/ship/SKILL.md` for merge authority. Never merge your own work,
+  push directly to main or force-push. Preserve the owner approval routes from PR #13.
+- All UI work belongs to `ui-designer` on Opus 5.5.
+- Use one portless preview per worktree. No Vercel preview deployments.
+- Use the shared development database for checks. It may be wiped and reseeded.
+  Production is separate. Never print credentials or use production for tests.
+- Prove actual behavior. Tooling checks establish tooling behavior, not application acceptance.
+- Decide reversible ambiguities and record them in task notes, using `decisions`.
+- Keep screenshots, traces and temporary verification scripts outside the repository.
+- Encode repeated corrections in a type, lint rule or test before adding written rules.
+- Put shared workflow enforcement in evf or a skill, never a second host-specific hook.
+- Preserve original reference bytes, unrelated assets and design/everyfield-ui.html.
 
-- Follow `.agents/skills/ship/SKILL.md` for Git safety and merge authority.
-- Your shell starts in the workspace root. Task work happens in `.worktrees/<task>`; use the path
-  `evf` prints or `git -C`. Never commit task work in the workspace root.
-- All UI work belongs to the `ui-designer` specialist on Opus 5.5.
-- Name the proof kind and scope. Tooling checks establish tooling behavior; application acceptance needs the reviewed runner, selected case/gate portions and real applicable layers.
-- Rule reversible ambiguities yourself and record them (skill `decisions`). Do not wait.
-- Keep evidence, screenshots and traces out of the repository. `evf` stores them under the git common dir.
-- Do not install a second copy of a rule in a host-specific hook or config. Put it in `evf` or a skill.
+## Roles and skills
 
-## Your role
-
-Read the file for your specialist before you start:
-
-| Intent specialist | File |
+| Specialist | Read |
 |---|---|
-| `spec-writer` (Coordinator) | `.agents/roles/coordinator.md` |
-| `implementor` | `.agents/roles/implementor.md` |
-| `ui-designer` | `.agents/roles/ui-designer.md` |
-| `verifier` | `.agents/roles/verifier.md` |
-| `wiki-writer` (via `implementor`) | `.agents/roles/wiki-writer.md` |
-
-## Where to look
+| spec-writer, coordinator | `.agents/roles/coordinator.md` |
+| implementor | `.agents/roles/implementor.md` |
+| ui-designer | `.agents/roles/ui-designer.md` |
+| verifier | `.agents/roles/verifier.md` |
 
 | Need | Read |
 |---|---|
-| Your package scope, clauses, cases, aliases and paths | `docs/plan/context.md` and `docs/package-context.py` |
-| Full obligations of one criterion | `docs/catalog/index.json` and selected package detail pages |
-| Architecture, contracts, transactions, tenancy | `docs/architecture/README.md` |
-| Feature behavior | `docs/product/` (only the current sections selected by your packet) |
-| Current approved product contract | `docs/START-HERE.md` and selected current clauses |
-| What v2 taught us | `docs/lessons.md` |
-| Writing a Wiki article | skill `wiki-article` |
-| When to write a test | skill `test-standard` |
-| Proving a task works | skill `verify` |
-| Opening and merging PRs | skill `ship` |
-| Debugging with traces, logs and the browser | skill `debug-with-traces` |
-| Recording a ruling | skill `decisions` |
-| Local previews | skill `portless-preview` |
-| React and Next.js performance | skill `vercel-react-best-practices` |
-| UI quality | skill `better-interface` and the `better-*` suite |
-| Workflow config | `evf.config.json` |
-
-Skills live in `.agents/skills/`. `.claude/skills` links to the same folder.
+| Product contract | `docs/START-HERE.md` and selected requirement JSON |
+| Task context | `docs/plan/context.md` and `docs/package-context.py` |
+| Architecture | `docs/architecture/README.md` |
+| Regression tests | `.agents/skills/test-standard/SKILL.md` |
+| Local checks and review | `.agents/skills/verify/SKILL.md` |
+| Merge rules | `.agents/skills/ship/SKILL.md` |
+| Debugging | `.agents/skills/debug-with-traces/SKILL.md` |
+| Decisions | `.agents/skills/decisions/SKILL.md` |
+| Previews | `.agents/skills/portless-preview/SKILL.md` |
+| UI quality | better-interface and the better-* suite |
+| Tooling and recovery | `tools/evf/README.md` |
 
 ## Principles
 
-This is the only always-loaded copy. Each line is a file at `.agents/skills/principle-<name>/SKILL.md`.
-They are verbatim upstream copies (`skills-lock.json`): never edit them; put EveryField rules in a role
-file or skill. Your role file names the ones to read in full at the start. Open others when they apply.
+Each name maps to `.agents/skills/principle-<name>/SKILL.md`. Read the principles named
+by your role, then others when needed. These are verbatim upstream copies pinned by
+`skills-lock.json`; put EveryField adaptations in roles or other skills.
 
 - `attack-the-premise`: Two fixes with one premise failed? Question the premise, not the fix.
 - `boundary-discipline`: Guards at system boundaries; trust internal types; pure business logic.
@@ -96,15 +87,18 @@ file or skill. Your role file names the ones to read in full at the start. Open 
 - `test-behavior-not-implementation`: Call code as users do; assert the exact result.
 - `type-system-discipline`: Illegal states unrepresentable; parse at boundaries.
 
-## Build progress
 
-`docs/plan/dag.json` defines packages and dependencies. Only `evf` writes `docs/build-progress.json`,
-automatically on ship and coordinator acknowledgement. Agents update task notes, not package patches.
-Reviewed producer/interface milestones unlock dependents; full package closure stays at integration.
-Read `docs/build-agent-workflow.md` for coordinator duties. Generate the read-only explorer outside the repo with `python3 docs/render-build-explorer.py --output /tmp/everyfield-build-explorer.html`.
-Run all documentation checks with `python3 docs/check-all.py`.
+## Progress and context
 
-## Current documentation context
-Read docs/START-HERE.md and generate the assigned package context from docs/plan/context-manifest.json using docs/package-context.py. Requirement JSON in `docs/catalog/requirements/` is the behavior authority; product chapters are summaries. The target schema defines records; do not reconstruct a prior decision chronology or require v2. Read original reference passages and approved design sections on demand. This repository has no superseded-material archive. External evidence is an investigation path, not a package prerequisite. Preserve original reference bytes, unrelated assets, and design/everyfield-ui.html. Documentation status is separate from implementation authorization and evidence.
+Only evf writes `docs/build-progress.json`. Coordinators acknowledge shipped milestones
+through `bin/evf shipped --clear <task>`. Owners update task notes, not progress patches.
+Read `docs/build-agent-workflow.md` for milestone and integration closure.
+Generate the explorer outside the repo with
+`python3 docs/render-build-explorer.py --output /tmp/everyfield-build-explorer.html`.
+Run documentation checks with `python3 docs/check-all.py`.
 
-Read `tools/evf/README.md` for runner setup, proof and recovery boundaries. G-WORKFLOW remains open.
+Generate assigned context with `docs/package-context.py` from `docs/plan/context-manifest.json`.
+Requirement JSON is the behavior authority; product chapters are summaries. Read original
+references and approved design sections on demand. Documentation status grants no implementation
+or spending approval. G-WORKFLOW closes only after W0 to W5 merge and one task completes
+end to end through Phase 7.

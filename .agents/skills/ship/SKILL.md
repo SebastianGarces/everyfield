@@ -1,18 +1,44 @@
 ---
 name: ship
-description: "Apply when a reviewed task is ready to open or merge a PR. Require current authorization, exact-head full independent scoped proof and verified protection. Ordinary builds and P0/P1 feedback fixes merge automatically after independent approved review; P2/P3 fixes are verified first and then wait for Sebastian; Wiki articles and prototypes merge only after Sebastian approves them in chat, through `evf approve`."
+description: Open or merge a Phase 7 PR with exact-head CI, different-model verification and the PR standard.
 ---
 
 # Ship
 
-The author opens one PR only after explicit external authorization and current full author proof. The verifier supplies a distinct trusted provider identity/model family and reproduces the reviewed current-stage case/gate portions at the same head/current main/policy fingerprint. Tooling checks do not qualify application acceptance.
+Authors commit in their task worktree, include current main, run checks and open a PR for Sebastian.
+Use the PR standard skill and template, then `evf pr open <task> --body-file <file>`. Record one `EVF-Author: openai` or `anthropic`
+line in the body, based on the actual author model family. Never merge your own work, push to
+main or force-push.
 
-The owner approved automatic ordinary build PR merge on 2026-10-13. `evf ship` requires final-head full tests, a distinct trusted verifier identity/model family and an approved review receipt bound to that head and reviewed risk classification. On 2026-10-15 the owner extended automatic merge to P0 and P1 feedback bug fixes (`mergePolicy.feedbackVerifierMerge`): they ship exactly like ordinary builds. P2 and P3 fixes (`feedbackOwnerAfterVerifier`) get the same full verification: the verifier runs `evf ship`, which marks the head verified and stops before the merge; after Sebastian approves, `evf approve` merges only a head the verifier passed. Prototypes and Wiki article PRs never merge automatically. Sebastian reads them and approves in chat; only then does an agent run `bin/evf approve <PR> --owner-approval "<his words>"`, which records his words on the PR and squash-merges the head he approved. `evf approve` refuses every other PR, a feedback PR without its triage record, and a behind or changed head: update the branch, re-verify where required and ask him again. Wiki PRs need no `evf verify`; the Wiki workflow's Opus review is their check. Never merge your own work, push directly to main or force-push.
+A different-model verifier independently exercises the branch's own portless preview and dev
+database. Tooling tasks need tooling checks, not application screenshots. Record actual scope,
+results and external evidence on the PR, followed by this exact line with the full tested SHA:
 
-WP-097 alone has the owner's 2026-10-14 fast-track exception to signed evf proof. After normal tests, cross-model approval and Sebastian's preview/configuration/go-live approval, the coordinator imports documentary evidence with `evf shipped --fast-track WP-097 --evidence <file>`. The reviewed commit must already be on current main. The file records `commit`, passing `checks: [{command, result: "passed", evidence}]`, `author: {actor, model_family}`, `verifier: {actor, model_family, verdict: "approved", commit, evidence}` and `owner_go_live: {actor: "Sebastian", commit, evidence}`. Evidence fields link to the actual logs and approval notes at that commit. This owner-reviewed documentary import is unsigned and does not authenticate provider identities; the coordinator checks those references before importing. evf retains the approvals through its normal progress writer, marks only WP-097 done and unlocks WP-087. Merge the generated progress through reviewed maintenance and refresh the root before delegating WP-087; this import has no retained signed milestone to survive restoring the old progress bytes. Other packages retain signed proof, kickoff gates and normal merge requirements.
+```text
+EVF-Review: {"head":"<40-character SHA>","verifierFamily":"anthropic","verdict":"approved"}
+```
 
-If main/branch changes, stop for new full author/verifier proof at the new final head. Quick checks support iteration and cannot reuse historical full proof. Prototypes stay drafts for owner product review.
+Use the verifier's actual family. Comments are deliberate because agents share the owner's
+GitHub account. These records are unsigned coordination evidence, not authenticated identities.
+Use `changes_requested` instead of `approved` when verification fails. The latest record for that
+head wins. A changed head needs new CI and real verification.
 
-Shipped records retain exact proven/deferred portions and merge commit; `package_completion` remains false. evf alone writes canonical progress on ship and coordinator acknowledgement. `evf shipped --clear` records the reviewed milestone and preserves provenance. Producer/interface milestones unlock dependent tasks. Full package closure is recorded when the coordinator acknowledges a full-target shipped integration plan with reviewed `packageClosures`, all target gates/cases, acknowledged parts and done direct prerequisites. No package-owner patch or explorer checklist is required. Maintenance (`OPS-n`) uses independently attested tooling proof and review, with no application cases or package gates.
+`evf ship <task>` requires every required GitHub check to pass on the exact PR head, a different
+family's approval of that head and a body passing the PR standard. Missing checks refuse.
+It squash-merges with `--match-head-commit`. It never updates a branch and reuses old approval.
+Ordinary builds and P0/P1 feedback fixes use this route. P2/P3 feedback fixes get the same checks,
+then wait for Sebastian's chat approval and `evf approve`. Prototypes and Wiki article PRs also
+require his chat approval and `evf approve`; Wiki uses its own Opus review. Preserve these PR #13
+routes. Sensitive work and paid commitments still need their scoped owner approvals.
 
-Branch protection is off at the owner's request (2026-10-15) until implementation starts; `evf ship` refuses to merge until it is back. `evf github setup` restores it: squash-only merges, a PR for every change, strict up-to-date `evf/verify` with `enforce_admins` (agents act through the owner's account), zero approvals, linear history, no force push. Paid providers remain a separate owner action. See `tools/evf/README.md` for remaining setup and recovery boundaries.
+Only evf writes canonical progress. Ship retains the CI and review references, exact head and
+merge commit. The coordinator acknowledges milestones with `evf shipped --clear <task>`.
+A merged producer or part unlocks dependents after acknowledgement. Full package closure stays
+with integration, whose verifier names fully exercised packages in `packageClosures` on the review.
+
+WP-097 retains the owner's 2026-10-14 fast-track history. Its imported evidence has `commit`,
+passing `checks: [{command, result: "passed", evidence}]`, `author: {actor, model_family}`,
+`verifier: {actor, model_family, verdict: "approved", commit, evidence}` and
+`owner_go_live: {actor: "Sebastian", commit, evidence}`. The commit must be on main.
+`evf shipped --fast-track WP-097 --evidence <file>` records only that package. Preserve its
+actual logs, independent review and owner go-live references when transferring progress.

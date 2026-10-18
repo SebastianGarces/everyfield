@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
@@ -28,7 +27,8 @@ export type Config = {
   maxAgentsMdLines: number;
   stack: StackDef | null;
   checks: CheckDef[];
-  maintenanceTasks?: Record<string, { title: string; owningPaths: string[]; checks: CheckDef[]; configChanges?: Array<"stack" | "checks"> }>;
+  maintenanceTasks?: Record<string, { title: string; owningPaths: string[]; checks: CheckDef[]; risk?: "ordinary" | "sensitive" | "security" | "privacy" | "irreversible" }>;
+  taskRisks?: Record<string, "ordinary" | "sensitive" | "security" | "privacy" | "irreversible">;
   mergePolicy: MergePolicy;
 };
 
@@ -207,14 +207,6 @@ export function packageContext(root: string, wp: string): Context {
   if (!context) fail(`No current context for ${wp}.`);
   return context;
 }
-/** Pin every committed policy/context byte; proof artifacts remain outside the checkout. */
-export function contractFingerprint(root: string, omit: (path: string) => boolean = () => false, config?: Config): string {
-  const files = git(root,"ls-files","-z").split("\0").filter(p => p !== 'docs/build-progress.json' && p !== 'docs/.build-progress.lock').filter(p => p === 'AGENTS.md' || p === 'bin/evf' || p === 'evf.config.json' || p.startsWith('docs/') || p.startsWith('tools/evf/') || p.startsWith('.agents/roles/') || (p.startsWith('.agents/skills/') && !p.includes('/principle-'))).sort();
-  const hash = createHash('sha256');
-  for (const path of files.filter(p => !omit(p))) hash.update(path+'\0').update(path === 'evf.config.json' && config ? JSON.stringify(config) : readFileSync(join(root,path))).update('\0');
-  return hash.digest('hex');
-}
-
 export function loadProgress(root: string): Record<string, { status: string }> {
   const path = join(root, "docs/build-progress.json");
   return existsSync(path) ? readJson<{ packages: Record<string, { status: string }> }>(path).packages : {};

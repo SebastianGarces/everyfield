@@ -1,15 +1,15 @@
 import { existsSync, mkdirSync, writeFileSync, openSync, closeSync, unlinkSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { baseRef, evfDataDir, fail, findPackage, git, gitOk, loadConfig, loadDag, loadProgress, packageContext, parseTask, partsOf, pathsForPart, readJson, run } from './lib.ts';
-import { shippable, validAttestation, type Proof } from './verify.ts';
+import { baseRef, evfDataDir, fail, findPackage, git, gitOk, loadConfig, loadDag, loadProgress, parseTask, partsOf, pathsForPart, readJson, run } from './lib.ts';
+import { type MergeEvidence } from './ship.ts';
 
 export type ShippedRecord = {
  task:string; package_id:string|null; part:string|null; merge_commit:string; shipped_at:string;
- proof:Proof; author_proof:Proof; acknowledged?:boolean;
+ verification:MergeEvidence; base_sha:string; verified_head:string; acknowledged?:boolean;
  evidence:{path:string;commit:string;test:string;result:string;note:string};
 };
-type Milestone = {task:string;merge_commit:string;acknowledged:boolean;stage:string;passed_case_portions:unknown[];passed_gate_portions:unknown[];deferred_case_portions:unknown[];deferred_gate_portions:unknown[]};
+type Milestone = {task:string;merge_commit:string;acknowledged:boolean;stage:string};
 type ProgressPackage = {status:string;revision:number;updated_at:string|null;evidence:ShippedRecord['evidence'][];notes:string;fast_track?:FastTrackEvidence;milestones?:Record<string,Milestone>;retired_into?:string};
 type Progress = {revision:number;updated_at:string;packages:Partial<Record<string,ProgressPackage>>};
 
@@ -17,18 +17,14 @@ function retained(root:string,task:string):ShippedRecord|null {
  const path=join(evfDataDir(root),'shipped',`${parseTask(task).slug}.json`);
  return existsSync(path)?readJson<ShippedRecord>(path):null;
 }
-/** Re-check the signed producer and its actual merged bytes, not a caller-created status flag. */
+/** Retained review names the exact tested head; merged owning-path bytes must match it. */
 export function reviewedMilestone(root:string,record:ShippedRecord):boolean {
- const task=parseTask(record.task),cfg=loadConfig(root);
+ const task=parseTask(record.task),cfg=loadConfig(root),v=record.verification;
  if(task.kind!=='wp'||record.package_id!==task.wp||record.part!==task.part)return false;
- const key=(cfg as typeof cfg & {verification:{publicKey?:string}}).verification.publicKey;
- const p=record.proof,a=record.author_proof;
- if(!p||!a||p.task!==task.id||a.task!==task.id||p.role!=='verifier'||a.role!=='author'||p.sha!==a.sha||p.base.sha!==a.base.sha||p.fingerprint!==a.fingerprint||!shippable(p)||!shippable(a)||!validAttestation(p,key)||!validAttestation(a,key)||p.attestation!.payload.actorId===a.attestation!.payload.actorId||p.attestation!.payload.modelFamily===a.attestation!.payload.modelFamily)return false;
- const installed=JSON.parse(git(root,'show',`${p.sha}:evf.config.json`)).verification.proofPlans?.[task.id];
- if(JSON.stringify(p.plan)!==JSON.stringify(installed)||JSON.stringify(a.plan)!==JSON.stringify(installed))return false;
+ if(!v||v.head!==record.verified_head||v.approval.head!==v.head||v.approval.verdict!=='approved'||v.authorFamily===v.approval.verifierFamily||!v.checks.length||v.checks.some(c=>c.bucket!=='pass'))return false;
  if(!gitOk(root,'merge-base','--is-ancestor',record.merge_commit,baseRef(root,cfg)))return false;
  const paths=pathsForPart(findPackage(loadDag(root),task.wp),task.part);
- const tested=git(root,'diff','--binary',p.base.sha,p.sha,'--',...paths);
+ const tested=git(root,'diff','--binary',record.base_sha,record.verified_head,'--',...paths);
  return !!tested&&tested===git(root,'diff','--binary',`${record.merge_commit}^`,record.merge_commit,'--',...paths);
 }
 export function producerReady(root:string,wp:string):boolean {
@@ -44,14 +40,11 @@ export function recordProgress(root:string,record:ShippedRecord,acknowledged:boo
  const wp=record.package_id;
  if(wp===null)return; // Feedback and upkeep do not complete build packages.
  findPackage(loadDag(root),wp);
- if(!reviewedMilestone(root,record))fail('Progress requires independently reviewed, integrated shipped proof.');
+ if(!reviewedMilestone(root,record))fail('Progress requires an independently reviewed, integrated shipped record.');
  updateProgress(root,progress=>{
-  // A known active package may be new to canonical progress; signed integrated proof was checked above.
+  // A new package may not yet have a canonical progress entry.
   const p=progress.packages[wp]??={status:'not_started',revision:0,updated_at:null,evidence:[],notes:''};
-  const plan=record.proof.plan!;
-  const milestone:Milestone={task:record.task,merge_commit:record.merge_commit,acknowledged,stage:plan.stage,
-   passed_case_portions:record.proof.attestation!.payload.casePortions,passed_gate_portions:record.proof.attestation!.payload.gatePortions,
-   deferred_case_portions:plan.cases.flatMap(c=>c.deferred.map(d=>({caseId:c.id,...d}))),deferred_gate_portions:plan.gates.flatMap(g=>g.deferred.map(d=>({gateIndex:g.index,...d})))};
+  const milestone:Milestone={task:record.task,merge_commit:record.merge_commit,acknowledged,stage:record.part??'producer'};
   if(p.milestones?.[record.task]?.acknowledged)milestone.acknowledged=true;
   if(JSON.stringify(p.milestones?.[record.task])===JSON.stringify(milestone))return;
   p.milestones={...p.milestones,[record.task]:milestone};
@@ -59,26 +52,20 @@ export function recordProgress(root:string,record:ShippedRecord,acknowledged:boo
   if(p.status!=='done')p.status='in_progress';
   p.notes='Reviewed task milestones retained; full package closure remains at integration.';
   p.revision++;p.updated_at=new Date().toISOString();progress.revision++;progress.updated_at=p.updated_at;
-  if(acknowledged&&plan.packageClosures?.length){
-   const pending=new Set(plan.packageClosures.map(c=>c.packageId)),dag=loadDag(root);
-   while(pending.size){
-    let advanced=false;
-    for(const wp of pending){
-     const pkg=findPackage(dag,wp),target=progress.packages[wp];
-     if([...pkg.depends_on,...(pkg.ui_depends_on??[])].some(id=>progress.packages[id]?.status!=='done'))continue;
-     const parts=partsOf(pkg).map(part=>part?`${wp}/${part}`:wp);
-     if(!target||parts.some(id=>!target.milestones?.[id]?.acknowledged||!retained(root,id)||!reviewedMilestone(root,retained(root,id)!)))fail(`Closure requires every reviewed merged part of ${wp}.`);
-     const passed=new Set(record.proof.attestation!.payload.casePortions.filter(c=>c.portion==='integration').map(c=>c.caseId));
-     if(packageContext(root,wp).case_ids.some(id=>!passed.has(id)))fail(`Closure needs full integration evidence for every ${wp} case.`);
-     const cases=run('python3',[join(root,'docs/acceptance/check.py'),'--root',root,'--package',wp],{cwd:root});
-     if(cases.code!==0)fail(`Closure requires runnable cases for ${wp}: ${cases.stderr||cases.stdout}`);
-     const ordering=run('python3',[join(root,'docs/package-context.py'),wp,'--root',root,'--check-case-actions'],{cwd:root});
-     if(ordering.code!==0)fail(`Closure requires available case actions for ${wp}: ${ordering.stderr||ordering.stdout}`);
-     if(target.status!=='done'){target.status='done';target.evidence.push(record.evidence);target.notes=`Full package gates and cases reviewed at integration by ${record.task}.`;target.revision++;target.updated_at=p.updated_at;}
-     pending.delete(wp);advanced=true;
-    }
-    if(!advanced)fail(`Closure requires canonically done direct prerequisites: ${[...pending].join(', ')}.`);
+  // An integration verifier may name packages it fully exercised. Acknowledgement rechecks cases and prerequisites.
+  if(acknowledged)for(const targetId of record.verification.approval.packageClosures??[]) {
+   if(!['WP-056','WP-057'].includes(record.task))fail('Package closure belongs to full-target integration.');
+   const pkg=findPackage(loadDag(root),targetId),target=progress.packages[targetId];
+   if([...pkg.depends_on,...(pkg.ui_depends_on??[])].some(id=>progress.packages[id]?.status!=='done'))fail('Closure requires done direct prerequisites.');
+   if(!target||partsOf(pkg).some(part=>{
+    const id=part?`${targetId}/${part}`:targetId,merged=retained(root,id);
+    return !merged?.acknowledged||!reviewedMilestone(root,merged);
+   }))fail(`Closure requires every reviewed merged part of ${targetId}.`);
+   for(const args of [[join(root,'docs/acceptance/check.py'),'--root',root,'--package',targetId],[join(root,'docs/package-context.py'),targetId,'--root',root,'--check-case-actions']]) {
+    const result=run('python3',args,{cwd:root});
+    if(result.code!==0)fail(`Closure requires runnable owned cases: ${result.stderr||result.stdout}`);
    }
+   if(target.status!=='done'){target.status='done';target.evidence.push(record.evidence);target.notes=`Full package behavior reviewed at integration by ${record.task}.`;target.revision++;target.updated_at=p.updated_at;}
   }
   return true;
  });

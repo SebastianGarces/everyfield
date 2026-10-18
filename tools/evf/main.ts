@@ -3,11 +3,10 @@ import { doctor, gc } from "./doctor.ts";
 import { EvfError, git, homeRoot, loadConfig, parseTask, readJson, run } from "./lib.ts";
 import { recordFastTrack } from './progress.ts';
 import { join } from 'node:path';
-import { draftProofPlan } from './proof-plan.ts';
 import { buildBlocks, renderBlocks, selectPackages } from "./plan.ts";
 import { principles } from "./principles.ts";
 import { feedbackIdeas, feedbackLabels, feedbackPromote, feedbackPull, feedbackStatus, feedbackTriage, feedbackQueue } from "./feedback.ts";
-import { githubSetup, listShipped, prOpen, ship } from "./ship.ts";
+import { listShipped, prOpen, ship, checkPr } from "./ship.ts";
 import { approve } from "./approve.ts";
 import { debugCmd, stack, taskStart } from "./task.ts";
 import { verify } from "./verify.ts";
@@ -20,18 +19,18 @@ Planning (coordinator)
   evf ac <acceptance-or-case-id> ...                                      full obligations for one criterion
   evf shipped [--clear <task> ...]                            review and acknowledge shipped milestones
   evf shipped --fast-track WP-097 --evidence <file>           record owner-approved completion on main
-  evf proof draft <task>                                     print a proof plan for operator review
 
 Task loop (implementor, ui-designer)
   evf task start <task> [--ui-tier UI-n] [--no-stack] [--over-limit]
   evf stack up|down|status <task>
   evf traces <task> [args...]        evf logs <task> [args...]
-  evf verify <task> [--quick]                                 author proof
-  evf pr open <task>                                          push and open/update the PR
+  evf verify <task> [--quick]                                 local checks
+  evf pr open <task> --body-file <file>                       push and open/update the PR
+  evf pr check <PR> [--head <sha>]                            read-only Phase 7 merge checks
 
 Verification (verifier)
   evf verify <task> --role verifier [--quick]
-  evf ship <task> [--max-updates N]                           report status and squash-merge
+  evf ship <task>                           report status and squash-merge
 
 Feedback desk (public feedback repo)
   evf feedback queue [--json]                                 intake, due backlog and recovery
@@ -46,7 +45,7 @@ Human approval (only after Sebastian approves that PR in chat)
 
 Upkeep
   evf test [Node test options]                               local tooling regressions on evf's Node
-  evf doctor [--here]  evf gc [--apply]          evf github setup [--dry-run]
+  evf doctor [--here]  evf gc [--apply]
   evf principles [--apply] [--ref <sha>]                      compare or sync principles with pstack
 
 <task> is WP-NNN for a single-part package, WP-NNN/contract, WP-NNN/api, WP-NNN/ui,
@@ -78,12 +77,6 @@ function main(argv: string[]): number {
   switch (cmd) {
     case 'test':
       return run(process.execPath,['--test',...args,join(git(process.cwd(),'rev-parse','--show-toplevel'),'tools/evf/tests/reconciliation.test.ts')],{cwd:process.cwd(),inherit:true}).code;
-    case 'proof':
-      if(args.shift()==='draft') {
-        const task=parseTask(args[0]);
-        console.log(JSON.stringify({task:task.id,installed:false,review:'Review risk, all clause/case expectations, layers and deferred downstream owners. Install only the approved plan under verification.proofPlans in root evf.config.json.',plan:draftProofPlan(root,task)},null,2));return 0;
-      }
-      break;
     case "doctor": {
       const here = flag(args, "--here");
       return doctor(here ? git(process.cwd(), "rev-parse", "--show-toplevel") : root);
@@ -180,16 +173,19 @@ function main(argv: string[]): number {
       const quick = flag(args, "--quick");
       return verify(root, parseTask(args[0]), role, quick ? "quick" : "full").passed ? 0 : 1;
     }
-    case "pr":
-      if (args.shift() === "open") return prOpen(root, parseTask(args[0]));
+    case "pr": {
+      const sub=args.shift();
+      if(sub==='open'){const bodyFile=option(args,'--body-file');return prOpen(root,parseTask(args[0]),bodyFile);}
+      if(sub==='check') {
+        const head=option(args,'--head'),number=Number(args[0]);
+        if(!Number.isInteger(number)||number<=0)throw new EvfError('Give the PR number.');
+        console.log(JSON.stringify(checkPr(root,number,head),null,2));return 0;
+      }
       break;
-    case "ship": {
-      const max = Number(option(args, "--max-updates") ?? "3");
-      return ship(root, parseTask(args[0]), { maxUpdates: max });
     }
-    case "github":
-      if (args.shift() === "setup") return githubSetup(root, flag(args, "--dry-run"));
-      break;
+    case "ship": {
+      return ship(root, parseTask(args[0]));
+    }
   }
   console.error(`Unknown command: evf ${argv.join(" ")}\n\n${HELP}`);
   return 2;

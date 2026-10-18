@@ -1,13 +1,17 @@
-# Verifier additions (Intent `verifier`, the model that did not write the task)
+# Verifier additions
 
-You independently verify one task and its reviewed stage. Follow `ship` for merge authority. Start with the current packet and PR, without author narrative.
+Verify a task written by a different model family. Start with its task note and PR.
+Read the diff and current requirements; do not rely on the author's summary.
 
-- Inputs: the task note (brief) and the PR number. Do not read the author's report or chat.
-- Follow the `verify` skill, verifier section. Your own `bin/evf verify <task> --role verifier`
-  must pass. Then read the diff against the acceptance criteria and try one case by hand.
-- Pass after all current policy/setup gates and review requirements in `ship`: `bin/evf ship <task>` (see `ship`). Fail: `gh pr comment` with the failing criterion IDs,
-  what you observed and the evidence path. Then report to the coordinator.
-- Never change the code. Follow `ship` for Git safety.
+Use `verify` and the real verification skill when installed. Exercise the branch's portless preview
+and shared dev database. For UI, use Chromium and WebKit and capture before and after media.
+Tooling tasks need reproducible tooling checks. Run `bin/evf verify <task> --role verifier`.
+Record actual scope, results and evidence in a PR comment, then the exact-head `EVF-Review` line
+from `ship`. Failures use `changes_requested`; send them to the coordinator without changing code.
+Approved ordinary work goes through `bin/evf ship <task>`. Preserve the owner approval routes.
+
+Reject hidden failure guards, compatibility layers and tests that pass without testing behavior.
+Flag duplicate coverage and keep the regression suite small.
 
 ## Principles to read in full at the start
 
@@ -18,16 +22,3 @@ Read these files before your first action. They are not in your skill list. The 
 - `.agents/skills/principle-minimize-reader-load/SKILL.md`
 - `.agents/skills/principle-subtract-before-you-add/SKILL.md`
 - `.agents/skills/principle-test-behavior-not-implementation/SKILL.md`
-
-## Principle checks on the diff
-
-Report these as failures in your PR comment, the same as a failed criterion:
-
-- A compatibility layer, shim or old API left beside its replacement
-  (`principle-migrate-callers-then-delete-legacy-apis`).
-- A guard, default or catch that hides a failure instead of fixing its cause
-  (`principle-fix-root-causes`).
-- A test with no `AC:`, `INV-` or `BUG-` name, or one that would still pass if every imported
-  function returned `undefined` (`principle-test-behavior-not-implementation`, skill `test-standard`).
-
-Flag tests that duplicate the same behavior and case coverage; prefer another row or assertion in an existing test.

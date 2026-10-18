@@ -36,11 +36,13 @@ if(a[0]==='api') {
  else if(/issues\/\d+\/comments$/.test(path))result=[s.comments[path.split('/')[4]]||[]];
  else if(/issues\/\d+$/.test(path))result=s.issues.find(i=>i.number===Number(path.split('/').pop()));
  else if(/pulls\/\d+\/reviews/.test(path))result=[s.reviews||[]];
+ else if(/commits\/.*\/status$/.test(path))result=s.commitStatus||{statuses:[]};
  else if(/statuses\//.test(path)&&a.includes('POST'))result={};
  else if(/branches\/main\/protection/.test(path))result=s.protection||{required_status_checks:{strict:true,contexts:['evf/verify']},enforce_admins:{enabled:true},required_pull_request_reviews:{required_approving_review_count:1,dismiss_stale_reviews:true}};
 }
 else if(a[0]==='repo'&&a[1]==='view')result=a.includes('-q')?'test/private':{nameWithOwner:'test/private',isPrivate:true};
 else if(a[0]==='pr'&&a[1]==='view')result=a.includes('mergeCommit')?s.mergeCommit:s.pr||{number:77,url:'https://github.com/test/private/pull/77',state:'OPEN'};
+else if(a[0]==='pr'&&a[1]==='checks'){result=s.requiredChecks??[];if(s.checksError){fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(JSON.stringify(result));process.exit(s.checksError);}}
 else if(a[0]==='pr'&&a[1]==='edit')result='';
 else if(a[0]==='pr'&&a[1]==='comment')result='https://github.com/test/private/pull/'+a[2]+'#comment';
 else if(a[0]==='pr'&&a[1]==='merge'){
@@ -75,7 +77,7 @@ fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(typeof result==='stri
    };
    visit(wp);
    for(const id of prerequisites)progress.packages[id].status='done';
-   writeFileSync(progressPath,JSON.stringify(progress));const p=join(root,'docs/plan/release-gates.json');const d=JSON.parse(readFileSync(p,'utf8'));for(const g of d.gates)g.status=g.id==='G-AUTH'?'authorized':g.id==='G-WORKFLOW'?'reconciled-independent-review':'approved';writeFileSync(p,JSON.stringify(d));cfg.verification.proofPlans=Object.fromEntries([...dag.packages.map(p=>p.id),...Array.from({length:5},(_,i)=>'FB-'+(i+1))].map(id=>[id,{risk:'ordinary'}]));writeFileSync(join(root,'evf.config.json'),JSON.stringify(cfg));},
+   writeFileSync(progressPath,JSON.stringify(progress));const p=join(root,'docs/plan/release-gates.json');const d=JSON.parse(readFileSync(p,'utf8'));for(const g of d.gates)g.status=g.id==='G-AUTH'?'authorized':g.id==='G-WORKFLOW'?'reconciled-independent-review':'approved';writeFileSync(p,JSON.stringify(d));writeFileSync(join(root,'evf.config.json'),JSON.stringify(cfg));},
   task:(slug='wp-001')=>{mkdirSync(join(root,'.worktrees'),{recursive:true});git('worktree','add','-b','task/'+slug,join(root,'.worktrees',slug),'main');return join(root,'.worktrees',slug);},
   commit:()=>{git('add','docs','evf.config.json');git('commit','-qm','Reviewed fixture policy');},
   close:()=>{process.env.PATH=oldPath;if(oldState===undefined)delete process.env.EVF_FAKE_GH_STATE;else process.env.EVF_FAKE_GH_STATE=oldState;rmSync(root,{recursive:true,force:true});}

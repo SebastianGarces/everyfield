@@ -1,5 +1,6 @@
 import { fail, loadConfig, run, type Config } from './lib.ts';
 import { cachedTriage } from './feedback.ts';
+import { checkPr } from './ship.ts';
 
 /**
  * Human-approved merge for the PRs that never merge automatically: Wiki articles, prototypes,
@@ -56,6 +57,7 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 
   const repo = gh(['repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner']);
   if (route.kind === 'verified-feedback') {
+    checkPr(root,n,head);
     const status = JSON.parse(gh(['api', `repos/${repo}/commits/${head}/status`])) as { statuses: Array<{ context: string; state: string; description: string | null }> };
     const verified = status.statuses.find((s) => s.context === cfg.statusContext);
     if (verified?.state !== 'success' || !verified.description?.startsWith('Verified')) fail(`PR #${n} is a P2/P3 feedback fix. The verifier must pass it first (bin/evf ship ${route.id}) at ${head.slice(0, 10)}; a branch update needs a fresh verification.`);
