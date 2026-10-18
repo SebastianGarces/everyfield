@@ -30,7 +30,7 @@ async function doc(owner,id=randomUUID()){await admin.query("INSERT INTO documen
 const authorizer=async(tx,file)=>{const r=await tx.query("SELECT 1 FROM seat WHERE account_id=$1 AND plant_id=$2 AND ended_at IS NULL AND role IN ('owner','admin') FOR SHARE",[a,file.tenant_id]);return r.rowCount===1?{kind:"account",actorId:a}:null;};
 before(async()=>{
  await admin.query(`CREATE SCHEMA ${schema}`);
- assert.deepEqual(await migrate(admin,schema),['0001_early_access.sql','0002_baseline.sql']);
+ assert.deepEqual(await migrate(admin,schema),['0001_early_access.sql','0002_baseline.sql','0003_access_privileges.sql']);
  assert.deepEqual(await migrate(admin,schema),[]);
  await account(a);await account(b);await plant(p);await plant(q);
  await admin.query("INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES($1,$2,'owner',now())",[a,p]);
@@ -56,7 +56,7 @@ test('INV-schema: actual baseline includes every catalog column and FK without v
  f.confdeltype AS deletion FROM pg_constraint f JOIN pg_class c ON c.oid=f.conrelid JOIN pg_class r ON r.oid=f.confrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND f.contype='f'`,[schema]);
  const sort=rows=>rows.map(row=>JSON.stringify(row)).sort();
  assert.deepEqual(sort(fks.rows),sort(catalog.tables.flatMap(t=>t.foreign_keys.map(f=>({table_name:t.name,referenced_table:f.references.table,columns:f.columns,referenced_columns:f.references.columns,deletion:'r'})))));
- const ledger=await admin.query('SELECT name FROM schema_migration ORDER BY name');assert.deepEqual(ledger.rows,[{name:'0001_early_access.sql'},{name:'0002_baseline.sql'}]);
+ const ledger=await admin.query('SELECT name FROM schema_migration ORDER BY name');assert.deepEqual(ledger.rows,[{name:'0001_early_access.sql'},{name:'0002_baseline.sql'},{name:'0003_access_privileges.sql'}]);
  assert.equal((await admin.query('SELECT count(*)::int AS n FROM early_access_request')).rows[0].n,0);
 });
 test('INV-migration: preserves applied 0001 bytes and ledger; retries and failed batches roll back',async()=>{
@@ -73,7 +73,7 @@ test('INV-migration: preserves applied 0001 bytes and ledger; retries and failed
   await assert.rejects(migrate(pool,other),e=>e.code==='42P07');
   assert.deepEqual((await pool.query('SELECT name FROM schema_migration')).rows,[{name:'0001_early_access.sql'}]);
   assert.equal((await pool.query("SELECT to_regclass('tenant') AS t")).rows[0].t,null);
-  await pool.query('DROP TABLE file_object');assert.deepEqual(await migrate(pool,other),['0002_baseline.sql']);
+  await pool.query('DROP TABLE file_object');assert.deepEqual(await migrate(pool,other),['0002_baseline.sql','0003_access_privileges.sql']);
   assert.equal((await pool.query('SELECT email FROM early_access_request')).rows[0].email,'preserved@example.test');
   assert.equal((await pool.query('SELECT applied_at FROM schema_migration WHERE name=$1',['0001_early_access.sql'])).rows[0].applied_at.toISOString(),'2026-10-01T00:00:00.000Z');
   assert.deepEqual(await Promise.all([migrate(pool,other),migrate(pool,other)]),[[],[]]);

@@ -27,7 +27,7 @@ const actor=randomUUID(),tenant=randomUUID(),foreign=randomUUID(),doc=randomUUID
 const password=randomBytes(32).toString('hex');
 before(async()=>{
   await admin.query(`CREATE SCHEMA ${schema}`);
-  assert.deepEqual(await applyVersionedMigration(admin,schema),['0001_early_access.sql','0002_baseline.sql']);
+  assert.deepEqual(await applyVersionedMigration(admin,schema),['0001_early_access.sql','0002_baseline.sql','0003_access_privileges.sql']);
   await admin.query(`CREATE ROLE ${role} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`);
   await admin.query(`GRANT everyfield_runtime TO ${role}`);
   const url=new URL(source);url.username=role;url.password=password;
@@ -42,7 +42,7 @@ after(async()=>{await runtime?.end();try{await admin.query(`DROP SCHEMA IF EXIST
 
 test('AC:CASE-OPS-005 versioned migration checksums are observed at application, replay locks and unverified history is untouched',async()=>{
   assert.deepEqual(await Promise.all([applyVersionedMigration(admin,schema),applyVersionedMigration(admin,schema)]),[[],[]]);
-  const provenance=await inspectMigrationProvenance(admin,schema);assert.equal(provenance.state,'current');assert.deepEqual(provenance.applied.map(r=>r.provenance),['original','original']);
+  const provenance=await inspectMigrationProvenance(admin,schema);assert.equal(provenance.state,'current');assert.deepEqual(provenance.applied.map(r=>r.provenance),['original','original','original']);
   const ledger=(await admin.query('SELECT name,applied_at,sha256,provenance FROM schema_migration ORDER BY name')).rows;
   const dir=await mkdtemp(tmpdir()+'/wp050-migrations-');
   try{

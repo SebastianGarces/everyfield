@@ -6,18 +6,20 @@
     "./early-access": "./src/early-access/index.ts",
     "./early-access/contract": "./src/early-access/contract.ts",
     "./operations": "./src/operations/index.ts",
+    "./identity": "./src/identity/index.ts",
     "./organizations": "./src/organizations/index.ts",
-    "./identity": "./src/identity/index.ts"
+    "./access": "./src/access/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "eslint --max-warnings=0 .",
     "test": "tsx --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 test/*.test.ts",
-    "test:unit": "node --test ../../tests/integration/operations/unit.test.mts",
+    "test:unit": "python3 src/access/generate.py --check && node --test ../../tests/integration/operations/unit.test.mts && node --conditions=react-server --test ../../tests/integration/access/unit.test.mts",
     "test:operations": "node --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/operations/*.test.mts",
-    "test:organizations": "node --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/organizations/*.test.mts",
     "test:identity": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/identity/*.test.mts",
-    "test:identity:production": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/identity/timing.production.mts"
+    "test:identity:production": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/identity/timing.production.mts",
+    "test:organizations": "node --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/organizations/*.test.mts",
+    "test:access": "node --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/access/*.test.mts"
   },
   "dependencies": {
     "@everyfield/db": "workspace:*",
