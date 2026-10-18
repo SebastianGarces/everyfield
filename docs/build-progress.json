@@ -1,24 +1,56 @@
 {
   "schema_version": 1,
   "project_id": "everyfield-v3",
-  "revision": 5,
-  "updated_at": "2026-10-17T17:27:47.434Z",
+  "revision": 13,
+  "updated_at": "2026-10-18T08:00:55.237Z",
   "packages": {
     "WP-001": {
-      "status": "not_started",
-      "evidence": [],
-      "notes": "",
+      "status": "in_progress",
+      "evidence": [
+        {
+          "path": "packages/reference/",
+          "commit": "4ce81aa75c329396add898f08aebeb657a79b649",
+          "test": "GitHub required CI and anthropic approval",
+          "result": "passed",
+          "note": "WP-001 merged in PR #81 after cross-model verification at be19ec06cb. https://github.com/SebastianGarces/everyfield/pull/81#issuecomment-6246745989"
+        }
+      ],
+      "notes": "Reviewed task milestones retained; full package closure remains at integration.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 2,
+      "updated_at": "2026-10-18T06:52:29.870Z",
+      "milestones": {
+        "WP-001": {
+          "task": "WP-001",
+          "merge_commit": "4ce81aa75c329396add898f08aebeb657a79b649",
+          "acknowledged": true,
+          "stage": "producer"
+        }
+      }
     },
     "WP-002": {
-      "status": "not_started",
-      "evidence": [],
-      "notes": "",
+      "status": "in_progress",
+      "evidence": [
+        {
+          "path": "packages/contracts/src/common/",
+          "commit": "ef3c3bfce88a00e3864833291e81584debc527e9",
+          "test": "GitHub required CI and anthropic approval",
+          "result": "passed",
+          "note": "WP-002 merged in PR #84 after cross-model verification at 4eaf86ba0d. https://github.com/SebastianGarces/everyfield/pull/84#issuecomment-6247197582"
+        }
+      ],
+      "notes": "Reviewed task milestones retained; full package closure remains at integration.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 2,
+      "updated_at": "2026-10-18T07:36:21.469Z",
+      "milestones": {
+        "WP-002": {
+          "task": "WP-002",
+          "merge_commit": "ef3c3bfce88a00e3864833291e81584debc527e9",
+          "acknowledged": true,
+          "stage": "producer"
+        }
+      }
     },
     "WP-003": {
       "status": "not_started",
@@ -694,18 +726,50 @@
       "retired_into": "WP-085"
     },
     "WP-087": {
-      "status": "not_started",
-      "revision": 0,
-      "updated_at": null,
-      "evidence": [],
-      "notes": ""
+      "status": "in_progress",
+      "revision": 2,
+      "updated_at": "2026-10-18T06:03:46.965Z",
+      "evidence": [
+        {
+          "path": "scripts/",
+          "commit": "9fd86d23a655086dfc2cd34c8dd9dd4a45796a3b",
+          "test": "GitHub required CI and anthropic approval",
+          "result": "passed",
+          "note": "WP-087 merged in PR #80 after cross-model verification at 6f1b4b4daf. https://github.com/SebastianGarces/everyfield/pull/80#issuecomment-6246359840"
+        }
+      ],
+      "notes": "Reviewed task milestones retained; full package closure remains at integration.",
+      "milestones": {
+        "WP-087": {
+          "task": "WP-087",
+          "merge_commit": "9fd86d23a655086dfc2cd34c8dd9dd4a45796a3b",
+          "acknowledged": true,
+          "stage": "producer"
+        }
+      }
     },
     "WP-088": {
-      "status": "not_started",
-      "revision": 0,
-      "updated_at": null,
-      "evidence": [],
-      "notes": ""
+      "status": "in_progress",
+      "revision": 2,
+      "updated_at": "2026-10-18T08:00:55.237Z",
+      "evidence": [
+        {
+          "path": "packages/ui/src/foundations/",
+          "commit": "37733bc59a4c8fa918135dab364e4dbf758e4786",
+          "test": "GitHub required CI and openai approval",
+          "result": "passed",
+          "note": "WP-088 merged in PR #83 after cross-model verification at 991a7adfaf. https://github.com/SebastianGarces/everyfield/pull/83#issuecomment-6247391785"
+        }
+      ],
+      "notes": "Reviewed task milestones retained; full package closure remains at integration.",
+      "milestones": {
+        "WP-088": {
+          "task": "WP-088",
+          "merge_commit": "37733bc59a4c8fa918135dab364e4dbf758e4786",
+          "acknowledged": true,
+          "stage": "producer"
+        }
+      }
     },
     "WP-089": {
       "status": "not_started",
