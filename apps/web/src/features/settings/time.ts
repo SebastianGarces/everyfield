@@ -62,13 +62,6 @@ export function formatMoment(instant: string, zone: string): string {
 	return `${date} at ${time}`;
 }
 
-/** "October 19, 2026" for a deadline, in the given zone. */
-export function formatDate(instant: string, zone: string): string {
-	return new Intl.DateTimeFormat("en-US", { timeZone: zone, month: "long", day: "numeric", year: "numeric" }).format(
-		new Date(instant),
-	);
-}
-
 /** "Oct 19" for a LocalDate (YYYY-MM-DD), which has no zone. */
 export function formatLocalDate(date: string): string {
 	const [y, m, d] = date.split("-").map(Number);
