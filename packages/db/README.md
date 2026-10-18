@@ -64,13 +64,38 @@ supplemental expectations alongside the migration. Apply all SQL through
 advisory lock, atomic batches, exact-byte SHA-256 checks and explicit adoption.
 Kit's file journal describes generation history; it is not a second database ledger.
 
-`python3 packages/db/src/schema/generate.py --check` creates an isolated schema,
-applies every numbered migration and compares its columns, types, nullability,
-primary keys and foreign keys with `docs/schema/target.json`. Local checks use
-only the shared development database; CI uses its existing disposable Postgres
-service. Pass `--env-file /absolute/approved-dev-env` when needed. The command
-drops its schema in `finally` and never migrates the public schema.
+The initial snapshot describes the exact database after frozen migrations 0001–0005.
+`migrations/frozen.json` pins their original bytes. Snapshot and file-journal metadata
+live in `migrations/meta/`; no baseline CREATE statements are applied to existing objects.
+The next generated migration number is 0006. Runtime SQL goes through the existing
+checksum ledger; neither Kit push nor its database migrator is used.
 
-Applied SQL is immutable. Add a numbered forward migration and update the current
-catalog for each schema change. The generator without flags writes only current
-row types; `--check-types` checks those types offline for package unit tests.
+`annotations.json` retains documentary notes separately from physical declarations.
+`supplemental.json` records reviewed definitions Kit cannot express, including deferred
+foreign-key timing, functions, triggers, capability-role attributes and privileges.
+Update those expectations with the custom migration; never refresh them from an
+unreviewed database change. `docs/schema/target.json` is generated with:
+
+```sh
+corepack pnpm --filter @everyfield/db catalog
+```
+
+`schema:check` verifies the generated catalog, frozen bytes, file registry, SQL
+normalization and current snapshot offline. Package unit checks run it without a database.
+`python3 packages/db/src/schema/generate.py --check` additionally creates an isolated
+schema, applies the full migration chain and compares it with the Drizzle declarations
+and generated catalog. It checks columns, defaults, keys, CHECK constraints, indexes,
+policies, row security and the supplemental definitions. Local checks use only the shared
+development database; CI uses its disposable Postgres service. Pass
+`--env-file /absolute/approved-dev-env` when needed. All scratch schemas are dropped in
+`finally`; this command never migrates public. `test:db` repeats the real comparison and
+proves an un-migrated declaration and an unexpected CHECK both fail it.
+
+Applied SQL remains immutable. `generate.py` without flags only exports the current
+catalog. Row types are inferred from Drizzle declarations; there is no separate row-type
+or target-to-DDL generator. Regenerate the readable schema docs after catalog changes:
+
+```sh
+python3 docs/schema/render-docs.py
+python3 docs/schema/render-diagram.py
+```

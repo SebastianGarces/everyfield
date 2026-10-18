@@ -1,3 +1,5 @@
+import { verifySnapshotBaseline } from "../src/schema/drift.ts";
 import { checkMigrationArtifacts } from "../src/schema/artifacts.ts";
 await checkMigrationArtifacts();
-console.log("Migration registry, frozen bytes and generated SQL qualification agree.");
+await verifySnapshotBaseline();
+console.log("Migration registry, frozen bytes, snapshot and generated SQL qualification agree.");

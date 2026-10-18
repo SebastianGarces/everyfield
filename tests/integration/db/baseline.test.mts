@@ -5,6 +5,9 @@ import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
+import { verifySchemaDrift, verifySnapshotBaseline } from "../../../packages/db/src/schema/drift.ts";
+import * as declarations from "../../../packages/db/src/schema/tables.ts";
+import { pgTable, integer } from "../../../packages/db/src/columns.ts";
 import { assertCurrentCatalog } from "../../../packages/db/src/schema/catalog.ts";
 import { migrate, adoptMigrationHistory, migrationArtifact } from "../../../packages/db/src/schema/migrate.ts";
 import { pdf } from "../platform/fixtures.mjs";
@@ -134,6 +137,17 @@ after(async () => {
 test("INV-schema: full ordered migrations match the current catalog and reject actual schema drift", async () => {
 	const catalog = JSON.parse(readFileSync(new URL("../../../docs/schema/target.json", import.meta.url), "utf8"));
 	await assertCurrentCatalog(admin, schema, catalog);
+	await verifySnapshotBaseline();
+	await verifySchemaDrift(admin, schema);
+	const drift_probe = pgTable("drift_probe", { id: integer("id").notNull() });
+	await assert.rejects(verifySchemaDrift(admin, schema, { ...declarations, drift_probe }), /Schema drift in columns/);
+	await admin.execute(querySql`ALTER TABLE schema_migration ADD CONSTRAINT drift_check CHECK(length(name)>0)`);
+	try {
+		await assert.rejects(verifySchemaDrift(admin, schema), /Schema drift in constraints/);
+	} finally {
+		await admin.execute(querySql`ALTER TABLE schema_migration DROP CONSTRAINT drift_check`);
+	}
+
 	await admin.execute(querySql`ALTER TABLE affiliation RENAME COLUMN consent_revision TO consent_revision_drift`);
 	await assert.rejects(assertCurrentCatalog(admin, schema, catalog), /Migrated columns\/types\/nullability differ/);
 	await admin.execute(querySql`ALTER TABLE affiliation RENAME COLUMN consent_revision_drift TO consent_revision`);

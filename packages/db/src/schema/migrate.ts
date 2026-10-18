@@ -1,3 +1,4 @@
+import { checkMigrationArtifacts } from "./artifacts.ts";
 import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { sql, eq, asc } from "drizzle-orm";
@@ -5,6 +6,7 @@ import type { Database, Transaction } from "../client.ts";
 import { schema_migration } from "./tables.ts";
 
 async function migrations(directory = new URL("../../migrations/", import.meta.url)) {
+	if (directory.href === new URL("../../migrations/", import.meta.url).href) await checkMigrationArtifacts();
 	return Promise.all(
 		(await readdir(directory))
 			.filter((name) => /^\d{4}_[a-z0-9_]+\.sql$/.test(name))

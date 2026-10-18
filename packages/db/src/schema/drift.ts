@@ -47,7 +47,7 @@ export async function verifySchemaDrift(
 	try {
 		const ddl = await generateMigration(generateDrizzleJson({}), scoped);
 		await db.transaction(async (tx) => {
-			for (const statement of ddl) await tx.execute(sql.raw(qualifyVectorTypes(statement)));
+			await tx.execute(sql.raw(ddl.map(qualifyVectorTypes).join(";\n")));
 		});
 		const read = async (schema: string) =>
 			db.transaction(async (tx) => {
