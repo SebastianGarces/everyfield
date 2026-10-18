@@ -463,9 +463,10 @@
 	);
 }
 
-/* Skeleton bar with a slow shimmer (hero scenes). The caller sets display and size. */
+/* Skeleton bar with a slow shimmer (hero scenes). The caller sets display and size. 8 px matches the dashboard Skeleton
+   line; a round skeleton adds rounded-full, which comes later in the utilities layer. */
 @utility skeleton {
-	border-radius: 99px;
+	border-radius: 8px;
 	background: linear-gradient(
 		90deg,
 		var(--color-mk-skeleton) 0%,

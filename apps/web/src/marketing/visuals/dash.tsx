@@ -36,7 +36,7 @@ export function AppFrame({
 					<Mark className="h-4 w-5" />
 				</span>
 				{tabs ? (
-					<span className="flex gap-0.5 rounded-md bg-surface-raised p-1 shadow-[0_0_0_1px_var(--color-line)]">
+					<span className="flex gap-0.5 rounded-[13px] bg-surface-raised p-1 shadow-[0_0_0_1px_var(--color-line)]">
 						{["Overview", "People", "Meetings", "Tasks"].map((x, i) => (
 							<span
 								key={x}
