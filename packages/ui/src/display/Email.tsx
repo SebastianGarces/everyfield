@@ -36,7 +36,7 @@ export function EmailLayout({
 		<article
 			aria-label={envelope ? `Email: ${envelope.subject}` : "Email"}
 			className={cn(
-				"ef-email @container mx-auto max-w-full overflow-hidden rounded-[14px] bg-cream font-body text-ink shadow-[0_1px_2px_rgb(0_0_0/0.06),0_12px_30px_-18px_rgb(0_0_0/0.35)] transition-[width] duration-250 motion-reduce:transition-none",
+				"ef-email @container mx-auto max-w-full overflow-hidden rounded-[14px] bg-cream font-body text-ink shadow-raised transition-[width] duration-250 motion-reduce:transition-none",
 				width === "desktop" ? "w-[600px]" : "w-[375px]",
 				className,
 			)}

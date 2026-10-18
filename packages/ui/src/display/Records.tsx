@@ -238,7 +238,7 @@ function Paper({ kind, tone, back }: { kind: ThumbKind; tone: Tone; back?: boole
 	return (
 		<span
 			className={cn(
-				"flex flex-col gap-1 rounded-[4px] bg-surface-raised px-2 py-[9px] shadow-[0_1px_2px_rgb(0_0_0/0.08),0_8px_18px_-10px_rgb(0_0_0/0.35)]",
+				"flex flex-col gap-1 rounded-[4px] bg-surface-raised px-2 py-[9px] shadow-raised",
 				kind === "quarter" ? "aspect-[5/3.2] w-[104px]" : "aspect-[8.5/11] w-[92px]",
 				back
 					? "absolute translate-x-6 translate-y-[18px] rotate-[5deg] opacity-90"

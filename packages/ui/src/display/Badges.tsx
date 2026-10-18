@@ -29,7 +29,7 @@ const badgeVariants = cva(
 	{
 		variants: {
 			fill: {
-				outline: "bg-surface-raised shadow-[inset_0_0_0_1px_var(--ef-line),0_1px_2px_rgb(24_29_25/0.05)]",
+				outline: "bg-surface-raised shadow-[inset_0_0_0_1px_var(--ef-line)]",
 				soft: "",
 			},
 			size: { md: "h-7 px-[11px] text-sm", sm: "h-[22px] px-2 text-xs" },
@@ -89,8 +89,8 @@ export function DeltaChip({
 				"inline-flex flex-none items-center gap-1.5 rounded-full font-semibold whitespace-nowrap tabular-nums",
 				size === "sm" ? "h-6 px-2 text-xs" : "h-[30px] px-[11px] text-md",
 				onInk
-					? "bg-white/14 text-white shadow-[inset_0_0_0_1px_rgb(255_255_255/0.22)]"
-					: "bg-surface-raised text-ink shadow-[inset_0_0_0_1px_var(--ef-line),0_1px_2px_rgb(24_29_25/0.05)]",
+					? "bg-white/14 text-white shadow-[inset_0_0_0_1px_color-mix(in_srgb,white_22%,transparent)]"
+					: "bg-surface-raised text-ink shadow-[inset_0_0_0_1px_var(--ef-line)]",
 				className,
 			)}
 		>
