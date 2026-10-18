@@ -9159,6 +9159,1262 @@
         },
         "event": null
       }
+    },
+    {
+      "id": "WP004-IDN-029",
+      "requirement": "REQ-IDN-029",
+      "feature_ids": [
+        "IDN-001",
+        "IDN-002",
+        "IDN-005",
+        "IDN-013",
+        "IDN-014",
+        "IDN-017",
+        "IDN-019",
+        "IDN-020",
+        "IDN-021",
+        "IDN-023",
+        "IDN-024",
+        "IDN-026"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-001--IDN-001",
+        "AC-IDN-002--IDN-002",
+        "AC-IDN-005--IDN-005",
+        "AC-IDN-013--IDN-013",
+        "AC-IDN-014--IDN-014",
+        "AC-IDN-017--IDN-017",
+        "AC-IDN-019--IDN-019",
+        "AC-IDN-020--IDN-020",
+        "AC-IDN-021--IDN-021",
+        "AC-IDN-023--IDN-023",
+        "AC-IDN-024--IDN-024",
+        "AC-IDN-026--IDN-026"
+      ],
+      "work_packages": [
+        "WP-004"
+      ],
+      "status": "future-not-run",
+      "description": "WP-004 producer baseline: REQ-IDN-029",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "registration": "active"
+        },
+        "baseline": {
+          "fixture_type": "schema_proof",
+          "shared_development": true,
+          "customer_data": false
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T09:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "sql.inspectConstraints",
+        "arguments": {
+          "tables": [
+            "seat",
+            "account",
+            "organization"
+          ],
+          "active_seats_per_account": 2
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "second_active_seat_accepted": false,
+          "lead_title_grants_access": false
+        },
+        "event": null
+      },
+      "coverage_notes": [
+        "Producer proof only. Provider configuration, recovery execution and feature authorization remain with their downstream owners; this fixture cannot establish those gates."
+      ],
+      "layers": [
+        "sql"
+      ]
+    },
+    {
+      "id": "WP004-KNOW-012",
+      "requirement": "REQ-KNOW-012",
+      "feature_ids": [
+        "DOC-003",
+        "DOC-015",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-003--DOC-003",
+        "AC-DOC-015--DOC-015",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-004"
+      ],
+      "status": "future-not-run",
+      "description": "WP-004 producer baseline: REQ-KNOW-012",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "registration": "active"
+        },
+        "baseline": {
+          "fixture_type": "schema_proof",
+          "shared_development": true,
+          "customer_data": false
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T09:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "sql.inspectConstraints",
+        "arguments": {
+          "requirement": "REQ-KNOW-012",
+          "customer_data": false,
+          "paid_setup_approved": false,
+          "recovery_setup_verified": false
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "customer_data_gate": "closed",
+          "provider_setup_performed": false,
+          "recovery_guarantee_claimed": false
+        },
+        "event": null
+      },
+      "coverage_notes": [
+        "Producer proof only. Provider configuration, recovery execution and feature authorization remain with their downstream owners; this fixture cannot establish those gates."
+      ],
+      "layers": [
+        "sql"
+      ]
+    },
+    {
+      "id": "WP004-KNOW-014",
+      "requirement": "REQ-KNOW-014",
+      "feature_ids": [
+        "DOC-015",
+        "IDN-006",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-015--DOC-015",
+        "AC-IDN-006--IDN-006",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-004"
+      ],
+      "status": "future-not-run",
+      "description": "WP-004 producer baseline: REQ-KNOW-014",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "registration": "active"
+        },
+        "baseline": {
+          "fixture_type": "schema_proof",
+          "shared_development": true,
+          "customer_data": false
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T09:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "sql.inspectConstraints",
+        "arguments": {
+          "requirement": "REQ-KNOW-014",
+          "customer_data": false,
+          "paid_setup_approved": false,
+          "recovery_setup_verified": false
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "customer_data_gate": "closed",
+          "provider_setup_performed": false,
+          "recovery_guarantee_claimed": false
+        },
+        "event": null
+      },
+      "coverage_notes": [
+        "Producer proof only. Provider configuration, recovery execution and feature authorization remain with their downstream owners; this fixture cannot establish those gates."
+      ],
+      "layers": [
+        "sql"
+      ]
+    },
+    {
+      "id": "WP004-KNOW-069",
+      "requirement": "REQ-KNOW-069",
+      "feature_ids": [
+        "DOC-003",
+        "DOC-015",
+        "DOC-016",
+        "IDN-006",
+        "IDN-013",
+        "IDN-026",
+        "PI-038",
+        "PI-039",
+        "PI-040",
+        "PI-041"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-003--DOC-003",
+        "AC-DOC-015--DOC-015",
+        "AC-DOC-016--DOC-016",
+        "AC-IDN-006--IDN-006",
+        "AC-IDN-013--IDN-013",
+        "AC-IDN-026--IDN-026",
+        "AC-PI-038--PI-038",
+        "AC-PI-039--PI-039",
+        "AC-PI-040--PI-040",
+        "AC-PI-041--PI-041"
+      ],
+      "work_packages": [
+        "WP-004"
+      ],
+      "status": "future-not-run",
+      "description": "WP-004 producer baseline: REQ-KNOW-069",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "registration": "active"
+        },
+        "baseline": {
+          "fixture_type": "schema_proof",
+          "shared_development": true,
+          "customer_data": false
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T09:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "sql.inspectConstraints",
+        "arguments": {
+          "private_owner": "A",
+          "shared_owner": "P",
+          "delete_account": "A"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "shared_document_survives": true,
+          "source_fk_requires_explicit_detach": true
+        },
+        "event": null
+      },
+      "coverage_notes": [
+        "Producer proof only. Provider configuration, recovery execution and feature authorization remain with their downstream owners; this fixture cannot establish those gates."
+      ],
+      "layers": [
+        "sql"
+      ]
+    },
+    {
+      "id": "WP004-KNOW-072",
+      "requirement": "REQ-KNOW-072",
+      "feature_ids": [
+        "DOC-003",
+        "DOC-015",
+        "DOC-016",
+        "IDN-006",
+        "IDN-026",
+        "OPS-007",
+        "PI-038",
+        "PI-039",
+        "PI-040",
+        "PI-041"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-003--DOC-003",
+        "AC-DOC-015--DOC-015",
+        "AC-DOC-016--DOC-016",
+        "AC-IDN-006--IDN-006",
+        "AC-IDN-026--IDN-026",
+        "AC-OPS-007--OPS-007",
+        "AC-PI-038--PI-038",
+        "AC-PI-039--PI-039",
+        "AC-PI-040--PI-040",
+        "AC-PI-041--PI-041"
+      ],
+      "work_packages": [
+        "WP-004"
+      ],
+      "status": "future-not-run",
+      "description": "WP-004 producer baseline: REQ-KNOW-072",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "registration": "active"
+        },
+        "baseline": {
+          "fixture_type": "schema_proof",
+          "shared_development": true,
+          "customer_data": false
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T09:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "sql.inspectConstraints",
+        "arguments": {
+          "purge_state": "purging",
+          "provider_cleanup": "failed"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "live_purged_at": null,
+          "normal_access": false
+        },
+        "event": null
+      },
+      "coverage_notes": [
+        "Producer proof only. Provider configuration, recovery execution and feature authorization remain with their downstream owners; this fixture cannot establish those gates."
+      ],
+      "layers": [
+        "sql"
+      ]
+    },
+    {
+      "id": "WP004-KNOW-073",
+      "requirement": "REQ-KNOW-073",
+      "feature_ids": [
+        "DOC-015",
+        "IDN-026",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-015--DOC-015",
+        "AC-IDN-026--IDN-026",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-004"
+      ],
+      "status": "future-not-run",
+      "description": "WP-004 producer baseline: REQ-KNOW-073",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "registration": "active"
+        },
+        "baseline": {
+          "fixture_type": "schema_proof",
+          "shared_development": true,
+          "customer_data": false
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T09:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "sql.inspectConstraints",
+        "arguments": {
+          "live_purged_at": "2026-11-12T12:00:00Z",
+          "copy_expires_at": "2026-11-19T12:00:00Z",
+          "recopy_at": "2026-11-18T12:00:00Z"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "copy_expires_at": "2026-11-19T12:00:00Z",
+          "cancellation_allowed": false
+        },
+        "event": null
+      },
+      "coverage_notes": [
+        "Producer proof only. Provider configuration, recovery execution and feature authorization remain with their downstream owners; this fixture cannot establish those gates."
+      ],
+      "layers": [
+        "sql"
+      ]
+    },
+    {
+      "id": "WP004-KNOW-078",
+      "requirement": "REQ-KNOW-078",
+      "feature_ids": [
+        "DOC-015",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-015--DOC-015",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-004"
+      ],
+      "status": "future-not-run",
+      "description": "WP-004 producer baseline: REQ-KNOW-078",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "registration": "active"
+        },
+        "baseline": {
+          "fixture_type": "schema_proof",
+          "shared_development": true,
+          "customer_data": false
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T09:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "sql.inspectRuntimeGrants",
+        "arguments": {
+          "runtime_role": "everyfield_runtime",
+          "attempts": [
+            "CREATE TABLE",
+            "UPDATE event",
+            "DELETE event"
+          ],
+          "transaction_fault": "before_commit"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "allowed": [
+            false,
+            false,
+            false
+          ],
+          "domain_writes_after_fault": 0
+        },
+        "event": null
+      },
+      "coverage_notes": [
+        "Producer proof only. Provider configuration, recovery execution and feature authorization remain with their downstream owners; this fixture cannot establish those gates."
+      ],
+      "layers": [
+        "sql"
+      ]
+    },
+    {
+      "id": "WP004-KNOW-081",
+      "requirement": "REQ-KNOW-081",
+      "feature_ids": [
+        "DOC-015",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-015--DOC-015",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-004"
+      ],
+      "status": "future-not-run",
+      "description": "WP-004 producer baseline: REQ-KNOW-081",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "registration": "active"
+        },
+        "baseline": {
+          "fixture_type": "schema_proof",
+          "shared_development": true,
+          "customer_data": false
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T09:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "sql.inspectConstraints",
+        "arguments": {
+          "requirement": "REQ-KNOW-081",
+          "customer_data": false,
+          "paid_setup_approved": false,
+          "recovery_setup_verified": false
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "customer_data_gate": "closed",
+          "provider_setup_performed": false,
+          "recovery_guarantee_claimed": false
+        },
+        "event": null
+      },
+      "coverage_notes": [
+        "Producer proof only. Provider configuration, recovery execution and feature authorization remain with their downstream owners; this fixture cannot establish those gates."
+      ],
+      "layers": [
+        "sql"
+      ]
+    },
+    {
+      "id": "WP004-KNOW-082",
+      "requirement": "REQ-KNOW-082",
+      "feature_ids": [
+        "DOC-015",
+        "IDN-006",
+        "OPS-005",
+        "OPS-006",
+        "OPS-008"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-015--DOC-015",
+        "AC-IDN-006--IDN-006",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-006--OPS-006",
+        "AC-OPS-008--OPS-008"
+      ],
+      "work_packages": [
+        "WP-004"
+      ],
+      "status": "future-not-run",
+      "description": "WP-004 producer baseline: REQ-KNOW-082",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "registration": "active"
+        },
+        "baseline": {
+          "fixture_type": "schema_proof",
+          "shared_development": true,
+          "customer_data": false
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T09:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "sql.inspectConstraints",
+        "arguments": {
+          "requirement": "REQ-KNOW-082",
+          "customer_data": false,
+          "paid_setup_approved": false,
+          "recovery_setup_verified": false
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "customer_data_gate": "closed",
+          "provider_setup_performed": false,
+          "recovery_guarantee_claimed": false
+        },
+        "event": null
+      },
+      "coverage_notes": [
+        "Producer proof only. Provider configuration, recovery execution and feature authorization remain with their downstream owners; this fixture cannot establish those gates."
+      ],
+      "layers": [
+        "sql"
+      ]
+    },
+    {
+      "id": "WP004-KNOW-083",
+      "requirement": "REQ-KNOW-083",
+      "feature_ids": [
+        "DOC-003",
+        "DOC-015",
+        "IDN-006",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-003--DOC-003",
+        "AC-DOC-015--DOC-015",
+        "AC-IDN-006--IDN-006",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-004"
+      ],
+      "status": "future-not-run",
+      "description": "WP-004 producer baseline: REQ-KNOW-083",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "registration": "active"
+        },
+        "baseline": {
+          "fixture_type": "schema_proof",
+          "shared_development": true,
+          "customer_data": false
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T09:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "sql.inspectConstraints",
+        "arguments": {
+          "requirement": "REQ-KNOW-083",
+          "customer_data": false,
+          "paid_setup_approved": false,
+          "recovery_setup_verified": false
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "customer_data_gate": "closed",
+          "provider_setup_performed": false,
+          "recovery_guarantee_claimed": false
+        },
+        "event": null
+      },
+      "coverage_notes": [
+        "Producer proof only. Provider configuration, recovery execution and feature authorization remain with their downstream owners; this fixture cannot establish those gates."
+      ],
+      "layers": [
+        "sql"
+      ]
+    },
+    {
+      "id": "WP004-KNOW-084",
+      "requirement": "REQ-KNOW-084",
+      "feature_ids": [
+        "IDN-006",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-006--IDN-006",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-004"
+      ],
+      "status": "future-not-run",
+      "description": "WP-004 producer baseline: REQ-KNOW-084",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "registration": "active"
+        },
+        "baseline": {
+          "fixture_type": "schema_proof",
+          "shared_development": true,
+          "customer_data": false
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T09:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "sql.inspectConstraints",
+        "arguments": {
+          "requirement": "REQ-KNOW-084",
+          "customer_data": false,
+          "paid_setup_approved": false,
+          "recovery_setup_verified": false
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "customer_data_gate": "closed",
+          "provider_setup_performed": false,
+          "recovery_guarantee_claimed": false
+        },
+        "event": null
+      },
+      "coverage_notes": [
+        "Producer proof only. Provider configuration, recovery execution and feature authorization remain with their downstream owners; this fixture cannot establish those gates."
+      ],
+      "layers": [
+        "sql"
+      ]
+    },
+    {
+      "id": "WP004-KNOW-085",
+      "requirement": "REQ-KNOW-085",
+      "feature_ids": [
+        "DOC-003",
+        "DOC-015",
+        "IDN-006",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-003--DOC-003",
+        "AC-DOC-015--DOC-015",
+        "AC-IDN-006--IDN-006",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-004"
+      ],
+      "status": "future-not-run",
+      "description": "WP-004 producer baseline: REQ-KNOW-085",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "registration": "active"
+        },
+        "baseline": {
+          "fixture_type": "schema_proof",
+          "shared_development": true,
+          "customer_data": false
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T09:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "sql.inspectConstraints",
+        "arguments": {
+          "requirement": "REQ-KNOW-085",
+          "customer_data": false,
+          "paid_setup_approved": false,
+          "recovery_setup_verified": false
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "customer_data_gate": "closed",
+          "provider_setup_performed": false,
+          "recovery_guarantee_claimed": false
+        },
+        "event": null
+      },
+      "coverage_notes": [
+        "Producer proof only. Provider configuration, recovery execution and feature authorization remain with their downstream owners; this fixture cannot establish those gates."
+      ],
+      "layers": [
+        "sql"
+      ]
+    },
+    {
+      "id": "WP004-KNOW-086",
+      "requirement": "REQ-KNOW-086",
+      "feature_ids": [
+        "DOC-003",
+        "DOC-015",
+        "IDN-006",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-003--DOC-003",
+        "AC-DOC-015--DOC-015",
+        "AC-IDN-006--IDN-006",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-004"
+      ],
+      "status": "future-not-run",
+      "description": "WP-004 producer baseline: REQ-KNOW-086",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "registration": "active"
+        },
+        "baseline": {
+          "fixture_type": "schema_proof",
+          "shared_development": true,
+          "customer_data": false
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T09:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "sql.inspectConstraints",
+        "arguments": {
+          "requirement": "REQ-KNOW-086",
+          "customer_data": false,
+          "paid_setup_approved": false,
+          "recovery_setup_verified": false
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "customer_data_gate": "closed",
+          "provider_setup_performed": false,
+          "recovery_guarantee_claimed": false
+        },
+        "event": null
+      },
+      "coverage_notes": [
+        "Producer proof only. Provider configuration, recovery execution and feature authorization remain with their downstream owners; this fixture cannot establish those gates."
+      ],
+      "layers": [
+        "sql"
+      ]
+    },
+    {
+      "id": "WP004-KNOW-087",
+      "requirement": "REQ-KNOW-087",
+      "feature_ids": [
+        "DOC-015",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-015--DOC-015",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-004"
+      ],
+      "status": "future-not-run",
+      "description": "WP-004 producer baseline: REQ-KNOW-087",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "registration": "active"
+        },
+        "baseline": {
+          "fixture_type": "schema_proof",
+          "shared_development": true,
+          "customer_data": false
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T09:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "sql.inspectConstraints",
+        "arguments": {
+          "requirement": "REQ-KNOW-087",
+          "customer_data": false,
+          "paid_setup_approved": false,
+          "recovery_setup_verified": false
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "customer_data_gate": "closed",
+          "provider_setup_performed": false,
+          "recovery_guarantee_claimed": false
+        },
+        "event": null
+      },
+      "coverage_notes": [
+        "Producer proof only. Provider configuration, recovery execution and feature authorization remain with their downstream owners; this fixture cannot establish those gates."
+      ],
+      "layers": [
+        "sql"
+      ]
+    },
+    {
+      "id": "WP004-KNOW-088",
+      "requirement": "REQ-KNOW-088",
+      "feature_ids": [
+        "DOC-015",
+        "OPS-005",
+        "OPS-006",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-015--DOC-015",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-006--OPS-006",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-004"
+      ],
+      "status": "future-not-run",
+      "description": "WP-004 producer baseline: REQ-KNOW-088",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "registration": "active"
+        },
+        "baseline": {
+          "fixture_type": "schema_proof",
+          "shared_development": true,
+          "customer_data": false
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T09:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "sql.inspectConstraints",
+        "arguments": {
+          "requirement": "REQ-KNOW-088",
+          "customer_data": false,
+          "paid_setup_approved": false,
+          "recovery_setup_verified": false
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "customer_data_gate": "closed",
+          "provider_setup_performed": false,
+          "recovery_guarantee_claimed": false
+        },
+        "event": null
+      },
+      "coverage_notes": [
+        "Producer proof only. Provider configuration, recovery execution and feature authorization remain with their downstream owners; this fixture cannot establish those gates."
+      ],
+      "layers": [
+        "sql"
+      ]
+    },
+    {
+      "id": "WP004-KNOW-089",
+      "requirement": "REQ-KNOW-089",
+      "feature_ids": [
+        "ADM-003",
+        "COM-012",
+        "DOC-015",
+        "IDN-026",
+        "NTF-002",
+        "OPS-005",
+        "OPS-007"
+      ],
+      "acceptance_ids": [
+        "AC-ADM-003--ADM-003",
+        "AC-COM-012--COM-012",
+        "AC-DOC-015--DOC-015",
+        "AC-IDN-026--IDN-026",
+        "AC-NTF-002--NTF-002",
+        "AC-OPS-005--OPS-005",
+        "AC-OPS-007--OPS-007"
+      ],
+      "work_packages": [
+        "WP-004"
+      ],
+      "status": "future-not-run",
+      "description": "WP-004 producer baseline: REQ-KNOW-089",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "registration": "active"
+        },
+        "baseline": {
+          "fixture_type": "schema_proof",
+          "shared_development": true,
+          "customer_data": false
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T09:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "sql.inspectConstraints",
+        "arguments": {
+          "requirement": "REQ-KNOW-089",
+          "customer_data": false,
+          "paid_setup_approved": false,
+          "recovery_setup_verified": false
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "customer_data_gate": "closed",
+          "provider_setup_performed": false,
+          "recovery_guarantee_claimed": false
+        },
+        "event": null
+      },
+      "coverage_notes": [
+        "Producer proof only. Provider configuration, recovery execution and feature authorization remain with their downstream owners; this fixture cannot establish those gates."
+      ],
+      "layers": [
+        "sql"
+      ]
+    },
+    {
+      "id": "WP004-PPL-024",
+      "requirement": "REQ-PPL-024",
+      "feature_ids": [
+        "PPL-003",
+        "PPL-004",
+        "PPL-008",
+        "PPL-009",
+        "PPL-015",
+        "PPL-017",
+        "PPL-020",
+        "PPL-021"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-003--PPL-003",
+        "AC-PPL-004--PPL-004",
+        "AC-PPL-008--PPL-008",
+        "AC-PPL-009--PPL-009",
+        "AC-PPL-015--PPL-015",
+        "AC-PPL-017--PPL-017",
+        "AC-PPL-020--PPL-020",
+        "AC-PPL-021--PPL-021"
+      ],
+      "work_packages": [
+        "WP-004"
+      ],
+      "status": "future-not-run",
+      "description": "WP-004 producer baseline: REQ-PPL-024",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "registration": "active"
+        },
+        "baseline": {
+          "fixture_type": "schema_proof",
+          "shared_development": true,
+          "customer_data": false
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T09:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "sql.inspectConstraints",
+        "arguments": {
+          "enumerate_person_foreign_keys": true,
+          "include_frozen_references": true
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "missing_registrations": [],
+          "runtime_registry_table": false
+        },
+        "event": null
+      },
+      "coverage_notes": [
+        "Producer proof only. Provider configuration, recovery execution and feature authorization remain with their downstream owners; this fixture cannot establish those gates."
+      ],
+      "layers": [
+        "sql"
+      ]
     }
   ],
   "schema_authority": "docs/schema/target.json"
