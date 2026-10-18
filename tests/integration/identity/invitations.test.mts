@@ -397,7 +397,15 @@ test("AC:TARGET-IDN-002 AC:TARGET-IDN-003 AC:TARGET-IDN-030 AC:SEC-03 native inv
 		password = "Synthetic-native-password-1";
 	const send = (body) => native("register", body, undefined, { "x-test-ip": "127.0.0.21" });
 	const options = await native("registration-options?invitationProof=" + i.proof);
-	assert.equal((await options.json()).invitation.kind, "plant_precreation");
+	const registrationOptions = await options.json();
+	assert.equal(registrationOptions.invitation.kind, "plant_precreation");
+	assert.deepEqual(registrationOptions.kinds, ["plant_precreation"]);
+	assert.deepEqual((await (await native("registration-options")).json()).kinds, [
+		"plant_precreation",
+		"discovery",
+		"sending_church",
+		"sending_network",
+	]);
 	const unrelated = await send({
 		kind: "invitation",
 		name: "Synthetic",

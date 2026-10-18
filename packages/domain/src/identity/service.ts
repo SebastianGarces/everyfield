@@ -225,7 +225,10 @@ export function createIdentityService(config: IdentityConfig) {
 					return json(
 						registrationOptions.parse({
 							mode: config.registrationMode ?? "open",
-							kinds: ["plant_precreation", "discovery", "sending_church", "sending_network"],
+							kinds:
+								invitation?.status === "pending"
+									? [kind]
+									: ["plant_precreation", "discovery", "sending_church", "sending_network"],
 							invitation:
 								invitation?.status === "pending"
 									? { status: "invitation", kind, organizationName: invitation.workspaceName }
