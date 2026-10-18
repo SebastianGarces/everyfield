@@ -261,8 +261,23 @@ export async function restore(tx: Tx, ctx: WriteContext, input: z.infer<typeof c
 		const before = await person(tx, ctx, input.input.personId, true);
 		expected(before, input.expectedRevision);
 		if (before.state === "merged") deny("use_reviewed_unmerge");
-		if (before.state === "retired")
-			await tx.query("UPDATE person SET state='live',retired_at=NULL,revision=revision+1 WHERE id=$1", [before.id]);
+		if (before.state === "retired") {
+			try {
+				await tx.query("UPDATE person SET state='live',retired_at=NULL,revision=revision+1 WHERE id=$1", [before.id]);
+			} catch (error) {
+				// The unique live account/plant index also arbitrates concurrent relinks.
+				// reply() rolls this statement back to its savepoint before returning.
+				if (
+					error instanceof Error &&
+					"code" in error &&
+					error.code === "23505" &&
+					"constraint" in error &&
+					error.constraint === "person_uq_1"
+				)
+					deny("conflict");
+				throw error;
+			}
+		}
 		const after = await person(tx, ctx, before.id, true),
 			outcome = before.state === "live" ? "noop" : "changed";
 		return {

@@ -157,6 +157,30 @@ test("AC:TARGET-PPL-002 AC:WP011-KNOW-099 AC:SEC-02 AC:TEN-002 minimal contact, 
 	const first = ok(await tx((t) => write.createPerson(t, ctx(), input))),
 		again = ok(await tx((t) => write.createPerson(t, ctx(), input)));
 	assert.deepEqual(again, first);
+	const replayCounts = (
+		await admin.query(
+			"SELECT (SELECT count(*)::int FROM person) people,(SELECT count(*)::int FROM operation) operations,(SELECT count(*)::int FROM event) events",
+		)
+	).rows[0];
+	for (const changed of [
+		(t) => write.createPerson(t, ctx(), { ...input, input: { displayName: "Different request body" } }),
+		(t) => write.createPerson(t, ctx(4), input),
+		(t) =>
+			write.updatePerson(t, ctx(), {
+				requestKey: input.requestKey,
+				expectedRevision: first.person.revision,
+				input: { personId: first.person.id, patch: { city: "Different operation" } },
+			}),
+	])
+		refused(await tx(changed), "conflict");
+	assert.deepEqual(
+		(
+			await admin.query(
+				"SELECT (SELECT count(*)::int FROM person) people,(SELECT count(*)::int FROM operation) operations,(SELECT count(*)::int FROM event) events",
+			)
+		).rows[0],
+		replayCounts,
+	);
 	assert.equal(first.person.displayName, "Jamie");
 	assert.equal(first.person.adultClassification, "unknown");
 	assert.deepEqual(first.person.commitment, { state: "unknown" });
@@ -327,6 +351,53 @@ test("AC:TARGET-PPL-004 AC:ROLE43-003 exact account links, ambiguous contact sel
 		}),
 	);
 	assert.equal(ok(await tx((t) => read.getOwnAccountPerson(t, ctx(), {}))).personId, contact.id);
+	const current = ok(await tx((t) => read.getPerson(t, ctx(), { personId: contact.id }))).person;
+	const review = ok(await tx((t) => read.getStatusWarnings(t, ctx(), { personId: current.id }))).reviewRevision;
+	const retired = ok(
+		await tx((t) =>
+			write.retirePerson(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: current.revision,
+				input: { personId: current.id, reason: "Retire linked Person", reviewRevision: review, handoffs: [] },
+			}),
+		),
+	);
+	const replacement = ok(
+		await tx((t) =>
+			accounts.ensureAccountPerson(t, { ...input, selection: { kind: "create", displayName: "New linked Person" } }),
+		),
+	);
+	assert.notEqual(replacement.personId, current.id);
+	const request = {
+		requestKey: randomUUID(),
+		expectedRevision: retired.person.revision,
+		input: { personId: current.id },
+	};
+	const counts = (
+		await admin.query(
+			"SELECT (SELECT count(*)::int FROM operation) operations,(SELECT count(*)::int FROM people_history) history,(SELECT count(*)::int FROM event) events",
+		)
+	).rows[0];
+	await tx(async (t) => {
+		const refusal = await write.restorePerson(t, ctx(), request);
+		refused(refusal, "conflict");
+		assert.deepEqual(refusal.error.details, {});
+		assert.equal(refusal.error.retry, "refresh");
+		assert.equal((await t.query("SELECT 1 AS usable")).rows[0].usable, 1);
+	});
+	assert.deepEqual(
+		(
+			await admin.query(
+				"SELECT (SELECT count(*)::int FROM operation) operations,(SELECT count(*)::int FROM people_history) history,(SELECT count(*)::int FROM event) events",
+			)
+		).rows[0],
+		counts,
+	);
+	assert.equal(ok(await tx((t) => read.getOwnAccountPerson(t, ctx(), {}))).personId, replacement.personId);
+	assert.deepEqual(
+		(await admin.query("SELECT state,revision,linked_account_id FROM person WHERE id=$1", [current.id])).rows[0],
+		{ state: "retired", revision: retired.person.revision, linked_account_id: actors[0].id },
+	);
 });
 
 test("AC:WP011-KNOW-098 named guest and explicit selection share the caller transaction", async () => {
@@ -393,7 +464,12 @@ test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, c
 	);
 	assert.equal(noop.outcome, "noop");
 	assert.equal(noop.person.revision, p.revision);
-	const duty = randomUUID();
+	const duty = randomUUID(),
+		team = randomUUID();
+	await admin.query(
+		"INSERT INTO team(id,plant_id,name,state,sort_order,leader_person_id,leader_source) VALUES($1,$2,'Retiring leader','active',0,$3,'explicit')",
+		[team, plants[0], p.id],
+	);
 	await admin.query(
 		"INSERT INTO task(id,plant_id,title,category,priority,status,created_at,assignee_id,due_kind,person_id) VALUES($1,$2,'Call','follow_up','medium','not_started',clock_timestamp(),$4,'undated',$3)",
 		[duty, plants[0], p.id, actors[0].id],
@@ -430,6 +506,11 @@ test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, c
 	);
 	assert.deepEqual(retired.needsOwner, [duty]);
 	assert.equal(retired.person.lifecycle.state, "retired");
+	assert.deepEqual(
+		(await admin.query("SELECT leader_person_id,leader_source,leader_role_id,revision FROM team WHERE id=$1", [team]))
+			.rows[0],
+		{ leader_person_id: null, leader_source: null, leader_role_id: null, revision: "2" },
+	);
 	assert.equal(ok(await tx((t) => read.listPeople(t, ctx(), { search: "Lifecycle" }))).total, 0);
 	await assert.rejects(
 		admin.query(
@@ -663,6 +744,10 @@ test("AC:CA014 explicit adult classification retains genuine historical acquisit
 		"INSERT INTO commitment(id,plant_id,person_id,kind,signed_on,recorded_at) VALUES($1,$2,$3,'core_group','2026-09-01',clock_timestamp())",
 		[commitment, plants[0], p.id],
 	);
+	await admin.query(
+		"INSERT INTO commitment(id,plant_id,person_id,kind,signed_on,recorded_at) VALUES($1,$2,$3,'launch_team','2026-10-05',clock_timestamp())",
+		[randomUUID(), plants[0], p.id],
+	);
 	await admin.query("UPDATE person SET commitment_state='active' WHERE id=$1", [p.id]);
 	const result = ok(
 		await tx((t) =>
@@ -699,6 +784,11 @@ test("AC:CA014 explicit adult classification retains genuine historical acquisit
 	);
 	assert.equal(corrected.observation.classification, "unknown");
 	assert.equal(corrected.observation.current.state, "active");
+	assert.deepEqual(corrected.observation.firstAcquisition, {
+		status: "known",
+		occurredOn: "2026-09-01",
+		evidenceId: commitment,
+	});
 	assert.deepEqual(
 		(await admin.query("SELECT signed_on FROM commitment WHERE id=$1", [commitment])).rows[0].signed_on,
 		before,
