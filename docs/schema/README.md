@@ -2,7 +2,7 @@
 
 [target.json](target.json) is the only schema authority. Sebastian adopted this reviewed starting design on 2026-10-14. Builders may change it later through a reviewed migration. Application implementation is not authorized by this documentation change.
 
-The schema has 123 tables, 1428 columns, 497 declared FKs and 16 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 126 tables, 1449 columns, 505 declared FKs and 19 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -74,6 +74,9 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `relationship_invitation` | WP-007 native organization adapter storage introduced by forward migration 0005; D29/D32 current-catalog authority. | WP-007 |
 | `relationship_history` | WP-007 native organization adapter storage introduced by forward migration 0005; D29/D32 current-catalog authority. | WP-007 |
 | `organization_operation_result` | WP-007 native organization adapter storage introduced by forward migration 0005; D29/D32 current-catalog authority. | WP-007 |
+| `people_history` | WP-011 People producer storage introduced by additive migration 0004; D30/D32 current-catalog registration. | WP-011 |
+| `people_result` | WP-011 People producer storage introduced by additive migration 0004; D30/D32 current-catalog registration. | WP-011 |
+| `people_column` | WP-011 People producer storage introduced by additive migration 0004; D30/D32 current-catalog registration. | WP-011 |
 
 `assessment_fact` also adds WP-040, which owns deterministic fact capture. Its remaining producers inherit the replaced assessment stores. Original-author care excludes generic record/history movement. The Person registry is rebuilt from all adopted Person FKs; generic person-kind record references and frozen opaque inputs are separately registered as immutable evidence.
 
@@ -414,5 +417,6 @@ Fix 2 records these small gap fixes to the adopted starting schema. They do not 
 | E1-ACCESS-REQUEST | Align WP-097 with applied E4 migration 0001 and its runner: early_access_request with validated data/frozen mail payload and nullable receipt fields, keyless early_access_attempt limiter facts, and schema_migration with its text key. Strict retention cutoffs and the approved E3 field/phase contract apply; no tenant or product tables are consumed. |
 | ADR001-CONTRACT | Owner-approved organization Person lifecycle, consented seatless residency and stage 1/2 pipeline/program records; stages 3/4 deferred. |
 | D32-CURRENT-MIGRATIONS | Current target includes WP-007 consent revision, exact invitation endpoints, protected relationship history and immutable operation results. Verify the full ordered migration chain against this catalog; applied baseline and privilege migration bytes stay frozen. |
+| D32-PEOPLE-PRODUCER | WP-011 additive 0004 registers protected Person history, exact results, pipeline ordering, normalized Person references and removed-note body-free tombstones; fresh full migration proof includes ordered 0004 and 0005 without rewriting applied SQL. |
 
 The architecture and Person checks compare documentation identifiers and registries with this authority. They do not execute database triggers, auth or restore. Material revisions come from intelligence-owned database triggers on assessment input tables, proved against the input builder. Before customer data, G-RECOVERY adds encrypted daily copies, witness synchronization and the restricted backup host; build recovery uses native seven-day Neon/Tigris history.
