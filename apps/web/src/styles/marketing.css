@@ -1,4 +1,4 @@
-/* Tailwind CSS v4 entry for the marketing site.
+/* Tailwind CSS v4 entry for the whole app: the marketing site and the product UI (packages/ui).
    1. Tailwind is imported here, so it resolves from apps/web. design/handoff/tokens.css is the single
       token source: it defines the --ef-* values, the shadcn names and the @theme utilities
       (bg-ink, text-text-2, rounded-card, font-display ...).
@@ -6,6 +6,10 @@
    Values that equal a product token use the product token (ink, ink-2, text-2, green, green-600). */
 @import "tailwindcss";
 @import "../../../../design/handoff/tokens.css";
+/* Product foundations (WP-088): scoped to the product root, so they never touch marketing pages. One build serves both:
+   a second Tailwind build would re-declare utilities later in the cascade (see the comment in product.css). */
+@import "../../../../packages/ui/src/foundations/product.css";
+@source "../../../../packages/ui/src";
 
 /* Data and scripts are not Tailwind sources. */
 @source not "../marketing/scene-data.ts";

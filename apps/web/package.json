@@ -17,6 +17,7 @@
   "dependencies": {
     "@everyfield/db": "workspace:*",
     "@everyfield/domain": "workspace:*",
+    "@everyfield/ui": "workspace:*",
     "@hugeicons/core-free-icons": "4.3.5",
     "@hugeicons/react": "1.1.10",
     "motion": "14.2.0",

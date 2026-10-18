@@ -18,6 +18,7 @@
     "stack:status": "node scripts/stack.mjs status",
     "stack:down": "node scripts/stack.mjs down",
     "stack:check": "node scripts/stack.mjs check",
-    "test:workflow": "node scripts/test-workflow.mjs"
+    "test:workflow": "node scripts/test-workflow.mjs",
+    "test:ui": "node --test 'tests/ui/**/*.test.mjs'"
   }
 }
