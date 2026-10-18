@@ -4,7 +4,7 @@ import type { Transaction } from "@everyfield/db/client";
 import { and, eq, isNull, notInArray, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import { liveOwner } from "../access/session.ts";
-import { workspace, expires } from "./invitation-core.ts";
+import { workspace, expires, lock, now } from "./invitation-core.ts";
 // WP-031 calls this for both enqueue and the final handoff. The frozen ledger
 // supplies these values; no client-selected address, purpose or key is accepted.
 export async function authorizeInvitationMail(
@@ -21,17 +21,30 @@ export async function authorizeInvitationMail(
 ) {
 	const [prefix, id, rev, ...extra] = m.logicalKey.split("/");
 	if (extra.length || !id || !["invitation", "invitation-accepted"].includes(prefix!)) return false;
-	const [i] = await tx
+	await lock(tx, "workspace-seats/" + m.tenant);
+	let [i] = await tx
 		.select()
 		.from(t.invitation)
-		.where(and(eq(t.invitation.id, id), eq(t.invitation.tenant_id, m.tenant)))
-		.for("share");
+		.where(and(eq(t.invitation.id, id), eq(t.invitation.tenant_id, m.tenant)));
 	if (
 		!i ||
 		(i.purpose !== "seat" && i.purpose !== "residency_link") ||
 		addressHash(i.recipient_email) !== m.addressHash
 	)
 		return false;
+	if (i.purpose === "residency_link")
+		await tx
+			.select({ id: t.person.id })
+			.from(t.person)
+			.where(and(eq(t.person.id, i.resident_person_id!), eq(t.person.tenant_id, i.tenant_id)))
+			.for("share");
+	const [current] = await tx
+		.select()
+		.from(t.invitation)
+		.where(and(eq(t.invitation.id, id), eq(t.invitation.tenant_id, m.tenant)))
+		.for("share");
+	if (!current || current.resident_person_id !== i.resident_person_id) return false;
+	i = current;
 	const [op] = m.operation
 		? await tx
 				.select({ id: t.operation.id })
@@ -52,7 +65,7 @@ export async function authorizeInvitationMail(
 		!i.inviter_id ||
 		i.state !== "pending" ||
 		i.revision !== rev ||
-		expires(i) <= new Date() ||
+		expires(i) <= (await now(tx)) ||
 		m.recipient !== null ||
 		m.purpose !== (i.purpose === "seat" ? "seat_invitation" : "relationship_invitation")
 	)

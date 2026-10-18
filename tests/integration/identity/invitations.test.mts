@@ -447,9 +447,13 @@ test("AC:TARGET-IDN-002 AC:TARGET-IDN-003 AC:TARGET-IDN-030 AC:SEC-03 native inv
 	await f.admin.update(t.auth_user).set({ email_verified: true }).where(eq(t.auth_user.id, user.id));
 	const resume = await native("resume-registration", intent, cookie),
 		accepted = await resume.json();
-	assert.equal(accepted.status, "accepted");
+	assert.equal(accepted.status, "active");
 	assert.equal(accepted.accountId, account.id);
-	assert.equal(accepted.seat.role, "member");
+	assert.equal((await f.admin.select().from(t.seat).where(eq(t.seat.account_id, account.id)))[0].role, "member");
+	assert.equal(
+		await count(t.identity_operation_result, eq(t.identity_operation_result.operation_id, accepted.operationId)),
+		1,
+	);
 	assert.deepEqual(await (await native("resume-registration", intent, cookie)).json(), accepted);
 	const foreign = await native("resume-registration", intent);
 	assert.equal(foreign.status, 401);
@@ -513,4 +517,98 @@ test("AC:TARGET-IDN-017 INV-mail: revoked invitation cancels its pending outbox 
 	assert.equal(f.effects.filter((e) => e.to === s.recipient.email).length, before);
 	const [mail] = await f.admin.select().from(t.mail).where(eq(t.mail.operation_id, result.receipt.id));
 	assert.equal(mail.state, "cancelled");
+});
+
+test("AC:ADR1-004 INV-person-reference: retirement and invitation revocation beat a waiting resident claim without a deadlock", async () => {
+	const s = await f.setup("sending_church"),
+		person = await f.resident(s.w),
+		i = await f.invitation(s, person);
+	let claim;
+	await f.admin.transaction(async (tx) => {
+		await tx.select({ id: t.person.id }).from(t.person).where(eq(t.person.id, person)).for("update");
+		const [{ pid }] = await tx
+			.select({ pid: sql`pg_backend_pid()` })
+			.from(t.person)
+			.limit(1);
+		claim = f.invitations
+			.respondResident(s.recipient.session, {
+				...i.claim,
+				input: { ...i.claim.input, decision: "accept", choices: { shareFoundations: true, shareMilestones: false } },
+			})
+			.then(
+				(value) => ({ value }),
+				(error) => ({ error }),
+			);
+		let blocked = false;
+		for (let attempt = 0; attempt < 30; attempt++) {
+			const result = await f.admin.execute(
+				sql`SELECT count(*)::int AS n FROM pg_stat_activity a WHERE a.datname=current_database() AND ${pid}::int=ANY(pg_blocking_pids(a.pid))`,
+			);
+			if (Number(result.rows[0].n) > 0) {
+				blocked = true;
+				break;
+			}
+			await new Promise((resolve) => setTimeout(resolve, 10));
+		}
+		assert.equal(blocked, true, "The claim must reach its competing Person lock");
+		await tx
+			.update(t.person)
+			.set({ state: "retired", retired_at: new Date(), revision: "2" })
+			.where(eq(t.person.id, person));
+		await tx
+			.update(t.invitation)
+			.set({ state: "revoked", revision: "2" })
+			.where(eq(t.invitation.id, i.result.invitation.invitationId));
+	});
+	const result = await claim;
+	assert.equal(
+		result.error?.value?.code,
+		"invitation_unavailable",
+		JSON.stringify({ databaseCode: result.error?.cause?.code }),
+	);
+	assert.equal(await count(t.residency_link, eq(t.residency_link.person_id, person)), 0);
+	assert.equal(
+		(await f.admin.select().from(t.invitation).where(eq(t.invitation.id, i.result.invitation.invitationId)))[0].state,
+		"revoked",
+	);
+});
+
+test("AC:ADR1-004 INV-relationship-race: contended existing affiliation refuses safely and the same intent resumes after commit", async () => {
+	const s = await f.setup("sending_church"),
+		person = await f.resident(s.w),
+		i = await f.invitation(s, person),
+		id = key();
+	await f.admin.update(t.account).set({ registration_state: "active" }).where(eq(t.account.id, s.recipient.id));
+	await f.admin.insert(t.affiliation).values({
+		id,
+		account_id: s.recipient.id,
+		organization_id: s.w.id,
+		accepted_at: new Date(),
+		share_people: false,
+		share_meetings: false,
+		share_tasks: false,
+		share_ministry_teams: false,
+		share_wiki: false,
+		share_activity: false,
+		shared_findings: false,
+	});
+	const claim = {
+		...i.claim,
+		input: { ...i.claim.input, decision: "accept", choices: { shareFoundations: false, shareMilestones: true } },
+	};
+	await f.admin.transaction(async (tx) => {
+		await tx.select({ id: t.affiliation.id }).from(t.affiliation).where(eq(t.affiliation.id, id)).for("update");
+		await denied(f.invitations.respondResident(s.recipient.session, claim), "temporary");
+	});
+	assert.equal(await count(t.residency_link, eq(t.residency_link.person_id, person)), 0);
+	const accepted = await f.invitations.respondResident(s.recipient.session, claim);
+	assert.equal(accepted.status, "accepted");
+	assert.equal(
+		await count(
+			t.affiliation,
+			and(eq(t.affiliation.account_id, s.recipient.id), eq(t.affiliation.organization_id, s.w.id)),
+		),
+		1,
+	);
+	assert.deepEqual(accepted.choices, { shareFoundations: false, shareMilestones: true });
 });

@@ -8,6 +8,8 @@ import { verifyPassword } from "better-auth/crypto";
 import { z } from "zod";
 import {
 	registrationRequest,
+	registrationResult,
+	seatInvitationAcceptedResult,
 	registrationStatus,
 	sessionResult,
 	signInRequest,
@@ -460,8 +462,19 @@ export function createIdentityService(config: IdentityConfig) {
 			// The producer rechecks the exact native identity, mailbox and source in its transaction.
 			if (v.invitationProof) {
 				if (!config.invitations) throw new IdentityRefusal("unavailable", 503);
-				const accepted = await config.invitations.resume(s.value.sessionId, v.invitationProof, v.requestKey);
-				return cookies(json(accepted), s.response);
+				const accepted = seatInvitationAcceptedResult.parse(
+					await config.invitations.resume(s.value.sessionId, v.invitationProof, v.requestKey),
+				);
+				return cookies(
+					json(
+						registrationResult.parse({
+							status: "active",
+							accountId: accepted.accountId,
+							operationId: accepted.receipt.id,
+						}),
+					),
+					s.response,
+				);
 			}
 			return cookies(
 				json(registrationStatus.parse({ status: s.value.status, accountId: s.value.accountId })),

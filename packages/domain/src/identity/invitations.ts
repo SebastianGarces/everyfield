@@ -6,6 +6,7 @@ import * as t from "@everyfield/db/tables";
 import type { Owner, Receipt } from "@everyfield/contracts/common";
 import type { AccountPersonProducer } from "@everyfield/contracts/people";
 import * as c from "@everyfield/contracts/identity";
+import { z } from "zod";
 import { transaction } from "./budget.ts";
 import * as d from "./invitation-core.ts";
 export interface InvitationMail {
@@ -65,7 +66,7 @@ export function createInvitationService(config: InvitationConfig) {
 		});
 	}
 	async function mail(tx: Transaction, i: d.Invitation, cmd: d.Command, proof: string) {
-		const { selected } = await d.workspace(tx, i.tenant_id),
+		const { selected, name } = await d.workspace(tx, i.tenant_id),
 			url = new URL("/invitation", origin);
 		url.searchParams.set("proof", proof);
 		return enqueue(tx, cmd, {
@@ -77,7 +78,10 @@ export function createInvitationService(config: InvitationConfig) {
 			purpose: i.purpose === "seat" ? "seat_invitation" : "relationship_invitation",
 			logicalKey: `invitation/${i.id}/${i.revision}`,
 			subject: "Your EveryField invitation",
-			text: `${i.inviter_description} invited you to EveryField.\n\n${url.href}\n\nExpires ${d.expires(i).toISOString()}. A resident link does not grant a workspace seat.`,
+			text:
+				i.purpose === "seat"
+					? `${i.inviter_description} invited you to join ${name} as ${i.role === "admin" ? "an Admin" : "a Member"}.\n\nReview the invitation: ${url.href}\n\nExpires ${d.expires(i).toISOString()}.`
+					: `${i.inviter_description} invited you to link your account to ${name}. You can accept or decline. This link does not add a workspace seat.\n\nReview the invitation: ${url.href}\n\nExpires ${d.expires(i).toISOString()}.`,
 		});
 	}
 	async function activePerson(tx: Transaction, organization: string, id: string) {
@@ -106,6 +110,18 @@ export function createInvitationService(config: InvitationConfig) {
 			.for("share");
 		if (!p || removed.length) d.refuse();
 		return p;
+	}
+	// Person lifecycle writers lock the Person before its invitation rows.
+	async function lockSourcePerson(
+		tx: Transaction,
+		source: Pick<d.Invitation, "purpose" | "tenant_id" | "resident_person_id">,
+	) {
+		if (source.purpose === "residency_link" && source.resident_person_id)
+			await tx
+				.select({ id: t.person.id })
+				.from(t.person)
+				.where(and(eq(t.person.id, source.resident_person_id), eq(t.person.tenant_id, source.tenant_id)))
+				.for("update");
 	}
 	async function charge(tx: Transaction, selected: Owner, email: string, kind: "seat_invite" | "relationship_invite") {
 		const h = addressHash(email);
@@ -236,7 +252,7 @@ export function createInvitationService(config: InvitationConfig) {
 	async function describe(raw: unknown) {
 		const v = c.describeInvitationRequest.parse(raw);
 		return transaction(config.db, async (tx) => {
-			const [i] = await tx
+			const [observed] = await tx
 				.select()
 				.from(t.invitation)
 				.where(
@@ -246,9 +262,12 @@ export function createInvitationService(config: InvitationConfig) {
 						eq(t.invitation.state, "pending"),
 						gt(t.invitation.created_at, sql`clock_timestamp()-interval '720 hours'`),
 					),
-				)
-				.for("share");
-			if (!i) return c.invitationDescriptionResult.parse({ status: "unavailable" });
+				);
+			if (!observed) return c.invitationDescriptionResult.parse({ status: "unavailable" });
+			await lockSourcePerson(tx, observed);
+			const i = await d.load(tx, observed.id);
+			await d.pending(tx, i);
+			if (i.token_hash !== d.hash(v.proof) || i.resident_person_id !== observed.resident_person_id) d.refuse();
 			if (i.purpose === "residency_link") await activePerson(tx, i.tenant_id, i.resident_person_id!);
 			const p = await description(tx, i);
 			return c.invitationDescriptionResult.parse({
@@ -270,19 +289,24 @@ export function createInvitationService(config: InvitationConfig) {
 		return transaction(config.db, async (tx) => {
 			// Read only the owner key first; the source is locked after current actor proof.
 			const [source] = await tx
-				.select({ tenant_id: t.invitation.tenant_id })
+				.select({
+					tenant_id: t.invitation.tenant_id,
+					purpose: t.invitation.purpose,
+					resident_person_id: t.invitation.resident_person_id,
+				})
 				.from(t.invitation)
 				.where(eq(t.invitation.id, v.input.invitationId));
 			if (!source) d.refuse();
 			await d.lock(tx, "workspace-seats/" + source.tenant_id);
 			const { selected } = await d.workspace(tx, source.tenant_id),
-				a = await d.administer(tx, session, selected),
-				i = await d.load(tx, v.input.invitationId),
+				a = await d.administer(tx, session, selected);
+			await lockSourcePerson(tx, source);
+			const i = await d.load(tx, v.input.invitationId),
 				cmd = await d.begin(tx, selected, a.accountId, resend ? "seats.resendInvitation" : "seats.revokeInvitation", v);
 			if (cmd.kind === "replay")
 				return resend ? c.invitationSentResult.parse(cmd.result) : c.invitationRevokedResult.parse(cmd.result);
 			await d.pending(tx, i, v.expectedRevision);
-			if (i.purpose === "residency_link") await activePerson(tx, i.tenant_id, i.resident_person_id!);
+			if (resend && i.purpose === "residency_link") await activePerson(tx, i.tenant_id, i.resident_person_id!);
 			const after = d.bump(i.revision);
 			let effects: string[] = [];
 			if (resend) {
@@ -325,16 +349,22 @@ export function createInvitationService(config: InvitationConfig) {
 		const v = resident ? c.respondResidentInvitationRequest.parse(raw) : c.acceptSeatInvitationRequest.parse(raw);
 		return transaction(config.db, async (tx) => {
 			const [source] = await tx
-				.select({ tenant_id: t.invitation.tenant_id })
+				.select({
+					tenant_id: t.invitation.tenant_id,
+					purpose: t.invitation.purpose,
+					resident_person_id: t.invitation.resident_person_id,
+				})
 				.from(t.invitation)
 				.where(eq(t.invitation.id, v.input.invitationId));
 			if (!source) d.refuse();
 			await d.lock(tx, "workspace-seats/" + source.tenant_id);
 			const a = await d.identity(tx, session);
 			if (!a.verified) d.refuse();
+			await lockSourcePerson(tx, source);
 			const i = await d.load(tx, v.input.invitationId),
 				{ selected } = await d.workspace(tx, i.tenant_id);
 			if (
+				i.resident_person_id !== source.resident_person_id ||
 				i.purpose !== (resident ? "residency_link" : "seat") ||
 				i.token_hash !== d.hash(v.input.proof) ||
 				i.recipient_email !== a.email
@@ -383,14 +413,13 @@ export function createInvitationService(config: InvitationConfig) {
 								or(eq(t.residency_link.account_id, a.account_id), eq(t.residency_link.person_id, p.id)),
 								isNull(t.residency_link.ended_at),
 							),
-						)
-						.for("update");
+						);
 					if (competing.length) d.refuse();
 					let [affiliation] = await tx
 						.select()
 						.from(t.affiliation)
 						.where(and(eq(t.affiliation.organization_id, selected.id), eq(t.affiliation.account_id, a.account_id)))
-						.for("update");
+						.for("update", { noWait: true });
 					if (affiliation?.ended_at) d.refuse();
 					if (!affiliation) {
 						[affiliation] = await tx
@@ -547,12 +576,20 @@ export function createInvitationService(config: InvitationConfig) {
 						purpose: "relationship_receipt",
 						logicalKey: `invitation-accepted/${i.id}`,
 						subject: "Your invitation was accepted",
-						text: "Your EveryField invitation was accepted. Sign in to review your current access.",
+						text: resident
+							? "You accepted an invitation to link your EveryField account. This link does not add a workspace seat. Sign in to review your sharing choices."
+							: "You accepted an invitation to join an EveryField workspace. Sign in to review your membership. If this was not you, review your account security.",
 					}),
 				);
 			}
 			events.push(await d.event(tx, cmd, i.id, "accept", declined ? null : "invitation.claimed", i.revision, after));
 			return d.finish(tx, cmd, result, events, effects);
+		}).catch((error) => {
+			// Organization relationship writers also own this existing affiliation. A
+			// contended lock must refuse before grants rather than reverse their lock order.
+			const storage = z.object({ cause: z.object({ code: z.string() }) }).safeParse(error);
+			if (storage.success && storage.data.cause.code === "55P03") d.refuse("temporary");
+			throw error;
 		});
 	}
 	async function registrationEligible(proof: string, email: string) {
