@@ -694,7 +694,7 @@ export const accountPersonProducer: AccountPersonProducer<Tx> = {
 			} else
 				p = await insertPerson(tx, ctx, {
 					displayName: input.selection.displayName,
-					stage: "prospect",
+					stage: "leader",
 					source: "other",
 					adultClassification: "unknown",
 				});

@@ -277,6 +277,11 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `obligation(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `obligation(assignee_id)` | `account(id)` | restrict |  |
 | `obligation(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
+| `onboarding_result(operation_id, tenant_id)` | `operation(id, tenant_id)` | no_action |  |
+| `onboarding_result(tenant_id)` | `tenant(id)` | no_action |  |
+| `onboarding_setup(account_id)` | `account(id)` | no_action |  |
+| `onboarding_setup(creation_operation_id)` | `operation(id)` | no_action | Creation starts in the authenticated own-account scope and atomically establishes this plant; creator, receipt and resulting plant are validated together. This pointer grants no account or plant authority. |
+| `onboarding_setup(plant_id)` | `plant(id)` | no_action |  |
 | `operation(tenant_id)` | `tenant(id)` | restrict |  |
 | `operation(actor_id)` | `account(id)` | restrict |  |
 | `operation(review_id, tenant_id)` | `review(id, tenant_id)` | restrict |  |
