@@ -660,6 +660,9 @@ test('INV-wp-scope: verify accepts only the task\'s own new-package lock importe
  const f=fixture();try {
   f.authorize('WP-002');
   const lock="lockfileVersion: '9.0'\n\nimporters:\n\n  .: {}\n\n  packages/db:\n    dependencies:\n      pg:\n        specifier: 8.0.0\n        version: 8.0.0\n\npackages:\n\n  pg@8.0.0:\n    resolution: {integrity: sha512-fixture}\n";
+  const generateIn=(root:string)=>{for(const flag of ['--refresh-manifest','--refresh-plan'])execFileSync('python3',['docs/package-context.py',flag,'--root',root],{cwd:root,stdio:'ignore'});};
+  // The fixture owns its base: projections start equal to the generators' output, whatever the live docs hold.
+  generateIn(f.root);
   writeFileSync(join(f.root,'pnpm-lock.yaml'),lock);f.git('add','pnpm-lock.yaml');f.commit();
   const wt=f.task('wp-002'),git=(...args:string[])=>execFileSync('git',['-C',wt,...args],{encoding:'utf8'}).trim();
   const index=JSON.parse(readFileSync(join(wt,'docs/catalog/index.json'),'utf8'));
@@ -671,7 +674,9 @@ test('INV-wp-scope: verify accepts only the task\'s own new-package lock importe
    own.id=id;if(requirement){own.requirement=requirement;own.requirement_ids=[requirement];}
    payload.cases.push(own);writeFileSync(join(wt,file),JSON.stringify(payload,null,2)+'\n');
   };
-  const generate=()=>{for(const flag of ['--refresh-manifest','--refresh-plan'])execFileSync('python3',['docs/package-context.py',flag,'--root',wt],{cwd:wt,stdio:'ignore'});};
+  const generate=()=>generateIn(wt);
+  // Which projections a new case changes depends on the catalog; derive them from the generators' actual output.
+  const projections=()=>git('diff','--name-only','main','--','docs/plan/context-manifest.json','docs/plan/dag.json','docs/plan/build-plan.md').split('\n').filter(Boolean);
   const write=(path:string,text:string)=>{mkdirSync(join(wt,path,'..'),{recursive:true});writeFileSync(join(wt,path),text);};
   let printed:string[]=[];
   const scopeOf=()=>{git('add','-A');git('commit','-qm','Candidate');const log=console.log;printed=[];console.log=(...m)=>{printed.push(...m.join(' ').split('\n'));};
@@ -682,8 +687,9 @@ test('INV-wp-scope: verify accepts only the task\'s own new-package lock importe
   write('apps/web/package.json','{}\n');
   writeFileSync(join(wt,'pnpm-lock.yaml'),lock.replace('\n  packages/db:','\n  packages/contracts: {}\n\n  packages/db:'));
   addCase('SCOPE-FIXTURE-001');generate();
+  const generated=projections();assert.ok(generated.includes('docs/plan/context-manifest.json'));
   assert.deepEqual(scopeOf(),{owned:['packages/contracts/src/common/values.ts'],accepted:{
-   [file]:'own-at-start-cases','docs/plan/build-plan.md':'generated-projection','docs/plan/context-manifest.json':'generated-projection',
+   [file]:'own-at-start-cases',...Object.fromEntries(generated.map(p=>[p,'generated-projection'])),
    'packages/contracts/eslint.config.mjs':'own-package-scaffold','packages/contracts/package.json':'own-package-scaffold','packages/contracts/tsconfig.json':'own-package-scaffold',
    'pnpm-lock.yaml':'own-lock-importer'},outside:['apps/web/package.json']});
   assert.deepEqual(printed.filter(l=>l.startsWith('  outside: ')),['  outside: apps/web/package.json (verifier: confirm a recorded ruling)']);
@@ -693,7 +699,7 @@ test('INV-wp-scope: verify accepts only the task\'s own new-package lock importe
   writeFileSync(join(wt,'docs/plan/build-plan.md'),readFileSync(join(wt,'docs/plan/build-plan.md'),'utf8')+'\nHand-written line.\n');
   assert.deepEqual(scopeOf(),{owned:['packages/contracts/src/common/values.ts'],accepted:{
    'packages/contracts/eslint.config.mjs':'own-package-scaffold','packages/contracts/package.json':'own-package-scaffold','packages/contracts/tsconfig.json':'own-package-scaffold'},
-   outside:['apps/web/package.json','docs/plan/build-plan.md','docs/plan/context-manifest.json',file,'pnpm-lock.yaml'].sort()});
+   outside:[...new Set(['apps/web/package.json','docs/plan/build-plan.md',...projections(),file,'pnpm-lock.yaml'])].sort()});
  }finally{f.close();}
 });
 
