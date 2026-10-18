@@ -1,17 +1,10 @@
 {
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "allowImportingTsExtensions": true,
-    "types": [
-      "node"
-    ],
-    "typeRoots": [
-      "./node_modules/@types"
-    ],
-    "allowJs": true
-  },
-  "include": [
-    "src/**/*.ts",
-    "../../tests/reference/releases/**/*.mts"
-  ]
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"allowImportingTsExtensions": true,
+		"types": ["node"],
+		"typeRoots": ["./node_modules/@types"],
+		"allowJs": true
+	},
+	"include": ["src/**/*.ts", "../../tests/reference/releases/**/*.mts"]
 }

@@ -388,17 +388,15 @@ export function createMailService(config: {
 						),
 				})
 				.where(eq(tables.mail_request.id, r.id));
-			await tx
-				.insert(tables.mail_attempt)
-				.values({
-					id: attempt,
-					tenant_id: m.tenant_id,
-					request_id: r.id,
-					attempt_number: claim.attempt_count,
-					claim_generation: sql`${claim.claim_generation}`,
-					started_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-					outcome: "in_flight",
-				});
+			await tx.insert(tables.mail_attempt).values({
+				id: attempt,
+				tenant_id: m.tenant_id,
+				request_id: r.id,
+				attempt_number: claim.attempt_count,
+				claim_generation: sql`${claim.claim_generation}`,
+				started_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+				outcome: "in_flight",
+			});
 			await tx.update(tables.mail).set({ state: "dispatched" }).where(eq(tables.mail.id, m.id));
 			await checkpoint(tx, claim, "external");
 			return {

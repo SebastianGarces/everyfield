@@ -39,22 +39,20 @@ try {
 				},
 			],
 		] as const)
-			await tx
-				.insert(early_access_request)
-				.values({
-					kind,
-					email,
-					data: { ...data, email },
-					mail_payload: {
-						from: "EveryField Development <development@example.test>",
-						to: [email],
-						reply_to: "support@example.test",
-						subject: "Synthetic development fixture",
-						text: "No email was sent.",
-					},
-					mail_id: "synthetic-" + kind,
-					mailed_at: sql`now()`,
-				});
+			await tx.insert(early_access_request).values({
+				kind,
+				email,
+				data: { ...data, email },
+				mail_payload: {
+					from: "EveryField Development <development@example.test>",
+					to: [email],
+					reply_to: "support@example.test",
+					subject: "Synthetic development fixture",
+					text: "No email was sent.",
+				},
+				mail_id: "synthetic-" + kind,
+				mailed_at: sql`now()`,
+			});
 	});
 	console.log("Shared development database reset. Seeded one planter and one network request; no email sent.");
 } catch {

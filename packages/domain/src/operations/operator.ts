@@ -32,18 +32,16 @@ export function operatorOperations(db: Database, authenticate: AuthenticateOpera
 			const now = z.coerce.date().parse(r.rows[0]?.now);
 			if (scope.expiresAt <= now || !scope.operations.includes(operation)) throw Error("unavailable");
 			const result = await read(tx, scope);
-			await tx
-				.insert(tables.event)
-				.values({
-					tenant_id: scope.tenant,
-					target_record_id: scope.tenant,
-					actor_id: scope.principal,
-					kind: "read",
-					occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-					recorded_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-					event_key: randomUUID(),
-					action: operation === "security.inspectAudit" ? "security.audit_inspected" : "security.operator_accessed",
-				});
+			await tx.insert(tables.event).values({
+				tenant_id: scope.tenant,
+				target_record_id: scope.tenant,
+				actor_id: scope.principal,
+				kind: "read",
+				occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+				recorded_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+				event_key: randomUUID(),
+				action: operation === "security.inspectAudit" ? "security.audit_inspected" : "security.operator_accessed",
+			});
 			return result;
 		});
 	}

@@ -1,7 +1,12 @@
 import type { z } from "zod";
 import type { Owner, sessionId } from "../common/values.ts";
 import type { SharedOperationCheckRequest, OrganizationPersonRequest, organizationNotesRequest } from "./requests.ts";
-import type { CurrentActorResult, OperationCheckResult, PipelineAccessResult, OrganizationNotesResult } from "./results.ts";
+import type {
+	CurrentActorResult,
+	OperationCheckResult,
+	PipelineAccessResult,
+	OrganizationNotesResult,
+} from "./results.ts";
 
 // Implement in the server-only DAL. The caller supplies the transaction and a
 // validated native/assistant session handle, not a hydrated actor/role snapshot.
@@ -14,13 +19,25 @@ import type { CurrentActorResult, OperationCheckResult, PipelineAccessResult, Or
 // tag is not evidence of its kind. Routine administration is equal for accepted
 // same-tenant Owner/Admin; workspace deletion still requires the actual Owner.
 export interface AccessReader<Tx> {
-  currentActor(tx: Tx, session: z.infer<typeof sessionId>, selected: Owner): Promise<CurrentActorResult>;
-  checkOperation(tx: Tx, session: z.infer<typeof sessionId>, selected: Owner,
-    input: SharedOperationCheckRequest): Promise<OperationCheckResult>;
-  readPipelinePerson(tx: Tx, session: z.infer<typeof sessionId>, selected: Owner,
-    input: OrganizationPersonRequest): Promise<PipelineAccessResult>;
-  readOrganizationNotes(tx: Tx, session: z.infer<typeof sessionId>, selected: Owner,
-    input: z.infer<typeof organizationNotesRequest>): Promise<OrganizationNotesResult>;
+	currentActor(tx: Tx, session: z.infer<typeof sessionId>, selected: Owner): Promise<CurrentActorResult>;
+	checkOperation(
+		tx: Tx,
+		session: z.infer<typeof sessionId>,
+		selected: Owner,
+		input: SharedOperationCheckRequest,
+	): Promise<OperationCheckResult>;
+	readPipelinePerson(
+		tx: Tx,
+		session: z.infer<typeof sessionId>,
+		selected: Owner,
+		input: OrganizationPersonRequest,
+	): Promise<PipelineAccessResult>;
+	readOrganizationNotes(
+		tx: Tx,
+		session: z.infer<typeof sessionId>,
+		selected: Owner,
+		input: z.infer<typeof organizationNotesRequest>,
+	): Promise<OrganizationNotesResult>;
 }
 
 // Registered jobs and exact proofs have their own producer-authenticated

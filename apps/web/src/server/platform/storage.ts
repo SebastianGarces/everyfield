@@ -59,16 +59,14 @@ export async function uploadIntent(
 	return transaction(db, async (tx) => {
 		const scope = await currentScope(tx, auth, headers, input.ownerId);
 		const id = randomUUID();
-		await tx
-			.insert(tables.proof_object)
-			.values({
-				id: id,
-				owner_id: scope.owner.id,
-				object_key: randomUUID(),
-				format: input.format,
-				checksum: input.checksum,
-				bytes: input.bytes,
-			});
+		await tx.insert(tables.proof_object).values({
+			id: id,
+			owner_id: scope.owner.id,
+			object_key: randomUUID(),
+			format: input.format,
+			checksum: input.checksum,
+			bytes: input.bytes,
+		});
 		return { id };
 	});
 }

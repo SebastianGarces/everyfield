@@ -188,58 +188,52 @@ export function referenceService(db: Database, deps: ReferenceDependencies) {
 			// Immutable rows are checked again before reuse. A stale or corrupted persisted derivative is not readiness.
 			await verifyStored(tx, bundle, releaseId);
 			const operationId = randomUUID();
-			await tx
-				.insert(tables.operation)
-				.values({
-					id: operationId,
-					tenant_id: GLOBAL,
-					actor_id: actor,
-					name: command.kind === "activate" ? "reference.activateGeneration" : "reference.rollbackActivation",
-					request_key: command.requestKey,
-					request_digest: requestDigest,
-					state: "complete",
-					outcome: current?.release_id === releaseId ? "no_effect" : "committed",
-					started_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-					completed_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-					tool_calls: 0,
-					reserved_input: 0,
-					reserved_output: 0,
-					used_input: 0,
-					used_output: 0,
-				});
+			await tx.insert(tables.operation).values({
+				id: operationId,
+				tenant_id: GLOBAL,
+				actor_id: actor,
+				name: command.kind === "activate" ? "reference.activateGeneration" : "reference.rollbackActivation",
+				request_key: command.requestKey,
+				request_digest: requestDigest,
+				state: "complete",
+				outcome: current?.release_id === releaseId ? "no_effect" : "committed",
+				started_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+				completed_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+				tool_calls: 0,
+				reserved_input: 0,
+				reserved_output: 0,
+				used_input: 0,
+				used_output: 0,
+			});
 			const unchanged = current?.release_id === releaseId;
 			const activationId = unchanged ? current.id : randomUUID();
 			const number = unchanged ? current.activation_number : (BigInt(command.expectedActivation) + 1n).toString();
 			if (!unchanged)
-				await tx
-					.insert(tables.reference_activation)
-					.values({
-						id: activationId,
-						release_id: releaseId,
-						activation_number: sql`${number}`,
-						previous_id: current?.id ?? null,
-						activated_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-						actor_id: actor,
-						reason: command.reason,
-						expected_prior_number: sql`${command.expectedActivation}`,
-					});
+				await tx.insert(tables.reference_activation).values({
+					id: activationId,
+					release_id: releaseId,
+					activation_number: sql`${number}`,
+					previous_id: current?.id ?? null,
+					activated_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+					actor_id: actor,
+					reason: command.reason,
+					expected_prior_number: sql`${command.expectedActivation}`,
+				});
 			const eventId = randomUUID();
 			// The factual no-op event provides a durable link to the original activation, without another activation.
-			await tx
-				.insert(tables.event)
-				.values({
-					id: eventId,
-					tenant_id: GLOBAL,
-					target_record_id: activationId,
-					operation_id: operationId,
-					actor_id: actor,
-					kind: unchanged ? "noop" : "publish",
-					occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-					recorded_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-					event_key: operationId,
-					action: unchanged ? null : "reference.activated",
-					diff: { after: { version_id: releaseId, content_hash: command.manifestHash } },
-				});
+			await tx.insert(tables.event).values({
+				id: eventId,
+				tenant_id: GLOBAL,
+				target_record_id: activationId,
+				operation_id: operationId,
+				actor_id: actor,
+				kind: unchanged ? "noop" : "publish",
+				occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+				recorded_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+				event_key: operationId,
+				action: unchanged ? null : "reference.activated",
+				diff: { after: { version_id: releaseId, content_hash: command.manifestHash } },
+			});
 			return { operationId, activationId, eventId, number, generationKey: bundle.key, replayed: false };
 		});
 	}
@@ -297,20 +291,18 @@ async function install(
 	review: ReferenceAuthority["review"],
 ): Promise<string> {
 	const id = randomUUID();
-	await tx
-		.insert(tables.reference_release)
-		.values({
-			id: id,
-			release_key: bundle.key,
-			artifact_locator: locator,
-			manifest_hash: manifestHash,
-			state: "building",
-			chunker_version: bundle.profile.chunker,
-			embedding_profile: bundle.profile.model,
-			embedding_dimensions: bundle.profile.dimensions,
-			tenant_id: GLOBAL,
-			expected_passages: bundle.passages.length,
-		});
+	await tx.insert(tables.reference_release).values({
+		id: id,
+		release_key: bundle.key,
+		artifact_locator: locator,
+		manifest_hash: manifestHash,
+		state: "building",
+		chunker_version: bundle.profile.chunker,
+		embedding_profile: bundle.profile.model,
+		embedding_dimensions: bundle.profile.dimensions,
+		tenant_id: GLOBAL,
+		expected_passages: bundle.passages.length,
+	});
 	// Bounded bulk inserts keep provider latency out of per-item transaction work.
 	await tx.execute(sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id)
     SELECT id,kind,key,${sql.param(GLOBAL)} FROM jsonb_to_recordset(${sql.param(JSON.stringify(bundle.entries))}::jsonb) AS x(id uuid,kind text,key text) ON CONFLICT DO NOTHING`);

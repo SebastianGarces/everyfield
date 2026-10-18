@@ -138,15 +138,13 @@ export async function readOrganizationNotes(
 		.orderBy(asc(tables.person_note.id))
 		.limit(101)
 		.for("share");
-	const notes = result
-		.slice(0, 100)
-		.map((note) => ({
-			id: note.id,
-			author: note.author_id === null ? { kind: "removed" } : { kind: "account", accountId: note.author_id },
-			body: note.body,
-			occurredAt: note.occurred_at.toISOString(),
-			revision: note.revision,
-		}));
+	const notes = result.slice(0, 100).map((note) => ({
+		id: note.id,
+		author: note.author_id === null ? { kind: "removed" } : { kind: "account", accountId: note.author_id },
+		body: note.body,
+		occurredAt: note.occurred_at.toISOString(),
+		revision: note.revision,
+	}));
 	return organizationNotesResult.parse({
 		status: "allowed",
 		purpose: "native_org_person_notes",

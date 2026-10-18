@@ -67,17 +67,15 @@ export function attemptBudget(db: Database, key: string) {
 				)
 					throw new IdentityRefusal("rate_limited", 429);
 				const id = randomUUID();
-				await tx
-					.insert(tables.admission_attempt)
-					.values({
-						id: id,
-						kind: kind,
-						identifier_hash: identifierHash,
-						trusted_ip_hash: ipHash,
-						reserved_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-						state: "reserved",
-						expires_at: sql<unknown>`(clock_timestamp() + ('24 hours')::interval)`,
-					});
+				await tx.insert(tables.admission_attempt).values({
+					id: id,
+					kind: kind,
+					identifier_hash: identifierHash,
+					trusted_ip_hash: ipHash,
+					reserved_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+					state: "reserved",
+					expires_at: sql<unknown>`(clock_timestamp() + ('24 hours')::interval)`,
+				});
 				return { id, kind, identifierHash };
 			});
 		} catch (error) {
