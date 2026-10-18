@@ -89,7 +89,7 @@ test("committed migration checks reject raw Kit qualification and frozen-byte ch
 		const frozen = "SELECT 1;\n";
 		await writeFile(directory + "/0001_baseline.sql", frozen);
 		await writeFile(
-			directory + "/meta/frozen.json",
+			directory + "/frozen.json",
 			JSON.stringify({
 				files: [{ name: "0001_baseline.sql", sha256: createHash("sha256").update(frozen).digest("hex") }],
 			}),

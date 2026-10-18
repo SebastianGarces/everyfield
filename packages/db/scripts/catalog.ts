@@ -83,7 +83,7 @@ const tables = Object.values(snapshot.tables)
 					{}),
 				columns: key.columnsFrom,
 				references: { table: key.tableTo, columns: key.columnsTo },
-				on_delete: key.onDelete ?? "no action",
+				on_delete: (key.onDelete ?? "no action").replaceAll(" ", "_"),
 			}));
 		return {
 			...notes.table,

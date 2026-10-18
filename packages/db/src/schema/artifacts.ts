@@ -13,7 +13,7 @@ export const ownTableNames = new Set(
 );
 export async function checkMigrationArtifacts(directory = migrationDirectory): Promise<void> {
 	const manifest: { files: { name: string; sha256: string }[] } = JSON.parse(
-		await readFile(new URL("meta/frozen.json", directory), "utf8"),
+		await readFile(new URL("frozen.json", directory), "utf8"),
 	);
 	const journal: { entries: { idx: number; tag: string }[] } = JSON.parse(
 		await readFile(new URL("meta/_journal.json", directory), "utf8"),

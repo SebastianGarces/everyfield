@@ -17,7 +17,7 @@ if ((!values.name || !/^[a-z][a-z0-9_]*$/.test(values.name)) && !values.normaliz
 if (values.normalize && (values.name || values.custom)) throw Error("Use --normalize alone");
 async function normalizeGenerated() {
 	const frozen: { files: { name: string }[] } = JSON.parse(
-		await readFile(new URL("meta/frozen.json", migrationDirectory), "utf8"),
+		await readFile(new URL("frozen.json", migrationDirectory), "utf8"),
 	);
 	const names = new Set(frozen.files.map((file) => file.name));
 	for (const name of await readdir(migrationDirectory)) {
