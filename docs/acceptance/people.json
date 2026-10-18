@@ -10478,7 +10478,7 @@
         "WP-014"
       ],
       "status": "future-not-run",
-      "description": "Skip prospect→leader, backward leader→attendee, same-stage retry, concurrent edits and declined open-duty handoff.",
+      "description": "Skip prospect\u2192leader, backward leader\u2192attendee, same-stage retry, concurrent edits and declined open-duty handoff.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -11943,7 +11943,7 @@
           "owner": "A",
           "plant": "P",
           "mime": "text/csv",
-          "utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
+          "utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
         },
         "intent-1": {
           "fixture_type": "import_intent",
@@ -11977,7 +11977,7 @@
         "operation": "people.executeBulkImport",
         "arguments": {
           "upload": "upload-1",
-          "original_utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n",
+          "original_utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n",
           "request_key": "import-1",
           "row_resolutions": [
             {
@@ -12102,7 +12102,7 @@
               "owner": "A",
               "plant": "P",
               "mime": "text/csv",
-              "utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
+              "utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
             },
             "intent-1": {
               "fixture_type": "import_intent",
@@ -12182,7 +12182,7 @@
               "owner": "A",
               "plant": "P",
               "mime": "text/csv",
-              "utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
+              "utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
             },
             "intent-1": {
               "fixture_type": "import_intent",
@@ -12267,7 +12267,7 @@
               "owner": "A",
               "plant": "P",
               "mime": "text/csv",
-              "utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
+              "utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
             },
             "intent-1": {
               "fixture_type": "import_intent",
@@ -12363,7 +12363,7 @@
               "owner": "A",
               "plant": "P",
               "mime": "text/csv",
-              "utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
+              "utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
             },
             "intent-1": {
               "fixture_type": "import_intent",
@@ -12446,7 +12446,7 @@
               "owner": "A",
               "plant": "P",
               "mime": "text/csv",
-              "utf8": "﻿first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
+              "utf8": "\ufefffirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\nMara,,mara@example.test,,,,,,,other,,\"First line\r\nSecond line\"\r\nNoah,,noah@example.test,,,,,,,other,,\"He said \"\"hello\"\"\"\r\nLia,,lia@example.test,,,,,,,other,,=1+1\r\n"
             },
             "intent-1": {
               "fixture_type": "import_intent",
@@ -13003,7 +13003,7 @@
         "WP-048"
       ],
       "status": "future-not-run",
-      "description": "At October 13 `asOf`, P moved prospect→attendee twice after a backward move, Q once, R is currently prospect but outside the September transition window, and S is retired/merged. Compare reconstructed September source cohort with missing original cohort history, plus foreign tenant request.",
+      "description": "At October 13 `asOf`, P moved prospect\u2192attendee twice after a backward move, Q once, R is currently prospect but outside the September transition window, and S is retired/merged. Compare reconstructed September source cohort with missing original cohort history, plus foreign tenant request.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -13166,7 +13166,7 @@
         "WP-094"
       ],
       "status": "future-not-run",
-      "description": "Register a later attendance and training consumer after WP-015; race its insert against source→survivor merge and Person retirement, then inspect every actual Person FK and inverse policy.",
+      "description": "Register a later attendance and training consumer after WP-015; race its insert against source\u2192survivor merge and Person retirement, then inspect every actual Person FK and inverse policy.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -20355,44 +20355,79 @@
         "WP-011"
       ],
       "status": "future-not-run",
-      "description": "People contract boundary round trip only. Runtime session, SQL, lifecycle races, bytes and domain integration remain with WP-011/api.",
+      "description": "Runtime producer scenario through real PostgreSQL. Downstream native/assistant and feature integration remain separately owned.",
       "given": {
-        "contract": {
-          "fixture_type": "contract_boundary",
-          "module": "@everyfield/contracts/people"
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "removed-author": {
+          "fixture_type": "test_execution",
+          "account_id": "A",
+          "stage": "after_account_removal"
         }
       },
       "actor": {
-        "account": null,
-        "session": null,
-        "context": null
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
       },
       "clock": {
-        "now": "2026-10-18T13:00:00Z",
-        "zone": "America/New_York"
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
       },
       "action": {
-        "operation": "build.inspectTargetCatalog",
+        "operation": "people.createPerson",
         "arguments": {
-          "package": "WP-011",
-          "boundary": "shared_history"
+          "requestKey": "WP011-KNOW-069",
+          "input": {
+            "displayName": "Jamie"
+          }
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "tenant_owner_required": true,
-          "creator_is_owner": false,
-          "account_private_fields_allowed": false
+          "displayName": "Jamie",
+          "adultClassification": "unknown",
+          "commitment": {
+            "state": "unknown"
+          },
+          "linkedAccount": false,
+          "retained_owner": "P",
+          "attribution": "scope_local"
         },
         "event": null
       },
       "layers": [
-        "build",
-        "contract"
+        "domain/contract",
+        "PostgreSQL integration"
       ],
       "coverage_notes": [
-        "Boundary evidence only; no live authorization, transactional, delivery, export/removal, native/Evry or full-package proof."
+        "Producer proof only; later native/assistant and consumer integration do not close with this case."
       ]
     },
     {
@@ -20413,44 +20448,71 @@
         "WP-011"
       ],
       "status": "future-not-run",
-      "description": "People contract boundary round trip only. Runtime session, SQL, lifecycle races, bytes and domain integration remain with WP-011/api.",
+      "description": "Runtime producer scenario through real PostgreSQL. Downstream native/assistant and feature integration remain separately owned.",
       "given": {
-        "contract": {
-          "fixture_type": "contract_boundary",
-          "module": "@everyfield/contracts/people"
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
         }
       },
       "actor": {
-        "account": null,
-        "session": null,
-        "context": null
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
       },
       "clock": {
-        "now": "2026-10-18T13:00:00Z",
-        "zone": "America/New_York"
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
       },
       "action": {
-        "operation": "build.inspectTargetCatalog",
+        "operation": "people.createPerson",
         "arguments": {
-          "package": "WP-011",
-          "boundary": "guest_selection"
+          "requestKey": "WP011-KNOW-098",
+          "input": {
+            "displayName": "Jamie",
+            "source": "meeting_guest_list"
+          }
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "new_named_guest_allowed": true,
-          "explicit_existing_person_allowed": true,
-          "name_matching_auto_link": false
+          "new_named_guest": true,
+          "same_transaction_rollback": true,
+          "explicit_existing_reuses_person": true,
+          "name_matching_links_account": false
         },
         "event": null
       },
       "layers": [
-        "build",
-        "contract"
+        "domain/contract",
+        "PostgreSQL integration"
       ],
       "coverage_notes": [
-        "Boundary evidence only; no live authorization, transactional, delivery, export/removal, native/Evry or full-package proof."
+        "Producer proof only; later native/assistant and consumer integration do not close with this case."
       ]
     },
     {
@@ -20469,45 +20531,72 @@
         "WP-011"
       ],
       "status": "future-not-run",
-      "description": "People contract boundary round trip only. Runtime session, SQL, lifecycle races, bytes and domain integration remain with WP-011/api.",
+      "description": "Runtime producer scenario through real PostgreSQL. Downstream native/assistant and feature integration remain separately owned.",
       "given": {
-        "contract": {
-          "fixture_type": "contract_boundary",
-          "module": "@everyfield/contracts/people"
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "revision": 7,
+          "material_revision": 11,
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
         }
       },
       "actor": {
-        "account": null,
-        "session": null,
-        "context": null
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
       },
       "clock": {
-        "now": "2026-10-18T13:00:00Z",
-        "zone": "America/New_York"
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
       },
       "action": {
-        "operation": "build.inspectTargetCatalog",
+        "operation": "people.createPerson",
         "arguments": {
-          "package": "WP-011",
-          "boundary": "minimum_guest"
+          "requestKey": "WP011-KNOW-099",
+          "input": {
+            "displayName": "Jamie"
+          }
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "single_name_allowed": true,
-          "surname_required": false,
-          "adult_default": "unknown",
-          "client_account_allowed": false
+          "displayName": "Jamie",
+          "adultClassification": "unknown",
+          "commitment": {
+            "state": "unknown"
+          },
+          "linkedAccount": false
         },
         "event": null
       },
       "layers": [
-        "build",
-        "contract"
+        "domain/contract",
+        "PostgreSQL integration"
       ],
       "coverage_notes": [
-        "Boundary evidence only; no live authorization, transactional, delivery, export/removal, native/Evry or full-package proof."
+        "Producer proof only; later native/assistant and consumer integration do not close with this case."
       ]
     },
     {
@@ -20526,44 +20615,68 @@
         "WP-011"
       ],
       "status": "future-not-run",
-      "description": "People contract boundary round trip only. Runtime session, SQL, lifecycle races, bytes and domain integration remain with WP-011/api.",
+      "description": "Runtime producer scenario through real PostgreSQL. Downstream native/assistant and feature integration remain separately owned.",
       "given": {
-        "contract": {
-          "fixture_type": "contract_boundary",
-          "module": "@everyfield/contracts/people"
+        "P": {
+          "fixture_type": "organization",
+          "id": "P",
+          "kind": "sending_church",
+          "timezone": "America/Chicago",
+          "revision": 7
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
         }
       },
       "actor": {
-        "account": null,
-        "session": null,
-        "context": null
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
       },
       "clock": {
-        "now": "2026-10-18T13:00:00Z",
-        "zone": "America/New_York"
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
       },
       "action": {
-        "operation": "build.inspectTargetCatalog",
+        "operation": "orgPeople.create",
         "arguments": {
-          "package": "WP-011",
-          "boundary": "organization_identity"
+          "requestKey": "WP011-MUL-001",
+          "input": {
+            "displayName": "Jamie"
+          }
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "plant_fields_allowed": false,
-          "account_owner_allowed": false,
-          "merged_source_ordinary_restore": false
+          "displayName": "Jamie",
+          "plant_fields": [],
+          "new_seats": 0
         },
         "event": null
       },
       "layers": [
-        "build",
-        "contract"
+        "domain/contract",
+        "PostgreSQL integration"
       ],
       "coverage_notes": [
-        "Boundary evidence only; no live authorization, transactional, delivery, export/removal, native/Evry or full-package proof."
+        "Producer proof only; later native/assistant and consumer integration do not close with this case."
       ]
     },
     {
@@ -20582,44 +20695,82 @@
         "WP-011"
       ],
       "status": "future-not-run",
-      "description": "People contract boundary round trip only. Runtime session, SQL, lifecycle races, bytes and domain integration remain with WP-011/api.",
+      "description": "Runtime producer scenario through real PostgreSQL. Downstream native/assistant and feature integration remain separately owned.",
       "given": {
-        "contract": {
-          "fixture_type": "contract_boundary",
-          "module": "@everyfield/contracts/people"
+        "P": {
+          "fixture_type": "organization",
+          "id": "P",
+          "kind": "sending_church",
+          "timezone": "America/Chicago",
+          "revision": 7
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "Jamie": {
+          "fixture_type": "person",
+          "id": "Jamie",
+          "tenant_id": "P",
+          "organization_id": "P",
+          "plant_id": null,
+          "display_name": "Jamie",
+          "state": "live",
+          "revision": 1
         }
       },
       "actor": {
-        "account": null,
-        "session": null,
-        "context": null
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
       },
       "clock": {
-        "now": "2026-10-18T13:00:00Z",
-        "zone": "America/New_York"
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
       },
       "action": {
-        "operation": "build.inspectTargetCatalog",
+        "operation": "orgPeople.remove",
         "arguments": {
-          "package": "WP-011",
-          "boundary": "removal_export"
+          "requestKey": "WP011-MUL-005",
+          "expectedRevision": "1",
+          "input": {
+            "personId": "Jamie",
+            "reason": "Person requested removal"
+          }
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "private_export_bodies_allowed": false,
-          "removal_has_cancellation_deadline": false,
-          "retained_categories_require_reason": true
+          "contact_bodies_removed": true,
+          "link_revoked": true,
+          "witness_recorded": true,
+          "cancellation_deadline": null,
+          "download_after_removal": "unavailable"
         },
         "event": null
       },
       "layers": [
-        "build",
-        "contract"
+        "domain/contract",
+        "PostgreSQL integration"
       ],
       "coverage_notes": [
-        "Boundary evidence only; no live authorization, transactional, delivery, export/removal, native/Evry or full-package proof."
+        "Producer proof only; later native/assistant and consumer integration do not close with this case."
       ]
     }
   ]
