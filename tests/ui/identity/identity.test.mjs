@@ -6,6 +6,7 @@
 //   INV-proof-link: reset and confirmation proofs leave the address bar, are spent only by a press, and a reset never
 //     signs in by itself.
 //   INV-session: the signed-in state, sign-out and an ended session lead back to sign-in.
+//   BUG-PR113 focus: an invalid field with keyboard focus still shows the focus ring (shared Input, D38).
 // The API answers are stubbed at the browser boundary with contract-shaped bodies, so the rows pin the screens; the
 // real WP-005 API has its own database tests. It runs against a running app: set UI_BASE_URL to the task preview.
 //   UI_BASE_URL=http://wp-005-ui-....localhost:1355 corepack pnpm test:ui
@@ -67,6 +68,9 @@ const sessionUntil = (status, ended) => (sent) =>
 	ended(sent)
 		? UNAUTHENTICATED
 		: ok({ status, accountId: ACCOUNT, sessionId: SESSION, expiresAt: new Date(Date.now() + 864e5).toISOString() });
+
+// --ef-focus in each theme (design/handoff/tokens.css).
+const FOCUS = { light: "rgb(28, 91, 181)", dark: "rgb(169, 207, 255)" };
 
 for (const [name, engine] of [
 	["chromium", chromium],
@@ -336,4 +340,32 @@ for (const [name, engine] of [
 				),
 			),
 	);
+
+	for (const theme of ["light", "dark"])
+		test(
+			`BUG-PR113 focus (${name}, ${theme}): an invalid field with keyboard focus shows the focus ring`,
+			{ timeout: 60_000 },
+			() =>
+				withPage(engine, {}, async (page) => {
+					await page.context().addCookies([{ name: "ef-theme", value: theme, url: BASE }]);
+					await page.goto(BASE + "/signin");
+					await page.getByRole("button", { name: "Sign in", exact: true }).click();
+					const email = page.getByLabel("Email");
+					const password = page.getByLabel("Password", { exact: true });
+					assert.equal(await email.getAttribute("aria-invalid"), "true");
+					assert.equal(await password.getAttribute("aria-invalid"), "true");
+					// Keyboard focus: move from Password back to Email with Shift+Tab.
+					await password.focus();
+					await page.keyboard.press("Shift+Tab");
+					assert.equal(
+						await email.evaluate((el) => el === document.activeElement && el.matches(":focus-visible")),
+						true,
+					);
+					const ring = (input) => input.evaluate((el) => getComputedStyle(el.parentElement).boxShadow);
+					const focused = await ring(email),
+						resting = await ring(password);
+					assert.ok(focused.includes(FOCUS[theme]), `focused invalid box draws the focus color: ${focused}`);
+					assert.notEqual(focused, resting, "focus changes the invalid box");
+				}),
+		);
 }
