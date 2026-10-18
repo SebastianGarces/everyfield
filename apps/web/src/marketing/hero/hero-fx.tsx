@@ -164,7 +164,7 @@ export function HeroStage({ label, chip, children }: { label: string; chip: Reac
 				type="button"
 				aria-label={paused ? "Play animation" : "Pause animation"}
 				onClick={() => setPaused((p) => !p)}
-				className="absolute bottom-3.5 left-1/2 z-7 -ml-[17px] grid size-[34px] cursor-pointer place-items-center rounded-full border-0 bg-transparent text-ink hover:bg-white/35 motion-reduce:hidden"
+				className="absolute bottom-3.5 left-1/2 z-7 -ml-[17px] grid size-[34px] cursor-pointer place-items-center rounded-sm border-0 bg-transparent text-ink hover:bg-white/35 motion-reduce:hidden"
 			>
 				<PlaybackGlyph paused={paused} />
 			</button>

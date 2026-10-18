@@ -29,9 +29,9 @@
 }
 
 @theme {
-	/* Marketing surfaces. Canvas #FCFBF8 and the warm secondary surface are marketing only. */
+	/* Marketing surfaces. Canvas #FCFBF8 is marketing only. Linen is the warm secondary surface and the site's hover fill. */
 	--color-mk-canvas: #fcfbf8;
-	--color-mk-surface-2: #f5f3ee;
+	--color-linen: #f5f3ee;
 	--color-mk-line: rgb(from var(--color-ink) r g b / 0.08);
 	--color-mk-line-strong: rgb(from var(--color-ink) r g b / 0.14);
 	/* Secondary text on the ink footer card: 8.5:1 on #181D19. */

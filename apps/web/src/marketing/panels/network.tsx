@@ -35,7 +35,7 @@ export function ScopeChip({
 			{label} <b className="font-semibold tabular-nums">{n}</b>
 		</>
 	);
-	const item = "col-start-1 row-start-1 inline-flex items-center gap-1.5 rounded-full px-[11px]";
+	const item = "col-start-1 row-start-1 inline-flex items-center gap-1.5 rounded-sm px-[11px]";
 	const body = (
 		<>
 			<span className={cn(item, "[&>b]:text-ink")}>{inner}</span>
@@ -45,7 +45,7 @@ export function ScopeChip({
 		</>
 	);
 	const chip =
-		"relative inline-grid h-[30px] rounded-full bg-surface text-[12.5px] font-medium whitespace-nowrap text-ink-2 shadow-[inset_0_0_0_1px_var(--color-line-2)] will-change-transform";
+		"relative inline-grid h-[30px] rounded-sm bg-surface text-[12.5px] font-medium whitespace-nowrap text-ink-2 shadow-[inset_0_0_0_1px_var(--color-line-2)] will-change-transform";
 	return press === undefined ? (
 		<span className={chip}>{body}</span>
 	) : (
