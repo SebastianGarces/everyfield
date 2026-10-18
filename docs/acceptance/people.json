@@ -15312,7 +15312,8 @@
               "decision": "accept",
               "share_foundations": true,
               "share_milestones": false,
-              "expected_revision": 2
+              "expected_revision": 2,
+              "request_key": "different-claim"
             }
           },
           "expected": {
