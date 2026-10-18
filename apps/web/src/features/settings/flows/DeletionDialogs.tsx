@@ -26,7 +26,7 @@ const WORKSPACE_CONSEQUENCES = [
 	"Everyone with a seat loses access at once, and every open session ends.",
 	"People, meetings, tasks, documents and files are hidden right away. Connected organizations stop seeing what you shared.",
 	"You can cancel for 30 days. After that, the church's data is deleted. Backup copies expire within 7 days after the deletion finishes.",
-	"Emails already sent, files someone already downloaded and copies kept outside Everyfield cannot be called back.",
+	"Some copies are out of our reach. Emails already accepted for delivery still arrive. File links given out before the request work until they expire a short time later. Other services we use delete their copies on their own schedule. Copies someone downloaded or posted elsewhere stay where they are.",
 	"Each person's own account stays. Their other churches and organizations are not touched.",
 ];
 
@@ -140,7 +140,7 @@ export function AccountDeletionDialog({
 				"Records you added for your church, such as people, notes and documents, stay with the church. Your name on them is removed.",
 				"Your photo, your private weekly check-ins and documents only you own are deleted after 30 days.",
 				"You can cancel for 30 days by signing in again. Backup copies expire within 7 days after the deletion finishes.",
-				"Emails already sent, files someone already downloaded and copies kept outside Everyfield cannot be called back.",
+				"Some copies are out of our reach. Emails already accepted for delivery still arrive. File links given out before the request work until they expire a short time later. Other services we use delete their copies on their own schedule. Copies someone downloaded or posted elsewhere stay where they are.",
 			]}
 			cancelLabel="Keep my account"
 			confirmLabel="Delete my account"

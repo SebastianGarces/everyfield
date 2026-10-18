@@ -15,6 +15,10 @@ import { refusalOf, type Refusal } from "../save";
 import { SaveError } from "../SettingsDialog";
 import { formatMoment } from "../time";
 
+// REQ-KNOW-074: what deletion cannot reach, said plainly (no promise of instant or total erasure).
+const OUT_OF_REACH =
+	"Some copies are out of our reach. Emails already accepted for delivery still arrive. File links given out before the request work until they expire a short time later. Other services we use delete their copies on their own schedule. Copies someone downloaded or posted elsewhere stay where they are.";
+
 type Subject = { kind: "account"; email: string } | { kind: "workspace"; churchName: string };
 
 /**
@@ -116,10 +120,7 @@ export function DeletionStatusScreen({
 								? `You can cancel until ${deadline}. After that, the data is deleted. Backup copies expire within 7 days after the deletion finishes.`
 								: `The time to cancel ended on ${deadline}.`}
 						</p>
-						<p className="text-sm text-text-3">
-							Emails already sent, files someone already downloaded and copies kept outside Everyfield cannot be called
-							back.
-						</p>
+						<p className="text-sm text-text-3">{OUT_OF_REACH}</p>
 						{cancelError ? <SaveError message={cancelError.message} reference={cancelError.reference} /> : null}
 						{open ? (
 							<div className="flex flex-wrap gap-2.5">
@@ -156,9 +157,8 @@ export function DeletionStatusScreen({
 						<p>
 							Deleted on {formatMoment(status.livePurgedAt, zone)}. Backup copies expire by{" "}
 							{formatMoment(status.copyExpiresAt, zone)}. Records that belong to a church keep a name-free attribution.
-							Emails already sent, files someone already downloaded and copies kept outside Everyfield cannot be called
-							back.
 						</p>
+						<p className="text-sm text-text-3">{OUT_OF_REACH}</p>
 					</Panel>
 				);
 			case "active":
