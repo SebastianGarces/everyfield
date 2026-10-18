@@ -1,5 +1,6 @@
 import path from "node:path";
 import type { NextConfig } from "next";
+import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 
 const config: NextConfig = {
   // The marketing copy lives in design/marketing-copy.json at the repository root.
@@ -11,4 +12,10 @@ const config: NextConfig = {
   experimental: { optimizePackageImports: ["@hugeicons/core-free-icons"] },
 };
 
-export default config;
+export default function nextConfig(phase: string): NextConfig {
+  return {
+    ...config,
+    // Proof handlers must not exist in a production route manifest.
+    pageExtensions: [...(phase === PHASE_DEVELOPMENT_SERVER ? ["dev.ts"] : []), "tsx", "ts", "jsx", "js"],
+  };
+}

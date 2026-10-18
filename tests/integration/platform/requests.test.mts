@@ -41,6 +41,9 @@ test('AC:PLATFORM-001 AC:PLATFORM-002 AC:SEC-10 AC:TEN-009 real Next sessions, r
       const user=(await db.query('SELECT id FROM auth_user WHERE email=$1',[email])).rows[0];
       await db.query('INSERT INTO proof_grant(account_id,owner_id,role) VALUES($1,$2,\'admin\')',[user.id,owners.p]);
       assert.deepEqual((await req('auth/get-session')).status,200);
+      const before=(await db.query('SELECT value,revision::text FROM proof_subject WHERE id=$1',[subjectId])).rows;
+      assert.equal((await req('update',{ownerId:owners.p,id:subjectId,expectedRevision:'1',value:'foreign-origin'},{origin:'https://foreign.test'})).status,403);
+      assert.deepEqual((await db.query('SELECT value,revision::text FROM proof_subject WHERE id=$1',[subjectId])).rows,before);
       const forged=await req('update',{ownerId:owners.q,id:subjectId,expectedRevision:'1',value:'bad'});assert.equal(forged.status,404);assert.equal((await forged.json()).code,'unavailable');
       assert.equal((await req('update',{ownerId:owners.p,id:subjectId,expectedRevision:'1',value:'bad',actorId:user.id,role:'owner'})).status,422);
       await db.query('UPDATE auth_session SET "expiresAt"=now()-interval \'1 second\' WHERE "userId"=$1',[user.id]);
@@ -74,6 +77,7 @@ test('AC:PLATFORM-001 AC:PLATFORM-002 AC:SEC-10 AC:TEN-009 real Next sessions, r
         const bytes=bodyOf(format);const checksum=createHash('sha256').update(bytes).digest('hex');
         const intent=await req('upload-intent',{ownerId:owners.p,format,checksum,bytes:bytes.length});assert.equal(intent.status,200);const {id}=await intent.json();
         const finalize=await fetch(base+`/api/platform-proof/finalize?ownerId=${owners.p}&id=${id}`,{method:'POST',headers:{'x-platform-proof':secret,origin:base,cookie},body:bytes});assert.equal(finalize.status,200);assert.equal((await finalize.json()).preview,format==='pdf'?'Synthetic PDF':'Synthetic document');
+        assert.equal((await req('download',{ownerId:owners.p,id,ttl:61})).status,422);
         const download=await req('download',{ownerId:owners.p,id,ttl:60});assert.equal(download.status,200);const {url}=await download.json();
         const anonymous=new URL(url);anonymous.search='';assert.equal((await fetch(anonymous)).status,403);
         const delivered=await fetch(url);assert.equal(delivered.status,200);assert.equal(delivered.headers.get('cache-control'),'private, no-store');assert.equal(createHash('sha256').update(Buffer.from(await delivered.arrayBuffer())).digest('hex'),checksum);
@@ -97,7 +101,10 @@ test('AC:PLATFORM-001 AC:PLATFORM-002 AC:SEC-10 AC:TEN-009 real Next sessions, r
       await db.query("INSERT INTO proof_stream(owner_id,status) VALUES($1,'ready'),($1,'succeeded')",[owners.p]);
       const response=await req('stream?ownerId='+owners.p);assert.equal(response.status,200);const reader=response.body.getReader();
       const chunk=new TextDecoder().decode((await reader.read()).value);assert.match(chunk,/event: progress/);assert.match(chunk,/ready/);assert.match(chunk,/succeeded/);
-      await db.query('UPDATE proof_grant SET active=false');const end=await reader.read();assert.equal(end.done,true);
+      const revokedAt=performance.now();
+      await db.query("BEGIN;UPDATE proof_grant SET active=false;INSERT INTO proof_stream(owner_id,status) VALUES('11111111-1111-4111-8111-111111111111','reconcile');COMMIT");
+      const end=await reader.read();assert.equal(end.done,true,'revoked stream must emit no later event');
+      assert.ok(performance.now()-revokedAt<1200,'revocation must close before the normal two-second stream deadline');
       assert.equal((await req('stream?ownerId='+owners.p)).status,404);await db.query('UPDATE proof_grant SET active=true');
       const reconnect=await req('stream?ownerId='+owners.p,undefined,{'last-event-id':'1'});const text=await reconnect.text();assert.match(text,/succeeded/);assert.equal(text.includes('"status":"ready"'),false);
       assert.equal((await req('stream?ownerId='+owners.q)).status,404);
