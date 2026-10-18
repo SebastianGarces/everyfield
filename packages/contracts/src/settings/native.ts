@@ -49,8 +49,15 @@ export const deletionStatus = z
 // A restricted session binds original identity, exact request, current authority
 // and purpose on the server. It cannot be used as an ordinary settings context.
 export type RestrictedDeletionContext = { kind: "restricted_deletion"; handle: z.infer<typeof sessionId> };
-export const getDeletionStatusRequest = z.strictObject({ subject: deletionSubject, requestId: recordId });
-export const cancelDeletionRequest = commandEnvelope(getDeletionStatusRequest);
+const deletionStatusRequest = z.strictObject({ subject: deletionSubject, requestId: recordId });
+export const getAccountDeletionStatusRequest = deletionStatusRequest.extend({
+	subject: deletionSubject.and(owner.options[0]),
+});
+export const getWorkspaceDeletionStatusRequest = deletionStatusRequest.extend({
+	subject: deletionSubject.and(owner.options[1]),
+});
+export const cancelAccountDeletionRequest = commandEnvelope(getAccountDeletionStatusRequest);
+export const cancelWorkspaceDeletionRequest = commandEnvelope(getWorkspaceDeletionStatusRequest);
 export const previewPersonalTimezoneRequest = z.strictObject({ timeZone });
 export const setPersonalTimezoneRequest = commandEnvelope(
 	z.strictObject({ timeZone, previewId: recordId, confirmed: z.literal(true) }),

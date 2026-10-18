@@ -153,25 +153,25 @@ export interface DeletionProducer<Tx> {
 	getAccountDeletionStatus: Operation<
 		Tx,
 		native.RestrictedDeletionContext,
-		typeof native.getDeletionStatusRequest,
+		typeof native.getAccountDeletionStatusRequest,
 		typeof native.deletionStatus
 	>;
 	cancelAccountDeletion: Operation<
 		Tx,
 		native.RestrictedDeletionContext,
-		typeof native.cancelDeletionRequest,
+		typeof native.cancelAccountDeletionRequest,
 		typeof native.deletionStatus
 	>;
 	getWorkspaceDeletionStatus: Operation<
 		Tx,
 		native.RestrictedDeletionContext,
-		typeof native.getDeletionStatusRequest,
+		typeof native.getWorkspaceDeletionStatusRequest,
 		typeof native.deletionStatus
 	>;
 	cancelWorkspaceDeletion: Operation<
 		Tx,
 		native.RestrictedDeletionContext,
-		typeof native.cancelDeletionRequest,
+		typeof native.cancelWorkspaceDeletionRequest,
 		typeof native.deletionStatus
 	>;
 }

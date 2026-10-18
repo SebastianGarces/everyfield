@@ -84,7 +84,11 @@ export const notificationPatch = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("oversight_cadence"), cadence: z.enum(["daily", "weekly"]) }),
 ]);
 export const notificationSettings = z.strictObject({
-	choices: z.array(notificationChoice).max(22),
+	// Ten ordinary categories have two channels; Wiki has only in_app. Unique
+	// pairs therefore cap this closed matrix at 21 without a redundant limit.
+	choices: z
+		.array(notificationChoice)
+		.refine((v) => new Set(v.map((c) => `${c.category}:${c.channel}`)).size === v.length),
 	planterCadence: z.enum(["daily", "weekly"]).nullable(),
 	oversightCadence: z.enum(["daily", "weekly"]).nullable(),
 	suppression: z.enum(["clear", "suppressed", "unavailable"]),

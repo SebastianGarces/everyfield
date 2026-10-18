@@ -228,12 +228,15 @@ test("AC:WP010-IDN-012 notification DTOs contain only registered choices and tru
 test("AC:TARGET-IDN-006 private avatars round trip authenticated account/version references and refuse raw keys, URLs and invalid upload sizes", () => {
 	const avatar = { accountId: id, versionId: other };
 	assert.deepEqual(wire(C.avatarResult, { status: "available", avatar }), { status: "available", avatar });
+	refuses(C.avatarResult, { status: "available", avatar, url: "https://storage.example.test/avatar" });
 	assert.equal(C.avatarRoute(wire(C.avatarReference, avatar)), `/api/accounts/${id}/avatar/${other}`);
 	assert.deepEqual(wire(C.avatarResult, { status: "absent" }), { status: "absent" });
 	for (const mime of ["image/jpeg", "image/png", "image/webp"])
 		assert.deepEqual(wire(C.requestAvatarUpload, { mime, byteLength: 3145728 }), { mime, byteLength: 3145728 });
 	for (const row of [
 		{ mime: "image/svg+xml", byteLength: 1 },
+		{ mime: "image/gif", byteLength: 1 },
+		{ mime: "application/pdf", byteLength: 1 },
 		{ mime: "image/png", byteLength: 0 },
 		{ mime: "image/png", byteLength: 3145729 },
 		{ mime: "image/png", byteLength: 1.5 },
@@ -244,6 +247,8 @@ test("AC:TARGET-IDN-006 private avatars round trip authenticated account/version
 		refuses(C.avatarReference, { ...avatar, ...extra });
 	assert.deepEqual(wire(C.finalizeAvatarRequest, command({ uploadId: id })), command({ uploadId: id }));
 	refuses(C.finalizeAvatarRequest, command({ uploadId: id, verifiedMime: "image/png" }));
+	refuses(C.finalizeAvatarRequest, command({ uploadId: id, key: "raw-key" }));
+	refuses(C.finalizeAvatarRequest, command({ uploadId: id, url: "https://storage.example.test/avatar" }));
 	assert.deepEqual(wire(C.removeAvatarRequest, command({})), command({}));
 	refuses(C.removeAvatarRequest, command({ accountId: other }));
 	assert.deepEqual(wire(C.getAvatarRequest, { versionId: id }), { versionId: id });
@@ -303,7 +308,11 @@ test("AC:TARGET-IDN-032 AC:WP010-KNOW-072 deletion states require exact elapsed 
 		copyExpiresAt: "2026-11-25T16:00:00.000Z",
 	};
 	assert.deepEqual(wire(N.deletionStatus, purged), purged);
-	refuses(N.deletionStatus, { ...purged, livePurgedAt: "2026-11-17T15:59:59.999Z" });
+	refuses(N.deletionStatus, {
+		...purged,
+		livePurgedAt: "2026-11-17T15:59:59.999Z",
+		copyExpiresAt: "2026-11-18T15:59:59.999Z",
+	});
 	refuses(N.deletionStatus, { ...purged, copyExpiresAt: "2026-11-18T15:59:59.999Z" });
 	refuses(N.deletionStatus, { ...purged, copyExpiresAt: "2026-11-25T16:00:00.001Z" });
 	refuses(N.deletionStatus, { ...purged, copyExpiresAt: undefined });
@@ -319,10 +328,17 @@ test("AC:DEL58-002 AC:WP010-KNOW-073 cancellation is strictly before deadline an
 	for (const cancelledAt of ["2026-10-18T15:59:59.999Z", deletion.cancelUntil, "2026-11-17T16:00:00.001Z"])
 		refuses(N.deletionStatus, { ...cancelled, cancelledAt });
 	const statusRequest = { subject: deletion.subject, requestId: other };
-	assert.deepEqual(wire(N.getDeletionStatusRequest, statusRequest), statusRequest);
-	assert.deepEqual(wire(N.cancelDeletionRequest, command(statusRequest)), command(statusRequest));
-	refuses(N.cancelDeletionRequest, command({ ...statusRequest, now: "2026-11-01T00:00:00Z" }));
-	refuses(N.cancelDeletionRequest, command({ ...statusRequest, restoreAffiliations: true }));
+	const workspaceRequest = { subject: plant, requestId: other };
+	assert.deepEqual(wire(N.getWorkspaceDeletionStatusRequest, workspaceRequest), workspaceRequest);
+	assert.deepEqual(wire(N.cancelWorkspaceDeletionRequest, command(workspaceRequest)), command(workspaceRequest));
+	refuses(N.getAccountDeletionStatusRequest, workspaceRequest);
+	refuses(N.cancelAccountDeletionRequest, command(workspaceRequest));
+	refuses(N.getWorkspaceDeletionStatusRequest, statusRequest);
+	refuses(N.cancelWorkspaceDeletionRequest, command(statusRequest));
+	assert.deepEqual(wire(N.getAccountDeletionStatusRequest, statusRequest), statusRequest);
+	assert.deepEqual(wire(N.cancelAccountDeletionRequest, command(statusRequest)), command(statusRequest));
+	refuses(N.cancelAccountDeletionRequest, command({ ...statusRequest, now: "2026-11-01T00:00:00Z" }));
+	refuses(N.cancelAccountDeletionRequest, command({ ...statusRequest, restoreAffiliations: true }));
 	assert.deepEqual(wire(C.requestAccountDeletion, command({ confirmed: true })), command({ confirmed: true }));
 	refuses(C.requestAccountDeletion, command({ confirmed: false }));
 	refuses(C.requestAccountDeletion, command({ confirmed: true, accountId: other }));
@@ -389,8 +405,10 @@ test("INV-settings-native: model entry point excludes native secrets and private
 		"confirmEmailChange",
 		"changePasswordRequest",
 		"deletionStatus",
-		"getDeletionStatusRequest",
-		"cancelDeletionRequest",
+		"getAccountDeletionStatusRequest",
+		"getWorkspaceDeletionStatusRequest",
+		"cancelAccountDeletionRequest",
+		"cancelWorkspaceDeletionRequest",
 		"personalTimezonePreview",
 		"setPersonalTimezoneRequest",
 	])
@@ -428,7 +446,10 @@ function contextTypes(
 	const nativeOnly: NativeSettingsContext = write;
 	// @ts-expect-error account identifiers cannot select a server session
 	const wrongSession: SettingsContext = { ...native, session: accountId.parse(id) };
-	return { context, ordinary, forged, nativeOnly, wrongSession };
+	const workspaceDeletion = N.getWorkspaceDeletionStatusRequest.parse({ subject: plant, requestId: other });
+	// @ts-expect-error workspace deletion cannot be passed to the account deletion operation
+	const accountDeletion: z.infer<typeof N.getAccountDeletionStatusRequest> = workspaceDeletion;
+	return { context, ordinary, forged, nativeOnly, wrongSession, accountDeletion };
 }
 void contextTypes;
 
@@ -529,7 +550,7 @@ test("INV-settings-receipt: saved sections bind receipt to exact owner and never
 	}
 	refuses(C.savedSectionResult, { receipt, current: { section: "organization", values: { status: "unavailable" } } });
 	refuses(C.savedSectionResult, {
-		receipt,
+		receipt: { ...receipt, request: { ...receipt.request, owner: plant } },
 		current: {
 			section: "affiliations",
 			values: {
@@ -573,7 +594,34 @@ test("INV-settings-bounds: bounded timezone and notification projections refuse 
 		suppression: "clear",
 	};
 	assert.deepEqual(wire(C.notificationSettings, values), values);
-	refuses(C.notificationSettings, { ...values, choices: Array(23).fill(values.choices[0]) });
+	const pairs = [
+		"task_due",
+		"task_overdue",
+		"meeting_announcement",
+		"meeting_reminder",
+		"planter_digest",
+		"oversight_digest",
+		"relationship_milestone",
+		"sharing_milestone",
+		"phase_milestone",
+		"launch_milestone",
+	].flatMap((category) => [
+		{ category, channel: "email", enabled: true },
+		{ category, channel: "in_app", enabled: true },
+	]);
+	pairs.push({ category: "wiki_upstream_review", channel: "in_app", enabled: true });
+	assert.deepEqual(wire(C.notificationSettings, { ...values, choices: pairs }), { ...values, choices: pairs });
+	refuses(C.notificationSettings, {
+		...values,
+		choices: [...pairs, { category: "task_due", channel: "email", enabled: false }],
+	});
+	refuses(C.notificationSettings, {
+		...values,
+		choices: [
+			{ category: "task_due", channel: "email", enabled: true },
+			{ category: "task_due", channel: "email", enabled: false },
+		],
+	});
 });
 
 test("AC:B03-017 changed timezone requires a committed replan intent and no-op cannot claim another replan", () => {
