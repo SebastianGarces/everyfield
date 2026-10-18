@@ -122,11 +122,16 @@ END $$;'''
     out.insert(trigger_start,ready_function)
     out.append('CREATE FUNCTION file_is_referenced(object_id uuid) RETURNS boolean LANGUAGE sql STABLE SET search_path FROM CURRENT AS $$ SELECT EXISTS (' + ' UNION ALL '.join(references) + ') $$;')
     out.append((Path(__file__).parent/'integrity.sql').read_text())
-    out.append((Path(__file__).parent/'roles.sql').read_text())
+    out.append((Path(__file__).parent/'roles.baseline.sql').read_text())
     return '\n\n'.join(out)+'\n'
 
 if __name__ == '__main__':
     parser=argparse.ArgumentParser(); parser.add_argument('--check',action='store_true'); args=parser.parse_args()
+    access_path=ROOT/'packages/db/migrations/0003_access_privileges.sql'
+    access_sql=(Path(__file__).parent/'roles.sql').read_text()
+    if args.check:
+        if access_path.read_text()!=access_sql: raise SystemExit('Access privilege migration differs; rerun generator.')
+    else: access_path.write_text(access_sql)
     path=ROOT/'packages/db/migrations/0002_baseline.sql'; sql=render()
     file_table=next(t for t in CATALOG['tables'] if t['name']=='file_object')
     types={'uuid':'string','text':'string','bigint':'string','timestamptz':'Date'}
