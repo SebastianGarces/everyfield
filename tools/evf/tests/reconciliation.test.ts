@@ -423,9 +423,22 @@ test('INV-phase7-local-checks: checks cannot pass after mutating the task worktr
 
 test('INV-phase7-readiness: doctor reports workflow and preview setup without obsolete trust requirements',()=>{
  const f=fixture();try{
-  assert.deepEqual(bootstrapReadiness(f.root).filter(([ready])=>!ready).map(([,item])=>item),[
+  // Set the gate states here; the live release-gates.json changes as the project moves on.
+  const path=join(f.root,'docs/plan/release-gates.json'),gates=JSON.parse(readFileSync(path,'utf8'));
+  const missing=(workflow:string)=>{
+   for(const g of gates.gates)g.status=g.id==='G-AUTH'?'not-authorized':g.id==='G-WORKFLOW'?workflow:g.status;
+   writeFileSync(path,JSON.stringify(gates));
+   return bootstrapReadiness(f.root).filter(([ready])=>!ready).map(([,item])=>item);
+  };
+  assert.deepEqual(missing('received-reconciliation-required'),[
    'owner kickoff approval in G-AUTH',
    'W0 to W5 merged and one task completed through the Phase 7 flow',
+   'repository remote origin',
+   'owner-approved WP-097 fast-track completion on main',
+   'local preview up/status commands',
+  ]);
+  assert.deepEqual(missing('reconciled-independent-review'),[
+   'owner kickoff approval in G-AUTH',
    'repository remote origin',
    'owner-approved WP-097 fast-track completion on main',
    'local preview up/status commands',
