@@ -2678,6 +2678,7 @@
         "admission_attempt",
         "early_access_attempt",
         "early_access_request",
+        "identity_operation_result",
         "organization_operation_result",
         "people_column",
         "people_history",
@@ -3201,6 +3202,7 @@
         "auth_user",
         "auth_verification",
         "event",
+        "identity_operation_result",
         "organization_person_removal",
         "people_history",
         "people_result",
@@ -3900,6 +3902,7 @@
         "event",
         "evidence_link",
         "finding",
+        "identity_operation_result",
         "identity_proof",
         "invitation",
         "job",
@@ -4210,6 +4213,7 @@
         "WP-090"
       ],
       "producer_table_names": [
+        "identity_operation_result",
         "invitation",
         "record",
         "residency_link",
@@ -4514,6 +4518,7 @@
       "consumer_table_names": [
         "account",
         "discovery",
+        "identity_operation_result",
         "operation",
         "organization",
         "organization_person_removal",
@@ -5399,6 +5404,7 @@
       "consumer_table_names": [
         "account",
         "event",
+        "identity_operation_result",
         "operation",
         "organization",
         "person_merge",
@@ -6737,6 +6743,7 @@
         "effect",
         "event",
         "evidence_link",
+        "identity_operation_result",
         "operation",
         "people_history",
         "people_result",
@@ -7161,6 +7168,7 @@
         "attestation",
         "commitment",
         "four_cs",
+        "identity_operation_result",
         "interview",
         "meeting",
         "participation",
@@ -8583,6 +8591,7 @@
         "task"
       ],
       "consumer_table_names": [
+        "identity_operation_result",
         "job",
         "mail",
         "notice",
@@ -17717,6 +17726,7 @@
       ],
       "consumer_table_names": [
         "event",
+        "identity_operation_result",
         "operation",
         "platform_grant",
         "seat",
@@ -28365,6 +28375,7 @@
         "four_cs",
         "generated_document",
         "household",
+        "identity_operation_result",
         "identity_proof",
         "interview",
         "invitation",
@@ -34405,6 +34416,7 @@
         "four_cs",
         "generated_document",
         "household",
+        "identity_operation_result",
         "interview",
         "invitation",
         "job",
@@ -44371,6 +44383,7 @@
         "development_stage",
         "enrollment_milestone",
         "enrollment_plan",
+        "identity_operation_result",
         "invitation",
         "leadership_conversation",
         "organization_person_removal",
