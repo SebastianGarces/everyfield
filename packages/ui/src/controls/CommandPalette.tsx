@@ -49,7 +49,7 @@ export function CommandPalette({ open, onOpenChange, groups, placeholder = "Sear
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal container={container}>
         <DialogPrimitive.Overlay className="ef-scrim fixed inset-0 z-50 bg-ink-fixed/28 backdrop-blur-[2px]" />
-        <DialogPrimitive.Content aria-describedby={undefined} className="ef-dialog fixed top-[12vh] left-1/2 z-50 w-[calc(100vw-24px)] max-w-[620px] -translate-x-1/2 overflow-hidden rounded-[24px] bg-surface-raised text-md text-ink shadow-pop outline-none max-app-sm:top-3">
+        <DialogPrimitive.Content aria-modal="true" aria-describedby={undefined} className="ef-dialog fixed top-[12vh] left-1/2 z-50 w-[calc(100vw-24px)] max-w-[620px] -translate-x-1/2 overflow-hidden rounded-[24px] bg-surface-raised text-md text-ink shadow-pop outline-none max-app-sm:top-3">
           <DialogPrimitive.Title className="sr-only">Search</DialogPrimitive.Title>
           <Command shouldFilter={filter} loop label="Search">
             <div className="flex items-center gap-3 border-b border-line px-5 py-[18px]">

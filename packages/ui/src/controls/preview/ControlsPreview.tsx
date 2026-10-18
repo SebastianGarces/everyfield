@@ -607,7 +607,7 @@ const COMPOSITIONS: [string, string, string][] = [
 function CompositionMap() {
   return (
     <Section index={8} title="Feature compositions" code="components.md rows composed by feature packages" note="These rows carry one feature's data and behavior, so their owners build them from the parts above instead of a second component system.">
-      <Card className="overflow-x-auto p-0">
+      <Card role="region" aria-label="Feature compositions table" tabIndex={0} data-focus-inset="" className="overflow-x-auto p-0">
         <table className="w-full min-w-[620px] text-left text-md">
           <thead className="text-sm text-text-3">
             <tr className="border-b border-line"><th scope="col" className="px-6 py-3 font-medium">Inventory row</th><th scope="col" className="px-6 py-3 font-medium">Built from</th><th scope="col" className="px-6 py-3 font-medium">Owner</th></tr>

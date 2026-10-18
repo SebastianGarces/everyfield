@@ -53,7 +53,7 @@ export function PageHeader({ title, breadcrumb, subtitle, actions, size = "defau
         <h1 className={cn("leading-[1.05] font-medium tracking-[-0.035em] text-ink text-balance", size === "xl" ? "text-[52px] max-app-sm:text-[36px]" : "text-display-sm max-app-sm:text-title-lg")}>{title}</h1>
         {subtitle ? <p className="mt-2 max-w-[760px] text-[15px] text-text-2 text-pretty">{subtitle}</p> : null}
       </div>
-      {actions ? <div className="flex flex-none flex-wrap items-center gap-2.5">{actions}</div> : null}
+      {actions ? <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2.5">{actions}</div> : null}
     </header>
   );
 }

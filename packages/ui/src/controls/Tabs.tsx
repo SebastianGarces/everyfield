@@ -33,7 +33,7 @@ export function SegmentedControl<V extends string>({ label, options, value, onVa
       onValueChange={(next) => next && onValueChange(next as V)}
       asChild
     >
-      <HoverGroup current={value} className={cn("inline-flex max-w-full gap-0.5 rounded-[13px] bg-surface-2 p-1", className)}>
+      <HoverGroup current={value} className={cn("inline-flex max-w-full gap-0.5 overflow-x-auto rounded-[13px] [scrollbar-width:none] bg-surface-2 p-1", className)}>
         {options.map((o) => (
           <Segment key={o.value} option={o} size={size} />
         ))}

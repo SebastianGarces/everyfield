@@ -7,8 +7,8 @@ import { cn } from "../foundations";
 /** The label and optional description next to a checkbox, radio or switch. Clicking the label toggles the control. */
 function ChoiceLabel({ htmlFor, label, description, disabled }: { htmlFor: string; label: ReactNode; description?: ReactNode; disabled?: boolean }) {
   return (
-    <span className={cn("min-w-0 flex-1", disabled && "opacity-60")}>
-      <label htmlFor={htmlFor} className={cn("font-medium text-ink", disabled ? "cursor-not-allowed" : "cursor-pointer")}>{label}</label>
+    <span className="min-w-0 flex-1">
+      <label htmlFor={htmlFor} className={cn("font-medium text-ink", disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer")}>{label}</label>
       {description ? <span className="mt-0.5 block text-sm text-text-3">{description}</span> : null}
     </span>
   );

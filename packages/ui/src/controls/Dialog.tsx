@@ -31,7 +31,7 @@ export function DialogContent({ size = "md", className, children, ...props }: Di
   return (
     <DialogPrimitive.Portal container={container}>
       <DialogPrimitive.Overlay className={SCRIM} />
-      <DialogPrimitive.Content className={cn(PANEL, WIDTH[size], className)} {...props}>
+      <DialogPrimitive.Content aria-modal="true" className={cn(PANEL, WIDTH[size], className)} {...props}>
         {children}
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
@@ -129,7 +129,7 @@ export function ConfirmDialog({ open, onOpenChange, trigger, title, description,
       {trigger ? <AlertDialog.Trigger asChild>{trigger}</AlertDialog.Trigger> : null}
       <AlertDialog.Portal container={container}>
         <AlertDialog.Overlay className={SCRIM} />
-        <AlertDialog.Content className={cn(PANEL, WIDTH.sm)}>
+        <AlertDialog.Content aria-modal="true" className={cn(PANEL, WIDTH.sm)}>
           <div className="flex flex-none items-start gap-4 px-7 pt-[26px] pb-4 max-app-sm:px-5 max-app-sm:pt-5">
             {tone === "danger" ? <CardIcon icon={Alert02Icon} tone="magenta" /> : null}
             <div className="min-w-0 flex-1">
@@ -193,6 +193,7 @@ export function Sheet({ open, onOpenChange, trigger, title, description, modal =
       <DialogPrimitive.Portal container={container}>
         {modal ? <DialogPrimitive.Overlay className={cn(SCRIM, "bg-ink-fixed/12 backdrop-blur-none")} /> : null}
         <DialogPrimitive.Content
+          aria-modal={modal ? "true" : undefined}
           onInteractOutside={modal ? undefined : (e) => e.preventDefault()}
           className={cn("ef-sheet fixed top-3 right-3 bottom-3 z-50 flex w-[420px] max-w-[calc(100vw-24px)] flex-col rounded-[26px] bg-surface-raised text-md text-ink shadow-pop outline-none max-app-sm:top-0 max-app-sm:right-0 max-app-sm:bottom-0 max-app-sm:w-full max-app-sm:max-w-none max-app-sm:rounded-none", className)}
         >
