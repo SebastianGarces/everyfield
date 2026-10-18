@@ -1,7 +1,7 @@
 # Deterministic checks for every pull request and for main.
 # The required status check is the `ci` job. It passes only when every other job passed.
-# Not run here: the early access domain test (packages/domain), because it needs a disposable
-# database (EARLY_ACCESS_TEST_DATABASE=1). CI uses no secrets.
+# Not run here: the early access domain test (packages/domain), because it needs a database
+# (EARLY_ACCESS_TEST_DATABASE=1); CI skips database steps. CI uses no secrets.
 name: CI
 
 on:
@@ -73,10 +73,36 @@ jobs:
           git config --global init.defaultBranch main
       - run: bin/evf test
 
+  wiki:
+    name: wiki (tooling tests)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: tools/wiki
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: tools/wiki/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: tools/wiki/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile --ignore-workspace
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('tools/wiki/pnpm-lock.yaml') }}
+      - name: Chromium for render tests
+        run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test
+
   ci:
     name: ci
     if: always()
-    needs: [app, docs, evf]
+    needs: [app, docs, evf, wiki]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
