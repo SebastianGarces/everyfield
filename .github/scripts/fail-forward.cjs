@@ -37,8 +37,12 @@ function logExcerpt(log, chars) {
   const end = error === -1 ? lines.length : error + 1;
   return lines.slice(Math.max(0, end - 200), end).join('\n').slice(-chars);
 }
-// GitHub caps an issue body at 65,536 characters; share a budget across the failed jobs.
+// GitHub caps an issue body at 65,536 characters. The job sections share DETAIL_BUDGET, which
+// leaves room for the marker, commit, links and closing text around them. Each job's log share
+// is split evenly; the section header (name, link, failed steps) is bounded separately.
+const DETAIL_BUDGET = 60000;
 const LOG_BUDGET = 48000;
+const MORE_RESERVE = 200;
 
 module.exports = async function report({ github, context, core }, options = {}) {
   const repo = context.repo;
@@ -56,8 +60,10 @@ module.exports = async function report({ github, context, core }, options = {}) 
     });
     const failed = jobs.filter(job => ['failure', 'timed_out'].includes(job.conclusion));
     const details = [];
-    const chars = Math.min(12000, Math.floor(LOG_BUDGET / Math.max(1, failed.length)));
+    const chars = Math.max(300, Math.min(12000, Math.floor(LOG_BUDGET / Math.max(1, failed.length))));
+    let used = 0;
     for (const job of failed) {
+      if (used + MORE_RESERVE >= DETAIL_BUDGET) break;
       let log;
       try {
         const download = await github.rest.actions.downloadJobLogsForWorkflowRun({ ...repo, job_id: job.id });
@@ -68,7 +74,14 @@ module.exports = async function report({ github, context, core }, options = {}) 
         // An issue must still be filed when a provider has expired or withheld its logs.
         log = `Job log unavailable (${error.status || error.message}); open the job link.`;
       }
-      details.push(`### ${excerpt(job.name)}\n\nJob: ${job.html_url}\nFailed steps: ${job.steps.filter(step => step.conclusion === 'failure').map(step => excerpt(step.name)).join(', ') || job.conclusion}\n\nLog excerpt:\n\n\`\`\`text\n${logExcerpt(log, chars)}\n\`\`\``);
+      const steps = job.steps.filter(step => step.conclusion === 'failure').map(step => clean(step.name).slice(0, 100)).join(', ').slice(0, 300);
+      const section = `### ${clean(job.name).slice(0, 200)}\n\nJob: ${job.html_url}\nFailed steps: ${steps || job.conclusion}\n\nLog excerpt:\n\n\`\`\`text\n${logExcerpt(log, chars)}\n\`\`\``;
+      if (used + section.length + 2 + MORE_RESERVE > DETAIL_BUDGET) break;
+      details.push(section);
+      used += section.length + 2;
+    }
+    if (details.length < failed.length) {
+      details.push(`${failed.length - details.length} more failed jobs are not shown. Open the run link for them.`);
     }
     detail = details.join('\n\n') || (run.conclusion === 'startup_failure'
       ? 'CI did not start (startup_failure), so no job ran. A workflow file is usually invalid. Open the run link for the error.'

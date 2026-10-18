@@ -135,14 +135,20 @@ test('INV-fail-forward: a long job log keeps the error that comes before post-jo
   assert.doesNotMatch(body, /setup line 100\n/);
 });
 
-test('INV-fail-forward: many failed jobs stay inside the GitHub issue body limit', async () => {
-  const p = provider();
-  const jobs = Array.from({ length: 10 }, (_, i) => ({ id: i, name: `job ${i}`, conclusion: 'failure', html_url: `https://github.com/job/${i}`, steps: [] }));
-  p.github.paginate = async endpoint => endpoint === p.github.rest.issues.listForRepo ? p.issues : jobs;
-  p.github.rest.actions.downloadJobLogsForWorkflowRun = async () => ({ url: `data:text/plain,${encodeURIComponent('x'.repeat(199) + '\n').repeat(500)}` });
-  assert.equal(await report({ ...p, context: ci() }), 1);
-  assert.ok(p.issues[0].body.length < 65536, `body has ${p.issues[0].body.length} characters`);
-  assert.equal(p.issues[0].body.match(/^### job /gm).length, 10);
+test('INV-fail-forward: many failed jobs stay inside the GitHub issue body limit and keep their errors', async () => {
+  for (const count of [10, 128, 400]) {
+    const p = provider();
+    const jobs = Array.from({ length: count }, (_, i) => ({ id: i, name: `matrix job ${i} ${'n'.repeat(300)}`, conclusion: 'failure', html_url: `https://github.com/SebastianGarces/everyfield/actions/runs/3/job/${100000 + i}`, steps: [{ name: `Compile ${'s'.repeat(300)}`, conclusion: 'failure' }] }));
+    p.github.paginate = async endpoint => endpoint === p.github.rest.issues.listForRepo ? p.issues : jobs;
+    p.github.rest.actions.downloadJobLogsForWorkflowRun = async ({ job_id }) => ({ url: `data:text/plain,${encodeURIComponent(`${'x'.repeat(199)}\n`.repeat(100) + `##[error]fixture failure in job ${job_id}\ncleanup`)}` });
+    assert.equal(await report({ ...p, context: ci() }), 1);
+    const body = p.issues[0].body;
+    assert.ok(body.length <= 65536, `${count} jobs: body has ${body.length} characters`);
+    const shown = body.match(/^### matrix job /gm).length;
+    assert.equal((body.match(/##\[error\]fixture failure in job \d+\n```/g) || []).length, shown);
+    if (shown < count) assert.match(body, new RegExp(`\n${count - shown} more failed jobs are not shown\\. Open the run link`));
+    else assert.equal(count, 10);
+  }
 });
 
 test('INV-fail-forward: a CI run that never started is reported as an incident', async () => {
