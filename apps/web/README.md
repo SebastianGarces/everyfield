@@ -49,3 +49,77 @@ corepack pnpm build
 ```
 
 Tests call the public operation against real Postgres and fake only the Resend HTTP boundary. Delete the Neon test branch and remove its connection string from the app environment file afterward. Apply the migration to v3 main only after the tests pass. The real mail check uses a local production build, the approved test recipient, and the subject prefix above. Cross-model review and owner preview approval remain required before go-live.
+
+## Per-task local previews
+
+WP-087 extends the existing workspace scaffold. Use Node 24, the pinned pnpm through
+Corepack, and the managed Portless CLI from the `portless-preview` skill. The upstream
+npm Portless package does not include `preview` commands. Check `portless preview --help`
+before starting. From a fresh task worktree:
+
+```sh
+corepack pnpm install --frozen-lockfile
+corepack pnpm stack:up
+corepack pnpm stack:status
+corepack pnpm stack:check
+corepack pnpm stack:down
+```
+
+The commands select the current worktree, including when run from another directory.
+`--project /absolute/worktree` selects a different worktree explicitly. Each worktree gets
+one preview, its own dependencies, and a loopback-only app port behind a unique Portless
+URL. Repeating up reuses the preview; repeating down is safe. Stop before changing mode
+or recreating a preview after committing. Down stops only that worktree's preview and
+preserves its source and branch. Portless leases expire after one hour; use
+`portless preview renew ID --ttl 7200` for a longer review.
+
+Live edits use development mode. For proof tied to a clean commit:
+
+```sh
+corepack pnpm stack:up --mode production
+corepack pnpm stack:check
+```
+
+Production mode builds a disposable local snapshot, not a deployment. It refuses a dirty
+worktree. Status prints the preview ID, URL, mode and commit as JSON. Check additionally
+asserts readiness, the current commit, and HTTP 200 at the preview URL. It does not prove
+application acceptance. Open the returned URL in a browser and exercise the task behavior.
+Use `portless preview logs ID` to investigate a failed start. When called by evf, the
+commands also keep its `EVF_RUNTIME_DIR/stack.json` receipt current and clear it on down.
+
+The configuration lives in `scripts/preview.json`, so no `evf.config.json` change is
+needed to run these commands. A separate reviewed OPS task wires the up/status/down
+commands and checks into evf after this producer ships. Its stack commands are
+`["node", "scripts/stack.mjs", "up"]`, with `status` and `down` in place of `up`.
+These commands do not call paid providers, so that stack declares `usesPaidProviders: false`.
+The additional local regression check is `["node", "scripts/test-workflow.mjs"]`.
+
+Portless uses HTTPS by default. Trust its CA explicitly before browser review. For a
+disposable HTTP test supervisor, set these variables consistently on every preview command:
+
+```sh
+export PORTLESS_PREVIEW_DIR=/tmp/everyfield-preview-session
+export PORTLESS_PREVIEW_PORT=1457
+export PORTLESS_PREVIEW_HTTP=1
+```
+
+Choose an unused port and directory for a separate test session. Preserve their values in
+the handoff together with the worktree path, preview ID, URL and commit. Stop its previews,
+then run `portless preview shutdown` with the same variables when the session is finished.
+Never shut down another agent's supervisor. For the HTTPS HTTP check, Node must also trust
+the Portless CA, for example through `NODE_EXTRA_CA_CERTS` pointing to the trusted CA file.
+
+No credentials, database creation, migration, seed, email, or provider setup runs as part
+of preview startup. Marketing pages can render without provider credentials. For domain
+work, use only the shared development database with synthetic data. Set its approved
+connection in the shell or this worktree's ignored `apps/web/.env.local`. Production
+snapshots do not copy ignored env files; supply approved dev values in the shell or a
+private Portless config outside the repository. Never copy production settings into a
+preview, print secrets, or submit forms against a production database. Portless isolates
+processes and dependencies, not the shared database.
+
+Run the existing lint, TypeScript and build checks with `corepack pnpm check`. Run the
+small workflow suite with `corepack pnpm test:workflow`; it uses Node's built-in runner
+and a local fake Portless executable, with no database or provider calls. If
+`EVF_TEST_REPORT` is set, it writes test names and results there for evf. CI retains the
+existing app, domain, documentation, Wiki and cross-model checks, and adds this suite.
