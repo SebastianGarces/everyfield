@@ -44,6 +44,16 @@
         "pnpm",
         "check"
       ]
+    },
+    {
+      "name": "package-unit-tests",
+      "run": [
+        "corepack",
+        "pnpm",
+        "-r",
+        "--if-present",
+        "test:unit"
+      ]
     }
   ],
   "principles": {
@@ -246,7 +256,8 @@
       "owningPaths": [
         ".agents/skills/everyfield-pr/SKILL.md",
         "tools/evf/",
-        "docs/acceptance/"
+        "docs/acceptance/",
+        ".github/workflows/ci.yml"
       ],
       "checks": [
         {
