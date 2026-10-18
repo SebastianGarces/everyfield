@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import {
   evfDataDir,
   fail,
@@ -63,6 +63,7 @@ function taskPaths(root: string, task: TaskRef): string[] {
 }
 
 export function prOpen(root: string, task: TaskRef, bodyFile?: string): number {
+  if(bodyFile)bodyFile=resolve(bodyFile);
   const cfg = loadConfig(root);
   const wp=task.kind==='wp'?task.wp:task.kind==='fb'?cachedTriage(root,task.issue!)?.wp:undefined;requireTaskScope(root,task,wp);
   requireRemote(root, cfg);
@@ -73,11 +74,11 @@ export function prOpen(root: string, task: TaskRef, bodyFile?: string): number {
 
   if(!bodyFile||!existsSync(bodyFile))fail('Write the PR body following the PR standard, then pass --body-file <file>.');
   const body=readFileSync(bodyFile,'utf8');
-  checkPrBody(wt,body);
+  const proto = isPrototype(root, task);
+  checkPrBody(wt,body,proto?'prototype':'ordinary');
   const internal=internalIssueOf(root,task);
   if(internal&&!body.includes(`Closes #${internal}`))fail(`Include Closes #${internal} in the PR body for this feedback task.`);
   pushBranch(wt,cfg,task);
-  const proto = isPrototype(root, task);
   const existing = prFor(wt, task);
   if (existing && existing.state === "OPEN") {
     gh(wt,["pr","edit",String(existing.number),"--body-file",bodyFile]);

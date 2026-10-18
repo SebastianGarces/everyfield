@@ -2,8 +2,20 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fail } from './lib.ts';
 
-const TEMPLATE='.agents/skills/everyfield-pr/template.md';
+const TEMPLATES={ordinary:'.agents/skills/everyfield-pr/template.md',wiki:'tools/evf/templates/wiki-pr.md',prototype:'tools/evf/templates/prototype-pr.md'};
+export type PrBodyClass=keyof typeof TEMPLATES;
 const withoutComments=(text:string)=>text.replace(/<!--[^]*?(?:-->|$)/g,'').replace(/\r\n/g,'\n');
+
+/** Metadata chooses a body format only. Merge authority stays with ship and approve. */
+export function prBodyClass(pr:unknown):PrBodyClass {
+ if(!pr||typeof pr!=='object'||!('headRefName' in pr)||typeof pr.headRefName!=='string')return 'ordinary';
+ if(/^wiki\/[\w.-]+$/.test(pr.headRefName)) {
+  if(!('files' in pr)||!Array.isArray(pr.files)||!pr.files.length||!pr.files.every(file=>file&&typeof file.path==='string'&&file.path.startsWith('docs/reference/wiki/')))fail('Wiki PR body format requires every changed file to stay in docs/reference/wiki/.');
+  return 'wiki';
+ }
+ if(/^task\/fb-\d+$/.test(pr.headRefName)&&'labels' in pr&&Array.isArray(pr.labels)&&pr.labels.some(label=>label?.name==='prototype'))return 'prototype';
+ return 'ordinary';
+}
 
 /** Ignore headings and machine lines inside examples, while retaining their content for evidence. */
 function plainLines(lines:string[]):Array<{text:string;index:number}> {
@@ -19,10 +31,10 @@ function plainLines(lines:string[]):Array<{text:string;index:number}> {
  return plain;
 }
 
-/** The merged W4 template owns the required sections. This check has no CI or review dependency. */
-export function checkPrBody(root:string,body:string):{sections:string[];authorFamily:'openai'|'anthropic'} {
- const path=join(root,TEMPLATE);
- if(!existsSync(path))fail(`PR body template is missing: ${TEMPLATE}.`);
+/** Each class template owns its required sections. This check has no CI or review dependency. */
+export function checkPrBody(root:string,body:string,kind:PrBodyClass='ordinary'):{kind:PrBodyClass;sections:string[];authorFamily:'openai'|'anthropic'} {
+ const template=TEMPLATES[kind],path=join(root,template);
+ if(!existsSync(path))fail(`PR body template is missing: ${template}.`);
  const sections=plainLines(withoutComments(readFileSync(path,'utf8')).split('\n')).filter(l=>l.text.startsWith('## ')).map(l=>l.text);
  if(!sections.length||new Set(sections).size!==sections.length)fail('PR body template must define distinct required sections.');
  const lines=withoutComments(body).split('\n'),plain=plainLines(lines);
@@ -44,5 +56,5 @@ export function checkPrBody(root:string,body:string):{sections:string[];authorFa
  }
  const footer=lines.slice(author.index+1).filter(line=>line.trim());
  if(footer.length!==1||!/^🤖 Generated with \[[^\]]+\]\(https:\/\/[^)]+\)$/.test(footer[0]))fail('End the PR body with its attribution line after EVF-Author.');
- return {sections,authorFamily:family};
+ return {kind,sections,authorFamily:family};
 }

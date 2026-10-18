@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { existsSync, statSync } from 'node:fs';
 import { baseRef, git, fail, findPackage, loadDag, loadConfig, readJson, prerequisitesForPart, type Part, type TaskRef } from './lib.ts';
 import { producerReady } from './progress.ts';
 
@@ -23,6 +24,9 @@ export function requireTaskScope(root:string,task:TaskRef,wp?:string):void {
  if(task.kind==='ops') {
   const scope=loadConfig(root).maintenanceTasks?.[task.id];
   if(!scope?.title||!scope.owningPaths.length||!scope.checks?.length)fail('Maintenance requires a reviewed title, owning paths and local tooling checks in maintenanceTasks.');
+  for(const path of scope.owningPaths) {
+   if(!path.endsWith('/')&&existsSync(join(root,path))&&statSync(join(root,path)).isDirectory())fail(`Maintenance owning path ${path} is a folder; use ${path}/ to include its files.`);
+  }
   const files=['README.md','AGENTS.md','evf.config.json','skills-lock.json','.gitignore','bin/evf'];
   const directories=['.agents/','.claude/','docs/','tools/evf/','.github/'];
   if(scope.owningPaths.some(path=>path.split('/').includes('..')||!files.includes(path)&&!directories.some(dir=>path.startsWith(dir))))fail('Maintenance owning paths must stay in documentation and workflow tooling; OPS cannot authorize application code.');
