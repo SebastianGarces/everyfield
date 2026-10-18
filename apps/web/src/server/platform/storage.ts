@@ -31,7 +31,7 @@ export function storageFromEnvironment(): Storage {
 		!bucket ||
 		!prefix ||
 		!/^wp003\/[a-f0-9-]+\/$/.test(prefix) ||
-		bucket !== "everyfield-evidence" ||
+		bucket !== "everyfield-dev" ||
 		!AWS_ACCESS_KEY_ID ||
 		!AWS_SECRET_ACCESS_KEY ||
 		!AWS_ENDPOINT_URL_S3 ||
