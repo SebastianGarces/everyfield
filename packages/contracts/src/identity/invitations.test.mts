@@ -89,6 +89,7 @@ test("INV-atomic-acceptance: accepted seat result requires active registration, 
     { ...accepted, seat: { ...accepted.seat, role: "owner" } },
     { ...accepted, seat: { ...accepted.seat, personId: undefined } },
     { ...accepted, seat: { ...accepted.seat, workspace: organization } },
+    { ...accepted, seat: { ...accepted.seat, workspace: { ...plant, id: other } } },
     { ...accepted, receipt: { ...receipt, outcome: "partial" } },
     { ...accepted, receipt: { ...receipt, eventIds: [] } },
     { ...accepted, receipt: { ...receipt, effectIds: [] } },
@@ -99,6 +100,7 @@ test("INV-atomic-acceptance: accepted seat result requires active registration, 
   const resident = { status: "accepted", invitationId: id, linkId: other, organization, personId: id,
     consentRevision: "1", choices, receipt: residentReceipt };
   assert.deepEqual(wire(C.residentInvitationDecisionResult, resident), resident);
+  refuses(C.residentInvitationDecisionResult, { ...resident, organization: { ...organization, organizationKind: "sending_network" } });
   for (const extra of [{ seatId: id }, { registrationState: "active" }, { accountExists: true }]) {
     refuses(C.residentInvitationDecisionResult, { ...resident, ...extra });
   }
