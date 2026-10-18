@@ -20208,6 +20208,289 @@
           }
         }
       ]
+    },
+    {
+      "id": "WP011-KNOW-069",
+      "requirement": "REQ-KNOW-069",
+      "requirement_ids": [
+        "REQ-KNOW-069"
+      ],
+      "feature_ids": [
+        "IDN-013"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-013--IDN-013"
+      ],
+      "work_packages": [
+        "WP-011"
+      ],
+      "status": "future-not-run",
+      "description": "People contract boundary round trip only. Runtime session, SQL, lifecycle races, bytes and domain integration remain with WP-011/api.",
+      "given": {
+        "contract": {
+          "fixture_type": "contract_boundary",
+          "module": "@everyfield/contracts/people"
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T13:00:00Z",
+        "zone": "America/New_York"
+      },
+      "action": {
+        "operation": "build.inspectTargetCatalog",
+        "arguments": {
+          "package": "WP-011",
+          "boundary": "shared_history"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "tenant_owner_required": true,
+          "creator_is_owner": false,
+          "account_private_fields_allowed": false
+        },
+        "event": null
+      },
+      "layers": [
+        "build",
+        "contract"
+      ],
+      "coverage_notes": [
+        "Boundary evidence only; no live authorization, transactional, delivery, export/removal, native/Evry or full-package proof."
+      ]
+    },
+    {
+      "id": "WP011-KNOW-098",
+      "requirement": "REQ-KNOW-098",
+      "requirement_ids": [
+        "REQ-KNOW-098"
+      ],
+      "feature_ids": [
+        "PPL-002",
+        "PPL-004"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-002--PPL-002",
+        "AC-PPL-004--PPL-004"
+      ],
+      "work_packages": [
+        "WP-011"
+      ],
+      "status": "future-not-run",
+      "description": "People contract boundary round trip only. Runtime session, SQL, lifecycle races, bytes and domain integration remain with WP-011/api.",
+      "given": {
+        "contract": {
+          "fixture_type": "contract_boundary",
+          "module": "@everyfield/contracts/people"
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T13:00:00Z",
+        "zone": "America/New_York"
+      },
+      "action": {
+        "operation": "build.inspectTargetCatalog",
+        "arguments": {
+          "package": "WP-011",
+          "boundary": "guest_selection"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "new_named_guest_allowed": true,
+          "explicit_existing_person_allowed": true,
+          "name_matching_auto_link": false
+        },
+        "event": null
+      },
+      "layers": [
+        "build",
+        "contract"
+      ],
+      "coverage_notes": [
+        "Boundary evidence only; no live authorization, transactional, delivery, export/removal, native/Evry or full-package proof."
+      ]
+    },
+    {
+      "id": "WP011-KNOW-099",
+      "requirement": "REQ-KNOW-099",
+      "requirement_ids": [
+        "REQ-KNOW-099"
+      ],
+      "feature_ids": [
+        "PPL-002"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-002--PPL-002"
+      ],
+      "work_packages": [
+        "WP-011"
+      ],
+      "status": "future-not-run",
+      "description": "People contract boundary round trip only. Runtime session, SQL, lifecycle races, bytes and domain integration remain with WP-011/api.",
+      "given": {
+        "contract": {
+          "fixture_type": "contract_boundary",
+          "module": "@everyfield/contracts/people"
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T13:00:00Z",
+        "zone": "America/New_York"
+      },
+      "action": {
+        "operation": "build.inspectTargetCatalog",
+        "arguments": {
+          "package": "WP-011",
+          "boundary": "minimum_guest"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "single_name_allowed": true,
+          "surname_required": false,
+          "adult_default": "unknown",
+          "client_account_allowed": false
+        },
+        "event": null
+      },
+      "layers": [
+        "build",
+        "contract"
+      ],
+      "coverage_notes": [
+        "Boundary evidence only; no live authorization, transactional, delivery, export/removal, native/Evry or full-package proof."
+      ]
+    },
+    {
+      "id": "WP011-MUL-001",
+      "requirement": "REQ-MUL-001",
+      "requirement_ids": [
+        "REQ-MUL-001"
+      ],
+      "feature_ids": [
+        "MUL-001"
+      ],
+      "acceptance_ids": [
+        "AC-MUL-001--MUL-001"
+      ],
+      "work_packages": [
+        "WP-011"
+      ],
+      "status": "future-not-run",
+      "description": "People contract boundary round trip only. Runtime session, SQL, lifecycle races, bytes and domain integration remain with WP-011/api.",
+      "given": {
+        "contract": {
+          "fixture_type": "contract_boundary",
+          "module": "@everyfield/contracts/people"
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T13:00:00Z",
+        "zone": "America/New_York"
+      },
+      "action": {
+        "operation": "build.inspectTargetCatalog",
+        "arguments": {
+          "package": "WP-011",
+          "boundary": "organization_identity"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "plant_fields_allowed": false,
+          "account_owner_allowed": false,
+          "merged_source_ordinary_restore": false
+        },
+        "event": null
+      },
+      "layers": [
+        "build",
+        "contract"
+      ],
+      "coverage_notes": [
+        "Boundary evidence only; no live authorization, transactional, delivery, export/removal, native/Evry or full-package proof."
+      ]
+    },
+    {
+      "id": "WP011-MUL-005",
+      "requirement": "REQ-MUL-005",
+      "requirement_ids": [
+        "REQ-MUL-005"
+      ],
+      "feature_ids": [
+        "MUL-005"
+      ],
+      "acceptance_ids": [
+        "AC-MUL-005--MUL-005"
+      ],
+      "work_packages": [
+        "WP-011"
+      ],
+      "status": "future-not-run",
+      "description": "People contract boundary round trip only. Runtime session, SQL, lifecycle races, bytes and domain integration remain with WP-011/api.",
+      "given": {
+        "contract": {
+          "fixture_type": "contract_boundary",
+          "module": "@everyfield/contracts/people"
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T13:00:00Z",
+        "zone": "America/New_York"
+      },
+      "action": {
+        "operation": "build.inspectTargetCatalog",
+        "arguments": {
+          "package": "WP-011",
+          "boundary": "removal_export"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "private_export_bodies_allowed": false,
+          "removal_has_cancellation_deadline": false,
+          "retained_categories_require_reason": true
+        },
+        "event": null
+      },
+      "layers": [
+        "build",
+        "contract"
+      ],
+      "coverage_notes": [
+        "Boundary evidence only; no live authorization, transactional, delivery, export/removal, native/Evry or full-package proof."
+      ]
     }
   ]
 }
