@@ -53,21 +53,30 @@ const fieldCopy = z.object({
 	placeholder: text.optional(),
 	prompt: text.optional(),
 });
-const formCopy = z.object({
-	eyebrow: text,
-	headline: text,
-	body: text,
-	submit: text,
-	submitting: text,
-	fields: z.record(z.string(), fieldCopy),
-	phases: z.array(text).length(7).optional(),
-});
 const outcome = z.object({ title: text, body: text, link: text.optional() });
 const accessPage = z.object({
 	hero: z.object({ eyebrow: text, headline: text, subhead: text, note: text.optional() }),
 	contact_email: z.email(),
-	planter_form: formCopy,
-	network_form: formCopy,
+	form: z.object({
+		progress: text.refine((s) => s.includes("{step}") && s.includes("{total}"), "progress needs {step} and {total}"),
+		back: text,
+		continue: text,
+		submit: text,
+		submitting: text,
+		who: z.object({
+			title: text,
+			error: text,
+			options: z.object({ planter: text, church: text, network: text }),
+		}),
+		steps: z.object({ contact: text, plant: text, phase: text, church: text, network: text, more: text }),
+	}),
+	fields: z.record(z.string(), fieldCopy),
+	// A church and a network send the same request; only this field's label and error differ.
+	organization: z.object({
+		church: z.object({ label: text, error: text }),
+		network: z.object({ label: text, error: text }),
+	}),
+	phases: z.array(text).length(7),
 	errors: z.object({ too_long: text.refine((s) => s.includes("{max}"), "too_long needs {max}") }),
 	optional_label: text,
 	privacy_note: z
@@ -165,6 +174,6 @@ export const COPY = {
 export type Copy = typeof COPY;
 
 export type LegalCopy = z.infer<typeof legalPage>;
-export type FormCopy = z.infer<typeof formCopy>;
+export type FieldCopy = z.infer<typeof fieldCopy>;
 export type AccessCopy = z.infer<typeof accessPage>;
 export type Outcome = z.infer<typeof outcome>;
