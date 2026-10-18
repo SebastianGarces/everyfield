@@ -9,6 +9,8 @@
 /* Product foundations (WP-088): scoped to the product root, so they never touch marketing pages. One build serves both:
    a second Tailwind build would re-declare utilities later in the cascade (see the comment in product.css). */
 @import "../../../../packages/ui/src/foundations/product.css";
+/* Shared controls (WP-089): also scoped to the product root. */
+@import "../../../../packages/ui/src/controls/controls.css";
 @source "../../../../packages/ui/src";
 
 /* Data and scripts are not Tailwind sources. */

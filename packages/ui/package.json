@@ -7,6 +7,9 @@
     "./foundations": "./src/foundations/index.ts",
     "./foundations/product.css": "./src/foundations/product.css",
     "./foundations/preview": "./src/foundations/preview/FoundationsPreview.tsx",
+    "./controls": "./src/controls/index.ts",
+    "./controls/controls.css": "./src/controls/controls.css",
+    "./controls/preview": "./src/controls/preview/ControlsPreview.tsx",
     "./shell": "./src/shell/index.ts",
     "./shell/preview": "./src/shell/preview/ShellPreview.tsx",
     "./shell/preview/fixtures": "./src/shell/preview/fixtures.ts"
@@ -18,7 +21,10 @@
   "dependencies": {
     "@hugeicons/core-free-icons": "4.3.5",
     "@hugeicons/react": "1.1.10",
-    "motion": "14.2.0"
+    "class-variance-authority": "0.7.1",
+    "cmdk": "1.1.1",
+    "motion": "14.2.0",
+    "radix-ui": "1.8.1"
   },
   "peerDependencies": {
     "next": "16.4.1",
@@ -26,9 +32,11 @@
   },
   "devDependencies": {
     "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "eslint": "^9.39.0",
     "next": "16.4.1",
     "react": "19.3.1",
+    "react-dom": "19.3.1",
     "typescript": "6.0.3",
     "typescript-eslint": "^8.57.0"
   }
