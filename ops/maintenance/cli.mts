@@ -1,6 +1,5 @@
 import { createDatabase, closeDatabase } from "../../packages/db/src/client.ts";
 import { sql } from "../../packages/db/src/query.ts";
-import { createRequire } from "node:module";
 import { parseArgs } from "node:util";
 import { loadControl, readPrivateJson, developmentConnection } from "./control.mts";
 import {
@@ -9,7 +8,6 @@ import {
 	inspectMigrationProvenance,
 } from "../../packages/db/src/schema/migrate.ts";
 import { validateCandidate } from "./recovery.mts";
-const require = createRequire(new URL("../../packages/domain/package.json", import.meta.url));
 
 const commands = ["migration-inspect", "migration-apply", "migration-adopt", "backup-check"];
 async function main() {

@@ -15,6 +15,7 @@ import {
 } from "../../../packages/db/src/schema/migrate.ts";
 import { executeAtomicConsequences } from "../../../packages/domain/src/operations/atomic.ts";
 import { createFixtureSwitcher } from "../../../packages/domain/src/operations/fixtures.ts";
+import { auth_user, auth_account, auth_session, auth_verification } from "../../../packages/db/src/schema/tables.ts";
 import { authStorage } from "../../../packages/db/src/schema/auth-storage.ts";
 import { operatorOperations } from "../../../packages/domain/src/operations/operator.ts";
 import { createTelemetry, telemetryConfig, traceOperation } from "../../../packages/domain/src/operations/telemetry.ts";
@@ -22,7 +23,6 @@ import { createServer } from "node:http";
 import { once } from "node:events";
 import { mountExecutor, mountCallback } from "../../../ops/maintenance/mount.mts";
 import { enqueueJob } from "../../../apps/web/src/server/jobs/queue.ts";
-const require = createRequire(new URL("../../../packages/domain/package.json", import.meta.url));
 
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
 if (source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech" || process.env.NODE_ENV === "production")
@@ -78,7 +78,7 @@ before(async () => {
 	);
 });
 after(async () => {
-	await runtime?.end();
+	if (runtime) await closeDatabase(runtime);
 	try {
 		await admin.execute(querySql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
 		await admin.execute(querySql.raw(`DROP ROLE IF EXISTS ${role}`));
@@ -128,10 +128,8 @@ test("AC:CASE-OPS-005 versioned migration checksums are observed at application,
 			assert.equal((await inspectMigrationProvenance(admin, other)).state, "unverified");
 			await assert.rejects(applyVersionedMigration(admin, other), /migration_provenance_unverified/);
 			assert.equal(
-				(
-					await admin.execute(querySql.raw(`SELECT applied_at FROM ${other}.schema_migration`))
-				).rows[0].applied_at.toISOString(),
-				"2026-01-01T00:00:00.000Z",
+				(await admin.execute(querySql.raw(`SELECT applied_at FROM ${other}.schema_migration`))).rows[0].applied_at,
+				"2026-01-01 00:00:00+00",
 			);
 			const approved = Object.fromEntries(
 				(await migrationArtifact()).filter((r) => r.name === "0001_early_access.sql").map((r) => [r.name, r.sha256]),
@@ -146,7 +144,7 @@ test("AC:CASE-OPS-005 versioned migration checksums are observed at application,
 			]);
 			assert.deepEqual(
 				(await admin.execute(querySql.raw(`SELECT provenance,applied_at FROM ${other}.schema_migration`))).rows,
-				[{ provenance: "adopted", applied_at: new Date("2026-01-01T00:00:00Z") }],
+				[{ provenance: "adopted", applied_at: "2026-01-01 00:00:00+00" }],
 			);
 		} finally {
 			await admin.execute(querySql.raw(`DROP SCHEMA ${other} CASCADE`));
@@ -161,8 +159,8 @@ test("AC:OPS-ATOMIC-001 AC:OPS-PLATFORM-001 required SQL consequences roll back 
 		await runtime.execute(querySql`SELECT rolname,rolsuper,rolbypassrls FROM pg_roles WHERE rolname=current_user`)
 	).rows[0];
 	assert.deepEqual(properties, { rolname: role, rolsuper: false, rolbypassrls: false });
-	await assert.rejects(runtime.execute(querySql`CREATE TABLE forbidden(id int)`), (e) => e.code === "42501");
-	await assert.rejects(runtime.execute(querySql`SELECT * FROM auth_user`), (e) => e.code === "42501");
+	await assert.rejects(runtime.execute(querySql`CREATE TABLE forbidden(id int)`), (e) => e.cause?.code === "42501");
+	await assert.rejects(runtime.execute(querySql`SELECT * FROM auth_user`), (e) => e.cause?.code === "42501");
 	const key = randomUUID(),
 		receiptId = randomUUID();
 	const writes = {
@@ -410,8 +408,13 @@ test("AC:EXEC-001 INV-mount: authenticated bounded HTTP executor and raw signed 
 test("AC:TARGET-IDN-004 fixture switching issues a real allowlisted synthetic session and refuses wrong environments and client authority", async () => {
 	const appRequire = createRequire(new URL("../../../apps/web/package.json", import.meta.url));
 	const { betterAuth } = await import(appRequire.resolve("better-auth"));
+	const { drizzleAdapter } = await import(appRequire.resolve("better-auth/adapters/drizzle"));
 	const auth = betterAuth({
-		database: admin,
+		database: drizzleAdapter(admin, {
+			provider: "pg",
+			schema: { auth_user, auth_account, auth_session, auth_verification },
+			transaction: true,
+		}),
 		baseURL: "http://localhost",
 		secret: randomBytes(32).toString("hex"),
 		...authStorage,

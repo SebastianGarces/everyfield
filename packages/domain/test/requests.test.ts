@@ -2,8 +2,10 @@ import { early_access_request } from "@everyfield/db/tables";
 import { asc } from "@everyfield/db/query";
 import { createDatabase, closeDatabase } from "@everyfield/db/client";
 import { sql as querySql } from "@everyfield/db/query";
+import { randomUUID } from "node:crypto";
+import { migrate } from "../../db/src/schema/migrate.ts";
 import assert from "node:assert/strict";
-import { after, beforeEach, test } from "node:test";
+import { after, before, beforeEach, test } from "node:test";
 
 import { database, expireAccessRequests, exportAccessRequests } from "@everyfield/db";
 import { receiveAccessRequest } from "../src/early-access/index.js";
@@ -11,7 +13,20 @@ import { GET } from "../../../apps/web/src/app/api/cron/access-retention/route.j
 
 if (process.env.EARLY_ACCESS_TEST_DATABASE !== "1")
 	throw new Error("Use a disposable Neon branch and set EARLY_ACCESS_TEST_DATABASE=1");
+const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL!);
+if (
+	source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech" &&
+	!["localhost", "127.0.0.1"].includes(source.hostname)
+)
+	throw new Error("Development test database required");
+const isolatedSchema = "db1_early_" + randomUUID().replaceAll("-", "");
+source.searchParams.set("options", `-c search_path=${isolatedSchema},pg_catalog,pg_temp`);
+process.env.DATABASE_URL = source.href;
 const db = database();
+before(async () => {
+	await db.execute(querySql`CREATE SCHEMA ${querySql.identifier(isolatedSchema)}`);
+	await migrate(db, isolatedSchema);
+});
 const env = {
 	RESEND_API_KEY: "fake-provider-key",
 	EMAIL_FROM: "EveryField <hello@everyfield.app>",
@@ -59,6 +74,7 @@ beforeEach(async () => {
 	delivered = new Map();
 });
 after(async () => {
+	await db.execute(querySql`DROP SCHEMA ${querySql.identifier(isolatedSchema)} CASCADE`);
 	await closeDatabase(db);
 });
 
@@ -176,7 +192,9 @@ test("INV-access: honeypot receives a fake receipt with no data, limit attempts 
 });
 
 test("INV-access: storage failure returns unavailable and sends nothing", async () => {
-	const broken = createDatabase({ connectionString: process.env.DATABASE_URL!, options: "-c search_path=pg_catalog" });
+	const brokenURL = new URL(process.env.DATABASE_URL!);
+	brokenURL.searchParams.set("options", "-c search_path=pg_catalog");
+	const broken = createDatabase({ connectionString: brokenURL.href });
 	try {
 		assert.deepEqual(
 			await receiveAccessRequest("planter", planter, "192.0.2.1", { db: broken, fetch: fakeResend, env }),
@@ -208,11 +226,15 @@ test("INV-access: mail rejection, missing receipt and timeout never claim succes
 });
 
 test("INV-access: failure to save mail receipt remains unavailable and retry cannot send another email", async () => {
-	await db.execute(querySql`ALTER TABLE early_access_request RENAME COLUMN mail_id TO withheld_mail_id`);
+	await db.execute(
+		querySql`CREATE FUNCTION reject_mail_receipt() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic_receipt_fault'; END $$; CREATE TRIGGER reject_mail_receipt BEFORE UPDATE OF mail_id ON early_access_request FOR EACH ROW EXECUTE FUNCTION reject_mail_receipt()`,
+	);
 	try {
 		assert.deepEqual(await submit("planter", planter), { status: "unavailable" });
 	} finally {
-		await db.execute(querySql`ALTER TABLE early_access_request RENAME COLUMN withheld_mail_id TO mail_id`);
+		await db.execute(
+			querySql`DROP TRIGGER reject_mail_receipt ON early_access_request; DROP FUNCTION reject_mail_receipt()`,
+		);
 	}
 	assert.equal(delivered.size, 1);
 	assert.deepEqual(await submit("planter", planter), { status: "received" });

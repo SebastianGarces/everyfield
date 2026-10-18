@@ -188,7 +188,7 @@ export async function jobVisibility(db: Database) {
 			kind: tables.job.kind,
 			state: tables.job.state,
 			count: sql<number>`(count(*))::int`,
-			lag_seconds: sql<number>`(greatest(0, extract([object Object] FROM (clock_timestamp() - min(${tables.job.eligible_at})))))::float8`,
+			lag_seconds: sql<number>`(greatest(0, extract(epoch FROM (clock_timestamp() - min(${tables.job.eligible_at})))))::float8`,
 		})
 		.from(tables.job)
 		.groupBy(tables.job.kind, tables.job.state)

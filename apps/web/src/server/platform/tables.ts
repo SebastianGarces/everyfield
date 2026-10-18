@@ -97,7 +97,7 @@ export const proof_object = pgTable(
 			.default(sql`('pending')`),
 		preview: text("preview"),
 	},
-	(t) => [
+	() => [
 		check("proof_object_format_check", sql`(format IN (('docx'), ('xlsx'), ('pdf')))`),
 		check("proof_object_state_check", sql`(state IN (('pending'), ('ready'), ('deleted')))`),
 	],
@@ -109,7 +109,7 @@ export const proof_stream = pgTable(
 		owner_id: uuid("owner_id").notNull(),
 		status: text("status", { enum: ["ready", "succeeded", "reconcile"] }).notNull(),
 	},
-	(t) => [check("proof_stream_status_check", sql`(status IN (('ready'), ('succeeded'), ('reconcile')))`)],
+	() => [check("proof_stream_status_check", sql`(status IN (('ready'), ('succeeded'), ('reconcile')))`)],
 );
 export const proof_job = pgTable(
 	"proof_job",

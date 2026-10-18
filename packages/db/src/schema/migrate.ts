@@ -109,7 +109,7 @@ export async function inspectMigrationProvenance(db: Database, schema = "public"
 	);
 	if (!columns.rowCount) return { state: "uninitialized" as const, applied: [], artifact };
 	const proven = ["sha256", "provenance"].every((name) => columns.rows.some((row) => row.column_name === name));
-	const result = await db.execute<{ name: string; applied_at: Date; sha256?: string; provenance?: string }>(
+	const result = await db.execute<{ name: string; applied_at: string; sha256?: string; provenance?: string }>(
 		sql`SELECT name,applied_at${proven ? sql`,sha256,provenance` : sql``} FROM ${sql.identifier(schema)}.schema_migration ORDER BY name`,
 	);
 	const coherent = result.rows.every(
@@ -126,7 +126,7 @@ export async function inspectMigrationProvenance(db: Database, schema = "public"
 				: result.rows.length < artifact.length
 					? ("pending" as const)
 					: ("current" as const),
-		applied: result.rows,
+		applied: result.rows.map((row) => ({ ...row, applied_at: new Date(row.applied_at) })),
 		artifact,
 	};
 }

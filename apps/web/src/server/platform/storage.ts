@@ -9,7 +9,6 @@ import { z } from "zod";
 import { currentScope, transaction } from "./database.ts";
 import { Refusal } from "./boundary.ts";
 import { previewText, maxFileBytes } from "./preview.ts";
-import type { FileFormat } from "./preview.ts";
 import type { PlatformAuth } from "./auth.ts";
 
 export const uploadInput = z.strictObject({
