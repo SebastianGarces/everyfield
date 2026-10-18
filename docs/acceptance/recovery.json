@@ -2992,6 +2992,168 @@
           }
         }
       ]
+    },
+    {
+      "feature_ids": [
+        "NTF-002"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-002--NTF-002"
+      ],
+      "work_packages": [
+        "WP-031"
+      ],
+      "status": "future-not-run",
+      "layers": [
+        "integration"
+      ],
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T12:00:00Z",
+        "zone": "UTC"
+      },
+      "id": "OUTBOX-PURGE-001",
+      "requirement": "REQ-KNOW-072",
+      "description": "A crashed lifecycle handler resumes only its current request generation and cannot report coherent purge before all cleanup succeeds.",
+      "given": {
+        "job": {
+          "fixture_type": "job",
+          "kind": "lifecycle_purge",
+          "state": "claimed",
+          "claim_generation": 4,
+          "lease_until": "2026-10-18T11:59:00Z",
+          "source_revision": 2
+        },
+        "witness": {
+          "fixture_type": "lifecycle_witness",
+          "state": "purging",
+          "request_revision": 2,
+          "live_purged_at": null
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-registered-job-runner",
+          "authority": "registered_scoped_internal_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "notifications.recoverLease"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          }
+        }
+      },
+      "action": {
+        "operation": "notifications.recoverLease",
+        "arguments": {}
+      },
+      "expected": {
+        "state": {
+          "job_state": "retry_wait",
+          "live_purged_at": null
+        },
+        "result": {
+          "late_generation_can_complete": false,
+          "normal_access": false
+        },
+        "event": null
+      }
+    },
+    {
+      "feature_ids": [
+        "NTF-002"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-002--NTF-002"
+      ],
+      "work_packages": [
+        "WP-031"
+      ],
+      "status": "future-not-run",
+      "layers": [
+        "integration"
+      ],
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T12:00:00Z",
+        "zone": "UTC"
+      },
+      "id": "OUTBOX-RESTORE-001",
+      "requirement": "REQ-KNOW-089",
+      "description": "Restored unknown email uses its original provider key and receipt. Missing provider evidence never permits a fresh external effect.",
+      "given": {
+        "mail": {
+          "fixture_type": "mail",
+          "state": "unknown",
+          "logical_key": "original-occurence",
+          "provider_key": "original-key",
+          "first_dispatched_at": "2026-10-16T12:00:00Z"
+        },
+        "job": {
+          "fixture_type": "job",
+          "kind": "mail",
+          "state": "reconcile",
+          "claim_generation": 3
+        },
+        "evidence": {
+          "fixture_type": "provider_observation",
+          "outcome": "unresolved"
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-registered-job-runner",
+          "authority": "registered_scoped_internal_caller",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "notifications.reconcileUnknownOutcome"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          }
+        }
+      },
+      "action": {
+        "operation": "notifications.reconcileUnknownOutcome",
+        "arguments": {
+          "job_id": "job"
+        }
+      },
+      "expected": {
+        "state": {
+          "job_state": "reconcile",
+          "mail_state": "unknown",
+          "provider_key": "original-key"
+        },
+        "result": {
+          "external_sends": 0,
+          "outcome": "unknown"
+        },
+        "event": null
+      }
     }
   ]
 }
