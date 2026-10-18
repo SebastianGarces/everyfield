@@ -1595,6 +1595,10 @@
     "WP007-MUL-003": "docs/acceptance/identity-access.json",
     "WP007-MUL-016": "docs/acceptance/identity-access.json",
     "WP009-MUL-006": "docs/acceptance/people.json",
+    "WP010-IDN-012": "docs/acceptance/identity-access.json",
+    "WP010-KNOW-069": "docs/acceptance/knowledge.json",
+    "WP010-KNOW-072": "docs/acceptance/knowledge.json",
+    "WP010-KNOW-073": "docs/acceptance/knowledge.json",
     "WP011-KNOW-069": "docs/acceptance/people.json",
     "WP011-KNOW-098": "docs/acceptance/people.json",
     "WP011-KNOW-099": "docs/acceptance/people.json",
@@ -3716,7 +3720,10 @@
         "WP006-IDN-029",
         "WP007-KNOW-112",
         "WP007-MUL-003",
-        "WP007-MUL-016"
+        "WP007-MUL-016",
+        "WP010-KNOW-069",
+        "WP010-KNOW-072",
+        "WP010-KNOW-073"
       ],
       "context_case_ids": [
         "B03-001",
@@ -4560,7 +4567,11 @@
         "TARGET-IDN-029",
         "TARGET-IDN-031",
         "TARGET-IDN-032",
-        "TARGET-TSK-018"
+        "TARGET-TSK-018",
+        "WP010-IDN-012",
+        "WP010-KNOW-069",
+        "WP010-KNOW-072",
+        "WP010-KNOW-073"
       ],
       "own_operation_ids": [
         "account.cancelDeletion",
@@ -4853,7 +4864,11 @@
         "WP005-KNOW-069",
         "WP005-KNOW-072",
         "WP006-API-IDN-029",
-        "WP006-IDN-029"
+        "WP006-IDN-029",
+        "WP010-IDN-012",
+        "WP010-KNOW-069",
+        "WP010-KNOW-072",
+        "WP010-KNOW-073"
       ],
       "context_case_ids": [
         "AF-028",
@@ -9899,7 +9914,8 @@
         "SEC-06",
         "TARGET-IDN-029",
         "TEN-003",
-        "WIKI52-001"
+        "WIKI52-001",
+        "WP010-IDN-012"
       ],
       "operation_ids": [
         "church.digestSchedule.set",
@@ -26703,6 +26719,10 @@
         "WP007-MUL-003",
         "WP007-MUL-016",
         "WP009-MUL-006",
+        "WP010-IDN-012",
+        "WP010-KNOW-069",
+        "WP010-KNOW-072",
+        "WP010-KNOW-073",
         "WP011-KNOW-069",
         "WP011-KNOW-098",
         "WP011-KNOW-099",
@@ -32734,6 +32754,10 @@
         "WP007-MUL-003",
         "WP007-MUL-016",
         "WP009-MUL-006",
+        "WP010-IDN-012",
+        "WP010-KNOW-069",
+        "WP010-KNOW-072",
+        "WP010-KNOW-073",
         "WP011-KNOW-069",
         "WP011-KNOW-098",
         "WP011-KNOW-099",
