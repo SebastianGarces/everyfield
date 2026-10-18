@@ -11,6 +11,8 @@
 @import "../../../../packages/ui/src/foundations/product.css";
 /* Shared controls (WP-089): also scoped to the product root. */
 @import "../../../../packages/ui/src/controls/controls.css";
+/* Shared display components (WP-090): the light email palette, scoped to the product root. */
+@import "../../../../packages/ui/src/display/display.css";
 @source "../../../../packages/ui/src";
 
 /* Data and scripts are not Tailwind sources. */
