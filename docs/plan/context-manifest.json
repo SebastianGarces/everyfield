@@ -1583,6 +1583,9 @@
     "WP004-PPL-024": "docs/acceptance/schema.json",
     "WP005-KNOW-069": "docs/acceptance/recovery.json",
     "WP005-KNOW-072": "docs/acceptance/recovery.json",
+    "WP006-IDN-029": "docs/acceptance/identity-access.json",
+    "WP006-KNOW-116": "docs/acceptance/identity-access.json",
+    "WP006-MUL-002": "docs/acceptance/identity-access.json",
     "WR-001": "docs/acceptance/knowledge.json",
     "WR-002": "docs/acceptance/knowledge.json",
     "WR-003": "docs/acceptance/knowledge.json",
@@ -2811,7 +2814,8 @@
         "TARGET-IDN-032",
         "WP004-IDN-029",
         "WP005-KNOW-069",
-        "WP005-KNOW-072"
+        "WP005-KNOW-072",
+        "WP006-IDN-029"
       ],
       "context_case_ids": [],
       "operation_ids": [
@@ -2935,7 +2939,10 @@
         "TARGET-IDN-028",
         "TARGET-IDN-030",
         "TARGET-IDN-031",
-        "TEN-002"
+        "TEN-002",
+        "WP006-IDN-029",
+        "WP006-KNOW-116",
+        "WP006-MUL-002"
       ],
       "own_operation_ids": [
         "access.checkOperation",
@@ -3079,7 +3086,10 @@
         "TEN-004",
         "TEN-005",
         "TEN-009",
-        "WP004-IDN-029"
+        "WP004-IDN-029",
+        "WP006-IDN-029",
+        "WP006-KNOW-116",
+        "WP006-MUL-002"
       ],
       "context_case_ids": [],
       "operation_ids": [
@@ -3673,7 +3683,8 @@
         "WP004-KNOW-073",
         "WP004-KNOW-089",
         "WP005-KNOW-069",
-        "WP005-KNOW-072"
+        "WP005-KNOW-072",
+        "WP006-IDN-029"
       ],
       "context_case_ids": [
         "B03-001",
@@ -4057,7 +4068,8 @@
         "TARGET-PPL-025",
         "TEN-004",
         "TEN-005",
-        "WP004-IDN-029"
+        "WP004-IDN-029",
+        "WP006-IDN-029"
       ],
       "context_case_ids": [
         "CASE-NTF-013",
@@ -4350,7 +4362,8 @@
         "TARGET-PPL-025",
         "WP004-IDN-029",
         "WP004-KNOW-069",
-        "WP005-KNOW-069"
+        "WP005-KNOW-069",
+        "WP006-IDN-029"
       ],
       "context_case_ids": [
         "EVRY-ACCOUNT-PRIVATE-DISCOVERY"
@@ -4800,7 +4813,8 @@
         "WP004-KNOW-086",
         "WP004-KNOW-089",
         "WP005-KNOW-069",
-        "WP005-KNOW-072"
+        "WP005-KNOW-072",
+        "WP006-IDN-029"
       ],
       "context_case_ids": [
         "AF-028",
@@ -5183,7 +5197,8 @@
         "WP004-IDN-029",
         "WP004-KNOW-069",
         "WP004-PPL-024",
-        "WP005-KNOW-069"
+        "WP005-KNOW-069",
+        "WP006-IDN-029"
       ],
       "context_case_ids": [
         "INH-REGRESSION-CLARIFICATION-NAME"
@@ -6516,7 +6531,8 @@
         "TARGET-TEAM-016",
         "TEN-004",
         "TEN-005",
-        "WP004-IDN-029"
+        "WP004-IDN-029",
+        "WP006-IDN-029"
       ],
       "context_case_ids": [
         "AUTH-007",
@@ -8348,7 +8364,8 @@
         "TARGET-TSK-017",
         "TARGET-TSK-018",
         "TEN-004",
-        "WP004-IDN-029"
+        "WP004-IDN-029",
+        "WP006-IDN-029"
       ],
       "context_case_ids": [
         "AUTH-002",
@@ -16795,7 +16812,8 @@
         "SCHEMA-005",
         "SCHEMA-009",
         "TARGET-PPL-024",
-        "TEN-007"
+        "TEN-007",
+        "WP006-KNOW-116"
       ],
       "context_case_ids": [],
       "operation_ids": [
@@ -17240,7 +17258,8 @@
         "TEN-002",
         "TEN-003",
         "TEN-008",
-        "WP004-IDN-029"
+        "WP004-IDN-029",
+        "WP006-IDN-029"
       ],
       "context_case_ids": [
         "AI44-001",
@@ -26615,6 +26634,9 @@
         "WP004-PPL-024",
         "WP005-KNOW-069",
         "WP005-KNOW-072",
+        "WP006-IDN-029",
+        "WP006-KNOW-116",
+        "WP006-MUL-002",
         "WR-001",
         "WR-002",
         "WR-003",
@@ -32629,6 +32651,9 @@
         "WP004-PPL-024",
         "WP005-KNOW-069",
         "WP005-KNOW-072",
+        "WP006-IDN-029",
+        "WP006-KNOW-116",
+        "WP006-MUL-002",
         "WR-001",
         "WR-002",
         "WR-003",
@@ -44013,7 +44038,8 @@
         "ADR1-017",
         "ROLE43-013",
         "TARGET-PPL-024",
-        "TARGET-PPL-025"
+        "TARGET-PPL-025",
+        "WP006-MUL-002"
       ],
       "context_case_ids": [
         "TARGET-IDN-029"
