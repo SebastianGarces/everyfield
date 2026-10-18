@@ -21140,6 +21140,81 @@
       "coverage_notes": [
         "Boundary evidence only; no live authorization, transactional, delivery, export/removal, native/Evry or full-package proof."
       ]
+    },
+    {
+      "id": "WP009-MUL-006",
+      "requirement": "REQ-MUL-006",
+      "requirement_ids": [
+        "REQ-MUL-006"
+      ],
+      "feature_ids": [
+        "MUL-006"
+      ],
+      "acceptance_ids": [
+        "AC-MUL-006--MUL-006"
+      ],
+      "work_packages": [
+        "WP-009"
+      ],
+      "status": "future-not-run",
+      "description": "Round trip the account-confirmed ordinary plant-creation boundary. Refuse organization-authored creation, seat-transfer, commissioning, geographic attestation and client-chosen phase. Runtime one-seat, transaction and creation-event proof belongs to WP-009/api.",
+      "given": {
+        "contract": {
+          "fixture_type": "contract_boundary",
+          "module": "@everyfield/contracts/onboarding"
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T15:00:00Z",
+        "zone": "America/New_York"
+      },
+      "action": {
+        "operation": "build.inspectTargetCatalog",
+        "arguments": {
+          "contract": "residency plant-creation handoff",
+          "command": {
+            "requestKey": "confirmed-creation",
+            "expectedRevision": "0",
+            "input": {
+              "name": "  Harvest Point  ",
+              "locality": {
+                "city": "  Boston  ",
+                "stateProvince": null,
+                "country": null
+              },
+              "confirmed": true
+            }
+          }
+        }
+      },
+      "expected": {
+        "state": {},
+        "event": null,
+        "result": {
+          "name": "Harvest Point",
+          "locality": {
+            "city": "Boston",
+            "stateProvince": null,
+            "country": null
+          },
+          "confirmed": true,
+          "caller_phase_allowed": false,
+          "organization_actor_allowed": false,
+          "seat_transfer_allowed": false
+        }
+      },
+      "layers": [
+        "build",
+        "contract"
+      ],
+      "coverage_notes": [
+        "Boundary evidence only. No live authorization, one-seat race, creation journal, database or commissioning implementation claim."
+      ]
     }
   ]
 }
