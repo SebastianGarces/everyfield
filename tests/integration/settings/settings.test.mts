@@ -413,6 +413,49 @@ test("AC:TARGET-IDN-031 AC:TARGET-IDN-032 AC:TARGET-TSK-018 personal zones canon
 	denied(await db.transaction((tx) => api.previewPersonalTimezone(tx, wrong, { timeZone: "UTC" })));
 });
 
+test("INV-private-calendar: revoked seat keeps its personal preference but cannot invoke the author calendar", async () => {
+	const f = await plant();
+	const calls = { preview: 0, apply: 0 };
+	const producer = createSettingsProducer({
+		...producerDeps,
+		personalCalendar: {
+			preview: async () => {
+				calls.preview++;
+			},
+			apply: async () => {
+				calls.apply++;
+			},
+		},
+	});
+	const preview = (zone) => db.transaction((tx) => producer.previewPersonalTimezone(tx, ctx(f.a), { timeZone: zone }));
+	const apply = (p) =>
+		db.transaction((tx) =>
+			producer.setPersonalTimezone(
+				tx,
+				ctx(f.a),
+				command({ timeZone: p.newZone, previewId: p.previewId, confirmed: true }, p.expectedRevision),
+			),
+		);
+	const first = ok(await preview("America/New_York"));
+	assert.equal(ok(await apply(first)).preference.timeZone, "America/New_York");
+	assert.deepEqual(calls, { preview: 1, apply: 1 });
+	const [seat] = await admin.select().from(t.seat).where(eq(t.seat.account_id, f.a.id));
+	await admin
+		.insert(t.lifecycle_witness)
+		.values({
+			kind: "seat",
+			opaque_subject_id: seat.id,
+			seat_id: seat.id,
+			request_revision: "1",
+			state: "revoked",
+			witness_checkpoint: "1",
+			cleanup_state: "not_started",
+		});
+	const next = ok(await preview("Europe/Paris"));
+	assert.deepEqual(ok(await apply(next)).preference, { status: "confirmed", timeZone: "Europe/Paris", revision: "3" });
+	assert.deepEqual(calls, { preview: 1, apply: 1 });
+});
+
 test("AC:TARGET-IDN-011 AC:TARGET-TSK-018 church zone preview is actor/revision/source-bound and preserves existing appointment instants and task dates", async () => {
 	const f = await plant(),
 		m = await seat(f.p, "member");
