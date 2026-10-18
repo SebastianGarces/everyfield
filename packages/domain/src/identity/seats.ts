@@ -1,0 +1,384 @@
+import "server-only";
+import type { Database, Transaction } from "@everyfield/db/client";
+import { and, asc, eq, gt, isNull, notInArray, or, sql } from "@everyfield/db/query";
+import * as t from "@everyfield/db/tables";
+import { z } from "zod";
+import { sessionId, type Owner } from "@everyfield/contracts/common";
+import * as c from "@everyfield/contracts/identity";
+import { transaction } from "./budget.ts";
+import * as d from "./invitation-core.ts";
+const inWorkspace = (selected: Owner) =>
+	selected.kind === "plant" ? eq(t.seat.plant_id, selected.id) : eq(t.seat.organization_id, selected.id);
+export function createSeatService(db: Database) {
+	async function list(session: string, raw: unknown) {
+		const v = c.listSeatsRequest.parse(raw);
+		return transaction(db, async (tx) => {
+			const a = await d.currentActor(tx, sessionId.parse(session), v.workspace);
+			if (a.status !== "active" || a.context.kind !== "seat") d.refuse();
+			const rows = await tx
+					.select()
+					.from(t.seat)
+					.where(and(inWorkspace(v.workspace), v.after ? gt(t.seat.id, v.after) : undefined))
+					.orderBy(asc(t.seat.id))
+					.limit(101),
+				items = [];
+			for (const s of rows.slice(0, 100)) {
+				const info = await tx.execute(sql`SELECT * FROM seat_identity(${s.account_id}::uuid)`),
+					contact = z.object({ display_name: z.string(), created_at: z.coerce.date() }).parse(info.rows[0]);
+				const [i] = s.invitation_id
+					? await tx
+							.select()
+							.from(t.invitation)
+							.where(
+								and(
+									eq(t.invitation.id, s.invitation_id),
+									eq(t.invitation.tenant_id, v.workspace.id),
+									eq(t.invitation.state, "accepted"),
+									eq(t.invitation.accepted_account_id, s.account_id),
+								),
+							)
+					: [];
+				items.push({
+					seatId: s.id,
+					displayName: contact.display_name,
+					role: s.role,
+					revision: s.revision,
+					status: s.ended_at ? "removed" : "active",
+					isSelf: s.account_id === a.accountId,
+					joined: i?.acted_at
+						? { source: "accepted_invitation", invitationId: i.id, at: i.acted_at.toISOString() }
+						: { source: "original_account_fallback", at: contact.created_at.toISOString() },
+					allowedActions:
+						a.context.role !== "member" && s.role !== "owner" && !s.ended_at
+							? s.role === "admin"
+								? ["demote", "remove"]
+								: ["appoint_admin", "remove"]
+							: [],
+				});
+			}
+			return c.seatListResult.parse({
+				workspace: v.workspace,
+				items,
+				next: rows.length > 100 ? items.at(-1)!.seatId : null,
+				completeness: rows.length > 100 ? "partial" : "complete",
+			});
+		});
+	}
+	async function membership(session: string) {
+		return transaction(db, async (tx) => {
+			const a = await d.identity(tx, session);
+			if (a.registration_state !== "active") return c.currentMembershipResult.parse({ status: "unavailable" });
+			const seats = await tx
+				.select()
+				.from(t.seat)
+				.where(and(eq(t.seat.account_id, a.account_id), isNull(t.seat.ended_at)));
+			if (!seats.length) return c.currentMembershipResult.parse({ status: "seatless" });
+			if (seats.length !== 1) d.refuse();
+			const s = seats[0]!,
+				w = await d.workspace(tx, s.plant_id ?? s.organization_id!),
+				actor = await d.currentActor(tx, sessionId.parse(session), w.selected);
+			return c.currentMembershipResult.parse(
+				actor.status === "active"
+					? { status: "active", workspace: w.selected, seatId: s.id, role: s.role, revision: s.revision }
+					: { status: "unavailable" },
+			);
+		});
+	}
+	async function eligible(tx: Transaction, selected: Owner, account: string) {
+		const [s] = await tx
+			.select({ id: t.seat.id })
+			.from(t.seat)
+			.innerJoin(t.account, eq(t.account.id, t.seat.account_id))
+			.where(
+				and(
+					inWorkspace(selected),
+					eq(t.seat.account_id, account),
+					isNull(t.seat.ended_at),
+					eq(t.account.registration_state, "active"),
+					sql`${t.seat.accepted_at}<=clock_timestamp()`,
+				),
+			)
+			.for("share", { of: [t.seat, t.account] });
+		if (!s) return null;
+		const blocked = await tx
+			.select({ id: t.lifecycle_witness.id })
+			.from(t.lifecycle_witness)
+			.where(
+				and(
+					or(eq(t.lifecycle_witness.opaque_subject_id, account), eq(t.lifecycle_witness.seat_id, s.id)),
+					notInArray(t.lifecycle_witness.state, ["active", "cancelled"]),
+				),
+			)
+			.for("share");
+		return blocked.length ? null : s;
+	}
+	async function mutation(
+		session: string,
+		selected: Owner,
+		raw: unknown,
+		mode: "role" | "remove" | "appoint" | "demote",
+	) {
+		const v = (
+			mode === "remove"
+				? c.removeSeatRequest
+				: mode === "appoint"
+					? c.appointAdminRequest
+					: mode === "demote"
+						? c.demoteSeatRequest
+						: c.changeOrdinaryRoleRequest
+		).parse(raw);
+		return transaction(db, async (tx) => {
+			await d.lock(tx, "workspace-seats/" + selected.id);
+			const a = await d.administer(tx, session, selected),
+				cmd = await d.begin(
+					tx,
+					selected,
+					a.accountId,
+					mode === "remove"
+						? "seats.remove"
+						: mode === "appoint"
+							? "seats.appointAdmin"
+							: mode === "demote"
+								? "seats.demote"
+								: "seats.changeOrdinaryRole",
+					v,
+				);
+			if (cmd.kind === "replay") return c.seatMutationResult.parse(cmd.result);
+			const [target] = await tx
+				.select({ account_id: t.seat.account_id })
+				.from(t.seat)
+				.where(and(eq(t.seat.id, v.input.seatId), inWorkspace(selected)));
+			if (!target) d.refuse();
+			await tx.select({ id: t.account.id }).from(t.account).where(eq(t.account.id, target.account_id)).for("update");
+			const [s] = await tx
+				.select()
+				.from(t.seat)
+				.where(and(eq(t.seat.id, v.input.seatId), inWorkspace(selected)))
+				.for("update");
+			if (!s) d.refuse();
+			if (s.role === "owner") d.refuse("protected_owner");
+			if (s.ended_at) d.refuse();
+			if (s.revision !== v.expectedRevision || s.role !== v.input.expectedRole) d.refuse("conflict");
+			const changed = mode === "remove" || ("to" in v.input && s.role !== v.input.to),
+				after = changed ? d.bump(s.revision) : s.revision;
+			const duties: Array<
+					{ status: "moved"; dutyId: string; recipientAccountId: string } | { status: "needs_owner"; dutyId: string }
+				> = [],
+				events: string[] = [];
+			if (mode === "remove" && "handoffs" in v.input) {
+				const handoffs = v.input.handoffs;
+				const tasks =
+					selected.kind === "plant"
+						? await tx
+								.select()
+								.from(t.task)
+								.where(
+									and(
+										eq(t.task.plant_id, selected.id),
+										eq(t.task.assignee_id, s.account_id),
+										isNull(t.task.deleted_at),
+										notInArray(t.task.status, ["complete", "no_longer_needed"]),
+									),
+								)
+								.orderBy(asc(t.task.id))
+								.for("update")
+						: [];
+				const obligations =
+					selected.kind === "plant"
+						? await tx
+								.select()
+								.from(t.obligation)
+								.where(
+									and(
+										eq(t.obligation.plant_id, selected.id),
+										eq(t.obligation.assignee_id, s.account_id),
+										isNull(t.obligation.waived_at),
+										isNull(t.obligation.superseded_at),
+									),
+								)
+								.orderBy(asc(t.obligation.id))
+								.for("update")
+						: [];
+				// A task's linked obligation is one reviewed duty. Closed tasks keep their outcome.
+				const linkedTasks =
+					selected.kind === "plant"
+						? await tx
+								.select({ obligation_id: t.task.obligation_id })
+								.from(t.task)
+								.where(and(eq(t.task.plant_id, selected.id), sql`${t.task.obligation_id} IS NOT NULL`))
+						: [];
+				const bare = obligations.filter((o) => !linkedTasks.some((k) => k.obligation_id === o.id));
+				const pipeline =
+					selected.kind === "organization"
+						? await tx
+								.select()
+								.from(t.pipeline_person)
+								.where(
+									and(
+										eq(t.pipeline_person.organization_id, selected.id),
+										eq(t.pipeline_person.responsible_seat_id, s.id),
+									),
+								)
+								.orderBy(asc(t.pipeline_person.id))
+								.for("update")
+						: [];
+				const programs =
+					selected.kind === "organization"
+						? await tx
+								.select()
+								.from(t.development_program)
+								.where(
+									and(
+										eq(t.development_program.organization_id, selected.id),
+										eq(t.development_program.director_seat_id, s.id),
+									),
+								)
+								.orderBy(asc(t.development_program.id))
+								.for("update")
+						: [];
+				const all = [...tasks, ...bare, ...pipeline, ...programs];
+				if (
+					all.length !== handoffs.length ||
+					all.some((x) => !handoffs.some((h) => h.dutyId === x.id && h.expectedRevision === x.revision))
+				)
+					d.refuse("conflict");
+				for (const h of handoffs) {
+					let recipient: string | null = null,
+						recipientSeat: string | null = null;
+					if (h.kind === "assign") {
+						const candidate = await eligible(tx, selected, h.recipientAccountId);
+						if (!candidate || h.recipientAccountId === s.account_id) d.refuse();
+						recipient = h.recipientAccountId;
+						recipientSeat = candidate.id;
+						duties.push({ status: "moved", dutyId: h.dutyId, recipientAccountId: recipient });
+					} else duties.push({ status: "needs_owner", dutyId: h.dutyId });
+					const task = tasks.find((x) => x.id === h.dutyId),
+						obligation = bare.find((x) => x.id === h.dutyId),
+						person = pipeline.find((x) => x.id === h.dutyId),
+						program = programs.find((x) => x.id === h.dutyId);
+					if (task) {
+						await tx
+							.update(t.task)
+							.set({ assignee_id: recipient, revision: d.bump(task.revision) })
+							.where(eq(t.task.id, task.id));
+						if (task.obligation_id) {
+							const o = obligations.find((x) => x.id === task.obligation_id);
+							if (!o) d.refuse("conflict");
+							await tx
+								.update(t.obligation)
+								.set({ assignee_id: recipient, revision: d.bump(o.revision) })
+								.where(eq(t.obligation.id, o.id));
+						}
+						events.push(
+							await d.event(tx, cmd, task.id, "assign", "tasks.changed", task.revision, d.bump(task.revision)),
+						);
+					} else if (obligation) {
+						await tx
+							.update(t.obligation)
+							.set({ assignee_id: recipient, revision: d.bump(obligation.revision) })
+							.where(eq(t.obligation.id, obligation.id));
+						events.push(
+							await d.event(
+								tx,
+								cmd,
+								obligation.id,
+								"assign",
+								"tasks.changed",
+								obligation.revision,
+								d.bump(obligation.revision),
+							),
+						);
+					} else if (person) {
+						await tx
+							.update(t.pipeline_person)
+							.set({ responsible_seat_id: recipientSeat, revision: d.bump(person.revision) })
+							.where(eq(t.pipeline_person.id, person.id));
+						events.push(
+							await d.event(tx, cmd, person.id, "assign", "people.updated", person.revision, d.bump(person.revision)),
+						);
+					} else if (program) {
+						if (!recipientSeat) d.refuse("conflict");
+						await tx
+							.update(t.development_program)
+							.set({ director_seat_id: recipientSeat, revision: d.bump(program.revision) })
+							.where(eq(t.development_program.id, program.id));
+						events.push(
+							await d.event(tx, cmd, program.id, "assign", "roles.changed", program.revision, d.bump(program.revision)),
+						);
+					}
+				}
+				if (selected.kind === "plant") {
+					const persons = await tx
+						.select({ id: t.person.id })
+						.from(t.person)
+						.where(and(eq(t.person.plant_id, selected.id), eq(t.person.linked_account_id, s.account_id)))
+						.orderBy(asc(t.person.id))
+						.for("update");
+					for (const p of persons) {
+						const teams = await tx
+							.select()
+							.from(t.team)
+							.where(and(eq(t.team.plant_id, selected.id), eq(t.team.leader_person_id, p.id)))
+							.orderBy(asc(t.team.id))
+							.for("update");
+						for (const team of teams) {
+							await tx
+								.update(t.team)
+								.set({
+									leader_person_id: null,
+									leader_source: null,
+									leader_role_id: null,
+									revision: d.bump(team.revision),
+								})
+								.where(eq(t.team.id, team.id));
+							events.push(
+								await d.event(tx, cmd, team.id, "leader_change", "teams.changed", team.revision, d.bump(team.revision)),
+							);
+						}
+					}
+				}
+				await tx
+					.update(t.seat)
+					.set({ ended_at: sql`clock_timestamp()`, revision: after })
+					.where(eq(t.seat.id, s.id));
+				await tx.execute(sql`SELECT revoke_removed_seat_sessions(${s.account_id}::uuid)`);
+			} else if ("to" in v.input && changed)
+				await tx.update(t.seat).set({ role: v.input.to, revision: after }).where(eq(t.seat.id, s.id));
+			if (changed)
+				events.push(
+					await d.event(
+						tx,
+						cmd,
+						s.id,
+						mode === "remove" ? "remove" : "role_change",
+						mode === "remove" ? "membership.ended" : "membership.role_changed",
+						s.revision,
+						after,
+					),
+				);
+			return d.finish(
+				tx,
+				cmd,
+				(r) =>
+					c.seatMutationResult.parse({
+						seatId: s.id,
+						revision: after,
+						outcome: changed ? "changed" : "noop",
+						duties,
+						receipt: r,
+					}),
+				events,
+				[],
+				changed,
+			);
+		});
+	}
+	return {
+		list,
+		readCurrentMembership: membership,
+		changeOrdinaryRole: (s: string, o: Owner, v: unknown) => mutation(s, o, v, "role"),
+		appointAdmin: (s: string, o: Owner, v: unknown) => mutation(s, o, v, "appoint"),
+		demote: (s: string, o: Owner, v: unknown) => mutation(s, o, v, "demote"),
+		remove: (s: string, o: Owner, v: unknown) => mutation(s, o, v, "remove"),
+	};
+}

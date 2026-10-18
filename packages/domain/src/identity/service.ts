@@ -21,6 +21,8 @@ import {
 	invalidSessionReturn,
 	registrationOptions,
 } from "@everyfield/contracts/identity";
+import type { createInvitationService } from "./invitations.ts";
+import { InvitationRefusal } from "./invitation-core.ts";
 import { identityAuth } from "./auth.ts";
 import { attemptBudget, IdentityRefusal, transaction } from "./budget.ts";
 
@@ -43,6 +45,7 @@ export type IdentityConfig = {
 	trustedIp: (request: Request) => string | null;
 	enqueueMail: (tx: Transaction, mail: IdentityMail) => Promise<string>;
 	diagnostic: (value: { correlationId: string; outcome: "unknown" | "reporting_pending" | "delivery_failed" }) => void;
+	invitations?: ReturnType<typeof createInvitationService>;
 	registrationMode?: "open" | "invitation_only" | "closed";
 };
 const userRow = z.object({
@@ -205,14 +208,29 @@ export function createIdentityService(config: IdentityConfig) {
 			if (!(request.method === "GET" ? gets : request.method === "POST" ? posts : []).includes(path))
 				return json({ code: "unavailable" }, 404);
 			if (request.method === "GET") {
-				if (path === "registration-options")
+				if (path === "registration-options") {
+					const proof = url.searchParams.get("invitationProof");
+					const invitation = proof && config.invitations ? await config.invitations.describe({ proof }) : null;
+					const subject = invitation?.status === "pending" ? invitation.subject : null;
+					const kind =
+						subject?.purpose === "seat"
+							? subject.workspace.kind === "plant"
+								? "plant_precreation"
+								: subject.workspace.organizationKind === "sending_network"
+									? "sending_network"
+									: "sending_church"
+							: "discovery";
 					return json(
 						registrationOptions.parse({
 							mode: config.registrationMode ?? "open",
 							kinds: ["plant_precreation", "discovery", "sending_church", "sending_network"],
-							invitation: { status: "unavailable" },
+							invitation:
+								invitation?.status === "pending"
+									? { status: "invitation", kind, organizationName: invitation.workspaceName }
+									: { status: "unavailable" },
 						}),
 					);
+				}
 				if (path === "recover-invalid-session")
 					return json({ next: invalidSessionReturn(url.searchParams.get("returnTo")) });
 				const s = await session(request);
@@ -233,12 +251,36 @@ export function createIdentityService(config: IdentityConfig) {
 			const input = await boundedBody(request);
 			if (path === "register") {
 				const v = registrationRequest.parse(input);
-				if ((config.registrationMode ?? "open") !== "open" || v.kind === "invitation")
+				const invitation =
+					v.kind === "invitation" && config.invitations
+						? await config.invitations.describe({ proof: v.invitationProof })
+						: null;
+				if (
+					v.kind === "invitation" &&
+					(invitation?.status !== "pending" ||
+						!(await config.invitations?.registrationEligible(v.invitationProof, v.email)))
+				)
 					return json({ status: "continue_identity_proof" });
-				const kind = v.kind === "plant_precreation" ? "planter" : v.kind === "sending_network" ? "network" : v.kind;
+				if ((config.registrationMode ?? "open") !== "open" && invitation?.status !== "pending")
+					return json({ status: "continue_identity_proof" });
+				const kind =
+					v.kind === "invitation"
+						? invitation?.status === "pending" && invitation.subject.purpose === "seat"
+							? invitation.subject.workspace.kind === "plant"
+								? "planter"
+								: invitation.subject.workspace.organizationKind === "sending_network"
+									? "network"
+									: "sending_church"
+							: "discovery"
+						: v.kind === "plant_precreation"
+							? "planter"
+							: v.kind === "sending_network"
+								? "network"
+								: v.kind;
 				const intent = digest(
 					JSON.stringify({
 						kind: v.kind,
+						...(v.kind === "invitation" ? { invitationDigest: digest(v.invitationProof) } : {}),
 						name: v.name,
 						...("organizationName" in v ? { organizationName: v.organizationName } : {}),
 					}),
@@ -415,13 +457,18 @@ export function createIdentityService(config: IdentityConfig) {
 				return cookies(json({ status: "other_sessions_revoked" }), s.response);
 			}
 			const v = resumeRegistrationRequest.parse(input);
-			// WP-008/009 supply invitation/tenant acceptance. This adapter resumes self only.
-			if (v.invitationProof) throw new IdentityRefusal("unavailable", 503);
+			// The producer rechecks the exact native identity, mailbox and source in its transaction.
+			if (v.invitationProof) {
+				if (!config.invitations) throw new IdentityRefusal("unavailable", 503);
+				const accepted = await config.invitations.resume(s.value.sessionId, v.invitationProof, v.requestKey);
+				return cookies(json(accepted), s.response);
+			}
 			return cookies(
 				json(registrationStatus.parse({ status: s.value.status, accountId: s.value.accountId })),
 				s.response,
 			);
 		} catch (error) {
+			if (error instanceof InvitationRefusal) return json(error.value, 400);
 			const refusal =
 				error instanceof IdentityRefusal
 					? error
