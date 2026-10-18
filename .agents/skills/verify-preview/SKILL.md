@@ -97,7 +97,30 @@ node $S/publish.mjs "$E" --task <task>
 It writes `index.html` (before and after side by side, videos, checks, all files) and uploads the
 folder to the `everyfield-evidence` Tigris bucket under a random 128-bit prefix. Objects are
 public-read and the bucket refuses listing, so only the link opens them. It prints the index link.
-Read the probe log before you publish: it must not contain a credential.
+Use the PR task ID as `<task>`, for example `OPS-W3` or `WP-012`, so its evidence can be deleted
+together.
+
+Everything you publish is public to anyone with the link. Upload only synthetic data or data from
+the shared development database. Never upload:
+
+- credentials, tokens, API keys, cookies or connection strings;
+- real personal data (names, emails or messages of real people);
+- anything read from the production database or production services.
+
+Before you publish, open every screenshot and video and read every log and JSON file in `$E`.
+Remove or redact anything in the list above, then capture again if a screenshot shows it.
+`publish.mjs` refuses a text file that contains a value from the local env files or a connection
+string with a password. It cannot read images or video, so the visual check is yours.
+
+To delete evidence, run from any checkout of this repo:
+
+```bash
+node $S/publish.mjs --delete <task>             # every upload for that task
+node $S/publish.mjs --delete <task>/<prefix>    # one upload, the 32-hex part of its link
+```
+
+Keys have the layout `evf-evidence/<task>/<prefix>/<file>`, so the link shows both parts. The
+command prints how many objects it deleted. Old links then return 404.
 
 ## 6. Report
 
