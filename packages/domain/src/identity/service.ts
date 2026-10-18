@@ -1,21 +1,22 @@
+import * as tables from "@everyfield/db/tables";
+import { and, eq, gt, sql } from "@everyfield/db/query";
 import 'server-only';
 import { createHash, randomUUID } from 'node:crypto';
 import { isIP } from 'node:net';
-import type { Pool, PoolClient } from 'pg';
+import type { Database, Transaction } from "@everyfield/db/client";
 import { verifyPassword } from 'better-auth/crypto';
 import { z } from 'zod';
-import { registrationRequest, registrationStatus, sessionResult, signInRequest, passwordRecoveryRequest, recoverPasswordRequest,
-  identityError, verifyEmailRequest, selfSessionRequest, resumeRegistrationRequest, safeReturn, invalidSessionReturn, registrationOptions } from '@everyfield/contracts/identity';
+import { registrationRequest, registrationStatus, sessionResult, signInRequest, passwordRecoveryRequest, recoverPasswordRequest, identityError, verifyEmailRequest, selfSessionRequest, resumeRegistrationRequest, safeReturn, invalidSessionReturn, registrationOptions } from '@everyfield/contracts/identity';
 import { identityAuth } from './auth.ts';
 import { attemptBudget, IdentityRefusal, transaction } from './budget.ts';
 
 export type IdentityMail = { accountId: string; address: string; purpose: 'password_reset' | 'email_verification'; logicalKey: string; subject: string; text: string };
 export type IdentityConfig = {
-  db: Pool; authDb: Pool; admissionDb: Pool; origin: string; secret: string;
+  db: Database; authDb: Database; admissionDb: Database; origin: string; secret: string;
   scheduleDelivery: (work: () => Promise<void>) => void;
   // The host adapter must overwrite ingress headers. Null means no trustworthy IP.
   trustedIp: (request: Request) => string | null;
-  enqueueMail: (tx: PoolClient, mail: IdentityMail) => Promise<string>;
+  enqueueMail: (tx: Transaction, mail: IdentityMail) => Promise<string>;
   diagnostic: (value: { correlationId: string; outcome: 'unknown' | 'reporting_pending' | 'delivery_failed' }) => void;
   registrationMode?: 'open' | 'invitation_only' | 'closed';
 };
@@ -31,18 +32,17 @@ export function createIdentityService(config: IdentityConfig) {
   const auth = identityAuth({ db: config.authDb, origin, secret: config.secret, deliver });
 
   async function account(authUser: string) {
-    const rows = await config.db.query('SELECT * FROM account WHERE auth_user_id=$1', [authUser]);
-    if (!rows.rowCount) return null;
-    const a = userRow.parse(rows.rows[0]);
-    const blocked = await config.db.query(`SELECT id FROM lifecycle_witness WHERE opaque_subject_id=$1 AND state IN ('pending_deletion','purging','purged','revoked')`, [a.id]);
-    return blocked.rowCount ? null : a;
+    const rows = await config.db.select().from(tables.account).where(eq(tables.account.auth_user_id, authUser));
+    if (!rows.length) return null;
+    const a = userRow.parse(rows[0]);
+    const blocked = await config.db.select({ "id": tables.lifecycle_witness.id }).from(tables.lifecycle_witness).where(and(eq(tables.lifecycle_witness.opaque_subject_id, a.id), sql<boolean>`(${tables.lifecycle_witness.state} IN ('pending_deletion', 'purging', 'purged', 'revoked'))`));
+    return blocked.length ? null : a;
   }
-  async function pending(authUser: string, kind: string, intent: string | null) {
+  async function pending(authUser: string, kind: typeof tables.account.$inferInsert["registration_kind"], intent: string | null) {
     return transaction(config.db, async tx => {
-      await tx.query(`INSERT INTO account(auth_user_id,registration_state,registration_kind,registration_digest)
-        VALUES($1,'pending_domain',$2,$3) ON CONFLICT(auth_user_id) DO NOTHING`, [authUser, kind, intent]);
-      const row = await tx.query('SELECT * FROM account WHERE auth_user_id=$1', [authUser]);
-      return userRow.parse(row.rows[0]);
+      await tx.insert(tables.account).values({ "auth_user_id": authUser, "registration_state": "pending_domain", "registration_kind": kind, "registration_digest": intent }).onConflictDoNothing({ target: [tables.account.auth_user_id] });
+      const row = await tx.select().from(tables.account).where(eq(tables.account.auth_user_id, authUser));
+      return userRow.parse(row[0]);
     });
   }
   async function deliver(user: { id: string; email: string }, purpose: IdentityMail['purpose'], token: string) {
@@ -129,8 +129,8 @@ export function createIdentityService(config: IdentityConfig) {
         // No caller credential, email equality, synthetic BA ID or returned cookie grants domain access.
         // Querying this credential is safe only to create a pending, unprivileged app row.
         if (result.ok) {
-          const row = await config.authDb.query('SELECT id FROM auth_user WHERE email=$1', [v.email]);
-          if (row.rows[0]) { try { await pending(z.uuid().parse(row.rows[0].id), kind, intent); } catch { config.diagnostic({ correlationId, outcome: 'reporting_pending' }); } }
+          const row = await config.authDb.select({ "id": tables.auth_user.id }).from(tables.auth_user).where(eq(tables.auth_user.email, v.email));
+          if (row[0]) { try { await pending(z.uuid().parse(row[0].id), kind, intent); } catch { config.diagnostic({ correlationId, outcome: 'reporting_pending' }); } }
         } else config.diagnostic({ correlationId, outcome: 'unknown' });
         if (registration) await budget.finish(registration, true);
         return json({ status: 'continue_identity_proof' });
@@ -143,10 +143,10 @@ export function createIdentityService(config: IdentityConfig) {
         const resultBody = z.object({ user: z.object({ id: z.uuid() }) }).parse(await result.json());
         // Repairs interruption after credential creation. Authentication is the proof; no grants are created.
         if (!await account(resultBody.user.id)) {
-          const exists = await config.db.query('SELECT id FROM account WHERE auth_user_id=$1', [resultBody.user.id]);
-          if (exists.rowCount) throw new IdentityRefusal('unauthenticated', 401);
-          const native = await config.authDb.query('SELECT email,created_at FROM auth_user WHERE id=$1', [resultBody.user.id]);
-          const u = z.object({email:z.email(),created_at:z.date()}).parse(native.rows[0]);
+          const exists = await config.db.select({ "id": tables.account.id }).from(tables.account).where(eq(tables.account.auth_user_id, resultBody.user.id));
+          if (exists.length) throw new IdentityRefusal('unauthenticated', 401);
+          const native = await config.authDb.select({ "email": tables.auth_user.email, "created_at": tables.auth_user.created_at }).from(tables.auth_user).where(eq(tables.auth_user.id, resultBody.user.id));
+          const u = z.object({email:z.email(),created_at:z.date()}).parse(native[0]);
           const saved = await budget.registrationIntent(u.email,u.created_at);
           // Expired throttle records must not destroy a valid identity. A fresh native self registration supplies its intent again.
           if (!saved) return cookies(json({ status: 'signed_in', returnTo: safeReturn(v.returnTo) }), result);
@@ -174,12 +174,12 @@ export function createIdentityService(config: IdentityConfig) {
       }
       if (path === 'reset-password') {
         const v = recoverPasswordRequest.parse(input);
-        const proof = await config.authDb.query(`SELECT value FROM auth_verification WHERE identifier=$1 AND expires_at>clock_timestamp()`, [`reset-password:${v.proof}`]);
-        if (!proof.rowCount) throw new IdentityRefusal('invalid_proof', 400);
-        const authUser = z.uuid().parse(proof.rows[0].value), a = await account(authUser);
+        const proof = await config.authDb.select({ "value": tables.auth_verification.value }).from(tables.auth_verification).where(and(eq(tables.auth_verification.identifier, `reset-password:${v.proof}`), gt(tables.auth_verification.expires_at, sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)))));
+        if (!proof.length) throw new IdentityRefusal('invalid_proof', 400);
+        const authUser = z.uuid().parse(proof[0]!.value), a = await account(authUser);
         if (!a) throw new IdentityRefusal('invalid_proof', 400);
-        const credential = await config.authDb.query("SELECT password_hash FROM auth_account WHERE user_id=$1 AND provider_id='credential'", [authUser]);
-        const hash = z.string().parse(credential.rows[0]?.password_hash);
+        const credential = await config.authDb.select({ "password_hash": tables.auth_account.password_hash }).from(tables.auth_account).where(and(eq(tables.auth_account.user_id, authUser), eq(tables.auth_account.provider_id, "credential")));
+        const hash = z.string().parse(credential[0]?.password_hash);
         if (await verifyPassword({ hash, password: v.newPassword })) throw new IdentityRefusal('invalid_input', 422);
         // A durable content-free attempt survives a failure to append the later outcome.
         await event(a.id, correlationId, 'identity.credential_observed');
@@ -191,10 +191,10 @@ export function createIdentityService(config: IdentityConfig) {
           throw new IdentityRefusal('invalid_proof', 400);
         }
         try {
-          const user = await config.authDb.query('SELECT email FROM auth_user WHERE id=$1', [authUser]);
+          const user = await config.authDb.select({ "email": tables.auth_user.email }).from(tables.auth_user).where(eq(tables.auth_user.id, authUser));
           await transaction(config.db, async tx => {
             await event(a.id, `${correlationId}/success`, 'identity.credential_changed', tx);
-            await config.enqueueMail(tx, { accountId: a.id, address: z.email().parse(user.rows[0]?.email), purpose: 'password_reset',
+            await config.enqueueMail(tx, { accountId: a.id, address: z.email().parse(user[0]?.email), purpose: 'password_reset',
               logicalKey: `password_reset/outcome/${correlationId}`, subject: 'Your password was reset', text: 'Your EveryField password was reset. Sign in with your new password. If this was not you, request password recovery.' });
           });
         } catch { config.diagnostic({ correlationId, outcome: 'reporting_pending' }); }
@@ -230,10 +230,9 @@ export function createIdentityService(config: IdentityConfig) {
       return json(identityError.parse({ code, details: code === 'rate_limited' ? { retryAt: new Date(Date.now()+3600_000).toISOString() } : {}, correlationId, retry: code === 'rate_limited' || code === 'admission_unavailable' ? 'same_request' : 'never' }), refusal.status);
     }
   }
-  async function event(id: string, key: string, action: 'identity.credential_observed' | 'identity.credential_changed', tx?: PoolClient) {
-    const result = await (tx ?? config.db).query(`INSERT INTO event(tenant_id,target_record_id,actor_id,kind,occurred_at,recorded_at,event_key,action)
-      VALUES($1,$1,$1,'outcome',clock_timestamp(),clock_timestamp(),$2,$3) RETURNING id`, [id, key, action]);
-    return z.uuid().parse(result.rows[0]?.id);
+  async function event(id: string, key: string, action: 'identity.credential_observed' | 'identity.credential_changed', tx?: Transaction) {
+    const result = await (tx ?? config.db).insert(tables.event).values({ "tenant_id": id, "target_record_id": id, "actor_id": id, "kind": "outcome", "occurred_at": sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)), "recorded_at": sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)), "event_key": key, "action": action }).returning({ "id": tables.event.id });
+    return z.uuid().parse(result[0]?.id);
   }
   return { handle };
 }

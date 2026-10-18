@@ -1,3 +1,4 @@
+import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 // Run explicitly with test:identity:production. Owns one managed production preview.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -20,8 +21,8 @@ test('AC:WP005-API-RESET existing and missing reset/verification requests share 
   const results:unknown[]=[];
   try {
     f=await fixture();await register(f,'production-timing@example.test');
-    await f.db.query(`CREATE FUNCTION slow_identity_mail() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(1.5);RETURN NEW;END $$`);
-    await f.db.query('CREATE TRIGGER slow_identity_mail BEFORE INSERT ON mail FOR EACH ROW EXECUTE FUNCTION slow_identity_mail()');
+    await f.db.execute(querySql`CREATE FUNCTION slow_identity_mail() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(1.5);RETURN NEW;END $$`);
+    await f.db.execute(querySql`CREATE TRIGGER slow_identity_mail BEFORE INSERT ON mail FOR EACH ROW EXECUTE FUNCTION slow_identity_mail()`);
     const settings=join(privateDir,'settings.json');
     await writeFile(settings,JSON.stringify(f.previewSettings),{mode:0o600});
     const setup=join(privateDir,'setup.mjs');
@@ -42,8 +43,8 @@ writeFileSync('apps/web/.env.local',Object.entries({...settings,IDENTITY_ORIGIN:
     for(const path of ['request-password-reset','send-verification-email']){
       const rows:Array<{existing:number;missing:number}>=[];
       for(let i=0;i<22;i++){
-        await f.db.query("DELETE FROM admission_attempt WHERE kind='reset'");
-        const before=(await f.db.query('SELECT count(*)::int n FROM mail')).rows[0].n;
+        await f.db.execute(querySql`DELETE FROM admission_attempt WHERE kind='reset'`);
+        const before=(await f.db.execute(querySql`SELECT count(*)::int n FROM mail`)).rows[0].n;
         const row={existing:0,missing:0};
         for(const kind of (i%2?['missing','existing']:['existing','missing']) as Array<'existing'|'missing'>){
           const start=performance.now();
@@ -54,11 +55,11 @@ writeFileSync('apps/web/.env.local',Object.entries({...settings,IDENTITY_ORIGIN:
         // Observe completion outside the measured response. This proves the slow
         // known-address work executed, without measuring its duration as admission.
         const deadline=performance.now()+15000;
-        while((await f.db.query('SELECT count(*)::int n FROM mail')).rows[0].n===before){
+        while((await f.db.execute(querySql`SELECT count(*)::int n FROM mail`)).rows[0].n===before){
           assert.ok(performance.now()<deadline,'post-response proof mail must reach the real outbox');
           await new Promise(r=>setTimeout(r,50));
         }
-        assert.equal((await f.db.query('SELECT count(*)::int n FROM mail')).rows[0].n,before+1);
+        assert.equal((await f.db.execute(querySql`SELECT count(*)::int n FROM mail`)).rows[0].n,before+1);
         if(i>=2)rows.push(row); // Discard two cold-start/warmup pairs for each route.
       }
       const existing=rows.map(r=>r.existing),missing=rows.map(r=>r.missing);

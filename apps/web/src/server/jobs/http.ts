@@ -1,14 +1,16 @@
+import { and, eq } from "@everyfield/db/query";
+import * as tables from "@everyfield/db/tables";
 import 'server-only';
-import type {Pool,PoolClient} from 'pg';
-import {z} from 'zod';
-import {boundedBytes,safeBoundary,safeResponse,secretMatches} from '../platform/boundary.ts';
-import {transaction} from '../platform/database.ts';
-import {claimDue,finishClaim,lockClaim,recoverLease,jobKind,type Claim,type JobKind,type JobResult} from './queue.ts';
+import type { Database, Transaction } from "@everyfield/db/client";
+import { z } from 'zod';
+import { boundedBytes, safeBoundary, safeResponse, secretMatches } from '../platform/boundary.ts';
+import { transaction } from '../platform/database.ts';
+import { claimDue, finishClaim, lockClaim, recoverLease, jobKind, type Claim, type JobKind, type JobResult } from './queue.ts';
 export type HandlerResult=JobResult|{state:'recorded'};
 export type Handler=(claim:Claim,signal:AbortSignal)=>Promise<HandlerResult>;
 // WP-050 mounts this adapter in the same app. Request input cannot pick kinds or subjects.
-export function executorHandler(config:{db:Pool;secret:string;handlers:Partial<Record<JobKind,Handler>>;
-  publish:(tx:PoolClient,claim:Claim)=>Promise<boolean>;limit?:number;kindBudgets?:Partial<Record<JobKind,number>>}) {
+export function executorHandler(config:{db:Database;secret:string;handlers:Partial<Record<JobKind,Handler>>;
+  publish:(tx:Transaction,claim:Claim)=>Promise<boolean>;limit?:number;kindBudgets?:Partial<Record<JobKind,number>>}) {
   const kinds=z.array(jobKind).min(1).max(10).parse(Object.keys(config.handlers));
   const limit=z.number().int().min(1).max(20).parse(config.limit??5);
   return (request:Request)=>safeBoundary(async()=>{
@@ -32,8 +34,8 @@ export function executorHandler(config:{db:Pool;secret:string;handlers:Partial<R
         try{outcome=await Promise.race([handler(claim,signal),deadline]);}finally{signal.removeEventListener('abort',onAbort);}
       }catch{outcome={state:'reconcile',code:'handler_unknown'};}
       if(outcome.state==='recorded'){
-        const current=await config.db.query("SELECT state FROM job WHERE id=$1 AND claim_generation=$2",[claim.id,claim.claim_generation]);
-        if(current.rows[0]&&current.rows[0].state!=='claimed')processed++;
+        const current=await config.db.select({ "state": tables.job.state }).from(tables.job).where(and(eq(tables.job.id, claim.id), eq(tables.job.claim_generation, claim.claim_generation)));
+        if(current[0]&&current[0].state!=='claimed')processed++;
         continue;
       }
       const result=outcome;

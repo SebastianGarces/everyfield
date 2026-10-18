@@ -1,3 +1,5 @@
+import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { randomUUID, randomBytes, createHmac } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { createServer } from 'node:http';
@@ -7,34 +9,34 @@ import { createIdentityService } from '../../../packages/domain/src/identity/ind
 import { createMailService } from '../../../apps/web/src/server/jobs/mail.ts';
 import { claimDue } from '../../../apps/web/src/server/jobs/queue.ts';
 const require = createRequire(new URL('../../../apps/web/package.json', import.meta.url));
-const { Pool } = require('pg');
+
 export async function fixture() {
   const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? 'about:blank');
   if (source.hostname !== 'ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech' || process.env.NODE_ENV === 'production') throw Error('Approved shared development database required');
   source.searchParams.set('sslmode', 'verify-full');
   const schema = 'wp005_' + randomUUID().replaceAll('-', ''), role = 'wp005_' + randomBytes(8).toString('hex'), password = randomBytes(32).toString('hex');
-  const db = new Pool({ connectionString: source.href, max: 8, options: `-c search_path=${schema},pg_catalog,pg_temp` });
-  await db.query(`CREATE SCHEMA ${schema}`); await migrate(db, schema);
-  await db.query(`CREATE ROLE ${role} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`);
-  await db.query(`GRANT everyfield_runtime,everyfield_auth TO ${role}`);
+  const db = createDatabase({ connectionString: source.href, max: 8, options: `-c search_path=${schema},pg_catalog,pg_temp` });
+  await db.execute(querySql.raw(`CREATE SCHEMA ${schema}`)); await migrate(db, schema);
+  await db.execute(querySql.raw(`CREATE ROLE ${role} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`));
+  await db.execute(querySql.raw(`GRANT everyfield_runtime,everyfield_auth TO ${role}`));
   const authRole=role+'_auth';
-  await db.query(`CREATE ROLE ${authRole} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`);
-  await db.query(`REVOKE everyfield_auth FROM ${role}`);
-  await db.query(`GRANT everyfield_auth TO ${authRole}`);
+  await db.execute(querySql.raw(`CREATE ROLE ${authRole} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`));
+  await db.execute(querySql.raw(`REVOKE everyfield_auth FROM ${role}`));
+  await db.execute(querySql.raw(`GRANT everyfield_auth TO ${authRole}`));
   const runtimeUrl = new URL(source); runtimeUrl.username = role; runtimeUrl.password = password;
-  const runtime = new Pool({ connectionString: runtimeUrl.href, max: 8, options: `-c search_path=${schema},pg_catalog,pg_temp` });
+  const runtime = createDatabase({ connectionString: runtimeUrl.href, max: 8, options: `-c search_path=${schema},pg_catalog,pg_temp` });
   const authUrl=new URL(runtimeUrl);authUrl.username=authRole;
-  const authDb = new Pool({ connectionString: authUrl.href, max: 8, options: `-c search_path=${schema},pg_catalog,pg_temp` });
-  const admissionDb=new Pool({connectionString:runtimeUrl.href,max:3,options:`-c search_path=${schema},pg_catalog,pg_temp`});
+  const authDb = createDatabase({ connectionString: authUrl.href, max: 8, options: `-c search_path=${schema},pg_catalog,pg_temp` });
+  const admissionDb=createDatabase({connectionString:runtimeUrl.href,max:3,options:`-c search_path=${schema},pg_catalog,pg_temp`});
   const deliveryRequests:Array<()=>Promise<void>>=[];
   const effects: Array<{ to: string; text: string; key: string }> = [], diagnostics: unknown[] = [];
   let mailFault = false, ip: string | null = '127.0.0.1', providerFault = false;
   const addressKey = randomBytes(32), encryptionKey=randomBytes(32), secret=randomBytes(32).toString('hex');
   const mail = createMailService({ db: runtime, encryptionKey, addressKey, from: 'security@example.test',
     authorize: async (tx, m) => {
-      const a=await tx.query('SELECT auth_user_id FROM account WHERE id=$1',[m.tenant]);
+      const a=await tx.execute(querySql`SELECT auth_user_id FROM account WHERE id=${m.tenant}`);
       if (!a.rowCount) return false;
-      const row=await authDb.query('SELECT email FROM auth_user WHERE id=$1',[a.rows[0].auth_user_id]);
+      const row=await authDb.execute(querySql`SELECT email FROM auth_user WHERE id=${a.rows[0].auth_user_id}`);
       return m.recipient === m.tenant && ['password_reset','email_verification'].includes(m.purpose) && row.rows[0] &&
         m.addressHash === createHmac('sha256',addressKey).update(row.rows[0].email).digest('hex');
     },
@@ -61,7 +63,7 @@ export async function fixture() {
   const req = (path: string, body?: unknown, cookie?: string, extra: Record<string,string>={}) => fetch(origin+'/api/auth/'+path,{method:body===undefined?'GET':'POST',headers:{origin,'content-type':'application/json',...(cookie?{cookie}:{}),...extra},...(body===undefined?{}:{body:JSON.stringify(body)})});
   async function runDeliveryRequests() { while(deliveryRequests.length)await deliveryRequests.shift()?.(); }
   async function dispatch() { await runDeliveryRequests();const claims = await claimDue(runtime, ['mail'], 25); for(const claim of claims)await mail.dispatch(claim); }
-  async function close() { server.closeAllConnections(); await new Promise<void>(r=>server.close(()=>r()));await runtime.end();await authDb.end();await admissionDb.end();await db.query(`DROP SCHEMA ${schema} CASCADE`);await db.query(`DROP ROLE ${role}`);await db.query(`DROP ROLE ${authRole}`);await db.end(); }
+  async function close() { server.closeAllConnections(); await new Promise<void>(r=>server.close(()=>r()));await closeDatabase(runtime);await closeDatabase(authDb);await closeDatabase(admissionDb);await db.execute(querySql.raw(`DROP SCHEMA ${schema} CASCADE`));await db.execute(querySql.raw(`DROP ROLE ${role}`));await db.execute(querySql.raw(`DROP ROLE ${authRole}`));await closeDatabase(db); }
   const runtimeSettingsUrl=new URL(runtimeUrl),authSettingsUrl=new URL(authUrl);
   for(const url of [runtimeSettingsUrl,authSettingsUrl])url.searchParams.set('options',`-c search_path=${schema},pg_catalog,pg_temp`);
   const previewSettings={IDENTITY_DATABASE_URL:runtimeSettingsUrl.href,IDENTITY_AUTH_DATABASE_URL:authSettingsUrl.href,IDENTITY_SECRET:secret,IDENTITY_MAIL_KEY:encryptionKey.toString('hex'),IDENTITY_ADDRESS_KEY:addressKey.toString('hex'),IDENTITY_MAIL_FROM:'security@example.test'};

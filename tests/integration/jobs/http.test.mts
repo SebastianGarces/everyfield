@@ -1,3 +1,4 @@
+import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test,{before,after} from 'node:test';
 import assert from 'node:assert/strict';
 import {transaction} from '../../../apps/web/src/server/platform/database.ts';
@@ -16,5 +17,5 @@ test('INV-executor: missing or wrong credentials and arbitrary job parameters ca
  assert.equal((await handler(request('s'.repeat(40),JSON.stringify({kind:'lifecycle_purge'})))).status,413);
  assert.equal(calls,0);
  const response=await handler(request('s'.repeat(40)));assert.equal(response.status,200);assert.deepEqual(await response.json(),{processed:2});assert.equal(calls,2);
- assert.equal((await db.query("SELECT count(*)::int n FROM job WHERE state='ready'")).rows[0].n,1);
+ assert.equal((await db.execute(querySql`SELECT count(*)::int n FROM job WHERE state='ready'`)).rows[0].n,1);
 });

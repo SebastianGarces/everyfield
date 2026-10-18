@@ -1,6 +1,8 @@
+import { and, asc, eq, isNull, or, sql } from "@everyfield/db/query";
+import * as tables from "@everyfield/db/tables";
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import type { Pool, PoolClient } from 'pg';
+import type { Database, Transaction } from "@everyfield/db/client";
 import { z } from 'zod';
 import { transaction } from '../platform/database.ts';
 
@@ -21,108 +23,96 @@ const enqueueSchema = z.strictObject({ tenant: z.uuid(), kind: jobKind, subject:
 export type JobInput = z.input<typeof enqueueSchema>;
 
 // Called on the producer's existing transaction, alongside its facts and receipt.
-export async function enqueueJob(tx: PoolClient, input: JobInput): Promise<string> {
+export async function enqueueJob(tx: Transaction, input: JobInput): Promise<string> {
   const v = enqueueSchema.parse(input);
-  const result = await tx.query<{ id: string }>(`INSERT INTO job(tenant_id,kind,subject_record_id,producer_key,
-    source_revision,state,eligible_at,attempt_count,max_attempts,claim_generation)
-    VALUES($1,$2,$3,$4,$5,'ready',$6,0,$7,0) ON CONFLICT DO NOTHING RETURNING id`,
-  [v.tenant, v.kind, v.subject, v.key, v.revision, v.eligibleAt, v.maxAttempts]);
-  if (result.rows[0]) return result.rows[0].id;
-  const old = await tx.query<{ id: string; tenant_id: string; source_revision: string | null }>(
-    `SELECT id,tenant_id,source_revision::text FROM job WHERE kind=$1 AND producer_key=$2
-    AND ((subject_record_id=$3 AND tenant_id=$4) OR (subject_record_id IS NULL AND $3::uuid IS NULL AND tenant_id=$4))`,
-  [v.kind, v.key, v.subject, v.tenant]);
-  const row = old.rows[0];
+  const result = await tx.insert(tables.job).values({ "tenant_id": v.tenant, "kind": v.kind, "subject_record_id": v.subject, "producer_key": v.key, "source_revision": sql`${v.revision}`, "state": "ready", "eligible_at": sql`${v.eligibleAt}`, "attempt_count": 0, "max_attempts": v.maxAttempts, "claim_generation": "0" }).onConflictDoNothing().returning({ "id": tables.job.id });
+  if (result[0]) return result[0].id;
+  const old = await tx.select({ "id": tables.job.id, "tenant_id": tables.job.tenant_id, "source_revision": sql<string>`(${tables.job.source_revision})::text` }).from(tables.job).where(and(and(eq(tables.job.kind, v.kind), eq(tables.job.producer_key, v.key)), or(and(eq(tables.job.subject_record_id, sql`${v.subject}`), eq(tables.job.tenant_id, v.tenant)), and(and(isNull(tables.job.subject_record_id), isNull(sql<string>`(${v.subject})::uuid`)), eq(tables.job.tenant_id, v.tenant)))));
+  const row = old[0];
   if (!row || row.tenant_id !== v.tenant || row.source_revision !== v.revision) throw new Error('job_identity_conflict');
   return row.id;
 }
 
 // The duration override applies to ordinary jobs; assessment claims always use 120 seconds.
-export async function claimDue(db: Pool, kinds: readonly JobKind[], limit = 1, leaseSeconds = DEFAULT_LEASE_SECONDS): Promise<Claim[]> {
+export async function claimDue(db: Database, kinds: readonly JobKind[], limit = 1, leaseSeconds = DEFAULT_LEASE_SECONDS): Promise<Claim[]> {
   const config = z.object({ kinds: z.array(jobKind).min(1).max(10), limit: z.number().int().min(1).max(100),
     lease: leaseDuration }).parse({ kinds, limit, lease: leaseSeconds });
   return transaction(db, async tx => {
-    const result = await tx.query(`WITH due AS (
-      SELECT id FROM job WHERE kind=ANY($1::text[]) AND state IN ('ready','retry_wait')
+    const result = await tx.execute(sql`WITH due AS (
+      SELECT id FROM job WHERE kind=ANY(${sql.param(config.kinds)}::text[]) AND state IN ('ready','retry_wait')
       AND attempt_count<max_attempts AND eligible_at<=clock_timestamp()
       AND (next_attempt_at IS NULL OR next_attempt_at<=clock_timestamp())
-      ORDER BY eligible_at,id FOR UPDATE SKIP LOCKED LIMIT $2
+      ORDER BY eligible_at,id FOR UPDATE SKIP LOCKED LIMIT ${config.limit}
     ) UPDATE job j SET state='claimed',attempt_count=attempt_count+1,claim_generation=claim_generation+1,
-      lease_owner=$3,lease_until=clock_timestamp()+make_interval(secs=>CASE WHEN j.kind='assessment' THEN $5::int ELSE $4::int END),revision=revision+1
-      FROM due WHERE j.id=due.id RETURNING j.*`, [config.kinds, config.limit, randomUUID(), config.lease, ASSESSMENT_LEASE_SECONDS]);
+      lease_owner=${randomUUID()},lease_until=clock_timestamp()+make_interval(secs=>CASE WHEN j.kind='assessment' THEN ${ASSESSMENT_LEASE_SECONDS}::int ELSE ${config.lease}::int END),revision=revision+1
+      FROM due WHERE j.id=due.id RETURNING j.*`);
     return result.rows.map(row => claimSchema.parse(row));
   });
 }
-export async function lockClaim(tx: PoolClient, claim: Claim): Promise<boolean> {
-  const r = await tx.query(`SELECT id FROM job WHERE id=$1 AND tenant_id=$2 AND state='claimed'
-    AND claim_generation=$3 AND lease_owner=$4 AND source_revision IS NOT DISTINCT FROM $5::bigint AND lease_until>clock_timestamp() FOR UPDATE`,
-  [claim.id, claim.tenant_id, claim.claim_generation, claim.lease_owner,claim.source_revision]);
+export async function lockClaim(tx: Transaction, claim: Claim): Promise<boolean> {
+  const r = await tx.execute(sql`SELECT id FROM job WHERE id=${claim.id} AND tenant_id=${claim.tenant_id} AND state='claimed'
+    AND claim_generation=${claim.claim_generation} AND lease_owner=${claim.lease_owner} AND source_revision IS NOT DISTINCT FROM ${claim.source_revision}::bigint AND lease_until>clock_timestamp() FOR UPDATE`);
   return r.rowCount === 1;
 }
-export async function extendLease(db: Pool, claim: Claim, seconds: number): Promise<boolean> {
+export async function extendLease(db: Database, claim: Claim, seconds: number): Promise<boolean> {
   leaseDuration.parse(seconds);
-  const r = await db.query(`UPDATE job SET lease_until=clock_timestamp()+make_interval(secs=>CASE WHEN kind='assessment' THEN $7::int ELSE $5::int END)
-    WHERE id=$1 AND tenant_id=$2 AND claim_generation=$3 AND lease_owner=$4
-    AND state='claimed' AND lease_until>clock_timestamp() AND source_revision IS NOT DISTINCT FROM $6::bigint`,
-  [claim.id, claim.tenant_id, claim.claim_generation, claim.lease_owner, seconds,claim.source_revision,ASSESSMENT_LEASE_SECONDS]);
+  const r = await db.execute(sql`UPDATE job SET lease_until=clock_timestamp()+make_interval(secs=>CASE WHEN kind='assessment' THEN ${ASSESSMENT_LEASE_SECONDS}::int ELSE ${seconds}::int END)
+    WHERE id=${claim.id} AND tenant_id=${claim.tenant_id} AND claim_generation=${claim.claim_generation} AND lease_owner=${claim.lease_owner}
+    AND state='claimed' AND lease_until>clock_timestamp() AND source_revision IS NOT DISTINCT FROM ${claim.source_revision}::bigint`);
   return r.rowCount === 1;
 }
 export type JobResult = { state: 'succeeded' | 'cancelled' | 'superseded' | 'failed' | 'reconcile'; code?: string }
   | { state: 'retry_wait'; retryAfterSeconds?: number; code: string };
-export async function finishClaim(tx: PoolClient, claim: Claim, result: JobResult): Promise<boolean> {
+export async function finishClaim(tx: Transaction, claim: Claim, result: JobResult): Promise<boolean> {
   if (!await lockClaim(tx, claim)) return false;
   const terminal = result.state !== 'retry_wait' && result.state !== 'reconcile';
   const exhausted = result.state === 'retry_wait' && claim.attempt_count >= claim.max_attempts;
   const delay = result.state === 'retry_wait' ? Math.max([300, 600, 1200][Math.min(claim.attempt_count - 1, 2)] ?? 1200,
     result.retryAfterSeconds ?? 0) : 0;
-  await tx.query(`UPDATE job SET state=$2,error_code=$3,lease_owner=NULL,lease_until=NULL,
-    next_attempt_at=CASE WHEN $4::boolean THEN clock_timestamp()+make_interval(secs=>$5) ELSE NULL END,
-    finished_at=CASE WHEN $6::boolean THEN clock_timestamp() ELSE NULL END,revision=revision+1 WHERE id=$1`,
-  [claim.id, exhausted ? 'failed' : result.state, result.code ?? null, result.state === 'retry_wait' && !exhausted,
-    delay, terminal || exhausted]);
+  await tx.execute(sql`UPDATE job SET state=${exhausted ? 'failed' : result.state},error_code=${result.code ?? null},lease_owner=NULL,lease_until=NULL,
+    next_attempt_at=CASE WHEN ${result.state === 'retry_wait' && !exhausted}::boolean THEN clock_timestamp()+make_interval(secs=>${delay}) ELSE NULL END,
+    finished_at=CASE WHEN ${terminal || exhausted}::boolean THEN clock_timestamp() ELSE NULL END,revision=revision+1 WHERE id=${claim.id}`);
   return true;
 }
 
 // A crash after the external marker cannot turn into a new external effect.
-export async function recoverLease(db: Pool, limit = 100): Promise<number> {
+export async function recoverLease(db: Database, limit = 100): Promise<number> {
   z.number().int().min(1).max(100).parse(limit);
   return transaction(db, async tx => {
-    const rows = await tx.query(`WITH expired AS (SELECT id FROM job WHERE state='claimed'
-      AND lease_until<=clock_timestamp() ORDER BY lease_until,id FOR UPDATE SKIP LOCKED LIMIT $1)
+    const rows = await tx.execute(sql`WITH expired AS (SELECT id FROM job WHERE state='claimed'
+      AND lease_until<=clock_timestamp() ORDER BY lease_until,id FOR UPDATE SKIP LOCKED LIMIT ${limit})
       UPDATE job j SET state=CASE WHEN checkpoint_key='external' THEN 'reconcile'
       WHEN attempt_count>=max_attempts THEN 'failed' ELSE 'retry_wait' END,
       error_code='lease_expired',lease_owner=NULL,lease_until=NULL,
       next_attempt_at=clock_timestamp()+interval '5 minutes',
       finished_at=CASE WHEN checkpoint_key IS DISTINCT FROM 'external' AND attempt_count>=max_attempts THEN clock_timestamp() ELSE NULL END,
       claim_generation=claim_generation+1,revision=revision+1
-      FROM expired WHERE j.id=expired.id RETURNING j.id,j.kind,j.subject_record_id,j.state`, [limit]);
+      FROM expired WHERE j.id=expired.id RETURNING j.id,j.kind,j.subject_record_id,j.state`);
     for (const row of rows.rows) {
       if (row.kind === 'mail' && row.state === 'reconcile') {
-        await tx.query("UPDATE mail SET state='unknown' WHERE id=$1 AND state='dispatched'", [row.subject_record_id]);
-        await tx.query(`UPDATE mail_attempt a SET outcome='unknown',safe_error='lease_expired',completed_at=clock_timestamp()
-          FROM mail_request_member m WHERE m.mail_id=$1 AND m.request_id=a.request_id AND a.outcome='in_flight'`, [row.subject_record_id]);
+        await tx.update(tables.mail).set({ "state": "unknown" }).where(and(eq(tables.mail.id, sql`${row.subject_record_id}`), eq(tables.mail.state, "dispatched")));
+        await tx.execute(sql`UPDATE mail_attempt a SET outcome='unknown',safe_error='lease_expired',completed_at=clock_timestamp()
+          FROM mail_request_member m WHERE m.mail_id=${row.subject_record_id} AND m.request_id=a.request_id AND a.outcome='in_flight'`);
       }
     }
     return rows.rowCount ?? 0;
   });
 }
-export async function checkpoint(tx: PoolClient, claim: Claim, key: string): Promise<boolean> {
+export async function checkpoint(tx: Transaction, claim: Claim, key: string): Promise<boolean> {
   z.string().min(1).max(256).parse(key);
   if (!await lockClaim(tx, claim)) return false;
-  await tx.query('UPDATE job SET checkpoint_key=$2,revision=revision+1 WHERE id=$1', [claim.id, key]);
+  await tx.update(tables.job).set({ "checkpoint_key": key, "revision": sql<unknown>`(${tables.job.revision} + 1)` }).where(eq(tables.job.id, claim.id));
   return true;
 }
-export async function jobVisibility(db: Pool) {
-  const r = await db.query(`SELECT kind,state,count(*)::int AS count,
-    greatest(0,extract(epoch FROM clock_timestamp()-min(eligible_at)))::float8 AS lag_seconds
-    FROM job GROUP BY kind,state ORDER BY kind,state`);
-  return z.array(z.object({kind:jobKind,state:z.string(),count:z.number(),lag_seconds:z.number()})).parse(r.rows);
+export async function jobVisibility(db: Database) {
+  const r = await db.select({ "kind": tables.job.kind, "state": tables.job.state, "count": sql<number>`(count(*))::int`, "lag_seconds": sql<number>`(greatest(0, extract([object Object] FROM (clock_timestamp() - min(${tables.job.eligible_at})))))::float8` }).from(tables.job).groupBy(tables.job.kind, tables.job.state).orderBy(asc(tables.job.kind), asc(tables.job.state));
+  return z.array(z.object({kind:jobKind,state:z.string(),count:z.number(),lag_seconds:z.number()})).parse(r);
 }
 
 // Owed-tail scans commit each processed page and cursor together. No provider work here.
-export async function scanPage(tx:PoolClient,claim:Claim,config:{size:number;
-  load:(tx:PoolClient,after:string|null,limit:number)=>Promise<string[]>;
-  process:(tx:PoolClient,id:string)=>Promise<void>}) {
+export async function scanPage(tx:Transaction,claim:Claim,config:{size:number;
+  load:(tx:Transaction,after:string|null,limit:number)=>Promise<string[]>;
+  process:(tx:Transaction,id:string)=>Promise<void>}) {
   z.number().int().min(1).max(100).parse(config.size);
   if(!await lockClaim(tx,claim))return false;
   const cursor=claim.checkpoint_key?z.uuid().parse(claim.checkpoint_key):null;
@@ -132,7 +122,6 @@ export async function scanPage(tx:PoolClient,claim:Claim,config:{size:number;
   if(ids.length===0)return finishClaim(tx,claim,{state:'succeeded'});
   for(const id of ids)await config.process(tx,id);
   // Progress begins a fresh retry budget for the next chunk, never for a failed chunk.
-  await tx.query(`UPDATE job SET checkpoint_key=$2,state='ready',attempt_count=0,
-    lease_owner=NULL,lease_until=NULL,revision=revision+1 WHERE id=$1`,[claim.id,ids.at(-1)]);
+  await tx.update(tables.job).set({ "checkpoint_key": ids.at(-1), "state": "ready", "attempt_count": 0, "lease_owner": null, "lease_until": null, "revision": sql<unknown>`(${tables.job.revision} + 1)` }).where(eq(tables.job.id, claim.id));
   return true;
 }

@@ -1,6 +1,10 @@
+import { early_access_request } from "@everyfield/db/tables";
+import { asc } from "@everyfield/db/query";
+import { createDatabase, closeDatabase } from "@everyfield/db/client";
+import { sql as querySql } from "@everyfield/db/query";
 import assert from "node:assert/strict";
 import { after, beforeEach, test } from "node:test";
-import pg from "pg";
+
 import { database, expireAccessRequests, exportAccessRequests } from "@everyfield/db";
 import { receiveAccessRequest } from "../src/early-access/index.js";
 import { GET } from "../../../apps/web/src/app/api/cron/access-retention/route.js";
@@ -26,18 +30,18 @@ const fakeResend: typeof fetch = async (url, options) => {
   return Response.json({ id: delivered.get(key) });
 };
 const submit = (kind: unknown, fields: unknown, ip = "192.0.2.1", transport = fakeResend) => receiveAccessRequest(kind, fields, ip, { db, fetch: transport, env });
-const count = async () => (await db.query<{ count: number }>("SELECT count(*)::int AS count FROM early_access_request")).rows[0]?.count;
+const count = async () => (await db.execute<{ count: number }>(querySql`SELECT count(*)::int AS count FROM early_access_request`)).rows[0]?.count;
 beforeEach(async () => {
-  await db.query("TRUNCATE early_access_request, early_access_attempt");
+  await db.execute(querySql`TRUNCATE early_access_request, early_access_attempt`);
   calls = [];
   delivered = new Map();
 });
-after(async () => { await db.end(); });
+after(async () => { await closeDatabase(db); });
 
 test("INV-access: accepted forms normalize email, store every field and send one complete owner email each", async () => {
   assert.deepEqual(await submit("planter", planter), { status: "received" });
   assert.deepEqual(await submit("network", network), { status: "received" });
-  const rows = (await db.query("SELECT kind, email, data, host(ip_address) AS ip, mail_id FROM early_access_request ORDER BY kind")).rows;
+  const rows = (await db.execute(querySql`SELECT kind, email, data, host(ip_address) AS ip, mail_id FROM early_access_request ORDER BY kind`)).rows;
   assert.deepEqual(rows, [
     { kind: "network", email: "alex@example.org", data: { ...network, plants: 12 }, ip: "192.0.2.1", mail_id: "mail-2" },
     { kind: "planter", email: "sam@example.org", data: { ...planter, name: "Sam Planter", email: "sam@example.org" }, ip: "192.0.2.1", mail_id: "mail-1" },
@@ -71,7 +75,7 @@ test("INV-access: 24-hour duplicates use normalized email and form without anoth
   assert.equal(calls.length, 1);
   assert.deepEqual(await submit("network", { ...network, email: "sam@example.org" }), { status: "received" });
   assert.equal(await count(), 2);
-  await db.query("UPDATE early_access_request SET created_at = now() - interval '24 hours 1 second' WHERE kind = 'planter'");
+  await db.execute(querySql`UPDATE early_access_request SET created_at = now() - interval '24 hours 1 second' WHERE kind = 'planter'`);
   assert.deepEqual(await submit("planter", planter), { status: "received" });
   assert.equal(await count(), 3);
   assert.equal(delivered.size, 3);
@@ -82,7 +86,7 @@ test("INV-access: five valid attempts per normalized email in 24 hours then emai
   assert.deepEqual(await submit("network", { ...network, email: "sam@example.org" }), { status: "rate_limited", reason: "email" });
   assert.equal(await count(), 1);
   assert.equal(delivered.size, 1);
-  await db.query("UPDATE early_access_attempt SET created_at = now() - interval '24 hours 1 second'");
+  await db.execute(querySql`UPDATE early_access_attempt SET created_at = now() - interval '24 hours 1 second'`);
   assert.deepEqual(await submit("network", { ...network, email: "sam@example.org" }), { status: "received" });
   assert.equal(await count(), 2);
 });
@@ -92,7 +96,7 @@ test("INV-access: twenty attempts per IP in one hour then IP refusal", async () 
   assert.deepEqual(await submit("network", network), { status: "rate_limited", reason: "ip" });
   assert.equal(await count(), 20);
   assert.equal(delivered.size, 20);
-  await db.query("UPDATE early_access_attempt SET created_at = now() - interval '1 hour 1 second'");
+  await db.execute(querySql`UPDATE early_access_attempt SET created_at = now() - interval '1 hour 1 second'`);
   assert.deepEqual(await submit("network", network), { status: "received" });
   assert.equal(await count(), 21);
 });
@@ -101,19 +105,19 @@ test("INV-access: honeypot receives a fake receipt with no data, limit attempts 
   assert.deepEqual(await submit("planter", { website: "https://bot.example" }), { status: "received" });
   assert.deepEqual(await submit("network", { ...network, website: "bot" }), { status: "received" });
   assert.equal(await count(), 0);
-  assert.equal((await db.query("SELECT count(*)::int AS n FROM early_access_attempt")).rows[0].n, 0);
+  assert.equal((await db.execute(querySql`SELECT count(*)::int AS n FROM early_access_attempt`)).rows[0]!.n, 0);
   assert.equal(calls.length, 0);
   assert.deepEqual(await submit("network", network), { status: "received" });
   assert.equal(delivered.size, 1);
 });
 
 test("INV-access: storage failure returns unavailable and sends nothing", async () => {
-  const broken = new pg.Pool({ connectionString: process.env.DATABASE_URL, options: "-c search_path=pg_catalog" });
+  const broken = createDatabase({ connectionString: process.env.DATABASE_URL!, options: "-c search_path=pg_catalog" });
   try {
     assert.deepEqual(await receiveAccessRequest("planter", planter, "192.0.2.1", { db: broken, fetch: fakeResend, env }), { status: "unavailable" });
     assert.equal(await count(), 0);
     assert.equal(calls.length, 0);
-  } finally { await broken.end(); }
+  } finally { await closeDatabase(broken); }
   assert.deepEqual(await submit("planter", planter), { status: "received" });
 });
 
@@ -124,7 +128,7 @@ test("INV-access: mail rejection, missing receipt and timeout never claim succes
     async () => { throw new Error("Provider timeout"); },
   ]) assert.deepEqual(await submit("planter", planter, "192.0.2.1", transport), { status: "unavailable" });
   assert.equal(await count(), 1);
-  assert.equal((await db.query("SELECT mailed_at FROM early_access_request")).rows[0].mailed_at, null);
+  assert.equal((await db.execute(querySql`SELECT mailed_at FROM early_access_request`)).rows[0]!.mailed_at, null);
   assert.deepEqual(await submit("planter", { ...planter, plant_name: "Changed on retry" }), { status: "received" });
   assert.equal(await count(), 1);
   assert.equal(delivered.size, 1);
@@ -132,10 +136,10 @@ test("INV-access: mail rejection, missing receipt and timeout never claim succes
 });
 
 test("INV-access: failure to save mail receipt remains unavailable and retry cannot send another email", async () => {
-  await db.query("ALTER TABLE early_access_request RENAME COLUMN mail_id TO withheld_mail_id");
+  await db.execute(querySql`ALTER TABLE early_access_request RENAME COLUMN mail_id TO withheld_mail_id`);
   try {
     assert.deepEqual(await submit("planter", planter), { status: "unavailable" });
-  } finally { await db.query("ALTER TABLE early_access_request RENAME COLUMN withheld_mail_id TO mail_id"); }
+  } finally { await db.execute(querySql`ALTER TABLE early_access_request RENAME COLUMN withheld_mail_id TO mail_id`); }
   assert.equal(delivered.size, 1);
   assert.deepEqual(await submit("planter", planter), { status: "received" });
   assert.equal(await count(), 1);
@@ -148,21 +152,21 @@ test("INV-access: stale pending mail allows a fresh request and key instead of b
   for (const [index, age] of ["23 hours 1 second", "3 days"].entries()) {
     const original = { ...planter, email: `stale${index}@example.org` };
     assert.deepEqual(await submit("planter", original, "192.0.2.1", async () => new Response("", { status: 500 })), { status: "unavailable" });
-    const pending = (await db.query<{ id: string }>("SELECT id FROM early_access_request WHERE email = $1", [original.email])).rows[0];
+    const pending = (await db.execute<{ id: string }>(querySql`SELECT id FROM early_access_request WHERE email = ${original.email}`)).rows[0]!;
     assert.ok(pending);
-    await db.query("UPDATE early_access_request SET created_at = now() - $2::interval WHERE id = $1", [pending.id, age]);
+    await db.execute(querySql`UPDATE early_access_request SET created_at = now() - ${age}::interval WHERE id = ${pending.id}`);
     const replacement = { ...original, plant_name: "Updated plant" };
     assert.deepEqual(await submit("planter", replacement), { status: "received" });
-    const rows = (await db.query("SELECT id, data->>'plant_name' AS plant, mail_id, mailed_at FROM early_access_request WHERE email = $1 ORDER BY created_at", [original.email])).rows;
+    const rows = await db.select({id:early_access_request.id,plant:querySql<string>`${early_access_request.data}->>'plant_name'`,mail_id:early_access_request.mail_id,mailed_at:early_access_request.mailed_at}).from(early_access_request).where(querySql`${early_access_request.email}=${original.email}`).orderBy(asc(early_access_request.created_at));
     assert.equal(rows.length, 2);
-    assert.deepEqual(rows[0], { id: pending.id, plant: "Hope Church", mail_id: null, mailed_at: null });
-    assert.notEqual(rows[1].id, pending.id);
-    assert.equal(rows[1].plant, "Updated plant");
-    assert.equal(rows[1].mail_id, `mail-${index + 1}`);
-    assert.ok(rows[1].mailed_at instanceof Date);
-    assert.equal(calls[index]?.key, `early-access/${rows[1].id}`);
+    assert.deepEqual(rows[0]!, { id: pending.id, plant: "Hope Church", mail_id: null, mailed_at: null });
+    assert.notEqual(rows[1]!.id, pending.id);
+    assert.equal(rows[1]!.plant, "Updated plant");
+    assert.equal(rows[1]!.mail_id, `mail-${index + 1}`);
+    assert.ok(rows[1]!.mailed_at instanceof Date);
+    assert.equal(calls[index]?.key, `early-access/${rows[1]!.id}`);
     assert.deepEqual(await submit("planter", replacement), { status: "received" });
-    assert.equal((await db.query("SELECT count(*)::int AS n FROM early_access_request WHERE email = $1", [original.email])).rows[0].n, 2);
+    assert.equal((await db.execute(querySql`SELECT count(*)::int AS n FROM early_access_request WHERE email = ${original.email}`)).rows[0]!.n, 2);
     assert.equal(delivered.size, index + 1);
     assert.equal(calls.length, index + 1);
   }
@@ -178,21 +182,21 @@ test("INV-access: concurrent duplicates create one row and one provider email", 
 
 test("INV-access: scheduled retention deletes after twelve months and clears only IPs older than thirty days", async () => {
   for (let i = 0; i < 4; i++) assert.deepEqual(await submit("network", { ...network, email: `age${i}@example.org` }), { status: "received" });
-  await db.query("UPDATE early_access_request SET created_at = now() - interval '12 months 1 day' WHERE email = 'age0@example.org'");
-  await db.query("UPDATE early_access_request SET created_at = now() - interval '31 days' WHERE email = 'age1@example.org'");
-  await db.query("UPDATE early_access_request SET created_at = now() - interval '29 days' WHERE email = 'age2@example.org'");
-  await db.query("UPDATE early_access_attempt SET created_at = now() - interval '25 hours'");
+  await db.execute(querySql`UPDATE early_access_request SET created_at = now() - interval '12 months 1 day' WHERE email = 'age0@example.org'`);
+  await db.execute(querySql`UPDATE early_access_request SET created_at = now() - interval '31 days' WHERE email = 'age1@example.org'`);
+  await db.execute(querySql`UPDATE early_access_request SET created_at = now() - interval '29 days' WHERE email = 'age2@example.org'`);
+  await db.execute(querySql`UPDATE early_access_attempt SET created_at = now() - interval '25 hours'`);
   assert.deepEqual(await expireAccessRequests(db), { deleted: 1, clearedIps: 1 });
-  assert.deepEqual((await db.query("SELECT email, host(ip_address) AS ip FROM early_access_request ORDER BY email")).rows, [
+  assert.deepEqual((await db.execute(querySql`SELECT email, host(ip_address) AS ip FROM early_access_request ORDER BY email`)).rows, [
     { email: "age1@example.org", ip: null }, { email: "age2@example.org", ip: "192.0.2.1" }, { email: "age3@example.org", ip: "192.0.2.1" },
   ]);
-  assert.equal((await db.query("SELECT count(*)::int AS n FROM early_access_attempt")).rows[0].n, 0);
+  assert.equal((await db.execute(querySql`SELECT count(*)::int AS n FROM early_access_attempt`)).rows[0]!.n, 0);
   assert.deepEqual(await expireAccessRequests(db), { deleted: 0, clearedIps: 0 });
 });
 
 test("INV-access: cron requires a configured secret and refuses unauthorized retention", async () => {
   await submit("network", network);
-  await db.query("UPDATE early_access_request SET created_at = now() - interval '13 months'");
+  await db.execute(querySql`UPDATE early_access_request SET created_at = now() - interval '13 months'`);
   delete process.env.CRON_SECRET;
   assert.equal((await GET(new Request("http://localhost/api/cron/access-retention"))).status, 503);
   process.env.CRON_SECRET = "test-cron-secret";
@@ -209,8 +213,8 @@ test("INV-access: CSV exports all submitted fields and safely quotes punctuation
   await submit("planter", planter);
   await submit("network", { ...network, name: '=HYPERLINK("x")', message: 'Line 1, "quoted"\nLine 2' });
   const csv = await exportAccessRequests(db);
-  const rows = (await db.query("SELECT id, created_at, mailed_at FROM early_access_request ORDER BY created_at, id")).rows;
+  const rows = await db.select({id:early_access_request.id,created_at:early_access_request.created_at,mailed_at:early_access_request.mailed_at}).from(early_access_request).orderBy(asc(early_access_request.created_at),asc(early_access_request.id));
   assert.equal(csv, 'id,created_at,kind,name,email,plant_name,city,phase,sending,organization,role,plants,message,ip_address,mail_id,mailed_at\r\n' +
-    `"${rows[0].id}","${rows[0].created_at.toISOString()}","planter","Sam Planter","sam@example.org","Hope Church","Boston","0 · Discovery","Sending Church","","","","","192.0.2.1","mail-1","${rows[0].mailed_at.toISOString()}"\r\n` +
-    `"${rows[1].id}","${rows[1].created_at.toISOString()}","network","'=HYPERLINK(""x"")","alex@example.org","","","","","Network","Director","12","Line 1, ""quoted""\nLine 2","192.0.2.1","mail-2","${rows[1].mailed_at.toISOString()}"\r\n`);
+    `"${rows[0]!.id}","${rows[0]!.created_at.toISOString()}","planter","Sam Planter","sam@example.org","Hope Church","Boston","0 · Discovery","Sending Church","","","","","192.0.2.1","mail-1","${rows[0]!.mailed_at!.toISOString()}"\r\n` +
+    `"${rows[1]!.id}","${rows[1]!.created_at.toISOString()}","network","'=HYPERLINK(""x"")","alex@example.org","","","","","Network","Director","12","Line 1, ""quoted""\nLine 2","192.0.2.1","mail-2","${rows[1]!.mailed_at!.toISOString()}"\r\n`);
 });
