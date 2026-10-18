@@ -694,12 +694,16 @@ export function CheckinHistory({
 				<caption className="sr-only">{label}</caption>
 				<thead>
 					<tr>
-						<th scope="col" className="w-[110px] text-left text-xs font-semibold text-text-3">
+						<th scope="col" className="w-[110px] text-left text-xs font-semibold text-text-3 max-app-sm:w-[84px]">
 							Week of
 						</th>
 						{columns.map((c) => (
 							<th key={c} scope="col" className="text-left text-xs font-semibold text-text-3">
-								{c}
+								<span className="max-app-sm:sr-only">{c}</span>
+								{/* Below 640px four words do not fit: the eye gets three letters, assistive technology the word. */}
+								<span aria-hidden="true" className="hidden max-app-sm:inline">
+									{c.slice(0, 3)}
+								</span>
 							</th>
 						))}
 						<th scope="col" className="w-7">
