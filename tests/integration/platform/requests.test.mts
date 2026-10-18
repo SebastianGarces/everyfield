@@ -171,9 +171,18 @@ test("AC:PLATFORM-001 AC:PLATFORM-002 AC:SEC-10 AC:TEN-009 real Next sessions, r
 				assert.deepEqual(await ok.json(), { revision: "2" });
 				for (const table of ["proof_audit", "proof_receipt", "proof_intent"])
 					assert.equal((await db.execute(querySql.raw("SELECT count(*)::int n FROM " + table))).rows[0].n, 1);
-				await assert.rejects(() => runtime.execute(querySql`DELETE FROM proof_audit`), { code: "42501" });
-				await assert.rejects(() => runtime.execute(querySql`UPDATE proof_audit SET revision=0`), { code: "42501" });
-				await assert.rejects(() => runtime.execute(querySql`CREATE TABLE should_not_exist(id int)`), { code: "42501" });
+				await assert.rejects(
+					() => runtime.execute(querySql`DELETE FROM proof_audit`),
+					(error) => error.cause?.code === "42501",
+				);
+				await assert.rejects(
+					() => runtime.execute(querySql`UPDATE proof_audit SET revision=0`),
+					(error) => error.cause?.code === "42501",
+				);
+				await assert.rejects(
+					() => runtime.execute(querySql`CREATE TABLE should_not_exist(id int)`),
+					(error) => error.cause?.code === "42501",
+				);
 				assert.equal((await req("update", input)).status, 409);
 				const concurrent = await Promise.all(Array.from({ length: 5 }, () => req("update", input)));
 				assert.deepEqual(
