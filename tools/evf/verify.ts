@@ -4,7 +4,7 @@ import { baseRef, command, evidenceDir, fail, fill, git, gitOk, hasRemote, isCle
 import { stackEnv, stackInfo } from './task.ts';
 import { cachedTriage } from './feedback.ts';
 import { requireSpend, requireTaskScope, requireMaintenancePaths } from './policy.ts';
-import { caseCoverage, caseGrep } from './coverage.ts';
+import { caseCoverage, caseGrep, hasCaseMarkers, testsOf } from './coverage.ts';
 import { formatScope, wpScope, type ScopeReport } from './scope.ts';
 
 export type Role='author'|'verifier';
@@ -23,21 +23,25 @@ export function verify(root:string,task:TaskRef,role:Role,mode:Mode):CheckReport
  if(!gitOk(wt,'merge-base','--is-ancestor',baseSha,'HEAD'))fail('Include current main before verification.');
  const cases=wp?packageContext(wt,wp).case_ids:[];
  const dir=evidenceDir(root,task,sha,`${role}-${mode}`);mkdirSync(dir,{recursive:true});
- const reportPath=join(dir,'tests.json');if(existsSync(reportPath))unlinkSync(reportPath);
- const vars={task:task.id,taskSlug:task.slug,wp:wp??'',part:task.part??'',sha,worktree:wt,evidenceDir:dir,runtimeDir:runtimeDir(root,task),node:process.execPath,acGrep:caseGrep(cases),baseUrl:stackInfo(root,task).url??'',role,mode,testReport:reportPath};
+ const vars={task:task.id,taskSlug:task.slug,wp:wp??'',part:task.part??'',sha,worktree:wt,evidenceDir:dir,runtimeDir:runtimeDir(root,task),node:process.execPath,acGrep:caseGrep(cases),baseUrl:stackInfo(root,task).url??'',role,mode};
  const checks:CheckResult[]=[];
- const env={...stackEnv(root,task,wt),EVF_SHA:sha,EVF_EVIDENCE_DIR:dir,EVF_ROLE:role,EVF_MODE:mode,EVF_BASE_URL:vars.baseUrl,EVF_TEST_REPORT:reportPath};
+ const env={...stackEnv(root,task,wt),EVF_SHA:sha,EVF_EVIDENCE_DIR:dir,EVF_ROLE:role,EVF_MODE:mode,EVF_BASE_URL:vars.baseUrl};
  const definitions=task.kind==='ops'?cfg.maintenanceTasks![task.id].checks:cfg.checks;
  if(task.kind!=='ops'&&cfg.stack?.usesPaidProviders)requireSpend(root);
+ const reports:string[]=[];
  for(const c of definitions.filter(c=>!c.modes||c.modes.includes(mode))) {
-  const argv=command(fill(c.run,vars)),result=run(argv[0],argv.slice(1),{cwd:wt,env});
-  const log=join(dir,`${c.name.replace(/[^\w.-]+/g,'_')}.log`);
+  // Each check writes its own report, so one check can never overwrite another's results.
+  const file=c.name.replace(/[^\w.-]+/g,'_'),testReport=join(dir,`${file}.tests.json`);if(existsSync(testReport))unlinkSync(testReport);reports.push(testReport);
+  const argv=command(fill(c.run,{...vars,testReport})),result=run(argv[0],argv.slice(1),{cwd:wt,env:{...env,EVF_TEST_REPORT:testReport}});
+  const log=join(dir,`${file}.log`);
   writeFileSync(log,`$ ${argv.join(' ')}\n\n${result.stdout}\n${result.stderr}`);
   checks.push({name:c.name,command:argv,exitCode:result.code,log,passed:result.code===0});
  }
- // Report coverage when application checks supply a report; real acceptance remains the verifier's job.
- if(existsSync(reportPath)) {
-  const coverage=caseCoverage(cases,JSON.parse(readFileSync(reportPath,'utf8'))),log=join(dir,'case-coverage.log');
+ // Coverage runs only when some report carries AC: markers; tooling-only reports never opt a task in (D19).
+ // Real acceptance remains the verifier's job.
+ const results=reports.filter(existsSync).map(path=>JSON.parse(readFileSync(path,'utf8')) as unknown);
+ if(results.some(hasCaseMarkers)) {
+  const coverage=caseCoverage(cases,{tests:results.flatMap(r=>testsOf(r))}),log=join(dir,'case-coverage.log');
   writeFileSync(log,JSON.stringify(coverage,null,2));
   checks.push({name:'case-coverage',command:['evf','coverage'],exitCode:coverage.missing.length?1:0,log,passed:coverage.missing.length===0});
  }

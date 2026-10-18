@@ -275,7 +275,7 @@ test('INV-model-feedback: verified bot identity never authorizes arbitrary raw p
 import { existsSync } from 'node:fs';
 import { stack } from '../task.ts';
 import { caseCoverage, caseGrep } from '../coverage.ts';
-import { producerReady, recordProgress, recordFastTrack } from '../progress.ts';
+import { producerReady, recordProgress, recordFastTrack, reconcileProgress } from '../progress.ts';
 import { renderAc, renderBrief } from '../brief.ts';
 
 test('BUG-fast-track: real prerequisite policy unlocks WP-087 only after bounded reviewed completion on main',()=>{
@@ -597,7 +597,7 @@ test('INV-phase7-progress: ship and acknowledgement preserve reviewed milestones
  const f=mergeFixture(),log=console.log;try {
   f.authorize('WP-032');
   const progressPath=join(f.root,'docs/build-progress.json'),initial=JSON.parse(readFileSync(progressPath,'utf8'));
-  initial.packages['WP-001'].status='not_started';writeFileSync(progressPath,JSON.stringify(initial));
+  initial.packages['WP-001'].status='not_started';writeFileSync(progressPath,JSON.stringify(initial));reconcileProgress(f.root);
   f.commit();f.git('push','-q','origin','main');
   const task=parseTask('WP-001'),wt=f.task(task.slug);
   mkdirSync(join(wt,'packages/reference'),{recursive:true});writeFileSync(join(wt,'packages/reference/fixture.txt'),'Reviewed reference bundle');
@@ -616,6 +616,14 @@ test('INV-phase7-progress: ship and acknowledgement preserve reviewed milestones
   listShipped(f.root,[task.id]);assert.equal(readFileSync(join(f.root,'docs/build-progress.json'),'utf8'),progress);
   assert.throws(()=>recordProgress(f.root,{...record,verification:{...record.verification,approval:{...record.verification.approval,head:'a'.repeat(40)}}},true),/independently reviewed/);
   assert.equal(readFileSync(join(f.root,'docs/build-progress.json'),'utf8'),progress);
+  // BUG-ops7-progress-shape (D20): the build explorer renders evf-written milestones, and reconcile upgrades older ones.
+  const explorer=()=>spawnSync('python3',[join(f.root,'docs/render-build-explorer.py'),'--check','--root',f.root],{encoding:'utf8'});
+  assert.equal(explorer().status,0,explorer().stderr);
+  const old=JSON.parse(progress),milestone=old.packages['WP-001'].milestones['WP-001'];
+  for(const field of ['passed_case_portions','passed_gate_portions','deferred_case_portions','deferred_gate_portions'])delete milestone[field];
+  writeFileSync(progressPath,JSON.stringify(old));assert.match(explorer().stderr,/Missing milestone field/);
+  reconcileProgress(f.root);assert.equal(explorer().status,0,explorer().stderr);
+  assert.deepEqual(JSON.parse(readFileSync(progressPath,'utf8')).packages['WP-001'].milestones['WP-001'].passed_case_portions,[]);
  }finally{console.log=log;f.close();}
 });
 
@@ -727,5 +735,20 @@ test('BUG-ops6-principles-target: principles --apply writes the task worktree an
   assert.equal(JSON.parse(readFileSync(join(wt,'skills-lock.json'),'utf8')).skills['principle-fixture'].upstreamCommit,commit);
   assert.throws(()=>principles(f.root,{apply:true}),/Give the maintenance task/);
   assert.equal(existsSync(join(f.root,'.agents/skills/principle-fixture')),false);
+ }finally{f.close();}
+});
+
+test('BUG-wp003-shared-report: each check keeps its own report and only AC: reports turn on case coverage',()=>{
+ const f=fixture();try {
+  const ids=packageContext(f.root,'WP-002').case_ids,writer=(tests:unknown[])=>[process.execPath,'-e',`require("node:fs").writeFileSync(process.env.EVF_TEST_REPORT,${JSON.stringify(JSON.stringify({tests}))})`];
+  const tooling={name:'workflow',run:writer([{name:'INV-workflow: stack isolation',status:'passed'}])};
+  const cases={name:'package cases',run:writer([{name:ids.slice(0,-1).map(id=>`AC:${id}`).join(' ')+' package behavior',status:'passed'}])};
+  f.authorize('WP-002');f.commit();f.task('wp-002');
+  const run=(checks:unknown[])=>{f.cfg.checks=checks as typeof f.cfg.checks;writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));return quiet(()=>verify(f.root,parseTask('WP-002'),'author','full'));};
+  const toolingOnly=run([tooling]);
+  assert.deepEqual(toolingOnly.checks.map(c=>c.name),['workflow']);assert.equal(toolingOnly.passed,true);
+  const both=run([cases,tooling]);
+  assert.deepEqual(both.checks.map(c=>[c.name,c.passed]),[['package cases',true],['workflow',true],['case-coverage',false]]);
+  assert.deepEqual(JSON.parse(readFileSync(both.checks[2].log,'utf8')).missing,ids.slice(-1));
  }finally{f.close();}
 });

@@ -7,7 +7,7 @@ export function fixture() {
  const root=mkdtempSync(join(tmpdir(),'evf-regression-'));
  cpSync(join(source,'docs'),join(root,'docs'),{recursive:true});
  cpSync(join(source,'design/handoff'),join(root,'design/handoff'),{recursive:true});
- cpSync(join(source,'AGENTS.md'),join(root,'AGENTS.md'));
+ cpSync(join(source,'AGENTS.md'),join(root,'AGENTS.md'));cpSync(join(source,'README.md'),join(root,'README.md'));
  cpSync(join(source,'.agents/skills/everyfield-pr'),join(root,'.agents/skills/everyfield-pr'),{recursive:true});
  cpSync(join(source,'tools/evf/templates'),join(root,'tools/evf/templates'),{recursive:true});
  const dag=JSON.parse(readFileSync(join(root,'docs/plan/dag.json'),'utf8'));
@@ -72,7 +72,7 @@ else if(a[0]==='label')result='';
 if(result===undefined){fs.writeFileSync(p,JSON.stringify(s));throw Error('Unexpected external call: '+a.join(' '));}
 fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(typeof result==='string'?result:JSON.stringify(result));
 `);chmodSync(fake,0o755);
- writeFileSync(join(root,'.gitignore'),'fake-bin/\ngh-state.json\n');git('add','docs','design/handoff','AGENTS.md','evf.config.json','.gitignore','.agents/skills/everyfield-pr','tools/evf/templates');git('commit','-qm','Disposable context');
+ writeFileSync(join(root,'.gitignore'),'fake-bin/\ngh-state.json\n');git('add','docs','design/handoff','AGENTS.md','README.md','evf.config.json','.gitignore','.agents/skills/everyfield-pr','tools/evf/templates');git('commit','-qm','Disposable context');
  const oldPath=process.env.PATH,oldState=process.env.EVF_FAKE_GH_STATE;
  process.env.PATH=bins+':'+oldPath;process.env.EVF_FAKE_GH_STATE=statePath;
  return {root,cfg,git,
