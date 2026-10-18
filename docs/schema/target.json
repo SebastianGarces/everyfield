@@ -31529,6 +31529,18 @@
           "nullable": false,
           "note": "Committed migration receipt time.",
           "default": "now()"
+        },
+        {
+          "name": "sha256",
+          "type": "text",
+          "nullable": false,
+          "note": "SHA-256 of the exact applied SQL bytes, or explicitly adopted current bytes. Adoption never claims original application proof."
+        },
+        {
+          "name": "provenance",
+          "type": "text",
+          "nullable": false,
+          "note": "original for observed application, adopted for separately reviewed checksum-less history."
         }
       ],
       "primary_key": [
@@ -31536,7 +31548,10 @@
       ],
       "unique_keys": [],
       "foreign_keys": [],
-      "checks": [],
+      "checks": [
+        "sha256 ~ '^[a-f0-9]{64}$'",
+        "provenance in ('original', 'adopted')"
+      ],
       "jsonb_keys": {},
       "capabilities": [
         "CAP-A-048"
@@ -35063,7 +35078,7 @@
   "as_of": "2026-10-17",
   "implementation_authorized": false,
   "table_count": 120,
-  "column_count": 1410,
+  "column_count": 1412,
   "foreign_key_count": 488,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
@@ -37912,6 +37927,10 @@
     "enrollment_milestone.completion_source": [
       "resident_self",
       "program_leader_recorded"
+    ],
+    "schema_migration.provenance": [
+      "original",
+      "adopted"
     ]
   },
   "auth_adapter_configuration": {

@@ -163,6 +163,9 @@ importers:
 
   packages/domain:
     dependencies:
+      '@everyfield/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@everyfield/db':
         specifier: workspace:*
         version: link:../db
