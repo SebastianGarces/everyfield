@@ -88,8 +88,11 @@ test("AC:WP006-MUL-002 general pipeline, resident and protected-note wire result
     assert.throws(() => wire(pipelineAccessResult, { ...base, [field]: "CANARY" }), z.ZodError);
   }
   const notes = { status: "allowed", purpose: "native_org_person_notes", organization, personId, duty: "responsible_staff",
-    notes: [{ id, authorAccountId: accountId, body: "Protected staff conversation", occurredAt: "2026-10-17T12:00:00.000Z", revision: "2" }], next: null };
+    notes: [{ id, author: { kind: "account", accountId }, body: "Protected staff conversation", occurredAt: "2026-10-17T12:00:00.000Z", revision: "2" }], next: null };
   assert.deepEqual(wire(organizationNotesResult, notes), notes);
+  const removed = { ...notes, notes: [{ ...notes.notes[0], author: { kind: "removed" } }] };
+  assert.deepEqual(wire(organizationNotesResult, removed), removed);
+  assert.throws(() => wire(organizationNotesResult, { ...notes, notes: [{ ...notes.notes[0], author: { kind: "removed", accountId } }] }), z.ZodError);
   assert.deepEqual(wire(organizationNotesResult, { ...notes, duty: "organization_administration" }), { ...notes, duty: "organization_administration" });
   for (const change of [{ duty: "program_director" }, { purpose: "model" }, { organization: plant }, { feedback: "PRIVATE" }, { privateCare: "PRIVATE" }]) {
     assert.throws(() => wire(organizationNotesResult, { ...notes, ...change }), z.ZodError);
