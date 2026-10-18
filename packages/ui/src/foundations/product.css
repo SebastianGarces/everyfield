@@ -1,0 +1,139 @@
+/* Product foundations: the layer the product UI adds to the one Tailwind build in apps/web/src/styles/marketing.css.
+   That file imports Tailwind and design/handoff/tokens.css, the single token source, then this file. There is no second
+   Tailwind build: React keeps every loaded stylesheet after a client navigation, so a second build would re-declare
+   utilities later in the cascade and change marketing pages after a visit to the product.
+
+   Every rule here is scoped to the product root ([data-product-root], rendered by ProductRoot) or to <html> while it
+   carries data-theme, which only ProductRoot sets. Marketing pages render neither, so these rules never touch them.
+   The marketing base layer (light color-scheme, cream body, ink focus ring) stays as it is. */
+
+/* Product-only theme values. They extend the generated tokens and do not replace any of them. */
+@theme inline {
+  --radius-nav: var(--ef-nav-radius);
+  --radius-nav-item: var(--ef-nav-item-radius);
+  --spacing-topbar: var(--ef-topbar-h);
+  --duration-slide: var(--ef-slide-dur);
+  --text-nav: 15px;
+  --text-nav--line-height: 1.2;
+
+  /* Shell breakpoints from foundations.md (Layout), as max-* variants: max-app-lg is 1340px and narrower.
+     app-md and app-sm are the narrow-screen shell, which the prototype does not draw (WP-088 decision). */
+  --breakpoint-app-sm: 640px;
+  --breakpoint-app-md: 1024px;
+  --breakpoint-app-lg: 1341px;
+  --breakpoint-app-xl: 1521px;
+  --breakpoint-app-2xl: 1640px;
+}
+
+@theme {
+  /* The brand ink in both themes, for marks drawn on a brand-green fill (the Evry eyes). The ink token flips in dark mode. */
+  --color-ink-fixed: #181D19;
+}
+
+/* Product dark mode is the data-theme attribute, never the system setting. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@layer base {
+  /* While a product page is mounted, its theme is mirrored to <html> (ProductRoot), so the page canvas, scrollbars and
+     form controls follow it. The marketing base layer declares light; this rule is more specific. */
+  html[data-theme="dark"] { color-scheme: dark; }
+  html[data-theme] body { background: var(--ef-frame); }
+  [data-product-root][data-theme="dark"] { color-scheme: dark; }
+
+  [data-product-root] {
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    /* Always reserve the scrollbar's space so pages with and without a scrollbar line up. */
+    scrollbar-gutter: stable;
+  }
+  [data-product-root] :where(h1, h2, h3, h4) { font-family: var(--ef-font-display); font-weight: 500; letter-spacing: -0.02em; }
+  [data-product-root] :where(.num) { font-family: var(--ef-font-display); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+
+  /* Keyboard focus: a 2px --ef-focus ring with a 2px offset, on keyboard focus only (foundations.md, Accessibility).
+     More specific than the marketing ink ring. Rows and cards draw the ring inside their edge. */
+  [data-product-root] :is(a, button, summary, input, select, textarea, [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline: 2px solid var(--ef-focus);
+    outline-offset: 2px;
+  }
+  [data-product-root] [data-focus-inset]:focus-visible { outline-offset: -2px; }
+
+  /* The theme switch cross-fades colors for 0.3s. ProductRoot sets data-theme-fade only without reduced motion. */
+  [data-product-root][data-theme-fade],
+  [data-product-root][data-theme-fade] * {
+    transition: background-color .3s ease, color .3s ease, border-color .3s ease, box-shadow .3s ease, fill .3s ease !important;
+  }
+}
+
+@layer components {
+  /* Page reveal (foundations.md, Motion): each block rises 14px and fades in over 0.4s. revealDelay() sets the order. */
+  [data-product-root] .reveal { animation: ef-reveal-up .4s cubic-bezier(.2, .8, .2, 1) both; animation-delay: var(--reveal-delay, 0ms); }
+  @media (prefers-reduced-motion: reduce) { [data-product-root] .reveal { animation: none; } }
+
+  /* Diagonal hatch for planned or estimated values. --hatch sets the hue step. */
+  [data-product-root] .hatch {
+    background-color: color-mix(in srgb, var(--hatch, var(--ef-blue-300)) 16%, transparent);
+    background-image: repeating-linear-gradient(-45deg,
+      var(--hatch, var(--ef-blue-300)) 0,
+      var(--hatch, var(--ef-blue-300)) var(--ef-hatch-w),
+      transparent calc(var(--ef-hatch-w) + 1px),
+      transparent var(--ef-hatch-gap));
+  }
+
+  /* EvryBot (EvryBot.tsx), ported from the prototype. The eyes stay brand ink on the green body in both themes. */
+  [data-product-root] .evry-bot { --s: 28px; --lx: 0px; --ly: 0px; position: relative; display: inline-block; width: var(--s); height: var(--s); flex: none; vertical-align: middle; }
+  [data-product-root] .evry-bot[data-size="xs"] { --s: 18px; }
+  [data-product-root] .evry-bot[data-size="sm"] { --s: 24px; }
+  [data-product-root] .evry-bot[data-size="md"] { --s: 30px; }
+  [data-product-root] .evry-bot[data-size="lg"] { --s: 40px; }
+  [data-product-root] .evry-bot[data-size="xl"] { --s: 96px; }
+  [data-product-root] .evry-bot .eb-body {
+    position: absolute; inset: 0;
+    background: radial-gradient(circle at 30% 26%, rgb(255 255 255 / .55), rgb(255 255 255 / 0) 42%), var(--ef-green);
+    border-radius: 46% 54% 52% 48% / 50% 46% 54% 50%;
+    box-shadow: inset 0 calc(var(--s) * -.08) 0 rgb(10 60 30 / .18), 0 calc(var(--s) * .06) calc(var(--s) * .16) -0.05em rgb(10 60 30 / .35);
+    animation: ef-eb-morph 9s ease-in-out infinite;
+  }
+  [data-product-root] .evry-bot .eb-face { position: absolute; inset: 0; transform: translate(var(--lx), var(--ly)); transition: transform .35s cubic-bezier(.3, 1.4, .5, 1); }
+  [data-product-root] .evry-bot .eb-eye {
+    position: absolute; top: 36%; width: calc(var(--s) * .13); height: calc(var(--s) * .23); border-radius: 99px; background: var(--color-ink-fixed);
+    transform-origin: 50% 50%; animation: ef-eb-blink var(--blink, 4.6s) infinite; animation-delay: var(--blink-delay, 0s);
+  }
+  [data-product-root] .evry-bot .eb-eye:nth-child(1) { left: 31%; }
+  [data-product-root] .evry-bot .eb-eye:nth-child(2) { left: 56%; }
+  [data-product-root] .evry-bot .eb-eye::after { content: ""; position: absolute; top: 18%; left: 22%; width: 34%; height: 22%; border-radius: 50%; background: rgb(255 255 255 / .85); }
+  [data-product-root] .evry-bot:is([data-size="xs"], [data-size="sm"], [data-mood="happy"]) .eb-eye::after { display: none; }
+  [data-product-root] .evry-bot .eb-mouth { position: absolute; left: 50%; top: 66%; width: calc(var(--s) * .16); height: calc(var(--s) * .05); margin-left: calc(var(--s) * -.08); border-radius: 99px; background: var(--color-ink-fixed); opacity: 0; }
+  /* Thinking: squint, look up, wobble faster, and an orbiting dot from md up. */
+  [data-product-root] .evry-bot[data-mood="thinking"] { --lx: calc(var(--s) * .06); --ly: calc(var(--s) * -.07); }
+  [data-product-root] .evry-bot[data-mood="thinking"] .eb-body { animation-duration: 2.4s; }
+  [data-product-root] .evry-bot[data-mood="thinking"] .eb-eye { height: calc(var(--s) * .13); top: 40%; }
+  [data-product-root] .evry-bot[data-mood="thinking"]:not([data-size="xs"], [data-size="sm"])::after {
+    content: ""; position: absolute; width: calc(var(--s) * .16); height: calc(var(--s) * .16); border-radius: 50%; background: var(--color-ink-fixed);
+    top: 50%; left: 50%; margin: calc(var(--s) * -.08); animation: ef-eb-orbit 1.4s linear infinite;
+  }
+  /* Happy: ^ ^ eyes and a bounce. */
+  [data-product-root] .evry-bot[data-mood="happy"] .eb-eye { background: transparent; border: calc(var(--s) * .055) solid var(--color-ink-fixed); border-bottom: 0; height: calc(var(--s) * .1); width: calc(var(--s) * .17); top: 40%; border-radius: 99px 99px 0 0; animation: none; }
+  [data-product-root] .evry-bot[data-mood="happy"] .eb-eye:nth-child(1) { left: 27%; }
+  [data-product-root] .evry-bot[data-mood="happy"] .eb-body { animation: ef-eb-bounce .9s cubic-bezier(.3, 1.6, .5, 1) infinite alternate; }
+  /* Talking: the mouth moves. */
+  [data-product-root] .evry-bot[data-mood="talking"] .eb-mouth { opacity: 1; animation: ef-eb-talk .36s ease-in-out infinite alternate; }
+  @media (prefers-reduced-motion: reduce) {
+    [data-product-root] .evry-bot *, [data-product-root] .evry-bot::after { animation: none !important; }
+    [data-product-root] .evry-bot .eb-face { transition: none; }
+  }
+}
+
+@keyframes ef-reveal-up { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes ef-eb-blink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.08); } }
+@keyframes ef-eb-morph {
+  0%, 100% { border-radius: 46% 54% 52% 48% / 50% 46% 54% 50%; transform: rotate(0deg) scale(1); }
+  25% { border-radius: 58% 42% 40% 60% / 48% 58% 42% 52%; transform: rotate(-4deg) scale(1.02, .98); }
+  50% { border-radius: 38% 62% 56% 44% / 60% 40% 60% 40%; transform: rotate(3deg) scale(.98, 1.03); }
+  75% { border-radius: 52% 48% 62% 38% / 44% 56% 44% 56%; transform: rotate(-2deg) scale(1.01); }
+}
+@keyframes ef-eb-orbit { from { transform: rotate(0deg) translateX(calc(var(--s) * .66)) scale(.9); } to { transform: rotate(360deg) translateX(calc(var(--s) * .66)) scale(.9); } }
+@keyframes ef-eb-bounce {
+  from { transform: translateY(0) scale(1.03, .97); border-radius: 50% 50% 46% 54% / 56% 56% 44% 44%; }
+  to { transform: translateY(calc(var(--s) * -.08)) scale(.98, 1.03); border-radius: 46% 54% 52% 48% / 50% 46% 54% 50%; }
+}
+@keyframes ef-eb-talk { from { height: calc(var(--s) * .04); width: calc(var(--s) * .14); } to { height: calc(var(--s) * .12); width: calc(var(--s) * .12); } }
