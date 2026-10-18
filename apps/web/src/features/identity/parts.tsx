@@ -1,6 +1,12 @@
 "use client";
 
-import { Alert02Icon, CheckmarkCircle02Icon, LockKeyIcon, ViewIcon, ViewOffSlashIcon } from "@hugeicons/core-free-icons";
+import {
+	Alert02Icon,
+	CheckmarkCircle02Icon,
+	LockKeyIcon,
+	ViewIcon,
+	ViewOffSlashIcon,
+} from "@hugeicons/core-free-icons";
 import { CardIcon, Input, type Tone } from "@everyfield/ui/controls";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import { useState, type ComponentPropsWithRef, type ReactNode } from "react";
@@ -45,11 +51,7 @@ export function FormMessage({ tone, children }: { tone: "error" | "success"; chi
 						tone === "error" ? "bg-magenta-100 text-magenta-600" : "bg-green-100 text-green-700",
 					)}
 				>
-					<Icon
-						icon={tone === "error" ? Alert02Icon : CheckmarkCircle02Icon}
-						size={18}
-						className="mt-px flex-none"
-					/>
+					<Icon icon={tone === "error" ? Alert02Icon : CheckmarkCircle02Icon} size={18} className="mt-px flex-none" />
 					<span>{children}</span>
 				</p>
 			) : null}

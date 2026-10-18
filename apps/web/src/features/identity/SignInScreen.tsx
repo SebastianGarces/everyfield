@@ -3,6 +3,7 @@
 import { Mail01Icon } from "@hugeicons/core-free-icons";
 import { normalizedEmail, safeReturn, type SessionResult } from "@everyfield/contracts/identity";
 import { Button, Field, Input } from "@everyfield/ui/controls";
+import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { identityApi, loadPage } from "./api";
 import { AuthFooter, AuthHeading, AuthLink } from "./AuthFrame";
@@ -128,12 +129,12 @@ export function SignInForm({
 				<Field label="Password" error={errors.password}>
 					<PasswordInput ref={passwordRef} name="password" autoComplete="current-password" />
 				</Field>
-				<AuthLink
+				<Link
 					href="/recover-password"
-					className="absolute top-0 right-0 text-sm font-normal text-blue-600 hover:underline"
+					className="absolute top-0 right-0 rounded-[4px] text-sm text-blue-600 underline-offset-4 hover:underline"
 				>
 					Forgot password?
-				</AuthLink>
+				</Link>
 			</div>
 			<FormMessage tone="error">{refusal}</FormMessage>
 			<Button type="submit" variant="primary" loading={busy} className="w-full">

@@ -16,7 +16,7 @@ export function AuthFrame({ children }: { children: ReactNode }) {
 		<div className="grid min-h-dvh grid-cols-2 max-app-md:grid-cols-1 max-app-md:grid-rows-[auto_1fr]">
 			<aside
 				aria-label="Everyfield"
-				className="relative m-4 mr-0 flex flex-col overflow-hidden rounded-[30px] bg-ink-fixed px-[52px] py-11 text-cream max-app-md:m-3 max-app-md:rounded-[24px] max-app-md:px-6 max-app-md:py-6"
+				className="relative m-4 mr-0 flex flex-col overflow-hidden rounded-[30px] bg-ink-fixed px-[52px] dark:shadow-[inset_0_0_0_1px_var(--ef-line)] py-11 text-cream max-app-md:m-3 max-app-md:rounded-[24px] max-app-md:px-6 max-app-md:py-6"
 			>
 				<div
 					aria-hidden="true"
@@ -43,7 +43,10 @@ export function AuthFrame({ children }: { children: ReactNode }) {
 				</div>
 				<LogoMark className="pointer-events-none absolute -right-[110px] -bottom-[90px] w-[460px] text-green-500 opacity-95 max-app-md:-right-16 max-app-md:-bottom-16 max-app-md:w-[220px] max-app-sm:w-[170px]" />
 			</aside>
-			<main id="main" className="grid place-items-center p-10 max-app-md:px-5 max-app-md:pt-6 max-app-md:pb-12">
+			<main
+				id="main"
+				className="grid place-items-center p-10 max-app-md:content-start max-app-md:px-5 max-app-md:pt-8 max-app-md:pb-12"
+			>
 				<div className="w-full max-w-[400px]">{children}</div>
 			</main>
 		</div>

@@ -95,8 +95,8 @@ export function RecoverScreen() {
 					</>
 				}
 			>
-				If an account uses <span className="font-medium text-ink">{sentTo}</span>, it gets a link to reset the
-				password. The link works once and expires after 1 hour.
+				If an account uses <span className="font-medium text-ink">{sentTo}</span>, it gets a link to reset the password.
+				The link works once and expires after 1 hour.
 			</Outcome>
 		);
 
@@ -155,12 +155,7 @@ export function ResetPasswordScreen({ proof: linkProof }: { proof: string | null
 
 	if (state === "done")
 		return (
-			<Outcome
-				icon={CheckmarkCircle02Icon}
-				tone="green"
-				title="Your password is reset"
-				actions={<SignInButton />}
-			>
+			<Outcome icon={CheckmarkCircle02Icon} tone="green" title="Your password is reset" actions={<SignInButton />}>
 				Sign in with your new password. Everyfield signed you out on every device.
 			</Outcome>
 		);

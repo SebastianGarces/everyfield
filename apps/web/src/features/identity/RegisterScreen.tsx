@@ -15,7 +15,10 @@ type Kind = z.infer<typeof accountKind>;
 type Options = z.infer<typeof registrationOptions>;
 
 const KINDS: Record<Kind, { label: string; description: string; organization?: string }> = {
-	plant_precreation: { label: "I’m planting a church", description: "Set up your plant, your people and the Playbook." },
+	plant_precreation: {
+		label: "I’m planting a church",
+		description: "Set up your plant, your people and the Playbook.",
+	},
 	sending_church: {
 		label: "We’re a sending church",
 		description: "Walk with the plants your church sends.",
@@ -127,8 +130,7 @@ function RegisterFlow({ kinds }: { kinds: Kind[] }) {
 		const password = String(data.get("password") ?? "");
 		const next: Partial<Record<FieldName, string>> = {
 			name: name ? undefined : "Enter your name.",
-			organizationName:
-				organization && !organizationName ? `Enter the ${organization.toLowerCase()}.` : undefined,
+			organizationName: organization && !organizationName ? `Enter the ${organization.toLowerCase()}.` : undefined,
 			email: email.success ? undefined : "Enter an email address, like name@church.org.",
 			password: nativePassword.safeParse(password).success
 				? undefined
@@ -209,12 +211,7 @@ function RegisterFlow({ kinds }: { kinds: Kind[] }) {
 				</Field>
 				{organization ? (
 					<Field label={organization} error={errors.organizationName}>
-						<Input
-							ref={organizationRef}
-							name="organizationName"
-							autoComplete="organization"
-							maxLength={200}
-						/>
+						<Input ref={organizationRef} name="organizationName" autoComplete="organization" maxLength={200} />
 					</Field>
 				) : null}
 				<Field label="Email" error={errors.email}>
