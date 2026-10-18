@@ -63,8 +63,8 @@
 	--text-mk-h3--line-height: 1.15;
 	--text-mk-lead: var(--ef-title-sm);
 	--text-mk-lead--line-height: 1.5;
-	/* Section intros under a heading: one step below the lead. */
-	--text-mk-lead-sm: var(--ef-text-lg);
+	/* Section intros and the hero subtitle: one step above body (18 over 16) at every width; the lead grows at 1440. */
+	--text-mk-lead-sm: var(--ef-title-sm);
 	/* The one size above the scale: the home hero at 1440 px and wider, and the phase numerals. */
 	--text-mk-display-xl: 88px;
 	/* Miniature product pictures only, where 12 px cannot fit: seat labels, chart values and 20 px initials. */
@@ -94,7 +94,6 @@
 		--text-mk-hero: var(--ef-display-lg);
 		--text-mk-h1: var(--ef-display-md);
 		--text-mk-h2: var(--ef-display-sm);
-		--text-mk-lead-sm: var(--ef-title-sm);
 	}
 	@variant mk-xl {
 		--text-mk-hero: var(--text-mk-display-xl);
