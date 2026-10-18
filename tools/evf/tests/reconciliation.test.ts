@@ -750,5 +750,11 @@ test('BUG-wp003-shared-report: each check keeps its own report and only AC: repo
   const both=run([cases,tooling]);
   assert.deepEqual(both.checks.map(c=>[c.name,c.passed]),[['package cases',true],['workflow',true],['case-coverage',false]]);
   assert.deepEqual(JSON.parse(readFileSync(both.checks[2].log,'utf8')).missing,ids.slice(-1));
+  // Check names that slug alike keep separate reports and logs.
+  const alike=run([cases,{...tooling,name:'package_cases'}]);
+  assert.deepEqual(alike.checks.map(c=>[c.name,c.passed]),[['package cases',true],['package_cases',true],['case-coverage',false]]);
+  assert.equal(new Set(alike.checks.map(c=>c.log)).size,3);
+  for(const c of alike.checks.slice(0,2))assert.equal(existsSync(c.log.replace(/\.log$/,'.tests.json')),true);
+  assert.deepEqual(JSON.parse(readFileSync(alike.checks[2].log,'utf8')).missing,ids.slice(-1));
  }finally{f.close();}
 });

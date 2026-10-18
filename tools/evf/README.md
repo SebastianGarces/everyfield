@@ -68,7 +68,7 @@ Milestones carry the four case and gate portion lists that the build explorer re
 them empty (D20). `node tools/evf/progress.ts --reconcile <root>` adds them to older milestones.
 
 Use `AC:<case-id>` in passing test names or annotations. Each check gets its own EVF_TEST_REPORT path
-(also `{testReport}`). Case coverage runs only when some report has an `AC:` marker (D19):
+(also `{testReport}`), `<position>-<name>.tests.json`, so names that slug alike never share a file. Case coverage runs only when some report has an `AC:` marker (D19):
 
 ```json
 {"tests":[{"name":"AC:CASE-ID observed behavior","status":"passed"}]}

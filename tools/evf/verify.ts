@@ -29,9 +29,10 @@ export function verify(root:string,task:TaskRef,role:Role,mode:Mode):CheckReport
  const definitions=task.kind==='ops'?cfg.maintenanceTasks![task.id].checks:cfg.checks;
  if(task.kind!=='ops'&&cfg.stack?.usesPaidProviders)requireSpend(root);
  const reports:string[]=[];
- for(const c of definitions.filter(c=>!c.modes||c.modes.includes(mode))) {
+ for(const [index,c] of definitions.filter(c=>!c.modes||c.modes.includes(mode)).entries()) {
   // Each check writes its own report, so one check can never overwrite another's results.
-  const file=c.name.replace(/[^\w.-]+/g,'_'),testReport=join(dir,`${file}.tests.json`);if(existsSync(testReport))unlinkSync(testReport);reports.push(testReport);
+  // The index keeps names that slug alike ("package cases", "package_cases") in separate files.
+  const file=`${index+1}-${c.name.replace(/[^\w.-]+/g,'_')}`,testReport=join(dir,`${file}.tests.json`);if(existsSync(testReport))unlinkSync(testReport);reports.push(testReport);
   const argv=command(fill(c.run,{...vars,testReport})),result=run(argv[0],argv.slice(1),{cwd:wt,env:{...env,EVF_TEST_REPORT:testReport}});
   const log=join(dir,`${file}.log`);
   writeFileSync(log,`$ ${argv.join(' ')}\n\n${result.stdout}\n${result.stderr}`);
