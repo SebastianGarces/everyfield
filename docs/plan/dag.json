@@ -4229,7 +4229,7 @@
         "WP-096",
         "WP-102"
       ],
-      "estimate_engineer_days": 14.0,
+      "estimate_engineer_days": 14.5,
       "inputs": [
         "Short brief from docs/package-context.py WP-057; linked details on demand.",
         "WP-048 reviewed producer/interface milestone",
@@ -7832,8 +7832,8 @@
     "WP-057",
     "WP-058"
   ],
-  "critical_path_unconstrained_days": 97.0,
-  "total_engineer_days": 278.5,
+  "critical_path_unconstrained_days": 97.5,
+  "total_engineer_days": 279.0,
   "contract_milestones": {
     "C0": [
       "WP-002"
