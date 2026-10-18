@@ -4,6 +4,7 @@
 //   INV-loadable: loading, error and empty never draw stale rows, and Try again recovers (DataTable, LoadableView).
 //   INV-selection: select-all, the bulk bar count and Clear selection agree (DataTable, BulkBar).
 //   INV-email-light: emails keep the light palette on a dark product page (.ef-paper in display.css).
+//   INV-unmerge: a refused Unmerge is an alert with no Unmerge action; only the preview offers it (UnmergePanel).
 //   INV-evry-focus: Esc closes the non-modal Evry panel and returns focus to its opener (EvryPanel).
 // It runs against a running app: set UI_BASE_URL to the task preview.
 //   UI_BASE_URL=http://wp-090-....localhost:1355 corepack pnpm test:ui
@@ -109,6 +110,18 @@ for (const [name, engine] of [
 			assert.equal(await card.evaluate((el) => getComputedStyle(el).backgroundColor), WHITE);
 			const heading = await email.locator("h1").evaluate((el) => getComputedStyle(el).color);
 			assert.equal(heading, "rgb(24, 29, 25)", "the heading is light-palette ink");
+		}),
+	);
+
+	test(`INV-unmerge (${name}): only the preview offers Unmerge; refused is an alert`, { timeout: 60_000 }, () =>
+		withPage(engine, { group: "Domain" }, async (page) => {
+			const preview = page.getByRole("region", { name: "Unmerge Jim Okafor" });
+			assert.equal(await preview.getByRole("button", { name: "Unmerge", exact: true }).count(), 1);
+			const refused = page.getByRole("alert").filter({ hasText: "Cannot unmerge" });
+			assert.equal(await refused.count(), 1, "refused is announced as an alert");
+			assert.equal(await refused.getByRole("button", { name: "Unmerge", exact: true }).count(), 0);
+			const done = page.getByRole("status").filter({ hasText: "Unmerged" });
+			assert.equal(await done.getByRole("link", { name: /James Okafor|Jim Okafor/ }).count(), 2);
 		}),
 	);
 

@@ -1,7 +1,9 @@
 "use client";
 
 import {
+	Alert02Icon,
 	ArrowRight01Icon,
+	ArrowTurnBackwardIcon,
 	Cancel01Icon,
 	Edit02Icon,
 	InformationCircleIcon,
@@ -914,6 +916,199 @@ export function MergeBlockers({ blockers, rule }: { blockers: string[]; rule: Re
 			<p className="mt-2 text-sm text-text-2">{rule}</p>
 		</div>
 	);
+}
+
+/**
+ * MergeReview, What moves: the records that move to the kept person, each with an icon and a count. `suffix` turns
+ * the same list into the unmerge preview ("1 back to Jim"). A zero count stays in the list: nothing moves there.
+ */
+export function MergeMoves({
+	items,
+	suffix,
+	className,
+}: {
+	items: { label: string; count: number; icon?: IconSvgElement }[];
+	suffix?: string;
+	className?: string;
+}) {
+	return (
+		<dl className={cn("flex flex-col", className)}>
+			{items.map((item) => (
+				<div
+					key={item.label}
+					className="flex items-center justify-between gap-3 border-t border-line py-3 first:border-t-0"
+				>
+					<dt className="flex items-center gap-2 text-text-2">
+						{item.icon ? <Icon icon={item.icon} size={16} /> : null}
+						{item.label}
+					</dt>
+					<dd className="font-semibold text-ink tabular-nums">
+						{item.count}
+						{suffix ? ` ${suffix}` : ""}
+					</dd>
+				</div>
+			))}
+		</dl>
+	);
+}
+
+/**
+ * The three states of an Unmerge (MergeReview: unmerged and refused). The feature computes the state; each state
+ * carries only what it shows, so a refused unmerge cannot also offer the Unmerge action.
+ */
+export type UnmergeState =
+	| {
+			state: "preview";
+			/** "Jim Okafor". */
+			removed: string;
+			/** "Merged Oct 9 by Daniel Reyes". */
+			merged: string;
+			intro: ReactNode;
+			/** What goes back: detail rows and record counts. */
+			rows: { label: ReactNode; value: ReactNode }[];
+			onCancel: () => void;
+			onUnmerge: () => void;
+			pending?: boolean;
+	  }
+	| {
+			state: "unmerged";
+			summary: ReactNode;
+			people: { name: string; meta: string; tone?: Tone; href: string }[];
+			footnote?: ReactNode;
+	  }
+	| {
+			state: "refused";
+			reason: ReactNode;
+			/** What changed after the merge: { label: "Changed after the merge", value: "Phone · Oct 11" }. */
+			changes: { label: string; value: string }[];
+			advice: ReactNode;
+			onClose: () => void;
+			correctHref: string;
+	  };
+
+/**
+ * UnmergePanel (components.md, MergeReview: Unmerge preview, unmerged, refused). The preview lists what goes back and
+ * asks to confirm. Unmerged is a status message with both people. Refused is an alert that says what changed after
+ * the merge and that nothing was changed.
+ */
+export function UnmergePanel(props: UnmergeState & { className?: string }) {
+	const titleId = useId();
+	const box = "rounded-card px-7 py-[26px] max-app-sm:px-5 max-app-sm:py-5";
+	switch (props.state) {
+		case "preview":
+			return (
+				<section
+					aria-labelledby={titleId}
+					className={cn(box, "border border-[var(--ef-card-edge)] bg-surface shadow-card", props.className)}
+				>
+					<div className="mb-4 flex items-start gap-4">
+						<span
+							aria-hidden="true"
+							className={cn("grid size-11 flex-none place-items-center rounded-full", TINT.blue)}
+						>
+							<Icon icon={ArrowTurnBackwardIcon} size={20} />
+						</span>
+						<div className="min-w-0 flex-1">
+							<h3 id={titleId} className="text-title-sm leading-[1.2] text-ink">
+								Unmerge {props.removed}
+							</h3>
+							<p className="mt-1 text-md text-text-3">{props.merged}</p>
+						</div>
+						<StatusBadge plain size="sm">
+							Preview
+						</StatusBadge>
+					</div>
+					<p className="text-sm text-text-2">{props.intro}</p>
+					<dl className="mt-3 flex flex-col">
+						{props.rows.map((r, i) => (
+							<div
+								key={i}
+								className="flex items-center justify-between gap-3 border-t border-line py-3 first:border-t-0"
+							>
+								<dt className="flex items-center gap-2 text-text-2">{r.label}</dt>
+								<dd className="text-right text-sm font-semibold text-ink">{r.value}</dd>
+							</div>
+						))}
+					</dl>
+					<div className="mt-5 flex flex-wrap justify-end gap-2.5">
+						<Button variant="secondary" onClick={props.onCancel} disabled={props.pending}>
+							Cancel
+						</Button>
+						<Button variant="primary" onClick={props.onUnmerge} loading={props.pending}>
+							Unmerge
+						</Button>
+					</div>
+				</section>
+			);
+		case "unmerged":
+			return (
+				<section
+					role="status"
+					aria-labelledby={titleId}
+					className={cn(box, "rounded-lg border border-line bg-surface-raised shadow-card", props.className)}
+				>
+					<p id={titleId} className="flex items-center gap-2.5 text-sm font-semibold text-green-700">
+						<span aria-hidden="true" className={cn("grid size-7 place-items-center rounded-full", TINT.green)}>
+							<Icon icon={Tick02Icon} size={16} />
+						</span>
+						Unmerged
+					</p>
+					<p className="mt-1.5 text-sm text-ink-2">{props.summary}</p>
+					<ul className="mt-3 flex flex-col">
+						{props.people.map((p) => (
+							<li key={p.name + p.href} className="border-t border-line first:border-t-0">
+								<a
+									href={p.href}
+									data-focus-inset=""
+									className="flex items-center gap-3.5 rounded-md py-3 text-ink transition-colors hover:bg-hover"
+								>
+									<Avatar name={p.name} tone={p.tone} size="sm" decorative />
+									<span className="min-w-0 flex-1">
+										<span className="block font-medium">{p.name}</span>
+										<span className="block text-sm text-text-3">{p.meta}</span>
+									</span>
+									<Icon icon={ArrowRight01Icon} size={16} className="text-text-3" />
+								</a>
+							</li>
+						))}
+					</ul>
+					{props.footnote ? <p className="mt-3 text-xs text-text-3">{props.footnote}</p> : null}
+				</section>
+			);
+		case "refused":
+			return (
+				<section
+					role="alert"
+					aria-labelledby={titleId}
+					className={cn(box, "rounded-lg border border-line bg-surface-raised shadow-card", props.className)}
+				>
+					<p id={titleId} className="flex items-center gap-2.5 text-sm font-semibold text-magenta-600">
+						<span aria-hidden="true" className={cn("grid size-7 place-items-center rounded-full", TINT.magenta)}>
+							<Icon icon={Alert02Icon} size={16} />
+						</span>
+						Cannot unmerge
+					</p>
+					<p className="mt-1.5 text-sm text-ink-2">{props.reason}</p>
+					<dl className="mt-3 flex flex-col">
+						{props.changes.map((c) => (
+							<div key={c.label + c.value} className="flex items-center justify-between gap-3 py-2">
+								<dt className="text-text-2">{c.label}</dt>
+								<dd className="text-sm font-semibold text-ink">{c.value}</dd>
+							</div>
+						))}
+					</dl>
+					<p className="mt-3 text-sm text-text-2">{props.advice}</p>
+					<div className="mt-4 flex flex-wrap justify-end gap-2.5">
+						<Button variant="secondary" onClick={props.onClose}>
+							Close
+						</Button>
+						<Button variant="primary" asChild>
+							<a href={props.correctHref}>Correct by hand</a>
+						</Button>
+					</div>
+				</section>
+			);
+	}
 }
 
 /* ---------------------------------------------------------------- Choices */

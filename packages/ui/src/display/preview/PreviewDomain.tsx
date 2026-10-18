@@ -14,11 +14,14 @@ import {
 	UserMultipleIcon,
 	BookOpen01Icon,
 	Activity01Icon,
+	Mail01Icon,
+	Note01Icon,
 	Tick02Icon,
 	CrownIcon,
 } from "@hugeicons/core-free-icons";
 import { useState } from "react";
 import { Button, Select } from "../../controls";
+import { Icon } from "../../foundations";
 import {
 	AreaTable,
 	AttestationRow,
@@ -38,7 +41,10 @@ import {
 	LensTile,
 	MergeBlockers,
 	MergeField,
+	MergeMoves,
 	MergeReview,
+	UnmergePanel,
+	StageChip,
 	MilestoneGroup,
 	MilestoneRow,
 	MinistryCard,
@@ -598,6 +604,65 @@ export function RecordsSection({ index }: { index: number }) {
 						]}
 					/>
 				</Specimen>
+			</Grid>
+			<Grid cols={4} className="mt-5">
+				<Specimen title="What moves to James">
+					<MergeMoves
+						items={[
+							{ label: "Meeting attendance", count: 1, icon: Calendar03Icon },
+							{ label: "Tasks", count: 1, icon: Task01Icon },
+							{ label: "Emails received", count: 2, icon: Mail01Icon },
+							{ label: "Notes", count: 0, icon: Note01Icon },
+						]}
+					/>
+				</Specimen>
+				<UnmergePanel
+					state="preview"
+					removed="Jim Okafor"
+					merged="Merged Oct 9 by Daniel Reyes"
+					intro="Jim comes back as his own person. James gets back the details he had before the merge."
+					rows={[
+						{ label: "James's email", value: "james.okafor@example.org" },
+						{ label: "Jim Okafor", value: <StageChip stage="prospect" /> },
+						{
+							label: (
+								<>
+									<Icon icon={Calendar03Icon} size={16} />
+									Meeting attendance
+								</>
+							),
+							value: "1 back to Jim",
+						},
+						{
+							label: (
+								<>
+									<Icon icon={Task01Icon} size={16} />
+									Tasks
+								</>
+							),
+							value: "1 back to Jim",
+						},
+					]}
+					onCancel={() => undefined}
+					onUnmerge={() => undefined}
+				/>
+				<UnmergePanel
+					state="unmerged"
+					summary="Jim Okafor is his own person again. James has his earlier email. One meeting attendance, one task and two emails moved back to Jim."
+					people={[
+						{ name: "James Okafor", meta: "Following up", tone: "amber", href: "#james" },
+						{ name: "Jim Okafor", meta: "Prospect", href: "#jim" },
+					]}
+					footnote="Both histories show the merge on Oct 9 and the Unmerge today."
+				/>
+				<UnmergePanel
+					state="refused"
+					reason="Grace Kim changed James's phone number on Oct 11, after the merge. An Unmerge would lose that change, so Everyfield changed nothing."
+					changes={[{ label: "Changed after the merge", value: "Phone · Oct 11" }]}
+					advice="Correct James's details by hand, or move a record to a new person yourself."
+					onClose={() => undefined}
+					correctHref="#james"
+				/>
 			</Grid>
 			<Grid cols={3} className="mt-5">
 				<CategoryCard title="People" icon={UserMultipleIcon} share="shared">
