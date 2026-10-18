@@ -1,0 +1,86 @@
+# Deterministic checks for every pull request and for main.
+# The required status check is the `ci` job. It passes only when every other job passed.
+# Not run here: the early access domain test (packages/domain), because it needs a disposable
+# database (EARLY_ACCESS_TEST_DATABASE=1). CI uses no secrets.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NODE_VERSION: "24.14.1"
+
+jobs:
+  app:
+    name: app (lint, types, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4 # version from packageManager in package.json
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v4
+        with:
+          path: apps/web/.next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/web/**/*.ts', 'apps/web/**/*.tsx', 'apps/web/**/*.css') }}
+          restore-keys: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+      - name: Lint (ESLint, image locks, colour literals)
+        run: pnpm lint
+      - name: Types
+        run: pnpm typecheck
+      - name: Production build
+        run: pnpm build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+
+  docs:
+    name: docs (documentation and case checks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: Documentation, catalog and acceptance case checks
+        run: python3 docs/check-all.py
+
+  evf:
+    name: evf (tooling tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Git identity for test fixtures
+        run: |
+          git config --global user.name "evf ci"
+          git config --global user.email "ci@everyfield.invalid"
+          git config --global init.defaultBranch main
+      - run: bin/evf test
+
+  ci:
+    name: ci
+    if: always()
+    needs: [app, docs, evf]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Every check passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "results: $RESULTS"
+          for r in $RESULTS; do [ "$r" = success ] || exit 1; done
