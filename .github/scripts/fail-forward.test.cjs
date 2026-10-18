@@ -117,3 +117,45 @@ test('INV-fail-forward: unknown creation outcome refuses retry until the issue p
   assert.equal(await report({ ...p, context: ci() }), 1);
   assert.match(p.issues[0].body, /Job: https:\/\/github.com\/job\/7/);
 });
+
+test('INV-fail-forward: a long job log keeps the error that comes before post-job cleanup', async () => {
+  const p = provider();
+  const log = [
+    ...Array.from({ length: 400 }, (_, i) => `setup line ${i}`),
+    'src/app.ts(4,2): error TS2322: fixture type error',
+    '##[error]Process completed with exit code 2.',
+    ...Array.from({ length: 120 }, (_, i) => `Post job cleanup line ${i}`),
+  ].join('\n');
+  p.github.rest.actions.downloadJobLogsForWorkflowRun = async () => ({ url: `data:text/plain,${encodeURIComponent(log)}` });
+  assert.equal(await report({ ...p, context: ci() }), 1);
+  const body = p.issues[0].body;
+  assert.match(body, /error TS2322: fixture type error\n##\[error\]Process completed with exit code 2\.\n```/);
+  assert.doesNotMatch(body, /Post job cleanup/);
+  assert.match(body, /setup line 399/);
+  assert.doesNotMatch(body, /setup line 100\n/);
+});
+
+test('INV-fail-forward: many failed jobs stay inside the GitHub issue body limit and keep their errors', async () => {
+  for (const count of [10, 128, 400]) {
+    const p = provider();
+    const jobs = Array.from({ length: count }, (_, i) => ({ id: i, name: `matrix job ${i} ${'n'.repeat(300)}`, conclusion: 'failure', html_url: `https://github.com/SebastianGarces/everyfield/actions/runs/3/job/${100000 + i}`, steps: [{ name: `Compile ${'s'.repeat(300)}`, conclusion: 'failure' }] }));
+    p.github.paginate = async endpoint => endpoint === p.github.rest.issues.listForRepo ? p.issues : jobs;
+    p.github.rest.actions.downloadJobLogsForWorkflowRun = async ({ job_id }) => ({ url: `data:text/plain,${encodeURIComponent(`${'x'.repeat(199)}\n`.repeat(100) + `##[error]fixture failure in job ${job_id}\ncleanup`)}` });
+    assert.equal(await report({ ...p, context: ci() }), 1);
+    const body = p.issues[0].body;
+    assert.ok(body.length <= 65536, `${count} jobs: body has ${body.length} characters`);
+    const shown = body.match(/^### matrix job /gm).length;
+    assert.equal((body.match(/##\[error\]fixture failure in job \d+\n```/g) || []).length, shown);
+    if (shown < count) assert.match(body, new RegExp(`\n${count - shown} more failed jobs are not shown\\. Open the run link`));
+    else assert.equal(count, 10);
+  }
+});
+
+test('INV-fail-forward: a CI run that never started is reported as an incident', async () => {
+  const p = provider();
+  p.github.paginate = async endpoint => endpoint === p.github.rest.issues.listForRepo ? p.issues : [];
+  assert.equal(await report({ ...p, context: ci({ conclusion: 'startup_failure' }) }), 1);
+  assert.equal(p.issues[0].title, 'P0: CI failed on main');
+  assert.match(p.issues[0].body, /CI did not start \(startup_failure\)/);
+  assert.match(p.issues[0].body, /Source: https:\/\/github.com\/run\/3/);
+});
