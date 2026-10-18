@@ -73,7 +73,10 @@ export const organizationNotesResult = z.discriminatedUnion("status", [
   z.strictObject({ status: z.literal("allowed"), purpose: z.literal("native_org_person_notes"),
     organization: organizationOwner, personId,
     duty: z.enum(["organization_administration", "responsible_staff"]),
-    notes: z.array(z.strictObject({ id: recordId, authorAccountId: accountId,
+    notes: z.array(z.strictObject({ id: recordId, author: z.discriminatedUnion("kind", [
+      z.strictObject({ kind: z.literal("account"), accountId }),
+      z.strictObject({ kind: z.literal("removed") }),
+    ]),
       body: z.string().max(100_000), occurredAt: instant, revision })).max(100),
     next: recordId.nullable() }),
 ]);
