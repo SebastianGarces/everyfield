@@ -71,6 +71,10 @@ test('AC:REFREL-001 initial install, exact replay and changed immutable hash ref
   const conflict=command('R1','1');conflict.manifestHash=hash(canonical(changed));artifacts.set('R1',changed);
   reviews.get(conflict.requestKey)!.review.commandDigest=hash(canonical(conflict));
   await refused(conflict,'immutable_conflict');artifacts.set('R1',fixture('R1').bundle);
+  const wrongCatalog=structuredClone(fixture('R1').bundle);wrongCatalog.catalogSha256='0'.repeat(64);
+  const mismatch=command('R1','1');mismatch.manifestHash=hash(canonical(wrongCatalog));artifacts.set('R1',wrongCatalog);
+  reviews.get(mismatch.requestKey)!.review.commandDigest=hash(canonical(mismatch));
+  await refused(mismatch,'invalid_generation');artifacts.set('R1',fixture('R1').bundle);
   assert.deepEqual(await counts(),{activations:1,releases:1,operations:2,events:2});
   const published=await db.query(`SELECT count(*)::int AS n FROM article_revision a JOIN reference_activation r ON r.release_id=a.release_id WHERE r.activation_number=1`);
   assert.equal(published.rows[0].n,96);
@@ -112,6 +116,12 @@ test('INV-reference-authority: live session, current grant and exact trusted rev
   await db.query(`UPDATE auth_session SET expires_at=now()-interval '1 minute' WHERE id=$1`,[session]);await refused(cmd,'access_denied');
   await db.query(`UPDATE auth_session SET expires_at=now()+interval '1 hour' WHERE id=$1`,[session]);
   reviews.delete(cmd.requestKey);await refused(cmd,'access_denied');
+  const fresh=command('R1','3');
+  const racing=referenceService(db,{authorize,policyFor:key=>fixture(key).policy,loadArtifact:async locator=>{
+    await db.query('UPDATE platform_grant SET revoked_at=now() WHERE account_id=$1',[actor]);return artifacts.get(locator);
+  }});
+  try{await assert.rejects(racing.promote(fresh,'R1'),e=>e instanceof ReferenceRefusal&&e.code==='access_denied');}
+  finally{await db.query('UPDATE platform_grant SET revoked_at=null WHERE account_id=$1',[actor]);}
   assert.deepEqual(await counts(),{activations:3,releases:2,operations:4,events:4});
 });
 

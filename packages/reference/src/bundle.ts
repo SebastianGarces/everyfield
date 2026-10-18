@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { generation, profile } from '@everyfield/contracts/reference';
 import type { ReferenceGeneration, ReferenceEntry, ReferencePassage, ReferenceProfile } from '@everyfield/contracts/reference';
+import { loadStarter, verifyCheckout } from './starter.ts';
 import type { Starter } from './starter.ts';
 import { hash, canonical, stableId, vectorHash } from './hash.ts';
 import { safeMdx } from './content.ts';
@@ -8,6 +9,13 @@ import { safeMdx } from './content.ts';
 const article = z.object({id:z.uuid(),slug:z.string(),section_id:z.uuid(),content:z.string(),church_id:z.null(),status:z.literal('published'),related_article_slugs:z.array(z.string())});
 const section = z.object({id:z.uuid(),slug:z.string(),parent_section_id:z.uuid().nullable()});
 const message = z.object({name:z.string(),category:z.string(),body:z.string(),subject:z.string(),churchId:z.null(),isSystem:z.literal(true),sourceTemplateId:z.null()});
+// Checkout packaging is an explicit release operation. Pure catalog construction below
+// consumes already reviewed data and does not turn unrelated documentation edits into a unit gate.
+export async function packageCheckout(root: URL, expectedCatalogSha256?: string): Promise<ReferenceEntry[]> {
+  const report=await verifyCheckout(root,expectedCatalogSha256);
+  if(!report.ok)throw Error(report.issues[0]!.code);
+  return packageStarter(await loadStarter());
+}
 export function packageStarter(starter: Starter): ReferenceEntry[] {
   const source=(path:string)=>{const row=starter.sources.find(s=>s.path==='docs/reference/'+path);if(!row)throw Error('source_unavailable');return row;};
   const rows:ReferenceEntry[]=[];
@@ -101,6 +109,7 @@ function validateParsed(input: unknown, policy: ValidationPolicy): ValidationRep
   const hashIntegrity=blockers.size===0;
   reject(policy.editorial.conflicts.length===0,'editorial_conflict');
   reject(policy.editorial.originalAvailable,'original_unavailable');
-  reject(policy.editorial.approved,'editorial_approval_required');
-  return {ok:blockers.size===0,hashIntegrity,editorialApproved:policy.editorial.approved,manifestHash:hash(canonical(value)),blockers:[...blockers].sort()};
+  const editorialReady=policy.editorial.originalAvailable&&policy.editorial.conflicts.length===0;
+  if(editorialReady)reject(policy.editorial.approved,'editorial_approval_required');
+  return {ok:blockers.size===0,hashIntegrity,editorialApproved:policy.editorial.approved&&editorialReady,manifestHash:hash(canonical(value)),blockers:[...blockers].sort()};
 }

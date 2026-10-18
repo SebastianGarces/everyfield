@@ -8,27 +8,30 @@ test('AC:GAP-REF-001 AC:REF-CASE-001 exact original Playbook survives packaging'
   const source = starter.sources.find(s => s.path === 'docs/reference/playbook.md');
   assert.equal(source?.sha256, 'd365dd4992156e674f8e67601239fbf97c173074a3ca7e0bc8010aa725205e7a');
   assert.equal(Buffer.byteLength(source!.body), 34025);
-  assert.equal((await verifyCheckout(new URL('../../../', import.meta.url))).ok, true);
 });
 
 import { mkdtemp,cp,readFile,writeFile,rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { packageStarter,validateBundle } from '../../../packages/reference/src/bundle.ts';
+import { packageCheckout,packageStarter,validateBundle } from '../../../packages/reference/src/bundle.ts';
 import { editorDocument,importExtractedText } from '../../../packages/contracts/src/reference/editor.ts';
 import { fixture,starter } from './fixtures.mts';
 
-test('INV-reference-catalog: changed catalog digest is refused although source verification alone passes', async()=>{
+test('INV-reference-catalog: packaging refuses a changed catalog against its reviewed expectation', async()=>{
   const target=await mkdtemp(join(tmpdir(),'wp032-catalog-'));
   try {
     await cp(new URL('../../../docs',import.meta.url),join(target,'docs'),{recursive:true});
+    const {verifySources}=await import('../../../packages/reference/verify.mjs');
+    const expected=(await verifySources(target)).catalog!.sha256;
+    assert.equal((await packageCheckout(pathToFileURL(target+'/'),expected)).filter(e=>e.kind==='article').length,96);
     const index=join(target,'docs/catalog/index.json');
     await writeFile(index,(await readFile(index,'utf8'))+'\n');
-    assert.deepEqual(await verifyCheckout(pathToFileURL(target+'/')),{ok:false,issues:[{code:'catalog_digest_mismatch',path:'docs/catalog/index.json'}]});
+    assert.deepEqual(await verifyCheckout(pathToFileURL(target+'/'),expected),{ok:false,issues:[{code:'catalog_digest_mismatch',path:'docs/catalog/index.json'}]});
+    await assert.rejects(packageCheckout(pathToFileURL(target+'/'),expected),{message:'catalog_digest_mismatch'});
     const playbook=join(target,'docs/reference/playbook.md');
     await writeFile(playbook,(await readFile(playbook,'utf8')).replace('Launch Playbook','Launch PlaybooK'));
-    assert.equal((await verifyCheckout(pathToFileURL(target+'/'))).issues.some(i=>i.code==='hash_mismatch'),true);
+    assert.equal((await verifyCheckout(pathToFileURL(target+'/'),expected)).issues.some(i=>i.code==='hash_mismatch'),true);
   }finally{await rm(target,{recursive:true,force:true});}
 });
 
@@ -45,8 +48,10 @@ test('AC:CONTENT50-001 canonical catalogs retain topology, identity and distinct
 
 test('AC:GAP-REF-008 exact source integrity never supplies editorial approval',()=>{
   const {bundle,policy,manifestHash}=fixture();
-  assert.deepEqual(validateBundle(bundle,{...policy,editorial:{approved:false,originalAvailable:false,conflicts:['known-source-conflict']}}),{
-    ok:false,hashIntegrity:true,editorialApproved:false,manifestHash,blockers:['editorial_approval_required','editorial_conflict','original_unavailable']});
+  for(const approved of [true,false])assert.deepEqual(validateBundle(bundle,{...policy,editorial:{approved,originalAvailable:false,conflicts:['known-source-conflict']}}),{
+    ok:false,hashIntegrity:true,editorialApproved:false,manifestHash,blockers:['editorial_conflict','original_unavailable']});
+  assert.deepEqual(validateBundle(bundle,{...policy,editorial:{approved:false,originalAvailable:true,conflicts:[]}}),{
+    ok:false,hashIntegrity:true,editorialApproved:false,manifestHash,blockers:['editorial_approval_required']});
 });
 
 test('AC:REFREL-003 AC:REFREL-007 incomplete, foreign, unsafe and changed derivatives never validate or echo secrets',()=>{
@@ -62,6 +67,7 @@ test('AC:REFREL-003 AC:REFREL-007 incomplete, foreign, unsafe and changed deriva
     (c:typeof bundle)=>{c.entries[0]!.sourceHash='0'.repeat(64);},
     (c:typeof bundle)=>{c.discoveryIds[0]=c.discoveryIds[1]!;},
     (c:typeof bundle)=>{c.profile.model='obsolete';},
+    (c:typeof bundle)=>{c.catalogSha256='0'.repeat(64);},
   ];
   for(const edit of edits) {
     const c=structuredClone(bundle);edit(c);const report=validateBundle(c,policy);
@@ -90,7 +96,7 @@ test('INV-reference-grammar: reviewed Callout and links parse without executing 
   const slugs=new Set(['discovery/example']);
   assert.equal(safeMdx('<Callout type="tip">Read [this](/wiki/discovery/example).</Callout>',slugs),true);
   for(const body of ['import x from "evil";\n\n# Text','{globalThis.process.exit()}','<script>alert(1)</script>',
-    '<Callout type={"tip"}>Text</Callout>','[bad](javascript:alert%281%29)','[missing](/wiki/missing)',
+    '<Evil type="tip">x</Evil>','<Callout type={"tip"}>Text</Callout>','[bad](javascript:alert%281%29)','[missing](/wiki/missing)',
     '<Callout type="tip" onClick="evil">Text</Callout>'])assert.equal(safeMdx(body,slugs),false,body);
 });
 

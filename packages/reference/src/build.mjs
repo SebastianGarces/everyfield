@@ -6,11 +6,29 @@ import { verifySources } from '../verify.mjs';
 
 const root = new URL('../../../', import.meta.url);
 const hash = value => createHash('sha256').update(value).digest('hex');
-const report = await verifySources(fileURLToPath(root));
-if (!report.ok) throw Error('Source verification failed');
-const sources = await Promise.all([...report.files, {path:'docs/reference/manifest.json',actual:{sha256:report.manifestSha256}}].map(async f => ({
-  path: f.path, sha256: f.actual.sha256, body: await readFile(new URL(f.path, root), 'utf8'),
-})));
+const write = process.argv.includes('--write');
+const frozen = JSON.parse(await readFile(new URL('freeze.json', import.meta.url), 'utf8'));
+const manifestBytes = await readFile(new URL('docs/reference/manifest.json', root));
+const sourceManifestSha256 = hash(manifestBytes);
+const manifest = JSON.parse(manifestBytes.toString('utf8'));
+let catalogSha256 = frozen.catalogSha256;
+if (write) {
+  // A reviewed catalog identity is an operation input, never an implicit refreeze.
+  const index = process.argv.indexOf('--catalog-sha256');
+  const expected = index === -1 ? frozen.catalogSha256 : process.argv[index + 1];
+  if (!/^[a-f0-9]{64}$/.test(expected ?? '')) throw Error('Expected catalog SHA-256 required');
+  const report = await verifySources(fileURLToPath(root));
+  if (!report.ok) throw Error('Source verification failed');
+  if (report.catalog.sha256 !== expected) throw Error('catalog_digest_mismatch');
+  catalogSha256 = expected;
+} else if (sourceManifestSha256 !== frozen.sourceManifestSha256) {
+  throw Error('Frozen reference differs: source manifest');
+}
+const sources = await Promise.all([...manifest.files, {path:'docs/reference/manifest.json',sha256:sourceManifestSha256,bytes:manifestBytes.length}].map(async f => {
+  const bytes = await readFile(new URL(f.path, root));
+  if (hash(bytes) !== f.sha256 || bytes.length !== f.bytes) throw Error('Frozen reference differs: ' + f.path);
+  return {path:f.path,sha256:f.sha256,body:bytes.toString('utf8')};
+}));
 // Extract only literals, never evaluate historical code or resolve its imports.
 function literal(node) {
   if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
@@ -60,11 +78,14 @@ const data = {
   },
 };
 const artifact = JSON.stringify(data, null, 2) + '\n';
-const freeze = JSON.stringify({version:1, sourceManifestSha256: report.manifestSha256,
-  catalogSha256: report.catalog.sha256, artifactSha256: hash(artifact)}, null, 2) + '\n';
-for (const [path, bytes] of [['artifacts.json', artifact], ['freeze.json', freeze]]) {
-  const target = new URL(path, import.meta.url);
-  if (process.argv.includes('--write')) await writeFile(target, bytes);
-  else if (await readFile(target, 'utf8') !== bytes) throw Error('Frozen reference differs: ' + path);
+const freeze = JSON.stringify({version:1, sourceManifestSha256,
+  catalogSha256, artifactSha256: hash(artifact)}, null, 2) + '\n';
+if (write) {
+  await writeFile(new URL('artifacts.json', import.meta.url), artifact);
+  await writeFile(new URL('freeze.json', import.meta.url), freeze);
+  console.log('Reference freeze: expected catalog digest and source archive agree.');
+} else {
+  if (await readFile(new URL('artifacts.json', import.meta.url), 'utf8') !== artifact
+    || hash(artifact) !== frozen.artifactSha256) throw Error('Frozen reference differs: artifacts.json');
+  console.log('Reference sources: exact source bytes and literal catalogs agree.');
 }
-console.log('Reference freeze: exact source bytes, literal catalogs and expected catalog digest agree.');
