@@ -6,6 +6,7 @@ import { reviewedMilestone } from "./progress.ts";
 import { startFeedbackTask, cachedTriage } from "./feedback.ts";
 import {
   baseRef,
+  command,
   fail,
   findPackage,
   git,
@@ -48,7 +49,7 @@ export function stack(root: string, task: TaskRef, action: "up" | "down" | "stat
   if(task.kind==='ops')fail('Maintenance tasks have no application stack.');
   if(action==='up') {const wp=task.kind==='wp'?task.wp:cachedTriage(root,task.issue!)?.wp;if(!wp)fail('No reviewed stack task scope.');requireImplementation(root,wp,task.part);requireTaskRisk(root,task);}
   if(action==='up'&&cfg.stack) {if(typeof cfg.stack.usesPaidProviders!=='boolean')fail("Declare whether the stack uses paid providers before starting it.");if(cfg.stack.usesPaidProviders)requireSpend(root);}
-  const argv = stackCmd(cfg, action);
+  const configured = stackCmd(cfg, action), argv = configured && command(configured);
   if (!argv) {
     const msg = `No stack "${action}" command in evf.config.json yet. The workflow bootstrap package defines the per-task stack command.`;
     if (optional) {
@@ -69,7 +70,7 @@ export function stack(root: string, task: TaskRef, action: "up" | "down" | "stat
 
 export function debugCmd(root: string, task: TaskRef, name: "traces" | "logs", extra: string[]): number {
   const cfg = loadConfig(root);
-  const argv = stackCmd(cfg, name);
+  const configured = stackCmd(cfg, name), argv = configured && command(configured);
   if (!argv) fail(`No stack "${name}" command in evf.config.json yet. The observability setup (WP-003, WP-050) defines it.`);
   const wt = requireWorktree(root, cfg, task);
   return run(argv[0], [...argv.slice(1), ...extra], { cwd: wt, env: stackEnv(root, task, wt), inherit: true }).code;
@@ -116,7 +117,10 @@ export function taskStart(root: string, task: TaskRef, opts: { allowUnready: boo
   console.log(`intent: call ws.git.registerRoot(${JSON.stringify(wt)}) so Intent shows this worktree.`);
   console.log("shell: your shell starts in the workspace root. evf commands find the worktree from the task ID; for other commands use `git -C` or the worktree path.");
 
-  if (!opts.noStack && task.kind!=='ops') stack(root, task, "up", true);
+  if (!opts.noStack && task.kind!=='ops') {
+    const code = stack(root, task, "up", true);
+    if (code !== 0) fail(`stack up failed with exit code ${code}. The worktree exists; fix the stack, then run evf stack up ${task.id}.`);
+  }
   console.log("");
   console.log(renderBrief(root, task, { uiTier: opts.uiTier }));
   return 0;

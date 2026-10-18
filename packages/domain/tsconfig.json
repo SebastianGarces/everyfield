@@ -4,5 +4,8 @@
     "src/**/*.ts",
     "scripts/**/*.ts",
     "test/**/*.ts"
-  ]
+  ],
+  "compilerOptions": {
+    "allowImportingTsExtensions": true
+  }
 }

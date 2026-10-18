@@ -45,6 +45,8 @@ jobs:
         run: pnpm build
         env:
           NEXT_TELEMETRY_DISABLED: "1"
+      - name: Package unit tests (each package's test:unit, no database or network)
+        run: corepack pnpm -r --if-present test:unit
 
   docs:
     name: docs (documentation and case checks)
@@ -83,7 +85,7 @@ jobs:
     timeout-minutes: 10
     services:
       postgres:
-        image: postgres:17
+        image: pgvector/pgvector:0.8.7-pg17
         env:
           POSTGRES_USER: ci
           POSTGRES_PASSWORD: ci

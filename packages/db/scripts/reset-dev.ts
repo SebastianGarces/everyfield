@@ -33,7 +33,7 @@ try {
     await client.query(`
       INSERT INTO early_access_request (kind, email, data, mail_payload, mail_id, mailed_at)
       VALUES ($1, $2, $3, $4, $5, now())
-    `, [kind, email, JSON.stringify({ ...data, email }), JSON.stringify({ to: email, subject: "Synthetic development fixture", text: "No email was sent." }), "synthetic-" + kind]);
+    `, [kind, email, JSON.stringify({ ...data, email }), JSON.stringify({ from: "EveryField Development <development@example.test>", to: [email], reply_to: "support@example.test", subject: "Synthetic development fixture", text: "No email was sent." }), "synthetic-" + kind]);
   }
   await client.query("COMMIT");
   console.log("Shared development database reset. Seeded one planter and one network request; no email sent.");

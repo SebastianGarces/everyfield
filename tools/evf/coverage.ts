@@ -6,6 +6,15 @@ const marker = /(?:^|[^A-Za-z0-9_-])AC:([A-Za-z0-9_-]+)(?=$|[^A-Za-z0-9_-])/g;
 export function caseGrep(ids:string[]):string {
  return ids.length?`AC:(?:${ids.map(id=>id.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')})(?=$|[^A-Za-z0-9_-])`:'(?!)';
 }
+/** The tests array of one check's report; malformed reports fail. */
+export function testsOf(raw:unknown):unknown[] {
+ if(!raw||typeof raw!=='object'||!('tests' in raw)||!Array.isArray(raw.tests))fail('Test results must contain a tests array.');
+ return raw.tests;
+}
+/** True when any test name or annotation in the report names a case with AC:<case-id>. */
+export function hasCaseMarkers(raw:unknown):boolean {
+ return testsOf(raw).some(t=>!!t&&typeof t==='object'&&[(t as TestResult).name,...((t as TestResult).annotations??[])].some(text=>typeof text==='string'&&[...text.matchAll(marker)].length>0));
+}
 /** A test can cover many case IDs. Failed/skipped tests never satisfy coverage. */
 export function caseCoverage(expected:string[],raw:unknown):Coverage {
  if(!raw||typeof raw!=='object'||!('tests' in raw)||!Array.isArray(raw.tests))fail('Test results must contain a tests array.');

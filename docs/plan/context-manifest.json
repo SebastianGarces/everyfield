@@ -1195,6 +1195,10 @@
     "NOTIFY47-008": "docs/acceptance/communications-notifications.json",
     "NOTIFY47-009": "docs/acceptance/communications-notifications.json",
     "NOTIFY47-010": "docs/acceptance/communications-notifications.json",
+    "OPS-ATOMIC-001": "docs/acceptance/operations.json",
+    "OPS-BACKUP-001": "docs/acceptance/operations.json",
+    "OPS-EVAL-PROOF-001": "docs/acceptance/operations.json",
+    "OPS-PLATFORM-001": "docs/acceptance/operations.json",
     "OPS54-001": "docs/acceptance/operations.json",
     "OPS54-002": "docs/acceptance/operations.json",
     "ORG55-001": "docs/acceptance/identity-access.json",
@@ -1205,6 +1209,8 @@
     "ORG55-006": "docs/acceptance/identity-access.json",
     "ORG55-007": "docs/acceptance/identity-access.json",
     "ORG55-008": "docs/acceptance/identity-access.json",
+    "OUTBOX-PURGE-001": "docs/acceptance/recovery.json",
+    "OUTBOX-RESTORE-001": "docs/acceptance/recovery.json",
     "PERSONREF-ACCOUNT-LINK-CONFLICT": "docs/acceptance/identity-access.json",
     "PERSONREF-ACCOUNT-LINK-MERGE": "docs/acceptance/identity-access.json",
     "PERSONREF-ACCOUNT-LINK-RETIRE": "docs/acceptance/identity-access.json",
@@ -1325,6 +1331,10 @@
     "PI-PURPOSE-001": "docs/acceptance/intelligence.json",
     "PI-TASK-CONTACT-001": "docs/acceptance/intelligence.json",
     "PI-URGENCY-001": "docs/acceptance/intelligence.json",
+    "PLATFORM-001": "docs/acceptance/knowledge.json",
+    "PLATFORM-002": "docs/acceptance/knowledge.json",
+    "PLATFORM-003": "docs/acceptance/knowledge.json",
+    "PLATFORM-004": "docs/acceptance/knowledge.json",
     "PROVIDER48-001": "docs/acceptance/operations.json",
     "PROVIDER48-002": "docs/acceptance/operations.json",
     "PROVIDER48-003": "docs/acceptance/operations.json",
@@ -1554,6 +1564,25 @@
     "WIKI52-001": "docs/acceptance/knowledge.json",
     "WIKI52-002": "docs/acceptance/knowledge.json",
     "WIKI52-003": "docs/acceptance/knowledge.json",
+    "WP004-IDN-029": "docs/acceptance/schema.json",
+    "WP004-KNOW-012": "docs/acceptance/schema.json",
+    "WP004-KNOW-014": "docs/acceptance/schema.json",
+    "WP004-KNOW-069": "docs/acceptance/schema.json",
+    "WP004-KNOW-072": "docs/acceptance/schema.json",
+    "WP004-KNOW-073": "docs/acceptance/schema.json",
+    "WP004-KNOW-078": "docs/acceptance/schema.json",
+    "WP004-KNOW-081": "docs/acceptance/schema.json",
+    "WP004-KNOW-082": "docs/acceptance/schema.json",
+    "WP004-KNOW-083": "docs/acceptance/schema.json",
+    "WP004-KNOW-084": "docs/acceptance/schema.json",
+    "WP004-KNOW-085": "docs/acceptance/schema.json",
+    "WP004-KNOW-086": "docs/acceptance/schema.json",
+    "WP004-KNOW-087": "docs/acceptance/schema.json",
+    "WP004-KNOW-088": "docs/acceptance/schema.json",
+    "WP004-KNOW-089": "docs/acceptance/schema.json",
+    "WP004-PPL-024": "docs/acceptance/schema.json",
+    "WP005-KNOW-069": "docs/acceptance/recovery.json",
+    "WP005-KNOW-072": "docs/acceptance/recovery.json",
     "WR-001": "docs/acceptance/knowledge.json",
     "WR-002": "docs/acceptance/knowledge.json",
     "WR-003": "docs/acceptance/knowledge.json",
@@ -1946,6 +1975,10 @@
         "AI44-002",
         "AI44-004",
         "BKT60-001",
+        "PLATFORM-001",
+        "PLATFORM-002",
+        "PLATFORM-003",
+        "PLATFORM-004",
         "SCHEMA-013",
         "SEC-01",
         "SEC-10",
@@ -1991,6 +2024,10 @@
         "BKT60-004",
         "OPS54-001",
         "OPS54-002",
+        "PLATFORM-001",
+        "PLATFORM-002",
+        "PLATFORM-003",
+        "PLATFORM-004",
         "PROVIDER48-001",
         "PROVIDER48-003",
         "PROVIDER48-004",
@@ -2079,7 +2116,24 @@
         "SEC-10",
         "TEN-001",
         "TEN-004",
-        "TEN-009"
+        "TEN-009",
+        "WP004-IDN-029",
+        "WP004-KNOW-012",
+        "WP004-KNOW-014",
+        "WP004-KNOW-069",
+        "WP004-KNOW-072",
+        "WP004-KNOW-073",
+        "WP004-KNOW-078",
+        "WP004-KNOW-081",
+        "WP004-KNOW-082",
+        "WP004-KNOW-083",
+        "WP004-KNOW-084",
+        "WP004-KNOW-085",
+        "WP004-KNOW-086",
+        "WP004-KNOW-087",
+        "WP004-KNOW-088",
+        "WP004-KNOW-089",
+        "WP004-PPL-024"
       ],
       "own_operation_ids": [
         "storage.createAuthorizedDownload",
@@ -2343,6 +2397,10 @@
         "OPS54-002",
         "ORG55-006",
         "ORG55-008",
+        "PLATFORM-001",
+        "PLATFORM-002",
+        "PLATFORM-003",
+        "PLATFORM-004",
         "PROVIDER48-001",
         "PROVIDER48-002",
         "PROVIDER48-003",
@@ -2383,7 +2441,26 @@
         "TEN-003",
         "TEN-004",
         "TEN-008",
-        "TEN-009"
+        "TEN-009",
+        "WP004-IDN-029",
+        "WP004-KNOW-012",
+        "WP004-KNOW-014",
+        "WP004-KNOW-069",
+        "WP004-KNOW-072",
+        "WP004-KNOW-073",
+        "WP004-KNOW-078",
+        "WP004-KNOW-081",
+        "WP004-KNOW-082",
+        "WP004-KNOW-083",
+        "WP004-KNOW-084",
+        "WP004-KNOW-085",
+        "WP004-KNOW-086",
+        "WP004-KNOW-087",
+        "WP004-KNOW-088",
+        "WP004-KNOW-089",
+        "WP004-PPL-024",
+        "WP005-KNOW-069",
+        "WP005-KNOW-072"
       ],
       "context_case_ids": [],
       "operation_ids": [
@@ -2612,7 +2689,9 @@
         "TARGET-IDN-002",
         "TARGET-IDN-009",
         "TARGET-IDN-028",
-        "TARGET-IDN-030"
+        "TARGET-IDN-030",
+        "WP005-KNOW-069",
+        "WP005-KNOW-072"
       ],
       "own_operation_ids": [
         "accounts.getRegistrationOptions",
@@ -2729,7 +2808,10 @@
         "TARGET-IDN-028",
         "TARGET-IDN-029",
         "TARGET-IDN-030",
-        "TARGET-IDN-032"
+        "TARGET-IDN-032",
+        "WP004-IDN-029",
+        "WP005-KNOW-069",
+        "WP005-KNOW-072"
       ],
       "context_case_ids": [],
       "operation_ids": [
@@ -2996,7 +3078,8 @@
         "TEN-002",
         "TEN-004",
         "TEN-005",
-        "TEN-009"
+        "TEN-009",
+        "WP004-IDN-029"
       ],
       "context_case_ids": [],
       "operation_ids": [
@@ -3583,7 +3666,14 @@
         "TARGET-TSK-018",
         "TEN-003",
         "TEN-007",
-        "TEN-008"
+        "TEN-008",
+        "WP004-IDN-029",
+        "WP004-KNOW-069",
+        "WP004-KNOW-072",
+        "WP004-KNOW-073",
+        "WP004-KNOW-089",
+        "WP005-KNOW-069",
+        "WP005-KNOW-072"
       ],
       "context_case_ids": [
         "B03-001",
@@ -3966,7 +4056,8 @@
         "TARGET-PPL-024",
         "TARGET-PPL-025",
         "TEN-004",
-        "TEN-005"
+        "TEN-005",
+        "WP004-IDN-029"
       ],
       "context_case_ids": [
         "CASE-NTF-013",
@@ -4256,7 +4347,10 @@
         "TARGET-IDN-030",
         "TARGET-IDN-032",
         "TARGET-PPL-024",
-        "TARGET-PPL-025"
+        "TARGET-PPL-025",
+        "WP004-IDN-029",
+        "WP004-KNOW-069",
+        "WP005-KNOW-069"
       ],
       "context_case_ids": [
         "EVRY-ACCOUNT-PRIVATE-DISCOVERY"
@@ -4693,7 +4787,20 @@
         "TARGET-IDN-032",
         "TARGET-IDN-033",
         "TARGET-TSK-018",
-        "TEN-007"
+        "TEN-007",
+        "WP004-IDN-029",
+        "WP004-KNOW-014",
+        "WP004-KNOW-069",
+        "WP004-KNOW-072",
+        "WP004-KNOW-073",
+        "WP004-KNOW-082",
+        "WP004-KNOW-083",
+        "WP004-KNOW-084",
+        "WP004-KNOW-085",
+        "WP004-KNOW-086",
+        "WP004-KNOW-089",
+        "WP005-KNOW-069",
+        "WP005-KNOW-072"
       ],
       "context_case_ids": [
         "AF-028",
@@ -5072,7 +5179,11 @@
         "TARGET-PPL-025",
         "TARGET-PPL-026",
         "TARGET-TEAM-016",
-        "TEN-002"
+        "TEN-002",
+        "WP004-IDN-029",
+        "WP004-KNOW-069",
+        "WP004-PPL-024",
+        "WP005-KNOW-069"
       ],
       "context_case_ids": [
         "INH-REGRESSION-CLARIFICATION-NAME"
@@ -5303,7 +5414,8 @@
         "TARGET-PPL-010",
         "TARGET-PPL-011",
         "TARGET-PPL-024",
-        "TARGET-PPL-025"
+        "TARGET-PPL-025",
+        "WP004-PPL-024"
       ],
       "context_case_ids": [
         "TARGET-IDN-029"
@@ -5616,7 +5728,8 @@
         "TARGET-PPL-020",
         "TARGET-PPL-024",
         "TARGET-PPL-025",
-        "TARGET-PPL-026"
+        "TARGET-PPL-026",
+        "WP004-PPL-024"
       ],
       "context_case_ids": [
         "TARGET-IDN-029"
@@ -5939,7 +6052,8 @@
         "TARGET-PPL-017",
         "TARGET-PPL-024",
         "TARGET-PPL-025",
-        "TARGET-PPL-026"
+        "TARGET-PPL-026",
+        "WP004-PPL-024"
       ],
       "context_case_ids": [
         "TARGET-IDN-029"
@@ -6401,7 +6515,8 @@
         "TARGET-TEAM-015",
         "TARGET-TEAM-016",
         "TEN-004",
-        "TEN-005"
+        "TEN-005",
+        "WP004-IDN-029"
       ],
       "context_case_ids": [
         "AUTH-007",
@@ -6821,7 +6936,8 @@
         "TARGET-TEAM-016",
         "TARGET-TEAM-017",
         "TEN-007",
-        "WIKI49-004"
+        "WIKI49-004",
+        "WP004-PPL-024"
       ],
       "context_case_ids": [
         "TARGET-IDN-029"
@@ -7619,7 +7735,8 @@
         "TARGET-PPL-026",
         "TARGET-TSK-017",
         "TARGET-TSK-018",
-        "TEN-007"
+        "TEN-007",
+        "WP004-PPL-024"
       ],
       "context_case_ids": [
         "B03-013",
@@ -7937,7 +8054,8 @@
         "TARGET-TSK-012",
         "TARGET-TSK-013",
         "TARGET-TSK-017",
-        "TARGET-TSK-018"
+        "TARGET-TSK-018",
+        "WP004-PPL-024"
       ],
       "context_case_ids": [
         "B03-013",
@@ -8229,7 +8347,8 @@
         "TARGET-TSK-016",
         "TARGET-TSK-017",
         "TARGET-TSK-018",
-        "TEN-004"
+        "TEN-004",
+        "WP004-IDN-029"
       ],
       "context_case_ids": [
         "AUTH-002",
@@ -8863,7 +8982,8 @@
         "REFREL-004",
         "REFREL-005",
         "REFREL-007",
-        "REFREL-008"
+        "REFREL-008",
+        "WP004-KNOW-089"
       ],
       "context_case_ids": [
         "RECOVERY-DELETE-001",
@@ -9117,7 +9237,8 @@
         "SCHEMA-013",
         "SEC-06",
         "SEC-09",
-        "TEN-004"
+        "TEN-004",
+        "WP004-KNOW-089"
       ],
       "context_case_ids": [
         "RECOVERY-DELETE-001",
@@ -9377,7 +9498,9 @@
         "TARGET-MTG-021",
         "TARGET-MTG-022",
         "TARGET-PPL-021",
-        "TARGET-PPL-024"
+        "TARGET-PPL-024",
+        "WP004-KNOW-089",
+        "WP004-PPL-024"
       ],
       "context_case_ids": [
         "RECOVERY-DELETE-001",
@@ -9837,6 +9960,8 @@
         "NOTIFY47-006",
         "NOTIFY47-007",
         "NOTIFY47-009",
+        "OUTBOX-PURGE-001",
+        "OUTBOX-RESTORE-001",
         "SCHEMA-013",
         "TARGET-TSK-018",
         "WIKI52-002"
@@ -10062,6 +10187,8 @@
         "NOTIFY47-010",
         "ORG55-002",
         "ORG55-003",
+        "OUTBOX-PURGE-001",
+        "OUTBOX-RESTORE-001",
         "REC59-006",
         "RECOVERY-DELETE-001",
         "SCHEMA-013",
@@ -10071,7 +10198,8 @@
         "TARGET-TSK-018",
         "TEN-004",
         "WIKI52-001",
-        "WIKI52-002"
+        "WIKI52-002",
+        "WP004-KNOW-089"
       ],
       "context_case_ids": [],
       "operation_ids": [
@@ -12125,7 +12253,15 @@
         "SEC-05",
         "SEC-08",
         "TEN-002",
-        "WIKI52-003"
+        "WIKI52-003",
+        "WP004-KNOW-012",
+        "WP004-KNOW-069",
+        "WP004-KNOW-072",
+        "WP004-KNOW-083",
+        "WP004-KNOW-085",
+        "WP004-KNOW-086",
+        "WP005-KNOW-069",
+        "WP005-KNOW-072"
       ],
       "context_case_ids": [
         "REC59-002",
@@ -12453,6 +12589,10 @@
         "PI-GROW-001",
         "PI-GROW-002",
         "PI-PHASE6-001",
+        "PLATFORM-001",
+        "PLATFORM-002",
+        "PLATFORM-003",
+        "PLATFORM-004",
         "PROVIDER48-001",
         "PROVIDER48-002",
         "PROVIDER48-003",
@@ -12469,7 +12609,23 @@
         "TARGET-PPL-024",
         "TEN-002",
         "TEN-004",
-        "WIKI52-003"
+        "WIKI52-003",
+        "WP004-KNOW-012",
+        "WP004-KNOW-014",
+        "WP004-KNOW-069",
+        "WP004-KNOW-072",
+        "WP004-KNOW-073",
+        "WP004-KNOW-078",
+        "WP004-KNOW-081",
+        "WP004-KNOW-082",
+        "WP004-KNOW-083",
+        "WP004-KNOW-085",
+        "WP004-KNOW-086",
+        "WP004-KNOW-087",
+        "WP004-KNOW-088",
+        "WP004-KNOW-089",
+        "WP005-KNOW-069",
+        "WP005-KNOW-072"
       ],
       "context_case_ids": [
         "CASE-OPS-010",
@@ -13246,7 +13402,11 @@
         "TARGET-IDN-033",
         "TARGET-TEAM-017",
         "TARGET-TSK-018",
-        "TEN-006"
+        "TEN-006",
+        "WP004-KNOW-069",
+        "WP004-KNOW-072",
+        "WP005-KNOW-069",
+        "WP005-KNOW-072"
       ],
       "context_case_ids": [
         "AF-028",
@@ -14635,7 +14795,9 @@
         "TEN-003",
         "TEN-008"
       ],
-      "context_case_ids": [],
+      "context_case_ids": [
+        "OPS-EVAL-PROOF-001"
+      ],
       "operation_ids": [
         "geography.listReportingRegionCandidates",
         "intelligence.evaluateAssessment",
@@ -17077,7 +17239,8 @@
         "TARGET-IDN-024",
         "TEN-002",
         "TEN-003",
-        "TEN-008"
+        "TEN-008",
+        "WP004-IDN-029"
       ],
       "context_case_ids": [
         "AI44-001",
@@ -17353,7 +17516,8 @@
         "PUB57-006",
         "PUBLIC-SERIALIZER-001",
         "REC59-006",
-        "SCHEMA-015"
+        "SCHEMA-015",
+        "WP004-KNOW-089"
       ],
       "context_case_ids": [
         "COST-GATE-001",
@@ -17513,6 +17677,10 @@
         "EXEC-012",
         "FDB56-002",
         "FDB56-003",
+        "OPS-ATOMIC-001",
+        "OPS-BACKUP-001",
+        "OPS-EVAL-PROOF-001",
+        "OPS-PLATFORM-001",
         "OPS54-001",
         "OPS54-002",
         "ORG55-006",
@@ -17709,11 +17877,19 @@
         "EXEC-012",
         "FDB56-002",
         "FDB56-003",
+        "OPS-ATOMIC-001",
+        "OPS-BACKUP-001",
+        "OPS-EVAL-PROOF-001",
+        "OPS-PLATFORM-001",
         "OPS54-001",
         "OPS54-002",
         "ORG55-006",
         "ORG55-007",
         "ORG55-008",
+        "PLATFORM-001",
+        "PLATFORM-002",
+        "PLATFORM-003",
+        "PLATFORM-004",
         "PROVIDER48-004",
         "PUB57-001",
         "PUB57-005",
@@ -17737,7 +17913,21 @@
         "TARGET-IDN-032",
         "TEN-001",
         "TEN-004",
-        "TEN-009"
+        "TEN-009",
+        "WP004-KNOW-012",
+        "WP004-KNOW-014",
+        "WP004-KNOW-072",
+        "WP004-KNOW-073",
+        "WP004-KNOW-078",
+        "WP004-KNOW-081",
+        "WP004-KNOW-082",
+        "WP004-KNOW-083",
+        "WP004-KNOW-084",
+        "WP004-KNOW-085",
+        "WP004-KNOW-086",
+        "WP004-KNOW-087",
+        "WP004-KNOW-088",
+        "WP004-KNOW-089"
       ],
       "context_case_ids": [
         "AI44-001",
@@ -17758,7 +17948,8 @@
         "SEC-06",
         "TARGET-IDN-026",
         "TARGET-IDN-028",
-        "TARGET-IDN-029"
+        "TARGET-IDN-029",
+        "WP005-KNOW-072"
       ],
       "operation_ids": [
         "auth.recoverInvalidSession",
@@ -26036,6 +26227,10 @@
         "NOTIFY47-008",
         "NOTIFY47-009",
         "NOTIFY47-010",
+        "OPS-ATOMIC-001",
+        "OPS-BACKUP-001",
+        "OPS-EVAL-PROOF-001",
+        "OPS-PLATFORM-001",
         "OPS54-001",
         "OPS54-002",
         "ORG55-001",
@@ -26046,6 +26241,8 @@
         "ORG55-006",
         "ORG55-007",
         "ORG55-008",
+        "OUTBOX-PURGE-001",
+        "OUTBOX-RESTORE-001",
         "PERSONREF-ACCOUNT-LINK-CONFLICT",
         "PERSONREF-ACCOUNT-LINK-MERGE",
         "PERSONREF-ACCOUNT-LINK-RETIRE",
@@ -26166,6 +26363,10 @@
         "PI-PURPOSE-001",
         "PI-TASK-CONTACT-001",
         "PI-URGENCY-001",
+        "PLATFORM-001",
+        "PLATFORM-002",
+        "PLATFORM-003",
+        "PLATFORM-004",
         "PROVIDER48-001",
         "PROVIDER48-002",
         "PROVIDER48-003",
@@ -26395,6 +26596,25 @@
         "WIKI52-001",
         "WIKI52-002",
         "WIKI52-003",
+        "WP004-IDN-029",
+        "WP004-KNOW-012",
+        "WP004-KNOW-014",
+        "WP004-KNOW-069",
+        "WP004-KNOW-072",
+        "WP004-KNOW-073",
+        "WP004-KNOW-078",
+        "WP004-KNOW-081",
+        "WP004-KNOW-082",
+        "WP004-KNOW-083",
+        "WP004-KNOW-084",
+        "WP004-KNOW-085",
+        "WP004-KNOW-086",
+        "WP004-KNOW-087",
+        "WP004-KNOW-088",
+        "WP004-KNOW-089",
+        "WP004-PPL-024",
+        "WP005-KNOW-069",
+        "WP005-KNOW-072",
         "WR-001",
         "WR-002",
         "WR-003",
@@ -32021,6 +32241,10 @@
         "NOTIFY47-008",
         "NOTIFY47-009",
         "NOTIFY47-010",
+        "OPS-ATOMIC-001",
+        "OPS-BACKUP-001",
+        "OPS-EVAL-PROOF-001",
+        "OPS-PLATFORM-001",
         "OPS54-001",
         "OPS54-002",
         "ORG55-001",
@@ -32031,6 +32255,8 @@
         "ORG55-006",
         "ORG55-007",
         "ORG55-008",
+        "OUTBOX-PURGE-001",
+        "OUTBOX-RESTORE-001",
         "PERSONREF-ACCOUNT-LINK-CONFLICT",
         "PERSONREF-ACCOUNT-LINK-MERGE",
         "PERSONREF-ACCOUNT-LINK-RETIRE",
@@ -32151,6 +32377,10 @@
         "PI-PURPOSE-001",
         "PI-TASK-CONTACT-001",
         "PI-URGENCY-001",
+        "PLATFORM-001",
+        "PLATFORM-002",
+        "PLATFORM-003",
+        "PLATFORM-004",
         "PROVIDER48-001",
         "PROVIDER48-002",
         "PROVIDER48-003",
@@ -32380,6 +32610,25 @@
         "WIKI52-001",
         "WIKI52-002",
         "WIKI52-003",
+        "WP004-IDN-029",
+        "WP004-KNOW-012",
+        "WP004-KNOW-014",
+        "WP004-KNOW-069",
+        "WP004-KNOW-072",
+        "WP004-KNOW-073",
+        "WP004-KNOW-078",
+        "WP004-KNOW-081",
+        "WP004-KNOW-082",
+        "WP004-KNOW-083",
+        "WP004-KNOW-084",
+        "WP004-KNOW-085",
+        "WP004-KNOW-086",
+        "WP004-KNOW-087",
+        "WP004-KNOW-088",
+        "WP004-KNOW-089",
+        "WP004-PPL-024",
+        "WP005-KNOW-069",
+        "WP005-KNOW-072",
         "WR-001",
         "WR-002",
         "WR-003",
@@ -40202,7 +40451,11 @@
         "SCHEMA-005",
         "SCHEMA-008",
         "SCHEMA-011",
-        "WIKI52-003"
+        "WIKI52-003",
+        "WP004-KNOW-069",
+        "WP004-KNOW-072",
+        "WP005-KNOW-069",
+        "WP005-KNOW-072"
       ],
       "context_case_ids": [
         "B01-005",
@@ -40463,7 +40716,11 @@
         "SCHEMA-005",
         "SCHEMA-008",
         "SCHEMA-011",
-        "WIKI52-003"
+        "WIKI52-003",
+        "WP004-KNOW-069",
+        "WP004-KNOW-072",
+        "WP005-KNOW-069",
+        "WP005-KNOW-072"
       ],
       "context_case_ids": [
         "B01-005",

@@ -18,10 +18,12 @@ has no glossary file: use the terms from the task brief and `docs/product/`.
 
 ## Required sections
 
-[template.md](template.md) is the only list of required sections. Each level-2 heading in it is a
-required heading in the PR body, with the exact text and in the same order. Tools read that file.
-To change the standard, change template.md in a reviewed PR. Do not copy the heading list into
-another file or tool.
+[template.md](template.md) is the only list of required sections for ordinary PRs. Each level-2
+heading in it is a required heading in the PR body, with the exact text and in the same order.
+Wiki article and prototype PRs use their class templates instead:
+`tools/evf/templates/wiki-pr.md` and `tools/evf/templates/prototype-pr.md`. evf selects the class
+from the PR's branch, labels and changed files. Tools read these files. To change a standard,
+change its template in a reviewed PR. Do not copy a heading list into another file or tool.
 
 Copy the template, replace each comment with your text, and delete the comments. A section with
 only a comment counts as empty.

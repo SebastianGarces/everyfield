@@ -275,7 +275,7 @@ test('INV-model-feedback: verified bot identity never authorizes arbitrary raw p
 import { existsSync } from 'node:fs';
 import { stack } from '../task.ts';
 import { caseCoverage, caseGrep } from '../coverage.ts';
-import { producerReady, recordProgress, recordFastTrack } from '../progress.ts';
+import { producerReady, recordProgress, recordFastTrack, reconcileProgress } from '../progress.ts';
 import { renderAc, renderBrief } from '../brief.ts';
 
 test('BUG-fast-track: real prerequisite policy unlocks WP-087 only after bounded reviewed completion on main',()=>{
@@ -597,7 +597,7 @@ test('INV-phase7-progress: ship and acknowledgement preserve reviewed milestones
  const f=mergeFixture(),log=console.log;try {
   f.authorize('WP-032');
   const progressPath=join(f.root,'docs/build-progress.json'),initial=JSON.parse(readFileSync(progressPath,'utf8'));
-  initial.packages['WP-001'].status='not_started';writeFileSync(progressPath,JSON.stringify(initial));
+  initial.packages['WP-001'].status='not_started';writeFileSync(progressPath,JSON.stringify(initial));reconcileProgress(f.root);
   f.commit();f.git('push','-q','origin','main');
   const task=parseTask('WP-001'),wt=f.task(task.slug);
   mkdirSync(join(wt,'packages/reference'),{recursive:true});writeFileSync(join(wt,'packages/reference/fixture.txt'),'Reviewed reference bundle');
@@ -616,6 +616,14 @@ test('INV-phase7-progress: ship and acknowledgement preserve reviewed milestones
   listShipped(f.root,[task.id]);assert.equal(readFileSync(join(f.root,'docs/build-progress.json'),'utf8'),progress);
   assert.throws(()=>recordProgress(f.root,{...record,verification:{...record.verification,approval:{...record.verification.approval,head:'a'.repeat(40)}}},true),/independently reviewed/);
   assert.equal(readFileSync(join(f.root,'docs/build-progress.json'),'utf8'),progress);
+  // BUG-ops7-progress-shape (D20): the build explorer renders evf-written milestones, and reconcile upgrades older ones.
+  const explorer=()=>spawnSync('python3',[join(f.root,'docs/render-build-explorer.py'),'--check','--root',f.root],{encoding:'utf8'});
+  assert.equal(explorer().status,0,explorer().stderr);
+  const old=JSON.parse(progress),milestone=old.packages['WP-001'].milestones['WP-001'];
+  for(const field of ['passed_case_portions','passed_gate_portions','deferred_case_portions','deferred_gate_portions'])delete milestone[field];
+  writeFileSync(progressPath,JSON.stringify(old));assert.match(explorer().stderr,/Missing milestone field/);
+  reconcileProgress(f.root);assert.equal(explorer().status,0,explorer().stderr);
+  assert.deepEqual(JSON.parse(readFileSync(progressPath,'utf8')).packages['WP-001'].milestones['WP-001'].passed_case_portions,[]);
  }finally{console.log=log;f.close();}
 });
 
@@ -642,5 +650,111 @@ test('INV-phase7-pr-body: missing, empty and reordered required sections refuse 
   assert.equal(checkPrBody(f.root,expanded).sections.at(-1),'## New obligation');
   writeFileSync(template,'<!-- ## Comment only -->');
   assert.throws(()=>checkPrBody(f.root,expanded),/template must define distinct required sections/);
+ }finally{f.close();}
+});
+
+import { principles } from '../principles.ts';
+const quiet=<T>(fn:()=>T):T=>{const log=console.log;console.log=()=>{};try{return fn();}finally{console.log=log;}};
+
+test('INV-wp-scope: verify accepts only the task\'s own new-package lock importer, scaffold, at-start cases and generated projections',()=>{
+ const f=fixture();try {
+  f.authorize('WP-002');
+  const lock="lockfileVersion: '9.0'\n\nimporters:\n\n  .: {}\n\n  packages/db:\n    dependencies:\n      pg:\n        specifier: 8.0.0\n        version: 8.0.0\n\npackages:\n\n  pg@8.0.0:\n    resolution: {integrity: sha512-fixture}\n";
+  writeFileSync(join(f.root,'pnpm-lock.yaml'),lock);f.git('add','pnpm-lock.yaml');f.commit();
+  const wt=f.task('wp-002'),git=(...args:string[])=>execFileSync('git',['-C',wt,...args],{encoding:'utf8'}).trim();
+  const index=JSON.parse(readFileSync(join(wt,'docs/catalog/index.json'),'utf8'));
+  const atStart:string[]=loadDag(wt).packages.find(p=>p.id==='WP-002')!.context_scope.case_requirements_at_start;
+  const file=index.case_files.find((path:string)=>JSON.parse(readFileSync(join(wt,path),'utf8')).cases.some((c:{work_packages:string[];requirement:string})=>c.work_packages.join()==='WP-002'&&atStart.includes(c.requirement)));
+  const addCase=(id:string,requirement?:string)=>{
+   const payload=JSON.parse(readFileSync(join(wt,file),'utf8'));
+   const own=structuredClone(payload.cases.find((c:{work_packages:string[];requirement:string})=>c.work_packages.join()==='WP-002'&&atStart.includes(c.requirement)));
+   own.id=id;if(requirement){own.requirement=requirement;own.requirement_ids=[requirement];}
+   payload.cases.push(own);writeFileSync(join(wt,file),JSON.stringify(payload,null,2)+'\n');
+  };
+  const generate=()=>{for(const flag of ['--refresh-manifest','--refresh-plan'])execFileSync('python3',['docs/package-context.py',flag,'--root',wt],{cwd:wt,stdio:'ignore'});};
+  const write=(path:string,text:string)=>{mkdirSync(join(wt,path,'..'),{recursive:true});writeFileSync(join(wt,path),text);};
+  let printed:string[]=[];
+  const scopeOf=()=>{git('add','-A');git('commit','-qm','Candidate');const log=console.log;printed=[];console.log=(...m)=>{printed.push(...m.join(' ').split('\n'));};
+   let s;try{s=verify(f.root,parseTask('WP-002'),'author','full').scope!;}finally{console.log=log;}
+   return {owned:s.owned,accepted:Object.fromEntries(s.accepted.map(a=>[a.path,a.rule])),outside:[...s.outside].sort()};};
+  for(const name of ['package.json','tsconfig.json','eslint.config.mjs'])write(`packages/contracts/${name}`,'{}\n');
+  write('packages/contracts/src/common/values.ts','export {};\n');
+  write('apps/web/package.json','{}\n');
+  writeFileSync(join(wt,'pnpm-lock.yaml'),lock.replace('\n  packages/db:','\n  packages/contracts: {}\n\n  packages/db:'));
+  addCase('SCOPE-FIXTURE-001');generate();
+  assert.deepEqual(scopeOf(),{owned:['packages/contracts/src/common/values.ts'],accepted:{
+   [file]:'own-at-start-cases','docs/plan/build-plan.md':'generated-projection','docs/plan/context-manifest.json':'generated-projection',
+   'packages/contracts/eslint.config.mjs':'own-package-scaffold','packages/contracts/package.json':'own-package-scaffold','packages/contracts/tsconfig.json':'own-package-scaffold',
+   'pnpm-lock.yaml':'own-lock-importer'},outside:['apps/web/package.json']});
+  assert.deepEqual(printed.filter(l=>l.startsWith('  outside: ')),['  outside: apps/web/package.json (verifier: confirm a recorded ruling)']);
+  // Each widening stays outside: a lock entry beyond the importer, another package's case and a hand-edited projection.
+  writeFileSync(join(wt,'pnpm-lock.yaml'),readFileSync(join(wt,'pnpm-lock.yaml'),'utf8')+'\n  zod@4.0.0:\n    resolution: {integrity: sha512-extra}\n');
+  addCase('SCOPE-FIXTURE-002','REQ-KNOW-078');generate();
+  writeFileSync(join(wt,'docs/plan/build-plan.md'),readFileSync(join(wt,'docs/plan/build-plan.md'),'utf8')+'\nHand-written line.\n');
+  assert.deepEqual(scopeOf(),{owned:['packages/contracts/src/common/values.ts'],accepted:{
+   'packages/contracts/eslint.config.mjs':'own-package-scaffold','packages/contracts/package.json':'own-package-scaffold','packages/contracts/tsconfig.json':'own-package-scaffold'},
+   outside:['apps/web/package.json','docs/plan/build-plan.md','docs/plan/context-manifest.json',file,'pnpm-lock.yaml'].sort()});
+ }finally{f.close();}
+});
+
+test('BUG-ops6-stack-start: task start fails when stack up fails',()=>{
+ const f=fixture();try {
+  f.cfg.stack={usesPaidProviders:false,up:[process.execPath,'-e','process.exit(3)']};f.authorize('WP-001');f.commit();
+  assert.throws(()=>quiet(()=>taskStart(f.root,parseTask('WP-001'),{allowUnready:false,noStack:false})),/stack up failed with exit code 3/);
+ }finally{f.close();}
+});
+
+test('BUG-ops6-stack-node: stack commands named node run on evf\'s Node, not the first node on PATH',()=>{
+ const f=fixture();try {
+  writeFileSync(join(f.root,'fake-bin/node'),'#!/bin/sh\nexit 9\n');execFileSync('chmod',['+x',join(f.root,'fake-bin/node')]);
+  f.cfg.stack={usesPaidProviders:false,up:['node','-e','require("node:fs").writeFileSync(process.env.EVF_RUNTIME_DIR+"/stack.json",JSON.stringify({node:process.execPath}))']};
+  f.authorize('WP-001');f.commit();
+  const task=parseTask('WP-001');quiet(()=>taskStart(f.root,task,{allowUnready:false,noStack:true}));
+  assert.equal(quiet(()=>stack(f.root,task,'up')),0);
+  assert.equal(JSON.parse(readFileSync(join(evfDataDir(f.root),'runtime',task.slug,'stack.json'),'utf8')).node,process.execPath);
+ }finally{f.close();}
+});
+
+test('BUG-ops6-principles-target: principles --apply writes the task worktree and leaves the home checkout unchanged',()=>{
+ const f=fixture();try {
+  const skill=Buffer.from('---\nname: principle-fixture\n---\n\n# Fixture principle\n'),blob=createHash('sha1').update(`blob ${skill.length}\0`).update(skill).digest('hex'),commit='c'.repeat(40);
+  const repo='up/plugins',state=f.getState();
+  state.api={[`repos/${repo}/commits/main`]:{sha:commit,commit:{committer:{date:'2026-10-18T00:00:00Z'}}},[`repos/${repo}/commits/${commit}`]:{sha:commit,commit:{committer:{date:'2026-10-18T00:00:00Z'}}},
+   [`repos/${repo}/git/trees/${commit}?recursive=1`]:{truncated:false,tree:[{path:'pstack/skills/principle-fixture/SKILL.md',type:'blob',sha:blob}]},
+   [`repos/${repo}/git/blobs/${blob}`]:{content:skill.toString('base64'),encoding:'base64'}};
+  f.setState(state);
+  (f.cfg as Record<string,unknown>).principles={repo,path:'pstack/skills',prefix:'principle-',ref:'main'};
+  f.cfg.maintenanceTasks={'OPS-1':{title:'Principle refresh',owningPaths:['.agents/skills/','skills-lock.json'],checks:f.cfg.checks}};
+  writeFileSync(join(f.root,'skills-lock.json'),'{"version":1,"skills":{}}\n');writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));
+  f.git('add','skills-lock.json');f.commit();
+  const wt=f.task('ops-1'),homeLock=readFileSync(join(f.root,'skills-lock.json'),'utf8');
+  assert.equal(quiet(()=>principles(f.root,{apply:true,task:parseTask('OPS-1')})),0);
+  assert.equal(existsSync(join(f.root,'.agents/skills/principle-fixture')),false);
+  assert.equal(readFileSync(join(f.root,'skills-lock.json'),'utf8'),homeLock);
+  assert.deepEqual(readFileSync(join(wt,'.agents/skills/principle-fixture/SKILL.md')),skill);
+  assert.equal(JSON.parse(readFileSync(join(wt,'skills-lock.json'),'utf8')).skills['principle-fixture'].upstreamCommit,commit);
+  assert.throws(()=>principles(f.root,{apply:true}),/Give the maintenance task/);
+  assert.equal(existsSync(join(f.root,'.agents/skills/principle-fixture')),false);
+ }finally{f.close();}
+});
+
+test('BUG-wp003-shared-report: each check keeps its own report and only AC: reports turn on case coverage',()=>{
+ const f=fixture();try {
+  const ids=packageContext(f.root,'WP-002').case_ids,writer=(tests:unknown[])=>[process.execPath,'-e',`require("node:fs").writeFileSync(process.env.EVF_TEST_REPORT,${JSON.stringify(JSON.stringify({tests}))})`];
+  const tooling={name:'workflow',run:writer([{name:'INV-workflow: stack isolation',status:'passed'}])};
+  const cases={name:'package cases',run:writer([{name:ids.slice(0,-1).map(id=>`AC:${id}`).join(' ')+' package behavior',status:'passed'}])};
+  f.authorize('WP-002');f.commit();f.task('wp-002');
+  const run=(checks:unknown[])=>{f.cfg.checks=checks as typeof f.cfg.checks;writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));return quiet(()=>verify(f.root,parseTask('WP-002'),'author','full'));};
+  const toolingOnly=run([tooling]);
+  assert.deepEqual(toolingOnly.checks.map(c=>c.name),['workflow']);assert.equal(toolingOnly.passed,true);
+  const both=run([cases,tooling]);
+  assert.deepEqual(both.checks.map(c=>[c.name,c.passed]),[['package cases',true],['workflow',true],['case-coverage',false]]);
+  assert.deepEqual(JSON.parse(readFileSync(both.checks[2].log,'utf8')).missing,ids.slice(-1));
+  // Check names that slug alike keep separate reports and logs.
+  const alike=run([cases,{...tooling,name:'package_cases'}]);
+  assert.deepEqual(alike.checks.map(c=>[c.name,c.passed]),[['package cases',true],['package_cases',true],['case-coverage',false]]);
+  assert.equal(new Set(alike.checks.map(c=>c.log)).size,3);
+  for(const c of alike.checks.slice(0,2))assert.equal(existsSync(c.log.replace(/\.log$/,'.tests.json')),true);
+  assert.deepEqual(JSON.parse(readFileSync(alike.checks[2].log,'utf8')).missing,ids.slice(-1));
  }finally{f.close();}
 });

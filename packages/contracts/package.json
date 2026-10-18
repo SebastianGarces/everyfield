@@ -4,10 +4,12 @@
   "type": "module",
   "exports": {
     "./common": "./src/common/index.ts",
-    "./common/server": "./src/common/scope.ts"
+    "./common/server": "./src/common/scope.ts",
+    "./reference": "./src/reference/index.ts",
+    "./identity": "./src/identity/index.ts"
   },
   "scripts": {
-    "test:unit": "node src/common/sync-vocabulary.mjs --check && node --test ../../tests/contracts/common/*.test.mts",
+    "test:unit": "node src/common/sync-vocabulary.mjs --check && node --test ../../tests/contracts/common/*.test.mts && node --test src/identity/*.test.mts",
     "typecheck": "tsc --noEmit",
     "lint": "cd ../.. && packages/contracts/node_modules/.bin/eslint --config packages/contracts/eslint.config.mjs --max-warnings=0 packages/contracts tests/contracts/common"
   },
