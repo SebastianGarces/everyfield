@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { checkPrBody } from "./pr-body.ts";
+import { checkPrBody, prBodyClass, type PrBodyClass } from "./pr-body.ts";
 import { renderAc, renderBrief } from "./brief.ts";
 import { doctor, gc } from "./doctor.ts";
 import { EvfError, git, homeRoot, loadConfig, parseTask, readJson, run } from "./lib.ts";
@@ -30,6 +30,7 @@ Task loop (implementor, ui-designer)
   evf pr open <task> --body-file <file>                       push and open/update the PR
   evf pr check <PR> [--head <sha>]                            read-only Phase 7 merge checks
   evf pr body <PR> | --body-file <file>                       body-only standard check
+        [--class ordinary|wiki|prototype]                    local body files only
 
 Verification (verifier)
   evf verify <task> --role verifier [--quick]
@@ -180,20 +181,25 @@ function main(argv: string[]): number {
       const sub=args.shift();
       if(sub==='open'){const bodyFile=option(args,'--body-file');return prOpen(root,parseTask(args[0]),bodyFile);}
       if(sub==='body') {
-        const here=git(process.cwd(),'rev-parse','--show-toplevel'),file=option(args,'--body-file');
+        const here=git(process.cwd(),'rev-parse','--show-toplevel'),file=option(args,'--body-file'),selected=option(args,'--class');
+        if(selected!==undefined&&selected!=='ordinary'&&selected!=='wiki'&&selected!=='prototype')throw new EvfError('PR body class must be ordinary, wiki or prototype.');
+        let kind:PrBodyClass=selected??'ordinary';
         let body:string;
         if(file) {
           if(!existsSync(file))throw new EvfError('The PR body file does not exist.');
           body=readFileSync(file,'utf8');
         } else {
+          if(selected!==undefined)throw new EvfError('--class is only for local body files. GitHub PRs use their branch, labels and changed files.');
           const number=Number(args[0]);
           if(!Number.isInteger(number)||number<=0)throw new EvfError('Give a PR number or --body-file <file>.');
-          const result=run('gh',['pr','view',String(number),'--json','body','--jq','.body'],{cwd:here});
+          const result=run('gh',['pr','view',String(number),'--json','body,headRefName,labels,files'],{cwd:here});
           if(result.code!==0)throw new EvfError('Cannot read the PR body from GitHub.');
-          body=result.stdout;
+          const pr:unknown=JSON.parse(result.stdout);
+          if(!pr||typeof pr!=='object'||!('body' in pr)||typeof pr.body!=='string')throw new EvfError('Cannot read the PR body from GitHub.');
+          body=pr.body;kind=prBodyClass(pr);
         }
-        const checked=checkPrBody(here,body);
-        console.log(`PASSED PR body standard for ${checked.authorFamily}: ${checked.sections.join(', ')}`);return 0;
+        const checked=checkPrBody(here,body,kind);
+        console.log(`PASSED ${checked.kind} PR body standard for ${checked.authorFamily}: ${checked.sections.join(', ')}`);return 0;
       }
       if(sub==='check') {
         const head=option(args,'--head'),number=Number(args[0]);
