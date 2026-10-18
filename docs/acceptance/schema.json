@@ -8937,6 +8937,228 @@
         },
         "event": null
       }
+    },
+    {
+      "id": "C0-SCOPE-001",
+      "requirement": "REQ-IDN-029",
+      "feature_ids": [
+        "IDN-005"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-005--IDN-005"
+      ],
+      "work_packages": [
+        "WP-002"
+      ],
+      "status": "future-not-run",
+      "layers": [
+        "build"
+      ],
+      "description": "Bounded shared scope contract fixtures. This proves shared representations and pure decisions only; actual authorization, SQL transactions, triggers and Person movement close with their named producers.",
+      "given": {
+        "contract-fixtures": {
+          "fixture_type": "contract_fixture",
+          "values": {
+            "session_account": "A",
+            "selected_plant": "P",
+            "current_role": "admin",
+            "submitted_actor": "B",
+            "submitted_role": "owner"
+          }
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "build.inspectTargetCatalog",
+        "arguments": {
+          "contract": "C0-scope",
+          "fixture": "contract-fixtures"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "actor": "A",
+          "role": "admin",
+          "forged_command_error": "invalid_input",
+          "foreign_scope_error": "access_denied"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "C0-REPLAY-001",
+      "requirement": "REQ-OPS-004",
+      "feature_ids": [
+        "OPS-004"
+      ],
+      "acceptance_ids": [
+        "AC-OPS-004--OPS-004"
+      ],
+      "work_packages": [
+        "WP-002"
+      ],
+      "status": "future-not-run",
+      "layers": [
+        "build"
+      ],
+      "description": "Bounded shared replay contract fixtures. This proves shared representations and pure decisions only; actual authorization, SQL transactions, triggers and Person movement close with their named producers.",
+      "given": {
+        "contract-fixtures": {
+          "fixture_type": "contract_fixture",
+          "values": {
+            "request_key": "request-1",
+            "original_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "same_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "changed_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          }
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "build.inspectTargetCatalog",
+        "arguments": {
+          "contract": "C0-replay",
+          "fixture": "contract-fixtures"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "same_request": "replay",
+          "changed_input": "conflict",
+          "stale_revision": "conflict",
+          "external_unknown_retry": "reconcile"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "C0-REVISION-001",
+      "requirement": "REQ-PI-037",
+      "feature_ids": [
+        "PI-037"
+      ],
+      "acceptance_ids": [
+        "AC-PI-037--PI-037"
+      ],
+      "work_packages": [
+        "WP-002"
+      ],
+      "status": "future-not-run",
+      "layers": [
+        "build"
+      ],
+      "description": "Bounded shared revision contract fixtures. This proves shared representations and pure decisions only; actual authorization, SQL transactions, triggers and Person movement close with their named producers.",
+      "given": {
+        "contract-fixtures": {
+          "fixture_type": "contract_fixture",
+          "values": {
+            "revision": "9007199254740993",
+            "replayed_revision": "9007199254740993",
+            "private_care_subject": "private_week"
+          }
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "build.inspectTargetCatalog",
+        "arguments": {
+          "contract": "C0-revision",
+          "fixture": "contract-fixtures"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "revision_round_trip": "9007199254740993",
+          "replay_revision_advance": false,
+          "private_care_error": "invalid_subject",
+          "caller_revision_helper": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "C0-PERSON-001",
+      "requirement": "REQ-PPL-024",
+      "feature_ids": [
+        "PPL-003"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-003--PPL-003"
+      ],
+      "work_packages": [
+        "WP-002"
+      ],
+      "status": "future-not-run",
+      "layers": [
+        "build"
+      ],
+      "description": "Bounded shared subject contract fixtures. This proves shared representations and pure decisions only; actual authorization, SQL transactions, triggers and Person movement close with their named producers.",
+      "given": {
+        "contract-fixtures": {
+          "fixture_type": "contract_fixture",
+          "values": {
+            "kind": "person",
+            "owner": "P",
+            "id": "Alex",
+            "foreign_owner": "Q",
+            "extra_owner": "N"
+          }
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "build.inspectTargetCatalog",
+        "arguments": {
+          "contract": "C0-subject",
+          "fixture": "contract-fixtures"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "kind": "person",
+          "owner": "P",
+          "foreign_subject_error": "access_denied",
+          "double_owner_error": "invalid_input",
+          "history_rewrite": false
+        },
+        "event": null
+      }
     }
   ],
   "schema_authority": "docs/schema/target.json"
