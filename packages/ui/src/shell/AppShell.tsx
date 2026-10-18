@@ -96,13 +96,16 @@ function Topbar({ nav, user, homeHref, unread, current, actions }: { nav: ShellN
           </button>
         </div>
 
-        <button type="button" onClick={actions.onUserMenu} aria-haspopup="menu" aria-label={`Account menu for ${user.name}`}
+        {/* The accessible name is the visible text (label in name, WCAG 2.5.3): the name and role line stay in the
+            accessibility tree when narrow screens hide them, and a hidden suffix says what the button opens. */}
+        <button type="button" onClick={actions.onUserMenu} aria-haspopup="menu"
           className={cn(PILL, "flex h-topbar items-center gap-3 pr-4 pl-2.5 text-left max-app-xl:pr-3.5 max-app-sm:pr-2.5")}>
           <span aria-hidden="true" className="grid size-10 flex-none place-items-center rounded-full bg-green-100 text-md font-semibold text-green-700">{user.initials}</span>
-          <span className="leading-[1.2] max-app-lg:hidden">
+          <span className="leading-[1.2] max-app-lg:sr-only">
             <span className="block text-nav font-semibold">{user.name}</span>
-            <span className="block text-xs text-text-3 max-app-xl:hidden">{user.detail}</span>
+            <span className="block text-xs text-text-3 max-app-xl:sr-only">{user.detail}</span>
           </span>
+          <span className="sr-only">, account menu</span>
           <Icon icon={ArrowDown01Icon} size={16} className="text-text-3 max-app-sm:hidden" />
         </button>
       </div>
