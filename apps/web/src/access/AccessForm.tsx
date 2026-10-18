@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft02Icon, ArrowRight02Icon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { ArrowDown01Icon, ArrowLeft02Icon, ArrowRight02Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import {
 	useActionState,
 	useEffect,
@@ -75,6 +75,7 @@ type Props = { paths: Record<Who, StepSpec[]>; text: FormText };
 const ARROW = <Icon icon={ArrowRight02Icon} size={17} />;
 const BACK = <Icon icon={ArrowLeft02Icon} size={17} />;
 const CHECK = <Icon icon={Tick02Icon} size={18} />;
+const CHEVRON = <Icon icon={ArrowDown01Icon} size={18} />;
 
 /* The card and its parts. Error red is magenta-600 (6.4:1 on white); the failure message text is darker still. */
 const CARD =
@@ -174,16 +175,26 @@ function Field({ f, id, err, value, sending, optionalLabel, onCheck }: FieldProp
 				) : null}
 			</label>
 			{f.type === "select" ? (
-				<select {...common} className={CONTROL} defaultValue={value ?? (f.prompt ? "" : f.options?.[0])}>
-					{f.prompt ? (
-						<option value="" disabled>
-							{f.prompt}
-						</option>
-					) : null}
-					{f.options?.map((o) => (
-						<option key={o}>{o}</option>
-					))}
-				</select>
+				// appearance-none: WebKit's native select ignores padding and renders shorter than the text fields.
+				<div className="relative">
+					<select
+						{...common}
+						className={cn(CONTROL, "appearance-none pe-10")}
+						defaultValue={value ?? (f.prompt ? "" : f.options?.[0])}
+					>
+						{f.prompt ? (
+							<option value="" disabled>
+								{f.prompt}
+							</option>
+						) : null}
+						{f.options?.map((o) => (
+							<option key={o}>{o}</option>
+						))}
+					</select>
+					<span className="pointer-events-none absolute inset-y-0 end-3.5 grid place-items-center text-text-2">
+						{CHEVRON}
+					</span>
+				</div>
 			) : f.type === "area" ? (
 				<textarea
 					{...common}
