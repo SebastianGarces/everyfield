@@ -34,8 +34,10 @@ test("INV-person-write: explicit clears survive while profile edits cannot forge
     patch: { email: null, street: null, city: " Chicago " } } }),
   { ...command, input: { personId: Q, patch: { email: null, street: null, city: "Chicago" } } });
   assert.deepEqual(roundTrip(people.createPersonRequest, { requestKey: "new", input: { displayName: " J ", email: " j@example.test " } }).input.email, "j@example.test");
-  for (const field of ["accountId", "owner", "creator", "revision", "storageKey", "backgroundCheck", "stage", "adultClassification", "commitment"]) {
-    assert.equal(people.updatePersonRequest.safeParse({ ...command, input: { personId: Q, patch: { [field]: "forged" } } }).success, false, field);
+  for (const patch of [{ accountId: P }, { owner }, { creator: P }, { revision: "5" },
+    { storageKey: "synthetic-object" }, { backgroundCheck: "passed" }, { stage: "leader" },
+    { adultClassification: "adult" }, { commitment: { state: "unknown" } }]) {
+    assert.equal(people.updatePersonRequest.safeParse({ ...command, input: { personId: Q, patch } }).success, false, JSON.stringify(patch));
   }
   assert.equal(people.createPersonRequest.safeParse({ requestKey: "blank", input: { displayName: "   " } }).success, false);
 });
@@ -85,6 +87,9 @@ test("AC:WP011-MUL-005 removal and export exclude protected bodies and cancellat
   assert.equal(people.removalResult.safeParse({ ...removed, cancelUntil: "2026-11-17T13:00:00Z" }).success, false);
   assert.equal(people.removalResult.safeParse({ ...removed, retained: [{ category: "program_completion", attribution: "scope_local" }] }).success, false);
   assert.equal(people.removalResult.safeParse({ ...removed, witness: { ...removed.witness, contactBody: "secret" } }).success, false);
+  for (const field of ["revision", "checkpoint"]) {
+    assert.equal(people.removalWitness.safeParse({ ...removed.witness, [field]: "0" }).success, false);
+  }
 });
 
 test("INV-person-read: directory, timeline and cursors expose only the allowed operational projection", () => {
@@ -97,6 +102,15 @@ test("INV-person-read: directory, timeline and cursors expose only the allowed o
   }
   assert.deepEqual(roundTrip(people.peoplePage, { owner, items: [profile], next: "opaque", completeness: "partial", total: null }).items[0], profile);
   assert.equal(people.peoplePage.safeParse({ owner: { kind: "plant", id: R }, items: [profile], next: null, completeness: "complete", total: 1 }).success, false);
+  assert.equal(people.plantPerson.safeParse({ ...profile, adultClassification: null }).success, false);
+  assert.equal(people.plantPerson.safeParse({ ...profile, lifecycle: { state: "merged", retiredAt: now, survivorId: Q } }).success, false);
+  const leaderCard = { person: profile, activeParentDuties: [], coverage: "uncovered" };
+  const pipeline = { owner, groups: ["prospect", "attendee", "following_up", "interviewed", "core_group"].map(column =>
+    ({ column, cards: column === "core_group" ? [leaderCard] : [], total: null, next: null })), completeness: "complete" };
+  assert.deepEqual(roundTrip(people.pipelineResult, pipeline), pipeline);
+  const wrongColumn = { ...pipeline, groups: pipeline.groups.map(g =>
+    ({ ...g, cards: g.column === "prospect" ? [leaderCard] : [] })) };
+  assert.equal(people.pipelineResult.safeParse(wrongColumn).success, false);
   assert.deepEqual(roundTrip(people.activityRequest, { personId: Q, limit: 2, kinds: ["note", "follow_up"] }),
     { personId: Q, limit: 2, kinds: ["note", "follow_up"] });
   for (const kind of ["assessment", "interview", "commitment", "private_care"]) {
@@ -129,6 +143,20 @@ test("INV-person-evidence: current commitment is independent from genuine acquis
   const changed = { receiptId: R, outcome: "changed", observation };
   assert.deepEqual(roundTrip(people.classificationMutationResult, changed), changed);
   assert.equal(people.commitmentObservation.safeParse({ ...observation, current: { state: "active" } }).success, false);
+  const withoutEvidence = { state: "withdrawn", kind: "core_group", occurredOn: "2026-10-10", revision: "7" };
+  assert.equal(people.currentCommitment.safeParse(withoutEvidence).success, false);
+  const metrics = { owner, asOf: now, zone: "America/New_York", sourceRevision: "8",
+    from: "2026-10-01", through: "2026-10-13", unit: "distinct_canonical_people",
+    currentStages: ["prospect", "attendee", "following_up", "interviewed", "core_group", "launch_team", "leader"].map(stage => ({ stage, distinctPeople: 0 })),
+    transitions: [{ from: "core_group", to: "launch_team", distinctPeople: 2,
+      conversion: { status: "known", cohortPeople: 3, cohortTransitionPeople: 2 } }] };
+  assert.deepEqual(roundTrip(people.pipelineMetricsResult, metrics), metrics);
+  for (const [from, to] of [["prospect", "interviewed"], ["leader", "core_group"]]) {
+    assert.equal(people.pipelineMetricsResult.safeParse({ ...metrics, transitions: [{ ...metrics.transitions[0], from, to }] }).success, false);
+  }
+  assert.equal(people.pipelineMetricsResult.safeParse({ ...metrics, currentStages: metrics.currentStages.slice(0, 6) }).success, false);
+  assert.equal(people.pipelineMetricsResult.safeParse({ ...metrics, currentStages: [...metrics.currentStages.slice(0, 6), metrics.currentStages[0]] }).success, false);
+  assert.equal(people.pipelineMetricsResult.safeParse({ ...metrics, currentStages: [...metrics.currentStages, metrics.currentStages[0]] }).success, false);
   assert.deepEqual(roundTrip(people.conversion, { status: "unknown", reason: "cohort_unavailable" }), { status: "unknown", reason: "cohort_unavailable" });
   assert.deepEqual(roundTrip(people.conversion, { status: "known", cohortPeople: 4, cohortTransitionPeople: 2 }), { status: "known", cohortPeople: 4, cohortTransitionPeople: 2 });
   assert.equal(people.conversion.safeParse({ status: "known", cohortPeople: 0, cohortTransitionPeople: 0 }).success, false);
@@ -141,6 +169,13 @@ test("INV-person-reference: move reviews keep source and survivor distinct under
     { descriptor: "person_note.person_id", recordId: P, beforeRevision: "3", afterRevision: "4", treatment: "preserve_history", inverse: "retain_original" },
   ] };
   assert.deepEqual(roundTrip(people.referenceMoveReview, review), review);
+  for (const [treatment, inverse] of [["rewrite_current", "restore_exact"], ["deduplicate", "restore_exact"]]) {
+    const value = { ...review, references: [{ ...review.references[0], treatment, inverse }] };
+    assert.deepEqual(roundTrip(people.referenceMoveReview, value), value);
+  }
+  for (const [treatment, inverse] of [["preserve_history", "restore_exact"], ["rewrite_current", "retain_original"], ["deduplicate", "retain_original"]]) {
+    assert.equal(people.referenceMoveReview.safeParse({ ...review, references: [{ ...review.references[0], treatment, inverse }] }).success, false);
+  }
   for (const survivor of [{ ...ref }, { ...ref, personId: R, owner: { ...organization, id: R } },
     { ...ref, personId: R, owner: { kind: "plant", id: P } },
     { ...ref, personId: R, owner: { ...organization, organizationKind: "sending_network" } }]) {
