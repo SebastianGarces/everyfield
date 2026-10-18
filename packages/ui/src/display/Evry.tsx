@@ -11,9 +11,9 @@ import {
 	Tick02Icon,
 } from "@hugeicons/core-free-icons";
 import { Dialog as DialogPrimitive } from "radix-ui";
-import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Button, IconButton } from "../controls";
-import { usePortalContainer, useReturnFocus } from "../controls/overlay-portal";
+import { usePortalContainer } from "../controls/overlay-portal";
 import { cn, EvryBot, Icon, type EvryMood, type IconSvgElement } from "../foundations";
 
 /**
@@ -51,7 +51,7 @@ export function EvryPanel({
 	children: ReactNode;
 }) {
 	const container = usePortalContainer();
-	const focus = useReturnFocus();
+	const focus = useOpenerFocus(open);
 	const eyes = useRef<HTMLSpanElement>(null);
 	useEyeFollow(eyes, open);
 	return (
@@ -125,6 +125,31 @@ export function EvryPanel({
 			</DialogPrimitive.Portal>
 		</DialogPrimitive.Root>
 	);
+}
+
+/**
+ * Returns focus to the element that opened the panel when it closes (BUG-PR109). The opener is read in a layout
+ * effect when `open` turns true, before the dialog's focus scope moves focus inside (that runs in a passive effect).
+ * Reading it in onOpenAutoFocus raced in Chromium: the handler sometimes ran after focus was already on the panel's
+ * first button, so the panel "returned" focus to its own removed button and focus fell to <body>.
+ */
+function useOpenerFocus(open: boolean) {
+	const opener = useRef<HTMLElement | null>(null);
+	useLayoutEffect(() => {
+		if (!open) return;
+		const active = document.activeElement;
+		opener.current = active instanceof HTMLElement && active !== document.body ? active : null;
+	}, [open]);
+	return {
+		onCloseAutoFocus: (event: Event) => {
+			const target = opener.current;
+			opener.current = null;
+			if (target?.isConnected) {
+				event.preventDefault();
+				target.focus({ preventScroll: true });
+			}
+		},
+	};
 }
 
 /**

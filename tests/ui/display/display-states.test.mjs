@@ -5,7 +5,8 @@
 //   INV-selection: select-all, the bulk bar count and Clear selection agree (DataTable, BulkBar).
 //   INV-email-light: emails keep the light palette on a dark product page (.ef-paper in display.css).
 //   INV-unmerge: a refused Unmerge is an alert with no Unmerge action; only the preview offers it (UnmergePanel).
-//   INV-evry-focus: Esc closes the non-modal Evry panel and returns focus to its opener (EvryPanel).
+//   INV-evry-focus, BUG-PR109: Esc closes the non-modal Evry panel and returns focus to its opener (EvryPanel). It
+//   failed in about 1 of 4 Chromium runs while the opener was read in onOpenAutoFocus.
 // It runs against a running app: set UI_BASE_URL to the task preview.
 //   UI_BASE_URL=http://wp-090-....localhost:1355 corepack pnpm test:ui
 import assert from "node:assert/strict";
@@ -125,7 +126,7 @@ for (const [name, engine] of [
 		}),
 	);
 
-	test(`INV-evry-focus (${name}): Esc closes the Evry panel and returns focus`, { timeout: 60_000 }, () =>
+	test(`INV-evry-focus BUG-PR109 (${name}): Esc closes the Evry panel and returns focus`, { timeout: 60_000 }, () =>
 		withPage(engine, { group: "Evry" }, async (page) => {
 			const opener = page.getByRole("main").getByRole("button", { name: "Ask Evry" });
 			await opener.focus();
