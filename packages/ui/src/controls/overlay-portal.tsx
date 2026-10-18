@@ -13,11 +13,13 @@ const subscribe = () => () => {};
  * (no container) never renders an open overlay.
  */
 export function usePortalContainer(): HTMLElement | null {
-  return useSyncExternalStore(
-    subscribe,
-    () => document.querySelector<HTMLElement>("[data-product-root] main") ?? document.querySelector<HTMLElement>("[data-product-root]"),
-    () => null,
-  );
+	return useSyncExternalStore(
+		subscribe,
+		() =>
+			document.querySelector<HTMLElement>("[data-product-root] main") ??
+			document.querySelector<HTMLElement>("[data-product-root]"),
+		() => null,
+	);
 }
 
 type AutoFocusHandler = (event: Event) => void;
@@ -29,21 +31,24 @@ type AutoFocusHandler = (event: Event) => void;
  * The caller's own handlers run first; if one prevents the default, this hook leaves focus alone.
  */
 export function useReturnFocus(own: { onOpenAutoFocus?: AutoFocusHandler; onCloseAutoFocus?: AutoFocusHandler } = {}) {
-  const opener = useRef<HTMLElement | null>(null);
-  return {
-    onOpenAutoFocus: (event: Event) => {
-      opener.current = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
-      own.onOpenAutoFocus?.(event);
-    },
-    onCloseAutoFocus: (event: Event) => {
-      own.onCloseAutoFocus?.(event);
-      if (event.defaultPrevented) return;
-      const target = opener.current;
-      opener.current = null;
-      if (target?.isConnected) {
-        event.preventDefault();
-        target.focus({ preventScroll: true });
-      }
-    },
-  };
+	const opener = useRef<HTMLElement | null>(null);
+	return {
+		onOpenAutoFocus: (event: Event) => {
+			opener.current =
+				document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+					? document.activeElement
+					: null;
+			own.onOpenAutoFocus?.(event);
+		},
+		onCloseAutoFocus: (event: Event) => {
+			own.onCloseAutoFocus?.(event);
+			if (event.defaultPrevented) return;
+			const target = opener.current;
+			opener.current = null;
+			if (target?.isConnected) {
+				event.preventDefault();
+				target.focus({ preventScroll: true });
+			}
+		},
+	};
 }

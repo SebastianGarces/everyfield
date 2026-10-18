@@ -5,84 +5,242 @@
    (overlay-portal.tsx), so they match too. */
 
 @layer components {
-  /* InsightCard (foundations.md, Gradient cards): base color, a blurred OKLCH mesh in ::before and film grain in
+	/* InsightCard (foundations.md, Gradient cards): base color, a blurred OKLCH mesh in ::before and film grain in
      ::after. The tone sets --g-base and --g1 to --g5 from the --ef-grad-* tokens. */
-  [data-product-root] .ef-insight { background: var(--g-base); isolation: isolate; }
-  [data-product-root] .ef-insight[data-tone="field"] { --g-base: var(--ef-grad-field-base); --g1: var(--ef-grad-field-g1); --g2: var(--ef-grad-field-g2); --g3: var(--ef-grad-field-g3); --g4: var(--ef-grad-field-g4); --g5: var(--ef-grad-field-g5); box-shadow: 0 18px 36px -24px rgb(16 120 56 / .55); }
-  [data-product-root] .ef-insight[data-tone="sky"] { --g-base: var(--ef-grad-sky-base); --g1: var(--ef-grad-sky-g1); --g2: var(--ef-grad-sky-g2); --g3: var(--ef-grad-sky-g3); --g4: var(--ef-grad-sky-g4); --g5: var(--ef-grad-sky-g5); box-shadow: 0 18px 36px -24px rgb(40 90 170 / .45); }
-  [data-product-root] .ef-insight[data-tone="dawn"] { --g-base: var(--ef-grad-dawn-base); --g1: var(--ef-grad-dawn-g1); --g2: var(--ef-grad-dawn-g2); --g3: var(--ef-grad-dawn-g3); --g4: var(--ef-grad-dawn-g4); --g5: var(--ef-grad-dawn-g5); box-shadow: 0 18px 36px -24px rgb(190 110 40 / .5); }
-  [data-product-root] .ef-insight[data-tone="lilac"] { --g-base: var(--ef-grad-lilac-base); --g1: var(--ef-grad-lilac-g1); --g2: var(--ef-grad-lilac-g2); --g3: var(--ef-grad-lilac-g3); --g4: var(--ef-grad-lilac-g4); --g5: var(--ef-grad-lilac-g5); box-shadow: 0 18px 36px -24px rgb(110 80 200 / .45); }
-  [data-product-root] .ef-insight::before {
-    content: ""; position: absolute; inset: -25%; z-index: -2; pointer-events: none;
-    background:
-      radial-gradient(in oklch circle at 82% 18%, var(--g5) 0%, transparent 22%),
-      radial-gradient(in oklch 38% 44% at 24% 26%, var(--g1) 0%, transparent 72%),
-      radial-gradient(in oklch 44% 48% at 74% 38%, var(--g2) 0%, transparent 72%),
-      radial-gradient(in oklch 46% 42% at 64% 80%, var(--g3) 0%, transparent 72%),
-      radial-gradient(in oklch 36% 38% at 26% 78%, var(--g4) 0%, transparent 72%);
-    filter: blur(52px) saturate(1.1);
-  }
-  [data-product-root] .ef-insight::after {
-    content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncG type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncB type='linear' slope='1.6' intercept='-.3'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    background-size: 260px 260px; opacity: .42; mix-blend-mode: overlay;
-  }
+	[data-product-root] .ef-insight {
+		background: var(--g-base);
+		isolation: isolate;
+	}
+	[data-product-root] .ef-insight[data-tone="field"] {
+		--g-base: var(--ef-grad-field-base);
+		--g1: var(--ef-grad-field-g1);
+		--g2: var(--ef-grad-field-g2);
+		--g3: var(--ef-grad-field-g3);
+		--g4: var(--ef-grad-field-g4);
+		--g5: var(--ef-grad-field-g5);
+		box-shadow: 0 18px 36px -24px rgb(16 120 56 / 0.55);
+	}
+	[data-product-root] .ef-insight[data-tone="sky"] {
+		--g-base: var(--ef-grad-sky-base);
+		--g1: var(--ef-grad-sky-g1);
+		--g2: var(--ef-grad-sky-g2);
+		--g3: var(--ef-grad-sky-g3);
+		--g4: var(--ef-grad-sky-g4);
+		--g5: var(--ef-grad-sky-g5);
+		box-shadow: 0 18px 36px -24px rgb(40 90 170 / 0.45);
+	}
+	[data-product-root] .ef-insight[data-tone="dawn"] {
+		--g-base: var(--ef-grad-dawn-base);
+		--g1: var(--ef-grad-dawn-g1);
+		--g2: var(--ef-grad-dawn-g2);
+		--g3: var(--ef-grad-dawn-g3);
+		--g4: var(--ef-grad-dawn-g4);
+		--g5: var(--ef-grad-dawn-g5);
+		box-shadow: 0 18px 36px -24px rgb(190 110 40 / 0.5);
+	}
+	[data-product-root] .ef-insight[data-tone="lilac"] {
+		--g-base: var(--ef-grad-lilac-base);
+		--g1: var(--ef-grad-lilac-g1);
+		--g2: var(--ef-grad-lilac-g2);
+		--g3: var(--ef-grad-lilac-g3);
+		--g4: var(--ef-grad-lilac-g4);
+		--g5: var(--ef-grad-lilac-g5);
+		box-shadow: 0 18px 36px -24px rgb(110 80 200 / 0.45);
+	}
+	[data-product-root] .ef-insight::before {
+		content: "";
+		position: absolute;
+		inset: -25%;
+		z-index: -2;
+		pointer-events: none;
+		background:
+			radial-gradient(in oklch circle at 82% 18%, var(--g5) 0%, transparent 22%),
+			radial-gradient(in oklch 38% 44% at 24% 26%, var(--g1) 0%, transparent 72%),
+			radial-gradient(in oklch 44% 48% at 74% 38%, var(--g2) 0%, transparent 72%),
+			radial-gradient(in oklch 46% 42% at 64% 80%, var(--g3) 0%, transparent 72%),
+			radial-gradient(in oklch 36% 38% at 26% 78%, var(--g4) 0%, transparent 72%);
+		filter: blur(52px) saturate(1.1);
+	}
+	[data-product-root] .ef-insight::after {
+		content: "";
+		position: absolute;
+		inset: 0;
+		z-index: -1;
+		pointer-events: none;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncG type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncB type='linear' slope='1.6' intercept='-.3'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+		background-size: 260px 260px;
+		opacity: 0.42;
+		mix-blend-mode: overlay;
+	}
 
-  /* The light-token island. Gradient cards look the same in both themes and carry ink text, so in dark mode the
+	/* The light-token island. Gradient cards look the same in both themes and carry ink text, so in dark mode the
      neutral tokens inside them keep their light values (foundations.md; WP-088 ruling R7 hands this to WP-089).
      The values are the light :root values of design/handoff/tokens.css. The per-card --on variables are ink too. */
-  [data-product-root] .ef-light-island {
-    --on: var(--ef-ink); --on-2: rgb(from var(--ef-ink) r g b / .74); --on-3: rgb(from var(--ef-ink) r g b / .6);
-    --pill-bg: rgb(from var(--ef-ink) r g b / .07); --pill-edge: rgb(from var(--ef-ink) r g b / .16);
-    --spark: rgb(from var(--ef-ink) r g b / .16); --spark-hi: var(--ef-ink);
-  }
-  [data-product-root][data-theme="dark"] .ef-light-island {
-    --ef-ink: #181D19; --ef-ink-2: #343843; --ef-text: #181D19; --ef-text-2: #4D5361; --ef-text-3: #666C78;
-    --ef-focus: #1C5BB5; --ef-surface: #FAFBFC; --ef-surface-2: #EDF0F4; --ef-surface-3: #E6E8EC; --ef-surface-raised: #FFFFFF;
-    --ef-line: rgba(22, 30, 46, .075); --ef-line-2: rgba(22, 30, 46, .13); --ef-on-ink: #FFFFFF; --ef-on-ink-soft: rgba(255, 255, 255, .12);
-    --ef-hover: rgba(22, 30, 46, .05); --ef-card-edge: rgba(255, 255, 255, .85); --ef-switch-off: #DCDFE4;
-    --ef-shadow-raised: 0 1px 2px rgba(24, 29, 25, .06), 0 4px 12px -4px rgba(24, 29, 25, .10);
-    color-scheme: light;
-  }
-  /* On a gradient card the focus ring is ink (foundations.md, Accessibility). */
-  [data-product-root] .ef-light-island :is(a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])):focus-visible { outline-color: var(--ef-ink); }
+	[data-product-root] .ef-light-island {
+		--on: var(--ef-ink);
+		--on-2: rgb(from var(--ef-ink) r g b / 0.74);
+		--on-3: rgb(from var(--ef-ink) r g b / 0.6);
+		--pill-bg: rgb(from var(--ef-ink) r g b / 0.07);
+		--pill-edge: rgb(from var(--ef-ink) r g b / 0.16);
+		--spark: rgb(from var(--ef-ink) r g b / 0.16);
+		--spark-hi: var(--ef-ink);
+	}
+	[data-product-root][data-theme="dark"] .ef-light-island {
+		--ef-ink: #181d19;
+		--ef-ink-2: #343843;
+		--ef-text: #181d19;
+		--ef-text-2: #4d5361;
+		--ef-text-3: #666c78;
+		--ef-focus: #1c5bb5;
+		--ef-surface: #fafbfc;
+		--ef-surface-2: #edf0f4;
+		--ef-surface-3: #e6e8ec;
+		--ef-surface-raised: #ffffff;
+		--ef-line: rgba(22, 30, 46, 0.075);
+		--ef-line-2: rgba(22, 30, 46, 0.13);
+		--ef-on-ink: #ffffff;
+		--ef-on-ink-soft: rgba(255, 255, 255, 0.12);
+		--ef-hover: rgba(22, 30, 46, 0.05);
+		--ef-card-edge: rgba(255, 255, 255, 0.85);
+		--ef-switch-off: #dcdfe4;
+		--ef-shadow-raised: 0 1px 2px rgba(24, 29, 25, 0.06), 0 4px 12px -4px rgba(24, 29, 25, 0.1);
+		color-scheme: light;
+	}
+	/* On a gradient card the focus ring is ink (foundations.md, Accessibility). */
+	[data-product-root]
+		.ef-light-island
+		:is(a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])):focus-visible {
+		outline-color: var(--ef-ink);
+	}
 
-  /* Card scroll area: fades out at the bottom like the prototype's .card-scroll. */
-  [data-product-root] .ef-scroll-fade { mask-image: linear-gradient(to bottom, #000 85%, transparent); scrollbar-width: thin; scrollbar-color: var(--ef-line-2) transparent; }
+	/* Card scroll area: fades out at the bottom like the prototype's .card-scroll. */
+	[data-product-root] .ef-scroll-fade {
+		mask-image: linear-gradient(to bottom, #000 85%, transparent);
+		scrollbar-width: thin;
+		scrollbar-color: var(--ef-line-2) transparent;
+	}
 
-  /* Skeleton shimmer. Reduced motion keeps the still placeholder. */
-  [data-product-root] .ef-skel { background: linear-gradient(90deg, var(--ef-surface-2), var(--ef-surface-3), var(--ef-surface-2)); background-size: 200% 100%; animation: ef-shimmer 1.4s infinite; }
+	/* Skeleton shimmer. Reduced motion keeps the still placeholder. */
+	[data-product-root] .ef-skel {
+		background: linear-gradient(90deg, var(--ef-surface-2), var(--ef-surface-3), var(--ef-surface-2));
+		background-size: 200% 100%;
+		animation: ef-shimmer 1.4s infinite;
+	}
 
-  /* Overlay motion: pop-overs and menus drop in 6px and scale from .98 (the prototype's float-pop); dialogs fade and
+	/* Overlay motion: pop-overs and menus drop in 6px and scale from .98 (the prototype's float-pop); dialogs fade and
      scale; the scrim fades; sheets slide in from the right; toasts rise. Exit runs the same keyframes backwards. */
-  [data-product-root] .ef-pop[data-state="open"] { animation: ef-pop-in .2s var(--ef-slide-ease) both; }
-  [data-product-root] .ef-pop[data-state="closed"] { animation: ef-pop-in .12s ease reverse both; }
-  [data-product-root] .ef-dialog[data-state="open"] { animation: ef-dialog-in .22s var(--ef-slide-ease) both; }
-  [data-product-root] .ef-dialog[data-state="closed"] { animation: ef-dialog-in .14s ease reverse both; }
-  [data-product-root] .ef-scrim[data-state="open"] { animation: ef-fade-in .2s ease both; }
-  [data-product-root] .ef-scrim[data-state="closed"] { animation: ef-fade-in .14s ease reverse both; }
-  [data-product-root] .ef-sheet[data-state="open"] { animation: ef-sheet-in .3s var(--ef-slide-ease) both; }
-  [data-product-root] .ef-sheet[data-state="closed"] { animation: ef-sheet-in .2s ease reverse both; }
-  [data-product-root] .ef-toast[data-state="open"] { animation: ef-toast-in .26s var(--ef-slide-ease) both; }
-  [data-product-root] .ef-toast[data-state="closed"] { animation: ef-fade-in .16s ease reverse both; }
-  [data-product-root] .ef-toast[data-swipe="move"] { transform: translateX(var(--radix-toast-swipe-move-x)); }
-  [data-product-root] .ef-toast[data-swipe="end"] { animation: ef-fade-in .16s ease reverse both; }
+	[data-product-root] .ef-pop[data-state="open"] {
+		animation: ef-pop-in 0.2s var(--ef-slide-ease) both;
+	}
+	[data-product-root] .ef-pop[data-state="closed"] {
+		animation: ef-pop-in 0.12s ease reverse both;
+	}
+	[data-product-root] .ef-dialog[data-state="open"] {
+		animation: ef-dialog-in 0.22s var(--ef-slide-ease) both;
+	}
+	[data-product-root] .ef-dialog[data-state="closed"] {
+		animation: ef-dialog-in 0.14s ease reverse both;
+	}
+	[data-product-root] .ef-scrim[data-state="open"] {
+		animation: ef-fade-in 0.2s ease both;
+	}
+	[data-product-root] .ef-scrim[data-state="closed"] {
+		animation: ef-fade-in 0.14s ease reverse both;
+	}
+	[data-product-root] .ef-sheet[data-state="open"] {
+		animation: ef-sheet-in 0.3s var(--ef-slide-ease) both;
+	}
+	[data-product-root] .ef-sheet[data-state="closed"] {
+		animation: ef-sheet-in 0.2s ease reverse both;
+	}
+	[data-product-root] .ef-toast[data-state="open"] {
+		animation: ef-toast-in 0.26s var(--ef-slide-ease) both;
+	}
+	[data-product-root] .ef-toast[data-state="closed"] {
+		animation: ef-fade-in 0.16s ease reverse both;
+	}
+	[data-product-root] .ef-toast[data-swipe="move"] {
+		transform: translateX(var(--radix-toast-swipe-move-x));
+	}
+	[data-product-root] .ef-toast[data-swipe="end"] {
+		animation: ef-fade-in 0.16s ease reverse both;
+	}
 
-  @media (prefers-reduced-motion: reduce) {
-    [data-product-root] :is(.ef-skel, .ef-pop, .ef-dialog, .ef-scrim, .ef-sheet, .ef-toast) { animation: none !important; }
-  }
+	@media (prefers-reduced-motion: reduce) {
+		[data-product-root] :is(.ef-skel, .ef-pop, .ef-dialog, .ef-scrim, .ef-sheet, .ef-toast) {
+			animation: none !important;
+		}
+	}
 }
 
 /* Buttons on a gradient card (the prototype's .insight[data-on="ink"] .btn rules). Unlayered on purpose: these must
    beat the Button utilities, which sit in the utilities layer. */
-[data-product-root] .ef-light-island [data-variant="light"] { background: var(--ef-ink); color: var(--ef-cream); box-shadow: 0 8px 18px -10px rgb(from var(--ef-ink) r g b / .6); }
-[data-product-root] .ef-light-island [data-variant="light"]:hover { background: color-mix(in srgb, var(--ef-ink) 86%, var(--ef-cream)); }
-[data-product-root] .ef-light-island [data-variant="glass"] { background: var(--pill-bg); color: var(--on); box-shadow: inset 0 0 0 1px var(--pill-edge); --tw-ring-shadow: 0 0 #0000; }
-[data-product-root] .ef-light-island [data-variant="glass"]:hover { background: rgb(from var(--ef-ink) r g b / .12); }
+[data-product-root] .ef-light-island [data-variant="light"] {
+	background: var(--ef-ink);
+	color: var(--ef-cream);
+	box-shadow: 0 8px 18px -10px rgb(from var(--ef-ink) r g b / 0.6);
+}
+[data-product-root] .ef-light-island [data-variant="light"]:hover {
+	background: color-mix(in srgb, var(--ef-ink) 86%, var(--ef-cream));
+}
+[data-product-root] .ef-light-island [data-variant="glass"] {
+	background: var(--pill-bg);
+	color: var(--on);
+	box-shadow: inset 0 0 0 1px var(--pill-edge);
+	--tw-ring-shadow: 0 0 #0000;
+}
+[data-product-root] .ef-light-island [data-variant="glass"]:hover {
+	background: rgb(from var(--ef-ink) r g b / 0.12);
+}
 
-@keyframes ef-shimmer { to { background-position: -200% 0; } }
-@keyframes ef-fade-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes ef-pop-in { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: none; } }
-@keyframes ef-dialog-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
-@keyframes ef-sheet-in { from { transform: translateX(100%); } to { transform: none; } }
-@keyframes ef-toast-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes ef-shimmer {
+	to {
+		background-position: -200% 0;
+	}
+}
+@keyframes ef-fade-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+@keyframes ef-pop-in {
+	from {
+		opacity: 0;
+		transform: translateY(-6px) scale(0.98);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+@keyframes ef-dialog-in {
+	from {
+		opacity: 0;
+		transform: translateY(8px) scale(0.98);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+@keyframes ef-sheet-in {
+	from {
+		transform: translateX(100%);
+	}
+	to {
+		transform: none;
+	}
+}
+@keyframes ef-toast-in {
+	from {
+		opacity: 0;
+		transform: translateY(12px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}

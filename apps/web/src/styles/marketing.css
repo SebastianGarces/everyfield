@@ -22,207 +22,316 @@
 
 /* Fonts come from next/font (layout.tsx), so the token font stacks point at its variables. */
 :root {
-  --ef-font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
-  --ef-font-body: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
+	--ef-font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+	--ef-font-body: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
 }
 
 @theme {
-  /* Marketing surfaces. Canvas #FCFBF8 and the warm secondary surface are marketing only. */
-  --color-mk-canvas: #FCFBF8;
-  --color-mk-surface-2: #F5F3EE;
-  --color-mk-line: rgb(from var(--color-ink) r g b / .08);
-  --color-mk-line-strong: rgb(from var(--color-ink) r g b / .14);
-  /* Secondary text on the ink footer card: 8.5:1 on #181D19. */
-  --color-mk-on-ink-2: #B1B7C2;
+	/* Marketing surfaces. Canvas #FCFBF8 and the warm secondary surface are marketing only. */
+	--color-mk-canvas: #fcfbf8;
+	--color-mk-surface-2: #f5f3ee;
+	--color-mk-line: rgb(from var(--color-ink) r g b / 0.08);
+	--color-mk-line-strong: rgb(from var(--color-ink) r g b / 0.14);
+	/* Secondary text on the ink footer card: 8.5:1 on #181D19. */
+	--color-mk-on-ink-2: #b1b7c2;
 
-  --spacing-page: clamp(16px, 3vw, 40px);
-  --spacing-section: clamp(72px, 8vw, 120px);
-  --container-mk: 1440px;
+	--spacing-page: clamp(16px, 3vw, 40px);
+	--spacing-section: clamp(72px, 8vw, 120px);
+	--container-mk: 1440px;
 
-  /* The prototype's breakpoints. Use them as max-* variants: max-mk-nav is 1120 px and narrower. */
-  --breakpoint-mk-xs: 441px;
-  --breakpoint-mk-sm: 641px;
-  --breakpoint-mk-cx: 901px;
-  --breakpoint-mk-lg: 1025px;
-  --breakpoint-mk-nav: 1121px;
+	/* The prototype's breakpoints. Use them as max-* variants: max-mk-nav is 1120 px and narrower. */
+	--breakpoint-mk-xs: 441px;
+	--breakpoint-mk-sm: 641px;
+	--breakpoint-mk-cx: 901px;
+	--breakpoint-mk-lg: 1025px;
+	--breakpoint-mk-nav: 1121px;
 
-  --text-mk-hero: clamp(44px, 6vw, 88px);
-  --text-mk-hero--line-height: 1.04;
-  --text-mk-h1: clamp(40px, 4.6vw, 76px);
-  --text-mk-h1--line-height: 1.04;
-  --text-mk-h2: clamp(30px, 3.4vw, 56px);
-  --text-mk-h2--line-height: 1.08;
-  --text-mk-h3: clamp(22px, 1.8vw, 28px);
-  --text-mk-h3--line-height: 1.15;
-  --text-mk-lead: clamp(18px, 1.4vw, 21px);
-  --text-mk-lead--line-height: 1.5;
+	--text-mk-hero: clamp(44px, 6vw, 88px);
+	--text-mk-hero--line-height: 1.04;
+	--text-mk-h1: clamp(40px, 4.6vw, 76px);
+	--text-mk-h1--line-height: 1.04;
+	--text-mk-h2: clamp(30px, 3.4vw, 56px);
+	--text-mk-h2--line-height: 1.08;
+	--text-mk-h3: clamp(22px, 1.8vw, 28px);
+	--text-mk-h3--line-height: 1.15;
+	--text-mk-lead: clamp(18px, 1.4vw, 21px);
+	--text-mk-lead--line-height: 1.5;
 
-  --shadow-mk-card: 0 1px 2px rgb(from var(--color-ink) r g b / .04), 0 6px 18px -10px rgb(from var(--color-ink) r g b / .10);
-  --shadow-mk-media: 0 2px 6px rgb(from var(--color-ink) r g b / .06), 0 24px 48px -16px rgb(from var(--color-ink) r g b / .22);
-  --shadow-mk-pill: inset 0 0 0 1px var(--color-mk-line), 0 1px 2px rgb(from var(--color-ink) r g b / .06), 0 14px 32px -16px rgb(from var(--color-ink) r g b / .3);
-  --shadow-mk-menu: 0 20px 30px -20px rgb(from var(--color-black) r g b / .3);
+	--shadow-mk-card:
+		0 1px 2px rgb(from var(--color-ink) r g b / 0.04), 0 6px 18px -10px rgb(from var(--color-ink) r g b / 0.1);
+	--shadow-mk-media:
+		0 2px 6px rgb(from var(--color-ink) r g b / 0.06), 0 24px 48px -16px rgb(from var(--color-ink) r g b / 0.22);
+	--shadow-mk-pill:
+		inset 0 0 0 1px var(--color-mk-line), 0 1px 2px rgb(from var(--color-ink) r g b / 0.06),
+		0 14px 32px -16px rgb(from var(--color-ink) r g b / 0.3);
+	--shadow-mk-menu: 0 20px 30px -20px rgb(from var(--color-black) r g b / 0.3);
 
-  --ease-mk: cubic-bezier(.2, .8, .2, 1);
-  /* Hero ease-out, used by the floating pill. */
-  --ease-mk-out: cubic-bezier(.33, 1, .68, 1);
+	--ease-mk: cubic-bezier(0.2, 0.8, 0.2, 1);
+	/* Hero ease-out, used by the floating pill. */
+	--ease-mk-out: cubic-bezier(0.33, 1, 0.68, 1);
 }
 
 /* Display type: Bricolage 500, tight tracking, balanced lines. Size and line height come from a text-* class
    (text-mk-h2 and the rest carry their line height), so this utility sets neither. */
 @utility mk-display {
-  font-family: var(--font-display);
-  font-weight: 500;
-  letter-spacing: -0.035em;
-  font-stretch: 100%;
-  text-wrap: balance;
+	font-family: var(--font-display);
+	font-weight: 500;
+	letter-spacing: -0.035em;
+	font-stretch: 100%;
+	text-wrap: balance;
 }
 
 @layer base {
-  /* Light only: the root declares it, so browsers never draw a dark canvas, scrollbars or form controls. */
-  html { color-scheme: light; -webkit-text-size-adjust: 100%; }
-  /* No scroll-behavior: smooth. Every browser and Next scroll is instant; in-page anchor links glide in PageScroll,
+	/* Light only: the root declares it, so browsers never draw a dark canvas, scrollbars or form controls. */
+	html {
+		color-scheme: light;
+		-webkit-text-size-adjust: 100%;
+	}
+	/* No scroll-behavior: smooth. Every browser and Next scroll is instant; in-page anchor links glide in PageScroll,
      a script animation that stops at once on reader input or a route change. WebKit cannot stop a native smooth
      scroll, so a glide that a route interrupted ran on into the next page. */
-  body {
-    background: var(--color-mk-canvas); color: var(--color-ink);
-    font-family: var(--font-sans); font-size: 16px; line-height: 1.55;
-    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
-  }
-  /* Keyboard focus: one ring for every link and button. Light controls on the ink footer use a white ring. */
-  a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 2px; }
-  /* An anchor jump stops under the header (the floating pill is 60 px, 56 px on phones, 12 px from the top). */
-  [id] { scroll-margin-top: 88px; }
-  @media (max-width: 640px) { [id] { scroll-margin-top: 76px; } }
-  /* Reduced motion: no transitions and no CSS animations anywhere (each scene also shows its still frame). */
-  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+	body {
+		background: var(--color-mk-canvas);
+		color: var(--color-ink);
+		font-family: var(--font-sans);
+		font-size: 16px;
+		line-height: 1.55;
+		-webkit-font-smoothing: antialiased;
+		text-rendering: optimizeLegibility;
+	}
+	/* Keyboard focus: one ring for every link and button. Light controls on the ink footer use a white ring. */
+	a:focus-visible,
+	button:focus-visible,
+	summary:focus-visible {
+		outline: 2px solid var(--color-ink);
+		outline-offset: 2px;
+	}
+	/* An anchor jump stops under the header (the floating pill is 60 px, 56 px on phones, 12 px from the top). */
+	[id] {
+		scroll-margin-top: 88px;
+	}
+	@media (max-width: 640px) {
+		[id] {
+			scroll-margin-top: 76px;
+		}
+	}
+	/* Reduced motion: no transitions and no CSS animations anywhere (each scene also shows its still frame). */
+	@media (prefers-reduced-motion: reduce) {
+		* {
+			transition: none !important;
+			animation: none !important;
+		}
+	}
 }
 
 /* ---------- Product visuals (R2): the animated sections' panels, cards and gradient surfaces ---------- */
 
 /* The white ring around every product UI card (Revision 21): drawn outside the card edge, so the card size never changes. */
-:root { --ui-ring: 0 0 0 6px var(--color-mk-white-25); }
-:root { --mk-paths-highlight: linear-gradient(100deg, var(--color-mk-paths-hl-1) 0%, var(--color-mk-paths-hl-2) 55%, var(--color-mk-paths-hl-3) 100%); }
+:root {
+	--ui-ring: 0 0 0 6px var(--color-mk-white-25);
+}
+:root {
+	--mk-paths-highlight: linear-gradient(
+		100deg,
+		var(--color-mk-paths-hl-1) 0%,
+		var(--color-mk-paths-hl-2) 55%,
+		var(--color-mk-paths-hl-3) 100%
+	);
+}
 
 @theme {
-  /* Colours of the product visuals. A colour that is a product token at some alpha derives from the token (relative
+	/* Colours of the product visuals. A colour that is a product token at some alpha derives from the token (relative
      colour syntax keeps its exact channels); the few marketing-only values are defined here once. */
-  --color-mk-ink-04: rgb(from var(--color-ink) r g b / .04);
-  --color-mk-ink-05: rgb(from var(--color-ink) r g b / .05);
-  --color-mk-ink-06: rgb(from var(--color-ink) r g b / .06);
-  --color-mk-ink-10: rgb(from var(--color-ink) r g b / .10);
-  --color-mk-ink-12: rgb(from var(--color-ink) r g b / .12);
-  --color-mk-ink-18: rgb(from var(--color-ink) r g b / .18);
-  --color-mk-ink-30: rgb(from var(--color-ink) r g b / .30);
-  --color-mk-ink-35: rgb(from var(--color-ink) r g b / .35);
-  --color-mk-ink-40: rgb(from var(--color-ink) r g b / .40);
-  --color-mk-ink-42: rgb(from var(--color-ink) r g b / .42);
-  --color-mk-ink-45: rgb(from var(--color-ink) r g b / .45);
-  --color-mk-ink-50: rgb(from var(--color-ink) r g b / .50);
-  --color-mk-ink-60: rgb(from var(--color-ink) r g b / .60);
-  --color-mk-white-0: rgb(from var(--color-white) r g b / 0);
-  --color-mk-white-25: rgb(from var(--color-white) r g b / .25);
-  --color-mk-white-55: rgb(from var(--color-white) r g b / .55);
-  --color-mk-black-20: rgb(from var(--color-black) r g b / .20);
-  --color-mk-canvas-0: rgb(from var(--color-mk-canvas) r g b / 0);
-  --color-mk-green-16: rgb(from var(--color-green-500) r g b / .16);
-  --color-mk-green-35: rgb(from var(--color-green-500) r g b / .35);
-  --color-mk-green-600-20: rgb(from var(--color-green-600) r g b / .20);
-  --color-mk-green-600-22: rgb(from var(--color-green-600) r g b / .22);
-  --color-mk-green-600-24: rgb(from var(--color-green-600) r g b / .24);
-  --color-mk-green-600-30: rgb(from var(--color-green-600) r g b / .30);
-  --color-mk-amber-500-18: rgb(from var(--color-amber-500) r g b / .18);
-  /* Marketing only (the prototype's values). */
-  --color-mk-surface-3: #EAE7E0;
-  --color-mk-hero-title: #2A332C;
-  --color-mk-hero-shade: rgb(16 120 56 / .6);
-  --color-mk-card-shade: #105028;
-  --color-mk-done-top: #2BE46C;
-  --color-mk-done-ink: #0B3D1E;
-  --color-mk-bot-shade: #0A3C1E;
-  --color-mk-bot-shade-18: rgb(from var(--color-mk-bot-shade) r g b / .18);
-  --color-mk-bot-shade-35: rgb(from var(--color-mk-bot-shade) r g b / .35);
-  --color-mk-focus-blue: #5096FF;
-  --color-mk-focus-blue-16: rgb(from var(--color-mk-focus-blue) r g b / .16);
-  --color-mk-bar: #E3E7EC;
-  --color-mk-bar-muted: #B9C0BB;
-  --color-mk-skeleton: #ECEFF2;
-  --color-mk-skeleton-hi: #F7F8FA;
-  /* Text on the field-gradient CTA box; the half-white secondary button on it. */
-  --color-mk-ink-78: rgb(from var(--color-ink) r g b / .78);
-  --color-mk-white-75: rgb(from var(--color-white) r g b / .75);
-  /* Access form: the failure message's text on magenta-100, and the check on the accent green. */
-  --color-mk-danger-ink: #6E1A2E;
-  --color-mk-accent-ink: #111318;
-  /* The sending-paths phrase highlight (the prototype's .ovs-roll gradient). */
-  --color-mk-paths-hl-1: #BFF5D3;
-  --color-mk-paths-hl-2: #DCFAE7;
-  --color-mk-paths-hl-3: #EEFCD9;
+	--color-mk-ink-04: rgb(from var(--color-ink) r g b / 0.04);
+	--color-mk-ink-05: rgb(from var(--color-ink) r g b / 0.05);
+	--color-mk-ink-06: rgb(from var(--color-ink) r g b / 0.06);
+	--color-mk-ink-10: rgb(from var(--color-ink) r g b / 0.1);
+	--color-mk-ink-12: rgb(from var(--color-ink) r g b / 0.12);
+	--color-mk-ink-18: rgb(from var(--color-ink) r g b / 0.18);
+	--color-mk-ink-30: rgb(from var(--color-ink) r g b / 0.3);
+	--color-mk-ink-35: rgb(from var(--color-ink) r g b / 0.35);
+	--color-mk-ink-40: rgb(from var(--color-ink) r g b / 0.4);
+	--color-mk-ink-42: rgb(from var(--color-ink) r g b / 0.42);
+	--color-mk-ink-45: rgb(from var(--color-ink) r g b / 0.45);
+	--color-mk-ink-50: rgb(from var(--color-ink) r g b / 0.5);
+	--color-mk-ink-60: rgb(from var(--color-ink) r g b / 0.6);
+	--color-mk-white-0: rgb(from var(--color-white) r g b / 0);
+	--color-mk-white-25: rgb(from var(--color-white) r g b / 0.25);
+	--color-mk-white-55: rgb(from var(--color-white) r g b / 0.55);
+	--color-mk-black-20: rgb(from var(--color-black) r g b / 0.2);
+	--color-mk-canvas-0: rgb(from var(--color-mk-canvas) r g b / 0);
+	--color-mk-green-16: rgb(from var(--color-green-500) r g b / 0.16);
+	--color-mk-green-35: rgb(from var(--color-green-500) r g b / 0.35);
+	--color-mk-green-600-20: rgb(from var(--color-green-600) r g b / 0.2);
+	--color-mk-green-600-22: rgb(from var(--color-green-600) r g b / 0.22);
+	--color-mk-green-600-24: rgb(from var(--color-green-600) r g b / 0.24);
+	--color-mk-green-600-30: rgb(from var(--color-green-600) r g b / 0.3);
+	--color-mk-amber-500-18: rgb(from var(--color-amber-500) r g b / 0.18);
+	/* Marketing only (the prototype's values). */
+	--color-mk-surface-3: #eae7e0;
+	--color-mk-hero-title: #2a332c;
+	--color-mk-hero-shade: rgb(16 120 56 / 0.6);
+	--color-mk-card-shade: #105028;
+	--color-mk-done-top: #2be46c;
+	--color-mk-done-ink: #0b3d1e;
+	--color-mk-bot-shade: #0a3c1e;
+	--color-mk-bot-shade-18: rgb(from var(--color-mk-bot-shade) r g b / 0.18);
+	--color-mk-bot-shade-35: rgb(from var(--color-mk-bot-shade) r g b / 0.35);
+	--color-mk-focus-blue: #5096ff;
+	--color-mk-focus-blue-16: rgb(from var(--color-mk-focus-blue) r g b / 0.16);
+	--color-mk-bar: #e3e7ec;
+	--color-mk-bar-muted: #b9c0bb;
+	--color-mk-skeleton: #eceff2;
+	--color-mk-skeleton-hi: #f7f8fa;
+	/* Text on the field-gradient CTA box; the half-white secondary button on it. */
+	--color-mk-ink-78: rgb(from var(--color-ink) r g b / 0.78);
+	--color-mk-white-75: rgb(from var(--color-white) r g b / 0.75);
+	/* Access form: the failure message's text on magenta-100, and the check on the accent green. */
+	--color-mk-danger-ink: #6e1a2e;
+	--color-mk-accent-ink: #111318;
+	/* The sending-paths phrase highlight (the prototype's .ovs-roll gradient). */
+	--color-mk-paths-hl-1: #bff5d3;
+	--color-mk-paths-hl-2: #dcfae7;
+	--color-mk-paths-hl-3: #eefcd9;
 
-  /* Panel and card shadows. Each one starts with the white ring. */
-  --shadow-mk-panel-body: 0 0 0 1px var(--color-mk-ink-05), 0 1px 2px var(--color-mk-ink-05), 0 26px 50px -26px var(--color-mk-ink-40);
-  /* Written out: Tailwind inlines theme shadows into their utilities, so one shadow cannot reference another. */
-  --shadow-mk-panel: var(--ui-ring), 0 0 0 1px var(--color-mk-ink-05), 0 1px 2px var(--color-mk-ink-05), 0 26px 50px -26px var(--color-mk-ink-40);
-  --shadow-mk-panel-flat: var(--ui-ring), 0 0 0 1px var(--color-mk-ink-05), 0 26px 50px -26px var(--color-mk-ink-40);
-  --shadow-mk-hero-card: var(--ui-ring), 0 0 0 1px rgb(from var(--color-mk-card-shade) r g b / .06), 0 1px 2px rgb(from var(--color-mk-card-shade) r g b / .08), 0 24px 48px -24px rgb(from var(--color-mk-card-shade) r g b / .45);
-  --shadow-mk-vignette: var(--ui-ring), 0 1px 2px var(--color-mk-ink-06), 0 22px 40px -22px var(--color-mk-ink-42);
-  --shadow-mk-insight: var(--ui-ring), 0 18px 36px -24px var(--g-shadow, var(--color-mk-ink-45));
-  --shadow-mk-chip: 0 0 0 1px var(--color-line-2), 0 4px 10px -6px var(--color-mk-ink-30);
-  --shadow-mk-badge: inset 0 0 0 1px var(--color-line), 0 1px 2px var(--color-mk-ink-05);
-  /* The large product pictures (app frames in the proof and /oversight hero) and the field-gradient CTA box. */
-  --shadow-mk-app: var(--ui-ring), 0 2px 6px var(--color-mk-ink-06), 0 24px 48px -16px rgb(from var(--color-ink) r g b / .22);
-  --shadow-mk-cta: 0 30px 60px -36px var(--color-mk-hero-shade);
-  /* The animated panel frames, the hero panel and smaller parts. */
-  --shadow-mk-frame: inset 0 0 0 1px var(--color-mk-ink-06), 0 30px 60px -40px var(--color-mk-ink-30);
-  --shadow-mk-frame-flat: inset 0 0 0 1px var(--color-mk-ink-06);
-  --shadow-mk-hero-panel: 0 30px 60px -40px var(--color-mk-hero-shade);
-  --shadow-mk-icon-tile: inset 0 0 0 1px var(--color-mk-line);
-  --shadow-mk-btn-light: 0 8px 18px -10px var(--color-mk-ink-60);
-  --shadow-mk-ring-sides: -6px 0 0 0 var(--color-mk-white-25), 6px 0 0 0 var(--color-mk-white-25);
-  --shadow-mk-hairline: 0 1px 2px var(--color-mk-ink-04);
-  --shadow-mk-knob: 0 1px 2px var(--color-mk-black-20);
-  --shadow-mk-sheet: 0 0 0 1px var(--color-line), 0 22px 44px -20px var(--color-mk-ink-50);
-  --shadow-mk-input-focus: inset 0 0 0 1.5px var(--color-green-500), 0 0 0 3px var(--color-mk-green-16);
-  --shadow-mk-field-focus: inset 0 0 0 1.5px var(--color-blue-500), 0 0 0 3px var(--color-mk-focus-blue-16);
-  --shadow-mk-green-edge: inset 0 0 0 1px var(--color-mk-green-35);
-  --shadow-mk-chip-on: inset 0 0 0 1px var(--color-mk-green-600-20);
-  --shadow-mk-row-on: inset 0 0 0 1px var(--color-mk-green-600-22);
-  --shadow-mk-group-on: inset 0 0 0 1.5px var(--color-mk-green-600-30);
-  --drop-shadow-mk-cursor: 0 2px 3px var(--color-mk-ink-35);
+	/* Panel and card shadows. Each one starts with the white ring. */
+	--shadow-mk-panel-body:
+		0 0 0 1px var(--color-mk-ink-05), 0 1px 2px var(--color-mk-ink-05), 0 26px 50px -26px var(--color-mk-ink-40);
+	/* Written out: Tailwind inlines theme shadows into their utilities, so one shadow cannot reference another. */
+	--shadow-mk-panel:
+		var(--ui-ring), 0 0 0 1px var(--color-mk-ink-05), 0 1px 2px var(--color-mk-ink-05),
+		0 26px 50px -26px var(--color-mk-ink-40);
+	--shadow-mk-panel-flat: var(--ui-ring), 0 0 0 1px var(--color-mk-ink-05), 0 26px 50px -26px var(--color-mk-ink-40);
+	--shadow-mk-hero-card:
+		var(--ui-ring), 0 0 0 1px rgb(from var(--color-mk-card-shade) r g b / 0.06),
+		0 1px 2px rgb(from var(--color-mk-card-shade) r g b / 0.08),
+		0 24px 48px -24px rgb(from var(--color-mk-card-shade) r g b / 0.45);
+	--shadow-mk-vignette: var(--ui-ring), 0 1px 2px var(--color-mk-ink-06), 0 22px 40px -22px var(--color-mk-ink-42);
+	--shadow-mk-insight: var(--ui-ring), 0 18px 36px -24px var(--g-shadow, var(--color-mk-ink-45));
+	--shadow-mk-chip: 0 0 0 1px var(--color-line-2), 0 4px 10px -6px var(--color-mk-ink-30);
+	--shadow-mk-badge: inset 0 0 0 1px var(--color-line), 0 1px 2px var(--color-mk-ink-05);
+	/* The large product pictures (app frames in the proof and /oversight hero) and the field-gradient CTA box. */
+	--shadow-mk-app:
+		var(--ui-ring), 0 2px 6px var(--color-mk-ink-06), 0 24px 48px -16px rgb(from var(--color-ink) r g b / 0.22);
+	--shadow-mk-cta: 0 30px 60px -36px var(--color-mk-hero-shade);
+	/* The animated panel frames, the hero panel and smaller parts. */
+	--shadow-mk-frame: inset 0 0 0 1px var(--color-mk-ink-06), 0 30px 60px -40px var(--color-mk-ink-30);
+	--shadow-mk-frame-flat: inset 0 0 0 1px var(--color-mk-ink-06);
+	--shadow-mk-hero-panel: 0 30px 60px -40px var(--color-mk-hero-shade);
+	--shadow-mk-icon-tile: inset 0 0 0 1px var(--color-mk-line);
+	--shadow-mk-btn-light: 0 8px 18px -10px var(--color-mk-ink-60);
+	--shadow-mk-ring-sides: -6px 0 0 0 var(--color-mk-white-25), 6px 0 0 0 var(--color-mk-white-25);
+	--shadow-mk-hairline: 0 1px 2px var(--color-mk-ink-04);
+	--shadow-mk-knob: 0 1px 2px var(--color-mk-black-20);
+	--shadow-mk-sheet: 0 0 0 1px var(--color-line), 0 22px 44px -20px var(--color-mk-ink-50);
+	--shadow-mk-input-focus: inset 0 0 0 1.5px var(--color-green-500), 0 0 0 3px var(--color-mk-green-16);
+	--shadow-mk-field-focus: inset 0 0 0 1.5px var(--color-blue-500), 0 0 0 3px var(--color-mk-focus-blue-16);
+	--shadow-mk-green-edge: inset 0 0 0 1px var(--color-mk-green-35);
+	--shadow-mk-chip-on: inset 0 0 0 1px var(--color-mk-green-600-20);
+	--shadow-mk-row-on: inset 0 0 0 1px var(--color-mk-green-600-22);
+	--shadow-mk-group-on: inset 0 0 0 1.5px var(--color-mk-green-600-30);
+	--drop-shadow-mk-cursor: 0 2px 3px var(--color-mk-ink-35);
 
-  /* Loops inside the product visuals. Each one pauses while its scene is off screen ([data-idle] below). */
-  --animate-mk-shimmer: mk-shimmer 2.4s ease-in-out infinite;
-  /* The typing caret is a 1.5 px stripe at the end of the typed text (a background), so it never moves a box. */
-  --animate-mk-caret: mk-caret 1s steps(1) infinite;
-  --animate-eb-morph: eb-morph 9s ease-in-out infinite;
-  --animate-eb-bounce: eb-bounce .9s cubic-bezier(.3, 1.6, .5, 1) infinite alternate;
-  --animate-eb-talk: eb-talk .36s ease-in-out infinite alternate;
-  --animate-eb-blink: eb-blink var(--blink, 4.6s) infinite var(--blink-delay, 0s);
-  --animate-eb-blink-now: eb-blink-now .18s ease;
+	/* Loops inside the product visuals. Each one pauses while its scene is off screen ([data-idle] below). */
+	--animate-mk-shimmer: mk-shimmer 2.4s ease-in-out infinite;
+	/* The typing caret is a 1.5 px stripe at the end of the typed text (a background), so it never moves a box. */
+	--animate-mk-caret: mk-caret 1s steps(1) infinite;
+	--animate-eb-morph: eb-morph 9s ease-in-out infinite;
+	--animate-eb-bounce: eb-bounce 0.9s cubic-bezier(0.3, 1.6, 0.5, 1) infinite alternate;
+	--animate-eb-talk: eb-talk 0.36s ease-in-out infinite alternate;
+	--animate-eb-blink: eb-blink var(--blink, 4.6s) infinite var(--blink-delay, 0s);
+	--animate-eb-blink-now: eb-blink-now 0.18s ease;
 
-  /* The /oversight hero dashboard rises in once on load. */
-  --animate-mk-ov-rise: mk-ov-rise .9s cubic-bezier(.33, 1, .68, 1) .2s both;
-  @keyframes mk-ov-rise { from { opacity: 0; transform: translate3d(0, 36px, 0); } to { opacity: 1; transform: none; } }
-  @keyframes mk-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
-  @keyframes mk-caret { 50% { background-size: 0 0; } }
-  @keyframes eb-blink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.08); } }
-  @keyframes eb-blink-now { 50% { transform: scaleY(.08); } }
-  @keyframes eb-morph {
-    0%, 100% { border-radius: 46% 54% 52% 48% / 50% 46% 54% 50%; transform: rotate(0deg) scale(1); }
-    25% { border-radius: 58% 42% 40% 60% / 48% 58% 42% 52%; transform: rotate(-4deg) scale(1.02, .98); }
-    50% { border-radius: 38% 62% 56% 44% / 60% 40% 60% 40%; transform: rotate(3deg) scale(.98, 1.03); }
-    75% { border-radius: 52% 48% 62% 38% / 44% 56% 44% 56%; transform: rotate(-2deg) scale(1.01); }
-  }
-  @keyframes eb-bounce {
-    from { transform: translateY(0) scale(1.03, .97); border-radius: 50% 50% 46% 54% / 56% 56% 44% 44%; }
-    to { transform: translateY(calc(var(--s) * -.08)) scale(.98, 1.03); border-radius: 46% 54% 52% 48% / 50% 46% 54% 50%; }
-  }
-  @keyframes eb-talk { from { height: calc(var(--s) * .04); width: calc(var(--s) * .14); } to { height: calc(var(--s) * .12); width: calc(var(--s) * .12); } }
+	/* The /oversight hero dashboard rises in once on load. */
+	--animate-mk-ov-rise: mk-ov-rise 0.9s cubic-bezier(0.33, 1, 0.68, 1) 0.2s both;
+	@keyframes mk-ov-rise {
+		from {
+			opacity: 0;
+			transform: translate3d(0, 36px, 0);
+		}
+		to {
+			opacity: 1;
+			transform: none;
+		}
+	}
+	@keyframes mk-shimmer {
+		from {
+			background-position: 200% 0;
+		}
+		to {
+			background-position: -200% 0;
+		}
+	}
+	@keyframes mk-caret {
+		50% {
+			background-size: 0 0;
+		}
+	}
+	@keyframes eb-blink {
+		0%,
+		94%,
+		100% {
+			transform: scaleY(1);
+		}
+		96% {
+			transform: scaleY(0.08);
+		}
+	}
+	@keyframes eb-blink-now {
+		50% {
+			transform: scaleY(0.08);
+		}
+	}
+	@keyframes eb-morph {
+		0%,
+		100% {
+			border-radius: 46% 54% 52% 48% / 50% 46% 54% 50%;
+			transform: rotate(0deg) scale(1);
+		}
+		25% {
+			border-radius: 58% 42% 40% 60% / 48% 58% 42% 52%;
+			transform: rotate(-4deg) scale(1.02, 0.98);
+		}
+		50% {
+			border-radius: 38% 62% 56% 44% / 60% 40% 60% 40%;
+			transform: rotate(3deg) scale(0.98, 1.03);
+		}
+		75% {
+			border-radius: 52% 48% 62% 38% / 44% 56% 44% 56%;
+			transform: rotate(-2deg) scale(1.01);
+		}
+	}
+	@keyframes eb-bounce {
+		from {
+			transform: translateY(0) scale(1.03, 0.97);
+			border-radius: 50% 50% 46% 54% / 56% 56% 44% 44%;
+		}
+		to {
+			transform: translateY(calc(var(--s) * -0.08)) scale(0.98, 1.03);
+			border-radius: 46% 54% 52% 48% / 50% 46% 54% 50%;
+		}
+	}
+	@keyframes eb-talk {
+		from {
+			height: calc(var(--s) * 0.04);
+			width: calc(var(--s) * 0.14);
+		}
+		to {
+			height: calc(var(--s) * 0.12);
+			width: calc(var(--s) * 0.12);
+		}
+	}
 }
 
 /* A product visual: the dashboard's body type (14 / 1.45) on the marketing page. */
 @utility ef-ui {
-  font-family: var(--font-sans); color: var(--color-text); font-size: 14px; line-height: 1.45;
-  letter-spacing: 0; text-align: left; font-stretch: 100%;
+	font-family: var(--font-sans);
+	color: var(--color-text);
+	font-size: 14px;
+	line-height: 1.45;
+	letter-spacing: 0;
+	text-align: left;
+	font-stretch: 100%;
 }
 
 /* Gradient surface (InsightCard recipe): a base colour, a blurred OKLCH mesh and film grain. A g-* utility picks the tone.
@@ -231,49 +340,165 @@
    gradients under a 52 px blur, drawn at the surface's own size. As a background image it is rasterized once per size;
    the same blur as a CSS filter was repainted on every scroll frame in Firefox. */
 @utility mk-gsurf {
-  overflow: hidden; isolation: isolate; background: var(--g-base);
-  --on: var(--color-ink); --on-2: rgb(from var(--color-ink) r g b / .74); --on-3: rgb(from var(--color-ink) r g b / .6); --pill-bg: rgb(from var(--color-ink) r g b / .07); --pill-edge: rgb(from var(--color-ink) r g b / .16);
-  &::before {
-    content: ""; position: absolute; inset: 0; z-index: -2; pointer-events: none;
-    background: var(--g-mesh) 0 0 / 100% 100% no-repeat;
-  }
-  &::after {
-    content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncG type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncB type='linear' slope='1.6' intercept='-.3'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    background-size: 260px 260px; opacity: var(--grain, .42); mix-blend-mode: overlay;
-  }
+	overflow: hidden;
+	isolation: isolate;
+	background: var(--g-base);
+	--on: var(--color-ink);
+	--on-2: rgb(from var(--color-ink) r g b / 0.74);
+	--on-3: rgb(from var(--color-ink) r g b / 0.6);
+	--pill-bg: rgb(from var(--color-ink) r g b / 0.07);
+	--pill-edge: rgb(from var(--color-ink) r g b / 0.16);
+	&::before {
+		content: "";
+		position: absolute;
+		inset: 0;
+		z-index: -2;
+		pointer-events: none;
+		background: var(--g-mesh) 0 0 / 100% 100% no-repeat;
+	}
+	&::after {
+		content: "";
+		position: absolute;
+		inset: 0;
+		z-index: -1;
+		pointer-events: none;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncG type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncB type='linear' slope='1.6' intercept='-.3'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+		background-size: 260px 260px;
+		opacity: var(--grain, 0.42);
+		mix-blend-mode: overlay;
+	}
 }
 /* The eight gradient tones. field, sky, dawn and lilac come from the product tokens; sea, rose, sun and slate are marketing only
    (Revision 19). --g-shadow tints the InsightCard shadow. */
-@utility g-field { --g-mesh: url("/mesh/field.svg"); --g-base: var(--ef-grad-field-base); --g1: var(--ef-grad-field-g1); --g2: var(--ef-grad-field-g2); --g3: var(--ef-grad-field-g3); --g4: var(--ef-grad-field-g4); --g5: var(--ef-grad-field-g5); --g-shadow: rgba(16, 120, 56, .55); }
-@utility g-sky { --g-mesh: url("/mesh/sky.svg"); --g-base: var(--ef-grad-sky-base); --g1: var(--ef-grad-sky-g1); --g2: var(--ef-grad-sky-g2); --g3: var(--ef-grad-sky-g3); --g4: var(--ef-grad-sky-g4); --g5: var(--ef-grad-sky-g5); --g-shadow: rgba(40, 90, 170, .45); }
-@utility g-dawn { --g-mesh: url("/mesh/dawn.svg"); --g-base: var(--ef-grad-dawn-base); --g1: var(--ef-grad-dawn-g1); --g2: var(--ef-grad-dawn-g2); --g3: var(--ef-grad-dawn-g3); --g4: var(--ef-grad-dawn-g4); --g5: var(--ef-grad-dawn-g5); --g-shadow: rgba(190, 110, 40, .5); }
-@utility g-lilac { --g-mesh: url("/mesh/lilac.svg"); --g-base: var(--ef-grad-lilac-base); --g1: var(--ef-grad-lilac-g1); --g2: var(--ef-grad-lilac-g2); --g3: var(--ef-grad-lilac-g3); --g4: var(--ef-grad-lilac-g4); --g5: var(--ef-grad-lilac-g5); --g-shadow: rgba(110, 80, 200, .45); }
-@utility g-sea { --g-mesh: url("/mesh/sea.svg"); --g-base: #7FDCCB; --g1: #96E6D7; --g2: #63CFBC; --g3: #BDF1E6; --g4: #4FBFAB; --g5: #F2FFFB; --g-shadow: rgba(30, 140, 120, .45); }
-@utility g-rose { --g-mesh: url("/mesh/rose.svg"); --g-base: #FFB3C4; --g1: #FFC6D3; --g2: #FF9DB3; --g3: #FFDCE4; --g4: #F28AA2; --g5: #FFF5F7; }
-@utility g-sun { --g-mesh: url("/mesh/sun.svg"); --g-base: #FFDD7A; --g1: #FFE69A; --g2: #FFD25A; --g3: #FFF0C2; --g4: #F5C443; --g5: #FFFBEB; --g-shadow: rgba(180, 130, 20, .5); }
-@utility g-slate { --g-mesh: url("/mesh/slate.svg"); --g-base: #B4C3D6; --g1: #C5D2E2; --g2: #A2B3CA; --g3: #DCE4EE; --g4: #8FA2BC; --g5: #F6F8FB; }
+@utility g-field {
+	--g-mesh: url("/mesh/field.svg");
+	--g-base: var(--ef-grad-field-base);
+	--g1: var(--ef-grad-field-g1);
+	--g2: var(--ef-grad-field-g2);
+	--g3: var(--ef-grad-field-g3);
+	--g4: var(--ef-grad-field-g4);
+	--g5: var(--ef-grad-field-g5);
+	--g-shadow: rgba(16, 120, 56, 0.55);
+}
+@utility g-sky {
+	--g-mesh: url("/mesh/sky.svg");
+	--g-base: var(--ef-grad-sky-base);
+	--g1: var(--ef-grad-sky-g1);
+	--g2: var(--ef-grad-sky-g2);
+	--g3: var(--ef-grad-sky-g3);
+	--g4: var(--ef-grad-sky-g4);
+	--g5: var(--ef-grad-sky-g5);
+	--g-shadow: rgba(40, 90, 170, 0.45);
+}
+@utility g-dawn {
+	--g-mesh: url("/mesh/dawn.svg");
+	--g-base: var(--ef-grad-dawn-base);
+	--g1: var(--ef-grad-dawn-g1);
+	--g2: var(--ef-grad-dawn-g2);
+	--g3: var(--ef-grad-dawn-g3);
+	--g4: var(--ef-grad-dawn-g4);
+	--g5: var(--ef-grad-dawn-g5);
+	--g-shadow: rgba(190, 110, 40, 0.5);
+}
+@utility g-lilac {
+	--g-mesh: url("/mesh/lilac.svg");
+	--g-base: var(--ef-grad-lilac-base);
+	--g1: var(--ef-grad-lilac-g1);
+	--g2: var(--ef-grad-lilac-g2);
+	--g3: var(--ef-grad-lilac-g3);
+	--g4: var(--ef-grad-lilac-g4);
+	--g5: var(--ef-grad-lilac-g5);
+	--g-shadow: rgba(110, 80, 200, 0.45);
+}
+@utility g-sea {
+	--g-mesh: url("/mesh/sea.svg");
+	--g-base: #7fdccb;
+	--g1: #96e6d7;
+	--g2: #63cfbc;
+	--g3: #bdf1e6;
+	--g4: #4fbfab;
+	--g5: #f2fffb;
+	--g-shadow: rgba(30, 140, 120, 0.45);
+}
+@utility g-rose {
+	--g-mesh: url("/mesh/rose.svg");
+	--g-base: #ffb3c4;
+	--g1: #ffc6d3;
+	--g2: #ff9db3;
+	--g3: #ffdce4;
+	--g4: #f28aa2;
+	--g5: #fff5f7;
+}
+@utility g-sun {
+	--g-mesh: url("/mesh/sun.svg");
+	--g-base: #ffdd7a;
+	--g1: #ffe69a;
+	--g2: #ffd25a;
+	--g3: #fff0c2;
+	--g4: #f5c443;
+	--g5: #fffbeb;
+	--g-shadow: rgba(180, 130, 20, 0.5);
+}
+@utility g-slate {
+	--g-mesh: url("/mesh/slate.svg");
+	--g-base: #b4c3d6;
+	--g1: #c5d2e2;
+	--g2: #a2b3ca;
+	--g3: #dce4ee;
+	--g4: #8fa2bc;
+	--g5: #f6f8fb;
+}
 
 /* Diagonal hatch fill for meters and bars. --hatch sets the colour. */
 @utility mk-hatch {
-  background-color: color-mix(in srgb, var(--hatch, var(--color-blue-300)) 16%, transparent);
-  background-image: repeating-linear-gradient(-45deg, var(--hatch, var(--color-blue-300)) 0, var(--hatch, var(--color-blue-300)) 1.6px, transparent 2.6px, transparent 5.5px);
+	background-color: color-mix(in srgb, var(--hatch, var(--color-blue-300)) 16%, transparent);
+	background-image: repeating-linear-gradient(
+		-45deg,
+		var(--hatch, var(--color-blue-300)) 0,
+		var(--hatch, var(--color-blue-300)) 1.6px,
+		transparent 2.6px,
+		transparent 5.5px
+	);
 }
 
 /* Skeleton bar with a slow shimmer (hero scenes). The caller sets display and size. */
 @utility skeleton {
-  border-radius: 99px; background: linear-gradient(90deg, var(--color-mk-skeleton) 0%, var(--color-mk-skeleton-hi) 50%, var(--color-mk-skeleton) 100%);
-  background-size: 200% 100%; animation: var(--animate-mk-shimmer);
-  @media (prefers-reduced-motion: reduce) { animation: none; }
+	border-radius: 99px;
+	background: linear-gradient(
+		90deg,
+		var(--color-mk-skeleton) 0%,
+		var(--color-mk-skeleton-hi) 50%,
+		var(--color-mk-skeleton) 100%
+	);
+	background-size: 200% 100%;
+	animation: var(--animate-mk-shimmer);
+	@media (prefers-reduced-motion: reduce) {
+		animation: none;
+	}
 }
 
 /* The hero panel's gradient layer fades to the page at the top (Revision 7). The stops follow an ease-in curve. */
 @utility hero-fade {
-  --a: 0%; --d: 58%;
-  mask-image: linear-gradient(to bottom, rgba(0,0,0,0) var(--a), rgba(0,0,0,.03) calc(var(--a) + var(--d) * .15), rgba(0,0,0,.1) calc(var(--a) + var(--d) * .3), rgba(0,0,0,.22) calc(var(--a) + var(--d) * .45), rgba(0,0,0,.4) calc(var(--a) + var(--d) * .6), rgba(0,0,0,.62) calc(var(--a) + var(--d) * .75), rgba(0,0,0,.85) calc(var(--a) + var(--d) * .9), #000 calc(var(--a) + var(--d)));
+	--a: 0%;
+	--d: 58%;
+	mask-image: linear-gradient(
+		to bottom,
+		rgba(0, 0, 0, 0) var(--a),
+		rgba(0, 0, 0, 0.03) calc(var(--a) + var(--d) * 0.15),
+		rgba(0, 0, 0, 0.1) calc(var(--a) + var(--d) * 0.3),
+		rgba(0, 0, 0, 0.22) calc(var(--a) + var(--d) * 0.45),
+		rgba(0, 0, 0, 0.4) calc(var(--a) + var(--d) * 0.6),
+		rgba(0, 0, 0, 0.62) calc(var(--a) + var(--d) * 0.75),
+		rgba(0, 0, 0, 0.85) calc(var(--a) + var(--d) * 0.9),
+		#000 calc(var(--a) + var(--d))
+	);
 }
 
 /* A scene that is off screen or paused marks its root with data-idle: its CSS loops stop too. */
 @layer components {
-  [data-idle] *, [data-idle] *::before, [data-idle] *::after { animation-play-state: paused !important; }
+	[data-idle] *,
+	[data-idle] *::before,
+	[data-idle] *::after {
+		animation-play-state: paused !important;
+	}
 }
