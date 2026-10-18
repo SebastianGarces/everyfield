@@ -1594,6 +1594,7 @@
     "WP007-KNOW-112": "docs/acceptance/identity-access.json",
     "WP007-MUL-003": "docs/acceptance/identity-access.json",
     "WP007-MUL-016": "docs/acceptance/identity-access.json",
+    "WP009-MUL-006": "docs/acceptance/people.json",
     "WP011-KNOW-069": "docs/acceptance/people.json",
     "WP011-KNOW-098": "docs/acceptance/people.json",
     "WP011-KNOW-099": "docs/acceptance/people.json",
@@ -4247,7 +4248,8 @@
         "TARGET-IDN-013",
         "TARGET-IDN-014",
         "TARGET-IDN-015",
-        "TARGET-IDN-016"
+        "TARGET-IDN-016",
+        "WP009-MUL-006"
       ],
       "own_operation_ids": [
         "discovery.convertToPlant",
@@ -4398,6 +4400,7 @@
         "WP005-KNOW-069",
         "WP006-API-IDN-029",
         "WP006-IDN-029",
+        "WP009-MUL-006",
         "WP011-KNOW-069"
       ],
       "context_case_ids": [
@@ -26699,6 +26702,7 @@
         "WP007-KNOW-112",
         "WP007-MUL-003",
         "WP007-MUL-016",
+        "WP009-MUL-006",
         "WP011-KNOW-069",
         "WP011-KNOW-098",
         "WP011-KNOW-099",
@@ -32729,6 +32733,7 @@
         "WP007-KNOW-112",
         "WP007-MUL-003",
         "WP007-MUL-016",
+        "WP009-MUL-006",
         "WP011-KNOW-069",
         "WP011-KNOW-098",
         "WP011-KNOW-099",
@@ -44127,7 +44132,8 @@
         "WP011-MUL-005"
       ],
       "context_case_ids": [
-        "TARGET-IDN-029"
+        "TARGET-IDN-029",
+        "WP009-MUL-006"
       ],
       "operation_ids": [
         "development.applyVersion",
