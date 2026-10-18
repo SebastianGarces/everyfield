@@ -115,6 +115,104 @@
         }
       ],
       "risk": "ordinary"
+    },
+    "OPS-2": {
+      "title": "Record the implementation kickoff",
+      "owningPaths": [
+        "docs/plan/release-gates.json"
+      ],
+      "checks": [
+        {
+          "name": "documentation",
+          "run": [
+            "python3",
+            "docs/check-all.py"
+          ]
+        },
+        {
+          "name": "workflow-regressions",
+          "run": [
+            "bin/evf",
+            "test"
+          ]
+        }
+      ],
+      "risk": "ordinary"
+    },
+    "OPS-3": {
+      "title": "evf fixes",
+      "owningPaths": [
+        "tools/evf/"
+      ],
+      "checks": [
+        {
+          "name": "documentation",
+          "run": [
+            "python3",
+            "docs/check-all.py"
+          ]
+        },
+        {
+          "name": "workflow-regressions",
+          "run": [
+            "bin/evf",
+            "test"
+          ]
+        }
+      ],
+      "risk": "ordinary"
+    },
+    "OPS-4": {
+      "title": "Skill provenance and principle refresh",
+      "owningPaths": [
+        "skills-lock.json",
+        ".agents/skills/principle-attack-the-premise/",
+        ".agents/skills/principle-fix-root-causes/",
+        ".agents/skills/principle-make-operations-idempotent/",
+        ".agents/skills/principle-migrate-callers-then-delete-legacy-apis/",
+        ".agents/skills/principle-test-behavior-not-implementation/",
+        ".agents/skills/principle-type-system-discipline/"
+      ],
+      "checks": [
+        {
+          "name": "documentation",
+          "run": [
+            "python3",
+            "docs/check-all.py"
+          ]
+        },
+        {
+          "name": "workflow-regressions",
+          "run": [
+            "bin/evf",
+            "test"
+          ]
+        }
+      ],
+      "risk": "ordinary"
+    },
+    "OPS-5": {
+      "title": "Case checker counts",
+      "owningPaths": [
+        "docs/acceptance/"
+      ],
+      "checks": [
+        {
+          "name": "documentation",
+          "run": [
+            "python3",
+            "docs/check-all.py"
+          ]
+        },
+        {
+          "name": "workflow-regressions",
+          "run": [
+            "bin/evf",
+            "test"
+          ]
+        }
+      ],
+      "risk": "ordinary"
     }
   },
   "internalFeedback": {
