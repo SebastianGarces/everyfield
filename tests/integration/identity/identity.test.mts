@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test, before, after } from 'node:test';
 import { randomUUID } from 'node:crypto';
+import { request as httpRequest } from 'node:http';
 import { trustedIdentityIp } from '../../../packages/domain/src/identity/index.ts';
 import { fixture, register, signIn, cookie, password } from './support.mts';
 let f: Awaited<ReturnType<typeof fixture>>;
@@ -104,14 +105,15 @@ test('INV-identity: real database session renews, expired/revoked/deleted identi
 });
 
 test('INV-identity: real routes reject wrong/missing origins, method and raw handler bypasses, unknown keys and unsafe returns',async()=>{
-  f.setIp('127.0.0.17');
-  for(const origin of ['', 'https://evil.example',f.origin.replace('http:','https:')])assert.equal((await f.req('sign-in/email',{email:'staged@example.test',password},undefined,{origin})).status,403);
-  assert.equal((await f.req('get-session',undefined,undefined,{host:'evil.example'})).status,403);
+  f.setIp('127.0.0.17');await register(f,'boundary@example.test');
+  for(const origin of ['', 'https://evil.example',f.origin.replace('http:','https:')])assert.equal((await f.req('sign-in/email',{email:'boundary@example.test',password},undefined,{origin})).status,403);
+  const hostStatus=await new Promise<number>((resolve,reject)=>{const r=httpRequest(f.origin+'/api/auth/get-session',{headers:{host:'evil.example'}},response=>{response.resume();resolve(response.statusCode??0);});r.on('error',reject);r.end();});
+  assert.equal(hostStatus,403);
   assert.equal((await f.req('get-session',undefined,undefined,{'x-forwarded-host':'evil.example','x-forwarded-proto':'https'})).status,200);
   for(const path of ['sign-up/email','change-password','reset-password/anything','verify-email?token=forged'])assert.equal((await f.req(path)).status,404);
-  assert.equal((await f.req('sign-in/email',{email:'staged@example.test',password,actor:'forged'})).status,422);
-  const safe=await f.req('sign-in/email',{email:'staged@example.test',password,returnTo:'/people?q=Alex'});assert.equal((await safe.json()).returnTo,'/people?q=Alex');
-  const unsafe=await f.req('sign-in/email',{email:'staged@example.test',password,returnTo:'//evil.example'});assert.equal((await unsafe.json()).returnTo,null);
+  assert.equal((await f.req('sign-in/email',{email:'boundary@example.test',password,actor:'forged'})).status,422);
+  const safe=await f.req('sign-in/email',{email:'boundary@example.test',password,returnTo:'/people?q=Alex'});assert.equal((await safe.json()).returnTo,'/people?q=Alex');
+  const unsafe=await f.req('sign-in/email',{email:'boundary@example.test',password,returnTo:'//evil.example'});assert.equal((await unsafe.json()).returnTo,null);
   assert.deepEqual(await(await f.req('get-session',undefined,'forged=canary',{'user-agent':'Googlebot','x-wiki-preview':'1'})).json(),{status:'unauthenticated'});
 });
 
