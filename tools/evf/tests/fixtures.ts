@@ -6,11 +6,13 @@ export const source=resolve(import.meta.dirname,'../../..');
 export function fixture() {
  const root=mkdtempSync(join(tmpdir(),'evf-regression-'));
  cpSync(join(source,'docs'),join(root,'docs'),{recursive:true});
+ cpSync(join(source,'design/handoff'),join(root,'design/handoff'),{recursive:true});
  cpSync(join(source,'AGENTS.md'),join(root,'AGENTS.md'));
  cpSync(join(source,'.agents/skills/everyfield-pr'),join(root,'.agents/skills/everyfield-pr'),{recursive:true});
+ cpSync(join(source,'tools/evf/templates'),join(root,'tools/evf/templates'),{recursive:true});
  const dag=JSON.parse(readFileSync(join(root,'docs/plan/dag.json'),'utf8'));
- const progressPath=join(root,'docs/build-progress.json'),progress=JSON.parse(readFileSync(progressPath,'utf8'));
- progress.packages=Object.fromEntries(dag.packages.map(p=>[p.id,{status:'not_started',revision:0,updated_at:null,evidence:[],notes:'Disposable active-package fixture.'}]));
+ const progressPath=join(root,'docs/build-progress.json');
+ const progress={schema_version:1,project_id:'everyfield-v3',revision:0,updated_at:null,packages:Object.fromEntries(dag.packages.map(p=>[p.id,{status:'not_started',revision:0,updated_at:null,evidence:[],notes:'Disposable active-package fixture.'}]))};
  writeFileSync(progressPath,JSON.stringify(progress));
  const cfg=JSON.parse(readFileSync(join(source,'evf.config.json'),'utf8'));
  cfg.checks=[{name:'fixture-check',run:[process.execPath,'-e','process.stdout.write("checked disposable fixture")']}];
@@ -29,8 +31,9 @@ let body=a.includes('--body-file')?fs.readFileSync(opt('--body-file'),'utf8'):op
 s.calls.push({args:a,...(body?{body}: {})});
 let result;
 if(a[0]==='api') {
- const path=a.find(x=>x==='user'||x.startsWith('repos/'));
+ const path=a.find(x=>x==='user'||x.startsWith('repos/')||x.startsWith('gists/'));
  if(path==='user')result=s.user;
+ else if(path==='gists/a1b2c3')result='fixture-owner';
  else if(path==='repos/test/feedback')result=s.repo;
  else if(path==='repos/test/private')result=s.internalRepo||{id:401,node_id:'R_private'};
  else if(/issues\?/.test(path))result=[s.issues.filter(i=>path.includes('state=all')||i.state==='open')];
@@ -41,10 +44,12 @@ if(a[0]==='api') {
  else if(/statuses\//.test(path)&&a.includes('POST'))result={};
  else if(/branches\/main\/protection/.test(path))result=s.protection||{required_status_checks:{strict:true,contexts:['evf/verify']},enforce_admins:{enabled:true},required_pull_request_reviews:{required_approving_review_count:1,dismiss_stale_reviews:true}};
 }
-else if(a[0]==='repo'&&a[1]==='view')result=a.includes('-q')?'test/private':{nameWithOwner:'test/private',isPrivate:true};
-else if(a[0]==='pr'&&a[1]==='view')result=a.includes('mergeCommit')?s.mergeCommit:s.pr||{number:77,url:'https://github.com/test/private/pull/77',state:'OPEN'};
+else if(a[0]==='repo'&&a[1]==='view')result=a.includes('-q')||a.includes('--jq')?'test/private':{nameWithOwner:'test/private',isPrivate:true};
+else if(a[0]==='pr'&&a[1]==='view')result=a.includes('mergeCommit')?s.mergeCommit:opt('--json')==='body'&&a.includes('--jq')?s.pr.body:s.pr||{number:77,url:'https://github.com/test/private/pull/77',state:'OPEN'};
 else if(a[0]==='pr'&&a[1]==='checks'){result=s.requiredChecks??[];if(s.checksError){fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(JSON.stringify(result));process.exit(s.checksError);}}
-else if(a[0]==='pr'&&a[1]==='edit')result='';
+else if(a[0]==='pr'&&a[1]==='edit'){if(body&&s.pr)s.pr.body=body;result='';}
+else if(a[0]==='pr'&&a[1]==='create')result='https://github.com/test/private/pull/78';
+else if(a[0]==='gist'&&a[1]==='create')result='https://gist.github.com/fixture-owner/a1b2c3';
 else if(a[0]==='pr'&&a[1]==='comment')result='https://github.com/test/private/pull/'+a[2]+'#comment';
 else if(a[0]==='pr'&&a[1]==='merge'){
  if(!s.allowMerge){fs.writeFileSync(p,JSON.stringify(s));process.stderr.write('fixture merge barrier');process.exit(1);}
@@ -65,7 +70,7 @@ else if(a[0]==='label')result='';
 if(result===undefined){fs.writeFileSync(p,JSON.stringify(s));throw Error('Unexpected external call: '+a.join(' '));}
 fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(typeof result==='string'?result:JSON.stringify(result));
 `);chmodSync(fake,0o755);
- writeFileSync(join(root,'.gitignore'),'fake-bin/\ngh-state.json\n');git('add','docs','AGENTS.md','evf.config.json','.gitignore','.agents/skills/everyfield-pr');git('commit','-qm','Disposable context');
+ writeFileSync(join(root,'.gitignore'),'fake-bin/\ngh-state.json\n');git('add','docs','design/handoff','AGENTS.md','evf.config.json','.gitignore','.agents/skills/everyfield-pr','tools/evf/templates');git('commit','-qm','Disposable context');
  const oldPath=process.env.PATH,oldState=process.env.EVF_FAKE_GH_STATE;
  process.env.PATH=bins+':'+oldPath;process.env.EVF_FAKE_GH_STATE=statePath;
  return {root,cfg,git,

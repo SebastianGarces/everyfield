@@ -29,16 +29,28 @@ These unsigned statements rely on the coordinator assigning the actual models co
 They do not authenticate a model provider. GitHub comments allow agents sharing the owner's
 account to record independent review without GitHub's self-review restriction.
 
-The required PR sections come only from `.agents/skills/everyfield-pr/template.md`.
-`bin/evf pr body --body-file <file>` checks a local body. `bin/evf pr body <PR>` reads just
-that body from GitHub. Neither needs CI or a review, so the light PR-open/edit CI job can use it.
-The command uses the template in the current checkout. Missing or empty templates fail.
+The required section list for ordinary PRs is `.agents/skills/everyfield-pr/template.md`.
+Wiki article and prototype PRs already use separate owner routes in
+`.agents/skills/ship/SKILL.md`; they use the class templates in `tools/evf/templates/`.
+All formats require EVF-Author and host attribution. Keep the Wiki template's screenshot
+markers inside Verification so `bin/wiki pr-images --update-body` updates images in place.
+`bin/evf pr body --body-file <file>` checks a local ordinary body; add `--class wiki` or
+`--class prototype` to preview another format. `bin/evf pr body <PR>` reads the body and PR
+metadata from GitHub. A `wiki/<slug>` branch qualifies only when every changed file is under
+`docs/reference/wiki/`. A prototype requires a `task/fb-<number>` branch and the `prototype`
+label. Other PRs keep the ordinary format. Missing metadata never selects a lighter format.
+These formats grant no merge authority; Wiki articles and prototypes still need Sebastian's
+approval through `evf approve`. Neither body check needs CI or a review, so the light
+PR-open/edit/label CI job can use it. The template comes from the current checkout; missing
+or empty templates fail. `evf pr open --body-file` resolves relative paths from the caller's
+working directory before invoking GitHub in the task worktree.
 
 ## Task and case checks
 
 Briefs use the current catalog and context manifest. Missing context fails explicitly.
 Task starts retain kickoff gates and producer dependencies. OPS tasks use reviewed title,
 owning paths and tooling checks in `maintenanceTasks`; they cannot authorize application code.
+An owning path naming an existing folder must end in `/`; paths without it name exact files.
 `taskRisks` can mark sensitive work, which requires an owner decision. Paid services retain
 concrete spending approval. Doctor reports readiness without executing checks or changing settings.
 

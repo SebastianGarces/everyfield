@@ -53,15 +53,15 @@
       "source": "cursor/plugins (pstack/skills), MIT",
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-attack-the-premise",
-      "upstreamCommit": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+      "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
       "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put EveryField rules in .agents/roles/ or workflow skills",
-      "sha256": "c87bd7536f772f8a403ad8155535ee17a1bbec9a353156693eb3bb1520c87ae3"
+      "sha256": "6a932884daad4aa189e9b5d1665226bbc75621d4d2a398fd4003bebd382f4599"
     },
     "principle-boundary-discipline": {
       "source": "cursor/plugins (pstack/skills), MIT",
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-boundary-discipline",
-      "upstreamCommit": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+      "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
       "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put EveryField rules in .agents/roles/ or workflow skills",
       "sha256": "62ac2862c2caa22dd14531f51c9c6bb445ceb198ca98a687e25b4d47c1f10a28"
     },
@@ -69,7 +69,7 @@
       "source": "cursor/plugins (pstack/skills), MIT",
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-build-the-lever",
-      "upstreamCommit": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+      "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
       "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put EveryField rules in .agents/roles/ or workflow skills",
       "sha256": "3434b0ad0c640c6f1d7960be7a8986c3bcdc14e26060360dec29903df60074ff"
     },
@@ -77,7 +77,7 @@
       "source": "cursor/plugins (pstack/skills), MIT",
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-encode-lessons-in-structure",
-      "upstreamCommit": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+      "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
       "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put EveryField rules in .agents/roles/ or workflow skills",
       "sha256": "228963799189f481827d6f28065f278bc2008ffa37030b1234cbd5814d36b9e9"
     },
@@ -85,7 +85,7 @@
       "source": "cursor/plugins (pstack/skills), MIT",
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-exhaust-the-design-space",
-      "upstreamCommit": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+      "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
       "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put EveryField rules in .agents/roles/ or workflow skills",
       "sha256": "2de83d99f93f60ec6313455b0bc9aa9f0bfb93dd59f414f403691322db00d4db"
     },
@@ -93,7 +93,7 @@
       "source": "cursor/plugins (pstack/skills), MIT",
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-experience-first",
-      "upstreamCommit": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+      "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
       "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put EveryField rules in .agents/roles/ or workflow skills",
       "sha256": "58903529d733b1c1a7c9ccf127d45ef3c7d0d9f0b81164a4dc6b80efe6f2912b"
     },
@@ -101,7 +101,7 @@
       "source": "cursor/plugins (pstack/skills), MIT",
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-explain-the-number",
-      "upstreamCommit": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+      "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
       "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put EveryField rules in .agents/roles/ or workflow skills",
       "sha256": "cd5a25f9e7cf023627ccb470dc5faa97542f29b4319496a32b839a8e1e988047"
     },
@@ -109,15 +109,15 @@
       "source": "cursor/plugins (pstack/skills), MIT",
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-fix-root-causes",
-      "upstreamCommit": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+      "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
       "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put EveryField rules in .agents/roles/ or workflow skills",
-      "sha256": "ba4cd38da1dcc8fe5432feb64457cba95594736a9b21b2ebf8f8c52aee068707"
+      "sha256": "8df3c8c3fe57eb0055a5c8efab8ab144557fdf301da70b1cdc77a3a3ef3f3052"
     },
     "principle-foundational-thinking": {
       "source": "cursor/plugins (pstack/skills), MIT",
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-foundational-thinking",
-      "upstreamCommit": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+      "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
       "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put EveryField rules in .agents/roles/ or workflow skills",
       "sha256": "864b827e8199d946ce58beca0f89c4ed4099ed6e426fb698a3aaa45de2a9eea2"
     },
@@ -125,7 +125,7 @@
       "source": "cursor/plugins (pstack/skills), MIT",
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-guard-the-context-window",
-      "upstreamCommit": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+      "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
       "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put EveryField rules in .agents/roles/ or workflow skills",
       "sha256": "af0b9dd70b43628ce4a59a4d332e9d9ad055084e460f430e7a757495c627e81a"
     },
@@ -133,7 +133,7 @@
       "source": "cursor/plugins (pstack/skills), MIT",
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-laziness-protocol",
-      "upstreamCommit": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+      "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
       "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put EveryField rules in .agents/roles/ or workflow skills",
       "sha256": "1be6e7a435f26a75a76eb848b9c3d611b9977d0f5822361753244da25ca3ca45"
     },
@@ -141,23 +141,23 @@
       "source": "cursor/plugins (pstack/skills), MIT",
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-make-operations-idempotent",
-      "upstreamCommit": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+      "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
       "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put EveryField rules in .agents/roles/ or workflow skills",
-      "sha256": "540738217c3da7bf513b9886924ad6a2bc77e58be867f5bd2e1831c74bf2ce70"
+      "sha256": "7aa9327cf1f1aa057e95d47a0a78bd88a8f9d556b608866fee939d455a53a019"
     },
     "principle-migrate-callers-then-delete-legacy-apis": {
       "source": "cursor/plugins (pstack/skills), MIT",
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-migrate-callers-then-delete-legacy-apis",
-      "upstreamCommit": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+      "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
       "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put EveryField rules in .agents/roles/ or workflow skills",
-      "sha256": "09978915a4a11990cf0a9a02d9c08cc59e0b7a04c5c24b83aa560fbe4146f75b"
+      "sha256": "580ad9bb1a0994ecb924321ba49efc38a2f85c64e22c76fb133f57a78272a2e6"
     },
     "principle-minimize-reader-load": {
       "source": "cursor/plugins (pstack/skills), MIT",
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-minimize-reader-load",
-      "upstreamCommit": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+      "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
       "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put EveryField rules in .agents/roles/ or workflow skills",
       "sha256": "1ea2b7fef2391cae5844c4efdbd59031f775e8a52d06b7495d707229a200dcca"
     },
@@ -165,7 +165,7 @@
       "source": "cursor/plugins (pstack/skills), MIT",
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-model-the-domain",
-      "upstreamCommit": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+      "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
       "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put EveryField rules in .agents/roles/ or workflow skills",
       "sha256": "52c0d85e0c3827c41c18299b642657d7b47eaf77b7b31609e42e0df42b84c75f"
     },
@@ -173,7 +173,7 @@
       "source": "cursor/plugins (pstack/skills), MIT",
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-never-block-on-the-human",
-      "upstreamCommit": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+      "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
       "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put EveryField rules in .agents/roles/ or workflow skills",
       "sha256": "05030a7a083c337676f793881b4e93cd218e8f1dd676529f56e6ac1d3efb8d1f"
     },
@@ -181,7 +181,7 @@
       "source": "cursor/plugins (pstack/skills), MIT",
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-outcome-oriented-execution",
-      "upstreamCommit": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+      "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
       "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put EveryField rules in .agents/roles/ or workflow skills",
       "sha256": "10eb91633aa570355ba4bb37088fcade2b22e498df7a58edc749e65bc5a78e2d"
     },
@@ -189,7 +189,7 @@
       "source": "cursor/plugins (pstack/skills), MIT",
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-prove-it-works",
-      "upstreamCommit": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+      "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
       "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put EveryField rules in .agents/roles/ or workflow skills",
       "sha256": "ec79a15025bac8d33d62011c54f3b612733fd2a024e623b531b3637aa75070e2"
     },
@@ -197,7 +197,7 @@
       "source": "cursor/plugins (pstack/skills), MIT",
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-redesign-from-first-principles",
-      "upstreamCommit": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+      "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
       "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put EveryField rules in .agents/roles/ or workflow skills",
       "sha256": "170e0a658783e43fee8ec5a8c2422a4abb8f69cef621dd1819a95910b8207034"
     },
@@ -205,7 +205,7 @@
       "source": "cursor/plugins (pstack/skills), MIT",
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-separate-before-serializing-shared-state",
-      "upstreamCommit": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+      "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
       "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put EveryField rules in .agents/roles/ or workflow skills",
       "sha256": "05294b40448e927c5da1c7b6f5c6b9fed3744637e3833d2d948b9154a9dd00bb"
     },
@@ -213,7 +213,7 @@
       "source": "cursor/plugins (pstack/skills), MIT",
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-sequence-verifiable-units",
-      "upstreamCommit": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+      "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
       "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put EveryField rules in .agents/roles/ or workflow skills",
       "sha256": "2ccbbacc56ace5afdfb8670cef19d7bd009fb2a0033b9a741cbdf2b6baf72187"
     },
@@ -221,7 +221,7 @@
       "source": "cursor/plugins (pstack/skills), MIT",
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-subtract-before-you-add",
-      "upstreamCommit": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+      "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
       "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put EveryField rules in .agents/roles/ or workflow skills",
       "sha256": "8c93bb9d1a7f38e2ef37655d93f0e790fa59903105af3d500cc8a663ebe45f3f"
     },
@@ -229,17 +229,17 @@
       "source": "cursor/plugins (pstack/skills), MIT",
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-test-behavior-not-implementation",
-      "upstreamCommit": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+      "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
       "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put EveryField rules in .agents/roles/ or workflow skills",
-      "sha256": "b2b73ba42920f9c3174ecdf808ec6e4591b3a9266ada9a05814f386004266d3a"
+      "sha256": "f7223698623b6a26fea49c751e466b38e6691b1f32ce841d3983e7ffbe2b74a6"
     },
     "principle-type-system-discipline": {
       "source": "cursor/plugins (pstack/skills), MIT",
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-type-system-discipline",
-      "upstreamCommit": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+      "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
       "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put EveryField rules in .agents/roles/ or workflow skills",
-      "sha256": "2e492cef34bb25a20b9115df61f9ef3a9837e3fda144ffda8079e5f45a1b72e8"
+      "sha256": "5cdaf79785e3c12b2592b9469ee8c272143eb86ab7a18d8382197cea5fd30106"
     },
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",
