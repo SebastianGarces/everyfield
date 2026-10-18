@@ -544,7 +544,7 @@ export function WikiEditor({
 				<Prose
 					className={cn(
 						"m-0 min-h-[520px]",
-						"[&>*]:relative [&_[data-change]]:before:absolute [&_[data-change]]:before:top-1 [&_[data-change]]:before:bottom-1 [&_[data-change]]:before:-left-[22px] [&_[data-change]]:before:w-[3px] [&_[data-change]]:before:rounded-[3px] [&_[data-change]]:before:bg-blue-500 [&_[data-change]]:before:content-[''] [&_[data-change=added]]:before:bg-green-500",
+						"[&_[data-change]]:relative [&_[data-change]]:before:absolute [&_[data-change]]:before:top-1 [&_[data-change]]:before:bottom-1 [&_[data-change]]:before:-left-[22px] [&_[data-change]]:before:w-[3px] [&_[data-change]]:before:rounded-[3px] [&_[data-change]]:before:bg-blue-500 [&_[data-change]]:before:content-[''] [&_[data-change=added]]:before:bg-green-500",
 						"max-app-sm:[&_[data-change]]:before:-left-3",
 					)}
 				>

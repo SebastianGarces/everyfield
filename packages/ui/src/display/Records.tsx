@@ -688,7 +688,7 @@ export function CheckinHistory({
 }) {
 	return (
 		<div className={className}>
-			<table className="w-full border-separate border-spacing-x-2.5 border-spacing-y-1.5 text-sm">
+			<table className="w-full table-fixed border-separate border-spacing-x-2.5 border-spacing-y-1.5 text-sm">
 				<caption className="sr-only">{label}</caption>
 				<thead>
 					<tr>

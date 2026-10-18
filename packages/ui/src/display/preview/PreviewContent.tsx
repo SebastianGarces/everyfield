@@ -170,8 +170,8 @@ export function ContentSection({ index }: { index: number }) {
 					<>
 						<Specimen title="Version" className="px-[22px] py-5">
 							<KeyValueList>
-								<KeyValue k="Based on" value="Everyfield global v4" className="py-2.5 text-sm" />
-								<KeyValue k="Your edits" value="2 changed · 1 added" className="py-2.5 text-sm" />
+								<KeyValue k="Based on" value="Everyfield global v4" size="sm" />
+								<KeyValue k="Your edits" value="2 changed · 1 added" size="sm" />
 							</KeyValueList>
 						</Specimen>
 						<Specimen title="History" className="px-[22px] py-5">

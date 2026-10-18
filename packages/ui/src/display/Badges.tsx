@@ -209,6 +209,7 @@ export function initials(name: string): string {
  */
 export function Avatar({
 	name,
+	label,
 	src,
 	tone = "ink",
 	size = "md",
@@ -218,6 +219,8 @@ export function Avatar({
 	children,
 }: {
 	name: string;
+	/** The accessible name when it says more than the name: "Owner: Daniel Reyes". Initials still come from `name`. */
+	label?: string;
 	src?: string;
 	tone?: Tone;
 	size?: AvatarSize;
@@ -231,7 +234,7 @@ export function Avatar({
 	return (
 		<span
 			role={decorative ? undefined : "img"}
-			aria-label={decorative ? undefined : name}
+			aria-label={decorative ? undefined : (label ?? name)}
 			aria-hidden={decorative ? true : undefined}
 			className={cn(
 				"relative grid flex-none place-items-center overflow-hidden rounded-full font-semibold",

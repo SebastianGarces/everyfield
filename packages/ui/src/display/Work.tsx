@@ -105,7 +105,7 @@ export function MilestoneRow({
 				{tasks.done} of {tasks.total} {tasks.total === 1 ? "task" : "tasks"}
 			</span>
 			{owner ? (
-				<Avatar name={`Owner: ${owner.name}`} tone={owner.tone} size="xs" />
+				<Avatar name={owner.name} label={`Owner: ${owner.name}`} tone={owner.tone} size="xs" />
 			) : (
 				<span
 					role="img"
@@ -383,7 +383,9 @@ export function TaskRow({
 					</div>
 				) : null}
 			</div>
-			{assignee ? <Avatar name={`Assigned to ${assignee.name}`} tone={assignee.tone} size="xs" /> : null}
+			{assignee ? (
+				<Avatar name={assignee.name} label={`Assigned to ${assignee.name}`} tone={assignee.tone} size="xs" />
+			) : null}
 			{menu
 				? menu(
 						<IconButton

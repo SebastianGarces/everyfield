@@ -259,23 +259,34 @@ export function KeyValue({
 	k,
 	value,
 	delta,
+	size = "md",
 	className,
 }: {
 	k: ReactNode;
 	value: Count | ReactNode;
 	delta?: ReactNode;
+	/** sm: a compact text row for side panels ("Based on · Everyfield global v4"). */
+	size?: "md" | "sm";
 	className?: string;
 }) {
 	return (
 		<div
-			className={cn("flex items-center justify-between gap-3 border-t border-line py-3.5 first:border-t-0", className)}
+			className={cn(
+				"flex items-center justify-between gap-3 border-t border-line first:border-t-0",
+				size === "sm" ? "py-2.5 text-sm" : "py-3.5",
+				className,
+			)}
 		>
 			<dt className="text-text-2">{k}</dt>
 			<dd className="flex items-center gap-2">
 				{value === null ? (
 					<span className="text-text-3">Not recorded</span>
 				) : (
-					<span className="num text-xl font-medium tracking-[-0.02em] text-ink">
+					<span
+						className={
+							size === "sm" ? "text-right font-medium text-ink" : "num text-xl font-medium tracking-[-0.02em] text-ink"
+						}
+					>
 						{typeof value === "number" ? formatCount(value) : value}
 					</span>
 				)}

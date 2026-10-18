@@ -389,7 +389,7 @@ export function RecordsSection({ index }: { index: number }) {
 								className="flex items-center gap-4 border-t border-line py-3.5 first:border-t-0 max-app-sm:flex-wrap"
 							>
 								<span className="min-w-0 flex-1 font-medium text-ink">{r.t}</span>
-								<span>
+								<span className="w-44 flex-none">
 									<DeliveryBar
 										opened={r.d[0]!}
 										delivered={r.d[1]!}
@@ -482,38 +482,40 @@ export function RecordsSection({ index }: { index: number }) {
 				<div className="px-7 pt-5 max-app-sm:px-5">
 					<AttestChip label="Prayer leader assigned" answer="yes" when="Sep 2" onOpen={() => undefined} />
 				</div>
-				<AttestationRow
-					question="Prayer leader assigned"
-					description="Someone owns the prayer covering for the plant."
-					answer="yes"
-					attestor={{ name: "Daniel Reyes", when: "Sep 2 · 39 days ago", detail: "Grace Kim" }}
-					renewal={{ kind: "permanent" }}
-					alsoOn={{ label: "Ministries · Prayer", href: "#ministries" }}
-					onAction={() => undefined}
-				/>
-				<AttestationRow
-					question="Corporate prayer rhythm established"
-					description="Your core group has a regular rhythm of praying together."
-					answer="yes"
-					attestor={{ name: "Daniel Reyes", when: "Sep 7 · 34 days ago", detail: "Weekly, Thursday evenings" }}
-					renewal={{ kind: "due" }}
-					onAction={() => undefined}
-				/>
-				<AttestationRow
-					question="Core group giving sacrificially"
-					description="People in your core group are learning to give regularly."
-					answer="none"
-					renewal={{ kind: "unanswered" }}
-					onAction={() => undefined}
-				/>
-				<AttestationRow
-					question="Launch funding viable"
-					description="Funds available now are enough to launch."
-					answer="unsure"
-					attestor={{ name: "Daniel Reyes", when: "Oct 1 · 10 days ago" }}
-					renewal={{ kind: "current", daysLeft: 20 }}
-					onAction={() => undefined}
-				/>
+				<div>
+					<AttestationRow
+						question="Prayer leader assigned"
+						description="Someone owns the prayer covering for the plant."
+						answer="yes"
+						attestor={{ name: "Daniel Reyes", when: "Sep 2 · 39 days ago", detail: "Grace Kim" }}
+						renewal={{ kind: "permanent" }}
+						alsoOn={{ label: "Ministries · Prayer", href: "#ministries" }}
+						onAction={() => undefined}
+					/>
+					<AttestationRow
+						question="Corporate prayer rhythm established"
+						description="Your core group has a regular rhythm of praying together."
+						answer="yes"
+						attestor={{ name: "Daniel Reyes", when: "Sep 7 · 34 days ago", detail: "Weekly, Thursday evenings" }}
+						renewal={{ kind: "due" }}
+						onAction={() => undefined}
+					/>
+					<AttestationRow
+						question="Core group giving sacrificially"
+						description="People in your core group are learning to give regularly."
+						answer="none"
+						renewal={{ kind: "unanswered" }}
+						onAction={() => undefined}
+					/>
+					<AttestationRow
+						question="Launch funding viable"
+						description="Funds available now are enough to launch."
+						answer="unsure"
+						attestor={{ name: "Daniel Reyes", when: "Oct 1 · 10 days ago" }}
+						renewal={{ kind: "current", daysLeft: 20 }}
+						onAction={() => undefined}
+					/>
+				</div>
 			</Specimen>
 			<Grid cols={2} className="mt-5">
 				<Specimen
