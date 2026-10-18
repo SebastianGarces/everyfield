@@ -5,7 +5,7 @@ import { Av, StageChip, type Tone } from "@/components/kit/kit";
 import { Count, Done, Fade, Field, MoodBot, Move, Target, Tf, Typed } from "@/components/motion/fx";
 import { St } from "@/components/motion/scene";
 import { PanelCard } from "../chapters/panel-frame";
-import { CX_PEOPLE, CX_SIGNS, CX_TEAMS, CX_TYPES } from "../demo-data";
+import { CX_PEOPLE, CX_TYPES } from "../demo-data";
 import { ICONS } from "../icons";
 import { CHIP } from "./classes";
 import { Head, Lab, Num, PIcon } from "./parts";
@@ -30,13 +30,13 @@ function Meter({ fx, n, color }: { fx: string; n: number; color: string }) {
 /* ---------- 1. People: counts rise, a list is imported, the new people land in Prospect ---------- */
 const PEOPLE_MAX = CX_PEOPLE.reduce((a, r) => a + r[2], 0) + 20;
 
-export function PeoplePanel() {
+export function PeoplePanel({ title, note }: { title: string; note: string }) {
   return (
     <WeekFx>
       <PanelCard kind="people">
         <Head
           lead={<PIcon tone="ink" icon={ICONS.users} />}
-          title="Where people are"
+          title={title}
           sub={<>Harvest Point · <Count fx="people.total" max={PEOPLE_MAX} unit=" people" /></>}
           right={<Done target="t0" at={2000} label="Import list" done="Added" R="people.R" />}
         />
@@ -59,7 +59,7 @@ export function PeoplePanel() {
         </div>
         <St i={7}>
           <Move fx="people.note" className="mt-3.5 rounded-[14px] bg-white px-4 py-3.5 text-[13px] font-semibold opacity-0 shadow-mk-hairline">
-            14 interviewed people have not committed yet.
+            {note}
           </Move>
         </St>
       </PanelCard>
@@ -70,7 +70,7 @@ export function PeoplePanel() {
 /* ---------- 2. Meet: a gathering is created, guests check in ---------- */
 const GUESTS = [["KW", "Kim Wu"], ["JO", "James Okafor"]] as const;
 
-export function MeetPanel() {
+export function MeetPanel({ when }: { when: string }) {
   return (
     <WeekFx>
       <PanelCard kind="meet">
@@ -93,7 +93,7 @@ export function MeetPanel() {
           <div className="min-w-0">
             <Lab>When</Lab>
             <Field fx="meet.whenFocus">
-              <Fade fx="meet.R" className="min-w-0 flex-1"><Typed text="Sun Oct 12, 5 pm" fx="meet.whenType" className="min-w-0 flex-1" /></Fade>
+              <Fade fx="meet.R" className="min-w-0 flex-1"><Typed text={when} fx="meet.whenType" className="min-w-0 flex-1" /></Fade>
             </Field>
           </div>
           <div className="min-w-0">
@@ -144,15 +144,16 @@ function Drop({ j, more, children }: { j: number; more?: boolean; children: Reac
 
 /* ---------- 3. Follow: Evry makes a follow-up task for each new guest of the vision meeting; they move to your week ---------- */
 const FGUESTS = [["KW", "Kim Wu"], ["JO", "James Okafor"], ["SN", "Sara Nunez"]] as const;
-const WEEK_TASKS = [["Interview David Kim", "Fri Oct 17"], ["Record Maria Santos's commitment", "Signed on Oct 6"]] as const;
 
-export function FollowPanel() {
+type FollowDemo = { says: string; after: string; due: string; note: string; tasks: readonly (readonly [string, string])[] };
+
+export function FollowPanel({ demo }: { demo: FollowDemo }) {
   return (
     <WeekFx>
       <PanelCard kind="follow">
-        <Head lead={<MoodBot fx="follow.mood" />} title="Evry" sub="After vision meeting #12" />
+        <Head lead={<MoodBot fx="follow.mood" />} title="Evry" sub={demo.after} />
         <St i={1} className="rounded-[14px] bg-surface px-3.5 py-3 shadow-[inset_0_0_0_1px_var(--color-line)]">
-          <Typed text={FOLLOW_SAYS} fx="follow.type" className="text-[13px] leading-[1.45] text-ink-2" />
+          <Typed text={demo.says} fx="follow.type" className="text-[13px] leading-[1.45] text-ink-2" />
           <div className="mt-2.5 flex flex-wrap gap-1.5">
             {FGUESTS.map((g, k) => (
               <Move key={g[1]} as="span" fx="follow.chip" n={k} target={"fsrc" + k} className={cn(CHIP, "h-7 gap-[7px] pr-2.5 pl-1 text-[12px] opacity-0")}>
@@ -163,7 +164,7 @@ export function FollowPanel() {
           </div>
         </St>
         <St i={2} className="mt-3 flex items-center justify-between gap-2.5">
-          <span className="text-[12.5px] text-text-3">You and your team reach out.</span>
+          <span className="text-[12.5px] text-text-3">{demo.note}</span>
           <Done target="t0" at={3600} label="Add to my week" done="Added" R="follow.R" />
         </St>
         <St i={3} className="mt-3.5 border-t border-line pt-3">
@@ -174,7 +175,7 @@ export function FollowPanel() {
             </Tf>
           </div>
           <ul className="m-0 mt-1 list-none p-0">
-            {WEEK_TASKS.map(([title, sub]) => (
+            {demo.tasks.map(([title, sub]) => (
               <li key={title} className="flex h-[46px] items-center gap-2.5 border-b border-line">
                 <Ring />
                 <span className="min-w-0 flex-1"><L1>{title}</L1><L2>{sub}</L2></span>
@@ -188,7 +189,7 @@ export function FollowPanel() {
                   <Move as="span" fx="follow.row" n={k} className="grid opacity-0"><Av small>{g[0]}</Av></Move>
                 </Target>
                 <Move fx="follow.row" n={k} className="flex min-w-0 flex-1 items-center gap-2 opacity-0">
-                  <span className="min-w-0 flex-1"><L1>Follow up with {g[1]}</L1><L2>New guest · due Tue Oct 14</L2></span>
+                  <span className="min-w-0 flex-1"><L1>Follow up with {g[1]}</L1><L2>{demo.due}</L2></span>
                   <span className="inline-flex h-[22px] flex-none items-center rounded-full bg-green-50 px-2 text-[11px] font-semibold text-green-700 shadow-mk-green-edge">New</span>
                 </Move>
               </li>
@@ -205,7 +206,6 @@ export function FollowPanel() {
     </WeekFx>
   );
 }
-const FOLLOW_SAYS = "3 new guests came to your vision meeting. I made a follow-up task for each one.";
 /** An open task's empty check ring. */
 function Ring() {
   return <span aria-hidden="true" className="size-[22px] flex-none rounded-full bg-surface shadow-[inset_0_0_0_1.5px_var(--color-line-2)]" />;
@@ -220,12 +220,14 @@ function L2({ children }: { children: ReactNode }) {
 /* ---------- 4. Teams: commitments are recorded, each person moves into a team ---------- */
 const teamAt = (k: number) => (k ? 3300 : 1700);
 
-export function TeamsPanel() {
+type TeamsDemo = { teams: readonly (readonly [string, string, string, number])[]; signs: readonly (readonly [string, string, string])[] };
+
+export function TeamsPanel({ demo: d }: { demo: TeamsDemo }) {
   return (
     <WeekFx>
       <PanelCard kind="teams">
         <Head lead={<PIcon tone="violet" icon={ICONS.users} />} title="Your teams" sub="Harvest Point · committed adults" />
-        {CX_TEAMS.map((r, k) => (
+        {d.teams.map((r, k) => (
           <St key={r[1]} i={k + 1} className="mt-3">
             <Target name={"dst" + k} as="div">
               <div className="flex min-h-[28px] items-center justify-between gap-2">
@@ -239,7 +241,7 @@ export function TeamsPanel() {
           </St>
         ))}
         <St i={3} className="mt-[18px] border-t border-line pt-3 text-[12px] font-semibold text-text-2">To record</St>
-        {CX_SIGNS.map((r, k) => (
+        {d.signs.map((r, k) => (
           <St key={r[1]} i={k + 4} className={cn("relative isolate flex items-center gap-3", k ? "border-t border-line py-3" : "pt-2 pb-3")}>
             <Target name={"src" + k} className="grid size-[30px] flex-none place-items-center rounded-full bg-green-100 text-[10.5px] font-bold tracking-[.02em] text-green-700">{r[0]}</Target>
             <div className="min-w-0 flex-1">
@@ -249,7 +251,7 @@ export function TeamsPanel() {
             <Done target={k ? "t1" : "t0"} at={teamAt(k)} label="Record" done="Recorded" R="teams.R" />
           </St>
         ))}
-        {CX_SIGNS.map((r, k) => (
+        {d.signs.map((r, k) => (
           <Fly key={r[1]} k={k}>
             <Av>{r[0]}</Av>
             {r[1]}

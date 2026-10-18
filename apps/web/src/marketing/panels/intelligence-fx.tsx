@@ -12,21 +12,12 @@ import { KNOB, SWITCH } from "./classes";
 // Timing of the home Plant Intelligence panels (intelligence.tsx renders their markup on the server). The prototype's
 // numbers, unchanged.
 
-const R_FOCUS = (t: number) => reset(t, 6200);
-const days = (t: number) => 16 * out(P(t, 300, 1200)) * R_FOCUS(t);
-const focusSwap = (t: number) => out(P(t, 2550, 380)) * R_FOCUS(t);
 const R_FACTS = (t: number) => reset(t, 6000);
 const KV = [24, 17, 7] as const;
 const R_EVRY = (t: number) => reset(t, 7800);
 const R_SHARE = (t: number) => reset(t, 6000);
 
 const FX = {
-  "focus.days": days,
-  // The fill shows the days elapsed; it slides out of a rounded window (transform only, no clip-path animation).
-  "focus.fill": (t: number) => "translate3d(" + (-(1 - days(t) / 16) * 100).toFixed(2) + "%,0,0)",
-  "focus.text": (t: number) => [0, -6 * focusSwap(t), 1, 1 - focusSwap(t)],
-  "focus.fact": (t: number, k: number) => rise(t, 2640 + k * 75, R_FOCUS(t)),
-  "focus.press": (t: number) => press(t, 2400, 0.05),
   "facts.R": R_FACTS,
   "facts.pct": (t: number) => 71 * out(P(t, 300, 1100)) * R_FACTS(t),
   "facts.kv": (t: number, k: number) => KV[k]! * out(P(t, 300 + k * 90, 900)) * R_FACTS(t),
