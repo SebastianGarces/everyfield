@@ -1,0 +1,31 @@
+# Checks the PR body against the required sections in .agents/skills/everyfield-pr/template.md.
+# Runs on PR open, edit and push, so the `pr-body` check exists on every head. It does not depend
+# on `ci` or on the review, so there is no cycle. A missing or empty template fails the check.
+name: PR body
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-body-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  pr-body:
+    name: pr-body
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            .github/scripts
+            .agents/skills/everyfield-pr
+      - name: Required sections and EVF-Author line
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: python3 .github/scripts/check-pr-body.py
