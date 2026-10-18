@@ -3065,7 +3065,7 @@ export const early_access_attempt = pgTable("early_access_attempt", {
   created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().default(sql`clock_timestamp()`),
   email: text("email").notNull(),
   ip_key: text("ip_key").notNull(),
-}, (t): PgTableExtraConfigValue[] => [
+}, (): PgTableExtraConfigValue[] => [
 ]);
 
 export const schema_migration = pgTable("schema_migration", {

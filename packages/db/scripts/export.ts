@@ -1,5 +1,5 @@
 import { writeFile } from "node:fs/promises";
-import { database, exportAccessRequests } from "../src/index.js";
+import { database, closeDatabase, exportAccessRequests } from "../src/index.js";
 
 const file = process.argv[2];
 const db = database();
@@ -15,5 +15,5 @@ try {
   console.error("Export failed. Check database access and choose a new output path.");
   process.exitCode = 1;
 } finally {
-  await db.end();
+  await closeDatabase(db);
 }
