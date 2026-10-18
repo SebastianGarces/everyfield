@@ -103,6 +103,8 @@ export function Combobox({ options, value, onValueChange, multiple = false, plac
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
+        role="combobox"
+        aria-haspopup="listbox"
         {...control}
         className={cn(inputBox, control["aria-invalid"] ? inputInvalid : "focus-visible:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)] focus-visible:outline-none", "cursor-pointer justify-between text-left", className)}
       >
