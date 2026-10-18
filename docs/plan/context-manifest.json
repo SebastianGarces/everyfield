@@ -1577,6 +1577,8 @@
     "WP004-KNOW-088": "docs/acceptance/schema.json",
     "WP004-KNOW-089": "docs/acceptance/schema.json",
     "WP004-PPL-024": "docs/acceptance/schema.json",
+    "WP005-KNOW-069": "docs/acceptance/recovery.json",
+    "WP005-KNOW-072": "docs/acceptance/recovery.json",
     "WR-001": "docs/acceptance/knowledge.json",
     "WR-002": "docs/acceptance/knowledge.json",
     "WR-003": "docs/acceptance/knowledge.json",
@@ -2452,7 +2454,9 @@
         "WP004-KNOW-087",
         "WP004-KNOW-088",
         "WP004-KNOW-089",
-        "WP004-PPL-024"
+        "WP004-PPL-024",
+        "WP005-KNOW-069",
+        "WP005-KNOW-072"
       ],
       "context_case_ids": [],
       "operation_ids": [
@@ -2681,7 +2685,9 @@
         "TARGET-IDN-002",
         "TARGET-IDN-009",
         "TARGET-IDN-028",
-        "TARGET-IDN-030"
+        "TARGET-IDN-030",
+        "WP005-KNOW-069",
+        "WP005-KNOW-072"
       ],
       "own_operation_ids": [
         "accounts.getRegistrationOptions",
@@ -2799,7 +2805,9 @@
         "TARGET-IDN-029",
         "TARGET-IDN-030",
         "TARGET-IDN-032",
-        "WP004-IDN-029"
+        "WP004-IDN-029",
+        "WP005-KNOW-069",
+        "WP005-KNOW-072"
       ],
       "context_case_ids": [],
       "operation_ids": [
@@ -3659,7 +3667,9 @@
         "WP004-KNOW-069",
         "WP004-KNOW-072",
         "WP004-KNOW-073",
-        "WP004-KNOW-089"
+        "WP004-KNOW-089",
+        "WP005-KNOW-069",
+        "WP005-KNOW-072"
       ],
       "context_case_ids": [
         "B03-001",
@@ -4335,7 +4345,8 @@
         "TARGET-PPL-024",
         "TARGET-PPL-025",
         "WP004-IDN-029",
-        "WP004-KNOW-069"
+        "WP004-KNOW-069",
+        "WP005-KNOW-069"
       ],
       "context_case_ids": [
         "EVRY-ACCOUNT-PRIVATE-DISCOVERY"
@@ -4783,7 +4794,9 @@
         "WP004-KNOW-084",
         "WP004-KNOW-085",
         "WP004-KNOW-086",
-        "WP004-KNOW-089"
+        "WP004-KNOW-089",
+        "WP005-KNOW-069",
+        "WP005-KNOW-072"
       ],
       "context_case_ids": [
         "AF-028",
@@ -5165,7 +5178,8 @@
         "TEN-002",
         "WP004-IDN-029",
         "WP004-KNOW-069",
-        "WP004-PPL-024"
+        "WP004-PPL-024",
+        "WP005-KNOW-069"
       ],
       "context_case_ids": [
         "INH-REGRESSION-CLARIFICATION-NAME"
@@ -12241,7 +12255,9 @@
         "WP004-KNOW-072",
         "WP004-KNOW-083",
         "WP004-KNOW-085",
-        "WP004-KNOW-086"
+        "WP004-KNOW-086",
+        "WP005-KNOW-069",
+        "WP005-KNOW-072"
       ],
       "context_case_ids": [
         "REC59-002",
@@ -12603,7 +12619,9 @@
         "WP004-KNOW-086",
         "WP004-KNOW-087",
         "WP004-KNOW-088",
-        "WP004-KNOW-089"
+        "WP004-KNOW-089",
+        "WP005-KNOW-069",
+        "WP005-KNOW-072"
       ],
       "context_case_ids": [
         "CASE-OPS-010",
@@ -13382,7 +13400,9 @@
         "TARGET-TSK-018",
         "TEN-006",
         "WP004-KNOW-069",
-        "WP004-KNOW-072"
+        "WP004-KNOW-072",
+        "WP005-KNOW-069",
+        "WP005-KNOW-072"
       ],
       "context_case_ids": [
         "AF-028",
@@ -17914,7 +17934,8 @@
         "SEC-06",
         "TARGET-IDN-026",
         "TARGET-IDN-028",
-        "TARGET-IDN-029"
+        "TARGET-IDN-029",
+        "WP005-KNOW-072"
       ],
       "operation_ids": [
         "auth.recoverInvalidSession",
@@ -26574,6 +26595,8 @@
         "WP004-KNOW-088",
         "WP004-KNOW-089",
         "WP004-PPL-024",
+        "WP005-KNOW-069",
+        "WP005-KNOW-072",
         "WR-001",
         "WR-002",
         "WR-003",
@@ -32582,6 +32605,8 @@
         "WP004-KNOW-088",
         "WP004-KNOW-089",
         "WP004-PPL-024",
+        "WP005-KNOW-069",
+        "WP005-KNOW-072",
         "WR-001",
         "WR-002",
         "WR-003",
@@ -40406,7 +40431,9 @@
         "SCHEMA-011",
         "WIKI52-003",
         "WP004-KNOW-069",
-        "WP004-KNOW-072"
+        "WP004-KNOW-072",
+        "WP005-KNOW-069",
+        "WP005-KNOW-072"
       ],
       "context_case_ids": [
         "B01-005",
@@ -40669,7 +40696,9 @@
         "SCHEMA-011",
         "WIKI52-003",
         "WP004-KNOW-069",
-        "WP004-KNOW-072"
+        "WP004-KNOW-072",
+        "WP005-KNOW-069",
+        "WP005-KNOW-072"
       ],
       "context_case_ids": [
         "B01-005",
