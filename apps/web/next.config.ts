@@ -6,7 +6,7 @@ const config: NextConfig = {
   turbopack: { root: path.join(import.meta.dirname, "../..") },
   outputFileTracingRoot: path.join(import.meta.dirname, "../.."),
   poweredByHeader: false,
-  transpilePackages: ["@everyfield/domain", "@everyfield/db"],
+  transpilePackages: ["@everyfield/domain", "@everyfield/db", "@everyfield/ui"],
   // The Hugeicons free set is one barrel of about 6,000 icons; this rewrites its imports to the icons in use.
   experimental: { optimizePackageImports: ["@hugeicons/core-free-icons"] },
 };
