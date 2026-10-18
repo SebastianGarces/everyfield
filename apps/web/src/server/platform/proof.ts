@@ -18,8 +18,11 @@ function runtime() {
   if (!PLATFORM_DATABASE_URL || !origin || !secret) throw new Refusal("unavailable", 503);
   const url = new URL(PLATFORM_DATABASE_URL);
   if (!["ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech", "ep-autumn-dew-b8ltidky-pooler.c-14.us-east-1.aws.neon.tech"].includes(url.hostname)) throw new Refusal("unavailable", 503);
-  const db = new pg.Pool({ connectionString: PLATFORM_DATABASE_URL, options: "-c search_path=wp003_proof", max: 4, connectionTimeoutMillis: 5000, idleTimeoutMillis: 5000 });
-  configured = { db, origin, auth: createPlatformAuth(db, origin, secret, async () => { /* Synthetic recovery sink. Never mail a real address. */ }) };
+  const connection = { connectionString: PLATFORM_DATABASE_URL, options: "-c search_path=wp003_proof", connectionTimeoutMillis: 5000, idleTimeoutMillis: 5000 };
+  const db = new pg.Pool({ ...connection, max: 4 });
+  // Auth queries cannot wait for a connection held by their own domain transaction.
+  const authDb = new pg.Pool({ ...connection, max: 2 });
+  configured = { db, origin, auth: createPlatformAuth(authDb, origin, secret, async () => { /* Synthetic recovery sink. Never mail a real address. */ }, "/api/platform-proof/auth") };
   return configured;
 }
 async function parse<T extends z.ZodType>(request: Request, schema: T): Promise<z.output<T>> {

@@ -5,12 +5,12 @@ import type { Pool } from "pg";
 
 // WP-005 supplies application routes, domain acceptance and security outcome writes.
 // A supported credential change cannot be rolled back by a failed app audit write.
-export function createPlatformAuth(db: Pool, origin: string, secret: string, resetDelivery: (message: { user: { id: string }; token: string; url: string }) => Promise<void>) {
+export function createPlatformAuth(db: Pool, origin: string, secret: string, resetDelivery: (message: { user: { id: string }; token: string; url: string }) => Promise<void>, basePath = "/api/auth") {
   if (secret.length < 32) throw new Error("Auth secret required");
   return betterAuth({
     // The pinned Kysely adapter enables transactions for a pg Pool.
     database: db,
-    baseURL: origin, basePath: "/api/platform-proof/auth", secret,
+    baseURL: origin, basePath, secret,
     trustedOrigins: [new URL(origin).origin],
     user: { modelName: "auth_user" }, account: { modelName: "auth_account" },
     verification: { modelName: "auth_verification" },

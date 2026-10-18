@@ -67,6 +67,7 @@ test('AC:PLATFORM-001 AC:PLATFORM-002 AC:SEC-10 AC:TEN-009 real Next sessions, r
       await assert.rejects(()=>runtime.query('UPDATE proof_audit SET revision=0'),{code:'42501'});
       await assert.rejects(()=>runtime.query('CREATE TABLE should_not_exist(id int)'),{code:'42501'});
       assert.equal((await req('update',input)).status,409);
+      const concurrent=await Promise.all(Array.from({length:5},()=>req('update',input)));assert.deepEqual(concurrent.map(r=>r.status),[409,409,409,409,409]);
     });
     await t.test('real Tigris private upload, inert previews, fresh file grant, TTL and deletion',async()=>{
       for(const format of ['docx','xlsx','pdf']){
