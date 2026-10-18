@@ -82,6 +82,19 @@ ordering with docs/acceptance/check.py and docs/package-context.py --check-case-
 Run tooling regressions with `bin/evf test`. Disposable repositories and fake GitHub responses
 exercise workflow behavior only. Tests contact no real GitHub or application database.
 
+## Browser checks and process hygiene
+
+`evf browser run [--timeout <s>] [--session <name>] -- <command>` runs a browser check in its own
+process group (D35). Every process it starts carries an `EVF_BROWSER_RUN` token in its environment,
+so cleanup also finds browsers that leave the group, as Playwright browsers and the agent-browser
+daemon do. After a pass, a failure, a timeout (exit 124) or a signal to evf, it closes the run's
+agent-browser session, stops the tagged processes (SIGTERM, then SIGKILL) and deletes the run's
+TMPDIR, which holds Playwright profiles. It fails when a process survives SIGKILL.
+`evf doctor` lists headless browsers and agent-browser daemons older than 15 minutes
+(`--browser-age <minutes>`) with PID, age and tree memory. It reports only; owners close their own.
+`evf verify` reminds the caller to keep the turn open, and warns when a terminal runs it as a
+background job. Agent shells look the same in both modes, so the reminder prints every time.
+
 ## Feedback and human ownership
 
 The original P0/P1 immediate, P2/P3 Monday, small-feature draft-prototype, large-feature idea, duplicate/question/spam rubric remains in `.agents/roles/feedback-desk.md`. No new severity rubric replaces it.
