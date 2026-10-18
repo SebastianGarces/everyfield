@@ -105,6 +105,10 @@ test("AC:AF-030 AC:AF-032 AC:AF-033 AC:TARGET-IDN-022 AC:WP007-API-KNOW-112 sour
 		S.call("privacy.setSharing", pa, S.command({ ...off.input, enabled: true }, "2")),
 		/stale_revision/,
 	);
+	await assert.rejects(
+		S.call("privacy.setSharing", pa, S.command({ ...off.input, expectedConsentRevision: "2", enabled: true }, "3")),
+		/stale_revision/,
+	);
 	const data = (
 		await S.db.query(
 			"SELECT e.action,e.diff,e.reason FROM event e JOIN affiliation a ON a.id=e.target_record_id WHERE a.id=$1",
@@ -118,6 +122,44 @@ test("AC:AF-030 AC:AF-032 AC:AF-033 AC:TARGET-IDN-022 AC:WP007-API-KNOW-112 sour
 			{ action: "sharing.changed", diff: null, reason: null },
 		],
 	);
+	const untouched = view(await S.call("privacy.getSharing", pa, { plant: p, organization: n }));
+	const expected = {
+		people: true,
+		meetings: true,
+		tasks: true,
+		ministry_teams: true,
+		wiki: true,
+		activity: false,
+		shared_findings: false,
+	};
+	let revision = 3;
+	for (const category of [
+		"people",
+		"meetings",
+		"tasks",
+		"ministry_teams",
+		"wiki",
+		"activity",
+		"shared_findings",
+	] as const) {
+		const enabled = !expected[category];
+		await S.call(
+			"privacy.setSharing",
+			pa,
+			S.command(
+				{ plant: p, organization: o, relationshipId: a, expectedConsentRevision: String(revision), category, enabled },
+				String(revision),
+			),
+		);
+		expected[category] = enabled;
+		revision++;
+		const changed = view(await S.call("privacy.getSharing", pa, { plant: p, organization: o }));
+		assert.equal(changed.view, "plant_administration");
+		if (changed.view !== "plant_administration") throw Error();
+		assert.deepEqual(changed.choices, expected);
+		assert.equal(changed.consentRevision, String(revision));
+	}
+	assert.deepEqual(view(await S.call("privacy.getSharing", pa, { plant: p, organization: n })), untouched);
 });
 test("INV-consent: first approval defaults on while rejoin preserves independent saved choices", async () => {
 	const p = await S.tenant("plant"),
@@ -259,6 +301,11 @@ test("AC:ADR1-003 AC:WP007-API-MUL-003 resident category withdrawal and leave im
 			S.tx((c) => canReadResidentProgress(c, staff.session, o, { linkId: link, category, consentRevision }));
 	assert.equal(await read("foundations", "1"), true);
 	assert.equal(await read("milestones", "1"), true);
+	await S.db.query("UPDATE person SET linked_account_id=NULL WHERE id=$1", [person]);
+	assert.equal(await read("foundations", "1"), false);
+	assert.equal(await read("milestones", "1"), false);
+	await S.db.query("UPDATE person SET linked_account_id=$2 WHERE id=$1", [person, r.account]);
+	assert.equal(await read("foundations", "1"), true);
 	const initial = Q.residencySharingResult.parse(await S.call("residency.readSharing", r, { linkId: link }));
 	assert.equal(initial.status, "active");
 	await S.call(

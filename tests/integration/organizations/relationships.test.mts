@@ -160,7 +160,9 @@ test("AC:AF-010 AC:AF-014 AC:AF-015 AC:AF-020 AC:AF-021 AC:AF-022 AC:AF-023 AC:A
 		n = await S.tenant("sending_network");
 	const other = await S.affiliation(p, n, true),
 		i = await invite(pa, o, oa.email),
-		a = await approve(i, oa);
+		approvalKey = randomUUID(),
+		a = await approve(i, oa, approvalKey);
+	assert.deepEqual(await approve(i, oa, approvalKey), a);
 	const member = await S.identity(p, "member"),
 		foreign = await S.identity(await S.tenant("sending_network"));
 	const q = S.command({
@@ -186,6 +188,8 @@ test("AC:AF-010 AC:AF-014 AC:AF-015 AC:AF-020 AC:AF-021 AC:AF-022 AC:AF-023 AC:A
 		status: "available",
 		value: "Retained domain reason",
 	});
+	for (const actor of [oa, foreign])
+		assert.deepEqual(await S.call("associations.getHistory", actor, { plant: p }), { status: "unavailable" });
 	const m = Q.relationshipHistoryResult.parse(await S.call("associations.getHistory", member, { plant: p }));
 	if (m.status !== "available") throw Error();
 	assert.deepEqual(
@@ -211,6 +215,7 @@ test("AC:AF-010 AC:AF-014 AC:AF-015 AC:AF-020 AC:AF-021 AC:AF-022 AC:AF-023 AC:A
 		).rows[0].n,
 		1,
 	);
+	await assert.rejects(approve(i, oa, approvalKey), /unavailable/);
 	await assert.rejects(approve(i, oa), /stale_revision|unavailable/);
 	const j = await invite(pa, o, oa.email),
 		rejoined = await approve(j, oa);
