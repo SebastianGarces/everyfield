@@ -29,6 +29,7 @@ test('AC:AF-030 AC:AF-032 AC:AF-033 AC:TARGET-IDN-022 AC:WP007-API-KNOW-112 sour
 });
 test('INV-consent: first approval defaults on while rejoin preserves independent saved choices',async()=>{
  const p=await S.tenant('plant'),pa=await S.identity(p),o=await S.tenant('sending_church'),oa=await S.identity(o),pair={kind:'plant',subject:p,organization:o};
+ assert.deepEqual(await S.tx(c=>readSharingDisclosure(c,oa.session,o,pair)),{status:'unavailable'});
  const disclosed=await S.tx(c=>readSharingDisclosure(c,pa.session,p,pair));assert.equal(disclosed.kind,'first_invitation');assert.deepEqual(disclosed.choices,{people:true,meetings:true,tasks:true,ministry_teams:true,wiki:true,activity:true,shared_findings:true});
  const i=Q.invitationResult.parse(await S.call('associations.invite',pa,S.command({pair,recipientEmail:oa.email})));
  const accepted=Q.acceptedInvitationResult.parse(await S.call('associations.acceptInvitation',oa,S.command({invitationId:i.invitationId,proof:S.proofs.get(i.invitationId),decision:'accept'})));if(accepted.status!=='accepted')throw Error();

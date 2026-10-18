@@ -4,7 +4,7 @@ import { recordId, accountId, tenantId, revision, type Owner, type sessionId } f
 import * as Q from '@everyfield/contracts/organizations';
 import type { OrganizationAdapter } from '@everyfield/contracts/organizations';
 import { active, administrator, appendEvent, beginCommand, checkRevision, currentActor, finishCommand, invalidate, liveOwner, loadAffiliation, pairOf, refuse, sameOwner, unavailable, type OrganizationEffects } from './core.ts';
-import { readOwnResidency, readPipelinePerson } from '../access/pipeline.ts';
+import { readOwnResidency, readPipelinePerson } from '@everyfield/domain/access';
 const residentRow=z.object({id:recordId,organization_id:tenantId,person_id:recordId,account_id:accountId.nullable(),affiliation_id:recordId,consent_revision:revision,revision,
   ended_at:z.date().nullable(),share_foundations:z.boolean(),share_milestones:z.boolean(),organization_kind:z.enum(['sending_church','sending_network'])});
 export async function loadResident(tx:PoolClient,id:string,write=false) {

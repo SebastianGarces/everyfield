@@ -15,7 +15,7 @@ export async function readPlantAffiliation(tx: PoolClient, session: z.infer<type
   if (rows.rows.length !== 1) return null;
   const a = rows.rows[0];
   return plantAffiliationGrant.parse({ kind: "plant_affiliation", id: a.id, revision: a.revision, acceptedAt: a.accepted_at.toISOString(), plant, organization: selected,
-    sharing: { people: a.share_people, meetings: a.share_meetings, tasks: a.share_tasks, ministry: a.share_ministry, wiki: a.share_wiki, activity: a.share_activity, findings: a.shared_findings } });
+    sharing: { people: a.share_people, meetings: a.share_meetings, tasks: a.share_tasks, ministry: a.share_ministry_teams, wiki: a.share_wiki, activity: a.share_activity, findings: a.shared_findings } });
 }
 export async function readDiscoveryRelationship(tx: PoolClient, session: z.infer<typeof sessionId>, selected: Owner, organization: Owner) {
   const actor = await currentActor(tx, session, selected);

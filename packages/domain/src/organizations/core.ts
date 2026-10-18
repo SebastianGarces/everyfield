@@ -3,8 +3,8 @@ import type { PoolClient } from 'pg';
 import { z } from 'zod';
 import { owner, recordId, accountId, tenantId, revision, receipt, requestIdentity, sameOwner, type Owner, type Receipt } from '@everyfield/contracts/common';
 import { relationshipPair, relationshipProjection, sharingChoices, type RelationshipPair } from '@everyfield/contracts/organizations';
-import { currentActor } from '../access/session.ts';
-import { liveOwner } from '../access/session.ts';
+import { currentActor } from '@everyfield/domain/access';
+import { liveOwner } from '@everyfield/domain/access';
 
 export { currentActor, liveOwner, sameOwner };
 export type Actor = Extract<Awaited<ReturnType<typeof currentActor>>, {status:'active'}>;
@@ -77,7 +77,7 @@ export async function beginCommand(tx:PoolClient,actor:Actor,selected:Owner,name
 export type NewCommand=Extract<Awaited<ReturnType<typeof beginCommand>>,{kind:'new'}>;
 export async function finishCommand<T>(tx:PoolClient,c:NewCommand,result:(r:Receipt)=>T,eventIds:string[],changed=true):Promise<T> {
   const now=(await tx.query<{now:Date}>('SELECT clock_timestamp() AS now')).rows[0]!.now.toISOString();
-  const r=receipt.parse({id:c.id,request:c.identity,completedAt:now,outcome:changed?'changed':'noop',subjects:[],eventIds,effectIds:[]});
+  const r=receipt.parse({id:c.id,request:c.identity,completedAt:now,outcome:changed?'changed':'noop',subjects:[{kind:'operation',id:c.id,owner:c.identity.owner}],eventIds,effectIds:[]});
   const output=result(r);
   await tx.query("UPDATE operation SET state='complete',outcome=$2,completed_at=$3 WHERE id=$1",[c.id,changed?'committed':'no_effect',now]);
   await tx.query('INSERT INTO organization_operation_result(operation_id,receipt,result) VALUES($1,$2,$3)',[c.id,JSON.stringify(r),JSON.stringify(output)]);
@@ -85,8 +85,12 @@ export async function finishCommand<T>(tx:PoolClient,c:NewCommand,result:(r:Rece
 }
 export async function appendEvent(tx:PoolClient,c:NewCommand,target:string,kind:string,action:string|null,before:string,after:string) {
   const id=randomUUID();
+  const record=await tx.query<{tenant_id:string}>('SELECT tenant_id FROM record WHERE id=$1',[target]);
+  // Bilateral decisions are recorded in the acting endpoint scope. The private
+  // relationship history carries the exact pair; audit never targets a foreign body.
+  const ownedTarget=record.rows[0]?.tenant_id===c.identity.owner.id?target:c.identity.owner.id;
   await tx.query(`INSERT INTO event(id,tenant_id,target_record_id,operation_id,actor_id,kind,action,occurred_at,recorded_at,before_revision,after_revision,event_key)
-    VALUES($1,$2,$3,$4,$5,$6,$7,clock_timestamp(),clock_timestamp(),$8,$9,$4)`,[id,c.identity.owner.id,target,c.id,c.identity.actorId,kind,action,before,after]);
+    VALUES($1,$2,$3,$4,$5,$6,$7,clock_timestamp(),clock_timestamp(),$8,$9,$4::uuid::text)`,[id,c.identity.owner.id,ownedTarget,c.id,c.identity.actorId,kind,action,before,after]);
   return id;
 }
 export async function invalidate(tx:PoolClient,effects:OrganizationEffects,pair:RelationshipPair,id:string,rev:string) {

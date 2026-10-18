@@ -37,7 +37,7 @@ export function sharingOperations(effects:OrganizationEffects):Pick<Organization
 // authority and never overwrites the exact pair's persisted consent on rejoin.
 export async function readSharingDisclosure(tx:PoolClient,session:z.infer<typeof sessionId>,selected:Owner,raw:unknown) {
   const pair=Q.relationshipPair.parse(raw),actor=await currentActor(tx,session,selected);
-  if(actor.status!=='active'||!await validPair(tx,pair)||!(await subjectAuthority(tx,actor,pair)||sameOwner(selected,pair.organization)&&administrator(actor)))return unavailable();
+  if(actor.status!=='active'||!await validPair(tx,pair)||!await subjectAuthority(tx,actor,pair))return unavailable();
   const r=await tx.query<{id:string}>('SELECT id FROM affiliation WHERE plant_id IS NOT DISTINCT FROM $1::uuid AND account_id IS NOT DISTINCT FROM $2::uuid AND sending_church_id IS NOT DISTINCT FROM $3::uuid AND organization_id=$4',endpointValues(pair));
   const previous=r.rows[0]?await loadAffiliation(tx,r.rows[0].id):null;
   if(previous&&pair.kind==='plant')return Q.sharingDisclosure.parse({kind:'existing_consent',organization:pair.organization,consentRevision:previous.consent_revision,choices:choices(previous)});

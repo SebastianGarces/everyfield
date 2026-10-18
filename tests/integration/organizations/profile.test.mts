@@ -19,7 +19,7 @@ test('AC:ORG55-001 AC:TARGET-IDN-026 exact organization Owner/Admin profile chan
 });
 test('INV-location: correction is plant settings with immutable effective history, no street or phase editing',async()=>{
  const p=await S.tenant('plant'),pa=await S.identity(p),org=await S.identity(await S.tenant('sending_church')),release=randomUUID(),item=randomUUID(),version=randomUUID();
- await S.db.query("INSERT INTO reference_release(id,release_key,artifact_locator,chunker_version,embedding_profile,embedding_dimensions,tenant_id,manifest_hash,state,expected_passages,complete_at,validated_at,approval_hash,approval_locator) VALUES($1,$1::text,'synthetic-fixture','fixture','fixture',3,'00000000-0000-0000-0000-000000000000',$2,'validated',0,clock_timestamp(),clock_timestamp(),$2,'synthetic-approved-fixture')",[release,'a'.repeat(64)]);
+ await S.db.query("INSERT INTO reference_release(id,release_key,artifact_locator,chunker_version,embedding_profile,embedding_dimensions,tenant_id,manifest_hash,state,expected_passages,complete_at,validated_at,approval_hash,approval_locator) VALUES($1,$1::uuid::text,'synthetic-fixture','fixture','fixture',3,'00000000-0000-0000-0000-000000000000',$2,'validated',0,clock_timestamp(),clock_timestamp(),$2,'synthetic-approved-fixture')",[release,'a'.repeat(64)]);
  await S.db.query("INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES($1,'geography_dataset',$2,'00000000-0000-0000-0000-000000000000')",[item,'synthetic/'+item]);
  await S.db.query("INSERT INTO reference_version(id,item_id,release_id,version_number,artifact_path,content_hash,source_credit) VALUES($1,$2,$3,1,'synthetic-official-fixture',$4,'Synthetic reference fixture')",[version,item,release,'a'.repeat(64)]);
  const q=S.command({plant:p,locality:{city:'City',stateProvince:'State',country:'US'},referenceVersionId:version,regionItemId:null});
@@ -35,6 +35,6 @@ test('INV-authority: revoked session and lifecycle suspension block fresh reads 
  const o=await S.tenant('sending_church'),a=await S.identity(o),q=S.command({organization:o,patch:{name:'Changed'}});await S.call('organizations.updateProfile',a,q);
  await S.db.query('DELETE FROM auth_session WHERE id=$1',[a.session]);assert.deepEqual(await S.call('organizations.getProfile',a,{organization:o}),{status:'unavailable'});await assert.rejects(S.call('organizations.updateProfile',a,q),/unavailable/);
  const p=await S.tenant('plant'),pa=await S.identity(p),n=await S.tenant('sending_network');await S.affiliation(p,n,true);
- await S.db.query("INSERT INTO lifecycle_witness(kind,opaque_subject_id,plant_id,request_revision,state,witness_checkpoint,cleanup_state,request_id,requested_at,cancel_until) VALUES('plant',$1,$1,1,'pending_deletion',1,'not_started',$2,clock_timestamp(),clock_timestamp()+interval '30 days')",[p.id,randomUUID()]);
+ await S.db.query("INSERT INTO lifecycle_witness(kind,opaque_subject_id,plant_id,request_revision,state,witness_checkpoint,cleanup_state,request_id,requested_at,cancel_until) VALUES('plant',$1,$1,1,'pending_deletion',1,'not_started',$2,current_timestamp,current_timestamp+interval '30 days')",[p.id,randomUUID()]);
  assert.deepEqual(await S.call('privacy.getSharing',pa,{plant:p,organization:n}),{status:'unavailable'});
 });

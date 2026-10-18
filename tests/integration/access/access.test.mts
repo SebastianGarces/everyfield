@@ -88,7 +88,7 @@ test('AC:WP006-API-MUL-002 INV-pipeline: exact organization duties, protected na
   assert.deepEqual(await read(admin, { ...o, organizationKind: 'network' }), unavailable);
   const inv = id(), aff = id(), link = id();
   await db.admin.query("INSERT INTO invitation(id,tenant_id,purpose,recipient_email,token_hash,state,created_at,accepted_account_id,resident_person_id) VALUES($1,$2,'residency_link','synthetic@example.test',$3,'accepted',clock_timestamp(),$4,$5)", [inv, o.id, id(), resident.id, p]);
-  await db.admin.query('INSERT INTO affiliation(id,account_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry,share_wiki,share_activity,shared_findings) VALUES($1,$2,$3,clock_timestamp(),false,false,false,false,false,false,false)', [aff, resident.id, o.id]);
+  await db.admin.query('INSERT INTO affiliation(id,account_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings) VALUES($1,$2,$3,clock_timestamp(),false,false,false,false,false,false,false)', [aff, resident.id, o.id]);
   await db.admin.query('INSERT INTO residency_link(id,organization_id,person_id,account_id,affiliation_id,invitation_id,accepted_at,consent_revision,share_foundations,share_milestones,revision) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp(),1,true,false,1)', [link, o.id, p, resident.id, aff, inv]);
   assert.deepEqual(await transaction(db.runtime, tx => readOwnResidency(tx, resident.session, o, { personId: p })), { organization: o, personId: p, linkId: link, revision: '1' });
   assert.equal(await transaction(db.runtime, tx => readOwnResidency(tx, admin.session, o, { personId: p })), null);
@@ -103,7 +103,7 @@ test('INV-grants: affiliations and sharing are independent exact pairs; platform
   const p = await plant(db.admin), q = await plant(db.admin), o = await organization(db.admin), other = await organization(db.admin, 'sending_network');
   const a = await account(db.admin); await seat(db.admin, a, o);
   const first = id(), second = id();
-  await db.admin.query('INSERT INTO affiliation(id,plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry,share_wiki,share_activity,shared_findings) VALUES($1,$2,$3,clock_timestamp(),true,false,false,false,false,false,false),($4,$2,$5,clock_timestamp(),false,false,false,false,false,false,false)', [first, p.id, o.id, second, other.id]);
+  await db.admin.query('INSERT INTO affiliation(id,plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings) VALUES($1,$2,$3,clock_timestamp(),true,false,false,false,false,false,false),($4,$2,$5,clock_timestamp(),false,false,false,false,false,false,false)', [first, p.id, o.id, second, other.id]);
   const grant = await transaction(db.runtime, tx => readPlantAffiliation(tx, a.session, o, p));
   assert.deepEqual(grant, { kind: 'plant_affiliation', id: first, revision: '1', acceptedAt: grant.acceptedAt, plant: p, organization: o, sharing: { people: true, meetings: false, tasks: false, ministry: false, wiki: false, activity: false, findings: false } });
   assert.equal(await transaction(db.runtime, tx => readPlantAffiliation(tx, a.session, other, p)), null);
@@ -111,7 +111,7 @@ test('INV-grants: affiliations and sharing are independent exact pairs; platform
   assert.deepEqual(await transaction(db.runtime, tx => currentActor(tx, a.session, p)), unavailable);
   await db.admin.query('UPDATE affiliation SET ended_at=clock_timestamp() WHERE id=$1', [first]);
   assert.equal(await transaction(db.runtime, tx => readPlantAffiliation(tx, a.session, o, p)), null);
-  const relationship = id(); await db.admin.query('INSERT INTO affiliation(id,account_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry,share_wiki,share_activity,shared_findings) VALUES($1,$2,$3,clock_timestamp(),false,false,false,false,false,false,false)', [relationship, a.id, other.id]);
+  const relationship = id(); await db.admin.query('INSERT INTO affiliation(id,account_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings) VALUES($1,$2,$3,clock_timestamp(),false,false,false,false,false,false,false)', [relationship, a.id, other.id]);
   assert.equal((await transaction(db.runtime, tx => readDiscoveryRelationship(tx, a.session, own(a), other))).id, relationship);
   assert.deepEqual(await transaction(db.runtime, tx => currentActor(tx, a.session, other)), unavailable);
   const platform = id(); await db.admin.query("INSERT INTO platform_grant(id,account_id,capability) VALUES($1,$2,'recovery_operator')", [platform, a.id]);
