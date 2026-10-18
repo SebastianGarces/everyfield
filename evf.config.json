@@ -86,7 +86,8 @@
         ".github/scripts/fail-forward.test.cjs",
         ".github/scripts/internal-feedback-queue.cjs",
         ".github/scripts/internal-feedback-queue.test.cjs",
-        "docs/plan/release-gates.json"
+        "docs/plan/release-gates.json",
+        "tools/evf/tests/reconciliation.test.ts"
       ],
       "checks": [
         {
