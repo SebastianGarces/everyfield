@@ -157,25 +157,24 @@ test("BUG-112: a Kit column-drop migration passes the drift gate on fresh and up
 	};
 	try {
 		const frozen = (await migrationArtifact()).map(({ name }) => name);
+		const next = Number(frozen.at(-1)?.slice(0, 4) ?? "0") + 1;
+		const createName = String(next).padStart(4, "0") + "_drop_probe.sql";
+		const dropName = String(next + 1).padStart(4, "0") + "_drop_column.sql";
 		for (const name of frozen)
 			await copyFile(new URL("../../../packages/db/migrations/" + name, import.meta.url), new URL(name, migrations));
 		const create = await generateMigration(generateDrizzleJson(declarations), generateDrizzleJson(before));
 		const drop = await generateMigration(generateDrizzleJson(before), generateDrizzleJson(after));
 		assert.deepEqual(drop, ['ALTER TABLE "drop_probe" DROP COLUMN "obsolete";']);
-		await writeFile(new URL("0006_drop_probe.sql", migrations), create.join(";\n"));
+		await writeFile(new URL(createName, migrations), create.join(";\n"));
 		await admin.execute(querySql`CREATE SCHEMA ${querySql.identifier(upgraded)}`);
-		assert.deepEqual(await migrate(admin, upgraded, migrations), [...frozen, "0006_drop_probe.sql"]);
+		assert.deepEqual(await migrate(admin, upgraded, migrations), [...frozen, createName]);
 		await admin.execute(
 			querySql`INSERT INTO ${querySql.identifier(upgraded)}.drop_probe VALUES (1, 'remove', 'preserve')`,
 		);
-		await writeFile(new URL("0007_drop_column.sql", migrations), drop.join(";\n"));
-		assert.deepEqual(await migrate(admin, upgraded, migrations), ["0007_drop_column.sql"]);
+		await writeFile(new URL(dropName, migrations), drop.join(";\n"));
+		assert.deepEqual(await migrate(admin, upgraded, migrations), [dropName]);
 		await admin.execute(querySql`CREATE SCHEMA ${querySql.identifier(fresh)}`);
-		assert.deepEqual(await migrate(admin, fresh, migrations), [
-			...frozen,
-			"0006_drop_probe.sql",
-			"0007_drop_column.sql",
-		]);
+		assert.deepEqual(await migrate(admin, fresh, migrations), [...frozen, createName, dropName]);
 		const retained = await admin.execute(querySql`SELECT * FROM ${querySql.identifier(upgraded)}.drop_probe`);
 		assert.deepEqual(retained.rows, [{ id: 1, kept: "preserve" }]);
 		for (const name of [fresh, upgraded]) {
