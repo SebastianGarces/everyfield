@@ -46,7 +46,7 @@ Each package stores its estimate factors in the DAG. Counts use owned selectors,
 | WP-090 | Shared data, content and domain display components | 0 | 0 | 0 | 0 | 4.5 |
 | WP-005 | Better Auth identity/recovery | 7 | 13 | 15 | 10 | 2.5 |
 | WP-006 | Tenant and independent grant policies C1 | 8 | 7 | 23 | 6 | 2 |
-| WP-007 | Organizations and consent relationships | 10 | 19 | 53 | 9 | 2.5 |
+| WP-007 | Organizations and consent relationships | 10 | 19 | 53 | 12 | 2.5 |
 | WP-011 | People core and account links | 15 | 37 | 20 | 3 | 2.5 |
 | WP-008 | Invitation lifecycle and atomic acceptance | 7 | 13 | 41 | 4 | 2 |
 | WP-009 | Onboarding and discovery conversion | 7 | 8 | 22 | 4 | 2 |
