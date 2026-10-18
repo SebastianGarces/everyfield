@@ -279,6 +279,57 @@ test("AC:TARGET-PPL-001 literal search, tag intersection, full totals and bound 
 	);
 });
 
+test("BUG-WP011-cursor: people pages retain microseconds across 25 equal timestamp keys", async () => {
+	const ids = Array.from({ length: 25 }, () => randomUUID()).sort();
+	for (const id of ids)
+		await admin.execute(
+			sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,pipeline_position,state,created_at) VALUES(${id},${plants[0]},${plants[0]},'Microsecond people','other','prospect','unknown','unknown',0,'live','2026-10-01T12:00:00.123456Z')`,
+		);
+	for (const view of ["list", "pipeline"]) {
+		const first = ok(await tx((t) => read.listPeople(t, ctx(), { search: "Microsecond people", view, limit: 24 })));
+		assert.equal(first.total, 25);
+		assert.deepEqual(
+			first.items.map((p) => p.id),
+			ids.slice(0, 24),
+		);
+		assert.equal(first.completeness, "partial");
+		const last = ok(
+			await tx((t) => read.listPeople(t, ctx(), { search: "Microsecond people", view, limit: 24, after: first.next })),
+		);
+		assert.deepEqual(
+			last.items.map((p) => p.id),
+			ids.slice(24),
+		);
+		assert.equal(last.total, 25);
+		assert.equal(last.next, null);
+		assert.equal(last.completeness, "complete");
+	}
+});
+
+test("BUG-WP011-cursor: activity pages retain microseconds across equal timestamp keys", async () => {
+	const p = await create("Microsecond activities");
+	const ids = Array.from({ length: 25 }, () => randomUUID()).sort();
+	for (const id of ids)
+		await admin.execute(
+			sql`INSERT INTO person_note(id,tenant_id,plant_id,person_id,author_id,body,occurred_at,recorded_at) VALUES(${id},${plants[0]},${plants[0]},${p.id},${actors[0].id},'Microsecond note','2026-10-01T12:00:00.654321Z','2026-10-01T12:00:00.654321Z')`,
+		);
+	const first = ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id, kinds: ["note"], limit: 24 })));
+	assert.deepEqual(
+		first.items.map((a) => a.id),
+		ids.slice(0, 24),
+	);
+	assert.equal(first.completeness, "partial");
+	const last = ok(
+		await tx((t) => read.getActivities(t, ctx(), { personId: p.id, kinds: ["note"], limit: 24, after: first.next })),
+	);
+	assert.deepEqual(
+		last.items.map((a) => a.id),
+		ids.slice(24),
+	);
+	assert.equal(last.next, null);
+	assert.equal(last.completeness, "complete");
+});
+
 test("AC:TARGET-PPL-004 AC:ROLE43-003 exact account links, ambiguous contact selection and concurrent uniqueness", async () => {
 	const contact = await create("Proven account", {
 			email: actors[0].id + "@example.test",
@@ -577,6 +628,14 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 			}),
 		),
 	);
+	const assertNoteFeed = async (kind) => {
+		const feed = ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id })));
+		assert.deepEqual(
+			feed.items.map((a) => (a.kind === "activity" ? a.action : a.kind)),
+			["created", kind],
+		);
+	};
+	await assertNoteFeed("note");
 	const before = (
 		await admin.execute(sql`SELECT occurred_at,author_id FROM person_note WHERE id=${sql.param(added.noteId)}`)
 	).rows[0];
@@ -615,6 +674,7 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 	);
 	const timeline = ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id, kinds: ["note"] })));
 	assert.equal(timeline.items[0].body, "Corrected operational note");
+	await assertNoteFeed("note");
 	const deleted = ok(
 		await tx((t) =>
 			write.deleteNote(t, ctx(), {
@@ -625,6 +685,7 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 		),
 	);
 	assert.equal(deleted.revision, "3");
+	await assertNoteFeed("note_removed");
 	assert.equal(
 		(await admin.execute(sql`SELECT body FROM person_note WHERE id=${sql.param(added.noteId)}`)).rows[0].body,
 		"",
@@ -1200,9 +1261,14 @@ test("INV-pipeline: complete native and reviewed orders persist, retry once, and
 		),
 	);
 	assert.ok(oldPage.next);
+	const initialPipeline = ok(await tx((t) => read.getPipelineData(t, ctx(), {})));
+	assert.deepEqual(
+		initialPipeline.groups.map((g) => g.revision),
+		["1", "1", "1", "1", "1"],
+	);
 	const order = {
 		requestKey: randomUUID(),
-		expectedRevision: "1",
+		expectedRevision: initialPipeline.groups.find((g) => g.column === "prospect").revision,
 		input: { column: "prospect", personIds: [...all].reverse() },
 	};
 	refused(await tx((t) => write.reorderPipeline(t, ctx(1), order)));
@@ -1243,10 +1309,12 @@ test("INV-pipeline: complete native and reviewed orders persist, retry once, and
 		),
 		"invalid_input",
 	);
+	const refreshedPipeline = ok(await tx((t) => read.getPipelineData(t, ctx(), { stages: ["leader"] })));
+	assert.equal(refreshedPipeline.groups.find((g) => g.column === "prospect").revision, "2");
 	const { hash } = await import("../../../packages/domain/src/people/core.ts"),
 		input = {
 			requestKey: randomUUID(),
-			expectedRevision: "2",
+			expectedRevision: refreshedPipeline.groups.find((g) => g.column === "prospect").revision,
 			input: { column: "prospect", personIds: all },
 		},
 		name = "people.reorderPipeline",
