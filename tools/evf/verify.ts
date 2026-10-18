@@ -5,7 +5,7 @@ import { stackEnv, stackInfo } from './task.ts';
 import { cachedTriage } from './feedback.ts';
 import { requireSpend, requireTaskScope, requireMaintenancePaths } from './policy.ts';
 import { caseCoverage, caseGrep } from './coverage.ts';
-import { wpScope, type ScopeReport } from './scope.ts';
+import { formatScope, wpScope, type ScopeReport } from './scope.ts';
 
 export type Role='author'|'verifier';
 export type Mode='full'|'quick';
@@ -43,7 +43,7 @@ export function verify(root:string,task:TaskRef,role:Role,mode:Mode):CheckReport
  }
  // Advisory: the verifier reviews paths outside the owning paths and the narrow D14/D16 rulings.
  const scope=task.kind==='wp'?wpScope(wt,baseSha,task.wp,task.part):undefined;
- if(scope){writeFileSync(join(dir,'scope.json'),JSON.stringify(scope,null,2)+'\n');console.log(`scope: ${scope.owned.length} owned, ${scope.accepted.length} accepted (${scope.accepted.map(a=>`${a.path}: ${a.rule}`).join(', ')||'none'}), ${scope.outside.length} outside${scope.outside.length?`: ${scope.outside.join(', ')}. The verifier checks each against a recorded ruling`:''}.`);}
+ if(scope){writeFileSync(join(dir,'scope.json'),JSON.stringify(scope,null,2)+'\n');console.log(formatScope(scope));}
  const unchanged=git(wt,'rev-parse','HEAD')===sha&&isClean(wt)&&git(root,'rev-parse',ref)===baseSha;
  const report:CheckReport={schema:3,task:task.id,role,mode,kind:task.kind==='ops'?'tooling':'application',sha,baseSha,clean:true,unchanged,checks,passed:unchanged&&checks.length>0&&checks.every(c=>c.passed),evidenceDir:dir,finishedAt:new Date().toISOString(),...(scope?{scope}:{})};
  writeFileSync(join(dir,'checks.json'),JSON.stringify(report,null,2)+'\n');

@@ -665,7 +665,9 @@ test('INV-wp-scope: verify accepts only the task\'s own new-package lock importe
   };
   const generate=()=>{for(const flag of ['--refresh-manifest','--refresh-plan'])execFileSync('python3',['docs/package-context.py',flag,'--root',wt],{cwd:wt,stdio:'ignore'});};
   const write=(path:string,text:string)=>{mkdirSync(join(wt,path,'..'),{recursive:true});writeFileSync(join(wt,path),text);};
-  const scopeOf=()=>{git('add','-A');git('commit','-qm','Candidate');const s=quiet(()=>verify(f.root,parseTask('WP-002'),'author','full')).scope!;
+  let printed:string[]=[];
+  const scopeOf=()=>{git('add','-A');git('commit','-qm','Candidate');const log=console.log;printed=[];console.log=(...m)=>{printed.push(...m.join(' ').split('\n'));};
+   let s;try{s=verify(f.root,parseTask('WP-002'),'author','full').scope!;}finally{console.log=log;}
    return {owned:s.owned,accepted:Object.fromEntries(s.accepted.map(a=>[a.path,a.rule])),outside:[...s.outside].sort()};};
   for(const name of ['package.json','tsconfig.json','eslint.config.mjs'])write(`packages/contracts/${name}`,'{}\n');
   write('packages/contracts/src/common/values.ts','export {};\n');
@@ -676,6 +678,7 @@ test('INV-wp-scope: verify accepts only the task\'s own new-package lock importe
    [file]:'own-at-start-cases','docs/plan/build-plan.md':'generated-projection','docs/plan/context-manifest.json':'generated-projection',
    'packages/contracts/eslint.config.mjs':'own-package-scaffold','packages/contracts/package.json':'own-package-scaffold','packages/contracts/tsconfig.json':'own-package-scaffold',
    'pnpm-lock.yaml':'own-lock-importer'},outside:['apps/web/package.json']});
+  assert.deepEqual(printed.filter(l=>l.startsWith('  outside: ')),['  outside: apps/web/package.json (verifier: confirm a recorded ruling)']);
   // Each widening stays outside: a lock entry beyond the importer, another package's case and a hand-edited projection.
   writeFileSync(join(wt,'pnpm-lock.yaml'),readFileSync(join(wt,'pnpm-lock.yaml'),'utf8')+'\n  zod@4.0.0:\n    resolution: {integrity: sha512-extra}\n');
   addCase('SCOPE-FIXTURE-002','REQ-KNOW-078');generate();

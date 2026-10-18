@@ -60,7 +60,8 @@ rulings are: the package's new lock importer and nothing else in `pnpm-lock.yaml
 package.json, tsconfig.json and eslint.config.mjs of a new package folder (D16); appended cases
 for the package's own `case_requirements_at_start` (D16); and the context manifest, DAG and build
 plan only when the generators reproduce them from base inputs plus those cases (D16). The report
-is advisory: the verifier checks every outside path against a recorded ruling. `task start`
+is advisory (D18): `evf verify` and `evf pr open` print one line per accepted and outside path,
+and the verifier checks every outside path against a recorded ruling. `task start`
 fails when `stack up` fails. Stack and check commands named `node` run on evf's Node 24.
 `evf principles --apply OPS-<n>` writes into that task's worktree, never the home checkout.
 

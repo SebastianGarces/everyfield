@@ -34,6 +34,13 @@ export function onlyOwnAtStartCases(base: CaseFile, head: CaseFile, wp: string, 
     && (c.requirement_ids ?? []).every(id => atStart.includes(id)));
 }
 
+/** Verifier-readable lines: one summary line, then one line per accepted and outside path. */
+export function formatScope(report: ScopeReport): string {
+  return [`scope (advisory, D18): ${report.owned.length} owned, ${report.accepted.length} accepted, ${report.outside.length} outside`,
+    ...report.accepted.map(a => `  accepted ${a.rule}: ${a.path}`),
+    ...report.outside.map(p => `  outside: ${p} (verifier: confirm a recorded ruling)`)].join('\n');
+}
+
 const show = (wt: string, rev: string, path: string): string | null => {
   const r = run('git', ['show', `${rev}:${path}`], { cwd: wt });
   return r.code === 0 ? r.stdout : null;
