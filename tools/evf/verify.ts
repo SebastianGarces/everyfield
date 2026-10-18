@@ -43,11 +43,29 @@ export type CheckReport = {
 	scope?: ScopeReport;
 };
 
+/**
+ * Agents end their turn while background jobs run, and the host then stops the checks. Agent
+ * shells look the same in the foreground and the background, so evf always says it; a terminal
+ * job started with & (not the terminal's foreground group) also gets a warning.
+ */
+function foregroundNotice(): void {
+	const [tpgid, pgid] = run("ps", ["-o", "tpgid=,pgid=", "-p", String(process.pid)])
+		.stdout.trim()
+		.split(/\s+/)
+		.map(Number);
+	if (tpgid > 0 && tpgid !== pgid)
+		console.error(
+			"evf verify: WARNING: started in the background. Bring it to the foreground or keep the session open.",
+		);
+	console.error("evf verify: keep your turn open until this prints its result; ending the turn stops the checks.");
+}
+
 /** Local deterministic checks aid review. They never grant verifier approval or replace GitHub CI. */
 export function verify(root: string, task: TaskRef, role: Role, mode: Mode): CheckReport {
 	const cfg = loadConfig(root),
 		wt = requireWorktree(root, cfg, task);
 	const wp = task.kind === "wp" ? task.wp : task.kind === "fb" ? cachedTriage(root, task.issue!)?.wp : undefined;
+	foregroundNotice();
 	requireTaskScope(root, task, wp);
 	requireMaintenancePaths(root, wt, task);
 	if (hasRemote(root, cfg)) git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);

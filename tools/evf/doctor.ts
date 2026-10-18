@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
 import { join } from "node:path";
 import { evfDataDir, git, hasRemote, isClean, loadConfig, loadDag, readJson, run } from "./lib.ts";
+import { leftoverBrowsers } from "./browser.ts";
 import { producerReady } from "./progress.ts";
 import { principlesStatus } from "./principles.ts";
 
@@ -25,7 +26,7 @@ export function bootstrapReadiness(root: string): Array<[boolean, string]> {
 	];
 }
 
-export function doctor(root: string): number {
+export function doctor(root: string, browserAgeMinutes = 15): number {
 	const results: Array<[Level, string]> = [];
 	const check = (ok: boolean, pass: string, problem: string, level: Level = "FAIL") =>
 		results.push(ok ? ["PASS", pass] : [level, problem]);
@@ -171,6 +172,15 @@ export function doctor(root: string): number {
 	const open = existsSync(wtRoot) ? readdirSync(wtRoot) : [];
 	results.push(["PASS", `${open.length} task worktree(s) open${open.length ? `: ${open.join(", ")}` : ""}`]);
 	results.push(["PASS", `evf data: ${evfDataDir(root)} (git ${git(root, "rev-parse", "--short", "HEAD")})`]);
+
+	// Report only: the owner of a browser closes it; doctor never stops another agent's process.
+	const leftovers = leftoverBrowsers(browserAgeMinutes);
+	if (!leftovers.length) results.push(["PASS", `no headless browser older than ${browserAgeMinutes} minutes`]);
+	for (const b of leftovers)
+		results.push([
+			"WARN",
+			`${b.kind} PID ${b.pid} running ${b.ageMinutes} min, ${b.memoryMb} MB; its owner should close it`,
+		]);
 
 	console.log("Workflow readiness checklist:");
 	for (const [ready, item] of bootstrapReadiness(root))

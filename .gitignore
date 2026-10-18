@@ -36,6 +36,9 @@ npm-debug.log*
 .intent/
 .playwright-mcp/
 
+# Written by next dev (Next.js agent hints); not project instructions
+apps/web/AGENTS.md
+
 # Build progress administration
 docs/.build-progress.lock
 docs/.build-progress-*.tmp

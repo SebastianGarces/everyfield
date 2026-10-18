@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { checkPrBody, prBodyClass, type PrBodyClass } from "./pr-body.ts";
 import { renderAc, renderBrief } from "./brief.ts";
+import { browserRun } from "./browser.ts";
 import { doctor, gc } from "./doctor.ts";
 import { EvfError, git, homeRoot, loadConfig, parseTask, readJson, run } from "./lib.ts";
 import { recordFastTrack } from "./progress.ts";
@@ -57,9 +58,15 @@ Human approval (only after Sebastian approves that PR in chat)
 
 Upkeep
   evf test [Node test options]                               local tooling regressions on evf's Node
-  evf doctor [--here]  evf gc [--apply]
+  evf doctor [--here] [--browser-age <minutes>]               also lists headless browsers older than 15 min
+  evf gc [--apply]
   evf principles [--ref <sha>] [<task>]                       compare principles with pstack
   evf principles --apply <OPS-n> [--ref <sha>]                sync them into that task's worktree
+
+Browser checks (any role)
+  evf browser run [--timeout <seconds>] [--session <name>] -- <command> [args...]
+        runs a browser check in its own process group (default timeout 900 s), then closes its
+        agent-browser session and stops every process it started, also on failure or timeout
 
 <task> is WP-NNN for a single-part package, WP-NNN/contract, WP-NNN/api, WP-NNN/ui,
 FB-<n> for public feedback issue n, or OPS-<n> for reviewed tooling maintenance.`;
@@ -79,7 +86,7 @@ function option(args: string[], name: string): string | undefined {
 	return v;
 }
 
-function main(argv: string[]): number {
+function main(argv: string[]): number | Promise<number> {
 	const args = [...argv];
 	const cmd = args.shift();
 	if (!cmd || cmd === "help" || cmd === "--help" || cmd === "-h") {
@@ -91,16 +98,24 @@ function main(argv: string[]): number {
 		case "test":
 			return run(
 				process.execPath,
-				[
-					"--test",
-					...args,
-					join(git(process.cwd(), "rev-parse", "--show-toplevel"), "tools/evf/tests/reconciliation.test.ts"),
-				],
+				["--test", ...args, join(git(process.cwd(), "rev-parse", "--show-toplevel"), "tools/evf/tests/*.test.ts")],
 				{ cwd: process.cwd(), inherit: true },
 			).code;
 		case "doctor": {
-			const here = flag(args, "--here");
-			return doctor(here ? git(process.cwd(), "rev-parse", "--show-toplevel") : root);
+			const here = flag(args, "--here"),
+				age = Number(option(args, "--browser-age") ?? 15);
+			if (!Number.isFinite(age) || age < 0) throw new EvfError("--browser-age takes a number of minutes.");
+			return doctor(here ? git(process.cwd(), "rev-parse", "--show-toplevel") : root, age);
+		}
+		case "browser": {
+			const sep = args.indexOf("--");
+			if (args[0] !== "run" || sep < 0 || sep === args.length - 1) break;
+			const opts = args.slice(1, sep),
+				timeout = Number(option(opts, "--timeout") ?? 900),
+				session = option(opts, "--session");
+			if (opts.length) break;
+			if (!Number.isFinite(timeout) || timeout <= 0) throw new EvfError("--timeout takes a number of seconds.");
+			return browserRun(args.slice(sep + 1), { timeoutSeconds: timeout, session });
 		}
 		case "feedback": {
 			const sub = args.shift();
@@ -264,7 +279,7 @@ function main(argv: string[]): number {
 }
 
 try {
-	process.exitCode = main(process.argv.slice(2));
+	process.exitCode = await main(process.argv.slice(2));
 } catch (e) {
 	if (e instanceof EvfError) {
 		console.error(`evf: ${e.message}`);
