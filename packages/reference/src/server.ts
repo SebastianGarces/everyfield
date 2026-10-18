@@ -355,7 +355,7 @@ async function install(
     FROM jsonb_to_recordset(${sql.param(JSON.stringify(articles))}::jsonb) AS x(id uuid,item uuid,title text,slug text,excerpt text,body text,phase int,position int,hash text,section uuid)`);
 	const passages = bundle.passages.map((p) => ({ ...p, id: randomUUID(), vector: JSON.stringify(p.embedding) }));
 	await tx.execute(sql`INSERT INTO passage(id,release_id,revision_id,tenant_id,ordinal,content,content_hash,embedding,embedding_checksum)
-    SELECT x.id,${sql.param(id)},x."revisionId",${sql.param(GLOBAL)},x.ordinal,x.text,x."contentHash",x.vector::vector,x."embeddingChecksum"
+    SELECT x.id,${sql.param(id)},x."revisionId",${sql.param(GLOBAL)},x.ordinal,x.text,x."contentHash",x.vector::public.vector,x."embeddingChecksum"
     FROM jsonb_to_recordset(${sql.param(JSON.stringify(passages))}::jsonb) AS x(id uuid,"revisionId" uuid,ordinal int,text text,"contentHash" text,vector text,"embeddingChecksum" text)`);
 	await tx
 		.update(tables.reference_release)

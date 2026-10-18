@@ -27,7 +27,7 @@ const schema = "wp032_test_" + randomUUID().replaceAll("-", "");
 const db = createDatabase({
 	connectionString: source.href,
 	max: 6,
-	options: `-c search_path=${schema},public,pg_catalog,pg_temp`,
+	options: `-c search_path=${schema},pg_catalog,pg_temp`,
 });
 const actor = randomUUID(),
 	user = randomUUID(),
@@ -288,13 +288,13 @@ test("INV-reference-revalidation: changed persisted derivatives refuse while cur
 		)
 	).rows[0]!;
 	await db.execute(
-		querySql`UPDATE passage SET embedding=${querySql.param("[9,9,9]")}::vector WHERE id=${querySql.param(saved.id)}`,
+		querySql`UPDATE passage SET embedding=${querySql.param("[9,9,9]")}::public.vector WHERE id=${querySql.param(saved.id)}`,
 	);
 	try {
 		await refused(command("R1", "3"), "immutable_conflict");
 	} finally {
 		await db.execute(
-			querySql`UPDATE passage SET embedding=${querySql.param(saved.embedding)}::vector WHERE id=${querySql.param(saved.id)}`,
+			querySql`UPDATE passage SET embedding=${querySql.param(saved.embedding)}::public.vector WHERE id=${querySql.param(saved.id)}`,
 		);
 	}
 	assert.deepEqual(await counts(), { activations: 3, releases: 2, operations: 4, events: 4 });
