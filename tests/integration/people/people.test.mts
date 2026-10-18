@@ -279,7 +279,7 @@ test("AC:TARGET-PPL-001 literal search, tag intersection, full totals and bound 
 	);
 });
 
-test("BUG-WP011-cursor: people pages retain microseconds across 25 equal timestamp keys", async () => {
+test("BUG-110: people pages retain microseconds across 25 equal timestamp keys", async () => {
 	const ids = Array.from({ length: 25 }, () => randomUUID()).sort();
 	for (const id of ids)
 		await admin.execute(
@@ -306,7 +306,7 @@ test("BUG-WP011-cursor: people pages retain microseconds across 25 equal timesta
 	}
 });
 
-test("BUG-WP011-cursor: activity pages retain microseconds across equal timestamp keys", async () => {
+test("BUG-110: activity pages retain microseconds across equal timestamp keys", async () => {
 	const p = await create("Microsecond activities");
 	const ids = Array.from({ length: 25 }, () => randomUUID()).sort();
 	for (const id of ids)
