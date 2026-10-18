@@ -1589,6 +1589,14 @@
     "WP006-IDN-029": "docs/acceptance/identity-access.json",
     "WP006-KNOW-116": "docs/acceptance/identity-access.json",
     "WP006-MUL-002": "docs/acceptance/identity-access.json",
+    "WP007-KNOW-112": "docs/acceptance/identity-access.json",
+    "WP007-MUL-003": "docs/acceptance/identity-access.json",
+    "WP007-MUL-016": "docs/acceptance/identity-access.json",
+    "WP011-KNOW-069": "docs/acceptance/people.json",
+    "WP011-KNOW-098": "docs/acceptance/people.json",
+    "WP011-KNOW-099": "docs/acceptance/people.json",
+    "WP011-MUL-001": "docs/acceptance/people.json",
+    "WP011-MUL-005": "docs/acceptance/people.json",
     "WR-001": "docs/acceptance/knowledge.json",
     "WR-002": "docs/acceptance/knowledge.json",
     "WR-003": "docs/acceptance/knowledge.json",
@@ -3255,7 +3263,10 @@
         "TARGET-IDN-021",
         "TARGET-IDN-022",
         "TARGET-IDN-026",
-        "TARGET-IDN-027"
+        "TARGET-IDN-027",
+        "WP007-KNOW-112",
+        "WP007-MUL-003",
+        "WP007-MUL-016"
       ],
       "own_operation_ids": [
         "associations.acceptInvitation",
@@ -3695,7 +3706,10 @@
         "WP005-KNOW-069",
         "WP005-KNOW-072",
         "WP006-API-IDN-029",
-        "WP006-IDN-029"
+        "WP006-IDN-029",
+        "WP007-KNOW-112",
+        "WP007-MUL-003",
+        "WP007-MUL-016"
       ],
       "context_case_ids": [
         "B03-001",
@@ -4376,7 +4390,8 @@
         "WP004-KNOW-069",
         "WP005-KNOW-069",
         "WP006-API-IDN-029",
-        "WP006-IDN-029"
+        "WP006-IDN-029",
+        "WP011-KNOW-069"
       ],
       "context_case_ids": [
         "EVRY-ACCOUNT-PRIVATE-DISCOVERY"
@@ -5000,7 +5015,12 @@
         "TARGET-PPL-007",
         "TARGET-PPL-008",
         "TARGET-PPL-023",
-        "TEN-002"
+        "TEN-002",
+        "WP011-KNOW-069",
+        "WP011-KNOW-098",
+        "WP011-KNOW-099",
+        "WP011-MUL-001",
+        "WP011-MUL-005"
       ],
       "own_operation_ids": [
         "identity.ensureOwnerPerson",
@@ -5213,7 +5233,12 @@
         "WP004-PPL-024",
         "WP005-KNOW-069",
         "WP006-API-IDN-029",
-        "WP006-IDN-029"
+        "WP006-IDN-029",
+        "WP011-KNOW-069",
+        "WP011-KNOW-098",
+        "WP011-KNOW-099",
+        "WP011-MUL-001",
+        "WP011-MUL-005"
       ],
       "context_case_ids": [
         "INH-REGRESSION-CLARIFICATION-NAME"
@@ -5445,7 +5470,9 @@
         "TARGET-PPL-011",
         "TARGET-PPL-024",
         "TARGET-PPL-025",
-        "WP004-PPL-024"
+        "WP004-PPL-024",
+        "WP011-KNOW-098",
+        "WP011-KNOW-099"
       ],
       "context_case_ids": [
         "TARGET-IDN-029"
@@ -9830,7 +9857,8 @@
         "ROLE43-016",
         "TARGET-IDN-012",
         "TARGET-IDN-022",
-        "WIKI52-002"
+        "WIKI52-002",
+        "WP007-KNOW-112"
       ],
       "context_case_ids": [
         "AF-028",
@@ -26659,6 +26687,14 @@
         "WP006-IDN-029",
         "WP006-KNOW-116",
         "WP006-MUL-002",
+        "WP007-KNOW-112",
+        "WP007-MUL-003",
+        "WP007-MUL-016",
+        "WP011-KNOW-069",
+        "WP011-KNOW-098",
+        "WP011-KNOW-099",
+        "WP011-MUL-001",
+        "WP011-MUL-005",
         "WR-001",
         "WR-002",
         "WR-003",
@@ -32679,6 +32715,14 @@
         "WP006-IDN-029",
         "WP006-KNOW-116",
         "WP006-MUL-002",
+        "WP007-KNOW-112",
+        "WP007-MUL-003",
+        "WP007-MUL-016",
+        "WP011-KNOW-069",
+        "WP011-KNOW-098",
+        "WP011-KNOW-099",
+        "WP011-MUL-001",
+        "WP011-MUL-005",
         "WR-001",
         "WR-002",
         "WR-003",
@@ -44065,7 +44109,11 @@
         "TARGET-PPL-024",
         "TARGET-PPL-025",
         "WP006-API-MUL-002",
-        "WP006-MUL-002"
+        "WP006-MUL-002",
+        "WP007-MUL-003",
+        "WP007-MUL-016",
+        "WP011-MUL-001",
+        "WP011-MUL-005"
       ],
       "context_case_ids": [
         "TARGET-IDN-029"

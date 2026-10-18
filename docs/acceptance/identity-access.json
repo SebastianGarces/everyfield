@@ -17495,6 +17495,177 @@
       "coverage_notes": [
         "Only the access producer portion. No completed feature write, browser or assistant approval workflow is claimed."
       ]
+    },
+    {
+      "id": "WP007-KNOW-112",
+      "requirement": "REQ-KNOW-112",
+      "requirement_ids": [
+        "REQ-KNOW-112"
+      ],
+      "feature_ids": [
+        "IDN-022"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-022--IDN-022"
+      ],
+      "work_packages": [
+        "WP-007"
+      ],
+      "status": "future-not-run",
+      "description": "Organization contract boundary round trip only. Live consent changes, authorization and transaction effects remain API/integration proof.",
+      "given": {
+        "contract": {
+          "fixture_type": "contract_boundary",
+          "module": "@everyfield/contracts/organizations"
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T13:00:00Z",
+        "zone": "America/New_York"
+      },
+      "action": {
+        "operation": "build.inspectTargetCatalog",
+        "arguments": {
+          "package": "WP-007",
+          "boundary": "organizations",
+          "projection": "sharing_categories"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "shared_findings_is_existing_category": true,
+          "extra_summary_consent_allowed": false,
+          "private_categories_allowed": false
+        },
+        "event": null
+      },
+      "layers": [
+        "build",
+        "contract"
+      ],
+      "coverage_notes": [
+        "Only serialized request/result boundaries are proven. No runtime case is discharged by this case."
+      ]
+    },
+    {
+      "id": "WP007-MUL-003",
+      "requirement": "REQ-MUL-003",
+      "requirement_ids": [
+        "REQ-MUL-003"
+      ],
+      "feature_ids": [
+        "MUL-003"
+      ],
+      "acceptance_ids": [
+        "AC-MUL-003--MUL-003"
+      ],
+      "work_packages": [
+        "WP-007"
+      ],
+      "status": "future-not-run",
+      "description": "Organization contract boundary round trip only. Live consent changes, authorization and transaction effects remain API/integration proof.",
+      "given": {
+        "contract": {
+          "fixture_type": "contract_boundary",
+          "module": "@everyfield/contracts/organizations"
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T13:00:00Z",
+        "zone": "America/New_York"
+      },
+      "action": {
+        "operation": "build.inspectTargetCatalog",
+        "arguments": {
+          "package": "WP-007",
+          "boundary": "organizations",
+          "projection": "resident_consent"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "separate_explicit_choices_required": true,
+          "consent_revision_required": true,
+          "private_progress_fields_allowed": false
+        },
+        "event": null
+      },
+      "layers": [
+        "build",
+        "contract"
+      ],
+      "coverage_notes": [
+        "Only serialized request/result boundaries are proven. No runtime case is discharged by this case."
+      ]
+    },
+    {
+      "id": "WP007-MUL-016",
+      "requirement": "REQ-MUL-016",
+      "requirement_ids": [
+        "REQ-MUL-016"
+      ],
+      "feature_ids": [
+        "MUL-016"
+      ],
+      "acceptance_ids": [
+        "AC-MUL-016--MUL-016"
+      ],
+      "work_packages": [
+        "WP-007"
+      ],
+      "status": "future-not-run",
+      "description": "Organization contract boundary round trip only. Live consent changes, authorization and transaction effects remain API/integration proof.",
+      "given": {
+        "contract": {
+          "fixture_type": "contract_boundary",
+          "module": "@everyfield/contracts/organizations"
+        }
+      },
+      "actor": {
+        "account": null,
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-18T13:00:00Z",
+        "zone": "America/New_York"
+      },
+      "action": {
+        "operation": "build.inspectTargetCatalog",
+        "arguments": {
+          "package": "WP-007",
+          "boundary": "organizations",
+          "projection": "pipeline_eligibility"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "minimum_contributors": 2,
+          "totals_allowed": false,
+          "individual_records_allowed": false
+        },
+        "event": null
+      },
+      "layers": [
+        "build",
+        "contract"
+      ],
+      "coverage_notes": [
+        "Only serialized request/result boundaries are proven. No runtime case is discharged by this case."
+      ]
     }
   ]
 }
