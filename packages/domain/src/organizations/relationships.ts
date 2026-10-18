@@ -229,17 +229,15 @@ export function relationshipCommands(
 			})
 			.returning({ id: tables.invitation.id });
 		const id = inserted[0]!.id;
-		await tx
-			.insert(tables.relationship_invitation)
-			.values({
-				invitation_id: id,
-				plant_id: endpointValues(pair)[0],
-				account_id: endpointValues(pair)[1],
-				sending_church_id: endpointValues(pair)[2],
-				organization_id: pair.organization.id,
-				inviter_description: description,
-				subject_revision: q.expectedRevision,
-			});
+		await tx.insert(tables.relationship_invitation).values({
+			invitation_id: id,
+			plant_id: endpointValues(pair)[0],
+			account_id: endpointValues(pair)[1],
+			sending_church_id: endpointValues(pair)[2],
+			organization_id: pair.organization.id,
+			inviter_description: description,
+			subject_revision: q.expectedRevision,
+		});
 		const event = await appendEvent(tx, c, id, "create", null, "0", "1");
 		await effects.invitation(tx, {
 			invitationId: id,
