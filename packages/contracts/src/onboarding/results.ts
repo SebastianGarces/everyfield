@@ -7,97 +7,176 @@ import { documentCarryForwardProposal, journeyAnswer, launchAnswer } from "./req
 import { foundationReading, ownDiscoveryReading } from "./reading.ts";
 
 const phase = z.int().min(0).max(6);
-export const creationEntry = z.strictObject({ kind: z.literal("church_creation"), eventId,
-  fromPhase: z.null(), toPhase: z.literal(1), recordedAt: instant });
-const committedReceipt = receipt.safeExtend({ outcome: z.enum(["changed", "noop"]), eventIds: receipt.shape.eventIds.min(1) });
-const creationFields = { plant: plantOwner, revision, materialRevision: revision,
-  ownerSeat: z.strictObject({ seatId: recordId, role: z.literal("owner"), personId }),
-  creation: creationEntry, receipt: committedReceipt };
+export const creationEntry = z.strictObject({
+	kind: z.literal("church_creation"),
+	eventId,
+	fromPhase: z.null(),
+	toPhase: z.literal(1),
+	recordedAt: instant,
+});
+const committedReceipt = receipt.safeExtend({
+	outcome: z.enum(["changed", "noop"]),
+	eventIds: receipt.shape.eventIds.min(1),
+});
+const creationFields = {
+	plant: plantOwner,
+	revision,
+	materialRevision: revision,
+	ownerSeat: z.strictObject({ seatId: recordId, role: z.literal("owner"), personId }),
+	creation: creationEntry,
+	receipt: committedReceipt,
+};
 // Replays return the current phase, plus the original creation evidence. They
 // cannot claim a new entry or demote a plant whose journey advanced afterwards.
 // Creation settings remain original evidence even if sharing changes later.
 export const selfStartSharing = z.record(sharingCategory, z.literal(false));
-export const createPlantResult = z.discriminatedUnion("status", [
-  z.strictObject({ status: z.literal("created"), ...creationFields, initialSharing: selfStartSharing, currentPhase: z.literal(1) }),
-  z.strictObject({ status: z.literal("existing"), ...creationFields, initialSharing: selfStartSharing, currentPhase: phase }),
-]).refine(v => v.receipt.request.owner.kind === "account" &&
-  v.receipt.request.owner.id === v.receipt.request.actorId &&
-  v.receipt.request.operation === "onboarding.createPlant" && v.receipt.eventIds.includes(v.creation.eventId) &&
-  (v.status !== "created" || v.receipt.outcome === "changed"));
+export const createPlantResult = z
+	.discriminatedUnion("status", [
+		z.strictObject({
+			status: z.literal("created"),
+			...creationFields,
+			initialSharing: selfStartSharing,
+			currentPhase: z.literal(1),
+		}),
+		z.strictObject({
+			status: z.literal("existing"),
+			...creationFields,
+			initialSharing: selfStartSharing,
+			currentPhase: phase,
+		}),
+	])
+	.refine(
+		(v) =>
+			v.receipt.request.owner.kind === "account" &&
+			v.receipt.request.owner.id === v.receipt.request.actorId &&
+			v.receipt.request.operation === "onboarding.createPlant" &&
+			v.receipt.eventIds.includes(v.creation.eventId) &&
+			(v.status !== "created" || v.receipt.outcome === "changed"),
+	);
 
-export const conversionRelationship = z.strictObject({ relationshipId: recordId, organization: organizationOwner,
-  revision, consentRevision: revision, choices: sharingChoices });
-const conversionFields = { discoveryId: recordId,
-  ...creationFields, relationships: z.array(conversionRelationship).max(100),
-  convertedAt: instant, documentProposals: z.array(documentCarryForwardProposal).max(100),
+export const conversionRelationship = z.strictObject({
+	relationshipId: recordId,
+	organization: organizationOwner,
+	revision,
+	consentRevision: revision,
+	choices: sharingChoices,
+});
+const conversionFields = {
+	discoveryId: recordId,
+	...creationFields,
+	relationships: z.array(conversionRelationship).max(100),
+	convertedAt: instant,
+	documentProposals: z.array(documentCarryForwardProposal).max(100),
 };
-export const convertDiscoveryResult = z.discriminatedUnion("status", [
-  z.strictObject({ status: z.literal("converted"), ...conversionFields, currentPhase: z.literal(1) }),
-  z.strictObject({ status: z.literal("existing"), ...conversionFields, currentPhase: phase }),
-]).refine(v => v.receipt.request.owner.kind === "account" &&
-  v.receipt.request.owner.id === v.receipt.request.actorId &&
-  v.receipt.request.operation === "discovery.convertToPlant" && v.receipt.eventIds.includes(v.creation.eventId) &&
-  new Set(v.relationships.map(r => r.relationshipId)).size === v.relationships.length &&
-  new Set(v.relationships.map(r => r.organization.id)).size === v.relationships.length &&
-  (v.status !== "converted" || v.receipt.outcome === "changed"));
+export const convertDiscoveryResult = z
+	.discriminatedUnion("status", [
+		z.strictObject({ status: z.literal("converted"), ...conversionFields, currentPhase: z.literal(1) }),
+		z.strictObject({ status: z.literal("existing"), ...conversionFields, currentPhase: phase }),
+	])
+	.refine(
+		(v) =>
+			v.receipt.request.owner.kind === "account" &&
+			v.receipt.request.owner.id === v.receipt.request.actorId &&
+			v.receipt.request.operation === "discovery.convertToPlant" &&
+			v.receipt.eventIds.includes(v.creation.eventId) &&
+			new Set(v.relationships.map((r) => r.relationshipId)).size === v.relationships.length &&
+			new Set(v.relationships.map((r) => r.organization.id)).size === v.relationships.length &&
+			(v.status !== "converted" || v.receipt.outcome === "changed"),
+	);
 
 const savedJourney = z.discriminatedUnion("status", [
-  z.strictObject({ status: z.literal("pending") }),
-  z.strictObject({ status: z.literal("saved"), value: journeyAnswer, savedAt: instant }),
+	z.strictObject({ status: z.literal("pending") }),
+	z.strictObject({ status: z.literal("saved"), value: journeyAnswer, savedAt: instant }),
 ]);
 const leadAssignment = z.strictObject({ teamId: recordId, roleId: recordId, personId });
 const recordedLead = z.discriminatedUnion("answer", [
-  z.strictObject({ answer: z.literal("yes"), assignment: leadAssignment, savedAt: instant }),
-  z.strictObject({ answer: z.literal("no"), savedAt: instant }),
-  z.strictObject({ answer: z.literal("skip"), savedAt: instant }),
+	z.strictObject({ answer: z.literal("yes"), assignment: leadAssignment, savedAt: instant }),
+	z.strictObject({ answer: z.literal("no"), savedAt: instant }),
+	z.strictObject({ answer: z.literal("skip"), savedAt: instant }),
 ]);
 export const leadSetup = z.union([z.strictObject({ answer: z.literal("pending") }), recordedLead]);
 const savedLaunch = z.discriminatedUnion("status", [
-  z.strictObject({ status: z.literal("pending") }),
-  z.strictObject({ status: z.literal("saved"), value: launchAnswer, savedAt: instant }),
+	z.strictObject({ status: z.literal("pending") }),
+	z.strictObject({ status: z.literal("saved"), value: launchAnswer, savedAt: instant }),
 ]);
 const completion = z.discriminatedUnion("status", [
-  z.strictObject({ status: z.literal("unfinished") }),
-  z.strictObject({ status: z.literal("completed"), completedAt: instant, materialRevision: revision }),
+	z.strictObject({ status: z.literal("unfinished") }),
+	z.strictObject({ status: z.literal("completed"), completedAt: instant, materialRevision: revision }),
 ]);
 // These are independent persisted facts. Completing setup changes no reading,
 // values, People, phase or launch fact and generates no synchronous assessment.
-const setupFacts = { plant: plantOwner, revision, materialRevision: revision, currentPhase: phase,
-  lead: leadSetup, journey: savedJourney, launch: savedLaunch, scheduledLaunchDate: localDate.nullable(),
-  peopleStep: z.enum(["pending", "saved", "skipped"]), completion,
-  reading: foundationReading, values: z.enum(["missing", "recorded"]) };
-export const resumeResult = z.union([z.strictObject({ status: z.literal("unavailable") }),
-  z.strictObject({ status: z.literal("available"), ...setupFacts, basics: z.literal("created") })
-    .refine(v => v.reading.status !== "complete" || sameOwner(v.plant, v.reading.plant))]);
-export const leadAnswerResult = z.strictObject({ plant: plantOwner, revision,
-  lead: recordedLead, receipt: committedReceipt })
-  .refine(v => sameOwner(v.plant, v.receipt.request.owner) && v.receipt.request.operation === "identity.answerLeadOnboarding");
-export const journeyResult = z.strictObject({ plant: plantOwner, revision, currentPhase: phase,
-  journey: savedJourney.options[1], launch: savedLaunch.options[1], scheduledLaunchDate: localDate.nullable(),
-  receipt: committedReceipt }).refine(v => sameOwner(v.plant, v.receipt.request.owner) &&
-    v.receipt.request.operation === "onboarding.declareJourney");
-export const completeOnboardingResult = z.strictObject({ plant: plantOwner, revision,
-  completion: completion.options[1], receipt: committedReceipt })
-  .refine(v => sameOwner(v.plant, v.receipt.request.owner) && v.receipt.request.operation === "onboarding.complete");
+const setupFacts = {
+	plant: plantOwner,
+	revision,
+	materialRevision: revision,
+	currentPhase: phase,
+	lead: leadSetup,
+	journey: savedJourney,
+	launch: savedLaunch,
+	scheduledLaunchDate: localDate.nullable(),
+	peopleStep: z.enum(["pending", "saved", "skipped"]),
+	completion,
+	reading: foundationReading,
+	values: z.enum(["missing", "recorded"]),
+};
+export const resumeResult = z.union([
+	z.strictObject({ status: z.literal("unavailable") }),
+	z
+		.strictObject({ status: z.literal("available"), ...setupFacts, basics: z.literal("created") })
+		.refine((v) => v.reading.status !== "complete" || sameOwner(v.plant, v.reading.plant)),
+]);
+export const leadAnswerResult = z
+	.strictObject({ plant: plantOwner, revision, lead: recordedLead, receipt: committedReceipt })
+	.refine(
+		(v) =>
+			sameOwner(v.plant, v.receipt.request.owner) && v.receipt.request.operation === "identity.answerLeadOnboarding",
+	);
+export const journeyResult = z
+	.strictObject({
+		plant: plantOwner,
+		revision,
+		currentPhase: phase,
+		journey: savedJourney.options[1],
+		launch: savedLaunch.options[1],
+		scheduledLaunchDate: localDate.nullable(),
+		receipt: committedReceipt,
+	})
+	.refine(
+		(v) => sameOwner(v.plant, v.receipt.request.owner) && v.receipt.request.operation === "onboarding.declareJourney",
+	);
+export const completeOnboardingResult = z
+	.strictObject({ plant: plantOwner, revision, completion: completion.options[1], receipt: committedReceipt })
+	.refine((v) => sameOwner(v.plant, v.receipt.request.owner) && v.receipt.request.operation === "onboarding.complete");
 
 // Explicit profile, never inferred from a missing seat. No tenant/phase/private
 // body fields; Wiki/editor and account/creation controls are account-scoped.
-const discoveryProfile = z.strictObject({ discoveryId: recordId, revision,
-  relationships: z.array(conversionRelationship).max(100), reading: ownDiscoveryReading,
-  documentProposals: z.array(documentCarryForwardProposal).max(100) });
-export const discoveryProfileResult = z.union([z.strictObject({ status: z.literal("unavailable") }),
-  z.strictObject({ status: z.literal("active"), profile: discoveryProfile }),
-  z.strictObject({ status: z.literal("converted"), discoveryId: recordId, plant: plantOwner, convertedAt: instant }),
+const discoveryProfile = z.strictObject({
+	discoveryId: recordId,
+	revision,
+	relationships: z.array(conversionRelationship).max(100),
+	reading: ownDiscoveryReading,
+	documentProposals: z.array(documentCarryForwardProposal).max(100),
+});
+export const discoveryProfileResult = z.union([
+	z.strictObject({ status: z.literal("unavailable") }),
+	z.strictObject({ status: z.literal("active"), profile: discoveryProfile }),
+	z.strictObject({ status: z.literal("converted"), discoveryId: recordId, plant: plantOwner, convertedAt: instant }),
 ]);
-export const createDiscoveryResult = z.strictObject({ status: z.literal("active"), profile: discoveryProfile,
-  receipt: committedReceipt }).refine(v => v.receipt.request.owner.kind === "account" &&
-    v.receipt.request.owner.id === v.receipt.request.actorId &&
-    v.profile.reading.readerAccountId === v.receipt.request.actorId && v.receipt.request.operation === "discovery.create");
-export const onboardingError = z.discriminatedUnion("code", [...safeError.options,
-  defineSafeError("active_seat_conflict", {}, "refresh"),
-  defineSafeError("association_resolution_required", {}, "refresh"),
-  defineSafeError("already_declared", {}, "refresh"),
-  defineSafeError("idempotency_conflict", {}, "never"),
+export const createDiscoveryResult = z
+	.strictObject({ status: z.literal("active"), profile: discoveryProfile, receipt: committedReceipt })
+	.refine(
+		(v) =>
+			v.receipt.request.owner.kind === "account" &&
+			v.receipt.request.owner.id === v.receipt.request.actorId &&
+			v.profile.reading.readerAccountId === v.receipt.request.actorId &&
+			v.receipt.request.operation === "discovery.create",
+	);
+export const onboardingError = z.discriminatedUnion("code", [
+	...safeError.options,
+	defineSafeError("active_seat_conflict", {}, "refresh"),
+	defineSafeError("association_resolution_required", {}, "refresh"),
+	defineSafeError("already_declared", {}, "refresh"),
+	defineSafeError("idempotency_conflict", {}, "never"),
 ]);
 
 export type CreatePlantResult = z.infer<typeof createPlantResult>;
