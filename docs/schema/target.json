@@ -3121,7 +3121,7 @@
           "note": ""
         },
         {
-          "name": "share_ministry",
+          "name": "share_ministry_teams",
           "type": "boolean",
           "nullable": false,
           "note": ""
@@ -3150,6 +3150,13 @@
           "nullable": false,
           "note": "",
           "default": "1"
+        },
+        {
+          "name": "consent_revision",
+          "type": "bigint",
+          "nullable": false,
+          "default": "1",
+          "note": "Independent exact-pair consent revision; rejoin preserves it."
         }
       ],
       "primary_key": [
@@ -3295,7 +3302,8 @@
       "checks": [
         "revision >= 1",
         "num_nonnulls(plant_id, account_id, sending_church_id) = 1",
-        "plant_id is not null or not (share_people or share_meetings or share_tasks or share_ministry or share_wiki or share_activity or shared_findings)"
+        "plant_id is not null or not (share_people or share_meetings or share_tasks or share_ministry_teams or share_wiki or share_activity or shared_findings)",
+        "consent_revision >= 1"
       ],
       "jsonb_keys": {},
       "capabilities": [
@@ -35071,15 +35079,426 @@
       "idempotency": "Exact request receipts and meaningful no-op/replay semantics commit with domain history.",
       "deletion": "Retain the minimal body-free removal witness and checkpoint needed to prevent restored data or inverse operations from reopening removed content; no contact, reason, note or feedback body. Retention is governed by REQ-MUL-005; no fixed new period or account cancellation TTL is introduced.",
       "physical_verified": false
+    },
+    {
+      "name": "relationship_invitation",
+      "domain": "tenancy",
+      "purpose": "Exact relationship endpoints and readable inviter disclosure for one invitation.",
+      "library_owned": false,
+      "columns": [
+        {
+          "name": "invitation_id",
+          "type": "uuid",
+          "nullable": false,
+          "note": ""
+        },
+        {
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": true,
+          "note": ""
+        },
+        {
+          "name": "account_id",
+          "type": "uuid",
+          "nullable": true,
+          "note": ""
+        },
+        {
+          "name": "sending_church_id",
+          "type": "uuid",
+          "nullable": true,
+          "note": ""
+        },
+        {
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false,
+          "note": ""
+        },
+        {
+          "name": "inviter_description",
+          "type": "text",
+          "nullable": false,
+          "note": ""
+        },
+        {
+          "name": "subject_revision",
+          "type": "bigint",
+          "nullable": false,
+          "note": ""
+        }
+      ],
+      "primary_key": [
+        "invitation_id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "columns": [
+            "invitation_id"
+          ],
+          "references": {
+            "table": "invitation",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action",
+          "deletion": {
+            "action": "no_action",
+            "policy": "Restricted dependency-ordered cleanup or permitted attribution scrubbing; no retained private body or indefinite history exemption."
+          },
+          "scope_exception": "Invitation owner is the initiating endpoint. The native invitation command validates this exact typed pair and current subject authority."
+        },
+        {
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action",
+          "deletion": {
+            "action": "no_action",
+            "policy": "Restricted dependency-ordered cleanup or permitted attribution scrubbing; no retained private body or indefinite history exemption."
+          }
+        },
+        {
+          "columns": [
+            "account_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action",
+          "deletion": {
+            "action": "no_action",
+            "policy": "Restricted dependency-ordered cleanup or permitted attribution scrubbing; no retained private body or indefinite history exemption."
+          }
+        },
+        {
+          "columns": [
+            "sending_church_id"
+          ],
+          "references": {
+            "table": "organization",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action",
+          "deletion": {
+            "action": "no_action",
+            "policy": "Restricted dependency-ordered cleanup or permitted attribution scrubbing; no retained private body or indefinite history exemption."
+          }
+        },
+        {
+          "columns": [
+            "organization_id"
+          ],
+          "references": {
+            "table": "organization",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action",
+          "deletion": {
+            "action": "no_action",
+            "policy": "Restricted dependency-ordered cleanup or permitted attribution scrubbing; no retained private body or indefinite history exemption."
+          }
+        }
+      ],
+      "checks": [
+        "length(inviter_description) between 1 and 500",
+        "subject_revision >= 1",
+        "num_nonnulls(plant_id,account_id,sending_church_id) = 1",
+        "organization_id is distinct from sending_church_id"
+      ],
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-009"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-007"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-007"
+        ],
+        "rule": "WP-007 native organization adapter storage introduced by forward migration 0005; D29/D32 current-catalog authority."
+      },
+      "feature_ids": [
+        "IDN-020",
+        "IDN-021",
+        "IDN-027"
+      ],
+      "acceptance_ids": [],
+      "future_case_ids": [],
+      "scope": "tenancy",
+      "invariants": [
+        "Current actor, exact endpoint and source lifecycle must be checked by the native operation; this storage grants no access."
+      ],
+      "revision": "Append immutable lineage or replace current invitation metadata under its source revision.",
+      "idempotency": "Source primary key prevents duplicate lineage/results.",
+      "deletion": "Purge with the actual source owner; counterpart receipts retain only permitted minimal facts and scrub personal attribution.",
+      "physical_verified": false
+    },
+    {
+      "name": "relationship_history",
+      "domain": "tenancy",
+      "purpose": "Protected exact-pair relationship history; free-text end reason is excluded from platform audit and Member projections.",
+      "library_owned": false,
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "note": ""
+        },
+        {
+          "name": "relationship_id",
+          "type": "uuid",
+          "nullable": false,
+          "note": ""
+        },
+        {
+          "name": "pair",
+          "type": "jsonb",
+          "nullable": false,
+          "note": ""
+        },
+        {
+          "name": "reason",
+          "type": "text",
+          "nullable": true,
+          "note": ""
+        },
+        {
+          "name": "source_invitation_id",
+          "type": "uuid",
+          "nullable": true,
+          "note": ""
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "columns": [
+            "id"
+          ],
+          "references": {
+            "table": "event",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action",
+          "deletion": {
+            "action": "no_action",
+            "policy": "Restricted dependency-ordered cleanup or permitted attribution scrubbing; no retained private body or indefinite history exemption."
+          }
+        },
+        {
+          "columns": [
+            "relationship_id"
+          ],
+          "references": {
+            "table": "affiliation",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action",
+          "deletion": {
+            "action": "no_action",
+            "policy": "Restricted dependency-ordered cleanup or permitted attribution scrubbing; no retained private body or indefinite history exemption."
+          }
+        },
+        {
+          "columns": [
+            "source_invitation_id"
+          ],
+          "references": {
+            "table": "invitation",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action",
+          "deletion": {
+            "action": "no_action",
+            "policy": "Restricted dependency-ordered cleanup or permitted attribution scrubbing; no retained private body or indefinite history exemption."
+          }
+        }
+      ],
+      "checks": [
+        "jsonb_typeof(pair) = 'object'",
+        "length(reason) <= 1000"
+      ],
+      "jsonb_keys": {
+        "pair": [
+          "kind",
+          "subject",
+          "accountId",
+          "organization"
+        ]
+      },
+      "capabilities": [
+        "CAP-A-009",
+        "CAP-A-010"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-007"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-007"
+        ],
+        "rule": "WP-007 native organization adapter storage introduced by forward migration 0005; D29/D32 current-catalog authority."
+      },
+      "feature_ids": [
+        "IDN-010",
+        "IDN-020",
+        "IDN-021",
+        "IDN-022",
+        "IDN-027"
+      ],
+      "acceptance_ids": [],
+      "future_case_ids": [],
+      "scope": "tenancy",
+      "invariants": [
+        "Current actor, exact endpoint and source lifecycle must be checked by the native operation; this storage grants no access."
+      ],
+      "revision": "Append immutable lineage or replace current invitation metadata under its source revision.",
+      "idempotency": "Source primary key prevents duplicate lineage/results.",
+      "deletion": "Purge with the actual source owner; counterpart receipts retain only permitted minimal facts and scrub personal attribution.",
+      "physical_verified": false
+    },
+    {
+      "name": "organization_operation_result",
+      "domain": "operations",
+      "purpose": "Immutable request receipt and bounded result for exact replay after fresh authority checks.",
+      "library_owned": false,
+      "columns": [
+        {
+          "name": "operation_id",
+          "type": "uuid",
+          "nullable": false,
+          "note": ""
+        },
+        {
+          "name": "receipt",
+          "type": "jsonb",
+          "nullable": false,
+          "note": ""
+        },
+        {
+          "name": "result",
+          "type": "jsonb",
+          "nullable": false,
+          "note": ""
+        }
+      ],
+      "primary_key": [
+        "operation_id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "columns": [
+            "operation_id"
+          ],
+          "references": {
+            "table": "operation",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action",
+          "deletion": {
+            "action": "no_action",
+            "policy": "Restricted dependency-ordered cleanup or permitted attribution scrubbing; no retained private body or indefinite history exemption."
+          }
+        }
+      ],
+      "checks": [],
+      "jsonb_keys": {
+        "receipt": [
+          "id",
+          "request",
+          "completedAt",
+          "outcome",
+          "subjects",
+          "eventIds",
+          "effectIds"
+        ],
+        "result": [
+          "status",
+          "receipt",
+          "invitationId",
+          "pair",
+          "revision",
+          "expiresAt",
+          "inviterDescription",
+          "relationship"
+        ]
+      },
+      "capabilities": [
+        "CAP-A-009",
+        "CAP-A-010"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-007"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-007"
+        ],
+        "rule": "WP-007 native organization adapter storage introduced by forward migration 0005; D29/D32 current-catalog authority."
+      },
+      "feature_ids": [
+        "IDN-010",
+        "IDN-020",
+        "IDN-021",
+        "IDN-022",
+        "IDN-027"
+      ],
+      "acceptance_ids": [],
+      "future_case_ids": [],
+      "scope": "operations",
+      "invariants": [
+        "Current actor, exact endpoint and source lifecycle must be checked by the native operation; this storage grants no access."
+      ],
+      "revision": "Append immutable lineage or replace current invitation metadata under its source revision.",
+      "idempotency": "Source primary key prevents duplicate lineage/results.",
+      "deletion": "Purge with the actual source owner; counterpart receipts retain only permitted minimal facts and scrub personal attribution.",
+      "physical_verified": false
     }
   ],
   "format_version": 2,
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 120,
-  "column_count": 1412,
-  "foreign_key_count": 488,
+  "table_count": 123,
+  "column_count": 1428,
+  "foreign_key_count": 497,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -39397,6 +39816,10 @@
     {
       "id": "ADR001-CONTRACT",
       "reason": "Owner-approved organization Person lifecycle, consented seatless residency and stage 1/2 pipeline/program records; stages 3/4 deferred."
+    },
+    {
+      "id": "D32-CURRENT-MIGRATIONS",
+      "reason": "Current target includes WP-007 consent revision, exact invitation endpoints, protected relationship history and immutable operation results. Verify the full ordered migration chain against this catalog; applied baseline and privilege migration bytes stay frozen."
     }
   ]
 }
