@@ -279,8 +279,9 @@ test("AC:TARGET-PPL-001 literal search, tag intersection, full totals and bound 
 	);
 });
 
-test("BUG-110: people pages retain microseconds across 25 equal timestamp keys", async () => {
+test("BUG-110: people pages retain microseconds across 25 equal timestamp keys", async (t) => {
 	const ids = Array.from({ length: 25 }, () => randomUUID()).sort();
+	t.after(() => admin.execute(sql`DELETE FROM person WHERE id=ANY(${ids}::uuid[])`));
 	for (const id of ids)
 		await admin.execute(
 			sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,pipeline_position,state,created_at) VALUES(${id},${plants[0]},${plants[0]},'Microsecond people','other','prospect','unknown','unknown',0,'live','2026-10-01T12:00:00.123456Z')`,
