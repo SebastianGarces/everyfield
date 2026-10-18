@@ -1,5 +1,11 @@
-import type { Pool } from "pg";
+import * as tables from "@everyfield/db/tables";
+import { and, eq, sql } from "@everyfield/db/query";
+import { alias } from "@everyfield/db/query";
+import type { Database } from "@everyfield/db/client";
 import { z } from "zod";
+const account_a = alias(tables.account, "a");
+
+const auth_user_u = alias(tables.auth_user, "u");
 const fixture = z.strictObject({
 	account: z.uuid(),
 	user: z.uuid(),
@@ -21,7 +27,7 @@ export type FixtureConfig = z.infer<typeof config>;
 // allowlist from its fresh synthetic seed. No client role/environment is accepted.
 // This module is absent from the production HTTP import graph.
 export function createFixtureSwitcher(
-	db: Pool,
+	db: Database,
 	input: FixtureConfig,
 	signIn: (credentials: { email: string; password: string }) => Promise<Response>,
 ) {
@@ -41,19 +47,29 @@ export function createFixtureSwitcher(
 		if (!parsed.success) return denied();
 		const selected = c.fixtures[parsed.data.fixture];
 		if (!selected) return denied();
-		const identity = await db.query(
-			"SELECT current_database() AS database,current_user AS role,current_schema() AS schema",
+		const identity = await db.execute<{ database: string; role: string; schema: string }>(
+			sql`SELECT current_database() AS database,current_user AS role,current_schema() AS schema`,
 		);
 		const actual = identity.rows[0];
 		if (actual?.database !== c.target.database || actual?.role !== c.target.role || actual?.schema !== c.target.schema)
 			return denied();
-		const current = await db.query(
-			`SELECT a.id FROM account a JOIN auth_user u ON u.id=a.auth_user_id
-      WHERE a.id=$1 AND u.id=$2 AND u.email=$3 AND a.registration_state='active'
-      AND NOT EXISTS(SELECT 1 FROM lifecycle_witness w WHERE w.kind='account' AND w.opaque_subject_id=a.id AND w.state IN ('pending_deletion','purging','purged'))`,
-			[selected.account, selected.user, selected.email],
-		);
-		if (current.rowCount !== 1) return denied();
+		const current = await db
+			.select({ id: account_a.id })
+			.from(account_a)
+			.innerJoin(auth_user_u, eq(auth_user_u.id, account_a.auth_user_id))
+			.where(
+				and(
+					and(
+						and(
+							and(eq(account_a.id, selected.account), eq(auth_user_u.id, selected.user)),
+							eq(auth_user_u.email, selected.email),
+						),
+						eq(account_a.registration_state, "active"),
+					),
+					sql<unknown>`(NOT EXISTS (SELECT (1)  FROM lifecycle_witness  AS w  WHERE (((w .kind = ('account')) AND (w .opaque_subject_id = a .id)) AND (w .state IN (('pending_deletion'), ('purging'), ('purged'))))))`,
+				),
+			);
+		if (current.length !== 1) return denied();
 		const result = await signIn({ email: selected.email, password: selected.password });
 		if (!result.ok) return denied();
 		const headers = new Headers({ "cache-control": "private, no-store" });

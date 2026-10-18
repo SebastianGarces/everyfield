@@ -1,5 +1,8 @@
+import { getTableColumns, and, eq, isNull, lte, sql } from "@everyfield/db/query";
+import * as tables from "@everyfield/db/tables";
+import { alias } from "@everyfield/db/columns";
 import { createHash, randomUUID } from "node:crypto";
-import type { PoolClient } from "pg";
+import type { Transaction } from "@everyfield/db/client";
 import { z } from "zod";
 import {
 	owner,
@@ -21,6 +24,8 @@ import {
 } from "@everyfield/contracts/organizations";
 import { currentActor } from "@everyfield/domain/access";
 import { liveOwner } from "@everyfield/domain/access";
+const organization_operation_result_r = alias(tables.organization_operation_result, "r");
+const operation_o = alias(tables.operation, "o");
 
 export { currentActor, liveOwner, sameOwner };
 export type Actor = Extract<Awaited<ReturnType<typeof currentActor>>, { status: "active" }>;
@@ -46,8 +51,8 @@ export function canonical(value: unknown): string {
 		);
 	return JSON.stringify(value);
 }
-export async function lock(tx: PoolClient, key: string) {
-	await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1,7007))", [key]);
+export async function lock(tx: Transaction, key: string) {
+	await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${sql.param(key)},7007))`);
 }
 export const subjectOwner = (pair: RelationshipPair): Owner =>
 	pair.kind === "discovery" ? owner.parse({ kind: "account", id: pair.accountId }) : pair.subject;
@@ -57,24 +62,32 @@ export const endpointValues = (pair: RelationshipPair) => [
 	pair.kind === "sending_church" ? pair.subject.id : null,
 	pair.organization.id,
 ];
-export async function subjectAuthority(tx: PoolClient, actor: Actor, pair: RelationshipPair): Promise<boolean> {
+export async function subjectAuthority(tx: Transaction, actor: Actor, pair: RelationshipPair): Promise<boolean> {
 	if (!sameOwner(actor.context.owner, subjectOwner(pair))) return false;
 	if (pair.kind !== "discovery") return administrator(actor);
-	const d = await tx.query("SELECT id FROM discovery WHERE account_id=$1 AND converted_at IS NULL FOR SHARE", [
-		pair.accountId,
-	]);
-	const s = await tx.query("SELECT id FROM seat WHERE account_id=$1 AND ended_at IS NULL FOR SHARE", [pair.accountId]);
-	return d.rowCount === 1 && s.rowCount === 0;
+	const d = await tx
+		.select({ id: tables.discovery.id })
+		.from(tables.discovery)
+		.where(and(eq(tables.discovery.account_id, pair.accountId), isNull(tables.discovery.converted_at)))
+		.for("share");
+	const s = await tx
+		.select({ id: tables.seat.id })
+		.from(tables.seat)
+		.where(and(eq(tables.seat.account_id, pair.accountId), isNull(tables.seat.ended_at)))
+		.for("share");
+	return d.length === 1 && s.length === 0;
 }
-export async function validPair(tx: PoolClient, pair: RelationshipPair) {
+export async function validPair(tx: Transaction, pair: RelationshipPair) {
 	if (!(await liveOwner(tx, subjectOwner(pair))) || !(await liveOwner(tx, pair.organization))) return false;
 	if (pair.kind === "discovery")
 		return (
 			(
-				await tx.query("SELECT id FROM discovery WHERE account_id=$1 AND converted_at IS NULL FOR SHARE", [
-					pair.accountId,
-				])
-			).rowCount === 1
+				await tx
+					.select({ id: tables.discovery.id })
+					.from(tables.discovery)
+					.where(and(eq(tables.discovery.account_id, pair.accountId), isNull(tables.discovery.converted_at)))
+					.for("share")
+			).length === 1
 		);
 	return true;
 }
@@ -100,13 +113,23 @@ const affiliationSchema = z.object({
 	shared_findings: z.boolean(),
 });
 export type Affiliation = z.infer<typeof affiliationSchema>;
-export const affiliationSelect = `SELECT a.*,o.kind AS organization_kind,s.kind AS subject_kind FROM affiliation a JOIN organization o ON o.id=a.organization_id LEFT JOIN organization s ON s.id=a.sending_church_id`;
-export async function loadAffiliation(tx: PoolClient, id: string, write = false): Promise<Affiliation | null> {
-	const r = await tx.query(affiliationSelect + " WHERE a.id=$1 " + (write ? "FOR UPDATE OF a" : "FOR SHARE OF a"), [
-		id,
-	]);
-	return r.rows[0] ? affiliationSchema.parse(r.rows[0]) : null;
+const receivingOrganization = alias(tables.organization, "receiving_organization");
+const sendingOrganization = alias(tables.organization, "sending_organization");
+export async function loadAffiliation(tx: Transaction, id: string, write = false): Promise<Affiliation | null> {
+	const rows = await tx
+		.select({
+			...getTableColumns(tables.affiliation),
+			organization_kind: receivingOrganization.kind,
+			subject_kind: sendingOrganization.kind,
+		})
+		.from(tables.affiliation)
+		.innerJoin(receivingOrganization, eq(receivingOrganization.id, tables.affiliation.organization_id))
+		.leftJoin(sendingOrganization, eq(sendingOrganization.id, tables.affiliation.sending_church_id))
+		.where(eq(tables.affiliation.id, id))
+		.for(write ? "update" : "share", { of: tables.affiliation });
+	return rows[0] ? affiliationSchema.parse(rows[0]) : null;
 }
+
 export function pairOf(a: Affiliation): RelationshipPair {
 	const organization = { kind: "organization", id: a.organization_id, organizationKind: a.organization_kind };
 	return relationshipPair.parse(
@@ -139,19 +162,41 @@ export const choices = (a: Affiliation) =>
 		activity: a.share_activity,
 		shared_findings: a.shared_findings,
 	});
-export async function active(tx: PoolClient, a: Affiliation) {
+export async function active(tx: Transaction, a: Affiliation) {
 	return (
 		a.ended_at === null &&
-		(await tx.query("SELECT id FROM affiliation WHERE id=$1 AND accepted_at<=clock_timestamp()", [a.id])).rowCount ===
-			1 &&
+		(
+			await tx
+				.select({ id: tables.affiliation.id })
+				.from(tables.affiliation)
+				.where(
+					and(
+						eq(tables.affiliation.id, a.id),
+						lte(
+							tables.affiliation.accepted_at,
+							sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+						),
+					),
+				)
+		).length === 1 &&
 		(await validPair(tx, pairOf(a))) &&
-		!(await tx.query("SELECT id FROM lifecycle_witness WHERE affiliation_id=$1 AND state<>'active' FOR SHARE", [a.id]))
-			.rowCount
+		!(
+			await tx
+				.select({ id: tables.lifecycle_witness.id })
+				.from(tables.lifecycle_witness)
+				.where(
+					and(
+						eq(tables.lifecycle_witness.affiliation_id, a.id),
+						sql<unknown>`(${tables.lifecycle_witness.state} != 'active')`,
+					),
+				)
+				.for("share")
+		).length
 	);
 }
 export interface OrganizationEffects {
 	invitation(
-		tx: PoolClient,
+		tx: Transaction,
 		input: {
 			invitationId: string;
 			owner: Owner;
@@ -163,7 +208,7 @@ export interface OrganizationEffects {
 		},
 	): Promise<void>;
 	notice(
-		tx: PoolClient,
+		tx: Transaction,
 		input: {
 			eventId: string;
 			relationshipId: string;
@@ -173,10 +218,16 @@ export interface OrganizationEffects {
 			operationId: string;
 		},
 	): Promise<void>;
-	invalidate(tx: PoolClient, input: { owner: Owner; sourceId: string; revision: string }): Promise<void>;
+	invalidate(tx: Transaction, input: { owner: Owner; sourceId: string; revision: string }): Promise<void>;
 }
 type Command = { requestKey: string; expectedRevision: string; input: unknown };
-export async function beginCommand(tx: PoolClient, actor: Actor, selected: Owner, name: string, command: Command) {
+export async function beginCommand(
+	tx: Transaction,
+	actor: Actor,
+	selected: Owner,
+	name: typeof tables.operation.$inferInsert.name,
+	command: Command,
+) {
 	const identity = requestIdentity.parse({
 		owner: selected,
 		actorId: actor.accountId,
@@ -186,32 +237,45 @@ export async function beginCommand(tx: PoolClient, actor: Actor, selected: Owner
 		origin: { kind: "native" },
 	});
 	await lock(tx, "request/" + selected.id + "/" + command.requestKey);
-	const prior = await tx.query(
-		"SELECT r.receipt,r.result FROM operation o JOIN organization_operation_result r ON r.operation_id=o.id WHERE o.tenant_id=$1 AND o.request_key=$2",
-		[selected.id, command.requestKey],
-	);
-	if (prior.rows[0]) {
-		const saved = receipt.parse(prior.rows[0].receipt);
+	const prior = await tx
+		.select({ receipt: organization_operation_result_r.receipt, result: organization_operation_result_r.result })
+		.from(operation_o)
+		.innerJoin(organization_operation_result_r, eq(organization_operation_result_r.operation_id, operation_o.id))
+		.where(and(eq(operation_o.tenant_id, selected.id), eq(operation_o.request_key, command.requestKey)));
+	if (prior[0]) {
+		const saved = receipt.parse(prior[0].receipt);
 		if (canonical(saved.request) !== canonical(identity)) refuse("request_conflict");
-		return { kind: "replay" as const, result: prior.rows[0].result, receipt: saved };
+		return { kind: "replay" as const, result: prior[0].result, receipt: saved };
 	}
 	const id = randomUUID();
-	await tx.query(
-		`INSERT INTO operation(id,tenant_id,actor_id,name,request_key,request_digest,state,started_at,tool_calls,reserved_input,reserved_output,used_input,used_output)
-    VALUES($1,$2,$3,$4,$5,$6,'running',clock_timestamp(),0,0,0,0,0)`,
-		[id, selected.id, actor.accountId, name, command.requestKey, identity.digest],
-	);
+	await tx.insert(tables.operation).values({
+		id: id,
+		tenant_id: selected.id,
+		actor_id: actor.accountId,
+		name: name,
+		request_key: command.requestKey,
+		request_digest: identity.digest,
+		state: "running",
+		started_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+		tool_calls: 0,
+		reserved_input: 0,
+		reserved_output: 0,
+		used_input: 0,
+		used_output: 0,
+	});
 	return { kind: "new" as const, id, identity };
 }
 export type NewCommand = Extract<Awaited<ReturnType<typeof beginCommand>>, { kind: "new" }>;
 export async function finishCommand<T>(
-	tx: PoolClient,
+	tx: Transaction,
 	c: NewCommand,
 	result: (r: Receipt) => T,
 	eventIds: string[],
 	changed = true,
 ): Promise<T> {
-	const now = (await tx.query<{ now: Date }>("SELECT clock_timestamp() AS now")).rows[0]!.now.toISOString();
+	const now = new Date(
+		(await tx.execute<{ now: string }>(sql`SELECT clock_timestamp() AS now`)).rows[0]!.now,
+	).toISOString();
 	const r = receipt.parse({
 		id: c.id,
 		request: c.identity,
@@ -222,46 +286,56 @@ export async function finishCommand<T>(
 		effectIds: [],
 	});
 	const output = result(r);
-	await tx.query("UPDATE operation SET state='complete',outcome=$2,completed_at=$3 WHERE id=$1", [
-		c.id,
-		changed ? "committed" : "no_effect",
-		now,
-	]);
-	await tx.query("INSERT INTO organization_operation_result(operation_id,receipt,result) VALUES($1,$2,$3)", [
-		c.id,
-		JSON.stringify(r),
-		JSON.stringify(output),
-	]);
+	await tx
+		.update(tables.operation)
+		.set({ state: "complete", outcome: changed ? "committed" : "no_effect", completed_at: sql`${now}` })
+		.where(eq(tables.operation.id, c.id));
+	await tx.insert(tables.organization_operation_result).values({ operation_id: c.id, receipt: r, result: output });
 	return output;
 }
 export async function appendEvent(
-	tx: PoolClient,
+	tx: Transaction,
 	c: NewCommand,
 	target: string,
-	kind: string,
-	action: string | null,
+	kind: typeof tables.event.$inferInsert.kind,
+	action: typeof tables.event.$inferInsert.action,
 	before: string,
 	after: string,
 ) {
 	const id = randomUUID();
-	const record = await tx.query<{ tenant_id: string }>("SELECT tenant_id FROM record WHERE id=$1", [target]);
+	const record = await tx
+		.select({ tenant_id: tables.record.tenant_id })
+		.from(tables.record)
+		.where(eq(tables.record.id, target));
 	// Bilateral decisions are recorded in the acting endpoint scope. The private
 	// relationship history carries the exact pair; audit never targets a foreign body.
-	const ownedTarget = record.rows[0]?.tenant_id === c.identity.owner.id ? target : c.identity.owner.id;
-	await tx.query(
-		`INSERT INTO event(id,tenant_id,target_record_id,operation_id,actor_id,kind,action,occurred_at,recorded_at,before_revision,after_revision,event_key)
-    VALUES($1,$2,$3,$4,$5,$6,$7,clock_timestamp(),clock_timestamp(),$8,$9,$4::uuid::text)`,
-		[id, c.identity.owner.id, ownedTarget, c.id, c.identity.actorId, kind, action, before, after],
-	);
+	const ownedTarget = record[0]?.tenant_id === c.identity.owner.id ? target : c.identity.owner.id;
+	await tx.insert(tables.event).values({
+		id: id,
+		tenant_id: c.identity.owner.id,
+		target_record_id: ownedTarget,
+		operation_id: c.id,
+		actor_id: c.identity.actorId,
+		kind: kind,
+		action: action,
+		occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+		recorded_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+		before_revision: sql`${before}`,
+		after_revision: sql`${after}`,
+		event_key: sql<string>`((${sql.param(c.id)})::uuid)::text`,
+	});
 	return id;
 }
 export async function invalidate(
-	tx: PoolClient,
+	tx: Transaction,
 	effects: OrganizationEffects,
 	pair: RelationshipPair,
 	id: string,
 	rev: string,
 ) {
-	await tx.query("UPDATE organization SET material_revision=material_revision+1 WHERE id=$1", [pair.organization.id]);
+	await tx
+		.update(tables.organization)
+		.set({ material_revision: sql<unknown>`(${tables.organization.material_revision} + 1)` })
+		.where(eq(tables.organization.id, pair.organization.id));
 	await effects.invalidate(tx, { owner: pair.organization, sourceId: id, revision: rev });
 }

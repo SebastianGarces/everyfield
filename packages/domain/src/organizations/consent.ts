@@ -1,4 +1,7 @@
-import type { PoolClient } from "pg";
+import { getTableColumns, and, eq, isNotNull, isNull, lte, sql } from "@everyfield/db/query";
+import * as tables from "@everyfield/db/tables";
+import { alias } from "@everyfield/db/columns";
+import type { Transaction } from "@everyfield/db/client";
 import { z } from "zod";
 import { recordId, accountId, tenantId, revision, type Owner, type sessionId } from "@everyfield/contracts/common";
 import * as Q from "@everyfield/contracts/organizations";
@@ -21,6 +24,11 @@ import {
 	type OrganizationEffects,
 } from "./core.ts";
 import { readOwnResidency, readPipelinePerson } from "@everyfield/domain/access";
+const residency_link_l = alias(tables.residency_link, "l");
+const affiliation_a = alias(tables.affiliation, "a");
+const invitation_i = alias(tables.invitation, "i");
+const person_p = alias(tables.person, "p");
+const pipeline_sharing_p = alias(tables.pipeline_sharing, "p");
 const residentRow = z.object({
 	id: recordId,
 	organization_id: tenantId,
@@ -29,22 +37,24 @@ const residentRow = z.object({
 	affiliation_id: recordId,
 	consent_revision: revision,
 	revision,
-	ended_at: z.date().nullable(),
+	ended_at: z.coerce.date().nullable(),
 	share_foundations: z.boolean(),
 	share_milestones: z.boolean(),
 	organization_kind: z.enum(["sending_church", "sending_network"]),
 });
-export async function loadResident(tx: PoolClient, id: string, write = false) {
-	const r = await tx.query(
-		`SELECT l.*,o.kind AS organization_kind FROM residency_link l JOIN organization o ON o.id=l.organization_id WHERE l.id=$1 ${write ? "FOR UPDATE OF l" : "FOR SHARE OF l"}`,
-		[id],
-	);
-	return r.rows[0] ? residentRow.parse(r.rows[0]) : null;
+export async function loadResident(tx: Transaction, id: string, write = false) {
+	const rows = await tx
+		.select({ ...getTableColumns(tables.residency_link), organization_kind: tables.organization.kind })
+		.from(tables.residency_link)
+		.innerJoin(tables.organization, eq(tables.organization.id, tables.residency_link.organization_id))
+		.where(eq(tables.residency_link.id, id))
+		.for(write ? "update" : "share", { of: tables.residency_link });
+	return rows[0] ? residentRow.parse(rows[0]) : null;
 }
 // All saved-result/export/job/byte/model consumers must pass the original witness
 // through this current gate, before loading any progress. It returns no progress.
 export async function canReadResidentProgress(
-	tx: PoolClient,
+	tx: Transaction,
 	session: z.infer<typeof sessionId>,
 	selected: Owner,
 	raw: unknown,
@@ -65,21 +75,76 @@ export async function canReadResidentProgress(
 	const access = await readPipelinePerson(tx, session, selected, { personId: l.person_id });
 	if (access.status !== "allowed") return false;
 	if (l.account_id === null || !(await liveOwner(tx, { kind: "account", id: l.account_id }))) return false;
-	const source = await tx.query(
-		`SELECT l.id FROM residency_link l JOIN affiliation a ON a.id=l.affiliation_id AND a.account_id=l.account_id AND a.organization_id=l.organization_id
-    JOIN invitation i ON i.id=l.invitation_id AND i.tenant_id=l.organization_id AND i.accepted_account_id=l.account_id
-    JOIN person p ON p.id=l.person_id AND p.tenant_id=l.organization_id AND p.linked_account_id=l.account_id
-    WHERE l.id=$1 AND l.ended_at IS NULL AND l.accepted_at<=clock_timestamp() AND a.ended_at IS NULL AND a.accepted_at<=clock_timestamp()
-      AND i.state='accepted' AND i.purpose='residency_link' AND i.resident_person_id=l.person_id AND p.state='live'
-      AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.affiliation_id=a.id AND w.state<>'active') FOR SHARE OF l,a,i,p`,
-		[l.id],
-	);
-	return source.rowCount === 1;
+	const source = await tx
+		.select({ id: residency_link_l.id })
+		.from(residency_link_l)
+		.innerJoin(
+			affiliation_a,
+			and(
+				and(
+					eq(affiliation_a.id, residency_link_l.affiliation_id),
+					eq(affiliation_a.account_id, residency_link_l.account_id),
+				),
+				eq(affiliation_a.organization_id, residency_link_l.organization_id),
+			),
+		)
+		.innerJoin(
+			invitation_i,
+			and(
+				and(
+					eq(invitation_i.id, residency_link_l.invitation_id),
+					eq(invitation_i.tenant_id, residency_link_l.organization_id),
+				),
+				eq(invitation_i.accepted_account_id, residency_link_l.account_id),
+			),
+		)
+		.innerJoin(
+			person_p,
+			and(
+				and(eq(person_p.id, residency_link_l.person_id), eq(person_p.tenant_id, residency_link_l.organization_id)),
+				eq(person_p.linked_account_id, residency_link_l.account_id),
+			),
+		)
+		.where(
+			and(
+				and(
+					and(
+						and(
+							and(
+								and(
+									and(
+										and(
+											and(eq(residency_link_l.id, l.id), isNull(residency_link_l.ended_at)),
+											lte(
+												residency_link_l.accepted_at,
+												sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+											),
+										),
+										isNull(affiliation_a.ended_at),
+									),
+									lte(
+										affiliation_a.accepted_at,
+										sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+									),
+								),
+								eq(invitation_i.state, "accepted"),
+							),
+							eq(invitation_i.purpose, "residency_link"),
+						),
+						eq(invitation_i.resident_person_id, residency_link_l.person_id),
+					),
+					eq(person_p.state, "live"),
+				),
+				sql<unknown>`(NOT exists(SELECT  FROM lifecycle_witness  AS w  WHERE ((w .affiliation_id = a .id) AND (w .state != ('active')))))`,
+			),
+		)
+		.for("share", { of: [residency_link_l, affiliation_a, invitation_i, person_p] });
+	return source.length === 1;
 }
 export function consentOperations(
 	effects: OrganizationEffects,
 ): Pick<
-	OrganizationAdapter<PoolClient>,
+	OrganizationAdapter<Transaction>,
 	| "residency.readSharing"
 	| "residency.setSharing"
 	| "residency.leave"
@@ -129,15 +194,24 @@ export function consentOperations(
 				!(await active(tx, a))
 			)
 				return unavailable();
-			const r = await tx.query(
-				"SELECT share_pipeline_totals FROM pipeline_sharing WHERE relationship_id=$1 AND organization_id=$2 AND network_id=$3 FOR SHARE",
-				[a.id, a.sending_church_id, a.organization_id],
-			);
+			const r = await tx
+				.select({ share_pipeline_totals: tables.pipeline_sharing.share_pipeline_totals })
+				.from(tables.pipeline_sharing)
+				.where(
+					and(
+						and(
+							eq(tables.pipeline_sharing.relationship_id, a.id),
+							eq(tables.pipeline_sharing.organization_id, a.sending_church_id),
+						),
+						eq(tables.pipeline_sharing.network_id, a.organization_id),
+					),
+				)
+				.for("share");
 			return Q.pipelineConsentResult.parse({
 				status: "available",
 				relationshipId: a.id,
 				revision: a.revision,
-				sharePipelineTotals: r.rows[0]?.share_pipeline_totals ?? false,
+				sharePipelineTotals: r[0]?.share_pipeline_totals ?? false,
 				minimumContributors: 2,
 			});
 		},
@@ -158,12 +232,29 @@ export function consentOperations(
 			const c = await beginCommand(tx, actor, selected, "pipelineSharing.setConsent", q);
 			if (c.kind === "replay") return Q.mutationResult.parse(c.result);
 			checkRevision(q.expectedRevision, a.revision);
-			await tx.query(
-				`INSERT INTO pipeline_sharing(id,organization_id,relationship_id,network_id,share_pipeline_totals,changed_by,revision)
-        VALUES(gen_random_uuid(),$1,$2,$3,$4,$5,1) ON CONFLICT(relationship_id) DO UPDATE SET share_pipeline_totals=excluded.share_pipeline_totals,changed_by=excluded.changed_by,revision=pipeline_sharing.revision+1`,
-				[selected.id, a.id, a.organization_id, q.input.sharePipelineTotals, actor.accountId],
-			);
-			await tx.query("UPDATE affiliation SET revision=revision+1 WHERE id=$1", [a.id]);
+			await tx
+				.insert(tables.pipeline_sharing)
+				.values({
+					id: sql`gen_random_uuid()`,
+					organization_id: selected.id,
+					relationship_id: a.id,
+					network_id: a.organization_id,
+					share_pipeline_totals: q.input.sharePipelineTotals,
+					changed_by: actor.accountId,
+					revision: "1",
+				})
+				.onConflictDoUpdate({
+					target: tables.pipeline_sharing.relationship_id,
+					set: {
+						share_pipeline_totals: q.input.sharePipelineTotals,
+						changed_by: actor.accountId,
+						revision: sql`${tables.pipeline_sharing.revision}+1`,
+					},
+				});
+			await tx
+				.update(tables.affiliation)
+				.set({ revision: sql<unknown>`(${tables.affiliation.revision} + 1)` })
+				.where(eq(tables.affiliation.id, a.id));
 			const next = String(BigInt(a.revision) + 1n),
 				event = await appendEvent(tx, c, a.id, "preference", "sharing.changed", a.revision, next);
 			await invalidate(tx, effects, pairOf(a), a.id, next);
@@ -174,13 +265,37 @@ export function consentOperations(
 				actor = await currentActor(tx, session, selected);
 			if (actor.status !== "active" || !sameOwner(selected, q.network))
 				return Q.pipelineAggregateAccessResult.parse({ allowed: false, minimumContributors: 2 });
-			const r = await tx.query<{ id: string; organization_id: string }>(
-				`SELECT a.id,p.organization_id FROM affiliation a JOIN pipeline_sharing p ON p.relationship_id=a.id AND p.organization_id=a.sending_church_id AND p.network_id=a.organization_id
-        WHERE a.organization_id=$1 AND p.share_pipeline_totals AND a.sending_church_id IS NOT NULL AND a.ended_at IS NULL AND a.accepted_at<=clock_timestamp() FOR SHARE OF a,p`,
-				[selected.id],
-			);
+			const r = await tx
+				.select({ id: affiliation_a.id, organization_id: pipeline_sharing_p.organization_id })
+				.from(affiliation_a)
+				.innerJoin(
+					pipeline_sharing_p,
+					and(
+						and(
+							eq(pipeline_sharing_p.relationship_id, affiliation_a.id),
+							eq(pipeline_sharing_p.organization_id, affiliation_a.sending_church_id),
+						),
+						eq(pipeline_sharing_p.network_id, affiliation_a.organization_id),
+					),
+				)
+				.where(
+					and(
+						and(
+							and(
+								and(eq(affiliation_a.organization_id, selected.id), pipeline_sharing_p.share_pipeline_totals),
+								isNotNull(affiliation_a.sending_church_id),
+							),
+							isNull(affiliation_a.ended_at),
+						),
+						lte(
+							affiliation_a.accepted_at,
+							sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+						),
+					),
+				)
+				.for("share", { of: [affiliation_a, pipeline_sharing_p] });
 			const contributors = new Set<string>();
-			for (const row of r.rows) {
+			for (const row of r) {
 				const a = await loadAffiliation(tx, row.id);
 				if (a && (await active(tx, a))) contributors.add(row.organization_id);
 			}
@@ -188,7 +303,7 @@ export function consentOperations(
 		},
 	};
 	async function changeResident(
-		tx: PoolClient,
+		tx: Transaction,
 		session: z.infer<typeof sessionId>,
 		selected: Owner,
 		raw: unknown,
@@ -217,13 +332,22 @@ export function consentOperations(
 			"choices" in q.input
 				? Q.residentChoices.parse(q.input.choices)
 				: { shareFoundations: false, shareMilestones: false };
-		await tx.query(
-			"UPDATE residency_link SET share_foundations=$2,share_milestones=$3,consent_revision=consent_revision+1,revision=revision+1,ended_at=CASE WHEN $4 THEN clock_timestamp() ELSE NULL END WHERE id=$1",
-			[l.id, choices.shareFoundations, choices.shareMilestones, leave],
-		);
+		await tx
+			.update(tables.residency_link)
+			.set({
+				share_foundations: choices.shareFoundations,
+				share_milestones: choices.shareMilestones,
+				consent_revision: sql<unknown>`(${tables.residency_link.consent_revision} + 1)`,
+				revision: sql<unknown>`(${tables.residency_link.revision} + 1)`,
+				ended_at: sql<unknown>`CASE WHEN ${sql.param(leave)} THEN clock_timestamp() ELSE NULL END`,
+			})
+			.where(eq(tables.residency_link.id, l.id));
 		const next = String(BigInt(l.revision) + 1n),
 			event = await appendEvent(tx, c, l.id, leave ? "remove" : "preference", null, l.revision, next);
-		await tx.query("UPDATE organization SET material_revision=material_revision+1 WHERE id=$1", [l.organization_id]);
+		await tx
+			.update(tables.organization)
+			.set({ material_revision: sql<unknown>`(${tables.organization.material_revision} + 1)` })
+			.where(eq(tables.organization.id, l.organization_id));
 		await effects.invalidate(tx, { owner: organization, sourceId: l.id, revision: next });
 		return finishCommand(tx, c, (r) => Q.mutationResult.parse({ status: "committed", receipt: r }), [event]);
 	}

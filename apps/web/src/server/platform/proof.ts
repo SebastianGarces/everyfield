@@ -1,5 +1,7 @@
+import * as tables from "./tables.ts";
+import { and, eq, gt, lt, sql } from "@everyfield/db/query";
 import "server-only";
-import pg from "pg";
+import { createDatabase, type Database } from "@everyfield/db/client";
 import { z } from "zod";
 import {
 	proofEnabled,
@@ -20,7 +22,7 @@ import { receiveCallback } from "./webhook.ts";
 import { platformReadiness } from "./readiness.ts";
 import { writeRequiredConsequences } from "@everyfield/contracts/common";
 
-let configured: { db: pg.Pool; auth: ReturnType<typeof createPlatformAuth>; origin: string } | undefined;
+let configured: { db: Database; auth: ReturnType<typeof createPlatformAuth>; origin: string } | undefined;
 function runtime() {
 	if (configured) return configured;
 	const { PLATFORM_DATABASE_URL, PLATFORM_PROOF_ORIGIN: origin, BETTER_AUTH_SECRET: secret } = process.env;
@@ -35,13 +37,12 @@ function runtime() {
 		throw new Refusal("unavailable", 503);
 	const connection = {
 		connectionString: PLATFORM_DATABASE_URL,
-		options: "-c search_path=wp003_proof",
 		connectionTimeoutMillis: 5000,
 		idleTimeoutMillis: 5000,
 	};
-	const db = new pg.Pool({ ...connection, max: 4 });
+	const db = createDatabase({ ...connection, max: 4 });
 	// Auth queries cannot wait for a connection held by their own domain transaction.
-	const authDb = new pg.Pool({ ...connection, max: 2 });
+	const authDb = createDatabase({ ...connection, max: 2 });
 	configured = {
 		db,
 		origin,
@@ -70,21 +71,28 @@ async function parse<T extends z.ZodType>(request: Request, schema: T): Promise<
 }
 // Atomic identifier budgets. The proof trusts no forwarded IP header. Production
 // trusted-ingress/IP extraction belongs to the real auth adapter in WP-005.
-async function authBudget(db: pg.Pool, kind: string, identifier: string) {
+async function authBudget(db: Database, kind: string, identifier: string) {
 	await transaction(db, async (tx) => {
 		const key = `${kind}:${identifier.trim().toLowerCase()}`;
-		await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [key]);
+		await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${sql.param(key)},0))`);
 		const limit = kind === "request-password-reset" ? 3 : 5;
 		const window = kind === "request-password-reset" ? "1 hour" : "15 minutes";
 		const row = (
-			await tx.query<{ n: number }>(
-				"SELECT count(*)::int n FROM proof_rate WHERE key=$1 AND at>clock_timestamp()-$2::interval",
-				[key, window],
-			)
-		).rows[0];
+			await tx
+				.select({ n: sql<number>`(count(*))::int` })
+				.from(tables.proof_rate)
+				.where(
+					and(
+						eq(tables.proof_rate.key, key),
+						gt(tables.proof_rate.at, sql<unknown>`(clock_timestamp() - (${sql.param(window)})::interval)`),
+					),
+				)
+		)[0];
 		if (!row || row.n >= limit) throw new Refusal("rate_limited", 429);
-		await tx.query("INSERT INTO proof_rate(key) VALUES($1)", [key]);
-		await tx.query("DELETE FROM proof_rate WHERE at<clock_timestamp()-interval '24 hours'");
+		await tx.insert(tables.proof_rate).values({ key: key });
+		await tx
+			.delete(tables.proof_rate)
+			.where(lt(tables.proof_rate.at, sql<unknown>`(clock_timestamp() - ('24 hours')::interval)`));
 	});
 }
 const email = z.email().max(254);
@@ -155,7 +163,9 @@ export async function handleProof(request: Request): Promise<Response> {
 					response.status >= 500 ? 503 : response.status,
 				);
 			if (identifier && ["sign-in/email", "change-password"].includes(action))
-				await db.query("DELETE FROM proof_rate WHERE key=$1", [`${action}:${identifier.trim().toLowerCase()}`]);
+				await db
+					.delete(tables.proof_rate)
+					.where(eq(tables.proof_rate.key, `${action}:${identifier.trim().toLowerCase()}`));
 			const headers = new Headers(privateHeaders);
 			for (const cookie of response.headers.getSetCookie()) headers.append("Set-Cookie", cookie);
 			return Response.json({ status: true }, { headers });
@@ -180,35 +190,41 @@ export async function handleProof(request: Request): Promise<Response> {
 				await transaction(db, async (tx) => {
 					await currentScope(tx, auth, request.headers, input.ownerId);
 					const row = (
-						await tx.query<{ revision: string }>(
-							"SELECT revision::text FROM proof_subject WHERE id=$1 AND owner_id=$2 AND active FOR UPDATE",
-							[input.id, input.ownerId],
-						)
-					).rows[0];
+						await tx
+							.select({ revision: sql<string>`(${tables.proof_subject.revision})::text` })
+							.from(tables.proof_subject)
+							.where(
+								and(
+									and(eq(tables.proof_subject.id, input.id), eq(tables.proof_subject.owner_id, input.ownerId)),
+									tables.proof_subject.active,
+								),
+							)
+							.for("update")
+					)[0];
 					if (!row) throw new Refusal("unavailable", 404);
 					if (row.revision !== input.expectedRevision) throw new Refusal("conflict", 409);
 					return writeRequiredConsequences(tx, {
 						async facts(tx) {
 							const updated = (
-								await tx.query<{ revision: string }>(
-									"UPDATE proof_subject SET value=$2,revision=revision+1 WHERE id=$1 RETURNING revision::text",
-									[input.id, input.value],
-								)
-							).rows[0];
+								await tx
+									.update(tables.proof_subject)
+									.set({ value: input.value, revision: sql<unknown>`(${tables.proof_subject.revision} + 1)` })
+									.where(eq(tables.proof_subject.id, input.id))
+									.returning({ revision: sql<string>`(${tables.proof_subject.revision})::text` })
+							)[0];
 							if (!updated) throw new Refusal("unavailable", 404);
 							return updated;
 						},
 						async history(tx, result) {
-							await tx.query("INSERT INTO proof_audit(subject,revision) VALUES($1,$2)", [
-								input.failHistory ? null : input.id,
-								result.revision,
-							]);
+							await tx
+								.insert(tables.proof_audit)
+								.values({ subject: input.failHistory ? sql`NULL` : input.id, revision: sql`${result.revision}` });
 						},
 						async receipt(tx, result) {
-							await tx.query("INSERT INTO proof_receipt(subject,revision) VALUES($1,$2)", [input.id, result.revision]);
+							await tx.insert(tables.proof_receipt).values({ subject: input.id, revision: sql`${result.revision}` });
 						},
 						async intents(tx, result) {
-							await tx.query("INSERT INTO proof_intent(subject,revision) VALUES($1,$2)", [input.id, result.revision]);
+							await tx.insert(tables.proof_intent).values({ subject: input.id, revision: sql`${result.revision}` });
 						},
 					});
 				}),

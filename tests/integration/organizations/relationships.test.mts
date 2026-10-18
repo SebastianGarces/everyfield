@@ -1,3 +1,4 @@
+import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { before, after, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -51,9 +52,11 @@ test("AC:AF-001 AC:AF-002 AC:AF-003 AC:AF-004 AC:AF-005 AC:AF-006 AC:AF-007 exac
 			await S.tenant("sending_network"),
 		];
 	for (const indexes of [[], [0], [2], [0, 2], [0, 1], [2, 3]]) {
-		await S.db.query("UPDATE affiliation SET ended_at=clock_timestamp() WHERE plant_id=$1", [p.id]);
+		await S.db.execute(sql`UPDATE affiliation SET ended_at=clock_timestamp() WHERE plant_id=${sql.param(p.id)}`);
 		for (const n of indexes) {
-			await S.db.query("DELETE FROM affiliation WHERE plant_id=$1 AND organization_id=$2", [p.id, o[n].id]);
+			await S.db.execute(
+				sql`DELETE FROM affiliation WHERE plant_id=${sql.param(p.id)} AND organization_id=${sql.param(o[n].id)}`,
+			);
 			await S.affiliation(p, o[n]);
 		}
 		const h = Q.relationshipHistoryResult.parse(await S.call("associations.getHistory", a, { plant: p }));
@@ -65,7 +68,7 @@ test("AC:AF-001 AC:AF-002 AC:AF-003 AC:AF-004 AC:AF-005 AC:AF-006 AC:AF-007 exac
 		);
 		assert.deepEqual(h.items, []);
 		assert.equal(
-			(await S.db.query("SELECT count(*)::int AS n FROM seat WHERE account_id=$1", [a.account])).rows[0].n,
+			(await S.db.execute(sql`SELECT count(*)::int AS n FROM seat WHERE account_id=${sql.param(a.account)}`)).rows[0].n,
 			1,
 		);
 	}
@@ -92,26 +95,29 @@ test("AC:AF-008 AC:AF-009 AC:AF-011 AC:AF-018 AC:AF-027 approval is exact-addres
 	assert.notEqual(result[0].receipt.id, result[2].receipt.id);
 	assert.equal(
 		(
-			await S.db.query("SELECT count(*)::int AS n FROM relationship_history WHERE relationship_id=$1", [
-				result[0].relationship.id,
-			])
+			await S.db.execute(
+				sql`SELECT count(*)::int AS n FROM relationship_history WHERE relationship_id=${sql.param(result[0].relationship.id)}`,
+			)
 		).rows[0].n,
 		1,
 	);
 	assert.equal(
-		(await S.db.query("SELECT count(*)::int AS n FROM affiliation WHERE plant_id=$1 AND ended_at IS NULL", [p.id]))
-			.rows[0].n,
+		(
+			await S.db.execute(
+				sql`SELECT count(*)::int AS n FROM affiliation WHERE plant_id=${sql.param(p.id)} AND ended_at IS NULL`,
+			)
+		).rows[0].n,
 		2,
 	);
 	const cn = await invite(ca, network, na.email);
 	assert.equal((await approve(cn, na)).relationship.pair.kind, "sending_church");
 	for (const o of [church, network]) {
 		const d = await S.identity();
-		await S.db.query("INSERT INTO discovery(account_id) VALUES($1)", [d.account]);
+		await S.db.execute(sql`INSERT INTO discovery(account_id) VALUES(${sql.param(d.account)})`);
 		const i = await invite(d, o, o.id === church.id ? ca.email : na.email);
 		assert.equal((await approve(i, o.id === church.id ? ca : na)).relationship.pair.kind, "discovery");
 		assert.equal(
-			(await S.db.query("SELECT count(*)::int AS n FROM seat WHERE account_id=$1", [d.account])).rows[0].n,
+			(await S.db.execute(sql`SELECT count(*)::int AS n FROM seat WHERE account_id=${sql.param(d.account)}`)).rows[0].n,
 			0,
 		);
 	}
@@ -143,14 +149,17 @@ test("AC:AF-016 AC:AF-017 AC:AF-019 AC:ROLE43-016 AC:TARGET-IDN-020 wrong side, 
 		S.call("associations.acceptInvitation", oa, S.command({ ...q.input, proof: "wrong" })),
 		/unavailable/,
 	);
-	await S.db.query("UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=$1", [pa.account]);
+	await S.db.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${sql.param(pa.account)}`);
 	await assert.rejects(S.call("associations.acceptInvitation", oa, q), /unavailable/);
-	await S.db.query("UPDATE seat SET ended_at=NULL WHERE account_id=$1", [pa.account]);
-	await S.db.query("UPDATE invitation SET created_at=clock_timestamp()-interval '30 days' WHERE id=$1", [
-		i.invitationId,
-	]);
+	await S.db.execute(sql`UPDATE seat SET ended_at=NULL WHERE account_id=${sql.param(pa.account)}`);
+	await S.db.execute(
+		sql`UPDATE invitation SET created_at=clock_timestamp()-interval '30 days' WHERE id=${sql.param(i.invitationId)}`,
+	);
 	await assert.rejects(S.call("associations.acceptInvitation", oa, q), /unavailable/);
-	assert.equal((await S.db.query("SELECT count(*)::int AS n FROM affiliation WHERE plant_id=$1", [p.id])).rows[0].n, 0);
+	assert.equal(
+		(await S.db.execute(sql`SELECT count(*)::int AS n FROM affiliation WHERE plant_id=${sql.param(p.id)}`)).rows[0].n,
+		0,
+	);
 });
 test("AC:AF-010 AC:AF-014 AC:AF-015 AC:AF-020 AC:AF-021 AC:AF-022 AC:AF-023 AC:AF-024 AC:AF-025 AC:AF-026 AC:AF-031 AC:AF-034 AC:AF-040 AC:AF-041 AC:ORG55-002 AC:ORG55-003 AC:GAP-IDN-027 AC:TARGET-IDN-021 AC:TARGET-IDN-027 ending one pair keeps other links, content and minimal history", async () => {
 	const p = await S.tenant("plant"),
@@ -197,20 +206,21 @@ test("AC:AF-010 AC:AF-014 AC:AF-015 AC:AF-020 AC:AF-021 AC:AF-022 AC:AF-023 AC:A
 		[{ status: "withheld" }, { status: "withheld" }],
 	);
 	assert.equal(
-		(await S.db.query("SELECT count(*)::int AS n FROM seat WHERE account_id=$1 AND ended_at IS NULL", [pa.account]))
-			.rows[0].n,
+		(
+			await S.db.execute(
+				sql`SELECT count(*)::int AS n FROM seat WHERE account_id=${sql.param(pa.account)} AND ended_at IS NULL`,
+			)
+		).rows[0].n,
 		1,
 	);
-	const audit = await S.db.query(
-		"SELECT count(*)::int AS n,bool_and(e.tenant_id=r.tenant_id) AS owned,bool_and(e.reason IS NULL) AS safe FROM relationship_history h JOIN event e ON e.id=h.id JOIN record r ON r.id=e.target_record_id WHERE h.relationship_id=$1",
-		[a.relationship.id],
+	const audit = await S.db.execute(
+		sql`SELECT count(*)::int AS n,bool_and(e.tenant_id=r.tenant_id) AS owned,bool_and(e.reason IS NULL) AS safe FROM relationship_history h JOIN event e ON e.id=h.id JOIN record r ON r.id=e.target_record_id WHERE h.relationship_id=${sql.param(a.relationship.id)}`,
 	);
 	assert.deepEqual(audit.rows, [{ n: 2, owned: true, safe: true }]);
 	assert.equal(
 		(
-			await S.db.query(
-				"SELECT count(*)::int AS n FROM job WHERE producer_key LIKE 'relationship_ended/%' AND subject_record_id=$1",
-				[a.relationship.id],
+			await S.db.execute(
+				sql`SELECT count(*)::int AS n FROM job WHERE producer_key LIKE 'relationship_ended/%' AND subject_record_id=${sql.param(a.relationship.id)}`,
 			)
 		).rows[0].n,
 		1,
@@ -234,9 +244,9 @@ test("INV-relationships: invitation rotation, duplicate intents, decline, revoke
 		S.call("associations.resendInvitation", pa, S.command({ invitationId: i.invitationId })),
 		/resend_cooldown/,
 	);
-	await S.db.query("UPDATE invitation SET created_at=clock_timestamp()-interval '2 minutes' WHERE id=$1", [
-		i.invitationId,
-	]);
+	await S.db.execute(
+		sql`UPDATE invitation SET created_at=clock_timestamp()-interval '2 minutes' WHERE id=${sql.param(i.invitationId)}`,
+	);
 	const r = pending(await S.call("associations.resendInvitation", pa, S.command({ invitationId: i.invitationId })));
 	assert.equal(r.revision, "2");
 	assert.notEqual(S.proofs.get(i.invitationId), old);
@@ -262,6 +272,6 @@ test("INV-relationships: invitation rotation, duplicate intents, decline, revoke
 	const k = await invite(pa, o, oa.email);
 	await S.call("associations.revokeInvitation", pa, S.command({ invitationId: k.invitationId }));
 	await assert.rejects(invite(pa, o, oa.email), /invitation_limit/);
-	const saved = await S.db.query("SELECT receipt,result FROM organization_operation_result");
+	const saved = await S.db.execute(sql`SELECT receipt,result FROM organization_operation_result`);
 	assert.equal(JSON.stringify(saved.rows).includes(S.proofs.get(k.invitationId)), false);
 });

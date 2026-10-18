@@ -1,7 +1,10 @@
+import { createDatabase, closeDatabase } from "../client.ts";
+import { sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import pg from "pg";
+
 import { migrate } from "./migrate.ts";
+import { verifySchemaDrift, verifySnapshotBaseline } from "./drift.ts";
 import { assertCurrentCatalog } from "./catalog.ts";
 
 // No public/production schema is touched. CI uses its existing local throwaway
@@ -23,19 +26,21 @@ if (
 	throw Error("Schema check requires approved development or throwaway CI database");
 if (!localCI) source.searchParams.set("sslmode", "verify-full");
 const schema = "catalog_check_" + randomUUID().replaceAll("-", "");
-const db = new pg.Pool({ connectionString: source.href, max: 2 });
+const db = createDatabase({ connectionString: source.href, max: 2 });
 try {
-	await db.query(`CREATE SCHEMA ${schema}`);
+	await db.execute(sql.raw(`CREATE SCHEMA ${schema}`));
 	await migrate(db, schema);
+	await verifySnapshotBaseline();
+	await verifySchemaDrift(db, schema);
 	await assertCurrentCatalog(
 		db,
 		schema,
 		JSON.parse(await readFile(new URL("../../../../docs/schema/target.json", import.meta.url), "utf8")),
 	);
 	console.log(
-		"PASS: full migration chain matches target.json columns, types, nullability, primary keys and foreign keys. Historical SQL unchanged.",
+		"PASS: Drizzle, target.json and full migration chain agree, including CHECKs, indexes, deferred keys, functions, triggers and privileges. Frozen SQL unchanged.",
 	);
 } finally {
-	await db.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
-	await db.end();
+	await db.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
+	await closeDatabase(db);
 }

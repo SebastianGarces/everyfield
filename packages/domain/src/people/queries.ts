@@ -1,3 +1,6 @@
+import { inArray, ne, count, and, asc, eq, isNull, or, sql } from "@everyfield/db/query";
+import * as tables from "@everyfield/db/tables";
+import { alias } from "@everyfield/db/columns";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import * as c from "@everyfield/contracts/people";
@@ -6,6 +9,25 @@ import { authorize, canReadPerson, deny, hash, parse, person, personRow, project
 import type { Tx, Context } from "./core.ts";
 import { openDuties } from "./people.ts";
 import { pipelineMetrics } from "./metrics.ts";
+const task_t = alias(tables.task, "t");
+const plant_p = alias(tables.plant, "p");
+const obligation_o = alias(tables.obligation, "o");
+const activityRow = z.object({
+	id: z.uuid(),
+	occurred_at: z.coerce.date(),
+	recorded_at: z.coerce.date(),
+	actor_id: z.uuid().nullable(),
+	revision: z.string(),
+	body: z.string().nullable(),
+	edited_at: z.coerce.date().nullable(),
+	removed_at: z.coerce.date().nullable(),
+	kind: z.string(),
+	action: z.string().nullable(),
+	before_value: z.object({ stage: c.stage.nullable().optional() }).nullable(),
+	after_value: z.object({ stage: c.stage.nullable().optional() }).nullable(),
+	obligation_id: z.uuid().nullable(),
+	outcome: z.string().nullable(),
+});
 const cursorKey = randomBytes(32);
 const cursorSchema = z.strictObject({
 	owner: z.string(),
@@ -50,62 +72,64 @@ async function list(tx: Tx, ctx: Context, raw: unknown) {
 	const { after, ...query } = input;
 	const materialRevision =
 		input.view === "pipeline"
-			? (await tx.query("SELECT material_revision FROM plant WHERE id=$1 FOR SHARE", [ctx.selected.id])).rows[0]
-					.material_revision
+			? (
+					await tx
+						.select({ material_revision: tables.plant.material_revision })
+						.from(tables.plant)
+						.where(eq(tables.plant.id, ctx.selected.id))
+						.for("share")
+				)[0]!.material_revision
 			: null;
 	const queryBound = input.view === "pipeline" ? { ...query, materialRevision } : query;
 	const cur = decode(ctx, queryBound, after);
-	// Only known public predicates reach SQL. Literal metacharacters use strpos.
-	const values: unknown[] = [ctx.selected.id];
-	const where = ["p.plant_id=$1"];
-	const add = (value: unknown, sql: (n: number) => string) => {
-		values.push(value);
-		where.push(sql(values.length));
-	};
-	if (input.archived === "exclude") where.push("p.state='live'");
-	else if (input.archived === "only") where.push("p.state<>'live'");
-	if (input.search)
-		add(
-			input.search.toLowerCase(),
-			(n) =>
-				`(strpos(lower(p.display_name),$${n})>0 OR strpos(lower(coalesce(p.email,'')),$${n})>0 OR strpos(lower(coalesce(p.phone,'')),$${n})>0)`,
-		);
-	if (input.stages.length) add(input.stages, (n) => `p.stage=ANY($${n})`);
-	if (input.sources.length) add(input.sources, (n) => `p.source=ANY($${n})`);
-	if (input.tags.length)
-		add(
-			input.tags,
-			(n) =>
-				`NOT EXISTS(SELECT unnest($${n}::uuid[]) EXCEPT SELECT tag_id FROM person_tag WHERE person_id=p.id AND plant_id=p.plant_id)`,
-		);
-	if (input.adultClassification) add(input.adultClassification, (n) => `p.adult_classification=$${n}`);
-	if (input.commitment !== "any")
-		add(
-			input.commitment,
-			(n) =>
-				`(CASE WHEN EXISTS(SELECT FROM commitment e JOIN plant pl ON pl.id=e.plant_id WHERE e.plant_id=p.plant_id AND e.person_id=p.id AND e.voided_at IS NULL AND e.signed_on<=(clock_timestamp() AT TIME ZONE pl.timezone)::date) THEN p.commitment_state ELSE 'unknown' END)=$${n}`,
-		);
-	const total = (await tx.query(`SELECT count(*)::int AS total FROM person p WHERE ${where.join(" AND ")}`, values))
-		.rows[0].total;
-	if (cur) {
-		values.push(cur.at, cur.id);
-		const at = values.length - 1,
-			id = values.length;
-		where.push(
-			input.view === "pipeline"
-				? `(p.pipeline_position,p.created_at,p.id)>((SELECT pipeline_position FROM person WHERE id=$${id}::uuid AND plant_id=$1),$${at}::timestamptz,$${id}::uuid)`
-				: `(p.created_at,p.id)>($${at}::timestamptz,$${id}::uuid)`,
+
+	const filters = [eq(tables.person.plant_id, ctx.selected.id)];
+	if (input.archived === "exclude") filters.push(eq(tables.person.state, "live"));
+	else if (input.archived === "only") filters.push(ne(tables.person.state, "live"));
+	if (input.search) {
+		const term = input.search.toLowerCase();
+		filters.push(
+			sql`(strpos(lower(${tables.person.display_name}),${term})>0 OR strpos(lower(coalesce(${tables.person.email},'')),${term})>0 OR strpos(lower(coalesce(${tables.person.phone},'')),${term})>0)`,
 		);
 	}
-	values.push(input.limit + 1);
-	const result = await tx.query(
-		`SELECT p.* FROM person p WHERE ${where.join(" AND ")} ORDER BY ${input.view === "pipeline" ? "p.pipeline_position," : ""}p.created_at,p.id LIMIT $${values.length}`,
-		values,
-	);
-	const rows = result.rows.slice(0, input.limit).map((r) => personRow.parse(r));
+	if (input.stages.length) filters.push(inArray(tables.person.stage, input.stages));
+	if (input.sources.length) filters.push(inArray(tables.person.source, input.sources));
+	if (input.tags.length)
+		filters.push(
+			sql`NOT EXISTS(SELECT unnest(${sql.param(input.tags)}::uuid[]) EXCEPT SELECT tag_id FROM person_tag WHERE person_id=${tables.person.id} AND plant_id=${tables.person.plant_id})`,
+		);
+	if (input.adultClassification) filters.push(eq(tables.person.adult_classification, input.adultClassification));
+	if (input.commitment !== "any")
+		filters.push(
+			sql`(CASE WHEN EXISTS(SELECT FROM commitment e JOIN plant pl ON pl.id=e.plant_id WHERE e.plant_id=${tables.person.plant_id} AND e.person_id=${tables.person.id} AND e.voided_at IS NULL AND e.signed_on<=(clock_timestamp() AT TIME ZONE pl.timezone)::date) THEN ${tables.person.commitment_state} ELSE 'unknown' END)=${input.commitment}`,
+		);
+	const total = (
+		await tx
+			.select({ total: count() })
+			.from(tables.person)
+			.where(and(...filters))
+	)[0]!.total;
+	if (cur)
+		filters.push(
+			input.view === "pipeline"
+				? sql`(${tables.person.pipeline_position},${tables.person.created_at},${tables.person.id})>((SELECT pipeline_position FROM person WHERE id=${cur.id}::uuid AND plant_id=${ctx.selected.id}),${cur.at}::timestamptz,${cur.id}::uuid)`
+				: sql`(${tables.person.created_at},${tables.person.id})>(${cur.at}::timestamptz,${cur.id}::uuid)`,
+		);
+	const result = await tx
+		.select()
+		.from(tables.person)
+		.where(and(...filters))
+		.orderBy(
+			...(input.view === "pipeline" ? [asc(tables.person.pipeline_position)] : []),
+			asc(tables.person.created_at),
+			asc(tables.person.id),
+		)
+		.limit(input.limit + 1);
+
+	const rows = result.slice(0, input.limit).map((r) => personRow.parse(r));
 	const items = await Promise.all(rows.map((p) => project(tx, ctx, p))),
 		last = rows.at(-1),
-		more = result.rows.length > input.limit;
+		more = result.length > input.limit;
 	return c.peoplePage.parse({
 		owner: ctx.selected,
 		items,
@@ -134,13 +158,16 @@ export const peopleReader: PeopleReader<Tx> = {
 		return reply(tx, async () => {
 			parse(c.ownAccountPersonRequest, raw);
 			const actor = await authorize(tx, ctx);
-			const r = await tx.query("SELECT id FROM person WHERE tenant_id=$1 AND linked_account_id=$2 AND state='live'", [
-				ctx.selected.id,
-				actor.accountId,
-			]);
-			return c.accountLinkResult.parse(
-				r.rowCount ? { status: "linked", personId: r.rows[0].id } : { status: "unlinked" },
-			);
+			const r = await tx
+				.select({ id: tables.person.id })
+				.from(tables.person)
+				.where(
+					and(
+						and(eq(tables.person.tenant_id, ctx.selected.id), eq(tables.person.linked_account_id, actor.accountId)),
+						eq(tables.person.state, "live"),
+					),
+				);
+			return c.accountLinkResult.parse(r.length ? { status: "linked", personId: r[0]!.id } : { status: "unlinked" });
 		});
 	},
 	async getStatusWarnings(tx, ctx, raw) {
@@ -150,13 +177,18 @@ export const peopleReader: PeopleReader<Tx> = {
 			await authorize(tx, ctx);
 			const p = await person(tx, ctx, input.personId);
 			await canReadPerson(tx, ctx, p);
-			const review = (await tx.query("SELECT material_revision FROM plant WHERE id=$1 FOR SHARE", [ctx.selected.id]))
-				.rows[0].material_revision;
+			const review = (
+				await tx
+					.select({ material_revision: tables.plant.material_revision })
+					.from(tables.plant)
+					.where(eq(tables.plant.id, ctx.selected.id))
+					.for("share")
+			)[0]!.material_revision;
 			const duties = await openDuties(tx, ctx, p),
-				interview = await tx.query("SELECT id FROM interview WHERE person_id=$1 AND plant_id=$2", [
-					p.id,
-					ctx.selected.id,
-				]);
+				interview = await tx
+					.select({ id: tables.interview.id })
+					.from(tables.interview)
+					.where(and(eq(tables.interview.person_id, p.id), eq(tables.interview.plant_id, ctx.selected.id)));
 			const dto = c.plantPerson.parse(await project(tx, ctx, p));
 			return c.statusWarningsResult.parse({
 				personId: p.id,
@@ -164,7 +196,7 @@ export const peopleReader: PeopleReader<Tx> = {
 				reviewRevision: review,
 				openDuties: duties.map((d) => ({ id: d.id, revision: d.revision })),
 				warnings: [
-					...(!interview.rowCount ? ["interview_not_recorded"] : []),
+					...(!interview.length ? ["interview_not_recorded"] : []),
 					...(dto.commitment.state !== "active" ? ["commitment_not_recorded"] : []),
 					...(duties.length ? ["open_duties"] : []),
 				],
@@ -180,8 +212,12 @@ export const peopleReader: PeopleReader<Tx> = {
 			await authorize(tx, ctx);
 			const groups = [];
 			const materialRevision = (
-				await tx.query("SELECT material_revision FROM plant WHERE id=$1 FOR SHARE", [ctx.selected.id])
-			).rows[0].material_revision;
+				await tx
+					.select({ material_revision: tables.plant.material_revision })
+					.from(tables.plant)
+					.where(eq(tables.plant.id, ctx.selected.id))
+					.for("share")
+			)[0]!.material_revision;
 			const queries = c.pipelineColumn.options.map((column) => {
 				const stages = column === "core_group" ? ["core_group", "launch_team", "leader"] : [column];
 				const selected = input.stages.length ? input.stages.filter((s) => stages.includes(s)) : stages;
@@ -222,24 +258,49 @@ export const peopleReader: PeopleReader<Tx> = {
 				const cards = [];
 				for (const dto of page.items) {
 					if (!stages.includes(dto.stage) || (input.stages.length && !input.stages.includes(dto.stage))) continue;
-					const tasks = await tx.query(
-						`SELECT t.id,t.due_date,t.due_at,p.timezone FROM task t JOIN plant p ON p.id=t.plant_id LEFT JOIN obligation o ON o.id=t.obligation_id AND o.plant_id=t.plant_id WHERE t.plant_id=$1 AND t.person_id=$2 AND t.parent_id IS NULL AND t.deleted_at IS NULL AND t.status NOT IN ('complete','no_longer_needed') AND (t.obligation_id IS NULL OR (o.waived_at IS NULL AND o.superseded_at IS NULL)) ORDER BY t.id LIMIT 101`,
-						[ctx.selected.id, dto.id],
-					);
-					if (tasks.rows.length > 100) deny("source_unavailable");
+					const tasks = await tx
+						.select({ id: task_t.id, due_date: task_t.due_date, due_at: task_t.due_at, timezone: plant_p.timezone })
+						.from(task_t)
+						.innerJoin(plant_p, eq(plant_p.id, task_t.plant_id))
+						.leftJoin(
+							obligation_o,
+							and(eq(obligation_o.id, task_t.obligation_id), eq(obligation_o.plant_id, task_t.plant_id)),
+						)
+						.where(
+							and(
+								and(
+									and(
+										and(
+											and(eq(task_t.plant_id, ctx.selected.id), eq(task_t.person_id, dto.id)),
+											isNull(task_t.parent_id),
+										),
+										isNull(task_t.deleted_at),
+									),
+									sql<boolean>`(${task_t.status} NOT IN ('complete', 'no_longer_needed'))`,
+								),
+								or(
+									isNull(task_t.obligation_id),
+									and(isNull(obligation_o.waived_at), isNull(obligation_o.superseded_at)),
+								),
+							),
+						)
+						.orderBy(asc(task_t.id))
+						.limit(101);
+					if (tasks.length > 100) deny("source_unavailable");
 					const today = (
-						await tx.query("SELECT (clock_timestamp() AT TIME ZONE timezone)::date AS today FROM plant WHERE id=$1", [
-							ctx.selected.id,
-						])
-					).rows[0].today;
+						await tx
+							.select({ today: sql<string>`((clock_timestamp() AT TIME ZONE ${tables.plant.timezone}))::date` })
+							.from(tables.plant)
+							.where(eq(tables.plant.id, ctx.selected.id))
+					)[0]!.today;
 					cards.push({
 						person: dto,
-						activeParentDuties: tasks.rows.map((t) => ({
+						activeParentDuties: tasks.map((t) => ({
 							id: t.id,
-							dueOn: t.due_date?.toISOString().slice(0, 10) ?? null,
+							dueOn: t.due_date ?? null,
 							warning: !t.due_date ? "missing_due_date" : t.due_date < today ? "overdue" : "none",
 						})),
-						coverage: tasks.rowCount ? "covered" : "uncovered",
+						coverage: tasks.length ? "covered" : "uncovered",
 					});
 				}
 				groups.push({
@@ -265,25 +326,14 @@ export const peopleReader: PeopleReader<Tx> = {
 			await canReadPerson(tx, ctx, p);
 			const { after, ...query } = input,
 				cur = decode(ctx, query, after);
-			const values: unknown[] = [
-				ctx.selected.id,
-				p.id,
-				cur?.at ?? null,
-				cur?.id ?? null,
-				input.kinds ?? ["note", "activity", "follow_up"],
-				input.limit + 1,
-			];
-			const result = await tx.query(
-				`SELECT * FROM (
-      SELECT id,occurred_at,recorded_at,author_id AS actor_id,revision,body,edited_at,removed_at,'note' AS category,'note' AS kind,NULL::text AS action,NULL::jsonb AS before_value,NULL::jsonb AS after_value,NULL::uuid AS obligation_id,NULL::text AS outcome FROM person_note WHERE tenant_id=$1 AND person_id=$2
+			const result = await tx.execute(sql`SELECT * FROM (
+      SELECT id,occurred_at,recorded_at,author_id AS actor_id,revision,body,edited_at,removed_at,'note' AS category,'note' AS kind,NULL::text AS action,NULL::jsonb AS before_value,NULL::jsonb AS after_value,NULL::uuid AS obligation_id,NULL::text AS outcome FROM person_note WHERE tenant_id=${sql.param(ctx.selected.id)} AND person_id=${sql.param(p.id)}
       UNION ALL
-      SELECT id,occurred_at,recorded_at,actor_id,after_revision AS revision,NULL,NULL,NULL,'activity',CASE WHEN action='people.stage_changed' THEN 'stage_changed' ELSE 'activity' END,action,before_value,after_value,NULL,NULL FROM people_history WHERE tenant_id=$1 AND person_id=$2 AND action IN ('people.created','people.updated','people.retired','people.restored','people.stage_changed','people.recorded','people.corrected')
+      SELECT id,occurred_at,recorded_at,actor_id,after_revision AS revision,NULL,NULL,NULL,'activity',CASE WHEN action='people.stage_changed' THEN 'stage_changed' ELSE 'activity' END,action,before_value,after_value,NULL,NULL FROM people_history WHERE tenant_id=${sql.param(ctx.selected.id)} AND person_id=${sql.param(p.id)} AND action IN ('people.created','people.updated','people.retired','people.restored','people.stage_changed','people.recorded','people.corrected')
       UNION ALL
-      SELECT id,occurred_at,recorded_at,(SELECT actor_id FROM event WHERE target_record_id=contact_outcome.id ORDER BY recorded_at,id LIMIT 1),revision,NULL,NULL,NULL,'follow_up','follow_up',NULL,NULL,NULL,obligation_id,outcome FROM contact_outcome WHERE plant_id=$1 AND person_id=$2 AND voided_at IS NULL
-    ) a WHERE category=ANY($5) AND ($3::timestamptz IS NULL OR (occurred_at,id)>($3::timestamptz,$4::uuid)) ORDER BY occurred_at,id LIMIT $6`,
-				values,
-			);
-			const rows = result.rows.slice(0, input.limit),
+      SELECT id,occurred_at,recorded_at,(SELECT actor_id FROM event WHERE target_record_id=contact_outcome.id ORDER BY recorded_at,id LIMIT 1),revision,NULL,NULL,NULL,'follow_up','follow_up',NULL,NULL,NULL,obligation_id,outcome FROM contact_outcome WHERE plant_id=${sql.param(ctx.selected.id)} AND person_id=${sql.param(p.id)} AND voided_at IS NULL
+    ) a WHERE category=ANY(${sql.param(input.kinds ?? ["note", "activity", "follow_up"])}) AND (${sql.param(cur?.at ?? null)}::timestamptz IS NULL OR (occurred_at,id)>(${sql.param(cur?.at ?? null)}::timestamptz,${sql.param(cur?.id ?? null)}::uuid)) ORDER BY occurred_at,id LIMIT ${sql.param(input.limit + 1)}`);
+			const rows = result.rows.slice(0, input.limit).map((row) => activityRow.parse(row)),
 				items = [];
 			const actions: Record<string, string> = {
 				"people.created": "created",
@@ -311,8 +361,8 @@ export const peopleReader: PeopleReader<Tx> = {
 					items.push({
 						...base,
 						kind: "stage_changed",
-						from: r.before_value.stage,
-						to: r.after_value.stage,
+						from: c.stage.parse(r.before_value?.stage),
+						to: c.stage.parse(r.after_value?.stage),
 					});
 				else if (r.kind === "follow_up")
 					items.push({
@@ -321,7 +371,7 @@ export const peopleReader: PeopleReader<Tx> = {
 						outcome: r.outcome,
 						obligationId: r.obligation_id,
 					});
-				else items.push({ ...base, kind: "activity", action: actions[r.action] });
+				else items.push({ ...base, kind: "activity", action: actions[r.action ?? ""] });
 			}
 			const last = rows.at(-1),
 				more = result.rows.length > input.limit;
