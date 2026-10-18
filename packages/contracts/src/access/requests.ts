@@ -11,9 +11,13 @@ export const organizationPersonRequest = z.strictObject({ personId });
 // Native private-care operations have their own author-bound native boundary;
 // they are deliberately absent from the C0 shared operation vocabulary.
 export const sharedOperationCheckRequest = z.discriminatedUnion("kind", [
-  z.strictObject({ kind: z.literal("read"), operation: operationName, subject,
-    purpose: z.enum(["native", "model", "export", "organization_aggregate"]) }),
-  z.strictObject({ kind: z.literal("write"), operation: operationName, subject, expectedRevision: revision }),
+	z.strictObject({
+		kind: z.literal("read"),
+		operation: operationName,
+		subject,
+		purpose: z.enum(["native", "model", "export", "organization_aggregate"]),
+	}),
+	z.strictObject({ kind: z.literal("write"), operation: operationName, subject, expectedRevision: revision }),
 ]);
 
 // Both adapters use the same domain request. Human approval of exact Evry
@@ -21,5 +25,5 @@ export const sharedOperationCheckRequest = z.discriminatedUnion("kind", [
 export type SharedOperationCheckRequest = z.infer<typeof sharedOperationCheckRequest>;
 export type OrganizationPersonRequest = z.infer<typeof organizationPersonRequest>;
 export const organizationNotesRequest = organizationPersonRequest.extend({
-  after: recordId.optional(),
+	after: recordId.optional(),
 });
