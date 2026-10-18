@@ -1,0 +1,39 @@
+{
+  "install": [
+    "corepack",
+    "pnpm",
+    "install",
+    "--frozen-lockfile"
+  ],
+  "dev": [
+    "corepack",
+    "pnpm",
+    "--filter",
+    "@everyfield/web",
+    "exec",
+    "next",
+    "dev",
+    "--hostname",
+    "127.0.0.1"
+  ],
+  "build": [
+    "corepack",
+    "pnpm",
+    "build"
+  ],
+  "start": [
+    "corepack",
+    "pnpm",
+    "--filter",
+    "@everyfield/web",
+    "exec",
+    "next",
+    "start",
+    "--hostname",
+    "127.0.0.1"
+  ],
+  "env": {
+    "NEXT_TELEMETRY_DISABLED": "1"
+  },
+  "timeoutSeconds": 300
+}

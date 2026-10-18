@@ -3,16 +3,21 @@
   "private": true,
   "packageManager": "pnpm@10.34.6",
   "engines": {
-    "node": ">=22.12"
+    "node": ">=24"
   },
   "scripts": {
     "dev": "pnpm --filter @everyfield/web dev",
     "build": "pnpm --filter @everyfield/web build",
     "lint": "pnpm -r --if-present lint",
     "typecheck": "pnpm -r --if-present typecheck",
-    "check": "pnpm typecheck && pnpm lint && pnpm build",
+    "check": "pnpm typecheck && pnpm lint && pnpm test:workflow && pnpm build",
     "access:export": "pnpm --filter @everyfield/db export",
     "db:migrate": "pnpm --filter @everyfield/db migrate",
-    "test:access": "pnpm --filter @everyfield/domain test"
+    "test:access": "pnpm --filter @everyfield/domain test",
+    "stack:up": "node scripts/stack.mjs up",
+    "stack:status": "node scripts/stack.mjs status",
+    "stack:down": "node scripts/stack.mjs down",
+    "stack:check": "node scripts/stack.mjs check",
+    "test:workflow": "node scripts/test-workflow.mjs"
   }
 }
