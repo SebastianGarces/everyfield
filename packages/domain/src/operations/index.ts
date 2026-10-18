@@ -6,3 +6,5 @@ export { executeAtomicConsequences } from './atomic.ts';
 export { operatorOperations, operatorScope } from './operator.ts';
 export type { AuthenticateOperator, OperatorScope, OperatorOperation } from './operator.ts';
 export { auditProofCoverage, trackWork } from './proof.ts';
+export { createFixtureSwitcher } from './fixtures.ts';
+export type { FixtureConfig } from './fixtures.ts';

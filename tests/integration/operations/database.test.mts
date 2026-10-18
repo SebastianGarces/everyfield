@@ -7,6 +7,8 @@ import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { migrate as applyVersionedMigration, migrationArtifact, adoptMigrationHistory, inspectMigrationProvenance } from '../../../packages/db/src/schema/migrate.ts';
 import { executeAtomicConsequences } from '../../../packages/domain/src/operations/atomic.ts';
+import { createFixtureSwitcher } from '../../../packages/domain/src/operations/fixtures.ts';
+import { authStorage } from '../../../packages/db/src/schema/auth-storage.ts';
 import { operatorOperations } from '../../../packages/domain/src/operations/operator.ts';
 import { createTelemetry, telemetryConfig, traceOperation } from '../../../packages/domain/src/operations/telemetry.ts';
 import { createServer } from 'node:http';
@@ -139,4 +141,32 @@ test('INV-mount: authenticated bounded HTTP executor and raw signed callback rem
     assert.equal((await mountExecutor(null)(new Request(url+'/tick',{method:'POST'}))).status,404);
     assert.equal((await mountCallback(null)(new Request(url+'/callback',{method:'POST'}))).status,404);
   }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
+});
+
+
+test('AC:TARGET-IDN-004 fixture switching issues a real allowlisted synthetic session and refuses wrong environments and client authority',async()=>{
+  const appRequire=createRequire(new URL('../../../apps/web/package.json',import.meta.url));
+  const {betterAuth}=await import(appRequire.resolve('better-auth'));
+  const auth=betterAuth({database:admin,baseURL:'http://localhost',secret:randomBytes(32).toString('hex'),...authStorage,emailAndPassword:{enabled:true},advanced:{database:{generateId:()=>randomUUID()}},logger:{disabled:true}});
+  const email=randomUUID()+'@example.test',password=randomBytes(20).toString('hex'),account=randomUUID();
+  const created=await auth.api.signUpEmail({body:{email,name:'Fresh Synthetic Fixture',password}});
+  await admin.query("INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES($1,$2,'active','planter')",[account,created.user.id]);
+  const target=(await admin.query('SELECT current_database() AS database,current_user AS role,current_schema() AS schema')).rows[0];
+  const c={enabled:true,environment:'development',target,fixtures:{planter:{account,user:created.user.id,email,password}}};
+  const switcher=createFixtureSwitcher(admin,c,credentials=>auth.api.signInEmail({body:credentials,asResponse:true}));
+  const saved=Object.fromEntries(['EVERYFIELD_FIXTURES_ENABLED','EVERYFIELD_ENVIRONMENT','NODE_ENV','VERCEL_ENV'].map(name=>[name,process.env[name]]));
+  const sessions=async()=>(await admin.query('SELECT count(*)::int n FROM auth_session WHERE user_id=$1',[created.user.id])).rows[0].n;
+  try{
+    delete process.env.VERCEL_ENV;process.env.NODE_ENV='development';process.env.EVERYFIELD_ENVIRONMENT='development';delete process.env.EVERYFIELD_FIXTURES_ENABLED;
+    const before=await sessions();assert.equal((await switcher({fixture:'planter'})).status,404);
+    process.env.EVERYFIELD_FIXTURES_ENABLED='1';
+    for(const command of [{fixture:'unknown'},{fixture:'planter',role:'owner'},{fixture:'planter',environment:'production'}])assert.equal((await switcher(command)).status,404);
+    process.env.EVERYFIELD_ENVIRONMENT='preview';assert.equal((await switcher({fixture:'planter'})).status,404);process.env.EVERYFIELD_ENVIRONMENT='development';
+    process.env.NODE_ENV='production';assert.equal((await switcher({fixture:'planter'})).status,404);process.env.NODE_ENV='development';
+    const wrong=createFixtureSwitcher(admin,{...c,target:{...target,database:'foreign'}},credentials=>auth.api.signInEmail({body:credentials,asResponse:true}));assert.equal((await wrong({fixture:'planter'})).status,404);
+    assert.equal(await sessions(),before);
+    const response=await switcher({fixture:'planter'});assert.equal(response.status,200);assert.deepEqual(await response.json(),{switched:true});
+    const cookie=response.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');assert.ok(cookie.length>0);
+    const session=await auth.api.getSession({headers:new Headers({cookie})});assert.equal(session.user.id,created.user.id);assert.equal(await sessions(),before+1);
+  }finally{for(const [name,value]of Object.entries(saved)){if(value===undefined)delete process.env[name];else process.env[name]=value;}}
 });

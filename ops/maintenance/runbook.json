@@ -26,7 +26,17 @@
     "liveness": "/api/health returns process status and UTC time only, private no-store.",
     "executor": "/api/internal/jobs is disabled. mountExecutor composes the WP-031 executor with registered feature handlers and fresh domain publishers; trigger authentication grants no domain authority.",
     "callback": "/api/callbacks/mail is disabled. mountCallback verifies raw signed bytes before durable safe receipts. No live subscription or credentials are configured.",
-    "supported_callback_types": ["email.accepted", "email.scheduled", "email.sent", "email.delivered", "email.bounced", "email.complained", "email.opened", "email.clicked", "email.cancelled"],
+    "supported_callback_types": [
+      "email.accepted",
+      "email.scheduled",
+      "email.sent",
+      "email.delivered",
+      "email.bounced",
+      "email.complained",
+      "email.opened",
+      "email.clicked",
+      "email.cancelled"
+    ],
     "execution": "One same-app Next Node invocation, at most 30 seconds, WP-031 internal request bounds. No standalone worker or new scheduler.",
     "activation": "Integrating feature owners supply actual handlers and current authorization. Explicit owner approval is required before live subscription, Vercel schedule or provider settings."
   },
@@ -44,7 +54,7 @@
     "spending": "No added paid plan, service or account. G-SPEND remains open; obtain explicit approval of a concrete low/expected/high monthly cost and usage envelope before commitment."
   },
   "downstream": [
-    "WP-005 and feature owners integrate real fixture sessions and current grants; no account switching surface is added here.",
+    "WP-005 and UI owners connect the tested internal fixture-session adapter through a development-only transport with the exact managed target and fresh synthetic allowlist. No switching surface exists in production.",
     "Lifecycle/document owners supply complete registered purge/restore consumers and inverse fixtures before lifecycle closure.",
     "WP-042 runs actual pinned synthetic fleet evaluations; proof inspection never runs a model or authorizes rollout.",
     "WP-049 supplies safe feedback publication and the actual owner workflow handoff; no engineering board integration is enabled.",
