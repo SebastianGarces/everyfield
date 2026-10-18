@@ -4,7 +4,24 @@
   "worktreeDir": ".worktrees",
   "statusContext": "evf/verify",
   "maxAgentsMdLines": 150,
-  "stack": null,
+  "stack": {
+    "usesPaidProviders": false,
+    "up": [
+      "node",
+      "scripts/stack.mjs",
+      "up"
+    ],
+    "status": [
+      "node",
+      "scripts/stack.mjs",
+      "status"
+    ],
+    "down": [
+      "node",
+      "scripts/stack.mjs",
+      "down"
+    ]
+  },
   "checks": [
     {
       "name": "workflow-regressions",
@@ -18,6 +35,14 @@
       "run": [
         "python3",
         "docs/check-all.py"
+      ]
+    },
+    {
+      "name": "local-app",
+      "run": [
+        "corepack",
+        "pnpm",
+        "check"
       ]
     }
   ],
@@ -197,6 +222,54 @@
       "title": "Case checker counts",
       "owningPaths": [
         "docs/acceptance/"
+      ],
+      "checks": [
+        {
+          "name": "documentation",
+          "run": [
+            "python3",
+            "docs/check-all.py"
+          ]
+        },
+        {
+          "name": "workflow-regressions",
+          "run": [
+            "bin/evf",
+            "test"
+          ]
+        }
+      ],
+      "risk": "ordinary"
+    },
+    "OPS-6": {
+      "title": "Tooling follow-ups",
+      "owningPaths": [
+        ".agents/skills/everyfield-pr/SKILL.md",
+        "tools/evf/",
+        "docs/acceptance/"
+      ],
+      "checks": [
+        {
+          "name": "documentation",
+          "run": [
+            "python3",
+            "docs/check-all.py"
+          ]
+        },
+        {
+          "name": "workflow-regressions",
+          "run": [
+            "bin/evf",
+            "test"
+          ]
+        }
+      ],
+      "risk": "ordinary"
+    },
+    "OPS-7": {
+      "title": "Transfer generated build progress",
+      "owningPaths": [
+        "docs/build-progress.json"
       ],
       "checks": [
         {
