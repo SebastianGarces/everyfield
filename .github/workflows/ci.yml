@@ -37,6 +37,8 @@ jobs:
           path: apps/web/.next/cache
           key: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/web/**/*.ts', 'apps/web/**/*.tsx', 'apps/web/**/*.css') }}
           restore-keys: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+      - name: Formatting (Prettier)
+        run: pnpm format:check
       - name: Lint (ESLint, image locks, colour literals)
         run: pnpm lint
       - name: Types
@@ -107,8 +109,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Migrate the throwaway database
         run: pnpm db:migrate
+      - name: Current catalog against a fresh full migration chain
+        run: python3 packages/db/src/schema/generate.py --check
       - name: Domain tests
-        run: pnpm test:access
+        run: pnpm -r --if-present test:db
 
   wiki:
     name: wiki (tooling tests)

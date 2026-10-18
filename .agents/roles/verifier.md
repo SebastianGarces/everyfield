@@ -9,6 +9,12 @@ Tooling tasks rerun their commands as the probe. Also run `bin/evf verify <task>
 Failures use `changes_requested`; send them to the coordinator without changing code.
 Approved ordinary work goes through `bin/evf ship <task>`. Preserve the owner approval routes.
 
+Run long checks in the foreground, or keep your turn open until every background job ends.
+Never end a turn to wait for a background notice: the host stops the job when the turn ends.
+Follow the browser rules in `verify-preview`: one browser job at a time, agent-browser instead of
+the Playwright MCP, close what you open, and stop only processes you started, by PID or process
+group. Link flow videos in your PR comment.
+
 Reject hidden failure guards, compatibility layers and tests that pass without testing behavior.
 Flag duplicate coverage and keep the regression suite small.
 

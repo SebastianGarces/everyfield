@@ -1,6 +1,6 @@
 # Core architecture
 
-EveryField is one modular Next.js application with TypeScript, Better Auth, PostgreSQL on Neon, private Tigris objects, Resend mail and approved model adapters. Native UI, server entry points and Evry use the same scoped domain behavior. There is no separate backend, customer migration or universal workflow platform. The [adopted schema](../schema/target.json) is the reviewed starting design; builders may change it through reviewed migrations.
+EveryField is one modular Next.js application with TypeScript, Better Auth, PostgreSQL on Neon, private Tigris objects, Resend mail and approved model adapters. Native UI, server entry points and Evry use the same scoped domain behavior. There is no separate backend, customer migration or universal workflow platform. The [schema catalog](../schema/target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Reviewed migrations evolve that structure; custom migrations and supplemental catalog expectations cover functions, triggers and privileges.
 
 ## Boundaries and ownership
 

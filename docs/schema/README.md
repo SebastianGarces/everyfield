@@ -1,8 +1,8 @@
 # Adopted target schema
 
-[target.json](target.json) is the only schema authority. Sebastian adopted this reviewed starting design on 2026-10-14. Builders may change it later through a reviewed migration. Application implementation is not authorized by this documentation change.
+[target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 120 tables, 1412 columns, 488 declared FKs and 13 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 126 tables, 1449 columns, 505 declared FKs and 19 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -16,7 +16,7 @@ python3 docs/schema/render-diagram.py
 python3 docs/package-context.py --check-manifest
 ```
 
-[schema-diagram.html](schema-diagram.html) is an offline ERD generated from this authority. [relations.md](relations.md) lists its exact relations. [design-rules.md](design-rules.md) retains the adopted privacy, history and ownership rules. Capability inventories are under `capabilities/`.
+[schema-diagram.html](schema-diagram.html) is an offline ERD generated from this catalog. [relations.md](relations.md) lists its exact relations. [design-rules.md](design-rules.md) retains the adopted privacy, history and ownership rules. Capability inventories are under `capabilities/`.
 
 The checker validates structural keys, FK existence/arity/types, unconditional referenced keys, owner pairs and named exceptions, UUID relations, literal closed sets, NULL guards, JSONB key documentation, catalog coverage, producer packages and Person registrations. It does not execute SQL, triggers, Better Auth, authorization races, storage, providers or application acceptance. Independent semantic review remains required.
 
@@ -38,39 +38,45 @@ Each replaced table inherits the union of producer packages from its previous ta
 
 | New table | Ownership basis and ruling | Producers |
 |---|---|---|
-| `identity_proof` | Application-owned email-change/cancellation proof splits from account/auth and deletion facts; password reset remains library-owned. | WP-004, WP-005, WP-010, WP-050, WP-057 |
-| `training_requirement` | Required work splits from the existing immutable training version. | WP-004, WP-019 |
-| `private_calendar` | Original-author rollover splits from private check-in facts; no generic record or shared event identity. | WP-004, WP-039 |
 | `article_link` | Typed topology splits from immutable Wiki article revision facts. | WP-004, WP-033, WP-035 |
 | `assessment_fact` | Typed immutable facts split from plant/organization assessment snapshots; WP-040 owns fact capture. Add WP-040 for the explicit deterministic fact-capture producer. | WP-004, WP-038, WP-040, WP-042, WP-043, WP-044, WP-047 |
-| `mail_request` | Exact request/replay clock splits from the shared mail intent/attempt ledger. | WP-004, WP-028, WP-031 |
-| `mail_request_member` | Exact ordered membership splits from the shared mail intent/attempt ledger. | WP-004, WP-028, WP-031 |
-| `digest_coverage` | Recipient digest coverage splits from inbox notification production. | WP-004, WP-030 |
-| `effect_dependency` | Relational dependency DAG splits from reviewed effect manifests. | WP-004, WP-053 |
-| `prompt_dismissal` | Own-context optional prompt choice splits from feedback production. | WP-004, WP-049 |
-| `evidence_link` | Selections, citations, provenance and inverse guards split from the named previous consumer manifests; original consumers retain their writer responsibilities. | WP-004, WP-015, WP-019, WP-021, WP-022, WP-024, WP-027, WP-028, WP-029, WP-030, WP-031, WP-033, WP-035, WP-038, WP-042, WP-043, WP-045, WP-046, WP-047, WP-050, WP-051, WP-053, WP-057 |
-| `tenant` | Stable body-free ownership is shared by root and deletion producers; no independent access grant. | WP-004, WP-005, WP-007, WP-010, WP-050, WP-057 |
-| `record` | Referenceable subtype writers must bind their own actual identity and owner; inherit the union of those writers, with WP-004 owning trigger/DDL proof. | WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-012, WP-013, WP-014, WP-015, WP-016, WP-017, WP-018, WP-019, WP-020, WP-021, WP-022, WP-023, WP-024, WP-026, WP-027, WP-028, WP-029, WP-030, WP-031, WP-032, WP-033, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-042, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049, WP-050, WP-051, WP-053, WP-054, WP-057, WP-098, WP-099 |
-| `early_access_request` | WP-097 owns the applied early access migration 0001 request table; no product scaffold or tenant prerequisite. Field shape follows the approved E3 contract and receipt shape follows E4. | WP-097 |
-| `early_access_attempt` | WP-097 owns the applied migration 0001 limiter table, without an invented primary key. | WP-097 |
-| `schema_migration` | WP-097 installs the migration runner ledger with its physical text primary key. | WP-097 |
-| `sending_goal` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
-| `pipeline_stage` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
-| `pipeline_person` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
-| `pipeline_stage_move` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
-| `leadership_conversation` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
+| `assignment_feedback` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
+| `development_enrollment` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
+| `development_milestone` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
 | `development_program` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
 | `development_program_version` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
-| `development_stage` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
-| `development_milestone` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
 | `development_reading` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
-| `development_enrollment` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
+| `development_stage` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
+| `digest_coverage` | Recipient digest coverage splits from inbox notification production. | WP-004, WP-030 |
+| `early_access_attempt` | WP-097 owns the applied migration 0001 limiter table, without an invented primary key. | WP-097 |
+| `early_access_request` | WP-097 owns the applied early access migration 0001 request table; no product scaffold or tenant prerequisite. Field shape follows the approved E3 contract and receipt shape follows E4. | WP-097 |
+| `effect_dependency` | Relational dependency DAG splits from reviewed effect manifests. | WP-004, WP-053 |
 | `enrollment_milestone` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
-| `assignment_feedback` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
-| `residency_link` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-008 |
-| `pipeline_sharing` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-007 |
 | `enrollment_plan` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
+| `evidence_link` | Selections, citations, provenance and inverse guards split from the named previous consumer manifests; original consumers retain their writer responsibilities. | WP-004, WP-015, WP-019, WP-021, WP-022, WP-024, WP-027, WP-028, WP-029, WP-030, WP-031, WP-033, WP-035, WP-038, WP-042, WP-043, WP-045, WP-046, WP-047, WP-050, WP-051, WP-053, WP-057 |
+| `identity_proof` | Application-owned email-change/cancellation proof splits from account/auth and deletion facts; password reset remains library-owned. | WP-004, WP-005, WP-010, WP-050, WP-057 |
+| `leadership_conversation` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
+| `mail_request` | Exact request/replay clock splits from the shared mail intent/attempt ledger. | WP-004, WP-028, WP-031 |
+| `mail_request_member` | Exact ordered membership splits from the shared mail intent/attempt ledger. | WP-004, WP-028, WP-031 |
+| `organization_operation_result` | WP-007 native organization adapter storage introduced by forward migration 0005; D29/D32 current-catalog authority. | WP-007 |
 | `organization_person_removal` | WP-011 owns removal and WP-050 synchronizes body-free witnesses into recovery; WP-004 installs the baseline. | WP-004, WP-011, WP-050 |
+| `people_column` | WP-011 People producer storage introduced by additive migration 0004; D30/D32 current-catalog registration. | WP-011 |
+| `people_history` | WP-011 People producer storage introduced by additive migration 0004; D30/D32 current-catalog registration. | WP-011 |
+| `people_result` | WP-011 People producer storage introduced by additive migration 0004; D30/D32 current-catalog registration. | WP-011 |
+| `pipeline_person` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
+| `pipeline_sharing` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-007 |
+| `pipeline_stage` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
+| `pipeline_stage_move` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
+| `private_calendar` | Original-author rollover splits from private check-in facts; no generic record or shared event identity. | WP-004, WP-039 |
+| `prompt_dismissal` | Own-context optional prompt choice splits from feedback production. | WP-004, WP-049 |
+| `record` | Referenceable subtype writers must bind their own actual identity and owner; inherit the union of those writers, with WP-004 owning trigger/DDL proof. | WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-012, WP-013, WP-014, WP-015, WP-016, WP-017, WP-018, WP-019, WP-020, WP-021, WP-022, WP-023, WP-024, WP-026, WP-027, WP-028, WP-029, WP-030, WP-031, WP-032, WP-033, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-042, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049, WP-050, WP-051, WP-053, WP-054, WP-057, WP-098, WP-099 |
+| `relationship_history` | WP-007 native organization adapter storage introduced by forward migration 0005; D29/D32 current-catalog authority. | WP-007 |
+| `relationship_invitation` | WP-007 native organization adapter storage introduced by forward migration 0005; D29/D32 current-catalog authority. | WP-007 |
+| `residency_link` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-008 |
+| `schema_migration` | WP-097 installs the migration runner ledger with its physical text primary key. | WP-097 |
+| `sending_goal` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
+| `tenant` | Stable body-free ownership is shared by root and deletion producers; no independent access grant. | WP-004, WP-005, WP-007, WP-010, WP-050, WP-057 |
+| `training_requirement` | Required work splits from the existing immutable training version. | WP-004, WP-019 |
 
 `assessment_fact` also adds WP-040, which owns deterministic fact capture. Its remaining producers inherit the replaced assessment stores. Original-author care excludes generic record/history movement. The Person registry is rebuilt from all adopted Person FKs; generic person-kind record references and frozen opaque inputs are separately registered as immutable evidence.
 
@@ -383,19 +389,20 @@ Each name identifies one exact FK. The checker requires this list whenever `targ
 
 ## Additional scope exceptions
 
-- `pipeline_person(responsible_seat_id) -> seat(id)`: Current eligible duty seat belongs to the exact organization. Serialized boundary checks seat tenant/kind and current authority; the relation grants no broader access.
-- `pipeline_stage_move(actor_id) -> account(id)`: Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal.
-- `leadership_conversation(staff_account_id) -> account(id)`: Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal.
+- `assignment_feedback(author_id) -> account(id)`: Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal.
 - `development_program(director_seat_id) -> seat(id)`: Current eligible duty seat belongs to the exact organization. Serialized boundary checks seat tenant/kind and current authority; the relation grants no broader access.
 - `development_reading(article_id) -> reference_item(id)`: Reading source may be global or an entitled organization revision. Recheck canonical article identity, published state and current source rights at every read; the pointer grants no library access.
 - `development_reading(source_revision_id) -> article_revision(id)`: Reading source may be global or an entitled organization revision. Recheck canonical article identity, published state and current source rights at every read; the pointer grants no library access.
 - `enrollment_milestone(completed_by) -> account(id)`: Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal.
 - `enrollment_milestone(confirmed_by) -> account(id)`: Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal.
-- `assignment_feedback(author_id) -> account(id)`: Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal.
-- `residency_link(account_id) -> account(id)`: Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal.
-- `residency_link(affiliation_id) -> affiliation(id)`: The current exact account/organization affiliation must match the accepted link endpoints; it never authorizes general account or organization reads.
+- `leadership_conversation(staff_account_id) -> account(id)`: Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal.
+- `pipeline_person(responsible_seat_id) -> seat(id)`: Current eligible duty seat belongs to the exact organization. Serialized boundary checks seat tenant/kind and current authority; the relation grants no broader access.
 - `pipeline_sharing(relationship_id) -> affiliation(id)`: The affiliation must name this sending church and exact current sending network; no inherited or transitive sharing.
 - `pipeline_sharing(changed_by) -> account(id)`: Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal.
+- `pipeline_stage_move(actor_id) -> account(id)`: Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal.
+- `relationship_invitation(invitation_id) -> invitation(id)`: Invitation owner is the initiating endpoint. The native invitation command validates this exact typed pair and current subject authority.
+- `residency_link(account_id) -> account(id)`: Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal.
+- `residency_link(affiliation_id) -> affiliation(id)`: The current exact account/organization affiliation must match the accepted link endpoints; it never authorizes general account or organization reads.
 
 ## Architecture alignment amendments
 
@@ -409,5 +416,7 @@ Fix 2 records these small gap fixes to the adopted starting schema. They do not 
 | FIX2-JOB | Add document_render to job.kind for the already required durable render handler; restricted backup/expiry remain outside ordinary job dispatch. |
 | E1-ACCESS-REQUEST | Align WP-097 with applied E4 migration 0001 and its runner: early_access_request with validated data/frozen mail payload and nullable receipt fields, keyless early_access_attempt limiter facts, and schema_migration with its text key. Strict retention cutoffs and the approved E3 field/phase contract apply; no tenant or product tables are consumed. |
 | ADR001-CONTRACT | Owner-approved organization Person lifecycle, consented seatless residency and stage 1/2 pipeline/program records; stages 3/4 deferred. |
+| D32-CURRENT-MIGRATIONS | Current target includes WP-007 consent revision, exact invitation endpoints, protected relationship history and immutable operation results. Verify the full ordered migration chain against this catalog; applied baseline and privilege migration bytes stay frozen. |
+| D32-PEOPLE-PRODUCER | WP-011 additive 0004 registers protected Person history, exact results, pipeline ordering, normalized Person references and removed-note body-free tombstones; fresh full migration proof includes ordered 0004 and 0005 without rewriting applied SQL. |
 
 The architecture and Person checks compare documentation identifiers and registries with this authority. They do not execute database triggers, auth or restore. Material revisions come from intelligence-owned database triggers on assessment input tables, proved against the input builder. Before customer data, G-RECOVERY adds encrypted daily copies, witness synchronization and the restricted backup host; build recovery uses native seven-day Neon/Tigris history.

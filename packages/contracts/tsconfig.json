@@ -1,18 +1,14 @@
 {
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "allowImportingTsExtensions": true,
-    "types": [
-      "node"
-    ],
-    "typeRoots": [
-      "./node_modules/@types"
-    ]
-  },
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.mts",
-    "../../tests/contracts/common/**/*.ts",
-    "../../tests/contracts/common/**/*.mts"
-  ]
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"allowImportingTsExtensions": true,
+		"types": ["node"],
+		"typeRoots": ["./node_modules/@types"]
+	},
+	"include": [
+		"src/**/*.ts",
+		"src/**/*.mts",
+		"../../tests/contracts/common/**/*.ts",
+		"../../tests/contracts/common/**/*.mts"
+	]
 }

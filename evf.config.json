@@ -1,312 +1,250 @@
 {
-  "baseBranch": "main",
-  "remote": "origin",
-  "worktreeDir": ".worktrees",
-  "statusContext": "evf/verify",
-  "maxAgentsMdLines": 150,
-  "stack": {
-    "usesPaidProviders": false,
-    "up": [
-      "node",
-      "scripts/stack.mjs",
-      "up"
-    ],
-    "status": [
-      "node",
-      "scripts/stack.mjs",
-      "status"
-    ],
-    "down": [
-      "node",
-      "scripts/stack.mjs",
-      "down"
-    ]
-  },
-  "checks": [
-    {
-      "name": "workflow-regressions",
-      "run": [
-        "bin/evf",
-        "test"
-      ]
-    },
-    {
-      "name": "documentation",
-      "run": [
-        "python3",
-        "docs/check-all.py"
-      ]
-    },
-    {
-      "name": "local-app",
-      "run": [
-        "corepack",
-        "pnpm",
-        "check"
-      ]
-    },
-    {
-      "name": "package-unit-tests",
-      "run": [
-        "corepack",
-        "pnpm",
-        "-r",
-        "--if-present",
-        "test:unit"
-      ]
-    }
-  ],
-  "principles": {
-    "repo": "cursor/plugins",
-    "path": "pstack/skills",
-    "prefix": "principle-",
-    "ref": "main",
-    "license": "pstack/LICENSE",
-    "checkEveryDays": 7
-  },
-  "feedback": {
-    "repo": null,
-    "botAuthor": null,
-    "triageAuthors": [],
-    "dailyFixLimit": 3,
-    "internalLabel": "from-feedback",
-    "triageCron": "0 13 * * *",
-    "botAuthorId": null,
-    "triageActorIds": [],
-    "startApprovals": [],
-    "overLimitApprovals": [],
-    "ownerActorIds": [],
-    "promotionApprovals": [],
-    "replyApprovals": {},
-    "publicAreas": [],
-    "publicTemplates": []
-  },
-  "mergePolicy": {
-    "ordinary": "automatic-after-independent-review",
-    "feedbackVerifierMerge": [
-      "p0",
-      "p1"
-    ],
-    "feedbackOwnerAfterVerifier": [
-      "p2",
-      "p3"
-    ],
-    "feedbackPrototypes": "owner-merge",
-    "humanApproved": "evf-approve-after-owner-chat-approval",
-    "ordinaryApproval": {
-      "sourceMessageId": "Sentinel_ba84c52d1db0819187f0c9dd1a1c0165",
-      "approvedAtUtc": "2026-10-13T23:37:00Z",
-      "scope": "Ordinary build PRs only, after required final-head tests, independent approved review and applicable gates; no app kickoff or external setup authority."
-    },
-    "feedbackApproval": {
-      "approvedAtUtc": "2026-10-16T01:27:45Z",
-      "scope": "P0 and P1 feedback bug fixes merge through the cross-model verifier like ordinary builds. P2 and P3 get the same full verification, then wait for Sebastian's chat approval before an agent merges them with evf approve. Prototypes need Sebastian's approval."
-    },
-    "wikiApproval": {
-      "approvedAtUtc": "2026-10-15T18:52:26Z",
-      "scope": "Wiki article PRs never merge automatically and need no evf/verify; the Wiki workflow's own Opus review is their check. After Sebastian approves a PR in chat, the agent merges it with evf approve."
-    },
-    "sensitive": "owner-escalation-required"
-  },
-  "maintenanceTasks": {
-    "OPS-1": {
-      "title": "Phase 7 follow-ups",
-      "owningPaths": [
-        "AGENTS.md",
-        ".agents/skills/verify/",
-        ".agents/skills/verify-preview/",
-        ".agents/roles/",
-        ".github/workflows/fail-forward.yml",
-        ".github/scripts/fail-forward.cjs",
-        ".github/scripts/fail-forward.test.cjs",
-        ".github/scripts/internal-feedback-queue.cjs",
-        ".github/scripts/internal-feedback-queue.test.cjs",
-        "docs/plan/release-gates.json",
-        "tools/evf/tests/reconciliation.test.ts"
-      ],
-      "checks": [
-        {
-          "name": "documentation",
-          "run": [
-            "python3",
-            "docs/check-all.py"
-          ]
-        },
-        {
-          "name": "workflow-regressions",
-          "run": [
-            "bin/evf",
-            "test"
-          ]
-        },
-        {
-          "name": "reporter-tests",
-          "run": [
-            "node",
-            "--test",
-            ".github/scripts/fail-forward.test.cjs",
-            ".github/scripts/internal-feedback-queue.test.cjs"
-          ]
-        }
-      ],
-      "risk": "ordinary"
-    },
-    "OPS-2": {
-      "title": "Record the implementation kickoff",
-      "owningPaths": [
-        "docs/plan/release-gates.json"
-      ],
-      "checks": [
-        {
-          "name": "documentation",
-          "run": [
-            "python3",
-            "docs/check-all.py"
-          ]
-        },
-        {
-          "name": "workflow-regressions",
-          "run": [
-            "bin/evf",
-            "test"
-          ]
-        }
-      ],
-      "risk": "ordinary"
-    },
-    "OPS-3": {
-      "title": "evf fixes",
-      "owningPaths": [
-        "tools/evf/",
-        ".github/workflows/pr-body.yml"
-      ],
-      "checks": [
-        {
-          "name": "documentation",
-          "run": [
-            "python3",
-            "docs/check-all.py"
-          ]
-        },
-        {
-          "name": "workflow-regressions",
-          "run": [
-            "bin/evf",
-            "test"
-          ]
-        }
-      ],
-      "risk": "ordinary"
-    },
-    "OPS-4": {
-      "title": "Skill provenance and principle refresh",
-      "owningPaths": [
-        "skills-lock.json",
-        ".agents/licenses/pstack-LICENSE",
-        ".agents/skills/principle-attack-the-premise/",
-        ".agents/skills/principle-fix-root-causes/",
-        ".agents/skills/principle-make-operations-idempotent/",
-        ".agents/skills/principle-migrate-callers-then-delete-legacy-apis/",
-        ".agents/skills/principle-test-behavior-not-implementation/",
-        ".agents/skills/principle-type-system-discipline/"
-      ],
-      "checks": [
-        {
-          "name": "documentation",
-          "run": [
-            "python3",
-            "docs/check-all.py"
-          ]
-        },
-        {
-          "name": "workflow-regressions",
-          "run": [
-            "bin/evf",
-            "test"
-          ]
-        }
-      ],
-      "risk": "ordinary"
-    },
-    "OPS-5": {
-      "title": "Case checker counts",
-      "owningPaths": [
-        "docs/acceptance/"
-      ],
-      "checks": [
-        {
-          "name": "documentation",
-          "run": [
-            "python3",
-            "docs/check-all.py"
-          ]
-        },
-        {
-          "name": "workflow-regressions",
-          "run": [
-            "bin/evf",
-            "test"
-          ]
-        }
-      ],
-      "risk": "ordinary"
-    },
-    "OPS-6": {
-      "title": "Tooling follow-ups",
-      "owningPaths": [
-        ".agents/skills/everyfield-pr/SKILL.md",
-        "tools/evf/",
-        "docs/acceptance/",
-        ".github/workflows/ci.yml"
-      ],
-      "checks": [
-        {
-          "name": "documentation",
-          "run": [
-            "python3",
-            "docs/check-all.py"
-          ]
-        },
-        {
-          "name": "workflow-regressions",
-          "run": [
-            "bin/evf",
-            "test"
-          ]
-        }
-      ],
-      "risk": "ordinary"
-    },
-    "OPS-7": {
-      "title": "Transfer generated build progress",
-      "owningPaths": [
-        "docs/build-progress.json"
-      ],
-      "checks": [
-        {
-          "name": "documentation",
-          "run": [
-            "python3",
-            "docs/check-all.py"
-          ]
-        },
-        {
-          "name": "workflow-regressions",
-          "run": [
-            "bin/evf",
-            "test"
-          ]
-        }
-      ],
-      "risk": "ordinary"
-    }
-  },
-  "internalFeedback": {
-    "repo": "SebastianGarces/everyfield",
-    "priorities": [
-      "P0",
-      "P1"
-    ],
-    "triageCron": "*/5 * * * *"
-  }
+	"baseBranch": "main",
+	"remote": "origin",
+	"worktreeDir": ".worktrees",
+	"statusContext": "evf/verify",
+	"maxAgentsMdLines": 150,
+	"stack": {
+		"usesPaidProviders": false,
+		"up": ["node", "scripts/stack.mjs", "up"],
+		"status": ["node", "scripts/stack.mjs", "status"],
+		"down": ["node", "scripts/stack.mjs", "down"]
+	},
+	"checks": [
+		{
+			"name": "workflow-regressions",
+			"run": ["bin/evf", "test"]
+		},
+		{
+			"name": "documentation",
+			"run": ["python3", "docs/check-all.py"]
+		},
+		{
+			"name": "local-app",
+			"run": ["corepack", "pnpm", "check"]
+		},
+		{
+			"name": "package-unit-tests",
+			"run": ["corepack", "pnpm", "-r", "--if-present", "test:unit"]
+		},
+		{
+			"name": "format",
+			"run": ["corepack", "pnpm", "format:check"]
+		}
+	],
+	"principles": {
+		"repo": "cursor/plugins",
+		"path": "pstack/skills",
+		"prefix": "principle-",
+		"ref": "main",
+		"license": "pstack/LICENSE",
+		"checkEveryDays": 7
+	},
+	"feedback": {
+		"repo": null,
+		"botAuthor": null,
+		"triageAuthors": [],
+		"dailyFixLimit": 3,
+		"internalLabel": "from-feedback",
+		"triageCron": "0 13 * * *",
+		"botAuthorId": null,
+		"triageActorIds": [],
+		"startApprovals": [],
+		"overLimitApprovals": [],
+		"ownerActorIds": [],
+		"promotionApprovals": [],
+		"replyApprovals": {},
+		"publicAreas": [],
+		"publicTemplates": []
+	},
+	"mergePolicy": {
+		"ordinary": "automatic-after-independent-review",
+		"feedbackVerifierMerge": ["p0", "p1"],
+		"feedbackOwnerAfterVerifier": ["p2", "p3"],
+		"feedbackPrototypes": "owner-merge",
+		"humanApproved": "evf-approve-after-owner-chat-approval",
+		"ordinaryApproval": {
+			"sourceMessageId": "Sentinel_ba84c52d1db0819187f0c9dd1a1c0165",
+			"approvedAtUtc": "2026-10-13T23:37:00Z",
+			"scope": "Ordinary build PRs only, after required final-head tests, independent approved review and applicable gates; no app kickoff or external setup authority."
+		},
+		"feedbackApproval": {
+			"approvedAtUtc": "2026-10-16T01:27:45Z",
+			"scope": "P0 and P1 feedback bug fixes merge through the cross-model verifier like ordinary builds. P2 and P3 get the same full verification, then wait for Sebastian's chat approval before an agent merges them with evf approve. Prototypes need Sebastian's approval."
+		},
+		"wikiApproval": {
+			"approvedAtUtc": "2026-10-15T18:52:26Z",
+			"scope": "Wiki article PRs never merge automatically and need no evf/verify; the Wiki workflow's own Opus review is their check. After Sebastian approves a PR in chat, the agent merges it with evf approve."
+		},
+		"sensitive": "owner-escalation-required"
+	},
+	"maintenanceTasks": {
+		"OPS-1": {
+			"title": "Phase 7 follow-ups",
+			"owningPaths": [
+				"AGENTS.md",
+				".agents/skills/verify/",
+				".agents/skills/verify-preview/",
+				".agents/roles/",
+				".github/workflows/fail-forward.yml",
+				".github/scripts/fail-forward.cjs",
+				".github/scripts/fail-forward.test.cjs",
+				".github/scripts/internal-feedback-queue.cjs",
+				".github/scripts/internal-feedback-queue.test.cjs",
+				"docs/plan/release-gates.json",
+				"tools/evf/tests/reconciliation.test.ts"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				},
+				{
+					"name": "reporter-tests",
+					"run": [
+						"node",
+						"--test",
+						".github/scripts/fail-forward.test.cjs",
+						".github/scripts/internal-feedback-queue.test.cjs"
+					]
+				}
+			],
+			"risk": "ordinary"
+		},
+		"OPS-2": {
+			"title": "Record the implementation kickoff",
+			"owningPaths": ["docs/plan/release-gates.json"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		},
+		"OPS-3": {
+			"title": "evf fixes",
+			"owningPaths": ["tools/evf/", ".github/workflows/pr-body.yml"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		},
+		"OPS-4": {
+			"title": "Skill provenance and principle refresh",
+			"owningPaths": [
+				"skills-lock.json",
+				".agents/licenses/pstack-LICENSE",
+				".agents/skills/principle-attack-the-premise/",
+				".agents/skills/principle-fix-root-causes/",
+				".agents/skills/principle-make-operations-idempotent/",
+				".agents/skills/principle-migrate-callers-then-delete-legacy-apis/",
+				".agents/skills/principle-test-behavior-not-implementation/",
+				".agents/skills/principle-type-system-discipline/"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		},
+		"OPS-5": {
+			"title": "Case checker counts",
+			"owningPaths": ["docs/acceptance/"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		},
+		"OPS-6": {
+			"title": "Tooling follow-ups",
+			"owningPaths": [
+				".agents/skills/everyfield-pr/SKILL.md",
+				"tools/evf/",
+				"docs/acceptance/",
+				".github/workflows/ci.yml"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		},
+		"OPS-7": {
+			"title": "Transfer generated build progress",
+			"owningPaths": ["docs/build-progress.json"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		},
+		"OPS-8": {
+			"title": "Browser cleanup, agent-browser and process hygiene",
+			"owningPaths": [
+				"tools/evf/",
+				".agents/skills/verify-preview/",
+				".agents/skills/agent-browser/",
+				".agents/roles/",
+				"skills-lock.json",
+				".gitignore"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		}
+	},
+	"internalFeedback": {
+		"repo": "SebastianGarces/everyfield",
+		"priorities": ["P0", "P1"],
+		"triageCron": "*/5 * * * *"
+	}
 }
