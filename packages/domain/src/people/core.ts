@@ -1,6 +1,9 @@
+import { notExists, and, desc, eq, gt, isNull, lte, sql } from "@everyfield/db/query";
+import * as tables from "@everyfield/db/tables";
+import { alias } from "@everyfield/db/columns";
 import "server-only";
 import { createHash, randomUUID } from "node:crypto";
-import type { PoolClient } from "pg";
+import type { Transaction } from "@everyfield/db/client";
 import { z } from "zod";
 import { currentActor } from "../access/session.ts";
 import { readPipelinePerson } from "../access/pipeline.ts";
@@ -8,8 +11,13 @@ import { isAdministrator } from "../access/policy.ts";
 import { owner, revision } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/people";
 import type { PeopleContext, PeopleWriteContext, PeopleReply } from "@everyfield/contracts/people";
+const operation_o = alias(tables.operation, "o");
+const people_result_r = alias(tables.people_result, "r");
+const review_r = alias(tables.review, "r");
+const conversation_v = alias(tables.conversation, "v");
+const effect_e = alias(tables.effect, "e");
 
-export type Tx = PoolClient;
+export type Tx = Transaction;
 export type Context = PeopleContext;
 export type WriteContext = PeopleWriteContext;
 export const hash = (v: unknown) => createHash("sha256").update(stable(v)).digest("hex");
@@ -37,14 +45,14 @@ export function deny(code: Refusal["code"] = "unavailable"): never {
 	throw new Refusal(code);
 }
 export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<PeopleReply<T>> {
-	await tx.query("SAVEPOINT people_operation");
+	await tx.execute(sql`SAVEPOINT people_operation`);
 	try {
 		const value = await body();
-		await tx.query("RELEASE SAVEPOINT people_operation");
+		await tx.execute(sql`RELEASE SAVEPOINT people_operation`);
 		return { status: "ok", value };
 	} catch (error) {
-		await tx.query("ROLLBACK TO SAVEPOINT people_operation");
-		await tx.query("RELEASE SAVEPOINT people_operation");
+		await tx.execute(sql`ROLLBACK TO SAVEPOINT people_operation`);
+		await tx.execute(sql`RELEASE SAVEPOINT people_operation`);
 		if (!(error instanceof Refusal)) throw error;
 		const retry =
 			error.code === "conflict" || error.code === "use_reviewed_unmerge"
@@ -80,7 +88,7 @@ export async function authorize(tx: Tx, context: Context, write = false) {
 	return actor;
 }
 export async function lockOwner(tx: Tx, context: Context) {
-	await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1,11011))", [context.selected.id]);
+	await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${sql.param(context.selected.id)},11011))`);
 	// Serialize writers before currentActor takes shared lifecycle/seat locks.
 	// Parent rows are updated only after account and subject locks, matching provisioning.
 }
@@ -104,11 +112,11 @@ export const personRow = z.object({
 	notes: z.string().nullable(),
 	stage: c.stage.nullable(),
 	adult_classification: c.adultClassification.nullable(),
-	birth_date: z.date().nullable(),
+	birth_date: z.coerce.date().nullable(),
 	commitment_state: z.enum(["active", "withdrawn", "unknown"]).nullable(),
-	created_at: z.date(),
+	created_at: z.coerce.date(),
 	state: z.enum(["live", "retired", "merged"]),
-	retired_at: z.date().nullable(),
+	retired_at: z.coerce.date().nullable(),
 	merged_into_person_id: z.uuid().nullable(),
 	linked_account_id: z.uuid().nullable(),
 	revision,
@@ -116,12 +124,29 @@ export const personRow = z.object({
 });
 export type Person = z.infer<typeof personRow>;
 export async function person(tx: Tx, context: Pick<Context, "selected">, id: string, lock = false): Promise<Person> {
-	const r = await tx.query(
-		`SELECT p.* FROM person p WHERE p.id=$1 AND p.tenant_id=$2 AND NOT EXISTS(SELECT FROM organization_person_removal w WHERE w.person_record_id=p.id AND w.organization_id=p.tenant_id) ${lock ? "FOR UPDATE OF p" : "FOR SHARE OF p"}`,
-		[id, context.selected.id],
-	);
-	if (!r.rowCount) deny();
-	return personRow.parse(r.rows[0]);
+	const rows = await tx
+		.select()
+		.from(tables.person)
+		.where(
+			and(
+				eq(tables.person.id, id),
+				eq(tables.person.tenant_id, context.selected.id),
+				notExists(
+					tx
+						.select({ id: tables.organization_person_removal.id })
+						.from(tables.organization_person_removal)
+						.where(
+							and(
+								eq(tables.organization_person_removal.person_record_id, tables.person.id),
+								eq(tables.organization_person_removal.organization_id, tables.person.tenant_id),
+							),
+						),
+				),
+			),
+		)
+		.for(lock ? "update" : "share", { of: tables.person });
+	if (!rows[0]!) deny();
+	return personRow.parse(rows[0]!);
 }
 export async function canReadPerson(tx: Tx, context: Context, p: Person) {
 	const a = await authorize(tx, context);
@@ -161,11 +186,23 @@ export async function project(tx: Tx, context: Context, p: Person) {
 						},
 	};
 	if (context.selected.kind === "organization") return c.organizationPerson.parse(base);
-	const evidence = await tx.query(
-		"SELECT id,kind,signed_on,revision FROM commitment WHERE plant_id=$1 AND person_id=$2 AND voided_at IS NULL ORDER BY signed_on DESC,id DESC LIMIT 1",
-		[context.selected.id, p.id],
-	);
-	const e = evidence.rows[0];
+	const evidence = await tx
+		.select({
+			id: tables.commitment.id,
+			kind: tables.commitment.kind,
+			signed_on: tables.commitment.signed_on,
+			revision: tables.commitment.revision,
+		})
+		.from(tables.commitment)
+		.where(
+			and(
+				and(eq(tables.commitment.plant_id, context.selected.id), eq(tables.commitment.person_id, p.id)),
+				isNull(tables.commitment.voided_at),
+			),
+		)
+		.orderBy(desc(tables.commitment.signed_on), desc(tables.commitment.id))
+		.limit(1);
+	const e = evidence[0]!;
 	const commitment =
 		p.commitment_state === "unknown" || !e
 			? { state: "unknown" }
@@ -173,7 +210,7 @@ export async function project(tx: Tx, context: Context, p: Person) {
 					state: p.commitment_state,
 					evidenceId: e.id,
 					kind: e.kind,
-					occurredOn: e.signed_on.toISOString().slice(0, 10),
+					occurredOn: e.signed_on,
 					revision: e.revision,
 				};
 	return c.plantPerson.parse({
@@ -206,17 +243,22 @@ export const contactColumns = {
 export async function patchPerson(tx: Tx, id: string, patch: object) {
 	const pairs = Object.entries(patch).filter(([k]) => k in contactColumns);
 	if (!pairs.length) return;
-	const columns = new Map<string, string>(Object.entries(contactColumns));
-	await tx.query(
-		`UPDATE person SET ${pairs.map(([k], i) => `${columns.get(k)}=$${i + 2}`).join(",")},revision=revision+1 WHERE id=$1`,
-		[id, ...pairs.map(([, v]) => v)],
-	);
+	const columns = new Map(Object.entries(contactColumns));
+	const changes: Partial<Record<keyof typeof tables.person.$inferInsert, ReturnType<typeof sql>>> = {};
+	for (const [key, value] of pairs) {
+		const column = columns.get(key);
+		if (column) changes[column] = sql`${sql.param(value)}`;
+	}
+	await tx
+		.update(tables.person)
+		.set({ ...changes, revision: sql`${tables.person.revision}+1` })
+		.where(eq(tables.person.id, id));
 }
 export type Mutation = { requestKey: string; expectedRevision?: string };
 export async function mutation<T>(
 	tx: Tx,
 	context: WriteContext,
-	name: string,
+	name: typeof tables.operation.$inferSelect.name,
 	input: Mutation,
 	body: (
 		actorId: string,
@@ -224,13 +266,13 @@ export async function mutation<T>(
 	) => Promise<{
 		value: T;
 		subject: string;
-		action: string;
+		action: NonNullable<typeof tables.event.$inferInsert.action>;
 		before?: Person;
 		after?: Person;
 		reason?: string;
 		outcome?: "changed" | "noop";
 	}>,
-): Promise<T> {
+): Promise<unknown> {
 	await lockOwner(tx, context);
 	const orgNote =
 		context.selected.kind === "organization" &&
@@ -243,90 +285,150 @@ export async function mutation<T>(
 			deny();
 	}
 	const digest = hash({ name, input, origin: context.origin });
-	const prior = await tx.query(
-		"SELECT o.id,o.actor_id,o.name,o.request_digest,r.value,r.person_id FROM operation o JOIN people_result r ON r.operation_id=o.id WHERE o.tenant_id=$1 AND o.request_key=$2 FOR UPDATE OF o",
-		[context.selected.id, input.requestKey],
-	);
-	if (prior.rowCount) {
-		const r = prior.rows[0];
+	const prior = await tx
+		.select({
+			id: operation_o.id,
+			actor_id: operation_o.actor_id,
+			name: operation_o.name,
+			request_digest: operation_o.request_digest,
+			value: people_result_r.value,
+			person_id: people_result_r.person_id,
+		})
+		.from(operation_o)
+		.innerJoin(people_result_r, eq(people_result_r.operation_id, operation_o.id))
+		.where(and(eq(operation_o.tenant_id, context.selected.id), eq(operation_o.request_key, input.requestKey)))
+		.for("update", { of: [operation_o] });
+	if (prior.length) {
+		const r = prior[0]!;
 		if (r.actor_id !== actor.accountId || r.name !== name || r.request_digest !== digest) deny("conflict");
 		if (
 			name !== "orgPeople.remove" &&
 			(
-				await tx.query("SELECT id FROM organization_person_removal WHERE organization_id=$1 AND person_record_id=$2", [
-					context.selected.id,
-					r.person_id,
-				])
-			).rowCount
+				await tx
+					.select({ id: tables.organization_person_removal.id })
+					.from(tables.organization_person_removal)
+					.where(
+						and(
+							eq(tables.organization_person_removal.organization_id, context.selected.id),
+							sql`${tables.organization_person_removal.person_record_id} = ${r.person_id}`,
+						),
+					)
+			).length
 		)
 			deny();
 		return r.value;
 	}
 	if (context.purpose === "model") {
 		const o = context.origin;
-		const review = await tx.query(
-			`SELECT r.id FROM review r JOIN conversation v ON v.id=r.conversation_id AND v.tenant_id=r.tenant_id JOIN effect e ON e.review_id=r.id AND e.tenant_id=r.tenant_id WHERE r.id=$1 AND r.tenant_id=$2 AND r.conversation_id=$3 AND r.digest=$4 AND e.payload_hash=$5 AND e.arguments=$7::jsonb AND e.kind=$8 AND e.state IN ('unstarted','claimed') AND v.owner_id=$6 AND v.state='open' AND r.approved_by_id=$6 AND r.approved_at<=clock_timestamp() AND r.approved_at>clock_timestamp()-interval '15 minutes' AND r.cancelled_at IS NULL AND r.superseded_at IS NULL FOR SHARE OF r,v,e`,
-			[
-				o.reviewId,
-				context.selected.id,
-				o.conversationId,
-				o.planDigest,
-				hash({ name, input }),
-				actor.accountId,
-				JSON.stringify({ operation: name, input }),
-				name,
-			],
-		);
-		if (!review.rowCount) deny();
+		const review = await tx
+			.select({ id: review_r.id })
+			.from(review_r)
+			.innerJoin(
+				conversation_v,
+				and(eq(conversation_v.id, review_r.conversation_id), eq(conversation_v.tenant_id, review_r.tenant_id)),
+			)
+			.innerJoin(effect_e, and(eq(effect_e.review_id, review_r.id), eq(effect_e.tenant_id, review_r.tenant_id)))
+			.where(
+				and(
+					and(
+						and(
+							and(
+								and(
+									and(
+										and(
+											and(
+												and(
+													and(
+														and(
+															and(
+																and(
+																	and(eq(review_r.id, o.reviewId), eq(review_r.tenant_id, context.selected.id)),
+																	eq(review_r.conversation_id, o.conversationId),
+																),
+																eq(review_r.digest, o.planDigest),
+															),
+															eq(effect_e.payload_hash, hash({ name, input })),
+														),
+														eq(
+															effect_e.arguments,
+															sql<unknown>`(${sql.param(JSON.stringify({ operation: name, input }))})::jsonb`,
+														),
+													),
+													sql`${effect_e.kind} = ${name}`,
+												),
+												sql<boolean>`(${effect_e.state} IN ('unstarted', 'claimed'))`,
+											),
+											eq(conversation_v.owner_id, actor.accountId),
+										),
+										eq(conversation_v.state, "open"),
+									),
+									eq(review_r.approved_by_id, actor.accountId),
+								),
+								lte(
+									review_r.approved_at,
+									sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+								),
+							),
+							gt(review_r.approved_at, sql<unknown>`(clock_timestamp() - ('15 minutes')::interval)`),
+						),
+						isNull(review_r.cancelled_at),
+					),
+					isNull(review_r.superseded_at),
+				),
+			)
+			.for("share", { of: [review_r, conversation_v, effect_e] });
+		if (!review.length) deny();
 	}
 	const operationId = randomUUID();
 	const result = await body(actor.accountId, operationId);
 	const outcome = result.outcome ?? "changed";
-	await tx.query(
-		`INSERT INTO operation(id,tenant_id,actor_id,name,request_key,request_digest,review_id,conversation_id,state,outcome,started_at,completed_at,tool_calls,reserved_input,reserved_output,used_input,used_output) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'complete',$9,clock_timestamp(),clock_timestamp(),0,0,0,0,0)`,
-		[
-			operationId,
-			context.selected.id,
-			actor.accountId,
-			name,
-			input.requestKey,
-			digest,
-			context.origin.kind === "assistant" ? context.origin.reviewId : null,
-			context.origin.kind === "assistant" ? context.origin.conversationId : null,
-			outcome === "noop" ? "no_effect" : "committed",
-		],
-	);
-	await tx.query("INSERT INTO people_result(operation_id,tenant_id,person_id,value) VALUES($1,$2,$3,$4)", [
-		operationId,
-		context.selected.id,
-		result.subject === context.selected.id ? null : result.subject,
-		JSON.stringify(result.value),
-	]);
+	await tx.insert(tables.operation).values({
+		id: operationId,
+		tenant_id: context.selected.id,
+		actor_id: actor.accountId,
+		name: name,
+		request_key: input.requestKey,
+		request_digest: digest,
+		review_id: context.origin.kind === "assistant" ? context.origin.reviewId : null,
+		conversation_id: context.origin.kind === "assistant" ? context.origin.conversationId : null,
+		state: "complete",
+		outcome: outcome === "noop" ? "no_effect" : "committed",
+		started_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+		completed_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+		tool_calls: 0,
+		reserved_input: 0,
+		reserved_output: 0,
+		used_input: 0,
+		used_output: 0,
+	});
+	await tx.insert(tables.people_result).values({
+		operation_id: operationId,
+		tenant_id: context.selected.id,
+		person_id: result.subject === context.selected.id ? null : result.subject,
+		value: result.value,
+	});
 	// Domain history can carry operational bodies; the central audit never does.
 	if (result.subject !== context.selected.id)
-		await tx.query(
-			`INSERT INTO people_history(tenant_id,person_id,operation_id,actor_id,actor_token,action,occurred_at,before_revision,after_revision,before_value,after_value,reason) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp(),$7,$8,$9,$10,$11)`,
-			[
-				context.selected.id,
-				result.subject,
-				operationId,
-				actor.accountId,
-				hash([context.selected.id, actor.accountId]),
-				result.action,
-				result.before?.revision ?? null,
-				result.after?.revision ?? result.before?.revision ?? "1",
-				result.before ? JSON.stringify(result.before) : null,
-				result.after ? JSON.stringify(result.after) : null,
-				result.reason ?? null,
-			],
-		);
-	await tx.query(
-		`INSERT INTO event(tenant_id,target_record_id,operation_id,actor_id,kind,occurred_at,recorded_at,before_revision,after_revision,event_key,action) VALUES($1,$2,$3,$4,$5,clock_timestamp(),clock_timestamp(),$6,$7,$3::uuid::text,$8)`,
-		[
-			context.selected.id,
-			result.subject,
-			operationId,
-			actor.accountId,
+		await tx.insert(tables.people_history).values({
+			tenant_id: context.selected.id,
+			person_id: result.subject,
+			operation_id: operationId,
+			actor_id: actor.accountId,
+			actor_token: hash([context.selected.id, actor.accountId]),
+			action: result.action,
+			occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+			before_revision: sql`${result.before?.revision ?? null}`,
+			after_revision: sql`${result.after?.revision ?? result.before?.revision ?? "1"}`,
+			before_value: result.before ?? null,
+			after_value: result.after ?? null,
+			reason: result.reason ?? null,
+		});
+	await tx.insert(tables.event).values({
+		tenant_id: context.selected.id,
+		target_record_id: result.subject,
+		operation_id: operationId,
+		actor_id: actor.accountId,
+		kind:
 			outcome === "noop"
 				? "noop"
 				: result.action === "people.created"
@@ -336,16 +438,20 @@ export async function mutation<T>(
 						: result.action === "people.restored"
 							? "restore"
 							: "edit",
-			result.before?.revision ?? null,
-			result.after?.revision ?? result.before?.revision ?? "1",
-			result.action,
-		],
-	);
-	if (outcome === "changed")
-		await tx.query(
-			`UPDATE ${context.selected.kind === "plant" ? "plant" : "organization"} SET material_revision=material_revision+1 WHERE id=$1`,
-			[context.selected.id],
-		);
+		occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+		recorded_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+		before_revision: sql`${result.before?.revision ?? null}`,
+		after_revision: sql`${result.after?.revision ?? result.before?.revision ?? "1"}`,
+		event_key: sql<string>`((${sql.param(operationId)})::uuid)::text`,
+		action: result.action,
+	});
+	if (outcome === "changed") {
+		const table = context.selected.kind === "plant" ? tables.plant : tables.organization;
+		await tx
+			.update(table)
+			.set({ material_revision: sql`${table.material_revision}+1` })
+			.where(eq(table.id, context.selected.id));
+	}
 	return result.value;
 }
 export function expected(p: Person, revision: string) {
@@ -356,8 +462,8 @@ export function live(p: Person) {
 }
 export async function attribution(tx: Tx, actorId: string | null, token: string) {
 	if (actorId) {
-		const a = await tx.query("SELECT id FROM account WHERE id=$1", [actorId]);
-		if (a.rowCount) return { kind: "current_account", accountId: actorId };
+		const a = await tx.select({ id: tables.account.id }).from(tables.account).where(eq(tables.account.id, actorId));
+		if (a.length) return { kind: "current_account", accountId: actorId };
 	}
 	return { kind: "former_account", scopeLocalToken: token };
 }
