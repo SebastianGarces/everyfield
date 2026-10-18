@@ -1,0 +1,24 @@
+name: P1 core workflow bug
+description: A core workflow is broken with a workaround, or shows wrong data.
+title: 'P1: '
+labels: [P1, internal-breakage]
+body:
+  - type: textarea
+    id: impact
+    attributes:
+      label: What is broken and who is affected?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps, expected result and actual result
+      description: Include the commit and links or log excerpts. Remove secrets and personal data.
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Current workaround
+    validations:
+      required: true

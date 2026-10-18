@@ -1,0 +1,41 @@
+name: Fail forward
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  deployment_status:
+
+permissions:
+  contents: read
+  actions: read
+  deployments: read
+  issues: write
+
+# One writer for the marker-keyed incidents. Never cancel a pending report.
+concurrency:
+  group: fail-forward-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  report:
+    if: >-
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') ||
+      (github.event_name == 'deployment_status' &&
+       (github.event.deployment_status.state == 'failure' || github.event.deployment_status.state == 'error'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      # Always run the trusted default-branch reporter, never code from the failed run/deploy.
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - uses: actions/github-script@v8
+        id: report
+        with:
+          script: |
+            const report = require('./.github/scripts/fail-forward.cjs');
+            await report({ github, context, core });

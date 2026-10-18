@@ -1,0 +1,23 @@
+name: P0 urgent breakage
+description: Main, production, sign-in, data safety, or a core workflow is blocked.
+title: 'P0: '
+labels: [P0, internal-breakage]
+body:
+  - type: textarea
+    id: impact
+    attributes:
+      label: What is broken and who is affected?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Failure details
+      description: Include the failing job or deployment, commit, run link and a short log excerpt. Remove secrets and personal data.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: Include expected and actual behavior. The feedback desk will link a scoped repair task.
