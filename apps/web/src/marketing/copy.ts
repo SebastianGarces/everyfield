@@ -19,22 +19,25 @@ const hero = z.object({
 });
 const headBody = z.object({ headline: text, body: text });
 
+const railItem = z.object({ label: text, title: text, short: text });
+const faqItem = z.object({ id: text, q: text, a: text, link: text.optional() });
+
 const journey = z.object({
   id: z.literal("journey"),
   sections: z.object({
     hero,
     problem: headBody,
-    proof: headBody.extend({ caption: text.optional() }),
-    vision: headBody.extend({ bridge: text, caption: text.optional() }),
-    features: z.object({
+    vision: headBody.extend({ bridge: text }),
+    features: z.object({ headline: text, items: z.array(railItem).length(6) }),
+    evry: z.object({
       headline: text,
-      items: z.array(z.object({ label: text, title: text, body: text, short: text.optional() })),
+      body: text,
+      limits: text,
+      example: z.object({ ask: text, answer: text, review: text.refine((s) => s.split(" · ").length === 3, "review needs three parts") }),
     }),
-    audiences: z.object({ items: z.array(z.object({ label: text, headline: text, body: text })).min(1) }),
     cta,
   }),
 });
-const oversight = z.object({ id: z.literal("oversight"), sections: z.object({ cta }) });
 
 // Copy drafted by task E2 (shared.access_page, privacy_page, terms_page). All three are required:
 // a missing or malformed page fails the build, so no placeholder legal page can be published.
@@ -87,42 +90,54 @@ const schema = z.object({
     nav_cta: text,
     footer: z.object({
       headline: text,
+      // / and /oversight use their own footer headline; /access, /privacy and /terms use headline.
+      headline_home_oversight: text,
       cta: text,
       columns: z.array(z.object({ title: text, links: z.array(text) })),
       fineprint: text,
     }),
-    week: z.object({
-      title: text,
-      steps: z.array(step.extend({ panel: text, tone: text, icon: text })).length(4),
-    }),
+    week: z.object({ title: text, steps: z.array(step.extend({ panel: text, icon: text })).length(4) }),
     intelligence: z.object({ title: text, lead: text, steps: z.array(step.extend({ panel: text })).length(4) }),
-    sending: z.object({ title: text, link: text, steps: z.array(step).length(4) }),
+    sending: z.object({ title: text, body: text, link: text }),
+    // Text that sits inside the product pictures on / and /oversight.
+    panels: z.object({
+      week_follow_says: text,
+      week_people_line: text,
+      intelligence_focus_title: text,
+      monday_title: text,
+      monday_sub: text,
+      monday_core_label: text,
+      teams_sign_core: text,
+      launch_team_member: text,
+      ministry_areas: z.array(text).length(8),
+      share_unshared_status: text,
+      hero_dash_finding: text,
+      hero_dash_attention_label: text,
+      status_watch: text,
+      mueller_plant: text,
+    }),
     oversight_page: z.object({
       hero,
       problem: headBody,
+      trust: z.object({ headline: text, items: z.array(step).length(4) }),
       chapter: z.object({ title: text, steps: z.array(step.extend({ panel: text })).length(4) }),
       intelligence: z.object({ title: text, steps: z.array(step).length(4) }),
-      plants: z.object({
-        headline: text,
-        items: z.array(z.object({ label: text, title: text, body: text.optional(), short: text.optional() })).length(6),
-      }),
+      plants: z.object({ headline: text, items: z.array(railItem).length(6) }),
+      leaders: z.object({ headline: text, lead: text, steps: z.array(step).length(4) }),
       paths: z.object({
         lead: text,
         tail: text,
         line: text,
         states: z.array(z.object({ phrase: text, title: text, body: text })).length(3),
       }),
-      faq: z.object({
-        headline: text,
-        items: z.array(z.object({ id: text, q: text, a: text, link: text.optional() })),
-      }),
+      faq: z.object({ headline: text, items: z.array(faqItem).min(1) }),
       cta,
     }),
     access_page: accessPage,
     privacy_page: legalPage,
     terms_page: legalPage,
   }),
-  directions: z.tuple([journey, oversight], z.unknown()),
+  directions: z.tuple([journey], z.unknown()),
 });
 
 // The official brand spelling is EveryField. The copy file sometimes says "Everyfield"; fix it once, here.
@@ -137,9 +152,9 @@ const parsed = schema.parse(brand(raw));
 export const COPY = {
   shared: parsed.shared,
   journey: parsed.directions[0].sections,
-  oversight: parsed.directions[1].sections,
 };
 export type Copy = typeof COPY;
+
 export type LegalCopy = z.infer<typeof legalPage>;
 export type FormCopy = z.infer<typeof formCopy>;
 export type AccessCopy = z.infer<typeof accessPage>;

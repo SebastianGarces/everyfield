@@ -1,62 +1,16 @@
 import { cn } from "@/components/cn";
 import { Icon } from "@/components/Icon";
 import { Av, Badge, UiButton } from "@/components/kit/kit";
-import { Count, Done, Hl, MoodBot, Move, Swap, Target, Tf, Typed } from "@/components/motion/fx";
+import { Count, Done, Hl, MoodBot, Move, Swap, Target, Typed } from "@/components/motion/fx";
 import { St } from "@/components/motion/scene";
 import { PanelCard } from "../chapters/panel-frame";
-import { CX_A, CX_Q } from "../demo-data";
 import { ICONS } from "../icons";
 import { CHIP, KNOB, SWITCH } from "./classes";
 import { FactsRing, IntelligenceFx, ShareSwitch } from "./intelligence-fx";
-import { INSIGHT_FOOTER, INSIGHT_TEXT, INSIGHT_TITLE, InsightMetric, InsightTop, Num, PanelHead } from "./parts";
+import { Num, PanelHead } from "./parts";
 
-// The home Plant Intelligence auto list: one focus, the facts, ask Evry, sharing. Markup renders on the server; the
-// timing is in intelligence-fx.tsx.
-
-/* ---------- Focus this week ---------- */
-const FACTS = [["Last vision meeting", "#11, 16 days ago"], ["New guests at #11", "9"], ["Next", "#12, Sun Oct 12"]] as const;
-
-export function FocusPanel() {
-  return (
-    <IntelligenceFx>
-      <PanelCard kind="focus" variant={{ kind: "insight", tone: "dawn" }}>
-        <InsightTop i={0} icon={ICONS.compass} label="Focus this week" count="Plant Intelligence" />
-        <InsightMetric i={1} num={<Count fx="focus.days" max={16} unit=" d" />} unit="since the last vision meeting" />
-        <St i={2}>
-          <div className="relative mt-4 h-2 rounded-full bg-mk-ink-12">
-            <span className="absolute inset-y-0 left-0 w-[84.2%] overflow-hidden rounded-full">
-              <Tf fx="focus.fill" className="absolute inset-0 rounded-full bg-ink" />
-            </span>
-            <span className="absolute -top-[5px] right-0 -bottom-[5px] w-0.5 rounded-[2px] bg-ink" />
-          </div>
-          <div className="relative mt-2 h-4 text-[12px] text-[var(--on-3)]">
-            <span className="absolute right-0 whitespace-nowrap">Next: #12, Sun Oct 12</span>
-          </div>
-        </St>
-        <St i={3} className={INSIGHT_TITLE}>Hold your next vision meeting this week</St>
-        <St i={4} className="mt-2.5 grid">
-          <Move fx="focus.text" className={cn(INSIGHT_TEXT, "col-start-1 row-start-1")}>
-            Vision meeting #12 is set for Sun Oct 12. Invite the 9 guests from #11.
-          </Move>
-          <div className="col-start-1 row-start-1">
-            {FACTS.map((f, k) => (
-              <Move key={f[0]} fx="focus.fact" n={k} className={cn("flex justify-between gap-2.5 py-1.5 text-[13px] text-[var(--on-2)] opacity-0", k > 0 && "border-t border-mk-ink-10")}>
-                <span>{f[0]}</span>
-                <b className="font-semibold text-[var(--on)]">{f[1]}</b>
-              </Move>
-            ))}
-          </div>
-        </St>
-        <St i={5} className={INSIGHT_FOOTER}>
-          <Tf fx="focus.press" target="t0" className="inline-flex" layer={false}>
-            <UiButton variant="light">See the facts <Icon icon={ICONS.arrow} /></UiButton>
-          </Tf>
-          <UiButton variant="glass">Why this?</UiButton>
-        </St>
-      </PanelCard>
-    </IntelligenceFx>
-  );
-}
+// Plant Intelligence panels: the facts and sharing (the home auto list), and Evry (the home Evry section). The focus and
+// readiness panels are in home/panels.tsx. Markup renders on the server; the timing is in intelligence-fx.tsx.
 
 /* ---------- The facts behind the finding ---------- */
 const KV = [["New guests, last 2 vision meetings", 24], ["Contacted within 48 hours", 17], ["No contact yet", 7]] as const;
@@ -103,7 +57,17 @@ export function FactsPanel() {
 }
 
 /* ---------- A vision meeting in one approval (Evry) ---------- */
-export function EvryPanel() {
+export type EvryDemo = {
+  q: string;
+  a: string;
+  review: readonly [string, string];
+  meeting: { name: string; when: string; where: string };
+  rest: string;
+  approve: string;
+  edit: string;
+};
+/** The page passes its example (home/demo.ts). */
+export function EvryPanel({ demo }: { demo: EvryDemo }) {
   return (
     <IntelligenceFx>
       <PanelCard kind="evry" variant={{ kind: "evry" }}>
@@ -115,31 +79,31 @@ export function EvryPanel() {
           </div>
         </St>
         <St i={1} className="max-w-[86%] self-end rounded-2xl rounded-br-xs bg-ink px-3.5 py-[11px] text-[13px] leading-[1.45] text-on-ink">
-          <Typed text={CX_Q} fx="evry.q" />
+          <Typed text={demo.q} fx="evry.q" />
         </St>
         <Move fx="evry.aIn" className="max-w-[86%] self-start rounded-2xl rounded-bl-xs bg-surface-2 px-3.5 py-[11px] text-[13px] leading-[1.45] opacity-0">
-          <Typed text={CX_A} fx="evry.a" />
+          <Typed text={demo.a} fx="evry.a" />
         </Move>
         <Move fx="evry.card" className="overflow-hidden rounded-[18px] bg-white opacity-0 shadow-[inset_0_0_0_1px_var(--color-line),var(--shadow-raised)]">
           <div className="flex items-center gap-2.5 border-b border-mk-amber-500-18 bg-amber-50 px-4 py-3 text-[13px] font-semibold text-amber-600">
             <Icon icon={ICONS.edit} />
-            Review 4 changes
+            {demo.review[0]}
             <span className="min-w-0 flex-1" />
-            <span className="font-medium">Set up vision meeting</span>
+            <span className="font-medium">{demo.review[1]}</span>
           </div>
           <div className="flex flex-col gap-[9px] px-4 py-3">
             <div className="flex items-start gap-2.5 text-[12.5px]">
               <Icon icon={ICONS.calendar} size={16} className="mt-px text-text-3" />
-              <span>Create <b>Vision meeting #13</b> on <b>Sun Oct 26</b> at the <b>Reyes home</b></span>
+              <span>Create <b>{demo.meeting.name}</b> on <b>{demo.meeting.when}</b> at the <b>{demo.meeting.where}</b></span>
             </div>
             <div className="flex items-start gap-2.5 text-[12.5px] text-text-3">
               <Icon icon={ICONS.more} size={16} className="mt-px text-text-3" />
-              <span>The agenda, 23 guests and the invitation email</span>
+              <span>{demo.rest}</span>
             </div>
           </div>
           <div className="flex gap-2 border-t border-line px-4 py-2.5">
-            <Done target="t0" at={5100} label="Approve" done="Approved" R="evry.R" />
-            <UiButton variant="ghost">Edit</UiButton>
+            <Done target="t0" at={5100} label={demo.approve} done="Approved" R="evry.R" />
+            <UiButton variant="ghost">{demo.edit}</UiButton>
           </div>
         </Move>
       </PanelCard>
@@ -150,7 +114,7 @@ export function EvryPanel() {
 /* ---------- You see it first: sharing ---------- */
 const SHARE = [["Phase and launch date", 1, 0], ["Plant Intelligence findings", 0, 0], ["People and contact details", 0, 1], ["Private weekly check-in", 0, 1]] as const;
 
-export function SharePanel() {
+export function SharePanel({ unshared }: { unshared: string }) {
   return (
     <IntelligenceFx>
       <PanelCard kind="share">
@@ -169,7 +133,7 @@ export function SharePanel() {
           <div className="text-[12px] text-text-3">What Grace Church sees</div>
           <div className="mt-1.5 flex items-center justify-between gap-2 text-[13px] font-semibold">
             <span>Harvest Point · Phase 1</span>
-            <Swap fx="share.swap" className="justify-items-end" a={<Badge status="unknown" size="sm">Findings not shared</Badge>} b={<Badge status="positive" size="sm">On track</Badge>} />
+            <Swap fx="share.swap" className="justify-items-end" a={<Badge status="unknown" size="sm">{unshared}</Badge>} b={<Badge status="positive" size="sm">On track</Badge>} />
           </div>
         </St>
       </PanelCard>

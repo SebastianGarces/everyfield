@@ -78,13 +78,13 @@ export function ScopePanel() {
 }
 const AREA_GRID = "grid grid-cols-[minmax(0,1fr)_44px_78px] items-center gap-2 max-mk-sm:grid-cols-[minmax(0,1fr)_38px_70px]";
 
-/* ---------- Pipeline: plants in each phase, typical weeks ---------- */
+/* ---------- Plants by phase, typical weeks (on /oversight "pipeline" means the leader pipeline) ---------- */
 const PIPE_ROW = "relative isolate grid h-[34px] grid-cols-[92px_minmax(0,1fr)_16px_40px] items-center gap-2.5 text-[12.5px] max-mk-sm:grid-cols-[84px_minmax(0,1fr)_14px_36px] max-mk-sm:gap-2";
 export function PipePanel() {
   return (
     <NetworkFx>
       <PanelCard kind="pipe">
-        <PanelHead tone="violet" icon={ICONS.calendar} title="Phase pipeline" sub="Plants in each phase, and typical weeks in it" />
+        <PanelHead tone="violet" icon={ICONS.calendar} title="Plants by phase" sub="Plants in each phase, and typical weeks in it" />
         <St i={1}>
           {SD_PIPE.map((r, k) => {
             const cells = (
@@ -173,7 +173,7 @@ export function TopPanel() {
     <NetworkFx>
       <PanelCard kind="top" variant={{ kind: "insight", tone: "lilac" }}>
         <InsightTop i={0} icon={ICONS.sparkle} label="Top network finding" count="From 11 of 14 plants" />
-        <InsightMetric i={1} num={<Count fx="top.n" max={4} unit=" of 6" />} unit="plants within a year of launch have a Concern on Emerging leadership" numClassName="max-mk-sm:text-[44px]" />
+        <InsightMetric i={1} num={<Count fx="top.n" max={4} unit=" of 5" />} unit="plants within a year of launch have a Concern on Emerging leadership" numClassName="max-mk-sm:text-[44px]" />
         <St i={2} className={INSIGHT_TITLE}>Emerging leadership is the most common gap before launch</St>
         <St i={3} className={cn(INSIGHT_TEXT, "mt-2.5")}>It is the lens most often at Watch or Concern for plants in Training and Pre-launch.</St>
         <St i={4} className={INSIGHT_FOOTER}>

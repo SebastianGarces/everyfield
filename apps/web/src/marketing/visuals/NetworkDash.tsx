@@ -1,5 +1,5 @@
 import { Icon } from "@/components/Icon";
-import { Badge, CardIcon, UiButton, type Tone } from "@/components/kit/kit";
+import { Badge, CardIcon, UiButton, type Status, type Tone } from "@/components/kit/kit";
 import { cn } from "@/components/cn";
 import { ICONS } from "../icons";
 import { AppFrame, DashCard, DashHead } from "./dash";
@@ -7,19 +7,18 @@ import { Insight } from "./insight";
 
 // Revision 24: the /oversight hero dashboard (Austin Sending Network, 14 plants), demo data.
 
-const PLANTS: [string, string, Tone, string, string, string, string][] = [
-  ["Harvest Point Church", "Hyde Park, Austin, TX", "green", "1 · Core group", "34", "Mar 14, 2027", "1 finding"],
-  ["Eastside Commons", "East Austin, Austin, TX", "blue", "3 · Training", "46", "May 2, 2027", "4 findings"],
-  ["Mueller Fellowship", "Mueller, Austin, TX", "violet", "0 · Discovery", "8", "Not set", ""],
-  ["Alamo Heights Church", "San Antonio, TX", "amber", "2 · Launch team", "28", "Sep 2027", "2 findings"],
-  ["Deep Ellum Collective", "Dallas, TX", "teal", "4 · Pre-launch", "61", "Jan 24, 2027", "3 findings"],
-];
-const STATS = [["Plants", "14", "In 2 states", 0], ["Launching in 12 months", "5", "Next: Deep Ellum, Jan 24", 0], ["Committed adults", "412", "Across 14 plants", 0], ["Needs attention", "3", "Need a look this month", 1]] as const;
+/** A plant row: name, place, icon tone, phase, core group, launch, status label and its badge. */
+type Row = readonly [string, string, Tone, string, string, string, string, Status];
+type Stat = readonly [string, string, string, 0 | 1];
+type Finding = { num: string; unit: string; title: string; text: string };
+/** The demo values the page passes (oversight/demo.ts). */
+export type DashDemo = { plants: Row[]; stats: readonly Stat[]; lastCol: string; finding: Finding };
 const AREAS = [["All", 14], ["Austin", 5], ["San Antonio", 3], ["Dallas–Fort Worth", 3], ["Houston", 1], ["Oklahoma City", 2]] as const;
 const TH = "border-b border-line px-2.5 py-2 text-left text-[12px] font-medium whitespace-nowrap text-text-3 max-mk-sm:px-1.5";
 const TD = "border-b border-line px-2.5 py-3 align-middle text-[13.5px] max-mk-sm:px-1.5";
 
-export function NetworkDash() {
+export function NetworkDash({ demo }: { demo: DashDemo }) {
+  const { plants, stats, lastCol, finding } = demo;
   return (
     <AppFrame
       className="motion-safe:animate-mk-ov-rise"
@@ -34,7 +33,7 @@ export function NetworkDash() {
             <span className="rounded-[10px] px-3.5 py-[7px] whitespace-nowrap">Network Intelligence</span>
           </div>
           <div className="mb-4 grid grid-cols-4 gap-4 max-mk-lg:gap-3 max-mk-sm:grid-cols-2 max-mk-sm:gap-2.5">
-            {STATS.map((s) => (
+            {stats.map((s) => (
               <DashCard key={s[0]} className="max-mk-lg:p-4 max-mk-sm:p-3.5">
                 <div className="text-[13px] text-text-2 max-mk-sm:text-[12px]">{s[0]}</div>
                 <div className={cn("mt-2 mb-1.5 font-display text-[52px] leading-none font-medium tracking-[-0.05em] max-mk-nav:text-[44px] max-mk-lg:text-[40px] max-mk-sm:mt-1.5 max-mk-sm:text-[52px]", s[3] === 1 && "text-amber-display")}>{s[1]}</div>
@@ -60,12 +59,12 @@ export function NetworkDash() {
                     <th className={TH}>Phase</th>
                     <th className={cn(TH, "max-mk-sm:hidden")}>Core group</th>
                     <th className={cn(TH, "max-mk-sm:hidden")}>Launch</th>
-                    <th className={cn(TH, "max-mk-sm:hidden")}>Findings</th>
+                    <th className={cn(TH, "max-mk-sm:hidden")}>{lastCol}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {PLANTS.map((p, i) => {
-                    const td = cn(TD, i === PLANTS.length - 1 && "border-b-0");
+                  {plants.map((p, i) => {
+                    const td = cn(TD, i === plants.length - 1 && "border-b-0");
                     return (
                       <tr key={p[0]}>
                         <td className={td}>
@@ -80,7 +79,7 @@ export function NetworkDash() {
                         <td className={td}><span className="inline-flex h-[26px] items-center gap-1.5 rounded-[8px] bg-surface-2 px-2.5 text-[12.5px] font-medium whitespace-nowrap text-ink-2">{p[3]}</span></td>
                         <td className={cn(td, "max-mk-sm:hidden")}>{p[4]}</td>
                         <td className={cn(td, "whitespace-nowrap max-mk-sm:hidden")}>{p[5]}</td>
-                        <td className={cn(td, "max-mk-sm:hidden")}>{p[6] ? <Badge status="measured" size="sm">{p[6]}</Badge> : <span className="text-text-3">—</span>}</td>
+                        <td className={cn(td, "max-mk-sm:hidden")}>{p[6] ? <Badge status={p[7]} size="sm">{p[6]}</Badge> : <span className="text-text-3">—</span>}</td>
                       </tr>
                     );
                   })}
@@ -92,12 +91,12 @@ export function NetworkDash() {
               icon={ICONS.sparkle}
               label="Top network finding"
               count="From 11 of 14 plants"
-              num="4 of 6"
-              unit="plants within a year of launch have a Concern on Emerging leadership"
+              num={finding.num}
+              unit={finding.unit}
               unitMax={220}
               className="min-h-0"
-              title="Emerging leadership is the most common gap before launch"
-              text="It is the lens most often at Watch or Concern across plants in Training and Pre-launch. Both plants that have already launched had their leader roles filled before Training."
+              title={finding.title}
+              text={finding.text}
               footer={<UiButton variant="light">See the plants <Icon icon={ICONS.arrow} /></UiButton>}
             />
           </div>
