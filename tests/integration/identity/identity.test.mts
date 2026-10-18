@@ -125,7 +125,10 @@ test('INV-identity: interruption after credentials preserves authenticated resum
   try { assert.deepEqual(await(await register(f,'interrupted@example.test')).json(),{status:'continue_identity_proof'}); }
   finally {await f.db.query('DROP TRIGGER fail_pending ON account');}
   assert.equal((await f.db.query("SELECT count(*)::int n FROM auth_user WHERE email='interrupted@example.test'")).rows[0].n,1);
+  await f.db.query("UPDATE admission_attempt SET reserved_at=clock_timestamp()-interval '25 hours',expires_at=clock_timestamp()-interval '1 second' WHERE kind='registration'");
   const login=await signIn(f,'interrupted@example.test');assert.equal(login.status,200);const c=cookie(login);
+  assert.equal((await f.req('registration-status',undefined,c)).status,401);
+  assert.deepEqual(await(await f.req('register',{kind:'discovery',name:'Synthetic',email:'interrupted@example.test',password,requestKey:randomUUID()},c)).json(),{status:'continue_identity_proof'});
   const status=await(await f.req('registration-status',undefined,c)).json();assert.equal(status.status,'pending_domain');
   assert.equal((await f.db.query('SELECT registration_kind FROM account WHERE id=$1',[status.accountId])).rows[0].registration_kind,'discovery');
   assert.equal((await f.req('send-verification-email',{email:'interrupted@example.test'},c)).status,200);await f.dispatch();

@@ -118,6 +118,13 @@ export function createIdentityService(config: IdentityConfig) {
         const kind = v.kind === 'plant_precreation' ? 'planter' : v.kind === 'sending_network' ? 'network' : v.kind;
         const intent = digest(JSON.stringify({ kind: v.kind, name: v.name, ...('organizationName' in v ? { organizationName: v.organizationName } : {}) }));
         if (registration) await budget.rememberRegistration(registration.id, v.email, kind, intent);
+        const native = await call(request,'get-session');
+        const self = z.object({user:z.object({id:z.uuid(),email:z.email()})}).safeParse(await native.json());
+        if (self.success && self.data.user.email === v.email) {
+          try { await pending(self.data.user.id,kind,intent); } catch { config.diagnostic({correlationId,outcome:'reporting_pending'}); }
+          if (registration) await budget.finish(registration,true);
+          return json({status:'continue_identity_proof'});
+        }
         const result = await call(request, 'sign-up/email', { email: v.email, name: v.name, password: v.password });
         // No caller credential, email equality, synthetic BA ID or returned cookie grants domain access.
         // Querying this credential is safe only to create a pending, unprivileged app row.
@@ -141,7 +148,8 @@ export function createIdentityService(config: IdentityConfig) {
           const native = await config.authDb.query('SELECT email,created_at FROM auth_user WHERE id=$1', [resultBody.user.id]);
           const u = z.object({email:z.email(),created_at:z.date()}).parse(native.rows[0]);
           const saved = await budget.registrationIntent(u.email,u.created_at);
-          if (!saved) throw new IdentityRefusal('admission_unavailable',503);
+          // Expired throttle records must not destroy a valid identity. A fresh native self registration supplies its intent again.
+          if (!saved) return cookies(json({ status: 'signed_in', returnTo: safeReturn(v.returnTo) }), result);
           const intent = z.object({kind:z.enum(['planter','discovery','sending_church','network']),intent:z.string().regex(/^[a-f0-9]{64}$/)}).parse(JSON.parse(saved));
           await pending(resultBody.user.id, intent.kind, intent.intent);
         }
