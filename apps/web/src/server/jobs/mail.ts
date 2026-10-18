@@ -3,7 +3,7 @@ import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, 
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
 import { transaction } from '../platform/database.ts';
-import { enqueueJob, finishClaim, lockClaim, checkpoint, claimSchema, type Claim } from './queue.ts';
+import { enqueueJob, finishClaim, lockClaim, checkpoint, claimSchema, DEFAULT_LEASE_SECONDS, type Claim } from './queue.ts';
 
 const owner = z.discriminatedUnion('kind', [z.strictObject({kind:z.literal('account'),id:z.uuid()}),
   z.strictObject({kind:z.literal('plant'),id:z.uuid()}),z.strictObject({kind:z.literal('organization'),id:z.uuid(),organizationKind:z.enum(['sending_church','sending_network'])})]);
@@ -235,7 +235,7 @@ export async function claimUnknownMail(db:Pool,limit=1):Promise<Claim[]> {
     AND (j.next_attempt_at IS NULL OR j.next_attempt_at<=clock_timestamp())
     ORDER BY j.eligible_at,j.id FOR UPDATE OF j SKIP LOCKED LIMIT $1)
     UPDATE job j SET state='claimed',attempt_count=attempt_count+1,claim_generation=claim_generation+1,
-    lease_owner=$2,lease_until=clock_timestamp()+interval '30 seconds',revision=revision+1
-    FROM due WHERE j.id=due.id RETURNING j.*`,[limit,randomUUID()]);
+    lease_owner=$2,lease_until=clock_timestamp()+make_interval(secs=>$3),revision=revision+1
+    FROM due WHERE j.id=due.id RETURNING j.*`,[limit,randomUUID(),DEFAULT_LEASE_SECONDS]);
   return rows.rows.map(row=>claimSchema.parse(row));
 }

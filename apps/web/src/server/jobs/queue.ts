@@ -7,6 +7,9 @@ import { transaction } from '../platform/database.ts';
 export const jobKind = z.enum(['mail', 'notification', 'digest', 'assessment', 'reference_generation',
   'feedback_publication', 'object_cleanup', 'lifecycle_purge', 'assistant_turn', 'document_render']);
 export type JobKind = z.infer<typeof jobKind>;
+export const DEFAULT_LEASE_SECONDS=300;
+const ASSESSMENT_LEASE_SECONDS=120;
+const leaseDuration=z.number().int().min(1).max(DEFAULT_LEASE_SECONDS);
 export const claimSchema = z.object({ id: z.uuid(), tenant_id: z.uuid(), kind: jobKind,
   subject_record_id: z.uuid().nullable(), source_revision: z.string().nullable(),
   claim_generation: z.string(), lease_owner: z.string(), attempt_count: z.number().int(),
@@ -34,9 +37,10 @@ export async function enqueueJob(tx: PoolClient, input: JobInput): Promise<strin
   return row.id;
 }
 
-export async function claimDue(db: Pool, kinds: readonly JobKind[], limit = 1, leaseSeconds = 30): Promise<Claim[]> {
+// The duration override applies to ordinary jobs; assessment claims always use 120 seconds.
+export async function claimDue(db: Pool, kinds: readonly JobKind[], limit = 1, leaseSeconds = DEFAULT_LEASE_SECONDS): Promise<Claim[]> {
   const config = z.object({ kinds: z.array(jobKind).min(1).max(10), limit: z.number().int().min(1).max(100),
-    lease: z.number().int().min(1).max(60) }).parse({ kinds, limit, lease: leaseSeconds });
+    lease: leaseDuration }).parse({ kinds, limit, lease: leaseSeconds });
   return transaction(db, async tx => {
     const result = await tx.query(`WITH due AS (
       SELECT id FROM job WHERE kind=ANY($1::text[]) AND state IN ('ready','retry_wait')
@@ -44,8 +48,8 @@ export async function claimDue(db: Pool, kinds: readonly JobKind[], limit = 1, l
       AND (next_attempt_at IS NULL OR next_attempt_at<=clock_timestamp())
       ORDER BY eligible_at,id FOR UPDATE SKIP LOCKED LIMIT $2
     ) UPDATE job j SET state='claimed',attempt_count=attempt_count+1,claim_generation=claim_generation+1,
-      lease_owner=$3,lease_until=clock_timestamp()+make_interval(secs=>$4),revision=revision+1
-      FROM due WHERE j.id=due.id RETURNING j.*`, [config.kinds, config.limit, randomUUID(), config.lease]);
+      lease_owner=$3,lease_until=clock_timestamp()+make_interval(secs=>CASE WHEN j.kind='assessment' THEN $5::int ELSE $4::int END),revision=revision+1
+      FROM due WHERE j.id=due.id RETURNING j.*`, [config.kinds, config.limit, randomUUID(), config.lease, ASSESSMENT_LEASE_SECONDS]);
     return result.rows.map(row => claimSchema.parse(row));
   });
 }
@@ -56,11 +60,11 @@ export async function lockClaim(tx: PoolClient, claim: Claim): Promise<boolean> 
   return r.rowCount === 1;
 }
 export async function extendLease(db: Pool, claim: Claim, seconds: number): Promise<boolean> {
-  z.number().int().min(1).max(60).parse(seconds);
-  const r = await db.query(`UPDATE job SET lease_until=clock_timestamp()+make_interval(secs=>$5)
+  leaseDuration.parse(seconds);
+  const r = await db.query(`UPDATE job SET lease_until=clock_timestamp()+make_interval(secs=>CASE WHEN kind='assessment' THEN $7::int ELSE $5::int END)
     WHERE id=$1 AND tenant_id=$2 AND claim_generation=$3 AND lease_owner=$4
     AND state='claimed' AND lease_until>clock_timestamp() AND source_revision IS NOT DISTINCT FROM $6::bigint`,
-  [claim.id, claim.tenant_id, claim.claim_generation, claim.lease_owner, seconds,claim.source_revision]);
+  [claim.id, claim.tenant_id, claim.claim_generation, claim.lease_owner, seconds,claim.source_revision,ASSESSMENT_LEASE_SECONDS]);
   return r.rowCount === 1;
 }
 export type JobResult = { state: 'succeeded' | 'cancelled' | 'superseded' | 'failed' | 'reconcile'; code?: string }

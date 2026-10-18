@@ -4,8 +4,8 @@ import { transaction } from '../../../apps/web/src/server/platform/database.ts';
 import { enqueueJob, claimDue, finishClaim, recoverLease, checkpoint, extendLease } from '../../../apps/web/src/server/jobs/queue.ts';
 import { db, runtime, tenant, setup, teardown, subject, due } from './support.mts';
 before(setup); after(teardown);
-const create = async (maxAttempts=4) => { const id=await subject(); return transaction(runtime,tx=>enqueueJob(tx,{tenant,subject:id,kind:'document_render',key:id,revision:'1',eligibleAt:'2026-01-01T00:00:00Z',maxAttempts})); };
-test('INV-jobs: concurrent claims fence late completions and retain retry budget', async()=>{
+const create = async (maxAttempts=4,kind='document_render') => { const id=await subject(); return transaction(runtime,tx=>enqueueJob(tx,{tenant,subject:id,kind,key:id,revision:'1',eligibleAt:'2026-01-01T00:00:00Z',maxAttempts})); };
+test('AC:CASE-NTF-002 INV-jobs: concurrent claims fence late completions and retain retry budget', async()=>{
   const id=await create();
   const groups=await Promise.all([claimDue(runtime,['document_render']),claimDue(runtime,['document_render'])]);
   assert.deepEqual(groups.map(g=>g.length).sort(),[0,1]);
@@ -16,8 +16,34 @@ test('INV-jobs: concurrent claims fence late completions and retain retry budget
   assert.equal(await transaction(runtime,tx=>finishClaim(tx,claim,{state:'succeeded'})),false);
   await due(); const [newClaim]=await claimDue(runtime,['document_render']);
   assert.equal(newClaim.claim_generation,'3'); assert.equal(newClaim.attempt_count,2);
+  for(const stale of [claim,{...newClaim,claim_generation:claim.claim_generation},{...newClaim,lease_owner:claim.lease_owner}]){
+    assert.equal(await transaction(runtime,tx=>finishClaim(tx,stale,{state:'succeeded'})),false);
+    assert.equal(await transaction(runtime,tx=>checkpoint(tx,stale,'stale-output')),false);
+    assert.equal(await extendLease(runtime,stale,30),false);
+  }
   assert.equal(await transaction(runtime,tx=>finishClaim(tx,newClaim,{state:'succeeded'})),true);
   assert.equal((await db.query('SELECT state FROM job WHERE id=$1',[id])).rows[0].state,'succeeded');
+});
+test('INV-jobs: default, assessment and explicit leases meet the execution limits',async()=>{
+  async function bracket(operation,seconds){
+    const before=(await db.query('SELECT clock_timestamp()::text AS at')).rows[0].at;
+    const claim=await operation();
+    const result=await db.query(`SELECT lease_until BETWEEN $2::timestamptz+make_interval(secs=>$3)
+      AND clock_timestamp()+make_interval(secs=>$3) AS correct FROM job WHERE id=$1`,[claim.id,before,seconds]);
+    assert.equal(result.rows[0].correct,true);
+    return claim;
+  }
+  for(const [kind,seconds,expected] of [['document_render',undefined,300],['assessment',undefined,120],
+    ['document_render',1,1],['document_render',120,120],['document_render',300,300],['assessment',300,120]]){
+    await create(4,kind);
+    const claim=await bracket(async()=>{const [c]=await claimDue(runtime,[kind],1,seconds);return c;},expected);
+    if(seconds!==1)for(const extension of [300,1])await bracket(async()=>{assert.equal(await extendLease(runtime,claim,extension),true);return claim;},kind==='assessment'?120:extension);
+    for(const invalid of [0,301,1.5]){
+      await assert.rejects(claimDue(runtime,[kind],1,invalid));
+      await assert.rejects(extendLease(runtime,claim,invalid));
+    }
+    await db.query("UPDATE job SET state='cancelled',lease_owner=NULL,lease_until=NULL WHERE id=$1",[claim.id]);
+  }
 });
 test('INV-jobs: safe checkpoints resume, external effects reconcile, exhausted jobs stop',async()=>{
   for(const external of [false,true]){

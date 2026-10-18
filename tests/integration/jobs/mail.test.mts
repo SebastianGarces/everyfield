@@ -49,7 +49,9 @@ test('AC:OUTBOX-RESTORE-001 INV-mail: dropped acceptance replays only the identi
  mode='lost';const id=await enqueue();const [claim]=await claimDue(runtime,['mail']);const n=effects.size;
  assert.deepEqual(await service.dispatch(claim),{kind:'unknown'});assert.equal(effects.size,n+1);
  assert.equal((await db.query('SELECT state FROM job WHERE id=$1',[claim.id])).rows[0].state,'reconcile');
- mode='accepted';const [again]=await claimUnknownMail(runtime);assert.equal(again.id,claim.id);
+ mode='accepted';const before=(await db.query('SELECT clock_timestamp()::text AS at')).rows[0].at;
+ const [again]=await claimUnknownMail(runtime);assert.equal(again.id,claim.id);
+ assert.equal((await db.query("SELECT lease_until BETWEEN $2::timestamptz+interval '5 minutes' AND clock_timestamp()+interval '5 minutes' AS correct FROM job WHERE id=$1",[again.id,before])).rows[0].correct,true);
  const out=await service.dispatch(again);assert.equal(out.kind,'accepted');assert.equal(effects.size,n+1);
  assert.deepEqual(requests.at(-1),requests.at(-2));
  assert.equal((await db.query('SELECT provider_message_id FROM mail WHERE id=$1',[id])).rows[0].provider_message_id,out.id);
