@@ -16,3 +16,4 @@ export function createOrganizationAdapter(effects:OrganizationEffects,geography:
 export type { OrganizationEffects, GeographyReference };
 export { canReadSharedSources, canDispatchActivity } from './gates.ts';
 export { canReadResidentProgress } from './consent.ts';
+export { readSharingDisclosure } from './sharing.ts';

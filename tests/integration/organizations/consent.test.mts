@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import * as S from './support.mts';
 import * as Q from '../../../packages/contracts/src/organizations/index.ts';
-import { canReadSharedSources,canDispatchActivity,canReadResidentProgress,createOrganizationAdapter } from '../../../packages/domain/src/organizations/index.ts';
+import { canReadSharedSources,canDispatchActivity,canReadResidentProgress,readSharingDisclosure,createOrganizationAdapter } from '../../../packages/domain/src/organizations/index.ts';
 before(S.setup);after(S.teardown);
 const view=(v:unknown)=>Q.sharingResult.parse(v);
 test('AC:AF-030 AC:AF-032 AC:AF-033 AC:TARGET-IDN-022 AC:WP007-API-KNOW-112 source gates recheck exact consent, saved witnesses and activity independently',async()=>{
@@ -29,10 +29,12 @@ test('AC:AF-030 AC:AF-032 AC:AF-033 AC:TARGET-IDN-022 AC:WP007-API-KNOW-112 sour
 });
 test('INV-consent: first approval defaults on while rejoin preserves independent saved choices',async()=>{
  const p=await S.tenant('plant'),pa=await S.identity(p),o=await S.tenant('sending_church'),oa=await S.identity(o),pair={kind:'plant',subject:p,organization:o};
+ const disclosed=await S.tx(c=>readSharingDisclosure(c,pa.session,p,pair));assert.equal(disclosed.kind,'first_invitation');assert.deepEqual(disclosed.choices,{people:true,meetings:true,tasks:true,ministry_teams:true,wiki:true,activity:true,shared_findings:true});
  const i=Q.invitationResult.parse(await S.call('associations.invite',pa,S.command({pair,recipientEmail:oa.email})));
  const accepted=Q.acceptedInvitationResult.parse(await S.call('associations.acceptInvitation',oa,S.command({invitationId:i.invitationId,proof:S.proofs.get(i.invitationId),decision:'accept'})));if(accepted.status!=='accepted')throw Error();
  await S.call('privacy.setSharing',pa,S.command({plant:p,organization:o,relationshipId:accepted.relationship.id,category:'wiki',enabled:false,expectedConsentRevision:'1'}));
  await S.call('associations.end',pa,S.command({relationshipId:accepted.relationship.id,pair,confirmed:true,reason:null},'2'));
+ const retained=await S.tx(c=>readSharingDisclosure(c,pa.session,p,pair));assert.equal(retained.kind,'existing_consent');assert.equal(retained.choices.wiki,false);
  const j=Q.invitationResult.parse(await S.call('associations.invite',pa,S.command({pair,recipientEmail:oa.email})));
  await S.call('associations.acceptInvitation',oa,S.command({invitationId:j.invitationId,proof:S.proofs.get(j.invitationId),decision:'accept'}));
  const v=view(await S.call('privacy.getSharing',pa,{plant:p,organization:o}));if(v.view!=='plant_administration')throw Error();assert.equal(v.choices.wiki,false);assert.equal(v.choices.people,true);assert.equal(v.consentRevision,'2');
@@ -51,7 +53,7 @@ test('AC:ADR1-016 AC:WP007-API-MUL-016 pipeline consent defaults off and require
 });
 async function resident(){
  const o=await S.tenant('sending_church'),staff=await S.identity(o),r=await S.identity(),a=await S.affiliation(r.selected,o,false),person=randomUUID(),invitation=randomUUID(),link=randomUUID();
- await S.db.query("INSERT INTO person(id,tenant_id,organization_id,display_name,state,linked_account_id,created_at,revision) VALUES($1,$2,$2,'Resident','live',$3,clock_timestamp(),1)",[person,o.id,r.account]);
+ await S.db.query("INSERT INTO person(id,tenant_id,organization_id,display_name,source,state,linked_account_id,created_at,revision) VALUES($1,$2,$2,'Resident','other','live',$3,clock_timestamp(),1)",[person,o.id,r.account]);
  await S.db.query("INSERT INTO invitation(id,tenant_id,purpose,recipient_email,token_hash,state,created_at,accepted_account_id,resident_person_id) VALUES($1,$2,'residency_link',$3,$4,'accepted',clock_timestamp(),$5,$6)",[invitation,o.id,r.email,randomUUID(),r.account,person]);
  await S.db.query('INSERT INTO residency_link(id,organization_id,person_id,account_id,affiliation_id,invitation_id,accepted_at,consent_revision,revision,share_foundations,share_milestones) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp(),1,1,true,true)',[link,o.id,person,r.account,a,invitation]);
  return {o,staff,r,link,person};

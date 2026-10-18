@@ -19,7 +19,7 @@ test('AC:ORG55-001 AC:TARGET-IDN-026 exact organization Owner/Admin profile chan
 });
 test('INV-location: correction is plant settings with immutable effective history, no street or phase editing',async()=>{
  const p=await S.tenant('plant'),pa=await S.identity(p),org=await S.identity(await S.tenant('sending_church')),release=randomUUID(),item=randomUUID(),version=randomUUID();
- await S.db.query("INSERT INTO reference_release(id,tenant_id,manifest_hash,state,expected_passages,complete_at,validated_at,approval_hash,approval_locator) VALUES($1,'00000000-0000-0000-0000-000000000000',$2,'validated',0,clock_timestamp(),clock_timestamp(),$2,'synthetic-approved-fixture')",[release,'a'.repeat(64)]);
+ await S.db.query("INSERT INTO reference_release(id,release_key,artifact_locator,chunker_version,embedding_profile,embedding_dimensions,tenant_id,manifest_hash,state,expected_passages,complete_at,validated_at,approval_hash,approval_locator) VALUES($1,$1::text,'synthetic-fixture','fixture','fixture',3,'00000000-0000-0000-0000-000000000000',$2,'validated',0,clock_timestamp(),clock_timestamp(),$2,'synthetic-approved-fixture')",[release,'a'.repeat(64)]);
  await S.db.query("INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES($1,'geography_dataset',$2,'00000000-0000-0000-0000-000000000000')",[item,'synthetic/'+item]);
  await S.db.query("INSERT INTO reference_version(id,item_id,release_id,version_number,artifact_path,content_hash,source_credit) VALUES($1,$2,$3,1,'synthetic-official-fixture',$4,'Synthetic reference fixture')",[version,item,release,'a'.repeat(64)]);
  const q=S.command({plant:p,locality:{city:'City',stateProvince:'State',country:'US'},referenceVersionId:version,regionItemId:null});

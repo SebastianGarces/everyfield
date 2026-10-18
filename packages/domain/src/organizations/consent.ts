@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { recordId, accountId, tenantId, revision, type Owner, type sessionId } from '@everyfield/contracts/common';
 import * as Q from '@everyfield/contracts/organizations';
 import type { OrganizationAdapter } from '@everyfield/contracts/organizations';
-import { active, administrator, appendEvent, beginCommand, checkRevision, currentActor, finishCommand, invalidate, loadAffiliation, pairOf, refuse, sameOwner, unavailable, type OrganizationEffects } from './core.ts';
+import { active, administrator, appendEvent, beginCommand, checkRevision, currentActor, finishCommand, invalidate, liveOwner, loadAffiliation, pairOf, refuse, sameOwner, unavailable, type OrganizationEffects } from './core.ts';
 import { readOwnResidency, readPipelinePerson } from '../access/pipeline.ts';
 const residentRow=z.object({id:recordId,organization_id:tenantId,person_id:recordId,account_id:accountId.nullable(),affiliation_id:recordId,consent_revision:revision,revision,
   ended_at:z.date().nullable(),share_foundations:z.boolean(),share_milestones:z.boolean(),organization_kind:z.enum(['sending_church','sending_network'])});
@@ -16,12 +16,16 @@ export async function loadResident(tx:PoolClient,id:string,write=false) {
 export async function canReadResidentProgress(tx:PoolClient,session:z.infer<typeof sessionId>,selected:Owner,raw:unknown):Promise<boolean> {
   const q=z.strictObject({linkId:recordId,consentRevision:revision,category:z.enum(['foundations','milestones'])}).parse(raw);
   const l=await loadResident(tx,q.linkId);if(!l||l.ended_at!==null||l.consent_revision!==q.consentRevision||!(q.category==='foundations'?l.share_foundations:l.share_milestones)||selected.kind!=='organization'||selected.id!==l.organization_id)return false;
-  const own=await readOwnResidency(tx,session,selected,{personId:l.person_id});
-  // Resident self access is independent; organization progress needs a current duty.
-  if(own)return false;
   const access=await readPipelinePerson(tx,session,selected,{personId:l.person_id});
   if(access.status!=='allowed')return false;
-  const a=await loadAffiliation(tx,l.affiliation_id);return a!==null&&await active(tx,a)&&a.account_id===l.account_id&&a.organization_id===selected.id;
+  if(l.account_id===null||!await liveOwner(tx,{kind:'account',id:l.account_id}))return false;
+  const source=await tx.query(`SELECT l.id FROM residency_link l JOIN affiliation a ON a.id=l.affiliation_id AND a.account_id=l.account_id AND a.organization_id=l.organization_id
+    JOIN invitation i ON i.id=l.invitation_id AND i.tenant_id=l.organization_id AND i.accepted_account_id=l.account_id
+    JOIN person p ON p.id=l.person_id AND p.tenant_id=l.organization_id AND p.linked_account_id=l.account_id
+    WHERE l.id=$1 AND l.ended_at IS NULL AND l.accepted_at<=clock_timestamp() AND a.ended_at IS NULL AND a.accepted_at<=clock_timestamp()
+      AND i.state='accepted' AND i.purpose='residency_link' AND i.resident_person_id=l.person_id AND p.state='live'
+      AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.affiliation_id=a.id AND w.state<>'active') FOR SHARE OF l,a,i,p`,[l.id]);
+  return source.rowCount===1;
 }
 export function consentOperations(effects:OrganizationEffects):Pick<OrganizationAdapter<PoolClient>,'residency.readSharing'|'residency.setSharing'|'residency.leave'|'pipelineSharing.readConsent'|'pipelineSharing.setConsent'|'pipelineSharing.checkAggregateAccess'> {
   return {

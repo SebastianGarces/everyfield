@@ -60,7 +60,7 @@ test('INV-wiki: each published upstream change yields only an in-app notice, no 
 test('AC:CASE-NTF-015 INV-discovery: an account who owns the exact organization receives one receipt without a phantom plant',async()=>{
  await db.query('INSERT INTO discovery(account_id) VALUES($1)',[account]);
  const association=randomUUID(),operation=randomUUID();
- await db.query(`INSERT INTO affiliation(id,account_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry,share_wiki,share_activity,shared_findings)
+ await db.query(`INSERT INTO affiliation(id,account_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
   VALUES($1,$2,$3,now(),false,false,false,false,false,false,false)`,[association,account,org]);
  await db.query(`INSERT INTO operation(id,tenant_id,actor_id,name,request_key,request_digest,state,started_at,tool_calls,reserved_input,reserved_output,used_input,used_output)
   VALUES($1,$2,$3,'associations.acceptInvitation',$4,$5,'complete',now(),0,0,0,0,0)`,[operation,org,account,operation,'a'.repeat(64)]);
@@ -96,7 +96,7 @@ test('INV-digest: one dated catch-up advances coverage only with its matching ma
  assert.equal((await db.query("SELECT covered_through::text FROM digest_coverage WHERE purpose='planter'")).rows[0].covered_through,'2026-10-18');
 });
 test('INV-digest: exact organization projection refuses narrative fields and independent unshared activity sends nothing',async()=>{
- for(const [id,share] of [[org,true],[org2,false]])await db.query(`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry,share_wiki,share_activity,shared_findings)
+ for(const [id,share] of [[org,true],[org2,false]])await db.query(`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
   VALUES($1,$2,now(),false,false,false,false,false,$3,false)`,[tenant,id,share]);
  const digest=createDigestService({origin:'https://example.test',nativePath:o=>o.kind==='plant'?'/tasks':'/organization',mail,eligible:async()=>({address:'synthetic@example.test',cadence:'daily'}),load:async(tx,o)=>{
   const r=await tx.query('SELECT id FROM affiliation WHERE organization_id=$1 AND plant_id=$2 AND share_activity AND ended_at IS NULL FOR SHARE',[o.id,tenant]);

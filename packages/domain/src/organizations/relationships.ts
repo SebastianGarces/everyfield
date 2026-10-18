@@ -87,7 +87,7 @@ export function relationshipCommands(effects:OrganizationEffects):Pick<Organizat
     const previous=a?.revision??'0';
     if(a)await tx.query('UPDATE affiliation SET accepted_at=clock_timestamp(),ended_at=NULL,invitation_id=$2,revision=revision+1 WHERE id=$1',[a.id,i.id]);
     else {
-      const r=await tx.query<{id:string}>(`INSERT INTO affiliation(plant_id,account_id,sending_church_id,organization_id,accepted_at,invitation_id,share_people,share_meetings,share_tasks,share_ministry,share_wiki,share_activity,shared_findings)
+      const r=await tx.query<{id:string}>(`INSERT INTO affiliation(plant_id,account_id,sending_church_id,organization_id,accepted_at,invitation_id,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
         VALUES($1,$2,$3,$4,clock_timestamp(),$5,$6,$6,$6,$6,$6,$6,$6) RETURNING id`,[...endpointValues(pair),i.id,pair.kind==='plant']);
       a=await loadAffiliation(tx,r.rows[0]!.id,true);
     }

@@ -3121,7 +3121,7 @@
           "note": ""
         },
         {
-          "name": "share_ministry",
+          "name": "share_ministry_teams",
           "type": "boolean",
           "nullable": false,
           "note": ""
@@ -3295,7 +3295,7 @@
       "checks": [
         "revision >= 1",
         "num_nonnulls(plant_id, account_id, sending_church_id) = 1",
-        "plant_id is not null or not (share_people or share_meetings or share_tasks or share_ministry or share_wiki or share_activity or shared_findings)"
+        "plant_id is not null or not (share_people or share_meetings or share_tasks or share_ministry_teams or share_wiki or share_activity or shared_findings)"
       ],
       "jsonb_keys": {},
       "capabilities": [

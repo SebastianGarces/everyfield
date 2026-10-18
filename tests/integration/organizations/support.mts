@@ -52,6 +52,6 @@ export const api=createOrganizationAdapter(effects,{candidates:async()=>[]});
 export const command=(input:unknown,expectedRevision='1',requestKey=randomUUID())=>({requestKey,expectedRevision,input});
 export async function call(name:keyof typeof api,actor:Awaited<ReturnType<typeof identity>>,input:unknown){return tx(c=>api[name](c,actor.session,actor.selected,input as never));}
 export async function affiliation(plant:ReturnType<typeof owner.parse>,org:ReturnType<typeof owner.parse>,share=false){
- const r=await db.query(`INSERT INTO affiliation(plant_id,account_id,sending_church_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry,share_wiki,share_activity,shared_findings)
+ const r=await db.query(`INSERT INTO affiliation(plant_id,account_id,sending_church_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
  VALUES($1,$2,$3,$4,clock_timestamp(),$5,$5,$5,$5,$5,$5,$5) RETURNING id`,[plant.kind==='plant'?plant.id:null,plant.kind==='account'?plant.id:null,plant.kind==='organization'?plant.id:null,org.id,share]);return r.rows[0].id;
 }

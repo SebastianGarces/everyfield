@@ -1,6 +1,6 @@
 -- Additive adapter storage; baseline migrations and their checksums stay unchanged.
 ALTER TABLE affiliation ADD COLUMN consent_revision bigint NOT NULL DEFAULT 1 CHECK(consent_revision>=1);
-ALTER TABLE affiliation ADD COLUMN share_ministry_teams boolean GENERATED ALWAYS AS (share_ministry) STORED;
+ALTER TABLE affiliation RENAME COLUMN share_ministry TO share_ministry_teams;
 CREATE TABLE relationship_invitation (
   invitation_id uuid PRIMARY KEY REFERENCES invitation(id),
   plant_id uuid REFERENCES plant(id),

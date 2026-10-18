@@ -1,8 +1,10 @@
 import type { PoolClient } from 'pg';
+import type { z } from 'zod';
+import type { Owner, sessionId } from '@everyfield/contracts/common';
 import type { OrganizationAdapter } from '@everyfield/contracts/organizations';
 import * as Q from '@everyfield/contracts/organizations';
-import { choices, active, administrator, appendEvent, beginCommand, checkRevision, currentActor, finishCommand, invalidate, loadAffiliation, pairOf, refuse, sameOwner, unavailable, type OrganizationEffects } from './core.ts';
-const columns={people:'share_people',meetings:'share_meetings',tasks:'share_tasks',ministry_teams:'share_ministry',wiki:'share_wiki',activity:'share_activity',shared_findings:'shared_findings'} as const;
+import { subjectAuthority, validPair, endpointValues, choices, active, administrator, appendEvent, beginCommand, checkRevision, currentActor, finishCommand, invalidate, loadAffiliation, pairOf, refuse, sameOwner, unavailable, type OrganizationEffects } from './core.ts';
+const columns={people:'share_people',meetings:'share_meetings',tasks:'share_tasks',ministry_teams:'share_ministry_teams',wiki:'share_wiki',activity:'share_activity',shared_findings:'shared_findings'} as const;
 export function sharingOperations(effects:OrganizationEffects):Pick<OrganizationAdapter<PoolClient>,'privacy.getSharing'|'privacy.setSharing'> {
   return {
     async 'privacy.getSharing'(tx,session,selected,raw) {
@@ -29,4 +31,16 @@ export function sharingOperations(effects:OrganizationEffects):Pick<Organization
       return finishCommand(tx,c,r=>Q.mutationResult.parse({status:'committed',receipt:r}),[event]);
     }
   };
+}
+
+// Native review disclosure. Re-read before approving; this observation grants no
+// authority and never overwrites the exact pair's persisted consent on rejoin.
+export async function readSharingDisclosure(tx:PoolClient,session:z.infer<typeof sessionId>,selected:Owner,raw:unknown) {
+  const pair=Q.relationshipPair.parse(raw),actor=await currentActor(tx,session,selected);
+  if(actor.status!=='active'||!await validPair(tx,pair)||!(await subjectAuthority(tx,actor,pair)||sameOwner(selected,pair.organization)&&administrator(actor)))return unavailable();
+  const r=await tx.query<{id:string}>('SELECT id FROM affiliation WHERE plant_id IS NOT DISTINCT FROM $1::uuid AND account_id IS NOT DISTINCT FROM $2::uuid AND sending_church_id IS NOT DISTINCT FROM $3::uuid AND organization_id=$4',endpointValues(pair));
+  const previous=r.rows[0]?await loadAffiliation(tx,r.rows[0].id):null;
+  if(previous&&pair.kind==='plant')return Q.sharingDisclosure.parse({kind:'existing_consent',organization:pair.organization,consentRevision:previous.consent_revision,choices:choices(previous)});
+  if(pair.kind!=='plant')return unavailable();
+  return Q.sharingDisclosure.parse({kind:'first_invitation',organization:pair.organization,choices:{people:true,meetings:true,tasks:true,ministry_teams:true,wiki:true,activity:true,shared_findings:true}});
 }
