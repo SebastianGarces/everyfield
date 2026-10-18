@@ -3,155 +3,278 @@ import { cn } from "@/components/cn";
 import { Icon } from "@/components/Icon";
 import { Av, CardIcon, NUM, StageChip } from "@/components/kit/kit";
 import { Fade, MoodBot, Move, Target, Tf } from "@/components/motion/fx";
-import { HA_NAME } from "../demo-data";
 import { ICONS } from "../icons";
 import { ApproveButton, Draft, HeroStage, Roll, TypedName } from "./hero-fx";
 
 // The home hero: one person, from first contact to the core group. The cards render on the server; hero-fx.tsx runs the
 // clock, the typing, the moving chip and the pause button.
 
-const LABEL = "Example: Maria Lopez is added, comes to a vision meeting, gets a follow-up that Evry drafted and you approved, commits, and joins the core group.";
-const CARD = "relative col-start-1 row-start-1 w-[min(440px,calc(100%-32px))] rounded-[22px] px-5 pt-[18px] pb-5 opacity-0 max-mk-sm:w-[calc(100%-24px)] max-mk-sm:px-4 max-mk-sm:pt-4 max-mk-sm:pb-[18px]";
+const label = (name: string) =>
+	`Example: ${name} is added, comes to a vision meeting, gets a follow-up that Evry drafted and you approved, commits, and joins the core group.`;
+const CARD =
+	"relative col-start-1 row-start-1 w-[min(440px,calc(100%-32px))] rounded-[22px] px-5 pt-[18px] pb-5 opacity-0 max-mk-sm:w-[calc(100%-24px)] max-mk-sm:px-4 max-mk-sm:pt-4 max-mk-sm:pb-[18px]";
 
-export function HeroAnimation() {
-  return (
-    <HeroStage label={LABEL} chip={<><Av>ML</Av>{HA_NAME}</>}>
-      <div className="col-start-1 row-start-1 w-[min(440px,calc(100%-32px))] self-stretch rounded-[22px] shadow-mk-hero-card max-mk-sm:w-[calc(100%-24px)]" />
-      <div className="col-start-1 row-start-1 w-[min(440px,calc(100%-32px))] self-stretch rounded-[22px] bg-white max-mk-sm:w-[calc(100%-24px)]" />
-      <Move fx="card" n={0} className={CARD}>
-        <Head i={0} lead={<CardIcon tone="green" icon={ICONS.users} size={36} glyph={17} />} title="Add person" sub="People" />
-        <St i={0} k={1} className="flex items-end gap-2">
-          <div className="min-w-0 flex-1">
-            <Lab>Name</Lab>
-            <div className="flex h-10 items-center overflow-hidden rounded-[12px] bg-white px-3 text-[14px] whitespace-nowrap text-ink shadow-mk-input-focus">
-              <TypedName />
-            </div>
-          </div>
-          <Tf fx="add" className="relative inline-grid h-10 flex-none place-items-center overflow-hidden rounded-[12px] bg-ink px-4 text-[13px] font-semibold whitespace-nowrap text-white shadow-pill">
-            <span className="col-start-1 row-start-1 inline-flex items-center gap-1.5">Add</span>
-          </Tf>
-        </St>
-        <St i={0} k={2} className="mt-4">
-          <Lab>Recently added</Lab>
-          <Li first><Slot i={0} /></Li>
-          <Li><span className="skeleton block size-6 flex-none rounded-full" /><span className="skeleton block h-2" style={{ width: "46%" }} /></Li>
-        </St>
-      </Move>
-      <Move fx="card" n={1} className={CARD}>
-        <Head i={1} lead={<CardIcon tone="blue" icon={ICONS.calendar} size={36} glyph={17} />} title="Vision meeting #12" sub="Sun, Oct 12 · 6:00 PM" />
-        <Kv k={1} label="Type">Vision meeting</Kv>
-        <Kv k={2} label="Host home"><Icon icon={ICONS.pin} className="text-text-3" />Hyde Park</Kv>
-        <Kv k={3} label="Guests"><Roll a={8} b={9} p="guests" /></Kv>
-        <St i={1} k={4} className="mt-2.5 flex flex-nowrap gap-2 overflow-hidden">
-          <span className="skeleton inline-block h-[30px] w-16 flex-none" />
-          <span className="skeleton inline-block h-[30px] w-16 flex-none" />
-          <Slot i={1} />
-        </St>
-      </Move>
-      <Move fx="card" n={2} className={CARD}>
-        <Head i={2} lead={<MoodBot fx="mood" />} title="Evry drafted a follow-up" sub="Due today. You approve it." />
-        <St i={2} k={1} className="flex items-center gap-2.5 text-[12.5px] text-text-3"><span>To</span><Slot i={2} /></St>
-        <St i={2} k={2} className="relative mt-3 h-[88px] overflow-hidden rounded-[14px] bg-surface px-[13px] py-[11px] text-[13.5px] leading-[1.5] text-ink-2 shadow-[inset_0_0_0_1px_var(--color-line)]">
-          <Draft />
-        </St>
-        <St i={2} k={3} className="mt-3.5 flex items-center justify-between gap-2.5">
-          <span className="skeleton block h-2" style={{ width: "28%" }} />
-          <ApproveButton />
-        </St>
-      </Move>
-      <Move fx="card" n={3} className={CARD}>
-        <St i={3} k={0} className="mb-3.5 flex items-center justify-between gap-2.5">
-          <Slot i={3} />
-          {/* Scene 4: the stage flips from Following up to Committed. */}
-          <span className="inline-grid">
-            <Move as="span" fx="flipA" className="col-start-1 row-start-1 justify-self-end"><StageChip tone="amber">Following up</StageChip></Move>
-            <Move as="span" fx="flipB" className="col-start-1 row-start-1 justify-self-end"><StageChip tone="green">Committed</StageChip></Move>
-          </span>
-        </St>
-        {[["Vision meeting #12", "Attended"], ["Follow-up from Evry", "Sent"], ["Commitment card", "Signed"]].map((r, k) => (
-          <St key={r[0]} i={3} k={k + 1} className="flex h-11 items-center gap-2.5 border-t border-line">
-            <Move as="span" fx="check" n={k} className="grid size-[22px] flex-none place-items-center rounded-full bg-green-500 text-ink">
-              <Icon icon={ICONS.check} className="[&_path]:[stroke-width:2.6]" />
-            </Move>
-            <span className="min-w-0 flex-1 text-[13px] font-semibold">{r[0]}</span>
-            <span className="text-[12.5px] text-text-3">{r[1]}</span>
-          </St>
-        ))}
-        <St i={3} k={4}>
-          <Li first><span className="skeleton block size-6 flex-none rounded-full" /><span className="skeleton block h-2" style={{ width: "52%" }} /></Li>
-        </St>
-      </Move>
-      <Move fx="card" n={4} className={CARD}>
-        <Head i={4} lead={<CardIcon tone="ink" icon={ICONS.users} size={36} glyph={17} />} title="Where people are" sub="Harvest Point · this week" />
-        <div className="grid gap-3">
-          <Row k={0} chip={<StageChip tone="blue" className="flex-none">Attendee</StageChip>} num="41" />
-          <Row k={1} chip={<StageChip tone="amber" className="flex-none">Following up</StageChip>} num={<Roll a={23} b={22} p="join" />} />
-          <Row k={2} chip={<StageChip tone="green" className="flex-none">Core group</StageChip>} slot={<Slot i={4} />} num={<Roll a={34} b={35} p="join" />} hl />
-        </div>
-      </Move>
-    </HeroStage>
-  );
+/** Card text the page passes (home/demo.ts): the meeting, the person and the core group count. */
+export type HeroDemo = {
+	meeting: { title: string; sub: string };
+	draftSub: string;
+	peopleTitle: string;
+	person: HeroPerson;
+};
+type HeroPerson = { name: string; initials: string; core: readonly [number, number] };
+
+export function HeroAnimation({ demo }: { demo: HeroDemo }) {
+	const { meeting, person } = demo;
+	return (
+		<HeroStage
+			label={label(person.name)}
+			chip={
+				<>
+					<Av>{person.initials}</Av>
+					{person.name}
+				</>
+			}
+		>
+			<div className="col-start-1 row-start-1 w-[min(440px,calc(100%-32px))] self-stretch rounded-[22px] shadow-mk-hero-card max-mk-sm:w-[calc(100%-24px)]" />
+			<div className="col-start-1 row-start-1 w-[min(440px,calc(100%-32px))] self-stretch rounded-[22px] bg-white max-mk-sm:w-[calc(100%-24px)]" />
+			<Move fx="card" n={0} className={CARD}>
+				<Head
+					i={0}
+					lead={<CardIcon tone="green" icon={ICONS.users} size={36} glyph={17} />}
+					title="Add person"
+					sub="People"
+				/>
+				<St i={0} k={1} className="flex items-end gap-2">
+					<div className="min-w-0 flex-1">
+						<Lab>Name</Lab>
+						<div className="flex h-10 items-center overflow-hidden rounded-[12px] bg-white px-3 text-[14px] whitespace-nowrap text-ink shadow-mk-input-focus">
+							<TypedName name={person.name} />
+						</div>
+					</div>
+					<Tf
+						fx="add"
+						className="relative inline-grid h-10 flex-none place-items-center overflow-hidden rounded-[12px] bg-ink px-4 text-[13px] font-semibold whitespace-nowrap text-white shadow-pill"
+					>
+						<span className="col-start-1 row-start-1 inline-flex items-center gap-1.5">Add</span>
+					</Tf>
+				</St>
+				<St i={0} k={2} className="mt-4">
+					<Lab>Recently added</Lab>
+					<Li first>
+						<Slot i={0} person={person} />
+					</Li>
+					<Li>
+						<span className="skeleton block size-6 flex-none rounded-full" />
+						<span className="skeleton block h-2" style={{ width: "46%" }} />
+					</Li>
+				</St>
+			</Move>
+			<Move fx="card" n={1} className={CARD}>
+				<Head
+					i={1}
+					lead={<CardIcon tone="blue" icon={ICONS.calendar} size={36} glyph={17} />}
+					title={meeting.title}
+					sub={meeting.sub}
+				/>
+				<Kv k={1} label="Type">
+					Vision meeting
+				</Kv>
+				<Kv k={2} label="Host home">
+					<Icon icon={ICONS.pin} className="text-text-3" />
+					Hyde Park
+				</Kv>
+				<Kv k={3} label="Guests">
+					<Roll a={8} b={9} p="guests" />
+				</Kv>
+				<St i={1} k={4} className="mt-2.5 flex flex-nowrap gap-2 overflow-hidden">
+					<span className="skeleton inline-block h-[30px] w-16 flex-none" />
+					<span className="skeleton inline-block h-[30px] w-16 flex-none" />
+					<Slot i={1} person={person} />
+				</St>
+			</Move>
+			<Move fx="card" n={2} className={CARD}>
+				<Head i={2} lead={<MoodBot fx="mood" />} title="Evry drafted a follow-up" sub={demo.draftSub} />
+				<St i={2} k={1} className="flex items-center gap-2.5 text-[12.5px] text-text-3">
+					<span>To</span>
+					<Slot i={2} person={person} />
+				</St>
+				<St
+					i={2}
+					k={2}
+					className="relative mt-3 h-[88px] overflow-hidden rounded-[14px] bg-surface px-[13px] py-[11px] text-[13.5px] leading-[1.5] text-ink-2 shadow-[inset_0_0_0_1px_var(--color-line)]"
+				>
+					<Draft />
+				</St>
+				<St i={2} k={3} className="mt-3.5 flex items-center justify-between gap-2.5">
+					<span className="skeleton block h-2" style={{ width: "28%" }} />
+					<ApproveButton />
+				</St>
+			</Move>
+			<Move fx="card" n={3} className={CARD}>
+				<St i={3} k={0} className="mb-3.5 flex items-center justify-between gap-2.5">
+					<Slot i={3} person={person} />
+					{/* Scene 4: the stage flips from Following up to Committed. */}
+					<span className="inline-grid">
+						<Move as="span" fx="flipA" className="col-start-1 row-start-1 justify-self-end">
+							<StageChip tone="amber">Following up</StageChip>
+						</Move>
+						<Move as="span" fx="flipB" className="col-start-1 row-start-1 justify-self-end">
+							<StageChip tone="green">Committed</StageChip>
+						</Move>
+					</span>
+				</St>
+				{[
+					[meeting.title, "Attended"],
+					["Follow-up from Evry", "Sent"],
+					["Commitment card", "Signed"],
+				].map((r, k) => (
+					<St key={r[0]} i={3} k={k + 1} className="flex h-11 items-center gap-2.5 border-t border-line">
+						<Move
+							as="span"
+							fx="check"
+							n={k}
+							className="grid size-[22px] flex-none place-items-center rounded-full bg-green-500 text-ink"
+						>
+							<Icon icon={ICONS.check} className="[&_path]:[stroke-width:2.6]" />
+						</Move>
+						<span className="min-w-0 flex-1 text-[13px] font-semibold">{r[0]}</span>
+						<span className="text-[12.5px] text-text-3">{r[1]}</span>
+					</St>
+				))}
+				<St i={3} k={4}>
+					<Li first>
+						<span className="skeleton block size-6 flex-none rounded-full" />
+						<span className="skeleton block h-2" style={{ width: "52%" }} />
+					</Li>
+				</St>
+			</Move>
+			<Move fx="card" n={4} className={CARD}>
+				<Head
+					i={4}
+					lead={<CardIcon tone="ink" icon={ICONS.users} size={36} glyph={17} />}
+					title={demo.peopleTitle}
+					sub="Harvest Point · this week"
+				/>
+				<div className="grid gap-3">
+					<Row
+						k={0}
+						chip={
+							<StageChip tone="blue" className="flex-none">
+								Attendee
+							</StageChip>
+						}
+						num="41"
+					/>
+					<Row
+						k={1}
+						chip={
+							<StageChip tone="amber" className="flex-none">
+								Following up
+							</StageChip>
+						}
+						num={<Roll a={23} b={22} p="join" />}
+					/>
+					<Row
+						k={2}
+						chip={
+							<StageChip tone="green" className="flex-none">
+								Core group
+							</StageChip>
+						}
+						slot={<Slot i={4} person={person} />}
+						num={<Roll a={person.core[0]} b={person.core[1]} p="join" />}
+						hl
+					/>
+				</div>
+			</Move>
+		</HeroStage>
+	);
 }
 
 /** A card child that staggers in with its card (k-th child of card i). */
 function St({ i, k, className, children }: { i: number; k: number; className?: string; children: ReactNode }) {
-  return <Move fx="st" n={i * 10 + k} className={className}>{children}</Move>;
+	return (
+		<Move fx="st" n={i * 10 + k} className={className}>
+			{children}
+		</Move>
+	);
 }
 
 function Head({ i, lead, title, sub }: { i: number; lead: ReactNode; title: string; sub: string }) {
-  return (
-    <St i={i} k={0} className="mb-4 flex items-center gap-3">
-      {lead}
-      <div className="min-w-0 flex-1">
-        <div className="font-display text-[17px] leading-[1.2] font-medium tracking-[-0.02em]">{title}</div>
-        <div className="mt-0.5 text-[12.5px] text-text-3">{sub}</div>
-      </div>
-    </St>
-  );
+	return (
+		<St i={i} k={0} className="mb-4 flex items-center gap-3">
+			{lead}
+			<div className="min-w-0 flex-1">
+				<div className="font-display text-[17px] leading-[1.2] font-medium tracking-[-0.02em]">{title}</div>
+				<div className="mt-0.5 text-[12.5px] text-text-3">{sub}</div>
+			</div>
+		</St>
+	);
 }
 
 function Lab({ children }: { children: ReactNode }) {
-  return <span className="mb-1.5 block text-[12px] font-semibold text-text-2">{children}</span>;
+	return <span className="mb-1.5 block text-[12px] font-semibold text-text-2">{children}</span>;
 }
 /** A list line; the first one of its group has no rule above it. */
 function Li({ first, children }: { first?: boolean; children: ReactNode }) {
-  return <div className={cn("flex h-11 items-center gap-2.5", !first && "border-t border-line")}>{children}</div>;
+	return <div className={cn("flex h-11 items-center gap-2.5", !first && "border-t border-line")}>{children}</div>;
 }
 function Kv({ k, label, children }: { k: number; label: string; children: ReactNode }) {
-  return (
-    <St i={1} k={k} className="flex h-[38px] items-center justify-between gap-2.5 border-t border-line text-[13px] text-text-2">
-      <span>{label}</span>
-      <span className="inline-flex items-center gap-1.5 font-semibold text-ink">{children}</span>
-    </St>
-  );
+	return (
+		<St
+			i={1}
+			k={k}
+			className="flex h-[38px] items-center justify-between gap-2.5 border-t border-line text-[13px] text-text-2"
+		>
+			<span>{label}</span>
+			<span className="inline-flex items-center gap-1.5 font-semibold text-ink">{children}</span>
+		</St>
+	);
 }
 
 /** Maria's chip as the hidden slot in card i that the moving chip flies to. */
-function Slot({ i }: { i: number }) {
-  return (
-    <Target name={"s" + i} className="invisible inline-flex">
-      <span className="inline-flex h-[30px] items-center gap-[7px] rounded-full bg-white pr-3 pl-1 text-[13px] font-semibold whitespace-nowrap text-ink shadow-mk-chip">
-        <Av>ML</Av>
-        {HA_NAME}
-      </span>
-    </Target>
-  );
+function Slot({ i, person }: { i: number; person: HeroPerson }) {
+	return (
+		<Target name={"s" + i} className="invisible inline-flex">
+			<span className="inline-flex h-[30px] items-center gap-[7px] rounded-full bg-white pr-3 pl-1 text-[13px] font-semibold whitespace-nowrap text-ink shadow-mk-chip">
+				<Av>{person.initials}</Av>
+				{person.name}
+			</span>
+		</Target>
+	);
 }
 
 /** Scene 5: a stage row with its count and meter; the core-group row gets a short highlight. */
 const METER = ["bg-blue-500", "bg-amber-500", "bg-green-500"] as const;
-function Row({ k, chip, slot, num, hl }: { k: 0 | 1 | 2; chip: ReactNode; slot?: ReactNode; num: ReactNode; hl?: boolean }) {
-  return (
-    <St i={4} k={k + 1} className="relative">
-      {hl ? <Fade fx="hl" className="absolute -inset-x-2.5 -inset-y-1.5 -z-1 rounded-[14px] bg-green-50 opacity-0 shadow-mk-green-edge" /> : null}
-      <div className="flex min-h-[30px] items-center gap-2">
-        {chip}
-        {slot}
-        <span className={cn(NUM, "ml-auto text-[18px]")}>{num}</span>
-      </div>
-      <div className="relative mt-1.5 h-2.5 overflow-hidden rounded-full bg-surface-2">
-        <Tf fx="meter" n={k} className={cn("absolute inset-0 rounded-full", METER[k])} />
-      </div>
-    </St>
-  );
+function Row({
+	k,
+	chip,
+	slot,
+	num,
+	hl,
+}: {
+	k: 0 | 1 | 2;
+	chip: ReactNode;
+	slot?: ReactNode;
+	num: ReactNode;
+	hl?: boolean;
+}) {
+	return (
+		<St i={4} k={k + 1} className="relative">
+			{hl ? (
+				<Fade
+					fx="hl"
+					className="absolute -inset-x-2.5 -inset-y-1.5 -z-1 rounded-[14px] bg-green-50 opacity-0 shadow-mk-green-edge"
+				/>
+			) : null}
+			<div className="flex min-h-[30px] items-center gap-2">
+				{chip}
+				{slot}
+				<span className={cn(NUM, "ml-auto text-[18px]")}>{num}</span>
+			</div>
+			<div className="relative mt-1.5 h-2.5 overflow-hidden rounded-full bg-surface-2">
+				<Tf fx="meter" n={k} className={cn("absolute inset-0 rounded-full", METER[k])} />
+			</div>
+		</St>
+	);
 }

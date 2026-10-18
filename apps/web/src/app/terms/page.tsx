@@ -7,5 +7,5 @@ const copy = COPY.shared.terms_page;
 export const metadata: Metadata = pageMetadata(PAGES.terms);
 
 export default function Terms() {
-  return <Legal path="/terms" copy={copy} />;
+	return <Legal path="/terms" copy={copy} />;
 }
