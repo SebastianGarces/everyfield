@@ -303,7 +303,7 @@ function Live({
 	});
 	return (
 		<m.span
-			className="pointer-events-none absolute top-0 left-0 z-6 inline-flex h-[30px] origin-center items-center gap-[7px] rounded-full bg-white pr-3 pl-1 text-[13px] font-semibold whitespace-nowrap text-ink opacity-0 shadow-mk-chip will-change-[transform,opacity]"
+			className="pointer-events-none absolute top-0 left-0 z-6 inline-flex h-[30px] origin-center items-center gap-[7px] rounded-full bg-white pr-3 pl-1 type-sm font-semibold whitespace-nowrap text-ink opacity-0 shadow-mk-chip will-change-[transform,opacity]"
 			style={{ transform, opacity }}
 		>
 			<m.span

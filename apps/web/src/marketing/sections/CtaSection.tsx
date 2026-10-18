@@ -25,7 +25,7 @@ export function CtaSection({ c }: { c: Cta }) {
 							{c.cta_secondary}
 						</ButtonLink>
 					</div>
-					{c.note ? <p className="text-[14px] text-mk-ink-78">{c.note}</p> : null}
+					{c.note ? <p className="type-md text-mk-ink-78">{c.note}</p> : null}
 				</Reveal>
 			</div>
 		</section>

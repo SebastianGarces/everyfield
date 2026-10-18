@@ -28,8 +28,8 @@ export function Head({
 		<St i={i} className={cn("mb-3.5 flex items-center gap-3", className)}>
 			{lead}
 			<div className="min-w-0 flex-1">
-				<div className="font-display text-[17px] leading-[1.2] font-medium tracking-[-0.02em]">{title}</div>
-				<div className="mt-0.5 text-[12.5px] text-text-3">{sub}</div>
+				<div className="font-display type-title-sm leading-[1.2] font-medium tracking-[-0.02em]">{title}</div>
+				<div className="mt-0.5 type-sm text-text-3">{sub}</div>
 			</div>
 			{right}
 		</St>
@@ -55,7 +55,7 @@ export function PanelHead({
 	return <Head lead={<PIcon tone={tone} icon={icon} />} title={title} sub={sub} right={right} />;
 }
 export function Lab({ children, flush }: { children: ReactNode; flush?: boolean }) {
-	return <span className={cn("block text-[12px] font-semibold text-text-2", !flush && "mb-1.5")}>{children}</span>;
+	return <span className={cn("block type-xs font-semibold text-text-2", !flush && "mb-1.5")}>{children}</span>;
 }
 
 /** A dashboard number (display face). */
@@ -79,11 +79,11 @@ export function InsightTop({
 }) {
 	return (
 		<St i={i} className="flex flex-wrap items-center justify-between gap-x-2.5 gap-y-1.5">
-			<span className="inline-flex h-[30px] flex-none items-center gap-[7px] rounded-full bg-[var(--pill-bg)] px-3 text-[13px] font-semibold whitespace-nowrap shadow-[inset_0_0_0_1px_var(--pill-edge)]">
+			<span className="inline-flex h-[30px] flex-none items-center gap-[7px] rounded-full bg-[var(--pill-bg)] px-3 type-sm font-semibold whitespace-nowrap shadow-[inset_0_0_0_1px_var(--pill-edge)]">
 				<Icon icon={icon} />
 				{label}
 			</span>
-			<span className="text-[12.5px] text-[var(--on-3)]">{count}</span>
+			<span className="type-sm text-[var(--on-3)]">{count}</span>
 		</St>
 	);
 }
@@ -102,13 +102,13 @@ export function InsightMetric({
 }) {
 	return (
 		<St i={i} className="mt-5 flex items-end gap-3">
-			<span className={cn(NUM, "text-[52px] leading-[.95]", numClassName)}>{num}</span>
-			<span className="pb-[3px] text-[13.5px] leading-[1.3] text-[var(--on-2)]" style={{ maxWidth: unitMax }}>
+			<span className={cn(NUM, "type-display-md leading-[.95]", numClassName)}>{num}</span>
+			<span className="pb-[3px] type-md leading-[1.3] text-[var(--on-2)]" style={{ maxWidth: unitMax }}>
 				{unit}
 			</span>
 		</St>
 	);
 }
-export const INSIGHT_TITLE = "mt-3.5 font-display text-[23px] leading-[1.18] font-medium tracking-[-0.02em]";
-export const INSIGHT_TEXT = "text-[14px] text-[var(--on-2)]";
+export const INSIGHT_TITLE = "mt-3.5 font-display type-title-md leading-[1.18] font-medium tracking-[-0.02em]";
+export const INSIGHT_TEXT = "type-md text-[var(--on-2)]";
 export const INSIGHT_FOOTER = "mt-auto flex flex-wrap gap-2 pt-5";

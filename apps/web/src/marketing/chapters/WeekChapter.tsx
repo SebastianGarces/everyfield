@@ -51,7 +51,7 @@ export function WeekChapter() {
 				<div
 					data-txt=""
 					className={cn(
-						"[--cx-h3:clamp(18px,1.4vw,21px)] [--cx-ti:calc(var(--cx-h3)*1.48)]",
+						"[--cx-h3:var(--text-mk-lead)] [--cx-ti:calc(var(--cx-h3)*1.48)]",
 						"[transition:opacity_.25s_cubic-bezier(.37,0,.63,1)] motion-reduce:[transition:none] mk-cx:motion-safe:group-data-[on=false]/step:opacity-[.82]",
 						// Rise in once (the chapter marks steps below the fold with data-rv).
 						"group-data-[rv]/step:*:[transition:opacity_.42s_var(--ease-mk-out),transform_.42s_var(--ease-mk-out)]",
@@ -71,7 +71,7 @@ export function WeekChapter() {
 								className="size-1/2 [&_path]:[stroke-width:1.8]"
 							/>
 						</span>
-						<h3 className="min-w-0 font-display text-(length:--cx-h3) leading-[1.15] font-medium tracking-[-0.02em] [font-stretch:100%] [text-wrap:balance]">
+						<h3 className="min-w-0 font-display type-mk-lead leading-[1.15] font-medium tracking-[-0.02em] [font-stretch:100%] [text-wrap:balance]">
 							{s.title}
 						</h3>
 					</div>

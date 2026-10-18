@@ -31,9 +31,7 @@ export function SendingPaths({ p }: { p: Paths }) {
 			<Display as="h3" size="h3">
 				{x.title}
 			</Display>
-			<p className="mt-3.5 max-w-[38ch] text-[clamp(16.5px,1.25vw,18px)] leading-[1.55] text-pretty text-text-2">
-				{x.body}
-			</p>
+			<p className="mt-3.5 max-w-[38ch] text-mk-lead-sm leading-[1.55] text-pretty text-text-2">{x.body}</p>
 		</div>
 	));
 	return (
@@ -48,7 +46,7 @@ export function SendingPaths({ p }: { p: Paths }) {
 					apps={APPS}
 					tones={TONES}
 				/>
-				<p className="mx-auto mt-[clamp(24px,3vw,36px)] max-w-[720px] text-center text-[clamp(17px,1.3vw,19px)] leading-[1.55] text-pretty text-text-2">
+				<p className="mx-auto mt-[clamp(24px,3vw,36px)] max-w-[720px] text-center text-mk-lead-sm leading-[1.55] text-pretty text-text-2">
 					{p.line}
 				</p>
 			</Reveal>
@@ -58,7 +56,7 @@ export function SendingPaths({ p }: { p: Paths }) {
 
 function App({ children }: { children: ReactNode }) {
 	return (
-		<div className="w-[min(400px,100%)] rounded-[20px] bg-white px-[18px] pt-4 pb-[18px] text-[13px] leading-[1.4] text-text shadow-mk-panel-flat">
+		<div className="w-[min(400px,100%)] rounded-[20px] bg-white px-[18px] pt-4 pb-[18px] type-sm leading-[1.4] text-text shadow-mk-panel-flat">
 			{children}
 		</div>
 	);
@@ -68,15 +66,15 @@ function Head({ icon, tone, title, sub }: { icon: IconName; tone: Tone; title: s
 		<div className="mb-2 flex items-center gap-3">
 			<CardIcon tone={tone} icon={ICONS[icon]} size={36} glyph={17} />
 			<div className="min-w-0 flex-1">
-				<div className="font-display text-[17px] leading-[1.2] font-medium tracking-[-0.02em]">{title}</div>
-				<div className="mt-0.5 text-[12.5px] text-text-3">{sub}</div>
+				<div className="font-display type-title-sm leading-[1.2] font-medium tracking-[-0.02em]">{title}</div>
+				<div className="mt-0.5 type-sm text-text-3">{sub}</div>
 			</div>
 		</div>
 	);
 }
 const PILL =
-	"inline-flex h-[22px] items-center gap-1.5 rounded-full bg-surface-2 pr-[9px] pl-2 text-[11.5px] font-medium whitespace-nowrap text-ink-2";
-const KV = "flex items-center justify-between gap-2.5 border-t border-line py-2.5 text-[12.5px] text-text-2";
+	"inline-flex h-[22px] items-center gap-1.5 rounded-full bg-surface-2 pr-[9px] pl-2 type-xs font-medium whitespace-nowrap text-ink-2";
+const KV = "flex items-center justify-between gap-2.5 border-t border-line py-2.5 type-sm text-text-2";
 
 const APPS = [
 	<App key="church">
@@ -88,12 +86,12 @@ const APPS = [
 			<div key={r[0]} className="flex items-center gap-3 border-t border-line py-[9px]">
 				<CardIcon tone="green" icon={ICONS.pin} />
 				<div className="min-w-0 flex-1">
-					<div className="text-[14px] font-semibold">{r[0]}</div>
-					<div className="mt-0.5 truncate text-[12.5px] text-text-3">{r[1]}</div>
+					<div className="type-md font-semibold">{r[0]}</div>
+					<div className="mt-0.5 truncate type-sm text-text-3">{r[1]}</div>
 				</div>
-				<div className="flex flex-col items-end gap-0.5 text-[12.5px] whitespace-nowrap">
+				<div className="flex flex-col items-end gap-0.5 type-sm whitespace-nowrap">
 					<b>{r[3]}</b>
-					<span className="text-[11.5px] text-text-3 max-mk-sm:hidden">{r[2]}</span>
+					<span className="type-xs text-text-3 max-mk-sm:hidden">{r[2]}</span>
 				</div>
 			</div>
 		))}
@@ -120,8 +118,8 @@ const APPS = [
 		).map((g) => (
 			<div key={g[0]} className="border-t border-line py-2">
 				<div className="flex items-center justify-between gap-2">
-					<span className="text-[13.5px] font-semibold">{g[0]}</span>
-					<span className="text-[12px] text-text-2">
+					<span className="type-md font-semibold">{g[0]}</span>
+					<span className="type-xs text-text-2">
 						{g[1].length} plant{g[1].length > 1 ? "s" : ""}
 					</span>
 				</div>
@@ -140,7 +138,7 @@ const APPS = [
 		<Head icon="pin" tone="green" title="Mueller Hope Church" sub="Mueller, Austin · 0 · Discovery" />
 		<div className={KV}>
 			<span>Sent by</span>
-			<span className="inline-flex min-h-7 items-center gap-1.5 rounded-full bg-green-50 py-1 pr-[11px] pl-2 text-[12px] leading-[1.3] font-medium text-green-700 shadow-mk-chip-on">
+			<span className="inline-flex min-h-7 items-center gap-1.5 rounded-full bg-green-50 py-1 pr-[11px] pl-2 type-xs leading-[1.3] font-medium text-green-700 shadow-mk-chip-on">
 				<Icon icon={ICONS.network} />
 				<span>
 					Sent by <b className="font-semibold text-ink">Austin Sending Network</b>

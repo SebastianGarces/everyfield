@@ -14,8 +14,8 @@ import { OversightPanelsFx } from "./fx";
 // (MUL-007 to MUL-013). Pictures of the app with the demo network's data; the timing is in fx.tsx.
 
 const ROW = "flex items-center gap-2.5";
-const TITLE = "text-[13.5px] font-semibold";
-const SUB = "text-[12px] text-text-3";
+const TITLE = "type-md font-semibold";
+const SUB = "type-xs text-text-3";
 
 /* ---------- The daily digest by email (NTF-008): counts and dates, no names ---------- */
 export function DigestPanel() {
@@ -28,7 +28,7 @@ export function DigestPanel() {
 					title="Daily digest"
 					sub="Austin Sending Network · Mon, Oct 26, 7:00 AM"
 				/>
-				<St i={1} className="text-[12px] font-semibold text-text-2">
+				<St i={1} className="type-xs font-semibold text-text-2">
 					3 plants had activity on Sun, Oct 25
 				</St>
 				<div className="mt-1.5">
@@ -39,12 +39,12 @@ export function DigestPanel() {
 								<div className={cn(TITLE, "truncate")}>{r[1]}</div>
 								<div className={cn(SUB, "mt-0.5 truncate")}>{r[3]}</div>
 							</div>
-							<span className="font-display text-[18px] font-medium whitespace-nowrap text-ink">{r[2]}</span>
+							<span className="font-display type-title-sm font-medium whitespace-nowrap text-ink">{r[2]}</span>
 						</Move>
 					))}
 				</div>
 				<St i={2} className="mt-3 flex items-center justify-between gap-2.5 border-t border-line pt-3">
-					<span className="text-[12.5px] text-text-3">Counts and dates only</span>
+					<span className="type-sm text-text-3">Counts and dates only</span>
 					<Tf fx="digest.press" target="t0" className="inline-flex" layer={false}>
 						<UiButton variant="primary" size="sm">
 							Open your plants <Icon icon={ICONS.arrow} size={14} />
@@ -69,10 +69,12 @@ export function StagesPanel() {
 							className="relative isolate min-w-0 rounded-[12px] bg-white px-2 pt-2 pb-2.5 shadow-[inset_0_0_0_1px_var(--color-line)] max-mk-sm:px-1.5"
 						>
 							{k === 2 ? <Hl a={2850} b={1e9} box="inset-0 rounded-[12px] bg-green-50 shadow-mk-group-on" /> : null}
-							<Num className="block text-[24px] leading-none">
+							<Num className="block type-title-md leading-none">
 								<Count fx="stages.n" n={k} max={9} />
 							</Num>
-							<small className="mt-1.5 block text-[11px] leading-[1.2] text-text-3 max-mk-sm:text-[10px]">{s}</small>
+							<small className="mt-1.5 block type-mk-pic-xs leading-[1.2] text-text-3 max-mk-sm:type-mk-pic-2xs">
+								{s}
+							</small>
 						</div>
 					))}
 				</St>
@@ -110,8 +112,8 @@ export function GoalsPanel() {
 			<PanelCard kind="goals" className="min-w-0">
 				<PanelHead tone="green" icon={ICONS.flag} title="Sending goal" sub="Grace Church" />
 				<St i={1} className="flex items-end gap-3 pb-1">
-					<Num className="text-[52px] leading-[.95]">6</Num>
-					<span className="pb-1 text-[13.5px] leading-[1.3] text-text-2">leaders raised by 2030</span>
+					<Num className="type-display-md leading-[.95]">6</Num>
+					<span className="pb-1 type-md leading-[1.3] text-text-2">leaders raised by 2030</span>
 				</St>
 				<St i={2} className="mt-4">
 					<Lab>People at each stage today, Oct 19</Lab>
@@ -133,7 +135,7 @@ export function GoalsPanel() {
 							</>
 						);
 						const cls =
-							"relative isolate grid h-[38px] grid-cols-[116px_minmax(0,1fr)_24px] items-center gap-2.5 border-t border-line text-[13px]";
+							"relative isolate grid h-[38px] grid-cols-[116px_minmax(0,1fr)_24px] items-center gap-2.5 border-t border-line type-sm";
 						return k === 2 ? (
 							<Target key={s} name="t0" as="div" className={cls}>
 								<Hl a={2200} b={1e9} />
@@ -146,7 +148,7 @@ export function GoalsPanel() {
 						);
 					})}
 				</St>
-				<St i={3} className="mt-3 rounded-[14px] bg-surface-2 px-3.5 py-[11px] text-[13px] text-text-2">
+				<St i={3} className="mt-3 rounded-[14px] bg-surface-2 px-3.5 py-[11px] type-sm text-text-2">
 					2 residents are in the residency program now.
 				</St>
 			</PanelCard>
@@ -161,10 +163,10 @@ export function TalksPanel() {
 			<PanelCard kind="talks" className="min-w-0">
 				<PanelHead tone="amber" icon={ICONS.users} title="Leadership conversations" sub="Grace Church" />
 				<St i={1} className="flex gap-1.5">
-					<span className="inline-flex h-[30px] items-center rounded-sm bg-ink px-[11px] text-[12.5px] font-medium text-cream">
+					<span className="inline-flex h-[30px] items-center rounded-sm bg-ink px-[11px] type-sm font-medium text-cream">
 						By month
 					</span>
-					<span className="inline-flex h-[30px] items-center rounded-sm bg-surface px-[11px] text-[12.5px] font-medium text-ink-2 shadow-[inset_0_0_0_1px_var(--color-line-2)]">
+					<span className="inline-flex h-[30px] items-center rounded-sm bg-surface px-[11px] type-sm font-medium text-ink-2 shadow-[inset_0_0_0_1px_var(--color-line-2)]">
 						By quarter
 					</span>
 				</St>
@@ -182,7 +184,7 @@ export function TalksPanel() {
 									)}
 								/>
 							</span>
-							<span className="text-[11.5px] text-text-3">
+							<span className="type-xs text-text-3">
 								{m[0]} · <b className="font-semibold text-ink">{k === 3 ? <Count fx="talks.n" max={10} /> : m[1]}</b>
 							</span>
 						</div>
@@ -207,7 +209,7 @@ export function TalksPanel() {
 }
 function Talk({ who, when }: { who: string; when: string }) {
 	return (
-		<div className="flex items-center justify-between gap-2.5 border-t border-line py-2 text-[13px]">
+		<div className="flex items-center justify-between gap-2.5 border-t border-line py-2 type-sm">
 			<span className="min-w-0 truncate font-medium">{who}</span>
 			<span className="text-text-3 whitespace-nowrap">{when}</span>
 		</div>
@@ -234,7 +236,7 @@ export function ProgramPanel() {
 							/>
 						))}
 					</div>
-					<div className="mt-2 flex items-baseline justify-between gap-2 text-[12px]">
+					<div className="mt-2 flex items-baseline justify-between gap-2 type-xs">
 						<span>
 							<b className="font-semibold text-ink">Luis Romero</b>{" "}
 							<span className="text-text-3">· {RES_STAGES[1][0]}, month 5</span>
@@ -242,11 +244,11 @@ export function ProgramPanel() {
 						<span className="text-text-3 whitespace-nowrap">{RES_STAGES[1][1]}</span>
 					</div>
 				</St>
-				<St i={2} className="mt-3.5 text-[12px] font-semibold text-text-2">
+				<St i={2} className="mt-3.5 type-xs font-semibold text-text-2">
 					Milestones
 				</St>
 				{MILESTONES.map((m, k) => (
-					<St key={m[0]} i={3 + k} className="flex items-center gap-2.5 border-t border-line py-2.5 text-[13px]">
+					<St key={m[0]} i={3 + k} className="flex items-center gap-2.5 border-t border-line py-2.5 type-sm">
 						<span
 							className={cn(
 								"grid size-5 flex-none place-items-center rounded-full",
@@ -272,7 +274,7 @@ export function ProgramPanel() {
 						)}
 					</St>
 				))}
-				<St i={6} className="mt-1 flex items-center gap-2.5 rounded-[14px] bg-surface-2 px-3.5 py-[11px] text-[13px]">
+				<St i={6} className="mt-1 flex items-center gap-2.5 rounded-[14px] bg-surface-2 px-3.5 py-[11px] type-sm">
 					<Icon icon={ICONS.book} size={16} />
 					<span className="flex-1 font-semibold">Reading list</span>
 					<span className="text-text-3">6 articles</span>

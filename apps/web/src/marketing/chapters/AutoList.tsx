@@ -168,7 +168,7 @@ export function AutoList({ id, head, mirror, steps }: Props) {
 								"group-data-[rv=wait]/step:*:opacity-0 group-data-[rv=wait]/step:*:[transform:translateY(14px)] group-data-[rv=in]/step:[&>:nth-child(2)]:[transition-delay:75ms]",
 							)}
 						>
-							<span className="block font-display text-[clamp(18px,1.4vw,21px)] leading-[1.15] font-medium tracking-[-0.02em] [font-stretch:100%] [text-wrap:balance]">
+							<span className="block font-display type-mk-lead leading-[1.15] font-medium tracking-[-0.02em] [font-stretch:100%] [text-wrap:balance]">
 								{st.title}
 							</span>
 							<span className="mt-2 block max-w-[46ch] text-text-2">{st.body}</span>

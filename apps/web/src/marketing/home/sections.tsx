@@ -9,7 +9,7 @@ import { EvryPanel, type EvryDemo } from "../panels/intelligence";
 import { SENT } from "./demo";
 import { SoloPanel } from "../chapters/SoloPanel";
 
-const LEAD = "text-[clamp(17px,1.3vw,19px)] leading-[1.55] text-pretty text-text-2";
+const LEAD = "text-mk-lead-sm leading-[1.55] text-pretty text-text-2";
 
 /**
  * "Evry prepares the work. You approve it." The panel sits left (the Plant Intelligence chapter above has it right), and
@@ -34,7 +34,7 @@ export function EvrySection({
 						{headline}
 					</Display>
 					<p className={cn(LEAD, "mt-5")}>{body}</p>
-					<p className="mt-6 flex gap-3 rounded-[18px] bg-surface-2 px-4 py-3.5 text-[15px] leading-[1.5] text-text-2">
+					<p className="mt-6 flex gap-3 rounded-[18px] bg-surface-2 px-4 py-3.5 type-lg leading-[1.5] text-text-2">
 						<CardIcon tone="ink" icon={ICONS.heart} size={30} glyph={15} />
 						<span className="min-w-0 self-center">{limits}</span>
 					</p>
@@ -63,12 +63,10 @@ export function SendingGlimpse({ title, body, link }: { title: string; body: str
 						<Display as="h2" size="h2" id="sending-title">
 							{title}
 						</Display>
-						<p className="mt-5 max-w-[46ch] text-[clamp(17px,1.3vw,19px)] leading-[1.55] text-pretty text-mk-ink-78">
-							{body}
-						</p>
+						<p className="mt-5 max-w-[46ch] text-mk-lead-sm leading-[1.55] text-pretty text-mk-ink-78">{body}</p>
 						<Link
 							href="/oversight"
-							className="group mt-6 inline-flex min-h-11 items-center gap-2 rounded-[6px] text-[16px] font-semibold text-ink underline decoration-ink/30 underline-offset-4 [transition:text-decoration-color_.15s] hover:decoration-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink motion-reduce:transition-none"
+							className="group mt-6 inline-flex min-h-11 items-center gap-2 rounded-[6px] type-lg font-semibold text-ink underline decoration-ink/30 underline-offset-4 [transition:text-decoration-color_.15s] hover:decoration-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink motion-reduce:transition-none"
 						>
 							{link}
 							<Icon
@@ -82,22 +80,22 @@ export function SendingGlimpse({ title, body, link }: { title: string; body: str
 						aria-hidden="true"
 						className="ef-ui col-span-5 col-start-8 min-w-0 max-mk-cx:col-span-12 max-mk-cx:col-start-1"
 					>
-						<div className="rounded-[22px] bg-white px-5 pt-[18px] pb-2 text-[13px] text-text shadow-mk-panel-flat">
+						<div className="rounded-[22px] bg-white px-5 pt-[18px] pb-2 type-sm text-text shadow-mk-panel-flat">
 							<div className="mb-2 flex items-center gap-3">
 								<CardIcon tone="blue" icon={ICONS.network} size={36} glyph={17} />
 								<div className="min-w-0 flex-1">
-									<div className="font-display text-[17px] leading-[1.2] font-medium tracking-[-0.02em]">
+									<div className="font-display type-title-sm leading-[1.2] font-medium tracking-[-0.02em]">
 										Grace Church
 									</div>
-									<div className="mt-0.5 text-[12.5px] text-text-3">Plants you send · Hyde Park, Austin</div>
+									<div className="mt-0.5 type-sm text-text-3">Plants you send · Hyde Park, Austin</div>
 								</div>
 							</div>
 							{SENT.map((r) => (
 								<div key={r[0]} className="flex items-center gap-3 border-t border-line py-3">
 									<div className="min-w-0 flex-1">
-										<div className="truncate text-[14px] font-semibold">{r[0]}</div>
-										<div className="mt-0.5 text-[12.5px] text-text-3">{r[1]}</div>
-										<div className="text-[12.5px] text-text-3">{r[2]}</div>
+										<div className="truncate type-md font-semibold">{r[0]}</div>
+										<div className="mt-0.5 type-sm text-text-3">{r[1]}</div>
+										<div className="type-sm text-text-3">{r[2]}</div>
 									</div>
 									<Badge status="positive" size="sm">
 										On track
