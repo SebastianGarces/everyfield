@@ -78,9 +78,9 @@
       "title": "Phase 7 follow-ups",
       "owningPaths": [
         "AGENTS.md",
-        ".agents/skills/verify",
-        ".agents/skills/verify-preview",
-        ".agents/roles",
+        ".agents/skills/verify/",
+        ".agents/skills/verify-preview/",
+        ".agents/roles/",
         ".github/workflows/fail-forward.yml",
         ".github/scripts/fail-forward.cjs",
         ".github/scripts/fail-forward.test.cjs",
