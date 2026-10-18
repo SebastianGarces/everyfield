@@ -27,13 +27,13 @@ try {
   await client.query("SELECT pg_advisory_xact_lock(7341097)");
   await client.query("TRUNCATE early_access_request, early_access_attempt");
   for (const [kind, email, data] of [
-    ["planter", "planter@example.test", { name: "Sample Planter", plant_name: "Sample Plant", city: "Sample City", phase: "discovery" }],
-    ["network", "network@example.test", { name: "Sample Network Lead", organization: "Sample Network", role: "Coordinator", plants: "3", message: "Synthetic development fixture" }],
+    ["planter", "planter@example.test", { name: "Sample Planter", plant_name: "Sample Plant", city: "Sample City", phase: "0 · Discovery" }],
+    ["network", "network@example.test", { name: "Sample Network Lead", organization: "Sample Network", role: "Coordinator", plants: 3, message: "Synthetic development fixture" }],
   ] as const) {
     await client.query(`
       INSERT INTO early_access_request (kind, email, data, mail_payload, mail_id, mailed_at)
       VALUES ($1, $2, $3, $4, $5, now())
-    `, [kind, email, JSON.stringify(data), JSON.stringify({ to: email, subject: "Synthetic development fixture", text: "No email was sent." }), "synthetic-" + kind]);
+    `, [kind, email, JSON.stringify({ ...data, email }), JSON.stringify({ to: email, subject: "Synthetic development fixture", text: "No email was sent." }), "synthetic-" + kind]);
   }
   await client.query("COMMIT");
   console.log("Shared development database reset. Seeded one planter and one network request; no email sent.");
