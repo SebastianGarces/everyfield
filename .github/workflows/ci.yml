@@ -37,6 +37,8 @@ jobs:
           path: apps/web/.next/cache
           key: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/web/**/*.ts', 'apps/web/**/*.tsx', 'apps/web/**/*.css') }}
           restore-keys: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+      - name: Formatting (Prettier)
+        run: pnpm format:check
       - name: Lint (ESLint, image locks, colour literals)
         run: pnpm lint
       - name: Types

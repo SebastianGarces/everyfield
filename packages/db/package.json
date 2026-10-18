@@ -1,35 +1,35 @@
 {
-  "name": "@everyfield/db",
-  "private": true,
-  "type": "module",
-  "exports": {
-    ".": "./src/index.ts",
-    "./schema": "./src/schema/index.ts",
-    "./auth-storage": "./src/schema/auth-storage.ts"
-  },
-  "scripts": {
-    "typecheck": "tsc --noEmit",
-    "lint": "eslint --max-warnings=0 .",
-    "migrate": "tsx --env-file-if-exists=../../apps/web/.env.local scripts/migrate.ts",
-    "export": "tsx --env-file-if-exists=../../apps/web/.env.local scripts/export.ts",
-    "reset:dev": "tsx --env-file-if-exists=../../apps/web/.env.local scripts/reset-dev.ts",
-    "test:unit": "node --test ../../tests/integration/db/unit.test.mts && python3 src/schema/generate.py --check",
-    "test:db": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/db/baseline.test.mts"
-  },
-  "dependencies": {
-    "pg": "^8.16.3",
-    "server-only": "0.0.1",
-    "@aws-sdk/client-s3": "3.1152.0",
-    "@aws-sdk/s3-request-presigner": "3.1152.0",
-    "sharp": "0.35.5",
-    "pdfjs-dist": "6.4.299"
-  },
-  "devDependencies": {
-    "@types/node": "^24",
-    "typescript": "6.0.3",
-    "eslint": "^9.39.0",
-    "typescript-eslint": "^8.57.0",
-    "tsx": "^4.21.0",
-    "@types/pg": "^8.15.6"
-  }
+	"name": "@everyfield/db",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./schema": "./src/schema/index.ts",
+		"./auth-storage": "./src/schema/auth-storage.ts"
+	},
+	"scripts": {
+		"typecheck": "tsc --noEmit",
+		"lint": "eslint --max-warnings=0 .",
+		"migrate": "tsx --env-file-if-exists=../../apps/web/.env.local scripts/migrate.ts",
+		"export": "tsx --env-file-if-exists=../../apps/web/.env.local scripts/export.ts",
+		"reset:dev": "tsx --env-file-if-exists=../../apps/web/.env.local scripts/reset-dev.ts",
+		"test:unit": "node --test ../../tests/integration/db/unit.test.mts && python3 src/schema/generate.py --check",
+		"test:db": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/db/baseline.test.mts"
+	},
+	"dependencies": {
+		"pg": "^8.16.3",
+		"server-only": "0.0.1",
+		"@aws-sdk/client-s3": "3.1152.0",
+		"@aws-sdk/s3-request-presigner": "3.1152.0",
+		"sharp": "0.35.5",
+		"pdfjs-dist": "6.4.299"
+	},
+	"devDependencies": {
+		"@types/node": "^24",
+		"typescript": "6.0.3",
+		"eslint": "^9.39.0",
+		"typescript-eslint": "^8.57.0",
+		"tsx": "^4.21.0",
+		"@types/pg": "^8.15.6"
+	}
 }
