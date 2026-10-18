@@ -73,7 +73,49 @@
     },
     "sensitive": "owner-escalation-required"
   },
-  "maintenanceTasks": {},
+  "maintenanceTasks": {
+    "OPS-1": {
+      "title": "Phase 7 follow-ups",
+      "owningPaths": [
+        "AGENTS.md",
+        ".agents/skills/verify",
+        ".agents/skills/verify-preview",
+        ".agents/roles",
+        ".github/workflows/fail-forward.yml",
+        ".github/scripts/fail-forward.cjs",
+        ".github/scripts/fail-forward.test.cjs",
+        ".github/scripts/internal-feedback-queue.cjs",
+        ".github/scripts/internal-feedback-queue.test.cjs",
+        "docs/plan/release-gates.json"
+      ],
+      "checks": [
+        {
+          "name": "documentation",
+          "run": [
+            "python3",
+            "docs/check-all.py"
+          ]
+        },
+        {
+          "name": "workflow-regressions",
+          "run": [
+            "bin/evf",
+            "test"
+          ]
+        },
+        {
+          "name": "reporter-tests",
+          "run": [
+            "node",
+            "--test",
+            ".github/scripts/fail-forward.test.cjs",
+            ".github/scripts/internal-feedback-queue.test.cjs"
+          ]
+        }
+      ],
+      "risk": "ordinary"
+    }
+  },
   "internalFeedback": {
     "repo": "SebastianGarces/everyfield",
     "priorities": [
