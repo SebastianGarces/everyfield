@@ -1,26 +1,28 @@
 {
-  "name": "@everyfield/contracts",
-  "private": true,
-  "type": "module",
-  "exports": {
-    "./common": "./src/common/index.ts",
-    "./common/server": "./src/common/scope.ts",
-    "./reference": "./src/reference/index.ts",
-    "./identity": "./src/identity/index.ts",
-    "./access": "./src/access/index.ts",
-    "./people": "./src/people/index.ts",
-    "./organizations": "./src/organizations/index.ts"
-  },
-  "scripts": {
-    "test:unit": "node src/common/sync-vocabulary.mjs --check && node --test ../../tests/contracts/common/*.test.mts && node --test src/identity/*.test.mts && node --test src/access/*.test.mts && node --test src/people/*.test.mts && node --test src/organizations/*.test.mts",
-    "typecheck": "tsc --noEmit",
-    "lint": "cd ../.. && packages/contracts/node_modules/.bin/eslint --config packages/contracts/eslint.config.mjs --max-warnings=0 packages/contracts tests/contracts/common"
-  },
-  "dependencies": { "zod": "4.6.7" },
-  "devDependencies": {
-    "@types/node": "^24",
-    "typescript": "6.0.3",
-    "eslint": "^9.39.0",
-    "typescript-eslint": "^8.57.0"
-  }
+	"name": "@everyfield/contracts",
+	"private": true,
+	"type": "module",
+	"exports": {
+		"./common": "./src/common/index.ts",
+		"./common/server": "./src/common/scope.ts",
+		"./reference": "./src/reference/index.ts",
+		"./identity": "./src/identity/index.ts",
+		"./access": "./src/access/index.ts",
+		"./people": "./src/people/index.ts",
+		"./organizations": "./src/organizations/index.ts"
+	},
+	"scripts": {
+		"test:unit": "node src/common/sync-vocabulary.mjs --check && node --test ../../tests/contracts/common/*.test.mts && node --test src/identity/*.test.mts && node --test src/access/*.test.mts && node --test src/people/*.test.mts && node --test src/organizations/*.test.mts",
+		"typecheck": "tsc --noEmit",
+		"lint": "cd ../.. && packages/contracts/node_modules/.bin/eslint --config packages/contracts/eslint.config.mjs --max-warnings=0 packages/contracts tests/contracts/common"
+	},
+	"dependencies": {
+		"zod": "4.6.7"
+	},
+	"devDependencies": {
+		"@types/node": "^24",
+		"typescript": "6.0.3",
+		"eslint": "^9.39.0",
+		"typescript-eslint": "^8.57.0"
+	}
 }

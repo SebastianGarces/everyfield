@@ -7,5 +7,5 @@ const copy = COPY.shared.privacy_page;
 export const metadata: Metadata = pageMetadata(PAGES.privacy);
 
 export default function Privacy() {
-  return <Legal path="/privacy" copy={copy} />;
+	return <Legal path="/privacy" copy={copy} />;
 }

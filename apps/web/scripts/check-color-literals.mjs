@@ -14,26 +14,37 @@ const HEX = /(?<![0-9A-Za-z&])#[0-9A-Fa-f]{3,8}(?![0-9A-Za-z])/;
 // A colour function, also inside a Tailwind arbitrary value ("_rgba(" or "[rgb("): not preceded by a letter or hyphen.
 // Case-insensitive like CSS; the first argument must look like a colour value (a number, "from", "var(" or "none"), so a
 // JavaScript call such as Lab({ ... }) is not a match.
-const FN = /(?<![A-Za-z-])(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(\s*(?:[\d.+-]|from(?![A-Za-z])|var\(|none(?![A-Za-z]))/i;
+const FN =
+	/(?<![A-Za-z-])(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(\s*(?:[\d.+-]|from(?![A-Za-z])|var\(|none(?![A-Za-z]))/i;
 // Files that cannot reference a CSS variable, each with its reason.
 const ALLOWED = {
-  "app/layout.tsx": "the theme-color meta tag (Next viewport metadata) takes a literal colour",
-  "app/apple-icon.tsx": "next/og renders the icon without the page's CSS, so it cannot read a variable",
+	"app/layout.tsx": "the theme-color meta tag (Next viewport metadata) takes a literal colour",
+	"app/apple-icon.tsx": "next/og renders the icon without the page's CSS, so it cannot read a variable",
 };
 
-const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]));
+const walk = (dir) =>
+	readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+		e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)],
+	);
 const found = [];
-for (const [root, label] of [[SRC, "src"], [UI, "packages/ui/src"]]) {
-  for (const file of walk(root).filter((f) => /\.tsx?$/.test(f))) {
-    const rel = file.slice(root.length + 1);
-    if (root === SRC && rel in ALLOWED) continue;
-    readFileSync(file, "utf8").split("\n").forEach((line, i) => {
-      const m = line.match(HEX) ?? line.match(FN);
-      if (m) found.push(`${label}/${rel}:${i + 1}: ${m[0]}`);
-    });
-  }
+for (const [root, label] of [
+	[SRC, "src"],
+	[UI, "packages/ui/src"],
+]) {
+	for (const file of walk(root).filter((f) => /\.tsx?$/.test(f))) {
+		const rel = file.slice(root.length + 1);
+		if (root === SRC && rel in ALLOWED) continue;
+		readFileSync(file, "utf8")
+			.split("\n")
+			.forEach((line, i) => {
+				const m = line.match(HEX) ?? line.match(FN);
+				if (m) found.push(`${label}/${rel}:${i + 1}: ${m[0]}`);
+			});
+	}
 }
 if (found.length) {
-  console.error(`Colour literals in components (use a token from tokens.css, the marketing layer of marketing.css or product.css):\n${found.join("\n")}`);
-  process.exit(1);
+	console.error(
+		`Colour literals in components (use a token from tokens.css, the marketing layer of marketing.css or product.css):\n${found.join("\n")}`,
+	);
+	process.exit(1);
 }

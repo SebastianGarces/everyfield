@@ -8,5 +8,14 @@ import { cn } from "./cn";
  * so the icon data stays out of the client bundle.
  */
 export function Icon({ icon, size = 18, className }: { icon: IconSvgElement; size?: number; className?: string }) {
-  return <HugeiconsIcon icon={icon} size={size} strokeWidth={1.7} aria-hidden="true" focusable="false" className={cn("block flex-none", className)} />;
+	return (
+		<HugeiconsIcon
+			icon={icon}
+			size={size}
+			strokeWidth={1.7}
+			aria-hidden="true"
+			focusable="false"
+			className={cn("block flex-none", className)}
+		/>
+	);
 }
