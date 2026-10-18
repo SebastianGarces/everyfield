@@ -50,7 +50,7 @@ function AccountForm({
 	reload: () => void;
 	onDeletionRequested: (status: DeletionStatus) => void;
 }) {
-	const { draft, setDraft, dirty } = useDraft("account", { name: account.name });
+	const { draft, setDraft, dirty, settle } = useDraft("account", { name: account.name });
 	const [showError, setShowError] = useState(false);
 	const write = useWrite("account-name");
 	const { port } = useSettings();
@@ -63,12 +63,14 @@ function AccountForm({
 	const save = async () => {
 		setShowError(true);
 		if (nameError) return;
+		const sent = draft;
 		const input = { section: "account" as const, name: draft.name.trim() };
 		const result = await write.run({ revision: account.revision, input }, (requestKey) =>
 			port.saveSection({ requestKey, expectedRevision: account.revision, input }),
 		);
 		if (result.ok) {
 			replace(result.value.current);
+			settle(sent);
 			setShowError(false);
 		}
 	};

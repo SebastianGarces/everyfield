@@ -4,6 +4,8 @@
 //   INV-draft-back: drafts survive section switches and Back; Back out of settings asks and Keep editing returns.
 //   INV-focus-back: Back between sections leaves focus inside the dialog, never on the page body.
 //   INV-save-refused: a refused explicit save keeps the draft, says why and offers Load latest (ChurchSection).
+//   INV-save-clean: a successful save (also one the server trims) leaves no draft, so closing does not ask; an edit
+//     typed while the save is pending stays unsaved (useDraft settle).
 //   INV-autosave-rollback: a refused switch returns to the saved value and says why (NotificationsSection).
 //   INV-section-scope: a Member is not offered the church profile and its deep link shows no access, not data.
 //   INV-account-switch: switching account drops drafts (SettingsProvider key).
@@ -121,6 +123,35 @@ for (const [name, engine] of ENGINES) {
 				);
 			}),
 		);
+
+		test("INV-save-clean: a saved draft no longer guards closing", { timeout: 60_000 }, async () => {
+			await open(`${SETTINGS}/church?as=owner&${FAST}`, async (page) => {
+				await churchName(page).fill("Harvest Point East ");
+				await dialog(page).getByRole("button", { name: "Save" }).click();
+				await dialog(page).getByText("No unsaved changes.").waitFor();
+				assert.equal(
+					await dialog(page)
+						.getByRole("link", { name: /unsaved changes/ })
+						.count(),
+					0,
+					"no nav mark",
+				);
+				await page.keyboard.press("Escape");
+				await page.waitForURL((url) => url.pathname === SETTINGS);
+				assert.equal(await discard(page).count(), 0, "closing after a save does not ask");
+				assert.equal(await dialog(page).count(), 0);
+			});
+			await open(`${SETTINGS}/church?as=owner&delay=900`, async (page) => {
+				await churchName(page).fill("Harvest Point East");
+				await dialog(page).getByRole("button", { name: "Save" }).click();
+				await churchName(page).fill("Harvest Point West");
+				await page.waitForFunction(() => !document.querySelector("[aria-busy=true]"));
+				await dialog(page).getByText("Unsaved changes", { exact: true }).waitFor();
+				assert.equal(await churchName(page).inputValue(), "Harvest Point West", "the later edit is kept");
+				await page.keyboard.press("Escape");
+				await discard(page).waitFor();
+			});
+		});
 
 		test("INV-save-refused: a refused save keeps the draft", { timeout: 60_000 }, () =>
 			open(`${SETTINGS}/church?as=owner&${FAST}&fail=saveSection:conflict`, async (page) => {

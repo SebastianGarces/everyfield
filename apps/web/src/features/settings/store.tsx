@@ -16,6 +16,7 @@ type StoreValue = {
 	viewer: SettingsViewer;
 	drafts: Partial<Record<SectionKey, Draft>>;
 	setDraft: (key: SectionKey, value: unknown, dirty: boolean) => void;
+	settleDraft: (key: SectionKey, sent: unknown) => void;
 	clearDrafts: () => void;
 	sections: Map<string, SectionResult>;
 	remember: (cacheKey: string, value: SectionResult) => void;
@@ -54,13 +55,25 @@ export function SettingsProvider({
 		[],
 	);
 	const clearDrafts = useCallback(() => setDrafts({}), []);
+	// After a successful save, drop the draft only if it is still exactly what was sent. An edit made while the
+	// save was pending stays as a draft.
+	const settleDraft = useCallback(
+		(key: SectionKey, sent: unknown) =>
+			setDrafts((all) => {
+				if (!all[key] || !sameValue(all[key].value, sent)) return all;
+				const next = { ...all };
+				delete next[key];
+				return next;
+			}),
+		[],
+	);
 	const remember = useCallback(
 		(cacheKey: string, value: SectionResult) => setSections((all) => new Map(all).set(cacheKey, value)),
 		[],
 	);
 	const value = useMemo(
-		() => ({ port, viewer, drafts, setDraft, clearDrafts, sections, remember }),
-		[port, viewer, drafts, setDraft, clearDrafts, sections, remember],
+		() => ({ port, viewer, drafts, setDraft, settleDraft, clearDrafts, sections, remember }),
+		[port, viewer, drafts, setDraft, settleDraft, clearDrafts, sections, remember],
 	);
 
 	// A reload or tab close with unsaved drafts asks the browser to confirm.
@@ -87,21 +100,23 @@ export function useDirtySections(): { keys: SectionKey[]; clear: () => void } {
 }
 
 /**
- * A section's draft. It starts from the saved value and stays in the store until it matches the saved value again,
- * so leaving the section and coming back keeps what was typed. `reset` drops it.
+ * A section's draft. It starts from the saved value and stays in the store until it matches the saved value again
+ * or a save of it succeeds, so leaving the section and coming back keeps what was typed. A section is dirty exactly
+ * when the store holds its draft: the footer, the nav mark and the close guard read the same fact. `settle(sent)`
+ * after a successful save drops the draft if it is still what was sent (so "Name " saved as "Name" is clean).
  */
 export function useDraft<T>(
 	key: SectionKey,
 	saved: T,
-): { draft: T; setDraft: (next: T) => void; dirty: boolean; reset: () => void } {
-	const { drafts, setDraft } = useStore();
+): { draft: T; setDraft: (next: T) => void; dirty: boolean; reset: () => void; settle: (sent: T) => void } {
+	const { drafts, setDraft, settleDraft } = useStore();
 	const stored = drafts[key];
 	const draft = stored ? (stored.value as T) : saved;
-	const dirty = stored !== undefined && !sameValue(stored.value, saved);
 	return {
 		draft,
-		dirty,
+		dirty: stored !== undefined,
 		setDraft: (next: T) => setDraft(key, next, !sameValue(next, saved)),
+		settle: (sent: T) => settleDraft(key, sent),
 		reset: () => setDraft(key, saved, false),
 	};
 }

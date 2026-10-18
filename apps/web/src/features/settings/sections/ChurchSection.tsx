@@ -113,7 +113,7 @@ function ChurchForm({
 }) {
 	const { port, viewer } = useSettings();
 	const saved = formOf(section.values);
-	const { draft, setDraft, dirty } = useDraft<Form>("church", saved);
+	const { draft, setDraft, dirty, settle } = useDraft<Form>("church", saved);
 	const [showErrors, setShowErrors] = useState(false);
 	const write = useWrite("plant-settings");
 	const [zoneOpen, setZoneOpen] = useState(false);
@@ -127,6 +127,7 @@ function ChurchForm({
 	const save = async () => {
 		setShowErrors(true);
 		if (Object.keys(errors).length > 0) return;
+		const sent = draft;
 		let current = section;
 		const patch = Object.fromEntries(
 			(["name", "street", "city", "stateProvince", "country", "description"] as const)
@@ -154,6 +155,7 @@ function ChurchForm({
 			current = result.value.current;
 			replace(current);
 		}
+		settle(sent);
 		setShowErrors(false);
 	};
 
