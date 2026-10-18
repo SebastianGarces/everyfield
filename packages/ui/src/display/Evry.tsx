@@ -336,7 +336,7 @@ export function ReviewCard({
 	const headId = useId();
 	const head = HEAD[state];
 	return (
-		<section
+		<article
 			aria-labelledby={headId}
 			data-state={state}
 			className={cn(
@@ -355,7 +355,7 @@ export function ReviewCard({
 				{meta ? <span className="font-medium">{meta}</span> : null}
 			</div>
 			{note ? <div className="bg-surface-2 px-4 py-2.5 text-sm text-text-2">{note}</div> : null}
-			<ul className={cn("flex flex-col gap-2.5 px-4 py-3.5", state === "expired" && "opacity-55")}>
+			<ul className="flex flex-col gap-2.5 px-4 py-3.5">
 				{lines.map((l, i) => (
 					<li key={i} className="flex items-start gap-2.5 text-md">
 						<Icon
@@ -363,7 +363,7 @@ export function ReviewCard({
 							size={16}
 							className={cn("mt-0.5", l.result === "failed" ? "text-magenta-500" : "text-text-3")}
 						/>
-						<span className={cn("min-w-0", l.muted ? "text-text-2" : "text-ink")}>
+						<span className={cn("min-w-0", l.muted || state === "expired" ? "text-text-2" : "text-ink")}>
 							{l.result === "failed" ? <span className="sr-only">Not saved: </span> : null}
 							{l.result === "saved" ? <span className="sr-only">Saved: </span> : null}
 							{l.content}
@@ -377,7 +377,7 @@ export function ReviewCard({
 					{actions}
 				</div>
 			) : null}
-		</section>
+		</article>
 	);
 }
 

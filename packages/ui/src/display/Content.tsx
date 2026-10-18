@@ -399,19 +399,19 @@ export function WikiSourceBar({
 						))}
 					</DropdownMenu.RadioGroup>
 					<MenuSeparator />
-					<p className="mx-2.5 my-1.5 text-xs text-text-3">
-						Choosing a source changes only what you read now.
-						{settingsHref ? (
-							<>
-								{" "}
-								Your church&apos;s preferred source is set in{" "}
-								<a href={settingsHref} className="underline">
-									Settings
-								</a>
-								.
-							</>
-						) : null}
-					</p>
+					<MenuLabel className="text-xs font-normal">
+						Choosing a source changes only what you read now. Your church&apos;s preferred source is set in Settings.
+					</MenuLabel>
+					{settingsHref ? (
+						<DropdownMenu.Item asChild>
+							<a
+								href={settingsHref}
+								className="flex h-[38px] items-center rounded-[10px] px-2.5 text-md text-ink outline-none data-[highlighted]:bg-surface-2"
+							>
+								Change the preferred source
+							</a>
+						</DropdownMenu.Item>
+					) : null}
 				</MenuContent>
 			</Menu>
 			<span className="min-w-[220px] flex-1 text-sm text-text-2 max-app-sm:min-w-full">

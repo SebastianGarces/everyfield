@@ -58,7 +58,7 @@ for (const [name, engine] of [
 	test(`INV-loadable (${name}): loading, error and empty never show rows`, { timeout: 60_000 }, () =>
 		withPage(engine, { group: "Data" }, async (page) => {
 			const table = page.getByRole("table", { name: "People" });
-			const state = page.getByRole("group", { name: "Data state" });
+			const state = page.getByRole("radiogroup", { name: "Data state" });
 			assert.equal(await table.getByRole("row").count(), 4, "ready: header and three rows");
 
 			await state.getByRole("radio", { name: "Loading" }).click();
@@ -90,8 +90,14 @@ for (const [name, engine] of [
 			assert.equal(await all.getAttribute("aria-checked"), "true");
 			assert.equal((await bar.getByRole("status").textContent()).trim(), "3 people selected");
 
-			await bar.getByRole("button", { name: "Clear selection" }).click();
+			await all.click();
+			assert.equal(await all.getAttribute("aria-checked"), "false", "select-all on a full page clears it");
 			assert.equal(await bar.count(), 0, "the bar leaves when nothing is selected");
+
+			await page.getByRole("checkbox", { name: "Select Ana Lee" }).click();
+			assert.equal((await bar.getByRole("status").textContent()).trim(), "1 person selected");
+			await bar.getByRole("button", { name: "Clear selection" }).click();
+			assert.equal(await bar.count(), 0, "Clear selection empties it");
 			assert.equal(await all.getAttribute("aria-checked"), "false");
 		}),
 	);
@@ -108,12 +114,13 @@ for (const [name, engine] of [
 
 	test(`INV-evry-focus (${name}): Esc closes the Evry panel and returns focus`, { timeout: 60_000 }, () =>
 		withPage(engine, { group: "Evry" }, async (page) => {
-			const opener = page.getByRole("button", { name: "Ask Evry" });
+			const opener = page.getByRole("main").getByRole("button", { name: "Ask Evry" });
 			await opener.focus();
 			await page.keyboard.press("Enter");
 			const panel = page.getByRole("dialog", { name: "Evry" });
 			await panel.waitFor();
 			assert.equal(await panel.getAttribute("aria-modal"), null, "the panel is non-modal");
+			await page.waitForFunction(() => document.querySelector('[role="dialog"]')?.contains(document.activeElement));
 			await page.keyboard.press("Escape");
 			await panel.waitFor({ state: "detached" });
 			const focused = await page.evaluate(() => document.activeElement?.textContent?.trim());
