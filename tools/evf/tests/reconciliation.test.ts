@@ -386,7 +386,7 @@ function mergeFixture() {
  const f=fixture(),task=parseTask('OPS-1');
  f.cfg.maintenanceTasks={[task.id]:{title:'Workflow upkeep',owningPaths:['tools/evf/'],checks:f.cfg.checks}};
  writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));f.commit();
- const bare=join(f.root,'fake-bin/origin.git');execFileSync('git',['init','--bare',bare],{stdio:'ignore'});
+ const bare=f.bare(join(f.root,'fake-bin/origin.git'));
  f.git('remote','add','origin',bare);f.git('push','-q','origin','main');
  const wt=f.task(task.slug),sha=f.git('rev-parse',task.branch),state=f.getState();
  state.pr={number:77,url:'https://github.com/test/private/pull/77',state:'OPEN',isDraft:false,headRefOid:sha,baseRefName:'main',body:validPrBody()};
@@ -484,8 +484,7 @@ test('BUG-c048ea5-pr-class: body checks select Wiki and prototype formats from P
 
 test('BUG-fb0159d-wiki-images: real pr-images output keeps a Wiki body valid on first upload and replacement',async()=>{
  const f=fixture(),oldGlobal=process.env.GIT_CONFIG_GLOBAL;try {
-  const gist=join(f.root,'fake-bin/screenshots.git');
-  execFileSync('git',['init','--bare',gist],{stdio:'ignore'});
+  const gist=f.bare(join(f.root,'fake-bin/screenshots.git'));
   const config=join(f.root,'fake-bin/gist.gitconfig');
   writeFileSync(config,`[url "file://${gist}"]\n\tinsteadOf = https://gist.github.com/a1b2c3.git\n`);
   process.env.GIT_CONFIG_GLOBAL=config;
@@ -660,6 +659,9 @@ test('INV-wp-scope: verify accepts only the task\'s own new-package lock importe
  const f=fixture();try {
   f.authorize('WP-002');
   const lock="lockfileVersion: '9.0'\n\nimporters:\n\n  .: {}\n\n  packages/db:\n    dependencies:\n      pg:\n        specifier: 8.0.0\n        version: 8.0.0\n\npackages:\n\n  pg@8.0.0:\n    resolution: {integrity: sha512-fixture}\n";
+  const generateIn=(root:string)=>{for(const flag of ['--refresh-manifest','--refresh-plan'])execFileSync('python3',['docs/package-context.py',flag,'--root',root],{cwd:root,stdio:'ignore'});};
+  // The fixture owns its base: projections start equal to the generators' output, whatever the live docs hold.
+  generateIn(f.root);
   writeFileSync(join(f.root,'pnpm-lock.yaml'),lock);f.git('add','pnpm-lock.yaml');f.commit();
   const wt=f.task('wp-002'),git=(...args:string[])=>execFileSync('git',['-C',wt,...args],{encoding:'utf8'}).trim();
   const index=JSON.parse(readFileSync(join(wt,'docs/catalog/index.json'),'utf8'));
@@ -671,7 +673,9 @@ test('INV-wp-scope: verify accepts only the task\'s own new-package lock importe
    own.id=id;if(requirement){own.requirement=requirement;own.requirement_ids=[requirement];}
    payload.cases.push(own);writeFileSync(join(wt,file),JSON.stringify(payload,null,2)+'\n');
   };
-  const generate=()=>{for(const flag of ['--refresh-manifest','--refresh-plan'])execFileSync('python3',['docs/package-context.py',flag,'--root',wt],{cwd:wt,stdio:'ignore'});};
+  const generate=()=>generateIn(wt);
+  // Which projections a new case changes depends on the catalog; derive them from the generators' actual output.
+  const projections=()=>git('diff','--name-only','main','--','docs/plan/context-manifest.json','docs/plan/dag.json','docs/plan/build-plan.md').split('\n').filter(Boolean);
   const write=(path:string,text:string)=>{mkdirSync(join(wt,path,'..'),{recursive:true});writeFileSync(join(wt,path),text);};
   let printed:string[]=[];
   const scopeOf=()=>{git('add','-A');git('commit','-qm','Candidate');const log=console.log;printed=[];console.log=(...m)=>{printed.push(...m.join(' ').split('\n'));};
@@ -682,8 +686,9 @@ test('INV-wp-scope: verify accepts only the task\'s own new-package lock importe
   write('apps/web/package.json','{}\n');
   writeFileSync(join(wt,'pnpm-lock.yaml'),lock.replace('\n  packages/db:','\n  packages/contracts: {}\n\n  packages/db:'));
   addCase('SCOPE-FIXTURE-001');generate();
+  const generated=projections();assert.ok(generated.includes('docs/plan/context-manifest.json'));
   assert.deepEqual(scopeOf(),{owned:['packages/contracts/src/common/values.ts'],accepted:{
-   [file]:'own-at-start-cases','docs/plan/build-plan.md':'generated-projection','docs/plan/context-manifest.json':'generated-projection',
+   [file]:'own-at-start-cases',...Object.fromEntries(generated.map(p=>[p,'generated-projection'])),
    'packages/contracts/eslint.config.mjs':'own-package-scaffold','packages/contracts/package.json':'own-package-scaffold','packages/contracts/tsconfig.json':'own-package-scaffold',
    'pnpm-lock.yaml':'own-lock-importer'},outside:['apps/web/package.json']});
   assert.deepEqual(printed.filter(l=>l.startsWith('  outside: ')),['  outside: apps/web/package.json (verifier: confirm a recorded ruling)']);
@@ -693,7 +698,7 @@ test('INV-wp-scope: verify accepts only the task\'s own new-package lock importe
   writeFileSync(join(wt,'docs/plan/build-plan.md'),readFileSync(join(wt,'docs/plan/build-plan.md'),'utf8')+'\nHand-written line.\n');
   assert.deepEqual(scopeOf(),{owned:['packages/contracts/src/common/values.ts'],accepted:{
    'packages/contracts/eslint.config.mjs':'own-package-scaffold','packages/contracts/package.json':'own-package-scaffold','packages/contracts/tsconfig.json':'own-package-scaffold'},
-   outside:['apps/web/package.json','docs/plan/build-plan.md','docs/plan/context-manifest.json',file,'pnpm-lock.yaml'].sort()});
+   outside:[...new Set(['apps/web/package.json','docs/plan/build-plan.md',...projections(),file,'pnpm-lock.yaml'])].sort()});
  }finally{f.close();}
 });
 
@@ -757,4 +762,20 @@ test('BUG-wp003-shared-report: each check keeps its own report and only AC: repo
   for(const c of alike.checks.slice(0,2))assert.equal(existsSync(c.log.replace(/\.log$/,'.tests.json')),true);
   assert.deepEqual(JSON.parse(readFileSync(alike.checks[2].log,'utf8')).missing,ids.slice(-1));
  }finally{f.close();}
+});
+
+test('BUG-ops6-fixture-cleanup: fixture commits and bare pushes start no background maintenance, so close removes the whole fixture',()=>{
+ // Git's detached auto-maintenance kept writing into a fixture's .git while close() removed it (ENOTEMPTY on CI).
+ const f=fixture(),traces=mkdtempSync(join(tmpdir(),'evf-trace-')),trace=join(traces,'git.json');try{
+  f.git('config','gc.auto','1');
+  for(let i=0;i<50;i++)writeFileSync(join(f.root,`loose-${i}.txt`),`loose object ${i}`);
+  f.git('add','.');
+  const traced=(...args:string[])=>execFileSync('git',['-C',f.root,...args],{env:{...process.env,GIT_TRACE2_EVENT:trace},stdio:'pipe'});
+  traced('commit','-qm','Many loose objects');
+  // The receiving side of a local push does not inherit the test's git environment.
+  traced('push','-q',f.bare(join(f.root,'fake-bin/receiver.git')),'main');
+  const children=readFileSync(trace,'utf8').trim().split('\n').map(line=>JSON.parse(line)).filter(e=>e.event==='child_start').map(e=>e.argv.join(' '));
+  assert.deepEqual(children.filter(argv=>/\b(maintenance|gc)\b/.test(argv)),[]);
+ }finally{f.close();rmSync(traces,{recursive:true,force:true});}
+ assert.equal(existsSync(f.root),false);
 });
