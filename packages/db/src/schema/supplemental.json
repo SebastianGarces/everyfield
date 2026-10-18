@@ -6364,6 +6364,48 @@
 			"grantee": "everyfield_cleanup",
 			"is_grantable": false,
 			"kind": "table",
+			"object": "onboarding_result",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "onboarding_result",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "onboarding_result",
+			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "onboarding_setup",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "onboarding_setup",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "onboarding_setup",
+			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
 			"object": "operation",
 			"privilege_type": "DELETE"
 		},
@@ -9284,6 +9326,41 @@
 			"is_grantable": false,
 			"kind": "table",
 			"object": "obligation",
+			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "onboarding_result",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "onboarding_result",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "onboarding_setup",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "onboarding_setup",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "onboarding_setup",
 			"privilege_type": "UPDATE"
 		},
 		{

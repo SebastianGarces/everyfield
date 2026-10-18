@@ -926,6 +926,16 @@
       "table": "people_result",
       "field": "value",
       "policy": "Frozen bounded original Person projection, including linked-account identity and lineage. Do not retarget on merge or Unmerge, transfer grants or replay effects. Fresh same-owner authorization precedes reads/replay; witnessed organization/account removal scrubs private bodies and identity before recovery."
+    },
+    {
+      "table": "onboarding_setup",
+      "field": "lead",
+      "policy": "Frozen bounded original Person projection, including linked-account identity and lineage. Do not retarget on merge or Unmerge, transfer grants or replay effects. Fresh same-owner authorization precedes reads/replay; witnessed organization/account removal scrubs private bodies and identity before recovery."
+    },
+    {
+      "table": "onboarding_result",
+      "field": "value",
+      "policy": "Frozen bounded original Person projection, including linked-account identity and lineage. Do not retarget on merge or Unmerge, transfer grants or replay effects. Fresh same-owner authorization precedes reads/replay; witnessed organization/account removal scrubs private bodies and identity before recovery."
     }
   ]
 }

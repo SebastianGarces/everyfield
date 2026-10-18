@@ -50,6 +50,20 @@
       "when": 1792353930459,
       "tag": "0007_invitation_privileges",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792354408259,
+      "tag": "0008_onboarding_setup",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792354410164,
+      "tag": "0009_onboarding_privileges",
+      "breakpoints": true
     }
   ]
 }
