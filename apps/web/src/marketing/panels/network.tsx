@@ -124,7 +124,7 @@ export function ScopePanel() {
 const AREA_GRID =
 	"grid grid-cols-[minmax(0,1fr)_44px_78px] items-center gap-2 max-mk-sm:grid-cols-[minmax(0,1fr)_38px_70px]";
 
-/* ---------- Pipeline: plants in each phase, typical weeks ---------- */
+/* ---------- Plants by phase, typical weeks (on /oversight "pipeline" means the leader pipeline) ---------- */
 const PIPE_ROW =
 	"relative isolate grid h-[34px] grid-cols-[92px_minmax(0,1fr)_16px_40px] items-center gap-2.5 text-[12.5px] max-mk-sm:grid-cols-[84px_minmax(0,1fr)_14px_36px] max-mk-sm:gap-2";
 export function PipePanel() {
@@ -134,7 +134,7 @@ export function PipePanel() {
 				<PanelHead
 					tone="violet"
 					icon={ICONS.calendar}
-					title="Phase pipeline"
+					title="Plants by phase"
 					sub="Plants in each phase, and typical weeks in it"
 				/>
 				<St i={1}>
@@ -293,7 +293,7 @@ export function TopPanel() {
 				<InsightTop i={0} icon={ICONS.sparkle} label="Top network finding" count="From 11 of 14 plants" />
 				<InsightMetric
 					i={1}
-					num={<Count fx="top.n" max={4} unit=" of 6" />}
+					num={<Count fx="top.n" max={4} unit=" of 5" />}
 					unit="plants within a year of launch have a Concern on Emerging leadership"
 					numClassName="max-mk-sm:text-[44px]"
 				/>

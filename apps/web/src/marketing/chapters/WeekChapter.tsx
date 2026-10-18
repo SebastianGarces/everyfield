@@ -3,6 +3,7 @@ import { cn } from "@/components/cn";
 import { Icon } from "@/components/Icon";
 import { COPY } from "../copy";
 import { ICONS, isIconName } from "../icons";
+import { followDemo, MEET_WHEN, PEOPLE_TITLE, teamsDemo } from "../home/demo";
 import { FollowPanel, MeetPanel, PeoplePanel, TeamsPanel } from "../panels/week";
 import { isPanelKind, type PanelKind } from "../scene-data";
 import { ScrollChapter, type ChapterStep } from "./ScrollChapter";
@@ -10,11 +11,12 @@ import { ScrollChapter, type ChapterStep } from "./ScrollChapter";
 /* Revision 13: week panel and icon colours in step order are blue, orange, green, lilac; the title phrase for each step. */
 const TONES = ["g-sky", "g-dawn", "g-field", "g-lilac"];
 const WORDS = ["Reach", "gather", "follow up", "commit"];
+const P = COPY.shared.panels;
 const PANELS: Partial<Record<PanelKind, () => ReactNode>> = {
-	people: () => <PeoplePanel />,
-	meet: () => <MeetPanel />,
-	follow: () => <FollowPanel />,
-	teams: () => <TeamsPanel />,
+	people: () => <PeoplePanel title={PEOPLE_TITLE} note={P.week_people_line} />,
+	meet: () => <MeetPanel when={MEET_WHEN} />,
+	follow: () => <FollowPanel demo={followDemo(P)} />,
+	teams: () => <TeamsPanel demo={teamsDemo(P)} />,
 };
 
 /** Splits the heading into text and the step phrases, in order. Falls back to plain text if a phrase is missing. */

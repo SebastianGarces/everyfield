@@ -21,7 +21,8 @@ import {
 	type Frame,
 } from "@/components/motion/curves";
 import { useGeo } from "../chapters/panel-frame";
-import { CX_PEOPLE, CX_TEAMS } from "../demo-data";
+import { CX_PEOPLE } from "../demo-data";
+import { TEAM_SIZES } from "../home/demo";
 import { CHIP } from "./classes";
 
 // Timing of the home week chapter panels: reach, gather, follow up, commit (week.tsx renders their markup on the server).
@@ -96,9 +97,9 @@ const FX = {
 	"teams.R": R_TEAMS,
 	"teams.bump": (t: number, k: number) => "scale(" + (1 + 0.08 * bump(t, teamAt(k) + 950, 280)).toFixed(4) + ")",
 	"teams.count": (t: number, k: number) =>
-		Math.round((Math.round(CX_TEAMS[k]![3] * base(t)) + (t >= teamAt(k) + 950 ? 1 : 0)) * R_TEAMS(t)),
+		Math.round((Math.round(TEAM_SIZES[k]! * base(t)) + (t >= teamAt(k) + 950 ? 1 : 0)) * R_TEAMS(t)),
 	"teams.meter": (t: number, k: number) =>
-		meterBar((CX_TEAMS[k]![3] * base(t) + out(P(t, teamAt(k) + 950, 400))) * R_TEAMS(t), 40),
+		meterBar((TEAM_SIZES[k]! * base(t) + out(P(t, teamAt(k) + 950, 400))) * R_TEAMS(t), 40),
 };
 
 export function WeekFx({ children }: { children: ReactNode }) {

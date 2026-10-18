@@ -1,8 +1,8 @@
 import { Display } from "@/components/Display";
+import type { ReactNode } from "react";
 import { Icon } from "@/components/Icon";
 import { Reveal } from "@/components/motion/Reveal";
 import { ICONS } from "../icons";
-import { MondayOverview } from "../visuals/MondayOverview";
 import { VisionZoom } from "../visuals/VisionZoom";
 
 /**
@@ -14,12 +14,12 @@ export function VisionSection({
 	headline,
 	body,
 	bridge,
-	caption,
+	overview,
 }: {
 	headline: string;
 	body: string;
 	bridge: string;
-	caption?: string;
+	overview: ReactNode;
 }) {
 	return (
 		<section id="vision" aria-labelledby="vision-title" className="relative py-section">
@@ -42,8 +42,7 @@ export function VisionSection({
 					</Reveal>
 				</div>
 				<figure id="proof" className="relative m-0 min-w-0">
-					<MondayOverview />
-					{caption ? <figcaption className="mt-3.5 text-[14px] text-text-3">{caption}</figcaption> : null}
+					{overview}
 				</figure>
 			</div>
 		</section>

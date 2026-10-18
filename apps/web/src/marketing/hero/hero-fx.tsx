@@ -8,7 +8,7 @@ import { DoneButton } from "@/components/motion/DoneButton";
 import { FxProvider, TargetProvider, useT } from "@/components/motion/fx";
 import { m } from "@/components/motion/m";
 import { MText, PanelClockProvider, useReduced, useText, useTicker, useTo } from "@/components/motion/scene";
-import { HA_DRAFT, HA_NAME } from "../demo-data";
+import { HA_DRAFT } from "../demo-data";
 
 /* ---------- Timing (Revision 8 table: the one place to tune the hero loop; ms) ----------
    Five cards share one grid cell and crossfade. Maria's chip glides from a hidden slot in each card to the next.
@@ -185,9 +185,9 @@ function offsetIn(el: HTMLElement | null, stop: HTMLElement): Pos {
 }
 
 /** Scene 1: the name is typed, then fades as the chip pops out of the field. */
-export function TypedName() {
+export function TypedName({ name }: { name: string }) {
 	const t = useT();
-	const text = useText(t, (v) => HA_NAME.slice(0, Math.floor(P(v, at(0, 0), d(1050)) * HA_NAME.length)));
+	const text = useText(t, (v) => name.slice(0, Math.floor(P(v, at(0, 0), d(1050)) * name.length)));
 	const opacity = useTransform(t, (v) => +(1 - P(v, at(0, 1550), d(220))).toFixed(3));
 	return (
 		<m.span style={{ opacity }}>

@@ -1,100 +1,71 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { cn } from "@/components/cn";
 import { Display } from "@/components/Display";
-import { Icon } from "@/components/Icon";
 import { COPY } from "../copy";
-import { ICONS } from "../icons";
 import { isPanelKind, type PanelKind } from "../scene-data";
 import { AutoList, type AutoStep } from "./AutoList";
 
-type Id = "intelligence" | "sending" | "every-plant" | "network-intelligence";
+type Id = "intelligence" | "every-plant" | "leaders" | "network-intelligence";
 type Def = {
 	title: string;
 	lead?: string;
 	mirror?: boolean;
-	link?: string;
 	steps: { kind: PanelKind; tone: string; title: string; body: string }[];
 };
 
 const NETWORK = ["scope", "pipe", "lens", "top"] as const;
 const NETWORK_TONES = ["g-sea", "g-rose", "g-sun", "g-slate"];
+const LEADERS = ["stages", "goals", "talks", "program"] as const;
+const LEADER_TONES = ["g-lilac", "g-field", "g-sun", "g-sky"];
+
+/** Steps whose panel kind the copy file names. */
+function named(chapter: string, steps: { panel: string; title: string; body: string }[], tones: string[]) {
+	return steps.map((s, i) => {
+		if (!isPanelKind(s.panel)) throw new Error(`${chapter} step ${i}: unknown panel "${s.panel}"`);
+		return { kind: s.panel, tone: tones[i]!, title: s.title, body: s.body };
+	});
+}
 
 function defs(id: Id): Def {
-	const S = COPY.shared;
+	const S = COPY.shared,
+		O = S.oversight_page;
 	switch (id) {
 		case "intelligence":
 			return {
 				title: S.intelligence.title,
 				lead: S.intelligence.lead,
-				steps: S.intelligence.steps.map((s, i) => {
-					if (!isPanelKind(s.panel)) throw new Error(`intelligence step ${i}: unknown panel "${s.panel}"`);
-					return { kind: s.panel, tone: ["g-lilac", "g-field", "g-sky", "g-dawn"][i]!, title: s.title, body: s.body };
-				}),
-			};
-		case "sending":
-			return {
-				title: S.sending.title,
-				mirror: true,
-				link: S.sending.link,
-				steps: NETWORK.map((k, i) => ({ kind: k, tone: NETWORK_TONES[i]!, ...S.sending.steps[i]! })),
+				steps: named(id, S.intelligence.steps, ["g-lilac", "g-field", "g-sky", "g-dawn"]),
 			};
 		case "every-plant":
+			return { title: O.chapter.title, steps: named(id, O.chapter.steps, ["g-lilac", "g-dawn", "g-sky", "g-sun"]) };
+		// The /oversight chapters alternate sides: plants, leaders (mirrored), then Network Intelligence.
+		case "leaders":
 			return {
-				title: S.oversight_page.chapter.title,
-				steps: S.oversight_page.chapter.steps.map((s, i) => {
-					if (!isPanelKind(s.panel)) throw new Error(`every-plant step ${i}: unknown panel "${s.panel}"`);
-					return { kind: s.panel, tone: ["g-lilac", "g-dawn", "g-sky", "g-sun"][i]!, title: s.title, body: s.body };
-				}),
+				title: O.leaders.headline,
+				lead: O.leaders.lead,
+				mirror: true,
+				steps: LEADERS.map((k, i) => ({ kind: k, tone: LEADER_TONES[i]!, ...O.leaders.steps[i]! })),
 			};
 		case "network-intelligence":
 			return {
-				title: S.oversight_page.intelligence.title,
-				mirror: true,
-				steps: NETWORK.map((k, i) => ({
-					kind: k,
-					tone: NETWORK_TONES[i]!,
-					...S.oversight_page.intelligence.steps[i]!,
-				})),
+				title: O.intelligence.title,
+				steps: NETWORK.map((k, i) => ({ kind: k, tone: NETWORK_TONES[i]!, ...O.intelligence.steps[i]! })),
 			};
 	}
 }
 
 /**
- * An auto-advancing chapter: Plant Intelligence and the sending section on home, "See every plant you send" and
+ * An auto-advancing chapter: Plant Intelligence on home; "All your plants, in one place", the leader pipeline and
  * Network Intelligence on /oversight. The heading and the tab text are rendered here; AutoList runs the tabs and panels.
  * The page passes its panel elements by kind (it imports only its own panels, so each page ships only those).
  */
-export function AutoChapter({
-	id,
-	panels,
-	revealUp,
-}: {
-	id: Id;
-	panels: Partial<Record<PanelKind, ReactNode>>;
-	revealUp?: boolean;
-}) {
+export function AutoChapter({ id, panels }: { id: Id; panels: Partial<Record<PanelKind, ReactNode>> }) {
 	const d = defs(id);
 	const head = (
-		<div
-			className={cn(
-				"max-w-[640px]",
-				d.mirror ? "mb-[clamp(14px,1.6vw,22px)]" : "mb-[clamp(28px,3vw,44px)]",
-				d.link && "text-mk-h2 leading-[1.08] whitespace-nowrap",
-			)}
-		>
-			<Display as="h2" size="h2" id={id + "-title"} className={cn(d.link && "inline whitespace-normal")}>
+		<div className={cn("max-w-[640px]", d.mirror ? "mb-[clamp(14px,1.6vw,22px)]" : "mb-[clamp(28px,3vw,44px)]")}>
+			<Display as="h2" size="h2" id={id + "-title"}>
 				{d.title}
 			</Display>
-			{d.link ? (
-				<Link
-					href="/oversight"
-					aria-label={d.link}
-					className="relative -top-[.08em] ml-3 inline-grid size-[34px] place-items-center rounded-[9px] bg-mk-surface-2 align-middle text-ink/70 [transition:background-color_.15s_var(--ease-mk),color_.15s_var(--ease-mk)] hover:bg-mk-surface-3 hover:text-ink"
-				>
-					<Icon icon={ICONS.arrowUpRight} size={18} className="[&_path]:[stroke-width:1.8]" />
-				</Link>
-			) : null}
 			{d.lead ? (
 				<p className="mt-4 text-[clamp(17px,1.3vw,19px)] leading-[1.55] text-pretty text-text-2">{d.lead}</p>
 			) : null}
@@ -104,5 +75,5 @@ export function AutoChapter({
 		if (!panels[s.kind]) throw new Error(`${id}: the page passes no "${s.kind}" panel`);
 		return { ...s, panel: panels[s.kind] };
 	});
-	return <AutoList id={id} head={head} mirror={d.mirror} steps={steps} revealUp={revealUp} />;
+	return <AutoList id={id} head={head} mirror={d.mirror} steps={steps} />;
 }

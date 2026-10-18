@@ -7,7 +7,6 @@ import { cn } from "@/components/cn";
 import { clamp } from "@/components/motion/curves";
 import { useTicker, useReduced } from "@/components/motion/scene";
 import { SCENES, type PanelKind } from "../scene-data";
-import { Reveal } from "@/components/motion/Reveal";
 import { DeskBg, DeskPanel, useStepReveal, sel } from "./ScrollChapter";
 
 export type AutoStep = { kind: PanelKind; panel: ReactNode; tone: string; title: string; body: string };
@@ -18,8 +17,6 @@ type Props = {
 	/** Mirrored (Revision 19): the panel on the left, the heading in the list column. */
 	mirror?: boolean;
 	steps: AutoStep[];
-	/** The section right after the phases rail rises in as one block (Revision 16). */
-	revealUp?: boolean;
 };
 
 /* Revision 17: every step lasts the longest panel plus this hold. */
@@ -31,7 +28,7 @@ const HOLD = 1200;
  * step starts. Progress holds while the section is off screen or a tab has keyboard focus. Reduced motion: no advance
  * and no fill; the active line is full and the tabs still switch.
  */
-export function AutoList({ id, head, mirror, steps, revealUp }: Props) {
+export function AutoList({ id, head, mirror, steps }: Props) {
 	const n = steps.length;
 	const reduced = useReduced();
 	const root = useRef<HTMLElement>(null);
@@ -192,7 +189,7 @@ export function AutoList({ id, head, mirror, steps, revealUp }: Props) {
 				if (!root.current?.contains(e.relatedTarget as Node | null)) setKbd(false);
 			}}
 		>
-			<Wrap up={revealUp}>
+			<div className="mx-auto max-w-mk px-page">
 				{mirror ? null : head}
 				<div className="grid grid-cols-12 items-center gap-4">
 					<div
@@ -230,18 +227,8 @@ export function AutoList({ id, head, mirror, steps, revealUp }: Props) {
 						</div>
 					</div>
 				</div>
-			</Wrap>
+			</div>
 		</section>
-	);
-}
-
-function Wrap({ up, children }: { up?: boolean; children: ReactNode }) {
-	return up ? (
-		<Reveal up className="mx-auto max-w-mk px-page">
-			{children}
-		</Reveal>
-	) : (
-		<div className="mx-auto max-w-mk px-page">{children}</div>
 	);
 }
 

@@ -1,7 +1,6 @@
 // Demo church data of the product visuals (Server Components render it). Values are copied from the prototype
 // (design/everyfield-marketing.html). Names and numbers belong to a demo church, as in the approved design.
 
-export const HA_NAME = "Maria Lopez";
 export const HA_DRAFT = "Hi Maria, it was good to have you at the vision meeting. Could we get coffee this week?";
 export const CX_PEOPLE = [
 	["tone-ink", "Prospect", 82, 58, "var(--ef-text-3)"],
@@ -11,17 +10,6 @@ export const CX_PEOPLE = [
 	["tone-green", "Core group", 34, 34, "var(--ef-green-500)"],
 ] as const;
 export const CX_TYPES = ["Vision meeting", "Training", "Orientation", "Service run", "Vision meeting"] as const;
-export const CX_TEAMS = [
-	["tone-green", "Core team", "var(--ef-green-500)", 12],
-	["tone-violet", "Launch team", "var(--ef-violet-500)", 28],
-] as const;
-export const CX_SIGNS = [
-	["MS", "Maria Santos", "Signed a core team commitment"],
-	["DP", "Daniel Park", "Joined the launch team"],
-] as const;
-export const CX_Q = "Set up vision meeting #13 for Sun Oct 26 and invite our new prospects.";
-export const CX_A =
-	"Ready for your review: Sun Oct 26 at the Reyes home, the 90-minute agenda, 23 prospects as guests and the invitation email.";
 export const SD_SCOPES = [
 	["All plants", 14, 11, 5],
 	["Texas", 12, 10, 5],
@@ -34,49 +22,17 @@ export const SD_AREAS = [
 	["Greater Houston", 1, "unknown", "Too few"],
 	["Greater Oklahoma City", 2, "positive", "Strong"],
 ] as const;
+/* The 14 plants of the /oversight demo network by phase (oversight/demo.ts has its timeline). */
 export const SD_PIPE = [
-	["Discovery", 1, "6 wk"],
-	["Core group", 4, "31 wk"],
-	["Launch team", 3, "15 wk"],
-	["Training", 2, "9 wk"],
+	["Discovery", 4, "8 wk"],
+	["Core group", 3, "31 wk"],
+	["Launch team", 2, "15 wk"],
+	["Training", 1, "9 wk"],
 	["Pre-launch", 2, "11 wk"],
 	["Launch Sunday", 0, ""],
 	["Post-launch", 2, ""],
 ] as const;
 export const OV_MAIL = "priya@eastsidecommons.org";
-/* Sending churches: name, icon tone, place, plants [name, phase], summary, badge. */
-export const OV_GROUPS = [
-	[
-		"Grace Church",
-		"tone-blue",
-		"Hyde Park, Austin",
-		[
-			["Harvest Point Church", 1],
-			["Eastside Commons", 3],
-		],
-		"Next launch Mar 14, 2027",
-		["positive", "On track"],
-	],
-	[
-		"Redeemer Dallas",
-		"tone-violet",
-		"Uptown, Dallas",
-		[
-			["Deep Ellum Collective", 4],
-			["Oak Cliff Church", 2],
-		],
-		"Next launch Jan 24, 2027",
-		["positive", "On track"],
-	],
-	[
-		"Alamo City Church",
-		"tone-amber",
-		"San Antonio",
-		[["Alamo Heights Church", 2]],
-		"Kids leader role open",
-		["attention", "Could use help"],
-	],
-] as const;
 /* Plants in launch order: name, in Austin (1/0), icon tone, phase, committed adults, launch, findings. */
 export const OV_ROWS = [
 	["Deep Ellum Collective", 0, "tone-teal", "4 · Pre-launch", "61", "Jan 24, 2027", "3 findings"],

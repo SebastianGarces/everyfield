@@ -9,12 +9,23 @@ import { Insight } from "./insight";
 
 // "Here is what a Monday looks like": the overview dashboard of the demo church (Harvest Point), close to the mockup.
 
-export function MondayOverview() {
+/** The demo values the page passes (home/demo.ts). */
+export type MondayDemo = {
+	title: string;
+	sub: string;
+	core: string;
+	lastMeeting: string;
+	nextMeeting: string;
+	focus: { num: string; title: string; text: string };
+	coming: readonly (readonly [string, string])[];
+	needs: readonly (readonly [string, string])[];
+};
+export function MondayOverview({ demo: d }: { demo: MondayDemo }) {
 	return (
 		<AppFrame
 			tabs
-			title="Good morning, Daniel"
-			sub="Harvest Point Church · Phase 1, Core Group Development · Launch target spring 2027"
+			title={d.title}
+			sub={d.sub}
 			topRight={
 				<span className="inline-flex h-10 items-center gap-[9px] rounded-full bg-surface-raised pr-3.5 pl-2 text-[13px] font-semibold whitespace-nowrap text-ink shadow-[0_0_0_1px_var(--color-line)] max-mk-sm:px-1.5">
 					<EvryBot size="sm" />
@@ -24,12 +35,12 @@ export function MondayOverview() {
 			body={
 				<div className="grid grid-cols-[1fr_1fr_1.08fr] items-start gap-4 max-mk-nav:grid-cols-[1fr_1fr] max-mk-sm:grid-cols-[1fr]">
 					<div className="flex min-w-0 flex-col gap-4">
-						<CoreGroup />
+						<CoreGroup d={d} />
 						<Meetings />
 					</div>
 					<div className="flex min-w-0 flex-col gap-4 max-mk-sm:hidden">
 						<People />
-						<ComingUp />
+						<ComingUp rows={d.coming} />
 					</div>
 					<div className="flex min-w-0 flex-col gap-4 max-mk-nav:col-span-full max-mk-nav:grid max-mk-nav:grid-cols-[1fr_1fr] max-mk-sm:grid-cols-[1fr]">
 						<Insight
@@ -37,10 +48,10 @@ export function MondayOverview() {
 							icon={ICONS.compass}
 							label="Focus this week"
 							count="Plant Intelligence"
-							num="16 d"
+							num={d.focus.num}
 							unit="since the last vision meeting"
-							title="Hold your next vision meeting this week"
-							text="Vision meeting #12 is set for Sun Oct 12. Invite the 9 guests from #11."
+							title={d.focus.title}
+							text={d.focus.text}
 							footer={
 								<>
 									<UiButton variant="light">
@@ -50,7 +61,7 @@ export function MondayOverview() {
 								</>
 							}
 						/>
-						<NeedsYou />
+						<NeedsYou rows={d.needs} />
 					</div>
 				</div>
 			}
@@ -58,10 +69,10 @@ export function MondayOverview() {
 	);
 }
 
-function CoreGroup() {
+function CoreGroup({ d }: { d: MondayDemo }) {
 	return (
 		<DashCard>
-			<DashHead title="Core team" sub="Committed adults" right={<More />} />
+			<DashHead title={d.core} sub="Committed adults" right={<More />} />
 			<div className="font-display text-[72px] leading-none font-medium tracking-[-0.05em] max-mk-sm:text-[52px]">
 				34
 			</div>
@@ -78,9 +89,9 @@ function CoreGroup() {
 				</Kv>
 				<Kv k="Last vision meeting">
 					<span className="flex items-center gap-2">
-						<span className={KV_V}>16 d ago</span>
+						<span className={KV_V}>{d.lastMeeting}</span>
 						<Badge status="measured" size="sm">
-							Next Oct 12
+							{d.nextMeeting}
 						</Badge>
 					</span>
 				</Kv>
@@ -166,36 +177,41 @@ function People() {
 	);
 }
 
-function ComingUp() {
+const COMING: [Tone, keyof typeof ICONS][] = [
+	["green", "calendar"],
+	["violet", "users"],
+	["blue", "task"],
+];
+function ComingUp({ rows }: { rows: MondayDemo["coming"] }) {
 	return (
 		<DashCard>
 			<DashHead title="Coming up" sub="This week and next" />
-			<ListRow tone="green" icon={ICONS.calendar} title="Vision meeting #12" sub="Sun Oct 12 · Reyes home · 38 RSVPs" />
-			<ListRow tone="violet" icon={ICONS.users} title="Worship team training" sub="Wed Oct 15 · 8 of 9 confirmed" />
-			<ListRow tone="blue" icon={ICONS.task} title="Interview David Kim" sub="Fri Oct 17 · 4 pm at the Reyes home" />
+			{rows.map((r, i) => (
+				<ListRow key={r[0]} tone={COMING[i]![0]} icon={ICONS[COMING[i]![1]]} title={r[0]} sub={r[1]} />
+			))}
 		</DashCard>
 	);
 }
 
-const NEEDS: [Tone, keyof typeof ICONS, string, string][] = [
-	["magenta", "alert", "3 follow-ups overdue", "James Okafor is the oldest at 3 days"],
-	["amber", "task", "2 commitments to record", "Maria Santos signed on Oct 6"],
-	["blue", "users", "Kids ministry needs a leader", "2 of 6 roles filled"],
-	["ink", "heart", "Reaffirm prayer rhythm", "Last answered 34 days ago"],
+const NEEDS: [Tone, keyof typeof ICONS][] = [
+	["magenta", "alert"],
+	["amber", "task"],
+	["blue", "users"],
+	["ink", "heart"],
 ];
-function NeedsYou() {
+function NeedsYou({ rows }: { rows: MondayDemo["needs"] }) {
 	return (
 		<DashCard>
 			<DashHead title="Needs you" sub="4 things this week" right={<More />} />
 			<div>
-				{NEEDS.map((r, i) => (
+				{rows.map((r, i) => (
 					<ListRow
-						key={r[2]}
+						key={r[0]}
 						first={i === 0}
-						tone={r[0]}
-						icon={ICONS[r[1]]}
-						title={r[2]}
-						sub={r[3]}
+						tone={NEEDS[i]![0]}
+						icon={ICONS[NEEDS[i]![1]]}
+						title={r[0]}
+						sub={r[1]}
 						end={<Icon icon={ICONS.arrow} className="text-text-3" />}
 					/>
 				))}

@@ -2,10 +2,13 @@ import { cn } from "@/components/cn";
 import { Display } from "@/components/Display";
 import { Reveal } from "@/components/motion/Reveal";
 import { PinnedRail } from "./PinnedRail";
-import { PhaseVignette, PlantVignette } from "./vignettes";
+import { PhaseVignette, PlantVignette, type PhaseDemo } from "./vignettes";
 
 type Item = { label: string; title: string; body?: string; short?: string };
-type Props = { id: "features" | "plants"; headline: string; items: Item[]; vignettes: "phases" | "plants" };
+/** Home shows the phases with its demo data; /oversight shows the plant cards. */
+type Props = { headline: string; items: Item[] } & (
+	{ id: "features"; vignettes: "phases"; demo: PhaseDemo } | { id: "plants"; vignettes: "plants" }
+);
 
 const TONES = {
 	phases: ["g-sky", "g-field", "g-dawn", "g-lilac", "g-sun", "g-sea"],
@@ -17,8 +20,8 @@ const num = (i: number) => String(i + 1).padStart(2, "0");
  * The phases rail (Marketing v15): six tall cards in a row that bleeds off the right edge. Home shows the planter's six
  * phases; /oversight shows what a sending church sees. The cards render here; PinnedRail moves the row.
  */
-export function PhasesRail({ id, headline, items, vignettes }: Props) {
-	const Vig = vignettes === "phases" ? PhaseVignette : PlantVignette;
+export function PhasesRail(props: Props) {
+	const { id, headline, items } = props;
 	const head = (
 		<div className="mx-auto max-w-mk px-page">
 			<Reveal className="mb-[clamp(28px,3.4vw,48px)] grid grid-cols-12 items-end gap-4 max-mk-sm:mb-[26px]">
@@ -41,7 +44,7 @@ export function PhasesRail({ id, headline, items, vignettes }: Props) {
 					<div
 						className={cn(
 							"mk-gsurf relative mx-2 mt-2 h-[236px] flex-none rounded-[20px] max-mk-sm:h-[200px]",
-							TONES[vignettes][i],
+							TONES[props.vignettes][i],
 						)}
 					>
 						<span
@@ -51,7 +54,7 @@ export function PhasesRail({ id, headline, items, vignettes }: Props) {
 							{num(i)}
 						</span>
 						<div aria-hidden="true" className="ef-ui absolute inset-x-0 top-28 mx-auto w-[min(calc(100%-28px),292px)]">
-							<Vig i={i} />
+							{props.vignettes === "phases" ? <PhaseVignette i={i} demo={props.demo} /> : <PlantVignette i={i} />}
 						</div>
 					</div>
 					<div className="px-[22px] pt-5 pb-[22px]">

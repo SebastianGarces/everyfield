@@ -1,8 +1,9 @@
 import type { CSSProperties, ReactNode } from "react";
 import { cn } from "@/components/cn";
 import { Icon } from "@/components/Icon";
-import { Avatar, Badge, CardIcon, UiButton, type Tone } from "@/components/kit/kit";
+import { Avatar, Badge, CardIcon, type Tone } from "@/components/kit/kit";
 import { ICONS, type IconName } from "../icons";
+import { EASTSIDE_DAYS } from "../oversight/demo";
 
 // The small product vignettes on the phases rail cards (Marketing v15, Revision 26). Static pictures of the app with the
 // demo church's data; Server Components.
@@ -86,7 +87,19 @@ function Meter({ pct, color, hatch }: { pct: string; color: string; hatch?: bool
 }
 
 /* ---------- Home: the six phases ---------- */
-export function PhaseVignette({ i }: { i: number }) {
+/** Demo data the page passes (home/demo.ts): the eight ministry areas (the second one empty), the training rows and the milestone count. */
+export type PhaseDemo = { areas: readonly string[]; training: readonly string[]; milestones: string; wrap?: boolean };
+const SEATS = [
+	["MS", "violet"],
+	["", ""],
+	["JO", "blue"],
+	["RA", "amber"],
+	["KL", "teal"],
+	["TB", "green"],
+	["AP", "magenta"],
+	["LC", "ink"],
+] as const;
+export function PhaseVignette({ i, demo }: { i: number; demo: PhaseDemo }) {
 	if (i === 0)
 		return (
 			<Vignette>
@@ -144,16 +157,7 @@ export function PhaseVignette({ i }: { i: number }) {
 			</Vignette>
 		);
 	if (i === 2) {
-		const seats = [
-			["Worship", "MS", "violet"],
-			["Kids", "", ""],
-			["Welcome", "JO", "blue"],
-			["Prayer", "RA", "amber"],
-			["Tech", "KL", "teal"],
-			["Outreach", "TB", "green"],
-			["Setup", "AP", "magenta"],
-			["Admin", "LC", "ink"],
-		] as const;
+		const seats = demo.areas.map((name, k) => [name, ...SEATS[k]!] as const);
 		return (
 			<Vignette>
 				<Head
@@ -176,7 +180,12 @@ export function PhaseVignette({ i }: { i: number }) {
 								</span>
 							)}
 							<span
-								className={cn("max-w-full truncate text-[11px]", who ? "text-text-2" : "font-semibold text-amber-600")}
+								className={cn(
+									demo.wrap
+										? "max-w-full text-center text-[10.5px] leading-[1.2] tracking-[-0.01em]"
+										: "max-w-full truncate text-[11px]",
+									who ? "text-text-2" : "font-semibold text-amber-600",
+								)}
 							>
 								{name}
 							</span>
@@ -193,9 +202,9 @@ export function PhaseVignette({ i }: { i: number }) {
 				<div className="mt-3.5 grid gap-[9px]">
 					{(
 						[
-							["Worship team", 8, 9, "var(--color-green-600)", true],
-							["Hospitality", 6, 6, "var(--color-green-500)", false],
-							["Kids ministry", 2, 6, "var(--color-amber-500)", true],
+							[demo.training[0]!, 8, 9, "var(--color-green-600)", true],
+							[demo.training[1]!, 6, 6, "var(--color-green-500)", false],
+							[demo.training[2]!, 2, 6, "var(--color-amber-500)", true],
 						] as const
 					).map(([name, a, b, color, hatch]) => (
 						<div key={name}>
@@ -214,7 +223,7 @@ export function PhaseVignette({ i }: { i: number }) {
 	if (i === 4)
 		return (
 			<Vignette>
-				<Head icon="task" tone="blue" title="Launch milestones" sub="3 of 5 done" />
+				<Head icon="task" tone="blue" title="Launch milestones" sub={demo.milestones} />
 				<div className="mt-3.5 grid gap-[9px]">
 					{(
 						[
@@ -273,7 +282,9 @@ export function PhaseVignette({ i }: { i: number }) {
 }
 
 /* ---------- /oversight: what a sending church sees, plant by plant ---------- */
+/** Card 2's countdown runs from the demo date (oversight/demo.ts). */
 export function PlantVignette({ i }: { i: number }) {
+	if (i === 2) return <StatusVignette />;
 	if (i === 0)
 		return (
 			<Vignette>
@@ -311,7 +322,7 @@ export function PlantVignette({ i }: { i: number }) {
 		return (
 			<Vignette>
 				<Head icon="calendar" tone="green" title="Launch Sunday" sub="Sunday, May 2, 2027" />
-				<Stat n="205">
+				<Stat n={String(EASTSIDE_DAYS)}>
 					<span className={cn(S, "mt-px")}>days to go</span>
 				</Stat>
 				<div>
@@ -320,45 +331,6 @@ export function PlantVignette({ i }: { i: number }) {
 						<span className={K}>3 of 9</span>
 					</div>
 					<Meter pct="33.3%" color="var(--color-green-500)" />
-				</div>
-			</Vignette>
-		);
-	if (i === 2)
-		return (
-			<Vignette>
-				<Head
-					icon="pin"
-					tone="teal"
-					title="By market"
-					sub="Texas · 14 plants"
-					right={<span className={K}>Plants</span>}
-				/>
-				<div className="mt-3 grid gap-0.5">
-					{(
-						[
-							["Greater Austin", 5],
-							["Dallas–Fort Worth", 3],
-							["Greater San Antonio", 3],
-							["Greater Houston", 2],
-						] as const
-					).map(([name, n], k) => (
-						<div
-							key={name}
-							className={cn(
-								"-mx-2 grid grid-cols-[minmax(0,1fr)_64px_16px] items-center gap-2.5 rounded-[10px] px-2 py-1.5 text-[13px] font-medium",
-								!k && "bg-green-50 shadow-mk-row-on",
-							)}
-						>
-							<span className="truncate">{name}</span>
-							<span className="h-1.5 overflow-hidden rounded-[9px] bg-surface-2">
-								<i
-									className={cn("block h-full rounded-[9px]", k ? "bg-mk-bar-muted" : "bg-green-500")}
-									style={{ width: (n / 5) * 100 + "%" }}
-								/>
-							</span>
-							<b className="text-right font-semibold tabular-nums">{n}</b>
-						</div>
-					))}
 				</div>
 			</Vignette>
 		);
@@ -394,20 +366,49 @@ export function PlantVignette({ i }: { i: number }) {
 				</div>
 			</Vignette>
 		);
+	return <TasksVignette />;
+}
+
+/* ---------- /oversight: Status and Tasks ---------- */
+/** The four product status values (PI-031) across the 14 plants. A plant that shares no findings shows Limited visibility.
+ *  The card crops the vignette under its second line, so the counts sit right under the head. */
+const STATUS_COUNTS = [
+	["positive", 7, "On track"],
+	["risk", 1, "Launch readiness"],
+	["attention", 3, "Watch"],
+	["unknown", 3, "Limited visibility"],
+] as const;
+function StatusVignette() {
 	return (
 		<Vignette>
-			<Head icon="compass" tone="amber" title="Where help could matter" sub="Eastside Commons" />
-			<div className="mt-3 truncate text-[15px] leading-[1.3] font-semibold">
-				Two leader roles are open, 205 days before launch
+			<Head icon="eye" tone="teal" title="Status" sub="Your 14 plants" />
+			<div className="mt-3 grid grid-cols-2 gap-x-1 gap-y-1.5 justify-items-start">
+				{STATUS_COUNTS.map((r) => (
+					<Badge key={r[2]} status={r[0]} size="sm" className="max-w-full">
+						{r[1]} {r[2]}
+					</Badge>
+				))}
 			</div>
-			<div className="mt-3 flex gap-1.5">
-				<UiButton variant="primary" size="sm">
-					Offer help <Icon icon={ICONS.arrow} size={14} />
-				</UiButton>
-				<UiButton variant="ghost" size="sm">
-					Later
-				</UiButton>
-			</div>
+		</Vignette>
+	);
+}
+function TasksVignette() {
+	return (
+		<Vignette>
+			<Head
+				icon="task"
+				tone="blue"
+				title="Tasks"
+				sub="Eastside Commons"
+				right={
+					<Badge status="attention" size="sm">
+						6 past due
+					</Badge>
+				}
+			/>
+			<Stat n="38">
+				<span className={cn(S, "mt-px")}>launch tasks open</span>
+			</Stat>
 		</Vignette>
 	);
 }
