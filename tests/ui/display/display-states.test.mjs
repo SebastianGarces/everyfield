@@ -5,6 +5,7 @@
 //   INV-selection: select-all, the bulk bar count and Clear selection agree (DataTable, BulkBar).
 //   INV-email-light: emails keep the light palette on a dark product page (.ef-paper in display.css).
 //   INV-unmerge: a refused Unmerge is an alert with no Unmerge action; only the preview offers it (UnmergePanel).
+//   BUG-PR109 change marks: added blocks are marked green and changed blocks blue, as the editor legend says.
 //   INV-evry-focus: Esc closes the non-modal Evry panel and returns focus to its opener (EvryPanel).
 // It runs against a running app: set UI_BASE_URL to the task preview.
 //   UI_BASE_URL=http://wp-090-....localhost:1355 corepack pnpm test:ui
@@ -122,6 +123,26 @@ for (const [name, engine] of [
 			assert.equal(await refused.getByRole("button", { name: "Unmerge", exact: true }).count(), 0);
 			const done = page.getByRole("status").filter({ hasText: "Unmerged" });
 			assert.equal(await done.getByRole("link", { name: /James Okafor|Jim Okafor/ }).count(), 2);
+		}),
+	);
+
+	test(`BUG-PR109 (${name}): editor marks added blocks green and changed blocks blue`, { timeout: 60_000 }, () =>
+		withPage(engine, { group: "Content" }, async (page) => {
+			const mark = (sel) =>
+				page
+					.locator(sel)
+					.first()
+					.evaluate((el) => getComputedStyle(el, "::before").backgroundColor);
+			// Engines may report a converted color space, so compare the dominant channel, not exact values.
+			const rgb = (c) =>
+				c
+					.match(/[\d.]+/g)
+					.slice(0, 3)
+					.map(Number);
+			const [ar, ag, ab] = rgb(await mark('[data-change="added"]'));
+			const [cr, cg, cb] = rgb(await mark('[data-change="changed"]'));
+			assert.ok(ag > ar && ag > ab, "added is the green bar");
+			assert.ok(cb > cr && cb > cg, "changed is the blue bar");
 		}),
 	);
 
