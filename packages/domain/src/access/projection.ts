@@ -1,5 +1,5 @@
 import "server-only";
-import type { PoolClient } from "pg";
+import type { Transaction } from "@everyfield/db/client";
 import type { z } from "zod";
 import { type Owner, type sessionId, type Subject } from "@everyfield/contracts/common";
 import { sharedOperationCheckRequest } from "@everyfield/contracts/access";
@@ -13,11 +13,11 @@ export function readProjection<T>(
 		operation: OperationPolicy["operation"];
 		purpose: "native" | "model" | "export" | "organization_aggregate";
 		schema: z.ZodType<T>;
-		load(tx: PoolClient, subject: Subject): Promise<unknown>;
+		load(tx: Transaction, subject: Subject): Promise<unknown>;
 	},
 ) {
 	return async function projectRead(
-		tx: PoolClient,
+		tx: Transaction,
 		session: z.infer<typeof sessionId>,
 		selected: Owner,
 		raw: unknown,

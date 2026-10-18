@@ -1,10 +1,12 @@
+import * as tables from "./tables.ts";
+import { and, asc, eq, gt, sql } from "@everyfield/db/query";
 import "server-only";
-import type { Pool } from "pg";
+import type { Database } from "@everyfield/db/client";
 import type { PlatformAuth } from "./auth.ts";
 import { currentScope, transaction } from "./database.ts";
 import { privateHeaders, Refusal } from "./boundary.ts";
 
-export async function authorizedStream(db: Pool, auth: PlatformAuth, request: Request, owner: string) {
+export async function authorizedStream(db: Database, auth: PlatformAuth, request: Request, owner: string) {
 	const cursor = request.headers.get("last-event-id") ?? "0";
 	if (!/^\d{1,10}$/.test(cursor)) throw new Refusal("invalid_input", 422);
 	await transaction(db, (tx) => currentScope(tx, auth, request.headers, owner));
@@ -17,12 +19,12 @@ export async function authorizedStream(db: Pool, auth: PlatformAuth, request: Re
 				while (!cancelled && !request.signal.aborted && Date.now() < until) {
 					const rows = await transaction(db, async (tx) => {
 						await currentScope(tx, auth, request.headers, owner);
-						return (
-							await tx.query<{ id: string; status: string }>(
-								"SELECT id::text,status FROM proof_stream WHERE owner_id=$1 AND id>$2 ORDER BY id LIMIT 10",
-								[owner, after],
-							)
-						).rows;
+						return await tx
+							.select({ id: sql<string>`(${tables.proof_stream.id})::text`, status: tables.proof_stream.status })
+							.from(tables.proof_stream)
+							.where(and(eq(tables.proof_stream.owner_id, owner), gt(tables.proof_stream.id, after)))
+							.orderBy(asc(tables.proof_stream.id))
+							.limit(10);
 					});
 					for (const row of rows) {
 						if (cancelled || request.signal.aborted) break;

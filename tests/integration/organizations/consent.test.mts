@@ -1,3 +1,4 @@
+import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { before, after, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -110,9 +111,8 @@ test("AC:AF-030 AC:AF-032 AC:AF-033 AC:TARGET-IDN-022 AC:WP007-API-KNOW-112 sour
 		/stale_revision/,
 	);
 	const data = (
-		await S.db.query(
-			"SELECT e.action,e.diff,e.reason FROM event e JOIN affiliation a ON a.id=e.target_record_id WHERE a.id=$1",
-			[a],
+		await S.db.execute(
+			sql`SELECT e.action,e.diff,e.reason FROM event e JOIN affiliation a ON a.id=e.target_record_id WHERE a.id=${sql.param(a)}`,
 		)
 	).rows;
 	assert.deepEqual(
@@ -281,17 +281,14 @@ async function resident() {
 		person = randomUUID(),
 		invitation = randomUUID(),
 		link = randomUUID();
-	await S.db.query(
-		"INSERT INTO person(id,tenant_id,organization_id,display_name,source,state,linked_account_id,created_at,revision) VALUES($1,$2,$2,'Resident','other','live',$3,clock_timestamp(),1)",
-		[person, o.id, r.account],
+	await S.db.execute(
+		sql`INSERT INTO person(id,tenant_id,organization_id,display_name,source,state,linked_account_id,created_at,revision) VALUES(${sql.param(person)},${sql.param(o.id)},${sql.param(o.id)},'Resident','other','live',${sql.param(r.account)},clock_timestamp(),1)`,
 	);
-	await S.db.query(
-		"INSERT INTO invitation(id,tenant_id,purpose,recipient_email,token_hash,state,created_at,accepted_account_id,resident_person_id) VALUES($1,$2,'residency_link',$3,$4,'accepted',clock_timestamp(),$5,$6)",
-		[invitation, o.id, r.email, randomUUID(), r.account, person],
+	await S.db.execute(
+		sql`INSERT INTO invitation(id,tenant_id,purpose,recipient_email,token_hash,state,created_at,accepted_account_id,resident_person_id) VALUES(${sql.param(invitation)},${sql.param(o.id)},'residency_link',${sql.param(r.email)},${sql.param(randomUUID())},'accepted',clock_timestamp(),${sql.param(r.account)},${sql.param(person)})`,
 	);
-	await S.db.query(
-		"INSERT INTO residency_link(id,organization_id,person_id,account_id,affiliation_id,invitation_id,accepted_at,consent_revision,revision,share_foundations,share_milestones) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp(),1,1,true,true)",
-		[link, o.id, person, r.account, a, invitation],
+	await S.db.execute(
+		sql`INSERT INTO residency_link(id,organization_id,person_id,account_id,affiliation_id,invitation_id,accepted_at,consent_revision,revision,share_foundations,share_milestones) VALUES(${sql.param(link)},${sql.param(o.id)},${sql.param(person)},${sql.param(r.account)},${sql.param(a)},${sql.param(invitation)},clock_timestamp(),1,1,true,true)`,
 	);
 	return { o, staff, r, link, person };
 }
@@ -301,10 +298,10 @@ test("AC:ADR1-003 AC:WP007-API-MUL-003 resident category withdrawal and leave im
 			S.tx((c) => canReadResidentProgress(c, staff.session, o, { linkId: link, category, consentRevision }));
 	assert.equal(await read("foundations", "1"), true);
 	assert.equal(await read("milestones", "1"), true);
-	await S.db.query("UPDATE person SET linked_account_id=NULL WHERE id=$1", [person]);
+	await S.db.execute(sql`UPDATE person SET linked_account_id=NULL WHERE id=${sql.param(person)}`);
 	assert.equal(await read("foundations", "1"), false);
 	assert.equal(await read("milestones", "1"), false);
-	await S.db.query("UPDATE person SET linked_account_id=$2 WHERE id=$1", [person, r.account]);
+	await S.db.execute(sql`UPDATE person SET linked_account_id=${sql.param(r.account)} WHERE id=${sql.param(person)}`);
 	assert.equal(await read("foundations", "1"), true);
 	const initial = Q.residencySharingResult.parse(await S.call("residency.readSharing", r, { linkId: link }));
 	assert.equal(initial.status, "active");
@@ -350,10 +347,13 @@ test("AC:ADR1-003 AC:WP007-API-MUL-003 resident category withdrawal and leave im
 		/unavailable/,
 	);
 	assert.equal(
-		(await S.db.query("SELECT display_name FROM person WHERE id=$1", [person])).rows[0].display_name,
+		(await S.db.execute(sql`SELECT display_name FROM person WHERE id=${sql.param(person)}`)).rows[0].display_name,
 		"Resident",
 	);
-	assert.equal((await S.db.query("SELECT count(*)::int AS n FROM seat WHERE account_id=$1", [r.account])).rows[0].n, 0);
+	assert.equal(
+		(await S.db.execute(sql`SELECT count(*)::int AS n FROM seat WHERE account_id=${sql.param(r.account)}`)).rows[0].n,
+		0,
+	);
 });
 test("INV-atomicity: required outbox failure rolls back sharing, revision, audit, receipt and invalidation", async () => {
 	const p = await S.tenant("plant"),
@@ -398,10 +398,17 @@ test("INV-atomicity: required outbox failure rolls back sharing, revision, audit
 	if (v.view !== "plant_administration") throw Error();
 	assert.equal(v.choices.people, true);
 	assert.equal(v.consentRevision, "1");
-	assert.equal((await S.db.query("SELECT count(*)::int AS n FROM operation WHERE request_key=$1", [key])).rows[0].n, 0);
-	assert.equal((await S.db.query("SELECT count(*)::int AS n FROM event WHERE target_record_id=$1", [id])).rows[0].n, 0);
 	assert.equal(
-		(await S.db.query("SELECT material_revision FROM organization WHERE id=$1", [o.id])).rows[0].material_revision,
+		(await S.db.execute(sql`SELECT count(*)::int AS n FROM operation WHERE request_key=${sql.param(key)}`)).rows[0].n,
+		0,
+	);
+	assert.equal(
+		(await S.db.execute(sql`SELECT count(*)::int AS n FROM event WHERE target_record_id=${sql.param(id)}`)).rows[0].n,
+		0,
+	);
+	assert.equal(
+		(await S.db.execute(sql`SELECT material_revision FROM organization WHERE id=${sql.param(o.id)}`)).rows[0]
+			.material_revision,
 		"1",
 	);
 });

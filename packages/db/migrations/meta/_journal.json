@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792346400000,
+      "tag": "0001_early_access",
+      "breakpoints": false
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792346400001,
+      "tag": "0002_baseline",
+      "breakpoints": false
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792346400002,
+      "tag": "0003_access_privileges",
+      "breakpoints": false
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792346400003,
+      "tag": "0004_people",
+      "breakpoints": false
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792346400004,
+      "tag": "0005_organization_relationships",
+      "breakpoints": false
+    }
+  ]
+}

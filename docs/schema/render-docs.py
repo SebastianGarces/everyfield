@@ -17,7 +17,7 @@ def render(root):
               sum(len(t['foreign_keys']) for t in tables),
               sum(c['type'] == 'jsonb' for t in tables for c in t['columns']))
     readme = ['# Adopted target schema', '',
-              '[target.json](target.json) is the only schema authority. Sebastian adopted this reviewed starting design on 2026-10-14. Builders may change it later through a reviewed migration. Application implementation is not authorized by this documentation change.', '',
+              '[target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.', '',
               'The schema has %s tables, %s columns, %s declared FKs and %s JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.' % counts, '',
               'Run documentation/tooling checks from the repository root:', '', '```sh',
               'python3 docs/schema/check.py', 'python3 docs/schema/check.py --self-test',
@@ -26,7 +26,7 @@ def render(root):
               'python3 docs/schema/render-docs.py --check',
               'python3 docs/schema/render-diagram.py',
               'python3 docs/package-context.py --check-manifest', '```', '',
-              '[schema-diagram.html](schema-diagram.html) is an offline ERD generated from this authority. [relations.md](relations.md) lists its exact relations. [design-rules.md](design-rules.md) retains the adopted privacy, history and ownership rules. Capability inventories are under `capabilities/`.', '',
+              '[schema-diagram.html](schema-diagram.html) is an offline ERD generated from this catalog. [relations.md](relations.md) lists its exact relations. [design-rules.md](design-rules.md) retains the adopted privacy, history and ownership rules. Capability inventories are under `capabilities/`.', '',
               'The checker validates structural keys, FK existence/arity/types, unconditional referenced keys, owner pairs and named exceptions, UUID relations, literal closed sets, NULL guards, JSONB key documentation, catalog coverage, producer packages and Person registrations. It does not execute SQL, triggers, Better Auth, authorization races, storage, providers or application acceptance. Independent semantic review remains required.', '',
               '## Accepted rulings', '',
               '| ID | Ruling |', '|---|---|',

@@ -1,4 +1,6 @@
-import type { PoolClient } from "pg";
+import { and, or, gt, getTableColumns, eq, asc } from "@everyfield/db/query";
+import * as tables from "@everyfield/db/tables";
+import type { Transaction } from "@everyfield/db/client";
 import { z } from "zod";
 import { owner, recordId, eventId, accountId } from "@everyfield/contracts/common";
 import * as Q from "@everyfield/contracts/organizations";
@@ -10,12 +12,12 @@ const historyRow = z.object({
 	reason: z.string().nullable(),
 	source_invitation_id: recordId.nullable(),
 	kind: z.enum(["accept", "remove"]),
-	occurred_at: z.date(),
-	recorded_at: z.date(),
+	occurred_at: z.coerce.date(),
+	recorded_at: z.coerce.date(),
 	actor_id: accountId.nullable(),
 	actor_tombstone: z.string().nullable(),
 });
-export const getHistory: OrganizationAdapter<PoolClient>["associations.getHistory"] = async (
+export const getHistory: OrganizationAdapter<Transaction>["associations.getHistory"] = async (
 	tx,
 	session,
 	selected,
@@ -42,23 +44,32 @@ export const getHistory: OrganizationAdapter<PoolClient>["associations.getHistor
 	const actor = await currentActor(tx, session, selected);
 	if (actor.status !== "active" || !sameOwner(selected, endpoint)) return unavailable();
 	if (endpoint.kind === "account") {
-		const d = await tx.query("SELECT id FROM discovery WHERE account_id=$1 FOR SHARE", [endpoint.id]);
-		if (d.rowCount !== 1) return unavailable();
+		const d = await tx
+			.select({ id: tables.discovery.id })
+			.from(tables.discovery)
+			.where(eq(tables.discovery.account_id, endpoint.id))
+			.for("share");
+		if (d.length !== 1) return unavailable();
 	}
 	const where =
 		"plant" in scope
-			? "a.plant_id=$1"
+			? eq(tables.affiliation.plant_id, endpoint.id)
 			: "sendingChurch" in scope
-				? "a.sending_church_id=$1"
+				? eq(tables.affiliation.sending_church_id, endpoint.id)
 				: "discoveryAccountId" in scope
-					? "a.account_id=$1"
-					: "(a.organization_id=$1 OR a.sending_church_id=$1)";
-	const links = await tx.query<{ id: string }>(
-		"SELECT a.id FROM affiliation a WHERE " + where + " ORDER BY a.id LIMIT 101",
-		[endpoint.id],
-	);
+					? eq(tables.affiliation.account_id, endpoint.id)
+					: or(
+							eq(tables.affiliation.organization_id, endpoint.id),
+							eq(tables.affiliation.sending_church_id, endpoint.id),
+						);
+	const links = await tx
+		.select({ id: tables.affiliation.id })
+		.from(tables.affiliation)
+		.where(where)
+		.orderBy(asc(tables.affiliation.id))
+		.limit(101);
 	const activeRelationships = [];
-	for (const r of links.rows.slice(0, 100)) {
+	for (const r of links.slice(0, 100)) {
 		const a = await loadAffiliation(tx, r.id);
 		if (!a) continue;
 		const p = projection(a);
@@ -69,12 +80,22 @@ export const getHistory: OrganizationAdapter<PoolClient>["associations.getHistor
 		)
 			activeRelationships.push(p);
 	}
-	const rows = await tx.query(
-		`SELECT h.*,e.kind,e.occurred_at,e.recorded_at,e.actor_id,e.actor_tombstone FROM relationship_history h JOIN affiliation a ON a.id=h.relationship_id JOIN event e ON e.id=h.id
-    WHERE ${where} AND ($2::uuid IS NULL OR h.id>$2) ORDER BY h.id LIMIT 101`,
-		[endpoint.id, q.after ?? null],
-	);
-	const items = rows.rows
+	const rows = await tx
+		.select({
+			...getTableColumns(tables.relationship_history),
+			kind: tables.event.kind,
+			occurred_at: tables.event.occurred_at,
+			recorded_at: tables.event.recorded_at,
+			actor_id: tables.event.actor_id,
+			actor_tombstone: tables.event.actor_tombstone,
+		})
+		.from(tables.relationship_history)
+		.innerJoin(tables.affiliation, eq(tables.affiliation.id, tables.relationship_history.relationship_id))
+		.innerJoin(tables.event, eq(tables.event.id, tables.relationship_history.id))
+		.where(and(where, q.after ? gt(tables.relationship_history.id, q.after) : undefined))
+		.orderBy(asc(tables.relationship_history.id))
+		.limit(101);
+	const items = rows
 		.map((r) => historyRow.parse(r))
 		.filter(
 			(r) => Q.hasHistoryEndpoint(scope, r.pair) && (!q.pair || JSON.stringify(q.pair) === JSON.stringify(r.pair)),
@@ -100,7 +121,7 @@ export const getHistory: OrganizationAdapter<PoolClient>["associations.getHistor
 		scope,
 		activeRelationships,
 		items,
-		next: rows.rows.length > 100 ? recordId.parse(rows.rows[99]!.id) : null,
-		completeness: links.rows.length > 100 ? "partial" : "complete",
+		next: rows.length > 100 ? recordId.parse(rows[99]!.id) : null,
+		completeness: links.length > 100 ? "partial" : "complete",
 	});
 };

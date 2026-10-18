@@ -1,4 +1,4 @@
-import type { PoolClient } from "pg";
+import type { Transaction } from "@everyfield/db/client";
 import { z } from "zod";
 import { recordId, revision, type Owner, type sessionId } from "@everyfield/contracts/common";
 import { sharingCategory } from "@everyfield/contracts/organizations";
@@ -6,7 +6,7 @@ import { active, choices, currentActor, loadAffiliation, sameOwner } from "./cor
 // Original source witnesses are rechecked for reads, saved results, jobs and model
 // context. A saved body or organization preference never grants access by itself.
 export async function canReadSharedSources(
-	tx: PoolClient,
+	tx: Transaction,
 	session: z.infer<typeof sessionId>,
 	selected: Owner,
 	raw: unknown,
@@ -40,7 +40,7 @@ export async function canReadSharedSources(
 	);
 }
 export async function canDispatchActivity(
-	tx: PoolClient,
+	tx: Transaction,
 	session: z.infer<typeof sessionId>,
 	selected: Owner,
 	raw: unknown,

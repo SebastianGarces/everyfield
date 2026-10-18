@@ -1,0 +1,26 @@
+{
+  "description": "Exact applied bytes at the Drizzle adoption baseline; schema_migration is the only database ledger.",
+  "baseline": "0005_snapshot.json",
+  "files": [
+    {
+      "name": "0001_early_access.sql",
+      "sha256": "17d0f96da4a0dbd2e1dc164aabb5750728ec9345cbdb781451e9129ef990ec5b"
+    },
+    {
+      "name": "0002_baseline.sql",
+      "sha256": "cc1c8084e80f67686e429ca31cb951bd595e383df360632148f7fcaaa851aefc"
+    },
+    {
+      "name": "0003_access_privileges.sql",
+      "sha256": "acba0ff0035c1fe157770901ee9c0849d0970f2088fd9fda00649b9abe2838d0"
+    },
+    {
+      "name": "0004_people.sql",
+      "sha256": "418bc7cff623dfbd8858a697dd823e0fdb3e501e7ba9db3b6aa8677ccff658df"
+    },
+    {
+      "name": "0005_organization_relationships.sql",
+      "sha256": "de07420266d9f3a7c9f4f84c707db2a92f4664d3ae41dd9c921488a115d323ff"
+    }
+  ]
+}

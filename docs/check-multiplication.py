@@ -175,9 +175,10 @@ def check():
                 assert len(fk['columns']) == 2, table['name'] + ': ownerless Person reference'
     for column in ['tenant_id', 'plant_id', 'organization_id']:
         assert any(c['name'] == column for c in tables['person']['columns'])
-    assert any('num_nonnulls(plant_id, organization_id) = 1' == c
+    # PostgreSQL deparses the same checks with outer parentheses and uppercase keywords.
+    assert any('num_nonnulls(plant_id, organization_id) = 1' == c.strip('() ')
                for c in tables['person']['checks'])
-    assert any('organization_id is not null and stage is null' in c
+    assert any('organization_id is not null and stage is null' in c.lower().replace('(', '').replace(')', '')
                for c in tables['person']['checks'])
     assert not any(c['name'] in {'calling_score', 'assessment_result', 'readiness_rating'}
                    for t in tables.values() if t['name'].startswith(('pipeline_', 'development_'))

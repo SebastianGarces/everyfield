@@ -1,5 +1,7 @@
+import { and, eq, sql } from "@everyfield/db/query";
+import * as tables from "@everyfield/db/tables";
 import "server-only";
-import type { PoolClient } from "pg";
+import type { Transaction } from "@everyfield/db/client";
 import { z } from "zod";
 import { owedPeriod } from "./calendar.ts";
 import { createMailService } from "./mail.ts";
@@ -25,52 +27,88 @@ export function createDigestService(config: {
 	nativePath: (owner: DigestScope) => string;
 	mail: ReturnType<typeof createMailService>;
 	eligible: (
-		tx: PoolClient,
+		tx: Transaction,
 		owner: DigestScope,
 		recipient: string,
 	) => Promise<{ address: string; cadence: "daily" | "weekly" } | null>;
 	load: (
-		tx: PoolClient,
+		tx: Transaction,
 		owner: DigestScope,
 		recipient: string,
 		interval: { start: string; end: string; next: string },
 	) => Promise<DigestPage>;
 }) {
 	const origin = new URL(config.origin).origin;
-	async function generateOwed(tx: PoolClient, owner: DigestScope, recipient: string, asOf: string) {
+	async function generateOwed(tx: Transaction, owner: DigestScope, recipient: string, asOf: string) {
 		const o = scope.parse(owner);
 		z.uuid().parse(recipient);
 		z.iso.datetime().parse(asOf);
 		const eligible = await config.eligible(tx, o, recipient);
 		if (!eligible) return { kind: "ineligible" } as const;
 		const purpose = o.kind === "plant" ? "planter" : "oversight";
-		const settings = await tx.query(
+		const settings =
 			o.kind === "plant"
-				? "SELECT timezone,digest_weekday AS weekday,digest_hour AS hour FROM plant WHERE id=$1 FOR SHARE"
-				: "SELECT timezone,kind FROM organization WHERE id=$1 FOR SHARE",
-			[o.id],
-		);
-		const setting = settings.rows[0];
-		if (!setting || (o.kind === "organization" && setting.kind !== o.organizationKind))
+				? await tx
+						.select({
+							timezone: tables.plant.timezone,
+							weekday: tables.plant.digest_weekday,
+							hour: tables.plant.digest_hour,
+						})
+						.from(tables.plant)
+						.where(eq(tables.plant.id, o.id))
+						.for("share")
+				: await tx
+						.select({ timezone: tables.organization.timezone, kind: tables.organization.kind })
+						.from(tables.organization)
+						.where(eq(tables.organization.id, o.id))
+						.for("share");
+		const setting = settings[0];
+		if (!setting || (o.kind === "organization" && (!("kind" in setting) || setting.kind !== o.organizationKind)))
 			throw Error("digest_owner_mismatch");
 		const zone = z.string().parse(setting.timezone ?? "UTC");
-		await tx.query(
-			`INSERT INTO digest_coverage(tenant_id,recipient_id,purpose,cadence,timezone)
-      VALUES($1,$2,$3,$4,$5) ON CONFLICT(tenant_id,recipient_id,purpose) DO NOTHING`,
-			[o.id, recipient, purpose, eligible.cadence, zone],
-		);
-		const result = await tx.query(
-			`SELECT id,covered_through::text FROM digest_coverage WHERE tenant_id=$1 AND recipient_id=$2 AND purpose=$3 FOR UPDATE`,
-			[o.id, recipient, purpose],
-		);
-		const coverage = z.object({ id: z.uuid(), covered_through: z.string().nullable() }).parse(result.rows[0]);
+		await tx
+			.insert(tables.digest_coverage)
+			.values({ tenant_id: o.id, recipient_id: recipient, purpose: purpose, cadence: eligible.cadence, timezone: zone })
+			.onConflictDoNothing({
+				target: [tables.digest_coverage.tenant_id, tables.digest_coverage.recipient_id, tables.digest_coverage.purpose],
+			});
+		const result = await tx
+			.select({
+				id: tables.digest_coverage.id,
+				covered_through: sql<string>`(${tables.digest_coverage.covered_through})::text`,
+			})
+			.from(tables.digest_coverage)
+			.where(
+				and(
+					and(eq(tables.digest_coverage.tenant_id, o.id), eq(tables.digest_coverage.recipient_id, recipient)),
+					eq(tables.digest_coverage.purpose, purpose),
+				),
+			)
+			.for("update");
+		const coverage = z.object({ id: z.uuid(), covered_through: z.string().nullable() }).parse(result[0]);
 		const interval = owedPeriod(
 			{
 				zone,
 				cadence: eligible.cadence,
 				completedDaysOnly: o.kind === "organization",
-				weekday: o.kind === "plant" ? z.number().int().min(0).max(6).parse(setting.weekday) : 0,
-				hour: o.kind === "plant" ? z.number().int().min(0).max(23).parse(setting.hour) : 0,
+				weekday:
+					o.kind === "plant"
+						? z
+								.number()
+								.int()
+								.min(0)
+								.max(6)
+								.parse("weekday" in setting ? setting.weekday : undefined)
+						: 0,
+				hour:
+					o.kind === "plant"
+						? z
+								.number()
+								.int()
+								.min(0)
+								.max(23)
+								.parse("hour" in setting ? setting.hour : undefined)
+						: 0,
 			},
 			asOf,
 			coverage.covered_through,
@@ -106,10 +144,16 @@ export function createDigestService(config: {
 			content: { subject: title, text: body },
 		});
 		// A failed intent/receipt rolls back coverage. Retried compilation returns the same identity.
-		await tx.query(
-			`UPDATE digest_coverage SET covered_through=$2,last_mail_id=$3,cadence=$4,timezone=$5,revision=revision+1 WHERE id=$1`,
-			[coverage.id, interval.end, mail, eligible.cadence, zone],
-		);
+		await tx
+			.update(tables.digest_coverage)
+			.set({
+				covered_through: sql`${interval.end}`,
+				last_mail_id: mail,
+				cadence: eligible.cadence,
+				timezone: zone,
+				revision: sql<unknown>`(${tables.digest_coverage.revision} + 1)`,
+			})
+			.where(eq(tables.digest_coverage.id, coverage.id));
 		return {
 			kind: "intended",
 			mail,

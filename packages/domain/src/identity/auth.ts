@@ -1,11 +1,13 @@
 import "server-only";
 import { betterAuth } from "better-auth";
 import { randomUUID } from "node:crypto";
-import type { Pool } from "pg";
+import type { Database } from "@everyfield/db/client";
+import { auth_user, auth_account, auth_session, auth_verification } from "@everyfield/db/tables";
+import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { authStorage } from "@everyfield/db/auth-storage";
 
 export function identityAuth(config: {
-	db: Pool;
+	db: Database;
 	origin: string;
 	secret: string;
 	deliver: (
@@ -16,7 +18,11 @@ export function identityAuth(config: {
 }) {
 	if (config.secret.length < 32) throw Error("identity_secret_required");
 	return betterAuth({
-		database: config.db,
+		database: drizzleAdapter(config.db, {
+			provider: "pg",
+			schema: { auth_user, auth_account, auth_session, auth_verification },
+			transaction: true,
+		}),
 		baseURL: config.origin,
 		basePath: "/api/auth",
 		secret: config.secret,
