@@ -17666,6 +17666,131 @@
       "coverage_notes": [
         "Only serialized request/result boundaries are proven. No runtime case is discharged by this case."
       ]
+    },
+    {
+      "id": "WP005-API-RESET",
+      "requirement": "REQ-IDN-009",
+      "feature_ids": [
+        "IDN-009"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-009--IDN-009"
+      ],
+      "work_packages": [
+        "WP-005"
+      ],
+      "status": "future-not-run",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "description": "Real mapped PostgreSQL Better Auth reset: one-hour expiry, concurrent single redemption, unchanged secret refusal, session revocation and failed post-success reporting.",
+      "given": {
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "registration": "pending"
+        },
+        "reset-proof": {
+          "fixture_type": "reset_proof",
+          "account": "A",
+          "expires_at": "2026-10-13T17:00:00Z",
+          "used": false
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "auth.recoverPassword",
+        "arguments": {
+          "proof": "reset-proof",
+          "new_password": "Fixture-new-pass-2",
+          "confirm_password": "Fixture-new-pass-2"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "prior_sessions": "revoked",
+          "reset_winners": 1,
+          "auto_sign_in": false,
+          "unchanged_secret_allowed": false,
+          "reporting_failure_reverts_password": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "WP005-API-STAGED",
+      "requirement": "REQ-IDN-030",
+      "feature_ids": [
+        "IDN-002"
+      ],
+      "acceptance_ids": [
+        "AC-IDN-002--IDN-002"
+      ],
+      "work_packages": [
+        "WP-005"
+      ],
+      "status": "future-not-run",
+      "layers": [
+        "integration",
+        "request",
+        "sql"
+      ],
+      "description": "The real credential adapter creates only a pending self identity. Duplicate registration reveals no account and never grants access. Missing app provisioning is resumed only after native authentication.",
+      "given": {
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "registration": "pending"
+        },
+        "reset-proof": {
+          "fixture_type": "reset_proof",
+          "account": "A",
+          "expires_at": "2026-10-13T17:00:00Z",
+          "used": false
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": null,
+        "context": null
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "accounts.register",
+        "arguments": {
+          "email": "alex@example.test",
+          "password": "Fixture-new-pass-2",
+          "name": "Alex",
+          "kind": "discovery",
+          "request_key": "register-adapter-1"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "registration": "pending_domain",
+          "business_access": false,
+          "public_result": "continue_identity_proof",
+          "grants_created": 0
+        },
+        "event": null
+      }
     }
   ]
 }
