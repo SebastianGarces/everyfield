@@ -22,9 +22,12 @@ def strip_comments(text):
 
 def main():
     if not TEMPLATE.exists():
-        print(f'NOTICE: {TEMPLATE} does not exist yet; no PR body sections to check.')
-        return 0
+        print(f'FAIL: {TEMPLATE} is missing, so the required sections are unknown.')
+        return 1
     required = [l.strip() for l in strip_comments(TEMPLATE.read_text()).splitlines() if l.startswith('## ')]
+    if not required:
+        print(f'FAIL: {TEMPLATE} has no "## " section headings.')
+        return 1
     lines = strip_comments(os.environ.get('PR_BODY', '').replace('\r\n', '\n')).splitlines()
     headings = [(i, l.strip()) for i, l in enumerate(lines) if l.startswith('## ')]
     errors = []
