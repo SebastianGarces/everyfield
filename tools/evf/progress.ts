@@ -9,7 +9,11 @@ export type ShippedRecord = {
  verification:MergeEvidence; base_sha:string; verified_head:string; acknowledged?:boolean;
  evidence:{path:string;commit:string;test:string;result:string;note:string};
 };
-type Milestone = {task:string;merge_commit:string;acknowledged:boolean;stage:string};
+/** The explorer reads these four lists. evf records no case or gate portions since W1, so they stay empty (D20). */
+const PORTIONS = ['passed_case_portions','passed_gate_portions','deferred_case_portions','deferred_gate_portions'] as const;
+type Portions = Record<typeof PORTIONS[number], unknown[]>;
+const noPortions = ():Portions => ({passed_case_portions:[],passed_gate_portions:[],deferred_case_portions:[],deferred_gate_portions:[]});
+type Milestone = {task:string;merge_commit:string;acknowledged:boolean;stage:string} & Portions;
 type ProgressPackage = {status:string;revision:number;updated_at:string|null;evidence:ShippedRecord['evidence'][];notes:string;fast_track?:FastTrackEvidence;milestones?:Record<string,Milestone>;retired_into?:string};
 type Progress = {revision:number;updated_at:string;packages:Partial<Record<string,ProgressPackage>>};
 
@@ -44,7 +48,7 @@ export function recordProgress(root:string,record:ShippedRecord,acknowledged:boo
  updateProgress(root,progress=>{
   // A new package may not yet have a canonical progress entry.
   const p=progress.packages[wp]??={status:'not_started',revision:0,updated_at:null,evidence:[],notes:''};
-  const milestone:Milestone={task:record.task,merge_commit:record.merge_commit,acknowledged,stage:record.part??'producer'};
+  const milestone:Milestone={task:record.task,merge_commit:record.merge_commit,acknowledged,stage:record.part??'producer',...noPortions()};
   if(p.milestones?.[record.task]?.acknowledged)milestone.acknowledged=true;
   if(JSON.stringify(p.milestones?.[record.task])===JSON.stringify(milestone))return;
   p.milestones={...p.milestones,[record.task]:milestone};
@@ -154,6 +158,10 @@ export function reconcileProgress(root:string):void {
    const existing=progress.packages[pkg.id];
    if(existing?.status==='retired')fail(`Retired ID ${pkg.id} cannot be reused.`);
    if(!existing){progress.packages[pkg.id]={status:'not_started',revision:0,updated_at:null,evidence:[],notes:''};changed=true;}
+  }
+  // Upgrade milestones written before D20 to the shape the explorer reads; keep any recorded portions.
+  for(const p of Object.values(progress.packages))for(const m of Object.values(p?.milestones??{}))for(const field of PORTIONS){
+   if(!Array.isArray(m[field])){m[field]=[];changed=true;}
   }
   for(const pkg of retired){
    if(active.has(pkg.id)||!active.has(pkg.scope_moved_to))fail(`Invalid retirement ${pkg.id}.`);

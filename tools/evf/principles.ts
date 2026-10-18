@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { evfDataDir, fail, loadConfig, run } from "./lib.ts";
+import { evfDataDir, fail, loadConfig, requireWorktree, run, type TaskRef } from "./lib.ts";
 
 type Upstream = { repo: string; path: string; prefix: string; ref: string; license?: string; checkEveryDays?: number };
 type LockEntry = { source?: string; sourceType?: string; upstreamCommit?: string; upstreamPath?: string; policy?: string; sha256?: string; [k: string]: unknown };
@@ -98,15 +98,17 @@ export function principlesStatus(root: string): { level: "PASS" | "WARN"; messag
     if (n === 0) return { level: "PASS", message: `principles match ${up.repo} ${up.path} (checked ${when}, every ${days} days)` };
     return {
       level: "WARN",
-      message: `principles are behind upstream: ${cache.added.length} new, ${cache.changed.length} changed, ${cache.removed.length} removed (checked ${when}). Plan a task: bin/evf principles --apply`,
+      message: `principles are behind upstream: ${cache.added.length} new, ${cache.changed.length} changed, ${cache.removed.length} removed (checked ${when}). Plan an OPS task, then run: bin/evf principles --apply OPS-<n>`,
     };
   } catch (e) {
     return { level: "WARN", message: `principles: upstream check failed (${e instanceof Error ? e.message.slice(0, 120) : "unknown"}); will retry next run` };
   }
 }
 
-/** Compares local principle skills with upstream pstack; `apply` makes them identical. */
-export function principles(root: string, opts: { apply: boolean; ref?: string }): number {
+/** Compares principle skills with upstream pstack; `apply` makes the task worktree's copy identical. */
+export function principles(home: string, opts: { apply: boolean; ref?: string; task?: TaskRef }): number {
+  if (opts.apply && !opts.task) fail("Give the maintenance task: evf principles --apply OPS-<n>. It writes into that task's worktree, never the home checkout.");
+  const root = opts.task ? requireWorktree(home, loadConfig(home), opts.task) : home;
   const up = upstreamOf(root);
   const c = compare(root, up, opts.ref);
   saveCache(root, c);
@@ -123,7 +125,7 @@ export function principles(root: string, opts: { apply: boolean; ref?: string })
     return 0;
   }
   if (!opts.apply) {
-    console.log("Dry run. Apply with: bin/evf principles --apply");
+    console.log("Dry run. In a registered OPS task, apply with: bin/evf principles --apply OPS-<n>");
     return 1;
   }
 

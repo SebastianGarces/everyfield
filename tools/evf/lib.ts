@@ -112,6 +112,11 @@ export function run(cmd: string, args: Argv, opts: { cwd?: string; env?: NodeJS.
   return { code: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
 }
 
+/** Config commands named `node` run on evf's own Node 24, not whichever node is first on PATH. */
+export function command(argv: Argv): Argv {
+  return argv[0] === "node" ? [process.execPath, ...argv.slice(1)] : argv;
+}
+
 export function git(cwd: string, ...args: string[]): string {
   const r = run("git", args, { cwd });
   if (r.code !== 0) fail(`git ${args.join(" ")} failed: ${r.stderr.trim() || r.stdout.trim()}`);
