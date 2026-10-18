@@ -27,7 +27,7 @@ export function MondayOverview({ demo: d }: { demo: MondayDemo }) {
 			title={d.title}
 			sub={d.sub}
 			topRight={
-				<span className="inline-flex h-10 items-center gap-[9px] rounded-full bg-surface-raised pr-3.5 pl-2 text-[13px] font-semibold whitespace-nowrap text-ink shadow-[0_0_0_1px_var(--color-line)] max-mk-sm:px-1.5">
+				<span className="inline-flex h-10 items-center gap-[9px] rounded-nav-item bg-surface-raised pr-3.5 pl-2 text-[13px] font-semibold whitespace-nowrap text-ink shadow-[0_0_0_1px_var(--color-line)] max-mk-sm:px-1.5">
 					<EvryBot size="sm" />
 					<span className="max-mk-sm:hidden">Ask Evry</span>
 				</span>

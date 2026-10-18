@@ -32,7 +32,7 @@ export function FaqItem({ id, q, children }: { id: string; q: string; children: 
 					<span
 						aria-hidden="true"
 						className={cn(
-							"relative size-[30px] flex-none rounded-full bg-mk-surface-2 [transition:background-color_.3s_var(--ease-mk)] group-hover/faq-q:bg-mk-surface-3",
+							"relative size-[30px] flex-none rounded-sm bg-linen [transition:background-color_.3s_var(--ease-mk)] group-hover/faq-q:bg-mk-surface-3",
 							"before:absolute before:top-1/2 before:left-1/2 before:-mt-[.85px] before:-ml-1.5 before:h-[1.7px] before:w-3 before:rounded-[2px] before:bg-ink before:[transition:transform_.3s_var(--ease-mk)] before:content-['']",
 							"after:absolute after:top-1/2 after:left-1/2 after:-mt-[.85px] after:-ml-1.5 after:h-[1.7px] after:w-3 after:rounded-[2px] after:bg-ink after:[transition:transform_.3s_var(--ease-mk)] after:content-[''] after:[transform:rotate(90deg)] group-data-[open]/faq:after:[transform:rotate(0deg)]",
 						)}

@@ -6,7 +6,7 @@ export type ButtonVariant = "primary" | "secondary" | "inverse";
 export type ButtonSize = "md" | "nav" | "pill" | "footer";
 
 const BASE =
-	"inline-flex items-center gap-2.5 whitespace-nowrap rounded-full border-0 font-sans font-semibold no-underline cursor-pointer " +
+	"inline-flex items-center gap-2.5 whitespace-nowrap rounded-md border-0 font-sans font-semibold no-underline cursor-pointer " +
 	"[transition:background-color_.2s,color_.2s,translate_.12s,box-shadow_.2s] active:translate-y-px motion-reduce:transition-none";
 const VARIANT: Record<ButtonVariant, string> = {
 	primary: "bg-ink text-white hover:bg-ink-2",
