@@ -1,8 +1,8 @@
 import { and, asc, desc, eq, gt, isNotNull, lt, sql } from "drizzle-orm";
-import { database, type Database } from "./client.js";
-import { early_access_attempt, early_access_request } from "./schema/tables.js";
-export { database, createDatabase, closeDatabase } from "./client.js";
-export type { Database, Transaction } from "./client.js";
+import { database, type Database } from "./client.ts";
+import { early_access_attempt, early_access_request } from "./schema/tables.ts";
+export { database, createDatabase, closeDatabase } from "./client.ts";
+export type { Database, Transaction } from "./client.ts";
 
 export async function expireAccessRequests(db: Database = database()) {
 	return db.transaction(async (tx) => {

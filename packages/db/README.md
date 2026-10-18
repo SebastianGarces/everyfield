@@ -37,3 +37,27 @@ pooled or direct endpoint, currently `ep-autumn-dew-b8ltidky`. If that branch is
 replaced, review the host allowlist in `scripts/reset-dev.ts` before using it.
 Production's host fragment is `ep-gentle-dust-b8tvq4ha`; never add it to that list.
 Credentials belong only in ignored local files and provider environment settings.
+
+Drizzle declarations in `src/schema/tables.ts` own the modeled database structure.
+Use the pinned Kit through the single generation command, from the workspace root:
+
+```sh
+corepack pnpm --filter @everyfield/db generate --name descriptive_change
+corepack pnpm --filter @everyfield/db generate --name descriptive_custom_change --custom
+```
+
+Do not run raw `drizzle-kit generate`, `push` or `migrate`. The command generates
+SQL and snapshot metadata, removes Kit's default `public` qualifier only from
+references to our own tables, then qualifies vector type positions as
+`public.vector`. It preserves extension and cross-schema references, comments,
+identifiers and string literals. Both steps are deterministic and idempotent and
+run before review, commit and checksum calculation. The committed-artifact check
+refuses new SQL with public-qualified application tables or unqualified vector
+types. The frozen migrations are never normalized or rewritten.
+
+Use `--custom` for GRANTs, triggers, functions, extensions and deferred foreign-key
+changes that Kit cannot model. Review those statements and update their explicit
+supplemental expectations alongside the migration. Apply all SQL through
+`db:migrate`: `schema_migration` remains the only database ledger, with the same
+advisory lock, atomic batches, exact-byte SHA-256 checks and explicit adoption.
+Kit's file journal describes generation history; it is not a second database ledger.

@@ -24,7 +24,7 @@ import {
 
 // PostgreSQL int8 stays a decimal string throughout the application.
 const int64 = customType<{ data: string; driverData: string }>({ dataType: () => "bigint" });
-const vector = customType<{ data: string; driverData: string }>({ dataType: () => "public.vector" });
+const vector = customType<{ data: string; driverData: string }>({ dataType: () => "vector" });
 
 export const auth_user = pgTable(
 	"auth_user",

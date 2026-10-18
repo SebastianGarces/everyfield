@@ -1,4 +1,4 @@
-import { database, closeDatabase } from "../src/client.js";
+import { database, closeDatabase } from "../src/client.ts";
 import { migrate } from "../src/schema/migrate.js";
 const db = database();
 try {

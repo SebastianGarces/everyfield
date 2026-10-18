@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
-import { database, closeDatabase } from "../src/client.js";
-import { early_access_request } from "../src/schema/tables.js";
+import { database, closeDatabase } from "../src/client.ts";
+import { early_access_request } from "../src/schema/tables.ts";
 
 const developmentHosts = new Set([
 	"ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech",
