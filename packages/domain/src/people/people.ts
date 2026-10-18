@@ -268,47 +268,7 @@ export const peopleWriter: PeopleWriter<Tx> = {
     return reply(tx, async () => {
       if (ctx.selected.kind !== "plant") deny();
       const input = parse(c.reorderPipelineRequest, raw);
-      // An empty order is a deliberate no-op, with a receipt tied to the plant.
-      await lockOwner(tx, ctx);
-      await authorize(tx, ctx, true);
-      await tx.query(
-        "INSERT INTO people_column(plant_id,column_name) VALUES($1,$2) ON CONFLICT DO NOTHING",
-        [ctx.selected.id, input.input.column],
-      );
-      const col = await tx.query(
-        "SELECT revision FROM people_column WHERE plant_id=$1 AND column_name=$2 FOR UPDATE",
-        [ctx.selected.id, input.input.column],
-      );
-      const prior = await tx.query(
-        "SELECT id FROM operation WHERE tenant_id=$1 AND request_key=$2",
-        [ctx.selected.id, input.requestKey],
-      );
-      if (prior.rowCount) return pipelineOrder(tx, ctx, input, []);
-      if (col.rows[0].revision !== input.expectedRevision) deny("conflict");
-      const ids = input.input.personIds;
-      if (!ids.length)
-        return c.noteMutationResult
-          .pick({ receiptId: true, outcome: true })
-          .parse(await pipelineOrder(tx, ctx, input, []));
-      const stages =
-        input.input.column === "core_group"
-          ? ["core_group", "launch_team", "leader"]
-          : [input.input.column];
-      const rows = await tx.query(
-        "SELECT * FROM person WHERE plant_id=$1 AND state='live' AND stage=ANY($2) ORDER BY id FOR UPDATE",
-        [ctx.selected.id, stages],
-      );
-      if (
-        rows.rowCount !== ids.length ||
-        rows.rows.some((p) => !ids.includes(p.id))
-      )
-        deny("conflict");
-      return pipelineOrder(
-        tx,
-        ctx,
-        input,
-        rows.rows.map((p) => personRow.parse(p)),
-      );
+      return pipelineOrder(tx, ctx, input);
     });
   },
 };
@@ -582,66 +542,78 @@ async function pipelineOrder(
   tx: Tx,
   ctx: WriteContext,
   input: z.infer<typeof c.reorderPipelineRequest>,
-  rows: Person[],
 ) {
-  // Order receipts have a plant subject, so they do not fabricate a Person row.
-  const actor = await authorize(tx, ctx, true),
-    digest = JSON.stringify(input),
-    id = randomUUID();
-  const old = await tx.query(
-    "SELECT id,name,request_digest,actor_id,outcome FROM operation WHERE tenant_id=$1 AND request_key=$2",
-    [ctx.selected.id, input.requestKey],
+  return c.noteMutationResult.pick({ receiptId: true, outcome: true }).parse(
+    await mutation(
+      tx,
+      ctx,
+      "people.reorderPipeline",
+      input,
+      async (actor, id) => {
+        await tx.query(
+          "INSERT INTO people_column(plant_id,column_name) VALUES($1,$2) ON CONFLICT DO NOTHING",
+          [ctx.selected.id, input.input.column],
+        );
+        const col = await tx.query(
+          "SELECT revision FROM people_column WHERE plant_id=$1 AND column_name=$2 FOR UPDATE",
+          [ctx.selected.id, input.input.column],
+        );
+        if (col.rows[0].revision !== input.expectedRevision) deny("conflict");
+        const ids = input.input.personIds;
+        if (!ids.length)
+          return {
+            value: { receiptId: id, outcome: "noop" },
+            subject: ctx.selected.id,
+            action: "people.updated",
+            outcome: "noop",
+          };
+        const stages =
+          input.input.column === "core_group"
+            ? ["core_group", "launch_team", "leader"]
+            : [input.input.column];
+        const rows = await tx.query(
+          "SELECT * FROM person WHERE plant_id=$1 AND state='live' AND stage=ANY($2) ORDER BY id FOR UPDATE",
+          [ctx.selected.id, stages],
+        );
+        if (
+          rows.rowCount !== ids.length ||
+          rows.rows.some((p) => !ids.includes(p.id))
+        )
+          deny("conflict");
+        for (const [i, pid] of ids.entries()) {
+          const before = personRow.parse(rows.rows.find((p) => p.id === pid));
+          await tx.query(
+            "UPDATE person SET pipeline_position=$2,revision=revision+1 WHERE id=$1",
+            [pid, i],
+          );
+          const after = await person(tx, ctx, pid, true);
+          await tx.query(
+            `INSERT INTO people_history(tenant_id,person_id,operation_id,actor_id,actor_token,action,occurred_at,before_revision,after_revision,before_value,after_value) VALUES($1,$2,$3,$4,$5,'people.updated',clock_timestamp(),$6,$7,$8,$9)`,
+            [
+              ctx.selected.id,
+              pid,
+              id,
+              actor,
+              hash([ctx.selected.id, actor]),
+              before.revision,
+              after.revision,
+              JSON.stringify(before),
+              JSON.stringify(after),
+            ],
+          );
+        }
+        await tx.query(
+          "UPDATE people_column SET revision=revision+1 WHERE plant_id=$1 AND column_name=$2",
+          [ctx.selected.id, input.input.column],
+        );
+        return {
+          value: { receiptId: id, outcome: "changed" },
+          subject: ctx.selected.id,
+          action: "people.updated",
+        };
+      },
+    ),
   );
-  if (old.rowCount) {
-    if (
-      old.rows[0].name !== "people.reorderPipeline" ||
-      old.rows[0].request_digest !== digest ||
-      old.rows[0].actor_id !== actor.accountId
-    )
-      deny("conflict");
-    return {
-      receiptId: old.rows[0].id,
-      outcome:
-        old.rows[0].outcome === "committed"
-          ? ("changed" as const)
-          : ("noop" as const),
-    };
-  }
-  if (ctx.purpose !== "native") deny();
-  for (const [i, pid] of input.input.personIds.entries())
-    await tx.query(
-      "UPDATE person SET pipeline_position=$2,revision=revision+1 WHERE id=$1",
-      [pid, i],
-    );
-  if (rows.length) {
-    await tx.query(
-      "UPDATE people_column SET revision=revision+1 WHERE plant_id=$1 AND column_name=$2",
-      [ctx.selected.id, input.input.column],
-    );
-    await tx.query(
-      "UPDATE plant SET material_revision=material_revision+1 WHERE id=$1",
-      [ctx.selected.id],
-    );
-  }
-  await tx.query(
-    `INSERT INTO operation(id,tenant_id,actor_id,name,request_key,request_digest,state,outcome,started_at,completed_at,tool_calls,reserved_input,reserved_output,used_input,used_output) VALUES($1,$2,$3,'people.reorderPipeline',$4,$5,'complete',$6,clock_timestamp(),clock_timestamp(),0,0,0,0,0)`,
-    [
-      id,
-      ctx.selected.id,
-      actor.accountId,
-      input.requestKey,
-      digest,
-      rows.length ? "committed" : "no_effect",
-    ],
-  );
-  await tx.query(
-    `INSERT INTO event(tenant_id,target_record_id,operation_id,actor_id,kind,occurred_at,recorded_at,event_key,action) VALUES($1,$1,$2,$3,'edit',clock_timestamp(),clock_timestamp(),$2::text,'people.updated')`,
-    [ctx.selected.id, id, actor.accountId],
-  );
-  return {
-    receiptId: c.noteMutationResult.shape.receiptId.parse(id),
-    outcome: rows.length ? ("changed" as const) : ("noop" as const),
-  };
 }
 export const accountPersonProducer: AccountPersonProducer<Tx> = {
   async ensureAccountPerson(tx, raw) {
@@ -726,7 +698,7 @@ export const accountPersonProducer: AccountPersonProducer<Tx> = {
         ],
       );
       await tx.query(
-        `INSERT INTO event(tenant_id,target_record_id,operation_id,actor_id,kind,occurred_at,recorded_at,before_revision,after_revision,event_key,action) VALUES($1,$2,$3,$4,'edit',clock_timestamp(),clock_timestamp(),$5,$6,$3::text,'people.updated')`,
+        `INSERT INTO event(tenant_id,target_record_id,operation_id,actor_id,kind,occurred_at,recorded_at,before_revision,after_revision,event_key,action) VALUES($1,$2,$3,$4,'edit',clock_timestamp(),clock_timestamp(),$5,$6,$3::uuid::text,'people.updated')`,
         [selected.id, p.id, op, input.accountId, p.revision, linked.revision],
       );
       await tx.query(

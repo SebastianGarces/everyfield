@@ -19,7 +19,8 @@
     "test:access": "node --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/access/*.test.mts",
     "test:identity": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/identity/*.test.mts",
     "test:identity:production": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/identity/timing.production.mts",
-    "test:people": "node --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/people/*.test.mts"
+    "test:people": "node --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/people/*.test.mts",
+    "test:db": "pnpm test && pnpm test:people"
   },
   "dependencies": {
     "@everyfield/db": "workspace:*",

@@ -23,12 +23,20 @@ const source = new URL(
     process.env.DATABASE_URL ??
     "about:blank",
 );
+const localCi =
+  process.env.CI === "true" &&
+  ["localhost", "127.0.0.1"].includes(source.hostname) &&
+  source.pathname === "/everyfield_ci";
 if (
-  source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech" ||
+  (!localCi &&
+    source.hostname !==
+      "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
   process.env.NODE_ENV === "production"
 )
-  throw Error("Only approved shared development direct endpoint allowed");
-source.searchParams.set("sslmode", "verify-full");
+  throw Error(
+    "Only approved shared development or disposable CI endpoint allowed",
+  );
+if (!localCi) source.searchParams.set("sslmode", "verify-full");
 const schema = "wp011_" + randomUUID().replaceAll("-", ""),
   role = "wp011_" + randomBytes(8).toString("hex");
 const admin = new Pool({
@@ -149,7 +157,7 @@ after(async () => {
   }
 });
 
-test("AC:TARGET-PPL-002 AC:WP011-KNOW-099 AC:WP011-KNOW-069 AC:SEC-02 AC:TEN-002 minimal contact, explicit null, current tenancy and atomic retry", async () => {
+test("AC:TARGET-PPL-002 AC:WP011-KNOW-099 AC:SEC-02 AC:TEN-002 minimal contact, explicit null, current tenancy and atomic retry", async () => {
   const input = {
     requestKey: randomUUID(),
     input: {
@@ -270,7 +278,12 @@ test("AC:TARGET-PPL-001 literal search, tag intersection, full totals and bound 
     "invalid_input",
   );
   refused(
-    await tx((t) => read.listPeople(t, ctx(2), { ...req, after: page.next })),
+    await tx((t) =>
+      read.listPeople(t, ctx(2, { kind: "plant", id: plants[1] }), {
+        ...req,
+        after: page.next,
+      }),
+    ),
     "invalid_input",
   );
   refused(
@@ -282,7 +295,7 @@ test("AC:TARGET-PPL-001 literal search, tag intersection, full totals and bound 
   const tags = [randomUUID(), randomUUID()];
   for (const [i, id] of tags.entries())
     await admin.query(
-      "INSERT INTO tag(id,plant_id,name,color) VALUES($1,$2,$3,'blue')",
+      "INSERT INTO tag(id,plant_id,name,normalized_name,color) VALUES($1,$2,$3,$3,'blue')",
       [id, plants[0], "tag" + i],
     );
   for (const [person, tag] of [
@@ -301,7 +314,7 @@ test("AC:TARGET-PPL-001 literal search, tag intersection, full totals and bound 
   );
 });
 
-test("AC:TARGET-PPL-004 AC:ROLE43-003 AC:CA014 exact account links, ambiguous contact selection and concurrent uniqueness", async () => {
+test("AC:TARGET-PPL-004 AC:ROLE43-003 exact account links, ambiguous contact selection and concurrent uniqueness", async () => {
   const contact = await create("Proven account", {
       email: actors[0].id + "@example.test",
     }),
@@ -447,6 +460,9 @@ test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, c
     "INSERT INTO task(id,plant_id,title,category,priority,status,created_at,assignee_id,due_kind,person_id) VALUES($1,$2,'Call','follow_up','medium','not_started',clock_timestamp(),$4,'undated',$3)",
     [duty, plants[0], p.id, actors[0].id],
   );
+  const review = ok(
+    await tx((t) => read.getStatusWarnings(t, ctx(), { personId: p.id })),
+  ).reviewRevision;
   refused(
     await tx((t) =>
       write.retirePerson(t, ctx(), {
@@ -462,9 +478,6 @@ test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, c
     ),
     "conflict",
   );
-  const review = ok(
-    await tx((t) => read.getStatusWarnings(t, ctx(), { personId: p.id })),
-  ).reviewRevision;
   const retired = ok(
     await tx((t) =>
       write.retirePerson(t, ctx(), {
@@ -1166,6 +1179,10 @@ test("INV-organization-removal: fresh consent gates progress and removal revokes
     [milestone, organization, version, stage],
   );
   await admin.query(
+    "INSERT INTO enrollment_plan(id,organization_id,enrollment_id,program_id,version_id,adopted_at,adopted_by,revision) VALUES($1,$2,$3,$4,$5,clock_timestamp(),$6,1)",
+    [randomUUID(), organization, enrollment, program, version, actors[3].id],
+  );
+  await admin.query(
     "INSERT INTO enrollment_milestone(id,organization_id,enrollment_id,version_id,milestone_id,completed_by,completed_at,completion_source,revision) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp(),'resident_self',1)",
     [completion, organization, enrollment, version, milestone, actors[1].id],
   );
@@ -1247,5 +1264,197 @@ test("INV-organization-removal: fresh consent gates progress and removal revokes
   );
   refused(
     await tx((t) => downloadOrganizationExport(t, orgCtx(), exportInput)),
+  );
+});
+
+test("AC:WP011-KNOW-069 account removal severs account links and preserves church-owned facts with minimal attribution", async () => {
+  const { detachAccountPersonLinks } = await import(
+    "../../../packages/domain/src/people/index.ts"
+  );
+  const linked = ok(
+    await tx((t) =>
+      accounts.ensureAccountPerson(t, {
+        accountId: actors[4].id,
+        owner: ctx().selected,
+        selection: { kind: "create", displayName: "Shared church contact" },
+      }),
+    ),
+  );
+  const p = ok(
+    await tx((t) => read.getPerson(t, ctx(), { personId: linked.personId })),
+  ).person;
+  const note = ok(
+    await tx((t) =>
+      write.addNote(t, ctx(4), {
+        requestKey: randomUUID(),
+        expectedRevision: p.revision,
+        input: { personId: p.id, body: "Shared operational fact" },
+      }),
+    ),
+  );
+  await admin.query(
+    "INSERT INTO lifecycle_witness(kind,opaque_subject_id,account_id,request_id,request_revision,state,requested_at,cancel_until,witness_checkpoint,cleanup_state) VALUES('account',$1,$1,$2,1,'purging','2026-09-01Z','2026-10-01Z',1,'in_progress')",
+    [actors[4].id, randomUUID()],
+  );
+  const retained = await tx((t) => detachAccountPersonLinks(t, actors[4].id));
+  assert.ok(retained.retainedPersonIds.includes(p.id));
+  const current = ok(
+    await tx((t) => read.getPerson(t, ctx(), { personId: p.id })),
+  ).person;
+  assert.equal(current.displayName, "Shared church contact");
+  assert.equal(current.lifecycle.state, "live");
+  assert.deepEqual(
+    ok(await tx((t) => getAccountLink(t, ctx(), { personId: p.id }))),
+    { status: "unlinked" },
+  );
+  const notes = ok(
+    await tx((t) =>
+      read.getActivities(t, ctx(), { personId: p.id, kinds: ["note"] }),
+    ),
+  );
+  assert.equal(notes.items[0].body, "Shared operational fact");
+  assert.equal(notes.items[0].actor.kind, "former_account");
+  assert.equal(
+    (
+      await admin.query("SELECT author_id FROM person_note WHERE id=$1", [
+        note.noteId,
+      ])
+    ).rows[0].author_id,
+    null,
+  );
+  refused(await tx((t) => read.getPerson(t, ctx(4), { personId: p.id })));
+});
+
+test("INV-pipeline: complete native and reviewed orders persist, retry once, and invalidate stale cursors", async () => {
+  await create("Order A");
+  await create("Order B");
+  const all = ok(
+    await tx((t) =>
+      read.listPeople(t, ctx(), { stages: ["prospect"], limit: 100 }),
+    ),
+  ).items.map((p) => p.id);
+  const oldPage = ok(
+    await tx((t) =>
+      read.listPeople(t, ctx(), {
+        view: "pipeline",
+        stages: ["prospect"],
+        limit: 1,
+      }),
+    ),
+  );
+  assert.ok(oldPage.next);
+  const order = {
+    requestKey: randomUUID(),
+    expectedRevision: "1",
+    input: { column: "prospect", personIds: [...all].reverse() },
+  };
+  refused(await tx((t) => write.reorderPipeline(t, ctx(1), order)));
+  refused(
+    await tx((t) =>
+      write.reorderPipeline(t, ctx(), {
+        ...order,
+        input: { ...order.input, personIds: [...all.slice(1), randomUUID()] },
+      }),
+    ),
+    "conflict",
+  );
+  const saved = ok(await tx((t) => write.reorderPipeline(t, ctx(), order)));
+  assert.equal(saved.outcome, "changed");
+  assert.deepEqual(
+    ok(await tx((t) => write.reorderPipeline(t, ctx(), order))),
+    saved,
+  );
+  const ordered = ok(
+    await tx((t) =>
+      read.listPeople(t, ctx(), {
+        view: "pipeline",
+        stages: ["prospect"],
+        limit: 100,
+      }),
+    ),
+  );
+  assert.deepEqual(
+    ordered.items.map((p) => p.id),
+    order.input.personIds,
+  );
+  refused(
+    await tx((t) =>
+      write.reorderPipeline(t, ctx(), { ...order, requestKey: randomUUID() }),
+    ),
+    "conflict",
+  );
+  refused(
+    await tx((t) =>
+      read.listPeople(t, ctx(), {
+        view: "pipeline",
+        stages: ["prospect"],
+        limit: 1,
+        after: oldPage.next,
+      }),
+    ),
+    "invalid_input",
+  );
+  const { hash } = await import("../../../packages/domain/src/people/core.ts"),
+    input = {
+      requestKey: randomUUID(),
+      expectedRevision: "2",
+      input: { column: "prospect", personIds: all },
+    },
+    name = "people.reorderPipeline",
+    conversation = randomUUID(),
+    review = randomUUID(),
+    digest = "c".repeat(64);
+  await admin.query(
+    "INSERT INTO conversation(id,tenant_id,owner_id,title,state) VALUES($1,$2,$3,'Synthetic order','open')",
+    [conversation, plants[0], actors[0].id],
+  );
+  await admin.query(
+    "INSERT INTO review(id,tenant_id,conversation_id,proposal_number,digest,effect_manifest_hash,published_at,approved_by_id,approved_at,witness_hash) VALUES($1,$2,$3,1,$4,$5,clock_timestamp(),$6,clock_timestamp(),$5)",
+    [
+      review,
+      plants[0],
+      conversation,
+      digest,
+      hash({ name, input }),
+      actors[0].id,
+    ],
+  );
+  await admin.query(
+    "INSERT INTO effect(tenant_id,review_id,effect_key,kind,payload_hash,state,arguments) VALUES($1,$2,'order',$3,$4,'cancelled',$5)",
+    [
+      plants[0],
+      review,
+      name,
+      hash({ name, input }),
+      JSON.stringify({ operation: name, input }),
+    ],
+  );
+  const model = {
+    ...ctx(),
+    purpose: "model",
+    origin: {
+      kind: "assistant",
+      reviewId: review,
+      conversationId: conversation,
+      planDigest: digest,
+    },
+  };
+  refused(await tx((t) => write.reorderPipeline(t, model, input)));
+  await admin.query("UPDATE effect SET state='unstarted' WHERE review_id=$1", [
+    review,
+  ]);
+  const reviewed = ok(await tx((t) => write.reorderPipeline(t, model, input)));
+  assert.equal(reviewed.outcome, "changed");
+  assert.deepEqual(
+    ok(
+      await tx((t) =>
+        read.listPeople(t, ctx(), {
+          view: "pipeline",
+          stages: ["prospect"],
+          limit: 100,
+        }),
+      ),
+    ).items.map((p) => p.id),
+    all,
   );
 });

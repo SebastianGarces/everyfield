@@ -24,14 +24,16 @@ ALTER TABLE person_note ADD CONSTRAINT person_note_ck_1 CHECK(
 -- All new current references lock the Person lifecycle row. Retiring and inserting
 -- a reference cannot both commit with the Person retired.
 CREATE FUNCTION people_live_reference() RETURNS trigger LANGUAGE plpgsql SET search_path FROM CURRENT AS $$
-DECLARE pid uuid; prior uuid; tid uuid;
+DECLARE pid uuid; prior uuid; tid uuid; lifecycle text;
 BEGIN
  pid=(to_jsonb(NEW)->>TG_ARGV[0])::uuid;
  IF TG_OP='UPDATE' THEN prior=(to_jsonb(OLD)->>TG_ARGV[0])::uuid; END IF;
  IF pid IS NULL OR (TG_OP='UPDATE' AND pid IS NOT DISTINCT FROM prior) THEN RETURN NEW; END IF;
  tid=coalesce((to_jsonb(NEW)->>'plant_id')::uuid,(to_jsonb(NEW)->>'organization_id')::uuid,(to_jsonb(NEW)->>'tenant_id')::uuid);
- PERFORM 1 FROM person WHERE id=pid AND tenant_id=tid AND state='live' FOR UPDATE;
- IF NOT FOUND THEN RAISE EXCEPTION 'person_not_live' USING ERRCODE='23514'; END IF;
+ SELECT state INTO lifecycle FROM person WHERE id=pid AND tenant_id=tid FOR UPDATE;
+ -- Compound foreign keys retain the original missing/foreign-subject refusal.
+ IF NOT FOUND THEN RETURN NEW; END IF;
+ IF lifecycle <> 'live' THEN RAISE EXCEPTION 'person_not_live' USING ERRCODE='23514'; END IF;
  RETURN NEW;
 END $$;
 CREATE TRIGGER people_live_reference BEFORE INSERT OR UPDATE OF person_id ON participation FOR EACH ROW EXECUTE FUNCTION people_live_reference('person_id');

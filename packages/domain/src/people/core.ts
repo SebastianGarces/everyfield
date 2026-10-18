@@ -301,7 +301,7 @@ export async function mutation<T>(
   if (context.purpose === "model") {
     const o = context.origin;
     const review = await tx.query(
-      `SELECT r.id FROM review r JOIN conversation v ON v.id=r.conversation_id AND v.tenant_id=r.tenant_id JOIN effect e ON e.review_id=r.id AND e.tenant_id=r.tenant_id WHERE r.id=$1 AND r.tenant_id=$2 AND r.conversation_id=$3 AND r.digest=$4 AND e.payload_hash=$5 AND e.arguments=$7::jsonb AND v.owner_id=$6 AND v.state='open' AND r.approved_by_id=$6 AND r.approved_at<=clock_timestamp() AND r.approved_at>clock_timestamp()-interval '15 minutes' AND r.cancelled_at IS NULL AND r.superseded_at IS NULL FOR SHARE OF r,v,e`,
+      `SELECT r.id FROM review r JOIN conversation v ON v.id=r.conversation_id AND v.tenant_id=r.tenant_id JOIN effect e ON e.review_id=r.id AND e.tenant_id=r.tenant_id WHERE r.id=$1 AND r.tenant_id=$2 AND r.conversation_id=$3 AND r.digest=$4 AND e.payload_hash=$5 AND e.arguments=$7::jsonb AND e.kind=$8 AND e.state IN ('unstarted','claimed') AND v.owner_id=$6 AND v.state='open' AND r.approved_by_id=$6 AND r.approved_at<=clock_timestamp() AND r.approved_at>clock_timestamp()-interval '15 minutes' AND r.cancelled_at IS NULL AND r.superseded_at IS NULL FOR SHARE OF r,v,e`,
       [
         o.reviewId,
         context.selected.id,
@@ -310,6 +310,7 @@ export async function mutation<T>(
         hash({ name, input }),
         actor.accountId,
         JSON.stringify({ operation: name, input }),
+        name,
       ],
     );
     if (!review.rowCount) deny();
@@ -335,27 +336,32 @@ export async function mutation<T>(
   );
   await tx.query(
     "INSERT INTO people_result(operation_id,person_id,value) VALUES($1,$2,$3)",
-    [operationId, result.subject, JSON.stringify(result.value)],
-  );
-  // Domain history can carry operational bodies; the central audit never does.
-  await tx.query(
-    `INSERT INTO people_history(tenant_id,person_id,operation_id,actor_id,actor_token,action,occurred_at,before_revision,after_revision,before_value,after_value,reason) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp(),$7,$8,$9,$10,$11)`,
     [
-      context.selected.id,
-      result.subject,
       operationId,
-      actor.accountId,
-      hash([context.selected.id, actor.accountId]),
-      result.action,
-      result.before?.revision ?? null,
-      result.after?.revision ?? result.before?.revision ?? "1",
-      result.before ? JSON.stringify(result.before) : null,
-      result.after ? JSON.stringify(result.after) : null,
-      result.reason ?? null,
+      result.subject === context.selected.id ? null : result.subject,
+      JSON.stringify(result.value),
     ],
   );
+  // Domain history can carry operational bodies; the central audit never does.
+  if (result.subject !== context.selected.id)
+    await tx.query(
+      `INSERT INTO people_history(tenant_id,person_id,operation_id,actor_id,actor_token,action,occurred_at,before_revision,after_revision,before_value,after_value,reason) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp(),$7,$8,$9,$10,$11)`,
+      [
+        context.selected.id,
+        result.subject,
+        operationId,
+        actor.accountId,
+        hash([context.selected.id, actor.accountId]),
+        result.action,
+        result.before?.revision ?? null,
+        result.after?.revision ?? result.before?.revision ?? "1",
+        result.before ? JSON.stringify(result.before) : null,
+        result.after ? JSON.stringify(result.after) : null,
+        result.reason ?? null,
+      ],
+    );
   await tx.query(
-    `INSERT INTO event(tenant_id,target_record_id,operation_id,actor_id,kind,occurred_at,recorded_at,before_revision,after_revision,event_key,action) VALUES($1,$2,$3,$4,$5,clock_timestamp(),clock_timestamp(),$6,$7,$3::text,$8)`,
+    `INSERT INTO event(tenant_id,target_record_id,operation_id,actor_id,kind,occurred_at,recorded_at,before_revision,after_revision,event_key,action) VALUES($1,$2,$3,$4,$5,clock_timestamp(),clock_timestamp(),$6,$7,$3::uuid::text,$8)`,
     [
       context.selected.id,
       result.subject,
