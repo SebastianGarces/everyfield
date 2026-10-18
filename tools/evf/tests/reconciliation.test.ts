@@ -1,4 +1,5 @@
 import { checkPrBody } from '../pr-body.ts';
+import { prImages } from '../../wiki/pr-images.ts';
 import { createHash } from 'node:crypto';
 import { packageContext, loadProgress, partsOf } from '../lib.ts';
 import { feedbackPromote, feedbackIdeas } from '../feedback.ts';
@@ -51,12 +52,14 @@ import { parseTask, evfDataDir, loadConfig } from '../lib.ts';
 import { feedbackTriage, startFeedbackTask, feedbackQueue, cachedTriage, readTriage, onFeedbackShipped, startedToday } from '../feedback.ts';
 import { verify } from '../verify.ts';
 import { taskStart } from '../task.ts';
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, realpathSync } from 'node:fs';
 
 test('INV-authorization: unready override and unopened application gate cannot mutate worktrees',()=>{
  const f=fixture();try{
+  const path=join(f.root,'docs/plan/release-gates.json'),gates=JSON.parse(readFileSync(path,'utf8'));
+  gates.gates.find((g:{id:string})=>g.id==='G-AUTH').status='not-authorized';writeFileSync(path,JSON.stringify(gates));
   assert.throws(()=>taskStart(f.root,parseTask('WP-001'),{allowUnready:true,noStack:true}),/allow-unready is removed/);
-  assert.throws(()=>taskStart(f.root,parseTask('WP-001'),{allowUnready:false,noStack:true}),/G-AUTH|Missing reviewed task risk classification/);
+  assert.throws(()=>taskStart(f.root,parseTask('WP-001'),{allowUnready:false,noStack:true}),/G-AUTH is not closed for application implementation/);
   assert.equal(f.git('branch','--list','task/*'),'');
  }finally{f.close();}
 });
@@ -166,14 +169,16 @@ test('INV-feedback-reservations: old reservation charges current budget, recover
  }finally{f.close();}
 });
 test('INV-workflow-routing: Next server paths stay with implementor and presentation/browser paths route to UI',()=>{
- const pkg=loadDag(source).packages.find(p=>p.id==='WP-003')!;
+ const f=fixture();try{
+ const pkg=loadDag(f.root).packages.find(p=>p.id==='WP-003')!;
  assert.deepEqual(partsOf(pkg),[null]);
- const {blocks}=buildBlocks(source,[pkg]);assert.equal(blocks[0].specialist,'implementor');
- const ui=loadDag(source).packages.find(p=>p.owning_paths.some(p=>p.startsWith('apps/web/src/features/')))!;
- assert.ok(buildBlocks(source,[ui]).blocks.some(b=>b.specialist==='ui-designer'));
- const design=loadDag(source).packages.find(p=>p.id==='WP-088')!;
- const planned=buildBlocks(source,[design]).blocks;
+ const {blocks}=buildBlocks(f.root,[pkg]);assert.equal(blocks[0].specialist,'implementor');
+ const ui=loadDag(f.root).packages.find(p=>p.owning_paths.some(p=>p.startsWith('apps/web/src/features/')))!;
+ assert.ok(buildBlocks(f.root,[ui]).blocks.some(b=>b.specialist==='ui-designer'));
+ const design=loadDag(f.root).packages.find(p=>p.id==='WP-088')!;
+ const planned=buildBlocks(f.root,[design]).blocks;
  assert.deepEqual(planned.map(b=>({task:b.taskId,specialist:b.specialist,paths:b.paths})),[{task:'WP-088',specialist:'ui-designer',paths:['packages/ui/src/foundations/','packages/ui/src/shell/','tests/ui/foundations/','tests/ui/shell/']}]);
+ }finally{f.close();}
 });
 
 import { ship, listShipped, prOpen, checkPr } from '../ship.ts';
@@ -310,34 +315,36 @@ test('BUG-fast-track: real prerequisite policy unlocks WP-087 only after bounded
 });
 
 test('BUG-plan-context: plan and brief use the same manifest acceptance scope, including consumed bundles',()=>{
- const pkg=loadDag(source).packages.find(p=>p.id==='WP-001')!;
- const context=packageContext(source,pkg.id),block=buildBlocks(source,[pkg]).blocks[0];
+ const f=fixture();try{
+ const pkg=loadDag(f.root).packages.find(p=>p.id==='WP-001')!;
+ const context=packageContext(f.root,pkg.id),block=buildBlocks(f.root,[pkg]).blocks[0];
  assert.equal(block.acceptanceCount,context.acceptance_ids.length);
- assert.match(renderBrief(source,parseTask(pkg.id),{}),new RegExp(`Selected acceptance count: ${block.acceptanceCount}`));
+ assert.match(renderBrief(f.root,parseTask(pkg.id),{}),new RegExp(`Selected acceptance count: ${block.acceptanceCount}`));
  assert.equal(block.acceptanceCount,8);
- const brief=renderBrief(source,parseTask('WP-002'),{});
+ const brief=renderBrief(f.root,parseTask('WP-002'),{});
  assert.match(brief,/Goal: Provide shared trusted scope, time, revision, replay, receipt and audit contracts/);
  assert.match(brief,/Owned requirements: REQ-IDN-029, REQ-OPS-004, REQ-PI-037, REQ-PPL-024, REQ-TSK-018/);
  assert.match(brief,/Write owned cases at package start for: REQ-IDN-029, REQ-OPS-004, REQ-PI-037, REQ-PPL-024/);
  assert.match(brief,/Owned cases: AUDIT-001, AUDIT-002, AUDIT-003/);
- const selected=loadDag(source).packages.filter(p=>['WP-005','WP-088','WP-089','WP-090'].includes(p.id));
- const parts=buildBlocks(source,selected).blocks;
+ const selected=loadDag(f.root).packages.filter(p=>['WP-005','WP-088','WP-089','WP-090'].includes(p.id));
+ const parts=buildBlocks(f.root,selected).blocks;
  assert.deepEqual(parts.filter(b=>b.wp==='WP-005').map(b=>[b.part,b.dependsOn]),[
   ['contract',[]],['api',['wp-005-contract']],['ui',['wp-088','wp-089','wp-090','wp-005-contract']]]);
- const ui=renderBrief(source,parseTask('WP-005/ui'),{});
+ const ui=renderBrief(f.root,parseTask('WP-005/ui'),{});
  assert.match(ui,/Design prototype: design\/everyfield-ui\.html/);
  assert.match(ui,/Screen map: design\/handoff\/screens\.md/);
  assert.match(ui,/screens\.md#L\d+: Sign in, with an invitation notice/);
- assert.match(renderBrief(source,parseTask('WP-048'),{}),/Design prototype: design\/everyfield-ui\.html/);
- for(const pkg of loadDag(source).packages.filter(p=>['WP-088','WP-049','WP-097'].includes(p.id))){
-  const {blocks,external}=buildBlocks(source,[pkg]);
-  const outputs=[renderBrief(source,parseTask(pkg.id),{}),renderBlocks(blocks,external,[])];
+ assert.match(renderBrief(f.root,parseTask('WP-048'),{}),/Design prototype: design\/everyfield-ui\.html/);
+ for(const pkg of loadDag(f.root).packages.filter(p=>['WP-088','WP-049','WP-097'].includes(p.id))){
+  const {blocks,external}=buildBlocks(f.root,[pkg]);
+  const outputs=[renderBrief(f.root,parseTask(pkg.id),{}),renderBlocks(blocks,external,[])];
   for(const output of outputs){
    assert.ok(output.includes(`UI guidance: ${pkg.ui_composition_rule ?? pkg.goal}`),`${pkg.id} must print its own UI guidance`);
    assert.doesNotMatch(output,/reuse approved E3 pages/i);
   }
  }
 
+ }finally{f.close();}
 });
 
 
@@ -357,15 +364,17 @@ test('INV-case-coverage: one passing test covers several cases by exact name or 
 
 import { bootstrapReadiness } from '../doctor.ts';
 test('BUG-bootstrap-reader: case and full brief preserve structured fixtures, actors, clock, actions, expected and groups',()=>{
- const c=renderAc(source,'REF-CASE-001');
+ const f=fixture();try{
+ const c=renderAc(f.root,'REF-CASE-001');
  assert.match(c,/"timezone": "America\/Chicago"/);assert.match(c,/"accepted_original_sha256": "d365dd4992156e674f8e67601239fbf97c173074a3ca7e0bc8010aa725205e7a"/);
  for(const field of ['given','actor','clock','action','expected'])assert.ok(c.includes(field+':\n```json\n'));
  assert.doesNotMatch(c,/undefined|\[object Object\]/);
- assert.match(renderAc(source,'CASE-DOC-004'),/group:\n```json\n"frozen-template-generation"/);
- const subcases=renderAc(source,'SCHEMA-004');assert.match(subcases,/subcases:\n```json\n/);assert.match(subcases,/"name": "completion-without-assignment"/);assert.match(subcases,/"earned_credit": true/);
- const full=renderBrief(source,parseTask('WP-001'),{full:true});
+ assert.match(renderAc(f.root,'CASE-DOC-004'),/group:\n```json\n"frozen-template-generation"/);
+ const subcases=renderAc(f.root,'SCHEMA-004');assert.match(subcases,/subcases:\n```json\n/);assert.match(subcases,/"name": "completion-without-assignment"/);assert.match(subcases,/"earned_credit": true/);
+ const full=renderBrief(f.root,parseTask('WP-001'),{full:true});
  assert.ok(full.includes(c));assert.doesNotMatch(full,/fixture undefined|\[object Object\]/);
- const catalog=loadRegistry(source);assert.ok(renderAc(source,catalog.find(e=>e.case_ids.includes('REF-CASE-001'))!.id).includes(c));
+ const catalog=loadRegistry(f.root);assert.ok(renderAc(f.root,catalog.find(e=>e.case_ids.includes('REF-CASE-001'))!.id).includes(c));
+ }finally{f.close();}
 });
 
 function validPrBody() {
@@ -386,6 +395,119 @@ function mergeFixture() {
  f.setState(state);
  return {...f,taskRef:task,wt,sha};
 }
+
+test('BUG-c048ea5-body-path: PR create and edit read body files relative to the caller',()=>{
+ const f=mergeFixture(),cwd=process.cwd();try {
+  const caller=join(realpathSync(f.root),'fake-bin/caller');mkdirSync(caller);
+  const body=validPrBody(),file=join(caller,'review.md');writeFileSync(file,body);
+  process.chdir(caller);
+  for(const state of ['OPEN','CLOSED'])for(const path of ['./review.md',file]) {
+   const provider=f.getState();provider.pr.state=state;provider.calls=[];f.setState(provider);
+   assert.equal(prOpen(f.root,f.taskRef,path),0);
+   const call=f.getState().calls.find(c=>c.args[0]==='pr'&&c.args[1]===(state==='OPEN'?'edit':'create'));
+   assert.equal(call.body,body);
+   assert.equal(call.args[call.args.indexOf('--body-file')+1],file);
+  }
+ }finally{process.chdir(cwd);f.close();}
+});
+
+test('BUG-c048ea5-folder-path: maintenance refuses an existing folder without a trailing slash before creating its worktree',()=>{
+ const f=fixture(),task=parseTask('OPS-1');try {
+  mkdirSync(join(f.root,'docs/tooling'));
+  f.cfg.maintenanceTasks={[task.id]:{title:'Workflow upkeep',owningPaths:['docs/tooling'],checks:f.cfg.checks}};
+  writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));f.commit();
+  assert.throws(()=>taskStart(f.root,task,{allowUnready:false,noStack:true}),/docs\/tooling is a folder; use docs\/tooling\//);
+  assert.equal(f.git('branch','--list','task/*'),'');
+  f.cfg.maintenanceTasks[task.id].owningPaths=['docs'];
+  writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));f.commit();
+  assert.throws(()=>taskStart(f.root,task,{allowUnready:false,noStack:true}),/docs is a folder; use docs\//);
+  assert.equal(f.git('branch','--list','task/*'),'');
+  for(const path of ['docs/tooling/','AGENTS.md']) {
+   f.cfg.maintenanceTasks[task.id].owningPaths=[path];
+   writeFileSync(join(f.root,'evf.config.json'),JSON.stringify(f.cfg));f.commit();
+   assert.equal(taskStart(f.root,task,{allowUnready:false,noStack:true}),0);
+   assert.equal(f.git('branch','--list','--format=%(refname:short)','task/*'),'task/ops-1');
+  }
+ }finally{f.close();}
+});
+
+test('BUG-c048ea5-pr-class: body checks select Wiki and prototype formats from PR metadata and keep ordinary work strict',()=>{
+ const f=mergeFixture();try {
+  const footer='\n\nEVF-Author: openai\n\n🤖 Generated with [Codex](https://openai.com/codex/)';
+  const bodies={
+   wiki:'## Scope and sources\nA16 article; publisher sources checked on 2026-10-18.\n\n## Verification\nLint and desktop/mobile renders passed at abc123; screenshots linked in the task.\n\n## Review and approval\nIndependent Opus review pending. Sebastian approval pending.'+footer,
+   prototype:'## Summary\nFB-1 proposes a shorter meeting flow.\n\n## Preview and limitations\nLocal preview at abc123 exercises the concept with synthetic data; persistence is incomplete.\n\n## Review and approval\nSebastian product review and approval pending.'+footer,
+  };
+  const cli=(...args:string[])=>spawnSync(process.execPath,[join(source,'tools/evf/main.ts'),'pr','body',...args],{cwd:f.root,encoding:'utf8'});
+  const wiki={headRefName:'wiki/a16',labels:[],files:[{path:'docs/reference/wiki/drafts/a16.json'}]};
+  const prototype={headRefName:'task/fb-1',labels:[{name:'prototype'}],files:[{path:'apps/web/prototype.tsx'}]};
+  for(const [kind,metadata] of [['wiki',wiki],['prototype',prototype]] as const) {
+   const state=f.getState();state.pr={...metadata,body:bodies[kind]};f.setState(state);
+   const checked=cli('77');assert.equal(checked.status,0,checked.stderr);
+   assert.match(checked.stdout,new RegExp(`PASSED ${kind} PR body standard for openai`));
+   const file=join(f.root,'fake-bin/body.md');writeFileSync(file,bodies[kind]);
+   const local=cli('--body-file',file,'--class',kind);assert.equal(local.status,0,local.stderr);
+   assert.match(local.stdout,new RegExp(`PASSED ${kind} PR body standard for openai`));
+   assert.equal(cli('--body-file',file).status,1,'local files default to the ordinary template');
+   for(const missing of ['## Review and approval','EVF-Author: openai']) {
+    state.pr.body=bodies[kind].replace(missing,'Removed');f.setState(state);
+    assert.equal(cli('77').status,1,`${kind} must require ${missing}`);
+   }
+  }
+  for(const metadata of [
+   {...wiki,files:[{path:'tools/evf/ship.ts'}]},
+   {...wiki,files:[]},
+   {...prototype,headRefName:'task/ops-1'},
+   {...prototype,labels:[]},
+   {headRefName:'task/ops-1',labels:[],files:[]},
+  ]) {
+   const state=f.getState();state.pr={...metadata,body:bodies.prototype};f.setState(state);
+   assert.equal(cli('77').status,1,'unrelated PRs cannot use a lighter format');
+  }
+  const state=f.getState();state.pr={headRefName:'task/ops-1',labels:[],files:[],body:validPrBody()};f.setState(state);
+  const ordinary=cli('77');assert.equal(ordinary.status,0,ordinary.stderr);assert.match(ordinary.stdout,/PASSED ordinary PR body standard for openai/);
+  const file=join(f.root,'fake-bin/body.md');writeFileSync(file,validPrBody());
+  assert.match(cli('--body-file',file,'--class','unknown').stderr,/class must be ordinary, wiki or prototype/);
+  assert.match(cli('77','--class','prototype').stderr,/only for local body files/);
+  f.authorize('WP-034');f.commit();f.git('push','-q','origin','main');
+  feedbackTriage(f.root,1,{cls:'feature-small',reason:'scoped prototype',wp:'WP-034'});
+  const task=parseTask('FB-1');f.task(task.slug);
+  writeFileSync(file,bodies.prototype+'\n');
+  const provider=f.getState();provider.pr={number:77,state:'CLOSED'};provider.calls=[];f.setState(provider);
+  assert.equal(prOpen(f.root,task,file),0);
+  const created=f.getState().calls.find(c=>c.args[0]==='pr'&&c.args[1]==='create');
+  assert.equal(created.body,bodies.prototype+'\n');
+  assert.deepEqual(created.args.slice(-3),['--draft','--label','prototype']);
+  assert.throws(()=>ship(f.root,task),/is a prototype/);
+ }finally{f.close();}
+});
+
+test('BUG-fb0159d-wiki-images: real pr-images output keeps a Wiki body valid on first upload and replacement',async()=>{
+ const f=fixture(),oldGlobal=process.env.GIT_CONFIG_GLOBAL;try {
+  const gist=join(f.root,'fake-bin/screenshots.git');
+  execFileSync('git',['init','--bare',gist],{stdio:'ignore'});
+  const config=join(f.root,'fake-bin/gist.gitconfig');
+  writeFileSync(config,`[url "file://${gist}"]\n\tinsteadOf = https://gist.github.com/a1b2c3.git\n`);
+  process.env.GIT_CONFIG_GLOBAL=config;
+  const body=readFileSync(join(f.root,'tools/evf/templates/wiki-pr.md'),'utf8')
+   .replace(/<!--[^]*?-->/g,comment=>/^<!-- \/?wiki-screenshots -->$/.test(comment)?comment:'')
+   .replace(/^## .+$/gm,heading=>heading+'\nVerified fixture article evidence.')
+   .replace('EVF-Author: <family>','EVF-Author: openai')+'\n🤖 Generated with [Codex](https://openai.com/codex/)';
+  const state=f.getState();state.pr={body};f.setState(state);
+  for(const name of ['article.png','article-mobile.png']) {
+   const png=join(f.root,'fake-bin',name);
+   writeFileSync(png,Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64'));
+   await prImages(77,[png],true,f.root);
+   const published=f.getState().pr.body;
+   assert.equal(checkPrBody(f.root,published,'wiki').authorFamily,'openai');
+   const image=`![${name.replace(/\.png$/,'')}](https://gist.githubusercontent.com/fixture-owner/a1b2c3/raw/${name})`;
+   assert.ok(published.indexOf(image)>published.indexOf('## Verification'));
+   assert.ok(published.indexOf(image)<published.indexOf('## Review and approval'));
+   assert.equal(execFileSync('git',['--git-dir',gist,'ls-tree','--name-only','HEAD'],{encoding:'utf8'}).trim(),name);
+  }
+  assert.equal(f.getState().calls.filter(c=>c.args[0]==='gist'&&c.args[1]==='create').length,1);
+ }finally{if(oldGlobal===undefined)delete process.env.GIT_CONFIG_GLOBAL;else process.env.GIT_CONFIG_GLOBAL=oldGlobal;f.close();}
+});
 
 test('INV-phase7-ship: red or missing CI, same-family approval and older-head approval refuse before merging',()=>{
  const f=mergeFixture();try {
