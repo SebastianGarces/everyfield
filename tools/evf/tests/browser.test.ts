@@ -4,6 +4,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { leftoverBrowsers } from "../browser.ts";
 
 const source = resolve(import.meta.dirname, "../../..");
 const evf = join(source, "bin/evf");
@@ -94,4 +95,16 @@ test("BUG-ops8-doctor-browsers: doctor lists a leaked headless browser until it 
 		if (alive(browser.pid!)) browser.kill("SIGKILL");
 		rmSync(dir, { recursive: true, force: true });
 	}
+});
+
+test("BUG-ops8-doctor-age: a browser running for more than a day reports its real age", () => {
+	// ps etime is [[dd-]hh:]mm:ss; 1-01:02:03 is 1 day, 1 hour, 2 minutes and 3 seconds.
+	const table = [
+		"  4242     1  2048 1-01:02:03 /x/ms-playwright/chromium_headless_shell-1194/chrome-mac/headless_shell --headless",
+		"  4243  4242  1024 1-01:02:01 /x/ms-playwright/chromium_headless_shell-1194/chrome-mac/headless_shell --type=renderer",
+		"  4300     1  1024      14:59 /x/ms-playwright/webkit-2215/pw_run.sh --headless",
+	].join("\n");
+	assert.deepEqual(leftoverBrowsers(15, table), [
+		{ pid: 4242, kind: "Playwright chromium_headless_shell", ageMinutes: 1502, memoryMb: 3 },
+	]);
 });

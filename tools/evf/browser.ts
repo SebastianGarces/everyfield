@@ -125,10 +125,13 @@ export type LeftoverBrowser = { pid: number; kind: string; ageMinutes: number; m
 /** ps etime ([[dd-]hh:]mm:ss) in seconds. */
 function seconds(etime: string): number {
 	const [days, clock] = etime.includes("-") ? etime.split("-") : ["0", etime];
-	return clock
-		.split(":")
-		.map(Number)
-		.reduce((total, part) => total * 60 + part, Number(days) * 86400);
+	return (
+		clock
+			.split(":")
+			.map(Number)
+			.reduce((total, part) => total * 60 + part, 0) +
+		Number(days) * 86400
+	);
 }
 
 function agentBrowserSessions(): Map<number, string> {
@@ -143,9 +146,11 @@ function agentBrowserSessions(): Map<number, string> {
  * Headless browsers and agent-browser daemons older than the age limit, one entry per process
  * tree with the memory of the whole tree. Report only: doctor never stops other processes.
  */
-export function leftoverBrowsers(minAgeMinutes: number): LeftoverBrowser[] {
-	const ps = spawnSync("ps", ["-A", "-ww", "-o", "pid=,ppid=,rss=,etime=,command="], { encoding: "utf8" });
-	const procs = ps.stdout
+export function leftoverBrowsers(
+	minAgeMinutes: number,
+	psTable = spawnSync("ps", ["-A", "-ww", "-o", "pid=,ppid=,rss=,etime=,command="], { encoding: "utf8" }).stdout,
+): LeftoverBrowser[] {
+	const procs = psTable
 		.split("\n")
 		.map((line) => line.trim().match(/^(\d+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(.*)$/))
 		.filter((m) => m !== null)
