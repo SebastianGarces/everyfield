@@ -809,6 +809,7 @@ test("INV-onboarding-authority: lifecycle, registration, current Owner and linke
 	await admin.update(t.seat).set({ role: "owner" }).where(eq(t.seat.id, f.result.ownerSeat.seatId));
 	await admin.update(t.person).set({ linked_account_id: null }).where(eq(t.person.id, f.result.ownerSeat.personId));
 	denied(await call("answerLead", f.a, q, f.p));
+	assert.equal((await resume(f)).status, "available");
 	await admin.update(t.person).set({ linked_account_id: f.a.id }).where(eq(t.person.id, f.result.ownerSeat.personId));
 	await admin.update(t.account).set({ registration_state: "pending_domain" }).where(eq(t.account.id, f.a.id));
 	denied(await call("answerLead", f.a, q, f.p));
@@ -1114,6 +1115,17 @@ test("AC:DC-001 AC:DC-027 account drafts stay private through conversion; resume
 		.returning();
 	await admin.update(t.document).set({ current_revision_id: valuesRevision.id }).where(eq(t.document.id, values.id));
 	assert.equal((await resume(f)).values, "recorded");
+	const { peopleWriter } = await import("../../../packages/domain/src/people/index.ts");
+	const added = ok(
+		await db.transaction((tx) =>
+			peopleWriter.createPerson(tx, ctx(f.a, f.p), {
+				requestKey: randomUUID(),
+				input: { displayName: "Actual additional Person" },
+			}),
+		),
+	);
+	assert.equal(added.person.displayName, "Actual additional Person");
+	assert.equal((await resume(f)).peopleStep, "saved");
 	await admin.update(t.document).set({ archived_at: new Date() }).where(eq(t.document.id, values.id));
 	assert.equal((await resume(f)).values, "missing");
 	assert.equal(JSON.stringify(await resume(f)).includes("Private account values"), false);

@@ -116,15 +116,7 @@ export async function plantOwner(tx: Tx, ctx: Context) {
 		.where(eq(t.onboarding_setup.plant_id, ctx.selected.id))
 		.for("update");
 	if (!plant || !setup || setup.account_id !== a.account.id) deny();
-	const [person] = await tx
-		.select()
-		.from(t.person)
-		.where(
-			and(eq(t.person.plant_id, plant.id), eq(t.person.linked_account_id, a.account.id), eq(t.person.state, "live")),
-		)
-		.for("update");
-	if (!person) deny();
-	return { ...a, plant, setup, person };
+	return { ...a, plant, setup };
 }
 export function revision(expected: string, actual: string) {
 	if (expected !== actual) deny("conflict");

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { and, eq, isNull, sql } from "@everyfield/db/query";
+import { and, eq, isNull, ne, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import * as c from "@everyfield/contracts/onboarding";
 import type { OnboardingProducer } from "@everyfield/contracts/onboarding/server";
@@ -96,8 +96,20 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 	async answerLead(tx, ctx, raw) {
 		return reply(tx, async () => {
 			const q = parse(c.answerLeadRequest, raw),
-				a = await plantOwner(tx, ctx),
-				cx = await begin(tx, ctx, a.account.id, "identity.answerLeadOnboarding", q);
+				a = await plantOwner(tx, ctx);
+			const [person] = await tx
+				.select()
+				.from(t.person)
+				.where(
+					and(
+						eq(t.person.plant_id, a.plant.id),
+						eq(t.person.linked_account_id, a.account.id),
+						eq(t.person.state, "live"),
+					),
+				)
+				.for("update");
+			if (!person) deny();
+			const cx = await begin(tx, ctx, a.account.id, "identity.answerLeadOnboarding", q);
 			if (cx.kind === "replay") return c.leadAnswerResult.parse(cx.value);
 			revision(q.expectedRevision, a.plant.revision);
 			const at = await stamp(tx, a.plant.id);
@@ -105,7 +117,7 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 				q.input.answer === "yes"
 					? {
 							answer: "yes",
-							assignment: await assignLead(tx, a.plant.id, a.person.id, q.input.assignment),
+							assignment: await assignLead(tx, a.plant.id, person.id, q.input.assignment),
 							savedAt: at,
 						}
 					: { answer: q.input.answer, savedAt: at },
@@ -250,6 +262,22 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 						sql`${t.document_revision.import_state} IS DISTINCT FROM 'failed'`,
 					),
 				);
+			const [creation] = await tx
+				.select({ value: t.onboarding_result.value })
+				.from(t.onboarding_result)
+				.where(eq(t.onboarding_result.operation_id, a.setup.creation_operation_id));
+			const original = z.object({ ownerSeat: z.object({ personId: z.string().uuid() }) }).parse(creation?.value);
+			const extraPeople = await tx
+				.select({ id: t.person.id })
+				.from(t.person)
+				.where(
+					and(
+						eq(t.person.plant_id, a.plant.id),
+						eq(t.person.state, "live"),
+						ne(t.person.id, original.ownerSeat.personId),
+					),
+				)
+				.limit(1);
 			return c.resumeResult.parse({
 				status: "available",
 				basics: "created",
@@ -261,7 +289,7 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 				journey: a.setup.journey ?? pending,
 				launch: a.setup.launch ?? pending,
 				scheduledLaunchDate: schedule?.target_date ?? null,
-				peopleStep: a.setup.people_step,
+				peopleStep: extraPeople.length ? "saved" : a.setup.people_step,
 				completion: a.plant.onboarding_completed_at
 					? {
 							status: "completed",
