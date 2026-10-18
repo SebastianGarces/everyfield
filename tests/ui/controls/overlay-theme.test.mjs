@@ -42,7 +42,9 @@ for (const [name, engine] of [["chromium", chromium], ["webkit", webkit]]) {
 
       await page.keyboard.press("Escape");
       await dialog.waitFor({ state: "detached" });
-      assert.equal(await page.evaluate(() => document.activeElement?.textContent?.trim()), "Move Maria to core group", "Esc returns focus to the trigger");
+      // Focus returns in the commit after the dialog unmounts, so wait for it instead of reading it at once.
+      const returned = await page.waitForFunction(() => document.activeElement?.textContent?.trim() === "Move Maria to core group", null, { timeout: 2000 }).then(() => true, () => false);
+      assert.ok(returned, "Esc returns focus to the trigger");
     } finally {
       await browser.close();
     }
