@@ -1,5 +1,4 @@
 import { currentCatalog, isUiPath, fail, findPackage, loadConfig, loadDag, loadProgress, packageContext, pathsForPart, prerequisitesForPart, worktreePath, run, type Case, type TaskRef } from "./lib.ts";
-import { proofPlan } from "./proof-plan.ts";
 import { producerReady } from "./progress.ts";
 import { renderFeedbackBrief } from "./feedback.ts";
 
@@ -8,8 +7,7 @@ export function renderBrief(root: string, task: TaskRef, opts: { uiTier?: string
  if(task.kind==='ops'){
   const cfg=loadConfig(root),scope=cfg.maintenanceTasks?.[task.id];
   if(!scope)fail('Configure the reviewed maintenance task title and owning paths first.');
-  let installed=false;try{proofPlan(root,task,'',[]);installed=true;}catch{}
-  return [`# ${task.id}: ${scope.title}`,`Worktree: ${worktreePath(root,cfg,task)}`,`Owning paths: ${scope.owningPaths.join(', ')}`,'Proof kind: tooling only. No application cases, package gates or runtime.',installed?'The reviewed maintenance proof plan is installed.':'Review and install the draft maintenance proof plan before starting.'].join('\n\n');
+  return [`# ${task.id}: ${scope.title}`,`Worktree: ${worktreePath(root,cfg,task)}`,`Owning paths: ${scope.owningPaths.join(', ')}`,'Proof kind: tooling only. No application cases, package gates or runtime.'].join('\n\n');
  }
  const context=packageContext(root,task.wp), pkg=findPackage(loadDag(root),task.wp);
  const progress=loadProgress(root);
@@ -19,7 +17,7 @@ export function renderBrief(root: string, task: TaskRef, opts: { uiTier?: string
  `Integration and bounded ownership: ${pkg.integration_rule}`,
  `Fast track: ${pkg.fast_track?JSON.stringify(pkg.fast_track):'none'}`,
  `Owned operations: ${(context.own_operation_ids as string[]).join(', ') || 'none'}`,
- `Context-only cases, excluded from proof plans: ${(context.context_case_ids as string[]).join(', ') || 'none'}. Read any case with evf ac <case-id>.`,
+ `Context-only cases: ${(context.context_case_ids as string[]).join(', ') || 'none'}. Read any case with evf ac <case-id>.`,
  ...(pkg.ui_specialist?[`UI work: ${pkg.ui_specialist} on ${pkg.ui_model}.`]:[]),
  ...(pkg.ui_composition_rule||pkg.ui_specialist?[`UI guidance: ${pkg.ui_composition_rule ?? pkg.goal}`]:[]),
  "Current product clauses are authoritative. Do not reconstruct old PD rulings or invent permission/methodology policy.",

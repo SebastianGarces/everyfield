@@ -1,20 +1,31 @@
 ---
 name: verify
-description: "Apply before claiming a task works. Distinguish local tooling proof from independently attested application stage evidence at a clean unchanged head/current main with a reviewed case/gate portion plan."
+description: Run local checks and independently verify the actual task behavior at the exact branch head.
 ---
 
 # Verify
 
-Read the task's current short brief, then follow chapter/schema/detail links on demand to resolve the selected obligations. A reviewed proof plan accounts for every selected case and package gate: own-scope portions must pass, and later native/assistant/integration portions name actual downstream owners. Whole-target gates permit no deferral. Producer/part proof never establishes full package completion.
+Read the task brief and selected requirements and cases. Follow detail links as needed.
+Name the scope you actually verify. A producer or split part does not complete a whole package.
 
-The author and independent verifier use distinct trusted provider identities/model families through the operator's signed runner. CLI `--role` selects requested work and grants no identity. The runner must reproduce real checks, applicable database/browser/tool layers and scoped evidence; it signs task/stage/head/base/policy/portion/check-digest bindings. Root proof plans and runner keys must be reviewed before task creation. No application runner is configured in this scaffold.
+Include current main and commit. `bin/evf verify <task>` runs configured checks and stores logs
+outside the checkout. It refuses dirty or stale inputs and detects changes during checks.
+`--role verifier` labels local logs; it grants no identity or approval. `--quick` aids iteration.
+Neither command replaces green GitHub CI or independent real verification.
 
-Run full verification after syncing and committing. HEAD, clean state, source fingerprint and base are checked again after commands/runner return. Exact log hashes and selected context are validated when consuming proof. Dirty or mutated checks, another task's artifact, stale main, a changed policy, same actor/family or historical full plus current quick cannot ship.
+The verifier uses a different model family, starts from the task and PR, reads the diff against
+the requirements and exercises the branch's own portless preview. UI checks use headless Chromium
+and WebKit for behavior, accessibility, visual quality and UX, with before-main and after-branch
+media. Backend checks use temporary scripts against that preview and the shared dev database.
+Keep scripts, screenshots and traces outside the repo. Use the real verification skill when installed.
 
-Read the diff against the selected clauses and try real denied/failure behavior. Keep screenshots/traces outside the checkout. Report actual scope and failures; a screenshot, source suite count or successful scaffold check is not application acceptance. Signed verifier review binds the exact head and reviewed risk classification. Merge authority lives in the `ship` skill. All external execution is separately authorized.
+Try relevant denied and failure behavior. Report what ran, what passed, what failed and what
+remains untested. Tooling tests establish tooling behavior only. If the code changes, verify the
+new exact head. Record the result on the PR as described in `ship`; never approve your own family.
 
-For maintenance (`OPS-n`), prove tooling only with no package cases or gates. The signed runner and independent review flow is unchanged.
-
-Application checks emit passing test names/annotations in `EVF_TEST_REPORT`. Every selected case needs an `AC:<case-id>` marker in at least one passing test. One test may cover several cases. Review the duplicate coverage report for repeated behavior; broad proof stays outside the repo.
-
-At package start, write the owned cases named by case_requirements_at_start in its brief and repair its owned acceptance cases against the original scenario, current requirement and operation inventory before building. Keep scenario facts and failure/race controls in given fixtures; actions take real domain inputs and expected results stay outside them. Run `python3 docs/acceptance/check.py --package WP-NNN` and `python3 docs/package-context.py WP-NNN --check-case-actions`. S0 defects fail immediately; later defects are reported until that package is checked. Every owned requirement needs an owned passing case before closure. Each invoked operation needs an authorized actor unless that operation is explicitly refused; exact operator/internal capability fixtures never elevate a plant session. A query returning a negative policy decision still needs an authorized caller. evf blocks package closure on either check. Explicit registered SQL/build/configuration proof inspections remain valid for platform cases.
+At package start, write or repair owned cases named by `case_requirements_at_start` before building.
+Run `python3 docs/acceptance/check.py --package WP-NNN` and
+`python3 docs/package-context.py WP-NNN --check-case-actions`. Actions take real domain inputs;
+expected results stay outside them. Every owned requirement needs an owned passing case before
+closure. Use `AC:<case-id>` in passing test names or annotations when a report is supplied.
+Regression tests follow `test-standard`; broad current verification stays outside the repository.
