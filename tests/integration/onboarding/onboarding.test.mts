@@ -6,6 +6,8 @@ import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { sql, eq, and } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
+import { createInvitationService } from "../../../packages/domain/src/identity/index.ts";
+import { accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
 import { enqueueJob } from "../../../apps/web/src/server/jobs/queue.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import foundations from "../../../docs/reference/discovery-foundations.json" with { type: "json" };
@@ -539,6 +541,68 @@ test("AC:TARGET-IDN-016 AC:AF-012 AC:DC-001 Discovery is explicit and seatless; 
 		plant: converted.plant,
 		convertedAt: converted.convertedAt,
 	});
+});
+
+test("AC:TARGET-IDN-016 an unlinked Discovery may accept a seat, then conversion refuses without side effects", async () => {
+	const d = await discovery(),
+		sender = await makePlant();
+	let proof;
+	const invitations = createInvitationService({
+		db,
+		origin: "http://onboarding.example.test",
+		budgetSecret: randomBytes(32).toString("hex"),
+		people: accountPersonProducer,
+		async enqueueMail(tx, input) {
+			const token = input.text.match(/http:\/\/onboarding\.example\.test\/invitation\?proof=([^\s]+)/);
+			if (token) proof = decodeURIComponent(token[1]);
+			return mail.enqueue(tx, {
+				owner: input.owner,
+				purpose: input.purpose,
+				logicalKey: input.logicalKey,
+				recipient: input.recipientAccountId,
+				address: input.recipientEmail,
+				content: { subject: input.subject, text: input.text },
+				operation: input.operationId,
+				notice: null,
+				eligibleAt: new Date().toISOString(),
+			});
+		},
+	});
+	const invited = await invitations.invite(
+		sender.a.session,
+		command(
+			{ workspace: sender.p, role: "member", recipientEmail: d.a.user + "@example.test" },
+			sender.result.revision,
+		),
+	);
+	assert.equal(typeof proof, "string");
+	const accepted = await invitations.accept(
+		d.a.session,
+		command({ invitationId: invited.invitation.invitationId, proof }),
+	);
+	assert.equal(accepted.status, "accepted");
+	assert.equal(accepted.seat.role, "member");
+	const before = await counts();
+	denied(
+		await call(
+			"convertDiscovery",
+			d.a,
+			command(
+				{ discoveryId: d.result.profile.discoveryId, name: "Refused second plant", confirmed: true, relationships: [] },
+				d.result.profile.revision,
+			),
+		),
+		"active_seat_conflict",
+	);
+	assert.deepEqual(await counts(), before);
+	const [profile] = await admin.select().from(t.discovery).where(eq(t.discovery.account_id, d.a.id));
+	assert.equal(profile.converted_at, null);
+	const seats = await admin
+		.select()
+		.from(t.seat)
+		.where(and(eq(t.seat.account_id, d.a.id), sql`${t.seat.ended_at} IS NULL`));
+	assert.equal(seats.length, 1);
+	assert.equal(seats[0].plant_id, sender.p.id);
 });
 
 test("AC:TARGET-IDN-016 conversion refuses stale, foreign, ended and revoked links and rolls back selected effects", async () => {

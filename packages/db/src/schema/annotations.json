@@ -2357,13 +2357,13 @@
 			"feedback.theme": ["light", "dark"],
 			"early_access_request.kind": ["planter", "network"],
 			"early_access_request.data.phase": [
-				"0 \u00b7 Discovery",
-				"1 \u00b7 Core group",
-				"2 \u00b7 Launch team",
-				"3 \u00b7 Training",
-				"4 \u00b7 Pre-launch",
-				"5 \u00b7 Launch Sunday",
-				"6 \u00b7 Post-launch"
+				"0 · Discovery",
+				"1 · Core group",
+				"2 · Launch team",
+				"3 · Training",
+				"4 · Pre-launch",
+				"5 · Launch Sunday",
+				"6 · Post-launch"
 			],
 			"attestation.not": [
 				"values_documented",
@@ -5806,7 +5806,7 @@
 					"note": ""
 				},
 				"name": {
-					"note": "Trim leading/trailing spaces; 1\u2013100 characters. Internal spaces remain significant."
+					"note": "Trim leading/trailing spaces; 1–100 characters. Internal spaces remain significant."
 				},
 				"normalized_name": {
 					"note": "lower(btrim(name)); unique within plant_id. Case and surrounding spaces do not distinguish tags."

@@ -45,7 +45,7 @@ before(async () => {
 	await admin.execute(querySql.raw(`CREATE SCHEMA ${schema}`));
 	assert.deepEqual(
 		await applyVersionedMigration(admin, schema),
-		(await migrationArtifact()).map((migration) => migration.name),
+		(await migrationArtifact()).map((m) => m.name),
 	);
 	await admin.execute(
 		querySql.raw(
