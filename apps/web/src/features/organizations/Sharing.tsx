@@ -56,7 +56,7 @@ export function SharingChoices({
 				: Promise.resolve({ sharing: { status: "unavailable" } as Sharing, relationshipRevision: "0" }),
 		[pair, read, relationship.id],
 	);
-	const { state, reload } = useLoad(fetch, `What ${organizationName} can see did not load`);
+	const { state, reload, refreshing } = useLoad(fetch, `What ${organizationName} can see did not load`);
 	return (
 		<LoadableView
 			state={state}
@@ -84,6 +84,7 @@ export function SharingChoices({
 						relationshipId={relationship.id}
 						relationshipRevision={relationshipRevision}
 						run={run}
+						refreshing={refreshing}
 						onSaved={() => {
 							reload();
 							onChanged();
@@ -100,19 +101,22 @@ function Switches({
 	relationshipId,
 	relationshipRevision,
 	run,
+	refreshing,
 	onSaved,
 }: {
 	data: Admin;
 	relationshipId: string;
 	relationshipRevision: string;
 	run: Run;
+	/** A fresh read is running: the revisions on screen may be old, so nothing is sent until it arrives. */
+	refreshing: boolean;
 	onSaved: () => void;
 }) {
 	const save = useIntent<SetCommand>("privacy-sharing");
 	const [next, setNext] = useState<{ category: Category; value: boolean } | null>(null);
 
 	const toggle = (category: Category) => async (value: boolean) => {
-		if (save.held || save.pending || next) return;
+		if (save.held || save.pending || next || refreshing) return;
 		setNext({ category, value });
 		const result = await save.run(
 			category,
@@ -170,7 +174,7 @@ function Switches({
 							<Switch
 								checked={checked}
 								onCheckedChange={toggle(category)}
-								disabled={next !== null || save.held !== null}
+								disabled={next !== null || save.held !== null || refreshing}
 								aria-label={`Share ${CATEGORY_TEXT[category].label} with ${data.organizationDisplayName}`}
 							/>
 						</li>

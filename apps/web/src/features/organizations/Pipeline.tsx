@@ -37,7 +37,7 @@ export function PipelineTotals({
 		() => run("pipelineSharing.readConsent", pipelineConsentRequest.parse({ relationshipId })),
 		[relationshipId, run],
 	);
-	const { state, reload: load } = useLoad(fetch, "Pipeline sharing did not load");
+	const { state, reload: load, refreshing } = useLoad(fetch, "Pipeline sharing did not load");
 
 	return (
 		<Card as="section" aria-labelledby={`pipeline-${relationshipId}`}>
@@ -67,6 +67,7 @@ export function PipelineTotals({
 							canManage={canManage}
 							run={run}
 							reload={load}
+							refreshing={refreshing}
 						/>
 					)
 				}
@@ -81,19 +82,22 @@ function ConsentSwitch({
 	canManage,
 	run,
 	reload,
+	refreshing,
 }: {
 	data: Extract<Consent, { status: "available" }>;
 	networkName: string;
 	canManage: boolean;
 	run: Run;
 	reload: () => void;
+	/** A fresh read is running: the revision on screen may be old, so nothing is sent until it arrives. */
+	refreshing: boolean;
 }) {
 	const save = useIntent<ReturnType<typeof setPipelineConsentRequest.parse>>("pipeline-consent");
 	const [next, setNext] = useState<boolean | null>(null);
 	const checked = next ?? data.sharePipelineTotals;
 
 	const toggle = async (value: boolean) => {
-		if (save.held || next !== null) return;
+		if (save.held || next !== null || refreshing) return;
 		setNext(value);
 		const result = await save.run(
 			"switch",
@@ -132,7 +136,7 @@ function ConsentSwitch({
 				<Switch
 					checked={checked}
 					onCheckedChange={toggle}
-					disabled={!canManage || next !== null || save.held !== null}
+					disabled={!canManage || next !== null || save.held !== null || refreshing}
 					aria-label={`Share pipeline totals with ${networkName}`}
 				/>
 			</div>

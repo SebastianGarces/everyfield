@@ -64,8 +64,14 @@ export function InviteDialog({
 	const [email, setEmail] = useState("");
 	const [checked, setChecked] = useState(false);
 	// `failed`: the read did not answer. A plant must see its disclosure before it can send (REQ-IDN-022); other
-	// subjects have none, so `value: null` with no failure lets them send.
-	const [disclosure, setDisclosure] = useState<{ id: string; value: Disclosure | null; failed: boolean } | null>(null);
+	// subjects have none, so `value: null` with no failure lets them send. Each opening of the dialog is a new
+	// `attempt`, and a disclosure read in an earlier attempt never counts.
+	const [disclosure, setDisclosure] = useState<{
+		attempt: number;
+		id: string;
+		value: Disclosure | null;
+		failed: boolean;
+	} | null>(null);
 	const [attempt, setAttempt] = useState(0);
 	const send = useIntent<ReturnType<typeof inviteRelationshipRequest.parse>>("relationship-invite");
 	const locked = send.held !== null || send.pending !== null;
@@ -77,14 +83,15 @@ export function InviteDialog({
 		if (!target) return;
 		let live = true;
 		readDisclosure(target.pair).then(
-			(value) => live && setDisclosure({ id: target.pair.organization.id, value, failed: false }),
-			() => live && setDisclosure({ id: target.pair.organization.id, value: null, failed: true }),
+			(value) => live && setDisclosure({ attempt, id: target.pair.organization.id, value, failed: false }),
+			() => live && setDisclosure({ attempt, id: target.pair.organization.id, value: null, failed: true }),
 		);
 		return () => {
 			live = false;
 		};
 	}, [target, readDisclosure, attempt]);
-	const shownDisclosure = disclosure && disclosure.id === targetId ? disclosure : null;
+	const shownDisclosure =
+		disclosure && disclosure.attempt === attempt && disclosure.id === targetId ? disclosure : null;
 	const needsDisclosure = target?.pair.kind === "plant";
 	const disclosureMissing = needsDisclosure && shownDisclosure !== null && shownDisclosure.value === null;
 	// Sending waits until a plant has seen exactly what this organization will see.
@@ -93,6 +100,9 @@ export function InviteDialog({
 	const change = (next: boolean) => {
 		if (send.pending) return;
 		setOpen(next);
+		// Opening or closing starts a fresh attempt: the disclosure is read again before anything can be sent.
+		setAttempt((n) => n + 1);
+		setDisclosure(null);
 		if (!next) {
 			if (send.held) onUnconfirmed();
 			setTargetId("");
@@ -193,8 +203,8 @@ export function InviteDialog({
 												size="sm"
 												variant="secondary"
 												onClick={() => {
-													setDisclosure(null);
 													setAttempt((n) => n + 1);
+													setDisclosure(null);
 												}}
 											>
 												Try again

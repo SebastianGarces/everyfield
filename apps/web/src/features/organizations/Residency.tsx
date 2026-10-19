@@ -111,7 +111,7 @@ export function ResidencySharing({
 }) {
 	const titleId = useId();
 	const fetch = useCallback(() => read(residencySharingRequest.parse({ linkId }).linkId), [linkId, read]);
-	const { state, reload: load } = useLoad(fetch, "Your residency sharing did not load");
+	const { state, reload: load, refreshing } = useLoad(fetch, "Your residency sharing did not load");
 
 	return (
 		<Card as="section" aria-labelledby={titleId} className="w-full">
@@ -148,6 +148,7 @@ export function ResidencySharing({
 							organizationName={organizationName}
 							run={run}
 							reload={load}
+							refreshing={refreshing}
 						/>
 					)
 				}
@@ -160,12 +161,15 @@ function ActiveResidency({
 	data,
 	linkRevision,
 	organizationName,
+	refreshing,
 	run,
 	reload,
 }: {
 	data: Extract<Sharing, { status: "active" }>;
 	linkRevision: string;
 	organizationName: string;
+	/** A fresh read is running: the revisions on screen may be old, so nothing is sent until it arrives. */
+	refreshing: boolean;
 	run: Run;
 	reload: () => void;
 }) {
@@ -174,7 +178,7 @@ function ActiveResidency({
 	const [busy, setBusy] = useState<{ key: Key; value: boolean } | null>(null);
 
 	const toggle = (key: Key) => async (value: boolean) => {
-		if (save.held || busy) return;
+		if (save.held || busy || refreshing) return;
 		setBusy({ key, value });
 		const result = await save.run(
 			key,
@@ -251,7 +255,7 @@ function ActiveResidency({
 							<Switch
 								checked={checked}
 								onCheckedChange={toggle(key)}
-								disabled={busy !== null || save.held !== null}
+								disabled={busy !== null || save.held !== null || refreshing}
 								aria-label={`Share ${RESIDENT_TEXT[key].label.toLowerCase()} with ${organizationName}`}
 							/>
 						</li>
@@ -289,7 +293,12 @@ function ActiveResidency({
 					confirmLabel="Leave residency"
 					onConfirm={onLeave}
 					trigger={
-						<Button variant="ghost" size="sm" className="-ml-3">
+						<Button
+							variant="ghost"
+							size="sm"
+							className="-ml-3"
+							disabled={refreshing || busy !== null || save.held !== null}
+						>
 							Leave residency
 						</Button>
 					}

@@ -92,6 +92,15 @@ for (const [name, engine] of ENGINES) {
 				await dialog.getByRole("button", { name: "Try again" }).click();
 				await dialog.getByRole("region", { name: "What Cedar Creek Church can see once connected" }).waitFor();
 				assert.equal(await dialog.getByRole("button", { name: "Send invitation" }).isDisabled(), false);
+				// A new attempt never reuses the earlier read: after reopening, Send waits for a fresh disclosure.
+				await dialog.getByRole("button", { name: "Cancel" }).click();
+				await page.getByRole("button", { name: "Connect" }).click();
+				await dialog.getByRole("combobox", { name: "Organization" }).click();
+				await page.getByRole("option", { name: "Cedar Creek Church · Sending church" }).click();
+				assert.equal(await dialog.getByRole("region", { name: "What Cedar Creek Church can see once connected" }).count(), 0);
+				assert.equal(await dialog.getByRole("button", { name: "Send invitation" }).isDisabled(), true);
+				await dialog.getByRole("region", { name: "What Cedar Creek Church can see once connected" }).waitFor();
+				assert.equal(await dialog.getByRole("button", { name: "Send invitation" }).isDisabled(), false);
 			}));
 
 		test("INV-retry-same-key: a lost reply to Leave locks the reason and Try again resends that same command", () =>
