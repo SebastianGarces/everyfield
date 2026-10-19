@@ -397,7 +397,7 @@ export function missingFacts(r: Resume, articleCount: number): Missing[] {
 	if (r.lead.answer !== "yes") out.push({ key: "lead", label: "No lead role assigned." });
 	if (r.peopleStep !== "saved") out.push({ key: "people", label: "No people added yet." });
 	if (r.reading.status !== "complete")
-		out.push({ key: "reading", label: `Foundation reading not complete (${articleCount} articles).` });
+		out.push({ key: "reading", label: `The ${articleCount} foundation articles are not all read yet.` });
 	if (r.values === "missing") out.push({ key: "values", label: "Core values not written yet." });
 	return out;
 }

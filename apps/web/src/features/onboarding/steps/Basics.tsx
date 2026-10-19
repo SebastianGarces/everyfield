@@ -61,9 +61,9 @@ export function BasicsForm({
 					<legend className="mb-1 text-sm font-medium text-ink-2">
 						Where it is <span className="font-normal text-text-3">(optional)</span>
 					</legend>
-					<p className="-mt-2 text-xs text-text-3">Fill in any part. We never guess the rest.</p>
+					<p className="-mt-3 text-xs text-text-3">Fill in any part. We never guess the rest.</p>
 					<div className="grid gap-4 sm:grid-cols-3">
-						<Field label="City" optional>
+						<Field label="City">
 							<Input
 								name="city"
 								autoComplete="address-level2"
@@ -72,7 +72,7 @@ export function BasicsForm({
 								onChange={(e) => set({ city: e.target.value })}
 							/>
 						</Field>
-						<Field label="State or province" optional>
+						<Field label="State or province">
 							<Input
 								name="stateProvince"
 								autoComplete="address-level1"
@@ -81,7 +81,7 @@ export function BasicsForm({
 								onChange={(e) => set({ stateProvince: e.target.value })}
 							/>
 						</Field>
-						<Field label="Country" optional>
+						<Field label="Country">
 							<Input
 								name="country"
 								autoComplete="country-name"
