@@ -376,35 +376,56 @@ function Results({
 					}}
 				/>
 			)}
-			{/* The pager stays at the bottom of the window while the rows scroll under it, so the next page is always one
-			    press away. It is the card's bottom edge, with the card's side padding, so it lines up when the list ends. */}
-			<div className="sticky bottom-0 z-[2] -mx-7 -mb-[26px] flex flex-wrap items-center justify-between gap-3 rounded-b-card border-t border-line bg-surface px-7 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] max-app-sm:-mx-5 max-app-sm:-mb-5 max-app-sm:px-5">
-				<span className="text-text-3" role="status">
-					{rangeText(query, page.items.length, page.total)}
-				</span>
-				{query.page > 1 || page.next ? (
-					<nav aria-label="Pages" className="flex gap-2">
-						<Button
-							variant="secondary"
-							size="sm"
-							icon={ArrowLeft01Icon}
-							disabled={query.page <= 1}
-							onClick={() => go(previousPage(query))}
-						>
-							Previous
-						</Button>
-						<Button
-							variant="secondary"
-							size="sm"
-							disabled={!page.next}
-							onClick={() => page.next && go(nextPage(query, page.next))}
-						>
-							Next
-							<Icon icon={ArrowRight01Icon} size={16} />
-						</Button>
-					</nav>
-				) : null}
-			</div>
+			<Pager query={query} shown={page.items.length} total={page.total} next={page.next} go={go} />
+		</div>
+	);
+}
+
+/** Range text and Previous / Next for the list and cards. */
+function Pager({
+	query,
+	shown,
+	total,
+	next,
+	go,
+}: {
+	query: PeopleQuery;
+	shown: number;
+	total: number | null;
+	next: string | null;
+	go: (q: PeopleQuery) => void;
+}) {
+	// The pager covers the window's bottom edge. While it shows, the window's scroll padding keeps a focused row link
+	// above it, so keyboard focus is never hidden (WCAG 2.4.11).
+	useEffect(() => {
+		const root = document.documentElement;
+		root.style.scrollPaddingBottom = "96px";
+		return () => void root.style.removeProperty("scroll-padding-bottom");
+	}, []);
+	// The pager stays at the bottom of the window while the rows scroll under it, so the next page is always one press
+	// away. It is the card's bottom edge, with the card's side padding, so it lines up when the list ends.
+	return (
+		<div className="sticky bottom-0 z-[2] -mx-7 -mb-[26px] flex flex-wrap items-center justify-between gap-3 rounded-b-card border-t border-line bg-surface px-7 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] max-app-sm:-mx-5 max-app-sm:-mb-5 max-app-sm:px-5">
+			<span className="text-text-3" role="status">
+				{rangeText(query, shown, total)}
+			</span>
+			{query.page > 1 || next ? (
+				<nav aria-label="Pages" className="flex gap-2">
+					<Button
+						variant="secondary"
+						size="sm"
+						icon={ArrowLeft01Icon}
+						disabled={query.page <= 1}
+						onClick={() => go(previousPage(query))}
+					>
+						Previous
+					</Button>
+					<Button variant="secondary" size="sm" disabled={!next} onClick={() => next && go(nextPage(query, next))}>
+						Next
+						<Icon icon={ArrowRight01Icon} size={16} />
+					</Button>
+				</nav>
+			) : null}
 		</div>
 	);
 }
