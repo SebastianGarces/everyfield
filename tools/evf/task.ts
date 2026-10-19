@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderBrief } from "./brief.ts";
 import { requireImplementation, requireSpend, requireTaskRisk, requireTaskScope } from "./policy.ts";
@@ -151,6 +151,11 @@ export function taskStart(
 		git(root, "worktree", "add", "--quiet", "-b", task.branch, wt, base);
 		console.log(`worktree: ${wt} on new branch ${task.branch} from ${base}.`);
 	}
+	mkdirSync(runtimeDir(root, task), { recursive: true });
+	writeFileSync(
+		join(runtimeDir(root, task), "active.json"),
+		JSON.stringify({ startedAt: new Date().toISOString() }) + "\n",
+	);
 	console.log(`intent: call ws.git.registerRoot(${JSON.stringify(wt)}) so Intent shows this worktree.`);
 	console.log(
 		"shell: your shell starts in the workspace root. evf commands find the worktree from the task ID; for other commands use `git -C` or the worktree path.",
