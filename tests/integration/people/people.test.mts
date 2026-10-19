@@ -233,7 +233,7 @@ test("AC:TARGET-PPL-002 AC:WP011-KNOW-099 AC:SEC-02 AC:TEN-002 minimal contact, 
 	await admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE account_id=${sql.param(actors[4].id)}`);
 });
 
-test("AC:TARGET-PPL-001 literal search, tag intersection, full totals and bound tie cursors", async () => {
+test("AC:TARGET-PPL-001 literal search, tag intersection, full totals and page numbers past ties", async () => {
 	const a = await create("Literal %_ person"),
 		b = await create("Literal %_ person 2");
 	await admin.execute(
@@ -243,30 +243,17 @@ test("AC:TARGET-PPL-001 literal search, tag intersection, full totals and bound 
 	const page = ok(await tx((t) => read.listPeople(t, ctx(1), req)));
 	assert.equal(page.total, 2);
 	assert.equal(page.items.length, 1);
-	assert.ok(page.next);
-	const second = ok(await tx((t) => read.listPeople(t, ctx(1), { ...req, after: page.next })));
+	assert.equal(page.next, 2);
+	const second = ok(await tx((t) => read.listPeople(t, ctx(1), { ...req, page: 2 })));
 	assert.equal(second.items.length, 1);
 	assert.notEqual(second.items[0].id, page.items[0].id);
 	assert.equal(second.next, null);
-	refused(
-		await tx((t) =>
-			read.listPeople(t, ctx(1), {
-				search: "Literal",
-				limit: 1,
-				after: page.next,
-			}),
-		),
-		"invalid_input",
-	);
-	refused(
-		await tx((t) =>
-			read.listPeople(t, ctx(2, { kind: "plant", id: plants[1] }), {
-				...req,
-				after: page.next,
-			}),
-		),
-		"invalid_input",
-	);
+	// D67: a page past the end is an empty page with the full total, never a refusal.
+	const beyond = ok(await tx((t) => read.listPeople(t, ctx(1), { ...req, page: 3 })));
+	assert.deepEqual([beyond.items, beyond.total, beyond.next], [[], 2, null]);
+	// The church comes from the session, so another church's page 2 never shows these people.
+	const other = ok(await tx((t) => read.listPeople(t, ctx(2, { kind: "plant", id: plants[1] }), { ...req, page: 2 })));
+	assert.deepEqual([other.items, other.total], [[], 0]);
 	refused(await tx((t) => read.listPeople(t, ctx(), { search: "Literal", privateNote: "CANARY" })), "invalid_input");
 	const tags = [randomUUID(), randomUUID()];
 	for (const [i, id] of tags.entries())
@@ -304,7 +291,7 @@ test("BUG-110: people pages retain microseconds across 25 equal timestamp keys",
 		);
 		assert.equal(first.completeness, "partial");
 		const last = ok(
-			await tx((t) => read.listPeople(t, ctx(), { search: "Microsecond people", view, limit: 24, after: first.next })),
+			await tx((t) => read.listPeople(t, ctx(), { search: "Microsecond people", view, limit: 24, page: first.next })),
 		);
 		assert.deepEqual(
 			last.items.map((p) => p.id),
@@ -330,7 +317,7 @@ test("BUG-110: activity pages retain microseconds across equal timestamp keys", 
 	);
 	assert.equal(first.completeness, "partial");
 	const last = ok(
-		await tx((t) => read.getActivities(t, ctx(), { personId: p.id, kinds: ["note"], limit: 24, after: first.next })),
+		await tx((t) => read.getActivities(t, ctx(), { personId: p.id, kinds: ["note"], limit: 24, page: first.next })),
 	);
 	assert.deepEqual(
 		last.items.map((a) => a.id),
@@ -1330,22 +1317,12 @@ test("AC:WP011-KNOW-069 account removal severs account links and preserves churc
 	refused(await tx((t) => read.getPerson(t, ctx(4), { personId: p.id })));
 });
 
-test("INV-pipeline: complete native and reviewed orders persist, retry once, and invalidate stale cursors", async () => {
+test("INV-pipeline: complete native and reviewed orders persist and retry once", async () => {
 	await create("Order A");
 	await create("Order B");
 	const all = ok(await tx((t) => read.listPeople(t, ctx(), { stages: ["prospect"], limit: 100 }))).items.map(
 		(p) => p.id,
 	);
-	const oldPage = ok(
-		await tx((t) =>
-			read.listPeople(t, ctx(), {
-				view: "pipeline",
-				stages: ["prospect"],
-				limit: 1,
-			}),
-		),
-	);
-	assert.ok(oldPage.next);
 	const initialPipeline = ok(await tx((t) => read.getPipelineData(t, ctx(), {})));
 	assert.deepEqual(
 		initialPipeline.groups.map((g) => g.revision),
@@ -1383,17 +1360,6 @@ test("INV-pipeline: complete native and reviewed orders persist, retry once, and
 		order.input.personIds,
 	);
 	refused(await tx((t) => write.reorderPipeline(t, ctx(), { ...order, requestKey: randomUUID() })), "conflict");
-	refused(
-		await tx((t) =>
-			read.listPeople(t, ctx(), {
-				view: "pipeline",
-				stages: ["prospect"],
-				limit: 1,
-				after: oldPage.next,
-			}),
-		),
-		"invalid_input",
-	);
 	const refreshedPipeline = ok(await tx((t) => read.getPipelineData(t, ctx(), { stages: ["leader"] })));
 	assert.equal(refreshedPipeline.groups.find((g) => g.column === "prospect").revision, "2");
 	const { hash } = await import("../../../packages/domain/src/people/core.ts"),
@@ -1472,7 +1438,7 @@ test("BUG-FB-review-1: full People pages and pipeline use fixed database round t
 				ids.slice(0, limit),
 			);
 			assert.equal(page.total, 101);
-			assert.equal(typeof page.next, "string");
+			assert.equal(page.next, 2);
 			assert.deepEqual(
 				items.map((p) => p.commitment),
 				Array.from({ length: limit }, () => ({ state: "unknown" })),
@@ -1487,7 +1453,7 @@ test("BUG-FB-review-1: full People pages and pipeline use fixed database round t
 	t.diagnostic(JSON.stringify(counts));
 	assert.deepEqual(counts.list, [counts.list[0], counts.list[0], counts.list[0]]);
 	assert.deepEqual(counts.card, counts.list);
-	assert.ok(counts.list[0] <= 17, "list round-trip budget includes authorization and transaction overhead");
+	assert.ok(counts.list[0] <= 9, "list round-trip budget includes authorization and transaction overhead");
 	assert.deepEqual(counts.pipeline, [counts.pipeline[0], counts.pipeline[0], counts.pipeline[0]]);
 	assert.ok(counts.pipeline[0] <= 32, "pipeline round-trip budget includes all columns");
 	const evidence = [randomUUID(), randomUUID()].sort();
