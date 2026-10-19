@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
+import { stripVTControlCharacters } from "node:util";
 import {
 	baseRef,
 	command,
@@ -125,7 +126,9 @@ export function verify(root: string, task: TaskRef, role: Role, mode: Mode, head
 			let retry = 1;
 			result.code !== 0 &&
 			retry <= 3 &&
-			/Unable to acquire lock at [^\n]*\.next[^\n]*lock[^\n]*next build/i.test(`${result.stdout}\n${result.stderr}`) &&
+			/Another next build process is already running\./i.test(
+				stripVTControlCharacters(`${result.stdout}\n${result.stderr}`),
+			) &&
 			inputsUnchanged();
 			retry++
 		) {

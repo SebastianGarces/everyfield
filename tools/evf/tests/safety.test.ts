@@ -102,13 +102,17 @@ test("BUG-OPS9-push: PR open refuses an unverified head before any push, and pre
 	}
 });
 
+// Captured from Next 16.4.1 acquireWithRetriesOrExit with a held .next/lock and FORCE_COLOR=1.
+const nextBuildLockOutput =
+	"\u001b[31m\u001b[1m⨯\u001b[22m\u001b[39m Another \u001b[36mnext build\u001b[39m process is already running.";
+
 test("BUG-OPS9-lock: retry a held Next build lock, bound retries, and do not retry other failures", () => {
 	const f = setup(`
 const fs = require('node:fs'), p = process.env.EVF_RUNTIME_DIR + '/attempts';
 fs.mkdirSync(process.env.EVF_RUNTIME_DIR, {recursive:true});
 const n = fs.existsSync(p) ? Number(fs.readFileSync(p,'utf8')) + 1 : 1;
 fs.writeFileSync(p,String(n));
-if (n === 1) {console.error('Unable to acquire lock at /app/.next/lock, is another instance of next build running?'); process.exit(1);}
+if (n === 1) {console.error(${JSON.stringify(nextBuildLockOutput)}); process.exit(1);}
 console.log('built');`);
 	try {
 		let report = verify(f.root, f.task, "author", "full");
@@ -126,7 +130,7 @@ console.log('built');`);
 			writeFileSync(attempts, "0");
 			return verify(f.root, f.task, "author", "full");
 		};
-		report = run("Unable to acquire lock at /app/.next/lock, is another instance of next build running?");
+		report = run("Another next build process is already running.");
 		assert.equal(report.passed, false);
 		assert.equal(readFileSync(attempts, "utf8"), "4");
 		report = run("Type error: bad Next config");

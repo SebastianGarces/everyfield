@@ -63,8 +63,9 @@ that exact clean HEAD. Quick checks and verifier reports do not satisfy this gat
 runs the same gate before its push. Plain `git push` is not intercepted; use the pre-push command
 or let `evf pr open` push. These local records do not replace required CI or independent review.
 
-A failed check that reports Next's held build lock waits ten seconds and retries up to three
-times. The log retains every attempt. Other errors are not retried. evf's launcher selects an
+A failed check that reports Next 16.4.1's `Another next build process is already running.`
+message waits ten seconds and retries up to three times. Matching strips ANSI color codes.
+The log retains every attempt. Other errors are not retried. evf's launcher selects an
 installed Node 24+ from nvm if the shell has Node 22, or refuses with a clear requirement message.
 Child commands inherit the selected Node directory first on PATH, including shell and pnpm scripts.
 
