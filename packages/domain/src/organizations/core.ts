@@ -1,3 +1,4 @@
+import { claimOperation, executeWrites } from "../operations/writes.ts";
 import { getTableColumns, and, eq, isNull, lte, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { alias } from "@everyfield/db/columns";
@@ -236,34 +237,23 @@ export async function beginCommand(
 		digest: hash(canonical(command)),
 		origin: { kind: "native" },
 	});
-	await lock(tx, "request/" + selected.id + "/" + command.requestKey);
-	const prior = await tx
-		.select({ receipt: organization_operation_result_r.receipt, result: organization_operation_result_r.result })
-		.from(operation_o)
-		.innerJoin(organization_operation_result_r, eq(organization_operation_result_r.operation_id, operation_o.id))
-		.where(and(eq(operation_o.tenant_id, selected.id), eq(operation_o.request_key, command.requestKey)));
-	if (prior[0]) {
-		const saved = receipt.parse(prior[0].receipt);
-		if (canonical(saved.request) !== canonical(identity)) refuse("request_conflict");
-		return { kind: "replay" as const, result: prior[0].result, receipt: saved };
+	const claim = await claimOperation(tx, name, identity);
+	if (claim.kind === "conflict") refuse("request_conflict");
+	if (claim.kind === "replay") {
+		const prior = await tx
+			.select({ receipt: organization_operation_result_r.receipt, result: organization_operation_result_r.result })
+			.from(operation_o)
+			.innerJoin(organization_operation_result_r, eq(organization_operation_result_r.operation_id, operation_o.id))
+			.where(and(eq(operation_o.tenant_id, selected.id), eq(operation_o.request_key, command.requestKey)));
+		if (prior[0]) {
+			const saved = receipt.parse(prior[0].receipt);
+			if (canonical(saved.request) !== canonical(identity)) refuse("request_conflict");
+			return { kind: "replay" as const, result: prior[0].result, receipt: saved };
+		}
+
+		refuse();
 	}
-	const id = randomUUID();
-	await tx.insert(tables.operation).values({
-		id: id,
-		tenant_id: selected.id,
-		actor_id: actor.accountId,
-		name: name,
-		request_key: command.requestKey,
-		request_digest: identity.digest,
-		state: "running",
-		started_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-		tool_calls: 0,
-		reserved_input: 0,
-		reserved_output: 0,
-		used_input: 0,
-		used_output: 0,
-	});
-	return { kind: "new" as const, id, identity };
+	return { kind: "new" as const, id: claim.id, identity };
 }
 export type NewCommand = Extract<Awaited<ReturnType<typeof beginCommand>>, { kind: "new" }>;
 export async function finishCommand<T>(
@@ -273,9 +263,7 @@ export async function finishCommand<T>(
 	eventIds: string[],
 	changed = true,
 ): Promise<T> {
-	const now = new Date(
-		(await tx.execute<{ now: string }>(sql`SELECT clock_timestamp() AS now`)).rows[0]!.now,
-	).toISOString();
+	const now = new Date().toISOString();
 	const r = receipt.parse({
 		id: c.id,
 		request: c.identity,
@@ -286,11 +274,13 @@ export async function finishCommand<T>(
 		effectIds: [],
 	});
 	const output = result(r);
-	await tx
-		.update(tables.operation)
-		.set({ state: "complete", outcome: changed ? "committed" : "no_effect", completed_at: sql`${now}` })
-		.where(eq(tables.operation.id, c.id));
-	await tx.insert(tables.organization_operation_result).values({ operation_id: c.id, receipt: r, result: output });
+	await executeWrites(tx, [
+		tx
+			.update(tables.operation)
+			.set({ state: "complete", outcome: changed ? "committed" : "no_effect", completed_at: sql`${now}` })
+			.where(eq(tables.operation.id, c.id)),
+		tx.insert(tables.organization_operation_result).values({ operation_id: c.id, receipt: r, result: output }),
+	]);
 	return output;
 }
 export async function appendEvent(

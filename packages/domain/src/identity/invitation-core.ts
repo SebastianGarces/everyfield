@@ -1,3 +1,4 @@
+import { claimOperation, executeWrites } from "../operations/writes.ts";
 import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import type { Transaction } from "@everyfield/db/client";
@@ -87,34 +88,23 @@ export async function begin(
 		digest: hash(canonical(command)),
 		origin: { kind: "native" },
 	});
-	await lock(tx, "request/" + selected.id + "/" + command.requestKey);
-	const [prior] = await tx
-		.select({ receipt: t.identity_operation_result.receipt, result: t.identity_operation_result.result })
-		.from(t.operation)
-		.innerJoin(t.identity_operation_result, eq(t.identity_operation_result.operation_id, t.operation.id))
-		.where(and(eq(t.operation.tenant_id, selected.id), eq(t.operation.request_key, command.requestKey)));
-	if (prior) {
-		const saved = receipt.parse(prior.receipt);
-		if (canonical(saved.request) !== canonical(request)) refuse("idempotency_conflict");
-		return { kind: "replay" as const, result: prior.result };
+	const claim = await claimOperation(tx, name, request);
+	if (claim.kind === "conflict") refuse("idempotency_conflict");
+	if (claim.kind === "replay") {
+		const [prior] = await tx
+			.select({ receipt: t.identity_operation_result.receipt, result: t.identity_operation_result.result })
+			.from(t.operation)
+			.innerJoin(t.identity_operation_result, eq(t.identity_operation_result.operation_id, t.operation.id))
+			.where(and(eq(t.operation.tenant_id, selected.id), eq(t.operation.request_key, command.requestKey)));
+		if (prior) {
+			const saved = receipt.parse(prior.receipt);
+			if (canonical(saved.request) !== canonical(request)) refuse("idempotency_conflict");
+			return { kind: "replay" as const, result: prior.result };
+		}
+
+		refuse("invitation_unavailable");
 	}
-	const id = randomUUID();
-	await tx.insert(t.operation).values({
-		id,
-		tenant_id: selected.id,
-		actor_id: actor,
-		name,
-		request_key: command.requestKey,
-		request_digest: request.digest,
-		state: "running",
-		started_at: sql`clock_timestamp()`,
-		tool_calls: 0,
-		reserved_input: 0,
-		reserved_output: 0,
-		used_input: 0,
-		used_output: 0,
-	});
-	return { kind: "new" as const, id, request };
+	return { kind: "new" as const, id: claim.id, request };
 }
 export type Command = Extract<Awaited<ReturnType<typeof begin>>, { kind: "new" }>;
 export async function finish<T>(
@@ -128,18 +118,20 @@ export async function finish<T>(
 	const r = receipt.parse({
 		id: c.id,
 		request: c.request,
-		completedAt: (await now(tx)).toISOString(),
+		completedAt: new Date().toISOString(),
 		outcome: changed ? "changed" : "noop",
 		subjects: [{ kind: "operation", id: c.id, owner: c.request.owner }],
 		eventIds: events,
 		effectIds: effects,
 	});
 	const result = output(r);
-	await tx
-		.update(t.operation)
-		.set({ state: "complete", outcome: changed ? "committed" : "no_effect", completed_at: new Date(r.completedAt) })
-		.where(eq(t.operation.id, c.id));
-	await tx.insert(t.identity_operation_result).values({ operation_id: c.id, receipt: r, result });
+	await executeWrites(tx, [
+		tx
+			.update(t.operation)
+			.set({ state: "complete", outcome: changed ? "committed" : "no_effect", completed_at: new Date(r.completedAt) })
+			.where(eq(t.operation.id, c.id)),
+		tx.insert(t.identity_operation_result).values({ operation_id: c.id, receipt: r, result }),
+	]);
 	return result;
 }
 export function eventRow(

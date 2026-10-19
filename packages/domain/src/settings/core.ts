@@ -1,3 +1,4 @@
+import { claimOperation, executeWrites } from "../operations/writes.ts";
 import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -114,7 +115,8 @@ export async function begin(
 		digest: hash(q),
 		origin: ctx.origin,
 	});
-	await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${ctx.selected.id + "/" + q.requestKey},1010))`);
+	const claim = await claimOperation(tx, name, identity);
+	if (claim.kind === "conflict") deny("conflict");
 	if (ctx.purpose === "model") {
 		if (ctx.origin.kind !== "assistant") deny();
 		const o = ctx.origin;
@@ -148,35 +150,20 @@ export async function begin(
 			.for("share", { of: [t.review, t.conversation, t.effect] });
 		if (!rows.length) deny();
 	}
-	const [old] = await tx
-		.select({ value: t.settings_result.value })
-		.from(t.settings_result)
-		.innerJoin(t.operation, eq(t.operation.id, t.settings_result.operation_id))
-		.where(and(eq(t.operation.tenant_id, ctx.selected.id), eq(t.operation.request_key, q.requestKey)));
-	if (old) {
-		const r = z.object({ receipt }).parse(old.value);
-		if (canonical(r.receipt.request) !== canonical(identity)) deny("conflict");
-		return { kind: "replay" as const, value: old.value };
+	if (claim.kind === "replay") {
+		const [old] = await tx
+			.select({ value: t.settings_result.value })
+			.from(t.settings_result)
+			.innerJoin(t.operation, eq(t.operation.id, t.settings_result.operation_id))
+			.where(and(eq(t.operation.tenant_id, ctx.selected.id), eq(t.operation.request_key, q.requestKey)));
+		if (old) {
+			const r = z.object({ receipt }).parse(old.value);
+			if (canonical(r.receipt.request) !== canonical(identity)) deny("conflict");
+			return { kind: "replay" as const, value: old.value };
+		}
+		deny();
 	}
-	const id = randomUUID();
-	await tx.insert(t.operation).values({
-		id,
-		tenant_id: ctx.selected.id,
-		actor_id: actorId,
-		name,
-		request_key: q.requestKey,
-		request_digest: identity.digest,
-		review_id: ctx.origin.kind === "assistant" ? ctx.origin.reviewId : null,
-		conversation_id: ctx.origin.kind === "assistant" ? ctx.origin.conversationId : null,
-		state: "running",
-		started_at: now,
-		tool_calls: 0,
-		reserved_input: 0,
-		reserved_output: 0,
-		used_input: 0,
-		used_output: 0,
-	});
-	return { kind: "new" as const, id, identity };
+	return { kind: "new" as const, id: claim.id, identity };
 }
 export type NewCommand = Extract<Awaited<ReturnType<typeof begin>>, { kind: "new" }>;
 export async function finish<T>(
@@ -187,22 +174,23 @@ export async function finish<T>(
 	body: (r: Receipt) => unknown,
 	changed = true,
 ) {
-	const [clock] = await tx.select({ at: now }).from(t.operation).where(eq(t.operation.id, c.id));
 	const r = receipt.parse({
 		id: c.id,
 		request: c.identity,
-		completedAt: clock!.at.toISOString(),
+		completedAt: new Date().toISOString(),
 		outcome: changed ? "changed" : "noop",
 		subjects: [{ kind: "operation", id: c.id, owner: c.identity.owner }],
 		eventIds: events,
 		effectIds: [],
 	});
 	const value = schema.parse(body(r));
-	await tx
-		.update(t.operation)
-		.set({ state: "complete", outcome: changed ? "committed" : "no_effect", completed_at: now })
-		.where(eq(t.operation.id, c.id));
-	await tx.insert(t.settings_result).values({ operation_id: c.id, tenant_id: c.identity.owner.id, value });
+	await executeWrites(tx, [
+		tx
+			.update(t.operation)
+			.set({ state: "complete", outcome: changed ? "committed" : "no_effect", completed_at: now })
+			.where(eq(t.operation.id, c.id)),
+		tx.insert(t.settings_result).values({ operation_id: c.id, tenant_id: c.identity.owner.id, value }),
+	]);
 	return value;
 }
 export const preference = (a: typeof t.account.$inferSelect) =>
