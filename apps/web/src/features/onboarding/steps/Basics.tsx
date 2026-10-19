@@ -58,10 +58,12 @@ export function BasicsForm({
 					/>
 				</Field>
 				<fieldset className="flex flex-col gap-4">
-					<legend className="mb-1 text-sm font-medium text-ink-2">
+					<legend className="mb-3 text-sm font-medium text-ink-2">
 						Where it is <span className="font-normal text-text-3">(optional)</span>
+						<span className="mt-1 block text-xs font-normal text-text-3">
+							Fill in any part. We never guess the rest.
+						</span>
 					</legend>
-					<p className="-mt-3 text-xs text-text-3">Fill in any part. We never guess the rest.</p>
 					<div className="grid gap-4 sm:grid-cols-3">
 						<Field label="City">
 							<Input

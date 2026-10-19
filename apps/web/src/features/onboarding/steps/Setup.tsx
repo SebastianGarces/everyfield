@@ -198,6 +198,9 @@ export function LaunchStep({ state, actions, resume, plantName }: Props) {
 							<Input
 								type="date"
 								name="launchDate"
+								// WebKit never matches :focus-visible on a keyboard-focused date input, so the shared ring
+								// (has-[:focus-visible]) would not show. Keep the same ring on :focus here (WCAG 2.4.7).
+								boxClassName="has-[:focus]:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)]"
 								value={shown.date}
 								onChange={(e) => {
 									setProblem(null);

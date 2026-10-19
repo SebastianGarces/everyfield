@@ -217,7 +217,7 @@ export function StepFooter({
 			) : (
 				<span />
 			)}
-			<div className="flex flex-wrap items-center gap-2">
+			<div className="ml-auto flex flex-wrap items-center justify-end gap-2">
 				{onSkip ? (
 					<Button variant="ghost" onClick={onSkip} aria-disabled={busy || undefined}>
 						{skipLabel}

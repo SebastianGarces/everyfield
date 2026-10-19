@@ -41,7 +41,12 @@ for (const [name, engine] of ENGINES) {
 		});
 
 		async function open(query, run) {
-			const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
+			const context = await browser.newContext({
+				viewport: { width: 1440, height: 900 },
+				reducedMotion: "reduce",
+				// Local previews may use the portless HTTPS proxy with its own certificate authority.
+				ignoreHTTPSErrors: true,
+			});
 			try {
 				const page = await context.newPage();
 				await page.goto(`${BASE}${PREVIEW}?${query}`);
