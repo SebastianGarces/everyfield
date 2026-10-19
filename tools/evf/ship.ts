@@ -20,6 +20,7 @@ import { requireTaskScope } from "./policy.ts";
 import { checkPrBody } from "./pr-body.ts";
 import { formatScope, wpScope } from "./scope.ts";
 import { recordProgress, type ShippedRecord } from "./progress.ts";
+import { requireVerifiedHead } from "./verify.ts";
 import { stack } from "./task.ts";
 import {
 	cachedTriage,
@@ -95,7 +96,7 @@ export function prOpen(root: string, task: TaskRef, bodyFile?: string): number {
 	requireRemote(root, cfg);
 	const wt = requireWorktree(root, cfg, task);
 	if (!isClean(wt)) fail("Commit your work first. The worktree is not clean.");
-	const sha = git(wt, "rev-parse", "HEAD");
+	const sha = requireVerifiedHead(root, task);
 	git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
 
 	if (!bodyFile || !existsSync(bodyFile))

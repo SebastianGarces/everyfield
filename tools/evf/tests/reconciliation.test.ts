@@ -746,6 +746,7 @@ test("BUG-c048ea5-body-path: PR create and edit read body files relative to the 
 	try {
 		const caller = join(realpathSync(f.root), "fake-bin/caller");
 		mkdirSync(caller);
+		verify(f.root, f.taskRef, "author", "full");
 		const body = validPrBody(),
 			file = join(caller, "review.md");
 		writeFileSync(file, body);
@@ -877,6 +878,7 @@ test("BUG-c048ea5-pr-class: body checks select Wiki and prototype formats from P
 		feedbackTriage(f.root, 1, { cls: "feature-small", reason: "scoped prototype", wp: "WP-034" });
 		const task = parseTask("FB-1");
 		f.task(task.slug);
+		verify(f.root, task, "author", "full");
 		writeFileSync(file, bodies.prototype + "\n");
 		const provider = f.getState();
 		provider.pr = { number: 77, state: "CLOSED" };
@@ -1530,10 +1532,12 @@ test("BUG-wp003-shared-report: each check keeps its own report and only AC: repo
 		};
 		f.authorize("WP-002");
 		f.commit();
-		f.task("wp-002");
+		const wt = f.task("wp-002");
 		const run = (checks: unknown[]) => {
 			f.cfg.checks = checks as typeof f.cfg.checks;
-			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+			writeFileSync(join(wt, "evf.config.json"), JSON.stringify(f.cfg));
+			importGit(wt, "add", "evf.config.json");
+			importGit(wt, "commit", "-qm", "Commit check definitions");
 			return quiet(() => verify(f.root, parseTask("WP-002"), "author", "full"));
 		};
 		const toolingOnly = run([tooling]);

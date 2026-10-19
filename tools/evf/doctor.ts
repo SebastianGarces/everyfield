@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { evfDataDir, git, hasRemote, isClean, loadConfig, loadDag, readJson, run } from "./lib.ts";
 import { leftoverBrowsers } from "./browser.ts";
+import { type ShippedRecord } from "./progress.ts";
 import { producerReady } from "./progress.ts";
 import { principlesStatus } from "./principles.ts";
 
@@ -196,19 +197,66 @@ export function gc(root: string, apply: boolean): number {
 	const shipped = join(evfDataDir(root), "shipped");
 	for (const slug of existsSync(wtRoot) ? readdirSync(wtRoot) : []) {
 		const wt = join(wtRoot, slug);
-		const done = existsSync(join(shipped, `${slug}.json`));
+		const recordPath = join(shipped, `${slug}.json`);
+		const done = existsSync(recordPath);
 		const clean = isClean(wt);
-		const verdict =
-			done && clean ? "remove (shipped, clean)" : done ? "keep (shipped but dirty)" : "keep (not shipped)";
+		let reason = done && clean ? undefined : done ? "shipped but dirty" : "not shipped";
+		if (!reason) {
+			const record = readJson<Pick<ShippedRecord, "verified_head" | "shipped_at">>(recordPath);
+			const activePath = join(evfDataDir(root), "runtime", slug, "active.json");
+			if (existsSync(activePath)) {
+				const active = readJson<{ startedAt?: string }>(activePath);
+				if (!(Date.parse(active.startedAt ?? "") < Date.parse(record.shipped_at ?? ""))) reason = "active task";
+			}
+			if (!reason && git(wt, "rev-parse", "HEAD") !== record.verified_head) reason = "head differs from shipped task";
+			if (!reason) {
+				const branch = git(wt, "branch", "--show-current");
+				const prs =
+					hasRemote(root, cfg) && branch
+						? run("gh", ["pr", "list", "--state", "open", "--head", branch, "--json", "number"], { cwd: wt })
+						: undefined;
+				if (!prs || prs.code !== 0) reason = "PR status unavailable";
+				else {
+					try {
+						const open: unknown = JSON.parse(prs.stdout);
+						if (!Array.isArray(open)) reason = "PR status unavailable";
+						else if (open.length) reason = "open PR";
+					} catch {
+						reason = "PR status unavailable";
+					}
+				}
+			}
+			if (!reason) {
+				const status = run("portless", ["preview", "status", "--json"], { cwd: root });
+				try {
+					const previews: unknown = status.code === 0 ? JSON.parse(status.stdout) : null;
+					if (
+						!Array.isArray(previews) ||
+						previews.some((p) => !p || typeof p.project !== "string" || typeof p.state !== "string")
+					)
+						reason = "preview status unavailable";
+					else if (
+						previews.some(
+							(p) =>
+								!["removed", "failed", "stopped"].includes(p.state) && realpathSync(p.project) === realpathSync(wt),
+						)
+					)
+						reason = "running preview";
+				} catch {
+					reason = "preview status unavailable";
+				}
+			}
+		}
+		const verdict = reason ? `keep (${reason})` : "remove (shipped, clean)";
 		console.log(`${slug}: ${verdict}`);
-		if (apply && done && clean) {
+		if (apply && !reason) {
 			const r = run("git", ["worktree", "remove", wt], { cwd: root });
 			console.log(
 				r.code === 0 ? `  removed. Call ws.git.unregisterRoot(${JSON.stringify(wt)}).` : `  failed: ${r.stderr.trim()}`,
 			);
 		}
 	}
-	run("git", ["worktree", "prune"], { cwd: root });
+	if (apply) run("git", ["worktree", "prune"], { cwd: root });
 	console.log(
 		apply
 			? "Run `portless preview gc --apply` to stop expired previews."

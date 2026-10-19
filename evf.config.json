@@ -240,6 +240,21 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-9": {
+			"title": "evf verify targeting, push guard, build lock and gc safety",
+			"owningPaths": ["tools/evf/", "evf.config.json"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {

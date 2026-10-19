@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { join, resolve, sep } from "node:path";
+import { delimiter, dirname, join, resolve, sep } from "node:path";
 
 export type Argv = string[];
 
@@ -146,7 +146,10 @@ export function run(
 ): RunResult {
 	const r = spawnSync(cmd, args, {
 		cwd: opts.cwd,
-		env: opts.env ?? process.env,
+		env: {
+			...(opts.env ?? process.env),
+			PATH: `${dirname(process.execPath)}${delimiter}${(opts.env ?? process.env).PATH ?? ""}`,
+		},
 		encoding: "utf8",
 		stdio: opts.inherit ? "inherit" : "pipe",
 		maxBuffer: 64 * 1024 * 1024,
