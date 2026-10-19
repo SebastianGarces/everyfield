@@ -18,6 +18,8 @@ import type { z } from "zod";
 import { loadColumn, reorderPipeline } from "./actions.ts";
 import { useRouter } from "next/navigation";
 import {
+	columnCards,
+	columnOf,
 	isFiltered,
 	listRequest,
 	moveInOrder,
@@ -26,6 +28,7 @@ import {
 	STAGE_KEY,
 	STAGE_LABEL,
 	STAGES,
+	type ColumnAnswer,
 	type ColumnValue,
 	type PeopleQuery,
 	type StageValue,
@@ -61,17 +64,19 @@ export function PipelineBoard({
 		card: CardData;
 		target?: StageValue;
 	} | null>(null);
-	// Stage moves since this server copy, by person. A new server copy (a refresh or a filter change) already has them.
-	const [moves, setMoves] = useState<{ from: Pipeline; cards: Map<string, CardData> }>({
-		from: pipeline,
-		cards: new Map(),
-	});
-	const moved = moves.from === pipeline ? moves.cards : NO_MOVES;
-	const place = (card: CardData) =>
-		setMoves((m) => ({
-			from: pipeline,
-			cards: new Map(m.from === pipeline ? m.cards : NO_MOVES).set(card.person.id, card),
-		}));
+	// What changed since this server copy (D68): stage moves by person, and each column's latest saved answer from a
+	// reorder or a stage change. A new server copy (a refresh or a filter change) already includes both.
+	const [since, setSince] = useState<Since>(() => nothingSince(pipeline));
+	const now = since.from === pipeline ? since : nothingSince(pipeline);
+	const change = (edit: (s: Since) => void) =>
+		setSince((s) => {
+			const base = s.from === pipeline ? s : nothingSince(pipeline);
+			const next = { from: pipeline, moved: new Map(base.moved), columns: new Map(base.columns) };
+			edit(next);
+			return next;
+		});
+	const place = (card: CardData) => change((s) => void s.moved.set(card.person.id, card));
+	const answered = (column: ColumnValue, answer: Answer) => change((s) => void s.columns.set(column, answer));
 	const [dragged, setDragged] = useState<CardData | null>(null);
 	const [over, setOver] = useState<ColumnValue | null>(null);
 	const move = (card: CardData, target?: StageValue) =>
@@ -92,7 +97,9 @@ export function PipelineBoard({
 							// last reorder message would be lost (verifier finding on b4d2ec0).
 							key={g.column}
 							group={g}
-							moved={moved}
+							moved={now.moved}
+							answer={now.columns.get(g.column)}
+							onAnswer={(a) => answered(g.column, a)}
 							query={query}
 							canWrite={canWrite}
 							dropTarget={over === g.column && dragged !== null && !inColumn(dragged, g.column)}
@@ -126,23 +133,28 @@ export function PipelineBoard({
 					onOpenChange={(open) => !open && setMoving(null)}
 					store={moving.store}
 					target={moving.target}
-					// Sent: the card moves now. Answered: the server's person. Refused: the card as it was.
-					onStage={(person) => place({ ...moving.card, person: person ?? moving.card.person })}
+					// Sent: the card moves now. Answered: the saved person, in their column's saved order. Refused: the card
+					// as it was.
+					onStage={(person, column) => {
+						place({ ...moving.card, person: person ?? moving.card.person });
+						if (column) answered(column.column, column);
+					}}
 				/>
 			) : null}
 		</>
 	);
 }
 
-const NO_MOVES: ReadonlyMap<string, CardData> = new Map();
-const inColumn = (card: CardData, column: ColumnValue) =>
-	column === "core_group"
-		? ["core_group", "launch_team", "leader"].includes(card.person.stage)
-		: card.person.stage === column;
+type Answer = ColumnAnswer<PlantPerson["revision"]>;
+type Since = { from: Pipeline; moved: Map<string, CardData>; columns: Map<ColumnValue, Answer> };
+const nothingSince = (pipeline: Pipeline): Since => ({ from: pipeline, moved: new Map(), columns: new Map() });
+const inColumn = (card: CardData, column: ColumnValue) => columnOf(card.person.stage) === column;
 
 function Column({
 	group,
 	moved,
+	answer,
+	onAnswer,
 	query,
 	canWrite,
 	dropTarget,
@@ -157,6 +169,9 @@ function Column({
 	group: Group;
 	/** Stage moves since this server copy; a card shows in the column its current stage belongs to. */
 	moved: ReadonlyMap<string, CardData>;
+	/** The column's latest saved order and revisions since this server copy, from a reorder or a stage change. */
+	answer: Answer | undefined;
+	onAnswer: (answer: Answer) => void;
 	query: PeopleQuery;
 	canWrite: boolean;
 	dropTarget: boolean;
@@ -176,43 +191,25 @@ function Column({
 	});
 	const more_ = extra.from === group ? extra : { from: group, cards: [], next: group.next };
 	const [loading, setLoading] = useState(false);
-	// The order just saved, shown until the server copy it was saved against is replaced by a refresh.
-	const [saved, setSaved] = useState<{
-		from: Group;
-		ids: string[];
-		revisions?: Record<string, PlantPerson["revision"]>;
-	} | null>(null);
+	// A reorder being saved: its order shows at once, until the answer or a refusal.
+	const [pending, setPending] = useState<{ from: Group; ids: string[] } | null>(null);
 	const loaded = [...group.cards, ...more_.cards];
-	// Cards moved here from another column join the end; cards moved away leave (D68).
-	const here = loaded.map((c) => moved.get(c.person.id) ?? c).filter((c) => inColumn(c, group.column));
-	const arrived = [...moved.values()].filter(
-		(c) => inColumn(c, group.column) && !loaded.some((l) => l.person.id === c.person.id),
-	);
-	// A saved reorder gives every person in the column a new revision; later moves must send it.
-	const revised = saved && saved.from === group ? saved.revisions : undefined;
-	const all = [...here, ...arrived].map((c) =>
-		revised?.[c.person.id] ? { ...c, person: { ...c.person, revision: revised[c.person.id]! } } : c,
-	);
-	const count = (group.total ?? loaded.length) - (loaded.length - here.length) + arrived.length;
+	const cards = columnCards(group.column, loaded, moved, answer, pending?.from === group ? pending.ids : undefined);
+	// Moves change the count: cards that arrived minus cards that left.
+	const count = (group.total ?? loaded.length) + cards.length - loaded.length;
 	const router = useRouter();
 	// One reorder at a time per column, with the column's revision as the lock (REQ-PPL-007). The whole column must be
 	// loaded, because the server takes the complete order and refuses a partial one. The store outlives refreshes, so a
 	// refusal message stays until the next try; the server's newer revision replaces the old one.
 	const [store] = useState(() => new PersonStore<{ revision: string }, null>({ revision: group.revision }));
 	const order = useStore(store);
-	useEffect(() => store.dispatch({ type: "server", person: { revision: group.revision } }), [store, group.revision]);
+	const columnRevision = answer?.revision ?? group.revision;
+	useEffect(() => store.dispatch({ type: "server", person: { revision: columnRevision } }), [store, columnRevision]);
 	const [said, setSaid] = useState("");
-	const cards =
-		saved && saved.from === group
-			? [
-					...saved.ids.flatMap((id) => all.filter((c) => c.person.id === id)),
-					...all.filter((c) => !saved.ids.includes(c.person.id)),
-				]
-			: all;
 	// The server takes the complete column order. A search or filter hides people, and "Show more" may not have run, so
 	// reorder is offered only for an unfiltered, fully loaded column (verifier finding: q=an sent 2 of 5 IDs).
 	const filtered = isFiltered(query);
-	const complete = !filtered && !more_.next && all.length <= 100;
+	const complete = !filtered && !more_.next && cards.length <= 100;
 	// After a keyboard reorder, focus returns to the moved person's Move button, also after the refresh re-renders.
 	async function reorder(card: CardData, direction: "up" | "down") {
 		const ids = moveInOrder(
@@ -223,27 +220,24 @@ function Column({
 		const input = { column: group.column, personIds: ids };
 		const rev = order.saved.revision;
 		// The card moves now; the answer confirms the order, a refusal puts it back.
-		const before = saved;
-		setSaved({ from: group, ids });
+		setPending({ from: group, ids });
 		const r = await runSave(store, "order", { input, rev }, (key) => reorderPipeline(key, rev, input), {
 			fresh,
 			// The answer carries the column revision as saved now, so a quick next move uses it.
 			toPerson: (v) => ({ revision: v.revision }),
 		});
+		setPending(null);
 		if (r?.status === "ok") {
 			// Show the column the server answered with: its order belongs to the revision the store just took.
-			setSaved({ from: group, ids: r.value.personIds, revisions: r.value.personRevisions });
+			onAnswer(r.value);
 			setSaid(
 				r.value.personIds.join() === ids.join()
 					? `${card.person.displayName} moved ${direction}.`
 					: "The order changed somewhere else. The column shows the latest order.",
 			);
-		} else {
-			setSaved(before);
-			if (r?.status === "refused" && r.code === "conflict") {
-				setSaid("");
-				router.refresh();
-			}
+		} else if (r?.status === "refused" && r.code === "conflict") {
+			setSaid("");
+			router.refresh();
 		}
 	}
 	async function more() {

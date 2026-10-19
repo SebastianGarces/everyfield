@@ -5,7 +5,7 @@ import { getViewer } from "@/server/request-context";
 import * as c from "@everyfield/contracts/people";
 import { peopleReader, peopleWriter, readColumnOrder } from "@everyfield/domain/people";
 import type { z } from "zod";
-import { parseQuery, type Outcome } from "./model.ts";
+import { columnOf, parseQuery, type ColumnValue, type Outcome } from "./model.ts";
 import { loadPeople, read, write, type PeopleView, type Viewer } from "./server.ts";
 
 // Server actions behind the People screens: the browser boundary. Each one rebuilds the viewer from the request,
@@ -85,13 +85,30 @@ export async function statusWarnings(personId: string): Promise<Outcome<z.infer<
 	);
 }
 
+/**
+ * Changes a person's stage. The answer is the saved person and the column they are in now: its saved order and
+ * revision, read in the same transaction (D68), so the pipeline shows what a reload would show without reloading.
+ */
 export async function changeStatus(
 	requestKey: string,
 	expectedRevision: string,
 	input: unknown,
-): Promise<Outcome<PlantPerson>> {
+): Promise<
+	Outcome<{ person: PlantPerson; column: { column: ColumnValue } & Awaited<ReturnType<typeof readColumnOrder>> }>
+> {
 	return boundary(c.changeStatusRequest, { requestKey, expectedRevision, input }, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => peopleWriter.changeStatus(tx, ctx, request)), (r) => r.person),
+		outcome(
+			await write(v, async (tx, ctx) => {
+				const done = await peopleWriter.changeStatus(tx, ctx, request);
+				if (done.status !== "ok") return done;
+				const column = columnOf(done.value.person.stage);
+				return {
+					status: "ok",
+					value: { person: done.value.person, column: { column, ...(await readColumnOrder(tx, ctx, column)) } },
+				};
+			}),
+			(r) => r,
+		),
 	);
 }
 

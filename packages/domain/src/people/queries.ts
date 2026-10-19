@@ -381,30 +381,24 @@ export async function readPeopleViewer(tx: Tx, session: z.infer<typeof sessionId
 }
 
 /**
- * One pipeline column's saved order and revision, read in the reorder's own transaction (D68). The reorder answers with
- * this pair instead of re-reading the whole pipeline. The writer has already authorized and locked the column.
+ * One pipeline column's saved order and revision, in one query inside the move's own transaction (D68). A reorder and a
+ * stage change answer with it instead of re-reading the whole pipeline. The writer has already authorized the move.
+ * It also gives every listed person's revision, which a reorder changes and the page's next move must send.
  */
 export async function readColumnOrder(tx: Tx, ctx: Context, column: z.infer<typeof c.pipelineColumn>) {
-	const stages = column === "core_group" ? (["core_group", "launch_team", "leader"] as const) : [column];
-	const [col] = await tx
-		.select({ revision: tables.people_column.revision })
-		.from(tables.people_column)
-		.where(and(eq(tables.people_column.plant_id, ctx.selected.id), eq(tables.people_column.column_name, column)));
-	const rows = await tx
-		.select({ id: tables.person.id, revision: tables.person.revision })
-		.from(tables.person)
-		.where(
-			and(
-				eq(tables.person.plant_id, ctx.selected.id),
-				eq(tables.person.state, "live"),
-				inArray(tables.person.stage, [...stages]),
-			),
-		)
-		.orderBy(asc(tables.person.pipeline_position), asc(tables.person.created_at), asc(tables.person.id));
-	// A reorder changes every listed person's revision too; the page needs them for its next stage change.
+	const stages = column === "core_group" ? ["core_group", "launch_team", "leader"] : [column];
+	const result = await tx.execute(sql`SELECT
+		coalesce((SELECT revision::text FROM people_column WHERE plant_id=${ctx.selected.id} AND column_name=${column}), '1') AS revision,
+		coalesce((SELECT json_agg(json_build_object('id', id, 'revision', revision::text) ORDER BY pipeline_position, created_at, id)
+			FROM person WHERE plant_id=${ctx.selected.id} AND state='live' AND stage=ANY(${sql.param(stages)})), '[]') AS people`);
+	const row = columnRow.parse(result.rows[0]);
 	return {
-		revision: col?.revision ?? "1",
-		personIds: rows.map((r) => r.id),
-		personRevisions: Object.fromEntries(rows.map((r) => [r.id, revision.parse(r.revision)])),
+		revision: row.revision,
+		personIds: row.people.map((p) => p.id),
+		personRevisions: Object.fromEntries(row.people.map((p) => [p.id, p.revision])),
 	};
 }
+const columnRow = z.object({
+	revision: z.string(),
+	people: z.array(z.object({ id: z.uuid(), revision })),
+});

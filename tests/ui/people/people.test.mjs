@@ -480,7 +480,18 @@ for (const [name, engine] of [
 				await settle();
 				assert.deepEqual(sent, ["POST"], `moving ${person} to ${stage} is one POST and no GET`);
 			};
+			// Verifier sequence on #145: reorder, away, back, away again. Each move must save; none may be refused as
+			// "changed while you were working", because this page made every change.
 			await stageMove(second, "Attendee", "Following up people", "Attendee people");
+			await stageMove(second, "Following up", "Attendee people", "Following up people");
+			await stageMove(second, "Attendee", "Following up people", "Attendee people");
+			// The page shows the saved order: a reload shows the same columns.
+			const shown = [await names("Following up people"), await names("Attendee people")];
+			await page.reload();
+			await column("Following up people").waitFor();
+			assert.deepEqual([await names("Following up people"), await names("Attendee people")], shown);
+			// Put the person back for the other tests.
+			await page.waitForLoadState("networkidle");
 			await stageMove(second, "Following up", "Attendee people", "Following up people");
 			console.log(`D68 ${name} move answer times (ms): ${ms.join(", ")}`);
 		});

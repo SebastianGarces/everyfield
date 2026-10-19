@@ -1496,7 +1496,7 @@ test("BUG-FB-review-1: full People pages and pipeline use fixed database round t
 	);
 });
 
-test("D68: a pipeline move is one transaction with a constant round-trip count", async (t) => {
+test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one transaction with a constant round-trip count", async (t) => {
 	const ids = Array.from({ length: 10 }, () => randomUUID()).sort();
 	// No cleanup: receipts keep references to these people, and the disposable schema is dropped after the suite.
 	const insert = (some) =>
@@ -1534,16 +1534,22 @@ test("D68: a pipeline move is one transaction with a constant round-trip count",
 	assert.equal(history.rows[0].n, 13, "one history row per person per reorder");
 	const [first] = ok(await tx((t) => read.listPeople(t, ctx(), { search: "Move regression", limit: 1 }))).items;
 	queries = [];
+	// The stage-change action: the producer's command plus the target column's saved order, in one transaction.
 	const moved = ok(
-		await tx((t) =>
-			write.changeStatus(t, ctx(), {
+		await tx(async (t) => {
+			const done = await write.changeStatus(t, ctx(), {
 				requestKey: randomUUID(),
 				expectedRevision: first.revision,
 				input: { personId: first.id, stage: "attendee", reason: "Moved back", handoffs: [] },
-			}),
-		),
+			});
+			return done.status === "ok"
+				? { status: "ok", value: { ...done.value, column: await readColumnOrder(t, ctx(), "attendee") } }
+				: done;
+		}),
 	);
 	t.diagnostic(JSON.stringify({ changeStatus: queries.length }));
 	assert.equal(moved.person.stage, "attendee");
+	assert.ok(moved.column.personIds.includes(first.id));
+	assert.equal(moved.column.personRevisions[first.id], moved.person.revision);
 	assert.ok(queries.length <= 25, `stage change round trips: ${queries.length}`);
 });

@@ -34,6 +34,7 @@ import { FormProblem, fresh, problemOf, useStore, useWarnings } from "./parts.ts
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
 type Warnings = z.infer<typeof people.statusWarningsResult>;
+type Moved = Extract<Awaited<ReturnType<typeof changeStatus>>, { status: "ok" }>["value"];
 export type StageDraft = { stage: StageValue | null; reason: string };
 /** Drafts of different forms share one store; each form reads its own slot and knows its own shape. */
 export type PersonDraft = unknown;
@@ -62,8 +63,11 @@ export function StageDialog({
 	store: PersonStore<PlantPerson, PersonDraft>;
 	/** A stage chosen before the dialog opened, such as a pipeline drop. */
 	target?: StageValue;
-	/** The move as it goes: the person at the new stage when sent, the saved person when answered, null if refused. */
-	onStage?: (person: PlantPerson | null) => void;
+	/**
+	 * The move as it goes: the person at the new stage when sent; the saved person and their column's saved order when
+	 * answered; null if refused.
+	 */
+	onStage?: (person: PlantPerson | null, column?: Moved["column"]) => void;
 	/** After a saved move. The dialog never refreshes the page itself (D68); a caller that needs fresh data does. */
 	onDone?: (person: PlantPerson) => void;
 }) {
@@ -106,13 +110,14 @@ export function StageDialog({
 		onStage?.({ ...person, stage: chosen });
 		const result = await runSave(store, "stage", { input, rev }, (key) => changeStatus(key, rev, input), {
 			fresh,
-			toPerson: (p) => p,
+			toPerson: (v) => v.person,
 		});
-		onStage?.(result?.status === "ok" ? result.value : null);
+		if (result?.status === "ok") onStage?.(result.value.person, result.value.column);
+		else onStage?.(null);
 		if (result?.status === "ok") {
 			setTouched(false);
 			onOpenChange(false);
-			onDone?.(result.value);
+			onDone?.(result.value.person);
 		} else if (result?.status === "refused" && result.code === "conflict") {
 			setRound((r) => r + 1);
 			router.refresh();
