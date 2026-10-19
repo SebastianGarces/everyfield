@@ -1,7 +1,7 @@
 import { Card } from "@everyfield/ui/controls";
 import { parseTheme, ProductRoot, THEME_COOKIE } from "@everyfield/ui/foundations";
 import type { Metadata } from "next";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { viewerOf } from "@/server/organizations";
@@ -22,7 +22,7 @@ async function Frame({ children }: { children: ReactNode }) {
 }
 
 export async function SeatsPage() {
-	const who = await viewerOf(await headers());
+	const who = await viewerOf();
 	if (who.kind === "signed_out") redirect("/signin?returnTo=%2Fsettings%2Fseats");
 	const read = await readSeats();
 	if (read.status !== "ready")

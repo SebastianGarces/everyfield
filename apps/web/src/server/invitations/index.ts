@@ -1,7 +1,7 @@
 import "server-only";
 import { createHmac } from "node:crypto";
 import { z } from "zod";
-import { createDatabase } from "@everyfield/db/client";
+import { database } from "../database";
 import { authorizeInvitationMail, createInvitationService } from "@everyfield/domain/identity";
 import { accountPersonProducer } from "@everyfield/domain/people";
 import { createMailService } from "../jobs/mail";
@@ -28,7 +28,7 @@ export function invitationService(): ReturnType<typeof createInvitationService> 
 	const parsed = env.safeParse(process.env);
 	if (!parsed.success) return null;
 	const v = parsed.data;
-	const db = createDatabase({ connectionString: v.IDENTITY_DATABASE_URL, max: 3 });
+	const db = database(v.IDENTITY_DATABASE_URL);
 	const addressKey = Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex");
 	const mail = createMailService({
 		db,

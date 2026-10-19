@@ -1,9 +1,11 @@
+import { readIdentityAccount, readIdentitySession, userRow } from "./reads.ts";
 import * as tables from "@everyfield/db/tables";
 import { and, eq, gt, sql } from "@everyfield/db/query";
 import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import { isIP } from "node:net";
 import type { Database, Transaction } from "@everyfield/db/client";
+import type { BetterAuthPlugin } from "better-auth";
 import { verifyPassword } from "better-auth/crypto";
 import { z } from "zod";
 import {
@@ -48,15 +50,10 @@ export type IdentityConfig = {
 	enqueueMail: (tx: Transaction, mail: IdentityMail) => Promise<string>;
 	diagnostic: (value: { correlationId: string; outcome: "unknown" | "reporting_pending" | "delivery_failed" }) => void;
 	invitations?: ReturnType<typeof createInvitationService>;
+	plugins?: BetterAuthPlugin[];
 	registrationMode?: "open" | "invitation_only" | "closed";
 };
-const userRow = z.object({
-	id: z.uuid(),
-	auth_user_id: z.uuid(),
-	registration_state: z.enum(["pending_domain", "active"]),
-	registration_kind: z.string(),
-	registration_digest: z.string().nullable(),
-});
+
 const headers = {
 	"Cache-Control": "private, no-store",
 	"Referrer-Policy": "no-referrer",
@@ -69,23 +66,10 @@ export function createIdentityService(config: IdentityConfig) {
 	const origin = new URL(config.origin).origin;
 	if (origin !== config.origin) throw Error("canonical_origin_required");
 	const budget = attemptBudget(config.admissionDb, config.secret);
-	const auth = identityAuth({ db: config.authDb, origin, secret: config.secret, deliver });
+	const auth = identityAuth({ db: config.authDb, origin, secret: config.secret, deliver, plugins: config.plugins });
 
-	async function account(authUser: string) {
-		const rows = await config.db.select().from(tables.account).where(eq(tables.account.auth_user_id, authUser));
-		if (!rows.length) return null;
-		const a = userRow.parse(rows[0]);
-		const blocked = await config.db
-			.select({ id: tables.lifecycle_witness.id })
-			.from(tables.lifecycle_witness)
-			.where(
-				and(
-					eq(tables.lifecycle_witness.opaque_subject_id, a.id),
-					sql<boolean>`(${tables.lifecycle_witness.state} IN ('pending_deletion', 'purging', 'purged', 'revoked'))`,
-				),
-			);
-		return blocked.length ? null : a;
-	}
+	const account = (authUser: string) => readIdentityAccount(config.db, authUser);
+
 	async function pending(
 		authUser: string,
 		kind: (typeof tables.account.$inferInsert)["registration_kind"],
@@ -148,18 +132,7 @@ export function createIdentityService(config: IdentityConfig) {
 		const s = z
 			.object({ user: z.object({ id: z.uuid() }), session: z.object({ id: z.uuid(), expiresAt: z.coerce.date() }) })
 			.parse(raw);
-		const a = await account(s.user.id);
-		if (!a) return { response, authUser: s.user.id, value: sessionResult.parse({ status: "unauthenticated" }) };
-		return {
-			response,
-			authUser: s.user.id,
-			value: sessionResult.parse({
-				status: a.registration_state,
-				accountId: a.id,
-				sessionId: s.session.id,
-				expiresAt: s.session.expiresAt.toISOString(),
-			}),
-		};
+		return { response, authUser: s.user.id, value: await readIdentitySession(config.db, s) };
 	}
 	function cookies(result: Response, source: Response) {
 		for (const value of source.headers.getSetCookie()) result.headers.append("set-cookie", value);
@@ -525,5 +498,5 @@ export function createIdentityService(config: IdentityConfig) {
 			.returning({ id: tables.event.id });
 		return z.uuid().parse(result[0]?.id);
 	}
-	return { handle };
+	return { handle, auth };
 }

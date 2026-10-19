@@ -55,8 +55,9 @@ export async function uploadIntent(
 	headers: Headers,
 	input: z.infer<typeof uploadInput>,
 ) {
+	const session = await auth.api.getSession({ headers });
 	return transaction(db, async (tx) => {
-		const scope = await currentScope(tx, auth, headers, input.ownerId);
+		const scope = await currentScope(tx, session, input.ownerId);
 		const id = randomUUID();
 		await tx.insert(tables.proof_object).values({
 			id: id,
@@ -78,9 +79,10 @@ export async function finalizeObject(
 	id: string,
 	bytes: Uint8Array,
 ) {
+	const session = await auth.api.getSession({ headers });
 	// Validate bytes before external storage; no client key or content-type is trusted.
 	const object = await transaction(db, async (tx) => {
-		await currentScope(tx, auth, headers, owner);
+		await currentScope(tx, session, owner);
 		const result = await tx
 			.select({
 				object_key: tables.proof_object.object_key,
@@ -114,7 +116,7 @@ export async function finalizeObject(
 	);
 	// Revocation during upload leaves an unattached orphan, never an authorized binding.
 	return transaction(db, async (tx) => {
-		await currentScope(tx, auth, headers, owner);
+		await currentScope(tx, session, owner);
 		const result = await tx
 			.update(tables.proof_object)
 			.set({ state: "ready", preview: text })
@@ -139,8 +141,9 @@ export async function authorizedDownload(
 	ttl = 60,
 ) {
 	if (!Number.isInteger(ttl) || ttl < 1 || ttl > 60) throw new Refusal("invalid_input", 422);
+	const session = await auth.api.getSession({ headers });
 	return transaction(db, async (tx) => {
-		await currentScope(tx, auth, headers, owner);
+		await currentScope(tx, session, owner);
 		const result = await tx
 			.select({ object_key: tables.proof_object.object_key })
 			.from(tables.proof_object)

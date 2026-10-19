@@ -1,6 +1,6 @@
 import { parseTheme, ProductRoot, THEME_COOKIE } from "@everyfield/ui/foundations";
 import type { Metadata } from "next";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Card } from "@everyfield/ui/controls";
 import { NotAvailable } from "../access/AccessStates";
@@ -29,7 +29,7 @@ async function Frame({ children }: { children: React.ReactNode }) {
 }
 
 export async function SharingPage() {
-	const who = await viewerOf(await headers());
+	const who = await viewerOf();
 	if (who.kind === "signed_out") redirect("/signin?returnTo=%2Fsettings%2Fsharing");
 	const refused = (
 		<Frame>
@@ -52,7 +52,7 @@ export async function SharingPage() {
 		);
 	const { mount: m, viewer } = who;
 	// A seatless account without a Discovery profile has only its own residency links here.
-	if (viewer.kind === "account" && (await residencyLinks(m, viewer)).length === 0) return refused;
+	if (viewer.kind === "account" && (await residencyLinks(m.db, viewer)).length === 0) return refused;
 	const first =
 		viewer.kind === "account"
 			? ({ status: "refused", code: "unavailable" } as const)
@@ -69,11 +69,11 @@ export async function SharingPage() {
 			? active.filter((r) => r.pair.kind === "sending_church" && r.pair.subject.id === viewer.selected.id)
 			: [];
 	const [facts, targets, residencies, names, aggregate] = await Promise.all([
-		subjectFacts(m, viewer),
-		viewer.canManage ? targetsFor(m, viewer, activeOrgs) : Promise.resolve([]),
-		residencyLinks(m, viewer),
+		subjectFacts(m.db, viewer),
+		viewer.canManage ? targetsFor(m.db, viewer, activeOrgs) : Promise.resolve([]),
+		residencyLinks(m.db, viewer),
 		namesFor(
-			m,
+			m.db,
 			viewer,
 			networks.map((n) => n.pair.organization.id),
 		),

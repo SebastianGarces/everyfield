@@ -1,6 +1,5 @@
 "use server";
 
-import { headers } from "next/headers";
 import { z } from "zod";
 import { onboardingCommand, onboardingEntry, type Op } from "@/server/onboarding";
 
@@ -8,7 +7,7 @@ import { onboardingCommand, onboardingEntry, type Op } from "@/server/onboarding
 // them again before a screen sees them.
 
 export async function loadOnboardingEntry() {
-	return onboardingEntry(await headers());
+	return onboardingEntry();
 }
 
 const op = z.enum(["createPlant", "createDiscovery", "convertDiscovery", "declareJourney", "answerLead", "complete"]);
@@ -16,5 +15,5 @@ const op = z.enum(["createPlant", "createDiscovery", "convertDiscovery", "declar
 export async function runOnboardingCommand(name: Op, command: unknown) {
 	const parsed = op.safeParse(name);
 	if (!parsed.success) return { status: "refused" as const, error: null };
-	return onboardingCommand(await headers(), parsed.data, command);
+	return onboardingCommand(parsed.data, command);
 }

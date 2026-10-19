@@ -9,7 +9,8 @@ import { privateHeaders, Refusal } from "./boundary.ts";
 export async function authorizedStream(db: Database, auth: PlatformAuth, request: Request, owner: string) {
 	const cursor = request.headers.get("last-event-id") ?? "0";
 	if (!/^\d{1,10}$/.test(cursor)) throw new Refusal("invalid_input", 422);
-	await transaction(db, (tx) => currentScope(tx, auth, request.headers, owner));
+	const session = await auth.api.getSession({ headers: request.headers });
+	await transaction(db, (tx) => currentScope(tx, session, owner));
 	let after = Number(cursor);
 	let cancelled = false;
 	const stream = new ReadableStream<Uint8Array>({
@@ -18,7 +19,7 @@ export async function authorizedStream(db: Database, auth: PlatformAuth, request
 			try {
 				while (!cancelled && !request.signal.aborted && Date.now() < until) {
 					const rows = await transaction(db, async (tx) => {
-						await currentScope(tx, auth, request.headers, owner);
+						await currentScope(tx, session, owner);
 						return await tx
 							.select({ id: sql<string>`(${tables.proof_stream.id})::text`, status: tables.proof_stream.status })
 							.from(tables.proof_stream)
