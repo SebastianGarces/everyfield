@@ -52,7 +52,7 @@ export async function namesFor(db: Database, viewer: Viewer, ids: string[]): Pro
 		? (
 				await db.execute<{ id: string; name: string | null }>(sql`
 		SELECT a.id, identity.display_name AS name
-		FROM unnest(${visible.map((row) => row.id)}::uuid[]) WITH ORDINALITY AS a(id, position)
+		FROM unnest(${sql.param(visible.map((row) => row.id))}::uuid[]) WITH ORDINALITY AS a(id, position)
 		CROSS JOIN LATERAL seat_identity(a.id) identity ORDER BY a.position
 	`)
 			).rows.map((row) => ({ id: row.id, name: row.name ?? "" }))
