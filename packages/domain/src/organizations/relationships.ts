@@ -530,3 +530,43 @@ export function relationshipCommands(
 		"associations.end": end,
 	};
 }
+
+const invitationDetailRequest = z.strictObject({ invitationId: recordId, proof: z.string().min(1).max(4096) });
+const pendingInvitation = Q.invitationResult.omit({ receipt: true });
+
+/**
+ * Bounded invitation-detail read for the native answer page (WP-007/ui ruling D48). Before any detail leaves, it
+ * applies the same checks as an answer: the emailed proof, a live valid pair, the shipped authorizedReceiver rule
+ * (exact receiving organization, Owner or Admin, original addressed recipient), a pending unexpired request and a
+ * live inviter. Anything else is the one `unavailable` result. It reads only. Follow-up: make it a contract operation.
+ */
+export async function readAnswerableInvitation(
+	tx: Transaction,
+	session: z.infer<typeof sessionId>,
+	selected: Owner,
+	raw: unknown,
+) {
+	const q = invitationDetailRequest.safeParse(raw);
+	if (!q.success) return { status: "unavailable" } as const;
+	const i = await loadInvitation(tx, q.data.invitationId);
+	if (!i || !proofMatches(q.data.proof, i.token_hash)) return { status: "unavailable" } as const;
+	const pair = pairFor(i),
+		actor = await currentActor(tx, session, selected);
+	if (
+		actor.status !== "active" ||
+		!(await validPair(tx, pair)) ||
+		!(await authorizedReceiver(tx, actor, i, pair, session))
+	)
+		return { status: "unavailable" } as const;
+	const expires = i.created_at.getTime() + 30 * 86400000;
+	if (i.state !== "pending" || (await time(tx)).getTime() >= expires || !(await assertInviter(tx, i, pair)))
+		return { status: "unavailable" } as const;
+	return pendingInvitation.parse({
+		status: "pending",
+		invitationId: i.id,
+		pair,
+		revision: i.revision,
+		expiresAt: new Date(expires).toISOString(),
+		inviterDescription: i.inviter_description,
+	});
+}
