@@ -10,6 +10,7 @@ export function identityAuth(config: {
 	db: Database;
 	origin: string;
 	secret: string;
+	emailChange?: boolean;
 	deliver: (
 		user: { id: string; email: string },
 		purpose: "password_reset" | "email_verification",
@@ -28,7 +29,13 @@ export function identityAuth(config: {
 		secret: config.secret,
 		trustedOrigins: [config.origin],
 		...authStorage,
-		session: { ...authStorage.session, expiresIn: 30 * 86400, updateAge: 15 * 86400 },
+		user: { ...authStorage.user, ...(config.emailChange ? { changeEmail: { enabled: true } } : {}) },
+		session: {
+			...authStorage.session,
+			...(config.emailChange ? { freshAge: 300 } : {}),
+			expiresIn: 30 * 86400,
+			updateAge: 15 * 86400,
+		},
 		emailAndPassword: {
 			enabled: true,
 			autoSignIn: false,
@@ -39,6 +46,7 @@ export function identityAuth(config: {
 			sendResetPassword: async ({ user, token }) => config.deliver(user, "password_reset", token),
 		},
 		emailVerification: {
+			...(config.emailChange ? { expiresIn: 86400 } : {}),
 			sendOnSignUp: false,
 			autoSignInAfterVerification: false,
 			sendVerificationEmail: async ({ user, token }) => config.deliver(user, "email_verification", token),

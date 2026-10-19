@@ -112,6 +112,7 @@ export const auditActions = [
   "invitation.revoked",
   "plant.created",
   "plant.profile_changed",
+  "settings.changed",
   "organization.profile_changed",
   "affiliation.approved",
   "affiliation.ended",

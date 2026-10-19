@@ -41,6 +41,9 @@ export const account = pgTable(
 		revision: int64("revision")
 			.notNull()
 			.default(sql`1`),
+		personal_timezone_revision: int64("personal_timezone_revision")
+			.notNull()
+			.default(sql`1`),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "account_fk_0", columns: [table.auth_user_id], foreignColumns: [auth_user.id] })
@@ -2898,6 +2901,7 @@ export const event = pgTable(
 				"invitation.revoked",
 				"plant.created",
 				"plant.profile_changed",
+				"settings.changed",
 				"organization.profile_changed",
 				"affiliation.approved",
 				"affiliation.ended",
@@ -3028,7 +3032,7 @@ export const event = pgTable(
 		check("event_ck_2", sql`(num_nonnulls(actor_id, actor_tombstone, system_cause) = 1)`),
 		check(
 			"event_ck_3",
-			sql`(action = ANY (ARRAY['identity.credential_observed'::text, 'identity.domain_accepted'::text, 'identity.credential_changed'::text, 'identity.credential_reconciled'::text, 'identity.email_changed'::text, 'identity.sessions_revoked'::text, 'membership.created'::text, 'membership.role_changed'::text, 'membership.ended'::text, 'invitation.claimed'::text, 'invitation.revoked'::text, 'plant.created'::text, 'plant.profile_changed'::text, 'organization.profile_changed'::text, 'affiliation.approved'::text, 'affiliation.ended'::text, 'sharing.changed'::text, 'people.created'::text, 'people.updated'::text, 'people.retired'::text, 'people.restored'::text, 'people.stage_changed'::text, 'people.merged'::text, 'people.unmerged'::text, 'people.recorded'::text, 'people.corrected'::text, 'teams.changed'::text, 'roles.changed'::text, 'training.assigned'::text, 'training.assignment_removed'::text, 'training.completed'::text, 'training.revoked'::text, 'training.corrected'::text, 'meetings.changed'::text, 'meetings.finalized'::text, 'meetings.corrected'::text, 'meetings.rsvp_recorded'::text, 'meetings.response_recorded'::text, 'tasks.changed'::text, 'tasks.completed'::text, 'tasks.waived'::text, 'followup.recorded'::text, 'followup.corrected'::text, 'phase.created'::text, 'phase.declared'::text, 'phase.transitioned'::text, 'attestation.recorded'::text, 'attestation.corrected'::text, 'launch.changed'::text, 'launch.outcome_recorded'::text, 'launch.debrief_submitted'::text, 'launch.summary_published'::text, 'launch.corrected'::text, 'wiki.published'::text, 'wiki.hidden'::text, 'wiki.source_order_changed'::text, 'reference.activated'::text, 'documents.saved'::text, 'documents.copied'::text, 'files.finalized'::text, 'intelligence.requested'::text, 'intelligence.published'::text, 'intelligence.superseded'::text, 'intelligence.feedback_recorded'::text, 'communication.approved'::text, 'communication.send_intended'::text, 'mail.accepted'::text, 'mail.delivered'::text, 'mail.refused'::text, 'mail.reconciled'::text, 'mail.cancelled'::text, 'feedback.received'::text, 'feedback.publication_intended'::text, 'feedback.published'::text, 'feedback.reconciled'::text, 'execution.started'::text, 'execution.completed'::text, 'execution.partial'::text, 'execution.cancelled'::text, 'execution.reconciled'::text, 'account.deletion_requested'::text, 'plant.deletion_requested'::text, 'deletion.cancelled'::text, 'deletion.live_purge_completed'::text, 'recovery.copy_expired'::text, 'recovery.restored'::text, 'security.access_denied'::text, 'security.bulk_export'::text, 'security.audit_inspected'::text, 'security.audit_exported'::text, 'security.operator_accessed'::text]))`,
+			sql`(action = ANY (ARRAY['identity.credential_observed'::text, 'identity.domain_accepted'::text, 'identity.credential_changed'::text, 'identity.credential_reconciled'::text, 'identity.email_changed'::text, 'identity.sessions_revoked'::text, 'membership.created'::text, 'membership.role_changed'::text, 'membership.ended'::text, 'invitation.claimed'::text, 'invitation.revoked'::text, 'plant.created'::text, 'plant.profile_changed'::text, 'settings.changed'::text, 'organization.profile_changed'::text, 'affiliation.approved'::text, 'affiliation.ended'::text, 'sharing.changed'::text, 'people.created'::text, 'people.updated'::text, 'people.retired'::text, 'people.restored'::text, 'people.stage_changed'::text, 'people.merged'::text, 'people.unmerged'::text, 'people.recorded'::text, 'people.corrected'::text, 'teams.changed'::text, 'roles.changed'::text, 'training.assigned'::text, 'training.assignment_removed'::text, 'training.completed'::text, 'training.revoked'::text, 'training.corrected'::text, 'meetings.changed'::text, 'meetings.finalized'::text, 'meetings.corrected'::text, 'meetings.rsvp_recorded'::text, 'meetings.response_recorded'::text, 'tasks.changed'::text, 'tasks.completed'::text, 'tasks.waived'::text, 'followup.recorded'::text, 'followup.corrected'::text, 'phase.created'::text, 'phase.declared'::text, 'phase.transitioned'::text, 'attestation.recorded'::text, 'attestation.corrected'::text, 'launch.changed'::text, 'launch.outcome_recorded'::text, 'launch.debrief_submitted'::text, 'launch.summary_published'::text, 'launch.corrected'::text, 'wiki.published'::text, 'wiki.hidden'::text, 'wiki.source_order_changed'::text, 'reference.activated'::text, 'documents.saved'::text, 'documents.copied'::text, 'files.finalized'::text, 'intelligence.requested'::text, 'intelligence.published'::text, 'intelligence.superseded'::text, 'intelligence.feedback_recorded'::text, 'communication.approved'::text, 'communication.send_intended'::text, 'mail.accepted'::text, 'mail.delivered'::text, 'mail.refused'::text, 'mail.reconciled'::text, 'mail.cancelled'::text, 'feedback.received'::text, 'feedback.publication_intended'::text, 'feedback.published'::text, 'feedback.reconciled'::text, 'execution.started'::text, 'execution.completed'::text, 'execution.partial'::text, 'execution.cancelled'::text, 'execution.reconciled'::text, 'account.deletion_requested'::text, 'plant.deletion_requested'::text, 'deletion.cancelled'::text, 'deletion.live_purge_completed'::text, 'recovery.copy_expired'::text, 'recovery.restored'::text, 'security.access_denied'::text, 'security.bulk_export'::text, 'security.audit_inspected'::text, 'security.audit_exported'::text, 'security.operator_accessed'::text]))`,
 		),
 		check(
 			"event_ck_4",
@@ -5448,14 +5452,17 @@ export const notification_preference = pgTable(
 		account_id: uuid("account_id").notNull(),
 		category: text("category", {
 			enum: [
-				"task",
-				"meeting",
-				"phase",
-				"insight",
+				"task_due",
+				"task_overdue",
+				"meeting_announcement",
+				"meeting_reminder",
 				"planter_digest",
 				"oversight_digest",
-				"relationship",
-				"reference_update",
+				"relationship_milestone",
+				"sharing_milestone",
+				"phase_milestone",
+				"launch_milestone",
+				"wiki_upstream_review",
 			],
 		}).notNull(),
 		channel: text("channel", { enum: ["email", "in_app"] }).notNull(),
@@ -5485,13 +5492,16 @@ export const notification_preference = pgTable(
 		check("notification_preference_ck_0", sql`(revision >= 1)`),
 		check(
 			"notification_preference_ck_1",
-			sql`(category = ANY (ARRAY['task'::text, 'meeting'::text, 'phase'::text, 'insight'::text, 'planter_digest'::text, 'oversight_digest'::text, 'relationship'::text, 'reference_update'::text]))`,
+			sql`category IN ('task_due','task_overdue','meeting_announcement','meeting_reminder','planter_digest','oversight_digest','relationship_milestone','sharing_milestone','phase_milestone','launch_milestone','wiki_upstream_review')`,
 		),
 		check("notification_preference_ck_2", sql`(channel = ANY (ARRAY['email'::text, 'in_app'::text]))`),
 		check("notification_preference_ck_3", sql`(cadence = ANY (ARRAY['daily'::text, 'weekly'::text]))`),
 		check("notification_preference_ck_4", sql`((weekday IS NULL) OR ((weekday >= 0) AND (weekday <= 6)))`),
 		check("notification_preference_ck_5", sql`((hour IS NULL) OR ((hour >= 0) AND (hour <= 23)))`),
-		check("notification_preference_ck_6", sql`((category <> 'reference_update'::text) OR (channel = 'in_app'::text))`),
+		check(
+			"notification_preference_ck_6",
+			sql`((category <> 'wiki_upstream_review'::text) OR (channel = 'in_app'::text))`,
+		),
 	],
 );
 export const obligation = pgTable(
@@ -7433,6 +7443,9 @@ export const plant = pgTable(
 		city: text("city"),
 		state_province: text("state_province"),
 		country: text("country"),
+		digest_cadence: text("digest_cadence", { enum: ["off", "daily", "weekly"] })
+			.notNull()
+			.default("weekly"),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "plant_fk_0", columns: [table.id], foreignColumns: [tenant.id] })
@@ -7457,6 +7470,7 @@ export const plant = pgTable(
 			"plant_ck_9",
 			sql`(journey_answer = ANY (ARRAY['existing'::text, 'unsure'::text, 'discerning'::text, 'skip'::text]))`,
 		),
+		check("plant_digest_cadence", sql`digest_cadence IN ('off','daily','weekly')`),
 		check("plant_timezone_iana", sql`(timezone = ANY (${canonicalZones7}))`),
 	],
 );
@@ -9677,5 +9691,42 @@ export const onboarding_result = pgTable(
 			columns: [t.operation_id, t.tenant_id],
 			foreignColumns: [operation.id, operation.tenant_id],
 		}),
+	],
+);
+
+export const settings_result = pgTable(
+	"settings_result",
+	{
+		operation_id: uuid("operation_id").primaryKey(),
+		tenant_id: uuid("tenant_id")
+			.notNull()
+			.references(() => tenant.id),
+		value: jsonb("value").notNull(),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		foreignKey({
+			name: "settings_result_operation",
+			columns: [t.operation_id, t.tenant_id],
+			foreignColumns: [operation.id, operation.tenant_id],
+		}),
+	],
+);
+export const settings_preview = pgTable(
+	"settings_preview",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		account_id: uuid("account_id")
+			.notNull()
+			.references(() => account.id),
+		tenant_id: uuid("tenant_id")
+			.notNull()
+			.references(() => tenant.id),
+		kind: text("kind", { enum: ["plant_timezone", "personal_timezone"] }).notNull(),
+		expected_revision: int64("expected_revision").notNull(),
+		value: jsonb("value").notNull(),
+		expires_at: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		check("settings_preview_kind", sql`${t.kind} IN ('plant_timezone','personal_timezone')`),
 	],
 );

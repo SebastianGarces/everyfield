@@ -79,38 +79,14 @@ export function profileOperations(
 			if (actor.status !== "active" || !administrator(actor) || !sameOwner(selected, q.input.organization)) refuse();
 			const c = await beginCommand(tx, actor, selected, "organizations.updateProfile", q);
 			if (c.kind === "replay") return Q.mutationResult.parse(c.result);
-			const row = profileRow.parse(
-				(await tx.select().from(tables.organization).where(eq(tables.organization.id, selected.id)).for("update"))[0],
+			const changed = await applyOrganizationProfile(tx, c, selected.id, q.input.patch, q.expectedRevision);
+			return finishCommand(
+				tx,
+				c,
+				(r) => Q.mutationResult.parse({ status: "committed", receipt: r }),
+				changed.events,
+				changed.changed,
 			);
-			checkRevision(q.expectedRevision, row.revision);
-			const fields = {
-				name: "name",
-				city: "city",
-				stateProvince: "state_province",
-				country: "country",
-				description: "description",
-				contactEmail: "contact_email",
-				contactPhone: "contact_phone",
-			} as const;
-			const patch: Partial<typeof tables.organization.$inferInsert> = {};
-			for (const [key, value] of Object.entries(q.input.patch)) {
-				const field =
-					fields[
-						z
-							.enum(["name", "city", "stateProvince", "country", "description", "contactEmail", "contactPhone"])
-							.parse(key)
-					];
-				if (field === "name") patch.name = z.string().parse(value);
-				else patch[field] = value;
-			}
-			await tx
-				.update(tables.organization)
-				.set({ ...patch, revision: sql`${tables.organization.revision}+1` })
-				.where(eq(tables.organization.id, selected.id));
-
-			const next = String(BigInt(row.revision) + 1n),
-				event = await appendEvent(tx, c, selected.id, "edit", "organization.profile_changed", row.revision, next);
-			return finishCommand(tx, c, (r) => Q.mutationResult.parse({ status: "committed", receipt: r }), [event]);
 		},
 		async "organizations.correctReportingLocation"(tx, session, selected, raw) {
 			const q = Q.correctReportingLocationRequest.parse(raw),
@@ -209,4 +185,52 @@ export function profileOperations(
 			return finishCommand(tx, c, (r) => Q.mutationResult.parse({ status: "committed", receipt: r }), [event]);
 		},
 	};
+}
+
+// The profile section and native organization operation share protected-field
+// validation, CAS, no-op handling and one audit consequence.
+export async function applyOrganizationProfile(
+	tx: Transaction,
+	c: Extract<Awaited<ReturnType<typeof beginCommand>>, { kind: "new" }>,
+	id: string,
+	input: z.infer<typeof Q.updateOrganizationProfileRequest>["input"]["patch"],
+	expected: string,
+) {
+	const [stored] = await tx.select().from(tables.organization).where(eq(tables.organization.id, id)).for("update");
+	const row = profileRow.parse(stored);
+	checkRevision(expected, row.revision);
+	const fields = {
+		name: "name",
+		city: "city",
+		stateProvince: "state_province",
+		country: "country",
+		description: "description",
+		contactEmail: "contact_email",
+		contactPhone: "contact_phone",
+	} as const;
+	const patch: Partial<typeof tables.organization.$inferInsert> = {};
+	for (const [raw, value] of Object.entries(input)) {
+		const key = z
+			.enum(["name", "city", "stateProvince", "country", "description", "contactEmail", "contactPhone"])
+			.parse(raw);
+		const field = fields[key];
+		if (row[field] === value) continue;
+		if (field === "name") patch.name = z.string().parse(value);
+		else patch[field] = value;
+	}
+	if (!Object.keys(patch).length) return { changed: false, events: [] as string[] };
+	await tx
+		.update(tables.organization)
+		.set({ ...patch, revision: sql`${tables.organization.revision}+1` })
+		.where(eq(tables.organization.id, id));
+	const event = await appendEvent(
+		tx,
+		c,
+		id,
+		"edit",
+		"organization.profile_changed",
+		row.revision,
+		String(BigInt(row.revision) + 1n),
+	);
+	return { changed: true, events: [event] };
 }
