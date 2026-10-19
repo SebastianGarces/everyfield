@@ -778,41 +778,107 @@ test("AC:ADR1-001 AC:WP011-MUL-001 AC:ADR1-005 AC:WP011-MUL-005 organization pro
 	assert.equal(JSON.stringify(history).includes("contact@example.test"), false);
 });
 
-test("AC:TARGET-PPL-023 distinct transition units preserve repeated historical moves and unknown denominators", async () => {
-	let p = await create("Metrics");
-	for (const stage of ["attendee", "prospect", "attendee"])
-		p = ok(
-			await tx((t) =>
-				write.changeStatus(t, ctx(), {
-					requestKey: randomUUID(),
-					expectedRevision: p.revision,
-					input: {
-						personId: p.id,
-						stage,
-						reason: "Recorded move",
-						handoffs: [],
-					},
-				}),
-			),
-		).person;
-	const now = new Date().toISOString(),
-		day = now.slice(0, 10);
-	const metrics = ok(
+test("AC:TARGET-PPL-023 distinct transitions use fixed plant-local days across UTC and plant midnight", async () => {
+	const plant = randomUUID(),
+		actor = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
+	await admin.execute(
+		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${sql.param(actor.user)},${sql.param(actor.id + "@example.test")},true,'Synthetic metrics')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${sql.param(actor.id)},${sql.param(actor.user)},'active','planter')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${sql.param(actor.session)},${sql.param(actor.user)},${sql.param(randomUUID())},clock_timestamp()+interval '1 day')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${sql.param(plant)},'Metrics fixture','America/New_York',7,14,1,8,1,1)`,
+	);
+	await admin.execute(
+		sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${sql.param(actor.id)},${sql.param(plant)},'owner',clock_timestamp())`,
+	);
+	const context = {
+		session: actor.session,
+		selected: { kind: "plant", id: plant },
+		purpose: "native",
+		origin: { kind: "native" },
+	};
+	let saved = ok(
 		await tx((t) =>
-			read.readPipelineMetrics(t, ctx(), {
-				asOf: now,
-				from: day,
-				through: day,
+			write.createPerson(t, context, {
+				requestKey: randomUUID(),
+				input: { displayName: "Fixed-clock metrics" },
 			}),
 		),
 	);
-	assert.equal(metrics.unit, "distinct_canonical_people");
-	assert.equal(metrics.transitions.find((t) => t.from === "prospect").distinctPeople >= 1, true);
-	assert.equal(metrics.currentStages.length, 7);
-	assert.equal(metrics.transitions[0].conversion.status, "unknown");
+	let p = saved.person;
+	const operations = [saved.receiptId];
+	for (const stage of ["attendee", "prospect", "attendee"]) {
+		saved = ok(
+			await tx((t) =>
+				write.changeStatus(t, context, {
+					requestKey: randomUUID(),
+					expectedRevision: p.revision,
+					input: { personId: p.id, stage, reason: "Recorded move", handoffs: [] },
+				}),
+			),
+		);
+		p = saved.person;
+		operations.push(saved.receiptId);
+	}
+	// Clock and history are fixed together. The dates are the plant's calendar,
+	// including the hours after UTC midnight that still belong to the prior day.
+	const clockCases = [
+		{ asOf: "2020-06-01T23:59:59.000Z", day: "2020-06-01" },
+		{ asOf: "2020-06-02T00:00:01.000Z", day: "2020-06-01" },
+		{ asOf: "2020-06-02T03:59:59.000Z", day: "2020-06-01" },
+		{ asOf: "2020-06-02T04:00:01.000Z", day: "2020-06-02" },
+	];
+	for (const { asOf, day } of clockCases) {
+		const at = Date.parse(asOf);
+		await admin.execute(
+			sql`UPDATE person SET created_at=${sql.param(new Date(at - 900).toISOString())} WHERE id=${sql.param(p.id)}`,
+		);
+		for (const [i, operation] of operations.entries()) {
+			const occurredAt = new Date(at - [900, 600, 400, 200][i]).toISOString();
+			await admin.execute(
+				sql`UPDATE people_history SET occurred_at=${sql.param(occurredAt)},recorded_at=${sql.param(occurredAt)} WHERE person_id=${sql.param(p.id)} AND operation_id=${sql.param(operation)}`,
+			);
+		}
+		const metrics = ok(await tx((t) => read.readPipelineMetrics(t, context, { asOf, from: day, through: day })));
+		assert.equal(metrics.unit, "distinct_canonical_people");
+		assert.equal(metrics.asOf, asOf);
+		assert.equal(metrics.zone, "America/New_York");
+		assert.deepEqual(
+			metrics.currentStages.map((r) => [r.stage, r.distinctPeople]),
+			[
+				["prospect", 0],
+				["attendee", 1],
+				["following_up", 0],
+				["interviewed", 0],
+				["core_group", 0],
+				["launch_team", 0],
+				["leader", 0],
+			],
+		);
+		assert.deepEqual(metrics.transitions[0], {
+			from: "prospect",
+			to: "attendee",
+			distinctPeople: 1,
+			conversion: { status: "unknown", reason: "empty_cohort" },
+		});
+	}
+	const firstClock = clockCases[0];
 	refused(
 		await tx((t) =>
-			read.readPipelineMetrics(t, { ...ctx(), purpose: "model" }, { asOf: now, from: day, through: day }),
+			read.readPipelineMetrics(
+				t,
+				{ ...context, purpose: "model" },
+				{
+					asOf: firstClock.asOf,
+					from: firstClock.day,
+					through: firstClock.day,
+				},
+			),
 		),
 	);
 	const artifact = await migrationArtifact();
