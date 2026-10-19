@@ -786,9 +786,12 @@ test("INV-reading: a single current eligible reader must finish all six strictly
 		.insert(t.team_role)
 		.values({ plant_id: f.p.id, team_id: ministry.id, name: "Worship leader", leadership: true, sort_order: 0 })
 		.returning();
-	await admin
-		.insert(t.team_tenure)
-		.values({ plant_id: f.p.id, role_id: ministryRole.id, person_id: adminReader.person.id, started_on: "2026-10-18" });
+	await admin.insert(t.team_tenure).values({
+		plant_id: f.p.id,
+		role_id: ministryRole.id,
+		person_id: adminReader.person.id,
+		started_on: sql`(SELECT (clock_timestamp() AT TIME ZONE timezone)::date FROM plant WHERE id=${f.p.id})`,
+	});
 	assert.equal((await resume(f)).reading.status, "incomplete");
 	// Select the ordinary lead role, then assign its current occupant normally.
 	const r = await resume(f),
@@ -833,7 +836,7 @@ test("INV-reading: a single current eligible reader must finish all six strictly
 		[t.team, lead.lead.assignment.teamId, { archived_at: new Date() }, { archived_at: null }],
 		[t.team_role, lead.lead.assignment.roleId, { retired_at: new Date() }, { retired_at: null }],
 		[t.team_role, lead.lead.assignment.roleId, { leadership: false }, { leadership: true }],
-		[t.team_tenure, tenure.id, { ended_on: "2026-10-18" }, { ended_on: null }],
+		[t.team_tenure, tenure.id, { ended_on: tenure.started_on }, { ended_on: null }],
 	]) {
 		await admin.update(table).set(patch).where(eq(table.id, id));
 		assert.equal((await resume(f)).reading.status, "incomplete");
