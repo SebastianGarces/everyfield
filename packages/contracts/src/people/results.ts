@@ -69,6 +69,7 @@ export const pipelineResult = z
 			.array(
 				z.strictObject({
 					column: pipelineColumn,
+					revision,
 					cards: z.array(pipelineCard).max(100),
 					total: z.int().min(0).nullable(),
 					next: z.string().min(1).max(4096).nullable(),

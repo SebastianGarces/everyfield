@@ -279,6 +279,58 @@ test("AC:TARGET-PPL-001 literal search, tag intersection, full totals and bound 
 	);
 });
 
+test("BUG-110: people pages retain microseconds across 25 equal timestamp keys", async (t) => {
+	const ids = Array.from({ length: 25 }, () => randomUUID()).sort();
+	t.after(() => admin.execute(sql`DELETE FROM person WHERE id=ANY(${sql.param(ids)}::uuid[])`));
+	for (const id of ids)
+		await admin.execute(
+			sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,pipeline_position,state,created_at) VALUES(${id},${plants[0]},${plants[0]},'Microsecond people','other','prospect','unknown','unknown',0,'live','2026-10-01T12:00:00.123456Z')`,
+		);
+	for (const view of ["list", "pipeline"]) {
+		const first = ok(await tx((t) => read.listPeople(t, ctx(), { search: "Microsecond people", view, limit: 24 })));
+		assert.equal(first.total, 25);
+		assert.deepEqual(
+			first.items.map((p) => p.id),
+			ids.slice(0, 24),
+		);
+		assert.equal(first.completeness, "partial");
+		const last = ok(
+			await tx((t) => read.listPeople(t, ctx(), { search: "Microsecond people", view, limit: 24, after: first.next })),
+		);
+		assert.deepEqual(
+			last.items.map((p) => p.id),
+			ids.slice(24),
+		);
+		assert.equal(last.total, 25);
+		assert.equal(last.next, null);
+		assert.equal(last.completeness, "complete");
+	}
+});
+
+test("BUG-110: activity pages retain microseconds across equal timestamp keys", async () => {
+	const p = await create("Microsecond activities");
+	const ids = Array.from({ length: 25 }, () => randomUUID()).sort();
+	for (const id of ids)
+		await admin.execute(
+			sql`INSERT INTO person_note(id,tenant_id,plant_id,person_id,author_id,body,occurred_at,recorded_at) VALUES(${id},${plants[0]},${plants[0]},${p.id},${actors[0].id},'Microsecond note','2026-10-01T12:00:00.654321Z','2026-10-01T12:00:00.654321Z')`,
+		);
+	const first = ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id, kinds: ["note"], limit: 24 })));
+	assert.deepEqual(
+		first.items.map((a) => a.id),
+		ids.slice(0, 24),
+	);
+	assert.equal(first.completeness, "partial");
+	const last = ok(
+		await tx((t) => read.getActivities(t, ctx(), { personId: p.id, kinds: ["note"], limit: 24, after: first.next })),
+	);
+	assert.deepEqual(
+		last.items.map((a) => a.id),
+		ids.slice(24),
+	);
+	assert.equal(last.next, null);
+	assert.equal(last.completeness, "complete");
+});
+
 test("AC:TARGET-PPL-004 AC:ROLE43-003 exact account links, ambiguous contact selection and concurrent uniqueness", async () => {
 	const contact = await create("Proven account", {
 			email: actors[0].id + "@example.test",
@@ -577,6 +629,14 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 			}),
 		),
 	);
+	const assertNoteFeed = async (kind) => {
+		const feed = ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id })));
+		assert.deepEqual(
+			feed.items.map((a) => (a.kind === "activity" ? a.action : a.kind)),
+			["created", kind],
+		);
+	};
+	await assertNoteFeed("note");
 	const before = (
 		await admin.execute(sql`SELECT occurred_at,author_id FROM person_note WHERE id=${sql.param(added.noteId)}`)
 	).rows[0];
@@ -615,6 +675,7 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 	);
 	const timeline = ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id, kinds: ["note"] })));
 	assert.equal(timeline.items[0].body, "Corrected operational note");
+	await assertNoteFeed("note");
 	const deleted = ok(
 		await tx((t) =>
 			write.deleteNote(t, ctx(), {
@@ -625,6 +686,16 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 		),
 	);
 	assert.equal(deleted.revision, "3");
+	await assertNoteFeed("note_removed");
+	assert.deepEqual(
+		(
+			await admin.execute(sql`SELECT
+			(SELECT count(*)::int FROM event e JOIN operation o ON o.id=e.operation_id WHERE e.target_record_id=${p.id} AND o.name IN ('people.addNote','people.editNote','people.deleteNote')) AS audits,
+			(SELECT count(*)::int FROM people_history WHERE person_id=${p.id} AND action='note_correction') AS corrections,
+			(SELECT count(*)::int FROM people_history WHERE person_id=${p.id} AND action='people.updated') AS updates`)
+		).rows[0],
+		{ audits: 3, corrections: 2, updates: 0 },
+	);
 	assert.equal(
 		(await admin.execute(sql`SELECT body FROM person_note WHERE id=${sql.param(added.noteId)}`)).rows[0].body,
 		"",
@@ -707,41 +778,107 @@ test("AC:ADR1-001 AC:WP011-MUL-001 AC:ADR1-005 AC:WP011-MUL-005 organization pro
 	assert.equal(JSON.stringify(history).includes("contact@example.test"), false);
 });
 
-test("AC:TARGET-PPL-023 distinct transition units preserve repeated historical moves and unknown denominators", async () => {
-	let p = await create("Metrics");
-	for (const stage of ["attendee", "prospect", "attendee"])
-		p = ok(
-			await tx((t) =>
-				write.changeStatus(t, ctx(), {
-					requestKey: randomUUID(),
-					expectedRevision: p.revision,
-					input: {
-						personId: p.id,
-						stage,
-						reason: "Recorded move",
-						handoffs: [],
-					},
-				}),
-			),
-		).person;
-	const now = new Date().toISOString(),
-		day = now.slice(0, 10);
-	const metrics = ok(
+test("AC:TARGET-PPL-023 distinct transitions use fixed plant-local days across UTC and plant midnight", async () => {
+	const plant = randomUUID(),
+		actor = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
+	await admin.execute(
+		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${sql.param(actor.user)},${sql.param(actor.id + "@example.test")},true,'Synthetic metrics')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${sql.param(actor.id)},${sql.param(actor.user)},'active','planter')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${sql.param(actor.session)},${sql.param(actor.user)},${sql.param(randomUUID())},clock_timestamp()+interval '1 day')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${sql.param(plant)},'Metrics fixture','America/New_York',7,14,1,8,1,1)`,
+	);
+	await admin.execute(
+		sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${sql.param(actor.id)},${sql.param(plant)},'owner',clock_timestamp())`,
+	);
+	const context = {
+		session: actor.session,
+		selected: { kind: "plant", id: plant },
+		purpose: "native",
+		origin: { kind: "native" },
+	};
+	let saved = ok(
 		await tx((t) =>
-			read.readPipelineMetrics(t, ctx(), {
-				asOf: now,
-				from: day,
-				through: day,
+			write.createPerson(t, context, {
+				requestKey: randomUUID(),
+				input: { displayName: "Fixed-clock metrics" },
 			}),
 		),
 	);
-	assert.equal(metrics.unit, "distinct_canonical_people");
-	assert.equal(metrics.transitions.find((t) => t.from === "prospect").distinctPeople >= 1, true);
-	assert.equal(metrics.currentStages.length, 7);
-	assert.equal(metrics.transitions[0].conversion.status, "unknown");
+	let p = saved.person;
+	const operations = [saved.receiptId];
+	for (const stage of ["attendee", "prospect", "attendee"]) {
+		saved = ok(
+			await tx((t) =>
+				write.changeStatus(t, context, {
+					requestKey: randomUUID(),
+					expectedRevision: p.revision,
+					input: { personId: p.id, stage, reason: "Recorded move", handoffs: [] },
+				}),
+			),
+		);
+		p = saved.person;
+		operations.push(saved.receiptId);
+	}
+	// Clock and history are fixed together. The dates are the plant's calendar,
+	// including the hours after UTC midnight that still belong to the prior day.
+	const clockCases = [
+		{ asOf: "2020-06-01T23:59:59.000Z", day: "2020-06-01" },
+		{ asOf: "2020-06-02T00:00:01.000Z", day: "2020-06-01" },
+		{ asOf: "2020-06-02T03:59:59.000Z", day: "2020-06-01" },
+		{ asOf: "2020-06-02T04:00:01.000Z", day: "2020-06-02" },
+	];
+	for (const { asOf, day } of clockCases) {
+		const at = Date.parse(asOf);
+		await admin.execute(
+			sql`UPDATE person SET created_at=${sql.param(new Date(at - 900).toISOString())} WHERE id=${sql.param(p.id)}`,
+		);
+		for (const [i, operation] of operations.entries()) {
+			const occurredAt = new Date(at - [900, 600, 400, 200][i]).toISOString();
+			await admin.execute(
+				sql`UPDATE people_history SET occurred_at=${sql.param(occurredAt)},recorded_at=${sql.param(occurredAt)} WHERE person_id=${sql.param(p.id)} AND operation_id=${sql.param(operation)}`,
+			);
+		}
+		const metrics = ok(await tx((t) => read.readPipelineMetrics(t, context, { asOf, from: day, through: day })));
+		assert.equal(metrics.unit, "distinct_canonical_people");
+		assert.equal(metrics.asOf, asOf);
+		assert.equal(metrics.zone, "America/New_York");
+		assert.deepEqual(
+			metrics.currentStages.map((r) => [r.stage, r.distinctPeople]),
+			[
+				["prospect", 0],
+				["attendee", 1],
+				["following_up", 0],
+				["interviewed", 0],
+				["core_group", 0],
+				["launch_team", 0],
+				["leader", 0],
+			],
+		);
+		assert.deepEqual(metrics.transitions[0], {
+			from: "prospect",
+			to: "attendee",
+			distinctPeople: 1,
+			conversion: { status: "unknown", reason: "empty_cohort" },
+		});
+	}
+	const firstClock = clockCases[0];
 	refused(
 		await tx((t) =>
-			read.readPipelineMetrics(t, { ...ctx(), purpose: "model" }, { asOf: now, from: day, through: day }),
+			read.readPipelineMetrics(
+				t,
+				{ ...context, purpose: "model" },
+				{
+					asOf: firstClock.asOf,
+					from: firstClock.day,
+					through: firstClock.day,
+				},
+			),
 		),
 	);
 	const artifact = await migrationArtifact();
@@ -1200,9 +1337,14 @@ test("INV-pipeline: complete native and reviewed orders persist, retry once, and
 		),
 	);
 	assert.ok(oldPage.next);
+	const initialPipeline = ok(await tx((t) => read.getPipelineData(t, ctx(), {})));
+	assert.deepEqual(
+		initialPipeline.groups.map((g) => g.revision),
+		["1", "1", "1", "1", "1"],
+	);
 	const order = {
 		requestKey: randomUUID(),
-		expectedRevision: "1",
+		expectedRevision: initialPipeline.groups.find((g) => g.column === "prospect").revision,
 		input: { column: "prospect", personIds: [...all].reverse() },
 	};
 	refused(await tx((t) => write.reorderPipeline(t, ctx(1), order)));
@@ -1243,10 +1385,12 @@ test("INV-pipeline: complete native and reviewed orders persist, retry once, and
 		),
 		"invalid_input",
 	);
+	const refreshedPipeline = ok(await tx((t) => read.getPipelineData(t, ctx(), { stages: ["leader"] })));
+	assert.equal(refreshedPipeline.groups.find((g) => g.column === "prospect").revision, "2");
 	const { hash } = await import("../../../packages/domain/src/people/core.ts"),
 		input = {
 			requestKey: randomUUID(),
-			expectedRevision: "2",
+			expectedRevision: refreshedPipeline.groups.find((g) => g.column === "prospect").revision,
 			input: { column: "prospect", personIds: all },
 		},
 		name = "people.reorderPipeline",

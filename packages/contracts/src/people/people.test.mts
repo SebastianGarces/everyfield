@@ -106,7 +106,7 @@ test("INV-person-read: directory, timeline and cursors expose only the allowed o
   assert.equal(people.plantPerson.safeParse({ ...profile, lifecycle: { state: "merged", retiredAt: now, survivorId: Q } }).success, false);
   const leaderCard = { person: profile, activeParentDuties: [], coverage: "uncovered" };
   const pipeline = { owner, groups: ["prospect", "attendee", "following_up", "interviewed", "core_group"].map(column =>
-    ({ column, cards: column === "core_group" ? [leaderCard] : [], total: null, next: null })), completeness: "complete" };
+    ({ column, revision: "1", cards: column === "core_group" ? [leaderCard] : [], total: null, next: null })), completeness: "complete" };
   assert.deepEqual(roundTrip(people.pipelineResult, pipeline), pipeline);
   const wrongColumn = { ...pipeline, groups: pipeline.groups.map(g =>
     ({ ...g, cards: g.column === "prospect" ? [leaderCard] : [] })) };
