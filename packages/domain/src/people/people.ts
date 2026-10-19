@@ -1,4 +1,4 @@
-import { and, asc, eq, isNotNull, isNull, lte, or, sql } from "@everyfield/db/query";
+import { and, asc, eq, inArray, isNotNull, isNull, lte, or, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 
 import { randomUUID } from "node:crypto";
@@ -605,27 +605,35 @@ async function pipelineOrder(tx: Tx, ctx: WriteContext, input: z.infer<typeof c.
 				.orderBy(asc(tables.person.id))
 				.for("update");
 			if (rows.length !== ids.length || rows.some((p) => !ids.includes(personId.parse(p.id)))) deny("conflict");
-			for (const [i, pid] of ids.entries()) {
-				const before = personRow.parse(rows.find((p) => p.id === pid));
-				await tx
-					.update(tables.person)
-					.set({ pipeline_position: String(i), revision: sql<unknown>`(${tables.person.revision} + 1)` })
-					.where(eq(tables.person.id, pid));
-				const after = await person(tx, ctx, pid, true);
-				await tx.insert(tables.people_history).values({
-					tenant_id: ctx.selected.id,
-					person_id: pid,
-					operation_id: id,
-					actor_id: actor,
-					actor_token: hash([ctx.selected.id, actor]),
-					action: "people.updated",
-					occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-					before_revision: sql`${before.revision}`,
-					after_revision: sql`${after.revision}`,
-					before_value: before,
-					after_value: after,
-				});
-			}
+			// One UPDATE and one history INSERT for the whole column, so a reorder costs the same at 3 or 100 people (D68).
+			const updated = await tx
+				.update(tables.person)
+				.set({
+					pipeline_position: sql`(array_position(${sql.param(ids)}::uuid[], ${tables.person.id}) - 1)`,
+					revision: sql<unknown>`(${tables.person.revision} + 1)`,
+				})
+				.where(and(eq(tables.person.plant_id, ctx.selected.id), inArray(tables.person.id, ids)))
+				.returning();
+			const token = hash([ctx.selected.id, actor]);
+			await tx.insert(tables.people_history).values(
+				updated.map((row) => {
+					const before = personRow.parse(rows.find((p) => p.id === row.id)),
+						after = personRow.parse(row);
+					return {
+						tenant_id: ctx.selected.id,
+						person_id: after.id,
+						operation_id: id,
+						actor_id: actor,
+						actor_token: token,
+						action: "people.updated" as const,
+						occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+						before_revision: sql`${before.revision}`,
+						after_revision: sql`${after.revision}`,
+						before_value: before,
+						after_value: after,
+					};
+				}),
+			);
 			await tx
 				.update(tables.people_column)
 				.set({ revision: sql<unknown>`(${tables.people_column.revision} + 1)` })

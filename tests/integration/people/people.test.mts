@@ -12,6 +12,7 @@ import {
 	accountPersonProducer as accounts,
 	getAccountLink,
 	downloadOrganizationExport,
+	readColumnOrder,
 } from "../../../packages/domain/src/people/index.ts";
 
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
@@ -1493,4 +1494,56 @@ test("BUG-FB-review-1: full People pages and pipeline use fixed database round t
 		await tx((t) => read.getPipelineData(t, ctx(), { search: "Batch regression", limit: 25 })),
 		"source_unavailable",
 	);
+});
+
+test("D68: a pipeline move is one transaction with a constant round-trip count", async (t) => {
+	const ids = Array.from({ length: 10 }, () => randomUUID()).sort();
+	// No cleanup: receipts keep references to these people, and the disposable schema is dropped after the suite.
+	const insert = (some) =>
+		admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,pipeline_position,state,created_at)
+			SELECT id,${plants[0]}::uuid,${plants[0]}::uuid,'Move regression','other','interviewed','unknown','unknown',0,'live',clock_timestamp()
+			FROM unnest(${sql.param(some)}::uuid[]) id`);
+	// The reorder action: the producer's command plus one column read, in one transaction.
+	const reorder = async (personIds) => {
+		const column = await tx((t) => readColumnOrder(t, ctx(), "interviewed"));
+		queries = [];
+		const order = ok(
+			await tx(async (t) => {
+				const done = await write.reorderPipeline(t, ctx(), {
+					requestKey: randomUUID(),
+					expectedRevision: column.revision,
+					input: { column: "interviewed", personIds },
+				});
+				return done.status === "ok" ? { status: "ok", value: await readColumnOrder(t, ctx(), "interviewed") } : done;
+			}),
+		);
+		assert.deepEqual(order.personIds, personIds);
+		assert.equal(order.revision, String(Number(column.revision) + 1));
+		return queries.length;
+	};
+	await insert(ids.slice(0, 3));
+	const few = await reorder(ids.slice(0, 3).reverse());
+	await insert(ids.slice(3));
+	const many = await reorder([...ids].reverse());
+	t.diagnostic(JSON.stringify({ reorder: [few, many] }));
+	assert.equal(many, few, "reordering 10 people costs the same as 3");
+	assert.ok(few <= 20, `reorder round trips: ${few}`);
+	const history = await admin.execute(
+		sql`SELECT count(*)::int AS n FROM people_history WHERE person_id=ANY(${sql.param(ids)}::uuid[]) AND action='people.updated'`,
+	);
+	assert.equal(history.rows[0].n, 13, "one history row per person per reorder");
+	const [first] = ok(await tx((t) => read.listPeople(t, ctx(), { search: "Move regression", limit: 1 }))).items;
+	queries = [];
+	const moved = ok(
+		await tx((t) =>
+			write.changeStatus(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: first.revision,
+				input: { personId: first.id, stage: "attendee", reason: "Moved back", handoffs: [] },
+			}),
+		),
+	);
+	t.diagnostic(JSON.stringify({ changeStatus: queries.length }));
+	assert.equal(moved.person.stage, "attendee");
+	assert.ok(queries.length <= 25, `stage change round trips: ${queries.length}`);
 });

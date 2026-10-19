@@ -379,3 +379,27 @@ export async function readPeopleViewer(tx: Tx, session: z.infer<typeof sessionId
 		},
 	} as const;
 }
+
+/**
+ * One pipeline column's saved order and revision, read in the reorder's own transaction (D68). The reorder answers with
+ * this pair instead of re-reading the whole pipeline. The writer has already authorized and locked the column.
+ */
+export async function readColumnOrder(tx: Tx, ctx: Context, column: z.infer<typeof c.pipelineColumn>) {
+	const stages = column === "core_group" ? (["core_group", "launch_team", "leader"] as const) : [column];
+	const [col] = await tx
+		.select({ revision: tables.people_column.revision })
+		.from(tables.people_column)
+		.where(and(eq(tables.people_column.plant_id, ctx.selected.id), eq(tables.people_column.column_name, column)));
+	const rows = await tx
+		.select({ id: tables.person.id })
+		.from(tables.person)
+		.where(
+			and(
+				eq(tables.person.plant_id, ctx.selected.id),
+				eq(tables.person.state, "live"),
+				inArray(tables.person.stage, [...stages]),
+			),
+		)
+		.orderBy(asc(tables.person.pipeline_position), asc(tables.person.created_at), asc(tables.person.id));
+	return { revision: col?.revision ?? "1", personIds: rows.map((r) => r.id) };
+}

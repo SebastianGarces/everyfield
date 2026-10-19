@@ -26,6 +26,7 @@ import {
 } from "@everyfield/ui/controls";
 import { Avatar, KeyValue, KeyValueList, StageChip, StatusBadge } from "@everyfield/ui/display";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { z } from "zod";
 import { ActivityCard } from "./ActivityCard.tsx";
@@ -62,6 +63,7 @@ export function PersonScreen({
 	canWrite: boolean;
 }) {
 	const [store, state] = usePersonStore<PlantPerson, PersonDraft>(person);
+	const router = useRouter();
 	const p = state.saved;
 	const [open, setOpen] = useState<Open>(null);
 	const busy = state.pending !== null;
@@ -266,7 +268,10 @@ export function PersonScreen({
 
 			{canWrite ? (
 				<>
-					{open === "stage" ? <StageDialog open onOpenChange={toggle("stage")} store={store} /> : null}
+					{open === "stage" ? (
+						// The profile refreshes after a move, so the activity list shows the stage change.
+						<StageDialog open onOpenChange={toggle("stage")} store={store} onDone={() => router.refresh()} />
+					) : null}
 					{open === "profile" ? <EditProfileDialog open onOpenChange={toggle("profile")} store={store} /> : null}
 					{open === "classify" ? <ClassificationDialog open onOpenChange={toggle("classify")} store={store} /> : null}
 					{open === "retire" ? <RetireDialog open onOpenChange={toggle("retire")} store={store} /> : null}

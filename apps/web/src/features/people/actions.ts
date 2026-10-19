@@ -3,7 +3,7 @@
 import { getViewer } from "@/server/request-context";
 
 import * as c from "@everyfield/contracts/people";
-import { peopleReader, peopleWriter } from "@everyfield/domain/people";
+import { peopleReader, peopleWriter, readColumnOrder } from "@everyfield/domain/people";
 import type { z } from "zod";
 import { parseQuery, type Outcome } from "./model.ts";
 import { loadPeople, read, write, type PeopleView, type Viewer } from "./server.ts";
@@ -183,10 +183,10 @@ export async function loadColumn(
 
 /**
  * Saves a new order for one pipeline column. The list holds every live person in that column, in the new order. The
- * answer is the column as it stands after the command: its order and its revision, from one read in the same
- * transaction, after the producer has locked the column row (FOR UPDATE). The page shows exactly that pair. A replayed
- * request (same key after a lost answer) may answer with a later actor's order; the pair still matches, so a next move
- * can never pair an old order with a newer revision.
+ * answer is that column as it stands after the command, read in the same transaction after the producer locked the
+ * column row: its order and its revision, never the whole pipeline (D68). A replayed request (same key after a lost
+ * answer) may answer with a later actor's order; the pair still matches, so a next move can never pair an old order
+ * with a newer revision.
  */
 export async function reorderPipeline(
 	requestKey: string,
@@ -198,21 +198,8 @@ export async function reorderPipeline(
 			await write(v, async (tx, ctx) => {
 				const done = await peopleWriter.reorderPipeline(tx, ctx, request);
 				if (done.status !== "ok") return done;
-				const now = await peopleReader.getPipelineData(
-					tx,
-					{ session: ctx.session, selected: ctx.selected, purpose: "native" },
-					c.listPeopleRequest.parse({ limit: 100, view: "pipeline" }),
-				);
-				if (now.status !== "ok") return now;
-				const group = now.value.groups.find((g) => g.column === request.input.column)!;
-				return {
-					status: "ok",
-					value: {
-						outcome: done.value.outcome,
-						revision: group.revision,
-						personIds: group.cards.map((x) => x.person.id),
-					},
-				};
+				const column = await readColumnOrder(tx, ctx, request.input.column);
+				return { status: "ok", value: { outcome: done.value.outcome, ...column } };
 			}),
 			(r) => r,
 		),

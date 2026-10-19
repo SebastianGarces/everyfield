@@ -54,6 +54,7 @@ export function StageDialog({
 	onOpenChange,
 	store,
 	target,
+	onStage,
 	onDone,
 }: {
 	open: boolean;
@@ -61,6 +62,9 @@ export function StageDialog({
 	store: PersonStore<PlantPerson, PersonDraft>;
 	/** A stage chosen before the dialog opened, such as a pipeline drop. */
 	target?: StageValue;
+	/** The move as it goes: the person at the new stage when sent, the saved person when answered, null if refused. */
+	onStage?: (person: PlantPerson | null) => void;
+	/** After a saved move. The dialog never refreshes the page itself (D68); a caller that needs fresh data does. */
 	onDone?: (person: PlantPerson) => void;
 }) {
 	const router = useRouter();
@@ -68,7 +72,10 @@ export function StageDialog({
 	const person = state.saved;
 	const pending = state.pending === "stage";
 	const draft = (state.drafts.stage as StageDraft | undefined) ?? { stage: target ?? null, reason: "" };
-	const warnings = useWarnings(person.id, person.revision);
+	// Read once when the dialog opens and again after a conflict, never because this dialog's own save changed the
+	// person's revision (D68: the warnings request was repeating after every move).
+	const [round, setRound] = useState(0);
+	const warnings = useWarnings(person.id, String(round));
 	const [touched, setTouched] = useState(false);
 
 	const set = (patch: Partial<StageDraft>) =>
@@ -96,16 +103,20 @@ export function StageDialog({
 		if (!chosen || reasonMissing || !ready || chosen === person.stage) return;
 		const input = { personId: person.id, stage: chosen, reason: draft.reason.trim(), handoffs };
 		const rev = person.revision;
+		onStage?.({ ...person, stage: chosen });
 		const result = await runSave(store, "stage", { input, rev }, (key) => changeStatus(key, rev, input), {
 			fresh,
 			toPerson: (p) => p,
 		});
+		onStage?.(result?.status === "ok" ? result.value : null);
 		if (result?.status === "ok") {
 			setTouched(false);
 			onOpenChange(false);
 			onDone?.(result.value);
+		} else if (result?.status === "refused" && result.code === "conflict") {
+			setRound((r) => r + 1);
 			router.refresh();
-		} else if (result?.status === "refused" && result.code === "conflict") router.refresh();
+		}
 	}
 
 	return (
