@@ -244,6 +244,15 @@ for (const [name, engine] of [
 			await dialog.getByRole("button", { name: "Save changes" }).click();
 			await dialog.waitFor({ state: "detached", timeout: 30_000 });
 			await page.getByRole("link", { name: "512 555 0142" }).waitFor();
+			// Activity shows the saved change without a reload.
+			await page.waitForFunction(
+				() =>
+					[...document.querySelectorAll('ol[aria-label="Activity, oldest first"] > li')].some((l) =>
+						l.innerText.startsWith("Details changed"),
+					),
+				null,
+				{ timeout: 30_000 },
+			);
 		});
 	});
 
@@ -341,6 +350,32 @@ for (const [name, engine] of [
 			await message.waitFor({ timeout: 30_000 });
 			await b.waitForTimeout(3000);
 			assert.equal(await message.count(), 1, "the refusal is still shown after the refresh");
+		});
+	});
+
+	test(`AC:TARGET-PPL-007 INV-reorder-filtered (${name}): a filtered column offers no reorder and says to clear filters`, async () => {
+		await withPage(engine, "owner", async (page) => {
+			await page.goto(`${BASE}/people?view=pipeline&q=an`);
+			await page.getByRole("list", { name: "Core group people" }).waitFor();
+			await page.getByRole("button", { name: "Move Ana Lee" }).click();
+			await page.getByText("Clear filters to reorder").waitFor();
+			for (const item of ["Move up", "Move down"])
+				assert.equal(await page.getByRole("menuitem", { name: item }).getAttribute("aria-disabled"), "true", item);
+		});
+	});
+
+	test(`AC:TARGET-PPL-002 (${name}): recording adult or child updates Details and Activity without a reload`, async () => {
+		await withPage(engine, "owner", async (page) => {
+			await addPerson(page, unique(name));
+			await page.getByRole("button", { name: "More actions" }).click();
+			await page.getByRole("menuitem", { name: "Record adult or child" }).click();
+			const dialog = page.getByRole("dialog", { name: "Record adult or child" });
+			await dialog.getByLabel("Reason").fill("Said so at the vision meeting");
+			await dialog.getByRole("button", { name: "Record" }).click();
+			await dialog.waitFor({ state: "detached", timeout: 30_000 });
+			await page.waitForFunction(() => document.body.innerText.includes("Adult or child recorded"), null, {
+				timeout: 30_000,
+			});
 		});
 	});
 }

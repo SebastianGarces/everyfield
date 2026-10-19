@@ -19,6 +19,7 @@ import type { z } from "zod";
 import { loadColumn, reorderPipeline } from "./actions.ts";
 import { useRouter } from "next/navigation";
 import {
+	isFiltered,
 	listRequest,
 	moveInOrder,
 	PersonStore,
@@ -170,7 +171,10 @@ function Column({
 		saved && saved.from === group
 			? saved.ids.map((id) => loaded.find((c) => c.person.id === id)!).filter(Boolean)
 			: loaded;
-	const complete = !more_.next && loaded.length <= 100;
+	// The server takes the complete column order. A search or filter hides people, and "Show more" may not have run, so
+	// reorder is offered only for an unfiltered, fully loaded column (verifier finding: q=an sent 2 of 5 IDs).
+	const filtered = isFiltered(query);
+	const complete = !filtered && !more_.next && loaded.length <= 100;
 	// After a keyboard reorder, focus returns to the moved person's Move button, also after the refresh re-renders.
 	useEffect(() => {
 		if (!focusId) return;
@@ -250,6 +254,7 @@ function Column({
 										card={card}
 										onMove={onMove}
 										onReorder={complete && order.pending === null ? (d) => reorder(card, d) : null}
+										why={filtered ? "Clear filters to reorder" : "Show the whole column to reorder"}
 										first={card === cards[0]}
 										last={card === cards.at(-1)}
 									/>
@@ -316,8 +321,11 @@ function MoveMenu({
 	onReorder,
 	first,
 	last,
+	why,
 }: {
 	card: CardData;
+	/** Why Move up and Move down are off, when they are. */
+	why: string;
 	onMove: (card: CardData, target?: StageValue) => void;
 	onReorder: ((direction: "up" | "down") => void) | null;
 	first: boolean;
@@ -330,7 +338,7 @@ function MoveMenu({
 					<IconButton icon={MoreHorizontalIcon} label={`Move ${card.person.displayName}`} size="sm" />
 				</MenuTrigger>
 				<MenuContent align="end">
-					<MenuLabel>{onReorder ? "Order in this column" : "Show the whole column to reorder"}</MenuLabel>
+					<MenuLabel>{onReorder ? "Order in this column" : why}</MenuLabel>
 					<MenuItem disabled={!onReorder || first} onSelect={() => onReorder?.("up")}>
 						Move up
 					</MenuItem>

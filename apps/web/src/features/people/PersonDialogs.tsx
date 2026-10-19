@@ -95,6 +95,7 @@ export function EditProfileDialog({
 	onOpenChange: (open: boolean) => void;
 	store: Store;
 }) {
+	const router = useRouter();
 	const state = useStore(store);
 	const person = state.saved;
 	const pending = state.pending === "profile";
@@ -133,6 +134,8 @@ export function EditProfileDialog({
 		if (result?.status === "ok") {
 			setTouched(false);
 			onOpenChange(false);
+			// The saved change adds a history entry; refresh so Activity shows it now.
+			router.refresh();
 		}
 	}
 
@@ -268,6 +271,7 @@ export function ClassificationDialog({
 	onOpenChange: (open: boolean) => void;
 	store: Store;
 }) {
+	const router = useRouter();
 	const state = useStore(store);
 	const person = state.saved;
 	const correction = person.adultClassification !== "unknown";
@@ -308,7 +312,11 @@ export function ClassificationDialog({
 			(key) => classifyAdult(key, rev, correction, input),
 			{ fresh, toPerson: (p) => p },
 		);
-		if (result?.status === "ok") close(false);
+		if (result?.status === "ok") {
+			close(false);
+			// The saved classification adds a history entry; refresh so Activity shows it now.
+			router.refresh();
+		}
 	}
 
 	return (
