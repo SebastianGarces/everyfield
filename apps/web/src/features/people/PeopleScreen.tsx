@@ -25,7 +25,6 @@ import {
 } from "@everyfield/ui/controls";
 import { Avatar, DataTable, PersonCard, StageChip, StatusBadge, type Column } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import type { z } from "zod";
@@ -48,7 +47,7 @@ import {
 	type PeopleQuery,
 	type ViewValue,
 } from "./model.ts";
-import { CardLink, When } from "./parts.tsx";
+import { CardLink, PersonLink, When } from "./parts.tsx";
 import { PipelineBoard } from "./PipelineBoard.tsx";
 import type { PeopleData, PeopleView } from "./server.ts";
 
@@ -452,9 +451,9 @@ const COLUMNS: Column<PlantPerson>[] = [
 			<div className="flex items-center gap-3">
 				<Avatar name={p.displayName} size="sm" decorative />
 				<div className="min-w-0">
-					<Link href={`/people/${p.id}`} className="font-semibold text-ink hover:underline">
+					<PersonLink href={`/people/${p.id}`} className="font-semibold text-ink hover:underline">
 						{p.displayName}
-					</Link>
+					</PersonLink>
 					<div className="truncate text-sm text-text-3">{p.email ?? p.phone ?? "No contact details"}</div>
 				</div>
 			</div>
