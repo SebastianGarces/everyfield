@@ -3,8 +3,8 @@
 import * as c from "@everyfield/contracts/people";
 import { peopleReader, peopleWriter } from "@everyfield/domain/people";
 import type { z } from "zod";
-import type { Outcome } from "./model.ts";
-import { read, getViewer, write, type Viewer } from "./server.ts";
+import { parseQuery, type Outcome } from "./model.ts";
+import { loadPeople, read, getViewer, write, type PeopleView, type Viewer } from "./server.ts";
 
 // Server actions behind the People screens: the browser boundary. Each one rebuilds the viewer from the request,
 // parses the browser's input with the WP-011 contract schemas (a strict schema refuses any owner, account or authority
@@ -43,6 +43,16 @@ async function plantPerson(v: Viewer, personId: PersonId): Promise<Outcome<Plant
 	return r.value.status === "available" && "stage" in r.value.person
 		? { status: "ok", value: r.value.person }
 		: { status: "refused", code: "unavailable" };
+}
+
+/**
+ * The People view for an address the screen has not loaded yet: the pipeline from the list, or the list from the
+ * pipeline. Null when the viewer cannot read People; the screen then loads the page, which shows sign-in or the lock.
+ */
+export async function loadPeopleView(search: unknown): Promise<PeopleView | null> {
+	const v = await getViewer();
+	if (v.status !== "viewer" || typeof search !== "string" || search.length > 16_384) return null;
+	return loadPeople(v.viewer, parseQuery(new URLSearchParams(search)));
 }
 
 export async function createPerson(requestKey: string, input: unknown): Promise<Outcome<{ personId: string }>> {

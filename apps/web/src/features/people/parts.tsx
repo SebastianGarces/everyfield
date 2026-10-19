@@ -3,6 +3,7 @@
 import { Alert02Icon } from "@hugeicons/core-free-icons";
 import { Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useSyncExternalStore, type ComponentProps, type ReactNode } from "react";
 import type * as people from "@everyfield/contracts/people";
 import type { z } from "zod";
@@ -128,6 +129,44 @@ export function useWarnings(
  * clickable); this sets a 24px line, so the link itself meets the WCAG 2.2 target size next to the card's Move button,
  * and keeps the ellipsis on a long name.
  */
-export function CardLink({ className, ...props }: ComponentProps<typeof Link>) {
-	return <Link {...props} className={`${className ?? ""} inline-block max-w-full truncate align-top leading-6`} />;
+export function CardLink({ className, ...props }: ComponentProps<typeof PersonLink>) {
+	return (
+		<PersonLink {...props} className={`${className ?? ""} inline-block max-w-full truncate align-top leading-6`} />
+	);
+}
+
+/**
+ * A link to one person from the People list, cards or pipeline. A view switch shows up to a page of new person links
+ * at once, and Next.js would prefetch every one that scrolls into view, so a switch would send a request per person.
+ * These links prefetch only when a person shows intent (pointer, touch or keyboard focus), so the switch itself
+ * sends nothing and opening a person still starts early.
+ */
+export function PersonLink({
+	href,
+	onMouseEnter,
+	onTouchStart,
+	onFocus,
+	...props
+}: Omit<ComponentProps<typeof Link>, "href"> & { href: string }) {
+	const router = useRouter();
+	const warm = () => router.prefetch(href);
+	return (
+		<Link
+			{...props}
+			href={href}
+			prefetch={false}
+			onMouseEnter={(e) => {
+				warm();
+				onMouseEnter?.(e);
+			}}
+			onTouchStart={(e) => {
+				warm();
+				onTouchStart?.(e);
+			}}
+			onFocus={(e) => {
+				warm();
+				onFocus?.(e);
+			}}
+		/>
+	);
 }
