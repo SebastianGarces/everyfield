@@ -12,10 +12,10 @@ import { FormMessage, PasswordInput } from "./parts";
 import { SessionActions } from "./SessionActions";
 
 /**
- * Until Overview (WP-048) and onboarding (WP-009) exist, a sign-in without a return path lands back here, on the
- * signed-in state. Change this one value when they ship.
+ * A sign-in without a return path lands on onboarding (WP-009), which shows setup or says there is nothing to set up.
+ * Change this one value when Overview (WP-048) ships.
  */
-export const AFTER_SIGN_IN = "/signin";
+export const AFTER_SIGN_IN = "/onboarding";
 
 type SignedIn = Exclude<SessionResult, { status: "unauthenticated" }>;
 
@@ -52,11 +52,9 @@ function SignedInState({ session, returnTo }: { session: SignedIn; returnTo: str
 					? "Your account is ready. Setting up your church comes next."
 					: "Continue where you left off, or sign out."}
 			</AuthHeading>
-			{pending ? null : (
-				<Button asChild variant="primary" className="mt-6 w-full">
-					<a href={returnTo ?? "/"}>Continue</a>
-				</Button>
-			)}
+			<Button asChild variant="primary" className="mt-6 w-full">
+				<a href={pending ? AFTER_SIGN_IN : (returnTo ?? "/")}>{pending ? "Set up your church" : "Continue"}</a>
+			</Button>
 			<SessionActions className="mt-6" />
 		</>
 	);
