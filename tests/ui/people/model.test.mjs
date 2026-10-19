@@ -22,6 +22,7 @@ import {
 	nextPage,
 	previousPage,
 	rangeText,
+	moveInOrder,
 } from "../../../apps/web/src/features/people/model.ts";
 
 const person = (revision, extra = {}) => ({ id: "p1", revision, displayName: "Maria Santos", ...extra });
@@ -198,4 +199,11 @@ test("AC:TARGET-PPL-001 INV-url: unknown values are ignored and the pipeline has
 	assert.equal(listRequest(pipeline).after, undefined);
 	assert.equal(listRequest(pipeline).archived, "exclude", "the pipeline shows active people only");
 	assert.equal(listRequest(parseQuery(url(""))).limit, 24);
+});
+
+test("AC:TARGET-PPL-007 INV-reorder: a move sends the whole column with one person moved one place", () => {
+	assert.deepEqual(moveInOrder(["a", "b", "c"], "c", "up"), ["a", "c", "b"]);
+	assert.deepEqual(moveInOrder(["a", "b", "c"], "a", "down"), ["b", "a", "c"]);
+	assert.deepEqual(moveInOrder(["a", "b", "c"], "a", "up"), ["a", "b", "c"]);
+	assert.deepEqual(moveInOrder(["a", "b", "c"], "c", "down"), ["a", "b", "c"]);
 });

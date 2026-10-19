@@ -171,3 +171,16 @@ export async function loadColumn(
 		),
 	);
 }
+
+/** Saves a new order for one pipeline column. The list holds every live person in that column, in the new order. */
+export async function reorderPipeline(
+	requestKey: string,
+	expectedRevision: string,
+	input: unknown,
+): Promise<Outcome<{ outcome: "changed" | "noop" }>> {
+	return boundary(c.reorderPipelineRequest, { requestKey, expectedRevision, input }, async (v, request) =>
+		outcome(await write(v, (tx, ctx) => peopleWriter.reorderPipeline(tx, ctx, request)), (r) => ({
+			outcome: r.outcome,
+		})),
+	);
+}

@@ -247,4 +247,24 @@ for (const [name, engine] of [
 			await page.getByText(/^Showing 1–/).waitFor();
 		});
 	});
+
+	test(`AC:TARGET-PPL-007 INV-reorder (${name}): Move up saves the column order under its revision`, async () => {
+		await withPage(engine, "owner", async (page) => {
+			const column = () => page.getByRole("list", { name: "Following up people" });
+			const names = () =>
+				column()
+					.getByRole("article")
+					.evaluateAll((a) => a.map((x) => x.getAttribute("aria-label")));
+			await page.goto(`${BASE}/people?view=pipeline`);
+			await column().waitFor();
+			const before = await names();
+			assert.ok(before.length >= 2, "two people in Following up");
+			await page.getByRole("button", { name: `Move ${before[1]}` }).click();
+			await page.getByRole("menuitem", { name: "Move up" }).click();
+			await page.getByText(`${before[1]} moved up.`).waitFor({ state: "attached", timeout: 30_000 });
+			await page.reload();
+			await column().waitFor();
+			assert.deepEqual((await names()).slice(0, 2), [before[1], before[0]], "the server kept the new order");
+		});
+	});
 }

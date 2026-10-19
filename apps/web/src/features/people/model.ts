@@ -359,3 +359,13 @@ export async function runSave<P extends Saved, D, T>(
 	});
 	return result;
 }
+
+/** A column order with one person moved one place up or down. The same order when that move leaves the column. */
+export function moveInOrder(ids: readonly string[], id: string, direction: "up" | "down"): string[] {
+	const from = ids.indexOf(id),
+		to = direction === "up" ? from - 1 : from + 1;
+	if (from < 0 || to < 0 || to >= ids.length) return [...ids];
+	const next = [...ids];
+	[next[from], next[to]] = [next[to]!, next[from]!];
+	return next;
+}

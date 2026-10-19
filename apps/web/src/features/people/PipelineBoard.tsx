@@ -2,15 +2,27 @@
 
 import { MoreHorizontalIcon } from "@hugeicons/core-free-icons";
 import type * as people from "@everyfield/contracts/people";
-import { Button, IconButton, Menu, MenuContent, MenuItem, MenuLabel, MenuTrigger } from "@everyfield/ui/controls";
+import {
+	Button,
+	IconButton,
+	Menu,
+	MenuContent,
+	MenuItem,
+	MenuLabel,
+	MenuSeparator,
+	MenuTrigger,
+} from "@everyfield/ui/controls";
 import { PersonCard, PipelineColumn, StageChip, StatusBadge } from "@everyfield/ui/display";
 import Link from "next/link";
 import { useState, type DragEvent } from "react";
 import type { z } from "zod";
-import { loadColumn } from "./actions.ts";
+import { loadColumn, reorderPipeline } from "./actions.ts";
+import { useRouter } from "next/navigation";
 import {
 	listRequest,
+	moveInOrder,
 	PersonStore,
+	runSave,
 	STAGE_KEY,
 	STAGE_LABEL,
 	STAGES,
@@ -18,7 +30,7 @@ import {
 	type PeopleQuery,
 	type StageValue,
 } from "./model.ts";
-import { FormProblem, problemOf, When } from "./parts.tsx";
+import { FormProblem, fresh, problemOf, useStore, When } from "./parts.tsx";
 import { StageDialog, type PersonDraft } from "./StageDialog.tsx";
 
 type Pipeline = z.infer<typeof people.pipelineResult>;
@@ -137,7 +149,29 @@ function Column({
 		next: group.next,
 	});
 	const [loading, setLoading] = useState(false);
-	const cards = [...group.cards, ...extra.cards];
+	const loaded = [...group.cards, ...extra.cards];
+	const router = useRouter();
+	// One reorder at a time per column, with the column's revision as the lock (REQ-PPL-007). The whole column must be
+	// loaded, because the server takes the complete order and refuses a partial one.
+	const [store] = useState(() => new PersonStore<{ revision: string }, null>({ revision: group.revision }));
+	const order = useStore(store);
+	const [saved, setSaved] = useState<{ ids: string[]; said: string } | null>(null);
+	const cards = saved ? saved.ids.map((id) => loaded.find((c) => c.person.id === id)!).filter(Boolean) : loaded;
+	const complete = !extra.next && loaded.length <= 100;
+	async function reorder(card: CardData, direction: "up" | "down") {
+		const ids = moveInOrder(
+			cards.map((c) => c.person.id),
+			card.person.id,
+			direction,
+		);
+		const input = { column: group.column, personIds: ids };
+		const rev = order.saved.revision;
+		const r = await runSave(store, "order", { input, rev }, (key) => reorderPipeline(key, rev, input), { fresh });
+		if (r?.status === "ok") {
+			setSaved({ ids, said: `${card.person.displayName} moved ${direction}.` });
+			router.refresh();
+		} else if (r?.status === "refused" && r.code === "conflict") router.refresh();
+	}
 	async function more() {
 		if (!extra.next || loading) return;
 		setLoading(true);
@@ -184,7 +218,15 @@ function Column({
 									footer={<CardBadges card={card} />}
 									className={canWrite ? "pr-12" : undefined}
 								/>
-								{canWrite ? <MoveMenu card={card} onMove={onMove} /> : null}
+								{canWrite ? (
+									<MoveMenu
+										card={card}
+										onMove={onMove}
+										onReorder={complete && order.pending === null ? (d) => reorder(card, d) : null}
+										first={card === cards[0]}
+										last={card === cards.at(-1)}
+									/>
+								) : null}
 							</li>
 						))}
 					</ul>
@@ -195,6 +237,10 @@ function Column({
 					</Button>
 				) : null}
 				<FormProblem code={extra.problem} />
+				<FormProblem code={order.errors.order} />
+				<p role="status" className="sr-only">
+					{saved?.said ?? ""}
+				</p>
 			</PipelineColumn>
 		</div>
 	);
@@ -225,8 +271,23 @@ function CardBadges({ card }: { card: CardData }) {
 	);
 }
 
-/** The keyboard way to move a card: a menu of the other stages, in the card's corner. */
-function MoveMenu({ card, onMove }: { card: CardData; onMove: (card: CardData, target?: StageValue) => void }) {
+/**
+ * The keyboard way to move a card, in its corner: up or down inside the column, or to another stage. Up and down need
+ * the whole column on screen; until then they are disabled and say why.
+ */
+function MoveMenu({
+	card,
+	onMove,
+	onReorder,
+	first,
+	last,
+}: {
+	card: CardData;
+	onMove: (card: CardData, target?: StageValue) => void;
+	onReorder: ((direction: "up" | "down") => void) | null;
+	first: boolean;
+	last: boolean;
+}) {
 	return (
 		<span className="absolute top-2 right-2 z-10">
 			<Menu>
@@ -234,7 +295,15 @@ function MoveMenu({ card, onMove }: { card: CardData; onMove: (card: CardData, t
 					<IconButton icon={MoreHorizontalIcon} label={`Move ${card.person.displayName}`} size="sm" />
 				</MenuTrigger>
 				<MenuContent align="end">
-					<MenuLabel>Move to</MenuLabel>
+					<MenuLabel>{onReorder ? "Order in this column" : "Show the whole column to reorder"}</MenuLabel>
+					<MenuItem disabled={!onReorder || first} onSelect={() => onReorder?.("up")}>
+						Move up
+					</MenuItem>
+					<MenuItem disabled={!onReorder || last} onSelect={() => onReorder?.("down")}>
+						Move down
+					</MenuItem>
+					<MenuSeparator />
+					<MenuLabel>Move to stage</MenuLabel>
 					{STAGES.filter((s) => s !== card.person.stage).map((s) => (
 						<MenuItem key={s} onSelect={() => onMove(card, s)}>
 							{STAGE_LABEL[s]}
