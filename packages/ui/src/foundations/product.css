@@ -39,6 +39,11 @@
 	html[data-theme="dark"] {
 		color-scheme: dark;
 	}
+	/* The document is the product's scroll container, so the gutter goes on <html>: pages with and without a scrollbar
+     keep the same width. Marketing pages have no product root and keep their own scrolling. */
+	html:has([data-product-root]) {
+		scrollbar-gutter: stable;
+	}
 	html[data-theme] body {
 		background: var(--ef-frame);
 	}
@@ -49,8 +54,6 @@
 	[data-product-root] {
 		line-height: 1.45;
 		-webkit-font-smoothing: antialiased;
-		/* Always reserve the scrollbar's space so pages with and without a scrollbar line up. */
-		scrollbar-gutter: stable;
 	}
 	[data-product-root] :where(h1, h2, h3, h4) {
 		font-family: var(--ef-font-display);
