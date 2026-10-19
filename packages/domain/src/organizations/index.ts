@@ -27,3 +27,17 @@ export { canReadSharedSources, canDispatchActivity } from "./gates.ts";
 export { canReadResidentProgress } from "./consent.ts";
 export { readSharingDisclosure } from "./sharing.ts";
 export { readAnswerableInvitation } from "./relationships.ts";
+
+export {
+	namesFor,
+	idsIn,
+	pendingFor,
+	pairOf,
+	targetsFor,
+	subjectFacts,
+	residencyLinks,
+	residencyRevision,
+	connectionRevision,
+	hasDiscoveryProfile,
+} from "./reads.ts";
+export type { Kind, Viewer } from "./reads.ts";

@@ -1,10 +1,12 @@
 "use server";
 
+import { getViewer } from "@/server/request-context";
+
 import * as c from "@everyfield/contracts/people";
 import { peopleReader, peopleWriter } from "@everyfield/domain/people";
 import type { z } from "zod";
 import { parseQuery, type Outcome } from "./model.ts";
-import { loadPeople, read, resolveViewer, write, type PeopleView, type Viewer } from "./server.ts";
+import { loadPeople, read, write, type PeopleView, type Viewer } from "./server.ts";
 
 // Server actions behind the People screens: the browser boundary. Each one rebuilds the viewer from the request,
 // parses the browser's input with the WP-011 contract schemas (a strict schema refuses any owner, account or authority
@@ -29,11 +31,11 @@ async function boundary<S extends z.ZodType, T>(
 	raw: unknown,
 	run: (viewer: Viewer, input: z.output<S>) => Promise<Outcome<T>>,
 ): Promise<Outcome<T>> {
-	const v = await resolveViewer();
-	if (v.status !== "viewer") return denied;
+	const v = await getViewer();
+	if (!v?.people) return denied;
 	const input = schema.safeParse(raw);
 	if (!input.success) return invalid;
-	return run(v.viewer, input.data);
+	return run(v.people, input.data);
 }
 
 /** A fresh read of one plant person, for answers whose producer result has no person (classification, notes). */
@@ -50,9 +52,9 @@ async function plantPerson(v: Viewer, personId: PersonId): Promise<Outcome<Plant
  * pipeline. Null when the viewer cannot read People; the screen then loads the page, which shows sign-in or the lock.
  */
 export async function loadPeopleView(search: unknown): Promise<PeopleView | null> {
-	const v = await resolveViewer();
-	if (v.status !== "viewer" || typeof search !== "string" || search.length > 16_384) return null;
-	return loadPeople(v.viewer, parseQuery(new URLSearchParams(search)));
+	const v = await getViewer();
+	if (!v?.people || typeof search !== "string" || search.length > 16_384) return null;
+	return loadPeople(v.people, parseQuery(new URLSearchParams(search)));
 }
 
 export async function createPerson(requestKey: string, input: unknown): Promise<Outcome<{ personId: string }>> {

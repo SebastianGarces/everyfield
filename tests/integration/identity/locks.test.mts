@@ -3,9 +3,16 @@ import assert from "node:assert/strict";
 import { fixture, key } from "./invitations-support.mts";
 import { eq, sql, and } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
-import { currentActor } from "../../../packages/domain/src/access/index.ts";
+import { currentActor, RequestActor } from "../../../packages/domain/src/access/index.ts";
 import { owner, sessionId } from "../../../packages/contracts/src/common/index.ts";
-import { peopleReader } from "../../../packages/domain/src/people/index.ts";
+import {
+	PeopleReadContext,
+	readPeopleViewer,
+	peopleWriter,
+	peopleReader,
+} from "../../../packages/domain/src/people/index.ts";
+import { readPeoplePage, readPersonPage } from "../../../apps/web/src/features/people/page-data.ts";
+import { parseQuery } from "../../../apps/web/src/features/people/model.ts";
 let f;
 before(async () => {
 	f = await fixture({ lockTimeout: "1s" });
@@ -343,6 +350,11 @@ test("INV-identity: current actor preserves authority within two database round 
 				trips.every((n) => n <= 2),
 				`${c.name}: ${trips.join(", ")} round trips, expected at most 2 each`,
 			);
+
+			if (!["foreign account", "seatless workspace"].includes(c.name)) {
+				const resolved = await f.db.transaction((tx) => RequestActor.resolve(tx, sessionId.parse(c.account.session)));
+				assert.deepEqual(resolved instanceof RequestActor ? resolved.actor : resolved, c.expected);
+			}
 			assert.equal(
 				statements.some((sql) => /for\s+update/i.test(sql)),
 				false,
@@ -381,6 +393,7 @@ test("INV-identity: deletion committed while actor waits for a root lock denies 
 						}
 					}
 					assert.equal(blocked, true, "Actor must reach the held root lock before deletion");
+					const requestedAt = new Date();
 					await tx.insert(t.lifecycle_witness).values({
 						kind,
 						opaque_subject_id: kind === "account" ? s.sender.id : s.w.id,
@@ -390,8 +403,8 @@ test("INV-identity: deletion committed while actor waits for a root lock denies 
 						requester_id: s.sender.id,
 						request_revision: "1",
 						state: "pending_deletion",
-						requested_at: new Date(),
-						cancel_until: new Date(Date.now() + 30 * 86400000),
+						requested_at: requestedAt,
+						cancel_until: new Date(requestedAt.getTime() + 30 * 86400000),
 						witness_checkpoint: "1",
 						cleanup_state: "not_started",
 					});
@@ -402,4 +415,84 @@ test("INV-identity: deletion committed while actor waits for a root lock denies 
 			}
 		});
 	}
+});
+
+test("INV-request-page: revoked membership refuses writes from a stale viewer", async (test) => {
+	const f = await fixture();
+	test.after(() => f.close());
+	const native = f.native();
+	const email = key() + "@example.test",
+		password = "Request-page-password-1";
+	await native("register", { kind: "discovery", name: "Request Viewer", email, password, requestKey: key() });
+	const login = await native("sign-in/email", { email, password });
+	assert.equal(login.status, 200);
+	const cookie = login.headers
+		.getSetCookie()
+		.map((v) => v.split(";")[0])
+		.join("; ");
+	const session = await native.auth.api.getSession({ headers: new Headers({ cookie }) });
+	assert.equal(session.user.email, email);
+	const [account] = await f.admin.select().from(t.account).where(eq(t.account.auth_user_id, session.user.id));
+	await f.admin.update(t.account).set({ registration_state: "active" }).where(eq(t.account.id, account.id));
+	const workspace = await f.workspace();
+	const seat = await f.seat(account, workspace);
+	const ids = Array.from({ length: 25 }, () => key());
+	await f.admin.insert(t.person).values(
+		ids.map((id, n) => ({
+			id,
+			tenant_id: workspace.id,
+			plant_id: workspace.id,
+			display_name: `Request Person ${String(n).padStart(2, "0")}`,
+			source: "other",
+			created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, n)),
+			state: "live",
+			stage: "prospect",
+			commitment_state: "unknown",
+			adult_classification: "unknown",
+			pipeline_position: String(n + 1),
+			linked_account_id: n === 0 ? account.id : null,
+		})),
+	);
+	let viewer;
+	async function pageRead(page) {
+		const session = await native.auth.api.getSession({ headers: new Headers({ cookie }) });
+		const resolved = await f.db.transaction((tx) => readPeopleViewer(tx, sessionId.parse(session.session.id)));
+		assert.equal(resolved.status, "viewer");
+		viewer = resolved.viewer;
+		assert.equal(viewer.displayName, "Request Person 00");
+		assert.equal(viewer.ownPersonId, ids[0]);
+		return f.db.transaction((tx) => page(tx, new PeopleReadContext(viewer.authority, "native")));
+	}
+	const list = await pageRead((tx, ctx) =>
+		readPeoplePage(tx, ctx, parseQuery(new URLSearchParams("search=Request+Person"))),
+	);
+	assert.equal(list.data.kind, "list");
+	assert.deepEqual(
+		list.data.page.items.map((p) => p.id),
+		ids.slice(0, 24),
+	);
+	assert.equal(list.data.page.total, 25);
+	const person = await pageRead((tx, ctx) => readPersonPage(tx, ctx, ids[0]));
+	assert.equal(person.status, "ok");
+	assert.equal(person.value.found.person.displayName, "Request Person 00");
+	assert.deepEqual(person.value.link, { status: "ok", value: { status: "linked", personId: ids[0] } });
+	// A read snapshot can never authorize a later write. The writer must recheck
+	// its session/seat inside the mutation transaction even with this context.
+	await f.admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.id, seat));
+	const stale = Object.assign(new PeopleReadContext(viewer.authority, "native"), { origin: { kind: "native" } });
+	const changed = await f.db.transaction((tx) =>
+		peopleWriter.updatePerson(tx, stale, {
+			requestKey: key(),
+			expectedRevision: "1",
+			input: { personId: ids[0], patch: { displayName: "Must refuse" } },
+		}),
+	);
+	assert.equal(changed.status, "refused");
+	assert.equal(changed.error.code, "unavailable");
+	assert.equal(
+		(await f.admin.select().from(t.person).where(eq(t.person.id, ids[0])))[0].display_name,
+		"Request Person 00",
+	);
+	const next = await f.db.transaction((tx) => readPeopleViewer(tx, sessionId.parse(session.session.id)));
+	assert.deepEqual(next, { status: "no_access" });
 });

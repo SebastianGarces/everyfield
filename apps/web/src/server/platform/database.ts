@@ -14,8 +14,11 @@ export async function transaction<T>(pool: Database, body: (tx: Transaction) => 
 		return body(tx);
 	});
 }
-export async function currentScope(tx: Transaction, auth: PlatformAuth, headers: Headers, ownerId: string) {
-	const session = await auth.api.getSession({ headers, query: { disableCookieCache: true } });
+export async function currentScope(
+	tx: Transaction,
+	session: Awaited<ReturnType<PlatformAuth["api"]["getSession"]>>,
+	ownerId: string,
+) {
 	if (!session) throw new Refusal("unavailable", 404);
 	const owner = { kind: "plant" as const, id: tenantId.parse(ownerId) };
 	const scope = await CommandScope.load(

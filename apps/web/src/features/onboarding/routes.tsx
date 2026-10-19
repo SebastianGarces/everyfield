@@ -1,6 +1,6 @@
 import { parseTheme, ProductRoot, THEME_COOKIE } from "@everyfield/ui/foundations";
 import type { Metadata } from "next";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { onboardingEntry } from "@/server/onboarding";
@@ -21,7 +21,7 @@ export const onboardingMetadata: Metadata = { title: "Set up your church", robot
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 export async function OnboardingPage({ searchParams }: { searchParams: Search }) {
-	const load = parseEntry(await onboardingEntry(await headers()));
+	const load = parseEntry(await onboardingEntry());
 	if (load.kind === "signed_out") redirect("/signin?returnTo=%2Fonboarding");
 	const raw = (await searchParams).step;
 	return (

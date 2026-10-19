@@ -15,9 +15,12 @@ import {
 	personRow,
 	project,
 	projectPeople,
-	reply,
+	readReply,
 	attribution,
 } from "./core.ts";
+import { RequestActor } from "../access/session.ts";
+import { PeopleReadContext } from "./core.ts";
+import type { sessionId } from "@everyfield/contracts/common";
 import type { Tx, Context } from "./core.ts";
 import { openDuties } from "./people.ts";
 import { pipelineMetrics } from "./metrics.ts";
@@ -157,7 +160,7 @@ async function list(tx: Tx, ctx: Context, raw: unknown, pipelineRevision?: strin
 }
 export const peopleReader: PeopleReader<Tx> = {
 	async getPerson(tx, ctx, raw) {
-		return reply(tx, async () => {
+		return readReply(async () => {
 			const input = parse(c.personRequest, raw);
 			await authorize(tx, ctx);
 			const p = await person(tx, ctx, input.personId);
@@ -169,10 +172,10 @@ export const peopleReader: PeopleReader<Tx> = {
 		});
 	},
 	async listPeople(tx, ctx, raw) {
-		return reply(tx, () => list(tx, ctx, raw));
+		return readReply(() => list(tx, ctx, raw));
 	},
 	async getOwnAccountPerson(tx, ctx, raw) {
-		return reply(tx, async () => {
+		return readReply(async () => {
 			parse(c.ownAccountPersonRequest, raw);
 			const actor = await authorize(tx, ctx);
 			const r = await tx
@@ -188,7 +191,7 @@ export const peopleReader: PeopleReader<Tx> = {
 		});
 	},
 	async getStatusWarnings(tx, ctx, raw) {
-		return reply(tx, async () => {
+		return readReply(async () => {
 			if (ctx.selected.kind !== "plant") deny();
 			const input = parse(c.personRequest, raw);
 			await authorize(tx, ctx);
@@ -223,7 +226,7 @@ export const peopleReader: PeopleReader<Tx> = {
 		});
 	},
 	async getPipelineData(tx, ctx, raw) {
-		return reply(tx, async () => {
+		return readReply(async () => {
 			const input = parse(c.listPeopleRequest, raw);
 			if (ctx.selected.kind !== "plant") deny();
 			await authorize(tx, ctx);
@@ -356,7 +359,7 @@ export const peopleReader: PeopleReader<Tx> = {
 		});
 	},
 	async getActivities(tx, ctx, raw) {
-		return reply(tx, async () => {
+		return readReply(async () => {
 			if (ctx.selected.kind !== "plant") deny();
 			const input = parse(c.activityRequest, raw);
 			await authorize(tx, ctx);
@@ -424,11 +427,11 @@ export const peopleReader: PeopleReader<Tx> = {
 		});
 	},
 	async readPipelineMetrics(tx, ctx, raw) {
-		return reply(tx, () => pipelineMetrics(tx, ctx, raw));
+		return readReply(() => pipelineMetrics(tx, ctx, raw));
 	},
 };
 export async function getAccountLink(tx: Tx, ctx: Context, raw: unknown) {
-	return reply(tx, async () => {
+	return readReply(async () => {
 		const input = parse(c.personRequest, raw);
 		await authorize(tx, ctx);
 		const p = await person(tx, ctx, input.personId);
@@ -437,4 +440,44 @@ export async function getAccountLink(tx: Tx, ctx: Context, raw: unknown) {
 			p.linked_account_id ? { status: "linked", personId: p.id } : { status: "unlinked" },
 		);
 	});
+}
+
+/** The layout needs the own Person name/id, not a full projected Person read. */
+export async function getViewerSummary(tx: Tx, ctx: Context) {
+	return readReply(async () => {
+		const actor = await authorize(tx, ctx);
+		const rows = await tx
+			.select({ personId: tables.person.id, displayName: tables.person.display_name })
+			.from(tables.person)
+			.where(
+				and(
+					eq(tables.person.tenant_id, ctx.selected.id),
+					eq(tables.person.linked_account_id, actor.accountId),
+					eq(tables.person.state, "live"),
+				),
+			);
+		return rows[0] ?? null;
+	});
+}
+
+/** Request DAL entry: one current actor and one bounded own-Person summary. */
+export async function readPeopleViewer(tx: Tx, session: z.infer<typeof sessionId>, observed?: RequestActor) {
+	const authority = observed ?? (await RequestActor.resolve(tx, session));
+	if (!(authority instanceof RequestActor)) return { status: "no_access" } as const;
+	const actor = authority.actor;
+	if (actor.context.kind !== "seat" || actor.context.owner.kind !== "plant") return { status: "no_access" } as const;
+	const summary = await getViewerSummary(tx, new PeopleReadContext(authority, "native"));
+	if (summary.status !== "ok") return { status: "no_access" } as const;
+	return {
+		status: "viewer",
+		viewer: {
+			session,
+			accountId: actor.accountId,
+			selected: actor.context.owner,
+			role: actor.context.role,
+			authority,
+			displayName: summary.value?.displayName ?? "You",
+			ownPersonId: summary.value?.personId ?? null,
+		},
+	} as const;
 }

@@ -112,7 +112,7 @@ export async function fixture({ lockTimeout = "0" } = {}) {
 			},
 			diagnostic: () => {},
 		});
-		return (path, body, cookie, headers = {}) =>
+		const call = (path, body, cookie, headers = {}) =>
 			service.handle(
 				new Request("http://invitation.example.test/api/auth/" + path, {
 					method: body === undefined ? "GET" : "POST",
@@ -126,6 +126,7 @@ export async function fixture({ lockTimeout = "0" } = {}) {
 					...(body === undefined ? {} : { body: JSON.stringify(body) }),
 				}),
 			);
+		return Object.assign(call, { auth: service.auth });
 	}
 	async function dispatch() {
 		for (const claim of await claimDue(db, ["mail"], 100)) await mail.dispatch(claim);

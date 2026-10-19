@@ -1,8 +1,9 @@
+import { getViewer } from "@/server/request-context";
 import "server-only";
 import { describeInvitationRequest, invitationDescriptionResult } from "@everyfield/contracts/identity";
 import { z } from "zod";
 import { invitationService } from "@/server/invitations";
-import { answer, currentSession, refused, type Reply } from "../server";
+import { answer, refused, type Reply } from "../server";
 
 // POST /api/invitation, the invitation page's only door to the WP-008/api invitation service (rulings U1, D54). The
 // proof travels in the request body, never in an address or a server-function argument, so no request log, framework
@@ -30,7 +31,7 @@ async function read(proof: string): Promise<InvitationRead> {
 		service && input.success
 			? service.describe(input.data)
 			: Promise.resolve(invitationDescriptionResult.parse({ status: "unavailable" })),
-		currentSession(),
+		getViewer(),
 	]);
 	return {
 		description,
@@ -40,7 +41,7 @@ async function read(proof: string): Promise<InvitationRead> {
 
 /** seats.acceptInvitation or residency.respondInvitation for the signed-in account. The domain checks everything. */
 async function asSelf(call: (sessionId: string) => Promise<unknown>): Promise<Reply> {
-	const session = await currentSession();
+	const session = await getViewer();
 	if (!session) return refused("unavailable");
 	if (session.status === "unauthenticated") return refused("unauthenticated");
 	return answer(() => call(session.sessionId));

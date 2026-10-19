@@ -5,7 +5,7 @@ import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import type { Transaction } from "@everyfield/db/client";
 import { z } from "zod";
-import { currentActor } from "../access/session.ts";
+import { currentActor, RequestActor } from "../access/session.ts";
 import { readPipelinePerson } from "../access/pipeline.ts";
 import { isAdministrator } from "../access/policy.ts";
 import { owner, revision } from "@everyfield/contracts/common";
@@ -18,7 +18,22 @@ const conversation_v = alias(tables.conversation, "v");
 const effect_e = alias(tables.effect, "e");
 
 export type Tx = Transaction;
-export type Context = PeopleContext;
+/** A read-only request observation. Its owner and session derive from one native authority. */
+export class PeopleReadContext {
+	readonly authority: RequestActor;
+	readonly purpose: PeopleContext["purpose"];
+	constructor(authority: RequestActor, purpose: PeopleContext["purpose"]) {
+		this.authority = authority;
+		this.purpose = purpose;
+	}
+	get session() {
+		return this.authority.session;
+	}
+	get selected() {
+		return this.authority.actor.context.owner;
+	}
+}
+export type Context = PeopleContext | PeopleReadContext;
 export type WriteContext = PeopleWriteContext;
 export const hash = (v: unknown) => createHash("sha256").update(stable(v)).digest("hex");
 function stable(v: unknown): string {
@@ -44,6 +59,31 @@ export class Refusal extends Error {
 export function deny(code: Refusal["code"] = "unavailable"): never {
 	throw new Refusal(code);
 }
+function refused(error: Refusal): PeopleReply<never> {
+	const retry =
+		error.code === "conflict" || error.code === "use_reviewed_unmerge"
+			? "refresh"
+			: error.code === "source_unavailable"
+				? "same_request"
+				: "never";
+	return {
+		status: "refused",
+		error: c.peopleError.parse({
+			code: error.code,
+			details: {},
+			correlationId: randomUUID(),
+			retry,
+		}),
+	};
+}
+export async function readReply<T>(body: () => Promise<T>): Promise<PeopleReply<T>> {
+	try {
+		return { status: "ok", value: await body() };
+	} catch (error) {
+		if (!(error instanceof Refusal)) throw error;
+		return refused(error);
+	}
+}
 export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<PeopleReply<T>> {
 	await tx.execute(sql`SAVEPOINT people_operation`);
 	try {
@@ -54,21 +94,7 @@ export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<PeopleRe
 		await tx.execute(sql`ROLLBACK TO SAVEPOINT people_operation`);
 		await tx.execute(sql`RELEASE SAVEPOINT people_operation`);
 		if (!(error instanceof Refusal)) throw error;
-		const retry =
-			error.code === "conflict" || error.code === "use_reviewed_unmerge"
-				? "refresh"
-				: error.code === "source_unavailable"
-					? "same_request"
-					: "never";
-		return {
-			status: "refused",
-			error: c.peopleError.parse({
-				code: error.code,
-				details: {},
-				correlationId: randomUUID(),
-				retry,
-			}),
-		};
+		return refused(error);
 	}
 }
 export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
@@ -77,7 +103,10 @@ export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S>
 	return r.data;
 }
 export async function authorize(tx: Tx, context: Context, write = false) {
-	const actor = await currentActor(tx, context.session, context.selected);
+	const actor =
+		!write && context instanceof PeopleReadContext
+			? context.authority.actor
+			: await currentActor(tx, context.session, context.selected);
 	if (
 		actor.status !== "active" ||
 		actor.context.kind !== "seat" ||
@@ -289,7 +318,11 @@ export async function mutation<T>(
 	await lockOwner(tx, context);
 	const note = ["people.addNote", "people.editNote", "people.deleteNote"].includes(name);
 	const orgNote = context.selected.kind === "organization" && note;
-	const actor = await authorize(tx, context, !orgNote);
+	const actor = await authorize(
+		tx,
+		{ session: context.session, selected: context.selected, purpose: context.purpose },
+		!orgNote,
+	);
 	if (orgNote) {
 		const subject = parse(z.object({ input: z.object({ personId: z.uuid() }) }), input).input.personId;
 		const access = await readPipelinePerson(tx, context.session, context.selected, { personId: subject });

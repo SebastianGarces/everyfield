@@ -1,5 +1,5 @@
 import "server-only";
-import { betterAuth } from "better-auth";
+import { betterAuth, type BetterAuthPlugin } from "better-auth";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@everyfield/db/client";
 import { auth_user, auth_account, auth_session, auth_verification } from "@everyfield/db/tables";
@@ -11,6 +11,7 @@ export function identityAuth(config: {
 	origin: string;
 	secret: string;
 	emailChange?: boolean;
+	plugins?: BetterAuthPlugin[];
 	deliver: (
 		user: { id: string; email: string },
 		purpose: "password_reset" | "email_verification",
@@ -24,6 +25,7 @@ export function identityAuth(config: {
 			schema: { auth_user, auth_account, auth_session, auth_verification },
 			transaction: true,
 		}),
+		plugins: config.plugins,
 		baseURL: config.origin,
 		basePath: "/api/auth",
 		secret: config.secret,
