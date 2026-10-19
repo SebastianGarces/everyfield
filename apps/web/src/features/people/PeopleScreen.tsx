@@ -326,13 +326,13 @@ function Results({
 				<span className="text-text-3" role="status">
 					{rangeText(query, page.items.length, page.total)}
 				</span>
-				{query.trail.length || page.next ? (
+				{query.page > 1 || page.next ? (
 					<nav aria-label="Pages" className="flex gap-2">
 						<Button
 							variant="secondary"
 							size="sm"
 							icon={ArrowLeft01Icon}
-							disabled={!query.trail.length}
+							disabled={query.page <= 1}
 							onClick={() => go(previousPage(query))}
 						>
 							Previous

@@ -222,3 +222,26 @@ test("AC:TARGET-PPL-001 INV-tags: repeated tag ids stay in the address and ask f
 	assert.equal(querySearch(removed), `?tag=${T2}`);
 	assert.equal(querySearch(withFilters(q, { tags: [] })), "");
 });
+
+test("AC:TARGET-PPL-001 INV-deep-pages: Next keeps going past the kept cursors; the address stays bounded", () => {
+	let q = parseQuery(url(""));
+	for (let i = 1; i <= 45; i++) q = nextPage(q, `c${i}`);
+	assert.equal(q.page, 46, "45 Next presses reach page 46");
+	assert.equal(q.trail.length, 40, "only the newest 40 cursors are kept");
+	assert.equal(listRequest(q).after, "c45", "the request uses the newest cursor");
+	assert.equal(rangeText(q, 24, 2000), "Showing 1081–1104 of 2000 people");
+	// The address carries the page number once cursors were dropped, and reads back the same query.
+	const again = parseQuery(url(querySearch(q).slice(1)));
+	assert.equal(again.page, 46);
+	assert.deepEqual(again.trail, q.trail);
+	// Back one page while its cursor is kept.
+	const back = previousPage(q);
+	assert.equal(back.page, 45);
+	assert.equal(listRequest(back).after, "c44");
+	// Beyond the kept window the earlier cursor is gone, so Previous goes to page one.
+	let edge = q;
+	for (let i = 0; i < 40; i++) edge = previousPage(edge);
+	assert.equal(edge.page, 1);
+	assert.equal(listRequest(edge).after, undefined);
+	assert.equal(withFilters(q, {}).page, 1, "a filter change goes back to page one");
+});

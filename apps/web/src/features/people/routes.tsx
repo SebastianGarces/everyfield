@@ -100,9 +100,10 @@ export async function PeoplePage({ searchParams }: { searchParams: Search }) {
 		// A cursor from an old link (another session or a restarted server) is refused; show the first page instead.
 		const expired = r.status === "refused" && r.error.code === "invalid_input" && query.trail.length > 0;
 		if (expired) {
-			const first = { ...query, trail: [] };
+			const first = { ...query, trail: [], page: 1 };
 			r = await read(viewer, (tx, ctx) => peopleReader.listPeople(tx, ctx, request(first)));
 			query.trail = [];
+			query.page = 1;
 		}
 		data = r.status === "ok" ? { kind: "list", page: r.value, expired } : { kind: "failed" };
 		workspaceEmpty = r.status === "ok" && !isFiltered(query) && r.value.total === 0;

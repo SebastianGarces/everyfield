@@ -97,6 +97,11 @@ export type PeopleQuery = {
 	commitment: CommitmentValue;
 	archived: ArchivedValue;
 	trail: string[];
+	/**
+	 * The current page number. The address keeps at most MAX_TRAIL cursors (the newest ones), so on a deep page the
+	 * number comes from here rather than from the trail's length.
+	 */
+	page: number;
 };
 export const PAGE_SIZE = 24;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -110,6 +115,12 @@ const picks = <T extends string>(all: readonly T[], values: string[]): T[] =>
 
 /** Reads the address into a query. Values outside the closed lists are ignored, never guessed. */
 export function parseQuery(params: Params): PeopleQuery {
+	const q = readQuery(params);
+	// The page number is at least one more than the cursors kept; a missing or smaller number means no trimming.
+	const page = Number.parseInt(params.get("page") ?? "", 10);
+	return { ...q, page: Number.isSafeInteger(page) && page > q.trail.length + 1 ? page : q.trail.length + 1 };
+}
+function readQuery(params: Params): PeopleQuery {
 	const classification = params.get("adult");
 	return {
 		view: pick(VIEWS, params.get("view"), "list"),
@@ -134,7 +145,8 @@ export function parseQuery(params: Params): PeopleQuery {
 		trail: params
 			.getAll("after")
 			.filter((c) => c.length > 0 && c.length <= 4096)
-			.slice(0, MAX_TRAIL),
+			.slice(-MAX_TRAIL),
+		page: 1,
 	};
 }
 
@@ -149,7 +161,10 @@ export function querySearch(q: PeopleQuery): string {
 	if (q.classification) out.set("adult", q.classification);
 	if (q.commitment !== "any") out.set("commitment", q.commitment);
 	if (q.archived !== "exclude") out.set("retired", q.archived);
-	if (q.view !== "pipeline") for (const c of q.trail) out.append("after", c);
+	if (q.view !== "pipeline") {
+		for (const c of q.trail) out.append("after", c);
+		if (q.page > q.trail.length + 1) out.set("page", String(q.page));
+	}
 	const s = out.toString();
 	return s ? `?${s}` : "";
 }
@@ -175,14 +190,17 @@ export function listRequest(q: PeopleQuery): Record<string, unknown> {
 }
 
 /** A filter, search or view change: back to the first page, other filters kept. */
-export function withFilters(q: PeopleQuery, patch: Partial<Omit<PeopleQuery, "trail">>): PeopleQuery {
-	return { ...q, ...patch, trail: [] };
+export function withFilters(q: PeopleQuery, patch: Partial<Omit<PeopleQuery, "trail" | "page">>): PeopleQuery {
+	return { ...q, ...patch, trail: [], page: 1 };
 }
 export function nextPage(q: PeopleQuery, cursor: string): PeopleQuery {
-	return q.trail.length >= MAX_TRAIL ? q : { ...q, trail: [...q.trail, cursor] };
+	// Next always moves on (REQ-PPL-001 bounds each request, not how far a list goes). Only the newest cursors are kept.
+	return { ...q, trail: [...q.trail, cursor].slice(-MAX_TRAIL), page: q.page + 1 };
 }
 export function previousPage(q: PeopleQuery): PeopleQuery {
-	return { ...q, trail: q.trail.slice(0, -1) };
+	// Back one page while its cursor is kept; beyond the kept window the earlier cursor is gone, so back to page one.
+	const trail = q.trail.slice(0, -1);
+	return trail.length ? { ...q, trail, page: q.page - 1 } : { ...q, trail: [], page: 1 };
 }
 export function isFiltered(q: PeopleQuery): boolean {
 	return (
@@ -197,7 +215,7 @@ export function isFiltered(q: PeopleQuery): boolean {
 }
 /** "Showing 25–48 of 214 people". */
 export function rangeText(q: PeopleQuery, shown: number, total: number | null): string {
-	const first = q.trail.length * PAGE_SIZE + 1;
+	const first = (q.page - 1) * PAGE_SIZE + 1;
 	if (shown === 0) return "No people on this page";
 	const range = shown === 1 ? `${first}` : `${first}–${first + shown - 1}`;
 	return total === null ? `Showing ${range}` : `Showing ${range} of ${total} ${total === 1 ? "person" : "people"}`;
