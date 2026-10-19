@@ -65,16 +65,28 @@ test("INV-draft-kept: refusal and lost answers keep the draft; success clears it
 	const store = new PersonStore(person("4"));
 	store.dispatch({ type: "edit", slot: "note", draft: { body: "Called on Tuesday" } });
 
-	const refused = await runSave(store, "note", { body: "Called on Tuesday" }, async () => ({ status: "refused", code: "conflict" }), {
-		fresh: keys(),
-	});
+	const refused = await runSave(
+		store,
+		"note",
+		{ body: "Called on Tuesday" },
+		async () => ({ status: "refused", code: "conflict" }),
+		{
+			fresh: keys(),
+		},
+	);
 	assert.equal(refused.status, "refused");
 	assert.deepEqual(store.get().drafts.note, { body: "Called on Tuesday" });
 	assert.equal(store.get().errors.note, "conflict");
 
-	const lost = await runSave(store, "note", { body: "Called on Tuesday" }, async () => {
-		throw new Error("network down");
-	}, { fresh: keys() });
+	const lost = await runSave(
+		store,
+		"note",
+		{ body: "Called on Tuesday" },
+		async () => {
+			throw new Error("network down");
+		},
+		{ fresh: keys() },
+	);
 	assert.equal(lost.status, "lost");
 	assert.deepEqual(store.get().drafts.note, { body: "Called on Tuesday" });
 	assert.equal(store.get().errors.note, "lost");
@@ -99,7 +111,11 @@ test("INV-request-key: a lost answer retries with the same key; refusal or a cha
 	const sent = [];
 	const reply = (status) => async (key) => {
 		sent.push(key);
-		return status === "lost" ? { status: "lost" } : status === "refused" ? { status: "refused", code: "conflict" } : { status: "ok", value: person("5") };
+		return status === "lost"
+			? { status: "lost" }
+			: status === "refused"
+				? { status: "refused", code: "conflict" }
+				: { status: "ok", value: person("5") };
 	};
 	await runSave(store, "stage", { stage: "attendee" }, reply("lost"), { fresh });
 	await runSave(store, "stage", { stage: "attendee" }, reply("lost"), { fresh });
@@ -128,7 +144,7 @@ test("INV-revision: server props and answers never move the saved person back to
 	assert.equal(store.get().saved.revision, "10");
 });
 
-test("edit profile sends only the fields that changed", () => {
+test("INV-edit-patch: edit profile sends only the fields that changed", () => {
 	const base = { displayName: "Maria", email: "m@example.test", phone: "" };
 	assert.deepEqual(changedFields(base, { ...base, phone: "555" }), { phone: "555" });
 	assert.deepEqual(changedFields(base, { ...base, email: "" }), { email: "" });
@@ -136,7 +152,13 @@ test("edit profile sends only the fields that changed", () => {
 });
 
 test("AC:TARGET-PPL-006 stage guidance names skipped stages and leaving the committed stages", () => {
-	assert.deepEqual(skippedStages("prospect", "leader"), ["attendee", "following_up", "interviewed", "core_group", "launch_team"]);
+	assert.deepEqual(skippedStages("prospect", "leader"), [
+		"attendee",
+		"following_up",
+		"interviewed",
+		"core_group",
+		"launch_team",
+	]);
 	assert.deepEqual(skippedStages("leader", "attendee"), []);
 	assert.deepEqual(skippedStages("prospect", "attendee"), []);
 	assert.equal(leavesCommitted("leader", "attendee"), true);

@@ -133,7 +133,7 @@ export function StageDialog({
 								error={touched && !chosen ? "Choose a stage." : null}
 							>
 								<Select
-									value={chosen ?? undefined}
+									value={chosen ?? ""}
 									onValueChange={(v) => set({ stage: v as StageValue })}
 									disabled={pending}
 									placeholder="Choose a stage"

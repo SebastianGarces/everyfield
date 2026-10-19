@@ -25,7 +25,10 @@ const PASSWORD = "People-preview-pass-1";
 
 function adminUrl() {
 	const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-	if (source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech" || process.env.NODE_ENV === "production")
+	if (
+		source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech" ||
+		process.env.NODE_ENV === "production"
+	)
 		throw Error("Approved shared development database required");
 	source.searchParams.set("sslmode", "verify-full");
 	return source;
@@ -48,7 +51,9 @@ async function up(origin: string) {
 		[authRole, "everyfield_auth"],
 	] as const) {
 		await admin.execute(
-			sql.raw(`CREATE ROLE ${name} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`),
+			sql.raw(
+				`CREATE ROLE ${name} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
+			),
 		);
 		await admin.execute(sql.raw(`GRANT ${grant} TO ${name}`));
 	}
@@ -89,7 +94,13 @@ async function up(origin: string) {
 			.join("; ");
 
 	async function account(name: string, email: string) {
-		const r = await call("register", { kind: "plant_precreation", name, email, password: PASSWORD, requestKey: randomUUID() });
+		const r = await call("register", {
+			kind: "plant_precreation",
+			name,
+			email,
+			password: PASSWORD,
+			requestKey: randomUUID(),
+		});
 		if (!r.ok) throw Error(`register ${email}: ${r.status} ${await r.text()}`);
 		await admin.execute(sql`UPDATE auth_user SET email_verified=true WHERE email=${email}`);
 		await admin.execute(
