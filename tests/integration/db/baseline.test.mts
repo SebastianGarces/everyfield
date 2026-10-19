@@ -288,7 +288,7 @@ test("INV-migration: preserves applied 0001 bytes and ledger; retries and failed
 		await admin.execute(querySql.raw(`DROP SCHEMA ${other} CASCADE`));
 	}
 });
-test("AC:TEN-001 INV-subtype: real same-owner FKs, root kinds and record bindings reject forged identities", async () => {
+test("AC:C0-PERSON-001 AC:TEN-001 INV-subtype: real same-owner FKs, root kinds and record bindings reject forged identities", async () => {
 	const x = await person(p);
 	assert.deepEqual(
 		(await admin.execute(querySql`SELECT kind,tenant_id FROM record WHERE id=${querySql.param(x)}`)).rows,
@@ -403,7 +403,7 @@ test("AC:TEN-009 INV-runtime: real login cannot own schema, change audit history
 		1,
 	);
 });
-test("INV-transaction: audit failure rolls back domain mutation and receipt, replay adds no duplicate event", async () => {
+test("AC:C0-REPLAY-001 AC:AUDIT-001 AC:AUDIT-002 INV-transaction: audit failure rolls back domain mutation and receipt, replay adds no duplicate event", async () => {
 	const x = await doc(p);
 	await assert.rejects(
 		runtime.transaction(async (tx) => {
@@ -436,7 +436,7 @@ test("INV-transaction: audit failure rolls back domain mutation and receipt, rep
 		1,
 	);
 });
-test("INV-audit: exact UTF-8 limit and dedicated private care identity", async () => {
+test("AC:AUDIT-003 INV-audit: exact UTF-8 limit and dedicated private care identity", async () => {
 	const x = await doc(p);
 	const sql =
 		"INSERT INTO event(tenant_id,target_record_id,kind,occurred_at,recorded_at,system_cause,event_key,action,diff) VALUES($1,$2,'edit',now(),now(),'synthetic',$3,'documents.saved',$4)";
