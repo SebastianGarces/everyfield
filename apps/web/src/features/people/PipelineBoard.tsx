@@ -146,7 +146,7 @@ function Column({
 	onMove: (card: CardData, target?: StageValue) => void;
 }) {
 	// "Show more" pages belong to the server copy they were loaded on; a refresh brings a new first page and drops them.
-	const [extra, setExtra] = useState<{ from: Group; cards: CardData[]; next: string | null; problem?: string }>({
+	const [extra, setExtra] = useState<{ from: Group; cards: CardData[]; next: number | null; problem?: string }>({
 		from: group,
 		cards: [],
 		next: group.next,

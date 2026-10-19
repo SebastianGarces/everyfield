@@ -9609,7 +9609,7 @@
         "WP-011"
       ],
       "status": "future-not-run",
-      "description": "25 People with equal `createdAt`; AND 2 tags; search literal%/_; retired and foreign cursor; switch card/filter/load more; unresolved adult classification.",
+      "description": "25 People with equal `createdAt`; AND 2 tags; search literal%/_; retired People and another church's page; switch card/filter/page; unresolved adult classification.",
       "given": {
         "P": {
           "fixture_type": "plant",
