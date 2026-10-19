@@ -357,7 +357,13 @@ for (const [name, engine] of [
 			await b.getByRole("menuitem", { name: "Move up" }).click();
 			const message = b.getByText("The order changed somewhere else.", { exact: false });
 			await message.waitFor({ timeout: 30_000 });
-			await b.waitForTimeout(3000);
+			// The refusal refreshes page B to the server's order; the message must survive that refresh.
+			await b.waitForFunction(
+				(n) => document.querySelector('[aria-label="Following up people"] article')?.getAttribute("aria-label") === n,
+				second,
+				{ timeout: 30_000 },
+			);
+			await b.waitForTimeout(1500);
 			assert.equal(await message.count(), 1, "the refusal is still shown after the refresh");
 		});
 	});

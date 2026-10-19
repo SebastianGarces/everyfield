@@ -195,7 +195,11 @@ function Column({
 		);
 		const input = { column: group.column, personIds: ids };
 		const rev = order.saved.revision;
-		const r = await runSave(store, "order", { input, rev }, (key) => reorderPipeline(key, rev, input), { fresh });
+		const r = await runSave(store, "order", { input, rev }, (key) => reorderPipeline(key, rev, input), {
+			fresh,
+			// The answer carries the column revision as saved now, so a quick next move uses it.
+			toPerson: (v) => ({ revision: v.revision }),
+		});
 		if (r?.status === "ok") {
 			focusAfter.current = { id: card.person.id, from: group };
 			setSaved({ from: group, ids });
