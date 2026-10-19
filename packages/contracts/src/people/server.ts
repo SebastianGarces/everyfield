@@ -10,8 +10,8 @@ import type { lockedPersonReference } from "./references.ts";
 // account, exact current seat/duty, purpose, lifecycle and consent inside Tx.
 // Missing/foreign/inaccessible subjects use the same non-revealing refusal.
 // Queries validate every predicate before querying/counting, search metacharacters
-// literally, and bind opaque cursors to exact owner/query plus timestamp + ID.
-// Changed filters reset cursors. Totals describe full authorized queries, not pages.
+// literally, and page by number in a stable order (created_at, id).
+// Totals describe full authorized queries, not pages.
 // Note edits lock exact Person/note/kind/original author, never a caller-sent author.
 // Handoff review must account for every current actionable duty; omissions conflict.
 // Mutations lock/CAS, then write facts + history + receipt + required intents
