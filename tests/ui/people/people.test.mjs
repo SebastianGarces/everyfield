@@ -10,6 +10,7 @@
 //   INV-request-key: a lost answer keeps the draft; the retry replays the same request, so one note is saved.
 //   INV-cursor: a filter change drops the page cursor; an expired cursor shows the first page and says so.
 //   INV-discard: closing Edit profile with changes asks before discarding them.
+//   BUG-hydration: WebKit and Node join date parts differently; dates are built from parts so hydration matches.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
@@ -84,6 +85,17 @@ for (const [name, engine] of [
 				assert.equal(await page.getByRole("table").count(), 0, who);
 				assert.equal(await page.getByRole("button", { name: "Add person" }).count(), 0, who);
 			});
+	});
+
+	test(`BUG-hydration (${name}): a person page with dated activity hydrates without a page error`, async () => {
+		await withPage(engine, "owner", async (page) => {
+			const errors = [];
+			page.on("pageerror", (e) => errors.push(e.message.split("\n")[0]));
+			await page.goto(`${BASE}/people/${seed().people["Maria Santos"]}`, { waitUntil: "networkidle" });
+			await page.getByRole("heading", { name: "Activity" }).waitFor();
+			await page.waitForTimeout(1000);
+			assert.deepEqual(errors, []);
+		});
 	});
 
 	test(`INV-no-leak (${name}): a missing and a malformed person link read the same`, async () => {

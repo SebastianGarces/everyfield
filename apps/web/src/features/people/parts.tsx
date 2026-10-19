@@ -77,11 +77,15 @@ export function When({ at, withTime = false }: { at: string; withTime?: boolean 
 		() => true,
 		() => false,
 	);
-	const format = new Intl.DateTimeFormat("en-US", {
-		...(withTime ? TIME : DATE),
-		...(browser ? {} : { timeZone: "UTC" }),
-	});
-	return <time dateTime={at}>{format.format(new Date(at))}</time>;
+	const parts = Object.fromEntries(
+		new Intl.DateTimeFormat("en-US", { ...(withTime ? TIME : DATE), ...(browser ? {} : { timeZone: "UTC" }) })
+			.formatToParts(new Date(at))
+			.map((p) => [p.type, p.value]),
+	);
+	// The punctuation is ours: engines join the same parts differently ("Oct 19, 2026, 1:30 AM" or "... at 1:30 AM"),
+	// which would break hydration.
+	const text = `${parts.month} ${parts.day}, ${parts.year}${withTime ? `, ${parts.hour}:${parts.minute} ${parts.dayPeriod}` : ""}`;
+	return <time dateTime={at}>{text}</time>;
 }
 /** A calendar date (yyyy-mm-dd) shown as written, never shifted by a time zone. */
 export function LocalDay({ day }: { day: string }) {
