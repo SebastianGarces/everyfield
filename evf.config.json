@@ -255,6 +255,21 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-10": {
+			"title": "evf foreground checks and CI test coverage",
+			"owningPaths": ["tools/evf/", "evf.config.json", ".github/workflows/ci.yml"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {

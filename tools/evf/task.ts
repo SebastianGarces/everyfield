@@ -1,3 +1,4 @@
+import { requireForeground } from "./foreground.ts";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderBrief } from "./brief.ts";
@@ -45,6 +46,7 @@ function stackCmd(cfg: Config, name: "up" | "down" | "status" | "traces" | "logs
 }
 
 export function stack(root: string, task: TaskRef, action: "up" | "down" | "status", optional = false): number {
+	if (action === "up") requireForeground("stack up", "1-5 minutes");
 	const cfg = loadConfig(root);
 	if (task.kind === "ops") fail("Maintenance tasks have no application stack.");
 	if (action === "up") {
