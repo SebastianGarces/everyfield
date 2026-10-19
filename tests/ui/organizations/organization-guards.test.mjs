@@ -97,7 +97,10 @@ for (const [name, engine] of ENGINES) {
 				await page.getByRole("button", { name: "Connect" }).click();
 				await dialog.getByRole("combobox", { name: "Organization" }).click();
 				await page.getByRole("option", { name: "Cedar Creek Church · Sending church" }).click();
-				assert.equal(await dialog.getByRole("region", { name: "What Cedar Creek Church can see once connected" }).count(), 0);
+				assert.equal(
+					await dialog.getByRole("region", { name: "What Cedar Creek Church can see once connected" }).count(),
+					0,
+				);
 				assert.equal(await dialog.getByRole("button", { name: "Send invitation" }).isDisabled(), true);
 				await dialog.getByRole("region", { name: "What Cedar Creek Church can see once connected" }).waitFor();
 				assert.equal(await dialog.getByRole("button", { name: "Send invitation" }).isDisabled(), false);
