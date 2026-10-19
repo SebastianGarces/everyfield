@@ -192,7 +192,7 @@ export async function reorderPipeline(
 	requestKey: string,
 	expectedRevision: string,
 	input: unknown,
-): Promise<Outcome<{ outcome: "changed" | "noop"; revision: string; personIds: string[] }>> {
+): Promise<Outcome<{ outcome: "changed" | "noop" } & Awaited<ReturnType<typeof readColumnOrder>>>> {
 	return boundary(c.reorderPipelineRequest, { requestKey, expectedRevision, input }, async (v, request) =>
 		outcome(
 			await write(v, async (tx, ctx) => {

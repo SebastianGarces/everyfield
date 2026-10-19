@@ -19,7 +19,7 @@ import {
 } from "./core.ts";
 import { RequestActor } from "../access/session.ts";
 import { PeopleReadContext } from "./core.ts";
-import type { sessionId } from "@everyfield/contracts/common";
+import { revision, type sessionId } from "@everyfield/contracts/common";
 import type { Tx, Context } from "./core.ts";
 import { openDuties } from "./people.ts";
 import { pipelineMetrics } from "./metrics.ts";
@@ -391,7 +391,7 @@ export async function readColumnOrder(tx: Tx, ctx: Context, column: z.infer<type
 		.from(tables.people_column)
 		.where(and(eq(tables.people_column.plant_id, ctx.selected.id), eq(tables.people_column.column_name, column)));
 	const rows = await tx
-		.select({ id: tables.person.id })
+		.select({ id: tables.person.id, revision: tables.person.revision })
 		.from(tables.person)
 		.where(
 			and(
@@ -401,5 +401,10 @@ export async function readColumnOrder(tx: Tx, ctx: Context, column: z.infer<type
 			),
 		)
 		.orderBy(asc(tables.person.pipeline_position), asc(tables.person.created_at), asc(tables.person.id));
-	return { revision: col?.revision ?? "1", personIds: rows.map((r) => r.id) };
+	// A reorder changes every listed person's revision too; the page needs them for its next stage change.
+	return {
+		revision: col?.revision ?? "1",
+		personIds: rows.map((r) => r.id),
+		personRevisions: Object.fromEntries(rows.map((r) => [r.id, revision.parse(r.revision)])),
+	};
 }

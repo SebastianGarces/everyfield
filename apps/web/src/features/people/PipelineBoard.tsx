@@ -176,13 +176,23 @@ function Column({
 	});
 	const more_ = extra.from === group ? extra : { from: group, cards: [], next: group.next };
 	const [loading, setLoading] = useState(false);
+	// The order just saved, shown until the server copy it was saved against is replaced by a refresh.
+	const [saved, setSaved] = useState<{
+		from: Group;
+		ids: string[];
+		revisions?: Record<string, PlantPerson["revision"]>;
+	} | null>(null);
 	const loaded = [...group.cards, ...more_.cards];
 	// Cards moved here from another column join the end; cards moved away leave (D68).
 	const here = loaded.map((c) => moved.get(c.person.id) ?? c).filter((c) => inColumn(c, group.column));
 	const arrived = [...moved.values()].filter(
 		(c) => inColumn(c, group.column) && !loaded.some((l) => l.person.id === c.person.id),
 	);
-	const all = [...here, ...arrived];
+	// A saved reorder gives every person in the column a new revision; later moves must send it.
+	const revised = saved && saved.from === group ? saved.revisions : undefined;
+	const all = [...here, ...arrived].map((c) =>
+		revised?.[c.person.id] ? { ...c, person: { ...c.person, revision: revised[c.person.id]! } } : c,
+	);
 	const count = (group.total ?? loaded.length) - (loaded.length - here.length) + arrived.length;
 	const router = useRouter();
 	// One reorder at a time per column, with the column's revision as the lock (REQ-PPL-007). The whole column must be
@@ -191,8 +201,6 @@ function Column({
 	const [store] = useState(() => new PersonStore<{ revision: string }, null>({ revision: group.revision }));
 	const order = useStore(store);
 	useEffect(() => store.dispatch({ type: "server", person: { revision: group.revision } }), [store, group.revision]);
-	// The order just saved, shown until the server copy it was saved against is replaced by a refresh.
-	const [saved, setSaved] = useState<{ from: Group; ids: string[] } | null>(null);
 	const [said, setSaid] = useState("");
 	const cards =
 		saved && saved.from === group
@@ -224,7 +232,7 @@ function Column({
 		});
 		if (r?.status === "ok") {
 			// Show the column the server answered with: its order belongs to the revision the store just took.
-			setSaved({ from: group, ids: r.value.personIds });
+			setSaved({ from: group, ids: r.value.personIds, revisions: r.value.personRevisions });
 			setSaid(
 				r.value.personIds.join() === ids.join()
 					? `${card.person.displayName} moved ${direction}.`
