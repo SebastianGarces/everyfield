@@ -227,7 +227,16 @@ for (const [name, engine] of [
 			await page.getByRole("button", { name: "Restore person" }).click();
 			await page.getByRole("alertdialog").getByRole("button", { name: "Restore person" }).click();
 			await page.getByRole("button", { name: "Change stage" }).waitFor({ timeout: 30_000 });
-			// The restore refreshes the page; let that finish before navigating, or WebKit cuts off the next navigation.
+			// The button comes back from the client store at once; the restore's server refresh lands later. Wait for its
+			// result (the Restored history entry) before navigating, or WebKit cuts off the next navigation.
+			await page.waitForFunction(
+				() =>
+					[...document.querySelectorAll('ol[aria-label="Activity, oldest first"] > li')].some((l) =>
+						l.innerText.startsWith("Restored"),
+					),
+				null,
+				{ timeout: 30_000 },
+			);
 			await page.waitForLoadState("networkidle");
 			const merged = Object.entries(seed().people).find(([n]) => n.startsWith("Guest 19"))[1];
 			await page.goto(`${BASE}/people/${merged}`);
