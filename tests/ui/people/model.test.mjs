@@ -223,9 +223,16 @@ test("AC:TARGET-PPL-001 INV-tags: repeated tag ids stay in the address and ask f
 	assert.equal(querySearch(withFilters(q, { tags: [] })), "");
 });
 
-test("AC:TARGET-PPL-001 INV-deep-pages: Next keeps going past the kept cursors; the address stays bounded", () => {
+test("AC:TARGET-PPL-001 INV-deep-pages (D50): Next keeps going past the kept cursors; the address stays bounded", () => {
 	let q = parseQuery(url(""));
-	for (let i = 1; i <= 45; i++) q = nextPage(q, `c${i}`);
+	for (let i = 1; i <= 45; i++) {
+		q = nextPage(q, `c${i}`);
+		// Ruling D50: at page 41 and 45 the request uses the cursor the server just gave.
+		if (i === 40 || i === 44) {
+			assert.equal(q.page, i + 1);
+			assert.equal(listRequest(q).after, `c${i}`, `page ${i + 1} uses the server cursor`);
+		}
+	}
 	assert.equal(q.page, 46, "45 Next presses reach page 46");
 	assert.equal(q.trail.length, 40, "only the newest 40 cursors are kept");
 	assert.equal(listRequest(q).after, "c45", "the request uses the newest cursor");
