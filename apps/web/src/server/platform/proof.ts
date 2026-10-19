@@ -3,7 +3,6 @@ import { and, eq, gt, lt, sql } from "@everyfield/db/query";
 import "server-only";
 import type { Database } from "@everyfield/db/client";
 import { database } from "../database";
-import { getSession } from "../request-context";
 import { z } from "zod";
 import {
 	proofEnabled,
@@ -127,7 +126,7 @@ export async function handleProof(request: Request): Promise<Response> {
 		if (path.startsWith("auth/")) {
 			const action = path.slice(5);
 			if (request.method === "GET" && action === "get-session") {
-				const session = await getSession(auth, request.headers);
+				const session = await auth.api.getSession({ headers: request.headers });
 				return safeResponse(session ? { user: { id: session.user.id }, expiresAt: session.session.expiresAt } : null);
 			}
 			if (
@@ -148,7 +147,7 @@ export async function handleProof(request: Request): Promise<Response> {
 			let identifier: string | null = "email" in input ? input.email : null;
 			if (action === "change-password" && "currentPassword" in input && "newPassword" in input) {
 				if (input.currentPassword === input.newPassword) throw new Refusal("invalid_input", 422);
-				const session = await getSession(auth, request.headers);
+				const session = await auth.api.getSession({ headers: request.headers });
 				if (!session) throw new Refusal("unavailable", 404);
 				identifier = session.user.email;
 			}
@@ -186,7 +185,7 @@ export async function handleProof(request: Request): Promise<Response> {
 		}
 		if (path === "update" && request.method === "POST") {
 			const input = await parse(request, updateInput);
-			const session = await getSession(auth, request.headers);
+			const session = await auth.api.getSession({ headers: request.headers });
 			return safeResponse(
 				await transaction(db, async (tx) => {
 					await currentScope(tx, session, input.ownerId);

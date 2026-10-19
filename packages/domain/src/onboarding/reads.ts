@@ -5,7 +5,7 @@ import * as t from "@everyfield/db/tables";
 import { sessionId } from "@everyfield/contracts/common";
 import type { SessionResult } from "@everyfield/contracts/identity";
 import type { OnboardingContext, OnboardingProducer } from "@everyfield/contracts/onboarding/server";
-import { createSeatService } from "../identity/index.ts";
+import type { RequestActor } from "../access/index.ts";
 
 export type RawEntry =
 	| { kind: "signed_out" }
@@ -20,6 +20,7 @@ export async function readOnboardingEntry(
 	db: Database,
 	producer: OnboardingProducer<Transaction>,
 	s: SessionResult,
+	authority: RequestActor | null,
 ): Promise<RawEntry> {
 	if (s.status === "unauthenticated") return { kind: "signed_out" };
 	const read = (selected: OnboardingContext["selected"]): OnboardingContext => ({
@@ -27,12 +28,12 @@ export async function readOnboardingEntry(
 		selected,
 		purpose: "native",
 	});
-	const membership = s.status === "active" ? await createSeatService(db).readCurrentMembership(s.sessionId) : null;
-	if (membership?.status === "unavailable") return { kind: "elsewhere", reason: "unavailable" };
-	if (membership?.status === "active") {
-		const w = membership.workspace;
+	const context = authority?.actor.context;
+	if (s.status === "active" && !context) return { kind: "elsewhere", reason: "unavailable" };
+	if (context?.kind === "seat") {
+		const w = context.owner;
 		if (w.kind !== "plant") return { kind: "elsewhere", reason: "organization" };
-		if (membership.role !== "owner") return { kind: "elsewhere", reason: "member" };
+		if (context.role !== "owner") return { kind: "elsewhere", reason: "member" };
 		const reply = await db.transaction((tx) => producer.getResume(tx, read(w), {}));
 		if (reply.status !== "ok" || reply.value.status !== "available") return { kind: "elsewhere", reason: "member" };
 		// R3 gap: resume carries no plant name. Read it for the heading only.

@@ -1,7 +1,6 @@
 import "server-only";
 import { InvitationRefusal } from "@everyfield/domain/identity";
 import { z } from "zod";
-export { getViewer as currentSession } from "@/server/request-context";
 
 // Shared server helpers for the invitation and seat actions (WP-008/ui ruling U1). The session always comes from the
 // identity mount for this request; the browser never sends an account, session or workspace.

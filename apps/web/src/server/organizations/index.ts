@@ -4,14 +4,13 @@ import type { Database, Transaction } from "@everyfield/db/client";
 import { database } from "../database";
 import { sql } from "@everyfield/db/query";
 import { owner, type Owner } from "@everyfield/contracts/common";
+import { createSeatService } from "@everyfield/domain/identity";
 import * as C from "@everyfield/contracts/organizations";
 import type { OrganizationOperations } from "@everyfield/contracts/organizations";
-import { createSeatService } from "@everyfield/domain/identity";
 import {
 	createOrganizationAdapter,
 	readAnswerableInvitation,
 	readSharingDisclosure,
-	hasDiscoveryProfile,
 	type Viewer,
 	type Kind,
 } from "@everyfield/domain/organizations";
@@ -121,33 +120,27 @@ export async function viewerOf(): Promise<
 	if (!s) return { kind: "unavailable" };
 	if (s.status === "unauthenticated") return { kind: "signed_out" };
 	if (s.status !== "active") return { kind: "unavailable" };
-	const membership = await m.seats.readCurrentMembership(s.sessionId);
-	if (membership.status === "active") {
-		const w = membership.workspace;
-		const kind: Kind = w.kind === "plant" ? "plant" : w.organizationKind;
-		return {
-			kind: "viewer",
-			mount: m,
-			viewer: {
-				kind,
-				session: s.sessionId,
-				accountId: s.accountId,
-				selected: w,
-				canManage: membership.role !== "member",
-			},
-		};
-	}
-	if (membership.status !== "seatless") return { kind: "unavailable" };
-	const d = await hasDiscoveryProfile(m.db, s.accountId);
+	const actor = s.authority?.actor;
+	if (!actor) return { kind: "unavailable" };
+	const context = actor.context;
+	const selected = context.owner;
+	const kind: Kind =
+		selected.kind === "plant"
+			? "plant"
+			: selected.kind === "organization"
+				? selected.organizationKind
+				: s.discovery
+					? "discovery"
+					: "account";
 	return {
 		kind: "viewer",
 		mount: m,
 		viewer: {
-			kind: d ? "discovery" : "account",
+			kind,
 			session: s.sessionId,
 			accountId: s.accountId,
-			selected: owner.parse({ kind: "account", id: s.accountId }),
-			canManage: Boolean(d),
+			selected,
+			canManage: context.kind === "seat" ? context.role !== "member" : s.discovery,
 		},
 	};
 }

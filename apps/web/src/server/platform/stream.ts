@@ -1,4 +1,3 @@
-import { getSession } from "../request-context";
 import * as tables from "./tables.ts";
 import { and, asc, eq, gt, sql } from "@everyfield/db/query";
 import "server-only";
@@ -10,7 +9,7 @@ import { privateHeaders, Refusal } from "./boundary.ts";
 export async function authorizedStream(db: Database, auth: PlatformAuth, request: Request, owner: string) {
 	const cursor = request.headers.get("last-event-id") ?? "0";
 	if (!/^\d{1,10}$/.test(cursor)) throw new Refusal("invalid_input", 422);
-	const session = await getSession(auth, request.headers);
+	const session = await auth.api.getSession({ headers: request.headers });
 	await transaction(db, (tx) => currentScope(tx, session, owner));
 	let after = Number(cursor);
 	let cancelled = false;

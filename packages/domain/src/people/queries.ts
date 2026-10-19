@@ -461,8 +461,8 @@ export async function getViewerSummary(tx: Tx, ctx: Context) {
 }
 
 /** Request DAL entry: one current actor and one bounded own-Person summary. */
-export async function readPeopleViewer(tx: Tx, session: z.infer<typeof sessionId>) {
-	const authority = await RequestActor.resolve(tx, session);
+export async function readPeopleViewer(tx: Tx, session: z.infer<typeof sessionId>, observed?: RequestActor) {
+	const authority = observed ?? (await RequestActor.resolve(tx, session));
 	if (!(authority instanceof RequestActor)) return { status: "no_access" } as const;
 	const actor = authority.actor;
 	if (actor.context.kind !== "seat" || actor.context.owner.kind !== "plant") return { status: "no_access" } as const;

@@ -1,10 +1,12 @@
 "use server";
 
+import { getViewer } from "@/server/request-context";
+
 import * as c from "@everyfield/contracts/people";
 import { peopleReader, peopleWriter } from "@everyfield/domain/people";
 import type { z } from "zod";
 import { parseQuery, type Outcome } from "./model.ts";
-import { loadPeople, read, getViewer, write, type PeopleView, type Viewer } from "./server.ts";
+import { loadPeople, read, write, type PeopleView, type Viewer } from "./server.ts";
 
 // Server actions behind the People screens: the browser boundary. Each one rebuilds the viewer from the request,
 // parses the browser's input with the WP-011 contract schemas (a strict schema refuses any owner, account or authority
@@ -30,10 +32,10 @@ async function boundary<S extends z.ZodType, T>(
 	run: (viewer: Viewer, input: z.output<S>) => Promise<Outcome<T>>,
 ): Promise<Outcome<T>> {
 	const v = await getViewer();
-	if (v.status !== "viewer") return denied;
+	if (!v?.people) return denied;
 	const input = schema.safeParse(raw);
 	if (!input.success) return invalid;
-	return run(v.viewer, input.data);
+	return run(v.people, input.data);
 }
 
 /** A fresh read of one plant person, for answers whose producer result has no person (classification, notes). */
@@ -51,8 +53,8 @@ async function plantPerson(v: Viewer, personId: PersonId): Promise<Outcome<Plant
  */
 export async function loadPeopleView(search: unknown): Promise<PeopleView | null> {
 	const v = await getViewer();
-	if (v.status !== "viewer" || typeof search !== "string" || search.length > 16_384) return null;
-	return loadPeople(v.viewer, parseQuery(new URLSearchParams(search)));
+	if (!v?.people || typeof search !== "string" || search.length > 16_384) return null;
+	return loadPeople(v.people, parseQuery(new URLSearchParams(search)));
 }
 
 export async function createPerson(requestKey: string, input: unknown): Promise<Outcome<{ personId: string }>> {

@@ -6,7 +6,7 @@ import type { Database, Transaction } from "@everyfield/db/client";
 import { CommandScope } from "@everyfield/contracts/common/server";
 import { accountId, sessionId, tenantId, instant } from "@everyfield/contracts/common";
 import { Refusal } from "./boundary.ts";
-import type { getSession } from "../request-context";
+import type { PlatformAuth } from "./auth.ts";
 
 export async function transaction<T>(pool: Database, body: (tx: Transaction) => Promise<T>): Promise<T> {
 	return pool.transaction(async (tx) => {
@@ -14,7 +14,11 @@ export async function transaction<T>(pool: Database, body: (tx: Transaction) => 
 		return body(tx);
 	});
 }
-export async function currentScope(tx: Transaction, session: Awaited<ReturnType<typeof getSession>>, ownerId: string) {
+export async function currentScope(
+	tx: Transaction,
+	session: Awaited<ReturnType<PlatformAuth["api"]["getSession"]>>,
+	ownerId: string,
+) {
 	if (!session) throw new Refusal("unavailable", 404);
 	const owner = { kind: "plant" as const, id: tenantId.parse(ownerId) };
 	const scope = await CommandScope.load(

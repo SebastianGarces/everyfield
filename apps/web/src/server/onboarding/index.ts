@@ -4,7 +4,7 @@ import type { Database } from "@everyfield/db/client";
 import { database } from "../database";
 import * as c from "@everyfield/contracts/onboarding";
 import type { OnboardingWriteContext } from "@everyfield/contracts/onboarding/server";
-import { createSeatService, readAccountContact } from "@everyfield/domain/identity";
+import { readAccountContact } from "@everyfield/domain/identity";
 import {
 	createOnboardingProducer,
 	readOnboardingEntry,
@@ -94,7 +94,7 @@ function create(v: z.infer<typeof env>) {
 			});
 		},
 	});
-	return { db, producer, seats: createSeatService(db), origin: v.IDENTITY_ORIGIN };
+	return { db, producer, origin: v.IDENTITY_ORIGIN };
 }
 function current() {
 	const v = env.safeParse(process.env);
@@ -110,7 +110,7 @@ export async function onboardingEntry() {
 	if (!m) return { kind: "elsewhere", reason: "unavailable" } as const;
 	const session = await getViewer();
 	if (!session) return { kind: "elsewhere", reason: "unavailable" } as const;
-	return readOnboardingEntry(m.db, m.producer, session);
+	return readOnboardingEntry(m.db, m.producer, session, session.authority);
 }
 
 const refusal = (code: "unavailable" | "invalid_input"): Reply => ({
@@ -149,9 +149,9 @@ export async function onboardingCommand(op: Op, input: unknown): Promise<Reply> 
 		}
 	}
 	// Setup commands act on the account's own plant seat, never on a plant named by the browser.
-	const membership = await m.seats.readCurrentMembership(s.sessionId);
-	if (membership.status !== "active" || membership.workspace.kind !== "plant") return refusal("unavailable");
-	const plant = write(membership.workspace);
+	const context = s.authority?.actor.context;
+	if (context?.kind !== "seat" || context.owner.kind !== "plant") return refusal("unavailable");
+	const plant = write(context.owner);
 	switch (op) {
 		case "declareJourney": {
 			const q = c.declareJourneyRequest.safeParse(input);

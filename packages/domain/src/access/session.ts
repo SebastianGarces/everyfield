@@ -78,9 +78,11 @@ export async function liveOwner(tx: Transaction, selected: Owner): Promise<boole
 async function resolveActor(tx: Transaction, session: z.infer<typeof sessionId>, requested?: Owner) {
 	// access_session takes shared session/account locks first. Materialized seats
 	// precede the selected root, preserving the account-before-seat/root order.
+	// A session ID yields at most one row. Bound the function estimate so the
+	// identity/selected join cannot trigger JIT compilation for a million rows.
 	const r = await tx.execute(sql`
 		WITH identity AS MATERIALIZED (
-			SELECT * FROM access_session(${sessionId.parse(session)})
+			SELECT * FROM access_session(${sessionId.parse(session)}) LIMIT 1
 		), seats AS MATERIALIZED (
 			SELECT s.id, s.plant_id, s.organization_id, s.role, s.revision::text, s.accepted_at
 			FROM seat s JOIN identity i ON i.account_id=s.account_id
@@ -181,14 +183,11 @@ type ActiveActor = Extract<z.infer<typeof currentActorResult>, { status: "active
 /** Server-only authority for one request. Constructed from a live session, never from JSON. */
 export class RequestActor {
 	readonly status = "active";
-	#actor: ActiveActor;
+	readonly actor: ActiveActor;
 	readonly session: z.infer<typeof sessionId>;
 	private constructor(session: z.infer<typeof sessionId>, actor: ActiveActor) {
 		this.session = session;
-		this.#actor = actor;
-	}
-	get actor() {
-		return this.#actor;
+		this.actor = actor;
 	}
 
 	static async resolve(tx: Transaction, session: z.infer<typeof sessionId>) {

@@ -1,4 +1,3 @@
-import { getSession } from "../request-context";
 import * as tables from "./tables.ts";
 import { and, eq } from "@everyfield/db/query";
 import "server-only";
@@ -56,7 +55,7 @@ export async function uploadIntent(
 	headers: Headers,
 	input: z.infer<typeof uploadInput>,
 ) {
-	const session = await getSession(auth, headers);
+	const session = await auth.api.getSession({ headers });
 	return transaction(db, async (tx) => {
 		const scope = await currentScope(tx, session, input.ownerId);
 		const id = randomUUID();
@@ -80,7 +79,7 @@ export async function finalizeObject(
 	id: string,
 	bytes: Uint8Array,
 ) {
-	const session = await getSession(auth, headers);
+	const session = await auth.api.getSession({ headers });
 	// Validate bytes before external storage; no client key or content-type is trusted.
 	const object = await transaction(db, async (tx) => {
 		await currentScope(tx, session, owner);
@@ -142,7 +141,7 @@ export async function authorizedDownload(
 	ttl = 60,
 ) {
 	if (!Number.isInteger(ttl) || ttl < 1 || ttl > 60) throw new Refusal("invalid_input", 422);
-	const session = await getSession(auth, headers);
+	const session = await auth.api.getSession({ headers });
 	return transaction(db, async (tx) => {
 		await currentScope(tx, session, owner);
 		const result = await tx

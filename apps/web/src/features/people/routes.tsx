@@ -1,3 +1,4 @@
+import { getViewer } from "@/server/request-context";
 import { LockKeyIcon, UserSearch01Icon } from "@hugeicons/core-free-icons";
 import { personRequest } from "@everyfield/contracts/people";
 import { buttonVariants, Card, EmptyState, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
@@ -12,7 +13,7 @@ import { parseQuery, querySearch } from "./model.ts";
 import { PeopleFrame } from "./PeopleFrame.tsx";
 import { PeopleScreen } from "./PeopleScreen.tsx";
 import { PersonScreen } from "./PersonScreen.tsx";
-import { canWrite, loadPeople, loadPerson, getViewer, type Viewer } from "./server.ts";
+import { canWrite, loadPeople, loadPerson, type Viewer } from "./server.ts";
 
 // The People routes. The files under apps/web/src/app/(product)/people/ only re-export these, so the screens, their
 // data loading and their states stay in this feature folder.
@@ -30,7 +31,7 @@ export async function PeopleLayout({ children }: { children: ReactNode }) {
 	const v = await getViewer();
 	return (
 		<ProductRoot initialTheme={theme}>
-			<Frame viewer={v.status === "viewer" ? v.viewer : null}>{children}</Frame>
+			<Frame viewer={v?.people ?? null}>{children}</Frame>
 		</ProductRoot>
 	);
 }
@@ -47,14 +48,14 @@ async function Frame({ viewer, children }: { viewer: Viewer | null; children: Re
 /** Signed out goes to sign-in and comes back; no seat in a plant sees a lock; a broken setup sees an error. */
 async function gate(returnTo: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
 	const v = await getViewer();
-	if (v.status === "signed_out") redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
-	if (v.status === "viewer") return { viewer: v.viewer };
+	if (v?.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
+	if (v?.people) return { viewer: v.people };
 	return {
 		blocked: (
 			<>
 				<PageHeader size="xl" title="People" />
 				<Card>
-					{v.status === "no_access" ? (
+					{v && !v.people ? (
 						<StatePanel tone="lock" icon={LockKeyIcon} title="People is not part of your seat" headingLevel="h2">
 							People belongs to a church plant workspace. Your account has no current seat in one, so there is nothing
 							to show here.
