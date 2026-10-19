@@ -23,9 +23,10 @@ export function fixture() {
 		),
 	};
 	const saved = Object.fromEntries(
-		["PATH", "EVF_FAKE_GH_STATE", ...Object.keys(scoped)].map((k) => [k, process.env[k]]),
+		["PATH", "EVF_FAKE_GH_STATE", "EVF_MONITOR", ...Object.keys(scoped)].map((k) => [k, process.env[k]]),
 	);
 	Object.assign(process.env, scoped);
+	process.env.EVF_MONITOR = "disposable-test-runner";
 	const root = mkdtempSync(join(tmpdir(), "evf-regression-"));
 	cpSync(join(source, "docs"), join(root, "docs"), { recursive: true });
 	cpSync(join(source, "design/handoff"), join(root, "design/handoff"), { recursive: true });

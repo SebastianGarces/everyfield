@@ -1,4 +1,4 @@
-import { notExists, and, desc, eq, gt, isNull, lte, sql } from "@everyfield/db/query";
+import { notExists, and, desc, eq, gt, inArray, isNull, lte, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { alias } from "@everyfield/db/columns";
 import "server-only";
@@ -159,69 +159,82 @@ export async function canReadPerson(tx: Tx, context: Context, p: Person) {
 	return a;
 }
 export async function project(tx: Tx, context: Context, p: Person) {
-	const base = {
-		id: p.id,
-		revision: p.revision,
-		createdAt: p.created_at.toISOString(),
-		displayName: p.display_name,
-		firstName: p.first_name,
-		lastName: p.last_name,
-		email: p.email,
-		phone: p.phone,
-		street: p.street,
-		city: p.city,
-		stateProvince: p.state_province,
-		postalCode: p.postal_code,
-		country: p.country,
-		owner: context.selected,
-		lifecycle:
-			p.state === "live"
-				? { state: "live" }
-				: p.state === "retired"
-					? { state: "retired", retiredAt: p.retired_at!.toISOString() }
-					: {
-							state: "merged",
-							retiredAt: p.retired_at!.toISOString(),
-							survivorId: p.merged_into_person_id,
-						},
-	};
-	if (context.selected.kind === "organization") return c.organizationPerson.parse(base);
-	const evidence = await tx
-		.select({
-			id: tables.commitment.id,
-			kind: tables.commitment.kind,
-			signed_on: tables.commitment.signed_on,
-			revision: tables.commitment.revision,
-		})
-		.from(tables.commitment)
-		.where(
-			and(
-				and(eq(tables.commitment.plant_id, context.selected.id), eq(tables.commitment.person_id, p.id)),
-				isNull(tables.commitment.voided_at),
-			),
-		)
-		.orderBy(desc(tables.commitment.signed_on), desc(tables.commitment.id))
-		.limit(1);
-	const e = evidence[0]!;
-	const commitment =
-		p.commitment_state === "unknown" || !e
-			? { state: "unknown" }
-			: {
-					state: p.commitment_state,
-					evidenceId: e.id,
-					kind: e.kind,
-					occurredOn: e.signed_on,
-					revision: e.revision,
-				};
-	return c.plantPerson.parse({
-		...base,
-		stage: p.stage,
-		source: p.source,
-		sourceDetails: p.source_details,
-		summaryNotes: p.notes,
-		adultClassification: p.adult_classification,
-		birthDate: p.birth_date?.toISOString().slice(0, 10) ?? null,
-		commitment,
+	return (await projectPeople(tx, context, [p]))[0]!;
+}
+export async function projectPeople(tx: Tx, context: Context, people: Person[]) {
+	const evidence =
+		context.selected.kind === "plant" && people.length
+			? await tx
+					.selectDistinctOn([tables.commitment.person_id], {
+						person_id: tables.commitment.person_id,
+						id: tables.commitment.id,
+						kind: tables.commitment.kind,
+						signed_on: tables.commitment.signed_on,
+						revision: tables.commitment.revision,
+					})
+					.from(tables.commitment)
+					.where(
+						and(
+							eq(tables.commitment.plant_id, context.selected.id),
+							inArray(
+								tables.commitment.person_id,
+								people.map((p) => p.id),
+							),
+							isNull(tables.commitment.voided_at),
+						),
+					)
+					.orderBy(tables.commitment.person_id, desc(tables.commitment.signed_on), desc(tables.commitment.id))
+			: [];
+	const byPerson = new Map(evidence.map((e) => [e.person_id, e]));
+	return people.map((p) => {
+		const base = {
+			id: p.id,
+			revision: p.revision,
+			createdAt: p.created_at.toISOString(),
+			displayName: p.display_name,
+			firstName: p.first_name,
+			lastName: p.last_name,
+			email: p.email,
+			phone: p.phone,
+			street: p.street,
+			city: p.city,
+			stateProvince: p.state_province,
+			postalCode: p.postal_code,
+			country: p.country,
+			owner: context.selected,
+			lifecycle:
+				p.state === "live"
+					? { state: "live" }
+					: p.state === "retired"
+						? { state: "retired", retiredAt: p.retired_at!.toISOString() }
+						: {
+								state: "merged",
+								retiredAt: p.retired_at!.toISOString(),
+								survivorId: p.merged_into_person_id,
+							},
+		};
+		if (context.selected.kind === "organization") return c.organizationPerson.parse(base);
+		const e = byPerson.get(p.id);
+		const commitment =
+			p.commitment_state === "unknown" || !e
+				? { state: "unknown" }
+				: {
+						state: p.commitment_state,
+						evidenceId: e.id,
+						kind: e.kind,
+						occurredOn: e.signed_on,
+						revision: e.revision,
+					};
+		return c.plantPerson.parse({
+			...base,
+			stage: p.stage,
+			source: p.source,
+			sourceDetails: p.source_details,
+			summaryNotes: p.notes,
+			adultClassification: p.adult_classification,
+			birthDate: p.birth_date?.toISOString().slice(0, 10) ?? null,
+			commitment,
+		});
 	});
 }
 export const contactColumns = {

@@ -34,6 +34,8 @@ const admin = createDatabase({
 	options: `-c search_path=${schema},pg_catalog,pg_temp`,
 });
 let db;
+let queries = [];
+
 const plants = [randomUUID(), randomUUID()],
 	organization = randomUUID(),
 	actors = Array.from({ length: 5 }, () => ({
@@ -90,6 +92,13 @@ before(async () => {
 		connectionString: url.href,
 		max: 6,
 		options: `-c search_path=${schema},pg_catalog,pg_temp`,
+	});
+	db.$client.on("connect", (client) => {
+		const query = client.query;
+		client.query = function (...args) {
+			queries.push(typeof args[0] === "string" ? args[0] : args[0].text);
+			return Reflect.apply(query, this, args);
+		};
 	});
 	for (const a of actors) {
 		await admin.execute(
@@ -1431,5 +1440,91 @@ test("INV-pipeline: complete native and reviewed orders persist, retry once, and
 			),
 		).items.map((p) => p.id),
 		all,
+	);
+});
+
+test("BUG-FB-review-1: full People pages and pipeline use fixed database round trips", async (t) => {
+	const ids = Array.from({ length: 101 }, () => randomUUID()).sort();
+	t.after(async () => {
+		await admin.execute(sql`DELETE FROM task WHERE person_id=ANY(${sql.param(ids)}::uuid[])`);
+		await admin.execute(sql`DELETE FROM commitment WHERE person_id=ANY(${sql.param(ids)}::uuid[])`);
+		await admin.execute(sql`DELETE FROM person WHERE id=ANY(${sql.param(ids)}::uuid[])`);
+	});
+	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,pipeline_position,state,created_at)
+		SELECT id,${plants[0]}::uuid,${plants[0]}::uuid,'Batch regression','other','prospect','unknown','unknown',0,'live','2026-10-01T12:00:00.123456Z'::timestamptz
+		FROM unnest(${sql.param(ids)}::uuid[]) id`);
+	const counts = { list: [], card: [], pipeline: [] };
+	for (const limit of [25, 50, 100]) {
+		for (const view of ["list", "card", "pipeline"]) {
+			queries = [];
+			const result = ok(
+				await tx((t) =>
+					view === "pipeline"
+						? read.getPipelineData(t, ctx(), { search: "Batch regression", limit })
+						: read.listPeople(t, ctx(), { search: "Batch regression", limit, view }),
+				),
+			);
+			counts[view].push(queries.length);
+			const page = view === "pipeline" ? result.groups.find((g) => g.column === "prospect") : result;
+			const items = view === "pipeline" ? page.cards.map((c) => c.person) : page.items;
+			assert.deepEqual(
+				items.map((p) => p.id),
+				ids.slice(0, limit),
+			);
+			assert.equal(page.total, 101);
+			assert.equal(typeof page.next, "string");
+			assert.deepEqual(
+				items.map((p) => p.commitment),
+				Array.from({ length: limit }, () => ({ state: "unknown" })),
+			);
+			if (view === "pipeline")
+				assert.deepEqual(
+					page.cards.map((c) => ({ duties: c.activeParentDuties, coverage: c.coverage })),
+					Array.from({ length: limit }, () => ({ duties: [], coverage: "uncovered" })),
+				);
+		}
+	}
+	t.diagnostic(JSON.stringify(counts));
+	assert.deepEqual(counts.list, [counts.list[0], counts.list[0], counts.list[0]]);
+	assert.deepEqual(counts.card, counts.list);
+	assert.ok(counts.list[0] <= 17, "list round-trip budget includes authorization and transaction overhead");
+	assert.deepEqual(counts.pipeline, [counts.pipeline[0], counts.pipeline[0], counts.pipeline[0]]);
+	assert.ok(counts.pipeline[0] <= 32, "pipeline round-trip budget includes all columns");
+	const evidence = [randomUUID(), randomUUID()].sort();
+	await admin.execute(sql`INSERT INTO commitment(id,plant_id,person_id,kind,signed_on,recorded_at)
+		SELECT id,${plants[0]}::uuid,${ids[0]}::uuid,'launch_team','2099-01-01',clock_timestamp() FROM unnest(${sql.param(evidence)}::uuid[]) id`);
+	await admin.execute(sql`INSERT INTO commitment(id,plant_id,person_id,kind,signed_on,recorded_at,voided_at)
+		VALUES(${randomUUID()},${plants[0]},${ids[0]},'core_group','2099-02-01',clock_timestamp(),clock_timestamp())`);
+	await admin.execute(sql`UPDATE person SET commitment_state='withdrawn' WHERE id=${ids[0]}`);
+	const projected = ok(await tx((t) => read.listPeople(t, ctx(), { search: "Batch regression", limit: 25 })));
+	assert.deepEqual(projected.items[0].commitment, {
+		state: "withdrawn",
+		evidenceId: evidence[1],
+		kind: "launch_team",
+		occurredOn: "2099-01-01",
+		revision: "1",
+	});
+	assert.deepEqual(projected.items[1].commitment, { state: "unknown" });
+	assert.deepEqual(ok(await tx((t) => read.getPerson(t, ctx(), { personId: ids[0] }))).person, projected.items[0]);
+	const duties = Array.from({ length: 100 }, () => randomUUID()).sort();
+	await admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id)
+		SELECT id,${plants[0]}::uuid,'Call','follow_up','medium','not_started',clock_timestamp(),'undated',${ids[0]}::uuid FROM unnest(${sql.param(duties)}::uuid[]) id`);
+	const overdue = randomUUID();
+	await admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,due_date,person_id)
+		VALUES(${overdue},${plants[0]},'Call','follow_up','medium','not_started',clock_timestamp(),'date_only','2000-01-01',${ids[1]})`);
+	const pipeline = ok(await tx((t) => read.getPipelineData(t, ctx(), { search: "Batch regression", limit: 25 })));
+	const cards = pipeline.groups.find((g) => g.column === "prospect").cards;
+	assert.deepEqual(cards[0], {
+		person: projected.items[0],
+		activeParentDuties: duties.map((id) => ({ id, dueOn: null, warning: "missing_due_date" })),
+		coverage: "covered",
+	});
+	assert.deepEqual(cards[1].activeParentDuties, [{ id: overdue, dueOn: "2000-01-01", warning: "overdue" }]);
+	assert.equal(cards[1].coverage, "covered");
+	await admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id)
+		VALUES(${randomUUID()},${plants[0]},'Overflow','follow_up','medium','not_started',clock_timestamp(),'undated',${ids[0]})`);
+	refused(
+		await tx((t) => read.getPipelineData(t, ctx(), { search: "Batch regression", limit: 25 })),
+		"source_unavailable",
 	);
 });
