@@ -12,6 +12,7 @@
 //   INV-discard: closing Edit profile with changes asks before discarding them.
 //   INV-tags: repeated tag ids in the address filter for people with all of them; a chip removes one (D47).
 //   INV-reorder-focus, INV-reorder-conflict: verifier findings on b4d2ec0 (focus kept, stale refusal kept).
+//   BUG-church-date: adult or child has no date from the reader's clock; a church-future date says why it was refused.
 //   BUG-hydration: WebKit and Node join date parts differently; dates are built from parts so hydration matches.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -394,13 +395,24 @@ for (const [name, engine] of [
 		});
 	});
 
-	test(`AC:TARGET-PPL-002 (${name}): recording adult or child updates Details and Activity without a reload`, async () => {
+	test(`AC:TARGET-PPL-002 BUG-church-date (${name}): adult or child needs an explicit date; a church-future date is refused`, async () => {
 		await withPage(engine, "owner", async (page) => {
 			await addPerson(page, unique(name));
 			await page.getByRole("button", { name: "More actions" }).click();
 			await page.getByRole("menuitem", { name: "Record adult or child" }).click();
 			const dialog = page.getByRole("dialog", { name: "Record adult or child" });
+			const date = dialog.getByLabel("As of");
+			// No default from the reader's clock: it can be the church's tomorrow (verifier finding on f0ea75d).
+			assert.equal(await date.inputValue(), "");
 			await dialog.getByLabel("Reason").fill("Said so at the vision meeting");
+			await dialog.getByRole("button", { name: "Record" }).click();
+			await dialog.getByText("Choose the date you learned this.").waitFor();
+			// Three days ahead is in the future in every time zone.
+			const ahead = new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 10);
+			await date.fill(ahead);
+			await dialog.getByRole("button", { name: "Record" }).click();
+			await dialog.getByText("This date is after today at your church.").waitFor({ timeout: 30_000 });
+			await date.fill("2026-01-15");
 			await dialog.getByRole("button", { name: "Record" }).click();
 			await dialog.waitFor({ state: "detached", timeout: 30_000 });
 			await page.waitForFunction(() => document.body.innerText.includes("Adult or child recorded"), null, {

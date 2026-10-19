@@ -257,10 +257,6 @@ export function EditProfileDialog({
 // stage. The first explicit answer is recorded; a later one is a correction with a reason, both kept in history.
 
 export type ClassifyDraft = { classification: string; occurredOn: string; reason: string };
-const today = () => {
-	const d = new Date();
-	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
 
 export function ClassificationDialog({
 	open,
@@ -278,7 +274,9 @@ export function ClassificationDialog({
 	const pending = state.pending === "classify";
 	const draft = (state.drafts.classify as ClassifyDraft | undefined) ?? {
 		classification: correction ? person.adultClassification : "adult",
-		occurredOn: today(),
+		// No default: only the server knows the church's date, and a date from the reader's clock can be the church's
+		// tomorrow (verifier finding on f0ea75d). The person picks the date.
+		occurredOn: "",
 		reason: "",
 	};
 	const [touched, setTouched] = useState(false);
@@ -293,6 +291,8 @@ export function ClassificationDialog({
 		onOpenChange(next);
 	};
 	const missing = draft.reason.trim() === "" || draft.occurredOn === "";
+	// Every other field is checked here first, so the server's invalid_input for this form means a church-future date.
+	const futureDate = state.errors.classify === "invalid_input";
 
 	async function save(event: React.FormEvent) {
 		event.preventDefault();
@@ -342,10 +342,19 @@ export function ClassificationDialog({
 									options={CLASSIFICATIONS.map((c) => ({ value: c, label: CLASSIFICATION_LABEL[c] }))}
 								/>
 							</Field>
-							<Field label="As of" error={touched && draft.occurredOn === "" ? "Choose a date." : null}>
+							<Field
+								label="As of"
+								hint="The date you learned this, by your church's calendar."
+								error={
+									touched && draft.occurredOn === ""
+										? "Choose the date you learned this."
+										: futureDate
+											? "This date is after today at your church. Choose an earlier date."
+											: null
+								}
+							>
 								<Input
 									type="date"
-									max={today()}
 									value={draft.occurredOn}
 									readOnly={pending}
 									onChange={(e) => set({ occurredOn: e.target.value })}
@@ -361,7 +370,7 @@ export function ClassificationDialog({
 								onChange={(e) => set({ reason: e.target.value })}
 							/>
 						</Field>
-						<FormProblem code={state.errors.classify} />
+						<FormProblem code={futureDate ? undefined : state.errors.classify} />
 					</DialogBody>
 					<DialogFooter>
 						<Button variant="secondary" type="button" onClick={() => close(false)} disabled={pending}>
