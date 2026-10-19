@@ -29,12 +29,12 @@ export function VisionSection({
 						<Display as="h2" size="h2" id="vision-title">
 							{headline}
 						</Display>
-						<p className="mt-5 text-[clamp(17px,1.3vw,19px)] leading-[1.55] text-pretty text-text-2">{body}</p>
+						<p className="mt-5 text-mk-lead-sm leading-[1.55] text-pretty text-text-2">{body}</p>
 					</Reveal>
 					<VisionZoom />
 					<Reveal className="col-start-2 -my-9 flex flex-col items-center max-mk-cx:col-start-1">
 						<i aria-hidden="true" className="h-[clamp(28px,4vw,44px)] w-0.5 rounded-full bg-green-600" />
-						<p className="m-0 inline-flex h-9 items-center gap-2 rounded-full bg-surface px-4 text-[14px] font-semibold text-ink shadow-mk-chip">
+						<p className="m-0 inline-flex h-9 items-center gap-2 rounded-sm bg-surface px-4 type-md font-semibold text-ink shadow-mk-chip">
 							<Icon icon={ICONS.calendar} size={16} className="text-green-700" />
 							{bridge}
 						</p>

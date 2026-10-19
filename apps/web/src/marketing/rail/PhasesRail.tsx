@@ -49,7 +49,7 @@ export function PhasesRail(props: Props) {
 					>
 						<span
 							aria-hidden="true"
-							className="absolute top-4 left-[18px] font-display text-[96px] leading-[.8] font-medium tracking-[-0.06em] text-ink tabular-nums"
+							className="absolute top-4 left-[18px] font-display type-mk-display-xl leading-[.8] font-medium tracking-[-0.06em] text-ink tabular-nums"
 						>
 							{num(i)}
 						</span>
@@ -58,14 +58,14 @@ export function PhasesRail(props: Props) {
 						</div>
 					</div>
 					<div className="px-[22px] pt-5 pb-[22px]">
-						<span className="flex items-baseline gap-3 text-[13px] leading-[1.3] font-semibold tracking-[.09em] uppercase">
+						<span className="flex items-baseline gap-3 type-sm leading-[1.3] font-semibold tracking-[.09em] uppercase">
 							<span className="text-text-3 tabular-nums">{num(i)}</span>
 							<span className="text-text-2">{x.label}</span>
 						</span>
-						<h3 className="mt-2.5 font-display text-[clamp(21px,1.65vw,25px)] leading-[1.15] font-medium tracking-[-0.02em] [font-stretch:100%] [text-wrap:balance]">
+						<h3 className="mt-2.5 font-display type-title-md leading-[1.15] font-medium tracking-[-0.02em] [font-stretch:100%] [text-wrap:balance]">
 							{x.title}
 						</h3>
-						<p className="mt-2 text-[15px] leading-[1.5] text-text-2">{x.short || x.body || ""}</p>
+						<p className="mt-2 type-lg leading-[1.5] text-text-2">{x.short || x.body || ""}</p>
 					</div>
 				</li>
 			))}

@@ -274,9 +274,8 @@ export async function mutation<T>(
 	}>,
 ): Promise<unknown> {
 	await lockOwner(tx, context);
-	const orgNote =
-		context.selected.kind === "organization" &&
-		["people.addNote", "people.editNote", "people.deleteNote"].includes(name);
+	const note = ["people.addNote", "people.editNote", "people.deleteNote"].includes(name);
+	const orgNote = context.selected.kind === "organization" && note;
 	const actor = await authorize(tx, context, !orgNote);
 	if (orgNote) {
 		const subject = parse(z.object({ input: z.object({ personId: z.uuid() }) }), input).input.personId;
@@ -407,8 +406,9 @@ export async function mutation<T>(
 		person_id: result.subject === context.selected.id ? null : result.subject,
 		value: result.value,
 	});
-	// Domain history can carry operational bodies; the central audit never does.
-	if (result.subject !== context.selected.id)
+	// Notes own their timeline row and protected correction history. The central
+	// audit still records every mutation, without operational bodies.
+	if (!note && result.subject !== context.selected.id)
 		await tx.insert(tables.people_history).values({
 			tenant_id: context.selected.id,
 			person_id: result.subject,

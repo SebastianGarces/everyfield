@@ -36,12 +36,12 @@ export function AppFrame({
 					<Mark className="h-4 w-5" />
 				</span>
 				{tabs ? (
-					<span className="flex gap-0.5 rounded-full bg-surface-raised p-1 shadow-[0_0_0_1px_var(--color-line)]">
+					<span className="flex gap-0.5 rounded-[13px] bg-surface-raised p-1 shadow-[0_0_0_1px_var(--color-line)]">
 						{["Overview", "People", "Meetings", "Tasks"].map((x, i) => (
 							<span
 								key={x}
 								className={cn(
-									"rounded-full px-[13px] py-[7px] text-[13px] font-medium whitespace-nowrap",
+									"rounded-sm px-[13px] py-[7px] type-sm font-medium whitespace-nowrap",
 									i ? "text-text-2 max-mk-sm:hidden" : "bg-ink text-on-ink",
 								)}
 							>
@@ -57,10 +57,10 @@ export function AppFrame({
 			<div className="px-5 pt-2 pb-[22px] max-mk-sm:px-3 max-mk-sm:pt-1 max-mk-sm:pb-3.5">
 				<div className="flex items-end justify-between gap-4 px-1 pt-1.5 pb-[18px]">
 					<div>
-						<div className="font-display text-[30px] leading-[1.05] font-medium tracking-[-0.035em] max-mk-sm:text-[24px]">
+						<div className="font-display type-title-lg leading-[1.05] font-medium tracking-[-0.035em] max-mk-sm:type-title-md">
 							{title}
 						</div>
-						<div className="mt-1.5 text-[13px] text-text-3">{sub}</div>
+						<div className="mt-1.5 type-sm text-text-3">{sub}</div>
 					</div>
 					{right}
 				</div>
@@ -88,8 +88,8 @@ export function DashHead({ title, sub, right }: { title: string; sub?: string; r
 	return (
 		<div className="mb-3.5 flex items-start gap-3">
 			<div className="min-w-0 flex-1">
-				<div className="font-display text-[19px] leading-[1.2] font-medium tracking-[-0.02em]">{title}</div>
-				{sub ? <div className="mt-[3px] text-[13px] text-text-3">{sub}</div> : null}
+				<div className="font-display type-title-sm leading-[1.2] font-medium tracking-[-0.02em]">{title}</div>
+				{sub ? <div className="mt-[3px] type-sm text-text-3">{sub}</div> : null}
 			</div>
 			{right}
 		</div>
@@ -102,19 +102,19 @@ export const More = () => <Icon icon={ICONS.more} className="text-text-3" />;
 export function Kv({ k, first, children }: { k: string; first?: boolean; children: ReactNode }) {
 	return (
 		<div className={cn("flex items-center justify-between gap-3 py-[11px]", !first && "border-t border-line")}>
-			<span className="text-[13px] text-text-2">{k}</span>
+			<span className="type-sm text-text-2">{k}</span>
 			{children}
 		</div>
 	);
 }
-export const KV_V = "font-display text-[18px] font-medium tracking-[-0.02em] whitespace-nowrap";
+export const KV_V = "font-display type-title-sm font-medium tracking-[-0.02em] whitespace-nowrap";
 
 /** A change against the prior period: white pill with an up (green) or down (magenta) triangle. */
 export function Delta({ dir, children }: { dir: "up" | "down"; children: ReactNode }) {
 	return (
 		<span
 			className={cn(
-				"inline-flex h-[26px] items-center gap-1.5 rounded-full bg-surface-raised px-2.5 text-[12.5px] font-semibold whitespace-nowrap shadow-[inset_0_0_0_1px_var(--color-line)]",
+				"inline-flex h-[26px] items-center gap-1.5 rounded-full bg-surface-raised px-2.5 type-sm font-semibold whitespace-nowrap shadow-[inset_0_0_0_1px_var(--color-line)]",
 				"before:border-x-[5px] before:border-x-transparent before:content-['']",
 				dir === "up"
 					? "before:border-b-[7px] before:border-b-green-500"
@@ -146,8 +146,8 @@ export function ListRow({
 		<div className={cn("flex items-center gap-3 py-3", !first && "border-t border-line")}>
 			<CardIcon tone={tone} icon={icon} />
 			<div className="min-w-0 flex-1">
-				<div className="text-[14px] font-semibold">{title}</div>
-				<div className="mt-0.5 text-[12.5px] text-text-3">{sub}</div>
+				<div className="type-md font-semibold">{title}</div>
+				<div className="mt-0.5 type-sm text-text-3">{sub}</div>
 			</div>
 			{end}
 		</div>

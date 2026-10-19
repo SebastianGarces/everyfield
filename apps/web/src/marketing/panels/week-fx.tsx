@@ -141,7 +141,7 @@ export function FlyGuest({ k, children }: { k: number; children: ReactNode }) {
 			aria-hidden="true"
 			className={cn(
 				CHIP,
-				"pointer-events-none absolute top-0 left-0 z-7 h-7 gap-[7px] pr-2.5 pl-1 text-[12px] opacity-0 will-change-[transform,opacity]",
+				"pointer-events-none absolute top-0 left-0 z-7 h-7 gap-[7px] pr-2.5 pl-1 type-xs opacity-0 will-change-[transform,opacity]",
 			)}
 			style={{ transform, opacity }}
 		>
@@ -188,7 +188,7 @@ export function Fly({ k, children }: { k: number; children: ReactNode }) {
 			ref={fly}
 			className={cn(
 				CHIP,
-				"pointer-events-none absolute top-0 left-0 z-7 h-[30px] gap-[7px] pr-3 pl-1 text-[13px] opacity-0 will-change-[transform,opacity]",
+				"pointer-events-none absolute top-0 left-0 z-7 h-[30px] gap-[7px] pr-3 pl-1 type-sm opacity-0 will-change-[transform,opacity]",
 			)}
 			style={{ transform, opacity }}
 		>

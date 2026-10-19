@@ -43,7 +43,7 @@ export function FocusPanel({ title }: { title: string }) {
 						</span>
 						<span className="absolute -top-[5px] right-[5%] -bottom-[5px] w-0.5 rounded-[2px] bg-ink" />
 					</div>
-					<div className="relative mt-2 flex h-4 justify-between text-[12px] text-[var(--on-3)]">
+					<div className="relative mt-2 flex h-4 justify-between type-xs text-[var(--on-3)]">
 						<span className="whitespace-nowrap">Core group 34</span>
 						<span className="whitespace-nowrap">38 if all 4 commit</span>
 					</div>
@@ -62,7 +62,7 @@ export function FocusPanel({ title }: { title: string }) {
 								fx="focus.fact"
 								n={k}
 								className={cn(
-									"flex justify-between gap-2.5 py-1.5 text-[13px] text-[var(--on-2)] opacity-0",
+									"flex justify-between gap-2.5 py-1.5 type-sm text-[var(--on-2)] opacity-0",
 									k > 0 && "border-t border-mk-ink-10",
 								)}
 							>
@@ -105,10 +105,10 @@ export function ReadinessPanel() {
 					sub="Core Group Development · Harvest Point"
 				/>
 				<St i={1} className="flex items-end gap-3 pb-3">
-					<Num className="text-[44px] leading-[.95]">
+					<Num className="type-display-sm leading-[.95]">
 						<Count fx="ready.met" max={4} />
 					</Num>
-					<span className="pb-1 text-[13px] leading-[1.3] text-text-3">of 5 met</span>
+					<span className="pb-1 type-sm leading-[1.3] text-text-3">of 5 met</span>
 				</St>
 				{BENCH.map((r, k) => {
 					const open = k === BENCH.length - 1;
@@ -116,7 +116,7 @@ export function ReadinessPanel() {
 						<St
 							key={r[0]}
 							i={k + 2}
-							className="relative isolate flex items-center gap-2.5 border-t border-line py-[9px] text-[13px]"
+							className="relative isolate flex items-center gap-2.5 border-t border-line py-[9px] type-sm"
 						>
 							{open ? (
 								<>

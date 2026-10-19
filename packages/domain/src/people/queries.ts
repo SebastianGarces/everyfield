@@ -1,4 +1,4 @@
-import { inArray, ne, count, and, asc, eq, isNull, or, sql } from "@everyfield/db/query";
+import { inArray, ne, count, and, asc, eq, isNull, or, sql, getTableColumns } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { alias } from "@everyfield/db/columns";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
@@ -15,6 +15,7 @@ const obligation_o = alias(tables.obligation, "o");
 const activityRow = z.object({
 	id: z.uuid(),
 	occurred_at: z.coerce.date(),
+	cursor_at: z.iso.datetime(),
 	recorded_at: z.coerce.date(),
 	actor_id: z.uuid().nullable(),
 	revision: z.string(),
@@ -35,12 +36,12 @@ const cursorSchema = z.strictObject({
 	at: z.iso.datetime({ offset: true }),
 	id: z.uuid(),
 });
-function encode(ctx: Context, q: unknown, at: Date, id: string) {
+function encode(ctx: Context, q: unknown, at: string, id: string) {
 	const body = Buffer.from(
 		JSON.stringify({
 			owner: ctx.selected.id,
 			query: hash({ q, purpose: ctx.purpose }),
-			at: at.toISOString(),
+			at,
 			id,
 		}),
 	).toString("base64url");
@@ -116,7 +117,10 @@ async function list(tx: Tx, ctx: Context, raw: unknown) {
 				: sql`(${tables.person.created_at},${tables.person.id})>(${cur.at}::timestamptz,${cur.id}::uuid)`,
 		);
 	const result = await tx
-		.select()
+		.select({
+			...getTableColumns(tables.person),
+			cursor_at: sql<string>`to_char(${tables.person.created_at} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+		})
 		.from(tables.person)
 		.where(and(...filters))
 		.orderBy(
@@ -128,13 +132,13 @@ async function list(tx: Tx, ctx: Context, raw: unknown) {
 
 	const rows = result.slice(0, input.limit).map((r) => personRow.parse(r));
 	const items = await Promise.all(rows.map((p) => project(tx, ctx, p))),
-		last = rows.at(-1),
+		last = result.slice(0, input.limit).at(-1),
 		more = result.length > input.limit;
 	return c.peoplePage.parse({
 		owner: ctx.selected,
 		items,
 		total,
-		next: more && last ? encode(ctx, queryBound, last.created_at, last.id) : null,
+		next: more && last ? encode(ctx, queryBound, last.cursor_at, last.id) : null,
 		completeness: more ? "partial" : "complete",
 	});
 }
@@ -218,6 +222,10 @@ export const peopleReader: PeopleReader<Tx> = {
 					.where(eq(tables.plant.id, ctx.selected.id))
 					.for("share")
 			)[0]!.material_revision;
+			const columnRevisions = await tx
+				.select({ column: tables.people_column.column_name, revision: tables.people_column.revision })
+				.from(tables.people_column)
+				.where(eq(tables.people_column.plant_id, ctx.selected.id));
 			const queries = c.pipelineColumn.options.map((column) => {
 				const stages = column === "core_group" ? ["core_group", "launch_team", "leader"] : [column];
 				const selected = input.stages.length ? input.stages.filter((s) => stages.includes(s)) : stages;
@@ -247,8 +255,9 @@ export const peopleReader: PeopleReader<Tx> = {
 				deny("invalid_input");
 			// Each column has its own query-bound continuation; unrelated columns reset.
 			for (const { column, stages, selected, query, bound } of queries) {
+				const revision = columnRevisions.find((r) => r.column === column)?.revision ?? "1";
 				if (!selected.length) {
-					groups.push({ column, cards: [], total: 0, next: null });
+					groups.push({ column, revision, cards: [], total: 0, next: null });
 					continue;
 				}
 				const page = await list(tx, ctx, {
@@ -305,6 +314,7 @@ export const peopleReader: PeopleReader<Tx> = {
 				}
 				groups.push({
 					column,
+					revision,
 					cards,
 					total: input.stages.length && !input.stages.some((s) => stages.includes(s)) ? 0 : page.total,
 					next: page.next,
@@ -326,7 +336,8 @@ export const peopleReader: PeopleReader<Tx> = {
 			await canReadPerson(tx, ctx, p);
 			const { after, ...query } = input,
 				cur = decode(ctx, query, after);
-			const result = await tx.execute(sql`SELECT * FROM (
+			const result =
+				await tx.execute(sql`SELECT *,to_char(occurred_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_at FROM (
       SELECT id,occurred_at,recorded_at,author_id AS actor_id,revision,body,edited_at,removed_at,'note' AS category,'note' AS kind,NULL::text AS action,NULL::jsonb AS before_value,NULL::jsonb AS after_value,NULL::uuid AS obligation_id,NULL::text AS outcome FROM person_note WHERE tenant_id=${sql.param(ctx.selected.id)} AND person_id=${sql.param(p.id)}
       UNION ALL
       SELECT id,occurred_at,recorded_at,actor_id,after_revision AS revision,NULL,NULL,NULL,'activity',CASE WHEN action='people.stage_changed' THEN 'stage_changed' ELSE 'activity' END,action,before_value,after_value,NULL,NULL FROM people_history WHERE tenant_id=${sql.param(ctx.selected.id)} AND person_id=${sql.param(p.id)} AND action IN ('people.created','people.updated','people.retired','people.restored','people.stage_changed','people.recorded','people.corrected')
@@ -379,7 +390,7 @@ export const peopleReader: PeopleReader<Tx> = {
 				owner: ctx.selected,
 				personId: p.id,
 				items,
-				next: more && last ? encode(ctx, query, last.occurred_at, last.id) : null,
+				next: more && last ? encode(ctx, query, last.cursor_at, last.id) : null,
 				completeness: more ? "partial" : "complete",
 			});
 		});

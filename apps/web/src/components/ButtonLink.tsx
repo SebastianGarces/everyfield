@@ -6,7 +6,7 @@ export type ButtonVariant = "primary" | "secondary" | "inverse";
 export type ButtonSize = "md" | "nav" | "pill" | "footer";
 
 const BASE =
-	"inline-flex items-center gap-2.5 whitespace-nowrap rounded-full border-0 font-sans font-semibold no-underline cursor-pointer " +
+	"inline-flex items-center gap-2.5 whitespace-nowrap rounded-md border-0 font-sans font-semibold no-underline cursor-pointer " +
 	"[transition:background-color_.2s,color_.2s,translate_.12s,box-shadow_.2s] active:translate-y-px motion-reduce:transition-none";
 const VARIANT: Record<ButtonVariant, string> = {
 	primary: "bg-ink text-white hover:bg-ink-2",
@@ -16,10 +16,10 @@ const VARIANT: Record<ButtonVariant, string> = {
 	inverse: "bg-white text-ink hover:bg-green focus-visible:outline-white",
 };
 const SIZE: Record<ButtonSize, string> = {
-	md: "h-[50px] px-6 text-[15.5px] max-mk-sm:h-12 max-mk-sm:px-5 max-mk-sm:text-[15px]",
-	nav: "h-[42px] px-[18px] text-[14.5px] max-mk-sm:h-10 max-mk-sm:px-3.5 max-mk-sm:text-[13.5px]",
-	pill: "h-11 px-[18px] text-[14.5px] max-mk-sm:h-[42px] max-mk-sm:px-3.5 max-mk-sm:text-[13.5px]",
-	footer: "h-[46px] px-6 text-[15.5px] max-mk-sm:px-5 max-mk-sm:text-[15px]",
+	md: "h-[50px] px-6 type-lg max-mk-sm:h-12 max-mk-sm:px-5",
+	nav: "h-[42px] px-[18px] type-md max-mk-sm:h-10 max-mk-sm:px-3.5",
+	pill: "h-11 px-[18px] type-md max-mk-sm:h-[42px] max-mk-sm:px-3.5",
+	footer: "h-[46px] px-6 type-lg max-mk-sm:px-5",
 };
 
 /** Class names for a button-styled link. Shared with the client nav, which renders its own anchors. */
