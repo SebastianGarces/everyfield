@@ -161,7 +161,7 @@ function ActiveList({
 	const rows = history.activeRelationships;
 	if (rows.length === 0)
 		return (
-			<p className="mt-5 rounded-md bg-surface px-5 py-4 text-text-2">
+			<p className="mt-5 text-text-2">
 				{side === "subject"
 					? "Not connected to a sending church or network. Nothing is shared."
 					: "No churches are connected yet."}
@@ -223,11 +223,7 @@ function ActiveRow({
 					run={run}
 					onEnded={() => onEnded(name)}
 					trigger={
-						<Button
-							variant="ghost"
-							size="sm"
-							aria-label={subject ? `Leave ${name}` : `End the connection with ${name}`}
-						>
+						<Button variant="ghost" size="sm" aria-label={subject ? `Leave ${name}` : `End connection with ${name}`}>
 							{subject ? "Leave" : "End connection"}
 						</Button>
 					}
