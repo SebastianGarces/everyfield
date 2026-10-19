@@ -170,8 +170,10 @@ async function resolveActor(tx: Transaction, session: z.infer<typeof sessionId>,
 	});
 }
 
-export function currentActor(tx: Transaction, session: z.infer<typeof sessionId>, selected: Owner) {
-	return resolveActor(tx, session, selected);
+export async function currentActor(tx: Transaction, session: z.infer<typeof sessionId>, selected: Owner) {
+	const parsed = owner.safeParse(selected);
+	if (!parsed.success) return currentActorResult.parse({ status: "unavailable" });
+	return resolveActor(tx, session, parsed.data);
 }
 
 type ActiveActor = Extract<z.infer<typeof currentActorResult>, { status: "active" }>;

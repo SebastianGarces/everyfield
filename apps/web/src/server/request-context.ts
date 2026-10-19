@@ -1,6 +1,5 @@
 import "server-only";
 import { createDatabase, type Database } from "@everyfield/db/client";
-import { RequestActor } from "@everyfield/domain/access";
 import { headers } from "next/headers";
 import { cache } from "react";
 import { requestAuth } from "./identity";
@@ -18,5 +17,3 @@ export const getSession = cache(async () => {
 	const auth = requestAuth();
 	return auth.api.getSession({ headers: await headers() });
 });
-
-export { RequestActor };
