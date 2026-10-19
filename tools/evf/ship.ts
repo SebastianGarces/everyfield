@@ -165,6 +165,11 @@ export type Approval = {
 	verifierFamily: string;
 	verdict: "approved" | "changes_requested";
 	quality: { verdict: "approved" | "changes_requested"; principles: string[] };
+	experience: {
+		verdict: "approved" | "changes_requested";
+		budget: "met" | "exceeded" | "not_applicable";
+		exception?: "reports" | "analytics";
+	};
 	packageClosures?: string[];
 };
 export type RequiredCheck = { name: string; bucket: string; state: string; link: string };
@@ -212,6 +217,17 @@ function readApproval(input: unknown): Approval | null {
 		!QUALITY_PRINCIPLES.every((name) => principles.includes(name))
 	)
 		return null;
+	if (!("experience" in input) || !input.experience || typeof input.experience !== "object") return null;
+	const experience = input.experience;
+	if (!("verdict" in experience) || (experience.verdict !== "approved" && experience.verdict !== "changes_requested"))
+		return null;
+	if (
+		!("budget" in experience) ||
+		(experience.budget !== "met" && experience.budget !== "exceeded" && experience.budget !== "not_applicable")
+	)
+		return null;
+	if ("exception" in experience && experience.exception !== "reports" && experience.exception !== "analytics")
+		return null;
 	let packageClosures: string[] | undefined;
 	if ("packageClosures" in input) {
 		const values = input.packageClosures;
@@ -224,6 +240,11 @@ function readApproval(input: unknown): Approval | null {
 		verifierFamily: input.verifierFamily,
 		verdict: input.verdict,
 		quality: { verdict: quality.verdict, principles },
+		experience: {
+			verdict: experience.verdict,
+			budget: experience.budget,
+			...("exception" in experience ? { exception: experience.exception } : {}),
+		},
 		...(packageClosures ? { packageClosures } : {}),
 	};
 }
@@ -276,6 +297,13 @@ export function checkPr(root: string, number: number, expectedHead?: string): Me
 	if (!selected?.url || selected.approval.verdict !== "approved")
 		fail("Missing verifier approval for the exact PR head.");
 	if (selected.approval.quality.verdict !== "approved") fail("Code quality must be approved before shipping.");
+	if (selected.approval.experience.verdict !== "approved") fail("Experience must be approved before shipping.");
+	const experience = selected.approval.experience;
+	if (
+		experience.budget === "exceeded" &&
+		(!experience.exception || !pr.body.split(/\r?\n/).includes(`EVF-Experience-Exception: ${experience.exception}`))
+	)
+		fail("Experience budget exceeded. Name the approved reports or analytics exception in the PR and review.");
 	if (selected.approval.verifierFamily === authorFamily)
 		fail("Verifier approval must come from a different model family.");
 	const current: PullRequest = JSON.parse(

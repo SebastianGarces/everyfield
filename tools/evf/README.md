@@ -21,7 +21,7 @@ Model families are `openai` and `anthropic`, not individual model names. Authors
 `EVF-Author: <family>` in the body. Verifiers put one JSON line in their PR comment:
 
 ```text
-EVF-Review: {"head":"<full SHA>","verifierFamily":"anthropic","verdict":"approved","quality":{"verdict":"approved","principles":["laziness-protocol","minimize-reader-load","subtract-before-you-add","test-behavior-not-implementation"]}}
+EVF-Review: {"head":"<full SHA>","verifierFamily":"anthropic","verdict":"approved","quality":{"verdict":"approved","principles":["laziness-protocol","minimize-reader-load","subtract-before-you-add","test-behavior-not-implementation"]},"experience":{"verdict":"approved","budget":"met"}}
 ```
 
 Every review includes a "Code quality" section with concrete simplifications, or why none are needed,
@@ -32,6 +32,17 @@ Use `changes_requested` for failure. The latest valid review record at that head
 These unsigned statements rely on the coordinator assigning the actual models correctly.
 They do not authenticate a model provider. GitHub comments allow agents sharing the owner's
 account to record independent review without GitHub's self-review restriction.
+
+Every review requires `experience: {verdict, budget}` next to `quality`. Verdict is `approved`
+or `changes_requested`; budget is `met`, `exceeded` or `not_applicable`. UI reviews record
+production-preview times for changed reads and writes (simple actions under 1 second), optimistic
+updates and main-action request counts without needless refetch or refresh. Non-UI reviews explain
+`not_applicable`. Ship refuses missing experience, a rejected verdict or an exceeded budget.
+Only the approved reports/analytics timing categories can waive an exceeded budget: the review
+adds `exception: "reports"` or `"analytics"`, and the PR includes the matching standalone
+`EVF-Experience-Exception: reports` or `EVF-Experience-Exception: analytics` line and explains why.
+This never waives a rejected experience verdict. Quality reviews judge the diff against
+[EveryField patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62).
 
 The required section list for ordinary PRs is `.agents/skills/everyfield-pr/template.md`.
 Wiki article and prototype PRs already use separate owner routes in

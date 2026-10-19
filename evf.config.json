@@ -291,6 +291,21 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-12": {
+			"title": "Verification checks budget and smoothness",
+			"owningPaths": ["tools/evf/", "evf.config.json", ".agents/roles/verifier.md", ".agents/skills/verify-preview/"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
