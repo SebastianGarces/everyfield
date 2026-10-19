@@ -56,6 +56,8 @@ export const identityApi = {
 		call("sign-in/email", signedInResult, input),
 	register: (input: Record<string, string>) => call("register", registrationResult, input),
 	requestPasswordRecovery: (email: string) => call("request-password-reset", passwordRecoveryResult, { email }),
+	/** Sends a fresh confirmation link to this address. The answer is the same whether or not it has an account. */
+	sendVerification: (email: string) => call("send-verification-email", passwordRecoveryResult, { email }),
 	recoverPassword: (input: { proof: string; newPassword: string; confirmPassword: string }) =>
 		call("reset-password", recoveryCompletedResult, input),
 	verifyEmail: (proof: string) => call("verify-email", emailVerifiedResult, { proof }),

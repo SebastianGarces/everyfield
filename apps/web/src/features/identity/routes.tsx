@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 import { AuthFrame } from "./AuthFrame";
+import { InvitationScreen } from "./invitation/InvitationScreen";
 import { RecoverScreen, ResetPasswordScreen, VerifyEmailScreen } from "./RecoveryScreens";
 import { RegisterScreen } from "./RegisterScreen";
 import { SignInScreen } from "./SignInScreen";
@@ -51,4 +52,11 @@ export async function ResetPasswordPage({ searchParams }: { searchParams: Search
 export const verifyMetadata: Metadata = { title: "Confirm your email", ...proofPage };
 export async function VerifyEmailPage({ searchParams }: { searchParams: Search }) {
 	return <VerifyEmailScreen proof={one((await searchParams).token)} />;
+}
+
+// The seat and residency invitation link (/invitation#proof=..., built by the WP-008 domain, ruling D54). The proof is in
+// the fragment, which the browser never sends; the page reads it, keeps it in this tab and cleans the address.
+export const invitationMetadata: Metadata = { title: "Your invitation", ...proofPage };
+export function InvitationPage() {
+	return <InvitationScreen />;
 }

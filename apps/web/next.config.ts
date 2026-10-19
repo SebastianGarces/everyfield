@@ -10,6 +10,18 @@ const config: NextConfig = {
 	transpilePackages: ["@everyfield/domain", "@everyfield/db", "@everyfield/ui"],
 	// The Hugeicons free set is one barrel of about 6,000 icons; this rewrites its imports to the icons in use.
 	experimental: { optimizePackageImports: ["@hugeicons/core-free-icons"] },
+	// The invitation page handles a proof (WP-008/ui ruling D54): no Referer leaves it.
+	async headers() {
+		return [
+			{
+				source: "/invitation",
+				headers: [
+					{ key: "Referrer-Policy", value: "no-referrer" },
+					{ key: "X-Robots-Tag", value: "noindex, nofollow" },
+				],
+			},
+		];
+	},
 };
 
 export default function nextConfig(phase: string): NextConfig {

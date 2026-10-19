@@ -76,3 +76,12 @@ test("INV-tenancy: AC:C0-REPLAY-001 AC:AUDIT-001 required-write helper propagate
   assert.deepEqual(checkReplay(identity, noop), { kind: "replay", receipt: noop });
   assert.equal(requestIdentity.safeParse({ ...identity, operation: "privateCare.save" }).success, false);
 });
+
+test("INV-receipt-bound: a receipt lists up to 4096 subjects, events and effects and refuses one more (ruling D57)", () => {
+  const ids = (n: number) => Array.from({ length: n }, (_, k) => `${(k + 1).toString(16).padStart(8, "0")}-4444-4444-8444-444444444444`);
+  const base = { id: ID, request: identity, completedAt: "2026-10-13T16:00:00Z", outcome: "changed" as const };
+  const of = (n: number) => ({ ...base, subjects: ids(n).map((id) => ({ kind: "person", id, owner: { kind: "plant", id: P } })), eventIds: ids(n), effectIds: ids(n) });
+  for (const n of [100, 4096]) assert.equal(receipt.safeParse(of(n)).success, true, `${n} items`);
+  for (const key of ["subjects", "eventIds", "effectIds"] as const)
+    assert.equal(receipt.safeParse({ ...of(4096), [key]: of(4097)[key] }).success, false, `4097 ${key}`);
+});

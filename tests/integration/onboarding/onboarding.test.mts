@@ -556,7 +556,7 @@ test("AC:TARGET-IDN-016 an unlinked Discovery may accept a seat, then conversion
 		budgetSecret: randomBytes(32).toString("hex"),
 		people: accountPersonProducer,
 		async enqueueMail(tx, input) {
-			const token = input.text.match(/http:\/\/onboarding\.example\.test\/invitation\?proof=([^\s]+)/);
+			const token = input.text.match(/http:\/\/onboarding\.example\.test\/invitation#proof=([^\s]+)/);
 			if (token) proof = decodeURIComponent(token[1]);
 			return mail.enqueue(tx, {
 				owner: input.owner,
