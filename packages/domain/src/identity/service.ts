@@ -4,6 +4,7 @@ import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import { isIP } from "node:net";
 import type { Database, Transaction } from "@everyfield/db/client";
+import type { BetterAuthPlugin } from "better-auth";
 import { verifyPassword } from "better-auth/crypto";
 import { z } from "zod";
 import {
@@ -48,6 +49,7 @@ export type IdentityConfig = {
 	enqueueMail: (tx: Transaction, mail: IdentityMail) => Promise<string>;
 	diagnostic: (value: { correlationId: string; outcome: "unknown" | "reporting_pending" | "delivery_failed" }) => void;
 	invitations?: ReturnType<typeof createInvitationService>;
+	plugins?: BetterAuthPlugin[];
 	registrationMode?: "open" | "invitation_only" | "closed";
 };
 const userRow = z.object({
@@ -69,7 +71,7 @@ export function createIdentityService(config: IdentityConfig) {
 	const origin = new URL(config.origin).origin;
 	if (origin !== config.origin) throw Error("canonical_origin_required");
 	const budget = attemptBudget(config.admissionDb, config.secret);
-	const auth = identityAuth({ db: config.authDb, origin, secret: config.secret, deliver });
+	const auth = identityAuth({ db: config.authDb, origin, secret: config.secret, deliver, plugins: config.plugins });
 
 	async function account(authUser: string) {
 		const rows = await config.db.select().from(tables.account).where(eq(tables.account.auth_user_id, authUser));
@@ -525,5 +527,5 @@ export function createIdentityService(config: IdentityConfig) {
 			.returning({ id: tables.event.id });
 		return z.uuid().parse(result[0]?.id);
 	}
-	return { handle };
+	return { handle, auth };
 }

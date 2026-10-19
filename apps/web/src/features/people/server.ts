@@ -1,74 +1,34 @@
 import "server-only";
-import { createDatabase, type Database, type Transaction } from "@everyfield/db/client";
-import { sessionResult, currentMembershipResult } from "@everyfield/contracts/identity";
+import { sessionId } from "@everyfield/contracts/common";
+import type { Transaction } from "@everyfield/db/client";
 import type { PeopleContext, PeopleReply, PeopleWriteContext } from "@everyfield/contracts/people";
-import { createSeatService, InvitationRefusal } from "@everyfield/domain/identity";
-import { headers } from "next/headers";
+import { readPeopleViewer, PeopleReadContext } from "@everyfield/domain/people";
+import { readPeoplePage, readPersonPage } from "./page-data.ts";
+import type { PeopleQuery } from "./model.ts";
 import { cache } from "react";
-import { identityHandler } from "@/server/identity";
+import { requestDatabase as database, getSession } from "@/server/request-context";
 
-// The People server boundary (R2). It reads the real session through the mounted identity handler and the current
-// seat through the seat service, then runs WP-011/api operations inside one transaction each. The browser never sends
-// an owner, account, origin or authority; every call rebuilds them from the request.
+// Layout, pages and actions share this request's native session and actor.
+// Reads consume that observation; writes recheck authority inside their transaction.
 
-export type Role = "owner" | "admin" | "member";
-export type Viewer = {
-	session: PeopleContext["session"];
-	accountId: string;
-	selected: PeopleContext["selected"];
-	role: Role;
-};
-/** Why a screen cannot open: signed out goes to sign-in; the rest see the no-access state. */
+export type Viewer = Extract<Awaited<ReturnType<typeof readPeopleViewer>>, { status: "viewer" }>["viewer"];
+export type Role = Viewer["role"];
 export type ViewerResult =
-	{ status: "viewer"; viewer: Viewer } | { status: "signed_out" } | { status: "no_access" } | { status: "unavailable" };
+	Awaited<ReturnType<typeof readPeopleViewer>> | { status: "signed_out" } | { status: "unavailable" };
 
-let db: Database | undefined;
-function database(): Database | null {
-	// The same runtime role connection the identity mount uses. Never the operator DATABASE_URL.
-	const url = process.env.IDENTITY_DATABASE_URL;
-	if (!url) return null;
-	db ??= createDatabase({ connectionString: url, max: 5 });
-	return db;
-}
-
-async function readSession() {
-	const origin = process.env.IDENTITY_ORIGIN;
-	if (!origin) return null;
-	const cookie = (await headers()).get("cookie");
-	const response = await identityHandler(
-		new Request(new URL("/api/auth/get-session", origin), {
-			headers: { host: new URL(origin).host, ...(cookie ? { cookie } : {}) },
-		}),
-	);
-	if (!response.ok) return null;
-	const parsed = sessionResult.safeParse(await response.json().catch(() => null));
-	return parsed.success ? parsed.data : null;
-}
-
-/** The viewer of this request, read once per request (layout and page share it). */
-export const resolveViewer = cache(async (): Promise<ViewerResult> => {
+/** One actor and own-Person summary for this request, shared by layout/page/actions. */
+export const getViewer = cache(async (): Promise<ViewerResult> => {
 	const store = database();
-	const session = await readSession();
-	if (!store || !session) return { status: "unavailable" };
-	if (session.status === "unauthenticated") return { status: "signed_out" };
-	if (session.status !== "active") return { status: "no_access" };
-	const membership = currentMembershipResult.safeParse(
-		await createSeatService(store)
-			.readCurrentMembership(session.sessionId)
-			.catch((error: unknown) => {
-				if (error instanceof InvitationRefusal && error.value.code === "temporary") return { status: "unavailable" };
-				throw error;
-			}),
-	);
-	if (!membership.success) return { status: "unavailable" };
-	const m = membership.data;
-	if (m.status === "unavailable") return { status: "unavailable" };
-	// People is a plant workspace screen. An organization seat, no seat or an ended seat cannot open it.
-	if (m.status !== "active" || m.workspace.kind !== "plant") return { status: "no_access" };
-	return {
-		status: "viewer",
-		viewer: { session: session.sessionId, accountId: session.accountId, selected: m.workspace, role: m.role },
-	};
+	if (!store) return { status: "unavailable" };
+	try {
+		const native = await getSession();
+		if (!native) return { status: "signed_out" };
+		const session = sessionId.parse(native.session.id);
+		return await store.transaction((tx) => readPeopleViewer(tx, session));
+	} catch {
+		console.error(JSON.stringify({ component: "request-context", outcome: "viewer_failed" }));
+		return { status: "unavailable" };
+	}
 });
 
 export const canWrite = (v: Viewer) => v.role === "owner" || v.role === "admin";
@@ -81,9 +41,7 @@ export async function read<T>(
 	const store = database();
 	if (!store) return { status: "failed" };
 	try {
-		return await store.transaction((tx) =>
-			run(tx, { session: viewer.session, selected: viewer.selected, purpose: "native" }),
-		);
+		return await store.transaction((tx) => run(tx, new PeopleReadContext(viewer.authority, "native")));
 	} catch (error) {
 		console.error(JSON.stringify({ component: "people", outcome: "read_failed", error: String(error) }));
 		return { status: "failed" };
@@ -110,4 +68,15 @@ export async function write<T>(
 		console.error(JSON.stringify({ component: "people", outcome: "write_failed", error: String(error) }));
 		return { status: "failed" };
 	}
+}
+
+export type { PeopleData, PeopleView } from "./page-data.ts";
+
+export async function loadPerson(viewer: Viewer, personId: Parameters<typeof readPersonPage>[2]) {
+	return read(viewer, (tx, ctx) => readPersonPage(tx, ctx, personId));
+}
+
+export async function loadPeople(viewer: Viewer, query: PeopleQuery) {
+	const result = await read(viewer, async (tx, ctx) => ({ status: "ok", value: await readPeoplePage(tx, ctx, query) }));
+	return result.status === "ok" ? result.value : { query, data: { kind: "failed" } as const, workspaceEmpty: false };
 }

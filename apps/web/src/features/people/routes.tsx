@@ -1,6 +1,5 @@
 import { LockKeyIcon, UserSearch01Icon } from "@hugeicons/core-free-icons";
-import { listPeopleRequest, personRequest } from "@everyfield/contracts/people";
-import { getAccountLink, peopleReader } from "@everyfield/domain/people";
+import { personRequest } from "@everyfield/contracts/people";
 import { buttonVariants, Card, EmptyState, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import { TableSkeleton } from "@everyfield/ui/display";
 import { parseTheme, ProductRoot, THEME_COOKIE } from "@everyfield/ui/foundations";
@@ -9,11 +8,11 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
-import { isFiltered, listRequest, parseQuery, querySearch } from "./model.ts";
+import { parseQuery, querySearch } from "./model.ts";
 import { PeopleFrame } from "./PeopleFrame.tsx";
-import { PeopleScreen, type PeopleData } from "./PeopleScreen.tsx";
+import { PeopleScreen } from "./PeopleScreen.tsx";
 import { PersonScreen } from "./PersonScreen.tsx";
-import { canWrite, read, resolveViewer, type Viewer } from "./server.ts";
+import { canWrite, loadPeople, loadPerson, getViewer, type Viewer } from "./server.ts";
 
 // The People routes. The files under apps/web/src/app/(product)/people/ only re-export these, so the screens, their
 // data loading and their states stay in this feature folder.
@@ -28,7 +27,7 @@ const params = (raw: Record<string, string | string[] | undefined>) => {
 /** The product root and frame for every People page, so loading and error states also sit inside the frame. */
 export async function PeopleLayout({ children }: { children: ReactNode }) {
 	const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
-	const v = await resolveViewer();
+	const v = await getViewer();
 	return (
 		<ProductRoot initialTheme={theme}>
 			<Frame viewer={v.status === "viewer" ? v.viewer : null}>{children}</Frame>
@@ -38,17 +37,8 @@ export async function PeopleLayout({ children }: { children: ReactNode }) {
 
 /** The frame with the viewer's own name. The own account person is the name source; no other account is read. */
 async function Frame({ viewer, children }: { viewer: Viewer | null; children: ReactNode }) {
-	let name = "You";
-	if (viewer) {
-		const own = await read(viewer, (tx, ctx) => peopleReader.getOwnAccountPerson(tx, ctx, {}));
-		if (own.status === "ok" && own.value.status === "linked") {
-			const personId = own.value.personId;
-			const me = await read(viewer, (tx, ctx) => peopleReader.getPerson(tx, ctx, { personId }));
-			if (me.status === "ok" && me.value.status === "available") name = me.value.person.displayName;
-		}
-	}
 	return (
-		<PeopleFrame name={name} role={viewer?.role ?? null}>
+		<PeopleFrame name={viewer?.displayName ?? "You"} role={viewer?.role ?? null}>
 			{children}
 		</PeopleFrame>
 	);
@@ -56,7 +46,7 @@ async function Frame({ viewer, children }: { viewer: Viewer | null; children: Re
 
 /** Signed out goes to sign-in and comes back; no seat in a plant sees a lock; a broken setup sees an error. */
 async function gate(returnTo: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
-	const v = await resolveViewer();
+	const v = await getViewer();
 	if (v.status === "signed_out") redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
 	if (v.status === "viewer") return { viewer: v.viewer };
 	return {
@@ -87,28 +77,15 @@ export async function PeoplePage({ searchParams }: { searchParams: Search }) {
 	if ("blocked" in g) return g.blocked;
 	const { viewer } = g;
 
-	// The address is browser input: parse it into the contract request at this boundary.
-	const request = (q: typeof query) => listPeopleRequest.parse(listRequest(q));
-	let data: PeopleData;
-	let workspaceEmpty = false;
-	if (query.view === "pipeline") {
-		const r = await read(viewer, (tx, ctx) => peopleReader.getPipelineData(tx, ctx, request(query)));
-		data = r.status === "ok" ? { kind: "pipeline", pipeline: r.value } : { kind: "failed" };
-		workspaceEmpty = r.status === "ok" && !isFiltered(query) && r.value.groups.every((g) => g.total === 0);
-	} else {
-		let r = await read(viewer, (tx, ctx) => peopleReader.listPeople(tx, ctx, request(query)));
-		// A cursor from an old link (another session or a restarted server) is refused; show the first page instead.
-		const expired = r.status === "refused" && r.error.code === "invalid_input" && query.trail.length > 0;
-		if (expired) {
-			const first = { ...query, trail: [], page: 1 };
-			r = await read(viewer, (tx, ctx) => peopleReader.listPeople(tx, ctx, request(first)));
-			query.trail = [];
-			query.page = 1;
-		}
-		data = r.status === "ok" ? { kind: "list", page: r.value, expired } : { kind: "failed" };
-		workspaceEmpty = r.status === "ok" && !isFiltered(query) && r.value.total === 0;
-	}
-	return <PeopleScreen query={query} data={data} canWrite={canWrite(viewer)} workspaceEmpty={workspaceEmpty} />;
+	const loaded = await loadPeople(viewer, query);
+	return (
+		<PeopleScreen
+			query={loaded.query}
+			data={loaded.data}
+			canWrite={canWrite(viewer)}
+			workspaceEmpty={loaded.workspaceEmpty}
+		/>
+	);
 }
 
 export const personMetadata: Metadata = { title: "Person", robots: { index: false, follow: false } };
@@ -121,38 +98,28 @@ export async function PersonPage({ params }: { params: Promise<{ personId: strin
 	if (!parsed.success) notFound();
 	const { personId } = parsed.data;
 
-	const found = await read(viewer, (tx, ctx) => peopleReader.getPerson(tx, ctx, { personId }));
-	// Missing, foreign and malformed IDs get the same answer: this person is not here (no existence leak).
-	if (found.status === "refused" && found.error.code !== "unavailable" && found.error.code !== "invalid_input")
-		return failed();
-	if (found.status === "failed") return failed();
-	if (found.status !== "ok" || found.value.status !== "available" || !("stage" in found.value.person)) notFound();
-	const person = found.value.person;
+	const loaded = await loadPerson(viewer, personId);
+	if (loaded.status === "failed") return failed();
+	if (loaded.status === "refused") {
+		if (loaded.error.code !== "unavailable" && loaded.error.code !== "invalid_input") return failed();
+		notFound();
+	}
+	const { found, activities, link, survivor } = loaded.value;
+	if (found.status !== "available" || !("stage" in found.person)) notFound();
+	const person = found.person;
 
-	const [activities, link, own, survivor] = await Promise.all([
-		read(viewer, (tx, ctx) => peopleReader.getActivities(tx, ctx, { personId, limit: 50 })),
-		read(viewer, (tx, ctx) => getAccountLink(tx, ctx, { personId })),
-		read(viewer, (tx, ctx) => peopleReader.getOwnAccountPerson(tx, ctx, {})),
-		person.lifecycle.state === "merged"
-			? read(viewer, (tx, ctx) =>
-					peopleReader.getPerson(tx, ctx, {
-						personId: person.lifecycle.state === "merged" ? person.lifecycle.survivorId : personId,
-					}),
-				)
-			: null,
-	]);
 	return (
 		<PersonScreen
 			person={person}
 			activities={
-				activities.status === "ok"
+				activities?.status === "ok"
 					? { status: "ok", value: activities.value }
-					: activities.status === "refused"
+					: activities?.status === "refused"
 						? { status: "refused", code: activities.error.code }
 						: { status: "lost" }
 			}
-			linked={link.status === "ok" && link.value.status === "linked"}
-			isYou={own.status === "ok" && own.value.status === "linked" && own.value.personId === person.id}
+			linked={link?.status === "ok" && link.value.status === "linked"}
+			isYou={viewer.ownPersonId === person.id}
 			survivor={
 				survivor?.status === "ok" && survivor.value.status === "available"
 					? { id: survivor.value.person.id, name: survivor.value.person.displayName }

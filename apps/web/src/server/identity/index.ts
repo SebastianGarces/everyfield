@@ -1,6 +1,7 @@
 import * as tables from "@everyfield/db/tables";
 import { eq } from "@everyfield/db/query";
 import "server-only";
+import { nextCookies } from "better-auth/next-js";
 import { after } from "next/server";
 import { createHmac } from "node:crypto";
 import { createDatabase } from "@everyfield/db/client";
@@ -10,7 +11,7 @@ import { invitationService } from "../invitations";
 import { createMailService } from "../jobs/mail";
 
 let service: ReturnType<typeof createIdentityService> | undefined;
-export function identityHandler(request: Request): Promise<Response> {
+function identityMount() {
 	// Explicit credentials and keys are required. Never fall back to the operator DATABASE_URL.
 	const env = z
 		.object({
@@ -23,10 +24,7 @@ export function identityHandler(request: Request): Promise<Response> {
 			IDENTITY_MAIL_FROM: z.email(),
 		})
 		.safeParse(process.env);
-	if (!env.success)
-		return Promise.resolve(
-			Response.json({ code: "unavailable" }, { status: 503, headers: { "Cache-Control": "private, no-store" } }),
-		);
+	if (!env.success) return null;
 	if (!service) {
 		const v = env.data,
 			db = createDatabase({ connectionString: v.IDENTITY_DATABASE_URL, max: 5 }),
@@ -69,6 +67,7 @@ export function identityHandler(request: Request): Promise<Response> {
 			db,
 			authDb,
 			admissionDb,
+			plugins: [nextCookies()],
 			scheduleDelivery: after,
 			origin: v.IDENTITY_ORIGIN,
 			secret: v.IDENTITY_SECRET,
@@ -91,5 +90,20 @@ export function identityHandler(request: Request): Promise<Response> {
 			invitations: invitationService() ?? undefined,
 		});
 	}
-	return service.handle(request);
+	return service;
+}
+
+export function identityHandler(request: Request): Promise<Response> {
+	const mount = identityMount();
+	return mount
+		? mount.handle(request)
+		: Promise.resolve(
+				Response.json({ code: "unavailable" }, { status: 503, headers: { "Cache-Control": "private, no-store" } }),
+			);
+}
+
+export function requestAuth() {
+	const mount = identityMount();
+	if (!mount) throw Error("identity_unavailable");
+	return mount.auth;
 }

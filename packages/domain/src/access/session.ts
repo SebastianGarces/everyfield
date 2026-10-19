@@ -4,7 +4,7 @@ import { alias } from "@everyfield/db/query";
 import "server-only";
 import type { Transaction } from "@everyfield/db/client";
 import { z } from "zod";
-import { accountId, recordId, revision, role, sessionId, tenantId } from "@everyfield/contracts/common";
+import { accountId, owner, recordId, revision, role, sessionId, tenantId } from "@everyfield/contracts/common";
 import type { Owner } from "@everyfield/contracts/common";
 import { currentActorResult } from "@everyfield/contracts/access";
 const tenant_t = alias(tables.tenant, "t");
@@ -18,6 +18,7 @@ const sessionRow = z.strictObject({
 	seats: z.array(z.unknown()),
 	account_exists: z.boolean(),
 	selected_exists: z.boolean(),
+	selected_owner: owner,
 });
 const seatRow = z.strictObject({
 	id: recordId,
@@ -74,7 +75,7 @@ export async function liveOwner(tx: Transaction, selected: Owner): Promise<boole
 		.for("share");
 	return hidden.length === 0;
 }
-export async function currentActor(tx: Transaction, session: z.infer<typeof sessionId>, selected: Owner) {
+async function resolveActor(tx: Transaction, session: z.infer<typeof sessionId>, requested?: Owner) {
 	// access_session takes shared session/account locks first. Materialized seats
 	// precede the selected root, preserving the account-before-seat/root order.
 	const r = await tx.execute(sql`
@@ -84,34 +85,41 @@ export async function currentActor(tx: Transaction, session: z.infer<typeof sess
 			SELECT s.id, s.plant_id, s.organization_id, s.role, s.revision::text, s.accepted_at
 			FROM seat s JOIN identity i ON i.account_id=s.account_id
 			WHERE s.ended_at IS NULL ORDER BY s.id FOR SHARE OF s
+		), selected AS MATERIALIZED (
+			SELECT coalesce(${requested ? JSON.stringify(requested) : null}::jsonb,
+				CASE WHEN s.plant_id IS NOT NULL THEN jsonb_build_object('kind','plant','id',s.plant_id)
+					WHEN s.organization_id IS NOT NULL THEN jsonb_build_object('kind','organization','id',s.organization_id,'organizationKind',o.kind)
+					ELSE jsonb_build_object('kind','account','id',i.account_id) END) AS owner
+			FROM identity i LEFT JOIN (SELECT * FROM seats LIMIT 1) s ON true
+			LEFT JOIN organization o ON o.id=s.organization_id
 		), selected_root AS MATERIALIZED (
 			SELECT p.id FROM plant p
-			WHERE ${selected.kind}='plant' AND p.id=${selected.id}::uuid
+			WHERE (SELECT owner->>'kind' FROM selected)='plant' AND p.id=(SELECT (owner->>'id')::uuid FROM selected)
 				AND EXISTS (SELECT 1 FROM identity WHERE registration_state='active')
 				AND (SELECT count(*) FROM seats)<=1 FOR SHARE OF p
 		), selected_account AS MATERIALIZED (
 			SELECT a.id FROM account a
-			WHERE ${selected.kind}='account' AND a.id=${selected.id}::uuid
+			WHERE (SELECT owner->>'kind' FROM selected)='account' AND a.id=(SELECT (owner->>'id')::uuid FROM selected)
 				AND EXISTS (SELECT 1 FROM identity WHERE registration_state='active')
 				AND (SELECT count(*) FROM seats)<=1 FOR SHARE OF a
 		)
-		SELECT i.*, clock_timestamp() AS now,
+		SELECT i.*, selected.owner AS selected_owner, clock_timestamp() AS now,
 			(SELECT coalesce(jsonb_agg(s), '[]'::jsonb) FROM seats s) AS seats,
 			EXISTS (SELECT 1 FROM tenant WHERE id=i.account_id AND kind='account') AS account_exists,
 			EXISTS (
 				SELECT 1 FROM tenant t LEFT JOIN organization o ON o.id=t.id
-				WHERE t.id=${selected.id}::uuid AND t.kind=${selected.kind}
-					AND CASE ${selected.kind}
+				WHERE t.id=(selected.owner->>'id')::uuid AND t.kind=selected.owner->>'kind'
+					AND CASE selected.owner->>'kind'
 						WHEN 'plant' THEN EXISTS (SELECT 1 FROM selected_root)
 						WHEN 'account' THEN EXISTS (SELECT 1 FROM selected_account)
-						WHEN 'organization' THEN o.kind=${selected.kind === "organization" ? selected.organizationKind : null}
+						WHEN 'organization' THEN o.kind=selected.owner->>'organizationKind'
 						ELSE false END
 			) AS selected_exists
-		FROM identity i
+		FROM identity i CROSS JOIN selected
 	`);
 	if (r.rows.length !== 1) return currentActorResult.parse({ status: "unavailable" });
 	const row = sessionRow.parse(r.rows[0]!);
-	const { now, seats } = row;
+	const { now, seats, selected_owner: selected } = row;
 	if (row.expires_at <= now || !row.account_exists || seats.length > 1)
 		return currentActorResult.parse({ status: "unavailable" });
 	// A separate statement sees witnesses committed while a root/seat lock was
@@ -160,4 +168,30 @@ export async function currentActor(tx: Transaction, session: z.infer<typeof sess
 		accountId: row.account_id,
 		context: { kind: "seat", owner: selected, seatId: seat.id, role: seat.role, revision: seat.revision },
 	});
+}
+
+export function currentActor(tx: Transaction, session: z.infer<typeof sessionId>, selected: Owner) {
+	return resolveActor(tx, session, selected);
+}
+
+type ActiveActor = Extract<z.infer<typeof currentActorResult>, { status: "active" }>;
+
+/** Server-only authority for one request. Constructed from a live session, never from JSON. */
+export class RequestActor {
+	readonly status = "active";
+	#actor: ActiveActor;
+	private constructor(
+		readonly session: z.infer<typeof sessionId>,
+		actor: ActiveActor,
+	) {
+		this.#actor = actor;
+	}
+	get actor() {
+		return this.#actor;
+	}
+
+	static async resolve(tx: Transaction, session: z.infer<typeof sessionId>) {
+		const actor = await resolveActor(tx, session);
+		return actor.status === "active" ? new RequestActor(session, actor) : actor;
+	}
 }

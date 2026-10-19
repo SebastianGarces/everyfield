@@ -4,7 +4,7 @@ import * as c from "@everyfield/contracts/people";
 import { peopleReader, peopleWriter } from "@everyfield/domain/people";
 import type { z } from "zod";
 import type { Outcome } from "./model.ts";
-import { read, resolveViewer, write, type Viewer } from "./server.ts";
+import { read, getViewer, write, type Viewer } from "./server.ts";
 
 // Server actions behind the People screens: the browser boundary. Each one rebuilds the viewer from the request,
 // parses the browser's input with the WP-011 contract schemas (a strict schema refuses any owner, account or authority
@@ -29,7 +29,7 @@ async function boundary<S extends z.ZodType, T>(
 	raw: unknown,
 	run: (viewer: Viewer, input: z.output<S>) => Promise<Outcome<T>>,
 ): Promise<Outcome<T>> {
-	const v = await resolveViewer();
+	const v = await getViewer();
 	if (v.status !== "viewer") return denied;
 	const input = schema.safeParse(raw);
 	if (!input.success) return invalid;

@@ -1,5 +1,5 @@
 import "server-only";
-export { currentActor, liveOwner } from "./session.ts";
+export { currentActor, liveOwner, RequestActor } from "./session.ts";
 export { accessPolicies, isAdministrator, plantAdministration, ordinarySeatAdministration } from "./policy.ts";
 export type { OperationPolicy } from "./policy.ts";
 export { readPipelinePerson, readOrganizationNotes, readOwnResidency } from "./pipeline.ts";
