@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import * as S from "./support.mts";
 import * as Q from "../../../packages/contracts/src/organizations/index.ts";
+import { readAnswerableInvitation } from "../../../packages/domain/src/organizations/index.ts";
 before(S.setup);
 after(S.teardown);
 const accepted = (v: unknown) => {
@@ -274,4 +275,34 @@ test("INV-relationships: invitation rotation, duplicate intents, decline, revoke
 	await assert.rejects(invite(pa, o, oa.email), /invitation_limit/);
 	const saved = await S.db.execute(sql`SELECT receipt,result FROM organization_operation_result`);
 	assert.equal(JSON.stringify(saved.rows).includes(S.proofs.get(k.invitationId)), false);
+});
+
+test("INV-invitation-detail: only the addressed receiving Owner or Admin can read a request's details, even with the proof (ruling D48)", async () => {
+	const p = await S.tenant("plant", "Harvest Point"),
+		pa = await S.identity(p),
+		o = await S.tenant("sending_church"),
+		oa = await S.identity(o),
+		member = await S.identity(o, "member"),
+		otherAddress = await S.identity(o, "admin"),
+		wrongOrg = await S.identity(await S.tenant("sending_church")),
+		seatless = await S.identity();
+	const i = await invite(pa, o, oa.email),
+		proof = S.proofs.get(i.invitationId)!;
+	const read = (a: Awaited<ReturnType<typeof S.identity>>, input: unknown = { invitationId: i.invitationId, proof }) =>
+		S.tx((c) => readAnswerableInvitation(c, a.session, a.selected, input));
+	for (const holder of [wrongOrg, seatless, pa, member, otherAddress])
+		assert.deepEqual(await read(holder), { status: "unavailable" });
+	assert.deepEqual(await read(oa, { invitationId: i.invitationId, proof: "wrong" }), { status: "unavailable" });
+	const shown = await read(oa);
+	assert.equal(shown.status, "pending");
+	if (shown.status !== "pending") throw Error();
+	assert.equal(shown.invitationId, i.invitationId);
+	assert.equal(shown.inviterDescription, "Harvest Point");
+	assert.deepEqual(shown.pair, i.pair);
+	await S.call(
+		"associations.respondInvitation",
+		oa,
+		S.command({ invitationId: i.invitationId, proof, decision: "decline" }),
+	);
+	assert.deepEqual(await read(oa), { status: "unavailable" });
 });

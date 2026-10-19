@@ -19,7 +19,6 @@ import {
 	NAMES_FOR_PREVIEW,
 	NOTICES,
 	PLANT_TARGETS,
-	readDisclosure,
 	SCENARIO_LABEL,
 	VIEWER_LABEL,
 	VIEWERS,
@@ -146,7 +145,7 @@ function Flow({
 						nameOf={nameOf}
 						zone={ZONE}
 						run={backend.run}
-						invite={{ targets: PLANT_TARGETS, readDisclosure, expectedRevision: "7" }}
+						invite={{ targets: PLANT_TARGETS, readDisclosure: backend.readDisclosure, expectedRevision: "7" }}
 						readSharing={backend.readSharing}
 					/>
 				</>

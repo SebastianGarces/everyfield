@@ -4,6 +4,8 @@
 //     (historyReason, REQ-IDN-021).
 //   INV-prior-sharing: connecting again with an organization shows the saved per-organization choices, not the
 //     all-on first-invitation default (SharingDisclosure, REQ-IDN-022 gate "prior sharing retained").
+//   INV-disclosure-first: a plant cannot send an invitation until the disclosure for that organization has loaded;
+//     a failed read disables Send and offers Try again (InviteDialog, REQ-IDN-022).
 //   INV-retry-same-key: when the reply to Leave is lost after the server committed it, the reason locks and Try again
 //     resends the same frozen command, so the person sees one ended connection with the first reason and no refusal.
 //     The design fixture refuses a reused key with different input, as the API does (useIntent, REQ-IDN-021).
@@ -76,6 +78,20 @@ for (const [name, engine] of ENGINES) {
 				await first.waitFor();
 				assert.equal(await first.getByText("Not shared").count(), 0);
 				assert.equal(await first.getByText("Shared", { exact: true }).count(), 7);
+			}));
+
+		test("INV-disclosure-first: Send waits until the plant has seen what the organization will see", () =>
+			open(`${CONNECTIONS}?scenario=refused`, async (page) => {
+				await page.getByRole("button", { name: "Connect" }).click();
+				const dialog = page.getByRole("dialog", { name: "Connect with an organization" });
+				await dialog.getByRole("combobox", { name: "Organization" }).click();
+				await page.getByRole("option", { name: "Cedar Creek Church · Sending church" }).click();
+				await dialog.getByLabel("Their Owner or Admin's email").fill("pastor@cedar.example");
+				await dialog.getByText("What Cedar Creek Church would see did not load.").waitFor();
+				assert.equal(await dialog.getByRole("button", { name: "Send invitation" }).isDisabled(), true);
+				await dialog.getByRole("button", { name: "Try again" }).click();
+				await dialog.getByRole("region", { name: "What Cedar Creek Church can see once connected" }).waitFor();
+				assert.equal(await dialog.getByRole("button", { name: "Send invitation" }).isDisabled(), false);
 			}));
 
 		test("INV-retry-same-key: a lost reply to Leave locks the reason and Try again resends that same command", () =>

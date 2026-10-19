@@ -159,7 +159,7 @@ const DISCLOSURES: Record<string, unknown> = {
 		},
 	},
 };
-export async function readDisclosure(p: RelationshipPair): Promise<Disclosure | null> {
+async function sampleDisclosure(p: RelationshipPair): Promise<Disclosure | null> {
 	await wait(300);
 	const raw = DISCLOSURES[p.organization.id];
 	return raw ? C.sharingDisclosure.parse(raw) : null;
@@ -508,7 +508,17 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 		sharing: (await run("privacy.getSharing", C.readSharingRequest.parse(request))) as z.infer<typeof C.sharingResult>,
 		relationshipRevision: active.find((r) => r.relationship.id === relationshipId)?.relationship.revision ?? "0",
 	});
-	return { load, read, run, readResidency, readSharing, residencyLink: RESIDENT_LINK };
+	// "Server refuses": the first disclosure read fails, so Send must wait for a retry.
+	let disclosureFails = scenario === "refused";
+	const readDisclosure = async (p: RelationshipPair) => {
+		if (disclosureFails) {
+			disclosureFails = false;
+			await wait(300);
+			throw new TypeError("Failed to fetch");
+		}
+		return sampleDisclosure(p);
+	};
+	return { load, read, run, readResidency, readSharing, readDisclosure, residencyLink: RESIDENT_LINK };
 }
 
 /** The request the recipient opened from the emailed link (WP-008 owns the link landing). */

@@ -63,7 +63,10 @@ export function InviteDialog({
 	const [targetId, setTargetId] = useState<string>("");
 	const [email, setEmail] = useState("");
 	const [checked, setChecked] = useState(false);
-	const [disclosure, setDisclosure] = useState<{ id: string; value: Disclosure | null } | null>(null);
+	// `failed`: the read did not answer. A plant must see its disclosure before it can send (REQ-IDN-022); other
+	// subjects have none, so `value: null` with no failure lets them send.
+	const [disclosure, setDisclosure] = useState<{ id: string; value: Disclosure | null; failed: boolean } | null>(null);
+	const [attempt, setAttempt] = useState(0);
 	const send = useIntent<ReturnType<typeof inviteRelationshipRequest.parse>>("relationship-invite");
 	const locked = send.held !== null || send.pending !== null;
 	const target = targets.find((t) => t.pair.organization.id === targetId);
@@ -74,14 +77,18 @@ export function InviteDialog({
 		if (!target) return;
 		let live = true;
 		readDisclosure(target.pair).then(
-			(value) => live && setDisclosure({ id: target.pair.organization.id, value }),
-			() => live && setDisclosure({ id: target.pair.organization.id, value: null }),
+			(value) => live && setDisclosure({ id: target.pair.organization.id, value, failed: false }),
+			() => live && setDisclosure({ id: target.pair.organization.id, value: null, failed: true }),
 		);
 		return () => {
 			live = false;
 		};
-	}, [target, readDisclosure]);
+	}, [target, readDisclosure, attempt]);
 	const shownDisclosure = disclosure && disclosure.id === targetId ? disclosure : null;
+	const needsDisclosure = target?.pair.kind === "plant";
+	const disclosureMissing = needsDisclosure && shownDisclosure !== null && shownDisclosure.value === null;
+	// Sending waits until a plant has seen exactly what this organization will see.
+	const ready = !target || !needsDisclosure || Boolean(shownDisclosure?.value);
 
 	const change = (next: boolean) => {
 		if (send.pending) return;
@@ -97,7 +104,7 @@ export function InviteDialog({
 
 	const submit = async () => {
 		setChecked(true);
-		if (!target || errors.email) return;
+		if (!target || errors.email || !ready) return;
 		const result = await send.run(
 			"dialog",
 			(requestKey) =>
@@ -171,6 +178,29 @@ export function InviteDialog({
 							shownDisclosure ? (
 								shownDisclosure.value ? (
 									<SharingDisclosure disclosure={shownDisclosure.value} organizationName={target.name} />
+								) : disclosureMissing ? (
+									<div
+										role="alert"
+										className="flex flex-wrap items-center gap-3 rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600"
+									>
+										<p className="min-w-0 flex-1">
+											{shownDisclosure.failed
+												? `What ${target.name} would see did not load. Nothing was sent.`
+												: `${target.name} cannot be asked from here right now. Nothing was sent.`}
+										</p>
+										{shownDisclosure.failed ? (
+											<Button
+												size="sm"
+												variant="secondary"
+												onClick={() => {
+													setDisclosure(null);
+													setAttempt((n) => n + 1);
+												}}
+											>
+												Try again
+											</Button>
+										) : null}
+									</div>
 								) : null
 							) : (
 								<div aria-busy="true">
@@ -187,7 +217,13 @@ export function InviteDialog({
 					<Button variant="secondary" onClick={() => change(false)} disabled={send.pending !== null}>
 						{send.held ? "Close" : "Cancel"}
 					</Button>
-					<Button variant="primary" type="submit" form="invite-organization" loading={send.pending !== null}>
+					<Button
+						variant="primary"
+						type="submit"
+						form="invite-organization"
+						disabled={!ready}
+						loading={send.pending !== null}
+					>
 						{send.held ? "Try again" : "Send invitation"}
 					</Button>
 				</DialogFooter>
