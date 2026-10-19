@@ -48,3 +48,20 @@ export async function validateCommitment(bytes: Uint8Array, mediaType: string): 
 		worker.once("exit", () => finish(false));
 	});
 }
+
+export async function validateAvatar(bytes: Uint8Array, mediaType: string): Promise<void> {
+	if (!bytes.length || bytes.length > 3 * 1024 * 1024 || !["image/jpeg", "image/png", "image/webp"].includes(mediaType))
+		throw Error("invalid_avatar");
+	try {
+		const image = sharp(bytes, { limitInputPixels: 16_000_000, failOn: "warning", animated: false });
+		const metadata = await image.metadata();
+		if (
+			metadata.format !== (mediaType === "image/jpeg" ? "jpeg" : mediaType === "image/png" ? "png" : "webp") ||
+			(metadata.pages ?? 1) !== 1
+		)
+			throw Error("invalid_avatar");
+		await image.raw().timeout({ seconds: 3 }).toBuffer();
+	} catch {
+		throw Error("invalid_avatar");
+	}
+}

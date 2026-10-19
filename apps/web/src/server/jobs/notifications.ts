@@ -6,19 +6,8 @@ import { z } from "zod";
 import { instant } from "@everyfield/contracts/common";
 import { createMailService, type MailIntent } from "./mail.ts";
 import { taskReminderTimes, meetingReminderTimes } from "./calendar.ts";
-export const category = z.enum([
-	"task_due",
-	"task_overdue",
-	"meeting_announcement",
-	"meeting_reminder",
-	"planter_digest",
-	"oversight_digest",
-	"relationship_milestone",
-	"sharing_milestone",
-	"phase_milestone",
-	"launch_milestone",
-	"wiki_upstream_review",
-]);
+export { notificationCategory as category } from "@everyfield/contracts/settings";
+import { notificationCategory as category } from "@everyfield/contracts/settings";
 const sourceSchema = z.strictObject({
 	kind: z.enum(["task", "meeting", "affiliation", "phase_transition", "launch_milestone", "article_editor_state"]),
 	id: z.uuid(),
@@ -45,40 +34,43 @@ const noticeInput = z.strictObject({
 });
 export type NoticeInput = z.infer<typeof noticeInput>;
 const policy = {
-	task_due: { category: "task", purpose: "task_due", preference: "task", source: "task" },
-	task_overdue: { category: "task", purpose: "task_due", preference: "task", source: "task" },
+	task_due: { category: "task", purpose: "task_due", source: "task" },
+	task_overdue: { category: "task", purpose: "task_due", source: "task" },
 	meeting_announcement: {
 		category: "meeting",
 		purpose: "meeting_invitation",
-		preference: "meeting",
 		source: "meeting",
 	},
-	meeting_reminder: { category: "meeting", purpose: "meeting_reminder", preference: "meeting", source: "meeting" },
-	planter_digest: { category: "digest", purpose: "planter_digest", preference: "planter_digest", source: null },
-	oversight_digest: { category: "digest", purpose: "oversight_digest", preference: "oversight_digest", source: null },
+	meeting_reminder: {
+		category: "meeting",
+		purpose: "meeting_reminder",
+		source: "meeting",
+	},
+	planter_digest: { category: "digest", purpose: "planter_digest", source: null },
+	oversight_digest: { category: "digest", purpose: "oversight_digest", source: null },
 	relationship_milestone: {
 		category: "relationship",
 		purpose: "relationship_decision",
-		preference: "relationship",
 		source: "affiliation",
 	},
 	sharing_milestone: {
 		category: "relationship",
 		purpose: "relationship_decision",
-		preference: "relationship",
 		source: "affiliation",
 	},
-	phase_milestone: { category: "phase", purpose: "phase_transition", preference: "phase", source: "phase_transition" },
+	phase_milestone: {
+		category: "phase",
+		purpose: "phase_transition",
+		source: "phase_transition",
+	},
 	launch_milestone: {
 		category: "launch",
 		purpose: "launch_milestone",
-		preference: "phase",
 		source: "launch_milestone",
 	},
 	wiki_upstream_review: {
 		category: "reference_update",
 		purpose: "reference_update",
-		preference: "reference_update",
 		source: "article_editor_state",
 	},
 } as const;
@@ -266,9 +258,8 @@ export function createNotificationService(config: {
 			return { notice: z.uuid().parse(old[0].id), mail: mail[0] ? z.uuid().parse(mail[0].id) : null };
 		}
 		// Wiki editor notices remain in-app even when an email preference is supplied elsewhere.
-		const inApp = await channelEnabled(tx, v.recipient, p.preference, "in_app");
-		const email =
-			v.category !== "wiki_upstream_review" && (await channelEnabled(tx, v.recipient, p.preference, "email"));
+		const inApp = await channelEnabled(tx, v.recipient, v.category, "in_app");
+		const email = v.category !== "wiki_upstream_review" && (await channelEnabled(tx, v.recipient, v.category, "email"));
 		if (!inApp && !email) return { notice: null, mail: null };
 		const inserted =
 			await tx.execute(sql`INSERT INTO notice(tenant_id,recipient_id,category,purpose,logical_key,source_record_id,

@@ -190,6 +190,9 @@ test("AC:TARGET-IDN-013 AC:ROLE43-003 AC:ROLE43-014 AC:DC-021 AC:DC-027 AC:DC-02
 	assert.equal(plant.country, null);
 	assert.equal(plant.state_province, null);
 	assert.equal(plant.phase, 1);
+	assert.equal(plant.timezone, "America/Chicago");
+	assert.equal(plant.digest_weekday, 0);
+	assert.equal(plant.digest_hour, 16);
 	const [person] = await admin.select().from(t.person).where(eq(t.person.id, first.ownerSeat.personId));
 	assert.equal(person.stage, "leader");
 	assert.equal(person.adult_classification, "unknown");

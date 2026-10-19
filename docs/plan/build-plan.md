@@ -4,7 +4,7 @@ The approved target has 101 active single-owner packages. WP-086 is retired into
 
 Start with a [short package brief](context.md). Read detailed clauses, cases and schema on demand. The [DAG](dag.json) owns scope and dependencies; builders choose filenames and internal structures within the owned directories.
 
-Rough scope-based effort is 281.5 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 99.5 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
+Rough scope-based effort is 282 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 99.5 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
 
 ## Foundation and shared UI
 
@@ -50,7 +50,7 @@ Each package stores its estimate factors in the DAG. Counts use owned selectors,
 | WP-011 | People core and account links | 15 | 37 | 20 | 7 | 2.5 |
 | WP-008 | Invitation lifecycle and atomic acceptance | 7 | 13 | 42 | 5 | 2.5 |
 | WP-009 | Onboarding and discovery conversion | 7 | 8 | 23 | 6 | 2 |
-| WP-010 | Account and settings surfaces | 20 | 21 | 39 | 5 | 2.5 |
+| WP-010 | Account and settings surfaces | 20 | 21 | 39 | 7 | 3 |
 | WP-012 | Households tags skills and person fields | 9 | 21 | 11 | 3 | 2 |
 | WP-013 | People CSV import/export | 2 | 5 | 5 | 4 | 2 |
 | WP-014 | Assessments interviews commitments | 8 | 10 | 24 | 6 | 2 |

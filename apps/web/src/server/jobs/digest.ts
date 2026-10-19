@@ -51,6 +51,7 @@ export function createDigestService(config: {
 				? await tx
 						.select({
 							timezone: tables.plant.timezone,
+							cadence: tables.plant.digest_cadence,
 							weekday: tables.plant.digest_weekday,
 							hour: tables.plant.digest_hour,
 						})
@@ -65,6 +66,7 @@ export function createDigestService(config: {
 		const setting = settings[0];
 		if (!setting || (o.kind === "organization" && (!("kind" in setting) || setting.kind !== o.organizationKind)))
 			throw Error("digest_owner_mismatch");
+		if (o.kind === "plant" && "cadence" in setting && setting.cadence === "off") return { kind: "disabled" } as const;
 		const zone = z.string().parse(setting.timezone ?? "UTC");
 		await tx
 			.insert(tables.digest_coverage)

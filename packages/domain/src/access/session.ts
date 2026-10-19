@@ -44,6 +44,16 @@ export async function liveOwner(tx: Transaction, selected: Owner): Promise<boole
 			.for("share");
 		if (plant.length !== 1) return false;
 	}
+	// The root exists even before its first witness. Lock it to close the absent-row
+	// race with deletion; a witness-only read cannot serialize its first insertion.
+	if (selected.kind === "account") {
+		const root = await tx
+			.select({ id: tables.account.id })
+			.from(tables.account)
+			.where(eq(tables.account.id, selected.id))
+			.for("share");
+		if (root.length !== 1) return false;
+	}
 	const hidden = await tx
 		.select({ id: tables.lifecycle_witness.id })
 		.from(tables.lifecycle_witness)

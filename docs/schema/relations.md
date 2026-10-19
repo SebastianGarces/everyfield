@@ -446,6 +446,10 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `seat(id)` | `record(id)` | restrict | Subtype trigger binds actual record owner for a global/public or retained body-free variant whose live root pointer is nullable. |
 | `sending_goal(organization_id)` | `organization(id)` | restrict |  |
 | `sending_goal(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
+| `settings_preview(account_id)` | `account(id)` | no_action |  |
+| `settings_preview(tenant_id)` | `tenant(id)` | no_action |  |
+| `settings_result(operation_id, tenant_id)` | `operation(id, tenant_id)` | no_action |  |
+| `settings_result(tenant_id)` | `tenant(id)` | no_action |  |
 | `suppression(source_event_id)` | `provider_event(id)` | restrict |  |
 | `suppression(clear_operation_id)` | `operation(id)` | restrict | Global address suppression recovery uses authenticated current self-address proof, not tenant ownership. |
 | `suppression(id)` | `record(id)` | restrict |  |

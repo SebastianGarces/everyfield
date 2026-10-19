@@ -5,7 +5,7 @@ import { receipt } from "../common/transaction.ts";
 import { normalizedEmail } from "../identity/requests.ts";
 import { organizationOwner, plantOwner } from "../organizations/subjects.ts";
 import { organizationProfileResult, sharingResult } from "../organizations/results.ts";
-import { notificationSettings, plantSettings, settingsName } from "./values.ts";
+import { notificationSettings, plantSettings, settingsName, timezonePreference } from "./values.ts";
 
 // Application delivery resolves version to a private server key and checks live
 // self authority. No signed bearer URL, raw key or original filename crosses it.
@@ -26,6 +26,7 @@ export const sectionResult = z.discriminatedUnion("section", [
 		name: settingsName,
 		email: normalizedEmail,
 		avatar: avatarResult,
+		personalTimezone: timezonePreference.default({ status: "unconfirmed" }),
 	}),
 	z.strictObject({ section: z.literal("notifications"), accountId, revision, values: notificationSettings }),
 	z.strictObject({ section: z.literal("plant"), plant: plantOwner, revision, values: plantSettings }),

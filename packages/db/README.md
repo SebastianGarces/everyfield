@@ -60,6 +60,15 @@ row as their arbiter. Use this shared lock order and its non-blocking rules:
    `workspace-seats` advisory lock before row locks; it does not replace the
    subject account lock.
 
+6. Settings plant reads/writes and workspace deletion/cancellation take the same
+   `workspace-seats` advisory lock before the account and plant roots. Writers take
+   the plant root for update before currentActor's seat/lifecycle share locks.
+   All live-owner reads lock an existing account/plant root before looking for a
+   witness, including when the first witness does not exist yet. Deletion and
+   edits therefore serialize on a root instead of racing an absent witness.
+   Restricted cancellation locks the proven requester account, then the subject
+   root and exact witness, rechecking request revision and the database deadline.
+
 Recheck current lifecycle, conversion state, proof, seat and relationship revisions
 under the relevant locks. Keep the retirement/revocation/claim and affiliation
 contention regressions. The `NOWAIT` rule refuses contention before effects; do not
