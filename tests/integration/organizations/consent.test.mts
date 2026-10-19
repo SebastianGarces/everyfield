@@ -14,7 +14,7 @@ import {
 before(S.setup);
 after(S.teardown);
 const view = (v: unknown) => Q.sharingResult.parse(v);
-test("AC:AF-030 AC:AF-032 AC:AF-033 AC:TARGET-IDN-022 AC:WP007-API-KNOW-112 source gates recheck exact consent, saved witnesses and activity independently", async () => {
+test("AC:WP007-KNOW-112 AC:AF-030 AC:AF-032 AC:AF-033 AC:TARGET-IDN-022 AC:WP007-API-KNOW-112 source gates recheck exact consent, saved witnesses and activity independently", async () => {
 	const p = await S.tenant("plant"),
 		pa = await S.identity(p),
 		o = await S.tenant("sending_church"),
@@ -224,7 +224,7 @@ test("INV-consent: first approval defaults on while rejoin preserves independent
 	assert.equal(v.choices.people, true);
 	assert.equal(v.consentRevision, "2");
 });
-test("AC:ADR1-016 AC:WP007-API-MUL-016 pipeline consent defaults off and requires two distinct currently eligible churches", async () => {
+test("AC:WP007-MUL-016 AC:ADR1-016 AC:WP007-API-MUL-016 pipeline consent defaults off and requires two distinct currently eligible churches", async () => {
 	const n = await S.tenant("sending_network"),
 		na = await S.identity(n),
 		churches = [await S.tenant("sending_church"), await S.tenant("sending_church")],
@@ -292,7 +292,7 @@ async function resident() {
 	);
 	return { o, staff, r, link, person };
 }
-test("AC:ADR1-003 AC:WP007-API-MUL-003 resident category withdrawal and leave immediately fence original progress witnesses", async () => {
+test("AC:WP007-MUL-003 AC:ADR1-003 AC:WP007-API-MUL-003 resident category withdrawal and leave immediately fence original progress witnesses", async () => {
 	const { o, staff, r, link, person } = await resident(),
 		read = (category: string, consentRevision: string) =>
 			S.tx((c) => canReadResidentProgress(c, staff.session, o, { linkId: link, category, consentRevision }));

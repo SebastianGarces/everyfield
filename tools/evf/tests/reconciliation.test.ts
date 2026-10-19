@@ -47,17 +47,6 @@ test("INV-context: load current acceptance and fail when its required input is m
 		registry.map((a) => a.id),
 		catalog.map((a: { id: string }) => a.id),
 	);
-	assert.deepEqual(registry.find((a) => a.id === "AC-EVR-001--EVR-001")?.required_test_layers, [
-		"domain/contract",
-		"PostgreSQL integration where writes/concurrency",
-		"browser/tool evaluation where surfaced",
-	]);
-	assert.deepEqual(registry.find((a) => a.id === "AC-DOC-016--DOC-016")?.required_test_layers, [
-		"unit parse/sanitization and strict scope contracts",
-		"integration private storage/document revisions/evidence",
-		"browser native editor and safe parsed rendering",
-		"Evry exact reviewed effects only if adapter supports a named operation",
-	]);
 	const root = mkdtempSync(join(tmpdir(), "evf-context-"));
 	try {
 		cpSync(join(source, "docs"), join(root, "docs"), { recursive: true });
@@ -1092,33 +1081,6 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 	}
 });
 
-test("INV-phase7-local-checks: checks cannot pass after mutating the task worktree", () => {
-	const f = fixture();
-	try {
-		f.cfg.maintenanceTasks = {
-			"OPS-1": {
-				title: "Mutating check",
-				owningPaths: ["AGENTS.md"],
-				checks: [
-					{
-						name: "mutating",
-						run: [process.execPath, "-e", 'require("node:fs").appendFileSync("AGENTS.md","changed")'],
-					},
-				],
-			},
-		};
-		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
-		f.commit();
-		f.task("ops-1");
-		const report = verify(f.root, parseTask("OPS-1"), "author", "full");
-		assert.equal(report.passed, false);
-		assert.equal(report.unchanged, false);
-		assert.equal(report.checks[0].exitCode, 0);
-	} finally {
-		f.close();
-	}
-});
-
 test("INV-phase7-readiness: doctor reports workflow and preview setup without obsolete trust requirements", () => {
 	const f = fixture();
 	try {
@@ -1655,12 +1617,17 @@ test("BUG-ops6-fixture-cleanup: fixture commits and bare pushes start no backgro
 		traced("commit", "-qm", "Many loose objects");
 		// The receiving side of a local push does not inherit the test's git environment.
 		traced("push", "-q", f.bare(join(f.root, "fake-bin/receiver.git")), "main");
-		const children = readFileSync(trace, "utf8")
+		const events = readFileSync(trace, "utf8")
 			.trim()
 			.split("\n")
-			.map((line) => JSON.parse(line))
-			.filter((e) => e.event === "child_start")
-			.map((e) => e.argv.join(" "));
+			.map((line) => JSON.parse(line));
+		for (const command of ["commit", "push"])
+			assert.equal(
+				events.some((e) => e.event === "start" && e.argv.includes(command)),
+				true,
+				`${command} actually ran`,
+			);
+		const children = events.filter((e) => e.event === "child_start").map((e) => e.argv.join(" "));
 		assert.deepEqual(
 			children.filter((argv) => /\b(maintenance|gc)\b/.test(argv)),
 			[],

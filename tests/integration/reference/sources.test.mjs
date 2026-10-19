@@ -26,7 +26,7 @@ const json = async (root, path) => JSON.parse(await readFile(resolve(root, path)
 const put = (root, path, value) => writeFile(resolve(root, path), JSON.stringify(value));
 const issue = (report, code, path) => report.issues.some((i) => i.code === code && i.path === path);
 
-test("AC:REF-CASE-001 source portion: exact Playbook; missing, welcome substitution and one-byte edit fail", async (t) => {
+test("AC:GAP-REF-001 AC:REF-CASE-001 source portion: exact Playbook; missing, welcome substitution and one-byte edit fail", async (t) => {
 	const root = await fixture(t);
 	const before = await verifySources(root);
 	assert.equal(before.ok, true);
