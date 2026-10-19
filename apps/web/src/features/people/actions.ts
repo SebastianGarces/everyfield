@@ -160,24 +160,21 @@ export async function deleteNote(
 	});
 }
 
-export async function loadActivities(
-	personId: string,
-	after?: string,
-): Promise<Outcome<z.infer<typeof c.activitiesResult>>> {
-	return boundary(c.activityRequest, { personId, limit: 50, ...(after ? { after } : {}) }, async (v, request) =>
+export async function loadActivities(personId: string, page = 1): Promise<Outcome<z.infer<typeof c.activitiesResult>>> {
+	return boundary(c.activityRequest, { personId, limit: 50, page }, async (v, request) =>
 		outcome(await read(v, (tx, ctx) => peopleReader.getActivities(tx, ctx, request)), (r) => r),
 	);
 }
 
-/** The next page of one pipeline column. The producer advances only the column the cursor belongs to. */
+/** One page of one pipeline column. */
 export async function loadColumn(
 	query: Record<string, unknown>,
 	column: string,
-	after: string,
+	page: number,
 ): Promise<Outcome<z.infer<typeof c.pipelineResult>["groups"][number]>> {
 	const col = c.pipelineColumn.safeParse(column);
 	if (!col.success) return invalid;
-	return boundary(c.listPeopleRequest, { ...query, view: "pipeline", after }, async (v, request) =>
+	return boundary(c.listPeopleRequest, { ...query, view: "pipeline", page }, async (v, request) =>
 		outcome(await read(v, (tx, ctx) => peopleReader.getPipelineData(tx, ctx, request)), (r) =>
 			r.groups.find((g) => g.column === col.data)!,
 		),

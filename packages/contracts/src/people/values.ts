@@ -68,9 +68,8 @@ export const firstAcquisition = z.discriminatedUnion("status", [
 ]);
 export const pageInput = {
 	limit: z.int().min(1).max(100).default(24),
-	// Opaque server cursor binds exact tenant, normalized query and Instant + ID.
-	// Parsing this string alone does not authenticate or authorize a cursor.
-	after: z.string().min(1).max(4096).optional(),
+	// Page numbers in a stable order (D67). The server takes the church from the session.
+	page: z.int().min(1).max(100_000).default(1),
 };
 
 // A pure disposition only. The API must read/lock current lifecycle before use;

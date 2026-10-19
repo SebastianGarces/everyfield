@@ -74,13 +74,13 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 ### PPL-001 — Directory, search, filters and stable pagination
 
-**REQ-PPL-001.** Preserve list/card/pipeline views, search of display name/email/phone, closed status/source filters and all-selected-tags AND semantics in navigable URL state. Hide retired contacts from active directory. Bound requests 1–100 with 24 row default UI pages; changing filter/search/view resets cursor while preserving sibling filters. Use deterministic createdAt +ID keyset and tenant-scoped validated cursors; invalid/foreign cursor cannot disclose rows. Treat search metacharacters literally. Inactive badges use current church-local threshold and effective confirmed-contact date, not email opens or administrative tasks. Full basic contact/address fields remain operationally available only under current tenant DTO policy.
+**REQ-PPL-001.** Preserve list/card/pipeline views, search of display name/email/phone, closed status/source filters and all-selected-tags AND semantics in navigable URL state. Hide retired contacts from active directory. Bound requests 1–100 with 24 row default UI pages; changing filter/search/view returns to page 1 while preserving sibling filters. Owner decision D67 (2026-10-19): list, cards and pipeline columns use page numbers (?page=N) in deterministic createdAt+ID order; the server takes the church from the session, and a page past the end shows the last page or an empty state, never an error. Treat search metacharacters literally. Inactive badges use current church-local threshold and effective confirmed-contact date, not email opens or administrative tasks. Full basic contact/address fields remain operationally available only under current tenant DTO policy.
 
 **Target operations:** `people.listPeople`, `people.getPerson`.
 
 **Acceptance:** AC-PPL-001--PPL-001. **Named cases:** TARGET-PPL-001.
 
-**TARGET-PPL-001 fixture:** 25 People with equal createdAt; AND 2 tags; search literal%/_; retired and foreign cursor; switch card/filter/load more; unresolved adult classification. **Expected:** No duplicates/skips/leaks; URL filters roundtrip, active set excludes retired and uncertainty appears without DOB guess.
+**TARGET-PPL-001 fixture:** 25 People with equal createdAt; AND 2 tags; search literal%/_; retired People and another church's page; switch card/filter/page; unresolved adult classification. **Expected:** No duplicates/skips/leaks; URL filters roundtrip, active set excludes retired and uncertainty appears without DOB guess.
 
 
 <a id="req-ppl-002"></a>
@@ -165,7 +165,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 ### PPL-008 — Attributable timeline and authored notes
 
-**REQ-PPL-008.** Typed activity timeline uses event Instant+ID cursor, preserving tied timestamps and visible performer/provenance. Notes validate nonblank bounded 5000 characters; author alone edits/deletes their own note under exact Person/kind/tenant/revision. Edit preserves original occurrence and actor, appends old/new/current author/editedAt/reason correction; delete removes current note body with attributable tombstone/history subject to shared-record deletion policy. Summary profile notes remain separate fields. System audit/qualification events are not user-editable notes. Meeting-linked note must validate actual meeting/attendance relation server-side.
+**REQ-PPL-008.** Typed activity timeline pages by number in event Instant+ID order (D67), preserving tied timestamps and visible performer/provenance. Notes validate nonblank bounded 5000 characters; author alone edits/deletes their own note under exact Person/kind/tenant/revision. Edit preserves original occurrence and actor, appends old/new/current author/editedAt/reason correction; delete removes current note body with attributable tombstone/history subject to shared-record deletion policy. Summary profile notes remain separate fields. System audit/qualification events are not user-editable notes. Meeting-linked note must validate actual meeting/attendance relation server-side.
 
 **Target operations:** `people.getActivities`, `people.addNote`, `people.editNote`, `people.deleteNote`.
 

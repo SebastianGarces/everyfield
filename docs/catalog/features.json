@@ -1110,9 +1110,9 @@
   },
   {
     "id": "PPL-001",
-    "title": "People directory, search, filters, cursor pagination and views",
+    "title": "People directory, search, filters, page numbers and views",
     "module": "people",
-    "behavior": "Preserve list/card/pipeline views, search of display name/email/phone, closed status/source filters and all-selected-tags AND semantics in navigable URL state. Hide retired contacts from active directory. Bound requests 1\u2013100 with 24 row default UI pages; changing filter/search/view resets cursor while preserving sibling filters. Use deterministic createdAt +ID keyset and tenant-scoped validated cursors; invalid/foreign cursor cannot disclose rows. Treat search metacharacters literally. Inactive badges use current church-local threshold and effective confirmed-contact date, not email opens or administrative tasks. Full basic contact/address fields remain operationally available only under current tenant DTO policy.",
+    "behavior": "Preserve list/card/pipeline views, search of display name/email/phone, closed status/source filters and all-selected-tags AND semantics in navigable URL state. Hide retired contacts from active directory. Bound requests 1\u2013100 with 24 row default UI pages; changing filter/search/view returns to page 1 while preserving sibling filters. Owner decision D67 (2026-10-19): list, cards and pipeline columns use page numbers (?page=N) in deterministic createdAt+ID order; the server takes the church from the session, and a page past the end shows the last page or an empty state, never an error. Treat search metacharacters literally. Inactive badges use current church-local threshold and effective confirmed-contact date, not email opens or administrative tasks. Full basic contact/address fields remain operationally available only under current tenant DTO policy.",
     "spec_file": "docs/product/people.md#req-ppl-001",
     "requirement_ids": [
       "REQ-PPL-001",
@@ -1362,7 +1362,7 @@
     "id": "PPL-008",
     "title": "Activity timeline and authored-note create/edit/delete",
     "module": "people",
-    "behavior": "Typed activity timeline uses event Instant+ID cursor, preserving tied timestamps and visible performer/provenance. Notes validate nonblank bounded 5000 characters; author alone edits/deletes their own note under exact Person/kind/tenant/revision. Edit preserves original occurrence and actor, appends old/new/current author/editedAt/reason correction; delete removes current note body with attributable tombstone/history subject to shared-record deletion policy. Summary profile notes remain separate fields. System audit/qualification events are not user-editable notes. Meeting-linked note must validate actual meeting/attendance relation server-side. Organization pipeline Persons use the same applicable identity, lifecycle, duplicate, merge, reference and inverse rules within their exact organization under REQ-MUL-001 and REQ-MUL-005; plant-only recruitment/household/commitment facts remain plant-only.",
+    "behavior": "Typed activity timeline pages by number in event Instant+ID order (D67), preserving tied timestamps and visible performer/provenance. Notes validate nonblank bounded 5000 characters; author alone edits/deletes their own note under exact Person/kind/tenant/revision. Edit preserves original occurrence and actor, appends old/new/current author/editedAt/reason correction; delete removes current note body with attributable tombstone/history subject to shared-record deletion policy. Summary profile notes remain separate fields. System audit/qualification events are not user-editable notes. Meeting-linked note must validate actual meeting/attendance relation server-side. Organization pipeline Persons use the same applicable identity, lifecycle, duplicate, merge, reference and inverse rules within their exact organization under REQ-MUL-001 and REQ-MUL-005; plant-only recruitment/household/commitment facts remain plant-only.",
     "spec_file": "docs/product/people.md#req-ppl-008",
     "requirement_ids": [
       "REQ-PPL-008",

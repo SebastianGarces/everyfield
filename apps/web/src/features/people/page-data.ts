@@ -4,15 +4,15 @@ import { listPeopleRequest, type PeopleContext, type PeopleReply } from "@everyf
 import type * as people from "@everyfield/contracts/people";
 import { peopleReader, getAccountLink } from "@everyfield/domain/people";
 import type { z } from "zod";
-import { isFiltered, listRequest, type PeopleQuery } from "./model.ts";
+import { isFiltered, listRequest, pageCount, type PeopleQuery } from "./model.ts";
 
 export type PeopleData =
-	| { kind: "list"; page: z.infer<typeof people.peoplePage>; expired: boolean }
+	| { kind: "list"; page: z.infer<typeof people.peoplePage> }
 	| { kind: "pipeline"; pipeline: z.infer<typeof people.pipelineResult> }
 	| { kind: "failed" };
 export type PeopleView = { query: PeopleQuery; data: PeopleData; workspaceEmpty: boolean };
 
-// One caller-owned page transaction, including an expired-cursor retry.
+// One caller-owned page transaction. A page number past the end reads the last page instead (D67).
 export async function readPeoplePage(tx: Transaction, ctx: PeopleContext, query: PeopleQuery): Promise<PeopleView> {
 	const request = (q: PeopleQuery) => listPeopleRequest.parse(listRequest(q));
 	if (query.view === "pipeline") {
@@ -24,14 +24,14 @@ export async function readPeoplePage(tx: Transaction, ctx: PeopleContext, query:
 		};
 	}
 	let result = await peopleReader.listPeople(tx, ctx, request(query));
-	const expired = result.status === "refused" && result.error.code === "invalid_input" && query.trail.length > 0;
-	if (expired) {
-		query = { ...query, trail: [], page: 1 };
+	const last = result.status === "ok" ? pageCount(result.value.total ?? 0) : 1;
+	if (query.page > last) {
+		query = { ...query, page: last };
 		result = await peopleReader.listPeople(tx, ctx, request(query));
 	}
 	return {
 		query,
-		data: result.status === "ok" ? { kind: "list", page: result.value, expired } : { kind: "failed" },
+		data: result.status === "ok" ? { kind: "list", page: result.value } : { kind: "failed" },
 		workspaceEmpty: result.status === "ok" && !isFiltered(query) && result.value.total === 0,
 	};
 }
@@ -53,7 +53,7 @@ export async function readPersonPage(
 	if (found.value.status !== "available")
 		return { status: "ok", value: { found: found.value, activities: null, link: null, survivor: null } };
 	const person = found.value.person;
-	const activities = await peopleReader.getActivities(tx, ctx, { personId, limit: 50 });
+	const activities = await peopleReader.getActivities(tx, ctx, { personId, limit: 50, page: 1 });
 	const link = await getAccountLink(tx, ctx, { personId });
 	const survivor =
 		person.lifecycle.state === "merged"

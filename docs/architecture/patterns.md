@@ -1,6 +1,6 @@
 # EveryField patterns
 
-The coordinator owns these defaults, as recorded in the [EveryField patterns note](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62) on 2026-10-19. Requirements and acceptance cases define product outcomes. A deviation from these mechanisms needs a product reason in the PR.
+The coordinator owns these defaults, adopted on 2026-10-19. [Architecture decisions](decisions.md) records the owner rulings and their reasons. Requirements and acceptance cases define product outcomes. A deviation from these mechanisms needs a product reason in the PR.
 
 ## Performance
 
