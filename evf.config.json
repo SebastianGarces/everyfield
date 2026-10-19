@@ -303,17 +303,11 @@
 			"checks": [
 				{
 					"name": "workflow-regressions",
-					"run": [
-						"bin/evf",
-						"test"
-					]
+					"run": ["bin/evf", "test"]
 				},
 				{
 					"name": "documentation",
-					"run": [
-						"python3",
-						"docs/check-all.py"
-					]
+					"run": ["python3", "docs/check-all.py"]
 				}
 			],
 			"risk": "ordinary"
