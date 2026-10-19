@@ -170,9 +170,10 @@ export function createInvitationService(config: InvitationConfig) {
 			selected = "workspace" in v.input ? v.input.workspace : v.input.organization;
 		return transaction(config.db, async (tx) => {
 			await d.lock(tx, "workspace-seats/" + selected.id);
-			const inviter = await d.identity(tx, session),
-				a = await d.administer(tx, session, selected),
-				cmd = await d.begin(tx, selected, a.accountId, resident ? "residency.invite" : "seats.invite", v);
+			const a = await d.administer(tx, session, selected);
+			const info = await tx.execute(sql`SELECT * FROM seat_identity(${a.accountId}::uuid)`);
+			const inviter = z.object({ display_name: z.string() }).parse(info.rows[0]);
+			const cmd = await d.begin(tx, selected, a.accountId, resident ? "residency.invite" : "seats.invite", v);
 			if (cmd.kind === "replay") return c.invitationSentResult.parse(cmd.result);
 			const [root] =
 				selected.kind === "plant"
@@ -586,12 +587,6 @@ export function createInvitationService(config: InvitationConfig) {
 			}
 			events.push(await d.event(tx, cmd, i.id, "accept", declined ? null : "invitation.claimed", i.revision, after));
 			return d.finish(tx, cmd, result, events, effects);
-		}).catch((error) => {
-			// Organization relationship writers also own this existing affiliation. A
-			// contended lock must refuse before grants rather than reverse their lock order.
-			const storage = z.object({ cause: z.object({ code: z.string() }) }).safeParse(error);
-			if (storage.success && storage.data.cause.code === "55P03") d.refuse("temporary");
-			throw error;
 		});
 	}
 	async function registrationEligible(proof: string, email: string) {

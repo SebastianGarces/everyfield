@@ -66,7 +66,12 @@ export function createSeatService(db: Database) {
 	}
 	async function membership(session: string) {
 		return transaction(db, async (tx) => {
-			const a = await d.identity(tx, session);
+			// Membership needs a current session, not the exclusive account claim used by acceptance.
+			const proof = await tx.execute(sql`SELECT * FROM access_session(${sessionId.parse(session)}::uuid)`);
+			if (!proof.rows[0]) d.refuse();
+			const a = z
+				.object({ account_id: z.uuid(), registration_state: z.enum(["active", "pending_domain"]) })
+				.parse(proof.rows[0]);
 			if (a.registration_state !== "active") return c.currentMembershipResult.parse({ status: "unavailable" });
 			const seats = await tx
 				.select()
@@ -317,14 +322,24 @@ export function createSeatService(db: Database) {
 				if (all.length > c.MAX_REMOVAL_ITEMS) d.refuse("removal_too_large");
 				const named = new Map<string, string>(handoffs.map((h) => [h.dutyId, h.expectedRevision]));
 				if (all.length !== handoffs.length || all.some((x) => named.get(x.id) !== x.revision)) d.refuse("conflict");
+				const recipients = new Map<string, string>();
+				const taskMoves = new Map<string, string | null>(),
+					obligationMoves = new Map<string, string | null>(),
+					personMoves = new Map<string, string | null>(),
+					programMoves = new Map<string, string | null>();
+				const dutyEvents: Array<ReturnType<typeof d.eventRow>> = [];
 				for (const h of handoffs) {
 					let recipient: string | null = null,
 						recipientSeat: string | null = null;
 					if (h.kind === "assign") {
-						const candidate = await eligible(tx, selected, h.recipientAccountId);
-						if (!candidate || h.recipientAccountId === s.account_id) d.refuse();
+						if (h.recipientAccountId === s.account_id) d.refuse();
+						if (!recipients.has(h.recipientAccountId)) {
+							const candidate = await eligible(tx, selected, h.recipientAccountId);
+							if (!candidate) d.refuse();
+							recipients.set(h.recipientAccountId, candidate.id);
+						}
 						recipient = h.recipientAccountId;
-						recipientSeat = candidate.id;
+						recipientSeat = recipients.get(recipient)!;
 						duties.push({ status: "moved", dutyId: h.dutyId, recipientAccountId: recipient });
 					} else duties.push({ status: "needs_owner", dutyId: h.dutyId });
 					const task = tasks.find((x) => x.id === h.dutyId),
@@ -332,29 +347,17 @@ export function createSeatService(db: Database) {
 						person = pipeline.find((x) => x.id === h.dutyId),
 						program = programs.find((x) => x.id === h.dutyId);
 					if (task) {
-						await tx
-							.update(t.task)
-							.set({ assignee_id: recipient, revision: d.bump(task.revision) })
-							.where(eq(t.task.id, task.id));
+						taskMoves.set(task.id, recipient);
 						if (task.obligation_id) {
 							const o = obligations.find((x) => x.id === task.obligation_id);
 							if (!o) d.refuse("conflict");
-							await tx
-								.update(t.obligation)
-								.set({ assignee_id: recipient, revision: d.bump(o.revision) })
-								.where(eq(t.obligation.id, o.id));
+							obligationMoves.set(o.id, recipient);
 						}
-						events.push(
-							await d.event(tx, cmd, task.id, "assign", "tasks.changed", task.revision, d.bump(task.revision)),
-						);
+						dutyEvents.push(d.eventRow(cmd, task.id, "assign", "tasks.changed", task.revision, d.bump(task.revision)));
 					} else if (obligation) {
-						await tx
-							.update(t.obligation)
-							.set({ assignee_id: recipient, revision: d.bump(obligation.revision) })
-							.where(eq(t.obligation.id, obligation.id));
-						events.push(
-							await d.event(
-								tx,
+						obligationMoves.set(obligation.id, recipient);
+						dutyEvents.push(
+							d.eventRow(
 								cmd,
 								obligation.id,
 								"assign",
@@ -364,23 +367,57 @@ export function createSeatService(db: Database) {
 							),
 						);
 					} else if (person) {
-						await tx
-							.update(t.pipeline_person)
-							.set({ responsible_seat_id: recipientSeat, revision: d.bump(person.revision) })
-							.where(eq(t.pipeline_person.id, person.id));
-						events.push(
-							await d.event(tx, cmd, person.id, "assign", "people.updated", person.revision, d.bump(person.revision)),
+						personMoves.set(person.id, recipientSeat);
+						dutyEvents.push(
+							d.eventRow(cmd, person.id, "assign", "people.updated", person.revision, d.bump(person.revision)),
 						);
 					} else if (program) {
 						if (!recipientSeat) d.refuse("conflict");
-						await tx
-							.update(t.development_program)
-							.set({ director_seat_id: recipientSeat, revision: d.bump(program.revision) })
-							.where(eq(t.development_program.id, program.id));
-						events.push(
-							await d.event(tx, cmd, program.id, "assign", "roles.changed", program.revision, d.bump(program.revision)),
+						programMoves.set(program.id, recipientSeat);
+						dutyEvents.push(
+							d.eventRow(cmd, program.id, "assign", "roles.changed", program.revision, d.bump(program.revision)),
 						);
 					}
+				}
+				// All duties are already locked and revision-checked. One update per kind and
+				// one audit insert keep lock duration independent of per-duty network latency.
+				const assignment = (moves: Map<string, string | null>, id: ReturnType<typeof sql>) =>
+					sql`CASE ${id} ${sql.join(
+						[...moves].map(([key, recipient]) => sql`WHEN ${key}::uuid THEN ${recipient}::uuid`),
+						sql` `,
+					)} END`;
+				if (taskMoves.size)
+					await tx
+						.update(t.task)
+						.set({ assignee_id: assignment(taskMoves, sql`${t.task.id}`), revision: sql`${t.task.revision}+1` })
+						.where(inArray(t.task.id, [...taskMoves.keys()]));
+				if (obligationMoves.size)
+					await tx
+						.update(t.obligation)
+						.set({
+							assignee_id: assignment(obligationMoves, sql`${t.obligation.id}`),
+							revision: sql`${t.obligation.revision}+1`,
+						})
+						.where(inArray(t.obligation.id, [...obligationMoves.keys()]));
+				if (personMoves.size)
+					await tx
+						.update(t.pipeline_person)
+						.set({
+							responsible_seat_id: assignment(personMoves, sql`${t.pipeline_person.id}`),
+							revision: sql`${t.pipeline_person.revision}+1`,
+						})
+						.where(inArray(t.pipeline_person.id, [...personMoves.keys()]));
+				if (programMoves.size)
+					await tx
+						.update(t.development_program)
+						.set({
+							director_seat_id: assignment(programMoves, sql`${t.development_program.id}`),
+							revision: sql`${t.development_program.revision}+1`,
+						})
+						.where(inArray(t.development_program.id, [...programMoves.keys()]));
+				if (dutyEvents.length) {
+					await tx.insert(t.event).values(dutyEvents);
+					events.push(...dutyEvents.map((e) => e.id));
 				}
 				if (selected.kind === "plant") {
 					const persons = await tx

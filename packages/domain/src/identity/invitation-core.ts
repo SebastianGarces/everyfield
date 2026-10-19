@@ -142,8 +142,7 @@ export async function finish<T>(
 	await tx.insert(t.identity_operation_result).values({ operation_id: c.id, receipt: r, result });
 	return result;
 }
-export async function event(
-	tx: Transaction,
+export function eventRow(
 	c: Command,
 	target: string,
 	kind: typeof t.event.$inferInsert.kind,
@@ -152,7 +151,7 @@ export async function event(
 	after: string,
 ) {
 	const id = randomUUID();
-	await tx.insert(t.event).values({
+	return {
 		id,
 		tenant_id: c.request.owner.id,
 		target_record_id: target,
@@ -165,8 +164,12 @@ export async function event(
 		before_revision: before,
 		after_revision: after,
 		event_key: c.id + "/" + (action ?? kind) + "/" + target,
-	});
-	return id;
+	};
+}
+export async function event(tx: Transaction, ...args: Parameters<typeof eventRow>) {
+	const row = eventRow(...args);
+	await tx.insert(t.event).values(row);
+	return row.id;
 }
 export type Invitation = typeof t.invitation.$inferSelect;
 export async function load(tx: Transaction, id: string) {

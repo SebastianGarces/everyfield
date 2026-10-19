@@ -2,7 +2,7 @@ import "server-only";
 import { createDatabase, type Database, type Transaction } from "@everyfield/db/client";
 import { sessionResult, currentMembershipResult } from "@everyfield/contracts/identity";
 import type { PeopleContext, PeopleReply, PeopleWriteContext } from "@everyfield/contracts/people";
-import { createSeatService } from "@everyfield/domain/identity";
+import { createSeatService, InvitationRefusal } from "@everyfield/domain/identity";
 import { headers } from "next/headers";
 import { cache } from "react";
 import { identityHandler } from "@/server/identity";
@@ -53,10 +53,16 @@ export const resolveViewer = cache(async (): Promise<ViewerResult> => {
 	if (session.status === "unauthenticated") return { status: "signed_out" };
 	if (session.status !== "active") return { status: "no_access" };
 	const membership = currentMembershipResult.safeParse(
-		await createSeatService(store).readCurrentMembership(session.sessionId),
+		await createSeatService(store)
+			.readCurrentMembership(session.sessionId)
+			.catch((error: unknown) => {
+				if (error instanceof InvitationRefusal && error.value.code === "temporary") return { status: "unavailable" };
+				throw error;
+			}),
 	);
 	if (!membership.success) return { status: "unavailable" };
 	const m = membership.data;
+	if (m.status === "unavailable") return { status: "unavailable" };
 	// People is a plant workspace screen. An organization seat, no seat or an ended seat cannot open it.
 	if (m.status !== "active" || m.workspace.kind !== "plant") return { status: "no_access" };
 	return {

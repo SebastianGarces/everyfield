@@ -62,7 +62,7 @@ test("BUG-124: a held account write returns a retryable refusal and the read res
 	assert.equal((await f.seats.readCurrentMembership(s.sender.session)).status, "active");
 });
 
-test("BUG-127: resend during a 250-duty removal refuses contention safely then resumes", async () => {
+test("BUG-127: resend during a 250-duty removal completes or safely retries", async () => {
 	const s = await f.setup(),
 		invitation = await f.invitation(s);
 	const accepted = await f.invitations.accept(s.recipient.session, invitation.claim);
@@ -76,21 +76,19 @@ test("BUG-127: resend during a 250-duty removal refuses contention safely then r
 		.set({ created_at: new Date(Date.now() - 120000) })
 		.where(eq(t.invitation.id, pending.invitation.invitationId));
 	const ids = Array.from({ length: 250 }, () => key());
-	await f.admin
-		.insert(t.task)
-		.values(
-			ids.map((id) => ({
-				id,
-				plant_id: s.w.id,
-				title: "Open duty",
-				category: "general",
-				priority: "medium",
-				status: "not_started",
-				created_at: new Date(),
-				assignee_id: s.recipient.id,
-				due_kind: "undated",
-			})),
-		);
+	await f.admin.insert(t.task).values(
+		ids.map((id) => ({
+			id,
+			plant_id: s.w.id,
+			title: "Open duty",
+			category: "general",
+			priority: "medium",
+			status: "not_started",
+			created_at: new Date(),
+			assignee_id: s.recipient.id,
+			due_kind: "undated",
+		})),
+	);
 	const command = {
 		requestKey: key(),
 		expectedRevision: "1",
@@ -136,4 +134,103 @@ test("BUG-127: resend during a 250-duty removal refuses contention safely then r
 		.where(and(eq(t.task.plant_id, s.w.id), eq(t.task.assignee_id, s.sender.id), eq(t.task.revision, "2")));
 	assert.equal(n, 250);
 	assert.equal(removed.value.receipt.eventIds.length, 251);
+});
+
+test("BUG-124: HTTP resume returns 503 temporary after lock timeout, with the same request retry", async () => {
+	const s = await f.setup(),
+		native = f.native(),
+		email = key() + "@example.test";
+	const password = "Synthetic-lock-password-1";
+	s.recipient.email = email;
+	const invitation = await f.invitation(s);
+	await native("register", {
+		kind: "invitation",
+		name: "Synthetic invitee",
+		email,
+		password,
+		invitationProof: invitation.proof,
+		requestKey: key(),
+	});
+	const [user] = await f.admin.select().from(t.auth_user).where(eq(t.auth_user.email, email));
+	await f.admin.update(t.auth_user).set({ email_verified: true }).where(eq(t.auth_user.id, user.id));
+	const [account] = await f.admin.select().from(t.account).where(eq(t.account.auth_user_id, user.id));
+	const login = await native("sign-in/email", { email, password });
+	assert.equal(login.status, 200);
+	const cookie = login.headers
+		.getSetCookie()
+		.map((v) => v.split(";")[0])
+		.join("; ");
+	const request = { requestKey: key(), invitationProof: invitation.proof };
+	await f.admin.transaction(async (tx) => {
+		await tx.update(t.account).set({ revision: "2" }).where(eq(t.account.id, account.id));
+		const response = await native("resume-registration", request, cookie);
+		assert.equal(response.status, 503);
+		const body = await response.json();
+		assert.equal(body.code, "temporary");
+		assert.equal(body.retry, "same_request");
+		assert.equal(
+			(
+				await f.admin.select().from(t.invitation).where(eq(t.invitation.id, invitation.result.invitation.invitationId))
+			)[0].state,
+			"pending",
+		);
+	});
+	const resumed = await native("resume-registration", request, cookie);
+	assert.equal(resumed.status, 200);
+	assert.equal((await resumed.json()).status, "active");
+});
+
+test("BUG-127: statement timeout rolls back every handoff and permits exact retry", async () => {
+	const s = await f.setup(),
+		invitation = await f.invitation(s),
+		accepted = await f.invitations.accept(s.recipient.session, invitation.claim),
+		duty = key();
+	await f.admin.insert(t.task).values({
+		id: duty,
+		plant_id: s.w.id,
+		title: "Original duty",
+		category: "general",
+		priority: "medium",
+		status: "not_started",
+		created_at: new Date(),
+		assignee_id: s.recipient.id,
+		due_kind: "undated",
+	});
+	const command = {
+		requestKey: key(),
+		expectedRevision: "1",
+		input: {
+			seatId: accepted.seat.seatId,
+			expectedRole: "member",
+			handoffs: [{ kind: "assign", dutyId: duty, expectedRevision: "1", recipientAccountId: s.sender.id }],
+		},
+	};
+	// A real Postgres statement deadline after the writes, not a fake thrown database error.
+	await f.admin.execute(
+		sql`CREATE FUNCTION stall_receipt() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(11); RETURN NEW; END $$`,
+	);
+	await f.admin.execute(
+		sql`CREATE TRIGGER stall_receipt BEFORE INSERT ON identity_operation_result FOR EACH ROW EXECUTE FUNCTION stall_receipt()`,
+	);
+	try {
+		await assert.rejects(f.seats.remove(s.sender.session, s.w, command), (error) => {
+			assert.equal(error.value?.code, "temporary");
+			assert.equal(error.value.retry, "same_request");
+			return true;
+		});
+	} finally {
+		await f.admin.execute(sql`DROP TRIGGER stall_receipt ON identity_operation_result`);
+		await f.admin.execute(sql`DROP FUNCTION stall_receipt()`);
+	}
+	const [task] = await f.admin.select().from(t.task).where(eq(t.task.id, duty));
+	assert.equal(task.assignee_id, s.recipient.id);
+	assert.equal(task.revision, "1");
+	assert.equal((await f.seats.readCurrentMembership(s.recipient.session)).status, "active");
+	const [{ n }] = await f.admin
+		.select({ n: sql`count(*)::int` })
+		.from(t.operation)
+		.where(eq(t.operation.request_key, command.requestKey));
+	assert.equal(n, 0);
+	const result = await f.seats.remove(s.sender.session, s.w, command);
+	assert.deepEqual(result.duties, [{ status: "moved", dutyId: duty, recipientAccountId: s.sender.id }]);
 });

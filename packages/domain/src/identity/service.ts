@@ -484,7 +484,7 @@ export function createIdentityService(config: IdentityConfig) {
 				s.response,
 			);
 		} catch (error) {
-			if (error instanceof InvitationRefusal) return json(error.value, 400);
+			if (error instanceof InvitationRefusal) return json(error.value, error.value.code === "temporary" ? 503 : 400);
 			const refusal =
 				error instanceof IdentityRefusal
 					? error

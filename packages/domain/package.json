@@ -26,7 +26,7 @@
 		"test:people": "node --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/people/*.test.mts",
 		"test:db": "pnpm test && pnpm test:people && pnpm test:invitations && pnpm test:onboarding && pnpm test:settings",
 		"test:onboarding": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/onboarding/*.test.mts",
-		"test:invitations": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/identity/invitations.test.mts",
+		"test:invitations": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/identity/invitations.test.mts ../../tests/integration/identity/locks.test.mts",
 		"test:settings": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/settings/*.test.mts"
 	},
 	"dependencies": {
