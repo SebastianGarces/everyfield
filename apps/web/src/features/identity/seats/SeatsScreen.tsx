@@ -314,7 +314,12 @@ function RosterCard({
 	const [more, setMore] = useState<"idle" | "loading" | "failed">("idle");
 	const items = [...data.roster.items, ...(extra?.items ?? [])];
 	const next = extra ? extra.next : data.roster.next;
-	const active = items.filter((s) => s.status === "active");
+	// The Owner first, then everyone by name. The server pages by seat ID, which says nothing to a reader.
+	const active = items
+		.filter((s) => s.status === "active")
+		.sort(
+			(a, b) => Number(b.role === "owner") - Number(a.role === "owner") || a.displayName.localeCompare(b.displayName),
+		);
 	const removed = items.filter((s) => s.status === "removed");
 	const busy = roleIntent.pending;
 	const held = roleIntent.held;
@@ -467,7 +472,7 @@ function RosterCard({
 			) : null}
 			{removed.length ? (
 				<details className="mt-4 border-t border-line pt-3">
-					<summary className="cursor-pointer rounded-sm text-sm font-medium text-text-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
+					<summary className="cursor-pointer rounded-sm text-sm font-medium text-text-2">
 						Removed seats ({removed.length})
 					</summary>
 					<ul className="mt-2 flex flex-col">
