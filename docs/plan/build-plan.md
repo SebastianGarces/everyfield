@@ -2,17 +2,17 @@
 
 The approved target has 101 active single-owner packages. WP-086 is retired into WP-085; IDs are never reused. Implementation state lives only in docs/build-progress.json.
 
-Start with a [short package brief](context.md). Read detailed clauses, cases and schema on demand. The [DAG](dag.json) owns scope and dependencies; builders choose filenames and internal structures within the owned directories.
+Start with a [short package brief](context.md). Read detailed requirements and cases on demand. The [DAG](dag.json) owns scope and dependencies; builders choose filenames and internal structures within the owned directories.
 
-Rough scope-based effort is 282 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 99.5 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
+Rough scope-based effort is 246 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 90 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
 
 ## Foundation and shared UI
 
-WP-097 delivers the early access site and app scaffold, including the shipped React marketing rebuild: Tailwind 4 importing design/handoff/tokens.css, next/font, Hugeicons, Motion, color-literal lint, share/mesh image generators and light-only public pages. WP-087 extends that scaffold with local stack/assertion scripts and minimal CI; reviewed OPS maintenance wires evf.config.json. WP-088 extends these existing foundations and adds product AppShell and product-only dark mode; marketing remains light. WP-089 adds controls/surfaces/overlays and WP-090 data/content/domain display. WP-049 reuses the rebuilt marketing components and owner-reviewed vision section when merged, retaining feedback, reviewed planters/trust pages, sign-in links and the before-customer-data privacy update. Only product feature UI tasks wait for the design milestones. UI work belongs to ui-designer on Opus 5.5. WP-097 alone uses the owner-approved fast-track completion exception in the ship skill; evf records its reviewed go-live commit on main and owner approval before WP-087 starts. Later maintenance does not replace that go-live evidence.
+WP-097 owns the early access site. WP-087 owns local development workflow. WP-088, WP-089 and WP-090 own shared product design foundations, controls and displays. WP-049 owns later public pages and feedback. Presentation dependencies remain separate from domain dependencies.
 
-C0 at WP-002 covers shared scope/time/revision/replay/receipt/audit patterns and bounded contract fixtures. Domain producers own their behavior and persistence. C1, C2, C3 and C-EDITOR remain reviewed producer/interface milestones; full closure stays at integration.
+C0, C1, C2, C3 and C-EDITOR identify prerequisite package groups. Each package keeps its feature and acceptance scope. Integration packages cover cross-feature behavior.
 
-DOC-016 belongs to WP-037 for native documents and WP-079/080 for Evry read/command coverage. WP-036 owns template/format contracts. Evry pairs own queries and commands separately, with every selected operation producer as an ancestor. WP-085 owns named helpers and candidate preparation, including the retired WP-086 scope. Catalog work_packages, owning_package and evry_packages are the only ownership authority. Feature selectors add consumed context. WP-004 installs the target baseline, preserving the WP-097 access-request migration; ordered, schema-reviewed migrations let WP-040 install its input revision triggers. WP-033 follows WP-032. WP-056/057 retain complete target gates after scoped domain integration packages.
+Catalog ownership identifies native and Evry responsibilities. Read and command packages keep separate owning paths and depend on their domain producers. WP-085 includes the retired WP-086 scope. WP-056 and WP-057 cover the complete target after scoped integration.
 
 ## Vertical slices
 
@@ -30,126 +30,126 @@ Each row lists only packages newly reached in that dependency-closed slice.
 
 ## Scope estimates
 
-Each package stores its estimate factors in the DAG. Counts use owned selectors, rather than transitive reading size; whole-target gates use all selected cases. WP-056/057 each reproduce 1,086 cases with no deferrals, estimated at 0.0115 engineer-days per case plus base and gate allowances, rounded to 14 days. The lower total compared with the earlier 287.5 days mainly removes repeated counting of consumed cases across packages. Contract and adapter fixtures prove their scoped portions; broad whole-target scripts remain integration work.
+The DAG estimates effort from owned clauses, operations, cases and referenced tables. Counts use owned assignments; whole-target integration uses all selected cases. Table counts describe the schema reference, not a requirement to create storage before its feature. Feature implementations choose their internal design.
 
 | Package | Task | Clauses | Operations | Cases | Tables | Days |
 |---|---|---:|---:|---:|---:|---:|
-| WP-097 | Early access site | 1 | 7 | 1 | 3 | 3.5 |
-| WP-087 | Local workflow and repository bootstrap | 0 | 0 | 0 | 0 | 3 |
-| WP-001 | Verify current source authority/version/hash | 0 | 0 | 0 | 0 | 1.5 |
-| WP-002 | Shared C0 contracts and transaction patterns | 5 | 2 | 8 | 0 | 1.5 |
-| WP-003 | Next.js security/auth/file/stream/execution proof | 12 | 0 | 11 | 2 | 2 |
-| WP-004 | Fresh database/storage baseline | 20 | 4 | 46 | 116 | 5.5 |
-| WP-031 | Outbox jobs and dispatch recovery | 17 | 17 | 22 | 8 | 2.5 |
-| WP-088 | Design foundations and AppShell | 0 | 0 | 0 | 0 | 3 |
-| WP-089 | Shared controls, surfaces and overlays | 0 | 0 | 0 | 0 | 4 |
-| WP-090 | Shared data, content and domain display components | 0 | 0 | 0 | 0 | 4.5 |
-| WP-005 | Better Auth identity/recovery | 7 | 13 | 15 | 10 | 2.5 |
+| WP-097 | Early access site | 1 | 7 | 1 | 3 | 2.5 |
+| WP-087 | Local development and repository workflow | 0 | 0 | 0 | 0 | 2 |
+| WP-001 | Current source references and version identity | 0 | 0 | 0 | 0 | 1 |
+| WP-002 | Shared identity, access, time and change-history behavior | 5 | 2 | 8 | 0 | 1.5 |
+| WP-003 | Secure sign-in, private files and streamed responses | 12 | 0 | 11 | 2 | 1.5 |
+| WP-004 | Data storage for shipped features with tenant isolation | 20 | 4 | 46 | 116 | 5 |
+| WP-031 | Reliable background work and delivery recovery | 17 | 17 | 22 | 8 | 2.5 |
+| WP-088 | Product design foundations, dark mode and application shell | 0 | 0 | 0 | 0 | 2 |
+| WP-089 | Shared controls, surfaces and overlays | 0 | 0 | 0 | 0 | 3 |
+| WP-090 | Shared data, content and domain displays | 0 | 0 | 0 | 0 | 3.5 |
+| WP-005 | Better Auth identity/recovery | 7 | 13 | 15 | 10 | 2 |
 | WP-006 | Tenant and independent grant policies C1 | 8 | 7 | 23 | 6 | 2 |
 | WP-007 | Organizations and consent relationships | 10 | 19 | 53 | 12 | 2.5 |
 | WP-011 | People core and account links | 15 | 37 | 20 | 7 | 2.5 |
-| WP-008 | Invitation lifecycle and atomic acceptance | 7 | 13 | 42 | 5 | 2.5 |
+| WP-008 | Invitation lifecycle and atomic acceptance | 7 | 13 | 42 | 5 | 2 |
 | WP-009 | Onboarding and discovery conversion | 7 | 8 | 23 | 6 | 2 |
-| WP-010 | Account and settings surfaces | 20 | 21 | 39 | 7 | 3 |
+| WP-010 | Account and settings surfaces | 20 | 21 | 39 | 7 | 2.5 |
 | WP-012 | Households tags skills and person fields | 9 | 21 | 11 | 3 | 2 |
-| WP-013 | People CSV import/export | 2 | 5 | 5 | 4 | 2 |
+| WP-013 | People CSV import/export | 2 | 5 | 5 | 4 | 1.5 |
 | WP-014 | Assessments interviews commitments | 8 | 10 | 24 | 6 | 2 |
 | WP-015 | Corrections duplicate resolution and merge | 9 | 10 | 89 | 4 | 2.5 |
 | WP-032 | Canonical reference/template manifest | 7 | 12 | 15 | 3 | 2 |
-| WP-016 | Team catalog and lifecycle | 1 | 22 | 6 | 2 | 2 |
+| WP-016 | Team catalog and lifecycle | 1 | 22 | 6 | 2 | 1.5 |
 | WP-017 | Roster roles leader appointments/org chart | 8 | 17 | 30 | 3 | 2 |
 | WP-018 | Responsibilities canonical offer | 3 | 7 | 4 | 2 | 1.5 |
-| WP-019 | Training programs completion revoke/correct | 14 | 10 | 33 | 8 | 2.5 |
+| WP-019 | Training programs completion revoke/correct | 14 | 10 | 33 | 8 | 2 |
 | WP-020 | Meeting and location lifecycle | 19 | 17 | 29 | 4 | 2.5 |
 | WP-021 | Meeting invitations and RSVP | 8 | 16 | 9 | 4 | 2 |
-| WP-024 | Tasks lifecycle/bulk/status history | 11 | 28 | 25 | 6 | 2.5 |
-| WP-022 | Attendance finalization/evaluation C2a | 15 | 36 | 25 | 7 | 3 |
-| WP-023 | Follow-up obligation/outcome C2b | 16 | 10 | 29 | 2 | 2.5 |
-| WP-025 | Task dependencies and recurrence | 8 | 6 | 17 | 1 | 2 |
-| WP-038 | Phase initial declaration and transitions | 32 | 7 | 66 | 5 | 3 |
-| WP-026 | Phase task templates and prompts | 5 | 7 | 7 | 3 | 2 |
-| WP-027 | Communication composition/templates | 14 | 17 | 18 | 4 | 2.5 |
-| WP-028 | Shared email delivery and webhook reconciliation | 20 | 19 | 26 | 9 | 3 |
-| WP-029 | Communication history and resend | 19 | 9 | 22 | 4 | 2.5 |
+| WP-024 | Tasks lifecycle/bulk/status history | 11 | 28 | 25 | 6 | 2 |
+| WP-022 | Attendance finalization/evaluation C2a | 15 | 36 | 25 | 7 | 2.5 |
+| WP-023 | Follow-up obligation/outcome C2b | 16 | 10 | 29 | 2 | 2 |
+| WP-025 | Task dependencies and recurrence | 8 | 6 | 17 | 1 | 1.5 |
+| WP-038 | Phase initial declaration and transitions | 32 | 7 | 66 | 5 | 2.5 |
+| WP-026 | Phase task templates and prompts | 5 | 7 | 7 | 3 | 1.5 |
+| WP-027 | Communication composition/templates | 14 | 17 | 18 | 4 | 2 |
+| WP-028 | Shared email delivery and webhook reconciliation | 20 | 19 | 26 | 9 | 2.5 |
+| WP-029 | Communication history and resend | 19 | 9 | 22 | 4 | 2 |
 | WP-030 | Notification feed/preferences | 19 | 19 | 28 | 5 | 2.5 |
-| WP-033 | Approve and version available global Wiki snapshot | 4 | 4 | 10 | 9 | 2 |
+| WP-033 | Approve and version available global Wiki snapshot | 4 | 4 | 10 | 9 | 1.5 |
 | WP-034 | Wiki browsing/search/progress/bookmarks | 80 | 21 | 95 | 5 | 4.5 |
 | WP-035 | Wiki feedback/admin/revalidation | 89 | 7 | 92 | 6 | 4.5 |
-| WP-036 | Document template and format contracts | 22 | 5 | 28 | 4 | 2.5 |
-| WP-037 | Generated files and native owned documents | 20 | 15 | 16 | 3 | 2.5 |
-| WP-039 | Check-ins manual signals and corrections | 15 | 11 | 51 | 5 | 2.5 |
-| WP-045 | Launch plan/readiness/milestones | 18 | 10 | 25 | 9 | 2.5 |
-| WP-046 | Launch outcomes/events/history | 43 | 11 | 56 | 8 | 3.5 |
-| WP-040 | Deterministic fact snapshot and metric lineage | 41 | 4 | 150 | 2 | 3.5 |
+| WP-036 | Document template and format contracts | 22 | 5 | 28 | 4 | 2 |
+| WP-037 | Generated files and native owned documents | 20 | 15 | 16 | 3 | 2 |
+| WP-039 | Check-ins manual signals and corrections | 15 | 11 | 51 | 5 | 2 |
+| WP-045 | Launch plan/readiness/milestones | 18 | 10 | 25 | 9 | 2 |
+| WP-046 | Launch outcomes/events/history | 43 | 11 | 56 | 8 | 3 |
+| WP-040 | Assessment facts, metrics and their source history | 41 | 4 | 150 | 2 | 3.5 |
 | WP-041 | Rubric/reference retrieval and history C3a | 6 | 3 | 51 | 4 | 2 |
 | WP-047 | Oversight portfolio and health | 14 | 14 | 128 | 7 | 3 |
-| WP-042 | Structured AI judge and evaluation harness | 8 | 2 | 112 | 4 | 2.5 |
-| WP-043 | Assessment orchestration/retry/publication | 11 | 5 | 117 | 6 | 3 |
-| WP-044 | Plant Intelligence/oversight assessment UI | 41 | 25 | 161 | 4 | 4 |
-| WP-048 | Dashboard/navigation/settings integration | 3 | 6 | 5 | 2 | 2 |
-| WP-049 | Feedback and later public marketing | 19 | 10 | 14 | 4 | 2.5 |
-| WP-050 | Environment bootstrap/ops/observability | 37 | 35 | 69 | 10 | 4 |
-| WP-051 | Evry conversation/run framework spike | 32 | 18 | 19 | 4 | 3 |
-| WP-052 | Evry per-feature read/tool coverage | 40 | 2 | 66 | 0 | 3 |
-| WP-053 | Evry proposal approval execution C3b | 52 | 13 | 69 | 8 | 3.5 |
+| WP-042 | AI assessment results and quality evaluation | 8 | 2 | 112 | 4 | 2.5 |
+| WP-043 | Assessment orchestration/retry/publication | 11 | 5 | 117 | 6 | 2.5 |
+| WP-044 | Plant Intelligence/oversight assessment UI | 41 | 25 | 161 | 4 | 3.5 |
+| WP-048 | Dashboard/navigation/settings integration | 3 | 6 | 5 | 2 | 1.5 |
+| WP-049 | Feedback and later public marketing | 19 | 10 | 14 | 4 | 2 |
+| WP-050 | Environment bootstrap/ops/observability | 37 | 35 | 69 | 10 | 3.5 |
+| WP-051 | Evry conversations and runs | 32 | 18 | 19 | 4 | 2.5 |
+| WP-052 | Evry per-feature read/tool coverage | 40 | 2 | 66 | 0 | 2.5 |
+| WP-053 | Human approval and execution of Evry proposals | 52 | 13 | 69 | 8 | 3.5 |
 | WP-054 | Evry private uploads/artifacts/recovery | 33 | 5 | 15 | 3 | 2.5 |
 | WP-059 | Evry people-core reads/helper adapters | 4 | 21 | 20 | 0 | 2 |
-| WP-060 | Evry people-core draft/propose/execute adapters | 3 | 16 | 10 | 0 | 2 |
+| WP-060 | Evry people-core draft/propose/execute adapters | 3 | 16 | 10 | 0 | 1.5 |
 | WP-061 | Evry people-assessments reads/helper adapters | 2 | 5 | 9 | 0 | 1.5 |
 | WP-062 | Evry people-assessments draft/propose/execute adapters | 0 | 7 | 7 | 0 | 1.5 |
 | WP-063 | Evry people-organization reads/helper adapters | 1 | 7 | 6 | 0 | 1.5 |
-| WP-064 | Evry people-organization draft/propose/execute adapters | 1 | 18 | 6 | 0 | 2 |
-| WP-065 | Evry meetings reads/helper adapters | 0 | 29 | 10 | 0 | 2 |
-| WP-066 | Evry meetings draft/propose/execute adapters | 7 | 40 | 13 | 0 | 2.5 |
-| WP-067 | Evry tasks reads/helper adapters | 0 | 20 | 14 | 0 | 2 |
+| WP-064 | Evry people-organization draft/propose/execute adapters | 1 | 18 | 6 | 0 | 1.5 |
+| WP-065 | Evry meetings reads/helper adapters | 0 | 29 | 10 | 0 | 1.5 |
+| WP-066 | Evry meetings draft/propose/execute adapters | 7 | 40 | 13 | 0 | 2 |
+| WP-067 | Evry tasks reads/helper adapters | 0 | 20 | 14 | 0 | 1.5 |
 | WP-068 | Evry tasks draft/propose/execute adapters | 1 | 30 | 10 | 0 | 2 |
-| WP-069 | Evry teams reads/helper adapters | 1 | 26 | 14 | 0 | 2 |
+| WP-069 | Evry teams reads/helper adapters | 1 | 26 | 14 | 0 | 1.5 |
 | WP-070 | Evry teams draft/propose/execute adapters | 1 | 30 | 9 | 0 | 2 |
-| WP-071 | Evry communication reads/helper adapters | 1 | 21 | 9 | 0 | 2 |
-| WP-072 | Evry communication draft/propose/execute adapters | 1 | 24 | 7 | 0 | 2 |
+| WP-071 | Evry communication reads/helper adapters | 1 | 21 | 9 | 0 | 1.5 |
+| WP-072 | Evry communication draft/propose/execute adapters | 1 | 24 | 7 | 0 | 1.5 |
 | WP-073 | Evry intelligence reads/helper adapters | 5 | 45 | 51 | 0 | 2.5 |
-| WP-074 | Evry intelligence draft/propose/execute adapters | 6 | 26 | 36 | 0 | 2.5 |
-| WP-075 | Evry launch reads/helper adapters | 2 | 5 | 11 | 0 | 2 |
-| WP-076 | Evry launch draft/propose/execute adapters | 3 | 16 | 8 | 0 | 2 |
-| WP-077 | Evry wiki reads/helper adapters | 0 | 19 | 4 | 0 | 2 |
+| WP-074 | Evry intelligence draft/propose/execute adapters | 6 | 26 | 36 | 0 | 2 |
+| WP-075 | Evry launch reads/helper adapters | 2 | 5 | 11 | 0 | 1.5 |
+| WP-076 | Evry launch draft/propose/execute adapters | 3 | 16 | 8 | 0 | 1.5 |
+| WP-077 | Evry wiki reads/helper adapters | 0 | 19 | 4 | 0 | 1.5 |
 | WP-078 | Evry wiki draft/propose/execute adapters | 0 | 9 | 1 | 0 | 1.5 |
-| WP-079 | Evry documents reads/helper adapters | 2 | 14 | 8 | 0 | 2 |
+| WP-079 | Evry documents reads/helper adapters | 2 | 14 | 8 | 0 | 1.5 |
 | WP-080 | Evry documents draft/propose/execute adapters | 0 | 10 | 5 | 0 | 1.5 |
-| WP-081 | Evry notifications reads/helper adapters | 2 | 8 | 9 | 0 | 2 |
+| WP-081 | Evry notifications reads/helper adapters | 2 | 8 | 9 | 0 | 1.5 |
 | WP-082 | Evry notifications draft/propose/execute adapters | 2 | 28 | 7 | 0 | 2 |
 | WP-083 | Evry platform reads/helper adapters | 1 | 38 | 1 | 0 | 2 |
-| WP-084 | Evry platform draft/propose/execute adapters | 2 | 53 | 2 | 0 | 2.5 |
-| WP-085 | Evry named helpers and candidate preparation | 1 | 2 | 7 | 0 | 2 |
-| WP-055 | Evry autonomy policy/evals/human ownership | 53 | 4 | 100 | 0 | 3.5 |
-| WP-091 | Core SQL race/privacy/correction integration | 10 | 0 | 80 | 0 | 2.5 |
-| WP-092 | Knowledge SQL race/privacy/correction integration | 9 | 0 | 11 | 0 | 1.5 |
-| WP-093 | Intelligence SQL race/privacy/correction integration | 6 | 0 | 32 | 0 | 2 |
-| WP-098 | Organization pipeline, goals and conversations | 3 | 13 | 3 | 7 | 5 |
-| WP-099 | Development programs and enrollment | 3 | 11 | 3 | 10 | 5 |
-| WP-100 | My residency and consented progress | 2 | 3 | 2 | 0 | 3.5 |
-| WP-101 | Pipeline and development Evry adapters | 1 | 15 | 1 | 0 | 4 |
-| WP-102 | Multiplication privacy, race and parity integration | 17 | 0 | 17 | 0 | 5.5 |
-| WP-056 | Cross-module race/privacy/correction integration | 0 | 0 | 1161 | 0 | 15 |
-| WP-094 | Core browser/file/native-Evry parity integration | 4 | 0 | 6 | 0 | 1.5 |
-| WP-095 | Knowledge browser/file/native-Evry parity integration | 7 | 0 | 8 | 0 | 1.5 |
-| WP-096 | Intelligence browser/file/native-Evry parity integration | 3 | 0 | 18 | 0 | 1.5 |
-| WP-057 | Full target browser/file/capability parity gate | 0 | 0 | 1161 | 5 | 15 |
-| WP-058 | Fresh bootstrap and release rehearsal | 12 | 0 | 29 | 0 | 2 |
+| WP-084 | Evry platform draft/propose/execute adapters | 2 | 53 | 2 | 0 | 2 |
+| WP-085 | Evry named helpers and candidate preparation | 1 | 2 | 7 | 0 | 1.5 |
+| WP-055 | Evry autonomy policy/evals/human ownership | 53 | 4 | 100 | 0 | 3 |
+| WP-091 | Identity, people, meetings, tasks, teams, Evry and operations integration | 10 | 0 | 80 | 0 | 2.5 |
+| WP-092 | Knowledge, communication and reference integration | 9 | 0 | 11 | 0 | 1.5 |
+| WP-093 | Phases, intelligence and Launch integration | 6 | 0 | 32 | 0 | 1.5 |
+| WP-098 | Organization pipeline, goals and conversations | 3 | 13 | 3 | 7 | 4 |
+| WP-099 | Development programs and enrollment | 3 | 11 | 3 | 10 | 4 |
+| WP-100 | My residency and consented progress | 2 | 3 | 2 | 0 | 2.5 |
+| WP-101 | Pipeline and development Evry adapters | 1 | 15 | 1 | 0 | 3 |
+| WP-102 | Multiplication privacy, race and parity integration | 17 | 0 | 17 | 0 | 4.5 |
+| WP-056 | Complete cross-feature privacy, concurrency and correction behavior | 0 | 0 | 1161 | 0 | 14.5 |
+| WP-094 | Core browser, file and native/Evry feature parity | 4 | 0 | 6 | 0 | 1.5 |
+| WP-095 | Knowledge browser, file and native/Evry feature parity | 7 | 0 | 8 | 0 | 1.5 |
+| WP-096 | Intelligence browser, file and native/Evry feature parity | 3 | 0 | 18 | 0 | 1.5 |
+| WP-057 | Complete browser, file and native/Evry feature parity | 0 | 0 | 1161 | 5 | 14.5 |
+| WP-058 | Fresh bootstrap and release rehearsal | 12 | 0 | 29 | 0 | 1.5 |
 
 ## Package splits
 
-The retained target gates reproduce complete evidence after the scoped producers. A split never waives an obligation.
+Integration packages cover all selected acceptance cases after their feature prerequisites.
 
 WP-088: WP-088, WP-089, WP-090. Foundations and first three Layout rows; controls/surfaces/overlays; data/content/domain display. Inventory groups are exhaustive, with shell rows excluded from WP-089. Feature UI consumes all three; contracts and APIs have no design prerequisite.
 
-WP-056: WP-091, WP-092, WP-093, WP-056. Core identity/people/meetings/tasks/teams/Evry/operations; knowledge/communication/reference; phases/intelligence/Launch. Multi-family records go to intelligence first, then knowledge, then core. WP-056 reproduces all whole-target SQL/race/privacy gates after the three scoped producers; no deferrals.
+WP-056: WP-091, WP-092, WP-093, WP-056. Core identity/people/meetings/tasks/teams/Evry/operations; knowledge/communication/reference; phases/intelligence/Launch. Multi-family records go to intelligence first, then knowledge, then core. WP-056 covers all selected cross-feature acceptance cases.
 
-WP-057: WP-094, WP-095, WP-096, WP-057. The same domain partition for browser/file/native-Evry parity, after WP-056. WP-057 remains the final complete target gate after the scoped browser producers; no deferrals.
+WP-057: WP-094, WP-095, WP-096, WP-057. The same domain partition for browser/file/native-Evry parity, after WP-056. WP-057 covers all selected browser, file and native/Evry acceptance cases.
 
 
 ## Critical prerequisite chain
 
-WP-097 → WP-087 → WP-001 → WP-002 → WP-003 → WP-004 → WP-031 → WP-005 → WP-006 → WP-007 → WP-008 → WP-009 → WP-038 → WP-045 → WP-046 → WP-040 → WP-041 → WP-042 → WP-043 → WP-044 → WP-073 → WP-074 → WP-055 → WP-091 → WP-056 → WP-094 → WP-057 → WP-058
+WP-097 → WP-087 → WP-001 → WP-002 → WP-003 → WP-004 → WP-031 → WP-005 → WP-006 → WP-011 → WP-012 → WP-015 → WP-019 → WP-045 → WP-046 → WP-040 → WP-041 → WP-042 → WP-043 → WP-044 → WP-073 → WP-074 → WP-055 → WP-091 → WP-056 → WP-094 → WP-057 → WP-058
 
 The graph has 520 edges. The chain above is the maximum sum of scope estimates along prerequisites, calculated by docs/package-context.py --refresh-plan.
 
@@ -158,15 +158,15 @@ The graph has 520 edges. The chain above is the maximum sum of scope estimates a
 ```mermaid
 graph LR
   WP097["WP-097: Early access site"]
-  WP087["WP-087: Local workflow and repository bootstrap"]
-  WP001["WP-001: Verify current source authority/version/hash"]
-  WP002["WP-002: Shared C0 contracts and transaction patterns"]
-  WP003["WP-003: Next.js security/auth/file/stream/execution proof"]
-  WP004["WP-004: Fresh database/storage baseline"]
-  WP031["WP-031: Outbox jobs and dispatch recovery"]
-  WP088["WP-088: Design foundations and AppShell"]
+  WP087["WP-087: Local development and repository workflow"]
+  WP001["WP-001: Current source references and version identity"]
+  WP002["WP-002: Shared identity, access, time and change-history behavior"]
+  WP003["WP-003: Secure sign-in, private files and streamed responses"]
+  WP004["WP-004: Data storage for shipped features with tenant isolation"]
+  WP031["WP-031: Reliable background work and delivery recovery"]
+  WP088["WP-088: Product design foundations, dark mode and application shell"]
   WP089["WP-089: Shared controls, surfaces and overlays"]
-  WP090["WP-090: Shared data, content and domain display components"]
+  WP090["WP-090: Shared data, content and domain displays"]
   WP005["WP-005: Better Auth identity/recovery"]
   WP006["WP-006: Tenant and independent grant policies C1"]
   WP007["WP-007: Organizations and consent relationships"]
@@ -203,18 +203,18 @@ graph LR
   WP039["WP-039: Check-ins manual signals and corrections"]
   WP045["WP-045: Launch plan/readiness/milestones"]
   WP046["WP-046: Launch outcomes/events/history"]
-  WP040["WP-040: Deterministic fact snapshot and metric lineage"]
+  WP040["WP-040: Assessment facts, metrics and their source history"]
   WP041["WP-041: Rubric/reference retrieval and history C3a"]
   WP047["WP-047: Oversight portfolio and health"]
-  WP042["WP-042: Structured AI judge and evaluation harness"]
+  WP042["WP-042: AI assessment results and quality evaluation"]
   WP043["WP-043: Assessment orchestration/retry/publication"]
   WP044["WP-044: Plant Intelligence/oversight assessment UI"]
   WP048["WP-048: Dashboard/navigation/settings integration"]
   WP049["WP-049: Feedback and later public marketing"]
   WP050["WP-050: Environment bootstrap/ops/observability"]
-  WP051["WP-051: Evry conversation/run framework spike"]
+  WP051["WP-051: Evry conversations and runs"]
   WP052["WP-052: Evry per-feature read/tool coverage"]
-  WP053["WP-053: Evry proposal approval execution C3b"]
+  WP053["WP-053: Human approval and execution of Evry proposals"]
   WP054["WP-054: Evry private uploads/artifacts/recovery"]
   WP059["WP-059: Evry people-core reads/helper adapters"]
   WP060["WP-060: Evry people-core draft/propose/execute adapters"]
@@ -244,19 +244,19 @@ graph LR
   WP084["WP-084: Evry platform draft/propose/execute adapters"]
   WP085["WP-085: Evry named helpers and candidate preparation"]
   WP055["WP-055: Evry autonomy policy/evals/human ownership"]
-  WP091["WP-091: Core SQL race/privacy/correction integration"]
-  WP092["WP-092: Knowledge SQL race/privacy/correction integration"]
-  WP093["WP-093: Intelligence SQL race/privacy/correction integration"]
+  WP091["WP-091: Identity, people, meetings, tasks, teams, Evry and operations integration"]
+  WP092["WP-092: Knowledge, communication and reference integration"]
+  WP093["WP-093: Phases, intelligence and Launch integration"]
   WP098["WP-098: Organization pipeline, goals and conversations"]
   WP099["WP-099: Development programs and enrollment"]
   WP100["WP-100: My residency and consented progress"]
   WP101["WP-101: Pipeline and development Evry adapters"]
   WP102["WP-102: Multiplication privacy, race and parity integration"]
-  WP056["WP-056: Cross-module race/privacy/correction integration"]
-  WP094["WP-094: Core browser/file/native-Evry parity integration"]
-  WP095["WP-095: Knowledge browser/file/native-Evry parity integration"]
-  WP096["WP-096: Intelligence browser/file/native-Evry parity integration"]
-  WP057["WP-057: Full target browser/file/capability parity gate"]
+  WP056["WP-056: Complete cross-feature privacy, concurrency and correction behavior"]
+  WP094["WP-094: Core browser, file and native/Evry feature parity"]
+  WP095["WP-095: Knowledge browser, file and native/Evry feature parity"]
+  WP096["WP-096: Intelligence browser, file and native/Evry feature parity"]
+  WP057["WP-057: Complete browser, file and native/Evry feature parity"]
   WP058["WP-058: Fresh bootstrap and release rehearsal"]
   WP097 --> WP087
   WP087 --> WP001

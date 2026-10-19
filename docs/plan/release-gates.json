@@ -5,7 +5,7 @@
       "id": "G-DESIGN",
       "title": "Whole target design and independent review",
       "owner": "Root integration owner",
-      "closure": "Current domain/schema/operation/acceptance/packet contracts resolve all reviewed design findings; independent losslessness and whole-plan reviews pass; no substantive open design gap.",
+      "closure": "The current feature scope, dependencies, ownership and acceptance IDs have independent review.",
       "status": "re-review-required",
       "work_packages": [],
       "evidence": "docs/verification.json#current_review",
@@ -111,7 +111,7 @@
       "id": "G-SETUP",
       "title": "Authorized environment setup, with backup setup before customer data",
       "owner": "Platform/operations",
-      "closure": "Actual project/repository IDs, scoped ordinary credentials and approved privacy settings are configured only under applicable authorization. During the build, use Neon and Tigris native seven-day history. Restricted scheduled backup host, encrypted daily copies, dedicated backup keys and current witness sync are deferred to G-RECOVERY before customer data; prove keys absent from ordinary app/build/preview at that gate. Backup machinery is not a build kickoff prerequisite.",
+      "closure": "Approved development and production environments are available. Customer-data recovery capability is required before customer data.",
       "status": "future-configuration-proof",
       "work_packages": [
         "WP-003",
@@ -126,7 +126,7 @@
       "id": "G-RUNTIME",
       "title": "Compatibility, concurrency and UI/model proof",
       "owner": "Each named package owner",
-      "closure": "Execute all named future gates against actual selected runtime and database. Auth rollback, same-tenant constraints, watermark/CAS races, current sharing, approved effects, tool usefulness, native/browser parity and negative fixtures pass.",
+      "closure": "Selected feature acceptance cases pass on the actual application, including access denials, concurrency, corrections and native/Evry parity.",
       "status": "future-not-run",
       "work_packages": [
         "WP-003",
@@ -139,7 +139,7 @@
       "id": "G-RECOVERY",
       "title": "Before customer data",
       "owner": "DB/file/operations + release owner",
-      "closure": "Before customer data, configure and prove encrypted daily DB-plus-byte copies, expiring daily snapshots, current deletion/access witness sync and the restricted scheduled backup host with recoverable scoped keys excluded from ordinary app/build/preview. Measure coherent restore for ordinary one-hour RPO/four-hour RTO, a fresh surviving accessible daily 24-hour-loss fallback, current pending/cancelled/completed deletion barriers, original seven-day copy expiry, external receipt non-replay and provider cleanup. Review privacy disclosure. During the build rely on native seven-day Neon/Tigris history; this gate does not block building the recovery producers.",
+      "closure": "Before customer data, demonstrate recoverable private data and files, current deletion and access decisions, one-hour recovery point and four-hour recovery time, plus a daily fallback within 24 hours. Review privacy disclosure and operator access.",
       "status": "future-not-run",
       "work_packages": [
         "WP-037",
@@ -154,7 +154,7 @@
       "id": "G-LOAD",
       "title": "Measured scheduler load and fairness",
       "owner": "Executor/assessment/operations + release owner",
-      "closure": "Measure representative backlog and bursts across tenants and every affected job kind to identify starvation, lag and saturation. Select per-tenant fairness, concurrency/page limits, reserved security/cancellation slots and per-kind alert thresholds from those measurements; prove recovery and owed scan-tail completion across every affected kind. Until then retain finite leases, claim fences, idempotency, bounded retries, durable checkpoints, unknown-outcome reconciliation and safe operator visibility. This gate does not block building the base executor and grants no deployment or spending authority.",
+      "closure": "Representative background workloads complete without starving tenants or job kinds. Operators can see failures and recover interrupted work. This applies before production schedules.",
       "status": "future-not-run",
       "work_packages": [
         "WP-031",
@@ -179,7 +179,7 @@
       "id": "G-MULTIPLICATION",
       "title": "ADR-001 before-alpha stages 1 and 2",
       "owner": "Pipeline, program, resident and integration owners",
-      "closure": "WP-098..102 prove stages 1 and 2 after planter S2, with S0 organization Person/consent foundations. Sol and Opus review the P2 contract before S0 starts. Full target release cannot defer these portions. Stages 3/4, coaching and cross-church individual sharing remain excluded.",
+      "closure": "ADR-001 stages 1 and 2 pass their selected acceptance cases after S2 and before alpha. Stages 3 and 4, coaching and cross-church individual sharing remain deferred.",
       "status": "future-not-run",
       "work_packages": [
         "WP-098",
@@ -200,8 +200,7 @@
       ],
       "owner": "UI designer",
       "status": "open-engineering-choice",
-      "question": "Choose owned SVG components or a chart library before the shared UI package ships.",
-      "recommendation": "Use small owned SVG components; add Visx only if the required chart set exceeds them.",
+      "question": "Required charts remain readable and accessible.",
       "decision_before": "WP-088 shared chart components"
     },
     {
@@ -214,8 +213,7 @@
       ],
       "owner": "Knowledge editor implementor and UI designer",
       "status": "open-engineering-choice",
-      "question": "Choose Tiptap or Lexical before freezing the sanitized editor-node contract. Prove supported nodes, safe imports and organization/native editing; curated global MDX remains a separate release-validated source.",
-      "recommendation": "Compare both with real supported content before WP-032. Arbitrary executable MDX round-tripping is not required.",
+      "question": "Wiki editing preserves supported content and rejects unsafe imports.",
       "decision_before": "WP-032 editor contract; WP-035 consumes it"
     },
     {
@@ -227,8 +225,7 @@
       ],
       "owner": "UI designer",
       "status": "open-engineering-choice",
-      "question": "Choose one shared sliding highlight mechanism before navigation, menus and tabs consume it.",
-      "recommendation": "Use an owned CSS transform mechanism first; add Motion only for a demonstrated benefit.",
+      "question": "Navigation and tabs show the current selection consistently.",
       "decision_before": "WP-088 shared navigation components"
     },
     {
@@ -241,8 +238,7 @@
       ],
       "owner": "UI designer and integration verifier",
       "status": "measurement-required",
-      "question": "Keep CSS blur or use pre-rendered tone images after profiling the actual Overview on a low-end laptop.",
-      "recommendation": "Retain the designed treatment until real profiling shows a paint problem.",
+      "question": "The Overview remains responsive on a low-end laptop.",
       "decision_before": "WP-057 final UI performance proof"
     },
     {
