@@ -1,6 +1,11 @@
 "use client";
 
-import { removalReviewResult, removeSeatRequest, seatMutationResult } from "@everyfield/contracts/identity";
+import {
+	MAX_REMOVAL_ITEMS,
+	removalReviewResult,
+	removeSeatRequest,
+	seatMutationResult,
+} from "@everyfield/contracts/identity";
 import { UserRemove01Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -24,7 +29,9 @@ import type { Seat } from "./model";
 type Review = z.infer<typeof removalReviewResult>;
 type Duty = Review["duties"][number];
 type RemoveCommand = ReturnType<typeof removeSeatRequest.parse>;
-type Load = { attempt: number } & ({ status: "loading" } | { status: "failed" } | { status: "ready"; review: Review });
+type Load = { attempt: number } & (
+	{ status: "loading" } | { status: "failed" } | { status: "too_large" } | { status: "ready"; review: Review }
+);
 
 const NEEDS_OWNER = "needs_owner";
 const KIND: Record<Duty["kind"], string> = {
@@ -78,6 +85,8 @@ export function RemoveDialog({
 		setChecked(false);
 		try {
 			const r = await readRemovalReview(seat.seatId);
+			if (r.status === "refused" && r.code === "removal_too_large")
+				return setLoad((l) => (l.attempt === attempt ? { attempt, status: "too_large" } : l));
 			if (r.status !== "ok") throw new Error(r.code);
 			const review = removalReviewResult.parse(r.value);
 			setLoad((l) => (l.attempt === attempt ? { attempt, status: "ready", review } : l));
@@ -184,6 +193,11 @@ export function RemoveDialog({
 									</Button>
 								}
 							/>
+						) : load.status === "too_large" ? (
+							<p className="text-text-2">
+								{seat.displayName} has more than {MAX_REMOVAL_ITEMS.toLocaleString("en-US")} open duties or possible new
+								owners, more than one removal can hand over. Give some of their work to other people first.
+							</p>
 						) : review && review.duties.length === 0 ? (
 							<p className="text-text-2">{seat.displayName} has no open tasks or duties to hand over.</p>
 						) : review ? (
@@ -192,6 +206,32 @@ export function RemoveDialog({
 									Choose who takes each open duty. Needs owner keeps it visible until someone takes it. Closed work
 									stays as it is.
 								</p>
+								{review.duties.length > 1 && review.recipients.length > 0 ? (
+									<Field
+										label="Give every duty to"
+										hint={`Fills all ${review.duties.length} choices below. You can still change any of them.`}
+									>
+										<Select
+											placeholder="Choose one person for all"
+											options={[
+												...review.recipients.map((r) => ({ value: r.accountId, label: r.displayName })),
+												{ value: NEEDS_OWNER, label: "Needs owner" },
+											]}
+											value=""
+											disabled={locked}
+											onValueChange={(v) =>
+												setChoices(
+													Object.fromEntries(
+														review.duties.map((d) => [
+															d.dutyId,
+															v === NEEDS_OWNER && d.needsRecipient ? (choices[d.dutyId] ?? "") : v,
+														]),
+													),
+												)
+											}
+										/>
+									</Field>
+								) : null}
 								<ul className="flex flex-col gap-4" aria-label="Open duties">
 									{review.duties.map((duty) => (
 										<li key={duty.dutyId}>

@@ -42,6 +42,10 @@ test("AC:TARGET-IDN-017 AC:TARGET-IDN-003 AC:ROLE43-006 ordinary invitation hide
 	assert.equal(JSON.stringify(i.result).includes(i.proof), false);
 	assert.deepEqual(await f.invitations.invite(s.sender.session, i.command), i.result);
 	assert.equal(await count(t.mail, eq(t.mail.operation_id, i.result.receipt.id)), 1);
+	// INV-proof-fragment (D54): the mailed link carries the proof only after #, which no browser request sends.
+	const sent = f.effects.findLast((e) => e.text.includes(i.proof) || e.text.includes(encodeURIComponent(i.proof)));
+	assert.match(sent.text, /\/invitation#proof=\S+/);
+	assert.doesNotMatch(sent.text, /[?&]proof=/);
 });
 test("AC:TARGET-IDN-002 AC:TARGET-IDN-030 AC:SCHEMA-002 INV-acceptance: concurrent same-intent claim activates one seat, Person, receipt and security intent", async () => {
 	const s = await f.setup(),
@@ -451,6 +455,55 @@ test("AC:TARGET-IDN-019 INV-removal-review: the review names exactly the duties 
 	});
 	assert.deepEqual(result.duties, [{ status: "moved", dutyId: open, recipientAccountId: s.sender.id }]);
 	await denied(f.seats.readRemoval(s.sender.session, s.w, target));
+});
+
+test("AC:TARGET-IDN-019 INV-removal-bound: 101 and 250 open duties are all reviewed, a stale one refuses, and one call hands them all over", async () => {
+	for (const n of [101, 250]) {
+		const s = await f.setup(),
+			i = await f.invitation(s),
+			a = await f.invitations.accept(s.recipient.session, i.claim),
+			ids = Array.from({ length: n }, () => key());
+		await f.admin.insert(t.task).values(
+			ids.map((id, k) => ({
+				id,
+				plant_id: s.w.id,
+				title: `Task ${k + 1}`,
+				category: "general",
+				priority: "medium",
+				status: "not_started",
+				created_at: new Date(),
+				assignee_id: s.recipient.id,
+				due_kind: "undated",
+			})),
+		);
+		const target = { seatId: a.seat.seatId };
+		const command = (review) => ({
+			requestKey: key(),
+			expectedRevision: review.expectedRevision,
+			input: {
+				seatId: review.seatId,
+				expectedRole: review.expectedRole,
+				handoffs: review.duties.map((d) => ({
+					kind: "assign",
+					dutyId: d.dutyId,
+					expectedRevision: d.expectedRevision,
+					recipientAccountId: s.sender.id,
+				})),
+			},
+		});
+		const stale = await f.seats.readRemoval(s.sender.session, s.w, target);
+		assert.deepEqual(new Set(stale.duties.map((d) => d.dutyId)), new Set(ids));
+		await f.admin
+			.update(t.task)
+			.set({ revision: "2" })
+			.where(eq(t.task.id, ids[n - 1]));
+		await denied(f.seats.remove(s.sender.session, s.w, command(stale)), "conflict");
+		assert.equal(await count(t.task, eq(t.task.assignee_id, s.sender.id)), 0);
+		const fresh = await f.seats.readRemoval(s.sender.session, s.w, target);
+		const result = await f.seats.remove(s.sender.session, s.w, command(fresh));
+		assert.equal(result.duties.filter((d) => d.status === "moved").length, n);
+		assert.equal(await count(t.task, and(eq(t.task.plant_id, s.w.id), eq(t.task.assignee_id, s.sender.id))), n);
+	}
 });
 
 test("AC:TARGET-IDN-002 AC:TARGET-IDN-003 AC:TARGET-IDN-030 AC:SEC-03 native invitation signup, sign-in and exact resume never activate from email equality", async () => {

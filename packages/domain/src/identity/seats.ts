@@ -236,21 +236,24 @@ export function createSeatService(db: Database) {
 				.select({ account_id: t.seat.account_id })
 				.from(t.seat)
 				.where(and(inWorkspace(selected), isNull(t.seat.ended_at)))
-				.orderBy(asc(t.seat.id))
-				.limit(101);
+				.orderBy(asc(t.seat.id));
+			// Every active seat is checked with the same eligibility rule remove uses, so no eligible person is hidden.
+			const able: string[] = [];
+			for (const o of others)
+				if (o.account_id !== s.account_id && (await eligible(tx, selected, o.account_id))) able.push(o.account_id);
+			if (duties.length > c.MAX_REMOVAL_ITEMS || able.length > c.MAX_REMOVAL_ITEMS) d.refuse("removal_too_large");
 			const recipients = [];
-			for (const o of others) {
-				if (o.account_id === s.account_id || !(await eligible(tx, selected, o.account_id))) continue;
-				const info = await tx.execute(sql`SELECT * FROM seat_identity(${o.account_id}::uuid)`);
+			for (const id of able) {
+				const info = await tx.execute(sql`SELECT * FROM seat_identity(${id}::uuid)`);
 				const name = z.object({ display_name: z.string() }).parse(info.rows[0]).display_name;
-				recipients.push({ accountId: o.account_id, displayName: name });
+				recipients.push({ accountId: id, displayName: name });
 			}
 			return c.removalReviewResult.parse({
 				seatId: s.id,
 				expectedRevision: s.revision,
 				expectedRole: s.role,
-				duties: duties.slice(0, 100),
-				recipients: recipients.slice(0, 100),
+				duties,
+				recipients,
 			});
 		});
 	}
@@ -311,11 +314,9 @@ export function createSeatService(db: Database) {
 				const handoffs = v.input.handoffs;
 				const { tasks, obligations, bare, pipeline, programs } = await openDuties(tx, selected, s, true);
 				const all = [...tasks, ...bare, ...pipeline, ...programs];
-				if (
-					all.length !== handoffs.length ||
-					all.some((x) => !handoffs.some((h) => h.dutyId === x.id && h.expectedRevision === x.revision))
-				)
-					d.refuse("conflict");
+				if (all.length > c.MAX_REMOVAL_ITEMS) d.refuse("removal_too_large");
+				const named = new Map<string, string>(handoffs.map((h) => [h.dutyId, h.expectedRevision]));
+				if (all.length !== handoffs.length || all.some((x) => named.get(x.id) !== x.revision)) d.refuse("conflict");
 				for (const h of handoffs) {
 					let recipient: string | null = null,
 						recipientSeat: string | null = null;

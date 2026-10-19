@@ -60,15 +60,27 @@ const PAGE = "/invitation";
 type Session = Awaited<ReturnType<typeof readInvitation>>["session"];
 type Read = { description: ReturnType<typeof invitationDescriptionResult.parse>; session: Session };
 
-const noSubscription = () => () => {};
+/**
+ * Another invitation link opened in this same tab only changes the fragment: the page does not load again. Each new
+ * fragment is kept and cleaned at once, and the screen follows the new proof.
+ */
+function followFragment(notify: () => void) {
+	const changed = () => {
+		tabStore.keepProof();
+		notify();
+	};
+	window.addEventListener("hashchange", changed);
+	return () => window.removeEventListener("hashchange", changed);
+}
 
 export function InvitationScreen() {
 	// The fragment never reaches the server; after sign-in the page opens without it, and this tab kept it.
-	const proof = useSyncExternalStore(noSubscription, tabStore.proof, () => undefined);
+	const proof = useSyncExternalStore(followFragment, tabStore.proof, () => undefined);
 	useLayoutEffect(() => tabStore.keepProof(), []);
 	if (proof === undefined) return <Loading />;
 	if (!proof) return <Unavailable />;
-	return <InvitationFor proof={proof} />;
+	// A new proof is a new invitation: its reads, answers and choices start fresh.
+	return <InvitationFor key={proof} proof={proof} />;
 }
 
 function InvitationFor({ proof }: { proof: string }) {

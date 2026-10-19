@@ -13,6 +13,11 @@ export const appointAdminRequest = commandEnvelope(ordinaryTarget.extend({ to: z
 export const demoteSeatRequest = commandEnvelope(
 	ordinaryTarget.extend({ expectedRole: z.literal("admin"), to: z.literal("member") }),
 );
+/**
+ * One bound for a removal (ruling D55 revised): the review lists every open duty and every eligible recipient up to it,
+ * and remove accepts that many handoffs in one atomic call. A seat beyond it is refused with removal_too_large.
+ */
+export const MAX_REMOVAL_ITEMS = 2000;
 // Exact actionable duties are reviewed individually. Eligibility is checked at commit.
 const handoff = z.discriminatedUnion("kind", [
 	z.strictObject({
@@ -27,7 +32,7 @@ export const removeSeatRequest = commandEnvelope(
 	ordinaryTarget.extend({
 		handoffs: z
 			.array(handoff)
-			.max(100)
+			.max(MAX_REMOVAL_ITEMS)
 			.refine((v) => new Set(v.map((d) => d.dutyId)).size === v.length),
 	}),
 );
@@ -46,8 +51,10 @@ export const removalReviewResult = z.strictObject({
 	seatId: recordId,
 	expectedRevision: revision,
 	expectedRole: ordinarySeatRole,
-	duties: z.array(removalDuty).max(100),
-	recipients: z.array(z.strictObject({ accountId, displayName: z.string().trim().min(1).max(200) })).max(100),
+	duties: z.array(removalDuty).max(MAX_REMOVAL_ITEMS),
+	recipients: z
+		.array(z.strictObject({ accountId, displayName: z.string().trim().min(1).max(200) }))
+		.max(MAX_REMOVAL_ITEMS),
 });
 export const seatJoinedProvenance = z.discriminatedUnion("source", [
 	z.strictObject({ source: z.literal("accepted_invitation"), invitationId: recordId, at: instant }),
@@ -92,7 +99,7 @@ export const seatMutationResult = z
 		outcome: z.enum(["changed", "noop", "partial"]),
 		duties: z
 			.array(dutyOutcome)
-			.max(100)
+			.max(MAX_REMOVAL_ITEMS)
 			.refine((v) => new Set(v.map((d) => d.dutyId)).size === v.length),
 		receipt,
 	})
@@ -103,4 +110,5 @@ export const seatMutationResult = z
 export const seatError = z.discriminatedUnion("code", [
 	...safeError.options,
 	defineSafeError("protected_owner", {}, "never"),
+	defineSafeError("removal_too_large", {}, "never"),
 ]);

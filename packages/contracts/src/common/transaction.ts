@@ -41,15 +41,19 @@ export const requestIdentity = z.strictObject({
 	origin: commandOrigin,
 });
 export type RequestIdentity = z.infer<typeof requestIdentity>;
+/** The most subjects, events or effects one receipt lists. */
+export const RECEIPT_ITEMS = 4096;
 export const receipt = z
 	.strictObject({
 		id: operationId,
 		request: requestIdentity,
 		completedAt: instant,
 		outcome: z.enum(["changed", "noop", "partial", "unknown"]),
-		subjects: z.array(subject).max(100),
-		eventIds: z.array(eventId).max(100),
-		effectIds: z.array(effectId).max(100),
+		// One bound for every receipt list (ruling D57): a seat removal records one event per handed-over duty, up to
+		// MAX_REMOVAL_ITEMS (2000) in identity, so the receipt must hold them all instead of refusing or cutting them.
+		subjects: z.array(subject).max(RECEIPT_ITEMS),
+		eventIds: z.array(eventId).max(RECEIPT_ITEMS),
+		effectIds: z.array(effectId).max(RECEIPT_ITEMS),
 	})
 	.refine((value) => value.subjects.every((s) => sameOwner(s.owner, value.request.owner)), {
 		message: "invalid_subject_owner",

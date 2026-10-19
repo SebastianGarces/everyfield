@@ -5,6 +5,7 @@
 //   INV-proof-hidden: the emailed proof is in the fragment and leaves the address bar as soon as the page opens.
 //   INV-retry-same-key: the reply to Accept is lost after the server committed it; after a reload the page resends the
 //     same command, and the person has exactly one seat (REQ-IDN-017, REQ-IDN-030).
+//   BUG-99d7882: a second link in the same tab is a fragment change only; the page follows it (verifier finding).
 //   INV-chosen-sharing: a resident accepts with exactly the sharing they ticked in ResidencyDisclosure, unticked by
 //     default, and gets no seat (REQ-MUL-004, ruling D51).
 import assert from "node:assert/strict";
@@ -45,6 +46,20 @@ async function signIn(page, email, submit) {
 
 for (const [name, engine] of ENGINES) {
 	describe(`invitation acceptance (${name})`, { skip }, () => {
+		// Runs first: it only views both links, while the tests after it use them up.
+		test("BUG-99d7882: another invitation link opened in the same tab shows that invitation and cleans the address", async () => {
+			const { member, resident } = seed().flows[name];
+			await withPage(engine, async (page) => {
+				await page.goto(member.link);
+				await page.getByRole("heading", { name: "Join Harvest Point" }).waitFor();
+				// Only the fragment changes, so the browser does not load the page again.
+				await page.goto(resident.link);
+				await page.getByRole("heading", { name: "Link your account to Grace Church" }).waitFor();
+				assert.equal(await page.getByRole("heading", { name: "Join Harvest Point" }).count(), 0);
+				await page.waitForFunction(() => window.location.hash === "");
+			});
+		});
+
 		test("AC:TARGET-IDN-017 AC:TARGET-IDN-030 INV-proof-hidden INV-retry-same-key: a lost Accept reply leaves one seat", async () => {
 			const { name: person, email, link } = seed().flows[name].member;
 			await withPage(engine, async (page) => {
