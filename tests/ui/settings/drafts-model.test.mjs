@@ -49,6 +49,7 @@ const step = {
 	save(w) {
 		const started = begin(w.book, KEY, w.cache.value);
 		if (!started) return assert.ok(w.pending, "a save is refused only while one is in flight");
+		assert.equal(w.pending, null, "a second save never starts while one is in flight");
 		w.book = started.book;
 		w.pending = { sent: started.sent, expected: w.cache.revision };
 		w.requests += 1;

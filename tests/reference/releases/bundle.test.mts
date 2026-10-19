@@ -2,9 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { verifyCheckout } from '../../../packages/reference/src/starter.ts';
 
-// Existing owned acceptance cases were checked before this cases-first commit.
-
-
 import { mkdtemp,cp,readFile,writeFile,rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
