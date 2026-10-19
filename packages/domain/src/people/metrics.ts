@@ -11,7 +11,7 @@ const eventRow = z.object({
 	action: z.string(),
 	from_stage: c.stage.nullable(),
 	to_stage: c.stage.nullable(),
-	state: z.enum(["live", "retired", "merged"]),
+	state: z.enum(["live", "retired", "merged"]).nullable(),
 	revision: z.string(),
 });
 const personRow = z.object({
@@ -62,9 +62,22 @@ export async function pipelineMetrics(tx: Tx, ctx: Context, raw: unknown) {
 	// Pull only stage/lifecycle evidence, never protected note/contact bodies.
 	const events = (
 		await tx.execute(
-			sql`SELECT id,person_id,occurred_at,action,before_value->>'stage' AS from_stage,after_value->>'stage' AS to_stage,after_value->>'state' AS state,after_revision AS revision FROM people_history WHERE tenant_id=${sql.param(ctx.selected.id)} AND occurred_at<=${sql.param(asOf)} AND after_value IS NOT NULL AND after_value ? 'state' ORDER BY occurred_at,id`,
+			sql`SELECT id,person_id,occurred_at,action,before_value->>'stage' AS from_stage,after_value->>'stage' AS to_stage,after_value->>'state' AS state,after_revision AS revision FROM people_history WHERE tenant_id=${sql.param(ctx.selected.id)} AND occurred_at<=${sql.param(asOf)} AND after_value IS NOT NULL AND (after_value ? 'state' OR after_value ? 'stage') ORDER BY occurred_at,id`,
 		)
 	).rows.map((r) => eventRow.parse(r));
+	const latest = new Map<string, { state: "live" | "retired" | "merged"; stage: z.infer<typeof c.stage> | null }>();
+	for (const e of events) {
+		const previous = latest.get(e.person_id);
+		e.state =
+			e.state ??
+			(e.action === "people.retired"
+				? "retired"
+				: ["people.created", "people.restored", "people.stage_changed"].includes(e.action)
+					? "live"
+					: (previous?.state ?? "live"));
+		e.to_stage = e.to_stage ?? previous?.stage ?? e.from_stage;
+		latest.set(e.person_id, { state: e.state, stage: e.to_stage });
+	}
 	const canonical = (id: string) => {
 		const seen = new Set<string>();
 		let p = people.find((p) => p.id === id);

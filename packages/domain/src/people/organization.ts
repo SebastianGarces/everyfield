@@ -70,11 +70,13 @@ export const organizationPeople: OrganizationPeopleProducer<Tx> = {
 			const input = parse(c.updateOrganizationPersonRequest, raw);
 			return c.organizationPersonMutationResult.parse(
 				await mutation(tx, ctx, "orgPeople.update", input, async (_actor, id) => {
-					const before = await person(tx, ctx, input.input.personId, true);
-					live(before);
-					expected(before, input.expectedRevision);
-					await patchPerson(tx, before.id, input.input.patch);
-					const after = await person(tx, ctx, before.id, true);
+					const { before, after } = await patchPerson(
+						tx,
+						ctx,
+						input.input.personId,
+						input.expectedRevision,
+						input.input.patch,
+					);
 					return {
 						value: {
 							person: await project(tx, ctx, after),

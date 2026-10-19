@@ -218,7 +218,7 @@ export async function project(tx: Tx, context: Context, p: Person) {
 }
 export async function projectPeople(tx: Tx, context: Context, people: Person[]) {
 	const evidence =
-		context.selected.kind === "plant" && people.length
+		context.selected.kind === "plant" && people.some((p) => p.commitment_state !== "unknown")
 			? await tx
 					.selectDistinctOn([tables.commitment.person_id], {
 						person_id: tables.commitment.person_id,
@@ -308,20 +308,52 @@ export const contactColumns = {
 	summaryNotes: "notes",
 	birthDate: "birth_date",
 } as const;
-export async function patchPerson(tx: Tx, id: string, patch: object) {
+export function contactPatch(patch: object) {
 	const pairs = Object.entries(patch).filter(([k]) => k in contactColumns);
-	if (!pairs.length) return;
+
 	const columns = new Map(Object.entries(contactColumns));
 	const changes: Partial<Record<keyof typeof tables.person.$inferInsert, ReturnType<typeof sql>>> = {};
 	for (const [key, value] of pairs) {
 		const column = columns.get(key);
 		if (column) changes[column] = sql`${sql.param(value)}`;
 	}
-	await tx
-		.update(tables.person)
-		.set({ ...changes, revision: sql`${tables.person.revision}+1` })
-		.where(eq(tables.person.id, id));
+	return changes;
 }
+/** Lock, compare and update once, returning the actual old and new facts. */
+export async function patchPerson(tx: Tx, ctx: Pick<Context, "selected">, id: string, rev: string, patch: object) {
+	const changes = Object.entries(contactPatch(patch)).map(([column, value]) => sql`${sql.identifier(column)}=${value}`);
+	const advance = changes.length ? 1 : 0;
+	const rows = await tx.execute(sql`WITH old AS MATERIALIZED (
+  SELECT p.* FROM person p WHERE p.id=${id}::uuid AND p.tenant_id=${ctx.selected.id}::uuid
+  AND NOT EXISTS(SELECT FROM organization_person_removal r WHERE r.person_record_id=p.id AND r.organization_id=p.tenant_id)
+  FOR UPDATE OF p
+ ), updated AS (
+  UPDATE person p SET ${sql.join([...changes, sql`revision=p.revision+${advance}`], sql`, `)} FROM old
+  WHERE p.id=old.id AND old.revision=${rev}::bigint AND old.state='live' RETURNING p.*
+ ) SELECT to_jsonb(old)||jsonb_build_object('revision',old.revision::text,'pipeline_position',old.pipeline_position::text) AS before,
+  CASE WHEN updated.id IS NULL THEN NULL ELSE to_jsonb(updated)||jsonb_build_object('revision',updated.revision::text,'pipeline_position',updated.pipeline_position::text) END AS after
+  FROM old LEFT JOIN updated ON true`);
+	const row = z.object({ before: personRow, after: personRow.nullable() }).optional().parse(rows.rows[0]);
+	if (!row) deny();
+	live(row.before);
+	expected(row.before, rev);
+	if (!row.after) deny();
+	return { before: row.before, after: row.after };
+}
+export function personChanges(before?: Person, after?: Person) {
+	const prior = new Map(Object.entries(before ?? {})),
+		next = new Map(Object.entries(after ?? {}));
+	const changed = new Set(
+		[...prior.keys(), ...next.keys()].filter(
+			(k) => k !== "revision" && JSON.stringify(prior.get(k)) !== JSON.stringify(next.get(k)),
+		),
+	);
+	return {
+		before: before ? Object.fromEntries([...prior].filter(([k]) => changed.has(k))) : null,
+		after: after ? Object.fromEntries([...next].filter(([k]) => changed.has(k))) : null,
+	};
+}
+
 export type Mutation = { requestKey: string; expectedRevision?: string };
 export async function mutation<T>(
 	tx: Tx,
@@ -472,6 +504,7 @@ export async function mutation<T>(
 	const result = await body(actor.accountId, operationId);
 	const outcome = result.outcome ?? "changed";
 	const writes = claim.writes;
+	const delta = personChanges(result.before, result.after);
 	writes.push(
 		tx
 			.update(tables.operation)
@@ -502,8 +535,8 @@ export async function mutation<T>(
 				occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
 				before_revision: sql`${result.before?.revision ?? null}`,
 				after_revision: sql`${result.after?.revision ?? result.before?.revision ?? "1"}`,
-				before_value: result.before ?? null,
-				after_value: result.after ?? null,
+				before_value: delta.before,
+				after_value: delta.after,
 				reason: result.reason ?? null,
 			}),
 		);

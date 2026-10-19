@@ -16,6 +16,7 @@ import {
 	mutation,
 	parse,
 	patchPerson,
+	contactPatch,
 	person,
 	personRow,
 	project,
@@ -31,24 +32,26 @@ export async function insertPerson(
 	const id = randomUUID(),
 		plant = context.selected.kind === "plant";
 	const p = c.createPersonRequest.shape.input.parse(raw);
-	await tx.insert(tables.person).values({
-		id: id,
-		tenant_id: context.selected.id,
-		plant_id: plant ? context.selected.id : null,
-		organization_id: plant ? null : context.selected.id,
-		display_name: p.displayName,
-		source: plant ? p.source : "other",
-		stage: plant ? p.stage : null,
-		adult_classification: plant ? p.adultClassification : null,
-		commitment_state: plant ? "unknown" : null,
-		pipeline_position: plant ? "0" : null,
-		state: "live",
-		created_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-	});
-	const { displayName: _, ...patch } = raw;
-	void _;
-	await patchPerson(tx, id, patch);
-	return person(tx, context, id, true);
+	const [created] = await tx
+		.insert(tables.person)
+		.values({
+			id: id,
+			tenant_id: context.selected.id,
+			plant_id: plant ? context.selected.id : null,
+			organization_id: plant ? null : context.selected.id,
+			display_name: p.displayName,
+			source: plant ? p.source : "other",
+			stage: plant ? p.stage : null,
+			adult_classification: plant ? p.adultClassification : null,
+			commitment_state: plant ? "unknown" : null,
+			pipeline_position: plant ? "0" : null,
+			state: "live",
+			created_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+			...contactPatch(raw),
+		})
+		.returning();
+	if (!created) deny();
+	return personRow.parse(created);
 }
 async function output(tx: Tx, ctx: Context, p: Person, id: string, needsOwner: string[] = [], outcome = "changed") {
 	return {
@@ -166,11 +169,13 @@ export const peopleWriter: PeopleWriter<Tx> = {
 			const input = parse(c.updatePersonRequest, raw);
 			return c.plantPersonMutationResult.parse(
 				await mutation(tx, ctx, "people.updatePerson", input, async (_a, id) => {
-					const before = await person(tx, ctx, input.input.personId, true);
-					live(before);
-					expected(before, input.expectedRevision);
-					await patchPerson(tx, before.id, input.input.patch);
-					const after = await person(tx, ctx, before.id, true);
+					const { before, after } = await patchPerson(
+						tx,
+						ctx,
+						input.input.personId,
+						input.expectedRevision,
+						input.input.patch,
+					);
 					return {
 						value: await output(tx, ctx, after, id),
 						subject: before.id,
