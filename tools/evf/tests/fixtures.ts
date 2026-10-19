@@ -129,6 +129,7 @@ if(a[0]==='api') {
 }
 else if(a[0]==='repo'&&a[1]==='view')result=a.includes('-q')||a.includes('--jq')?'test/private':{nameWithOwner:'test/private',isPrivate:true};
 else if(a[0]==='pr'&&a[1]==='view')result=a.includes('mergeCommit')?s.mergeCommit:opt('--json')==='body'&&a.includes('--jq')?s.pr.body:s.pr||{number:77,url:'https://github.com/test/private/pull/77',state:'OPEN'};
+else if(a[0]==='pr'&&a[1]==='list')result=s.openPrs??[];
 else if(a[0]==='pr'&&a[1]==='checks'){result=s.requiredChecks??[];if(s.checksError){fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(JSON.stringify(result));process.exit(s.checksError);}}
 else if(a[0]==='pr'&&a[1]==='edit'){if(body&&s.pr)s.pr.body=body;result='';}
 else if(a[0]==='pr'&&a[1]==='create')result='https://github.com/test/private/pull/78';

@@ -61,9 +61,12 @@ function foregroundNotice(): void {
 }
 
 /** Local deterministic checks aid review. They never grant verifier approval or replace GitHub CI. */
-export function verify(root: string, task: TaskRef, role: Role, mode: Mode): CheckReport {
-	const cfg = loadConfig(root),
-		wt = requireWorktree(root, cfg, task);
+export function verify(root: string, task: TaskRef, role: Role, mode: Mode, head?: string): CheckReport {
+	const wt =
+		role === "verifier"
+			? git(process.cwd(), "rev-parse", "--show-toplevel")
+			: requireWorktree(root, loadConfig(root), task);
+	const cfg = loadConfig(wt);
 	const wp = task.kind === "wp" ? task.wp : task.kind === "fb" ? cachedTriage(root, task.issue!)?.wp : undefined;
 	foregroundNotice();
 	requireTaskScope(root, task, wp);
@@ -72,7 +75,9 @@ export function verify(root: string, task: TaskRef, role: Role, mode: Mode): Che
 	const ref = baseRef(root, cfg),
 		baseSha = git(root, "rev-parse", ref),
 		sha = git(wt, "rev-parse", "HEAD");
-	if (!isClean(wt)) fail("Commit the task changes before verification.");
+	if (head !== undefined && (!/^[a-f0-9]{40}$/.test(head) || sha !== head))
+		fail(`Checkout HEAD ${sha} does not match requested SHA ${head}.`);
+	if (!isClean(wt)) fail(`The checked checkout ${wt} is not clean. Commit the task changes before verification.`);
 	if (!gitOk(wt, "merge-base", "--is-ancestor", baseSha, "HEAD")) fail("Include current main before verification.");
 	const cases = wp ? packageContext(wt, wp).case_ids : [];
 	const dir = evidenceDir(root, task, sha, `${role}-${mode}`);
@@ -104,6 +109,8 @@ export function verify(root: string, task: TaskRef, role: Role, mode: Mode): Che
 	const definitions = task.kind === "ops" ? cfg.maintenanceTasks![task.id].checks : cfg.checks;
 	if (task.kind !== "ops" && cfg.stack?.usesPaidProviders) requireSpend(root);
 	const reports: string[] = [];
+	const inputsUnchanged = () => git(wt, "rev-parse", "HEAD") === sha && isClean(wt);
+	let treeUnchanged = true;
 	for (const [index, c] of definitions.filter((c) => !c.modes || c.modes.includes(mode)).entries()) {
 		// Each check writes its own report, so one check can never overwrite another's results.
 		// The index keeps names that slug alike ("package cases", "package_cases") in separate files.
@@ -111,15 +118,38 @@ export function verify(root: string, task: TaskRef, role: Role, mode: Mode): Che
 			testReport = join(dir, `${file}.tests.json`);
 		if (existsSync(testReport)) unlinkSync(testReport);
 		reports.push(testReport);
-		const argv = command(fill(c.run, { ...vars, testReport })),
+		const argv = command(fill(c.run, { ...vars, testReport }));
+		let result = run(argv[0], argv.slice(1), { cwd: wt, env: { ...env, EVF_TEST_REPORT: testReport } });
+		let output = `${result.stdout}\n${result.stderr}`;
+		for (
+			let retry = 1;
+			result.code !== 0 &&
+			retry <= 3 &&
+			/Unable to acquire lock at [^\n]*\.next[^\n]*lock[^\n]*next build/i.test(`${result.stdout}\n${result.stderr}`) &&
+			inputsUnchanged();
+			retry++
+		) {
+			const notice = `Retry ${retry}/3: held Next build lock; waiting 10 seconds.`;
+			console.error(notice);
+			Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10_000);
+			if (!inputsUnchanged()) break;
+			if (existsSync(testReport)) unlinkSync(testReport);
 			result = run(argv[0], argv.slice(1), { cwd: wt, env: { ...env, EVF_TEST_REPORT: testReport } });
+			output += `\n${notice}\n${result.stdout}\n${result.stderr}`;
+		}
 		const log = join(dir, `${file}.log`);
-		writeFileSync(log, `$ ${argv.join(" ")}\n\n${result.stdout}\n${result.stderr}`);
+		writeFileSync(log, `$ ${argv.join(" ")}\n\n${output}`);
 		checks.push({ name: c.name, command: argv, exitCode: result.code, log, passed: result.code === 0 });
+		if (!inputsUnchanged()) {
+			treeUnchanged = false;
+			break;
+		}
 	}
 	// Coverage runs only when some report carries AC: markers; tooling-only reports never opt a task in (D19).
 	// Real acceptance remains the verifier's job.
-	const results = reports.filter(existsSync).map((path) => JSON.parse(readFileSync(path, "utf8")) as unknown);
+	const results = treeUnchanged
+		? reports.filter(existsSync).map((path) => JSON.parse(readFileSync(path, "utf8")) as unknown)
+		: [];
 	if (results.some(hasCaseMarkers)) {
 		const coverage = caseCoverage(cases, { tests: results.flatMap((r) => testsOf(r)) }),
 			log = join(dir, "case-coverage.log");
@@ -138,7 +168,7 @@ export function verify(root: string, task: TaskRef, role: Role, mode: Mode): Che
 		writeFileSync(join(dir, "scope.json"), JSON.stringify(scope, null, 2) + "\n");
 		console.log(formatScope(scope));
 	}
-	const unchanged = git(wt, "rev-parse", "HEAD") === sha && isClean(wt) && git(root, "rev-parse", ref) === baseSha;
+	const unchanged = treeUnchanged && inputsUnchanged() && git(root, "rev-parse", ref) === baseSha;
 	const report: CheckReport = {
 		schema: 3,
 		task: task.id,
@@ -157,7 +187,40 @@ export function verify(root: string, task: TaskRef, role: Role, mode: Mode): Che
 	};
 	writeFileSync(join(dir, "checks.json"), JSON.stringify(report, null, 2) + "\n");
 	console.log(
-		`${report.passed ? "PASSED" : "FAILED"} local ${report.kind} checks: ${join(dir, "checks.json")}. Independent real verification and GitHub CI are separate.`,
+		`${!unchanged ? "INVALIDATED: checked tree or base changed during verification; rerun on stable inputs." : report.passed ? "PASSED" : "FAILED"} local ${report.kind} checks: ${join(dir, "checks.json")}. Independent real verification and GitHub CI are separate.`,
 	);
 	return report;
+}
+
+/** Read-only gate shared by PR open and the explicit pre-push check. */
+export function requireVerifiedHead(root: string, task: TaskRef): string {
+	const wt = requireWorktree(root, loadConfig(root), task),
+		sha = git(wt, "rev-parse", "HEAD");
+	if (!isClean(wt)) fail("The task checkout is not clean. Commit before the pre-push check.");
+	const path = join(evidenceDir(root, task, sha, "author-full"), "checks.json");
+	const report: unknown = existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : null;
+	if (
+		!report ||
+		typeof report !== "object" ||
+		!(
+			"schema" in report &&
+			report.schema === 3 &&
+			"task" in report &&
+			report.task === task.id &&
+			"sha" in report &&
+			report.sha === sha &&
+			"role" in report &&
+			report.role === "author" &&
+			"mode" in report &&
+			report.mode === "full" &&
+			"passed" in report &&
+			report.passed === true &&
+			"clean" in report &&
+			report.clean === true &&
+			"unchanged" in report &&
+			report.unchanged === true
+		)
+	)
+		fail(`A passing full evf verify ${task.id} record is required for exact HEAD ${sha}. Run it before pushing.`);
+	return sha;
 }

@@ -20,7 +20,7 @@ import {
 import { listShipped, prOpen, ship, checkPr } from "./ship.ts";
 import { approve } from "./approve.ts";
 import { debugCmd, stack, taskStart } from "./task.ts";
-import { verify } from "./verify.ts";
+import { requireVerifiedHead, verify } from "./verify.ts";
 
 const HELP = `evf: EveryField v3 workflow CLI
 
@@ -35,14 +35,15 @@ Task loop (implementor, ui-designer)
   evf task start <task> [--ui-tier UI-n] [--no-stack] [--over-limit]
   evf stack up|down|status <task>
   evf traces <task> [args...]        evf logs <task> [args...]
-  evf verify <task> [--quick]                                 local checks
+  evf verify <task> [--head <sha>] [--quick]                  local checks
   evf pr open <task> --body-file <file>                       push and open/update the PR
   evf pr check <PR> [--head <sha>]                            read-only Phase 7 merge checks
   evf pr body <PR> | --body-file <file>                       body-only standard check
         [--class ordinary|wiki|prototype]                    local body files only
 
 Verification (verifier)
-  evf verify <task> --role verifier [--quick]
+  evf verify <task> --role verifier [--head <sha>] [--quick]
+  evf pre-push <task>                                        require full exact-head author checks
   evf ship <task>                           report status and squash-merge
 
 Feedback desk (public feedback repo)
@@ -218,8 +219,14 @@ function main(argv: string[]): number | Promise<number> {
 		case "verify": {
 			const role = option(args, "--role") ?? "author";
 			if (role !== "author" && role !== "verifier") break;
-			const quick = flag(args, "--quick");
-			return verify(root, parseTask(args[0]), role, quick ? "quick" : "full").passed ? 0 : 1;
+			const quick = flag(args, "--quick"),
+				head = option(args, "--head");
+			return verify(root, parseTask(args[0]), role, quick ? "quick" : "full", head).passed ? 0 : 1;
+		}
+		case "pre-push": {
+			const sha = requireVerifiedHead(root, parseTask(args[0]));
+			console.log(`PASSED pre-push check for ${sha}.`);
+			return 0;
 		}
 		case "pr": {
 			const sub = args.shift();

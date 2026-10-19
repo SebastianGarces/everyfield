@@ -45,6 +45,34 @@ PR-open/edit/label CI job can use it. The template comes from the current checko
 or empty templates fail. `evf pr open --body-file` resolves relative paths from the caller's
 working directory before invoking GitHub in the task worktree.
 
+## Stable verification, pushes and cleanup
+
+`evf verify <task>` checks the author's task worktree. A verifier runs from its own checkout:
+
+```sh
+bin/evf verify OPS-9 --role verifier --head <full-40-character-SHA>
+```
+
+Verifier mode always uses the caller's Git checkout, including its committed check definitions.
+`--head` refuses a different HEAD; without it, the command pins the caller's current HEAD.
+A dirty checkout refuses before checks. Changes to the checked tree or base during checks print
+`INVALIDATED`, stop further checks and require a fresh run on stable inputs.
+
+Before a manual push, run `bin/evf pre-push <task>`. It checks for a full passing author report at
+that exact clean HEAD. Quick checks and verifier reports do not satisfy this gate. `evf pr open`
+runs the same gate before its push. Plain `git push` is not intercepted; use the pre-push command
+or let `evf pr open` push. These local records do not replace required CI or independent review.
+
+A failed check that reports Next's held build lock waits ten seconds and retries up to three
+times. The log retains every attempt. Other errors are not retried. evf's launcher selects an
+installed Node 24+ from nvm if the shell has Node 22, or refuses with a clear requirement message.
+Child commands inherit the selected Node directory first on PATH, including shell and pnpm scripts.
+
+`evf gc` is read-only by default. Removal with `--apply` requires a clean, shipped worktree at
+its recorded head, no newer task start, no open PR, and no live Portless preview. A reused task
+records its new start outside the repository. Unavailable or malformed provider status keeps the
+worktree. Cleanup never stops previews itself.
+
 ## Task and case checks
 
 Briefs use the current catalog and context manifest. Missing context fails explicitly.
