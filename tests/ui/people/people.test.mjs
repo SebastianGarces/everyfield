@@ -277,6 +277,11 @@ for (const [name, engine] of [
 			await page.goto(`${BASE}/people?retired=include&after=expired.cursor`);
 			await page.getByText("That page link has expired, so this is the first page.").waitFor();
 			await page.getByText(/^Showing 1–/).waitFor();
+			// A deep page number from D50 cannot keep a deep range once the page falls back to page one.
+			await page.goto(`${BASE}/people?retired=include&page=45&after=expired.cursor`);
+			await page.getByText("That page link has expired, so this is the first page.").waitFor();
+			await page.getByText(/^Showing 1–24 of /).waitFor();
+			assert.equal(await page.getByRole("button", { name: "Previous" }).isDisabled(), true);
 		});
 	});
 
