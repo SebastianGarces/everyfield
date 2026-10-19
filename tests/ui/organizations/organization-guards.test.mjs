@@ -4,8 +4,9 @@
 //     (historyReason, REQ-IDN-021).
 //   INV-prior-sharing: connecting again with an organization shows the saved per-organization choices, not the
 //     all-on first-invitation default (SharingDisclosure, REQ-IDN-022 gate "prior sharing retained").
-//   INV-retry-same-key: when the reply to Leave is lost after the server committed it, Try again sends the same
-//     request key, so the person sees one ended connection and no refusal (useIntent, REQ-IDN-021).
+//   INV-retry-same-key: when the reply to Leave is lost after the server committed it, the reason locks and Try again
+//     resends the same frozen command, so the person sees one ended connection with the first reason and no refusal.
+//     The design fixture refuses a reused key with different input, as the API does (useIntent, REQ-IDN-021).
 // The screens run on contract-parsed fixtures at /design/organizations. It runs against a running app: set UI_BASE_URL.
 //   UI_BASE_URL=https://wp-007-ui-....localhost:1355 corepack pnpm test:ui
 import assert from "node:assert/strict";
@@ -66,25 +67,33 @@ for (const [name, engine] of ENGINES) {
 				await dialog.getByRole("combobox", { name: "Organization" }).click();
 				await page.getByRole("option", { name: "Hill Country Network · Sending network" }).click();
 				const prior = dialog.getByRole("region", { name: "Your earlier choices for Hill Country Network come back" });
+				await prior.waitFor();
 				assert.equal(await prior.getByText("Not shared").count(), 4);
 				assert.equal(await prior.getByText("Shared", { exact: true }).count(), 3);
 				await dialog.getByRole("combobox", { name: "Organization" }).click();
 				await page.getByRole("option", { name: "Cedar Creek Church · Sending church" }).click();
 				const first = dialog.getByRole("region", { name: "What Cedar Creek Church can see once connected" });
+				await first.waitFor();
 				assert.equal(await first.getByText("Not shared").count(), 0);
 				assert.equal(await first.getByText("Shared", { exact: true }).count(), 7);
 			}));
 
-		test("INV-retry-same-key: a lost reply to Leave is retried once, without a refusal or a second end", () =>
+		test("INV-retry-same-key: a lost reply to Leave locks the reason and Try again resends that same command", () =>
 			open(`${CONNECTIONS}?scenario=offline-once`, async (page) => {
 				await page.getByRole("button", { name: "Leave Grace Fellowship" }).click();
 				const dialog = page.getByRole("alertdialog", { name: "Leave Grace Fellowship?" });
+				const reason = dialog.getByLabel(/Reason/);
+				await reason.fill("First reason");
 				await dialog.getByRole("button", { name: "Leave", exact: true }).click();
 				await dialog.getByText("We could not confirm that this went through.").waitFor();
-				await dialog.getByRole("button", { name: "Leave", exact: true }).click();
-				await page.getByRole("status").filter({ hasText: "You left Grace Fellowship." }).waitFor();
-				await page.getByText("Connection with Grace Fellowship ended").first().waitFor();
-				assert.equal(await page.getByText("Connection with Grace Fellowship ended").count(), 1);
+				await reason.click();
+				await page.keyboard.type(" edited");
+				assert.equal(await reason.inputValue(), "First reason");
+				await dialog.getByRole("button", { name: "Try again" }).click();
+				await page.getByRole("status").filter({ hasText: "The connection with Grace Fellowship ended." }).waitFor();
+				await page.getByText("First reason", { exact: true }).waitFor();
+				assert.equal(await page.getByText("Connection with Grace Fellowship ended", { exact: true }).count(), 1);
+				assert.equal(await page.getByText("First reason", { exact: true }).count(), 1);
 				assert.equal(await page.getByRole("button", { name: "Leave Grace Fellowship" }).count(), 0);
 			}));
 	});

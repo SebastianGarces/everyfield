@@ -163,6 +163,10 @@ export function InviteDialog({
 								invalid={Boolean(shown.email)}
 							/>
 						</Field>
+						<ProblemLine
+							problem={send.problem}
+							refused={REFUSED[send.code ?? ""] ?? "This invitation was not sent. Nothing changed."}
+						/>
 						{target ? (
 							shownDisclosure ? (
 								shownDisclosure.value ? (
@@ -178,10 +182,6 @@ export function InviteDialog({
 							)
 						) : null}
 					</form>
-					<ProblemLine
-						problem={send.problem}
-						refused={REFUSED[send.code ?? ""] ?? "This invitation was not sent. Nothing changed."}
-					/>
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" onClick={() => change(false)} disabled={send.pending !== null}>
