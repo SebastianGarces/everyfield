@@ -72,44 +72,53 @@ for (const [name, engine] of [
 		});
 	});
 
-	test(`AC:TARGET-PPL-001 INV-cursor (${name}): pages and filters share the address; old cursors fall back to page one`, async () => {
+	test(`AC:TARGET-PPL-001 INV-pages (${name}): page numbers and filters share the address; past the end shows the last page`, async () => {
 		await withPage(engine, "owner", async (page) => {
 			await page.goto(`${BASE}/people?retired=include`);
-			await page.getByRole("button", { name: "Next", exact: true }).click();
+			await page.getByRole("button", { name: "Page 2", exact: true }).click();
 			// Client navigation changes the address without a page load, so wait on the address itself.
-			await page.waitForFunction(() => new URLSearchParams(location.search).has("after"), null, { timeout: 30_000 });
+			await page.waitForFunction(() => new URLSearchParams(location.search).get("page") === "2", null, {
+				timeout: 30_000,
+			});
 			await page
 				.getByRole("main")
-				.getByText(/^Showing 25/)
+				.getByText(/^Showing 25–/)
 				.waitFor();
+			assert.equal(
+				await page.getByRole("button", { name: "Page 2", exact: true }).getAttribute("aria-current"),
+				"page",
+			);
 			await page.getByRole("button", { name: /^Source/ }).click();
 			await page.getByRole("option", { name: "Other" }).click();
 			await page.waitForFunction(() => new URLSearchParams(location.search).get("source") === "other", null, {
 				timeout: 30_000,
 			});
 			const url = new URL(page.url());
-			assert.equal(url.searchParams.get("after"), null, "a filter change goes back to page one");
+			assert.equal(url.searchParams.get("page"), null, "a filter change goes back to page one");
 			assert.equal(url.searchParams.get("retired"), "include", "the sibling filter stays");
-			await page.goto(`${BASE}/people?retired=include&after=expired.cursor`);
-			await page
-				.getByRole("status")
-				.filter({ hasText: "That page link has expired, so this is the first page." })
-				.waitFor();
+			// D67: a page number past the end shows the last page, never an error.
+			await page.goto(`${BASE}/people?retired=include&page=9999`);
+			const range = await page
+				.getByRole("main")
+				.getByText(/^Showing \d+/)
+				.textContent();
+			const [, first, total] = range.match(/^Showing (\d+)(?:–\d+)? of (\d+)/);
+			const last = Math.ceil(Number(total) / 24);
+			assert.equal(Number(first), (last - 1) * 24 + 1, range);
+			assert.equal(
+				await page.getByRole("button", { name: `Page ${last}`, exact: true }).getAttribute("aria-current"),
+				"page",
+			);
+			assert.equal(await page.getByRole("button", { name: "Next page" }).isDisabled(), true);
+		});
+		// A member reads the same pages without write controls.
+		await withPage(engine, "member", async (page) => {
+			await page.goto(`${BASE}/people?retired=include&page=2`);
 			await page
 				.getByRole("main")
-				.getByText(/^Showing 1–/)
+				.getByText(/^Showing 25–/)
 				.waitFor();
-			// A deep page number from D50 cannot keep a deep range once the page falls back to page one.
-			await page.goto(`${BASE}/people?retired=include&page=45&after=expired.cursor`);
-			await page
-				.getByRole("status")
-				.filter({ hasText: "That page link has expired, so this is the first page." })
-				.waitFor();
-			await page
-				.getByRole("main")
-				.getByText(/^Showing 1–24 of /)
-				.waitFor();
-			assert.equal(await page.getByRole("button", { name: "Previous" }).isDisabled(), true);
+			assert.equal(await page.getByRole("button", { name: "Add person" }).count(), 0);
 		});
 	});
 
@@ -292,8 +301,10 @@ for (const [name, engine] of [
 	test(`AC:TARGET-PPL-001 BUG-132-view-switch (${name}): list to cards to list sends nothing; the pipeline loads once`, async () => {
 		await withPage(engine, "owner", async (page) => {
 			await page.goto(`${BASE}/people?retired=include`);
-			await page.getByRole("button", { name: "Next", exact: true }).click();
-			await page.waitForFunction(() => new URLSearchParams(location.search).has("after"), null, { timeout: 30_000 });
+			await page.getByRole("button", { name: "Next page", exact: true }).click();
+			await page.waitForFunction(() => new URLSearchParams(location.search).get("page") === "2", null, {
+				timeout: 30_000,
+			});
 			await page
 				.getByRole("main")
 				.getByText(/^Showing 25/)
@@ -315,7 +326,7 @@ for (const [name, engine] of [
 			await page.getByRole("list", { name: "People" }).waitFor();
 			await settled();
 			assert.equal(address().get("view"), "card");
-			assert.ok(address().has("after"), "cards keep the page");
+			assert.equal(address().get("page"), "2", "cards keep the page");
 			await page
 				.getByRole("main")
 				.getByText(/^Showing 25/)
@@ -336,7 +347,7 @@ for (const [name, engine] of [
 				.getByRole("main")
 				.getByText(/^Showing 25/)
 				.waitFor();
-			assert.ok(address().has("after"), "back to the same page");
+			assert.equal(address().get("page"), "2", "back to the same page");
 			await view("Pipeline");
 			await page.getByRole("region", { name: "Pipeline" }).waitFor();
 			await settled();
@@ -358,7 +369,7 @@ for (const [name, engine] of [
 				async (page) => {
 					for (const view of ["", "&view=card"]) {
 						await page.goto(`${BASE}/people?retired=include${view}`);
-						const next = page.getByRole("button", { name: "Next", exact: true });
+						const next = page.getByRole("button", { name: "Next page", exact: true });
 						await next.waitFor();
 						const box = await next.boundingBox();
 						assert.ok(box && box.y >= 0 && box.y + box.height <= height, `${width}x${height}${view}: ${box?.y}`);
