@@ -316,6 +316,13 @@ for (const [name, engine] of [
 			const moveSecondUp = async (label) => {
 				const column = page.getByRole("list", { name: label });
 				await column.waitFor();
+				const revision = () =>
+					page.evaluate(
+						(l) =>
+							document.querySelector(`[aria-label="${l}"]`)?.closest("[data-revision]")?.getAttribute("data-revision"),
+						label,
+					);
+				const before = await revision();
 				const second = (await column.getByRole("article").nth(1).getAttribute("aria-label")) ?? "";
 				await page.getByRole("button", { name: `Move ${second}` }).focus();
 				await page.keyboard.press("Enter");
@@ -327,7 +334,15 @@ for (const [name, engine] of [
 					[label, second],
 					{ timeout: 30_000 },
 				);
-				await page.waitForTimeout(1500);
+				// Wait for the refresh: the column shows the server's new revision, so a remount would have happened.
+				await page.waitForFunction(
+					([l, r]) =>
+						document.querySelector(`[aria-label="${l}"]`)?.closest("[data-revision]")?.getAttribute("data-revision") !==
+						r,
+					[label, before],
+					{ timeout: 60_000 },
+				);
+				await page.waitForTimeout(500);
 				return second;
 			};
 			const focused = () => page.evaluate(() => document.activeElement?.getAttribute("aria-label"));

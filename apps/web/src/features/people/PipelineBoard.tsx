@@ -210,6 +210,8 @@ function Column({
 
 	return (
 		<div
+			// The server's column revision: changes when a refresh brings a newer saved order.
+			data-revision={group.revision}
 			onDragOver={canWrite ? onDragOver : undefined}
 			onDragLeave={canWrite ? onDragLeave : undefined}
 			onDrop={canWrite ? onDrop : undefined}
