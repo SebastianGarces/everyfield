@@ -630,6 +630,17 @@ test("BUG-plan-context: plan and brief use the same manifest acceptance scope, i
 				assert.doesNotMatch(output, /reuse approved E3 pages/i);
 			}
 		}
+		const dagPath = join(f.root, "docs/plan/dag.json");
+		const dag = JSON.parse(readFileSync(dagPath, "utf8"));
+		const identity = dag.packages.find((p) => p.id === "WP-005");
+		identity.outputs = [];
+		identity.acceptance_gates = [];
+		writeFileSync(dagPath, JSON.stringify(dag));
+		const planCheck = spawnSync("python3", ["docs/package-context.py", "--check-plan"], {
+			cwd: f.root,
+			encoding: "utf8",
+		});
+		assert.equal(planCheck.status, 0, planCheck.stderr);
 	} finally {
 		f.close();
 	}

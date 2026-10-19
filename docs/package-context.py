@@ -326,7 +326,7 @@ def check_plan(root, manifest):
             if not any(owner == p['id'] or owner in ancestors(p['id']) or p['id'] in ancestors(owner)
                        for owner in cases[cid]['work_packages']):
                 raise ValueError(p['id'] + ' cannot prove or defer selected case ' + cid + '; keep it context-only')
-        if not p['goal'] or not p['outputs'] or not p['acceptance_gates'] or not p['owning_paths']:
+        if not p['goal'] or not p['owning_paths']:
             raise ValueError('Empty package scope ' + p['id'])
         if any(not x.endswith('/') for x in p['owning_paths']):
             raise ValueError('Owning paths must be directories: ' + p['id'])
@@ -468,7 +468,7 @@ def plan_projection(root, manifest):
         case_count = len(c['case_ids'] if c['proof_stage'].startswith('whole-target') else c['own_case_ids'])
         amount = (f['base_days'] + f['requirement_days'] * len(c['own_requirement_ids']) +
                   f['operation_days'] * len(c['own_operation_ids']) + f['case_days'] * case_count +
-                  f['table_days'] * len(c['producer_table_names']) + f['gate_days'] * len(p['acceptance_gates']))
+                  f['table_days'] * len(c['producer_table_names']))
         p['estimate_engineer_days'] = math.ceil(amount * 2) / 2
         dependencies = p['depends_on'] + p.get('ui_depends_on', [])
         prior = max(dependencies, key=lambda x: costs[x]) if dependencies else None
@@ -480,7 +480,7 @@ def plan_projection(root, manifest):
     dag['critical_path'] = chains[last]
     dag['critical_path_unconstrained_days'] = costs[last]
     dag['total_engineer_days'] = sum(p['estimate_engineer_days'] for p in dag['packages'])
-    dag['resource_assumptions']['estimates'] = 'Scope-based rough single-owner engineer-days, rounded up to half days. Per-package estimate_factors weight owned clauses, operations, cases, produced tables and gates. Whole-target gates count all selected cases. Integration estimates cover checking existing producers, not rebuilding their features.'
+    dag['resource_assumptions']['estimates'] = 'Scope-based rough single-owner engineer-days, rounded up to half days. Per-package estimate_factors weight owned clauses, operations, cases and referenced tables. Whole-target integration counts all selected cases. Integration estimates cover checking existing producers, not rebuilding their features.'
     dag['dependency_amendment'] = {'reason': 'Catalog owners precede operation consumers; design prerequisites apply only to presentation tasks; scoped integration producers precede whole-target gates.',
                                    'retired': [p['id'] for p in dag.get('retired_packages', [])], 'ownership_source': 'docs/catalog/index.json'}
     retired = '; '.join(p['id'] + ' is retired into ' + p['scope_moved_to'] for p in dag.get('retired_packages', []))
@@ -498,7 +498,7 @@ def plan_projection(root, manifest):
     for s in dag['vertical_slices']:
         lines.append(f"| {s['id']} | {s['meaning']} | {', '.join(s['required_packages'])} |")
     lines += ['', '## Scope estimates', '',
-              'The DAG retains existing scope-estimate factors for planning compatibility. Counts use owned assignments; whole-target integration uses all selected cases. Table counts describe the schema reference, not a requirement to create storage before its feature. Feature implementations choose their internal design.', '',
+              'The DAG estimates effort from owned clauses, operations, cases and referenced tables. Counts use owned assignments; whole-target integration uses all selected cases. Table counts describe the schema reference, not a requirement to create storage before its feature. Feature implementations choose their internal design.', '',
               '| Package | Task | Clauses | Operations | Cases | Tables | Days |', '|---|---|---:|---:|---:|---:|---:|']
     for pid in order:
         p, c = by[pid], contexts[pid]
