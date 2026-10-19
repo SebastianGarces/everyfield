@@ -6,7 +6,6 @@ import {
 	invitationListResult,
 	inviteSeatRequest,
 	normalizedEmail,
-	removeSeatRequest,
 	resendInvitationRequest,
 	revokeInvitationRequest,
 	seatListResult,
@@ -34,6 +33,7 @@ import { Refusal, useIntent } from "../../organizations/intent";
 import { ProblemLine } from "../../organizations/parts";
 import { FormMessage } from "../parts";
 import { readSeats, readSeatsPage, runSeatCommand, type SeatOperation } from "./actions";
+import { RemoveDialog } from "./RemoveDialog";
 import {
 	emailProblem,
 	formatMoment,
@@ -300,19 +300,6 @@ function InviteCard({
 }
 
 type RoleCommand = ReturnType<typeof appointAdminRequest.parse> | ReturnType<typeof demoteSeatRequest.parse>;
-type RemoveCommand = ReturnType<typeof removeSeatRequest.parse>;
-
-function removeRefused(code: string | null, name: string): string {
-	switch (code) {
-		case "conflict":
-			return `${name} still has open tasks or duties, or the seat changed. Give their work to someone else first, then reload and try again.`;
-		case "protected_owner":
-			return "The Owner's seat cannot be removed.";
-		default:
-			return "The seat was not removed. Reload the list and try again.";
-	}
-}
-
 function RosterCard({
 	data,
 	refreshing,
@@ -323,15 +310,14 @@ function RosterCard({
 	onChanged: (message: string | null) => void;
 }) {
 	const roleIntent = useIntent<RoleCommand>("seat-role");
-	const removeIntent = useIntent<RemoveCommand>("seat-remove");
 	const [extra, setExtra] = useState<{ items: Seat[]; next: string | null } | null>(null);
 	const [more, setMore] = useState<"idle" | "loading" | "failed">("idle");
 	const items = [...data.roster.items, ...(extra?.items ?? [])];
 	const next = extra ? extra.next : data.roster.next;
 	const active = items.filter((s) => s.status === "active");
 	const removed = items.filter((s) => s.status === "removed");
-	const busy = roleIntent.pending ?? removeIntent.pending;
-	const held = roleIntent.held ?? removeIntent.held;
+	const busy = roleIntent.pending;
+	const held = roleIntent.held;
 
 	async function changeRole(seat: Seat, to: "admin" | "member") {
 		const result = await roleIntent.run(
@@ -352,40 +338,8 @@ function RosterCard({
 			() => true,
 		);
 		if (result.ok) onChanged(`${seat.displayName} is now ${to === "admin" ? "an Admin" : "a Member"}.`);
-	}
-
-	async function remove(seat: Seat) {
-		let code: string | null = null;
-		const result = await removeIntent.run(
-			seat.seatId,
-			(requestKey) =>
-				removeSeatRequest.parse({
-					requestKey,
-					expectedRevision: seat.revision,
-					input: { seatId: seat.seatId, expectedRole: seat.role, handoffs: [] },
-				}),
-			async (command) => {
-				try {
-					return await send("remove", command, seatMutationResult);
-				} catch (e) {
-					code = e instanceof Refusal ? e.code : null;
-					throw e;
-				}
-			},
-			() => true,
-		);
-		if (result.ok) {
-			onChanged(`${seat.displayName} no longer has a seat. Their person record and history stay.`);
-			return;
-		}
-		// The dialog stays open and shows why; Remove again resends the same command after a lost reply.
-		throw new Error(
-			result.problem === "unknown"
-				? "We could not confirm the removal. Check your connection, then select Remove seat again. It never removes twice."
-				: result.problem === "busy"
-					? "Another change is still on its way. Wait for it, then try again."
-					: removeRefused(code, seat.displayName),
-		);
+		// A refusal means this screen was out of date; load the current roles and revisions at once.
+		else if (result.problem === "refused") onChanged(null);
 	}
 
 	async function loadMore() {
@@ -459,22 +413,16 @@ function RosterCard({
 									<Tag>{ROLE_NAME[seat.role]}</Tag>
 								)}
 								{canRemove ? (
-									<ConfirmDialog
-										tone="danger"
-										title={`Remove ${seat.displayName}'s seat?`}
-										description={`${seat.displayName} will no longer sign in to ${data.workspaceName}.`}
-										consequences={[
-											"Their sessions end and their access stops now.",
-											"Their person record, history and past work stay.",
-											"Open tasks and duties must have a new owner first.",
-										]}
-										confirmLabel="Remove seat"
-										onConfirm={() => remove(seat)}
+									<RemoveDialog
+										seat={seat}
+										workspaceName={data.workspaceName}
+										onRemoved={onChanged}
+										onClosedUnconfirmed={() => onChanged(null)}
 										trigger={
 											<Button
 												variant="ghost"
 												size="sm"
-												disabled={elsewhere && removeIntent.held !== seat.seatId}
+												disabled={elsewhere || mine}
 												aria-label={`Remove ${seat.displayName}'s seat`}
 											>
 												Remove
@@ -489,18 +437,20 @@ function RosterCard({
 			</ul>
 			<ProblemLine
 				problem={roleProblem}
-				refused="The role did not change. Someone may have changed this seat. The list loads again with the current roles."
+				refused="The role did not change. Someone may have changed this seat, so the list was loaded again. Try again if you still want the change."
 				action={
-					<Button
-						size="sm"
-						variant="secondary"
-						onClick={() => {
-							roleIntent.release();
-							onChanged(null);
-						}}
-					>
-						Reload the list
-					</Button>
+					roleIntent.held ? (
+						<Button
+							size="sm"
+							variant="secondary"
+							onClick={() => {
+								roleIntent.release();
+								onChanged(null);
+							}}
+						>
+							Reload the list
+						</Button>
+					) : undefined
 				}
 			/>
 			{next ? (

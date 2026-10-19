@@ -20,7 +20,7 @@ export function formatDay(instant: string, zone: string): string {
 	);
 }
 
-/** "Oct 3, 4:12 PM" for an instant in the workspace's own time zone, for a moment that matters to the minute. */
+/** "Oct 3, 4:12 PM CDT" for an instant in the workspace's own time zone, named, for a moment that matters. */
 export function formatMoment(instant: string, zone: string): string {
 	return new Intl.DateTimeFormat("en-US", {
 		timeZone: zone,
@@ -28,6 +28,7 @@ export function formatMoment(instant: string, zone: string): string {
 		day: "numeric",
 		hour: "numeric",
 		minute: "2-digit",
+		timeZoneName: "short",
 	}).format(new Date(instant));
 }
 

@@ -31,6 +31,24 @@ export const removeSeatRequest = commandEnvelope(
 			.refine((v) => new Set(v.map((d) => d.dutyId)).size === v.length),
 	}),
 );
+// The removal review (ruling D52): the exact open duties remove will require handoffs for, each with its revision,
+// and the seats that can receive them. Only the workspace's own Owner or Admin may read it.
+export const readRemovalRequest = z.strictObject({ seatId: recordId });
+const removalDuty = z.strictObject({
+	dutyId: recordId,
+	expectedRevision: revision,
+	kind: z.enum(["task", "follow_up", "evaluation", "pipeline_person", "program"]),
+	label: z.string().trim().min(1).max(500),
+	// A program always has a director, so its duty can move to a recipient but never become Needs owner.
+	needsRecipient: z.boolean(),
+});
+export const removalReviewResult = z.strictObject({
+	seatId: recordId,
+	expectedRevision: revision,
+	expectedRole: ordinarySeatRole,
+	duties: z.array(removalDuty).max(100),
+	recipients: z.array(z.strictObject({ accountId, displayName: z.string().trim().min(1).max(200) })).max(100),
+});
 export const seatJoinedProvenance = z.discriminatedUnion("source", [
 	z.strictObject({ source: z.literal("accepted_invitation"), invitationId: recordId, at: instant }),
 	z.strictObject({ source: z.literal("original_account_fallback"), at: instant }),

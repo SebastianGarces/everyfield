@@ -1,6 +1,6 @@
 import "server-only";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { and, asc, eq, gt, isNull, notInArray, or, sql } from "@everyfield/db/query";
+import { and, asc, eq, gt, inArray, isNull, notInArray, or, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import { z } from "zod";
 import { sessionId, type Owner } from "@everyfield/contracts/common";
@@ -112,6 +112,148 @@ export function createSeatService(db: Database) {
 			.for("share");
 		return blocked.length ? null : s;
 	}
+	/**
+	 * The open duties a removal must hand off (REQ-IDN-019), in one place for remove and its review (ruling D52).
+	 * Remove holds every duty until it commits; the review reads without locks, so it never changes lock order.
+	 */
+	async function openDuties(tx: Transaction, selected: Owner, s: { id: string; account_id: string }, lock: boolean) {
+		const locked = <T>(q: PromiseLike<T> & { for(strength: "update"): PromiseLike<T> }) => (lock ? q.for("update") : q);
+		const plant = selected.kind === "plant";
+		const tasks = plant
+			? await locked(
+					tx
+						.select()
+						.from(t.task)
+						.where(
+							and(
+								eq(t.task.plant_id, selected.id),
+								eq(t.task.assignee_id, s.account_id),
+								isNull(t.task.deleted_at),
+								notInArray(t.task.status, ["complete", "no_longer_needed"]),
+							),
+						)
+						.orderBy(asc(t.task.id)),
+				)
+			: [];
+		const obligations = plant
+			? await locked(
+					tx
+						.select()
+						.from(t.obligation)
+						.where(
+							and(
+								eq(t.obligation.plant_id, selected.id),
+								eq(t.obligation.assignee_id, s.account_id),
+								isNull(t.obligation.waived_at),
+								isNull(t.obligation.superseded_at),
+							),
+						)
+						.orderBy(asc(t.obligation.id)),
+				)
+			: [];
+		// A task's linked obligation is one reviewed duty. Closed tasks keep their outcome.
+		const linkedTasks = plant
+			? await tx
+					.select({ obligation_id: t.task.obligation_id })
+					.from(t.task)
+					.where(and(eq(t.task.plant_id, selected.id), sql`${t.task.obligation_id} IS NOT NULL`))
+			: [];
+		const bare = obligations.filter((o) => !linkedTasks.some((k) => k.obligation_id === o.id));
+		const organization = selected.kind === "organization";
+		const pipeline = organization
+			? await locked(
+					tx
+						.select()
+						.from(t.pipeline_person)
+						.where(
+							and(eq(t.pipeline_person.organization_id, selected.id), eq(t.pipeline_person.responsible_seat_id, s.id)),
+						)
+						.orderBy(asc(t.pipeline_person.id)),
+				)
+			: [];
+		const programs = organization
+			? await locked(
+					tx
+						.select()
+						.from(t.development_program)
+						.where(
+							and(
+								eq(t.development_program.organization_id, selected.id),
+								eq(t.development_program.director_seat_id, s.id),
+							),
+						)
+						.orderBy(asc(t.development_program.id)),
+				)
+			: [];
+		return { tasks, obligations, bare, pipeline, programs };
+	}
+	/**
+	 * What removing this seat will need (ruling D52): the seat's revision and role, each open duty with its revision,
+	 * and the seats that may receive a duty. The same Owner or Admin check and the same duty selection as remove.
+	 */
+	async function readRemoval(session: string, selected: Owner, raw: unknown) {
+		const v = c.readRemovalRequest.parse(raw);
+		return transaction(db, async (tx) => {
+			await d.administer(tx, session, selected);
+			const [s] = await tx
+				.select()
+				.from(t.seat)
+				.where(and(eq(t.seat.id, v.seatId), inWorkspace(selected)));
+			if (!s || s.ended_at) d.refuse();
+			if (s.role === "owner") d.refuse("protected_owner");
+			const { tasks, bare, pipeline, programs } = await openDuties(tx, selected, s, false);
+			const personIds = [...bare.map((o) => o.person_id), ...pipeline.map((p) => p.person_id)].filter(
+				(id): id is string => typeof id === "string",
+			);
+			const people = personIds.length
+				? await tx
+						.select({ id: t.person.id, name: t.person.display_name })
+						.from(t.person)
+						.where(and(inArray(t.person.id, personIds), eq(t.person.tenant_id, selected.id)))
+				: [];
+			const nameOf = (id: string | null) => people.find((p) => p.id === id)?.name ?? null;
+			const duties = [
+				...tasks.map((x) => ({ dutyId: x.id, expectedRevision: x.revision, kind: "task", label: x.title })),
+				...bare.map((o) => {
+					const what = o.kind === "follow_up" ? "Follow-up" : "Evaluation";
+					const who = nameOf(o.person_id);
+					return {
+						dutyId: o.id,
+						expectedRevision: o.revision,
+						kind: o.kind,
+						label: who ? `${what} with ${who}` : what,
+					};
+				}),
+				...pipeline.map((p) => ({
+					dutyId: p.id,
+					expectedRevision: p.revision,
+					kind: "pipeline_person",
+					label: nameOf(p.person_id) ?? "A person in your pipeline",
+				})),
+				...programs.map((p) => ({ dutyId: p.id, expectedRevision: p.revision, kind: "program", label: p.name })),
+			].map((x) => ({ ...x, needsRecipient: x.kind === "program" }));
+			const others = await tx
+				.select({ account_id: t.seat.account_id })
+				.from(t.seat)
+				.where(and(inWorkspace(selected), isNull(t.seat.ended_at)))
+				.orderBy(asc(t.seat.id))
+				.limit(101);
+			const recipients = [];
+			for (const o of others) {
+				if (o.account_id === s.account_id || !(await eligible(tx, selected, o.account_id))) continue;
+				const info = await tx.execute(sql`SELECT * FROM seat_identity(${o.account_id}::uuid)`);
+				const name = z.object({ display_name: z.string() }).parse(info.rows[0]).display_name;
+				recipients.push({ accountId: o.account_id, displayName: name });
+			}
+			return c.removalReviewResult.parse({
+				seatId: s.id,
+				expectedRevision: s.revision,
+				expectedRole: s.role,
+				duties: duties.slice(0, 100),
+				recipients: recipients.slice(0, 100),
+			});
+		});
+	}
 	async function mutation(
 		session: string,
 		selected: Owner,
@@ -167,75 +309,7 @@ export function createSeatService(db: Database) {
 				events: string[] = [];
 			if (mode === "remove" && "handoffs" in v.input) {
 				const handoffs = v.input.handoffs;
-				const tasks =
-					selected.kind === "plant"
-						? await tx
-								.select()
-								.from(t.task)
-								.where(
-									and(
-										eq(t.task.plant_id, selected.id),
-										eq(t.task.assignee_id, s.account_id),
-										isNull(t.task.deleted_at),
-										notInArray(t.task.status, ["complete", "no_longer_needed"]),
-									),
-								)
-								.orderBy(asc(t.task.id))
-								.for("update")
-						: [];
-				const obligations =
-					selected.kind === "plant"
-						? await tx
-								.select()
-								.from(t.obligation)
-								.where(
-									and(
-										eq(t.obligation.plant_id, selected.id),
-										eq(t.obligation.assignee_id, s.account_id),
-										isNull(t.obligation.waived_at),
-										isNull(t.obligation.superseded_at),
-									),
-								)
-								.orderBy(asc(t.obligation.id))
-								.for("update")
-						: [];
-				// A task's linked obligation is one reviewed duty. Closed tasks keep their outcome.
-				const linkedTasks =
-					selected.kind === "plant"
-						? await tx
-								.select({ obligation_id: t.task.obligation_id })
-								.from(t.task)
-								.where(and(eq(t.task.plant_id, selected.id), sql`${t.task.obligation_id} IS NOT NULL`))
-						: [];
-				const bare = obligations.filter((o) => !linkedTasks.some((k) => k.obligation_id === o.id));
-				const pipeline =
-					selected.kind === "organization"
-						? await tx
-								.select()
-								.from(t.pipeline_person)
-								.where(
-									and(
-										eq(t.pipeline_person.organization_id, selected.id),
-										eq(t.pipeline_person.responsible_seat_id, s.id),
-									),
-								)
-								.orderBy(asc(t.pipeline_person.id))
-								.for("update")
-						: [];
-				const programs =
-					selected.kind === "organization"
-						? await tx
-								.select()
-								.from(t.development_program)
-								.where(
-									and(
-										eq(t.development_program.organization_id, selected.id),
-										eq(t.development_program.director_seat_id, s.id),
-									),
-								)
-								.orderBy(asc(t.development_program.id))
-								.for("update")
-						: [];
+				const { tasks, obligations, bare, pipeline, programs } = await openDuties(tx, selected, s, true);
 				const all = [...tasks, ...bare, ...pipeline, ...programs];
 				if (
 					all.length !== handoffs.length ||
@@ -376,6 +450,7 @@ export function createSeatService(db: Database) {
 	return {
 		list,
 		readCurrentMembership: membership,
+		readRemoval,
 		changeOrdinaryRole: (s: string, o: Owner, v: unknown) => mutation(s, o, v, "role"),
 		appointAdmin: (s: string, o: Owner, v: unknown) => mutation(s, o, v, "appoint"),
 		demote: (s: string, o: Owner, v: unknown) => mutation(s, o, v, "demote"),

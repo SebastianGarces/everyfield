@@ -389,6 +389,70 @@ test("AC:TARGET-IDN-019 INV-removal: exact open-duty handoff retains Person and 
 	assert.equal(await count(t.auth_session, eq(t.auth_session.user_id, s.recipient.user)), 0);
 });
 
+test("AC:TARGET-IDN-019 INV-removal-review: the review names exactly the duties remove requires and only eligible recipients", async () => {
+	const s = await f.setup(),
+		i = await f.invitation(s),
+		a = await f.invitations.accept(s.recipient.session, i.claim),
+		open = key(),
+		closed = key(),
+		other = await f.setup();
+	await f.admin.insert(t.task).values([
+		{
+			id: open,
+			plant_id: s.w.id,
+			title: "Call James",
+			category: "general",
+			priority: "medium",
+			status: "not_started",
+			created_at: new Date(),
+			assignee_id: s.recipient.id,
+			due_kind: "undated",
+		},
+		{
+			id: closed,
+			plant_id: s.w.id,
+			title: "Complete",
+			category: "general",
+			priority: "medium",
+			status: "complete",
+			completed_at: new Date(),
+			created_at: new Date(),
+			assignee_id: s.recipient.id,
+			due_kind: "undated",
+		},
+	]);
+	const target = { seatId: a.seat.seatId };
+	// Only an Owner or Admin of the seat's own workspace reads it; a Member and another workspace's Owner do not.
+	await denied(f.seats.readRemoval(s.recipient.session, s.w, target));
+	await denied(f.seats.readRemoval(other.sender.session, s.w, target));
+	await denied(f.seats.readRemoval(other.sender.session, other.w, target));
+	const review = await f.seats.readRemoval(s.sender.session, s.w, target);
+	assert.deepEqual(review.duties, [
+		{ dutyId: open, expectedRevision: "1", kind: "task", label: "Call James", needsRecipient: false },
+	]);
+	assert.deepEqual(
+		review.recipients.map((r) => r.accountId),
+		[s.sender.id],
+	);
+	// The review is exactly what remove needs: handing off each listed duty succeeds at once.
+	const result = await f.seats.remove(s.sender.session, s.w, {
+		requestKey: key(),
+		expectedRevision: review.expectedRevision,
+		input: {
+			seatId: review.seatId,
+			expectedRole: review.expectedRole,
+			handoffs: review.duties.map((d) => ({
+				kind: "assign",
+				dutyId: d.dutyId,
+				expectedRevision: d.expectedRevision,
+				recipientAccountId: review.recipients[0].accountId,
+			})),
+		},
+	});
+	assert.deepEqual(result.duties, [{ status: "moved", dutyId: open, recipientAccountId: s.sender.id }]);
+	await denied(f.seats.readRemoval(s.sender.session, s.w, target));
+});
+
 test("AC:TARGET-IDN-002 AC:TARGET-IDN-003 AC:TARGET-IDN-030 AC:SEC-03 native invitation signup, sign-in and exact resume never activate from email equality", async () => {
 	const s = await f.setup(),
 		i = await f.invitation(s),

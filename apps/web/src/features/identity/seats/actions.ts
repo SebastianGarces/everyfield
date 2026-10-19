@@ -72,6 +72,13 @@ export async function readSeatsPage(list: "seats" | "invitations", after: string
 		: answer(() => service.list(viewer.session, { workspace: selected, after }));
 }
 
+/** What removing one seat needs (ruling D52): its open duties and who may take them, from the seat service. */
+export async function readRemovalReview(seatId: string): Promise<Reply> {
+	const w = await workspaceViewer();
+	if (!w) return refused("unavailable");
+	return answer(() => w.mount.seats.readRemoval(w.viewer.session, w.selected, { seatId }));
+}
+
 const operation = z.enum(["invite", "resend", "revoke", "appointAdmin", "demote", "remove"]);
 export type SeatOperation = z.infer<typeof operation>;
 
