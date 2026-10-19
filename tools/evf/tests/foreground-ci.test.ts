@@ -5,11 +5,12 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fixture, source } from "./fixtures.ts";
 
-function cli(cwd: string, args: string[], env: NodeJS.ProcessEnv = {}) {
+function cli(cwd: string, args: string[], env: NodeJS.ProcessEnv = {}, detached = false) {
 	return spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), ...args], {
 		cwd,
 		encoding: "utf8",
 		env: { ...process.env, ...env },
+		detached,
 	});
 }
 
@@ -33,7 +34,8 @@ test("BUG-OPS10-foreground: detached checks refuse before work; explicit supervi
 			["pre-push", "OPS-1"],
 			["stack", "up", "WP-001"],
 		]) {
-			const result = cli(f.root, args, { EVF_MONITOR: "", EVF_FOREGROUND: "" });
+			// Refusal needs a detached session even when the test runner has a foreground terminal.
+			const result = cli(f.root, args, { EVF_MONITOR: "", EVF_FOREGROUND: "" }, true);
 			assert.equal(result.status, 1);
 			assert.match(result.stderr, /detached.*terminal/i);
 			assert.match(result.stderr, /stay in your turn.*EVF_MONITOR/i);
