@@ -227,6 +227,8 @@ for (const [name, engine] of [
 			await page.getByRole("button", { name: "Restore person" }).click();
 			await page.getByRole("alertdialog").getByRole("button", { name: "Restore person" }).click();
 			await page.getByRole("button", { name: "Change stage" }).waitFor({ timeout: 30_000 });
+			// The restore refreshes the page; let that finish before navigating, or WebKit cuts off the next navigation.
+			await page.waitForLoadState("networkidle");
 			const merged = Object.entries(seed().people).find(([n]) => n.startsWith("Guest 19"))[1];
 			await page.goto(`${BASE}/people/${merged}`);
 			await page.getByText("A merge is undone only with a reviewed Unmerge").waitFor();
