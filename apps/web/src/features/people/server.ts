@@ -1,11 +1,16 @@
 import "server-only";
 import { createDatabase, type Database, type Transaction } from "@everyfield/db/client";
 import { sessionResult, currentMembershipResult } from "@everyfield/contracts/identity";
+import { listPeopleRequest } from "@everyfield/contracts/people";
+import type * as people from "@everyfield/contracts/people";
 import type { PeopleContext, PeopleReply, PeopleWriteContext } from "@everyfield/contracts/people";
 import { createSeatService, InvitationRefusal } from "@everyfield/domain/identity";
+import { peopleReader } from "@everyfield/domain/people";
 import { headers } from "next/headers";
 import { cache } from "react";
+import type { z } from "zod";
 import { identityHandler } from "@/server/identity";
+import { isFiltered, listRequest, type PeopleQuery } from "./model.ts";
 
 // The People server boundary (R2). It reads the real session through the mounted identity handler and the current
 // seat through the seat service, then runs WP-011/api operations inside one transaction each. The browser never sends
@@ -110,4 +115,38 @@ export async function write<T>(
 		console.error(JSON.stringify({ component: "people", outcome: "write_failed", error: String(error) }));
 		return { status: "failed" };
 	}
+}
+
+export type PeopleData =
+	| { kind: "list"; page: z.infer<typeof people.peoplePage>; expired: boolean }
+	| { kind: "pipeline"; pipeline: z.infer<typeof people.pipelineResult> }
+	| { kind: "failed" };
+/** One loaded People view: the query it answers (an expired cursor resets its page), its data and whether the church has no people at all. */
+export type PeopleView = { query: PeopleQuery; data: PeopleData; workspaceEmpty: boolean };
+
+/** Loads the list rows (list and cards) or the pipeline for a query. The page load and a client view switch both use it. */
+export async function loadPeople(viewer: Viewer, query: PeopleQuery): Promise<PeopleView> {
+	// The address is browser input: parse it into the contract request at this boundary.
+	const request = (q: PeopleQuery) => listPeopleRequest.parse(listRequest(q));
+	if (query.view === "pipeline") {
+		const r = await read(viewer, (tx, ctx) => peopleReader.getPipelineData(tx, ctx, request(query)));
+		return {
+			query,
+			data: r.status === "ok" ? { kind: "pipeline", pipeline: r.value } : { kind: "failed" },
+			workspaceEmpty: r.status === "ok" && !isFiltered(query) && r.value.groups.every((g) => g.total === 0),
+		};
+	}
+	let r = await read(viewer, (tx, ctx) => peopleReader.listPeople(tx, ctx, request(query)));
+	// A cursor from an old link (another session or a restarted server) is refused; show the first page instead.
+	const expired = r.status === "refused" && r.error.code === "invalid_input" && query.trail.length > 0;
+	if (expired) {
+		const first = { ...query, trail: [], page: 1 };
+		r = await read(viewer, (tx, ctx) => peopleReader.listPeople(tx, ctx, request(first)));
+		query = first;
+	}
+	return {
+		query,
+		data: r.status === "ok" ? { kind: "list", page: r.value, expired } : { kind: "failed" },
+		workspaceEmpty: r.status === "ok" && !isFiltered(query) && r.value.total === 0,
+	};
 }

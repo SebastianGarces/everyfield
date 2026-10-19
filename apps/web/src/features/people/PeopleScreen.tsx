@@ -27,8 +27,9 @@ import { Avatar, DataTable, PersonCard, StageChip, StatusBadge, type Column } fr
 import { Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import type { z } from "zod";
+import { loadPeopleView } from "./actions.ts";
 import { AddPersonDialog } from "./AddPersonDialog.tsx";
 import {
 	CLASSIFICATION_LABEL,
@@ -45,41 +46,84 @@ import {
 	STAGES,
 	withFilters,
 	type PeopleQuery,
+	type ViewValue,
 } from "./model.ts";
 import { CardLink, When } from "./parts.tsx";
 import { PipelineBoard } from "./PipelineBoard.tsx";
+import type { PeopleData, PeopleView } from "./server.ts";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
-export type PeopleData =
-	| { kind: "list"; page: z.infer<typeof people.peoplePage>; expired: boolean }
-	| { kind: "pipeline"; pipeline: z.infer<typeof people.pipelineResult> }
-	| { kind: "failed" };
+/** List and cards show the same loaded rows; the pipeline is its own load. */
+type Kind = "rows" | "pipeline";
+const kindOf = (view: ViewValue): Kind => (view === "pipeline" ? "pipeline" : "rows");
 
 const COMMITMENT_LABEL = { active: "Committed", withdrawn: "Withdrawn", unknown: "Not recorded" } as const;
 const RETIRED_LABEL = { include: "Active and retired", only: "Retired only" } as const;
 
 /**
- * People list, cards and pipeline (REQ-PPL-001, REQ-PPL-007). Search, filters, view and page live in the address; any
- * change goes back to the first page and keeps the other filters. Members read; Owners and Admins also add and move.
+ * People list, cards and pipeline (REQ-PPL-001, REQ-PPL-007). Search, filters, view and page live in the address; a
+ * search or filter change goes back to the first page and keeps the other filters. Members read; Owners and Admins
+ * also add and move.
+ *
+ * A view switch stays in the browser. List and cards show the same loaded page, so switching between them sends no
+ * request. The pipeline loads once for the current filters and is kept, and so are the list rows, so switching back
+ * and forth sends nothing more. A new server answer (filters, page, or a refresh after a change) replaces both.
  */
-export function PeopleScreen({
-	query,
-	data,
-	canWrite,
-	workspaceEmpty,
-}: {
-	query: PeopleQuery;
-	data: PeopleData;
-	canWrite: boolean;
-	/** True when this church has no people at all (not just none matching a filter). */
-	workspaceEmpty: boolean;
-}) {
+export function PeopleScreen({ loaded, canWrite }: { loaded: PeopleView; canWrite: boolean }) {
 	const router = useRouter();
 	const pathname = usePathname();
 	const [navigating, startTransition] = useTransition();
 	const [adding, setAdding] = useState(false);
+	const [server, setServer] = useState(loaded);
+	const [views, setViews] = useState<Partial<Record<Kind, PeopleView>>>(() => ({
+		[kindOf(loaded.query.view)]: loaded,
+	}));
+	const [view, setView] = useState(loaded.query.view);
+	if (server !== loaded) {
+		setServer(loaded);
+		setViews({ [kindOf(loaded.query.view)]: loaded });
+		setView(loaded.query.view);
+	}
+	// The view the person asked for shows in the switch at once, also while its first load runs.
+	const [chosen, setChosen] = useOptimistic(view);
+	const current = views[kindOf(view)];
+	const shown = current ?? loaded;
+	const query: PeopleQuery = current ? { ...current.query, view } : loaded.query;
+
+	// The latest server answer and the latest asked-for view, read when a load returns: an answer for older filters, or
+	// for a view the person already left, is not shown.
+	const latest = useRef({ loaded, wanted: view });
+	useEffect(() => {
+		latest.current.loaded = loaded;
+	}, [loaded]);
+
 	const go = (next: PeopleQuery, replace = false) =>
 		startTransition(() => (replace ? router.replace : router.push)(pathname + querySearch(next), { scroll: false }));
+	// Next.js keeps its router in step with history.replaceState, so the address changes without a server request.
+	const address = (q: PeopleQuery) => window.history.replaceState(null, "", pathname + querySearch(q));
+	const switchView = (next: ViewValue) => {
+		latest.current.wanted = next;
+		const have = views[kindOf(next)];
+		if (have) {
+			setView(next);
+			address({ ...have.query, view: next });
+			return;
+		}
+		const base = loaded;
+		const target = { ...query, view: next };
+		startTransition(async () => {
+			setChosen(next);
+			const got = await loadPeopleView(querySearch(target)).catch(() => null);
+			if (latest.current.loaded !== base) return;
+			// Signed out or no seat any more: load the page, which shows sign-in or the lock.
+			if (!got) return void (latest.current.wanted === next && go(target, true));
+			startTransition(() => {
+				setViews((v) => ({ ...v, [kindOf(next)]: got }));
+				if (latest.current.wanted === next) setView(next);
+			});
+			if (latest.current.wanted === next) address({ ...got.query, view: next });
+		});
+	};
 
 	return (
 		<>
@@ -95,7 +139,7 @@ export function PeopleScreen({
 					) : null
 				}
 			/>
-			{workspaceEmpty ? (
+			{shown.workspaceEmpty ? (
 				<Card>
 					<EmptyState
 						icon={UserMultipleIcon}
@@ -116,9 +160,9 @@ export function PeopleScreen({
 				</Card>
 			) : (
 				<Card className="gap-6">
-					<Toolbar query={query} go={go} />
+					<Toolbar query={query} view={chosen} go={go} switchView={switchView} />
 					<div aria-busy={navigating || undefined} className="transition-opacity duration-150 aria-busy:opacity-60">
-						<Results query={query} data={data} go={go} canWrite={canWrite} />
+						<Results query={query} data={shown.data} go={go} canWrite={canWrite} />
 					</div>
 				</Card>
 			)}
@@ -157,7 +201,17 @@ function SearchBox({ query, go }: { query: PeopleQuery; go: (q: PeopleQuery, rep
 	);
 }
 
-function Toolbar({ query, go }: { query: PeopleQuery; go: (q: PeopleQuery, replace?: boolean) => void }) {
+function Toolbar({
+	query,
+	view,
+	go,
+	switchView,
+}: {
+	query: PeopleQuery;
+	view: ViewValue;
+	go: (q: PeopleQuery, replace?: boolean) => void;
+	switchView: (view: ViewValue) => void;
+}) {
 	return (
 		<div className="flex flex-wrap items-center gap-3">
 			<SearchBox key={query.search} query={query} go={go} />
@@ -221,8 +275,8 @@ function Toolbar({ query, go }: { query: PeopleQuery; go: (q: PeopleQuery, repla
 			<span className="grow" />
 			<SegmentedControl
 				label="View"
-				value={query.view}
-				onValueChange={(view) => go(withFilters(query, { view }))}
+				value={view}
+				onValueChange={switchView}
 				options={[
 					{ value: "list", label: "List", icon: LeftToRightListBulletIcon },
 					{ value: "card", label: "Cards", icon: GridViewIcon },
@@ -322,7 +376,9 @@ function Results({
 					}}
 				/>
 			)}
-			<div className="flex flex-wrap items-center justify-between gap-3">
+			{/* The pager stays at the bottom of the window while the rows scroll under it, so the next page is always one
+			    press away. It is the card's bottom edge, with the card's side padding, so it lines up when the list ends. */}
+			<div className="sticky bottom-0 z-[2] -mx-7 -mb-[26px] flex flex-wrap items-center justify-between gap-3 rounded-b-card border-t border-line bg-surface px-7 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] max-app-sm:-mx-5 max-app-sm:-mb-5 max-app-sm:px-5">
 				<span className="text-text-3" role="status">
 					{rangeText(query, page.items.length, page.total)}
 				</span>

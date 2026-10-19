@@ -1,5 +1,5 @@
 import { LockKeyIcon, UserSearch01Icon } from "@hugeicons/core-free-icons";
-import { listPeopleRequest, personRequest } from "@everyfield/contracts/people";
+import { personRequest } from "@everyfield/contracts/people";
 import { getAccountLink, peopleReader } from "@everyfield/domain/people";
 import { buttonVariants, Card, EmptyState, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import { TableSkeleton } from "@everyfield/ui/display";
@@ -9,11 +9,11 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
-import { isFiltered, listRequest, parseQuery, querySearch } from "./model.ts";
+import { parseQuery, querySearch } from "./model.ts";
 import { PeopleFrame } from "./PeopleFrame.tsx";
-import { PeopleScreen, type PeopleData } from "./PeopleScreen.tsx";
+import { PeopleScreen } from "./PeopleScreen.tsx";
 import { PersonScreen } from "./PersonScreen.tsx";
-import { canWrite, read, resolveViewer, type Viewer } from "./server.ts";
+import { canWrite, loadPeople, read, resolveViewer, type Viewer } from "./server.ts";
 
 // The People routes. The files under apps/web/src/app/(product)/people/ only re-export these, so the screens, their
 // data loading and their states stay in this feature folder.
@@ -87,28 +87,7 @@ export async function PeoplePage({ searchParams }: { searchParams: Search }) {
 	if ("blocked" in g) return g.blocked;
 	const { viewer } = g;
 
-	// The address is browser input: parse it into the contract request at this boundary.
-	const request = (q: typeof query) => listPeopleRequest.parse(listRequest(q));
-	let data: PeopleData;
-	let workspaceEmpty = false;
-	if (query.view === "pipeline") {
-		const r = await read(viewer, (tx, ctx) => peopleReader.getPipelineData(tx, ctx, request(query)));
-		data = r.status === "ok" ? { kind: "pipeline", pipeline: r.value } : { kind: "failed" };
-		workspaceEmpty = r.status === "ok" && !isFiltered(query) && r.value.groups.every((g) => g.total === 0);
-	} else {
-		let r = await read(viewer, (tx, ctx) => peopleReader.listPeople(tx, ctx, request(query)));
-		// A cursor from an old link (another session or a restarted server) is refused; show the first page instead.
-		const expired = r.status === "refused" && r.error.code === "invalid_input" && query.trail.length > 0;
-		if (expired) {
-			const first = { ...query, trail: [], page: 1 };
-			r = await read(viewer, (tx, ctx) => peopleReader.listPeople(tx, ctx, request(first)));
-			query.trail = [];
-			query.page = 1;
-		}
-		data = r.status === "ok" ? { kind: "list", page: r.value, expired } : { kind: "failed" };
-		workspaceEmpty = r.status === "ok" && !isFiltered(query) && r.value.total === 0;
-	}
-	return <PeopleScreen query={query} data={data} canWrite={canWrite(viewer)} workspaceEmpty={workspaceEmpty} />;
+	return <PeopleScreen loaded={await loadPeople(viewer, query)} canWrite={canWrite(viewer)} />;
 }
 
 export const personMetadata: Metadata = { title: "Person", robots: { index: false, follow: false } };

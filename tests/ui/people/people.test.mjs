@@ -16,6 +16,8 @@
 //   BUG-church-date: adult or child has no date from the reader's clock; a church-future date says why it was refused.
 //   INV-target-size: person card name links meet the 24px WCAG 2.2 target size (verifier finding on 0c00880).
 //   BUG-hydration: WebKit and Node join date parts differently; dates are built from parts so hydration matches.
+//   FB-review-1 INV-view-switch: list and cards share one loaded page; the pipeline loads once and is kept (Sebastian).
+//   FB-review-1 INV-pager-visible: the pager is in the first viewport on desktop and phone (Sebastian).
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
@@ -26,13 +28,13 @@ const FIXTURE = process.env.PEOPLE_UI_FIXTURE ?? "/tmp/everyfield-people-ui.json
 const seed = () => JSON.parse(readFileSync(FIXTURE, "utf8"));
 
 /** Opens a page signed in as `who` (owner, member, seatless or null for signed out). */
-async function withPage(engine, who, run, { width = 1440 } = {}) {
+async function withPage(engine, who, run, { width = 1440, height = 900 } = {}) {
 	assert.ok(BASE, "Set UI_BASE_URL to a running, seeded preview of this worktree.");
 	const browser = await engine.launch();
 	try {
 		// Portless previews use a local certificate the test browsers do not know.
 		const context = await browser.newContext({
-			viewport: { width, height: 900 },
+			viewport: { width, height },
 			reducedMotion: "reduce",
 			ignoreHTTPSErrors: true,
 		});
@@ -510,5 +512,73 @@ for (const [name, engine] of [
 			},
 			{ width: 390 },
 		);
+	});
+
+	test(`AC:TARGET-PPL-001 FB-review-1 INV-view-switch (${name}): list to cards to list sends nothing; the pipeline loads once`, async () => {
+		await withPage(engine, "owner", async (page) => {
+			await page.goto(`${BASE}/people?retired=include`);
+			await page.getByRole("button", { name: "Next", exact: true }).click();
+			await page.waitForFunction(() => new URLSearchParams(location.search).has("after"), null, { timeout: 30_000 });
+			await page.getByText(/^Showing 25/).waitFor();
+			await page.waitForLoadState("networkidle");
+			const sent = [];
+			page.on("request", (r) => {
+				if (["document", "fetch", "xhr"].includes(r.resourceType())) sent.push(`${r.method()} ${r.url()}`);
+			});
+			const view = (label) => page.getByRole("radio", { name: label }).click();
+			const settled = () => page.waitForTimeout(800);
+			const address = () => new URL(page.url()).searchParams;
+
+			await view("Cards");
+			await page.getByRole("list", { name: "People" }).waitFor();
+			await settled();
+			assert.equal(address().get("view"), "card");
+			assert.ok(address().has("after"), "cards keep the page");
+			await page.getByText(/^Showing 25/).waitFor();
+			await view("List");
+			await page.getByRole("table", { name: "People" }).waitFor();
+			await settled();
+			assert.equal(address().get("view"), null);
+			assert.deepEqual(sent, [], "list and cards switch without a request");
+
+			await view("Pipeline");
+			await page.getByRole("region", { name: "Pipeline" }).waitFor();
+			await settled();
+			assert.equal(address().get("view"), "pipeline");
+			assert.equal(sent.length, 1, `the first pipeline view is one request: ${sent.join(", ")}`);
+			await view("List");
+			await page.getByText(/^Showing 25/).waitFor();
+			assert.ok(address().has("after"), "back to the same page");
+			await view("Pipeline");
+			await page.getByRole("region", { name: "Pipeline" }).waitFor();
+			await settled();
+			assert.equal(sent.length, 1, `returning to the pipeline sends nothing: ${sent.join(", ")}`);
+			// The view is in the address: a reload opens the pipeline.
+			await page.reload();
+			await page.getByRole("region", { name: "Pipeline" }).waitFor();
+		});
+	});
+
+	test(`AC:TARGET-PPL-001 FB-review-1 INV-pager-visible (${name}): the pager is in the first viewport on desktop and phone`, async () => {
+		for (const [width, height] of [
+			[1440, 900],
+			[390, 844],
+		])
+			await withPage(
+				engine,
+				"owner",
+				async (page) => {
+					for (const view of ["", "&view=card"]) {
+						await page.goto(`${BASE}/people?retired=include${view}`);
+						const next = page.getByRole("button", { name: "Next", exact: true });
+						await next.waitFor();
+						const box = await next.boundingBox();
+						assert.ok(box && box.y >= 0 && box.y + box.height <= height, `${width}x${height}${view}: ${box?.y}`);
+						await next.click();
+						await page.getByText(/^Showing 25/).waitFor();
+					}
+				},
+				{ width, height },
+			);
 	});
 }
