@@ -291,6 +291,32 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-14": {
+			"title": "Build plan keeps only features, dependencies and acceptance",
+			"owningPaths": [
+				"docs/plan/",
+				"docs/package-context.py",
+				"tools/evf/tests/reconciliation.test.ts",
+				"evf.config.json"
+			],
+			"checks": [
+				{
+					"name": "workflow-regressions",
+					"run": [
+						"bin/evf",
+						"test"
+					]
+				},
+				{
+					"name": "documentation",
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {

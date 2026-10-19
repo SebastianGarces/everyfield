@@ -164,7 +164,7 @@ def compile_manifest(root):
             producer_table_names=sorted(tables), consumer_table_names=sorted(
                 t['name'] for t in schema if (scope['schema'] == 'all' or fs & set(t['feature_ids'])) and t['name'] not in tables),
             proof_stage=scope['proof_stage'],
-            contract_consumption_rule='Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership.'))
+            contract_consumption_rule='Selected context does not change feature ownership or authorized access.'))
     return dict(
         version=4, scope='Catalog fields own work; DAG selectors add consumed context only.',
         catalog_source='docs/catalog/index.json', package_source='docs/plan/dag.json',
@@ -174,7 +174,7 @@ def compile_manifest(root):
                            'docs/architecture/security.md', 'docs/architecture/audit.md'],
         detail_page_size=10, max_detail_page_bytes=196608, max_brief_bytes=65536,
         packages=result, package_count=len(result), shared_contract_source='docs/catalog/shared-contracts.json',
-        omission_policy='All selected IDs remain indexed. Details are on demand; pages report totalPages and selectedCount and never truncate records. Package gates account for owned and explicitly deferred portions, without a mandatory full-packet read.')
+        omission_policy='All selected IDs remain indexed. Read full requirements and acceptance cases on demand; selected context does not change package ownership.')
 
 
 def check_ownership(root, manifest):
@@ -487,7 +487,7 @@ def plan_projection(root, manifest):
     notes = dag['build_plan_notes']
     lines = ['# Future build plan', '',
              f"The approved target has {len(by)} active single-owner packages. {retired}; IDs are never reused. Implementation state lives only in docs/build-progress.json.", '',
-             'Start with a [short package brief](context.md). Read detailed clauses, cases and schema on demand. The [DAG](dag.json) owns scope and dependencies; builders choose filenames and internal structures within the owned directories.', '',
+             'Start with a [short package brief](context.md). Read detailed requirements and cases on demand. The [DAG](dag.json) owns scope and dependencies; builders choose filenames and internal structures within the owned directories.', '',
              f"Rough scope-based effort is {dag['total_engineer_days']:g} engineer-days. The weighted prerequisite lower bound with unconstrained capacity is {costs[last]:g} working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.", '',
              '## Foundation and shared UI', '',
              notes['foundation'], '',
@@ -498,13 +498,13 @@ def plan_projection(root, manifest):
     for s in dag['vertical_slices']:
         lines.append(f"| {s['id']} | {s['meaning']} | {', '.join(s['required_packages'])} |")
     lines += ['', '## Scope estimates', '',
-              'Each package stores its estimate factors in the DAG. Counts use owned selectors, rather than transitive reading size; whole-target gates use all selected cases. WP-056/057 each reproduce 1,086 cases with no deferrals, estimated at 0.0115 engineer-days per case plus base and gate allowances, rounded to 14 days. The lower total compared with the earlier 287.5 days mainly removes repeated counting of consumed cases across packages. Contract and adapter fixtures prove their scoped portions; broad whole-target scripts remain integration work.', '',
+              'The DAG retains existing scope-estimate factors for planning compatibility. Counts use owned assignments; whole-target integration uses all selected cases. Table counts describe the schema reference, not a requirement to create storage before its feature. Feature implementations choose their internal design.', '',
               '| Package | Task | Clauses | Operations | Cases | Tables | Days |', '|---|---|---:|---:|---:|---:|---:|']
     for pid in order:
         p, c = by[pid], contexts[pid]
         case_count = len(c['case_ids'] if c['proof_stage'].startswith('whole-target') else c['own_case_ids'])
         lines.append(f"| {pid} | {p['title']} | {len(c['own_requirement_ids'])} | {len(c['own_operation_ids'])} | {case_count} | {len(c['producer_table_names'])} | {p['estimate_engineer_days']:g} |")
-    lines += ['', '## Package splits', '', 'The retained target gates reproduce complete evidence after the scoped producers. A split never waives an obligation.', '']
+    lines += ['', '## Package splits', '', 'Integration packages cover all selected acceptance cases after their feature prerequisites.', '']
     for split in dag.get('package_splits', []):
         lines += [split['source'] + ': ' + ', '.join(split['packages']) + '. ' + split['seam'] + ' ' + split['closure'], '']
     lines += ['', '## Critical prerequisite chain', '', ' → '.join(chains[last]), '',

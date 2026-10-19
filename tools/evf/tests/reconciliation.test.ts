@@ -597,7 +597,10 @@ test("BUG-plan-context: plan and brief use the same manifest acceptance scope, i
 		);
 		assert.equal(block.acceptanceCount, 8);
 		const brief = renderBrief(f.root, parseTask("WP-002"), {});
-		assert.match(brief, /Goal: Provide shared trusted scope, time, revision, replay, receipt and audit contracts/);
+		assert.equal(
+			brief.split("\n").find((line) => line.startsWith("Goal: ")),
+			`Goal: ${loadDag(f.root).packages.find((p) => p.id === "WP-002")!.goal}`,
+		);
 		assert.match(brief, /Owned requirements: REQ-IDN-029, REQ-OPS-004, REQ-PI-037, REQ-PPL-024, REQ-TSK-018/);
 		assert.match(brief, /Write owned cases at package start for: REQ-IDN-029, REQ-OPS-004, REQ-PI-037, REQ-PPL-024/);
 		assert.match(brief, /Owned cases: AUDIT-001, AUDIT-002, AUDIT-003/);
