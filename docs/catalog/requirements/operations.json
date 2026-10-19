@@ -52,7 +52,7 @@
       "feature_ids": [
         "ADM-002"
       ],
-      "text": "Explicit immutable platform-principal grant, separate from plant/org roles, permits bounded private triage filter/list and new/reviewed/resolved/dismissed status changes with expected revision/actual actor/history/no-op receipt. Unknown row refuses and stale edit conflicts. Public issue closure remains external observed fact, not proof of implementation/PR/deployment.",
+      "text": "Explicit immutable platform-principal grant, separate from plant/org roles, permits bounded private triage filter/list and new/reviewed/resolved/dismissed status changes with unchanged reviewed state/actual actor/history/no-op receipt. Unknown row refuses and stale edit conflicts. Public issue closure remains external observed fact, not proof of implementation/PR/deployment.",
       "spec": "docs/product/operations.md#private-intake-and-public-feedback",
       "operations": [
         "feedback.admin.list",
@@ -263,7 +263,7 @@
       "behavior_rules": [
         {
           "operation": "marketing.privacyPolicy",
-          "rule": "Anonymous static public content pure read; no sealed proof, approval, durable operation receipt or mutation audit."
+          "rule": "Anonymous static public content pure read; no sealed proof, approval, durable recorded outcome or mutation audit."
         }
       ]
     },
@@ -554,7 +554,7 @@
       "feature_ids": [
         "OPS-001"
       ],
-      "text": "One authenticated bounded Next/Postgres executor, durable owed work, lease/fencing/checkpoint/reconciliation/recovery contract in execution; fairness and alert tuning belong to G-LOAD. Triggers contain no business authority. Actual schedule/account tier is configuration proof, not inferred from free development.",
+      "text": "Background execution is authenticated, bounded, durable and recoverable under the execution contract. Worker replacement, cancellation and stale input cannot publish or duplicate work. Unknown provider outcomes require reconciliation. G-LOAD owns measured fairness and alert tuning. Schedule invocation supplies no business authority, and actual deployment schedule and limits require configuration proof. Execution mechanisms follow EveryField patterns.",
       "spec": "docs/product/operations.md#engineering-and-operational-scope",
       "operations": [
         "jobs.tickNotifications",
@@ -668,7 +668,7 @@
         },
         {
           "operation": "ops.flushTelemetry",
-          "rule": "Best-effort bounded configured content-free sink; failure is isolated from owning domain transaction/result. No business durable operation receipt/history requirement."
+          "rule": "Best-effort bounded configured content-free sink; failure is isolated from owning domain transaction/result. No business durable operation recorded outcome and history requirement."
         }
       ],
       "title": "Production Sentry errors and isolated optional Langfuse tracing"
@@ -678,7 +678,7 @@
       "feature_ids": [
         "OPS-004"
       ],
-      "text": "Required cross-domain consequences use one short owning transaction; attendance/obligation/task/audit/receipt consistency is not in-memory event delivery. Advisory named effects get durable outbox/job intent and idempotent consumer. Each consumer rechecks subject/scope. No public arbitrary-event RPC or universal workflow engine.",
+      "text": "Required cross-domain consequences succeed or fail together. Attendance, follow-up obligations, tasks, audit and reported outcomes remain consistent after failure, retry and concurrent changes. Optional background effects remain recoverable after interruption and do not duplicate completed work. Each consumer applies current subject and scope authority. No public arbitrary-event executor is exposed.",
       "spec": "docs/product/operations.md#engineering-and-operational-scope",
       "operations": [
         "domain.executeAtomicConsequences",
@@ -699,7 +699,7 @@
       "behavior_rules": [
         {
           "operation": "domain.executeAtomicConsequences",
-          "rule": "Registered owning domain/consumer only; actual transaction atomic transaction/source mutation is trusted context, all mandatory source/parent fields. Required cross-domain consequences same short transaction; advisory outbox follows persisted source, never public arbitrary event RPC."
+          "rule": "Registered owning domain/consumer only; the actual committed source change is trusted context, all mandatory source/parent fields. Required cross-domain consequences same all-or-nothing change; optional work follows a committed source change, never public arbitrary event RPC."
         }
       ],
       "title": "Atomic domain consequences and durable advisory intents"
@@ -709,7 +709,7 @@
       "feature_ids": [
         "OPS-005"
       ],
-      "text": "Fresh versioned migration history/checksums and approved reference bootstrap; positively identified owned DB target, advisory lock and replay provenance. Preserve applied history and refuse conflicting checksum/unknown target. No db:push, legacy-chain requirement, live ledger patching or customer migration. Recovery uses recovery.",
+      "text": "Fresh versioned migration history/checksums and approved reference bootstrap; positively identified owned DB target, safe concurrent execution and replay provenance. Preserve applied history and refuse conflicting checksum/unknown target. No db:push, legacy-chain requirement, live ledger patching or customer migration. Recovery uses recovery.",
       "spec": "docs/product/operations.md#engineering-and-operational-scope",
       "operations": [
         "ops.schemaValidate",
@@ -730,7 +730,7 @@
       "behavior_rules": [
         {
           "operation": "ops.applyVersionedMigration",
-          "rule": "Exact positively identified authorized DB target, protected actual config/credential context, advisory lock/checksum replay; no customer migration/live patch/db:push or submitted manifest creating permission."
+          "rule": "Exact positively identified authorized DB target, protected actual config/credential context, safe concurrent execution and checksum replay; no customer migration/live patch/db:push or submitted manifest creating permission."
         },
         {
           "operation": "ops.inspectMigrationProvenance",

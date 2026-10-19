@@ -291,7 +291,8 @@ FIX6_RULE_REWRITES = {
 def behavior_rewrites():
     # Only exact reviewed old-to-new ledger pairs may translate historical rules.
     ledger = json.loads((ROOT / 'docs/catalog/rule-placement.json').read_text())
-    rewrites = {re.sub(r'\s+', '', old): new for old, new in ledger['rewrites'].items()}
+    reviewed = {**ledger['rewrites'], **ledger.get('shared_rewrites', {})}
+    rewrites = {re.sub(r'\s+', '', old): new for old, new in reviewed.items()}
     return rewrites
 
 
@@ -342,7 +343,7 @@ def audit(base, report):
                         'truthful retry eligibility',
                         'Actor-private Evry conversation',
                         'Authorized pure reads have no durable domain effects', LIST_COUNT_RULE]:
-        assert shared_rule in core, 'Shared rule missing: ' + shared_rule
+        assert behavior_language(shared_rule) in core, 'Shared rule missing: ' + shared_rule
     rows = []
     missing = []
     for op, field, value, rules, choice in removed_fields(before, aliases):

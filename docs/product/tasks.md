@@ -2,7 +2,7 @@
 
 This is the target for TSK-001–016. Owner/Admin administer tasks; a Member acts only on a task currently assigned to their actual account, including its named checklist/outcome operations. Read access, own-duty write, general edit/assignment and team-leader authority are separate. Use [current role policy](identity-access.md#req-idn-029), [Person reference registration](people.md#req-ppl-024) and [follow-up outcome contracts](meetings-follow-up.md#req-mtg-021).
 
-Task states are `not_started`, `in_progress`, manual `blocked`, `complete`, and `no_longer_needed`; soft deletion is separate. Actionable excludes complete/no_longer_needed/deleted. Parent tasks and checklist rows have separate counts. Prerequisite blocking is advisory and differs from manual blocked. Current completion is human duty evidence, not automatic actual contact, commitment, training or readiness. Each accepted change uses a durable operation receipt, expected revisions, attributable domain status history and shared audit with required effects/source revision in the transaction. External reminders dispatch from durable intent and report their actual outcome.
+Task states are `not_started`, `in_progress`, manual `blocked`, `complete`, and `no_longer_needed`; soft deletion is separate. Actionable excludes complete/no_longer_needed/deleted. Parent tasks and checklist rows have separate counts. Prerequisite blocking is advisory and differs from manual blocked. Current completion is human duty evidence, not automatic actual contact, commitment, training or readiness. Each accepted change uses a durable recorded outcome, unchanged reviewed state, attributable domain status history and shared audit with required effects/source revision in the transaction. External reminders dispatch from durable intent and report their actual outcome.
 
 
 ## Shared domain contracts
@@ -12,7 +12,7 @@ Task states are `not_started`, `in_progress`, manual `blocked`, `complete`, and 
 
 ### REQ-TSK-017 — Smallest WP-024 kernel before finalize
 
-WP-024 owns a transaction-bound API accepting the caller's database connection: ensure immutable obligation key, ensure managed task, update current task/obligation state, append status history, audit/operation receipt and required reminder intent. It supplies uniqueness `(tenant, originKind, originMeeting, Person, obligationKind)`, protected source identity, one active managed task per obligation, current revision and explicit unowned state. Meeting evaluation tasks use separate meeting/kind identity and do not require Person. A no_longer_needed obligation persists even if its task is edited/soft-deleted and forbids regeneration; current source correction may mark applicability superseded with history. No outcome reporting, generic work flow interpreter, independent task transaction or provider call is required in this kernel. WP-022 invokes it in the same finalization UoW; direct dependency WP-024→WP-022 is mandatory. WP-023 owns later typed outcomes/contact/eligible ownership/handoff. Kernel closure proves physical constraints/replay/fault rollback with actual WP-022 consumer at that consumer's closure, not only a stub or final regression.
+WP-024 owns generated-obligation behavior shared with meeting finalization. A tenant, origin kind, originating meeting, Person and obligation kind identify one obligation, with at most one active managed task. Meeting-evaluation tasks use meeting and kind without requiring a Person. Source identity is protected and an unowned duty is explicit. Current task/obligation state, status history, audit, recorded outcome and required reminders agree. A no_longer_needed obligation survives task edits or soft deletion and cannot regenerate; source correction may supersede applicability while preserving history. WP-022 finalization and its required obligations/tasks succeed or fail together, with WP-024 as a direct prerequisite. WP-023 owns typed outcomes, contact evidence, eligible ownership and handoff. Closure proves uniqueness, retry and failure behavior with the actual WP-022 consumer. Internal APIs, connection sharing and storage layout remain implementation choices.
 
 **Named cases:** TARGET-TSK-017.
 
@@ -21,7 +21,7 @@ WP-024 owns a transaction-bound API accepting the caller's database connection: 
 
 ### REQ-TSK-018 — Time types and deterministic DST resolution
 
-Use distinct LocalDate, entered LocalDateTime +IANA zone+selected offset and resolved UTC Instant. A date-only task remains due throughout its stored church-local day and becomes overdue at next local-day start, even on 23/25 hour DST days. A timed deadline compares resolved Instant; undated stays undated/Unknown. Entered gap time refuses save and asks for a valid choice; entered fold displays both offsets and requires occurrence selection. Automatic recurring wall schedules use resolver version 1: earlier occurrence on fold, shift forward by the actual gap duration on gap, once per logical period/recipient regardless of retry. All-day due notice engineering default 09:00 church-local on due day; overdue notice 09:00 next local day. A timed due notice is at deadline and overdue notice 24 elapsed hours later; reminders do not redefine deadline state. Meeting 7/3/1 offsets are civil days retaining local wall clock, with the same automatic resolver and disclosed labels. Future timezone change previews boundary/recurrence/reminder changes, commits preference+replanning intent under expected revision, preserves all stored LocalDate values/past instants/one-time future appointment instants, and does not resend delivered logical slots. Personal private-care weeks use confirmed author timezone separately; changing church zone never rekeys them. Runtime clock/asOf is injected/frozen and independent of host timezone; expiry/deletion uses elapsed UTC Instants.
+Use distinct LocalDate, entered LocalDateTime +IANA zone+selected offset and resolved UTC Instant. A date-only task remains due throughout its stored church-local day and becomes overdue at next local-day start, even on 23/25 hour DST days. A timed deadline compares resolved Instant; undated stays undated/Unknown. Entered gap time refuses save and asks for a valid choice; entered fold displays both offsets and requires occurrence selection. Automatic recurring wall schedules use resolver version 1: earlier occurrence on fold, shift forward by the actual gap duration on gap, once per logical period/recipient regardless of retry. All-day due notice engineering default 09:00 church-local on due day; overdue notice 09:00 next local day. A timed due notice is at deadline and overdue notice 24 elapsed hours later; reminders do not redefine deadline state. Meeting 7/3/1 offsets are civil days retaining local wall clock, with the same automatic resolver and disclosed labels. Future timezone change previews boundary/recurrence/reminder changes, commits preference+replanning intent under unchanged reviewed state, preserves all stored LocalDate values/past instants/one-time future appointment instants, and does not resend delivered logical slots. Personal private-care weeks use confirmed author timezone separately; changing church zone never rekeys them. Runtime clock/asOf is injected/frozen and independent of host timezone; expiry/deletion uses elapsed UTC Instants.
 
 **Named cases:** TARGET-TSK-018, B03-001, B03-002, B03-003, B03-004, B03-005, B03-006, B03-007, B03-008, B03-009, B03-010, B03-011, B03-012, B03-013, B03-014, B03-015, B03-016, B03-017, B03-018, B03-036, B03-037.
 
@@ -50,9 +50,9 @@ Use distinct LocalDate, entered LocalDateTime +IANA zone+selected offset and res
 
 <a id="req-tsk-001"></a>
 
-### TSK-001 — Task queues, filters and keyset paging
+### TSK-001 — Task queues, filters and pagination
 
-**REQ-TSK-001.** Preserve My/All/Assignments, title search, closed status/priority/category/relation filters and sorting due/priority/status/title/created. Page default 50/max 100 with stable sort key+ID cursor and null due last. Counts use exactly the same current query scope, counting top-level tasks separately from checklist sub tasks. Team filter applies to My/All, not independent Assignments contact-coverage view; foreign/unavailable team reveals no name/rows. Filter navigation/clear retains siblings and resets cursor. Deleted cursor either resumes from signed stored sort tuple or returns explicit reset, never silently skips/leaks.
+**REQ-TSK-001.** Preserve My/All/Assignments, title search, closed status/priority/category/relation filters and sorting by due, priority, status, title or creation time. Pages default to 50 and allow at most 100 rows with deterministic ordering and null due dates last. Counts use the same authorized query scope, counting top-level tasks separately from checklist subtasks. The Team filter applies to My/All, not the independent Assignments contact-coverage view; foreign or unavailable teams reveal no names or rows. Filter changes preserve sibling filters and reset pagination. Concurrent deletion either permits coherent continuation or an explicit reset, without silent skips, duplicates or leaks. Pagination representation follows EveryField patterns.
 
 **Target operations:** `tasks.list`, `tasks.count`, `tasks.followUpCoverage`.
 
@@ -65,7 +65,7 @@ Use distinct LocalDate, entered LocalDateTime +IANA zone+selected offset and res
 
 ### TSK-002 — Atomic task create/edit/delete
 
-**REQ-TSK-002.** Full/quick task retains trimmed nonempty bounded title, safe description, state/priority/category, optional LocalDate/time, current same plant assignee, person/meeting/team relation, parent, recurrence and prerequisites. Reject facility relation and malformed/mismatched relation pair; explicit null clears. Generated obligation/evaluation relation/source identity is protected from ordinary edit. Validate/lock task, graph, series and related subjects; edit+status+prerequisites/history/receipt/intent commit all or none, with no failed response after hidden title change. Soft-delete parent+children coherently; generated obligation/history persists. Parent deletion reviews consequences and cancels live reminders without erasing already performed evidence.
+**REQ-TSK-002.** Full/quick task retains trimmed nonempty bounded title, safe description, state/priority/category, optional LocalDate/time, current same plant assignee, person/meeting/team relation, parent, recurrence and prerequisites. Reject facility relation and malformed/mismatched relation pair; explicit null clears. Generated obligation/evaluation relation/source identity is protected from ordinary edit. Validate current task, graph, series and related subjects; concurrent edits must preserve their invariants; edit+status+prerequisites/history and recorded outcome/intent commit all or none, with no failed response after hidden title change. Soft-delete parent+children coherently; generated obligation/history persists. Parent deletion reviews consequences and cancels live reminders without erasing already performed evidence.
 
 **Target operations:** `tasks.create`, `tasks.edit`, `tasks.delete`.
 
@@ -78,7 +78,7 @@ Use distinct LocalDate, entered LocalDateTime +IANA zone+selected offset and res
 
 ### TSK-003 — Completion, reopen and own-duty outcomes
 
-**REQ-TSK-003.** Recheck actual assignee/current authority inside transaction; Member completes/reopens only own duty, Owner/Admin any current same plant task. CAS completion stores effective completion Instant/actor, status history and required successor/outcome effects atomically. Same intent retry returns original receipt and no duplicate event. Reopen clears current completion projection but retains prior history and recomputes current metrics/contact evidence where affected; it does not forge past success or unsend delivery. Recurring older occurrence reopen fails if another open successor exists and names it. Parent completion remains explicit human judgment. Person linked administrative completion never implies contact.
+**REQ-TSK-003.** Recheck actual assignee/current authority at execution; Member completes/reopens only own duty, Owner/Admin any current same plant task. Completion records effective completion Instant/actor, status history and required successor/outcome effects atomically. Same intent retry returns original recorded outcome and no duplicate event. Reopen clears current completion projection but retains prior history and recomputes current metrics/contact evidence where affected; it does not forge past success or unsend delivery. Recurring older occurrence reopen fails if another open successor exists and names it. Parent completion remains explicit human judgment. Person linked administrative completion never implies contact.
 
 **Target operations:** `tasks.complete`, `tasks.reopen`, `tasks.changeStatus`.
 
@@ -91,7 +91,7 @@ Use distinct LocalDate, entered LocalDateTime +IANA zone+selected offset and res
 
 ### TSK-004 — No longer needed without success credit
 
-**REQ-TSK-004.** Retain no_longer_needed as closure distinct from complete. It suppresses open/overdue/due notices and actionable follow-up warnings but earns no successful task/48 h/contact credit. Generated immutable obligation records waiver permanently; edit/soft delete/replay/legacy fallback cannot regenerate waived task. Explicit reopen/correction with current revision changes current state while preserving waiver history and one active obligation task. No bulk complete implicitly converts waiver into success.
+**REQ-TSK-004.** Retain no_longer_needed as closure distinct from complete. It suppresses open/overdue/due notices and actionable follow-up warnings but earns no successful task/48 h/contact credit. Generated immutable obligation records waiver permanently; edit/soft delete/replay/legacy fallback cannot regenerate waived task. Explicit reopen/correction with current state changes current state while preserving waiver history and one active obligation task. No bulk complete implicitly converts waiver into success.
 
 **Target operations:** `tasks.waive`.
 
@@ -117,7 +117,7 @@ Use distinct LocalDate, entered LocalDateTime +IANA zone+selected offset and res
 
 ### TSK-006 — Advisory prerequisite DAG
 
-**REQ-TSK-006.** Top-level same-tenant tasks only, unique edges and composite FKs. Deny self/foreign/deleted candidate; serialize graph edits under tenant graph lock before longer cycle detection, so concurrent opposite edges cannot both commit. Show derived blocked badge for unfinished actionable prerequisite, distinct from manual blocked status; Complete, no_longer_needed, or an existing prerequisite soft-deleted after the edge was saved releases derived blocking. Deletion supplies no successful-completion/48-hour/contact credit and preserves the predecessor and edge history. Badge is advisory and does not prevent explicit allowed completion. Current/history edge correction is audited and retry-safe; no generalized project work flow engine.
+**REQ-TSK-006.** Top-level same-tenant tasks have unique prerequisite relationships. Deny self, foreign and deleted candidates. Cycles are forbidden, including when concurrent opposite relationships are proposed. Show derived blocked badge for unfinished actionable prerequisite, distinct from manual blocked status; Complete, no_longer_needed, or an existing prerequisite soft-deleted after the edge was saved releases derived blocking. Deletion supplies no successful-completion/48-hour/contact credit and preserves the predecessor and edge history. Badge is advisory and does not prevent explicit allowed completion. Current/history edge correction is audited and retry-safe; no generalized project work flow engine.
 
 **Target operations:** `tasks.replacePrerequisites`, `tasks.listPrerequisites`, `tasks.prerequisiteCandidates`.
 
@@ -143,7 +143,7 @@ Use distinct LocalDate, entered LocalDateTime +IANA zone+selected offset and res
 
 ### TSK-008 — Bounded bulk completion and reschedule
 
-**REQ-TSK-008.** Accept at most 100 deduplicated IDs with frozen reviewed selection and expected per row revision. Prevalidate shared request/date/policy, then run bounded per-task transactions for completion/recurrence or reschedule/reminder intent, returning exact success/noop/missing/deleted/foreign/closed/unauthorized/stale/conflict outcomes and remaining IDs. No generic failure hides committed rows. Own-duty bulk complete rechecks assignee per row; admin reschedule cannot invent due dates on unselected tasks. Replay intent resumes only unsettled rows, completed recurrence cannot duplicate and one bad row does not claim whole batch success.
+**REQ-TSK-008.** Accept at most 100 deduplicated IDs with frozen reviewed selection and unchanged state of each reviewed row. Prevalidate shared request/date/policy, then run bounded independent task changes for completion/recurrence or reschedule/reminder intent, returning exact success/noop/missing/deleted/foreign/closed/unauthorized/stale/conflict outcomes and remaining IDs. No generic failure hides committed rows. Own-duty bulk complete rechecks assignee per row; admin reschedule cannot invent due dates on unselected tasks. Replay intent resumes only unsettled rows, completed recurrence cannot duplicate and one bad row does not claim whole batch success.
 
 **Target operations:** `tasks.bulkComplete`, `tasks.bulkReschedule`.
 
@@ -169,7 +169,7 @@ Use distinct LocalDate, entered LocalDateTime +IANA zone+selected offset and res
 
 ### TSK-010 — One durable phase-transition offer answer
 
-**REQ-TSK-010.** Latest unanswered actual transition ID offers current phase valid templates; phase event alone creates no tasks. Human may decline or accept any explicit valid subset, which answers that transition. Lock unique answer/transition; selected tasks+answer/history/receipt commit atomically, anchored to actual transition LocalDate. Stale transition/forged keys/authority refuses zero effects. Concurrent devices one winner; response loss returns durable actual inserted IDs, not temporary cookie-only receipt. Optional atomic bounded import failure leaves offer unanswered; no hidden partial claim strands selected templates.
+**REQ-TSK-010.** Latest unanswered actual transition ID offers current phase valid templates; phase event alone creates no tasks. Human may decline or accept any explicit valid subset, which answers that transition. Allow only one answer to each transition; selected tasks+answer/history and recorded outcome commit atomically, anchored to actual transition LocalDate. Stale transition/forged keys/authority refuses zero effects. Concurrent devices one winner; response loss returns durable actual inserted IDs, not temporary cookie-only receipt. Optional atomic bounded import failure leaves offer unanswered; no hidden partial claim strands selected templates.
 
 **Target operations:** `tasks.readPhaseOffer`, `tasks.answerPhaseOffer`.
 
@@ -195,7 +195,7 @@ Use distinct LocalDate, entered LocalDateTime +IANA zone+selected offset and res
 
 ### TSK-012 — Eligible follow-up assignment and uncovered contacts
 
-**REQ-TSK-012.** Eligible owner is actual account linked live same plant committed stage Person(core_group/launch_team/leader) with current seat; shared email/unlinked contact cannot own. Current demotion/access loss resolves stale assignee Needs owner even if stored ID remains. Assignment validates now under lock, derived labels from stored Person not client name. Manual create+assign may remain undated and has distinct manual origin; no invented due date or 48 h lineage invented. Assignment view shows actionable open tasks, grouped current owners, uncovered contact coverage without claiming urgent task when no explicit duty exists. No lead title-based authorization.
+**REQ-TSK-012.** Eligible owner is actual account linked live same plant committed stage Person(core_group/launch_team/leader) with current seat; shared email/unlinked contact cannot own. Current demotion/access loss resolves stale assignee Needs owner even if stored ID remains. Assignment validates current eligibility at execution, derived labels from stored Person not client name. Manual create+assign may remain undated and has distinct manual origin; no invented due date or 48 h lineage invented. Assignment view shows actionable open tasks, grouped current owners, uncovered contact coverage without claiming urgent task when no explicit duty exists. No lead title-based authorization.
 
 **Target operations:** `tasks.followUpCoverage`, `tasks.assignFollowUp`, `tasks.createFollowUp`.
 
@@ -208,7 +208,7 @@ Use distinct LocalDate, entered LocalDateTime +IANA zone+selected offset and res
 
 ### TSK-013 — Explicit demotion/seat-removal handoff
 
-**REQ-TSK-013.** Preview exact actionable parent follow-ups owned by departing/demoted account and currently eligible recipient. Review selection/revisions, then move bounded≤100 tasks in one transaction with history/reminder intent/receipt; larger selection uses durable named chunks and moved/remaining IDs under one intent. Decline writes nothing and all unresolved duties remain visible Needs owner. Foreign/ineligible recipient, stale selection or protected Owner exception refuses before chunk effects. Closed/waived/deleted tasks never reopen. Account/Person and former duty history remain.
+**REQ-TSK-013.** Preview exact actionable parent follow-ups owned by departing/demoted account and currently eligible recipient. Review selection/revisions, then move bounded≤100 tasks in one all-or-nothing change with history/reminder intent/receipt; larger selection uses durable named chunks and moved/remaining IDs under one intent. Decline writes nothing and all unresolved duties remain visible Needs owner. Foreign/ineligible recipient, stale selection or protected Owner exception refuses before chunk effects. Closed/waived/deleted tasks never reopen. Account/Person and former duty history remain.
 
 **Target operations:** `tasks.planHandoff`, `tasks.executeHandoff`.
 
@@ -234,7 +234,7 @@ Use distinct LocalDate, entered LocalDateTime +IANA zone+selected offset and res
 
 ### TSK-015 — Attributable status history across every writer
 
-**REQ-TSK-015.** All status writers(native/Evry/bulk/generated evaluation/recurrence/correction) append previous/new state, effective Instant, recorded Instant, actual actor or identified system cause, revision and receipt in same UoW. Preserve initial creation state and close/reopen/waiver lineage. No-op retry creates no fake history. Read history requires current owned task scope, retains soft-deleted receipt as allowed and never renders anonymous source trigger rows as full actor evidence. Shared audit is not universal public browser/export or retention exemption.
+**REQ-TSK-015.** All status writers(native/Evry/bulk/generated evaluation/recurrence/correction) append previous/new state, effective Instant, recorded Instant, actual actor or identified system cause, the known outcome in the same all-or-nothing change. Preserve initial creation state and close/reopen/waiver lineage. No-op retry creates no fake history. Read history requires current owned task scope, retains soft-deleted receipt as allowed and never renders anonymous source trigger rows as full actor evidence. Shared audit is not universal public browser/export or retention exemption.
 
 **Target operations:** `tasks.statusHistory`.
 
@@ -258,4 +258,4 @@ Use distinct LocalDate, entered LocalDateTime +IANA zone+selected offset and res
 
 ## Consumer closure and proof
 
-[Canonical build progress](../build-progress.json) records implementation milestones and completion. Execute the named future cases through real domain requests, disposable PostgreSQL constraints/races/fault injection and native/reviewed-Evry browser paths where surfaced. Prove current authorization again at execution; no test/source count or file presence is runtime proof. Include registered Person references, current source-revision writes, exact partial/committed receipts, correction limits and failure outcomes at each owning consumer closure. Domain adapter files are owned by their specific feature packages; shared Evry runtime/catalog/review UI has one integration owner.
+[Canonical build progress](../build-progress.json) records implementation milestones and completion. Execute the named future cases through real domain requests, disposable PostgreSQL constraints/races/fault injection and native/reviewed-Evry browser paths where surfaced. Prove current authorization again at execution; no test/source count or file presence is runtime proof. Include registered Person references, assessment freshness, exact partial/committed receipts, correction limits and failure outcomes at each owning consumer closure. Domain adapter files are owned by their specific feature packages; shared Evry runtime/catalog/review UI has one integration owner.

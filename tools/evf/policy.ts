@@ -52,7 +52,15 @@ export function requireTaskScope(root: string, task: TaskRef, wp?: string): void
 			if (!path.endsWith("/") && existsSync(join(root, path)) && statSync(join(root, path)).isDirectory())
 				fail(`Maintenance owning path ${path} is a folder; use ${path}/ to include its files.`);
 		}
-		const files = ["README.md", "AGENTS.md", "evf.config.json", "skills-lock.json", ".gitignore", "bin/evf"];
+		const files = [
+			"README.md",
+			"AGENTS.md",
+			"evf.config.json",
+			"skills-lock.json",
+			".gitignore",
+			"bin/evf",
+			"everyfield-feature-review.html",
+		];
 		const directories = [".agents/", ".claude/", "docs/", "tools/evf/", ".github/"];
 		if (
 			scope.owningPaths.some(

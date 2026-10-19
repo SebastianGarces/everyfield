@@ -236,7 +236,7 @@
       "behavior_rules": [
         {
           "operation": "reference.activateGeneration",
-          "rule": "Global advisory lock+expected-current CAS, append activation of complete validated generation. Current=max committed activation_number; no mutable is active. Increment activation number before commit; after-commit wake-up only. Old assessment workers fail reference CAS; no giant all-plant transaction."
+          "rule": "Activate only a complete validated generation against the reviewed current release. Competing activations have one winner. Keep attributable activation history. Background wake-up failure cannot change the committed release, and assessment work based on an earlier activation cannot publish."
         },
         {
           "operation": "reference.rollbackActivation",

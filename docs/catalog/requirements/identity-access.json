@@ -70,11 +70,11 @@
         },
         {
           "operation": "accounts.register",
-          "rule": "Better Auth credentials may exist unprivileged in pending_domain; one domain transaction claims token+exact domain/seat/relationship+Person+receipt/audit/security mail intent and activates. Partial identity is resumable with no grant; credentials are not claimed atomic with domain transaction."
+          "rule": "Better Auth credentials may exist unprivileged in pending_domain; one all-or-nothing domain change claims token+exact domain/seat/relationship+Person+recorded outcome and audit/security mail intent and activates. Partial identity is resumable with no grant; credentials are not claimed atomic with domain transaction."
         },
         {
           "operation": "accounts.resumeRegistration",
-          "rule": "Staged native self resume; no domain authority until token+exact grant/Person+receipt/audit/mail intent commit under original account/intent. Retry returns saved receipt; expired/revoked token yields no grant."
+          "rule": "Staged native self resume; no domain authority until token+exact grant/Person+recorded outcome and audit/mail intent commit under original account/intent. Retry returns saved outcome; expired/revoked token yields no grant."
         },
         {
           "operation": "accounts.getRegistrationStatus",
@@ -150,7 +150,7 @@
       "feature_ids": [
         "IDN-005"
       ],
-      "text": "Implement REQ-IDN-029 with one active account-seat constraint, typed tenant identity and fail-closed handling of inconsistent membership rows. Enforce authority on the server and in the write transaction, independently of hidden/read-only UI controls. Own seat, Discovery relationship, exact organization oversight and platform allowlist are distinct contexts, never pooled grants. Subject/own-duty guards remain narrower than generic routine administration. Return bounded DTOs; foreign/not-found records cannot disclose another tenant through detail, download, aggregate, cache or assistant paths.",
+      "text": "Implement REQ-IDN-029 with one active account-seat constraint, typed tenant identity and fail-closed handling of inconsistent membership rows. Enforce authority on the server and when changing data, independently of hidden/read-only UI controls. Own seat, Discovery relationship, exact organization oversight and platform allowlist are distinct contexts, never pooled grants. Subject/own-duty guards remain narrower than generic routine administration. Return bounded DTOs; foreign/not-found records cannot disclose another tenant through detail, download, aggregate, cache or assistant paths.",
       "spec": "docs/product/identity-access.md#req-idn-005",
       "operations": [
         "access.currentActor",
@@ -218,7 +218,7 @@
         },
         {
           "operation": "access.projectRead",
-          "rule": "New expected revisions and exact effect review; historical external disclosures remain truthful; no universal undo."
+          "rule": "New unchanged reviewed state and exact effect review; historical external disclosures remain truthful; no universal undo."
         },
         {
           "operation": "access.currentActor",
@@ -380,7 +380,7 @@
       "feature_ids": [
         "IDN-010"
       ],
-      "text": "Expose only known authorized account/church/association/team/organization/notification sections as typed DTOs. Use the v3 settings section links from design/handoff/screens.md with no v2 redirects. Preserve back/forward, focus/keyboard access and dirty draft protection across navigation/dismissal; a simpler shell is allowed. Preference auto save reports pending/error and restores server state on failure; rejected explicit save retains the user's draft. Server rechecks section owner/current scope/revision and cached results key exact actor/tenant. Personal timezone and deletion/cancellation native entry points integrate here; restricted deletion sessions cannot load normal settings. Affiliation settings use the same exact-organization category policy as privacy.setSharing: teams maps to ministry_teams and activityPush maps to activity; shared_findings is the single released-health/NI permission. An omitted category preserves its stored value. A nonempty closed patch binds current relationship and consent revisions, accepts only actual same-plant Owner/Admin, and commits through the shared organization helper in one domain transaction. Organization roles cannot edit plant consent; stale/missing/revoked policies refuse without reset or partial effects.",
+      "text": "Expose only known authorized account/church/association/team/organization/notification sections as typed DTOs. Use the v3 settings section links from design/handoff/screens.md with no v2 redirects. Preserve back/forward, focus/keyboard access and dirty draft protection across navigation/dismissal; a simpler shell is allowed. Preference auto save reports pending/error and restores server state on failure; rejected explicit save retains the user's draft. Server rechecks section owner/current scope/revision and cached results key exact actor/tenant. Personal timezone and deletion/cancellation native entry points integrate here; restricted deletion sessions cannot load normal settings. Affiliation settings use the same exact-organization category policy as privacy.setSharing: teams maps to ministry_teams and activityPush maps to activity; shared_findings is the single released-health/NI permission. An omitted category preserves its stored value. A nonempty closed patch binds current relationship and consent revisions, accepts only actual same-plant Owner/Admin, and commits through the shared organization helper in one all-or-nothing domain change. Organization roles cannot edit plant consent; stale/missing/revoked policies refuse without reset or partial effects.",
       "spec": "docs/product/identity-access.md#req-idn-010",
       "operations": [
         "settings.getSection",
@@ -420,7 +420,7 @@
         },
         {
           "operation": "settings.saveSection",
-          "rule": "Changing organization sharing settings requires the current revision of the exact affiliation consent."
+          "rule": "Changing organization sharing settings requires the current state of the exact affiliation consent."
         },
         {
           "operation": "settings.saveSection",
@@ -428,11 +428,11 @@
         },
         {
           "operation": "settings.saveSection",
-          "rule": "Lock/recheck actual relationship expected revision and exact sharing expected consent revision before applying the supplied closed patch. Missing or revoked policy refuses; initialization occurs only in the existing mutual-approval transaction."
+          "rule": "Recheck the actual relationship and unchanged reviewed sharing choices before applying the supplied closed patch. Missing or revoked policy refuses; initialization occurs only in the existing mutual-approval transaction."
         },
         {
           "operation": "settings.saveSection",
-          "rule": "Sharing changes made through privacy controls or settings have the same behavior and commit all required changes atomically. One receipt, audit, exact history, required intents and conditional material revision commit together. Changed policy immediately gates saved, current, cached and assistant access; exact replay or no-op does not advance the revision."
+          "rule": "Sharing changes made through privacy controls or settings have the same behavior and commit all required changes atomically. One receipt, audit, exact history, required intents and conditional assessment freshness commit together. Changed policy immediately gates saved, current, cached and assistant access; exact replay or no-op does not advance the revision."
         },
         {
           "operation": "settings.saveSection",
@@ -570,7 +570,7 @@
       "feature_ids": [
         "IDN-013"
       ],
-      "text": "For a proven eligible account create one plant, Owner membership, all-OFF self-start sharing settings and one stable account-linked CRM Person in the domain transaction. Trim required plant name; allow partial independent locality. Repeated intent returns the same plant; simultaneous seat acceptance/creation cannot create a second active seat, orphan authority or stray Person. Account-linked Owner is CRM leader-stage bootstrap history, not proof of commitment/adult eligibility. Actual church creation enters Phase 1, with a once-only church_creation history variant from no previous plant phase; it does not attest an existing journey or mark readiness/reading complete. Retry returns the actual current phase without overwriting later history. A successful basics step cannot be reentered to provision again. Global canonical seed is separate from customer creation.",
+      "text": "For a proven eligible account create one plant, Owner membership, all-OFF self-start sharing settings and one stable account-linked CRM Person as part of the same all-or-nothing domain change. Trim required plant name; allow partial independent locality. Repeated intent returns the same plant; simultaneous seat acceptance/creation cannot create a second active seat, orphan authority or stray Person. Account-linked Owner is CRM leader-stage bootstrap history, not proof of commitment/adult eligibility. Actual church creation enters Phase 1, with a once-only church_creation history variant from no previous plant phase; it does not attest an existing journey or mark readiness/reading complete. Retry returns the actual current phase without overwriting later history. A successful basics step cannot be reentered to provision again. Global canonical seed is separate from customer creation.",
       "spec": "docs/product/identity-access.md#req-idn-013",
       "operations": [
         "onboarding.createPlant",
@@ -663,7 +663,7 @@
       "feature_ids": [
         "IDN-015"
       ],
-      "text": "Persist basics/lead answer/journey/People facts and derive resume from them. Optional steps may be skipped; finishing stamps onboarding completion once and material source revision without claiming all facts are complete or generating an assessment synchronously. Existing-journey declaration is optional human attestation, separate from actual creation-entry Phase 1. A saved unsure/discerning/skip answer can complete that setup step but is not an attestation and keeps actual creation Phase 1. It never silently maps back to Phase 0; later explicit validated reasoned phase correction remains available. Native launch plan accepts no-date and cannot clear an existing schedule accidentally during onboarding; phase and launch writes are a single reviewed resumable intent if they cannot share the short transaction. Back/reentry cannot rerun finished provisioning. Missing facts remain visible after finish; no mandatory six-article gate for actual Phase 1 creation.",
+      "text": "Persist basics/lead answer/journey/People facts and derive resume from them. Optional steps may be skipped; finishing stamps onboarding completion once and affected assessment freshness without claiming all facts are complete or generating an assessment synchronously. Existing-journey declaration is optional human attestation, separate from actual creation-entry Phase 1. A saved unsure/discerning/skip answer can complete that setup step but is not an attestation and keeps actual creation Phase 1. It never silently maps back to Phase 0; later explicit validated reasoned phase correction remains available. Native launch plan accepts no-date and cannot clear an existing schedule accidentally during onboarding; phase and launch writes are a single reviewed resumable intent if they cannot share the short transaction. Back/reentry cannot rerun finished provisioning. Missing facts remain visible after finish; no mandatory six-article gate for actual Phase 1 creation.",
       "spec": "docs/product/identity-access.md#req-idn-015",
       "operations": [
         "onboarding.declareJourney",
@@ -697,7 +697,7 @@
       "feature_ids": [
         "IDN-016"
       ],
-      "text": "Maintain explicit Discovery profile and scoped sending-church/network relationships without any organization seat. Seatless former Member is not automatically Discovery. Conversion by the proven profile owner locks account/profile, creates plant at Phase 1 with once-only creation-entry provenance plus Owner/Person and transfers only chosen disclosed relationships/sharing choices in one domain transaction, retiring the Discovery profile with history. Associated Discovery must resolve/leave incompatible association before ordinary first-seat acceptance; no automatic tenancy move. Race conversion, relationship edit and invitation claim under the same account lock and one-active-seat arbiter.",
+      "text": "Maintain explicit Discovery profile and scoped sending-church/network relationships without any organization seat. Seatless former Member is not automatically Discovery. Conversion by the proven profile owner validates current account/profile state, creates plant at Phase 1 with once-only creation-entry provenance plus Owner/Person and transfers only chosen disclosed relationships/sharing choices in one all-or-nothing domain change, retiring the Discovery profile with history. Associated Discovery must resolve/leave incompatible association before ordinary first-seat acceptance; no automatic tenancy move. Race conversion, relationship edit and invitation claim under the same account eligibility and one-active-seat rules.",
       "spec": "docs/product/identity-access.md#req-idn-016",
       "operations": [
         "discovery.getProfile",
@@ -738,7 +738,7 @@
       "feature_ids": [
         "IDN-017"
       ],
-      "text": "Owner/Admin invite ordinary Admin/Member into their exact workspace. Keep addressed hashed purpose token, pending→accepted/expired/revoked, 30 elapsed-day expiry, at most 3 new invitation attempts per exact workspace/address in 30 elapsed days, persistent 60 elapsed-second resend cool down and one pending subject/address intent. Resend rotates token after current revision/cool down check; revoke/accept/resend race has one winner. Pending lists/sender responses redact account-resolution data. Proven existing seatless account may accept its first seat; new account uses REQ-IDN-030. Refuse already active-seat accounts, wrong mailbox, malformed target/type, expired/revoked/superseded token and incompatible associated Discovery rather than moving tenancy. Validate inside the claim transaction; mail retry returns the same invitation receipt.",
+      "text": "Owner/Admin invite ordinary Admin/Member into their exact workspace. Keep addressed hashed purpose token, pending→accepted/expired/revoked, 30 elapsed-day expiry, at most 3 new invitation attempts per exact workspace/address in 30 elapsed days, persistent 60 elapsed-second resend cool down and one pending subject/address intent. Resend rotates token after current state/cool down check; revoke/accept/resend race has one winner. Pending lists/sender responses redact account-resolution data. Proven existing seatless account may accept its first seat; new account uses REQ-IDN-030. Refuse already active-seat accounts, wrong mailbox, malformed target/type, expired/revoked/superseded token and incompatible associated Discovery rather than moving tenancy. Validate when accepting the invitation; mail retry returns the same invitation receipt.",
       "spec": "docs/product/identity-access.md#req-idn-017",
       "operations": [
         "seats.invite",
@@ -775,7 +775,7 @@
         },
         {
           "operation": "seats.acceptInvitation",
-          "rule": "Authenticated addressed account or staged credential proof; no current active seat; no incompatible associated Discovery; exact pending token/address/type/expiry/current revision atomically grants first seat+Person+receipt. Existing Admin is not prerequisite."
+          "rule": "Authenticated addressed account or staged credential proof; no current active seat; no incompatible associated Discovery; exact pending token/address/type/expiry/current state atomically grants first seat+Person+receipt. Existing Admin is not prerequisite."
         },
         {
           "operation": "seats.listInvitations",
@@ -805,7 +805,7 @@
       "feature_ids": [
         "IDN-019"
       ],
-      "text": "Owner/Admin manage ordinary same-workspace Admin/Member seats under expected current role/revision. Protect actual Owner; deny self-promotion, foreign target, generic Owner removal and role changes that violate one-active-seat integrity. Joined date uses accepted invite provenance or clearly labelled original-account fallback. Removal revokes membership authority/sessions, retains CRM/account link and qualification/team history, clears access-dependent team leadership, and presents exact actionable-duty handoff to a currently eligible recipient or visible Needs owner. Closed/waived/deleted duties remain closed. Role/grant/duty/audit changes commit together, or return durable named moved/remaining outcomes; no generic success after partial hidden work. Removal is not account deletion/ownership transfer.",
+      "text": "Owner/Admin manage ordinary same-workspace Admin/Member seats under current role and unchanged reviewed seat. Protect actual Owner; deny self-promotion, foreign target, generic Owner removal and role changes that violate one-active-seat integrity. Joined date uses accepted invite provenance or clearly labelled original-account fallback. Removal revokes membership authority/sessions, retains CRM/account link and qualification/team history, clears access-dependent team leadership, and presents exact actionable-duty handoff to a currently eligible recipient or visible Needs owner. Closed/waived/deleted duties remain closed. Role/grant/duty/audit changes commit together, or return durable named moved/remaining outcomes; no generic success after partial hidden work. Removal is not account deletion/ownership transfer.",
       "spec": "docs/product/identity-access.md#req-idn-019",
       "operations": [
         "seats.list",
@@ -956,7 +956,7 @@
       "feature_ids": [
         "IDN-021"
       ],
-      "text": "An authorized subject-side Owner/Admin may leave exactly its own affiliation; exact own-org Owner/Admin may end only that organization's link with confirmation and retryable notice to the plant. Preserve other affiliations and independent access paths. Append typed actor/org/subject/source-invite/time/reason history for plant, sending-church and Discovery subjects; do not fabricate missing legacy history. Repeated sever returns the existing/no-effect receipt and no duplicate event. Current entitlement is removed immediately for that link's bodies/results/caches while minimal allowed relationship history remains. Returning through a new ordinary approved invitation preserves history and existing per-org consent; no special rejoin restoration engine.",
+      "text": "An authorized subject-side Owner/Admin may leave exactly its own affiliation; exact own-org Owner/Admin may end only that organization's link with confirmation and retryable notice to the plant. Preserve other affiliations and independent access paths. Append typed actor/org/subject/source-invite/time/reason history for plant, sending-church and Discovery subjects; do not fabricate missing legacy history. Repeated sever returns the existing/no-effect outcome and no duplicate event. Current entitlement is removed immediately for that link's bodies/results/caches while minimal allowed relationship history remains. Returning through a new ordinary approved invitation preserves history and existing per-org consent; no special rejoin restoration engine.",
       "spec": "docs/product/identity-access.md#req-idn-021",
       "operations": [
         "associations.end",
@@ -1025,7 +1025,7 @@
       "feature_ids": [
         "IDN-022"
       ],
-      "text": "Store each accepted plant/org pair's approved aggregate categories and separate activity push consent. Self-start defaults all OFF; accepted first invitation discloses active categories default ON for that exact organization, with later independent ON/OFF changes. Never reset previous consent on rejoin or another-org acceptance. Retain People/Meetings/Tasks/Teams/Wiki aggregate categories, independent activity push consent, and the existing shared_findings permission for released health/NI findings. The closed category-to-column mapping is people→share_people, meetings→share_meetings, tasks→share_tasks, ministry_teams→share_ministry_teams, wiki→share_wiki, activity→share_activity, shared_findings→shared_findings. Activity remains independently stored push consent in the same sharing command; shared_findings is one existing permission, with no second NI consent. Finance/facility/background/coach/private-care categories are absent. Missing relationship/settings fail closed. Turning a category OFF stops new reads/results/cache reuse/dispatch from it, without hiding the basic relationship directory or unaffected affiliates; coarse relationship notice must not name restricted toggle or body. Org preferences cannot authorize pull data.",
+      "text": "Store each accepted plant/org pair's approved aggregate categories and separate activity push consent. Self-start defaults all OFF; accepted first invitation discloses active categories default ON for that exact organization, with later independent ON/OFF changes. Never reset previous consent on rejoin or another-org acceptance. Retain People/Meetings/Tasks/Teams/Wiki aggregate categories, independent activity push consent, and the existing shared_findings permission for released health/NI findings. The permitted categories are People, Meetings, Tasks, Teams, Wiki, activity push and shared findings. Each applies only to its own approved projection. Activity remains independently stored push consent in the same sharing command; shared_findings is one existing permission, with no second NI consent. Finance/facility/background/coach/private-care categories are absent. Missing relationship/settings fail closed. Turning a category OFF stops new reads/results/cache reuse/dispatch from it, without hiding the basic relationship directory or unaffected affiliates; coarse relationship notice must not name restricted toggle or body. Org preferences cannot authorize pull data.",
       "spec": "docs/product/identity-access.md#req-idn-022",
       "operations": [
         "privacy.getSharing",
@@ -1229,7 +1229,7 @@
       "feature_ids": [
         "IDN-026"
       ],
-      "text": "Implement the accepted target follow-through for formerly unwired organization settings: exact own sending-church/network Owner/Admin edit bounded name/contact/profile fields with protected org kind/identity, current revision and audit. No billing, ownership transfer, delete-org or wider intelligence/CRM access is implied. Personal self deletion and Owner-only church workspace deletion follow REQ-IDN-032 with explicit review, shared church history/minimal attribution and restricted native cancellation. Admin/Member/CRM lead cannot delete workspace or another login. Leaving Owner who keeps church running uses external manual exception; no claim/transfer/special rejoin UI.",
+      "text": "Implement the accepted target follow-through for formerly unwired organization settings: exact own sending-church/network Owner/Admin edit bounded name/contact/profile fields with protected org kind/identity, current state and audit. No billing, ownership transfer, delete-org or wider intelligence/CRM access is implied. Personal self deletion and Owner-only church workspace deletion follow REQ-IDN-032 with explicit review, shared church history/minimal attribution and restricted native cancellation. Admin/Member/CRM lead cannot delete workspace or another login. Leaving Owner who keeps church running uses external manual exception; no claim/transfer/special rejoin UI.",
       "spec": "docs/product/identity-access.md#req-idn-026",
       "operations": [
         "organizations.getProfile",
@@ -1270,7 +1270,7 @@
         },
         {
           "operation": "organizations.updateProfile",
-          "rule": "Exact own org Owner/Admin bounded profile update with immutable kind/id, expected revision/audit; no plant-admin edit, billing/ownership transfer/delete-org/CRM expansion."
+          "rule": "Exact own org Owner/Admin bounded profile update with immutable kind/id, unchanged reviewed state/audit; no plant-admin edit, billing/ownership transfer/delete-org/CRM expansion."
         },
         {
           "operation": "organizations.getProfile",
@@ -1295,7 +1295,7 @@
       "feature_ids": [
         "IDN-027"
       ],
-      "text": "Uncalled direct-FK-null helpers are not separate user operations. Replace their alias semantics with the actor-bearing, typed, versioned, audited exact-link commands of IDN-021. No unguarded disassociate helper appears in the native or assistant target catalog; every relationship end shares receipt/history/notice and current entitlement removal.",
+      "text": "Uncalled direct-FK-null helpers are not separate user operations. Replace their alias semantics with the actor-bearing, typed, versioned, audited exact-link commands of IDN-021. No unguarded disassociate helper appears in the native or assistant target catalog; every relationship end shares recorded outcome and history/notice and current entitlement removal.",
       "spec": "docs/product/identity-access.md#req-idn-027",
       "operations": [
         "associations.end"
@@ -1420,7 +1420,7 @@
         "IDN-017",
         "IDN-020"
       ],
-      "text": "Use one explicit staged protocol. Better Auth credential creation may succeed independently. The associated `account.registration_state=pending_domain` has no workspace or relationship authority; any session can only prove self identity, read bounded registration status, resume or cancel. After authenticated proof for that credential identity, one short domain transaction locks account and invitation/subject, validates current expiry/address/revision, claims the token, provisions the exact seat or relationship, creates/links the Person where required, records the domain receipt and audit, and enqueues required security/notification mail intent. It changes registration_state to active only after those domain effects succeed together. A failed domain transaction keeps the unprivileged resumable identity and consumes no grant/token. Retrying the same intent resumes and returns the original complete receipt; a different existing account must authenticate instead of receiving a new grant from email equality. Existing-address resume UI asks the person to sign in or use native mailbox recovery without telling an inviter whether the account exists. Revoke/accept/expiry races have one serialized winner. Canceling incomplete registration invalidates its sessions and incomplete credential identity through the same tracked lifecycle; no grant can survive. Security-mail dispatch occurs after commit and its failure never rolls back an already valid account or misreports it as uncreated.",
+      "text": "Use one explicit staged protocol. Better Auth credential creation may succeed independently. The associated `account.registration_state=pending_domain` has no workspace or relationship authority; any session can only prove self identity, read bounded registration status, resume or cancel. After authenticated proof for that credential identity, one all-or-nothing domain change validates the current account, invitation/subject, expiry, address and unchanged reviewed facts, claims the token, provisions the exact seat or relationship, creates/links the Person where required, records the domain receipt and audit, and enqueues required security/notification mail intent. It changes registration_state to active only after those domain effects succeed together. A failed domain transaction keeps the unprivileged resumable identity and consumes no grant/token. Retrying the same intent resumes and returns the original complete outcome; a different existing account must authenticate instead of receiving a new grant from email equality. Existing-address resume UI asks the person to sign in or use native mailbox recovery without telling an inviter whether the account exists. Revoke/accept/expiry races have one serialized winner. Canceling incomplete registration invalidates its sessions and incomplete credential identity through the same tracked lifecycle; no grant can survive. Security-mail dispatch occurs after commit and its failure never rolls back an already valid account or misreports it as uncreated.",
       "spec": "docs/product/identity-access.md#req-idn-030",
       "operations": [],
       "acceptance_ids": [
@@ -1484,7 +1484,7 @@
         "IDN-013",
         "IDN-026"
       ],
-      "text": "Personal-login deletion is self-only and separate from Owner-only church-workspace deletion. Request commits active→pending_deletion with subject/request ID/revision, requested_at and cancel_until = requested_at +30 elapsed days. The same commit revokes affected normal sessions/access, hides affected material and stops new reads/writes/signed issuance/dispatch. Retain eligible private identity/data/files solely for native cancellation, not normal content access. Fresh proof of the original account or requesting current workspace Owner permits only bounded status/cancel for that exact request. Cancel strictly before cancel_until using the same row lock/revision as purge; at/after it refuse even if worker is late. Cancellation restores only still-valid independent grants, with new sessions; it cannot revive revoked affiliations, other pending subjects or canceled/sent provider effects. After the deadline, purge eligible live DB and private bytes coherently; partial failure remains hidden/purging and retryable. Set live_purged_at only after coherent completion, then copy_expires_at = live_purged_at +at most 7 days; recopies never reset expiry. Isolated restore reapplies current non-content deletion/access witnesses and refuses expired/uncertain subjects before reopening. Personal deletion preserves church-owned shared records/documents and minimum necessary historical attribution; creator is not owner. Avatar/private care/account-owned files follow personal deletion. Work space deletion hides/purges its scope without affecting unrelated organizations. An Owner leaving a continuing workspace uses the accepted manual exception, with no transfer/rejoin product engine. Show exact deadlines and explain asynchronous provider cleanup, earlier bearer-URL TTL, already accepted mail, and public/downloaded copies: physical erasure at day 37 is not promised. Cancellation records cancelled_at strictly before cancel_until; completed purge records live_purged_at and copy_expires_at. Witness states preserve pending, cancelled and purged outcomes with the current request revision.",
+      "text": "Personal-login deletion is self-only and separate from Owner-only church-workspace deletion. Request commits active→pending_deletion with subject/request ID/revision, requested_at and cancel_until = requested_at +30 elapsed days. The same commit revokes affected normal sessions/access, hides affected material and stops new reads/writes/signed issuance/dispatch. Retain eligible private identity/data/files solely for native cancellation, not normal content access. Fresh proof of the original account or requesting current workspace Owner permits only bounded status/cancel for that exact request. Cancel strictly before cancel_until using the same deadline and current-request rules as purge; at/after it refuse even if worker is late. Cancellation restores only still-valid independent grants, with new sessions; it cannot revive revoked affiliations, other pending subjects or canceled/sent provider effects. After the deadline, purge eligible live DB and private bytes coherently; partial failure remains hidden/purging and retryable. Set live_purged_at only after coherent completion, then copy_expires_at = live_purged_at +at most 7 days; recopies never reset expiry. Isolated restore reapplies current non-content deletion/access witnesses and refuses expired/uncertain subjects before reopening. Personal deletion preserves church-owned shared records/documents and minimum necessary historical attribution; creator is not owner. Avatar/private care/account-owned files follow personal deletion. Work space deletion hides/purges its scope without affecting unrelated organizations. An Owner leaving a continuing workspace uses the accepted manual exception, with no transfer/rejoin product engine. Show exact deadlines and explain asynchronous provider cleanup, earlier bearer-URL TTL, already accepted mail, and public/downloaded copies: physical erasure at day 37 is not promised. Cancellation records cancelled_at strictly before cancel_until; completed purge records live_purged_at and copy_expires_at. Witness states preserve pending, cancelled and purged outcomes with the current request revision.",
       "spec": "docs/product/identity-access.md#req-idn-032",
       "operations": [
         "account.requestDeletion",
@@ -1521,7 +1521,7 @@
         },
         {
           "operation": "account.cancelDeletion",
-          "rule": "Lock exact subject/request; strict now<cancel until CAS versus purge; restore only independent still-valid grants/new sessions, never old sessions/canceled effects."
+          "rule": "Resolve cancellation and purge for the exact current request against its strict deadline. Restore only independent still-valid grants and fresh sessions, never old sessions or cancelled effects."
         },
         {
           "operation": "account.requestDeletion",
@@ -1583,7 +1583,7 @@
       "behavior_rules": [
         {
           "operation": "account.setPersonalTimezone",
-          "rule": "Native self preference/calendar transaction; pending transition first strictly future Monday in requested zone, open stable week unchanged, one next ordinal; no historical rekeys, shared private metadata, or PI material revision."
+          "rule": "Native self preference/calendar transaction; pending transition first strictly future Monday in requested zone, open stable week unchanged, one next ordinal; no historical rekeys, shared private metadata, or PI assessment input changes."
         }
       ],
       "operation_refs": [

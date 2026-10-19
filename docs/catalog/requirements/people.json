@@ -243,7 +243,7 @@
       "feature_ids": [
         "PPL-006"
       ],
-      "text": "Allow all 7 closed stages, deliberate forward skips and backward moves with shown skipped-stage guidance, actor/date/reason and expected revision. Same-stage is a no-op receipt. Use one change-stage command from profile and pipeline so profile edit cannot bypass warnings. Leaving committed statuses core_group/launch_team/leader offers exact open-duty handoff to current eligible owner or explicit decline/Needs owner; no hidden partial loop. Stage change alone never withdraws commitment, changes adult classification or revokes earned training/seat. Recording interview/commitment or correction never incidentally demotes an advanced stage.",
+      "text": "Allow all 7 closed stages, deliberate forward skips and backward moves with shown skipped-stage guidance, actor/date/reason and unchanged reviewed state. Same-stage is a no-op outcome. Use one change-stage command from profile and pipeline so profile edit cannot bypass warnings. Leaving committed statuses core_group/launch_team/leader offers exact open-duty handoff to current eligible owner or explicit decline/Needs owner; no hidden partial loop. Stage change alone never withdraws commitment, changes adult classification or revokes earned training/seat. Recording interview/commitment or correction never incidentally demotes an advanced stage.",
       "spec": "docs/product/people.md#req-ppl-006",
       "operations": [
         "people.changeStatus",
@@ -284,7 +284,7 @@
       "feature_ids": [
         "PPL-007"
       ],
-      "text": "Preserve five visible pipeline columns with final core-group column also containing launch_team/leader milestone badges. Reorder only current active same plant IDs under column/version lock; empty request no-op and foreign/stale order refuses rather than changes unrelated contacts. Read-only viewers have no drag mutation. Cards display only active parent follow-up work and due-local-day overdue/missing warnings. Complete/no_longer_needed/deleted obligations do not show open urgency; a contact without any explicitly created duty may be uncovered but is not invented urgent work. Page/bound queries without dropping full filtered result semantics.",
+      "text": "Preserve five visible pipeline columns with final core-group column also containing launch_team/leader milestone badges. Reorder only current active same plant IDs with conflict detection for concurrent changes to that ordering; empty request no-op and foreign/stale order refuses rather than changes unrelated contacts. Read-only viewers have no drag mutation. Cards display only active parent follow-up work and due-local-day overdue/missing warnings. Complete/no_longer_needed/deleted obligations do not show open urgency; a contact without any explicitly created duty may be uncovered but is not invented urgent work. Page/bound queries without dropping full filtered result semantics.",
       "spec": "docs/product/people.md#req-ppl-007",
       "operations": [
         "people.getPipelineData",
@@ -372,7 +372,7 @@
       "feature_ids": [
         "PPL-009"
       ],
-      "text": "Tenant household name/address and head/spouse/child/other membership roles are operational facts, not adult classification. Create household+initial head coherently; join validates live same plant Person/household and copies household address only if Person lacks meaningful address. Leaving preserves Person address. Address propagation previews exact active members/current revisions and deliberately overwrites them in one bounded transaction, returning actual count. Empty-household deletion refuses active members; retired member references detach from current household while immutable old membership snapshots retain provenance. Lock Person/household consistently against retire/join/delete to avoid orphan records.",
+      "text": "Tenant household name/address and head/spouse/child/other membership roles are operational facts, not adult classification. Create household+initial head coherently; join validates live same plant Person/household and copies household address only if Person lacks meaningful address. Leaving preserves Person address. Address propagation previews exact active members/current reviewed state and deliberately overwrites them in one bounded all-or-nothing change, returning actual count. Empty-household deletion refuses active members; retired member references detach from current household while immutable old membership snapshots retain provenance. Concurrent Person retirement, household joining and deletion cannot leave orphan records.",
       "spec": "docs/product/people.md#req-ppl-009",
       "operations": [
         "people.createHouseholdWithHead",
@@ -424,7 +424,7 @@
         },
         {
           "operation": "people.addToHousehold",
-          "rule": "membership receipt/history, no overwrite of existing meaningful address"
+          "rule": "membership recorded outcome and history, no overwrite of existing meaningful address"
         },
         {
           "operation": "people.createHouseholdWithHead",
@@ -448,7 +448,7 @@
       "feature_ids": [
         "PPL-010"
       ],
-      "text": "Keep church-defined tags with a name trimmed of leading and trailing spaces, 1–100 characters. Normalize names with lower(btrim(name)); names differing only by case or surrounding spaces share the same plant-local unique key (plant_id, normalized_name). Internal spaces remain significant. Color is nullable: omission on update keeps the saved color, null clears it, and a supplied color must be a supported named or hex color. There is no archived-tag state or archived-tag filter. Assignment validates live Person and tag in the same plant and a unique pair. Retried assign/remove returns one semantic activity or the original no-op receipt. Rename updates views/export; deletion previews linked count, removes current links and preserves attributable history without becoming a global taxonomy.",
+      "text": "Keep church-defined tags with a name trimmed of leading and trailing spaces, 1–100 characters. Normalize names with lower(btrim(name)); names differing only by case or surrounding spaces share the same plant-local unique key (plant_id, normalized_name). Internal spaces remain significant. Color is nullable: omission on update keeps the saved color, null clears it, and a supplied color must be a supported named or hex color. There is no archived-tag state or archived-tag filter. Assignment validates live Person and tag in the same plant and a unique pair. Retried assign/remove returns one semantic activity or the original no-op outcome. Rename updates views/export; deletion previews linked count, removes current links and preserves attributable history without becoming a global taxonomy.",
       "spec": "docs/product/people.md#req-ppl-010",
       "operations": [
         "people.listTags",
@@ -478,7 +478,7 @@
       "feature_ids": [
         "PPL-011"
       ],
-      "text": "Preserve categories worship/tech/admin/teaching/hospitality/leadership/other, optional proficiency beginner/intermediate/advanced/expert, trimmed skill name 1–100 and bounded 5000 character notes. Add/edit/remove have expected revision and atomic activity/correction; category grouping and null clear roundtrip. Retire removed current item while preserving owned history. Recorded skill search/organization is allowed; it does not replace human Gifted interview criterion or infer calling/readiness.",
+      "text": "Preserve categories worship/tech/admin/teaching/hospitality/leadership/other, optional proficiency beginner/intermediate/advanced/expert, trimmed skill name 1–100 and bounded 5000 character notes. Add/edit/remove have unchanged reviewed state and atomic activity/correction; category grouping and null clear roundtrip. Retire removed current item while preserving owned history. Recorded skill search/organization is allowed; it does not replace human Gifted interview criterion or infer calling/readiness.",
       "spec": "docs/product/people.md#req-ppl-011",
       "operations": [
         "people.getPersonSkills",
@@ -554,7 +554,7 @@
         },
         {
           "operation": "people.createAssessment",
-          "rule": "Assessment ID/computed total/revision inside durable operation receipt; stage unchanged"
+          "rule": "Assessment ID/computed total/revision inside durable recorded outcome; stage unchanged"
         }
       ],
       "title": "SME 4 C’s assessment recording, latest result and history"
@@ -612,7 +612,7 @@
       "feature_ids": [
         "PPL-014"
       ],
-      "text": "Preserve core_group/launch_team commitment types, actual signed LocalDate, optional witness/notes/private PDF/JPG/PNG≤10 MiB and authenticated document download. Witness is an optional same plant Person selected from valid tenant record; unstructured external witness may be dated text without foreign Person FK. Support 10 MiB through bounded authenticated upload reference flow rather than oversize action body; failure tracks orphan bytes and never links arbitrary keys. Record/signature, person level active commitment projection, history/source revision/audit and lower-stage core_group entry commit together. Advanced stage is not demoted by repeat card. Explicit dated withdrawal/reactivation changes person lifecycle not stage; old signature cannot override withdrawal. Apply REQ-PPL-026 for current adult size/genuine history.",
+      "text": "Preserve core_group/launch_team commitment types, actual signed LocalDate, optional witness/notes/private PDF/JPG/PNG≤10 MiB and authenticated document download. Witness is an optional same plant Person selected from valid tenant record; unstructured external witness may be dated text without a foreign Person reference. Support 10 MiB through bounded authenticated upload reference flow rather than oversize action body; failure tracks orphan bytes and never links arbitrary keys. Record/signature, person level active commitment projection, history/assessment freshness/audit and lower-stage core_group entry commit together. Advanced stage is not demoted by repeat card. Explicit dated withdrawal/reactivation changes person lifecycle not stage; old signature cannot override withdrawal. Apply REQ-PPL-026 for current adult size/genuine history.",
       "spec": "docs/product/people.md#req-ppl-014",
       "operations": [
         "people.createCommitment",
@@ -656,7 +656,7 @@
       "feature_ids": [
         "PPL-015"
       ],
-      "text": "Correct exact same plant Person/record kind under current Owner/Admin and expected record revision. Reuse original domain validations; recompute assessment total, preserve original recording actor/time and append typed old/new/corrector/time/reason/receipt before commit. Ordinary score/result/notes/occurrence date correction never replays stage automation. Immutable original account/private author cannot be changed. Document/witness/original assessor replacement is outside ordinary correction fields; no arbitrary field patch or universal Undo. Use explicit new evidence record where necessary, retaining previous private document and provenance under ownership/deletion rules. Invalid historical commitment/lifecycle may be voided/corrected with attributable history and recomputed current projection, preserving earlier assessments. Stale foreign/cross-person or replayed conflicting mutation writes nothing.",
+      "text": "Correct exact same plant Person/record kind under current Owner/Admin and unchanged reviewed record. Reuse original domain validations; recompute assessment total, preserve original recording actor/time and append typed old/new/corrector/time/reason/receipt before commit. Ordinary score/result/notes/occurrence date correction never replays stage automation. Immutable original account/private author cannot be changed. Document/witness/original assessor replacement is outside ordinary correction fields; no arbitrary field patch or universal Undo. Use explicit new evidence record where necessary, retaining previous private document and provenance under ownership/deletion rules. Invalid historical commitment/lifecycle may be voided/corrected with attributable history and recomputed current projection, preserving earlier assessments. Stale foreign/cross-person or replayed conflicting mutation writes nothing.",
       "spec": "docs/product/people.md#req-ppl-015",
       "operations": [
         "people.correctPersonRecord",
@@ -727,7 +727,7 @@
         },
         {
           "operation": "people.correctCommitmentLifecycle",
-          "rule": "Expected revision, reason, before/after history, derived facts reconciled; later event never demotes advanced stage; growth history preserves genuine first acquisition after withdrawal."
+          "rule": "Unchanged reviewed state, reason, before/after history, derived facts reconciled; later event never demotes advanced stage; growth history preserves genuine first acquisition after withdrawal."
         }
       ]
     },
@@ -736,7 +736,7 @@
       "feature_ids": [
         "PPL-016"
       ],
-      "text": "Return active same plant exact/potential/no-match hints from normalized email/phone/name; ignore empty/short contact signals and escape SQL wildcards literally. Family name/shared mailbox is only hint, never unique human identity or mandatory merge. Import hints redact to ID/display name. Pair review requires current revisions and disclose conservative blocked merge cause. User may intentionally create duplicate with explicit choice; no foreign retired row or model identity judgment leaks.",
+      "text": "Return active same plant exact/potential/no-match hints from normalized email/phone/name; ignore empty/short contact signals and escape SQL wildcards literally. Family name/shared mailbox is only hint, never unique human identity or mandatory merge. Import hints redact to ID/display name. Pair review requires current reviewed state and disclose conservative blocked merge cause. User may intentionally create duplicate with explicit choice; no foreign retired row or model identity judgment leaks.",
       "spec": "docs/product/people.md#req-ppl-016",
       "operations": [
         "people.checkForDuplicates",
@@ -768,7 +768,7 @@
       "feature_ids": [
         "PPL-017"
       ],
-      "text": "Implement REQ-PPL-024 and REQ-PPL-025 as the complete merge/retirement/reference/inverse contract. Preserve field choice preview, account-link survivor protection, private photo choice, source and correction history, exact conflict checks, idempotent receipt and acyclic merged-source redirects. The required Unmerge inverse stays available; raw restore cannot replace it. Historical source callable identity is unavailable in current evidence and no implemented source symbol is claimed. Every later consumer's actual reference integration must pass before that package closes.",
+      "text": "Implement REQ-PPL-024 and REQ-PPL-025 as the complete merge/retirement/reference/inverse contract. Preserve field choice preview, account-link survivor protection, private photo choice, source and correction history, exact conflict checks, retry-safe recorded outcome and acyclic merged-source redirects. The required Unmerge inverse stays available; raw restore cannot replace it. Historical source callable identity is unavailable in current evidence and no implemented source symbol is claimed. Every later consumer's actual reference integration must pass before that package closes.",
       "spec": "docs/product/people.md#req-ppl-017",
       "operations": [
         "people.getMergeReview",
@@ -792,7 +792,7 @@
       "work_packages": [
         "WP-015"
       ],
-      "title": "Duplicate merge, reference transfer, receipt and survivor navigation",
+      "title": "Reviewed duplicate merge and survivor navigation",
       "operation_refs": [
         {
           "operation_id": "people.mergedPersonDestination",
@@ -806,7 +806,7 @@
         },
         {
           "operation": "people.mergePeople",
-          "rule": "Receipt manifests exact moved references and per-row revisions; inverse only if unchanged/reference-safe; conflict refusal preserves both current records."
+          "rule": "Receipt manifests exact moved references and per-row reviewed states; inverse only if unchanged/reference-safe; conflict refusal preserves both current records."
         },
         {
           "operation": "people.mergedPersonDestination",
@@ -823,7 +823,7 @@
       "feature_ids": [
         "PPL-018"
       ],
-      "text": "Use RFC 4180 parser with BOM/CRLF/commas/escaped quotes/quoted multiline and explicit malformed quoting errors. Keep 12 contact input columns(first_name, last_name, email, phone, street, city, state, postal_code, country, source, source_details, notes); normalizer/defaults match People and background fields are absent. Server limits 10 MiB/10000 rows and reparses validated original bytes/row digest, never trusts client-returned parsed rows. Preview all valid/invalid/existing and within-file duplicate rows; resolutions skip/create/create_and_review never overwrite existing Person. Save frozen reviewed row/resolution digest with import intent; per-row short transactions record created/skipped/error and optional new review pair. Retry resumes only unfinished row keys, no duplicate earlier success. Stale review/authority/digest refuses; partial import returns named row reasons and remaining work, not generic failed after commits.",
+      "text": "Use RFC 4180 parser with BOM/CRLF/commas/escaped quotes/quoted multiline and explicit malformed quoting errors. Keep 12 contact input columns(first_name, last_name, email, phone, street, city, state, postal_code, country, source, source_details, notes); normalizer/defaults match People and background fields are absent. Server limits 10 MiB/10000 rows and reparses validated original bytes/row digest, never trusts client-returned parsed rows. Preview all valid/invalid/existing and within-file duplicate rows; resolutions skip/create/create_and_review never overwrite existing Person. Save frozen reviewed row/resolution digest with import intent; independent all-or-nothing row changes record created/skipped/error and optional new review pair. Retry resumes only unfinished row keys, no duplicate earlier success. Stale review/authority/digest refuses; partial import returns named row reasons and remaining work, not generic failed after commits.",
       "spec": "docs/product/people.md#req-ppl-018",
       "operations": [
         "people.generateCsvTemplate",
@@ -888,7 +888,7 @@
       "feature_ids": [
         "PPL-020"
       ],
-      "text": "Preserve only conditional source transitions: attended Vision prospect→attendee, active ministry membership core_group→launch_team, ordinary ministry leadership launch_team→leader. Interview event advances earlier stage to interviewed, commitment earlier stage to core_group; repeated recording/correction preserves advanced stage. Perform approved progression with original actor/history/source revision in producer transaction; async wake-up cannot be the only critical writer. Retry same event no-ops without duplicate history. No automatic demotion on role leave, training revoke, commitment withdrawal or plant launch date/phase change. No process-local noop handler is a durable feature.",
+      "text": "Preserve only conditional source transitions: attended Vision prospect→attendee, active ministry membership core_group→launch_team, ordinary ministry leadership launch_team→leader. Interview event advances earlier stage to interviewed, commitment earlier stage to core_group; repeated recording/correction preserves advanced stage. Perform approved progression with original actor/history/assessment freshness in the same all-or-nothing producer change; async wake-up cannot be the only critical writer. Retry same event no-ops without duplicate history. No automatic demotion on role leave, training revoke, commitment withdrawal or plant launch date/phase change. No process-local noop handler is a durable feature.",
       "spec": "docs/product/people.md#req-ppl-020",
       "operations": [
         "people.applyRecordedRecruitmentEvent"
@@ -1035,7 +1035,7 @@
         "PPL-020",
         "PPL-021"
       ],
-      "text": "Publish a static `person_references` manifest in the target schema catalog, not a new runtime registry table. Each Person-bearing consumer registers resource/field, exact tenant FK, current versus historical meaning, source/survivor lock order, retirement treatment, merge rewrite rule, uniqueness/collision refusal, private ownership/authorship restriction, reviewed inverse policy and named fixtures. Every writer locks/validates the active Person within its transaction before adding a reference, so a merge racing an insert cannot leave a new current reference on the retired source. WP-015 closes only then-present People/account/household/qualification consumers. Later team/training, attendance/RSVP/card/kit, follow-up/task/contact, communication, Launch guest, documents and Evry proposal/artifact owners add registrations and real merge/retirement/inverse fixtures before their own closure. Immutable historical actor/event/document snapshots retain original provenance with authorized identity lineage rather than arbitrary rewrite. Private-care account-author references are excluded from Person movement. Final WP-056/057 closure verifies the full manifest against the actual schema and every later producer; early merge is not a whole-target claim. Organization pipeline Persons use the same applicable identity, lifecycle, duplicate, merge, reference and inverse rules within their exact organization under REQ-MUL-001 and REQ-MUL-005; plant-only recruitment/household/commitment facts remain plant-only.",
+      "text": "Document every Person-bearing reference and its lifecycle behavior in the reviewed Person inventory. Each Person-bearing consumer registers resource/field, exact tenant ownership, current versus historical meaning, source/survivor concurrency outcomes, retirement treatment, merge rewrite rule, uniqueness/collision refusal, private ownership/authorship restriction, reviewed inverse policy and named fixtures. Every new reference validates the current active Person. A merge racing a new reference cannot leave a current reference on the retired source. WP-015 closes only then-present People/account/household/qualification consumers. Later team/training, attendance/RSVP/card/kit, follow-up/task/contact, communication, Launch guest, documents and Evry proposal/artifact owners add registrations and real merge/retirement/inverse fixtures before their own closure. Immutable historical actor/event/document snapshots retain original provenance with authorized identity lineage rather than arbitrary rewrite. Private-care account-author references are excluded from Person movement. Final WP-056/057 closure verifies the full manifest against the actual schema and every later producer; early merge is not a whole-target claim. Organization pipeline Persons use the same applicable identity, lifecycle, duplicate, merge, reference and inverse rules within their exact organization under REQ-MUL-001 and REQ-MUL-005; plant-only recruitment/household/commitment facts remain plant-only.",
       "spec": "docs/product/people.md#req-ppl-024",
       "operations": [],
       "acceptance_ids": [
@@ -1078,7 +1078,7 @@
         "PPL-015",
         "PPL-017"
       ],
-      "text": " `people.getMergeReview` returns exact current revisions, all differing stored field choices, account/household/photo/current-lifecycle effects, moved/deduplicated references and named blockers. Lock both live same plant Persons in stable ID order and their consumer subjects; one atomic merge updates survivor/reference projections, retires source, records original snapshots/choices plus typed moved-row IDs/pre-post revisions/inverse constraints in `person_merge`, appends history/audit/receipt and advances source revision. Two account-linked Persons cannot merge; the linked Person must survive, account grants/author identity cannot move, and no arbitrary storage/user ID enters the payload. Conservative collisions include same-meeting attendance/card, active training assignment/completion, pending RSVP, distinct live obligation, referral cycle and conflicting household/leadership state; disclose exact conflicts rather than silently dropping records. Repeated same merge returns original receipt; conflicting destination or stale review refuses; source redirects follow recorded acyclic lineage.\n\nRetain the required Unmerge capability through `people.previewUnmerge`/`people.unmergePeople`, both native and exact-reviewed Evry. The preview names the original merge and full inverse. Execute only when recorded survivor/field/photo/account/reference revisions are unchanged and every manifest inverse/uniqueness/tenant check proves restoration without discarding later facts. Under the same locks/CAS restore source and recorded moved/deduplicated references, restore prior survivor values, append a new reversal receipt/history/audit and advance source revision; retain the original merge receipt. Retrying reversal converges. A source-row-only restore is never Unmerge. A chained merge, new/corrected reference, credential/author conflict, sent-mail/disclosure or other irreversible effect whose attribution cannot be safely reversed causes exact conflict refusal with zero inverse effects. Offer separately reviewed manual correction/split of named records within ordinary domain authority, preserving later history and original authorship; operator recovery is not a substitute for the safe native inverse and never unsends mail. No universal undo promise. Organization pipeline Persons use the same applicable identity, lifecycle, duplicate, merge, reference and inverse rules within their exact organization under REQ-MUL-001 and REQ-MUL-005; plant-only recruitment/household/commitment facts remain plant-only.",
+      "text": " `people.getMergeReview` returns exact current reviewed state, all differing stored field choices, account/household/photo/current-lifecycle effects, moved/deduplicated references and named blockers. Recheck both live same-plant Persons and affected records; one atomic merge updates survivor/reference projections, retires source, records original snapshots, choices, exact moved records, before/after values and conditions for a safe inverse, appends history, audit and the recorded outcome and makes affected assessments stale. Two account-linked Persons cannot merge; the linked Person must survive, account grants/author identity cannot move, and no arbitrary storage/user ID enters the payload. Conservative collisions include same-meeting attendance/card, active training assignment/completion, pending RSVP, distinct live obligation, referral cycle and conflicting household/leadership state; disclose exact conflicts rather than silently dropping records. Repeated same merge returns original recorded outcome; conflicting destination or stale review refuses; source redirects follow recorded acyclic lineage.\n\nRetain the required Unmerge capability through `people.previewUnmerge`/`people.unmergePeople`, both native and exact-reviewed Evry. The preview names the original merge and full inverse. Execute only when recorded survivor/field/photo/account/reference reviewed facts are unchanged and every manifest inverse/uniqueness/tenant check proves restoration without discarding later facts. Under the same unchanged-review and ownership checks restore source and recorded moved/deduplicated references, restore prior survivor values, append a new reversal outcome and attributable history/audit that make affected assessments stale; retain the original merge receipt. Retrying reversal converges. A source-row-only restore is never Unmerge. A chained merge, new/corrected reference, credential/author conflict, sent-mail/disclosure or other irreversible effect whose attribution cannot be safely reversed causes exact conflict refusal with zero inverse effects. Offer separately reviewed manual correction/split of named records within ordinary domain authority, preserving later history and original authorship; operator recovery is not a substitute for the safe native inverse and never unsends mail. No universal undo promise. Organization pipeline Persons use the same applicable identity, lifecycle, duplicate, merge, reference and inverse rules within their exact organization under REQ-MUL-001 and REQ-MUL-005; plant-only recruitment/household/commitment facts remain plant-only.",
       "spec": "docs/product/people.md#req-ppl-025",
       "operations": [
         "people.getMergeReview",
@@ -1472,7 +1472,7 @@
       "feature_ids": [
         "MUL-011"
       ],
-      "text": "Enroll an active same-organization pipeline person in a program and cohort with start, expected end, current program stage, status and next meeting with timezone. A person may have different programs but cannot have duplicate active enrollment in the same program. Enrollment fixes the published version and its milestones. A director may explicitly apply a reviewed new version to selected enrollments, preserving attributable completion/confirmation history and exposing added, removed or changed work. Reject foreign person, director, program or stage and stale revisions. Current program stages are distinct from internal pipeline stages.",
+      "text": "Enroll an active same-organization pipeline person in a program and cohort with start, expected end, current program stage, status and next meeting with timezone. A person may have different programs but cannot have duplicate active enrollment in the same program. Enrollment fixes the published version and its milestones. A director may explicitly apply a reviewed new version to selected enrollments, preserving attributable completion/confirmation history and exposing added, removed or changed work. Reject foreign person, director, program or stage and changed reviewed states. Current program stages are distinct from internal pipeline stages.",
       "spec": "docs/product/people.md#req-mul-011",
       "operations": [
         "development.enroll",
@@ -1643,7 +1643,7 @@
       "feature_ids": [
         "MUL-017"
       ],
-      "text": "In S1, reuse the Person correction and merge producer for organization-owned identities. Duplicate suggestions never prove identity or choose a survivor automatically. An exact-organization Owner or Admin reviews the selected source, survivor and field choices. Merge requires reviewed field choices, current revisions and same-owner identities, preserves historical endpoints and refuses linked-account, enrollment or other current-reference collisions. Unmerge restores only the exact reviewed prior state and refuses conflicting edits, new references or irreversible disclosure. No merge or inverse transfers account consent, private care, note authorship or organization/plant authority. Register downstream enrollment, stage-history and resident-link collisions before those consumers close.",
+      "text": "In S1, reuse the Person correction and merge producer for organization-owned identities. Duplicate suggestions never prove identity or choose a survivor automatically. An exact-organization Owner or Admin reviews the selected source, survivor and field choices. Merge requires reviewed field choices, current reviewed state and same-owner identities, preserves historical endpoints and refuses linked-account, enrollment or other current-reference collisions. Unmerge restores only the exact reviewed prior state and refuses conflicting edits, new references or irreversible disclosure. No merge or inverse transfers account consent, private care, note authorship or organization/plant authority. Register downstream enrollment, stage-history and resident-link collisions before those consumers close.",
       "spec": "docs/product/people.md#req-mul-017",
       "operations": [
         "orgPeople.findDuplicates",
