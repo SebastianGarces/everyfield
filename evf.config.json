@@ -270,6 +270,27 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-11": {
+			"title": "Code quality section in every review",
+			"owningPaths": [
+				"tools/evf/",
+				"evf.config.json",
+				".agents/roles/verifier.md",
+				".agents/skills/verify-preview/",
+				".agents/skills/ship/SKILL.md"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {

@@ -195,18 +195,28 @@ New accessibility violations: none. Present on main too: <list or none>.
 **Videos:** <link to each flow video on the evidence page, or none>.
 **Backend:** <probe link>, <n>/<n> checks pass. <Rules and refusals covered.>
 **Not checked:** <list or none>.
+
+## Code quality
+
+**Principles checked:** laziness-protocol, minimize-reader-load, subtract-before-you-add,
+test-behavior-not-implementation, <other applicable principles>.
+**Simplifications:** <concrete changes needed, or why none are needed>.
+**Quality verdict:** approved | changes_requested.
 ```
 
-Post it once:
+Read the diff against those principles. Needless layers, copied patterns or dead code require
+changes_requested even when behavior passes. Post it once:
 
 ```bash
 node $S/post-review.mjs --pr <n> --report "$E/report.md" --family <your family> \
-  --verdict approved --head <40-char sha> --results "$E/ui-results.json" --results "$E/backend-results.json"
+  --verdict approved --head <40-char sha> --quality-verdict approved \
+  --principles laziness-protocol,minimize-reader-load,subtract-before-you-add,test-behavior-not-implementation \
+  --results "$E/ui-results.json" --results "$E/backend-results.json"
 ```
 
-Pass only the results files you produced.
+Pass only the results files you produced. Include every applicable principle in --principles.
 
-The script appends `EVF-Review: {"head":...,"verifierFamily":...,"verdict":...}` and posts one
+The script appends `EVF-Review: {"head":...,"verifierFamily":...,"verdict":...,"quality":{"verdict":...,"principles":[...]}}` and posts one
 comment. It refuses a head that is not the PR's current head, your own family, results captured on
 another head, and an approval when any results file or the report shows a failure. Use
 `--verdict changes_requested` when anything fails, then send the failures to the coordinator.

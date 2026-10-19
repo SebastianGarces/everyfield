@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Post the one verification comment: the report followed by the exact-head EVF-Review line.
 // Usage: node post-review.mjs --pr <n> --report <report.md> --family openai|anthropic
-//          --verdict approved|changes_requested --head <40-char sha> [--results <results.json> ...] [--dry-run]
+//          --verdict approved|changes_requested --head <40-char sha>
+//          --quality-verdict approved|changes_requested --principles <comma-separated names> [--results <results.json> ...] [--dry-run]
 // Refuses a head that is not the PR's current head, a same-family review, and an approval
 // when any results file has a failing verdict.
 import { execFileSync } from "node:child_process";
@@ -13,10 +14,14 @@ const argv = process.argv.slice(2);
 const value = (n) => (argv.indexOf(`--${n}`) >= 0 ? argv[argv.indexOf(`--${n}`) + 1] : undefined);
 const all = (n) => argv.flatMap((a, i) => (a === `--${n}` ? [argv[i + 1]] : []));
 const [pr, reportFile, family, verdict, head] = ["pr", "report", "family", "verdict", "head"].map(value);
+const quality = { verdict: value("quality-verdict"), principles: value("principles")?.split(",").map((name) => name.trim()) };
 const refuse = (why) => { console.error(`Refused: ${why}`); process.exit(1); };
 if (!pr || !reportFile || !head) refuse("usage: --pr <n> --report <file> --family <f> --verdict <v> --head <sha>");
 if (!["openai", "anthropic"].includes(family)) refuse("--family must be openai or anthropic");
 if (!["approved", "changes_requested"].includes(verdict)) refuse("--verdict must be approved or changes_requested");
+if (!["approved", "changes_requested"].includes(quality.verdict)) refuse("--quality-verdict must be approved or changes_requested");
+if (!quality.principles?.length || quality.principles.some((name) => !name)) refuse("--principles must name the principles checked, separated by commas");
+if (verdict === "approved" && quality.verdict !== "approved") refuse("approval needs an approved code quality review");
 if (!/^[0-9a-f]{40}$/.test(head)) refuse("--head must be the full 40-character SHA you verified");
 
 const view = JSON.parse(execFileSync("gh", ["pr", "view", pr, "--json", "headRefOid,body,url"], { encoding: "utf8" }));
@@ -30,10 +35,11 @@ for (const file of all("results")) {
   if (verdict === "approved" && r.verdict !== "pass") refuse(`${file} verdict is ${r.verdict}; approval needs every check to pass`);
 }
 const report = readFileSync(reportFile, "utf8").trim();
+if (!/^## Code quality\s*$/m.test(report)) refuse("the report needs a Code quality section with concrete simplifications and a verdict");
 if (/^EVF-Review:/m.test(report)) refuse("the report already has an EVF-Review line; this script adds it");
 if (verdict === "approved" && /\b(FAIL|❌)\b|❌/.test(report)) refuse("the report lists a failure; approve only when everything passes");
 
-const body = `${report}\n\nEVF-Review: ${JSON.stringify({ head, verifierFamily: family, verdict })}\n`;
+const body = `${report}\n\nEVF-Review: ${JSON.stringify({ head, verifierFamily: family, verdict, quality })}\n`;
 const file = join(tmpdir(), `evf-review-${pr}-${head.slice(0, 7)}.md`);
 writeFileSync(file, body);
 if (argv.includes("--dry-run")) { console.log(body); process.exit(0); }

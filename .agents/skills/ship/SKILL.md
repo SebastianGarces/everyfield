@@ -15,8 +15,12 @@ database. Tooling tasks need tooling checks, not application screenshots. Record
 results and external evidence on the PR, followed by this exact line with the full tested SHA:
 
 ```text
-EVF-Review: {"head":"<40-character SHA>","verifierFamily":"anthropic","verdict":"approved"}
+EVF-Review: {"head":"<40-character SHA>","verifierFamily":"anthropic","verdict":"approved","quality":{"verdict":"approved","principles":["laziness-protocol","minimize-reader-load","subtract-before-you-add","test-behavior-not-implementation"]}}
 ```
+
+Every review comment needs a "Code quality" section naming concrete simplifications, or explaining
+why none are needed. Its quality field names the principles checked, including the four shown above.
+Ship refuses missing or unapproved quality and incomplete principle lists.
 
 Use the verifier's actual family. Comments are deliberate because agents share the owner's
 GitHub account. These records are unsigned coordination evidence, not authenticated identities.
