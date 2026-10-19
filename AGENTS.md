@@ -26,6 +26,8 @@ FB-<n> for feedback and OPS-<n> for tooling maintenance.
 - Use one portless preview per worktree. No Vercel preview deployments.
 - Use the shared development database for checks. It may be wiped and reseeded.
   Production is separate. Never print credentials or use production for tests.
+- Follow `docs/architecture/patterns.md` and `docs/architecture/decisions.md` for shared mechanisms
+  and durable rulings. Requirements describe end-state behavior.
 - Prove actual behavior. Tooling checks establish tooling behavior, not application acceptance.
 - Decide reversible ambiguities and record them in task notes, using `decisions`.
 - Keep screenshots, traces and temporary verification scripts outside the repository.

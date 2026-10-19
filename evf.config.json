@@ -294,7 +294,7 @@
 		},
 		"OPS-12": {
 			"title": "Verification checks budget and smoothness",
-			"owningPaths": ["tools/evf/", "evf.config.json", ".agents/roles/verifier.md", ".agents/skills/verify-preview/"],
+			"owningPaths": ["tools/evf/", "evf.config.json", "AGENTS.md", ".agents/roles/", ".agents/skills/verify-preview/"],
 			"checks": [
 				{
 					"name": "documentation",

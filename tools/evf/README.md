@@ -42,7 +42,7 @@ Only the approved reports/analytics timing categories can waive an exceeded budg
 adds `exception: "reports"` or `"analytics"`, and the PR includes the matching standalone
 `EVF-Experience-Exception: reports` or `EVF-Experience-Exception: analytics` line and explains why.
 This never waives a rejected experience verdict. Quality reviews judge the diff against
-[EveryField patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62).
+`docs/architecture/patterns.md`.
 
 The required section list for ordinary PRs is `.agents/skills/everyfield-pr/template.md`.
 Wiki article and prototype PRs already use separate owner routes in

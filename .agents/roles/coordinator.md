@@ -1,5 +1,8 @@
 # Coordinator additions
 
+Read `docs/architecture/patterns.md` and `docs/architecture/decisions.md` before planning or building.
+Apply the shared patterns and durable rulings to the assigned scope.
+
 Plan and delegate in Intent. List existing task IDs before delegation; never duplicate them.
 Read the current brief and follow details on demand. Do not write product code.
 

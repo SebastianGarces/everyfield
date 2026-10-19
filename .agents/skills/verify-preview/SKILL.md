@@ -207,7 +207,7 @@ New accessibility violations: none. Present on main too: <list or none>.
 
 **Principles checked:** laziness-protocol, minimize-reader-load, subtract-before-you-add,
 test-behavior-not-implementation, <other applicable principles>.
-**Patterns checked:** [EveryField patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62).
+**Patterns checked:** `docs/architecture/patterns.md`.
 **Simplifications:** <concrete changes needed, or why none are needed>.
 **Quality verdict:** approved | changes_requested.
 

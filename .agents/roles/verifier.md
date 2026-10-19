@@ -17,7 +17,8 @@ group. Link flow videos in your PR comment.
 
 Include a "Code quality" section in every review. Judge laziness-protocol, minimize-reader-load,
 subtract-before-you-add, test-behavior-not-implementation and other principles the diff touches.
-Check the diff against [EveryField patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62).
+Check the diff against `docs/architecture/patterns.md` and the durable rulings in
+`docs/architecture/decisions.md`.
 Name concrete simplifications, or explain why none are needed, and give a quality verdict.
 Needless layers, copied patterns or dead code require changes_requested even when behavior passes.
 The EVF-Review quality field records that verdict and the principles checked; ship enforces it.
