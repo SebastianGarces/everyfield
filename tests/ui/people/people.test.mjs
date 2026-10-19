@@ -14,6 +14,7 @@
 //   INV-reorder-focus, INV-reorder-conflict: verifier findings on b4d2ec0 (focus kept, stale refusal kept).
 //   INV-reorder-replay: a replayed reorder answers with the column's current order and revision as one pair.
 //   BUG-church-date: adult or child has no date from the reader's clock; a church-future date says why it was refused.
+//   INV-target-size: person card name links meet the 24px WCAG 2.2 target size (verifier finding on 0c00880).
 //   BUG-hydration: WebKit and Node join date parts differently; dates are built from parts so hydration matches.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -473,5 +474,25 @@ for (const [name, engine] of [
 			await a.getByText(`${y} moved up.`).waitFor({ state: "attached", timeout: 30_000 });
 			assert.equal(await a.getByText("The order changed somewhere else. The column now shows").count(), 0);
 		});
+	});
+
+	test(`INV-target-size (${name}): person card links are at least 24px tall in the pipeline and card views (WCAG 2.2)`, async () => {
+		await withPage(
+			engine,
+			"owner",
+			async (page) => {
+				for (const view of ["pipeline", "card"]) {
+					await page.goto(`${BASE}/people?view=${view}`);
+					await page.locator("article a").first().waitFor();
+					const small = await page
+						.locator("article a")
+						.evaluateAll((links) =>
+							links.map((l) => ({ name: l.textContent, h: l.getBoundingClientRect().height })).filter((l) => l.h < 24),
+						);
+					assert.deepEqual(small, [], view);
+				}
+			},
+			{ width: 390 },
+		);
 	});
 }
