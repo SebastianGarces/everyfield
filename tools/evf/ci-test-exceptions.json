@@ -1,0 +1,54 @@
+{
+	"tests/integration/access/access.test.mts": {
+		"reason": "Access helper accepts only the shared development database. D63a defers the CI database boundary change to WP-087.",
+		"command": "corepack pnpm --filter @everyfield/domain test:access"
+	},
+	"tests/integration/access/privileges.test.mts": {
+		"reason": "Access helper accepts only the shared development database. D63a defers the CI database boundary change to WP-087.",
+		"command": "corepack pnpm --filter @everyfield/domain test:access"
+	},
+	"tests/integration/identity/identity.test.mts": {
+		"reason": "Identity helper accepts only the shared development database. D63a defers the CI database boundary change to WP-087.",
+		"command": "corepack pnpm --filter @everyfield/domain test:identity"
+	},
+	"tests/integration/jobs/http.test.mts": {
+		"reason": "Jobs helper accepts only the shared development database. D63a defers the CI database boundary change to WP-087.",
+		"command": "corepack pnpm --filter @everyfield/web test:jobs"
+	},
+	"tests/integration/jobs/mail.test.mts": {
+		"reason": "Jobs helper accepts only the shared development database. D63a defers the CI database boundary change to WP-087.",
+		"command": "corepack pnpm --filter @everyfield/web test:jobs"
+	},
+	"tests/integration/jobs/notifications.test.mts": {
+		"reason": "Jobs helper accepts only the shared development database. D63a defers the CI database boundary change to WP-087.",
+		"command": "corepack pnpm --filter @everyfield/web test:jobs"
+	},
+	"tests/integration/jobs/queue.test.mts": {
+		"reason": "Jobs helper accepts only the shared development database. D63a defers the CI database boundary change to WP-087.",
+		"command": "corepack pnpm --filter @everyfield/web test:jobs"
+	},
+	"tests/integration/operations/database.test.mts": {
+		"reason": "Operations database proof accepts only the shared development database. D63a defers the CI database boundary change to WP-087.",
+		"command": "corepack pnpm --filter @everyfield/domain test:operations"
+	},
+	"tests/integration/organizations/consent.test.mts": {
+		"reason": "Organization helper accepts only the shared development database. D63a defers the CI database boundary change to WP-087.",
+		"command": "corepack pnpm --filter @everyfield/domain test:organizations"
+	},
+	"tests/integration/organizations/migration.test.mts": {
+		"reason": "Organization helper accepts only the shared development database. D63a defers the CI database boundary change to WP-087.",
+		"command": "corepack pnpm --filter @everyfield/domain test:organizations"
+	},
+	"tests/integration/organizations/profile.test.mts": {
+		"reason": "Organization helper accepts only the shared development database. D63a defers the CI database boundary change to WP-087.",
+		"command": "corepack pnpm --filter @everyfield/domain test:organizations"
+	},
+	"tests/integration/organizations/relationships.test.mts": {
+		"reason": "Organization helper accepts only the shared development database. D63a defers the CI database boundary change to WP-087.",
+		"command": "corepack pnpm --filter @everyfield/domain test:organizations"
+	},
+	"tests/integration/platform/requests.test.mts": {
+		"reason": "Platform request proof requires a synthetic shared database, its own preview and S3. D63a retains local verification.",
+		"command": "corepack pnpm --filter @everyfield/web test:platform"
+	}
+}

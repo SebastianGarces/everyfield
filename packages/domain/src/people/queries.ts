@@ -14,6 +14,7 @@ import {
 	person,
 	personRow,
 	project,
+	projectPeople,
 	readReply,
 	attribution,
 } from "./core.ts";
@@ -80,20 +81,21 @@ function decode(ctx: Context, q: unknown, token?: string) {
 	if (c.owner !== ctx.selected.id || c.query !== hash({ q, purpose: ctx.purpose })) deny("invalid_input");
 	return c;
 }
-async function list(tx: Tx, ctx: Context, raw: unknown) {
+async function list(tx: Tx, ctx: Context, raw: unknown, pipelineRevision?: string) {
 	if (ctx.selected.kind !== "plant") deny();
 	const input = parse(c.listPeopleRequest, raw);
-	await authorize(tx, ctx);
+	if (pipelineRevision === undefined) await authorize(tx, ctx);
 	const { after, ...query } = input;
 	const materialRevision =
 		input.view === "pipeline"
-			? (
+			? (pipelineRevision ??
+				(
 					await tx
 						.select({ material_revision: tables.plant.material_revision })
 						.from(tables.plant)
 						.where(eq(tables.plant.id, ctx.selected.id))
 						.for("share")
-				)[0]!.material_revision
+				)[0]!.material_revision)
 			: null;
 	const queryBound = input.view === "pipeline" ? { ...query, materialRevision } : query;
 	const cur = decode(ctx, queryBound, after);
@@ -145,7 +147,7 @@ async function list(tx: Tx, ctx: Context, raw: unknown) {
 		.limit(input.limit + 1);
 
 	const rows = result.slice(0, input.limit).map((r) => personRow.parse(r));
-	const items = await Promise.all(rows.map((p) => project(tx, ctx, p))),
+	const items = await projectPeople(tx, ctx, rows),
 		last = result.slice(0, input.limit).at(-1),
 		more = result.length > input.limit;
 	return c.peoplePage.parse({
@@ -274,69 +276,84 @@ export const peopleReader: PeopleReader<Tx> = {
 					groups.push({ column, revision, cards: [], total: 0, next: null });
 					continue;
 				}
-				const page = await list(tx, ctx, {
-					...query,
-					after: cursor && cursor.query === hash({ q: bound, purpose: ctx.purpose }) ? input.after : undefined,
-				});
-				const cards = [];
-				for (const dto of page.items) {
-					if (!stages.includes(dto.stage) || (input.stages.length && !input.stages.includes(dto.stage))) continue;
-					const tasks = await tx
-						.select({ id: task_t.id, due_date: task_t.due_date, due_at: task_t.due_at, timezone: plant_p.timezone })
-						.from(task_t)
-						.innerJoin(plant_p, eq(plant_p.id, task_t.plant_id))
-						.leftJoin(
-							obligation_o,
-							and(eq(obligation_o.id, task_t.obligation_id), eq(obligation_o.plant_id, task_t.plant_id)),
-						)
-						.where(
-							and(
-								and(
-									and(
-										and(
-											and(eq(task_t.plant_id, ctx.selected.id), eq(task_t.person_id, dto.id)),
-											isNull(task_t.parent_id),
-										),
-										isNull(task_t.deleted_at),
-									),
-									sql<boolean>`(${task_t.status} NOT IN ('complete', 'no_longer_needed'))`,
-								),
-								or(
-									isNull(task_t.obligation_id),
-									and(isNull(obligation_o.waived_at), isNull(obligation_o.superseded_at)),
-								),
-							),
-						)
-						.orderBy(asc(task_t.id))
-						.limit(101);
-					if (tasks.length > 100) deny("source_unavailable");
-					const today = (
-						await tx
-							.select({ today: sql<string>`((clock_timestamp() AT TIME ZONE ${tables.plant.timezone}))::date` })
-							.from(tables.plant)
-							.where(eq(tables.plant.id, ctx.selected.id))
-					)[0]!.today;
-					cards.push({
-						person: dto,
-						activeParentDuties: tasks.map((t) => ({
-							id: t.id,
-							dueOn: t.due_date ?? null,
-							warning: !t.due_date ? "missing_due_date" : t.due_date < today ? "overdue" : "none",
-						})),
-						coverage: tasks.length ? "covered" : "uncovered",
-					});
-				}
+				const page = await list(
+					tx,
+					ctx,
+					{
+						...query,
+						after: cursor && cursor.query === hash({ q: bound, purpose: ctx.purpose }) ? input.after : undefined,
+					},
+					materialRevision,
+				);
+
 				groups.push({
 					column,
 					revision,
-					cards,
+					cards: page.items.filter((dto) => stages.includes(dto.stage)),
 					total: input.stages.length && !input.stages.some((s) => stages.includes(s)) ? 0 : page.total,
 					next: page.next,
 				});
 			}
+			const ids = groups.flatMap((g) => g.cards.map((p) => p.id));
+			// Limit each person's duties independently, including the overflow witness.
+			const duties = tx
+				.select({ id: task_t.id, due_date: task_t.due_date })
+				.from(task_t)
+				.leftJoin(
+					obligation_o,
+					and(eq(obligation_o.id, task_t.obligation_id), eq(obligation_o.plant_id, task_t.plant_id)),
+				)
+				.where(
+					and(
+						eq(task_t.plant_id, ctx.selected.id),
+						eq(task_t.person_id, tables.person.id),
+						isNull(task_t.parent_id),
+						isNull(task_t.deleted_at),
+						sql<boolean>`${task_t.status} NOT IN ('complete', 'no_longer_needed')`,
+						or(isNull(task_t.obligation_id), and(isNull(obligation_o.waived_at), isNull(obligation_o.superseded_at))),
+					),
+				)
+				.orderBy(asc(task_t.id))
+				.limit(101)
+				.as("duties");
+			const tasks = ids.length
+				? await tx
+						.select({
+							personId: tables.person.id,
+							id: duties.id,
+							due_date: duties.due_date,
+							today: sql<string>`(clock_timestamp() AT TIME ZONE ${plant_p.timezone})::date`,
+						})
+						.from(tables.person)
+						.innerJoin(plant_p, eq(plant_p.id, tables.person.plant_id))
+						.innerJoinLateral(duties, sql`true`)
+						.where(and(eq(tables.person.plant_id, ctx.selected.id), inArray(tables.person.id, ids)))
+						.orderBy(asc(duties.id))
+				: [];
+			const byPerson = new Map<string, typeof tasks>();
+			for (const task of tasks) {
+				const own = byPerson.get(task.personId) ?? [];
+				own.push(task);
+				if (own.length > 100) deny("source_unavailable");
+				byPerson.set(task.personId, own);
+			}
 			return c.pipelineResult.parse({
 				owner: ctx.selected,
-				groups,
+				groups: groups.map((g) => ({
+					...g,
+					cards: g.cards.map((person) => {
+						const tasks = byPerson.get(person.id) ?? [];
+						return {
+							person,
+							activeParentDuties: tasks.map((t) => ({
+								id: t.id,
+								dueOn: t.due_date ?? null,
+								warning: !t.due_date ? "missing_due_date" : t.due_date < t.today ? "overdue" : "none",
+							})),
+							coverage: tasks.length ? "covered" : "uncovered",
+						};
+					}),
+				})),
 				completeness: groups.some((g) => g.next) ? "partial" : "complete",
 			});
 		});

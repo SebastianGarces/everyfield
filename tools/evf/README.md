@@ -74,6 +74,31 @@ its recorded head, no newer task start, no open PR, and no live Portless preview
 records its new start outside the repository. Unavailable or malformed provider status keeps the
 worktree. Cleanup never stops previews itself.
 
+## Foreground checks and CI test coverage
+
+`verify`, `pre-push`, `stack up` and `test` wait for their child commands and print an expected
+duration before starting. Verification prints each check's start and result. Duration ranges
+are planning estimates, not measured promises. Keep the calling turn open until the final result.
+
+A command outside the terminal's foreground process group, including a piped agent shell,
+refuses before starting work. For a synchronous tool call, use `EVF_FOREGROUND=1 bin/evf verify
+OPS-n` and keep waiting in the same turn. This is an explicit promise to wait, not a monitor.
+For a genuinely monitored job, first register its watcher and then set `EVF_MONITOR` to that
+watcher's name. CI sets it to the GitHub Actions job. Neither variable creates a watcher.
+The same check applies when `task start` starts a stack.
+
+`bin/evf ci-tests` follows the pnpm scripts called by `.github/workflows/ci.yml`, including
+recursive package scripts and package-name filters, and expands Node test globs. `evf test`
+runs it before the tooling regressions. A new `.test.mts` file under `tests/integration` or
+`packages/*/test` must be included by a CI command. The check reads root, package and app scripts;
+it does not execute application tests or claim that an included test passes.
+
+`ci-test-exceptions.json` lists exact local-only files, with reasons and local commands.
+D63a retains suites whose helpers require the shared development database, plus the platform
+request proof that needs a preview and S3. Their CI helper changes belong to a WP-087 follow-up.
+No wildcard exceptions are allowed. Deleted tests and tests newly included in CI make their
+exceptions stale and fail the check. Local-only suites remain acceptance work for a verifier.
+
 ## Task and case checks
 
 Briefs use the current catalog and context manifest. Missing context fails explicitly.

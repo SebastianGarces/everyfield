@@ -63,6 +63,8 @@ jobs:
 
   evf:
     name: evf (tooling tests)
+    env:
+      EVF_MONITOR: github-actions-evf
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -111,6 +113,8 @@ jobs:
         run: pnpm db:migrate
       - name: Current catalog against a fresh full migration chain
         run: python3 packages/db/src/schema/generate.py --check
+      - name: Telemetry tests
+        run: node --conditions=react-server --test tests/integration/operations/telemetry.test.mts
       - name: Domain tests
         run: pnpm -r --if-present test:db
 
