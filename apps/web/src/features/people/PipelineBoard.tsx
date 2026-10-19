@@ -166,7 +166,9 @@ function Column({
 	// The order just saved, shown until the server copy it was saved against is replaced by a refresh.
 	const [saved, setSaved] = useState<{ from: Group; ids: string[] } | null>(null);
 	const [said, setSaid] = useState("");
-	const [focusId, setFocusId] = useState<string | null>(null);
+	// A one-time focus request: the moved person and the server copy the move was made on. The first refresh after it
+	// uses it and clears it, so a later refresh (for another column's move) never pulls focus back here.
+	const focusAfter = useRef<{ id: string; from: Group } | null>(null);
 	const cards =
 		saved && saved.from === group
 			? saved.ids.map((id) => loaded.find((c) => c.person.id === id)!).filter(Boolean)
@@ -177,12 +179,14 @@ function Column({
 	const complete = !filtered && !more_.next && loaded.length <= 100;
 	// After a keyboard reorder, focus returns to the moved person's Move button, also after the refresh re-renders.
 	useEffect(() => {
-		if (!focusId) return;
+		const request = focusAfter.current;
+		if (!request || request.from === group) return;
+		focusAfter.current = null;
 		const button = list.current?.querySelector<HTMLButtonElement>(
-			`li[data-person-id="${CSS.escape(focusId)}"] button[aria-haspopup]`,
+			`li[data-person-id="${CSS.escape(request.id)}"] button[aria-haspopup]`,
 		);
 		if (button && document.activeElement !== button) button.focus();
-	}, [focusId, group]);
+	}, [group]);
 	async function reorder(card: CardData, direction: "up" | "down") {
 		const ids = moveInOrder(
 			cards.map((c) => c.person.id),
@@ -191,9 +195,9 @@ function Column({
 		);
 		const input = { column: group.column, personIds: ids };
 		const rev = order.saved.revision;
-		setFocusId(card.person.id);
 		const r = await runSave(store, "order", { input, rev }, (key) => reorderPipeline(key, rev, input), { fresh });
 		if (r?.status === "ok") {
+			focusAfter.current = { id: card.person.id, from: group };
 			setSaved({ from: group, ids });
 			setSaid(`${card.person.displayName} moved ${direction}.`);
 			router.refresh();

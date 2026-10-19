@@ -309,26 +309,35 @@ for (const [name, engine] of [
 		});
 	});
 
-	test(`AC:TARGET-PPL-007 INV-reorder-focus (${name}): after a keyboard Move up, focus stays on the moved card's menu`, async () => {
+	test(`AC:TARGET-PPL-007 INV-reorder-focus (${name}): after keyboard moves in two columns, focus stays on the last moved card`, async () => {
 		await withPage(engine, "owner", async (page) => {
-			const column = () => page.getByRole("list", { name: "Following up people" });
 			await page.goto(`${BASE}/people?view=pipeline`);
-			await column().waitFor();
-			const second = (await column().getByRole("article").nth(1).getAttribute("aria-label")) ?? "";
-			await page.getByRole("button", { name: `Move ${second}` }).focus();
-			await page.keyboard.press("Enter");
-			await page.getByRole("menuitem", { name: "Move up" }).waitFor();
-			await page.keyboard.press("Home");
-			await page.keyboard.press("Enter");
-			await page.getByText(`${second} moved up.`).waitFor({ state: "attached", timeout: 30_000 });
-			// Wait for the refresh to bring the server's order, then check focus.
-			await page.waitForFunction(
-				(n) => document.querySelector('[aria-label="Following up people"] article')?.getAttribute("aria-label") === n,
-				second,
-				{ timeout: 30_000 },
-			);
+			/** Moves the second card of a column up with the keyboard; gives its name once the server order shows it first. */
+			const moveSecondUp = async (label) => {
+				const column = page.getByRole("list", { name: label });
+				await column.waitFor();
+				const second = (await column.getByRole("article").nth(1).getAttribute("aria-label")) ?? "";
+				await page.getByRole("button", { name: `Move ${second}` }).focus();
+				await page.keyboard.press("Enter");
+				await page.getByRole("menuitem", { name: "Move up" }).waitFor();
+				await page.keyboard.press("Home");
+				await page.keyboard.press("Enter");
+				await page.waitForFunction(
+					([l, n]) => document.querySelector(`[aria-label="${l}"] article`)?.getAttribute("aria-label") === n,
+					[label, second],
+					{ timeout: 30_000 },
+				);
+				await page.waitForTimeout(1500);
+				return second;
+			};
+			const focused = () => page.evaluate(() => document.activeElement?.getAttribute("aria-label"));
+			const first = await moveSecondUp("Following up people");
+			assert.equal(await focused(), `Move ${first}`);
+			const core = await moveSecondUp("Core group people");
+			assert.equal(await focused(), `Move ${core}`);
+			const last = await moveSecondUp("Following up people");
 			await page.waitForTimeout(1500);
-			assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("aria-label")), `Move ${second}`);
+			assert.equal(await focused(), `Move ${last}`, "an earlier column's request does not pull focus back");
 		});
 	});
 
