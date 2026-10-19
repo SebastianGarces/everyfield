@@ -24,10 +24,10 @@ export function TrustSection({ headline, items }: { headline: string; items: { t
 							<li key={x.title} className="flex gap-4">
 								<CardIcon tone="ink" icon={ICONS[ITEM_ICONS[i]!]} size={38} glyph={18} className="mt-0.5" />
 								<div className="min-w-0">
-									<h3 className="font-display text-[clamp(19px,1.45vw,22px)] leading-[1.2] font-medium tracking-[-0.02em]">
+									<h3 className="font-display type-title-sm mk-xl:type-title-md leading-[1.2] font-medium tracking-[-0.02em]">
 										{x.title}
 									</h3>
-									<p className="mt-1.5 max-w-[52ch] text-[16px] leading-[1.55] text-pretty text-text-2">{x.body}</p>
+									<p className="mt-1.5 max-w-[52ch] type-lg leading-[1.55] text-pretty text-text-2">{x.body}</p>
 								</div>
 							</li>
 						))}
@@ -38,20 +38,20 @@ export function TrustSection({ headline, items }: { headline: string; items: { t
 						aria-hidden="true"
 						className="ef-ui mk-gsurf g-sky relative isolate grid place-items-center overflow-hidden rounded-card px-[clamp(16px,3vw,48px)] py-[clamp(28px,4vw,56px)]"
 					>
-						<div className="w-[min(400px,100%)] rounded-[22px] bg-white px-5 pt-[18px] pb-2 text-[13px] text-text shadow-mk-panel-flat">
+						<div className="w-[min(400px,100%)] rounded-[22px] bg-white px-5 pt-[18px] pb-2 type-sm text-text shadow-mk-panel-flat">
 							<div className="mb-2 flex items-center gap-3">
 								<CardIcon tone="green" icon={ICONS.pin} size={36} glyph={17} />
 								<div className="min-w-0 flex-1">
-									<div className="font-display text-[17px] leading-[1.2] font-medium tracking-[-0.02em]">
+									<div className="font-display type-title-sm leading-[1.2] font-medium tracking-[-0.02em]">
 										Harvest Point Church
 									</div>
-									<div className="mt-0.5 text-[12.5px] text-text-3">Sharing with Grace Church</div>
+									<div className="mt-0.5 type-sm text-text-3">Sharing with Grace Church</div>
 								</div>
 							</div>
 							{SHARING.map(([label, on]) => (
 								<div key={label} className="flex items-center justify-between gap-3 border-t border-line py-2.5">
-									<span className="text-[13.5px] font-medium">{label}</span>
-									<span className="flex items-center gap-2 text-[12px] text-text-3">
+									<span className="type-md font-medium">{label}</span>
+									<span className="flex items-center gap-2 type-xs text-text-3">
 										{on ? "Shared" : "Not shared"}
 										<span
 											className={cn(

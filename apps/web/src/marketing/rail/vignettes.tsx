@@ -8,14 +8,14 @@ import { EASTSIDE_DAYS } from "../oversight/demo";
 // The small product vignettes on the phases rail cards (Marketing v15, Revision 26). Static pictures of the app with the
 // demo church's data; Server Components.
 
-const T = "font-display text-[16px] leading-[1.2] font-medium tracking-[-.02em] truncate";
-const S = "truncate text-[12px] text-text-3";
-const K = "text-[12px] font-semibold whitespace-nowrap text-text-2";
-const IT = "truncate text-[13px] font-semibold";
+const T = "font-display type-lg leading-[1.2] font-medium tracking-[-.02em] truncate";
+const S = "truncate type-xs text-text-3";
+const K = "type-xs font-semibold whitespace-nowrap text-text-2";
+const IT = "truncate type-sm font-semibold";
 
 function Vignette({ children }: { children: ReactNode }) {
 	return (
-		<div className="rounded-[18px] bg-white px-[15px] pt-3.5 pb-[15px] text-[13px] leading-[1.4] text-text shadow-mk-vignette">
+		<div className="rounded-[18px] bg-white px-[15px] pt-3.5 pb-[15px] type-sm leading-[1.4] text-text shadow-mk-vignette">
 			{children}
 		</div>
 	);
@@ -46,7 +46,7 @@ function Head({
 }
 function Delta({ children }: { children: ReactNode }) {
 	return (
-		<span className="inline-flex h-[26px] items-center gap-1.5 rounded-full bg-white px-2.5 text-[12.5px] font-semibold whitespace-nowrap shadow-[inset_0_0_0_1px_var(--color-line)] before:border-x-[5px] before:border-b-[7px] before:border-x-transparent before:border-b-green-500 before:content-['']">
+		<span className="inline-flex h-[26px] items-center gap-1.5 rounded-full bg-white px-2.5 type-sm font-semibold whitespace-nowrap shadow-[inset_0_0_0_1px_var(--color-line)] before:border-x-[5px] before:border-b-[7px] before:border-x-transparent before:border-b-green-500 before:content-['']">
 			{children}
 		</span>
 	);
@@ -54,7 +54,7 @@ function Delta({ children }: { children: ReactNode }) {
 function Stat({ n, children }: { n: string; children: ReactNode }) {
 	return (
 		<div className="mt-3 flex items-center gap-3">
-			<span className="font-display text-[50px] leading-[.95] font-medium tracking-[-.05em] whitespace-nowrap [font-stretch:100%]">
+			<span className="font-display type-display-md leading-[.95] font-medium tracking-[-.05em] whitespace-nowrap [font-stretch:100%]">
 				{n}
 			</span>
 			{children}
@@ -137,9 +137,7 @@ export function PhaseVignette({ i, demo }: { i: number; demo: PhaseDemo }) {
 								/>
 							</span>
 							{on ? (
-								<span className="flex-none rounded-full bg-ink px-2 py-1 text-[11px] font-semibold text-white">
-									Now
-								</span>
+								<span className="flex-none rounded-full bg-ink px-2 py-1 type-xs font-semibold text-white">Now</span>
 							) : null}
 						</div>
 					))}
@@ -175,15 +173,15 @@ export function PhaseVignette({ i, demo }: { i: number; demo: PhaseDemo }) {
 									{who}
 								</Avatar>
 							) : (
-								<span className="grid size-8 place-items-center rounded-full border-[1.5px] border-dashed border-amber-500 bg-amber-50 text-[15px] leading-none font-semibold text-amber-600">
+								<span className="grid size-8 place-items-center rounded-full border-[1.5px] border-dashed border-amber-500 bg-amber-50 type-lg leading-none font-semibold text-amber-600">
 									+
 								</span>
 							)}
 							<span
 								className={cn(
 									demo.wrap
-										? "max-w-full text-center text-[10.5px] leading-[1.2] tracking-[-0.01em]"
-										: "max-w-full truncate text-[11px]",
+										? "max-w-full text-center type-mk-pic-xs leading-[1.2] tracking-[-0.01em]"
+										: "max-w-full truncate type-mk-pic-xs",
 									who ? "text-text-2" : "font-semibold text-amber-600",
 								)}
 							>
@@ -236,7 +234,7 @@ export function PhaseVignette({ i, demo }: { i: number; demo: PhaseDemo }) {
 						<div
 							key={name}
 							className={cn(
-								"flex items-center gap-2.5 text-[13px] whitespace-nowrap",
+								"flex items-center gap-2.5 type-sm whitespace-nowrap",
 								done ? "font-medium text-text" : "text-text-2",
 							)}
 						>
@@ -268,12 +266,12 @@ export function PhaseVignette({ i, demo }: { i: number; demo: PhaseDemo }) {
 						style={{ height: h + "%" }}
 					>
 						{k ? null : (
-							<b className="absolute inset-x-0 top-[7px] text-center text-[11px] font-semibold text-white">186</b>
+							<b className="absolute inset-x-0 top-[7px] text-center type-mk-pic-xs font-semibold text-white">186</b>
 						)}
 					</span>
 				))}
 			</div>
-			<div className="mt-2 flex justify-between text-[11.5px] text-text-3">
+			<div className="mt-2 flex justify-between type-xs text-text-3">
 				<span>Launch</span>
 				<span>Week 6</span>
 			</div>
@@ -303,7 +301,7 @@ export function PlantVignette({ i }: { i: number }) {
 						/>
 					))}
 				</div>
-				<div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-[12px] text-text-2">
+				<div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 type-xs text-text-2">
 					{[
 						["Discovery", "10 wk"],
 						["Core group", "34 wk"],
@@ -311,7 +309,7 @@ export function PlantVignette({ i }: { i: number }) {
 						["Training", "6 wk so far"],
 					].map((r) => (
 						<span key={r[0]}>
-							<b className="block text-[14px] font-semibold text-ink">{r[1]}</b>
+							<b className="block type-md font-semibold text-ink">{r[1]}</b>
 							{r[0]}
 						</span>
 					))}
@@ -356,7 +354,7 @@ export function PlantVignette({ i }: { i: number }) {
 				/>
 				<div className="mt-3.5 grid gap-[9px]">
 					{["Kids", "Production"].map((r) => (
-						<div key={r} className="flex items-center justify-between gap-2.5 text-[13px] font-medium">
+						<div key={r} className="flex items-center justify-between gap-2.5 type-sm font-medium">
 							<span>{r}</span>
 							<Badge status="risk" size="sm">
 								Leader open

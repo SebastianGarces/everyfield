@@ -30,8 +30,8 @@ function LineOut({ n, from = 33, gap }: { n: number; from?: keyof typeof OUT; ga
 }
 
 const CARD = "relative rounded-[20px] border border-[color:var(--ef-card-edge)] bg-surface shadow-card";
-const LABEL = "text-[12.5px] leading-[1.3] text-text-3";
-const VALUE = "mt-0.5 text-[15px] leading-[1.3] font-semibold text-ink";
+const LABEL = "type-sm leading-[1.3] text-text-3";
+const VALUE = "mt-0.5 type-lg leading-[1.3] font-semibold text-ink";
 
 /** A plan level: icon, small label, value, optional end. Its node sits 33 px from the top. */
 function Level({
@@ -122,8 +122,8 @@ export function VisionZoom() {
 						<CardIcon tone="green" icon={ICONS.rocket} className="relative z-1" />
 						<div className="min-w-0 flex-1">
 							<div className={LABEL}>Launch Sunday</div>
-							<div className={cn(NUM, "mt-1 text-[clamp(24px,2.2vw,30px)] leading-[1.1]")}>Sun, Mar 14, 2027</div>
-							<div className="mt-2 text-[13px] text-text-2">9 launch milestones and 23 preparation tasks</div>
+							<div className={cn(NUM, "mt-1 type-title-md mk-lg:type-title-lg leading-[1.1]")}>Sun, Mar 14, 2027</div>
+							<div className="mt-2 type-sm text-text-2">9 launch milestones and 23 preparation tasks</div>
 						</div>
 					</div>
 				</Move>
@@ -139,10 +139,10 @@ export function VisionZoom() {
 				>
 					<div className="mt-3 ml-[50px]">
 						<div className="flex items-baseline justify-between gap-3">
-							<span className="text-[12.5px] text-text-3">Benchmark: committed adults</span>
-							<span className={cn(NUM, "text-[20px] leading-none")}>
+							<span className="type-sm text-text-3">Benchmark: committed adults</span>
+							<span className={cn(NUM, "type-title-md leading-none")}>
 								<Count fx="vision.count" max={34} />
-								<span className="ml-1 font-sans text-[12.5px] font-medium tracking-normal text-text-3">of 50</span>
+								<span className="ml-1 font-sans type-sm font-medium tracking-normal text-text-3">of 50</span>
 							</span>
 						</div>
 						<Meter fx="vision.bar" fill="w-[68%]" color="bg-blue-500" />
@@ -156,7 +156,7 @@ export function VisionZoom() {
 					icon={ICONS.flag}
 					label="Launch milestone"
 					value="Promotion plan chosen"
-					end={<span className="pt-1 text-[12.5px] whitespace-nowrap text-text-3">1 of 2 tasks done</span>}
+					end={<span className="pt-1 type-sm whitespace-nowrap text-text-3">1 of 2 tasks done</span>}
 				>
 					<div className="mt-3 ml-[50px] grid grid-cols-2 gap-1.5" aria-hidden="true">
 						<span className="relative h-2 overflow-hidden rounded-full bg-surface-2 shadow-[inset_0_0_0_1px_var(--color-line)]">
@@ -178,8 +178,8 @@ export function VisionZoom() {
 						<LineOut n={3} />
 						<CardIcon tone="amber" icon={ICONS.task} className="relative z-1" />
 						<div className="min-w-0 flex-1 pt-px">
-							<div className="font-display text-[19px] leading-[1.2] font-medium tracking-[-0.02em]">This week</div>
-							<div className="mt-0.5 text-[12.5px] text-text-3">3 tasks for the core group</div>
+							<div className="font-display type-title-sm leading-[1.2] font-medium tracking-[-0.02em]">This week</div>
+							<div className="mt-0.5 type-sm text-text-3">3 tasks for the core group</div>
 						</div>
 					</div>
 					<ul className="m-0 list-none p-0">
@@ -192,8 +192,8 @@ export function VisionZoom() {
 										<span className="size-5 rounded-full bg-surface shadow-[inset_0_0_0_1.5px_var(--color-line-2)]" />
 									</span>
 									<span className="min-w-0 flex-1">
-										<span className="block text-[14px] leading-5 font-semibold text-ink">{title}</span>
-										<span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12.5px] text-text-3">
+										<span className="block type-md leading-5 font-semibold text-ink">{title}</span>
+										<span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 type-sm text-text-3">
 											{link}
 											{/* The arrow stays with the goal, so a narrow row wraps before the arrow, not after it. */}
 											<span className="inline-flex items-center gap-1.5">

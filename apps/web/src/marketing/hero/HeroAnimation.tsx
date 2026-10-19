@@ -47,13 +47,13 @@ export function HeroAnimation({ demo }: { demo: HeroDemo }) {
 				<St i={0} k={1} className="flex items-end gap-2">
 					<div className="min-w-0 flex-1">
 						<Lab>Name</Lab>
-						<div className="flex h-10 items-center overflow-hidden rounded-[12px] bg-white px-3 text-[14px] whitespace-nowrap text-ink shadow-mk-input-focus">
+						<div className="flex h-10 items-center overflow-hidden rounded-[12px] bg-white px-3 type-md whitespace-nowrap text-ink shadow-mk-input-focus">
 							<TypedName name={person.name} />
 						</div>
 					</div>
 					<Tf
 						fx="add"
-						className="relative inline-grid h-10 flex-none place-items-center overflow-hidden rounded-[12px] bg-ink px-4 text-[13px] font-semibold whitespace-nowrap text-white shadow-pill"
+						className="relative inline-grid h-10 flex-none place-items-center overflow-hidden rounded-[12px] bg-ink px-4 type-sm font-semibold whitespace-nowrap text-white shadow-pill"
 					>
 						<span className="col-start-1 row-start-1 inline-flex items-center gap-1.5">Add</span>
 					</Tf>
@@ -94,14 +94,14 @@ export function HeroAnimation({ demo }: { demo: HeroDemo }) {
 			</Move>
 			<Move fx="card" n={2} className={CARD}>
 				<Head i={2} lead={<MoodBot fx="mood" />} title="Evry drafted a follow-up" sub={demo.draftSub} />
-				<St i={2} k={1} className="flex items-center gap-2.5 text-[12.5px] text-text-3">
+				<St i={2} k={1} className="flex items-center gap-2.5 type-sm text-text-3">
 					<span>To</span>
 					<Slot i={2} person={person} />
 				</St>
 				<St
 					i={2}
 					k={2}
-					className="relative mt-3 h-[88px] overflow-hidden rounded-[14px] bg-surface px-[13px] py-[11px] text-[13.5px] leading-[1.5] text-ink-2 shadow-[inset_0_0_0_1px_var(--color-line)]"
+					className="relative mt-3 h-[88px] overflow-hidden rounded-[14px] bg-surface px-[13px] py-[11px] type-md leading-[1.5] text-ink-2 shadow-[inset_0_0_0_1px_var(--color-line)]"
 				>
 					<Draft />
 				</St>
@@ -137,8 +137,8 @@ export function HeroAnimation({ demo }: { demo: HeroDemo }) {
 						>
 							<Icon icon={ICONS.check} className="[&_path]:[stroke-width:2.6]" />
 						</Move>
-						<span className="min-w-0 flex-1 text-[13px] font-semibold">{r[0]}</span>
-						<span className="text-[12.5px] text-text-3">{r[1]}</span>
+						<span className="min-w-0 flex-1 type-sm font-semibold">{r[0]}</span>
+						<span className="type-sm text-text-3">{r[1]}</span>
 					</St>
 				))}
 				<St i={3} k={4}>
@@ -205,15 +205,15 @@ function Head({ i, lead, title, sub }: { i: number; lead: ReactNode; title: stri
 		<St i={i} k={0} className="mb-4 flex items-center gap-3">
 			{lead}
 			<div className="min-w-0 flex-1">
-				<div className="font-display text-[17px] leading-[1.2] font-medium tracking-[-0.02em]">{title}</div>
-				<div className="mt-0.5 text-[12.5px] text-text-3">{sub}</div>
+				<div className="font-display type-title-sm leading-[1.2] font-medium tracking-[-0.02em]">{title}</div>
+				<div className="mt-0.5 type-sm text-text-3">{sub}</div>
 			</div>
 		</St>
 	);
 }
 
 function Lab({ children }: { children: ReactNode }) {
-	return <span className="mb-1.5 block text-[12px] font-semibold text-text-2">{children}</span>;
+	return <span className="mb-1.5 block type-xs font-semibold text-text-2">{children}</span>;
 }
 /** A list line; the first one of its group has no rule above it. */
 function Li({ first, children }: { first?: boolean; children: ReactNode }) {
@@ -224,7 +224,7 @@ function Kv({ k, label, children }: { k: number; label: string; children: ReactN
 		<St
 			i={1}
 			k={k}
-			className="flex h-[38px] items-center justify-between gap-2.5 border-t border-line text-[13px] text-text-2"
+			className="flex h-[38px] items-center justify-between gap-2.5 border-t border-line type-sm text-text-2"
 		>
 			<span>{label}</span>
 			<span className="inline-flex items-center gap-1.5 font-semibold text-ink">{children}</span>
@@ -236,7 +236,7 @@ function Kv({ k, label, children }: { k: number; label: string; children: ReactN
 function Slot({ i, person }: { i: number; person: HeroPerson }) {
 	return (
 		<Target name={"s" + i} className="invisible inline-flex">
-			<span className="inline-flex h-[30px] items-center gap-[7px] rounded-full bg-white pr-3 pl-1 text-[13px] font-semibold whitespace-nowrap text-ink shadow-mk-chip">
+			<span className="inline-flex h-[30px] items-center gap-[7px] rounded-full bg-white pr-3 pl-1 type-sm font-semibold whitespace-nowrap text-ink shadow-mk-chip">
 				<Av>{person.initials}</Av>
 				{person.name}
 			</span>
@@ -270,7 +270,7 @@ function Row({
 			<div className="flex min-h-[30px] items-center gap-2">
 				{chip}
 				{slot}
-				<span className={cn(NUM, "ml-auto text-[18px]")}>{num}</span>
+				<span className={cn(NUM, "ml-auto type-title-sm")}>{num}</span>
 			</div>
 			<div className="relative mt-1.5 h-2.5 overflow-hidden rounded-full bg-surface-2">
 				<Tf fx="meter" n={k} className={cn("absolute inset-0 rounded-full", METER[k])} />

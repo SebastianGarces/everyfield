@@ -49,7 +49,7 @@ export function HeroPanel({ headline, subhead, primary, secondary, children, ban
 					<div className="mt-[clamp(18px,2.1vw,30px)] flex flex-col items-center gap-[clamp(24px,2.8vw,40px)]">
 						<p
 							className={cn(
-								"mx-auto text-[clamp(16.5px,1.25vw,18px)] leading-[1.5] text-ink/72",
+								"mx-auto text-mk-lead-sm leading-[1.5] text-ink/72",
 								dash ? "max-w-[700px]" : "max-w-[560px]",
 							)}
 						>

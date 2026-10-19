@@ -41,20 +41,20 @@ export function Insight({
 			)}
 		>
 			<div className="flex items-center justify-between gap-2.5">
-				<span className="inline-flex h-[30px] items-center gap-[7px] rounded-full bg-[var(--pill-bg)] px-3 text-[13px] font-semibold shadow-[inset_0_0_0_1px_var(--pill-edge)]">
+				<span className="inline-flex h-[30px] items-center gap-[7px] rounded-full bg-[var(--pill-bg)] px-3 type-sm font-semibold shadow-[inset_0_0_0_1px_var(--pill-edge)]">
 					<Icon icon={icon} />
 					{label}
 				</span>
-				<span className="text-[12.5px] text-[var(--on-3)]">{count}</span>
+				<span className="type-sm text-[var(--on-3)]">{count}</span>
 			</div>
 			<div className="mt-5 flex items-end gap-3">
-				<span className={cn(NUM, "text-[52px] leading-[.95]")}>{num}</span>
-				<span className="pb-[3px] text-[13.5px] leading-[1.3] text-[var(--on-2)]" style={{ maxWidth: unitMax }}>
+				<span className={cn(NUM, "type-display-md leading-[.95]")}>{num}</span>
+				<span className="pb-[3px] type-md leading-[1.3] text-[var(--on-2)]" style={{ maxWidth: unitMax }}>
 					{unit}
 				</span>
 			</div>
-			<div className="mt-3.5 font-display text-[23px] leading-[1.18] font-medium tracking-[-0.02em]">{title}</div>
-			<div className="mt-2.5 text-[14px] text-[var(--on-2)]">{text}</div>
+			<div className="mt-3.5 font-display type-title-md leading-[1.18] font-medium tracking-[-0.02em]">{title}</div>
+			<div className="mt-2.5 type-md text-[var(--on-2)]">{text}</div>
 			<div className="mt-auto flex flex-wrap gap-2 pt-5">{footer}</div>
 		</div>
 	);

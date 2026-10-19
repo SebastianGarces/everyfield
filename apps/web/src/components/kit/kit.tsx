@@ -50,7 +50,7 @@ export function StageChip({ tone, children, className }: { tone: Tone; children:
 	return (
 		<span
 			className={cn(
-				"inline-flex h-6 items-center gap-1.5 rounded-full px-[9px] text-[11.5px] font-semibold whitespace-nowrap before:size-1.5 before:rounded-full before:bg-current before:content-['']",
+				"inline-flex h-6 items-center gap-1.5 rounded-full px-[9px] type-xs font-semibold whitespace-nowrap before:size-1.5 before:rounded-full before:bg-current before:content-['']",
 				TONE[tone],
 				className,
 			)}
@@ -84,7 +84,7 @@ export function Badge({
 		<span
 			className={cn(
 				"inline-flex items-center gap-1.5 rounded-full bg-white font-semibold whitespace-nowrap text-text shadow-mk-badge before:size-[7px] before:rounded-full before:content-['']",
-				size === "sm" ? "h-[22px] px-2 text-[11.5px]" : "h-[26px] px-2.5 text-[12.5px]",
+				size === "sm" ? "h-[22px] px-2 type-xs" : "h-[26px] px-2.5 type-sm",
 				DOT[status],
 				className,
 			)}
@@ -102,10 +102,10 @@ export function Av({ children, small, who }: { children: ReactNode; small?: bool
 			className={cn(
 				"grid flex-none place-items-center rounded-full font-bold tracking-[.02em]",
 				who
-					? "size-5 bg-amber-100 text-[8.5px] text-amber-600"
+					? "size-5 bg-amber-100 type-mk-pic-2xs text-amber-600"
 					: small
-						? "size-5 bg-green-100 text-[9px] text-green-700"
-						: "size-[22px] bg-green-100 text-[9.5px] text-green-700",
+						? "size-5 bg-green-100 type-mk-pic-2xs text-green-700"
+						: "size-[22px] bg-green-100 type-mk-pic-2xs text-green-700",
 			)}
 		>
 			{children}
@@ -119,7 +119,7 @@ export function Avatar({ tone, small, children }: { tone: Tone; small?: boolean;
 		<span
 			className={cn(
 				"grid flex-none place-items-center rounded-full font-semibold",
-				small ? "size-8 text-[11px]" : "size-[34px] text-[12px]",
+				small ? "size-8 type-xs" : "size-[34px] type-xs",
 				TONE[tone],
 			)}
 		>
@@ -150,11 +150,7 @@ export function UiButton({
 		<span
 			className={cn(
 				"inline-flex cursor-default items-center justify-center gap-1.5 rounded-[12px] leading-none font-semibold whitespace-nowrap",
-				size === "sm"
-					? "h-8 px-3 text-[12.5px]"
-					: size === "action"
-						? "h-[34px] px-3.5 text-[13px]"
-						: "h-9 px-3.5 text-[13px]",
+				size === "sm" ? "h-8 px-3 type-sm" : size === "action" ? "h-[34px] px-3.5 type-sm" : "h-9 px-3.5 type-sm",
 				V[variant],
 				className,
 			)}

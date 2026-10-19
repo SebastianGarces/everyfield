@@ -1,10 +1,10 @@
 {
   "note": "Written by scripts/render-share-images.mjs. Do not edit.",
-  "inputs": "5bd3ab8b049efce87756b500a7865636a131240bc8253997f21f14dbc721532f",
+  "inputs": "51a8a405ea9a0553f10733d39bb50092ed86f89cd580b499856556582b39ae4f",
   "outputs": {
-    "../src/app/opengraph-image.png": "4f4fab45d075d9895af18a0517bd7eb7cda160d2e45a7546942a569e9ee34a55",
-    "../src/app/twitter-image.png": "4f4fab45d075d9895af18a0517bd7eb7cda160d2e45a7546942a569e9ee34a55",
-    "../src/app/oversight/opengraph-image.png": "450c0fb828dc8f378e0957a5450a5c09945dbaf26eefaa9c98112b240ab5cf15",
-    "../src/app/oversight/twitter-image.png": "450c0fb828dc8f378e0957a5450a5c09945dbaf26eefaa9c98112b240ab5cf15"
+    "../src/app/opengraph-image.png": "a4c6d8396b701731267d388ad93630f1c1802b1ed91fe686e6eaed40f2fe9c3f",
+    "../src/app/twitter-image.png": "a4c6d8396b701731267d388ad93630f1c1802b1ed91fe686e6eaed40f2fe9c3f",
+    "../src/app/oversight/opengraph-image.png": "d7637a55e037761d67174cfd8940291606fd9787ecd15f2cd8d81f25d94d2cfa",
+    "../src/app/oversight/twitter-image.png": "d7637a55e037761d67174cfd8940291606fd9787ecd15f2cd8d81f25d94d2cfa"
   }
 }

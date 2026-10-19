@@ -87,7 +87,7 @@ export default function Access() {
 			<PageHero eyebrow={A.hero.eyebrow} title={A.hero.headline}>
 				<div className="mt-[clamp(24px,3vw,40px)] flex flex-col items-center gap-4">
 					<p className="max-w-[58ch] text-mk-lead text-text-2">{A.hero.subhead}</p>
-					{note ? <p className="mx-auto max-w-[56ch] text-[14px] text-text-3">{note}</p> : null}
+					{note ? <p className="mx-auto max-w-[56ch] type-md text-text-3">{note}</p> : null}
 				</div>
 			</PageHero>
 			<section className="relative pb-section">
