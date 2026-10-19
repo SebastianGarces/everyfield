@@ -402,6 +402,7 @@ test("INV-identity: deletion committed while actor waits for a root lock denies 
 						}
 					}
 					assert.equal(blocked, true, "Actor must reach the held root lock before deletion");
+					const requestedAt = new Date();
 					await tx.insert(t.lifecycle_witness).values({
 						kind,
 						opaque_subject_id: kind === "account" ? s.sender.id : s.w.id,
@@ -411,8 +412,8 @@ test("INV-identity: deletion committed while actor waits for a root lock denies 
 						requester_id: s.sender.id,
 						request_revision: "1",
 						state: "pending_deletion",
-						requested_at: new Date(),
-						cancel_until: new Date(Date.now() + 30 * 86400000),
+						requested_at: requestedAt,
+						cancel_until: new Date(requestedAt.getTime() + 30 * 86400000),
 						witness_checkpoint: "1",
 						cleanup_state: "not_started",
 					});
