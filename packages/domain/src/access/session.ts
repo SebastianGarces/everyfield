@@ -180,10 +180,9 @@ type ActiveActor = Extract<z.infer<typeof currentActorResult>, { status: "active
 export class RequestActor {
 	readonly status = "active";
 	#actor: ActiveActor;
-	private constructor(
-		readonly session: z.infer<typeof sessionId>,
-		actor: ActiveActor,
-	) {
+	readonly session: z.infer<typeof sessionId>;
+	private constructor(session: z.infer<typeof sessionId>, actor: ActiveActor) {
+		this.session = session;
 		this.#actor = actor;
 	}
 	get actor() {

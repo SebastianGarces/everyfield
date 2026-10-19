@@ -20,10 +20,12 @@ const effect_e = alias(tables.effect, "e");
 export type Tx = Transaction;
 /** A read-only request observation. Its owner and session derive from one native authority. */
 export class PeopleReadContext {
-	constructor(
-		readonly authority: RequestActor,
-		readonly purpose: PeopleContext["purpose"],
-	) {}
+	readonly authority: RequestActor;
+	readonly purpose: PeopleContext["purpose"];
+	constructor(authority: RequestActor, purpose: PeopleContext["purpose"]) {
+		this.authority = authority;
+		this.purpose = purpose;
+	}
 	get session() {
 		return this.authority.session;
 	}
