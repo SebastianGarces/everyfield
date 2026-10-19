@@ -1,3 +1,5 @@
+import { requireForeground } from "./foreground.ts";
+import { checkCiTests } from "./ci-tests.ts";
 import { existsSync, readFileSync } from "node:fs";
 import { checkPrBody, prBodyClass, type PrBodyClass } from "./pr-body.ts";
 import { renderAc, renderBrief } from "./brief.ts";
@@ -58,6 +60,7 @@ Human approval (only after Sebastian approves that PR in chat)
                           Wiki articles, prototypes, feedback P2/P3: record his approval and squash-merge
 
 Upkeep
+  evf ci-tests                                              check integration test inclusion in CI
   evf test [Node test options]                               local tooling regressions on evf's Node
   evf doctor [--here] [--browser-age <minutes>]               also lists headless browsers older than 15 min
   evf gc [--apply]
@@ -95,8 +98,14 @@ function main(argv: string[]): number | Promise<number> {
 		return 0;
 	}
 	const root = homeRoot();
+	const duration = cmd === "test" ? "2-5 minutes" : cmd === "pre-push" ? "under 10 seconds" : undefined;
+	if (duration) requireForeground(cmd, duration);
 	switch (cmd) {
+		case "ci-tests":
+			checkCiTests(git(process.cwd(), "rev-parse", "--show-toplevel"));
+			return 0;
 		case "test":
+			checkCiTests(git(process.cwd(), "rev-parse", "--show-toplevel"));
 			return run(
 				process.execPath,
 				["--test", ...args, join(git(process.cwd(), "rev-parse", "--show-toplevel"), "tools/evf/tests/*.test.ts")],

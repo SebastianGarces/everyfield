@@ -1,3 +1,4 @@
+import { requireForeground } from "./foreground.ts";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { stripVTControlCharacters } from "node:util";
@@ -44,32 +45,15 @@ export type CheckReport = {
 	scope?: ScopeReport;
 };
 
-/**
- * Agents end their turn while background jobs run, and the host then stops the checks. Agent
- * shells look the same in the foreground and the background, so evf always says it; a terminal
- * job started with & (not the terminal's foreground group) also gets a warning.
- */
-function foregroundNotice(): void {
-	const [tpgid, pgid] = run("ps", ["-o", "tpgid=,pgid=", "-p", String(process.pid)])
-		.stdout.trim()
-		.split(/\s+/)
-		.map(Number);
-	if (tpgid > 0 && tpgid !== pgid)
-		console.error(
-			"evf verify: WARNING: started in the background. Bring it to the foreground or keep the session open.",
-		);
-	console.error("evf verify: keep your turn open until this prints its result; ending the turn stops the checks.");
-}
-
 /** Local deterministic checks aid review. They never grant verifier approval or replace GitHub CI. */
 export function verify(root: string, task: TaskRef, role: Role, mode: Mode, head?: string): CheckReport {
+	requireForeground("verify", "2-15 minutes");
 	const wt =
 		role === "verifier"
 			? git(process.cwd(), "rev-parse", "--show-toplevel")
 			: requireWorktree(root, loadConfig(root), task);
 	const cfg = loadConfig(wt);
 	const wp = task.kind === "wp" ? task.wp : task.kind === "fb" ? cachedTriage(root, task.issue!)?.wp : undefined;
-	foregroundNotice();
 	requireTaskScope(root, task, wp);
 	requireMaintenancePaths(root, wt, task);
 	if (hasRemote(root, cfg)) git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
@@ -120,6 +104,7 @@ export function verify(root: string, task: TaskRef, role: Role, mode: Mode, head
 		if (existsSync(testReport)) unlinkSync(testReport);
 		reports.push(testReport);
 		const argv = command(fill(c.run, { ...vars, testReport }));
+		console.error(`evf verify: running ${c.name}.`);
 		let result = run(argv[0], argv.slice(1), { cwd: wt, env: { ...env, EVF_TEST_REPORT: testReport } });
 		let output = `${result.stdout}\n${result.stderr}`;
 		for (
@@ -140,6 +125,7 @@ export function verify(root: string, task: TaskRef, role: Role, mode: Mode, head
 			result = run(argv[0], argv.slice(1), { cwd: wt, env: { ...env, EVF_TEST_REPORT: testReport } });
 			output += `\n${notice}\n${result.stdout}\n${result.stderr}`;
 		}
+		console.error(`evf verify: ${c.name} ${result.code === 0 ? "passed" : "failed"}.`);
 		const log = join(dir, `${file}.log`);
 		writeFileSync(log, `$ ${argv.join(" ")}\n\n${output}`);
 		checks.push({ name: c.name, command: argv, exitCode: result.code, log, passed: result.code === 0 });
