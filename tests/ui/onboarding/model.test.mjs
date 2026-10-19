@@ -262,3 +262,14 @@ test("INV-onboarding-model: not sure, discerning and skip carry no phase", () =>
 	assert.deepEqual(journeyInput({ answer: "skip" }), { answer: "skip" });
 	assert.deepEqual(journeyInput({ answer: "existing", phase: 0 }), { answer: "existing", phase: 0 });
 });
+
+test("INV-onboarding-model: a pending account creates only what it registered for (D42)", () => {
+	const start = (offer) => initialState({ kind: "start", offer, accountRevision: "1" }, null);
+	const key = () => "k";
+	assert.deepEqual(begin(start("discovery"), "createPlant", {}, key).hold, "locked");
+	assert.deepEqual(begin(start("planter"), "createDiscovery", {}, key).hold, "locked");
+	assert.ok("send" in begin(start("planter"), "createPlant", {}, key));
+	assert.ok("send" in begin(start("discovery"), "createDiscovery", {}, key));
+	assert.ok("send" in begin(start("either"), "createPlant", {}, key));
+	assert.ok("send" in begin(start("either"), "createDiscovery", {}, key));
+});
