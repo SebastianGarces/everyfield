@@ -6,6 +6,7 @@ import { createHmac } from "node:crypto";
 import { createDatabase } from "@everyfield/db/client";
 import { z } from "zod";
 import { createIdentityService, trustedIdentityIp } from "@everyfield/domain/identity";
+import { invitationService } from "../invitations";
 import { createMailService } from "../jobs/mail";
 
 let service: ReturnType<typeof createIdentityService> | undefined;
@@ -85,6 +86,9 @@ export function identityHandler(request: Request): Promise<Response> {
 					eligibleAt: new Date().toISOString(),
 				}),
 			diagnostic: (value) => console.error(JSON.stringify({ component: "identity", ...value })),
+			// Invitation-origin registration and resume (REQ-IDN-003, REQ-IDN-030). The invitation service rechecks
+			// the proof, address and revision inside its own transaction.
+			invitations: invitationService() ?? undefined,
 		});
 	}
 	return service.handle(request);

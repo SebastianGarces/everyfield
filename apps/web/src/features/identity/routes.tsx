@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 import { AuthFrame } from "./AuthFrame";
+import { InvitationScreen } from "./invitation/InvitationScreen";
 import { RecoverScreen, ResetPasswordScreen, VerifyEmailScreen } from "./RecoveryScreens";
 import { RegisterScreen } from "./RegisterScreen";
 import { SignInScreen } from "./SignInScreen";
@@ -51,4 +52,11 @@ export async function ResetPasswordPage({ searchParams }: { searchParams: Search
 export const verifyMetadata: Metadata = { title: "Confirm your email", ...proofPage };
 export async function VerifyEmailPage({ searchParams }: { searchParams: Search }) {
 	return <VerifyEmailScreen proof={one((await searchParams).token)} />;
+}
+
+// The seat and residency invitation link (/invitation?proof=..., built by the WP-008 domain). The page keeps the proof
+// in this tab and removes it from the address bar and history; after sign-in it opens from the kept proof.
+export const invitationMetadata: Metadata = { title: "Your invitation", ...proofPage };
+export async function InvitationPage({ searchParams }: { searchParams: Search }) {
+	return <InvitationScreen linkProof={one((await searchParams).proof)} />;
 }
