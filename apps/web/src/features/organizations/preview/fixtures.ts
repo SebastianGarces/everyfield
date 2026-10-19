@@ -1,10 +1,20 @@
 import * as C from "@everyfield/contracts/organizations";
+import { Refusal } from "../intent";
 import type { InviteTarget } from "../InviteDialog";
-import type { PendingInvitation } from "../InvitationResponse";
-import type { History, Invitation, NameOf, OperationName, Relationship, RelationshipPair, Run } from "../port";
+import type {
+	Disclosure,
+	History,
+	NameOf,
+	OperationName,
+	PendingInvitation,
+	Relationship,
+	RelationshipPair,
+	Run,
+} from "../port";
 
 // Invented sample data for /design/organizations. Every reply goes through the contract parser, so a fixture that
-// the real API could not return fails here first. WP-007/api replaces `run` with the real operations.
+// the real API could not return fails here first. The product routes use the real WP-007/api mount instead
+// (server/organizations); these fixtures serve the /design previews only.
 
 export const ORGANIZATION_FLOWS = [
 	"connections",
@@ -87,6 +97,15 @@ const receipt = (requestKey: string, owner: unknown, operation: OperationName) =
 	eventIds: [],
 	effectIds: [],
 });
+/** A waiting invitation without the receipt that only its own command returns. */
+const bare = (i: PendingInvitation): PendingInvitation => ({
+	status: i.status,
+	invitationId: i.invitationId,
+	pair: i.pair,
+	revision: i.revision,
+	expiresAt: i.expiresAt,
+	inviterDescription: i.inviterDescription,
+});
 const READS = new Set<OperationName>([
 	"associations.getHistory",
 	"residency.readSharing",
@@ -106,42 +125,43 @@ const item = (
 
 /** Invite targets for the plant: one never connected (all on), one connected before (earlier choices). */
 export const PLANT_TARGETS: InviteTarget[] = [
-	{
-		pair: pair(PLANT, CEDAR),
-		name: NAMES[CEDAR.id]!,
-		disclosure: C.sharingDisclosure.parse({
-			kind: "first_invitation",
-			organization: CEDAR,
-			choices: {
-				people: true,
-				meetings: true,
-				tasks: true,
-				ministry_teams: true,
-				wiki: true,
-				activity: true,
-				shared_findings: true,
-			},
-		}),
-	},
-	{
-		pair: pair(PLANT, HILL),
-		name: NAMES[HILL.id]!,
-		disclosure: C.sharingDisclosure.parse({
-			kind: "existing_consent",
-			organization: HILL,
-			consentRevision: "6",
-			choices: {
-				people: true,
-				meetings: true,
-				tasks: false,
-				ministry_teams: false,
-				wiki: true,
-				activity: false,
-				shared_findings: false,
-			},
-		}),
-	},
+	{ pair: pair(PLANT, CEDAR), name: NAMES[CEDAR.id]! },
+	{ pair: pair(PLANT, HILL), name: NAMES[HILL.id]! },
 ];
+const DISCLOSURES: Record<string, unknown> = {
+	[CEDAR.id]: {
+		kind: "first_invitation",
+		organization: CEDAR,
+		choices: {
+			people: true,
+			meetings: true,
+			tasks: true,
+			ministry_teams: true,
+			wiki: true,
+			activity: true,
+			shared_findings: true,
+		},
+	},
+	[HILL.id]: {
+		kind: "existing_consent",
+		organization: HILL,
+		consentRevision: "6",
+		choices: {
+			people: true,
+			meetings: true,
+			tasks: false,
+			ministry_teams: false,
+			wiki: true,
+			activity: false,
+			shared_findings: false,
+		},
+	},
+};
+export async function readDisclosure(p: RelationshipPair): Promise<Disclosure | null> {
+	await wait(300);
+	const raw = DISCLOSURES[p.organization.id];
+	return raw ? C.sharingDisclosure.parse(raw) : null;
+}
 
 /** A stateful sample backend for one preview visit. `side` picks whose connections are listed. */
 export function createBackend(side: "subject" | "organization", viewer: Viewer, scenario: Scenario) {
@@ -249,17 +269,16 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 		}) as History;
 	}
 
-	const pending: Invitation[] =
+	let pending: PendingInvitation[] =
 		scenario === "connected" && side === "subject"
 			? [
-					C.invitationResult.parse({
+					C.invitationResult.omit({ receipt: true }).parse({
 						status: "pending",
 						invitationId: uuid(50),
 						pair: pair(PLANT, RIVERBEND),
 						revision: "1",
 						expiresAt: days(19),
 						inviterDescription: "Daniel Reyes, Owner of Harvest Point Church",
-						receipt: receipt("seed", PLANT, "associations.invite"),
 					}),
 				]
 			: [];
@@ -273,17 +292,21 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 
 	// Commands are idempotent by request key, as the API is: a repeated key returns the first result and changes
 	// nothing. "Reply lost once" commits the first command of each kind and then drops its reply.
-	const replies = new Map<string, unknown>();
+	// The API hashes the whole command: the same key with any other input is refused as request_conflict.
+	const replies = new Map<string, { body: string; reply: unknown }>();
 	const run = (async (operation: OperationName, input: unknown) => {
 		await wait(450);
 		if (READS.has(operation)) return answer(operation, input);
 		const key = `${operation}:${(input as { requestKey: string }).requestKey}`;
-		if (!replies.has(key)) replies.set(key, answer(operation, input));
+		const body = JSON.stringify(input);
+		const seen = replies.get(key);
+		if (seen && seen.body !== body) throw new Refusal("request_conflict");
+		if (!seen) replies.set(key, { body, reply: answer(operation, input) });
 		if (scenario === "offline-once" && !dropped.has(operation)) {
 			dropped.add(operation);
 			throw new TypeError("Failed to fetch");
 		}
-		return replies.get(key);
+		return replies.get(key)!.reply;
 	}) as Run;
 
 	function answer(operation: OperationName, input: unknown) {
@@ -292,7 +315,9 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 		switch (operation) {
 			case "associations.invite": {
 				const p = command.input.pair as RelationshipPair;
-				return C.invitationResult.parse({
+				if (refuse) throw new Refusal("invitation_limit");
+				if (pending.some((i) => i.pair.organization.id === p.organization.id)) throw new Refusal("pending_invitation");
+				const made = C.invitationResult.parse({
 					status: "pending",
 					invitationId: nextId(),
 					pair: p,
@@ -301,22 +326,27 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 					inviterDescription: "Daniel Reyes, Owner of Harvest Point Church",
 					receipt: receipt(command.requestKey, PLANT, operation),
 				});
+				pending = [bare(made), ...pending];
+				return made;
 			}
 			case "associations.resendInvitation": {
-				const original = pending.find((i) => i.invitationId === command.input.invitationId) ?? pending[0]!;
-				return C.invitationResult.parse({
+				const original = pending.find((i) => i.invitationId === command.input.invitationId);
+				if (refuse || !original) throw new Refusal(refuse ? "resend_cooldown" : "unavailable");
+				const next = C.invitationResult.parse({
 					...original,
 					revision: String(Number(original.revision) + 1),
 					expiresAt: days(30),
 					receipt: receipt(command.requestKey, PLANT, operation),
 				});
+				pending = pending.map((i) => (i.invitationId === next.invitationId ? bare(next) : i));
+				return next;
 			}
-			case "associations.revokeInvitation":
-				return C.mutationResult.parse(
-					refuse
-						? { status: "unavailable" }
-						: { status: "committed", receipt: receipt(command.requestKey, PLANT, operation) },
-				);
+			case "associations.revokeInvitation": {
+				const found = pending.some((i) => i.invitationId === command.input.invitationId);
+				if (refuse || !found) return C.mutationResult.parse({ status: "unavailable" });
+				pending = pending.filter((i) => i.invitationId !== command.input.invitationId);
+				return C.mutationResult.parse({ status: "committed", receipt: receipt(command.requestKey, PLANT, operation) });
+			}
 			case "associations.end": {
 				const index = active.findIndex((r) => r.relationship.id === command.input.relationshipId);
 				// An end for a link that is no longer active is refused, so a retry with a new key would show it.
@@ -403,7 +433,11 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 		}
 	}
 
-	return { read, run, pending, residencyLink: RESIDENT_LINK };
+	const load = async () => {
+		const history = await read(null);
+		return { history, pending };
+	};
+	return { load, read, run, residencyLink: RESIDENT_LINK };
 }
 
 /** The request the recipient opened from the emailed link (WP-008 owns the link landing). */

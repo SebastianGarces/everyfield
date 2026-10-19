@@ -19,6 +19,7 @@ import {
 	NAMES_FOR_PREVIEW,
 	NOTICES,
 	PLANT_TARGETS,
+	readDisclosure,
 	SCENARIO_LABEL,
 	VIEWER_LABEL,
 	VIEWERS,
@@ -139,12 +140,13 @@ function Flow({
 					/>
 					<Connections
 						side="subject"
-						read={backend.read}
+						load={backend.load}
+						readMore={backend.read}
 						canManage={canManage}
 						nameOf={nameOf}
 						zone={ZONE}
 						run={backend.run}
-						invite={{ targets: PLANT_TARGETS, expectedRevision: "7", pending: backend.pending }}
+						invite={{ targets: PLANT_TARGETS, readDisclosure, expectedRevision: "7" }}
 					/>
 				</>
 			);
@@ -157,7 +159,8 @@ function Flow({
 					/>
 					<Connections
 						side="organization"
-						read={backend.read}
+						load={backend.load}
+						readMore={backend.read}
 						canManage={canManage}
 						nameOf={nameOf}
 						zone={ZONE}

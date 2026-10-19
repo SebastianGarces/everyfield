@@ -40,46 +40,48 @@ export function EndDialog({
 	/** The name of the other side of this connection. */
 	otherName: string;
 	run: Run;
-	onEnded: () => void;
+	/** After a committed end, and after closing with an unconfirmed one: the list reloads either way. */
+	onEnded: (ended: boolean) => void;
 	trigger: ReactNode;
 }) {
 	const [open, setOpen] = useState(false);
 	const [reason, setReason] = useState("");
-	const { run: send, pending, problem, reset } = useIntent("relationship-end");
+	const send = useIntent<ReturnType<typeof endRelationshipRequest.parse>>("relationship-end");
+	const pending = send.pending !== null;
 	const tooLong = reason.trim().length > REASON_LIMIT;
 
 	const change = (next: boolean) => {
 		if (pending) return;
 		setOpen(next);
 		if (!next) {
+			if (send.held) onEnded(false);
 			setReason("");
-			reset();
+			send.release();
 		}
 	};
 
 	const submit = async () => {
 		if (tooLong) return;
 		const text = reason.trim();
-		const result = await send(
+		const result = await send.run(
+			"dialog",
 			(requestKey) =>
-				run(
-					"associations.end",
-					endRelationshipRequest.parse({
-						requestKey,
-						expectedRevision: relationship.revision,
-						input: {
-							relationshipId: relationship.id,
-							pair: relationship.pair,
-							confirmed: true,
-							reason: text === "" ? null : text,
-						},
-					}),
-				),
+				endRelationshipRequest.parse({
+					requestKey,
+					expectedRevision: relationship.revision,
+					input: {
+						relationshipId: relationship.id,
+						pair: relationship.pair,
+						confirmed: true,
+						reason: text === "" ? null : text,
+					},
+				}),
+			(command) => run("associations.end", command),
 			(r) => r.status === "committed",
 		);
 		if (result.ok) {
 			change(false);
-			onEnded();
+			onEnded(true);
 		}
 	};
 
@@ -122,19 +124,25 @@ export function EndDialog({
 						hint="Kept in the connection history. Members do not see it."
 						error={tooLong ? `Use ${REASON_LIMIT.toLocaleString("en-US")} characters or fewer.` : undefined}
 					>
-						<Textarea value={reason} onChange={(e) => setReason(e.target.value)} invalid={tooLong} rows={3} />
+						<Textarea
+							value={reason}
+							readOnly={send.held !== null}
+							onChange={(e) => setReason(e.target.value)}
+							invalid={tooLong}
+							rows={3}
+						/>
 					</Field>
 					<ProblemLine
-						problem={problem}
+						problem={send.problem}
 						refused="The connection did not end. It may have changed or ended already. Close this and check the list again."
 					/>
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" onClick={() => change(false)} disabled={pending}>
-						Cancel
+						{send.held ? "Close" : "Cancel"}
 					</Button>
 					<Button variant="danger" onClick={submit} loading={pending}>
-						{leaving ? "Leave" : "End connection"}
+						{send.held ? "Try again" : leaving ? "Leave" : "End connection"}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

@@ -13,70 +13,100 @@ import {
 	Field,
 	Input,
 	Select,
+	Skeleton,
 } from "@everyfield/ui/controls";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { SharingDisclosure } from "./Disclosure";
 import { useIntent } from "./intent";
 import { emailProblem, kindLabel } from "./model";
 import { ProblemLine } from "./parts";
 import type { Disclosure, Invitation, Organization, RelationshipPair, Run } from "./port";
 
-/** One organization this subject may ask to connect with, with the exact disclosure the server will apply. */
-export type InviteTarget = { pair: RelationshipPair; name: string; disclosure: Disclosure };
+/** One organization this subject may ask to connect with. */
+export type InviteTarget = { pair: RelationshipPair; name: string };
+
+/** Reads the exact disclosure the server will apply for this pair (readSharingDisclosure), or null when it has none. */
+export type ReadDisclosure = (pair: RelationshipPair) => Promise<Disclosure | null>;
+
+const REFUSED: Record<string, string> = {
+	pending_invitation: "A request to this organization is already waiting. Resend it from the list instead.",
+	already_active: "You are already connected with this organization.",
+	invitation_limit: "This address has had 3 invitations in the last 30 days. Ask another Owner or Admin there.",
+	stale_revision: "Your details changed since this page loaded. Close this, then try again.",
+};
 
 /**
  * Asking one exact organization to connect (REQ-IDN-020). The subject's Owner or Admin picks the organization and
  * the address of its Owner or Admin, and sees what that organization will be able to see before sending
- * (REQ-IDN-022). Nothing is shared until the organization accepts.
+ * (REQ-IDN-022). Nothing is shared until the organization accepts. When the reply is lost, the fields lock and
+ * Try again resends the same command; closing the dialog then asks the list to reload.
  */
 export function InviteDialog({
 	targets,
+	readDisclosure,
 	expectedRevision,
 	run,
 	onSent,
+	onUnconfirmed,
 	trigger,
 }: {
 	targets: InviteTarget[];
+	readDisclosure: ReadDisclosure;
 	/** The subject's current revision, so a stale screen cannot send. */
 	expectedRevision: string;
 	run: Run;
 	onSent: (invitation: Invitation, target: InviteTarget) => void;
+	onUnconfirmed: () => void;
 	trigger: ReactNode;
 }) {
 	const [open, setOpen] = useState(false);
 	const [targetId, setTargetId] = useState<string>("");
 	const [email, setEmail] = useState("");
 	const [checked, setChecked] = useState(false);
-	const { run: send, pending, problem, reset } = useIntent("relationship-invite");
+	const [disclosure, setDisclosure] = useState<{ id: string; value: Disclosure | null } | null>(null);
+	const send = useIntent<ReturnType<typeof inviteRelationshipRequest.parse>>("relationship-invite");
+	const locked = send.held !== null || send.pending !== null;
 	const target = targets.find((t) => t.pair.organization.id === targetId);
 	const errors = { organization: target ? undefined : "Choose an organization.", email: emailProblem(email) };
 	const shown: Partial<typeof errors> = checked ? errors : {};
 
+	useEffect(() => {
+		if (!target) return;
+		let live = true;
+		readDisclosure(target.pair).then(
+			(value) => live && setDisclosure({ id: target.pair.organization.id, value }),
+			() => live && setDisclosure({ id: target.pair.organization.id, value: null }),
+		);
+		return () => {
+			live = false;
+		};
+	}, [target, readDisclosure]);
+	const shownDisclosure = disclosure && disclosure.id === targetId ? disclosure : null;
+
 	const change = (next: boolean) => {
-		if (pending) return;
+		if (send.pending) return;
 		setOpen(next);
 		if (!next) {
+			if (send.held) onUnconfirmed();
 			setTargetId("");
 			setEmail("");
 			setChecked(false);
-			reset();
+			send.release();
 		}
 	};
 
 	const submit = async () => {
 		setChecked(true);
 		if (!target || errors.email) return;
-		const result = await send(
+		const result = await send.run(
+			"dialog",
 			(requestKey) =>
-				run(
-					"associations.invite",
-					inviteRelationshipRequest.parse({
-						requestKey,
-						expectedRevision,
-						input: { pair: target.pair, recipientEmail: email },
-					}),
-				),
-			// The contract has no refusal result for an invitation; a refusal arrives as an error.
+				inviteRelationshipRequest.parse({
+					requestKey,
+					expectedRevision,
+					input: { pair: target.pair, recipientEmail: email },
+				}),
+			(command) => run("associations.invite", command),
 			() => true,
 		);
 		if (result.ok) {
@@ -109,6 +139,7 @@ export function InviteDialog({
 							<Select
 								value={targetId}
 								onValueChange={setTargetId}
+								disabled={locked}
 								placeholder="Choose a sending church or network"
 								invalid={Boolean(shown.organization)}
 								options={targets.map((t) => ({
@@ -127,20 +158,37 @@ export function InviteDialog({
 								autoComplete="off"
 								spellCheck={false}
 								value={email}
+								readOnly={locked}
 								onChange={(e) => setEmail(e.target.value)}
 								invalid={Boolean(shown.email)}
 							/>
 						</Field>
-						{target ? <SharingDisclosure disclosure={target.disclosure} organizationName={target.name} /> : null}
+						{target ? (
+							shownDisclosure ? (
+								shownDisclosure.value ? (
+									<SharingDisclosure disclosure={shownDisclosure.value} organizationName={target.name} />
+								) : null
+							) : (
+								<div aria-busy="true">
+									<span className="sr-only" role="status">
+										Loading what {target.name} can see
+									</span>
+									<Skeleton shape="block" height={120} />
+								</div>
+							)
+						) : null}
 					</form>
-					<ProblemLine problem={problem} />
+					<ProblemLine
+						problem={send.problem}
+						refused={REFUSED[send.code ?? ""] ?? "This invitation was not sent. Nothing changed."}
+					/>
 				</DialogBody>
 				<DialogFooter>
-					<Button variant="secondary" onClick={() => change(false)} disabled={pending}>
-						Cancel
+					<Button variant="secondary" onClick={() => change(false)} disabled={send.pending !== null}>
+						{send.held ? "Close" : "Cancel"}
 					</Button>
-					<Button variant="primary" type="submit" form="invite-organization" loading={pending}>
-						Send invitation
+					<Button variant="primary" type="submit" form="invite-organization" loading={send.pending !== null}>
+						{send.held ? "Try again" : "Send invitation"}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

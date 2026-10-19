@@ -23,6 +23,8 @@ export type Run = <K extends OperationName>(operation: K, input: Ops[K]["input"]
 
 export type Relationship = z.infer<typeof relationshipProjection>;
 export type Invitation = z.infer<typeof invitationResult>;
+/** A waiting invitation as a list or a link shows it. The receipt belongs only to the command that made it. */
+export type PendingInvitation = Omit<Invitation, "receipt">;
 export type Disclosure = z.infer<typeof sharingDisclosure>;
 export type Choices = z.infer<typeof sharingChoices>;
 export type Category = keyof Choices;

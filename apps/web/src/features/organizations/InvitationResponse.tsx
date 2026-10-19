@@ -8,9 +8,7 @@ import { NotAvailable } from "../access/AccessStates";
 import { useIntent } from "./intent";
 import { formatDay, NEVER_SHARED, subjectName } from "./model";
 import { PrivateLine, ProblemLine } from "./parts";
-import type { Invitation, NameOf, Run } from "./port";
-
-export type PendingInvitation = Omit<Invitation, "receipt">;
+import type { NameOf, PendingInvitation, Run } from "./port";
 
 /**
  * The receiving organization's answer to one connection request (REQ-IDN-020). Only an Owner or Admin of that exact
@@ -34,8 +32,8 @@ export function InvitationResponse({
 	connectionsHref: string;
 }) {
 	const [outcome, setOutcome] = useState<"accepted" | "declined" | "refused" | null>(null);
-	const accept = useIntent("relationship-accept");
-	const decline = useIntent("relationship-decline");
+	// One intent for both answers: after a lost reply only that same answer can be retried, unchanged.
+	const answer = useIntent<ReturnType<typeof respondInvitationRequest.parse>>("relationship-respond");
 
 	if (!invitation || outcome === "refused") return <NotAvailable scope="page" homeHref={connectionsHref} />;
 
@@ -62,21 +60,18 @@ export function InvitationResponse({
 			</Card>
 		);
 
-	const respond = (decision: "accept" | "decline") => {
-		const intent = decision === "accept" ? accept : decline;
-		return intent.run(
+	const respond = (decision: "accept" | "decline") =>
+		answer.run(
+			decision,
 			(requestKey) =>
-				run(
-					"associations.respondInvitation",
-					respondInvitationRequest.parse({
-						requestKey,
-						expectedRevision: invitation.revision,
-						input: { invitationId: invitation.invitationId, proof, decision },
-					}),
-				),
+				respondInvitationRequest.parse({
+					requestKey,
+					expectedRevision: invitation.revision,
+					input: { invitationId: invitation.invitationId, proof, decision },
+				}),
+			(command) => run("associations.respondInvitation", command),
 			(r) => r.status === (decision === "accept" ? "accepted" : "declined"),
 		);
-	};
 
 	const onAccept = async () => {
 		const result = await respond("accept");
@@ -88,6 +83,7 @@ export function InvitationResponse({
 		const result = await respond("decline");
 		if (result.ok) return setOutcome("declined");
 		if (result.problem === "refused") return setOutcome("refused");
+		if (result.problem === "busy") throw new Error("Finish accepting first: use Try again on the page.");
 		throw new Error("We could not confirm your answer. Check your connection, then try again.");
 	};
 
@@ -126,7 +122,7 @@ export function InvitationResponse({
 			<p className="mt-4 text-sm text-text-3">
 				This request expires on <time dateTime={invitation.expiresAt}>{formatDay(invitation.expiresAt, zone)}</time>.
 			</p>
-			<ProblemLine problem={accept.problem} />
+			<ProblemLine problem={answer.held === "accept" ? answer.problem : null} />
 			<div className="mt-6 flex flex-wrap justify-end gap-2.5 max-app-sm:*:flex-1">
 				<ConfirmDialog
 					title="Decline this request?"
@@ -137,13 +133,18 @@ export function InvitationResponse({
 					confirmLabel="Decline"
 					onConfirm={onDecline}
 					trigger={
-						<Button variant="secondary" disabled={accept.pending}>
+						<Button variant="secondary" disabled={answer.pending === "accept" || answer.held === "accept"}>
 							Decline
 						</Button>
 					}
 				/>
-				<Button variant="primary" loading={accept.pending} disabled={decline.pending} onClick={onAccept}>
-					Accept and connect
+				<Button
+					variant="primary"
+					loading={answer.pending === "accept"}
+					disabled={answer.pending === "decline" || answer.held === "decline"}
+					onClick={onAccept}
+				>
+					{answer.held === "accept" ? "Try again" : "Accept and connect"}
 				</Button>
 			</div>
 		</Card>

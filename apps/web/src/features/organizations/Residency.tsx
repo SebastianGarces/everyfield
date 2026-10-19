@@ -153,26 +153,26 @@ function ActiveResidency({
 	run: Run;
 	reload: () => void;
 }) {
-	const save = useIntent("residency-sharing");
-	const leave = useIntent("residency-leave");
+	// One intent for the switches and Leave: while one command is unconfirmed, nothing else is sent.
+	const save = useIntent<object>("residency");
 	const [busy, setBusy] = useState<{ key: Key; value: boolean } | null>(null);
 
 	const toggle = (key: Key) => async (value: boolean) => {
+		if (save.held) return;
 		setBusy({ key, value });
 		const result = await save.run(
+			key,
 			(requestKey) =>
-				run(
-					"residency.setSharing",
-					setResidencySharingRequest.parse({
-						requestKey,
-						expectedRevision: data.consentRevision,
-						input: {
-							linkId: data.linkId,
-							expectedConsentRevision: data.consentRevision,
-							choices: { ...data.choices, [key]: value },
-						},
-					}),
-				),
+				setResidencySharingRequest.parse({
+					requestKey,
+					expectedRevision: data.consentRevision,
+					input: {
+						linkId: data.linkId,
+						expectedConsentRevision: data.consentRevision,
+						choices: { ...data.choices, [key]: value },
+					},
+				}),
+			(command) => run("residency.setSharing", command),
 			(r) => r.status === "committed",
 		);
 		setBusy(null);
@@ -180,23 +180,24 @@ function ActiveResidency({
 	};
 
 	const onLeave = async () => {
-		const result = await leave.run(
+		const result = await save.run(
+			"leave",
 			(requestKey) =>
-				run(
-					"residency.leave",
-					leaveResidencyRequest.parse({
-						requestKey,
-						expectedRevision: data.consentRevision,
-						input: { linkId: data.linkId, expectedConsentRevision: data.consentRevision },
-					}),
-				),
+				leaveResidencyRequest.parse({
+					requestKey,
+					expectedRevision: data.consentRevision,
+					input: { linkId: data.linkId, expectedConsentRevision: data.consentRevision },
+				}),
+			(command) => run("residency.leave", command),
 			(r) => r.status === "committed",
 		);
 		if (result.ok) return reload();
 		throw new Error(
 			result.problem === "refused"
 				? "You did not leave. Your sharing changed somewhere else. Close this and check again."
-				: "We could not confirm that you left. Check your connection, then try again.",
+				: result.problem === "busy"
+					? "A sharing change is still unconfirmed. Close this, then use Load latest."
+					: "We could not confirm that you left. Check your connection, then try again.",
 		);
 	};
 
@@ -233,7 +234,7 @@ function ActiveResidency({
 							<Switch
 								checked={checked}
 								onCheckedChange={toggle(key)}
-								disabled={busy !== null && !mine}
+								disabled={(busy !== null && !mine) || save.held !== null}
 								aria-label={`Share ${RESIDENT_TEXT[key].label.toLowerCase()} with ${organizationName}`}
 							/>
 						</li>
@@ -244,11 +245,17 @@ function ActiveResidency({
 				problem={save.problem}
 				refused="Your choice was not saved. It changed somewhere else. Load the latest and try again."
 				action={
-					save.problem === "refused" ? (
-						<Button size="sm" variant="secondary" onClick={reload}>
-							Load latest
-						</Button>
-					) : undefined
+					<Button
+						size="sm"
+						variant="secondary"
+						onClick={() => {
+							// Reading the latest state resolves an unconfirmed change; a new switch is a new command.
+							save.release();
+							reload();
+						}}
+					>
+						Load latest
+					</Button>
 				}
 			/>
 			<PrivateLine>{PRIVATE}</PrivateLine>

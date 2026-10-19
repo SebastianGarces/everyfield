@@ -81,22 +81,22 @@ function ConsentSwitch({
 	run: Run;
 	reload: () => void;
 }) {
-	const save = useIntent("pipeline-consent");
+	const save = useIntent<ReturnType<typeof setPipelineConsentRequest.parse>>("pipeline-consent");
 	const [next, setNext] = useState<boolean | null>(null);
 	const checked = next ?? data.sharePipelineTotals;
 
 	const toggle = async (value: boolean) => {
+		if (save.held) return;
 		setNext(value);
 		const result = await save.run(
+			"switch",
 			(requestKey) =>
-				run(
-					"pipelineSharing.setConsent",
-					setPipelineConsentRequest.parse({
-						requestKey,
-						expectedRevision: data.revision,
-						input: { relationshipId: data.relationshipId, sharePipelineTotals: value },
-					}),
-				),
+				setPipelineConsentRequest.parse({
+					requestKey,
+					expectedRevision: data.revision,
+					input: { relationshipId: data.relationshipId, sharePipelineTotals: value },
+				}),
+			(command) => run("pipelineSharing.setConsent", command),
 			(r) => r.status === "committed",
 		);
 		setNext(null);
@@ -124,7 +124,7 @@ function ConsentSwitch({
 				<Switch
 					checked={checked}
 					onCheckedChange={toggle}
-					disabled={!canManage || save.pending}
+					disabled={!canManage || save.pending !== null || save.held !== null}
 					aria-label={`Share pipeline totals with ${networkName}`}
 				/>
 			</div>
@@ -133,11 +133,17 @@ function ConsentSwitch({
 				problem={save.problem}
 				refused="Your choice was not saved. It changed somewhere else. Load the latest and try again."
 				action={
-					save.problem === "refused" ? (
-						<Button size="sm" variant="secondary" onClick={reload}>
-							Load latest
-						</Button>
-					) : undefined
+					<Button
+						size="sm"
+						variant="secondary"
+						onClick={() => {
+							// Reading the latest state resolves an unconfirmed change; a new switch is a new command.
+							save.release();
+							reload();
+						}}
+					>
+						Load latest
+					</Button>
 				}
 			/>
 			<p className="mt-2 text-sm text-text-2">

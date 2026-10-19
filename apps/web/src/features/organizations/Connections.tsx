@@ -9,41 +9,44 @@ import { NotAvailable } from "../access/AccessStates";
 import { EndDialog, type Side } from "./EndDialog";
 import { HistoryList, otherSide, type ReadHistory } from "./History";
 import { useIntent, useLoad } from "./intent";
-import { InviteDialog, type InviteTarget } from "./InviteDialog";
+import { InviteDialog, type InviteTarget, type ReadDisclosure } from "./InviteDialog";
 import { formatDay, kindLabel, subjectOf } from "./model";
 import { ProblemLine } from "./parts";
-import type { History, Invitation, NameOf, Relationship, Run } from "./port";
+import type { History, NameOf, PendingInvitation, Relationship, Run } from "./port";
 
-type Loaded = { status: "unavailable" } | History;
+/** One read of the list: the first history page with the current connections, and the requests still waiting. */
+export type ConnectionsData = { history: { status: "unavailable" } | History; pending: PendingInvitation[] };
 
 /**
- * The connections of one plant, sending church or Discovery account (`side="subject"`), or of one organization
- * (`side="organization"`), with their history (REQ-IDN-020, REQ-IDN-021). Several connections can exist at once and
- * each one is ended on its own. `canManage` only hides controls; the server still checks every command.
+ * The connections of one plant, sending church or Discovery account, or of one organization, with their history
+ * (REQ-IDN-020, REQ-IDN-021). Several connections can exist at once and each one is ended on its own. Every change
+ * reloads the list from the server, so the screen never guesses an outcome. `canManage` only hides controls; the
+ * server still checks every command.
  */
 export function Connections({
 	side,
-	read,
+	load,
+	readMore,
 	canManage,
 	nameOf,
 	zone,
 	run,
 	invite,
 }: {
+	/** `subject` words the list for the side that asks to connect; `organization` for the side that receives. */
 	side: Side;
-	read: ReadHistory;
+	load: () => Promise<ConnectionsData>;
+	readMore: ReadHistory;
 	canManage: boolean;
 	nameOf: NameOf;
 	zone: string;
 	run: Run;
-	/** Subject side only: who this subject may ask, its revision, and the invitations still waiting. */
-	invite?: { targets: InviteTarget[]; expectedRevision: string; pending: Invitation[] };
+	/** Present when this viewer can ask organizations to connect. */
+	invite?: { targets: InviteTarget[]; readDisclosure: ReadDisclosure; expectedRevision: string };
 }) {
-	const [pending, setPending] = useState<Invitation[]>(invite?.pending ?? []);
 	const [status, setStatus] = useState("");
-
-	const fetch = useCallback(() => read(null), [read]);
-	const { state, reload: load } = useLoad<Loaded>(fetch, "Connections did not load");
+	const fetch = useCallback(() => load(), [load]);
+	const { state, reload } = useLoad<ConnectionsData>(fetch, "Connections did not load");
 
 	const subject = side === "subject";
 	const titleId = `${side}-connections-title`;
@@ -61,15 +64,17 @@ export function Connections({
 							: "Churches that chose to connect with you. You see only what each one shares."}
 					</p>
 				</div>
-				{subject && canManage && invite ? (
+				{canManage && invite ? (
 					<InviteDialog
 						targets={invite.targets}
+						readDisclosure={invite.readDisclosure}
 						expectedRevision={invite.expectedRevision}
 						run={run}
-						onSent={(invitation, target) => {
-							setPending((list) => [invitation, ...list]);
+						onSent={(_, target) => {
 							setStatus(`Invitation sent. ${target.name} has 30 days to accept.`);
+							reload();
 						}}
+						onUnconfirmed={reload}
 						trigger={
 							<Button variant="primary" size="sm" icon={Link01Icon}>
 								Connect
@@ -93,31 +98,34 @@ export function Connections({
 					</div>
 				}
 			>
-				{(data) =>
-					data.status === "unavailable" ? (
+				{({ history, pending }) =>
+					history.status === "unavailable" ? (
 						<NotAvailable scope="section" />
 					) : (
 						<>
 							<ActiveList
 								side={side}
-								history={data}
+								history={history}
 								canManage={canManage}
 								nameOf={nameOf}
 								zone={zone}
 								run={run}
-								onEnded={(name) => {
-									setStatus(subject ? `You left ${name}.` : `The connection with ${name} ended.`);
-									load();
+								onEnded={(name, ended) => {
+									if (ended) setStatus(`The connection with ${name} ended.`);
+									reload();
 								}}
 							/>
-							{subject && pending.length > 0 ? (
+							{invite && pending.length > 0 ? (
 								<PendingList
 									invitations={pending}
 									canManage={canManage}
 									nameOf={nameOf}
 									zone={zone}
 									run={run}
-									onChange={(next) => setPending(next)}
+									onChange={(text) => {
+										if (text) setStatus(text);
+										reload();
+									}}
 								/>
 							) : null}
 							{canManage ? null : <p className="mt-4 text-sm text-text-3">Owners and Admins manage connections.</p>}
@@ -126,9 +134,9 @@ export function Connections({
 									History
 								</h3>
 								<HistoryList
-									key={data.activeRelationships.map((r) => r.id).join()}
-									first={data}
-									read={read}
+									key={history.items.map((r) => r.id).join()}
+									first={history}
+									read={readMore}
 									nameOf={nameOf}
 									zone={zone}
 								/>
@@ -139,6 +147,13 @@ export function Connections({
 			</LoadableView>
 		</Card>
 	);
+}
+
+/** The side this viewer holds in one connection: the receiving organization, or the side that asked. */
+function sideIn(scope: History["scope"], relationship: Relationship): Side {
+	return "organization" in scope && scope.organization.id === relationship.pair.organization.id
+		? "organization"
+		: "subject";
 }
 
 function ActiveList({
@@ -156,7 +171,7 @@ function ActiveList({
 	nameOf: NameOf;
 	zone: string;
 	run: Run;
-	onEnded: (name: string) => void;
+	onEnded: (name: string, ended: boolean) => void;
 }) {
 	const rows = history.activeRelationships;
 	if (rows.length === 0)
@@ -172,7 +187,7 @@ function ActiveList({
 			{rows.map((relationship) => (
 				<ActiveRow
 					key={relationship.id}
-					side={side}
+					side={sideIn(history.scope, relationship)}
 					relationship={relationship}
 					name={otherSide(history.scope, relationship.pair, nameOf)}
 					canManage={canManage}
@@ -200,7 +215,7 @@ function ActiveRow({
 	canManage: boolean;
 	zone: string;
 	run: Run;
-	onEnded: (name: string) => void;
+	onEnded: (name: string, ended: boolean) => void;
 }) {
 	const subject = side === "subject";
 	const other = subject ? relationship.pair.organization : subjectOf(relationship.pair);
@@ -221,7 +236,7 @@ function ActiveRow({
 					relationship={relationship}
 					otherName={name}
 					run={run}
-					onEnded={() => onEnded(name)}
+					onEnded={(ended) => onEnded(name, ended)}
 					trigger={
 						<Button variant="ghost" size="sm" aria-label={subject ? `Leave ${name}` : `End connection with ${name}`}>
 							{subject ? "Leave" : "End connection"}
@@ -233,9 +248,18 @@ function ActiveRow({
 	);
 }
 
+type Action = "resend" | "withdraw";
+type InvitationCommand = ReturnType<typeof invitationCommandRequest.parse>;
+
+const RESEND_REFUSED: Record<string, string> = {
+	resend_cooldown: "This invitation was sent a moment ago. Wait a few minutes, then resend it.",
+};
+
 /**
  * Invitations this subject sent that are still waiting (REQ-IDN-020). Resend sends a fresh link and a new 30 days;
- * withdraw cancels the request. Both act on this one invitation only.
+ * withdraw cancels the request. Each row keeps its own frozen command, so a lost reply on one row never sends its
+ * request key with another invitation or another action. Until it is resolved or the list reloads, the other
+ * controls wait.
  */
 function PendingList({
 	invitations,
@@ -245,42 +269,45 @@ function PendingList({
 	run,
 	onChange,
 }: {
-	invitations: Invitation[];
+	invitations: PendingInvitation[];
 	canManage: boolean;
 	nameOf: NameOf;
 	zone: string;
 	run: Run;
-	onChange: (next: Invitation[]) => void;
+	onChange: (status: string | null) => void;
 }) {
-	const resend = useIntent("relationship-resend");
-	const withdraw = useIntent("relationship-withdraw");
-	const [busy, setBusy] = useState<string | null>(null);
-	const [last, setLast] = useState<"resend" | "withdraw">("resend");
-	const problem = last === "resend" ? resend.problem : withdraw.problem;
+	const resend = useIntent<InvitationCommand>("relationship-resend");
+	const withdraw = useIntent<InvitationCommand>("relationship-withdraw");
+	const [last, setLast] = useState<Action>("resend");
+	const intent = last === "resend" ? resend : withdraw;
+	const busy = resend.pending ?? withdraw.pending;
+	const held = resend.held ?? withdraw.held;
 
-	const act = async (kind: "resend" | "withdraw", invitation: Invitation) => {
-		setLast(kind);
-		setBusy(invitation.invitationId);
-		const command = (requestKey: string) =>
+	const act = async (action: Action, invitation: PendingInvitation) => {
+		setLast(action);
+		const make = (requestKey: string) =>
 			invitationCommandRequest.parse({
 				requestKey,
 				expectedRevision: invitation.revision,
 				input: { invitationId: invitation.invitationId },
 			});
-		if (kind === "resend") {
-			const reply = await resend.run(
-				(requestKey) => run("associations.resendInvitation", command(requestKey)),
-				() => true,
-			);
-			if (reply.ok) onChange(invitations.map((i) => (i.invitationId === reply.reply.invitationId ? reply.reply : i)));
-		} else {
-			const reply = await withdraw.run(
-				(requestKey) => run("associations.revokeInvitation", command(requestKey)),
-				(r) => r.status === "committed",
-			);
-			if (reply.ok) onChange(invitations.filter((i) => i.invitationId !== invitation.invitationId));
-		}
-		setBusy(null);
+		const name = nameOf(invitation.pair.organization);
+		const result =
+			action === "resend"
+				? await resend.run(
+						invitation.invitationId,
+						make,
+						(command) => run("associations.resendInvitation", command),
+						() => true,
+					)
+				: await withdraw.run(
+						invitation.invitationId,
+						make,
+						(command) => run("associations.revokeInvitation", command),
+						(r) => r.status === "committed",
+					);
+		if (result.ok)
+			onChange(action === "resend" ? `A new link went to ${name}.` : `The invitation to ${name} was withdrawn.`);
 	};
 
 	return (
@@ -291,10 +318,18 @@ function PendingList({
 			<ul className="mt-2 flex flex-col">
 				{invitations.map((invitation) => {
 					const name = nameOf(invitation.pair.organization);
-					const mine = busy === invitation.invitationId;
+					const slot = invitation.invitationId;
+					// While any command is in flight or unconfirmed, only that row's same action stays usable.
+					const lockedTo: Action | null =
+						resend.held === slot || resend.pending === slot
+							? "resend"
+							: withdraw.held === slot || withdraw.pending === slot
+								? "withdraw"
+								: null;
+					const elsewhere = (held !== null || busy !== null) && lockedTo === null;
 					return (
 						<li
-							key={invitation.invitationId}
+							key={slot}
 							className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line py-3.5 first:border-t-0"
 						>
 							<CardIcon icon={MailSend01Icon} tone="amber" size={36} />
@@ -310,22 +345,22 @@ function PendingList({
 									<Button
 										variant="secondary"
 										size="sm"
-										loading={mine && last === "resend" && resend.pending}
-										disabled={busy !== null && !mine}
+										loading={resend.pending === slot}
+										disabled={elsewhere || lockedTo === "withdraw"}
 										onClick={() => act("resend", invitation)}
-										aria-label={`Resend the invitation to ${name}`}
+										aria-label={`${resend.held === slot ? "Try resending" : "Resend"} the invitation to ${name}`}
 									>
-										Resend
+										{resend.held === slot ? "Try again" : "Resend"}
 									</Button>
 									<Button
 										variant="ghost"
 										size="sm"
-										loading={mine && last === "withdraw" && withdraw.pending}
-										disabled={busy !== null && !mine}
+										loading={withdraw.pending === slot}
+										disabled={elsewhere || lockedTo === "resend"}
 										onClick={() => act("withdraw", invitation)}
-										aria-label={`Withdraw the invitation to ${name}`}
+										aria-label={`${withdraw.held === slot ? "Try withdrawing" : "Withdraw"} the invitation to ${name}`}
 									>
-										Withdraw
+										{withdraw.held === slot ? "Try again" : "Withdraw"}
 									</Button>
 								</div>
 							) : null}
@@ -334,11 +369,23 @@ function PendingList({
 				})}
 			</ul>
 			<ProblemLine
-				problem={problem}
+				problem={intent.problem}
 				refused={
 					last === "withdraw"
-						? "The invitation was not withdrawn. It may have been answered already. Reload to see its current state."
-						: undefined
+						? "The invitation was not withdrawn. It may have been answered already."
+						: (RESEND_REFUSED[intent.code ?? ""] ?? "The invitation was not sent again. Nothing changed.")
+				}
+				action={
+					<Button
+						size="sm"
+						variant="secondary"
+						onClick={() => {
+							intent.release();
+							onChange(null);
+						}}
+					>
+						Reload the list
+					</Button>
 				}
 			/>
 		</section>
