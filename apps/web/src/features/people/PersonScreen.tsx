@@ -1,0 +1,285 @@
+"use client";
+
+import {
+	ArrowTurnBackwardIcon,
+	Delete02Icon,
+	Edit02Icon,
+	MoreHorizontalIcon,
+	UserCheck01Icon,
+	UserIcon,
+} from "@hugeicons/core-free-icons";
+import type * as people from "@everyfield/contracts/people";
+import {
+	Button,
+	Card,
+	CardHeader,
+	CardHeading,
+	CardTitle,
+	IconButton,
+	Menu,
+	MenuContent,
+	MenuItem,
+	MenuSeparator,
+	MenuTrigger,
+	Breadcrumb,
+	StatePanel,
+} from "@everyfield/ui/controls";
+import { Avatar, KeyValue, KeyValueList, StageChip, StatusBadge } from "@everyfield/ui/display";
+import Link from "next/link";
+import { useState } from "react";
+import type { z } from "zod";
+import { ActivityCard } from "./ActivityCard.tsx";
+import { CLASSIFICATION_LABEL, SOURCE_LABEL, STAGE_KEY, STAGE_LABEL, type Outcome } from "./model.ts";
+import { ClassificationDialog, EditProfileDialog, RestoreDialog, RetireDialog } from "./PersonDialogs.tsx";
+import { LocalDay, usePersonStore, When } from "./parts.tsx";
+import { StageDialog, type PersonDraft } from "./StageDialog.tsx";
+
+type PlantPerson = z.infer<typeof people.plantPerson>;
+type Open = "stage" | "profile" | "classify" | "retire" | "restore" | null;
+
+/**
+ * Person (REQ-PPL-002/003/004/006/008). The header says who and where in the pipeline; Owners and Admins change the
+ * stage, edit the profile, record adult or child and retire or restore. Every change goes through one store, so only one
+ * runs at a time and each uses the latest saved revision.
+ */
+export function PersonScreen({
+	person,
+	activities,
+	linked,
+	isYou,
+	survivor,
+	accountId,
+	canWrite,
+}: {
+	person: PlantPerson;
+	activities: Outcome<z.infer<typeof people.activitiesResult>>;
+	/** The person has a live EveryField account link (never which account). */
+	linked: boolean;
+	/** The person is the viewer's own account person. */
+	isYou: boolean;
+	survivor: { id: string; name: string } | null;
+	accountId: string;
+	canWrite: boolean;
+}) {
+	const [store, state] = usePersonStore<PlantPerson, PersonDraft>(person);
+	const p = state.saved;
+	const [open, setOpen] = useState<Open>(null);
+	const busy = state.pending !== null;
+	const lifecycle = p.lifecycle;
+	const live = lifecycle.state === "live";
+	const toggle = (which: Exclude<Open, null>) => (next: boolean) => setOpen(next ? which : null);
+
+	return (
+		<>
+			<header className="mb-[26px] flex items-end justify-between gap-6 max-app-md:flex-col max-app-md:items-start max-app-md:gap-4">
+				<div className="min-w-0">
+					<Breadcrumb items={[{ label: "People", href: "/people" }, { label: p.displayName }]} className="mb-4" />
+					<div className="flex items-center gap-6 max-app-sm:gap-4">
+						<Avatar name={p.displayName} size="xl" decorative />
+						<div className="min-w-0">
+							<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+								<h1 className="text-display-sm leading-[1.05] font-medium tracking-[-0.035em] text-ink text-balance max-app-sm:text-title-lg">
+									{p.displayName}
+								</h1>
+								<StageChip stage={STAGE_KEY[p.stage]} className="h-[30px] text-[13px]">
+									{STAGE_LABEL[p.stage]}
+								</StageChip>
+							</div>
+							<p className="mt-2 flex flex-wrap items-center gap-2 text-[15px] text-text-2">
+								<span>
+									Added <When at={p.createdAt} />
+									{p.source !== "other" ? ` · met through ${SOURCE_LABEL[p.source].toLowerCase()}` : null}
+								</span>
+								{isYou ? (
+									<StatusBadge status="measured" size="sm">
+										This is you
+									</StatusBadge>
+								) : linked ? (
+									<StatusBadge status="measured" size="sm">
+										Has an EveryField account
+									</StatusBadge>
+								) : null}
+							</p>
+						</div>
+					</div>
+				</div>
+				<div className="flex max-w-full min-w-0 flex-wrap items-center gap-2.5">
+					{canWrite && live ? (
+						<>
+							<Button variant="primary" icon={UserCheck01Icon} disabled={busy} onClick={() => setOpen("stage")}>
+								Change stage
+							</Button>
+							<Menu>
+								<MenuTrigger asChild>
+									<IconButton icon={MoreHorizontalIcon} label="More actions" variant="soft" disabled={busy} />
+								</MenuTrigger>
+								<MenuContent align="end">
+									<MenuItem icon={Edit02Icon} onSelect={() => setOpen("profile")}>
+										Edit profile
+									</MenuItem>
+									<MenuItem icon={UserIcon} onSelect={() => setOpen("classify")}>
+										{p.adultClassification === "unknown" ? "Record adult or child" : "Correct adult or child"}
+									</MenuItem>
+									<MenuSeparator />
+									<MenuItem icon={Delete02Icon} danger onSelect={() => setOpen("retire")}>
+										Retire person
+									</MenuItem>
+								</MenuContent>
+							</Menu>
+						</>
+					) : null}
+				</div>
+			</header>
+
+			{lifecycle.state === "retired" ? (
+				<Card className="mb-5">
+					<StatePanel
+						title={`${p.displayName} is retired`}
+						headingLevel="h2"
+						icon={ArrowTurnBackwardIcon}
+						actions={
+							canWrite ? (
+								<Button variant="primary" disabled={busy} onClick={() => setOpen("restore")}>
+									Restore person
+								</Button>
+							) : null
+						}
+					>
+						Retired <When at={lifecycle.retiredAt} />. They are out of active lists and pickers. Their history stays
+						here.
+					</StatePanel>
+				</Card>
+			) : lifecycle.state === "merged" ? (
+				<Card className="mb-5">
+					<StatePanel title={`${p.displayName} was merged`} headingLevel="h2" icon={ArrowTurnBackwardIcon}>
+						Merged <When at={lifecycle.retiredAt} /> into{" "}
+						{survivor ? (
+							<Link href={`/people/${survivor.id}`} className="font-medium text-ink underline">
+								{survivor.name}
+							</Link>
+						) : (
+							"another person"
+						)}
+						. A merge is undone only with a reviewed Unmerge, so this record cannot be restored here.
+					</StatePanel>
+				</Card>
+			) : null}
+
+			<div className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)] items-start gap-5 max-app-lg:grid-cols-1">
+				<div className="flex min-w-0 flex-col gap-5">
+					<ActivityCard store={store} initial={activities} accountId={accountId} canWrite={canWrite} />
+				</div>
+				<div className="flex min-w-0 flex-col gap-5 max-app-lg:order-first">
+					<Card>
+						<CardHeader className="mb-2">
+							<CardHeading>
+								<CardTitle size="sm">Details</CardTitle>
+							</CardHeading>
+							{canWrite && live ? (
+								<IconButton
+									icon={Edit02Icon}
+									label="Edit profile"
+									size="sm"
+									disabled={busy}
+									onClick={() => setOpen("profile")}
+								/>
+							) : null}
+						</CardHeader>
+						<KeyValueList>
+							<KeyValue
+								size="sm"
+								k="Email"
+								value={
+									p.email ? (
+										<a
+											href={`mailto:${p.email}`}
+											className="underline-offset-2 hover:underline [overflow-wrap:anywhere]"
+										>
+											{p.email}
+										</a>
+									) : null
+								}
+							/>
+							<KeyValue
+								size="sm"
+								k="Phone"
+								value={
+									p.phone ? (
+										<a href={`tel:${p.phone}`} className="underline-offset-2 hover:underline">
+											{p.phone}
+										</a>
+									) : null
+								}
+							/>
+							<KeyValue size="sm" k="Address" value={address(p)} />
+							<KeyValue size="sm" k="Source" value={SOURCE_LABEL[p.source]} />
+							{p.sourceDetails ? <KeyValue size="sm" k="Source details" value={p.sourceDetails} /> : null}
+							<KeyValue size="sm" k="Birth date" value={p.birthDate ? <LocalDay day={p.birthDate} /> : null} />
+						</KeyValueList>
+					</Card>
+					<Card>
+						<CardHeader className="mb-2">
+							<CardHeading>
+								<CardTitle size="sm">Adult or child and commitment</CardTitle>
+							</CardHeading>
+						</CardHeader>
+						<KeyValueList>
+							<KeyValue
+								size="sm"
+								k="Adult or child"
+								value={p.adultClassification === "unknown" ? null : CLASSIFICATION_LABEL[p.adultClassification]}
+							/>
+							<KeyValue
+								size="sm"
+								k="Commitment"
+								value={
+									p.commitment.state === "unknown" ? null : (
+										<span className="flex items-center gap-2">
+											<StatusBadge status={p.commitment.state === "active" ? "positive" : "unknown"} size="sm">
+												{p.commitment.state === "active" ? "Committed" : "Withdrawn"}
+											</StatusBadge>
+											<span className="text-text-3">
+												{p.commitment.kind === "core_group" ? "Core group" : "Launch team"} ·{" "}
+												<LocalDay day={p.commitment.occurredOn} />
+											</span>
+										</span>
+									)
+								}
+							/>
+						</KeyValueList>
+						<p className="mt-3 text-xs text-text-3">
+							Recorded facts only. The stage alone never counts as a commitment or as adult.
+						</p>
+					</Card>
+					{p.summaryNotes ? (
+						<Card>
+							<CardHeader className="mb-2">
+								<CardHeading>
+									<CardTitle size="sm">Summary</CardTitle>
+								</CardHeading>
+							</CardHeader>
+							<p className="whitespace-pre-wrap text-ink-2 [overflow-wrap:anywhere]">{p.summaryNotes}</p>
+						</Card>
+					) : null}
+				</div>
+			</div>
+
+			{canWrite ? (
+				<>
+					{open === "stage" ? <StageDialog open onOpenChange={toggle("stage")} store={store} /> : null}
+					{open === "profile" ? <EditProfileDialog open onOpenChange={toggle("profile")} store={store} /> : null}
+					{open === "classify" ? <ClassificationDialog open onOpenChange={toggle("classify")} store={store} /> : null}
+					{open === "retire" ? <RetireDialog open onOpenChange={toggle("retire")} store={store} /> : null}
+					{open === "restore" ? <RestoreDialog open onOpenChange={toggle("restore")} store={store} /> : null}
+				</>
+			) : null}
+		</>
+	);
+}
+
+function address(p: PlantPerson) {
+	const line = [p.street, [p.city, p.stateProvince].filter(Boolean).join(", "), p.postalCode, p.country]
+		.filter((x) => x && x.trim())
+		.join(" · ");
+	return line || null;
+}
