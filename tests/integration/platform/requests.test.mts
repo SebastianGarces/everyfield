@@ -70,7 +70,7 @@ test("AC:PLATFORM-001 AC:PLATFORM-002 AC:SEC-10 AC:TEN-009 real Next sessions, r
 			assert.equal(value.new_paid_commitment_allowed, false);
 			assert.equal(value.AI_processing_allowed, false);
 		});
-		await t.test("login, exact Origin and fresh live session authority", async () => {
+		await t.test("INV-platform: login, exact Origin and fresh live session authority", async () => {
 			for (const headers of [
 				{ origin: "" },
 				{ origin: "https://foreign.test" },
@@ -130,7 +130,7 @@ test("AC:PLATFORM-001 AC:PLATFORM-002 AC:SEC-10 AC:TEN-009 real Next sessions, r
 			);
 			cookie = await login(email, password);
 		});
-		await t.test("credential-account SQL fault rolls back the supported auth transaction", async () => {
+		await t.test("INV-platform: credential-account SQL fault rolls back the supported auth transaction", async () => {
 			await db.execute(
 				querySql`CREATE OR REPLACE FUNCTION reject_fixture_account() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic_account_insert_fault'; END $$;CREATE TRIGGER reject_fixture_account BEFORE INSERT ON auth_account FOR EACH ROW EXECUTE FUNCTION reject_fixture_account()`,
 			);
@@ -191,7 +191,7 @@ test("AC:PLATFORM-001 AC:PLATFORM-002 AC:SEC-10 AC:TEN-009 real Next sessions, r
 				);
 			},
 		);
-		await t.test("real Tigris private upload, inert previews, fresh file grant, TTL and deletion", async () => {
+		await t.test("INV-platform: real Tigris private upload, inert previews, fresh file grant, TTL and deletion", async () => {
 			for (const format of ["docx", "xlsx", "pdf"]) {
 				const bytes = bodyOf(format);
 				const checksum = createHash("sha256").update(bytes).digest("hex");
@@ -267,7 +267,7 @@ test("AC:PLATFORM-001 AC:PLATFORM-002 AC:SEC-10 AC:TEN-009 real Next sessions, r
 				"pending",
 			);
 		});
-		await t.test("SSE reconnect reads progress only and fresh revocation closes the stream", async () => {
+		await t.test("INV-platform: SSE reconnect reads progress only and fresh revocation closes the stream", async () => {
 			await db.execute(
 				querySql`INSERT INTO proof_stream(owner_id,status) VALUES(${querySql.param(owners.p)},'ready'),(${querySql.param(owners.p)},'succeeded')`,
 			);
@@ -297,7 +297,7 @@ test("AC:PLATFORM-001 AC:PLATFORM-002 AC:SEC-10 AC:TEN-009 real Next sessions, r
 			assert.equal((await req("stream?ownerId=" + owners.q)).status, 404);
 			assert.equal((await db.execute(querySql`SELECT count(*)::int n FROM proof_job`)).rows[0].n, 0);
 		});
-		await t.test("signed raw callback is idempotent, monotonic and exact-message bound", async () => {
+		await t.test("INV-platform: signed raw callback is idempotent, monotonic and exact-message bound", async () => {
 			await db.execute(querySql`INSERT INTO proof_mail(provider_id) VALUES('synthetic-mail')`);
 			async function callback(
 				type,
@@ -330,7 +330,7 @@ test("AC:PLATFORM-001 AC:PLATFORM-002 AC:SEC-10 AC:TEN-009 real Next sessions, r
 			assert.deepEqual((await db.execute(querySql`SELECT rank FROM proof_mail`)).rows, [{ rank: 2 }]);
 			assert.equal((await db.execute(querySql`SELECT count(*)::int n FROM proof_provider_event`)).rows[0].n, 2);
 		});
-		await t.test("invocation loss, concurrent claims, late worker fence and unknown acceptance", async () => {
+		await t.test("INV-platform: invocation loss, concurrent claims, late worker fence and unknown acceptance", async () => {
 			await db.execute(
 				querySql`INSERT INTO proof_job(kind,subject,producer_key,revision) VALUES('document_render',${querySql.param(subjectId)},'render-1',2)`,
 			);

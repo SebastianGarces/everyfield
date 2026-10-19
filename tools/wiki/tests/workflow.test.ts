@@ -224,7 +224,7 @@ test("BUG-PR5: draft lint accepts scripture reference forms and quoted speech wh
 	] as const;
 	try {
 		for (const [name, callout, valid] of cases)
-			await t.test(name, async () => {
+			await t.test(`BUG-PR5: ${name}`, async () => {
 				const content = f.row.content.replace(
 					/<Callout type="scripture">[\s\S]*?<\/Callout>/,
 					() => `<Callout type="scripture">\n${callout}\n</Callout>`,

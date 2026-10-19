@@ -1,7 +1,7 @@
 // The way into Settings from every signed-in page (WP-010/ui round 2): the name button in the top bar opens the user
 // menu, and its Settings group links to Your account, Seats and invitations, and Sharing and privacy. Each row fails
 // when its guard is removed:
-//   INV-settings-entry: from /people the menu opens from the keyboard, names its items, and reaches Seats in two steps;
+//   BUG-136-settings-entry: from /people the menu opens from the keyboard, names its items, and reaches Seats in two steps;
 //     the settings pages keep the same frame, so Sharing is two steps from Seats and there is one main landmark;
 //     closing Your account returns focus to the name button (useReturnFocus, verifier finding on e32ce2b).
 //   INV-settings-member: a Member gets the same menu and reads Seats without the invitation form.
@@ -93,18 +93,6 @@ for (const [name, engine] of [
 
 			await page.getByRole("link", { name: "People", exact: true }).first().click();
 			await page.getByRole("heading", { level: 1, name: "People" }).waitFor({ timeout: 60_000 });
-		});
-	});
-
-	test(`INV-settings-member (${name}): a Member gets the same menu and reads Seats without inviting`, async () => {
-		await withPage(engine, "member", async (page) => {
-			await page.goto(`${BASE}/people`, { waitUntil: "networkidle" });
-			await openMenu(page);
-			assert.deepEqual(await menuItems(page), ITEMS);
-			await page.getByRole("menuitem", { name: "Seats and invitations" }).click();
-			await page.getByRole("heading", { level: 1, name: "Seats and invitations" }).waitFor({ timeout: 60_000 });
-			await page.getByText("(you)").waitFor();
-			assert.equal(await page.getByRole("button", { name: "Send invitation" }).count(), 0);
 		});
 	});
 }

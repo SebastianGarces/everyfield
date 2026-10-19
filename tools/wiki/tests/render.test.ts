@@ -45,10 +45,10 @@ test("BUG-0d8d60c: preview checklists hang-indent and code scrolls without page 
 			out,
 		);
 		for (const width of [390, 1280])
-			await t.test(`${width}px`, async (t) => {
+			await t.test(`BUG-0d8d60c: ${width}px`, async (t) => {
 				const page = await browser.newPage({ viewport: { width, height: 900 } });
 				await page.goto(pathToFileURL(file).href);
-				await t.test("wrapped checklist lines stay beside the checkbox", async () => {
+				await t.test("BUG-0d8d60c: wrapped checklist lines stay beside the checkbox", async () => {
 					const items = await page.locator(".task-list-item").evaluateAll((elements) =>
 						elements.map((item) => {
 							const checkbox = item.querySelector("input");
@@ -79,7 +79,7 @@ test("BUG-0d8d60c: preview checklists hang-indent and code scrolls without page 
 						);
 					}
 				});
-				await t.test("long code scrolls within its box and the page fits", async () => {
+				await t.test("BUG-0d8d60c: long code scrolls within its box and the page fits", async () => {
 					const size = await page.evaluate(() => ({
 						page: document.documentElement.scrollWidth,
 						viewport: innerWidth,
