@@ -21,8 +21,12 @@ Model families are `openai` and `anthropic`, not individual model names. Authors
 `EVF-Author: <family>` in the body. Verifiers put one JSON line in their PR comment:
 
 ```text
-EVF-Review: {"head":"<full SHA>","verifierFamily":"anthropic","verdict":"approved"}
+EVF-Review: {"head":"<full SHA>","verifierFamily":"anthropic","verdict":"approved","quality":{"verdict":"approved","principles":["laziness-protocol","minimize-reader-load","subtract-before-you-add","test-behavior-not-implementation"]}}
 ```
+
+Every review includes a "Code quality" section with concrete simplifications, or why none are needed,
+and a quality verdict. Ship requires an approved quality verdict and all four named principles above,
+plus reviewers check any other applicable principles.
 
 Use `changes_requested` for failure. The latest valid review record at that head wins.
 These unsigned statements rely on the coordinator assigning the actual models correctly.

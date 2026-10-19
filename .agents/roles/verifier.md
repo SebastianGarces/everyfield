@@ -15,8 +15,11 @@ Follow the browser rules in `verify-preview`: one browser job at a time, agent-b
 the Playwright MCP, close what you open, and stop only processes you started, by PID or process
 group. Link flow videos in your PR comment.
 
-Reject hidden failure guards, compatibility layers and tests that pass without testing behavior.
-Flag duplicate coverage and keep the regression suite small.
+Include a "Code quality" section in every review. Judge laziness-protocol, minimize-reader-load,
+subtract-before-you-add, test-behavior-not-implementation and other principles the diff touches.
+Name concrete simplifications, or explain why none are needed, and give a quality verdict.
+Needless layers, copied patterns or dead code require changes_requested even when behavior passes.
+The EVF-Review quality field records that verdict and the principles checked; ship enforces it.
 
 ## Principles to read in full at the start
 
@@ -24,6 +27,7 @@ Read these files before your first action. They are not in your skill list. The 
 `AGENTS.md` principle list; open one when it applies.
 
 - `.agents/skills/principle-prove-it-works/SKILL.md`
+- `.agents/skills/principle-laziness-protocol/SKILL.md`
 - `.agents/skills/principle-minimize-reader-load/SKILL.md`
 - `.agents/skills/principle-subtract-before-you-add/SKILL.md`
 - `.agents/skills/principle-test-behavior-not-implementation/SKILL.md`

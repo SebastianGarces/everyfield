@@ -704,6 +704,16 @@ function validPrBody() {
 	);
 }
 
+const approvedQuality = {
+	verdict: "approved",
+	principles: [
+		"laziness-protocol",
+		"minimize-reader-load",
+		"subtract-before-you-add",
+		"test-behavior-not-implementation",
+	],
+};
+
 function mergeFixture() {
 	const f = fixture(),
 		task = parseTask("OPS-1");
@@ -732,7 +742,7 @@ function mergeFixture() {
 	];
 	state.comments["77"] = [
 		{
-			body: `Verified the actual tooling behavior.\n\nEVF-Review: ${JSON.stringify({ head: sha, verifierFamily: "anthropic", verdict: "approved" })}`,
+			body: `Verified the actual tooling behavior.\n\nEVF-Review: ${JSON.stringify({ head: sha, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality })}`,
 			html_url: "https://github.com/test/private/pull/77#issuecomment-1",
 		},
 	];
@@ -939,7 +949,7 @@ test("BUG-fb0159d-wiki-images: real pr-images output keeps a Wiki body valid on 
 	}
 });
 
-test("INV-phase7-ship: red or missing CI, same-family approval and older-head approval refuse before merging", () => {
+test("INV-phase7-ship: CI, independent exact-head approval and approved code quality are required", () => {
 	const f = mergeFixture();
 	try {
 		const valid = f.getState();
@@ -971,7 +981,7 @@ test("INV-phase7-ship: red or missing CI, same-family approval and older-head ap
 				name: "same-family approval",
 				edit: (s) => {
 					s.comments["77"][0].body =
-						`EVF-Review: ${JSON.stringify({ head: f.sha, verifierFamily: "openai", verdict: "approved" })}`;
+						`EVF-Review: ${JSON.stringify({ head: f.sha, verifierFamily: "openai", verdict: "approved", quality: approvedQuality })}`;
 				},
 				reason: /different model family/,
 			},
@@ -979,7 +989,7 @@ test("INV-phase7-ship: red or missing CI, same-family approval and older-head ap
 				name: "older-head approval",
 				edit: (s) => {
 					s.comments["77"][0].body =
-						`EVF-Review: ${JSON.stringify({ head: "a".repeat(40), verifierFamily: "anthropic", verdict: "approved" })}`;
+						`EVF-Review: ${JSON.stringify({ head: "a".repeat(40), verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality })}`;
 				},
 				reason: /approval for the exact PR head/,
 			},
@@ -987,11 +997,36 @@ test("INV-phase7-ship: red or missing CI, same-family approval and older-head ap
 				name: "rejected approval",
 				edit: (s) => {
 					s.comments["77"].push({
-						body: `EVF-Review: ${JSON.stringify({ head: f.sha, verifierFamily: "anthropic", verdict: "changes_requested" })}`,
+						body: `EVF-Review: ${JSON.stringify({ head: f.sha, verifierFamily: "anthropic", verdict: "changes_requested", quality: approvedQuality })}`,
 					});
 				},
 				reason: /approval for the exact PR head/,
 			},
+			...[
+				{ name: "missing quality", quality: undefined, reason: /Missing verifier approval for the exact PR head/ },
+				{
+					name: "rejected quality",
+					quality: { ...approvedQuality, verdict: "changes_requested" },
+					reason: /Code quality must be approved before shipping/,
+				},
+				{
+					name: "empty principles",
+					quality: { ...approvedQuality, principles: [] },
+					reason: /Missing verifier approval for the exact PR head/,
+				},
+				{
+					name: "missing required principle",
+					quality: { ...approvedQuality, principles: ["laziness-protocol"] },
+					reason: /Missing verifier approval for the exact PR head/,
+				},
+			].map(({ name, quality, reason }) => ({
+				name,
+				reason,
+				edit: (s) => {
+					s.comments["77"][0].body =
+						`EVF-Review: ${JSON.stringify({ head: f.sha, verifierFamily: "anthropic", verdict: "approved", quality })}`;
+				},
+			})),
 			{
 				name: "PR head differs",
 				edit: (s) => {
@@ -1012,7 +1047,38 @@ test("INV-phase7-ship: red or missing CI, same-family approval and older-head ap
 				scenario.name,
 			);
 		}
+		// Round-trip the actual review poster through the ship parser.
+		const report = join(f.root, "fake-bin/review.md");
+		writeFileSync(
+			report,
+			"## Code quality\nApproved. The parser checks external review data once; no extra layers to remove.\n",
+		);
 		valid.calls = [];
+		f.setState(valid);
+		valid.comments["77"][0].body = execFileSync(
+			process.execPath,
+			[
+				join(source, ".agents/skills/verify-preview/scripts/post-review.mjs"),
+				"--pr",
+				"77",
+				"--report",
+				report,
+				"--family",
+				"anthropic",
+				"--verdict",
+				"approved",
+				"--head",
+				f.sha,
+				"--quality-verdict",
+				"approved",
+				"--principles",
+				approvedQuality.principles.join(","),
+				"--dry-run",
+			],
+			{ cwd: f.root, encoding: "utf8" },
+		);
+		const posted = JSON.parse(valid.comments["77"][0].body.split("EVF-Review: ")[1]);
+		assert.deepEqual(posted.quality, approvedQuality);
 		f.setState(valid);
 		assert.throws(() => ship(f.root, f.taskRef), /fixture merge barrier/);
 		const merge = f.getState().calls.find((c) => c.args[0] === "pr" && c.args[1] === "merge");
@@ -1107,7 +1173,7 @@ test("INV-phase7-feedback: P2 waits for owner after the same checks, while P1 re
 			sha = f.git("rev-parse", task.branch);
 		state.pr.headRefOid = sha;
 		state.comments["77"][0].body =
-			`EVF-Review: ${JSON.stringify({ head: sha, verifierFamily: "anthropic", verdict: "approved" })}`;
+			`EVF-Review: ${JSON.stringify({ head: sha, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality })}`;
 		state.calls = [];
 		f.setState(state);
 		assert.equal(ship(f.root, task), 0);
@@ -1161,7 +1227,7 @@ test("INV-phase7-progress: ship and acknowledgement preserve reviewed milestones
 		state.mergeBranch = task.branch;
 		state.pr.headRefOid = sha;
 		state.comments["77"][0].body =
-			`EVF-Review: ${JSON.stringify({ head: sha, verifierFamily: "anthropic", verdict: "approved" })}`;
+			`EVF-Review: ${JSON.stringify({ head: sha, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality })}`;
 		f.setState(state);
 		console.log = () => {};
 		assert.equal(ship(f.root, task), 0);
@@ -1169,6 +1235,7 @@ test("INV-phase7-progress: ship and acknowledgement preserve reviewed milestones
 			record = JSON.parse(readFileSync(path, "utf8"));
 		assert.equal(record.verified_head, sha);
 		assert.equal(record.verification.approval.verifierFamily, "anthropic");
+		assert.deepEqual(record.verification.approval.quality, approvedQuality);
 		assert.equal(loadProgress(f.root)["WP-001"].status, "in_progress");
 		assert.equal(producerReady(f.root, "WP-001"), false);
 		listShipped(f.root, [task.id]);

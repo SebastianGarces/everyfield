@@ -154,10 +154,17 @@ export function prOpen(root: string, task: TaskRef, bodyFile?: string): number {
 }
 
 const FAMILIES = ["openai", "anthropic"];
+const QUALITY_PRINCIPLES = [
+	"laziness-protocol",
+	"minimize-reader-load",
+	"subtract-before-you-add",
+	"test-behavior-not-implementation",
+];
 export type Approval = {
 	head: string;
 	verifierFamily: string;
 	verdict: "approved" | "changes_requested";
+	quality: { verdict: "approved" | "changes_requested"; principles: string[] };
 	packageClosures?: string[];
 };
 export type RequiredCheck = { name: string; bucket: string; state: string; link: string };
@@ -194,6 +201,17 @@ function readApproval(input: unknown): Approval | null {
 	)
 		return null;
 	if (!("verdict" in input) || (input.verdict !== "approved" && input.verdict !== "changes_requested")) return null;
+	if (!("quality" in input) || !input.quality || typeof input.quality !== "object") return null;
+	const quality = input.quality;
+	if (!("verdict" in quality) || (quality.verdict !== "approved" && quality.verdict !== "changes_requested"))
+		return null;
+	if (!("principles" in quality) || !Array.isArray(quality.principles)) return null;
+	const principles = quality.principles;
+	if (
+		!principles.every((name): name is string => typeof name === "string" && name.trim().length > 0) ||
+		!QUALITY_PRINCIPLES.every((name) => principles.includes(name))
+	)
+		return null;
 	let packageClosures: string[] | undefined;
 	if ("packageClosures" in input) {
 		const values = input.packageClosures;
@@ -205,6 +223,7 @@ function readApproval(input: unknown): Approval | null {
 		head: input.head,
 		verifierFamily: input.verifierFamily,
 		verdict: input.verdict,
+		quality: { verdict: quality.verdict, principles },
 		...(packageClosures ? { packageClosures } : {}),
 	};
 }
@@ -256,6 +275,7 @@ export function checkPr(root: string, number: number, expectedHead?: string): Me
 		}
 	if (!selected?.url || selected.approval.verdict !== "approved")
 		fail("Missing verifier approval for the exact PR head.");
+	if (selected.approval.quality.verdict !== "approved") fail("Code quality must be approved before shipping.");
 	if (selected.approval.verifierFamily === authorFamily)
 		fail("Verifier approval must come from a different model family.");
 	const current: PullRequest = JSON.parse(
