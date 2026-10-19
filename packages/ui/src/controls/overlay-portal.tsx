@@ -24,20 +24,25 @@ export function usePortalContainer(): HTMLElement | null {
 
 type AutoFocusHandler = (event: Event) => void;
 
+function openerOf(active: Element | null): HTMLElement | null {
+	if (!(active instanceof HTMLElement) || active === document.body) return null;
+	const button = active.closest('[role="menu"]')?.getAttribute("aria-labelledby");
+	return (button && document.getElementById(button)) || active;
+}
+
 /**
  * Returns focus to the element that had it when the overlay opened. Radix restores focus only to its own Trigger, so
  * an overlay opened from caller state (a Guide button, a keyboard shortcut) would drop focus on <body> when it closes.
  * When onOpenAutoFocus runs, focus has not moved into the overlay yet, so the opener is still the active element.
  * The caller's own handlers run first; if one prevents the default, this hook leaves focus alone.
+ * An overlay opened from a menu item returns focus to the menu's button, because the item is gone once its menu closes
+ * (WAI-ARIA menu button pattern). A Radix menu is labelled by its button.
  */
 export function useReturnFocus(own: { onOpenAutoFocus?: AutoFocusHandler; onCloseAutoFocus?: AutoFocusHandler } = {}) {
 	const opener = useRef<HTMLElement | null>(null);
 	return {
 		onOpenAutoFocus: (event: Event) => {
-			opener.current =
-				document.activeElement instanceof HTMLElement && document.activeElement !== document.body
-					? document.activeElement
-					: null;
+			opener.current = openerOf(document.activeElement);
 			own.onOpenAutoFocus?.(event);
 		},
 		onCloseAutoFocus: (event: Event) => {

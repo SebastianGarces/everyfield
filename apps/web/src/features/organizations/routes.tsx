@@ -18,7 +18,7 @@ import { RealRespond } from "./RealRespond";
 import { RealSharing, type SharingPageData } from "./RealSharing";
 
 // The real organization routes. apps/web/src/app/{settings/sharing,connections/respond} only re-export these.
-// They are bare product pages inside the product root, like /onboarding, until the app shell lands.
+// /settings/sharing sits inside the settings layout's product frame (WP-010); the respond page is a bare product page.
 
 export const sharingMetadata: Metadata = { title: "Sharing and privacy", robots: { index: false, follow: false } };
 export const respondMetadata: Metadata = { title: "Connection request", robots: { index: false, follow: false } };
@@ -32,24 +32,13 @@ export async function SharingPage() {
 	const who = await viewerOf();
 	if (who.kind === "signed_out") redirect("/signin?returnTo=%2Fsettings%2Fsharing");
 	const refused = (
-		<Frame>
-			<div className="px-4 py-12">
-				<Card className="mx-auto max-w-[560px]">
-					<NotAvailable scope="page" homeHref="/onboarding" />
-				</Card>
-			</div>
-		</Frame>
+		<div className="py-12">
+			<Card className="mx-auto max-w-[560px]">
+				<NotAvailable scope="page" homeHref="/onboarding" />
+			</Card>
+		</div>
 	);
-	if (who.kind !== "viewer")
-		return (
-			<Frame>
-				<div className="px-4 py-12">
-					<Card className="mx-auto max-w-[560px]">
-						<NotAvailable scope="page" homeHref="/onboarding" />
-					</Card>
-				</div>
-			</Frame>
-		);
+	if (who.kind !== "viewer") return refused;
 	const { mount: m, viewer } = who;
 	// A seatless account without a Discovery profile has only its own residency links here.
 	if (viewer.kind === "account" && (await residencyLinks(m.db, viewer)).length === 0) return refused;
@@ -92,11 +81,7 @@ export async function SharingPage() {
 		aggregate: aggregate && aggregate.status === "ok" ? C.pipelineAggregateAccessResult.parse(aggregate.value) : null,
 		residencies,
 	};
-	return (
-		<Frame>
-			<RealSharing data={data} />
-		</Frame>
-	);
+	return <RealSharing data={data} />;
 }
 
 type Search = Promise<Record<string, string | string[] | undefined>>;

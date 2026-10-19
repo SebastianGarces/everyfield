@@ -37,48 +37,46 @@ export function RealSharing({ data }: { data: SharingPageData }) {
 	const names = useMemo(() => createNames(data.names), [data.names]);
 	const subject = data.kind === "plant" || data.kind === "discovery";
 	return (
-		<div className="min-h-dvh px-10 py-8 max-app-sm:px-4 max-app-sm:py-5">
-			<main id="main" className="mx-auto flex max-w-[880px] flex-col gap-6">
-				<PageHeader title="Sharing and privacy" subtitle={INTRO[data.kind]} />
-				{data.kind === "account" ? null : (
-					<Connections
-						side={subject ? "subject" : "organization"}
-						load={names.load}
-						readMore={names.readMore}
-						canManage={data.canManage}
-						nameOf={names.nameOf}
-						zone={data.zone}
-						run={realRun}
-						readSharing={data.kind === "plant" ? readSharing : undefined}
-						invite={
-							data.kind !== "sending_network"
-								? { targets: data.targets, readDisclosure: names.readDisclosure, expectedRevision: data.revision }
-								: undefined
-						}
-					/>
-				)}
-				{data.canManage
-					? data.networks.map((n) => (
-							<PipelineTotals
-								key={n.relationshipId}
-								relationshipId={n.relationshipId}
-								networkName={n.name}
-								canManage={data.canManage}
-								run={realRun}
-							/>
-						))
-					: null}
-				{data.aggregate ? <PipelineAccessNote access={data.aggregate} /> : null}
-				{data.residencies.map((r) => (
-					<ResidencySharing
-						key={r.linkId}
-						linkId={r.linkId}
-						organizationName={r.organizationName}
-						read={readResidency}
-						run={realRun}
-					/>
-				))}
-			</main>
+		<div className="mx-auto flex max-w-[880px] flex-col gap-6">
+			<PageHeader title="Sharing and privacy" subtitle={INTRO[data.kind]} />
+			{data.kind === "account" ? null : (
+				<Connections
+					side={subject ? "subject" : "organization"}
+					load={names.load}
+					readMore={names.readMore}
+					canManage={data.canManage}
+					nameOf={names.nameOf}
+					zone={data.zone}
+					run={realRun}
+					readSharing={data.kind === "plant" ? readSharing : undefined}
+					invite={
+						data.kind !== "sending_network"
+							? { targets: data.targets, readDisclosure: names.readDisclosure, expectedRevision: data.revision }
+							: undefined
+					}
+				/>
+			)}
+			{data.canManage
+				? data.networks.map((n) => (
+						<PipelineTotals
+							key={n.relationshipId}
+							relationshipId={n.relationshipId}
+							networkName={n.name}
+							canManage={data.canManage}
+							run={realRun}
+						/>
+					))
+				: null}
+			{data.aggregate ? <PipelineAccessNote access={data.aggregate} /> : null}
+			{data.residencies.map((r) => (
+				<ResidencySharing
+					key={r.linkId}
+					linkId={r.linkId}
+					organizationName={r.organizationName}
+					read={readResidency}
+					run={realRun}
+				/>
+			))}
 		</div>
 	);
 }

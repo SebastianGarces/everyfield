@@ -149,11 +149,9 @@ export function SeatsScreen({ initial }: { initial: SeatsData }) {
 
 function Shell({ title, subtitle, children }: { title: string; subtitle: string | null; children: React.ReactNode }) {
 	return (
-		<div className="min-h-dvh px-10 py-8 max-app-sm:px-4 max-app-sm:py-5">
-			<main id="main" className="mx-auto flex max-w-[880px] flex-col gap-6">
-				<PageHeader title={title} subtitle={subtitle ?? undefined} className="mb-0" />
-				{children}
-			</main>
+		<div className="mx-auto flex max-w-[880px] flex-col gap-6">
+			<PageHeader title={title} subtitle={subtitle ?? undefined} className="mb-0" />
+			{children}
 		</div>
 	);
 }
