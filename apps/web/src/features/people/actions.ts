@@ -174,15 +174,16 @@ export async function loadColumn(
 
 /**
  * Saves a new order for one pipeline column. The list holds every live person in that column, in the new order. The
- * answer carries the column's revision as saved by this command: it is read in the same transaction, after the
- * producer has locked the column row (FOR UPDATE), so another actor's reorder cannot land in between. A quick next move
- * then uses this order's revision and never adopts someone else's.
+ * answer is the column as it stands after the command: its order and its revision, from one read in the same
+ * transaction, after the producer has locked the column row (FOR UPDATE). The page shows exactly that pair. A replayed
+ * request (same key after a lost answer) may answer with a later actor's order; the pair still matches, so a next move
+ * can never pair an old order with a newer revision.
  */
 export async function reorderPipeline(
 	requestKey: string,
 	expectedRevision: string,
 	input: unknown,
-): Promise<Outcome<{ outcome: "changed" | "noop"; revision: string }>> {
+): Promise<Outcome<{ outcome: "changed" | "noop"; revision: string; personIds: string[] }>> {
 	return boundary(c.reorderPipelineRequest, { requestKey, expectedRevision, input }, async (v, request) =>
 		outcome(
 			await write(v, async (tx, ctx) => {
@@ -191,11 +192,18 @@ export async function reorderPipeline(
 				const now = await peopleReader.getPipelineData(
 					tx,
 					{ session: ctx.session, selected: ctx.selected, purpose: "native" },
-					c.listPeopleRequest.parse({ limit: 1, view: "pipeline" }),
+					c.listPeopleRequest.parse({ limit: 100, view: "pipeline" }),
 				);
 				if (now.status !== "ok") return now;
-				const revision = now.value.groups.find((g) => g.column === request.input.column)!.revision;
-				return { status: "ok", value: { outcome: done.value.outcome, revision } };
+				const group = now.value.groups.find((g) => g.column === request.input.column)!;
+				return {
+					status: "ok",
+					value: {
+						outcome: done.value.outcome,
+						revision: group.revision,
+						personIds: group.cards.map((x) => x.person.id),
+					},
+				};
 			}),
 			(r) => r,
 		),

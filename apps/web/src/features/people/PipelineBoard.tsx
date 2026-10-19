@@ -188,8 +188,13 @@ function Column({
 			toPerson: (v) => ({ revision: v.revision }),
 		});
 		if (r?.status === "ok") {
-			setSaved({ from: group, ids });
-			setSaid(`${card.person.displayName} moved ${direction}.`);
+			// Show the column the server answered with: its order belongs to the revision the store just took.
+			setSaved({ from: group, ids: r.value.personIds });
+			setSaid(
+				r.value.personIds.join() === ids.join()
+					? `${card.person.displayName} moved ${direction}.`
+					: "The order changed somewhere else. The column shows the latest order.",
+			);
 			router.refresh();
 		} else if (r?.status === "refused" && r.code === "conflict") {
 			setSaid("");

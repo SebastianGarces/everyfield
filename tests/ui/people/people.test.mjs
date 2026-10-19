@@ -12,6 +12,7 @@
 //   INV-discard: closing Edit profile with changes asks before discarding them.
 //   INV-tags: repeated tag ids in the address filter for people with all of them; a chip removes one (D47).
 //   INV-reorder-focus, INV-reorder-conflict: verifier findings on b4d2ec0 (focus kept, stale refusal kept).
+//   INV-reorder-replay: a replayed reorder answers with the column's current order and revision as one pair.
 //   BUG-church-date: adult or child has no date from the reader's clock; a church-future date says why it was refused.
 //   BUG-hydration: WebKit and Node join date parts differently; dates are built from parts so hydration matches.
 import assert from "node:assert/strict";
@@ -418,6 +419,59 @@ for (const [name, engine] of [
 			await page.waitForFunction(() => document.body.innerText.includes("Adult or child recorded"), null, {
 				timeout: 30_000,
 			});
+		});
+	});
+
+	test(`AC:TARGET-PPL-007 INV-reorder-replay (${name}): a replayed reorder shows the column's latest order with its revision`, async () => {
+		await withPage(engine, "owner", async (a, context) => {
+			const order = (p) =>
+				p.evaluate(() =>
+					[...document.querySelectorAll('[aria-label="Following up people"] article')].map((x) =>
+						x.getAttribute("aria-label"),
+					),
+				);
+			await a.goto(`${BASE}/people?view=pipeline`);
+			await a.getByRole("list", { name: "Following up people" }).waitFor();
+			const [x, y] = await order(a);
+			// A's first save commits on the server, but its answer is lost on the way back.
+			let dropped = false;
+			await a.route("**/*", async (route) => {
+				const r = route.request();
+				if (
+					!dropped &&
+					r.method() === "POST" &&
+					r.headers()["next-action"] &&
+					(r.postData() ?? "").includes("personIds")
+				) {
+					dropped = true;
+					await route.fetch();
+					return route.abort();
+				}
+				return route.fallback();
+			});
+			await a.getByRole("button", { name: `Move ${y}` }).click();
+			await a.getByRole("menuitem", { name: "Move up" }).click();
+			await a.getByText("We did not hear back from the server").waitFor({ timeout: 30_000 });
+			// B sees A's committed order and moves the other person back up.
+			const b = await context.newPage();
+			await b.goto(`${BASE}/people?view=pipeline`);
+			await b.getByRole("list", { name: "Following up people" }).waitFor();
+			assert.deepEqual(await order(b), [y, x]);
+			await b.getByRole("button", { name: `Move ${x}` }).click();
+			await b.getByRole("menuitem", { name: "Move up" }).click();
+			await b.getByText(`${x} moved up.`).waitFor({ state: "attached", timeout: 30_000 });
+			// A retries the same request: the server replays A's result, and A shows the column as it is now (B's order).
+			await a.getByRole("button", { name: `Move ${y}` }).click();
+			await a.getByRole("menuitem", { name: "Move up" }).click();
+			await a
+				.getByText("The order changed somewhere else. The column shows the latest order.")
+				.waitFor({ state: "attached", timeout: 30_000 });
+			assert.deepEqual(await order(a), [x, y], "A shows B's order, not its own replayed one");
+			// A's next move uses the revision that belongs to that order, so it saves instead of being refused.
+			await a.getByRole("button", { name: `Move ${y}` }).click();
+			await a.getByRole("menuitem", { name: "Move up" }).click();
+			await a.getByText(`${y} moved up.`).waitFor({ state: "attached", timeout: 30_000 });
+			assert.equal(await a.getByText("The order changed somewhere else. The column now shows").count(), 0);
 		});
 	});
 }
