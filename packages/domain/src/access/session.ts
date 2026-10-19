@@ -4,7 +4,16 @@ import { alias } from "@everyfield/db/query";
 import "server-only";
 import type { Transaction } from "@everyfield/db/client";
 import { z } from "zod";
-import { accountId, owner, recordId, revision, role, sessionId, tenantId } from "@everyfield/contracts/common";
+import {
+	accountId,
+	owner,
+	recordId,
+	revision,
+	role,
+	sessionId,
+	tenantId,
+	sameOwner,
+} from "@everyfield/contracts/common";
 import type { Owner } from "@everyfield/contracts/common";
 import { currentActorResult } from "@everyfield/contracts/access";
 const tenant_t = alias(tables.tenant, "t");
@@ -173,12 +182,44 @@ async function resolveActor(tx: Transaction, session: z.infer<typeof sessionId>,
 }
 
 export async function currentActor(tx: Transaction, session: z.infer<typeof sessionId>, selected: Owner) {
+	const bound = requestWrites.get(tx);
+	if (bound && bound.authority.session === session && sameOwner(bound.selected, selected)) return bound.actor;
 	const parsed = owner.safeParse(selected);
 	if (!parsed.success) return currentActorResult.parse({ status: "unavailable" });
 	return resolveActor(tx, session, parsed.data);
 }
 
 type ActiveActor = Extract<z.infer<typeof currentActorResult>, { status: "active" }>;
+const accountRow: z.ZodType<typeof tables.account.$inferSelect> = z.object({
+	id: z.uuid(),
+	auth_user_id: z.uuid(),
+	registration_state: z.enum(tables.account.registration_state.enumValues),
+	registration_kind: z.enum(tables.account.registration_kind.enumValues),
+	registration_digest: z.string().nullable(),
+	personal_timezone: z.string().nullable(),
+	avatar_object_id: z.uuid().nullable(),
+	revision: z.string(),
+	personal_timezone_revision: z.string(),
+});
+
+const principalRow = z.object({
+	account_id: accountId,
+	email: z.email(),
+	display_name: z.string(),
+	verified: z.boolean(),
+	registration_state: z.enum(["active", "pending_domain"]),
+});
+type RequestWrite = {
+	authority: RequestActor;
+	selected: Owner;
+	actor: ActiveActor;
+	account: typeof tables.account.$inferSelect;
+	principal: z.infer<typeof principalRow>;
+	ownerLocked: boolean;
+};
+const requestWrites = new WeakMap<Transaction, RequestWrite>();
+/** An immutable observation held by the native command's outer transaction. */
+export const requestWrite = (tx: Transaction) => requestWrites.get(tx);
 
 /** Server-only authority for one request. Constructed from a live session, never from JSON. */
 export class RequestActor {
@@ -188,6 +229,84 @@ export class RequestActor {
 	private constructor(session: z.infer<typeof sessionId>, actor: ActiveActor) {
 		this.session = session;
 		this.actor = actor;
+	}
+
+	/** Lock the request's known identity once. Admission checks lifecycle in its next, fresh snapshot. */
+	async bind(tx: Transaction, selected: Owner, ownerLocked = false): Promise<boolean> {
+		if (
+			selected.kind === "global" ||
+			(selected.kind === "account" && selected.id !== this.actor.accountId) ||
+			(selected.kind !== "account" && !sameOwner(selected, this.actor.context.owner))
+		)
+			return false;
+
+		const rows = await tx.execute(sql`
+   WITH request_gate AS MATERIALIZED (
+    SELECT ${this.session}::uuid AS handle,CASE WHEN ${ownerLocked} THEN pg_advisory_xact_lock(hashtextextended(${selected.id},11011)) END
+   ), principal AS MATERIALIZED (
+    SELECT i.* FROM request_gate g CROSS JOIN LATERAL invitation_identity(g.handle) i LIMIT 1
+   ), seats AS MATERIALIZED (
+    SELECT s.id,s.plant_id,s.organization_id,s.role,s.revision::text,s.accepted_at FROM seat s
+    JOIN principal i ON i.account_id=s.account_id WHERE s.ended_at IS NULL ORDER BY s.id FOR SHARE OF s
+   ), plant_root AS MATERIALIZED (
+    SELECT p.id FROM plant p WHERE ${selected.kind}='plant' AND p.id=${selected.id}::uuid
+    AND EXISTS(SELECT FROM principal) AND (SELECT count(*) FROM seats)<=1 FOR SHARE OF p
+   ), organization_root AS MATERIALIZED (
+    SELECT o.id FROM organization o WHERE ${selected.kind}='organization' AND o.id=${selected.id}::uuid
+    AND EXISTS(SELECT FROM principal) AND (SELECT count(*) FROM seats)<=1 FOR SHARE OF o
+   )
+   SELECT to_jsonb(a)||jsonb_build_object('revision',a.revision::text,'personal_timezone_revision',a.personal_timezone_revision::text) AS account,
+    (SELECT row_to_json(i) FROM principal i) AS principal,
+    (SELECT coalesce(jsonb_agg(s),'[]'::jsonb) FROM seats s) AS seats,
+    EXISTS(SELECT FROM tenant t LEFT JOIN organization o ON o.id=t.id WHERE t.id=${selected.id}::uuid AND t.kind=${selected.kind}
+     AND CASE ${selected.kind} WHEN 'plant' THEN EXISTS(SELECT FROM plant_root)
+     WHEN 'organization' THEN EXISTS(SELECT FROM organization_root) AND o.kind=${selected.kind === "organization" ? selected.organizationKind : null}
+     WHEN 'account' THEN true ELSE false END) AS root
+   FROM account a WHERE a.id=${this.actor.accountId}::uuid FOR UPDATE OF a`);
+		const row = z
+			.object({ account: accountRow, principal: z.unknown(), seats: z.unknown(), root: z.boolean() })
+			.optional()
+			.parse(rows.rows[0]);
+		if (!row || !row.root) return false;
+		const identity = principalRow.safeParse(row.principal),
+			currentSeats = z.array(seatRow).parse(row.seats);
+		if (
+			!identity.success ||
+			!identity.data.verified ||
+			identity.data.account_id !== this.actor.accountId ||
+			identity.data.registration_state !== "active" ||
+			row.account.registration_state !== "active" ||
+			currentSeats.length > 1
+		)
+			return false;
+		let actor: ActiveActor;
+		if (selected.kind === "account")
+			actor = { status: "active", accountId: this.actor.accountId, context: { kind: "account", owner: selected } };
+		else {
+			const seat = currentSeats[0];
+			if (
+				this.actor.context.kind !== "seat" ||
+				!seat ||
+				seat.id !== this.actor.context.seatId ||
+				seat.role !== this.actor.context.role ||
+				seat.revision !== this.actor.context.revision ||
+				seat.accepted_at > new Date() ||
+				(selected.kind === "plant"
+					? seat.plant_id !== selected.id || seat.organization_id !== null
+					: seat.organization_id !== selected.id || seat.plant_id !== null)
+			)
+				return false;
+			actor = this.actor;
+		}
+		requestWrites.set(tx, {
+			authority: this,
+			selected,
+			actor,
+			account: row.account,
+			principal: identity.data,
+			ownerLocked,
+		});
+		return true;
 	}
 
 	static async resolve(tx: Transaction, session: z.infer<typeof sessionId>) {

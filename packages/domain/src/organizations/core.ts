@@ -238,6 +238,7 @@ export async function beginCommand(
 		origin: { kind: "native" },
 	});
 	const claim = await claimOperation(tx, name, identity);
+	if (claim.kind === "unavailable") refuse();
 	if (claim.kind === "conflict") refuse("request_conflict");
 	if (claim.kind === "replay") {
 		const prior = await tx

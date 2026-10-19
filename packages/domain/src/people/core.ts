@@ -2,10 +2,12 @@ import { notExists, and, desc, eq, gt, inArray, isNull, lte, sql } from "@everyf
 import * as tables from "@everyfield/db/tables";
 import { alias } from "@everyfield/db/columns";
 import "server-only";
+import { claimOperation, executeWrites } from "../operations/writes.ts";
+import { requestIdentity } from "@everyfield/contracts/common";
 import { createHash, randomUUID } from "node:crypto";
-import type { Transaction } from "@everyfield/db/client";
+import type { Database, Transaction } from "@everyfield/db/client";
 import { z } from "zod";
-import { currentActor, RequestActor } from "../access/session.ts";
+import { currentActor, RequestActor, requestWrite } from "../access/session.ts";
 import { readPipelinePerson } from "../access/pipeline.ts";
 import { isAdministrator } from "../access/policy.ts";
 import { owner, revision } from "@everyfield/contracts/common";
@@ -85,6 +87,7 @@ export async function readReply<T>(body: () => Promise<T>): Promise<PeopleReply<
 	}
 }
 export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<PeopleReply<T>> {
+	if (requestWrite(tx)) return { status: "ok", value: await body() };
 	await tx.execute(sql`SAVEPOINT people_operation`);
 	try {
 		const value = await body();
@@ -96,6 +99,28 @@ export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<PeopleRe
 		if (!(error instanceof Refusal)) throw error;
 		return refused(error);
 	}
+}
+
+/** The native request owns rollback, so a successful write needs no nested savepoint. */
+export async function withPeopleWrite<T>(
+	db: Database,
+	authority: RequestActor,
+	body: (tx: Tx, context: PeopleWriteContext) => Promise<PeopleReply<T>>,
+): Promise<PeopleReply<T>> {
+	return readReply(() =>
+		db.transaction(async (tx) => {
+			const selected = authority.actor.context.owner;
+			if (!(await authority.bind(tx, selected, true))) deny();
+			const result = await body(tx, {
+				session: authority.session,
+				selected,
+				purpose: "native",
+				origin: { kind: "native" },
+			});
+			if (result.status === "refused") throw new Refusal(result.error.code);
+			return result.value;
+		}),
+	);
 }
 export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
 	const r = schema.safeParse(raw);
@@ -117,6 +142,7 @@ export async function authorize(tx: Tx, context: Context, write = false) {
 	return actor;
 }
 export async function lockOwner(tx: Tx, context: Context) {
+	if (requestWrite(tx)?.ownerLocked) return;
 	await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${sql.param(context.selected.id)},11011))`);
 	// Serialize writers before currentActor takes shared lifecycle/seat locks.
 	// Parent rows are updated only after account and subject locks, matching provisioning.
@@ -330,38 +356,56 @@ export async function mutation<T>(
 			deny();
 	}
 	const digest = hash({ name, input, origin: context.origin });
-	const prior = await tx
-		.select({
-			id: operation_o.id,
-			actor_id: operation_o.actor_id,
-			name: operation_o.name,
-			request_digest: operation_o.request_digest,
-			value: people_result_r.value,
-			person_id: people_result_r.person_id,
-		})
-		.from(operation_o)
-		.innerJoin(people_result_r, eq(people_result_r.operation_id, operation_o.id))
-		.where(and(eq(operation_o.tenant_id, context.selected.id), eq(operation_o.request_key, input.requestKey)))
-		.for("update", { of: [operation_o] });
-	if (prior.length) {
-		const r = prior[0]!;
-		if (r.actor_id !== actor.accountId || r.name !== name || r.request_digest !== digest) deny("conflict");
-		if (
-			name !== "orgPeople.remove" &&
-			(
-				await tx
-					.select({ id: tables.organization_person_removal.id })
-					.from(tables.organization_person_removal)
-					.where(
-						and(
-							eq(tables.organization_person_removal.organization_id, context.selected.id),
-							sql`${tables.organization_person_removal.person_record_id} = ${r.person_id}`,
-						),
-					)
-			).length
-		)
-			deny();
-		return r.value;
+
+	const claim = await claimOperation(
+		tx,
+		name,
+		requestIdentity.parse({
+			owner: context.selected,
+			actorId: actor.accountId,
+			operation: name,
+			requestKey: input.requestKey,
+			digest,
+			origin: context.origin,
+		}),
+	);
+	if (claim.kind === "conflict") deny("conflict");
+	if (claim.kind === "unavailable") deny();
+	if (claim.kind === "replay") {
+		const prior = await tx
+			.select({
+				id: operation_o.id,
+				actor_id: operation_o.actor_id,
+				name: operation_o.name,
+				request_digest: operation_o.request_digest,
+				value: people_result_r.value,
+				person_id: people_result_r.person_id,
+			})
+			.from(operation_o)
+			.innerJoin(people_result_r, eq(people_result_r.operation_id, operation_o.id))
+			.where(and(eq(operation_o.tenant_id, context.selected.id), eq(operation_o.request_key, input.requestKey)))
+			.for("update", { of: [operation_o] });
+		if (prior.length) {
+			const r = prior[0]!;
+			if (r.actor_id !== actor.accountId || r.name !== name || r.request_digest !== digest) deny("conflict");
+			if (
+				name !== "orgPeople.remove" &&
+				(
+					await tx
+						.select({ id: tables.organization_person_removal.id })
+						.from(tables.organization_person_removal)
+						.where(
+							and(
+								eq(tables.organization_person_removal.organization_id, context.selected.id),
+								sql`${tables.organization_person_removal.person_record_id} = ${r.person_id}`,
+							),
+						)
+				).length
+			)
+				deny();
+			return r.value;
+		}
+		deny();
 	}
 	if (context.purpose === "model") {
 		const o = context.origin;
@@ -424,80 +468,79 @@ export async function mutation<T>(
 			.for("share", { of: [review_r, conversation_v, effect_e] });
 		if (!review.length) deny();
 	}
-	const operationId = randomUUID();
+	const operationId = claim.id;
 	const result = await body(actor.accountId, operationId);
 	const outcome = result.outcome ?? "changed";
-	await tx.insert(tables.operation).values({
-		id: operationId,
-		tenant_id: context.selected.id,
-		actor_id: actor.accountId,
-		name: name,
-		request_key: input.requestKey,
-		request_digest: digest,
-		review_id: context.origin.kind === "assistant" ? context.origin.reviewId : null,
-		conversation_id: context.origin.kind === "assistant" ? context.origin.conversationId : null,
-		state: "complete",
-		outcome: outcome === "noop" ? "no_effect" : "committed",
-		started_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-		completed_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-		tool_calls: 0,
-		reserved_input: 0,
-		reserved_output: 0,
-		used_input: 0,
-		used_output: 0,
-	});
-	await tx.insert(tables.people_result).values({
-		operation_id: operationId,
-		tenant_id: context.selected.id,
-		person_id: result.subject === context.selected.id ? null : result.subject,
-		value: result.value,
-	});
+	const writes = claim.writes;
+	writes.push(
+		tx
+			.update(tables.operation)
+			.set({
+				state: "complete",
+				outcome: outcome === "noop" ? "no_effect" : "committed",
+				completed_at: sql`clock_timestamp()`,
+			})
+			.where(eq(tables.operation.id, operationId)),
+		tx.insert(tables.people_result).values({
+			operation_id: operationId,
+			tenant_id: context.selected.id,
+			person_id: result.subject === context.selected.id ? null : result.subject,
+			value: result.value,
+		}),
+	);
 	// Notes own their timeline row and protected correction history. The central
 	// audit still records every mutation, without operational bodies.
 	if (!note && result.subject !== context.selected.id)
-		await tx.insert(tables.people_history).values({
+		writes.push(
+			tx.insert(tables.people_history).values({
+				tenant_id: context.selected.id,
+				person_id: result.subject,
+				operation_id: operationId,
+				actor_id: actor.accountId,
+				actor_token: hash([context.selected.id, actor.accountId]),
+				action: result.action,
+				occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+				before_revision: sql`${result.before?.revision ?? null}`,
+				after_revision: sql`${result.after?.revision ?? result.before?.revision ?? "1"}`,
+				before_value: result.before ?? null,
+				after_value: result.after ?? null,
+				reason: result.reason ?? null,
+			}),
+		);
+	writes.push(
+		tx.insert(tables.event).values({
 			tenant_id: context.selected.id,
-			person_id: result.subject,
+			target_record_id: result.subject,
 			operation_id: operationId,
 			actor_id: actor.accountId,
-			actor_token: hash([context.selected.id, actor.accountId]),
-			action: result.action,
+			kind:
+				outcome === "noop"
+					? "noop"
+					: result.action === "people.created"
+						? "create"
+						: result.action === "people.retired"
+							? "retire"
+							: result.action === "people.restored"
+								? "restore"
+								: "edit",
 			occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+			recorded_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
 			before_revision: sql`${result.before?.revision ?? null}`,
 			after_revision: sql`${result.after?.revision ?? result.before?.revision ?? "1"}`,
-			before_value: result.before ?? null,
-			after_value: result.after ?? null,
-			reason: result.reason ?? null,
-		});
-	await tx.insert(tables.event).values({
-		tenant_id: context.selected.id,
-		target_record_id: result.subject,
-		operation_id: operationId,
-		actor_id: actor.accountId,
-		kind:
-			outcome === "noop"
-				? "noop"
-				: result.action === "people.created"
-					? "create"
-					: result.action === "people.retired"
-						? "retire"
-						: result.action === "people.restored"
-							? "restore"
-							: "edit",
-		occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-		recorded_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-		before_revision: sql`${result.before?.revision ?? null}`,
-		after_revision: sql`${result.after?.revision ?? result.before?.revision ?? "1"}`,
-		event_key: sql<string>`((${sql.param(operationId)})::uuid)::text`,
-		action: result.action,
-	});
+			event_key: sql<string>`((${sql.param(operationId)})::uuid)::text`,
+			action: result.action,
+		}),
+	);
 	if (outcome === "changed") {
 		const table = context.selected.kind === "plant" ? tables.plant : tables.organization;
-		await tx
-			.update(table)
-			.set({ material_revision: sql`${table.material_revision}+1` })
-			.where(eq(table.id, context.selected.id));
+		writes.push(
+			tx
+				.update(table)
+				.set({ material_revision: sql`${table.material_revision}+1` })
+				.where(eq(table.id, context.selected.id)),
+		);
 	}
+	await executeWrites(tx, writes);
 	return result.value;
 }
 export function expected(p: Person, revision: string) {

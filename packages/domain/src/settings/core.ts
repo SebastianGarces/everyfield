@@ -6,7 +6,7 @@ import type { Transaction } from "@everyfield/db/client";
 import * as t from "@everyfield/db/tables";
 import { and, eq, gt, isNull, lte, sql } from "@everyfield/db/query";
 import { lock as lockSeats } from "../identity/invitation-core.ts";
-import { currentActor, liveOwner } from "../access/session.ts";
+import { currentActor, liveOwner, requestWrite } from "../access/session.ts";
 import { canonical, appendEvent } from "../organizations/core.ts";
 import {
 	receipt,
@@ -62,6 +62,15 @@ export async function reply<T>(tx: Tx, body: (tx: Tx) => Promise<T>): Promise<Se
 	}
 }
 export async function actor(tx: Tx, ctx: Context, write = false) {
+	const bound = requestWrite(tx);
+	if (
+		bound &&
+		bound.authority.session === ctx.session &&
+		bound.selected.id === ctx.selected.id &&
+		bound.selected.kind === ctx.selected.kind
+	)
+		return { identity: bound.actor, account: bound.account, principal: bound.principal };
+
 	if (ctx.selected.kind === "plant") await lockSeats(tx, "workspace-seats/" + ctx.selected.id);
 	// This capability takes the account write lock before session and user share locks.
 	const raw = await tx.execute(sql`SELECT * FROM invitation_identity(${sessionId.parse(ctx.session)})`);
@@ -116,6 +125,7 @@ export async function begin(
 		origin: ctx.origin,
 	});
 	const claim = await claimOperation(tx, name, identity);
+	if (claim.kind === "unavailable") deny();
 	if (claim.kind === "conflict") deny("conflict");
 	if (ctx.purpose === "model") {
 		if (ctx.origin.kind !== "assistant") deny();

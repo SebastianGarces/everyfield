@@ -1,7 +1,7 @@
 import "server-only";
 import type { Transaction } from "@everyfield/db/client";
 import type { PeopleContext, PeopleReply, PeopleWriteContext } from "@everyfield/contracts/people";
-import { type readPeopleViewer, PeopleReadContext } from "@everyfield/domain/people";
+import { type readPeopleViewer, PeopleReadContext, withPeopleWrite } from "@everyfield/domain/people";
 import { readPeoplePage, readPersonPage } from "./page-data.ts";
 import type { PeopleQuery } from "./model.ts";
 import { requestDatabase } from "@/server/database";
@@ -36,14 +36,7 @@ export async function write<T>(
 	const store = requestDatabase();
 	if (!store) return { status: "failed" };
 	try {
-		return await store.transaction((tx) =>
-			run(tx, {
-				session: viewer.session,
-				selected: viewer.selected,
-				purpose: "native",
-				origin: { kind: "native" },
-			}),
-		);
+		return await withPeopleWrite(store, viewer.authority, run);
 	} catch (error) {
 		console.error(JSON.stringify({ component: "people", outcome: "write_failed", error: String(error) }));
 		return { status: "failed" };

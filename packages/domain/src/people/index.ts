@@ -5,4 +5,4 @@ export { organizationPeople, downloadOrganizationExport } from "./organization.t
 export { peoplePolicies } from "./policies.ts";
 export { lockPersonReference, detachAccountPersonLinks } from "./references.ts";
 
-export { PeopleReadContext } from "./core.ts";
+export { PeopleReadContext, withPeopleWrite } from "./core.ts";

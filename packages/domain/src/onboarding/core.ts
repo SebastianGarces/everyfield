@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { Transaction } from "@everyfield/db/client";
 import * as t from "@everyfield/db/tables";
 import { and, eq, isNull, sql, gt, lte } from "@everyfield/db/query";
-import { currentActor, liveOwner } from "../access/session.ts";
+import { currentActor, liveOwner, requestWrite } from "../access/session.ts";
 import { receipt, requestIdentity, sessionId, accountId, type Receipt } from "@everyfield/contracts/common";
 import { onboardingError } from "@everyfield/contracts/onboarding";
 import type {
@@ -78,6 +78,15 @@ export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<Onboardi
 // Account is the shared arbiter with first-seat acceptance. Take its row lock
 // before currentActor acquires lifecycle/seat share locks.
 export async function actor(tx: Tx, ctx: Context, allowPending = false) {
+	const bound = requestWrite(tx);
+	if (
+		bound &&
+		bound.authority.session === ctx.session &&
+		bound.selected.id === ctx.selected.id &&
+		bound.selected.kind === ctx.selected.kind
+	)
+		return { identity: bound.actor, account: bound.account, principal: bound.principal };
+
 	const raw = await tx.execute(sql`SELECT * FROM invitation_identity(${sessionId.parse(ctx.session)})`);
 	const row = z
 		.object({ account_id: accountId, display_name: z.string(), verified: z.boolean() })
@@ -146,6 +155,7 @@ export async function begin(
 	});
 
 	const claim = await claimOperation(tx, name, identity);
+	if (claim.kind === "unavailable") deny();
 	if (claim.kind === "conflict") deny("idempotency_conflict");
 	if (claim.kind === "replay") {
 		const [old] = await tx
