@@ -177,7 +177,8 @@ export function listRequest(q: PeopleQuery): Record<string, unknown> {
 	return {
 		limit: PAGE_SIZE,
 		...(q.search ? { search: q.search } : {}),
-		view: q.view,
+		// List and cards show the same rows, so they send the same request and share page cursors.
+		view: q.view === "pipeline" ? "pipeline" : "list",
 		stages: q.stages,
 		sources: q.sources,
 		tags: q.tags,
