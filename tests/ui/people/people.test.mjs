@@ -17,6 +17,7 @@
 //   INV-target-size: person card name links meet the 24px WCAG 2.2 target size (verifier finding on 0c00880).
 //   BUG-hydration: WebKit and Node join date parts differently; dates are built from parts so hydration matches.
 //   FB-review-1 INV-view-switch: list and cards share one loaded page; the pipeline loads once and is kept (Sebastian).
+//     It needs a production preview: person links prefetch only there (verifier finding on 87e1a8e).
 //   FB-review-1 INV-pager-visible: the pager is in the first viewport on desktop and phone (Sebastian).
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -521,6 +522,10 @@ for (const [name, engine] of [
 			await page.waitForFunction(() => new URLSearchParams(location.search).has("after"), null, { timeout: 30_000 });
 			await page.getByText(/^Showing 25/).waitFor();
 			await page.waitForLoadState("networkidle");
+			// Only a production build prefetches links, so only it can show a request per person link a switch reveals
+			// (verifier finding on 87e1a8e). The development build shows Next.js's dev indicator.
+			assert.equal(await page.locator("nextjs-portal").count(), 0, "Run this test on a production preview.");
+			await page.waitForTimeout(1500);
 			const sent = [];
 			page.on("request", (r) => {
 				if (["document", "fetch", "xhr"].includes(r.resourceType())) sent.push(`${r.method()} ${r.url()}`);
