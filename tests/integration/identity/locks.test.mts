@@ -324,7 +324,7 @@ test("INV-identity: current actor preserves authority within two database round 
 		});
 	});
 	for (const c of cases) {
-		await test.test(c.name, async () => {
+		await test.test(`INV-identity: ${c.name}`, async () => {
 			const times = [];
 			const trips = [];
 			for (let n = 0; n < 3; n++) {
@@ -368,7 +368,7 @@ test("INV-identity: deletion committed while actor waits for a root lock denies 
 	const f = await fixture();
 	test.after(() => f.close());
 	for (const kind of ["account", "plant"]) {
-		await test.test(kind, async () => {
+		await test.test(`INV-identity-deletion: ${kind}`, async () => {
 			const s = await f.setup();
 			const load = () =>
 				f.db.transaction((tx) => currentActor(tx, sessionId.parse(s.sender.session), owner.parse(s.w)));

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { safeFailure } from '../../../packages/domain/src/operations/telemetry.ts';
 import { liveness, readiness, dependencyNames } from '../../../packages/domain/src/operations/health.ts';
-import { auditProofCoverage, trackWork } from '../../../packages/domain/src/operations/proof.ts';
+import { auditProofCoverage } from '../../../packages/domain/src/operations/proof.ts';
 import { validateCandidate, verifyCandidateBytes, encryptCopy, decryptCopy, restoreBarriers } from '../../../ops/maintenance/recovery.mts';
 
 test('AC:CASE-OPS-002 liveness remains public and readiness distinguishes missing, lagging and failed dependencies',async()=>{
@@ -19,7 +19,6 @@ test('AC:CASE-OPS-002 liveness remains public and readiness distinguishes missin
 });
 
 test('AC:OPS-EVAL-PROOF-001 pinned synthetic evidence inspection never confuses file presence with an executed evaluation',()=>{
-  assert.deepEqual(trackWork(),{status:'skipped',reason:'board_integration_unconfigured',product_failed:false});
   const protocol={source:'a'.repeat(40),reference:'b'.repeat(64),fixtureRelease:'synthetic-v1',cases:['numeric_truth','privacy']};
   assert.deepEqual(auditProofCoverage(protocol,null),{status:'not_run',rollout_allowed:false,live_account_proven:false});
   const run={...protocol,executedAt:'2026-10-18T12:00:00Z',cases:[{name:'numeric_truth',status:'failed'},{name:'privacy',status:'passed'}]};

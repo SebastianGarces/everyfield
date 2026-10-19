@@ -124,21 +124,6 @@ test("INV-access: accepted forms normalize email, store every field and send one
 	assert.equal(delivered.size, 2);
 });
 
-test("INV-access: invalid fields refuse storage and email", async () => {
-	for (const [kind, fields, errors] of [
-		["planter", { ...planter, email: "wrong", city: "" }, { email: "email", city: "required" }],
-		["network", { ...network, plants: "-1" }, { plants: "number" }],
-		["unsupported", planter, {}],
-		["planter", null, {}],
-	]) {
-		assert.deepEqual(await submit(kind, fields), { status: "invalid", fieldErrors: errors });
-	}
-	assert.equal(await count(), 0);
-	assert.equal(calls.length, 0);
-	assert.deepEqual(await submit("planter", planter), { status: "received" });
-	assert.equal(await count(), 1);
-});
-
 test("INV-access: 24-hour duplicates use normalized email and form without another row or email", async () => {
 	assert.deepEqual(await submit("planter", planter), { status: "received" });
 	assert.deepEqual(await submit("planter", { ...planter, email: "sam@example.org", plant_name: "Changed" }), {

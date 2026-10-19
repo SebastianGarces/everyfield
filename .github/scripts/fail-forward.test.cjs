@@ -69,8 +69,9 @@ test('BUG-W5: repeated CI failure updates one incident even while the issue list
 test('INV-fail-forward: PR, foreign repository, other workflow and non-main failures cannot open an incident', async () => {
   const p = provider();
   for (const change of [{ event: 'pull_request' }, { head_branch: 'feature' }, { conclusion: 'success' }, { path: '.github/workflows/other.yml' }, { head_repository: { full_name: 'fork/everyfield' } }]) {
-    await report({ ...p, context: ci(change) });
+    assert.equal(await report({ ...p, context: ci(change) }), undefined, JSON.stringify(change));
   }
+  assert.equal(p.issues.length, 0);
   assert.equal(await report({ ...p, context: ci() }), 1);
   assert.equal(p.issues.length, 1);
 });

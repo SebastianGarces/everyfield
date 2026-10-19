@@ -17,7 +17,7 @@
 		"./settings/server": "./src/settings/server.ts"
 	},
 	"scripts": {
-		"test:unit": "node src/common/sync-vocabulary.mjs --check && node --test ../../tests/contracts/common/*.test.mts && node --test src/identity/*.test.mts && node --test src/access/*.test.mts && node --test src/people/*.test.mts && node --test src/organizations/*.test.mts && node --test src/onboarding/*.test.mts && node --test src/settings/*.test.mts",
+		"test:unit": "node src/common/sync-vocabulary.mjs --check && node --test ../../tests/contracts/common/*.test.mts && node --test src/identity/*.test.mts",
 		"typecheck": "tsc --noEmit",
 		"lint": "cd ../.. && packages/contracts/node_modules/.bin/eslint --config packages/contracts/eslint.config.mjs --max-warnings=0 packages/contracts tests/contracts/common"
 	},

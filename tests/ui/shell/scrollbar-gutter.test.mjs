@@ -1,4 +1,4 @@
-// INV-gutter: product pages always reserve the scrollbar's space, so the shell keeps one width whether the page
+// BUG-138-gutter: product pages always reserve the scrollbar's space, so the shell keeps one width whether the page
 // scrolls or not and the top bar does not move between pages (WP-088 round 2). Marketing pages keep their own scrolling.
 // The document is the scroll container, so the rule lives on <html> while a product root is mounted.
 // Chromium runs without Playwright's --hide-scrollbars, so it draws classic scrollbars (as on Windows, Linux and macOS
@@ -19,7 +19,7 @@ for (const [name, engine, classic] of [
 	["webkit", webkit, false],
 ]) {
 	test(
-		`INV-gutter (${name}): a scrolling and a still product page give the shell the same width`,
+		`BUG-138-gutter (${name}): a scrolling and a still product page give the shell the same width`,
 		{ timeout: 90_000 },
 		async () => {
 			assert.ok(BASE, "Set UI_BASE_URL to a running preview of this worktree.");

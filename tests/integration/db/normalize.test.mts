@@ -7,7 +7,7 @@ import {
 	assertUnqualifiedOwnTables,
 } from "../../../packages/db/src/schema/normalize.ts";
 
-test("Kit output follows the selected application schema without changing extensions, literals or custom schemas", () => {
+test("INV-migration-schema: Kit output follows the selected application schema without changing extensions, literals or custom schemas", () => {
 	const own = new Set(["account", "person"]);
 	const before = `CREATE TABLE "person" ("embedding" public.vector(1536), "note" text DEFAULT 'REFERENCES "public"."account"');
 ALTER TABLE "public"."person" ADD CONSTRAINT "person_account_fk" FOREIGN KEY ("id") REFERENCES "public"."account"("id");
@@ -43,7 +43,7 @@ SELECT public.account(1);
 	assert.doesNotThrow(() => assertUnqualifiedOwnTables(expected, own));
 });
 
-test("vector qualification changes only type positions, including array types, casts and defaults", () => {
+test("INV-migration-vector: vector qualification changes only type positions, including array types, casts and defaults", () => {
 	const before = `CREATE TABLE "vector" ("vector" text, embedding vector(3) DEFAULT '[1,2,3]'::vector, vectors vector[] DEFAULT ARRAY[]::vector[], note text DEFAULT 'vector', x text DEFAULT vector_name());
 ALTER TABLE "vector" ADD COLUMN "vector_column" vector;
 ALTER TABLE "vector" ALTER COLUMN "vector_column" SET DATA TYPE vector(3);
@@ -68,7 +68,7 @@ CREATE TABLE "types" ("x" "Vector", "y" public.vector);
 	assert.doesNotThrow(() => assertQualifiedVectorTypes(expected));
 });
 
-test("normalization protects nested comments, escaped literals and vector constraint names", () => {
+test("INV-migration-bytes: normalization protects nested comments, escaped literals and vector constraint names", () => {
 	const sql = String.raw`/* outer /* inner */ REFERENCES "public"."account" */
 SELECT E'escaped \' REFERENCES "public"."account" ::vector';
 ALTER TABLE "account" ADD CONSTRAINT vector CHECK (true);`;
@@ -76,7 +76,7 @@ ALTER TABLE "account" ADD CONSTRAINT vector CHECK (true);`;
 	assert.equal(qualifyVectorTypes(sql), sql);
 });
 
-test("committed migration checks reject raw Kit qualification and frozen-byte changes", async () => {
+test("INV-migration-artifacts: committed migration checks reject raw Kit qualification and frozen-byte changes", async () => {
 	const { mkdtemp, mkdir, writeFile, rm } = await import("node:fs/promises");
 	const { tmpdir } = await import("node:os");
 	const { pathToFileURL } = await import("node:url");
