@@ -10,7 +10,7 @@
       "WP-054",
       "WP-055"
     ],
-    "integration_rule": "The designated integrator reviews and composes kernel/adapter exports; domain producers own persistence. Coordinate shared interfaces before changing them.",
+    "integration_rule": "Kernel packages own shared Evry behavior; adapter packages own their domain features.",
     "boundary": "Kernel packages own the listed cohesive directories; read and command adapters own disjoint domain subdirectories. Builders choose filenames and exports.",
     "owning_paths_by_package": {
       "WP-051": [
@@ -47,14 +47,11 @@
       "work_package": "WP-059",
       "domain": "people",
       "kind": "authorized_reads",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-011",
         "WP-012",
@@ -73,14 +70,11 @@
       "work_package": "WP-060",
       "domain": "people",
       "kind": "candidate_preparation",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-011",
         "WP-012",
@@ -98,14 +92,11 @@
       "work_package": "WP-061",
       "domain": "people-assessments",
       "kind": "authorized_reads",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-014",
         "WP-015"
@@ -120,14 +111,11 @@
       "work_package": "WP-062",
       "domain": "people-assessments",
       "kind": "candidate_preparation",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-014",
         "WP-015"
@@ -142,14 +130,11 @@
       "work_package": "WP-063",
       "domain": "people-organization",
       "kind": "authorized_reads",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-011",
         "WP-012",
@@ -167,14 +152,11 @@
       "work_package": "WP-064",
       "domain": "people-organization",
       "kind": "candidate_preparation",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-011",
         "WP-012",
@@ -192,14 +174,11 @@
       "work_package": "WP-065",
       "domain": "meetings",
       "kind": "authorized_reads",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-020",
         "WP-021",
@@ -216,14 +195,11 @@
       "work_package": "WP-066",
       "domain": "meetings",
       "kind": "candidate_preparation",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-020",
         "WP-021",
@@ -240,14 +216,11 @@
       "work_package": "WP-067",
       "domain": "tasks",
       "kind": "authorized_reads",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-023",
         "WP-024",
@@ -264,14 +237,11 @@
       "work_package": "WP-068",
       "domain": "tasks",
       "kind": "candidate_preparation",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-023",
         "WP-024",
@@ -288,14 +258,11 @@
       "work_package": "WP-069",
       "domain": "teams",
       "kind": "authorized_reads",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-016",
         "WP-017",
@@ -312,14 +279,11 @@
       "work_package": "WP-070",
       "domain": "teams",
       "kind": "candidate_preparation",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-016",
         "WP-017",
@@ -336,14 +300,11 @@
       "work_package": "WP-071",
       "domain": "communication",
       "kind": "authorized_reads",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-027",
         "WP-028",
@@ -359,14 +320,11 @@
       "work_package": "WP-072",
       "domain": "communication",
       "kind": "candidate_preparation",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-027",
         "WP-028",
@@ -382,14 +340,11 @@
       "work_package": "WP-073",
       "domain": "intelligence",
       "kind": "authorized_reads",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-032",
         "WP-038",
@@ -413,14 +368,11 @@
       "work_package": "WP-074",
       "domain": "intelligence",
       "kind": "candidate_preparation",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-007",
         "WP-032",
@@ -445,14 +397,11 @@
       "work_package": "WP-075",
       "domain": "launch",
       "kind": "authorized_reads",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-045",
         "WP-046"
@@ -467,14 +416,11 @@
       "work_package": "WP-076",
       "domain": "launch",
       "kind": "candidate_preparation",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-045",
         "WP-046"
@@ -489,14 +435,11 @@
       "work_package": "WP-077",
       "domain": "wiki",
       "kind": "authorized_reads",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-034",
         "WP-035"
@@ -511,14 +454,11 @@
       "work_package": "WP-078",
       "domain": "wiki",
       "kind": "candidate_preparation",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-034",
         "WP-035"
@@ -533,14 +473,11 @@
       "work_package": "WP-079",
       "domain": "documents",
       "kind": "authorized_reads",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-004",
         "WP-036",
@@ -556,14 +493,11 @@
       "work_package": "WP-080",
       "domain": "documents",
       "kind": "candidate_preparation",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-004",
         "WP-036",
@@ -579,14 +513,11 @@
       "work_package": "WP-081",
       "domain": "notifications",
       "kind": "authorized_reads",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-030",
         "WP-031"
@@ -601,14 +532,11 @@
       "work_package": "WP-082",
       "domain": "notifications",
       "kind": "candidate_preparation",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-030",
         "WP-031"
@@ -623,14 +551,11 @@
       "work_package": "WP-083",
       "domain": "platform",
       "kind": "authorized_reads",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-005",
         "WP-006",
@@ -654,14 +579,11 @@
       "work_package": "WP-084",
       "domain": "platform",
       "kind": "candidate_preparation",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-005",
         "WP-006",
@@ -685,14 +607,11 @@
       "work_package": "WP-085",
       "domain": "helpers",
       "kind": "authorized_reads_and_candidate_preparation",
-      "consumes": [
-        "Reviewed owning domain operations, current authority/projection boundaries and C0 transaction/receipt conventions.",
-        "Kernel proposal/receipt interface; builder chooses concrete export shape."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Actual native/domain adapter parity and registered denial/correction/replay fixtures pass; register Person consumer before package closure if any PersonId reference is introduced.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-002"
       ],
@@ -708,13 +627,11 @@
       "work_package": "WP-101",
       "domain": "multiplication",
       "kind": "reads_and_candidate_preparation",
-      "consumes": [
-        "Exact operations selected by owning_package/evry_packages in the catalog, plus reviewed effect and safe-source contracts."
-      ],
+      "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Real native/assistant parity for current stage 1/2 operations, exact durable-write approval and current authority/consent; protected notes/reasons/feedback and private care never enter models.",
-      "domain_producer_description": "Reviewed producers of this adapter’s selected operations, including internal contracts used to prove exclusion.",
+      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
+      "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-098",
         "WP-099",
@@ -727,14 +644,13 @@
       ]
     }
   ],
-  "shared_domain_rule": "Catalog owning_package owns native mutation/history/revision/receipt/audit/effect intent behavior; evry_packages owns the named adapters. Framework operations belong to their one kernel owner; consumers do not acquire ownership.",
+  "shared_domain_rule": "Catalog owning_package identifies native feature ownership; evry_packages identifies Evry feature ownership.",
   "contract_producers": [
-    "WP-002 ActorContext/CommandContext/errors/receipts",
-    "WP-004 physical shared receipts/audit/job",
-    "WP-024 managed follow-up persistence/identity kernel before WP-022",
-    "WP-046 actual published summary producer before WP-047",
-    "WP-015 Person registration protocol then each later consumer"
+    "WP-002 shared identity, access, time and change history",
+    "WP-004 storage for shipped features",
+    "WP-024 task and follow-up identity before WP-022",
+    "WP-046 published summaries before WP-047",
+    "WP-015 people corrections and duplicate resolution"
   ],
-  "no_new_framework": "Static typed manifests plus one composition function. No plugin bus, general policy/workflow engine, source-helper service factory or generic coding agent.",
   "disjoint_paths_checked": true
 }
