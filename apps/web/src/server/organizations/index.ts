@@ -1,5 +1,5 @@
 import "server-only";
-import { createHash } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { createDatabase, type Database, type Transaction } from "@everyfield/db/client";
 import { and, eq, inArray, isNull, sql } from "@everyfield/db/query";
@@ -116,7 +116,9 @@ async function readSession(m: Mount, headers: Headers) {
 	return parsed.success ? parsed.data : null;
 }
 
-export type Kind = "plant" | "sending_church" | "sending_network" | "discovery";
+/** `account`: a seatless account without a Discovery profile, for example a resident. It sees only its own residency
+ * links. */
+export type Kind = "plant" | "sending_church" | "sending_network" | "discovery" | "account";
 export type Viewer = {
 	kind: Kind;
 	session: Extract<z.infer<typeof sessionResult>, { status: "active" }>["sessionId"];
@@ -157,16 +159,15 @@ export async function viewerOf(
 		.select({ id: t.discovery.id })
 		.from(t.discovery)
 		.where(and(eq(t.discovery.account_id, s.accountId), isNull(t.discovery.converted_at)));
-	if (!d) return { kind: "unavailable" };
 	return {
 		kind: "viewer",
 		mount: m,
 		viewer: {
-			kind: "discovery",
+			kind: d ? "discovery" : "account",
 			session: s.sessionId,
 			accountId: s.accountId,
 			selected: owner.parse({ kind: "account", id: s.accountId }),
-			canManage: true,
+			canManage: Boolean(d),
 		},
 	};
 }
@@ -255,6 +256,7 @@ const SUBJECT_COLUMN = {
 	sending_church: "sending_church_id",
 	sending_network: null,
 	discovery: "account_id",
+	account: null,
 } as const;
 
 /** This subject's own requests still waiting for an answer (ruling D2: the contract has no read for them). */
@@ -322,7 +324,7 @@ export async function targetsFor(m: Mount, viewer: Viewer, active: Set<string>) 
 
 /** The subject's current revision, which an invitation must carry, and its time zone for dates. */
 export async function subjectFacts(m: Mount, viewer: Viewer) {
-	if (viewer.kind === "discovery") {
+	if (viewer.kind === "discovery" || viewer.kind === "account") {
 		const [a] = await m.db
 			.select({ revision: t.account.revision })
 			.from(t.account)
@@ -360,14 +362,17 @@ export async function disclosureFor(m: Mount, viewer: Viewer, pair: unknown) {
 }
 
 /**
- * The request behind an emailed link (ruling D10). It answers only when the link's proof matches this pending,
- * unexpired request; anything else is the same `null`, so the page never says which check failed. The proof is
- * hashed here and never stored. The answer itself is still authorized by associations.respondInvitation.
+ * The request behind an emailed link (rulings D10, D15). It answers only when the link's proof matches this pending,
+ * unexpired request AND the viewer could answer it, by the same rule as associations.respondInvitation: the current
+ * workspace is the receiving organization, the seat is Owner or Admin, and the session's verified email is the
+ * invited address. Anything else is the same `null`, so no detail reaches a wrong organization, a Member or another
+ * address, and the page never says which check failed. The proof is hashed here and never stored.
  */
-export async function invitationFor(m: Mount, invitationId: string, proof: string) {
+export async function invitationFor(m: Mount, viewer: Viewer, invitationId: string, proof: string) {
 	if (!z.uuid().safeParse(invitationId).success || proof.length < 1 || proof.length > 4096) return null;
 	const rows = await m.db.execute<{
 		token_hash: string;
+		recipient_email: string;
 		state: string;
 		revision: string;
 		created_at: string;
@@ -378,13 +383,21 @@ export async function invitationFor(m: Mount, invitationId: string, proof: strin
 		organization_kind: "sending_church" | "sending_network";
 		inviter_description: string;
 	}>(
-		sql`SELECT i.token_hash, i.state, i.revision::text AS revision, to_char(i.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at, r.plant_id, r.account_id, r.sending_church_id, r.organization_id, o.kind AS organization_kind, r.inviter_description
+		sql`SELECT i.token_hash, i.recipient_email, i.state, i.revision::text AS revision, to_char(i.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at, r.plant_id, r.account_id, r.sending_church_id, r.organization_id, o.kind AS organization_kind, r.inviter_description
 		FROM invitation i JOIN relationship_invitation r ON r.invitation_id = i.id JOIN organization o ON o.id = r.organization_id
 		WHERE i.id = ${invitationId}`,
 	);
 	const r = rows.rows[0];
 	if (!r || r.state !== "pending") return null;
-	if (createHash("sha256").update(proof).digest("hex") !== r.token_hash) return null;
+	const given = Buffer.from(createHash("sha256").update(proof).digest("hex"));
+	const stored = Buffer.from(r.token_hash);
+	if (given.length !== stored.length || !timingSafeEqual(given, stored)) return null;
+	const receiving = viewer.selected.kind === "organization" && viewer.selected.id === r.organization_id;
+	if (!receiving || !viewer.canManage) return null;
+	const address = await m.db.execute<{ email: string | null }>(
+		sql`SELECT relationship_recipient(${viewer.session}) AS email`,
+	);
+	if (address.rows[0]?.email !== r.recipient_email) return null;
 	const expiresAt = new Date(new Date(r.created_at).getTime() + 30 * 86_400_000);
 	if (expiresAt.getTime() <= Date.now()) return null;
 	const organization = { kind: "organization", id: r.organization_id, organizationKind: r.organization_kind } as const;
@@ -405,4 +418,14 @@ export async function invitationFor(m: Mount, invitationId: string, proof: strin
 		expiresAt: expiresAt.toISOString().replace(/\.\d{3}Z$/, "Z"),
 		inviterDescription: r.inviter_description,
 	});
+}
+
+/** The revision of one of this account's own residency links; null for any other link (ruling D16). */
+export async function residencyRevision(m: Mount, viewer: Viewer, linkId: string) {
+	if (!z.uuid().safeParse(linkId).success) return null;
+	const [r] = await m.db
+		.select({ revision: t.residency_link.revision })
+		.from(t.residency_link)
+		.where(and(eq(t.residency_link.id, linkId), eq(t.residency_link.account_id, viewer.accountId)));
+	return r ? String(r.revision) : null;
 }

@@ -1,9 +1,11 @@
 import * as C from "@everyfield/contracts/organizations";
-import { loadConnections, loadDisclosure, loadHistoryPage, runOrganizationOperation } from "./actions";
+import { loadConnections, loadDisclosure, loadHistoryPage, loadResidency, runOrganizationOperation } from "./actions";
 import type { ConnectionsData } from "./Connections";
 import type { ReadHistory } from "./History";
 import { Refusal } from "./intent";
 import type { ReadDisclosure } from "./InviteDialog";
+import type { ReadResidency } from "./Residency";
+import { revision } from "@everyfield/contracts/common";
 import type { History, NameOf, OperationName, PendingInvitation, Run } from "./port";
 
 // The real port (WP-007/ui ruling D11): server actions in, contract parsers out. A server refusal becomes a
@@ -16,12 +18,20 @@ const RESULT: Partial<Record<OperationName, { parse: (v: unknown) => unknown }>>
 	"associations.end": C.mutationResult,
 	"associations.respondInvitation": C.invitationDecisionResult,
 	"associations.getHistory": C.relationshipHistoryResult,
+	"privacy.getSharing": C.sharingResult,
+	"privacy.setSharing": C.mutationResult,
 	"residency.readSharing": C.residencySharingResult,
 	"residency.setSharing": C.mutationResult,
 	"residency.leave": C.mutationResult,
 	"pipelineSharing.readConsent": C.pipelineConsentResult,
 	"pipelineSharing.setConsent": C.mutationResult,
 	"pipelineSharing.checkAggregateAccess": C.pipelineAggregateAccessResult,
+};
+
+/** One own residency link through the server, parsed again here. */
+export const readResidency: ReadResidency = async (linkId) => {
+	const r = await loadResidency(linkId);
+	return { sharing: C.residencySharingResult.parse(r.sharing), linkRevision: revision.parse(r.linkRevision) };
 };
 
 export const realRun = (async (operation: OperationName, input: unknown) => {

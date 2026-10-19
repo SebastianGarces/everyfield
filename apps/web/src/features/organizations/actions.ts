@@ -8,6 +8,7 @@ import {
 	invitationFor,
 	namesFor,
 	pendingFor,
+	residencyRevision,
 	runOperation,
 	scopeOf,
 	viewerOf,
@@ -25,6 +26,8 @@ const OPERATIONS = [
 	"associations.end",
 	"associations.respondInvitation",
 	"associations.getHistory",
+	"privacy.getSharing",
+	"privacy.setSharing",
 	"residency.readSharing",
 	"residency.setSharing",
 	"residency.leave",
@@ -82,7 +85,7 @@ export async function loadInvitation(invitationId: string, proof: string) {
 	const who = await viewerOf(await headers());
 	if (who.kind === "signed_out") return { kind: "signed_out" as const };
 	if (who.kind !== "viewer") return { kind: "unavailable" as const };
-	const invitation = await invitationFor(who.mount, invitationId, proof);
+	const invitation = await invitationFor(who.mount, who.viewer, invitationId, proof);
 	if (!invitation) return { kind: "unavailable" as const };
 	const p = invitation.pair;
 	const names = await namesFor(who.mount, who.viewer, [
@@ -90,4 +93,17 @@ export async function loadInvitation(invitationId: string, proof: string) {
 		p.kind === "discovery" ? p.accountId : p.subject.id,
 	]);
 	return { kind: "invitation" as const, invitation, names, zone: "UTC" };
+}
+
+/** One of this account's own residency links: the consent and the link revision a change must carry. */
+export async function loadResidency(linkId: string) {
+	const unavailable = { sharing: { status: "unavailable" as const }, linkRevision: "0" };
+	const who = await viewerOf(await headers());
+	if (who.kind !== "viewer") return unavailable;
+	const [reply, linkRevision] = await Promise.all([
+		runOperation(who.mount, who.viewer, "residency.readSharing", { linkId }),
+		residencyRevision(who.mount, who.viewer, linkId),
+	]);
+	if (reply.status !== "ok" || linkRevision === null) return unavailable;
+	return { sharing: reply.value, linkRevision };
 }

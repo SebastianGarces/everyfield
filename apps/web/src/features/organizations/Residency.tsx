@@ -10,7 +10,7 @@ import {
 import { UserGroupIcon } from "@hugeicons/core-free-icons";
 import { Button, Card, CardIcon, Checkbox, ConfirmDialog, Skeleton, Spinner, Switch } from "@everyfield/ui/controls";
 import { LoadableView, StatusBadge } from "@everyfield/ui/display";
-import { useCallback, useState } from "react";
+import { useCallback, useId, useState } from "react";
 import type { z } from "zod";
 import { NotAvailable } from "../access/AccessStates";
 import { useIntent, useLoad } from "./intent";
@@ -91,27 +91,34 @@ export function ResidencyDisclosure({
  * A resident's own consent for one residency link (REQ-MUL-003). Each switch stops or starts one category at once;
  * leaving ends the link. A stale screen is refused, never applied over a newer choice.
  */
+/**
+ * The current consent and the link's own revision. Every change must carry both: the link revision on the command
+ * and the consent revision inside it (REQ-MUL-003). The contract read returns only the consent revision, so the
+ * caller supplies the link revision (ruling D16).
+ */
+export type ReadResidency = (linkId: string) => Promise<{ sharing: Sharing; linkRevision: string }>;
+
 export function ResidencySharing({
 	linkId,
 	organizationName,
+	read,
 	run,
 }: {
 	linkId: string;
 	organizationName: string;
+	read: ReadResidency;
 	run: Run;
 }) {
-	const fetch = useCallback(
-		() => run("residency.readSharing", residencySharingRequest.parse({ linkId })),
-		[linkId, run],
-	);
+	const titleId = useId();
+	const fetch = useCallback(() => read(residencySharingRequest.parse({ linkId }).linkId), [linkId, read]);
 	const { state, reload: load } = useLoad(fetch, "Your residency sharing did not load");
 
 	return (
-		<Card as="section" aria-labelledby="residency-sharing" className="w-full">
+		<Card as="section" aria-labelledby={titleId} className="w-full">
 			<div className="flex items-center gap-3">
 				<CardIcon icon={UserGroupIcon} tone="teal" size={36} />
 				<div className="min-w-0 flex-1">
-					<h2 id="residency-sharing" className="font-semibold text-ink">
+					<h2 id={titleId} className="font-semibold text-ink">
 						Residency with {organizationName}
 					</h2>
 					<p className="text-sm text-text-3">Only you can change what is shared.</p>
@@ -128,13 +135,19 @@ export function ResidencySharing({
 					</div>
 				}
 			>
-				{(data) =>
+				{({ sharing: data, linkRevision }) =>
 					data.status === "unavailable" ? (
 						<NotAvailable scope="section" />
 					) : data.status === "ended" ? (
 						<p className="mt-4 text-text-2">You left this residency. Nothing is shared with {organizationName}.</p>
 					) : (
-						<ActiveResidency data={data} organizationName={organizationName} run={run} reload={load} />
+						<ActiveResidency
+							data={data}
+							linkRevision={linkRevision}
+							organizationName={organizationName}
+							run={run}
+							reload={load}
+						/>
 					)
 				}
 			</LoadableView>
@@ -144,11 +157,13 @@ export function ResidencySharing({
 
 function ActiveResidency({
 	data,
+	linkRevision,
 	organizationName,
 	run,
 	reload,
 }: {
 	data: Extract<Sharing, { status: "active" }>;
+	linkRevision: string;
 	organizationName: string;
 	run: Run;
 	reload: () => void;
@@ -165,7 +180,7 @@ function ActiveResidency({
 			(requestKey) =>
 				setResidencySharingRequest.parse({
 					requestKey,
-					expectedRevision: data.consentRevision,
+					expectedRevision: linkRevision,
 					input: {
 						linkId: data.linkId,
 						expectedConsentRevision: data.consentRevision,
@@ -185,7 +200,7 @@ function ActiveResidency({
 			(requestKey) =>
 				leaveResidencyRequest.parse({
 					requestKey,
-					expectedRevision: data.consentRevision,
+					expectedRevision: linkRevision,
 					input: { linkId: data.linkId, expectedConsentRevision: data.consentRevision },
 				}),
 			(command) => run("residency.leave", command),

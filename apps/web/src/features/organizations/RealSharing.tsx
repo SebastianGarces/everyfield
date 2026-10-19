@@ -7,11 +7,11 @@ import type { z } from "zod";
 import { Connections } from "./Connections";
 import type { InviteTarget } from "./InviteDialog";
 import { PipelineAccessNote, PipelineTotals } from "./Pipeline";
-import { createNames, realRun } from "./real";
+import { createNames, readResidency, realRun } from "./real";
 import { ResidencySharing } from "./Residency";
 
 export type SharingPageData = {
-	kind: "plant" | "sending_church" | "sending_network" | "discovery";
+	kind: "plant" | "sending_church" | "sending_network" | "discovery" | "account";
 	canManage: boolean;
 	zone: string;
 	revision: string;
@@ -29,6 +29,7 @@ const INTRO: Record<SharingPageData["kind"], string> = {
 	discovery: "Sending churches and networks you are connected with while you explore planting.",
 	sending_church: "Churches connected with you, the networks you work with, and what you share with each.",
 	sending_network: "Churches and sending churches connected with your network.",
+	account: "What you share from your residency. Only you can change it.",
 };
 
 /** /settings/sharing on the real WP-007 API: connections, pipeline totals and the viewer's own residency consent. */
@@ -39,20 +40,22 @@ export function RealSharing({ data }: { data: SharingPageData }) {
 		<div className="min-h-dvh px-10 py-8 max-app-sm:px-4 max-app-sm:py-5">
 			<main id="main" className="mx-auto flex max-w-[880px] flex-col gap-6">
 				<PageHeader title="Sharing and privacy" subtitle={INTRO[data.kind]} />
-				<Connections
-					side={subject ? "subject" : "organization"}
-					load={names.load}
-					readMore={names.readMore}
-					canManage={data.canManage}
-					nameOf={names.nameOf}
-					zone={data.zone}
-					run={realRun}
-					invite={
-						data.kind !== "sending_network"
-							? { targets: data.targets, readDisclosure: names.readDisclosure, expectedRevision: data.revision }
-							: undefined
-					}
-				/>
+				{data.kind === "account" ? null : (
+					<Connections
+						side={subject ? "subject" : "organization"}
+						load={names.load}
+						readMore={names.readMore}
+						canManage={data.canManage}
+						nameOf={names.nameOf}
+						zone={data.zone}
+						run={realRun}
+						invite={
+							data.kind !== "sending_network"
+								? { targets: data.targets, readDisclosure: names.readDisclosure, expectedRevision: data.revision }
+								: undefined
+						}
+					/>
+				)}
 				{data.canManage
 					? data.networks.map((n) => (
 							<PipelineTotals
@@ -66,7 +69,13 @@ export function RealSharing({ data }: { data: SharingPageData }) {
 					: null}
 				{data.aggregate ? <PipelineAccessNote access={data.aggregate} /> : null}
 				{data.residencies.map((r) => (
-					<ResidencySharing key={r.linkId} linkId={r.linkId} organizationName={r.organizationName} run={realRun} />
+					<ResidencySharing
+						key={r.linkId}
+						linkId={r.linkId}
+						organizationName={r.organizationName}
+						read={readResidency}
+						run={realRun}
+					/>
 				))}
 			</main>
 		</div>

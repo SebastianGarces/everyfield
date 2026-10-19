@@ -12,6 +12,7 @@ import { useIntent, useLoad } from "./intent";
 import { InviteDialog, type InviteTarget, type ReadDisclosure } from "./InviteDialog";
 import { formatDay, kindLabel, subjectOf } from "./model";
 import { ProblemLine } from "./parts";
+import { SharingChoices } from "./Sharing";
 import type { History, NameOf, PendingInvitation, Relationship, Run } from "./port";
 
 /** One read of the list: the first history page with the current connections, and the requests still waiting. */
@@ -114,6 +115,7 @@ export function Connections({
 									if (ended) setStatus(`The connection with ${name} ended.`);
 									reload();
 								}}
+								onChanged={reload}
 							/>
 							{invite && pending.length > 0 ? (
 								<PendingList
@@ -164,6 +166,7 @@ function ActiveList({
 	zone,
 	run,
 	onEnded,
+	onChanged,
 }: {
 	side: Side;
 	history: History;
@@ -172,6 +175,7 @@ function ActiveList({
 	zone: string;
 	run: Run;
 	onEnded: (name: string, ended: boolean) => void;
+	onChanged: () => void;
 }) {
 	const rows = history.activeRelationships;
 	if (rows.length === 0)
@@ -194,6 +198,7 @@ function ActiveList({
 					zone={zone}
 					run={run}
 					onEnded={onEnded}
+					onChanged={onChanged}
 				/>
 			))}
 		</ul>
@@ -208,6 +213,7 @@ function ActiveRow({
 	zone,
 	run,
 	onEnded,
+	onChanged,
 }: {
 	side: Side;
 	relationship: Relationship;
@@ -216,33 +222,48 @@ function ActiveRow({
 	zone: string;
 	run: Run;
 	onEnded: (name: string, ended: boolean) => void;
+	onChanged: () => void;
 }) {
 	const subject = side === "subject";
 	const other = subject ? relationship.pair.organization : subjectOf(relationship.pair);
 	const kind =
 		other.kind === "organization" ? kindLabel(other) : other.kind === "plant" ? "Church plant" : "Discovery account";
 	return (
-		<li className="flex items-center gap-3 border-t border-line py-3.5 first:border-t-0">
-			<CardIcon icon={other.kind === "organization" ? HierarchyIcon : ChurchIcon} tone="blue" size={36} />
-			<div className="min-w-0 flex-1">
-				<p className="font-semibold text-ink">{name}</p>
-				<p className="text-sm text-text-3">
-					{kind} · connected <time dateTime={relationship.acceptedAt}>{formatDay(relationship.acceptedAt, zone)}</time>
-				</p>
+		<li className="border-t border-line py-3.5 first:border-t-0">
+			<div className="flex items-center gap-3">
+				<CardIcon icon={other.kind === "organization" ? HierarchyIcon : ChurchIcon} tone="blue" size={36} />
+				<div className="min-w-0 flex-1">
+					<p className="font-semibold text-ink">{name}</p>
+					<p className="text-sm text-text-3">
+						{kind} · connected{" "}
+						<time dateTime={relationship.acceptedAt}>{formatDay(relationship.acceptedAt, zone)}</time>
+					</p>
+				</div>
+				{canManage ? (
+					<EndDialog
+						side={side}
+						relationship={relationship}
+						otherName={name}
+						run={run}
+						onEnded={(ended) => onEnded(name, ended)}
+						trigger={
+							<Button variant="ghost" size="sm" aria-label={subject ? `Leave ${name}` : `End connection with ${name}`}>
+								{subject ? "Leave" : "End connection"}
+							</Button>
+						}
+					/>
+				) : null}
 			</div>
-			{canManage ? (
-				<EndDialog
-					side={side}
-					relationship={relationship}
-					otherName={name}
-					run={run}
-					onEnded={(ended) => onEnded(name, ended)}
-					trigger={
-						<Button variant="ghost" size="sm" aria-label={subject ? `Leave ${name}` : `End connection with ${name}`}>
-							{subject ? "Leave" : "End connection"}
-						</Button>
-					}
-				/>
+			{subject && relationship.pair.kind === "plant" ? (
+				<div className="mt-2 pl-12 max-app-sm:pl-0">
+					<SharingChoices
+						key={relationship.revision}
+						relationship={relationship}
+						organizationName={name}
+						run={run}
+						onSaved={onChanged}
+					/>
+				</div>
 			) : null}
 		</li>
 	);

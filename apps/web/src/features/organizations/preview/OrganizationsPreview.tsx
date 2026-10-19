@@ -190,6 +190,7 @@ function Flow({
 					<PageHeader title="My residency" />
 					<ResidencySharing
 						linkId={backend.residencyLink}
+						read={backend.readResidency}
 						organizationName={NAMES_FOR_PREVIEW.network}
 						run={backend.run}
 					/>

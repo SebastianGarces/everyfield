@@ -1,4 +1,5 @@
 import * as C from "@everyfield/contracts/organizations";
+import type { z } from "zod";
 import { Refusal } from "../intent";
 import type { InviteTarget } from "../InviteDialog";
 import type {
@@ -107,6 +108,7 @@ const bare = (i: PendingInvitation): PendingInvitation => ({
 	inviterDescription: i.inviterDescription,
 });
 const READS = new Set<OperationName>([
+	"privacy.getSharing",
 	"associations.getHistory",
 	"residency.readSharing",
 	"pipelineSharing.readConsent",
@@ -283,6 +285,24 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 				]
 			: [];
 
+	// Per-connection sharing choices, keyed by relationship ID (REQ-IDN-022).
+	const consent = new Map<string, { revision: number; choices: Record<string, boolean> }>();
+	const consentOf = (id: string) => {
+		if (!consent.has(id))
+			consent.set(id, {
+				revision: 4,
+				choices: {
+					people: true,
+					meetings: true,
+					tasks: false,
+					ministry_teams: true,
+					wiki: false,
+					activity: false,
+					shared_findings: true,
+				},
+			});
+		return consent.get(id)!;
+	};
 	let residency = {
 		status: "active" as "active" | "ended",
 		revision: 3,
@@ -386,6 +406,42 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 						: { status: "declined", invitationId: command.input.invitationId, receipt: r },
 				);
 			}
+			case "privacy.getSharing": {
+				const q = input as { plant: { id: string }; organization: { id: string } };
+				const row = active.find((r) => r.relationship.pair.organization.id === q.organization.id);
+				if (!row) return C.sharingResult.parse({ status: "unavailable" });
+				const base = {
+					plant: PLANT,
+					organization: row.relationship.pair.organization,
+					organizationDisplayName: row.name,
+					activeAffiliation: true,
+				};
+				if (!entitled) return C.sharingResult.parse({ view: "plant_member", ...base });
+				const c = consentOf(row.relationship.id);
+				return C.sharingResult.parse({
+					view: "plant_administration",
+					...base,
+					consentRevision: String(c.revision),
+					choices: c.choices,
+				});
+			}
+			case "privacy.setSharing": {
+				const index = active.findIndex((r) => r.relationship.id === command.input.relationshipId);
+				if (refuse || index < 0) throw new Refusal(refuse ? "stale_revision" : "unavailable");
+				const row = active[index]!;
+				const c = consentOf(row.relationship.id);
+				if (String(command.input.expectedConsentRevision) !== String(c.revision)) throw new Refusal("stale_revision");
+				c.choices = { ...c.choices, [command.input.category as string]: command.input.enabled as boolean };
+				c.revision += 1;
+				active[index] = {
+					...row,
+					relationship: C.relationshipProjection.parse({
+						...row.relationship,
+						revision: String(Number(row.relationship.revision) + 1),
+					}),
+				};
+				return C.mutationResult.parse({ status: "committed", receipt: receipt(command.requestKey, PLANT, operation) });
+			}
 			case "residency.readSharing":
 				return C.residencySharingResult.parse(
 					residency.status === "ended"
@@ -400,6 +456,9 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 				);
 			case "residency.setSharing":
 				if (refuse) return C.mutationResult.parse({ status: "unavailable" });
+				// The link revision runs ahead of the consent revision, so a command that mixes them up is refused.
+				if ((input as { expectedRevision: string }).expectedRevision !== String(residency.revision + 10))
+					throw new Refusal("stale_revision");
 				residency = {
 					...residency,
 					revision: residency.revision + 1,
@@ -411,6 +470,8 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 				});
 			case "residency.leave":
 				if (refuse) return C.mutationResult.parse({ status: "unavailable" });
+				if ((input as { expectedRevision: string }).expectedRevision !== String(residency.revision + 10))
+					throw new Refusal("stale_revision");
 				residency = { ...residency, status: "ended" };
 				return C.mutationResult.parse({
 					status: "committed",
@@ -437,7 +498,13 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 		const history = await read(null);
 		return { history, pending };
 	};
-	return { load, read, run, residencyLink: RESIDENT_LINK };
+	const readResidency = async (linkId: string) => ({
+		sharing: (await run("residency.readSharing", C.residencySharingRequest.parse({ linkId }))) as z.infer<
+			typeof C.residencySharingResult
+		>,
+		linkRevision: String(residency.revision + 10),
+	});
+	return { load, read, run, readResidency, residencyLink: RESIDENT_LINK };
 }
 
 /** The request the recipient opened from the emailed link (WP-008 owns the link landing). */

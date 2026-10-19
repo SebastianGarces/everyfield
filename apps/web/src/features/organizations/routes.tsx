@@ -31,6 +31,15 @@ async function Frame({ children }: { children: React.ReactNode }) {
 export async function SharingPage() {
 	const who = await viewerOf(await headers());
 	if (who.kind === "signed_out") redirect("/signin?returnTo=%2Fsettings%2Fsharing");
+	const refused = (
+		<Frame>
+			<div className="px-4 py-12">
+				<Card className="mx-auto max-w-[560px]">
+					<NotAvailable scope="page" homeHref="/onboarding" />
+				</Card>
+			</div>
+		</Frame>
+	);
 	if (who.kind !== "viewer")
 		return (
 			<Frame>
@@ -42,7 +51,12 @@ export async function SharingPage() {
 			</Frame>
 		);
 	const { mount: m, viewer } = who;
-	const first = await runOperation(m, viewer, "associations.getHistory", scopeOf(viewer));
+	// A seatless account without a Discovery profile has only its own residency links here.
+	if (viewer.kind === "account" && (await residencyLinks(m, viewer)).length === 0) return refused;
+	const first =
+		viewer.kind === "account"
+			? ({ status: "refused", code: "unavailable" } as const)
+			: await runOperation(m, viewer, "associations.getHistory", scopeOf(viewer));
 	const history = first.status === "ok" ? C.relationshipHistoryResult.parse(first.value) : null;
 	const active = history && history.status === "available" ? history.activeRelationships : [];
 	const activeOrgs = new Set(
