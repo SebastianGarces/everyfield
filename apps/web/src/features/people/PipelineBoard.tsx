@@ -13,7 +13,6 @@ import {
 	MenuTrigger,
 } from "@everyfield/ui/controls";
 import { PersonCard, PipelineColumn, StageChip, StatusBadge } from "@everyfield/ui/display";
-import Link from "next/link";
 import { useEffect, useState, type DragEvent } from "react";
 import type { z } from "zod";
 import { loadColumn, reorderPipeline } from "./actions.ts";
@@ -31,7 +30,7 @@ import {
 	type PeopleQuery,
 	type StageValue,
 } from "./model.ts";
-import { FormProblem, fresh, problemOf, problemText, useStore, When } from "./parts.tsx";
+import { CardLink, FormProblem, fresh, problemOf, problemText, useStore, When } from "./parts.tsx";
 import { StageDialog, type PersonDraft } from "./StageDialog.tsx";
 
 type Pipeline = z.infer<typeof people.pipelineResult>;
@@ -239,7 +238,7 @@ function Column({
 								<PersonCard
 									name={card.person.displayName}
 									href={`/people/${card.person.id}`}
-									linkAs={Link}
+									linkAs={CardLink}
 									dragging={dragging === card.person.id}
 									meta={
 										<>

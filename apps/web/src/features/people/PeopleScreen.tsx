@@ -46,7 +46,7 @@ import {
 	withFilters,
 	type PeopleQuery,
 } from "./model.ts";
-import { When } from "./parts.tsx";
+import { CardLink, When } from "./parts.tsx";
 import { PipelineBoard } from "./PipelineBoard.tsx";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
@@ -295,7 +295,7 @@ function Results({
 								<PersonCard
 									name={p.displayName}
 									href={`/people/${p.id}`}
-									linkAs={Link}
+									linkAs={CardLink}
 									meta={p.email ?? p.phone ?? undefined}
 									footer={<PersonBadges person={p} />}
 								/>

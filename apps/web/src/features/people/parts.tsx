@@ -2,7 +2,8 @@
 
 import { Alert02Icon } from "@hugeicons/core-free-icons";
 import { Icon } from "@everyfield/ui/foundations";
-import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState, useSyncExternalStore, type ComponentProps, type ReactNode } from "react";
 import type * as people from "@everyfield/contracts/people";
 import type { z } from "zod";
 import { statusWarnings } from "./actions.ts";
@@ -120,4 +121,13 @@ export function useWarnings(
 		};
 	}, [key, personId]);
 	return got?.key === key ? got.value : null;
+}
+
+/**
+ * The name link inside a PersonCard. PersonCard passes its own classes (the stretched link that makes the whole card
+ * clickable); this adds a 24px minimum height, so the link itself meets the WCAG 2.2 target size next to the card's
+ * Move button.
+ */
+export function CardLink({ className, ...props }: ComponentProps<typeof Link>) {
+	return <Link {...props} className={`${className ?? ""} inline-flex min-h-6 items-center`} />;
 }
