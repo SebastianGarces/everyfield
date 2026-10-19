@@ -66,9 +66,7 @@ export function AutoChapter({ id, panels }: { id: Id; panels: Partial<Record<Pan
 			<Display as="h2" size="h2" id={id + "-title"}>
 				{d.title}
 			</Display>
-			{d.lead ? (
-				<p className="mt-4 text-[clamp(17px,1.3vw,19px)] leading-[1.55] text-pretty text-text-2">{d.lead}</p>
-			) : null}
+			{d.lead ? <p className="mt-4 text-mk-lead-sm leading-[1.55] text-pretty text-text-2">{d.lead}</p> : null}
 		</div>
 	);
 	const steps: AutoStep[] = d.steps.map((s) => {

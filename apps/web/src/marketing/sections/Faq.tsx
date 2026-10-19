@@ -21,7 +21,7 @@ export function Faq({ f }: { f: FaqCopy }) {
 					<div className="col-span-7 col-start-6 w-full max-w-[720px] justify-self-end max-mk-cx:max-w-none">
 						{f.items.map((x) => (
 							<FaqItem key={x.id} id={"faq-" + x.id} q={x.q}>
-								<p className="pr-[54px] pb-6 text-[17px] leading-[1.55] text-pretty text-text-2 max-mk-cx:pr-0">
+								<p className="pr-[54px] pb-6 type-lg leading-[1.55] text-pretty text-text-2 max-mk-cx:pr-0">
 									{answer(x.a, x.link)}
 								</p>
 							</FaqItem>

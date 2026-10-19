@@ -65,7 +65,7 @@ export function DoneButton({
 			ref={ref}
 			className={cn(
 				"relative inline-grid flex-none place-items-center overflow-hidden bg-ink font-semibold whitespace-nowrap text-white shadow-pill will-change-transform",
-				size === "md" ? "h-10 rounded-[12px] px-4 text-[13px]" : "h-[34px] rounded-[11px] px-[13px] text-[12.5px]",
+				size === "md" ? "h-10 rounded-[12px] px-4 type-sm" : "h-[34px] rounded-[11px] px-[13px] type-sm",
 				className,
 			)}
 			style={{ transform }}

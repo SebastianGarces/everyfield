@@ -35,10 +35,10 @@ export function FactsPanel() {
 						<FactsRing />
 					</svg>
 					<div>
-						<Num className="block text-[30px] leading-none">
+						<Num className="block type-title-lg leading-none">
 							<Count fx="facts.pct" max={71} unit="%" />
 						</Num>
-						<div className="text-[13px] text-text-3">of new guests contacted within 48 hours</div>
+						<div className="type-sm text-text-3">of new guests contacted within 48 hours</div>
 					</div>
 				</St>
 				{KV.map((r, k) => (
@@ -49,14 +49,14 @@ export function FactsPanel() {
 					>
 						{k === 2 ? <Hl a={1650} b={5800} R="facts.R" /> : null}
 						{k === 2 ? <Target name="t0" className="absolute inset-0" /> : null}
-						<span className="text-[13px] text-text-2">{r[0]}</span>
+						<span className="type-sm text-text-2">{r[0]}</span>
 						<span className="flex items-center gap-2">
 							{k === 2 ? (
 								<Badge status="risk" size="sm">
 									Open
 								</Badge>
 							) : null}
-							<span className="font-display text-[18px] font-medium tracking-[-0.02em] whitespace-nowrap">
+							<span className="font-display type-title-sm font-medium tracking-[-0.02em] whitespace-nowrap">
 								<Count fx="facts.kv" n={k} max={r[1]} />
 							</span>
 						</span>
@@ -69,18 +69,13 @@ export function FactsPanel() {
 							as="span"
 							fx="facts.name"
 							n={k}
-							className={cn(CHIP, "h-7 flex-none gap-[7px] pr-2.5 pl-1 text-[12px] opacity-0")}
+							className={cn(CHIP, "h-7 flex-none gap-[7px] pr-2.5 pl-1 type-xs opacity-0")}
 						>
 							<Av small>{n[0]}</Av>
 							{n[1]}
 						</Move>
 					))}
-					<Move
-						as="span"
-						fx="facts.name"
-						n={3}
-						className={cn(CHIP, "h-7 flex-none pr-2.5 pl-2.5 text-[12px] opacity-0")}
-					>
+					<Move as="span" fx="facts.name" n={3} className={cn(CHIP, "h-7 flex-none pr-2.5 pl-2.5 type-xs opacity-0")}>
 						4 more
 					</Move>
 				</St>
@@ -107,19 +102,19 @@ export function EvryPanel({ demo }: { demo: EvryDemo }) {
 				<St i={0} className="flex items-center gap-2.5 border-b border-line pb-3">
 					<MoodBot fx="evry.mood" follow />
 					<div className="min-w-0 flex-1">
-						<div className="font-display text-[18px] font-medium">Evry</div>
-						<div className="text-[12px] text-text-3">Reads and drafts. You approve every change.</div>
+						<div className="font-display type-title-sm font-medium">Evry</div>
+						<div className="type-xs text-text-3">Reads and drafts. You approve every change.</div>
 					</div>
 				</St>
 				<St
 					i={1}
-					className="max-w-[86%] self-end rounded-2xl rounded-br-xs bg-ink px-3.5 py-[11px] text-[13px] leading-[1.45] text-on-ink"
+					className="max-w-[86%] self-end rounded-2xl rounded-br-xs bg-ink px-3.5 py-[11px] type-sm leading-[1.45] text-on-ink"
 				>
 					<Typed text={demo.q} fx="evry.q" />
 				</St>
 				<Move
 					fx="evry.aIn"
-					className="max-w-[86%] self-start rounded-2xl rounded-bl-xs bg-surface-2 px-3.5 py-[11px] text-[13px] leading-[1.45] opacity-0"
+					className="max-w-[86%] self-start rounded-2xl rounded-bl-xs bg-surface-2 px-3.5 py-[11px] type-sm leading-[1.45] opacity-0"
 				>
 					<Typed text={demo.a} fx="evry.a" />
 				</Move>
@@ -127,20 +122,20 @@ export function EvryPanel({ demo }: { demo: EvryDemo }) {
 					fx="evry.card"
 					className="overflow-hidden rounded-[18px] bg-white opacity-0 shadow-[inset_0_0_0_1px_var(--color-line),var(--shadow-raised)]"
 				>
-					<div className="flex items-center gap-2.5 border-b border-mk-amber-500-18 bg-amber-50 px-4 py-3 text-[13px] font-semibold text-amber-600">
+					<div className="flex items-center gap-2.5 border-b border-mk-amber-500-18 bg-amber-50 px-4 py-3 type-sm font-semibold text-amber-600">
 						<Icon icon={ICONS.edit} />
 						{demo.review[0]}
 						<span className="min-w-0 flex-1" />
 						<span className="font-medium">{demo.review[1]}</span>
 					</div>
 					<div className="flex flex-col gap-[9px] px-4 py-3">
-						<div className="flex items-start gap-2.5 text-[12.5px]">
+						<div className="flex items-start gap-2.5 type-sm">
 							<Icon icon={ICONS.calendar} size={16} className="mt-px text-text-3" />
 							<span>
 								Create <b>{demo.meeting.name}</b> on <b>{demo.meeting.when}</b> at the <b>{demo.meeting.where}</b>
 							</span>
 						</div>
-						<div className="flex items-start gap-2.5 text-[12.5px] text-text-3">
+						<div className="flex items-start gap-2.5 type-sm text-text-3">
 							<Icon icon={ICONS.more} size={16} className="mt-px text-text-3" />
 							<span>{demo.rest}</span>
 						</div>
@@ -177,7 +172,7 @@ export function SharePanel({ unshared }: { unshared: string }) {
 					<St
 						key={r[0]}
 						i={i + 1}
-						className="relative isolate flex items-center justify-between gap-2.5 border-t border-line py-2.5 text-[13px]"
+						className="relative isolate flex items-center justify-between gap-2.5 border-t border-line py-2.5 type-sm"
 					>
 						{i === 1 ? <Hl a={1550} b={3000} /> : null}
 						<span>
@@ -185,7 +180,7 @@ export function SharePanel({ unshared }: { unshared: string }) {
 							{r[2] ? (
 								<>
 									{" "}
-									<span className="text-[12px] text-text-3">Never shared</span>
+									<span className="type-xs text-text-3">Never shared</span>
 								</>
 							) : null}
 						</span>
@@ -193,8 +188,8 @@ export function SharePanel({ unshared }: { unshared: string }) {
 					</St>
 				))}
 				<St i={5} className="mt-3 rounded-[14px] bg-surface-2 px-3.5 py-3">
-					<div className="text-[12px] text-text-3">What Grace Church sees</div>
-					<div className="mt-1.5 flex items-center justify-between gap-2 text-[13px] font-semibold">
+					<div className="type-xs text-text-3">What Grace Church sees</div>
+					<div className="mt-1.5 flex items-center justify-between gap-2 type-sm font-semibold">
 						<span>Harvest Point · Phase 1</span>
 						<Swap
 							fx="share.swap"

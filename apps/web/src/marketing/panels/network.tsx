@@ -45,7 +45,7 @@ export function ScopeChip({
 		</>
 	);
 	const chip =
-		"relative inline-grid h-[30px] rounded-[12px] bg-surface text-[12.5px] font-medium whitespace-nowrap text-ink-2 shadow-[inset_0_0_0_1px_var(--color-line-2)] will-change-transform";
+		"relative inline-grid h-[30px] rounded-[12px] bg-surface type-sm font-medium whitespace-nowrap text-ink-2 shadow-[inset_0_0_0_1px_var(--color-line-2)] will-change-transform";
 	return press === undefined ? (
 		<span className={chip}>{body}</span>
 	) : (
@@ -82,15 +82,15 @@ export function ScopePanel() {
 							key={l}
 							className="min-w-0 rounded-[14px] bg-white px-3 pt-2.5 pb-[11px] shadow-[inset_0_0_0_1px_var(--color-line)] max-mk-sm:px-2.5 max-mk-sm:pt-[9px] max-mk-sm:pb-2.5"
 						>
-							<Num className="block text-[26px] leading-none max-mk-sm:text-[22px]">
+							<Num className="block type-title-lg leading-none max-mk-sm:type-title-md">
 								<Count fx="scope.stat" n={k} max={SD_SCOPES[0][(k + 1) as 1 | 2 | 3]} />
 							</Num>
-							<small className="mt-1.5 block text-[11.5px] leading-[1.25] text-text-3">{l}</small>
+							<small className="mt-1.5 block type-xs leading-[1.25] text-text-3">{l}</small>
 						</div>
 					))}
 				</St>
 				<St i={3} className="mt-3">
-					<div className={cn(AREA_GRID, "pb-1.5 text-[11.5px] text-text-3")}>
+					<div className={cn(AREA_GRID, "pb-1.5 type-xs text-text-3")}>
 						<span>By area</span>
 						<span className="justify-self-end text-right">Plants</span>
 						<span className="justify-self-end text-right">Momentum</span>
@@ -101,10 +101,7 @@ export function ScopePanel() {
 							as="div"
 							fx="scope.area"
 							n={k}
-							className={cn(
-								AREA_GRID,
-								"relative isolate border-t border-line py-[7px] text-[13px] will-change-[opacity]",
-							)}
+							className={cn(AREA_GRID, "relative isolate border-t border-line py-[7px] type-sm will-change-[opacity]")}
 						>
 							<b className="truncate font-semibold">{a[0]}</b>
 							<span className="justify-self-end text-right text-text-2 tabular-nums">{a[1]}</span>
@@ -126,7 +123,7 @@ const AREA_GRID =
 
 /* ---------- Plants by phase, typical weeks (on /oversight "pipeline" means the leader pipeline) ---------- */
 const PIPE_ROW =
-	"relative isolate grid h-[34px] grid-cols-[92px_minmax(0,1fr)_16px_40px] items-center gap-2.5 text-[12.5px] max-mk-sm:grid-cols-[84px_minmax(0,1fr)_14px_36px] max-mk-sm:gap-2";
+	"relative isolate grid h-[34px] grid-cols-[92px_minmax(0,1fr)_16px_40px] items-center gap-2.5 type-sm max-mk-sm:grid-cols-[84px_minmax(0,1fr)_14px_36px] max-mk-sm:gap-2";
 export function PipePanel() {
 	return (
 		<NetworkFx>
@@ -157,7 +154,7 @@ export function PipePanel() {
 								<Fade
 									fx="pipe.wk"
 									n={k}
-									className="text-right text-[11.5px] whitespace-nowrap text-text-3 opacity-0 will-change-[opacity]"
+									className="text-right type-xs whitespace-nowrap text-text-3 opacity-0 will-change-[opacity]"
 								>
 									{r[1] ? r[2] : "none"}
 								</Fade>
@@ -176,10 +173,10 @@ export function PipePanel() {
 				</St>
 				<St
 					i={2}
-					className="mt-3 flex items-center justify-between gap-2.5 rounded-[14px] bg-surface-2 px-3.5 py-[11px] text-[13px] font-semibold"
+					className="mt-3 flex items-center justify-between gap-2.5 rounded-[14px] bg-surface-2 px-3.5 py-[11px] type-sm font-semibold"
 				>
 					<span>Launches in the next 12 months</span>
-					<Num className="text-[22px] leading-none font-medium">
+					<Num className="type-title-md leading-none font-medium">
 						<Count fx="pipe.launch" max={5} />
 					</Num>
 				</St>
@@ -222,7 +219,7 @@ export function LensPanel() {
 								<span className={cn("grid size-7 flex-none place-items-center rounded-full", LI_TONE[l[2]])}>
 									<Icon icon={ICONS[l[1] as IconName]} />
 								</span>
-								<span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{l[0]}</span>
+								<span className="min-w-0 flex-1 truncate type-sm font-semibold">{l[0]}</span>
 								<Badge status={l[3]} size="sm">
 									{l[4]}
 								</Badge>
@@ -241,7 +238,7 @@ export function LensPanel() {
 									v ? <span key={k} className="min-w-0" style={{ flex: v, background: DOTS[k] }} /> : null,
 								)}
 							</Wipe>
-							<div className="flex flex-wrap gap-x-3 gap-y-1 text-[11.5px] text-text-3">
+							<div className="flex flex-wrap gap-x-3 gap-y-1 type-xs text-text-3">
 								{(["Strong", "Watch", "Concern"] as const).map((w, k) => (
 									<span
 										key={w}
@@ -259,7 +256,7 @@ export function LensPanel() {
 					fx="lens.sheet"
 					className="absolute right-3 bottom-3 left-3 z-6 rounded-2xl bg-white px-3.5 pt-3 pb-1.5 opacity-0 shadow-mk-sheet"
 				>
-					<div className="flex items-center justify-between gap-2 pb-1.5 text-[13px] font-semibold">
+					<div className="flex items-center justify-between gap-2 pb-1.5 type-sm font-semibold">
 						<span>Emerging leadership</span>
 						<Badge status="risk" size="sm">
 							4 at Concern
@@ -273,10 +270,10 @@ export function LensPanel() {
 							className="flex items-center gap-2.5 border-t border-line py-2 opacity-0"
 						>
 							<div className="min-w-0 flex-1">
-								<div className="text-[13px] font-semibold">{r[0]}</div>
-								<div className="mt-0.5 truncate text-[11.5px] text-text-3">{r[1]}</div>
+								<div className="type-sm font-semibold">{r[0]}</div>
+								<div className="mt-0.5 truncate type-xs text-text-3">{r[1]}</div>
 							</div>
-							<span className="text-[12px] text-text-3">{r[2]}</span>
+							<span className="type-xs text-text-3">{r[2]}</span>
 						</Move>
 					))}
 				</Move>
@@ -295,7 +292,7 @@ export function TopPanel() {
 					i={1}
 					num={<Count fx="top.n" max={4} unit=" of 5" />}
 					unit="plants within a year of launch have a Concern on Emerging leadership"
-					numClassName="max-mk-sm:text-[44px]"
+					numClassName="max-mk-sm:type-display-sm"
 				/>
 				<St i={2} className={INSIGHT_TITLE}>
 					Emerging leadership is the most common gap before launch

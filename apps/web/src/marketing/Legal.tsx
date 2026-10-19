@@ -45,7 +45,7 @@ export function Legal({ path, copy }: { path: string; copy: LegalCopy }) {
 		<Site path={path}>
 			<PageHero title={copy.title}>
 				<div className="mx-auto mt-9 grid max-w-[72ch] gap-[18px] text-left text-text-2">
-					{copy.updated ? <p className="text-[14px] text-text-3">{copy.updated}</p> : null}
+					{copy.updated ? <p className="type-md text-text-3">{copy.updated}</p> : null}
 					{copy.intro?.map((p, i) => (
 						<p key={i}>{linked(p, privacy)}</p>
 					))}

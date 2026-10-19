@@ -47,17 +47,29 @@
 	--breakpoint-mk-cx: 901px;
 	--breakpoint-mk-lg: 1025px;
 	--breakpoint-mk-nav: 1121px;
+	--breakpoint-mk-xl: 1440px;
+	--breakpoint-mk-2xl: 1600px;
 
-	--text-mk-hero: clamp(44px, 6vw, 88px);
+	/* Type: every size is a step of the dashboard scale in tokens.css (12 13 14 16 18 22 28 40 56 76), plus the
+	   three named sizes below. The marketing roles start at their phone size and step up at breakpoints (see the
+	   :root block after this theme); no vw-based sizes. `pnpm lint` (scripts/check-type-scale.mjs) holds the rule. */
+	--text-mk-hero: var(--ef-display-sm);
 	--text-mk-hero--line-height: 1.04;
-	--text-mk-h1: clamp(40px, 4.6vw, 76px);
+	--text-mk-h1: var(--ef-display-sm);
 	--text-mk-h1--line-height: 1.04;
-	--text-mk-h2: clamp(30px, 3.4vw, 56px);
+	--text-mk-h2: var(--ef-title-lg);
 	--text-mk-h2--line-height: 1.08;
-	--text-mk-h3: clamp(22px, 1.8vw, 28px);
+	--text-mk-h3: var(--ef-title-md);
 	--text-mk-h3--line-height: 1.15;
-	--text-mk-lead: clamp(18px, 1.4vw, 21px);
+	--text-mk-lead: var(--ef-title-sm);
 	--text-mk-lead--line-height: 1.5;
+	/* Section intros and the hero subtitle: one step above body (18 over 16) at every width; the lead grows at 1440. */
+	--text-mk-lead-sm: var(--ef-title-sm);
+	/* The one size above the scale: the home hero at 1440 px and wider, and the phase numerals. */
+	--text-mk-display-xl: 88px;
+	/* Miniature product pictures only, where 12 px cannot fit: seat labels, chart values and 20 px initials. */
+	--text-mk-pic-xs: 11px;
+	--text-mk-pic-2xs: 10px;
 
 	--shadow-mk-card:
 		0 1px 2px rgb(from var(--color-ink) r g b / 0.04), 0 6px 18px -10px rgb(from var(--color-ink) r g b / 0.1);
@@ -71,6 +83,34 @@
 	--ease-mk: cubic-bezier(0.2, 0.8, 0.2, 1);
 	/* Hero ease-out, used by the floating pill. */
 	--ease-mk-out: cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+/* The marketing type roles step between scale sizes at the site's breakpoints. */
+:root {
+	@variant mk-sm {
+		--text-mk-hero: var(--ef-display-md);
+	}
+	@variant mk-lg {
+		--text-mk-hero: var(--ef-display-lg);
+		--text-mk-h1: var(--ef-display-md);
+		--text-mk-h2: var(--ef-display-sm);
+	}
+	@variant mk-xl {
+		--text-mk-hero: var(--text-mk-display-xl);
+		--text-mk-h3: var(--ef-title-lg);
+		--text-mk-lead: var(--ef-title-md);
+	}
+	/* Section headings take their largest step only where the wide columns hold them on the same lines. */
+	@variant mk-2xl {
+		--text-mk-h1: var(--ef-display-lg);
+		--text-mk-h2: var(--ef-display-md);
+	}
+}
+
+/* Font size only, from the type scale: type-sm, type-title-md, type-mk-pic-xs. A text-* size utility also sets the
+   token's line height; type-* keeps the line height the element already has. */
+@utility type-* {
+	font-size: --value(--text-*);
 }
 
 /* Display type: Bricolage 500, tight tracking, balanced lines. Size and line height come from a text-* class
