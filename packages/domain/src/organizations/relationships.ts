@@ -361,9 +361,11 @@ export function relationshipCommands(
 		if (!a) refuse();
 		a = (await loadAffiliation(tx, a.id, true))!;
 		const event = await appendEvent(tx, c, a.id, "accept", "affiliation.approved", previous, a.revision);
-		await tx
-			.insert(tables.relationship_history)
-			.values({ id: event, relationship_id: a.id, pair: pair, reason: null, source_invitation_id: i.id });
+		c.writes.push(
+			tx
+				.insert(tables.relationship_history)
+				.values({ id: event, relationship_id: a.id, pair: pair, reason: null, source_invitation_id: i.id }),
+		);
 		await invalidate(tx, effects, pair, a.id, a.revision);
 		await effects.notice(tx, {
 			eventId: event,
@@ -500,13 +502,15 @@ export function relationshipCommands(
 			.where(eq(tables.affiliation.id, a.id));
 		const next = String(BigInt(a.revision) + 1n),
 			event = await appendEvent(tx, c, a.id, "remove", "affiliation.ended", a.revision, next);
-		await tx.insert(tables.relationship_history).values({
-			id: event,
-			relationship_id: a.id,
-			pair: q.input.pair,
-			reason: q.input.reason,
-			source_invitation_id: a.invitation_id,
-		});
+		c.writes.push(
+			tx.insert(tables.relationship_history).values({
+				id: event,
+				relationship_id: a.id,
+				pair: q.input.pair,
+				reason: q.input.reason,
+				source_invitation_id: a.invitation_id,
+			}),
+		);
 		await invalidate(tx, effects, q.input.pair, a.id, next);
 		await effects.notice(tx, {
 			eventId: event,

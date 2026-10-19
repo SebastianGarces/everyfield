@@ -104,7 +104,7 @@ export async function begin(
 
 		refuse("invitation_unavailable");
 	}
-	return { kind: "new" as const, id: claim.id, request };
+	return { kind: "new" as const, id: claim.id, request, writes: claim.writes, events: claim.events };
 }
 export type Command = Extract<Awaited<ReturnType<typeof begin>>, { kind: "new" }>;
 export async function finish<T>(
@@ -126,6 +126,8 @@ export async function finish<T>(
 	});
 	const result = output(r);
 	await executeWrites(tx, [
+		...c.writes,
+		...(c.events.length ? [tx.insert(t.event).values(c.events)] : []),
 		tx
 			.update(t.operation)
 			.set({ state: "complete", outcome: changed ? "committed" : "no_effect", completed_at: new Date(r.completedAt) })
@@ -158,9 +160,9 @@ export function eventRow(
 		event_key: c.id + "/" + (action ?? kind) + "/" + target,
 	};
 }
-export async function event(tx: Transaction, ...args: Parameters<typeof eventRow>) {
+export async function event(_tx: Transaction, ...args: Parameters<typeof eventRow>) {
 	const row = eventRow(...args);
-	await tx.insert(t.event).values(row);
+	args[0].events.push(row);
 	return row.id;
 }
 export type Invitation = typeof t.invitation.$inferSelect;

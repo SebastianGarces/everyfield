@@ -193,34 +193,32 @@ export async function begin(
 			.for("share", { of: [t.review, t.conversation, t.effect] });
 		if (!review.length) deny();
 	}
-	return { kind: "new" as const, id: claim.id, identity };
+	return { kind: "new" as const, id: claim.id, identity, writes: claim.writes, events: claim.events };
 }
 export type NewCommand = Extract<Awaited<ReturnType<typeof begin>>, { kind: "new" }>;
 export async function event(
-	tx: Tx,
+	_tx: Tx,
 	c: NewCommand,
 	target: string,
 	action: typeof t.event.$inferInsert.action,
 	kind: typeof t.event.$inferInsert.kind = "edit",
 	tenant = c.identity.owner.id,
 ) {
-	const [record] = await tx.select({ tenant: t.record.tenant_id }).from(t.record).where(eq(t.record.id, target));
-	const ownedTarget = record?.tenant === tenant ? target : tenant;
-	const [row] = await tx
-		.insert(t.event)
-		.values({
-			tenant_id: tenant,
-			target_record_id: ownedTarget,
-			operation_id: c.id,
-			actor_id: c.identity.actorId,
-			kind,
-			action,
-			occurred_at: now,
-			recorded_at: now,
-			event_key: c.id + "/" + target + "/" + action,
-		})
-		.returning({ id: t.event.id });
-	return row!.id;
+	const id = randomUUID();
+	const ownedTarget = sql<string>`coalesce((SELECT id FROM ${t.record} WHERE id=${target}::uuid AND tenant_id=${tenant}::uuid),${tenant}::uuid)`;
+	c.events.push({
+		id,
+		tenant_id: tenant,
+		target_record_id: ownedTarget,
+		operation_id: c.id,
+		actor_id: c.identity.actorId,
+		kind,
+		action,
+		occurred_at: now,
+		recorded_at: now,
+		event_key: c.id + "/" + target + "/" + action,
+	});
+	return id;
 }
 export async function finish<T>(
 	tx: Tx,
@@ -241,6 +239,8 @@ export async function finish<T>(
 	});
 	const value = schema.parse(result(r));
 	await executeWrites(tx, [
+		...c.writes,
+		...(c.events.length ? [tx.insert(t.event).values(c.events)] : []),
 		tx
 			.update(t.operation)
 			.set({ state: "complete", outcome: changed ? "committed" : "no_effect", completed_at: now })

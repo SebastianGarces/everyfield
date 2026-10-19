@@ -253,7 +253,7 @@ export async function beginCommand(
 
 		refuse();
 	}
-	return { kind: "new" as const, id: claim.id, identity };
+	return { kind: "new" as const, id: claim.id, identity, writes: claim.writes, events: claim.events };
 }
 export type NewCommand = Extract<Awaited<ReturnType<typeof beginCommand>>, { kind: "new" }>;
 export async function finishCommand<T>(
@@ -275,6 +275,8 @@ export async function finishCommand<T>(
 	});
 	const output = result(r);
 	await executeWrites(tx, [
+		...c.writes,
+		...(c.events.length ? [tx.insert(tables.event).values(c.events)] : []),
 		tx
 			.update(tables.operation)
 			.set({ state: "complete", outcome: changed ? "committed" : "no_effect", completed_at: sql`${now}` })
@@ -284,7 +286,7 @@ export async function finishCommand<T>(
 	return output;
 }
 export async function appendEvent(
-	tx: Transaction,
+	_tx: Transaction,
 	c: NewCommand,
 	target: string,
 	kind: typeof tables.event.$inferInsert.kind,
@@ -293,14 +295,9 @@ export async function appendEvent(
 	after: string,
 ) {
 	const id = randomUUID();
-	const record = await tx
-		.select({ tenant_id: tables.record.tenant_id })
-		.from(tables.record)
-		.where(eq(tables.record.id, target));
-	// Bilateral decisions are recorded in the acting endpoint scope. The private
-	// relationship history carries the exact pair; audit never targets a foreign body.
-	const ownedTarget = record[0]?.tenant_id === c.identity.owner.id ? target : c.identity.owner.id;
-	await tx.insert(tables.event).values({
+	// Resolve the target's current scope in the audit insert, without a separate read.
+	const ownedTarget = sql<string>`coalesce((SELECT id FROM ${tables.record} WHERE id=${target}::uuid AND tenant_id=${c.identity.owner.id}::uuid),${c.identity.owner.id}::uuid)`;
+	c.events.push({
 		id: id,
 		tenant_id: c.identity.owner.id,
 		target_record_id: ownedTarget,

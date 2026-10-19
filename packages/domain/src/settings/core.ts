@@ -163,7 +163,7 @@ export async function begin(
 		}
 		deny();
 	}
-	return { kind: "new" as const, id: claim.id, identity };
+	return { kind: "new" as const, id: claim.id, identity, writes: claim.writes, events: claim.events };
 }
 export type NewCommand = Extract<Awaited<ReturnType<typeof begin>>, { kind: "new" }>;
 export async function finish<T>(
@@ -185,6 +185,8 @@ export async function finish<T>(
 	});
 	const value = schema.parse(body(r));
 	await executeWrites(tx, [
+		...c.writes,
+		...(c.events.length ? [tx.insert(t.event).values(c.events)] : []),
 		tx
 			.update(t.operation)
 			.set({ state: "complete", outcome: changed ? "committed" : "no_effect", completed_at: now })

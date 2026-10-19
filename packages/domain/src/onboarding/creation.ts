@@ -318,11 +318,13 @@ export function creation(effects: OnboardingEffects) {
 						.returning();
 					const id = await event(tx, cx, link!.id, "affiliation.approved", "accept");
 					events.push(id);
-					await tx.insert(t.relationship_history).values({
-						id,
-						relationship_id: link!.id,
-						pair: { kind: "plant", subject: result.plant, organization: selection.organization },
-					});
+					cx.writes.push(
+						tx.insert(t.relationship_history).values({
+							id,
+							relationship_id: link!.id,
+							pair: { kind: "plant", subject: result.plant, organization: selection.organization },
+						}),
+					);
 					await notifyRelationship(tx, effects, {
 						eventId: id,
 						relationshipId: link!.id,
@@ -354,7 +356,9 @@ export function creation(effects: OnboardingEffects) {
 					events.push(id);
 					const original = await loadAffiliation(tx, old.id);
 					if (!original) deny();
-					await tx.insert(t.relationship_history).values({ id, relationship_id: old.id, pair: pairOf(original) });
+					cx.writes.push(
+						tx.insert(t.relationship_history).values({ id, relationship_id: old.id, pair: pairOf(original) }),
+					);
 					await notifyRelationship(tx, effects, {
 						eventId: id,
 						relationshipId: old.id,
