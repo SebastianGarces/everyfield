@@ -2687,7 +2687,9 @@
         "people_result",
         "relationship_history",
         "relationship_invitation",
-        "schema_migration"
+        "schema_migration",
+        "settings_preview",
+        "settings_result"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
       "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
@@ -3917,7 +3919,9 @@
         "private_calendar",
         "private_week",
         "reader_feedback",
-        "residency_link"
+        "residency_link",
+        "settings_preview",
+        "settings_result"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
       "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
@@ -5008,6 +5012,8 @@
         "identity_proof",
         "lifecycle_witness",
         "record",
+        "settings_preview",
+        "settings_result",
         "tenant"
       ],
       "consumer_table_names": [
@@ -5619,6 +5625,7 @@
         "people_result",
         "person_skill",
         "person_tag",
+        "settings_result",
         "tag"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -10066,6 +10073,7 @@
         "mail",
         "organization_operation_result",
         "relationship_history",
+        "settings_result",
         "suppression"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -13664,7 +13672,9 @@
         "event",
         "evidence_link",
         "organization_operation_result",
-        "relationship_history"
+        "relationship_history",
+        "settings_preview",
+        "settings_result"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
       "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
@@ -28459,6 +28469,8 @@
         "schema_migration",
         "seat",
         "sending_goal",
+        "settings_preview",
+        "settings_result",
         "suppression",
         "tag",
         "task",
@@ -34499,6 +34511,8 @@
         "schema_migration",
         "seat",
         "sending_goal",
+        "settings_preview",
+        "settings_result",
         "suppression",
         "tag",
         "task",

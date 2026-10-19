@@ -8,3 +8,4 @@ export {
 } from "./storage.js";
 export type { PrivateStorage, ResourceAuthorizer, FileAuthorization, FilePurpose, FileIdentity } from "./storage.js";
 export { authStorage } from "./auth-storage.js";
+export { validateAvatar } from "./validate-file.js";

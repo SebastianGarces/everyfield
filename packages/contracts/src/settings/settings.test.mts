@@ -420,10 +420,12 @@ test("INV-settings-native: model entry point excludes native secrets and private
 		name: "Grace",
 		email: "grace@example.test",
 		avatar: { status: "absent" },
+		personalTimezone: { status: "unconfirmed" },
 	};
 	assert.deepEqual(wire(C.sectionResult, account), account);
+	const confirmed = { ...account, personalTimezone: { status: "confirmed", timeZone: "UTC", revision: "1" } };
+	assert.deepEqual(wire(C.sectionResult, confirmed), confirmed);
 	for (const extra of [
-		{ personalTimezone: { status: "confirmed", timeZone: "UTC", revision: "1" } },
 		{ privateCalendarExists: false },
 		{ password: "secret" },
 		{ deletionStatus: "pending_deletion" },
@@ -489,6 +491,7 @@ test("INV-settings-receipt: saved sections bind receipt to exact owner and never
 				name: "Grace",
 				email: "grace@example.test",
 				avatar: { status: "absent" },
+				personalTimezone: { status: "unconfirmed" },
 			},
 			owner: { kind: "account", id },
 		},

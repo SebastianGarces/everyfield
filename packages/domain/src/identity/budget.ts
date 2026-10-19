@@ -29,12 +29,20 @@ export async function transaction<T>(db: Database, body: (tx: Transaction) => Pr
 }
 export function attemptBudget(db: Database, key: string) {
 	const hash = (value: string) => createHmac("sha256", key).update(value).digest("hex");
-	async function reserve(kind: "login" | "reset" | "registration", identifier: string | null, ip: string | null) {
+	async function reserve(
+		kind: "login" | "reset" | "registration" | "email_change" | "password_change",
+		identifier: string | null,
+		ip: string | null,
+	) {
 		if (kind === "registration" && !ip) throw new IdentityRefusal("admission_unavailable", 503);
 		const identifierHash = identifier ? hash(identifier) : null,
 			ipHash = ip ? hash(ip) : null;
 		const [minutes, identifierLimit, ipLimit] =
-			kind === "login" ? [15, 5, 20] : kind === "reset" ? [60, 3, 10] : [60, 0, 3];
+			kind === "login" || kind === "password_change"
+				? [15, 5, 20]
+				: kind === "reset" || kind === "email_change"
+					? [60, 3, 10]
+					: [60, 0, 3];
 		try {
 			return await transaction(db, async (tx) => {
 				for (const axis of [identifierHash && `${kind}/id/${identifierHash}`, ipHash && `${kind}/ip/${ipHash}`]
@@ -86,7 +94,7 @@ export function attemptBudget(db: Database, key: string) {
 	async function finish(reservation: Awaited<ReturnType<typeof reserve>>, success: boolean) {
 		await transaction(db, async (tx) => {
 			const r = reservation;
-			if (success && r.kind === "login") {
+			if (success && (r.kind === "login" || r.kind === "password_change")) {
 				await tx.execute(
 					sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${r.kind}/id/${r.identifierHash}`},505))`,
 				);
@@ -110,8 +118,13 @@ export function attemptBudget(db: Database, key: string) {
 			await tx
 				.update(tables.admission_attempt)
 				.set({
-					state: success && r.kind === "login" ? "cleared" : r.kind === "login" ? "failed" : "counted",
-					trusted_ip_hash: sql<unknown>`CASE WHEN ${success && r.kind === "login"} THEN NULL ELSE ${tables.admission_attempt.trusted_ip_hash} END`,
+					state:
+						success && (r.kind === "login" || r.kind === "password_change")
+							? "cleared"
+							: r.kind === "login" || r.kind === "password_change"
+								? "failed"
+								: "counted",
+					trusted_ip_hash: sql<unknown>`CASE WHEN ${success && (r.kind === "login" || r.kind === "password_change")} THEN NULL ELSE ${tables.admission_attempt.trusted_ip_hash} END`,
 				})
 				.where(eq(tables.admission_attempt.id, r.id));
 		});

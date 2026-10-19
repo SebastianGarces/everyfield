@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNull, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import "server-only";
+import { notificationCategory } from "@everyfield/contracts/settings";
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { z } from "zod";
@@ -158,7 +159,12 @@ export function createMailService(config: {
 		if (barriers.length) return false;
 		if (m.notice_id) {
 			const notice = await tx
-				.select({ id: tables.notice.id, category: tables.notice.category, purpose: tables.notice.purpose })
+				.select({
+					id: tables.notice.id,
+					category: tables.notice.category,
+					purpose: tables.notice.purpose,
+					logical_key: tables.notice.logical_key,
+				})
 				.from(tables.notice)
 				.where(
 					and(
@@ -168,9 +174,11 @@ export function createMailService(config: {
 				)
 				.for("share");
 			if (notice.length !== 1) return false;
-			const row = z.object({ category: z.string(), purpose: z.string() }).parse(notice[0]);
+			const row = z.object({ category: z.string(), purpose: z.string(), logical_key: z.string() }).parse(notice[0]);
 			if (row.category === "reference_update") return false;
-			const preference = row.category === "digest" ? row.purpose : row.category === "launch" ? "phase" : row.category;
+			const parsedPreference = notificationCategory.safeParse(row.logical_key.split("/")[1]);
+			if (!parsedPreference.success) return false;
+			const preference = parsedPreference.data;
 			const choice = await tx
 				.select({ enabled: tables.notification_preference.enabled })
 				.from(tables.notification_preference)
