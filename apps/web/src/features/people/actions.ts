@@ -174,22 +174,30 @@ export async function loadColumn(
 
 /**
  * Saves a new order for one pipeline column. The list holds every live person in that column, in the new order. The
- * answer carries the column's revision as saved now, so a next move does not wait for the page refresh to learn it.
+ * answer carries the column's revision as saved by this command: it is read in the same transaction, after the
+ * producer has locked the column row (FOR UPDATE), so another actor's reorder cannot land in between. A quick next move
+ * then uses this order's revision and never adopts someone else's.
  */
 export async function reorderPipeline(
 	requestKey: string,
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<{ outcome: "changed" | "noop"; revision: string }>> {
-	return boundary(c.reorderPipelineRequest, { requestKey, expectedRevision, input }, async (v, request) => {
-		const done = outcome(await write(v, (tx, ctx) => peopleWriter.reorderPipeline(tx, ctx, request)), (r) => r.outcome);
-		if (done.status !== "ok") return done;
-		const now = outcome(
-			await read(v, (tx, ctx) =>
-				peopleReader.getPipelineData(tx, ctx, c.listPeopleRequest.parse({ limit: 1, view: "pipeline" })),
-			),
-			(r) => r.groups.find((g) => g.column === request.input.column)!.revision,
-		);
-		return now.status === "ok" ? { status: "ok", value: { outcome: done.value, revision: now.value } } : now;
-	});
+	return boundary(c.reorderPipelineRequest, { requestKey, expectedRevision, input }, async (v, request) =>
+		outcome(
+			await write(v, async (tx, ctx) => {
+				const done = await peopleWriter.reorderPipeline(tx, ctx, request);
+				if (done.status !== "ok") return done;
+				const now = await peopleReader.getPipelineData(
+					tx,
+					{ session: ctx.session, selected: ctx.selected, purpose: "native" },
+					c.listPeopleRequest.parse({ limit: 1, view: "pipeline" }),
+				);
+				if (now.status !== "ok") return now;
+				const revision = now.value.groups.find((g) => g.column === request.input.column)!.revision;
+				return { status: "ok", value: { outcome: done.value.outcome, revision } };
+			}),
+			(r) => r,
+		),
+	);
 }
