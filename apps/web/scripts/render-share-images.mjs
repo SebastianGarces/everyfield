@@ -95,8 +95,8 @@ html, body { margin: 0; background: #FCFBF8; }
 #card .logo { gap: 20px; }
 #card .logo .lm { width: 54px; height: 44px; color: #181D19; }
 #card .logo .lw { width: 224px; height: 47px; color: #181D19; }
-#card h1 { margin: 0; font-size: 104px; max-width: 1000px; color: var(--on); }
-#card p { margin: 28px 0 0; font-family: var(--font-body); font-weight: 500; font-size: 31px; line-height: 1.35; max-width: 1000px; color: var(--on); text-wrap: balance; }
+#card h1 { margin: 0; font-size: 88px; max-width: 1000px; color: var(--on); }
+#card p { margin: 28px 0 0; font-family: var(--font-body); font-weight: 500; font-size: 28px; line-height: 1.35; max-width: 1000px; color: var(--on); text-wrap: balance; }
 </style></head>
 <body><svg width="0" height="0" style="position:absolute" aria-hidden="true">${symbols}</svg>
 <div id="card" class="gsurf" data-tone="${img.tone}">

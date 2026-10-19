@@ -16,7 +16,7 @@ import { INSIGHT_FOOTER, INSIGHT_TEXT, INSIGHT_TITLE, InsightMetric, InsightTop,
 
 const tone = (k: string) => k.replace("tone-", "") as Tone;
 const ROW = "flex items-center gap-2.5";
-const TITLE = "text-[13.5px] font-semibold";
+const TITLE = "type-md font-semibold";
 
 /* ---------- Invite a plant ---------- */
 export function InvitePanel() {
@@ -35,13 +35,13 @@ export function InvitePanel() {
 				<St i={2} className="mt-3.5 flex items-center justify-between gap-2.5">
 					<Swap
 						fx="invite.swap"
-						className="min-w-0 text-[12.5px]"
+						className="min-w-0 type-sm"
 						a={<span className="text-text-3">The planter connects in a few clicks.</span>}
 						b={<span className="text-text-3">Invite sent to Priya Shah</span>}
 					/>
 					<Done target="t1" at={3600} label="Send invite" done="Invite sent" />
 				</St>
-				<St i={3} className="mt-[18px] border-t border-line pt-3 text-[12px] font-semibold text-text-2">
+				<St i={3} className="mt-[18px] border-t border-line pt-3 type-xs font-semibold text-text-2">
 					Your plants
 				</St>
 				<div>
@@ -76,8 +76,8 @@ export function InvitePanel() {
 function Plant({ name, sub }: { name: string; sub: string }) {
 	return (
 		<div className="min-w-0 flex-1">
-			<div className="text-[14px] font-semibold">{name}</div>
-			<div className="mt-0.5 text-[12.5px] text-text-3">{sub}</div>
+			<div className="type-md font-semibold">{name}</div>
+			<div className="mt-0.5 type-sm text-text-3">{sub}</div>
 		</div>
 	);
 }
@@ -117,7 +117,7 @@ export function PlantsPanel() {
 							<CardIcon tone={tone(r[2])} icon={ICONS.pin} size={32} glyph={15} />
 							<div className="min-w-0 flex-1">
 								<div className={cn(TITLE, "truncate")}>{r[0]}</div>
-								<div className="mt-0.5 text-[12.5px] text-text-3">
+								<div className="mt-0.5 type-sm text-text-3">
 									{r[3]}
 									{r[4] ? " · " + r[4] + " adults" : ""}
 								</div>
@@ -132,7 +132,7 @@ export function PlantsPanel() {
 }
 function When({ date, note, status }: { date: string; note: string; status: Status }) {
 	return (
-		<div className="flex flex-col items-end gap-0.5 text-[12.5px] whitespace-nowrap">
+		<div className="flex flex-col items-end gap-0.5 type-sm whitespace-nowrap">
 			<b>{date}</b>
 			<Badge status={status} size="sm">
 				{note}

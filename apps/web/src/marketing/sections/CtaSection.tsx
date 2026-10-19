@@ -13,7 +13,7 @@ export function CtaSection({ c }: { c: Cta }) {
 		<section id="cta" className="relative py-section">
 			<div className="mx-auto max-w-mk px-page">
 				<Reveal className="mk-gsurf g-field relative flex flex-col items-center gap-[22px] rounded-card px-[clamp(20px,4vw,64px)] py-[clamp(48px,7vw,104px)] text-center text-ink shadow-mk-cta">
-					<Display as="h2" size="h1" className="max-w-[18ch]">
+					<Display as="h2" size="h2" className="max-w-[18ch]">
 						{c.headline}
 					</Display>
 					<p className="mx-auto max-w-[58ch] text-mk-lead text-mk-ink-78">{c.body}</p>
@@ -25,7 +25,7 @@ export function CtaSection({ c }: { c: Cta }) {
 							{c.cta_secondary}
 						</ButtonLink>
 					</div>
-					{c.note ? <p className="text-[14px] text-mk-ink-78">{c.note}</p> : null}
+					{c.note ? <p className="type-md text-mk-ink-78">{c.note}</p> : null}
 				</Reveal>
 			</div>
 		</section>

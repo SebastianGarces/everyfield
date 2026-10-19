@@ -9,9 +9,7 @@ export function SectionHead({ headline, body, className }: { headline: string; b
 			<Display as="h2" size="h2" className="mx-auto">
 				{headline}
 			</Display>
-			<p className="mx-auto mt-5 max-w-[600px] text-[clamp(17px,1.3vw,19px)] leading-[1.55] text-pretty text-text-2">
-				{body}
-			</p>
+			<p className="mx-auto mt-5 max-w-[600px] text-mk-lead-sm leading-[1.55] text-pretty text-text-2">{body}</p>
 		</Reveal>
 	);
 }
