@@ -13,7 +13,7 @@ import { accountPersonProducer } from "../../../packages/domain/src/people/index
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
 export const key = randomUUID;
-export async function fixture() {
+export async function fixture({ lockTimeout = "0" } = {}) {
 	const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
 	const ci =
 		process.env.CI === "true" &&
@@ -47,7 +47,11 @@ export async function fixture() {
 		const runtime = new URL(source);
 		runtime.username = role;
 		runtime.password = password;
-		db = createDatabase({ connectionString: runtime.href, options, max: 8 });
+		db = createDatabase({
+			connectionString: runtime.href,
+			options: options + ` -c lock_timeout=${lockTimeout}`,
+			max: 8,
+		});
 	} catch {
 		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
 		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${role}`));
