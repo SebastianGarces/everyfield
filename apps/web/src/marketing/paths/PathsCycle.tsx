@@ -114,7 +114,7 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, tones }
 	return (
 		<div ref={run} className="relative">
 			<h2
-				className="mk-display mx-auto mb-[clamp(32px,3.8vw,56px)] max-w-[1100px] overflow-x-clip text-center text-[clamp(28px,4.6vw,66px)] leading-[1.14]"
+				className="mk-display mx-auto mb-[clamp(32px,3.8vw,56px)] max-w-[1100px] overflow-x-clip text-center type-title-lg mk-sm:type-display-sm mk-lg:type-display-md leading-[1.14]"
 				style={vars}
 			>
 				<span className="sr-only">{sentence}</span>

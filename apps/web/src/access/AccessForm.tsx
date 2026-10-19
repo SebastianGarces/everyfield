@@ -80,14 +80,14 @@ const CHEVRON = <Icon icon={ArrowDown01Icon} size={18} />;
 /* The card and its parts. Error red is magenta-600 (6.4:1 on white); the failure message text is darker still. */
 const CARD =
 	"relative mx-auto w-full max-w-[600px] rounded-card border border-mk-ink-06 bg-white p-[clamp(24px,4vw,40px)] shadow-mk-card";
-const EYEBROW = "text-[13px] leading-[1.3] font-semibold tracking-[0.09em] text-text-2 uppercase";
+const EYEBROW = "type-sm leading-[1.3] font-semibold tracking-[0.09em] text-text-2 uppercase";
 const CONTROL =
-	"w-full rounded-[12px] border border-mk-line-strong bg-mk-canvas px-3.5 py-3 text-[15.5px] text-ink placeholder:text-text-3 placeholder:opacity-100 " +
+	"w-full rounded-[12px] border border-mk-line-strong bg-mk-canvas px-3.5 py-3 type-lg text-ink placeholder:text-text-3 placeholder:opacity-100 " +
 	"focus:outline-2 focus:outline-offset-1 focus:outline-green-600 disabled:opacity-60 aria-[invalid=true]:border-magenta-600 aria-[invalid=true]:shadow-[inset_0_0_0_1px_var(--color-magenta-600)]";
 const ERROR =
-	"flex items-baseline gap-1.5 text-[14px] leading-[1.4] font-medium text-magenta-600 before:inline-grid before:size-4 before:flex-none before:translate-y-0.5 before:place-items-center before:rounded-full before:bg-magenta-600 before:text-[11px] before:font-bold before:text-white before:content-['!']";
+	"flex items-baseline gap-1.5 type-md leading-[1.4] font-medium text-magenta-600 before:inline-grid before:size-4 before:flex-none before:translate-y-0.5 before:place-items-center before:rounded-full before:bg-magenta-600 before:type-xs before:font-bold before:text-white before:content-['!']";
 const MSG =
-	"rounded-[12px] text-[14.5px] focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink [&_p+p]:mt-1";
+	"rounded-[12px] type-md focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink [&_p+p]:mt-1";
 const FAIL = "px-4 py-3.5 bg-magenta-100 text-mk-danger-ink [&_a]:font-semibold [&_a]:text-inherit [&_a]:underline";
 const LINK = "text-green-600 underline";
 /* React adds hidden inputs at the start of a form with a server action, so the grid is a wrapper, not the form. */
@@ -165,12 +165,12 @@ function Field({ f, id, err, value, sending, optionalLabel, onCheck }: FieldProp
 	} as const;
 	return (
 		<div className="flex flex-col gap-1.5">
-			<label htmlFor={id} className="text-[14px] font-semibold">
+			<label htmlFor={id} className="type-md font-semibold">
 				{f.label}
 				{f.optional ? (
 					<>
 						{" "}
-						<small className="text-[smaller] font-normal text-text-3">{optionalLabel}</small>
+						<small className="type-xs font-normal text-text-3">{optionalLabel}</small>
 					</>
 				) : null}
 			</label>
@@ -215,7 +215,7 @@ function Field({ f, id, err, value, sending, optionalLabel, onCheck }: FieldProp
 				/>
 			)}
 			{f.help ? (
-				<p className="text-[13.5px] leading-[1.45] text-text-3" id={`${id}-help`}>
+				<p className="type-md leading-[1.45] text-text-3" id={`${id}-help`}>
 					{f.help}
 				</p>
 			) : null}
@@ -433,7 +433,7 @@ export function AccessForm({ paths, text }: Props) {
 								<label
 									key={w}
 									className={cn(
-										"flex min-h-14 cursor-pointer items-center gap-3 rounded-[12px] border border-mk-line-strong bg-mk-canvas px-4 text-[15.5px] font-semibold text-ink",
+										"flex min-h-14 cursor-pointer items-center gap-3 rounded-[12px] border border-mk-line-strong bg-mk-canvas px-4 type-lg font-semibold text-ink",
 										"[transition:border-color_.15s,background-color_.15s,box-shadow_.15s] hover:border-ink/40 motion-reduce:transition-none",
 										"has-checked:border-ink has-checked:bg-white has-checked:shadow-[inset_0_0_0_1px_var(--color-ink)]",
 										"has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-green-600",
@@ -528,7 +528,7 @@ export function AccessForm({ paths, text }: Props) {
 							{text.back}
 						</button>
 					</div>
-					<p className="text-[13.5px] leading-[1.45] text-text-3">
+					<p className="type-md leading-[1.45] text-text-3">
 						{withLink(text.privacyNote.text, text.privacyNote.link, "/privacy")}
 					</p>
 				</div>
@@ -551,7 +551,7 @@ export function AccessForm({ paths, text }: Props) {
 							<Display as="h2" size="h3" className="text-green-700">
 								{done.title}
 							</Display>
-							<p className="max-w-[46ch] text-[15.5px] text-text-2">{done.body}</p>
+							<p className="max-w-[46ch] type-lg text-text-2">{done.body}</p>
 						</>
 					) : null}
 				</div>

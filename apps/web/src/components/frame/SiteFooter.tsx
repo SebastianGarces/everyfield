@@ -35,7 +35,7 @@ export function SiteFooter({ headline = footer.headline }: { headline?: string }
 					<span className="grid size-11 place-items-center rounded-[13px] bg-green text-ink">
 						<Mark className="h-[18px] w-[22px]" />
 					</span>
-					<Display as="h2" className="max-w-[16ch] text-[clamp(26px,2.6vw,38px)]/[1.1]">
+					<Display as="h2" className="max-w-[16ch] text-title-lg/[1.1] mk-xl:text-display-sm/[1.1]">
 						{headline}
 					</Display>
 					<ButtonLink
@@ -53,10 +53,10 @@ export function SiteFooter({ headline = footer.headline }: { headline?: string }
 				>
 					{columns.map((c) => (
 						<div key={c.title}>
-							<h3 className="mb-3.5 text-[13px] font-semibold text-white">{c.title}</h3>
+							<h3 className="mb-3.5 type-sm font-semibold text-white">{c.title}</h3>
 							<ul>
 								{c.links.map((l) => (
-									<li key={l.label} className="mb-2.5 text-[14.5px]">
+									<li key={l.label} className="mb-2.5 type-md">
 										<Link
 											href={l.href}
 											className="text-mk-on-ink-2 no-underline hover:text-white hover:underline hover:underline-offset-3 focus-visible:outline-white"
@@ -69,7 +69,7 @@ export function SiteFooter({ headline = footer.headline }: { headline?: string }
 						</div>
 					))}
 				</nav>
-				<div className="col-[1/-1] flex flex-wrap items-center justify-between gap-3 border-t border-white/12 pt-[22px] text-[13.5px] text-mk-on-ink-2">
+				<div className="col-[1/-1] flex flex-wrap items-center justify-between gap-3 border-t border-white/12 pt-[22px] type-md text-mk-on-ink-2">
 					<Logo variant="footer" />
 					<span>{footer.fineprint}</span>
 				</div>

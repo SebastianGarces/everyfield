@@ -133,7 +133,7 @@ type BarProps = {
 
 const LINK =
 	"whitespace-nowrap rounded-nav-item px-[11px] py-2 text-text-2 no-underline hover:bg-linen hover:text-ink " +
-	"aria-[current=page]:font-semibold aria-[current=page]:text-ink max-mk-nav:px-2 max-mk-nav:py-3 max-mk-nav:text-[16px]";
+	"aria-[current=page]:font-semibold aria-[current=page]:text-ink max-mk-nav:px-2 max-mk-nav:py-3 max-mk-nav:type-lg";
 const MENU = {
 	inflow:
 		"max-mk-nav:absolute max-mk-nav:inset-x-0 max-mk-nav:top-[70px] max-mk-nav:flex-col max-mk-nav:border-b max-mk-nav:border-mk-line " +
@@ -161,7 +161,7 @@ function NavBar({ which, links, cta, logo, arrow, menuIcon, open, toggleRef, onT
 				id={menuId}
 				aria-label="Main"
 				onClick={onLinkClick}
-				className={cn("flex gap-1 text-[14.5px]", open ? MENU[which] : "max-mk-nav:hidden")}
+				className={cn("flex gap-1 type-md", open ? MENU[which] : "max-mk-nav:hidden")}
 			>
 				{links.map((l) => (
 					<Link key={l.href} href={l.href} aria-current={l.current ? "page" : undefined} className={LINK}>
@@ -173,7 +173,7 @@ function NavBar({ which, links, cta, logo, arrow, menuIcon, open, toggleRef, onT
 					<Link
 						href={cta.href}
 						aria-current={cta.current ? "page" : undefined}
-						className="mt-2 hidden h-12 items-center self-start whitespace-nowrap rounded-md bg-ink px-5 text-[16px] font-semibold text-white no-underline hover:bg-ink-2 active:translate-y-px max-mk-xs:inline-flex"
+						className="mt-2 hidden h-12 items-center self-start whitespace-nowrap rounded-md bg-ink px-5 type-lg font-semibold text-white no-underline hover:bg-ink-2 active:translate-y-px max-mk-xs:inline-flex"
 					>
 						{cta.label}
 					</Link>

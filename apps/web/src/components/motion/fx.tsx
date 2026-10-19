@@ -261,7 +261,7 @@ export function Field({ fx, n, children, className }: Leaf) {
 	return (
 		<div
 			className={cn(
-				"relative flex h-[38px] items-center gap-2 overflow-hidden rounded-[11px] bg-surface px-3 text-[13.5px] font-medium whitespace-nowrap text-ink shadow-[inset_0_0_0_1px_var(--color-line-2)]",
+				"relative flex h-[38px] items-center gap-2 overflow-hidden rounded-[11px] bg-surface px-3 type-md font-medium whitespace-nowrap text-ink shadow-[inset_0_0_0_1px_var(--color-line-2)]",
 				className,
 			)}
 		>

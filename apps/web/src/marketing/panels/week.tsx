@@ -55,7 +55,7 @@ export function PeoplePanel({ title, note }: { title: string; note: string }) {
 					<Move
 						as="span"
 						fx="people.added"
-						className="inline-flex h-[30px] items-center gap-[7px] rounded-[16px] bg-green-50 pr-3 pl-2 text-[12.5px] font-semibold whitespace-nowrap text-green-700 opacity-0 shadow-mk-green-edge"
+						className="inline-flex h-[30px] items-center gap-[7px] rounded-[16px] bg-green-50 pr-3 pl-2 type-sm font-semibold whitespace-nowrap text-green-700 opacity-0 shadow-mk-green-edge"
 					>
 						<Icon icon={ICONS.check} />
 						24 people added from the sign-up form
@@ -66,7 +66,7 @@ export function PeoplePanel({ title, note }: { title: string; note: string }) {
 						<St key={r[1]} i={k + 2}>
 							<div className="flex min-h-[26px] items-center gap-2">
 								<StageChip tone={tone(r[0])}>{r[1]}</StageChip>
-								<Num className="ml-auto text-[17px]">
+								<Num className="ml-auto type-title-sm">
 									<Count fx="people.row" n={k} max={r[2]} />
 								</Num>
 							</div>
@@ -77,7 +77,7 @@ export function PeoplePanel({ title, note }: { title: string; note: string }) {
 				<St i={7}>
 					<Move
 						fx="people.note"
-						className="mt-3.5 rounded-[14px] bg-white px-4 py-3.5 text-[13px] font-semibold opacity-0 shadow-mk-hairline"
+						className="mt-3.5 rounded-[14px] bg-white px-4 py-3.5 type-sm font-semibold opacity-0 shadow-mk-hairline"
 					>
 						{note}
 					</Move>
@@ -147,7 +147,7 @@ export function MeetPanel({ when }: { when: string }) {
 								<BadgeSm>3 new guests</BadgeSm>
 							</Move>
 						</span>
-						<Tf fx="meet.bump" className="grid origin-bottom-right font-display text-[22px] leading-none font-medium">
+						<Tf fx="meet.bump" className="grid origin-bottom-right font-display type-title-md leading-none font-medium">
 							<Count fx="meet.count" max={12} />
 						</Tf>
 					</div>
@@ -169,7 +169,7 @@ export function MeetPanel({ when }: { when: string }) {
 }
 function BadgeSm({ children }: { children: ReactNode }) {
 	return (
-		<span className="inline-flex h-[22px] items-center gap-1.5 rounded-full bg-white px-2 text-[11.5px] font-semibold whitespace-nowrap text-text shadow-mk-badge before:size-[7px] before:rounded-full before:bg-blue-500 before:content-['']">
+		<span className="inline-flex h-[22px] items-center gap-1.5 rounded-full bg-white px-2 type-xs font-semibold whitespace-nowrap text-text shadow-mk-badge before:size-[7px] before:rounded-full before:bg-blue-500 before:content-['']">
 			{children}
 		</span>
 	);
@@ -181,7 +181,7 @@ function Drop({ j, more, children }: { j: number; more?: boolean; children: Reac
 			as="span"
 			fx="meet.drop"
 			n={j}
-			className={cn(CHIP, "h-7 flex-none gap-[7px] pr-2.5 text-[12px] opacity-0", more ? "pl-2.5" : "pl-1")}
+			className={cn(CHIP, "h-7 flex-none gap-[7px] pr-2.5 type-xs opacity-0", more ? "pl-2.5" : "pl-1")}
 		>
 			{children}
 		</Move>
@@ -209,7 +209,7 @@ export function FollowPanel({ demo }: { demo: FollowDemo }) {
 			<PanelCard kind="follow">
 				<Head lead={<MoodBot fx="follow.mood" />} title="Evry" sub={demo.after} />
 				<St i={1} className="rounded-[14px] bg-surface px-3.5 py-3 shadow-[inset_0_0_0_1px_var(--color-line)]">
-					<Typed text={demo.says} fx="follow.type" className="text-[13px] leading-[1.45] text-ink-2" />
+					<Typed text={demo.says} fx="follow.type" className="type-sm leading-[1.45] text-ink-2" />
 					<div className="mt-2.5 flex flex-wrap gap-1.5">
 						{FGUESTS.map((g, k) => (
 							<Move
@@ -218,7 +218,7 @@ export function FollowPanel({ demo }: { demo: FollowDemo }) {
 								fx="follow.chip"
 								n={k}
 								target={"fsrc" + k}
-								className={cn(CHIP, "h-7 gap-[7px] pr-2.5 pl-1 text-[12px] opacity-0")}
+								className={cn(CHIP, "h-7 gap-[7px] pr-2.5 pl-1 type-xs opacity-0")}
 							>
 								<Av small>{g[0]}</Av>
 								{g[1]}
@@ -227,13 +227,13 @@ export function FollowPanel({ demo }: { demo: FollowDemo }) {
 					</div>
 				</St>
 				<St i={2} className="mt-3 flex items-center justify-between gap-2.5">
-					<span className="text-[12.5px] text-text-3">{demo.note}</span>
+					<span className="type-sm text-text-3">{demo.note}</span>
 					<Done target="t0" at={3600} label="Add to my week" done="Added" R="follow.R" />
 				</St>
 				<St i={3} className="mt-3.5 border-t border-line pt-3">
 					<div className="flex items-center justify-between gap-2">
 						<Lab flush>Your week</Lab>
-						<Tf fx="follow.bump" className="grid origin-right text-[12.5px] font-semibold text-text-2">
+						<Tf fx="follow.bump" className="grid origin-right type-sm font-semibold text-text-2">
 							<Count fx="follow.count" max={5} unit=" tasks" />
 						</Tf>
 					</div>
@@ -272,7 +272,7 @@ export function FollowPanel({ demo }: { demo: FollowDemo }) {
 										<L1>Follow up with {g[1]}</L1>
 										<L2>{demo.due}</L2>
 									</span>
-									<span className="inline-flex h-[22px] flex-none items-center rounded-full bg-green-50 px-2 text-[11px] font-semibold text-green-700 shadow-mk-green-edge">
+									<span className="inline-flex h-[22px] flex-none items-center rounded-full bg-green-50 px-2 type-xs font-semibold text-green-700 shadow-mk-green-edge">
 										New
 									</span>
 								</Move>
@@ -301,11 +301,11 @@ function Ring() {
 }
 function L1({ children }: { children: ReactNode }) {
 	return (
-		<span className="block overflow-hidden text-[13px] font-semibold text-ellipsis whitespace-nowrap">{children}</span>
+		<span className="block overflow-hidden type-sm font-semibold text-ellipsis whitespace-nowrap">{children}</span>
 	);
 }
 function L2({ children }: { children: ReactNode }) {
-	return <span className="mt-px block text-[11.5px] font-medium text-text-3">{children}</span>;
+	return <span className="mt-px block type-xs font-medium text-text-3">{children}</span>;
 }
 
 /* ---------- 4. Teams: commitments are recorded, each person moves into a team ---------- */
@@ -333,7 +333,7 @@ export function TeamsPanel({ demo: d }: { demo: TeamsDemo }) {
 								<Tf
 									fx="teams.bump"
 									n={k}
-									className="grid origin-bottom-right font-display text-[22px] leading-none font-medium"
+									className="grid origin-bottom-right font-display type-title-md leading-none font-medium"
 								>
 									<Count fx="teams.count" n={k} max={r[3] + 1} />
 								</Tf>
@@ -342,7 +342,7 @@ export function TeamsPanel({ demo: d }: { demo: TeamsDemo }) {
 						</Target>
 					</St>
 				))}
-				<St i={3} className="mt-[18px] border-t border-line pt-3 text-[12px] font-semibold text-text-2">
+				<St i={3} className="mt-[18px] border-t border-line pt-3 type-xs font-semibold text-text-2">
 					To record
 				</St>
 				{d.signs.map((r, k) => (
@@ -353,13 +353,13 @@ export function TeamsPanel({ demo: d }: { demo: TeamsDemo }) {
 					>
 						<Target
 							name={"src" + k}
-							className="grid size-[30px] flex-none place-items-center rounded-full bg-green-100 text-[10.5px] font-bold tracking-[.02em] text-green-700"
+							className="grid size-[30px] flex-none place-items-center rounded-full bg-green-100 type-xs font-bold tracking-[.02em] text-green-700"
 						>
 							{r[0]}
 						</Target>
 						<div className="min-w-0 flex-1">
-							<div className="text-[14px] font-semibold">{r[1]}</div>
-							<div className="mt-0.5 text-[12.5px] text-text-3">{r[2]}</div>
+							<div className="type-md font-semibold">{r[1]}</div>
+							<div className="mt-0.5 type-sm text-text-3">{r[2]}</div>
 						</div>
 						<Done target={k ? "t1" : "t0"} at={teamAt(k)} label="Record" done="Recorded" R="teams.R" />
 					</St>
