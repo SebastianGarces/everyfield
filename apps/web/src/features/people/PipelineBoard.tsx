@@ -14,7 +14,7 @@ import {
 } from "@everyfield/ui/controls";
 import { PersonCard, PipelineColumn, StageChip, StatusBadge } from "@everyfield/ui/display";
 import Link from "next/link";
-import { useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import type { z } from "zod";
 import { loadColumn, reorderPipeline } from "./actions.ts";
 import { useRouter } from "next/navigation";
@@ -30,7 +30,7 @@ import {
 	type PeopleQuery,
 	type StageValue,
 } from "./model.ts";
-import { FormProblem, fresh, problemOf, useStore, When } from "./parts.tsx";
+import { FormProblem, fresh, problemOf, problemText, useStore, When } from "./parts.tsx";
 import { StageDialog, type PersonDraft } from "./StageDialog.tsx";
 
 type Pipeline = z.infer<typeof people.pipelineResult>;
@@ -72,7 +72,9 @@ export function PipelineBoard({
 				<div className="grid min-w-[1180px] grid-cols-5 gap-3.5">
 					{pipeline.groups.map((g) => (
 						<Column
-							key={`${g.column}:${g.cards.map((c) => c.person.id + c.person.revision).join()}`}
+							// Keyed by column only: a refresh must not remount the column, or keyboard focus and the
+							// last reorder message would be lost (verifier finding on b4d2ec0).
+							key={g.column}
 							group={g}
 							query={query}
 							canWrite={canWrite}
@@ -143,21 +145,40 @@ function Column({
 	onDragEnd: () => void;
 	onMove: (card: CardData, target?: StageValue) => void;
 }) {
-	// "Show more" pages stay in this column only; a refresh of the board starts every column again.
-	const [extra, setExtra] = useState<{ cards: CardData[]; next: string | null; problem?: string }>({
+	// "Show more" pages belong to the server copy they were loaded on; a refresh brings a new first page and drops them.
+	const [extra, setExtra] = useState<{ from: Group; cards: CardData[]; next: string | null; problem?: string }>({
+		from: group,
 		cards: [],
 		next: group.next,
 	});
+	const more_ = extra.from === group ? extra : { from: group, cards: [], next: group.next };
 	const [loading, setLoading] = useState(false);
-	const loaded = [...group.cards, ...extra.cards];
+	const loaded = [...group.cards, ...more_.cards];
 	const router = useRouter();
+	const list = useRef<HTMLUListElement>(null);
 	// One reorder at a time per column, with the column's revision as the lock (REQ-PPL-007). The whole column must be
-	// loaded, because the server takes the complete order and refuses a partial one.
+	// loaded, because the server takes the complete order and refuses a partial one. The store outlives refreshes, so a
+	// refusal message stays until the next try; the server's newer revision replaces the old one.
 	const [store] = useState(() => new PersonStore<{ revision: string }, null>({ revision: group.revision }));
 	const order = useStore(store);
-	const [saved, setSaved] = useState<{ ids: string[]; said: string } | null>(null);
-	const cards = saved ? saved.ids.map((id) => loaded.find((c) => c.person.id === id)!).filter(Boolean) : loaded;
-	const complete = !extra.next && loaded.length <= 100;
+	useEffect(() => store.dispatch({ type: "server", person: { revision: group.revision } }), [store, group.revision]);
+	// The order just saved, shown until the server copy it was saved against is replaced by a refresh.
+	const [saved, setSaved] = useState<{ from: Group; ids: string[] } | null>(null);
+	const [said, setSaid] = useState("");
+	const [focusId, setFocusId] = useState<string | null>(null);
+	const cards =
+		saved && saved.from === group
+			? saved.ids.map((id) => loaded.find((c) => c.person.id === id)!).filter(Boolean)
+			: loaded;
+	const complete = !more_.next && loaded.length <= 100;
+	// After a keyboard reorder, focus returns to the moved person's Move button, also after the refresh re-renders.
+	useEffect(() => {
+		if (!focusId) return;
+		const button = list.current?.querySelector<HTMLButtonElement>(
+			`li[data-person-id="${CSS.escape(focusId)}"] button[aria-haspopup]`,
+		);
+		if (button && document.activeElement !== button) button.focus();
+	}, [focusId, group]);
 	async function reorder(card: CardData, direction: "up" | "down") {
 		const ids = moveInOrder(
 			cards.map((c) => c.person.id),
@@ -166,21 +187,26 @@ function Column({
 		);
 		const input = { column: group.column, personIds: ids };
 		const rev = order.saved.revision;
+		setFocusId(card.person.id);
 		const r = await runSave(store, "order", { input, rev }, (key) => reorderPipeline(key, rev, input), { fresh });
 		if (r?.status === "ok") {
-			setSaved({ ids, said: `${card.person.displayName} moved ${direction}.` });
+			setSaved({ from: group, ids });
+			setSaid(`${card.person.displayName} moved ${direction}.`);
 			router.refresh();
-		} else if (r?.status === "refused" && r.code === "conflict") router.refresh();
+		} else if (r?.status === "refused" && r.code === "conflict") {
+			setSaid("");
+			router.refresh();
+		}
 	}
 	async function more() {
-		if (!extra.next || loading) return;
+		if (!more_.next || loading) return;
 		setLoading(true);
-		const r = await loadColumn(listRequest(query), group.column, extra.next).catch(() => ({ status: "lost" }) as const);
+		const r = await loadColumn(listRequest(query), group.column, more_.next).catch(() => ({ status: "lost" }) as const);
 		setLoading(false);
-		setExtra((x) =>
+		setExtra(
 			r.status === "ok"
-				? { cards: [...x.cards, ...r.value.cards], next: r.value.next }
-				: { ...x, problem: problemOf(r) },
+				? { from: group, cards: [...more_.cards, ...r.value.cards], next: r.value.next }
+				: { ...more_, problem: problemOf(r) },
 		);
 	}
 
@@ -192,10 +218,11 @@ function Column({
 		>
 			<PipelineColumn stage={STAGE_KEY[group.column]} count={group.total ?? cards.length} dropTarget={dropTarget}>
 				{cards.length ? (
-					<ul className="flex flex-col gap-2.5" aria-label={`${STAGE_LABEL[group.column]} people`}>
+					<ul ref={list} className="flex flex-col gap-2.5" aria-label={`${STAGE_LABEL[group.column]} people`}>
 						{cards.map((card) => (
 							<li
 								key={card.person.id}
+								data-person-id={card.person.id}
 								draggable={canWrite}
 								onDragStart={(e) => {
 									e.dataTransfer.effectAllowed = "move";
@@ -231,15 +258,23 @@ function Column({
 						))}
 					</ul>
 				) : null}
-				{extra.next ? (
+				{more_.next ? (
 					<Button variant="ghost" size="sm" onClick={more} loading={loading} className="self-center">
 						Show more
 					</Button>
 				) : null}
-				<FormProblem code={extra.problem} />
-				<FormProblem code={order.errors.order} />
+				<FormProblem code={more_.problem} />
+				<div aria-live="assertive" className="empty:hidden">
+					{order.errors.order ? (
+						<p className="rounded-md bg-magenta-50 px-3 py-2.5 text-sm text-magenta-600">
+							{order.errors.order === "conflict"
+								? "The order changed somewhere else. The column now shows the latest order; try the move again."
+								: problemText(order.errors.order)}
+						</p>
+					) : null}
+				</div>
 				<p role="status" className="sr-only">
-					{saved?.said ?? ""}
+					{said}
 				</p>
 			</PipelineColumn>
 		</div>

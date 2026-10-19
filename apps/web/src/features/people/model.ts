@@ -91,12 +91,15 @@ export type PeopleQuery = {
 	search: string;
 	stages: StageValue[];
 	sources: SourceValue[];
+	/** Tag IDs. A person matches only when they carry every selected tag (REQ-PPL-001, ruling D47). */
+	tags: string[];
 	classification: ClassificationValue | null;
 	commitment: CommitmentValue;
 	archived: ArchivedValue;
 	trail: string[];
 };
 export const PAGE_SIZE = 24;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const MAX_TRAIL = 40;
 
 type Params = { getAll(name: string): string[]; get(name: string): string | null };
@@ -113,6 +116,15 @@ export function parseQuery(params: Params): PeopleQuery {
 		search: (params.get("q") ?? "").trim().slice(0, 255),
 		stages: picks(STAGES, params.getAll("stage")),
 		sources: picks(SOURCES, params.getAll("source")),
+		tags: [
+			...new Set(
+				params
+					.getAll("tag")
+					.flatMap((t) => t.split(","))
+					.map((t) => t.trim().toLowerCase())
+					.filter((t) => UUID.test(t)),
+			),
+		].slice(0, 100),
 		classification:
 			classification && (CLASSIFICATIONS as readonly string[]).includes(classification)
 				? (classification as ClassificationValue)
@@ -133,6 +145,7 @@ export function querySearch(q: PeopleQuery): string {
 	if (q.search) out.set("q", q.search);
 	if (q.stages.length) out.set("stage", q.stages.join(","));
 	if (q.sources.length) out.set("source", q.sources.join(","));
+	for (const t of q.tags) out.append("tag", t);
 	if (q.classification) out.set("adult", q.classification);
 	if (q.commitment !== "any") out.set("commitment", q.commitment);
 	if (q.archived !== "exclude") out.set("retired", q.archived);
@@ -152,6 +165,8 @@ export function listRequest(q: PeopleQuery): Record<string, unknown> {
 		view: q.view,
 		stages: q.stages,
 		sources: q.sources,
+		tags: q.tags,
+		tagOperator: "all",
 		...(q.classification ? { adultClassification: q.classification } : {}),
 		commitment: q.commitment,
 		archived: q.view === "pipeline" ? "exclude" : q.archived,
@@ -174,6 +189,7 @@ export function isFiltered(q: PeopleQuery): boolean {
 		q.search !== "" ||
 		q.stages.length > 0 ||
 		q.sources.length > 0 ||
+		q.tags.length > 0 ||
 		q.classification !== null ||
 		q.commitment !== "any" ||
 		q.archived !== "exclude"

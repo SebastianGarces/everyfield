@@ -3,6 +3,7 @@
 import {
 	ArrowLeft01Icon,
 	ArrowRight01Icon,
+	Cancel01Icon,
 	FilterHorizontalIcon,
 	GridViewIcon,
 	KanbanIcon,
@@ -16,6 +17,7 @@ import {
 	Card,
 	EmptyState,
 	FilterChip,
+	IconButton,
 	PageHeader,
 	SearchInput,
 	SegmentedControl,
@@ -209,6 +211,13 @@ function Toolbar({ query, go }: { query: PeopleQuery; go: (q: PeopleQuery, repla
 					}}
 				/>
 			) : null}
+			{query.tags.map((tag, i) => (
+				<TagChip
+					key={tag}
+					label={query.tags.length === 1 ? "Tag" : `Tag ${i + 1}`}
+					onRemove={() => go(withFilters(query, { tags: query.tags.filter((t) => t !== tag) }))}
+				/>
+			))}
 			<span className="grow" />
 			<SegmentedControl
 				label="View"
@@ -263,6 +272,7 @@ function Results({
 						classification: null,
 						commitment: "any",
 						archived: "exclude",
+						tags: [],
 					}),
 				)
 			}
@@ -399,3 +409,17 @@ const COLUMNS: Column<PlantPerson>[] = [
 	{ key: "source", header: "Source", cell: (p) => SOURCE_LABEL[p.source] },
 	{ key: "added", header: "Added", cell: (p) => <When at={p.createdAt} /> },
 ];
+
+/**
+ * An active tag filter from the address (ruling D47). People must carry every selected tag. The tag picker and tag
+ * names come with WP-012/ui; until then a chip only shows that a tag filter is on and removes it.
+ */
+function TagChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+	return (
+		<span className="inline-flex h-10 flex-none items-center gap-2 rounded-[12px] bg-amber-100 pr-1.5 pl-3.5 font-medium whitespace-nowrap text-amber-600 shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--ef-amber-500)_35%,transparent)]">
+			{label}
+			<span className="font-normal">Selected</span>
+			<IconButton icon={Cancel01Icon} label={`Remove ${label.toLowerCase()} filter`} size="sm" onClick={onRemove} />
+		</span>
+	);
+}

@@ -208,3 +208,17 @@ test("AC:TARGET-PPL-007 INV-reorder: a move sends the whole column with one pers
 	assert.deepEqual(moveInOrder(["a", "b", "c"], "a", "up"), ["a", "b", "c"]);
 	assert.deepEqual(moveInOrder(["a", "b", "c"], "c", "down"), ["a", "b", "c"]);
 });
+
+const T1 = "0b0f6a7e-1d6f-4f7e-8c35-5b8f5c0f4d21",
+	T2 = "4d3c2b1a-0f9e-4d8c-8b7a-6a5b4c3d2e1f";
+test("AC:TARGET-PPL-001 INV-tags: repeated tag ids stay in the address and ask for people with all of them", () => {
+	const q = parseQuery(url(`tag=${T1}&tag=${T2.toUpperCase()}&tag=not-a-tag&tag=${T1}&after=c1`));
+	assert.deepEqual(q.tags, [T1, T2], "valid, lowercased, once each");
+	assert.equal(querySearch(q), `?tag=${T1}&tag=${T2}&after=c1`);
+	assert.deepEqual(listRequest(q).tags, [T1, T2]);
+	assert.equal(listRequest(q).tagOperator, "all");
+	const removed = withFilters(q, { tags: [T2] });
+	assert.deepEqual(removed.trail, [], "a tag change goes back to page one");
+	assert.equal(querySearch(removed), `?tag=${T2}`);
+	assert.equal(querySearch(withFilters(q, { tags: [] })), "");
+});

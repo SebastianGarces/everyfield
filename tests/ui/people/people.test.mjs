@@ -10,6 +10,8 @@
 //   INV-request-key: a lost answer keeps the draft; the retry replays the same request, so one note is saved.
 //   INV-cursor: a filter change drops the page cursor; an expired cursor shows the first page and says so.
 //   INV-discard: closing Edit profile with changes asks before discarding them.
+//   INV-tags: repeated tag ids in the address filter for people with all of them; a chip removes one (D47).
+//   INV-reorder-focus, INV-reorder-conflict: verifier findings on b4d2ec0 (focus kept, stale refusal kept).
 //   BUG-hydration: WebKit and Node join date parts differently; dates are built from parts so hydration matches.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -283,6 +285,62 @@ for (const [name, engine] of [
 			await page.reload();
 			await column().waitFor();
 			assert.deepEqual((await names()).slice(0, 2), [before[1], before[0]], "the server kept the new order");
+		});
+	});
+
+	test(`AC:TARGET-PPL-001 INV-tags (${name}): a tag filter in the address shows a chip that removes it`, async () => {
+		await withPage(engine, "owner", async (page) => {
+			const tag = "0b0f6a7e-1d6f-4f7e-8c35-5b8f5c0f4d21";
+			await page.goto(`${BASE}/people?retired=include&tag=${tag}`);
+			await page.getByText("No one matches").first().waitFor();
+			await page.getByRole("button", { name: "Remove tag filter" }).click();
+			await page.waitForFunction(() => !new URLSearchParams(location.search).has("tag"), null, { timeout: 30_000 });
+			assert.equal(new URL(page.url()).searchParams.get("retired"), "include", "the sibling filter stays");
+			await page.getByRole("link", { name: "Maria Santos" }).waitFor({ timeout: 30_000 });
+		});
+	});
+
+	test(`AC:TARGET-PPL-007 INV-reorder-focus (${name}): after a keyboard Move up, focus stays on the moved card's menu`, async () => {
+		await withPage(engine, "owner", async (page) => {
+			const column = () => page.getByRole("list", { name: "Following up people" });
+			await page.goto(`${BASE}/people?view=pipeline`);
+			await column().waitFor();
+			const second = (await column().getByRole("article").nth(1).getAttribute("aria-label")) ?? "";
+			await page.getByRole("button", { name: `Move ${second}` }).focus();
+			await page.keyboard.press("Enter");
+			await page.getByRole("menuitem", { name: "Move up" }).waitFor();
+			await page.keyboard.press("Home");
+			await page.keyboard.press("Enter");
+			await page.getByText(`${second} moved up.`).waitFor({ state: "attached", timeout: 30_000 });
+			// Wait for the refresh to bring the server's order, then check focus.
+			await page.waitForFunction(
+				(n) => document.querySelector('[aria-label="Following up people"] article')?.getAttribute("aria-label") === n,
+				second,
+				{ timeout: 30_000 },
+			);
+			await page.waitForTimeout(1500);
+			assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("aria-label")), `Move ${second}`);
+		});
+	});
+
+	test(`AC:TARGET-PPL-007 INV-reorder-conflict (${name}): a stale page's Move up refuses and says why after the refresh`, async () => {
+		await withPage(engine, "owner", async (a, context) => {
+			const b = await context.newPage();
+			const column = (p) => p.getByRole("list", { name: "Following up people" });
+			for (const p of [a, b]) {
+				await p.goto(`${BASE}/people?view=pipeline`);
+				await column(p).waitFor();
+			}
+			const second = (await column(a).getByRole("article").nth(1).getAttribute("aria-label")) ?? "";
+			await a.getByRole("button", { name: `Move ${second}` }).click();
+			await a.getByRole("menuitem", { name: "Move up" }).click();
+			await a.getByText(`${second} moved up.`).waitFor({ state: "attached", timeout: 30_000 });
+			await b.getByRole("button", { name: `Move ${second}` }).click();
+			await b.getByRole("menuitem", { name: "Move up" }).click();
+			const message = b.getByText("The order changed somewhere else.", { exact: false });
+			await message.waitFor({ timeout: 30_000 });
+			await b.waitForTimeout(3000);
+			assert.equal(await message.count(), 1, "the refusal is still shown after the refresh");
 		});
 	});
 }
