@@ -45,9 +45,10 @@ test("INV-one-save: a second save for the same person does not start while one r
 		return answer.promise;
 	};
 	const first = runSave(store, "profile", { a: 1 }, call, { fresh: keys(), toPerson: (p) => p });
-	const second = await runSave(store, "stage", { b: 2 }, call, { fresh: keys(), toPerson: (p) => p });
-	assert.equal(second, null, "the second save is refused synchronously");
+	// Not awaited: with the guard gone, the second save would wait on the same unanswered server call.
+	const second = runSave(store, "stage", { b: 2 }, call, { fresh: keys(), toPerson: (p) => p });
 	assert.deepEqual(sent, ["key-1"], "exactly one request went to the server");
+	assert.equal(await second, null, "the second save is refused synchronously");
 	assert.equal(store.get().pending, "profile");
 	answer.resolve({ status: "ok", value: person("5") });
 	await first;

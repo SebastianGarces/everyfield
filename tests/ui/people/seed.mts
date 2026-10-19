@@ -66,6 +66,8 @@ async function up(origin: string) {
 	const runtime = createDatabase({ connectionString: url(role).href, max: 4, options });
 	const authDb = createDatabase({ connectionString: url(authRole).href, max: 4, options });
 	const secret = randomBytes(32).toString("hex");
+	// Registration admission is limited per address; each seeded account signs up from its own loopback address.
+	let ip = 1;
 	const identity = createIdentityService({
 		db: runtime,
 		authDb,
@@ -73,7 +75,7 @@ async function up(origin: string) {
 		scheduleDelivery: () => {},
 		origin,
 		secret,
-		trustedIp: () => "127.0.0.1",
+		trustedIp: () => `127.0.0.${ip}`,
 		// Verification mail is skipped: the seed marks the address verified directly below.
 		enqueueMail: async () => {},
 		diagnostic: () => {},
@@ -94,6 +96,7 @@ async function up(origin: string) {
 			.join("; ");
 
 	async function account(name: string, email: string) {
+		ip++;
 		const r = await call("register", {
 			kind: "plant_precreation",
 			name,
@@ -121,6 +124,15 @@ async function up(origin: string) {
 	const owner = await account("Daniel Reyes", "owner@people-preview.example.test");
 	const member = await account("Ruth Allen", "member@people-preview.example.test");
 	const seatless = await account("Sam Lee", "seatless@people-preview.example.test");
+	// An Owner of a sending church: an organization seat, which has no plant People list.
+	const organizer = await account("Grace Moreno", "church@people-preview.example.test");
+	const organization = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO organization(id,kind,name,timezone,material_revision) VALUES(${organization},'sending_church','Grace Church','UTC',1)`,
+	);
+	await admin.execute(
+		sql`INSERT INTO seat(account_id,organization_id,role,accepted_at) VALUES(${organizer.accountId},${organization},'owner',clock_timestamp())`,
+	);
 
 	const noop = async () => {};
 	const onboarding = createOnboardingProducer({ invalidate: noop, notice: noop, enqueue: noop });
@@ -246,6 +258,7 @@ async function up(origin: string) {
 				owner: { cookie: owner.cookie, accountId: owner.accountId },
 				member: { cookie: member.cookie, accountId: member.accountId },
 				seatless: { cookie: seatless.cookie },
+				organization: { cookie: organizer.cookie },
 				people: Object.fromEntries(Object.entries(people).map(([k, v]) => [k, v.id])),
 			},
 			null,

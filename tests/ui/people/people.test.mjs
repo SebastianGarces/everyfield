@@ -3,7 +3,7 @@
 // this file reads from PEOPLE_UI_FIXTURE, default /tmp/everyfield-people-ui.json):
 //   UI_BASE_URL=http://wp-011-ui-....localhost:1355 corepack pnpm test:ui
 //   INV-session: signed out goes to sign-in and comes back to the same list.
-//   INV-no-access: an account with no plant seat sees the lock state, never a list.
+//   INV-no-access: an account with no seat, or a seat in an organization, sees the lock state, never a list.
 //   INV-no-leak: a missing or malformed person link reads "not here", the same for both.
 //   INV-member-read: a Member sees people and history but no add, move, edit, note or retire control.
 //   INV-one-save: a double press sends one write.
@@ -24,10 +24,15 @@ async function withPage(engine, who, run, { width = 1440 } = {}) {
 	assert.ok(BASE, "Set UI_BASE_URL to a running, seeded preview of this worktree.");
 	const browser = await engine.launch();
 	try {
-		const context = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: "reduce" });
+		// Portless previews use a local certificate the test browsers do not know.
+		const context = await browser.newContext({
+			viewport: { width, height: 900 },
+			reducedMotion: "reduce",
+			ignoreHTTPSErrors: true,
+		});
 		if (who) {
 			const [name, value] = seed()[who].cookie.split(/=(.*)/s);
-			await context.addCookies([{ name, value, url: BASE, httpOnly: true }]);
+			await context.addCookies([{ name, value, url: BASE, httpOnly: true, secure: BASE.startsWith("https:") }]);
 		}
 		const page = await context.newPage();
 		await run(page, context);
@@ -71,13 +76,14 @@ for (const [name, engine] of [
 		});
 	});
 
-	test(`INV-no-access (${name}): an account without a plant seat sees the lock state`, async () => {
-		await withPage(engine, "seatless", async (page) => {
-			await page.goto(`${BASE}/people`);
-			await page.getByRole("heading", { name: "People is not part of your seat" }).waitFor();
-			assert.equal(await page.getByRole("table").count(), 0);
-			assert.equal(await page.getByRole("button", { name: "Add person" }).count(), 0);
-		});
+	test(`INV-no-access (${name}): no seat and an organization seat both see the lock state`, async () => {
+		for (const who of ["seatless", "organization"])
+			await withPage(engine, who, async (page) => {
+				await page.goto(`${BASE}/people`);
+				await page.getByRole("heading", { name: "People is not part of your seat" }).waitFor();
+				assert.equal(await page.getByRole("table").count(), 0, who);
+				assert.equal(await page.getByRole("button", { name: "Add person" }).count(), 0, who);
+			});
 	});
 
 	test(`INV-no-leak (${name}): a missing and a malformed person link read the same`, async () => {
@@ -230,7 +236,7 @@ for (const [name, engine] of [
 	test(`AC:TARGET-PPL-001 INV-cursor (${name}): pages and filters share the address; old cursors fall back to page one`, async () => {
 		await withPage(engine, "owner", async (page) => {
 			await page.goto(`${BASE}/people?retired=include`);
-			await page.getByRole("button", { name: "Next" }).click();
+			await page.getByRole("button", { name: "Next", exact: true }).click();
 			// Client navigation changes the address without a page load, so wait on the address itself.
 			await page.waitForFunction(() => new URLSearchParams(location.search).has("after"), null, { timeout: 30_000 });
 			await page.getByText(/^Showing 25/).waitFor();
