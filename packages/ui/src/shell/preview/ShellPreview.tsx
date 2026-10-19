@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { cn, HoverGroup, Icon, revealDelay, useHoverItem, useProductTheme } from "../../foundations";
+import { MenuItem } from "../../controls";
 import { AppShell } from "../AppShell";
 import { currentKey, type ShellNav } from "../nav";
 import { RoleBanner } from "../RoleBanner";
@@ -41,7 +42,11 @@ export function ShellPreview({ role, children }: { role: PreviewRole; children?:
 			onSearch={() => setLastAction("Search opens the command palette (WP-089).")}
 			onNotifications={() => setLastAction("Notifications opens the notification pop-over (WP-030).")}
 			onAskEvry={() => setLastAction("Ask Evry opens the Evry panel (WP-051).")}
-			onUserMenu={() => setLastAction("The account menu opens the user menu (WP-010).")}
+			userMenu={
+				<MenuItem onSelect={() => setLastAction("The user menu lists your account, settings and Sign out (WP-010).")}>
+					Settings
+				</MenuItem>
+			}
 			banner={
 				role === "member" ? (
 					<RoleBanner

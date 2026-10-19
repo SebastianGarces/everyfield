@@ -4,6 +4,7 @@ import { personRequest } from "@everyfield/contracts/people";
 import { buttonVariants, Card, EmptyState, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import { TableSkeleton } from "@everyfield/ui/display";
 import { parseTheme, ProductRoot, THEME_COOKIE } from "@everyfield/ui/foundations";
+import { RoleBanner } from "@everyfield/ui/shell";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cookies } from "next/headers";
@@ -39,7 +40,17 @@ export async function PeopleLayout({ children }: { children: ReactNode }) {
 /** The frame with the viewer's own name. The own account person is the name source; no other account is read. */
 async function Frame({ viewer, children }: { viewer: Viewer | null; children: ReactNode }) {
 	return (
-		<PeopleFrame name={viewer?.displayName ?? "You"} role={viewer?.role ?? null}>
+		<PeopleFrame
+			name={viewer?.displayName ?? "You"}
+			role={viewer?.role ?? null}
+			banner={
+				viewer?.role === "member" ? (
+					<RoleBanner>
+						You have a Member seat. You can see people and their history; Owners and Admins change them.
+					</RoleBanner>
+				) : null
+			}
+		>
 			{children}
 		</PeopleFrame>
 	);

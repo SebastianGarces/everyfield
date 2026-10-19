@@ -4,21 +4,23 @@ import { ArrowDown01Icon, BellIcon, Cancel01Icon, Menu01Icon, Search01Icon } fro
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Menu, MenuContent, MenuTrigger } from "../controls";
 import { cn, EvryBot, HoverGroup, Icon, LogoMark, useHoverItem, Wordmark } from "../foundations";
 import { currentKey, type ShellItem, type ShellLink, type ShellNav, type ShellUser } from "./nav";
 import { RailTip, ThemeToggle } from "./ThemeToggle";
 
-/** What the top-bar controls do. The overlays they open (command palette, notifications, Evry, user menu) belong to other packages. */
+/** What the top-bar controls do. The overlays they open (command palette, notifications, Evry) belong to other packages. */
 export type ShellActions = {
 	onSearch: () => void;
 	onNotifications: () => void;
 	onAskEvry: () => void;
-	onUserMenu: () => void;
 };
 
 export type AppShellProps = ShellActions & {
 	nav: ShellNav;
 	user: ShellUser;
+	/** The user menu's items (MenuItem, MenuLabel, MenuSeparator). The name button in the top bar opens it. */
+	userMenu: ReactNode;
 	/** The Overview link behind the logo. */
 	homeHref: string;
 	/** Unread notifications. A dot shows on the bell when there are any. */
@@ -47,6 +49,7 @@ export function AppShell({
 	unread,
 	banner,
 	width = "default",
+	userMenu,
 	children,
 	...actions
 }: AppShellProps) {
@@ -61,7 +64,15 @@ export function AppShell({
 			>
 				Skip to content
 			</a>
-			<Topbar nav={nav} user={user} homeHref={homeHref} unread={unread} current={current} actions={actions} />
+			<Topbar
+				nav={nav}
+				user={user}
+				userMenu={userMenu}
+				homeHref={homeHref}
+				unread={unread}
+				current={current}
+				actions={actions}
+			/>
 			<Rail nav={nav} current={current} />
 			<main
 				id="main"
@@ -79,6 +90,7 @@ export function AppShell({
 function Topbar({
 	nav,
 	user,
+	userMenu,
 	homeHref,
 	unread,
 	current,
@@ -86,6 +98,7 @@ function Topbar({
 }: {
 	nav: ShellNav;
 	user: ShellUser;
+	userMenu: ReactNode;
 	homeHref: string;
 	unread: number;
 	current: string | null;
@@ -153,28 +166,30 @@ function Topbar({
 
 				{/* The accessible name is the visible text (label in name, WCAG 2.5.3): the name and role line stay in the
             accessibility tree when narrow screens hide them, and a hidden suffix says what the button opens. */}
-				<button
-					type="button"
-					onClick={actions.onUserMenu}
-					aria-haspopup="menu"
-					className={cn(
-						PILL,
-						"flex h-topbar items-center gap-3 pr-4 pl-2.5 text-left max-app-xl:pr-3.5 max-app-sm:pr-2.5",
-					)}
-				>
-					<span
-						aria-hidden="true"
-						className="grid size-10 flex-none place-items-center rounded-full bg-green-100 text-md font-semibold text-green-700"
+				<Menu>
+					<MenuTrigger
+						className={cn(
+							PILL,
+							"flex h-topbar items-center gap-3 pr-4 pl-2.5 text-left transition-[background-color] hover:bg-surface-2 data-[state=open]:bg-surface-2 max-app-xl:pr-3.5 max-app-sm:pr-2.5",
+						)}
 					>
-						{user.initials}
-					</span>
-					<span className="leading-[1.2] max-app-lg:sr-only">
-						<span className="block text-nav font-semibold">{user.name}</span>
-						<span className="block text-xs text-text-3 max-app-xl:sr-only">{user.detail}</span>
-					</span>
-					<span className="sr-only">, account menu</span>
-					<Icon icon={ArrowDown01Icon} size={16} className="text-text-3 max-app-sm:hidden" />
-				</button>
+						<span
+							aria-hidden="true"
+							className="grid size-10 flex-none place-items-center rounded-full bg-green-100 text-md font-semibold text-green-700"
+						>
+							{user.initials}
+						</span>
+						<span className="leading-[1.2] max-app-lg:sr-only">
+							<span className="block text-nav font-semibold">{user.name}</span>
+							<span className="block text-xs text-text-3 max-app-xl:sr-only">{user.detail}</span>
+						</span>
+						<span className="sr-only">, account menu</span>
+						<Icon icon={ArrowDown01Icon} size={16} className="text-text-3 max-app-sm:hidden" />
+					</MenuTrigger>
+					<MenuContent align="end" className="w-[260px]">
+						{userMenu}
+					</MenuContent>
+				</Menu>
 			</div>
 		</header>
 	);
