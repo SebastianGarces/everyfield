@@ -14,7 +14,7 @@ import {
 } from "@everyfield/ui/controls";
 import { PersonCard, PipelineColumn, StageChip, StatusBadge } from "@everyfield/ui/display";
 import Link from "next/link";
-import { useEffect, useRef, useState, type DragEvent } from "react";
+import { useEffect, useState, type DragEvent } from "react";
 import type { z } from "zod";
 import { loadColumn, reorderPipeline } from "./actions.ts";
 import { useRouter } from "next/navigation";
@@ -156,7 +156,6 @@ function Column({
 	const [loading, setLoading] = useState(false);
 	const loaded = [...group.cards, ...more_.cards];
 	const router = useRouter();
-	const list = useRef<HTMLUListElement>(null);
 	// One reorder at a time per column, with the column's revision as the lock (REQ-PPL-007). The whole column must be
 	// loaded, because the server takes the complete order and refuses a partial one. The store outlives refreshes, so a
 	// refusal message stays until the next try; the server's newer revision replaces the old one.
@@ -166,9 +165,6 @@ function Column({
 	// The order just saved, shown until the server copy it was saved against is replaced by a refresh.
 	const [saved, setSaved] = useState<{ from: Group; ids: string[] } | null>(null);
 	const [said, setSaid] = useState("");
-	// A one-time focus request: the moved person and the server copy the move was made on. The first refresh after it
-	// uses it and clears it, so a later refresh (for another column's move) never pulls focus back here.
-	const focusAfter = useRef<{ id: string; from: Group } | null>(null);
 	const cards =
 		saved && saved.from === group
 			? saved.ids.map((id) => loaded.find((c) => c.person.id === id)!).filter(Boolean)
@@ -178,15 +174,6 @@ function Column({
 	const filtered = isFiltered(query);
 	const complete = !filtered && !more_.next && loaded.length <= 100;
 	// After a keyboard reorder, focus returns to the moved person's Move button, also after the refresh re-renders.
-	useEffect(() => {
-		const request = focusAfter.current;
-		if (!request || request.from === group) return;
-		focusAfter.current = null;
-		const button = list.current?.querySelector<HTMLButtonElement>(
-			`li[data-person-id="${CSS.escape(request.id)}"] button[aria-haspopup]`,
-		);
-		if (button && document.activeElement !== button) button.focus();
-	}, [group]);
 	async function reorder(card: CardData, direction: "up" | "down") {
 		const ids = moveInOrder(
 			cards.map((c) => c.person.id),
@@ -201,7 +188,6 @@ function Column({
 			toPerson: (v) => ({ revision: v.revision }),
 		});
 		if (r?.status === "ok") {
-			focusAfter.current = { id: card.person.id, from: group };
 			setSaved({ from: group, ids });
 			setSaid(`${card.person.displayName} moved ${direction}.`);
 			router.refresh();
@@ -230,11 +216,10 @@ function Column({
 		>
 			<PipelineColumn stage={STAGE_KEY[group.column]} count={group.total ?? cards.length} dropTarget={dropTarget}>
 				{cards.length ? (
-					<ul ref={list} className="flex flex-col gap-2.5" aria-label={`${STAGE_LABEL[group.column]} people`}>
+					<ul className="flex flex-col gap-2.5" aria-label={`${STAGE_LABEL[group.column]} people`}>
 						{cards.map((card) => (
 							<li
 								key={card.person.id}
-								data-person-id={card.person.id}
 								draggable={canWrite}
 								onDragStart={(e) => {
 									e.dataTransfer.effectAllowed = "move";
