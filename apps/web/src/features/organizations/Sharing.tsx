@@ -20,32 +20,43 @@ const REFUSED: Record<string, string> = {
 };
 
 /**
+ * The organization's view of this connection and the connection revision a change must carry. privacy.getSharing
+ * returns only the consent revision, so the caller supplies the connection revision (ruling D17).
+ */
+export type ReadSharing = (
+	relationshipId: string,
+	request: ReturnType<typeof readSharingRequest.parse>,
+) => Promise<{ sharing: Sharing; relationshipRevision: string }>;
+
+/**
  * What one connected organization can see (REQ-IDN-022), on the plant's own connection row. Owners and Admins turn
  * each category on or off for this exact organization; Members see that Owners and Admins choose. The words match
- * the settings sharing card (WP-010/ui). Every save sends this connection's current revision and consent revision,
- * then the list reloads, so the next switch always carries fresh revisions.
+ * the settings sharing card (WP-010/ui). The card loads its own state and reloads it after each save, so every
+ * change carries the current connection and consent revisions.
  */
 export function SharingChoices({
 	relationship,
 	organizationName,
+	read,
 	run,
-	onSaved,
+	onChanged,
 }: {
 	relationship: Relationship;
 	organizationName: string;
+	read: ReadSharing;
 	run: Run;
-	/** Reload the connection list, which brings the new revisions. */
-	onSaved: () => void;
+	/** After a save: the connection's revision moved, so the list that owns Leave must reload too. */
+	onChanged: () => void;
 }) {
 	const pair = relationship.pair;
 	const fetch = useCallback(
 		() =>
 			pair.kind === "plant"
-				? run("privacy.getSharing", readSharingRequest.parse({ plant: pair.subject, organization: pair.organization }))
-				: Promise.resolve({ status: "unavailable" } as Sharing),
-		[pair, run],
+				? read(relationship.id, readSharingRequest.parse({ plant: pair.subject, organization: pair.organization }))
+				: Promise.resolve({ sharing: { status: "unavailable" } as Sharing, relationshipRevision: "0" }),
+		[pair, read, relationship.id],
 	);
-	const { state } = useLoad<Sharing>(fetch, `What ${organizationName} can see did not load`);
+	const { state, reload } = useLoad(fetch, `What ${organizationName} can see did not load`);
 	return (
 		<LoadableView
 			state={state}
@@ -59,7 +70,7 @@ export function SharingChoices({
 				</div>
 			}
 		>
-			{(data) =>
+			{({ sharing: data, relationshipRevision }) =>
 				"status" in data || data.view === "organization" ? (
 					<NotAvailable scope="section" />
 				) : data.view === "plant_member" ? (
@@ -67,7 +78,17 @@ export function SharingChoices({
 						Owners and Admins choose what {data.organizationDisplayName} can see. Personal details are never shared.
 					</p>
 				) : (
-					<Switches data={data} relationship={relationship} run={run} onSaved={onSaved} />
+					<Switches
+						key={`${relationshipRevision}/${data.consentRevision}`}
+						data={data}
+						relationshipId={relationship.id}
+						relationshipRevision={relationshipRevision}
+						run={run}
+						onSaved={() => {
+							reload();
+							onChanged();
+						}}
+					/>
 				)
 			}
 		</LoadableView>
@@ -76,12 +97,14 @@ export function SharingChoices({
 
 function Switches({
 	data,
-	relationship,
+	relationshipId,
+	relationshipRevision,
 	run,
 	onSaved,
 }: {
 	data: Admin;
-	relationship: Relationship;
+	relationshipId: string;
+	relationshipRevision: string;
 	run: Run;
 	onSaved: () => void;
 }) {
@@ -89,18 +112,18 @@ function Switches({
 	const [next, setNext] = useState<{ category: Category; value: boolean } | null>(null);
 
 	const toggle = (category: Category) => async (value: boolean) => {
-		if (save.held || save.pending) return;
+		if (save.held || save.pending || next) return;
 		setNext({ category, value });
 		const result = await save.run(
 			category,
 			(requestKey) =>
 				setSharingRequest.parse({
 					requestKey,
-					expectedRevision: relationship.revision,
+					expectedRevision: relationshipRevision,
 					input: {
 						plant: data.plant,
 						organization: data.organization,
-						relationshipId: relationship.id,
+						relationshipId,
 						expectedConsentRevision: data.consentRevision,
 						category,
 						enabled: value,
@@ -109,8 +132,9 @@ function Switches({
 			(command) => run("privacy.setSharing", command),
 			(r) => r.status === "committed",
 		);
-		setNext(null);
+		// On success the switches re-mount on the new revisions; until then they keep the saved value and stay disabled.
 		if (result.ok) onSaved();
+		else setNext(null);
 	};
 
 	return (
@@ -146,7 +170,7 @@ function Switches({
 							<Switch
 								checked={checked}
 								onCheckedChange={toggle(category)}
-								disabled={(save.pending !== null && !busy) || save.held !== null}
+								disabled={next !== null || save.held !== null}
 								aria-label={`Share ${CATEGORY_TEXT[category].label} with ${data.organizationDisplayName}`}
 							/>
 						</li>

@@ -429,3 +429,13 @@ export async function residencyRevision(m: Mount, viewer: Viewer, linkId: string
 		.where(and(eq(t.residency_link.id, linkId), eq(t.residency_link.account_id, viewer.accountId)));
 	return r ? String(r.revision) : null;
 }
+
+/** The revision of one of this plant's own connections; null for anything else (ruling D17). */
+export async function connectionRevision(m: Mount, viewer: Viewer, relationshipId: string) {
+	if (viewer.selected.kind !== "plant" || !z.uuid().safeParse(relationshipId).success) return null;
+	const [r] = await m.db
+		.select({ revision: t.affiliation.revision })
+		.from(t.affiliation)
+		.where(and(eq(t.affiliation.id, relationshipId), eq(t.affiliation.plant_id, viewer.selected.id)));
+	return r ? String(r.revision) : null;
+}

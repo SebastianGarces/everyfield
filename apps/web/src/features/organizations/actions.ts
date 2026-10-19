@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { z } from "zod";
 import {
+	connectionRevision,
 	disclosureFor,
 	idsIn,
 	invitationFor,
@@ -106,4 +107,17 @@ export async function loadResidency(linkId: string) {
 	]);
 	if (reply.status !== "ok" || linkRevision === null) return unavailable;
 	return { sharing: reply.value, linkRevision };
+}
+
+/** One of this plant's own connections: what it shares and the connection revision a change must carry. */
+export async function loadSharing(relationshipId: string, request: unknown) {
+	const unavailable = { sharing: { status: "unavailable" as const }, relationshipRevision: "0" };
+	const who = await viewerOf(await headers());
+	if (who.kind !== "viewer") return unavailable;
+	const [reply, relationshipRevision] = await Promise.all([
+		runOperation(who.mount, who.viewer, "privacy.getSharing", request),
+		connectionRevision(who.mount, who.viewer, relationshipId),
+	]);
+	if (reply.status !== "ok" || relationshipRevision === null) return unavailable;
+	return { sharing: reply.value, relationshipRevision };
 }

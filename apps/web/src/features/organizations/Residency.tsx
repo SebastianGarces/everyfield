@@ -142,6 +142,7 @@ export function ResidencySharing({
 						<p className="mt-4 text-text-2">You left this residency. Nothing is shared with {organizationName}.</p>
 					) : (
 						<ActiveResidency
+							key={data.consentRevision}
 							data={data}
 							linkRevision={linkRevision}
 							organizationName={organizationName}
@@ -173,7 +174,7 @@ function ActiveResidency({
 	const [busy, setBusy] = useState<{ key: Key; value: boolean } | null>(null);
 
 	const toggle = (key: Key) => async (value: boolean) => {
-		if (save.held) return;
+		if (save.held || busy) return;
 		setBusy({ key, value });
 		const result = await save.run(
 			key,
@@ -190,8 +191,9 @@ function ActiveResidency({
 			(command) => run("residency.setSharing", command),
 			(r) => r.status === "committed",
 		);
-		setBusy(null);
+		// On success the card re-mounts on the new consent revision; until then the switch keeps the saved value.
 		if (result.ok) reload();
+		else setBusy(null);
 	};
 
 	const onLeave = async () => {
@@ -249,7 +251,7 @@ function ActiveResidency({
 							<Switch
 								checked={checked}
 								onCheckedChange={toggle(key)}
-								disabled={(busy !== null && !mine) || save.held !== null}
+								disabled={busy !== null || save.held !== null}
 								aria-label={`Share ${RESIDENT_TEXT[key].label.toLowerCase()} with ${organizationName}`}
 							/>
 						</li>

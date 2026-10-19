@@ -147,6 +147,7 @@ function Flow({
 						zone={ZONE}
 						run={backend.run}
 						invite={{ targets: PLANT_TARGETS, readDisclosure, expectedRevision: "7" }}
+						readSharing={backend.readSharing}
 					/>
 				</>
 			);

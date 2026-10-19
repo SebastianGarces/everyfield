@@ -84,17 +84,22 @@ export function useIntent<C>(intent: string) {
 
 /**
  * Loads one read. A reply belongs to one fetch and attempt, so a slow earlier reply never replaces a later one and a
- * retry never shows an old failure. `reload` starts a new attempt; an error offers Try again.
+ * retry never shows an old failure. `reload` starts a new attempt; while it runs, the last data stays on screen so a
+ * save never blanks the list. Only the first load shows the skeleton, and an error offers Try again.
  */
 export function useLoad<T>(fetch: () => Promise<T>, errorTitle: string) {
 	const [attempt, setAttempt] = useState(0);
-	const [reply, setReply] = useState<{ attempt: number; fetch: () => Promise<T>; data?: T; failed?: true } | null>(
-		null,
-	);
+	type Reply = { attempt: number; fetch: () => Promise<T>; data?: T; failed?: true };
+	const [reply, setReply] = useState<Reply | null>(null);
+	const [shown, setShown] = useState<{ fetch: () => Promise<T>; data: T } | null>(null);
 	useEffect(() => {
 		let live = true;
 		fetch().then(
-			(data) => live && setReply({ attempt, fetch, data }),
+			(data) => {
+				if (!live) return;
+				setReply({ attempt, fetch, data });
+				setShown({ fetch, data });
+			},
 			() => live && setReply({ attempt, fetch, failed: true }),
 		);
 		return () => {
@@ -103,10 +108,15 @@ export function useLoad<T>(fetch: () => Promise<T>, errorTitle: string) {
 	}, [fetch, attempt]);
 	const reload = useCallback(() => setAttempt((n) => n + 1), []);
 	const current = reply && reply.attempt === attempt && reply.fetch === fetch ? reply : null;
-	const state: Loadable<T> = !current
-		? { status: "loading" }
-		: current.failed
-			? { status: "error", title: errorTitle, onRetry: reload }
-			: { status: "ready", data: current.data as T };
-	return { state, reload };
+	const last = shown && shown.fetch === fetch ? shown : null;
+	const state: Loadable<T> = current?.failed
+		? { status: "error", title: errorTitle, onRetry: reload }
+		: current
+			? { status: "ready", data: current.data as T }
+			: last
+				? { status: "ready", data: last.data }
+				: { status: "loading" };
+	/** True while a reload runs over data already on screen: commands built from that data would be stale. */
+	const refreshing = !current && last !== null;
+	return { state, reload, refreshing };
 }

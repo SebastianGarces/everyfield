@@ -504,7 +504,11 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 		>,
 		linkRevision: String(residency.revision + 10),
 	});
-	return { load, read, run, readResidency, residencyLink: RESIDENT_LINK };
+	const readSharing = async (relationshipId: string, request: unknown) => ({
+		sharing: (await run("privacy.getSharing", C.readSharingRequest.parse(request))) as z.infer<typeof C.sharingResult>,
+		relationshipRevision: active.find((r) => r.relationship.id === relationshipId)?.relationship.revision ?? "0",
+	});
+	return { load, read, run, readResidency, readSharing, residencyLink: RESIDENT_LINK };
 }
 
 /** The request the recipient opened from the emailed link (WP-008 owns the link landing). */

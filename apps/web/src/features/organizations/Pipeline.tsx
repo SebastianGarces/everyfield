@@ -60,7 +60,14 @@ export function PipelineTotals({
 					data.status === "unavailable" ? (
 						<NotAvailable scope="section" />
 					) : (
-						<ConsentSwitch data={data} networkName={networkName} canManage={canManage} run={run} reload={load} />
+						<ConsentSwitch
+							key={data.revision}
+							data={data}
+							networkName={networkName}
+							canManage={canManage}
+							run={run}
+							reload={load}
+						/>
 					)
 				}
 			</LoadableView>
@@ -86,7 +93,7 @@ function ConsentSwitch({
 	const checked = next ?? data.sharePipelineTotals;
 
 	const toggle = async (value: boolean) => {
-		if (save.held) return;
+		if (save.held || next !== null) return;
 		setNext(value);
 		const result = await save.run(
 			"switch",
@@ -99,8 +106,9 @@ function ConsentSwitch({
 			(command) => run("pipelineSharing.setConsent", command),
 			(r) => r.status === "committed",
 		);
-		setNext(null);
+		// On success the switch re-mounts on the new revision; until then it keeps the saved value.
 		if (result.ok) reload();
+		else setNext(null);
 	};
 
 	return (
@@ -124,7 +132,7 @@ function ConsentSwitch({
 				<Switch
 					checked={checked}
 					onCheckedChange={toggle}
-					disabled={!canManage || save.pending !== null || save.held !== null}
+					disabled={!canManage || next !== null || save.held !== null}
 					aria-label={`Share pipeline totals with ${networkName}`}
 				/>
 			</div>

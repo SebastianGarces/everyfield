@@ -7,7 +7,7 @@ import type { z } from "zod";
 import { Connections } from "./Connections";
 import type { InviteTarget } from "./InviteDialog";
 import { PipelineAccessNote, PipelineTotals } from "./Pipeline";
-import { createNames, readResidency, realRun } from "./real";
+import { createNames, readResidency, readSharing, realRun } from "./real";
 import { ResidencySharing } from "./Residency";
 
 export type SharingPageData = {
@@ -49,6 +49,7 @@ export function RealSharing({ data }: { data: SharingPageData }) {
 						nameOf={names.nameOf}
 						zone={data.zone}
 						run={realRun}
+						readSharing={data.kind === "plant" ? readSharing : undefined}
 						invite={
 							data.kind !== "sending_network"
 								? { targets: data.targets, readDisclosure: names.readDisclosure, expectedRevision: data.revision }

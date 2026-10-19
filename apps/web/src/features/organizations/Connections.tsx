@@ -12,7 +12,7 @@ import { useIntent, useLoad } from "./intent";
 import { InviteDialog, type InviteTarget, type ReadDisclosure } from "./InviteDialog";
 import { formatDay, kindLabel, subjectOf } from "./model";
 import { ProblemLine } from "./parts";
-import { SharingChoices } from "./Sharing";
+import { SharingChoices, type ReadSharing } from "./Sharing";
 import type { History, NameOf, PendingInvitation, Relationship, Run } from "./port";
 
 /** One read of the list: the first history page with the current connections, and the requests still waiting. */
@@ -33,6 +33,7 @@ export function Connections({
 	zone,
 	run,
 	invite,
+	readSharing,
 }: {
 	/** `subject` words the list for the side that asks to connect; `organization` for the side that receives. */
 	side: Side;
@@ -44,10 +45,12 @@ export function Connections({
 	run: Run;
 	/** Present when this viewer can ask organizations to connect. */
 	invite?: { targets: InviteTarget[]; readDisclosure: ReadDisclosure; expectedRevision: string };
+	/** Present for a plant: each connection row shows what that organization can see. */
+	readSharing?: ReadSharing;
 }) {
 	const [status, setStatus] = useState("");
 	const fetch = useCallback(() => load(), [load]);
-	const { state, reload } = useLoad<ConnectionsData>(fetch, "Connections did not load");
+	const { state, reload, refreshing } = useLoad<ConnectionsData>(fetch, "Connections did not load");
 
 	const subject = side === "subject";
 	const titleId = `${side}-connections-title`;
@@ -115,7 +118,9 @@ export function Connections({
 									if (ended) setStatus(`The connection with ${name} ended.`);
 									reload();
 								}}
+								readSharing={readSharing}
 								onChanged={reload}
+								stale={refreshing}
 							/>
 							{invite && pending.length > 0 ? (
 								<PendingList
@@ -128,6 +133,7 @@ export function Connections({
 										if (text) setStatus(text);
 										reload();
 									}}
+									stale={refreshing}
 								/>
 							) : null}
 							{canManage ? null : <p className="mt-4 text-sm text-text-3">Owners and Admins manage connections.</p>}
@@ -166,7 +172,9 @@ function ActiveList({
 	zone,
 	run,
 	onEnded,
+	readSharing,
 	onChanged,
+	stale,
 }: {
 	side: Side;
 	history: History;
@@ -175,7 +183,9 @@ function ActiveList({
 	zone: string;
 	run: Run;
 	onEnded: (name: string, ended: boolean) => void;
+	readSharing?: ReadSharing;
 	onChanged: () => void;
+	stale: boolean;
 }) {
 	const rows = history.activeRelationships;
 	if (rows.length === 0)
@@ -198,7 +208,9 @@ function ActiveList({
 					zone={zone}
 					run={run}
 					onEnded={onEnded}
+					readSharing={readSharing}
 					onChanged={onChanged}
+					stale={stale}
 				/>
 			))}
 		</ul>
@@ -213,7 +225,9 @@ function ActiveRow({
 	zone,
 	run,
 	onEnded,
+	readSharing,
 	onChanged,
+	stale,
 }: {
 	side: Side;
 	relationship: Relationship;
@@ -222,7 +236,10 @@ function ActiveRow({
 	zone: string;
 	run: Run;
 	onEnded: (name: string, ended: boolean) => void;
+	readSharing?: ReadSharing;
 	onChanged: () => void;
+	/** The list is reloading; this row's revision may be old, so Leave waits. */
+	stale: boolean;
 }) {
 	const subject = side === "subject";
 	const other = subject ? relationship.pair.organization : subjectOf(relationship.pair);
@@ -247,21 +264,26 @@ function ActiveRow({
 						run={run}
 						onEnded={(ended) => onEnded(name, ended)}
 						trigger={
-							<Button variant="ghost" size="sm" aria-label={subject ? `Leave ${name}` : `End connection with ${name}`}>
+							<Button
+								variant="ghost"
+								size="sm"
+								disabled={stale}
+								aria-label={subject ? `Leave ${name}` : `End connection with ${name}`}
+							>
 								{subject ? "Leave" : "End connection"}
 							</Button>
 						}
 					/>
 				) : null}
 			</div>
-			{subject && relationship.pair.kind === "plant" ? (
+			{subject && readSharing && relationship.pair.kind === "plant" ? (
 				<div className="mt-2 pl-12 max-app-sm:pl-0">
 					<SharingChoices
-						key={relationship.revision}
 						relationship={relationship}
 						organizationName={name}
+						read={readSharing}
 						run={run}
-						onSaved={onChanged}
+						onChanged={onChanged}
 					/>
 				</div>
 			) : null}
@@ -289,6 +311,7 @@ function PendingList({
 	zone,
 	run,
 	onChange,
+	stale,
 }: {
 	invitations: PendingInvitation[];
 	canManage: boolean;
@@ -296,6 +319,7 @@ function PendingList({
 	zone: string;
 	run: Run;
 	onChange: (status: string | null) => void;
+	stale: boolean;
 }) {
 	const resend = useIntent<InvitationCommand>("relationship-resend");
 	const withdraw = useIntent<InvitationCommand>("relationship-withdraw");
@@ -347,7 +371,7 @@ function PendingList({
 							: withdraw.held === slot || withdraw.pending === slot
 								? "withdraw"
 								: null;
-					const elsewhere = (held !== null || busy !== null) && lockedTo === null;
+					const elsewhere = ((held !== null || busy !== null) && lockedTo === null) || (stale && lockedTo === null);
 					return (
 						<li
 							key={slot}

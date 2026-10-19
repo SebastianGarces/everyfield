@@ -1,10 +1,18 @@
 import * as C from "@everyfield/contracts/organizations";
-import { loadConnections, loadDisclosure, loadHistoryPage, loadResidency, runOrganizationOperation } from "./actions";
+import {
+	loadConnections,
+	loadDisclosure,
+	loadHistoryPage,
+	loadResidency,
+	loadSharing,
+	runOrganizationOperation,
+} from "./actions";
 import type { ConnectionsData } from "./Connections";
 import type { ReadHistory } from "./History";
 import { Refusal } from "./intent";
 import type { ReadDisclosure } from "./InviteDialog";
 import type { ReadResidency } from "./Residency";
+import type { ReadSharing } from "./Sharing";
 import { revision } from "@everyfield/contracts/common";
 import type { History, NameOf, OperationName, PendingInvitation, Run } from "./port";
 
@@ -32,6 +40,12 @@ const RESULT: Partial<Record<OperationName, { parse: (v: unknown) => unknown }>>
 export const readResidency: ReadResidency = async (linkId) => {
 	const r = await loadResidency(linkId);
 	return { sharing: C.residencySharingResult.parse(r.sharing), linkRevision: revision.parse(r.linkRevision) };
+};
+
+/** One of the plant's own connections through the server, parsed again here. */
+export const readSharing: ReadSharing = async (relationshipId, request) => {
+	const r = await loadSharing(relationshipId, request);
+	return { sharing: C.sharingResult.parse(r.sharing), relationshipRevision: revision.parse(r.relationshipRevision) };
 };
 
 export const realRun = (async (operation: OperationName, input: unknown) => {
