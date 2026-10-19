@@ -125,9 +125,9 @@ export function useWarnings(
 
 /**
  * The name link inside a PersonCard. PersonCard passes its own classes (the stretched link that makes the whole card
- * clickable); this adds a 24px minimum height, so the link itself meets the WCAG 2.2 target size next to the card's
- * Move button.
+ * clickable); this sets a 24px line, so the link itself meets the WCAG 2.2 target size next to the card's Move button,
+ * and keeps the ellipsis on a long name.
  */
 export function CardLink({ className, ...props }: ComponentProps<typeof Link>) {
-	return <Link {...props} className={`${className ?? ""} inline-flex min-h-6 items-center`} />;
+	return <Link {...props} className={`${className ?? ""} inline-block max-w-full truncate align-top leading-6`} />;
 }
