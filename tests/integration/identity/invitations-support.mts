@@ -140,7 +140,7 @@ export async function fixture() {
 		await dispatch();
 		const row = effects.findLast((e) => e.key === request?.provider_key);
 		if (!row) throw Error("No dispatched invitation");
-		const m = row.text.match(/http:\/\/invitation\.example\.test\/invitation\?proof=([^\s]+)/);
+		const m = row.text.match(/http:\/\/invitation\.example\.test\/invitation#proof=([^\s]+)/);
 		if (!m) throw Error("Missing invitation proof");
 		return decodeURIComponent(m[1]);
 	}

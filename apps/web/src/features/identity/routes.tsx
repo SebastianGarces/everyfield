@@ -54,9 +54,9 @@ export async function VerifyEmailPage({ searchParams }: { searchParams: Search }
 	return <VerifyEmailScreen proof={one((await searchParams).token)} />;
 }
 
-// The seat and residency invitation link (/invitation?proof=..., built by the WP-008 domain). The page keeps the proof
-// in this tab and removes it from the address bar and history; after sign-in it opens from the kept proof.
+// The seat and residency invitation link (/invitation#proof=..., built by the WP-008 domain, ruling D54). The proof is in
+// the fragment, which the browser never sends; the page reads it, keeps it in this tab and cleans the address.
 export const invitationMetadata: Metadata = { title: "Your invitation", ...proofPage };
-export async function InvitationPage({ searchParams }: { searchParams: Search }) {
-	return <InvitationScreen linkProof={one((await searchParams).proof)} />;
+export function InvitationPage() {
+	return <InvitationScreen />;
 }

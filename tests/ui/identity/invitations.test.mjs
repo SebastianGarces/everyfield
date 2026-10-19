@@ -2,7 +2,7 @@
 // its guard is removed. Seed the preview first with tests/ui/identity/invitation-seed.mts (it writes the fixture this
 // file reads from INVITATION_UI_FIXTURE, default /tmp/everyfield-invitation-ui.json):
 //   UI_BASE_URL=https://wp-008-ui-....localhost:1355 node --test tests/ui/identity/invitations.test.mjs
-//   INV-proof-hidden: the emailed proof leaves the address bar as soon as the page opens.
+//   INV-proof-hidden: the emailed proof is in the fragment and leaves the address bar as soon as the page opens.
 //   INV-retry-same-key: the reply to Accept is lost after the server committed it; after a reload the page resends the
 //     same command, and the person has exactly one seat (REQ-IDN-017, REQ-IDN-030).
 //   INV-chosen-sharing: a resident accepts with exactly the sharing they ticked in ResidencyDisclosure, unticked by
@@ -50,6 +50,8 @@ for (const [name, engine] of ENGINES) {
 			await withPage(engine, async (page) => {
 				await page.goto(link);
 				await page.getByRole("heading", { name: "Join Harvest Point" }).waitFor();
+				// The proof arrives in the fragment and leaves the address at once; no request ever carried it.
+				assert.equal(new URL(page.url()).hash, "");
 				assert.equal(new URL(page.url()).search, "");
 				await page.getByRole("button", { name: "Sign in to accept" }).click();
 				await signIn(page, email, "Sign in and join");
@@ -58,11 +60,11 @@ for (const [name, engine] of ENGINES) {
 
 				// The server commits the claim, and the answer never reaches the page.
 				let dropped = 0;
-				await page.route("**/invitation", async (route) => {
+				await page.route("**/api/invitation", async (route) => {
 					const request = route.request();
-					if (request.method() === "POST" && request.headers()["next-action"] && dropped === 0) {
+					if (request.method() === "POST" && dropped === 0) {
 						const body = request.postData() ?? "";
-						if (body.includes("seat-accept")) {
+						if (body.includes('"accept_seat"')) {
 							dropped++;
 							await route.fetch();
 							return route.abort("failed");
@@ -72,7 +74,7 @@ for (const [name, engine] of ENGINES) {
 				});
 				await accept.click();
 				await page.getByRole("heading", { name: "We could not confirm your answer" }).waitFor();
-				await page.unroute("**/invitation");
+				await page.unroute("**/api/invitation");
 				assert.equal(dropped, 1);
 
 				// A reload keeps the unconfirmed answer; Try again sends the same command and gets the saved result.

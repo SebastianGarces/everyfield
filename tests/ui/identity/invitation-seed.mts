@@ -194,7 +194,7 @@ async function up(origin: string) {
 	async function linkFor(email: string) {
 		for (const claim of await claimDue(runtime, ["mail"], 100)) await mail.dispatch(claim);
 		const text = sent.findLast((m) => m.to === email)?.text ?? "";
-		const link = text.match(/https?:\/\/\S+\/invitation\?proof=\S+/)?.[0];
+		const link = text.match(/https?:\/\/\S+\/invitation#proof=\S+/)?.[0];
 		if (!link) throw Error(`No invitation link for ${email}`);
 		return link;
 	}

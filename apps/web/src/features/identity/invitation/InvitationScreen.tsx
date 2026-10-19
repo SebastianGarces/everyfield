@@ -38,7 +38,7 @@ import { AuthFooter, AuthHeading } from "../AuthFrame";
 import { refusalMessage } from "../messages";
 import { FormMessage, Outcome, PasswordInput } from "../parts";
 import { AFTER_SIGN_IN, SignInForm } from "../SignInScreen";
-import { acceptSeatInvitation, readInvitation, respondResidentInvitation } from "./actions";
+import { acceptSeatInvitation, readInvitation, respondResidentInvitation } from "./client";
 import {
 	formatExpiry,
 	joinTitle,
@@ -62,14 +62,10 @@ type Read = { description: ReturnType<typeof invitationDescriptionResult.parse>;
 
 const noSubscription = () => () => {};
 
-export function InvitationScreen({ linkProof }: { linkProof: string | null }) {
-	// After sign-in the page opens without the proof in its address; this tab kept it.
-	const stored = useSyncExternalStore(noSubscription, tabStore.storedProof, () => undefined);
-	// A layout effect, so the address is clean before any read below sends a request from this page.
-	useLayoutEffect(() => {
-		if (linkProof) tabStore.keepProof(linkProof);
-	}, [linkProof]);
-	const proof = linkProof ?? stored;
+export function InvitationScreen() {
+	// The fragment never reaches the server; after sign-in the page opens without it, and this tab kept it.
+	const proof = useSyncExternalStore(noSubscription, tabStore.proof, () => undefined);
+	useLayoutEffect(() => tabStore.keepProof(), []);
 	if (proof === undefined) return <Loading />;
 	if (!proof) return <Unavailable />;
 	return <InvitationFor proof={proof} />;

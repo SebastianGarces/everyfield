@@ -42,7 +42,8 @@ export function joinTitle(d: Description): string {
 	return d.subject.purpose === "seat" ? `Join ${d.workspaceName}` : `Link your account to ${d.workspaceName}`;
 }
 
-// The proof stays in this tab only, so the page can remove it from the address bar and still find it after sign-in.
+// The proof arrives in the fragment and stays in this tab only, so the page can remove it from the address bar and
+// still find it after sign-in.
 const PROOF = "ef-invitation-proof";
 // An answer that was sent but not confirmed: the exact command, so a reload can resend it unchanged.
 const HELD = "ef-invitation-held";
@@ -55,14 +56,16 @@ export type Held = { proof: string; workspaceName: string } & (
 
 export const tabStore = {
 	/** Keeps the link's proof in this tab and removes it from the address bar and history. */
-	keepProof(proof: string) {
-		sessionStorage.setItem(PROOF, proof);
-		const url = new URL(window.location.href);
-		url.searchParams.delete("proof");
-		history.replaceState(null, "", url.pathname + url.search + url.hash);
+	/** The proof from the link's fragment (#proof=...), or the one this tab kept after it cleaned the address. */
+	proof(): string | null {
+		return new URLSearchParams(window.location.hash.slice(1)).get("proof") ?? sessionStorage.getItem(PROOF);
 	},
-	storedProof(): string | null {
-		return sessionStorage.getItem(PROOF);
+	/** Keeps the fragment's proof in this tab and removes it from the address bar and history. */
+	keepProof() {
+		const fromLink = new URLSearchParams(window.location.hash.slice(1)).get("proof");
+		if (!fromLink) return;
+		sessionStorage.setItem(PROOF, fromLink);
+		history.replaceState(null, "", window.location.pathname + window.location.search);
 	},
 	held(proof: string): Held | null {
 		// The server render has no tab; it shows the loading state, and the tab's value is read on the client.

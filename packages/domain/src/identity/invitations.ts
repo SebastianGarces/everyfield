@@ -68,7 +68,9 @@ export function createInvitationService(config: InvitationConfig) {
 	async function mail(tx: Transaction, i: d.Invitation, cmd: d.Command, proof: string) {
 		const { selected, name } = await d.workspace(tx, i.tenant_id),
 			url = new URL("/invitation", origin);
-		url.searchParams.set("proof", proof);
+		// The proof travels in the fragment, which browsers never send, so no request address, log or trace holds it
+		// (ruling D54).
+		url.hash = new URLSearchParams({ proof }).toString();
 		return enqueue(tx, cmd, {
 			owner: selected,
 			invitationId: i.id,
