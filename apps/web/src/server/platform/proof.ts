@@ -1,7 +1,9 @@
 import * as tables from "./tables.ts";
 import { and, eq, gt, lt, sql } from "@everyfield/db/query";
 import "server-only";
-import { createDatabase, type Database } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
+import { database } from "../database";
+import { getSession } from "../request-context";
 import { z } from "zod";
 import {
 	proofEnabled,
@@ -40,14 +42,12 @@ function runtime() {
 		connectionTimeoutMillis: 5000,
 		idleTimeoutMillis: 5000,
 	};
-	const db = createDatabase({ ...connection, max: 4 });
-	// Auth queries cannot wait for a connection held by their own domain transaction.
-	const authDb = createDatabase({ ...connection, max: 2 });
+	const db = database(PLATFORM_DATABASE_URL, connection);
 	configured = {
 		db,
 		origin,
 		auth: createPlatformAuth(
-			authDb,
+			db,
 			origin,
 			secret,
 			async () => {
@@ -127,7 +127,7 @@ export async function handleProof(request: Request): Promise<Response> {
 		if (path.startsWith("auth/")) {
 			const action = path.slice(5);
 			if (request.method === "GET" && action === "get-session") {
-				const session = await auth.api.getSession({ headers: request.headers, query: { disableCookieCache: true } });
+				const session = await getSession(auth, request.headers);
 				return safeResponse(session ? { user: { id: session.user.id }, expiresAt: session.session.expiresAt } : null);
 			}
 			if (
@@ -148,7 +148,7 @@ export async function handleProof(request: Request): Promise<Response> {
 			let identifier: string | null = "email" in input ? input.email : null;
 			if (action === "change-password" && "currentPassword" in input && "newPassword" in input) {
 				if (input.currentPassword === input.newPassword) throw new Refusal("invalid_input", 422);
-				const session = await auth.api.getSession({ headers: request.headers, query: { disableCookieCache: true } });
+				const session = await getSession(auth, request.headers);
 				if (!session) throw new Refusal("unavailable", 404);
 				identifier = session.user.email;
 			}
@@ -186,9 +186,10 @@ export async function handleProof(request: Request): Promise<Response> {
 		}
 		if (path === "update" && request.method === "POST") {
 			const input = await parse(request, updateInput);
+			const session = await getSession(auth, request.headers);
 			return safeResponse(
 				await transaction(db, async (tx) => {
-					await currentScope(tx, auth, request.headers, input.ownerId);
+					await currentScope(tx, session, input.ownerId);
 					const row = (
 						await tx
 							.select({ revision: sql<string>`(${tables.proof_subject.revision})::text` })

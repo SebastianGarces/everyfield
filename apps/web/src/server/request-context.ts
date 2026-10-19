@@ -1,19 +1,27 @@
 import "server-only";
-import { createDatabase, type Database } from "@everyfield/db/client";
+import { readIdentitySession } from "@everyfield/domain/identity";
+import { sessionResult, type SessionResult } from "@everyfield/contracts/identity";
+import { requestDatabase } from "./database";
+export { requestDatabase } from "./database";
 import { headers } from "next/headers";
 import { cache } from "react";
 import { requestAuth } from "./identity";
 
-let store: Database | undefined;
-export function requestDatabase() {
-	const url = process.env.IDENTITY_DATABASE_URL;
-	if (!url) return null;
-	return (store ??= createDatabase({ connectionString: url, max: 5 }));
-}
-
 // The supported Better Auth API validates the cookie against the database.
 // React owns this memoization for one server request; no authority crosses requests.
-export const getSession = cache(async () => {
-	const auth = requestAuth();
-	return auth.api.getSession({ headers: await headers() });
+type SessionAuth = { api: { getSession: ReturnType<typeof requestAuth>["api"]["getSession"] } };
+export const getSession = cache(async (auth: SessionAuth = requestAuth(), requestHeaders?: Headers) =>
+	auth.api.getSession({ headers: requestHeaders ?? (await headers()) }),
+);
+
+/** The same request's application identity for mounts that also need registration state. */
+export const getViewer = cache(async (): Promise<SessionResult | null> => {
+	try {
+		const native = await getSession();
+		if (!native) return sessionResult.parse({ status: "unauthenticated" });
+		const db = requestDatabase();
+		return db ? await readIdentitySession(db, native) : null;
+	} catch {
+		return null;
+	}
 });

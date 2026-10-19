@@ -1,6 +1,5 @@
 "use server";
 
-import { headers } from "next/headers";
 import { z } from "zod";
 import { invitationService } from "@/server/invitations";
 import { namesFor, subjectFacts, viewerOf } from "@/server/organizations";
@@ -28,7 +27,7 @@ export type SeatsRead =
 	  };
 
 async function workspaceViewer() {
-	const who = await viewerOf(await headers());
+	const who = await viewerOf();
 	if (who.kind !== "viewer") return null;
 	const { viewer, mount } = who;
 	if (viewer.selected.kind !== "plant" && viewer.selected.kind !== "organization") return null;
@@ -44,8 +43,8 @@ export async function readSeats(): Promise<SeatsRead> {
 	const [roster, invitations, facts, names] = await Promise.all([
 		answer(() => mount.seats.list(viewer.session, { workspace: selected })),
 		viewer.canManage ? answer(() => service.list(viewer.session, { workspace: selected })) : Promise.resolve(null),
-		subjectFacts(mount, viewer),
-		namesFor(mount, viewer, [selected.id]),
+		subjectFacts(mount.db, viewer),
+		namesFor(mount.db, viewer, [selected.id]),
 	]);
 	if (roster.status !== "ok") return { status: "unavailable" };
 	return {

@@ -4,7 +4,7 @@ import "server-only";
 import { nextCookies } from "better-auth/next-js";
 import { after } from "next/server";
 import { createHmac } from "node:crypto";
-import { createDatabase } from "@everyfield/db/client";
+import { database } from "../database";
 import { z } from "zod";
 import { createIdentityService, trustedIdentityIp } from "@everyfield/domain/identity";
 import { invitationService } from "../invitations";
@@ -27,9 +27,9 @@ function identityMount() {
 	if (!env.success) return null;
 	if (!service) {
 		const v = env.data,
-			db = createDatabase({ connectionString: v.IDENTITY_DATABASE_URL, max: 5 }),
-			authDb = createDatabase({ connectionString: v.IDENTITY_AUTH_DATABASE_URL, max: 5 }),
-			admissionDb = createDatabase({ connectionString: v.IDENTITY_DATABASE_URL, max: 3 });
+			db = database(v.IDENTITY_DATABASE_URL),
+			authDb = database(v.IDENTITY_AUTH_DATABASE_URL),
+			admissionDb = db;
 		const mail = createMailService({
 			db,
 			encryptionKey: Buffer.from(v.IDENTITY_MAIL_KEY, "hex"),
