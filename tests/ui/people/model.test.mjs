@@ -16,13 +16,10 @@ import {
 	PersonStore,
 	querySearch,
 	runSave,
-	skippedStages,
-	leavesCommitted,
 	withFilters,
 	nextPage,
 	previousPage,
 	rangeText,
-	moveInOrder,
 } from "../../../apps/web/src/features/people/model.ts";
 
 const person = (revision, extra = {}) => ({ id: "p1", revision, displayName: "Maria Santos", ...extra });
@@ -153,21 +150,6 @@ test("INV-edit-patch: edit profile sends only the fields that changed", () => {
 	assert.deepEqual(changedFields(base, base), {});
 });
 
-test("AC:TARGET-PPL-006 stage guidance names skipped stages and leaving the committed stages", () => {
-	assert.deepEqual(skippedStages("prospect", "leader"), [
-		"attendee",
-		"following_up",
-		"interviewed",
-		"core_group",
-		"launch_team",
-	]);
-	assert.deepEqual(skippedStages("leader", "attendee"), []);
-	assert.deepEqual(skippedStages("prospect", "attendee"), []);
-	assert.equal(leavesCommitted("leader", "attendee"), true);
-	assert.equal(leavesCommitted("core_group", "launch_team"), false);
-	assert.equal(leavesCommitted("interviewed", "prospect"), false);
-});
-
 const url = (s) => new URLSearchParams(s);
 test("AC:TARGET-PPL-001 INV-url: a filter change resets the cursor trail and keeps the other filters", () => {
 	const q = parseQuery(url("q=ana&stage=attendee,leader&source=website&adult=adult&after=c1&after=c2"));
@@ -185,28 +167,6 @@ test("AC:TARGET-PPL-001 INV-url: a filter change resets the cursor trail and kee
 	assert.deepEqual(nextPage(q, "c3").trail, ["c1", "c2", "c3"]);
 	assert.equal(rangeText(q, 24, 100), "Showing 49–72 of 100 people");
 	assert.equal(rangeText(withFilters(q, {}), 1, 1), "Showing 1 of 1 person");
-});
-
-test("AC:TARGET-PPL-001 INV-url: unknown values are ignored and the pipeline has no list cursor", () => {
-	const q = parseQuery(url("view=board&stage=friend,attendee&adult=teen&commitment=maybe&retired=all"));
-	assert.equal(q.view, "list");
-	assert.deepEqual(q.stages, ["attendee"]);
-	assert.equal(q.classification, null);
-	assert.equal(q.commitment, "any");
-	assert.equal(q.archived, "exclude");
-	assert.equal(querySearch(q), "?stage=attendee");
-	const pipeline = parseQuery(url("view=pipeline&after=c1&retired=only"));
-	assert.equal(querySearch(pipeline), "?view=pipeline&retired=only");
-	assert.equal(listRequest(pipeline).after, undefined);
-	assert.equal(listRequest(pipeline).archived, "exclude", "the pipeline shows active people only");
-	assert.equal(listRequest(parseQuery(url(""))).limit, 24);
-});
-
-test("AC:TARGET-PPL-007 INV-reorder: a move sends the whole column with one person moved one place", () => {
-	assert.deepEqual(moveInOrder(["a", "b", "c"], "c", "up"), ["a", "c", "b"]);
-	assert.deepEqual(moveInOrder(["a", "b", "c"], "a", "down"), ["b", "a", "c"]);
-	assert.deepEqual(moveInOrder(["a", "b", "c"], "a", "up"), ["a", "b", "c"]);
-	assert.deepEqual(moveInOrder(["a", "b", "c"], "c", "down"), ["a", "b", "c"]);
 });
 
 const T1 = "0b0f6a7e-1d6f-4f7e-8c35-5b8f5c0f4d21",

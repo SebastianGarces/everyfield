@@ -90,7 +90,7 @@ function check(w, trail) {
 	assert.equal(isSaving(w.book, KEY), w.pending !== null, `one save in flight after: ${trail.join(" > ")}`);
 }
 
-test("INV-draft-model: the reviewer's interleaving keeps the typed-back value dirty", () => {
+test("BUG-114: saving an earlier edit keeps the typed-back value dirty", () => {
 	const w = world();
 	const trail = [];
 	const run = (name, ...args) => {
@@ -107,6 +107,7 @@ test("INV-draft-model: the reviewer's interleaving keeps the typed-back value di
 	run("edit", "A");
 	run("reply"); // the first save commits B
 	assert.equal(w.requests, 1);
+	assert.deepEqual(w.cache, { value: "B", revision: 2 });
 	assert.equal(visible(w.book, KEY, w.cache.value), "A", "the typed-back A is still shown");
 	assert.equal(isDirty(w.book, KEY, w.cache.value), true, "A differs from the saved B");
 });

@@ -8,4 +8,3 @@ test('INV-calendar: stored canonical spelling resolves aliases without changing 
   assert.equal(canonicalTimeZone('America/Chicago'),'America/Chicago');
   for(const zone of ['+04:00','not/a-zone','Etc/GMT+5']) assert.throws(()=>canonicalTimeZone(zone));
 });
-
