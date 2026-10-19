@@ -56,7 +56,8 @@ type StatePanelProps = {
 	actions?: ReactNode;
 	/** The reference line: "Last loaded today at 8:40 am · Error reference EF-7Q2K". */
 	meta?: ReactNode;
-	headingLevel?: "h2" | "h3";
+	/** h1 when the panel is the whole page, as a refusal or a not-found page is. */
+	headingLevel?: "h1" | "h2" | "h3";
 	className?: string;
 };
 
