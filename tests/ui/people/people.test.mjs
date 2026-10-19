@@ -383,4 +383,106 @@ for (const [name, engine] of [
 				{ width, height },
 			);
 	});
+
+	test(`AC:TARGET-PPL-007 D68-one-request (${name}): a move sends one POST and no GET, and the card moves before the answer`, async () => {
+		await withPage(engine, "owner", async (page) => {
+			await page.goto(`${BASE}/people?view=pipeline`);
+			const column = (label) => page.getByRole("list", { name: label });
+			const names = (label) =>
+				column(label)
+					.getByRole("article")
+					.evaluateAll((a) => a.map((x) => x.getAttribute("aria-label")));
+			await column("Following up people").waitFor();
+			await page.waitForLoadState("networkidle");
+			await page.waitForTimeout(1000);
+			const sent = [];
+			const ms = [];
+			page.on("request", (r) => {
+				if (["document", "fetch", "xhr"].includes(r.resourceType())) sent.push(r.method());
+			});
+			// While `hold` is set, a server action's answer waits for it, so the test sees the card move before the answer.
+			let hold = null;
+			await page.route("**/*", async (route) => {
+				const r = route.request();
+				if (r.method() !== "POST" || !r.headers()["next-action"]) return route.fallback();
+				const held = hold;
+				const start = performance.now();
+				const response = await route.fetch();
+				if (held) ms.push(Math.round(performance.now() - start));
+				await held?.wait;
+				return route.fulfill({ response });
+			});
+			const held = () => {
+				let release;
+				hold = { wait: new Promise((r) => (release = r)) };
+				return () => {
+					hold = null;
+					release();
+				};
+			};
+			const settle = () => page.waitForTimeout(1500);
+
+			// Reorder inside a column.
+			const [, second] = await names("Following up people");
+			let release = held();
+			sent.length = 0;
+			await page.getByRole("button", { name: `Move ${second}` }).click();
+			await page.getByRole("menuitem", { name: "Move up" }).click();
+			await page.waitForFunction(
+				(n) => document.querySelector('[aria-label="Following up people"] article')?.getAttribute("aria-label") === n,
+				second,
+				{ timeout: 5_000 },
+			);
+			release();
+			await page.getByText(`${second} moved up.`).waitFor({ state: "attached", timeout: 30_000 });
+			await settle();
+			assert.deepEqual(sent, ["POST"], "a reorder is one POST and no GET");
+
+			// Change stage there and back: each move is one POST once the dialog's warnings are loaded.
+			const stageMove = async (person, stage, from, to) => {
+				await page.getByRole("button", { name: `Move ${person}` }).click();
+				await page.getByRole("menuitem", { name: stage }).click();
+				const dialog = page.getByRole("dialog");
+				const save = dialog.getByRole("button", { name: `Move to ${stage.toLowerCase()}` });
+				await dialog.getByLabel("Reason").fill("Checking one request per move");
+				await page.waitForFunction(
+					(label) => {
+						const b = [...document.querySelectorAll('[role="dialog"] button')].find((x) => x.textContent === label);
+						return b && !b.disabled;
+					},
+					`Move to ${stage.toLowerCase()}`,
+					{ timeout: 30_000 },
+				);
+				await page.waitForTimeout(500);
+				release = held();
+				sent.length = 0;
+				await save.click();
+				// The dialog hides the board from the accessibility tree while it is open, so read the DOM directly.
+				const inList = (label, n) =>
+					page.evaluate(
+						([l, n]) =>
+							[...document.querySelectorAll(`[aria-label="${l}"] article`)].some(
+								(a) => a.getAttribute("aria-label") === n,
+							),
+						[label, n],
+					);
+				await page.waitForFunction(
+					([l, n]) =>
+						[...document.querySelectorAll(`[aria-label="${l}"] article`)].some(
+							(a) => a.getAttribute("aria-label") === n,
+						),
+					[to, person],
+					{ timeout: 5_000 },
+				);
+				assert.equal(await inList(from, person), false, `${person} left ${from}`);
+				release();
+				await dialog.waitFor({ state: "detached", timeout: 30_000 });
+				await settle();
+				assert.deepEqual(sent, ["POST"], `moving ${person} to ${stage} is one POST and no GET`);
+			};
+			await stageMove(second, "Attendee", "Following up people", "Attendee people");
+			await stageMove(second, "Following up", "Attendee people", "Following up people");
+			console.log(`D68 ${name} move answer times (ms): ${ms.join(", ")}`);
+		});
+	});
 }
