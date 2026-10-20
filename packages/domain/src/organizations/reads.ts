@@ -199,11 +199,3 @@ export async function connectionRevision(db: Database, viewer: Viewer, relations
 		.where(and(eq(t.affiliation.id, relationshipId), eq(t.affiliation.plant_id, viewer.selected.id)));
 	return r ? String(r.revision) : null;
 }
-
-export async function hasDiscoveryProfile(db: Database, accountId: string) {
-	const rows = await db
-		.select({ id: t.discovery.id })
-		.from(t.discovery)
-		.where(and(eq(t.discovery.account_id, accountId), isNull(t.discovery.converted_at)));
-	return rows.length > 0;
-}

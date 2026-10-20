@@ -28,7 +28,13 @@ const sessionRow = z.strictObject({
 	account_exists: z.boolean(),
 	selected_exists: z.boolean(),
 	selected_owner: owner,
+	hidden: z.array(z.object({ kind: z.string(), opaque_subject_id: z.uuid(), seat_id: z.uuid().nullable() })),
+	own_person: z.object({ id: z.uuid(), name: z.string() }).nullable(),
+	discovery: z.boolean(),
 });
+type SessionRow = z.infer<typeof sessionRow>;
+/** A pool or a transaction: the viewer read is one statement and needs no transaction. */
+type Executor = Pick<Transaction, "execute">;
 const seatRow = z.strictObject({
 	id: recordId,
 	plant_id: tenantId.nullable(),
@@ -72,18 +78,19 @@ export async function liveOwner(tx: Transaction, selected: Owner): Promise<boole
 		.for("share");
 	return hidden.length === 0;
 }
-async function resolveActor(tx: Transaction, session: z.infer<typeof sessionId>, requested?: Owner) {
-	// access_session takes shared session/account locks first. Materialized seats
-	// precede the selected root, preserving the account-before-seat/root order.
-	// A session ID yields at most one row. Bound the function estimate so the
-	// identity/selected join cannot trigger JIT compilation for a million rows.
-	const r = await tx.execute(sql`
+/**
+ * One statement, no row locks: the session's account, its live seats, the selected owner, every lifecycle witness that
+ * hides the account, the owner or the seat, the own Person of a plant seat and whether a seatless account still has a
+ * Discovery profile. Authority for a write is re-checked by the write statement (D70), so a read observes only.
+ */
+async function readSession(db: Executor, session: z.infer<typeof sessionId>, requested?: Owner) {
+	const r = await db.execute(sql`
 		WITH identity AS MATERIALIZED (
 			SELECT * FROM access_session(${sessionId.parse(session)}) LIMIT 1
 		), seats AS MATERIALIZED (
 			SELECT s.id, s.plant_id, s.organization_id, s.role, s.revision::text, s.accepted_at
 			FROM seat s JOIN identity i ON i.account_id=s.account_id
-			WHERE s.ended_at IS NULL ORDER BY s.id FOR SHARE OF s
+			WHERE s.ended_at IS NULL ORDER BY s.id
 		), selected AS MATERIALIZED (
 			SELECT coalesce(${requested ? JSON.stringify(requested) : null}::jsonb,
 				CASE WHEN s.plant_id IS NOT NULL THEN jsonb_build_object('kind','plant','id',s.plant_id)
@@ -91,16 +98,6 @@ async function resolveActor(tx: Transaction, session: z.infer<typeof sessionId>,
 					ELSE jsonb_build_object('kind','account','id',i.account_id) END) AS owner
 			FROM identity i LEFT JOIN (SELECT * FROM seats LIMIT 1) s ON true
 			LEFT JOIN organization o ON o.id=s.organization_id
-		), selected_root AS MATERIALIZED (
-			SELECT p.id FROM plant p
-			WHERE (SELECT owner->>'kind' FROM selected)='plant' AND p.id=(SELECT (owner->>'id')::uuid FROM selected)
-				AND EXISTS (SELECT 1 FROM identity WHERE registration_state='active')
-				AND (SELECT count(*) FROM seats)<=1 FOR SHARE OF p
-		), selected_account AS MATERIALIZED (
-			SELECT a.id FROM account a
-			WHERE (SELECT owner->>'kind' FROM selected)='account' AND a.id=(SELECT (owner->>'id')::uuid FROM selected)
-				AND EXISTS (SELECT 1 FROM identity WHERE registration_state='active')
-				AND (SELECT count(*) FROM seats)<=1 FOR SHARE OF a
 		)
 		SELECT i.*, selected.owner AS selected_owner, clock_timestamp() AS now,
 			(SELECT coalesce(jsonb_agg(s), '[]'::jsonb) FROM seats s) AS seats,
@@ -108,38 +105,25 @@ async function resolveActor(tx: Transaction, session: z.infer<typeof sessionId>,
 			EXISTS (
 				SELECT 1 FROM tenant t LEFT JOIN organization o ON o.id=t.id
 				WHERE t.id=(selected.owner->>'id')::uuid AND t.kind=selected.owner->>'kind'
-					AND CASE selected.owner->>'kind'
-						WHEN 'plant' THEN EXISTS (SELECT 1 FROM selected_root)
-						WHEN 'account' THEN EXISTS (SELECT 1 FROM selected_account)
-						WHEN 'organization' THEN o.kind=selected.owner->>'organizationKind'
-						ELSE false END
-			) AS selected_exists
+					AND (t.kind<>'organization' OR o.kind=selected.owner->>'organizationKind')
+			) AS selected_exists,
+			(SELECT coalesce(jsonb_agg(jsonb_build_object('kind',w.kind,'opaque_subject_id',w.opaque_subject_id,'seat_id',w.seat_id)), '[]'::jsonb)
+				FROM lifecycle_witness w WHERE w.state NOT IN ('active', 'cancelled') AND (
+					(w.kind='account' AND w.opaque_subject_id=i.account_id)
+					OR (w.kind=selected.owner->>'kind' AND w.opaque_subject_id=(selected.owner->>'id')::uuid)
+					OR w.seat_id IN (SELECT id FROM seats))) AS hidden,
+			(SELECT jsonb_build_object('id',p.id,'name',p.display_name) FROM person p
+				WHERE selected.owner->>'kind'='plant' AND p.tenant_id=(selected.owner->>'id')::uuid
+					AND p.linked_account_id=i.account_id AND p.state='live' LIMIT 1) AS own_person,
+			EXISTS (SELECT 1 FROM discovery d WHERE d.account_id=i.account_id AND d.converted_at IS NULL) AS discovery
 		FROM identity i CROSS JOIN selected
 	`);
-	if (r.rows.length !== 1) return currentActorResult.parse({ status: "unavailable" });
-	const row = sessionRow.parse(r.rows[0]!);
-	const { now, seats, selected_owner: selected } = row;
+	return r.rows.length === 1 ? sessionRow.parse(r.rows[0]!) : null;
+}
+function actorOf(row: SessionRow) {
+	const { now, seats, selected_owner: selected, hidden } = row;
 	if (row.expires_at <= now || !row.account_exists || seats.length > 1)
 		return currentActorResult.parse({ status: "unavailable" });
-	// A separate statement sees witnesses committed while a root/seat lock was
-	// waiting. Combining this with the first snapshot can miss a new deletion.
-	const witnesses = await tx.execute(sql`
-		SELECT kind, opaque_subject_id, seat_id FROM lifecycle_witness
-		WHERE state NOT IN ('active', 'cancelled') AND (
-			(kind='account' AND opaque_subject_id=${row.account_id}::uuid)
-			OR (kind=${selected.kind} AND opaque_subject_id=${selected.id}::uuid)
-			OR seat_id IN (SELECT id FROM seat WHERE account_id=${row.account_id}::uuid AND ended_at IS NULL)
-		) FOR SHARE
-	`);
-	const hidden = z
-		.array(
-			z.object({
-				kind: z.string(),
-				opaque_subject_id: z.uuid(),
-				seat_id: z.uuid().nullable(),
-			}),
-		)
-		.parse(witnesses.rows);
 	if (hidden.some((w) => w.kind === "account" && w.opaque_subject_id === row.account_id))
 		return currentActorResult.parse({ status: "unavailable" });
 	if (row.registration_state === "pending_domain")
@@ -167,6 +151,28 @@ async function resolveActor(tx: Transaction, session: z.infer<typeof sessionId>,
 		accountId: row.account_id,
 		context: { kind: "seat", owner: selected, seatId: seat.id, role: seat.role, revision: seat.revision },
 	});
+}
+async function resolveActor(tx: Executor, session: z.infer<typeof sessionId>, requested?: Owner) {
+	const row = await readSession(tx, session, requested);
+	return row ? actorOf(row) : currentActorResult.parse({ status: "unavailable" });
+}
+
+/**
+ * The signed-in viewer for one request: the registration state, the actor when the account holds one live seat or
+ * none, the own Person of a plant seat and whether a seatless account has a Discovery profile. Null when the session
+ * has no live account or the account is being deleted. One statement; the page shares it through the request cache.
+ */
+export async function readViewer(db: Executor, session: z.infer<typeof sessionId>) {
+	const row = await readSession(db, session);
+	if (!row || row.hidden.some((w) => w.kind === "account" && w.opaque_subject_id === row.account_id)) return null;
+	const actor = actorOf(row);
+	return {
+		accountId: row.account_id,
+		registration: row.registration_state,
+		authority: actor.status === "active" ? RequestActor.of(session, actor) : null,
+		person: row.own_person,
+		discovery: row.discovery,
+	};
 }
 
 export async function currentActor(tx: Transaction, session: z.infer<typeof sessionId>, selected: Owner) {
@@ -247,7 +253,12 @@ export class RequestActor {
 		return write;
 	}
 
-	static async resolve(tx: Transaction, session: z.infer<typeof sessionId>) {
+	/** @internal readViewer builds the authority from the same statement that observed the actor. */
+	static of(session: z.infer<typeof sessionId>, actor: ActiveActor) {
+		return new RequestActor(session, actor);
+	}
+
+	static async resolve(tx: Executor, session: z.infer<typeof sessionId>) {
 		const actor = await resolveActor(tx, session);
 		return actor.status === "active" ? new RequestActor(session, actor) : actor;
 	}

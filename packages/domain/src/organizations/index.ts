@@ -28,7 +28,6 @@ export type { GeographyReference, OrganizationEffects };
 
 export {
 	connectionRevision,
-	hasDiscoveryProfile,
 	idsIn,
 	namesFor,
 	pairOf,

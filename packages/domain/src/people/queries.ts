@@ -17,8 +17,7 @@ import {
 	readReply,
 	attribution,
 } from "./core.ts";
-import { RequestActor } from "../access/session.ts";
-import { PeopleReadContext } from "./core.ts";
+import { readViewer, type RequestActor } from "../access/session.ts";
 import type { sessionId } from "@everyfield/contracts/common";
 import type { Tx, Context } from "./core.ts";
 import { openDuties } from "./people.ts";
@@ -336,42 +335,24 @@ export async function getAccountLink(tx: Tx, ctx: Context, raw: unknown) {
 	});
 }
 
-/** The layout needs the own Person name/id, not a full projected Person read. */
-export async function getViewerSummary(tx: Tx, ctx: Context) {
-	return readReply(async () => {
-		const actor = await authorize(tx, ctx);
-		const rows = await tx
-			.select({ personId: tables.person.id, displayName: tables.person.display_name })
-			.from(tables.person)
-			.where(
-				and(
-					eq(tables.person.tenant_id, ctx.selected.id),
-					eq(tables.person.linked_account_id, actor.accountId),
-					eq(tables.person.state, "live"),
-				),
-			);
-		return rows[0] ?? null;
-	});
+/** The People viewer of a plant seat: the actor plus the own Person name the layout shows. Null for any other seat. */
+export function peopleViewer(authority: RequestActor, own: { id: string; name: string } | null) {
+	const actor = authority.actor;
+	if (actor.context.kind !== "seat" || actor.context.owner.kind !== "plant") return null;
+	return {
+		session: authority.session,
+		accountId: actor.accountId,
+		selected: actor.context.owner,
+		role: actor.context.role,
+		authority,
+		displayName: own?.name ?? "You",
+		ownPersonId: own?.id ?? null,
+	};
 }
 
-/** Request DAL entry: one current actor and one bounded own-Person summary. */
-export async function readPeopleViewer(tx: Tx, session: z.infer<typeof sessionId>, observed?: RequestActor) {
-	const authority = observed ?? (await RequestActor.resolve(tx, session));
-	if (!(authority instanceof RequestActor)) return { status: "no_access" } as const;
-	const actor = authority.actor;
-	if (actor.context.kind !== "seat" || actor.context.owner.kind !== "plant") return { status: "no_access" } as const;
-	const summary = await getViewerSummary(tx, new PeopleReadContext(authority));
-	if (summary.status !== "ok") return { status: "no_access" } as const;
-	return {
-		status: "viewer",
-		viewer: {
-			session,
-			accountId: actor.accountId,
-			selected: actor.context.owner,
-			role: actor.context.role,
-			authority,
-			displayName: summary.value?.displayName ?? "You",
-			ownPersonId: summary.value?.personId ?? null,
-		},
-	} as const;
+/** Request DAL entry: one statement for the current actor and the bounded own-Person summary. */
+export async function readPeopleViewer(db: Parameters<typeof readViewer>[0], session: z.infer<typeof sessionId>) {
+	const v = await readViewer(db, session);
+	const viewer = v?.authority ? peopleViewer(v.authority, v.person) : null;
+	return viewer ? ({ status: "viewer", viewer } as const) : ({ status: "no_access" } as const);
 }
