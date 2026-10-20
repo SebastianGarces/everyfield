@@ -4,13 +4,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import * as S from "./support.mts";
 import * as Q from "../../../packages/contracts/src/organizations/index.ts";
-import {
-	canReadSharedSources,
-	canDispatchActivity,
-	canReadResidentProgress,
-	readSharingDisclosure,
-	createOrganizationAdapter,
-} from "../../../packages/domain/src/organizations/index.ts";
+import { readSharingDisclosure, createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 before(S.setup);
 after(S.teardown);
 const view = (v: unknown) => Q.sharingResult.parse(v);
@@ -145,6 +139,45 @@ async function resident() {
 	);
 	return { o, staff, r, link, person };
 }
+test("AC:WP007-MUL-003 AC:ADR1-003 AC:WP007-API-MUL-003 resident category withdrawal and leave preserve the current saved choices", async () => {
+	const { r, link } = await resident();
+	const read = () => S.call("residency.readSharing", r, { linkId: link });
+	const initial = Q.residencySharingResult.parse(await read());
+	assert.equal(initial.status, "active");
+	const command = S.command({
+		linkId: link,
+		expectedConsentRevision: "1",
+		choices: { shareFoundations: false, shareMilestones: true },
+	});
+	const saved = await S.call("residency.setSharing", r, command);
+	assert.equal(saved.status, "committed");
+	assert.deepEqual(await S.call("residency.setSharing", r, command), saved);
+	const current = Q.residencySharingResult.parse(await read());
+	assert.equal(current.status, "active");
+	if (current.status !== "active") throw Error("missing_residency");
+	assert.deepEqual(current.choices, { shareFoundations: false, shareMilestones: true });
+	assert.equal(current.consentRevision, "2");
+	await assert.rejects(
+		S.call("residency.setSharing", r, S.command({ ...command.input, expectedConsentRevision: "1" }, "2")),
+		/stale_revision/,
+	);
+	const leave = S.command({ linkId: link, expectedConsentRevision: "2" }, "2"),
+		left = await S.call("residency.leave", r, leave);
+	assert.equal(left.status, "committed");
+	assert.deepEqual(await S.call("residency.leave", r, leave), left);
+	assert.deepEqual(await read(), { status: "ended", linkId: link });
+	await assert.rejects(
+		S.call(
+			"residency.setSharing",
+			r,
+			S.command(
+				{ linkId: link, expectedConsentRevision: "3", choices: { shareFoundations: true, shareMilestones: true } },
+				"3",
+			),
+		),
+		/unavailable/,
+	);
+});
 test("INV-atomicity: required outbox failure rolls back sharing, revision, audit, receipt and invalidation", async () => {
 	const p = await S.tenant("plant"),
 		pa = await S.identity(p),
