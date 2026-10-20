@@ -15,7 +15,7 @@ import { useEffect, useState } from "react";
 import type { PersonalTimezonePreview, TimezonePreference } from "../port";
 import { refusalOf, useWrite, type Refusal } from "../save";
 import { SaveError } from "../SettingsDialog";
-import { useSettings } from "../store";
+import { useFlows } from "../store";
 import { formatInstant, formatLocalDate, nextMonday, zoneLabel } from "../time";
 import { ZonePicker } from "./ZonePicker";
 
@@ -24,7 +24,7 @@ import { ZonePicker } from "./ZonePicker";
  * takes the church, device or UTC zone for you. A change starts at the first Monday after now in the new zone.
  */
 export function PersonalTimezone() {
-	const { port } = useSettings();
+	const port = useFlows();
 	const [preference, setPreference] = useState<TimezonePreference | null>(null);
 	const [loadError, setLoadError] = useState<Refusal | null>(null);
 	const [open, setOpen] = useState(false);
@@ -108,7 +108,7 @@ function PersonalTimezoneDialog({
 	current: TimezonePreference;
 	onSaved: (preference: TimezonePreference) => void;
 }) {
-	const { port } = useSettings();
+	const port = useFlows();
 	const [zone, setZone] = useState<string | null>(null);
 	const [preview, setPreview] = useState<PersonalTimezonePreview | null>(null);
 	const previewing = useWrite("personal-timezone-preview");

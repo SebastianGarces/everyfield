@@ -1,20 +1,13 @@
 "use client";
 
 import { UserMultipleIcon } from "@hugeicons/core-free-icons";
-import {
-	Button,
-	Dialog,
-	DialogBody,
-	DialogContent,
-	DialogHeader,
-	ToastProvider,
-	useToast,
-} from "@everyfield/ui/controls";
+import { ToastProvider, useToast } from "@everyfield/ui/controls";
 import { initials } from "@everyfield/ui/display";
 import { AppShell, type ShellNav } from "@everyfield/ui/shell";
-import { useState, type ReactNode } from "react";
-import { SessionActions } from "../identity/SessionActions";
+import type { ReactNode } from "react";
 import { AccountMenu } from "../settings/AccountMenu";
+import type { SettingsViewer } from "../settings/port";
+import { openSettings, ProductSettings } from "../settings/ProductSettings";
 import type { Role } from "./server.ts";
 
 // The product frame around the People and Settings pages. Only destinations that exist are in the navigation; the full
@@ -28,7 +21,14 @@ const NAV: ShellNav = {
 };
 const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Member" };
 
-type FrameProps = { name: string; role: Role | null; banner?: ReactNode; children: ReactNode };
+type FrameProps = {
+	name: string;
+	role: Role | null;
+	/** The viewer as Settings sees it; null when there is no active actor, and then Settings is not offered. */
+	settings: SettingsViewer | null;
+	banner?: ReactNode;
+	children: ReactNode;
+};
 
 export function PeopleFrame(props: FrameProps) {
 	return (
@@ -38,16 +38,15 @@ export function PeopleFrame(props: FrameProps) {
 	);
 }
 
-function Frame({ name, role, banner, children }: FrameProps) {
+function Frame({ name, role, settings, banner, children }: FrameProps) {
 	const toast = useToast();
-	const [account, setAccount] = useState(false);
 	const later = (what: string) => () => toast({ message: `${what} is not available yet.`, tone: "info" });
 	const seat = role ? `${ROLE[role]} seat` : "";
 	return (
 		<AppShell
 			nav={NAV}
 			user={{ name, initials: initials(name), detail: role ? ROLE[role] : "" }}
-			userMenu={<AccountMenu name={name} detail={seat} onAccount={() => setAccount(true)} />}
+			userMenu={<AccountMenu name={name} detail={seat} onAccount={() => openSettings("account")} />}
 			homeHref="/people"
 			unread={0}
 			width="wide"
@@ -61,17 +60,7 @@ function Frame({ name, role, banner, children }: FrameProps) {
 			banner={banner}
 		>
 			{children}
-			<Dialog open={account} onOpenChange={setAccount}>
-				<DialogContent size="sm">
-					<DialogHeader title="Your account" description={seat ? `${name}, ${seat}` : name} />
-					<DialogBody>
-						<SessionActions />
-						<Button variant="ghost" className="mt-3 self-start" onClick={() => setAccount(false)}>
-							Close
-						</Button>
-					</DialogBody>
-				</DialogContent>
-			</Dialog>
+			{settings ? <ProductSettings viewer={settings} /> : null}
 		</AppShell>
 	);
 }
