@@ -24,7 +24,7 @@ export function createOrganizationAdapter(
 	};
 }
 export { readAnswerableInvitation } from "./relationships.ts";
-export { readSharingDisclosure } from "./sharing.ts";
+export { readPlantSharing, readSharingDisclosure } from "./sharing.ts";
 export type { GeographyReference, OrganizationEffects };
 
 export {

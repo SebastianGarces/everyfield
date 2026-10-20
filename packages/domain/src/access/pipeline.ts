@@ -162,7 +162,8 @@ export async function readOwnResidency(
 	raw: unknown,
 ) {
 	const input = organizationPersonRequest.safeParse(raw);
-	if (!input.success || organization.kind !== "organization" || !(await liveOwner(tx, organization))) return null;
+	if (!input.success || organization.kind !== "organization" || !(await liveOwner(tx, organization, false)))
+		return null;
 	const identity = await tx.execute<{ account_id: string }>(sql`SELECT account_id FROM access_session(${session})`);
 	if (identity.rows.length !== 1) return null;
 	const selected = { kind: "account", id: identity.rows[0]!.account_id };

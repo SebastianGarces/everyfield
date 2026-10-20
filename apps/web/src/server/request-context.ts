@@ -16,7 +16,13 @@ export const getViewer = cache(async () => {
 	const db = requestDatabase();
 	if (!db) return null;
 	const native = await getSession();
-	const unauthenticated = { status: "unauthenticated", authority: null, people: null, discovery: false } as const;
+	const unauthenticated = {
+		status: "unauthenticated",
+		authority: null,
+		people: null,
+		discovery: false,
+		verified: false,
+	} as const;
 	if (!native) return unauthenticated;
 	const v = await readViewer(db, sessionId.parse(native.session.id));
 	if (!v) return unauthenticated;
@@ -26,11 +32,14 @@ export const getViewer = cache(async () => {
 		sessionId: native.session.id,
 		expiresAt: native.session.expiresAt.toISOString(),
 	});
-	if (identity.status !== "active") return { ...identity, authority: null, people: null, discovery: false };
+	// Better Auth already read the user row; its verified flag saves the onboarding entry a locking identity read.
+	const verified = native.user.emailVerified;
+	if (identity.status !== "active") return { ...identity, authority: null, people: null, discovery: false, verified };
 	return {
 		...identity,
 		authority: v.authority,
 		people: v.authority ? peopleViewer(v.authority, v.person) : null,
 		discovery: v.authority?.actor.context.kind === "account" ? v.discovery : false,
+		verified,
 	};
 });

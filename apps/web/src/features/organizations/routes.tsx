@@ -8,14 +8,16 @@ import {
 	idsIn,
 	namesFor,
 	pendingFor,
+	query,
 	readHistory,
+	readPlantSharing,
 	residencyLinks,
-	runOperation,
 	scopeOf,
 	subjectFacts,
 	targetsFor,
 	viewerOf,
 } from "@/server/organizations";
+import { pipelineAggregateAccessRequest } from "@everyfield/contracts/organizations";
 import { RealRespond } from "./RealRespond";
 import { RealSharing, type SharingPageData } from "./RealSharing";
 
@@ -44,11 +46,15 @@ export async function SharingPage() {
 	const { mount: m, viewer } = who;
 	// A seatless account without a Discovery profile has only its own residency links here.
 	if (viewer.kind === "account" && (await residencyLinks(m.db, viewer)).length === 0) return refused;
-	// The first connections list renders with the page: history, waiting requests and their names in one pass.
-	const [history, pending] =
+	// The first connections list renders with the page: history, waiting requests, what each connection sees and names.
+	const [history, pending, sharing] =
 		viewer.kind === "account"
-			? [null, []]
-			: await Promise.all([readHistory(m.db, who.authority, scopeOf(viewer)), pendingFor(m.db, viewer)]);
+			? [null, [], {}]
+			: await Promise.all([
+					readHistory(m.db, who.authority, scopeOf(viewer)),
+					pendingFor(m.db, viewer),
+					readPlantSharing(m.db, who.authority),
+				]);
 	const active = history && history.status === "available" ? history.activeRelationships : [];
 	const activeOrgs = new Set(
 		active
@@ -68,7 +74,14 @@ export async function SharingPage() {
 			...pending.map((p) => p.pair.organization.id),
 		]),
 		viewer.kind === "sending_network" && viewer.selected.kind === "organization"
-			? runOperation(m, viewer, "pipelineSharing.checkAggregateAccess", { network: viewer.selected }, who.authority)
+			? query(m, who.authority, viewer.selected, (tx, s, o) =>
+					m.adapter["pipelineSharing.checkAggregateAccess"](
+						tx,
+						s,
+						o,
+						pipelineAggregateAccessRequest.parse({ network: viewer.selected }),
+					),
+				)
 			: Promise.resolve(null),
 	]);
 	const data: SharingPageData = {
@@ -81,7 +94,7 @@ export async function SharingPage() {
 		networks: networks.map((n) => ({ relationshipId: n.id, name: names[n.pair.organization.id] ?? "Network" })),
 		aggregate: aggregate?.status === "ok" ? aggregate.value : null,
 		residencies,
-		connections: history ? { history, pending } : null,
+		connections: history ? { history, pending, sharing } : null,
 	};
 	return <RealSharing data={data} />;
 }

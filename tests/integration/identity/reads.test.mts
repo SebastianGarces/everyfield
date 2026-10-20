@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import { fixture } from "./invitations-support.mts";
 import { sql } from "../../../packages/db/src/query.ts";
 import { readViewer } from "../../../packages/domain/src/access/index.ts";
-import { readHistory } from "../../../packages/domain/src/organizations/index.ts";
+import {
+	readHistory,
+	readPlantSharing,
+	readSharingDisclosure,
+} from "../../../packages/domain/src/organizations/index.ts";
 import { sessionId } from "../../../packages/contracts/src/common/index.ts";
 let f;
 let recording = false;
@@ -35,7 +39,7 @@ async function count(body) {
 	}
 }
 
-test("INV-reads: viewer, roster, invitation list and sharing history use one or two statements without locks", async (t) => {
+test("INV-reads: viewer, roster, invitation list, sharing history, sharing choices and disclosure read without locks", async (t) => {
 	const s = await f.setup();
 	const network = await f.workspace("sending_church");
 	await f.admin.execute(
@@ -64,8 +68,33 @@ test("INV-reads: viewer, roster, invitation list and sharing history use one or 
 		history.value.activeRelationships.map((r) => r.pair.organization.id),
 		[network.id],
 	);
-	const all = [viewer, roster, invitations, history].flatMap((r) => r.statements);
-	t.diagnostic(JSON.stringify({ viewer: 1, roster: 1, invitations: 1, history: 2 }));
+	const sharing = await count(() => readPlantSharing(f.db, authority));
+	assert.equal(sharing.statements.length, 1);
+	const relationshipId = history.value.activeRelationships[0].id;
+	assert.equal(sharing.value[relationshipId].sharing.view, "plant_administration");
+	assert.deepEqual(sharing.value[relationshipId].sharing.choices.people, false);
+	assert.equal(sharing.value[relationshipId].relationshipRevision, "1");
+	const disclosure = await count(() =>
+		f.db.transaction((tx) =>
+			readSharingDisclosure(tx, authority.session, s.w, {
+				kind: "plant",
+				subject: s.w,
+				organization: { kind: "organization", id: network.id, organizationKind: "sending_church" },
+			}),
+		),
+	);
+	assert.equal(disclosure.value.kind, "existing_consent");
+	const all = [viewer, roster, invitations, history, sharing, disclosure].flatMap((r) => r.statements);
+	t.diagnostic(
+		JSON.stringify({
+			viewer: 1,
+			roster: 1,
+			invitations: 1,
+			history: 2,
+			sharing: 1,
+			disclosure: disclosure.statements.length,
+		}),
+	);
 	assert.equal(
 		all.some((q) => /for\s+(update|share)/i.test(q)),
 		false,

@@ -1,16 +1,31 @@
+import type { OrganizationOperations as Ops } from "@everyfield/contracts/organizations";
+import type { Reply } from "@/server/organizations";
 import {
+	checkPipelineAggregateAccess,
+	endAssociation,
+	getAssociationHistory,
+	getSharing,
+	inviteAssociation,
+	leaveResidency,
 	loadConnections,
 	loadDisclosure,
 	loadHistoryPage,
 	loadResidency,
 	loadSharing,
-	runOrganizationOperation,
+	readPipelineConsent,
+	readResidencySharing,
+	resendAssociationInvitation,
+	respondAssociationInvitation,
+	revokeAssociationInvitation,
+	setPipelineConsent,
+	setResidencySharing,
+	setSharing,
 } from "./actions";
 import type { ConnectionsData } from "./Connections";
 import type { ReadHistory } from "./History";
 import { Refusal } from "./intent";
 import type { ReadDisclosure } from "./InviteDialog";
-import type { NameOf, Run } from "./port";
+import type { NameOf, OperationName, Run } from "./port";
 import type { ReadResidency } from "./Residency";
 import type { ReadSharing } from "./Sharing";
 
@@ -18,14 +33,35 @@ import type { ReadSharing } from "./Sharing";
 // and answers with the contract value, which the screens trust. A server refusal becomes a Refusal; a lost reply stays
 // a thrown network error, so useIntent keeps the command frozen.
 
+/** The operations the screens call; the contract's other operations have no screen and no action. */
+type Actions = { [K in OperationName]?: (input: Ops[K]["input"]) => Promise<Reply<Ops[K]["output"]>> };
+const ACTIONS: Actions = {
+	"associations.invite": inviteAssociation,
+	"associations.resendInvitation": resendAssociationInvitation,
+	"associations.revokeInvitation": revokeAssociationInvitation,
+	"associations.end": endAssociation,
+	"associations.respondInvitation": respondAssociationInvitation,
+	"associations.getHistory": getAssociationHistory,
+	"privacy.getSharing": getSharing,
+	"privacy.setSharing": setSharing,
+	"residency.readSharing": readResidencySharing,
+	"residency.setSharing": setResidencySharing,
+	"residency.leave": leaveResidency,
+	"pipelineSharing.readConsent": readPipelineConsent,
+	"pipelineSharing.setConsent": setPipelineConsent,
+	"pipelineSharing.checkAggregateAccess": checkPipelineAggregateAccess,
+};
+
 export const readResidency: ReadResidency = loadResidency;
 export const readSharing: ReadSharing = loadSharing;
 
-export const realRun = (async (operation, input) => {
-	const reply = await runOrganizationOperation(operation, input);
+export const realRun: Run = async <K extends OperationName>(operation: K, input: Ops[K]["input"]) => {
+	const action: Actions[K] = ACTIONS[operation];
+	if (!action) throw new Refusal("unavailable");
+	const reply = await action(input);
 	if (reply.status === "refused") throw new Refusal(reply.code);
 	return reply.value;
-}) as Run;
+};
 
 /** Names learned from the server so far. Pages add to it as they load; unknown IDs get a neutral word. */
 export function createNames(initial: Record<string, string>) {
@@ -38,7 +74,7 @@ export function createNames(initial: Record<string, string>) {
 	const load = async (): Promise<ConnectionsData> => {
 		const r = await loadConnections();
 		learn(r.names);
-		return { history: r.history, pending: r.pending };
+		return { history: r.history, pending: r.pending, sharing: r.sharing };
 	};
 	const readMore: ReadHistory = async (after) => {
 		const r = await loadHistoryPage(after);

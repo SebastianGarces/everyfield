@@ -4,7 +4,7 @@ import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
 import * as Q from "@everyfield/contracts/organizations";
 import type { Transaction } from "@everyfield/db/client";
 import { alias } from "@everyfield/db/columns";
-import { and, eq, getTableColumns, isNotNull, isNull, lte, sql } from "@everyfield/db/query";
+import { and, eq, getTableColumns, inArray, isNotNull, isNull, lte, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { readOwnResidency } from "@everyfield/domain/access";
 import { z } from "zod";
@@ -19,6 +19,7 @@ import {
 	finishCommand,
 	invalidate,
 	loadAffiliation,
+	loadAffiliations,
 	pairOf,
 	refuse,
 	sameOwner,
@@ -41,12 +42,12 @@ const residentRow = z.object({
 	organization_kind: z.enum(["sending_church", "sending_network"]),
 });
 export async function loadResident(tx: Transaction, id: string, write = false) {
-	const rows = await tx
+	const query = tx
 		.select({ ...getTableColumns(tables.residency_link), organization_kind: tables.organization.kind })
 		.from(tables.residency_link)
 		.innerJoin(tables.organization, eq(tables.organization.id, tables.residency_link.organization_id))
-		.where(eq(tables.residency_link.id, id))
-		.for(write ? "update" : "share", { of: tables.residency_link });
+		.where(eq(tables.residency_link.id, id));
+	const rows = await (write ? query.for("update", { of: tables.residency_link }) : query);
 	return rows[0] ? residentRow.parse(rows[0]) : null;
 }
 export function consentOperations(
@@ -103,7 +104,7 @@ export function consentOperations(
 				selected.kind !== "organization" ||
 				selected.organizationKind !== "sending_church" ||
 				a.sending_church_id !== selected.id ||
-				!(await active(tx, a))
+				!active(a)
 			)
 				return unavailable();
 			const r = await tx
@@ -117,8 +118,7 @@ export function consentOperations(
 						),
 						eq(tables.pipeline_sharing.network_id, a.organization_id),
 					),
-				)
-				.for("share");
+				);
 			return Q.pipelineConsentResult.parse({
 				status: "available",
 				relationshipId: a.id,
@@ -139,7 +139,7 @@ export function consentOperations(
 					selected.kind !== "organization" ||
 					selected.organizationKind !== "sending_church" ||
 					a.sending_church_id !== selected.id ||
-					!(await active(tx, a))
+					!active(a)
 				)
 					refuse();
 				const c = await beginCommand(tx, actor, selected, "pipelineSharing.setConsent", q);
@@ -206,13 +206,17 @@ export function consentOperations(
 							sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
 						),
 					),
-				)
-				.for("share", { of: [affiliation_a, pipeline_sharing_p] });
+				);
 			const contributors = new Set<string>();
-			for (const row of r) {
-				const a = await loadAffiliation(tx, row.id);
-				if (a && (await active(tx, a))) contributors.add(row.organization_id);
-			}
+			if (r.length)
+				for (const a of await loadAffiliations(
+					tx,
+					inArray(
+						tables.affiliation.id,
+						r.map((row) => row.id),
+					),
+				))
+					if (a.active && a.sending_church_id) contributors.add(a.sending_church_id);
 			return Q.pipelineAggregateAccessResult.parse({ allowed: contributors.size >= 2, minimumContributors: 2 });
 		},
 	};

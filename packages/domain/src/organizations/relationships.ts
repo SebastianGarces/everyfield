@@ -345,7 +345,8 @@ export function relationshipCommands(
 					})
 					.where(eq(tables.affiliation.id, a.id))
 					.returning();
-				a = affiliationSchema.parse({ ...a, ...updated });
+				// Just accepted by a checked pair: live until a later read computes the flag again.
+				a = affiliationSchema.parse({ ...a, ...updated, active: true });
 			} else {
 				const r = await tx
 					.insert(tables.affiliation)
@@ -370,6 +371,7 @@ export function relationshipCommands(
 					organization_kind: pair.organization.organizationKind,
 					organization_name: "",
 					subject_kind: pair.kind === "sending_church" ? pair.subject.organizationKind : null,
+					active: true,
 				});
 			}
 			if (!a) refuse();

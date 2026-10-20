@@ -12,11 +12,18 @@ import { useIntent, useLoad } from "./intent";
 import { InviteDialog, type InviteTarget, type ReadDisclosure } from "./InviteDialog";
 import { formatDay, kindLabel, subjectOf } from "./model";
 import { ProblemLine } from "./parts";
-import { SharingChoices, type ReadSharing } from "./Sharing";
+import { SharingChoices, type ReadSharing, type SharingRow } from "./Sharing";
 import type { History, NameOf, PendingInvitation, Relationship, Run } from "./port";
 
-/** One read of the list: the first history page with the current connections, and the requests still waiting. */
-export type ConnectionsData = { history: { status: "unavailable" } | History; pending: PendingInvitation[] };
+/**
+ * One read of the list: the first history page with the current connections, the requests still waiting, and for a
+ * plant what each connection sees, keyed by relationship id.
+ */
+export type ConnectionsData = {
+	history: { status: "unavailable" } | History;
+	pending: PendingInvitation[];
+	sharing: Record<string, SharingRow>;
+};
 
 /**
  * The connections of one plant, sending church or Discovery account, or of one organization, with their history
@@ -105,7 +112,7 @@ export function Connections({
 					</div>
 				}
 			>
-				{({ history, pending }) =>
+				{({ history, pending, sharing }) =>
 					history.status === "unavailable" ? (
 						<NotAvailable scope="section" />
 					) : (
@@ -113,6 +120,7 @@ export function Connections({
 							<ActiveList
 								side={side}
 								history={history}
+								sharing={sharing}
 								canManage={canManage}
 								nameOf={nameOf}
 								zone={zone}
@@ -176,6 +184,7 @@ function ActiveList({
 	run,
 	onEnded,
 	readSharing,
+	sharing,
 	onChanged,
 	stale,
 }: {
@@ -187,6 +196,7 @@ function ActiveList({
 	run: Run;
 	onEnded: (name: string, ended: boolean) => void;
 	readSharing?: ReadSharing;
+	sharing: Record<string, SharingRow>;
 	onChanged: () => void;
 	stale: boolean;
 }) {
@@ -212,6 +222,7 @@ function ActiveList({
 					run={run}
 					onEnded={onEnded}
 					readSharing={readSharing}
+					sharing={sharing[relationship.id]}
 					onChanged={onChanged}
 					stale={stale}
 				/>
@@ -229,6 +240,7 @@ function ActiveRow({
 	run,
 	onEnded,
 	readSharing,
+	sharing,
 	onChanged,
 	stale,
 }: {
@@ -240,6 +252,8 @@ function ActiveRow({
 	run: Run;
 	onEnded: (name: string, ended: boolean) => void;
 	readSharing?: ReadSharing;
+	/** What this connection sees, as the list read it; the card loads it again only after a save. */
+	sharing?: SharingRow;
 	onChanged: () => void;
 	/** The list is reloading; this row's revision may be old, so Leave waits. */
 	stale: boolean;
@@ -284,6 +298,7 @@ function ActiveRow({
 					<SharingChoices
 						relationship={relationship}
 						organizationName={name}
+						initial={sharing}
 						read={readSharing}
 						run={run}
 						onChanged={onChanged}

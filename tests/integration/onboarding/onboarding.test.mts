@@ -1143,6 +1143,7 @@ test("INV-reads: the onboarding entry of a plant owner is one transaction with a
 			expiresAt: new Date(Date.now() + 3600000).toISOString(),
 		},
 		viewer.authority,
+		true,
 	);
 	recording = false;
 	assert.equal(entry.kind, "plant");
@@ -1156,4 +1157,57 @@ test("INV-reads: the onboarding entry of a plant owner is one transaction with a
 		false,
 		"the entry read must not lock",
 	);
+});
+
+test("INV-reads: a seatless account's onboarding entry reads no identity row for update and takes no lock", async (t) => {
+	const a = await actor("planter", "active");
+	const viewer = await readViewer(db, writeSessionId.parse(a.session));
+	assert.equal(viewer.authority.actor.context.kind, "account");
+	const statements = [];
+	let recording = false;
+	const instrumented = new WeakSet();
+	db.$client.on("acquire", (client) => {
+		if (instrumented.has(client)) return;
+		instrumented.add(client);
+		const query = client.query;
+		client.query = function (...args) {
+			if (recording) statements.push(typeof args[0] === "string" ? args[0] : args[0].text);
+			return Reflect.apply(query, this, args);
+		};
+	});
+	recording = true;
+	const entry = await readOnboardingEntry(
+		db,
+		api,
+		{
+			status: "active",
+			accountId: a.id,
+			sessionId: a.session,
+			expiresAt: new Date(Date.now() + 3600000).toISOString(),
+		},
+		viewer.authority,
+		true,
+	);
+	recording = false;
+	assert.deepEqual(entry, { kind: "start", offer: "either", accountRevision: "1" });
+	t.diagnostic(JSON.stringify({ seatlessEntryStatements: statements.length }));
+	assert.ok(statements.length <= 6, `seatless entry: ${statements.length} statements`);
+	assert.equal(
+		statements.some((q) => /for\s+(update|share)|pg_advisory|invitation_identity/i.test(q)),
+		false,
+		"the seatless entry read must not lock or read the identity row for update",
+	);
+	const unverified = await readOnboardingEntry(
+		db,
+		api,
+		{
+			status: "active",
+			accountId: a.id,
+			sessionId: a.session,
+			expiresAt: new Date(Date.now() + 3600000).toISOString(),
+		},
+		viewer.authority,
+		false,
+	);
+	assert.deepEqual(unverified, { kind: "confirm_email" });
 });

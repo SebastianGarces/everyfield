@@ -2,7 +2,6 @@ import "server-only";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { and, eq, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
-import { sessionId } from "@everyfield/contracts/common";
 import type { SessionResult } from "@everyfield/contracts/identity";
 import type { OnboardingContext, OnboardingProducer } from "@everyfield/contracts/onboarding/server";
 import type { RequestActor } from "../access/index.ts";
@@ -25,6 +24,8 @@ export async function readOnboardingEntry(
 	producer: OnboardingProducer<Transaction>,
 	s: SessionResult,
 	authority: RequestActor | null,
+	/** The session's email verification, as the authentication layer read it; no second identity read. */
+	verified: boolean,
 ): Promise<RawEntry> {
 	if (s.status === "unauthenticated") return { kind: "signed_out" };
 	const context = authority?.actor.context;
@@ -53,9 +54,8 @@ export async function readOnboardingEntry(
 		.select({ state: t.account.registration_state, kind: t.account.registration_kind, revision: t.account.revision })
 		.from(t.account)
 		.where(eq(t.account.id, s.accountId));
-	const identity = await db.execute(sql`SELECT verified FROM invitation_identity(${sessionId.parse(s.sessionId)})`);
 	if (!row) return { kind: "elsewhere", reason: "unavailable" };
-	if (identity.rows[0]?.verified !== true) return { kind: "confirm_email" };
+	if (!verified) return { kind: "confirm_email" };
 	if (row.state === "active") return { kind: "start", offer: "either", accountRevision: String(row.revision) };
 	if (row.kind === "planter") return { kind: "start", offer: "planter", accountRevision: String(row.revision) };
 	if (row.kind === "discovery") return { kind: "start", offer: "discovery", accountRevision: String(row.revision) };

@@ -33,11 +33,10 @@ const env = z.object({
 	IDENTITY_MAIL_FROM: z.email(),
 });
 
-type Ops = OrganizationOperations;
-export type Operation = keyof Ops;
+export type Operation = keyof OrganizationOperations;
 export type Reply<T = unknown> = { status: "ok"; value: T } | { status: "refused"; code: string };
-
-/** The domain refuses by throwing a short code (`refuse()` in core.ts); anything else is not a refusal. */
+export type Mount = NonNullable<ReturnType<typeof current>>;
+export /** The domain refuses by throwing a short code (`refuse()` in core.ts); anything else is not a refusal. */
 const REFUSAL_CODE = /^[a-z_]{3,40}$/;
 
 let mount: ReturnType<typeof create> | undefined;
@@ -110,7 +109,6 @@ function current() {
 	mount ??= create(v.data);
 	return mount;
 }
-type Mount = NonNullable<ReturnType<typeof current>>;
 
 export type { Kind, Viewer } from "@everyfield/domain/organizations";
 /** Who is asking, from the session and the one current seat. Seatless accounts count only with a Discovery profile. */
@@ -153,37 +151,49 @@ export async function viewerOf(): Promise<
 	};
 }
 
+/** The owner a residency operation runs as: the resident's own account. */
+export const residentOwner = (viewer: Viewer) => owner.parse({ kind: "account", id: viewer.accountId });
+
+/** The domain's refusal code, or rethrow. */
+function refusalOf(e: unknown): Reply<never> {
+	if (e instanceof z.ZodError) return { status: "refused", code: "invalid_input" };
+	const code = e instanceof Error && REFUSAL_CODE.test(e.message) ? e.message : null;
+	if (code) return { status: "refused", code };
+	throw e;
+}
+
 /**
- * Run one operation for this viewer, typed by the operation name. Residency consent is the resident's own, so it
- * runs as the account. The domain parses the input; the browser input reaches it as unknown.
+ * One command in one transaction with the request actor bound to it (D70). The caller names the concrete adapter
+ * method, so the input and output types are the operation's own.
  */
-export async function runOperation<K extends Operation>(
+export async function command<T>(
 	m: Mount,
-	viewer: Viewer,
-	op: K,
-	input: Ops[K]["input"] | unknown,
 	authority: RequestActor,
-): Promise<Reply<Ops[K]["output"]>> {
-	const selected = op.startsWith("residency.")
-		? owner.parse({ kind: "account", id: viewer.accountId })
-		: viewer.selected;
-	const call = m.adapter[op] as (
-		tx: Transaction,
-		s: Viewer["session"],
-		o: Owner,
-		i: unknown,
-	) => Promise<Ops[K]["output"]>;
+	selected: Owner,
+	body: (tx: Transaction, session: Viewer["session"], selected: Owner) => Promise<T>,
+): Promise<Reply<T>> {
 	try {
 		const value = await auditTransaction(m.db, async (tx) => {
 			if (!(await authority.bind(tx, selected))) throw new Error("unavailable");
-			return call(tx, viewer.session, selected, input);
+			return body(tx, authority.session, selected);
 		});
 		return { status: "ok", value };
 	} catch (e) {
-		if (e instanceof z.ZodError) return { status: "refused", code: "invalid_input" };
-		const code = e instanceof Error && REFUSAL_CODE.test(e.message) ? e.message : null;
-		if (code) return { status: "refused", code };
-		throw e;
+		return refusalOf(e);
+	}
+}
+
+/** One read in one short transaction without write binding or locks (D59). */
+export async function query<T>(
+	m: Mount,
+	authority: RequestActor,
+	selected: Owner,
+	body: (tx: Transaction, session: Viewer["session"], selected: Owner) => Promise<T>,
+): Promise<Reply<T>> {
+	try {
+		return { status: "ok", value: await m.db.transaction((tx) => body(tx, authority.session, selected)) };
+	} catch (e) {
+		return refusalOf(e);
 	}
 }
 
@@ -219,6 +229,7 @@ export {
 	pairOf,
 	pendingFor,
 	readHistory,
+	readPlantSharing,
 	residencyLinks,
 	residencyRevision,
 	subjectFacts,

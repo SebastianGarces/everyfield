@@ -43,17 +43,18 @@ const seatRow = z.strictObject({
 	revision,
 	accepted_at: z.coerce.date(),
 });
-export async function liveOwner(tx: Transaction, selected: Owner): Promise<boolean> {
+/** Whether an owner exists with that kind and no lifecycle witness hides it. A write locks the root; a read does not. */
+export async function liveOwner(tx: Transaction, selected: Owner, lock = true): Promise<boolean> {
 	if (selected.kind === "global") return false;
 	const root =
 		selected.kind === "plant" ? tables.plant : selected.kind === "account" ? tables.account : tables.organization;
-	const roots = await tx
+	const query = tx
 		.select({ kind: tenant_t.kind, organization_kind: organization_o.kind })
 		.from(root)
 		.innerJoin(tenant_t, eq(tenant_t.id, root.id))
 		.leftJoin(organization_o, eq(organization_o.id, tenant_t.id))
-		.where(eq(root.id, selected.id))
-		.for("share", { of: root });
+		.where(eq(root.id, selected.id));
+	const roots = await (lock ? query.for("share", { of: root }) : query);
 	if (
 		roots.length !== 1 ||
 		roots[0]!.kind !== selected.kind ||
@@ -62,7 +63,7 @@ export async function liveOwner(tx: Transaction, selected: Owner): Promise<boole
 		return false;
 	// The following statement observes lifecycle changes committed while the root lock waited.
 
-	const hidden = await tx
+	const witnesses = tx
 		.select({ id: tables.lifecycle_witness.id })
 		.from(tables.lifecycle_witness)
 		.where(
@@ -74,8 +75,8 @@ export async function liveOwner(tx: Transaction, selected: Owner): Promise<boole
 				sql<boolean>`(${tables.lifecycle_witness.state} NOT IN ('active', 'cancelled'))`,
 			),
 		)
-		.limit(1)
-		.for("share");
+		.limit(1);
+	const hidden = await (lock ? witnesses.for("share") : witnesses);
 	return hidden.length === 0;
 }
 /**
