@@ -138,12 +138,13 @@ export function CardLink({ className, ...props }: ComponentProps<typeof PersonLi
 /**
  * A link to one person from the People list, cards or pipeline. A view switch shows up to a page of new person links
  * at once, and Next.js would prefetch every one that scrolls into view, so a switch would send a request per person.
- * These links prefetch only when a person shows intent (pointer, touch or keyboard focus), so the switch itself
- * sends nothing and opening a person still starts early.
+ * These links prefetch only when a person shows intent: the mouse moves over the link, a finger touches it, or keyboard
+ * focus reaches it. Content that slides under a resting pointer after a move, or focus that code restores when a
+ * dialog closes, is not intent and sends nothing (D68 verifier finding: a stage move sent a profile prefetch).
  */
 export function PersonLink({
 	href,
-	onMouseEnter,
+	onPointerMove,
 	onTouchStart,
 	onFocus,
 	...props
@@ -155,16 +156,16 @@ export function PersonLink({
 			{...props}
 			href={href}
 			prefetch={false}
-			onMouseEnter={(e) => {
-				warm();
-				onMouseEnter?.(e);
+			onPointerMove={(e) => {
+				if (e.pointerType === "mouse") warm();
+				onPointerMove?.(e);
 			}}
 			onTouchStart={(e) => {
 				warm();
 				onTouchStart?.(e);
 			}}
 			onFocus={(e) => {
-				warm();
+				if (e.currentTarget.matches(":focus-visible")) warm();
 				onFocus?.(e);
 			}}
 		/>

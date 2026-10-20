@@ -27,6 +27,7 @@ import {
 	STAGE_KEY,
 	STAGE_LABEL,
 	STAGES,
+	type ColumnValue,
 	type PersonStore,
 	type StageValue,
 } from "./model.ts";
@@ -34,6 +35,7 @@ import { FormProblem, fresh, problemOf, useStore, useWarnings } from "./parts.ts
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
 type Warnings = z.infer<typeof people.statusWarningsResult>;
+type Moved = Extract<Awaited<ReturnType<typeof changeStatus>>, { status: "ok" }>["value"];
 export type StageDraft = { stage: StageValue | null; reason: string };
 /** Drafts of different forms share one store; each form reads its own slot and knows its own shape. */
 export type PersonDraft = unknown;
@@ -54,6 +56,8 @@ export function StageDialog({
 	onOpenChange,
 	store,
 	target,
+	from,
+	onStage,
 	onDone,
 }: {
 	open: boolean;
@@ -61,6 +65,14 @@ export function StageDialog({
 	store: PersonStore<PlantPerson, PersonDraft>;
 	/** A stage chosen before the dialog opened, such as a pipeline drop. */
 	target?: StageValue;
+	/** The pipeline column the person is in now, so the answer also brings that column's new order and revision. */
+	from?: ColumnValue;
+	/**
+	 * The move as it goes: the person at the new stage when sent; the saved person and the touched columns' saved order
+	 * when answered; null if refused.
+	 */
+	onStage?: (person: PlantPerson | null, columns?: Moved["columns"]) => void;
+	/** After a saved move. The dialog never refreshes the page itself (D68); a caller that needs fresh data does. */
 	onDone?: (person: PlantPerson) => void;
 }) {
 	const router = useRouter();
@@ -68,7 +80,10 @@ export function StageDialog({
 	const person = state.saved;
 	const pending = state.pending === "stage";
 	const draft = (state.drafts.stage as StageDraft | undefined) ?? { stage: target ?? null, reason: "" };
-	const warnings = useWarnings(person.id, person.revision);
+	// Read once when the dialog opens and again after a conflict, never because this dialog's own save changed the
+	// person's revision (D68: the warnings request was repeating after every move).
+	const [round, setRound] = useState(0);
+	const warnings = useWarnings(person.id, String(round));
 	const [touched, setTouched] = useState(false);
 
 	const set = (patch: Partial<StageDraft>) =>
@@ -96,16 +111,21 @@ export function StageDialog({
 		if (!chosen || reasonMissing || !ready || chosen === person.stage) return;
 		const input = { personId: person.id, stage: chosen, reason: draft.reason.trim(), handoffs };
 		const rev = person.revision;
-		const result = await runSave(store, "stage", { input, rev }, (key) => changeStatus(key, rev, input), {
+		onStage?.({ ...person, stage: chosen });
+		const result = await runSave(store, "stage", { input, rev }, (key) => changeStatus(key, rev, input, from), {
 			fresh,
-			toPerson: (p) => p,
+			toPerson: (v) => v.person,
 		});
+		if (result?.status === "ok") onStage?.(result.value.person, result.value.columns);
+		else onStage?.(null);
 		if (result?.status === "ok") {
 			setTouched(false);
 			onOpenChange(false);
-			onDone?.(result.value);
+			onDone?.(result.value.person);
+		} else if (result?.status === "refused" && result.code === "conflict") {
+			setRound((r) => r + 1);
 			router.refresh();
-		} else if (result?.status === "refused" && result.code === "conflict") router.refresh();
+		}
 	}
 
 	return (

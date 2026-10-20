@@ -3,10 +3,10 @@ import * as tables from "@everyfield/db/tables";
 
 import { executeWrites } from "../operations/writes.ts";
 import { randomUUID } from "node:crypto";
-import type { z } from "zod";
+import { z } from "zod";
 import * as c from "@everyfield/contracts/people";
 import type { PeopleWriter, AccountPersonProducer } from "@everyfield/contracts/people";
-import { owner, recordId, personId } from "@everyfield/contracts/common";
+import { owner, recordId } from "@everyfield/contracts/common";
 import {
 	authorize,
 	deny,
@@ -35,8 +35,10 @@ export function appendPerson(
 ) {
 	const plant = context.selected.kind === "plant",
 		p = c.createPersonRequest.shape.input.parse(raw);
+	const id = randomUUID(),
+		at = new Date();
 	const row = personRow.parse({
-		id: randomUUID(),
+		id,
 		tenant_id: context.selected.id,
 		plant_id: plant ? context.selected.id : null,
 		organization_id: plant ? null : context.selected.id,
@@ -57,19 +59,41 @@ export function appendPerson(
 		adult_classification: plant ? p.adultClassification : null,
 		birth_date: null,
 		commitment_state: plant ? "unknown" : null,
-		created_at: new Date(),
+		created_at: at,
 		state: "live",
 		retired_at: null,
 		merged_into_person_id: null,
 		linked_account_id: linkedAccountId,
 		revision: "1",
-		pipeline_position: plant ? "0" : null,
+		pipeline_position: plant ? freshPosition(id, at) : null,
 		...contactValues(raw),
 	});
 	writes.push(
 		tx.insert(tables.person).values({ ...row, birth_date: row.birth_date?.toISOString().slice(0, 10) ?? null }),
 	);
+	if (plant) writes.push(columnsChanged(context.selected.id, [row.stage]));
 	return row;
+}
+
+/**
+ * A key at the end of a pipeline column (D68): the time in milliseconds, with a fixed-width fraction from the person's
+ * ID so that two people never share a key. New people, a stage change into another column and a restore get one;
+ * moves inside a column then always find a key strictly between two neighbours.
+ */
+function freshPosition(id: string, at = new Date()): string {
+	return `${at.getTime()}.${BigInt("0x" + id.replaceAll("-", "").slice(-12))
+		.toString()
+		.padStart(15, "0")}`;
+}
+const COMMITTED = ["core_group", "launch_team", "leader"];
+const sameColumn = (a: string, b: string) => a === b || (COMMITTED.includes(a) && COMMITTED.includes(b));
+/**
+ * A person joining or leaving a pipeline column changes the order its viewers see, so the column's revision moves on
+ * in the same write; a move based on the older view is then refused (REQ-PPL-007). One queued statement.
+ */
+function columnsChanged(plantId: string, stages: readonly (string | null)[]): SQLWrapper {
+	const columns = [...new Set(stages.filter((s) => s !== null).map((s) => (COMMITTED.includes(s) ? "core_group" : s)))];
+	return sql`INSERT INTO people_column(plant_id, column_name, revision) SELECT ${plantId}::uuid, c, 2 FROM unnest(${sql.param(columns)}::text[]) c ON CONFLICT (plant_id, column_name) DO UPDATE SET revision = people_column.revision + 1`;
 }
 
 async function output(tx: Tx, ctx: Context, p: Person, id: string, needsOwner: string[] = [], outcome = "changed") {
@@ -227,16 +251,27 @@ export const peopleWriter: PeopleWriter<Tx> = {
 						!["core_group", "launch_team", "leader"].includes(input.input.stage);
 					const needsOwner = !noop && leaving ? await handoff(tx, ctx, before, input.input.handoffs) : [];
 					if (!leaving && input.input.handoffs.length) deny("invalid_input");
+					// Into another column: the person goes to its end with a fresh key (D68).
+					const position = sameColumn(before.stage!, input.input.stage)
+						? before.pipeline_position
+						: freshPosition(before.id);
 					if (!noop)
 						audit.writes.push(
 							tx
 								.update(tables.person)
-								.set({ stage: input.input.stage, revision: sql<unknown>`(${tables.person.revision} + 1)` })
+								.set({
+									stage: input.input.stage,
+									pipeline_position: position,
+									revision: sql<unknown>`(${tables.person.revision} + 1)`,
+								})
 								.where(eq(tables.person.id, before.id)),
 						);
+					if (!noop && !sameColumn(before.stage!, input.input.stage))
+						audit.writes.push(columnsChanged(ctx.selected.id, [before.stage, input.input.stage]));
 					const after = personRow.parse({
 						...before,
 						stage: noop ? before.stage : input.input.stage,
+						pipeline_position: noop ? before.pipeline_position : position,
 						revision: noop ? before.revision : String(BigInt(before.revision) + 1n),
 					});
 					return {
@@ -335,6 +370,7 @@ export async function retire(
 				.returning();
 			after = personRow.parse(updated);
 			if (ctx.selected.kind === "plant") {
+				audit.writes.push(columnsChanged(ctx.selected.id, [before.stage]));
 				audit.writes.push(
 					tx
 						.update(tables.team_tenure)
@@ -380,7 +416,7 @@ export async function restore(
 	input: z.infer<typeof c.restorePersonRequest>,
 	name: Parameters<typeof mutation>[2],
 ) {
-	return mutation(tx, ctx, name, input, async (_a, id) => {
+	return mutation(tx, ctx, name, input, async (_a, id, audit) => {
 		const before = await person(tx, ctx, input.input.personId, true);
 		expected(before, input.expectedRevision);
 		if (before.state === "merged") deny("use_reviewed_unmerge");
@@ -389,10 +425,17 @@ export async function restore(
 			try {
 				const [updated] = await tx
 					.update(tables.person)
-					.set({ state: "live", retired_at: null, revision: sql<unknown>`(${tables.person.revision} + 1)` })
+					.set({
+						state: "live",
+						retired_at: null,
+						// Back at the end of its column with a fresh key (D68); organization people have no position.
+						...(before.pipeline_position === null ? {} : { pipeline_position: freshPosition(before.id) }),
+						revision: sql<unknown>`(${tables.person.revision} + 1)`,
+					})
 					.where(eq(tables.person.id, before.id))
 					.returning();
 				after = personRow.parse(updated);
+				if (before.pipeline_position !== null) audit.writes.push(columnsChanged(ctx.selected.id, [before.stage]));
 			} catch (error) {
 				// The unique live account/plant index also arbitrates concurrent relinks.
 				// reply() rolls this statement back to its savepoint before returning.
@@ -618,93 +661,66 @@ async function classify(tx: Tx, ctx: WriteContext, raw: unknown, correction: boo
 		);
 	});
 }
+/**
+ * Places one person in a pipeline column (D68): right after `afterId`, or first. The person gets a sortable key between
+ * the two neighbours, so a move changes one row and writes one audit event, whatever the column's size. The column's
+ * revision is the lock: a move against an order that changed meanwhile is refused (REQ-PPL-007).
+ */
 async function pipelineOrder(tx: Tx, ctx: WriteContext, input: z.infer<typeof c.reorderPipelineRequest>) {
 	return c.noteMutationResult.pick({ receiptId: true, outcome: true }).parse(
 		await mutation(tx, ctx, "people.reorderPipeline", input, async (actor, id, audit) => {
-			await tx
-				.insert(tables.people_column)
-				.values({ plant_id: ctx.selected.id, column_name: input.input.column })
-				.onConflictDoNothing();
-			const col = await tx
-				.select({ revision: tables.people_column.revision })
-				.from(tables.people_column)
-				.where(
-					and(
-						eq(tables.people_column.plant_id, ctx.selected.id),
-						eq(tables.people_column.column_name, input.input.column),
-					),
-				)
-				.for("update");
-			if (col[0]!.revision !== input.expectedRevision) deny("conflict");
-			const ids = input.input.personIds;
-			if (!ids.length)
-				return {
-					value: { receiptId: id, outcome: "noop" },
-					subject: ctx.selected.id,
-					action: "people.updated",
-					outcome: "noop",
-				};
-			const stages =
-				input.input.column === "core_group" ? ["core_group", "launch_team", "leader"] : [input.input.column];
-			const rows = await tx
-				.select()
-				.from(tables.person)
-				.where(
-					and(
-						and(eq(tables.person.plant_id, ctx.selected.id), eq(tables.person.state, "live")),
-						eq(tables.person.stage, sql<unknown>`any(${sql.param(stages)})`),
-					),
-				)
-				.orderBy(asc(tables.person.id))
-				.for("update");
-			if (rows.length !== ids.length || rows.some((p) => !ids.includes(personId.parse(p.id)))) deny("conflict");
-			const positions = ids.map((pid, i) => ({ id: pid, position: String(i) }));
-			audit.writes.push(
-				sql`UPDATE person p SET pipeline_position=v.position,revision=p.revision+1 FROM jsonb_to_recordset(${JSON.stringify(positions)}::jsonb) v(id uuid,position bigint) WHERE p.id=v.id AND p.tenant_id=${ctx.selected.id}::uuid`,
+			const { column, personId: moving, afterId } = input.input;
+			const stages = column === "core_group" ? ["core_group", "launch_team", "leader"] : [column];
+			// One statement locks the column row and takes its next revision (a first move creates it at 2), and finds the
+			// key between the anchor and the next person in column order; the key is null when those two share one.
+			// The midpoint multiplies by 0.5: numeric multiplication is exact, where division rounds and could land on a
+			// neighbour after many moves into the same gap.
+			const found = placeRow.parse(
+				(
+					await tx.execute(sql`WITH lock AS (
+						INSERT INTO people_column(plant_id, column_name, revision) VALUES (${ctx.selected.id}, ${column}, 2)
+						ON CONFLICT (plant_id, column_name) DO UPDATE SET revision = people_column.revision + 1 RETURNING revision),
+					col AS (
+						SELECT id, pipeline_position AS k, row_number() OVER (ORDER BY pipeline_position, created_at, id) AS n
+						FROM person WHERE plant_id=${ctx.selected.id} AND state='live' AND stage=ANY(${sql.param(stages)}) AND id<>${moving}),
+					anchor AS (SELECT coalesce((SELECT n FROM col WHERE id=${afterId}::uuid), 0) AS n, (SELECT k FROM col WHERE id=${afterId}::uuid) AS k)
+					SELECT (SELECT revision FROM lock)::text AS revision,
+						${afterId}::uuid IS NULL OR EXISTS(SELECT FROM col WHERE id=${afterId}::uuid) AS found,
+						(CASE WHEN ${afterId}::uuid IS NULL
+							THEN coalesce((SELECT k - 1 FROM col WHERE n=1), (SELECT pipeline_position FROM person WHERE id=${moving}::uuid))
+							ELSE (SELECT CASE WHEN nx.k IS NULL THEN a.k + 1 WHEN nx.k > a.k THEN (a.k + nx.k) * 0.5 END
+								FROM anchor a LEFT JOIN col nx ON nx.n = a.n + 1) END)::text AS key`)
+				).rows[0],
 			);
-			for (const [i, pid] of ids.entries()) {
-				const before = personRow.parse(rows.find((p) => p.id === pid)),
-					after = personRow.parse({
-						...before,
-						pipeline_position: String(i),
-						revision: String(BigInt(before.revision) + 1n),
-					}),
-					delta = personChanges(before, after);
-				audit.events.push({
-					id: randomUUID(),
-					tenant_id: ctx.selected.id,
-					subject_type: "person",
-					subject_id: pid,
-					command_id: id,
-					actor_id: actor,
-					actor_token: hash([ctx.selected.id, actor]),
-					action: "people.updated",
-					kind: "edit",
-					before_revision: before.revision,
-					after_revision: after.revision,
-					before_value: delta.before,
-					after_value: delta.after,
-				});
-			}
+			if (BigInt(found.revision) - 1n !== BigInt(input.expectedRevision)) deny("conflict");
+			const before = await person(tx, ctx, moving, true);
+			if (before.state !== "live" || !stages.includes(before.stage!)) deny("conflict");
+			if (!found.found) deny("conflict");
+			// Keys are unique in a column (new, re-staged and restored people get a fresh key, and migration 0015 spread the
+			// old ones), so a key strictly between two neighbours always exists and a move changes exactly one row.
+			const after = personRow.parse({
+				...before,
+				pipeline_position: z.string().parse(found.key),
+				revision: String(BigInt(before.revision) + 1n),
+			});
 			audit.writes.push(
 				tx
-					.update(tables.people_column)
-					.set({ revision: sql<unknown>`(${tables.people_column.revision} + 1)` })
-					.where(
-						and(
-							eq(tables.people_column.plant_id, ctx.selected.id),
-							eq(tables.people_column.column_name, input.input.column),
-						),
-					),
+					.update(tables.person)
+					.set({ pipeline_position: after.pipeline_position, revision: sql<unknown>`(${tables.person.revision} + 1)` })
+					.where(and(eq(tables.person.plant_id, ctx.selected.id), eq(tables.person.id, moving))),
 			);
+			// The write's one audit event, from the wrapper, names the moved person (D70).
 			return {
 				value: { receiptId: id, outcome: "changed" },
-				subject: ctx.selected.id,
+				subject: moving,
 				action: "people.updated",
+				before,
+				after,
 			};
 		}),
 	);
 }
+const placeRow = z.object({ revision: z.string(), found: z.boolean(), key: z.string().nullable() });
 export const accountPersonProducer: AccountPersonProducer<Tx> = {
 	async ensureAccountPerson(tx, raw) {
 		return reply(tx, async () => {

@@ -18,7 +18,7 @@ import {
 	type Person,
 } from "./core.ts";
 import { readViewer, type RequestActor } from "../access/session.ts";
-import type { sessionId } from "@everyfield/contracts/common";
+import { revision, type sessionId } from "@everyfield/contracts/common";
 import type { Tx, Context } from "./core.ts";
 const task_t = alias(tables.task, "t");
 const plant_p = alias(tables.plant, "p");
@@ -392,3 +392,31 @@ export async function readPeopleViewer(db: Parameters<typeof readViewer>[0], ses
 	const viewer = v?.authority ? peopleViewer(v.authority, v.person) : null;
 	return viewer ? ({ status: "viewer", viewer } as const) : ({ status: "no_access" } as const);
 }
+
+/**
+ * Pipeline columns' saved order and revision, in one query inside the move's own transaction (D68). A reorder answers
+ * with its column, a stage change with the column the person left and the one they joined, instead of re-reading the
+ * whole pipeline. Each column lists every person's revision, which the page's next move must send.
+ */
+export async function readColumnOrders(tx: Tx, ctx: Context, columns: readonly z.infer<typeof c.pipelineColumn>[]) {
+	const result = await tx.execute(sql`SELECT u.c AS column,
+		coalesce((SELECT revision::text FROM people_column WHERE plant_id=${ctx.selected.id} AND column_name=u.c), '1') AS revision,
+		coalesce((SELECT json_agg(json_build_object('id', id, 'revision', revision::text) ORDER BY pipeline_position, created_at, id)
+			FROM person WHERE plant_id=${ctx.selected.id} AND state='live'
+			AND stage=ANY(CASE WHEN u.c='core_group' THEN ARRAY['core_group','launch_team','leader'] ELSE ARRAY[u.c] END)), '[]') AS people
+		FROM unnest(${sql.param(columns)}::text[]) WITH ORDINALITY AS u(c, i) ORDER BY u.i`);
+	return result.rows.map((r) => {
+		const row = columnRow.parse(r);
+		return {
+			column: row.column,
+			revision: row.revision,
+			personIds: row.people.map((p) => p.id),
+			personRevisions: Object.fromEntries(row.people.map((p) => [p.id, p.revision])),
+		};
+	});
+}
+const columnRow = z.object({
+	column: c.pipelineColumn,
+	revision: z.string(),
+	people: z.array(z.object({ id: z.uuid(), revision })),
+});

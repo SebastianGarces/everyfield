@@ -94,14 +94,16 @@ export const restorePersonRequest = commandEnvelope(z.strictObject({ personId })
 export const classifyAdultRequest = commandEnvelope(
 	z.strictObject({ personId, classification: adultClassification, occurredOn: localDate, reason }),
 );
+// Places one person in a pipeline column: right after `afterId`, or first when it is null. The expected revision is the
+// column's, so a move against an order that changed meanwhile is refused (REQ-PPL-007).
 export const reorderPipelineRequest = commandEnvelope(
-	z.strictObject({
-		column: z.enum(["prospect", "attendee", "following_up", "interviewed", "core_group"]),
-		personIds: z
-			.array(personId)
-			.max(100)
-			.refine((v) => new Set(v).size === v.length),
-	}),
+	z
+		.strictObject({
+			column: z.enum(["prospect", "attendee", "following_up", "interviewed", "core_group"]),
+			personId,
+			afterId: personId.nullable(),
+		})
+		.refine((v) => v.afterId !== v.personId),
 );
 export const pipelineMetricsRequest = z
 	.strictObject({ asOf: instant, from: localDate, through: localDate })
