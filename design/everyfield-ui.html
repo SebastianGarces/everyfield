@@ -300,7 +300,7 @@ button { font: inherit; color: inherit; }
   box-shadow: var(--ef-shadow-nav);
 }
 .brand-pill { display: flex; align-items: center; gap: 12px; height: var(--ef-topbar-h); padding: 0 24px; color: var(--ef-ink); }
-.brand-pill svg.lockup { height: 26px; width: auto; display: block; }
+.brand-pill svg.lockup { height: 28px; width: auto; display: block; }
 .brand-pill .logo-mark { display: none; }
 .topnav { display: flex; align-items: center; gap: 2px; height: var(--ef-topbar-h); padding: 0 8px; margin: 0 auto; }
 .topnav a {
@@ -1719,10 +1719,10 @@ body[data-role="member"] [data-author-only] { display: none !important; }
     <path fill="currentColor" d="M175.446 180.781L130.631 73.1732C128.268 67.4342 124.216 63.6362 118.477 61.7795L114.933 60.7667V58.2347H180.51V60.7667L175.952 61.7795C169.369 63.4674 167.344 67.8561 169.876 74.9456L196.461 145.587L221.274 75.452C222.625 72.076 222.962 69.2909 222.287 67.0965C221.612 64.9022 219.586 63.2986 216.21 62.2859L209.881 60.7667V58.2347H246.594V60.7667L239.251 62.5391C236.044 63.383 233.512 64.649 231.655 66.337C229.967 68.0249 228.533 70.5569 227.351 73.9328L190.131 180.781H175.446Z"/>
     <path fill="currentColor" d="M62.5391 54.4368C73.5108 54.4368 82.879 56.7156 90.6436 61.2731C98.4083 65.6618 104.316 71.7385 108.367 79.5031C112.587 87.0989 114.697 95.7919 114.697 105.582C114.697 107.439 114.613 109.38 114.444 111.406C114.275 113.262 113.938 114.95 113.431 116.47H37.9792C38.148 134.7 41.3551 147.866 47.6006 155.968C54.0148 163.901 63.4674 167.868 75.9583 167.868C84.3982 167.868 91.2344 166.518 96.4671 163.817C101.7 161.116 106.595 157.149 111.152 151.917L113.684 154.195C108.452 163.479 101.447 170.738 92.6692 175.97C84.0606 181.203 73.6796 183.819 61.5263 183.819C49.5417 183.819 38.9076 181.287 29.6238 176.223C20.34 170.991 13.0817 163.564 7.84903 153.942C2.61635 144.321 0 132.843 0 119.508C0 105.667 3.03834 93.9352 9.11501 84.3138C15.1917 74.5236 22.9563 67.0966 32.4089 62.0327C42.0303 56.9688 52.0737 54.4368 62.5391 54.4368ZM61.7795 59.5007C56.8844 59.5007 52.6645 61.0199 49.1197 64.0582C45.7438 66.9278 43.0431 72.1605 41.0175 79.7563C39.1608 87.1833 38.148 97.7331 37.9792 111.406H81.2755C82.9634 93.0068 82.2882 79.7563 79.2499 71.6541C76.2116 63.5518 70.3881 59.5007 61.7795 59.5007Z"/>
   </symbol>
-  <!-- Lockup: symbol scaled to the wordmark x-height band, wordmark shifted right (Sebastian's 1301x241 lockup geometry). -->
-  <symbol id="ef-lockup" viewBox="0 0 1301 241">
-    <use href="#ef-mark" x="0" y="22.895" width="195.283" height="195.283"/>
-    <use href="#ef-wordmark" x="249.154" y="0" width="1052" height="241"/>
+  <!-- Lockup: the symbol fills the full height, the wordmark sits to its right (Sebastian's 1443x261 lockup geometry). -->
+  <symbol id="ef-lockup" viewBox="0 0 1443 261">
+    <use href="#ef-mark" x="0" y="0" width="260.409" height="260.409"/>
+    <use href="#ef-wordmark" x="391.154" y="10.346" width="1052" height="241"/>
   </symbol>
 </svg>
 
@@ -1730,7 +1730,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
   <!-- ================= TOPBAR  <Topbar> ================= -->
   <header class="topbar">
     <a href="#/overview" class="brand-pill pill-surface" aria-label="Everyfield home">
-      <svg class="lockup" viewBox="0 0 1301 241" aria-hidden="true"><use href="#ef-lockup"/></svg>
+      <svg class="lockup" viewBox="0 0 1443 261" aria-hidden="true"><use href="#ef-lockup"/></svg>
       <span class="logo-mark"><svg viewBox="0 0 340 340" aria-hidden="true"><use href="#ef-mark"/></svg></span>
     </a>
     <nav class="topnav pill-surface" aria-label="Main">
@@ -1795,9 +1795,9 @@ body[data-role="member"] [data-author-only] { display: none !important; }
   <div class="doc-section">
     <div class="doc-h"><h2>Logo</h2><code>#ef-mark · #ef-wordmark · #ef-lockup</code></div>
     <div class="grid g-3">
-      <div class="brand-tile" style="background:var(--ef-ink);color:var(--ef-cream)"><svg viewBox="0 0 1301 241" width="260" aria-label="Everyfield"><use href="#ef-lockup"/></svg></div>
-      <div class="brand-tile" style="background:var(--ef-green);color:var(--ef-ink)"><svg viewBox="0 0 1301 241" width="260" aria-label="Everyfield"><use href="#ef-lockup"/></svg></div>
-      <div class="brand-tile" style="background:var(--ef-cream);color:var(--ef-ink);box-shadow:var(--ef-shadow-card)"><svg viewBox="0 0 1301 241" width="260" aria-label="Everyfield"><use href="#ef-lockup"/></svg></div>
+      <div class="brand-tile" style="background:var(--ef-ink);color:var(--ef-cream)"><svg viewBox="0 0 1443 261" width="288" aria-label="Everyfield"><use href="#ef-lockup"/></svg></div>
+      <div class="brand-tile" style="background:var(--ef-green);color:var(--ef-ink)"><svg viewBox="0 0 1443 261" width="288" aria-label="Everyfield"><use href="#ef-lockup"/></svg></div>
+      <div class="brand-tile" style="background:var(--ef-cream);color:var(--ef-ink);box-shadow:var(--ef-shadow-card)"><svg viewBox="0 0 1443 261" width="288" aria-label="Everyfield"><use href="#ef-lockup"/></svg></div>
     </div>
     <div class="row gap-6 mt-4 muted t-sm"><span>In the app: ink mark, no background (top bar). Chips below are for avatars, favicons and social images.</span><span class="row gap-2"><span class="logo-chip"><svg viewBox="0 0 340 340" style="color:var(--ef-green)"><use href="#ef-mark"/></svg></span><span class="logo-chip" style="background:var(--ef-green)"><svg viewBox="0 0 340 340" style="color:var(--ef-ink)"><use href="#ef-mark"/></svg></span><span class="logo-chip" style="background:var(--ef-cream)"><svg viewBox="0 0 340 340" style="color:var(--ef-ink)"><use href="#ef-mark"/></svg></span></span></div>
   </div>
@@ -2312,7 +2312,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
   <aside class="sidebar">
     <div class="sidebar-brand">
       <a class="row gap-3" style="color:var(--ef-ink)">
-        <svg class="lockup" viewBox="0 0 1301 241" height="24" aria-label="Everyfield"><use href="#ef-lockup"/></svg>
+        <svg class="lockup" viewBox="0 0 1443 261" height="26" aria-label="Everyfield"><use href="#ef-lockup"/></svg>
       </a>
       <button class="icon-btn" data-size="sm" title="Collapse sidebar" ><i class="hgi-stroke hgi-sidebar-left"></i></button>
     </div>
@@ -3564,7 +3564,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 <section class="page" data-page="signin">
   <div class="auth">
     <div class="auth-brand">
-      <a href="#/overview" class="row gap-3" style="color:var(--ef-cream)"><svg viewBox="0 0 1301 241" height="30" aria-label="Everyfield"><use href="#ef-lockup"/></svg></a>
+      <a href="#/overview" class="row gap-3" style="color:var(--ef-cream)"><svg viewBox="0 0 1443 261" height="32" aria-label="Everyfield"><use href="#ef-lockup"/></svg></a>
       <div class="auth-quote">
         <div style="font-family:var(--ef-font-display);font-size:44px;line-height:1.08;letter-spacing:-.02em">Gather your people.<br>Plant your church.</div>
         <p style="margin-top:16px;color:rgba(246,240,233,.72);max-width:420px">The Launch Playbook, your people, meetings and ministries in one place.</p>
@@ -3595,7 +3595,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 <section class="page" data-page="onboarding">
   <div class="onb">
     <header class="onb-top">
-      <div class="row gap-3" style="color:var(--ef-ink)"><svg viewBox="0 0 1301 241" height="24" aria-label="Everyfield"><use href="#ef-lockup"/></svg></div>
+      <div class="row gap-3" style="color:var(--ef-ink)"><svg viewBox="0 0 1443 261" height="26" aria-label="Everyfield"><use href="#ef-lockup"/></svg></div>
       <div class="onb-steps">
         <span data-state="done"><i class="hgi-stroke hgi-tick-02"></i>Your church</span>
         <span data-state="current"><b>2</b>Where you are</span>
