@@ -94,8 +94,6 @@ export function HowToSteps({
 		</ol>
 	);
 }
-export const HowTo = { Steps: HowToSteps, Ref: UiRef };
-
 /**
  * Faq (components.md, FAQ item): Question and Answer on the Accordion primitive. Several can be open at once; each
  * question is a button with aria-expanded, and the plus turns into a cross when open.
