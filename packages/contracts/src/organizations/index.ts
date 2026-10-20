@@ -1,4 +1,4 @@
-export * from "./subjects.ts";
 export * from "./requests.ts";
 export * from "./results.ts";
-export type { OrganizationOperations, OrganizationAdapter } from "./server.ts";
+export type { OrganizationAdapter, OrganizationOperations } from "./server.ts";
+export * from "./subjects.ts";

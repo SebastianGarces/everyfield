@@ -1,11 +1,14 @@
-import { getTableColumns, and, eq, isNotNull, isNull, lte, sql } from "@everyfield/db/query";
-import * as tables from "@everyfield/db/tables";
-import { alias } from "@everyfield/db/columns";
-import type { Transaction } from "@everyfield/db/client";
-import { z } from "zod";
-import { recordId, accountId, tenantId, revision, type Owner, type sessionId } from "@everyfield/contracts/common";
-import * as Q from "@everyfield/contracts/organizations";
+import { writeActor } from "./core.ts";
+import { accountId, recordId, revision, tenantId, type Owner, type sessionId } from "@everyfield/contracts/common";
 import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
+import * as Q from "@everyfield/contracts/organizations";
+import type { Transaction } from "@everyfield/db/client";
+import { alias } from "@everyfield/db/columns";
+import { and, eq, getTableColumns, isNotNull, isNull, lte, sql } from "@everyfield/db/query";
+import * as tables from "@everyfield/db/tables";
+import { readOwnResidency } from "@everyfield/domain/access";
+import { z } from "zod";
+import { auditSavepoint } from "../operations/writes.ts";
 import {
 	active,
 	administrator,
@@ -15,7 +18,6 @@ import {
 	currentActor,
 	finishCommand,
 	invalidate,
-	liveOwner,
 	loadAffiliation,
 	pairOf,
 	refuse,
@@ -23,11 +25,7 @@ import {
 	unavailable,
 	type OrganizationEffects,
 } from "./core.ts";
-import { readOwnResidency, readPipelinePerson } from "@everyfield/domain/access";
-const residency_link_l = alias(tables.residency_link, "l");
 const affiliation_a = alias(tables.affiliation, "a");
-const invitation_i = alias(tables.invitation, "i");
-const person_p = alias(tables.person, "p");
 const pipeline_sharing_p = alias(tables.pipeline_sharing, "p");
 const residentRow = z.object({
 	id: recordId,
@@ -50,96 +48,6 @@ export async function loadResident(tx: Transaction, id: string, write = false) {
 		.where(eq(tables.residency_link.id, id))
 		.for(write ? "update" : "share", { of: tables.residency_link });
 	return rows[0] ? residentRow.parse(rows[0]) : null;
-}
-// All saved-result/export/job/byte/model consumers must pass the original witness
-// through this current gate, before loading any progress. It returns no progress.
-export async function canReadResidentProgress(
-	tx: Transaction,
-	session: z.infer<typeof sessionId>,
-	selected: Owner,
-	raw: unknown,
-): Promise<boolean> {
-	const q = z
-		.strictObject({ linkId: recordId, consentRevision: revision, category: z.enum(["foundations", "milestones"]) })
-		.parse(raw);
-	const l = await loadResident(tx, q.linkId);
-	if (
-		!l ||
-		l.ended_at !== null ||
-		l.consent_revision !== q.consentRevision ||
-		!(q.category === "foundations" ? l.share_foundations : l.share_milestones) ||
-		selected.kind !== "organization" ||
-		selected.id !== l.organization_id
-	)
-		return false;
-	const access = await readPipelinePerson(tx, session, selected, { personId: l.person_id });
-	if (access.status !== "allowed") return false;
-	if (l.account_id === null || !(await liveOwner(tx, { kind: "account", id: l.account_id }))) return false;
-	const source = await tx
-		.select({ id: residency_link_l.id })
-		.from(residency_link_l)
-		.innerJoin(
-			affiliation_a,
-			and(
-				and(
-					eq(affiliation_a.id, residency_link_l.affiliation_id),
-					eq(affiliation_a.account_id, residency_link_l.account_id),
-				),
-				eq(affiliation_a.organization_id, residency_link_l.organization_id),
-			),
-		)
-		.innerJoin(
-			invitation_i,
-			and(
-				and(
-					eq(invitation_i.id, residency_link_l.invitation_id),
-					eq(invitation_i.tenant_id, residency_link_l.organization_id),
-				),
-				eq(invitation_i.accepted_account_id, residency_link_l.account_id),
-			),
-		)
-		.innerJoin(
-			person_p,
-			and(
-				and(eq(person_p.id, residency_link_l.person_id), eq(person_p.tenant_id, residency_link_l.organization_id)),
-				eq(person_p.linked_account_id, residency_link_l.account_id),
-			),
-		)
-		.where(
-			and(
-				and(
-					and(
-						and(
-							and(
-								and(
-									and(
-										and(
-											and(eq(residency_link_l.id, l.id), isNull(residency_link_l.ended_at)),
-											lte(
-												residency_link_l.accepted_at,
-												sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-											),
-										),
-										isNull(affiliation_a.ended_at),
-									),
-									lte(
-										affiliation_a.accepted_at,
-										sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-									),
-								),
-								eq(invitation_i.state, "accepted"),
-							),
-							eq(invitation_i.purpose, "residency_link"),
-						),
-						eq(invitation_i.resident_person_id, residency_link_l.person_id),
-					),
-					eq(person_p.state, "live"),
-				),
-				sql<unknown>`(NOT exists(SELECT  FROM lifecycle_witness  AS w  WHERE ((w .affiliation_id = a .id) AND (w .state != ('active')))))`,
-			),
-		)
-		.for("share", { of: [residency_link_l, affiliation_a, invitation_i, person_p] });
-	return source.length === 1;
 }
 export function consentOperations(
 	effects: OrganizationEffects,
@@ -175,10 +83,14 @@ export function consentOperations(
 			});
 		},
 		async "residency.setSharing"(tx, session, selected, raw) {
-			return changeResident(tx, session, selected, raw, false);
+			return auditSavepoint(tx, async () => {
+				return changeResident(tx, session, selected, raw, false);
+			});
 		},
 		async "residency.leave"(tx, session, selected, raw) {
-			return changeResident(tx, session, selected, raw, true);
+			return auditSavepoint(tx, async () => {
+				return changeResident(tx, session, selected, raw, true);
+			});
 		},
 		async "pipelineSharing.readConsent"(tx, session, selected, raw) {
 			const q = Q.pipelineConsentRequest.parse(raw),
@@ -216,49 +128,51 @@ export function consentOperations(
 			});
 		},
 		async "pipelineSharing.setConsent"(tx, session, selected, raw) {
-			const q = Q.setPipelineConsentRequest.parse(raw),
-				a = await loadAffiliation(tx, q.input.relationshipId, true),
-				actor = await currentActor(tx, session, selected);
-			if (
-				!a ||
-				actor.status !== "active" ||
-				!administrator(actor) ||
-				selected.kind !== "organization" ||
-				selected.organizationKind !== "sending_church" ||
-				a.sending_church_id !== selected.id ||
-				!(await active(tx, a))
-			)
-				refuse();
-			const c = await beginCommand(tx, actor, selected, "pipelineSharing.setConsent", q);
-			if (c.kind === "replay") return Q.mutationResult.parse(c.result);
-			checkRevision(q.expectedRevision, a.revision);
-			await tx
-				.insert(tables.pipeline_sharing)
-				.values({
-					id: sql`gen_random_uuid()`,
-					organization_id: selected.id,
-					relationship_id: a.id,
-					network_id: a.organization_id,
-					share_pipeline_totals: q.input.sharePipelineTotals,
-					changed_by: actor.accountId,
-					revision: "1",
-				})
-				.onConflictDoUpdate({
-					target: tables.pipeline_sharing.relationship_id,
-					set: {
+			return auditSavepoint(tx, async () => {
+				const q = Q.setPipelineConsentRequest.parse(raw),
+					a = await loadAffiliation(tx, q.input.relationshipId, true),
+					actor = await writeActor(tx, session, selected);
+				if (
+					!a ||
+					actor.status !== "active" ||
+					!administrator(actor) ||
+					selected.kind !== "organization" ||
+					selected.organizationKind !== "sending_church" ||
+					a.sending_church_id !== selected.id ||
+					!(await active(tx, a))
+				)
+					refuse();
+				const c = await beginCommand(tx, actor, selected, "pipelineSharing.setConsent", q);
+				if (c.kind === "replay") return Q.mutationResult.parse(c.result);
+				checkRevision(q.expectedRevision, a.revision);
+				await tx
+					.insert(tables.pipeline_sharing)
+					.values({
+						id: sql`gen_random_uuid()`,
+						organization_id: selected.id,
+						relationship_id: a.id,
+						network_id: a.organization_id,
 						share_pipeline_totals: q.input.sharePipelineTotals,
 						changed_by: actor.accountId,
-						revision: sql`${tables.pipeline_sharing.revision}+1`,
-					},
-				});
-			await tx
-				.update(tables.affiliation)
-				.set({ revision: sql<unknown>`(${tables.affiliation.revision} + 1)` })
-				.where(eq(tables.affiliation.id, a.id));
-			const next = String(BigInt(a.revision) + 1n),
-				event = await appendEvent(tx, c, a.id, "preference", "sharing.changed", a.revision, next);
-			await invalidate(tx, effects, pairOf(a), a.id, next);
-			return finishCommand(tx, c, (r) => Q.mutationResult.parse({ status: "committed", receipt: r }), [event]);
+						revision: "1",
+					})
+					.onConflictDoUpdate({
+						target: tables.pipeline_sharing.relationship_id,
+						set: {
+							share_pipeline_totals: q.input.sharePipelineTotals,
+							changed_by: actor.accountId,
+							revision: sql`${tables.pipeline_sharing.revision}+1`,
+						},
+					});
+				await tx
+					.update(tables.affiliation)
+					.set({ revision: sql<unknown>`(${tables.affiliation.revision} + 1)` })
+					.where(eq(tables.affiliation.id, a.id));
+				const next = String(BigInt(a.revision) + 1n);
+				await appendEvent(tx, c, a.id, "preference", "sharing.changed", a.revision, next);
+				await invalidate(tx, effects, pairOf(a), a.id, next);
+				return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
+			});
 		},
 		async "pipelineSharing.checkAggregateAccess"(tx, session, selected, raw) {
 			const q = Q.pipelineAggregateAccessRequest.parse(raw),
@@ -311,7 +225,7 @@ export function consentOperations(
 	) {
 		const q = leave ? Q.leaveResidencyRequest.parse(raw) : Q.setResidencySharingRequest.parse(raw),
 			l = await loadResident(tx, q.input.linkId, true),
-			actor = await currentActor(tx, session, selected);
+			actor = await writeActor(tx, session, selected);
 		if (!l || actor.status !== "active" || selected.kind !== "account" || selected.id !== l.account_id) refuse();
 		const organization = Q.organizationOwner.parse({
 			kind: "organization",
@@ -324,7 +238,7 @@ export function consentOperations(
 		if (c.kind === "replay") return Q.mutationResult.parse(c.result);
 		if (l.ended_at !== null) {
 			if (!leave) refuse();
-			return finishCommand(tx, c, (r) => Q.mutationResult.parse({ status: "committed", receipt: r }), [], false);
+			return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
 		}
 		checkRevision(q.expectedRevision, l.revision);
 		checkRevision(q.input.expectedConsentRevision, l.consent_revision);
@@ -342,13 +256,13 @@ export function consentOperations(
 				ended_at: sql<unknown>`CASE WHEN ${sql.param(leave)} THEN clock_timestamp() ELSE NULL END`,
 			})
 			.where(eq(tables.residency_link.id, l.id));
-		const next = String(BigInt(l.revision) + 1n),
-			event = await appendEvent(tx, c, l.id, leave ? "remove" : "preference", null, l.revision, next);
+		const next = String(BigInt(l.revision) + 1n);
+		await appendEvent(tx, c, l.id, leave ? "remove" : "preference", null, l.revision, next);
 		await tx
 			.update(tables.organization)
 			.set({ material_revision: sql<unknown>`(${tables.organization.material_revision} + 1)` })
 			.where(eq(tables.organization.id, l.organization_id));
-		await effects.invalidate(tx, { owner: organization, sourceId: l.id, revision: next });
-		return finishCommand(tx, c, (r) => Q.mutationResult.parse({ status: "committed", receipt: r }), [event]);
+		await effects.invalidate(tx, { owners: [organization], sourceId: l.id, revision: next });
+		return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
 	}
 }

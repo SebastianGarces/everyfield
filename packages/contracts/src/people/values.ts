@@ -1,13 +1,13 @@
 import { z } from "zod";
-import { owner, personId, recordId, revision } from "../common/values.ts";
 import { instant, localDate } from "../common/time.ts";
+import { owner, personId, recordId, revision } from "../common/values.ts";
 
 export const plantOwner = owner.transform((value, ctx) => {
 	if (value.kind === "plant") return value;
 	ctx.addIssue({ code: "custom", message: "Expected a plant owner" });
 	return z.NEVER;
 });
-export { tenantOwner, organizationOwner } from "../access/results.ts";
+export { organizationOwner, tenantOwner } from "../access/results.ts";
 export const stage = z.enum([
 	"prospect",
 	"attendee",

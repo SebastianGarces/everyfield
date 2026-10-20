@@ -76,8 +76,8 @@ function command(key: string, expected: string, kind: "activate" | "rollback" = 
 async function counts() {
 	return (
 		await db.execute(querySql`SELECT (SELECT count(*)::int FROM reference_activation) AS activations,
-    (SELECT count(*)::int FROM reference_release) AS releases,(SELECT count(*)::int FROM operation) AS operations,
-    (SELECT count(*)::int FROM event) AS events`)
+    (SELECT count(*)::int FROM reference_release) AS releases,(SELECT count(*)::int FROM audit_event) AS operations,
+    (SELECT count(*)::int FROM audit_event) AS events`)
 	).rows[0];
 }
 async function refused(cmd: Promotion, code: string) {
@@ -257,7 +257,7 @@ test("INV-reference-atomicity: required audit fault rolls back candidate, mappin
 		querySql`CREATE FUNCTION fail_reference_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic audit fault' USING ERRCODE='P0001'; END $$`,
 	);
 	await db.execute(
-		querySql`CREATE TRIGGER fail_reference_audit BEFORE INSERT ON event FOR EACH ROW EXECUTE FUNCTION fail_reference_audit()`,
+		querySql`CREATE TRIGGER fail_reference_audit BEFORE INSERT ON audit_event FOR EACH ROW EXECUTE FUNCTION fail_reference_audit()`,
 	);
 	try {
 		await assert.rejects(
@@ -271,7 +271,7 @@ test("INV-reference-atomicity: required audit fault rolls back candidate, mappin
 				e.cause.code === "P0001",
 		);
 	} finally {
-		await db.execute(querySql`DROP TRIGGER fail_reference_audit ON event`);
+		await db.execute(querySql`DROP TRIGGER fail_reference_audit ON audit_event`);
 	}
 	assert.deepEqual(await counts(), { activations: 3, releases: 2, operations: 4, events: 4 });
 	assert.equal((await service.current())?.release_key, "R1");

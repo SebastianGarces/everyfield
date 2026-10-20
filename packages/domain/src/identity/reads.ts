@@ -53,3 +53,14 @@ export async function readAccountContact(tx: Transaction, accountId: string) {
 	const result = await tx.execute(sql`SELECT * FROM access_account_contact(${accountId})`);
 	return z.object({ email: z.email() }).parse(result.rows[0]).email;
 }
+
+export async function readAccountContacts(
+	tx: Transaction,
+	accounts: readonly string[],
+): Promise<ReadonlyMap<string, string>> {
+	const result = await tx.execute(
+		sql`SELECT a.id,c.email FROM account a CROSS JOIN LATERAL access_account_contact(a.id) c WHERE a.id=ANY(${sql.param(accounts)}::uuid[])`,
+	);
+	const rows = z.array(z.object({ id: z.uuid(), email: z.email() })).parse(result.rows);
+	return new Map(rows.map((row) => [row.id, row.email]));
+}

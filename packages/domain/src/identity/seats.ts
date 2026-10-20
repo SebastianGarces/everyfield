@@ -1,10 +1,11 @@
-import "server-only";
+import { sessionId, type Owner } from "@everyfield/contracts/common";
+import * as c from "@everyfield/contracts/identity";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { and, asc, eq, gt, inArray, isNull, notInArray, or, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
+import "server-only";
 import { z } from "zod";
-import { sessionId, type Owner } from "@everyfield/contracts/common";
-import * as c from "@everyfield/contracts/identity";
+import { type RequestActor } from "../access/session.ts";
 import { transaction } from "./budget.ts";
 import * as d from "./invitation-core.ts";
 const inWorkspace = (selected: Owner) =>
@@ -199,7 +200,7 @@ export function createSeatService(db: Database) {
 	async function readRemoval(session: string, selected: Owner, raw: unknown) {
 		const v = c.readRemovalRequest.parse(raw);
 		return transaction(db, async (tx) => {
-			await d.administer(tx, session, selected);
+			await d.readAdministrator(tx, session, selected);
 			const [s] = await tx
 				.select()
 				.from(t.seat)
@@ -263,7 +264,7 @@ export function createSeatService(db: Database) {
 		});
 	}
 	async function mutation(
-		session: string,
+		session: RequestActor,
 		selected: Owner,
 		raw: unknown,
 		mode: "role" | "remove" | "appoint" | "demote",
@@ -277,22 +278,21 @@ export function createSeatService(db: Database) {
 						? c.demoteSeatRequest
 						: c.changeOrdinaryRoleRequest
 		).parse(raw);
-		return transaction(db, async (tx) => {
-			await d.lock(tx, "workspace-seats/" + selected.id);
-			const a = await d.administer(tx, session, selected),
-				cmd = await d.begin(
-					tx,
-					selected,
-					a.accountId,
-					mode === "remove"
-						? "seats.remove"
-						: mode === "appoint"
-							? "seats.appointAdmin"
-							: mode === "demote"
-								? "seats.demote"
-								: "seats.changeOrdinaryRole",
-					v,
-				);
+		return d.writeAsAdministrator(db, session, selected, async (tx, bound) => {
+			const a = bound.actor;
+			const cmd = await d.begin(
+				tx,
+				selected,
+				a.accountId,
+				mode === "remove"
+					? "seats.remove"
+					: mode === "appoint"
+						? "seats.appointAdmin"
+						: mode === "demote"
+							? "seats.demote"
+							: "seats.changeOrdinaryRole",
+				v,
+			);
 			if (cmd.kind === "replay") return c.seatMutationResult.parse(cmd.result);
 			const [target] = await tx
 				.select({ account_id: t.seat.account_id })
@@ -322,7 +322,26 @@ export function createSeatService(db: Database) {
 				if (all.length > c.MAX_REMOVAL_ITEMS) d.refuse("removal_too_large");
 				const named = new Map<string, string>(handoffs.map((h) => [h.dutyId, h.expectedRevision]));
 				if (all.length !== handoffs.length || all.some((x) => named.get(x.id) !== x.revision)) d.refuse("conflict");
-				const recipients = new Map<string, string>();
+				const assigned = handoffs.flatMap((h) => (h.kind === "assign" ? [h.recipientAccountId] : []));
+				const eligibleRows = assigned.length
+					? await tx
+							.select({ id: t.seat.id, account: t.seat.account_id })
+							.from(t.seat)
+							.innerJoin(t.account, eq(t.account.id, t.seat.account_id))
+							.where(
+								and(
+									inWorkspace(selected),
+									inArray(t.seat.account_id, assigned),
+									isNull(t.seat.ended_at),
+									eq(t.account.registration_state, "active"),
+									sql`${t.seat.accepted_at}<=clock_timestamp()`,
+									sql`NOT EXISTS(SELECT FROM lifecycle_witness w WHERE (w.opaque_subject_id=${t.seat.account_id} OR w.seat_id=${t.seat.id}) AND w.state NOT IN ('active','cancelled'))`,
+								),
+							)
+							.orderBy(asc(t.seat.id))
+							.for("share", { of: [t.seat, t.account] })
+					: [];
+				const recipients = new Map(eligibleRows.map((r) => [r.account, r.id]));
 				const taskMoves = new Map<string, string | null>(),
 					obligationMoves = new Map<string, string | null>(),
 					personMoves = new Map<string, string | null>(),
@@ -333,11 +352,7 @@ export function createSeatService(db: Database) {
 						recipientSeat: string | null = null;
 					if (h.kind === "assign") {
 						if (h.recipientAccountId === s.account_id) d.refuse();
-						if (!recipients.has(h.recipientAccountId)) {
-							const candidate = await eligible(tx, selected, h.recipientAccountId);
-							if (!candidate) d.refuse();
-							recipients.set(h.recipientAccountId, candidate.id);
-						}
+						if (!recipients.has(h.recipientAccountId)) d.refuse();
 						recipient = h.recipientAccountId;
 						recipientSeat = recipients.get(recipient)!;
 						duties.push({ status: "moved", dutyId: h.dutyId, recipientAccountId: recipient });
@@ -387,67 +402,79 @@ export function createSeatService(db: Database) {
 						sql` `,
 					)} END`;
 				if (taskMoves.size)
-					await tx
-						.update(t.task)
-						.set({ assignee_id: assignment(taskMoves, sql`${t.task.id}`), revision: sql`${t.task.revision}+1` })
-						.where(inArray(t.task.id, [...taskMoves.keys()]));
+					cmd.writes.push(
+						tx
+							.update(t.task)
+							.set({ assignee_id: assignment(taskMoves, sql`${t.task.id}`), revision: sql`${t.task.revision}+1` })
+							.where(inArray(t.task.id, [...taskMoves.keys()])),
+					);
 				if (obligationMoves.size)
-					await tx
-						.update(t.obligation)
-						.set({
-							assignee_id: assignment(obligationMoves, sql`${t.obligation.id}`),
-							revision: sql`${t.obligation.revision}+1`,
-						})
-						.where(inArray(t.obligation.id, [...obligationMoves.keys()]));
+					cmd.writes.push(
+						tx
+							.update(t.obligation)
+							.set({
+								assignee_id: assignment(obligationMoves, sql`${t.obligation.id}`),
+								revision: sql`${t.obligation.revision}+1`,
+							})
+							.where(inArray(t.obligation.id, [...obligationMoves.keys()])),
+					);
 				if (personMoves.size)
-					await tx
-						.update(t.pipeline_person)
-						.set({
-							responsible_seat_id: assignment(personMoves, sql`${t.pipeline_person.id}`),
-							revision: sql`${t.pipeline_person.revision}+1`,
-						})
-						.where(inArray(t.pipeline_person.id, [...personMoves.keys()]));
+					cmd.writes.push(
+						tx
+							.update(t.pipeline_person)
+							.set({
+								responsible_seat_id: assignment(personMoves, sql`${t.pipeline_person.id}`),
+								revision: sql`${t.pipeline_person.revision}+1`,
+							})
+							.where(inArray(t.pipeline_person.id, [...personMoves.keys()])),
+					);
 				if (programMoves.size)
-					await tx
-						.update(t.development_program)
-						.set({
-							director_seat_id: assignment(programMoves, sql`${t.development_program.id}`),
-							revision: sql`${t.development_program.revision}+1`,
-						})
-						.where(inArray(t.development_program.id, [...programMoves.keys()]));
+					cmd.writes.push(
+						tx
+							.update(t.development_program)
+							.set({
+								director_seat_id: assignment(programMoves, sql`${t.development_program.id}`),
+								revision: sql`${t.development_program.revision}+1`,
+							})
+							.where(inArray(t.development_program.id, [...programMoves.keys()])),
+					);
 				if (dutyEvents.length) {
-					await tx.insert(t.event).values(dutyEvents);
+					cmd.events.push(...dutyEvents);
 					events.push(...dutyEvents.map((e) => e.id));
 				}
 				if (selected.kind === "plant") {
-					const persons = await tx
-						.select({ id: t.person.id })
-						.from(t.person)
-						.where(and(eq(t.person.plant_id, selected.id), eq(t.person.linked_account_id, s.account_id)))
-						.orderBy(asc(t.person.id))
+					const teams = await tx
+						.select()
+						.from(t.team)
+						.where(
+							and(
+								eq(t.team.plant_id, selected.id),
+								sql`${t.team.leader_person_id} IN (SELECT id FROM person WHERE plant_id=${selected.id}::uuid AND linked_account_id=${s.account_id}::uuid)`,
+							),
+						)
+						.orderBy(asc(t.team.id))
 						.for("update");
-					for (const p of persons) {
-						const teams = await tx
-							.select()
-							.from(t.team)
-							.where(and(eq(t.team.plant_id, selected.id), eq(t.team.leader_person_id, p.id)))
-							.orderBy(asc(t.team.id))
-							.for("update");
-						for (const team of teams) {
-							await tx
+					if (teams.length)
+						cmd.writes.push(
+							tx
 								.update(t.team)
 								.set({
 									leader_person_id: null,
 									leader_source: null,
 									leader_role_id: null,
-									revision: d.bump(team.revision),
+									revision: sql`${t.team.revision}+1`,
 								})
-								.where(eq(t.team.id, team.id));
-							events.push(
-								await d.event(tx, cmd, team.id, "leader_change", "teams.changed", team.revision, d.bump(team.revision)),
-							);
-						}
-					}
+								.where(
+									inArray(
+										t.team.id,
+										teams.map((team) => team.id),
+									),
+								),
+						);
+					for (const team of teams)
+						events.push(
+							await d.event(tx, cmd, team.id, "leader_change", "teams.changed", team.revision, d.bump(team.revision)),
+						);
 				}
 				await tx
 					.update(t.seat)
@@ -455,7 +482,7 @@ export function createSeatService(db: Database) {
 					.where(eq(t.seat.id, s.id));
 				await tx.execute(sql`SELECT revoke_removed_seat_sessions(${s.account_id}::uuid)`);
 			} else if ("to" in v.input && changed)
-				await tx.update(t.seat).set({ role: v.input.to, revision: after }).where(eq(t.seat.id, s.id));
+				cmd.writes.push(tx.update(t.seat).set({ role: v.input.to, revision: after }).where(eq(t.seat.id, s.id)));
 			if (changed)
 				events.push(
 					await d.event(
@@ -468,20 +495,13 @@ export function createSeatService(db: Database) {
 						after,
 					),
 				);
-			return d.finish(
-				tx,
-				cmd,
-				(r) =>
-					c.seatMutationResult.parse({
-						seatId: s.id,
-						revision: after,
-						outcome: changed ? "changed" : "noop",
-						duties,
-						receipt: r,
-					}),
-				events,
-				[],
-				changed,
+			return d.finish(tx, cmd, () =>
+				c.seatMutationResult.parse({
+					seatId: s.id,
+					revision: after,
+					outcome: changed ? "changed" : "noop",
+					duties,
+				}),
 			);
 		});
 	}
@@ -489,9 +509,9 @@ export function createSeatService(db: Database) {
 		list,
 		readCurrentMembership: membership,
 		readRemoval,
-		changeOrdinaryRole: (s: string, o: Owner, v: unknown) => mutation(s, o, v, "role"),
-		appointAdmin: (s: string, o: Owner, v: unknown) => mutation(s, o, v, "appoint"),
-		demote: (s: string, o: Owner, v: unknown) => mutation(s, o, v, "demote"),
-		remove: (s: string, o: Owner, v: unknown) => mutation(s, o, v, "remove"),
+		changeOrdinaryRole: (s: RequestActor, o: Owner, v: unknown) => mutation(s, o, v, "role"),
+		appointAdmin: (s: RequestActor, o: Owner, v: unknown) => mutation(s, o, v, "appoint"),
+		demote: (s: RequestActor, o: Owner, v: unknown) => mutation(s, o, v, "demote"),
+		remove: (s: RequestActor, o: Owner, v: unknown) => mutation(s, o, v, "remove"),
 	};
 }

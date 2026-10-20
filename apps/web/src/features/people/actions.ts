@@ -200,7 +200,7 @@ export async function reorderPipeline(
 				if (done.status !== "ok") return done;
 				const now = await peopleReader.getPipelineData(
 					tx,
-					{ session: ctx.session, selected: ctx.selected, purpose: "native" },
+					{ session: ctx.session, selected: ctx.selected },
 					c.listPeopleRequest.parse({ limit: 100, view: "pipeline" }),
 				);
 				if (now.status !== "ok") return now;

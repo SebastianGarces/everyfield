@@ -801,64 +801,6 @@
         "ADR1-005",
         "ADR1-017"
       ]
-    },
-    {
-      "table": "people_history",
-      "columns": [
-        "person_id",
-        "tenant_id"
-      ],
-      "target_columns": [
-        "id",
-        "tenant_id"
-      ],
-      "consumer_work_packages": [
-        "WP-011",
-        "WP-015"
-      ],
-      "meaning": "Original same-owner Person identity in protected history or exact replay. This is evidence, not a new current operational reference.",
-      "lock_order": "Lock actual owner, current actor and same-owner Person lifecycle row before appending history/result; consumer operations lock source/survivor Persons in UUID order before reviewed reference moves.",
-      "merge_policy": "Preserve original Person endpoint and before/after snapshot bytes. Resolve current merged lineage only under fresh same-owner authority; never retarget original history or replay an effect.",
-      "inverse_policy": "Unmerge guards reviewed source/survivor revisions and all intervening facts; preserve original history and refuse partial inverse or resurrection after removal.",
-      "retirement_policy": "Retain necessary original evidence across retirement; append the retirement itself under the same lifecycle lock. New current references are separately denied. Removal scrubs protected bodies and replay content before recovery.",
-      "privacy_policy": "No transfer of account grants, original authorship, staff-note access, care, consent or conversation ownership.",
-      "immutable_evidence_policy": "Original occurrence, actor token and corrections remain attributable; witnessed removal may scrub unnecessary bodies and identifying attribution.",
-      "future_case_ids": [
-        "TARGET-PPL-004",
-        "TARGET-PPL-006",
-        "TARGET-PPL-008",
-        "GAP-PPL-023",
-        "ADR1-005"
-      ]
-    },
-    {
-      "table": "people_result",
-      "columns": [
-        "person_id",
-        "tenant_id"
-      ],
-      "target_columns": [
-        "id",
-        "tenant_id"
-      ],
-      "consumer_work_packages": [
-        "WP-011",
-        "WP-015"
-      ],
-      "meaning": "Original same-owner Person identity in protected history or exact replay. This is evidence, not a new current operational reference.",
-      "lock_order": "Lock actual owner, current actor and same-owner Person lifecycle row before appending history/result; consumer operations lock source/survivor Persons in UUID order before reviewed reference moves.",
-      "merge_policy": "Preserve original Person endpoint and before/after snapshot bytes. Resolve current merged lineage only under fresh same-owner authority; never retarget original history or replay an effect.",
-      "inverse_policy": "Unmerge guards reviewed source/survivor revisions and all intervening facts; preserve original history and refuse partial inverse or resurrection after removal.",
-      "retirement_policy": "Retain necessary original evidence across retirement; append the retirement itself under the same lifecycle lock. New current references are separately denied. Removal scrubs protected bodies and replay content before recovery.",
-      "privacy_policy": "No transfer of account grants, original authorship, staff-note access, care, consent or conversation ownership.",
-      "immutable_evidence_policy": "Original occurrence, actor token and corrections remain attributable; witnessed removal may scrub unnecessary bodies and identifying attribution.",
-      "future_case_ids": [
-        "TARGET-PPL-004",
-        "TARGET-PPL-006",
-        "TARGET-PPL-008",
-        "GAP-PPL-023",
-        "ADR1-005"
-      ]
     }
   ],
   "person_snapshot_references": [
@@ -868,34 +810,9 @@
       "policy": "Purpose-checked selections, citations and inverse witnesses may reference person-kind record identities; preserve original snapshots and guard current rewritten relation by exact revisions."
     },
     {
-      "table": "effect",
-      "field": "arguments",
-      "policy": "Frozen reviewed Person arguments remain immutable; merge invalidates stale review, never rewrites reviewed intent."
-    },
-    {
       "table": "generated_document",
       "field": "inputs",
       "policy": "Frozen generated Person data and bytes retain original provenance; merge grants no regeneration or disclosure."
-    },
-    {
-      "table": "event",
-      "field": "target_record_id/from_value/to_value/diff",
-      "policy": "Person-kind historical identity and original occurrence/correction evidence are immutable."
-    },
-    {
-      "table": "effect",
-      "field": "target_record_id",
-      "policy": "Person-kind record identity stays frozen on merge and Unmerge; never retarget the stored reference or rewrite original evidence. Current reads resolve merged_into_person_id under current same-plant permissions, and retirement blocks new operational references. Unmerge follows the current guarded identity; it does not replay effects, jobs, notices or disclosures. Execution rechecks original source/target revisions and refuses stale reviewed intent. Person movement transfers no account grants, private authorship or conversation ownership."
-    },
-    {
-      "table": "effect",
-      "field": "source_record_id",
-      "policy": "Person-kind record identity stays frozen on merge and Unmerge; never retarget the stored reference or rewrite original evidence. Current reads resolve merged_into_person_id under current same-plant permissions, and retirement blocks new operational references. Unmerge follows the current guarded identity; it does not replay effects, jobs, notices or disclosures. Execution rechecks original source/target revisions and refuses stale reviewed intent. Person movement transfers no account grants, private authorship or conversation ownership."
-    },
-    {
-      "table": "effect",
-      "field": "result_record_id",
-      "policy": "Person-kind record identity stays frozen on merge and Unmerge; never retarget the stored reference or rewrite original evidence. Current reads resolve merged_into_person_id under current same-plant permissions, and retirement blocks new operational references. Unmerge follows the current guarded identity; it does not replay effects, jobs, notices or disclosures. Execution rechecks original source/target revisions and refuses stale reviewed intent. Person movement transfers no account grants, private authorship or conversation ownership."
     },
     {
       "table": "job",
@@ -918,24 +835,14 @@
       "policy": "Body-free removed Person identity in the exact organization. Restore reapplies this witness before reopening current records, historical projections or bytes. Never resurrect contact/note/feedback/merge snapshots or consent; retained identity grants no access."
     },
     {
-      "table": "people_history",
-      "field": "before_value/after_value",
-      "policy": "Frozen bounded original Person projection, including linked-account identity and lineage. Do not retarget on merge or Unmerge, transfer grants or replay effects. Fresh same-owner authorization precedes reads/replay; witnessed organization/account removal scrubs private bodies and identity before recovery."
-    },
-    {
-      "table": "people_result",
-      "field": "value",
-      "policy": "Frozen bounded original Person projection, including linked-account identity and lineage. Do not retarget on merge or Unmerge, transfer grants or replay effects. Fresh same-owner authorization precedes reads/replay; witnessed organization/account removal scrubs private bodies and identity before recovery."
-    },
-    {
       "table": "onboarding_setup",
       "field": "lead",
       "policy": "Frozen bounded original Person projection, including linked-account identity and lineage. Do not retarget on merge or Unmerge, transfer grants or replay effects. Fresh same-owner authorization precedes reads/replay; witnessed organization/account removal scrubs private bodies and identity before recovery."
     },
     {
-      "table": "onboarding_result",
-      "field": "value",
-      "policy": "Frozen bounded original Person projection, including linked-account identity and lineage. Do not retarget on merge or Unmerge, transfer grants or replay effects. Fresh same-owner authorization precedes reads/replay; witnessed organization/account removal scrubs private bodies and identity before recovery."
+      "table": "audit_event",
+      "field": "subject_id/before_value/after_value/result",
+      "policy": "Protected changed-field Person history and exact replies retain original owner and actor attribution. Current Person removal scrubs bodies and request replies; record identity confers no current access."
     }
   ]
 }

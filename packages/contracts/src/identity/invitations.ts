@@ -1,9 +1,10 @@
+import { plantOwner } from "../people/values.ts";
 import { z } from "zod";
-import { accountId, defineSafeError, personId, recordId, revision, sameOwner, safeError } from "../common/values.ts";
-import { instant } from "../common/time.ts";
-import { commandEnvelope, receipt } from "../common/transaction.ts";
 import { organizationOwner, tenantOwner } from "../access/results.ts";
-import { plantOwner, relationshipPair, residentChoices } from "../organizations/subjects.ts";
+import { instant } from "../common/time.ts";
+import { accountId, defineSafeError, personId, recordId, revision, safeError, sameOwner } from "../common/values.ts";
+import { commandEnvelope } from "../common/writes.ts";
+import { relationshipPair, residentChoices } from "../organizations/subjects.ts";
 import { normalizedEmail } from "./requests.ts";
 
 export const ordinarySeatRole = z.enum(["admin", "member"]);
@@ -82,29 +83,16 @@ export const invitationListResult = z
 				: i.subject.purpose === "residency_link" && sameOwner(i.subject.organization, v.workspace),
 		),
 	);
-export const invitationSentResult = z
-	.strictObject({ invitation: pendingInvitation, receipt })
-	.refine((v) =>
-		v.invitation.subject.purpose === "seat"
-			? sameOwner(v.invitation.subject.workspace, v.receipt.request.owner)
-			: v.invitation.subject.purpose === "residency_link" &&
-				sameOwner(v.invitation.subject.organization, v.receipt.request.owner),
-	);
+export const invitationSentResult = z.strictObject({ invitation: pendingInvitation });
 export const invitationRevokedResult = z.strictObject({
 	status: z.literal("revoked"),
 	invitationId: recordId,
 	revision,
-	receipt,
 });
 
 // No accepted output can describe pending registration or a partial claim.
 // API implements one locked transaction for claim, exact grant/link, Person,
 // activation, receipt, audit and required mail intent. Dispatch is after commit.
-const acceptanceReceipt = receipt.safeExtend({
-	outcome: z.enum(["changed", "noop"]),
-	eventIds: receipt.shape.eventIds.min(1),
-});
-const seatAcceptanceReceipt = acceptanceReceipt.safeExtend({ effectIds: receipt.shape.effectIds.min(1) });
 const acceptedSeat = z.discriminatedUnion("kind", [
 	z.strictObject({
 		kind: z.literal("plant"),
@@ -120,30 +108,24 @@ const acceptedSeat = z.discriminatedUnion("kind", [
 		role: ordinarySeatRole,
 	}),
 ]);
-export const seatInvitationAcceptedResult = z
-	.strictObject({
+export const seatInvitationAcceptedResult = z.strictObject({
+	status: z.literal("accepted"),
+	invitationId: recordId,
+	accountId,
+	registrationState: z.literal("active"),
+	seat: acceptedSeat,
+});
+export const residentInvitationDecisionResult = z.union([
+	z.strictObject({
 		status: z.literal("accepted"),
 		invitationId: recordId,
-		accountId,
-		registrationState: z.literal("active"),
-		seat: acceptedSeat,
-		receipt: seatAcceptanceReceipt,
-	})
-	.refine((v) => sameOwner(v.seat.workspace, v.receipt.request.owner) && v.accountId === v.receipt.request.actorId);
-export const residentInvitationDecisionResult = z.union([
-	z
-		.strictObject({
-			status: z.literal("accepted"),
-			invitationId: recordId,
-			linkId: recordId,
-			organization: organizationOwner,
-			personId,
-			consentRevision: revision,
-			choices: residentChoices,
-			receipt: acceptanceReceipt,
-		})
-		.refine((v) => sameOwner(v.organization, v.receipt.request.owner)),
-	z.strictObject({ status: z.literal("declined"), invitationId: recordId, receipt }),
+		linkId: recordId,
+		organization: organizationOwner,
+		personId,
+		consentRevision: revision,
+		choices: residentChoices,
+	}),
+	z.strictObject({ status: z.literal("declined"), invitationId: recordId }),
 ]);
 export const invitationError = z.discriminatedUnion("code", [
 	...safeError.options,

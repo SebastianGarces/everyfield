@@ -9,6 +9,8 @@
 //
 // `up` writes the accounts and invitation links the browser test needs to $INVITATION_UI_FIXTURE (default
 // /tmp/everyfield-invitation-ui.json). `down` deletes it and drops the shared schema when no other seed still uses it.
+import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import { sessionId } from "../../../packages/contracts/src/common/index.ts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import {
 	authorizeInvitationMail,
@@ -28,6 +30,11 @@ const ENGINES = ["chromium", "webkit"] as const;
 async function up(origin: string) {
 	const env = await openSeedEnvironment(origin);
 	const { admin, runtime, authDb, secret, mailKey, addressKey } = env;
+	async function verifiedWriteActor(value: string) {
+		const actor = await runtime.transaction((tx) => RequestActor.resolve(tx, sessionId.parse(value)));
+		if (!(actor instanceof RequestActor)) throw Error("unavailable");
+		return actor;
+	}
 	const sent: { to: string; text: string }[] = [];
 	const mail = createMailService({
 		db: runtime,
@@ -52,19 +59,23 @@ async function up(origin: string) {
 		origin,
 		budgetSecret: createHmac("sha256", secret).update("invitation-budget").digest("hex"),
 		people: accountPersonProducer,
-		enqueueMail: (tx, m) => {
+		enqueueMail: (tx, m, command) => {
 			if (m.owner.kind === "global") throw Error("unavailable");
-			return mail.enqueue(tx, {
-				owner: m.owner,
-				purpose: m.purpose,
-				logicalKey: m.logicalKey,
-				recipient: m.recipientAccountId,
-				address: m.recipientEmail,
-				content: { subject: m.subject, text: m.text },
-				operation: m.operationId,
-				notice: null,
-				eligibleAt: new Date().toISOString(),
-			});
+			return mail.append(
+				tx,
+				{
+					owner: m.owner,
+					purpose: m.purpose,
+					logicalKey: m.logicalKey,
+					recipient: m.recipientAccountId,
+					address: m.recipientEmail,
+					content: { subject: m.subject, text: m.text },
+					operation: m.operationId,
+					notice: null,
+					eligibleAt: new Date().toISOString(),
+				},
+				command.writes,
+			);
 		},
 	});
 	let ip = 1;
@@ -122,8 +133,6 @@ async function up(origin: string) {
 			{
 				session: owner.sessionId,
 				selected: { kind: "account", id: owner.accountId },
-				purpose: "native",
-				origin: { kind: "native" },
 			} as never,
 			{
 				requestKey: randomUUID(),
@@ -158,7 +167,7 @@ async function up(origin: string) {
 		// A Member invitation to an existing account that never finished sign-up (REQ-IDN-017 first seat).
 		const memberName = `Ruth ${engine === "chromium" ? "Chromium" : "Webkit"}`;
 		const member = await account(memberName, `ruth.${engine}@harvest.example.test`, "pending_domain");
-		await invitations.invite(owner.sessionId, {
+		await invitations.invite(await verifiedWriteActor(owner.sessionId), {
 			requestKey: randomUUID(),
 			expectedRevision: await revision("plant", plant.id),
 			input: { workspace: plant, role: "member", recipientEmail: member.email },
@@ -169,7 +178,7 @@ async function up(origin: string) {
 		await admin.execute(
 			sql`INSERT INTO person(id,tenant_id,organization_id,display_name,source,created_at,state) VALUES(${person},${org},${org},'Rhea Stone','other',clock_timestamp(),'live')`,
 		);
-		await invitations.inviteResident(grace.sessionId, {
+		await invitations.inviteResident(await verifiedWriteActor(grace.sessionId), {
 			requestKey: randomUUID(),
 			expectedRevision: await revision("organization", org),
 			input: { organization, personId: person, recipientEmail: resident.email },

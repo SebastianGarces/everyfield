@@ -22,7 +22,6 @@ import { PeopleReadContext } from "./core.ts";
 import type { sessionId } from "@everyfield/contracts/common";
 import type { Tx, Context } from "./core.ts";
 import { openDuties } from "./people.ts";
-import { pipelineMetrics } from "./metrics.ts";
 const task_t = alias(tables.task, "t");
 const plant_p = alias(tables.plant, "p");
 const obligation_o = alias(tables.obligation, "o");
@@ -270,9 +269,9 @@ export const peopleReader: PeopleReader<Tx> = {
 			const result = await tx.execute(sql`SELECT * FROM (
       SELECT id,occurred_at,recorded_at,author_id AS actor_id,revision,body,edited_at,removed_at,'note' AS category,'note' AS kind,NULL::text AS action,NULL::jsonb AS before_value,NULL::jsonb AS after_value,NULL::uuid AS obligation_id,NULL::text AS outcome FROM person_note WHERE tenant_id=${sql.param(ctx.selected.id)} AND person_id=${sql.param(p.id)}
       UNION ALL
-      SELECT id,occurred_at,recorded_at,actor_id,after_revision AS revision,NULL,NULL,NULL,'activity',CASE WHEN action='people.stage_changed' THEN 'stage_changed' ELSE 'activity' END,action,before_value,after_value,NULL,NULL FROM people_history WHERE tenant_id=${sql.param(ctx.selected.id)} AND person_id=${sql.param(p.id)} AND action IN ('people.created','people.updated','people.retired','people.restored','people.stage_changed','people.recorded','people.corrected')
+      SELECT id,occurred_at,recorded_at,actor_id,after_revision AS revision,NULL,NULL,NULL,'activity',CASE WHEN action='people.stage_changed' THEN 'stage_changed' ELSE 'activity' END,action,CASE WHEN action='people.stage_changed' AND NOT coalesce(before_value ? 'stage',false) THEN jsonb_build_object('stage',(SELECT prev.after_value->'stage' FROM audit_event prev WHERE prev.subject_id=h.subject_id AND prev.tenant_id=h.tenant_id AND prev.after_revision<=h.after_revision AND prev.after_value ? 'stage' ORDER BY prev.after_revision DESC,prev.occurred_at DESC,prev.id DESC LIMIT 1)) ELSE before_value END,CASE WHEN action='people.stage_changed' AND NOT coalesce(after_value ? 'stage',false) THEN jsonb_build_object('stage',(SELECT prev.after_value->'stage' FROM audit_event prev WHERE prev.subject_id=h.subject_id AND prev.tenant_id=h.tenant_id AND prev.after_revision<=h.after_revision AND prev.after_value ? 'stage' ORDER BY prev.after_revision DESC,prev.occurred_at DESC,prev.id DESC LIMIT 1)) ELSE after_value END,NULL,NULL FROM audit_event h WHERE metadata->>'category' IS DISTINCT FROM 'note' AND tenant_id=${sql.param(ctx.selected.id)} AND subject_id=${sql.param(p.id)} AND action IN ('people.created','people.updated','people.retired','people.restored','people.stage_changed','people.recorded','people.corrected')
       UNION ALL
-      SELECT id,occurred_at,recorded_at,(SELECT actor_id FROM event WHERE target_record_id=contact_outcome.id ORDER BY recorded_at,id LIMIT 1),revision,NULL,NULL,NULL,'follow_up','follow_up',NULL,NULL,NULL,obligation_id,outcome FROM contact_outcome WHERE plant_id=${sql.param(ctx.selected.id)} AND person_id=${sql.param(p.id)} AND voided_at IS NULL
+      SELECT id,occurred_at,recorded_at,(SELECT actor_id FROM audit_event WHERE subject_id=contact_outcome.id ORDER BY recorded_at,id LIMIT 1),revision,NULL,NULL,NULL,'follow_up','follow_up',NULL,NULL,NULL,obligation_id,outcome FROM contact_outcome WHERE plant_id=${sql.param(ctx.selected.id)} AND person_id=${sql.param(p.id)} AND voided_at IS NULL
     ) a WHERE category=ANY(${sql.param(input.kinds ?? ["note", "activity", "follow_up"])}) ORDER BY occurred_at,id LIMIT ${sql.param(input.limit + 1)} OFFSET ${sql.param((input.page - 1) * input.limit)}`);
 			const rows = result.rows.slice(0, input.limit).map((row) => activityRow.parse(row)),
 				items = [];
@@ -324,9 +323,6 @@ export const peopleReader: PeopleReader<Tx> = {
 			});
 		});
 	},
-	async readPipelineMetrics(tx, ctx, raw) {
-		return readReply(() => pipelineMetrics(tx, ctx, raw));
-	},
 };
 export async function getAccountLink(tx: Tx, ctx: Context, raw: unknown) {
 	return readReply(async () => {
@@ -364,7 +360,7 @@ export async function readPeopleViewer(tx: Tx, session: z.infer<typeof sessionId
 	if (!(authority instanceof RequestActor)) return { status: "no_access" } as const;
 	const actor = authority.actor;
 	if (actor.context.kind !== "seat" || actor.context.owner.kind !== "plant") return { status: "no_access" } as const;
-	const summary = await getViewerSummary(tx, new PeopleReadContext(authority, "native"));
+	const summary = await getViewerSummary(tx, new PeopleReadContext(authority));
 	if (summary.status !== "ok") return { status: "no_access" } as const;
 	return {
 		status: "viewer",

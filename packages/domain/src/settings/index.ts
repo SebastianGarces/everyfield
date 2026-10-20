@@ -1,11 +1,11 @@
-import "server-only";
 import type { Clock } from "@everyfield/contracts/common";
-import type { SettingsProducer, NativeAccountProducer, DeletionProducer } from "@everyfield/contracts/settings/server";
+import type { DeletionProducer, NativeAccountProducer, SettingsProducer } from "@everyfield/contracts/settings/server";
+import "server-only";
+import { avatarOperations, type AvatarCleanup } from "./avatar.ts";
 import type { Tx } from "./core.ts";
+import { deletionOperations, type DeletionEffects } from "./deletion.ts";
 import { sectionOperations, type SectionDependencies } from "./sections.ts";
 import { timezoneOperations, type PersonalCalendar } from "./timezones.ts";
-import { avatarOperations, type AvatarCleanup } from "./avatar.ts";
-import { deletionOperations, type DeletionEffects } from "./deletion.ts";
 export function createSettingsProducer(
 	deps: SectionDependencies & {
 		avatarCleanup: AvatarCleanup;
@@ -23,11 +23,13 @@ export function createSettingsProducer(
 		...deps.credentials,
 	};
 }
+export { readAvatar, uploadAvatar } from "./avatar.ts";
+export { Refusal } from "./core.ts";
 export { createAccountCredentials } from "./credentials.ts";
 export type { CredentialConfig } from "./credentials.ts";
 export { createLifecycleCleanup, issueRestrictedDeletionSession } from "./deletion.ts";
 export type { DeletionRequest, DeletionSubject } from "./deletion.ts";
-export { uploadAvatar, readAvatar } from "./avatar.ts";
 export type { SettingsEffects } from "./sections.ts";
 export type { PersonalCalendar } from "./timezones.ts";
-export { Refusal } from "./core.ts";
+
+export { withSettingsWrite } from "./core.ts";

@@ -5303,7 +5303,7 @@
         "WP-024",
         "WP-031"
       ],
-      "estimate_engineer_days": 3.5,
+      "estimate_engineer_days": 3.0,
       "inputs": [],
       "outputs": [
         "EVR-011: Proposals retain their reviewed content and reflect current decisions",
@@ -9766,7 +9766,7 @@
     "WP-058"
   ],
   "critical_path_unconstrained_days": 90.0,
-  "total_engineer_days": 246.0,
+  "total_engineer_days": 245.5,
   "contract_milestones": {
     "C0": [
       "WP-002"

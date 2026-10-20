@@ -1,10 +1,9 @@
 import { z } from "zod";
-import { accountId, recordId, revision, safeError, defineSafeError, sameOwner } from "../common/values.ts";
 import { instant, localDate, timeZone } from "../common/time.ts";
-import { receipt } from "../common/transaction.ts";
+import { accountId, defineSafeError, recordId, revision, safeError } from "../common/values.ts";
 import { normalizedEmail } from "../identity/requests.ts";
-import { organizationOwner, plantOwner } from "../organizations/subjects.ts";
 import { organizationProfileResult, sharingResult } from "../organizations/results.ts";
+import { organizationOwner, plantOwner } from "../organizations/subjects.ts";
 import { notificationSettings, plantSettings, settingsName, timezonePreference } from "./values.ts";
 
 // Application delivery resolves version to a private server key and checks live
@@ -42,25 +41,7 @@ const savedCurrentSection = z.discriminatedUnion("section", [
 	z.strictObject({ section: z.literal("organization"), values: organizationProfileResult.options[1] }),
 	z.strictObject({ section: z.literal("affiliations"), values: sharingResult.options[1] }),
 ]);
-export const savedSectionResult = z.strictObject({ receipt, current: savedCurrentSection }).refine((v) => {
-	const current = v.current;
-	switch (current.section) {
-		case "account":
-		case "notifications":
-			return sameOwner(v.receipt.request.owner, { kind: "account", id: current.accountId });
-		case "plant":
-		case "teams":
-			return sameOwner(v.receipt.request.owner, current.plant);
-		case "organization":
-			return sameOwner(v.receipt.request.owner, current.values.organization);
-		case "affiliations":
-			return sameOwner(v.receipt.request.owner, current.values.plant);
-		default: {
-			const exhaustive: never = current;
-			return exhaustive;
-		}
-	}
-});
+export const savedSectionResult = z.strictObject({ current: savedCurrentSection });
 const changedInstant = z.strictObject({ id: recordId, before: instant, after: instant });
 export const plantTimezonePreview = z
 	.strictObject({
@@ -85,12 +66,10 @@ export const plantTimezoneResult = z.discriminatedUnion("status", [
 		status: z.literal("changed"),
 		...savedPlantTimezone,
 		replanIntentId: recordId,
-		receipt: receipt.safeExtend({ outcome: z.literal("changed") }),
 	}),
 	z.strictObject({
 		status: z.literal("noop"),
 		...savedPlantTimezone,
-		receipt: receipt.safeExtend({ outcome: z.literal("noop") }),
 	}),
 ]);
 export const settingsError = z.discriminatedUnion("code", [

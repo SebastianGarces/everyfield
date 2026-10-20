@@ -1,12 +1,7 @@
 import type { z } from "zod";
 import type { Owner, sessionId } from "../common/values.ts";
-import type { SharedOperationCheckRequest, OrganizationPersonRequest, organizationNotesRequest } from "./requests.ts";
-import type {
-	CurrentActorResult,
-	OperationCheckResult,
-	PipelineAccessResult,
-	OrganizationNotesResult,
-} from "./results.ts";
+import type { OrganizationPersonRequest, organizationNotesRequest } from "./requests.ts";
+import type { CurrentActorResult, OrganizationNotesResult, PipelineAccessResult } from "./results.ts";
 
 // Implement in the server-only DAL. The caller supplies the transaction and a
 // validated native/assistant session handle, not a hydrated actor/role snapshot.
@@ -20,12 +15,6 @@ import type {
 // same-tenant Owner/Admin; workspace deletion still requires the actual Owner.
 export interface AccessReader<Tx> {
 	currentActor(tx: Tx, session: z.infer<typeof sessionId>, selected: Owner): Promise<CurrentActorResult>;
-	checkOperation(
-		tx: Tx,
-		session: z.infer<typeof sessionId>,
-		selected: Owner,
-		input: SharedOperationCheckRequest,
-	): Promise<OperationCheckResult>;
 	readPipelinePerson(
 		tx: Tx,
 		session: z.infer<typeof sessionId>,

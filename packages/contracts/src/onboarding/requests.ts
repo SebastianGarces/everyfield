@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { recordId, revision } from "../common/values.ts";
 import { localDate } from "../common/time.ts";
-import { commandEnvelope } from "../common/transaction.ts";
+import { recordId, revision } from "../common/values.ts";
+import { commandEnvelope } from "../common/writes.ts";
 import { organizationOwner, sharingChoices } from "../organizations/subjects.ts";
 
 const name = z.string().trim().min(1).max(200);

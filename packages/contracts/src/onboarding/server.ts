@@ -1,6 +1,5 @@
 import type { z } from "zod";
 import type { Owner, sessionId } from "../common/values.ts";
-import type { commandOrigin } from "../common/transaction.ts";
 import type * as request from "./requests.ts";
 import type * as result from "./results.ts";
 
@@ -8,13 +7,8 @@ import type * as result from "./results.ts";
 // request body. The producer freshly loads active self identity, lifecycle and
 // exact seat/profile. An organization context cannot operate on a resident.
 type Scope = Extract<Owner, { kind: "account" | "plant" }>;
-export type OnboardingContext = { session: z.infer<typeof sessionId>; selected: Scope; purpose: "native" | "model" };
-type Origin = z.infer<typeof commandOrigin>;
-export type OnboardingWriteContext = Omit<OnboardingContext, "purpose"> &
-	(
-		| { purpose: "native"; origin: Extract<Origin, { kind: "native" }> }
-		| { purpose: "model"; origin: Extract<Origin, { kind: "assistant" }> }
-	);
+export type OnboardingContext = { session: z.infer<typeof sessionId>; selected: Scope };
+export type OnboardingWriteContext = OnboardingContext;
 export type OnboardingReply<T> =
 	{ status: "ok"; value: T } | { status: "refused"; error: z.infer<typeof result.onboardingError> };
 

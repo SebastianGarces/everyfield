@@ -9,7 +9,7 @@ import * as n from "@everyfield/contracts/settings/native";
 import type { NativeAccountProducer, NativeSettingsContext } from "@everyfield/contracts/settings/server";
 import { identityAuth } from "../identity/auth.ts";
 import { attemptBudget, IdentityRefusal } from "../identity/budget.ts";
-import { self, native, now, hash, deny, Refusal, reply, parse, type Tx } from "./core.ts";
+import { self, now, hash, deny, Refusal, reply, parse, type Tx } from "./core.ts";
 export interface CredentialConfig {
 	db: Database;
 	authDb: Database;
@@ -63,8 +63,7 @@ export function createAccountCredentials(
 		},
 	});
 	async function prepare(ctx: NativeSettingsContext) {
-		native(ctx);
-		const a = await config.db.transaction((tx) => self(tx, ctx));
+		const a = await config.db.transaction((tx) => self(tx, ctx, "preview"));
 		const ingress = await config.request(ctx);
 		if (
 			!ingress.trustedIp ||
@@ -85,10 +84,10 @@ export function createAccountCredentials(
 		try {
 			const reporting = await config.db.transaction(async (tx) => {
 				const [event] = await tx
-					.insert(t.event)
+					.insert(t.audit_event)
 					.values({
 						tenant_id: accountId,
-						target_record_id: accountId,
+						subject_id: accountId,
 						actor_id: accountId,
 						kind: "edit",
 						action: action === "email_changed" ? "identity.email_changed" : "identity.credential_changed",
@@ -96,7 +95,7 @@ export function createAccountCredentials(
 						recorded_at: now,
 						event_key: correlationId,
 					})
-					.returning({ id: t.event.id });
+					.returning({ id: t.audit_event.id });
 				const mailIntentId = await config.securityNotice(tx, { accountId, address, action, correlationId });
 				return { status: "recorded" as const, eventId: event!.id, mailIntentId };
 			});
@@ -139,7 +138,7 @@ export function createAccountCredentials(
 				// open while Better Auth changes its credential tables on a separate client.
 				await config.db
 					.transaction(async (tx) => {
-						await self(tx, ctx);
+						await self(tx, ctx, "preview");
 						const [p] = await tx
 							.select()
 							.from(t.identity_proof)

@@ -10,8 +10,9 @@ Audit records changed fields and their permitted before/after values, safe statu
 
 | Action family | Safe metadata examples | Producer/meaning |
 |---|---|---|
+| audit.imported | original kind, time and attribution | Historical event without a typed action or linked operation; never emitted for a new business change |
 | identity.credential_observed, identity.domain_accepted, identity.credential_changed, identity.credential_reconciled, identity.email_changed, identity.sessions_revoked | result code, revoked-session count | Domain activation and truthful significant credential outcomes; no secret, address or proof token |
-| membership.created, membership.role_changed, membership.ended, invitation.claimed, invitation.revoked | old/new role/status, invitation revision | Exact seat lifecycle; not an inferred CRM/title grant |
+| membership.created, membership.role_changed, membership.ended, invitation.changed, invitation.claimed, invitation.revoked | old/new role/status, invitation revision | Exact seat lifecycle; not an inferred CRM/title grant |
 | plant.created, plant.profile_changed, organization.profile_changed | changed non-sensitive field names, profile revision | Owned roots/settings; organization kind and scope remain immutable |
 | settings.changed | section revision only; no credential, private-care or changed-value payload | Authenticated self or exact current plant/team/organization scope |
 | affiliation.approved, affiliation.ended, sharing.changed | recognition episode, named category booleans, policy revision | Exact bilateral pair; current projections and notice intent atomic |

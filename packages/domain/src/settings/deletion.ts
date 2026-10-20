@@ -1,34 +1,33 @@
-import "server-only";
-import { randomBytes, randomUUID } from "node:crypto";
-import { z } from "zod";
-import * as t from "@everyfield/db/tables";
-import { and, eq, isNull, sql } from "@everyfield/db/query";
-import type { Database } from "@everyfield/db/client";
-import { owner, accountId, sessionId, receipt } from "@everyfield/contracts/common";
+import { accountId, owner, sessionId } from "@everyfield/contracts/common";
 import * as q from "@everyfield/contracts/settings";
 import * as n from "@everyfield/contracts/settings/native";
 import type {
 	DeletionProducer,
-	SettingsWriteContext,
 	NativeSettingsContext,
+	SettingsWriteContext,
 } from "@everyfield/contracts/settings/server";
+import type { Database } from "@everyfield/db/client";
+import { and, eq, isNull, sql } from "@everyfield/db/query";
+import * as t from "@everyfield/db/tables";
+import { randomBytes, randomUUID } from "node:crypto";
+import "server-only";
+import { z } from "zod";
 import { lock as lockSeats } from "../identity/invitation-core.ts";
 import {
-	parse,
-	reply,
-	self,
-	native,
-	plantAdmin,
-	begin,
-	finish,
-	revision,
-	now,
-	deny,
-	hash,
 	appendEvent,
+	begin,
+	deny,
+	finish,
+	hash,
+	now,
+	parse,
+	plantAdmin,
+	reply,
+	revision,
+	self,
 	type Tx,
 } from "./core.ts";
-const requestRecord = z.object({ receipt, deletion: n.deletionStatus });
+const requestRecord = z.object({ deletion: n.deletionStatus });
 export type DeletionSubject = z.infer<typeof n.deletionSubject>;
 export type DeletionRequest = { subject: DeletionSubject; requestId: string; revision: string };
 export interface DeletionEffects {
@@ -124,13 +123,13 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 		kind: "account" | "plant",
 	) {
 		const v = kind === "account" ? parse(q.requestAccountDeletion, raw) : parse(q.requestWorkspaceDeletion, raw);
-		if (kind === "plant") native(ctx);
+
 		const subject =
 			kind === "account"
 				? owner.parse({ kind: "account", id: (await self(tx, ctx)).account.id })
 				: parse(q.requestWorkspaceDeletion, raw).input.plant;
 		if (subject.kind !== "account" && subject.kind !== "plant") deny();
-		const a = subject.kind === "account" ? await self(tx, ctx) : await plantAdmin(tx, ctx, subject, true);
+		const a = subject.kind === "account" ? await self(tx, ctx) : await plantAdmin(tx, ctx, subject, "command");
 		if (subject.kind === "plant" && (a.identity.context.kind !== "seat" || a.identity.context.role !== "owner")) deny();
 		if (subject.kind === "account") {
 			const owners = await tx
@@ -138,23 +137,18 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 				.from(t.seat)
 				.where(and(eq(t.seat.account_id, a.account.id), eq(t.seat.role, "owner"), isNull(t.seat.ended_at)))
 				.for("share");
-			for (const s of owners) {
-				if (s.organization_id !== null) deny("manual_owner_exception_required");
+			if (owners.some((s) => s.organization_id !== null)) deny("manual_owner_exception_required");
+			if (owners.length) {
 				const hidden = await tx
-					.select({ id: t.lifecycle_witness.id })
+					.select({ id: t.lifecycle_witness.opaque_subject_id })
 					.from(t.lifecycle_witness)
 					.where(
-						and(
-							eq(t.lifecycle_witness.opaque_subject_id, s.plant_id!),
-							eq(t.lifecycle_witness.kind, "plant"),
-							sql`${t.lifecycle_witness.state} IN ('pending_deletion','purging','purged')`,
-						),
+						sql`${t.lifecycle_witness.opaque_subject_id}=ANY(${sql.param(owners.map((s) => s.plant_id))}::uuid[]) AND ${t.lifecycle_witness.kind}='plant' AND ${t.lifecycle_witness.state} IN ('pending_deletion','purging','purged')`,
 					);
-				if (!hidden.length) deny("manual_owner_exception_required");
+				if (owners.some((s) => !hidden.some((w) => w.id === s.plant_id))) deny("manual_owner_exception_required");
 			}
 		}
-		const wctx: SettingsWriteContext =
-			ctx.purpose === "model" ? ctx : { ...ctx, purpose: "native", origin: { kind: "native" } };
+		const wctx: SettingsWriteContext = ctx;
 		const c = await begin(
 			tx,
 			wctx,
@@ -165,7 +159,7 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 		if (c.kind === "replay") return requestRecord.parse(c.value).deletion;
 		revision(
 			v.expectedRevision,
-			subject.kind === "account" ? a.account.revision : (await plantAdmin(tx, ctx, subject, true)).plant.revision,
+			subject.kind === "account" ? a.account.revision : (await plantAdmin(tx, ctx, subject, "command")).plant.revision,
 		);
 		await root(tx, subject);
 		const old = await witness(tx, subject);
@@ -202,7 +196,7 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 			witnessId: w!.id,
 			eligibleAt: cancelUntil.toISOString(),
 		});
-		const event = await appendEvent(
+		await appendEvent(
 			tx,
 			c,
 			subject.id,
@@ -211,7 +205,7 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 			v.expectedRevision,
 			v.expectedRevision,
 		);
-		const result = await finish(tx, c, requestRecord, [event], (r) => ({ receipt: r, deletion: status(w!) }));
+		const result = await finish(tx, c, requestRecord, () => ({ deletion: status(w!) }));
 		return result.deletion;
 	}
 	async function cancel(tx: Tx, ctx: n.RestrictedDeletionContext, raw: unknown, kind: "account" | "plant") {
@@ -232,10 +226,10 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 			.returning();
 		// No grant/session/mail restoration. Independent revocations remain authoritative.
 		await tx
-			.insert(t.event)
+			.insert(t.audit_event)
 			.values({
 				tenant_id: v.input.subject.id,
-				target_record_id: w.id,
+				subject_id: w.id,
 				actor_id: w.requester_id,
 				system_cause: w.requester_id ? null : "deletion_cancellation",
 				kind: "restore",
@@ -244,7 +238,7 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 				recorded_at: clock,
 				event_key: w.request_id + "/cancelled",
 			})
-			.onConflictDoNothing({ target: [t.event.target_record_id, t.event.event_key] });
+			.onConflictDoNothing({ target: [t.audit_event.subject_id, t.audit_event.event_key] });
 		return status(next!);
 	}
 	return {

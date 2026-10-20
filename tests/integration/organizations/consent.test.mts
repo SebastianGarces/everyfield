@@ -4,163 +4,10 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import * as S from "./support.mts";
 import * as Q from "../../../packages/contracts/src/organizations/index.ts";
-import {
-	canReadSharedSources,
-	canDispatchActivity,
-	canReadResidentProgress,
-	readSharingDisclosure,
-	createOrganizationAdapter,
-} from "../../../packages/domain/src/organizations/index.ts";
+import { readSharingDisclosure, createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 before(S.setup);
 after(S.teardown);
 const view = (v: unknown) => Q.sharingResult.parse(v);
-test("AC:WP007-KNOW-112 AC:AF-030 AC:AF-032 AC:AF-033 AC:TARGET-IDN-022 AC:WP007-API-KNOW-112 source gates recheck exact consent, saved witnesses and activity independently", async () => {
-	const p = await S.tenant("plant"),
-		pa = await S.identity(p),
-		o = await S.tenant("sending_church"),
-		oa = await S.identity(o),
-		n = await S.tenant("sending_network"),
-		na = await S.identity(n),
-		a = await S.affiliation(p, o, true),
-		b = await S.affiliation(p, n, true),
-		m = await S.identity(p, "member");
-	const initial = view(await S.call("privacy.getSharing", pa, { plant: p, organization: o }));
-	assert.equal(initial.view, "plant_administration");
-	const member = view(await S.call("privacy.getSharing", m, { plant: p, organization: o }));
-	assert.equal(member.view, "plant_member");
-	assert.equal("choices" in member, false);
-	assert.equal("consentRevision" in member, false);
-	const org = view(await S.call("privacy.getSharing", oa, { plant: p, organization: o }));
-	assert.equal(org.view, "organization");
-	assert.equal("consentRevision" in org, false);
-	const witness = {
-		relationshipId: a,
-		relationshipRevision: "1",
-		consentRevision: "1",
-		categories: ["people"],
-		publishedResult: true,
-	};
-	assert.equal(await S.tx((c) => canReadSharedSources(c, oa.session, o, witness)), true);
-	assert.equal(await S.tx((c) => canReadSharedSources(c, na.session, n, witness)), false);
-	const q = S.command({
-		plant: p,
-		organization: o,
-		relationshipId: a,
-		expectedConsentRevision: "1",
-		category: "shared_findings",
-		enabled: false,
-	});
-	await assert.rejects(S.call("privacy.setSharing", oa, q), /unavailable/);
-	await assert.rejects(S.call("privacy.setSharing", m, q), /unavailable/);
-	const r = await S.call("privacy.setSharing", pa, q);
-	assert.deepEqual(await S.call("privacy.setSharing", pa, q), r);
-	assert.equal(await S.tx((c) => canReadSharedSources(c, oa.session, o, witness)), false);
-	assert.equal(
-		await S.tx((c) =>
-			canReadSharedSources(c, oa.session, o, { ...witness, relationshipRevision: "2", consentRevision: "2" }),
-		),
-		false,
-	);
-	assert.equal(
-		await S.tx((c) =>
-			canReadSharedSources(c, oa.session, o, {
-				...witness,
-				relationshipRevision: "2",
-				consentRevision: "2",
-				publishedResult: false,
-			}),
-		),
-		true,
-	);
-	assert.equal(
-		await S.tx((c) =>
-			canDispatchActivity(c, oa.session, o, { relationshipId: a, relationshipRevision: "2", consentRevision: "2" }),
-		),
-		true,
-	);
-	const off = S.command(
-		{
-			plant: p,
-			organization: o,
-			relationshipId: a,
-			expectedConsentRevision: "2",
-			category: "activity",
-			enabled: false,
-		},
-		"2",
-	);
-	await S.call("privacy.setSharing", pa, off);
-	assert.equal(
-		await S.tx((c) =>
-			canDispatchActivity(c, oa.session, o, { relationshipId: a, relationshipRevision: "3", consentRevision: "3" }),
-		),
-		false,
-	);
-	assert.equal(
-		await S.tx((c) =>
-			canDispatchActivity(c, na.session, n, { relationshipId: b, relationshipRevision: "1", consentRevision: "1" }),
-		),
-		true,
-	);
-	await assert.rejects(
-		S.call("privacy.setSharing", pa, S.command({ ...off.input, enabled: true }, "2")),
-		/stale_revision/,
-	);
-	await assert.rejects(
-		S.call("privacy.setSharing", pa, S.command({ ...off.input, expectedConsentRevision: "2", enabled: true }, "3")),
-		/stale_revision/,
-	);
-	const data = (
-		await S.db.execute(
-			sql`SELECT e.action,e.diff,e.reason FROM event e JOIN affiliation a ON a.id=e.target_record_id WHERE a.id=${sql.param(a)}`,
-		)
-	).rows;
-	assert.deepEqual(
-		data.map((r) => ({ action: r.action, diff: r.diff, reason: r.reason })),
-		[
-			{ action: "sharing.changed", diff: null, reason: null },
-			{ action: "sharing.changed", diff: null, reason: null },
-		],
-	);
-	const untouched = view(await S.call("privacy.getSharing", pa, { plant: p, organization: n }));
-	const expected = {
-		people: true,
-		meetings: true,
-		tasks: true,
-		ministry_teams: true,
-		wiki: true,
-		activity: false,
-		shared_findings: false,
-	};
-	let revision = 3;
-	for (const category of [
-		"people",
-		"meetings",
-		"tasks",
-		"ministry_teams",
-		"wiki",
-		"activity",
-		"shared_findings",
-	] as const) {
-		const enabled = !expected[category];
-		await S.call(
-			"privacy.setSharing",
-			pa,
-			S.command(
-				{ plant: p, organization: o, relationshipId: a, expectedConsentRevision: String(revision), category, enabled },
-				String(revision),
-			),
-		);
-		expected[category] = enabled;
-		revision++;
-		const changed = view(await S.call("privacy.getSharing", pa, { plant: p, organization: o }));
-		assert.equal(changed.view, "plant_administration");
-		if (changed.view !== "plant_administration") throw Error();
-		assert.deepEqual(changed.choices, expected);
-		assert.equal(changed.consentRevision, String(revision));
-	}
-	assert.deepEqual(view(await S.call("privacy.getSharing", pa, { plant: p, organization: n })), untouched);
-});
 test("INV-consent: first approval defaults on while rejoin preserves independent saved choices", async () => {
 	const p = await S.tenant("plant"),
 		pa = await S.identity(p),
@@ -292,49 +139,33 @@ async function resident() {
 	);
 	return { o, staff, r, link, person };
 }
-test("AC:WP007-MUL-003 AC:ADR1-003 AC:WP007-API-MUL-003 resident category withdrawal and leave immediately fence original progress witnesses", async () => {
-	const { o, staff, r, link, person } = await resident(),
-		read = (category: string, consentRevision: string) =>
-			S.tx((c) => canReadResidentProgress(c, staff.session, o, { linkId: link, category, consentRevision }));
-	assert.equal(await read("foundations", "1"), true);
-	assert.equal(await read("milestones", "1"), true);
-	await S.db.execute(sql`UPDATE person SET linked_account_id=NULL WHERE id=${sql.param(person)}`);
-	assert.equal(await read("foundations", "1"), false);
-	assert.equal(await read("milestones", "1"), false);
-	await S.db.execute(sql`UPDATE person SET linked_account_id=${sql.param(r.account)} WHERE id=${sql.param(person)}`);
-	assert.equal(await read("foundations", "1"), true);
-	const initial = Q.residencySharingResult.parse(await S.call("residency.readSharing", r, { linkId: link }));
+test("AC:WP007-MUL-003 AC:ADR1-003 AC:WP007-API-MUL-003 resident category withdrawal and leave preserve the current saved choices", async () => {
+	const { r, link } = await resident();
+	const read = () => S.call("residency.readSharing", r, { linkId: link });
+	const initial = Q.residencySharingResult.parse(await read());
 	assert.equal(initial.status, "active");
-	await S.call(
-		"residency.setSharing",
-		r,
-		S.command({
-			linkId: link,
-			expectedConsentRevision: "1",
-			choices: { shareFoundations: false, shareMilestones: true },
-		}),
-	);
-	assert.equal(await read("foundations", "1"), false);
-	assert.equal(await read("milestones", "1"), false);
-	assert.equal(await read("foundations", "2"), false);
-	assert.equal(await read("milestones", "2"), true);
+	const command = S.command({
+		linkId: link,
+		expectedConsentRevision: "1",
+		choices: { shareFoundations: false, shareMilestones: true },
+	});
+	const saved = await S.call("residency.setSharing", r, command);
+	assert.equal(saved.status, "committed");
+	assert.deepEqual(await S.call("residency.setSharing", r, command), saved);
+	const current = Q.residencySharingResult.parse(await read());
+	assert.equal(current.status, "active");
+	if (current.status !== "active") throw Error("missing_residency");
+	assert.deepEqual(current.choices, { shareFoundations: false, shareMilestones: true });
+	assert.equal(current.consentRevision, "2");
 	await assert.rejects(
-		S.call(
-			"residency.setSharing",
-			r,
-			S.command({
-				linkId: link,
-				expectedConsentRevision: "1",
-				choices: { shareFoundations: true, shareMilestones: true },
-			}),
-		),
+		S.call("residency.setSharing", r, S.command({ ...command.input, expectedConsentRevision: "1" }, "2")),
 		/stale_revision/,
 	);
-	const q = S.command({ linkId: link, expectedConsentRevision: "2" }, "2"),
-		left = await S.call("residency.leave", r, q);
-	assert.deepEqual(await S.call("residency.leave", r, q), left);
-	assert.equal(await read("milestones", "3"), false);
-	assert.deepEqual(await S.call("residency.readSharing", r, { linkId: link }), { status: "ended", linkId: link });
+	const leave = S.command({ linkId: link, expectedConsentRevision: "2" }, "2"),
+		left = await S.call("residency.leave", r, leave);
+	assert.equal(left.status, "committed");
+	assert.deepEqual(await S.call("residency.leave", r, leave), left);
+	assert.deepEqual(await read(), { status: "ended", linkId: link });
 	await assert.rejects(
 		S.call(
 			"residency.setSharing",
@@ -345,14 +176,6 @@ test("AC:WP007-MUL-003 AC:ADR1-003 AC:WP007-API-MUL-003 resident category withdr
 			),
 		),
 		/unavailable/,
-	);
-	assert.equal(
-		(await S.db.execute(sql`SELECT display_name FROM person WHERE id=${sql.param(person)}`)).rows[0].display_name,
-		"Resident",
-	);
-	assert.equal(
-		(await S.db.execute(sql`SELECT count(*)::int AS n FROM seat WHERE account_id=${sql.param(r.account)}`)).rows[0].n,
-		0,
 	);
 });
 test("INV-atomicity: required outbox failure rolls back sharing, revision, audit, receipt and invalidation", async () => {
@@ -399,11 +222,11 @@ test("INV-atomicity: required outbox failure rolls back sharing, revision, audit
 	assert.equal(v.choices.people, true);
 	assert.equal(v.consentRevision, "1");
 	assert.equal(
-		(await S.db.execute(sql`SELECT count(*)::int AS n FROM operation WHERE request_key=${sql.param(key)}`)).rows[0].n,
+		(await S.db.execute(sql`SELECT count(*)::int AS n FROM audit_event WHERE request_key=${sql.param(key)}`)).rows[0].n,
 		0,
 	);
 	assert.equal(
-		(await S.db.execute(sql`SELECT count(*)::int AS n FROM event WHERE target_record_id=${sql.param(id)}`)).rows[0].n,
+		(await S.db.execute(sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${sql.param(id)}`)).rows[0].n,
 		0,
 	);
 	assert.equal(

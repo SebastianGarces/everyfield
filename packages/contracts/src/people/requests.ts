@@ -1,16 +1,16 @@
 import { z } from "zod";
-import { personId, recordId, revision, requestKey } from "../common/values.ts";
-import { localDate, instant } from "../common/time.ts";
-import { commandEnvelope } from "../common/transaction.ts";
+import { instant, localDate } from "../common/time.ts";
+import { personId, recordId, requestKey, revision } from "../common/values.ts";
+import { commandEnvelope } from "../common/writes.ts";
 import {
+	adultClassification,
 	contactFields,
 	displayName,
+	noteBody,
+	pageInput,
+	reason,
 	recruitmentSource,
 	stage,
-	adultClassification,
-	noteBody,
-	reason,
-	pageInput,
 } from "./values.ts";
 
 // No owner, account link, creator, storage key, authority or approval in bodies.

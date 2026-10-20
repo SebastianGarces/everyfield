@@ -1,0 +1,12 @@
+[
+	"tests/integration/people/*.test.mts",
+	"tests/integration/identity/*.test.mts",
+	"tests/integration/organizations/*.test.mts",
+	"tests/integration/onboarding/*.test.mts",
+	"tests/integration/settings/*.test.mts",
+	"tests/integration/access/*.test.mts",
+	"tests/integration/jobs/*.test.mts",
+	"tests/integration/operations/*.test.mts",
+	"packages/domain/test/requests.test.ts",
+	"tests/reference/releases/*.db.mts"
+]

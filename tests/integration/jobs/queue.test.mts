@@ -185,8 +185,8 @@ test("INV-scan: committed pages retain the owed tail beyond both page and retry 
 			);
 			return r.rows.map((r) => r.id);
 		},
-		process: async (tx, id) => {
-			await tx.execute(querySql`UPDATE document SET title='processed' WHERE id=${querySql.param(id)}`);
+		process: async (tx, ids) => {
+			await tx.execute(querySql`UPDATE document SET title='processed' WHERE id=ANY(${querySql.param(ids)}::uuid[])`);
 		},
 	};
 	for (let i = 0; i < 4; i++) {

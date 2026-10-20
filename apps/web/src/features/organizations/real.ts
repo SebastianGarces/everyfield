@@ -1,3 +1,4 @@
+import { revision } from "@everyfield/contracts/common";
 import * as C from "@everyfield/contracts/organizations";
 import {
 	loadConnections,
@@ -11,10 +12,9 @@ import type { ConnectionsData } from "./Connections";
 import type { ReadHistory } from "./History";
 import { Refusal } from "./intent";
 import type { ReadDisclosure } from "./InviteDialog";
+import type { History, NameOf, OperationName, PendingInvitation, Run } from "./port";
 import type { ReadResidency } from "./Residency";
 import type { ReadSharing } from "./Sharing";
-import { revision } from "@everyfield/contracts/common";
-import type { History, NameOf, OperationName, PendingInvitation, Run } from "./port";
 
 // The real port (WP-007/ui ruling D11): server actions in, contract parsers out. A server refusal becomes a
 // Refusal; a lost reply stays a thrown network error, so useIntent keeps the command frozen.
@@ -56,7 +56,7 @@ export const realRun = (async (operation: OperationName, input: unknown) => {
 	return schema.parse(reply.value);
 }) as Run;
 
-const pending = C.invitationResult.omit({ receipt: true });
+const pending = C.invitationResult.omit({});
 
 /** Names learned from the server so far. Pages add to it as they load; unknown IDs get a neutral word. */
 export function createNames(initial: Record<string, string>) {

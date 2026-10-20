@@ -96,8 +96,6 @@ async function up(origin: string) {
 			{
 				session: owner.sessionId,
 				selected: { kind: "account", id: owner.accountId },
-				purpose: "native",
-				origin: { kind: "native" },
 			} as never,
 			{
 				requestKey: randomUUID(),
@@ -121,7 +119,7 @@ async function up(origin: string) {
 		} as never),
 	);
 
-	const ctx = { session: owner.sessionId, selected: plant, purpose: "native", origin: { kind: "native" } } as never;
+	const ctx = { session: owner.sessionId, selected: plant } as never;
 	const write = <T,>(run: (tx: unknown) => Promise<T>) => runtime.transaction((tx) => run(tx));
 	const people: Record<string, { id: string; revision: string }> = {};
 	const names: [string, string, string | null][] = [

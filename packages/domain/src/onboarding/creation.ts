@@ -1,13 +1,14 @@
-import { currentActor, liveOwner } from "../access/session.ts";
+import { accountId, owner, revision as revisionId, tenantId } from "@everyfield/contracts/common";
+import * as c from "@everyfield/contracts/onboarding";
+import { organizationOwner, plantOwner, sharingChoices } from "@everyfield/contracts/organizations";
+import { and, eq, isNull, sql } from "@everyfield/db/query";
+import * as t from "@everyfield/db/tables";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { and, asc, eq, isNull, sql } from "@everyfield/db/query";
-import * as t from "@everyfield/db/tables";
-import * as c from "@everyfield/contracts/onboarding";
-import { accountId, tenantId, owner } from "@everyfield/contracts/common";
-import { sharingChoices, organizationOwner, plantOwner } from "@everyfield/contracts/organizations";
+import { currentActor, liveOwner } from "../access/session.ts";
+import { setAuditDetails, type AuditWrite } from "../operations/writes.ts";
+import { choices, loadAffiliations, pairOf, type OrganizationEffects } from "../organizations/core.ts";
 import { accountPersonProducer } from "../people/index.ts";
-import { active, choices, loadAffiliation, pairOf, type OrganizationEffects } from "../organizations/core.ts";
 import { recordCreationEntry } from "../phases/creation-entry/index.ts";
 import {
 	actor,
@@ -20,41 +21,29 @@ import {
 	reply,
 	revision,
 	seatless,
+	type NewCommand,
 	type Tx,
 	type WriteContext,
-	type NewCommand,
 } from "./core.ts";
 import { ownReading } from "./reading.ts";
 
-export interface OnboardingEffects extends Pick<OrganizationEffects, "notice" | "invalidate"> {
+export interface OnboardingEffects {
+	relationships(tx: Tx, inputs: readonly Parameters<OrganizationEffects["notice"]>[1][]): Promise<void>;
 	// Required durable mail/notice writers share Tx. They enqueue only; providers
 	// run after commit. No default noop can silently drop a required consequence.
 	enqueue(
 		tx: Tx,
 		input: {
 			accountId: string;
+			address: string;
 			operationId: string;
 			kind: "plant_created" | "discovery_created";
 			plantId: string | null;
 		},
+		command: AuditWrite,
 	): Promise<void>;
 }
-async function notifyRelationship(
-	tx: Tx,
-	effects: OnboardingEffects,
-	input: Parameters<OrganizationEffects["notice"]>[1],
-) {
-	await tx
-		.update(t.organization)
-		.set({ material_revision: sql`${t.organization.material_revision}+1` })
-		.where(eq(t.organization.id, input.pair.organization.id));
-	await effects.invalidate(tx, {
-		owner: input.pair.organization,
-		sourceId: input.relationshipId,
-		revision: input.revision,
-	});
-	await effects.notice(tx, input);
-}
+
 export const off = sharingChoices.parse({
 	people: false,
 	meetings: false,
@@ -66,25 +55,21 @@ export const off = sharingChoices.parse({
 });
 export const pending = { status: "pending" } as const;
 export async function profile(tx: Tx, accountId: string, d: typeof t.discovery.$inferSelect) {
-	const links = await tx
-		.select({ id: t.affiliation.id })
-		.from(t.affiliation)
-		.where(and(eq(t.affiliation.account_id, accountId), isNull(t.affiliation.ended_at)))
-		.orderBy(asc(t.affiliation.id));
-	const relationships = [];
-	for (const link of links) {
-		const a = await loadAffiliation(tx, link.id);
-		if (a && (await active(tx, a)))
-			relationships.push(
-				c.conversionRelationship.parse({
-					relationshipId: a.id,
-					organization: organizationOwner.parse(pairOf(a).organization),
-					revision: a.revision,
-					consentRevision: a.consent_revision,
-					choices: choices(a),
-				}),
-			);
-	}
+	const links = await loadAffiliations(
+		tx,
+		and(eq(t.affiliation.account_id, accountId), isNull(t.affiliation.ended_at))!,
+	);
+	const relationships = links
+		.filter((a) => a.active)
+		.map((a) =>
+			c.conversionRelationship.parse({
+				relationshipId: a.id,
+				organization: organizationOwner.parse(pairOf(a).organization),
+				revision: a.revision,
+				consentRevision: a.consent_revision,
+				choices: choices(a),
+			}),
+		);
 	// Documents stay private. Creation never copies bodies or selects all drafts.
 	return {
 		discoveryId: d.id,
@@ -96,7 +81,7 @@ export async function profile(tx: Tx, accountId: string, d: typeof t.discovery.$
 }
 async function eligible(tx: Tx, ctx: WriteContext, kind: "planter" | "discovery") {
 	if (ctx.selected.kind !== "account") deny();
-	const a = await actor(tx, ctx, true);
+	const a = await actor(tx, ctx, true, true);
 	if (a.account.registration_state === "pending_domain" && a.account.registration_kind !== kind) deny();
 	if (!a.principal.verified) deny();
 	return a;
@@ -147,20 +132,15 @@ async function provision(
 		.update(t.account)
 		.set({ registration_state: "active", revision: sql`${t.account.revision}+1` })
 		.where(eq(t.account.id, account.id));
-	const [plant] = await tx.select().from(t.plant).where(eq(t.plant.id, plantId));
-	const events = [
-		creation.eventId,
-		await event(tx, cx, plantId, "plant.created", "create"),
-		await event(tx, cx, seat!.id, "membership.created", "create"),
-	];
+	await event(tx, cx, plantId, "plant.created", "create");
+	await event(tx, cx, seat!.id, "membership.created", "create");
 	return {
 		plant: plantOwner.parse({ kind: "plant", id: plantId }),
-		revision: plant!.revision,
-		materialRevision: plant!.material_revision,
+		revision: "1",
+		materialRevision: "2",
 		currentPhase: 1,
 		ownerSeat: { seatId: seat!.id, role: "owner", personId: linked.value.personId },
 		creation,
-		events,
 	};
 }
 async function currentCreation<
@@ -201,18 +181,22 @@ export function creation(effects: OnboardingEffects) {
 				if (associated.length) deny("association_resolution_required");
 				revision(q.expectedRevision, a.account.revision);
 				const result = await provision(tx, cx, a.account, q.input, a.principal.display_name);
-				await effects.enqueue(tx, {
-					accountId: a.account.id,
-					operationId: cx.id,
-					kind: "plant_created",
-					plantId: result.plant.id,
-				});
-				const { events, ...facts } = result;
-				return finish(tx, cx, events, c.createPlantResult, (receipt) => ({
+				await effects.enqueue(
+					tx,
+					{
+						accountId: a.account.id,
+						address: a.principal.email,
+						operationId: cx.id,
+						kind: "plant_created",
+						plantId: result.plant.id,
+					},
+					cx,
+				);
+				const facts = result;
+				return finish(tx, cx, c.createPlantResult, () => ({
 					status: "created",
 					...facts,
 					initialSharing: off,
-					receipt,
 				}));
 			});
 		},
@@ -227,31 +211,46 @@ export function creation(effects: OnboardingEffects) {
 					await seatless(tx, a.account.id);
 					return c.createDiscoveryResult.parse(cx.value);
 				}
-				await seatless(tx, a.account.id);
+				const state = await tx.execute(
+					sql`SELECT EXISTS(SELECT FROM seat WHERE account_id=${a.account.id}::uuid AND ended_at IS NULL) AS seated,EXISTS(SELECT FROM discovery WHERE account_id=${a.account.id}::uuid) AS discovery`,
+				);
+				if (z.boolean().parse(state.rows[0]?.seated)) deny("active_seat_conflict");
+				if (z.boolean().parse(state.rows[0]?.discovery)) deny("conflict");
 				revision(q.expectedRevision, a.account.revision);
-				const [existing] = await tx
-					.select()
-					.from(t.discovery)
-					.where(eq(t.discovery.account_id, a.account.id))
-					.for("update");
-				if (existing) deny("conflict");
-				const [d] = await tx.insert(t.discovery).values({ account_id: a.account.id }).returning();
-				await tx
-					.update(t.account)
-					.set({ registration_state: "active", revision: sql`${t.account.revision}+1` })
-					.where(eq(t.account.id, a.account.id));
-				const id = await event(tx, cx, d!.id, "identity.domain_accepted", "create");
-				await effects.enqueue(tx, {
-					accountId: a.account.id,
-					operationId: cx.id,
-					kind: "discovery_created",
-					plantId: null,
-				});
+				const d: typeof t.discovery.$inferSelect = {
+					id: randomUUID(),
+					account_id: a.account.id,
+					revision: "1",
+					lead_answer: null,
+					journey_answer: null,
+					launch_answer: null,
+					converted_at: null,
+					converted_plant_id: null,
+					conversion_operation_id: null,
+				};
+				cx.writes.push(
+					tx.insert(t.discovery).values(d),
+					tx
+						.update(t.account)
+						.set({ registration_state: "active", revision: sql`${t.account.revision}+1` })
+						.where(eq(t.account.id, a.account.id)),
+				);
+				await event(tx, cx, d!.id, "identity.domain_accepted", "create");
+				await effects.enqueue(
+					tx,
+					{
+						accountId: a.account.id,
+						address: a.principal.email,
+						operationId: cx.id,
+						kind: "discovery_created",
+						plantId: null,
+					},
+					cx,
+				);
 				const savedProfile = await profile(tx, a.account.id, d!);
-				return finish(tx, cx, [id], c.createDiscoveryResult, (receipt) => ({
+				return finish(tx, cx, c.createDiscoveryResult, () => ({
 					status: "active",
 					profile: savedProfile,
-					receipt,
 				}));
 			});
 		},
@@ -272,22 +271,21 @@ export function creation(effects: OnboardingEffects) {
 					.for("update");
 				if (!d || d.converted_at) deny();
 				revision(q.expectedRevision, d.revision);
-				const links = await tx
-					.select()
-					.from(t.affiliation)
-					.where(and(eq(t.affiliation.account_id, a.account.id), isNull(t.affiliation.ended_at)))
-					.orderBy(asc(t.affiliation.id))
-					.for("update");
+				const links = await loadAffiliations(
+					tx,
+					and(eq(t.affiliation.account_id, a.account.id), isNull(t.affiliation.ended_at))!,
+					true,
+				);
 				const selected = [];
 				for (const selection of [...q.input.relationships].sort((a, b) =>
 					a.relationshipId.localeCompare(b.relationshipId),
 				)) {
-					const old = await loadAffiliation(tx, selection.relationshipId, true);
+					const old = links.find((link) => link.id === selection.relationshipId);
 					if (
 						!old ||
 						old.account_id !== a.account.id ||
 						!links.some((l) => l.id === old.id) ||
-						!(await active(tx, old)) ||
+						!old.active ||
 						old.organization_id !== selection.organization.id ||
 						old.organization_kind !== selection.organization.organizationKind
 					)
@@ -296,35 +294,46 @@ export function creation(effects: OnboardingEffects) {
 					revision(selection.expectedConsentRevision, old.consent_revision);
 					selected.push({ old, selection });
 				}
-				const result = await provision(tx, cx, a.account, q.input, a.principal.display_name),
-					relationships: z.infer<typeof c.conversionRelationship>[] = [],
-					events = [...result.events];
+				const result = await provision(tx, cx, a.account, q.input, a.principal.display_name);
+				const relationships: z.infer<typeof c.conversionRelationship>[] = [];
+
+				const notices: Parameters<OrganizationEffects["notice"]>[1][] = [];
+				const newLinks = selected.length
+					? await tx
+							.insert(t.affiliation)
+							.values(
+								selected.map(({ old, selection }) => ({
+									plant_id: result.plant.id,
+									organization_id: old.organization_id,
+									accepted_at: now,
+									recognition_operation_id: cx.id,
+									share_people: selection.choices.people,
+									share_meetings: selection.choices.meetings,
+									share_tasks: selection.choices.tasks,
+									share_ministry_teams: selection.choices.ministry_teams,
+									share_wiki: selection.choices.wiki,
+									share_activity: selection.choices.activity,
+									shared_findings: selection.choices.shared_findings,
+								})),
+							)
+							.returning()
+					: [];
 				for (const { old, selection } of selected) {
-					const [link] = await tx
-						.insert(t.affiliation)
-						.values({
-							plant_id: result.plant.id,
-							organization_id: old.organization_id,
-							accepted_at: now,
-							recognition_operation_id: cx.id,
-							share_people: selection.choices.people,
-							share_meetings: selection.choices.meetings,
-							share_tasks: selection.choices.tasks,
-							share_ministry_teams: selection.choices.ministry_teams,
-							share_wiki: selection.choices.wiki,
-							share_activity: selection.choices.activity,
-							shared_findings: selection.choices.shared_findings,
-						})
-						.returning();
+					const link = newLinks.find((link) => link.organization_id === old.organization_id)!;
 					const id = await event(tx, cx, link!.id, "affiliation.approved", "accept");
-					events.push(id);
-					await tx.insert(t.relationship_history).values({
+
+					setAuditDetails(
+						cx,
 						id,
-						relationship_id: link!.id,
-						pair: { kind: "plant", subject: result.plant, organization: selection.organization },
-					});
-					await notifyRelationship(tx, effects, {
+						{
+							pair: { kind: "plant", subject: result.plant, organization: selection.organization },
+							sourceInvitationId: null,
+						},
+						null,
+					);
+					notices.push({
 						eventId: id,
+						actorId: a.account.id,
 						relationshipId: link!.id,
 						pair: { kind: "plant", subject: result.plant, organization: selection.organization },
 						kind: "relationship_approved",
@@ -341,28 +350,42 @@ export function creation(effects: OnboardingEffects) {
 						}),
 					);
 				}
+				if (links.length)
+					cx.writes.push(
+						tx
+							.update(t.affiliation)
+							.set({
+								ended_at: now,
+								revision: sql`${t.affiliation.revision}+1`,
+								consent_revision: sql`${t.affiliation.consent_revision}+1`,
+							})
+							.where(sql`${t.affiliation.id}=ANY(${sql.param(links.map((l) => l.id))}::uuid[])`),
+					);
 				for (const old of links) {
-					await tx
-						.update(t.affiliation)
-						.set({
-							ended_at: now,
-							revision: sql`${t.affiliation.revision}+1`,
-							consent_revision: sql`${t.affiliation.consent_revision}+1`,
-						})
-						.where(eq(t.affiliation.id, old.id));
 					const id = await event(tx, cx, old.id, "affiliation.ended", "remove");
-					events.push(id);
-					const original = await loadAffiliation(tx, old.id);
-					if (!original) deny();
-					await tx.insert(t.relationship_history).values({ id, relationship_id: old.id, pair: pairOf(original) });
-					await notifyRelationship(tx, effects, {
+
+					const original = { ...old, revision: revisionId.parse(String(BigInt(old.revision) + 1n)) };
+					setAuditDetails(cx, id, { pair: pairOf(original), sourceInvitationId: null }, null);
+					notices.push({
 						eventId: id,
+						actorId: a.account.id,
 						relationshipId: old.id,
 						pair: pairOf(original),
 						kind: "relationship_ended",
 						revision: original.revision,
 						operationId: cx.id,
 					});
+				}
+				if (notices.length) {
+					cx.writes.push(
+						tx
+							.update(t.organization)
+							.set({ material_revision: sql`${t.organization.material_revision}+1` })
+							.where(
+								sql`${t.organization.id}=ANY(${sql.param([...new Set(notices.map((n) => n.pair.organization.id))])}::uuid[])`,
+							),
+					);
+					await effects.relationships(tx, notices);
 				}
 				const [converted] = await tx
 					.update(t.discovery)
@@ -374,23 +397,27 @@ export function creation(effects: OnboardingEffects) {
 					})
 					.where(eq(t.discovery.id, d.id))
 					.returning();
-				events.push(await event(tx, cx, d.id, "identity.domain_accepted", "retire"));
-				await effects.enqueue(tx, {
-					accountId: a.account.id,
-					operationId: cx.id,
-					kind: "plant_created",
-					plantId: result.plant.id,
-				});
-				const { events: _, ...facts } = result;
-				void _;
-				return finish(tx, cx, events, c.convertDiscoveryResult, (receipt) => ({
+				await event(tx, cx, d.id, "identity.domain_accepted", "retire");
+				await effects.enqueue(
+					tx,
+					{
+						accountId: a.account.id,
+						address: a.principal.email,
+						operationId: cx.id,
+						kind: "plant_created",
+						plantId: result.plant.id,
+					},
+					cx,
+				);
+				const facts = result;
+
+				return finish(tx, cx, c.convertDiscoveryResult, () => ({
 					status: "converted",
 					...facts,
 					discoveryId: d.id,
 					convertedAt: converted!.converted_at!.toISOString(),
 					relationships,
 					documentProposals: [],
-					receipt,
 				}));
 			});
 		},
