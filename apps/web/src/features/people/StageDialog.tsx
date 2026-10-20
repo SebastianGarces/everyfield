@@ -84,7 +84,7 @@ export function StageDialog({
 	// Read once when the dialog opens and again after a conflict, never because this dialog's own save changed the
 	// person's revision (D68: the warnings request was repeating after every move).
 	const [round, setRound] = useState(0);
-	const warnings = useWarnings(person.id, String(round));
+	const warnings = useWarnings(person.id, round);
 	const [touched, setTouched] = useState(false);
 
 	const set = (patch: Partial<StageDraft>) =>

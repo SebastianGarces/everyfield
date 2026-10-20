@@ -537,6 +537,15 @@ for (const [name, engine] of ENGINES) {
 			await page.waitForFunction((b) => b && !b.disabled, await move.elementHandle(), { timeout: 30_000 });
 			await one("a stage change", () => move.click(), "Stage changed from prospect to attendee");
 			assert.equal(await page.getByText(note, { exact: true }).count(), 1, "earlier entries stay");
+
+			// Retire reads open duties when it opens; its own save must not read them again (found by the request log).
+			await page.getByRole("button", { name: "More actions" }).click();
+			await page.getByRole("menuitem", { name: "Retire person" }).click();
+			const retire = page.getByRole("dialog");
+			await retire.getByLabel("Reason").fill("Moved away");
+			const confirm = retire.getByRole("button", { name: "Retire person" });
+			await page.waitForFunction((b) => b && !b.disabled, await confirm.elementHandle(), { timeout: 30_000 });
+			await one("a retire", () => confirm.click(), "Retired");
 		});
 	});
 }

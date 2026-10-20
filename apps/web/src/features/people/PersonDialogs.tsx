@@ -408,7 +408,9 @@ export function RetireDialog({
 	const person = state.saved;
 	const pending = state.pending === "retire";
 	const reason = (state.drafts.retire as { body: string } | undefined)?.body ?? "";
-	const warnings = useWarnings(person.id, person.revision);
+	// Read when the dialog opens and again after a conflict, never because this dialog's own save moved the revision.
+	const [round, setRound] = useState(0);
+	const warnings = useWarnings(person.id, round);
 	const [touched, setTouched] = useState(false);
 	const close = (next: boolean) => {
 		if (pending) return;
@@ -441,7 +443,10 @@ export function RetireDialog({
 		if (result?.status === "ok") {
 			close(false);
 			onSaved(result.value.receipt, { kind: "activity", action: "retired" });
-		} else if (isConflict(result)) onConflict();
+		} else if (isConflict(result)) {
+			setRound((r) => r + 1);
+			onConflict();
+		}
 	}
 
 	const duties = ready?.openDuties.length ?? 0;
