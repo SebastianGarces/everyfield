@@ -5,7 +5,7 @@ import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, 
 import { begin, discard, edit, emptyBook, finish, isDirty, isSaving, rebase, same, visible, type Book } from "./drafts";
 import { errorReference, errorText } from "./model";
 import type { Refusal } from "./save";
-import type { GetSectionRequest, SectionKey, SectionResult, SettingsPort, SettingsViewer } from "./port";
+import type { GetSectionRequest, SectionKey, SectionResult, SectionSeed, SettingsPort, SettingsViewer } from "./port";
 
 // The settings store lives as long as the dialog's route layout, so a section's draft survives switching sections and
 // back/forward (WP-010/ui R2). It is keyed by account and context by its owner (SettingsProvider), so switching
@@ -25,6 +25,7 @@ type StoreValue = {
 	setFlow: (key: string, update: (prev: unknown) => unknown) => void;
 	sections: Map<string, SectionResult>;
 	remember: (cacheKey: string, value: SectionResult) => void;
+	seed: SectionSeed | null;
 };
 
 /**
@@ -45,10 +46,12 @@ function useStore(): StoreValue {
 export function SettingsProvider({
 	port,
 	viewer,
+	seed = null,
 	children,
 }: {
 	port: SettingsPort;
 	viewer: SettingsViewer;
+	seed?: SectionSeed | null;
 	children: ReactNode;
 }) {
 	// The draft book (drafts.ts). React state drives rendering; the ref is the same value for async save code,
@@ -128,8 +131,9 @@ export function SettingsProvider({
 			remember,
 			flows,
 			setFlow,
+			seed,
 		}),
-		[port, viewer, book, servers, observe, editDraft, runSave, clearDrafts, sections, remember, flows, setFlow],
+		[port, viewer, book, servers, observe, editDraft, runSave, clearDrafts, sections, remember, flows, setFlow, seed],
 	);
 
 	// A reload or tab close with unsaved drafts asks the browser to confirm.
@@ -233,7 +237,7 @@ export function useSection<S extends SectionResult["section"]>(
 	replace: (value: SectionResult) => void;
 	reload: () => void;
 } {
-	const { port, sections, remember } = useStore();
+	const { port, sections, remember, seed } = useStore();
 	const key = cacheKeyOf(request);
 	const cached = sections.get(key) as Extract<SectionResult, { section: S }> | undefined;
 	// A failure belongs to one key and attempt, so a new request or a retry never shows an old failure.
@@ -243,7 +247,9 @@ export function useSection<S extends SectionResult["section"]>(
 	useEffect(() => {
 		if (cached && attempt === 0) return;
 		let live = true;
-		port.getSection(JSON.parse(key) as GetSectionRequest).then((reply) => {
+		// The first load of the page's own section uses the read the server started (a React thenable, so wrapped).
+		const seeded = attempt === 0 && seed && cacheKeyOf(seed.request) === key ? seed.value : null;
+		Promise.resolve(seeded ?? port.getSection(JSON.parse(key) as GetSectionRequest)).then((reply) => {
 			if (!live) return;
 			if (reply.status === "ok") remember(key, reply.value);
 			else setFailure({ key, attempt, meta: `${errorText(reply.error)} Reference ${errorReference(reply.error)}.` });
@@ -251,7 +257,7 @@ export function useSection<S extends SectionResult["section"]>(
 		return () => {
 			live = false;
 		};
-		// The cached value is read once per key; a reload bumps the attempt.
+		// The cached value and the seed are read once per key; a reload bumps the attempt.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [port, key, attempt, remember]);
 

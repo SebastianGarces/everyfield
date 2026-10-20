@@ -1,4 +1,4 @@
-import type { NotificationChoice, SectionKey, SettingsError, SettingsViewer } from "./port";
+import type { GetSectionRequest, NotificationChoice, SectionKey, SettingsError, SettingsViewer } from "./port";
 
 // Pure settings rules: which sections exist, which a viewer is offered, and the words for each refusal.
 
@@ -59,6 +59,25 @@ export function offeredSections(viewer: SettingsViewer, slots: readonly SectionK
 /** Where /settings and the rail's Settings open: the first dialog section this viewer is offered. */
 export function firstSection(viewer: SettingsViewer | null): DialogSection {
 	return (viewer && dialogSection(offeredSections(viewer, [])[0])) ?? "account";
+}
+
+/** The dialog section an address opens. /settings opens the first section this viewer is offered. */
+export function sectionAt(pathname: string, viewer: SettingsViewer | null): DialogSection | null {
+	if (pathname === "/settings") return viewer ? firstSection(viewer) : null;
+	return dialogSection(/^\/settings\/([a-z]+)$/.exec(pathname)?.[1]);
+}
+
+/** The read a dialog section makes for this viewer; null when the viewer has no such profile. */
+export function sectionRequest(viewer: SettingsViewer, section: DialogSection): GetSectionRequest | null {
+	switch (section) {
+		case "church":
+			return viewer.context === "plant" ? { section: "plant", plant: viewer.plant } : null;
+		case "organization":
+			return viewer.context === "organization" ? { section: "organization", organization: viewer.organization } : null;
+		case "notifications":
+		case "account":
+			return { section };
+	}
 }
 
 /** Only the current Owner can delete the church workspace (REQ-KNOW-066). Admins and Members never see the action. */

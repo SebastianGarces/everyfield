@@ -15,6 +15,8 @@ export type SavedSection = z.infer<typeof S.savedSectionResult>;
 export type SaveSectionRequest = z.input<typeof S.saveSectionRequest>;
 export type SaveChurchRequest = z.input<typeof S.saveChurchRequest>;
 export type GetSectionRequest = z.input<typeof S.getSectionRequest>;
+/** The section read the server started with the page at that section's address. */
+export type SectionSeed = { request: GetSectionRequest; value: Promise<Reply<SectionResult>> };
 /** The exact plant or organization a section belongs to, as the requests take it. */
 export type PlantOwner = { kind: "plant"; id: string };
 export type OrganizationOwner = {
