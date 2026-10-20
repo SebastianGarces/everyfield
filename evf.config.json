@@ -392,11 +392,27 @@
 			],
 			"risk": "ordinary"
 		},
+		"OPS-18": {
+			"title": "Let OPS tasks own design/handoff/screens.md",
+			"owningPaths": ["tools/evf/", "evf.config.json"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		},
 		"OPS-17": {
 			"title": "Apply the S1 plan review",
 			"owningPaths": [
 				"evf.config.json",
 				"everyfield-feature-review.html",
+				"design/handoff/screens.md",
 				"docs/plan/",
 				"docs/catalog/",
 				"docs/acceptance/",
