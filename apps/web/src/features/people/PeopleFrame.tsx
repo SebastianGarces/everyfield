@@ -7,7 +7,7 @@ import { AppShell, type ShellNav } from "@everyfield/ui/shell";
 import type { ReactNode } from "react";
 import { AccountMenu } from "../settings/AccountMenu";
 import type { SettingsViewer } from "../settings/port";
-import { openSettings, ProductSettings } from "../settings/ProductSettings";
+import { useProductSettings } from "../settings/ProductSettings";
 import type { Role } from "./server.ts";
 
 // The product frame around the People and Settings pages. Only destinations that exist are in the navigation; the full
@@ -40,13 +40,14 @@ export function PeopleFrame(props: FrameProps) {
 
 function Frame({ name, role, settings, banner, children }: FrameProps) {
 	const toast = useToast();
+	const dialog = useProductSettings(settings);
 	const later = (what: string) => () => toast({ message: `${what} is not available yet.`, tone: "info" });
 	const seat = role ? `${ROLE[role]} seat` : "";
 	return (
 		<AppShell
 			nav={NAV}
 			user={{ name, initials: initials(name), detail: role ? ROLE[role] : "" }}
-			userMenu={<AccountMenu name={name} detail={seat} onAccount={() => openSettings("account")} />}
+			userMenu={<AccountMenu name={name} detail={seat} onAccount={() => dialog.open("account")} />}
 			homeHref="/people"
 			unread={0}
 			width="wide"
@@ -60,7 +61,7 @@ function Frame({ name, role, settings, banner, children }: FrameProps) {
 			banner={banner}
 		>
 			{children}
-			{settings ? <ProductSettings viewer={settings} /> : null}
+			{dialog.element}
 		</AppShell>
 	);
 }

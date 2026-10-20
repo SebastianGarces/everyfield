@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { loadPage } from "../identity/api";
 import { getSection, previewPlantTimezone, saveSection, setPlantTimezone } from "./actions";
 import { dialogSection, type DialogSection } from "./model";
@@ -18,28 +18,33 @@ import { SettingsProvider } from "./store";
 const PORT: SettingsPort = { getSection, saveSection, previewPlantTimezone, setPlantTimezone };
 const hrefFor = (key: SectionKey) => `/settings/${key}`;
 
-/** Opens Settings at `section` over the current page. */
-export function openSettings(section: DialogSection) {
-	window.history.pushState(null, "", hrefFor(section));
-}
-
-export function ProductSettings({ viewer }: { viewer: SettingsViewer }) {
+/**
+ * The product's Settings dialog and a way to open it. The dialog shows the section asked for in the same event as
+ * the click, before Next.js reports the new address, so it opens while the opener still has focus and Escape
+ * returns focus there.
+ */
+export function useProductSettings(viewer: SettingsViewer | null) {
 	const pathname = usePathname();
 	const router = useRouter();
-	const section = dialogSection(pathname.match(/^\/settings\/([a-z]+)$/)?.[1]);
+	const atPath = dialogSection(pathname.match(/^\/settings\/([a-z]+)$/)?.[1]);
+	// The section asked for in this document until the address catches up; undefined means "follow the address".
+	const [asked, setAsked] = useState<{ section: SectionKey | null; path: string } | undefined>(undefined);
+	if (asked && asked.path !== pathname) setAsked(undefined);
+	const section = asked ? asked.section : atPath;
 	// The address of the page underneath, kept while Settings is closed. Null after a fresh load of a section link.
 	const underneath = useRef<string | null>(null);
 	useEffect(() => {
-		if (!section) underneath.current = window.location.pathname + window.location.search;
-	}, [section, pathname]);
+		if (!atPath) underneath.current = window.location.pathname + window.location.search;
+	}, [atPath, pathname]);
 
 	const navigate = (key: SectionKey | null) => {
-		if (key) window.history.pushState(null, "", hrefFor(key));
-		else if (underneath.current) window.history.pushState(null, "", underneath.current);
-		else router.push(viewer.context === "plant" ? "/people" : "/settings/sharing");
+		if (key || underneath.current) {
+			setAsked({ section: key, path: pathname });
+			window.history.pushState(null, "", key ? hrefFor(key) : underneath.current);
+		} else router.push(viewer?.context === "plant" ? "/people" : "/settings/sharing");
 	};
 
-	return (
+	const element = viewer ? (
 		<SettingsProvider key={`${viewer.accountId}-${viewer.context}`} port={PORT} viewer={viewer}>
 			<SettingsDialog
 				section={section}
@@ -49,5 +54,6 @@ export function ProductSettings({ viewer }: { viewer: SettingsViewer }) {
 				onDeletionRequested={() => loadPage("/signin")}
 			/>
 		</SettingsProvider>
-	);
+	) : null;
+	return { element, open: (key: DialogSection) => navigate(key) };
 }
