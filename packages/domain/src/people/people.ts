@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import * as c from "@everyfield/contracts/people";
 import type { PeopleWriter, AccountPersonProducer } from "@everyfield/contracts/people";
-import { owner, recordId, personId } from "@everyfield/contracts/common";
+import { owner, recordId } from "@everyfield/contracts/common";
 import {
 	authorize,
 	deny,
