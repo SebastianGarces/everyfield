@@ -45,7 +45,7 @@ export async function SharingPage() {
 	const first =
 		viewer.kind === "account"
 			? ({ status: "refused", code: "unavailable" } as const)
-			: await runOperation(m, viewer, "associations.getHistory", scopeOf(viewer),who.authority);
+			: await runOperation(m, viewer, "associations.getHistory", scopeOf(viewer), who.authority);
 	const history = first.status === "ok" ? C.relationshipHistoryResult.parse(first.value) : null;
 	const active = history && history.status === "available" ? history.activeRelationships : [];
 	const activeOrgs = new Set(
@@ -67,7 +67,7 @@ export async function SharingPage() {
 			networks.map((n) => n.pair.organization.id),
 		),
 		viewer.kind === "sending_network" && viewer.selected.kind === "organization"
-			? runOperation(m, viewer, "pipelineSharing.checkAggregateAccess", { network: viewer.selected },who.authority)
+			? runOperation(m, viewer, "pipelineSharing.checkAggregateAccess", { network: viewer.selected }, who.authority)
 			: Promise.resolve(null),
 	]);
 	const data: SharingPageData = {

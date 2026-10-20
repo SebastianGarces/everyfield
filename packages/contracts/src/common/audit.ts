@@ -118,7 +118,7 @@ export const auditEntry = auditInput.extend({ actor: attribution }).superRefine(
 	if (entry.change.action === "membership.role_changed" && entry.subject.kind !== "seat") {
 		ctx.addIssue({ code: "custom", message: "invalid_subject" });
 	}
-	if (entry.change.action === "execution.completed" && entry.subject.kind !== "operation") {
+	if (entry.change.action === "execution.completed" && entry.subject.kind !== "audit_event") {
 		ctx.addIssue({ code: "custom", message: "invalid_subject" });
 	}
 });

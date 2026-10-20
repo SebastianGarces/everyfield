@@ -32,9 +32,9 @@ export function operatorOperations(db: Database, authenticate: AuthenticateOpera
 			const now = z.coerce.date().parse(r.rows[0]?.now);
 			if (scope.expiresAt <= now || !scope.operations.includes(operation)) throw Error("unavailable");
 			const result = await read(tx, scope);
-			await tx.insert(tables.event).values({
+			await tx.insert(tables.audit_event).values({
 				tenant_id: scope.tenant,
-				target_record_id: scope.tenant,
+				subject_id: scope.tenant,
 				actor_id: scope.principal,
 				kind: "read",
 				occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
@@ -102,22 +102,22 @@ export function operatorOperations(db: Database, authenticate: AuthenticateOpera
 				// No body, diff, reason, contact values, raw error, model usage or care tables.
 				const r = await tx
 					.select({
-						id: tables.event.id,
-						action: tables.event.action,
-						operation_id: tables.event.operation_id,
-						effect_id: tables.event.effect_id,
-						occurred_at: tables.event.occurred_at,
-						before_revision: sql<string>`(${tables.event.before_revision})::text`,
-						after_revision: sql<string>`(${tables.event.after_revision})::text`,
+						id: tables.audit_event.id,
+						action: tables.audit_event.action,
+						operation_id: tables.audit_event.command_id,
+						effect_id: sql<string | null>`${tables.audit_event.metadata}->>'effectId'`,
+						occurred_at: tables.audit_event.occurred_at,
+						before_revision: sql<string>`(${tables.audit_event.before_revision})::text`,
+						after_revision: sql<string>`(${tables.audit_event.after_revision})::text`,
 					})
-					.from(tables.event)
+					.from(tables.audit_event)
 					.where(
 						and(
-							and(eq(tables.event.tenant_id, scope.tenant), eq(tables.event.target_record_id, v.target)),
-							isNotNull(tables.event.action),
+							and(eq(tables.audit_event.tenant_id, scope.tenant), eq(tables.audit_event.subject_id, v.target)),
+							isNotNull(tables.audit_event.action),
 						),
 					)
-					.orderBy(desc(tables.event.occurred_at), desc(tables.event.id))
+					.orderBy(desc(tables.audit_event.occurred_at), desc(tables.audit_event.id))
 					.limit(v.limit);
 				return r;
 			});
@@ -127,13 +127,13 @@ export function operatorOperations(db: Database, authenticate: AuthenticateOpera
 			return run("ops.errorCorrelation", async (tx, scope) => {
 				const r = await tx
 					.select({
-						id: tables.operation.id,
-						state: tables.operation.state,
-						outcome: tables.operation.outcome,
-						completed_at: tables.operation.completed_at,
+						id: tables.audit_event.id,
+						state: sql`'complete'`,
+						outcome: sql`${tables.audit_event.result}->'receipt'->>'outcome'`,
+						completed_at: tables.audit_event.recorded_at,
 					})
-					.from(tables.operation)
-					.where(and(eq(tables.operation.tenant_id, scope.tenant), eq(tables.operation.id, id)));
+					.from(tables.audit_event)
+					.where(and(eq(tables.audit_event.tenant_id, scope.tenant), eq(tables.audit_event.id, id)));
 				return r[0] ?? null;
 			});
 		},

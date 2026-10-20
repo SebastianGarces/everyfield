@@ -62,7 +62,7 @@ export async function pipelineMetrics(tx: Tx, ctx: Context, raw: unknown) {
 	// Pull only stage/lifecycle evidence, never protected note/contact bodies.
 	const events = (
 		await tx.execute(
-			sql`SELECT id,person_id,occurred_at,action,before_value->>'stage' AS from_stage,after_value->>'stage' AS to_stage,after_value->>'state' AS state,after_revision AS revision FROM people_history WHERE tenant_id=${sql.param(ctx.selected.id)} AND occurred_at<=${sql.param(asOf)} AND after_value IS NOT NULL AND (after_value ? 'state' OR after_value ? 'stage') ORDER BY occurred_at,id`,
+			sql`SELECT id,subject_id AS person_id,occurred_at,action,before_value->>'stage' AS from_stage,after_value->>'stage' AS to_stage,after_value->>'state' AS state,after_revision AS revision FROM audit_event WHERE tenant_id=${sql.param(ctx.selected.id)} AND occurred_at<=${sql.param(asOf)} AND after_value IS NOT NULL AND (after_value ? 'state' OR after_value ? 'stage') ORDER BY occurred_at,id`,
 		)
 	).rows.map((r) => eventRow.parse(r));
 	const latest = new Map<string, { state: "live" | "retired" | "merged"; stage: z.infer<typeof c.stage> | null }>();

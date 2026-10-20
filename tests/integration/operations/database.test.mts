@@ -25,9 +25,10 @@ import { mountExecutor, mountCallback } from "../../../ops/maintenance/mount.mts
 import { enqueueJob } from "../../../apps/web/src/server/jobs/queue.ts";
 
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-if (source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech" || process.env.NODE_ENV === "production")
+const ci=process.env.CI==='true'&&process.env.EARLY_ACCESS_TEST_DATABASE==='1'&&['localhost','127.0.0.1'].includes(source.hostname)&&source.pathname==='/everyfield_ci';
+if ((!ci && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") || process.env.NODE_ENV === "production")
 	throw Error("Only approved shared development direct endpoint allowed");
-source.searchParams.set("sslmode", "verify-full");
+if(!ci)source.searchParams.set("sslmode", "verify-full");
 const schema = "wp050_" + randomUUID().replaceAll("-", ""),
 	role = "wp050_" + randomBytes(8).toString("hex");
 const admin = createDatabase({
@@ -169,12 +170,12 @@ test("AC:OPS-ATOMIC-001 AC:OPS-PLATFORM-001 required SQL consequences roll back 
 		},
 		history: async (tx, id) => {
 			await tx.execute(
-				querySql`INSERT INTO event(tenant_id,target_record_id,actor_id,kind,occurred_at,recorded_at,event_key,action) VALUES(${tenant},${id},${actor},'edit',clock_timestamp(),clock_timestamp(),${key},'documents.saved') ON CONFLICT(target_record_id,event_key) DO NOTHING`,
+				querySql`INSERT INTO audit_event(tenant_id,subject_id,actor_id,kind,occurred_at,recorded_at,event_key,action) VALUES(${tenant},${id},${actor},'edit',clock_timestamp(),clock_timestamp(),${key},'documents.saved') ON CONFLICT(subject_id,event_key) DO NOTHING`,
 			);
 		},
 		receipt: async (tx) => {
 			await tx.execute(
-				querySql`INSERT INTO operation(id,tenant_id,actor_id,name,request_key,request_digest,state,outcome,started_at,completed_at,tool_calls,reserved_input,reserved_output,used_input,used_output) VALUES(${receiptId},${tenant},${actor},'domain.executeAtomicConsequences',${key},${"a".repeat(64)},'complete','committed',clock_timestamp(),clock_timestamp(),0,0,0,0,0) ON CONFLICT(tenant_id,request_key) DO NOTHING`,
+				querySql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,request_key,metadata) VALUES(${receiptId},${tenant},${actor},'domain.executeAtomicConsequences','edit','command',${tenant},clock_timestamp(),clock_timestamp(),${key},jsonb_build_object('outcome','committed')) ON CONFLICT(tenant_id,request_key) DO NOTHING`,
 			);
 		},
 		intents: async (tx, id) => {
@@ -200,7 +201,7 @@ test("AC:OPS-ATOMIC-001 AC:OPS-PLATFORM-001 required SQL consequences roll back 
 		);
 		assert.equal((await admin.execute(querySql`SELECT title FROM document WHERE id=${doc}`)).rows[0].title, "before");
 		assert.equal(
-			(await admin.execute(querySql`SELECT count(*)::int n FROM event WHERE target_record_id=${doc}`)).rows[0].n,
+			(await admin.execute(querySql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${doc}`)).rows[0].n,
 			0,
 		);
 		assert.equal(
@@ -208,7 +209,7 @@ test("AC:OPS-ATOMIC-001 AC:OPS-PLATFORM-001 required SQL consequences roll back 
 			0,
 		);
 		assert.equal(
-			(await admin.execute(querySql`SELECT count(*)::int n FROM operation WHERE id=${receiptId}`)).rows[0].n,
+			(await admin.execute(querySql`SELECT count(*)::int n FROM audit_event WHERE id=${receiptId}`)).rows[0].n,
 			0,
 		);
 	}
@@ -232,14 +233,14 @@ test("AC:OPS-ATOMIC-001 AC:OPS-PLATFORM-001 required SQL consequences roll back 
 		{ title: "after" },
 	]);
 	assert.equal(
-		(await admin.execute(querySql`SELECT count(*)::int n FROM event WHERE target_record_id=${doc}`)).rows[0].n,
+		(await admin.execute(querySql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${doc}`)).rows[0].n,
 		1,
 	);
 	assert.deepEqual(
 		(await admin.execute(querySql`SELECT kind,state,producer_key FROM job WHERE subject_record_id=${doc}`)).rows,
 		[{ kind: "document_render", state: "ready", producer_key: key }],
 	);
-	assert.deepEqual((await admin.execute(querySql`SELECT id,state,outcome FROM operation WHERE id=${receiptId}`)).rows, [
+	assert.deepEqual((await admin.execute(querySql`SELECT id,'complete' AS state,metadata->>'outcome' AS outcome FROM audit_event WHERE id=${receiptId}`)).rows, [
 		{ id: receiptId, state: "complete", outcome: "committed" },
 	]);
 });
@@ -261,7 +262,7 @@ test("INV-operator: exact fresh scope denies tenant roles, expired grants and fo
 			: null;
 	};
 	const ops = operatorOperations(runtime, authenticate);
-	await admin.execute(querySql`UPDATE event SET reason='PRIVATE-CANARY',diff='{}' WHERE false`);
+	await admin.execute(querySql`UPDATE audit_event SET reason='PRIVATE-CANARY',metadata='{}' WHERE false`);
 	const audit = await ops.inspectAudit({ target: doc });
 	assert.equal(audit.length, 1);
 	assert.deepEqual(Object.keys(audit[0]).sort(), [
@@ -278,7 +279,7 @@ test("INV-operator: exact fresh scope denies tenant roles, expired grants and fo
 	assert.deepEqual(
 		(
 			await admin.execute(
-				querySql`SELECT action,count(*)::int n FROM event WHERE target_record_id=${tenant} GROUP BY action ORDER BY action`,
+				querySql`SELECT action,count(*)::int n FROM audit_event WHERE subject_id=${tenant} AND action LIKE 'security.%' GROUP BY action ORDER BY action`,
 			)
 		).rows,
 		[

@@ -1,19 +1,13 @@
+import { sendOnboardingRelationships } from "../jobs/notifications";
 import "server-only";
 import { z } from "zod";
 import type { Database } from "@everyfield/db/client";
 import { database } from "../database";
 import * as c from "@everyfield/contracts/onboarding";
 import type { OnboardingWriteContext } from "@everyfield/contracts/onboarding/server";
-import { readAccountContact } from "@everyfield/domain/identity";
-import {
-	createOnboardingProducer,
-	withOnboardingWrite,
-	readOnboardingEntry,
-	readOnboardingNoticeRecipients,
-} from "@everyfield/domain/onboarding";
+import { createOnboardingProducer, withOnboardingWrite, readOnboardingEntry } from "@everyfield/domain/onboarding";
 import { getViewer } from "../request-context";
 import { createMailService } from "../jobs/mail";
-import { enqueueJob } from "../jobs/queue";
 
 // The onboarding mount (WP-009/ui R2). The screens reach it only through the server actions in
 // features/onboarding/actions.ts. The session comes from the identity mount, the plant from the seat service, and
@@ -38,8 +32,16 @@ function create(v: z.infer<typeof env>) {
 		encryptionKey: Buffer.from(v.IDENTITY_MAIL_KEY, "hex"),
 		addressKey: Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex"),
 		from: v.IDENTITY_MAIL_FROM,
-		authorize: async (_tx, m) =>
-			m.recipient === m.tenant && ["notification", "discovery_receipt", "relationship_receipt"].includes(m.purpose),
+		authorize: async (_tx, mail) =>
+			new Set(
+				mail
+					.filter(
+						(m) =>
+							m.recipient === m.tenant &&
+							["notification", "discovery_receipt", "relationship_receipt"].includes(m.purpose),
+					)
+					.map((m) => m.id),
+			),
 		transport: {
 			async send() {
 				return { kind: "refused", retryable: true };
@@ -50,49 +52,31 @@ function create(v: z.infer<typeof env>) {
 		},
 	});
 	const producer = createOnboardingProducer({
-		async invalidate(tx, input) {
-			await enqueueJob(tx, {
-				tenant: input.owner.id,
-				kind: "assessment",
-				subject: input.sourceId,
-				key: "onboarding/" + input.sourceId + "/" + input.revision,
-				revision: input.revision,
-				eligibleAt: new Date().toISOString(),
-			});
+		relationships: async (tx, inputs) => {
+			await sendOnboardingRelationships(tx, inputs, mail);
 		},
-		async notice(tx, input) {
-			const recipients = await readOnboardingNoticeRecipients(tx, input.operationId, input.pair.organization.id);
-			for (const recipient of new Set(recipients))
-				await mail.enqueue(tx, {
-					owner: { kind: "account", id: recipient },
-					purpose: input.pair.kind === "discovery" ? "discovery_receipt" : "relationship_receipt",
-					logicalKey: "relationship/" + input.eventId + "/" + recipient,
-					recipient,
-					address: await readAccountContact(tx, recipient),
-					content: { subject: "Relationship updated", text: "A church relationship you are part of changed." },
-					operation: null,
+		async enqueue(tx, input, command) {
+			mail.append(
+				tx,
+				{
+					owner: { kind: "account", id: input.accountId },
+					purpose: input.kind === "discovery_created" ? "discovery_receipt" : "notification",
+					logicalKey: `onboarding/${input.operationId}/${input.kind}`,
+					recipient: input.accountId,
+					address: input.address,
+					content:
+						input.kind === "discovery_created"
+							? { subject: "Your Discovery space is ready", text: "You can read the foundations at your own pace." }
+							: {
+									subject: "Your church is set up",
+									text: "Your church is in EveryField. Setup continues where you left off.",
+								},
+					operation: input.operationId,
 					notice: null,
 					eligibleAt: new Date().toISOString(),
-				});
-		},
-		async enqueue(tx, input) {
-			await mail.enqueue(tx, {
-				owner: { kind: "account", id: input.accountId },
-				purpose: input.kind === "discovery_created" ? "discovery_receipt" : "notification",
-				logicalKey: `onboarding/${input.operationId}/${input.kind}`,
-				recipient: input.accountId,
-				address: await readAccountContact(tx, input.accountId),
-				content:
-					input.kind === "discovery_created"
-						? { subject: "Your Discovery space is ready", text: "You can read the foundations at your own pace." }
-						: {
-								subject: "Your church is set up",
-								text: "Your church is in EveryField. Setup continues where you left off.",
-							},
-				operation: input.operationId,
-				notice: null,
-				eligibleAt: new Date().toISOString(),
-			});
+				},
+				command.writes,
+			);
 		},
 	});
 	return { db, producer, origin: v.IDENTITY_ORIGIN };
@@ -133,20 +117,22 @@ export async function onboardingCommand(op: Op, input: unknown): Promise<Reply> 
 	});
 	const account = write({ kind: "account", id: s.accountId });
 	const p = m.producer;
-	const run = (context: OnboardingWriteContext, body: (tx: Parameters<Parameters<Database["transaction"]>[0]>[0]) => Promise<Reply>) =>
-		withOnboardingWrite(m.db,s.authority ?? undefined,context,body);
+	const run = (
+		context: OnboardingWriteContext,
+		body: (tx: Parameters<Parameters<Database["transaction"]>[0]>[0]) => Promise<Reply>,
+	) => withOnboardingWrite(m.db, s.authority ?? undefined, context, body);
 	switch (op) {
 		case "createPlant": {
 			const q = c.createPlantRequest.safeParse(input);
-			return q.success ? run(account,(tx) => p.createPlant(tx, account, q.data)) : refusal("invalid_input");
+			return q.success ? run(account, (tx) => p.createPlant(tx, account, q.data)) : refusal("invalid_input");
 		}
 		case "createDiscovery": {
 			const q = c.createDiscoveryRequest.safeParse(input);
-			return q.success ? run(account,(tx) => p.createDiscovery(tx, account, q.data)) : refusal("invalid_input");
+			return q.success ? run(account, (tx) => p.createDiscovery(tx, account, q.data)) : refusal("invalid_input");
 		}
 		case "convertDiscovery": {
 			const q = c.convertDiscoveryRequest.safeParse(input);
-			return q.success ? run(account,(tx) => p.convertDiscovery(tx, account, q.data)) : refusal("invalid_input");
+			return q.success ? run(account, (tx) => p.convertDiscovery(tx, account, q.data)) : refusal("invalid_input");
 		}
 	}
 	// Setup commands act on the account's own plant seat, never on a plant named by the browser.
@@ -156,15 +142,15 @@ export async function onboardingCommand(op: Op, input: unknown): Promise<Reply> 
 	switch (op) {
 		case "declareJourney": {
 			const q = c.declareJourneyRequest.safeParse(input);
-			return q.success ? run(plant,(tx) => p.declareJourney(tx, plant, q.data)) : refusal("invalid_input");
+			return q.success ? run(plant, (tx) => p.declareJourney(tx, plant, q.data)) : refusal("invalid_input");
 		}
 		case "answerLead": {
 			const q = c.answerLeadRequest.safeParse(input);
-			return q.success ? run(plant,(tx) => p.answerLead(tx, plant, q.data)) : refusal("invalid_input");
+			return q.success ? run(plant, (tx) => p.answerLead(tx, plant, q.data)) : refusal("invalid_input");
 		}
 		case "complete": {
 			const q = c.completeOnboardingRequest.safeParse(input);
-			return q.success ? run(plant,(tx) => p.complete(tx, plant, q.data)) : refusal("invalid_input");
+			return q.success ? run(plant, (tx) => p.complete(tx, plant, q.data)) : refusal("invalid_input");
 		}
 	}
 }

@@ -1,5 +1,5 @@
-import { claimOperation, executeWrites } from "../operations/writes.ts";
-import { getTableColumns, and, eq, isNull, lte, sql } from "@everyfield/db/query";
+import { prepareWrite, finishAudit } from "../operations/writes.ts";
+import { type SQL, getTableColumns, and, eq, isNull, lte, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { alias } from "@everyfield/db/columns";
 import { createHash, randomUUID } from "node:crypto";
@@ -25,8 +25,6 @@ import {
 } from "@everyfield/contracts/organizations";
 import { currentActor } from "@everyfield/domain/access";
 import { liveOwner } from "@everyfield/domain/access";
-const organization_operation_result_r = alias(tables.organization_operation_result, "r");
-const operation_o = alias(tables.operation, "o");
 
 export { currentActor, liveOwner, sameOwner };
 export type Actor = Extract<Awaited<ReturnType<typeof currentActor>>, { status: "active" }>;
@@ -92,7 +90,7 @@ export async function validPair(tx: Transaction, pair: RelationshipPair) {
 		);
 	return true;
 }
-const affiliationSchema = z.object({
+export const affiliationSchema = z.object({
 	id: recordId,
 	plant_id: tenantId.nullable(),
 	account_id: accountId.nullable(),
@@ -117,20 +115,25 @@ const affiliationSchema = z.object({
 export type Affiliation = z.infer<typeof affiliationSchema>;
 const receivingOrganization = alias(tables.organization, "receiving_organization");
 const sendingOrganization = alias(tables.organization, "sending_organization");
-export async function loadAffiliation(tx: Transaction, id: string, write = false): Promise<Affiliation | null> {
+export async function loadAffiliations(tx: Transaction, predicate: SQL, write = false) {
 	const rows = await tx
 		.select({
 			...getTableColumns(tables.affiliation),
 			organization_kind: receivingOrganization.kind,
 			organization_name: receivingOrganization.name,
 			subject_kind: sendingOrganization.kind,
+			active: sql<boolean>`${tables.affiliation.ended_at} IS NULL AND ${tables.affiliation.accepted_at}<=clock_timestamp() AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (w.affiliation_id=${tables.affiliation.id} OR (w.opaque_subject_id IN (${tables.affiliation.organization_id},${tables.affiliation.plant_id},${tables.affiliation.account_id},${tables.affiliation.sending_church_id}) AND w.kind IN ('account','plant','organization')))) AND (${tables.affiliation.account_id} IS NULL OR EXISTS(SELECT FROM discovery d WHERE d.account_id=${tables.affiliation.account_id} AND d.converted_at IS NULL))`,
 		})
 		.from(tables.affiliation)
 		.innerJoin(receivingOrganization, eq(receivingOrganization.id, tables.affiliation.organization_id))
 		.leftJoin(sendingOrganization, eq(sendingOrganization.id, tables.affiliation.sending_church_id))
-		.where(eq(tables.affiliation.id, id))
+		.where(predicate)
+		.orderBy(tables.affiliation.id)
 		.for(write ? "update" : "share", { of: tables.affiliation });
-	return rows[0] ? affiliationSchema.parse(rows[0]) : null;
+	return rows.map((row) => ({ ...affiliationSchema.parse(row), active: row.active }));
+}
+export async function loadAffiliation(tx: Transaction, id: string, write = false): Promise<Affiliation | null> {
+	return (await loadAffiliations(tx, eq(tables.affiliation.id, id), write))[0] ?? null;
 }
 
 export function pairOf(a: Affiliation): RelationshipPair {
@@ -214,6 +217,7 @@ export interface OrganizationEffects {
 		tx: Transaction,
 		input: {
 			eventId: string;
+			actorId?: string;
 			relationshipId: string;
 			pair: RelationshipPair;
 			kind: "relationship_approved" | "relationship_ended" | "sharing_changed";
@@ -221,16 +225,10 @@ export interface OrganizationEffects {
 			operationId: string;
 		},
 	): Promise<void>;
-	invalidate(tx: Transaction, input: { owner: Owner; sourceId: string; revision: string }): Promise<void>;
+	invalidate(tx: Transaction, input: { owners: readonly Owner[]; sourceId: string; revision: string }): Promise<void>;
 }
 type Command = { requestKey: string; expectedRevision: string; input: unknown };
-export async function beginCommand(
-	tx: Transaction,
-	actor: Actor,
-	selected: Owner,
-	name: typeof tables.operation.$inferInsert.name,
-	command: Command,
-) {
+export async function beginCommand(tx: Transaction, actor: Actor, selected: Owner, name: string, command: Command) {
 	const identity = requestIdentity.parse({
 		owner: selected,
 		actorId: actor.accountId,
@@ -239,22 +237,11 @@ export async function beginCommand(
 		digest: hash(canonical(command)),
 		origin: { kind: "native" },
 	});
-	const claim = await claimOperation(tx, name, identity);
+	const claim = await prepareWrite(tx, name, identity, command, hash(canonical({ name, input: command })), "current");
 	if (claim.kind === "unavailable") refuse();
 	if (claim.kind === "conflict") refuse("request_conflict");
 	if (claim.kind === "replay") {
-		const prior = await tx
-			.select({ receipt: organization_operation_result_r.receipt, result: organization_operation_result_r.result })
-			.from(operation_o)
-			.innerJoin(organization_operation_result_r, eq(organization_operation_result_r.operation_id, operation_o.id))
-			.where(and(eq(operation_o.tenant_id, selected.id), eq(operation_o.request_key, command.requestKey)));
-		if (prior[0]) {
-			const saved = receipt.parse(prior[0].receipt);
-			if (canonical(saved.request) !== canonical(identity)) refuse("request_conflict");
-			return { kind: "replay" as const, result: prior[0].result, receipt: saved };
-		}
-
-		refuse();
+		return { kind: "replay" as const, result: claim.value };
 	}
 	return { kind: "new" as const, id: claim.id, identity, writes: claim.writes, events: claim.events };
 }
@@ -272,42 +259,32 @@ export async function finishCommand<T>(
 		request: c.identity,
 		completedAt: now,
 		outcome: changed ? "changed" : "noop",
-		subjects: [{ kind: "operation", id: c.id, owner: c.identity.owner }],
+		subjects: [{ kind: "audit_event", id: c.id, owner: c.identity.owner }],
 		eventIds,
 		effectIds: [],
 	});
 	const output = result(r);
-	await executeWrites(tx, [
-		...c.writes,
-		...(c.events.length ? [tx.insert(tables.event).values(c.events)] : []),
-		tx
-			.update(tables.operation)
-			.set({ state: "complete", outcome: changed ? "committed" : "no_effect", completed_at: sql`${now}` })
-			.where(eq(tables.operation.id, c.id)),
-		tx.insert(tables.organization_operation_result).values({ operation_id: c.id, receipt: r, result: output }),
-	]);
+	await finishAudit(tx, c, c.identity, output);
 	return output;
 }
 export async function appendEvent(
 	_tx: Transaction,
 	c: NewCommand,
 	target: string,
-	kind: typeof tables.event.$inferInsert.kind,
-	action: typeof tables.event.$inferInsert.action,
+	kind: typeof tables.audit_event.$inferInsert.kind,
+	action: typeof tables.audit_event.$inferInsert.action | null,
 	before: string,
 	after: string,
 ) {
-	const id = randomUUID();
-	// Resolve the target's current scope in the audit insert, without a separate read.
-	const ownedTarget = sql<string>`coalesce((SELECT id FROM ${tables.record} WHERE id=${target}::uuid AND tenant_id=${c.identity.owner.id}::uuid),${c.identity.owner.id}::uuid)`;
+	const id = c.events.length ? randomUUID() : c.id;
 	c.events.push({
 		id: id,
 		tenant_id: c.identity.owner.id,
-		target_record_id: ownedTarget,
-		operation_id: c.id,
+		subject_id: target,
+		command_id: c.id,
 		actor_id: c.identity.actorId,
 		kind: kind,
-		action: action,
+		action: action ?? c.identity.operation,
 		occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
 		recorded_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
 		before_revision: sql`${before}`,
@@ -327,5 +304,5 @@ export async function invalidate(
 		.update(tables.organization)
 		.set({ material_revision: sql<unknown>`(${tables.organization.material_revision} + 1)` })
 		.where(eq(tables.organization.id, pair.organization.id));
-	await effects.invalidate(tx, { owner: pair.organization, sourceId: id, revision: rev });
+	await effects.invalidate(tx, { owners: [pair.organization], sourceId: id, revision: rev });
 }

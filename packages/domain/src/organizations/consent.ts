@@ -1,3 +1,4 @@
+import { auditSavepoint } from "../operations/writes.ts";
 import { getTableColumns, and, eq, isNotNull, isNull, lte, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { alias } from "@everyfield/db/columns";
@@ -175,10 +176,14 @@ export function consentOperations(
 			});
 		},
 		async "residency.setSharing"(tx, session, selected, raw) {
-			return changeResident(tx, session, selected, raw, false);
+			return auditSavepoint(tx, async () => {
+				return changeResident(tx, session, selected, raw, false);
+			});
 		},
 		async "residency.leave"(tx, session, selected, raw) {
-			return changeResident(tx, session, selected, raw, true);
+			return auditSavepoint(tx, async () => {
+				return changeResident(tx, session, selected, raw, true);
+			});
 		},
 		async "pipelineSharing.readConsent"(tx, session, selected, raw) {
 			const q = Q.pipelineConsentRequest.parse(raw),
@@ -216,49 +221,51 @@ export function consentOperations(
 			});
 		},
 		async "pipelineSharing.setConsent"(tx, session, selected, raw) {
-			const q = Q.setPipelineConsentRequest.parse(raw),
-				a = await loadAffiliation(tx, q.input.relationshipId, true),
-				actor = await currentActor(tx, session, selected);
-			if (
-				!a ||
-				actor.status !== "active" ||
-				!administrator(actor) ||
-				selected.kind !== "organization" ||
-				selected.organizationKind !== "sending_church" ||
-				a.sending_church_id !== selected.id ||
-				!(await active(tx, a))
-			)
-				refuse();
-			const c = await beginCommand(tx, actor, selected, "pipelineSharing.setConsent", q);
-			if (c.kind === "replay") return Q.mutationResult.parse(c.result);
-			checkRevision(q.expectedRevision, a.revision);
-			await tx
-				.insert(tables.pipeline_sharing)
-				.values({
-					id: sql`gen_random_uuid()`,
-					organization_id: selected.id,
-					relationship_id: a.id,
-					network_id: a.organization_id,
-					share_pipeline_totals: q.input.sharePipelineTotals,
-					changed_by: actor.accountId,
-					revision: "1",
-				})
-				.onConflictDoUpdate({
-					target: tables.pipeline_sharing.relationship_id,
-					set: {
+			return auditSavepoint(tx, async () => {
+				const q = Q.setPipelineConsentRequest.parse(raw),
+					a = await loadAffiliation(tx, q.input.relationshipId, true),
+					actor = await currentActor(tx, session, selected);
+				if (
+					!a ||
+					actor.status !== "active" ||
+					!administrator(actor) ||
+					selected.kind !== "organization" ||
+					selected.organizationKind !== "sending_church" ||
+					a.sending_church_id !== selected.id ||
+					!(await active(tx, a))
+				)
+					refuse();
+				const c = await beginCommand(tx, actor, selected, "pipelineSharing.setConsent", q);
+				if (c.kind === "replay") return Q.mutationResult.parse(c.result);
+				checkRevision(q.expectedRevision, a.revision);
+				await tx
+					.insert(tables.pipeline_sharing)
+					.values({
+						id: sql`gen_random_uuid()`,
+						organization_id: selected.id,
+						relationship_id: a.id,
+						network_id: a.organization_id,
 						share_pipeline_totals: q.input.sharePipelineTotals,
 						changed_by: actor.accountId,
-						revision: sql`${tables.pipeline_sharing.revision}+1`,
-					},
-				});
-			await tx
-				.update(tables.affiliation)
-				.set({ revision: sql<unknown>`(${tables.affiliation.revision} + 1)` })
-				.where(eq(tables.affiliation.id, a.id));
-			const next = String(BigInt(a.revision) + 1n),
-				event = await appendEvent(tx, c, a.id, "preference", "sharing.changed", a.revision, next);
-			await invalidate(tx, effects, pairOf(a), a.id, next);
-			return finishCommand(tx, c, (r) => Q.mutationResult.parse({ status: "committed", receipt: r }), [event]);
+						revision: "1",
+					})
+					.onConflictDoUpdate({
+						target: tables.pipeline_sharing.relationship_id,
+						set: {
+							share_pipeline_totals: q.input.sharePipelineTotals,
+							changed_by: actor.accountId,
+							revision: sql`${tables.pipeline_sharing.revision}+1`,
+						},
+					});
+				await tx
+					.update(tables.affiliation)
+					.set({ revision: sql<unknown>`(${tables.affiliation.revision} + 1)` })
+					.where(eq(tables.affiliation.id, a.id));
+				const next = String(BigInt(a.revision) + 1n),
+					event = await appendEvent(tx, c, a.id, "preference", "sharing.changed", a.revision, next);
+				await invalidate(tx, effects, pairOf(a), a.id, next);
+				return finishCommand(tx, c, (r) => Q.mutationResult.parse({ status: "committed", receipt: r }), [event]);
+			});
 		},
 		async "pipelineSharing.checkAggregateAccess"(tx, session, selected, raw) {
 			const q = Q.pipelineAggregateAccessRequest.parse(raw),
@@ -348,7 +355,7 @@ export function consentOperations(
 			.update(tables.organization)
 			.set({ material_revision: sql<unknown>`(${tables.organization.material_revision} + 1)` })
 			.where(eq(tables.organization.id, l.organization_id));
-		await effects.invalidate(tx, { owner: organization, sourceId: l.id, revision: next });
+		await effects.invalidate(tx, { owners: [organization], sourceId: l.id, revision: next });
 		return finishCommand(tx, c, (r) => Q.mutationResult.parse({ status: "committed", receipt: r }), [event]);
 	}
 }

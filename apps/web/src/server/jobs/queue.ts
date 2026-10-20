@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, or, sql } from "@everyfield/db/query";
+import { asc, eq, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import "server-only";
 import { randomUUID } from "node:crypto";
@@ -50,48 +50,69 @@ const enqueueSchema = z.strictObject({
 export type JobInput = z.input<typeof enqueueSchema>;
 
 // Called on the producer's existing transaction, alongside its facts and receipt.
-export async function enqueueJob(tx: Transaction, input: JobInput): Promise<string> {
-	const v = enqueueSchema.parse(input);
-	const result = await tx
+export async function enqueueJobs(tx: Transaction, inputs: readonly JobInput[]): Promise<string[]> {
+	const values = inputs.map((input) => enqueueSchema.parse(input));
+	if (!values.length) return [];
+	const inserted = await tx
 		.insert(tables.job)
-		.values({
-			tenant_id: v.tenant,
-			kind: v.kind,
-			subject_record_id: v.subject,
-			producer_key: v.key,
-			source_revision: sql`${v.revision}`,
-			state: "ready",
-			eligible_at: sql`${v.eligibleAt}`,
-			attempt_count: 0,
-			max_attempts: v.maxAttempts,
-			claim_generation: "0",
-		})
+		.values(
+			values.map((v) => ({
+				tenant_id: v.tenant,
+				kind: v.kind,
+				subject_record_id: v.subject,
+				producer_key: v.key,
+				source_revision: v.revision,
+				state: "ready" as const,
+				eligible_at: new Date(v.eligibleAt),
+				attempt_count: 0,
+				max_attempts: v.maxAttempts,
+				claim_generation: "0",
+			})),
+		)
 		.onConflictDoNothing()
-		.returning({ id: tables.job.id });
-	if (result[0]) return result[0].id;
-	const old = await tx
-		.select({
+		.returning({
 			id: tables.job.id,
-			tenant_id: tables.job.tenant_id,
-			source_revision: sql<string>`(${tables.job.source_revision})::text`,
-		})
-		.from(tables.job)
-		.where(
-			and(
-				and(eq(tables.job.kind, v.kind), eq(tables.job.producer_key, v.key)),
-				or(
-					and(eq(tables.job.subject_record_id, sql`${v.subject}`), eq(tables.job.tenant_id, v.tenant)),
-					and(
-						and(isNull(tables.job.subject_record_id), isNull(sql<string>`(${v.subject})::uuid`)),
-						eq(tables.job.tenant_id, v.tenant),
-					),
-				),
-			),
+			tenant: tables.job.tenant_id,
+			kind: tables.job.kind,
+			subject: tables.job.subject_record_id,
+			key: tables.job.producer_key,
+			revision: tables.job.source_revision,
+		});
+	let rows = inserted;
+	if (rows.length !== values.length) {
+		const input = values.map((v, n) => ({ n, tenant: v.tenant, kind: v.kind, subject: v.subject, key: v.key }));
+		const result = await tx.execute(
+			sql`SELECT j.id,j.tenant_id AS tenant,j.kind,j.subject_record_id AS subject,j.producer_key AS key,j.source_revision::text AS revision FROM job j JOIN jsonb_to_recordset(${JSON.stringify(input)}::jsonb) i(n int,tenant uuid,kind text,subject uuid,key text) ON j.kind=i.kind AND j.subject_record_id IS NOT DISTINCT FROM i.subject AND j.producer_key=i.key AND (i.subject IS NOT NULL OR j.tenant_id=i.tenant)`,
 		);
-	const row = old[0];
-	if (!row || row.tenant_id !== v.tenant || row.source_revision !== v.revision)
-		throw new Error("job_identity_conflict");
-	return row.id;
+		rows = z
+			.array(
+				z.object({
+					id: z.uuid(),
+					tenant: z.uuid(),
+					kind: jobKind,
+					subject: z.uuid().nullable(),
+					key: z.string(),
+					revision: z.string().nullable(),
+				}),
+			)
+			.parse(result.rows);
+	}
+	return values.map((v) => {
+		const row = rows.find(
+			(r) =>
+				r.kind === v.kind &&
+				r.subject === v.subject &&
+				r.key === v.key &&
+				(v.subject !== null || r.tenant === v.tenant),
+		);
+		if (!row || row.tenant !== v.tenant || row.revision !== v.revision) throw Error("job_identity_conflict");
+		return row.id;
+	});
+}
+export async function enqueueJob(tx: Transaction, input: JobInput): Promise<string> {
+	const [id] = await enqueueJobs(tx, [input]);
+	if (!id) throw Error("job_identity_conflict");
+	return id;
 }
 
 // The duration override applies to ordinary jobs; assessment claims always use 120 seconds.
@@ -151,7 +172,7 @@ export async function finishClaim(tx: Transaction, claim: Claim, result: JobResu
 export async function recoverLease(db: Database, limit = 100): Promise<number> {
 	z.number().int().min(1).max(100).parse(limit);
 	return transaction(db, async (tx) => {
-		const rows=await tx.execute(sql`WITH expired AS (
+		const rows = await tx.execute(sql`WITH expired AS (
  SELECT id FROM job WHERE state='claimed' AND lease_until<=clock_timestamp()
  ORDER BY lease_until,id FOR UPDATE SKIP LOCKED LIMIT ${limit}
 ), recovered AS (
@@ -170,7 +191,7 @@ export async function recoverLease(db: Database, limit = 100): Promise<number> {
  FROM mail_request_member m, recovered r WHERE r.kind='mail' AND r.state='reconcile'
  AND m.mail_id=r.subject_record_id AND m.request_id=a.request_id AND a.outcome='in_flight' RETURNING a.id
 ) SELECT count(*)::int AS count FROM recovered`);
- return z.number().parse(rows.rows[0]?.count);
+		return z.number().parse(rows.rows[0]?.count);
 	});
 }
 export async function checkpoint(tx: Transaction, claim: Claim, key: string): Promise<boolean> {

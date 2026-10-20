@@ -1,3 +1,4 @@
+import { auditSavepoint } from "../operations/writes.ts";
 import { and, eq, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { alias } from "@everyfield/db/columns";
@@ -69,37 +70,39 @@ export function sharingOperations(
 			);
 		},
 		async "privacy.setSharing"(tx, session, selected, raw) {
-			const q = Q.setSharingRequest.parse(raw),
-				a = await loadAffiliation(tx, q.input.relationshipId, true),
-				actor = await currentActor(tx, session, selected);
-			if (
-				!a ||
-				actor.status !== "active" ||
-				!administrator(actor) ||
-				!sameOwner(selected, q.input.plant) ||
-				a.plant_id !== q.input.plant.id ||
-				!sameOwner(pairOf(a).organization, q.input.organization) ||
-				!(await active(tx, a))
-			)
-				refuse();
-			const c = await beginCommand(tx, actor, selected, "privacy.setSharing", q);
-			if (c.kind === "replay") return Q.mutationResult.parse(c.result);
-			checkRevision(q.expectedRevision, a.revision);
-			checkRevision(q.input.expectedConsentRevision, a.consent_revision);
-			const changed = await applySharingMutation(
-				tx,
-				a,
-				c,
-				{ ...choices(a), [q.input.category]: q.input.enabled },
-				effects,
-			);
-			return finishCommand(
-				tx,
-				c,
-				(r) => Q.mutationResult.parse({ status: "committed", receipt: r }),
-				changed.events,
-				changed.changed,
-			);
+			return auditSavepoint(tx, async () => {
+				const q = Q.setSharingRequest.parse(raw),
+					a = await loadAffiliation(tx, q.input.relationshipId, true),
+					actor = await currentActor(tx, session, selected);
+				if (
+					!a ||
+					actor.status !== "active" ||
+					!administrator(actor) ||
+					!sameOwner(selected, q.input.plant) ||
+					a.plant_id !== q.input.plant.id ||
+					!sameOwner(pairOf(a).organization, q.input.organization) ||
+					!(await active(tx, a))
+				)
+					refuse();
+				const c = await beginCommand(tx, actor, selected, "privacy.setSharing", q);
+				if (c.kind === "replay") return Q.mutationResult.parse(c.result);
+				checkRevision(q.expectedRevision, a.revision);
+				checkRevision(q.input.expectedConsentRevision, a.consent_revision);
+				const changed = await applySharingMutation(
+					tx,
+					a,
+					c,
+					{ ...choices(a), [q.input.category]: q.input.enabled },
+					effects,
+				);
+				return finishCommand(
+					tx,
+					c,
+					(r) => Q.mutationResult.parse({ status: "committed", receipt: r }),
+					changed.events,
+					changed.changed,
+				);
+			});
 		},
 	};
 }
@@ -153,10 +156,10 @@ export async function applySharingMutation(
 	effects: OrganizationEffects,
 ) {
 	const before = choices(a);
-	const patch: Partial<Record<(typeof columns)[keyof typeof columns],boolean>> = {};
+	const patch: Partial<Record<(typeof columns)[keyof typeof columns], boolean>> = {};
 	for (const category of Q.sharingChoices.keyof().options)
 		if (before[category] !== nextChoices[category]) patch[columns[category]] = nextChoices[category];
-	if (!Object.keys(patch).length) return { changed: false, events: [] as string[], current:a };
+	if (!Object.keys(patch).length) return { changed: false, events: [] as string[], current: a };
 	await tx
 		.update(tables.affiliation)
 		.set({
@@ -176,5 +179,14 @@ export async function applySharingMutation(
 		revision: next,
 		operationId: c.id,
 	});
-	return { changed: true, events: [event], current:{...a,...patch,revision:revision.parse(next),consent_revision:revision.parse(String(BigInt(a.consent_revision)+1n))} };
+	return {
+		changed: true,
+		events: [event],
+		current: {
+			...a,
+			...patch,
+			revision: revision.parse(next),
+			consent_revision: revision.parse(String(BigInt(a.consent_revision) + 1n)),
+		},
+	};
 }

@@ -9,17 +9,17 @@ import {
 	canReadPerson,
 	deny,
 	expected,
-	live,
 	mutation,
 	parse,
 	patchPerson,
 	person,
+	personRow,
 	project,
 	reply,
 	attribution,
 } from "./core.ts";
 import type { Context, Tx } from "./core.ts";
-import { insertPerson, retire, restore } from "./people.ts";
+import { appendPerson, retire, restore } from "./people.ts";
 const enrollment_milestone_m = alias(tables.enrollment_milestone, "m");
 const development_enrollment_e = alias(tables.development_enrollment, "e");
 const residency_link_l = alias(tables.residency_link, "l");
@@ -37,8 +37,8 @@ export const organizationPeople: OrganizationPeopleProducer<Tx> = {
 			organization(ctx);
 			const input = parse(c.createOrganizationPersonRequest, raw);
 			return c.organizationPersonMutationResult.parse(
-				await mutation(tx, ctx, "orgPeople.create", input, async (_actor, id) => {
-					const after = await insertPerson(tx, ctx, input.input);
+				await mutation(tx, ctx, "orgPeople.create", input, async (_actor, id, audit) => {
+					const after = appendPerson(tx, ctx, input.input, audit.writes);
 					return {
 						value: {
 							person: await project(tx, ctx, after),
@@ -69,13 +69,14 @@ export const organizationPeople: OrganizationPeopleProducer<Tx> = {
 			organization(ctx);
 			const input = parse(c.updateOrganizationPersonRequest, raw);
 			return c.organizationPersonMutationResult.parse(
-				await mutation(tx, ctx, "orgPeople.update", input, async (_actor, id) => {
+				await mutation(tx, ctx, "orgPeople.update", input, async (_actor, id, audit) => {
 					const { before, after } = await patchPerson(
 						tx,
 						ctx,
 						input.input.personId,
 						input.expectedRevision,
 						input.input.patch,
+						audit.writes,
 					);
 					return {
 						value: {
@@ -121,7 +122,7 @@ export const organizationPeople: OrganizationPeopleProducer<Tx> = {
 				await mutation(tx, ctx, "orgPeople.remove", input, async (actor, id) => {
 					const before = await person(tx, ctx, input.input.personId, true);
 					expected(before, input.expectedRevision);
-					const links=await tx.execute(sql`WITH ended AS (
+					const links = await tx.execute(sql`WITH ended AS (
  UPDATE residency_link SET ended_at=coalesce(ended_at,clock_timestamp()),share_foundations=false,share_milestones=false,consent_revision=consent_revision+1,revision=revision+1
  WHERE organization_id=${org.id}::uuid AND person_id=${before.id}::uuid RETURNING affiliation_id
 ) UPDATE affiliation a SET ended_at=coalesce(a.ended_at,clock_timestamp()),revision=a.revision+1 FROM ended WHERE a.id=ended.affiliation_id RETURNING a.id`);
@@ -222,7 +223,7 @@ export const organizationPeople: OrganizationPeopleProducer<Tx> = {
 							),
 						)
 						.returning({ id: tables.development_enrollment.id });
-					await tx
+					const [updated] = await tx
 						.update(tables.person)
 						.set({
 							display_name: "Former participant",
@@ -246,8 +247,9 @@ export const organizationPeople: OrganizationPeopleProducer<Tx> = {
 							),
 							revision: sql<unknown>`(${tables.person.revision} + 1)`,
 						})
-						.where(eq(tables.person.id, before.id));
-					const after = await person(tx, ctx, before.id, true);
+						.where(eq(tables.person.id, before.id))
+						.returning();
+					const after = personRow.parse(updated);
 					const witness = (
 						await tx
 							.insert(tables.organization_person_removal)
@@ -439,9 +441,9 @@ async function exportPerson(tx: Tx, ctx: Context, raw: unknown) {
 				: { status: "pending" },
 		});
 	const { displayName, firstName, lastName, email, phone, street, city, stateProvince, postalCode, country } = dto;
-	await tx.insert(tables.event).values({
+	await tx.insert(tables.audit_event).values({
 		tenant_id: org.id,
-		target_record_id: p.id,
+		subject_id: p.id,
 		actor_id: actor.accountId,
 		kind: "read",
 		occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),

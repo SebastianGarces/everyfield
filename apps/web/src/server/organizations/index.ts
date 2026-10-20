@@ -1,4 +1,5 @@
 import "server-only";
+import { auditTransaction } from "@everyfield/domain/operations";
 import { z } from "zod";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { database } from "../database";
@@ -48,7 +49,8 @@ function create(v: z.infer<typeof env>) {
 		addressKey: Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex"),
 		from: v.IDENTITY_MAIL_FROM,
 		// A relationship invitation goes to the typed address only; nothing else is sent from this mount.
-		authorize: async (_tx, m) => m.purpose === "relationship_invitation" && m.recipient === null,
+		authorize: async (_tx, mail) =>
+			new Set(mail.filter((m) => m.purpose === "relationship_invitation" && m.recipient === null).map((m) => m.id)),
 		transport: {
 			async send() {
 				return { kind: "refused", retryable: true };
@@ -113,7 +115,9 @@ type Mount = NonNullable<ReturnType<typeof current>>;
 export type { Kind, Viewer } from "@everyfield/domain/organizations";
 /** Who is asking, from the session and the one current seat. Seatless accounts count only with a Discovery profile. */
 export async function viewerOf(): Promise<
-	{ kind: "signed_out" } | { kind: "unavailable" } | { kind: "viewer"; viewer: Viewer; mount: Mount; authority: RequestActor }
+	| { kind: "signed_out" }
+	| { kind: "unavailable" }
+	| { kind: "viewer"; viewer: Viewer; mount: Mount; authority: RequestActor }
 > {
 	const m = current();
 	if (!m) return { kind: "unavailable" };
@@ -121,8 +125,8 @@ export async function viewerOf(): Promise<
 	if (!s) return { kind: "unavailable" };
 	if (s.status === "unauthenticated") return { kind: "signed_out" };
 	if (s.status !== "active") return { kind: "unavailable" };
-	const authority=s.authority;
-	if(!authority) return {kind:"unavailable"};
+	const authority = s.authority;
+	if (!authority) return { kind: "unavailable" };
 	const actor = authority.actor;
 	if (!actor) return { kind: "unavailable" };
 	const context = actor.context;
@@ -150,14 +154,20 @@ export async function viewerOf(): Promise<
 }
 
 /** Run one operation for this viewer. Residency consent is the resident's own, so it runs as the account. */
-export async function runOperation(m: Mount, viewer: Viewer, op: Operation, input: unknown, authority:RequestActor): Promise<Reply> {
+export async function runOperation(
+	m: Mount,
+	viewer: Viewer,
+	op: Operation,
+	input: unknown,
+	authority: RequestActor,
+): Promise<Reply> {
 	const selected = op.startsWith("residency.")
 		? owner.parse({ kind: "account", id: viewer.accountId })
 		: viewer.selected;
 	const call = m.adapter[op] as (tx: Transaction, s: Viewer["session"], o: Owner, i: unknown) => Promise<unknown>;
 	try {
-		const value = await m.db.transaction(async (tx) => {
-			if(!(await authority.bind(tx,selected))) throw new Error("unavailable");
+		const value = await auditTransaction(m.db, async (tx) => {
+			if (!(await authority.bind(tx, selected))) throw new Error("unavailable");
 			return call(tx, viewer.session, selected, input);
 		});
 		return { status: "ok", value };

@@ -39,17 +39,17 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-001 | Current source references and version identity | 0 | 0 | 0 | 0 | 1 |
 | WP-002 | Shared identity, access, time and change-history behavior | 5 | 2 | 8 | 0 | 1.5 |
 | WP-003 | Secure sign-in, private files and streamed responses | 12 | 0 | 11 | 2 | 1.5 |
-| WP-004 | Data storage for shipped features with tenant isolation | 20 | 4 | 46 | 116 | 5 |
+| WP-004 | Data storage for shipped features with tenant isolation | 20 | 4 | 46 | 115 | 5 |
 | WP-031 | Reliable background work and delivery recovery | 17 | 17 | 22 | 8 | 2.5 |
 | WP-088 | Product design foundations, dark mode and application shell | 0 | 0 | 0 | 0 | 2 |
 | WP-089 | Shared controls, surfaces and overlays | 0 | 0 | 0 | 0 | 3 |
 | WP-090 | Shared data, content and domain displays | 0 | 0 | 0 | 0 | 3.5 |
 | WP-005 | Better Auth identity/recovery | 7 | 13 | 15 | 10 | 2 |
 | WP-006 | Tenant and independent grant policies C1 | 8 | 7 | 23 | 6 | 2 |
-| WP-007 | Organizations and consent relationships | 10 | 19 | 53 | 12 | 2.5 |
-| WP-011 | People core and account links | 15 | 37 | 20 | 7 | 2.5 |
+| WP-007 | Organizations and consent relationships | 10 | 19 | 53 | 11 | 2.5 |
+| WP-011 | People core and account links | 15 | 37 | 20 | 6 | 2.5 |
 | WP-008 | Invitation lifecycle and atomic acceptance | 7 | 13 | 42 | 5 | 2 |
-| WP-009 | Onboarding and discovery conversion | 7 | 8 | 23 | 6 | 2 |
+| WP-009 | Onboarding and discovery conversion | 7 | 8 | 23 | 5 | 2 |
 | WP-010 | Account and settings surfaces | 20 | 21 | 39 | 7 | 2.5 |
 | WP-012 | Households tags skills and person fields | 9 | 21 | 11 | 3 | 2 |
 | WP-013 | People CSV import/export | 2 | 5 | 5 | 4 | 1.5 |
@@ -91,7 +91,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-050 | Environment bootstrap/ops/observability | 37 | 35 | 69 | 10 | 3.5 |
 | WP-051 | Evry conversations and runs | 32 | 18 | 19 | 4 | 2.5 |
 | WP-052 | Evry per-feature read/tool coverage | 40 | 2 | 66 | 0 | 2.5 |
-| WP-053 | Human approval and execution of Evry proposals | 52 | 13 | 69 | 8 | 3.5 |
+| WP-053 | Human approval and execution of Evry proposals | 52 | 13 | 69 | 7 | 3.5 |
 | WP-054 | Evry private uploads/artifacts/recovery | 33 | 5 | 15 | 3 | 2.5 |
 | WP-059 | Evry people-core reads/helper adapters | 4 | 21 | 20 | 0 | 2 |
 | WP-060 | Evry people-core draft/propose/execute adapters | 3 | 16 | 10 | 0 | 1.5 |

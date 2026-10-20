@@ -484,10 +484,10 @@ export function createIdentityService(config: IdentityConfig) {
 		tx?: Transaction,
 	) {
 		const result = await (tx ?? config.db)
-			.insert(tables.event)
+			.insert(tables.audit_event)
 			.values({
 				tenant_id: id,
-				target_record_id: id,
+				subject_id: id,
 				actor_id: id,
 				kind: "outcome",
 				occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
@@ -495,7 +495,7 @@ export function createIdentityService(config: IdentityConfig) {
 				event_key: key,
 				action: action,
 			})
-			.returning({ id: tables.event.id });
+			.returning({ id: tables.audit_event.id });
 		return z.uuid().parse(result[0]?.id);
 	}
 	return { handle, auth };

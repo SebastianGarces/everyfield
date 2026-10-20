@@ -52,20 +52,24 @@ export function invitationService(): ReturnType<typeof createInvitationService> 
 		// The per-address invitation budget key. It is derived from the identity secret, so it never leaves the server.
 		budgetSecret: createHmac("sha256", v.IDENTITY_SECRET).update("invitation-budget").digest("hex"),
 		people: accountPersonProducer,
-		enqueueMail: (tx, m) => {
+		enqueueMail: (tx, m, command) => {
 			// Invitations belong to a plant or an organization; no other owner ever sends one.
 			if (m.owner.kind === "global") throw new Error("unavailable");
-			return mail.enqueue(tx, {
-				owner: m.owner,
-				purpose: m.purpose,
-				logicalKey: m.logicalKey,
-				recipient: m.recipientAccountId,
-				address: m.recipientEmail,
-				content: { subject: m.subject, text: m.text },
-				operation: m.operationId,
-				notice: null,
-				eligibleAt: new Date().toISOString(),
-			});
+			return mail.append(
+				tx,
+				{
+					owner: m.owner,
+					purpose: m.purpose,
+					logicalKey: m.logicalKey,
+					recipient: m.recipientAccountId,
+					address: m.recipientEmail,
+					content: { subject: m.subject, text: m.text },
+					operation: m.operationId,
+					notice: null,
+					eligibleAt: new Date().toISOString(),
+				},
+				command.writes,
+			);
 		},
 	});
 	return service;

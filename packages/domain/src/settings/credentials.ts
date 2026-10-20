@@ -85,10 +85,10 @@ export function createAccountCredentials(
 		try {
 			const reporting = await config.db.transaction(async (tx) => {
 				const [event] = await tx
-					.insert(t.event)
+					.insert(t.audit_event)
 					.values({
 						tenant_id: accountId,
-						target_record_id: accountId,
+						subject_id: accountId,
 						actor_id: accountId,
 						kind: "edit",
 						action: action === "email_changed" ? "identity.email_changed" : "identity.credential_changed",
@@ -96,7 +96,7 @@ export function createAccountCredentials(
 						recorded_at: now,
 						event_key: correlationId,
 					})
-					.returning({ id: t.event.id });
+					.returning({ id: t.audit_event.id });
 				const mailIntentId = await config.securityNotice(tx, { accountId, address, action, correlationId });
 				return { status: "recorded" as const, eventId: event!.id, mailIntentId };
 			});

@@ -142,7 +142,7 @@ test("AC:WP006-KNOW-116 AC:C0-REVISION-001 AC:WP006-API-KNOW-116 INV-policy: Own
 	);
 	await db.admin.execute(querySql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${actors.admin.seat}`);
 	assert.deepEqual(await check(actors.admin, checkInput("launch.saveDebriefDraft", p)), unavailable);
-	assert.deepEqual((await db.admin.execute(querySql`SELECT count(*)::int n FROM event`)).rows, [{ n: 0 }]);
+	assert.deepEqual((await db.admin.execute(querySql`SELECT count(*)::int n FROM audit_event`)).rows, [{ n: 0 }]);
 });
 
 test("INV-tenancy: operation checks reject a mismatched subject owner and a foreign subject ID", async () => {

@@ -60,11 +60,10 @@ const server = createServer(async (req, res) => {
 const transport = createResendTransport("synthetic", async (url, init) =>
 	fetch(endpoint + new URL(url).pathname, init),
 );
-const authorize = async (tx, m) => {
-	const r = await tx.execute(
-		querySql`SELECT id FROM seat WHERE account_id=${querySql.param(m.recipient)} AND plant_id=${querySql.param(m.tenant)} AND ended_at IS NULL FOR SHARE`,
-	);
-	return r.rowCount === 1;
+const authorize = async (tx, mail) => {
+ const input=mail.map(m=>({id:m.id,recipient:m.recipient,tenant:m.tenant}));
+ const r=await tx.execute(querySql`SELECT i.id FROM jsonb_to_recordset(${JSON.stringify(input)}::jsonb) i(id uuid,recipient uuid,tenant uuid) JOIN seat s ON s.account_id=i.recipient AND s.plant_id=i.tenant AND s.ended_at IS NULL FOR SHARE OF s`);
+ return new Set(r.rows.map(r=>r.id));
 };
 const service = createMailService({
 	db: runtime,
@@ -242,13 +241,13 @@ test("INV-mail: protected token bytes stay encrypted and fixed content survives 
 	assert.equal((await service.dispatch(claim)).kind, "accepted");
 	assert.equal(JSON.parse(requests.at(-1).payload).text, content.text);
 	assert.equal(
-		(await db.execute(querySql`SELECT count(*)::int n FROM event WHERE target_record_id=${querySql.param(id)}`)).rows[0]
+		(await db.execute(querySql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${querySql.param(id)}`)).rows[0]
 			.n,
 		1,
 	);
 	assert.equal(
 		JSON.stringify(
-			(await db.execute(querySql`SELECT * FROM event WHERE target_record_id=${querySql.param(id)}`)).rows,
+			(await db.execute(querySql`SELECT * FROM audit_event WHERE subject_id=${querySql.param(id)}`)).rows,
 		).includes(token),
 		false,
 	);
@@ -369,8 +368,7 @@ test("INV-recovery: only a freshly authorized operator can attach provider evide
 	await db.execute(
 		querySql`UPDATE mail_request SET first_dispatched_at=clock_timestamp()-interval '24 hours' WHERE id=(SELECT request_id FROM mail_request_member WHERE mail_id=${querySql.param(id)})`,
 	);
-	await db.execute(querySql`INSERT INTO operation(id,tenant_id,actor_id,name,request_key,request_digest,state,started_at,tool_calls,reserved_input,reserved_output,used_input,used_output)
-  VALUES(${querySql.param(operation)},${querySql.param(tenant)},${querySql.param(account)},'notifications.reconcileUnknownOutcome',${querySql.param(operation)},${querySql.param("b".repeat(64))},'pending',now(),0,0,0,0,0)`);
+	await db.execute(querySql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,request_key,metadata) VALUES(${querySql.param(operation)},${querySql.param(tenant)},${querySql.param(account)},'notifications.reconcileUnknownOutcome','edit','command',${querySql.param(tenant)},now(),now(),${querySql.param(operation)},jsonb_build_object('outcome',NULL))`);
 	const recovery = createMailService({
 		db: runtime,
 		encryptionKey: key,
@@ -379,10 +377,10 @@ test("INV-recovery: only a freshly authorized operator can attach provider evide
 		authorize,
 		transport,
 		authorizeRecovery: async (tx, m, p) => {
-			if (m.id !== id || p !== providerId || !(await authorize(tx, m))) return null;
+			if (m.id !== id || p !== providerId || !(await authorize(tx,[m])).has(m.id)) return null;
 			const r =
-				await tx.execute(querySql`SELECT g.id FROM platform_grant g JOIN operation o ON o.id=${querySql.param(operation)} AND o.tenant_id=${querySql.param(m.tenant)} AND o.actor_id=g.account_id
-    WHERE g.account_id=${querySql.param(account)} AND g.capability='recovery_operator' AND g.revoked_at IS NULL AND (g.expires_at IS NULL OR g.expires_at>clock_timestamp()) FOR SHARE OF g,o`);
+				await tx.execute(querySql`SELECT g.id FROM platform_grant g JOIN audit_event o ON o.id=${querySql.param(operation)} AND o.tenant_id=${querySql.param(m.tenant)} AND o.actor_id=g.account_id
+    WHERE g.account_id=${querySql.param(account)} AND g.capability='recovery_operator' AND g.revoked_at IS NULL AND (g.expires_at IS NULL OR g.expires_at>clock_timestamp()) FOR SHARE OF g`);
 			return r.rowCount === 1 ? { actorId: account, operationId: operation, evidenceHash: "c".repeat(64) } : null;
 		},
 	});
@@ -396,10 +394,10 @@ test("INV-recovery: only a freshly authorized operator can attach provider evide
 	assert.deepEqual(
 		(
 			await db.execute(
-				querySql`SELECT actor_id,operation_id,reason FROM event WHERE target_record_id=${querySql.param(id)} AND kind='reconcile'`,
+				querySql`SELECT actor_id,command_id,reason FROM audit_event WHERE subject_id=${querySql.param(id)} AND kind='reconcile'`,
 			)
 		).rows,
-		[{ actor_id: account, operation_id: operation, reason: "provider_receipt/" + "c".repeat(64) }],
+		[{ actor_id: account, command_id: operation, reason: "provider_receipt/" + "c".repeat(64) }],
 	);
 	assert.equal(
 		(await db.execute(querySql`SELECT state FROM job WHERE id=${querySql.param(claim.id)}`)).rows[0].state,

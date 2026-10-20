@@ -97,7 +97,7 @@ test("AC:AF-008 AC:AF-009 AC:AF-011 AC:AF-018 AC:AF-027 approval is exact-addres
 	assert.equal(
 		(
 			await S.db.execute(
-				sql`SELECT count(*)::int AS n FROM relationship_history WHERE relationship_id=${sql.param(result[0].relationship.id)}`,
+				sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${sql.param(result[0].relationship.id)}`,
 			)
 		).rows[0].n,
 		1,
@@ -215,7 +215,7 @@ test("AC:AF-010 AC:AF-014 AC:AF-015 AC:AF-020 AC:AF-021 AC:AF-022 AC:AF-023 AC:A
 		1,
 	);
 	const audit = await S.db.execute(
-		sql`SELECT count(*)::int AS n,bool_and(e.tenant_id=r.tenant_id) AS owned,bool_and(e.reason IS NULL) AS safe FROM relationship_history h JOIN event e ON e.id=h.id JOIN record r ON r.id=e.target_record_id WHERE h.relationship_id=${sql.param(a.relationship.id)}`,
+		sql`SELECT count(*)::int AS n,bool_and(e.tenant_id IN (coalesce(a.plant_id,a.account_id,a.sending_church_id),a.organization_id)) AS owned,bool_and(NOT(e.metadata ?| ARRAY['body','email','notes'])) AS safe FROM audit_event h JOIN audit_event e ON e.id=h.id JOIN affiliation a ON a.id=e.subject_id WHERE h.subject_id=${sql.param(a.relationship.id)}`,
 	);
 	assert.deepEqual(audit.rows, [{ n: 2, owned: true, safe: true }]);
 	assert.equal(
@@ -273,7 +273,7 @@ test("INV-relationships: invitation rotation, duplicate intents, decline, revoke
 	const k = await invite(pa, o, oa.email);
 	await S.call("associations.revokeInvitation", pa, S.command({ invitationId: k.invitationId }));
 	await assert.rejects(invite(pa, o, oa.email), /invitation_limit/);
-	const saved = await S.db.execute(sql`SELECT receipt,result FROM organization_operation_result`);
+	const saved = await S.db.execute(sql`SELECT result->'receipt' AS receipt,result FROM audit_event WHERE result IS NOT NULL`);
 	assert.equal(JSON.stringify(saved.rows).includes(S.proofs.get(k.invitationId)), false);
 });
 

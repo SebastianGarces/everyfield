@@ -1,5 +1,4 @@
-import * as tables from "@everyfield/db/tables";
-import { eq } from "@everyfield/db/query";
+import { sql } from "@everyfield/db/query";
 import "server-only";
 import { nextCookies } from "better-auth/next-js";
 import { after } from "next/server";
@@ -35,22 +34,25 @@ function identityMount() {
 			encryptionKey: Buffer.from(v.IDENTITY_MAIL_KEY, "hex"),
 			addressKey: Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex"),
 			from: v.IDENTITY_MAIL_FROM,
-			authorize: async (tx, m) => {
-				if (m.recipient !== m.tenant || !["password_reset", "email_verification"].includes(m.purpose)) return false;
-				const row = await tx
-					.select({ auth_user_id: tables.account.auth_user_id })
-					.from(tables.account)
-					.where(eq(tables.account.id, m.tenant));
-				if (!row.length) return false;
-				const user = await authDb
-					.select({ email: tables.auth_user.email })
-					.from(tables.auth_user)
-					.where(eq(tables.auth_user.id, row[0]!.auth_user_id));
-				return (
-					user.length === 1 &&
-					createHmac("sha256", Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex"))
-						.update(z.email().parse(user[0]?.email))
-						.digest("hex") === m.addressHash
+			authorize: async (tx, mail) => {
+				const accounts = mail.map((m) => m.tenant);
+				const result = await tx.execute(
+					sql`SELECT a.id,c.email FROM account a CROSS JOIN LATERAL access_account_contact(a.id) c WHERE a.id=ANY(${sql.param(accounts)}::uuid[]) FOR SHARE OF a`,
+				);
+				const contacts = new Map(result.rows.map((row) => [z.uuid().parse(row.id), z.email().parse(row.email)]));
+				return new Set(
+					mail
+						.filter((m) => {
+							const email = contacts.get(m.tenant);
+							return (
+								m.recipient === m.tenant &&
+								["password_reset", "email_verification"].includes(m.purpose) &&
+								email &&
+								createHmac("sha256", Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex")).update(email).digest("hex") ===
+									m.addressHash
+							);
+						})
+						.map((m) => m.id),
 				);
 			},
 			// This mount issues intents only. WP-031 owns dispatch; no real provider is configured here.

@@ -18,7 +18,7 @@ CLOSED_VALUE_COLUMNS = {
     'operation': ['name', 'stop_reason'],
     'evidence_link': ['purpose', 'projection', 'source_purpose'],
     'assessment_fact': ['evidence_quality'], 'contact_outcome': ['contact_channel'],
-    'person': ['source'], 'event': ['action'], 'job': ['kind'],
+    'person': ['source'], 'audit_event': ['action','kind'], 'job': ['kind'],
 }
 OWNER_COLUMNS = {'tenant_id', 'plant_id', 'organization_id', 'account_id', 'owner_id', 'author_id'}
 OWNER_ROOTS = {'account', 'plant', 'organization'}
@@ -229,7 +229,7 @@ def validate_catalog_sets(schema, operations):
     """Literal operation sets follow the inventory; projections follow schema metadata."""
     operations = [o for o in operations if not o['id'].startswith('privateCare.')]
     expected = {
-        ('operation', 'name'): {o['id'] for o in operations},
+        ('audit_event','action'): {o['id'] for o in operations}|set(re.findall(r'\b[a-z_]+\.[a-z_]+\b','\n'.join(line for line in (ROOT/'docs/architecture/audit.md').read_text().splitlines() if line.startswith('|'))))|{'note_correction'},
         ('effect', 'kind'): {o['id'] for o in operations if o['kind'] == 'command'},
         ('evidence_link', 'source_purpose'): {o['id'] for o in operations if o['kind'] == 'query'},
         ('evidence_link', 'projection'): set(schema['type_contracts']['evidence_link.projection']),
@@ -405,7 +405,7 @@ def self_test(root):
         ('conjunctive NULL CHECK', 'null_and', 1, 'CHECK forces column title to stay null'),
         ('NULL in every alternative', 'null_or', 1, 'CHECK forces column title to stay null'),
         ('missing closed-value CHECK', 'closed', 1, 'closed-value column purpose lacks literal IN CHECK'),
-        ('catalog drift', 'catalog', 1, 'name IN CHECK differs from current operation catalog'),
+        ('catalog drift', 'catalog', 1, 'action IN CHECK differs from current operation catalog'),
         ('missing producer', 'producer', 1, 'no producer package'),
         ('unknown producer', 'producer_unknown', 1, 'unknown producer packages'),
         ('missing inherited producer', 'producer_inherited', 1, 'missing inherited producer packages'),
@@ -480,8 +480,8 @@ def self_test(root):
                 mail = next(t for t in candidate['tables'] if t['name'] == 'mail')
                 mail['checks'] = [c for c in mail['checks'] if not c.startswith('purpose in')]
             elif fault == 'catalog':
-                operation = next(t for t in candidate['tables'] if t['name'] == 'operation')
-                operation['checks'] = ["name in ('invented.command')" if c.startswith('name in') else c for c in operation['checks']]
+                operation=next(t for t in candidate['tables'] if t['name']=='audit_event')
+                operation['checks']=["action in ('invented.command')" if c.startswith('action in') else c for c in operation['checks']]
             elif fault == 'producer':
                 candidate['tables'][0]['producer_work_packages'] = []
             elif fault == 'producer_unknown':

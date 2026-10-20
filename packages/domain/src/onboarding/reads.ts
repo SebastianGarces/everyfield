@@ -60,11 +60,19 @@ export async function readOnboardingEntry(
 	return { kind: "elsewhere", reason: "organization" };
 }
 
-export async function readOnboardingNoticeRecipients(tx: Transaction, operationId: string, organizationId: string) {
-	const [operation] = await tx.select().from(t.operation).where(eq(t.operation.id, operationId));
+export async function readOnboardingNoticeRecipients(
+	tx: Transaction,
+	operationId: string,
+	organizationId: string,
+	creatorId?: string,
+) {
+	const creator =
+		creatorId ??
+		(await tx.select({ actor: t.audit_event.actor_id }).from(t.audit_event).where(eq(t.audit_event.id, operationId)))[0]
+			?.actor;
 	const owners = await tx
 		.select({ id: t.seat.account_id })
 		.from(t.seat)
 		.where(and(eq(t.seat.organization_id, organizationId), eq(t.seat.role, "owner"), sql`${t.seat.ended_at} IS NULL`));
-	return [operation?.actor_id, ...owners.map((s) => s.id)].filter((v): v is string => Boolean(v));
+	return [creator, ...owners.map((s) => s.id)].filter((v): v is string => Boolean(v));
 }

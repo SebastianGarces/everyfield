@@ -51,10 +51,16 @@ export async function loadHistoryPage(after: string | null) {
 	const who = await viewerOf();
 	if (who.kind !== "viewer") return { page: { status: "unavailable" as const }, names: {} };
 	const cursor = after === null ? {} : { after };
-	const reply = await runOperation(who.mount, who.viewer, "associations.getHistory", {
-		...scopeOf(who.viewer),
-		...cursor,
-	}, who.authority);
+	const reply = await runOperation(
+		who.mount,
+		who.viewer,
+		"associations.getHistory",
+		{
+			...scopeOf(who.viewer),
+			...cursor,
+		},
+		who.authority,
+	);
 	if (reply.status !== "ok") return { page: { status: "unavailable" as const }, names: {} };
 	const page = reply.value as Parameters<typeof idsIn>[0] & { status: string };
 	const names = page.status === "available" ? await namesFor(who.mount.db, who.viewer, idsIn(page)) : {};

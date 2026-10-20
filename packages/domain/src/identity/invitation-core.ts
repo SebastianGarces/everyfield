@@ -1,8 +1,9 @@
-import { claimOperation, executeWrites } from "../operations/writes.ts";
+import { rethrowWriteError } from "./budget.ts";
+import { prepareWrite, finishAudit, auditTransaction } from "../operations/writes.ts";
 import "server-only";
 import { createHash, randomUUID } from "node:crypto";
-import type { Transaction } from "@everyfield/db/client";
-import { and, eq, sql } from "@everyfield/db/query";
+import type { Database, Transaction } from "@everyfield/db/client";
+import { eq, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import { z } from "zod";
 import {
@@ -68,17 +69,33 @@ export async function identity(tx: Transaction, session: string) {
 	if (!(await liveOwner(tx, owner.parse({ kind: "account", id: a.account_id })))) refuse();
 	return a;
 }
-export async function administer(tx: Transaction, session: string | RequestActor, selected: Owner) {
-	if(session instanceof RequestActor && !(await session.bind(tx,selected))) refuse();
-	const a = await currentActor(tx, sessionId.parse(typeof session==="string"?session:session.session), selected);
-	if (a.status !== "active" || a.context.kind !== "seat" || a.context.role === "member") refuse();
-	return a;
+export async function readAdministrator(tx: Transaction, session: string, selected: Owner) {
+	const actor = await currentActor(tx, sessionId.parse(session), selected);
+	if (actor.status !== "active" || actor.context.kind !== "seat" || actor.context.role === "member") refuse();
+	return actor;
 }
+export async function writeAsAdministrator<T>(
+	db: Database,
+	authority: RequestActor,
+	selected: Owner,
+	body: (tx: Transaction, bound: NonNullable<Awaited<ReturnType<RequestActor["bind"]>>>) => Promise<T>,
+): Promise<T> {
+	try {
+		return await auditTransaction(db, async (tx) => {
+			const bound = await authority.bind(tx, selected);
+			if (!bound || bound.actor.context.kind !== "seat" || bound.actor.context.role === "member") refuse();
+			return body(tx, bound);
+		});
+	} catch (error) {
+		rethrowWriteError(error);
+	}
+}
+
 export async function begin(
 	tx: Transaction,
 	selected: Owner,
 	actor: string,
-	name: typeof t.operation.$inferSelect.name,
+	name: string,
 	command: { requestKey: string; expectedRevision: string; input: unknown },
 ) {
 	const request = requestIdentity.parse({
@@ -89,22 +106,11 @@ export async function begin(
 		digest: hash(canonical(command)),
 		origin: { kind: "native" },
 	});
-	const claim = await claimOperation(tx, name, request);
+	const claim = await prepareWrite(tx, name, request, command, hash(canonical({ name, input: command })), "current");
 	if (claim.kind === "unavailable") refuse();
 	if (claim.kind === "conflict") refuse("idempotency_conflict");
 	if (claim.kind === "replay") {
-		const [prior] = await tx
-			.select({ receipt: t.identity_operation_result.receipt, result: t.identity_operation_result.result })
-			.from(t.operation)
-			.innerJoin(t.identity_operation_result, eq(t.identity_operation_result.operation_id, t.operation.id))
-			.where(and(eq(t.operation.tenant_id, selected.id), eq(t.operation.request_key, command.requestKey)));
-		if (prior) {
-			const saved = receipt.parse(prior.receipt);
-			if (canonical(saved.request) !== canonical(request)) refuse("idempotency_conflict");
-			return { kind: "replay" as const, result: prior.result };
-		}
-
-		refuse("invitation_unavailable");
+		return { kind: "replay" as const, result: claim.value };
 	}
 	return { kind: "new" as const, id: claim.id, request, writes: claim.writes, events: claim.events };
 }
@@ -122,27 +128,19 @@ export async function finish<T>(
 		request: c.request,
 		completedAt: new Date().toISOString(),
 		outcome: changed ? "changed" : "noop",
-		subjects: [{ kind: "operation", id: c.id, owner: c.request.owner }],
+		subjects: [{ kind: "audit_event", id: c.id, owner: c.request.owner }],
 		eventIds: events,
 		effectIds: effects,
 	});
 	const result = output(r);
-	await executeWrites(tx, [
-		...c.writes,
-		...(c.events.length ? [tx.insert(t.event).values(c.events)] : []),
-		tx
-			.update(t.operation)
-			.set({ state: "complete", outcome: changed ? "committed" : "no_effect", completed_at: new Date(r.completedAt) })
-			.where(eq(t.operation.id, c.id)),
-		tx.insert(t.identity_operation_result).values({ operation_id: c.id, receipt: r, result }),
-	]);
+	await finishAudit(tx, c, c.request, result);
 	return result;
 }
 export function eventRow(
 	c: Command,
 	target: string,
-	kind: typeof t.event.$inferInsert.kind,
-	action: typeof t.event.$inferInsert.action,
+	kind: typeof t.audit_event.$inferInsert.kind,
+	action: typeof t.audit_event.$inferInsert.action | null,
 	before: string,
 	after: string,
 ) {
@@ -150,11 +148,11 @@ export function eventRow(
 	return {
 		id,
 		tenant_id: c.request.owner.id,
-		target_record_id: target,
-		operation_id: c.id,
+		subject_id: target,
+		command_id: c.id,
 		actor_id: c.request.actorId,
 		kind,
-		action,
+		action: action ?? c.request.operation,
 		occurred_at: sql`clock_timestamp()`,
 		recorded_at: sql`clock_timestamp()`,
 		before_revision: before,
@@ -164,6 +162,7 @@ export function eventRow(
 }
 export async function event(_tx: Transaction, ...args: Parameters<typeof eventRow>) {
 	const row = eventRow(...args);
+	if (!args[0].events.some((e) => e.id === args[0].id)) row.id = args[0].id;
 	args[0].events.push(row);
 	return row.id;
 }
@@ -174,8 +173,9 @@ export async function load(tx: Transaction, id: string) {
 	return i;
 }
 export async function workspace(tx: Transaction, id: string) {
-	const bound=requestWrite(tx);
-	if(bound?.selected.id===id && bound.selected.kind!=="account") return {selected:bound.selected,name:bound.plant?.name ?? bound.organization?.name ?? null};
+	const bound = requestWrite(tx);
+	if (bound?.selected.id === id && bound.selected.kind !== "account")
+		return { selected: bound.selected, name: bound.plant?.name ?? bound.organization?.name ?? null };
 	const [r] = await tx
 		.select({
 			kind: t.tenant.kind,

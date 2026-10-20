@@ -13,7 +13,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `affiliation(sending_church_id)` | `organization(id)` | restrict |  |
 | `affiliation(organization_id)` | `organization(id)` | restrict |  |
 | `affiliation(invitation_id)` | `invitation(id)` | restrict | Invitation owner is an endpoint, not always the plant. Serialized acceptance validates exact endpoints and tenant kind; consent cannot be inherited. |
-| `affiliation(recognition_operation_id)` | `operation(id)` | restrict | Initiating account conversation context may differ from the plant output. Exact native operation validates actor, plant authority, review and target ownership. |
+| `affiliation(recognition_operation_id)` | `audit_event(id)` | restrict | D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access. |
 | `affiliation(id)` | `record(id)` | restrict | Subtype trigger binds actual record owner for a global/public or retained body-free variant whose live root pointer is nullable. |
 | `article_editor_state(organization_id)` | `organization(id)` | restrict |  |
 | `article_editor_state(article_id)` | `reference_item(id)` | restrict | Canonical item is a global or entitled organization source identity; serialized boundary validates item kind, canonical identity and exact current source rights, without transferring ownership. |
@@ -39,7 +39,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `assessment_contributor(organization_id)` | `organization(id)` | restrict |  |
 | `assessment_contributor(assessment_id, organization_id)` | `assessment(id, tenant_id)` | restrict |  |
 | `assessment_contributor(plant_id)` | `plant(id)` | restrict |  |
-| `assessment_contributor(recognition_operation_id)` | `operation(id)` | restrict | Initiating account conversation context may differ from the plant output. Exact native operation validates actor, plant authority, review and target ownership. |
+| `assessment_contributor(recognition_operation_id)` | `audit_event(id)` | restrict | D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access. |
 | `assessment_contributor(plant_assessment_id, plant_id)` | `assessment(id, tenant_id)` | restrict | Organization contributor intentionally pins another-owner plant result; the compound plant FK plus exact pair affiliation, recognition, release and category grants constrain eligibility. |
 | `assessment_contributor(geography_id, plant_id)` | `plant_geography(id, plant_id)` | restrict | Organization contributor pins the source plant geography at assessment time; compound plant FK enforces source identity, and serialized portfolio boundary validates exact relationship and grants. |
 | `assessment_contributor(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
@@ -56,6 +56,10 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `attestation(reference_version_id)` | `reference_version(id)` | restrict |  |
 | `attestation(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `attestation(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
+| `audit_event(command_id)` | `audit_event(id)` | set_null | Original command correlation may cross the owned endpoint of a reviewed conversion. Cleanup may sever correlation while retaining only independently owned facts. |
+| `audit_event(actor_id)` | `account(id)` | set_null |  |
+| `audit_event(tenant_id)` | `tenant(id)` | no_action |  |
+| `audit_event(subject_id)` | `record(id)` | no_action | D70 audit subject or original-command correlation may name an authorized bilateral endpoint or retained identity; pair/source checks and current authority remain mandatory. Operator projections omit protected history and retry content. |
 | `auth_account(user_id)` | `auth_user(id)` | restrict |  |
 | `auth_session(user_id)` | `auth_user(id)` | restrict |  |
 | `commitment(plant_id)` | `plant(id)` | restrict |  |
@@ -91,7 +95,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `conversation_entry(conversation_id, tenant_id)` | `conversation(id, tenant_id)` | restrict |  |
 | `conversation_entry(object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
 | `conversation_entry(review_id, tenant_id)` | `review(id, tenant_id)` | restrict |  |
-| `conversation_entry(operation_id, tenant_id)` | `operation(id, tenant_id)` | restrict |  |
+| `conversation_entry(operation_id, tenant_id)` | `audit_event(id, tenant_id)` | restrict |  |
 | `conversation_entry(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `conversation_entry(bound_effect_id, tenant_id)` | `effect(id, tenant_id)` | restrict |  |
 | `development_enrollment(organization_id)` | `organization(id)` | restrict |  |
@@ -122,11 +126,11 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `digest_coverage(tenant_id)` | `tenant(id)` | restrict |  |
 | `digest_coverage(recipient_id)` | `account(id)` | restrict |  |
 | `digest_coverage(last_mail_id, tenant_id)` | `mail(id, tenant_id)` | restrict |  |
-| `digest_coverage(last_operation_id, tenant_id)` | `operation(id, tenant_id)` | restrict |  |
+| `digest_coverage(last_operation_id, tenant_id)` | `audit_event(id, tenant_id)` | restrict |  |
 | `digest_coverage(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `discovery(account_id)` | `account(id)` | restrict |  |
 | `discovery(converted_plant_id)` | `plant(id)` | restrict |  |
-| `discovery(conversion_operation_id)` | `operation(id)` | restrict | Conversion creates a plant from the own-account context; validate account owner, original conversion receipt and resulting plant atomically. |
+| `discovery(conversion_operation_id)` | `audit_event(id)` | restrict | D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access. |
 | `discovery(id, account_id)` | `record(id, tenant_id)` | restrict |  |
 | `document(tenant_id)` | `tenant(id)` | restrict |  |
 | `document(current_revision_id, tenant_id)` | `document_revision(id, tenant_id)` | restrict |  |
@@ -137,7 +141,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `document_revision(import_object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
 | `document_revision(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `effect(tenant_id)` | `tenant(id)` | restrict |  |
-| `effect(operation_id, tenant_id)` | `operation(id, tenant_id)` | restrict |  |
+| `effect(operation_id, tenant_id)` | `audit_event(id, tenant_id)` | restrict |  |
 | `effect(review_id, tenant_id)` | `review(id, tenant_id)` | restrict |  |
 | `effect(target_record_id)` | `record(id)` | restrict | Reviewed targets can be global sources or an explicitly different output owner; exact command authorizes owner and kind. |
 | `effect(source_record_id)` | `record(id)` | restrict | Entitled source may be public/global or another explicitly authorized owner; source is not a grant. |
@@ -159,17 +163,10 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `enrollment_plan(enrollment_id, program_id, organization_id)` | `development_enrollment(id, program_id, organization_id)` | restrict |  |
 | `enrollment_plan(version_id, program_id, organization_id)` | `development_program_version(id, program_id, organization_id)` | restrict |  |
 | `enrollment_plan(adopted_by)` | `account(id)` | restrict |  |
-| `event(tenant_id)` | `tenant(id)` | restrict |  |
-| `event(target_record_id)` | `record(id)` | restrict | Immutable history may target retained body-free identities, or an authorized cross-owner consequence; validate actual target kind/owner at write. |
-| `event(operation_id, tenant_id)` | `operation(id, tenant_id)` | restrict |  |
-| `event(effect_id, tenant_id)` | `effect(id, tenant_id)` | restrict |  |
-| `event(actor_id)` | `account(id)` | restrict |  |
-| `event(mail_attempt_id, mail_request_id, tenant_id)` | `mail_attempt(id, request_id, tenant_id)` | restrict |  |
-| `event(mail_request_id, mail_position, tenant_id)` | `mail_request_member(request_id, position, tenant_id)` | restrict |  |
 | `evidence_link(tenant_id)` | `tenant(id)` | restrict |  |
-| `evidence_link(event_id, tenant_id)` | `event(id, tenant_id)` | restrict |  |
+| `evidence_link(event_id, tenant_id)` | `audit_event(id, tenant_id)` | restrict |  |
 | `evidence_link(target_record_id)` | `record(id)` | restrict | Entitled source/selected record can have a different actual owner; validate purpose, source rights, exact grant and kind. |
-| `evidence_link(source_operation_id, tenant_id)` | `operation(id, tenant_id)` | restrict |  |
+| `evidence_link(source_operation_id, tenant_id)` | `audit_event(id, tenant_id)` | restrict |  |
 | `evidence_link(prior_record_id)` | `record(id)` | restrict | Exact inverse prior endpoint can be cross-owner only where the reviewed native command permits; lock and validate before inverse. |
 | `evidence_link(resulting_record_id)` | `record(id)` | restrict | Exact inverse result endpoint can be cross-owner only where the reviewed native command permits; lock and validate before inverse. |
 | `evidence_link(consumer_record_id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
@@ -191,11 +188,10 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `generated_document(tenant_id)` | `tenant(id)` | restrict |  |
 | `generated_document(template_version_id)` | `reference_version(id)` | restrict |  |
 | `generated_document(object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
-| `generated_document(generation_operation_id)` | `operation(id)` | restrict | The initiating operation can use an account conversation context while generating an explicitly reviewed plant-owned output; authorize exact output owner at execution. |
+| `generated_document(generation_operation_id)` | `audit_event(id)` | restrict | D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access. |
 | `generated_document(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `household(plant_id)` | `plant(id)` | restrict |  |
 | `household(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
-| `identity_operation_result(operation_id)` | `operation(id)` | no_action |  |
 | `identity_proof(account_id)` | `account(id)` | restrict |  |
 | `identity_proof(deletion_subject_id)` | `lifecycle_witness(id)` | restrict | Cancellation proof names the exact deletion witness; addressed proof boundary locks the witness and validates requester, subject, purpose, original deadline and current cancellation authority. |
 | `interview(plant_id)` | `plant(id)` | restrict |  |
@@ -235,7 +231,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `mail(tenant_id)` | `tenant(id)` | restrict |  |
 | `mail(recipient_account_id)` | `account(id)` | restrict |  |
 | `mail(recipient_person_id, tenant_id)` | `person(id, tenant_id)` | restrict |  |
-| `mail(operation_id, tenant_id)` | `operation(id, tenant_id)` | restrict |  |
+| `mail(operation_id, tenant_id)` | `audit_event(id, tenant_id)` | restrict |  |
 | `mail(notice_id, tenant_id)` | `notice(id, tenant_id)` | restrict |  |
 | `mail(job_id, tenant_id)` | `job(id, tenant_id)` | restrict |  |
 | `mail(original_mail_id, tenant_id)` | `mail(id, tenant_id)` | restrict |  |
@@ -277,20 +273,11 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `obligation(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `obligation(assignee_id)` | `account(id)` | restrict |  |
 | `obligation(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
-| `onboarding_result(operation_id, tenant_id)` | `operation(id, tenant_id)` | no_action |  |
-| `onboarding_result(tenant_id)` | `tenant(id)` | no_action |  |
 | `onboarding_setup(account_id)` | `account(id)` | no_action |  |
-| `onboarding_setup(creation_operation_id)` | `operation(id)` | no_action | Creation starts in the authenticated own-account scope and atomically establishes this plant; creator, receipt and resulting plant are validated together. This pointer grants no account or plant authority. |
+| `onboarding_setup(creation_operation_id)` | `audit_event(id)` | no_action | D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access. |
 | `onboarding_setup(plant_id)` | `plant(id)` | no_action |  |
-| `operation(tenant_id)` | `tenant(id)` | restrict |  |
-| `operation(actor_id)` | `account(id)` | restrict |  |
-| `operation(review_id, tenant_id)` | `review(id, tenant_id)` | restrict |  |
-| `operation(conversation_id, tenant_id)` | `conversation(id, tenant_id)` | restrict |  |
-| `operation(job_id, tenant_id)` | `job(id, tenant_id)` | restrict |  |
-| `operation(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `organization(id)` | `tenant(id)` | restrict |  |
 | `organization(id)` | `record(id)` | restrict | Root identity FK uses id as owner; record CHECK kind not in ('account','plant','organization') or tenant_id = id enforces equal ownership, and the trusted subtype trigger validates the exact root kind. |
-| `organization_operation_result(operation_id)` | `operation(id)` | no_action |  |
 | `organization_person_removal(organization_id)` | `organization(id)` | restrict |  |
 | `organization_person_removal(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
 | `organization_person_removal(person_record_id, organization_id)` | `record(id, tenant_id)` | restrict |  |
@@ -307,13 +294,6 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `passage(tenant_id)` | `tenant(id)` | restrict |  |
 | `passage(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `people_column(plant_id)` | `plant(id)` | no_action |  |
-| `people_history(actor_id)` | `account(id)` | set_null |  |
-| `people_history(operation_id, tenant_id)` | `operation(id, tenant_id)` | no_action |  |
-| `people_history(person_id, tenant_id)` | `person(id, tenant_id)` | no_action |  |
-| `people_history(tenant_id)` | `tenant(id)` | no_action |  |
-| `people_result(operation_id, tenant_id)` | `operation(id, tenant_id)` | no_action |  |
-| `people_result(person_id, tenant_id)` | `person(id, tenant_id)` | no_action |  |
-| `people_result(tenant_id)` | `tenant(id)` | no_action |  |
 | `person(plant_id)` | `plant(id)` | restrict |  |
 | `person(linked_account_id)` | `account(id)` | restrict |  |
 | `person(household_id, tenant_id)` | `household(id, plant_id)` | restrict |  |
@@ -325,8 +305,8 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `person_merge(plant_id)` | `plant(id)` | restrict |  |
 | `person_merge(source_id, tenant_id)` | `person(id, tenant_id)` | restrict |  |
 | `person_merge(survivor_id, tenant_id)` | `person(id, tenant_id)` | restrict |  |
-| `person_merge(operation_id)` | `operation(id)` | restrict | Initiating account conversation context may differ from the plant output. Exact native operation validates actor, plant authority, review and target ownership. |
-| `person_merge(reversed_operation_id)` | `operation(id)` | restrict | Initiating account conversation context may differ from the plant output. Exact native operation validates actor, plant authority, review and target ownership. |
+| `person_merge(operation_id)` | `audit_event(id)` | restrict | D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access. |
+| `person_merge(reversed_operation_id)` | `audit_event(id)` | restrict | D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access. |
 | `person_merge(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `person_merge(tenant_id)` | `tenant(id)` | restrict |  |
 | `person_note(plant_id)` | `plant(id)` | restrict |  |
@@ -342,7 +322,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `person_tag(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `person_tag(tag_id, plant_id)` | `tag(id, plant_id)` | restrict |  |
 | `phase_transition(plant_id)` | `plant(id)` | restrict |  |
-| `phase_transition(operation_id)` | `operation(id)` | restrict | Initiating account conversation context may differ from the plant output. Exact native operation validates actor, plant authority, review and target ownership. |
+| `phase_transition(operation_id)` | `audit_event(id)` | restrict | D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access. |
 | `phase_transition(criterion_version_id)` | `reference_version(id)` | restrict |  |
 | `phase_transition(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `pipeline_person(organization_id)` | `organization(id)` | restrict |  |
@@ -415,9 +395,6 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `reference_version(item_id)` | `reference_item(id)` | restrict | Canonical item is a global or entitled organization source identity; serialized boundary validates item kind, canonical identity and exact current source rights, without transferring ownership. |
 | `reference_version(release_id)` | `reference_release(id)` | restrict | Packaged reference versions are global-only; trusted subtype trigger binds the record to the global tenant and validates that both release and item are global approved definitions. |
 | `reference_version(id)` | `record(id)` | restrict | Packaged reference versions are global-only; trusted subtype trigger binds the record to the global tenant and validates that both release and item are global approved definitions. |
-| `relationship_history(id)` | `event(id)` | no_action |  |
-| `relationship_history(relationship_id)` | `affiliation(id)` | no_action |  |
-| `relationship_history(source_invitation_id)` | `invitation(id)` | no_action |  |
 | `relationship_invitation(account_id)` | `account(id)` | no_action |  |
 | `relationship_invitation(invitation_id)` | `invitation(id)` | no_action | Invitation owner is the initiating endpoint. The native invitation command validates this exact typed pair and current subject authority. |
 | `relationship_invitation(organization_id)` | `organization(id)` | no_action |  |
@@ -448,10 +425,8 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `sending_goal(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
 | `settings_preview(account_id)` | `account(id)` | no_action |  |
 | `settings_preview(tenant_id)` | `tenant(id)` | no_action |  |
-| `settings_result(operation_id, tenant_id)` | `operation(id, tenant_id)` | no_action |  |
-| `settings_result(tenant_id)` | `tenant(id)` | no_action |  |
 | `suppression(source_event_id)` | `provider_event(id)` | restrict |  |
-| `suppression(clear_operation_id)` | `operation(id)` | restrict | Global address suppression recovery uses authenticated current self-address proof, not tenant ownership. |
+| `suppression(clear_operation_id)` | `audit_event(id)` | restrict | D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access. |
 | `suppression(id)` | `record(id)` | restrict |  |
 | `tag(plant_id)` | `plant(id)` | restrict |  |
 | `tag(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
@@ -459,7 +434,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `task(creator_id)` | `account(id)` | restrict |  |
 | `task(obligation_id, plant_id)` | `obligation(id, plant_id)` | restrict |  |
 | `task(source_template_id)` | `reference_version(id)` | restrict |  |
-| `task(import_operation_id)` | `operation(id)` | restrict | Initiating account conversation context may differ from the plant output. Exact native operation validates actor, plant authority, review and target ownership. |
+| `task(import_operation_id)` | `audit_event(id)` | restrict | D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access. |
 | `task(milestone_id, plant_id)` | `launch_milestone(id, plant_id)` | restrict |  |
 | `task(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `task(assignee_id)` | `account(id)` | restrict |  |
@@ -491,7 +466,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `training_assignment(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `training_assignment(program_id, plant_id)` | `training_program(id, plant_id)` | restrict |  |
 | `training_assignment(version_id, program_id)` | `training_version(id, program_id)` | restrict | Same-program compound FK fixes the version to program_id; assignment and version inherit the same plant through their compound program FK. No cross-plant assignment is possible. |
-| `training_assignment(selection_operation_id)` | `operation(id)` | restrict | Initiating account conversation context may differ from the plant output. Exact native operation validates actor, plant authority, review and target ownership. |
+| `training_assignment(selection_operation_id)` | `audit_event(id)` | restrict | D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access. |
 | `training_assignment(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `training_credit(plant_id)` | `plant(id)` | restrict |  |
 | `training_credit(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
@@ -516,7 +491,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `venue(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `wiki_preference(plant_id)` | `plant(id)` | restrict |  |
 | `wiki_preference(plant_id, organization_id)` | `affiliation(plant_id, organization_id)` | restrict |  |
-| `wiki_preference(recognition_operation_id)` | `operation(id)` | restrict | Initiating account conversation context may differ from the plant output. Exact native operation validates actor, plant authority, review and target ownership. |
+| `wiki_preference(recognition_operation_id)` | `audit_event(id)` | restrict | D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access. |
 | `wiki_preference(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `wiki_preference(organization_id, group_kind)` | `organization(id, kind)` | restrict |  |
 
@@ -556,5 +531,3 @@ Every declared Person FK has one registration in `target.json.person_references`
 | `leadership_conversation` | `person_id, organization_id` | WP-004, WP-098 |
 | `development_enrollment` | `person_id, organization_id` | WP-004, WP-099 |
 | `residency_link` | `person_id, organization_id` | WP-004, WP-008 |
-| `people_history` | `person_id, tenant_id` | WP-011, WP-015 |
-| `people_result` | `person_id, tenant_id` | WP-011, WP-015 |

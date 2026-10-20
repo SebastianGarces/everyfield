@@ -17,12 +17,11 @@ const service = createMailService({
 	encryptionKey: Buffer.from(process.env.JOBS_TEST_KEY ?? "", "base64"),
 	addressKey: randomBytes(32),
 	from: "no-reply@example.test",
-	authorize: async (tx, m) =>
-		(
-			await tx.execute(
-				querySql`SELECT id FROM seat WHERE account_id=${querySql.param(m.recipient)} AND plant_id=${querySql.param(m.tenant)} AND ended_at IS NULL FOR SHARE`,
-			)
-		).rowCount === 1,
+	authorize: async (tx,mail) => {
+ const input=mail.map(m=>({id:m.id,recipient:m.recipient,tenant:m.tenant}));
+ const r=await tx.execute(querySql`SELECT i.id FROM jsonb_to_recordset(${JSON.stringify(input)}::jsonb) i(id uuid,recipient uuid,tenant uuid) JOIN seat s ON s.account_id=i.recipient AND s.plant_id=i.tenant AND s.ended_at IS NULL FOR SHARE OF s`);
+ return new Set(r.rows.map(r=>r.id));
+ },
 	transport: createResendTransport("synthetic", async (url, init) =>
 		fetch(endpoint.origin + new URL(url).pathname, init),
 	),

@@ -3143,15 +3143,7 @@
         "request",
         "sql"
       ],
-      "schema_tables": [
-        "tenant",
-        "record",
-        "plant",
-        "organization",
-        "plant_geography",
-        "task",
-        "conversation"
-      ],
+      "schema_tables": ["tenant", "record", "plant", "organization", "plant_geography", "task", "conversation"],
       "description": "Two plants, two sending churches, one network and two accounts; exercise each owner-bound reference with valid and foreign parent IDs, invalid org kind and alternate-owner double shape. Ownership controls cover every child→parent ownership variant, including exact organization assessment→job and same-plant merge inverse receipt; foreign scope kind/ID rejects even with an existing parent ID. Task due controls cover task.due_kind=undated with all due fields null; task.due_kind=date_only; task.due_kind=timed with due_date/due_time/due_at and confirmed timezone and chosen DST occurrence. Reject mixed/null shapes, mismatched wall/instant/zone and foreign or nested child Task parents. Profile controls use the adopted plant and organization columns plus immutable effective plant_geography rows for locality; valid nullable field clears and malformed/oversize request controls follow their requirement boundaries; request controls reject unknown object keys and forged immutable fields. Assistant account-context controls use active explicit no-seat Discovery with conversation.tenant_id=conversation.owner_id; reject foreign account, mixed account/plant/org tuple and platform/affiliation context. Child-task controls reject due/zone/date/time/instant, recurrence series/occurrence/predecessor and contact/outcome-hook values while accepting an undated unhooked same-plant child with nullable eligible assignee.",
       "given": {
         "P": {
@@ -3304,11 +3296,7 @@
         "request",
         "sql"
       ],
-      "schema_tables": [
-        "seat",
-        "invitation",
-        "account"
-      ],
+      "schema_tables": ["seat", "invitation", "account"],
       "description": "Two concurrent accepts for same account into different tenants; attempt last-Owner demotion/removal/account purge; valid Member end and new ordinary invitation after end.",
       "given": {
         "P": {
@@ -3423,11 +3411,7 @@
         "request",
         "sql"
       ],
-      "schema_tables": [
-        "affiliation",
-        "assessment",
-        "assessment_contributor"
-      ],
+      "schema_tables": ["affiliation", "assessment", "assessment_contributor"],
       "description": "A plant affiliated with sending churches A/B and network N; org run points to plant ID, wrong kind or parent-network-only reach; end A while B valid.",
       "given": {
         "P": {
@@ -3541,11 +3525,7 @@
         "request",
         "sql"
       ],
-      "schema_tables": [
-        "training_assignment",
-        "training_credit",
-        "training_version"
-      ],
+      "schema_tables": ["training_assignment", "training_credit", "training_version"],
       "description": "Review bulk teams/leaders with overlap and selector revisions; save person/program episodes; mutate live membership; concurrently duplicate assign/remove/correct; completion without assignment and assignment without completion.",
       "given": {
         "P": {
@@ -3764,12 +3744,7 @@
         "request",
         "sql"
       ],
-      "schema_tables": [
-        "launch_guest",
-        "launch_debrief",
-        "document",
-        "evidence_link"
-      ],
+      "schema_tables": ["launch_guest", "launch_debrief", "document", "evidence_link"],
       "description": "Name-only guest, actual aggregate attendance larger than named count, submitted debrief then new draft, corrected submission, separately reviewed category summary, Person merge collision.",
       "given": {
         "P": {
@@ -3873,11 +3848,7 @@
         "request",
         "sql"
       ],
-      "schema_tables": [
-        "reading",
-        "article_revision",
-        "reference_item"
-      ],
+      "schema_tables": ["reading", "article_revision", "reference_item"],
       "description": "Owner 0/6 and eligible actual lead 6/6; two readers each 3/6; exactly 80 versus 80.01; accessible org fork of same canonical article; meaningful update then typo; end source affiliation.",
       "given": {
         "P": {
@@ -4096,11 +4067,7 @@
         "request",
         "sql"
       ],
-      "schema_tables": [
-        "private_calendar",
-        "private_week",
-        "private_week_revision"
-      ],
+      "schema_tables": ["private_calendar", "private_week", "private_week_revision"],
       "description": "Authors A/B in exact plant, A records ordinal/start/zone; BAdmin tries read/update/history; repeated zone edits and date-line rollover concurrent answer; missing middle answer in mixed strained/struggling streak.",
       "given": {
         "P": {
@@ -4211,11 +4178,7 @@
         "request",
         "sql"
       ],
-      "schema_tables": [
-        "document",
-        "document_revision",
-        "file_object"
-      ],
+      "schema_tables": ["document", "document_revision", "file_object"],
       "description": "Private account document+revisions/import, reviewed selected carry-forward into new plant copy, forge current/prior revision from another doc/owner, then original account purge. Create a selected copy with current source-account read plus target-plant Owner/Admin proof; forge another private owner or stale source/plant lifecycle; try rebinding provenance or foreign owner current state/import/object. Purge the original account and inspect every tagged private binding alongside the independent plant copy.",
       "given": {
         "P": {
@@ -4349,11 +4312,7 @@
         "request",
         "sql"
       ],
-      "schema_tables": [
-        "person",
-        "person_merge",
-        "evidence_link"
-      ],
+      "schema_tables": ["person", "person_merge", "evidence_link"],
       "description": "Enumerate all current Person-bearing references, including immutable snapshots; one synthetic pair with memberships, training, RSVP/card/participation, Launch, tasks, mail, human records and household head; retirement and same-scope merge.",
       "given": {
         "P": {
@@ -4457,11 +4416,7 @@
         "request",
         "sql"
       ],
-      "schema_tables": [
-        "person_merge",
-        "event",
-        "operation"
-      ],
+      "schema_tables": ["person_merge", "audit_event"],
       "description": "Review merge and immediately inverse; change a moved row, duplicate-role/training/card/attendance collision and delivered/unknown provider effect before inverse; unauthorized/crossplant actor.",
       "given": {
         "P": {
@@ -4653,13 +4608,7 @@
         "request",
         "sql"
       ],
-      "schema_tables": [
-        "lifecycle_witness",
-        "assessment",
-        "assessment_fact",
-        "finding",
-        "assessment_contributor"
-      ],
+      "schema_tables": ["lifecycle_witness", "assessment", "assessment_fact", "finding", "assessment_contributor"],
       "description": "Account private+shared records; plant owned objects/affiliations; request then cancel before/after 30 day fence; purge with dependent current state links and scheduled effects; restore snapshot predating purge. Plant A contributes with B to saved organization run, assessment_fact, finding, assessment_contributor and protected lineage, linked feedback/export/artifact and a pending job. Request deletion, revoke A sharing independently, cancel with stale versus current grants, then purge and restore a pre-purge copy. Inspect lifecycle_witness pending_deletion, cancelled and purged with immutable request/revision, cancel_until, cancelled_at, live_purged_at and copy_expires_at; restore before request, between request/cancel and before completed purge.",
       "given": {
         "P": {
@@ -4794,13 +4743,7 @@
         "request",
         "sql"
       ],
-      "schema_tables": [
-        "plant",
-        "organization",
-        "assessment",
-        "assessment_fact",
-        "job"
-      ],
+      "schema_tables": ["plant", "organization", "assessment", "assessment_fact", "job"],
       "description": "People/training/attendance/contact/date/geography/sharing correction and merge during inference, paused wakeup outbox; quiet unchanged plant ages past refresh; reclaim job and resume old generation. Compare the installed material-trigger table set with every assessment input builder table, including conditional inputs; mutate an input and fail/roll back the transaction.",
       "given": {
         "P": {
@@ -4994,14 +4937,7 @@
         "request",
         "sql"
       ],
-      "schema_tables": [
-        "job",
-        "mail",
-        "effect",
-        "provider_event",
-        "task",
-        "recurrence"
-      ],
+      "schema_tables": ["job", "mail", "effect", "provider_event", "task", "recurrence"],
       "description": "Concurrent tick claims, invocation loss before/after DB commit/provider acceptance, lease reclaim, late success, duplicate/out-of-order callbacks and unknown beyond provider-key window. Replay execution presentation labels pending/completed/blocked_unknown against canonical persisted ready/succeeded/reconcile; verify full child-task completion/reopen and recurring parent successor/child-copy fault rollback. Member owns parent A while child B belongs to another account: create using inherited current parent duty, reject explicit different-account/null assignee, then attempt B tick/reopen before/after reassignment. Owner/Admin valid explicit same-plant/null assignee controls succeed, omitted inherits parent. Member owns B under another assignee parent: valid child tick/reopen but parent edit forbidden. Race parent deletion with child creation. Import inert checklist definitions and complete recurring parent with completed child rows; fault each child/history/audit/intent insertion.",
       "given": {
         "P": {
@@ -5146,14 +5082,7 @@
         "request",
         "sql"
       ],
-      "schema_tables": [
-        "reference_item",
-        "reference_version",
-        "reference_release",
-        "reference_activation",
-        "article_revision",
-        "passage"
-      ],
+      "schema_tables": ["reference_item", "reference_version", "reference_release", "reference_activation", "article_revision", "passage"],
       "description": "Release 1 active; release 2 derivative fail/incomplete, then complete+validated activate; concurrent activates; rollback; foreign org-source body via history/artifact/search/file/citation.",
       "given": {
         "P": {
@@ -5277,10 +5206,7 @@
         "request",
         "sql"
       ],
-      "schema_tables": [
-        "feedback",
-        "feedback_publication"
-      ],
+      "schema_tables": ["feedback", "feedback_publication"],
       "description": "Private feedback contains name/email/screenshots/logs and adversarial tool instructions; frozen allowlisted public DTO; actual repo issue result then response lost; original author loses seat.",
       "given": {
         "P": {

@@ -1,13 +1,13 @@
-import { claimOperation, executeWrites } from "../operations/writes.ts";
+import { WriteUnavailable } from "../operations/writes.ts";
+import { prepareWrite, finishAudit, auditSavepoint, auditTransaction } from "../operations/writes.ts";
 import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { Database, Transaction } from "@everyfield/db/client";
 import * as t from "@everyfield/db/tables";
-import { and, eq, gt, isNull, lte, sql } from "@everyfield/db/query";
+import { and, eq, isNull, sql } from "@everyfield/db/query";
 import { RequestActor } from "../access/session.ts";
-import { lock as lockSeats } from "../identity/invitation-core.ts";
-import { currentActor, liveOwner, requestWrite, lockWriteAuthority, currentWriteAllowed } from "../access/session.ts";
+import { currentActor, liveOwner, requestWrite, currentWriteAllowed } from "../access/session.ts";
 import { canonical, appendEvent } from "../organizations/core.ts";
 import {
 	receipt,
@@ -44,13 +44,14 @@ export function revision(expected: string, actual: string) {
 	if (expected !== actual) deny("conflict");
 }
 export async function reply<T>(tx: Tx, body: (tx: Tx) => Promise<T>): Promise<SettingsReply<T>> {
-	if(requestWrite(tx)) return {status:"ok",value:await body(tx)};
-	return recover(async()=>({status:"ok",value:await tx.transaction(body)}));
+	if (requestWrite(tx)) return { status: "ok", value: await body(tx) };
+	return recover(async () => ({ status: "ok", value: await auditSavepoint(tx, body) }));
 }
-async function recover<T>(body:()=>Promise<SettingsReply<T>>):Promise<SettingsReply<T>> {
+async function recover<T>(body: () => Promise<SettingsReply<T>>): Promise<SettingsReply<T>> {
 	try {
 		return await body();
 	} catch (e) {
+		if (e instanceof WriteUnavailable) e = new Refusal("unavailable");
 		if (!(e instanceof Refusal)) throw e;
 		const retry =
 			e.code === "conflict" || e.code === "stale_preview"
@@ -85,12 +86,11 @@ export async function actor(tx: Tx, ctx: Context, use: "read" | "command" | "pre
 		};
 	}
 
-	if (ctx.selected.kind === "plant") await lockSeats(tx, "workspace-seats/" + ctx.selected.id);
 	if (use !== "read") {
-		const locked = await lockWriteAuthority(tx, ctx.session, ctx.selected, true);
-		if (!locked || locked.identity.status !== "active") deny();
-		if (use === "preview" && !(await currentWriteAllowed(tx, locked.identity.accountId, ctx.selected))) deny();
-		return { ...locked, identity: locked.identity };
+		const locked = await RequestActor.claimWrite(tx, ctx.session, ctx.selected);
+		if (!locked) deny();
+		if (use === "preview" && !(await currentWriteAllowed(tx, locked.actor.accountId, ctx.selected))) deny();
+		return { ...locked, identity: locked.actor };
 	}
 
 	// This capability takes the account write lock before session and user share locks.
@@ -136,6 +136,7 @@ export async function begin(
 	name: typeof t.effect.$inferInsert.kind,
 	q: Command,
 ) {
+	if (ctx.purpose === "model" && ctx.origin.kind !== "assistant") deny();
 	const identity = requestIdentity.parse({
 		owner: ctx.selected,
 		actorId,
@@ -144,54 +145,12 @@ export async function begin(
 		digest: hash(q),
 		origin: ctx.origin,
 	});
-	const claim = await claimOperation(tx, name, identity);
+	const claim = await prepareWrite(tx, name, identity, q, hash({ name, input: q }), "current");
 	if (claim.kind === "unavailable") deny();
 	if (claim.kind === "conflict") deny("conflict");
-	if (ctx.purpose === "model") {
-		if (ctx.origin.kind !== "assistant") deny();
-		const o = ctx.origin;
-		const rows = await tx
-			.select({ id: t.review.id })
-			.from(t.review)
-			.innerJoin(
-				t.conversation,
-				and(eq(t.conversation.id, t.review.conversation_id), eq(t.conversation.tenant_id, t.review.tenant_id)),
-			)
-			.innerJoin(t.effect, and(eq(t.effect.review_id, t.review.id), eq(t.effect.tenant_id, t.review.tenant_id)))
-			.where(
-				and(
-					eq(t.review.id, o.reviewId),
-					eq(t.review.tenant_id, ctx.selected.id),
-					eq(t.review.conversation_id, o.conversationId),
-					eq(t.review.digest, o.planDigest),
-					eq(t.review.approved_by_id, actorId),
-					isNull(t.review.cancelled_at),
-					isNull(t.review.superseded_at),
-					lte(t.review.approved_at, now),
-					gt(t.review.approved_at, sql`clock_timestamp()-interval '15 minutes'`),
-					eq(t.conversation.owner_id, actorId),
-					eq(t.conversation.state, "open"),
-					eq(t.effect.kind, name),
-					eq(t.effect.payload_hash, hash({ name, input: q })),
-					eq(t.effect.arguments, { operation: name, input: q }),
-					sql`${t.effect.state} IN ('unstarted','claimed')`,
-				),
-			)
-			.for("share", { of: [t.review, t.conversation, t.effect] });
-		if (!rows.length) deny();
-	}
+
 	if (claim.kind === "replay") {
-		const [old] = await tx
-			.select({ value: t.settings_result.value })
-			.from(t.settings_result)
-			.innerJoin(t.operation, eq(t.operation.id, t.settings_result.operation_id))
-			.where(and(eq(t.operation.tenant_id, ctx.selected.id), eq(t.operation.request_key, q.requestKey)));
-		if (old) {
-			const r = z.object({ receipt }).parse(old.value);
-			if (canonical(r.receipt.request) !== canonical(identity)) deny("conflict");
-			return { kind: "replay" as const, value: old.value };
-		}
-		deny();
+		return { kind: "replay" as const, value: claim.value };
 	}
 	return { kind: "new" as const, id: claim.id, identity, writes: claim.writes, events: claim.events };
 }
@@ -209,20 +168,12 @@ export async function finish<T>(
 		request: c.identity,
 		completedAt: new Date().toISOString(),
 		outcome: changed ? "changed" : "noop",
-		subjects: [{ kind: "operation", id: c.id, owner: c.identity.owner }],
+		subjects: [{ kind: "audit_event", id: c.id, owner: c.identity.owner }],
 		eventIds: events,
 		effectIds: [],
 	});
 	const value = schema.parse(body(r));
-	await executeWrites(tx, [
-		...c.writes,
-		...(c.events.length ? [tx.insert(t.event).values(c.events)] : []),
-		tx
-			.update(t.operation)
-			.set({ state: "complete", outcome: changed ? "committed" : "no_effect", completed_at: now })
-			.where(eq(t.operation.id, c.id)),
-		tx.insert(t.settings_result).values({ operation_id: c.id, tenant_id: c.identity.owner.id, value }),
-	]);
+	await finishAudit(tx, c, c.identity, value);
 	return value;
 }
 export const preference = (a: typeof t.account.$inferSelect) =>
@@ -246,11 +197,18 @@ export async function calendarEligible(tx: Tx, id: string) {
 }
 
 /** The request owns rollback; native writes need no nested savepoint. */
-export async function withSettingsWrite<T>(db:Database, authority:RequestActor | undefined, context:WriteContext, body:(tx:Tx)=>Promise<SettingsReply<T>>):Promise<SettingsReply<T>> {
- return recover(()=>db.transaction(async tx=>{
-  if(authority && !(await authority.bind(tx,context.selected,true))) deny();
-  const result=await body(tx);
-  if(result.status==="refused") throw new Refusal(result.error.code);
-  return result;
- }));
+export async function withSettingsWrite<T>(
+	db: Database,
+	authority: RequestActor | undefined,
+	context: WriteContext,
+	body: (tx: Tx) => Promise<SettingsReply<T>>,
+): Promise<SettingsReply<T>> {
+	return recover(() =>
+		auditTransaction(db, async (tx) => {
+			if (authority && !(await authority.bind(tx, context.selected))) deny();
+			const result = await body(tx);
+			if (result.status === "refused") throw new Refusal(result.error.code);
+			return result;
+		}),
+	);
 }

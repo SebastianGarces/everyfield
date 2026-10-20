@@ -1,3 +1,6 @@
+import {RequestActor} from "../../../packages/domain/src/access/session.ts";
+import {sessionId as writeSessionId} from "../../../packages/contracts/src/common/index.ts";
+import {sendOnboardingRelationships} from "../../../apps/web/src/server/jobs/notifications.ts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
@@ -8,7 +11,7 @@ import * as t from "../../../packages/db/src/schema/tables.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { createInvitationService } from "../../../packages/domain/src/identity/index.ts";
 import { accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
-import { enqueueJob } from "../../../apps/web/src/server/jobs/queue.ts";
+import { enqueueJob,enqueueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import foundations from "../../../docs/reference/discovery-foundations.json" with { type: "json" };
 
@@ -75,7 +78,7 @@ async function makePlant(a = undefined) {
 }
 async function counts() {
 	const r = await admin.execute(
-		sql`SELECT (SELECT count(*)::int FROM plant) plants,(SELECT count(*)::int FROM person) people,(SELECT count(*)::int FROM seat) seats,(SELECT count(*)::int FROM operation) operations,(SELECT count(*)::int FROM event) events,(SELECT count(*)::int FROM mail) mail,(SELECT count(*)::int FROM job) jobs`,
+		sql`SELECT (SELECT count(*)::int FROM plant) plants,(SELECT count(*)::int FROM person) people,(SELECT count(*)::int FROM seat) seats,(SELECT count(*)::int FROM audit_event) operations,(SELECT count(*)::int FROM audit_event) events,(SELECT count(*)::int FROM mail) mail,(SELECT count(*)::int FROM job) jobs`,
 	);
 	return r.rows[0];
 }
@@ -99,7 +102,7 @@ before(async () => {
 		encryptionKey: randomBytes(32),
 		addressKey: randomBytes(32),
 		from: "test@example.test",
-		authorize: async () => true,
+		authorize: async (_tx,mail) => new Set(mail.map(m=>m.id)),
 		transport: {
 			send: async () => {
 				throw Error("No provider calls in producer transaction");
@@ -110,57 +113,19 @@ before(async () => {
 		},
 	});
 	api = createOnboardingProducer({
-		async invalidate(tx, input) {
-			await enqueueJob(tx, {
-				tenant: input.owner.id,
-				kind: "assessment",
-				subject: input.sourceId,
-				key: "onboarding/" + input.sourceId + "/" + input.revision,
-				revision: input.revision,
-				eligibleAt: new Date().toISOString(),
-			});
-		},
-		async notice(tx, input) {
-			const [operation] = await tx.select().from(t.operation).where(eq(t.operation.id, input.operationId));
-			const seats = await tx
-				.select({ id: t.seat.account_id })
-				.from(t.seat)
-				.where(
-					and(
-						eq(t.seat.organization_id, input.pair.organization.id),
-						eq(t.seat.role, "owner"),
-						sql`${t.seat.ended_at} IS NULL`,
-					),
-				);
-			for (const recipient of new Set([operation.actor_id, ...seats.map((s) => s.id)])) {
-				const contact = await tx.execute(sql`SELECT * FROM access_account_contact(${recipient})`);
-				await mail.enqueue(tx, {
-					owner: { kind: "account", id: recipient },
-					purpose: input.pair.kind === "discovery" ? "discovery_receipt" : "relationship_receipt",
-					logicalKey: "relationship/" + input.eventId + "/" + recipient,
-					recipient,
-					address: contact.rows[0].email,
-					content: { subject: "Relationship updated", text: "Your relationship changed." },
-					operation: null,
-					notice: null,
-					eligibleAt: new Date().toISOString(),
-				});
-			}
-			if (faults) throw Error("required_intent_fault");
-		},
-		async enqueue(tx, input) {
-			const contact = await tx.execute(sql`SELECT * FROM access_account_contact(${input.accountId})`);
-			await mail.enqueue(tx, {
+        relationships:async(tx,inputs)=>{await sendOnboardingRelationships(tx,inputs,mail);if(faults)throw Error("required_intent_fault");},
+		async enqueue(tx, input,command) {
+			mail.append(tx, {
 				owner: { kind: "account", id: input.accountId },
 				purpose: input.kind === "discovery_created" ? "discovery_receipt" : "notification",
 				logicalKey: `onboarding/${input.operationId}/${input.kind}`,
 				recipient: input.accountId,
-				address: contact.rows[0].email,
+				address: input.address,
 				content: { subject: "Onboarding saved", text: "Your selected onboarding changes were saved." },
 				operation: input.operationId,
 				notice: null,
 				eligibleAt: new Date().toISOString(),
-			});
+            },command.writes);
 			if (faults) throw Error("required_intent_fault");
 		},
 	});
@@ -198,7 +163,7 @@ test("AC:TARGET-IDN-013 AC:ROLE43-003 AC:ROLE43-014 AC:DC-021 AC:DC-027 AC:DC-02
 	assert.equal(person.adult_classification, "unknown");
 	assert.equal(person.commitment_state, "unknown");
 	assert.equal(person.linked_account_id, a.id);
-	const history = await admin.select().from(t.people_history).where(eq(t.people_history.person_id, person.id));
+	const history = await admin.select().from(t.audit_event).where(eq(t.audit_event.subject_id, person.id));
 	assert.equal(history[0].after_value.stage, "leader");
 	const entries = await admin.select().from(t.phase_transition).where(eq(t.phase_transition.plant_id, plant.id));
 	assert.equal(entries.length, 1);
@@ -555,10 +520,10 @@ test("AC:TARGET-IDN-016 an unlinked Discovery may accept a seat, then conversion
 		origin: "http://onboarding.example.test",
 		budgetSecret: randomBytes(32).toString("hex"),
 		people: accountPersonProducer,
-		async enqueueMail(tx, input) {
+		async enqueueMail(tx, input,command) {
 			const token = input.text.match(/http:\/\/onboarding\.example\.test\/invitation#proof=([^\s]+)/);
 			if (token) proof = decodeURIComponent(token[1]);
-			return mail.enqueue(tx, {
+			return mail.append(tx, {
 				owner: input.owner,
 				purpose: input.purpose,
 				logicalKey: input.logicalKey,
@@ -568,11 +533,11 @@ test("AC:TARGET-IDN-016 an unlinked Discovery may accept a seat, then conversion
 				operation: input.operationId,
 				notice: null,
 				eligibleAt: new Date().toISOString(),
-			});
+            },command.writes);
 		},
 	});
 	const invited = await invitations.invite(
-		sender.a.session,
+		await verifiedWriteActor(sender.a.session),
 		command(
 			{ workspace: sender.p, role: "member", recipientEmail: d.a.user + "@example.test" },
 			sender.result.revision,
@@ -1047,14 +1012,14 @@ test("INV-discovery-race: conversion and organization ending serialize account, 
 				});
 			},
 			async invalidate(tx, input) {
-				await enqueueJob(tx, {
-					tenant: input.owner.id,
+				await enqueueJobs(tx,input.owners.map(owner=>({
+					tenant: owner.id,
 					kind: "assessment",
 					subject: input.sourceId,
 					key: "race/" + input.sourceId,
 					revision: input.revision,
 					eligibleAt: new Date().toISOString(),
-				});
+                })));
 			},
 		},
 		{
@@ -1246,3 +1211,5 @@ test("AC:TARGET-IDN-013 AC:TARGET-IDN-016 active seatless accounts explicitly ch
 	denied(await call("createDiscovery", pendingPlant, command()));
 	denied(await call("createPlant", pendingDiscovery, command({ name: "Wrong pending choice", confirmed: true })));
 });
+
+async function verifiedWriteActor(session:string){return db.transaction(async tx=>{const actor=await RequestActor.resolve(tx,writeSessionId.parse(session));if(!(actor instanceof RequestActor))throw Error('verified_actor_required');return actor;});}

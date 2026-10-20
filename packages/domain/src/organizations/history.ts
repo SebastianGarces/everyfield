@@ -1,4 +1,4 @@
-import { and, or, gt, getTableColumns, eq, asc } from "@everyfield/db/query";
+import { and, or, gt, eq, asc, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import type { Transaction } from "@everyfield/db/client";
 import { z } from "zod";
@@ -15,7 +15,7 @@ const historyRow = z.object({
 	occurred_at: z.coerce.date(),
 	recorded_at: z.coerce.date(),
 	actor_id: accountId.nullable(),
-	actor_tombstone: z.string().nullable(),
+	actor_token: z.string().nullable(),
 });
 export const getHistory: OrganizationAdapter<Transaction>["associations.getHistory"] = async (
 	tx,
@@ -82,18 +82,26 @@ export const getHistory: OrganizationAdapter<Transaction>["associations.getHisto
 	}
 	const rows = await tx
 		.select({
-			...getTableColumns(tables.relationship_history),
-			kind: tables.event.kind,
-			occurred_at: tables.event.occurred_at,
-			recorded_at: tables.event.recorded_at,
-			actor_id: tables.event.actor_id,
-			actor_tombstone: tables.event.actor_tombstone,
+			id: tables.audit_event.id,
+			pair: sql`${tables.audit_event.metadata}->'pair'`,
+			reason: tables.audit_event.reason,
+			source_invitation_id: sql`${tables.audit_event.metadata}->>'sourceInvitationId'`,
+			kind: tables.audit_event.kind,
+			occurred_at: tables.audit_event.occurred_at,
+			recorded_at: tables.audit_event.recorded_at,
+			actor_id: tables.audit_event.actor_id,
+			actor_token: tables.audit_event.actor_token,
 		})
-		.from(tables.relationship_history)
-		.innerJoin(tables.affiliation, eq(tables.affiliation.id, tables.relationship_history.relationship_id))
-		.innerJoin(tables.event, eq(tables.event.id, tables.relationship_history.id))
-		.where(and(where, q.after ? gt(tables.relationship_history.id, q.after) : undefined))
-		.orderBy(asc(tables.relationship_history.id))
+		.from(tables.audit_event)
+		.innerJoin(tables.affiliation, eq(tables.affiliation.id, tables.audit_event.subject_id))
+		.where(
+			and(
+				where,
+				sql`${tables.audit_event.metadata} ? 'pair'`,
+				q.after ? gt(tables.audit_event.id, q.after) : undefined,
+			),
+		)
+		.orderBy(asc(tables.audit_event.id))
 		.limit(101);
 	const items = rows
 		.map((r) => historyRow.parse(r))
@@ -113,7 +121,7 @@ export const getHistory: OrganizationAdapter<Transaction>["associations.getHisto
 			recordedAt: r.recorded_at.toISOString(),
 			actor: r.actor_id
 				? { kind: "account", accountId: r.actor_id }
-				: { kind: "deleted_account", token: r.actor_tombstone ?? "removed" },
+				: { kind: "deleted_account", token: r.actor_token ?? "removed" },
 			sourceInvitationId: r.source_invitation_id,
 		}));
 	return Q.relationshipHistoryResult.parse({

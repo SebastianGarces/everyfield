@@ -1,3 +1,5 @@
+import {RequestActor} from "../../../packages/domain/src/access/session.ts";
+import {sessionId as writeSessionId} from "../../../packages/contracts/src/common/index.ts";
 // Seeds an invitation preview on the shared development database (WP-008/ui). It creates an isolated schema with its own
 // login roles, applies every migration, signs up real accounts through the identity service, creates a church through
 // the onboarding producer and an organization with a pipeline person, then sends real invitations through the WP-008
@@ -100,9 +102,9 @@ async function up(origin: string) {
 		origin,
 		budgetSecret: createHmac("sha256", secret).update("invitation-budget").digest("hex"),
 		people: accountPersonProducer,
-		enqueueMail: (tx, m) => {
+		enqueueMail: (tx, m,command) => {
 			if (m.owner.kind === "global") throw Error("unavailable");
-			return mail.enqueue(tx, {
+			return mail.append(tx, {
 				owner: m.owner,
 				purpose: m.purpose,
 				logicalKey: m.logicalKey,
@@ -112,7 +114,7 @@ async function up(origin: string) {
 				operation: m.operationId,
 				notice: null,
 				eligibleAt: new Date().toISOString(),
-			});
+            },command.writes);
 		},
 	});
 	let ip = 1;
@@ -206,7 +208,7 @@ async function up(origin: string) {
 		// A Member invitation to an existing account that never finished sign-up (REQ-IDN-017 first seat).
 		const memberName = `Ruth ${engine === "chromium" ? "Chromium" : "Webkit"}`;
 		const member = await account(memberName, `ruth.${engine}@harvest.example.test`, "pending_domain");
-		await invitations.invite(owner.sessionId, {
+		await invitations.invite(await verifiedWriteActor(owner.sessionId), {
 			requestKey: randomUUID(),
 			expectedRevision: await revision("plant", plant.id),
 			input: { workspace: plant, role: "member", recipientEmail: member.email },
@@ -217,7 +219,7 @@ async function up(origin: string) {
 		await admin.execute(
 			sql`INSERT INTO person(id,tenant_id,organization_id,display_name,source,created_at,state) VALUES(${person},${org},${org},'Rhea Stone','other',clock_timestamp(),'live')`,
 		);
-		await invitations.inviteResident(grace.sessionId, {
+		await invitations.inviteResident(await verifiedWriteActor(grace.sessionId), {
 			requestKey: randomUUID(),
 			expectedRevision: await revision("organization", org),
 			input: { organization, personId: person, recipientEmail: resident.email },
@@ -277,3 +279,5 @@ if (action === "up" && arg) await up(arg.replace(/\/$/, ""));
 else if (action === "down") await down();
 else throw Error("Usage: invitation-seed.mts up <preview-url> | down");
 process.exit(0);
+
+async function verifiedWriteActor(session:string){return runtime.transaction(async tx=>{const actor=await RequestActor.resolve(tx,writeSessionId.parse(session));if(!(actor instanceof RequestActor))throw Error('verified_actor_required');return actor;});}

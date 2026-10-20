@@ -38,36 +38,24 @@ const seatRow = z.strictObject({
 	accepted_at: z.coerce.date(),
 });
 export async function liveOwner(tx: Transaction, selected: Owner): Promise<boolean> {
-	const r = await tx
+	if (selected.kind === "global") return false;
+	const root =
+		selected.kind === "plant" ? tables.plant : selected.kind === "account" ? tables.account : tables.organization;
+	const roots = await tx
 		.select({ kind: tenant_t.kind, organization_kind: organization_o.kind })
-		.from(tenant_t)
+		.from(root)
+		.innerJoin(tenant_t, eq(tenant_t.id, root.id))
 		.leftJoin(organization_o, eq(organization_o.id, tenant_t.id))
-		.where(eq(tenant_t.id, selected.id));
+		.where(eq(root.id, selected.id))
+		.for("share", { of: root });
 	if (
-		r.length !== 1 ||
-		r[0]!.kind !== selected.kind ||
-		(selected.kind === "organization" && r[0]!.organization_kind !== selected.organizationKind)
+		roots.length !== 1 ||
+		roots[0]!.kind !== selected.kind ||
+		(selected.kind === "organization" && roots[0]!.organization_kind !== selected.organizationKind)
 	)
 		return false;
-	if (selected.kind === "global") return false;
-	if (selected.kind === "plant") {
-		const plant = await tx
-			.select({ id: tables.plant.id })
-			.from(tables.plant)
-			.where(eq(tables.plant.id, selected.id))
-			.for("share");
-		if (plant.length !== 1) return false;
-	}
-	// The root exists even before its first witness. Lock it to close the absent-row
-	// race with deletion; a witness-only read cannot serialize its first insertion.
-	if (selected.kind === "account") {
-		const root = await tx
-			.select({ id: tables.account.id })
-			.from(tables.account)
-			.where(eq(tables.account.id, selected.id))
-			.for("share");
-		if (root.length !== 1) return false;
-	}
+	// The following statement observes lifecycle changes committed while the root lock waited.
+
 	const hidden = await tx
 		.select({ id: tables.lifecycle_witness.id })
 		.from(tables.lifecycle_witness)
@@ -203,7 +191,6 @@ type RequestWrite = {
 	actor: ActiveActor;
 	account: typeof tables.account.$inferSelect;
 	principal: z.infer<typeof principalRow>;
-	ownerLocked: boolean;
 	plant: typeof tables.plant.$inferSelect | null;
 	organization: typeof tables.organization.$inferSelect | null;
 	setup: typeof tables.onboarding_setup.$inferSelect | null;
@@ -211,6 +198,7 @@ type RequestWrite = {
 const requestWrites = new WeakMap<Transaction, RequestWrite>();
 /** An immutable observation held by the native command's outer transaction. */
 export const requestWrite = (tx: Transaction) => requestWrites.get(tx);
+export const clearRequestWrite = (tx: Transaction) => requestWrites.delete(tx);
 
 /** Server-only authority for one request. Constructed from a live session, never from JSON. */
 export class RequestActor {
@@ -223,21 +211,40 @@ export class RequestActor {
 	}
 
 	/** Bind one verified actor to the transaction that owns this command's rollback. */
-	async bind(tx: Transaction, selected: Owner, ownerLocked = false): Promise<boolean> {
-		const locked = await lockWriteAuthority(tx, this.session, selected, ownerLocked, this);
-		if (!locked || locked.identity.status !== "active") return false;
-		requestWrites.set(tx, {
+	async bind(tx: Transaction, selected: Owner): Promise<RequestWrite | null> {
+		const locked = await lockWriteAuthority(tx, this.session, selected, this);
+		if (!locked || locked.identity.status !== "active") return null;
+		const write: RequestWrite = {
 			authority: this,
 			selected,
 			actor: locked.identity,
 			account: locked.account,
 			principal: locked.principal,
-			ownerLocked,
 			plant: locked.plant,
 			organization: locked.organization,
 			setup: locked.setup,
-		});
-		return true;
+		};
+		requestWrites.set(tx, write);
+		return write;
+	}
+
+	/** A tool ingress that has not supplied a request actor verifies and locks it once. */
+	static async claimWrite(tx: Transaction, session: z.infer<typeof sessionId>, selected: Owner) {
+		const locked = await lockWriteAuthority(tx, session, selected);
+		if (!locked || locked.identity.status !== "active") return null;
+		const authority = new RequestActor(session, locked.identity);
+		const write: RequestWrite = {
+			authority,
+			selected,
+			actor: locked.identity,
+			account: locked.account,
+			principal: locked.principal,
+			plant: locked.plant,
+			organization: locked.organization,
+			setup: locked.setup,
+		};
+		requestWrites.set(tx, write);
+		return write;
 	}
 
 	static async resolve(tx: Transaction, session: z.infer<typeof sessionId>) {
@@ -262,7 +269,6 @@ export async function lockWriteAuthority(
 	tx: Transaction,
 	session: z.infer<typeof sessionId>,
 	selected: Owner,
-	ownerLocked = false,
 	observed?: RequestActor,
 ) {
 	if (selected.kind === "global") return null;
@@ -270,9 +276,7 @@ export async function lockWriteAuthority(
 		tx
 			.select({
 				handle: sql<string>`${session}::uuid`.as("handle"),
-				locked: sql`CASE WHEN ${ownerLocked} THEN pg_advisory_xact_lock(hashtextextended(${selected.id},11011)) END`.as(
-					"locked",
-				),
+				locked: sql`set_config('statement_timeout','10s',true)||set_config('lock_timeout','5s',true)`.as("locked"),
 			})
 			.from(sql`(SELECT 1) seed`),
 	);

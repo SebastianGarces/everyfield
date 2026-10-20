@@ -15,24 +15,13 @@ const account = randomUUID(),
 	org = randomUUID(),
 	org2 = randomUUID();
 let sent = 0;
-const authorizer = async (tx, m) => {
-	if (m.notice) {
-		const rows =
-			await tx.execute(querySql`SELECT n.source_revision,t.revision::text AS current_revision,t.assignee_id,t.status,t.deleted_at
-  FROM notice n JOIN task t ON t.id=n.source_record_id WHERE n.id=${querySql.param(m.notice)} FOR SHARE OF n,t`);
-		const t = rows.rows[0];
-		if (t)
-			return (
-				t.current_revision === t.source_revision &&
-				t.assignee_id === m.recipient &&
-				!t.deleted_at &&
-				!["complete", "no_longer_needed"].includes(t.status)
-			);
-	}
-	const r = await tx.execute(
-		querySql`SELECT id FROM account WHERE id=${querySql.param(m.recipient)} AND registration_state='active' FOR SHARE`,
-	);
-	return r.rowCount === 1;
+const authorizer = async (tx,mail) => {
+ const input=mail.map(m=>({id:m.id,recipient:m.recipient,notice:m.notice}));
+ const r=await tx.execute(querySql`WITH input AS (SELECT * FROM jsonb_to_recordset(${JSON.stringify(input)}::jsonb) i(id uuid,recipient uuid,notice uuid)),
+ accounts AS MATERIALIZED (SELECT a.id FROM account a WHERE a.id IN (SELECT recipient FROM input) AND registration_state='active' FOR SHARE),
+ notices AS MATERIALIZED (SELECT n.id,n.source_revision::text AS source_revision,t.revision::text AS current_revision,t.assignee_id,t.status,t.deleted_at FROM notice n JOIN task t ON t.id=n.source_record_id WHERE n.id IN (SELECT notice FROM input) FOR SHARE OF n,t)
+ SELECT i.id FROM input i LEFT JOIN notices n ON n.id=i.notice WHERE CASE WHEN n.id IS NOT NULL THEN n.current_revision=n.source_revision AND n.assignee_id=i.recipient AND n.deleted_at IS NULL AND n.status NOT IN ('complete','no_longer_needed') ELSE i.recipient IN (SELECT id FROM accounts) END`);
+ return new Set(r.rows.map(r=>r.id));
 };
 const mail = createMailService({
 	db: runtime,
@@ -50,12 +39,11 @@ const mail = createMailService({
 });
 const notifications = createNotificationService({
 	mail,
-	eligible: async (tx, v) => {
-		const r = await tx.execute(
-			querySql`SELECT id FROM seat WHERE account_id=${querySql.param(v.recipient)} AND (plant_id=${querySql.param(v.owner.id)} OR organization_id=${querySql.param(v.owner.id)}) AND ended_at IS NULL FOR SHARE`,
-		);
-		return r.rowCount === 1 ? { address: "synthetic@example.test" } : null;
-	},
+	eligible: async (tx,values) => {
+ const input=values.map((v,n)=>({n,recipient:v.recipient,owner:v.owner.id}));
+ const r=await tx.execute(querySql`SELECT i.n FROM jsonb_to_recordset(${JSON.stringify(input)}::jsonb) i(n int,recipient uuid,owner uuid) JOIN seat s ON s.account_id=i.recipient AND i.owner IN(s.plant_id,s.organization_id) AND s.ended_at IS NULL FOR SHARE OF s`);
+ return values.map((v,n)=>r.rows.some(r=>r.n===n)?{address:'synthetic@example.test'}:null);
+ },
 });
 const plantOwner = { kind: "plant", id: tenant };
 const task = randomUUID();
@@ -215,19 +203,18 @@ test("AC:CASE-NTF-015 INV-discovery: an account who owns the exact organization 
 		operation = randomUUID();
 	await db.execute(querySql`INSERT INTO affiliation(id,account_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
   VALUES(${querySql.param(association)},${querySql.param(account)},${querySql.param(org)},now(),false,false,false,false,false,false,false)`);
-	await db.execute(querySql`INSERT INTO operation(id,tenant_id,actor_id,name,request_key,request_digest,state,started_at,tool_calls,reserved_input,reserved_output,used_input,used_output)
-  VALUES(${querySql.param(operation)},${querySql.param(org)},${querySql.param(account)},'associations.acceptInvitation',${querySql.param(operation)},${querySql.param("a".repeat(64))},'complete',now(),0,0,0,0,0)`);
+	await db.execute(querySql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,request_key,metadata) VALUES(${querySql.param(operation)},${querySql.param(org)},${querySql.param(account)},'associations.acceptInvitation','edit','command',${querySql.param(org)},now(),now(),${querySql.param(operation)},jsonb_build_object('outcome',NULL))`);
 	const input = {
 		organization: org,
 		account,
 		operation,
 		occurrence: association + "/1/accepted",
 		content: { subject: "Association accepted", text: "Your association was accepted." },
-		address: async () => "synthetic@example.test",
+		address: async (_tx,accounts) => new Map(accounts.map(id=>[id,"synthetic@example.test"])),
 		now: "2026-01-01T00:00:00Z",
 		verifyOccurrence: async (tx) => {
 			const r = await tx.execute(
-				querySql`SELECT a.id FROM affiliation a JOIN operation o ON o.id=${querySql.param(operation)} AND o.tenant_id=a.organization_id WHERE a.id=${querySql.param(association)} AND a.account_id=${querySql.param(account)} AND a.organization_id=${querySql.param(org)} AND a.revision=1 AND a.ended_at IS NULL FOR SHARE OF a,o`,
+				querySql`SELECT a.id FROM affiliation a JOIN audit_event o ON o.id=${querySql.param(operation)} AND o.tenant_id=a.organization_id WHERE a.id=${querySql.param(association)} AND a.account_id=${querySql.param(account)} AND a.organization_id=${querySql.param(org)} AND a.revision=1 AND a.ended_at IS NULL FOR SHARE OF a`,
 			);
 			return r.rowCount === 1;
 		},

@@ -1,8 +1,8 @@
 import "server-only";
-import {RequestActor,requestWrite} from "../access/session.ts";
+import { RequestActor } from "../access/session.ts";
 import { randomBytes, randomUUID, createHmac } from "node:crypto";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { and, asc, eq, gt, isNull, lte, or, sql } from "@everyfield/db/query";
+import { and, asc, eq, gt, isNull, or, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import type { Owner, Receipt } from "@everyfield/contracts/common";
 import type { AccountPersonProducer } from "@everyfield/contracts/people";
@@ -25,7 +25,7 @@ export interface InvitationConfig {
 	db: Database;
 	origin: string;
 	budgetSecret: string;
-	enqueueMail(tx: Transaction, input: InvitationMail): Promise<string>;
+	enqueueMail(tx: Transaction, input: InvitationMail, command: d.Command): Promise<string>;
 	people: Pick<AccountPersonProducer<Transaction>, "ensureAccountPerson">;
 }
 export function createInvitationService(config: InvitationConfig) {
@@ -33,21 +33,7 @@ export function createInvitationService(config: InvitationConfig) {
 	if (origin !== config.origin) throw Error("canonical_origin_required");
 	const addressHash = (s: string) => createHmac("sha256", config.budgetSecret).update(s).digest("hex");
 	async function enqueue(tx: Transaction, cmd: d.Command, input: InvitationMail) {
-		const mailId = await config.enqueueMail(tx, input),
-			id = randomUUID();
-		await tx.insert(t.effect).values({
-			id,
-			tenant_id: input.owner.id,
-			operation_id: cmd.id,
-			effect_key: input.logicalKey,
-			kind: "mail.sendTransactional",
-			target_record_id: input.invitationId,
-			payload_hash: d.hash(input.logicalKey),
-			state: "unstarted",
-			result_record_id: mailId,
-			arguments: { mailId },
-		});
-		return id;
+		return config.enqueueMail(tx, input, cmd);
 	}
 	async function description(tx: Transaction, i: d.Invitation) {
 		const { selected, name } = await d.workspace(tx, i.tenant_id);
@@ -98,20 +84,11 @@ export function createInvitationService(config: InvitationConfig) {
 					eq(t.person.organization_id, organization),
 					isNull(t.person.plant_id),
 					eq(t.person.state, "live"),
+					sql`NOT EXISTS(SELECT FROM organization_person_removal r WHERE r.organization_id=${organization}::uuid AND r.person_record_id=${t.person.id})`,
 				),
 			)
 			.for("update");
-		const removed = await tx
-			.select({ id: t.organization_person_removal.id })
-			.from(t.organization_person_removal)
-			.where(
-				and(
-					eq(t.organization_person_removal.person_record_id, id),
-					eq(t.organization_person_removal.organization_id, organization),
-				),
-			)
-			.for("share");
-		if (!p || removed.length) d.refuse();
+		if (!p) d.refuse();
 		return p;
 	}
 	// Person lifecycle writers lock the Person before its invitation rows.
@@ -128,85 +105,37 @@ export function createInvitationService(config: InvitationConfig) {
 	}
 	async function charge(tx: Transaction, selected: Owner, email: string, kind: "seat_invite" | "relationship_invite") {
 		const h = addressHash(email);
-		await d.lock(tx, "invitation-budget/" + selected.id + "/" + h);
-		await tx
-			.update(t.invitation)
-			.set({ state: "expired", revision: sql`${t.invitation.revision}+1` })
-			.where(
-				and(
-					eq(t.invitation.tenant_id, selected.id),
-					eq(t.invitation.recipient_email, email),
-					eq(t.invitation.state, "pending"),
-					lte(t.invitation.created_at, sql`clock_timestamp()-interval '720 hours'`),
-				),
-			);
-		const [count] = await tx
-			.select({
-				n: sql<number>`count(*)::int`,
-				retry: sql<Date>`min(${t.admission_attempt.reserved_at})+interval '720 hours'`.mapWith(
-					(v: string) => new Date(v),
-				),
+		const result = await tx.execute(sql`WITH clock AS MATERIALIZED (SELECT clock_timestamp() AS at),
+ expired AS (UPDATE invitation SET state='expired',revision=revision+1 FROM clock WHERE tenant_id=${selected.id}::uuid AND recipient_email=${email} AND state='pending' AND created_at<=clock.at-interval '720 hours' RETURNING 1),
+ budget AS MATERIALIZED (SELECT count(*)::int AS n,min(reserved_at)+interval '720 hours' AS retry FROM admission_attempt,clock WHERE kind=${kind} AND workspace_key=${selected.id} AND identifier_hash=${h} AND reserved_at>clock.at-interval '720 hours'),
+ duplicate AS MATERIALIZED (SELECT EXISTS(SELECT FROM invitation,clock WHERE tenant_id=${selected.id}::uuid AND recipient_email=${email} AND state='pending' AND created_at>clock.at-interval '720 hours') AS found),
+ reserved AS (INSERT INTO admission_attempt(kind,identifier_hash,workspace_key,reserved_at,state,expires_at) SELECT ${kind},${h},${selected.id},clock.at,'counted',clock.at+interval '720 hours' FROM clock,budget,duplicate WHERE budget.n<3 AND NOT duplicate.found RETURNING 1)
+ SELECT budget.n,budget.retry,duplicate.found,(SELECT count(*)::int FROM reserved) AS reserved FROM budget,duplicate`);
+		const row = z
+			.object({
+				n: z.number().int(),
+				retry: z.coerce.date().nullable(),
+				found: z.boolean(),
+				reserved: z.number().int(),
 			})
-			.from(t.admission_attempt)
-			.where(
-				and(
-					eq(t.admission_attempt.kind, kind),
-					eq(t.admission_attempt.workspace_key, selected.id),
-					eq(t.admission_attempt.identifier_hash, h),
-					gt(t.admission_attempt.reserved_at, sql`clock_timestamp()-interval '720 hours'`),
-				),
-			);
-		if (count && count.n >= 3) d.refuse("invitation_rate_limited", count.retry.toISOString());
-		await tx.insert(t.admission_attempt).values({
-			kind,
-			identifier_hash: h,
-			workspace_key: selected.id,
-			reserved_at: sql`clock_timestamp()`,
-			state: "counted",
-			expires_at: sql`clock_timestamp()+interval '720 hours'`,
-		});
+			.parse(result.rows[0]);
+		if (row.n >= 3) d.refuse("invitation_rate_limited", z.date().parse(row.retry).toISOString());
+		if (row.found || row.reserved !== 1) d.refuse();
 	}
-	async function invite(session: string | RequestActor, raw: unknown, resident = false) {
+	async function invite(session: RequestActor, raw: unknown, resident = false) {
 		const v = resident ? c.inviteResidentRequest.parse(raw) : c.inviteSeatRequest.parse(raw),
 			selected = "workspace" in v.input ? v.input.workspace : v.input.organization;
-		return transaction(config.db, async (tx) => {
-			await d.lock(tx, "workspace-seats/" + selected.id);
-			const a = await d.administer(tx, session, selected);
-			const bound=requestWrite(tx);
-			const inviter = bound?.principal ?? z.object({display_name:z.string()}).parse((await tx.execute(sql`SELECT * FROM seat_identity(${a.accountId}::uuid)`)).rows[0]);
+		return d.writeAsAdministrator(config.db, session, selected, async (tx, bound) => {
+			const a = bound.actor;
+			const inviter = bound.principal;
 			const cmd = await d.begin(tx, selected, a.accountId, resident ? "residency.invite" : "seats.invite", v);
 			if (cmd.kind === "replay") return c.invitationSentResult.parse(cmd.result);
-			const root = bound?.plant ?? bound?.organization ?? (
-				selected.kind === "plant"
-					? await tx
-							.select({ revision: t.plant.revision })
-							.from(t.plant)
-							.where(eq(t.plant.id, selected.id))
-							.for("update")
-					: await tx
-							.select({ revision: t.organization.revision })
-							.from(t.organization)
-							.where(eq(t.organization.id, selected.id))
-							.for("update")
-				)[0];
-			if (root?.revision !== v.expectedRevision) d.refuse("conflict");
 			if ("personId" in v.input && (await activePerson(tx, selected.id, v.input.personId)).linked_account_id)
 				d.refuse();
 			await charge(tx, selected, v.input.recipientEmail, resident ? "relationship_invite" : "seat_invite");
-			const duplicate = await tx
-				.select({ id: t.invitation.id })
-				.from(t.invitation)
-				.where(
-					and(
-						eq(t.invitation.tenant_id, selected.id),
-						eq(t.invitation.recipient_email, v.input.recipientEmail),
-						eq(t.invitation.state, "pending"),
-					),
-				);
-			if (duplicate.length) d.refuse();
 			const proof = randomBytes(32).toString("base64url"),
 				id = randomUUID();
-			const [i] = await tx.insert(t.invitation).values({
+			const i: d.Invitation = {
 				id,
 				tenant_id: selected.id,
 				purpose: resident ? "residency_link" : "seat",
@@ -215,13 +144,16 @@ export function createInvitationService(config: InvitationConfig) {
 				role: "role" in v.input ? v.input.role : null,
 				token_hash: d.hash(proof),
 				state: "pending",
-				created_at: sql`clock_timestamp()`,
+				created_at: new Date(),
+				resent_at: null,
+				acted_at: null,
+				accepted_account_id: null,
+				revision: "1",
 				resident_person_id: "personId" in v.input ? v.input.personId : null,
 				inviter_description: inviter.display_name.slice(0, 500),
-			}).returning();
-			if(!i) d.refuse();
-			const
-				effect = await mail(tx, i, cmd, proof),
+			};
+			cmd.writes.push(tx.insert(t.invitation).values(i));
+			const effect = await mail(tx, i, cmd, proof),
 				event = await d.event(tx, cmd, id, "create", null, "0", "1"),
 				invitation = await description(tx, i);
 			return d.finish(tx, cmd, (r) => c.invitationSentResult.parse({ invitation, receipt: r }), [event], [effect]);
@@ -230,7 +162,7 @@ export function createInvitationService(config: InvitationConfig) {
 	async function list(session: string, raw: unknown) {
 		const v = c.listInvitationsRequest.parse(raw);
 		return transaction(config.db, async (tx) => {
-			await d.administer(tx, session, v.workspace);
+			await d.readAdministrator(tx, session, v.workspace);
 			const rows = await tx
 				.select()
 				.from(t.invitation)
@@ -290,22 +222,17 @@ export function createInvitationService(config: InvitationConfig) {
 			throw e;
 		});
 	}
-	async function change(session: string | RequestActor, raw: unknown, resend: boolean) {
+	async function change(session: RequestActor, raw: unknown, resend: boolean) {
 		const v = (resend ? c.resendInvitationRequest : c.revokeInvitationRequest).parse(raw);
-		return transaction(config.db, async (tx) => {
-			// Read only the owner key first; the source is locked after current actor proof.
+		const selected = session.actor.context.owner;
+		if (selected.kind !== "plant" && selected.kind !== "organization") d.refuse();
+		return d.writeAsAdministrator(config.db, session, selected, async (tx, bound) => {
+			const a = bound.actor;
 			const [source] = await tx
-				.select({
-					tenant_id: t.invitation.tenant_id,
-					purpose: t.invitation.purpose,
-					resident_person_id: t.invitation.resident_person_id,
-				})
+				.select()
 				.from(t.invitation)
-				.where(eq(t.invitation.id, v.input.invitationId));
+				.where(and(eq(t.invitation.id, v.input.invitationId), eq(t.invitation.tenant_id, selected.id)));
 			if (!source) d.refuse();
-			await d.lock(tx, "workspace-seats/" + source.tenant_id);
-			const { selected } = await d.workspace(tx, source.tenant_id),
-				a = await d.administer(tx, session, selected);
 			await lockSourcePerson(tx, source);
 			const i = await d.load(tx, v.input.invitationId),
 				cmd = await d.begin(tx, selected, a.accountId, resend ? "seats.resendInvitation" : "seats.revokeInvitation", v);
@@ -314,7 +241,7 @@ export function createInvitationService(config: InvitationConfig) {
 			await d.pending(tx, i, v.expectedRevision);
 			if (resend && i.purpose === "residency_link") await activePerson(tx, i.tenant_id, i.resident_person_id!);
 			const after = d.bump(i.revision);
-			let updated=i;
+			let updated = i;
 			let effects: string[] = [];
 			if (resend) {
 				const retry = new Date((i.resent_at ?? i.created_at).getTime() + 60000);
@@ -323,9 +250,10 @@ export function createInvitationService(config: InvitationConfig) {
 				const [changedInvitation] = await tx
 					.update(t.invitation)
 					.set({ token_hash: d.hash(proof), resent_at: sql`clock_timestamp()`, revision: after })
-					.where(eq(t.invitation.id, i.id)).returning();
-				if(!changedInvitation) d.refuse();
-				updated=changedInvitation;
+					.where(eq(t.invitation.id, i.id))
+					.returning();
+				if (!changedInvitation) d.refuse();
+				updated = changedInvitation;
 				effects = [await mail(tx, updated, cmd, proof)];
 			} else
 				await tx
@@ -565,9 +493,9 @@ export function createInvitationService(config: InvitationConfig) {
 						revision: sql`${t.account.revision}+1`,
 					})
 					.where(eq(t.account.id, a.account_id));
-				await tx.insert(t.event).values({
+				await tx.insert(t.audit_event).values({
 					tenant_id: a.account_id,
-					target_record_id: a.account_id,
+					subject_id: a.account_id,
 					actor_id: a.account_id,
 					kind: "accept",
 					action: "identity.domain_accepted",
@@ -625,12 +553,12 @@ export function createInvitationService(config: InvitationConfig) {
 	return {
 		registrationEligible,
 		resume,
-		invite: (s: string | RequestActor, v: unknown) => invite(s, v),
-		inviteResident: (s: string | RequestActor, v: unknown) => invite(s, v, true),
+		invite: (s: RequestActor, v: unknown) => invite(s, v),
+		inviteResident: (s: RequestActor, v: unknown) => invite(s, v, true),
 		list,
 		describe,
-		resend: (s: string | RequestActor, v: unknown) => change(s, v, true),
-		revoke: (s: string | RequestActor, v: unknown) => change(s, v, false),
+		resend: (s: RequestActor, v: unknown) => change(s, v, true),
+		revoke: (s: RequestActor, v: unknown) => change(s, v, false),
 		accept: (s: string, v: unknown) => accept(s, v),
 		respondResident: (s: string, v: unknown) => accept(s, v, true),
 	};

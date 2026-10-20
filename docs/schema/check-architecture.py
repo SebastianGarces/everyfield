@@ -49,8 +49,10 @@ def check(root):
         errors.append('execution handler inventory differs from job.kind')
     audit = (root / 'docs/architecture/audit.md').read_text()
     actions = set(re.findall(r'\b[a-z_]+\.[a-z_]+\b', '\n'.join(l for l in audit.splitlines() if l.startswith('|'))))
-    if actions != set(schema['type_contracts']['event.action']):
-        errors.append('audit action inventory differs from event.action')
+    operations=json.loads((root/'docs/catalog/operations.json').read_text())['operations']
+    command_names={o['id'] for o in operations if not o['id'].startswith('privateCare.')}
+    if actions | command_names | {'note_correction'} != set(schema['type_contracts']['audit_event.action']):
+        errors.append('audit action inventory differs from audit_event.action')
     acceptance = json.loads((root / 'docs/acceptance/schema.json').read_text())
     for case in acceptance['cases']:
         for name in case.get('schema_tables', []):
@@ -63,7 +65,7 @@ def self_test(root):
     """BUG-fff6858: retired tables fail while domain enum values remain valid."""
     with tempfile.TemporaryDirectory(prefix='evf-retired-tables-') as directory:
         fixture = Path(directory)
-        for name in ['docs/schema/target.json', 'docs/acceptance/schema.json']:
+        for name in ['docs/schema/target.json', 'docs/acceptance/schema.json','docs/catalog/operations.json']:
             destination = fixture / name
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(root / name, destination)

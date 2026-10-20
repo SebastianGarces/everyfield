@@ -1,0 +1,42 @@
+import {appendFileSync} from "node:fs";
+import test from "node:test";
+import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+const root=fileURLToPath(new URL("../../../",import.meta.url));
+
+// One regression checks real writes across the existing behavior suites. It records no SQL or parameters.
+test("D69/D70: every shipped write stays within its statement budget",{timeout:30*60*1000},async()=>{
+ const directory=await mkdtemp(join(tmpdir(),"evf-write-counts-")),output=join(directory,"counts.jsonl");
+ const patterns=JSON.parse(await readFile(new URL('./suites.json',import.meta.url),'utf8'));
+ const {globSync}=await import('node:fs');
+ const files=globSync(patterns,{cwd:root}).map(file=>join(root,file));
+ const nodeOptions=[process.env.NODE_OPTIONS ?? "", "--conditions=react-server", "--import="+pathToFileURL(join(root,"packages/domain/node_modules/tsx/dist/esm/index.mjs")).href,"--import="+pathToFileURL(join(root,"tests/integration/writes/counter.mjs")).href].join(" ");
+ const environment={...process.env};delete environment.NODE_TEST_CONTEXT;
+ const child=spawn(process.execPath,["--env-file-if-exists="+join(root,"apps/web/.env.local"),"--test","--test-concurrency=2",...files],{cwd:join(root,"packages/domain"),env:{...environment,EARLY_ACCESS_TEST_DATABASE:"1",EVF_WRITE_COUNTS:output,NODE_OPTIONS:nodeOptions},stdio:["ignore","pipe","pipe"]});
+ let log="";for(const stream of [child.stdout,child.stderr])stream.on("data",chunk=>{log+=chunk;appendFileSync(join(directory,"behaviors.log"),chunk);});
+ const exit=await new Promise<number|null>((resolve,reject)=>{child.once("error",reject);child.once("exit",resolve);});
+ await writeFile(join(directory,"behaviors.log"),log);
+ console.log("Statement census:",output);
+ assert.equal(exit,0,"Behavior suites failed; evidence: "+join(directory,"behaviors.log")+"\n"+log.split("\n").filter(line=>line.includes("✖")).join("\n"));
+ const native=spawn(process.execPath,['--env-file-if-exists='+join(root,'apps/web/.env.local'),join(root,'tests/integration/writes/native.mjs')],{cwd:join(root,'packages/domain'),env:{...environment,EARLY_ACCESS_TEST_DATABASE:'1',EVF_WRITE_COUNTS:output,NODE_OPTIONS:nodeOptions},stdio:['ignore','pipe','pipe']});
+ let nativeLog='';for(const stream of[native.stdout,native.stderr])stream.on('data',chunk=>{nativeLog+=chunk;appendFileSync(join(directory,'native.log'),chunk);});
+ const nativeExit=await new Promise<number|null>((resolve,reject)=>{native.once('error',reject);native.once('exit',resolve);});
+ assert.equal(nativeExit,0,'Native boundary proof failed: '+join(directory,'native.log')+'\n'+nativeLog.slice(-1000));
+ const rows=(await readFile(output,"utf8")).trim().split("\n").map(line=>JSON.parse(line));
+ const limits=JSON.parse(await readFile(new URL("./limits.json",import.meta.url),"utf8"));
+ const samples=rows.filter(row=>row.kind==="sample"&&row.writes>0&&row.status!=="threw");
+ assert.ok(samples.length>0,"No database writes were measured");
+ for(const sample of samples){
+  const name=Object.hasOwn(limits,sample.name)?sample.name:sample.name.split(":")[0];
+  assert.ok(Object.hasOwn(limits,name),"A write needs an explicit statement budget: "+sample.name);
+  const budget=limits[name];
+  assert.ok(sample.count<=(sample.rollbacks?budget.retry:budget.limit),`${sample.name}: ${sample.count} statements, budget ${sample.rollbacks?budget.retry:budget.limit}`);
+ }
+ const covered=new Set(samples.map(row=>row.name.split(":")[0]));
+ for(const row of rows.filter(row=>row.kind==="declaration"&&row.write))assert.ok(covered.has(row.name),"A declared write has no successful real-database exercise: "+row.name);
+});

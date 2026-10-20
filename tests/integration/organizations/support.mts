@@ -9,9 +9,10 @@ import { enqueueJob } from "../../../apps/web/src/server/jobs/queue.ts";
 import { owner, sessionId } from "../../../packages/contracts/src/common/index.ts";
 
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-if (source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech" || process.env.NODE_ENV === "production")
+const ci=process.env.CI==='true' && process.env.EARLY_ACCESS_TEST_DATABASE==='1' && ['localhost','127.0.0.1'].includes(source.hostname) && source.pathname==='/everyfield_ci';
+if ((!ci && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") || process.env.NODE_ENV === "production")
 	throw Error("Only shared development direct endpoint allowed");
-source.searchParams.set("sslmode", "verify-full");
+if(!ci) source.searchParams.set("sslmode", "verify-full");
 export const schema = "wp007_" + randomUUID().replaceAll("-", "");
 export const db = createDatabase({
 	connectionString: source.href,
@@ -102,7 +103,7 @@ export const mail = createMailService({
 	encryptionKey: randomBytes(32),
 	addressKey: randomBytes(32),
 	from: "test@example.test",
-	authorize: async () => true,
+	authorize: async (_tx,mail) => new Set(mail.map(m=>m.id)),
 	transport: {
 		send: async () => {
 			throw Error("No provider call allowed");

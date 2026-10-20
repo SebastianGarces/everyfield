@@ -138,19 +138,15 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 				.from(t.seat)
 				.where(and(eq(t.seat.account_id, a.account.id), eq(t.seat.role, "owner"), isNull(t.seat.ended_at)))
 				.for("share");
-			for (const s of owners) {
-				if (s.organization_id !== null) deny("manual_owner_exception_required");
+			if (owners.some((s) => s.organization_id !== null)) deny("manual_owner_exception_required");
+			if (owners.length) {
 				const hidden = await tx
-					.select({ id: t.lifecycle_witness.id })
+					.select({ id: t.lifecycle_witness.opaque_subject_id })
 					.from(t.lifecycle_witness)
 					.where(
-						and(
-							eq(t.lifecycle_witness.opaque_subject_id, s.plant_id!),
-							eq(t.lifecycle_witness.kind, "plant"),
-							sql`${t.lifecycle_witness.state} IN ('pending_deletion','purging','purged')`,
-						),
+						sql`${t.lifecycle_witness.opaque_subject_id}=ANY(${sql.param(owners.map((s) => s.plant_id))}::uuid[]) AND ${t.lifecycle_witness.kind}='plant' AND ${t.lifecycle_witness.state} IN ('pending_deletion','purging','purged')`,
 					);
-				if (!hidden.length) deny("manual_owner_exception_required");
+				if (owners.some((s) => !hidden.some((w) => w.id === s.plant_id))) deny("manual_owner_exception_required");
 			}
 		}
 		const wctx: SettingsWriteContext =
@@ -232,10 +228,10 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 			.returning();
 		// No grant/session/mail restoration. Independent revocations remain authoritative.
 		await tx
-			.insert(t.event)
+			.insert(t.audit_event)
 			.values({
 				tenant_id: v.input.subject.id,
-				target_record_id: w.id,
+				subject_id: w.id,
 				actor_id: w.requester_id,
 				system_cause: w.requester_id ? null : "deletion_cancellation",
 				kind: "restore",
@@ -244,7 +240,7 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 				recorded_at: clock,
 				event_key: w.request_id + "/cancelled",
 			})
-			.onConflictDoNothing({ target: [t.event.target_record_id, t.event.event_key] });
+			.onConflictDoNothing({ target: [t.audit_event.subject_id, t.audit_event.event_key] });
 		return status(next!);
 	}
 	return {

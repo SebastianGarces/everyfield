@@ -112,7 +112,7 @@ test("AC:WP007-KNOW-112 AC:AF-030 AC:AF-032 AC:AF-033 AC:TARGET-IDN-022 AC:WP007
 	);
 	const data = (
 		await S.db.execute(
-			sql`SELECT e.action,e.diff,e.reason FROM event e JOIN affiliation a ON a.id=e.target_record_id WHERE a.id=${sql.param(a)}`,
+			sql`SELECT e.action,e.metadata->'diff' AS diff,e.reason FROM audit_event e JOIN affiliation a ON a.id=e.subject_id WHERE a.id=${sql.param(a)}`,
 		)
 	).rows;
 	assert.deepEqual(
@@ -399,11 +399,11 @@ test("INV-atomicity: required outbox failure rolls back sharing, revision, audit
 	assert.equal(v.choices.people, true);
 	assert.equal(v.consentRevision, "1");
 	assert.equal(
-		(await S.db.execute(sql`SELECT count(*)::int AS n FROM operation WHERE request_key=${sql.param(key)}`)).rows[0].n,
+		(await S.db.execute(sql`SELECT count(*)::int AS n FROM audit_event WHERE request_key=${sql.param(key)}`)).rows[0].n,
 		0,
 	);
 	assert.equal(
-		(await S.db.execute(sql`SELECT count(*)::int AS n FROM event WHERE target_record_id=${sql.param(id)}`)).rows[0].n,
+		(await S.db.execute(sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${sql.param(id)}`)).rows[0].n,
 		0,
 	);
 	assert.equal(

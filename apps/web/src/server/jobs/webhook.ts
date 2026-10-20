@@ -99,10 +99,10 @@ async function apply(tx: Transaction, eventId: string) {
 	const action =
 		e.kind === "delivered" ? "mail.delivered" : e.kind === "cancelled" ? "mail.cancelled" : "mail.reconciled";
 	await tx
-		.insert(tables.event)
+		.insert(tables.audit_event)
 		.values({
 			tenant_id: m.tenant_id,
-			target_record_id: m.id,
+			subject_id: m.id,
 			kind: "outcome",
 			occurred_at: sql`${e.occurred_at}`,
 			recorded_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
@@ -110,7 +110,7 @@ async function apply(tx: Transaction, eventId: string) {
 			event_key: `provider/${e.id}`,
 			action: action,
 		})
-		.onConflictDoNothing({ target: [tables.event.target_record_id, tables.event.event_key] });
+		.onConflictDoNothing({ target: [tables.audit_event.subject_id, tables.audit_event.event_key] });
 	return "applied" as const;
 }
 export async function receiveMailCallback(db: Database, request: Request, secret: string) {
@@ -211,19 +211,19 @@ export async function recoverCallback(
 		if (!actor) throw Error("recovery_unavailable");
 		const result = await apply(tx, eventId);
 		await tx
-			.insert(tables.event)
+			.insert(tables.audit_event)
 			.values({
 				tenant_id: m.tenant_id,
-				target_record_id: m.id,
+				subject_id: m.id,
 				actor_id: actor.actorId,
-				operation_id: actor.operationId,
+				command_id: actor.operationId,
 				kind: "reconcile",
 				occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
 				recorded_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
 				event_key: `callback-recovery/${eventId}/${actor.operationId}`,
 				action: "mail.reconciled",
 			})
-			.onConflictDoNothing({ target: [tables.event.target_record_id, tables.event.event_key] });
+			.onConflictDoNothing({ target: [tables.audit_event.subject_id, tables.audit_event.event_key] });
 		return result;
 	});
 }

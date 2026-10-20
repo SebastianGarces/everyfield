@@ -32,7 +32,7 @@ async function workspaceViewer() {
 	const { viewer, mount } = who;
 	if (viewer.selected.kind !== "plant" && viewer.selected.kind !== "organization") return null;
 	if (viewer.kind !== "plant" && viewer.kind !== "sending_church" && viewer.kind !== "sending_network") return null;
-	return { viewer, mount, authority:who.authority, kind: viewer.kind, selected: viewer.selected };
+	return { viewer, mount, authority: who.authority, kind: viewer.kind, selected: viewer.selected };
 }
 
 export async function readSeats(): Promise<SeatsRead> {
@@ -87,7 +87,7 @@ export async function runSeatCommand(name: SeatOperation, command: unknown): Pro
 	const w = await workspaceViewer();
 	const service = invitationService();
 	if (!op.success || !w || !service) return refused("unavailable");
-	const { viewer, mount, selected } = w;
+	const { mount, selected } = w;
 	const s = w.authority;
 	switch (op.data) {
 		case "invite":

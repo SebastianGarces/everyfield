@@ -8,3 +8,5 @@ export type { AuthenticateOperator, OperatorScope, OperatorOperation } from "./o
 export { auditProofCoverage, trackWork } from "./proof.ts";
 export { createFixtureSwitcher } from "./fixtures.ts";
 export type { FixtureConfig } from "./fixtures.ts";
+
+export { auditTransaction } from "./writes.ts";

@@ -1,10 +1,11 @@
-import { claimOperation, executeWrites } from "../operations/writes.ts";
+import { WriteUnavailable } from "../operations/writes.ts";
+import { prepareWrite, finishAudit, auditSavepoint, auditTransaction } from "../operations/writes.ts";
 import "server-only";
 import { randomUUID, createHash } from "node:crypto";
 import { z } from "zod";
 import type { Database, Transaction } from "@everyfield/db/client";
 import * as t from "@everyfield/db/tables";
-import { and, eq, isNull, sql, gt, lte } from "@everyfield/db/query";
+import { and, eq, isNull, sql } from "@everyfield/db/query";
 import { RequestActor, currentActor, liveOwner, requestWrite, lockWriteAuthority } from "../access/session.ts";
 import { receipt, requestIdentity, sessionId, accountId, type Receipt } from "@everyfield/contracts/common";
 import { onboardingError } from "@everyfield/contracts/onboarding";
@@ -43,40 +44,37 @@ export function stable(value: unknown): string {
 }
 export const hash = (v: unknown) => createHash("sha256").update(stable(v)).digest("hex");
 export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<OnboardingReply<T>> {
-	if(requestWrite(tx)) return {status:"ok", value:await body()};
-	return recover(() => tx
-		.transaction(async (savepoint) => {
-			void savepoint;
-			return { status: "ok" as const, value: await body() };
-		}) );
+	if (requestWrite(tx)) return { status: "ok", value: await body() };
+	return recover(async () => ({ status: "ok", value: await auditSavepoint(tx, async () => body()) }));
 }
-async function recover<T>(body:()=>Promise<OnboardingReply<T>>):Promise<OnboardingReply<T>> {
+async function recover<T>(body: () => Promise<OnboardingReply<T>>): Promise<OnboardingReply<T>> {
 	return body().catch((error) => {
-			if (!(error instanceof Refusal)) throw error;
-			return {
-				status: "refused" as const,
-				error: onboardingError.parse({
-					code: error.code,
-					details: {},
-					correlationId: randomUUID(),
-					retry: (
-						{
-							invalid_input: "never",
-							access_denied: "never",
-							unavailable: "never",
-							invalid_subject: "never",
-							conflict: "refresh",
-							temporary: "same_request",
-							unknown: "reconcile",
-							active_seat_conflict: "refresh",
-							association_resolution_required: "refresh",
-							already_declared: "refresh",
-							idempotency_conflict: "never",
-						} as const
-					)[error.code],
-				}),
-			};
-		});
+		if (error instanceof WriteUnavailable) error = new Refusal("unavailable");
+		if (!(error instanceof Refusal)) throw error;
+		return {
+			status: "refused" as const,
+			error: onboardingError.parse({
+				code: error.code,
+				details: {},
+				correlationId: randomUUID(),
+				retry: (
+					{
+						invalid_input: "never",
+						access_denied: "never",
+						unavailable: "never",
+						invalid_subject: "never",
+						conflict: "refresh",
+						temporary: "same_request",
+						unknown: "reconcile",
+						active_seat_conflict: "refresh",
+						association_resolution_required: "refresh",
+						already_declared: "refresh",
+						idempotency_conflict: "never",
+					} as const
+				)[error.code],
+			}),
+		};
+	});
 }
 // Account is the shared arbiter with first-seat acceptance. Take its row lock
 // before currentActor acquires lifecycle/seat share locks.
@@ -98,13 +96,13 @@ export async function actor(tx: Tx, ctx: Context, allowPending = false, write = 
 		};
 
 	if (write) {
-		const locked = await lockWriteAuthority(tx, ctx.session, ctx.selected, true);
+		const locked = await lockWriteAuthority(tx, ctx.session, ctx.selected);
 		if (!locked || (locked.identity.status === "pending_domain" && !allowPending)) deny();
 		return locked;
 	}
 	const raw = await tx.execute(sql`SELECT * FROM invitation_identity(${sessionId.parse(ctx.session)})`);
 	const row = z
-		.object({ account_id: accountId, display_name: z.string(), verified: z.boolean() })
+		.object({ account_id: accountId, email: z.string(), display_name: z.string(), verified: z.boolean() })
 		.safeParse(raw.rows[0]);
 	if (!row.success) deny();
 	const [account] = await tx.select().from(t.account).where(eq(t.account.id, row.data.account_id)).for("update");
@@ -164,6 +162,7 @@ export async function begin(
 		| "onboarding.complete",
 	input: Command,
 ) {
+	if (ctx.purpose === "model" && ctx.origin.kind !== "assistant") deny();
 	const identity = requestIdentity.parse({
 		owner: ctx.selected,
 		actorId,
@@ -173,55 +172,13 @@ export async function begin(
 		origin: ctx.origin,
 	});
 
-	const claim = await claimOperation(tx, name, identity);
+	const claim = await prepareWrite(tx, name, identity, input, hash({ name, input: input }), "committed");
 	if (claim.kind === "unavailable") deny();
 	if (claim.kind === "conflict") deny("idempotency_conflict");
 	if (claim.kind === "replay") {
-		const [old] = await tx
-			.select({ value: t.onboarding_result.value })
-			.from(t.onboarding_result)
-			.innerJoin(t.operation, eq(t.operation.id, t.onboarding_result.operation_id))
-			.where(and(eq(t.operation.tenant_id, ctx.selected.id), eq(t.operation.request_key, input.requestKey)));
-		if (old) {
-			const saved = z.object({ receipt }).parse(old.value);
-			if (stable(saved.receipt.request) !== stable(identity)) deny("idempotency_conflict");
-			return { kind: "replay" as const, value: old.value };
-		}
-		deny();
+		return { kind: "replay" as const, value: claim.value };
 	}
-	if (ctx.purpose === "model") {
-		if (ctx.origin.kind !== "assistant") deny();
-		const o = ctx.origin;
-		const review = await tx
-			.select({ id: t.review.id })
-			.from(t.review)
-			.innerJoin(
-				t.conversation,
-				and(eq(t.conversation.id, t.review.conversation_id), eq(t.conversation.tenant_id, t.review.tenant_id)),
-			)
-			.innerJoin(t.effect, and(eq(t.effect.review_id, t.review.id), eq(t.effect.tenant_id, t.review.tenant_id)))
-			.where(
-				and(
-					eq(t.review.id, o.reviewId),
-					eq(t.review.tenant_id, ctx.selected.id),
-					eq(t.review.conversation_id, o.conversationId),
-					eq(t.review.digest, o.planDigest),
-					eq(t.review.approved_by_id, actorId),
-					isNull(t.review.cancelled_at),
-					isNull(t.review.superseded_at),
-					lte(t.review.approved_at, now),
-					gt(t.review.approved_at, sql`clock_timestamp()-interval '15 minutes'`),
-					eq(t.conversation.owner_id, actorId),
-					eq(t.conversation.state, "open"),
-					eq(t.effect.kind, name),
-					eq(t.effect.payload_hash, hash({ name, input })),
-					eq(t.effect.arguments, { operation: name, input }),
-					sql`${t.effect.state} IN ('unstarted','claimed')`,
-				),
-			)
-			.for("share", { of: [t.review, t.conversation, t.effect] });
-		if (!review.length) deny();
-	}
+
 	return { kind: "new" as const, id: claim.id, identity, writes: claim.writes, events: claim.events };
 }
 export type NewCommand = Extract<Awaited<ReturnType<typeof begin>>, { kind: "new" }>;
@@ -229,20 +186,20 @@ export async function event(
 	_tx: Tx,
 	c: NewCommand,
 	target: string,
-	action: typeof t.event.$inferInsert.action,
-	kind: typeof t.event.$inferInsert.kind = "edit",
+	action: typeof t.audit_event.$inferInsert.action | null,
+	kind: typeof t.audit_event.$inferInsert.kind = "edit",
 	tenant = c.identity.owner.id,
 ) {
-	const id = randomUUID();
+	const id = c.events.length ? randomUUID() : c.id;
 	const ownedTarget = sql<string>`coalesce((SELECT id FROM ${t.record} WHERE id=${target}::uuid AND tenant_id=${tenant}::uuid),${tenant}::uuid)`;
 	c.events.push({
 		id,
 		tenant_id: tenant,
-		target_record_id: ownedTarget,
-		operation_id: c.id,
+		subject_id: ownedTarget,
+		command_id: c.id,
 		actor_id: c.identity.actorId,
 		kind,
-		action,
+		action: action ?? c.identity.operation,
 		occurred_at: now,
 		recorded_at: now,
 		event_key: c.id + "/" + target + "/" + action,
@@ -262,20 +219,12 @@ export async function finish<T>(
 		request: c.identity,
 		completedAt: new Date().toISOString(),
 		outcome: changed ? "changed" : "noop",
-		subjects: [{ kind: "operation", id: c.id, owner: c.identity.owner }],
+		subjects: [{ kind: "audit_event", id: c.id, owner: c.identity.owner }],
 		eventIds: events,
 		effectIds: [],
 	});
 	const value = schema.parse(result(r));
-	await executeWrites(tx, [
-		...c.writes,
-		...(c.events.length ? [tx.insert(t.event).values(c.events)] : []),
-		tx
-			.update(t.operation)
-			.set({ state: "complete", outcome: changed ? "committed" : "no_effect", completed_at: now })
-			.where(eq(t.operation.id, c.id)),
-		tx.insert(t.onboarding_result).values({ operation_id: c.id, tenant_id: c.identity.owner.id, value }),
-	]);
+	await finishAudit(tx, c, c.identity, value);
 	return value;
 }
 export async function bump(tx: Tx, id: string) {
@@ -294,11 +243,18 @@ export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S>
 }
 
 /** The request owns rollback; native writes need no nested savepoint. */
-export async function withOnboardingWrite<T>(db:Database, authority:RequestActor | undefined, context:WriteContext, body:(tx:Tx)=>Promise<OnboardingReply<T>>):Promise<OnboardingReply<T>> {
- return recover(()=>db.transaction(async tx=>{
-  if(authority && !(await authority.bind(tx,context.selected,true))) deny();
-  const result=await body(tx);
-  if(result.status==="refused") throw new Refusal(result.error.code);
-  return result;
- }));
+export async function withOnboardingWrite<T>(
+	db: Database,
+	authority: RequestActor | undefined,
+	context: WriteContext,
+	body: (tx: Tx) => Promise<OnboardingReply<T>>,
+): Promise<OnboardingReply<T>> {
+	return recover(() =>
+		auditTransaction(db, async (tx) => {
+			if (authority && !(await authority.bind(tx, context.selected))) deny();
+			const result = await body(tx);
+			if (result.status === "refused") throw new Refusal(result.error.code);
+			return result;
+		}),
+	);
 }

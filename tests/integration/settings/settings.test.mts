@@ -1,3 +1,4 @@
+import {sendOnboardingRelationships} from "../../../apps/web/src/server/jobs/notifications.ts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes, createHash } from "node:crypto";
@@ -15,7 +16,7 @@ import {
 } from "../../../packages/domain/src/settings/index.ts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
-import { enqueueJob } from "../../../apps/web/src/server/jobs/queue.ts";
+import { enqueueJob,enqueueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
 import { currentActor } from "../../../packages/domain/src/access/session.ts";
@@ -137,7 +138,7 @@ before(async () => {
 		encryptionKey: randomBytes(32),
 		addressKey: randomBytes(32),
 		from: "test@example.test",
-		authorize: async () => true,
+		authorize: async (_tx,mail) => new Set(mail.map(m=>m.id)),
 		transport: {
 			send: async () => {
 				throw Error("No real mail");
@@ -161,14 +162,14 @@ before(async () => {
 			if (faults) throw Error("notice_fault");
 		},
 		invalidate: async (tx, i) => {
-			await enqueueJob(tx, {
-				tenant: i.owner.id,
+			await enqueueJobs(tx,i.owners.map(owner=>({
+				tenant: owner.id,
 				kind: "assessment",
 				subject: i.sourceId,
 				key: "invalidate/" + i.sourceId + "/" + i.revision,
 				revision: i.revision,
 				eligibleAt: new Date().toISOString(),
-			});
+            })));
 		},
 	};
 	const organizations = createOrganizationAdapter(organizationEffects, { candidates: async () => [] });
@@ -250,20 +251,19 @@ before(async () => {
 	};
 	api = createSettingsProducer(producerDeps);
 	onboarding = createOnboardingProducer({
-		notice: organizationEffects.notice,
-		invalidate: organizationEffects.invalidate,
-		enqueue: async (tx, i) => {
-			await mail.enqueue(tx, {
+		relationships:(tx,inputs)=>sendOnboardingRelationships(tx,inputs,mail),
+		enqueue: async (tx, i,command) => {
+			mail.append(tx, {
 				owner: { kind: "account", id: i.accountId },
 				purpose: "notification",
 				logicalKey: "onboarding/" + i.operationId,
 				recipient: i.accountId,
-				address: "test@example.test",
+				address:i.address,
 				content: { subject: "Saved", text: "Saved" },
 				operation: i.operationId,
 				notice: null,
 				eligibleAt: new Date().toISOString(),
-			});
+            },command.writes);
 		},
 	});
 });
@@ -675,9 +675,9 @@ test("AC:WP010-KNOW-072 AC:WP010-KNOW-073 AC:DEL58-009 deadline refuses cancella
 	assert.equal(setup.plant_id, f.p.id);
 	const [creation] = await admin
 		.select()
-		.from(t.onboarding_result)
-		.where(eq(t.onboarding_result.operation_id, setup.creation_operation_id));
-	assert.deepEqual(Object.keys(creation.value).sort(), ["creation", "plant"]);
+		.from(t.audit_event)
+		.where(eq(t.audit_event.id, setup.creation_operation_id));
+	assert.deepEqual(Object.keys(creation.result).sort(), ["creation", "plant"]);
 	const [user] = await admin.select().from(t.auth_user).where(eq(t.auth_user.id, f.a.user));
 	assert.equal(user.name, "Removed account");
 	assert.equal(user.email, `removed-${f.a.id}@removed.invalid`);
@@ -872,8 +872,8 @@ test("AC:TARGET-IDN-008 AC:ROLE43-018 password proof precedes unchanged refusal;
 	assert.equal(ok(await call("getSection", fresh, { section: "account" })).email, a.email);
 	const [count] = await admin
 		.select({ n: sql`count(*)::int` })
-		.from(t.event)
-		.where(and(eq(t.event.tenant_id, a.id), eq(t.event.action, "identity.credential_changed")));
+		.from(t.audit_event)
+		.where(and(eq(t.audit_event.tenant_id, a.id), eq(t.audit_event.action, "identity.credential_changed")));
 	assert.equal(count.n, 0);
 });
 
@@ -1249,7 +1249,7 @@ test("AC:WP010-IDN-012 exact task preference reaches enqueue and dispatch; churc
 		encryptionKey: randomBytes(32),
 		addressKey: randomBytes(32),
 		from: "test@example.test",
-		authorize: async () => true,
+		authorize: async (_tx,mail) => new Set(mail.map(m=>m.id)),
 		transport: {
 			send: async (input) => {
 				sent.push(input);
@@ -1260,19 +1260,11 @@ test("AC:WP010-IDN-012 exact task preference reaches enqueue and dispatch; churc
 	});
 	const notifications = createNotificationService({
 		mail: sender,
-		eligible: async (tx, input) => {
-			const [s] = await tx
-				.select()
-				.from(t.seat)
-				.where(
-					and(
-						eq(t.seat.account_id, input.recipient),
-						eq(t.seat.plant_id, input.owner.id),
-						sql`${t.seat.ended_at} IS NULL`,
-					),
-				);
-			return s ? { address: "test@example.test" } : null;
-		},
+		eligible: async (tx,inputs) => {
+ const data=inputs.map((v,n)=>({n,recipient:v.recipient,owner:v.owner.id}));
+ const r=await tx.execute(sql`SELECT i.n FROM jsonb_to_recordset(${JSON.stringify(data)}::jsonb) i(n int,recipient uuid,owner uuid) JOIN seat s ON s.account_id=i.recipient AND s.plant_id=i.owner AND s.ended_at IS NULL`);
+ return inputs.map((v,n)=>r.rows.some(r=>r.n===n)?{address:'test@example.test'}:null);
+ },
 	});
 	const initialPreferences = ok(await call("getSection", f.a, { section: "notifications" }));
 	const notice = (category, occurrence) => ({

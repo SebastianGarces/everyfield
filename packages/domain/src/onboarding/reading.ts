@@ -4,10 +4,9 @@ import * as t from "@everyfield/db/tables";
 import * as c from "@everyfield/contracts/onboarding";
 import { owner } from "@everyfield/contracts/common";
 import foundations from "../../../../docs/reference/discovery-foundations.json" with { type: "json" };
-import { liveOwner } from "../access/session.ts";
 import type { Tx } from "./core.ts";
 
-export async function ownReading(tx: Tx, accountId: string) {
+async function readingRows(tx: Tx, accounts: readonly string[]) {
 	const rows = await tx
 		.select({
 			reading: t.reading,
@@ -32,7 +31,7 @@ export async function ownReading(tx: Tx, accountId: string) {
 		.leftJoin(t.organization, eq(t.organization.id, t.tenant.id))
 		.where(
 			and(
-				eq(t.reading.account_id, accountId),
+				inArray(t.reading.account_id, [...accounts]),
 				inArray(
 					t.reading.article_id,
 					foundations.articles.map((a) => a.id),
@@ -41,21 +40,30 @@ export async function ownReading(tx: Tx, accountId: string) {
 				isNotNull(t.reading.completed_at),
 			),
 		);
+	return rows;
+}
+function readingValue(accountId: string, rows: Awaited<ReturnType<typeof readingRows>>) {
 	return c.ownDiscoveryReading.parse({
 		readerAccountId: accountId,
-		articles: rows.map(({ reading: r, source: s, kind, organizationKind }) => ({
-			readerAccountId: accountId,
-			articleId: r.article_id,
-			source: {
-				owner: owner.parse({ kind, id: s.tenant_id, ...(kind === "organization" ? { organizationKind } : {}) }),
-				publishedRevisionId: s.id,
-				revision: String(s.revision_number),
-			},
-			scrollRatio: Number(r.completed_fraction),
-			readAt: r.completed_at!.toISOString(),
-		})),
+		articles: rows
+			.filter((r) => r.reading.account_id === accountId)
+			.map(({ reading: r, source: s, kind, organizationKind }) => ({
+				readerAccountId: accountId,
+				articleId: r.article_id,
+				source: {
+					owner: owner.parse({ kind, id: s.tenant_id, ...(kind === "organization" ? { organizationKind } : {}) }),
+					publishedRevisionId: s.id,
+					revision: String(s.revision_number),
+				},
+				scrollRatio: Number(r.completed_fraction),
+				readAt: r.completed_at!.toISOString(),
+			})),
 	});
 }
+export async function ownReading(tx: Tx, accountId: string) {
+	return readingValue(accountId, await readingRows(tx, [accountId]));
+}
+
 export async function plantReading(tx: Tx, plantId: string) {
 	const [setup] = await tx
 		.select({ lead: t.onboarding_setup.lead })
@@ -63,7 +71,12 @@ export async function plantReading(tx: Tx, plantId: string) {
 		.where(eq(t.onboarding_setup.plant_id, plantId));
 	const lead = c.leadSetup.parse(setup?.lead ?? { answer: "pending" });
 	const candidates = await tx
-		.select({ accountId: t.seat.account_id, role: t.seat.role, personId: t.person.id })
+		.select({
+			accountId: t.seat.account_id,
+			role: t.seat.role,
+			personId: t.person.id,
+			lead: sql<boolean>`EXISTS(SELECT FROM team_tenure tt JOIN team_role r ON r.id=tt.role_id AND r.plant_id=tt.plant_id JOIN team tm ON tm.id=r.team_id AND tm.plant_id=r.plant_id WHERE tt.person_id=${t.person.id} AND tt.plant_id=${plantId}::uuid AND tt.ended_on IS NULL AND r.leadership AND r.id=${lead.answer === "yes" ? lead.assignment.roleId : "00000000-0000-0000-0000-000000000000"}::uuid AND r.retired_at IS NULL AND tm.archived_at IS NULL)`,
+		})
 		.from(t.seat)
 		.innerJoin(t.account, and(eq(t.account.id, t.seat.account_id), eq(t.account.registration_state, "active")))
 		.leftJoin(
@@ -74,43 +87,27 @@ export async function plantReading(tx: Tx, plantId: string) {
 				eq(t.person.state, "live"),
 			),
 		)
-		.where(and(eq(t.seat.plant_id, plantId), isNull(t.seat.ended_at), lte(t.seat.accepted_at, sql`clock_timestamp()`)));
+		.where(
+			and(
+				eq(t.seat.plant_id, plantId),
+				isNull(t.seat.ended_at),
+				lte(t.seat.accepted_at, sql`clock_timestamp()`),
+				sql`NOT EXISTS(SELECT FROM lifecycle_witness w LEFT JOIN seat ws ON ws.id=w.seat_id WHERE (w.opaque_subject_id=${t.seat.account_id} OR ws.account_id=${t.seat.account_id}) AND w.state NOT IN ('active','cancelled'))`,
+			),
+		);
+	const rows = candidates.length
+		? await readingRows(
+				tx,
+				candidates.map((c) => c.accountId),
+			)
+		: [];
 	for (const candidate of candidates) {
-		if (!(await liveOwner(tx, owner.parse({ kind: "account", id: candidate.accountId })))) continue;
-		const revoked = await tx
-			.select({ id: t.lifecycle_witness.id })
-			.from(t.lifecycle_witness)
-			.innerJoin(t.seat, eq(t.seat.id, t.lifecycle_witness.seat_id))
-			.where(
-				and(
-					eq(t.seat.account_id, candidate.accountId),
-					sql`${t.lifecycle_witness.state} NOT IN ('active','cancelled')`,
-				),
-			);
-		if (revoked.length) continue;
 		let eligibility;
 		if (candidate.role === "owner") eligibility = { kind: "current_owner" };
-		else if (candidate.role === "admin" && candidate.personId) {
-			const assignment = await tx
-				.select({ id: t.team_tenure.id })
-				.from(t.team_tenure)
-				.innerJoin(t.team_role, and(eq(t.team_role.id, t.team_tenure.role_id), eq(t.team_role.plant_id, plantId)))
-				.innerJoin(t.team, and(eq(t.team.id, t.team_role.team_id), eq(t.team.plant_id, plantId)))
-				.where(
-					and(
-						eq(t.team_tenure.person_id, candidate.personId),
-						eq(t.team_tenure.plant_id, plantId),
-						isNull(t.team_tenure.ended_on),
-						eq(t.team_role.leadership, true),
-						eq(t.team_role.id, lead.answer === "yes" ? lead.assignment.roleId : "00000000-0000-0000-0000-000000000000"),
-						isNull(t.team_role.retired_at),
-						isNull(t.team.archived_at),
-					),
-				);
-			if (assignment.length) eligibility = { kind: "current_admin_lead", personId: candidate.personId };
-		}
+		else if (candidate.role === "admin" && candidate.personId && candidate.lead)
+			eligibility = { kind: "current_admin_lead", personId: candidate.personId };
 		if (!eligibility) continue;
-		const reading = await ownReading(tx, candidate.accountId);
+		const reading = readingValue(candidate.accountId, rows);
 		if (reading.articles.length === foundations.article_count && reading.articles.every((a) => a.scrollRatio > 0.8))
 			return c.foundationReading.parse({
 				status: "complete",

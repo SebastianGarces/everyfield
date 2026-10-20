@@ -8,4 +8,4 @@ export { InvitationRefusal } from "./invitation-core.ts";
 export { createSeatService } from "./seats.ts";
 export { authorizeInvitationMail } from "./invitation-mail.ts";
 
-export { readIdentitySession, readAccountContact } from "./reads.ts";
+export { readIdentitySession, readAccountContact, readAccountContacts } from "./reads.ts";

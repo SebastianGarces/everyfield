@@ -75,7 +75,8 @@ test("BUG-127: resend during a 250-duty removal completes or safely retries", as
 	const s = await f.setup(),
 		invitation = await f.invitation(s);
 	const accepted = await f.invitations.accept(s.recipient.session, invitation.claim);
-	const pending = await f.invitations.invite(s.sender.session, {
+    const authority=await f.actor(s.sender.session);
+	const pending = await f.invitations.invite(authority, {
 		requestKey: key(),
 		expectedRevision: "1",
 		input: { workspace: s.w, role: "member", recipientEmail: key() + "@example.test" },
@@ -118,9 +119,9 @@ test("BUG-127: resend during a 250-duty removal completes or safely retries", as
 		await f.admin.transaction(async (tx) => {
 			await tx.select().from(t.task).where(eq(t.task.id, ids[0])).for("update");
 			const r = await tx.execute(sql`SELECT pg_backend_pid() AS pid`);
-			removal = outcome(f.seats.remove(s.sender.session, s.w, command));
+			removal = outcome(f.seats.remove(authority, s.w, command));
 			await waitingOn(r.rows[0].pid);
-			concurrent = outcome(f.invitations.resend(s.sender.session, resend));
+			concurrent = outcome(f.invitations.resend(authority, resend));
 		});
 	} finally {
 		if (removal) await removal;
@@ -134,9 +135,9 @@ test("BUG-127: resend during a 250-duty removal completes or safely retries", as
 		assert.equal(sent.error.value?.code, "temporary");
 		assert.equal(sent.error.value.retry, "same_request");
 	}
-	const result = sent.value ?? (await f.invitations.resend(s.sender.session, resend));
+	const result = sent.value ?? (await f.invitations.resend(authority, resend));
 	assert.equal(result.invitation.revision, "2");
-	assert.deepEqual(await f.seats.remove(s.sender.session, s.w, command), removed.value);
+	assert.deepEqual(await f.seats.remove(authority, s.w, command), removed.value);
 	const [{ n }] = await f.admin
 		.select({ n: sql`count(*)::int` })
 		.from(t.task)
@@ -219,16 +220,16 @@ test("BUG-127: statement timeout rolls back every handoff and permits exact retr
 		sql`CREATE FUNCTION stall_receipt() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(11); RETURN NEW; END $$`,
 	);
 	await f.admin.execute(
-		sql`CREATE TRIGGER stall_receipt BEFORE INSERT ON identity_operation_result FOR EACH ROW EXECUTE FUNCTION stall_receipt()`,
+		sql`CREATE TRIGGER stall_receipt BEFORE INSERT ON audit_event FOR EACH ROW EXECUTE FUNCTION stall_receipt()`,
 	);
 	try {
-		await assert.rejects(f.seats.remove(s.sender.session, s.w, command), (error) => {
+		await assert.rejects(f.seats.remove(await f.actor(s.sender.session), s.w, command), (error) => {
 			assert.equal(error.value?.code, "temporary");
 			assert.equal(error.value.retry, "same_request");
 			return true;
 		});
 	} finally {
-		await f.admin.execute(sql`DROP TRIGGER stall_receipt ON identity_operation_result`);
+		await f.admin.execute(sql`DROP TRIGGER stall_receipt ON audit_event`);
 		await f.admin.execute(sql`DROP FUNCTION stall_receipt()`);
 	}
 	const [task] = await f.admin.select().from(t.task).where(eq(t.task.id, duty));
@@ -237,10 +238,10 @@ test("BUG-127: statement timeout rolls back every handoff and permits exact retr
 	assert.equal((await f.seats.readCurrentMembership(s.recipient.session)).status, "active");
 	const [{ n }] = await f.admin
 		.select({ n: sql`count(*)::int` })
-		.from(t.operation)
-		.where(eq(t.operation.request_key, command.requestKey));
+		.from(t.audit_event)
+		.where(eq(t.audit_event.request_key, command.requestKey));
 	assert.equal(n, 0);
-	const result = await f.seats.remove(s.sender.session, s.w, command);
+	const result = await f.seats.remove(await f.actor(s.sender.session), s.w, command);
 	assert.deepEqual(result.duties, [{ status: "moved", dutyId: duty, recipientAccountId: s.sender.id }]);
 });
 

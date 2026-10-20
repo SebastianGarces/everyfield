@@ -153,7 +153,7 @@ test("AC:TARGET-PPL-002 AC:WP011-KNOW-099 AC:SEC-02 AC:TEN-002 minimal contact, 
 	assert.deepEqual(again, first);
 	const replayCounts = (
 		await admin.execute(
-			sql`SELECT (SELECT count(*)::int FROM person) people,(SELECT count(*)::int FROM operation) operations,(SELECT count(*)::int FROM event) events`,
+			sql`SELECT (SELECT count(*)::int FROM person) people,(SELECT count(*)::int FROM audit_event) operations,(SELECT count(*)::int FROM audit_event) events`,
 		)
 	).rows[0];
 	for (const changed of [
@@ -170,7 +170,7 @@ test("AC:TARGET-PPL-002 AC:WP011-KNOW-099 AC:SEC-02 AC:TEN-002 minimal contact, 
 	assert.deepEqual(
 		(
 			await admin.execute(
-				sql`SELECT (SELECT count(*)::int FROM person) people,(SELECT count(*)::int FROM operation) operations,(SELECT count(*)::int FROM event) events`,
+				sql`SELECT (SELECT count(*)::int FROM person) people,(SELECT count(*)::int FROM audit_event) operations,(SELECT count(*)::int FROM audit_event) events`,
 			)
 		).rows[0],
 		replayCounts,
@@ -205,7 +205,7 @@ test("AC:TARGET-PPL-002 AC:WP011-KNOW-099 AC:SEC-02 AC:TEN-002 minimal contact, 
 		"Jamie",
 	);
 	const event = (
-		await admin.execute(sql`SELECT actor_id,reason,diff FROM event WHERE operation_id=${sql.param(changed.receiptId)}`)
+		await admin.execute(sql`SELECT actor_id,reason,metadata->'diff' AS diff FROM audit_event WHERE command_id=${sql.param(changed.receiptId)}`)
 	).rows[0];
 	assert.equal(event.actor_id, actors[0].id);
 	assert.equal(event.reason, null);
@@ -411,7 +411,7 @@ test("AC:TARGET-PPL-004 AC:ROLE43-003 exact account links, ambiguous contact sel
 	assert.deepEqual(bootstrap, { stage: "leader", adult_classification: "unknown", commitment_state: "unknown" });
 	const bootstrapHistory = (
 		await admin.execute(
-			sql`SELECT after_value->>'stage' AS stage FROM people_history WHERE person_id=${sql.param(replacement.personId)}`,
+			sql`SELECT after_value->>'stage' AS stage FROM audit_event WHERE subject_id=${sql.param(replacement.personId)}`,
 		)
 	).rows;
 	assert.deepEqual(bootstrapHistory, [{ stage: "leader" }]);
@@ -422,7 +422,7 @@ test("AC:TARGET-PPL-004 AC:ROLE43-003 exact account links, ambiguous contact sel
 	};
 	const counts = (
 		await admin.execute(
-			sql`SELECT (SELECT count(*)::int FROM operation) operations,(SELECT count(*)::int FROM people_history) history,(SELECT count(*)::int FROM event) events`,
+			sql`SELECT (SELECT count(*)::int FROM audit_event) operations,(SELECT count(*)::int FROM audit_event) history,(SELECT count(*)::int FROM audit_event) events`,
 		)
 	).rows[0];
 	await tx(async (t) => {
@@ -435,7 +435,7 @@ test("AC:TARGET-PPL-004 AC:ROLE43-003 exact account links, ambiguous contact sel
 	assert.deepEqual(
 		(
 			await admin.execute(
-				sql`SELECT (SELECT count(*)::int FROM operation) operations,(SELECT count(*)::int FROM people_history) history,(SELECT count(*)::int FROM event) events`,
+				sql`SELECT (SELECT count(*)::int FROM audit_event) operations,(SELECT count(*)::int FROM audit_event) history,(SELECT count(*)::int FROM audit_event) events`,
 			)
 		).rows[0],
 		counts,
@@ -686,9 +686,9 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 	assert.deepEqual(
 		(
 			await admin.execute(sql`SELECT
-			(SELECT count(*)::int FROM event e JOIN operation o ON o.id=e.operation_id WHERE e.target_record_id=${p.id} AND o.name IN ('people.addNote','people.editNote','people.deleteNote')) AS audits,
-			(SELECT count(*)::int FROM people_history WHERE person_id=${p.id} AND action='note_correction') AS corrections,
-			(SELECT count(*)::int FROM people_history WHERE person_id=${p.id} AND action='people.updated') AS updates`)
+			(SELECT count(*)::int FROM audit_event e JOIN audit_event o ON o.id=e.command_id WHERE e.subject_id=${p.id} AND o.request_identity->>'operation' IN ('people.addNote','people.editNote','people.deleteNote')) AS audits,
+			(SELECT count(*)::int FROM audit_event WHERE subject_id=${p.id} AND metadata->>'correction'='true') AS corrections,
+			(SELECT count(*)::int FROM audit_event WHERE subject_id=${p.id} AND action='people.updated' AND metadata->>'category' IS DISTINCT FROM 'note') AS updates`)
 		).rows[0],
 		{ audits: 3, corrections: 2, updates: 0 },
 	);
@@ -767,7 +767,7 @@ test("AC:ADR1-001 AC:WP011-MUL-001 AC:ADR1-005 AC:WP011-MUL-005 organization pro
 	});
 	const history = (
 		await admin.execute(
-			sql`SELECT before_value,after_value,reason FROM people_history WHERE person_id=${sql.param(p.id)}`,
+			sql`SELECT before_value,after_value,reason FROM audit_event WHERE subject_id=${sql.param(p.id)}`,
 		)
 	).rows;
 	assert.ok(history.every((h) => h.before_value === null && h.reason === null));
@@ -837,7 +837,7 @@ test("AC:TARGET-PPL-023 distinct transitions use fixed plant-local days across U
 		for (const [i, operation] of operations.entries()) {
 			const occurredAt = new Date(at - [900, 600, 400, 200][i]).toISOString();
 			await admin.execute(
-				sql`UPDATE people_history SET occurred_at=${sql.param(occurredAt)},recorded_at=${sql.param(occurredAt)} WHERE person_id=${sql.param(p.id)} AND operation_id=${sql.param(operation)}`,
+				sql`UPDATE audit_event SET occurred_at=${sql.param(occurredAt)},recorded_at=${sql.param(occurredAt)} WHERE subject_id=${sql.param(p.id)} AND command_id=${sql.param(operation)}`,
 			);
 		}
 		const metrics = ok(await tx((t) => read.readPipelineMetrics(t, context, { asOf, from: day, through: day })));
@@ -958,7 +958,7 @@ test("INV-people: concurrent edits serialize to one current revision and one con
 	assert.equal(
 		(
 			await admin.execute(
-				sql`SELECT count(*)::int n FROM people_history WHERE person_id=${sql.param(p.id)} AND action='people.updated'`,
+				sql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${sql.param(p.id)} AND action='people.updated'`,
 			)
 		).rows[0].n,
 		1,
@@ -1082,13 +1082,13 @@ test("AC:GAP-PPL-023 reconstructs the actual historical cohort and counts each f
 		await admin.execute(sql`UPDATE person SET created_at='2026-09-01T12:00:00Z' WHERE id=${sql.param(p.id)}`);
 		const history = (
 			await admin.execute(
-				sql`SELECT id,action FROM people_history WHERE person_id=${sql.param(p.id)} ORDER BY occurred_at,id`,
+				sql`SELECT id,action FROM audit_event WHERE subject_id=${sql.param(p.id)} ORDER BY occurred_at,id`,
 			)
 		).rows;
 		for (const [i, event] of history.entries()) {
 			const at =
 				i === 0 ? "2026-09-01T12:00:00Z" : `2026-10-${String(index === 0 ? i + 1 : 6).padStart(2, "0")}T12:00:00Z`;
-			await admin.execute(sql`UPDATE people_history SET occurred_at=${sql.param(at)} WHERE id=${sql.param(event.id)}`);
+			await admin.execute(sql`UPDATE audit_event SET occurred_at=${sql.param(at)} WHERE id=${sql.param(event.id)}`);
 		}
 	}
 	const query = {
@@ -1145,13 +1145,13 @@ test("AC:GAP-PPL-023 reconstructs the actual historical cohort and counts each f
 	);
 	await admin.execute(sql`UPDATE person SET retired_at='2026-10-07T12:00:00Z' WHERE id=${sql.param(people[0].id)}`);
 	await admin.execute(
-		sql`UPDATE people_history SET occurred_at='2026-10-07T12:00:00Z' WHERE person_id=${sql.param(people[0].id)} AND action='people.retired'`,
+		sql`UPDATE audit_event SET occurred_at='2026-10-07T12:00:00Z' WHERE subject_id=${sql.param(people[0].id)} AND action='people.retired'`,
 	);
 	const retired = ok(await tx((t) => read.readPipelineMetrics(t, context, query)));
 	assert.equal(retired.currentStages[0].distinctPeople, 1);
 	assert.equal(retired.transitions[0].distinctPeople, 2);
 	await admin.execute(
-		sql`DELETE FROM people_history WHERE person_id=${sql.param(people[0].id)} AND action='people.created'`,
+		sql`DELETE FROM audit_event WHERE subject_id=${sql.param(people[0].id)} AND action='people.created'`,
 	);
 	const missing = ok(await tx((t) => read.readPipelineMetrics(t, context, query)));
 	assert.equal(missing.transitions[0].distinctPeople, 2);

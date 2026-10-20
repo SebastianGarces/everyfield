@@ -10,7 +10,7 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import type { Database, Transaction } from "../client.ts";
-import { file_object, event } from "./tables.ts";
+import { file_object, audit_event } from "./tables.ts";
 import { validateCommitment } from "./validate-file.js";
 type FileObjectRow = typeof file_object.$inferSelect;
 
@@ -157,10 +157,10 @@ export async function putPrivateObject(
 			revision = replay.revision;
 		}
 		await tx
-			.insert(event)
+			.insert(audit_event)
 			.values({
 				tenant_id: file.tenant_id,
-				target_record_id: file.id,
+				subject_id: file.id,
 				actor_id: authority.kind === "account" ? authority.actorId : null,
 				system_cause: authority.kind === "system" ? authority.cause : null,
 				kind: "finalize",
@@ -170,7 +170,7 @@ export async function putPrivateObject(
 				event_key: "file:ready",
 				action: "files.finalized",
 			})
-			.onConflictDoNothing({ target: [event.target_record_id, event.event_key] });
+			.onConflictDoNothing({ target: [audit_event.subject_id, audit_event.event_key] });
 		return { id: file.id };
 	});
 }

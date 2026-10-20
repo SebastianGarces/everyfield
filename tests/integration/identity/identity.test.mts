@@ -135,14 +135,14 @@ test("AC:WP005-API-RESET real single-use reset consumes one proof, rejects uncha
 		querySql`CREATE FUNCTION fail_security_event() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action='identity.credential_changed' THEN RAISE EXCEPTION 'synthetic_event_failure'; END IF; RETURN NEW; END $$`,
 	);
 	await f.db.execute(
-		querySql`CREATE TRIGGER fail_security_event BEFORE INSERT ON event FOR EACH ROW EXECUTE FUNCTION fail_security_event()`,
+		querySql`CREATE TRIGGER fail_security_event BEFORE INSERT ON audit_event FOR EACH ROW EXECUTE FUNCTION fail_security_event()`,
 	);
 	const results = await Promise.all(
 		Array.from({ length: 2 }, () =>
 			f.req("reset-password", { proof, newPassword: "Fixture-new-pass-2", confirmPassword: "Fixture-new-pass-2" }),
 		),
 	);
-	await f.db.execute(querySql`DROP TRIGGER fail_security_event ON event`);
+	await f.db.execute(querySql`DROP TRIGGER fail_security_event ON audit_event`);
 	assert.deepEqual(results.map((r) => r.status).sort(), [200, 400]);
 	assert.deepEqual(await results.find((r) => r.status === 200)!.json(), { status: "password_reset", next: "sign_in" });
 	assert.equal(cookie(results.find((r) => r.status === 200)!), "");
@@ -156,7 +156,7 @@ test("AC:WP005-API-RESET real single-use reset consumes one proof, rejects uncha
 		),
 	);
 	const events = await f.db.execute(
-		querySql`SELECT action FROM event WHERE action LIKE 'identity.credential%' ORDER BY recorded_at`,
+		querySql`SELECT action FROM audit_event WHERE action LIKE 'identity.credential%' ORDER BY recorded_at`,
 	);
 	assert.equal(
 		events.rows.some((v: { action: string }) => v.action === "identity.credential_observed"),
@@ -368,7 +368,7 @@ test("INV-identity: interruption after credentials preserves authenticated resum
 	assert.equal(
 		(
 			await f.db.execute(
-				querySql`SELECT count(*)::int n FROM event WHERE target_record_id=${status.accountId} AND action='identity.credential_changed'`,
+				querySql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${status.accountId} AND action='identity.credential_changed'`,
 			)
 		).rows[0].n,
 		1,
@@ -445,7 +445,7 @@ test("INV-identity: outcome mail INSERT failure rolls back the success event wit
 	assert.deepEqual(
 		(
 			await f.db.execute(
-				querySql`SELECT action FROM event WHERE target_record_id=${state.accountId} ORDER BY recorded_at`,
+				querySql`SELECT action FROM audit_event WHERE subject_id=${state.accountId} ORDER BY recorded_at`,
 			)
 		).rows,
 		[{ action: "identity.credential_observed" }],
@@ -496,7 +496,7 @@ test("BUG-PR94: killing post-response recovery work leaves no stuck state and pe
     const {createDatabase}=await import(${JSON.stringify(new URL("../../../packages/db/src/client.ts", import.meta.url).href)});
     const db=createDatabase({connectionString:v.IDENTITY_DATABASE_URL}),authDb=createDatabase({connectionString:v.IDENTITY_AUTH_DATABASE_URL}),admissionDb=createDatabase({connectionString:v.IDENTITY_DATABASE_URL});
     const mail=createMailService({db,encryptionKey:Buffer.from(v.IDENTITY_MAIL_KEY,'hex'),addressKey:Buffer.from(v.IDENTITY_ADDRESS_KEY,'hex'),from:v.IDENTITY_MAIL_FROM,
-      authorize:async()=>false,transport:{async send(){throw Error('producer_only')},async lookup(){throw Error('producer_only')}}});
+      authorize:async()=>new Set(),transport:{async send(){throw Error('producer_only')},async lookup(){throw Error('producer_only')}}});
     const server=createServer();server.listen(0,'127.0.0.1');await once(server,'listening');const origin='http://127.0.0.1:'+server.address().port;
     const service=createIdentityService({db,authDb,admissionDb,origin,secret:v.IDENTITY_SECRET,trustedIp:()=> '127.0.0.22',
       scheduleDelivery:work=>setTimeout(work,5000),diagnostic:()=>{},

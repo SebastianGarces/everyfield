@@ -1,3 +1,4 @@
+import { z } from "zod";
 import * as tables from "@everyfield/db/tables";
 import { and, asc, desc, eq, gt, isNull, or, sql } from "@everyfield/db/query";
 import { alias } from "@everyfield/db/query";
@@ -13,7 +14,6 @@ const platform_grant_g = alias(tables.platform_grant, "g");
 const account_a = alias(tables.account, "a");
 const reference_activation_a = alias(tables.reference_activation, "a");
 const reference_release_r = alias(tables.reference_release, "r");
-const event_e = alias(tables.event, "e");
 
 type ReferenceErrorCode =
 	| "access_denied"
@@ -139,12 +139,12 @@ export function referenceService(db: Database, deps: ReferenceDependencies) {
 			}
 			const old = await tx
 				.select({
-					id: tables.operation.id,
-					actor_id: tables.operation.actor_id,
-					request_digest: tables.operation.request_digest,
+					id: tables.audit_event.id,
+					actor_id: tables.audit_event.actor_id,
+					request_digest: sql<string>`${tables.audit_event.metadata}->>'requestDigest'`,
 				})
-				.from(tables.operation)
-				.where(and(eq(tables.operation.tenant_id, GLOBAL), eq(tables.operation.request_key, command.requestKey)));
+				.from(tables.audit_event)
+				.where(and(eq(tables.audit_event.tenant_id, GLOBAL), eq(tables.audit_event.request_key, command.requestKey)));
 			const prior = old[0];
 			if (prior) {
 				if (prior.actor_id !== actor || prior.request_digest !== requestDigest)
@@ -188,53 +188,48 @@ export function referenceService(db: Database, deps: ReferenceDependencies) {
 			// Immutable rows are checked again before reuse. A stale or corrupted persisted derivative is not readiness.
 			await verifyStored(tx, bundle, releaseId);
 			const operationId = randomUUID();
-			await tx.insert(tables.operation).values({
-				id: operationId,
-				tenant_id: GLOBAL,
-				actor_id: actor,
-				name: command.kind === "activate" ? "reference.activateGeneration" : "reference.rollbackActivation",
-				request_key: command.requestKey,
-				request_digest: requestDigest,
-				state: "complete",
-				outcome: current?.release_id === releaseId ? "no_effect" : "committed",
-				started_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-				completed_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-				tool_calls: 0,
-				reserved_input: 0,
-				reserved_output: 0,
-				used_input: 0,
-				used_output: 0,
-			});
 			const unchanged = current?.release_id === releaseId;
 			const activationId = unchanged ? current.id : randomUUID();
 			const number = unchanged ? current.activation_number : (BigInt(command.expectedActivation) + 1n).toString();
-			if (!unchanged)
-				await tx.insert(tables.reference_activation).values({
-					id: activationId,
-					release_id: releaseId,
-					activation_number: sql`${number}`,
-					previous_id: current?.id ?? null,
-					activated_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-					actor_id: actor,
-					reason: command.reason,
-					expected_prior_number: sql`${command.expectedActivation}`,
-				});
-			const eventId = randomUUID();
-			// The factual no-op event provides a durable link to the original activation, without another activation.
-			await tx.insert(tables.event).values({
-				id: eventId,
+			const eventId = operationId;
+			const result = { operationId, activationId, eventId, number, generationKey: bundle.key, replayed: false };
+			const audit = tx.insert(tables.audit_event).values({
+				id: operationId,
 				tenant_id: GLOBAL,
-				target_record_id: activationId,
-				operation_id: operationId,
+				subject_type: "reference_activation",
+				subject_id: activationId,
 				actor_id: actor,
+				action: "reference.activated",
 				kind: unchanged ? "noop" : "publish",
-				occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-				recorded_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-				event_key: operationId,
-				action: unchanged ? null : "reference.activated",
-				diff: { after: { version_id: releaseId, content_hash: command.manifestHash } },
+				request_key: command.requestKey,
+				metadata: {
+					requestDigest,
+					approvalLocator: authority.review.approvalLocator,
+					approvalHash: authority.review.approvalHash,
+				},
+				before_value: unchanged ? null : { releaseId: current?.release_id ?? null },
+				after_value: unchanged ? null : { releaseId },
+				result,
 			});
-			return { operationId, activationId, eventId, number, generationKey: bundle.key, replayed: false };
+
+			if (unchanged) await audit;
+			else
+				await tx.execute(
+					sql`WITH activated AS (${tx
+						.insert(tables.reference_activation)
+						.values({
+							id: activationId,
+							release_id: releaseId,
+							activation_number: sql`${number}`,
+							previous_id: current?.id ?? null,
+							activated_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+							actor_id: actor,
+							reason: command.reason,
+							expected_prior_number: sql`${command.expectedActivation}`,
+						})
+						.getSQL()} RETURNING id), audited AS (${audit.getSQL()} RETURNING id) SELECT 1`,
+				);
+			return result;
 		});
 	}
 	return {
@@ -260,29 +255,22 @@ export function referenceService(db: Database, deps: ReferenceDependencies) {
 	};
 }
 async function readReceipt(tx: Transaction, operationId: string): Promise<ActivationReceipt> {
-	const row = (
-		await tx
-			.select({
-				id: reference_activation_a.id,
-				event_id: event_e.id,
-				activation_number: sql<string>`(${reference_activation_a.activation_number})::text`,
-				release_key: reference_release_r.release_key,
-			})
-			.from(event_e)
-			.innerJoin(reference_activation_a, eq(reference_activation_a.id, event_e.target_record_id))
-			.innerJoin(reference_release_r, eq(reference_release_r.id, reference_activation_a.release_id))
-			.where(eq(event_e.operation_id, operationId))
-	)[0];
-	if (!row) throw new ReferenceRefusal("immutable_conflict");
-	return {
-		operationId,
-		activationId: row.id,
-		eventId: row.event_id,
-		number: row.activation_number,
-		generationKey: row.release_key,
-		replayed: true,
-	};
+	const [row] = await tx
+		.select({ result: tables.audit_event.result })
+		.from(tables.audit_event)
+		.where(eq(tables.audit_event.id, operationId));
+	return z
+		.object({
+			operationId: z.uuid(),
+			activationId: z.uuid(),
+			eventId: z.uuid(),
+			number: z.string(),
+			generationKey: z.string(),
+			replayed: z.boolean(),
+		})
+		.parse(row?.result);
 }
+
 async function install(
 	tx: Transaction,
 	bundle: ReferenceGeneration,

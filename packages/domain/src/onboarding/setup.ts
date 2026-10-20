@@ -263,9 +263,9 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 					),
 				);
 			const [creation] = await tx
-				.select({ value: t.onboarding_result.value })
-				.from(t.onboarding_result)
-				.where(eq(t.onboarding_result.operation_id, a.setup.creation_operation_id));
+				.select({ value: t.audit_event.result })
+				.from(t.audit_event)
+				.where(eq(t.audit_event.id, a.setup.creation_operation_id));
 			const original = z.object({ ownerSeat: z.object({ personId: z.string().uuid() }) }).parse(creation?.value);
 			const extraPeople = await tx
 				.select({ id: t.person.id })
