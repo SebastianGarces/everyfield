@@ -10,7 +10,6 @@ import {
 	gitOk,
 	loadConfig,
 	loadDag,
-	loadProgress,
 	parseTask,
 	partsOf,
 	pathsForPart,
@@ -86,14 +85,24 @@ export function reviewedMilestone(root: string, record: ShippedRecord): boolean 
 	);
 }
 export function producerReady(root: string, wp: string): boolean {
-	const p = loadProgress(root)[wp];
+	const path = join(root, "docs/build-progress.json");
+	const p = existsSync(path) ? readJson<Progress>(path).packages[wp] : undefined;
 	if (p?.status === "done") return true;
 	const pkg = findPackage(loadDag(root), wp),
 		parts = partsOf(pkg);
 	const anchor = parts.includes("contract") ? "contract" : parts.includes("api") ? "api" : null;
 	const task = anchor ? `${wp}/${anchor}` : wp,
 		record = retained(root, task);
-	return !!record?.acknowledged && reviewedMilestone(root, record);
+	if (record?.acknowledged && reviewedMilestone(root, record)) return true;
+	const milestone = p?.milestones?.[task];
+	if (!record || !milestone?.acknowledged || milestone.task !== task) return false;
+	const paths = pathsForPart(pkg, anchor);
+	// A maintenance-only merge does not replace the canonical, already reviewed producer.
+	if (git(root, "diff", "--binary", record.base_sha, record.verified_head, "--", ...paths)) return false;
+	return (
+		gitOk(root, "merge-base", "--is-ancestor", milestone.merge_commit, baseRef(root, loadConfig(root))) &&
+		!!git(root, "diff", "--binary", `${milestone.merge_commit}^`, milestone.merge_commit, "--", ...paths)
+	);
 }
 /** Only evf writes canonical progress. Lock and atomic rename protect concurrent ships/acks. */
 export function recordProgress(root: string, record: ShippedRecord, acknowledged: boolean): boolean {

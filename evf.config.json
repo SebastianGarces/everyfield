@@ -357,8 +357,6 @@
 				"tools/evf/",
 				".agents/skills/verify-preview/scripts/",
 				"docs/package-context.py",
-				"tests/ui/people/seed.mts",
-				"tests/ui/identity/invitation-seed.mts",
 				"evf.config.json"
 			],
 			"checks": [

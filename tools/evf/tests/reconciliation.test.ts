@@ -827,13 +827,7 @@ test("BUG-c048ea5-folder-path: maintenance refuses an existing folder without a 
 				/Maintenance owning paths must stay in documentation and workflow tooling/,
 			);
 		}
-		for (const path of [
-			"docs/tooling/",
-			"AGENTS.md",
-			"everyfield-feature-review.html",
-			"tests/ui/people/seed.mts",
-			"tests/ui/identity/invitation-seed.mts",
-		]) {
+		for (const path of ["docs/tooling/", "AGENTS.md", "everyfield-feature-review.html"]) {
 			f.cfg.maintenanceTasks[task.id].owningPaths = [path];
 			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
 			f.commit();
@@ -1331,6 +1325,33 @@ test("INV-phase7-progress: ship and acknowledgement preserve reviewed milestones
 			/independently reviewed/,
 		);
 		assert.equal(readFileSync(join(f.root, "docs/build-progress.json"), "utf8"), progress);
+		const priorMilestone = JSON.parse(progress).packages["WP-001"].milestones[task.id];
+		f.git("push", "-q", "origin", "main");
+		const later = f.task(task.slug);
+		writeFileSync(join(later, "README.md"), "Later reviewed outside-path fix\n");
+		execFileSync("git", ["-C", later, "add", "README.md"]);
+		execFileSync("git", ["-C", later, "commit", "-qm", "Later maintenance"]);
+		const laterSha = f.git("rev-parse", task.branch),
+			laterState = f.getState();
+		laterState.pr.headRefOid = laterSha;
+		laterState.comments["77"][0].body =
+			`EVF-Review: ${JSON.stringify({ head: laterSha, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
+		f.setState(laterState);
+		assert.equal(ship(f.root, task), 0);
+		assert.equal(producerReady(f.root, "WP-001"), true, "new outside-path record hid reviewed producer");
+		listShipped(f.root, [task.id]);
+		assert.equal(producerReady(f.root, "WP-001"), true);
+		requireImplementation(f.root, "WP-032");
+		assert.equal(readFileSync(progressPath, "utf8"), progress);
+		const canonical = JSON.parse(progress);
+		canonical.packages["WP-001"].milestones[task.id].acknowledged = false;
+		writeFileSync(progressPath, JSON.stringify(canonical));
+		assert.equal(producerReady(f.root, "WP-001"), false, "unacknowledged producer cannot unlock dependents");
+		canonical.packages["WP-001"].milestones[task.id] = { ...priorMilestone, merge_commit: "a".repeat(40) };
+		writeFileSync(progressPath, JSON.stringify(canonical));
+		assert.equal(producerReady(f.root, "WP-001"), false, "unintegrated producer cannot unlock dependents");
+		writeFileSync(progressPath, progress);
+
 		// BUG-ops7-progress-shape (D20): the build explorer renders evf-written milestones, and reconcile upgrades older ones.
 		const explorer = () =>
 			spawnSync("python3", [join(f.root, "docs/render-build-explorer.py"), "--check", "--root", f.root], {
@@ -1788,6 +1809,7 @@ test("BUG-ops15-ship: an outside-path merge succeeds and cleans up without packa
 			JSON.parse(readFileSync(join(evfDataDir(f.root), "shipped", task.slug + ".json"), "utf8")).acknowledged,
 			true,
 		);
+		assert.equal(producerReady(f.root, "WP-001"), false, "maintenance alone cannot create a producer milestone");
 	} finally {
 		console.log = log;
 		f.close();
