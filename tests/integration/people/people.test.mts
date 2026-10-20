@@ -8,10 +8,8 @@ import { migrate, migrationArtifact } from "../../../packages/db/src/schema/migr
 import {
 	peopleWriter as write,
 	peopleReader as read,
-	organizationPeople as org,
 	accountPersonProducer as accounts,
 	getAccountLink,
-	downloadOrganizationExport,
 } from "../../../packages/domain/src/people/index.ts";
 
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
