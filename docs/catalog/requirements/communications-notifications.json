@@ -95,7 +95,7 @@
         },
         {
           "operation": "communication.get",
-          "rule": "Operation requires its one exact communication/draft/execution parent; does not require unrelated message ids or allow cross-domain execution receipt selection."
+          "rule": "Operation requires its one exact communication/draft/execution parent; does not require unrelated message ids or allow cross-domain execution record selection."
         },
         {
           "operation": "communication.listRecipients",
@@ -439,7 +439,7 @@
       "behavior_rules": [
         {
           "operation": "communication.deleteDraft",
-          "rule": "Delete only unsent draft under unchanged reviewed state; cannot cancel provider intent or erase sent history."
+          "rule": "Delete only unsent draft under unchanged reviewed state; cannot cancel mail already handed to the provider or erase sent history."
         },
         {
           "operation": "communication.saveDraft",

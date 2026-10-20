@@ -370,6 +370,27 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-16": {
+			"title": "Docs pass: Discovery Wiki access and pending wording fixes",
+			"owningPaths": [
+				"evf.config.json",
+				"everyfield-feature-review.html",
+				"docs/catalog/",
+				"docs/product/",
+				"docs/architecture/"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {

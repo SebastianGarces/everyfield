@@ -70,11 +70,11 @@
         },
         {
           "operation": "accounts.register",
-          "rule": "Better Auth credentials may exist unprivileged in pending_domain; one all-or-nothing domain change claims token+exact domain/seat/relationship+Person+recorded outcome and audit/security mail intent and activates. Partial identity is resumable with no grant; credentials are not claimed atomic with domain transaction."
+          "rule": "Better Auth credentials may exist unprivileged in pending_domain; one all-or-nothing domain change claims token+exact domain/seat/relationship+Person+recorded outcome, audit record and required security mail and activates. Partial identity is resumable with no grant; credentials are not claimed atomic with domain transaction."
         },
         {
           "operation": "accounts.resumeRegistration",
-          "rule": "Staged native self resume; no domain authority until token+exact grant/Person+recorded outcome and audit/mail intent commit under original account/intent. Retry returns saved outcome; expired/revoked token yields no grant."
+          "rule": "Staged native self resume; no domain authority until token+exact grant/Person+recorded outcome, audit record and required mail commit under original account/intent. Retry returns saved outcome; expired/revoked token yields no grant."
         },
         {
           "operation": "accounts.getRegistrationStatus",
@@ -432,7 +432,7 @@
         },
         {
           "operation": "settings.saveSection",
-          "rule": "Sharing changes made through privacy controls or settings have the same behavior and commit all required changes atomically. One receipt, audit, exact history, required intents and conditional assessment freshness commit together. Changed policy immediately gates saved, current, cached and assistant access; exact replay or no-op does not advance the revision."
+          "rule": "Sharing changes made through privacy controls or settings have the same behavior and commit all required changes atomically. One recorded outcome, audit record, exact history, required notices and conditional assessment freshness commit together. Changed policy immediately gates saved, current, cached and assistant access; exact replay or no-op does not advance the revision."
         },
         {
           "operation": "settings.saveSection",
@@ -775,7 +775,7 @@
         },
         {
           "operation": "seats.acceptInvitation",
-          "rule": "Authenticated addressed account or staged credential proof; no current active seat; no incompatible associated Discovery; exact pending token/address/type/expiry/current state atomically grants first seat+Person+receipt. Existing Admin is not prerequisite."
+          "rule": "Authenticated addressed account or staged credential proof; no current active seat; no incompatible associated Discovery; exact pending token/address/type/expiry/current state atomically grants first seat+Person+recorded outcome. Existing Admin is not prerequisite."
         },
         {
           "operation": "seats.listInvitations",

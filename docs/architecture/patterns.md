@@ -16,7 +16,7 @@ Include tenant and active-seat authority in the write statement. Zero changed ro
 
 ## Audit
 
-Write one append-only audit row per write with tenant, actor, action, subject type and identity, occurred_at, permitted changed fields with their before/after values, and an optional request_key. Write it in the same statement as the change, using a CTE. Activity and history read this audit record instead of requiring a separate operation ledger, per-module result tables, event table and per-module history tables. The [audit contract](audit.md) still limits fields and excludes private care.
+Write one append-only audit row per write with tenant, actor, action, subject type and identity, occurred_at, permitted changed fields with their before/after values, and an optional request_key. Write it in the same statement as the change, using a CTE. Activity and history read this audit record instead of requiring a separate operation ledger, per-module result tables, event table and per-module history tables. The [audit contract](audit.md) still limits fields and excludes private care. Personal settings audit records the changed field names and the section revision, never their before/after values, because those values are personal.
 
 ## Safe retries
 
