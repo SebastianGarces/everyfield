@@ -307,10 +307,10 @@ Every declared Person FK has one registration in `target.json.person_references`
 | `interview` | `person_id, plant_id` | WP-004, WP-014 |
 | `commitment` | `person_id, plant_id` | WP-004, WP-014 |
 | `commitment` | `witness_person_id, plant_id` | WP-004, WP-014 |
-| `team` | `leader_person_id, plant_id` | WP-004, WP-017 |
+| `team` | `leader_person_id, plant_id` | WP-004, WP-016 |
 | `team_tenure` | `person_id, plant_id` | WP-004, WP-017 |
-| `participation` | `person_id, plant_id` | WP-004, WP-020, WP-022 |
-| `participation` | `inviter_person_id, plant_id` | WP-004, WP-020, WP-022 |
+| `participation` | `person_id, plant_id` | WP-004, WP-021, WP-022 |
+| `participation` | `inviter_person_id, plant_id` | WP-004, WP-021, WP-022 |
 | `task` | `person_id, plant_id` | WP-004, WP-024 |
 | `obligation` | `person_id, plant_id` | WP-004, WP-024 |
 | `contact_outcome` | `person_id, plant_id` | WP-004, WP-023 |

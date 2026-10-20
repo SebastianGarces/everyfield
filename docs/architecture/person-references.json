@@ -208,7 +208,7 @@
       ],
       "consumer_work_packages": [
         "WP-004",
-        "WP-017"
+        "WP-016"
       ],
       "meaning": "Current relation with immutable original provenance",
       "lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
@@ -260,7 +260,7 @@
       ],
       "consumer_work_packages": [
         "WP-004",
-        "WP-020",
+        "WP-021",
         "WP-022"
       ],
       "meaning": "Current relation with immutable original provenance",
@@ -287,7 +287,7 @@
       ],
       "consumer_work_packages": [
         "WP-004",
-        "WP-020",
+        "WP-021",
         "WP-022"
       ],
       "meaning": "Current relation with immutable original provenance",

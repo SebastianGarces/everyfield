@@ -30,7 +30,12 @@ def load_acceptance(root, path='docs/catalog/acceptance.json'):
 
 def load_schema(root):
     schema = read(root, 'docs/schema/target.json')['tables']
-    packages = {p['id'] for p in read(root, 'docs/plan/dag.json')['packages']}
+    dag = read(root, 'docs/plan/dag.json')
+    packages = {p['id'] for p in dag['packages']}
+    # Table metadata is generated from packages/db; a retired producer resolves to the package that took its scope.
+    retired = {r['id']: r['scope_moved_to'] for r in dag.get('retired_packages', [])}
+    for table in schema:
+        table['producer_work_packages'] = list(dict.fromkeys(retired.get(x, x) for x in table['producer_work_packages']))
     for table in schema:
         producers = set(table['producer_work_packages'])
         if not producers or not producers <= packages:
