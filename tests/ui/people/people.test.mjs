@@ -241,7 +241,7 @@ for (const [name, engine] of [
 					!dropped &&
 					r.method() === "POST" &&
 					r.headers()["next-action"] &&
-					(r.postData() ?? "").includes("personIds")
+					(r.postData() ?? "").includes("afterId")
 				) {
 					dropped = true;
 					await route.fetch();

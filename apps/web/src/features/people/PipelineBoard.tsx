@@ -198,16 +198,16 @@ function Column({
 	// Moves change the count: cards that arrived minus cards that left.
 	const count = (group.total ?? loaded.length) + cards.length - loaded.length;
 	const router = useRouter();
-	// One reorder at a time per column, with the column's revision as the lock (REQ-PPL-007). The whole column must be
-	// loaded, because the server takes the complete order and refuses a partial one. The store outlives refreshes, so a
-	// refusal message stays until the next try; the server's newer revision replaces the old one.
+	// One reorder at a time per column, with the column's revision as the lock (REQ-PPL-007). The store outlives
+	// refreshes, so a refusal message stays until the next try; the server's newer revision replaces the old one.
 	const [store] = useState(() => new PersonStore<{ revision: string }, null>({ revision: group.revision }));
 	const order = useStore(store);
 	const columnRevision = answer?.revision ?? group.revision;
 	useEffect(() => store.dispatch({ type: "server", person: { revision: columnRevision } }), [store, columnRevision]);
 	const [said, setSaid] = useState("");
-	// The server takes the complete column order. A search or filter hides people, and "Show more" may not have run, so
-	// reorder is offered only for an unfiltered, fully loaded column (verifier finding: q=an sent 2 of 5 IDs).
+	// Up and down place a person next to their true neighbour. A search or filter hides people, and "Show more" may not
+	// have run, so the neighbour on screen may not be the real one: reorder needs an unfiltered, fully loaded column
+	// (verifier finding: q=an sent 2 of 5 IDs).
 	const filtered = isFiltered(query);
 	const complete = !filtered && !more_.next && cards.length <= 100;
 	// After a keyboard reorder, focus returns to the moved person's Move button, also after the refresh re-renders.
@@ -217,7 +217,9 @@ function Column({
 			card.person.id,
 			direction,
 		);
-		const input = { column: group.column, personIds: ids };
+		// The server places this one person after their new upper neighbour, or first (D68).
+		const at = ids.indexOf(card.person.id);
+		const input = { column: group.column, personId: card.person.id, afterId: at > 0 ? ids[at - 1]! : null };
 		const rev = order.saved.revision;
 		// The card moves now; the answer confirms the order, a refusal puts it back.
 		setPending({ from: group, ids });

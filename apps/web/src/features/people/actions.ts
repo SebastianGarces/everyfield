@@ -199,7 +199,7 @@ export async function loadColumn(
 }
 
 /**
- * Saves a new order for one pipeline column. The list holds every live person in that column, in the new order. The
+ * Places one person in a pipeline column, after another person or first. The
  * answer is that column as it stands after the command, read in the same transaction after the producer locked the
  * column row: its order and its revision, never the whole pipeline (D68). A replayed request (same key after a lost
  * answer) may answer with a later actor's order; the pair still matches, so a next move can never pair an old order

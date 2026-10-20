@@ -589,16 +589,17 @@ test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, c
 	const pipeline = ok(await tx((t) => read.getPipelineData(t, ctx(1), {})));
 	assert.equal(pipeline.groups.length, 5);
 	assert.ok(pipeline.groups.find((g) => g.column === "core_group").cards.some((card) => card.person.id === p.id));
-	const empty = ok(
+	// A person outside the named column is refused, never moved (D68: a move names one person).
+	refused(
 		await tx((t) =>
 			write.reorderPipeline(t, ctx(), {
 				requestKey: randomUUID(),
 				expectedRevision: "1",
-				input: { column: "prospect", personIds: [] },
+				input: { column: "prospect", personId: p.id, afterId: null },
 			}),
 		),
+		"conflict",
 	);
-	assert.equal(empty.outcome, "noop");
 	const survivor = await create("Survivor");
 	await admin.execute(
 		sql`UPDATE person SET state='merged',merged_into_person_id=${sql.param(survivor.id)},retired_at=clock_timestamp() WHERE id=${sql.param(p.id)}`,
@@ -1318,12 +1319,15 @@ test("AC:WP011-KNOW-069 account removal severs account links and preserves churc
 	refused(await tx((t) => read.getPerson(t, ctx(4), { personId: p.id })));
 });
 
-test("INV-pipeline: complete native and reviewed orders persist and retry once", async () => {
+test("INV-pipeline: native and reviewed moves place one person, persist and retry once", async () => {
 	await create("Order A");
 	await create("Order B");
-	const all = ok(await tx((t) => read.listPeople(t, ctx(), { stages: ["prospect"], limit: 100 }))).items.map(
-		(p) => p.id,
-	);
+	const column = async () =>
+		ok(await tx((t) => read.listPeople(t, ctx(), { view: "pipeline", stages: ["prospect"], limit: 100 }))).items.map(
+			(p) => p.id,
+		);
+	const all = await column();
+	const last = all.at(-1);
 	const initialPipeline = ok(await tx((t) => read.getPipelineData(t, ctx(), {})));
 	assert.deepEqual(
 		initialPipeline.groups.map((g) => g.revision),
@@ -1332,34 +1336,18 @@ test("INV-pipeline: complete native and reviewed orders persist and retry once",
 	const order = {
 		requestKey: randomUUID(),
 		expectedRevision: initialPipeline.groups.find((g) => g.column === "prospect").revision,
-		input: { column: "prospect", personIds: [...all].reverse() },
+		input: { column: "prospect", personId: last, afterId: null },
 	};
 	refused(await tx((t) => write.reorderPipeline(t, ctx(1), order)));
 	refused(
-		await tx((t) =>
-			write.reorderPipeline(t, ctx(), {
-				...order,
-				input: { ...order.input, personIds: [...all.slice(1), randomUUID()] },
-			}),
-		),
+		await tx((t) => write.reorderPipeline(t, ctx(), { ...order, input: { ...order.input, afterId: randomUUID() } })),
 		"conflict",
 	);
 	const saved = ok(await tx((t) => write.reorderPipeline(t, ctx(), order)));
 	assert.equal(saved.outcome, "changed");
 	assert.deepEqual(ok(await tx((t) => write.reorderPipeline(t, ctx(), order))), saved);
-	const ordered = ok(
-		await tx((t) =>
-			read.listPeople(t, ctx(), {
-				view: "pipeline",
-				stages: ["prospect"],
-				limit: 100,
-			}),
-		),
-	);
-	assert.deepEqual(
-		ordered.items.map((p) => p.id),
-		order.input.personIds,
-	);
+	const first = [last, ...all.slice(0, -1)];
+	assert.deepEqual(await column(), first);
 	refused(await tx((t) => write.reorderPipeline(t, ctx(), { ...order, requestKey: randomUUID() })), "conflict");
 	const refreshedPipeline = ok(await tx((t) => read.getPipelineData(t, ctx(), { stages: ["leader"] })));
 	assert.equal(refreshedPipeline.groups.find((g) => g.column === "prospect").revision, "2");
@@ -1367,7 +1355,7 @@ test("INV-pipeline: complete native and reviewed orders persist and retry once",
 		input = {
 			requestKey: randomUUID(),
 			expectedRevision: refreshedPipeline.groups.find((g) => g.column === "prospect").revision,
-			input: { column: "prospect", personIds: all },
+			input: { column: "prospect", personId: last, afterId: first[1] },
 		},
 		name = "people.reorderPipeline",
 		conversation = randomUUID(),
@@ -1406,7 +1394,7 @@ test("INV-pipeline: complete native and reviewed orders persist and retry once",
 				}),
 			),
 		).items.map((p) => p.id),
-		all,
+		[first[1], last, ...first.slice(2)],
 	);
 });
 
@@ -1499,39 +1487,54 @@ test("BUG-FB-review-1: full People pages and pipeline use fixed database round t
 test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one transaction with a constant round-trip count", async (t) => {
 	const ids = Array.from({ length: 10 }, () => randomUUID()).sort();
 	// No cleanup: receipts keep references to these people, and the disposable schema is dropped after the suite.
-	const insert = (some) =>
+	// People with keys 1, 2, 3, ... in id order, as the writer leaves a column.
+	const insert = (some, from) =>
 		admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,pipeline_position,state,created_at)
-			SELECT id,${plants[0]}::uuid,${plants[0]}::uuid,'Move regression','other','interviewed','unknown','unknown',0,'live',clock_timestamp()
-			FROM unnest(${sql.param(some)}::uuid[]) id`);
+			SELECT id,${plants[0]}::uuid,${plants[0]}::uuid,'Move regression','other','interviewed','unknown','unknown',${from}::int + n,'live',clock_timestamp()
+			FROM unnest(${sql.param(some)}::uuid[]) WITH ORDINALITY AS t(id, n)`);
+	const history = async () =>
+		(
+			await admin.execute(
+				sql`SELECT count(*)::int AS n FROM people_history WHERE person_id=ANY(${sql.param(ids)}::uuid[]) AND action='people.updated'`,
+			)
+		).rows[0].n;
 	// The reorder action: the producer's command plus one column read, in one transaction.
-	const reorder = async (personIds) => {
+	const move = async (personId, afterId) => {
 		const column = await tx((t) => readColumnOrder(t, ctx(), "interviewed"));
+		const rows = await history();
 		queries = [];
 		const order = ok(
 			await tx(async (t) => {
 				const done = await write.reorderPipeline(t, ctx(), {
 					requestKey: randomUUID(),
 					expectedRevision: column.revision,
-					input: { column: "interviewed", personIds },
+					input: { column: "interviewed", personId, afterId },
 				});
 				return done.status === "ok" ? { status: "ok", value: await readColumnOrder(t, ctx(), "interviewed") } : done;
 			}),
 		);
-		assert.deepEqual(order.personIds, personIds);
+		const count = queries.length;
 		assert.equal(order.revision, String(Number(column.revision) + 1));
-		return queries.length;
+		return { count, order: order.personIds, history: (await history()) - rows };
 	};
-	await insert(ids.slice(0, 3));
-	const few = await reorder(ids.slice(0, 3).reverse());
-	await insert(ids.slice(3));
-	const many = await reorder([...ids].reverse());
-	t.diagnostic(JSON.stringify({ reorder: [few, many] }));
-	assert.equal(many, few, "reordering 10 people costs the same as 3");
-	assert.ok(few <= 20, `reorder round trips: ${few}`);
-	const history = await admin.execute(
-		sql`SELECT count(*)::int AS n FROM people_history WHERE person_id=ANY(${sql.param(ids)}::uuid[]) AND action='people.updated'`,
+	await insert(ids.slice(0, 3), 0);
+	const few = await move(ids[2], null);
+	assert.deepEqual(few.order, [ids[2], ids[0], ids[1]]);
+	await insert(ids.slice(3), 3);
+	const many = await move(ids[9], ids[0]);
+	assert.deepEqual(many.order, [ids[2], ids[0], ids[9], ids[1], ...ids.slice(3, 9)]);
+	t.diagnostic(JSON.stringify({ reorder: [few.count, many.count] }));
+	assert.equal(many.count, few.count, "a move in a column of 10 costs the same as in a column of 3");
+	assert.deepEqual([few.history, many.history], [1, 1], "a move changes one person and writes one history row");
+	assert.ok(few.count <= 20, `reorder round trips: ${few.count}`);
+	// Two neighbours with the same key (people created before keys were unique): the column is spread once.
+	await admin.execute(sql`UPDATE person SET pipeline_position=5 WHERE id=ANY(${sql.param([ids[3], ids[4]])}::uuid[])`);
+	const tie = await move(ids[1], ids[3]);
+	assert.deepEqual(tie.order, [ids[2], ids[0], ids[9], ids[3], ids[1], ...ids.slice(4, 9)]);
+	const keys = await admin.execute(
+		sql`SELECT count(DISTINCT pipeline_position)::int AS n FROM person WHERE id=ANY(${sql.param(ids)}::uuid[])`,
 	);
-	assert.equal(history.rows[0].n, 13, "one history row per person per reorder");
+	assert.equal(keys.rows[0].n, 10, "after the spread every key is unique");
 	const [first] = ok(await tx((t) => read.listPeople(t, ctx(), { search: "Move regression", limit: 1 }))).items;
 	queries = [];
 	// The stage-change action: the producer's command plus the target column's saved order, in one transaction.

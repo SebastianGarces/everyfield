@@ -2,7 +2,7 @@ import { and, asc, eq, inArray, isNotNull, isNull, lte, or, sql } from "@everyfi
 import * as tables from "@everyfield/db/tables";
 
 import { randomUUID } from "node:crypto";
-import type { z } from "zod";
+import { z } from "zod";
 import * as c from "@everyfield/contracts/people";
 import type { PeopleWriter, AccountPersonProducer } from "@everyfield/contracts/people";
 import { owner, recordId, personId } from "@everyfield/contracts/common";
@@ -565,84 +565,89 @@ async function classify(tx: Tx, ctx: WriteContext, raw: unknown, correction: boo
 		);
 	});
 }
+/**
+ * Places one person in a pipeline column (D68): right after `afterId`, or first. The person gets a sortable key between
+ * the two neighbours, so a move changes one row and writes one history row, whatever the column's size. The column's
+ * revision is the lock: a move against an order that changed meanwhile is refused (REQ-PPL-007).
+ */
 async function pipelineOrder(tx: Tx, ctx: WriteContext, input: z.infer<typeof c.reorderPipelineRequest>) {
 	return c.noteMutationResult.pick({ receiptId: true, outcome: true }).parse(
 		await mutation(tx, ctx, "people.reorderPipeline", input, async (actor, id) => {
-			await tx
+			const { column, personId: moving, afterId } = input.input;
+			// Lock the column row and take its next revision in one statement. A first move creates the row at 2.
+			const [col] = await tx
 				.insert(tables.people_column)
-				.values({ plant_id: ctx.selected.id, column_name: input.input.column })
-				.onConflictDoNothing();
-			const col = await tx
-				.select({ revision: tables.people_column.revision })
-				.from(tables.people_column)
-				.where(
-					and(
-						eq(tables.people_column.plant_id, ctx.selected.id),
-						eq(tables.people_column.column_name, input.input.column),
-					),
-				)
-				.for("update");
-			if (col[0]!.revision !== input.expectedRevision) deny("conflict");
-			const ids = input.input.personIds;
-			if (!ids.length)
-				return {
-					value: { receiptId: id, outcome: "noop" },
-					subject: ctx.selected.id,
-					action: "people.updated",
-					outcome: "noop",
-				};
-			const stages =
-				input.input.column === "core_group" ? ["core_group", "launch_team", "leader"] : [input.input.column];
-			const rows = await tx
-				.select()
-				.from(tables.person)
-				.where(
-					and(
-						and(eq(tables.person.plant_id, ctx.selected.id), eq(tables.person.state, "live")),
-						eq(tables.person.stage, sql<unknown>`any(${sql.param(stages)})`),
-					),
-				)
-				.orderBy(asc(tables.person.id))
-				.for("update");
-			if (rows.length !== ids.length || rows.some((p) => !ids.includes(personId.parse(p.id)))) deny("conflict");
-			// One UPDATE and one history INSERT for the whole column, so a reorder costs the same at 3 or 100 people (D68).
-			const updated = await tx
-				.update(tables.person)
-				.set({
-					pipeline_position: sql`(array_position(${sql.param(ids)}::uuid[], ${tables.person.id}) - 1)`,
-					revision: sql<unknown>`(${tables.person.revision} + 1)`,
+				.values({ plant_id: ctx.selected.id, column_name: column, revision: "2" })
+				.onConflictDoUpdate({
+					target: [tables.people_column.plant_id, tables.people_column.column_name],
+					set: { revision: sql`${tables.people_column.revision} + 1` },
 				})
-				.where(and(eq(tables.person.plant_id, ctx.selected.id), inArray(tables.person.id, ids)))
-				.returning();
+				.returning({ revision: tables.people_column.revision });
+			if (BigInt(col!.revision) - 1n !== BigInt(input.expectedRevision)) deny("conflict");
+			const stages = column === "core_group" ? ["core_group", "launch_team", "leader"] : [column];
+			const before = await person(tx, ctx, moving, true);
+			if (before.state !== "live" || !stages.includes(before.stage!)) deny("conflict");
+			// The key between the anchor and the next person in column order; null when those two share a key.
+			const found = placeRow.parse(
+				(
+					await tx.execute(sql`WITH col AS (
+						SELECT id, pipeline_position AS k, row_number() OVER (ORDER BY pipeline_position, created_at, id) AS n
+						FROM person WHERE plant_id=${ctx.selected.id} AND state='live' AND stage=ANY(${sql.param(stages)}) AND id<>${moving}),
+					anchor AS (SELECT coalesce((SELECT n FROM col WHERE id=${afterId}::uuid), 0) AS n, (SELECT k FROM col WHERE id=${afterId}::uuid) AS k)
+					SELECT ${afterId}::uuid IS NULL OR EXISTS(SELECT FROM col WHERE id=${afterId}::uuid) AS found,
+						(CASE WHEN ${afterId}::uuid IS NULL THEN coalesce((SELECT k - 1 FROM col WHERE n=1), ${before.pipeline_position}::numeric)
+							ELSE (SELECT CASE WHEN nx.k IS NULL THEN a.k + 1 WHEN nx.k > a.k THEN (a.k + nx.k) / 2 END
+								FROM anchor a LEFT JOIN col nx ON nx.n = a.n + 1) END)::text AS key,
+						coalesce((SELECT array_agg(id ORDER BY n) FROM col), '{}') AS others`)
+				).rows[0],
+			);
+			if (!found.found) deny("conflict");
+			let changed: { before: Person; after: Person }[];
+			if (found.key !== null) {
+				const [row] = await tx
+					.update(tables.person)
+					.set({ pipeline_position: found.key, revision: sql<unknown>`(${tables.person.revision} + 1)` })
+					.where(and(eq(tables.person.plant_id, ctx.selected.id), eq(tables.person.id, moving)))
+					.returning();
+				changed = [{ before, after: personRow.parse(row) }];
+			} else {
+				// The neighbours share a key (people created before keys were unique). Spread the column once as 1..n.
+				const ids = [...found.others];
+				ids.splice(afterId ? ids.indexOf(afterId) + 1 : 0, 0, moving);
+				const rows = await tx
+					.select()
+					.from(tables.person)
+					.where(and(eq(tables.person.plant_id, ctx.selected.id), inArray(tables.person.id, ids)))
+					.for("update");
+				const updated = await tx
+					.update(tables.person)
+					.set({
+						pipeline_position: sql`array_position(${sql.param(ids)}::uuid[], ${tables.person.id})`,
+						revision: sql<unknown>`(${tables.person.revision} + 1)`,
+					})
+					.where(and(eq(tables.person.plant_id, ctx.selected.id), inArray(tables.person.id, ids)))
+					.returning();
+				changed = updated.map((row) => ({
+					before: personRow.parse(rows.find((r) => r.id === row.id)),
+					after: personRow.parse(row),
+				}));
+			}
 			const token = hash([ctx.selected.id, actor]);
 			await tx.insert(tables.people_history).values(
-				updated.map((row) => {
-					const before = personRow.parse(rows.find((p) => p.id === row.id)),
-						after = personRow.parse(row);
-					return {
-						tenant_id: ctx.selected.id,
-						person_id: after.id,
-						operation_id: id,
-						actor_id: actor,
-						actor_token: token,
-						action: "people.updated" as const,
-						occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-						before_revision: sql`${before.revision}`,
-						after_revision: sql`${after.revision}`,
-						before_value: before,
-						after_value: after,
-					};
-				}),
+				changed.map(({ before, after }) => ({
+					tenant_id: ctx.selected.id,
+					person_id: after.id,
+					operation_id: id,
+					actor_id: actor,
+					actor_token: token,
+					action: "people.updated" as const,
+					occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+					before_revision: sql`${before.revision}`,
+					after_revision: sql`${after.revision}`,
+					before_value: before,
+					after_value: after,
+				})),
 			);
-			await tx
-				.update(tables.people_column)
-				.set({ revision: sql<unknown>`(${tables.people_column.revision} + 1)` })
-				.where(
-					and(
-						eq(tables.people_column.plant_id, ctx.selected.id),
-						eq(tables.people_column.column_name, input.input.column),
-					),
-				);
 			return {
 				value: { receiptId: id, outcome: "changed" },
 				subject: ctx.selected.id,
@@ -651,6 +656,7 @@ async function pipelineOrder(tx: Tx, ctx: WriteContext, input: z.infer<typeof c.
 		}),
 	);
 }
+const placeRow = z.object({ found: z.boolean(), key: z.string().nullable(), others: z.array(z.uuid()) });
 export const accountPersonProducer: AccountPersonProducer<Tx> = {
 	async ensureAccountPerson(tx, raw) {
 		return reply(tx, async () => {
