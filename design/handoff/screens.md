@@ -162,14 +162,14 @@ These flows have requirements but no drawing. Do not wait for a drawing. The own
 | Network sending-church roster and member detail | IDN-024 | WP-047 | not designed |
 | Restore a retired person (service only) | PPL-003 | WP-011 | not designed; Retire person is drawn |
 | Correct assessment, interview and commitment records | PPL-015 | WP-015 | not designed |
-| Correct an RSVP as an administrator | MTG-008 | WP-021 | not designed |
+| Correct an RSVP as an administrator | MTG-008 | WP-020 | not designed |
 | Correct a Vision evaluation | MTG-015 | WP-022 | not designed |
 | Attendee notes in the person's history | MTG-017 | WP-022 | not designed |
 | Phase change with a reason, and its direction | PHASE-002, PHASE-003 | WP-038 | not designed |
 | Review a phase-transition task offer | TSK-010, PHASE-006 | WP-026, WP-038 | not designed |
 | Task description in Markdown and task status history | TSK-015, TSK-016 | WP-024, WP-026 | not designed |
 | Follow-up handoff after the owner loses access | TSK-013 | WP-023 | not designed |
-| Archive, restore and correct a ministry | TEAM-002 | WP-016 | not designed |
+| Archive, restore and correct a ministry | TEAM-002 | WP-017 | not designed |
 | Correct, revoke and redo training | TEAM-009 | WP-019 | not designed |
 | Cold-start guidance on Plant Intelligence | PI-034 | WP-044 | not designed |
 | Restore an address after global suppression, with history | NTF-011 | WP-028, WP-030 | not designed |
