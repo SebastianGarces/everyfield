@@ -16,7 +16,6 @@
 		"./shell/preview": "./src/shell/preview/ShellPreview.tsx",
 		"./shell/preview/fixtures": "./src/shell/preview/fixtures.ts",
 		"./display": "./src/display/index.ts",
-		"./display/display.css": "./src/display/display.css",
 		"./display/preview": "./src/display/preview/DisplayPreview.tsx"
 	},
 	"scripts": {
