@@ -6,11 +6,11 @@ Editorial conflict with the authoritative SME rubric/Playbook requires content-o
 
 ## Identities and manifest
 
-`reference_item` identifies canonical articles, sections and packaged definition kinds. `reference_version` pins packaged reviewed artifacts. `article_revision` owns published article versions. `reference_release` binds candidate manifest, hashes and derivative profile; `passage` holds source-bound text and vectors. Every version preserves exact source/hash and owner, not a display name as identity. The six canonical Discovery article IDs are explicit.
+Canonical articles, sections and packaged definitions have stable identities and immutable reviewed versions. Each generation preserves exact source, content hash, owner and derivative provenance rather than using display names as identities. The six canonical Discovery article identities remain explicit. Storage and activation mechanisms follow [EveryField patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62).
 
 The reviewed manifest pins topology, source revisions, content hashes, required templates, rubric/Playbook versions, chunking profile, embedding model/dimensions and expected derivative keys/checksums. Repeated deterministic content/chunk construction yields the same manifest. Provider vectors have stored checksums and model provenance; generation is not assumed bit-identical.
 
-`reference_activation` is append-only. The serving release is derived from the highest committed `reference_activation.activation_number`, not another editable active flag. `reference_activation.previous_id` records lineage. Activation and rollback compare the expected current activation under one serialized boundary. Concurrent promotions have one winner; the loser revalidates against the changed state.
+Activation is attributable and preserves ordered history. Readers resolve one coherent current generation. Activation and rollback require the reviewed current release to remain unchanged. Competing promotions have one winner; a loser must revalidate against the changed state. No particular pointer, counter or activation-table layout is required.
 
 ## Complete activation boundary
 
@@ -18,7 +18,7 @@ A candidate cannot activate with missing, duplicate, obsolete, dimension-invalid
 
 Same immutable ID/hash replay is a no-op; changed bytes under that ID conflict without overwriting source or tenant work. Bounded reference-generation work carries current manifest and claim fences. A stale worker cannot mark a candidate complete. Existing vector rows without provenance are not proof of readiness. Partial or failed builds leave the prior complete release serving with truthful diagnostics.
 
-An authorized reference operator reviews the complete manifest, diff and real validation receipt. One transaction commits activation/history/audit/receipt and the coherent eligible publication mapping. Readers cannot see half a new corpus or a mix of old/new content and derivatives. Provider/model calls stay outside locks. Postcommit cache/wake-up failure does not undo durable activation; consumers resolve current activation and entitlement.
+An authorized reference operator reviews the complete manifest, diff and actual validation results. Activation, history, audit and coherent publication succeed or fail together. Readers cannot see half a new corpus or mixed old/new content and derivatives. Provider latency cannot block unrelated authorized work. Failed cache updates or wake-ups cannot undo a completed activation; consumers still apply current activation and entitlement.
 
 ## Consumers and rollback
 

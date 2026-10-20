@@ -1,8 +1,6 @@
 "use client";
 
 import {
-	ArrowLeft01Icon,
-	ArrowRight01Icon,
 	Cancel01Icon,
 	FilterHorizontalIcon,
 	GridViewIcon,
@@ -23,8 +21,7 @@ import {
 	SegmentedControl,
 	StatePanel,
 } from "@everyfield/ui/controls";
-import { Avatar, DataTable, PersonCard, StageChip, StatusBadge, type Column } from "@everyfield/ui/display";
-import { Icon } from "@everyfield/ui/foundations";
+import { Avatar, DataTable, Pagination, PersonCard, StageChip, StatusBadge, type Column } from "@everyfield/ui/display";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import type { z } from "zod";
@@ -34,8 +31,7 @@ import {
 	CLASSIFICATION_LABEL,
 	CLASSIFICATIONS,
 	isFiltered,
-	nextPage,
-	previousPage,
+	pageCount,
 	querySearch,
 	rangeText,
 	SOURCE_LABEL,
@@ -335,11 +331,6 @@ function Results({
 	);
 	return (
 		<div className="flex flex-col gap-4">
-			{data.expired ? (
-				<p role="status" className="rounded-md bg-blue-50 px-4 py-3 text-sm text-ink-2">
-					That page link has expired, so this is the first page.
-				</p>
-			) : null}
 			{query.view === "card" ? (
 				page.items.length ? (
 					<ul className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3.5" aria-label="People">
@@ -375,23 +366,21 @@ function Results({
 					}}
 				/>
 			)}
-			<Pager query={query} shown={page.items.length} total={page.total} next={page.next} go={go} />
+			<Pager query={query} shown={page.items.length} total={page.total ?? 0} go={go} />
 		</div>
 	);
 }
 
-/** Range text and Previous / Next for the list and cards. */
+/** Range text and page numbers for the list and cards. */
 function Pager({
 	query,
 	shown,
 	total,
-	next,
 	go,
 }: {
 	query: PeopleQuery;
 	shown: number;
-	total: number | null;
-	next: string | null;
+	total: number;
 	go: (q: PeopleQuery) => void;
 }) {
 	// The pager covers the window's bottom edge. While it shows, the window's scroll padding keeps a focused row link
@@ -408,23 +397,7 @@ function Pager({
 			<span className="text-text-3" role="status">
 				{rangeText(query, shown, total)}
 			</span>
-			{query.page > 1 || next ? (
-				<nav aria-label="Pages" className="flex gap-2">
-					<Button
-						variant="secondary"
-						size="sm"
-						icon={ArrowLeft01Icon}
-						disabled={query.page <= 1}
-						onClick={() => go(previousPage(query))}
-					>
-						Previous
-					</Button>
-					<Button variant="secondary" size="sm" disabled={!next} onClick={() => next && go(nextPage(query, next))}>
-						Next
-						<Icon icon={ArrowRight01Icon} size={16} />
-					</Button>
-				</nav>
-			) : null}
+			<Pagination page={query.page} pageCount={pageCount(total)} onPageChange={(n) => go({ ...query, page: n })} />
 		</div>
 	);
 }

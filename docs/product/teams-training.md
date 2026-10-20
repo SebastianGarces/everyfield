@@ -2,7 +2,7 @@
 
 This is the operative target for TEAM-001–015. Use [current actor and role policy](identity-access.md#req-idn-029) and the [Person reference contract](people.md#req-ppl-024). Owner/Admin administer their plant. An existing accepted Member who is the currently stored linked leader may perform only named own-team membership/role/responsibility/program/meeting/attendance actions. A ministry title or unlinked contact does not create an account seat; linking alone supplies no administrative grant. Churchwide training and global team/leader/program correction require Owner/Admin.
 
-Keep configured ministry teams and role slots distinct from people, responsibilities and the eight advisory SME ministry areas. Optional predefined templates are conveniences; neither onboarding nor reading/phase entry creates them automatically. Every durable native/Evry mutation uses current subject authority, expected revision, exact review, atomic domain history/audit/receipt and material source-revision advancement. No new service rotations, inventory, children’s safety module, reporting-hierarchy editor or recurring-services product is added.
+Keep configured ministry teams and role slots distinct from people, responsibilities and the eight advisory SME ministry areas. Optional predefined templates are conveniences; neither onboarding nor reading/phase entry creates them automatically. Every durable native/Evry mutation uses current subject authority, unchanged reviewed state, exact review, atomic domain history, audit and the recorded outcome and material assessment freshness. No new service rotations, inventory, children’s safety module, reporting-hierarchy editor or recurring-services product is added.
 
 
 ## Shared domain contracts
@@ -12,7 +12,7 @@ Keep configured ministry teams and role slots distinct from people, responsibili
 
 ### REQ-TEAM-016 — Saved training assignment episodes
 
-Each required program has explicit saved person/program assignment episodes. Preview a team/leader bulk selector against current source revisions, expand to exact live same plant Person IDs, deduplicate overlaps, and show the whole reviewed selection before one versioned roster change. Persist `training_assignment` with person, program, requirement version, current state/effective dates and reviewed selection manifest; `event` records add/remove/correction and original roster history. Unique active person/program is enforced. Later membership, leader, classification or commitment changes never recompute saved applicability silently. Explicit add/remove/correct changes current obligations and source revision atomically. Requirement/version changes show exact affected obligations and completion compatibility; earned evidence is retained against the version actually earned and never relabelled by a program edit. A reused reading-based requirement preserves genuine credited article/source/version progress without forced rereading solely from an upstream revision. Stale preview or partial validation refuses the whole roster change; retries return the same receipt.
+Each required program has explicit saved person/program assignment episodes. Preview a team/leader bulk selector against current source revisions, expand to exact live same plant Person IDs, deduplicate overlaps, and show the whole reviewed selection before one versioned roster change. Retain person, program, requirement version, current state, effective dates and the exact reviewed selection, with attributable add/remove/correction and original roster history. Unique active person/program is enforced. Later membership, leader, classification or commitment changes never recompute saved applicability silently. Explicit add/remove/correct changes current obligations and assessment freshness atomically. Requirement/version changes show exact affected obligations and completion compatibility; earned evidence is retained against the version actually earned and never relabelled by a program edit. A reused reading-based requirement preserves genuine credited article/source/version progress without forced rereading solely from an upstream revision. Stale preview or partial validation refuses the whole roster change; retries return the same recorded outcome.
 
 Measure distinct current applicable person/program obligations with valid nonrevoked compatible completion evidence. Assignment does not mean completion; unassigned earned completions do not increase the numerator. Complete means 100% of applicable obligations. Missing applicability, unavailable reads, or an empty required-evidence set is Unknown, never 100%. Removed assignments retain prior roster and earned/revoked/corrected history. People tabs, team matrix/health, plant training lens and advisory phase guidance use the same projection/asOf/revision. Historical assessments retain their recorded roster/version.
 
@@ -66,7 +66,7 @@ Retain the SME 60 days of unbroken attendance AND volunteering, described as ste
 
 ### TEAM-002 — Archive, restore and team corrections
 
-**REQ-TEAM-002.** Archive hides a team from operational selectors, current staffing/health and default chart/list while retaining team/role/membership/training/meeting history. Explicit archived inclusion permits discovery and authorized restoration. Historical Person tabs show labelled former/archive records. Current follow-up duties remain visible; archiving does not waive them or broaden team programs to churchwide. Edit/archive/restore under expected revision commits current row plus before/after actor/reason history and material revision; repeated same state no-ops. Restoration does not restore revoked seats or rewrite old tenure.
+**REQ-TEAM-002.** Archive hides a team from operational selectors, current staffing/health and default chart/list while retaining team/role/membership/training/meeting history. Explicit archived inclusion permits discovery and authorized restoration. Historical Person tabs show labelled former/archive records. Current follow-up duties remain visible; archiving does not waive them or broaden team programs to churchwide. Edit/archive/restore under unchanged reviewed state commits current state, before/after actor/reason history and assessment freshness; repeated same state no-ops. Restoration does not restore revoked seats or rewrite old tenure.
 
 **Target operations:** `teams.archive`, `teams.restore`, `teams.correct`, `teams.history`.
 
@@ -92,7 +92,7 @@ Retain the SME 60 days of unbroken attendance AND volunteering, described as ste
 
 ### TEAM-004 — Explicit leader and role-derived fallback
 
-**REQ-TEAM-004.** Store leader provenance explicit/role-derived/legacy without fabricated history. Explicit appointment outranks role-derived fallback and survives removing that role; fallback only fills an empty leader. Unlinked live contact may be a visible ministry leader but gains no account grant. Linked account must have current same plant seat to receive own-team actions. Seat revocation clears access-dependent appointment without erasing prior provenance. Candidate search is database-backed beyond the first 100 People. Parent/team-before-role/member locking makes assignment/vacate/retire/access-removal races coherent, with history and source revision in the same transaction.
+**REQ-TEAM-004.** Store leader provenance explicit/role-derived/legacy without fabricated history. Explicit appointment outranks role-derived fallback and survives removing that role; fallback only fills an empty leader. Unlinked live contact may be a visible ministry leader but gains no account grant. Linked account must have current same plant seat to receive own-team actions. Seat revocation clears access-dependent appointment without erasing prior provenance. Candidate search is database-backed beyond the first 100 People. Concurrent assignment, vacancy, retirement and access removal preserve valid leadership and membership, with attributable history and assessment freshness updated atomically.
 
 **Target operations:** `teams.appointLeader`, `teams.leaderCandidates`.
 
@@ -131,7 +131,7 @@ Retain the SME 60 days of unbroken attendance AND volunteering, described as ste
 
 ### TEAM-007 — Responsibility offer and editable checklist
 
-**REQ-TEAM-007.** Preserve custom/predefined responsibility CRUD and tick/untick. Versioned structured Playbook lines are offered explicitly once during setup or later deliberate acceptance; reads/preview have no writes. The accepted/declined offer stamp, selected rows, receipt and audit commit together. Deleted/edited/declined lines never reappear on reload/bootstrap or upstream update. Complete has one current state/date with history and no implied phase pass. Foreign keys/selections and stale revision refuse all effects.
+**REQ-TEAM-007.** Preserve custom/predefined responsibility CRUD and tick/untick. Versioned structured Playbook lines are offered explicitly once during setup or later deliberate acceptance; reads/preview have no writes. The accepted/declined offer stamp, selected rows, receipt and audit commit together. Deleted/edited/declined lines never reappear on reload/bootstrap or upstream update. Complete has one current state/date with history and no implied phase pass. Foreign keys/selections and changed reviewed state refuse all effects.
 
 **Target operations:** `teams.listResponsibilities`, `teams.previewResponsibilities`, `teams.offerResponsibilities`, `teams.editResponsibility`, `teams.completeResponsibility`, `teams.deleteResponsibility`.
 
@@ -157,7 +157,7 @@ Retain the SME 60 days of unbroken attendance AND volunteering, described as ste
 
 ### TEAM-009 — Program correction, revoke and redo
 
-**REQ-TEAM-009.** Expected-revision program correction retains before/after actor/version. Completion revoke marks current evidence invalid without deletion; redo appends a new earned event/date/verifier and retains original/revoked/corrected evidence, never silently overwrites history. Reject repeated invalid transition or return original retry receipt. All current training/health/PI queries exclude revoked evidence and respect requirement-version compatibility. Revocation/correction/redo updates material revision with history atomically; assignment episodes stay separate.
+**REQ-TEAM-009.** Reviewed-state program correction retains before/after actor/version. Completion revoke marks current evidence invalid without deletion; redo appends a new earned event/date/verifier and retains original/revoked/corrected evidence, never silently overwrites history. Reject repeated invalid transition or return original retry outcome. All current training/health/PI queries exclude revoked evidence and respect requirement-version compatibility. Revocation/correction/redo makes affected assessments stale with history atomically; assignment episodes stay separate.
 
 **Target operations:** `teams.correctProgram`, `teams.revokeCompletion`, `teams.recompleteTraining`, `teams.trainingHistory`.
 
@@ -233,18 +233,18 @@ Retain the SME 60 days of unbroken attendance AND volunteering, described as ste
 
 ### TEAM-015 — Exact cross-feature effects
 
-**REQ-TEAM-015.** Active role assignment advances only core_group→launch_team; qualifying ordinary ministry leadership advances only launch_team→leader. Required People history and plant source revision commit with membership/leader mutation and original actor; repeat/no-op produces no duplicate semantic event. Removal never demotes automatically. Staffing/program/assignment corrections synchronously dirty relevant fact revision. Communication Hub owns actual team sends; emitted staffing/training_scheduled placeholders do not claim welcome mail, calendar, weekly alert or task delivery.
+**REQ-TEAM-015.** Active role assignment advances only core_group→launch_team; qualifying ordinary ministry leadership advances only launch_team→leader. Required People history and plant source state commit with membership/leader mutation and original actor; repeat/no-op produces no duplicate semantic event. Removal never demotes automatically. Staffing/program/assignment corrections make affected assessments stale. Communication Hub owns actual team sends; emitted staffing/training_scheduled placeholders do not claim welcome mail, calendar, weekly alert or task delivery.
 
 **Target operations:** `teams.assignmentEffects`.
 
 **Acceptance:** AC-TEAM-015--TEAM-015. **Named cases:** TARGET-TEAM-015.
 
-**TARGET-TEAM-015 fixture:** Assignment/leadership from exact vs advanced stages, retry, source revision transaction failure, training scheduling without subscriber. **Expected:** Only approved conditional progression and facts occur once; source watermark cannot lag commit and no phantom integration is reported.
+**TARGET-TEAM-015 fixture:** Assignment/leadership from exact vs advanced stages, retry, required freshness-update failure, training scheduling without subscriber. **Expected:** Only approved conditional progression and facts occur once; source watermark cannot lag commit and no phantom integration is reported.
 
 
 ## Consumer closure and proof
 
-[Canonical build progress](../build-progress.json) records implementation milestones and completion. Execute the named future cases through real domain requests, disposable PostgreSQL constraints/races/fault injection and native/reviewed-Evry browser paths where surfaced. Prove current authorization again at execution; no test/source count or file presence is runtime proof. Include registered Person references, current source-revision writes, exact partial/committed receipts, correction limits and failure outcomes at each owning consumer closure. Domain adapter files are owned by their specific feature packages; shared Evry runtime/catalog/review UI has one integration owner.
+[Canonical build progress](../build-progress.json) records implementation milestones and completion. Execute the named future cases through real domain requests, disposable PostgreSQL constraints/races/fault injection and native/reviewed-Evry browser paths where surfaced. Prove current authorization again at execution; no test/source count or file presence is runtime proof. Include registered Person references, assessment freshness, exact partial/committed receipts, correction limits and failure outcomes at each owning consumer closure. Domain adapter files are owned by their specific feature packages; shared Evry runtime/catalog/review UI has one integration owner.
 
 ## Organization development programs
 

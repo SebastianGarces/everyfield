@@ -43,7 +43,7 @@ export const peoplePage = z
 	.strictObject({
 		owner: plantOwner,
 		items: z.array(plantPerson).max(100),
-		next: z.string().min(1).max(4096).nullable(),
+		next: z.int().min(2).nullable(),
 		completeness: z.enum(["complete", "partial"]),
 		total: z.int().min(0).nullable(),
 	})
@@ -72,7 +72,7 @@ export const pipelineResult = z
 					revision,
 					cards: z.array(pipelineCard).max(100),
 					total: z.int().min(0).nullable(),
-					next: z.string().min(1).max(4096).nullable(),
+					next: z.int().min(2).nullable(),
 				}),
 			)
 			.length(5),
@@ -168,7 +168,7 @@ export const activitiesResult = z.strictObject({
 	owner: plantOwner,
 	personId,
 	items: z.array(activity).max(100),
-	next: z.string().min(1).max(4096).nullable(),
+	next: z.int().min(2).nullable(),
 	completeness: z.enum(["complete", "partial"]),
 });
 // Eligibility snapshot for the People-owned projection. Consumers freeze both

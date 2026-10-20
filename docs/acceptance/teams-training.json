@@ -22,8 +22,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -50,14 +50,14 @@
           "id": "Alex",
           "plant": "P",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "Casey": {
           "fixture_type": "person",
           "id": "Casey",
           "plant": "P",
           "stage": "leader",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "Hospitality": {
           "fixture_type": "team",
@@ -65,7 +65,7 @@
           "plant": "P",
           "name": "Hospitality",
           "archived": false,
-          "revision": 2
+          "observed_state": "fixture-state-2"
         },
         "membership": {
           "fixture_type": "membership",
@@ -93,7 +93,7 @@
         "operation": "teams.archive",
         "arguments": {
           "team": "Hospitality",
-          "expected_revision": 2
+          "reviewed_state": "fixture-state-2"
         }
       },
       "expected": {
@@ -114,8 +114,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -142,14 +142,14 @@
               "id": "Alex",
               "plant": "P",
               "stage": "prospect",
-              "revision": 4
+              "observed_state": "fixture-state-4"
             },
             "Casey": {
               "fixture_type": "person",
               "id": "Casey",
               "plant": "P",
               "stage": "leader",
-              "revision": 4
+              "observed_state": "fixture-state-4"
             },
             "Hospitality": {
               "fixture_type": "team",
@@ -157,7 +157,7 @@
               "plant": "P",
               "name": "Hospitality",
               "archived": true,
-              "revision": 3
+              "observed_state": "fixture-state-3"
             },
             "membership": {
               "fixture_type": "membership",
@@ -185,7 +185,7 @@
             "operation": "teams.restore",
             "arguments": {
               "team": "Hospitality",
-              "expected_revision": 3
+              "reviewed_state": "fixture-state-3"
             }
           },
           "expected": {
@@ -237,7 +237,7 @@
             "operation": "teams.archive",
             "arguments": {
               "team": "Hospitality",
-              "expected_revision": 2
+              "reviewed_state": "fixture-state-2"
             }
           },
           "expected": {
@@ -259,8 +259,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -277,7 +277,7 @@
             "operation": "teams.archive",
             "arguments": {
               "team": "Hospitality",
-              "expected_revision": 2,
+              "reviewed_state": "fixture-state-2",
               "fault": "required_source_unavailable"
             }
           },
@@ -287,7 +287,7 @@
               "error_code": "source_unavailable",
               "new_domain_writes": 0,
               "new_provider_effects": 0,
-              "prior_committed_receipts_retained": true
+              "prior_committed_outcomes_retained": true
             },
             "event": null
           },
@@ -314,8 +314,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -342,14 +342,14 @@
           "id": "Alex",
           "plant": "P",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "Casey": {
           "fixture_type": "person",
           "id": "Casey",
           "plant": "P",
           "stage": "leader",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "Hospitality": {
           "fixture_type": "team",
@@ -357,7 +357,7 @@
           "plant": "P",
           "name": "Hospitality",
           "archived": false,
-          "revision": 2
+          "observed_state": "fixture-state-2"
         },
         "Worship": {
           "fixture_type": "team",
@@ -422,8 +422,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -450,14 +450,14 @@
               "id": "Alex",
               "plant": "P",
               "stage": "prospect",
-              "revision": 4
+              "observed_state": "fixture-state-4"
             },
             "Casey": {
               "fixture_type": "person",
               "id": "Casey",
               "plant": "P",
               "stage": "leader",
-              "revision": 4
+              "observed_state": "fixture-state-4"
             },
             "Hospitality": {
               "fixture_type": "team",
@@ -465,7 +465,7 @@
               "plant": "P",
               "name": "Hospitality",
               "archived": false,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             "Worship": {
               "fixture_type": "team",
@@ -581,8 +581,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -608,7 +608,7 @@
               "error_code": "source_unavailable",
               "new_domain_writes": 0,
               "new_provider_effects": 0,
-              "prior_committed_receipts_retained": true
+              "prior_committed_outcomes_retained": true
             },
             "event": null
           },
@@ -635,8 +635,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -663,14 +663,14 @@
           "id": "Alex",
           "plant": "P",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "Casey": {
           "fixture_type": "person",
           "id": "Casey",
           "plant": "P",
           "stage": "leader",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "Hospitality": {
           "fixture_type": "team",
@@ -678,7 +678,7 @@
           "plant": "P",
           "name": "Hospitality",
           "archived": false,
-          "revision": 2
+          "observed_state": "fixture-state-2"
         },
         "Jamie": {
           "fixture_type": "person",
@@ -693,7 +693,7 @@
             "Jamie"
           ],
           "leader": "Alex",
-          "revision": 2
+          "observed_state": "fixture-state-2"
         }
       },
       "actor": {
@@ -713,7 +713,7 @@
           "subtype": "training",
           "starts_at": "2026-10-20T15:00:00Z",
           "location": "Hall",
-          "roster_revision": 2,
+          "roster_state": "fixture-state-2",
           "roster": [
             "Casey",
             "Jamie"
@@ -776,7 +776,7 @@
               "subtype": "training",
               "starts_at": "2026-10-20T15:00:00Z",
               "location": "Hall",
-              "roster_revision": 2,
+              "roster_state": "fixture-state-2",
               "roster": [
                 "Casey",
                 "Jamie"
@@ -802,8 +802,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -824,7 +824,7 @@
               "subtype": "training",
               "starts_at": "2026-10-20T15:00:00Z",
               "location": "Hall",
-              "roster_revision": 2,
+              "roster_state": "fixture-state-2",
               "roster": [
                 "Casey",
                 "Jamie"
@@ -838,7 +838,7 @@
               "error_code": "source_unavailable",
               "new_domain_writes": 0,
               "new_provider_effects": 0,
-              "prior_committed_receipts_retained": true
+              "prior_committed_outcomes_retained": true
             },
             "event": null
           },
@@ -863,8 +863,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -891,14 +891,14 @@
           "id": "Alex",
           "plant": "P",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "Casey": {
           "fixture_type": "person",
           "id": "Casey",
           "plant": "P",
           "stage": "leader",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "Hospitality": {
           "fixture_type": "team",
@@ -906,7 +906,7 @@
           "plant": "P",
           "name": "Hospitality",
           "archived": false,
-          "revision": 2,
+          "observed_state": "fixture-state-2",
           "template_key": "child-care"
         },
         "source-person": {
@@ -952,8 +952,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -980,14 +980,14 @@
               "id": "Alex",
               "plant": "P",
               "stage": "prospect",
-              "revision": 4
+              "observed_state": "fixture-state-4"
             },
             "Casey": {
               "fixture_type": "person",
               "id": "Casey",
               "plant": "P",
               "stage": "leader",
-              "revision": 4
+              "observed_state": "fixture-state-4"
             },
             "Hospitality": {
               "fixture_type": "team",
@@ -995,7 +995,7 @@
               "plant": "P",
               "name": "Hospitality",
               "archived": false,
-              "revision": 2,
+              "observed_state": "fixture-state-2",
               "template_key": "child-care"
             },
             "source-person": {
@@ -1088,8 +1088,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -1115,7 +1115,7 @@
               "error_code": "source_unavailable",
               "new_domain_writes": 0,
               "new_provider_effects": 0,
-              "prior_committed_receipts_retained": true
+              "prior_committed_outcomes_retained": true
             },
             "event": null
           },
@@ -1142,8 +1142,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -1170,14 +1170,14 @@
           "id": "Alex",
           "plant": "P",
           "stage": "core_group",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "Casey": {
           "fixture_type": "person",
           "id": "Casey",
           "plant": "P",
           "stage": "leader",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "Hospitality": {
           "fixture_type": "team",
@@ -1185,7 +1185,7 @@
           "plant": "P",
           "name": "Hospitality",
           "archived": false,
-          "revision": 2
+          "observed_state": "fixture-state-2"
         }
       },
       "actor": {
@@ -1202,7 +1202,7 @@
         "arguments": {
           "team": "Hospitality",
           "person": "Alex",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "assignment-1",
           "repeat": 2
         }
@@ -1225,8 +1225,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -1253,14 +1253,14 @@
               "id": "Alex",
               "plant": "P",
               "stage": "core_group",
-              "revision": 4
+              "observed_state": "fixture-state-4"
             },
             "Casey": {
               "fixture_type": "person",
               "id": "Casey",
               "plant": "P",
               "stage": "leader",
-              "revision": 4
+              "observed_state": "fixture-state-4"
             },
             "Hospitality": {
               "fixture_type": "team",
@@ -1268,7 +1268,7 @@
               "plant": "P",
               "name": "Hospitality",
               "archived": false,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           },
           "actor": {
@@ -1285,7 +1285,7 @@
             "arguments": {
               "team": "Hospitality",
               "person": "Casey",
-              "expected_revision": 2
+              "reviewed_state": "fixture-state-2"
             }
           },
           "expected": {
@@ -1337,7 +1337,7 @@
             "arguments": {
               "team": "Hospitality",
               "person": "Alex",
-              "expected_revision": 2,
+              "reviewed_state": "fixture-state-2",
               "request_key": "assignment-1",
               "repeat": 2
             }
@@ -1361,8 +1361,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -1380,7 +1380,7 @@
             "arguments": {
               "team": "Hospitality",
               "person": "Alex",
-              "expected_revision": 2,
+              "reviewed_state": "fixture-state-2",
               "request_key": "assignment-1",
               "repeat": 2,
               "fault": "required_write_before_commit"
@@ -1392,7 +1392,7 @@
               "error_code": "required_write_failed",
               "new_domain_writes": 0,
               "new_provider_effects": 0,
-              "prior_committed_receipts_retained": true
+              "prior_committed_outcomes_retained": true
             },
             "event": null
           },
@@ -1414,14 +1414,14 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual team-role-leader references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "description": "Two own-plant Person records P1/P2 with actual team-role-leader references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -1448,14 +1448,14 @@
           "id": "P1",
           "plant": "P",
           "name": "Alex Rivera",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "P2": {
           "fixture_type": "person",
           "id": "P2",
           "plant": "P",
           "name": "Alex Chen",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "Q1": {
           "fixture_type": "person",
@@ -1468,7 +1468,7 @@
           "consumer": "team-role-leader",
           "person": "P2",
           "plant": "P",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "original-history": {
           "fixture_type": "history",
@@ -1497,10 +1497,10 @@
           "survivor": "P1",
           "retiring": "P2",
           "consumer": "team-role-leader",
-          "expected_revisions": {
-            "P1": 4,
-            "P2": 3,
-            "reference-1": 2
+          "reviewed_states": {
+            "P1": "fixture-state-4",
+            "P2": "fixture-state-3",
+            "reference-1": "fixture-state-2"
           },
           "request_key": "PERSONREF-TEAM-ROLE-LEADER-CONFLICT-1",
           "repeat": 2
@@ -1510,7 +1510,7 @@
         "state": {
           "reference-1": {
             "person": "P2",
-            "revision": 3
+            "observed_state": "fixture-state-3"
           }
         },
         "result": {
@@ -1527,8 +1527,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -1547,10 +1547,10 @@
               "survivor": "Q1",
               "retiring": "P2",
               "consumer": "team-role-leader",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 3
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-3"
               },
               "request_key": "PERSONREF-TEAM-ROLE-LEADER-CONFLICT-1",
               "repeat": 2
@@ -1562,19 +1562,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "team-role-leader",
                 "person": "P2",
                 "plant": "P",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "original-history": {
                 "consumer": "team-role-leader",
@@ -1587,7 +1587,7 @@
               "body": null,
               "existence": null,
               "writes": 0,
-              "receipts_added": 0
+              "additional_recorded_outcomes": 0
             },
             "event": null
           },
@@ -1618,10 +1618,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "team-role-leader",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 3
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-3"
               },
               "request_key": "PERSONREF-TEAM-ROLE-LEADER-CONFLICT-1",
               "repeat": 2
@@ -1632,7 +1632,7 @@
             "result": {
               "error_code": "access_denied",
               "writes": 0,
-              "receipts_added": 0,
+              "additional_recorded_outcomes": 0,
               "body": null,
               "existence": null
             },
@@ -1646,8 +1646,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -1666,10 +1666,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "team-role-leader",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 3
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-3"
               },
               "request_key": "PERSONREF-TEAM-ROLE-LEADER-CONFLICT-1",
               "repeat": 1,
@@ -1682,19 +1682,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "team-role-leader",
                 "person": "P2",
                 "plant": "P",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "original-history": {
                 "consumer": "team-role-leader",
@@ -1704,7 +1704,7 @@
             },
             "result": {
               "error_code": "required_write_failed",
-              "receipts_added": 0,
+              "additional_recorded_outcomes": 0,
               "audit_rows_added": 0,
               "history_rows_added": 0
             },
@@ -1748,14 +1748,14 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual team-role-leader references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "description": "Two own-plant Person records P1/P2 with actual team-role-leader references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -1782,14 +1782,14 @@
           "id": "P1",
           "plant": "P",
           "name": "Alex Rivera",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "P2": {
           "fixture_type": "person",
           "id": "P2",
           "plant": "P",
           "name": "Alex Chen",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "Q1": {
           "fixture_type": "person",
@@ -1802,7 +1802,7 @@
           "consumer": "team-role-leader",
           "person": "P2",
           "plant": "P",
-          "revision": 2
+          "observed_state": "fixture-state-2"
         },
         "original-history": {
           "fixture_type": "history",
@@ -1831,10 +1831,10 @@
           "survivor": "P1",
           "retiring": "P2",
           "consumer": "team-role-leader",
-          "expected_revisions": {
-            "P1": 4,
-            "P2": 3,
-            "reference-1": 2
+          "reviewed_states": {
+            "P1": "fixture-state-4",
+            "P2": "fixture-state-3",
+            "reference-1": "fixture-state-2"
           },
           "request_key": "PERSONREF-TEAM-ROLE-LEADER-MERGE-1",
           "repeat": 2
@@ -1867,8 +1867,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -1887,10 +1887,10 @@
               "survivor": "Q1",
               "retiring": "P2",
               "consumer": "team-role-leader",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TEAM-ROLE-LEADER-MERGE-1",
               "repeat": 2
@@ -1902,19 +1902,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "team-role-leader",
                 "person": "P2",
                 "plant": "P",
-                "revision": 2
+                "observed_state": "fixture-state-2"
               },
               "original-history": {
                 "consumer": "team-role-leader",
@@ -1927,7 +1927,7 @@
               "body": null,
               "existence": null,
               "writes": 0,
-              "receipts_added": 0
+              "additional_recorded_outcomes": 0
             },
             "event": null
           },
@@ -1958,10 +1958,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "team-role-leader",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TEAM-ROLE-LEADER-MERGE-1",
               "repeat": 2
@@ -1972,7 +1972,7 @@
             "result": {
               "error_code": "access_denied",
               "writes": 0,
-              "receipts_added": 0
+              "additional_recorded_outcomes": 0
             },
             "event": null
           },
@@ -1984,8 +1984,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -2004,10 +2004,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "team-role-leader",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TEAM-ROLE-LEADER-MERGE-1",
               "repeat": 1,
@@ -2020,19 +2020,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "team-role-leader",
                 "person": "P2",
                 "plant": "P",
-                "revision": 2
+                "observed_state": "fixture-state-2"
               },
               "original-history": {
                 "consumer": "team-role-leader",
@@ -2042,7 +2042,7 @@
             },
             "result": {
               "error_code": "required_write_failed",
-              "receipts_added": 0,
+              "additional_recorded_outcomes": 0,
               "audit_rows_added": 0,
               "history_rows_added": 0
             },
@@ -2089,14 +2089,14 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual team-role-leader references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "description": "Two own-plant Person records P1/P2 with actual team-role-leader references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -2123,14 +2123,14 @@
           "id": "P1",
           "plant": "P",
           "name": "Alex Rivera",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "P2": {
           "fixture_type": "person",
           "id": "P2",
           "plant": "P",
           "name": "Alex Chen",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "Q1": {
           "fixture_type": "person",
@@ -2143,7 +2143,7 @@
           "consumer": "team-role-leader",
           "person": "P2",
           "plant": "P",
-          "revision": 2
+          "observed_state": "fixture-state-2"
         },
         "original-history": {
           "fixture_type": "history",
@@ -2172,10 +2172,10 @@
           "survivor": "P1",
           "retiring": "P2",
           "consumer": "team-role-leader",
-          "expected_revisions": {
-            "P1": 4,
-            "P2": 3,
-            "reference-1": 2
+          "reviewed_states": {
+            "P1": "fixture-state-4",
+            "P2": "fixture-state-3",
+            "reference-1": "fixture-state-2"
           },
           "request_key": "PERSONREF-TEAM-ROLE-LEADER-RETIRE-1",
           "repeat": 2
@@ -2204,8 +2204,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -2224,10 +2224,10 @@
               "survivor": "P1",
               "retiring": "Q1",
               "consumer": "team-role-leader",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TEAM-ROLE-LEADER-RETIRE-1",
               "repeat": 2
@@ -2239,19 +2239,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "team-role-leader",
                 "person": "P2",
                 "plant": "P",
-                "revision": 2
+                "observed_state": "fixture-state-2"
               },
               "original-history": {
                 "consumer": "team-role-leader",
@@ -2264,7 +2264,7 @@
               "body": null,
               "existence": null,
               "writes": 0,
-              "receipts_added": 0
+              "additional_recorded_outcomes": 0
             },
             "event": null
           },
@@ -2295,10 +2295,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "team-role-leader",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TEAM-ROLE-LEADER-RETIRE-1",
               "repeat": 2
@@ -2309,7 +2309,7 @@
             "result": {
               "error_code": "access_denied",
               "writes": 0,
-              "receipts_added": 0,
+              "additional_recorded_outcomes": 0,
               "body": null,
               "existence": null
             },
@@ -2323,8 +2323,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -2343,10 +2343,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "team-role-leader",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TEAM-ROLE-LEADER-RETIRE-1",
               "repeat": 1,
@@ -2359,19 +2359,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "team-role-leader",
                 "person": "P2",
                 "plant": "P",
-                "revision": 2
+                "observed_state": "fixture-state-2"
               },
               "original-history": {
                 "consumer": "team-role-leader",
@@ -2381,7 +2381,7 @@
             },
             "result": {
               "error_code": "required_write_failed",
-              "receipts_added": 0,
+              "additional_recorded_outcomes": 0,
               "audit_rows_added": 0,
               "history_rows_added": 0
             },
@@ -2415,14 +2415,14 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual team-role-leader references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "description": "Two own-plant Person records P1/P2 with actual team-role-leader references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -2449,14 +2449,14 @@
           "id": "P1",
           "plant": "P",
           "name": "Alex Rivera",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "P2": {
           "fixture_type": "person",
           "id": "P2",
           "plant": "P",
           "name": "Alex Chen",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "Q1": {
           "fixture_type": "person",
@@ -2469,7 +2469,7 @@
           "consumer": "team-role-leader",
           "person": "P1",
           "plant": "P",
-          "revision": 2
+          "observed_state": "fixture-state-2"
         },
         "original-history": {
           "fixture_type": "history",
@@ -2487,7 +2487,7 @@
               "row": "reference-1",
               "before_person": "P2",
               "after_person": "P1",
-              "after_revision": 2
+              "after_state": "fixture-state-2"
             }
           ]
         },
@@ -2512,10 +2512,10 @@
           "survivor": "P1",
           "retiring": "P2",
           "consumer": "team-role-leader",
-          "expected_revisions": {
-            "P1": 4,
-            "P2": 3,
-            "reference-1": 2
+          "reviewed_states": {
+            "P1": "fixture-state-4",
+            "P2": "fixture-state-3",
+            "reference-1": "fixture-state-2"
           },
           "request_key": "PERSONREF-TEAM-ROLE-LEADER-UNMERGE-1",
           "repeat": 2,
@@ -2545,8 +2545,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -2565,10 +2565,10 @@
               "survivor": "Q1",
               "retiring": "P2",
               "consumer": "team-role-leader",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TEAM-ROLE-LEADER-UNMERGE-1",
               "repeat": 2,
@@ -2581,19 +2581,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "team-role-leader",
                 "person": "P1",
                 "plant": "P",
-                "revision": 2
+                "observed_state": "fixture-state-2"
               },
               "original-history": {
                 "consumer": "team-role-leader",
@@ -2606,7 +2606,7 @@
               "body": null,
               "existence": null,
               "writes": 0,
-              "receipts_added": 0
+              "additional_recorded_outcomes": 0
             },
             "event": null
           },
@@ -2637,10 +2637,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "team-role-leader",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TEAM-ROLE-LEADER-UNMERGE-1",
               "repeat": 2,
@@ -2652,7 +2652,7 @@
             "result": {
               "error_code": "access_denied",
               "writes": 0,
-              "receipts_added": 0
+              "additional_recorded_outcomes": 0
             },
             "event": null
           },
@@ -2664,8 +2664,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -2684,10 +2684,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "team-role-leader",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TEAM-ROLE-LEADER-UNMERGE-1",
               "repeat": 1,
@@ -2701,19 +2701,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "team-role-leader",
                 "person": "P1",
                 "plant": "P",
-                "revision": 2
+                "observed_state": "fixture-state-2"
               },
               "original-history": {
                 "consumer": "team-role-leader",
@@ -2723,7 +2723,7 @@
             },
             "result": {
               "error_code": "required_write_failed",
-              "receipts_added": 0,
+              "additional_recorded_outcomes": 0,
               "audit_rows_added": 0,
               "history_rows_added": 0
             },
@@ -2768,14 +2768,14 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -2802,14 +2802,14 @@
           "id": "P1",
           "plant": "P",
           "name": "Alex Rivera",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "P2": {
           "fixture_type": "person",
           "id": "P2",
           "plant": "P",
           "name": "Alex Chen",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "Q1": {
           "fixture_type": "person",
@@ -2822,7 +2822,7 @@
           "consumer": "training-applicability-completion",
           "person": "P2",
           "plant": "P",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "original-history": {
           "fixture_type": "history",
@@ -2851,10 +2851,10 @@
           "survivor": "P1",
           "retiring": "P2",
           "consumer": "training-applicability-completion",
-          "expected_revisions": {
-            "P1": 4,
-            "P2": 3,
-            "reference-1": 2
+          "reviewed_states": {
+            "P1": "fixture-state-4",
+            "P2": "fixture-state-3",
+            "reference-1": "fixture-state-2"
           },
           "request_key": "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-CONFLICT-1",
           "repeat": 2
@@ -2864,7 +2864,7 @@
         "state": {
           "reference-1": {
             "person": "P2",
-            "revision": 3
+            "observed_state": "fixture-state-3"
           }
         },
         "result": {
@@ -2881,8 +2881,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -2901,10 +2901,10 @@
               "survivor": "Q1",
               "retiring": "P2",
               "consumer": "training-applicability-completion",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 3
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-3"
               },
               "request_key": "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-CONFLICT-1",
               "repeat": 2
@@ -2916,19 +2916,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "training-applicability-completion",
                 "person": "P2",
                 "plant": "P",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "original-history": {
                 "consumer": "training-applicability-completion",
@@ -2941,7 +2941,7 @@
               "body": null,
               "existence": null,
               "writes": 0,
-              "receipts_added": 0
+              "additional_recorded_outcomes": 0
             },
             "event": null
           },
@@ -2972,10 +2972,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "training-applicability-completion",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 3
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-3"
               },
               "request_key": "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-CONFLICT-1",
               "repeat": 2
@@ -2986,7 +2986,7 @@
             "result": {
               "error_code": "access_denied",
               "writes": 0,
-              "receipts_added": 0,
+              "additional_recorded_outcomes": 0,
               "body": null,
               "existence": null
             },
@@ -3000,8 +3000,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -3020,10 +3020,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "training-applicability-completion",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 3
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-3"
               },
               "request_key": "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-CONFLICT-1",
               "repeat": 1,
@@ -3036,19 +3036,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "training-applicability-completion",
                 "person": "P2",
                 "plant": "P",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "original-history": {
                 "consumer": "training-applicability-completion",
@@ -3058,7 +3058,7 @@
             },
             "result": {
               "error_code": "required_write_failed",
-              "receipts_added": 0,
+              "additional_recorded_outcomes": 0,
               "audit_rows_added": 0,
               "history_rows_added": 0
             },
@@ -3093,14 +3093,14 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -3127,14 +3127,14 @@
           "id": "P1",
           "plant": "P",
           "name": "Alex Rivera",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "P2": {
           "fixture_type": "person",
           "id": "P2",
           "plant": "P",
           "name": "Alex Chen",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "Q1": {
           "fixture_type": "person",
@@ -3147,7 +3147,7 @@
           "consumer": "training-applicability-completion",
           "person": "P2",
           "plant": "P",
-          "revision": 2
+          "observed_state": "fixture-state-2"
         },
         "original-history": {
           "fixture_type": "history",
@@ -3176,10 +3176,10 @@
           "survivor": "P1",
           "retiring": "P2",
           "consumer": "training-applicability-completion",
-          "expected_revisions": {
-            "P1": 4,
-            "P2": 3,
-            "reference-1": 2
+          "reviewed_states": {
+            "P1": "fixture-state-4",
+            "P2": "fixture-state-3",
+            "reference-1": "fixture-state-2"
           },
           "request_key": "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE-1",
           "repeat": 2
@@ -3212,8 +3212,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -3232,10 +3232,10 @@
               "survivor": "Q1",
               "retiring": "P2",
               "consumer": "training-applicability-completion",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE-1",
               "repeat": 2
@@ -3247,19 +3247,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "training-applicability-completion",
                 "person": "P2",
                 "plant": "P",
-                "revision": 2
+                "observed_state": "fixture-state-2"
               },
               "original-history": {
                 "consumer": "training-applicability-completion",
@@ -3272,7 +3272,7 @@
               "body": null,
               "existence": null,
               "writes": 0,
-              "receipts_added": 0
+              "additional_recorded_outcomes": 0
             },
             "event": null
           },
@@ -3303,10 +3303,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "training-applicability-completion",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE-1",
               "repeat": 2
@@ -3317,7 +3317,7 @@
             "result": {
               "error_code": "access_denied",
               "writes": 0,
-              "receipts_added": 0
+              "additional_recorded_outcomes": 0
             },
             "event": null
           },
@@ -3329,8 +3329,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -3349,10 +3349,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "training-applicability-completion",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE-1",
               "repeat": 1,
@@ -3365,19 +3365,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "training-applicability-completion",
                 "person": "P2",
                 "plant": "P",
-                "revision": 2
+                "observed_state": "fixture-state-2"
               },
               "original-history": {
                 "consumer": "training-applicability-completion",
@@ -3387,7 +3387,7 @@
             },
             "result": {
               "error_code": "required_write_failed",
-              "receipts_added": 0,
+              "additional_recorded_outcomes": 0,
               "audit_rows_added": 0,
               "history_rows_added": 0
             },
@@ -3422,14 +3422,14 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -3456,14 +3456,14 @@
           "id": "P1",
           "plant": "P",
           "name": "Alex Rivera",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "P2": {
           "fixture_type": "person",
           "id": "P2",
           "plant": "P",
           "name": "Alex Chen",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "Q1": {
           "fixture_type": "person",
@@ -3476,7 +3476,7 @@
           "consumer": "training-applicability-completion",
           "person": "P2",
           "plant": "P",
-          "revision": 2
+          "observed_state": "fixture-state-2"
         },
         "original-history": {
           "fixture_type": "history",
@@ -3505,10 +3505,10 @@
           "survivor": "P1",
           "retiring": "P2",
           "consumer": "training-applicability-completion",
-          "expected_revisions": {
-            "P1": 4,
-            "P2": 3,
-            "reference-1": 2
+          "reviewed_states": {
+            "P1": "fixture-state-4",
+            "P2": "fixture-state-3",
+            "reference-1": "fixture-state-2"
           },
           "request_key": "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-RETIRE-1",
           "repeat": 2
@@ -3537,8 +3537,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -3557,10 +3557,10 @@
               "survivor": "P1",
               "retiring": "Q1",
               "consumer": "training-applicability-completion",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-RETIRE-1",
               "repeat": 2
@@ -3572,19 +3572,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "training-applicability-completion",
                 "person": "P2",
                 "plant": "P",
-                "revision": 2
+                "observed_state": "fixture-state-2"
               },
               "original-history": {
                 "consumer": "training-applicability-completion",
@@ -3597,7 +3597,7 @@
               "body": null,
               "existence": null,
               "writes": 0,
-              "receipts_added": 0
+              "additional_recorded_outcomes": 0
             },
             "event": null
           },
@@ -3628,10 +3628,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "training-applicability-completion",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-RETIRE-1",
               "repeat": 2
@@ -3642,7 +3642,7 @@
             "result": {
               "error_code": "access_denied",
               "writes": 0,
-              "receipts_added": 0,
+              "additional_recorded_outcomes": 0,
               "body": null,
               "existence": null
             },
@@ -3656,8 +3656,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -3676,10 +3676,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "training-applicability-completion",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-RETIRE-1",
               "repeat": 1,
@@ -3692,19 +3692,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "training-applicability-completion",
                 "person": "P2",
                 "plant": "P",
-                "revision": 2
+                "observed_state": "fixture-state-2"
               },
               "original-history": {
                 "consumer": "training-applicability-completion",
@@ -3714,7 +3714,7 @@
             },
             "result": {
               "error_code": "required_write_failed",
-              "receipts_added": 0,
+              "additional_recorded_outcomes": 0,
               "audit_rows_added": 0,
               "history_rows_added": 0
             },
@@ -3749,14 +3749,14 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -3783,14 +3783,14 @@
           "id": "P1",
           "plant": "P",
           "name": "Alex Rivera",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "P2": {
           "fixture_type": "person",
           "id": "P2",
           "plant": "P",
           "name": "Alex Chen",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "Q1": {
           "fixture_type": "person",
@@ -3803,7 +3803,7 @@
           "consumer": "training-applicability-completion",
           "person": "P1",
           "plant": "P",
-          "revision": 2
+          "observed_state": "fixture-state-2"
         },
         "original-history": {
           "fixture_type": "history",
@@ -3821,7 +3821,7 @@
               "row": "reference-1",
               "before_person": "P2",
               "after_person": "P1",
-              "after_revision": 2
+              "after_state": "fixture-state-2"
             }
           ]
         },
@@ -3846,10 +3846,10 @@
           "survivor": "P1",
           "retiring": "P2",
           "consumer": "training-applicability-completion",
-          "expected_revisions": {
-            "P1": 4,
-            "P2": 3,
-            "reference-1": 2
+          "reviewed_states": {
+            "P1": "fixture-state-4",
+            "P2": "fixture-state-3",
+            "reference-1": "fixture-state-2"
           },
           "request_key": "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-UNMERGE-1",
           "repeat": 2,
@@ -3879,8 +3879,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -3899,10 +3899,10 @@
               "survivor": "Q1",
               "retiring": "P2",
               "consumer": "training-applicability-completion",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-UNMERGE-1",
               "repeat": 2,
@@ -3915,19 +3915,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "training-applicability-completion",
                 "person": "P1",
                 "plant": "P",
-                "revision": 2
+                "observed_state": "fixture-state-2"
               },
               "original-history": {
                 "consumer": "training-applicability-completion",
@@ -3940,7 +3940,7 @@
               "body": null,
               "existence": null,
               "writes": 0,
-              "receipts_added": 0
+              "additional_recorded_outcomes": 0
             },
             "event": null
           },
@@ -3971,10 +3971,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "training-applicability-completion",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-UNMERGE-1",
               "repeat": 2,
@@ -3986,7 +3986,7 @@
             "result": {
               "error_code": "access_denied",
               "writes": 0,
-              "receipts_added": 0
+              "additional_recorded_outcomes": 0
             },
             "event": null
           },
@@ -3998,8 +3998,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -4018,10 +4018,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "training-applicability-completion",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-UNMERGE-1",
               "repeat": 1,
@@ -4035,19 +4035,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "training-applicability-completion",
                 "person": "P1",
                 "plant": "P",
-                "revision": 2
+                "observed_state": "fixture-state-2"
               },
               "original-history": {
                 "consumer": "training-applicability-completion",
@@ -4057,7 +4057,7 @@
             },
             "result": {
               "error_code": "required_write_failed",
-              "receipts_added": 0,
+              "additional_recorded_outcomes": 0,
               "audit_rows_added": 0,
               "history_rows_added": 0
             },
@@ -4104,8 +4104,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4227,8 +4227,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4327,8 +4327,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4352,7 +4352,7 @@
         },
         "inputs": {
           "fixture_type": "training_fixture",
-          "roster_revision": 2,
+          "roster_state": "fixture-state-2",
           "roster": [
             "Alex",
             "Casey"
@@ -4374,7 +4374,7 @@
       "action": {
         "operation": "teams.trainingMatrix",
         "arguments": {
-          "roster_revision": 2,
+          "roster_state": "fixture-state-2",
           "roster": [
             "Alex",
             "Casey"
@@ -4451,14 +4451,14 @@
         "WP-069"
       ],
       "status": "future-not-run",
-      "description": "Compare same `asOf`/revision Person tab, matrix/health, plant lens and guidance after team exit/assignment removal.",
+      "description": "Compare same as-of instant and source facts Person tab, matrix/health, plant lens and guidance after team exit/assignment removal.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4570,8 +4570,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4686,8 +4686,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4777,8 +4777,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4917,8 +4917,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4980,7 +4980,7 @@
     },
     {
       "id": "SME53-009",
-      "requirement": "Native and Evry program/assignment/attestation mutations use shared domain operations with current authority, exact reviewed payload and revision/history. Evry cannot attest unobserved facts itself. Candidate identity evidence remains planter-audience only; organizations receive only their authorized aggregate/shared projection, and private check-ins never enter any evidence/model/tool/context/log/evaluation path.",
+      "requirement": "Native and Evry program/assignment/attestation mutations use shared domain operations with current authority, exact reviewed payload and conflict detection/history. Evry cannot attest unobserved facts itself. Candidate identity evidence remains planter-audience only; organizations receive only their authorized aggregate/shared projection, and private check-ins never enter any evidence/model/tool/context/log/evaluation path.",
       "requirement_ids": [
         "REQ-TEAM-017"
       ],
@@ -5022,8 +5022,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -5106,8 +5106,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -5133,7 +5133,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -5154,7 +5154,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "behavior-inputs": {
           "fixture_type": "behavior_inputs",
@@ -5177,7 +5177,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "foreign_control": {
             "actor": "B",
             "context": "Q",
@@ -5216,8 +5216,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -5243,7 +5243,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -5264,7 +5264,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "case-input": {
           "fixture_type": "domain_inputs",
@@ -5288,7 +5288,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 3,
+          "reviewed_state": "fixture-state-3",
           "request_key": "TARGET-TEAM-002-request-1",
           "repeat": 2,
           "team": "T",
@@ -5327,8 +5327,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -5354,7 +5354,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -5375,7 +5375,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "case-input": {
           "fixture_type": "domain_inputs",
@@ -5404,7 +5404,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 3,
+          "reviewed_state": "fixture-state-3",
           "selected_teams": [
             "worship"
           ],
@@ -5447,8 +5447,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -5474,7 +5474,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -5495,7 +5495,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "behavior-inputs": {
           "fixture_type": "behavior_inputs",
@@ -5518,7 +5518,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "leader_account": "A",
           "leader_person": "Alex",
           "seat_revoked": true
@@ -5552,8 +5552,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -5579,7 +5579,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -5600,7 +5600,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "case-input": {
           "fixture_type": "domain_inputs",
@@ -5623,7 +5623,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "foreign_control": {
             "actor": "B",
             "context": "Q",
@@ -5663,8 +5663,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -5690,7 +5690,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -5711,7 +5711,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "case-input": {
           "fixture_type": "domain_inputs",
@@ -5741,7 +5741,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "slot": "R",
           "concurrent_people": [
             "Alex",
@@ -5784,8 +5784,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -5811,7 +5811,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -5832,7 +5832,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "case-input": {
           "fixture_type": "domain_inputs",
@@ -5865,7 +5865,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "request_key": "TARGET-TEAM-007-request-1",
           "repeat": 2,
           "offer_lines": [
@@ -5915,8 +5915,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -5942,7 +5942,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -5963,7 +5963,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "case-input": {
           "fixture_type": "domain_inputs",
@@ -5991,7 +5991,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "foreign_control": {
             "actor": "B",
             "context": "Q",
@@ -6036,8 +6036,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -6063,7 +6063,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -6084,7 +6084,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "case-input": {
           "fixture_type": "domain_inputs",
@@ -6113,7 +6113,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 3,
+          "reviewed_state": "fixture-state-3",
           "program": "R",
           "transitions": [
             "complete",
@@ -6159,8 +6159,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -6186,7 +6186,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -6207,7 +6207,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "case-input": {
           "fixture_type": "domain_inputs",
@@ -6235,7 +6235,7 @@
         "arguments": {
           "subject": "P",
           "person": "person-101",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "active_team_roles": [
             "T1/R1",
             "T1/R2"
@@ -6275,8 +6275,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -6302,7 +6302,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -6323,7 +6323,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "case-input": {
           "fixture_type": "domain_inputs",
@@ -6356,7 +6356,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "role_slots": 2,
           "filled_by": [
             "Alex",
@@ -6405,8 +6405,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -6432,7 +6432,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -6453,7 +6453,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "behavior-inputs": {
           "fixture_type": "behavior_inputs",
@@ -6476,7 +6476,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "plant": "P",
           "foreign_team": "Q-Team",
           "format": "PDF"
@@ -6511,8 +6511,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -6538,7 +6538,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -6559,7 +6559,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "case-input": {
           "fixture_type": "domain_inputs",
@@ -6592,7 +6592,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "team": "T",
           "roster": [
             "Alex",
@@ -6642,8 +6642,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -6669,7 +6669,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -6690,7 +6690,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "behavior-inputs": {
           "fixture_type": "behavior_inputs",
@@ -6712,7 +6712,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "background_text": "PRIVATE-BACKGROUND",
           "skill": "guitar"
         }
@@ -6740,14 +6740,14 @@
         "WP-019"
       ],
       "status": "future-not-run",
-      "description": "Assignment/leadership from exact vs advanced stages, retry, source revision transaction failure, training scheduling without subscriber.",
+      "description": "Assignment/leadership from exact vs advanced stages, retry, required freshness-update failure, training scheduling without subscriber.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -6773,7 +6773,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -6794,7 +6794,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "case-input": {
           "fixture_type": "domain_inputs",
@@ -6825,7 +6825,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "request_key": "TARGET-TEAM-015-request-1",
           "repeat": 2,
           "fault": "required_write_before_commit",
@@ -6850,7 +6850,7 @@
             "leader"
           ],
           "duplicate_stage_events": 0,
-          "material_revision_in_same_commit": true,
+          "assessment_input_state_in_same_commit": true,
           "welcome_mail_delivered": false
         },
         "event": null
@@ -6886,8 +6886,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -6913,7 +6913,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -6934,7 +6934,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "case-input": {
           "fixture_type": "domain_inputs",
@@ -6971,7 +6971,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 3,
+          "reviewed_state": "fixture-state-3",
           "team_people": [
             "Alex",
             "Alex",
@@ -7039,8 +7039,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -7066,7 +7066,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -7087,7 +7087,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "behavior-inputs": {
           "fixture_type": "behavior_inputs",
@@ -7117,7 +7117,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "controls": [
             {
               "attendance_days": 60,

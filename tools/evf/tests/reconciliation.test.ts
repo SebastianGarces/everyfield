@@ -597,7 +597,10 @@ test("BUG-plan-context: plan and brief use the same manifest acceptance scope, i
 		);
 		assert.equal(block.acceptanceCount, 8);
 		const brief = renderBrief(f.root, parseTask("WP-002"), {});
-		assert.match(brief, /Goal: Provide shared trusted scope, time, revision, replay, receipt and audit contracts/);
+		assert.equal(
+			brief.split("\n").find((line) => line.startsWith("Goal: ")),
+			`Goal: ${loadDag(f.root).packages.find((p) => p.id === "WP-002")!.goal}`,
+		);
 		assert.match(brief, /Owned requirements: REQ-IDN-029, REQ-OPS-004, REQ-PI-037, REQ-PPL-024, REQ-TSK-018/);
 		assert.match(brief, /Write owned cases at package start for: REQ-IDN-029, REQ-OPS-004, REQ-PI-037, REQ-PPL-024/);
 		assert.match(brief, /Owned cases: AUDIT-001, AUDIT-002, AUDIT-003/);
@@ -627,6 +630,17 @@ test("BUG-plan-context: plan and brief use the same manifest acceptance scope, i
 				assert.doesNotMatch(output, /reuse approved E3 pages/i);
 			}
 		}
+		const dagPath = join(f.root, "docs/plan/dag.json");
+		const dag = JSON.parse(readFileSync(dagPath, "utf8"));
+		const identity = dag.packages.find((p) => p.id === "WP-005");
+		identity.outputs = [];
+		identity.acceptance_gates = [];
+		writeFileSync(dagPath, JSON.stringify(dag));
+		const planCheck = spawnSync("python3", ["docs/package-context.py", "--check-plan"], {
+			cwd: f.root,
+			encoding: "utf8",
+		});
+		assert.equal(planCheck.status, 0, planCheck.stderr);
 	} finally {
 		f.close();
 	}
@@ -794,7 +808,15 @@ test("BUG-c048ea5-folder-path: maintenance refuses an existing folder without a 
 			/docs is a folder; use docs\//,
 		);
 		assert.equal(f.git("branch", "--list", "task/*"), "");
-		for (const path of ["docs/tooling/", "AGENTS.md"]) {
+		for (const path of ["other-review.html", "apps/web/src/app/page.tsx"]) {
+			f.cfg.maintenanceTasks[task.id].owningPaths = [path];
+			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+			assert.throws(
+				() => taskStart(f.root, task, { allowUnready: false, noStack: true }),
+				/Maintenance owning paths must stay in documentation and workflow tooling/,
+			);
+		}
+		for (const path of ["docs/tooling/", "AGENTS.md", "everyfield-feature-review.html"]) {
 			f.cfg.maintenanceTasks[task.id].owningPaths = [path];
 			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
 			f.commit();

@@ -51,7 +51,7 @@
       "feature_ids": [
         "TEAM-002"
       ],
-      "text": "Archive hides a team from operational selectors, current staffing/health and default chart/list while retaining team/role/membership/training/meeting history. Explicit archived inclusion permits discovery and authorized restoration. Historical Person tabs show labelled former/archive records. Current follow-up duties remain visible; archiving does not waive them or broaden team programs to churchwide. Edit/archive/restore under expected revision commits current row plus before/after actor/reason history and material revision; repeated same state no-ops. Restoration does not restore revoked seats or rewrite old tenure.",
+      "text": "Archive hides a team from operational selectors, current staffing/health and default chart/list while retaining team/role/membership/training/meeting history. Explicit archived inclusion permits discovery and authorized restoration. Historical Person tabs show labelled former/archive records. Current follow-up duties remain visible; archiving does not waive them or broaden team programs to churchwide. Edit/archive/restore under unchanged reviewed state commits current state, before/after actor/reason history and assessment freshness; repeated same state no-ops. Restoration does not restore revoked seats or rewrite old tenure.",
       "spec": "docs/product/teams-training.md#req-team-002",
       "operations": [
         "teams.archive",
@@ -119,7 +119,7 @@
       "feature_ids": [
         "TEAM-004"
       ],
-      "text": "Store leader provenance explicit/role-derived/legacy without fabricated history. Explicit appointment outranks role-derived fallback and survives removing that role; fallback only fills an empty leader. Unlinked live contact may be a visible ministry leader but gains no account grant. Linked account must have current same plant seat to receive own-team actions. Seat revocation clears access-dependent appointment without erasing prior provenance. Candidate search is database-backed beyond the first 100 People. Parent/team-before-role/member locking makes assignment/vacate/retire/access-removal races coherent, with history and source revision in the same transaction.",
+      "text": "Store leader provenance explicit/role-derived/legacy without fabricated history. Explicit appointment outranks role-derived fallback and survives removing that role; fallback only fills an empty leader. Unlinked live contact may be a visible ministry leader but gains no account grant. Linked account must have current same plant seat to receive own-team actions. Seat revocation clears access-dependent appointment without erasing prior provenance. Candidate search is database-backed beyond the first 100 People. Concurrent assignment, vacancy, retirement and access removal preserve valid leadership and membership, with attributable history and assessment freshness updated atomically.",
       "spec": "docs/product/teams-training.md#req-team-004",
       "operations": [
         "teams.appointLeader",
@@ -194,7 +194,7 @@
         },
         {
           "operation": "teams.editRole",
-          "rule": "Explicit responsibility mapping and role source revision commit together; rename never changes immutable template identity or saved ministry area keys. Original mapping revision/history retained."
+          "rule": "Explicit responsibility mapping and role source revision commit together; rename never changes immutable template identity or saved ministry area keys. Original mapping conflict detection/history retained."
         },
         {
           "operation": "teams.listImportTemplates",
@@ -241,7 +241,7 @@
       "feature_ids": [
         "TEAM-007"
       ],
-      "text": "Preserve custom/predefined responsibility CRUD and tick/untick. Versioned structured Playbook lines are offered explicitly once during setup or later deliberate acceptance; reads/preview have no writes. The accepted/declined offer stamp, selected rows, receipt and audit commit together. Deleted/edited/declined lines never reappear on reload/bootstrap or upstream update. Complete has one current state/date with history and no implied phase pass. Foreign keys/selections and stale revision refuse all effects.",
+      "text": "Preserve custom/predefined responsibility CRUD and tick/untick. Versioned structured Playbook lines are offered explicitly once during setup or later deliberate acceptance; reads/preview have no writes. The accepted/declined offer stamp, selected rows, receipt and audit commit together. Deleted/edited/declined lines never reappear on reload/bootstrap or upstream update. Complete has one current state/date with history and no implied phase pass. Foreign keys/selections and changed reviewed state refuse all effects.",
       "spec": "docs/product/teams-training.md#req-team-007",
       "operations": [
         "teams.listResponsibilities",
@@ -320,7 +320,7 @@
       "behavior_rules": [
         {
           "operation": "teams.attestCompletion",
-          "rule": "Human earned completion and attributable verifier/version/date history in one transaction; current program team leader may attest eligible own-team member, churchwide Owner/Admin only. Completion never creates applicability from a dynamic roster."
+          "rule": "Human earned completion and attributable verifier/version/date history in one all-or-nothing change; current program team leader may attest eligible own-team member, churchwide Owner/Admin only. Completion never creates applicability from a dynamic roster."
         },
         {
           "operation": "teams.createProgram",
@@ -353,7 +353,7 @@
       "feature_ids": [
         "TEAM-009"
       ],
-      "text": "Expected-revision program correction retains before/after actor/version. Completion revoke marks current evidence invalid without deletion; redo appends a new earned event/date/verifier and retains original/revoked/corrected evidence, never silently overwrites history. Reject repeated invalid transition or return original retry receipt. All current training/health/PI queries exclude revoked evidence and respect requirement-version compatibility. Revocation/correction/redo updates material revision with history atomically; assignment episodes stay separate.",
+      "text": "Reviewed-state program correction retains before/after actor/version. Completion revoke marks current evidence invalid without deletion; redo appends a new earned event/date/verifier and retains original/revoked/corrected evidence, never silently overwrites history. Reject repeated invalid transition or return original retry outcome. All current training/health/PI queries exclude revoked evidence and respect requirement-version compatibility. Revocation/correction/redo makes affected assessments stale with history atomically; assignment episodes stay separate.",
       "spec": "docs/product/teams-training.md#req-team-009",
       "operations": [
         "teams.correctProgram",
@@ -577,7 +577,7 @@
       "feature_ids": [
         "TEAM-015"
       ],
-      "text": "Active role assignment advances only core_group→launch_team; qualifying ordinary ministry leadership advances only launch_team→leader. Required People history and plant source revision commit with membership/leader mutation and original actor; repeat/no-op produces no duplicate semantic event. Removal never demotes automatically. Staffing/program/assignment corrections synchronously dirty relevant fact revision. Communication Hub owns actual team sends; emitted staffing/training_scheduled placeholders do not claim welcome mail, calendar, weekly alert or task delivery.",
+      "text": "Active role assignment advances only core_group→launch_team; qualifying ordinary ministry leadership advances only launch_team→leader. Required People history and plant source state commit with membership/leader mutation and original actor; repeat/no-op produces no duplicate semantic event. Removal never demotes automatically. Staffing/program/assignment corrections make affected assessments stale. Communication Hub owns actual team sends; emitted staffing/training_scheduled placeholders do not claim welcome mail, calendar, weekly alert or task delivery.",
       "spec": "docs/product/teams-training.md#req-team-015",
       "operations": [
         "teams.assignmentEffects"
@@ -597,7 +597,7 @@
       "behavior_rules": [
         {
           "operation": "teams.assignmentEffects",
-          "rule": "bounded internal processing result/material source revision in producer transaction"
+          "rule": "bounded internal processing result/affected assessment freshness in producer transaction"
         }
       ],
       "title": "Team assignment consequences"
@@ -611,7 +611,7 @@
         "TEAM-010",
         "TEAM-011"
       ],
-      "text": "Each required program has explicit saved person/program assignment episodes. Preview a team/leader bulk selector against current source revisions, expand to exact live same plant Person IDs, deduplicate overlaps, and show the whole reviewed selection before one versioned roster change. Persist `training_assignment` with person, program, requirement version, current state/effective dates and reviewed selection manifest; `event` records add/remove/correction and original roster history. Unique active person/program is enforced. Later membership, leader, classification or commitment changes never recompute saved applicability silently. Explicit add/remove/correct changes current obligations and source revision atomically. Requirement/version changes show exact affected obligations and completion compatibility; earned evidence is retained against the version actually earned and never relabelled by a program edit. A reused reading-based requirement preserves genuine credited article/source/version progress without forced rereading solely from an upstream revision. Stale preview or partial validation refuses the whole roster change; retries return the same receipt.\n\nMeasure distinct current applicable person/program obligations with valid nonrevoked compatible completion evidence. Assignment does not mean completion; unassigned earned completions do not increase the numerator. Complete means 100% of applicable obligations. Missing applicability, unavailable reads, or an empty required-evidence set is Unknown, never 100%. Removed assignments retain prior roster and earned/revoked/corrected history. People tabs, team matrix/health, plant training lens and advisory phase guidance use the same projection/asOf/revision. Historical assessments retain their recorded roster/version.",
+      "text": "Each required program has explicit saved person/program assignment episodes. Preview a team/leader bulk selector against current source revisions, expand to exact live same plant Person IDs, deduplicate overlaps, and show the whole reviewed selection before one versioned roster change. Retain person, program, requirement version, current state, effective dates and the exact reviewed selection, with attributable add/remove/correction and original roster history. Unique active person/program is enforced. Later membership, leader, classification or commitment changes never recompute saved applicability silently. Explicit add/remove/correct changes current obligations and assessment freshness atomically. Requirement/version changes show exact affected obligations and completion compatibility; earned evidence is retained against the version actually earned and never relabelled by a program edit. A reused reading-based requirement preserves genuine credited article/source/version progress without forced rereading solely from an upstream revision. Stale preview or partial validation refuses the whole roster change; retries return the same recorded outcome.\n\nMeasure distinct current applicable person/program obligations with valid nonrevoked compatible completion evidence. Assignment does not mean completion; unassigned earned completions do not increase the numerator. Complete means 100% of applicable obligations. Missing applicability, unavailable reads, or an empty required-evidence set is Unknown, never 100%. Removed assignments retain prior roster and earned/revoked/corrected history. People tabs, team matrix/health, plant training lens and advisory phase guidance use the same projection/asOf/revision. Historical assessments retain their recorded roster/version.",
       "spec": "docs/product/teams-training.md#req-team-016",
       "operations": [
         "teams.previewRequiredTrainingParticipants",
