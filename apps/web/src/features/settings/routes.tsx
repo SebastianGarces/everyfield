@@ -39,5 +39,5 @@ export async function sectionSeed(viewer: SettingsViewer | null): Promise<Sectio
 	const section = sectionAt((await headers()).get(PATH_HEADER) ?? "", viewer);
 	const request = viewer && section ? sectionRequest(viewer, section) : null;
 	if (!request) return null;
-	return { request, value: getSection(request).then((reply) => (reply.status === "ok" ? reply.value : null)) };
+	return { request, value: getSection(request) };
 }

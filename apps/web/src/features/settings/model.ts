@@ -67,9 +67,8 @@ export function sectionAt(pathname: string, viewer: SettingsViewer | null): Dial
 	return dialogSection(/^\/settings\/([a-z]+)$/.exec(pathname)?.[1]);
 }
 
-/** The read a dialog section makes for this viewer, or null when the viewer is not offered that section. */
+/** The read a dialog section makes for this viewer; null when the viewer has no such profile. */
 export function sectionRequest(viewer: SettingsViewer, section: DialogSection): GetSectionRequest | null {
-	if (!offeredSections(viewer, []).includes(section)) return null;
 	switch (section) {
 		case "church":
 			return viewer.context === "plant" ? { section: "plant", plant: viewer.plant } : null;

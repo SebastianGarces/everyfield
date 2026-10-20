@@ -51,7 +51,6 @@ export function SettingsProvider({
 }: {
 	port: SettingsPort;
 	viewer: SettingsViewer;
-	/** The section read the server started for this page's address, if any. */
 	seed?: SectionSeed | null;
 	children: ReactNode;
 }) {
@@ -248,11 +247,9 @@ export function useSection<S extends SectionResult["section"]>(
 	useEffect(() => {
 		if (cached && attempt === 0) return;
 		let live = true;
-		const load = () => port.getSection(JSON.parse(key) as GetSectionRequest);
-		// The first load of the section the page was rendered at waits for the read the server already started. The
-		// streamed value is a React thenable whose then() returns nothing, so it is wrapped in a real promise.
-		const seeded = attempt === 0 && seed && cacheKeyOf(seed.request) === key ? Promise.resolve(seed.value) : null;
-		(seeded ? seeded.then((value) => (value ? ({ status: "ok", value } as const) : load())) : load()).then((reply) => {
+		// The first load of the page's own section uses the read the server started (a React thenable, so wrapped).
+		const seeded = attempt === 0 && seed && cacheKeyOf(seed.request) === key ? seed.value : null;
+		Promise.resolve(seeded ?? port.getSection(JSON.parse(key) as GetSectionRequest)).then((reply) => {
 			if (!live) return;
 			if (reply.status === "ok") remember(key, reply.value);
 			else setFailure({ key, attempt, meta: `${errorText(reply.error)} Reference ${errorReference(reply.error)}.` });
