@@ -131,6 +131,7 @@ export const auditActions = [
   "associations.revokeInvitation",
   "attestation.corrected",
   "attestation.recorded",
+  "audit.imported",
   "auth.classifyPublicPreview",
   "auth.getSession",
   "auth.recoverInvalidSession",
