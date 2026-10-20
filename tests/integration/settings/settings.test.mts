@@ -1266,7 +1266,7 @@ test("AC:TARGET-IDN-007 AC:TARGET-IDN-008 native credential budgets use own logi
 	assert.equal(ok(await call("getSection", old, { section: "account" })).email, b.email);
 });
 
-test("AC:WP005-KNOW-069 AC:WP005-KNOW-072 AC:WP010-KNOW-069 AC:WP010-KNOW-072 AC:TARGET-IDN-032 account purge removes personal bodies and confirms private bytes while preserving church documents", async () => {
+test("AC:WP005-KNOW-069 AC:WP005-KNOW-072 AC:WP010-KNOW-069 AC:WP010-KNOW-072 AC:TARGET-IDN-032 account purge removes personal bodies while preserving church documents", async () => {
 	const { deleteUnreferencedObject } = await import("../../../packages/db/src/schema/storage.ts");
 	const f = await plant(),
 		subject = { kind: "account", id: f.a.id };
@@ -1306,56 +1306,6 @@ test("AC:WP005-KNOW-069 AC:WP005-KNOW-072 AC:WP010-KNOW-069 AC:WP010-KNOW-072 AC
 		await admin.update(t.document).set({ current_revision_id: version }).where(eq(t.document.id, id));
 		docs.push({ id, version });
 	}
-	await admin.insert(t.private_calendar).values({ account_id: f.a.id });
-	const week = randomUUID();
-	await admin.insert(t.private_week).values({
-		id: week,
-		plant_id: f.p.id,
-		author_id: f.a.id,
-		ordinal: "1",
-		monday: "2026-10-12",
-		timezone: "America/Chicago",
-		starts_at: new Date("2026-10-12T05:00:00Z"),
-		ends_at: new Date("2026-10-19T05:00:00Z"),
-		spiritually: "steady",
-		marriage_family: "steady",
-		financially: "steady",
-		pace: "steady",
-		note: "Synthetic private note",
-	});
-	const feedback = randomUUID(),
-		publication = randomUUID();
-	await admin.insert(t.feedback).values({
-		id: feedback,
-		account_id: f.a.id,
-		plant_context_id: f.p.id,
-		category: "bug",
-		description: "Private feedback original",
-		submitted_at: new Date(),
-		request_key: randomUUID(),
-		triage_state: "new",
-		revision_number: "1",
-	});
-	await admin.insert(t.feedback_publication).values({
-		id: publication,
-		account_id: f.a.id,
-		feedback_id: feedback,
-		marker: randomUUID(),
-		category: "bug",
-		public_area: "settings",
-		sanitized_title: "Approved public summary",
-		sanitized_body: "Approved public summary",
-		payload_hash: "a".repeat(64),
-		repository_numeric_id: "1",
-		repository_node_id: "SyntheticRepo",
-		repository_owner: "synthetic",
-		repository_name: "synthetic",
-		state: "published",
-		issue_number: 1,
-		issue_node_id: "SyntheticIssue",
-		issue_url: "https://example.test/issues/1",
-		published_at: new Date(),
-	});
 	const pending = await overdue(f.a, subject),
 		input = { subject, requestId: pending.requestId, revision: pending.revision };
 	let timeout = true;
@@ -1402,34 +1352,12 @@ test("AC:WP005-KNOW-069 AC:WP005-KNOW-072 AC:WP010-KNOW-069 AC:WP010-KNOW-072 AC
 		.from(t.lifecycle_witness)
 		.where(eq(t.lifecycle_witness.opaque_subject_id, subject.id));
 	assert.equal(w.live_purged_at, null);
-	assert.equal((await admin.select().from(t.private_week).where(eq(t.private_week.id, week))).length, 0);
-	assert.equal(
-		(await admin.select().from(t.private_calendar).where(eq(t.private_calendar.account_id, subject.id))).length,
-		0,
-	);
-	assert.equal((await admin.select().from(t.feedback).where(eq(t.feedback.id, feedback))).length, 0);
 	assert.equal(
 		(await admin.select().from(t.document_revision).where(eq(t.document_revision.id, docs[0].version))).length,
 		0,
 	);
 	const [shared] = await admin.select().from(t.document_revision).where(eq(t.document_revision.id, docs[1].version));
 	assert.equal(shared.body, "Church-owned document body");
-	const [retained] = await admin
-		.select()
-		.from(t.feedback_publication)
-		.where(eq(t.feedback_publication.id, publication));
-	assert.deepEqual(
-		[
-			retained.account_id,
-			retained.feedback_id,
-			retained.category,
-			retained.public_area,
-			retained.sanitized_title,
-			retained.sanitized_body,
-		],
-		[null, null, null, null, null, null],
-	);
-	assert.equal(retained.issue_url, "https://example.test/issues/1");
 	timeout = false;
 	const done = await purge(input);
 	assert.equal(done.status, "purged");

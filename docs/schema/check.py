@@ -16,8 +16,7 @@ LIBRARY_TABLES = {'auth_user', 'auth_account', 'auth_session', 'auth_verificatio
 CLOSED_VALUE_COLUMNS = {
     'mail': ['purpose'], 'notice': ['purpose'], 'effect': ['kind'],
     'operation': ['name', 'stop_reason'],
-    'evidence_link': ['purpose', 'projection', 'source_purpose'],
-    'assessment_fact': ['evidence_quality'], 'contact_outcome': ['contact_channel'],
+    'contact_outcome': ['contact_channel'],
     'person': ['source'], 'audit_event': ['action','kind'], 'job': ['kind'],
 }
 OWNER_COLUMNS = {'tenant_id', 'plant_id', 'organization_id', 'account_id', 'owner_id', 'author_id'}
@@ -231,8 +230,6 @@ def validate_catalog_sets(schema, operations):
     expected = {
         ('audit_event','action'): set(re.findall(r'\b[a-z_]+\.[a-z_]+\b','\n'.join(line for line in (ROOT/'docs/architecture/audit.md').read_text().splitlines() if line.startswith('|'))))|{'note_correction'},
         ('effect', 'kind'): {o['id'] for o in operations if o['kind'] == 'command'},
-        ('evidence_link', 'source_purpose'): {o['id'] for o in operations if o['kind'] == 'query'},
-        ('evidence_link', 'projection'): set(schema['type_contracts']['evidence_link.projection']),
     }
     tables = {t['name']: t for t in schema['tables']}
     errors = []
@@ -397,7 +394,6 @@ def self_test(root):
         ('mixed-scope child without compound FK', 'tenant_fk', 1, 'tenant-owned parent document lacks compound owner FK'),
         ('INV-tenancy: mail Person FK without plant owner', 'plant_fk', 1, 'tenant-owned parent person lacks compound owner FK'),
         ('INV-tenancy: editor revision FK without organization owner', 'organization_fk', 1, 'tenant-owned parent article_revision lacks compound owner FK'),
-        ('INV-tenancy: publication FK without account owner', 'account_fk', 1, 'tenant-owned parent feedback lacks compound owner FK'),
         ('INV-tenancy: root avatar FK without account owner', 'root_fk', 1, 'authority.account: tenant-owned parent file_object lacks compound owner FK'),
         ('INV-tenancy: invented scope exception', 'undocumented_exception', 1, 'scope exception not named in README: mail(recipient_person_id) -> person(id)'),
         ('INV-tenancy: documented cross-owner source', 'documented_exception', 0, 'PASS: structural keys'),
@@ -447,11 +443,10 @@ def self_test(root):
                 entry = next(t for t in candidate['tables'] if t['name'] == 'document_revision')
                 parent = next(f for f in entry['foreign_keys'] if f['references']['table'] == 'document')
                 parent['columns'], parent['references']['columns'] = ['document_id'], ['id']
-            elif fault in {'plant_fk', 'organization_fk', 'account_fk', 'root_fk', 'undocumented_exception', 'documented_exception'}:
+            elif fault in {'plant_fk', 'organization_fk', 'root_fk', 'undocumented_exception', 'documented_exception'}:
                 table_name, column = {
                     'plant_fk': ('mail', 'recipient_person_id'),
                     'organization_fk': ('article_editor_state', 'draft_revision_id'),
-                    'account_fk': ('feedback_publication', 'feedback_id'),
                     'root_fk': ('account', 'avatar_object_id'),
                     'undocumented_exception': ('mail', 'recipient_person_id'),
                     'documented_exception': ('mail', 'recipient_person_id'),

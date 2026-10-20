@@ -21,8 +21,6 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `article_editor_state(draft_revision_id, organization_id)` | `article_revision(id, tenant_id)` | restrict |  |
 | `article_editor_state(based_on_upstream_id)` | `article_revision(id)` | restrict | Inherited upstream revision is a cross-owner source; editing validates exact source rights, canonical article identity and published lineage. |
 | `article_editor_state(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
-| `article_link(revision_id)` | `article_revision(id)` | restrict |  |
-| `article_link(target_article_id)` | `reference_item(id)` | restrict | Canonical item is a global or entitled organization source identity; serialized boundary validates item kind, canonical identity and exact current source rights, without transferring ownership. |
 | `article_revision(article_id)` | `reference_item(id)` | restrict | Canonical item is a global or entitled organization source identity; serialized boundary validates item kind, canonical identity and exact current source rights, without transferring ownership. |
 | `article_revision(tenant_id)` | `tenant(id)` | restrict |  |
 | `article_revision(release_id, tenant_id)` | `reference_release(id, tenant_id)` | restrict |  |
@@ -31,27 +29,6 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `article_revision(author_id)` | `account(id)` | restrict |  |
 | `article_revision(section_id)` | `reference_item(id)` | restrict | Canonical item is a global or entitled organization source identity; serialized boundary validates item kind, canonical identity and exact current source rights, without transferring ownership. |
 | `article_revision(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
-| `assessment(tenant_id)` | `tenant(id)` | restrict |  |
-| `assessment(reference_activation_id)` | `reference_activation(id)` | restrict |  |
-| `assessment(rubric_version_id)` | `reference_version(id)` | restrict |  |
-| `assessment(job_id, tenant_id)` | `job(id, tenant_id)` | restrict |  |
-| `assessment(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
-| `assessment_contributor(organization_id)` | `organization(id)` | restrict |  |
-| `assessment_contributor(assessment_id, organization_id)` | `assessment(id, tenant_id)` | restrict |  |
-| `assessment_contributor(plant_id)` | `plant(id)` | restrict |  |
-| `assessment_contributor(recognition_operation_id)` | `audit_event(id)` | restrict | D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access. |
-| `assessment_contributor(plant_assessment_id, plant_id)` | `assessment(id, tenant_id)` | restrict | Organization contributor intentionally pins another-owner plant result; the compound plant FK plus exact pair affiliation, recognition, release and category grants constrain eligibility. |
-| `assessment_contributor(geography_id, plant_id)` | `plant_geography(id, plant_id)` | restrict | Organization contributor pins the source plant geography at assessment time; compound plant FK enforces source identity, and serialized portfolio boundary validates exact relationship and grants. |
-| `assessment_contributor(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
-| `assessment_contributor(plant_id, organization_id)` | `affiliation(plant_id, organization_id)` | restrict |  |
-| `assessment_fact(tenant_id)` | `tenant(id)` | restrict |  |
-| `assessment_fact(assessment_id, tenant_id)` | `assessment(id, tenant_id)` | restrict |  |
-| `assessment_fact(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
-| `assignment_feedback(organization_id)` | `organization(id)` | restrict |  |
-| `assignment_feedback(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
-| `assignment_feedback(enrollment_milestone_id, organization_id)` | `enrollment_milestone(id, organization_id)` | restrict |  |
-| `assignment_feedback(author_id)` | `account(id)` | restrict | Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal. |
-| `assignment_feedback(supersedes_id, organization_id)` | `assignment_feedback(id, organization_id)` | restrict |  |
 | `attestation(plant_id)` | `plant(id)` | restrict |  |
 | `attestation(reference_version_id)` | `reference_version(id)` | restrict |  |
 | `attestation(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
@@ -68,18 +45,6 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `commitment(object_id, plant_id)` | `file_object(id, tenant_id)` | restrict |  |
 | `commitment(corrected_commitment_id, plant_id)` | `commitment(id, plant_id)` | restrict |  |
 | `commitment(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
-| `communication(plant_id)` | `plant(id)` | restrict |  |
-| `communication(author_id)` | `account(id)` | restrict |  |
-| `communication(template_id, plant_id)` | `message_template(id, plant_id)` | restrict |  |
-| `communication(meeting_id, plant_id)` | `meeting(id, plant_id)` | restrict |  |
-| `communication(original_communication_id, plant_id)` | `communication(id, plant_id)` | restrict |  |
-| `communication(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
-| `communication_recipient(plant_id)` | `plant(id)` | restrict |  |
-| `communication_recipient(communication_id, plant_id)` | `communication(id, plant_id)` | restrict |  |
-| `communication_recipient(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
-| `communication_recipient(mail_id, plant_id)` | `mail(id, tenant_id)` | restrict |  |
-| `communication_recipient(original_recipient_id, plant_id)` | `communication_recipient(id, plant_id)` | restrict |  |
-| `communication_recipient(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `contact_outcome(plant_id)` | `plant(id)` | restrict |  |
 | `contact_outcome(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `contact_outcome(task_id, plant_id)` | `task(id, plant_id)` | restrict |  |
@@ -93,10 +58,6 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `development_enrollment(program_id, organization_id)` | `development_program(id, organization_id)` | restrict |  |
 | `development_enrollment(version_id, program_id, organization_id)` | `development_program_version(id, program_id, organization_id)` | restrict |  |
 | `development_enrollment(current_stage_id, version_id, organization_id)` | `development_stage(id, version_id, organization_id)` | restrict |  |
-| `development_milestone(organization_id)` | `organization(id)` | restrict |  |
-| `development_milestone(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
-| `development_milestone(version_id, organization_id)` | `development_program_version(id, organization_id)` | restrict |  |
-| `development_milestone(stage_id, version_id, organization_id)` | `development_stage(id, version_id, organization_id)` | restrict |  |
 | `development_program(organization_id)` | `organization(id)` | restrict |  |
 | `development_program(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
 | `development_program(director_seat_id)` | `seat(id)` | restrict | Current eligible duty seat belongs to the exact organization. Serialized boundary checks seat tenant/kind and current authority; the relation grants no broader access. |
@@ -104,11 +65,6 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `development_program_version(organization_id)` | `organization(id)` | restrict |  |
 | `development_program_version(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
 | `development_program_version(program_id, organization_id)` | `development_program(id, organization_id)` | restrict |  |
-| `development_reading(organization_id)` | `organization(id)` | restrict |  |
-| `development_reading(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
-| `development_reading(version_id, organization_id)` | `development_program_version(id, organization_id)` | restrict |  |
-| `development_reading(article_id)` | `reference_item(id)` | restrict | Reading source may be global or an entitled organization revision. Recheck canonical article identity, published state and current source rights at every read; the pointer grants no library access. |
-| `development_reading(source_revision_id)` | `article_revision(id)` | restrict | Reading source may be global or an entitled organization revision. Recheck canonical article identity, published state and current source rights at every read; the pointer grants no library access. |
 | `development_stage(organization_id)` | `organization(id)` | restrict |  |
 | `development_stage(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
 | `development_stage(version_id, organization_id)` | `development_program_version(id, organization_id)` | restrict |  |
@@ -129,43 +85,8 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `document_revision(document_id, tenant_id)` | `document(id, tenant_id)` | restrict |  |
 | `document_revision(import_object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
 | `document_revision(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
-| `enrollment_milestone(organization_id)` | `organization(id)` | restrict |  |
-| `enrollment_milestone(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
-| `enrollment_milestone(enrollment_id, version_id, organization_id)` | `enrollment_plan(enrollment_id, version_id, organization_id)` | restrict |  |
-| `enrollment_milestone(milestone_id, version_id, organization_id)` | `development_milestone(id, version_id, organization_id)` | restrict |  |
-| `enrollment_milestone(completed_by)` | `account(id)` | restrict | Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal. |
-| `enrollment_milestone(confirmed_by)` | `account(id)` | restrict | Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal. |
-| `enrollment_plan(organization_id)` | `organization(id)` | restrict |  |
-| `enrollment_plan(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
-| `enrollment_plan(enrollment_id, program_id, organization_id)` | `development_enrollment(id, program_id, organization_id)` | restrict |  |
-| `enrollment_plan(version_id, program_id, organization_id)` | `development_program_version(id, program_id, organization_id)` | restrict |  |
-| `enrollment_plan(adopted_by)` | `account(id)` | restrict |  |
-| `evidence_link(tenant_id)` | `tenant(id)` | restrict |  |
-| `evidence_link(event_id, tenant_id)` | `audit_event(id, tenant_id)` | restrict |  |
-| `evidence_link(target_record_id)` | `record(id)` | restrict | Entitled source/selected record can have a different actual owner; validate purpose, source rights, exact grant and kind. |
-| `evidence_link(source_operation_id, tenant_id)` | `audit_event(id, tenant_id)` | restrict |  |
-| `evidence_link(prior_record_id)` | `record(id)` | restrict | Exact inverse prior endpoint can be cross-owner only where the reviewed native command permits; lock and validate before inverse. |
-| `evidence_link(resulting_record_id)` | `record(id)` | restrict | Exact inverse result endpoint can be cross-owner only where the reviewed native command permits; lock and validate before inverse. |
-| `evidence_link(consumer_record_id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
-| `feedback(account_id)` | `account(id)` | restrict |  |
-| `feedback(plant_context_id)` | `plant(id)` | restrict |  |
-| `feedback(id, account_id)` | `record(id, tenant_id)` | restrict |  |
-| `feedback_publication(account_id)` | `account(id)` | restrict |  |
-| `feedback_publication(feedback_id, account_id)` | `feedback(id, account_id)` | restrict |  |
-| `feedback_publication(id)` | `record(id)` | restrict | Subtype trigger binds actual record owner for a global/public or retained body-free variant whose live root pointer is nullable. |
 | `file_object(tenant_id)` | `tenant(id)` | restrict |  |
 | `file_object(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
-| `finding(tenant_id)` | `tenant(id)` | restrict |  |
-| `finding(assessment_id, tenant_id)` | `assessment(id, tenant_id)` | restrict |  |
-| `finding(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
-| `four_cs(plant_id)` | `plant(id)` | restrict |  |
-| `four_cs(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
-| `four_cs(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
-| `generated_document(tenant_id)` | `tenant(id)` | restrict |  |
-| `generated_document(template_version_id)` | `reference_version(id)` | restrict |  |
-| `generated_document(object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
-| `generated_document(generation_operation_id)` | `audit_event(id)` | restrict | D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access. |
-| `generated_document(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `household(plant_id)` | `plant(id)` | restrict |  |
 | `household(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `identity_proof(account_id)` | `account(id)` | restrict |  |
@@ -184,19 +105,9 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `launch(plant_id)` | `plant(id)` | restrict |  |
 | `launch(reference_version_id)` | `reference_version(id)` | restrict |  |
 | `launch(summary_document_id, plant_id)` | `document(id, tenant_id)` | restrict |  |
-| `launch_debrief(form_version_id)` | `reference_version(id)` | restrict |  |
-| `launch_debrief(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
-| `launch_debrief(plant_id)` | `launch(plant_id)` | restrict |  |
-| `launch_guest(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
-| `launch_guest(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
-| `launch_guest(plant_id)` | `launch(plant_id)` | restrict |  |
 | `launch_milestone(source_version_id)` | `reference_version(id)` | restrict |  |
 | `launch_milestone(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `launch_milestone(plant_id)` | `launch(plant_id)` | restrict |  |
-| `leadership_conversation(organization_id)` | `organization(id)` | restrict |  |
-| `leadership_conversation(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
-| `leadership_conversation(person_id, organization_id)` | `person(id, tenant_id)` | restrict |  |
-| `leadership_conversation(staff_account_id)` | `account(id)` | restrict | Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal. |
 | `lifecycle_witness(account_id)` | `account(id)` | restrict |  |
 | `lifecycle_witness(plant_id)` | `plant(id)` | restrict |  |
 | `lifecycle_witness(requester_id)` | `account(id)` | restrict |  |
@@ -226,18 +137,6 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `meeting(venue_id, plant_id)` | `venue(id, plant_id)` | restrict |  |
 | `meeting(reference_version_id)` | `reference_version(id)` | restrict |  |
 | `meeting(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
-| `meeting_evaluation(plant_id)` | `plant(id)` | restrict |  |
-| `meeting_evaluation(meeting_id, plant_id)` | `meeting(id, plant_id)` | restrict |  |
-| `meeting_evaluation(reference_version_id)` | `reference_version(id)` | restrict |  |
-| `meeting_evaluation(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
-| `meeting_item(plant_id)` | `plant(id)` | restrict |  |
-| `meeting_item(meeting_id, plant_id)` | `meeting(id, plant_id)` | restrict |  |
-| `meeting_item(assigned_person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
-| `meeting_item(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
-| `message_template(plant_id)` | `plant(id)` | restrict |  |
-| `message_template(source_version_id)` | `reference_version(id)` | restrict |  |
-| `message_template(source_item_id)` | `reference_item(id)` | restrict | Canonical item is a global or entitled organization source identity; serialized boundary validates item kind, canonical identity and exact current source rights, without transferring ownership. |
-| `message_template(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `notice(tenant_id)` | `tenant(id)` | restrict |  |
 | `notice(recipient_id)` | `account(id)` | restrict |  |
 | `notice(source_record_id)` | `record(id)` | restrict | Own inbox context may refer to an exact entitled source in another tenant; no inherited grant. |
@@ -278,22 +177,12 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `person(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `person(tenant_id)` | `tenant(id)` | restrict |  |
 | `person(organization_id)` | `organization(id)` | restrict |  |
-| `person_merge(plant_id)` | `plant(id)` | restrict |  |
-| `person_merge(source_id, tenant_id)` | `person(id, tenant_id)` | restrict |  |
-| `person_merge(survivor_id, tenant_id)` | `person(id, tenant_id)` | restrict |  |
-| `person_merge(operation_id)` | `audit_event(id)` | restrict | D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access. |
-| `person_merge(reversed_operation_id)` | `audit_event(id)` | restrict | D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access. |
-| `person_merge(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
-| `person_merge(tenant_id)` | `tenant(id)` | restrict |  |
 | `person_note(plant_id)` | `plant(id)` | restrict |  |
 | `person_note(person_id, tenant_id)` | `person(id, tenant_id)` | restrict |  |
 | `person_note(author_id)` | `account(id)` | restrict |  |
 | `person_note(participation_id, tenant_id)` | `participation(id, plant_id)` | restrict |  |
 | `person_note(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `person_note(tenant_id)` | `tenant(id)` | restrict |  |
-| `person_skill(plant_id)` | `plant(id)` | restrict |  |
-| `person_skill(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
-| `person_skill(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `person_tag(plant_id)` | `plant(id)` | restrict |  |
 | `person_tag(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `person_tag(tag_id, plant_id)` | `tag(id, plant_id)` | restrict |  |
@@ -313,12 +202,6 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `pipeline_sharing(changed_by)` | `account(id)` | restrict | Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal. |
 | `pipeline_stage(organization_id)` | `organization(id)` | restrict |  |
 | `pipeline_stage(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
-| `pipeline_stage_move(organization_id)` | `organization(id)` | restrict |  |
-| `pipeline_stage_move(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
-| `pipeline_stage_move(person_id, organization_id)` | `person(id, tenant_id)` | restrict |  |
-| `pipeline_stage_move(from_stage_id, organization_id)` | `pipeline_stage(id, organization_id)` | restrict |  |
-| `pipeline_stage_move(to_stage_id, organization_id)` | `pipeline_stage(id, organization_id)` | restrict |  |
-| `pipeline_stage_move(actor_id)` | `account(id)` | restrict | Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal. |
 | `plant(id)` | `tenant(id)` | restrict |  |
 | `plant(id)` | `record(id)` | restrict | Root identity FK uses id as owner; record CHECK kind not in ('account','plant','organization') or tenant_id = id enforces equal ownership, and the trusted subtype trigger validates the exact root kind. |
 | `plant_geography(plant_id)` | `plant(id)` | restrict |  |
@@ -328,27 +211,8 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `plant_geography(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `platform_grant(account_id)` | `account(id)` | restrict |  |
 | `platform_grant(id, account_id)` | `record(id, tenant_id)` | restrict |  |
-| `private_calendar(account_id)` | `account(id)` | restrict |  |
-| `private_week(plant_id)` | `plant(id)` | restrict |  |
-| `private_week(author_id)` | `account(id)` | restrict |  |
-| `private_week_revision(plant_id)` | `plant(id)` | restrict |  |
-| `private_week_revision(week_id, author_id)` | `private_week(id, author_id)` | restrict |  |
-| `private_week_revision(author_id)` | `account(id)` | restrict |  |
-| `prompt_dismissal(account_id)` | `account(id)` | restrict |  |
-| `prompt_dismissal(plant_id)` | `plant(id)` | restrict |  |
-| `prompt_dismissal(id, account_id)` | `record(id, tenant_id)` | restrict |  |
 | `provider_event(mail_id)` | `mail(id)` | restrict | Signed external event may refer to mail in any tenant; restrict callback processing to its exact provider/message identity. |
 | `provider_event(id)` | `record(id)` | restrict |  |
-| `reader_feedback(plant_context_id)` | `plant(id)` | restrict |  |
-| `reader_feedback(organization_context_id)` | `organization(id)` | restrict |  |
-| `reader_feedback(account_id)` | `account(id)` | restrict |  |
-| `reader_feedback(assessment_id)` | `assessment(id)` | restrict | Feedback is account-private with an entitled plant/organization target; exact optional context must match assessment owner. |
-| `reader_feedback(finding_id)` | `finding(id)` | restrict | Account-private vote may target an entitled finding; validate target and current exact context. |
-| `reader_feedback(reference_version_id)` | `reference_version(id)` | restrict |  |
-| `reader_feedback(article_id)` | `reference_item(id)` | restrict | Canonical item is a global or entitled organization source identity; serialized boundary validates item kind, canonical identity and exact current source rights, without transferring ownership. |
-| `reader_feedback(article_revision_id)` | `article_revision(id)` | restrict | Account-private feedback targets an entitled global or organization article revision; feedback boundary validates canonical article, exact source organization and current plant-context rights. |
-| `reader_feedback(organization_source_id)` | `organization(id)` | restrict |  |
-| `reader_feedback(id, account_id)` | `record(id, tenant_id)` | restrict |  |
 | `reading(account_id)` | `account(id)` | restrict |  |
 | `reading(article_id)` | `reference_item(id)` | restrict | Canonical item is a global or entitled organization source identity; serialized boundary validates item kind, canonical identity and exact current source rights, without transferring ownership. |
 | `reading(last_revision_id)` | `article_revision(id)` | restrict | Private account reading refers to global or entitled organization content; read boundary validates canonical article, exact plant context and current source rights. |
@@ -386,15 +250,11 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `responsibility(team_id, plant_id)` | `team(id, plant_id)` | restrict |  |
 | `responsibility(source_version_id)` | `reference_version(id)` | restrict |  |
 | `responsibility(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
-| `rsvp_proof(plant_id)` | `plant(id)` | restrict |  |
-| `rsvp_proof(participation_id, plant_id)` | `participation(id, plant_id)` | restrict |  |
 | `seat(account_id)` | `account(id)` | restrict |  |
 | `seat(plant_id)` | `plant(id)` | restrict |  |
 | `seat(organization_id)` | `organization(id)` | restrict |  |
 | `seat(invitation_id)` | `invitation(id)` | restrict | Invitation owner is an endpoint, not always the plant. Serialized acceptance validates exact endpoints and tenant kind; consent cannot be inherited. |
 | `seat(id)` | `record(id)` | restrict | Subtype trigger binds actual record owner for a global/public or retained body-free variant whose live root pointer is nullable. |
-| `sending_goal(organization_id)` | `organization(id)` | restrict |  |
-| `sending_goal(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
 | `settings_preview(account_id)` | `account(id)` | no_action |  |
 | `settings_preview(tenant_id)` | `tenant(id)` | no_action |  |
 | `suppression(source_event_id)` | `provider_event(id)` | restrict |  |
@@ -417,9 +277,6 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `task(parent_id, plant_id)` | `task(id, plant_id)` | restrict |  |
 | `task(series_id, plant_id)` | `recurrence(id, plant_id)` | restrict |  |
 | `task(predecessor_id, plant_id)` | `task(id, plant_id)` | restrict |  |
-| `task_dependency(plant_id)` | `plant(id)` | restrict |  |
-| `task_dependency(task_id, plant_id)` | `task(id, plant_id)` | restrict |  |
-| `task_dependency(prerequisite_id, plant_id)` | `task(id, plant_id)` | restrict |  |
 | `team(plant_id)` | `plant(id)` | restrict |  |
 | `team(template_version_id)` | `reference_version(id)` | restrict |  |
 | `team(leader_person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
@@ -434,38 +291,8 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `team_tenure(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `team_tenure(previous_tenure_id, plant_id)` | `team_tenure(id, plant_id)` | restrict |  |
 | `team_tenure(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
-| `training_assignment(plant_id)` | `plant(id)` | restrict |  |
-| `training_assignment(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
-| `training_assignment(program_id, plant_id)` | `training_program(id, plant_id)` | restrict |  |
-| `training_assignment(version_id, program_id)` | `training_version(id, program_id)` | restrict | Same-program compound FK fixes the version to program_id; assignment and version inherit the same plant through their compound program FK. No cross-plant assignment is possible. |
-| `training_assignment(selection_operation_id)` | `audit_event(id)` | restrict | D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access. |
-| `training_assignment(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
-| `training_credit(plant_id)` | `plant(id)` | restrict |  |
-| `training_credit(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
-| `training_credit(version_id, plant_id)` | `training_version(id, plant_id)` | restrict |  |
-| `training_credit(assignment_id, plant_id)` | `training_assignment(id, plant_id)` | restrict |  |
-| `training_credit(prior_credit_id, plant_id)` | `training_credit(id, plant_id)` | restrict |  |
-| `training_credit(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
-| `training_program(plant_id)` | `plant(id)` | restrict |  |
-| `training_program(team_id, plant_id)` | `team(id, plant_id)` | restrict |  |
-| `training_program(current_version_id, plant_id)` | `training_version(id, plant_id)` | restrict |  |
-| `training_program(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
-| `training_requirement(plant_id)` | `plant(id)` | restrict |  |
-| `training_requirement(version_id, plant_id)` | `training_version(id, plant_id)` | restrict |  |
-| `training_requirement(article_id)` | `reference_item(id)` | restrict | Canonical item is a global or entitled organization source identity; serialized boundary validates item kind, canonical identity and exact current source rights, without transferring ownership. |
-| `training_requirement(source_revision_id)` | `article_revision(id)` | restrict | Pinned training article source may be global or an entitled organization revision; native assignment validates canonical article, published state and current exact source rights. |
-| `training_requirement(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
-| `training_version(plant_id)` | `plant(id)` | restrict |  |
-| `training_version(program_id, plant_id)` | `training_program(id, plant_id)` | restrict |  |
-| `training_version(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
-| `training_version(compatible_prior_id, program_id)` | `training_version(id, program_id)` | restrict | Same-program compound FK fixes compatibility to program_id; both versions inherit the same plant through their compound program FK. No cross-plant version is possible. |
 | `venue(plant_id)` | `plant(id)` | restrict |  |
 | `venue(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
-| `wiki_preference(plant_id)` | `plant(id)` | restrict |  |
-| `wiki_preference(plant_id, organization_id)` | `affiliation(plant_id, organization_id)` | restrict |  |
-| `wiki_preference(recognition_operation_id)` | `audit_event(id)` | restrict | D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access. |
-| `wiki_preference(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
-| `wiki_preference(organization_id, group_kind)` | `organization(id, kind)` | restrict |  |
 
 ## Person references
 
@@ -477,29 +304,18 @@ Every declared Person FK has one registration in `target.json.person_references`
 | `person` | `merged_into_person_id, tenant_id` | WP-004, WP-006, WP-011, WP-012 |
 | `person_note` | `person_id, tenant_id` | WP-004, WP-006, WP-014, WP-098 |
 | `person_tag` | `person_id, plant_id` | WP-004, WP-013 |
-| `person_skill` | `person_id, plant_id` | WP-004, WP-013 |
-| `four_cs` | `person_id, plant_id` | WP-004, WP-014 |
 | `interview` | `person_id, plant_id` | WP-004, WP-014 |
 | `commitment` | `person_id, plant_id` | WP-004, WP-014 |
 | `commitment` | `witness_person_id, plant_id` | WP-004, WP-014 |
-| `person_merge` | `source_id, tenant_id` | WP-004, WP-015 |
-| `person_merge` | `survivor_id, tenant_id` | WP-004, WP-015 |
 | `team` | `leader_person_id, plant_id` | WP-004, WP-016 |
 | `team_tenure` | `person_id, plant_id` | WP-004, WP-017 |
-| `training_assignment` | `person_id, plant_id` | WP-004, WP-019 |
-| `training_credit` | `person_id, plant_id` | WP-004, WP-019 |
-| `meeting_item` | `assigned_person_id, plant_id` | WP-004, WP-020, WP-022 |
 | `participation` | `person_id, plant_id` | WP-004, WP-021, WP-022 |
 | `participation` | `inviter_person_id, plant_id` | WP-004, WP-021, WP-022 |
 | `task` | `person_id, plant_id` | WP-004, WP-024 |
 | `obligation` | `person_id, plant_id` | WP-004, WP-024 |
 | `contact_outcome` | `person_id, plant_id` | WP-004, WP-023 |
 | `attestation` | `person_id, plant_id` | WP-004, WP-039 |
-| `launch_guest` | `person_id, plant_id` | WP-004, WP-046 |
-| `communication_recipient` | `person_id, plant_id` | WP-004, WP-029 |
 | `mail` | `recipient_person_id, tenant_id` | WP-004, WP-028, WP-031 |
 | `pipeline_person` | `person_id, organization_id` | WP-004, WP-098 |
-| `pipeline_stage_move` | `person_id, organization_id` | WP-004, WP-098 |
-| `leadership_conversation` | `person_id, organization_id` | WP-004, WP-098 |
 | `development_enrollment` | `person_id, organization_id` | WP-004, WP-099 |
 | `residency_link` | `person_id, organization_id` | WP-004, WP-008 |
