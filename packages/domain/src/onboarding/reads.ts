@@ -3,7 +3,7 @@ import type { Database, Transaction } from "@everyfield/db/client";
 import { and, eq, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import type { SessionResult } from "@everyfield/contracts/identity";
-import type { OnboardingContext, OnboardingProducer } from "@everyfield/contracts/onboarding/server";
+import type { OnboardingProducer } from "@everyfield/contracts/onboarding/server";
 import type { RequestActor } from "../access/index.ts";
 import { OnboardingReadContext } from "./core.ts";
 
