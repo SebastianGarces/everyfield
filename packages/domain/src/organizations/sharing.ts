@@ -189,25 +189,30 @@ export async function applySharingMutation(
 	for (const category of Q.sharingChoices.keyof().options)
 		if (before[category] !== nextChoices[category]) patch[columns[category]] = nextChoices[category];
 	if (!Object.keys(patch).length) return { changed: false, events: [] as string[], current: a };
-	await tx
-		.update(tables.affiliation)
-		.set({
-			...patch,
-			consent_revision: sql`${tables.affiliation.consent_revision}+1`,
-			revision: sql`${tables.affiliation.revision}+1`,
-		})
-		.where(eq(tables.affiliation.id, a.id));
+	// The caller holds the row lock, so the change, the audit row and the side effects run in its one write statement.
+	c.writes.push(
+		tx
+			.update(tables.affiliation)
+			.set({
+				...patch,
+				consent_revision: sql`${tables.affiliation.consent_revision}+1`,
+				revision: sql`${tables.affiliation.revision}+1`,
+			})
+			.where(eq(tables.affiliation.id, a.id)),
+	);
 	const next = String(BigInt(a.revision) + 1n);
 	const event = await appendEvent(tx, c, a.id, "preference", "sharing.changed", a.revision, next);
-	await invalidate(tx, effects, pairOf(a), a.id, next);
-	await effects.notice(tx, {
-		eventId: event,
-		relationshipId: a.id,
-		pair: pairOf(a),
-		kind: "sharing_changed",
-		revision: next,
-		operationId: c.id,
-	});
+	invalidate(tx, effects, c, pairOf(a), a.id, next);
+	c.writes.push(
+		effects.notice(tx, {
+			eventId: event,
+			relationshipId: a.id,
+			pair: pairOf(a),
+			kind: "sharing_changed",
+			revision: next,
+			operationId: c.id,
+		}),
+	);
 	return {
 		changed: true,
 		events: [event],

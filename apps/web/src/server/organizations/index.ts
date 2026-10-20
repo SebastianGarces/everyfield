@@ -18,7 +18,7 @@ import "server-only";
 import { z } from "zod";
 import { database } from "../database";
 import { createMailService } from "../jobs/mail";
-import { enqueueJob } from "../jobs/queue";
+import { queueJobs } from "../jobs/queue";
 import { getViewer } from "../request-context";
 
 // The organization mount (WP-007/ui ruling D11). Screens reach it only through features/organizations/actions.ts.
@@ -60,42 +60,47 @@ function create(v: z.infer<typeof env>) {
 			},
 		},
 	});
+	// Each effect is one or more rows the command runs inside its single write statement (D70).
 	const effects: OrganizationEffects = {
-		async invitation(tx, input) {
+		async invitation(tx, input, writes) {
 			if (input.owner.kind === "global") throw new Error("unavailable");
 			const link = `${v.IDENTITY_ORIGIN}/connections/respond?invitation=${input.invitationId}#${input.proof}`;
-			await mail.enqueue(tx, {
-				owner: input.owner,
-				purpose: "relationship_invitation",
-				logicalKey: `relationship/${input.invitationId}/${input.operationId}`,
-				recipient: null,
-				address: input.recipientEmail,
-				content: {
-					subject: `${input.inviterDescription} asks to connect on EveryField`,
-					text: `${input.inviterDescription} asks to connect on EveryField. Open this link to accept or decline. It works for 30 days.\n\n${link}`,
+			await mail.append(
+				tx,
+				{
+					owner: input.owner,
+					purpose: "relationship_invitation",
+					logicalKey: `relationship/${input.invitationId}/${input.operationId}`,
+					recipient: null,
+					address: input.recipientEmail,
+					content: {
+						subject: `${input.inviterDescription} asks to connect on EveryField`,
+						text: `${input.inviterDescription} asks to connect on EveryField. Open this link to accept or decline. It works for 30 days.\n\n${link}`,
+					},
+					operation: input.operationId,
+					notice: null,
+					eligibleAt: new Date().toISOString(),
 				},
-				operation: input.operationId,
-				notice: null,
-				eligibleAt: new Date().toISOString(),
-			});
+				writes,
+			);
 		},
-		async notice(tx, input) {
+		notice(tx, input) {
 			// The coarse notice goes to the plant (REQ-NTF-009); the notification job reads only the event.
 			const tenant = input.pair.kind === "plant" ? input.pair.subject.id : input.pair.organization.id;
-			await enqueueJob(tx, {
-				tenant,
-				kind: "notification",
-				subject: input.relationshipId,
-				key: `${input.kind}/${input.eventId}`,
-				revision: input.revision,
-				eligibleAt: new Date().toISOString(),
-			});
+			return queueJobs(tx, [
+				{
+					tenant,
+					kind: "notification",
+					subject: input.relationshipId,
+					key: `${input.kind}/${input.eventId}`,
+					revision: input.revision,
+					eligibleAt: new Date().toISOString(),
+				},
+			]);
 		},
-		async invalidate(tx, input) {
+		invalidate(_tx, input) {
 			// Ending or changing a link stops queued work that read the old grant (REQ-IDN-021).
-			await tx.execute(
-				sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${input.sourceId} AND kind IN ('assessment','digest') AND state IN ('ready','retry_wait','claimed')`,
-			);
+			return sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${input.sourceId} AND kind IN ('assessment','digest') AND state IN ('ready','retry_wait','claimed')`;
 		},
 	};
 	// No reporting-location screen here; the plant settings owner supplies the reference (WP-010).

@@ -879,7 +879,7 @@ test("INV-onboarding-authority: lifecycle, registration, current Owner and linke
 
 test("INV-discovery-race: conversion and organization ending serialize account, profile, affiliation without deadlock", async () => {
 	const { createOrganizationAdapter } = await import("../../../packages/domain/src/organizations/index.ts");
-	const { enqueueJob } = await import("../../../apps/web/src/server/jobs/queue.ts");
+	const { queueJobs } = await import("../../../apps/web/src/server/jobs/queue.ts");
 	const d = await discovery(),
 		link = await relationship(d.a, "sending_church", false),
 		orgActor = await actor("sending_church");
@@ -891,21 +891,20 @@ test("INV-discovery-race: conversion and organization ending serialize account, 
 			async invitation() {
 				throw Error("Invitation is outside this race");
 			},
-			async notice(tx, input) {
-				await mail.enqueue(tx, {
-					owner: { kind: "account", id: d.a.id },
-					purpose: "discovery_receipt",
-					logicalKey: "race/" + input.eventId,
-					recipient: d.a.id,
-					address: d.a.user + "@example.test",
-					content: { subject: "Relationship ended", text: "Your relationship ended." },
-					operation: null,
-					notice: null,
-					eligibleAt: new Date().toISOString(),
-				});
+			notice(tx, input) {
+				return queueJobs(tx, [
+					{
+						tenant: input.pair.organization.id,
+						kind: "notification",
+						subject: input.relationshipId,
+						key: "race/" + input.eventId,
+						revision: input.revision,
+						eligibleAt: new Date().toISOString(),
+					},
+				]);
 			},
-			async invalidate(tx, input) {
-				await enqueueJobs(
+			invalidate(tx, input) {
+				return queueJobs(
 					tx,
 					input.owners.map((owner) => ({
 						tenant: owner.id,
