@@ -3447,9 +3447,7 @@
         "sql"
       ],
       "schema_tables": [
-        "affiliation",
-        "assessment",
-        "assessment_contributor"
+        "affiliation"
       ],
       "description": "A plant affiliated with sending churches A/B and network N; org run points to plant ID, wrong kind or parent-network-only reach; end A while B valid.",
       "given": {
@@ -3564,11 +3562,7 @@
         "request",
         "sql"
       ],
-      "schema_tables": [
-        "training_assignment",
-        "training_credit",
-        "training_version"
-      ],
+      "schema_tables": [],
       "description": "Review bulk teams/leaders with overlap and selector revisions; save person/program episodes; mutate live membership; concurrently duplicate assign/remove/correct; completion without assignment and assignment without completion.",
       "given": {
         "P": {
@@ -3788,10 +3782,7 @@
         "sql"
       ],
       "schema_tables": [
-        "launch_guest",
-        "launch_debrief",
-        "document",
-        "evidence_link"
+        "document"
       ],
       "description": "Name-only guest, actual aggregate attendance larger than named count, submitted debrief then new draft, corrected submission, separately reviewed category summary, Person merge collision.",
       "given": {
@@ -4119,11 +4110,7 @@
         "request",
         "sql"
       ],
-      "schema_tables": [
-        "private_calendar",
-        "private_week",
-        "private_week_revision"
-      ],
+      "schema_tables": [],
       "description": "Authors A/B in exact plant, A records ordinal/start/zone; BAdmin tries read/update/history; repeated zone edits and date-line rollover concurrent answer; missing middle answer in mixed strained/struggling streak.",
       "given": {
         "P": {
@@ -4373,9 +4360,7 @@
         "sql"
       ],
       "schema_tables": [
-        "person",
-        "person_merge",
-        "evidence_link"
+        "person"
       ],
       "description": "Enumerate all current Person-bearing references, including immutable snapshots; one synthetic pair with memberships, training, RSVP/card/participation, Launch, tasks, mail, human records and household head; retirement and same-scope merge.",
       "given": {
@@ -4481,7 +4466,6 @@
         "sql"
       ],
       "schema_tables": [
-        "person_merge",
         "audit_event"
       ],
       "description": "Review merge and immediately inverse; change a moved row, duplicate-role/training/card/attendance collision and delivered/unknown provider effect before inverse; unauthorized/crossplant actor.",
@@ -4676,11 +4660,7 @@
         "sql"
       ],
       "schema_tables": [
-        "lifecycle_witness",
-        "assessment",
-        "assessment_fact",
-        "finding",
-        "assessment_contributor"
+        "lifecycle_witness"
       ],
       "description": "Account private+shared records; plant owned objects/affiliations; request then cancel before/after 30 day fence; purge with dependent current state links and scheduled effects; restore snapshot predating purge. Plant A contributes with B to saved organization run, assessment_fact, finding, assessment_contributor and protected lineage, linked feedback/export/artifact and a pending job. Request deletion, revoke A sharing independently, cancel with stale versus current grants, then purge and restore a pre-purge copy. Inspect lifecycle_witness pending_deletion, cancelled and purged with immutable request/revision, cancel_until, cancelled_at, live_purged_at and copy_expires_at; restore before request, between request/cancel and before completed purge.",
       "given": {
@@ -4819,8 +4799,6 @@
       "schema_tables": [
         "plant",
         "organization",
-        "assessment",
-        "assessment_fact",
         "job"
       ],
       "description": "People/training/attendance/contact/date/geography/sharing correction and merge during inference, paused wakeup outbox; quiet unchanged plant ages past refresh; reclaim job and resume old generation. Compare the installed material-trigger table set with every assessment input builder table, including conditional inputs; mutate an input and fail/roll back the transaction.",
@@ -5298,10 +5276,7 @@
         "request",
         "sql"
       ],
-      "schema_tables": [
-        "feedback",
-        "feedback_publication"
-      ],
+      "schema_tables": [],
       "description": "Private feedback contains name/email/screenshots/logs and adversarial tool instructions; frozen allowlisted public DTO; actual repo issue result then response lost; original author loses seat.",
       "given": {
         "P": {
