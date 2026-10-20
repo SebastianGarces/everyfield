@@ -688,32 +688,19 @@ async function pipelineOrder(tx: Tx, ctx: WriteContext, input: z.infer<typeof c.
 				pipeline_position: z.string().parse(found.key),
 				revision: String(BigInt(before.revision) + 1n),
 			});
-			const delta = personChanges(before, after);
 			audit.writes.push(
 				tx
 					.update(tables.person)
 					.set({ pipeline_position: after.pipeline_position, revision: sql<unknown>`(${tables.person.revision} + 1)` })
 					.where(and(eq(tables.person.plant_id, ctx.selected.id), eq(tables.person.id, moving))),
 			);
-			audit.events.push({
-				id: randomUUID(),
-				tenant_id: ctx.selected.id,
-				subject_type: "person",
-				subject_id: moving,
-				command_id: id,
-				actor_id: actor,
-				actor_token: hash([ctx.selected.id, actor]),
-				action: "people.updated",
-				kind: "edit",
-				before_revision: before.revision,
-				after_revision: after.revision,
-				before_value: delta.before,
-				after_value: delta.after,
-			});
+			// The write's one audit event, from the wrapper, names the moved person (D70).
 			return {
 				value: { receiptId: id, outcome: "changed" },
-				subject: ctx.selected.id,
+				subject: moving,
 				action: "people.updated",
+				before,
+				after,
 			};
 		}),
 	);

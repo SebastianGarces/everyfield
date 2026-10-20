@@ -850,9 +850,12 @@ test("INV-pipeline: native moves place one person, persist and retry once", asyn
 		await tx((t) => write.reorderPipeline(t, ctx(), { ...order, input: { ...order.input, afterId: randomUUID() } })),
 		"conflict",
 	);
+	const audits = async () => (await admin.execute(sql`SELECT count(*)::int AS n FROM audit_event`)).rows[0].n;
+	const before = await audits();
 	const saved = ok(await tx((t) => write.reorderPipeline(t, ctx(), order)));
 	assert.equal(saved.outcome, "changed");
 	assert.deepEqual(ok(await tx((t) => write.reorderPipeline(t, ctx(), order))), saved);
+	assert.equal((await audits()) - before, 1, "one audit event for the move; the retry replays without writing");
 	const first = [last, ...all.slice(0, -1)];
 	assert.deepEqual(await column(), first);
 	refused(await tx((t) => write.reorderPipeline(t, ctx(), { ...order, requestKey: randomUUID() })), "conflict");
@@ -954,12 +957,8 @@ test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one trans
 		admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,pipeline_position,state,created_at)
 			SELECT id,${plants[0]}::uuid,${plants[0]}::uuid,'Move regression','other','interviewed','unknown','unknown',${from}::int + n,'live',clock_timestamp()
 			FROM unnest(${sql.param(some)}::uuid[]) WITH ORDINALITY AS t(id, n)`);
-	const history = async () =>
-		(
-			await admin.execute(
-				sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=ANY(${sql.param(ids)}::uuid[]) AND action='people.updated'`,
-			)
-		).rows[0].n;
+	// Every audit row in the schema: the move must add exactly one, whatever its subject (D70).
+	const history = async () => (await admin.execute(sql`SELECT count(*)::int AS n FROM audit_event`)).rows[0].n;
 	// The reorder action: the producer's command plus one column read, in one transaction.
 	const move = async (personId, afterId) => {
 		const column = await tx((t) => readColumnOrder(t, ctx(), "interviewed"));
