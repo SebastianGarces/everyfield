@@ -49,11 +49,10 @@ const enqueueSchema = z.strictObject({
 });
 export type JobInput = z.input<typeof enqueueSchema>;
 
-// Called on the producer's existing transaction, alongside its facts and receipt.
-export async function enqueueJobs(tx: Transaction, inputs: readonly JobInput[]): Promise<string[]> {
+/** The job rows as one insert a producer queues into its own write statement (D70). A known key inserts nothing. */
+export function queueJobs(tx: Transaction, inputs: readonly JobInput[]) {
 	const values = inputs.map((input) => enqueueSchema.parse(input));
-	if (!values.length) return [];
-	const inserted = await tx
+	return tx
 		.insert(tables.job)
 		.values(
 			values.map((v) => ({
@@ -69,15 +68,20 @@ export async function enqueueJobs(tx: Transaction, inputs: readonly JobInput[]):
 				claim_generation: "0",
 			})),
 		)
-		.onConflictDoNothing()
-		.returning({
-			id: tables.job.id,
-			tenant: tables.job.tenant_id,
-			kind: tables.job.kind,
-			subject: tables.job.subject_record_id,
-			key: tables.job.producer_key,
-			revision: tables.job.source_revision,
-		});
+		.onConflictDoNothing();
+}
+// Called on the producer's existing transaction, alongside its facts and receipt.
+export async function enqueueJobs(tx: Transaction, inputs: readonly JobInput[]): Promise<string[]> {
+	const values = inputs.map((input) => enqueueSchema.parse(input));
+	if (!values.length) return [];
+	const inserted = await queueJobs(tx, values).returning({
+		id: tables.job.id,
+		tenant: tables.job.tenant_id,
+		kind: tables.job.kind,
+		subject: tables.job.subject_record_id,
+		key: tables.job.producer_key,
+		revision: tables.job.source_revision,
+	});
 	let rows = inserted;
 	if (rows.length !== values.length) {
 		const input = values.map((v, n) => ({ n, tenant: v.tenant, kind: v.kind, subject: v.subject, key: v.key }));

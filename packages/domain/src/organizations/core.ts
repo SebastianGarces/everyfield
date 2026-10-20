@@ -19,7 +19,7 @@ import {
 } from "@everyfield/contracts/organizations";
 import type { Transaction } from "@everyfield/db/client";
 import { alias } from "@everyfield/db/columns";
-import { and, eq, getTableColumns, isNull, sql, type SQL } from "@everyfield/db/query";
+import { and, eq, getTableColumns, isNull, sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { currentActor, liveOwner } from "@everyfield/domain/access";
 import { createHash, randomUUID } from "node:crypto";
@@ -116,7 +116,9 @@ export const affiliationSchema = z.object({
 	share_wiki: z.boolean(),
 	share_activity: z.boolean(),
 	shared_findings: z.boolean(),
-	/** Computed by loadAffiliations: not ended, accepted, no lifecycle witness on any endpoint, Discovery still open. */
+	/** Computed by loadAffiliations: no lifecycle witness on the link or any endpoint, and a Discovery subject still open. */
+	live: z.boolean(),
+	/** Computed by loadAffiliations: live, not ended and accepted. */
 	active: z.boolean(),
 });
 export type Affiliation = z.infer<typeof affiliationSchema>;
@@ -126,13 +128,15 @@ const sendingOrganization = alias(tables.organization, "sending_organization");
 export type Reader = Pick<Transaction, "select" | "execute">;
 /** Affiliations with their names and a computed `active` flag. A write locks the rows; a read takes no lock. */
 export async function loadAffiliations(tx: Reader, predicate: SQL, write = false) {
+	const live = sql<boolean>`(NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (w.affiliation_id=${tables.affiliation.id} OR (w.opaque_subject_id IN (${tables.affiliation.organization_id},${tables.affiliation.plant_id},${tables.affiliation.account_id},${tables.affiliation.sending_church_id}) AND w.kind IN ('account','plant','organization')))) AND (${tables.affiliation.account_id} IS NULL OR EXISTS(SELECT FROM discovery d WHERE d.account_id=${tables.affiliation.account_id} AND d.converted_at IS NULL)))`;
 	const query = tx
 		.select({
 			...getTableColumns(tables.affiliation),
 			organization_kind: receivingOrganization.kind,
 			organization_name: receivingOrganization.name,
 			subject_kind: sendingOrganization.kind,
-			active: sql<boolean>`${tables.affiliation.ended_at} IS NULL AND ${tables.affiliation.accepted_at}<=clock_timestamp() AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (w.affiliation_id=${tables.affiliation.id} OR (w.opaque_subject_id IN (${tables.affiliation.organization_id},${tables.affiliation.plant_id},${tables.affiliation.account_id},${tables.affiliation.sending_church_id}) AND w.kind IN ('account','plant','organization')))) AND (${tables.affiliation.account_id} IS NULL OR EXISTS(SELECT FROM discovery d WHERE d.account_id=${tables.affiliation.account_id} AND d.converted_at IS NULL))`,
+			live,
+			active: sql<boolean>`${tables.affiliation.ended_at} IS NULL AND ${tables.affiliation.accepted_at}<=clock_timestamp() AND ${live}`,
 		})
 		.from(tables.affiliation)
 		.innerJoin(receivingOrganization, eq(receivingOrganization.id, tables.affiliation.organization_id))
@@ -181,6 +185,7 @@ export const choices = (a: Affiliation) =>
 /** The live flag loadAffiliations computed in the same statement that read the row. */
 export const active = (a: Affiliation) => a.active;
 export interface OrganizationEffects {
+	/** Queue the invitation mail into `writes`, the command's single write statement (D70). */
 	invitation(
 		tx: Transaction,
 		input: {
@@ -192,7 +197,9 @@ export interface OrganizationEffects {
 			expiresAt: string;
 			operationId: string;
 		},
+		writes: SQLWrapper[],
 	): Promise<void>;
+	/** One job row for the coarse notice. The command runs it inside its single write statement (D70). */
 	notice(
 		tx: Transaction,
 		input: {
@@ -204,8 +211,9 @@ export interface OrganizationEffects {
 			revision: string;
 			operationId: string;
 		},
-	): Promise<void>;
-	invalidate(tx: Transaction, input: { owners: readonly Owner[]; sourceId: string; revision: string }): Promise<void>;
+	): SQLWrapper;
+	/** Stops queued work that read the old grant. Runs inside the command's single write statement (D70). */
+	invalidate(tx: Transaction, input: { owners: readonly Owner[]; sourceId: string; revision: string }): SQLWrapper;
 }
 type Command = { requestKey: string; expectedRevision: string; input: unknown };
 export async function beginCommand(tx: Transaction, actor: Actor, selected: Owner, name: string, command: Command) {
@@ -256,16 +264,53 @@ export async function appendEvent(
 	});
 	return id;
 }
-export async function invalidate(
+/** Queue the organization's material bump and the stale-work supersede into the command's write statement. */
+export function invalidate(
 	tx: Transaction,
 	effects: OrganizationEffects,
+	c: NewCommand,
 	pair: RelationshipPair,
 	id: string,
 	rev: string,
 ) {
-	await tx
-		.update(tables.organization)
-		.set({ material_revision: sql<unknown>`(${tables.organization.material_revision} + 1)` })
-		.where(eq(tables.organization.id, pair.organization.id));
-	await effects.invalidate(tx, { owners: [pair.organization], sourceId: id, revision: rev });
+	c.writes.push(
+		tx
+			.update(tables.organization)
+			.set({ material_revision: sql<unknown>`(${tables.organization.material_revision} + 1)` })
+			.where(eq(tables.organization.id, pair.organization.id)),
+		effects.invalidate(tx, { owners: [pair.organization], sourceId: id, revision: rev }),
+	);
 }
+/** SQL fragments for one-statement fact reads: the checks validPair and subjectAuthority make, as boolean columns. */
+export const witnessHides = (kind: "account" | "plant", id: SQL) =>
+	sql<boolean>`EXISTS(SELECT FROM lifecycle_witness w WHERE w.kind=${kind} AND w.opaque_subject_id=${id} AND w.state NOT IN ('active','cancelled'))`;
+export const discoveryOpen = (accountId: SQL) =>
+	sql<boolean>`EXISTS(SELECT FROM discovery d WHERE d.account_id=${accountId} AND d.converted_at IS NULL)`;
+export const seatless = (accountId: SQL) =>
+	sql<boolean>`NOT EXISTS(SELECT FROM seat s WHERE s.account_id=${accountId} AND s.ended_at IS NULL)`;
+const uuid = (value: string) => sql`${sql.param(value)}::uuid`;
+/** The endpoint root exists with that kind and no lifecycle witness hides it. Organizations carry no witness. */
+export function liveEndpoint(o: Owner): SQL<boolean> {
+	if (o.kind === "global") return sql<boolean>`false`;
+	if (o.kind === "organization")
+		return sql<boolean>`EXISTS(SELECT FROM organization WHERE id=${uuid(o.id)} AND kind=${o.organizationKind})`;
+	const root = o.kind === "plant" ? sql`plant` : sql`account`;
+	return sql<boolean>`(EXISTS(SELECT FROM ${root} WHERE id=${uuid(o.id)}) AND NOT ${witnessHides(o.kind, uuid(o.id))})`;
+}
+/** Both endpoints exist and are not being deleted, and a Discovery subject is still open: validPair in one column. */
+export function pairLive(pair: RelationshipPair): SQL<boolean> {
+	const live = sql<boolean>`(${liveEndpoint(subjectOwner(pair))} AND ${liveEndpoint(pair.organization)})`;
+	return pair.kind === "discovery" ? sql<boolean>`(${live} AND ${discoveryOpen(uuid(pair.accountId))})` : live;
+}
+/** The subject may act for a discovery pair only while the profile is open and the account holds no live seat. */
+export const discoveryAuthority = (pair: RelationshipPair) =>
+	pair.kind === "discovery"
+		? sql<boolean>`(${discoveryOpen(uuid(pair.accountId))} AND ${seatless(uuid(pair.accountId))})`
+		: sql<boolean>`true`;
+type PairColumns = Record<"plant_id" | "account_id" | "sending_church_id" | "organization_id", SQLWrapper>;
+/** The rows of this exact pair in `affiliation` or `relationship_invitation`. */
+export const pairMatch = (t: PairColumns, pair: RelationshipPair) => {
+	const [plant, account, church, organization] = endpointValues(pair);
+	const nullable = (v: string | null | undefined) => (v ? uuid(v) : sql`NULL::uuid`);
+	return sql`${t.plant_id} IS NOT DISTINCT FROM ${nullable(plant)} AND ${t.account_id} IS NOT DISTINCT FROM ${nullable(account)} AND ${t.sending_church_id} IS NOT DISTINCT FROM ${nullable(church)} AND ${t.organization_id}=${uuid(organization!)}`;
+};

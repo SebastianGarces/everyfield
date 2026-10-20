@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
-import { enqueueJob } from "../../../apps/web/src/server/jobs/queue.ts";
+import { enqueueJob, queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { deletionOperations, issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/deletion.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -58,8 +58,42 @@ try {
 	const unused = async () => {
 		throw Error("unexpected_profile_collaborator");
 	};
+	// Each effect is rows the command runs inside its one write statement (D70); the mount does the same.
+	const proofs = new Map();
 	const organizations = createOrganizationAdapter(
-		{ invitation: unused, notice: unused, invalidate: unused },
+		{
+			invitation: (tx, i, writes) => {
+				proofs.set(i.invitationId, i.proof);
+				return f.mail.append(
+					tx,
+					{
+						owner: i.owner,
+						purpose: "relationship_invitation",
+						logicalKey: "relationship/" + i.invitationId + "/" + i.operationId,
+						recipient: null,
+						address: i.recipientEmail,
+						content: { subject: i.inviterDescription, text: "native " + i.proof },
+						operation: i.operationId,
+						notice: null,
+						eligibleAt: new Date().toISOString(),
+					},
+					writes,
+				);
+			},
+			notice: (tx, i) =>
+				queueJobs(tx, [
+					{
+						tenant: i.pair.kind === "plant" ? i.pair.subject.id : i.pair.organization.id,
+						kind: "notification",
+						subject: i.relationshipId,
+						key: i.kind + "/" + i.eventId,
+						revision: i.revision,
+						eligibleAt: new Date().toISOString(),
+					},
+				]),
+			invalidate: (_tx, i) =>
+				sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${i.sourceId} AND kind IN ('assessment','digest') AND state IN ('ready','retry_wait','claimed')`,
+		},
 		{ candidates: unused },
 	);
 	const orgUpdated = await measure("native.organizations.profile", () =>
@@ -77,6 +111,47 @@ try {
 		organizations["organizations.getProfile"](tx, orgActor.session, org.w, { organization: org.w }),
 	);
 	assert.equal(orgProfile.profile.name, "Native organization");
+	// Relationship writes at the native boundary: the write gate, one locked read, one replay check, one write statement.
+	const pair = { kind: "plant", subject: s.w, organization: org.w };
+	const linked = await f.db.execute(
+		sql`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings) VALUES(${s.w.id},${org.w.id},clock_timestamp(),true,true,true,true,true,true,true) RETURNING id`,
+	);
+	const ended = await measure("native.organizations.end", () =>
+		f.db.transaction(async (tx) => {
+			assert.ok(await orgActor.bind(tx, org.w));
+			return organizations["associations.end"](tx, orgActor.session, org.w, {
+				requestKey: randomUUID(),
+				expectedRevision: "1",
+				input: { relationshipId: linked.rows[0].id, pair, confirmed: true, reason: "Native end" },
+			});
+		}),
+	);
+	assert.equal(ended.status, "committed");
+	const plantRevision = (await f.db.execute(sql`SELECT revision FROM plant WHERE id=${s.w.id}`)).rows[0].revision;
+	const invited = await measure("native.organizations.invite", () =>
+		f.db.transaction(async (tx) => {
+			assert.ok(await actor.bind(tx, s.w));
+			return organizations["associations.invite"](tx, actor.session, s.w, {
+				requestKey: randomUUID(),
+				expectedRevision: plantRevision,
+				input: { pair, recipientEmail: org.sender.email },
+			});
+		}),
+	);
+	assert.equal(invited.status, "pending");
+	const accepted = await measure("native.organizations.accept", () =>
+		f.db.transaction(async (tx) => {
+			assert.ok(await orgActor.bind(tx, org.w));
+			return organizations["associations.acceptInvitation"](tx, orgActor.session, org.w, {
+				requestKey: randomUUID(),
+				expectedRevision: "1",
+				input: { invitationId: invited.invitationId, proof: proofs.get(invited.invitationId), decision: "accept" },
+			});
+		}),
+	);
+	assert.equal(accepted.status, "accepted");
+	assert.equal(accepted.relationship.id, linked.rows[0].id);
+	assert.equal(accepted.relationship.revision, "3");
 
 	const a = await f.account(),
 		self = await f.actor(a.session),

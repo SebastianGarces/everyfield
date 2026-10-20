@@ -145,32 +145,34 @@ export function consentOperations(
 				const c = await beginCommand(tx, actor, selected, "pipelineSharing.setConsent", q);
 				if (c.kind === "replay") return Q.mutationResult.parse(c.result);
 				checkRevision(q.expectedRevision, a.revision);
-				await tx
-					.insert(tables.pipeline_sharing)
-					.values({
-						id: sql`gen_random_uuid()`,
-						organization_id: selected.id,
-						relationship_id: a.id,
-						network_id: a.organization_id,
-						share_pipeline_totals: q.input.sharePipelineTotals,
-						changed_by: actor.accountId,
-						revision: "1",
-					})
-					.onConflictDoUpdate({
-						target: tables.pipeline_sharing.relationship_id,
-						set: {
+				c.writes.push(
+					tx
+						.insert(tables.pipeline_sharing)
+						.values({
+							id: sql`gen_random_uuid()`,
+							organization_id: selected.id,
+							relationship_id: a.id,
+							network_id: a.organization_id,
 							share_pipeline_totals: q.input.sharePipelineTotals,
 							changed_by: actor.accountId,
-							revision: sql`${tables.pipeline_sharing.revision}+1`,
-						},
-					});
-				await tx
-					.update(tables.affiliation)
-					.set({ revision: sql<unknown>`(${tables.affiliation.revision} + 1)` })
-					.where(eq(tables.affiliation.id, a.id));
+							revision: "1",
+						})
+						.onConflictDoUpdate({
+							target: tables.pipeline_sharing.relationship_id,
+							set: {
+								share_pipeline_totals: q.input.sharePipelineTotals,
+								changed_by: actor.accountId,
+								revision: sql`${tables.pipeline_sharing.revision}+1`,
+							},
+						}),
+					tx
+						.update(tables.affiliation)
+						.set({ revision: sql<unknown>`(${tables.affiliation.revision} + 1)` })
+						.where(eq(tables.affiliation.id, a.id)),
+				);
 				const next = String(BigInt(a.revision) + 1n);
 				await appendEvent(tx, c, a.id, "preference", "sharing.changed", a.revision, next);
-				await invalidate(tx, effects, pairOf(a), a.id, next);
+				invalidate(tx, effects, c, pairOf(a), a.id, next);
 				return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
 			});
 		},
@@ -250,23 +252,25 @@ export function consentOperations(
 			"choices" in q.input
 				? Q.residentChoices.parse(q.input.choices)
 				: { shareFoundations: false, shareMilestones: false };
-		await tx
-			.update(tables.residency_link)
-			.set({
-				share_foundations: choices.shareFoundations,
-				share_milestones: choices.shareMilestones,
-				consent_revision: sql<unknown>`(${tables.residency_link.consent_revision} + 1)`,
-				revision: sql<unknown>`(${tables.residency_link.revision} + 1)`,
-				ended_at: sql<unknown>`CASE WHEN ${sql.param(leave)} THEN clock_timestamp() ELSE NULL END`,
-			})
-			.where(eq(tables.residency_link.id, l.id));
 		const next = String(BigInt(l.revision) + 1n);
+		c.writes.push(
+			tx
+				.update(tables.residency_link)
+				.set({
+					share_foundations: choices.shareFoundations,
+					share_milestones: choices.shareMilestones,
+					consent_revision: sql<unknown>`(${tables.residency_link.consent_revision} + 1)`,
+					revision: sql<unknown>`(${tables.residency_link.revision} + 1)`,
+					ended_at: sql<unknown>`CASE WHEN ${sql.param(leave)} THEN clock_timestamp() ELSE NULL END`,
+				})
+				.where(eq(tables.residency_link.id, l.id)),
+			tx
+				.update(tables.organization)
+				.set({ material_revision: sql<unknown>`(${tables.organization.material_revision} + 1)` })
+				.where(eq(tables.organization.id, l.organization_id)),
+			effects.invalidate(tx, { owners: [organization], sourceId: l.id, revision: next }),
+		);
 		await appendEvent(tx, c, l.id, leave ? "remove" : "preference", null, l.revision, next);
-		await tx
-			.update(tables.organization)
-			.set({ material_revision: sql<unknown>`(${tables.organization.material_revision} + 1)` })
-			.where(eq(tables.organization.id, l.organization_id));
-		await effects.invalidate(tx, { owners: [organization], sourceId: l.id, revision: next });
 		return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
 	}
 }
