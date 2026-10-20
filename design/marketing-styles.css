@@ -43,6 +43,43 @@
 [data-corners="c"] { --corner-card: 0px; --corner-control: 999px; --corner-pill: 999px; --corner-petal: 0px; }
 :root { --corner-media: 0 var(--corner-petal) 0 0; }
 
+/* =====================================================================
+   Photo treatment (2026-10-19 rebrand). It replaces the gradient surfaces. Copy this block to reuse it.
+   One photo surface has three layers: the image, a flat black overlay (default 20%), then film grain.
+   - Add a photo: put the web copies in assets/photos/ and add one --photo-<name> token (wide and narrow).
+   - Use: class="photo" data-photo="<crop>". A crop sets --photo-src, --photo-pos (focus point and zoom origin)
+     and --photo-zoom (1 = cover). Change --photo-shade only for text on a photo (see .photo-text).
+   - The slot sets the corners: border-radius: var(--corner-media) gives the petal in corner option B.
+   - Text on a photo is cream. Check 4.5:1 for each crop at each width before you ship it.
+   ===================================================================== */
+:root {
+  --photo-wheat: image-set(url("assets/photos/wheat-2400.avif") type("image/avif"), url("assets/photos/wheat-2400.jpg") type("image/jpeg"));
+  --photo-field: image-set(url("assets/photos/field-2400.avif") type("image/avif"), url("assets/photos/field-2400.jpg") type("image/jpeg"));
+  --photo-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncG type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncB type='linear' slope='1.6' intercept='-.3'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+@media (max-width: 900px) {
+  :root { --photo-wheat: image-set(url("assets/photos/wheat-1200.avif") type("image/avif"), url("assets/photos/wheat-1200.jpg") type("image/jpeg")); --photo-field: image-set(url("assets/photos/field-1200.avif") type("image/avif"), url("assets/photos/field-1200.jpg") type("image/jpeg")); }
+}
+.photo { position: relative; isolation: isolate; overflow: hidden; background-color: #3A3529; color: #F6F0E9;
+  --on: #F6F0E9; --on-2: rgba(246, 240, 233, .92); --on-3: rgba(246, 240, 233, .9); --pill-bg: rgba(24, 29, 25, .42); --pill-edge: rgba(246, 240, 233, .3); --spark: rgba(246, 240, 233, .32); --spark-hi: #F6F0E9; }
+.photo::before, .photo::after { content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; }
+.photo::before { z-index: -2; background: var(--photo-src) var(--photo-pos, 50% 50%) / cover no-repeat;
+  transform: scale(var(--photo-zoom, 1)); transform-origin: var(--photo-pos, 50% 50%);
+  filter: brightness(calc(1 - var(--photo-shade, .2))); } /* brightness(.8) = a 20% black overlay */
+.photo::after { z-index: -1; background: var(--photo-grain) 0 0 / 260px 260px; opacity: var(--photo-grain-mix, .34); mix-blend-mode: overlay; }
+.photo :focus-visible { outline: 2px solid #F6F0E9; outline-offset: 2px; }
+/* Crops of the two photos. Dark crops (wheat-grain, wheat-low) carry cream text at the 20% overlay. */
+[data-photo="wheat-dusk"]    { --photo-src: var(--photo-wheat); --photo-pos: 50% 58%; }
+[data-photo="wheat-sun"]     { --photo-src: var(--photo-wheat); --photo-pos: 6% 34%; --photo-zoom: 1.55; }
+[data-photo="wheat-clouds"]  { --photo-src: var(--photo-wheat); --photo-pos: 74% 26%; --photo-zoom: 1.6; }
+[data-photo="wheat-grain"]   { --photo-src: var(--photo-wheat); --photo-pos: 38% 100%; --photo-zoom: 1.5; }
+[data-photo="wheat-low"]     { --photo-src: var(--photo-wheat); --photo-pos: 88% 100%; --photo-zoom: 1.5; }
+[data-photo="field-sky"]     { --photo-src: var(--photo-field); --photo-pos: 50% 16%; }
+[data-photo="field-horizon"] { --photo-src: var(--photo-field); --photo-pos: 50% 56%; }
+[data-photo="field-rows"]    { --photo-src: var(--photo-field); --photo-pos: 50% 100%; --photo-zoom: 1.45; }
+/* Small tiles and light crops that carry cream text or icons use a deeper overlay. */
+.photo-text { --photo-shade: .55; }
+
 /* ------------------------------------------------------------------ */
 /* A. Field Notes                                                       */
 /* Warm paper, ink type, map line work. Calm and literate.              */

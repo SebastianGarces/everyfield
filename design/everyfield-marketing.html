@@ -32,6 +32,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Instrument+Sans:wght@400..700&display=swap" rel="stylesheet">
+<link rel="preload" as="image" href="assets/photos/wheat-2400.avif" type="image/avif" fetchpriority="high" media="(min-width: 901px)">
+<link rel="preload" as="image" href="assets/photos/wheat-1200.avif" type="image/avif" fetchpriority="high" media="(max-width: 900px)">
 <style id="mk-tokens">
 /* Signal tokens. Derived from the .mk-signal block in design/marketing-styles.css.
    Revision 2 changes: canvas #FCFBF8 (Calendly), white cards, secondary surface #F5F3EE.
@@ -235,41 +237,47 @@
 .ef .lens-name { font-weight: 600; font-size: 13px; }
 .ef .lens-note { font-size: 12px; color: var(--ef-text-3); line-height: 1.35; }
 
-/* InsightCard: copied from the dashboard (base colour + blurred OKLCH mesh + film grain) */
-.insight, .gsurf { position: relative; overflow: hidden; isolation: isolate; background: var(--g-base); }
-.insight { border-radius: var(--corner-card); padding: 22px 24px; color: var(--on); display: flex; flex-direction: column; box-shadow: 0 18px 36px -24px rgba(24,29,25,.45); }
-.insight::before, .gsurf::before, .mk-signal .sec-cta .cta-box::before {
-  content: ""; position: absolute; inset: -25%; z-index: -2; pointer-events: none;
-  background:
-    radial-gradient(in oklch circle at 82% 18%, var(--g5) 0%, transparent 22%),
-    radial-gradient(in oklch 38% 44% at 24% 26%, var(--g1) 0%, transparent 72%),
-    radial-gradient(in oklch 44% 48% at 74% 38%, var(--g2) 0%, transparent 72%),
-    radial-gradient(in oklch 46% 42% at 64% 80%, var(--g3) 0%, transparent var(--g3-reach, 72%)),
-    radial-gradient(in oklch 36% 38% at 26% 78%, var(--g4) 0%, transparent 72%);
-  filter: blur(52px) saturate(1.1);
+/* =====================================================================
+   Photo treatment (2026-10-19 rebrand). It replaces the gradient surfaces. Copy this block to reuse it.
+   One photo surface has three layers: the image, a flat black overlay (default 20%), then film grain.
+   - Add a photo: put the web copies in assets/photos/ and add one --photo-<name> token (wide and narrow).
+   - Use: class="photo" data-photo="<crop>". A crop sets --photo-src, --photo-pos (focus point and zoom origin)
+     and --photo-zoom (1 = cover). Change --photo-shade only for text on a photo (see .photo-text).
+   - The slot sets the corners: border-radius: var(--corner-media) gives the petal in corner option B.
+   - Text on a photo is cream. Check 4.5:1 for each crop at each width before you ship it.
+   ===================================================================== */
+:root {
+  --photo-wheat: image-set(url("assets/photos/wheat-2400.avif") type("image/avif"), url("assets/photos/wheat-2400.jpg") type("image/jpeg"));
+  --photo-field: image-set(url("assets/photos/field-2400.avif") type("image/avif"), url("assets/photos/field-2400.jpg") type("image/jpeg"));
+  --photo-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncG type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncB type='linear' slope='1.6' intercept='-.3'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
-.insight::after, .gsurf::after, .mk-signal .sec-cta .cta-box::after {
-  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncG type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncB type='linear' slope='1.6' intercept='-.3'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size: 260px 260px; opacity: var(--grain, .42); mix-blend-mode: overlay;
+@media (max-width: 900px) {
+  :root { --photo-wheat: image-set(url("assets/photos/wheat-1200.avif") type("image/avif"), url("assets/photos/wheat-1200.jpg") type("image/jpeg")); --photo-field: image-set(url("assets/photos/field-1200.avif") type("image/avif"), url("assets/photos/field-1200.jpg") type("image/jpeg")); }
 }
-.insight, .gsurf, .mk-signal .sec-cta .cta-box { --on: #181D19; --on-2: rgba(24,29,25,.74); --on-3: rgba(24,29,25,.72); --pill-bg: rgba(24,29,25,.07); --pill-edge: rgba(24,29,25,.16); --spark: rgba(24,29,25,.16); --spark-hi: #181D19; --grain: .42; }
-[data-tone="field"] { --g-base: #07D081; --g1: #1AF197; --g2: #1CEE95; --g3: #01C278; --g4: #01A866; --g5: #EFFFD9; }
-[data-tone="sky"] { --g-base: #93C6FF; --g1: #A6D1FF; --g2: #7DB6FF; --g3: #C5E3FF; --g4: #6AA6F7; --g5: #F5FAFF; }
-[data-tone="dawn"] { --g-base: #FFC48A; --g1: #FFD2A1; --g2: #FFB26A; --g3: #FFE4C4; --g4: #F7A05A; --g5: #FFF7EC; }
-[data-tone="lilac"] { --g-base: #C3B2FF; --g1: #D2C4FF; --g2: #B09AFF; --g3: #E4DBFF; --g4: #A48CF5; --g5: #F8F5FF; }
-/* Revision 19: four more panel tones for the sending section, so it does not repeat the Plant Intelligence tones above it. */
-[data-tone="sea"] { --g-base: #7FDCCB; --g1: #96E6D7; --g2: #63CFBC; --g3: #BDF1E6; --g4: #4FBFAB; --g5: #F2FFFB; }
-[data-tone="rose"] { --g-base: #FFB3C4; --g1: #FFC6D3; --g2: #FF9DB3; --g3: #FFDCE4; --g4: #F28AA2; --g5: #FFF5F7; }
-[data-tone="sun"] { --g-base: #FFDD7A; --g1: #FFE69A; --g2: #FFD25A; --g3: #FFF0C2; --g4: #F5C443; --g5: #FFFBEB; }
-[data-tone="slate"] { --g-base: #B4C3D6; --g1: #C5D2E2; --g2: #A2B3CA; --g3: #DCE4EE; --g4: #8FA2BC; --g5: #F6F8FB; }
-.insight[data-tone="field"] { box-shadow: 0 18px 36px -24px rgba(0, 120, 72,.55); }
-.insight[data-tone="sky"] { box-shadow: 0 18px 36px -24px rgba(40,90,170,.45); }
-.insight[data-tone="dawn"] { box-shadow: 0 18px 36px -24px rgba(190,110,40,.5); }
-.insight[data-tone="lilac"] { box-shadow: 0 18px 36px -24px rgba(110,80,200,.45); }
-/* Revision 29: shadow tints for sun and sea, so they follow the same InsightCard recipe as the four tones above. */
-.insight[data-tone="sun"] { box-shadow: 0 18px 36px -24px rgba(180,130,20,.5); }
-.insight[data-tone="sea"] { box-shadow: 0 18px 36px -24px rgba(30,140,120,.45); }
+.photo { position: relative; isolation: isolate; overflow: hidden; background-color: #3A3529; color: #F6F0E9;
+  --on: #F6F0E9; --on-2: rgba(246, 240, 233, .92); --on-3: rgba(246, 240, 233, .9); --pill-bg: rgba(24, 29, 25, .42); --pill-edge: rgba(246, 240, 233, .3); --spark: rgba(246, 240, 233, .32); --spark-hi: #F6F0E9; }
+.photo::before, .photo::after { content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; }
+.photo::before { z-index: -2; background: var(--photo-src) var(--photo-pos, 50% 50%) / cover no-repeat;
+  transform: scale(var(--photo-zoom, 1)); transform-origin: var(--photo-pos, 50% 50%);
+  filter: brightness(calc(1 - var(--photo-shade, .2))); } /* brightness(.8) = a 20% black overlay */
+.photo::after { z-index: -1; background: var(--photo-grain) 0 0 / 260px 260px; opacity: var(--photo-grain-mix, .34); mix-blend-mode: overlay; }
+.photo :focus-visible { outline: 2px solid #F6F0E9; outline-offset: 2px; }
+/* Crops of the two photos. Dark crops (wheat-grain, wheat-low) carry cream text at the 20% overlay. */
+[data-photo="wheat-dusk"]    { --photo-src: var(--photo-wheat); --photo-pos: 50% 58%; }
+[data-photo="wheat-sun"]     { --photo-src: var(--photo-wheat); --photo-pos: 6% 34%; --photo-zoom: 1.55; }
+[data-photo="wheat-clouds"]  { --photo-src: var(--photo-wheat); --photo-pos: 74% 26%; --photo-zoom: 1.6; }
+[data-photo="wheat-grain"]   { --photo-src: var(--photo-wheat); --photo-pos: 38% 100%; --photo-zoom: 1.5; }
+[data-photo="wheat-low"]     { --photo-src: var(--photo-wheat); --photo-pos: 88% 100%; --photo-zoom: 1.5; }
+[data-photo="field-sky"]     { --photo-src: var(--photo-field); --photo-pos: 50% 16%; }
+[data-photo="field-horizon"] { --photo-src: var(--photo-field); --photo-pos: 50% 56%; }
+[data-photo="field-rows"]    { --photo-src: var(--photo-field); --photo-pos: 50% 100%; --photo-zoom: 1.45; }
+/* Small tiles and light crops that carry cream text or icons use a deeper overlay. */
+.photo-text { --photo-shade: .55; }
+
+/* InsightCard: copied from the dashboard, now on a dark photo crop with cream text */
+/* Small cards are taller than the photo's ratio: zoom further so only the dark wheat shows. */
+.insight.photo { --photo-zoom: 2.3; }
+.insight { border-radius: var(--corner-card); padding: 22px 24px; color: var(--on); display: flex; flex-direction: column; box-shadow: 0 18px 36px -24px rgba(24,29,25,.55); }
 .insight-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .insight-pill { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px; border-radius: var(--corner-pill); background: var(--pill-bg); box-shadow: 0 0 0 1px var(--pill-edge) inset; font-weight: 600; font-size: 13px; }
 .insight-count { font-size: 12.5px; color: var(--on-3); }
@@ -279,7 +287,7 @@
 .insight-title { font-family: var(--mk-font-display); font-size: 23px; line-height: 1.18; font-weight: 400; margin-top: 14px; letter-spacing: var(--mk-tracking-display); }
 .insight-text { color: var(--on-2); margin-top: 10px; font-size: 14px; }
 .insight-footer { margin-top: auto; padding-top: 20px; display: flex; gap: 8px; flex-wrap: wrap; }
-.insight .btn[data-variant="light"] { background: #181D19; color: #F6F0E9; box-shadow: 0 8px 18px -10px rgba(24,29,25,.6); }
+.insight .btn[data-variant="light"] { background: #F6F0E9; color: #181D19; box-shadow: 0 8px 18px -10px rgba(24,29,25,.6); }
 .insight .btn[data-variant="glass"] { background: var(--pill-bg); color: var(--on); box-shadow: 0 0 0 1px var(--pill-edge) inset; }
 .insight .spark { display: flex; align-items: flex-end; gap: 6px; height: 46px; margin-top: 16px; max-width: 62%; }
 .insight .spark span { flex: 1; border-radius: 4px 4px 2px 2px; background: var(--spark); }
@@ -504,8 +512,9 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .phc-card { scroll-snap-align: start; display: flex; flex-direction: column; width: clamp(296px, 26vw, 372px); height: 444px; border-radius: var(--corner-card); background: var(--mk-surface); border: var(--mk-border-card); box-shadow: var(--mk-shadow-card); overflow: hidden; }
 .phc-card:focus-visible { outline: 2px solid #181D19; outline-offset: 2px; }
 /* Card art: the number sits top left; the vignette is centered below it and is cropped by the bottom of the art. */
-.phc-art.gsurf { position: relative; height: 236px; flex: none; margin: 8px 8px 0; border-radius: var(--corner-media); }
-.phc-num { position: absolute; left: 18px; top: 16px; font-family: var(--mk-font-display); font-size: 96px; font-weight: 400; line-height: .8; letter-spacing: var(--mk-tracking-display); color: #181D19; font-variant-numeric: tabular-nums; }
+/* The cream phase number sits on the photo: a 50% overlay keeps it at 3:1 on the light crops. */
+.phc-art.photo { --photo-shade: .5; position: relative; height: 236px; flex: none; margin: 8px 8px 0; border-radius: var(--corner-media); }
+.phc-num { position: absolute; left: 18px; top: 16px; font-family: var(--mk-font-display); font-size: 96px; font-weight: 400; line-height: .8; letter-spacing: var(--mk-tracking-display); color: #F6F0E9; font-variant-numeric: tabular-nums; }
 .phc-vig { position: absolute; left: 0; right: 0; top: 112px; width: min(calc(100% - 28px), 292px); margin: 0 auto; }
 .phc-txt { padding: 20px 22px 22px; }
 /* Pinned mode (desktop, no reduced motion). The pin is a tall track (frame height + travel, set by JS); the frame is sticky
@@ -522,7 +531,7 @@ svg.i { width: 18px; height: 18px; flex: none; }
 @media (max-width: 640px) {
   .ph-sec .sec-head { margin-bottom: 26px; }
   .phc-card { width: min(82vw, 320px); height: auto; }
-  .phc-art.gsurf { height: 200px; }
+  .phc-art.photo { height: 200px; }
 }
 
 /* Audiences: Cohere pattern. Three columns topped by rules, each with a "learn more" link. */
@@ -616,9 +625,15 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .mk-signal .trust-item { background: var(--mk-surface); border-radius: var(--corner-card); border-top: 0; padding: 26px; box-shadow: var(--mk-shadow-card); }
 .mk-signal .trust-item .ti-icon { background: #D6FBE3; color: #026B40; }
 .mk-signal .limits { background: var(--mk-surface); border: 0; box-shadow: var(--mk-shadow-card); }
-.mk-signal .sec-cta .cta-box { --g-base: #07D081; --g1: #1AF197; --g2: #1CEE95; --g3: #01C278; --g4: #01A866; --g5: #EFFFD9; overflow: hidden; isolation: isolate; background: var(--g-base); color: #181D19; box-shadow: 0 30px 60px -36px rgba(0, 120, 72,.6); }
-.mk-signal .sec-cta .cta-box .lead, .mk-signal .sec-cta .cta-box .small { color: rgba(24,29,25,.78); }
-.mk-signal .sec-cta .cta-box .mk-btn.secondary { background: rgba(255,255,255,.75); }
+.sec-cta .cta-box { box-shadow: 0 30px 60px -36px rgba(24, 29, 25, .55); }
+.sec-cta .cta-box .h1 { color: #F6F0E9; }
+.sec-cta .cta-box .lead, .sec-cta .cta-box .small { color: rgba(246, 240, 233, .9); }
+.sec-cta .cta-box .mk-btn.primary { background: #F6F0E9; color: #181D19; }
+.sec-cta .cta-box .mk-btn.primary:hover { background: #FFFFFF; }
+.sec-cta .cta-box .mk-btn.secondary { background: transparent; color: #F6F0E9; box-shadow: inset 0 0 0 1px rgba(246, 240, 233, .7); }
+.sec-cta .cta-box .mk-btn.secondary:hover { background: rgba(246, 240, 233, .1); box-shadow: inset 0 0 0 1.5px #F6F0E9; }
+.cta-mark { display: block; width: clamp(44px, 4.4vw, 64px); height: auto; aspect-ratio: 1; color: #F6F0E9; }
+@media (max-width: 900px) { .sec-cta .cta-box { --photo-zoom: 2.6; } }
 
 /* =====================================================================
    Motion. IntersectionObserver reveals in JS. prefers-reduced-motion shows static states.
@@ -632,8 +647,8 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .rv.rv-up { --rv-y: 28px; transition-duration: .5s; }
 
 /* =====================================================================
-   Revision 3 hero: one rounded panel with the dashboard InsightCard field gradient
-   (.gsurf[data-tone="field"]: base, blurred OKLCH mesh, top-right highlight, grain).
+   Revision 3 hero: one rounded panel. 2026-10-19 rebrand: the field gradient is now the wheat photo
+   (.hero-bg.photo, data-photo="wheat-dusk": photo, 20% black overlay, grain).
    It holds the eyebrow, headline, subtext, CTAs, the animation and its step tabs.
    The page canvas around it stays plain. The animation card sits on the green.
    One person (Maria) goes from first contact to the core group.
@@ -656,18 +671,17 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .hero-anim .hero-row { margin-top: clamp(18px, 2.1vw, 30px); gap: clamp(24px, 2.8vw, 40px); }
 .hero-anim .hero-row .lead { max-width: 560px; font-size: clamp(16.5px, 1.25vw, 18px); color: var(--hero-sub, rgba(24, 29, 25, .72)); }
 .hero-anim .hero-band { margin-top: clamp(32px, 3.9vw, 56px); }
-.hero-panel { border-radius: var(--corner-media); padding: clamp(44px, 6.5vw, 96px) clamp(18px, 5vw, 72px) clamp(28px, 4vw, 56px); color: var(--on); box-shadow: 0 30px 60px -40px rgba(0, 120, 72, .6); }
+.hero-panel { border-radius: var(--corner-media); padding: clamp(44px, 6.5vw, 96px) clamp(18px, 5vw, 72px) clamp(28px, 4vw, 56px); position: relative; isolation: isolate; color: #181D19; box-shadow: 0 30px 60px -40px rgba(24, 29, 25, .5); }
 /* Revision 7: the field gradient sits on its own layer (.hero-bg) so a vertical mask can fade it to the page at the top.
    The grain is part of the layer and fades with it. Tune with --hero-fade-from (fully transparent until here)
    and --hero-fade-to (full gradient from here). The stops follow an ease-in curve, so the green builds toward the animation. */
-.hero-panel:has(> .hero-bg) { background: transparent; --hero-fade-from: 0%; --hero-fade-to: 58%; }
-.hero-panel:has(> .hero-bg)::before, .hero-panel:has(> .hero-bg)::after { content: none; }
+.hero-panel { --hero-fade-from: 8%; --hero-fade-to: 70%; }
 .hero-bg { position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
   --hf-a: var(--hero-fade-from); --hf-d: calc(var(--hero-fade-to) - var(--hero-fade-from));
   -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0) var(--hf-a), rgba(0,0,0,.03) calc(var(--hf-a) + var(--hf-d) * .15), rgba(0,0,0,.1) calc(var(--hf-a) + var(--hf-d) * .3), rgba(0,0,0,.22) calc(var(--hf-a) + var(--hf-d) * .45), rgba(0,0,0,.4) calc(var(--hf-a) + var(--hf-d) * .6), rgba(0,0,0,.62) calc(var(--hf-a) + var(--hf-d) * .75), rgba(0,0,0,.85) calc(var(--hf-a) + var(--hf-d) * .9), #000 var(--hero-fade-to));
           mask-image: linear-gradient(to bottom, rgba(0,0,0,0) var(--hf-a), rgba(0,0,0,.03) calc(var(--hf-a) + var(--hf-d) * .15), rgba(0,0,0,.1) calc(var(--hf-a) + var(--hf-d) * .3), rgba(0,0,0,.22) calc(var(--hf-a) + var(--hf-d) * .45), rgba(0,0,0,.4) calc(var(--hf-a) + var(--hf-d) * .6), rgba(0,0,0,.62) calc(var(--hf-a) + var(--hf-d) * .75), rgba(0,0,0,.85) calc(var(--hf-a) + var(--hf-d) * .9), #000 var(--hero-fade-to)); }
 .hero-panel .eyebrow { color: var(--on); }
-.hero-panel .lead { color: rgba(24, 29, 25, .9); }
+.hero-panel .lead { color: #181D19; }
 .hero-panel .hero-note { color: rgba(24, 29, 25, .9); }
 .hero-panel .mk-btn.secondary { background: #FFFFFF; color: #181D19; box-shadow: none; }
 .hero-panel .mk-btn.secondary:hover { background: #F6F0E9; box-shadow: none; }
@@ -815,10 +829,10 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 /* Sticky panel */
 .cx-vis { position: sticky; top: var(--cx-top); height: min(560px, calc(100vh - var(--cx-top) - 28px)); min-height: 500px; border-radius: var(--corner-media); overflow: hidden; isolation: isolate; display: grid; place-items: center;
   box-shadow: inset 0 0 0 1px rgba(24, 29, 25, .06), 0 30px 60px -40px rgba(24, 29, 25, .3); }
-.cx-bg.gsurf { position: absolute; inset: 0; z-index: -1; opacity: 0; --grain: .3; will-change: opacity; }
+.cx-bg.photo { position: absolute; inset: 0; z-index: -1; opacity: 0; will-change: opacity; }
 .cx-card { position: relative; grid-area: 1 / 1; width: min(400px, calc(100% - 48px)); padding: 18px 20px 20px; border-radius: var(--corner-card); background: #FFFFFF; opacity: 0;
   box-shadow: 0 0 0 1px rgba(24, 29, 25, .05), 0 1px 2px rgba(24, 29, 25, .05), 0 26px 50px -26px rgba(24, 29, 25, .4); will-change: transform, opacity; }
-.cx-card.insight { background: var(--g-base); padding: 22px 24px; }
+.cx-card.insight { background-color: #3A3529; padding: 22px 24px; }
 .cx-card [data-st], .cx-card .cx-st { will-change: transform, opacity; }
 .cx-h { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .cx-h .card-icon { width: 36px; height: 36px; }
@@ -840,11 +854,11 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .cx-swap { display: inline-grid; min-width: 0; }
 .cx-swap > * { grid-area: 1 / 1; min-width: 0; will-change: transform, opacity; }
 .cx-swap > :last-child { opacity: 0; }
-/* Revision 4 week steps: a small rounded-square icon in the step's gradient tone before each title */
+/* Revision 4 week steps: a small square icon before each title, on the step's photo crop (deeper overlay, cream icon) */
 .cx-tl { display: flex; align-items: flex-start; gap: 14px; }
 .cx-tl h3 { margin-top: 0; min-width: 0; }
-.cx-ti { width: var(--cx-ti); height: var(--cx-ti); flex: none; margin-top: calc((var(--cx-h3) * 1.15 - var(--cx-ti)) / 2); border-radius: var(--corner-card); display: grid; place-items: center; color: #181D19;
-  background: var(--g-base); box-shadow: inset 0 0 0 1px rgba(24, 29, 25, .08); }
+.cx-ti { width: var(--cx-ti); height: var(--cx-ti); flex: none; margin-top: calc((var(--cx-h3) * 1.15 - var(--cx-ti)) / 2); border-radius: var(--corner-card); display: grid; place-items: center; color: #F6F0E9;
+  box-shadow: inset 0 0 0 1px rgba(24, 29, 25, .08); --photo-zoom: 3; }
 .cx-ti svg { width: calc(var(--cx-ti) * .5); height: calc(var(--cx-ti) * .5); stroke-width: 1.8; }
 .cx-step .cx-tl + p { margin-top: 12px; }
 /* Gatherings */
@@ -1250,7 +1264,7 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .sec-ov-paths { --ovs-t: .7s; }
 .ovs-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .ovs-say { max-width: 1100px; margin: 0 auto clamp(32px, 3.8vw, 56px); text-align: center; font-size: clamp(28px, 4.6vw, 66px); line-height: 1.14; }
-.ovs-roll { display: inline-block; height: 1.14em; vertical-align: bottom; overflow: hidden; border-radius: .2em; background: linear-gradient(100deg, #BFF8D4 0%, #D6FBE3 55%, #EEFCD9 100%);
+.ovs-roll { display: inline-block; height: 1.14em; vertical-align: bottom; overflow: hidden; border-radius: .2em; background: #D6FBE3;
   transition: width .7s cubic-bezier(.65, 0, .35, 1); }
 .ovs-rl { display: flex; flex-direction: column; align-items: center; transition: transform .7s cubic-bezier(.65, 0, .35, 1); will-change: transform; }
 .ovs-rl > span { display: block; flex: none; width: max-content; height: 1.14em; line-height: 1.14em; padding: 0 .12em; white-space: nowrap; }
@@ -1262,7 +1276,7 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .ovs-bt { display: grid; align-items: center; padding: 0 clamp(28px, 3.4vw, 52px); }
 .ovs-pane p { margin-top: 14px; font-size: clamp(16.5px, 1.25vw, 18px); line-height: 1.55; color: var(--mk-text-2); max-width: 38ch; text-wrap: pretty; }
 .ovs-bv { position: relative; isolation: isolate; display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; margin: 8px; padding: 16px 24px; border-radius: 0 max(0px, calc(var(--corner-petal) - 8px)) 0 0; overflow: hidden; }
-.ovs-bv > .ovs-bg.gsurf { position: absolute; inset: 0; z-index: -1; opacity: 0; --grain: .3; transition: opacity var(--ovs-t) cubic-bezier(.65, 0, .35, 1); }
+.ovs-bv > .ovs-bg.photo { position: absolute; inset: 0; z-index: -1; opacity: 0; transition: opacity var(--ovs-t) cubic-bezier(.65, 0, .35, 1); }
 .ovs-bv > .ovs-bg.on { opacity: 1; }
 .ovs-app { width: min(400px, 100%); padding: 16px 18px 18px; border-radius: var(--corner-card); background: #FFFFFF; font-size: 13px; line-height: 1.4; color: var(--ef-text);
   box-shadow: var(--ui-ring), 0 0 0 1px rgba(24,29,25,.05), 0 26px 50px -26px rgba(24,29,25,.4); }
@@ -1299,7 +1313,7 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
   .ovs-mbr { display: inline; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ovs-roll, .ovs-rl, .ovs-mv, .ovs-mv.on, .ovs-bv > .ovs-bg.gsurf { transition: none !important; }
+  .ovs-roll, .ovs-rl, .ovs-mv, .ovs-mv.on, .ovs-bv > .ovs-bg.photo { transition: none !important; }
 }
 /* Revision 26: FAQ (#faq). Title left, accordion right on desktop; thin dividers like the auto list. */
 .faq-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--mk-gutter); align-items: start; }
@@ -1516,12 +1530,7 @@ body.pbar-hidden { padding-bottom: 0; }
 .ha-shadow { box-shadow: var(--ui-ring), 0 0 0 1px rgba(1, 80, 47, .06), 0 1px 2px rgba(1, 80, 47, .08), 0 24px 48px -24px rgba(1, 80, 47, .45); }
 .cx-card { box-shadow: var(--ui-ring), 0 0 0 1px rgba(24, 29, 25, .05), 0 1px 2px rgba(24, 29, 25, .05), 0 26px 50px -26px rgba(24, 29, 25, .4); }
 .cx-card.evry-panel { box-shadow: var(--ui-ring), 0 0 0 1px rgba(24, 29, 25, .05), 0 26px 50px -26px rgba(24, 29, 25, .4); }
-.cx-card.insight[data-tone="field"] { box-shadow: var(--ui-ring), 0 18px 36px -24px rgba(0, 120, 72,.55); }
-.cx-card.insight[data-tone="sky"] { box-shadow: var(--ui-ring), 0 18px 36px -24px rgba(40,90,170,.45); }
-.cx-card.insight[data-tone="dawn"] { box-shadow: var(--ui-ring), 0 18px 36px -24px rgba(190,110,40,.5); }
-.cx-card.insight[data-tone="lilac"] { box-shadow: var(--ui-ring), 0 18px 36px -24px rgba(110,80,200,.45); }
-.cx-card.insight[data-tone="sun"] { box-shadow: var(--ui-ring), 0 18px 36px -24px rgba(180,130,20,.5); }
-.cx-card.insight[data-tone="sea"] { box-shadow: var(--ui-ring), 0 18px 36px -24px rgba(30,140,120,.45); }
+.cx-card.insight { box-shadow: var(--ui-ring), 0 18px 36px -24px rgba(24, 29, 25, .55); }
 /* The follow-up card has no shadow of its own: the ring sits on its white shell. The shell's bottom edge (set per frame) moves up
    instead of a bottom clip, so the ring follows the visible edge of the card. */
 .cx-shell { box-shadow: var(--ui-ring); }
@@ -2655,7 +2664,7 @@ function needsYouCard() {
     rows.map(function (r) { return '<div class="list-row"><span class="card-icon ' + r[0] + '">' + icon(r[1]) + '</span><div class="grow"><div class="list-title">' + r[2] + '</div><div class="list-sub">' + r[3] + "</div></div>" + icon("arrow", "chev") + "</div>"; }).join("") + "</div></div>";
 }
 function focusCard() {
-  return '<div class="insight" data-tone="dawn"><div class="insight-top"><span class="insight-pill">' + icon("compass") + 'Focus this week</span><span class="insight-count">Plant Intelligence</span></div>' +
+  return '<div class="insight photo" data-photo="wheat-grain"><div class="insight-top"><span class="insight-pill">' + icon("compass") + 'Focus this week</span><span class="insight-count">Plant Intelligence</span></div>' +
     '<div class="insight-metric"><span class="num">16 d</span><span class="unit">since the last vision meeting</span></div>' +
     '<div class="insight-title">Hold your next vision meeting this week</div>' +
     '<div class="insight-text">Vision meeting #12 is set for Sun Oct 12. Invite the 9 guests from #11.</div>' +
@@ -2739,7 +2748,7 @@ function vNetworkDash() {
       return '<tr><td><div class="row" style="gap:10px"><span class="card-icon ' + p[2] + ' hide-sm" style="width:34px;height:34px">' + icon("pin") + '</span><div><div class="cell-title">' + p[0] + '</div><div class="cell-sub">' + p[1] + "</div></div></div></td>" +
         '<td><span class="tag">' + p[3] + '</span></td><td class="hide-sm">' + p[4] + '</td><td class="hide-sm" style="white-space:nowrap">' + p[5] + '</td><td class="hide-sm">' + (p[6] ? '<span class="badge" data-size="sm" data-status="measured">' + p[6] + "</span>" : '<span class="faint">—</span>') + "</td></tr>";
     }).join("") + "</tbody></table></div>";
-  var finding = '<div class="insight" data-tone="lilac"><div class="insight-top"><span class="insight-pill">' + icon("sparkle") + 'Top network finding</span><span class="insight-count">From 11 of 14 plants</span></div>' +
+  var finding = '<div class="insight photo" data-photo="wheat-low"><div class="insight-top"><span class="insight-pill">' + icon("sparkle") + 'Top network finding</span><span class="insight-count">From 11 of 14 plants</span></div>' +
     '<div class="insight-metric"><span class="num">4 of 6</span><span class="unit">plants within a year of launch have a Concern on Emerging leadership</span></div>' +
     '<div class="insight-title">Emerging leadership is the most common gap before launch</div>' +
     '<div class="insight-text">It is the lens most often at Watch or Concern across plants in Training and Pre-launch. Both plants that have already launched had their leader roles filled before Training.</div>' +
@@ -3252,7 +3261,7 @@ var CX_SCN = {
 /* Week copy comes from shared.week in marketing-copy.json (Revision 4). The Plant Intelligence copy is still draft. */
 var WK = COPY.shared.week;
 /* Revision 13: week panel and icon colours in step order are blue, orange, green, lilac. Step content keeps its order; the copy JSON tone fields are not used here. */
-var WK_TONES = ["sky", "dawn", "field", "lilac"];
+var WK_TONES = ["field-sky", "wheat-sun", "field-horizon", "wheat-clouds"];
 /* Revision 13: the title phrase for each step, in step order. The active step's phrase is highlighted (cxTitle, .cx-ttl). */
 var WK_WORDS = ["Reach", "gather", "follow up", "commit"];
 function cxTitle(title, words) {
@@ -3267,29 +3276,29 @@ var CX_DEFS = {
   week: { title: WK.title, final: true, words: WK_WORDS, steps: WK.steps.map(function (s, i) { return [s.panel, WK_TONES[i] || s.tone, s.icon, s.title, s.body]; }) },
   /* R4: the Plant Intelligence lead line and steps come from shared.intelligence in marketing-copy.json. */
   intelligence: { title: COPY.shared.intelligence.title, lead: COPY.shared.intelligence.lead, auto: true, steps: COPY.shared.intelligence.steps.map(function (s, i) {
-    return [s.panel, ["lilac", "field", "sky", "dawn"][i], ["Focus", "Facts", "Evry", "Sharing"][i], s.title, s.body]; }) },
-  /* Revision 19: copy from shared.sending in marketing-copy.json. Tones sea, rose, sun, slate differ from the Plant Intelligence tones above. */
+    return [s.panel, ["field-horizon", "wheat-dusk", "field-sky", "wheat-sun"][i], ["Focus", "Facts", "Evry", "Sharing"][i], s.title, s.body]; }) },
+  /* Revision 19: copy from shared.sending in marketing-copy.json. Its photo crops differ from the Plant Intelligence crops above. */
   sending: { title: COPY.shared.sending.title, auto: true, mirror: true, link: COPY.shared.sending.link, steps: ["scope", "pipe", "lens", "top"].map(function (k, i) {
-    var st = COPY.shared.sending.steps[i]; return [k, ["sea", "rose", "sun", "slate"][i], "", st.title, st.body]; }) },
+    var st = COPY.shared.sending.steps[i]; return [k, ["field-rows", "wheat-clouds", "wheat-dusk", "field-sky"][i], "", st.title, st.body]; }) },
   /* Revision 25 /oversight: the home network auto list with the same panels and step length (shared.oversight_page.intelligence). */
-  /* Revision 26: the pinned chapter is now an auto list (panel right, list left) without the sharing step. Tones lilac, dawn, sky, field
-     differ from the network list below it (sea, rose, sun, slate). */
-  "every-plant": { title: COPY.shared.oversight_page.chapter.title, auto: true, steps: COPY.shared.oversight_page.chapter.steps.map(function (s, i) { return [s.panel, ["lilac", "dawn", "sky", "sun"][i], "", s.title, s.body]; }) },
+  /* Revision 26: the pinned chapter is now an auto list (panel right, list left) without the sharing step. Its photo crops
+     differ from the network list below it. */
+  "every-plant": { title: COPY.shared.oversight_page.chapter.title, auto: true, steps: COPY.shared.oversight_page.chapter.steps.map(function (s, i) { return [s.panel, ["field-horizon", "wheat-sun", "field-sky", "wheat-clouds"][i], "", s.title, s.body]; }) },
   "network-intelligence": { title: COPY.shared.oversight_page.intelligence.title, auto: true, mirror: true, steps: ["scope", "pipe", "lens", "top"].map(function (k, i) {
-    var st = COPY.shared.oversight_page.intelligence.steps[i]; return [k, ["sea", "rose", "sun", "slate"][i], "", st.title, st.body]; }) }
+    var st = COPY.shared.oversight_page.intelligence.steps[i]; return [k, ["field-rows", "wheat-clouds", "wheat-dusk", "field-sky"][i], "", st.title, st.body]; }) }
 };
-function cxCard(kind) { return '<div class="cx-card' + (kind === "focus" ? ' insight" data-tone="dawn' : kind === "top" ? ' insight" data-tone="lilac' : kind === "help" ? ' insight" data-tone="sky' : kind === "evry" ? " evry-panel" : "") + '" data-k="' + kind + '">' + CX_MARK[kind]() + cxCur() + "</div>"; }
+function cxCard(kind) { return '<div class="cx-card' + (kind === "focus" ? ' insight photo" data-photo="wheat-grain' : kind === "top" ? ' insight photo" data-photo="wheat-low' : kind === "help" ? ' insight photo" data-photo="wheat-grain' : kind === "evry" ? " evry-panel" : "") + '" data-k="' + kind + '">' + CX_MARK[kind]() + cxCur() + "</div>"; }
 function chapterSection(id, cls) {
   var d = CX_DEFS[id];
   if (d.auto) return autoSection(id, cls, d);
   return '<section class="sec cx ' + cls + '" id="' + id + '" data-cx="' + id + '"><div class="wrap"><div class="cx-grid"><div class="cx-left">' +
     '<div class="cx-head"><h2 class="display h2' + (d.words ? ' cx-ttl">' + cxTitle(d.title, d.words) : '">' + t(d.title)) + "</h2></div>" +
     '<ol class="cx-steps">' + d.steps.map(function (s, i) {
-      return '<li class="cx-step' + (i === 0 ? " on" : "") + '" data-i="' + i + '"><div class="cx-mob ef" aria-hidden="true"><span class="cx-bg gsurf" data-tone="' + s[1] + '"></span>' + cxCard(s[0]) + "</div>" +
-        '<div class="cx-txt">' + (d.final ? '<div class="cx-tl"><span class="cx-ti" data-tone="' + s[1] + '" aria-hidden="true">' + icon(s[2]) + '</span><h3 class="display h3">' + t(s[3]) + "</h3></div>" :
+      return '<li class="cx-step' + (i === 0 ? " on" : "") + '" data-i="' + i + '"><div class="cx-mob ef" aria-hidden="true"><span class="cx-bg photo" data-photo="' + s[1] + '"></span>' + cxCard(s[0]) + "</div>" +
+        '<div class="cx-txt">' + (d.final ? '<div class="cx-tl"><span class="cx-ti photo photo-text" data-photo="' + s[1] + '" aria-hidden="true">' + icon(s[2]) + '</span><h3 class="display h3">' + t(s[3]) + "</h3></div>" :
         '<span class="cx-num"><b>' + (i + 1) + "</b>" + t(s[2]) + '</span><h3 class="display h3">' + t(s[3]) + "</h3>") + "<p>" + t(s[4]) + "</p></div></li>";
     }).join("") + "</ol></div>" +
-    '<div class="cx-right"><div class="cx-vis ef" aria-hidden="true">' + d.steps.map(function (s) { return '<span class="cx-bg gsurf" data-tone="' + s[1] + '"></span>'; }).join("") +
+    '<div class="cx-right"><div class="cx-vis ef" aria-hidden="true">' + d.steps.map(function (s) { return '<span class="cx-bg photo" data-photo="' + s[1] + '"></span>'; }).join("") +
     d.steps.map(function (s) { return cxCard(s[0]); }).join("") + "</div></div></div></div></section>";
 }
 /* Revision 10: the auto-advancing list (Plant Intelligence). Same panels and cards; steps are tabs, the panel is the tab panel. */
@@ -3304,7 +3313,7 @@ function autoSection(id, cls, d) {
       return '<li class="cx-step' + (i === 0 ? " on" : "") + '" data-i="' + i + '" role="presentation"><button type="button" class="cx-tab" role="tab" id="' + id + "-tab-" + i + '" aria-controls="' + id + '-panel" aria-selected="' + (i === 0) + '" tabindex="' + (i === 0 ? 0 : -1) + '">' +
         '<span class="cx-bar" aria-hidden="true"><i></i></span><span class="cx-txt"><span class="display h3">' + t(s[3]) + '</span><span class="cx-p">' + t(s[4]) + "</span></span></button></li>";
     }).join("") + "</ol></div>" +
-    '<div class="cx-right"><div class="cx-vis ef" role="tabpanel" id="' + id + '-panel" aria-labelledby="' + id + '-tab-0">' + d.steps.map(function (s) { return '<span class="cx-bg gsurf" data-tone="' + s[1] + '" aria-hidden="true"></span>'; }).join("") +
+    '<div class="cx-right"><div class="cx-vis ef" role="tabpanel" id="' + id + '-panel" aria-labelledby="' + id + '-tab-0">' + d.steps.map(function (s) { return '<span class="cx-bg photo" data-photo="' + s[1] + '" aria-hidden="true"></span>'; }).join("") +
     d.steps.map(function (s) { return cxCard(s[0]).replace('<div class="cx-card', '<div aria-hidden="true" class="cx-card'); }).join("") + "</div></div></div></div></section>";
 }
 function weekChapter() { return chapterSection("week", "sec-week"); }
@@ -3789,7 +3798,7 @@ window.EFChapters = {
 function hero(h, story, opts) {
   opts = opts || {};
   var pts = opts.points ? '<ul class="checks hero-points">' + opts.points.map(function (p) { return "<li>" + icon("check") + "<span>" + t(p) + "</span></li>"; }).join("") + "</ul>" : "";
-  return '<section class="hero' + (opts.page ? " page-hero" : "") + (opts.cls ? " " + opts.cls : "") + '" id="top"><div class="wrap">' + (opts.panel ? '<div class="hero-panel gsurf" data-tone="field"><span class="hero-bg gsurf" data-tone="field" aria-hidden="true"></span>' : "") +
+  return '<section class="hero' + (opts.page ? " page-hero" : "") + (opts.cls ? " " + opts.cls : "") + '" id="top"><div class="wrap">' + (opts.panel ? '<div class="hero-panel"><span class="hero-bg photo" data-photo="wheat-dusk" aria-hidden="true"></span>' : "") +
     (h.eyebrow ? '<span class="eyebrow">' + t(h.eyebrow) + "</span>" : "") +
     '<h1 class="display h-hero hero-title">' + t(h.headline) + "</h1>" +
     '<div class="hero-row"><div class="hero-lead"><p class="lead">' + t(h.subhead) + "</p>" + pts + '</div><div class="hero-act"><div class="btn-row">' + btn(h.cta_primary, "primary", opts.hrefs && opts.hrefs[0]) + (h.cta_secondary ? btn(h.cta_secondary, "secondary", opts.hrefs && opts.hrefs[1]) : "") + "</div>" +
@@ -3812,7 +3821,7 @@ function vision(v) {
   var tasks = [["Set the launch team's personal invitation goal", "Launch prep", "tone-green", "Promotion plan chosen"], ["Invite the 9 guests from #11", "Vision meeting #12", "tone-blue", "Committed adults"], ["Interview David Kim", "Close to committing", "tone-blue", "Committed adults"]];
   return '<section class="sec sec-vision" id="vision" aria-labelledby="vision-title"><div class="wrap vz-grid">' +
     '<div class="vz-head"><h2 class="display h2" id="vision-title">' + t(v.headline) + "</h2><p>" + t(v.body) + "</p></div>" +
-    '<div class="vz vz-stage gsurf" data-tone="dawn"><div class="vz-stack ef">' +
+    '<div class="vz vz-stage photo" data-photo="field-rows"><div class="vz-stack ef">' +
       level(0, " vz-launch", "tone-green", "rocket", "Launch Sunday", '<div class="vz-date">Sun, Mar 14, 2027</div><div class="vz-sub">9 launch milestones and 23 preparation tasks</div>') +
       level(1, "", "tone-violet", "route", "Phase 1", '<div class="vz-v">Core Group Development</div>', '<span class="vz-track" aria-hidden="true"><i class="done"></i><i class="now"></i><i></i><i></i><i></i><i></i><i></i></span>',
         '<div class="vz-meter"><div class="vz-bm"><span class="vz-l">Benchmark: committed adults</span><span class="vz-num vz-num-s">34<small>of 50</small></span></div><div class="vz-bar" aria-hidden="true"><i></i></div></div>') +
@@ -3867,8 +3876,8 @@ function features(f, opts) {
    horizontal rail with scroll-snap, mouse drag, touch swipe and arrow keys. In both modes each card takes focus. */
 /* Revision 29: six different tones in each rail. Home: sky, field, dawn, lilac, sun, sea. /oversight (opts.tones): lilac, sea, dawn,
    field, sky, sun, so sea is not next to field or sky, and dawn is not next to sun. */
-var PH_TONES = ["sky", "field", "dawn", "lilac", "sun", "sea"];
-var OV_PH_TONES = ["lilac", "sea", "dawn", "field", "sky", "sun"];
+var PH_TONES = ["field-sky", "wheat-low", "field-horizon", "wheat-clouds", "field-rows", "wheat-grain"];
+var OV_PH_TONES = ["field-horizon", "field-rows", "wheat-clouds", "wheat-grain", "field-sky", "wheat-low"];
 var PH = { root: null, off: null, raf: 0, ro: null, pin: false, st: null };
 var PH_WIDE = window.matchMedia ? window.matchMedia("(min-width: 901px)") : { matches: true };
 function phNum(i) { return (i < 9 ? "0" : "") + (i + 1); }
@@ -3913,7 +3922,7 @@ function phSection(f, opts) {
   return '<section class="sec sec-features ph-sec" id="' + (opts.id || "features") + '"><div class="phc-pin"><div class="phc-frame">' +
     '<div class="wrap"><div class="sec-head solo"><h2 class="display h2 sh-title" id="ph-title">' + t(f.headline) + "</h2></div>" + track + "</div>" +
     '<div class="phc-rail" role="region" aria-roledescription="carousel" aria-labelledby="ph-title"><ol class="phc-list">' + f.items.map(function (x, i) {
-      return '<li class="phc-card" tabindex="0" aria-label="' + phNum(i) + " · " + t(x.label) + '"><div class="phc-art gsurf" data-tone="' + (opts.tones || PH_TONES)[i] + '"><span class="phc-num" aria-hidden="true">' + phNum(i) + '</span><div class="phc-vig ef" aria-hidden="true">' + (opts.vig || phVig)(i) + "</div></div>" +
+      return '<li class="phc-card" tabindex="0" aria-label="' + phNum(i) + " · " + t(x.label) + '"><div class="phc-art photo" data-photo="' + (opts.tones || PH_TONES)[i] + '"><span class="phc-num" aria-hidden="true">' + phNum(i) + '</span><div class="phc-vig ef" aria-hidden="true">' + (opts.vig || phVig)(i) + "</div></div>" +
         '<div class="phc-txt">' + phTag(i, x) + '<h3 class="display h3">' + t(x.title) + "</h3><p>" + t(x.short || x.body) + "</p></div></li>";
     }).join("") + "</ol></div></div></div></section>";
 }
@@ -4030,7 +4039,7 @@ function trust(tr) {
   return '<section class="sec sec-trust" id="trust"><div class="wrap"><div class="sec-head solo"><h2 class="display h2 sh-title">' + t(tr.headline) + "</h2></div>" + trustGrid(tr.items) + "</div></section>";
 }
 function cta(c) {
-  return '<section class="sec sec-cta" id="cta"><div class="wrap"><div class="cta-box"><h2 class="display h1">' + t(c.headline) + '</h2><p class="lead">' + t(c.body) + '</p><div class="btn-row">' + btn(c.cta_primary) + btn(c.cta_secondary, "secondary") + "</div>" +
+  return '<section class="sec sec-cta" id="cta"><div class="wrap"><div class="cta-box photo" data-photo="wheat-grain"><svg class="cta-mark" viewBox="0 0 340 340" aria-hidden="true"><use href="#ef-symbol"/></svg><h2 class="display h1">' + t(c.headline) + '</h2><p class="lead">' + t(c.body) + '</p><div class="btn-row">' + btn(c.cta_primary) + btn(c.cta_secondary, "secondary") + "</div>" +
     (c.note ? '<p class="small">' + t(c.note) + "</p>" : "") + "</div></div></section>";
 }
 
@@ -4142,7 +4151,7 @@ function ovVig(i) {
 /* Revision 28: the sending paths. One display sentence ("Sent by" + changing phrase + tail) over one large card. A single timer moves
    both through the states in copy order (a church, a network through a church, a network) and loops. The facts match Revision 26 B. */
 ICON.plus = ICON.plus || '<path d="M12 5v14M5 12h14"/>';
-var OVS_TONES = ["sky", "lilac", "sun"];
+var OVS_TONES = ["field-sky", "wheat-dusk", "field-rows"];
 function ovsBy(ic, names) { return '<span class="ovs-by">' + icon(ic) + "<span>Sent by " + names.map(function (n) { return "<b>" + n + "</b>"; }).join('<span class="ovs-dot"> · </span>') + "</span></span>"; }
 var OVS_B = [
   function () {
@@ -4172,7 +4181,7 @@ function ovPaths(p) {
     '<h2 class="display ovs-say"><span class="ovs-sr">' + t(sr) + '</span><span aria-hidden="true">' + t(p.lead) + ' <br class="ovs-mbr"><span class="ovs-roll"><span class="ovs-rl">' +
     S.map(function (x) { return "<span>" + t(x.phrase) + "</span>"; }).join("") + "</span></span>.<br>" + t(p.tail) + "</span></h2>" +
     '<div class="ovs-big"><div class="ovs-bt">' + S.map(function (x, i) { return "<div" + mv(i, "ovs-pane ovs-mv") + '><h3 class="display h3">' + t(x.title) + "</h3><p>" + t(x.body) + "</p></div>"; }).join("") +
-    '</div><div class="ovs-bv ef" aria-hidden="true">' + OVS_TONES.map(function (tn, i) { return '<span class="ovs-bg gsurf' + (i ? "" : " on") + '" data-tone="' + tn + '"></span>'; }).join("") +
+    '</div><div class="ovs-bv ef" aria-hidden="true">' + OVS_TONES.map(function (tn, i) { return '<span class="ovs-bg photo' + (i ? "" : " on") + '" data-photo="' + tn + '"></span>'; }).join("") +
     OVS_B.map(function (f, i) { return "<div" + mv(i, "ovs-app ovs-mv") + ">" + f() + "</div>"; }).join("") + '</div><button type="button" class="ovs-pp"></button></div></div>' +
     '<p class="ovp-line">' + t(p.line) + "</p></div></section>";
 }
