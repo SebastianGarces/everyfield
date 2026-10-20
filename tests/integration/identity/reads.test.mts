@@ -2,7 +2,7 @@ import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { fixture } from "./invitations-support.mts";
 import { sql } from "../../../packages/db/src/query.ts";
-import { readViewer } from "../../../packages/domain/src/access/index.ts";
+import { currentActor, readViewer } from "../../../packages/domain/src/access/index.ts";
 import {
 	readHistory,
 	readPlantSharing,
@@ -84,7 +84,27 @@ test("INV-reads: viewer, roster, invitation list, sharing history, sharing choic
 		),
 	);
 	assert.equal(disclosure.value.kind, "existing_consent");
-	const all = [viewer, roster, invitations, history, sharing, disclosure].flatMap((r) => r.statements);
+	// A read transaction that observed the request actor answers currentActor without a statement (D59).
+	const observed = await count(() =>
+		f.db.transaction(async (tx) => {
+			authority.observe(tx);
+			return [
+				await currentActor(tx, authority.session, s.w),
+				await currentActor(tx, authority.session, { kind: "account", id: s.sender.id }),
+			];
+		}),
+	);
+	assert.deepEqual(observed.value[0], authority.actor);
+	assert.deepEqual(observed.value[1], {
+		status: "active",
+		accountId: s.sender.id,
+		context: { kind: "account", owner: { kind: "account", id: s.sender.id } },
+	});
+	assert.deepEqual(
+		observed.statements.map((q) => q.trim().split(" ")[0].toUpperCase()),
+		["BEGIN", "COMMIT"],
+	);
+	const all = [viewer, roster, invitations, history, sharing, disclosure, observed].flatMap((r) => r.statements);
 	t.diagnostic(
 		JSON.stringify({
 			viewer: 1,

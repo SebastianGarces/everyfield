@@ -42,13 +42,16 @@ export async function readOnboardingEntry(
 			return { kind: "plant", plantName: plant?.name ?? null, resume: reply.value };
 		});
 	}
-	const account: OnboardingContext["selected"] = { kind: "account", id: s.accountId };
-	const ctx = authority ? new OnboardingReadContext(authority) : { session: s.sessionId, selected: account };
-	const profile = await db.transaction((tx) => producer.getDiscoveryProfile(tx, ctx, {}));
-	if (profile.status === "ok" && profile.value.status === "active")
-		return { kind: "discovery", profile: profile.value.profile };
-	if (profile.status === "ok" && profile.value.status === "converted")
-		return { kind: "elsewhere", reason: "unavailable" };
+	// Creating a Discovery profile activates the account, so only an active (seatless) account can hold one.
+	if (authority) {
+		const profile = await db.transaction((tx) =>
+			producer.getDiscoveryProfile(tx, new OnboardingReadContext(authority), {}),
+		);
+		if (profile.status === "ok" && profile.value.status === "active")
+			return { kind: "discovery", profile: profile.value.profile };
+		if (profile.status === "ok" && profile.value.status === "converted")
+			return { kind: "elsewhere", reason: "unavailable" };
+	}
 	// R3 gap: no contract read gives the precreation facts. This is the one place that reads them.
 	const [row] = await db
 		.select({ state: t.account.registration_state, kind: t.account.registration_kind, revision: t.account.revision })

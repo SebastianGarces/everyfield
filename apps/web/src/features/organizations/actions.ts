@@ -158,7 +158,7 @@ export async function loadConnections() {
 export async function loadDisclosure(pair: unknown) {
 	const w = await who();
 	if (!w) return null;
-	return disclosureFor(w.mount, w.viewer, pair);
+	return disclosureFor(w.mount, w.authority, w.viewer, pair);
 }
 
 /** The request behind an emailed link, for a signed-in account. */
@@ -166,7 +166,7 @@ export async function loadInvitation(invitationId: string, proof: string) {
 	const w = await viewerOf();
 	if (w.kind === "signed_out") return { kind: "signed_out" as const };
 	if (w.kind !== "viewer") return { kind: "unavailable" as const };
-	const invitation = await invitationFor(w.mount, w.viewer, invitationId, proof);
+	const invitation = await invitationFor(w.mount, w.authority, w.viewer, invitationId, proof);
 	if (!invitation) return { kind: "unavailable" as const };
 	const p = invitation.pair;
 	const names = await namesFor(w.mount.db, w.viewer, [

@@ -191,7 +191,13 @@ export async function query<T>(
 	body: (tx: Transaction, session: Viewer["session"], selected: Owner) => Promise<T>,
 ): Promise<Reply<T>> {
 	try {
-		return { status: "ok", value: await m.db.transaction((tx) => body(tx, authority.session, selected)) };
+		return {
+			status: "ok",
+			value: await m.db.transaction((tx) => {
+				authority.observe(tx);
+				return body(tx, authority.session, selected);
+			}),
+		};
 	} catch (e) {
 		return refusalOf(e);
 	}
@@ -205,9 +211,9 @@ export function scopeOf(viewer: Viewer) {
 	return C.relationshipHistoryScope.parse({ discoveryAccountId: viewer.accountId });
 }
 
-export async function disclosureFor(m: Mount, viewer: Viewer, pair: unknown) {
-	const reply = await m.db.transaction((tx) => readSharingDisclosure(tx, viewer.session, viewer.selected, pair));
-	return "status" in reply ? null : reply;
+export async function disclosureFor(m: Mount, authority: RequestActor, viewer: Viewer, pair: unknown) {
+	const reply = await query(m, authority, viewer.selected, (tx, s, o) => readSharingDisclosure(tx, s, o, pair));
+	return reply.status === "ok" && !("status" in reply.value) ? reply.value : null;
 }
 
 /**
@@ -215,11 +221,17 @@ export async function disclosureFor(m: Mount, viewer: Viewer, pair: unknown) {
  * authorizedReceiver rule and every answer check before any detail leaves; this mount adds none of its own. Anything
  * else is `null`, the one shared refusal.
  */
-export async function invitationFor(m: Mount, viewer: Viewer, invitationId: string, proof: string) {
-	const reply = await m.db.transaction((tx) =>
-		readAnswerableInvitation(tx, viewer.session, viewer.selected, { invitationId, proof }),
+export async function invitationFor(
+	m: Mount,
+	authority: RequestActor,
+	viewer: Viewer,
+	invitationId: string,
+	proof: string,
+) {
+	const reply = await query(m, authority, viewer.selected, (tx, s, o) =>
+		readAnswerableInvitation(tx, s, o, { invitationId, proof }),
 	);
-	return reply.status === "pending" ? reply : null;
+	return reply.status === "ok" && reply.value.status === "pending" ? reply.value : null;
 }
 
 export {

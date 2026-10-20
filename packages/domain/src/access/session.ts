@@ -1,5 +1,5 @@
 import * as tables from "@everyfield/db/tables";
-import { and, eq, sql, getTableColumns, isNull, type SQLWrapper } from "@everyfield/db/query";
+import { and, eq, sql, getTableColumns, isNull, notExists, type SQLWrapper } from "@everyfield/db/query";
 import { alias } from "@everyfield/db/query";
 import "server-only";
 import type { Transaction } from "@everyfield/db/client";
@@ -48,12 +48,25 @@ export async function liveOwner(tx: Transaction, selected: Owner, lock = true): 
 	if (selected.kind === "global") return false;
 	const root =
 		selected.kind === "plant" ? tables.plant : selected.kind === "account" ? tables.account : tables.organization;
+	const hiddenBy = and(
+		eq(tables.lifecycle_witness.opaque_subject_id, selected.id),
+		eq(tables.lifecycle_witness.kind, sql`${selected.kind}`),
+		sql<boolean>`(${tables.lifecycle_witness.state} NOT IN ('active', 'cancelled'))`,
+	);
 	const query = tx
 		.select({ kind: tenant_t.kind, organization_kind: organization_o.kind })
 		.from(root)
 		.innerJoin(tenant_t, eq(tenant_t.id, root.id))
 		.leftJoin(organization_o, eq(organization_o.id, tenant_t.id))
-		.where(eq(root.id, selected.id));
+		.where(
+			lock
+				? eq(root.id, selected.id)
+				: // A read checks the witness in the same statement.
+					and(
+						eq(root.id, selected.id),
+						notExists(tx.select({ id: tables.lifecycle_witness.id }).from(tables.lifecycle_witness).where(hiddenBy)),
+					),
+		);
 	const roots = await (lock ? query.for("share", { of: root }) : query);
 	if (
 		roots.length !== 1 ||
@@ -61,22 +74,14 @@ export async function liveOwner(tx: Transaction, selected: Owner, lock = true): 
 		(selected.kind === "organization" && roots[0]!.organization_kind !== selected.organizationKind)
 	)
 		return false;
-	// The following statement observes lifecycle changes committed while the root lock waited.
-
-	const witnesses = tx
+	if (!lock) return true;
+	// A write's second statement observes lifecycle changes committed while the root lock waited.
+	const hidden = await tx
 		.select({ id: tables.lifecycle_witness.id })
 		.from(tables.lifecycle_witness)
-		.where(
-			and(
-				and(
-					eq(tables.lifecycle_witness.opaque_subject_id, selected.id),
-					eq(tables.lifecycle_witness.kind, sql`${selected.kind}`),
-				),
-				sql<boolean>`(${tables.lifecycle_witness.state} NOT IN ('active', 'cancelled'))`,
-			),
-		)
-		.limit(1);
-	const hidden = await (lock ? witnesses.for("share") : witnesses);
+		.where(hiddenBy)
+		.limit(1)
+		.for("share");
 	return hidden.length === 0;
 }
 /**
@@ -181,8 +186,21 @@ export async function currentActor(tx: Transaction, session: z.infer<typeof sess
 	if (bound && bound.authority.session === session && sameOwner(bound.selected, selected)) return bound.actor;
 	const parsed = owner.safeParse(selected);
 	if (!parsed.success) return currentActorResult.parse({ status: "unavailable" });
+	// A read transaction that observed the request actor (D59) answers for that actor's own workspace or account.
+	const observed = requestReads.get(tx);
+	if (observed && observed.session === session) {
+		const actor = observed.actor;
+		if (sameOwner(actor.context.owner, parsed.data)) return actor;
+		if (parsed.data.kind === "account" && parsed.data.id === actor.accountId)
+			return currentActorResult.parse({
+				status: "active",
+				accountId: actor.accountId,
+				context: { kind: "account", owner: parsed.data },
+			});
+	}
 	return resolveActor(tx, session, parsed.data);
 }
+const requestReads = new WeakMap<Transaction, RequestActor>();
 
 type ActiveActor = Extract<z.infer<typeof currentActorResult>, { status: "active" }>;
 const principalRow = z.object({
@@ -252,6 +270,11 @@ export class RequestActor {
 		};
 		requestWrites.set(tx, write);
 		return write;
+	}
+
+	/** Let a read transaction answer currentActor from this observation instead of a second statement. */
+	observe(tx: Transaction) {
+		requestReads.set(tx, this);
 	}
 
 	/** @internal readViewer builds the authority from the same statement that observed the actor. */
