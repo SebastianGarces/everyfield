@@ -96,10 +96,11 @@ export function producerReady(root: string, wp: string): boolean {
 	return !!record?.acknowledged && reviewedMilestone(root, record);
 }
 /** Only evf writes canonical progress. Lock and atomic rename protect concurrent ships/acks. */
-export function recordProgress(root: string, record: ShippedRecord, acknowledged: boolean): void {
+export function recordProgress(root: string, record: ShippedRecord, acknowledged: boolean): boolean {
 	const wp = record.package_id;
-	if (wp === null) return; // Feedback and upkeep do not complete build packages.
-	findPackage(loadDag(root), wp);
+	if (wp === null) return false; // Feedback and upkeep do not complete build packages.
+	const paths = pathsForPart(findPackage(loadDag(root), wp), record.part);
+	if (!git(root, "diff", "--binary", record.base_sha, record.verified_head, "--", ...paths)) return false;
 	if (!reviewedMilestone(root, record)) fail("Progress requires an independently reviewed, integrated shipped record.");
 	updateProgress(root, (progress) => {
 		// A new package may not yet have a canonical progress entry.
@@ -162,6 +163,7 @@ export function recordProgress(root: string, record: ShippedRecord, acknowledged
 			}
 		return true;
 	});
+	return true;
 }
 
 function updateProgress(root: string, update: (progress: Progress) => boolean | void): void {

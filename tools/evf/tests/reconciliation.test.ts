@@ -58,7 +58,7 @@ test("INV-context: load current acceptance and fail when its required input is m
 });
 
 import { fixture } from "./fixtures.ts";
-import { parseTask, evfDataDir, loadConfig } from "../lib.ts";
+import { parseTask, evfDataDir, loadConfig, runtimeDir } from "../lib.ts";
 import {
 	feedbackTriage,
 	startFeedbackTask,
@@ -601,6 +601,17 @@ test("BUG-plan-context: plan and brief use the same manifest acceptance scope, i
 			brief.split("\n").find((line) => line.startsWith("Goal: ")),
 			`Goal: ${loadDag(f.root).packages.find((p) => p.id === "WP-002")!.goal}`,
 		);
+		const plan = loadDag(f.root).packages.find((p) => p.id === "WP-002")!;
+		assert.ok(brief.includes(`Features: ${plan.outputs.join("\n")}`));
+		assert.ok(brief.includes(`Acceptance cases:\n${plan.acceptance_gates.map((c, i) => `${i + 1}. ${c}`).join("\n")}`));
+		assert.doesNotMatch(brief, /Outputs:|Acceptance gates:/);
+		const acceptance = JSON.parse(
+			execFileSync("python3", [join(f.root, "docs/package-context.py"), "--acceptance", "--root", f.root], {
+				encoding: "utf8",
+			}),
+		);
+		assert.ok(acceptance.every((bundle) => !("test_protocol" in bundle)));
+
 		assert.match(brief, /Owned requirements: REQ-IDN-029, REQ-OPS-004, REQ-PI-037, REQ-PPL-024, REQ-TSK-018/);
 		assert.match(brief, /Write owned cases at package start for: REQ-IDN-029, REQ-OPS-004, REQ-PI-037, REQ-PPL-024/);
 		assert.match(brief, /Owned cases: AUDIT-001, AUDIT-002, AUDIT-003/);
@@ -816,7 +827,13 @@ test("BUG-c048ea5-folder-path: maintenance refuses an existing folder without a 
 				/Maintenance owning paths must stay in documentation and workflow tooling/,
 			);
 		}
-		for (const path of ["docs/tooling/", "AGENTS.md", "everyfield-feature-review.html"]) {
+		for (const path of [
+			"docs/tooling/",
+			"AGENTS.md",
+			"everyfield-feature-review.html",
+			"tests/ui/people/seed.mts",
+			"tests/ui/identity/invitation-seed.mts",
+		]) {
 			f.cfg.maintenanceTasks[task.id].owningPaths = [path];
 			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
 			f.commit();
@@ -1016,7 +1033,11 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 				reason: /approval for the exact PR head/,
 			},
 			...[
-				{ name: "missing quality", quality: undefined, reason: /Missing verifier approval for the exact PR head/ },
+				{
+					name: "missing quality",
+					quality: undefined,
+					reason: /Missing quality field in verifier review for the exact PR head/,
+				},
 				{
 					name: "rejected quality",
 					quality: { ...approvedQuality, verdict: "changes_requested" },
@@ -1044,7 +1065,7 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 				{
 					name: "missing experience",
 					experience: undefined,
-					reason: /Missing verifier approval for the exact PR head/,
+					reason: /Missing experience field in verifier review for the exact PR head/,
 				},
 				{
 					name: "failed budget",
@@ -1123,32 +1144,36 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 		);
 		valid.calls = [];
 		f.setState(valid);
-		valid.comments["77"][0].body = execFileSync(
-			process.execPath,
-			[
-				join(source, ".agents/skills/verify-preview/scripts/post-review.mjs"),
-				"--pr",
-				"77",
-				"--report",
-				report,
-				"--family",
-				"anthropic",
-				"--verdict",
-				"approved",
-				"--head",
-				f.sha,
-				"--experience-verdict",
-				"approved",
-				"--budget",
-				"met",
-				"--quality-verdict",
-				"approved",
-				"--principles",
-				approvedQuality.principles.join(","),
-				"--dry-run",
-			],
-			{ cwd: f.root, encoding: "utf8" },
-		);
+		const posterArgs = [
+			join(source, ".agents/skills/verify-preview/scripts/post-review.mjs"),
+			"--pr",
+			"77",
+			"--report",
+			report,
+			"--family",
+			"anthropic",
+			"--verdict",
+			"approved",
+			"--head",
+			f.sha,
+			"--experience-verdict",
+			"approved",
+			"--budget",
+			"met",
+			"--quality-verdict",
+			"approved",
+			"--principles",
+			approvedQuality.principles.join(","),
+			"--dry-run",
+		];
+		for (const omitted of approvedQuality.principles) {
+			const args = [...posterArgs];
+			args[args.indexOf("--principles") + 1] = approvedQuality.principles.filter((name) => name !== omitted).join(",");
+			const result = spawnSync(process.execPath, args, { cwd: f.root, encoding: "utf8" });
+			assert.equal(result.status, 1, `poster accepted missing ${omitted}`);
+			assert.ok(result.stderr.includes(`--principles is missing required names: ${omitted}`), result.stderr);
+		}
+		valid.comments["77"][0].body = execFileSync(process.execPath, posterArgs, { cwd: f.root, encoding: "utf8" });
 		const posted = JSON.parse(valid.comments["77"][0].body.split("EVF-Review: ")[1]);
 		assert.deepEqual(posted.quality, approvedQuality);
 		assert.deepEqual(posted.experience, approvedExperience);
@@ -1721,4 +1746,94 @@ test("BUG-ops6-fixture-cleanup: fixture commits and bare pushes start no backgro
 		rmSync(traces, { recursive: true, force: true });
 	}
 	assert.equal(existsSync(f.root), false);
+});
+
+test("BUG-ops15-ship: an outside-path merge succeeds and cleans up without package progress", () => {
+	const f = mergeFixture(),
+		log = console.log,
+		lines = [];
+	try {
+		f.authorize("WP-001");
+		f.cfg.stack = {
+			down: [process.execPath, "-e", 'require("node:fs").writeFileSync(process.env.EVF_RUNTIME_DIR+"/stopped", "yes")'],
+		};
+		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+		f.commit();
+		f.git("push", "-q", "origin", "main");
+		const task = parseTask("WP-001"),
+			wt = f.task(task.slug);
+		writeFileSync(join(wt, "README.md"), "Outside the package owning paths\n");
+		const candidateGit = (...args) => execFileSync("git", ["-C", wt, ...args], { encoding: "utf8" }).trim();
+		candidateGit("add", "README.md");
+		candidateGit("commit", "-qm", "Reviewed outside-path change");
+		const sha = candidateGit("rev-parse", "HEAD"),
+			state = f.getState();
+		state.allowMerge = true;
+		state.mergeBranch = task.branch;
+		state.pr.headRefOid = sha;
+		state.comments["77"][0].body =
+			`EVF-Review: ${JSON.stringify({ head: sha, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
+		f.setState(state);
+		mkdirSync(runtimeDir(f.root, task), { recursive: true });
+		const before = readFileSync(join(f.root, "docs/build-progress.json"), "utf8");
+		console.log = (...args) => lines.push(args.join(" "));
+		assert.equal(ship(f.root, task), 0);
+		assert.match(lines.join("\n"), /merged; no package progress recorded/);
+		assert.equal(readFileSync(join(f.root, "docs/build-progress.json"), "utf8"), before);
+		assert.equal(readFileSync(join(runtimeDir(f.root, task), "stopped"), "utf8"), "yes");
+		assert.equal(existsSync(wt), false);
+		listShipped(f.root, [task.id]);
+		assert.equal(readFileSync(join(f.root, "docs/build-progress.json"), "utf8"), before);
+		assert.equal(
+			JSON.parse(readFileSync(join(evfDataDir(f.root), "shipped", task.slug + ".json"), "utf8")).acknowledged,
+			true,
+		);
+	} finally {
+		console.log = log;
+		f.close();
+	}
+});
+
+test("BUG-ops15-dependencies: task start installs before stack startup and stops on install failure", () => {
+	for (const installCode of [0, 7]) {
+		const f = fixture();
+		try {
+			writeFileSync(join(f.root, "package.json"), '{"private":true}');
+			f.git("add", "package.json");
+			f.cfg.stack = {
+				usesPaidProviders: false,
+				up: [
+					process.execPath,
+					"-e",
+					'const fs=require("node:fs"); if(!fs.existsSync("node_modules/ready")) process.exit(9); fs.writeFileSync("stack-started", "yes")',
+				],
+			};
+			f.authorize("WP-001");
+			f.commit();
+			// Give the child its own Node directory, so its fake installer is first on PATH too.
+			const nodeDir = join(f.root, "fake-bin/runtime");
+			mkdirSync(nodeDir);
+			cpSync(process.execPath, join(nodeDir, "node"));
+			const installer = join(nodeDir, "corepack");
+			writeFileSync(
+				installer,
+				`#!${process.execPath}\nconst fs=require('node:fs'); fs.writeFileSync('install-args', JSON.stringify(process.argv.slice(2))); fs.mkdirSync('node_modules',{recursive:true}); fs.writeFileSync('node_modules/ready','yes'); process.exit(${installCode});`,
+			);
+			execFileSync("chmod", ["+x", installer]);
+			const task = parseTask("WP-001"),
+				wt = join(f.root, ".worktrees", task.slug);
+			const code = `import {taskStart} from ${JSON.stringify(join(source, "tools/evf/task.ts"))}; import {parseTask} from ${JSON.stringify(join(source, "tools/evf/lib.ts"))}; process.exit(taskStart(${JSON.stringify(f.root)}, parseTask("WP-001"), {allowUnready:false, noStack:false}));`;
+			const result = spawnSync(join(nodeDir, "node"), ["--input-type=module", "-e", code], { encoding: "utf8" });
+			assert.equal(result.status, installCode ? 1 : 0, result.stderr);
+			if (installCode) assert.match(result.stderr, /Dependency install failed with exit code 7/);
+			assert.deepEqual(JSON.parse(readFileSync(join(wt, "install-args"), "utf8")), [
+				"pnpm",
+				"install",
+				"--frozen-lockfile",
+			]);
+			assert.equal(existsSync(join(wt, "stack-started")), installCode === 0);
+		} finally {
+			f.close();
+		}
+	}
 });

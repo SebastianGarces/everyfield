@@ -21,7 +21,6 @@ ACCEPTANCE_DEFAULTS = {
     'required_test_layers': ['domain/contract', 'PostgreSQL integration where writes/concurrency',
                              'browser/tool evaluation where surfaced'],
     'evidence_status': 'future-not-run',
-    'test_protocol': 'Run the selected fixtures through the named domain/native/assistant adapters and applicable real PostgreSQL/browser layers; assert every stated expected result and denial, current state/history/audit/intent coherence, replay and recovery. A failure blocks owning slice closure; no source suite or count establishes a pass.',
 }
 
 

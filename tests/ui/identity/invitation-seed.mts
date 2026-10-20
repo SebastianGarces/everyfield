@@ -4,8 +4,10 @@
 // a pipeline person, then sends real invitations through the WP-008 invitation service. The invitation mail goes through
 // the real outbox; a capturing transport reads each link.
 //
-//   up:   node --env-file=<home apps/web/.env.local> --conditions=react-server --import tsx tests/ui/identity/invitation-seed.mts up <preview-url>
-//   down: node --env-file=<home apps/web/.env.local> --conditions=react-server --import tsx tests/ui/identity/invitation-seed.mts down
+// Run from this worktree. tsx is installed in packages/db, not at the repository root.
+//   cd packages/db
+//   up:   node --env-file="<absolute-path-to-shared-dev-env>" --conditions=react-server --import tsx ../../tests/ui/identity/invitation-seed.mts up <preview-url>
+//   down: node --env-file="<absolute-path-to-shared-dev-env>" --conditions=react-server --import tsx ../../tests/ui/identity/invitation-seed.mts down
 //
 // `up` writes the accounts and invitation links the browser test needs to $INVITATION_UI_FIXTURE (default
 // /tmp/everyfield-invitation-ui.json). `down` deletes it and drops the shared schema when no other seed still uses it.
