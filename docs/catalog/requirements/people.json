@@ -87,7 +87,7 @@
       "feature_ids": [
         "PPL-002"
       ],
-      "text": "Preserve contact, independent address/source/sourceDetails/summary notes and stage fields with server validation after trim. Normal full form names allow bounded 255 character components; reject wholly blank display identity. A minimum named guest may supply one real display name with optional phone/email and no fabricated surname. Quick defaults are prospect, source other (meeting quick-add uses meeting_guest_list), and optional US country default shown/editable. Explicit null clears nullable fields rather than blank→undefined losing the edit. Account link/storage key/creator/revision are server-owned. Create/edit writes actor/version/history/audit atomically and do not imply account, adult, commitment, consent or safety clearance. Background-check fields are excluded from every current form/DTO/import/export/tool.",
+      "text": "Preserve contact, independent address/source/sourceDetails/summary notes and stage fields with server validation after trim. Normal full form names allow bounded 255 character components; reject wholly blank display identity. A minimum named guest may supply one real display name with optional phone/email and no fabricated surname. Quick defaults are prospect, source other (meeting quick-add uses meeting_guest_list), and optional US country default shown/editable. Explicit null clears nullable fields rather than blank→undefined losing the edit. Users cannot set the account link or creator. Every create and edit shows in the person's history. Creating or editing a person does not imply account, adult, commitment, consent or safety clearance. Background-check fields are excluded from every current form/DTO/import/export/tool.",
       "spec": "docs/product/people.md#req-ppl-002",
       "operations": [
         "people.createPerson",
@@ -104,8 +104,7 @@
         "REQ-PPL-024"
       ],
       "work_packages": [
-        "WP-011",
-        "WP-012"
+        "WP-011"
       ],
       "title": "Create, quick-add and edit person profiles",
       "behavior_rules": [
@@ -201,7 +200,7 @@
       "feature_ids": [
         "PPL-005"
       ],
-      "text": "Apply 3 MiB verified JPG/JPEG/PNG/WebP private image policy and same plant live Person authority. Save generated key/reference/version atomically before old unreferenced cleanup; return authenticated Person/version image route without raw key or signed bearer URL. Foreign/retired photo access returns unavailable. Merge may choose only stored source/survivor photo and keeps referenced bytes until manifest/inverse retention no longer needs them. Failure cleanup cannot delete another currently referenced blob; failed write keeps old reference.",
+      "text": "Apply 3 MiB verified JPG/JPEG/PNG/WebP private image policy and same plant live Person authority. Only people who can see the person can see the photo, through the app and never through a raw storage link. Replacing or removing a photo never shows a broken or someone else's image. Foreign/retired photo access returns unavailable. Merge may choose either person's stored photo and keeps the other while an unmerge may need it. A failed upload keeps the old photo.",
       "spec": "docs/product/people.md#req-ppl-005",
       "operations": [
         "people.setPersonPhoto",
@@ -284,7 +283,7 @@
       "feature_ids": [
         "PPL-007"
       ],
-      "text": "Preserve five visible pipeline columns with final core-group column also containing launch_team/leader milestone badges. Moving a person within or between columns keeps the order every viewer sees, changes only that person and never another church's or a retired contact; a move based on an outdated view of the column is refused with a clear message. Read-only viewers have no drag mutation. Cards display only active parent follow-up work and due-local-day overdue/missing warnings. Complete/no_longer_needed/deleted obligations do not show open urgency; a contact without any explicitly created duty may be uncovered but is not invented urgent work. Page/bound queries without dropping full filtered result semantics.",
+      "text": "Preserve five visible pipeline columns with final core-group column also containing launch_team/leader milestone badges. Moving a person within or between columns keeps the order every viewer sees, changes only that person and never another church's or a retired contact; a move based on an outdated view of the column is refused with a clear message. Read-only viewers have no drag mutation. Cards display only active parent follow-up work and due-local-day overdue/missing warnings. Complete/no_longer_needed/deleted obligations do not show open urgency; a contact without any explicitly created duty may be uncovered but is not invented urgent work. A person with no recorded activity for longer than the church's inactivity threshold in Settings shows an inactivity warning on their card; new activity clears it. Page/bound queries without dropping full filtered result semantics.",
       "spec": "docs/product/people.md#req-ppl-007",
       "operations": [
         "people.getPipelineData",
@@ -372,7 +371,7 @@
       "feature_ids": [
         "PPL-009"
       ],
-      "text": "Tenant household name/address and head/spouse/child/other membership roles are operational facts, not adult classification. Create household+initial head coherently; join validates live same plant Person/household and copies household address only if Person lacks meaningful address. Leaving preserves Person address. Address propagation previews exact active members/current reviewed state and deliberately overwrites them in one bounded all-or-nothing change, returning actual count. Empty-household deletion refuses active members; retired member references detach from current household while immutable old membership snapshots retain provenance. Concurrent Person retirement, household joining and deletion cannot leave orphan records.",
+      "text": "Tenant household name/address and head/spouse/child/other membership roles are operational facts, not adult classification. Create household+initial head coherently; join validates live same plant Person/household and copies household address only if Person lacks meaningful address. Leaving preserves Person address. Address propagation previews exact active members/current reviewed state and deliberately overwrites them all at once, returning the actual count. Empty-household deletion refuses active members; retired member references detach from current household while history still shows the household a retired person belonged to. Concurrent Person retirement, household joining and deletion cannot leave orphan records.",
       "spec": "docs/product/people.md#req-ppl-009",
       "operations": [
         "people.createHouseholdWithHead",
@@ -612,7 +611,7 @@
       "feature_ids": [
         "PPL-014"
       ],
-      "text": "Preserve core_group/launch_team commitment types, actual signed LocalDate, optional witness/notes/private PDF/JPG/PNG≤10 MiB and authenticated document download. Witness is an optional same plant Person selected from valid tenant record; unstructured external witness may be dated text without a foreign Person reference. Support 10 MiB through bounded authenticated upload reference flow rather than oversize action body; failure tracks orphan bytes and never links arbitrary keys. Record/signature, person level active commitment projection, history/assessment freshness/audit and lower-stage core_group entry commit together. Advanced stage is not demoted by repeat card. Explicit dated withdrawal/reactivation changes person lifecycle not stage; old signature cannot override withdrawal. Apply REQ-PPL-026 for current adult size/genuine history.",
+      "text": "Preserve core_group/launch_team commitment types, actual signed LocalDate, optional witness/notes/private PDF/JPG/PNG≤10 MiB and authenticated document download. Witness is an optional same plant Person selected from valid tenant record; unstructured external witness may be dated text without a foreign Person reference. Files up to 10 MiB upload through the shared private-file flow; a failed upload leaves no attached file. Saving a commitment shows the document, the Core Group stage and the history together, and marks affected assessments out of date. Advanced stage is not demoted by repeat card. Explicit dated withdrawal/reactivation changes person lifecycle not stage; old signature cannot override withdrawal. Apply REQ-PPL-026 for current adult size/genuine history.",
       "spec": "docs/product/people.md#req-ppl-014",
       "operations": [
         "people.createCommitment",
@@ -656,7 +655,7 @@
       "feature_ids": [
         "PPL-015"
       ],
-      "text": "Correct exact same plant Person/record kind under current Owner/Admin and unchanged reviewed record. Reuse original domain validations; recompute assessment total, preserve original recording actor/time and append typed old/new/corrector/time/reason/receipt before commit. Ordinary score/result/notes/occurrence date correction never replays stage automation. Immutable original account/private author cannot be changed. Document/witness/original assessor replacement is outside ordinary correction fields; no arbitrary field patch or universal Undo. Use explicit new evidence record where necessary, retaining previous private document and provenance under ownership/deletion rules. Invalid historical commitment/lifecycle may be voided/corrected with attributable history and recomputed current projection, preserving earlier assessments. Stale foreign/cross-person or replayed conflicting mutation writes nothing.",
+      "text": "Correct exact same plant Person/record kind under current Owner/Admin and unchanged reviewed record. Reuse original domain validations; recompute assessment total, preserve original recording actor/time and show the old value, new value, who and why in history. Ordinary score/result/notes/occurrence date correction never replays stage automation. Immutable original account/private author cannot be changed. Document/witness/original assessor replacement is outside ordinary correction fields; no arbitrary field patch or universal Undo. Use explicit new evidence record where necessary, retaining previous private document and provenance under ownership/deletion rules. Invalid historical commitment/lifecycle may be voided/corrected with attributable history and recomputed current projection, preserving earlier assessments. A correction based on an outdated view, another person's record or another church writes nothing; repeating a correction changes nothing more.",
       "spec": "docs/product/people.md#req-ppl-015",
       "operations": [
         "people.correctPersonRecord",
@@ -823,7 +822,7 @@
       "feature_ids": [
         "PPL-018"
       ],
-      "text": "Use RFC 4180 parser with BOM/CRLF/commas/escaped quotes/quoted multiline and explicit malformed quoting errors. Keep 12 contact input columns(first_name, last_name, email, phone, street, city, state, postal_code, country, source, source_details, notes); normalizer/defaults match People and background fields are absent. Server limits 10 MiB/10000 rows and reparses validated original bytes/row digest, never trusts client-returned parsed rows. Preview all valid/invalid/existing and within-file duplicate rows; resolutions skip/create/create_and_review never overwrite existing Person. Save frozen reviewed row/resolution digest with import intent; independent all-or-nothing row changes record created/skipped/error and optional new review pair. Retry resumes only unfinished row keys, no duplicate earlier success. Stale review/authority/digest refuses; partial import returns named row reasons and remaining work, not generic failed after commits.",
+      "text": "Use RFC 4180 parser with BOM/CRLF/commas/escaped quotes/quoted multiline and explicit malformed quoting errors. Keep 12 contact input columns(first_name, last_name, email, phone, street, city, state, postal_code, country, source, source_details, notes); normalizer/defaults match People and background fields are absent. Server limits 10 MiB and 10000 rows and validates the uploaded file itself, never rows returned by the client. Preview all valid/invalid/existing and within-file duplicate rows; resolutions skip/create/create_and_review never overwrite existing Person. Import saves exactly the rows the user reviewed; each row is created, skipped or failed, with an optional new duplicate-review pair. A retry never creates a person twice. A changed file, review or authority is refused. A partial import names each failed row and why, and what remains, never a generic failure after rows were saved.",
       "spec": "docs/product/people.md#req-ppl-018",
       "operations": [
         "people.generateCsvTemplate",
@@ -857,7 +856,7 @@
       "feature_ids": [
         "PPL-019"
       ],
-      "text": "Export same current filters as directory with 15 documented columns: first_name, last_name, email, phone, street, city, state, postal_code, country, status, source, source_details, notes, tags, created_at; tags semicolon joined and recorded createdAt UTC. Header-only empty export valid. RFC 4180 escaping preserves comma/newline/quotes; spreadsheet-dangerous leading=,+,-,@, TAB/CR values get documented leading apostrophe neutralization. The exact bytes are CSV not an XLSX claim. Private photo/account/storage/qualification/background/care fields are absent. Tenant read/export authority rechecked; large exports stream/bound rows and include exact filter/count receipt. Narrow 12 column import ignores status/tags/date, so never claim lossless backup/roundtrip. Organization pipeline Persons use the same applicable identity, lifecycle, duplicate, merge, reference and inverse rules within their exact organization under REQ-MUL-001 and REQ-MUL-005; plant-only recruitment/household/commitment facts remain plant-only.",
+      "text": "Export same current filters as directory with 15 documented columns: first_name, last_name, email, phone, street, city, state, postal_code, country, status, source, source_details, notes, tags, created_at; tags semicolon joined and recorded createdAt UTC. Header-only empty export valid. RFC 4180 escaping preserves comma/newline/quotes; spreadsheet-dangerous leading=,+,-,@, TAB/CR values get documented leading apostrophe neutralization. The exact bytes are CSV not an XLSX claim. Private photo/account/storage/qualification/background/care fields are absent. Tenant read/export authority rechecked; an export of any size finishes and states its filters and row count. Narrow 12 column import ignores status/tags/date, so never claim lossless backup/roundtrip. Organization pipeline Persons use the same applicable identity, lifecycle, duplicate, merge, reference and inverse rules within their exact organization under REQ-MUL-001 and REQ-MUL-005; plant-only recruitment/household/commitment facts remain plant-only.",
       "spec": "docs/product/people.md#req-ppl-019",
       "operations": [
         "people.exportPeople"
@@ -888,7 +887,7 @@
       "feature_ids": [
         "PPL-020"
       ],
-      "text": "Preserve only conditional source transitions: attended Vision prospect→attendee, active ministry membership core_group→launch_team, ordinary ministry leadership launch_team→leader. Interview event advances earlier stage to interviewed, commitment earlier stage to core_group; repeated recording/correction preserves advanced stage. Perform approved progression with original actor/history/assessment freshness in the same all-or-nothing producer change; async wake-up cannot be the only critical writer. Retry same event no-ops without duplicate history. No automatic demotion on role leave, training revoke, commitment withdrawal or plant launch date/phase change. No process-local noop handler is a durable feature.",
+      "text": "Preserve only conditional source transitions: attended Vision prospect→attendee, active ministry membership core_group→launch_team, ordinary ministry leadership launch_team→leader. Interview event advances earlier stage to interviewed, commitment earlier stage to core_group; repeated recording/correction preserves advanced stage. When the attendance, membership, leadership, interview or commitment is saved, the stage advance is visible at the same time, with its history. Recording it again adds no history. No automatic demotion on role leave, training revoke, commitment withdrawal or plant launch date/phase change.",
       "spec": "docs/product/people.md#req-ppl-020",
       "operations": [
         "people.applyRecordedRecruitmentEvent"
@@ -907,7 +906,7 @@
       "work_packages": [
         "WP-014",
         "WP-022",
-        "WP-023"
+        "WP-017"
       ],
       "title": "Recorded events and cross-domain recruitment auto-advancement",
       "behavior_rules": [
@@ -966,7 +965,7 @@
       "feature_ids": [
         "PPL-022"
       ],
-      "text": "The uncalled deferred follow-up-initiation warning and undelivered interview next-step automatic task prompt are not executable target capabilities. Consolidate useful intent into explicit ordinary follow-up create/assign or reviewed task creation, retaining manualfollowing_up stage. No no-op tool, hidden subscriber, automatic qualification or autonomous stage/task side effect is registered. Show recorded next steps as text with option to explicitly open a task draft.",
+      "text": "The uncalled deferred follow-up-initiation warning and undelivered interview next-step automatic task prompt are not executable target capabilities. Consolidate useful intent into explicit ordinary follow-up create/assign or reviewed task creation, retaining manualfollowing_up stage. Nothing creates follow-ups, qualifications, stage changes or tasks automatically in the background. Show recorded next steps as text with option to explicitly open a task draft.",
       "spec": "docs/product/people.md#req-ppl-022",
       "operations": [
         "tasks.createFollowUp",
@@ -1035,7 +1034,7 @@
         "PPL-020",
         "PPL-021"
       ],
-      "text": "Document every Person-bearing reference and its lifecycle behavior in the reviewed Person inventory. Each Person-bearing consumer registers resource/field, exact tenant ownership, current versus historical meaning, source/survivor concurrency outcomes, retirement treatment, merge rewrite rule, uniqueness/collision refusal, private ownership/authorship restriction, reviewed inverse policy and named fixtures. Every new reference validates the current active Person. A merge racing a new reference cannot leave a current reference on the retired source. WP-015 closes only then-present People/account/household/qualification consumers. Later team/training, attendance/RSVP/card/kit, follow-up/task/contact, communication, Launch guest, documents and Evry proposal/artifact owners add registrations and real merge/retirement/inverse fixtures before their own closure. Immutable historical actor/event/document snapshots retain original provenance with authorized identity lineage rather than arbitrary rewrite. Private-care account-author references are excluded from Person movement. Final WP-056/057 closure verifies the full manifest against the actual schema and every later producer; early merge is not a whole-target claim. Organization pipeline Persons use the same applicable identity, lifecycle, duplicate, merge, reference and inverse rules within their exact organization under REQ-MUL-001 and REQ-MUL-005; plant-only recruitment/household/commitment facts remain plant-only.",
+      "text": "Every record that names a person has a defined behavior when that person is retired, merged or unmerged: which current and historical references move, which collisions are refused, which private authorship stays, and how unmerge restores it. Every new reference names a current active person. A merge racing a new reference cannot leave a current reference on the retired source. Historical actor, event and document records keep their original provenance and show the merged identity. Private-care author references never move. Each domain proves its own references after merge. Organization pipeline Persons use the same applicable identity, lifecycle, duplicate, merge, reference and inverse rules within their exact organization under REQ-MUL-001 and REQ-MUL-005; plant-only recruitment/household/commitment facts remain plant-only.",
       "spec": "docs/product/people.md#req-ppl-024",
       "operations": [],
       "acceptance_ids": [
@@ -1057,7 +1056,7 @@
         "WP-004",
         "WP-015",
         "WP-019",
-        "WP-021",
+        "WP-020",
         "WP-022",
         "WP-023",
         "WP-024",
@@ -1078,7 +1077,7 @@
         "PPL-015",
         "PPL-017"
       ],
-      "text": " `people.getMergeReview` returns exact current reviewed state, all differing stored field choices, account/household/photo/current-lifecycle effects, moved/deduplicated references and named blockers. Recheck both live same-plant Persons and affected records; one atomic merge updates survivor/reference projections, retires source, records original snapshots, choices, exact moved records, before/after values and conditions for a safe inverse, appends history, audit and the recorded outcome and makes affected assessments stale. Two account-linked Persons cannot merge; the linked Person must survive, account grants/author identity cannot move, and no arbitrary storage/user ID enters the payload. Conservative collisions include same-meeting attendance/card, active training assignment/completion, pending RSVP, distinct live obligation, referral cycle and conflicting household/leadership state; disclose exact conflicts rather than silently dropping records. Repeated same merge returns original recorded outcome; conflicting destination or stale review refuses; source redirects follow recorded acyclic lineage.\n\nRetain the required Unmerge capability through `people.previewUnmerge`/`people.unmergePeople`, both native and exact-reviewed Evry. The preview names the original merge and full inverse. Execute only when recorded survivor/field/photo/account/reference reviewed facts are unchanged and every manifest inverse/uniqueness/tenant check proves restoration without discarding later facts. Under the same unchanged-review and ownership checks restore source and recorded moved/deduplicated references, restore prior survivor values, append a new reversal outcome and attributable history/audit that make affected assessments stale; retain the original merge receipt. Retrying reversal converges. A source-row-only restore is never Unmerge. A chained merge, new/corrected reference, credential/author conflict, sent-mail/disclosure or other irreversible effect whose attribution cannot be safely reversed causes exact conflict refusal with zero inverse effects. Offer separately reviewed manual correction/split of named records within ordinary domain authority, preserving later history and original authorship; operator recovery is not a substitute for the safe native inverse and never unsends mail. No universal undo promise. Organization pipeline Persons use the same applicable identity, lifecycle, duplicate, merge, reference and inverse rules within their exact organization under REQ-MUL-001 and REQ-MUL-005; plant-only recruitment/household/commitment facts remain plant-only.",
+      "text": "Merge shows every differing field and its effects before confirm: account, household, photo, lifecycle, the records that move and any blockers. After merge the source opens the survivor and all its history shows on the survivor; assessments that used either person are marked out of date. Two account-linked people cannot merge; the linked person survives, and account grants and authorship never move. Records that would collide, such as attendance at the same meeting, an active training assignment, a pending RSVP, a distinct open follow-up, a referral cycle or conflicting household or leadership state, are named before confirm and never silently dropped. Repeating the same merge changes nothing and shows the earlier result; a merge based on an outdated review is refused.\n\nUnmerge, native and through reviewed Evry, previews the original merge and everything it will restore. It restores both people and their records as they were, unless later changes conflict; then it names the conflict and changes nothing. Conflicts include a chained merge, a new or corrected reference, a credential or authorship conflict, and sent mail or another disclosure. Repeating an unmerge changes nothing more. Later history and original authorship stay. A separately reviewed manual correction can fix named records within ordinary domain authority; it never unsends mail. There is no universal undo. Organization pipeline Persons use the same applicable identity, lifecycle, duplicate, merge, reference and inverse rules within their exact organization under REQ-MUL-001 and REQ-MUL-005; plant-only recruitment/household/commitment facts remain plant-only.",
       "spec": "docs/product/people.md#req-ppl-025",
       "operations": [
         "people.getMergeReview",
@@ -1100,7 +1099,6 @@
       "work_packages": [
         "WP-015",
         "WP-059",
-        "WP-060",
         "WP-063",
         "WP-064",
         "WP-091",
@@ -1117,7 +1115,7 @@
         "PPL-017",
         "PPL-020"
       ],
-      "text": "Record explicit adult_classification=adult|child|unknown with dated attributable correction history; DOB is optional and never required. Maintain authoritative per-person/plant commitment lifecycle active|withdrawn|unknown, separate from signature rows and stage. At frozen asOf/source revision, count each live same plant classified adult with currently active supported core-group or launch-team commitment once, regardless of repeated cards, ministry roles or account link. Two eligible household adults count two; role/stage/account alone supplies no evidence. Known children, current withdrawal, retired/merged-away sources and foreign records are excluded with lineage. Unknown classification/state is visible. Exact count is available only with complete evidence; 30 established adults meet≥30 even with a partial cohort, 29 plus a consequential unknown yields Unknown, reliably bounded below 30 may fail while exact count stays unknown; unavailable read is never zero. No blanket classify-every-contact or renewal gate.\n\nHistorical genuine acquisition is independent from current size. Use each canonical person's earliest valid actual eligible commitment occurrence, not recorded/corrected/classified/rejoined time. A real withdrawal decreases current size but preserves its genuine acquisition and the latest-first acquisition clock; later genuine reactivation restores current size without a new person or clock reset. Correcting an invalid historical event/date may remove/move that acquisition and recompute current windows/clock with old/new/actor/reason history. The 2026-10-13 15:32 semantic ruling expressly settles this difference. Deduplicate through explicit merge lineage, never similar name/email. Preserve trailing 28 day versus prior 28 day first-acquisition counts: net current headcount and growthDelta do not define the flat clock. 20 days permits neither slowed nor stalled, 21–27 permits slowed only,≥28 permits stalled and fails the established growth-trajectory test. Missing/invalid/future consequential occurrence evidence leaves timing Unknown, independently of known size. All date/window boundaries use frozen church-local LocalDate, with windows [ asOf -27, asOf ] and [ asOf -55, asOf -28]; no UTC-midnight reinterpretation. Old assessments retain their formula/asOf/source lineage.",
+      "text": "Record explicit adult_classification=adult|child|unknown with dated attributable correction history; DOB is optional and never required. Each person's commitment is active, withdrawn or unknown, separate from signed cards and stage. At a fixed as-of time, count each live same plant classified adult with currently active supported core-group or launch-team commitment once, regardless of repeated cards, ministry roles or account link. Two eligible household adults count two; role/stage/account alone supplies no evidence. Known children, current withdrawal, retired/merged-away sources and foreign records are excluded with lineage. Unknown classification/state is visible. Exact count is available only with complete evidence; 30 established adults meet≥30 even with a partial cohort, 29 plus a consequential unknown yields Unknown, reliably bounded below 30 may fail while exact count stays unknown; unavailable read is never zero. No blanket classify-every-contact or renewal gate.\n\nHistorical genuine acquisition is independent from current size. Use each canonical person's earliest valid actual eligible commitment occurrence, not recorded/corrected/classified/rejoined time. A real withdrawal decreases current size but preserves its genuine acquisition and the latest-first acquisition clock; later genuine reactivation restores current size without a new person or clock reset. Correcting an invalid historical event/date may remove/move that acquisition and recompute current windows/clock with old/new/actor/reason history. The 2026-10-13 15:32 semantic ruling expressly settles this difference. Deduplicate through explicit merge lineage, never similar name/email. Preserve trailing 28 day versus prior 28 day first-acquisition counts: net current headcount and growthDelta do not define the flat clock. 20 days permits neither slowed nor stalled, 21–27 permits slowed only,≥28 permits stalled and fails the established growth-trajectory test. Missing/invalid/future consequential occurrence evidence leaves timing Unknown, independently of known size. All date/window boundaries use frozen church-local LocalDate, with windows [ asOf -27, asOf ] and [ asOf -55, asOf -28]; no UTC-midnight reinterpretation. Old assessments retain their formula/asOf/source lineage.",
       "spec": "docs/product/people.md#req-ppl-026",
       "operations": [
         "people.recordAdultClassification",

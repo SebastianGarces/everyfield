@@ -1084,7 +1084,6 @@
       "estimate_engineer_days": 2.0,
       "inputs": [],
       "outputs": [
-        "PPL-002: Create, quick-add and edit person profiles",
         "PPL-005: Private person photo lifecycle",
         "PPL-009: Household lifecycle, member roles and deliberate address propagation",
         "PPL-010: Church-defined tags and person assignment",
@@ -1106,7 +1105,6 @@
         "PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE",
         "PROVIDER48-002",
         "PROVIDER48-003",
-        "TARGET-PPL-002",
         "TARGET-PPL-005",
         "TARGET-PPL-009",
         "TARGET-PPL-010",
@@ -1115,7 +1113,7 @@
       "spec_paths": [
         "docs/product/people.md"
       ],
-      "integration_rule": "Scope: PPL-002, PPL-005, PPL-009, PPL-010, PPL-011.",
+      "integration_rule": "Scope: PPL-005, PPL-009, PPL-010, PPL-011. WP-011 shipped person create, quick-add and edit (PPL-002); add the household, tag and skill fields to that form from features/people/fields/ and do not rebuild it. WP-012 delivers the shared private-file flow (upload, authorized download, replace and remove) for the person photo; WP-014 reuses it for commitment documents. Tables that exist on main for this domain were kept for foreign keys or shipped readers; they are not a contract, so reshape or replace them. The shipped readers are: packages/domain/src/people/people.ts (task, team, participation, commitment), packages/domain/src/people/queries.ts (task, obligation), packages/domain/src/people/core.ts (commitment), apps/web/src/server/jobs/notifications.ts (task, meeting).",
       "goal": "Households tags skills and person fields.",
       "context_scope": {
         "features": "owned",
@@ -1123,7 +1121,11 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": [
+          "REQ-KNOW-056",
+          "REQ-KNOW-057"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -1163,8 +1165,6 @@
       ],
       "interfaces": [],
       "acceptance_gates": [
-        "INH-EDGES-14",
-        "MW-CASE-005",
         "PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE",
         "TARGET-PPL-018",
         "TARGET-PPL-019"
@@ -1205,16 +1205,17 @@
       "domain": "people",
       "depends_on": [
         "WP-011",
-        "WP-001"
+        "WP-001",
+        "WP-012"
       ],
       "estimate_engineer_days": 2.0,
       "inputs": [],
       "outputs": [
-        "PPL-006: Manual recruitment-stage movement, warnings, reasons and handoff",
         "PPL-012: SME 4 C’s assessment recording, latest result and history",
         "PPL-013: SME five-criterion interview, result, next steps and progression",
         "PPL-014: Commitment recording, private document and Core Group entry",
-        "PPL-020: Recorded events and cross-domain recruitment auto-advancement"
+        "PPL-020: Recorded events and cross-domain recruitment auto-advancement",
+        "REQ-PPL-006 portion: assessment-based stage warnings"
       ],
       "owning_paths": [
         "packages/domain/src/people/assessments/",
@@ -1226,35 +1227,24 @@
       ],
       "interfaces": [],
       "acceptance_gates": [
-        "CA001",
-        "CA008",
-        "CA009",
-        "CA010",
-        "CA011",
-        "CA012",
         "CA021",
         "GAP-PPL-006",
         "GAP-PPL-012",
         "GAP-PPL-013",
         "GAP-PPL-014",
-        "GAP-PPL-020",
-        "MW-CASE-003",
-        "MW-CASE-005",
         "PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-RETIRE",
         "PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE",
         "PROVIDER48-002",
         "PROVIDER48-003",
-        "TARGET-PPL-006",
         "TARGET-PPL-012",
         "TARGET-PPL-013",
         "TARGET-PPL-014",
-        "TARGET-PPL-020",
         "TARGET-PPL-026"
       ],
       "spec_paths": [
         "docs/product/people.md"
       ],
-      "integration_rule": "Scope: PPL-006, PPL-012, PPL-013, PPL-014, PPL-020.",
+      "integration_rule": "Scope: PPL-012, PPL-013, PPL-014, PPL-020 (interview and commitment transitions), assessment-based stage warnings from REQ-PPL-006. Stage moves shipped in WP-011 (D68). Commitment documents use the private-file flow from WP-012. Tables that exist on main for this domain were kept for foreign keys or shipped readers; they are not a contract, so reshape or replace them. The shipped readers are: packages/domain/src/people/people.ts (task, team, participation, commitment), packages/domain/src/people/queries.ts (task, obligation), packages/domain/src/people/core.ts (commitment), apps/web/src/server/jobs/notifications.ts (task, meeting).",
       "goal": "Assessments interviews commitments.",
       "context_scope": {
         "features": "owned",
@@ -1262,7 +1252,15 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "requirement_portions": {
+          "REQ-PPL-006": "Assessment-based stage warnings only; manual stage moves shipped in WP-011.",
+          "REQ-PPL-020": "Recorded interview advances to interviewed; recorded commitment advances to core_group."
+        },
+        "case_requirements_at_start": [
+          "REQ-PPL-006",
+          "REQ-PPL-020"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -1309,17 +1307,11 @@
       "interfaces": [],
       "acceptance_gates": [
         "ADR1-017",
-        "CA008",
-        "CA009",
         "CA013",
         "CA014",
         "CA021",
         "CA022",
         "EVRY-PERSON-UNMERGE",
-        "LAUNCH46-004",
-        "LAUNCH46-022",
-        "MW-CASE-003",
-        "MW-CASE-005",
         "PERSONREF-ACCOUNT-LINK-CONFLICT",
         "PERSONREF-ACCOUNT-LINK-MERGE",
         "PERSONREF-ACCOUNT-LINK-RETIRE",
@@ -1328,18 +1320,6 @@
         "PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-MERGE",
         "PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-RETIRE",
         "PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-UNMERGE",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-UNMERGE",
-        "PERSONREF-CANDIDATE-PERSON-ATTESTATION-CONFLICT",
-        "PERSONREF-CANDIDATE-PERSON-ATTESTATION-MERGE",
-        "PERSONREF-CANDIDATE-PERSON-ATTESTATION-RETIRE",
-        "PERSONREF-CANDIDATE-PERSON-ATTESTATION-UNMERGE",
-        "PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-CONFLICT",
-        "PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-MERGE",
-        "PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-RETIRE",
-        "PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-UNMERGE",
         "PERSONREF-DOCUMENT-COMMITMENT-EVIDENCE-CONFLICT",
         "PERSONREF-DOCUMENT-COMMITMENT-EVIDENCE-MERGE",
         "PERSONREF-DOCUMENT-COMMITMENT-EVIDENCE-RETIRE",
@@ -1348,26 +1328,6 @@
         "PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-MERGE",
         "PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE",
         "PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-UNMERGE",
-        "PERSONREF-INTELLIGENCE-SNAPSHOT-CITATION-CONFLICT",
-        "PERSONREF-INTELLIGENCE-SNAPSHOT-CITATION-MERGE",
-        "PERSONREF-INTELLIGENCE-SNAPSHOT-CITATION-RETIRE",
-        "PERSONREF-INTELLIGENCE-SNAPSHOT-CITATION-UNMERGE",
-        "PERSONREF-LAUNCH-NAMED-GUEST-CONFLICT",
-        "PERSONREF-LAUNCH-NAMED-GUEST-MERGE",
-        "PERSONREF-LAUNCH-NAMED-GUEST-RETIRE",
-        "PERSONREF-LAUNCH-NAMED-GUEST-UNMERGE",
-        "PERSONREF-MEETING-CHECKLIST-PERSON-CONFLICT",
-        "PERSONREF-MEETING-CHECKLIST-PERSON-MERGE",
-        "PERSONREF-MEETING-CHECKLIST-PERSON-RETIRE",
-        "PERSONREF-MEETING-CHECKLIST-PERSON-UNMERGE",
-        "PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-CONFLICT",
-        "PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-MERGE",
-        "PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-RETIRE",
-        "PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-UNMERGE",
-        "PERSONREF-NOTIFICATION-PERSON-SUBJECT-CONFLICT",
-        "PERSONREF-NOTIFICATION-PERSON-SUBJECT-MERGE",
-        "PERSONREF-NOTIFICATION-PERSON-SUBJECT-RETIRE",
-        "PERSONREF-NOTIFICATION-PERSON-SUBJECT-UNMERGE",
         "PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-CONFLICT",
         "PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-MERGE",
         "PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE",
@@ -1376,22 +1336,7 @@
         "PERSONREF-SHARED-RECEIPT-AUDIT-PERSON-SUBJECT-MERGE",
         "PERSONREF-SHARED-RECEIPT-AUDIT-PERSON-SUBJECT-RETIRE",
         "PERSONREF-SHARED-RECEIPT-AUDIT-PERSON-SUBJECT-UNMERGE",
-        "PERSONREF-TASK-PERSON-FOLLOW-UP-CONFLICT",
-        "PERSONREF-TASK-PERSON-FOLLOW-UP-MERGE",
-        "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE",
-        "PERSONREF-TASK-PERSON-FOLLOW-UP-UNMERGE",
-        "PERSONREF-TEAM-ROLE-LEADER-CONFLICT",
-        "PERSONREF-TEAM-ROLE-LEADER-MERGE",
-        "PERSONREF-TEAM-ROLE-LEADER-RETIRE",
-        "PERSONREF-TEAM-ROLE-LEADER-UNMERGE",
-        "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-CONFLICT",
-        "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE",
-        "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-RETIRE",
-        "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-UNMERGE",
         "ROLE43-011",
-        "SCHEMA-005",
-        "SCHEMA-009",
-        "SCHEMA-010",
         "TARGET-PPL-015",
         "TARGET-PPL-016",
         "TARGET-PPL-017",
@@ -1401,7 +1346,7 @@
       "spec_paths": [
         "docs/product/people.md"
       ],
-      "integration_rule": "Scope: MUL-017, PPL-015, PPL-016, PPL-017.",
+      "integration_rule": "Scope: MUL-017, PPL-015, PPL-016, PPL-017. Merge and unmerge cover the people-domain references that exist in S1: account links, households, tags, skills and notes, assessments, interviews and commitments, commitment documents, person redirects and merge history, and audit subjects. Each later domain package proves its own references after merge; WP-091 closes the full set. Tables that exist on main for this domain were kept for foreign keys or shipped readers; they are not a contract, so reshape or replace them. The shipped readers are: packages/domain/src/people/people.ts (task, team, participation, commitment), packages/domain/src/people/queries.ts (task, obligation), packages/domain/src/people/core.ts (commitment), apps/web/src/server/jobs/notifications.ts (task, meeting).",
       "goal": "Corrections duplicate resolution and merge.",
       "context_scope": {
         "features": "owned",
@@ -1409,65 +1354,12 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
-      },
-      "estimate_factors": {
-        "base_days": 1,
-        "requirement_days": 0.025,
-        "operation_days": 0.015,
-        "case_days": 0.006,
-        "table_days": 0.025
-      },
-      "ui_specialist": "ui-designer",
-      "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Product screens use the shared design foundations, controls and displays.",
-      "ui_depends_on": [
-        "WP-088",
-        "WP-089",
-        "WP-090"
-      ]
-    },
-    {
-      "id": "WP-016",
-      "title": "Team catalog and lifecycle",
-      "lane": "teams",
-      "domain": "teams",
-      "depends_on": [
-        "WP-011",
-        "WP-032"
-      ],
-      "estimate_engineer_days": 1.5,
-      "inputs": [],
-      "outputs": [
-        "TEAM-002: Archive, restore and correct teams"
-      ],
-      "owning_paths": [
-        "packages/domain/src/teams/",
-        "packages/contracts/src/teams/",
-        "apps/web/src/features/teams/",
-        "tests/integration/teams/"
-      ],
-      "interfaces": [],
-      "acceptance_gates": [
-        "B01-004",
-        "GAP-TEAM-002",
-        "GAP-TEAM-014",
-        "MW-CASE-006",
-        "PERSONREF-TEAM-ROLE-LEADER-RETIRE",
-        "TARGET-TEAM-002"
-      ],
-      "spec_paths": [
-        "docs/product/teams-training.md"
-      ],
-      "integration_rule": "Scope: TEAM-002.",
-      "goal": "Team catalog and lifecycle.",
-      "context_scope": {
-        "features": "owned",
-        "requirements": "owned_and_features",
-        "cases": "owned_and_features",
-        "operations": "owned_and_features",
-        "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": [
+          "REQ-KNOW-100",
+          "REQ-KNOW-118",
+          "REQ-PPL-024"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -1487,40 +1379,44 @@
     },
     {
       "id": "WP-017",
-      "title": "Roster roles leader appointments/org chart",
+      "title": "Teams, roster, roles, leader appointments and org chart",
       "lane": "teams",
       "domain": "teams",
       "depends_on": [
-        "WP-016",
-        "WP-008"
+        "WP-011",
+        "WP-032",
+        "WP-008",
+        "WP-020"
       ],
-      "estimate_engineer_days": 2.0,
+      "estimate_engineer_days": 2.5,
       "inputs": [],
       "outputs": [
         "IDN-014: Leadership attestation and onboarding prompts",
         "IDN-019: Seat roster, Admin appointment/demotion and authority removal",
+        "MTG-007: Guests, inviters and team roster snapshot",
+        "PPL-020: Recorded events and cross-domain recruitment auto-advancement",
         "TEAM-001: Ministry teams and staffing",
+        "TEAM-002: Archive, restore and correct teams",
         "TEAM-003: Initialize predefined teams and roles",
         "TEAM-005: Team roles and template import",
         "TEAM-006: Membership, role occupancy and tenure history",
         "TEAM-012: Organization chart from team hierarchy"
       ],
       "owning_paths": [
-        "packages/domain/src/teams/roster/",
-        "packages/domain/src/teams/roles/",
-        "packages/contracts/src/teams/roles/",
-        "apps/web/src/features/teams/roster-roles/",
-        "tests/integration/teams/roster-roles/"
+        "packages/domain/src/teams/",
+        "packages/contracts/src/teams/",
+        "apps/web/src/features/teams/",
+        "tests/integration/teams/"
       ],
       "interfaces": [],
       "acceptance_gates": [
+        "B01-004",
         "B01-010",
         "B01-011",
         "B01-012",
         "B01-013",
         "B01-014",
         "B01-015",
-        "B01-016",
         "B01-028",
         "B01-029",
         "B01-030",
@@ -1528,17 +1424,13 @@
         "B01-032",
         "B01-034",
         "B01-035",
-        "INH-LAUNCH-03",
-        "MW-CASE-006",
-        "MW-CASE-007",
+        "GAP-TEAM-002",
+        "GAP-TEAM-014",
         "PERSONREF-TEAM-ROLE-LEADER-RETIRE",
-        "ROLE43-004",
-        "ROLE43-005",
         "ROLE43-006",
-        "ROLE43-008",
-        "TARGET-IDN-014",
         "TARGET-IDN-019",
         "TARGET-TEAM-001",
+        "TARGET-TEAM-002",
         "TARGET-TEAM-003",
         "TARGET-TEAM-005",
         "TARGET-TEAM-006",
@@ -1548,15 +1440,19 @@
       "spec_paths": [
         "docs/product/teams-training.md"
       ],
-      "integration_rule": "Scope: IDN-014, IDN-019, TEAM-001, TEAM-003, TEAM-005, TEAM-006, TEAM-012.",
-      "goal": "Roster roles leader appointments/org chart.",
+      "integration_rule": "Scope: IDN-014, IDN-019, MTG-007 (team roster portion), PPL-020 (team membership and leadership transitions), TEAM-001, TEAM-002, TEAM-003, TEAM-005, TEAM-006, TEAM-012. Includes the retired WP-016 scope (archive, restore and correct teams).",
+      "goal": "Teams, roster, roles, leader appointments and org chart.",
       "context_scope": {
         "features": "owned",
         "requirements": "owned_and_features",
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "requirement_portions": {
+          "REQ-MTG-007": "Team roster: add the team's current active members to a meeting's guest list.",
+          "REQ-PPL-020": "Active ministry membership advances to launch_team; team leadership advances to leader."
+        }
       },
       "estimate_factors": {
         "base_days": 1,
@@ -1580,7 +1476,7 @@
       "lane": "teams",
       "domain": "teams",
       "depends_on": [
-        "WP-016"
+        "WP-017"
       ],
       "estimate_engineer_days": 1.5,
       "inputs": [],
@@ -1596,7 +1492,6 @@
       "interfaces": [],
       "acceptance_gates": [
         "B01-028",
-        "MW-CASE-007",
         "PERSONREF-TEAM-ROLE-LEADER-RETIRE",
         "TARGET-TEAM-007"
       ],
@@ -1659,16 +1554,11 @@
       "interfaces": [],
       "acceptance_gates": [
         "B01-001",
-        "B01-002",
         "B01-003",
         "B01-004",
-        "B01-019",
         "GAP-TEAM-010",
         "GAP-TEAM-013",
         "GAP-TEAM-015",
-        "MW-CASE-008",
-        "MW-CASE-009",
-        "MW-CASE-010",
         "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-CONFLICT",
         "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE",
         "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-RETIRE",
@@ -1689,8 +1579,7 @@
         "TARGET-TEAM-013",
         "TARGET-TEAM-015",
         "TARGET-TEAM-016",
-        "TARGET-TEAM-017",
-        "WIKI49-004"
+        "TARGET-TEAM-017"
       ],
       "spec_paths": [
         "docs/product/teams-training.md"
@@ -1723,21 +1612,31 @@
     },
     {
       "id": "WP-020",
-      "title": "Meeting and location lifecycle",
+      "title": "Meetings, venues, list and detail, invitations and RSVP",
       "lane": "meetings",
       "domain": "meetings",
       "depends_on": [
         "WP-011",
-        "WP-016"
+        "WP-008",
+        "WP-031"
       ],
-      "estimate_engineer_days": 2.0,
+      "estimate_engineer_days": 3.0,
       "inputs": [],
       "outputs": [
+        "COM-010: Public token RSVP and email engagement linkage",
+        "MTG-001: Meeting list, detail and history",
         "MTG-002: Create, edit, delete and change meeting status",
         "MTG-003: Meeting venues and copied location details",
+        "MTG-004: Archive, restore and correct venues",
         "MTG-005: Structured meeting agenda and Vision defaults",
         "MTG-006: Vision kit checklist",
+        "MTG-007: Guests, inviters and team roster snapshot",
+        "MTG-008: Administrative RSVP correction",
+        "MTG-009: Own RSVP and public token response",
         "MTG-011: Quick-add meeting guests and attendees",
+        "MTG-013: Response cards and recorded outcomes",
+        "MTG-018: Meeting notifications and invitation communication",
+        "MTG-019: Invitation attribution",
         "NTF-006: Meeting scheduled and day-offset reminders"
       ],
       "owning_paths": [
@@ -1754,7 +1653,6 @@
         "B02-011",
         "B02-012",
         "B02-013",
-        "B02-014",
         "B02-015",
         "B02-032",
         "B03-008",
@@ -1762,101 +1660,50 @@
         "B03-010",
         "B03-011",
         "B03-012",
+        "CASE-COM-010",
         "CASE-NTF-006",
         "GAP-MTG-003",
-        "GAP-MTG-011",
-        "INH-REGRESSION-CONTEXT-RETENTION",
-        "INH-REGRESSION-DST-FOLD",
-        "INH-REGRESSION-DST-GAP",
-        "MW-CASE-011",
+        "GAP-MTG-004",
+        "GAP-MTG-008",
         "NOTIFY47-007",
         "PERSONREF-MEETING-CHECKLIST-PERSON-RETIRE",
+        "PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-RETIRE",
+        "TARGET-MTG-001",
         "TARGET-MTG-002",
         "TARGET-MTG-003",
+        "TARGET-MTG-004",
         "TARGET-MTG-005",
         "TARGET-MTG-006",
+        "TARGET-MTG-007",
+        "TARGET-MTG-008",
+        "TARGET-MTG-009",
         "TARGET-MTG-011",
+        "TARGET-MTG-019",
         "TARGET-TSK-018"
       ],
       "spec_paths": [
         "docs/product/meetings-follow-up.md"
       ],
-      "integration_rule": "Scope: MTG-002, MTG-003, MTG-005, MTG-006, MTG-011, NTF-006.",
-      "goal": "Meeting and location lifecycle.",
+      "integration_rule": "Scope: COM-010, MTG-001, MTG-002, MTG-003, MTG-004, MTG-005, MTG-006, MTG-007 (guests and inviters), MTG-008, MTG-009, MTG-011, MTG-013, MTG-018, MTG-019, NTF-006. Includes the retired WP-021 scope. Vision meetings need no team; the team_meeting type and team roster arrive with WP-017. Tables that exist on main for this domain were kept for foreign keys or shipped readers; they are not a contract, so reshape or replace them. The shipped readers are: packages/domain/src/people/people.ts (task, team, participation, commitment), packages/domain/src/people/queries.ts (task, obligation), packages/domain/src/people/core.ts (commitment), apps/web/src/server/jobs/notifications.ts (task, meeting).",
+      "goal": "Meetings, venues, list and detail, invitations and RSVP.",
       "context_scope": {
         "features": "owned",
         "requirements": "owned_and_features",
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
-      },
-      "estimate_factors": {
-        "base_days": 1,
-        "requirement_days": 0.025,
-        "operation_days": 0.015,
-        "case_days": 0.006,
-        "table_days": 0.025
-      },
-      "ui_specialist": "ui-designer",
-      "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Product screens use the shared design foundations, controls and displays.",
-      "ui_depends_on": [
-        "WP-088",
-        "WP-089",
-        "WP-090"
-      ]
-    },
-    {
-      "id": "WP-021",
-      "title": "Meeting invitations and RSVP",
-      "lane": "meetings",
-      "domain": "meetings",
-      "depends_on": [
-        "WP-020",
-        "WP-008"
-      ],
-      "estimate_engineer_days": 2.0,
-      "inputs": [],
-      "outputs": [
-        "COM-010: Public token RSVP and email engagement linkage",
-        "MTG-007: Guests, inviters and team roster snapshot",
-        "MTG-008: Administrative RSVP correction",
-        "MTG-009: Own RSVP and public token response",
-        "MTG-013: Response cards and recorded outcomes",
-        "MTG-018: Meeting notifications and invitation communication",
-        "MTG-019: Invitation attribution"
-      ],
-      "owning_paths": [
-        "packages/domain/src/meetings/",
-        "packages/contracts/src/meetings/",
-        "apps/web/src/features/meetings/",
-        "tests/integration/meetings/"
-      ],
-      "interfaces": [],
-      "acceptance_gates": [
-        "CASE-COM-010",
-        "GAP-MTG-008",
-        "PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-RETIRE",
-        "TARGET-MTG-007",
-        "TARGET-MTG-008",
-        "TARGET-MTG-009",
-        "TARGET-MTG-013",
-        "TARGET-MTG-018",
-        "TARGET-MTG-019"
-      ],
-      "spec_paths": [
-        "docs/product/meetings-follow-up.md"
-      ],
-      "integration_rule": "Scope: COM-010, MTG-007, MTG-008, MTG-009, MTG-013, MTG-018, MTG-019.",
-      "goal": "Meeting invitations and RSVP.",
-      "context_scope": {
-        "features": "owned",
-        "requirements": "owned_and_features",
-        "cases": "owned_and_features",
-        "operations": "owned_and_features",
-        "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "requirement_portions": {
+          "REQ-MTG-007": "Guests and inviters; the team roster portion belongs to WP-017."
+        },
+        "case_requirements_at_start": [
+          "REQ-KNOW-047",
+          "REQ-KNOW-056",
+          "REQ-KNOW-057",
+          "REQ-MTG-013",
+          "REQ-MTG-018",
+          "REQ-PPL-024"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -1876,19 +1723,17 @@
     },
     {
       "id": "WP-022",
-      "title": "Attendance finalization/evaluation C2a",
+      "title": "Attendance, finalization, evaluation and analytics",
       "lane": "meetings",
       "domain": "meetings",
       "depends_on": [
         "WP-020",
-        "WP-021",
-        "WP-024"
+        "WP-024",
+        "WP-014"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [],
       "outputs": [
-        "MTG-001: Meeting list, detail and history",
-        "MTG-004: Archive, restore and correct venues",
         "MTG-010: Attendance, check-in and walk-ins",
         "MTG-012: Finalize and reconcile attendance",
         "MTG-014: Vision evaluation and trends",
@@ -1905,44 +1750,45 @@
       ],
       "interfaces": [],
       "acceptance_gates": [
-        "B02-007",
         "B02-010",
         "CASE-OPS-004",
-        "GAP-MTG-004",
         "GAP-MTG-015",
         "GAP-MTG-017",
         "GAP-PPL-020",
-        "MW-CASE-011",
-        "MW-CASE-012",
         "PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-RETIRE",
-        "ROLE43-008",
-        "ROLE43-015",
         "SCHEMA-009",
-        "TARGET-MTG-001",
-        "TARGET-MTG-004",
         "TARGET-MTG-010",
         "TARGET-MTG-012",
+        "TARGET-MTG-013",
         "TARGET-MTG-014",
         "TARGET-MTG-015",
         "TARGET-MTG-016",
         "TARGET-MTG-017",
+        "TARGET-MTG-018",
         "TARGET-MTG-020",
-        "TARGET-MTG-021",
-        "TARGET-PPL-020",
         "TARGET-TSK-017"
       ],
       "spec_paths": [
         "docs/product/meetings-follow-up.md"
       ],
-      "integration_rule": "Scope: MTG-001, MTG-004, MTG-010, MTG-012, MTG-014, MTG-015, MTG-016, MTG-017, PPL-020.",
-      "goal": "Attendance finalization/evaluation C2a.",
+      "integration_rule": "Scope: MTG-010, MTG-012, MTG-014, MTG-015, MTG-016, MTG-017, PPL-020 (attendance transition). Meeting analytics (MTG-016) and the evaluation trend (MTG-014) are reports outside the 1 s budget; recording an evaluation is a simple write under 1 s. Tables that exist on main for this domain were kept for foreign keys or shipped readers; they are not a contract, so reshape or replace them. The shipped readers are: packages/domain/src/people/people.ts (task, team, participation, commitment), packages/domain/src/people/queries.ts (task, obligation), packages/domain/src/people/core.ts (commitment), apps/web/src/server/jobs/notifications.ts (task, meeting).",
+      "goal": "Attendance, finalization, evaluation and analytics.",
       "context_scope": {
         "features": "owned",
         "requirements": "owned_and_features",
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "requirement_portions": {
+          "REQ-PPL-020": "First attended Vision meeting advances to attendee."
+        },
+        "case_requirements_at_start": [
+          "REQ-KNOW-040",
+          "REQ-MTG-021",
+          "REQ-PPL-020",
+          "REQ-PPL-024"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -1973,16 +1819,12 @@
       "inputs": [],
       "outputs": [
         "COM-011: Person contact log derived from completed person-linked task",
-        "PI-011: Measured task follow-up ownership",
-        "PI-012: 48-hour originating-meeting follow-up task metric",
-        "PI-013: Actual contact freshness independent of task completion",
-        "PPL-007: Recruitment pipeline grouping, ordering, inactivity and follow-up warnings",
-        "PPL-020: Recorded events and cross-domain recruitment auto-advancement",
         "PPL-022: Explicit follow-up creation and task suggestions",
         "TSK-004: Close a task as no longer needed",
         "TSK-011: Vision follow-ups and managed evaluation tasks",
         "TSK-012: Follow-up assignments and unowned contacts",
-        "TSK-013: Follow-up handoff after authority loss"
+        "TSK-013: Follow-up handoff after authority loss",
+        "REQ-PPL-007 portion: pipeline inactivity warning"
       ],
       "owning_paths": [
         "packages/domain/src/followups/",
@@ -1994,28 +1836,16 @@
       "acceptance_gates": [
         "B03-004",
         "B03-005",
-        "B03-006",
-        "GAP-PPL-020",
         "GAP-PPL-022",
-        "MW-CASE-014",
         "PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-RETIRE",
         "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE",
-        "PI-CASE-008",
-        "PI-CASE-009",
-        "PI-CASE-010",
-        "PI-METRIC-001",
-        "PI-PHASE6-001",
-        "PI-TASK-CONTACT-001",
         "ROLE43-008",
         "ROLE43-015",
         "TARGET-COM-011",
         "TARGET-MTG-020",
         "TARGET-MTG-021",
         "TARGET-MTG-022",
-        "TARGET-PPL-007",
-        "TARGET-PPL-020",
         "TARGET-PPL-022",
-        "TARGET-PPL-024",
         "TARGET-TSK-004",
         "TARGET-TSK-011",
         "TARGET-TSK-012",
@@ -2026,7 +1856,7 @@
         "docs/product/meetings-follow-up.md",
         "docs/product/tasks.md"
       ],
-      "integration_rule": "Scope: COM-011, PI-011, PI-012, PI-013, PPL-007, PPL-020, PPL-022, TSK-004, TSK-011, TSK-012, TSK-013.",
+      "integration_rule": "Scope: COM-011, PPL-022, TSK-004, TSK-011, TSK-012, TSK-013, inactivity warning from REQ-PPL-007. Pipeline grouping, ordering and follow-up warnings shipped in WP-011. PI-011 to PI-013 are reports owned by WP-040; WP-023 supplies outcomes and follow-up states. Tables that exist on main for this domain were kept for foreign keys or shipped readers; they are not a contract, so reshape or replace them. The shipped readers are: packages/domain/src/people/people.ts (task, team, participation, commitment), packages/domain/src/people/queries.ts (task, obligation), packages/domain/src/people/core.ts (commitment), apps/web/src/server/jobs/notifications.ts (task, meeting).",
       "goal": "Follow-up obligation/outcome C2b.",
       "context_scope": {
         "features": "owned",
@@ -2034,7 +1864,14 @@
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "requirement_portions": {
+          "REQ-PPL-007": "Inactivity warning only; grouping, ordering and follow-up warnings shipped in WP-011."
+        },
+        "case_requirements_at_start": [
+          "REQ-PPL-007",
+          "REQ-PPL-024"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -2054,7 +1891,7 @@
     },
     {
       "id": "WP-024",
-      "title": "Tasks lifecycle/bulk/status history",
+      "title": "Task core",
       "lane": "tasks",
       "domain": "tasks",
       "depends_on": [
@@ -2064,11 +1901,12 @@
       "estimate_engineer_days": 2.0,
       "inputs": [],
       "outputs": [
-        "IDN-019: Seat roster, Admin appointment/demotion and authority removal",
-        "NTF-005: Task due/overdue reminders and reminder cancellation/resync",
         "TSK-001: Task views, search, filters and counts",
+        "TSK-002: Create, edit and delete tasks",
+        "TSK-003: Complete and reopen tasks under own-duty authority",
         "TSK-014: Task due and overdue notifications",
-        "TSK-015: Durable task status history"
+        "TSK-015: Durable task status history",
+        "REQ-TSK-017: Generated meeting follow-ups and evaluation tasks"
       ],
       "owning_paths": [
         "packages/domain/src/tasks/",
@@ -2082,23 +1920,13 @@
         "B03-002",
         "B03-003",
         "B03-007",
-        "B03-011",
-        "CASE-NTF-005",
+        "B03-008",
+        "B03-009",
         "EVRY-REAL-CHILD-TASK-PARITY",
-        "INH-CROSS-05",
-        "INH-EDGES-04",
-        "INH-INTELLIGENCE-06",
-        "INH-LAUNCH-02",
-        "INH-LAUNCH-03",
-        "INH-LAUNCH-04",
-        "MW-CASE-012",
-        "MW-CASE-013",
-        "MW-CASE-014",
-        "NOTIFY47-007",
         "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE",
-        "TARGET-MTG-020",
-        "TARGET-MTG-021",
         "TARGET-TSK-001",
+        "TARGET-TSK-002",
+        "TARGET-TSK-003",
         "TARGET-TSK-014",
         "TARGET-TSK-015",
         "TARGET-TSK-017",
@@ -2107,15 +1935,21 @@
       "spec_paths": [
         "docs/product/tasks.md"
       ],
-      "integration_rule": "Scope: IDN-019, NTF-005, TSK-001, TSK-014, TSK-015.",
-      "goal": "Tasks lifecycle/bulk/status history.",
+      "integration_rule": "Scope: TSK-001, TSK-002, TSK-003, TSK-014, TSK-015 and the generated obligations of REQ-TSK-017. Seats shipped in WP-008 (IDN-019); keep seat removal working against the tasks this package writes. Task reminders (NTF-005) shipped in WP-031: call its task reminder sync from task writes through the apps/web server layer, as the settings feature does. Budget exception: a task write that reschedules reminders may exceed the four-to-six statement target in patterns.md until WP-031 offers a single-statement reschedule; state the count in the PR. Tables that exist on main for this domain were kept for foreign keys or shipped readers; they are not a contract, so reshape or replace them. The shipped readers are: packages/domain/src/people/people.ts (task, team, participation, commitment), packages/domain/src/people/queries.ts (task, obligation), packages/domain/src/people/core.ts (commitment), apps/web/src/server/jobs/notifications.ts (task, meeting).",
+      "goal": "Task core: views, create, edit, delete, complete, reopen, reminders, history and generated follow-ups.",
       "context_scope": {
         "features": "owned",
         "requirements": "owned_and_features",
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": [
+          "REQ-KNOW-007",
+          "REQ-MTG-020",
+          "REQ-MTG-021",
+          "REQ-PPL-024"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -2135,7 +1969,7 @@
     },
     {
       "id": "WP-025",
-      "title": "Task dependencies and recurrence",
+      "title": "Task structure",
       "lane": "tasks",
       "domain": "tasks",
       "depends_on": [
@@ -2144,8 +1978,6 @@
       "estimate_engineer_days": 1.5,
       "inputs": [],
       "outputs": [
-        "TSK-002: Create, edit and delete tasks",
-        "TSK-003: Complete and reopen tasks under own-duty authority",
         "TSK-005: One-level subtasks and checklists",
         "TSK-006: Task prerequisites and derived blocking",
         "TSK-007: Recurring tasks and fresh successor checklists",
@@ -2159,18 +1991,8 @@
       ],
       "interfaces": [],
       "acceptance_gates": [
-        "B03-002",
-        "B03-003",
-        "B03-007",
-        "B03-008",
-        "B03-009",
         "EVRY-REAL-CHILD-TASK-PARITY",
-        "INH-LAUNCH-02",
-        "LAUNCH46-019",
-        "MW-CASE-013",
         "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE",
-        "TARGET-TSK-002",
-        "TARGET-TSK-003",
         "TARGET-TSK-005",
         "TARGET-TSK-006",
         "TARGET-TSK-007",
@@ -2180,15 +2002,18 @@
       "spec_paths": [
         "docs/product/tasks.md"
       ],
-      "integration_rule": "Scope: TSK-002, TSK-003, TSK-005, TSK-006, TSK-007, TSK-008.",
-      "goal": "Task dependencies and recurrence.",
+      "integration_rule": "Scope: TSK-005, TSK-006, TSK-007, TSK-008. Tables that exist on main for this domain were kept for foreign keys or shipped readers; they are not a contract, so reshape or replace them. The shipped readers are: packages/domain/src/people/people.ts (task, team, participation, commitment), packages/domain/src/people/queries.ts (task, obligation), packages/domain/src/people/core.ts (commitment), apps/web/src/server/jobs/notifications.ts (task, meeting).",
+      "goal": "Task structure: subtasks, prerequisites, recurrence and bulk changes.",
       "context_scope": {
         "features": "owned",
         "requirements": "owned_and_features",
         "cases": "owned_and_features",
         "operations": "owned_and_features",
         "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately"
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "case_requirements_at_start": [
+          "REQ-KNOW-115"
+        ]
       },
       "estimate_factors": {
         "base_days": 1,
@@ -2233,8 +2058,6 @@
       ],
       "interfaces": [],
       "acceptance_gates": [
-        "INH-LAUNCH-02",
-        "MW-CASE-013",
         "PHASE-CASE-005",
         "PHASE-CASE-006",
         "TARGET-TSK-009",
@@ -2299,21 +2122,8 @@
         "CASE-COM-003",
         "CASE-COM-004",
         "CASE-COM-007",
-        "CASE-COM-008",
         "CASE-COM-012",
-        "GAP-REF-006",
-        "INH-COMMUNICATION-05",
-        "INH-REGRESSION-CONFIRM-REPLAY",
-        "INH-REGRESSION-EXPIRED-APPROVAL",
-        "INH-REGRESSION-REVISED-APPROVAL",
-        "INH-REGRESSION-TEMPLATE-EDIT",
-        "MAIL51-001",
-        "MW-CASE-013",
-        "REFREL-001",
-        "REFREL-003",
-        "REFREL-004",
-        "REFREL-005",
-        "REFREL-007"
+        "INH-COMMUNICATION-05"
       ],
       "spec_paths": [
         "docs/product/communications-notifications.md"
@@ -2375,7 +2185,6 @@
       "acceptance_gates": [
         "AUDIT-007",
         "CASE-COM-005",
-        "CASE-COM-006",
         "CASE-COM-010",
         "CASE-COM-012",
         "CASE-NTF-010",
@@ -2457,12 +2266,12 @@
       "acceptance_gates": [
         "CASE-COM-001",
         "CASE-COM-002",
+        "CASE-COM-006",
         "CASE-COM-009",
         "CASE-COM-012",
         "DEL58-006",
         "GAP-COM-012",
         "INH-COMMUNICATION-05",
-        "INH-CROSS-07",
         "MAIL-KEYWINDOW-001",
         "MAIL-LEDGER-001",
         "MAIL51-001",
@@ -2472,10 +2281,6 @@
         "MAIL51-008",
         "MAIL51-009",
         "PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-RETIRE",
-        "SME53-004",
-        "TARGET-COM-011",
-        "TARGET-MTG-021",
-        "TARGET-MTG-022",
         "TARGET-PPL-021"
       ],
       "spec_paths": [
@@ -2549,12 +2354,9 @@
         "CASE-NTF-003",
         "CASE-NTF-004",
         "CASE-NTF-008",
-        "CASE-NTF-011",
         "CASE-NTF-012",
         "CASE-NTF-014",
         "CASE-NTF-015",
-        "INH-NOTIFICATIONS-03",
-        "INH-NOTIFICATIONS-04",
         "NOTIFY47-001",
         "NOTIFY47-002",
         "NOTIFY47-004",
@@ -2838,14 +2640,10 @@
         "CASE-WIKI-008",
         "CASE-WIKI-010",
         "CASE-WIKI-011",
-        "CONTENT50-002",
-        "CONTENT50-003",
         "DISC-READER-001",
         "DISC-READER-002",
         "DISC-READER-003",
         "GAP-REF-002",
-        "INH-EDGES-05",
-        "MW-CASE-018",
         "REF-CASE-002",
         "REFREL-001",
         "REFREL-002",
@@ -2854,7 +2652,6 @@
         "REFREL-005",
         "REFREL-006",
         "REFREL-007",
-        "ROLE43-013",
         "SCHEMA-006",
         "SCHEMA-014",
         "SEC-04",
@@ -2864,8 +2661,6 @@
         "WIKI49-001",
         "WIKI49-002",
         "WIKI49-003",
-        "WIKI49-004",
-        "WIKI52-003",
         "WR-001",
         "WR-002",
         "WR-003",
@@ -2984,13 +2779,9 @@
         "CASE-WIKI-004",
         "CASE-WIKI-006",
         "CASE-WIKI-009",
-        "CONTENT50-002",
-        "CONTENT50-003",
         "DISC-READER-001",
         "DISC-READER-002",
         "DISC-READER-003",
-        "INH-EDGES-05",
-        "MW-CASE-017",
         "SCHEMA-006",
         "SCHEMA-014",
         "WIKI-ENTITLEMENT-001",
@@ -3143,23 +2934,7 @@
       "acceptance_gates": [
         "CASE-DOC-001",
         "CASE-DOC-002",
-        "CASE-DOC-003",
-        "CASE-DOC-004",
-        "CASE-DOC-005",
-        "CASE-DOC-006",
-        "CASE-DOC-007",
-        "CASE-DOC-008",
-        "CASE-DOC-009",
-        "CASE-DOC-010",
-        "CASE-DOC-011",
-        "CASE-DOC-012",
-        "CASE-DOC-013",
-        "CASE-DOC-014",
-        "CASE-DOC-016",
         "GAP-REF-003",
-        "INH-DOCUMENTS-07",
-        "INH-REGRESSION-EVIDENCE-CITATION",
-        "MW-CASE-017",
         "PROVIDER48-002",
         "REF-CASE-003",
         "REFREL-001",
@@ -3167,8 +2942,7 @@
         "REFREL-004",
         "REFREL-005",
         "REFREL-007",
-        "SCHEMA-008",
-        "WIKI52-003"
+        "SCHEMA-008"
       ],
       "spec_paths": [
         "docs/product/knowledge-documents.md"
@@ -3232,10 +3006,19 @@
         "BKT60-002",
         "CASE-DOC-002",
         "CASE-DOC-003",
+        "CASE-DOC-004",
+        "CASE-DOC-005",
+        "CASE-DOC-006",
+        "CASE-DOC-007",
+        "CASE-DOC-008",
+        "CASE-DOC-009",
+        "CASE-DOC-010",
+        "CASE-DOC-011",
+        "CASE-DOC-012",
+        "CASE-DOC-013",
+        "CASE-DOC-014",
         "CASE-DOC-015",
         "CASE-DOC-016",
-        "INH-DOCUMENTS-07",
-        "INH-REGRESSION-EVIDENCE-CITATION",
         "PERSONREF-DOCUMENT-COMMITMENT-EVIDENCE-CONFLICT",
         "PERSONREF-DOCUMENT-COMMITMENT-EVIDENCE-MERGE",
         "PERSONREF-DOCUMENT-COMMITMENT-EVIDENCE-RETIRE",
@@ -3308,38 +3091,8 @@
       ],
       "interfaces": [],
       "acceptance_gates": [
-        "B01-005",
-        "B01-006",
-        "B01-007",
-        "B01-008",
-        "B01-009",
-        "B01-016",
-        "B01-017",
-        "B01-020",
-        "B01-021",
-        "B01-023",
-        "B01-024",
-        "B01-025",
-        "B01-033",
-        "B02-001",
-        "B02-002",
-        "B02-008",
-        "B02-009",
-        "B02-010",
-        "B02-011",
-        "B02-014",
-        "B02-017",
-        "B02-018",
-        "B02-020",
-        "B02-021",
-        "B02-025",
-        "B02-031",
         "B02-032",
-        "CA005",
-        "CA025",
         "CASE-NTF-009",
-        "CONTENT50-002",
-        "CONTENT50-003",
         "DC-001",
         "DC-018",
         "DC-021",
@@ -3350,30 +3103,17 @@
         "DC-030",
         "DC-031",
         "DC-032",
-        "LAUNCH46-006",
-        "LAUNCH46-021",
-        "MW-CASE-015",
         "PHASE-CASE-001",
         "PHASE-CASE-002",
         "PHASE-CASE-003",
         "PHASE-CASE-004",
         "PHASE-CASE-005",
-        "PHASE-CASE-006",
         "PHASE-CASE-007",
         "PHASE-CASE-008",
         "PHASE-CASE-009",
-        "PI-CASE-021",
-        "PI-GROW-001",
-        "PI-GROW-002",
-        "PI-PHASE6-001",
-        "ROLE43-013",
         "ROLE43-014",
         "SCHEMA-012",
-        "SME53-002",
-        "SME53-004",
-        "SME53-008",
-        "TARGET-IDN-015",
-        "WIKI49-004"
+        "TARGET-IDN-015"
       ],
       "spec_paths": [
         "docs/product/methodology-intelligence.md"
@@ -3434,12 +3174,8 @@
       "interfaces": [],
       "acceptance_gates": [
         "AUDIT-004",
-        "B01-017",
-        "B01-024",
         "B01-025",
         "B01-026",
-        "B01-027",
-        "B02-017",
         "B03-013",
         "B03-017",
         "B03-019",
@@ -3461,7 +3197,6 @@
         "B03-035",
         "DEL58-005",
         "GAP-PI-041",
-        "MW-CASE-016",
         "PERSONREF-CANDIDATE-PERSON-ATTESTATION-CONFLICT",
         "PERSONREF-CANDIDATE-PERSON-ATTESTATION-MERGE",
         "PERSONREF-CANDIDATE-PERSON-ATTESTATION-RETIRE",
@@ -3469,20 +3204,15 @@
         "PI-CARE-001",
         "PI-CARE-002",
         "PI-CARE-003",
-        "PI-CASE-006",
-        "ROLE43-008",
         "ROLE43-010",
         "ROLE43-011",
         "ROLE43-012",
         "ROLE43-018",
         "SCHEMA-007",
-        "SME53-006",
-        "SME53-009",
         "TARGET-IDN-010",
         "TARGET-IDN-031",
         "TARGET-IDN-032",
         "TARGET-IDN-033",
-        "TARGET-TEAM-017",
         "TEN-006"
       ],
       "spec_paths": [
@@ -3574,10 +3304,8 @@
         "B01-019",
         "B01-020",
         "B01-021",
-        "B01-024",
         "B01-025",
         "B01-026",
-        "B01-027",
         "B01-033",
         "B02-001",
         "B02-003",
@@ -3642,6 +3370,7 @@
         "DC-030",
         "DC-031",
         "DC-032",
+        "GAP-LCH-011",
         "LAUNCH46-005",
         "LAUNCH46-006",
         "LAUNCH46-007",
@@ -3651,32 +3380,10 @@
         "LAUNCH46-012",
         "LAUNCH46-013",
         "LAUNCH46-014",
-        "LAUNCH46-021",
-        "LAUNCH46-023",
-        "MW-CASE-003",
-        "MW-CASE-005",
-        "MW-CASE-006",
-        "MW-CASE-007",
-        "MW-CASE-008",
-        "MW-CASE-009",
-        "MW-CASE-010",
-        "MW-CASE-011",
-        "MW-CASE-012",
-        "MW-CASE-013",
-        "MW-CASE-014",
-        "MW-CASE-015",
-        "MW-CASE-016",
-        "MW-CASE-017",
-        "MW-CASE-018",
-        "MW-CASE-019",
-        "MW-CASE-020",
-        "MW-CASE-021",
-        "MW-CASE-024",
         "PERSONREF-INTELLIGENCE-SNAPSHOT-CITATION-CONFLICT",
         "PERSONREF-INTELLIGENCE-SNAPSHOT-CITATION-MERGE",
         "PERSONREF-INTELLIGENCE-SNAPSHOT-CITATION-RETIRE",
         "PERSONREF-INTELLIGENCE-SNAPSHOT-CITATION-UNMERGE",
-        "PI-CASE-001",
         "PI-CASE-002",
         "PI-CASE-003",
         "PI-CASE-004",
@@ -3687,7 +3394,6 @@
         "PI-CASE-009",
         "PI-CASE-010",
         "PI-CASE-019",
-        "PI-CASE-020",
         "PI-CASE-029",
         "PI-GROW-001",
         "PI-GROW-002",
@@ -3696,7 +3402,6 @@
         "PI-PHASE6-001",
         "PI-PURPOSE-001",
         "PI-TASK-CONTACT-001",
-        "ROLE43-013",
         "ROLE43-014",
         "SCHEMA-004",
         "SME53-002",
@@ -3751,7 +3456,7 @@
         "WP-032",
         "WP-040"
       ],
-      "estimate_engineer_days": 2.0,
+      "estimate_engineer_days": 1.5,
       "inputs": [],
       "outputs": [
         "PI-016: Active and historical rubric version registry",
@@ -3775,40 +3480,6 @@
         "CA019",
         "CA023",
         "GAP-REF-007",
-        "LI-016",
-        "NEX-001",
-        "NEX-002",
-        "NEX-003",
-        "NEX-004",
-        "NEX-005",
-        "NEX-006",
-        "NEX-007",
-        "NEX-008",
-        "NEX-009",
-        "NEX-010",
-        "NEX-011",
-        "NEX-012",
-        "NEX-013",
-        "NEX-014",
-        "NEX-015",
-        "NEX-016",
-        "NEX-017",
-        "NEX-018",
-        "NEX-019",
-        "NEX-020",
-        "NEX-021",
-        "NEX-022",
-        "NEX-023",
-        "NEX-024",
-        "NEX-025",
-        "NEX-026",
-        "NI-020",
-        "NI-021",
-        "NI-023",
-        "NI-025",
-        "NI-027",
-        "NI-035",
-        "NI-036",
         "PERSONREF-INTELLIGENCE-SNAPSHOT-CITATION-CONFLICT",
         "PERSONREF-INTELLIGENCE-SNAPSHOT-CITATION-MERGE",
         "PERSONREF-INTELLIGENCE-SNAPSHOT-CITATION-RETIRE",
@@ -3902,7 +3573,6 @@
         "GEO-011",
         "GEO-012",
         "GEO-013",
-        "LAUNCH46-023",
         "LI-001",
         "LI-002",
         "LI-003",
@@ -3917,25 +3587,6 @@
         "LI-016",
         "LI-017",
         "LI-018",
-        "MW-CASE-003",
-        "MW-CASE-005",
-        "MW-CASE-006",
-        "MW-CASE-007",
-        "MW-CASE-008",
-        "MW-CASE-009",
-        "MW-CASE-010",
-        "MW-CASE-011",
-        "MW-CASE-012",
-        "MW-CASE-013",
-        "MW-CASE-014",
-        "MW-CASE-015",
-        "MW-CASE-016",
-        "MW-CASE-017",
-        "MW-CASE-018",
-        "MW-CASE-019",
-        "MW-CASE-020",
-        "MW-CASE-021",
-        "MW-CASE-024",
         "NEX-001",
         "NEX-002",
         "NEX-003",
@@ -4077,7 +3728,6 @@
         "GEO-011",
         "GEO-012",
         "GEO-013",
-        "LAUNCH46-023",
         "LI-012",
         "LI-013",
         "LI-015",
@@ -4157,10 +3807,6 @@
         "PERSONREF-INTELLIGENCE-SNAPSHOT-CITATION-RETIRE",
         "PERSONREF-INTELLIGENCE-SNAPSHOT-CITATION-UNMERGE",
         "PI-CASE-013",
-        "PI-CASE-014",
-        "PI-CASE-015",
-        "PI-CASE-028",
-        "PI-PROVIDER-001",
         "PI-PURPOSE-001",
         "PI-URGENCY-001",
         "REFREL-008",
@@ -4289,9 +3935,9 @@
         "GEO-011",
         "GEO-012",
         "GEO-013",
-        "INH-INTELLIGENCE-06",
         "LAUNCH46-013",
         "LAUNCH46-018",
+        "LAUNCH46-021",
         "LI-001",
         "LI-002",
         "LI-003",
@@ -4365,6 +4011,9 @@
         "PERSONREF-INTELLIGENCE-SNAPSHOT-CITATION-RETIRE",
         "PERSONREF-INTELLIGENCE-SNAPSHOT-CITATION-UNMERGE",
         "PHASE-CASE-008",
+        "PI-CASE-001",
+        "PI-CASE-014",
+        "PI-CASE-015",
         "PI-CASE-016",
         "PI-CASE-017",
         "PI-CASE-018",
@@ -4376,12 +4025,15 @@
         "PI-CASE-024",
         "PI-CASE-025",
         "PI-CASE-026",
+        "PI-CASE-028",
         "PI-DISC-001",
         "PI-DISC-002",
         "PI-GROW-001",
         "PI-GROW-002",
         "PI-PHASE6-001",
+        "PI-PROVIDER-001",
         "PI-URGENCY-001",
+        "ROLE43-013",
         "ROLE43-014",
         "SEC-04",
         "SEC-05",
@@ -4463,7 +4115,6 @@
         "B02-008",
         "B02-011",
         "B02-014",
-        "B02-019",
         "B03-037",
         "CASE-LCH-001",
         "CASE-LCH-003",
@@ -4472,12 +4123,7 @@
         "CASE-LCH-008",
         "CASE-LCH-009",
         "CASE-NTF-009",
-        "INH-LAUNCH-02",
-        "INH-LAUNCH-03",
-        "INH-LAUNCH-04",
-        "INH-LAUNCH-05",
         "LAUNCH-SEED-001",
-        "MW-CASE-019",
         "TARGET-IDN-015"
       ],
       "spec_paths": [
@@ -4557,11 +4203,6 @@
         "CASE-LCH-008",
         "CASE-LCH-010",
         "CASE-LCH-011",
-        "GAP-LCH-011",
-        "INH-LAUNCH-02",
-        "INH-LAUNCH-03",
-        "INH-LAUNCH-04",
-        "INH-LAUNCH-05",
         "LAUNCH-SEED-001",
         "LAUNCH46-001",
         "LAUNCH46-002",
@@ -4583,17 +4224,11 @@
         "LAUNCH46-018",
         "LAUNCH46-019",
         "LAUNCH46-020",
-        "LAUNCH46-021",
         "LAUNCH46-022",
-        "LAUNCH46-023",
-        "MW-CASE-019",
-        "MW-CASE-020",
-        "MW-CASE-021",
         "PERSONREF-LAUNCH-NAMED-GUEST-CONFLICT",
         "PERSONREF-LAUNCH-NAMED-GUEST-MERGE",
         "PERSONREF-LAUNCH-NAMED-GUEST-RETIRE",
         "PERSONREF-LAUNCH-NAMED-GUEST-UNMERGE",
-        "PI-CASE-021",
         "SCHEMA-005",
         "SCHEMA-009"
       ],
@@ -4672,9 +4307,7 @@
         "AF-041",
         "ASMT-006",
         "ASMT-008",
-        "B02-028",
         "B02-030",
-        "EVRY-ORG-CONTEXT",
         "GEO-001",
         "GEO-002",
         "GEO-003",
@@ -4707,8 +4340,6 @@
         "LI-015",
         "LI-017",
         "LI-018",
-        "MW-CASE-021",
-        "MW-CASE-024",
         "NEX-001",
         "NEX-002",
         "NEX-003",
@@ -4913,8 +4544,6 @@
         "CASE-ADM-003",
         "CASE-ADM-007",
         "FDB56-001",
-        "FDB56-002",
-        "FDB56-003",
         "FDB56-004",
         "PUB57-002",
         "PUB57-003",
@@ -5087,120 +4716,49 @@
     },
     {
       "id": "WP-051",
-      "title": "Evry conversations and runs",
+      "title": "Evry conversations, reads and runs",
       "lane": "evry",
       "domain": "evry",
       "depends_on": [
         "WP-003",
         "WP-006",
+        "WP-011",
         "WP-031"
       ],
       "estimate_engineer_days": 2.5,
       "inputs": [],
       "outputs": [
+        "EVR-001: Application-only policy and fixed pastoral boundary",
+        "EVR-002: Fresh tenancy, account and per-operation permission",
+        "EVR-003: Authorized read registration and bounded source artifacts",
+        "EVR-004: Measured model selection and server-side provider options",
         "EVR-005: Global launcher and contextual conversation panel",
+        "EVR-006: Visible page context and safe entity references",
         "EVR-008: Durable conversations, search, messages and replay",
-        "EVR-009: Bounded structured references, choices and context",
-        "EVR-016: Active run claim, streaming, reconnect and restart recovery",
+        "EVR-016: One active run per conversation, with streaming and recovery",
+        "EVR-020: Generated model-tool exposure through reviewed Evry adapters",
         "EVR-021: Owned conversation runtime and private session access",
-        "EVR-022: Tool catalog loading and optional workflow hints",
-        "EVR-023: Planning notes, clarification and todo history",
-        "EVR-026: Bounded parallel composition of authorized reads",
-        "EVR-029: Processing budgets, compaction failure and explicit retry"
+        "EVR-024: Source-bound result cards and compatible selection",
+        "EVR-029: Processing budgets, compaction failure and explicit retry",
+        "EVR-032: Sanitized errors, credential scrubbing and trusted boundaries"
       ],
       "owning_paths": [
         "packages/evry/src/runtime/",
         "packages/evry/src/conversations/",
         "packages/evry/src/context/",
         "apps/web/src/features/evry/conversation/",
-        "tests/evry/runtime/"
-      ],
-      "interfaces": [],
-      "acceptance_gates": [
-        "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
-        "EVRY-CONTEXT-BOUNDS",
-        "EVRY-ORG-CONTEXT",
-        "EVRY-RETRY-CANCEL",
-        "INH-CROSS-05",
-        "INH-CROSS-06",
-        "INH-CROSS-07",
-        "INH-CROSS-08",
-        "INH-REGRESSION-BUDGET",
-        "INH-REGRESSION-CONTEXT-RETENTION",
-        "INH-REGRESSION-SESSION-NAVIGATION",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-UNMERGE",
-        "UI45-001",
-        "UI45-002",
-        "UI45-005",
-        "UI45-006"
-      ],
-      "spec_paths": [
-        "docs/product/evry.md"
-      ],
-      "integration_rule": "Scope: EVR-005, EVR-008, EVR-009, EVR-016, EVR-021, EVR-022, EVR-023, EVR-026, EVR-029.",
-      "goal": "Evry conversations and runs.",
-      "context_scope": {
-        "features": "owned",
-        "requirements": "owned_and_features",
-        "cases": "owned_and_features",
-        "operations": "owned_and_features",
-        "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "case_ids": [
-          "GAP-EVR-400",
-          "GAP-EVR-429"
-        ]
-      },
-      "estimate_factors": {
-        "base_days": 1,
-        "requirement_days": 0.025,
-        "operation_days": 0.015,
-        "case_days": 0.006,
-        "table_days": 0.025
-      },
-      "ui_specialist": "ui-designer",
-      "ui_model": "Opus 5.5",
-      "ui_composition_rule": "Product screens use the shared design foundations, controls and displays.",
-      "ui_depends_on": [
-        "WP-088",
-        "WP-089",
-        "WP-090"
-      ]
-    },
-    {
-      "id": "WP-052",
-      "title": "Evry per-feature read/tool coverage",
-      "lane": "evry",
-      "domain": "evry",
-      "depends_on": [
-        "WP-051",
-        "WP-006"
-      ],
-      "estimate_engineer_days": 2.5,
-      "inputs": [],
-      "outputs": [
-        "EVR-003: Authorized read registration and bounded source artifacts",
-        "EVR-006: Visible page context and safe entity references",
-        "EVR-007: Contextual suggestions and eligibility probe",
-        "EVR-017: Plant-local natural-language date resolution",
-        "EVR-024: Source-bound result cards and compatible selection",
-        "EVR-031: Complete history, Unicode note continuation and event/entry dates"
-      ],
-      "owning_paths": [
+        "tests/evry/runtime/",
         "packages/evry/src/catalog/",
         "tests/evry/catalog/"
       ],
       "interfaces": [],
       "acceptance_gates": [
-        "B01-027",
-        "B02-022",
-        "B02-027",
-        "B03-033",
+        "B03-008",
+        "B03-009",
         "B03-036",
-        "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
+        "EVRY-CONTEXT-BOUNDS",
+        "EVRY-ORG-CONTEXT",
+        "EVRY-RETRY-CANCEL",
         "GAP-EVR-400",
         "GAP-EVR-405",
         "GAP-EVR-407",
@@ -5222,65 +4780,65 @@
         "GAP-EVR-428",
         "GAP-EVR-429",
         "INH-COMMITMENTS-03",
-        "INH-CROSS-05",
         "INH-CROSS-06",
-        "INH-CROSS-07",
+        "INH-CROSS-08",
         "INH-EDGES-01",
         "INH-EDGES-03",
-        "INH-EDGES-04",
-        "INH-EDGES-05",
-        "INH-EDGES-06",
-        "INH-EDGES-14",
-        "INH-INTELLIGENCE-06",
-        "INH-LAUNCH-02",
-        "INH-LAUNCH-03",
-        "INH-LAUNCH-04",
-        "INH-LAUNCH-05",
+        "INH-EDGES-07",
+        "INH-EDGES-08",
+        "INH-EDGES-09",
+        "INH-EDGES-10",
+        "INH-EDGES-11",
+        "INH-EDGES-12",
         "INH-NOTES-05",
-        "INH-NOTIFICATIONS-03",
+        "INH-REGRESSION-BUDGET",
         "INH-REGRESSION-CAPABILITIES",
         "INH-REGRESSION-CLARIFICATION-NAME",
-        "INH-REGRESSION-DST-FOLD",
-        "INH-REGRESSION-DST-GAP",
-        "INH-ROLES-05",
-        "INH-TEAMS-06",
-        "INH-TRAINING-05",
-        "MAIL51-008",
-        "NOTIFY47-010",
-        "PI-PURPOSE-001",
+        "INH-REGRESSION-FOREIGN-SESSION",
+        "INH-REGRESSION-SESSION-NAVIGATION",
+        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE",
         "PROVIDER48-002",
         "PROVIDER48-003",
         "ROLE43-001",
-        "ROLE43-012",
         "SEC-02",
-        "SME53-004",
-        "SME53-006",
-        "SME53-008",
-        "SME53-009",
+        "SEC-11",
         "TARGET-IDN-018",
         "TARGET-IDN-031",
         "TEN-002",
-        "TEN-008"
+        "TEN-008",
+        "UI45-001",
+        "UI45-002",
+        "UI45-005",
+        "UI45-006"
       ],
       "spec_paths": [
         "docs/product/evry.md"
       ],
-      "integration_rule": "Scope: EVR-003, EVR-006, EVR-007, EVR-017, EVR-024, EVR-031.",
-      "goal": "Evry per-feature read/tool coverage.",
+      "integration_rule": "Scope: EVR-001, EVR-002, EVR-003, EVR-004, EVR-005, EVR-006, EVR-008, EVR-016, EVR-020, EVR-021, EVR-024, EVR-029, EVR-032. Includes the retired WP-052 read catalog. EVR-016 covers streaming with reconnect, not restart recovery on another worker; EVR-029 covers limits only (24-message cap, no compaction). Prove the kernel with the people reads (for example people.listPeople and people.getPerson) as the built-in first adapter; WP-059 completes the people tools. WP-003 left no streaming route or AI SDK dependency; build streaming here. Reuse the WP-031 job queue and the shared audit record; do not build a second claim or lease mechanism. Tables that exist on main for this domain were kept for foreign keys or shipped readers; they are not a contract, so reshape or replace them. The shipped readers are: packages/domain/src/people/people.ts (task, team, participation, commitment), packages/domain/src/people/queries.ts (task, obligation), packages/domain/src/people/core.ts (commitment), apps/web/src/server/jobs/notifications.ts (task, meeting).",
+      "goal": "Evry conversations, reads with cited sources, policy and streamed runs.",
       "context_scope": {
-        "features": "explicit",
-        "requirements": "features",
-        "cases": "features",
-        "operations": "features",
+        "features": "owned",
+        "requirements": "owned_and_features",
+        "cases": "owned_and_features",
+        "operations": "owned_and_features",
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "feature_ids": [
-          "EVR-003",
-          "EVR-006",
-          "EVR-007",
-          "EVR-017",
-          "EVR-024",
-          "EVR-031"
+        "case_ids": [
+          "GAP-EVR-400",
+          "GAP-EVR-429"
+        ],
+        "case_requirements_at_start": [
+          "REQ-EVR-003",
+          "REQ-EVR-004",
+          "REQ-EVR-020",
+          "REQ-EVR-021",
+          "REQ-EVR-024",
+          "REQ-EVR-032",
+          "REQ-KNOW-010",
+          "REQ-KNOW-026",
+          "REQ-KNOW-055",
+          "REQ-KNOW-060",
+          "REQ-KNOW-116"
         ]
       },
       "estimate_factors": {
@@ -5289,31 +4847,35 @@
         "operation_days": 0.015,
         "case_days": 0.006,
         "table_days": 0.025
-      }
+      },
+      "ui_specialist": "ui-designer",
+      "ui_model": "Opus 5.5",
+      "ui_composition_rule": "Product screens use the shared design foundations, controls and displays.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     },
     {
       "id": "WP-053",
-      "title": "Human approval and execution of Evry proposals",
+      "title": "Evry approval and execution",
       "lane": "evry",
       "domain": "evry",
       "depends_on": [
-        "WP-052",
-        "WP-008",
-        "WP-015",
-        "WP-024",
+        "WP-051",
         "WP-031"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.5,
       "inputs": [],
       "outputs": [
-        "EVR-011: Proposals retain their reviewed content and reflect current decisions",
+        "EVR-010: Read, clarification, review, progress, outcome and boundary cards",
+        "EVR-011: Changed proposals invalidate prior approval",
         "EVR-012: Trusted visible approval, cancellation and expiration",
         "EVR-013: Executor, partial results, dependency skips and safe retry",
-        "EVR-014: Durable effect claims and exact relational audit identity",
-        "EVR-015: Deterministic recipes and dependency-output reuse",
+        "EVR-014: Approved actions run once with a matching audit record",
         "EVR-018: Append-only product audit and exact-plan inspection",
-        "EVR-033: Current review status and past action outcomes",
-        "EVR-034: Recipe reuse with fresh resolution and new approval"
+        "EVR-033: Current review status and historic factual outcomes"
       ],
       "owning_paths": [
         "packages/evry/src/proposals/",
@@ -5325,69 +4887,37 @@
       "acceptance_gates": [
         "AUDIT-001",
         "AUDIT-002",
-        "B01-027",
-        "B01-035",
-        "B02-006",
-        "B02-007",
-        "B02-008",
-        "B02-011",
-        "B02-015",
-        "B02-016",
-        "B02-017",
-        "B02-022",
-        "B02-026",
         "B03-008",
         "B03-009",
-        "B03-033",
         "B03-036",
-        "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
         "EVRY-LEASE-FENCE",
-        "EVRY-REAL-CHILD-TASK-PARITY",
         "EVRY-RETRY-CANCEL",
         "INH-EDGES-01",
         "INH-EDGES-03",
-        "INH-EDGES-04",
-        "INH-EDGES-05",
-        "INH-EDGES-06",
         "INH-EDGES-07",
         "INH-EDGES-08",
         "INH-EDGES-09",
         "INH-EDGES-10",
         "INH-EDGES-11",
         "INH-EDGES-12",
-        "INH-EDGES-14",
-        "INH-LAUNCH-02",
-        "INH-LAUNCH-03",
-        "INH-LAUNCH-04",
-        "INH-LAUNCH-05",
-        "INH-NOTIFICATIONS-03",
         "INH-NOTIFICATIONS-04",
-        "INH-REGRESSION-CODE-WRITE",
         "INH-REGRESSION-CONFIRM-REPLAY",
         "INH-REGRESSION-EXPIRED-APPROVAL",
         "INH-REGRESSION-FOREIGN-SESSION",
         "INH-REGRESSION-RETRY",
         "INH-REGRESSION-REVISED-APPROVAL",
         "INH-REGRESSION-REVOKED-SEAT",
-        "INH-REGRESSION-SANDBOX-ESCAPE",
         "INH-REGRESSION-TEMPLATE-EDIT",
-        "LAUNCH46-019",
-        "NOTIFY47-010",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-UNMERGE",
         "PROVIDER48-002",
-        "PUB57-006",
         "ROLE43-001",
-        "ROLE43-012",
         "SCHEMA-015",
         "SEC-02",
         "SEC-12",
-        "SME53-009",
         "TARGET-IDN-031",
         "TEN-004",
         "TEN-008",
+        "UI45-002",
         "UI45-003",
         "UI45-004",
         "UI45-005",
@@ -5396,8 +4926,8 @@
       "spec_paths": [
         "docs/product/evry.md"
       ],
-      "integration_rule": "Scope: EVR-011, EVR-012, EVR-013, EVR-014, EVR-015, EVR-018, EVR-033, EVR-034.",
-      "goal": "Human approval and execution of Evry proposals.",
+      "integration_rule": "Scope: EVR-010, EVR-011, EVR-012, EVR-013, EVR-014, EVR-018, EVR-033. Prove approval and execution with one people command (for example people.updatePerson) as the built-in example. Execution runs through the WP-031 job queue and writes the shared audit record with the change; a retry returns the saved outcome. Tables that exist on main for this domain were kept for foreign keys or shipped readers; they are not a contract, so reshape or replace them. The shipped readers are: packages/domain/src/people/people.ts (task, team, participation, commitment), packages/domain/src/people/queries.ts (task, obligation), packages/domain/src/people/core.ts (commitment), apps/web/src/server/jobs/notifications.ts (task, meeting).",
+      "goal": "Evry proposal cards, human approval, execution with audit and safe retry.",
       "context_scope": {
         "features": "explicit",
         "requirements": "features",
@@ -5406,14 +4936,36 @@
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
         "feature_ids": [
+          "EVR-010",
           "EVR-011",
           "EVR-012",
           "EVR-013",
           "EVR-014",
-          "EVR-015",
           "EVR-018",
-          "EVR-033",
-          "EVR-034"
+          "EVR-033"
+        ],
+        "case_requirements_at_start": [
+          "REQ-EVR-011",
+          "REQ-EVR-018",
+          "REQ-EVR-033",
+          "REQ-KNOW-010",
+          "REQ-KNOW-027",
+          "REQ-KNOW-033",
+          "REQ-KNOW-039",
+          "REQ-KNOW-040",
+          "REQ-KNOW-041",
+          "REQ-KNOW-044",
+          "REQ-KNOW-048",
+          "REQ-KNOW-049",
+          "REQ-KNOW-050",
+          "REQ-KNOW-055",
+          "REQ-KNOW-056",
+          "REQ-KNOW-057",
+          "REQ-KNOW-059",
+          "REQ-KNOW-096",
+          "REQ-KNOW-115",
+          "REQ-KNOW-116",
+          "REQ-PPL-024"
         ]
       },
       "estimate_factors": {
@@ -5434,7 +4986,7 @@
     },
     {
       "id": "WP-054",
-      "title": "Evry private uploads/artifacts/recovery",
+      "title": "Evry files, history and conversation extras",
       "lane": "evry",
       "domain": "evry",
       "depends_on": [
@@ -5442,11 +4994,15 @@
         "WP-013",
         "WP-037"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 1.5,
       "inputs": [],
       "outputs": [
-        "EVR-010: Read, clarification, review, progress and outcome cards",
-        "EVR-025: Private session files and cleanup"
+        "EVR-007: Contextual suggestions and eligibility probe",
+        "EVR-009: Bounded structured references, choices and context",
+        "EVR-023: Editable planning notes, clarifications and todo",
+        "EVR-025: Staged private file manifests, session binding and cleanup",
+        "EVR-026: Bounded parallel composition of authorized reads",
+        "EVR-031: Complete history, Unicode note continuation and event/entry dates"
       ],
       "owning_paths": [
         "packages/evry/src/artifacts/",
@@ -5456,27 +5012,26 @@
       ],
       "interfaces": [],
       "acceptance_gates": [
-        "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
         "EVRY-CONTEXT-BOUNDS",
         "INH-DOCUMENTS-07",
         "INH-EDGES-14",
+        "INH-REGRESSION-CODE-WRITE",
+        "INH-REGRESSION-CONTEXT-RETENTION",
         "INH-REGRESSION-EVIDENCE-CITATION",
+        "INH-REGRESSION-SANDBOX-ESCAPE",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-UNMERGE",
         "PROVIDER48-002",
         "SEC-04",
-        "SEC-08",
-        "UI45-002",
-        "UI45-003",
-        "UI45-005"
+        "SEC-08"
       ],
       "spec_paths": [
         "docs/product/evry.md"
       ],
-      "integration_rule": "Scope: EVR-010, EVR-025.",
-      "goal": "Evry private uploads/artifacts/recovery.",
+      "integration_rule": "Scope: EVR-007, EVR-009, EVR-023, EVR-025, EVR-026, EVR-031.",
+      "goal": "Evry private files, full history, suggestions, planning notes, compaction and parallel reads.",
       "context_scope": {
         "features": "owned",
         "requirements": "owned_and_features",
@@ -5513,7 +5068,7 @@
         "WP-054",
         "WP-042",
         "WP-001",
-        "WP-060",
+        "WP-059",
         "WP-062",
         "WP-064",
         "WP-066",
@@ -5528,18 +5083,16 @@
         "WP-084",
         "WP-085"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.0,
       "inputs": [],
       "outputs": [
-        "EVR-001: Application-only policy and fixed pastoral boundary",
-        "EVR-002: Fresh tenancy, account and per-operation permission",
-        "EVR-004: Measured model selection and server-side provider options",
+        "EVR-015: Deterministic recipes and dependency-output reuse",
         "EVR-019: Cost, latency, usage normalization and privacy-safe Langfuse tracing",
-        "EVR-020: Generated model-tool exposure through reviewed Evry adapters",
+        "EVR-022: Tool catalog loading and optional workflow hints",
         "EVR-027: Optional routing experiments and measured evaluation",
         "EVR-028: Eleven authored operational workflow skills",
-        "EVR-030: Independent Evry behavior and quality evaluation",
-        "EVR-032: Sanitized errors, credential scrubbing and trusted boundaries"
+        "EVR-030: Independent agent corpus, fixture/effect proofs and quality grading",
+        "EVR-034: Recipe reuse with fresh resolution and new approval"
       ],
       "owning_paths": [
         "packages/evry/src/policy/",
@@ -5550,108 +5103,39 @@
         "AI44-003",
         "AI44-006",
         "AI44-007",
-        "B01-027",
-        "B01-035",
-        "B02-006",
-        "B02-007",
-        "B02-008",
-        "B02-011",
-        "B02-015",
-        "B02-016",
-        "B02-017",
-        "B02-022",
-        "B02-023",
-        "B02-024",
-        "B02-026",
-        "B02-027",
-        "B03-008",
-        "B03-009",
-        "B03-016",
         "B03-033",
-        "B03-036",
+        "EVRY-ACCOUNT-PRIVATE-DISCOVERY",
         "EVRY-EVALUATION-RELEASE",
+        "EVRY-FAMILY-COMMUNICATION",
+        "EVRY-FAMILY-DOCUMENTS",
+        "EVRY-FAMILY-IDENTITY-PLATFORM",
+        "EVRY-FAMILY-INTELLIGENCE-PHASE",
+        "EVRY-FAMILY-LAUNCH",
+        "EVRY-FAMILY-MEETINGS",
+        "EVRY-FAMILY-NOTIFICATIONS",
+        "EVRY-FAMILY-ORGANIZATION-INTELLIGENCE",
+        "EVRY-FAMILY-PEOPLE-CORE",
+        "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES",
+        "EVRY-FAMILY-PEOPLE-RECORDS",
         "EVRY-FAMILY-RUNTIME-CATALOG",
         "EVRY-FAMILY-RUNTIME-CONVERSATION",
         "EVRY-FAMILY-RUNTIME-FILES-EVALUATION",
         "EVRY-FAMILY-RUNTIME-REVIEW-EXECUTION",
+        "EVRY-FAMILY-TASKS",
+        "EVRY-FAMILY-TEAMS",
+        "EVRY-FAMILY-WIKI",
         "EVRY-RETRY-CANCEL",
         "FDB56-004",
-        "GAP-EVR-400",
-        "GAP-EVR-405",
-        "GAP-EVR-407",
-        "GAP-EVR-408",
-        "GAP-EVR-409",
-        "GAP-EVR-410",
-        "GAP-EVR-411",
-        "GAP-EVR-412",
-        "GAP-EVR-416",
-        "GAP-EVR-417",
-        "GAP-EVR-418",
-        "GAP-EVR-421",
-        "GAP-EVR-422",
-        "GAP-EVR-423",
-        "GAP-EVR-424",
-        "GAP-EVR-425",
-        "GAP-EVR-426",
-        "GAP-EVR-427",
-        "GAP-EVR-428",
-        "GAP-EVR-429",
-        "INH-COMMITMENTS-03",
-        "INH-COMMUNICATION-05",
-        "INH-CROSS-05",
-        "INH-CROSS-06",
-        "INH-CROSS-07",
-        "INH-EDGES-01",
-        "INH-EDGES-03",
-        "INH-EDGES-04",
-        "INH-EDGES-05",
-        "INH-EDGES-06",
-        "INH-EDGES-07",
-        "INH-EDGES-08",
-        "INH-EDGES-09",
-        "INH-EDGES-10",
-        "INH-EDGES-11",
-        "INH-EDGES-12",
-        "INH-EDGES-14",
-        "INH-INTELLIGENCE-06",
-        "INH-LAUNCH-02",
-        "INH-LAUNCH-03",
-        "INH-LAUNCH-04",
-        "INH-LAUNCH-05",
         "INH-MEETINGS-08",
-        "INH-NOTES-05",
-        "INH-NOTIFICATIONS-03",
-        "INH-REGRESSION-CODE-WRITE",
-        "INH-REGRESSION-FOREIGN-SESSION",
-        "INH-REGRESSION-REVOKED-SEAT",
-        "INH-REGRESSION-SANDBOX-ESCAPE",
-        "INH-ROLES-05",
-        "INH-TEAMS-06",
-        "INH-TRAINING-05",
-        "LAUNCH46-019",
         "LAUNCH46-023",
-        "MAIL51-008",
         "MAIL51-009",
-        "NOTIFY47-010",
-        "PROVIDER48-002",
-        "PROVIDER48-003",
-        "PUB57-006",
         "ROLE43-012",
-        "SEC-11",
-        "SEC-12",
-        "SME53-001",
-        "SME53-004",
-        "SME53-005",
-        "SME53-006",
-        "SME53-008",
-        "SME53-009",
-        "TEN-006",
-        "TEN-008"
+        "TEN-006"
       ],
       "spec_paths": [
         "docs/product/evry.md"
       ],
-      "integration_rule": "Scope: EVR-001, EVR-002, EVR-004, EVR-019, EVR-020, EVR-027, EVR-028, EVR-030, EVR-032.",
+      "integration_rule": "Scope: EVR-015, EVR-019, EVR-022, EVR-027, EVR-028, EVR-030, EVR-034.",
       "goal": "Evry autonomy policy/evals/human ownership.",
       "context_scope": {
         "features": "explicit",
@@ -5661,37 +5145,33 @@
         "schema": "produced",
         "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
         "feature_ids": [
-          "EVR-001",
-          "EVR-002",
-          "EVR-004",
+          "EVR-015",
           "EVR-019",
-          "EVR-020",
+          "EVR-022",
           "EVR-027",
           "EVR-028",
           "EVR-030",
-          "EVR-032"
+          "EVR-034"
         ],
         "operation_ids": [
           "access.checkOperation",
-          "evry.classifyRequest",
+          "evry.prepareMeetingInvitation",
           "evry.projectError",
           "evry.readCatalog",
           "evry.readUsage",
           "evry.readWorkflowHint",
+          "evry.reuseRecipe",
           "evry.runEvaluation",
-          "evry.selectQualifiedModel",
           "ops.traceModelAttempt"
         ],
         "requirement_ids": [
-          "REQ-EVR-001",
-          "REQ-EVR-002",
-          "REQ-EVR-004",
+          "REQ-EVR-015",
           "REQ-EVR-019",
-          "REQ-EVR-020",
+          "REQ-EVR-022",
           "REQ-EVR-027",
           "REQ-EVR-028",
           "REQ-EVR-030",
-          "REQ-EVR-032"
+          "REQ-EVR-034"
         ],
         "case_ids": [
           "AI44-001",
@@ -6514,54 +5994,40 @@
     },
     {
       "id": "WP-059",
-      "title": "Evry people-core reads/helper adapters",
+      "title": "Evry people adapters",
       "lane": "evry-people-core",
       "domain": "evry",
       "depends_on": [
-        "WP-052",
-        "WP-011",
-        "WP-012",
-        "WP-015",
-        "WP-013",
-        "WP-023"
+        "WP-053",
+        "WP-012"
       ],
       "estimate_engineer_days": 2.0,
       "inputs": [],
       "outputs": [
-        "Evry people-core reads/helper adapters."
+        "Evry people read and command adapters."
       ],
       "owning_paths": [
         "packages/evry/src/adapters/people/reads/",
-        "tests/evry/adapters/people/reads/"
+        "tests/evry/adapters/people/reads/",
+        "packages/evry/src/adapters/people/commands/",
+        "tests/evry/adapters/people/commands/"
       ],
       "interfaces": [],
       "acceptance_gates": [
-        "EVRY-FAMILY-IDENTITY-PLATFORM",
-        "EVRY-FAMILY-PEOPLE-CORE",
-        "EVRY-FAMILY-TASKS",
         "INH-COMMITMENTS-03",
         "INH-CROSS-06",
         "INH-EDGES-01",
         "INH-EDGES-03",
-        "INH-EDGES-06",
-        "INH-EDGES-14",
         "INH-NOTES-05",
-        "INH-ROLES-05",
-        "INH-TEAMS-06",
-        "INH-TRAINING-05",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-UNMERGE",
         "PROVIDER48-002",
-        "PROVIDER48-003",
-        "TARGET-PPL-025"
+        "PROVIDER48-003"
       ],
       "spec_paths": [
         "docs/product/evry.md"
       ],
-      "integration_rule": "Scope: Evry people-core reads/helper adapters.",
-      "goal": "Evry people-core reads/helper adapters.",
+      "integration_rule": "Scope: Evry people read and command adapters. Includes the retired WP-060 commands. The CSV tools move to WP-063 and WP-064, the merge tools to WP-061 and WP-062, and followups.listContactHistory to WP-067, so WP-013, WP-015 and WP-023 are not prerequisites.",
+      "goal": "Evry people read and command adapters.",
       "context_scope": {
         "features": "owned",
         "requirements": "features_and_operations",
@@ -6578,16 +6044,40 @@
           "AC-EVR-108--EVR-108",
           "AC-EVR-109--EVR-109",
           "AC-EVR-119--EVR-119",
+          "AC-EVR-120--EVR-120",
           "AC-EVR-121--EVR-121",
+          "AC-EVR-122--EVR-122",
+          "AC-EVR-123--EVR-123",
+          "AC-EVR-124--EVR-124",
           "AC-EVR-125--EVR-125",
           "AC-EVR-126--EVR-126",
+          "AC-EVR-127--EVR-127",
+          "AC-EVR-128--EVR-128",
+          "AC-EVR-129--EVR-129",
+          "AC-EVR-130--EVR-130",
           "AC-EVR-131--EVR-131",
           "AC-EVR-132--EVR-132",
           "AC-EVR-133--EVR-133",
           "AC-EVR-134--EVR-134",
+          "AC-EVR-135--EVR-135",
+          "AC-EVR-136--EVR-136",
+          "AC-EVR-137--EVR-137",
+          "AC-EVR-138--EVR-138",
           "AC-EVR-401--EVR-401",
           "AC-EVR-402--EVR-402",
           "AC-EVR-403--EVR-403",
+          "AC-EVR-EFFECT--EVR-120",
+          "AC-EVR-EFFECT--EVR-122",
+          "AC-EVR-EFFECT--EVR-123",
+          "AC-EVR-EFFECT--EVR-124",
+          "AC-EVR-EFFECT--EVR-127",
+          "AC-EVR-EFFECT--EVR-128",
+          "AC-EVR-EFFECT--EVR-129",
+          "AC-EVR-EFFECT--EVR-130",
+          "AC-EVR-EFFECT--EVR-135",
+          "AC-EVR-EFFECT--EVR-136",
+          "AC-EVR-EFFECT--EVR-137",
+          "AC-EVR-EFFECT--EVR-138",
           "AC-EVR-READ--EVR-108",
           "AC-EVR-READ--EVR-109",
           "AC-EVR-READ--EVR-119",
@@ -6601,93 +6091,9 @@
           "AC-EVR-READ--EVR-401",
           "AC-EVR-READ--EVR-402",
           "AC-EVR-READ--EVR-403"
-        ]
-      },
-      "estimate_factors": {
-        "base_days": 1,
-        "requirement_days": 0.025,
-        "operation_days": 0.015,
-        "case_days": 0.006,
-        "table_days": 0.025
-      }
-    },
-    {
-      "id": "WP-060",
-      "title": "Evry people-core draft/propose/execute adapters",
-      "lane": "evry-people-core",
-      "domain": "evry",
-      "depends_on": [
-        "WP-053",
-        "WP-059",
-        "WP-011",
-        "WP-012",
-        "WP-015",
-        "WP-013",
-        "WP-023"
-      ],
-      "estimate_engineer_days": 1.5,
-      "inputs": [],
-      "outputs": [
-        "Evry people-core draft/propose/execute adapters."
-      ],
-      "owning_paths": [
-        "packages/evry/src/adapters/people/commands/",
-        "tests/evry/adapters/people/commands/"
-      ],
-      "interfaces": [],
-      "acceptance_gates": [
-        "EVRY-FAMILY-IDENTITY-PLATFORM",
-        "EVRY-FAMILY-PEOPLE-CORE",
-        "EVRY-FAMILY-TASKS",
-        "EVRY-PERSON-UNMERGE",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-UNMERGE",
-        "PROVIDER48-002",
-        "TARGET-PPL-025"
-      ],
-      "spec_paths": [
-        "docs/product/evry.md"
-      ],
-      "integration_rule": "Scope: Evry people-core draft/propose/execute adapters.",
-      "goal": "Evry people-core draft/propose/execute adapters.",
-      "context_scope": {
-        "features": "owned",
-        "requirements": "features_and_operations",
-        "cases": "operations_and_features",
-        "operations": "evry_owned",
-        "schema": "produced",
-        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-        "acceptance": "features",
-        "case_ids": [
-          "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES"
         ],
-        "acceptance_ids": [
-          "AC-EVR-120--EVR-120",
-          "AC-EVR-122--EVR-122",
-          "AC-EVR-123--EVR-123",
-          "AC-EVR-124--EVR-124",
-          "AC-EVR-127--EVR-127",
-          "AC-EVR-128--EVR-128",
-          "AC-EVR-129--EVR-129",
-          "AC-EVR-130--EVR-130",
-          "AC-EVR-135--EVR-135",
-          "AC-EVR-136--EVR-136",
-          "AC-EVR-137--EVR-137",
-          "AC-EVR-138--EVR-138",
-          "AC-EVR-EFFECT--EVR-120",
-          "AC-EVR-EFFECT--EVR-122",
-          "AC-EVR-EFFECT--EVR-123",
-          "AC-EVR-EFFECT--EVR-124",
-          "AC-EVR-EFFECT--EVR-127",
-          "AC-EVR-EFFECT--EVR-128",
-          "AC-EVR-EFFECT--EVR-129",
-          "AC-EVR-EFFECT--EVR-130",
-          "AC-EVR-EFFECT--EVR-135",
-          "AC-EVR-EFFECT--EVR-136",
-          "AC-EVR-EFFECT--EVR-137",
-          "AC-EVR-EFFECT--EVR-138"
+        "case_requirements_at_start": [
+          "REQ-PPL-025"
         ]
       },
       "estimate_factors": {
@@ -6704,7 +6110,7 @@
       "lane": "evry-people-assessments",
       "domain": "evry",
       "depends_on": [
-        "WP-052",
+        "WP-051",
         "WP-014",
         "WP-015"
       ],
@@ -6719,8 +6125,6 @@
       ],
       "interfaces": [],
       "acceptance_gates": [
-        "CA024",
-        "EVRY-FAMILY-PEOPLE-RECORDS",
         "GAP-EVR-423",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
@@ -6788,8 +6192,6 @@
       "interfaces": [],
       "acceptance_gates": [
         "CA021",
-        "CA024",
-        "EVRY-FAMILY-PEOPLE-RECORDS",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE",
@@ -6842,7 +6244,7 @@
       "lane": "evry-people-organization",
       "domain": "evry",
       "depends_on": [
-        "WP-052",
+        "WP-051",
         "WP-012",
         "WP-013",
         "WP-014",
@@ -6859,7 +6261,6 @@
       ],
       "interfaces": [],
       "acceptance_gates": [
-        "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE",
@@ -6929,7 +6330,6 @@
       ],
       "interfaces": [],
       "acceptance_gates": [
-        "EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE",
@@ -6999,11 +6399,11 @@
       "lane": "evry-meetings",
       "domain": "evry",
       "depends_on": [
-        "WP-052",
+        "WP-051",
         "WP-020",
-        "WP-021",
         "WP-022",
-        "WP-023"
+        "WP-023",
+        "WP-017"
       ],
       "estimate_engineer_days": 1.5,
       "inputs": [],
@@ -7016,16 +6416,12 @@
       ],
       "interfaces": [],
       "acceptance_gates": [
-        "EVRY-FAMILY-MEETINGS",
         "GAP-EVR-408",
         "GAP-EVR-409",
         "GAP-EVR-426",
         "GAP-EVR-427",
         "INH-EDGES-06",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-UNMERGE"
+        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE"
       ],
       "spec_paths": [
         "docs/product/evry.md"
@@ -7078,9 +6474,9 @@
         "WP-053",
         "WP-065",
         "WP-020",
-        "WP-021",
         "WP-022",
-        "WP-023"
+        "WP-023",
+        "WP-017"
       ],
       "estimate_engineer_days": 2.0,
       "inputs": [],
@@ -7101,11 +6497,7 @@
         "B03-008",
         "B03-009",
         "B03-036",
-        "EVRY-FAMILY-MEETINGS",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-UNMERGE"
+        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE"
       ],
       "spec_paths": [
         "docs/product/evry.md"
@@ -7187,7 +6579,7 @@
       "lane": "evry-tasks",
       "domain": "evry",
       "depends_on": [
-        "WP-052",
+        "WP-051",
         "WP-023",
         "WP-024",
         "WP-025",
@@ -7204,20 +6596,12 @@
       ],
       "interfaces": [],
       "acceptance_gates": [
-        "EVRY-FAMILY-TASKS",
         "EVRY-REAL-CHILD-TASK-PARITY",
         "GAP-EVR-405",
         "GAP-EVR-407",
         "INH-CROSS-05",
         "INH-EDGES-04",
-        "INH-INTELLIGENCE-06",
-        "INH-LAUNCH-02",
-        "INH-LAUNCH-03",
-        "INH-LAUNCH-04",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-UNMERGE"
+        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE"
       ],
       "spec_paths": [
         "docs/product/evry.md"
@@ -7290,13 +6674,8 @@
         "B03-008",
         "B03-009",
         "B03-036",
-        "EVRY-FAMILY-TASKS",
         "EVRY-REAL-CHILD-TASK-PARITY",
-        "LAUNCH46-019",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-UNMERGE"
+        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE"
       ],
       "spec_paths": [
         "docs/product/evry.md"
@@ -7365,7 +6744,7 @@
       "lane": "evry-teams",
       "domain": "evry",
       "depends_on": [
-        "WP-052",
+        "WP-051",
         "WP-017",
         "WP-018",
         "WP-019"
@@ -7381,11 +6760,9 @@
       ],
       "interfaces": [],
       "acceptance_gates": [
-        "EVRY-FAMILY-TEAMS",
         "GAP-EVR-410",
         "GAP-EVR-411",
         "GAP-EVR-412",
-        "INH-LAUNCH-03",
         "INH-ROLES-05",
         "INH-TEAMS-06",
         "INH-TRAINING-05",
@@ -7468,7 +6845,6 @@
       "interfaces": [],
       "acceptance_gates": [
         "B01-035",
-        "EVRY-FAMILY-TEAMS",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE",
@@ -7545,7 +6921,7 @@
       "lane": "evry-communication",
       "domain": "evry",
       "depends_on": [
-        "WP-052",
+        "WP-051",
         "WP-027",
         "WP-028",
         "WP-029"
@@ -7561,15 +6937,10 @@
       ],
       "interfaces": [],
       "acceptance_gates": [
-        "EVRY-FAMILY-COMMUNICATION",
-        "EVRY-FAMILY-IDENTITY-PLATFORM",
         "INH-COMMUNICATION-05",
         "INH-CROSS-07",
         "MAIL51-008",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-UNMERGE"
+        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE"
       ],
       "spec_paths": [
         "docs/product/evry.md"
@@ -7652,13 +7023,8 @@
       ],
       "interfaces": [],
       "acceptance_gates": [
-        "EVRY-FAMILY-COMMUNICATION",
-        "EVRY-FAMILY-IDENTITY-PLATFORM",
         "MAIL51-009",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE",
-        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-UNMERGE"
+        "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE"
       ],
       "spec_paths": [
         "docs/product/evry.md"
@@ -7703,7 +7069,7 @@
       "lane": "evry-intelligence",
       "domain": "evry",
       "depends_on": [
-        "WP-052",
+        "WP-051",
         "WP-039",
         "WP-040",
         "WP-041",
@@ -7730,8 +7096,6 @@
         "B03-033",
         "B03-036",
         "CA024",
-        "EVRY-FAMILY-INTELLIGENCE-PHASE",
-        "EVRY-FAMILY-ORGANIZATION-INTELLIGENCE",
         "EVRY-FOUNDATIONS-ONE-READER",
         "EVRY-ORG-CONTEXT",
         "GEO-001",
@@ -7850,8 +7214,6 @@
         "B03-033",
         "B03-036",
         "CA024",
-        "EVRY-FAMILY-INTELLIGENCE-PHASE",
-        "EVRY-FAMILY-ORGANIZATION-INTELLIGENCE",
         "EVRY-ORG-CONTEXT",
         "GEO-001",
         "GEO-002",
@@ -7918,7 +7280,7 @@
       "lane": "evry-launch",
       "domain": "evry",
       "depends_on": [
-        "WP-052",
+        "WP-051",
         "WP-045",
         "WP-046"
       ],
@@ -7934,7 +7296,6 @@
       "interfaces": [],
       "acceptance_gates": [
         "B02-022",
-        "EVRY-FAMILY-LAUNCH",
         "INH-LAUNCH-02",
         "INH-LAUNCH-03",
         "INH-LAUNCH-04",
@@ -8001,7 +7362,6 @@
       "acceptance_gates": [
         "B02-006",
         "B02-022",
-        "EVRY-FAMILY-LAUNCH",
         "LAUNCH46-020",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
@@ -8053,7 +7413,7 @@
       "lane": "evry-wiki",
       "domain": "evry",
       "depends_on": [
-        "WP-052",
+        "WP-051",
         "WP-034",
         "WP-035"
       ],
@@ -8068,7 +7428,6 @@
       ],
       "interfaces": [],
       "acceptance_gates": [
-        "EVRY-FAMILY-WIKI",
         "GAP-EVR-417",
         "GAP-EVR-418",
         "INH-EDGES-05"
@@ -8130,9 +7489,7 @@
         "tests/evry/adapters/wiki/commands/"
       ],
       "interfaces": [],
-      "acceptance_gates": [
-        "EVRY-FAMILY-WIKI"
-      ],
+      "acceptance_gates": [],
       "spec_paths": [
         "docs/product/evry.md"
       ],
@@ -8169,7 +7526,7 @@
       "lane": "evry-documents",
       "domain": "evry",
       "depends_on": [
-        "WP-052",
+        "WP-051",
         "WP-036",
         "WP-037"
       ],
@@ -8184,7 +7541,6 @@
       ],
       "interfaces": [],
       "acceptance_gates": [
-        "EVRY-FAMILY-DOCUMENTS",
         "GAP-EVR-416",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
@@ -8249,7 +7605,6 @@
       ],
       "interfaces": [],
       "acceptance_gates": [
-        "EVRY-FAMILY-DOCUMENTS",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE",
         "PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE",
@@ -8287,7 +7642,7 @@
       "lane": "evry-notifications",
       "domain": "evry",
       "depends_on": [
-        "WP-052",
+        "WP-051",
         "WP-030",
         "WP-031"
       ],
@@ -8306,7 +7661,6 @@
         "AI44-002",
         "AI44-004",
         "AI44-005",
-        "EVRY-FAMILY-NOTIFICATIONS",
         "GAP-EVR-421",
         "INH-NOTIFICATIONS-03",
         "NOTIFY47-001",
@@ -8353,7 +7707,7 @@
         "WP-030",
         "WP-031"
       ],
-      "estimate_engineer_days": 2.0,
+      "estimate_engineer_days": 1.5,
       "inputs": [],
       "outputs": [
         "Evry notifications draft/propose/execute adapters."
@@ -8364,13 +7718,9 @@
       ],
       "interfaces": [],
       "acceptance_gates": [
-        "EVRY-FAMILY-NOTIFICATIONS",
         "NOTIFY47-001",
         "NOTIFY47-010",
-        "PERSONREF-NOTIFICATION-PERSON-SUBJECT-CONFLICT",
-        "PERSONREF-NOTIFICATION-PERSON-SUBJECT-MERGE",
-        "PERSONREF-NOTIFICATION-PERSON-SUBJECT-RETIRE",
-        "PERSONREF-NOTIFICATION-PERSON-SUBJECT-UNMERGE"
+        "PERSONREF-NOTIFICATION-PERSON-SUBJECT-RETIRE"
       ],
       "spec_paths": [
         "docs/product/evry.md"
@@ -8407,7 +7757,7 @@
       "lane": "evry-platform",
       "domain": "evry",
       "depends_on": [
-        "WP-052",
+        "WP-051",
         "WP-010",
         "WP-047",
         "WP-048",
@@ -8426,9 +7776,7 @@
         "tests/evry/adapters/identity/reads/"
       ],
       "interfaces": [],
-      "acceptance_gates": [
-        "EVRY-FAMILY-IDENTITY-PLATFORM"
-      ],
+      "acceptance_gates": [],
       "spec_paths": [
         "docs/product/evry.md"
       ],
@@ -8482,7 +7830,6 @@
       ],
       "interfaces": [],
       "acceptance_gates": [
-        "EVRY-FAMILY-IDENTITY-PLATFORM",
         "PUB57-006"
       ],
       "spec_paths": [
@@ -8517,17 +7864,18 @@
       "lane": "evry-helpers",
       "domain": "evry",
       "depends_on": [
-        "WP-052",
+        "WP-051",
         "WP-013",
         "WP-019",
-        "WP-021",
+        "WP-020",
         "WP-037",
         "WP-053"
       ],
       "estimate_engineer_days": 1.5,
       "inputs": [],
       "outputs": [
-        "Evry named helpers and candidate preparation."
+        "Evry named helpers and candidate preparation.",
+        "EVR-017: Plant-local natural-language date resolution"
       ],
       "owning_paths": [
         "packages/evry/src/adapters/helpers/reads/",
@@ -8543,12 +7891,14 @@
         "GAP-EVR-425",
         "GAP-EVR-428",
         "GAP-EVR-429",
-        "INH-EDGES-14"
+        "INH-EDGES-14",
+        "INH-REGRESSION-DST-FOLD",
+        "INH-REGRESSION-DST-GAP"
       ],
       "spec_paths": [
         "docs/product/evry.md"
       ],
-      "integration_rule": "Scope: Evry named helpers and candidate preparation.",
+      "integration_rule": "Scope: Evry named helpers and candidate preparation, EVR-017.",
       "goal": "Evry named helpers and candidate preparation.",
       "context_scope": {
         "features": "owned",
@@ -8852,6 +8202,7 @@
         "FDB56-002",
         "FDB56-003",
         "FDB56-004",
+        "GAP-MTG-011",
         "ORG55-007",
         "PERSONREF-ACCOUNT-LINK-CONFLICT",
         "PERSONREF-ACCOUNT-LINK-MERGE",
@@ -8926,6 +8277,7 @@
         "TARGET-IDN-031",
         "TARGET-IDN-032",
         "TARGET-MTG-020",
+        "TARGET-PPL-020",
         "TARGET-PPL-024",
         "TARGET-PPL-025"
       ],
@@ -8989,6 +8341,7 @@
         "DEL58-003",
         "DEL58-006",
         "DEL58-008",
+        "GAP-REF-006",
         "OPS54-002",
         "ORG55-008",
         "REC59-003",
@@ -9040,7 +8393,7 @@
         "WP-050",
         "WP-055"
       ],
-      "estimate_engineer_days": 1.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [],
       "outputs": [
         "Phases, intelligence and Launch integration."
@@ -9063,6 +8416,8 @@
         "ASMT-010",
         "ASMT-011",
         "ASMT-012",
+        "B02-023",
+        "B02-024",
         "B02-029",
         "DEL58-004",
         "DEL58-005",
@@ -9631,7 +8986,7 @@
       "integration_rule": "Scope: MUL-001, MUL-002, MUL-003, MUL-004, MUL-005, MUL-006, MUL-007, MUL-008, MUL-009, MUL-010, MUL-011, MUL-012, MUL-013, MUL-014, MUL-015, MUL-016, MUL-017."
     }
   ],
-  "edge_count": 520,
+  "edge_count": 499,
   "topological_merge_order": [
     "WP-097",
     "WP-087",
@@ -9655,12 +9010,10 @@
     "WP-014",
     "WP-015",
     "WP-032",
-    "WP-016",
+    "WP-020",
     "WP-017",
     "WP-018",
     "WP-019",
-    "WP-020",
-    "WP-021",
     "WP-024",
     "WP-022",
     "WP-023",
@@ -9689,11 +9042,9 @@
     "WP-049",
     "WP-050",
     "WP-051",
-    "WP-052",
     "WP-053",
     "WP-054",
     "WP-059",
-    "WP-060",
     "WP-061",
     "WP-062",
     "WP-063",
@@ -9747,8 +9098,9 @@
     "WP-006",
     "WP-007",
     "WP-008",
-    "WP-009",
-    "WP-038",
+    "WP-020",
+    "WP-017",
+    "WP-019",
     "WP-045",
     "WP-046",
     "WP-040",
@@ -9765,8 +9117,8 @@
     "WP-057",
     "WP-058"
   ],
-  "critical_path_unconstrained_days": 87.5,
-  "total_engineer_days": 239.0,
+  "critical_path_unconstrained_days": 89.0,
+  "total_engineer_days": 229.5,
   "contract_milestones": {
     "C0": [
       "WP-002"
@@ -9846,18 +9198,14 @@
         "WP-013",
         "WP-014",
         "WP-015",
-        "WP-016",
         "WP-020",
-        "WP-021",
         "WP-022",
         "WP-023",
         "WP-024",
         "WP-025",
         "WP-051",
-        "WP-052",
         "WP-053",
-        "WP-059",
-        "WP-060"
+        "WP-059"
       ],
       "cumulative_packages": [
         "WP-097",
@@ -9876,9 +9224,7 @@
         "WP-013",
         "WP-014",
         "WP-015",
-        "WP-016",
         "WP-020",
-        "WP-021",
         "WP-022",
         "WP-023",
         "WP-024",
@@ -9887,17 +9233,15 @@
         "WP-032",
         "WP-050",
         "WP-051",
-        "WP-052",
         "WP-053",
         "WP-059",
-        "WP-060",
         "WP-087",
         "WP-088",
         "WP-089",
         "WP-090"
       ],
       "dependency_closed": true,
-      "meaning": "People/meeting/task native and reviewed Evry vertical slice"
+      "meaning": "People, meeting and task native features with a reviewed Evry slice for people; Evry meeting and task adapters arrive in S4"
     },
     {
       "id": "S2",
@@ -9932,12 +9276,10 @@
         "WP-013",
         "WP-014",
         "WP-015",
-        "WP-016",
         "WP-017",
         "WP-018",
         "WP-019",
         "WP-020",
-        "WP-021",
         "WP-022",
         "WP-023",
         "WP-024",
@@ -9955,10 +9297,8 @@
         "WP-037",
         "WP-050",
         "WP-051",
-        "WP-052",
         "WP-053",
         "WP-059",
-        "WP-060",
         "WP-087",
         "WP-088",
         "WP-089",
@@ -9993,12 +9333,10 @@
         "WP-013",
         "WP-014",
         "WP-015",
-        "WP-016",
         "WP-017",
         "WP-018",
         "WP-019",
         "WP-020",
-        "WP-021",
         "WP-022",
         "WP-023",
         "WP-024",
@@ -10016,10 +9354,8 @@
         "WP-037",
         "WP-050",
         "WP-051",
-        "WP-052",
         "WP-053",
         "WP-059",
-        "WP-060",
         "WP-087",
         "WP-088",
         "WP-089",
@@ -10067,12 +9403,10 @@
         "WP-013",
         "WP-014",
         "WP-015",
-        "WP-016",
         "WP-017",
         "WP-018",
         "WP-019",
         "WP-020",
-        "WP-021",
         "WP-022",
         "WP-023",
         "WP-024",
@@ -10103,10 +9437,8 @@
         "WP-049",
         "WP-050",
         "WP-051",
-        "WP-052",
         "WP-053",
         "WP-059",
-        "WP-060",
         "WP-087",
         "WP-088",
         "WP-089",
@@ -10168,12 +9500,10 @@
         "WP-013",
         "WP-014",
         "WP-015",
-        "WP-016",
         "WP-017",
         "WP-018",
         "WP-019",
         "WP-020",
-        "WP-021",
         "WP-022",
         "WP-023",
         "WP-024",
@@ -10204,12 +9534,10 @@
         "WP-049",
         "WP-050",
         "WP-051",
-        "WP-052",
         "WP-053",
         "WP-054",
         "WP-055",
         "WP-059",
-        "WP-060",
         "WP-061",
         "WP-062",
         "WP-063",
@@ -10278,12 +9606,10 @@
         "WP-013",
         "WP-014",
         "WP-015",
-        "WP-016",
         "WP-017",
         "WP-018",
         "WP-019",
         "WP-020",
-        "WP-021",
         "WP-022",
         "WP-023",
         "WP-024",
@@ -10314,7 +9640,6 @@
         "WP-049",
         "WP-050",
         "WP-051",
-        "WP-052",
         "WP-053",
         "WP-054",
         "WP-055",
@@ -10322,7 +9647,6 @@
         "WP-057",
         "WP-058",
         "WP-059",
-        "WP-060",
         "WP-061",
         "WP-062",
         "WP-063",
@@ -10371,7 +9695,11 @@
   "dependency_amendment": {
     "reason": "Catalog owners precede operation consumers; design prerequisites apply only to presentation tasks; scoped integration producers precede whole-target gates.",
     "retired": [
-      "WP-086"
+      "WP-086",
+      "WP-016",
+      "WP-021",
+      "WP-052",
+      "WP-060"
     ],
     "ownership_source": "docs/catalog/index.json"
   },
@@ -10382,6 +9710,26 @@
       "id": "WP-086",
       "scope_moved_to": "WP-085",
       "reason": "No independently owned command operations or clauses; named helper preparation is one WP-085 task. Never reuse this ID."
+    },
+    {
+      "id": "WP-016",
+      "scope_moved_to": "WP-017",
+      "reason": "TEAM-002 archive, restore and correct needs teams that only WP-017 creates; the S1 plan review folded it into WP-017 (S2). Never reuse this ID."
+    },
+    {
+      "id": "WP-021",
+      "scope_moved_to": "WP-020",
+      "reason": "Invitations and RSVP share the meetings owning paths with WP-020 and ran serially; the S1 plan review folded them into WP-020, except the team roster portion of MTG-007, which moved to WP-017. Never reuse this ID."
+    },
+    {
+      "id": "WP-052",
+      "scope_moved_to": "WP-051",
+      "reason": "The read catalog is kernel work for the first Evry loop; the S1 plan review folded EVR-003, EVR-006 and EVR-024 into WP-051 and deferred EVR-007, EVR-017 and EVR-031. Never reuse this ID."
+    },
+    {
+      "id": "WP-060",
+      "scope_moved_to": "WP-059",
+      "reason": "People read and command adapters share one fixture set and reviewer; the S1 plan review merged them into WP-059. Never reuse this ID."
     }
   ],
   "build_plan_notes": {

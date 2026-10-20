@@ -106,8 +106,7 @@
         "AC-TSK-014--TSK-014"
       ],
       "work_packages": [
-        "WP-024",
-        "WP-025"
+        "WP-024"
       ],
       "status": "future-not-run",
       "description": "Timed task `deadlineInstant` 18:00 Z; dispatch due notice late/early without editing deadline.",
@@ -189,11 +188,10 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -523,11 +521,10 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -864,11 +861,10 @@
         "WP-023",
         "WP-024",
         "WP-025",
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1190,11 +1186,10 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2082,7 +2077,7 @@
         "AC-TSK-002--TSK-002"
       ],
       "work_packages": [
-        "WP-025"
+        "WP-024"
       ],
       "status": "future-not-run",
       "description": "Whitespace title, invalid date/foreign assignee/facility, failing prerequisite edit, protected generated relation change, parent delete with children.",
@@ -2195,7 +2190,7 @@
         "AC-TSK-003--TSK-003"
       ],
       "work_packages": [
-        "WP-025"
+        "WP-024"
       ],
       "status": "future-not-run",
       "description": "Assignee changed after preview, Member other duty, double complete/lost response, reopen older recurrence with open successor and person administrative task.",
@@ -4756,7 +4751,7 @@
         "WP-023"
       ],
       "status": "future-not-run",
-      "description": "One finalize caller transaction invokes kernel for 2 Person obligations and 1 evaluation task; duplicate key, two same-day origin meetings, waived/deleted task, failure before outer audit/marker.",
+      "description": "Finalizing creates two person follow-ups and one evaluation task; a duplicate request, two same-day origin meetings, a waived or deleted task, and a failure before finalizing completes leave no partial change.",
       "given": {
         "P": {
           "fixture_type": "plant",

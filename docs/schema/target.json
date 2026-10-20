@@ -5299,7 +5299,7 @@
     ],
     "ministry_team": [
       "WP-004",
-      "WP-016"
+      "WP-017"
     ],
     "team_role": [
       "WP-004",
@@ -5328,16 +5328,16 @@
     ],
     "meeting_participation": [
       "WP-004",
-      "WP-021",
+      "WP-020",
       "WP-022"
     ],
     "meeting_invitation": [
       "WP-004",
-      "WP-021"
+      "WP-020"
     ],
     "vision_response": [
       "WP-004",
-      "WP-021"
+      "WP-020"
     ],
     "meeting_event": [
       "WP-004",
@@ -5555,7 +5555,7 @@
     ],
     "meeting_rsvp_token": [
       "WP-004",
-      "WP-021",
+      "WP-020",
       "WP-028"
     ],
     "meeting_checklist_item": [
@@ -5900,7 +5900,7 @@
       ],
       "consumer_work_packages": [
         "WP-004",
-        "WP-016"
+        "WP-017"
       ],
       "meaning": "Current relation with immutable original provenance",
       "lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
@@ -5952,7 +5952,7 @@
       ],
       "consumer_work_packages": [
         "WP-004",
-        "WP-021",
+        "WP-020",
         "WP-022"
       ],
       "meaning": "Current relation with immutable original provenance",
@@ -5979,7 +5979,7 @@
       ],
       "consumer_work_packages": [
         "WP-004",
-        "WP-021",
+        "WP-020",
         "WP-022"
       ],
       "meaning": "Current relation with immutable original provenance",
@@ -21950,7 +21950,7 @@
       ],
       "producer_work_packages": [
         "WP-004",
-        "WP-021",
+        "WP-020",
         "WP-022"
       ],
       "producer_derivation": {
@@ -26951,11 +26951,9 @@
         "WP-012",
         "WP-013",
         "WP-014",
-        "WP-016",
         "WP-017",
         "WP-018",
         "WP-020",
-        "WP-021",
         "WP-022",
         "WP-023",
         "WP-024",
@@ -32435,7 +32433,7 @@
       ],
       "producer_work_packages": [
         "WP-004",
-        "WP-016"
+        "WP-017"
       ],
       "producer_derivation": {
         "old_target_tables": [

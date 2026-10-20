@@ -637,7 +637,7 @@
       "feature_ids": [
         "PI-011"
       ],
-      "text": "Count actual live follow-up task ownership, distinct eligible assignees/unowned/stale-unowned separately. Removed/ineligible owner is unowned; staleness or volume alone cannot blame the planter.",
+      "text": "Count actual live follow-up task ownership, distinct eligible assignees/unowned/stale-unowned separately. Removed/ineligible owner is unowned; staleness or volume alone cannot blame the planter. This is a report.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.readFacts"
@@ -656,7 +656,6 @@
         "C0-DOMAIN-TRANSACTION"
       ],
       "work_packages": [
-        "WP-023",
         "WP-040"
       ],
       "title": "Measured task follow-up ownership"
@@ -666,7 +665,7 @@
       "feature_ids": [
         "PI-012"
       ],
-      "text": "Measure successful originating-obligation task-completion Instant within 48 elapsed hours from actual originating meeting occurrence, separately from local+2 calendar-day due date and actual contact success. Waiver gets no success credit; manual/missing origin unmeasured. Phase 6 without approved postlaunch origin is Unknown; no Vision substitute. Use one fixed asOf and actual immutable originating occurrence Instant as source-start. Include mature unresolved obligations at age>=48 elapsed hours as measured misses and valid successful completion at/after source-start and by source-start+48 hours (inclusive), even before maturity. Exclude younger pending, future actual origin/effective creation or completion, completion before origin, and missing/invalid origin/completion from the ratio with exact truthful labels. Waived/no_longer_needed obligations are separately excluded, not failures. Soft-deleted genuine originating meetings retain immutable historical evidence. Actual occurrence/completion and recordedAt/database createdAt are distinct: legitimate later recording never invalidates valid backdated evidence. Legacy task-createdAt-start formulas remain labelled only in their original snapshot versions.",
+      "text": "Measure successful originating-obligation task-completion Instant within 48 elapsed hours from actual originating meeting occurrence, separately from local+2 calendar-day due date and actual contact success. Waiver gets no success credit; manual/missing origin unmeasured. Phase 6 without approved postlaunch origin is Unknown; no Vision substitute. Use one fixed asOf and actual immutable originating occurrence Instant as source-start. Include mature unresolved obligations at age>=48 elapsed hours as measured misses and valid successful completion at/after source-start and by source-start+48 hours (inclusive), even before maturity. Exclude younger pending, future actual origin/effective creation or completion, completion before origin, and missing/invalid origin/completion from the ratio with exact truthful labels. Waived/no_longer_needed obligations are separately excluded, not failures. Soft-deleted genuine originating meetings retain immutable historical evidence. Actual occurrence/completion and recordedAt/database createdAt are distinct: legitimate later recording never invalidates valid backdated evidence. Legacy task-createdAt-start formulas remain labelled only in their original snapshot versions. This is a report.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.readFacts"
@@ -686,7 +685,6 @@
         "C0-DOMAIN-TRANSACTION"
       ],
       "work_packages": [
-        "WP-023",
         "WP-040"
       ],
       "title": "48-hour originating-meeting follow-up task metric"
@@ -696,7 +694,7 @@
       "feature_ids": [
         "PI-013"
       ],
-      "text": "Actual effective contacted occurrence updates 14 day contact freshness; attempted/administrative completion/waiver/task status/profile edit/mail opens never prove contact. Missing/future date Unknown; correction retains history.",
+      "text": "Actual effective contacted occurrence updates 14 day contact freshness; attempted/administrative completion/waiver/task status/profile edit/mail opens never prove contact. Missing/future date Unknown; correction retains history. This is a report.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.readFacts"
@@ -717,7 +715,6 @@
         "C0-DOMAIN-TRANSACTION"
       ],
       "work_packages": [
-        "WP-023",
         "WP-040"
       ],
       "title": "Actual contact freshness independent of task completion"

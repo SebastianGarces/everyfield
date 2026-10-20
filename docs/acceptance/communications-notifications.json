@@ -21,7 +21,6 @@
       ],
       "work_packages": [
         "WP-024",
-        "WP-025",
         "WP-031"
       ],
       "status": "future-not-run",
@@ -275,7 +274,6 @@
       ],
       "work_packages": [
         "WP-020",
-        "WP-024",
         "WP-031"
       ],
       "status": "future-not-run",
@@ -1341,7 +1339,7 @@
         "AC-COM-006--COM-006"
       ],
       "work_packages": [
-        "WP-028"
+        "WP-029"
       ],
       "status": "future-not-run",
       "description": "Immediate compose and reviewed non-opener resend each receive all permanent refusals, partial success, or all unknown.",
@@ -1671,8 +1669,7 @@
         "AC-COM-008--COM-008"
       ],
       "work_packages": [
-        "WP-032",
-        "WP-027"
+        "WP-032"
       ],
       "status": "future-not-run",
       "description": "Install seven template IDs twice, change same immutable ID checksum, select meeting invitation with existing plant fork.",
@@ -1970,7 +1967,7 @@
         "AC-COM-010--COM-010"
       ],
       "work_packages": [
-        "WP-021",
+        "WP-020",
         "WP-028"
       ],
       "status": "future-not-run",
@@ -2932,7 +2929,6 @@
         "AC-NTF-005--NTF-005"
       ],
       "work_packages": [
-        "WP-024",
         "WP-031"
       ],
       "status": "future-not-run",
@@ -3970,8 +3966,7 @@
         "AC-NTF-011--NTF-011"
       ],
       "work_packages": [
-        "WP-028",
-        "WP-030"
+        "WP-028"
       ],
       "status": "future-not-run",
       "description": "Self fresh-verified current email restoration with reason, foreign address request, repeat clear and later hard bounce.",
@@ -5009,7 +5004,6 @@
       "work_packages": [
         "WP-027",
         "WP-029",
-        "WP-055",
         "WP-071"
       ],
       "status": "future-not-run",
@@ -5284,10 +5278,6 @@
         "AC-EVR-READ--EVR-413"
       ],
       "work_packages": [
-        "WP-029",
-        "WP-051",
-        "WP-052",
-        "WP-055",
         "WP-071"
       ],
       "status": "future-not-run",
@@ -5839,7 +5829,6 @@
         "AC-EVR-012--EVR-012"
       ],
       "work_packages": [
-        "WP-027",
         "WP-053"
       ],
       "status": "future-not-run",
@@ -6070,7 +6059,6 @@
         "AC-EVR-012--EVR-012"
       ],
       "work_packages": [
-        "WP-027",
         "WP-053"
       ],
       "status": "future-not-run",
@@ -6287,7 +6275,6 @@
         "AC-EVR-012--EVR-012"
       ],
       "work_packages": [
-        "WP-027",
         "WP-053"
       ],
       "status": "future-not-run",
@@ -6514,7 +6501,6 @@
         "AC-EVR-012--EVR-012"
       ],
       "work_packages": [
-        "WP-027",
         "WP-053"
       ],
       "status": "future-not-run",
@@ -7098,7 +7084,6 @@
         "AC-COM-012--COM-012"
       ],
       "work_packages": [
-        "WP-027",
         "WP-029"
       ],
       "status": "future-not-run",
@@ -7828,9 +7813,7 @@
       ],
       "work_packages": [
         "WP-029",
-        "WP-071",
-        "WP-052",
-        "WP-055"
+        "WP-071"
       ],
       "status": "future-not-run",
       "description": "Current authorized Person/meeting/detail reads versus foreign/departed/private/token canaries.",
@@ -8720,7 +8703,6 @@
       ],
       "work_packages": [
         "WP-020",
-        "WP-024",
         "WP-031"
       ],
       "status": "future-not-run",
@@ -9063,9 +9045,6 @@
       ],
       "work_packages": [
         "WP-030",
-        "WP-052",
-        "WP-053",
-        "WP-055",
         "WP-081",
         "WP-082"
       ],
@@ -9147,11 +9126,10 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual communication-recipient-contact references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual communication-recipient-contact references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -9480,11 +9458,10 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual communication-recipient-contact references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual communication-recipient-contact references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -9819,11 +9796,10 @@
       "work_packages": [
         "WP-028",
         "WP-029",
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual communication-recipient-contact references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual communication-recipient-contact references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -10145,11 +10121,10 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual communication-recipient-contact references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual communication-recipient-contact references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -10496,12 +10471,10 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-082",
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual notification-person-subject references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual notification-person-subject references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -10830,12 +10803,10 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-082",
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual notification-person-subject references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual notification-person-subject references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -11169,11 +11140,10 @@
       ],
       "work_packages": [
         "WP-082",
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual notification-person-subject references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual notification-person-subject references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -11504,12 +11474,10 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-082",
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual notification-person-subject references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual notification-person-subject references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",

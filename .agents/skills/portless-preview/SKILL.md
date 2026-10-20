@@ -54,4 +54,6 @@ Ordinary `down` stops processes and removes owned dependencies/data/snapshots. I
 
 Confirm the record is terminal, its URL no longer serves the app, and an explicitly removed worktree is absent from disk and `git worktree list`. Successful cleanup reports `removed`; an already-cleaned failed startup may retain `failed` for diagnosis. `cleanup_pending` is incomplete cleanup; inspect its error and retry after fixing the cause. `gc` is a dry run unless passed `--apply`. Shut down a dedicated test supervisor after verification; do not stop unrelated previews.
 
+Slots: builders and verifiers come first. The coordinator may stop Sebastian's review preview at any time and restarts it later on main. Never stop another workspace's preview. See D74 in `docs/architecture/decisions.md`.
+
 Worktree cleanup does not revert commits. If a rehearsal requires reverting the change, keep its SHA and revert it on the retained branch after cleanup. Report preview removal and Git reversion separately.
