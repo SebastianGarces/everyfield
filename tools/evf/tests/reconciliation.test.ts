@@ -819,7 +819,7 @@ test("BUG-c048ea5-folder-path: maintenance refuses an existing folder without a 
 			/docs is a folder; use docs\//,
 		);
 		assert.equal(f.git("branch", "--list", "task/*"), "");
-		for (const path of ["other-review.html", "apps/web/src/app/page.tsx"]) {
+		for (const path of ["other-review.html", "apps/web/src/app/page.tsx", "design/handoff/", "design/handoff/export.py"]) {
 			f.cfg.maintenanceTasks[task.id].owningPaths = [path];
 			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
 			assert.throws(
@@ -827,7 +827,7 @@ test("BUG-c048ea5-folder-path: maintenance refuses an existing folder without a 
 				/Maintenance owning paths must stay in documentation and workflow tooling/,
 			);
 		}
-		for (const path of ["docs/tooling/", "AGENTS.md", "everyfield-feature-review.html"]) {
+		for (const path of ["docs/tooling/", "AGENTS.md", "everyfield-feature-review.html", "design/handoff/screens.md"]) {
 			f.cfg.maintenanceTasks[task.id].owningPaths = [path];
 			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
 			f.commit();

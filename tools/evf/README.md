@@ -119,6 +119,7 @@ exceptions stale and fail the check. Local-only suites remain acceptance work fo
 Briefs use the current catalog and context manifest. Missing context fails explicitly.
 Task starts retain kickoff gates and producer dependencies. OPS tasks use reviewed title,
 owning paths and tooling checks in `maintenanceTasks`; they cannot authorize application code.
+The only design file they may own is `design/handoff/screens.md`, the generated package-owner map.
 An owning path naming an existing folder must end in `/`; paths without it name exact files.
 `taskRisks` can mark sensitive work, which requires an owner decision. Paid services retain
 concrete spending approval. Doctor reports readiness without executing checks or changing settings.
