@@ -23,14 +23,14 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; zero affiliations. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; zero affiliations. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -56,25 +56,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -132,14 +132,14 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; one sending church. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; one sending church. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -165,25 +165,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -194,7 +194,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -252,14 +252,14 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; one network. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; one network. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -285,25 +285,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -314,7 +314,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -372,14 +372,14 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; one of each. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; one of each. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -405,25 +405,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -434,7 +434,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -442,7 +442,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -501,14 +501,14 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; two sending churches. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; two sending churches. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -534,25 +534,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -563,7 +563,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -571,7 +571,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -630,14 +630,14 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; two networks. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; two networks. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -663,25 +663,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -692,7 +692,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -700,7 +700,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -759,14 +759,14 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; pending requests. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; pending requests. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -792,25 +792,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -876,14 +876,14 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; concurrent distinct org approvals. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; concurrent distinct org approvals. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -909,25 +909,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -940,7 +940,7 @@
               "operation": "associations.acceptInvitation",
               "arguments": {
                 "invitation": "I-N1",
-                "expected_revision": 2,
+                "reviewed_state": "fixture-state-2",
                 "request_key": "AF-008-N1"
               },
               "actor": {
@@ -956,7 +956,7 @@
           "id": "I",
           "plant": "P",
           "organization": "S1",
-          "revision": 2,
+          "observed_state": "fixture-state-2",
           "plant_consent": true,
           "organization_approval": true,
           "status": "pending",
@@ -967,7 +967,7 @@
           "id": "I-N1",
           "plant": "P",
           "organization": "N1",
-          "revision": 2,
+          "observed_state": "fixture-state-2",
           "plant_consent": true,
           "status": "pending"
         },
@@ -1020,7 +1020,7 @@
         "operation": "associations.acceptInvitation",
         "arguments": {
           "invitation": "I",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-008-1"
         }
       },
@@ -1035,7 +1035,7 @@
             "S1",
             "N1"
           ],
-          "receipt_count": 2,
+          "recorded_outcome_count": 2,
           "new_seats": 0
         },
         "event": {
@@ -1047,7 +1047,7 @@
     },
     {
       "id": "AF-009",
-      "requirement": "Exactly one recognized pair/history/receipt persists under duplicate approval.",
+      "requirement": "Exactly one recognized pair/history and recorded outcome persists under duplicate approval.",
       "requirement_ids": [
         "REQ-IDN-020",
         "REQ-IDN-021"
@@ -1065,14 +1065,14 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; duplicate same org approval. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; duplicate same org approval. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -1098,25 +1098,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -1127,7 +1127,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -1144,7 +1144,7 @@
           "id": "I",
           "plant": "P",
           "organization": "S1",
-          "revision": 2,
+          "observed_state": "fixture-state-2",
           "plant_consent": true,
           "organization_approval": true,
           "status": "pending",
@@ -1182,7 +1182,7 @@
         "operation": "associations.acceptInvitation",
         "arguments": {
           "invitation": "I",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-009-1"
         }
       },
@@ -1196,7 +1196,7 @@
           "active_organizations": [
             "S1"
           ],
-          "receipt_count": 1,
+          "recorded_outcome_count": 1,
           "new_seats": 0
         },
         "event": {
@@ -1226,14 +1226,14 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; end one affiliation. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; end one affiliation. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -1259,25 +1259,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -1288,7 +1288,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -1296,7 +1296,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -1322,7 +1322,7 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-010-1"
         }
       },
@@ -1343,7 +1343,7 @@
             "N1"
           ],
           "plant_deleted": false,
-          "receipt_count": 1
+          "recorded_outcome_count": 1
         },
         "event": {
           "kind": "affiliation_ended",
@@ -1372,14 +1372,14 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; plant Owner or ordinary accepted Admin request, exact org Owner/Admin approval. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; plant Owner or ordinary accepted Admin request, exact org Owner/Admin approval. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -1405,25 +1405,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -1434,7 +1434,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -1451,7 +1451,7 @@
           "id": "I",
           "plant": "P",
           "organization": "S1",
-          "revision": 2,
+          "observed_state": "fixture-state-2",
           "plant_consent": true,
           "organization_approval": true,
           "status": "pending",
@@ -1489,7 +1489,7 @@
         "operation": "associations.acceptInvitation",
         "arguments": {
           "invitation": "I",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-011-1"
         }
       },
@@ -1503,7 +1503,7 @@
           "active_organizations": [
             "S1"
           ],
-          "receipt_count": 1,
+          "recorded_outcome_count": 1,
           "new_seats": 0
         },
         "event": {
@@ -1532,14 +1532,14 @@
         "WP-009"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; Discovery conversion. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; Discovery conversion. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -1558,25 +1558,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -1587,7 +1587,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -1595,7 +1595,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -1610,7 +1610,7 @@
           "fixture_type": "discovery",
           "id": "D",
           "account": "A",
-          "revision": 1
+          "observed_state": "fixture-state-1"
         },
         "execution": {
           "fixture_type": "test_execution",
@@ -1688,14 +1688,14 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; parent network auto access. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; parent network auto access. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -1721,25 +1721,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -1821,14 +1821,14 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; precise termination roles. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; precise termination roles. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -1854,25 +1854,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -1883,7 +1883,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -1891,7 +1891,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -1917,7 +1917,7 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-014-1"
         }
       },
@@ -1938,7 +1938,7 @@
             "N1"
           ],
           "plant_deleted": false,
-          "receipt_count": 1
+          "recorded_outcome_count": 1
         },
         "event": {
           "kind": "affiliation_ended",
@@ -1967,14 +1967,14 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; automatic replacement or ending other links. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; automatic replacement or ending other links. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -2000,25 +2000,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -2029,7 +2029,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -2037,7 +2037,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -2063,7 +2063,7 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-015-1"
         }
       },
@@ -2084,7 +2084,7 @@
             "N1"
           ],
           "plant_deleted": false,
-          "receipt_count": 1
+          "recorded_outcome_count": 1
         },
         "event": {
           "kind": "affiliation_ended",
@@ -2113,14 +2113,14 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; missing plant consent. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; missing plant consent. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -2146,25 +2146,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -2175,7 +2175,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -2192,7 +2192,7 @@
           "id": "I",
           "plant": "P",
           "organization": "S1",
-          "revision": 2,
+          "observed_state": "fixture-state-2",
           "plant_consent": false,
           "organization_approval": true,
           "status": "pending",
@@ -2230,7 +2230,7 @@
         "operation": "associations.acceptInvitation",
         "arguments": {
           "invitation": "I",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-016-1"
         }
       },
@@ -2267,14 +2267,14 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; missing exact org approval. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; missing exact org approval. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -2300,25 +2300,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -2329,7 +2329,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -2346,7 +2346,7 @@
           "id": "I",
           "plant": "P",
           "organization": "S1",
-          "revision": 2,
+          "observed_state": "fixture-state-2",
           "plant_consent": true,
           "organization_approval": false,
           "status": "pending",
@@ -2366,7 +2366,7 @@
         "operation": "associations.acceptInvitation",
         "arguments": {
           "invitation": "I",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-017-1"
         }
       },
@@ -2403,14 +2403,14 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; one exact org Admin approves. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; one exact org Admin approves. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -2436,25 +2436,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -2465,7 +2465,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -2482,7 +2482,7 @@
           "id": "I",
           "plant": "P",
           "organization": "S1",
-          "revision": 2,
+          "observed_state": "fixture-state-2",
           "plant_consent": true,
           "organization_approval": true,
           "status": "pending",
@@ -2520,7 +2520,7 @@
         "operation": "associations.acceptInvitation",
         "arguments": {
           "invitation": "I",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-018-1"
         }
       },
@@ -2534,7 +2534,7 @@
           "active_organizations": [
             "S1"
           ],
-          "receipt_count": 1,
+          "recorded_outcome_count": 1,
           "new_seats": 0
         },
         "event": {
@@ -2564,14 +2564,14 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; foreign org Admin or unrelated affiliates veto. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; foreign org Admin or unrelated affiliates veto. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -2597,25 +2597,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -2626,7 +2626,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -2644,7 +2644,7 @@
           "id": "I",
           "plant": "P",
           "organization": "S1",
-          "revision": 2,
+          "observed_state": "fixture-state-2",
           "plant_consent": true,
           "organization_approval": true,
           "status": "pending",
@@ -2676,7 +2676,7 @@
         "operation": "associations.acceptInvitation",
         "arguments": {
           "invitation": "I",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-019-1"
         }
       },
@@ -2710,14 +2710,14 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; authorized own-link end. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; authorized own-link end. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -2743,25 +2743,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -2772,7 +2772,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -2780,7 +2780,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -2806,7 +2806,7 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-020-1"
         }
       },
@@ -2827,7 +2827,7 @@
             "N1"
           ],
           "plant_deleted": false,
-          "receipt_count": 1
+          "recorded_outcome_count": 1
         },
         "event": {
           "kind": "affiliation_ended",
@@ -2856,14 +2856,14 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; end foreign link. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; end foreign link. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -2889,25 +2889,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -2918,7 +2918,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -2926,7 +2926,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -2968,7 +2968,7 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-021-1"
         }
       },
@@ -3002,14 +3002,14 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; no surviving valid access path. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; no surviving valid access path. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -3035,25 +3035,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -3064,7 +3064,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -3090,7 +3090,7 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-022-1"
         }
       },
@@ -3134,14 +3134,14 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; surviving approved affiliation or independent grant. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; surviving approved affiliation or independent grant. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -3167,25 +3167,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -3196,7 +3196,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -3204,7 +3204,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -3230,7 +3230,7 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-023-1"
         }
       },
@@ -3251,7 +3251,7 @@
             "N1"
           ],
           "plant_deleted": false,
-          "receipt_count": 1,
+          "recorded_outcome_count": 1,
           "N1_access": true,
           "S1_access": false
         },
@@ -3282,14 +3282,14 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; end linkage. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; end linkage. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -3315,25 +3315,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -3344,7 +3344,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -3352,7 +3352,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -3397,7 +3397,7 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-024-1"
         }
       },
@@ -3418,7 +3418,7 @@
             "N1"
           ],
           "plant_deleted": false,
-          "receipt_count": 1,
+          "recorded_outcome_count": 1,
           "persons": [
             "Alex"
           ],
@@ -3457,14 +3457,14 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; notice transport failure. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; notice transport failure. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -3490,25 +3490,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -3519,7 +3519,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -3527,7 +3527,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -3557,7 +3557,7 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-025-1"
         }
       },
@@ -3578,7 +3578,7 @@
             "N1"
           ],
           "plant_deleted": false,
-          "receipt_count": 1,
+          "recorded_outcome_count": 1,
           "notice_status": "pending",
           "delivered": false
         },
@@ -3609,14 +3609,14 @@
         "WP-008"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; replay stale read. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; replay stale read. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -3642,25 +3642,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -3671,7 +3671,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -3679,7 +3679,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -3692,7 +3692,7 @@
         },
         "execution": {
           "fixture_type": "test_execution",
-          "read_cached_revision": 1
+          "read_cached_state": "fixture-state-1"
         }
       },
       "actor": {
@@ -3709,7 +3709,7 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-026-1"
         }
       },
@@ -3730,7 +3730,7 @@
             "N1"
           ],
           "plant_deleted": false,
-          "receipt_count": 1,
+          "recorded_outcome_count": 1,
           "S1_cached_body": null
         },
         "event": {
@@ -3761,14 +3761,14 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; new approved org. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; new approved org. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -3794,25 +3794,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -3823,7 +3823,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -3840,7 +3840,7 @@
           "id": "I",
           "plant": "P",
           "organization": "S1",
-          "revision": 2,
+          "observed_state": "fixture-state-2",
           "plant_consent": true,
           "organization_approval": true,
           "status": "pending",
@@ -3878,7 +3878,7 @@
         "operation": "associations.acceptInvitation",
         "arguments": {
           "invitation": "I",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-027-1"
         }
       },
@@ -3892,7 +3892,7 @@
           "active_organizations": [
             "S1"
           ],
-          "receipt_count": 1,
+          "recorded_outcome_count": 1,
           "new_seats": 0
         },
         "event": {
@@ -3921,14 +3921,14 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; new applicable sharing categories. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; new applicable sharing categories. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -3954,25 +3954,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -3983,7 +3983,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -3991,7 +3991,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -4033,7 +4033,7 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-028-1"
         }
       },
@@ -4092,14 +4092,14 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; org A OFF org B ON. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; org A OFF org B ON. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4125,25 +4125,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -4154,7 +4154,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -4162,7 +4162,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -4204,7 +4204,7 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-029-1"
         }
       },
@@ -4262,14 +4262,14 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; change org A. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; change org A. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4295,25 +4295,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -4324,7 +4324,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -4332,7 +4332,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -4345,7 +4345,7 @@
         },
         "execution": {
           "fixture_type": "test_execution",
-          "expected_revision": 2
+          "reviewed_state": "fixture-state-2"
         }
       },
       "actor": {
@@ -4362,12 +4362,12 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_relationship_revision": 2,
-          "expected_consent_revision": 7,
           "patch": {
             "share_activity": false
           },
-          "request_key": "AF-030-1"
+          "request_key": "AF-030-1",
+          "reviewed_relationship_state": "fixture-state-2",
+          "reviewed_consent_state": "fixture-state-7"
         }
       },
       "expected": {
@@ -4379,7 +4379,7 @@
             "S1",
             "N1"
           ],
-          "receipt_count": 1
+          "recorded_outcome_count": 1
         },
         "event": null
       }
@@ -4405,14 +4405,14 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; end org A. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; end org A. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4438,25 +4438,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -4467,7 +4467,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -4475,7 +4475,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -4501,7 +4501,7 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-031-1"
         }
       },
@@ -4522,7 +4522,7 @@
             "N1"
           ],
           "plant_deleted": false,
-          "receipt_count": 1
+          "recorded_outcome_count": 1
         },
         "event": {
           "kind": "affiliation_ended",
@@ -4552,14 +4552,14 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; notification policy changed before dispatch. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; notification policy changed before dispatch. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4585,25 +4585,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -4614,7 +4614,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -4622,7 +4622,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -4652,7 +4652,7 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-032-1"
         }
       },
@@ -4673,7 +4673,7 @@
             "N1"
           ],
           "plant_deleted": false,
-          "receipt_count": 1,
+          "recorded_outcome_count": 1,
           "active_relationship_notice_count": 0
         },
         "event": {
@@ -4704,14 +4704,14 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; ended before notification. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; ended before notification. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4737,25 +4737,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -4766,7 +4766,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -4774,7 +4774,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -4804,7 +4804,7 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-033-1"
         }
       },
@@ -4825,7 +4825,7 @@
             "N1"
           ],
           "plant_deleted": false,
-          "receipt_count": 1,
+          "recorded_outcome_count": 1,
           "active_relationship_notice_count": 0
         },
         "event": {
@@ -4856,14 +4856,14 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; foreign recipient or tampered org settings URL. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; foreign recipient or tampered org settings URL. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4889,25 +4889,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -4918,7 +4918,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -4926,7 +4926,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -4968,7 +4968,7 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-034-1"
         }
       },
@@ -5001,14 +5001,14 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; private checkin or org Admin interview request. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; private checkin or org Admin interview request. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -5034,25 +5034,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -5063,7 +5063,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -5071,7 +5071,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -5158,14 +5158,14 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; planter differs from workspace Owner. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; planter differs from workspace Owner. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -5191,25 +5191,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -5220,7 +5220,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -5228,7 +5228,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -5262,7 +5262,7 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-037-1"
         }
       },
@@ -5314,14 +5314,14 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; new source boolean or inactive finance/facilities. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; new source boolean or inactive finance/facilities. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -5347,25 +5347,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -5376,7 +5376,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -5384,7 +5384,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -5426,7 +5426,7 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-038-1"
         }
       },
@@ -5485,14 +5485,14 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; portfolio same plant through multiple affiliations. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; portfolio same plant through multiple affiliations. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -5518,25 +5518,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -5547,7 +5547,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -5555,7 +5555,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -5590,7 +5590,7 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-039-1"
         }
       },
@@ -5642,14 +5642,14 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; end sending church with separately recognized network. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; end sending church with separately recognized network. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -5675,25 +5675,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -5704,7 +5704,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -5712,7 +5712,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -5738,7 +5738,7 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-040-1"
         }
       },
@@ -5759,7 +5759,7 @@
             "N1"
           ],
           "plant_deleted": false,
-          "receipt_count": 1
+          "recorded_outcome_count": 1
         },
         "event": {
           "kind": "affiliation_ended",
@@ -5789,14 +5789,14 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; org Admin tries another organization policy or plant private fields. Exercise current Owner/Admin, Member, foreign actor, stale revision and same-intent retry as applicable.",
+      "description": "Synthetic plant P, sending churches S 1/S 2 and networks N 1/N 2; org Admin tries another organization policy or plant private fields. Exercise current Owner/Admin, Member, foreign actor, changed reviewed state and same-intent retry as applicable.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -5822,25 +5822,25 @@
           "fixture_type": "organization",
           "id": "S1",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "S2": {
           "fixture_type": "organization",
           "id": "S2",
           "kind": "sending_church",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N1": {
           "fixture_type": "organization",
           "id": "N1",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "N2": {
           "fixture_type": "organization",
           "id": "N2",
           "kind": "sending_network",
-          "material_revision": 21
+          "assessment_input_state": "fixture-state-21"
         },
         "links": {
           "fixture_type": "affiliation_set",
@@ -5851,7 +5851,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
@@ -5859,7 +5859,7 @@
               "active": true,
               "plant_consent": true,
               "org_approval": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -5901,7 +5901,7 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "AF-041-1"
         }
       },
@@ -5938,14 +5938,14 @@
         "WP-039"
       ],
       "status": "future-not-run",
-      "description": "Change church Chicago\u2192Auckland with future wall recurrence/reminders, LocalDate deadline and fixed appointment.",
+      "description": "Change church Chicago→Auckland with future wall recurrence/reminders, LocalDate deadline and fixed appointment.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -5984,7 +5984,7 @@
         "zone-preview": {
           "fixture_type": "timezone_preview",
           "plant": "P",
-          "revision": 7,
+          "observed_state": "fixture-state-7",
           "new_zone": "Pacific/Auckland",
           "current_zone": "America/Chicago"
         }
@@ -6003,7 +6003,7 @@
         "arguments": {
           "plant": "P",
           "timezone": "Pacific/Auckland",
-          "expected_revision": 7,
+          "reviewed_state": "fixture-state-7",
           "preview": "zone-preview"
         }
       },
@@ -6062,8 +6062,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -6100,7 +6100,7 @@
         "zone-preview": {
           "fixture_type": "timezone_preview",
           "plant": "P",
-          "revision": 7,
+          "observed_state": "fixture-state-7",
           "new_zone": "Pacific/Auckland",
           "current_zone": "America/Chicago"
         }
@@ -6119,7 +6119,7 @@
         "arguments": {
           "plant": "P",
           "timezone": "Pacific/Auckland",
-          "expected_revision": 7,
+          "reviewed_state": "fixture-state-7",
           "preview": "zone-preview"
         }
       },
@@ -6168,8 +6168,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -6250,7 +6250,7 @@
     },
     {
       "id": "B03-017",
-      "requirement": "Expected-revision timezone edits atomically record preferences/replanning intent; stale edits deny, no-op edits do not duplicate work.",
+      "requirement": "Reviewed-state timezone edits atomically record preferences/replanning intent; stale edits deny, no-op edits do not duplicate work.",
       "requirement_ids": [
         "REQ-TSK-018"
       ],
@@ -6269,14 +6269,14 @@
         "WP-039"
       ],
       "status": "future-not-run",
-      "description": "Two expected-revision zone edits; same-zone retry and failure before replanning-intent insert.",
+      "description": "Two reviewed-state zone edits; same-zone retry and failure before replanning-intent insert.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -6300,14 +6300,14 @@
         },
         "calendar-inputs": {
           "fixture_type": "test_setup",
-          "current_revision": 7,
+          "current_state": "fixture-state-7",
           "requests": [
             {
-              "revision": 7,
+              "observed_state": "fixture-state-7",
               "zone": "Pacific/Auckland"
             },
             {
-              "revision": 7,
+              "observed_state": "fixture-state-7",
               "zone": "Europe/London"
             }
           ],
@@ -6321,7 +6321,7 @@
               "arguments": {
                 "plant": "P",
                 "timezone": "Europe/London",
-                "expected_revision": 7,
+                "reviewed_state": "fixture-state-7",
                 "preview": "London-preview"
               }
             }
@@ -6330,14 +6330,14 @@
         "zone-preview": {
           "fixture_type": "timezone_preview",
           "plant": "P",
-          "revision": 7,
+          "observed_state": "fixture-state-7",
           "new_zone": "Pacific/Auckland",
           "current_zone": "America/Chicago"
         },
         "London-preview": {
           "fixture_type": "timezone_preview",
           "plant": "P",
-          "revision": 7,
+          "observed_state": "fixture-state-7",
           "current_zone": "America/Chicago",
           "new_zone": "Europe/London"
         }
@@ -6356,7 +6356,7 @@
         "arguments": {
           "plant": "P",
           "timezone": "Pacific/Auckland",
-          "expected_revision": 7,
+          "reviewed_state": "fixture-state-7",
           "preview": "zone-preview"
         }
       },
@@ -6366,7 +6366,7 @@
           "winner_count": 1,
           "stale_error": "revision_conflict",
           "fault_zone": "America/Chicago",
-          "fault_revision": 7
+          "fault_state": "fixture-state-7"
         },
         "event": null
       },
@@ -6404,7 +6404,7 @@
             "arguments": {
               "plant": "P",
               "timezone": "Pacific/Auckland",
-              "expected_revision": 7,
+              "reviewed_state": "fixture-state-7",
               "preview": "zone-preview"
             }
           },
@@ -6413,7 +6413,7 @@
             "result": {
               "error_code": "required_write_failed",
               "zone": "America/Chicago",
-              "revision": 7
+              "observed_state": "fixture-state-7"
             },
             "event": null
           }
@@ -6446,8 +6446,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -6539,8 +6539,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -6631,8 +6631,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -6728,8 +6728,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -6808,7 +6808,7 @@
     },
     {
       "id": "EVRY-INTERNAL-PURGEELIGIBLESUBJECT",
-      "requirement": "CAS pending_deletion\u2192purging only at/after stored DB deadline; bounded manifest chunks commit actual cleanup checkpoints and current fence. Keep every normal path denied after failure. livePurgedAt only after every eligible live DB/file reference removed/scrubbed; minimal witness copy expiry <= livePurgedAt+7 days never reset by copying/restore. External object cleanup outside short tx, truthful attempted/unknown/confirmed state.",
+      "requirement": "Only the exact eligible current deletion request may enter purge at or after its deadline. Resume bounded cleanup after interruption while denying every normal access path. Report completed live purge only after all eligible live database and file references are removed or scrubbed. Recovery-copy expiry is at most seven days after actual live-purge completion and never resets through copy or restore. External cleanup distinguishes attempted, unknown and confirmed outcomes.",
       "feature_ids": [
         "IDN-026",
         "OPS-001"
@@ -6831,8 +6831,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -6859,7 +6859,7 @@
           "subject": "A",
           "deadline": "2026-10-13T16:00:00Z",
           "state": "pending",
-          "generation": 2
+          "worker_identity": "fixture-state-2"
         },
         "S": {
           "fixture_type": "deletion_request",
@@ -6926,7 +6926,7 @@
         "arguments": {
           "subject": "A",
           "request": "R",
-          "claim_generation": 2,
+          "worker_identity": "fixture-state-2",
           "chunk": 1
         }
       },
@@ -6987,7 +6987,7 @@
             "arguments": {
               "subject": "A",
               "request": "R",
-              "claim_generation": 2,
+              "worker_identity": "fixture-state-2",
               "chunk": 1
             }
           },
@@ -7010,8 +7010,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "execution": {
@@ -7054,7 +7054,7 @@
             "arguments": {
               "subject": "A",
               "request": "R",
-              "claim_generation": 2,
+              "worker_identity": "fixture-state-2",
               "chunk": 1
             }
           },
@@ -7064,7 +7064,7 @@
               "error_code": "source_unavailable",
               "new_domain_writes": 0,
               "new_provider_effects": 0,
-              "prior_committed_receipts_retained": true
+              "prior_committed_outcomes_retained": true
             },
             "event": null
           },
@@ -7097,8 +7097,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -7199,8 +7199,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -7359,8 +7359,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "execution": {
@@ -7411,7 +7411,7 @@
               "error_code": "source_unavailable",
               "new_domain_writes": 0,
               "new_provider_effects": 0,
-              "prior_committed_receipts_retained": true
+              "prior_committed_outcomes_retained": true
             },
             "event": null
           },
@@ -7438,8 +7438,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -7478,13 +7478,13 @@
               "plant": "P",
               "organization": "org-A",
               "active": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             },
             {
               "plant": "P",
               "organization": "org-B",
               "active": true,
-              "revision": 2
+              "observed_state": "fixture-state-2"
             }
           ]
         },
@@ -7507,7 +7507,7 @@
         "arguments": {
           "plant": "P",
           "organization": "org-A",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "end-A"
         }
       },
@@ -7518,7 +7518,7 @@
           "org-B_active": true,
           "seat_count": 1,
           "notices": 1,
-          "receipt_count": 1
+          "recorded_outcome_count": 1
         },
         "event": null
       },
@@ -7565,7 +7565,7 @@
             "arguments": {
               "plant": "P",
               "organization": "org-A",
-              "expected_revision": 2,
+              "reviewed_state": "fixture-state-2",
               "request_key": "end-A"
             }
           },
@@ -7588,8 +7588,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "execution": {
@@ -7612,7 +7612,7 @@
             "arguments": {
               "plant": "P",
               "organization": "org-A",
-              "expected_revision": 2,
+              "reviewed_state": "fixture-state-2",
               "request_key": "end-A"
             }
           },
@@ -7622,7 +7622,7 @@
               "error_code": "source_unavailable",
               "new_domain_writes": 0,
               "new_provider_effects": 0,
-              "prior_committed_receipts_retained": true
+              "prior_committed_outcomes_retained": true
             },
             "event": null
           },
@@ -7659,8 +7659,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -7722,7 +7722,7 @@
         "operation": "organizations.updateProfile",
         "arguments": {
           "organization": "S1",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "patch": {
             "name": "Sending Church One",
             "contact_email": "office@example.test"
@@ -7771,7 +7771,7 @@
             "operation": "organizations.updateProfile",
             "arguments": {
               "organization": "S1",
-              "expected_revision": 2,
+              "reviewed_state": "fixture-state-2",
               "patch": {
                 "name": "Sending Church One",
                 "contact_email": "office@example.test"
@@ -7810,7 +7810,7 @@
             "operation": "organizations.updateProfile",
             "arguments": {
               "organization": "S1",
-              "expected_revision": 2,
+              "reviewed_state": "fixture-state-2",
               "patch": {
                 "name": "Sending Church One",
                 "contact_email": "office@example.test"
@@ -7850,7 +7850,7 @@
             "operation": "organizations.updateProfile",
             "arguments": {
               "organization": "S1",
-              "expected_revision": 2,
+              "reviewed_state": "fixture-state-2",
               "patch": {
                 "name": "Sending Church One",
                 "contact_email": "office@example.test"
@@ -7900,8 +7900,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -7962,7 +7962,7 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_revision": 2
+          "reviewed_state": "fixture-state-2"
         }
       },
       "expected": {
@@ -8019,8 +8019,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -8073,7 +8073,7 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_revision": 2
+          "reviewed_state": "fixture-state-2"
         }
       },
       "expected": {
@@ -8130,8 +8130,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -8231,8 +8231,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -8341,8 +8341,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -8417,7 +8417,7 @@
         "arguments": {
           "subject": "A",
           "request": "delete-A",
-          "claim_generation": 2,
+          "worker_identity": "fixture-state-2",
           "chunk": 1
         }
       },
@@ -8479,8 +8479,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -8533,7 +8533,7 @@
         "arguments": {
           "plant": "P",
           "confirmation": "Delete P",
-          "expected_revision": 7
+          "reviewed_state": "fixture-state-7"
         }
       },
       "expected": {
@@ -8583,7 +8583,7 @@
             "arguments": {
               "plant": "P",
               "confirmation": "Delete P",
-              "expected_revision": 7
+              "reviewed_state": "fixture-state-7"
             }
           },
           "expected": {
@@ -8596,7 +8596,7 @@
     },
     {
       "id": "ORG55-008",
-      "requirement": "Request retains private cancellation data 30 days; after deadline coherent live purge starts\u22647 day recovery-copy clock. Isolated restore enforces current deletion/access witnesses; expired/uncertain subjects stay hidden and old recopies do not reset expiry. No instant outside-copy/physical day 37 promise.",
+      "requirement": "Request retains private cancellation data 30 days; after deadline coherent live purge starts≤7 day recovery-copy clock. Isolated restore enforces current deletion/access witnesses; expired/uncertain subjects stay hidden and old recopies do not reset expiry. No instant outside-copy/physical day 37 promise.",
       "requirement_ids": [
         "REQ-IDN-026"
       ],
@@ -8617,14 +8617,14 @@
         "WP-058"
       ],
       "status": "future-not-run",
-      "description": "Deletion request October 13; coherent live purge November 20 after retry; copy expires\u2264November 27; isolated old restore after expiry.",
+      "description": "Deletion request October 13; coherent live purge November 20 after retry; copy expires≤November 27; isolated old restore after expiry.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -8739,14 +8739,14 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual account-link references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "description": "Two own-plant Person records P1/P2 with actual account-link references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -8773,14 +8773,14 @@
           "id": "P1",
           "plant": "P",
           "name": "Alex Rivera",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "P2": {
           "fixture_type": "person",
           "id": "P2",
           "plant": "P",
           "name": "Alex Chen",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "Q1": {
           "fixture_type": "person",
@@ -8793,7 +8793,7 @@
           "consumer": "account-link",
           "person": "P2",
           "plant": "P",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "original-history": {
           "fixture_type": "history",
@@ -8822,10 +8822,10 @@
           "survivor": "P1",
           "retiring": "P2",
           "consumer": "account-link",
-          "expected_revisions": {
-            "P1": 4,
-            "P2": 3,
-            "reference-1": 2
+          "reviewed_states": {
+            "P1": "fixture-state-4",
+            "P2": "fixture-state-3",
+            "reference-1": "fixture-state-2"
           },
           "request_key": "PERSONREF-ACCOUNT-LINK-CONFLICT-1",
           "repeat": 2
@@ -8835,7 +8835,7 @@
         "state": {
           "reference-1": {
             "person": "P2",
-            "revision": 3
+            "observed_state": "fixture-state-3"
           }
         },
         "result": {
@@ -8852,8 +8852,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -8872,10 +8872,10 @@
               "survivor": "Q1",
               "retiring": "P2",
               "consumer": "account-link",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 3
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-3"
               },
               "request_key": "PERSONREF-ACCOUNT-LINK-CONFLICT-1",
               "repeat": 2
@@ -8887,19 +8887,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "account-link",
                 "person": "P2",
                 "plant": "P",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "original-history": {
                 "consumer": "account-link",
@@ -8912,7 +8912,7 @@
               "body": null,
               "existence": null,
               "writes": 0,
-              "receipts_added": 0
+              "additional_recorded_outcomes": 0
             },
             "event": null
           },
@@ -8943,10 +8943,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "account-link",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 3
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-3"
               },
               "request_key": "PERSONREF-ACCOUNT-LINK-CONFLICT-1",
               "repeat": 2
@@ -8957,7 +8957,7 @@
             "result": {
               "error_code": "access_denied",
               "writes": 0,
-              "receipts_added": 0,
+              "additional_recorded_outcomes": 0,
               "body": null,
               "existence": null
             },
@@ -8971,8 +8971,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -8991,10 +8991,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "account-link",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 3
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-3"
               },
               "request_key": "PERSONREF-ACCOUNT-LINK-CONFLICT-1",
               "repeat": 1,
@@ -9007,19 +9007,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "account-link",
                 "person": "P2",
                 "plant": "P",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "original-history": {
                 "consumer": "account-link",
@@ -9029,7 +9029,7 @@
             },
             "result": {
               "error_code": "required_write_failed",
-              "receipts_added": 0,
+              "additional_recorded_outcomes": 0,
               "audit_rows_added": 0,
               "history_rows_added": 0
             },
@@ -9065,14 +9065,14 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual account-link references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "description": "Two own-plant Person records P1/P2 with actual account-link references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -9099,14 +9099,14 @@
           "id": "P1",
           "plant": "P",
           "name": "Alex Rivera",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "P2": {
           "fixture_type": "person",
           "id": "P2",
           "plant": "P",
           "name": "Alex Chen",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "Q1": {
           "fixture_type": "person",
@@ -9119,7 +9119,7 @@
           "consumer": "account-link",
           "person": "P2",
           "plant": "P",
-          "revision": 2
+          "observed_state": "fixture-state-2"
         },
         "original-history": {
           "fixture_type": "history",
@@ -9148,10 +9148,10 @@
           "survivor": "P1",
           "retiring": "P2",
           "consumer": "account-link",
-          "expected_revisions": {
-            "P1": 4,
-            "P2": 3,
-            "reference-1": 2
+          "reviewed_states": {
+            "P1": "fixture-state-4",
+            "P2": "fixture-state-3",
+            "reference-1": "fixture-state-2"
           },
           "request_key": "PERSONREF-ACCOUNT-LINK-MERGE-1",
           "repeat": 2
@@ -9184,8 +9184,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -9204,10 +9204,10 @@
               "survivor": "Q1",
               "retiring": "P2",
               "consumer": "account-link",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-ACCOUNT-LINK-MERGE-1",
               "repeat": 2
@@ -9219,19 +9219,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "account-link",
                 "person": "P2",
                 "plant": "P",
-                "revision": 2
+                "observed_state": "fixture-state-2"
               },
               "original-history": {
                 "consumer": "account-link",
@@ -9244,7 +9244,7 @@
               "body": null,
               "existence": null,
               "writes": 0,
-              "receipts_added": 0
+              "additional_recorded_outcomes": 0
             },
             "event": null
           },
@@ -9275,10 +9275,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "account-link",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-ACCOUNT-LINK-MERGE-1",
               "repeat": 2
@@ -9289,7 +9289,7 @@
             "result": {
               "error_code": "access_denied",
               "writes": 0,
-              "receipts_added": 0
+              "additional_recorded_outcomes": 0
             },
             "event": null
           },
@@ -9301,8 +9301,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -9321,10 +9321,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "account-link",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-ACCOUNT-LINK-MERGE-1",
               "repeat": 1,
@@ -9337,19 +9337,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "account-link",
                 "person": "P2",
                 "plant": "P",
-                "revision": 2
+                "observed_state": "fixture-state-2"
               },
               "original-history": {
                 "consumer": "account-link",
@@ -9359,7 +9359,7 @@
             },
             "result": {
               "error_code": "required_write_failed",
-              "receipts_added": 0,
+              "additional_recorded_outcomes": 0,
               "audit_rows_added": 0,
               "history_rows_added": 0
             },
@@ -9395,14 +9395,14 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual account-link references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "description": "Two own-plant Person records P1/P2 with actual account-link references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -9429,14 +9429,14 @@
           "id": "P1",
           "plant": "P",
           "name": "Alex Rivera",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "P2": {
           "fixture_type": "person",
           "id": "P2",
           "plant": "P",
           "name": "Alex Chen",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "Q1": {
           "fixture_type": "person",
@@ -9449,7 +9449,7 @@
           "consumer": "account-link",
           "person": "P2",
           "plant": "P",
-          "revision": 2
+          "observed_state": "fixture-state-2"
         },
         "original-history": {
           "fixture_type": "history",
@@ -9478,10 +9478,10 @@
           "survivor": "P1",
           "retiring": "P2",
           "consumer": "account-link",
-          "expected_revisions": {
-            "P1": 4,
-            "P2": 3,
-            "reference-1": 2
+          "reviewed_states": {
+            "P1": "fixture-state-4",
+            "P2": "fixture-state-3",
+            "reference-1": "fixture-state-2"
           },
           "request_key": "PERSONREF-ACCOUNT-LINK-RETIRE-1",
           "repeat": 2
@@ -9510,8 +9510,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -9530,10 +9530,10 @@
               "survivor": "P1",
               "retiring": "Q1",
               "consumer": "account-link",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-ACCOUNT-LINK-RETIRE-1",
               "repeat": 2
@@ -9545,19 +9545,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "account-link",
                 "person": "P2",
                 "plant": "P",
-                "revision": 2
+                "observed_state": "fixture-state-2"
               },
               "original-history": {
                 "consumer": "account-link",
@@ -9570,7 +9570,7 @@
               "body": null,
               "existence": null,
               "writes": 0,
-              "receipts_added": 0
+              "additional_recorded_outcomes": 0
             },
             "event": null
           },
@@ -9601,10 +9601,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "account-link",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-ACCOUNT-LINK-RETIRE-1",
               "repeat": 2
@@ -9615,7 +9615,7 @@
             "result": {
               "error_code": "access_denied",
               "writes": 0,
-              "receipts_added": 0,
+              "additional_recorded_outcomes": 0,
               "body": null,
               "existence": null
             },
@@ -9629,8 +9629,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -9649,10 +9649,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "account-link",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-ACCOUNT-LINK-RETIRE-1",
               "repeat": 1,
@@ -9665,19 +9665,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "account-link",
                 "person": "P2",
                 "plant": "P",
-                "revision": 2
+                "observed_state": "fixture-state-2"
               },
               "original-history": {
                 "consumer": "account-link",
@@ -9687,7 +9687,7 @@
             },
             "result": {
               "error_code": "required_write_failed",
-              "receipts_added": 0,
+              "additional_recorded_outcomes": 0,
               "audit_rows_added": 0,
               "history_rows_added": 0
             },
@@ -9723,14 +9723,14 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual account-link references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "description": "Two own-plant Person records P1/P2 with actual account-link references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -9757,14 +9757,14 @@
           "id": "P1",
           "plant": "P",
           "name": "Alex Rivera",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "P2": {
           "fixture_type": "person",
           "id": "P2",
           "plant": "P",
           "name": "Alex Chen",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "Q1": {
           "fixture_type": "person",
@@ -9777,7 +9777,7 @@
           "consumer": "account-link",
           "person": "P1",
           "plant": "P",
-          "revision": 2
+          "observed_state": "fixture-state-2"
         },
         "original-history": {
           "fixture_type": "history",
@@ -9795,7 +9795,7 @@
               "row": "reference-1",
               "before_person": "P2",
               "after_person": "P1",
-              "after_revision": 2
+              "after_state": "fixture-state-2"
             }
           ]
         },
@@ -9820,10 +9820,10 @@
           "survivor": "P1",
           "retiring": "P2",
           "consumer": "account-link",
-          "expected_revisions": {
-            "P1": 4,
-            "P2": 3,
-            "reference-1": 2
+          "reviewed_states": {
+            "P1": "fixture-state-4",
+            "P2": "fixture-state-3",
+            "reference-1": "fixture-state-2"
           },
           "request_key": "PERSONREF-ACCOUNT-LINK-UNMERGE-1",
           "repeat": 2,
@@ -9853,8 +9853,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -9873,10 +9873,10 @@
               "survivor": "Q1",
               "retiring": "P2",
               "consumer": "account-link",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-ACCOUNT-LINK-UNMERGE-1",
               "repeat": 2,
@@ -9889,19 +9889,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "account-link",
                 "person": "P1",
                 "plant": "P",
-                "revision": 2
+                "observed_state": "fixture-state-2"
               },
               "original-history": {
                 "consumer": "account-link",
@@ -9914,7 +9914,7 @@
               "body": null,
               "existence": null,
               "writes": 0,
-              "receipts_added": 0
+              "additional_recorded_outcomes": 0
             },
             "event": null
           },
@@ -9945,10 +9945,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "account-link",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-ACCOUNT-LINK-UNMERGE-1",
               "repeat": 2,
@@ -9960,7 +9960,7 @@
             "result": {
               "error_code": "access_denied",
               "writes": 0,
-              "receipts_added": 0
+              "additional_recorded_outcomes": 0
             },
             "event": null
           },
@@ -9972,8 +9972,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -9992,10 +9992,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "account-link",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-ACCOUNT-LINK-UNMERGE-1",
               "repeat": 1,
@@ -10009,19 +10009,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "account-link",
                 "person": "P1",
                 "plant": "P",
-                "revision": 2
+                "observed_state": "fixture-state-2"
               },
               "original-history": {
                 "consumer": "account-link",
@@ -10031,7 +10031,7 @@
             },
             "result": {
               "error_code": "required_write_failed",
-              "receipts_added": 0,
+              "additional_recorded_outcomes": 0,
               "audit_rows_added": 0,
               "history_rows_added": 0
             },
@@ -10082,8 +10082,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -10417,8 +10417,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -10474,7 +10474,7 @@
         "arguments": {
           "plant": "P",
           "confirmation": "Delete P",
-          "expected_revision": 7,
+          "reviewed_state": "fixture-state-7",
           "request_key": "delete-P"
         }
       },
@@ -10521,7 +10521,7 @@
             "arguments": {
               "plant": "P",
               "confirmation": "Delete P",
-              "expected_revision": 7,
+              "reviewed_state": "fixture-state-7",
               "request_key": "delete-P"
             }
           },
@@ -10559,7 +10559,7 @@
             "arguments": {
               "plant": "P",
               "confirmation": "Delete P",
-              "expected_revision": 7,
+              "reviewed_state": "fixture-state-7",
               "request_key": "delete-P"
             }
           },
@@ -10597,7 +10597,7 @@
             "arguments": {
               "plant": "P",
               "confirmation": "Delete P",
-              "expected_revision": 7,
+              "reviewed_state": "fixture-state-7",
               "request_key": "delete-P"
             }
           },
@@ -10638,8 +10638,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -10752,8 +10752,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -10845,8 +10845,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -10988,8 +10988,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -11266,8 +11266,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -11300,7 +11300,7 @@
           "tenant": "P",
           "recipient": "alex@example.test",
           "role": "Admin",
-          "revision": 2,
+          "observed_state": "fixture-state-2",
           "status": "pending",
           "expires_at": "2026-11-12T16:00:00Z"
         },
@@ -11391,8 +11391,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -11478,8 +11478,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -11527,7 +11527,7 @@
           "tenant": "P",
           "role": "Member",
           "active": true,
-          "revision": 2
+          "observed_state": "fixture-state-2"
         }
       },
       "actor": {
@@ -11543,7 +11543,7 @@
         "operation": "seats.remove",
         "arguments": {
           "seat": "target-seat",
-          "expected_revision": 2
+          "reviewed_state": "fixture-state-2"
         }
       },
       "expected": {
@@ -11605,8 +11605,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -11707,8 +11707,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -11806,8 +11806,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -11905,8 +11905,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -12058,7 +12058,7 @@
         "WP-044"
       ],
       "status": "future-not-run",
-      "description": "Create church at 0/6 reading with no lead title and a different reader\u2019s progress; retry after later phase transition.",
+      "description": "Create church at 0/6 reading with no lead title and a different reader’s progress; retry after later phase transition.",
       "given": {
         "A": {
           "fixture_type": "account",
@@ -12154,8 +12154,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -12246,8 +12246,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -12287,7 +12287,7 @@
           "plant": "P",
           "organization": "S1",
           "status": "pending",
-          "revision": 2,
+          "observed_state": "fixture-state-2",
           "plant_consent": true,
           "expires_at": "2026-11-12T16:00:00Z"
         }
@@ -12305,7 +12305,7 @@
         "operation": "associations.acceptInvitation",
         "arguments": {
           "invitation": "I",
-          "expected_revision": 2
+          "reviewed_state": "fixture-state-2"
         }
       },
       "expected": {
@@ -12350,8 +12350,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -12431,7 +12431,7 @@
     },
     {
       "id": "ROLE43-018",
-      "requirement": "Self-only login deletion uses the finite 30 day cancellation/private hold followed by coherent live purge and\u22647 day recovery-copy eligibility. Owner cannot delete another account, former lead has no perpetual access and private care never transfers.",
+      "requirement": "Self-only login deletion uses the finite 30 day cancellation/private hold followed by coherent live purge and≤7 day recovery-copy eligibility. Owner cannot delete another account, former lead has no perpetual access and private care never transfers.",
       "requirement_ids": [
         "REQ-IDN-001",
         "REQ-IDN-007",
@@ -12465,8 +12465,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -12559,8 +12559,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -12757,8 +12757,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -12842,8 +12842,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -12920,8 +12920,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -12951,7 +12951,7 @@
         "execution": {
           "fixture_type": "test_execution",
           "subject": "P",
-          "expected_revision": 3,
+          "reviewed_state": "fixture-state-3",
           "invalid_control": {
             "id": "not-an-id",
             "name": "   "
@@ -13021,8 +13021,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -13068,7 +13068,7 @@
           "account": "A",
           "id": "avatar-v2",
           "status": "ready",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "avatar-v1": {
           "fixture_type": "stored_object",
@@ -13091,7 +13091,7 @@
         "operation": "account.finalizeAvatar",
         "arguments": {
           "upload": "avatar-v2",
-          "expected_revision": 4
+          "reviewed_state": "fixture-state-4"
         }
       },
       "expected": {
@@ -13133,8 +13133,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -13242,8 +13242,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -13329,8 +13329,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -13416,8 +13416,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -13502,8 +13502,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -13600,8 +13600,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -13723,8 +13723,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -13759,7 +13759,7 @@
         "execution": {
           "fixture_type": "test_execution",
           "subject": "P",
-          "expected_revision": 3
+          "reviewed_state": "fixture-state-3"
         }
       },
       "actor": {
@@ -13819,8 +13819,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -13925,8 +13925,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -13961,15 +13961,15 @@
           "value": [
             "Owner native and Admin reviewed Evry run settings.saveSection affiliations with teams=true,activityPush=false and omitted shared_findings, expected relationship 4/consent 7; reset fixture between parity runs.",
             "Then explicit shared_findings=true alone at current relationship 4/consent 8; replay exact key; also compare category-domain operation outcomes from identical initial state.",
-            "Submit stale consent 7, organization actor, plant Member, foreign relationship/kind, missing/revoked policy, empty patch, unknown category/second NI toggle; simulate history/receipt/material failure."
+            "Submit stale consent 7, organization actor, plant Member, foreign relationship/kind, missing/revoked policy, empty patch, unknown category/second NI toggle; simulate history and recorded outcome/material failure."
           ]
         },
         "sharing": {
           "fixture_type": "sharing_policy",
           "plant": "P",
           "organization": "S1",
-          "relationship_revision": 4,
-          "consent_revision": 7,
+          "relationship_state": "fixture-state-4",
+          "consent_state": "fixture-state-7",
           "share_people": false,
           "share_meetings": true,
           "share_tasks": false,
@@ -14001,25 +14001,25 @@
         "arguments": {
           "section": "affiliations",
           "organization": "S1",
-          "expected_relationship_revision": 4,
-          "expected_consent_revision": 7,
           "patch": {
             "teams": true,
             "activityPush": false
           },
-          "request_key": "sharing-1"
+          "request_key": "sharing-1",
+          "reviewed_relationship_state": "fixture-state-4",
+          "reviewed_consent_state": "fixture-state-7"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "consent_revision": 8,
+          "consent_state": "fixture-state-8",
           "share_ministry_teams": true,
           "share_activity": false,
           "shared_findings": false,
           "other_categories_changed": false,
           "other_org_changed": false,
-          "receipt_count": 1,
+          "recorded_outcome_count": 1,
           "replay_revision_bumps": 0
         },
         "event": null
@@ -14031,8 +14031,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -14067,15 +14067,15 @@
               "value": [
                 "Owner native and Admin reviewed Evry run settings.saveSection affiliations with teams=true,activityPush=false and omitted shared_findings, expected relationship 4/consent 7; reset fixture between parity runs.",
                 "Then explicit shared_findings=true alone at current relationship 4/consent 8; replay exact key; also compare category-domain operation outcomes from identical initial state.",
-                "Submit stale consent 7, organization actor, plant Member, foreign relationship/kind, missing/revoked policy, empty patch, unknown category/second NI toggle; simulate history/receipt/material failure."
+                "Submit stale consent 7, organization actor, plant Member, foreign relationship/kind, missing/revoked policy, empty patch, unknown category/second NI toggle; simulate history and recorded outcome/material failure."
               ]
             },
             "sharing": {
               "fixture_type": "sharing_policy",
               "plant": "P",
               "organization": "S1",
-              "relationship_revision": 4,
-              "consent_revision": 8,
+              "relationship_state": "fixture-state-4",
+              "consent_state": "fixture-state-8",
               "share_ministry_teams": true,
               "share_activity": false,
               "shared_findings": false
@@ -14095,17 +14095,17 @@
             "arguments": {
               "section": "affiliations",
               "organization": "S1",
-              "expected_relationship_revision": 4,
-              "expected_consent_revision": 8,
               "patch": {
                 "shared_findings": true
-              }
+              },
+              "reviewed_relationship_state": "fixture-state-4",
+              "reviewed_consent_state": "fixture-state-8"
             }
           },
           "expected": {
             "state": {},
             "result": {
-              "consent_revision": 9,
+              "consent_state": "fixture-state-9",
               "shared_findings": true,
               "second_NI_consent": null
             },
@@ -14134,8 +14134,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -14186,7 +14186,7 @@
         "operation": "plant.updateProfile",
         "arguments": {
           "plant": "P",
-          "expected_revision": 7,
+          "reviewed_state": "fixture-state-7",
           "patch": {
             "warning_days": 7,
             "alert_days": 7,
@@ -14234,8 +14234,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -14261,7 +14261,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -14443,8 +14443,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -14531,8 +14531,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -14622,8 +14622,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -14666,7 +14666,7 @@
           "fixture_type": "discovery",
           "id": "D",
           "account": "A",
-          "revision": 1
+          "observed_state": "fixture-state-1"
         }
       },
       "actor": {
@@ -14730,8 +14730,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -14768,7 +14768,7 @@
           "tenant": "P",
           "recipient": "alex@example.test",
           "role": "Admin",
-          "revision": 2,
+          "observed_state": "fixture-state-2",
           "status": "pending",
           "expires_at": "2026-11-12T16:00:00Z"
         },
@@ -14829,8 +14829,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -14914,8 +14914,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -14959,7 +14959,7 @@
           "tenant": "P",
           "role": "Owner",
           "active": true,
-          "revision": 2
+          "observed_state": "fixture-state-2"
         }
       },
       "actor": {
@@ -14975,7 +14975,7 @@
         "operation": "seats.remove",
         "arguments": {
           "seat": "target-seat",
-          "expected_revision": 2
+          "reviewed_state": "fixture-state-2"
         }
       },
       "expected": {
@@ -15026,8 +15026,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -15078,7 +15078,7 @@
           "plant": "P",
           "organization": "S1",
           "status": "pending",
-          "revision": 2,
+          "observed_state": "fixture-state-2",
           "plant_consent": true,
           "expires_at": "2026-11-12T16:00:00Z"
         }
@@ -15096,7 +15096,7 @@
         "operation": "associations.acceptInvitation",
         "arguments": {
           "invitation": "I",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "accept-S1"
         }
       },
@@ -15130,7 +15130,7 @@
             "operation": "associations.acceptInvitation",
             "arguments": {
               "invitation": "I",
-              "expected_revision": 2,
+              "reviewed_state": "fixture-state-2",
               "request_key": "accept-S1"
             }
           },
@@ -15164,8 +15164,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -15231,7 +15231,7 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "request_key": "end-S1"
         }
       },
@@ -15271,7 +15271,7 @@
             "arguments": {
               "plant": "P",
               "organization": "S1",
-              "expected_revision": 2,
+              "reviewed_state": "fixture-state-2",
               "request_key": "end-S1"
             }
           },
@@ -15306,8 +15306,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -15423,14 +15423,14 @@
         "WP-047"
       ],
       "status": "future-not-run",
-      "description": "Org A/B linked plants, no lead vs Owner\u2260lead, each category withheld/empty/populated, revoked link cached result, closed task+checklists, local count down.",
+      "description": "Org A/B linked plants, no lead vs Owner≠lead, each category withheld/empty/populated, revoked link cached result, closed task+checklists, local count down.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -15456,7 +15456,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -15524,8 +15524,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -15551,7 +15551,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -15639,8 +15639,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -15738,8 +15738,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -15800,7 +15800,7 @@
         "operation": "organizations.updateProfile",
         "arguments": {
           "organization": "S1",
-          "expected_revision": 2,
+          "reviewed_state": "fixture-state-2",
           "patch": {
             "name": "Sending One"
           }
@@ -15828,14 +15828,14 @@
         "WP-007"
       ],
       "status": "future-not-run",
-      "description": "Direct helper alias request and ordinary exact-link sever; forged equivalent FK write.",
+      "description": "An unsupported helper request, ordinary exact-link sever and forged equivalent reference change.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -15889,7 +15889,7 @@
         "arguments": {
           "plant": "P",
           "organization": "S1",
-          "expected_revision": 2
+          "reviewed_state": "fixture-state-2"
         }
       },
       "expected": {
@@ -15922,8 +15922,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -16044,8 +16044,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -16096,7 +16096,7 @@
         "operation": "plant.updateProfile",
         "arguments": {
           "plant": "P",
-          "expected_revision": 7,
+          "reviewed_state": "fixture-state-7",
           "patch": {
             "name": "Harvest Point"
           },
@@ -16118,8 +16118,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -16170,7 +16170,7 @@
             "operation": "plant.updateProfile",
             "arguments": {
               "plant": "P",
-              "expected_revision": 7,
+              "reviewed_state": "fixture-state-7",
               "patch": {
                 "name": "Harvest Point"
               },
@@ -16193,8 +16193,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -16250,7 +16250,7 @@
             "operation": "plant.updateProfile",
             "arguments": {
               "plant": "P",
-              "expected_revision": 7,
+              "reviewed_state": "fixture-state-7",
               "patch": {
                 "name": "Harvest Point"
               },
@@ -16273,8 +16273,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -16325,7 +16325,7 @@
             "operation": "plant.updateProfile",
             "arguments": {
               "plant": "P",
-              "expected_revision": 7,
+              "reviewed_state": "fixture-state-7",
               "patch": {
                 "name": "Harvest Point"
               },
@@ -16348,8 +16348,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -16400,7 +16400,7 @@
             "operation": "plant.updateProfile",
             "arguments": {
               "plant": "P",
-              "expected_revision": 7,
+              "reviewed_state": "fixture-state-7",
               "patch": {
                 "name": "Harvest Point"
               },
@@ -16591,8 +16591,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -16740,8 +16740,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -16784,7 +16784,7 @@
           "status": "pending",
           "requested_at": "2026-10-13T12:00:00Z",
           "cancel_until": "2026-11-12T12:00:00Z",
-          "revision": 2
+          "observed_state": "fixture-state-2"
         },
         "restricted-proof": {
           "fixture_type": "deletion_subject_proof",
@@ -16813,7 +16813,7 @@
         "operation": "account.cancelDeletion",
         "arguments": {
           "request": "delete-A",
-          "expected_revision": 2
+          "reviewed_state": "fixture-state-2"
         }
       },
       "expected": {
@@ -16868,8 +16868,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -16895,7 +16895,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -17236,7 +17236,7 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "UTC",
-          "revision": 7
+          "observed_state": "fixture-state-7"
         },
         "seat": {
           "fixture_type": "seat",
@@ -17338,7 +17338,7 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "UTC",
-          "revision": 7
+          "observed_state": "fixture-state-7"
         },
         "seat": {
           "fixture_type": "seat",
@@ -17382,7 +17382,7 @@
         "arguments": {
           "operation": "launch.saveDebriefDraft",
           "subject": "P",
-          "expected_revision": 7
+          "reviewed_state": "fixture-state-7"
         }
       },
       "expected": {
@@ -17391,7 +17391,7 @@
           "admin": "allowed",
           "owner": "allowed",
           "member": "unavailable",
-          "stale_revision": "unavailable",
+          "changed_reviewed_state": "fixture-state-unavailable",
           "native_and_assistant_policy_equal": true
         },
         "event": null
@@ -17436,7 +17436,7 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "UTC",
-          "revision": 7
+          "observed_state": "fixture-state-7"
         },
         "seat": {
           "fixture_type": "seat",
@@ -17449,7 +17449,7 @@
           "fixture_type": "organization",
           "id": "O",
           "kind": "sending_church",
-          "revision": 7
+          "observed_state": "fixture-state-7"
         },
         "OrganizationPerson": {
           "fixture_type": "person",
@@ -17459,7 +17459,7 @@
           "plant_id": null,
           "display_name": "Synthetic",
           "state": "live",
-          "revision": 1
+          "observed_state": "fixture-state-1"
         }
       },
       "actor": {
@@ -17688,7 +17688,7 @@
         "P": {
           "fixture_type": "plant",
           "id": "P",
-          "revision": 2
+          "observed_state": "fixture-state-2"
         },
         "O": {
           "fixture_type": "organization",
@@ -17722,7 +17722,7 @@
           "id": "Rel",
           "plant_id": "P",
           "organization_id": "O",
-          "revision": 2,
+          "observed_state": "fixture-state-2",
           "ended_at": null
         },
         "L": {
@@ -17732,7 +17732,7 @@
           "organization_id": "O",
           "share_foundations": true,
           "share_milestones": true,
-          "consent_revision": 2,
+          "consent_state": "fixture-state-2",
           "ended_at": null
         }
       },
@@ -17753,8 +17753,8 @@
           "organization": "O",
           "category": "shared_findings",
           "enabled": false,
-          "expected_revision": 2,
-          "expected_consent_revision": 2
+          "reviewed_state": "fixture-state-2",
+          "reviewed_consent_state": "fixture-state-2"
         }
       },
       "expected": {
@@ -17794,7 +17794,7 @@
         "P": {
           "fixture_type": "plant",
           "id": "P",
-          "revision": 2
+          "observed_state": "fixture-state-2"
         },
         "O": {
           "fixture_type": "organization",
@@ -17828,7 +17828,7 @@
           "id": "Rel",
           "plant_id": "P",
           "organization_id": "O",
-          "revision": 2,
+          "observed_state": "fixture-state-2",
           "ended_at": null
         },
         "L": {
@@ -17838,7 +17838,7 @@
           "organization_id": "O",
           "share_foundations": true,
           "share_milestones": true,
-          "consent_revision": 2,
+          "consent_state": "fixture-state-2",
           "ended_at": null
         }
       },
@@ -17855,15 +17855,15 @@
         "operation": "residency.setSharing",
         "arguments": {
           "link": "L",
-          "expected_consent_revision": 2,
           "share_foundations": false,
-          "share_milestones": true
+          "share_milestones": true,
+          "reviewed_consent_state": "fixture-state-2"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "consent_revision": 3,
+          "consent_state": "fixture-state-3",
           "foundations_access": "unavailable",
           "milestones_access": "available",
           "private_documents_shared": false
@@ -17899,7 +17899,7 @@
         "P": {
           "fixture_type": "plant",
           "id": "P",
-          "revision": 2
+          "observed_state": "fixture-state-2"
         },
         "O": {
           "fixture_type": "organization",
@@ -17933,7 +17933,7 @@
           "id": "Rel",
           "plant_id": "P",
           "organization_id": "O",
-          "revision": 2,
+          "observed_state": "fixture-state-2",
           "ended_at": null
         },
         "L": {
@@ -17943,7 +17943,7 @@
           "organization_id": "O",
           "share_foundations": true,
           "share_milestones": true,
-          "consent_revision": 2,
+          "consent_state": "fixture-state-2",
           "ended_at": null
         }
       },
@@ -18131,7 +18131,7 @@
         "P": {
           "fixture_type": "plant",
           "id": "P",
-          "revision": 7
+          "observed_state": "fixture-state-7"
         },
         "session-A": {
           "fixture_type": "session",

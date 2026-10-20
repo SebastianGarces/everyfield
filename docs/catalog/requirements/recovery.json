@@ -179,7 +179,7 @@
         "IDN-026",
         "WIKI-003"
       ],
-      "text": "Cancellation before the deadline and purge claim at/after it use one row-lock/CAS revision/request boundary. Retry returns the recorded result; an old cancel cannot cancel a later request. Cancellation restores only currently valid access and never independently revoked affiliations/roles or another pending account/workspace; no post-deadline cancellation despite late purge worker.",
+      "text": "Cancellation before the deadline and purge claim at/after it use one decision boundary for the exact current deletion request. Retry returns the recorded result; an old cancel cannot cancel a later request. Cancellation restores only currently valid access and never independently revoked affiliations/roles or another pending account/workspace; no post-deadline cancellation despite late purge worker.",
       "spec": "docs/architecture/recovery.md#deletion-lifecycle",
       "operations": [],
       "acceptance_ids": [
@@ -215,7 +215,7 @@
         "PI-040",
         "PI-041"
       ],
-      "text": "Personal deletion retains independently church-owned People/communication/generated-document history and church-owned native documents with scrubbed minimal attribution; account-owned docs/revisions/avatar/private check-ins follow its private lifecycle. Creator userId is not an ownership classifier. Source NO ACTION FKs need explicit target scrub/rebind, not blind hard delete/cascade.",
+      "text": "Personal deletion retains independently church-owned People/communication/generated-document history and church-owned native documents with scrubbed minimal attribution; account-owned docs/revisions/avatar/private check-ins follow its private lifecycle. Creator userId is not an ownership classifier. Removal must scrub or detach references according to their actual ownership, preserving independently owned shared facts.",
       "spec": "docs/architecture/recovery.md#deletion-lifecycle",
       "operations": [],
       "acceptance_ids": [
@@ -620,7 +620,7 @@
         "NTF-002",
         "OPS-007"
       ],
-      "text": "Only actual account/plant deletion is requestable; its registered purge job binds current request/revision/deadline/claim generation. Deletion request immediately revokes affected normal access and holds privately 30 days solely for restricted native cancellation. DB clock/current request revision fences cancel strictly before deadline and purge at/after. Eligible live DB+bytes purge is resumable/hidden; livePurgedAt only after coherence, copy expiry≤livePurgedAt+7 days without reset. Ownership governs shared minimal attribution; restores apply current witnesses before access and cannot replay canceled mail/expired private bodies.",
+      "text": "Only actual account/plant deletion is requestable; its registered purge job binds current request/revision/deadline/execution ownership. Deletion request immediately revokes affected normal access and holds privately 30 days solely for restricted native cancellation. DB clock/current request revision fences cancel strictly before deadline and purge at/after. Eligible live DB+bytes purge is resumable/hidden; livePurgedAt only after coherence, copy expiry≤livePurgedAt+7 days without reset. Ownership governs shared minimal attribution; restores apply current witnesses before access and cannot replay canceled mail/expired private bodies.",
       "spec": "docs/architecture/recovery.md#deletion-lifecycle",
       "operations": [
         "maintenance.purgeEligibleSubject",

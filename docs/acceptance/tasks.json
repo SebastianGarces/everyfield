@@ -27,8 +27,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -116,8 +116,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -193,14 +193,14 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -227,14 +227,14 @@
           "id": "P1",
           "plant": "P",
           "name": "Alex Rivera",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "P2": {
           "fixture_type": "person",
           "id": "P2",
           "plant": "P",
           "name": "Alex Chen",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "Q1": {
           "fixture_type": "person",
@@ -247,7 +247,7 @@
           "consumer": "task-person-follow-up",
           "person": "P2",
           "plant": "P",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "original-history": {
           "fixture_type": "history",
@@ -276,10 +276,10 @@
           "survivor": "P1",
           "retiring": "P2",
           "consumer": "task-person-follow-up",
-          "expected_revisions": {
-            "P1": 4,
-            "P2": 3,
-            "reference-1": 2
+          "reviewed_states": {
+            "P1": "fixture-state-4",
+            "P2": "fixture-state-3",
+            "reference-1": "fixture-state-2"
           },
           "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-CONFLICT-1",
           "repeat": 2
@@ -289,7 +289,7 @@
         "state": {
           "reference-1": {
             "person": "P2",
-            "revision": 3
+            "observed_state": "fixture-state-3"
           }
         },
         "result": {
@@ -306,8 +306,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -326,10 +326,10 @@
               "survivor": "Q1",
               "retiring": "P2",
               "consumer": "task-person-follow-up",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 3
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-3"
               },
               "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-CONFLICT-1",
               "repeat": 2
@@ -341,19 +341,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "task-person-follow-up",
                 "person": "P2",
                 "plant": "P",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "original-history": {
                 "consumer": "task-person-follow-up",
@@ -366,7 +366,7 @@
               "body": null,
               "existence": null,
               "writes": 0,
-              "receipts_added": 0
+              "additional_recorded_outcomes": 0
             },
             "event": null
           },
@@ -397,10 +397,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "task-person-follow-up",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 3
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-3"
               },
               "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-CONFLICT-1",
               "repeat": 2
@@ -411,7 +411,7 @@
             "result": {
               "error_code": "access_denied",
               "writes": 0,
-              "receipts_added": 0,
+              "additional_recorded_outcomes": 0,
               "body": null,
               "existence": null
             },
@@ -425,8 +425,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -445,10 +445,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "task-person-follow-up",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 3
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-3"
               },
               "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-CONFLICT-1",
               "repeat": 1,
@@ -461,19 +461,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "task-person-follow-up",
                 "person": "P2",
                 "plant": "P",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "original-history": {
                 "consumer": "task-person-follow-up",
@@ -483,7 +483,7 @@
             },
             "result": {
               "error_code": "required_write_failed",
-              "receipts_added": 0,
+              "additional_recorded_outcomes": 0,
               "audit_rows_added": 0,
               "history_rows_added": 0
             },
@@ -527,14 +527,14 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -561,14 +561,14 @@
           "id": "P1",
           "plant": "P",
           "name": "Alex Rivera",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "P2": {
           "fixture_type": "person",
           "id": "P2",
           "plant": "P",
           "name": "Alex Chen",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "Q1": {
           "fixture_type": "person",
@@ -581,7 +581,7 @@
           "consumer": "task-person-follow-up",
           "person": "P2",
           "plant": "P",
-          "revision": 2
+          "observed_state": "fixture-state-2"
         },
         "original-history": {
           "fixture_type": "history",
@@ -610,10 +610,10 @@
           "survivor": "P1",
           "retiring": "P2",
           "consumer": "task-person-follow-up",
-          "expected_revisions": {
-            "P1": 4,
-            "P2": 3,
-            "reference-1": 2
+          "reviewed_states": {
+            "P1": "fixture-state-4",
+            "P2": "fixture-state-3",
+            "reference-1": "fixture-state-2"
           },
           "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-MERGE-1",
           "repeat": 2
@@ -646,8 +646,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -666,10 +666,10 @@
               "survivor": "Q1",
               "retiring": "P2",
               "consumer": "task-person-follow-up",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-MERGE-1",
               "repeat": 2
@@ -681,19 +681,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "task-person-follow-up",
                 "person": "P2",
                 "plant": "P",
-                "revision": 2
+                "observed_state": "fixture-state-2"
               },
               "original-history": {
                 "consumer": "task-person-follow-up",
@@ -706,7 +706,7 @@
               "body": null,
               "existence": null,
               "writes": 0,
-              "receipts_added": 0
+              "additional_recorded_outcomes": 0
             },
             "event": null
           },
@@ -737,10 +737,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "task-person-follow-up",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-MERGE-1",
               "repeat": 2
@@ -751,7 +751,7 @@
             "result": {
               "error_code": "access_denied",
               "writes": 0,
-              "receipts_added": 0
+              "additional_recorded_outcomes": 0
             },
             "event": null
           },
@@ -763,8 +763,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -783,10 +783,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "task-person-follow-up",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-MERGE-1",
               "repeat": 1,
@@ -799,19 +799,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "task-person-follow-up",
                 "person": "P2",
                 "plant": "P",
-                "revision": 2
+                "observed_state": "fixture-state-2"
               },
               "original-history": {
                 "consumer": "task-person-follow-up",
@@ -821,7 +821,7 @@
             },
             "result": {
               "error_code": "required_write_failed",
-              "receipts_added": 0,
+              "additional_recorded_outcomes": 0,
               "audit_rows_added": 0,
               "history_rows_added": 0
             },
@@ -868,14 +868,14 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -902,14 +902,14 @@
           "id": "P1",
           "plant": "P",
           "name": "Alex Rivera",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "P2": {
           "fixture_type": "person",
           "id": "P2",
           "plant": "P",
           "name": "Alex Chen",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "Q1": {
           "fixture_type": "person",
@@ -922,7 +922,7 @@
           "consumer": "task-person-follow-up",
           "person": "P2",
           "plant": "P",
-          "revision": 2
+          "observed_state": "fixture-state-2"
         },
         "original-history": {
           "fixture_type": "history",
@@ -951,10 +951,10 @@
           "survivor": "P1",
           "retiring": "P2",
           "consumer": "task-person-follow-up",
-          "expected_revisions": {
-            "P1": 4,
-            "P2": 3,
-            "reference-1": 2
+          "reviewed_states": {
+            "P1": "fixture-state-4",
+            "P2": "fixture-state-3",
+            "reference-1": "fixture-state-2"
           },
           "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE-1",
           "repeat": 2
@@ -983,8 +983,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -1003,10 +1003,10 @@
               "survivor": "P1",
               "retiring": "Q1",
               "consumer": "task-person-follow-up",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE-1",
               "repeat": 2
@@ -1018,19 +1018,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "task-person-follow-up",
                 "person": "P2",
                 "plant": "P",
-                "revision": 2
+                "observed_state": "fixture-state-2"
               },
               "original-history": {
                 "consumer": "task-person-follow-up",
@@ -1043,7 +1043,7 @@
               "body": null,
               "existence": null,
               "writes": 0,
-              "receipts_added": 0
+              "additional_recorded_outcomes": 0
             },
             "event": null
           },
@@ -1074,10 +1074,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "task-person-follow-up",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE-1",
               "repeat": 2
@@ -1088,7 +1088,7 @@
             "result": {
               "error_code": "access_denied",
               "writes": 0,
-              "receipts_added": 0,
+              "additional_recorded_outcomes": 0,
               "body": null,
               "existence": null
             },
@@ -1102,8 +1102,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -1122,10 +1122,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "task-person-follow-up",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE-1",
               "repeat": 1,
@@ -1138,19 +1138,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "task-person-follow-up",
                 "person": "P2",
                 "plant": "P",
-                "revision": 2
+                "observed_state": "fixture-state-2"
               },
               "original-history": {
                 "consumer": "task-person-follow-up",
@@ -1160,7 +1160,7 @@
             },
             "result": {
               "error_code": "required_write_failed",
-              "receipts_added": 0,
+              "additional_recorded_outcomes": 0,
               "audit_rows_added": 0,
               "history_rows_added": 0
             },
@@ -1194,14 +1194,14 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact row revisions snapshotted.",
+      "description": "Two own-plant Person records P1/P2 with actual task-person-follow-up references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -1228,14 +1228,14 @@
           "id": "P1",
           "plant": "P",
           "name": "Alex Rivera",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "P2": {
           "fixture_type": "person",
           "id": "P2",
           "plant": "P",
           "name": "Alex Chen",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "Q1": {
           "fixture_type": "person",
@@ -1248,7 +1248,7 @@
           "consumer": "task-person-follow-up",
           "person": "P1",
           "plant": "P",
-          "revision": 2
+          "observed_state": "fixture-state-2"
         },
         "original-history": {
           "fixture_type": "history",
@@ -1266,7 +1266,7 @@
               "row": "reference-1",
               "before_person": "P2",
               "after_person": "P1",
-              "after_revision": 2
+              "after_state": "fixture-state-2"
             }
           ]
         },
@@ -1291,10 +1291,10 @@
           "survivor": "P1",
           "retiring": "P2",
           "consumer": "task-person-follow-up",
-          "expected_revisions": {
-            "P1": 4,
-            "P2": 3,
-            "reference-1": 2
+          "reviewed_states": {
+            "P1": "fixture-state-4",
+            "P2": "fixture-state-3",
+            "reference-1": "fixture-state-2"
           },
           "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-UNMERGE-1",
           "repeat": 2,
@@ -1324,8 +1324,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -1344,10 +1344,10 @@
               "survivor": "Q1",
               "retiring": "P2",
               "consumer": "task-person-follow-up",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-UNMERGE-1",
               "repeat": 2,
@@ -1360,19 +1360,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "task-person-follow-up",
                 "person": "P1",
                 "plant": "P",
-                "revision": 2
+                "observed_state": "fixture-state-2"
               },
               "original-history": {
                 "consumer": "task-person-follow-up",
@@ -1385,7 +1385,7 @@
               "body": null,
               "existence": null,
               "writes": 0,
-              "receipts_added": 0
+              "additional_recorded_outcomes": 0
             },
             "event": null
           },
@@ -1416,10 +1416,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "task-person-follow-up",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-UNMERGE-1",
               "repeat": 2,
@@ -1431,7 +1431,7 @@
             "result": {
               "error_code": "access_denied",
               "writes": 0,
-              "receipts_added": 0
+              "additional_recorded_outcomes": 0
             },
             "event": null
           },
@@ -1443,8 +1443,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -1463,10 +1463,10 @@
               "survivor": "P1",
               "retiring": "P2",
               "consumer": "task-person-follow-up",
-              "expected_revisions": {
-                "P1": 4,
-                "P2": 3,
-                "reference-1": 2
+              "reviewed_states": {
+                "P1": "fixture-state-4",
+                "P2": "fixture-state-3",
+                "reference-1": "fixture-state-2"
               },
               "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-UNMERGE-1",
               "repeat": 1,
@@ -1480,19 +1480,19 @@
                 "id": "P1",
                 "plant": "P",
                 "name": "Alex Rivera",
-                "revision": 4
+                "observed_state": "fixture-state-4"
               },
               "P2": {
                 "id": "P2",
                 "plant": "P",
                 "name": "Alex Chen",
-                "revision": 3
+                "observed_state": "fixture-state-3"
               },
               "reference-1": {
                 "consumer": "task-person-follow-up",
                 "person": "P1",
                 "plant": "P",
-                "revision": 2
+                "observed_state": "fixture-state-2"
               },
               "original-history": {
                 "consumer": "task-person-follow-up",
@@ -1502,7 +1502,7 @@
             },
             "result": {
               "error_code": "required_write_failed",
-              "receipts_added": 0,
+              "additional_recorded_outcomes": 0,
               "audit_rows_added": 0,
               "history_rows_added": 0
             },
@@ -1551,8 +1551,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -1578,7 +1578,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -1599,7 +1599,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "T": {
           "fixture_type": "task",
@@ -1608,7 +1608,7 @@
           "assignee": "A",
           "status": "not_started",
           "due_date": "2026-10-13",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "behavior-inputs": {
           "fixture_type": "behavior_inputs",
@@ -1839,7 +1839,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "task": "T",
           "foreign_control": {
             "actor": "B",
@@ -2091,8 +2091,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -2118,7 +2118,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -2139,7 +2139,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "T": {
           "fixture_type": "task",
@@ -2148,7 +2148,7 @@
           "assignee": "A",
           "status": "not_started",
           "due_date": "2026-10-13",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         }
       },
       "actor": {
@@ -2165,7 +2165,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "task": "T",
           "foreign_control": {
             "actor": "B",
@@ -2204,8 +2204,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -2231,7 +2231,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -2252,7 +2252,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "T": {
           "fixture_type": "task",
@@ -2261,7 +2261,7 @@
           "assignee": "A",
           "status": "not_started",
           "due_date": "2026-10-13",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "case-input": {
           "fixture_type": "domain_inputs",
@@ -2269,8 +2269,8 @@
           "assignee": "B",
           "caller": "A",
           "reviewed_assignee": "A",
-          "expected_revision": 3,
-          "current_revision": 4
+          "reviewed_state": "fixture-state-3",
+          "current_state": "fixture-state-4"
         }
       },
       "actor": {
@@ -2287,14 +2287,14 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 3,
+          "reviewed_state": "fixture-state-3",
           "task": "T",
           "request_key": "TARGET-TSK-003-request-1",
           "repeat": 2,
           "assignee": "B",
           "caller": "A",
           "reviewed_assignee": "A",
-          "current_revision": 4
+          "current_state": "fixture-state-4"
         }
       },
       "expected": {
@@ -2327,8 +2327,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -2354,7 +2354,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -2375,7 +2375,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "T": {
           "fixture_type": "task",
@@ -2384,7 +2384,7 @@
           "assignee": "A",
           "status": "not_started",
           "due_date": "2026-10-13",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "case-input": {
           "fixture_type": "domain_inputs",
@@ -2412,7 +2412,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "task": "T",
           "obligation": "O",
           "status": "waived",
@@ -2453,8 +2453,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -2480,7 +2480,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -2501,7 +2501,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "T": {
           "fixture_type": "task",
@@ -2510,7 +2510,7 @@
           "assignee": "A",
           "status": "not_started",
           "due_date": "2026-10-13",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "case-input": {
           "fixture_type": "domain_inputs",
@@ -2537,7 +2537,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "task": "T",
           "parent": "T",
           "child": "C",
@@ -2580,8 +2580,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -2607,7 +2607,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -2628,7 +2628,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "T": {
           "fixture_type": "task",
@@ -2637,7 +2637,7 @@
           "assignee": "A",
           "status": "not_started",
           "due_date": "2026-10-13",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "case-input": {
           "fixture_type": "domain_inputs",
@@ -2672,7 +2672,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "task": "T",
           "foreign_control": {
             "actor": "B",
@@ -2728,8 +2728,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -2758,7 +2758,7 @@
           "due_date": "2026-01-31",
           "status": "not_started",
           "series": "S",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "S": {
           "fixture_type": "recurrence",
@@ -2790,7 +2790,7 @@
         "arguments": {
           "task": "T",
           "completion_date": "2026-01-31",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "request_key": "rec-month-end",
           "repeat": 2
         }
@@ -2826,8 +2826,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -2856,7 +2856,7 @@
               "due_date": "2024-02-29",
               "status": "not_started",
               "series": "S",
-              "revision": 4
+              "observed_state": "fixture-state-4"
             },
             "S": {
               "fixture_type": "recurrence",
@@ -2888,7 +2888,7 @@
             "arguments": {
               "task": "T",
               "completion_date": "2024-02-29",
-              "expected_revision": 4,
+              "reviewed_state": "fixture-state-4",
               "request_key": "rec-leap-year",
               "repeat": 2
             }
@@ -2925,8 +2925,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -2955,7 +2955,7 @@
               "due_date": "2026-01-31",
               "status": "not_started",
               "series": "S",
-              "revision": 4
+              "observed_state": "fixture-state-4"
             },
             "S": {
               "fixture_type": "recurrence",
@@ -2987,7 +2987,7 @@
             "arguments": {
               "task": "T",
               "completion_date": "2026-01-31",
-              "expected_revision": 4,
+              "reviewed_state": "fixture-state-4",
               "request_key": "rec-inclusive-end",
               "repeat": 2
             }
@@ -3024,8 +3024,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -3054,7 +3054,7 @@
               "due_date": "2026-01-31",
               "status": "not_started",
               "series": "S",
-              "revision": 4
+              "observed_state": "fixture-state-4"
             },
             "S": {
               "fixture_type": "recurrence",
@@ -3086,7 +3086,7 @@
             "arguments": {
               "task": "T",
               "completion_date": "2026-01-31",
-              "expected_revision": 4,
+              "reviewed_state": "fixture-state-4",
               "request_key": "rec-past-end",
               "repeat": 2
             }
@@ -3117,8 +3117,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -3147,7 +3147,7 @@
               "due_date": "2026-01-01",
               "status": "not_started",
               "series": "S",
-              "revision": 4
+              "observed_state": "fixture-state-4"
             },
             "S": {
               "fixture_type": "recurrence",
@@ -3179,7 +3179,7 @@
             "arguments": {
               "task": "T",
               "completion_date": "2026-01-20",
-              "expected_revision": 4,
+              "reviewed_state": "fixture-state-4",
               "request_key": "rec-late",
               "repeat": 2
             }
@@ -3216,8 +3216,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -3246,7 +3246,7 @@
               "due_date": null,
               "status": "not_started",
               "series": "S",
-              "revision": 4
+              "observed_state": "fixture-state-4"
             },
             "S": {
               "fixture_type": "recurrence",
@@ -3278,7 +3278,7 @@
             "arguments": {
               "task": "T",
               "completion_date": "2026-01-20",
-              "expected_revision": 4,
+              "reviewed_state": "fixture-state-4",
               "request_key": "rec-undated",
               "repeat": 2
             }
@@ -3315,8 +3315,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -3345,7 +3345,7 @@
               "due_date": "2026-01-31",
               "status": "not_started",
               "series": "S",
-              "revision": 4
+              "observed_state": "fixture-state-4"
             },
             "S": {
               "fixture_type": "recurrence",
@@ -3376,7 +3376,7 @@
             "operation": "tasks.completeOccurrence",
             "arguments": {
               "task": "T",
-              "expected_revision": 4,
+              "reviewed_state": "fixture-state-4",
               "fault": "child_copy"
             }
           },
@@ -3400,8 +3400,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -3430,7 +3430,7 @@
               "due_date": "2026-01-31",
               "status": "not_started",
               "series": "S",
-              "revision": 4
+              "observed_state": "fixture-state-4"
             },
             "S": {
               "fixture_type": "recurrence",
@@ -3461,7 +3461,7 @@
             "operation": "tasks.completeOccurrence",
             "arguments": {
               "task": "T",
-              "expected_revision": 4,
+              "reviewed_state": "fixture-state-4",
               "concurrent_requests": 2
             }
           },
@@ -3481,8 +3481,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -3511,7 +3511,7 @@
               "due_date": "2026-01-31",
               "status": "not_started",
               "series": "S",
-              "revision": 4
+              "observed_state": "fixture-state-4"
             },
             "S": {
               "fixture_type": "recurrence",
@@ -3548,7 +3548,7 @@
             "operation": "tasks.reopen",
             "arguments": {
               "task": "T",
-              "expected_revision": 5
+              "reviewed_state": "fixture-state-5"
             }
           },
           "expected": {
@@ -3585,8 +3585,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -3612,7 +3612,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -3633,7 +3633,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "T": {
           "fixture_type": "task",
@@ -3642,7 +3642,7 @@
           "assignee": "A",
           "status": "not_started",
           "due_date": "2026-10-13",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "case-input": {
           "fixture_type": "domain_inputs",
@@ -3674,7 +3674,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "task": "T",
           "foreign_control": {
             "actor": "B",
@@ -3736,8 +3736,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -3763,7 +3763,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -3784,7 +3784,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "T": {
           "fixture_type": "task",
@@ -3793,7 +3793,7 @@
           "assignee": "A",
           "status": "not_started",
           "due_date": "2026-10-13",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "case-input": {
           "fixture_type": "domain_inputs",
@@ -3820,7 +3820,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 3,
+          "reviewed_state": "fixture-state-3",
           "task": "T",
           "request_key": "TARGET-TSK-009-request-1",
           "repeat": 2,
@@ -3862,8 +3862,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -3889,7 +3889,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -3910,7 +3910,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "T": {
           "fixture_type": "task",
@@ -3919,7 +3919,7 @@
           "assignee": "A",
           "status": "not_started",
           "due_date": "2026-10-13",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "case-input": {
           "fixture_type": "domain_inputs",
@@ -3949,7 +3949,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 3,
+          "reviewed_state": "fixture-state-3",
           "task": "T",
           "request_key": "TARGET-TSK-010-request-1",
           "repeat": 2,
@@ -3994,8 +3994,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4021,7 +4021,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -4042,7 +4042,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "T": {
           "fixture_type": "task",
@@ -4051,7 +4051,7 @@
           "assignee": "A",
           "status": "not_started",
           "due_date": "2026-10-13",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "behavior-inputs": {
           "fixture_type": "behavior_inputs",
@@ -4075,7 +4075,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "task": "T",
           "meeting": "M",
           "attendee": "Alex",
@@ -4113,8 +4113,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4140,7 +4140,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -4161,7 +4161,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "T": {
           "fixture_type": "task",
@@ -4170,7 +4170,7 @@
           "assignee": "A",
           "status": "not_started",
           "due_date": "2026-10-13",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "case-input": {
           "fixture_type": "domain_inputs",
@@ -4194,7 +4194,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "task": "T",
           "contact_person": "Alex",
           "linked_account": "B",
@@ -4233,8 +4233,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4260,7 +4260,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -4281,7 +4281,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "T": {
           "fixture_type": "task",
@@ -4290,7 +4290,7 @@
           "assignee": "A",
           "status": "not_started",
           "due_date": "2026-10-13",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "case-input": {
           "fixture_type": "domain_inputs",
@@ -4326,7 +4326,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "task": "T",
           "request_key": "TARGET-TSK-013-request-1",
           "repeat": 2,
@@ -4377,8 +4377,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4404,7 +4404,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -4425,7 +4425,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "T": {
           "fixture_type": "task",
@@ -4434,7 +4434,7 @@
           "assignee": "A",
           "status": "not_started",
           "due_date": "2026-10-13",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "case-input": {
           "fixture_type": "domain_inputs",
@@ -4460,7 +4460,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "task": "T",
           "due_kind": "date_only",
           "due_date": "2026-03-08",
@@ -4500,8 +4500,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4527,7 +4527,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -4548,7 +4548,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "T": {
           "fixture_type": "task",
@@ -4557,7 +4557,7 @@
           "assignee": "A",
           "status": "not_started",
           "due_date": "2026-10-13",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "case-input": {
           "fixture_type": "domain_inputs",
@@ -4584,7 +4584,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "task": "T",
           "foreign_control": {
             "actor": "B",
@@ -4634,8 +4634,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4661,7 +4661,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -4682,7 +4682,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "T": {
           "fixture_type": "task",
@@ -4691,7 +4691,7 @@
           "assignee": "A",
           "status": "not_started",
           "due_date": "2026-10-13",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "case-input": {
           "fixture_type": "domain_inputs",
@@ -4713,7 +4713,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "task": "T",
           "description": "Hello\n<script>alert(1)</script>\n[click](javascript:alert(1))",
           "clear_value": ""
@@ -4762,8 +4762,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4789,7 +4789,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -4810,7 +4810,7 @@
           "first_name": "Alex",
           "age_classification": "adult",
           "stage": "prospect",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "T": {
           "fixture_type": "task",
@@ -4819,7 +4819,7 @@
           "assignee": "A",
           "status": "not_started",
           "due_date": "2026-10-13",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "case-input": {
           "fixture_type": "domain_inputs",
@@ -4847,7 +4847,7 @@
         "arguments": {
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "task": "T",
           "fault": "outer_audit_before_commit",
           "meeting_origins": [
@@ -4911,8 +4911,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4952,7 +4952,7 @@
           "fixture_type": "test_execution",
           "subject": "P",
           "person": "Alex",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "task": "T",
           "entered_times": [
             "2026-03-08T02:30",

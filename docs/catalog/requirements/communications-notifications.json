@@ -200,7 +200,7 @@
       "feature_ids": [
         "COM-005"
       ],
-      "text": "Dispatch exact frozen per-recipient payloads through one mail/mail_attempt ledger; correlate ordered batches of at most 100 by intent ID, apply suppression/current handoff checks, and retain accepted/rejected/unknown facts separately. A short result array or exception never marks all recipients sent. Unknown acceptance reconciles with the same frozen provider key within its retention window and blocks blind new-key replay afterward.",
+      "text": "Dispatch exact frozen per-recipient payloads with one truthful delivery history; correlate ordered batches of at most 100 by intent ID, apply suppression/current handoff checks, and retain accepted/rejected/unknown facts separately. A short result array or exception never marks all recipients sent. Unknown acceptance reconciles with the same frozen provider key within its retention window and blocks blind new-key replay afterward.",
       "spec": "docs/product/communications-notifications.md#composition-and-history",
       "operations": [
         "communication.dispatchAttempt",
@@ -267,7 +267,7 @@
       "feature_ids": [
         "COM-007"
       ],
-      "text": "Browse global system and same-plant templates. Owner/Admin communication writers create/update same-plant email templates and fork global templates once per plant/source identity. Name 1–255, description ≤1000, subject ≤500, nonempty sanitized body; expected revision on edit. System originals are immutable to plant writers. Archive referenced templates; delete an unreferenced fork may reveal current global source.",
+      "text": "Browse global system and same-plant templates. Owner/Admin communication writers create/update same-plant email templates and fork global templates once per plant/source identity. Name 1–255, description ≤1000, subject ≤500, nonempty sanitized body; unchanged reviewed state on edit. System originals are immutable to plant writers. Archive referenced templates; delete an unreferenced fork may reveal current global source.",
       "spec": "docs/product/communications-notifications.md#composition-and-history",
       "operations": [
         "communication.templates.list",
@@ -298,7 +298,7 @@
         },
         {
           "operation": "communication.templates.create",
-          "rule": "Own-plant bounded email template create/edit/global-source fork, immutable global source and one preference by source identity; expected revision for edit, no caller-minted new ID."
+          "rule": "Own-plant bounded email template create/edit/global-source fork, immutable global source and one preference by source identity; unchanged reviewed state for edit, no caller-minted new ID."
         }
       ],
       "title": "System and church message-template CRUD and copy-on-write forks"
@@ -379,7 +379,7 @@
       "feature_ids": [
         "COM-010"
       ],
-      "text": "Random purpose-bound public RSVP token is scoped to one real same-plant Person/meeting, normally expires after seven days and has one live pending identity per pair. GET displays, explicit POST confirms/declines. Answer CAS and canonical meeting response share one transaction; scanner fetch never answers. Expired pending renewal preserves answered history. Token answer affects RSVP/engagement, never attendance/commitment/contact.",
+      "text": "Random purpose-bound public RSVP token is scoped to one real same-plant Person/meeting, normally expires after seven days and has one live pending identity per pair. GET displays, explicit POST confirms/declines. The answer and canonical meeting response succeed or fail together; scanner fetch never answers. Expired pending renewal preserves answered history. Token answer affects RSVP/engagement, never attendance/commitment/contact.",
       "spec": "docs/product/communications-notifications.md#composition-and-history",
       "operations": [
         "meeting.createRsvpToken",
@@ -411,7 +411,7 @@
       "feature_ids": [
         "COM-012"
       ],
-      "text": "Save/reload/edit/delete incomplete native email drafts in the existing communication aggregate with revision/history and no mail intent. Review exact audience/per-recipient safe content/Instant before Resend API scheduling within 30 days. Reviewed time-only update preserves content; content/audience replacement waits for confirmed cancellation of all affected original sends. Sent/unknown/partial cancellation blocks automatic replacement. SMS/inbound/custom beyond-window scheduling are excluded.",
+      "text": "Save/reload/edit/delete incomplete native email drafts in the existing communication aggregate with conflict detection/history and no mail intent. Review exact audience/per-recipient safe content/Instant before Resend API scheduling within 30 days. Reviewed time-only update preserves content; content/audience replacement waits for confirmed cancellation of all affected original sends. Sent/unknown/partial cancellation blocks automatic replacement. SMS/inbound/custom beyond-window scheduling are excluded.",
       "spec": "docs/product/communications-notifications.md#drafts-and-provider-scheduling",
       "operations": [
         "communication.saveDraft",
@@ -439,7 +439,7 @@
       "behavior_rules": [
         {
           "operation": "communication.deleteDraft",
-          "rule": "Delete only unsent draft under expected revision; cannot cancel provider intent or erase sent history."
+          "rule": "Delete only unsent draft under unchanged reviewed state; cannot cancel provider intent or erase sent history."
         },
         {
           "operation": "communication.saveDraft",
@@ -633,7 +633,7 @@
         "NTF-005",
         "NTF-006"
       ],
-      "text": "Meeting/task cancellation, completion or rescheduling stops obsolete pending reminders; normal current revision/audience checks remain before external send.",
+      "text": "Meeting/task cancellation, completion or rescheduling stops obsolete pending reminders; normal current state/audience checks remain before external send.",
       "spec": "docs/product/communications-notifications.md#notification-product",
       "operations": [],
       "acceptance_ids": [
@@ -660,7 +660,7 @@
         "NTF-011",
         "NTF-013"
       ],
-      "text": "Reuse one established mail intent/receipt, stable keys, bounded retry, truthful unknown outcomes, signed callback processing and suppression. Never blindly resend an acceptance timeout or acknowledge away an unpersisted callback.",
+      "text": "Preserve the original reviewed mail and its outcome/correlation, bounded retry, truthful unknown outcomes, signed callback processing and suppression. Never blindly resend an acceptance timeout or acknowledge away an unpersisted callback.",
       "spec": "docs/product/communications-notifications.md#notification-product",
       "operations": [],
       "acceptance_ids": [
@@ -748,7 +748,7 @@
         "COM-004",
         "COM-012"
       ],
-      "text": "Save/reload/update/delete incomplete same-tenant native draft with revision/history; no provider call/queued send or template overwrite.",
+      "text": "Save/reload/update/delete incomplete same-tenant native draft with conflict detection/history; no provider call/queued send or template overwrite.",
       "spec": "docs/product/communications-notifications.md#drafts-and-provider-scheduling",
       "operations": [],
       "acceptance_ids": [
@@ -1082,7 +1082,7 @@
         "NTF-010",
         "NTF-013"
       ],
-      "text": "One mail/mail_attempt ledger owns all outgoing provider effects. Commit immutable per-recipient payload/address and request identity/hash/key/firstDispatchedAt/ordered manifest with receipt; provider outside lock. A batch≤100 has one frozen whole-request key and exact ownership/projection scope, singleton account-private/security unless identically permitted.10 second call timeout. At handoff recheck active subject/current authority/audience/source/suppression. Keep acceptance/sent/delivery/engagement/cancellation/unknown distinct. Lost/reclaimed acceptance reconciles identical request/key only before first dispatch+23h55m within documented 24h protection; no retry clock reset or blind fresh-key replay afterward.",
+      "text": "All outgoing mail has one truthful delivery history. Preserve the exact reviewed per-recipient payload, address, request identity, ordered audience and original first-dispatch instant with a truthful outcome. Provider latency cannot hold up unrelated changes. A batch≤100 has one stable whole-request identity and exact ownership/projection scope, singleton account-private/security unless identically permitted.10 second call timeout. At handoff recheck active subject/current authority/audience/source/suppression. Keep acceptance/sent/delivery/engagement/cancellation/unknown distinct. Lost/reclaimed acceptance reconciles identical request/key only before first dispatch+23h55m within documented 24h protection; no retry clock reset or blind fresh-key replay afterward.",
       "spec": "docs/product/communications-notifications.md#mail-contract",
       "operations": [
         "communication.dispatchAttempt",
@@ -1150,7 +1150,7 @@
       "feature_ids": [
         "NTF-002"
       ],
-      "text": "Due claim, generation fence, timeout/backoff, cancellation, unknown reconciliation follow execution; fairness tuning belongs to G-LOAD; mail uses the one ledger. Recipient, current preference, live subject/entity and sharing are rechecked at dispatch.",
+      "text": "Due claim, generation fence, timeout/backoff, cancellation, unknown reconciliation follow execution; fairness tuning belongs to G-LOAD; mail preserves one truthful delivery history. Recipient, current preference, live subject/entity and sharing are rechecked at dispatch.",
       "spec": "docs/product/communications-notifications.md#notification-product",
       "operations": [
         "notifications.claimDue",
@@ -1185,7 +1185,7 @@
       "feature_ids": [
         "NTF-003"
       ],
-      "text": "Self feed/unread/bell show only due visible uncanceled entries under current grants; keyset cursor(createdAt, id), unread filter, individual mark and mark-all-visible use identical predicates. Future/foreign/revoked entries and their counts are hidden. Read does not complete work. Empty differs from unavailable.",
+      "text": "Self feed/unread/bell show only due visible uncanceled entries under current grants; deterministic bounded pagination, unread filter, individual mark and mark-all-visible use identical predicates. Future/foreign/revoked entries and their counts are hidden. Read does not complete work. Empty differs from unavailable.",
       "spec": "docs/product/communications-notifications.md#notification-product",
       "operations": [
         "notifications.feed",
@@ -1247,7 +1247,7 @@
       "feature_ids": [
         "NTF-004"
       ],
-      "text": "Own category/channel explicit choices, planter cadence/local schedule and organization oversight cadence use small closed inputs and expected revision. Only actual producers appear as enabled functionality. No custom rules, arbitrary schedules, snooze or alert families.",
+      "text": "Own category/channel explicit choices, planter cadence/local schedule and organization oversight cadence use small closed inputs and unchanged reviewed state. Only actual producers appear as enabled functionality. No custom rules, arbitrary schedules, snooze or alert families.",
       "spec": "docs/product/communications-notifications.md#notification-product",
       "operations": [
         "notifications.preferences.get",
@@ -1380,11 +1380,11 @@
       "behavior_rules": [
         {
           "operation": "church.digestSchedule.set",
-          "rule": "Shared church-local weekly day/hour only, default Sunday 16; own recipient cadence/channel independent; expected revision and timezone/schedule preview binds future changes."
+          "rule": "Shared church-local weekly day/hour only, default Sunday 16; own recipient cadence/channel independent; unchanged reviewed state and timezone/schedule preview binds future changes."
         },
         {
           "operation": "church.digestSchedule.set",
-          "rule": "Expected-revision correction or explicit no-op history; unknown external effects require reconciliation."
+          "rule": "Reviewed-state correction or explicit no-op history; unknown external effects require reconciliation."
         },
         {
           "operation": "notifications.previewPlanterDigest",
@@ -1576,7 +1576,7 @@
       "feature_ids": [
         "NTF-013"
       ],
-      "text": "Protected transactional HTML/plain-text templates use one durable mail intent/attempt transport with bounded timeout/idempotency/outcome reconciliation. Domain issuer fixes purpose/address/token, not arbitrary Evry inputs. Security/invitation purposes are separate from optional preference toggles; credentials/tokens/body/address stay out of logs/context.",
+      "text": "Protected transactional HTML/plain-text templates use recoverable delivery with bounded timeout/idempotency/outcome reconciliation. Domain issuer fixes purpose/address/token, not arbitrary Evry inputs. Security/invitation purposes are separate from optional preference toggles; credentials/tokens/body/address stay out of logs/context.",
       "spec": "docs/product/communications-notifications.md#notification-product",
       "operations": [
         "mail.sendTransactional",
@@ -1592,7 +1592,7 @@
       "work_packages": [
         "WP-028"
       ],
-      "title": "Shared transactional email transport and protected email templates",
+      "title": "Protected security and invitation mail",
       "behavior_rules": [
         {
           "operation": "mail.renderTransactional",
@@ -1651,7 +1651,7 @@
         "WP-030",
         "WP-031"
       ],
-      "title": "Discovery association postcommit transactional receipts",
+      "title": "Discovery relationship notices",
       "behavior_rules": [
         {
           "operation": "notifications.inspectAssociationReceipt",

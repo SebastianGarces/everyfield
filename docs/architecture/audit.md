@@ -1,12 +1,12 @@
 # Platform audit and domain history
 
-The adopted `event` table holds domain history and a bounded platform audit projection. Domain packages own history meaning; platform audit owns safe attribution and purpose-bound investigation. Neither is a universal event bus or a source of current authority. Private care has its own original-author history and no shared event identity.
+Meaningful changes have append-only attributable audit records and the domain history needed by authorized readers. History and audit may share storage. Domain packages own history meaning; platform audit permits only safe attribution and purpose-bound investigation. Audit never supplies current authority. Private care has original-author history and no central audit identity. Mechanisms follow [EveryField patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62).
 
 ## Envelope and closed actions
 
-`event.tenant_id` and `event.target_record_id` identify the actual owner and registered historical target. `event.kind` is the closed domain event kind. Nullable `event.action` distinguishes platform audit actions and has the literal closed CHECK listed below. Domain-only events have no platform action. `event.operation_id` and `event.effect_id` resolve receipt and execution lineage, including the trusted review through those relations. Actual actor, scoped tombstone or service cause is mandatory; a service cannot invent a human approver.
+Audit identifies the actual owner, action, subject type and identity, actor or identified service cause, time and known outcome. It preserves enough lineage to inspect the exact human review and any external work where applicable. A service cannot invent a human approver. The action families below define required coverage; they do not require an event table or a separate receipt per operation.
 
-Platform audit records only permitted field names, safe scalar revisions/statuses, bounded counts where allowed and hashes/IDs for required lineage. The optional `event.diff` uses its documented before/after structure with only action-allowlisted scalar fields and at most 2048 UTF-8 bytes, enforced by CHECK. Never serialize whole rows, arbitrary narratives or an unbounded general metadata payload. Domain history may retain its authorized content evidence; that does not make it readable through the platform audit projection. The CHECK bounds shape/size, while producer and reader projections enforce field purpose.
+Audit records changed fields and their permitted before/after values, safe status, bounded counts and required lineage. Each action has an allowlisted projection, bounded to 2048 UTF-8 bytes. Never serialize whole rows, arbitrary narratives or unbounded metadata. Authorized domain history may retain its content evidence; platform audit cannot expose that content.
 
 | Action family | Safe metadata examples | Producer/meaning |
 |---|---|---|
@@ -22,7 +22,7 @@ Platform audit records only permitted field names, safe scalar revisions/statuse
 | phase.created, phase.declared, phase.transitioned, attestation.recorded, attestation.corrected | phase/criterion/source version and type | Human ownership; no private-care or pastoral narrative |
 | launch.changed, launch.outcome_recorded, launch.debrief_submitted, launch.summary_published, launch.corrected | domain revision, summary hash/category provenance | Canonical aggregate+typed history; raw answers remain domain-private |
 | wiki.published, wiki.hidden, wiki.source_order_changed, reference.activated, documents.saved, documents.copied, files.finalized | logical/source/version IDs, content hash, format/byte count where permitted | Body/attachment bytes and signed URL omitted; private document metadata stays account scoped |
-| intelligence.requested, intelligence.published, intelligence.superseded, intelligence.feedback_recorded | run/asOf/source/reference/claim generation and safe status | Not raw snapshot/contributor inputs/model prompts |
+| intelligence.requested, intelligence.published, intelligence.superseded, intelligence.feedback_recorded | run/asOf/source/reference/execution ownership and safe status | Not raw snapshot/contributor inputs/model prompts |
 | communication.approved, communication.send_intended, mail.accepted, mail.delivered, mail.refused, mail.reconciled, mail.cancelled | payload/audience hash, provider receipt ID, safe result | Accepted is not delivered; addresses/body omitted; unknown remains unknown |
 | feedback.received, feedback.publication_intended, feedback.published, feedback.reconciled | safe publication hash, actual repository/issue locator, result | Private original/body/identity/screenshots/logs omitted |
 | execution.started, execution.completed, execution.partial, execution.cancelled, execution.reconciled | exact effect manifest hash/result IDs, safe status | Actual initiator/reviewer and immutable plan digest retained |
@@ -34,22 +34,22 @@ Each action has its own safe field projection. Raw interviews/four Cs, notes, ph
 
 ## Transactional truth
 
-Meaningful domain facts, required history/audit, receipt and effect intent commit in one short transaction. Failure rolls back the change. Exact replay returns original receipt/event identities without adding a fictitious change. Bulk history has exact same-owner targets or a bounded manifest; cross-tenant content cannot hide in readable JSON.
+Meaningful domain facts, required history/audit, reported outcomes and recoverable side effects agree. A failure leaves no partial domain change. Exact retry returns the known outcome without adding a fictitious change. Bulk history names exact same-owner targets or a bounded selection; cross-tenant content cannot hide in readable metadata.
 
 Better Auth owns credential/session changes separately. Append the app security event only after the supported call succeeds. A later event failure cannot undo credentials; report that gap truthfully for restricted reconciliation. Do not store passwords for retry or claim atomic credential-plus-domain writes. Pending registration remains unprivileged until domain acceptance, which is atomic. Ordinary renewal and bounded failed-auth telemetry are not business audit.
 
-Denied or rolled-back operations have no successful event from that transaction. Significant denial/failure evidence may append afterward with a safe truthful code. Provider handoff occurs outside locks after intent commit; acceptance, delivery, refusal and unknown reconciliation link the existing effect. Duplicate/out-of-order callbacks cannot invent or regress delivery.
+Denied or rolled-back changes have no successful audit action. Significant denial or failure evidence may be recorded separately with a safe truthful code. Provider acceptance, delivery, refusal and unknown reconciliation stay linked to the actual original work. Duplicate or out-of-order callbacks cannot invent or regress delivery.
 
 ## Private-care and investigation boundary
 
-Private-care answers, notes, row IDs, timestamps, weekly periods, existence, nudge counts and access-open events never enter central `event`, model/Evry, organization, export, email, log, trace or evaluation paths. A broad purge receipt may say the authorized purge completed but cannot identify or count care subjects. Its native private revision tables remain separate.
+Private-care answers, notes, identities, timestamps, weekly periods, existence, nudge counts and access-open activity never enter central audit, model/Evry, organization, export, email, log, trace or evaluation paths. A broad purge outcome may say authorized cleanup completed but cannot identify or count care subjects. Original-author private history remains separate in purpose and access.
 
-Audit investigation/export requires current explicitly bounded operator purpose/scope and safe field projections. Owner/Admin, affiliation or general platform administration grants no broad audit browser or private narrative access. Record significant audit inspection/export itself; keep reads bounded. Indexes support exact owner/target/receipt lookup; a broad JSON search platform is not required.
+Audit investigation or export requires current explicitly bounded operator purpose and scope with safe field projections. Owner/Admin, affiliation or general platform administration grants no broad audit browser or private narrative access. Record significant audit inspection/export itself and keep reads bounded to the authorized owner, subject and action.
 
 ## Deletion and retention
 
 Live actor links are nullable. Personal purge preserves legitimate shared attribution only as an opaque deleted-account token local to the owning scope, clearing unnecessary identity linkage. No universal cross-tenant token map, email or name copy is retained. The token is pseudonymous, not guaranteed anonymous.
 
-Account-owned event details purge with the account; plant-owned history purges with the plant. Counterparts keep only minimum independent relationship receipts. There is no blanket audit retention exception or separate approved retention period. Ordinary writers cannot update/delete history; restricted policy cleanup may scrub/purge, and correction appends evidence. Database-owner power means this is not tamper-proof storage. Current lifecycle witnesses override restored event images before access and cannot reset copy expiry.
+Account-owned audit details purge with the account; plant-owned history purges with the plant. Counterparts retain only minimum independent relationship evidence. There is no blanket audit retention exception or separately approved retention period. Ordinary writers cannot change or delete history; corrections append evidence, and restricted policy cleanup may scrub or purge. This is not a tamper-proof storage guarantee. Current deletion/access authority overrides restored history before access and cannot reset copy expiry.
 
 AUDIT-001 through AUDIT-008 and relevant tenancy/schema/deletion cases remain future SQL and application proof.
