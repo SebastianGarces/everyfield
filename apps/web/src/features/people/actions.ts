@@ -2,11 +2,12 @@
 
 import { getViewer } from "@/server/request-context";
 
+import { instant, recordId, revision } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/people";
 import { peopleReader, peopleWriter, readColumnOrders } from "@everyfield/domain/people";
 import type { z } from "zod";
 import { columnOf, parseQuery, type Outcome } from "./model.ts";
-import { loadPeople, read, write, type PeopleView, type Viewer } from "./server.ts";
+import { loadPeople, loadPerson, read, write, type PeopleView, type Viewer } from "./server.ts";
 
 // Server actions behind the People screens: the browser boundary. Each one rebuilds the viewer from the request,
 // parses the browser's input with the WP-011 contract schemas (a strict schema refuses any owner, account or authority
@@ -18,6 +19,21 @@ type PersonId = z.infer<typeof c.personRequest>["personId"];
 type Reply<T> = Awaited<ReturnType<typeof read<T>>>;
 const denied = { status: "refused", code: "access_denied" } as const;
 const invalid = { status: "refused", code: "invalid_input" } as const;
+
+/**
+ * What a saved change adds to the person's Activity: the write's audit record, when it was saved and whether it changed
+ * anything. The screen shows the new entry from this answer instead of reloading the page.
+ */
+export type Receipt = { id: z.infer<typeof recordId>; at: z.infer<typeof instant>; changed: boolean };
+const receipt = (r: { receiptId: string; outcome: "changed" | "noop" }): Receipt => ({
+	// The audit record's ID is the receipt's, and it is the entry's ID in Activity.
+	id: recordId.parse(r.receiptId),
+	at: instant.parse(new Date().toISOString()),
+	changed: r.outcome === "changed",
+});
+type Saved = { person: PlantPerson; receipt: Receipt };
+/** A note change: the person as saved now, the note's ID and revision, and the receipt. */
+type NoteSaved = Saved & { note: { id: z.infer<typeof recordId>; revision: z.infer<typeof revision> } };
 
 function outcome<T, U>(reply: Reply<T>, map: (value: T) => U): Outcome<U> {
 	if (reply.status === "failed") return { status: "lost" };
@@ -47,6 +63,37 @@ async function plantPerson(v: Viewer, personId: PersonId): Promise<Outcome<Plant
 		: { status: "refused", code: "unavailable" };
 }
 
+/** A saved write whose producer result has no person: the person read again, then the answer built from both. */
+async function withPerson<T, U>(
+	v: Viewer,
+	personId: PersonId,
+	done: Outcome<T>,
+	answer: (person: PlantPerson, value: T) => U,
+): Promise<Outcome<U>> {
+	if (done.status !== "ok") return done;
+	const p = await plantPerson(v, personId);
+	return p.status === "ok" ? { status: "ok", value: answer(p.value, done.value) } : p;
+}
+
+/**
+ * The person page again after this screen's change was refused as out of date: the person and the first Activity page,
+ * so the next try uses the latest revision. Only this person is read, never the whole page.
+ */
+export async function reloadPerson(
+	personId: string,
+): Promise<Outcome<{ person: PlantPerson; activities: z.infer<typeof c.activitiesResult> | null }>> {
+	return boundary(c.personRequest, { personId }, async (v, request) => {
+		const r = outcome(await loadPerson(v, request.personId), (page) => page);
+		if (r.status !== "ok") return r;
+		const { found, activities } = r.value;
+		if (found.status !== "available" || !("stage" in found.person)) return { status: "refused", code: "unavailable" };
+		return {
+			status: "ok",
+			value: { person: found.person, activities: activities?.status === "ok" ? activities.value : null },
+		};
+	});
+}
+
 /**
  * The People view for an address the screen has not loaded yet: the pipeline from the list, or the list from the
  * pipeline. Null when the viewer cannot read People; the screen then loads the page, which shows sign-in or the lock.
@@ -70,12 +117,15 @@ export async function updatePerson(
 	expectedRevision: string,
 	personId: string,
 	patch: unknown,
-): Promise<Outcome<PlantPerson>> {
+): Promise<Outcome<Saved>> {
 	return boundary(
 		c.updatePersonRequest,
 		{ requestKey, expectedRevision, input: { personId, patch } },
 		async (v, request) =>
-			outcome(await write(v, (tx, ctx) => peopleWriter.updatePerson(tx, ctx, request)), (r) => r.person),
+			outcome(await write(v, (tx, ctx) => peopleWriter.updatePerson(tx, ctx, request)), (r) => ({
+				person: r.person,
+				receipt: receipt(r),
+			})),
 	);
 }
 
@@ -98,7 +148,7 @@ export async function changeStatus(
 	expectedRevision: string,
 	input: unknown,
 	from?: unknown,
-): Promise<Outcome<{ person: PlantPerson; columns: ColumnOrder[] }>> {
+): Promise<Outcome<Saved & { columns: ColumnOrder[] }>> {
 	const left = c.pipelineColumn.safeParse(from);
 	return boundary(c.changeStatusRequest, { requestKey, expectedRevision, input }, async (v, request) =>
 		outcome(
@@ -109,7 +159,11 @@ export async function changeStatus(
 				const touched = left.success && left.data !== joined ? [joined, left.data] : [joined];
 				return {
 					status: "ok",
-					value: { person: done.value.person, columns: await readColumnOrders(tx, ctx, touched) },
+					value: {
+						person: done.value.person,
+						columns: await readColumnOrders(tx, ctx, touched),
+						receipt: receipt(done.value),
+					},
 				};
 			}),
 			(r) => r,
@@ -121,9 +175,12 @@ export async function retirePerson(
 	requestKey: string,
 	expectedRevision: string,
 	input: unknown,
-): Promise<Outcome<PlantPerson>> {
+): Promise<Outcome<Saved>> {
 	return boundary(c.retirePersonRequest, { requestKey, expectedRevision, input }, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => peopleWriter.retirePerson(tx, ctx, request)), (r) => r.person),
+		outcome(await write(v, (tx, ctx) => peopleWriter.retirePerson(tx, ctx, request)), (r) => ({
+			person: r.person,
+			receipt: receipt(r),
+		})),
 	);
 }
 
@@ -131,9 +188,12 @@ export async function restorePerson(
 	requestKey: string,
 	expectedRevision: string,
 	personId: string,
-): Promise<Outcome<PlantPerson>> {
+): Promise<Outcome<Saved>> {
 	return boundary(c.restorePersonRequest, { requestKey, expectedRevision, input: { personId } }, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => peopleWriter.restorePerson(tx, ctx, request)), (r) => r.person),
+		outcome(await write(v, (tx, ctx) => peopleWriter.restorePerson(tx, ctx, request)), (r) => ({
+			person: r.person,
+			receipt: receipt(r),
+		})),
 	);
 }
 
@@ -142,43 +202,48 @@ export async function classifyAdult(
 	expectedRevision: string,
 	correction: boolean,
 	input: unknown,
-): Promise<Outcome<PlantPerson>> {
+): Promise<Outcome<Saved>> {
 	return boundary(c.classifyAdultRequest, { requestKey, expectedRevision, input }, async (v, request) => {
 		const method = correction ? peopleWriter.correctAdultClassification : peopleWriter.recordAdultClassification;
-		const done = outcome(await write(v, (tx, ctx) => method(tx, ctx, request)), () => null);
-		return done.status === "ok" ? plantPerson(v, request.input.personId) : done;
+		const done = outcome(await write(v, (tx, ctx) => method(tx, ctx, request)), (r) => r);
+		return withPerson(v, request.input.personId, done, (person, r) => ({ person, receipt: receipt(r) }));
 	});
 }
 
-// A note changes the person revision, so a note answer is the person as saved now.
+// A note changes the person revision, so a note answer is the person as saved now, with the note's own revision.
+const noteSaved = (person: PlantPerson, r: z.infer<typeof c.noteMutationResult>): NoteSaved => ({
+	person,
+	receipt: receipt(r),
+	note: { id: r.noteId, revision: r.revision },
+});
 export async function addNote(
 	requestKey: string,
 	expectedRevision: string,
 	input: unknown,
-): Promise<Outcome<PlantPerson>> {
+): Promise<Outcome<NoteSaved>> {
 	return boundary(c.addNoteRequest, { requestKey, expectedRevision, input }, async (v, request) => {
-		const done = outcome(await write(v, (tx, ctx) => peopleWriter.addNote(tx, ctx, request)), () => null);
-		return done.status === "ok" ? plantPerson(v, request.input.personId) : done;
+		const done = outcome(await write(v, (tx, ctx) => peopleWriter.addNote(tx, ctx, request)), (r) => r);
+		return withPerson(v, request.input.personId, done, noteSaved);
 	});
 }
 export async function editNote(
 	requestKey: string,
 	expectedRevision: string,
 	input: unknown,
-): Promise<Outcome<PlantPerson>> {
+): Promise<Outcome<NoteSaved>> {
 	return boundary(c.editNoteRequest, { requestKey, expectedRevision, input }, async (v, request) => {
-		const done = outcome(await write(v, (tx, ctx) => peopleWriter.editNote(tx, ctx, request)), () => null);
-		return done.status === "ok" ? plantPerson(v, request.input.personId) : done;
+		const done = outcome(await write(v, (tx, ctx) => peopleWriter.editNote(tx, ctx, request)), (r) => r);
+		return withPerson(v, request.input.personId, done, noteSaved);
 	});
 }
 export async function deleteNote(
 	requestKey: string,
 	expectedRevision: string,
 	input: unknown,
-): Promise<Outcome<PlantPerson>> {
+): Promise<Outcome<NoteSaved>> {
 	return boundary(c.deleteNoteRequest, { requestKey, expectedRevision, input }, async (v, request) => {
-		const done = outcome(await write(v, (tx, ctx) => peopleWriter.deleteNote(tx, ctx, request)), () => null);
-		return done.status === "ok" ? plantPerson(v, request.input.personId) : done;
+		const done = outcome(await write(v, (tx, ctx) => peopleWriter.deleteNote(tx, ctx, request)), (r) => r);
+		return withPerson(v, request.input.personId, done, noteSaved);
 	});
 }
 

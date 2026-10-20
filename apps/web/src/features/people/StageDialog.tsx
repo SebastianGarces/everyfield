@@ -16,7 +16,6 @@ import {
 } from "@everyfield/ui/controls";
 import { StageChip, StatusBadge } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { z } from "zod";
 import { changeStatus } from "./actions.ts";
@@ -59,6 +58,7 @@ export function StageDialog({
 	from,
 	onStage,
 	onDone,
+	onConflict,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -72,10 +72,11 @@ export function StageDialog({
 	 * when answered; null if refused.
 	 */
 	onStage?: (person: PlantPerson | null, columns?: Moved["columns"]) => void;
-	/** After a saved move. The dialog never refreshes the page itself (D68); a caller that needs fresh data does. */
-	onDone?: (person: PlantPerson) => void;
+	/** After a saved move: the saved person, the stage they left and the write's receipt, for the Activity entry. */
+	onDone?: (moved: Moved & { from: StageValue }) => void;
+	/** The move was refused because the person changed elsewhere: the caller reads the latest copy (D68). */
+	onConflict: () => void;
 }) {
-	const router = useRouter();
 	const state = useStore(store);
 	const person = state.saved;
 	const pending = state.pending === "stage";
@@ -121,10 +122,10 @@ export function StageDialog({
 		if (result?.status === "ok") {
 			setTouched(false);
 			onOpenChange(false);
-			onDone?.(result.value.person);
+			onDone?.({ ...result.value, from: person.stage });
 		} else if (result?.status === "refused" && result.code === "conflict") {
 			setRound((r) => r + 1);
-			router.refresh();
+			onConflict();
 		}
 	}
 

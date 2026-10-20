@@ -68,7 +68,8 @@ export function RemoveDialog({
 }: {
 	seat: Seat;
 	workspaceName: string;
-	onRemoved: (message: string) => void;
+	/** The confirmed removal: what to tell the person, and the seat's revision as saved now. */
+	onRemoved: (message: string, revision: Seat["revision"]) => void;
 	onClosedUnconfirmed: () => void;
 	trigger: ReactNode;
 }) {
@@ -151,6 +152,7 @@ export function RemoveDialog({
 			setOpen(false);
 			onRemoved(
 				`${seat.displayName} no longer has a seat. Their person record and history stay.${handed.length ? ` ${handed.join("; ")}.` : ""}`,
+				result.reply.revision,
 			);
 			return;
 		}

@@ -46,12 +46,18 @@ import {
 	parseSeats,
 	type Seat,
 	type SeatsData,
+	withInvitation,
+	withoutInvitation,
+	withPage,
+	withRemoved,
+	withRole,
 } from "./model";
 
 // /settings/seats on the real WP-008 API (REQ-IDN-017, REQ-IDN-019). Everyone with a seat reads the roster. Owners and
 // Admins also invite, resend and revoke, and change or remove ordinary seats; the server returns which actions each
-// seat allows, and the page shows only those. After every change the lists load again, and while they load nothing
-// that would carry an old revision can be sent.
+// seat allows, and the page shows only those. A confirmed change updates the lists from its answer, in one request.
+// A refusal means the page was out of date: the lists load again, and while they load nothing that would carry an old
+// revision can be sent.
 
 async function send<T>(op: SeatOperation, command: unknown, schema: { parse: (v: unknown) => T }): Promise<T> {
 	const reply = await runSeatCommand(op, command);
@@ -103,7 +109,13 @@ export function SeatsScreen({ initial }: { initial: SeatsData }) {
 		);
 	const data = state.data;
 	const place = placeWord(data.kind);
-	const changed = (message: string | null) => {
+	/** A confirmed answer, applied to the lists on screen. A message, when given, replaces the last one. */
+	const apply: Apply = (change, message) => {
+		setState((s) => ("gone" in s ? s : { ...s, data: change(s.data) }));
+		if (message !== undefined) setStatus(message);
+	};
+	/** The page was out of date, or the viewer's own seat changed: the lists load again. */
+	const stale = (message: string | null = null) => {
 		setStatus(message);
 		void reload();
 	};
@@ -131,15 +143,16 @@ export function SeatsScreen({ initial }: { initial: SeatsData }) {
 				/>
 			) : null}
 			{data.canManage ? (
-				<InviteCard key={state.attempt} data={data} refreshing={refreshing} onChanged={changed} />
+				<InviteCard key={state.attempt} data={data} refreshing={refreshing} onApply={apply} onStale={stale} />
 			) : null}
-			<RosterCard data={data} refreshing={refreshing} onChanged={changed} />
+			<RosterCard data={data} refreshing={refreshing} onApply={apply} onStale={stale} />
 			{data.canManage && data.invitations ? (
 				<PendingCard
 					data={data}
 					invitations={data.invitations}
 					refreshing={refreshing}
-					onChanged={changed}
+					onApply={apply}
+					onStale={stale}
 					place={place}
 				/>
 			) : null}
@@ -155,6 +168,9 @@ function Shell({ title, subtitle, children }: { title: string; subtitle: string 
 		</div>
 	);
 }
+
+type Apply = (change: (d: SeatsData) => SeatsData, message?: string | null) => void;
+type Changes = { onApply: Apply; onStale: (message?: string | null) => void };
 
 type InviteCommand = ReturnType<typeof inviteSeatRequest.parse>;
 const ROLE_OPTIONS = [
@@ -182,12 +198,12 @@ function inviteRefused(code: string | null, retryAt: string | null, zone: string
 function InviteCard({
 	data,
 	refreshing,
-	onChanged,
+	onApply,
+	onStale,
 }: {
 	data: SeatsData;
 	refreshing: boolean;
-	onChanged: (message: string | null) => void;
-}) {
+} & Changes) {
 	const [email, setEmail] = useState("");
 	const [role, setRole] = useState<"member" | "admin">("member");
 	const [checked, setChecked] = useState(false);
@@ -227,7 +243,8 @@ function InviteCard({
 		if (result.ok) {
 			setEmail("");
 			setChecked(false);
-			onChanged(`Invitation sent to ${result.reply.invitation.recipientEmail}.`);
+			const invitation = result.reply.invitation;
+			onApply((d) => withInvitation(d, invitation), `Invitation sent to ${invitation.recipientEmail}.`);
 		}
 	}
 
@@ -285,7 +302,7 @@ function InviteCard({
 							variant="secondary"
 							onClick={() => {
 								intent.release();
-								onChanged(null);
+								onStale();
 							}}
 						>
 							Reload the list
@@ -301,17 +318,16 @@ type RoleCommand = ReturnType<typeof appointAdminRequest.parse> | ReturnType<typ
 function RosterCard({
 	data,
 	refreshing,
-	onChanged,
+	onApply,
+	onStale,
 }: {
 	data: SeatsData;
 	refreshing: boolean;
-	onChanged: (message: string | null) => void;
-}) {
+} & Changes) {
 	const roleIntent = useIntent<RoleCommand>("seat-role");
-	const [extra, setExtra] = useState<{ items: Seat[]; next: string | null } | null>(null);
 	const [more, setMore] = useState<"idle" | "loading" | "failed">("idle");
-	const items = [...data.roster.items, ...(extra?.items ?? [])];
-	const next = extra ? extra.next : data.roster.next;
+	const items = data.roster.items;
+	const next = data.roster.next;
 	// The Owner first, then everyone by name. The server pages by seat ID, which says nothing to a reader.
 	const active = items
 		.filter((s) => s.status === "active")
@@ -340,9 +356,12 @@ function RosterCard({
 			(command) => send(command.input.to === "admin" ? "appointAdmin" : "demote", command, seatMutationResult),
 			() => true,
 		);
-		if (result.ok) onChanged(`${seat.displayName} is now ${to === "admin" ? "an Admin" : "a Member"}.`);
+		const said = `${seat.displayName} is now ${to === "admin" ? "an Admin" : "a Member"}.`;
+		// Your own role decides what this page offers you, so a change to it loads the page again.
+		if (result.ok && seat.isSelf) onStale(said);
+		else if (result.ok) onApply((d) => withRole(d, seat.seatId, to, result.reply.revision), said);
 		// A refusal means this screen was out of date; load the current roles and revisions at once.
-		else if (result.problem === "refused") onChanged(null);
+		else if (result.problem === "refused") onStale();
 	}
 
 	async function loadMore() {
@@ -352,7 +371,7 @@ function RosterCard({
 			const r = await readSeatsPage("seats", next);
 			if (r.status !== "ok") throw new Error("refused");
 			const page = seatListResult.parse(r.value);
-			setExtra({ items: [...(extra?.items ?? []), ...page.items], next: page.next });
+			onApply((d) => withPage(d, { list: "seats", value: page }));
 			setMore("idle");
 		} catch {
 			setMore("failed");
@@ -419,8 +438,12 @@ function RosterCard({
 									<RemoveDialog
 										seat={seat}
 										workspaceName={data.workspaceName}
-										onRemoved={onChanged}
-										onClosedUnconfirmed={() => onChanged(null)}
+										onRemoved={(said, revision) =>
+											seat.isSelf
+												? onStale(said)
+												: onApply((d) => withRemoved(d, seat.seatId, revision), said)
+										}
+										onClosedUnconfirmed={() => onStale()}
 										trigger={
 											<Button
 												variant="ghost"
@@ -448,7 +471,7 @@ function RosterCard({
 							variant="secondary"
 							onClick={() => {
 								roleIntent.release();
-								onChanged(null);
+								onStale();
 							}}
 						>
 							Reload the list
@@ -508,23 +531,22 @@ function PendingCard({
 	data,
 	invitations,
 	refreshing,
-	onChanged,
+	onApply,
+	onStale,
 	place,
 }: {
 	data: SeatsData;
 	invitations: Invitations;
 	refreshing: boolean;
-	onChanged: (message: string | null) => void;
 	place: string;
-}) {
+} & Changes) {
 	const resend = useIntent<InvitationCommand>("seat-resend");
 	const revoke = useIntent<InvitationCommand>("seat-revoke");
 	const [last, setLast] = useState<Action>("resend");
 	const [retryAt, setRetryAt] = useState<string | null>(null);
-	const [extra, setExtra] = useState<{ items: PendingInvitation[]; next: string | null } | null>(null);
 	const [more, setMore] = useState<"idle" | "loading" | "failed">("idle");
-	const items = [...invitations.items, ...(extra?.items ?? [])];
-	const next = extra ? extra.next : invitations.next;
+	const items = invitations.items;
+	const next = invitations.next;
 	const intent = last === "resend" ? resend : revoke;
 	const busy = resend.pending ?? revoke.pending;
 	const held = resend.held ?? revoke.held;
@@ -537,41 +559,45 @@ function PendingCard({
 				expectedRevision: invitation.revision,
 				input: { invitationId: invitation.invitationId },
 			});
-		const result =
-			action === "resend"
-				? await resend.run(
-						invitation.invitationId,
-						make,
-						async (command) => {
-							try {
-								return await send("resend", command, invitationSentResult);
-							} catch (e) {
-								setRetryAt(e instanceof SeatRefusal ? e.retryAt : null);
-								throw e;
-							}
-						},
-						() => true,
-					)
-				: await revoke.run(
-						invitation.invitationId,
-						make,
-						(c) => send("revoke", c, invitationRevokedResult),
-						() => true,
-					);
+		if (action === "resend") {
+			const result = await resend.run(
+				invitation.invitationId,
+				make,
+				async (command) => {
+					try {
+						return await send("resend", command, invitationSentResult);
+					} catch (e) {
+						setRetryAt(e instanceof SeatRefusal ? e.retryAt : null);
+						throw e;
+					}
+				},
+				() => true,
+			);
+			if (result.ok)
+				onApply(
+					(d) => withInvitation(d, result.reply.invitation),
+					`A new link went to ${invitation.recipientEmail}. The old link no longer works.`,
+				);
+			return;
+		}
+		const result = await revoke.run(
+			invitation.invitationId,
+			make,
+			(c) => send("revoke", c, invitationRevokedResult),
+			() => true,
+		);
 		if (result.ok)
-			onChanged(
-				action === "resend"
-					? `A new link went to ${invitation.recipientEmail}. The old link no longer works.`
-					: `The invitation to ${invitation.recipientEmail} was revoked.`,
+			return onApply(
+				(d) => withoutInvitation(d, invitation.invitationId),
+				`The invitation to ${invitation.recipientEmail} was revoked.`,
 			);
-		else if (action === "revoke")
-			throw new Error(
-				result.problem === "unknown"
-					? "We could not confirm this. Check your connection, then select Revoke again. It never revokes twice."
-					: result.problem === "busy"
-						? "Another change is still on its way. Wait for it, then try again."
-						: "The invitation was not revoked. It may have been accepted already. Reload the list.",
-			);
+		throw new Error(
+			result.problem === "unknown"
+				? "We could not confirm this. Check your connection, then select Revoke again. It never revokes twice."
+				: result.problem === "busy"
+					? "Another change is still on its way. Wait for it, then try again."
+					: "The invitation was not revoked. It may have been accepted already. Reload the list.",
+		);
 	}
 
 	async function loadMore() {
@@ -581,7 +607,7 @@ function PendingCard({
 			const r = await readSeatsPage("invitations", next);
 			if (r.status !== "ok") throw new Error("refused");
 			const page = invitationListResult.parse(r.value);
-			setExtra({ items: [...(extra?.items ?? []), ...page.items], next: page.next });
+			onApply((d) => withPage(d, { list: "invitations", value: page }));
 			setMore("idle");
 		} catch {
 			setMore("failed");
@@ -670,7 +696,7 @@ function PendingCard({
 							variant="secondary"
 							onClick={() => {
 								intent.release();
-								onChanged(null);
+								onStale();
 							}}
 						>
 							Reload the list

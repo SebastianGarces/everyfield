@@ -1,6 +1,4 @@
-import { parseTheme, ProductRoot, THEME_COOKIE } from "@everyfield/ui/foundations";
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Card } from "@everyfield/ui/controls";
 import { NotAvailable } from "../access/AccessStates";
@@ -22,15 +20,10 @@ import { RealRespond } from "./RealRespond";
 import { RealSharing, type SharingPageData } from "./RealSharing";
 
 // The real organization routes. apps/web/src/app/{settings/sharing,connections/respond} only re-export these.
-// /settings/sharing sits inside the settings layout's product frame (WP-010); the respond page is a bare product page.
+// /settings/sharing sits inside the product frame (WP-010); the respond page is a bare product page.
 
 export const sharingMetadata: Metadata = { title: "Sharing and privacy", robots: { index: false, follow: false } };
 export const respondMetadata: Metadata = { title: "Connection request", robots: { index: false, follow: false } };
-
-async function Frame({ children }: { children: React.ReactNode }) {
-	const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
-	return <ProductRoot initialTheme={theme}>{children}</ProductRoot>;
-}
 
 export async function SharingPage() {
 	const who = await viewerOf();
@@ -102,9 +95,5 @@ export async function SharingPage() {
 type Search = Promise<Record<string, string | string[] | undefined>>;
 export async function RespondPage({ searchParams }: { searchParams: Search }) {
 	const raw = (await searchParams).invitation;
-	return (
-		<Frame>
-			<RealRespond invitationId={typeof raw === "string" ? raw : null} />
-		</Frame>
-	);
+	return <RealRespond invitationId={typeof raw === "string" ? raw : null} />;
 }

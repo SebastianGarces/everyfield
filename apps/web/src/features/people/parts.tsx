@@ -63,6 +63,8 @@ export function useStore<P extends Saved, D>(store: PersonStore<P, D>): PersonSt
 
 export const fresh = () => crypto.randomUUID();
 export const isOk = <T,>(o: Outcome<T> | null): o is { status: "ok"; value: T } => o?.status === "ok";
+/** A refusal because this page's copy is out of date: the screen reads the person again. */
+export const isConflict = <T,>(o: Outcome<T> | null) => o?.status === "refused" && o.code === "conflict";
 export const problemOf = <T,>(o: Outcome<T> | null): string | undefined =>
 	!o || o.status === "ok" ? undefined : o.status === "lost" ? "lost" : o.code;
 
