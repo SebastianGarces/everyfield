@@ -5,33 +5,20 @@
 //     the settings pages keep the same frame, so Sharing is two steps from Seats and there is one main landmark;
 //     closing Your account returns focus to the name button (useReturnFocus, verifier finding on e32ce2b).
 //   INV-settings-member: a Member gets the same menu and reads Seats without the invitation form.
-// It runs against a running app seeded with the People fixture (tests/ui/people/seed.mts):
-//   UI_BASE_URL=https://wp-010-ui-....localhost:1355 PEOPLE_UI_FIXTURE=/tmp/... corepack pnpm test:ui
+// It runs against a running app seeded with the People fixture (tests/ui/people/seed.mts) through the shared setup
+// (tests/ui/setup.mjs).
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { chromium, webkit } from "../../../apps/web/node_modules/playwright/index.mjs";
+import { BASE, ENGINES, fixture, signIn, withPage as onPreview } from "../setup.mjs";
 
-const BASE = process.env.UI_BASE_URL;
-const FIXTURE = process.env.PEOPLE_UI_FIXTURE ?? "/tmp/everyfield-people-ui.json";
 const ITEMS = ["Your account", "Seats and invitations", "Sharing and privacy", "Sign out"];
 
-async function withPage(engine, who, run) {
-	assert.ok(BASE, "Set UI_BASE_URL to a running, seeded preview of this worktree.");
-	const browser = await engine.launch();
-	try {
-		const context = await browser.newContext({
-			viewport: { width: 1440, height: 900 },
-			reducedMotion: "reduce",
-			ignoreHTTPSErrors: true,
-		});
-		const [name, value] = JSON.parse(readFileSync(FIXTURE, "utf8"))[who].cookie.split(/=(.*)/s);
-		await context.addCookies([{ name, value, url: BASE, httpOnly: true, secure: BASE.startsWith("https:") }]);
-		await run(await context.newPage());
-	} finally {
-		await browser.close();
-	}
-}
+/** Opens a page signed in as `who` from the People fixture. */
+const withPage = (engine, who, run) =>
+	onPreview(engine, async (page, context) => {
+		await signIn(context, fixture("people")[who].cookie);
+		await run(page);
+	});
 
 const trigger = (page) => page.getByRole("button", { name: /account menu$/ });
 const menuItems = (page) =>
@@ -45,10 +32,7 @@ async function openMenu(page) {
 	await page.getByRole("menu").waitFor();
 }
 
-for (const [name, engine] of [
-	["chromium", chromium],
-	["webkit", webkit],
-]) {
+for (const [name, engine] of ENGINES) {
 	test(`INV-settings-entry (${name}): the user menu reaches every settings page from People and from Settings`, async () => {
 		await withPage(engine, "owner", async (page) => {
 			await page.goto(`${BASE}/people`, { waitUntil: "networkidle" });

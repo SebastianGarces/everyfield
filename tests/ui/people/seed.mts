@@ -1,71 +1,25 @@
-// Seeds a People preview on the shared development database (WP-011/ui). It creates an isolated schema with its own
-// login roles, applies every migration, signs up real accounts through the identity service, creates a church through
-// the onboarding producer and adds people through the People producer, the same code the screens call.
+// Seeds a People preview on the shared development database (WP-011/ui). It opens the shared tests/ui seed environment
+// (tests/ui/seed-env.mts: one isolated schema, login roles and apps/web/.env.local per worktree), signs up real accounts
+// through the identity service, creates a church through the onboarding producer and adds people through the People
+// producer, the same code the screens call.
 //
 //   up:   node --env-file=<home apps/web/.env.local> --conditions=react-server --import tsx tests/ui/people/seed.mts up <preview-url>
 //   down: node --env-file=<home apps/web/.env.local> --conditions=react-server --import tsx tests/ui/people/seed.mts down
 //
-// `up` writes apps/web/.env.local in this worktree (git-ignored, mode 0600) with the isolated schema's disposable role
-// credentials, so the preview's identity mount and People screens use that schema, and writes the session cookies and
-// IDs the browser tests need to $PEOPLE_UI_FIXTURE (default /tmp/everyfield-people-ui.json). `down` drops the schema and
-// roles and deletes both files. Never point this at production: it refuses any other database host.
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+// `up` writes the session cookies and IDs the browser tests need to $PEOPLE_UI_FIXTURE (default
+// /tmp/everyfield-people-ui.json). `down` deletes it and drops the shared schema when no other seed still uses it.
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { createIdentityService } from "../../../packages/domain/src/identity/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { peopleWriter, accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
-import { randomBytes, randomUUID } from "node:crypto";
-import { readFileSync, rmSync, writeFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { randomUUID } from "node:crypto";
+import { dropSeed, openSeedEnvironment, writeFixture } from "../seed-env.mts";
 
-const ENV_FILE = fileURLToPath(new URL("../../../apps/web/.env.local", import.meta.url));
-const FIXTURE = process.env.PEOPLE_UI_FIXTURE ?? "/tmp/everyfield-people-ui.json";
 const PASSWORD = "People-preview-pass-1";
 
-function adminUrl() {
-	const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-	if (
-		source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech" ||
-		process.env.NODE_ENV === "production"
-	)
-		throw Error("Approved shared development database required");
-	source.searchParams.set("sslmode", "verify-full");
-	return source;
-}
-
 async function up(origin: string) {
-	if (!/^https?:\/\/[a-z0-9.-]+\.localhost(:\d+)?$/.test(origin)) throw Error("Give the local preview URL");
-	const source = adminUrl();
-	const schema = "wp011ui_" + randomUUID().replaceAll("-", "").slice(0, 16),
-		role = "wp011ui_" + randomBytes(6).toString("hex"),
-		authRole = role + "_auth",
-		password = randomBytes(24).toString("hex");
-	const options = `-c search_path=${schema},pg_catalog,pg_temp`;
-	writeFileSync(FIXTURE, JSON.stringify({ schema, role, authRole }), { mode: 0o600 });
-	const admin = createDatabase({ connectionString: source.href, max: 4, options });
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	for (const [name, grant] of [
-		[role, "everyfield_runtime"],
-		[authRole, "everyfield_auth"],
-	] as const) {
-		await admin.execute(
-			sql.raw(
-				`CREATE ROLE ${name} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-			),
-		);
-		await admin.execute(sql.raw(`GRANT ${grant} TO ${name}`));
-	}
-	const url = (name: string) => {
-		const u = new URL(source);
-		u.username = name;
-		u.password = password;
-		return u;
-	};
-	const runtime = createDatabase({ connectionString: url(role).href, max: 4, options });
-	const authDb = createDatabase({ connectionString: url(authRole).href, max: 4, options });
-	const secret = randomBytes(32).toString("hex");
+	const env = await openSeedEnvironment(origin);
+	const { admin, runtime, authDb, secret } = env;
 	// Registration admission is limited per address; each seeded account signs up from its own loopback address.
 	let ip = 1;
 	const identity = createIdentityService({
@@ -75,7 +29,7 @@ async function up(origin: string) {
 		scheduleDelivery: () => {},
 		origin,
 		secret,
-		trustedIp: () => `127.0.0.${ip}`,
+		trustedIp: () => env.loopback("people", ip),
 		// Verification mail is skipped: the seed marks the address verified directly below.
 		enqueueMail: async () => {},
 		diagnostic: () => {},
@@ -227,68 +181,20 @@ async function up(origin: string) {
 		VALUES (${plant.id},'Call James','follow_up','medium','not_started',clock_timestamp(),'date_only',(current_date - 3)::date,${people["James Okafor"]!.id}),
 		       (${plant.id},'Invite Mia','follow_up','medium','not_started',clock_timestamp(),'undated',NULL,${people["Mia Hall"]!.id})`);
 
-	const settings = (name: string) => {
-		const u = url(name);
-		u.searchParams.set("options", options);
-		return u.href;
-	};
-	writeFileSync(
-		ENV_FILE,
-		[
-			`IDENTITY_DATABASE_URL=${settings(role)}`,
-			`IDENTITY_AUTH_DATABASE_URL=${settings(authRole)}`,
-			`IDENTITY_ORIGIN=${origin}`,
-			`IDENTITY_SECRET=${secret}`,
-			`IDENTITY_MAIL_KEY=${randomBytes(32).toString("hex")}`,
-			`IDENTITY_ADDRESS_KEY=${randomBytes(32).toString("hex")}`,
-			`IDENTITY_MAIL_FROM=security@example.test`,
-			"",
-		].join("\n"),
-		{ mode: 0o600 },
-	);
-	writeFileSync(
-		FIXTURE,
-		JSON.stringify(
-			{
-				schema,
-				role,
-				authRole,
-				origin,
-				plant: plant.id,
-				owner: { cookie: owner.cookie, accountId: owner.accountId },
-				member: { cookie: member.cookie, accountId: member.accountId },
-				seatless: { cookie: seatless.cookie },
-				organization: { cookie: organizer.cookie },
-				people: Object.fromEntries(Object.entries(people).map(([k, v]) => [k, v.id])),
-			},
-			null,
-			"\t",
-		),
-		{ mode: 0o600 },
-	);
-	await closeDatabase(runtime);
-	await closeDatabase(authDb);
-	await closeDatabase(admin);
-	console.log(JSON.stringify({ schema, fixture: FIXTURE, env: ENV_FILE }));
-}
-
-async function down() {
-	const state = JSON.parse(readFileSync(FIXTURE, "utf8")) as { schema: string; role: string; authRole: string };
-	if (!/^wp011ui_[a-f0-9]+$/.test(state.schema)) throw Error("Not a People seed schema");
-	const admin = createDatabase({ connectionString: adminUrl().href, max: 1 });
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${state.schema} CASCADE`));
-		for (const r of [state.role, state.authRole])
-			if (/^wp011ui_[a-f0-9]+(_auth)?$/.test(r)) await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${r}`));
-	} finally {
-		await closeDatabase(admin);
-	}
-	rmSync(ENV_FILE, { force: true });
-	rmSync(FIXTURE, { force: true });
-	console.log(JSON.stringify({ dropped: state.schema }));
+	const fixture = writeFixture("people", env.schema, {
+		origin,
+		plant: plant.id,
+		owner: { cookie: owner.cookie, accountId: owner.accountId },
+		member: { cookie: member.cookie, accountId: member.accountId },
+		seatless: { cookie: seatless.cookie },
+		organization: { cookie: organizer.cookie },
+		people: Object.fromEntries(Object.entries(people).map(([k, v]) => [k, v.id])),
+	});
+	await env.close();
+	console.log(JSON.stringify({ schema: env.schema, fresh: env.fresh, fixture }));
 }
 
 const [action, arg] = process.argv.slice(2);
 if (action === "up" && arg) await up(arg.replace(/\/$/, ""));
-else if (action === "down") await down();
+else if (action === "down") console.log(JSON.stringify(await dropSeed("people")));
 else throw Error("Usage: seed.mts up <preview-url> | down");
