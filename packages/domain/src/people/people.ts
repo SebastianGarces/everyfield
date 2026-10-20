@@ -1,4 +1,4 @@
-import { and, asc, eq, isNotNull, isNull, lte, or, sql } from "@everyfield/db/query";
+import { and, asc, inArray, eq, isNotNull, isNull, lte, or, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 
 import { randomUUID } from "node:crypto";
@@ -103,46 +103,25 @@ async function handoff(tx: Tx, ctx: Context, p: Person, choices: z.infer<typeof 
 		duties.some((d) => !byId.has(recordId.parse(d.id)))
 	)
 		deny("conflict");
-	const needsOwner: string[] = [];
-	for (const duty of duties) {
-		const choice = byId.get(recordId.parse(duty.id))!;
-		if (choice.expectedRevision !== duty.revision) deny("conflict");
-		if (choice.kind === "assign") {
-			const target = await person(tx, ctx, choice.toPersonId, true);
-			live(target);
-			if (target.id === p.id) deny("invalid_subject");
-			const eligible = await tx
-				.select({ id: tables.seat.id })
-				.from(tables.seat)
-				.where(
-					and(
-						and(
-							and(
-								eq(tables.seat.plant_id, ctx.selected.id),
-								sql`${tables.seat.account_id} = ${target.linked_account_id}`,
-							),
-							isNull(tables.seat.ended_at),
-						),
-						lte(
-							tables.seat.accepted_at,
-							sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-						),
-					),
-				)
-				.for("share");
-			if (!eligible.length) deny();
-			await tx
-				.update(tables.task)
-				.set({ assignee_id: target.linked_account_id, revision: sql<unknown>`(${tables.task.revision} + 1)` })
-				.where(eq(tables.task.id, duty.id));
-		} else {
-			await tx
-				.update(tables.task)
-				.set({ assignee_id: null, revision: sql<unknown>`(${tables.task.revision} + 1)` })
-				.where(eq(tables.task.id, duty.id));
-			needsOwner.push(duty.id);
-		}
-	}
+
+ const assignments=choices.filter(choice=>choice.kind==='assign');
+ const targetIds=assignments.map(choice=>choice.toPersonId);
+ const targets=targetIds.length ? await tx.select().from(tables.person).where(and(inArray(tables.person.id,targetIds),eq(tables.person.tenant_id,ctx.selected.id))).orderBy(tables.person.id).for('update') : [];
+ const accounts=targets.flatMap(target=>target.linked_account_id?[target.linked_account_id]:[]);
+ const seats=accounts.length ? await tx.select({account:tables.seat.account_id}).from(tables.seat).where(and(inArray(tables.seat.account_id,accounts),eq(tables.seat.plant_id,ctx.selected.id),isNull(tables.seat.ended_at),sql`${tables.seat.accepted_at}<=clock_timestamp()`)).for('share'):[];
+ const needsOwner:string[]=[];
+ const changes=duties.map(duty=>{
+  const choice=byId.get(recordId.parse(duty.id))!;
+  if(choice.expectedRevision!==duty.revision) deny('conflict');
+  if(choice.kind!=='assign') {needsOwner.push(duty.id);return {id:duty.id,account:null};}
+  const target=targets.find(target=>target.id===choice.toPersonId);
+  if(!target || target.state!=='live') deny();
+  if(target.id===p.id) deny('invalid_subject');
+  if(!seats.some(seat=>seat.account===target.linked_account_id)) deny();
+  return {id:duty.id,account:target.linked_account_id};
+ });
+ if(changes.length) await tx.execute(sql`UPDATE task t SET assignee_id=v.account,revision=t.revision+1 FROM jsonb_to_recordset(${JSON.stringify(changes)}::jsonb) v(id uuid,account uuid) WHERE t.id=v.id`);
+
 	return needsOwner;
 }
 export const peopleWriter: PeopleWriter<Tx> = {
@@ -207,7 +186,7 @@ export const peopleWriter: PeopleWriter<Tx> = {
 							.update(tables.person)
 							.set({ stage: input.input.stage, revision: sql<unknown>`(${tables.person.revision} + 1)` })
 							.where(eq(tables.person.id, before.id));
-					const after = await person(tx, ctx, before.id, true);
+					const after=personRow.parse({...before,stage:noop?before.stage:input.input.stage,revision:noop?before.revision:String(BigInt(before.revision)+1n)});
 					return {
 						value: await output(tx, ctx, after, id, needsOwner, noop ? "noop" : "changed"),
 						subject: before.id,
@@ -288,17 +267,20 @@ export async function retire(
 					)[0]!.material_revision
 				: before.revision;
 		if (input.input.reviewRevision !== review) deny("conflict");
+		let after=before;
 		const needsOwner = before.state === "live" ? await handoff(tx, ctx, before, input.input.handoffs) : [];
 		// Existing historical endpoints remain; current leadership is ended explicitly.
 		if (before.state === "live") {
-			await tx
+			const [updated] = await tx
 				.update(tables.person)
 				.set({
 					state: "retired",
+					...(ctx.selected.kind==="plant"?{household_id:null,household_role:null}:{}),
 					retired_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
 					revision: sql<unknown>`(${tables.person.revision} + 1)`,
 				})
-				.where(eq(tables.person.id, before.id));
+				.where(eq(tables.person.id, before.id)).returning();
+			after=personRow.parse(updated);
 			if (ctx.selected.kind === "plant") {
 				await tx
 					.update(tables.team_tenure)
@@ -313,10 +295,6 @@ export async function retire(
 						),
 					);
 				await tx
-					.update(tables.person)
-					.set({ household_id: null, household_role: null })
-					.where(eq(tables.person.id, before.id));
-				await tx
 					.update(tables.team)
 					.set({
 						leader_person_id: null,
@@ -327,8 +305,7 @@ export async function retire(
 					.where(and(eq(tables.team.plant_id, ctx.selected.id), eq(tables.team.leader_person_id, before.id)));
 			}
 		}
-		const after = await person(tx, ctx, before.id, true),
-			outcome = before.state === "retired" ? "noop" : "changed";
+		const outcome = before.state === "retired" ? "noop" : "changed";
 		return {
 			value: await output(tx, ctx, after, id, needsOwner, outcome),
 			subject: before.id,
@@ -350,12 +327,14 @@ export async function restore(
 		const before = await person(tx, ctx, input.input.personId, true);
 		expected(before, input.expectedRevision);
 		if (before.state === "merged") deny("use_reviewed_unmerge");
+		let after=before;
 		if (before.state === "retired") {
 			try {
-				await tx
+				const [updated]=await tx
 					.update(tables.person)
 					.set({ state: "live", retired_at: null, revision: sql<unknown>`(${tables.person.revision} + 1)` })
-					.where(eq(tables.person.id, before.id));
+					.where(eq(tables.person.id, before.id)).returning();
+				after=personRow.parse(updated);
 			} catch (error) {
 				// The unique live account/plant index also arbitrates concurrent relinks.
 				// reply() rolls this statement back to its savepoint before returning.
@@ -371,8 +350,7 @@ export async function restore(
 				throw error;
 			}
 		}
-		const after = await person(tx, ctx, before.id, true),
-			outcome = before.state === "live" ? "noop" : "changed";
+		const outcome = before.state === "live" ? "noop" : "changed";
 		return {
 			value: await output(tx, ctx, after, id, [], outcome),
 			subject: before.id,
@@ -477,7 +455,7 @@ async function note(tx: Tx, ctx: WriteContext, input: NoteInput, kind: "add" | "
 				.update(tables.person)
 				.set({ revision: sql<unknown>`(${tables.person.revision} + 1)` })
 				.where(eq(tables.person.id, before.id));
-			const after = await person(tx, ctx, before.id, true);
+			const after=personRow.parse({...before,revision:String(BigInt(before.revision)+1n)});
 			return {
 				value: {
 					receiptId: id,
@@ -524,7 +502,7 @@ async function classify(tx: Tx, ctx: WriteContext, raw: unknown, correction: boo
 							revision: sql<unknown>`(${tables.person.revision} + 1)`,
 						})
 						.where(eq(tables.person.id, before.id));
-					const after = await person(tx, ctx, before.id, true),
+					const after=personRow.parse({...before,adult_classification:input.input.classification,revision:String(BigInt(before.revision)+1n)}),
 						dto = c.plantPerson.parse(await project(tx, ctx, after));
 					const first = await tx
 						.select({ id: tables.commitment.id, signed_on: tables.commitment.signed_on })

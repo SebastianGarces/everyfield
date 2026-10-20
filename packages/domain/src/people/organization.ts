@@ -121,36 +121,10 @@ export const organizationPeople: OrganizationPeopleProducer<Tx> = {
 				await mutation(tx, ctx, "orgPeople.remove", input, async (actor, id) => {
 					const before = await person(tx, ctx, input.input.personId, true);
 					expected(before, input.expectedRevision);
-					const links = await tx
-						.select({ id: tables.residency_link.id, affiliation_id: tables.residency_link.affiliation_id })
-						.from(tables.residency_link)
-						.where(
-							and(eq(tables.residency_link.organization_id, org.id), eq(tables.residency_link.person_id, before.id)),
-						)
-						.for("update");
-					for (const link of links) {
-						await tx
-							.update(tables.residency_link)
-							.set({
-								ended_at: sql<Date>`coalesce(${tables.residency_link.ended_at}, clock_timestamp())`.mapWith(
-									(value: string) => new Date(value),
-								),
-								share_foundations: false,
-								share_milestones: false,
-								consent_revision: sql<unknown>`(${tables.residency_link.consent_revision} + 1)`,
-								revision: sql<unknown>`(${tables.residency_link.revision} + 1)`,
-							})
-							.where(eq(tables.residency_link.id, link.id));
-						await tx
-							.update(tables.affiliation)
-							.set({
-								ended_at: sql<Date>`coalesce(${tables.affiliation.ended_at}, clock_timestamp())`.mapWith(
-									(value: string) => new Date(value),
-								),
-								revision: sql<unknown>`(${tables.affiliation.revision} + 1)`,
-							})
-							.where(eq(tables.affiliation.id, link.affiliation_id));
-					}
+					const links=await tx.execute(sql`WITH ended AS (
+ UPDATE residency_link SET ended_at=coalesce(ended_at,clock_timestamp()),share_foundations=false,share_milestones=false,consent_revision=consent_revision+1,revision=revision+1
+ WHERE organization_id=${org.id}::uuid AND person_id=${before.id}::uuid RETURNING affiliation_id
+) UPDATE affiliation a SET ended_at=coalesce(a.ended_at,clock_timestamp()),revision=a.revision+1 FROM ended WHERE a.id=ended.affiliation_id RETURNING a.id`);
 					await tx
 						.update(tables.invitation)
 						.set({
@@ -308,7 +282,7 @@ export const organizationPeople: OrganizationPeopleProducer<Tx> = {
 									},
 								]
 							: []),
-						...(links.length
+						...(links.rowCount
 							? [
 									{
 										category: "relationship_receipt",
