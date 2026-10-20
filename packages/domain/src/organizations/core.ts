@@ -98,6 +98,7 @@ const affiliationSchema = z.object({
 	account_id: accountId.nullable(),
 	sending_church_id: tenantId.nullable(),
 	organization_id: tenantId,
+	organization_name: z.string(),
 	organization_kind: z.enum(["sending_church", "sending_network"]),
 	subject_kind: z.enum(["sending_church", "sending_network"]).nullable(),
 	accepted_at: z.date(),
@@ -121,6 +122,7 @@ export async function loadAffiliation(tx: Transaction, id: string, write = false
 		.select({
 			...getTableColumns(tables.affiliation),
 			organization_kind: receivingOrganization.kind,
+			organization_name: receivingOrganization.name,
 			subject_kind: sendingOrganization.kind,
 		})
 		.from(tables.affiliation)

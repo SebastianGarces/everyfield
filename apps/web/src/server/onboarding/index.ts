@@ -7,6 +7,7 @@ import type { OnboardingWriteContext } from "@everyfield/contracts/onboarding/se
 import { readAccountContact } from "@everyfield/domain/identity";
 import {
 	createOnboardingProducer,
+	withOnboardingWrite,
 	readOnboardingEntry,
 	readOnboardingNoticeRecipients,
 } from "@everyfield/domain/onboarding";
@@ -132,20 +133,20 @@ export async function onboardingCommand(op: Op, input: unknown): Promise<Reply> 
 	});
 	const account = write({ kind: "account", id: s.accountId });
 	const p = m.producer;
-	const run = (body: (tx: Parameters<Parameters<Database["transaction"]>[0]>[0]) => Promise<Reply>) =>
-		m.db.transaction(body);
+	const run = (context: OnboardingWriteContext, body: (tx: Parameters<Parameters<Database["transaction"]>[0]>[0]) => Promise<Reply>) =>
+		withOnboardingWrite(m.db,s.authority ?? undefined,context,body);
 	switch (op) {
 		case "createPlant": {
 			const q = c.createPlantRequest.safeParse(input);
-			return q.success ? run((tx) => p.createPlant(tx, account, q.data)) : refusal("invalid_input");
+			return q.success ? run(account,(tx) => p.createPlant(tx, account, q.data)) : refusal("invalid_input");
 		}
 		case "createDiscovery": {
 			const q = c.createDiscoveryRequest.safeParse(input);
-			return q.success ? run((tx) => p.createDiscovery(tx, account, q.data)) : refusal("invalid_input");
+			return q.success ? run(account,(tx) => p.createDiscovery(tx, account, q.data)) : refusal("invalid_input");
 		}
 		case "convertDiscovery": {
 			const q = c.convertDiscoveryRequest.safeParse(input);
-			return q.success ? run((tx) => p.convertDiscovery(tx, account, q.data)) : refusal("invalid_input");
+			return q.success ? run(account,(tx) => p.convertDiscovery(tx, account, q.data)) : refusal("invalid_input");
 		}
 	}
 	// Setup commands act on the account's own plant seat, never on a plant named by the browser.
@@ -155,15 +156,15 @@ export async function onboardingCommand(op: Op, input: unknown): Promise<Reply> 
 	switch (op) {
 		case "declareJourney": {
 			const q = c.declareJourneyRequest.safeParse(input);
-			return q.success ? run((tx) => p.declareJourney(tx, plant, q.data)) : refusal("invalid_input");
+			return q.success ? run(plant,(tx) => p.declareJourney(tx, plant, q.data)) : refusal("invalid_input");
 		}
 		case "answerLead": {
 			const q = c.answerLeadRequest.safeParse(input);
-			return q.success ? run((tx) => p.answerLead(tx, plant, q.data)) : refusal("invalid_input");
+			return q.success ? run(plant,(tx) => p.answerLead(tx, plant, q.data)) : refusal("invalid_input");
 		}
 		case "complete": {
 			const q = c.completeOnboardingRequest.safeParse(input);
-			return q.success ? run((tx) => p.complete(tx, plant, q.data)) : refusal("invalid_input");
+			return q.success ? run(plant,(tx) => p.complete(tx, plant, q.data)) : refusal("invalid_input");
 		}
 	}
 }

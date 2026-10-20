@@ -57,21 +57,7 @@ export function profileOperations(
 			const row = profileRow.parse(
 				(await tx.select().from(tables.organization).where(eq(tables.organization.id, selected.id)).for("share"))[0],
 			);
-			return Q.organizationProfileResult.parse({
-				status: "available",
-				organization: q.organization,
-				revision: row.revision,
-				timeZone: row.timezone,
-				profile: {
-					name: row.name,
-					city: row.city,
-					stateProvince: row.state_province,
-					country: row.country,
-					description: row.description,
-					contactEmail: row.contact_email,
-					contactPhone: row.contact_phone,
-				},
-			});
+			return profileValue(row,q.organization);
 		},
 		async "organizations.updateProfile"(tx, session, selected, raw) {
 			const q = Q.updateOrganizationProfileRequest.parse(raw),
@@ -195,8 +181,11 @@ export async function applyOrganizationProfile(
 	id: string,
 	input: z.infer<typeof Q.updateOrganizationProfileRequest>["input"]["patch"],
 	expected: string,
+	locked?: typeof tables.organization.$inferSelect,
 ) {
-	const [stored] = await tx.select().from(tables.organization).where(eq(tables.organization.id, id)).for("update");
+	const stored = locked ?? (await tx.select().from(tables.organization).where(eq(tables.organization.id,id)).for("update"))[0];
+	if(!stored) refuse();
+	const organization=Q.organizationOwner.parse({kind:"organization",id,organizationKind:stored.kind});
 	const row = profileRow.parse(stored);
 	checkRevision(expected, row.revision);
 	const fields = {
@@ -218,7 +207,7 @@ export async function applyOrganizationProfile(
 		if (field === "name") patch.name = z.string().parse(value);
 		else patch[field] = value;
 	}
-	if (!Object.keys(patch).length) return { changed: false, events: [] as string[] };
+	if (!Object.keys(patch).length) return { changed: false, events: [] as string[], current:profileValue(row,organization) };
 	await tx
 		.update(tables.organization)
 		.set({ ...patch, revision: sql`${tables.organization.revision}+1` })
@@ -232,5 +221,23 @@ export async function applyOrganizationProfile(
 		row.revision,
 		String(BigInt(row.revision) + 1n),
 	);
-	return { changed: true, events: [event] };
+	return { changed: true, events: [event], current:profileValue(profileRow.parse({...row,...patch,revision:String(BigInt(row.revision)+1n)}),organization) };
+}
+
+export function profileValue(row: z.infer<typeof profileRow>, organization: z.infer<typeof Q.organizationOwner>) {
+			return Q.organizationProfileResult.parse({
+				status: "available",
+				organization: organization,
+				revision: row.revision,
+				timeZone: row.timezone,
+				profile: {
+					name: row.name,
+					city: row.city,
+					stateProvince: row.state_province,
+					country: row.country,
+					description: row.description,
+					contactEmail: row.contact_email,
+					contactPhone: row.contact_phone,
+				},
+			});
 }

@@ -3,7 +3,7 @@ import * as tables from "@everyfield/db/tables";
 import { alias } from "@everyfield/db/columns";
 import type { Transaction } from "@everyfield/db/client";
 import type { z } from "zod";
-import type { Owner, sessionId } from "@everyfield/contracts/common";
+import { revision, type Owner, type sessionId } from "@everyfield/contracts/common";
 import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
 import * as Q from "@everyfield/contracts/organizations";
 import {
@@ -153,10 +153,10 @@ export async function applySharingMutation(
 	effects: OrganizationEffects,
 ) {
 	const before = choices(a);
-	const patch: Partial<typeof tables.affiliation.$inferInsert> = {};
+	const patch: Partial<Record<(typeof columns)[keyof typeof columns],boolean>> = {};
 	for (const category of Q.sharingChoices.keyof().options)
 		if (before[category] !== nextChoices[category]) patch[columns[category]] = nextChoices[category];
-	if (!Object.keys(patch).length) return { changed: false, events: [] as string[] };
+	if (!Object.keys(patch).length) return { changed: false, events: [] as string[], current:a };
 	await tx
 		.update(tables.affiliation)
 		.set({
@@ -176,5 +176,5 @@ export async function applySharingMutation(
 		revision: next,
 		operationId: c.id,
 	});
-	return { changed: true, events: [event] };
+	return { changed: true, events: [event], current:{...a,...patch,revision:revision.parse(next),consent_revision:revision.parse(String(BigInt(a.consent_revision)+1n))} };
 }

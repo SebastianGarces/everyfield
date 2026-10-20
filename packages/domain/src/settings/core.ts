@@ -2,9 +2,10 @@ import { claimOperation, executeWrites } from "../operations/writes.ts";
 import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
-import type { Transaction } from "@everyfield/db/client";
+import type { Database, Transaction } from "@everyfield/db/client";
 import * as t from "@everyfield/db/tables";
 import { and, eq, gt, isNull, lte, sql } from "@everyfield/db/query";
+import { RequestActor } from "../access/session.ts";
 import { lock as lockSeats } from "../identity/invitation-core.ts";
 import { currentActor, liveOwner, requestWrite, lockWriteAuthority, currentWriteAllowed } from "../access/session.ts";
 import { canonical, appendEvent } from "../organizations/core.ts";
@@ -43,8 +44,12 @@ export function revision(expected: string, actual: string) {
 	if (expected !== actual) deny("conflict");
 }
 export async function reply<T>(tx: Tx, body: (tx: Tx) => Promise<T>): Promise<SettingsReply<T>> {
+	if(requestWrite(tx)) return {status:"ok",value:await body(tx)};
+	return recover(async()=>({status:"ok",value:await tx.transaction(body)}));
+}
+async function recover<T>(body:()=>Promise<SettingsReply<T>>):Promise<SettingsReply<T>> {
 	try {
-		return { status: "ok", value: await tx.transaction(body) };
+		return await body();
 	} catch (e) {
 		if (!(e instanceof Refusal)) throw e;
 		const retry =
@@ -238,4 +243,14 @@ export async function calendarEligible(tx: Tx, id: string) {
 			),
 		);
 	return !!s && (await liveOwner(tx, { kind: "plant", id: tenantId.parse(s.plant_id) }));
+}
+
+/** The request owns rollback; native writes need no nested savepoint. */
+export async function withSettingsWrite<T>(db:Database, authority:RequestActor | undefined, context:WriteContext, body:(tx:Tx)=>Promise<SettingsReply<T>>):Promise<SettingsReply<T>> {
+ return recover(()=>db.transaction(async tx=>{
+  if(authority && !(await authority.bind(tx,context.selected,true))) deny();
+  const result=await body(tx);
+  if(result.status==="refused") throw new Refusal(result.error.code);
+  return result;
+ }));
 }

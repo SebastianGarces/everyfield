@@ -14,6 +14,7 @@ import {
 	type Viewer,
 	type Kind,
 } from "@everyfield/domain/organizations";
+import type { RequestActor } from "@everyfield/domain/access";
 import { getViewer } from "../request-context";
 import { createMailService } from "../jobs/mail";
 import { enqueueJob } from "../jobs/queue";
@@ -112,7 +113,7 @@ type Mount = NonNullable<ReturnType<typeof current>>;
 export type { Kind, Viewer } from "@everyfield/domain/organizations";
 /** Who is asking, from the session and the one current seat. Seatless accounts count only with a Discovery profile. */
 export async function viewerOf(): Promise<
-	{ kind: "signed_out" } | { kind: "unavailable" } | { kind: "viewer"; viewer: Viewer; mount: Mount }
+	{ kind: "signed_out" } | { kind: "unavailable" } | { kind: "viewer"; viewer: Viewer; mount: Mount; authority: RequestActor }
 > {
 	const m = current();
 	if (!m) return { kind: "unavailable" };
@@ -120,7 +121,9 @@ export async function viewerOf(): Promise<
 	if (!s) return { kind: "unavailable" };
 	if (s.status === "unauthenticated") return { kind: "signed_out" };
 	if (s.status !== "active") return { kind: "unavailable" };
-	const actor = s.authority?.actor;
+	const authority=s.authority;
+	if(!authority) return {kind:"unavailable"};
+	const actor = authority.actor;
 	if (!actor) return { kind: "unavailable" };
 	const context = actor.context;
 	const selected = context.owner;
@@ -135,6 +138,7 @@ export async function viewerOf(): Promise<
 	return {
 		kind: "viewer",
 		mount: m,
+		authority,
 		viewer: {
 			kind,
 			session: s.sessionId,
@@ -146,13 +150,16 @@ export async function viewerOf(): Promise<
 }
 
 /** Run one operation for this viewer. Residency consent is the resident's own, so it runs as the account. */
-export async function runOperation(m: Mount, viewer: Viewer, op: Operation, input: unknown): Promise<Reply> {
+export async function runOperation(m: Mount, viewer: Viewer, op: Operation, input: unknown, authority:RequestActor): Promise<Reply> {
 	const selected = op.startsWith("residency.")
 		? owner.parse({ kind: "account", id: viewer.accountId })
 		: viewer.selected;
 	const call = m.adapter[op] as (tx: Transaction, s: Viewer["session"], o: Owner, i: unknown) => Promise<unknown>;
 	try {
-		const value = await m.db.transaction((tx) => call(tx, viewer.session, selected, input));
+		const value = await m.db.transaction(async (tx) => {
+			if(!(await authority.bind(tx,selected))) throw new Error("unavailable");
+			return call(tx, viewer.session, selected, input);
+		});
 		return { status: "ok", value };
 	} catch (e) {
 		if (e instanceof z.ZodError) return { status: "refused", code: "invalid_input" };

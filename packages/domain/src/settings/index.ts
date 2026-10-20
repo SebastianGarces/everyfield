@@ -31,3 +31,5 @@ export { uploadAvatar, readAvatar } from "./avatar.ts";
 export type { SettingsEffects } from "./sections.ts";
 export type { PersonalCalendar } from "./timezones.ts";
 export { Refusal } from "./core.ts";
+
+export { withSettingsWrite } from "./core.ts";

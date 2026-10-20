@@ -2,10 +2,10 @@ import { claimOperation, executeWrites } from "../operations/writes.ts";
 import "server-only";
 import { randomUUID, createHash } from "node:crypto";
 import { z } from "zod";
-import type { Transaction } from "@everyfield/db/client";
+import type { Database, Transaction } from "@everyfield/db/client";
 import * as t from "@everyfield/db/tables";
 import { and, eq, isNull, sql, gt, lte } from "@everyfield/db/query";
-import { currentActor, liveOwner, requestWrite, lockWriteAuthority } from "../access/session.ts";
+import { RequestActor, currentActor, liveOwner, requestWrite, lockWriteAuthority } from "../access/session.ts";
 import { receipt, requestIdentity, sessionId, accountId, type Receipt } from "@everyfield/contracts/common";
 import { onboardingError } from "@everyfield/contracts/onboarding";
 import type {
@@ -43,12 +43,15 @@ export function stable(value: unknown): string {
 }
 export const hash = (v: unknown) => createHash("sha256").update(stable(v)).digest("hex");
 export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<OnboardingReply<T>> {
-	return tx
+	if(requestWrite(tx)) return {status:"ok", value:await body()};
+	return recover(() => tx
 		.transaction(async (savepoint) => {
 			void savepoint;
 			return { status: "ok" as const, value: await body() };
-		})
-		.catch((error) => {
+		}) );
+}
+async function recover<T>(body:()=>Promise<OnboardingReply<T>>):Promise<OnboardingReply<T>> {
+	return body().catch((error) => {
 			if (!(error instanceof Refusal)) throw error;
 			return {
 				status: "refused" as const,
@@ -288,4 +291,14 @@ export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S>
 	const result = schema.safeParse(raw);
 	if (!result.success) deny("invalid_input");
 	return result.data;
+}
+
+/** The request owns rollback; native writes need no nested savepoint. */
+export async function withOnboardingWrite<T>(db:Database, authority:RequestActor | undefined, context:WriteContext, body:(tx:Tx)=>Promise<OnboardingReply<T>>):Promise<OnboardingReply<T>> {
+ return recover(()=>db.transaction(async tx=>{
+  if(authority && !(await authority.bind(tx,context.selected,true))) deny();
+  const result=await body(tx);
+  if(result.status==="refused") throw new Refusal(result.error.code);
+  return result;
+ }));
 }

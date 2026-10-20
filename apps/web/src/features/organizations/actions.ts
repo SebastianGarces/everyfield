@@ -43,7 +43,7 @@ export async function runOrganizationOperation(name: string, input: unknown): Pr
 	if (!op.success) return refused;
 	const who = await viewerOf();
 	if (who.kind !== "viewer") return refused;
-	return runOperation(who.mount, who.viewer, op.data, input);
+	return runOperation(who.mount, who.viewer, op.data, input, who.authority);
 }
 
 /** One history page of this viewer's own scope, with the names it shows. */
@@ -54,7 +54,7 @@ export async function loadHistoryPage(after: string | null) {
 	const reply = await runOperation(who.mount, who.viewer, "associations.getHistory", {
 		...scopeOf(who.viewer),
 		...cursor,
-	});
+	}, who.authority);
 	if (reply.status !== "ok") return { page: { status: "unavailable" as const }, names: {} };
 	const page = reply.value as Parameters<typeof idsIn>[0] & { status: string };
 	const names = page.status === "available" ? await namesFor(who.mount.db, who.viewer, idsIn(page)) : {};
@@ -101,7 +101,7 @@ export async function loadResidency(linkId: string) {
 	const who = await viewerOf();
 	if (who.kind !== "viewer") return unavailable;
 	const [reply, linkRevision] = await Promise.all([
-		runOperation(who.mount, who.viewer, "residency.readSharing", { linkId }),
+		runOperation(who.mount, who.viewer, "residency.readSharing", { linkId }, who.authority),
 		residencyRevision(who.mount.db, who.viewer, linkId),
 	]);
 	if (reply.status !== "ok" || linkRevision === null) return unavailable;
@@ -114,7 +114,7 @@ export async function loadSharing(relationshipId: string, request: unknown) {
 	const who = await viewerOf();
 	if (who.kind !== "viewer") return unavailable;
 	const [reply, relationshipRevision] = await Promise.all([
-		runOperation(who.mount, who.viewer, "privacy.getSharing", request),
+		runOperation(who.mount, who.viewer, "privacy.getSharing", request, who.authority),
 		connectionRevision(who.mount.db, who.viewer, relationshipId),
 	]);
 	if (reply.status !== "ok" || relationshipRevision === null) return unavailable;
