@@ -71,12 +71,7 @@ export function selectPackages(
 export function buildBlocks(root: string, pkgs: Package[]): { blocks: Block[]; external: string[] } {
 	const contexts = new Map(loadContexts(root).map((c) => [c.id, c]));
 	const inSet = new Set(pkgs.map((p) => p.id));
-	const finalKeys = new Map(
-		pkgs.map((p) => [
-			p.id,
-			[keyOf(p.id, partsOf(p).includes("api") ? "api" : null)],
-		]),
-	);
+	const finalKeys = new Map(pkgs.map((p) => [p.id, [keyOf(p.id, partsOf(p).includes("api") ? "api" : null)]]));
 	const blocks: Block[] = [];
 	const external = new Set<string>();
 

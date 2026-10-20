@@ -357,8 +357,7 @@ export const contractPathsOf = (pkg: Package): string[] => pkg.owning_paths.filt
 export function pathsForPart(pkg: Package, part: Part): string[] {
 	const parts = partsOf(pkg);
 	if (part === null) return [...pkg.owning_paths, ...(pkg.root_outputs ?? [])];
-	if (part === "contract")
-		fail(`${pkg.id}/contract is retired. The contract work is the first step of ${pkg.id}/api.`);
+	if (part === "contract") fail(`${pkg.id}/contract is retired. The contract work is the first step of ${pkg.id}/api.`);
 	if (!parts.includes(part))
 		fail(`${pkg.id} does not split into a "${part}" task. Valid: ${parts.map((p) => p ?? "(none)").join(", ")}.`);
 	if (part === "ui") return pkg.owning_paths.filter(isUiPath);
