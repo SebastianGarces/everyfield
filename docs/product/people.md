@@ -152,7 +152,7 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 ### PPL-007 — Five-column pipeline and actionable warnings
 
-**REQ-PPL-007.** Preserve five visible pipeline columns with final core-group column also containing launch_team/leader milestone badges. Reorder only current active same plant IDs with conflict detection for concurrent changes to that ordering; empty request no-op and foreign/stale order refuses rather than changes unrelated contacts. Read-only viewers have no drag mutation. Cards display only active parent follow-up work and due-local-day overdue/missing warnings. Complete/no_longer_needed/deleted obligations do not show open urgency; a contact without any explicitly created duty may be uncovered but is not invented urgent work. Page/bound queries without dropping full filtered result semantics.
+**REQ-PPL-007.** Preserve five visible pipeline columns with final core-group column also containing launch_team/leader milestone badges. Moving a person within or between columns keeps the order every viewer sees, changes only that person and never another church's or a retired contact; a move based on an outdated view of the column is refused with a clear message. Read-only viewers have no drag mutation. Cards display only active parent follow-up work and due-local-day overdue/missing warnings. Complete/no_longer_needed/deleted obligations do not show open urgency; a contact without any explicitly created duty may be uncovered but is not invented urgent work. Page/bound queries without dropping full filtered result semantics.
 
 **Target operations:** `people.getPipelineData`, `people.reorderPipeline`.
 
