@@ -6,6 +6,7 @@ import { sessionId } from "@everyfield/contracts/common";
 import type { SessionResult } from "@everyfield/contracts/identity";
 import type { OnboardingContext, OnboardingProducer } from "@everyfield/contracts/onboarding/server";
 import type { RequestActor } from "../access/index.ts";
+import { OnboardingReadContext } from "./core.ts";
 
 export type RawEntry =
 	| { kind: "signed_out" }
@@ -15,7 +16,10 @@ export type RawEntry =
 	| { kind: "discovery"; profile: unknown }
 	| { kind: "elsewhere"; reason: "member" | "organization" | "unavailable" };
 
-/** Where this account stands. Contract values are parsed again in the browser (features/onboarding/port.ts). */
+/**
+ * Where this account stands, in one transaction that reuses the request actor (D59). Contract values are parsed again
+ * in the browser (features/onboarding/port.ts).
+ */
 export async function readOnboardingEntry(
 	db: Database,
 	producer: OnboardingProducer<Transaction>,
@@ -23,24 +27,23 @@ export async function readOnboardingEntry(
 	authority: RequestActor | null,
 ): Promise<RawEntry> {
 	if (s.status === "unauthenticated") return { kind: "signed_out" };
-	const read = (selected: OnboardingContext["selected"]): OnboardingContext => ({
-		session: s.sessionId,
-		selected,
-	});
 	const context = authority?.actor.context;
 	if (s.status === "active" && !context) return { kind: "elsewhere", reason: "unavailable" };
-	if (context?.kind === "seat") {
+	if (authority && context?.kind === "seat") {
 		const w = context.owner;
 		if (w.kind !== "plant") return { kind: "elsewhere", reason: "organization" };
 		if (context.role !== "owner") return { kind: "elsewhere", reason: "member" };
-		const reply = await db.transaction((tx) => producer.getResume(tx, read(w), {}));
-		if (reply.status !== "ok" || reply.value.status !== "available") return { kind: "elsewhere", reason: "member" };
-		// R3 gap: resume carries no plant name. Read it for the heading only.
-		const [plant] = await db.select({ name: t.plant.name }).from(t.plant).where(eq(t.plant.id, w.id));
-		return { kind: "plant", plantName: plant?.name ?? null, resume: reply.value };
+		return db.transaction(async (tx): Promise<RawEntry> => {
+			const reply = await producer.getResume(tx, new OnboardingReadContext(authority), {});
+			if (reply.status !== "ok" || reply.value.status !== "available") return { kind: "elsewhere", reason: "member" };
+			// R3 gap: resume carries no plant name. Read it for the heading only.
+			const [plant] = await tx.select({ name: t.plant.name }).from(t.plant).where(eq(t.plant.id, w.id));
+			return { kind: "plant", plantName: plant?.name ?? null, resume: reply.value };
+		});
 	}
-	const account = { kind: "account" as const, id: s.accountId };
-	const profile = await db.transaction((tx) => producer.getDiscoveryProfile(tx, read(account), {}));
+	const account: OnboardingContext["selected"] = { kind: "account", id: s.accountId };
+	const ctx = authority ? new OnboardingReadContext(authority) : { session: s.sessionId, selected: account };
+	const profile = await db.transaction((tx) => producer.getDiscoveryProfile(tx, ctx, {}));
 	if (profile.status === "ok" && profile.value.status === "active")
 		return { kind: "discovery", profile: profile.value.profile };
 	if (profile.status === "ok" && profile.value.status === "converted")
