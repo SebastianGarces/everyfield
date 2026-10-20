@@ -16,7 +16,7 @@ export function writeAction(operation: string): string {
 			: verb === "leave"
 				? "membership.ended"
 				: "sharing.changed";
-	if (domain === "associations") return verb === "end" ? "affiliation.ended" : "affiliation.approved";
+	if (domain === "associations") return verb === "end" ? "affiliation.ended" : "invitation.changed";
 	if (domain === "organizations") return "organization.profile_changed";
 	if (domain === "privacy" || domain === "pipelineSharing") return "sharing.changed";
 	if (domain === "account")
