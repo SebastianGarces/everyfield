@@ -1,4 +1,4 @@
-import { inArray, ne, count, and, asc, eq, isNull, or, sql, getTableColumns } from "@everyfield/db/query";
+import { inArray, ne, count, and, asc, eq, gt, lte, isNull, or, sql, getTableColumns } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { alias } from "@everyfield/db/columns";
 import { z } from "zod";
@@ -46,11 +46,8 @@ const warningsRow = z.object({
 	committed: z.boolean(),
 	duties: z.array(z.object({ id: z.uuid(), revision: z.string() })),
 });
-async function list(tx: Tx, ctx: Context, raw: unknown, authorized = false) {
-	if (ctx.selected.kind !== "plant") deny();
-	const input = parse(c.listPeopleRequest, raw);
-	if (!authorized) await authorize(tx, ctx);
-
+/** Row filters for one People query. The list and the pipeline share them. */
+function peopleFilters(ctx: Context, input: z.infer<typeof c.listPeopleRequest>) {
 	const filters = [eq(tables.person.plant_id, ctx.selected.id)];
 	if (input.archived === "exclude") filters.push(eq(tables.person.state, "live"));
 	else if (input.archived === "only") filters.push(ne(tables.person.state, "live"));
@@ -71,6 +68,13 @@ async function list(tx: Tx, ctx: Context, raw: unknown, authorized = false) {
 		filters.push(
 			sql`(CASE WHEN EXISTS(SELECT FROM commitment e JOIN plant pl ON pl.id=e.plant_id WHERE e.plant_id=${tables.person.plant_id} AND e.person_id=${tables.person.id} AND e.voided_at IS NULL AND e.signed_on<=(clock_timestamp() AT TIME ZONE pl.timezone)::date) THEN ${tables.person.commitment_state} ELSE 'unknown' END)=${input.commitment}`,
 		);
+	return filters;
+}
+async function list(tx: Tx, ctx: Context, raw: unknown) {
+	if (ctx.selected.kind !== "plant") deny();
+	const input = parse(c.listPeopleRequest, raw);
+	await authorize(tx, ctx);
+	const filters = peopleFilters(ctx, input);
 	const total = (
 		await tx
 			.select({ total: count() })
@@ -100,6 +104,8 @@ async function list(tx: Tx, ctx: Context, raw: unknown, authorized = false) {
 		completeness: more ? "partial" : "complete",
 	});
 }
+const columnStages = (column: z.infer<typeof c.pipelineColumn>): z.infer<typeof c.stage>[] =>
+	column === "core_group" ? ["core_group", "launch_team", "leader"] : [column];
 export const peopleReader: PeopleReader<Tx> = {
 	async getPerson(tx, ctx, raw) {
 		return readReply(async () => {
@@ -168,34 +174,60 @@ export const peopleReader: PeopleReader<Tx> = {
 			const input = parse(c.listPeopleRequest, raw);
 			if (ctx.selected.kind !== "plant") deny();
 			await authorize(tx, ctx);
-			const groups = [];
-			const columnRevisions = await tx
+			// The page read takes all five columns; "Show more" names one and reads only that one.
+			const columns: readonly z.infer<typeof c.pipelineColumn>[] = input.column
+				? [input.column]
+				: c.pipelineColumn.options;
+			const stages = columns.flatMap((column) =>
+				input.stages.length ? input.stages.filter((s) => columnStages(column).includes(s)) : columnStages(column),
+			);
+			const revisions = await tx
 				.select({ column: tables.people_column.column_name, revision: tables.people_column.revision })
 				.from(tables.people_column)
 				.where(eq(tables.people_column.plant_id, ctx.selected.id));
-			const queries = c.pipelineColumn.options.map((column) => {
-				const stages = column === "core_group" ? ["core_group", "launch_team", "leader"] : [column];
-				const selected = input.stages.length ? input.stages.filter((s) => stages.includes(s)) : stages;
-				const query = c.listPeopleRequest.parse({ ...input, view: "pipeline", archived: "exclude", stages: selected });
-				return { column, stages, selected, query };
-			});
-			// Every column reads the same page number; "Show more" keeps the one column it asked for.
-			for (const { column, stages, selected, query } of queries) {
-				const revision = columnRevisions.find((r) => r.column === column)?.revision ?? "1";
-				if (!selected.length) {
-					groups.push({ column, revision, cards: [], total: 0, next: null });
-					continue;
-				}
-				const page = await list(tx, ctx, query, true);
-
-				groups.push({
-					column,
+			// One window over every read column: each row carries its column, its rank in that column and the column total.
+			const column = sql<string>`CASE WHEN ${tables.person.stage} IN ('core_group','launch_team','leader') THEN 'core_group' ELSE ${tables.person.stage} END`;
+			const window = tx
+				.select({
+					...getTableColumns(tables.person),
+					pipeline_column: column.as("pipeline_column"),
+					rank: sql<number>`(row_number() OVER (PARTITION BY ${column} ORDER BY ${tables.person.pipeline_position}, ${tables.person.created_at}, ${tables.person.id}))::int`.as(
+						"rank",
+					),
+					total: sql<number>`(count(*) OVER (PARTITION BY ${column}))::int`.as("total"),
+				})
+				.from(tables.person)
+				.where(and(...peopleFilters(ctx, { ...input, archived: "exclude", stages })))
+				.as("w");
+			const offset = (input.page - 1) * input.limit,
+				last = offset + input.limit;
+			// Each column's first row rides along so that a page past the end still reports the column total.
+			const rows = stages.length
+				? await tx
+						.select()
+						.from(window)
+						.where(or(eq(window.rank, 1), and(gt(window.rank, offset), lte(window.rank, last + 1))))
+						.orderBy(asc(window.pipeline_column), asc(window.rank))
+				: [];
+			const people = await projectPeople(
+				tx,
+				ctx,
+				rows.filter((r) => r.rank > offset && r.rank <= last).map((r) => personRow.parse(r)),
+			);
+			const projected = new Map<string, (typeof people)[number]>(people.map((p) => [p.id, p]));
+			const groups = c.pipelineColumn.options.map((name) => {
+				const revision = revisions.find((r) => r.column === name)?.revision ?? "1";
+				if (!columns.includes(name)) return { column: name, revision, cards: [], total: null, next: null };
+				const own = rows.filter((r) => r.pipeline_column === name),
+					page = own.filter((r) => r.rank > offset);
+				return {
+					column: name,
 					revision,
-					cards: page.items.filter((dto) => stages.includes(dto.stage)),
-					total: input.stages.length && !input.stages.some((s) => stages.includes(s)) ? 0 : page.total,
-					next: page.next,
-				});
-			}
+					cards: page.slice(0, input.limit).map((r) => projected.get(r.id)!),
+					total: own[0]?.total ?? 0,
+					next: page.length > input.limit ? input.page + 1 : null,
+				};
+			});
 			const ids = groups.flatMap((g) => g.cards.map((p) => p.id));
 			// Limit each person's duties independently, including the overflow witness.
 			const duties = tx

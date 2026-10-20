@@ -8,6 +8,7 @@ import {
 	displayName,
 	noteBody,
 	pageInput,
+	pipelineColumn,
 	reason,
 	recruitmentSource,
 	stage,
@@ -66,6 +67,8 @@ export const listPeopleRequest = z.strictObject({
 	commitment: z.enum(["active", "withdrawn", "unknown", "any"]).default("any"),
 	archived: z.enum(["exclude", "include", "only"]).default("exclude"),
 	sort: z.literal("created_at_id").default("created_at_id"),
+	// Pipeline only: "Show more" names the one column it reads.
+	column: pipelineColumn.optional(),
 });
 export const activityRequest = z.strictObject({
 	personId,
