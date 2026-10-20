@@ -70,7 +70,13 @@ export function PersonScreen({
 	const saved = (receipt: Receipt, fields: EntryFields) => {
 		if (!receipt.changed) return;
 		const at = receipt.at;
-		show({ id: receipt.id, occurredAt: at, recordedAt: at, actor: { kind: "current_account", accountId }, ...fields } as Item);
+		show({
+			id: receipt.id,
+			occurredAt: at,
+			recordedAt: at,
+			actor: { kind: "current_account", accountId },
+			...fields,
+		} as Item);
 	};
 	async function reload() {
 		const r = await reloadPerson(person.id).catch(() => null);

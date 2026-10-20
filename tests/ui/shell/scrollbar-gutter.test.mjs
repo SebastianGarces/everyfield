@@ -1,9 +1,11 @@
 // BUG-138-gutter: product pages always reserve the scrollbar's space, so the shell keeps one width whether the page
 // scrolls or not and the top bar does not move between pages (WP-088 round 2). Marketing pages keep their own scrolling.
 // The document is the scroll container, so the rule lives on <html> while a product root is mounted.
-// Chromium runs without Playwright's --hide-scrollbars, so it draws classic scrollbars (as on Windows, Linux and macOS
-// with "Show scroll bars: Always") and the still page must keep an empty gutter. Playwright's WebKit only draws overlay
-// scrollbars, which take no space; there the shell must simply keep the full viewport width on both pages.
+// Chromium gets classic scrollbars (as on Windows, Linux and macOS with "Show scroll bars: Always"): the test runs
+// without Playwright's --hide-scrollbars and gives the scrollbar a fixed width, which Chromium then draws in its own
+// space even where the system would draw overlay scrollbars (macOS by default). The still page must keep that space
+// empty. Playwright's WebKit only draws overlay scrollbars, which take no space; there the shell must simply keep the
+// full viewport width on both pages.
 // It runs against a running app through the shared setup (tests/ui/setup.mjs).
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -11,6 +13,8 @@ import { BASE, ENGINES, withPage } from "../setup.mjs";
 
 const SCROLLING = "/design/foundations";
 const STILL = "/design/shell/owner";
+// A styled scrollbar is never an overlay scrollbar in Chromium, whatever the system setting.
+const CLASSIC = "::-webkit-scrollbar { width: 15px; } ::-webkit-scrollbar-thumb { background: #888; }";
 
 for (const [name, engine] of ENGINES) {
 	const classic = name === "chromium";
@@ -23,6 +27,7 @@ for (const [name, engine] of ENGINES) {
 				async (page) => {
 					const measure = async (path) => {
 						await page.goto(BASE + path, { waitUntil: "networkidle" });
+						if (classic) await page.addStyleTag({ content: CLASSIC });
 						return page.evaluate(() => {
 							const html = document.documentElement;
 							const shell = document.querySelector("[data-product-root]");

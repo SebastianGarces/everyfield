@@ -439,9 +439,7 @@ function RosterCard({
 										seat={seat}
 										workspaceName={data.workspaceName}
 										onRemoved={(said, revision) =>
-											seat.isSelf
-												? onStale(said)
-												: onApply((d) => withRemoved(d, seat.seatId, revision), said)
+											seat.isSelf ? onStale(said) : onApply((d) => withRemoved(d, seat.seatId, revision), said)
 										}
 										onClosedUnconfirmed={() => onStale()}
 										trigger={

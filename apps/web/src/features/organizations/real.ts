@@ -2,7 +2,7 @@ import type { OrganizationOperations as Ops } from "@everyfield/contracts/organi
 import type { Reply } from "@/server/organizations";
 import {
 	checkPipelineAggregateAccess,
-	endAssociation,
+	endConnection,
 	getAssociationHistory,
 	getSharing,
 	inviteAssociation,
@@ -17,17 +17,18 @@ import {
 	resendAssociationInvitation,
 	respondAssociationInvitation,
 	revokeAssociationInvitation,
+	saveSharing,
 	setPipelineConsent,
 	setResidencySharing,
-	setSharing,
 } from "./actions";
 import type { ConnectionsData } from "./Connections";
 import type { ReadHistory } from "./History";
 import { Refusal } from "./intent";
+import type { EndConnection } from "./EndDialog";
 import type { ReadDisclosure } from "./InviteDialog";
 import type { NameOf, OperationName, Run } from "./port";
 import type { ReadResidency } from "./Residency";
-import type { ReadSharing } from "./Sharing";
+import type { ReadSharing, SaveSharing } from "./Sharing";
 
 // The real port (WP-007/ui ruling D11): one typed server action per operation. The server parses the browser's input
 // and answers with the contract value, which the screens trust. A server refusal becomes a Refusal; a lost reply stays
@@ -39,11 +40,9 @@ const ACTIONS: Actions = {
 	"associations.invite": inviteAssociation,
 	"associations.resendInvitation": resendAssociationInvitation,
 	"associations.revokeInvitation": revokeAssociationInvitation,
-	"associations.end": endAssociation,
 	"associations.respondInvitation": respondAssociationInvitation,
 	"associations.getHistory": getAssociationHistory,
 	"privacy.getSharing": getSharing,
-	"privacy.setSharing": setSharing,
 	"residency.readSharing": readResidencySharing,
 	"residency.setSharing": setResidencySharing,
 	"residency.leave": leaveResidency,
@@ -54,6 +53,11 @@ const ACTIONS: Actions = {
 
 export const readResidency: ReadResidency = loadResidency;
 export const readSharing: ReadSharing = loadSharing;
+export const saveSharingChoice: SaveSharing = async (command) => {
+	const r = await saveSharing(command);
+	if (r.reply.status === "refused") throw new Refusal(r.reply.code);
+	return r.row;
+};
 
 export const realRun: Run = async <K extends OperationName>(operation: K, input: Ops[K]["input"]) => {
 	const action: Actions[K] = ACTIONS[operation];
@@ -82,5 +86,12 @@ export function createNames(initial: Record<string, string>) {
 		return r.page;
 	};
 	const readDisclosure: ReadDisclosure = (pair) => loadDisclosure(pair);
-	return { nameOf, learn, load, readMore, readDisclosure };
+	const end: EndConnection = async (command) => {
+		const r = await endConnection(command);
+		if (r.reply.status === "refused") throw new Refusal(r.reply.code);
+		if (!r.history) return null;
+		learn(r.history.names);
+		return r.history.page;
+	};
+	return { nameOf, learn, load, readMore, readDisclosure, end };
 }

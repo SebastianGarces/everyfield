@@ -53,7 +53,8 @@ export async function revokeAssociationInvitation(input: Input<"associations.rev
 		w.mount.adapter["associations.revokeInvitation"](tx, s, o, input),
 	);
 }
-export async function endAssociation(input: Input<"associations.end">) {
+/** Used only by endConnection, which also answers with the history. */
+async function endAssociation(input: Input<"associations.end">) {
 	const w = await who();
 	if (!w) return refused;
 	return command(w.mount, w.authority, w.viewer.selected, (tx, s, o) =>
@@ -79,7 +80,8 @@ export async function getSharing(input: Input<"privacy.getSharing">) {
 		w.mount.adapter["privacy.getSharing"](tx, s, o, input),
 	);
 }
-export async function setSharing(input: Input<"privacy.setSharing">) {
+/** Used only by saveSharing, which also answers with the sharing as saved. */
+async function setSharing(input: Input<"privacy.setSharing">) {
 	const w = await who();
 	if (!w) return refused;
 	return command(w.mount, w.authority, w.viewer.selected, (tx, s, o) =>
@@ -199,4 +201,25 @@ export async function loadSharing(
 	const w = await who();
 	const row = w ? (await readPlantSharing(w.mount.db, w.authority, request.organization.id))[relationshipId] : null;
 	return row ?? { sharing: { status: "unavailable" as const }, relationshipRevision: "0" };
+}
+
+/**
+ * Ends one connection, then reads the first history page as it is now, in the same request: the list drops the
+ * connection and shows its history entry without reading everything again.
+ */
+export async function endConnection(input: Input<"associations.end">) {
+	const reply = await endAssociation(input);
+	if (reply.status !== "ok" || reply.value.status !== "committed") return { reply, history: null };
+	return { reply, history: await loadHistoryPage(null) };
+}
+
+/**
+ * Saves one sharing choice, then reads that connection's sharing as saved, in the same request: the card shows the
+ * choice and both revisions the next change must carry, and the list takes the connection's new revision.
+ */
+export async function saveSharing(input: Input<"privacy.setSharing">) {
+	const reply = await setSharing(input);
+	if (reply.status !== "ok" || reply.value.status !== "committed") return { reply, row: null };
+	const { plant, organization, relationshipId } = input.input;
+	return { reply, row: await loadSharing(relationshipId, { plant, organization }) };
 }

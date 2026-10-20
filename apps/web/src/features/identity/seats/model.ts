@@ -96,12 +96,21 @@ const mapSeat = (d: SeatsData, seatId: string, change: (s: Seat) => Seat): Seats
  * A seat after a confirmed role change. Which actions a seat allows follows the seat service: an Admin can be demoted
  * or removed, a Member appointed or removed; a seat that allowed none still allows none.
  */
-export function withRole(d: SeatsData, seatId: string, role: "admin" | "member", revision: Seat["revision"]): SeatsData {
+export function withRole(
+	d: SeatsData,
+	seatId: string,
+	role: "admin" | "member",
+	revision: Seat["revision"],
+): SeatsData {
 	return mapSeat(d, seatId, (s) => ({
 		...s,
 		role,
 		revision,
-		allowedActions: s.allowedActions.length ? (role === "admin" ? ["demote", "remove"] : ["appoint_admin", "remove"]) : [],
+		allowedActions: s.allowedActions.length
+			? role === "admin"
+				? ["demote", "remove"]
+				: ["appoint_admin", "remove"]
+			: [],
 	}));
 }
 
@@ -136,7 +145,10 @@ export function withoutInvitation(d: SeatsData, invitationId: string): SeatsData
 }
 
 /** The next page of the roster or the invitations, after what the screen holds. Rows it already shows stay once. */
-export function withPage(d: SeatsData, page: { list: "seats"; value: Roster } | { list: "invitations"; value: Invitations }) {
+export function withPage(
+	d: SeatsData,
+	page: { list: "seats"; value: Roster } | { list: "invitations"; value: Invitations },
+) {
 	const add = <T>(held: T[], more: T[], id: (t: T) => string) => {
 		const ids = new Set(held.map(id));
 		return [...held, ...more.filter((t) => !ids.has(id(t)))];

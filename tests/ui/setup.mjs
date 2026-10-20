@@ -51,3 +51,11 @@ export async function signIn(context, cookie) {
 	const [name, value] = cookie.split(/=(.*)/s);
 	await context.addCookies([{ name, value, url: BASE, httpOnly: true, secure: BASE.startsWith("https:") }]);
 }
+
+/**
+ * Waits until the product page has hydrated: the product root sets the theme on <html> from an effect, which runs only
+ * once React owns the page. Keyboard input before that reaches markup without its handlers.
+ */
+export async function hydrated(page) {
+	await page.locator("html[data-theme]").waitFor({ state: "attached", timeout: 60_000 });
+}

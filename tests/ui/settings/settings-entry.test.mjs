@@ -12,7 +12,7 @@
 // (tests/ui/setup.mjs).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { BASE, ENGINES, fixture, signIn, withPage as onPreview } from "../setup.mjs";
+import { BASE, ENGINES, fixture, hydrated, signIn, withPage as onPreview } from "../setup.mjs";
 
 const ITEMS = ["Your account", "Seats and invitations", "Sharing and privacy", "Sign out"];
 
@@ -40,6 +40,8 @@ for (const [name, engine] of ENGINES) {
 		await withPage(engine, "owner", async (page) => {
 			await page.goto(`${BASE}/people`, { waitUntil: "networkidle" });
 			await page.getByRole("heading", { level: 1, name: "People" }).waitFor({ timeout: 60_000 });
+			// The menu opens from the keyboard only once the page has hydrated (flaky serial run on #149).
+			await hydrated(page);
 
 			// Keyboard: Enter opens the menu on its first item, Esc closes it and returns focus to the name button.
 			await trigger(page).focus();
