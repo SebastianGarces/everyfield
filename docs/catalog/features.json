@@ -5081,7 +5081,7 @@
     "id": "WIKI-001",
     "title": "Published Wiki corpus visibility, church overrides and MDX rendering",
     "module": "wiki",
-    "behavior": "Render current eligible published tutorial/how-to/explanation/reference/overview/guide content; no foreign body. Curated global MDX is compiled only after release validation with fixed safe components and no executable expressions/imports. Organization/native content uses sanitized editor nodes, never arbitrary MDX code.",
+    "behavior": "Render current eligible published tutorial/how-to/explanation/reference/overview/guide content; no foreign body. Curated global MDX is compiled only after release validation with fixed safe components and no executable expressions/imports. Organization/native content uses sanitized editor nodes, never arbitrary MDX code. A seatless Discovery account reads the entire currently published global Wiki, not only the six canonical Discovery foundation articles; those six remain the required reading for the Discovery foundations milestone (REQ-WIKI-012) and its reading list, not a limit on what the account may read.",
     "spec_file": "docs/product/knowledge-documents.md#article-resolution-and-editing",
     "requirement_ids": [
       "REQ-KNOW-015",

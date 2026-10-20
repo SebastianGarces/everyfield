@@ -68,7 +68,7 @@
         },
         {
           "operation": "phases.transition",
-          "rule": "Derive the prior phase from current state, never caller-authoritative from phase. Advisory evidence does not block. Same-phase preserves one noop journal/event receipt without material bump or task creation; exact replay no duplicate."
+          "rule": "Derive the prior phase from current state, never caller-authoritative from phase. Advisory evidence does not block. Same-phase preserves one no-op recorded outcome without material bump or task creation; exact replay no duplicate."
         }
       ],
       "title": "Reasoned forward/backward/skipping/correcting phase transition"
@@ -208,7 +208,7 @@
       "behavior_rules": [
         {
           "operation": "tasks.readPhaseOffer",
-          "rule": "Visible information for plant_member: transition id, actual transition local date, current phase, answer state, available versioned template rows, offer revision, previous answer receipt."
+          "rule": "Visible information for plant_member: transition id, actual transition local date, current phase, answer state, available versioned template rows, offer revision, previous recorded answer."
         },
         {
           "operation": "wiki.recommendForPhase",
@@ -1144,7 +1144,7 @@
         },
         {
           "operation": "intelligence.publishAssessment",
-          "rule": "One all-or-nothing change persists supported findings, overall summary, completed assessment, availability and required intents. Check source, reference activation, current execution ownership and lifecycle and every exact-org current contributor grant. Plant publication changes projection, never its own assessment input state."
+          "rule": "One all-or-nothing change persists supported findings, overall summary, completed assessment, availability and required notices. Check source, reference activation, current execution ownership and lifecycle and every exact-org current contributor grant. Plant publication changes projection, never its own assessment input state."
         },
         {
           "operation": "intelligence.publishAssessment",
@@ -1197,7 +1197,7 @@
       "behavior_rules": [
         {
           "operation": "intelligence.markAssessmentSeen",
-          "rule": "Native explicit eligible open acknowledgment / exact reviewed Evry request with trusted presentation witness; one immutable first-open receipt. Release eligibility commits transactionally; replay creates no duplicate. Organization publication compares current contributor and released source revisions. Current affiliations, sharing and contributing source facts govern organization freshness."
+          "rule": "Native explicit eligible open acknowledgment / exact reviewed Evry request with trusted presentation witness; one immutable first-open record. Release eligibility commits transactionally; replay creates no duplicate. Organization publication compares current contributor and released source revisions. Current affiliations, sharing and contributing source facts govern organization freshness."
         }
       ]
     },

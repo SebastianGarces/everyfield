@@ -119,7 +119,7 @@
         },
         {
           "operation": "people.createPerson",
-          "rule": "real Person creation receipt, no account/commitment/consent"
+          "rule": "real Person creation outcome, no account/commitment/consent"
         }
       ]
     },
@@ -428,7 +428,7 @@
         },
         {
           "operation": "people.createHouseholdWithHead",
-          "rule": "Household creation commits the household and its head membership together and returns a receipt without leaving an orphan household."
+          "rule": "Household creation commits the household and its head membership together and returns the recorded outcome without leaving an orphan household."
         },
         {
           "operation": "people.removeFromHousehold",
@@ -602,7 +602,7 @@
         },
         {
           "operation": "people.createInterview",
-          "rule": "Interview ID/revision and actual conditional earlier-stage progression receipt; no automatic task"
+          "rule": "Interview ID/revision and actual conditional earlier-stage progression outcome; no automatic task"
         }
       ],
       "title": "SME five-criterion interview, result, next steps and progression"
@@ -639,11 +639,11 @@
       "behavior_rules": [
         {
           "operation": "people.getCommitments",
-          "rule": "Visible information for plant_owner: items, latest, completeness, next cursor, evidence."
+          "rule": "Visible information for plant_owner: paged commitment items, latest, completeness, evidence."
         },
         {
           "operation": "people.getCommitments",
-          "rule": "Visible information for plant_admin: items, latest, completeness, next cursor, evidence."
+          "rule": "Visible information for plant_admin: paged commitment items, latest, completeness, evidence."
         },
         {
           "operation": "people.getCommitmentDownload",
@@ -695,19 +695,19 @@
         },
         {
           "operation": "people.correctPersonRecord",
-          "rule": "Preserve original author/recording instant and append typed old/new/corrector/reason/receipt; recompute score totals and invalid commitment acquisition/current projection. Ordinary interview/score/date correction never replays progression or demotes advanced stage. No Interview/4Cs record deletion/retraction command is authorized."
+          "rule": "Preserve original author/recording instant and append typed old/new/corrector/reason with the recorded outcome; recompute score totals and invalid commitment acquisition/current projection. Ordinary interview/score/date correction never replays progression or demotes advanced stage. No Interview/4Cs record deletion/retraction command is authorized."
         },
         {
           "operation": "people.correctPersonRecord",
-          "rule": "correction receipt no stage replay"
+          "rule": "correction outcome, no stage replay"
         },
         {
           "operation": "people.correctPersonRecord",
-          "rule": "correction receipt with effective lifecycle/acquisition source revision"
+          "rule": "correction outcome with effective lifecycle/acquisition source revision"
         },
         {
           "operation": "people.correctPersonRecord",
-          "rule": "human correction receipt no advanced-stage demotion"
+          "rule": "human correction outcome, no advanced-stage demotion"
         },
         {
           "operation": "people.correctAdultClassification",
@@ -806,11 +806,11 @@
         },
         {
           "operation": "people.mergePeople",
-          "rule": "Receipt manifests exact moved references and per-row reviewed states; inverse only if unchanged/reference-safe; conflict refusal preserves both current records."
+          "rule": "The recorded merge outcome lists exact moved references and per-row reviewed states; inverse only if unchanged/reference-safe; conflict refusal preserves both current records."
         },
         {
           "operation": "people.mergedPersonDestination",
-          "rule": "Visible information for plant_member: destination person id, merge receipt id, safe status."
+          "rule": "Visible information for plant_member: destination person id, recorded merge outcome, safe status."
         },
         {
           "operation": "people.unmergePeople",
@@ -957,7 +957,7 @@
       "behavior_rules": [
         {
           "operation": "people.getPersonCommunications",
-          "rule": "Visible information for plant_member: items, person id, matched, returned, completeness, next cursor, evidence."
+          "rule": "Visible information for plant_member: paged communication items, person id, matched, returned, completeness, evidence."
         }
       ]
     },
