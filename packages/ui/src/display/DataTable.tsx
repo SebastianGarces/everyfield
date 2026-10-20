@@ -256,7 +256,7 @@ export function TableSkeleton({ rows = 3 }: { rows?: number }) {
  * The page numbers to show: always the first and last, the current one and its neighbours, with a gap marker where
  * pages are left out. pageItems(1, 9) is [1, 2, 3, "gap", 9]; pageItems(5, 9) is [1, "gap", 4, 5, 6, "gap", 9].
  */
-export function pageItems(current: number, total: number): (number | "gap")[] {
+function pageItems(current: number, total: number): (number | "gap")[] {
 	if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
 	const near = new Set([1, total, current - 1, current, current + 1]);
 	if (current <= 3) [2, 3].forEach((p) => near.add(p));

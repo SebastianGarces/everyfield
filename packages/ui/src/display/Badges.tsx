@@ -186,7 +186,7 @@ export function StageChip({ stage, className, children }: { stage: Stage; classN
 	);
 }
 
-export type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
+type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
 const AVATAR_SIZE: Record<AvatarSize, string> = {
 	xs: "size-[26px] text-[11px]",
 	sm: "size-8 text-xs",
