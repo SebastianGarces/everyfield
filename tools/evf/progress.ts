@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, writeFileSync, openSync, closeSync, unlinkSync, renameSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
 	baseRef,
@@ -306,6 +306,9 @@ export function recordFastTrack(root: string, wp: string, input: unknown): void 
 
 /** Reconcile plan membership through the sole progress writer; preserve all prior evidence. */
 export function reconcileProgress(root: string): void {
+	// The home checkout owns the ledger; a task worktree that commits it blocks the home fast-forward.
+	if (resolve(root, git(root, "rev-parse", "--git-dir")) !== resolve(root, git(root, "rev-parse", "--git-common-dir")))
+		fail("Reconcile progress in the home checkout, not a task worktree. Transfer the result through OPS-7.");
 	const dag = loadDag(root),
 		retired =
 			readJson<{ retired_packages?: { id: string; scope_moved_to: string }[] }>(join(root, "docs/plan/dag.json"))
