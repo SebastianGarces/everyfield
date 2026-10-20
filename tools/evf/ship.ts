@@ -343,6 +343,13 @@ export function ship(root: string, task: TaskRef): number {
 	const sha = git(wt, "rev-parse", "HEAD"),
 		baseSha = git(root, "merge-base", sha, baseRef(root, cfg));
 	const verification = checkPr(wt, pr.number, sha);
+	if (task.kind === "ops" && cfg.maintenanceTasks![task.id].route === "design") {
+		postStatus(wt, cfg, sha, "success", `Verified by ${verification.approval.verifierFamily} at ${sha.slice(0, 10)}`);
+		console.log(
+			`PR #${pr.number} is a verified design task and waits for Sebastian's chat approval, then evf approve.`,
+		);
+		return 0;
+	}
 	if (task.kind === "fb") {
 		const cls = cachedTriage(root, task.issue!)?.class;
 		if (!cls) fail("Feedback must be triaged before shipping.");

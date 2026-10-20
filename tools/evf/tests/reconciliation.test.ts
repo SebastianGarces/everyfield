@@ -1899,3 +1899,66 @@ test("BUG-ops15-dependencies: task start installs before stack startup and stops
 		}
 	}
 });
+
+test("INV-design-route: a design task owns only design/, waits after the verifier and merges only on Sebastian's approval", () => {
+	const f = mergeFixture();
+	try {
+		const scope = f.cfg.maintenanceTasks[f.taskRef.id];
+		const setScope = (next: Record<string, unknown>) => {
+			f.cfg.maintenanceTasks[f.taskRef.id] = { ...scope, ...next };
+			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+		};
+		setScope({ owningPaths: ["design/"] });
+		assert.throws(() => requireTaskScope(f.root, f.taskRef), /must stay in documentation and workflow tooling/);
+		setScope({ owningPaths: ["design/", "tools/evf/"], route: "design" });
+		assert.throws(() => requireTaskScope(f.root, f.taskRef), /A design task owns only design\/ paths/);
+		setScope({ owningPaths: ["design/"], route: "design" });
+
+		const merges = () => f.getState().calls.filter((c: any) => c.args[0] === "pr" && c.args[1] === "merge");
+		assert.equal(ship(f.root, f.taskRef), 0);
+		assert.deepEqual(merges(), []);
+		const status = f.getState().calls.find((c: any) => c.args.some((a: string) => a.endsWith(`statuses/${f.sha}`)));
+		assert.ok(
+			status.args.includes("state=success") &&
+				status.args.includes(`description=Verified by anthropic at ${f.sha.slice(0, 10)}`),
+		);
+
+		const s = f.getState();
+		const pr = { ...s.pr, ...approvePr("task/ops-1", { headRefOid: f.sha }) };
+		s.pr = { ...pr, files: [{ path: "design/everyfield-ui.html" }] };
+		s.calls = [];
+		f.setState(s);
+		assert.throws(
+			() => approve(f.root, 77, { ownerApproval: "Approved for this PR" }),
+			/outside its owning paths or design\/everyfield-ui.html/,
+		);
+		s.pr = { ...pr, files: [{ path: "design/everyfield-marketing.html" }] };
+		f.setState(s);
+		assert.throws(
+			() => approve(f.root, 77, { ownerApproval: "Approved for this PR" }),
+			/needs the verifier to pass it first \(bin\/evf ship OPS-1\)/,
+		);
+		assert.deepEqual(approveWrites(f), []);
+		s.commitStatus = {
+			statuses: [
+				{ context: "evf/verify", state: "success", description: `Verified by anthropic at ${f.sha.slice(0, 10)}` },
+			],
+		};
+		f.setState(s);
+		assert.throws(
+			() => approve(f.root, 77, { ownerApproval: "Approved for this PR", head: f.sha }),
+			/fixture merge barrier/,
+		);
+		assert.deepEqual(merges()[0].args, ["pr", "merge", "77", "--squash", "--match-head-commit", f.sha]);
+
+		writeFileSync(join(f.wt, "design/everyfield-ui.html"), "<!-- changed prototype -->\n");
+		execFileSync("git", ["-C", f.wt, "add", "design"]);
+		execFileSync("git", ["-C", f.wt, "commit", "-qm", "Change the approved prototype"]);
+		assert.throws(
+			() => verify(f.root, f.taskRef, "author", "full"),
+			/design\/everyfield-ui.html keeps its approved bytes/,
+		);
+	} finally {
+		f.close();
+	}
+});
