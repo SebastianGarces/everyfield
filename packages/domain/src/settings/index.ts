@@ -29,7 +29,9 @@ export { createAccountCredentials } from "./credentials.ts";
 export type { CredentialConfig } from "./credentials.ts";
 export { createLifecycleCleanup, issueRestrictedDeletionSession } from "./deletion.ts";
 export type { DeletionRequest, DeletionSubject } from "./deletion.ts";
+export { sectionOperations } from "./sections.ts";
 export type { SettingsEffects } from "./sections.ts";
+export { timezoneOperations } from "./timezones.ts";
 export type { PersonalCalendar } from "./timezones.ts";
 
 export { withSettingsWrite } from "./core.ts";

@@ -2,9 +2,10 @@ import type * as S from "@everyfield/contracts/settings";
 import type * as N from "@everyfield/contracts/settings/native";
 import type { z } from "zod";
 
-// The one door from the settings screens to the API (WP-010/api). Every type comes from the merged contracts in
-// packages/contracts/src/settings, so the screens cannot send a field the contract refuses. Until the API merges, the
-// design preview passes a fixture port whose replies are parsed by the same schemas (preview/fixtures.ts).
+// The door from the settings screens to the server. Every type comes from the settings contract in
+// packages/contracts/src/settings, so the screens cannot send a field the contract refuses. Production passes the
+// server actions (actions.ts); the design preview passes a fixture port whose replies the same schemas parse
+// (preview/fixtures.ts).
 
 export type SettingsError = S.SettingsError;
 export type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: SettingsError };
@@ -12,6 +13,7 @@ export type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: 
 export type SectionResult = z.infer<typeof S.sectionResult>;
 export type SavedSection = z.infer<typeof S.savedSectionResult>;
 export type SaveSectionRequest = z.input<typeof S.saveSectionRequest>;
+export type SaveChurchRequest = z.input<typeof S.saveChurchRequest>;
 export type GetSectionRequest = z.input<typeof S.getSectionRequest>;
 /** The exact plant or organization a section belongs to, as the requests take it. */
 export type PlantOwner = { kind: "plant"; id: string };
@@ -41,24 +43,18 @@ export type DeletionStatus = N.DeletionStatus;
 export type CredentialOutcome = z.infer<typeof N.credentialOutcome>;
 export type ChangePasswordRequest = z.input<typeof N.changePasswordRequest>;
 
-export type Command<T> = { requestKey: string; expectedRevision: string; input: T };
-
 /** A section the dialog can show. Seats come from WP-008/ui through the same frame. */
 export type SectionKey = "church" | "organization" | "seats" | "notifications" | "sharing" | "account";
 
 /**
  * Who is looking and in which context. The server decides authority again on every call; this only chooses which
- * sections to offer. `role` is the seat in the selected plant; an organization context has an organization role.
+ * sections to offer. `role` is the seat in the selected plant or organization; an account without a seat has only
+ * its own sections.
  */
 export type SettingsViewer =
-	| { context: "plant"; accountId: string; plant: PlantOwner; plantName: string; role: "owner" | "admin" | "member" }
-	| {
-			context: "organization";
-			accountId: string;
-			organization: OrganizationOwner;
-			organizationName: string;
-			role: "owner" | "admin" | "member";
-	  };
+	| { context: "plant"; accountId: string; plant: PlantOwner; role: "owner" | "admin" | "member" }
+	| { context: "organization"; accountId: string; organization: OrganizationOwner; role: "owner" | "admin" | "member" }
+	| { context: "account"; accountId: string };
 
 /** One current plant/organization relationship, as WP-007 lists it; `revision` is the relationship revision. */
 export type Relationship = {
@@ -68,12 +64,23 @@ export type Relationship = {
 	organizationName: string;
 };
 
+/** The section operations. Production passes the settings server actions. */
 export interface SettingsPort {
 	getSection(request: GetSectionRequest): Promise<Reply<SectionResult>>;
 	saveSection(request: SaveSectionRequest): Promise<Reply<SavedSection>>;
+	/** Up to three church changes saved as one write; a refusal keeps all of them unsaved. */
+	saveChurch(request: SaveChurchRequest): Promise<Reply<SavedSection>>;
 	previewPlantTimezone(request: z.input<typeof S.previewPlantTimezoneRequest>): Promise<Reply<PlantTimezonePreview>>;
 	setPlantTimezone(request: z.input<typeof S.setPlantTimezoneRequest>): Promise<Reply<PlantTimezoneResult>>;
+	/**
+	 * The photo, email, password, own time zone and deletion flows. They have no production server yet (storage, mail
+	 * delivery, the personal calendar and deletion workers), so only the design preview supplies them and the
+	 * sections show these rows only when they are present.
+	 */
+	flows?: FlowPort;
+}
 
+export interface FlowPort {
 	requestAvatarUpload(request: z.input<typeof S.requestAvatarUpload>): Promise<Reply<AvatarUpload>>;
 	/** Sends the bytes to the server-owned staging upload. The server verifies type and size again. */
 	uploadAvatarBytes(uploadId: string, file: Blob): Promise<Reply<null>>;
@@ -88,10 +95,7 @@ export interface SettingsPort {
 	confirmEmailChange(request: z.input<typeof N.confirmEmailChange>): Promise<CredentialOutcome>;
 	changePassword(request: ChangePasswordRequest): Promise<CredentialOutcome>;
 
-	/**
-	 * The account's own timezone preference. The account section DTO does not carry it yet (contract follow-up for
-	 * WP-010/api); the reply is the contract's timezonePreference.
-	 */
+	/** The account's own timezone preference, as the contract's timezonePreference. */
 	getPersonalTimezone(): Promise<Reply<TimezonePreference>>;
 	previewPersonalTimezone(
 		request: z.input<typeof N.previewPersonalTimezoneRequest>,

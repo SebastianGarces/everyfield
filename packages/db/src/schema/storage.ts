@@ -11,7 +11,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import type { Database, Transaction } from "../client.ts";
 import { file_object, audit_event } from "./tables.ts";
-import { validateCommitment } from "./validate-file.js";
+import { validateCommitment } from "./validate-file.ts";
 type FileObjectRow = typeof file_object.$inferSelect;
 
 export type FilePurpose = FileObjectRow["purpose"];

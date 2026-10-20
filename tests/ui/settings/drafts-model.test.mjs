@@ -14,6 +14,7 @@ import {
 	finish,
 	isDirty,
 	isSaving,
+	rebase,
 	visible,
 } from "../../../apps/web/src/features/settings/drafts.ts";
 
@@ -138,4 +139,17 @@ test("INV-draft-model: random interleavings keep the invariant", () => {
 			check(w, [`seed ${seed}`, ...trail]);
 		}
 	}
+});
+
+test("INV-draft-rebase: Load latest after a conflict keeps the fields the person changed and shows the rest", () => {
+	const opened = { city: "Austin", street: "", warningDays: "14" };
+	const latest = { city: "Austin", street: "1 Main St", warningDays: "14" }; // someone else saved a street
+	let book = edit(emptyBook(), KEY, { ...opened, city: "Round Rock" }, opened);
+	book = finish(begin(book, KEY, opened).book, KEY, { ok: false, refusal: "conflict" }, opened);
+	book = rebase(book, KEY, opened, latest);
+	assert.deepEqual(visible(book, KEY, latest), { city: "Round Rock", street: "1 Main St", warningDays: "14" });
+	assert.equal(book.refusals[KEY], undefined, "the refusal that asked for the reload is gone");
+	// A person who changed only what someone else also saved has nothing left to save.
+	book = rebase(edit(emptyBook(), KEY, { ...opened, street: "1 Main St" }, opened), KEY, opened, latest);
+	assert.equal(isDirty(book, KEY, latest), false);
 });

@@ -10,6 +10,8 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import type { SettingsViewer } from "../settings/port";
+import { settingsViewerOf } from "../settings/server";
 import { parseQuery, querySearch } from "./model.ts";
 import { PeopleFrame } from "./PeopleFrame.tsx";
 import { PeopleScreen } from "./PeopleScreen.tsx";
@@ -32,17 +34,28 @@ export async function PeopleLayout({ children }: { children: ReactNode }) {
 	const v = await getViewer();
 	return (
 		<ProductRoot initialTheme={theme}>
-			<Frame viewer={v?.people ?? null}>{children}</Frame>
+			<Frame viewer={v?.people ?? null} settings={settingsViewerOf(v)}>
+				{children}
+			</Frame>
 		</ProductRoot>
 	);
 }
 
 /** The frame with the viewer's own name. The own account person is the name source; no other account is read. */
-async function Frame({ viewer, children }: { viewer: Viewer | null; children: ReactNode }) {
+async function Frame({
+	viewer,
+	settings,
+	children,
+}: {
+	viewer: Viewer | null;
+	settings: SettingsViewer | null;
+	children: ReactNode;
+}) {
 	return (
 		<PeopleFrame
 			name={viewer?.displayName ?? "You"}
 			role={viewer?.role ?? null}
+			settings={settings}
 			banner={
 				viewer?.role === "member" ? (
 					<RoleBanner>

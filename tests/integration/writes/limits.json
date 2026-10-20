@@ -411,6 +411,10 @@
 		"limit": 11,
 		"retry": 22
 	},
+	"settings.saveChurch": {
+		"limit": 6,
+		"retry": 12
+	},
 	"settings.saveSection:account": {
 		"limit": 5,
 		"retry": 10
