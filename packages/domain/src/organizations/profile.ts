@@ -159,13 +159,19 @@ export function profileOperations(
 					sql`UPDATE organization o SET material_revision=o.material_revision+1 FROM affiliation a WHERE a.organization_id=o.id AND a.plant_id=${sql.param(selected.id)} AND a.ended_at IS NULL RETURNING o.id AS organization_id,o.kind`,
 				);
 				if (orgs.rows.length)
-					await effects.invalidate(tx, {
-						owners: orgs.rows.map((row) =>
-							Q.organizationOwner.parse({ kind: "organization", id: row.organization_id, organizationKind: row.kind }),
-						),
-						sourceId: selected.id,
-						revision: next,
-					});
+					c.writes.push(
+						effects.invalidate(tx, {
+							owners: orgs.rows.map((row) =>
+								Q.organizationOwner.parse({
+									kind: "organization",
+									id: row.organization_id,
+									organizationKind: row.kind,
+								}),
+							),
+							sourceId: selected.id,
+							revision: next,
+						}),
+					);
 				return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
 			});
 		},

@@ -236,56 +236,56 @@
 		"retry": 16
 	},
 	"organizations.associations.acceptInvitation": {
-		"limit": 25,
-		"retry": 50
+		"limit": 7,
+		"retry": 14
 	},
 	"organizations.associations.declineInvitation": {
-		"limit": 18,
-		"retry": 36
+		"limit": 6,
+		"retry": 12
 	},
 	"organizations.associations.end": {
-		"limit": 16,
-		"retry": 32
+		"limit": 8,
+		"retry": 16
 	},
 	"organizations.associations.invite": {
-		"limit": 25,
-		"retry": 50
+		"limit": 7,
+		"retry": 14
 	},
 	"organizations.associations.resendInvitation": {
-		"limit": 15,
-		"retry": 30
+		"limit": 6,
+		"retry": 12
 	},
 	"organizations.associations.respondInvitation": {
-		"limit": 18,
-		"retry": 36
+		"limit": 6,
+		"retry": 12
 	},
 	"organizations.associations.revokeInvitation": {
-		"limit": 13,
-		"retry": 26
+		"limit": 6,
+		"retry": 12
 	},
 	"organizations.organizations.correctReportingLocation": {
-		"limit": 12,
-		"retry": 24
+		"limit": 11,
+		"retry": 22
 	},
 	"organizations.organizations.updateProfile": {
 		"limit": 8,
 		"retry": 16
 	},
 	"organizations.pipelineSharing.setConsent": {
-		"limit": 17,
-		"retry": 34
+		"limit": 6,
+		"retry": 12
 	},
 	"organizations.privacy.setSharing": {
-		"limit": 17,
-		"retry": 34
+		"limit": 6,
+		"retry": 12
 	},
 	"organizations.residency.leave": {
-		"limit": 16,
-		"retry": 32
+		"limit": 9,
+		"retry": 18
 	},
 	"organizations.residency.setSharing": {
-		"limit": 16,
-		"retry": 32
+		"limit": 9,
+		"retry": 18
 	},
 	"people.addNote": {
 		"limit": 9,
@@ -466,5 +466,17 @@
 	"native.organizations.profile": {
 		"limit": 5,
 		"retry": 10
+	},
+	"native.organizations.end": {
+		"limit": 6,
+		"retry": 12
+	},
+	"native.organizations.invite": {
+		"limit": 7,
+		"retry": 14
+	},
+	"native.organizations.accept": {
+		"limit": 7,
+		"retry": 14
 	}
 }

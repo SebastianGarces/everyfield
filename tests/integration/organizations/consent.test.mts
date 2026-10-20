@@ -187,7 +187,7 @@ test("INV-atomicity: required outbox failure rolls back sharing, revision, audit
 	const bad = createOrganizationAdapter(
 		{
 			...S.effects,
-			notice: async () => {
+			notice: () => {
 				throw Error("synthetic_outbox_failure");
 			},
 		},

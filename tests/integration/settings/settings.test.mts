@@ -16,7 +16,7 @@ import {
 } from "../../../packages/domain/src/settings/index.ts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
-import { enqueueJob, enqueueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
+import { enqueueJob, queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
 import { currentActor } from "../../../packages/domain/src/access/session.ts";
@@ -148,19 +148,21 @@ before(async () => {
 	});
 	const organizationEffects = {
 		invitation: async () => {},
-		notice: async (tx, i) => {
-			await enqueueJob(tx, {
-				tenant: i.pair.organization.id,
-				kind: "notification",
-				subject: i.relationshipId,
-				key: "sharing/" + i.eventId,
-				revision: i.revision,
-				eligibleAt: new Date().toISOString(),
-			});
+		notice: (tx, i) => {
 			if (faults) throw Error("notice_fault");
+			return queueJobs(tx, [
+				{
+					tenant: i.pair.organization.id,
+					kind: "notification",
+					subject: i.relationshipId,
+					key: "sharing/" + i.eventId,
+					revision: i.revision,
+					eligibleAt: new Date().toISOString(),
+				},
+			]);
 		},
-		invalidate: async (tx, i) => {
-			await enqueueJobs(
+		invalidate: (tx, i) =>
+			queueJobs(
 				tx,
 				i.owners.map((owner) => ({
 					tenant: owner.id,
@@ -170,8 +172,7 @@ before(async () => {
 					revision: i.revision,
 					eligibleAt: new Date().toISOString(),
 				})),
-			);
-		},
+			),
 	};
 	const organizations = createOrganizationAdapter(organizationEffects, { candidates: async () => [] });
 	const credentials = createAccountCredentials({
