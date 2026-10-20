@@ -8,8 +8,6 @@ import {
 	secretMatches,
 	boundedBytes,
 } from "../../../apps/web/src/server/platform/boundary.ts";
-import { previewText } from "../../../apps/web/src/server/platform/preview.ts";
-import { office, pdf } from "./fixtures.mjs";
 
 test("INV-request-boundary: configured origin, constant-time secret, bounded bodies and safe errors", async () => {
 	const key = "a".repeat(64);

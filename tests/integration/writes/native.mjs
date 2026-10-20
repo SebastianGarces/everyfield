@@ -7,7 +7,7 @@ import { deletionOperations, issueRestrictedDeletionSession } from "../../../pac
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { fixture } from "../identity/invitations-support.mts";
-import { organizationPeople, peopleWriter, withPeopleWrite } from "../../../packages/domain/src/people/index.ts";
+import { peopleWriter, withPeopleWrite } from "../../../packages/domain/src/people/index.ts";
 import { createOnboardingProducer, withOnboardingWrite } from "../../../packages/domain/src/onboarding/index.ts";
 import { withSettingsWrite } from "../../../packages/domain/src/settings/index.ts";
 import { sectionOperations } from "../../../packages/domain/src/settings/sections.ts";
