@@ -185,8 +185,9 @@ export function timezoneOperations(
 				const c = await begin(s, ctx, a.account.id, "plant.setTimezone", v);
 				if (c.kind === "replay") return q.plantTimezoneResult.parse(c.value);
 				revision(v.expectedRevision, a.plant.revision);
-				const [saved] = await s
-					.select()
+				// The preview row and the database clock in one statement.
+				const [found] = await s
+					.select({ saved: t.settings_preview, at: now })
 					.from(t.settings_preview)
 					.where(
 						and(
@@ -197,8 +198,9 @@ export function timezoneOperations(
 						),
 					)
 					.for("update");
-				const clock = await readClock(s, a.account.id, injectedClock);
-				if (!saved || saved.expires_at <= clock.at) deny("stale_preview");
+				const at = injectedClock ? new Date(injectedClock.now()) : found?.at;
+				if (!found || !at || found.saved.expires_at <= at) deny("stale_preview");
+				const saved = found.saved;
 				const plan = parse(z.object({ preview: q.plantTimezonePreview, sources: z.string() }), saved.value);
 				if (plan.preview.newZone !== zone || saved.expected_revision !== a.plant.revision) deny("stale_preview");
 				const current = await schedule(s, a.plant, zone, plan.preview.asOf);
@@ -208,10 +210,12 @@ export function timezoneOperations(
 				const events: string[] = [];
 				let replanIntentId: string | undefined;
 				if (changed) {
-					await s
-						.update(t.plant)
-						.set({ timezone: zone, revision: next, material_revision: sql`${t.plant.material_revision}+1` })
-						.where(eq(t.plant.id, a.plant.id));
+					c.writes.push(
+						s
+							.update(t.plant)
+							.set({ timezone: zone, revision: next, material_revision: sql`${t.plant.material_revision}+1` })
+							.where(eq(t.plant.id, a.plant.id)),
+					);
 					replanIntentId = await effects.replan(s, {
 						owner: v.input.plant,
 						revision: next,
@@ -275,8 +279,9 @@ export function timezoneOperations(
 				if (c.kind === "replay")
 					return n.personalTimezoneResult.parse({ preference: personalRecord.parse(c.value).preference });
 				revision(v.expectedRevision, a.account.personal_timezone_revision);
-				const [saved] = await s
-					.select()
+				// The preview row and the database clock in one statement.
+				const [found] = await s
+					.select({ saved: t.settings_preview, at: now })
 					.from(t.settings_preview)
 					.where(
 						and(
@@ -287,8 +292,9 @@ export function timezoneOperations(
 						),
 					)
 					.for("update");
-				const clock = await readClock(s, a.account.id, injectedClock);
-				if (!saved || saved.expires_at <= clock.at) deny("stale_preview");
+				const at = injectedClock ? new Date(injectedClock.now()) : found?.at;
+				if (!found || !at || found.saved.expires_at <= at) deny("stale_preview");
+				const saved = found.saved;
 				const plan = parse(n.personalTimezonePreview, saved.value);
 				if (plan.newZone !== zone || plan.expectedRevision !== a.account.personal_timezone_revision)
 					deny("stale_preview");
