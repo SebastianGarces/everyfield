@@ -33,15 +33,11 @@
   --mk-ease: cubic-bezier(.2, .8, .2, 1);
 }
 
-/* Corner system (2026-10-19 rebrand), shared with design/everyfield-ui.html. Set data-corners="a|b|c" on <html>.
-   The pick persists in localStorage key "ef-corners".
+/* Corner system (2026-10-20): all square, shared with design/everyfield-ui.html.
      --corner-card     cards, tiles, inputs          --corner-control  buttons and icon buttons
-     --corner-pill     badges, tags, chips, tracks   --corner-petal    one large round corner (from the symbol)
-     --corner-media    photos, hero panels: square except the top-right petal corner */
-:root, [data-corners="a"] { --corner-card: 0px; --corner-control: 0px; --corner-pill: 0px; --corner-petal: 0px; }
-[data-corners="b"] { --corner-card: 0px; --corner-control: 0px; --corner-pill: 0px; --corner-petal: clamp(48px, 9vw, 128px); }
-[data-corners="c"] { --corner-card: 0px; --corner-control: 999px; --corner-pill: 999px; --corner-petal: 0px; }
-:root { --corner-media: 0 var(--corner-petal) 0 0; }
+     --corner-pill     badges, tags, chips, tracks   --corner-petal    reserved, 0 today
+     --corner-media    photos, hero panels, stages */
+:root { --corner-card: 0px; --corner-control: 0px; --corner-pill: 0px; --corner-petal: 0px; --corner-media: 0px; }
 
 /* =====================================================================
    Photo treatment (2026-10-19 rebrand). It replaces the gradient surfaces. Copy this block to reuse it.
@@ -49,7 +45,7 @@
    - Add a photo: put the web copies in assets/photos/ and add one --photo-<name> token (wide and narrow).
    - Use: class="photo" data-photo="<crop>". A crop sets --photo-src, --photo-pos (focus point and zoom origin)
      and --photo-zoom (1 = cover). Change --photo-shade only for text on a photo (see .photo-text).
-   - The slot sets the corners: border-radius: var(--corner-media) gives the petal in corner option B.
+   - The slot sets the corners with border-radius: var(--corner-media).
    - Text on a photo is cream. Check 4.5:1 for each crop at each width before you ship it.
    ===================================================================== */
 :root {
@@ -79,6 +75,40 @@
 [data-photo="field-rows"]    { --photo-src: var(--photo-field); --photo-pos: 50% 100%; --photo-zoom: 1.45; }
 /* Small tiles and light crops that carry cream text or icons use a deeper overlay. */
 .photo-text { --photo-shade: .55; }
+
+/* =====================================================================
+   Muted gradients (2026-10-20). The same engine as the dashboard InsightCard (design/everyfield-ui.html).
+   Used by the InsightCard copies and the phase-card rail. Every other surface keeps its photo.
+   Three layers: a base color, a blurred mesh of five color blobs mixed in OKLCH (::before), film grain (::after).
+   - Use: class="mesh" data-mesh="field|sky|clay|sand|haze|dusk". All tones carry ink text.
+   - Palette: --ef-{sky|clay|sand}-{100|300|500|700}, sampled from the two photos and muted in OKLCH.
+     700 is the text-safe step (4.5:1 or more on white and cream).
+   ===================================================================== */
+:root {
+  --ef-sky-100: #D6EAF2;  --ef-sky-300: #B2D2DE;  --ef-sky-500: #83AAB8;  --ef-sky-700: #4C6F7C;
+  --ef-clay-100: #F5DED0; --ef-clay-300: #E4BAA2; --ef-clay-500: #AF7A5A; --ef-clay-700: #83583D;
+  --ef-sand-100: #F7EBD8; --ef-sand-300: #E8D3B0; --ef-sand-500: #C7B18C; --ef-sand-700: #7A694E;
+  --ef-soil: #3F2F23; --ef-cloud: #787A80;
+}
+.mesh { position: relative; isolation: isolate; overflow: hidden; background: var(--g-base); color: #181D19;
+  --on: #181D19; --on-2: rgba(24, 29, 25, .86); --on-3: rgba(24, 29, 25, .8); --pill-bg: rgba(255, 255, 255, .34); --pill-edge: rgba(24, 29, 25, .16); --spark: rgba(24, 29, 25, .18); --spark-hi: #181D19; }
+.mesh::before { content: ""; position: absolute; inset: -25%; z-index: -2; pointer-events: none;
+  background:
+    radial-gradient(in oklch circle at 82% 18%, var(--g5) 0%, transparent 22%),
+    radial-gradient(in oklch 38% 44% at 24% 26%, var(--g1) 0%, transparent 72%),
+    radial-gradient(in oklch 44% 48% at 74% 38%, var(--g2) 0%, transparent 72%),
+    radial-gradient(in oklch 46% 42% at 64% 80%, var(--g3) 0%, transparent 72%),
+    radial-gradient(in oklch 36% 38% at 26% 78%, var(--g4) 0%, transparent 72%);
+  filter: blur(52px); }
+.mesh::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit; background: var(--photo-grain) 0 0 / 260px 260px; opacity: .4; mix-blend-mode: overlay; }
+.mesh :focus-visible { outline: 2px solid #181D19; outline-offset: 2px; }
+[data-mesh="field"] { --g-base: #1AF197; --g1: #AFF8D0; --g2: #1AF197; --g3: #4BDC95; --g4: var(--ef-sky-300); --g5: #FBF6ED; }
+[data-mesh="sky"]   { --g-base: var(--ef-sky-300); --g1: var(--ef-sky-100); --g2: #99BECC; --g3: var(--ef-sand-100); --g4: var(--ef-sky-500); --g5: #ECF6FA; }
+[data-mesh="clay"]  { --g-base: var(--ef-clay-300); --g1: var(--ef-clay-100); --g2: #C9997A; --g3: var(--ef-sand-300); --g4: #DEB58F; --g5: #FBF6ED; }
+[data-mesh="sand"]  { --g-base: var(--ef-sand-300); --g1: var(--ef-sand-100); --g2: var(--ef-sand-500); --g3: var(--ef-clay-100); --g4: var(--ef-sky-300); --g5: #FBF6ED; }
+/* Two blends for the six-card rail: haze = sky over a sand horizon, dusk = clay under a sky corner. */
+[data-mesh="haze"]  { --g-base: var(--ef-sky-100); --g1: var(--ef-sky-300); --g2: var(--ef-sand-100); --g3: var(--ef-sand-300); --g4: #99BECC; --g5: #FBF6ED; }
+[data-mesh="dusk"]  { --g-base: var(--ef-clay-100); --g1: var(--ef-sky-300); --g2: var(--ef-clay-300); --g3: #DEB58F; --g4: var(--ef-sand-300); --g5: #ECF6FA; }
 
 /* ------------------------------------------------------------------ */
 /* A. Field Notes                                                       */

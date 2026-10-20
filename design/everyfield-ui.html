@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 340 340%22%3E%3Cpath fill=%22%231AF197%22 fill-rule=%22evenodd%22 d=%22M85.1309%200C104.232%200.00640781%20121.859%206.33218%20136.041%2017.0039C156.662%2032.5207%20170%2057.2254%20170%2085.0508V85.1074C170.025%2038.2127%20208.071%200.204104%20255%200.204102H340V85.1826C339.994%20104.295%20333.671%20121.933%20323.006%20136.123C307.498%20156.756%20282.809%20170.103%20255%20170.103C301.93%20170.103%20339.977%20208.112%20340%20255.008V340H255C235.865%20340%20218.206%20333.681%20204%20323.017C183.354%20307.518%20170%20282.843%20170%20255.051C170%20301.953%20131.967%20339.977%2085.043%20340H0V255.051C5.70642e-05%20235.927%206.32349%20218.28%2016.9941%20204.082C32.4866%20183.469%2057.1431%20170.128%2084.9189%20170.103C38.1152%20170.004%200.204104%20131.962%200.204102%2085.0508V0H85.1309ZM110.207%20110.972V231.389H229.793V110.972H110.207Z%22/%3E%3C/svg%3E">
-<script>try{document.documentElement.dataset.theme=localStorage.getItem("ef-theme")||"light";document.documentElement.dataset.corners=localStorage.getItem("ef-corners")||"a";document.documentElement.dataset.insight=localStorage.getItem("ef-insight")||"flat"}catch(e){document.documentElement.dataset.corners="a";document.documentElement.dataset.insight="flat"}</script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem("ef-theme")||"light"}catch(e){}</script>
 <title>Everyfield UI · visual identity and component kit</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,6 +21,15 @@
   --ef-ink: #181D19;
   --ef-cream: #F6F0E9;
   --ef-green: #1AF197;
+
+  /* muted photo palette (2026-10-20). Sampled from the two field photos, tuned in OKLCH to low chroma.
+     Each ramp: 100 pale tint, 300 light, 500 mid (the photo color), 700 deep = text-safe (4.5:1 or more on
+     white, cream and the frame). They paint the gradient cards and brand moments, not status. */
+  --ef-sky-100: #D6EAF2;  --ef-sky-300: #B2D2DE;  --ef-sky-500: #83AAB8;  --ef-sky-700: #4C6F7C;
+  --ef-clay-100: #F5DED0; --ef-clay-300: #E4BAA2; --ef-clay-500: #AF7A5A; --ef-clay-700: #83583D;
+  --ef-sand-100: #F7EBD8; --ef-sand-300: #E8D3B0; --ef-sand-500: #C7B18C; --ef-sand-700: #7A694E;
+  --ef-soil: #3F2F23;
+  --ef-cloud: #787A80;
 
   /* neutrals (cool grey). Cream is for brand and marketing, not app surfaces */
   --ef-ink-2: #313732;
@@ -151,14 +160,11 @@
 }
 
 /* =====================================================================
-   1a. CORNERS  (html[data-corners="a|b|c"], shared with the marketing page)
-   A = all square. B = square, one round "petal" corner on photos, heroes
-   and insight cards, taken from the symbol's leaf. C = square cards with
-   round controls and pills. Circles (avatars, dots) stay round in all three.
+   1a. CORNERS  (shared with the marketing page)
+   All square. Circles (avatars, dots) stay round. Components read these
+   tokens, so a later change to the corner system is one edit here.
    ===================================================================== */
-:root, [data-corners="a"] { --corner-card: 0px; --corner-control: 0px; --corner-pill: 0px; --corner-petal: 0px; --corner-media: 0px; }
-[data-corners="b"] { --corner-petal: 40px; --corner-media: 0 var(--corner-petal) 0 0; }
-[data-corners="c"] { --corner-control: 999px; --corner-pill: 999px; }
+:root { --corner-card: 0px; --corner-control: 0px; --corner-pill: 0px; --corner-petal: 0px; --corner-media: 0px; }
 
 /* =====================================================================
    1b. DARK THEME  (html[data-theme="dark"])
@@ -566,85 +572,58 @@ textarea.input:focus-visible { box-shadow: 0 0 0 1.5px var(--ef-focus), 0 0 0 5p
 .tone-teal { --tint: var(--ef-teal-100); --tone: var(--ef-teal-600); }
 .tone-ink { --tint: var(--ef-surface-2); --tone: var(--ef-ink-2); }
 
-/* ---- InsightCard  (<InsightCard tone="field|sky|dawn|lilac">) : the brand finding card ----
-   Two surface options for Sebastian to pick, set on <html data-insight="flat|photo">
-   (Preview > Insight cards, saved in localStorage ef-insight):
-   flat  = one brand tone with film grain. field = new-growth, sky = sand (deep cream),
-           dawn = warm cream, lilac = ink with cream text.
-   photo = a treated photo: the image, a 20% black overlay, a short shade behind the top row
-           and film grain, with cream text. The tone picks the photo and its crop.
-   Corners follow --corner-media, so the card gets the top-right petal in option B.
-   Layers: base color on the card, photo and overlay in ::before, grain in ::after. */
+/* ---- InsightCard  (<InsightCard tone="field|sky|clay|sand">) : the gradient card ----
+   Muted gradients from the photo palette (2026-10-20). Three layers:
+   a base color on the card, a blurred mesh of five color blobs (::before) and film grain (::after).
+   The mesh mixes in OKLCH, so blends between neighbors stay clean and never pass through grey.
+   field = new-growth, the brand card, for the default and for growth.
+   sky   = desaturated sky blue, for neutral findings.
+   clay  = muted clay orange, for attention and gaps.
+   sand  = warm sand with a cool corner, for the most important summary on a page.
+   All four carry ink text and look the same in both themes. */
 .insight {
   position: relative; overflow: hidden; isolation: isolate;
   border-radius: var(--corner-media); padding: 28px 30px; color: var(--on);
   display: flex; flex-direction: column; min-height: 300px;
-  background: var(--tone-bg);
-  box-shadow: 0 18px 36px -24px rgba(24,29,25,.45);
-  /* text and parts on a light tone: ink. Counter text is 6:1 or better on every light tone. */
-  --on: #181D19; --on-2: rgba(24,29,25,.84); --on-3: rgba(24,29,25,.78);
-  --pill-bg: rgba(24,29,25,.07); --pill-edge: rgba(24,29,25,.18);
+  background: var(--g-base);
+  box-shadow: 0 18px 36px -24px var(--g-shadow, rgba(24,29,25,.45));
+  /* ink text and parts. Counter and unit text measured at 4.5:1 or more on every tone. */
+  --on: #181D19; --on-2: rgba(24,29,25,.86); --on-3: rgba(24,29,25,.8);
+  --pill-bg: rgba(255,255,255,.34); --pill-edge: rgba(24,29,25,.16);
   --spark: rgba(24,29,25,.18); --spark-hi: #181D19;
   --btn-bg: #181D19; --btn-fg: #F6F0E9;
-  --grain: .4; --grain-blend: overlay;
 }
 .insight::before {
-  content: ""; position: absolute; inset: 0; z-index: -2; pointer-events: none;
-  background: var(--photo-layers, none);
+  content: ""; position: absolute; inset: -25%; z-index: -2; pointer-events: none;
+  /* g1 to g4 are large soft blobs, g5 is a small highlight top right. */
+  background:
+    radial-gradient(in oklch circle at 82% 18%, var(--g5) 0%, transparent 22%),
+    radial-gradient(in oklch 38% 44% at 24% 26%, var(--g1) 0%, transparent 72%),
+    radial-gradient(in oklch 44% 48% at 74% 38%, var(--g2) 0%, transparent 72%),
+    radial-gradient(in oklch 46% 42% at 64% 80%, var(--g3) 0%, transparent 72%),
+    radial-gradient(in oklch 36% 38% at 26% 78%, var(--g4) 0%, transparent 72%);
+  filter: blur(52px);
 }
 .insight::after {
-  /* Grain: grey fractal noise, 260px tile. */
+  /* Grain: grey fractal noise, 260px tile, overlay blend. */
   content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncG type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncB type='linear' slope='1.6' intercept='-.3'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-size: 260px 260px;
-  opacity: var(--grain); mix-blend-mode: var(--grain-blend);
+  opacity: .4; mix-blend-mode: overlay;
 }
-/* Option 1, flat brand tones */
-.insight[data-tone="field"] { --tone-bg: #1AF197; }
-.insight[data-tone="sky"] { --tone-bg: #E9DFD1; }
-.insight[data-tone="dawn"] { --tone-bg: #F6DCB4; }
-.insight[data-tone="lilac"], [data-insight="photo"] .insight[data-tone] {
-  /* text and parts on a dark surface: cream */
-  --on: #F6F0E9; --on-2: rgba(246,240,233,.88); --on-3: rgba(246,240,233,.8);
-  --pill-bg: rgba(246,240,233,.12); --pill-edge: rgba(246,240,233,.26);
-  --spark: rgba(246,240,233,.26); --spark-hi: #1AF197;
-  --btn-bg: #F6F0E9; --btn-fg: #181D19;
-}
-.insight[data-tone="lilac"] { --tone-bg: #181D19; --grain: .1; --grain-blend: screen; }
-[data-theme="dark"] .insight[data-tone="lilac"] { box-shadow: 0 0 0 1px rgba(246,240,233,.12) inset, 0 18px 36px -24px rgba(0,0,0,.6); }
-/* Option 2, treated photo. The photo layer is taller than the card and anchored to the bottom,
-   so every card shows the darker ground of the photo, never the bright sky. The 20% black overlay
-   and the grain sit above the photo, so a new photo only needs a path. */
-[data-insight="photo"] .insight[data-tone] {
-  --tone-bg: #3A3529; --grain: .34; --grain-blend: overlay; --spark-hi: #F6F0E9;
-  --on-2: rgba(246,240,233,.94); --on-3: rgba(246,240,233,.9);
-  --pill-bg: rgba(24,29,25,.42); --pill-edge: rgba(246,240,233,.3);
-  /* overlay: 20% black. Shade: a short darker band behind the pill and counter row,
-     where stubble and wheat tips are brightest. Both measured to 4.5:1 for cream text. */
-  --photo-layers:
-    linear-gradient(rgba(0,0,0,.2), rgba(0,0,0,.2)),
-    linear-gradient(rgba(0,0,0,.34), rgba(0,0,0,0) 30%) 0 100% / 100% calc(100% * 100% / var(--photo-reach, 230%)) no-repeat,
-    var(--photo) var(--photo-x, 50%) 100% / cover no-repeat;
-  box-shadow: 0 18px 36px -24px rgba(0,0,0,.6);
-}
-/* Photo files. Plain JPEG first, so browsers without image-set() type() (Safari before 17)
-   still show the photo. A var() that holds an unsupported image-set() makes the whole layer
-   list invalid, so the upgrade sits behind @supports, not in the same declaration. */
-.insight { --photo-wheat: url("./assets/photos/wheat-1200.jpg"); --photo-field: url("./assets/photos/field-1200.jpg"); }
-@supports (background-image: image-set(url("x.jpg") type("image/jpeg"))) {
-  .insight { --photo-wheat: image-set(url("./assets/photos/wheat-1200.avif") type("image/avif"), url("./assets/photos/wheat-1200.jpg") type("image/jpeg")); --photo-field: image-set(url("./assets/photos/field-1200.avif") type("image/avif"), url("./assets/photos/field-1200.jpg") type("image/jpeg")); }
-}
-[data-insight="photo"] .insight[data-tone]::before { inset: auto 0 0 0; height: var(--photo-reach, 230%); }
-[data-insight="photo"] .insight[data-tone="field"] { --photo: var(--photo-wheat); --photo-x: 40%; }
-[data-insight="photo"] .insight[data-tone="sky"] { --photo: var(--photo-field); --photo-x: 50%; --photo-reach: 300%; }
-[data-insight="photo"] .insight[data-tone="dawn"] { --photo: var(--photo-wheat); --photo-x: 100%; }
-[data-insight="photo"] .insight[data-tone="lilac"] { --photo: var(--photo-field); --photo-x: 0%; --photo-reach: 300%; }
-/* A panel nested in the card: frosted on a flat tone, solid on a photo so its text never sits on the image. */
+/* field: new-growth, with a pale growth glow and one cool sky blob from the photos */
+.insight[data-tone="field"] { --g-base: #1AF197; --g1: #AFF8D0; --g2: #1AF197; --g3: #4BDC95; --g4: var(--ef-sky-300); --g5: #FBF6ED; --g-shadow: rgba(3,119,72,.45); }
+/* sky: the desaturated blue of the field photo, warmed by a sand horizon at the bottom */
+.insight[data-tone="sky"] { --g-base: var(--ef-sky-300); --g1: var(--ef-sky-100); --g2: #99BECC; --g3: var(--ef-sand-100); --g4: var(--ef-sky-500); --g5: #ECF6FA; --g-shadow: rgba(55,85,96,.45); }
+/* clay: the stubble and sunset of the photos, muted */
+.insight[data-tone="clay"] { --g-base: var(--ef-clay-300); --g1: var(--ef-clay-100); --g2: #C9997A; --g3: var(--ef-sand-300); --g4: #DEB58F; --g5: #FBF6ED; --g-shadow: rgba(102,68,47,.45); }
+/* sand: warm sand with a peach cloud and a cool sky corner */
+.insight[data-tone="sand"] { --g-base: var(--ef-sand-300); --g1: var(--ef-sand-100); --g2: var(--ef-sand-500); --g3: var(--ef-clay-100); --g4: var(--ef-sky-300); --g5: #FBF6ED; --g-shadow: rgba(90,78,58,.45); }
+/* A panel nested in the card is frosted. */
 .insight .insight-panel { background: rgba(255,255,255,.72); }
-[data-insight="photo"] .insight .insight-panel { background: var(--ef-surface); }
-/* In dark mode, neutral tokens inside the light flat tones keep their light values, so nested
-   panels, buttons and text stay readable. The ink tone and the photos already carry cream text. */
-[data-theme="dark"]:not([data-insight="photo"]) .insight[data-tone]:not([data-tone="lilac"]) { --ef-ink: #181D19; --ef-ink-2: #313732; --ef-text: #181D19; --ef-text-2: #4E544F; --ef-text-3: #646B65; --ef-focus: #1C5BB5; --ef-surface: #FCFBF8; --ef-surface-2: #F0EAE3; --ef-surface-3: #E5DFD6; --ef-surface-raised: #FFFFFF; --ef-line: rgba(24, 29, 25, .08); --ef-line-2: rgba(24, 29, 25, .14); --ef-on-ink: #FFFFFF; --ef-on-ink-soft: rgba(255,255,255,.12); --ef-hover: rgba(24, 29, 25, .05); --ef-card-edge: rgba(255,255,255,.85); --ef-switch-off: #D9D3CC; color-scheme: light; }
+/* In dark mode, neutral tokens inside a card keep their light values, so nested panels, buttons
+   and text stay readable on the light gradient. */
+[data-theme="dark"] .insight[data-tone] { --ef-ink: #181D19; --ef-ink-2: #313732; --ef-text: #181D19; --ef-text-2: #4E544F; --ef-text-3: #646B65; --ef-focus: #1C5BB5; --ef-surface: #FCFBF8; --ef-surface-2: #F0EAE3; --ef-surface-3: #E5DFD6; --ef-surface-raised: #FFFFFF; --ef-line: rgba(24, 29, 25, .08); --ef-line-2: rgba(24, 29, 25, .14); --ef-on-ink: #FFFFFF; --ef-on-ink-soft: rgba(255,255,255,.12); --ef-hover: rgba(24, 29, 25, .05); --ef-card-edge: rgba(255,255,255,.85); --ef-switch-off: #D9D3CC; color-scheme: light; --g-shadow: rgba(0,0,0,.6); }
 .insight-top { display: flex; align-items: center; justify-content: space-between; }
 .insight-pill {
   display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 14px;
@@ -1699,6 +1678,9 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 .swatch .info span { font-size: 12px; color: var(--ef-text-3); font-family: ui-monospace, Menlo, monospace; }
 .ramp { display: grid; grid-template-columns: repeat(5, 1fr); border-radius: var(--corner-card); overflow: hidden; height: 54px; }
 .ramp div { display: flex; align-items: flex-end; padding: 6px 8px; font-size: 11px; font-family: ui-monospace, Menlo, monospace; }
+.ramp[data-size="lg"] { height: 84px; }
+.ramp[data-size="lg"] div { flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 2px; font-weight: 600; }
+.ramp[data-size="lg"] span { font-weight: 400; }
 .brand-tile { border-radius: var(--corner-media); height: 210px; display: grid; place-items: center; }
 .inventory td code { font-size: 12px; }
 .anatomy { position: relative; }
@@ -1836,13 +1818,31 @@ body[data-role="member"] [data-author-only] { display: none !important; }
   </div>
 
   <div class="doc-section">
+    <div class="doc-h"><h2>Muted palette</h2><code>--ef-{sky|clay|sand}-{100|300|500|700} · --ef-soil · --ef-cloud</code></div>
+    <p class="doc-note">Colors taken from the two field photos and muted in OKLCH, so they sit next to new-growth without competing with it. They paint the gradient cards, the marketing phase cards and brand moments. They are not status colors. 100 is the pale tint, 300 the light step, 500 the photo color and 700 the deep step, which is safe for text on white, cream and the frame. On dark surfaces, use 300 for text.</p>
+    <div class="grid g-3">
+      <div class="specimen"><div class="specimen-label"><b style="color:var(--ef-text);font-weight:600">Sky</b>the open sky over the field</div>
+        <div class="ramp" data-size="lg" style="grid-template-columns:repeat(4,1fr)"><div style="background:var(--ef-sky-700);color:#F6F0E9">700<span>#4C6F7C</span></div><div style="background:var(--ef-sky-500);color:#181D19">500<span>#83AAB8</span></div><div style="background:var(--ef-sky-300);color:#181D19">300<span>#B2D2DE</span></div><div style="background:var(--ef-sky-100);color:#181D19">100<span>#D6EAF2</span></div></div></div>
+      <div class="specimen"><div class="specimen-label"><b style="color:var(--ef-text);font-weight:600">Clay</b>stubble and the low sun</div>
+        <div class="ramp" data-size="lg" style="grid-template-columns:repeat(4,1fr)"><div style="background:var(--ef-clay-700);color:#F6F0E9">700<span>#83583D</span></div><div style="background:var(--ef-clay-500);color:#181D19">500<span>#AF7A5A</span></div><div style="background:var(--ef-clay-300);color:#181D19">300<span>#E4BAA2</span></div><div style="background:var(--ef-clay-100);color:#181D19">100<span>#F5DED0</span></div></div></div>
+      <div class="specimen"><div class="specimen-label"><b style="color:var(--ef-text);font-weight:600">Sand</b>dry wheat and the peach clouds</div>
+        <div class="ramp" data-size="lg" style="grid-template-columns:repeat(4,1fr)"><div style="background:var(--ef-sand-700);color:#F6F0E9">700<span>#7A694E</span></div><div style="background:var(--ef-sand-500);color:#181D19">500<span>#C7B18C</span></div><div style="background:var(--ef-sand-300);color:#181D19">300<span>#E8D3B0</span></div><div style="background:var(--ef-sand-100);color:#181D19">100<span>#F7EBD8</span></div></div></div>
+    </div>
+    <div class="grid g-3 mt-4">
+      <div class="swatch"><div class="chipc" style="background:#1AF197"></div><div class="info"><b>New-growth</b><span>#1AF197 · the fixed brand color, the field card</span></div></div>
+      <div class="swatch"><div class="chipc" style="background:var(--ef-soil)"></div><div class="info"><b>Soil</b><span>#3F2F23 · the shadowed ground, deep accents</span></div></div>
+      <div class="swatch"><div class="chipc" style="background:var(--ef-cloud)"></div><div class="info"><b>Cloud</b><span>#787A80 · storm cloud grey, quiet lines on photos</span></div></div>
+    </div>
+  </div>
+
+  <div class="doc-section">
     <div class="doc-h"><h2>Gradients</h2><code>&lt;InsightCard tone&gt;</code></div>
-    <p class="doc-note">The gradient card is the signature surface. Neighboring colors are mixed in OKLCH, blurred, lit by one small highlight and covered with film grain. Use at most two per page, and only for one finding the person should act on. <b>Field</b> is the brand green, for the default and for growth. <b>Sky</b> is light blue, for neutral findings. <b>Dawn</b> is light orange, for attention and gaps. <b>Lilac</b> is soft violet, for the most important summary on a page. All four carry ink text.</p>
+    <p class="doc-note">The gradient card is the signature surface. Colors from the muted palette are mixed in OKLCH, blurred, lit by one small highlight and covered with film grain. Use at most two per page, and only for one finding the person should act on. <b>Field</b> is new-growth, for the default and for growth. <b>Sky</b> is the muted blue, for neutral findings. <b>Clay</b> is the muted orange, for attention and gaps. <b>Sand</b> is warm sand with a cool corner, for the most important summary on a page. All four carry ink text and look the same in both themes.</p>
     <div class="grid g-4">
       <div class="insight" data-tone="field" data-on="ink" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-plant-01"></i>field</div><div class="insight-title">Default and growth</div></div>
       <div class="insight" data-tone="sky" data-on="ink" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-sparkles"></i>sky</div><div class="insight-title">Neutral finding</div></div>
-      <div class="insight" data-tone="dawn" data-on="ink" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-alert-02"></i>dawn</div><div class="insight-title">Risk or gap</div></div>
-      <div class="insight" data-tone="lilac" data-on="ink" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-chart-line-data-01"></i>lilac</div><div class="insight-title">Key summary</div></div>
+      <div class="insight" data-tone="clay" data-on="ink" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-alert-02"></i>clay</div><div class="insight-title">Risk or gap</div></div>
+      <div class="insight" data-tone="sand" data-on="ink" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-chart-line-data-01"></i>sand</div><div class="insight-title">Key summary</div></div>
     </div>
   </div>
 
@@ -1974,7 +1974,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
         <div class="insight-title">Quick follow-up doubles return visits</div>
         <div class="insight-footer"><button class="btn" data-variant="light">Review 7 guests <i class="hgi-stroke hgi-arrow-right-01"></i></button></div>
       </div>
-      <div class="insight" data-tone="dawn" data-on="ink">
+      <div class="insight" data-tone="clay" data-on="ink">
         <div class="insight-top"><span class="insight-pill"><i class="hgi-stroke hgi-alert-02"></i>Needs attention</span><span class="insight-count">Before launch</span></div>
         <div class="insight-metric"><span class="num">4</span><span class="unit">leader roles still open</span></div>
         <div class="insight-title">Children's ministry has no leader yet</div>
@@ -2732,7 +2732,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
         <div class="kv"><span class="k row gap-2"><span class="ring" style="--p:30;--c:var(--ef-amber-500);width:36px;height:36px" data-label=""></span>Met in last 4 weeks</span><span class="v">3 of 10</span></div>
       </div>
     </div>
-    <div class="insight" data-tone="dawn" data-on="ink" data-size="sm" style="min-height:0">
+    <div class="insight" data-tone="clay" data-on="ink" data-size="sm" style="min-height:0">
       <div class="insight-top"><span class="insight-pill"><i class="hgi-stroke hgi-alert-02"></i>Staffing gap</span><span class="insight-count">Before Phase 2</span></div>
       <div class="row gap-4" style="align-items:flex-end;margin-top:16px"><span class="num" style="font-size:52px;line-height:.95">2</span><span style="color:var(--on-2);font-size:14px;max-width:200px">ministries have no leader, and both serve families</span></div>
       <div class="insight-title" style="margin-top:12px">Kids and Students need leaders</div>
@@ -3046,7 +3046,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
     </div>
 
     <div class="stack" style="gap:20px">
-      <div class="insight" data-tone="dawn" data-on="ink" data-size="sm" style="min-height:0">
+      <div class="insight" data-tone="clay" data-on="ink" data-size="sm" style="min-height:0">
         <div class="insight-top"><span class="insight-pill"><i class="hgi-stroke hgi-clock-01"></i>Follow-up window</span></div>
         <div class="row gap-4" style="align-items:flex-end;margin-top:16px"><span class="num" style="font-size:52px;line-height:.95">3</span><span style="color:var(--on-2);font-size:14px;max-width:200px">follow-ups passed the 48-hour mark this week</span></div>
         <div class="insight-title" style="margin-top:12px">Guests called late come back half as often</div>
@@ -3202,7 +3202,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
         <div class="card-inset" style="padding:14px"><div class="row between"><span class="t-sm muted">Area</span><span class="badge" data-size="sm" data-status="positive">Yes</span></div><div class="faint t-xs mt-2">Hyde Park</div></div>
       </div>
     </div>
-    <div class="insight" data-tone="lilac" data-on="ink">
+    <div class="insight" data-tone="sand" data-on="ink">
       <div class="insight-top"><span class="insight-pill"><i class="hgi-stroke hgi-sparkles"></i>Top finding</span><span class="insight-count">1 of 4</span></div>
       <div class="insight-metric"><span class="num">21 d</span><span class="unit">since the core group last grew</span></div>
       <div class="insight-title">Momentum is slowing after a strong September</div>
@@ -3912,7 +3912,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 <tr><td class="faint t-sm">Layout</td><td class="cell-title">Page header</td><td><code class="k">&lt;PageHeader&gt;</code></td><td class="muted t-sm">Breadcrumb, Title, Subtitle, Actions</td><td class="muted t-sm">size xl</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
 <tr><td class="faint t-sm">Layout</td><td class="cell-title">Breadcrumb</td><td><code class="k">&lt;Breadcrumb&gt;</code></td><td class="muted t-sm">Item, Separator</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
 <tr><td class="faint t-sm">Surfaces</td><td class="cell-title">Card</td><td><code class="k">&lt;Card&gt;</code></td><td class="muted t-sm">Header, Title, Description, Actions, Close, Body, ScrollArea, Footer, Inset</td><td class="muted t-sm">variant default/raised/flat/callout · size md/sm · tone</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">ScrollArea</span></td></tr>
-<tr><td class="faint t-sm">Surfaces</td><td class="cell-title">Insight card</td><td><code class="k">&lt;InsightCard&gt;</code></td><td class="muted t-sm">Pill, Count, Metric, Title, Text, Spark, Footer</td><td class="muted t-sm">tone field/sky/dawn/lilac · size</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
+<tr><td class="faint t-sm">Surfaces</td><td class="cell-title">Insight card</td><td><code class="k">&lt;InsightCard&gt;</code></td><td class="muted t-sm">Pill, Count, Metric, Title, Text, Spark, Footer</td><td class="muted t-sm">tone field/sky/clay/sand · size</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
 <tr><td class="faint t-sm">Actions</td><td class="cell-title">Button</td><td><code class="k">&lt;Button&gt;</code></td><td class="muted t-sm">Icon, Label</td><td class="muted t-sm">variant primary/brand/secondary/outline/ghost/light/glass/danger · size sm/md</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Button</span></td></tr>
 <tr><td class="faint t-sm">Actions</td><td class="cell-title">Icon button</td><td><code class="k">&lt;IconButton&gt;</code></td><td class="muted t-sm">Icon</td><td class="muted t-sm">variant default/soft/square · size</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Button</span></td></tr>
 <tr><td class="faint t-sm">Inputs</td><td class="cell-title">Field</td><td><code class="k">&lt;Field&gt;</code></td><td class="muted t-sm">Label, Control, Hint, Error</td><td class="muted t-sm">invalid</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Field</span></td></tr>
@@ -4439,7 +4439,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 
   <div id="ni-enough">
   <div class="grid" style="grid-template-columns: minmax(0,1.5fr) minmax(0,1fr); align-items:stretch; margin-bottom:20px">
-    <div class="insight" data-tone="lilac" data-on="ink" style="min-height:0">
+    <div class="insight" data-tone="sand" data-on="ink" style="min-height:0">
       <div class="insight-top"><span class="insight-pill"><i class="hgi-stroke hgi-sparkles"></i>Top network finding</span><span class="insight-count" id="ni-count">From 11 of 14 plants</span></div>
       <div class="insight-metric"><span class="num" id="ni-num">4 of 6</span><span class="unit" id="ni-unit">plants within a year of launch have a Concern on Emerging leadership</span></div>
       <div class="insight-title" id="ni-title">Emerging leadership is the most common gap before launch</div>
@@ -4564,10 +4564,6 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 <div class="preview-pop" id="preview-pop" data-open="false" role="dialog" aria-label="Preview states">
   <h4>Role</h4>
   <div class="pp-opts" data-pp="role"><button data-v="owner" aria-pressed="true">Owner</button><button data-v="member" aria-pressed="false">Member · own tasks</button></div>
-  <h4>Corners</h4>
-  <div class="pp-opts" data-pp="corners"><button data-v="a" aria-pressed="true">A · Square</button><button data-v="b" aria-pressed="false">B · Petal</button><button data-v="c" aria-pressed="false">C · Round controls</button></div>
-  <h4>Insight cards</h4>
-  <div class="pp-opts" data-pp="insight"><button data-v="flat" aria-pressed="true">Flat · Brand tone</button><button data-v="photo" aria-pressed="false">Photo</button></div>
   <h4>Data</h4>
   <div class="pp-opts" data-pp="data"><button data-v="live" aria-pressed="true">Live</button><button data-v="firstweek" aria-pressed="false">First week</button><button data-v="loading" aria-pressed="false">Loading</button><button data-v="error" aria-pressed="false">Error</button><button data-v="noaccess" aria-pressed="false">No access</button><button data-v="empty" aria-pressed="false">Empty</button></div>
   <p class="pp-note">Data states are drawn for Overview and People. Member view hides administration across the app. Tasks shows what a Member does on their own tasks.</p>
@@ -5278,8 +5274,6 @@ document.addEventListener('keydown', e => {
 
 /* Preview states from the design dock: role and data state on <body>. */
 document.body.dataset.role = 'owner'; document.body.dataset.data = 'live';
-document.querySelectorAll('[data-pp="corners"] button').forEach(x => x.setAttribute('aria-pressed', x.dataset.v === document.documentElement.dataset.corners));
-document.querySelectorAll('[data-pp="insight"] button').forEach(x => x.setAttribute('aria-pressed', x.dataset.v === document.documentElement.dataset.insight));
 const PREVIEW_LABEL = { owner: 'Owner', member: 'Member', live: 'Live', firstweek: 'First week', loading: 'Loading', error: 'Error', noaccess: 'No access', empty: 'Empty' };
 function togglePreview(btn) {
   const pop = document.getElementById('preview-pop'), open = pop.dataset.open !== 'true';
@@ -5290,15 +5284,8 @@ document.getElementById('preview-pop').addEventListener('click', e => {
   const b = e.target.closest('.pp-opts button'); if (!b) return;
   const key = b.parentElement.dataset.pp;
   b.parentElement.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
-  if (key === 'corners') {
-    document.documentElement.dataset.corners = b.dataset.v;
-    try { localStorage.setItem('ef-corners', b.dataset.v); } catch (err) {}
-    requestAnimationFrame(refreshHoverGroups);
-  } else if (key === 'insight') {
-    document.documentElement.dataset.insight = b.dataset.v;
-    try { localStorage.setItem('ef-insight', b.dataset.v); } catch (err) {}
-  } else document.body.dataset[key] = b.dataset.v;
-  document.getElementById('preview-val').textContent = PREVIEW_LABEL[document.body.dataset.role] + ' · ' + PREVIEW_LABEL[document.body.dataset.data] + ' · ' + document.documentElement.dataset.corners.toUpperCase();
+  document.body.dataset[key] = b.dataset.v;
+  document.getElementById('preview-val').textContent = PREVIEW_LABEL[document.body.dataset.role] + ' · ' + PREVIEW_LABEL[document.body.dataset.data];
   const el = document.querySelector('.page[data-active="true"]'); if (el) staggerReveal(el);
 });
 document.addEventListener('click', e => { if (!e.target.closest('#preview-pop, #preview-btn')) { document.getElementById('preview-pop').dataset.open = 'false'; document.getElementById('preview-btn').setAttribute('aria-expanded', 'false'); } });

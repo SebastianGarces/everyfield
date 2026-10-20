@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-corners="a">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -101,17 +101,14 @@
   --mk-nav-blur: 12px;
 }
 
-/* Corner system. One token set, switched by data-corners on <html> (prototype control bar: Corners A, B, C).
-   Components read only these tokens. Circles (avatars, status dots, switch knobs) and chart bar caps stay as drawn.
+/* Corner system: all square (Sebastian, 2026-10-20). Components read only these tokens.
+   Circles (avatars, status dots, switch knobs) and chart bar caps stay as drawn.
      --corner-card     cards, tiles, inputs, inner product panels
      --corner-control  buttons and icon buttons
      --corner-pill     badges, tags, chips, progress tracks, segmented tabs, the floating nav
-     --corner-petal    the one large round corner on photos and hero panels, taken from the symbol's petals
-     --corner-media    photos, hero panels and stages: square except the top-right petal corner */
-:root, [data-corners="a"] { --corner-card: 0px; --corner-control: 0px; --corner-pill: 0px; --corner-petal: 0px; }
-[data-corners="b"] { --corner-card: 0px; --corner-control: 0px; --corner-pill: 0px; --corner-petal: clamp(48px, 9vw, 128px); }
-[data-corners="c"] { --corner-card: 0px; --corner-control: 999px; --corner-pill: 999px; --corner-petal: 0px; }
-:root { --corner-media: 0 var(--corner-petal) 0 0; }
+     --corner-petal    reserved for one large round corner; 0 today
+     --corner-media    photos, hero panels and stages */
+:root { --corner-card: 0px; --corner-control: 0px; --corner-pill: 0px; --corner-petal: 0px; --corner-media: 0px; }
 </style>
 <style id="mk-site">
 /* =====================================================================
@@ -243,7 +240,7 @@
    - Add a photo: put the web copies in assets/photos/ and add one --photo-<name> token (wide and narrow).
    - Use: class="photo" data-photo="<crop>". A crop sets --photo-src, --photo-pos (focus point and zoom origin)
      and --photo-zoom (1 = cover). Change --photo-shade only for text on a photo (see .photo-text).
-   - The slot sets the corners: border-radius: var(--corner-media) gives the petal in corner option B.
+   - The slot sets the corners with border-radius: var(--corner-media).
    - Text on a photo is cream. Check 4.5:1 for each crop at each width before you ship it.
    ===================================================================== */
 :root {
@@ -274,9 +271,41 @@
 /* Small tiles and light crops that carry cream text or icons use a deeper overlay. */
 .photo-text { --photo-shade: .55; }
 
-/* InsightCard: copied from the dashboard, now on a dark photo crop with cream text */
-/* Small cards are taller than the photo's ratio: zoom further so only the dark wheat shows. */
-.insight.photo { --photo-zoom: 2.3; }
+/* =====================================================================
+   Muted gradients (2026-10-20). The same engine as the dashboard InsightCard (design/everyfield-ui.html).
+   Used by the InsightCard copies and the phase-card rail. Every other surface keeps its photo.
+   Three layers: a base color, a blurred mesh of five color blobs mixed in OKLCH (::before), film grain (::after).
+   - Use: class="mesh" data-mesh="field|sky|clay|sand|haze|dusk". All tones carry ink text.
+   - Palette: --ef-{sky|clay|sand}-{100|300|500|700}, sampled from the two photos and muted in OKLCH.
+     700 is the text-safe step (4.5:1 or more on white and cream).
+   ===================================================================== */
+:root {
+  --ef-sky-100: #D6EAF2;  --ef-sky-300: #B2D2DE;  --ef-sky-500: #83AAB8;  --ef-sky-700: #4C6F7C;
+  --ef-clay-100: #F5DED0; --ef-clay-300: #E4BAA2; --ef-clay-500: #AF7A5A; --ef-clay-700: #83583D;
+  --ef-sand-100: #F7EBD8; --ef-sand-300: #E8D3B0; --ef-sand-500: #C7B18C; --ef-sand-700: #7A694E;
+  --ef-soil: #3F2F23; --ef-cloud: #787A80;
+}
+.mesh { position: relative; isolation: isolate; overflow: hidden; background: var(--g-base); color: #181D19;
+  --on: #181D19; --on-2: rgba(24, 29, 25, .86); --on-3: rgba(24, 29, 25, .8); --pill-bg: rgba(255, 255, 255, .34); --pill-edge: rgba(24, 29, 25, .16); --spark: rgba(24, 29, 25, .18); --spark-hi: #181D19; }
+.mesh::before { content: ""; position: absolute; inset: -25%; z-index: -2; pointer-events: none;
+  background:
+    radial-gradient(in oklch circle at 82% 18%, var(--g5) 0%, transparent 22%),
+    radial-gradient(in oklch 38% 44% at 24% 26%, var(--g1) 0%, transparent 72%),
+    radial-gradient(in oklch 44% 48% at 74% 38%, var(--g2) 0%, transparent 72%),
+    radial-gradient(in oklch 46% 42% at 64% 80%, var(--g3) 0%, transparent 72%),
+    radial-gradient(in oklch 36% 38% at 26% 78%, var(--g4) 0%, transparent 72%);
+  filter: blur(52px); }
+.mesh::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit; background: var(--photo-grain) 0 0 / 260px 260px; opacity: .4; mix-blend-mode: overlay; }
+.mesh :focus-visible { outline: 2px solid #181D19; outline-offset: 2px; }
+[data-mesh="field"] { --g-base: #1AF197; --g1: #AFF8D0; --g2: #1AF197; --g3: #4BDC95; --g4: var(--ef-sky-300); --g5: #FBF6ED; }
+[data-mesh="sky"]   { --g-base: var(--ef-sky-300); --g1: var(--ef-sky-100); --g2: #99BECC; --g3: var(--ef-sand-100); --g4: var(--ef-sky-500); --g5: #ECF6FA; }
+[data-mesh="clay"]  { --g-base: var(--ef-clay-300); --g1: var(--ef-clay-100); --g2: #C9997A; --g3: var(--ef-sand-300); --g4: #DEB58F; --g5: #FBF6ED; }
+[data-mesh="sand"]  { --g-base: var(--ef-sand-300); --g1: var(--ef-sand-100); --g2: var(--ef-sand-500); --g3: var(--ef-clay-100); --g4: var(--ef-sky-300); --g5: #FBF6ED; }
+/* Two blends for the six-card rail: haze = sky over a sand horizon, dusk = clay under a sky corner. */
+[data-mesh="haze"]  { --g-base: var(--ef-sky-100); --g1: var(--ef-sky-300); --g2: var(--ef-sand-100); --g3: var(--ef-sand-300); --g4: #99BECC; --g5: #FBF6ED; }
+[data-mesh="dusk"]  { --g-base: var(--ef-clay-100); --g1: var(--ef-sky-300); --g2: var(--ef-clay-300); --g3: #DEB58F; --g4: var(--ef-sand-300); --g5: #ECF6FA; }
+
+/* InsightCard: copied from the dashboard, on the same muted gradients with ink text (class="insight mesh"). */
 .insight { border-radius: var(--corner-card); padding: 22px 24px; color: var(--on); display: flex; flex-direction: column; box-shadow: 0 18px 36px -24px rgba(24,29,25,.55); }
 .insight-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .insight-pill { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px; border-radius: var(--corner-pill); background: var(--pill-bg); box-shadow: 0 0 0 1px var(--pill-edge) inset; font-weight: 600; font-size: 13px; }
@@ -287,7 +316,7 @@
 .insight-title { font-family: var(--mk-font-display); font-size: 23px; line-height: 1.18; font-weight: 400; margin-top: 14px; letter-spacing: var(--mk-tracking-display); }
 .insight-text { color: var(--on-2); margin-top: 10px; font-size: 14px; }
 .insight-footer { margin-top: auto; padding-top: 20px; display: flex; gap: 8px; flex-wrap: wrap; }
-.insight .btn[data-variant="light"] { background: #F6F0E9; color: #181D19; box-shadow: 0 8px 18px -10px rgba(24,29,25,.6); }
+.insight .btn[data-variant="light"] { background: #181D19; color: #F6F0E9; box-shadow: 0 8px 18px -10px rgba(24,29,25,.6); }
 .insight .btn[data-variant="glass"] { background: var(--pill-bg); color: var(--on); box-shadow: 0 0 0 1px var(--pill-edge) inset; }
 .insight .spark { display: flex; align-items: flex-end; gap: 6px; height: 46px; margin-top: 16px; max-width: 62%; }
 .insight .spark span { flex: 1; border-radius: 4px 4px 2px 2px; background: var(--spark); }
@@ -512,9 +541,9 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .phc-card { scroll-snap-align: start; display: flex; flex-direction: column; width: clamp(296px, 26vw, 372px); height: 444px; border-radius: var(--corner-card); background: var(--mk-surface); border: var(--mk-border-card); box-shadow: var(--mk-shadow-card); overflow: hidden; }
 .phc-card:focus-visible { outline: 2px solid #181D19; outline-offset: 2px; }
 /* Card art: the number sits top left; the vignette is centered below it and is cropped by the bottom of the art. */
-/* The cream phase number sits on the photo: a 50% overlay keeps it at 3:1 on the light crops. */
-.phc-art.photo { --photo-shade: .5; position: relative; height: 236px; flex: none; margin: 8px 8px 0; border-radius: var(--corner-media); }
-.phc-num { position: absolute; left: 18px; top: 16px; font-family: var(--mk-font-display); font-size: 96px; font-weight: 400; line-height: .8; letter-spacing: var(--mk-tracking-display); color: #F6F0E9; font-variant-numeric: tabular-nums; }
+/* The art is a muted gradient (data-mesh) with an ink phase number. */
+.phc-art.mesh { position: relative; height: 236px; flex: none; margin: 8px 8px 0; border-radius: var(--corner-media); }
+.phc-num { position: absolute; left: 18px; top: 16px; font-family: var(--mk-font-display); font-size: 96px; font-weight: 400; line-height: .8; letter-spacing: var(--mk-tracking-display); color: #181D19; font-variant-numeric: tabular-nums; }
 .phc-vig { position: absolute; left: 0; right: 0; top: 112px; width: min(calc(100% - 28px), 292px); margin: 0 auto; }
 .phc-txt { padding: 20px 22px 22px; }
 /* Pinned mode (desktop, no reduced motion). The pin is a tall track (frame height + travel, set by JS); the frame is sticky
@@ -531,7 +560,7 @@ svg.i { width: 18px; height: 18px; flex: none; }
 @media (max-width: 640px) {
   .ph-sec .sec-head { margin-bottom: 26px; }
   .phc-card { width: min(82vw, 320px); height: auto; }
-  .phc-art.photo { height: 200px; }
+  .phc-art.mesh { height: 200px; }
 }
 
 /* Audiences: Cohere pattern. Three columns topped by rules, each with a "learn more" link. */
@@ -832,7 +861,7 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .cx-bg.photo { position: absolute; inset: 0; z-index: -1; opacity: 0; will-change: opacity; }
 .cx-card { position: relative; grid-area: 1 / 1; width: min(400px, calc(100% - 48px)); padding: 18px 20px 20px; border-radius: var(--corner-card); background: #FFFFFF; opacity: 0;
   box-shadow: 0 0 0 1px rgba(24, 29, 25, .05), 0 1px 2px rgba(24, 29, 25, .05), 0 26px 50px -26px rgba(24, 29, 25, .4); will-change: transform, opacity; }
-.cx-card.insight { background-color: #3A3529; padding: 22px 24px; }
+.cx-card.insight { background: var(--g-base); padding: 22px 24px; }
 .cx-card [data-st], .cx-card .cx-st { will-change: transform, opacity; }
 .cx-h { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .cx-h .card-icon { width: 36px; height: 36px; }
@@ -1420,8 +1449,6 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .pbar .seg button:disabled { cursor: not-allowed; opacity: .38; }
 .pbar .seg button:disabled[aria-pressed="true"] { opacity: .7; }
 .pbar .seg button b { font-weight: 700; margin-right: 4px; }
-.pbar .pb-corners button { min-width: 32px; }
-.pbar .pb-corners button b { margin-right: 0; }
 .pbar button:focus-visible, .pbar select:focus-visible { outline: 2px solid #6CF2B4; outline-offset: 2px; }
 .pbar select { font: inherit; color: #EEF0F4; background: rgba(255,255,255,.07) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23B1B7C2' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 10px center; border: 0; border-radius: 10px; padding: 9px 28px 9px 10px; -webkit-appearance: none; appearance: none; cursor: pointer; max-width: 200px; }
 .pbar select option, .pbar select optgroup { color: #111318; background: #fff; }
@@ -1440,7 +1467,7 @@ body.pbar-hidden { padding-bottom: 0; }
 
 /* =================== Responsive: 1440 / 768 / 375 =================== */
 @media (max-width: 1240px) {
-  .pbar .seg:not(.pb-corners) { display: none; }
+  .pbar .seg { display: none; }
   .pbar select.m { display: block; }
   .pbar .pb-lab, .pbar .pb-note { display: none; }
 }
@@ -2582,15 +2609,7 @@ function wordmark() {
 function mark() { return '<svg viewBox="0 0 340 340" aria-hidden="true"><use href="#ef-symbol"/></svg>'; }
 
 /* ---------- State and routing ---------- */
-/* Corner options for review (rebrand). The choice sets data-corners on <html>; the tokens in #mk-tokens do the rest. */
-var CORNER_OPTS = [
-  { id: "a", name: "All square" },
-  { id: "b", name: "Square with one petal corner on photos and hero panels" },
-  { id: "c", name: "Square cards, round buttons and pills" }
-];
-var state = { page: "home", story: "journey", at: "", corners: "a" };
-/* The corner pick is shared with design/everyfield-ui.html through localStorage key "ef-corners". A ?corners= hash wins. */
-function storedCorners() { try { var v = localStorage.getItem("ef-corners"); return /^[abc]$/.test(v || "") ? v : "a"; } catch (e) { return "a"; } }
+var state = { page: "home", story: "journey", at: "" };
 function parseHash() {
   var h = location.hash.replace(/^#/, "");
   var q = "";
@@ -2601,15 +2620,13 @@ function parseHash() {
   return {
     page: PAGE[path] ? path : "home",
     story: STORY[params.get("story")] ? params.get("story") : "journey",
-    at: params.get("at") || "",
-    corners: /^[abc]$/.test(params.get("corners") || "") ? params.get("corners") : storedCorners()
+    at: params.get("at") || ""
   };
 }
 function hrefFor(page, at, over) {
   var s = Object.assign({}, state, over || {});
   var p = new URLSearchParams();
   p.set("story", s.story);
-  p.set("corners", s.corners);
   if (at) p.set("at", at);
   return "#" + (page === "home" ? "/" : "/" + page) + "?" + p.toString();
 }
@@ -2664,7 +2681,7 @@ function needsYouCard() {
     rows.map(function (r) { return '<div class="list-row"><span class="card-icon ' + r[0] + '">' + icon(r[1]) + '</span><div class="grow"><div class="list-title">' + r[2] + '</div><div class="list-sub">' + r[3] + "</div></div>" + icon("arrow", "chev") + "</div>"; }).join("") + "</div></div>";
 }
 function focusCard() {
-  return '<div class="insight photo" data-photo="wheat-grain"><div class="insight-top"><span class="insight-pill">' + icon("compass") + 'Focus this week</span><span class="insight-count">Plant Intelligence</span></div>' +
+  return '<div class="insight mesh" data-mesh="field"><div class="insight-top"><span class="insight-pill">' + icon("compass") + 'Focus this week</span><span class="insight-count">Plant Intelligence</span></div>' +
     '<div class="insight-metric"><span class="num">16 d</span><span class="unit">since the last vision meeting</span></div>' +
     '<div class="insight-title">Hold your next vision meeting this week</div>' +
     '<div class="insight-text">Vision meeting #12 is set for Sun Oct 12. Invite the 9 guests from #11.</div>' +
@@ -2748,7 +2765,7 @@ function vNetworkDash() {
       return '<tr><td><div class="row" style="gap:10px"><span class="card-icon ' + p[2] + ' hide-sm" style="width:34px;height:34px">' + icon("pin") + '</span><div><div class="cell-title">' + p[0] + '</div><div class="cell-sub">' + p[1] + "</div></div></div></td>" +
         '<td><span class="tag">' + p[3] + '</span></td><td class="hide-sm">' + p[4] + '</td><td class="hide-sm" style="white-space:nowrap">' + p[5] + '</td><td class="hide-sm">' + (p[6] ? '<span class="badge" data-size="sm" data-status="measured">' + p[6] + "</span>" : '<span class="faint">—</span>') + "</td></tr>";
     }).join("") + "</tbody></table></div>";
-  var finding = '<div class="insight photo" data-photo="wheat-low"><div class="insight-top"><span class="insight-pill">' + icon("sparkle") + 'Top network finding</span><span class="insight-count">From 11 of 14 plants</span></div>' +
+  var finding = '<div class="insight mesh" data-mesh="sand"><div class="insight-top"><span class="insight-pill">' + icon("sparkle") + 'Top network finding</span><span class="insight-count">From 11 of 14 plants</span></div>' +
     '<div class="insight-metric"><span class="num">4 of 6</span><span class="unit">plants within a year of launch have a Concern on Emerging leadership</span></div>' +
     '<div class="insight-title">Emerging leadership is the most common gap before launch</div>' +
     '<div class="insight-text">It is the lens most often at Watch or Concern across plants in Training and Pre-launch. Both plants that have already launched had their leader roles filled before Training.</div>' +
@@ -3287,7 +3304,7 @@ var CX_DEFS = {
   "network-intelligence": { title: COPY.shared.oversight_page.intelligence.title, auto: true, mirror: true, steps: ["scope", "pipe", "lens", "top"].map(function (k, i) {
     var st = COPY.shared.oversight_page.intelligence.steps[i]; return [k, ["field-rows", "wheat-clouds", "wheat-dusk", "field-sky"][i], "", st.title, st.body]; }) }
 };
-function cxCard(kind) { return '<div class="cx-card' + (kind === "focus" ? ' insight photo" data-photo="wheat-grain' : kind === "top" ? ' insight photo" data-photo="wheat-low' : kind === "help" ? ' insight photo" data-photo="wheat-grain' : kind === "evry" ? " evry-panel" : "") + '" data-k="' + kind + '">' + CX_MARK[kind]() + cxCur() + "</div>"; }
+function cxCard(kind) { return '<div class="cx-card' + (kind === "focus" ? ' insight mesh" data-mesh="field' : kind === "top" ? ' insight mesh" data-mesh="sand' : kind === "help" ? ' insight mesh" data-mesh="clay' : kind === "evry" ? " evry-panel" : "") + '" data-k="' + kind + '">' + CX_MARK[kind]() + cxCur() + "</div>"; }
 function chapterSection(id, cls) {
   var d = CX_DEFS[id];
   if (d.auto) return autoSection(id, cls, d);
@@ -3876,8 +3893,8 @@ function features(f, opts) {
    horizontal rail with scroll-snap, mouse drag, touch swipe and arrow keys. In both modes each card takes focus. */
 /* Revision 29: six different tones in each rail. Home: sky, field, dawn, lilac, sun, sea. /oversight (opts.tones): lilac, sea, dawn,
    field, sky, sun, so sea is not next to field or sky, and dawn is not next to sun. */
-var PH_TONES = ["field-sky", "wheat-low", "field-horizon", "wheat-clouds", "field-rows", "wheat-grain"];
-var OV_PH_TONES = ["field-horizon", "field-rows", "wheat-clouds", "wheat-grain", "field-sky", "wheat-low"];
+var PH_TONES = ["sky", "haze", "sand", "clay", "dusk", "field"];
+var OV_PH_TONES = ["haze", "sand", "dusk", "sky", "clay", "field"];
 var PH = { root: null, off: null, raf: 0, ro: null, pin: false, st: null };
 var PH_WIDE = window.matchMedia ? window.matchMedia("(min-width: 901px)") : { matches: true };
 function phNum(i) { return (i < 9 ? "0" : "") + (i + 1); }
@@ -3922,7 +3939,7 @@ function phSection(f, opts) {
   return '<section class="sec sec-features ph-sec" id="' + (opts.id || "features") + '"><div class="phc-pin"><div class="phc-frame">' +
     '<div class="wrap"><div class="sec-head solo"><h2 class="display h2 sh-title" id="ph-title">' + t(f.headline) + "</h2></div>" + track + "</div>" +
     '<div class="phc-rail" role="region" aria-roledescription="carousel" aria-labelledby="ph-title"><ol class="phc-list">' + f.items.map(function (x, i) {
-      return '<li class="phc-card" tabindex="0" aria-label="' + phNum(i) + " · " + t(x.label) + '"><div class="phc-art photo" data-photo="' + (opts.tones || PH_TONES)[i] + '"><span class="phc-num" aria-hidden="true">' + phNum(i) + '</span><div class="phc-vig ef" aria-hidden="true">' + (opts.vig || phVig)(i) + "</div></div>" +
+      return '<li class="phc-card" tabindex="0" aria-label="' + phNum(i) + " · " + t(x.label) + '"><div class="phc-art mesh" data-mesh="' + (opts.tones || PH_TONES)[i] + '"><span class="phc-num" aria-hidden="true">' + phNum(i) + '</span><div class="phc-vig ef" aria-hidden="true">' + (opts.vig || phVig)(i) + "</div></div>" +
         '<div class="phc-txt">' + phTag(i, x) + '<h3 class="display h3">' + t(x.title) + "</h3><p>" + t(x.short || x.body) + "</p></div></li>";
     }).join("") + "</ol></div></div></div></section>";
 }
@@ -4353,7 +4370,6 @@ function renderBar() {
     '<select class="m pb-story" aria-label="Story"' + (onHome ? "" : " disabled") + ">" + STORIES.map(function (s) { return '<option value="' + s.id + '"' + (s.id === ps ? " selected" : "") + ' title="' + esc(DIR[s.id].name) + '">Story ' + s.key + "</option>"; }).join("") + "</select></div>" +
     '<div class="pb-group"><span class="pb-lab">Story</span><div class="seg" role="group" aria-label="Story">' + STORIES.map(function (s) { return '<button type="button" data-story="' + s.id + '" title="' + esc(DIR[s.id].name) + '" aria-pressed="' + (s.id === ps) + '"' + (onHome ? "" : " disabled") + "><b>" + s.key + "</b>" + s.short + "</button>"; }).join("") + "</div>" +
     (onHome ? "" : '<span class="pb-note">Fixed for this page</span>') + "</div>" +
-    '<div class="pb-group"><span class="pb-lab">Corners</span><div class="seg pb-corners" role="group" aria-label="Corners">' + CORNER_OPTS.map(function (c) { return '<button type="button" data-corners="' + c.id + '" title="' + esc(c.name) + '" aria-label="Corners ' + c.id.toUpperCase() + ': ' + esc(c.name) + '" aria-pressed="' + (c.id === state.corners) + '"><b>' + c.id.toUpperCase() + "</b></button>"; }).join("") + "</div></div>" +
     '<div class="pb-group"><button type="button" class="pb-btn pb-copy" title="Copy a link to this page and story">' + icon("link") + '<span class="l">Copy link</span></button>' +
     '<button type="button" class="pb-btn pb-hide" title="Hide controls" aria-label="Hide controls">' + icon("x") + "</button></div>";
 }
@@ -4362,8 +4378,6 @@ function renderBar() {
 var last = {};
 function render(scrollMode) {
   document.body.dataset.page = state.page;
-  document.documentElement.dataset.corners = state.corners;
-  try { localStorage.setItem("ef-corners", state.corners); } catch (e) {}
   var needView = last.page !== state.page || last.story !== state.story;
   var v = document.getElementById("view");
   if (needView) {
@@ -4408,8 +4422,6 @@ function toast(msg) {
 document.addEventListener("click", function (e) {
   var b = e.target.closest("[data-story]");
   if (b && b.closest(".pbar") && !b.disabled) { setState({ story: b.dataset.story }); return; }
-  var cb = e.target.closest(".pbar [data-corners]");
-  if (cb) { setState({ corners: cb.dataset.corners }); return; }
   if (e.target.closest(".pb-copy")) {
     var url = location.href;
     var done = function () { toast("Link copied: " + location.hash); };
