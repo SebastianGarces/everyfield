@@ -29,22 +29,22 @@
 		--g5: var(--ef-grad-sky-g5);
 		box-shadow: 0 18px 36px -24px rgb(40 90 170 / 0.45);
 	}
-	[data-product-root] .ef-insight[data-tone="dawn"] {
-		--g-base: var(--ef-grad-dawn-base);
-		--g1: var(--ef-grad-dawn-g1);
-		--g2: var(--ef-grad-dawn-g2);
-		--g3: var(--ef-grad-dawn-g3);
-		--g4: var(--ef-grad-dawn-g4);
-		--g5: var(--ef-grad-dawn-g5);
+	[data-product-root] .ef-insight[data-tone="sage"] {
+		--g-base: var(--ef-grad-sage-base);
+		--g1: var(--ef-grad-sage-g1);
+		--g2: var(--ef-grad-sage-g2);
+		--g3: var(--ef-grad-sage-g3);
+		--g4: var(--ef-grad-sage-g4);
+		--g5: var(--ef-grad-sage-g5);
 		box-shadow: 0 18px 36px -24px rgb(190 110 40 / 0.5);
 	}
-	[data-product-root] .ef-insight[data-tone="lilac"] {
-		--g-base: var(--ef-grad-lilac-base);
-		--g1: var(--ef-grad-lilac-g1);
-		--g2: var(--ef-grad-lilac-g2);
-		--g3: var(--ef-grad-lilac-g3);
-		--g4: var(--ef-grad-lilac-g4);
-		--g5: var(--ef-grad-lilac-g5);
+	[data-product-root] .ef-insight[data-tone="rose"] {
+		--g-base: var(--ef-grad-rose-base);
+		--g1: var(--ef-grad-rose-g1);
+		--g2: var(--ef-grad-rose-g2);
+		--g3: var(--ef-grad-rose-g3);
+		--g4: var(--ef-grad-rose-g4);
+		--g5: var(--ef-grad-rose-g5);
 		box-shadow: 0 18px 36px -24px rgb(110 80 200 / 0.45);
 	}
 	[data-product-root] .ef-insight::before {

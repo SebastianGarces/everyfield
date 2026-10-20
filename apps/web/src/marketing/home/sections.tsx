@@ -84,9 +84,7 @@ export function SendingGlimpse({ title, body, link }: { title: string; body: str
 							<div className="mb-2 flex items-center gap-3">
 								<CardIcon tone="blue" icon={ICONS.network} size={36} glyph={17} />
 								<div className="min-w-0 flex-1">
-									<div className="font-display type-title-sm leading-[1.2] font-medium tracking-[-0.02em]">
-										Grace Church
-									</div>
+									<div className="font-title type-title-sm leading-[1.2] tracking-[-0.02em]">Grace Church</div>
 									<div className="mt-0.5 type-sm text-text-3">Plants you send · Hyde Park, Austin</div>
 								</div>
 							</div>

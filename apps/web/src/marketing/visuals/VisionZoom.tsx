@@ -113,7 +113,7 @@ function Meter({ fx, fill, color }: { fx: string; fill: string; color: string })
 export function VisionZoom() {
 	return (
 		<VisionScene className="ef-ui relative isolate overflow-hidden rounded-frame px-[clamp(16px,3vw,40px)] py-[clamp(20px,3.2vw,44px)] shadow-mk-frame">
-			<span aria-hidden="true" className="mk-gsurf g-dawn absolute inset-0 z-0 [--grain:.3]" />
+			<span aria-hidden="true" className="mk-gsurf g-sage absolute inset-0 z-0 [--grain:.3]" />
 			<div className="relative mx-auto flex max-w-[500px] flex-col gap-3">
 				{/* Launch Sunday: the date the whole plan leads to. */}
 				<Move fx="vision.card" n={0} className={cn(CARD, "px-5 pt-5 pb-5")}>
@@ -122,7 +122,14 @@ export function VisionZoom() {
 						<CardIcon tone="green" icon={ICONS.rocket} className="relative z-1" />
 						<div className="min-w-0 flex-1">
 							<div className={LABEL}>Launch Sunday</div>
-							<div className={cn(NUM, "mt-1 type-title-md mk-lg:type-title-lg leading-[1.1]")}>Sun, Mar 14, 2027</div>
+							<div
+								className={cn(
+									NUM,
+									"mt-1 font-title type-title-md mk-lg:font-display mk-lg:type-title-lg leading-[1.1]",
+								)}
+							>
+								Sun, Mar 14, 2027
+							</div>
 							<div className="mt-2 type-sm text-text-2">9 launch milestones and 23 preparation tasks</div>
 						</div>
 					</div>
@@ -140,7 +147,7 @@ export function VisionZoom() {
 					<div className="mt-3 ml-[50px]">
 						<div className="flex items-baseline justify-between gap-3">
 							<span className="type-sm text-text-3">Benchmark: committed adults</span>
-							<span className={cn(NUM, "type-title-md leading-none")}>
+							<span className={cn(NUM, "font-title type-title-md leading-none")}>
 								<Count fx="vision.count" max={34} />
 								<span className="ml-1 font-sans type-sm font-medium tracking-normal text-text-3">of 50</span>
 							</span>
@@ -178,7 +185,7 @@ export function VisionZoom() {
 						<LineOut n={3} />
 						<CardIcon tone="amber" icon={ICONS.task} className="relative z-1" />
 						<div className="min-w-0 flex-1 pt-px">
-							<div className="font-display type-title-sm leading-[1.2] font-medium tracking-[-0.02em]">This week</div>
+							<div className="font-title type-title-sm leading-[1.2] tracking-[-0.02em]">This week</div>
 							<div className="mt-0.5 type-sm text-text-3">3 tasks for the core group</div>
 						</div>
 					</div>

@@ -8,8 +8,8 @@ import { FollowPanel, MeetPanel, PeoplePanel, TeamsPanel } from "../panels/week"
 import { isPanelKind, type PanelKind } from "../scene-data";
 import { ScrollChapter, type ChapterStep } from "./ScrollChapter";
 
-/* Revision 13: week panel and icon colours in step order are blue, orange, green, lilac; the title phrase for each step. */
-const TONES = ["g-sky", "g-dawn", "g-field", "g-lilac"];
+/* Revision 13: week panel and icon colours in step order are sky, sage, field, rose; the title phrase for each step. */
+const TONES = ["g-sky", "g-sage", "g-field", "g-rose"];
 const WORDS = ["Reach", "gather", "follow up", "commit"];
 const P = COPY.shared.panels;
 const PANELS: Partial<Record<PanelKind, () => ReactNode>> = {
@@ -71,7 +71,7 @@ export function WeekChapter() {
 								className="size-1/2 [&_path]:[stroke-width:1.8]"
 							/>
 						</span>
-						<h3 className="min-w-0 font-display type-mk-lead leading-[1.15] font-medium tracking-[-0.02em] [font-stretch:100%] [text-wrap:balance]">
+						<h3 className="min-w-0 font-title type-mk-lead leading-[1.15] tracking-[-0.02em] [text-wrap:balance]">
 							{s.title}
 						</h3>
 					</div>

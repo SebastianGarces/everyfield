@@ -8,7 +8,7 @@ import { ICONS, type IconName } from "../icons";
 import { PathsCycle } from "./PathsCycle";
 
 type Paths = Copy["shared"]["oversight_page"]["paths"];
-const TONES = ["g-sky", "g-lilac", "g-sun"];
+const TONES = ["g-sky", "g-rose", "g-sun"];
 
 /**
  * /oversight, Revision 28: the sending paths. One display sentence over one large card; PathsCycle moves both. The panes
@@ -66,7 +66,7 @@ function Head({ icon, tone, title, sub }: { icon: IconName; tone: Tone; title: s
 		<div className="mb-2 flex items-center gap-3">
 			<CardIcon tone={tone} icon={ICONS[icon]} size={36} glyph={17} />
 			<div className="min-w-0 flex-1">
-				<div className="font-display type-title-sm leading-[1.2] font-medium tracking-[-0.02em]">{title}</div>
+				<div className="font-title type-title-sm leading-[1.2] tracking-[-0.02em]">{title}</div>
 				<div className="mt-0.5 type-sm text-text-3">{sub}</div>
 			</div>
 		</div>

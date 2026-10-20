@@ -148,7 +148,7 @@ function PreviewList({ preview, oldZone }: { preview: PlantTimezonePreview; oldZ
 						</h3>
 						<ul className="mt-1.5 flex flex-col gap-1 text-sm text-text-2">
 							{g.rows.slice(0, 5).map((row) => (
-								<li key={row.id} className="num">
+								<li key={row.id} className="num font-title">
 									{formatInstant(row.before, oldZone, true)} <span aria-hidden="true">→</span>
 									<span className="sr-only">becomes</span> {formatInstant(row.after, preview.newZone, true)}
 								</li>

@@ -83,7 +83,7 @@ export function HowToSteps({
 				<li key={i} className="relative border-t border-line pt-3.5 pr-0 pb-[18px] pl-[54px] first:border-t-0">
 					<span
 						aria-hidden="true"
-						className="absolute top-3 left-0 grid size-[34px] place-items-center rounded-[11px] bg-surface-2 font-display font-semibold text-ink"
+						className="absolute top-3 left-0 grid size-[34px] place-items-center rounded-[11px] bg-surface-2 font-title tracking-[-0.02em] text-ink"
 					>
 						{i + 1}
 					</span>
@@ -149,9 +149,9 @@ export function Prose({ size = "md", className, ...props }: { size?: "md" | "sm"
 				size === "md" ? "max-w-[700px] text-base leading-[1.7]" : "text-[15px] leading-[1.65]",
 				"[&_h2]:mt-[34px] [&_h2]:mb-2.5 [&_h2]:text-[26px] [&_h2]:text-ink [&_h2]:scroll-mt-28",
 				"[&_h3]:mt-[26px] [&_h3]:mb-2 [&_h3]:text-[19px] [&_h3]:text-ink [&_h3]:scroll-mt-28",
-				size === "sm" && "[&_h2]:mt-6 [&_h2]:mb-2 [&_h2]:text-[21px] [&_h3]:text-[17px]",
+				size === "sm" && "[&_h2]:mt-6 [&_h2]:mb-2 [&_h2]:font-title [&_h2]:text-[21px] [&_h3]:text-[17px]",
 				"[&_p]:mb-3.5 [&_ol]:mb-4 [&_ol]:list-decimal [&_ol]:pl-[22px] [&_ul]:mb-4 [&_ul]:list-disc [&_ul]:pl-[22px] [&_li]:my-1.5",
-				"[&_blockquote]:my-5 [&_blockquote]:rounded-[18px] [&_blockquote]:bg-surface-2 [&_blockquote]:px-5 [&_blockquote]:py-4 [&_blockquote]:font-display [&_blockquote]:text-[19px] [&_blockquote]:leading-[1.45] [&_blockquote]:text-ink",
+				"[&_blockquote]:my-5 [&_blockquote]:rounded-[18px] [&_blockquote]:bg-surface-2 [&_blockquote]:px-5 [&_blockquote]:py-4 [&_blockquote]:font-title [&_blockquote]:text-[19px] [&_blockquote]:leading-[1.45] [&_blockquote]:text-ink",
 				"[&_cite]:mt-2 [&_cite]:block [&_cite]:font-body [&_cite]:text-[13px] [&_cite]:text-text-3 [&_cite]:not-italic",
 				"[&_a]:text-ink [&_a]:underline [&_a]:decoration-green-500 [&_a]:decoration-2 [&_a]:underline-offset-[3px]",
 				className,
@@ -201,7 +201,7 @@ export function WikiTree({
 							>
 								<span
 									aria-hidden="true"
-									className="grid size-6 flex-none place-items-center rounded-[7px] bg-surface-2 font-display text-xs font-bold text-text-2 group-data-[state=open]/ph:bg-ink group-data-[state=open]/ph:text-on-ink"
+									className="grid size-6 flex-none place-items-center rounded-[7px] bg-surface-2 font-title tracking-[-0.02em] text-xs text-text-2 group-data-[state=open]/ph:bg-ink group-data-[state=open]/ph:text-on-ink"
 								>
 									{p.number}
 								</span>
@@ -541,7 +541,7 @@ export function WikiEditor({
 						if (e.key === "Enter") e.preventDefault();
 					}}
 					aria-label="Article title"
-					className="mb-3.5 field-sizing-content w-full resize-none border-0 bg-transparent p-0 font-display text-[38px] leading-[1.12] font-medium tracking-[-0.03em] text-ink outline-none max-app-sm:text-[28px]"
+					className="mb-3.5 field-sizing-content w-full resize-none border-0 bg-transparent p-0 font-display text-[38px] leading-[1.12] tracking-[-0.02em] text-ink outline-none max-app-sm:text-[28px]"
 				/>
 				<Prose
 					className={cn(

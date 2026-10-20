@@ -35,7 +35,7 @@ export function FactsPanel() {
 						<FactsRing />
 					</svg>
 					<div>
-						<Num className="block type-title-lg leading-none">
+						<Num className="block font-display type-title-lg leading-none">
 							<Count fx="facts.pct" max={71} unit="%" />
 						</Num>
 						<div className="type-sm text-text-3">of new guests contacted within 48 hours</div>
@@ -56,7 +56,7 @@ export function FactsPanel() {
 									Open
 								</Badge>
 							) : null}
-							<span className="font-display type-title-sm font-medium tracking-[-0.02em] whitespace-nowrap">
+							<span className="font-title type-title-sm tracking-[-0.02em] whitespace-nowrap">
 								<Count fx="facts.kv" n={k} max={r[1]} />
 							</span>
 						</span>
@@ -102,7 +102,7 @@ export function EvryPanel({ demo }: { demo: EvryDemo }) {
 				<St i={0} className="flex items-center gap-2.5 border-b border-line pb-3">
 					<MoodBot fx="evry.mood" follow />
 					<div className="min-w-0 flex-1">
-						<div className="font-display type-title-sm font-medium">Evry</div>
+						<div className="font-title tracking-[-0.02em] type-title-sm">Evry</div>
 						<div className="type-xs text-text-3">Reads and drafts. You approve every change.</div>
 					</div>
 				</St>

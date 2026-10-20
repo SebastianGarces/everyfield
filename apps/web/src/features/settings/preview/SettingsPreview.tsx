@@ -112,7 +112,7 @@ function PreviewPage({
 		<div className="flex flex-col gap-6">
 			<div>
 				<p className="text-sm text-text-3">Design preview · WP-010</p>
-				<h1 className="mt-1 font-display text-title-lg font-medium tracking-[-0.02em] text-ink">Settings</h1>
+				<h1 className="mt-1 font-display text-title-lg tracking-[-0.02em] text-ink">Settings</h1>
 				<p className="mt-2 max-w-[640px] text-text-2">
 					This page stands in for whatever page Settings opens over. Each section has its own link. Sample data, no
 					database: replies come from fixtures that the settings contract checks.

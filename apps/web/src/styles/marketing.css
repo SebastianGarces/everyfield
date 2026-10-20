@@ -22,8 +22,9 @@
 
 /* Fonts come from next/font (layout.tsx), so the token font stacks point at its variables. */
 :root {
-	--ef-font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
-	--ef-font-body: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
+	--ef-font-display: var(--font-dm-serif-display), Georgia, "Times New Roman", serif;
+	--ef-font-title: var(--font-dm-serif-text), var(--font-dm-serif-display), Georgia, "Times New Roman", serif;
+	--ef-font-body: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 @theme {
@@ -111,13 +112,13 @@
 	font-size: --value(--text-*);
 }
 
-/* Display type: Bricolage 500, tight tracking, balanced lines. Size and line height come from a text-* class
-   (text-mk-h2 and the rest carry their line height), so this utility sets neither. */
+/* Display type: DM Serif Display 400 at -0.02em, balanced lines. Use it at 24px and up; below 24px use font-title.
+   Size and line height come from a text-* class (text-mk-h2 and the rest carry their line height), so this utility
+   sets neither. */
 @utility mk-display {
 	font-family: var(--font-display);
-	font-weight: 500;
-	letter-spacing: -0.035em;
-	font-stretch: 100%;
+	font-weight: 400;
+	letter-spacing: -0.02em;
 	text-wrap: balance;
 }
 
@@ -126,6 +127,8 @@
 	html {
 		color-scheme: light;
 		-webkit-text-size-adjust: 100%;
+		/* The serifs have one weight (400). Never draw a faked bold. */
+		font-synthesis-weight: none;
 	}
 	/* No scroll-behavior: smooth. Every browser and Next scroll is instant; in-page anchor links glide in PageScroll,
      a script animation that stops at once on reader input or a route change. WebKit cannot stop a native smooth
@@ -408,8 +411,8 @@
 		mix-blend-mode: overlay;
 	}
 }
-/* The eight gradient tones. field, sky, dawn and lilac come from the product tokens; sea, rose, sun and slate are marketing only
-   (Revision 19). --g-shadow tints the InsightCard shadow. */
+/* The six gradient tones. field, sky, sage and rose come from the product tokens; sea and sun are marketing only
+   (Revision 19; slate and the marketing pink rose retired in the rebrand). --g-shadow tints the InsightCard shadow. */
 @utility g-field {
 	--g-mesh: url("/mesh/field.svg");
 	--g-base: var(--ef-grad-field-base);
@@ -418,7 +421,7 @@
 	--g3: var(--ef-grad-field-g3);
 	--g4: var(--ef-grad-field-g4);
 	--g5: var(--ef-grad-field-g5);
-	--g-shadow: rgba(16, 120, 56, 0.55);
+	--g-shadow: rgb(from var(--ef-green-600) r g b / 0.5);
 }
 @utility g-sky {
 	--g-mesh: url("/mesh/sky.svg");
@@ -428,27 +431,27 @@
 	--g3: var(--ef-grad-sky-g3);
 	--g4: var(--ef-grad-sky-g4);
 	--g5: var(--ef-grad-sky-g5);
-	--g-shadow: rgba(40, 90, 170, 0.45);
+	--g-shadow: rgb(from var(--ef-sky-700) r g b / 0.45);
 }
-@utility g-dawn {
-	--g-mesh: url("/mesh/dawn.svg");
-	--g-base: var(--ef-grad-dawn-base);
-	--g1: var(--ef-grad-dawn-g1);
-	--g2: var(--ef-grad-dawn-g2);
-	--g3: var(--ef-grad-dawn-g3);
-	--g4: var(--ef-grad-dawn-g4);
-	--g5: var(--ef-grad-dawn-g5);
-	--g-shadow: rgba(190, 110, 40, 0.5);
+@utility g-sage {
+	--g-mesh: url("/mesh/sage.svg");
+	--g-base: var(--ef-grad-sage-base);
+	--g1: var(--ef-grad-sage-g1);
+	--g2: var(--ef-grad-sage-g2);
+	--g3: var(--ef-grad-sage-g3);
+	--g4: var(--ef-grad-sage-g4);
+	--g5: var(--ef-grad-sage-g5);
+	--g-shadow: rgb(from var(--ef-sage-700) r g b / 0.45);
 }
-@utility g-lilac {
-	--g-mesh: url("/mesh/lilac.svg");
-	--g-base: var(--ef-grad-lilac-base);
-	--g1: var(--ef-grad-lilac-g1);
-	--g2: var(--ef-grad-lilac-g2);
-	--g3: var(--ef-grad-lilac-g3);
-	--g4: var(--ef-grad-lilac-g4);
-	--g5: var(--ef-grad-lilac-g5);
-	--g-shadow: rgba(110, 80, 200, 0.45);
+@utility g-rose {
+	--g-mesh: url("/mesh/rose.svg");
+	--g-base: var(--ef-grad-rose-base);
+	--g1: var(--ef-grad-rose-g1);
+	--g2: var(--ef-grad-rose-g2);
+	--g3: var(--ef-grad-rose-g3);
+	--g4: var(--ef-grad-rose-g4);
+	--g5: var(--ef-grad-rose-g5);
+	--g-shadow: rgb(from var(--ef-rose-700) r g b / 0.45);
 }
 @utility g-sea {
 	--g-mesh: url("/mesh/sea.svg");
@@ -460,15 +463,6 @@
 	--g5: #f2fffb;
 	--g-shadow: rgba(30, 140, 120, 0.45);
 }
-@utility g-rose {
-	--g-mesh: url("/mesh/rose.svg");
-	--g-base: #ffb3c4;
-	--g1: #ffc6d3;
-	--g2: #ff9db3;
-	--g3: #ffdce4;
-	--g4: #f28aa2;
-	--g5: #fff5f7;
-}
 @utility g-sun {
 	--g-mesh: url("/mesh/sun.svg");
 	--g-base: #ffdd7a;
@@ -478,15 +472,6 @@
 	--g4: #f5c443;
 	--g5: #fffbeb;
 	--g-shadow: rgba(180, 130, 20, 0.5);
-}
-@utility g-slate {
-	--g-mesh: url("/mesh/slate.svg");
-	--g-base: #b4c3d6;
-	--g1: #c5d2e2;
-	--g2: #a2b3ca;
-	--g3: #dce4ee;
-	--g4: #8fa2bc;
-	--g5: #f6f8fb;
 }
 
 /* Diagonal hatch fill for meters and bars. --hatch sets the colour. */

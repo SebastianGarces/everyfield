@@ -32,7 +32,7 @@ export function AuthFrame({ children }: { children: ReactNode }) {
 					<span className="sr-only">Everyfield home</span>
 				</Link>
 				<div className="relative z-10 mt-[110px] max-app-md:mt-8 max-app-md:max-w-[70%] max-app-sm:mt-6">
-					<p className="font-display text-[44px] leading-[1.08] tracking-[-0.03em] text-balance max-app-md:text-[30px] max-app-sm:text-[26px]">
+					<p className="font-display text-[44px] leading-[1.08] tracking-[-0.02em] text-balance max-app-md:text-[30px] max-app-sm:text-[26px]">
 						Gather your people.
 						<br />
 						Plant your church.

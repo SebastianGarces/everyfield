@@ -192,9 +192,7 @@ function Panel({ icon, title, children }: { icon: ReactNode; title: string; chil
 	return (
 		<div className="flex flex-col gap-4 text-text-2">
 			{icon}
-			<h1 className="font-display text-title-md leading-[1.2] font-medium tracking-[-0.02em] text-ink text-balance">
-				{title}
-			</h1>
+			<h1 className="font-title text-title-md leading-[1.2] tracking-[-0.02em] text-ink text-balance">{title}</h1>
 			{children}
 		</div>
 	);

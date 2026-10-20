@@ -34,18 +34,18 @@ export function FoundationsPreview() {
 					<BrandTile className="bg-cream text-ink-fixed shadow-card" />
 				</div>
 				<Note className="mt-4">
-					In the app the mark is brand green and the wordmark is ink, with no background (top bar).
+					The logo is ink on light surfaces and cream on ink. New-growth is only a tile behind an ink symbol.
 				</Note>
 			</Section>
 
 			<Section index={2} title="Brand colors" code="--ef-ink · --ef-green · --ef-cream">
 				<Note>
-					The app runs on neutral greys so the data hues stand out. Ink carries the brand inside the app. Field green is
-					for the logo and rare brand moments. Cream is for marketing and print.
+					The app runs on neutral greys so the data hues stand out. Ink carries the brand inside the app. New-growth is
+					a fill for rare brand moments, never text. Cream is for marketing and print.
 				</Note>
 				<div className="grid gap-5 app-md:grid-cols-3">
 					<Swatch className="bg-ink" name="Ink" use="--ef-ink · text, active nav, primary button" />
-					<Swatch className="bg-green" name="Field green" use="--ef-green · logo, brand moments, green 500" />
+					<Swatch className="bg-green" name="New-growth" use="--ef-green · brand fills, green 500, never text" />
 					<Swatch className="bg-cream" name="Cream" use="--ef-cream · brand and marketing only" />
 				</div>
 			</Section>
@@ -97,7 +97,7 @@ export function FoundationsPreview() {
 						]}
 					/>
 					<Ramp
-						label="Lilac and teal · categories only"
+						label="Rose and sky · categories only"
 						steps={[
 							["v600", "bg-violet-600"],
 							["v500", "bg-violet-500"],
@@ -121,17 +121,17 @@ export function FoundationsPreview() {
 				</div>
 			</Section>
 
-			<Section index={4} title="Type" code="--ef-font-display · --ef-font-body">
+			<Section index={4} title="Type" code="--ef-font-display · --ef-font-title · --ef-font-body">
 				<div className="grid gap-5 app-md:grid-cols-2">
-					<Specimen label="Bricolage Grotesque · titles and numbers">
+					<Specimen label="DM Serif Display 24px and up · DM Serif Text below">
 						<div className="num text-[76px] leading-none text-ink max-app-sm:text-display-md">34 of 50</div>
-						<div className="mt-3 font-display text-display-sm tracking-[-.035em] text-ink">Core group</div>
-						<div className="mt-2.5 font-display text-title-md text-ink">Vision meeting · Oct 12</div>
+						<div className="mt-3 font-display text-display-sm tracking-[-0.02em] text-ink">Core group</div>
+						<div className="mt-2.5 font-title tracking-[-0.02em] text-title-md text-ink">Vision meeting · Oct 12</div>
 						<p className="mt-3 text-sm text-text-3">
 							display-lg 76 · display-sm 40 · title-lg 28 · title-md 22 · title-sm 18
 						</p>
 					</Specimen>
-					<Specimen label="Instrument Sans · body and UI">
+					<Specimen label="DM Sans · body, UI and table numbers">
 						<p className="text-lg text-ink">
 							Gather a core group of committed adults who share the vision before launch.
 						</p>
@@ -156,7 +156,7 @@ export function FoundationsPreview() {
 							<div className="size-16 rounded-lg bg-surface-2" />
 							<div className="size-[72px] rounded-card bg-surface-2" />
 						</div>
-						<p className="mt-3 text-xs text-text-3">6 · 10 · 14 · 20 · 26 card · 34 frame</p>
+						<p className="mt-3 text-xs text-text-3">All corners square (--corner-* 0). Avatars and dots stay round.</p>
 					</Specimen>
 					<Specimen label="Elevation">
 						<div className="flex gap-3">

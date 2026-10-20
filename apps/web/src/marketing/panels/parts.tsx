@@ -28,7 +28,7 @@ export function Head({
 		<St i={i} className={cn("mb-3.5 flex items-center gap-3", className)}>
 			{lead}
 			<div className="min-w-0 flex-1">
-				<div className="font-display type-title-sm leading-[1.2] font-medium tracking-[-0.02em]">{title}</div>
+				<div className="font-title type-title-sm leading-[1.2] tracking-[-0.02em]">{title}</div>
 				<div className="mt-0.5 type-sm text-text-3">{sub}</div>
 			</div>
 			{right}
@@ -58,7 +58,7 @@ export function Lab({ children, flush }: { children: ReactNode; flush?: boolean 
 	return <span className={cn("block type-xs font-semibold text-text-2", !flush && "mb-1.5")}>{children}</span>;
 }
 
-/** A dashboard number (display face). */
+/** A dashboard number. className sets the size and the serif: font-display at 24px and up, font-title below. */
 export function Num({ className, children }: { className?: string; children: ReactNode }) {
 	return <span className={cn(NUM, className)}>{children}</span>;
 }
@@ -102,13 +102,13 @@ export function InsightMetric({
 }) {
 	return (
 		<St i={i} className="mt-5 flex items-end gap-3">
-			<span className={cn(NUM, "type-display-md leading-[.95]", numClassName)}>{num}</span>
+			<span className={cn(NUM, "font-display type-display-md leading-[.95]", numClassName)}>{num}</span>
 			<span className="pb-[3px] type-md leading-[1.3] text-[var(--on-2)]" style={{ maxWidth: unitMax }}>
 				{unit}
 			</span>
 		</St>
 	);
 }
-export const INSIGHT_TITLE = "mt-3.5 font-display type-title-md leading-[1.18] font-medium tracking-[-0.02em]";
+export const INSIGHT_TITLE = "mt-3.5 font-title type-title-md leading-[1.18] tracking-[-0.02em]";
 export const INSIGHT_TEXT = "type-md text-[var(--on-2)]";
 export const INSIGHT_FOOTER = "mt-auto flex flex-wrap gap-2 pt-5";

@@ -54,6 +54,68 @@ for (const file of walk(SRC).filter((f) => /\.tsx?$/.test(f))) {
 		});
 }
 
+// The serif follows the size (foundations.md, Type): DM Serif Display (font-display) at 24px and up, DM Serif Text
+// (font-title) below 24px. A class string that sets a size and a serif must pair them, also per responsive variant.
+// Checked in the public site and in the product UI (packages/ui/src, src/features). Sizes in px; marketing roles that
+// step up through CSS variables list their steps.
+const PX = {
+	...Object.fromEntries(
+		[...TOKENS.matchAll(/--ef-((?:text|title|display)-[a-z]+):\s*(\d+)px;/g)].map((m) => [
+			m[1].replace(/^text-/, ""),
+			Number(m[2]),
+		]),
+	),
+	base: 16,
+};
+const ROLE = {
+	"mk-hero": [40],
+	"mk-h1": [40],
+	"mk-h2": [28],
+	"mk-h3": [22, "mk-xl", 28],
+	"mk-lead": [18],
+	"mk-lead-sm": [18],
+	"mk-display-xl": [88],
+};
+const STRINGS = /"[^"\n]*\bfont-(?:display|title)\b[^"\n]*"|`[^`\n]*\bfont-(?:display|title)\b[^`\n]*`/g;
+const SIZED = /(?<![\w[:-])((?:[\w-]+:)*)(?:text|type)-(\[(\d+)px\]|[a-z0-9-]+)(?![\w-])/g;
+const FAMILY = /(?<![\w[-])((?:[\w-]+:)*)font-(display|title)(?![\w-])/g;
+const serifProblems = (str) => {
+	const sizes = new Map();
+	for (const [, pre, tok, n] of str.matchAll(SIZED)) {
+		if (n) sizes.set(pre, Number(n));
+		else if (tok in PX) sizes.set(pre, PX[tok]);
+		else if (tok in ROLE) {
+			const [px, variant, stepped] = ROLE[tok];
+			if (!sizes.has(pre)) sizes.set(pre, px);
+			if (variant && !sizes.has(`${variant}:`)) sizes.set(`${variant}:`, stepped);
+		}
+	}
+	const fam = new Map([...str.matchAll(FAMILY)].map(([, pre, f]) => [pre, f]));
+	if (!sizes.has("") || !fam.has("")) return [];
+	const out = [];
+	let current = fam.get("");
+	for (const [pre, px] of [...sizes].sort(([a], [b]) => (a === "" ? -1 : b === "" ? 1 : 0))) {
+		current = fam.get(pre) ?? (pre === "" ? current : fam.get(""));
+		const want = px >= 24 ? "display" : "title";
+		if (current !== want) out.push(`${pre || ""}font-${current} at ${px}px; use ${pre}font-${want}`);
+	}
+	return out;
+};
+const UI_SRC = here("../../../packages/ui/src");
+for (const [root, label] of [
+	[SRC, "src"],
+	[UI_SRC, "packages/ui/src"],
+]) {
+	for (const file of walk(root).filter((f) => /\.tsx?$/.test(f))) {
+		readFileSync(file, "utf8")
+			.split("\n")
+			.forEach((line, i) => {
+				for (const [str] of line.matchAll(STRINGS))
+					for (const problem of serifProblems(str)) report(`${label}/${file.slice(root.length + 1)}:${i + 1}`, problem);
+			});
+	}
+}
+
 // CSS and the share-image renderer: every font size is a scale variable or a whole pixel on the scale. Each line can
 // hold several declarations, so every one is checked; the font shorthand may only pass a size through a variable.
 const DECL = /(?:^|[\s;{])(font-size|font|--text-[a-z0-9-]+)\s*:\s*([^;}]+)/g;
@@ -81,7 +143,7 @@ checkCss("scripts/render-share-images.mjs", readFileSync(here("./render-share-im
 
 if (found.length) {
 	console.error(
-		`Font sizes off the type scale (${[...SCALE].join(", ")} px; use a type-* or text-* token, see src/styles/marketing.css):\n${found.join("\n")}`,
+		`Font sizes off the type scale (${[...SCALE].join(", ")} px; use a type-* or text-* token, see src/styles/marketing.css), or a serif that does not match its size:\n${found.join("\n")}`,
 	);
 	process.exit(1);
 }

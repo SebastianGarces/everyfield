@@ -8,7 +8,7 @@ import { EASTSIDE_DAYS } from "../oversight/demo";
 // The small product vignettes on the phases rail cards (Marketing v15, Revision 26). Static pictures of the app with the
 // demo church's data; Server Components.
 
-const T = "font-display type-lg leading-[1.2] font-medium tracking-[-.02em] truncate";
+const T = "font-title type-lg leading-[1.2] tracking-[-0.02em] truncate";
 const S = "truncate type-xs text-text-3";
 const K = "type-xs font-semibold whitespace-nowrap text-text-2";
 const IT = "truncate type-sm font-semibold";
@@ -54,9 +54,7 @@ function Delta({ children }: { children: ReactNode }) {
 function Stat({ n, children }: { n: string; children: ReactNode }) {
 	return (
 		<div className="mt-3 flex items-center gap-3">
-			<span className="font-display type-display-md leading-[.95] font-medium tracking-[-.05em] whitespace-nowrap [font-stretch:100%]">
-				{n}
-			</span>
+			<span className="font-display type-display-md leading-[.95] tracking-[-0.02em] whitespace-nowrap">{n}</span>
 			{children}
 		</div>
 	);

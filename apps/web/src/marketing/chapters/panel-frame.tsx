@@ -74,8 +74,8 @@ export function useGeo() {
 }
 
 export type CardVariant =
-	{ kind: "card" } | { kind: "insight"; tone: "dawn" | "lilac" | "sky" } | { kind: "evry" } | { kind: "clip" };
-const INSIGHT_TONE = { dawn: "g-dawn", lilac: "g-lilac", sky: "g-sky" } as const;
+	{ kind: "card" } | { kind: "insight"; tone: "sage" | "rose" | "sky" } | { kind: "evry" } | { kind: "clip" };
+const INSIGHT_TONE = { sage: "g-sage", rose: "g-rose", sky: "g-sky" } as const;
 
 /**
  * The white product card a chapter shows (or a gradient InsightCard, the Evry chat, or the follow-up card whose shell

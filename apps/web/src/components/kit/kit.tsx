@@ -6,8 +6,9 @@ import { Icon } from "../Icon";
 // Product-visual parts for the marketing panels, cards and vignettes (the dashboard kit, scaled for the marketing page).
 // No hooks and no "use client": the same parts render on the server (vignettes, cards) and inside client panels.
 
-/** Display numbers in the product visuals: Bricolage 500, tight tracking, never wrapped. */
-export const NUM = "font-display font-medium tracking-[-0.03em] [font-stretch:100%] whitespace-nowrap";
+/** Numbers in the product visuals: serif at -0.02em, never wrapped. The caller adds the family with the size:
+ * font-display at 24px and up, font-title below. */
+export const NUM = "tracking-[-0.02em] whitespace-nowrap";
 
 export type Tone = "green" | "blue" | "magenta" | "amber" | "violet" | "teal" | "ink";
 /** Tinted background and strong text of a tone (icon circles, stage chips, tags, avatars). */

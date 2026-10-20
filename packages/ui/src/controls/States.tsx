@@ -30,7 +30,7 @@ export function EmptyState({
 			>
 				<Icon icon={icon} size={24} className="scale-125 text-text-2" />
 			</div>
-			<Heading className="font-display text-title-sm leading-[1.2] font-medium text-ink">{title}</Heading>
+			<Heading className="font-title tracking-[-0.02em] text-title-sm leading-[1.2] text-ink">{title}</Heading>
 			{children ? <p className="max-w-[320px] text-text-2 text-pretty">{children}</p> : null}
 			{action ? <div className="mt-2 flex flex-wrap justify-center gap-2">{action}</div> : null}
 		</div>
@@ -88,7 +88,7 @@ export function StatePanel({
 					<Icon icon={art} size={24} className="scale-[1.15]" />
 				</div>
 			) : null}
-			<Heading className="font-display text-title-md leading-[1.2] font-medium tracking-[-0.02em] text-ink text-balance">
+			<Heading className="font-title text-title-md leading-[1.2] tracking-[-0.02em] text-ink text-balance">
 				{title}
 			</Heading>
 			<p className="max-w-[420px] text-text-2 text-pretty">{children}</p>

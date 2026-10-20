@@ -14,9 +14,9 @@ type Def = {
 };
 
 const NETWORK = ["scope", "pipe", "lens", "top"] as const;
-const NETWORK_TONES = ["g-sea", "g-rose", "g-sun", "g-slate"];
+const NETWORK_TONES = ["g-sea", "g-rose", "g-sun", "g-sky"];
 const LEADERS = ["stages", "goals", "talks", "program"] as const;
-const LEADER_TONES = ["g-lilac", "g-field", "g-sun", "g-sky"];
+const LEADER_TONES = ["g-rose", "g-field", "g-sun", "g-sky"];
 
 /** Steps whose panel kind the copy file names. */
 function named(chapter: string, steps: { panel: string; title: string; body: string }[], tones: string[]) {
@@ -34,10 +34,10 @@ function defs(id: Id): Def {
 			return {
 				title: S.intelligence.title,
 				lead: S.intelligence.lead,
-				steps: named(id, S.intelligence.steps, ["g-lilac", "g-field", "g-sky", "g-dawn"]),
+				steps: named(id, S.intelligence.steps, ["g-rose", "g-field", "g-sky", "g-sage"]),
 			};
 		case "every-plant":
-			return { title: O.chapter.title, steps: named(id, O.chapter.steps, ["g-lilac", "g-dawn", "g-sky", "g-sun"]) };
+			return { title: O.chapter.title, steps: named(id, O.chapter.steps, ["g-rose", "g-sage", "g-sky", "g-sun"]) };
 		// The /oversight chapters alternate sides: plants, leaders (mirrored), then Network Intelligence.
 		case "leaders":
 			return {

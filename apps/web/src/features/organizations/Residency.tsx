@@ -47,7 +47,7 @@ export function ResidencyDisclosure({
 			<div className="flex items-start gap-4">
 				<CardIcon icon={UserGroupIcon} tone="teal" />
 				<div className="min-w-0 flex-1">
-					<h1 id="residency-disclosure" className="font-display text-title-md font-medium tracking-[-0.02em] text-ink">
+					<h1 id="residency-disclosure" className="font-title text-title-md tracking-[-0.02em] text-ink">
 						Join the residency at {organizationName}
 					</h1>
 					<p className="mt-1 text-text-2">

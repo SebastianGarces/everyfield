@@ -21,7 +21,7 @@ export function Insight({
 	className,
 }: {
 	className?: string;
-	tone: "g-dawn" | "g-lilac";
+	tone: "g-sage" | "g-rose";
 	icon: IconSvgElement;
 	label: string;
 	count: string;
@@ -48,12 +48,12 @@ export function Insight({
 				<span className="type-sm text-[var(--on-3)]">{count}</span>
 			</div>
 			<div className="mt-5 flex items-end gap-3">
-				<span className={cn(NUM, "type-display-md leading-[.95]")}>{num}</span>
+				<span className={cn(NUM, "font-display type-display-md leading-[.95]")}>{num}</span>
 				<span className="pb-[3px] type-md leading-[1.3] text-[var(--on-2)]" style={{ maxWidth: unitMax }}>
 					{unit}
 				</span>
 			</div>
-			<div className="mt-3.5 font-display type-title-md leading-[1.18] font-medium tracking-[-0.02em]">{title}</div>
+			<div className="mt-3.5 font-title type-title-md leading-[1.18] tracking-[-0.02em]">{title}</div>
 			<div className="mt-2.5 type-md text-[var(--on-2)]">{text}</div>
 			<div className="mt-auto flex flex-wrap gap-2 pt-5">{footer}</div>
 		</div>

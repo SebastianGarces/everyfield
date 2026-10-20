@@ -179,11 +179,7 @@ export function DataTable<Row>({
 										{columns.map((c) => (
 											<td
 												key={c.key}
-												className={cn(
-													TD,
-													c.align === "right" && "text-right",
-													c.numeric && "font-display text-base tabular-nums",
-												)}
+												className={cn(TD, c.align === "right" && "text-right", c.numeric && "text-base tabular-nums")}
 											>
 												{c.cell(row)}
 											</td>

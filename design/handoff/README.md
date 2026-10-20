@@ -6,7 +6,7 @@ The dashboard (Overview) keeps the prototype look. Compose it from the built com
 
 This folder hands the v3 interface design to the build. The design itself is one file, [`../everyfield-ui.html`](../everyfield-ui.html), a clickable prototype of every screen in light and dark mode. The files here turn it into things the Next.js build can use directly.
 
-**Next brand.** Sebastian approved a new brand on 2026-10-20 (new logo, new-growth green, DM Serif and DM Sans, square corners, muted gradient tones). It is drawn in [`../everyfield-ui-rebrand.html`](../everyfield-ui-rebrand.html) and in the marketing prototype, and described in [foundations.md](foundations.md#next-brand-approved-2026-10-20-not-in-the-app-yet). It is the target for the app migration. Until then, `everyfield-ui.html` and the generated files here describe the app as it is, because the live app imports `tokens.css`.
+**Brand.** Sebastian approved the current brand on 2026-10-20 (new logo, new-growth green, DM Serif and DM Sans, square corners, muted gradient tones). The prototype above and the marketing prototype draw it, and [foundations.md](foundations.md#brand-approved-2026-10-20) describes it. Since R1 the generated files here and the app tokens, fonts and tone names follow it.
 
 The build stack is in [`docs/architecture/README.md`](../../docs/architecture/README.md) and [`docs/dependencies.md`](../../docs/dependencies.md): Next.js, Tailwind CSS 4, and shadcn/ui on Radix in `packages/ui`.
 
@@ -66,7 +66,7 @@ The prototype adds keyboard access to clickable cards and rows with a script. Th
 
 ## Who builds the design system
 
-The live marketing site already imports `tokens.css` through `apps/web/src/styles/marketing.css`, loads Bricolage Grotesque and Instrument Sans through `next/font` in `apps/web/src/app/layout.tsx`, and uses Hugeicons, Motion and the color-literal lint in `apps/web/scripts/check-color-literals.mjs`. Static marketing is rendered with Server Components and interactive or animated leaves are client components. Share images and baked mesh assets have deterministic renderers and freshness locks in `apps/web/scripts/`.
+The live marketing site already imports `tokens.css` through `apps/web/src/styles/marketing.css`, loads DM Serif Display, DM Serif Text and DM Sans through `next/font` in `apps/web/src/app/layout.tsx`, and uses Hugeicons, Motion and the color-literal lint in `apps/web/scripts/check-color-literals.mjs`. Static marketing is rendered with Server Components and interactive or animated leaves are client components. Share images and baked mesh assets have deterministic renderers and freshness locks in `apps/web/scripts/`.
 
 WP-088 extends these foundations into the shared product UI and adds AppShell and product-only dark mode. Reuse the single token source, fonts, icon library, Motion and lint instead of creating a second foundation system. Marketing stays light only, independent of the product theme and system setting. WP-089 builds controls, surfaces and overlays; WP-090 builds data, content and domain display components from [components.md](components.md). These packages own separate directories within `packages/ui`. Feature packages compose their screens from these components and do not rebuild them. The UI part of a feature package waits for WP-088, WP-089 and WP-090; its contract and API parts do not.
 

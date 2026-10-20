@@ -192,7 +192,7 @@ const AVATAR_SIZE: Record<AvatarSize, string> = {
 	sm: "size-8 text-xs",
 	md: "size-10 text-sm",
 	lg: "size-16 text-[22px]",
-	xl: "size-[92px] font-display text-[32px]",
+	xl: "size-[92px] font-display tracking-[-0.02em] text-[32px]",
 };
 
 /** Two initials from a display name: "Maria Santos" is MS, "Cher" is CH. */
