@@ -13,6 +13,7 @@ import {
 	currentCommitment,
 	firstAcquisition,
 	noteBody,
+	pipelineColumn,
 } from "./values.ts";
 
 const identityFields = { id: personId, revision, createdAt: instant, ...contactFields, lifecycle: personLifecycle };
@@ -48,7 +49,6 @@ export const peoplePage = z
 		total: z.int().min(0).nullable(),
 	})
 	.refine((v) => v.items.every((p) => p.owner.id === v.owner.id));
-export const pipelineColumn = z.enum(["prospect", "attendee", "following_up", "interviewed", "core_group"]);
 const pipelineCard = z.strictObject({
 	person: plantPerson,
 	activeParentDuties: z

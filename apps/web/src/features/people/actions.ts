@@ -196,7 +196,7 @@ export async function loadColumn(
 ): Promise<Outcome<z.infer<typeof c.pipelineResult>["groups"][number]>> {
 	const col = c.pipelineColumn.safeParse(column);
 	if (!col.success) return invalid;
-	return boundary(c.listPeopleRequest, { ...query, view: "pipeline", page }, async (v, request) =>
+	return boundary(c.listPeopleRequest, { ...query, view: "pipeline", page, column: col.data }, async (v, request) =>
 		outcome(await read(v, (tx, ctx) => peopleReader.getPipelineData(tx, ctx, request)), (r) =>
 			r.groups.find((g) => g.column === col.data)!,
 		),
