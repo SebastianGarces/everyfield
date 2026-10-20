@@ -26,11 +26,11 @@ import {
 } from "@everyfield/ui/controls";
 import { Avatar, KeyValue, KeyValueList, StageChip, StatusBadge } from "@everyfield/ui/display";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { z } from "zod";
-import { ActivityCard } from "./ActivityCard.tsx";
-import { CLASSIFICATION_LABEL, SOURCE_LABEL, STAGE_KEY, STAGE_LABEL, type Outcome } from "./model.ts";
+import { reloadPerson, type Receipt } from "./actions.ts";
+import { ActivityCard, type Activities, type EntryFields, type Item } from "./ActivityCard.tsx";
+import { CLASSIFICATION_LABEL, SOURCE_LABEL, STAGE_KEY, STAGE_LABEL, withEntry, type Outcome } from "./model.ts";
 import { ClassificationDialog, EditProfileDialog, RestoreDialog, RetireDialog } from "./PersonDialogs.tsx";
 import { LocalDay, usePersonStore, When } from "./parts.tsx";
 import { StageDialog, type PersonDraft } from "./StageDialog.tsx";
@@ -41,7 +41,9 @@ type Open = "stage" | "profile" | "classify" | "retire" | "restore" | null;
 /**
  * Person (REQ-PPL-002/003/004/006/008). The header says who and where in the pipeline; Owners and Admins change the
  * stage, edit the profile, record adult or child and retire or restore. Every change goes through one store, so only one
- * runs at a time and each uses the latest saved revision.
+ * runs at a time and each uses the latest saved revision. A saved change shows from its answer: the store takes the
+ * saved person and Activity adds the new entry, with no page reload. A refusal because this page was out of date
+ * reads this person again, and nothing else.
  */
 export function PersonScreen({
 	person,
@@ -53,7 +55,7 @@ export function PersonScreen({
 	canWrite,
 }: {
 	person: PlantPerson;
-	activities: Outcome<z.infer<typeof people.activitiesResult>>;
+	activities: Outcome<Activities>;
 	/** The person has a live EveryField account link (never which account). */
 	linked: boolean;
 	/** The person is the viewer's own account person. */
@@ -63,7 +65,25 @@ export function PersonScreen({
 	canWrite: boolean;
 }) {
 	const [store, state] = usePersonStore<PlantPerson, PersonDraft>(person);
-	const router = useRouter();
+	const [history, setHistory] = useState(activities);
+	const show = (item: Item) => setHistory((h) => withEntry(h, item));
+	const saved = (receipt: Receipt, fields: EntryFields) => {
+		if (!receipt.changed) return;
+		const at = receipt.at;
+		show({
+			id: receipt.id,
+			occurredAt: at,
+			recordedAt: at,
+			actor: { kind: "current_account", accountId },
+			...fields,
+		} as Item);
+	};
+	async function reload() {
+		const r = await reloadPerson(person.id).catch(() => null);
+		if (r?.status !== "ok") return;
+		store.dispatch({ type: "server", person: r.value.person });
+		if (r.value.activities) setHistory({ status: "ok", value: r.value.activities });
+	}
 	const p = state.saved;
 	const [open, setOpen] = useState<Open>(null);
 	const busy = state.pending !== null;
@@ -169,7 +189,15 @@ export function PersonScreen({
 
 			<div className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)] items-start gap-5 max-app-lg:grid-cols-1">
 				<div className="flex min-w-0 flex-col gap-5">
-					<ActivityCard store={store} initial={activities} accountId={accountId} canWrite={canWrite} />
+					<ActivityCard
+						store={store}
+						activities={history}
+						onActivities={setHistory}
+						onEntry={show}
+						onConflict={reload}
+						accountId={accountId}
+						canWrite={canWrite}
+					/>
 				</div>
 				<div className="flex min-w-0 flex-col gap-5 max-app-lg:order-first">
 					<Card>
@@ -269,13 +297,40 @@ export function PersonScreen({
 			{canWrite ? (
 				<>
 					{open === "stage" ? (
-						// The profile refreshes after a move, so the activity list shows the stage change.
-						<StageDialog open onOpenChange={toggle("stage")} store={store} onDone={() => router.refresh()} />
+						<StageDialog
+							open
+							onOpenChange={toggle("stage")}
+							store={store}
+							onDone={(moved) =>
+								saved(moved.receipt, { kind: "stage_changed", from: moved.from, to: moved.person.stage })
+							}
+							onConflict={reload}
+						/>
 					) : null}
-					{open === "profile" ? <EditProfileDialog open onOpenChange={toggle("profile")} store={store} /> : null}
-					{open === "classify" ? <ClassificationDialog open onOpenChange={toggle("classify")} store={store} /> : null}
-					{open === "retire" ? <RetireDialog open onOpenChange={toggle("retire")} store={store} /> : null}
-					{open === "restore" ? <RestoreDialog open onOpenChange={toggle("restore")} store={store} /> : null}
+					{open === "profile" ? (
+						<EditProfileDialog
+							open
+							onOpenChange={toggle("profile")}
+							store={store}
+							onSaved={saved}
+							onConflict={reload}
+						/>
+					) : null}
+					{open === "classify" ? (
+						<ClassificationDialog
+							open
+							onOpenChange={toggle("classify")}
+							store={store}
+							onSaved={saved}
+							onConflict={reload}
+						/>
+					) : null}
+					{open === "retire" ? (
+						<RetireDialog open onOpenChange={toggle("retire")} store={store} onSaved={saved} onConflict={reload} />
+					) : null}
+					{open === "restore" ? (
+						<RestoreDialog open onOpenChange={toggle("restore")} store={store} onSaved={saved} onConflict={reload} />
+					) : null}
 				</>
 			) : null}
 		</>

@@ -22,6 +22,7 @@ export const getViewer = cache(async () => {
 		people: null,
 		discovery: false,
 		verified: false,
+		displayName: null,
 	} as const;
 	if (!native) return unauthenticated;
 	const v = await readViewer(db, sessionId.parse(native.session.id));
@@ -34,9 +35,13 @@ export const getViewer = cache(async () => {
 	});
 	// Better Auth already read the user row; its verified flag saves the onboarding entry a locking identity read.
 	const verified = native.user.emailVerified;
-	if (identity.status !== "active") return { ...identity, authority: null, people: null, discovery: false, verified };
+	// The account's own name, from the Better Auth user row the session lookup already read (settings renames it there).
+	const displayName = native.user.name;
+	if (identity.status !== "active")
+		return { ...identity, authority: null, people: null, discovery: false, verified, displayName };
 	return {
 		...identity,
+		displayName,
 		authority: v.authority,
 		people: v.authority ? peopleViewer(v.authority, v.person) : null,
 		discovery: v.authority?.actor.context.kind === "account" ? v.discovery : false,

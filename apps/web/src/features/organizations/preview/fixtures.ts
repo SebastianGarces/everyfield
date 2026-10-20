@@ -502,7 +502,25 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 		}
 		return sampleDisclosure(p);
 	};
-	return { load, read, run, readResidency, readSharing, readDisclosure, residencyLink: RESIDENT_LINK };
+	// The real actions answer an end with the history and a save with the sharing as saved, in the same request.
+	const end = async (command: z.infer<typeof C.endRelationshipRequest>) => {
+		const r = (await run("associations.end", command)) as z.infer<typeof C.mutationResult>;
+		return r.status === "committed" ? read(null) : null;
+	};
+	const saveSharing = async (command: z.infer<typeof C.setSharingRequest>) => {
+		const r = (await run("privacy.setSharing", command)) as z.infer<typeof C.mutationResult>;
+		return r.status === "committed" ? readSharing(command.input.relationshipId, command.input) : null;
+	};
+	return {
+		load,
+		read,
+		run,
+		end,
+		readResidency,
+		sharing: { read: readSharing, save: saveSharing },
+		readDisclosure,
+		residencyLink: RESIDENT_LINK,
+	};
 }
 
 /** The request the recipient opened from the emailed link (WP-008 owns the link landing). */

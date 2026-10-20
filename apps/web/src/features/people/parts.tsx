@@ -63,6 +63,8 @@ export function useStore<P extends Saved, D>(store: PersonStore<P, D>): PersonSt
 
 export const fresh = () => crypto.randomUUID();
 export const isOk = <T,>(o: Outcome<T> | null): o is { status: "ok"; value: T } => o?.status === "ok";
+/** A refusal because this page's copy is out of date: the screen reads the person again. */
+export const isConflict = <T,>(o: Outcome<T> | null) => o?.status === "refused" && o.code === "conflict";
 export const problemOf = <T,>(o: Outcome<T> | null): string | undefined =>
 	!o || o.status === "ok" ? undefined : o.status === "lost" ? "lost" : o.code;
 
@@ -100,14 +102,15 @@ export function SectionNote({ children }: { children: ReactNode }) {
 }
 
 /**
- * The person's status warnings, open duties and review revision, read when a dialog opens and again whenever the
- * person's revision changes. Null while loading. Dialogs mount when they open, so every opening reads afresh.
+ * The person's status warnings, open duties and review revision, read when a dialog opens and again when `round`
+ * changes (the dialog's save was refused as out of date). Null while loading. Dialogs mount when they open, so every
+ * opening reads afresh; a dialog's own save never causes a second read.
  */
 export function useWarnings(
 	personId: string,
-	revision: string,
+	round: number,
 ): Outcome<z.infer<typeof people.statusWarningsResult>> | null {
-	const key = `${personId}:${revision}`;
+	const key = `${personId}:${round}`;
 	const [got, setGot] = useState<{ key: string; value: Outcome<z.infer<typeof people.statusWarningsResult>> } | null>(
 		null,
 	);

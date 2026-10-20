@@ -59,6 +59,7 @@ export function PipelineBoard({
 	pipeline: Pipeline;
 	canWrite: boolean;
 }) {
+	const router = useRouter();
 	const [moving, setMoving] = useState<{
 		store: PersonStore<PlantPerson, PersonDraft>;
 		card: CardData;
@@ -140,6 +141,8 @@ export function PipelineBoard({
 						place({ ...moving.card, person: person ?? moving.card.person });
 						for (const column of columns ?? []) answered(column.column, column);
 					}}
+					// The person changed elsewhere: the board reads the pipeline again, the only reload a move can cause.
+					onConflict={() => router.refresh()}
 				/>
 			) : null}
 		</>
