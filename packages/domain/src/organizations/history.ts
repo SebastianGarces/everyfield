@@ -1,11 +1,21 @@
 import { and, or, gt, eq, asc, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
-import type { Transaction } from "@everyfield/db/client";
+import type { Database, Transaction } from "@everyfield/db/client";
 import { z } from "zod";
 import { owner, recordId, eventId, accountId } from "@everyfield/contracts/common";
 import * as Q from "@everyfield/contracts/organizations";
 import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
-import { active, administrator, currentActor, loadAffiliation, projection, sameOwner, unavailable } from "./core.ts";
+import type { RequestActor } from "../access/session.ts";
+import {
+	administrator,
+	currentActor,
+	loadAffiliations,
+	projection,
+	sameOwner,
+	unavailable,
+	type Actor,
+	type Reader,
+} from "./core.ts";
 const historyRow = z.object({
 	id: eventId,
 	pair: Q.relationshipPair,
@@ -17,12 +27,8 @@ const historyRow = z.object({
 	actor_id: accountId.nullable(),
 	actor_token: z.string().nullable(),
 });
-export const getHistory: OrganizationAdapter<Transaction>["associations.getHistory"] = async (
-	tx,
-	session,
-	selected,
-	raw,
-) => {
+/** One scope's connections and history: one affiliation statement with the live check joined in, one audit page. */
+async function historyFor(db: Reader, actor: Actor, raw: unknown) {
 	const q = Q.relationshipHistoryRequest.parse(raw),
 		scope = Q.relationshipHistoryScope.parse(
 			"plant" in q
@@ -41,14 +47,12 @@ export const getHistory: OrganizationAdapter<Transaction>["associations.getHisto
 				: "organization" in scope
 					? scope.organization
 					: owner.parse({ kind: "account", id: scope.discoveryAccountId });
-	const actor = await currentActor(tx, session, selected);
-	if (actor.status !== "active" || !sameOwner(selected, endpoint)) return unavailable();
+	if (!sameOwner(actor.context.owner, endpoint)) return unavailable();
 	if (endpoint.kind === "account") {
-		const d = await tx
+		const d = await db
 			.select({ id: tables.discovery.id })
 			.from(tables.discovery)
-			.where(eq(tables.discovery.account_id, endpoint.id))
-			.for("share");
+			.where(eq(tables.discovery.account_id, endpoint.id));
 		if (d.length !== 1) return unavailable();
 	}
 	const where =
@@ -62,25 +66,15 @@ export const getHistory: OrganizationAdapter<Transaction>["associations.getHisto
 							eq(tables.affiliation.organization_id, endpoint.id),
 							eq(tables.affiliation.sending_church_id, endpoint.id),
 						);
-	const links = await tx
-		.select({ id: tables.affiliation.id })
-		.from(tables.affiliation)
-		.where(where)
-		.orderBy(asc(tables.affiliation.id))
-		.limit(101);
-	const activeRelationships = [];
-	for (const r of links.slice(0, 100)) {
-		const a = await loadAffiliation(tx, r.id);
-		if (!a) continue;
-		const p = projection(a);
-		if (
-			Q.hasHistoryEndpoint(scope, p.pair) &&
-			(!q.pair || JSON.stringify(q.pair) === JSON.stringify(p.pair)) &&
-			(await active(tx, a))
+	const links = await loadAffiliations(db, sql`${where} AND ${tables.affiliation.ended_at} IS NULL`);
+	const activeRelationships = links
+		.filter((a) => a.active)
+		.map((a) => projection(a))
+		.filter(
+			(p) => Q.hasHistoryEndpoint(scope, p.pair) && (!q.pair || JSON.stringify(q.pair) === JSON.stringify(p.pair)),
 		)
-			activeRelationships.push(p);
-	}
-	const rows = await tx
+		.slice(0, 100);
+	const rows = await db
 		.select({
 			id: tables.audit_event.id,
 			pair: sql`${tables.audit_event.metadata}->'pair'`,
@@ -132,4 +126,17 @@ export const getHistory: OrganizationAdapter<Transaction>["associations.getHisto
 		next: rows.length > 100 ? recordId.parse(rows[99]!.id) : null,
 		completeness: links.length > 100 ? "partial" : "complete",
 	});
+}
+export const getHistory: OrganizationAdapter<Transaction>["associations.getHistory"] = async (
+	tx,
+	session,
+	selected,
+	raw,
+) => {
+	const actor = await currentActor(tx, session, selected);
+	if (actor.status !== "active") return unavailable();
+	return historyFor(tx, actor, raw);
 };
+/** The request's own viewer reads its history on the pool: no transaction, no second actor read (D59). */
+export const readHistory = (db: Database, authority: RequestActor, raw: unknown) =>
+	historyFor(db, authority.actor, raw);

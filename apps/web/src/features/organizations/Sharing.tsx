@@ -23,26 +23,30 @@ const REFUSED: Record<string, string> = {
  * The organization's view of this connection and the connection revision a change must carry. privacy.getSharing
  * returns only the consent revision, so the caller supplies the connection revision (ruling D17).
  */
+export type SharingRow = { sharing: Sharing; relationshipRevision: string };
 export type ReadSharing = (
 	relationshipId: string,
 	request: ReturnType<typeof readSharingRequest.parse>,
-) => Promise<{ sharing: Sharing; relationshipRevision: string }>;
+) => Promise<SharingRow>;
 
 /**
  * What one connected organization can see (REQ-IDN-022), on the plant's own connection row. Owners and Admins turn
  * each category on or off for this exact organization; Members see that Owners and Admins choose. The words match
- * the settings sharing card (WP-010/ui). The card loads its own state and reloads it after each save, so every
- * change carries the current connection and consent revisions.
+ * the settings sharing card (WP-010/ui). The list reads the card's state with the page; the card reloads it after
+ * each save, so every change carries the current connection and consent revisions.
  */
 export function SharingChoices({
 	relationship,
 	organizationName,
+	initial,
 	read,
 	run,
 	onChanged,
 }: {
 	relationship: Relationship;
 	organizationName: string;
+	/** The state as the list read it with the page; the card reads again only after a save. */
+	initial?: SharingRow;
 	read: ReadSharing;
 	run: Run;
 	/** After a save: the connection's revision moved, so the list that owns Leave must reload too. */
@@ -56,7 +60,7 @@ export function SharingChoices({
 				: Promise.resolve({ sharing: { status: "unavailable" } as Sharing, relationshipRevision: "0" }),
 		[pair, read, relationship.id],
 	);
-	const { state, reload, refreshing } = useLoad(fetch, `What ${organizationName} can see did not load`);
+	const { state, reload, refreshing } = useLoad(fetch, `What ${organizationName} can see did not load`, initial);
 	return (
 		<LoadableView
 			state={state}

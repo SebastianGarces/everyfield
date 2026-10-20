@@ -4,18 +4,9 @@ import assert from "node:assert/strict";
 import { z } from "../../../packages/domain/node_modules/zod/index.js";
 import {
 	currentActor,
-	accessPolicies,
-	accessReader,
-	plantAdministration,
-	ordinarySeatAdministration,
 	readPipelinePerson,
 	readOrganizationNotes,
 	readOwnResidency,
-	readPlantAffiliation,
-	readDiscoveryRelationship,
-	readPlatformGrant,
-	checkPrivateCare,
-	readProjection,
 } from "../../../packages/domain/src/access/index.ts";
 import { database, transaction, id, account, plant, organization, seat, person } from "./support.mts";
 let db;

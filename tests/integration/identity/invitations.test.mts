@@ -280,7 +280,7 @@ test("AC:TARGET-IDN-019 AC:ROLE43-009 AC:ROLE43-017 roster and ordinary role cha
 	const s = await f.setup(),
 		i = await f.invitation(s),
 		a = await f.invitations.accept(s.recipient.session, i.claim),
-		list = await f.seats.list(s.recipient.session, { workspace: s.w });
+		list = await f.seats.list(await f.actor(s.recipient.session), { workspace: s.w });
 	assert.equal(list.items.length, 2);
 	assert.equal(list.items.find((x) => x.seatId === a.seat.seatId).joined.source, "accepted_invitation");
 	assert.equal(JSON.stringify(list).includes(s.sender.email), false);
@@ -579,7 +579,7 @@ test("AC:ADR1-004 INV-resident: foreign Person, foreign linked account and stale
 test("AC:ROLE43-006 INV-invitations: pending and Member actors cannot send or list administrative invitations", async () => {
 	const s = await f.setup(),
 		i = await f.invitation(s);
-	await denied(f.invitations.list(s.recipient.session, { workspace: s.w }));
+	await denied(f.actor(s.recipient.session).then((a) => f.invitations.list(a, { workspace: s.w })));
 	const accepted = await f.invitations.accept(s.recipient.session, i.claim);
 	assert.equal(accepted.seat.role, "member");
 	await denied(
@@ -589,7 +589,7 @@ test("AC:ROLE43-006 INV-invitations: pending and Member actors cannot send or li
 			input: { workspace: s.w, role: "admin", recipientEmail: key() + "@example.test" },
 		}),
 	);
-	await denied(f.invitations.list(s.recipient.session, { workspace: s.w }));
+	await denied(f.invitations.list(await f.actor(s.recipient.session), { workspace: s.w }));
 	const changed = { ...i.command, input: { ...i.command.input, role: "admin" } };
 	await denied(f.invitations.invite(await f.actor(s.sender.session), changed), "idempotency_conflict");
 });

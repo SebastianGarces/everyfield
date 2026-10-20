@@ -121,6 +121,7 @@ export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S>
 	if (!r.success) deny("invalid_input");
 	return r.data;
 }
+type ActiveActor = Awaited<ReturnType<typeof authorize>>;
 export async function authorize(tx: Tx, context: Context, write = false) {
 	const actor =
 		!write && context instanceof PeopleReadContext
@@ -171,8 +172,9 @@ export const personRow = z.object({
 	pipeline_position: z.string().nullable(),
 });
 export type Person = z.infer<typeof personRow>;
+/** One Person row. A write locks it for update; a read observes it without a lock. */
 export async function person(tx: Tx, context: Pick<Context, "selected">, id: string, lock = false): Promise<Person> {
-	const rows = await tx
+	const query = tx
 		.select()
 		.from(tables.person)
 		.where(
@@ -191,13 +193,14 @@ export async function person(tx: Tx, context: Pick<Context, "selected">, id: str
 						),
 				),
 			),
-		)
-		.for(lock ? "update" : "share", { of: tables.person });
+		);
+	const rows = await (lock ? query.for("update", { of: tables.person }) : query);
 	if (!rows[0]!) deny();
 	return personRow.parse(rows[0]!);
 }
-export async function canReadPerson(tx: Tx, context: Context, p: Person) {
-	const a = await authorize(tx, context);
+/** The reader's authority over one Person. Pass the actor a reader already resolved to avoid a second lookup. */
+export async function canReadPerson(tx: Tx, context: Context, p: Person, actor?: ActiveActor) {
+	const a = actor ?? (await authorize(tx, context));
 	if (context.selected.kind === "organization" && !isAdministrator(a)) {
 		const r = await readPipelinePerson(tx, context.session, context.selected, {
 			personId: p.id,
@@ -464,13 +467,6 @@ export function expected(p: Person, revision: string) {
 }
 export function live(p: Person) {
 	if (p.state !== "live") deny();
-}
-export async function attribution(tx: Tx, actorId: string | null, token: string) {
-	if (actorId) {
-		const a = await tx.select({ id: tables.account.id }).from(tables.account).where(eq(tables.account.id, actorId));
-		if (a.length) return { kind: "current_account", accountId: actorId };
-	}
-	return { kind: "former_account", scopeLocalToken: token };
 }
 export { owner };
 

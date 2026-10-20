@@ -12,6 +12,7 @@ import {
 	accountPersonProducer as accounts,
 	getAccountLink,
 	readColumnOrders,
+	readPersonPage,
 } from "../../../packages/domain/src/people/index.ts";
 
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
@@ -1138,4 +1139,42 @@ test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one trans
 	assert.ok(moved.column.personIds.includes(first.id));
 	assert.equal(moved.column.personRevisions[first.id], moved.person.revision);
 	assert.ok(queries.length <= 9, `stage change round trips: ${queries.length}`);
+});
+
+test("INV-reads: the person page and the status warnings use a fixed number of statements without locks", async () => {
+	const p = await create("Reads person");
+	ok(
+		await tx((t) =>
+			write.addNote(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: p.revision,
+				input: { personId: p.id, body: "A note with an actor" },
+			}),
+		),
+	);
+	queries = [];
+	const page = ok(await tx((t) => readPersonPage(t, ctx(), { personId: p.id }, 50)));
+	const pageStatements = queries.length;
+	assert.equal(page.found.person.id, p.id);
+	assert.deepEqual(page.link, { status: "ok", value: { status: "unlinked" } });
+	assert.deepEqual(
+		page.activities.value.items.map((a) => [a.kind === "activity" ? a.action : a.kind, a.actor.kind]),
+		[
+			["created", "current_account"],
+			["note", "current_account"],
+		],
+	);
+	queries = [];
+	const warnings = ok(await tx((t) => read.getStatusWarnings(t, ctx(), { personId: p.id })));
+	const warningStatements = queries.length;
+	assert.deepEqual(warnings.warnings, ["interview_not_recorded", "commitment_not_recorded"]);
+	assert.deepEqual(warnings.openDuties, []);
+	// BEGIN, actor, person, activities (or warnings), COMMIT; a commitment projection may add one.
+	assert.ok(pageStatements <= 6, `person page: ${pageStatements} statements`);
+	assert.ok(warningStatements <= 5, `status warnings: ${warningStatements} statements`);
+	assert.equal(
+		queries.some((q) => /for\s+(update|share)/i.test(q)),
+		false,
+		"a dialog read must not lock rows",
+	);
 });

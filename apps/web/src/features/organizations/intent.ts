@@ -87,12 +87,16 @@ export function useIntent<C>(intent: string) {
  * retry never shows an old failure. `reload` starts a new attempt; while it runs, the last data stays on screen so a
  * save never blanks the list. Only the first load shows the skeleton, and an error offers Try again.
  */
-export function useLoad<T>(fetch: () => Promise<T>, errorTitle: string) {
+export function useLoad<T>(fetch: () => Promise<T>, errorTitle: string, initial?: T) {
 	const [attempt, setAttempt] = useState(0);
 	type Reply = { attempt: number; fetch: () => Promise<T>; data?: T; failed?: true };
-	const [reply, setReply] = useState<Reply | null>(null);
-	const [shown, setShown] = useState<{ fetch: () => Promise<T>; data: T } | null>(null);
+	// Data the server rendered with the page shows at once; the first fetch runs only after a command (reload).
+	const [reply, setReply] = useState<Reply | null>(initial === undefined ? null : { attempt: 0, fetch, data: initial });
+	const [shown, setShown] = useState<{ fetch: () => Promise<T>; data: T } | null>(
+		initial === undefined ? null : { fetch, data: initial },
+	);
 	useEffect(() => {
+		if (attempt === 0 && initial !== undefined) return;
 		let live = true;
 		fetch().then(
 			(data) => {
@@ -105,7 +109,7 @@ export function useLoad<T>(fetch: () => Promise<T>, errorTitle: string) {
 		return () => {
 			live = false;
 		};
-	}, [fetch, attempt]);
+	}, [fetch, attempt, initial]);
 	const reload = useCallback(() => setAttempt((n) => n + 1), []);
 	const current = reply && reply.attempt === attempt && reply.fetch === fetch ? reply : null;
 	const last = shown && shown.fetch === fetch ? shown : null;

@@ -83,8 +83,8 @@ async function eligible(tx: Tx, ctx: WriteContext, kind: "planter" | "discovery"
 	if (ctx.selected.kind !== "account") deny();
 	const a = await actor(tx, ctx, true, true);
 	if (a.account.registration_state === "pending_domain" && a.account.registration_kind !== kind) deny();
-	if (!a.principal.verified) deny();
-	return a;
+	if (!a.principal?.verified) deny();
+	return { ...a, principal: a.principal };
 }
 async function provision(
 	tx: Tx,

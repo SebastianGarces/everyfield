@@ -4,7 +4,20 @@ import { and, eq, isNull, ne, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { begin, bump, deny, event, finish, now, parse, plantOwner, reply, revision, type Tx } from "./core.ts";
+import {
+	begin,
+	bump,
+	deny,
+	event,
+	finish,
+	now,
+	parse,
+	plantOwner,
+	readReply,
+	reply,
+	revision,
+	type Tx,
+} from "./core.ts";
 import { pending } from "./creation.ts";
 import { plantReading } from "./reading.ts";
 
@@ -227,7 +240,7 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 		});
 	},
 	async getResume(tx, ctx, raw) {
-		return reply(tx, async () => {
+		return readReply(async () => {
 			parse(c.getResumeRequest, raw);
 			if (ctx.selected.kind !== "plant") return c.resumeResult.parse({ status: "unavailable" });
 			const a = await plantOwner(tx, ctx, false);

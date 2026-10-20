@@ -1,8 +1,8 @@
 import "server-only";
 import type { Transaction } from "@everyfield/db/client";
-import { listPeopleRequest, type PeopleContext, type PeopleReply } from "@everyfield/contracts/people";
+import { listPeopleRequest, type PeopleContext } from "@everyfield/contracts/people";
 import type * as people from "@everyfield/contracts/people";
-import { peopleReader, getAccountLink } from "@everyfield/domain/people";
+import { peopleReader, readPersonPage as readPersonPageData } from "@everyfield/domain/people";
 import type { z } from "zod";
 import { isFiltered, listRequest, pageCount, type PeopleQuery } from "./model.ts";
 
@@ -36,28 +36,10 @@ export async function readPeoplePage(tx: Transaction, ctx: PeopleContext, query:
 	};
 }
 
-type PersonPageData = {
-	found: z.infer<typeof people.personResult>;
-	activities: Awaited<ReturnType<typeof peopleReader.getActivities>> | null;
-	link: Awaited<ReturnType<typeof getAccountLink>> | null;
-	survivor: Awaited<ReturnType<typeof peopleReader.getPerson>> | null;
-};
-
 export async function readPersonPage(
 	tx: Transaction,
 	ctx: PeopleContext,
 	personId: Parameters<typeof peopleReader.getPerson>[2]["personId"],
-): Promise<PeopleReply<PersonPageData>> {
-	const found = await peopleReader.getPerson(tx, ctx, { personId });
-	if (found.status !== "ok") return found;
-	if (found.value.status !== "available")
-		return { status: "ok", value: { found: found.value, activities: null, link: null, survivor: null } };
-	const person = found.value.person;
-	const activities = await peopleReader.getActivities(tx, ctx, { personId, limit: 50, page: 1 });
-	const link = await getAccountLink(tx, ctx, { personId });
-	const survivor =
-		person.lifecycle.state === "merged"
-			? await peopleReader.getPerson(tx, ctx, { personId: person.lifecycle.survivorId })
-			: null;
-	return { status: "ok", value: { found: found.value, activities, link, survivor } };
+) {
+	return readPersonPageData(tx, ctx, { personId }, 50);
 }

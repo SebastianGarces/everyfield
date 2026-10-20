@@ -3,6 +3,7 @@ import type { Transaction } from "@everyfield/db/client";
 import { consentOperations } from "./consent.ts";
 import type { OrganizationEffects } from "./core.ts";
 import { getHistory } from "./history.ts";
+export { readHistory } from "./history.ts";
 import type { GeographyReference } from "./profile.ts";
 import { profileOperations } from "./profile.ts";
 import { relationshipCommands } from "./relationships.ts";
@@ -23,12 +24,11 @@ export function createOrganizationAdapter(
 	};
 }
 export { readAnswerableInvitation } from "./relationships.ts";
-export { readSharingDisclosure } from "./sharing.ts";
+export { readPlantSharing, readSharingDisclosure } from "./sharing.ts";
 export type { GeographyReference, OrganizationEffects };
 
 export {
 	connectionRevision,
-	hasDiscoveryProfile,
 	idsIn,
 	namesFor,
 	pairOf,

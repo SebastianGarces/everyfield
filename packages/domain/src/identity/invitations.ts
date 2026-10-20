@@ -1,8 +1,8 @@
-import type { Owner } from "@everyfield/contracts/common";
+import { sameOwner, type Owner } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/identity";
 import type { AccountPersonProducer } from "@everyfield/contracts/people";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { and, asc, eq, gt, isNull, or, sql } from "@everyfield/db/query";
+import { and, asc, eq, getTableColumns, gt, isNull, or, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import "server-only";
@@ -37,6 +37,9 @@ export function createInvitationService(config: InvitationConfig) {
 	}
 	async function description(tx: Transaction, i: d.Invitation) {
 		const { selected, name } = await d.workspace(tx, i.tenant_id);
+		return pendingOf(i, selected, name);
+	}
+	function pendingOf(i: d.Invitation, selected: Owner, name: string | null) {
 		return c.pendingInvitation.parse({
 			status: "pending",
 			invitationId: i.id,
@@ -160,32 +163,34 @@ export function createInvitationService(config: InvitationConfig) {
 			return d.finish(tx, cmd, () => c.invitationSentResult.parse({ invitation }));
 		});
 	}
-	async function list(session: string, raw: unknown) {
-		const v = c.listInvitationsRequest.parse(raw);
-		return transaction(config.db, async (tx) => {
-			await d.readAdministrator(tx, session, v.workspace);
-			const rows = await tx
-				.select()
-				.from(t.invitation)
-				.where(
-					and(
-						eq(t.invitation.tenant_id, v.workspace.id),
-						or(eq(t.invitation.purpose, "seat"), eq(t.invitation.purpose, "residency_link")),
-						eq(t.invitation.state, "pending"),
-						gt(t.invitation.created_at, sql`clock_timestamp()-interval '720 hours'`),
-						v.after ? gt(t.invitation.id, v.after) : undefined,
-					),
-				)
-				.orderBy(asc(t.invitation.id))
-				.limit(101);
-			const items = [];
-			for (const i of rows.slice(0, 100)) items.push(await description(tx, i));
-			return c.invitationListResult.parse({
-				workspace: v.workspace,
-				items,
-				next: rows.length > 100 ? items.at(-1)!.invitationId : null,
-				completeness: rows.length > 100 ? "partial" : "complete",
-			});
+	/** The pending invitations of a workspace in one statement without a transaction, for an Owner or Admin. */
+	async function list(authority: RequestActor, raw: unknown) {
+		const v = c.listInvitationsRequest.parse(raw),
+			a = authority.actor;
+		if (a.context.kind !== "seat" || a.context.role === "member" || !sameOwner(a.context.owner, v.workspace))
+			d.refuse();
+		const rows = await config.db
+			.select({ ...getTableColumns(t.invitation), workspace_name: sql<string | null>`coalesce(p.name, o.name)` })
+			.from(t.invitation)
+			.leftJoin(sql`plant p`, sql`p.id=${t.invitation.tenant_id}`)
+			.leftJoin(sql`organization o`, sql`o.id=${t.invitation.tenant_id}`)
+			.where(
+				and(
+					eq(t.invitation.tenant_id, v.workspace.id),
+					or(eq(t.invitation.purpose, "seat"), eq(t.invitation.purpose, "residency_link")),
+					eq(t.invitation.state, "pending"),
+					gt(t.invitation.created_at, sql`clock_timestamp()-interval '720 hours'`),
+					v.after ? gt(t.invitation.id, v.after) : undefined,
+				),
+			)
+			.orderBy(asc(t.invitation.id))
+			.limit(101);
+		const items = rows.slice(0, 100).map(({ workspace_name, ...i }) => pendingOf(i, v.workspace, workspace_name));
+		return c.invitationListResult.parse({
+			workspace: v.workspace,
+			items,
+			next: rows.length > 100 ? items.at(-1)!.invitationId : null,
+			completeness: rows.length > 100 ? "partial" : "complete",
 		});
 	}
 	async function describe(raw: unknown) {
