@@ -8,7 +8,7 @@
  *   .mk-neighborhood D. Neighborhood  (documentary photography, deep green and cream)
  *
  * Every class sets the same variable names, so components only read --mk-*.
- * Colours come from the --ef-* ramps in design/everyfield-ui.html.
+ * Colours come from the --ef-* ramps in design/everyfield-ui-rebrand.html.
  * Contrast (WCAG 2.x) for each text pair is noted next to it.
  * Rule for all directions: never set #1AF197 (new-growth) as text on a light
  * background. Use it as a fill with ink text, or as text on dark only.
@@ -34,7 +34,7 @@
   --mk-ease: cubic-bezier(.2, .8, .2, 1);
 }
 
-/* Corner system (2026-10-20): all square, shared with design/everyfield-ui.html.
+/* Corner system (2026-10-20): all square, shared with design/everyfield-ui-rebrand.html.
      --corner-card     cards, tiles, inputs          --corner-control  buttons and icon buttons
      --corner-pill     badges, tags, chips, tracks   --corner-petal    reserved, 0 today
      --corner-media    photos, hero panels, stages */
@@ -116,11 +116,11 @@
 .photo-text { --photo-shade: .55; }
 
 /* =====================================================================
-   Muted gradients (2026-10-20). The same engine as the dashboard InsightCard (design/everyfield-ui.html).
+   Muted gradients (2026-10-20). The same engine as the dashboard InsightCard (design/everyfield-ui-rebrand.html).
    Used by the InsightCard copies and by photo slots that hold a colorful UI card.
    Three layers: a base color, a blurred mesh of five color blobs mixed in OKLCH (::before), film grain (::after).
    - Use: class="mesh" data-mesh="field|sky|sage|rose". All tones carry ink text. Rose is the risk / needs-attention tone.
-   - Palette: --ef-{sky|sage|rose}-{100|300|500|700}, sampled from the photos and muted in OKLCH (sage and rose: design/everyfield-ui.html, 5e2f9b5).
+   - Palette: --ef-{sky|sage|rose}-{100|300|500|700}, sampled from the photos and muted in OKLCH (sage and rose: design/everyfield-ui-rebrand.html, 5e2f9b5).
      700 is the text-safe step (4.5:1 or more on white and cream). The earlier tones are retired (final picks, 2026-10-20).
    ===================================================================== */
 :root {

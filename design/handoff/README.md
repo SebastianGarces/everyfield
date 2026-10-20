@@ -6,6 +6,8 @@ The dashboard (Overview) keeps the prototype look. Compose it from the built com
 
 This folder hands the v3 interface design to the build. The design itself is one file, [`../everyfield-ui.html`](../everyfield-ui.html), a clickable prototype of every screen in light and dark mode. The files here turn it into things the Next.js build can use directly.
 
+**Next brand.** Sebastian approved a new brand on 2026-10-20 (new logo, new-growth green, DM Serif and DM Sans, square corners, muted gradient tones). It is drawn in [`../everyfield-ui-rebrand.html`](../everyfield-ui-rebrand.html) and in the marketing prototype, and described in [foundations.md](foundations.md#next-brand-approved-2026-10-20-not-in-the-app-yet). It is the target for the app migration. Until then, `everyfield-ui.html` and the generated files here describe the app as it is, because the live app imports `tokens.css`.
+
 The build stack is in [`docs/architecture/README.md`](../../docs/architecture/README.md) and [`docs/dependencies.md`](../../docs/dependencies.md): Next.js, Tailwind CSS 4, and shadcn/ui on Radix in `packages/ui`.
 
 ## What is here

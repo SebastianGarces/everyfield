@@ -4,6 +4,8 @@ The rules behind the prototype in `design/everyfield-ui.html`. Every value named
 
 Open the prototype and use the dock at the bottom of the screen to reach Foundations, Components, Inventory, Mobile and Emails.
 
+This page describes the brand that the app uses today. An approved next brand is drawn in `design/everyfield-ui-rebrand.html` and `design/everyfield-marketing.html`. The app does not use it yet. See [Next brand](#next-brand-approved-2026-10-20-not-in-the-app-yet) at the end of this page.
+
 ## Themes
 
 Light is the default. Dark uses the same token names with dark values under `[data-theme="dark"]`. In the build, run next-themes with `attribute="data-theme"` so the tokens switch without class names.
@@ -149,3 +151,77 @@ These rules held in the prototype checks. Keep them in the build.
 - A failed load never looks like an empty list. Say what failed, keep the last known time, and offer "Try again".
 - "Not recorded" is different from 0. Show "Not recorded" until someone enters a number.
 - Overlays close with Esc. Settings and Feedback are dialogs with `aria-modal`.
+
+## Next brand (approved 2026-10-20, not in the app yet)
+
+Sebastian approved this brand on 2026-10-20. It is drawn in two prototypes:
+
+- `design/everyfield-ui-rebrand.html`: the dashboard. It is a copy of `design/everyfield-ui.html` with the new brand.
+- `design/everyfield-marketing.html` with `design/marketing-styles.css`: the marketing page.
+
+`tokens.css`, `assets/` and `components.md` still come from `design/everyfield-ui.html`, because the live app imports `tokens.css`. The sections above stay true for the app until the migration. The migration replaces `design/everyfield-ui.html` with the rebrand file, runs `export.py` and moves the app to the new tokens.
+
+### Logo
+
+Three SVG symbols, all one color through `currentColor`: the symbol (`#ef-mark`, 340x340), the wordmark (`#ef-wordmark`, 1052x241) and the lockup (`#ef-lockup`, 1308x241; the symbol is 192.33 high, centred on the wordmark band). The lockup is ink on light surfaces and cream on ink and on photos. A new-growth symbol on white is only 1.5:1, so use new-growth only as a tile behind an ink symbol.
+
+### Color
+
+| Token | Value | Role |
+|---|---|---|
+| `--ef-green` (green 500) | `#1AF197` new-growth | brand color, fills only, never text |
+| `--ef-green-600` | `#026B40` | text-safe green: 6.4:1 on the marketing canvas, 5.8:1 on cream |
+| `--ef-ink` | `#181D19` | brand ink: text, primary buttons, the logo |
+| `--ef-cream` | `#F6F0E9` | marketing secondary surface, text on ink and on photos |
+| marketing canvas | `#FCFBF8` | the marketing page background, unchanged |
+
+App neutrals (frame, canvas, surfaces, lines, hover, light and dark) do not change. They keep the values above. The app has no cream in backgrounds, surfaces or hover states.
+
+The green ramp keeps its OKLCH lightness steps on the new-growth hue (157). Status colors follow the muted palette: `blue` is softened (500 `#6E9FCF`, 600 `#2A6296`), `violet` takes the rose ramp and `teal` takes the sky ramp, so category hues match the photos. Amber, magenta and red stay bright for status and risk.
+
+### Muted palette and gradient tones
+
+Three muted ramps sampled from the landscape photos, in the same OKLCH lightness steps. The 700 step is text-safe (4.5:1 or more on white, cream, frame and canvas).
+
+| Ramp | 100 | 300 | 500 | 700 |
+|---|---|---|---|---|
+| `sky` | `#D6EAF2` | `#B2D2DE` | `#83AAB8` | `#4C6F7C` |
+| `sage` | `#E4EED9` | `#C6D6B4` | `#9BAE86` | `#5F6D4D` |
+| `rose` | `#F9E4E1` | `#EAC6C0` | `#C79A93` | `#825D57` |
+
+The gradient card keeps its three layers (base, blurred OKLCH mesh, grain) with four tones. `dawn` and `lilac` are retired.
+
+| Tone | Use |
+|---|---|
+| `field` | the brand card: default and growth, full new-growth |
+| `sky` | neutral findings |
+| `sage` | the most important summary on a page |
+| `rose` | risk and needs attention |
+
+All four tones carry ink text and look the same in light and dark mode.
+
+### Type
+
+| Family | Use |
+|---|---|
+| DM Serif Display | every heading and large stat number at 24px and above |
+| DM Serif Text | headings below 24px, such as card titles |
+| DM Sans | body, UI text, table and heat-map numbers |
+
+Both serifs use letter-spacing -0.02em and weight 400 (`font-synthesis-weight: none`, so the browser never fakes bold). Fluid headings switch family at the viewport where the size reaches 24px. DM Sans has no tabular figures, so table numbers use proportional digits (see follow-ups in the PR). All three fonts use the SIL Open Font License.
+
+### Shape
+
+All corners are square: cards, controls, pills, tags, nav and photos. Circles stay round: avatars, status dots, radios and switch knobs.
+
+### Marketing photos
+
+- **Treatment.** A photo surface has three CSS layers: the image, a flat black overlay of 20% (`brightness(.8)`), and film grain (SVG fractal noise, overlay blend, 0.34). The grain and the overlay are never baked into the image file. Text on a photo uses a stronger shade (`.photo-text`) where the pixel probe needs it.
+- **Files.** Web-sized AVIF with a JPEG fallback in `design/assets/photos/`. The hero photo loads first; other photos load when they come near the viewport.
+- **Rules.** (1) The phase-card rail uses the six blurred colorful photos. (2) A slot that holds a colorful UI card gets a muted gradient, not a photo. (3) Every other slot gets its own landscape photo; no photo repeats on a page. A rail card that would repeat the hero photo gets a gradient instead.
+- **Heroes.** Fade style: the photo fades up from the canvas and the text stays ink. Home uses wildflowers, oversight uses bluebells.
+- **On photos.** The cream symbol sits above the CTA headline. The primary button is cream with ink text. The focus ring is 2px cream.
+
+### Brand specimens
+
+On the Foundations page, the logo tiles, logo chips, brand swatches, palette ramps and gradient cards look the same in light and dark mode (`.brand-fixed` pins the brand tokens). Only the page around them follows the theme.
