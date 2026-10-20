@@ -28,8 +28,8 @@
   --ef-text-2: #4E544F;
   --ef-focus: #1C5BB5;
   --ef-text-3: #646B65;            /* 4.6:1 on surface-2, the lowest it sits on */
-  --ef-canvas: #EBE5DE;
-  --ef-frame: #F6F0E9;            /* cream */
+  --ef-canvas: #E9ECF0;            /* neutral grey, as before the rebrand (Sebastian) */
+  --ef-frame: #F2F4F7;             /* neutral light grey app background, as before the rebrand (Sebastian) */
   --ef-surface: #FCFBF8;
   --ef-surface-2: #F0EAE3;
   --ef-surface-raised: #FFFFFF;
@@ -627,11 +627,18 @@ textarea.input:focus-visible { box-shadow: 0 0 0 1.5px var(--ef-focus), 0 0 0 5p
     var(--photo) var(--photo-x, 50%) 100% / cover no-repeat;
   box-shadow: 0 18px 36px -24px rgba(0,0,0,.6);
 }
+/* Photo files. Plain JPEG first, so browsers without image-set() type() (Safari before 17)
+   still show the photo. A var() that holds an unsupported image-set() makes the whole layer
+   list invalid, so the upgrade sits behind @supports, not in the same declaration. */
+.insight { --photo-wheat: url("./assets/photos/wheat-1200.jpg"); --photo-field: url("./assets/photos/field-1200.jpg"); }
+@supports (background-image: image-set(url("x.jpg") type("image/jpeg"))) {
+  .insight { --photo-wheat: image-set(url("./assets/photos/wheat-1200.avif") type("image/avif"), url("./assets/photos/wheat-1200.jpg") type("image/jpeg")); --photo-field: image-set(url("./assets/photos/field-1200.avif") type("image/avif"), url("./assets/photos/field-1200.jpg") type("image/jpeg")); }
+}
 [data-insight="photo"] .insight[data-tone]::before { inset: auto 0 0 0; height: var(--photo-reach, 230%); }
-[data-insight="photo"] .insight[data-tone="field"] { --photo: image-set(url("./assets/photos/wheat-1200.avif") type("image/avif"), url("./assets/photos/wheat-1200.jpg") type("image/jpeg")); --photo-x: 40%; }
-[data-insight="photo"] .insight[data-tone="sky"] { --photo: image-set(url("./assets/photos/field-1200.avif") type("image/avif"), url("./assets/photos/field-1200.jpg") type("image/jpeg")); --photo-x: 50%; --photo-reach: 300%; }
-[data-insight="photo"] .insight[data-tone="dawn"] { --photo: image-set(url("./assets/photos/wheat-1200.avif") type("image/avif"), url("./assets/photos/wheat-1200.jpg") type("image/jpeg")); --photo-x: 100%; }
-[data-insight="photo"] .insight[data-tone="lilac"] { --photo: image-set(url("./assets/photos/field-1200.avif") type("image/avif"), url("./assets/photos/field-1200.jpg") type("image/jpeg")); --photo-x: 0%; --photo-reach: 300%; }
+[data-insight="photo"] .insight[data-tone="field"] { --photo: var(--photo-wheat); --photo-x: 40%; }
+[data-insight="photo"] .insight[data-tone="sky"] { --photo: var(--photo-field); --photo-x: 50%; --photo-reach: 300%; }
+[data-insight="photo"] .insight[data-tone="dawn"] { --photo: var(--photo-wheat); --photo-x: 100%; }
+[data-insight="photo"] .insight[data-tone="lilac"] { --photo: var(--photo-field); --photo-x: 0%; --photo-reach: 300%; }
 /* A panel nested in the card: frosted on a flat tone, solid on a photo so its text never sits on the image. */
 .insight .insight-panel { background: rgba(255,255,255,.72); }
 [data-insight="photo"] .insight .insight-panel { background: var(--ef-surface); }
