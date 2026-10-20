@@ -2,6 +2,7 @@ import { createDatabase, closeDatabase } from "../../../packages/db/src/client.t
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { randomUUID, randomBytes } from "node:crypto";
 
 import { migrate, migrationArtifact } from "../../../packages/db/src/schema/migrate.ts";
@@ -988,14 +989,41 @@ test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one trans
 	assert.equal(many.count, few.count, "a move in a column of 10 costs the same as in a column of 3");
 	assert.deepEqual([few.history, many.history], [1, 1], "a move changes one person and writes one audit event");
 	assert.ok(few.count <= 10, `reorder round trips: ${few.count}`);
-	// Two neighbours with the same key (people created before keys were unique): the column is spread once.
-	await admin.execute(sql`UPDATE person SET pipeline_position=5 WHERE id=ANY(${sql.param([ids[3], ids[4]])}::uuid[])`);
-	const tie = await move(ids[1], ids[3]);
-	assert.deepEqual(tie.order, [ids[2], ids[0], ids[9], ids[3], ids[1], ...ids.slice(4, 9)]);
-	const keys = await admin.execute(
-		sql`SELECT count(DISTINCT pipeline_position)::int AS n FROM person WHERE id=ANY(${sql.param(ids)}::uuid[])`,
+	// Legacy ties: 30 people who all share key 0, as every person had before migration 0014. After the migration a move
+	// between any two neighbours still changes exactly one row and writes one audit event.
+	const legacy = Array.from({ length: 20 }, () => randomUUID()).sort();
+	ids.push(...legacy);
+	await insert(legacy, 0);
+	await admin.execute(sql`UPDATE person SET pipeline_position=0 WHERE id=ANY(${sql.param(ids)}::uuid[])`);
+	const tied = (await tx((t) => readColumnOrder(t, ctx(), "interviewed"))).personIds;
+	await admin.execute(
+		sql.raw(
+			await readFile(
+				new URL("../../../packages/db/migrations/0014_unique_pipeline_positions.sql", import.meta.url),
+				"utf8",
+			),
+		),
 	);
-	assert.equal(keys.rows[0].n, 10, "after the spread every key is unique");
+	const positions = async () =>
+		new Map(
+			(
+				await admin.execute(
+					sql`SELECT id, pipeline_position::text AS k FROM person WHERE id=ANY(${sql.param(ids)}::uuid[])`,
+				)
+			).rows.map((r) => [r.id, r.k]),
+		);
+	const spread = await positions();
+	assert.equal(new Set(spread.values()).size, 30, "the migration gives every person a key of their own");
+	assert.deepEqual((await tx((t) => readColumnOrder(t, ctx(), "interviewed"))).personIds, tied, "and keeps the order");
+	const [mover, anchor] = [tied[25], tied[3]];
+	const legacyMove = await move(mover, anchor);
+	const expected = tied.filter((x) => x !== mover);
+	expected.splice(expected.indexOf(anchor) + 1, 0, mover);
+	assert.deepEqual(legacyMove.order, expected);
+	const changedRows = [...(await positions())].filter(([pid, k]) => spread.get(pid) !== k).map(([pid]) => pid);
+	assert.deepEqual(changedRows, [mover], "exactly one row changed");
+	assert.equal(legacyMove.history, 1, "one audit event");
+	assert.equal(legacyMove.count, few.count, "the same statements in a column of 30");
 	const [first] = ok(await tx((t) => read.listPeople(t, ctx(), { search: "Move regression", limit: 1 }))).items;
 	queries = [];
 	// The stage-change action: the producer's command plus the target column's saved order, in one transaction.
