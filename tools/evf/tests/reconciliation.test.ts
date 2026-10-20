@@ -299,7 +299,7 @@ test("INV-workflow-routing: Next server paths stay with implementor and presenta
 
 import { ship, listShipped, prOpen, checkPr } from "../ship.ts";
 import { approve } from "../approve.ts";
-import { requireImplementation, requireSpend } from "../policy.ts";
+import { requireImplementation, requireSpend, requireTaskScope } from "../policy.ts";
 test("INV-gate-phases: local evidence producers can start before runtime completion; paid commitment remains gated", () => {
 	const f = fixture();
 	try {
@@ -799,6 +799,34 @@ test("BUG-c048ea5-body-path: PR create and edit read body files relative to the 
 			}
 	} finally {
 		process.chdir(cwd);
+		f.close();
+	}
+});
+
+test("BUG-pr165-ledger: only a transfer-only OPS task commits the progress ledger; reconcile refuses a task worktree", () => {
+	const f = fixture(),
+		task = parseTask("OPS-1");
+	try {
+		for (const owningPaths of [["docs/plan/", "docs/build-progress.json"], ["docs/"]]) {
+			f.cfg.maintenanceTasks = { [task.id]: { title: "Plan review", owningPaths, checks: f.cfg.checks } };
+			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+			f.commit();
+			assert.throws(
+				() => taskStart(f.root, task, { allowUnready: false, noStack: true }),
+				/Only a transfer task that owns exactly docs\/build-progress.json may commit the progress ledger/,
+			);
+			assert.equal(f.git("branch", "--list", "task/*"), "");
+		}
+		f.cfg.maintenanceTasks![task.id].owningPaths = ["docs/build-progress.json"];
+		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+		f.commit();
+		requireTaskScope(f.root, task);
+		const wt = f.task(task.slug),
+			ledger = readFileSync(join(wt, "docs/build-progress.json"), "utf8");
+		assert.throws(() => reconcileProgress(wt), /Reconcile progress in the home checkout, not a task worktree/);
+		assert.equal(readFileSync(join(wt, "docs/build-progress.json"), "utf8"), ledger);
+		reconcileProgress(f.root);
+	} finally {
 		f.close();
 	}
 });

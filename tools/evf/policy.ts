@@ -52,6 +52,12 @@ export function requireTaskScope(root: string, task: TaskRef, wp?: string): void
 			if (!path.endsWith("/") && existsSync(join(root, path)) && statSync(join(root, path)).isDirectory())
 				fail(`Maintenance owning path ${path} is a folder; use ${path}/ to include its files.`);
 		}
+		const ledger = "docs/build-progress.json";
+		if (
+			scope.owningPaths.join("\n") !== ledger &&
+			scope.owningPaths.some((p) => (p.endsWith("/") ? ledger.startsWith(p) : p === ledger))
+		)
+			fail(`Only a transfer task that owns exactly ${ledger} may commit the progress ledger (OPS-7).`);
 		const files = [
 			"README.md",
 			"AGENTS.md",
