@@ -44,6 +44,12 @@
 	html:has([data-product-root]) {
 		scrollbar-gutter: stable;
 	}
+	/* A modal overlay (Radix, through react-remove-scroll) locks scrolling and adds the scrollbar's width to the body as
+     margin. The gutter above still holds that space while the scrollbar is hidden, so the margin would count it twice
+     and pull the page in from the right. The gutter alone keeps the width. */
+	html:has([data-product-root]) body[data-scroll-locked] {
+		margin-right: 0 !important;
+	}
 	html[data-theme] body {
 		background: var(--ef-frame);
 	}

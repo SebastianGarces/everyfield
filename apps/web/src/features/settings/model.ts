@@ -56,6 +56,11 @@ export function offeredSections(viewer: SettingsViewer, slots: readonly SectionK
 	});
 }
 
+/** Where /settings and the rail's Settings open: the first dialog section this viewer is offered. */
+export function firstSection(viewer: SettingsViewer | null): DialogSection {
+	return (viewer && dialogSection(offeredSections(viewer, [])[0])) ?? "account";
+}
+
 /** Only the current Owner can delete the church workspace (REQ-KNOW-066). Admins and Members never see the action. */
 export function canDeleteWorkspace(viewer: SettingsViewer): boolean {
 	return viewer.context === "plant" && viewer.role === "owner";

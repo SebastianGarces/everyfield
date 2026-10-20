@@ -8,6 +8,9 @@ export type ShellLink = {
 	href: string;
 	icon: IconSvgElement;
 	match?: "exact" | "prefix";
+	/** Runs on a plain click before the client navigation (next/link onNavigate). Settings prevents it and opens its
+	 * dialog over the current page; a new tab or a fresh load still follows `href`. */
+	onNavigate?: (event: { preventDefault: () => void }) => void;
 };
 
 /** A control that opens something over the page (Guide, Send feedback). `expanded` reports an open panel. */

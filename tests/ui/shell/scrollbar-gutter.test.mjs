@@ -16,6 +16,7 @@ import { BASE, ENGINES, withPage } from "../setup.mjs";
 
 const SCROLLING = "/design/foundations";
 const STILL = "/design/shell/owner";
+const OVERLAYS = "/design/controls";
 
 /**
  * Launch options for Chromium with classic scrollbars. On macOS a Cocoa app reads defaults from its own arguments, and
@@ -65,5 +66,31 @@ for (const [name, engine] of ENGINES) {
 				},
 				{ launch: classic ? classicChromium(engine) : {} },
 			),
+	);
+}
+
+// BUG-139-dialog-shift: a modal overlay locks page scrolling (react-remove-scroll), which adds the scrollbar's width to
+// the body as margin. The gutter already holds that space, so the page lost it twice and moved in from the right. The
+// page behind an open dialog keeps its width and the dialog stays centered in it.
+for (const [name, engine] of ENGINES) {
+	const classic = name === "chromium";
+	test(`BUG-139-dialog-shift (${name}): opening a dialog on a scrolling page moves nothing`, { timeout: 90_000 }, () =>
+		withPage(
+			engine,
+			async (page) => {
+				await page.goto(BASE + OVERLAYS, { waitUntil: "networkidle" });
+				await page.locator("html[data-theme]").waitFor({ state: "attached", timeout: 60_000 });
+				const right = () => page.locator("[data-product-root]").evaluate((el) => el.getBoundingClientRect().right);
+				const before = await right();
+				await page.getByRole("button", { name: "Move Maria to core group" }).click();
+				const dialog = page.getByRole("dialog");
+				await dialog.waitFor();
+				assert.equal(await page.locator("body[data-scroll-locked]").count(), 1, "the dialog locks page scrolling");
+				assert.equal(await right(), before, "the page behind the dialog keeps its width");
+				const box = await dialog.boundingBox();
+				assert.ok(Math.abs(box.x + box.width / 2 - before / 2) <= 1, "the dialog is centered in the page's width");
+			},
+			{ launch: classic ? classicChromium(engine) : {} },
+		),
 	);
 }

@@ -1,24 +1,21 @@
 "use client";
 
-import { UserMultipleIcon } from "@hugeicons/core-free-icons";
+import { Settings02Icon, UserMultipleIcon } from "@hugeicons/core-free-icons";
 import { ToastProvider, useToast } from "@everyfield/ui/controls";
 import { initials } from "@everyfield/ui/display";
 import { AppShell, RoleBanner, type ShellNav } from "@everyfield/ui/shell";
 import { createContext, use, useState, type ReactNode } from "react";
 import { AccountMenu } from "../settings/AccountMenu";
+import { firstSection } from "../settings/model";
 import type { SettingsViewer } from "../settings/port";
 import { useProductSettings } from "../settings/ProductSettings";
 import type { Role } from "./server.ts";
 
 // The product frame around the People and Settings pages. Only destinations that exist are in the navigation; the full
 // product navigation, command palette, notifications and Evry come from their own packages and replace these when they
-// ship. Settings is reached from the user menu behind the name button (screens.md, Overlays).
+// ship. Settings sits at the bottom of the rail and in the user menu behind the name button (screens.md, Overlays).
 
-const NAV: ShellNav = {
-	main: [{ kind: "link", key: "people", label: "People", href: "/people", icon: UserMultipleIcon }],
-	pages: [],
-	tools: [],
-};
+const PEOPLE = { kind: "link", key: "people", label: "People", href: "/people", icon: UserMultipleIcon } as const;
 const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Member" };
 
 type FrameProps = {
@@ -69,11 +66,31 @@ function Frame({ name, settings, children }: FrameProps) {
 				You have a Member seat. You can see people and their history; Owners and Admins change them.
 			</RoleBanner>
 		) : null;
+	// The rail's Settings opens the dialog over the current page, as the user menu does; /settings is its address.
+	const nav: ShellNav = {
+		main: [PEOPLE],
+		pages: [],
+		tools: [
+			{
+				kind: "link",
+				key: "settings",
+				label: "Settings",
+				href: "/settings",
+				icon: Settings02Icon,
+				onNavigate: settings
+					? (event) => {
+							event.preventDefault();
+							dialog.open(firstSection(settings));
+						}
+					: undefined,
+			},
+		],
+	};
 	const later = (what: string) => () => toast({ message: `${what} is not available yet.`, tone: "info" });
 	const seat = role ? `${ROLE[role]} seat` : "";
 	return (
 		<AppShell
-			nav={NAV}
+			nav={nav}
 			user={{ name, initials: initials(name), detail: role ? ROLE[role] : "" }}
 			userMenu={<AccountMenu name={name} detail={seat} onAccount={() => dialog.open("account")} />}
 			homeHref="/people"
