@@ -325,7 +325,14 @@ export function sectionOperations(
 			}
 			case "plant": {
 				if (!a.plant) deny();
-				const p = { plant: a.plant };
+				// a.plant is the row as it was when this transaction bound the actor. A later change of the same church
+				// save (one transaction) expects the revision the earlier change wrote, so read the row again then.
+				const [row] =
+					v.expectedRevision === a.plant.revision
+						? [a.plant]
+						: await tx.select().from(t.plant).where(eq(t.plant.id, a.plant.id));
+				if (!row) deny();
+				const p = { plant: row };
 				revision(v.expectedRevision, p.plant.revision);
 				const old = plantValue(p.plant, i.plant);
 				if (old.section !== "plant") deny();

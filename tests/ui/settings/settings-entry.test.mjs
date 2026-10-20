@@ -88,29 +88,35 @@ for (const [name, engine] of ENGINES) {
 	});
 }
 
-/** What each seat may change, and how to change it inside the open Settings dialog. */
+/**
+ * What each seat may change, and how to change it inside the open Settings dialog: `fields` maps a label to its new
+ * value for one run. The Owner's church save changes the profile and the inactivity days together, two contract
+ * changes in one transaction (saveChurch).
+ */
 const ROLES = [
 	{
 		who: "owner",
 		sections: ["Church profile", "Notifications", "Your account"],
 		edits: [
-			{ section: "Your account", path: "/settings/account", field: "Your name", value: (t) => `Daniel Reyes ${t}` },
-			{ section: "Church profile", path: "/settings/church", field: "City", value: (t) => `Austin ${t}` },
+			{ section: "Your account", path: "/settings/account", fields: { "Your name": (t) => `Daniel Reyes ${t}` } },
+			{
+				section: "Church profile",
+				path: "/settings/church",
+				fields: { City: (t) => `Austin ${t}`, "Inactive after (days)": (_, n) => String(100 + (n % 200)) },
+			},
 		],
 	},
 	{
 		who: "member",
 		sections: ["Notifications", "Your account"],
 		locked: "/settings/church",
-		edits: [
-			{ section: "Your account", path: "/settings/account", field: "Your name", value: (t) => `Ruth Allen ${t}` },
-		],
+		edits: [{ section: "Your account", path: "/settings/account", fields: { "Your name": (t) => `Ruth Allen ${t}` } }],
 	},
 	{
 		who: "organization",
 		sections: ["Organization profile", "Notifications", "Your account"],
 		edits: [
-			{ section: "Organization profile", path: "/settings/organization", field: "City", value: (t) => `Dallas ${t}` },
+			{ section: "Organization profile", path: "/settings/organization", fields: { City: (t) => `Dallas ${t}` } },
 		],
 	},
 ];
@@ -119,7 +125,8 @@ for (const [name, engine] of ENGINES) {
 	for (const role of ROLES) {
 		test(`AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:WP010-IDN-012 (${name}, ${role.who}): settings saves what the seat may change`, async () => {
 			await withPage(engine, role.who, async (page) => {
-				const tag = `${name}-${Date.now().toString(36)}`;
+				const n = Date.now();
+				const tag = `${name}-${n.toString(36)}`;
 				const dialog = page.getByRole("dialog").first();
 				let documents = 0;
 				page.on("request", (r) => (r.resourceType() === "document" || r.url().includes("_rsc=")) && documents++);
@@ -134,7 +141,7 @@ for (const [name, engine] of ENGINES) {
 					// Switching sections changes the address without a page request.
 					await dialog.getByRole("link", { name: edit.section }).click();
 					await page.waitForURL(`**${edit.path}`);
-					await dialog.getByLabel(edit.field).fill(edit.value(tag));
+					for (const [label, value] of Object.entries(edit.fields)) await dialog.getByLabel(label).fill(value(tag, n));
 					await dialog.getByRole("button", { name: "Save" }).click();
 					await dialog.getByText("No unsaved changes.").waitFor({ timeout: 10_000 });
 				}
@@ -150,7 +157,8 @@ for (const [name, engine] of ENGINES) {
 
 				for (const edit of role.edits) {
 					await page.goto(`${BASE}${edit.path}`, { waitUntil: "networkidle" });
-					assert.equal(await dialog.getByLabel(edit.field).inputValue(), edit.value(tag));
+					for (const [label, value] of Object.entries(edit.fields))
+						assert.equal(await dialog.getByLabel(label).inputValue(), value(tag, n));
 				}
 				await page.goto(`${BASE}/settings/notifications`, { waitUntil: "networkidle" });
 				assert.equal(await dialog.getByRole("switch").first().getAttribute("aria-checked"), now);
