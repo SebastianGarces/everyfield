@@ -49,18 +49,15 @@ export async function SharingPage() {
 					readPlantSharing(m.db, who.authority),
 				]);
 	const active = history && history.status === "available" ? history.activeRelationships : [];
-	const activeOrgs = new Set(
-		active
-			.filter((r) => viewer.kind !== "sending_church" || r.pair.kind === "sending_church")
-			.map((r) => r.pair.organization.id),
-	);
 	const networks =
 		viewer.kind === "sending_church"
 			? active.filter((r) => r.pair.kind === "sending_church" && r.pair.subject.id === viewer.selected.id)
 			: [];
 	const [facts, targets, residencies, names, aggregate] = await Promise.all([
 		subjectFacts(m.db, viewer),
-		viewer.canManage ? targetsFor(m.db, viewer, activeOrgs) : Promise.resolve([]),
+		// Every organization this viewer may ask; the list hides the ones it is connected with now, from its own history,
+		// so an organization appears again right after a Leave without another read.
+		viewer.canManage ? targetsFor(m.db, viewer, new Set()) : Promise.resolve([]),
 		residencyLinks(m.db, viewer),
 		namesFor(m.db, viewer, [
 			...(history?.status === "available" ? idsIn(history) : []),

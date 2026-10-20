@@ -85,7 +85,7 @@ export function Connections({
 				</div>
 				{canManage && invite ? (
 					<InviteDialog
-						targets={invite.targets}
+						targets={state.status === "ready" ? available(invite.targets, state.data.history) : invite.targets}
 						readDisclosure={invite.readDisclosure}
 						expectedRevision={invite.expectedRevision}
 						run={run}
@@ -179,6 +179,17 @@ export function Connections({
 
 type EndAnswer = Parameters<Parameters<typeof EndDialog>[0]["onEnded"]>[0];
 type SharingPort = { read: ReadSharing; save: SaveSharing };
+
+/** Organizations this viewer may ask, without the ones it is connected with now as the asking side. */
+function available(targets: InviteTarget[], history: ConnectionsData["history"]) {
+	if (history.status !== "available") return targets;
+	const connected = new Set(
+		history.activeRelationships
+			.filter((r) => sideIn(history.scope, r) === "subject")
+			.map((r) => r.pair.organization.id),
+	);
+	return targets.filter((t) => !connected.has(t.pair.organization.id));
+}
 
 /** The history with one current connection's new revision, after a sharing change moved it. */
 function withRevision(history: ConnectionsData["history"], relationshipId: string, revision: string) {
