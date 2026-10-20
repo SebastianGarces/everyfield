@@ -714,6 +714,7 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .sec-cta .cta-box .mk-btn.secondary { background: rgba(24, 29, 25, .3); color: #F6F0E9; box-shadow: inset 0 0 0 1px rgba(246, 240, 233, .7); }
 .sec-cta .cta-box .mk-btn.secondary:hover { background: rgba(24, 29, 25, .46); box-shadow: inset 0 0 0 1.5px #F6F0E9; }
 @media (max-width: 900px) { .sec-cta .cta-box { --photo-zoom: 1.9; --photo-pos: 50% 61%; } } /* tall box: zoom into the brown band behind the text */
+@media (min-width: 901px) { .sec-cta .cta-box { --photo-shade: .45; } } /* wide box: the lake crop puts bright reed tips behind the lead; a 45% overlay keeps every glyph at 4.5:1 or more (lowest 4.88:1 at 1280) */
 .cta-mark { display: block; width: clamp(44px, 4.4vw, 64px); height: auto; aspect-ratio: 1; color: #F6F0E9; }
 
 /* =====================================================================
