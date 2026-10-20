@@ -590,7 +590,7 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-052",
+        "WP-051",
         "WP-053",
         "WP-055",
         "WP-075",
@@ -638,7 +638,7 @@
         "MTG-011",
         "PPL-002"
       ],
-      "text": "Choosing an existing person links its explicit ID; same name never automatically merges and repeated create request is receipt-safe.",
+      "text": "Choosing an existing person links its explicit ID; same name never automatically merges and a double submit creates one person.",
       "spec": "docs/product/launch.md#actual-launch-and-named-guests",
       "operations": [],
       "acceptance_ids": [
@@ -731,7 +731,7 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-044",
-        "WP-052",
+        "WP-051",
         "WP-055",
         "WP-073"
       ]
@@ -941,7 +941,7 @@
         "PPL-016",
         "PPL-017"
       ],
-      "text": "Normal duplicate candidate selection is reused; same name is never automatic merge. Repeated create/link cannot double attendance or leave a Person without its intended link on failed transaction.",
+      "text": "Normal duplicate candidate selection is reused; same name is never automatic merge. Repeated create/link cannot double attendance or leave a person without its intended link when saving fails.",
       "spec": "docs/product/launch.md#actual-launch-and-named-guests",
       "operations": [],
       "acceptance_ids": [
@@ -1367,7 +1367,7 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-006",
-        "WP-052",
+        "WP-051",
         "WP-053",
         "WP-075",
         "WP-076",

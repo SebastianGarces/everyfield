@@ -51,7 +51,7 @@
       "feature_ids": [
         "TEAM-002"
       ],
-      "text": "Archive hides a team from operational selectors, current staffing/health and default chart/list while retaining team/role/membership/training/meeting history. Explicit archived inclusion permits discovery and authorized restoration. Historical Person tabs show labelled former/archive records. Current follow-up duties remain visible; archiving does not waive them or broaden team programs to churchwide. Edit/archive/restore under unchanged reviewed state commits current state, before/after actor/reason history and assessment freshness; repeated same state no-ops. Restoration does not restore revoked seats or rewrite old tenure.",
+      "text": "Archive hides a team from operational selectors, current staffing/health and default chart/list while retaining team/role/membership/training/meeting history. Explicit archived inclusion permits discovery and authorized restoration. Historical Person tabs show labelled former/archive records. Current follow-up duties remain visible; archiving does not waive them or broaden team programs to churchwide. Archive, restore and edit record who did it and why and mark affected assessments out of date. Repeating the same change does nothing. Restoration does not restore revoked seats or rewrite old tenure.",
       "spec": "docs/product/teams-training.md#req-team-002",
       "operations": [
         "teams.archive",
@@ -69,7 +69,7 @@
         "REQ-IDN-029"
       ],
       "work_packages": [
-        "WP-016"
+        "WP-017"
       ],
       "behavior_rules": [
         {

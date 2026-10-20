@@ -1204,7 +1204,7 @@
         "AC-REF-006--REF-006"
       ],
       "work_packages": [
-        "WP-027"
+        "WP-092"
       ],
       "status": "future-not-run",
       "description": "Seven registered system templates; plant fork changed subject",
@@ -1881,7 +1881,6 @@
         "AC-WIKI-010--WIKI-010"
       ],
       "work_packages": [
-        "WP-027",
         "WP-032",
         "WP-033",
         "WP-034",
@@ -2138,7 +2137,6 @@
         "AC-WIKI-010--WIKI-010"
       ],
       "work_packages": [
-        "WP-027",
         "WP-032",
         "WP-033",
         "WP-034",
@@ -2265,7 +2263,6 @@
         "AC-WIKI-010--WIKI-010"
       ],
       "work_packages": [
-        "WP-027",
         "WP-032",
         "WP-033",
         "WP-034",
@@ -2423,7 +2420,6 @@
         "AC-WIKI-010--WIKI-010"
       ],
       "work_packages": [
-        "WP-027",
         "WP-032",
         "WP-033",
         "WP-034",
@@ -2686,7 +2682,6 @@
         "AC-WIKI-010--WIKI-010"
       ],
       "work_packages": [
-        "WP-027",
         "WP-032",
         "WP-033",
         "WP-034",
