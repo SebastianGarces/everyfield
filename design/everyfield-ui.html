@@ -27,29 +27,33 @@
      white, cream and the frame). They paint the gradient cards and brand moments, not status. */
   --ef-sky-100: #D6EAF2;  --ef-sky-300: #B2D2DE;  --ef-sky-500: #83AAB8;  --ef-sky-700: #4C6F7C;
   --ef-clay-100: #F5DED0; --ef-clay-300: #E4BAA2; --ef-clay-500: #AF7A5A; --ef-clay-700: #83583D;
-  --ef-sand-100: #F7EBD8; --ef-sand-300: #E8D3B0; --ef-sand-500: #C7B18C; --ef-sand-700: #7A694E;
+  /* Fourth-tone candidates (2026-10-20), replacing Sand. Sebastian picks one; the others are deleted.
+     sage = the green hills at dusk, slate = the grey storm hills, rose = the mauve sunset clouds. */
+  --ef-sage-100: #E4EED9;  --ef-sage-300: #C6D6B4;  --ef-sage-500: #9BAE86;  --ef-sage-700: #5F6D4D;
+  --ef-slate-100: #E2EBF4; --ef-slate-300: #C2D1E2; --ef-slate-500: #96A8BC; --ef-slate-700: #566A7E;
+  --ef-rose-100: #F9E4E1;  --ef-rose-300: #EAC6C0;  --ef-rose-500: #C79A93;  --ef-rose-700: #825D57;
   --ef-soil: #3F2F23;
   --ef-cloud: #787A80;
 
   /* neutrals (cool grey). Cream is for brand and marketing, not app surfaces */
-  --ef-ink-2: #313732;
+  --ef-ink-2: #343843;
   --ef-text: #181D19;
-  --ef-text-2: #4E544F;
+  --ef-text-2: #4D5361;
   --ef-focus: #1C5BB5;
-  --ef-text-3: #646B65;            /* 4.6:1 on surface-2, the lowest it sits on */
+  --ef-text-3: #666C78;            /* 4.6:1 on surface-2, the lowest it sits on */
   --ef-canvas: #E9ECF0;            /* neutral grey, as before the rebrand (Sebastian) */
   --ef-frame: #F2F4F7;             /* neutral light grey app background, as before the rebrand (Sebastian) */
-  --ef-surface: #FCFBF8;
-  --ef-surface-2: #F0EAE3;
+  --ef-surface: #FAFBFC;           /* neutral greys, as on main before the rebrand: no cream in the app (Sebastian) */
+  --ef-surface-2: #EDF0F4;
   --ef-surface-raised: #FFFFFF;
-  --ef-line: rgba(24, 29, 25, .08);
-  --ef-line-2: rgba(24, 29, 25, .14);
+  --ef-line: rgba(22, 30, 46, .075);
+  --ef-line-2: rgba(22, 30, 46, .13);
   --ef-on-ink: #FFFFFF;            /* text and icons on ink fills */
   --ef-on-ink-soft: rgba(255,255,255,.12);
-  --ef-surface-3: #E5DFD6;         /* hover on warm fills */
-  --ef-hover: rgba(24, 29, 25, .05);
+  --ef-surface-3: #E6E8EC;         /* hover on grey fills */
+  --ef-hover: rgba(22, 30, 46, .05);
   --ef-card-edge: rgba(255,255,255,.85);
-  --ef-switch-off: #D9D3CC;
+  --ef-switch-off: #DCDFE4;
   --ef-dock-bg: rgba(24,29,25,.92);
   color-scheme: light;
 
@@ -173,26 +177,26 @@
    ===================================================================== */
 [data-theme="dark"] {
   color-scheme: dark;
-  --ef-ink: #F6F0E9;
-  --ef-ink-2: #D4D0CB;
-  --ef-text: #EEEBE6;
-  --ef-text-2: #BEBAB5;
+  --ef-ink: #EEF0F4;
+  --ef-ink-2: #CDD2DA;
+  --ef-text: #ECEEF2;
+  --ef-text-2: #B1B7C2;
   --ef-focus: #A9CFFF;
-  --ef-text-3: #9E9B96;
-  --ef-canvas: #090C0A;
-  --ef-frame: #0E110F;
-  --ef-surface: #171B18;
-  --ef-surface-2: #252925;
-  --ef-surface-3: #2D322E;
-  --ef-surface-raised: #1D201D;
+  --ef-text-3: #8A919E;
+  --ef-canvas: #0B0D10;
+  --ef-frame: #0F1115;
+  --ef-surface: #161A1F;
+  --ef-surface-2: #21262D;
+  --ef-surface-3: #2A3038;
+  --ef-surface-raised: #1C2026;
   --ef-line: rgba(255,255,255,.07);
   --ef-line-2: rgba(255,255,255,.13);
-  --ef-on-ink: #181D19;
-  --ef-on-ink-soft: rgba(24,29,25,.10);
+  --ef-on-ink: #111318;
+  --ef-on-ink-soft: rgba(17,19,24,.10);
   --ef-hover: rgba(255,255,255,.06);
   --ef-card-edge: rgba(255,255,255,.05);
-  --ef-switch-off: #373C38;
-  --ef-dock-bg: rgba(37,41,37,.94);
+  --ef-switch-off: #353B44;
+  --ef-dock-bg: rgba(38,43,51,.94);
 
   --ef-green-700: #B2F7CD; --ef-green-600: #55EEA0; --ef-green-500: #1AF197; --ef-green-300: #185E3B; --ef-green-100: #113120; --ef-green-50: #12271B;
   --ef-blue-600: #A9CFFF;  --ef-blue-500: #6AAEFF;  --ef-blue-300: #2E4E7A;  --ef-blue-100: #172840;  --ef-blue-50: #131F31;
@@ -209,7 +213,7 @@
   --ef-shadow-nav: 0 0 0 1px rgba(255,255,255,.06), 0 1px 2px rgba(0,0,0,.3), 0 2px 6px -3px rgba(0,0,0,.4);
   --ef-shadow-nav-active: 0 1px 2px rgba(0,0,0,.45), 0 2px 5px -2px rgba(0,0,0,.4);
 }
-[data-theme="dark"] .heat .h3 { color: #090C0A; }
+[data-theme="dark"] .heat .h3 { color: #0B0D10; }
 /* Brief color fade when the theme changes. */
 html.theme-switching, html.theme-switching * { transition: background-color .3s ease, color .3s ease, border-color .3s ease, box-shadow .3s ease !important; }
 
@@ -572,15 +576,16 @@ textarea.input:focus-visible { box-shadow: 0 0 0 1.5px var(--ef-focus), 0 0 0 5p
 .tone-teal { --tint: var(--ef-teal-100); --tone: var(--ef-teal-600); }
 .tone-ink { --tint: var(--ef-surface-2); --tone: var(--ef-ink-2); }
 
-/* ---- InsightCard  (<InsightCard tone="field|sky|clay|sand">) : the gradient card ----
+/* ---- InsightCard  (<InsightCard tone="field|sky|clay|sage|slate|rose">) : the gradient card ----
    Muted gradients from the photo palette (2026-10-20). Three layers:
    a base color on the card, a blurred mesh of five color blobs (::before) and film grain (::after).
    The mesh mixes in OKLCH, so blends between neighbors stay clean and never pass through grey.
    field = new-growth, the brand card, for the default and for growth.
    sky   = desaturated sky blue, for neutral findings.
    clay  = muted clay orange, for attention and gaps.
-   sand  = warm sand with a cool corner, for the most important summary on a page.
-   All four carry ink text and look the same in both themes. */
+   fourth tone, for the most important summary on a page. Sand is retired; one of three candidates
+   replaces it (sage, slate, rose). Sebastian picks one; the final task deletes the other two.
+   All tones carry ink text and look the same in both themes. */
 .insight {
   position: relative; overflow: hidden; isolation: isolate;
   border-radius: var(--corner-media); padding: 28px 30px; color: var(--on);
@@ -613,17 +618,22 @@ textarea.input:focus-visible { box-shadow: 0 0 0 1.5px var(--ef-focus), 0 0 0 5p
 }
 /* field: new-growth, with a pale growth glow and one cool sky blob from the photos */
 .insight[data-tone="field"] { --g-base: #1AF197; --g1: #AFF8D0; --g2: #1AF197; --g3: #4BDC95; --g4: var(--ef-sky-300); --g5: #FBF6ED; --g-shadow: rgba(3,119,72,.45); }
-/* sky: the desaturated blue of the field photo, warmed by a sand horizon at the bottom */
-.insight[data-tone="sky"] { --g-base: var(--ef-sky-300); --g1: var(--ef-sky-100); --g2: #99BECC; --g3: var(--ef-sand-100); --g4: var(--ef-sky-500); --g5: #ECF6FA; --g-shadow: rgba(55,85,96,.45); }
+/* sky: the desaturated blue of the field photo, warmed by a pale wheat horizon at the bottom */
+.insight[data-tone="sky"] { --g-base: var(--ef-sky-300); --g1: var(--ef-sky-100); --g2: #99BECC; --g3: #F7EBD8; --g4: var(--ef-sky-500); --g5: #ECF6FA; --g-shadow: rgba(55,85,96,.45); }
 /* clay: the stubble and sunset of the photos, muted */
-.insight[data-tone="clay"] { --g-base: var(--ef-clay-300); --g1: var(--ef-clay-100); --g2: #C9997A; --g3: var(--ef-sand-300); --g4: #DEB58F; --g5: #FBF6ED; --g-shadow: rgba(102,68,47,.45); }
-/* sand: warm sand with a peach cloud and a cool sky corner */
-.insight[data-tone="sand"] { --g-base: var(--ef-sand-300); --g1: var(--ef-sand-100); --g2: var(--ef-sand-500); --g3: var(--ef-clay-100); --g4: var(--ef-sky-300); --g5: #FBF6ED; --g-shadow: rgba(90,78,58,.45); }
+.insight[data-tone="clay"] { --g-base: var(--ef-clay-300); --g1: var(--ef-clay-100); --g2: #C9997A; --g3: #E8D3B0; --g4: #DEB58F; --g5: #FBF6ED; --g-shadow: rgba(102,68,47,.45); }
+/* Fourth-tone candidates. Each: base 300, pale 100, mid 500, one light from its photo, one deeper blob. */
+/* sage: the green hills at dusk, lit by a pale gold sky */
+.insight[data-tone="sage"] { --g-base: var(--ef-sage-300); --g1: var(--ef-sage-100); --g2: var(--ef-sage-500); --g3: #F3EECC; --g4: #AAC099; --g5: #FBF6ED; --g-shadow: rgba(66,77,52,.45); }
+/* slate: the grey storm hills, with one break of pale light in the clouds */
+.insight[data-tone="slate"] { --g-base: var(--ef-slate-300); --g1: var(--ef-slate-100); --g2: var(--ef-slate-500); --g3: #EFEBE5; --g4: #A5B4C9; --g5: #F3F6FA; --g-shadow: rgba(60,75,92,.45); }
+/* rose: the mauve sunset clouds over the wheat, with a warm glow below */
+.insight[data-tone="rose"] { --g-base: var(--ef-rose-300); --g1: var(--ef-rose-100); --g2: var(--ef-rose-500); --g3: #F2D7B9; --g4: #D5B2A5; --g5: #FBF6ED; --g-shadow: rgba(96,66,61,.45); }
 /* A panel nested in the card is frosted. */
 .insight .insight-panel { background: rgba(255,255,255,.72); }
 /* In dark mode, neutral tokens inside a card keep their light values, so nested panels, buttons
    and text stay readable on the light gradient. */
-[data-theme="dark"] .insight[data-tone] { --ef-ink: #181D19; --ef-ink-2: #313732; --ef-text: #181D19; --ef-text-2: #4E544F; --ef-text-3: #646B65; --ef-focus: #1C5BB5; --ef-surface: #FCFBF8; --ef-surface-2: #F0EAE3; --ef-surface-3: #E5DFD6; --ef-surface-raised: #FFFFFF; --ef-line: rgba(24, 29, 25, .08); --ef-line-2: rgba(24, 29, 25, .14); --ef-on-ink: #FFFFFF; --ef-on-ink-soft: rgba(255,255,255,.12); --ef-hover: rgba(24, 29, 25, .05); --ef-card-edge: rgba(255,255,255,.85); --ef-switch-off: #D9D3CC; color-scheme: light; --g-shadow: rgba(0,0,0,.6); }
+[data-theme="dark"] .insight[data-tone] { --ef-ink: #181D19; --ef-ink-2: #343843; --ef-text: #181D19; --ef-text-2: #4D5361; --ef-text-3: #666C78; --ef-focus: #1C5BB5; --ef-surface: #FAFBFC; --ef-surface-2: #EDF0F4; --ef-surface-3: #E6E8EC; --ef-surface-raised: #FFFFFF; --ef-line: rgba(22, 30, 46, .075); --ef-line-2: rgba(22, 30, 46, .13); --ef-on-ink: #FFFFFF; --ef-on-ink-soft: rgba(255,255,255,.12); --ef-hover: rgba(22, 30, 46, .05); --ef-card-edge: rgba(255,255,255,.85); --ef-switch-off: #DCDFE4; color-scheme: light; --g-shadow: rgba(0,0,0,.6); }
 .insight-top { display: flex; align-items: center; justify-content: space-between; }
 .insight-pill {
   display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 14px;
@@ -1231,12 +1241,12 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .doc-stage { height: 150px; border-radius: var(--corner-card); background: var(--ef-surface-2); display: grid; place-items: center; overflow: hidden; position: relative; }
 .doc-thumb { width: 92px; aspect-ratio: 8.5 / 11; background: #fff; border-radius: var(--corner-card); padding: 9px 8px; box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 8px 18px -10px rgba(0,0,0,.35); display: flex; flex-direction: column; gap: 4px; transform: rotate(-2deg) translateY(10px); }
 .doc-thumb .dh { height: 5px; width: 60%; border-radius: var(--corner-card); background: var(--tone, #1C5BB5); }
-.doc-thumb .dl { height: 3px; border-radius: var(--corner-card); background: #E5DFD6; }
+.doc-thumb .dl { height: 3px; border-radius: var(--corner-card); background: #E3E6EB; }
 .doc-thumb .dl.s { width: 70%; }
-.doc-thumb .db { flex: 1; border-radius: var(--corner-card); background: repeating-linear-gradient(#F0EAE3 0 3px, transparent 3px 7px); }
+.doc-thumb .db { flex: 1; border-radius: var(--corner-card); background: repeating-linear-gradient(#EEF0F3 0 3px, transparent 3px 7px); }
 .doc-thumb.quarter { width: 104px; aspect-ratio: 5 / 3.2; transform: rotate(-3deg) translateY(4px); }
-.doc-thumb.sheet .db { background: linear-gradient(90deg, transparent 32%, #E5DFD6 32% 33%, transparent 33% 66%, #E5DFD6 66% 67%, transparent 67%), repeating-linear-gradient(#F0EAE3 0 1px, transparent 1px 8px); }
-.doc-thumb.grid-sheet .db { background: repeating-linear-gradient(90deg, #E5DFD6 0 1px, transparent 1px 14px), repeating-linear-gradient(#E5DFD6 0 1px, transparent 1px 8px); }
+.doc-thumb.sheet .db { background: linear-gradient(90deg, transparent 32%, #E3E6EB 32% 33%, transparent 33% 66%, #E3E6EB 66% 67%, transparent 67%), repeating-linear-gradient(#EEF0F3 0 1px, transparent 1px 8px); }
+.doc-thumb.grid-sheet .db { background: repeating-linear-gradient(90deg, #E3E6EB 0 1px, transparent 1px 14px), repeating-linear-gradient(#E3E6EB 0 1px, transparent 1px 8px); }
 .doc-thumb.back { position: absolute; transform: rotate(5deg) translate(24px, 18px); opacity: .9; }
 .list-row > .fmt { min-width: 48px; justify-content: center; }
 .fmt { display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border-radius: var(--corner-control); font-size: 11px; font-weight: 700; letter-spacing: .02em; }
@@ -1679,6 +1689,10 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 .ramp { display: grid; grid-template-columns: repeat(5, 1fr); border-radius: var(--corner-card); overflow: hidden; height: 54px; }
 .ramp div { display: flex; align-items: flex-end; padding: 6px 8px; font-size: 11px; font-family: ui-monospace, Menlo, monospace; }
 .ramp[data-size="lg"] { height: 84px; }
+/* Fourth-tone candidates (temporary, removed after the pick) */
+.tone-cand { margin: 0; display: grid; gap: 12px; }
+.tone-cand figcaption { font-size: var(--ef-text-sm); color: var(--ef-text-2); line-height: 1.45; }
+.tone-cand figcaption b { display: block; color: var(--ef-text); font-weight: 600; }
 .ramp[data-size="lg"] div { flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 2px; font-weight: 600; }
 .ramp[data-size="lg"] span { font-weight: 400; }
 .brand-tile { border-radius: var(--corner-media); height: 210px; display: grid; place-items: center; }
@@ -1818,15 +1832,13 @@ body[data-role="member"] [data-author-only] { display: none !important; }
   </div>
 
   <div class="doc-section">
-    <div class="doc-h"><h2>Muted palette</h2><code>--ef-{sky|clay|sand}-{100|300|500|700} · --ef-soil · --ef-cloud</code></div>
+    <div class="doc-h"><h2>Muted palette</h2><code>--ef-{sky|clay}-{100|300|500|700} · --ef-soil · --ef-cloud</code></div>
     <p class="doc-note">Colors taken from the two field photos and muted in OKLCH, so they sit next to new-growth without competing with it. They paint the gradient cards, the marketing phase cards and brand moments. They are not status colors. 100 is the pale tint, 300 the light step, 500 the photo color and 700 the deep step, which is safe for text on white, cream and the frame. On dark surfaces, use 300 for text.</p>
-    <div class="grid g-3">
+    <div class="grid g-2">
       <div class="specimen"><div class="specimen-label"><b style="color:var(--ef-text);font-weight:600">Sky</b>the open sky over the field</div>
         <div class="ramp" data-size="lg" style="grid-template-columns:repeat(4,1fr)"><div style="background:var(--ef-sky-700);color:#F6F0E9">700<span>#4C6F7C</span></div><div style="background:var(--ef-sky-500);color:#181D19">500<span>#83AAB8</span></div><div style="background:var(--ef-sky-300);color:#181D19">300<span>#B2D2DE</span></div><div style="background:var(--ef-sky-100);color:#181D19">100<span>#D6EAF2</span></div></div></div>
       <div class="specimen"><div class="specimen-label"><b style="color:var(--ef-text);font-weight:600">Clay</b>stubble and the low sun</div>
         <div class="ramp" data-size="lg" style="grid-template-columns:repeat(4,1fr)"><div style="background:var(--ef-clay-700);color:#F6F0E9">700<span>#83583D</span></div><div style="background:var(--ef-clay-500);color:#181D19">500<span>#AF7A5A</span></div><div style="background:var(--ef-clay-300);color:#181D19">300<span>#E4BAA2</span></div><div style="background:var(--ef-clay-100);color:#181D19">100<span>#F5DED0</span></div></div></div>
-      <div class="specimen"><div class="specimen-label"><b style="color:var(--ef-text);font-weight:600">Sand</b>dry wheat and the peach clouds</div>
-        <div class="ramp" data-size="lg" style="grid-template-columns:repeat(4,1fr)"><div style="background:var(--ef-sand-700);color:#F6F0E9">700<span>#7A694E</span></div><div style="background:var(--ef-sand-500);color:#181D19">500<span>#C7B18C</span></div><div style="background:var(--ef-sand-300);color:#181D19">300<span>#E8D3B0</span></div><div style="background:var(--ef-sand-100);color:#181D19">100<span>#F7EBD8</span></div></div></div>
     </div>
     <div class="grid g-3 mt-4">
       <div class="swatch"><div class="chipc" style="background:#1AF197"></div><div class="info"><b>New-growth</b><span>#1AF197 · the fixed brand color, the field card</span></div></div>
@@ -1837,12 +1849,33 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 
   <div class="doc-section">
     <div class="doc-h"><h2>Gradients</h2><code>&lt;InsightCard tone&gt;</code></div>
-    <p class="doc-note">The gradient card is the signature surface. Colors from the muted palette are mixed in OKLCH, blurred, lit by one small highlight and covered with film grain. Use at most two per page, and only for one finding the person should act on. <b>Field</b> is new-growth, for the default and for growth. <b>Sky</b> is the muted blue, for neutral findings. <b>Clay</b> is the muted orange, for attention and gaps. <b>Sand</b> is warm sand with a cool corner, for the most important summary on a page. All four carry ink text and look the same in both themes.</p>
-    <div class="grid g-4">
+    <p class="doc-note">The gradient card is the signature surface. Colors from the muted palette are mixed in OKLCH, blurred, lit by one small highlight and covered with film grain. Use at most two per page, and only for one finding the person should act on. <b>Field</b> is new-growth, for the default and for growth. <b>Sky</b> is the muted blue, for neutral findings. <b>Clay</b> is the muted orange, for attention and gaps. A fourth tone holds the most important summary on a page; its three candidates are below. All tones carry ink text and look the same in both themes.</p>
+    <div class="grid g-3">
       <div class="insight" data-tone="field" data-on="ink" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-plant-01"></i>field</div><div class="insight-title">Default and growth</div></div>
       <div class="insight" data-tone="sky" data-on="ink" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-sparkles"></i>sky</div><div class="insight-title">Neutral finding</div></div>
       <div class="insight" data-tone="clay" data-on="ink" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-alert-02"></i>clay</div><div class="insight-title">Risk or gap</div></div>
-      <div class="insight" data-tone="sand" data-on="ink" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-chart-line-data-01"></i>sand</div><div class="insight-title">Key summary</div></div>
+    </div>
+  </div>
+
+  <div class="doc-section" id="tone-candidates">
+    <div class="doc-h"><h2>Fourth tone: pick one</h2><code>--ef-{sage|slate|rose}-{100|300|500|700}</code></div>
+    <p class="doc-note">Sand is retired. These three candidates come from the new photos and use the same OKLCH steps as sky and clay. 700 is safe for text on white, cream and the frame. To see one on the real cards (Plant Intelligence, Network Intelligence), open Preview in the dock and choose the fourth tone. This section and the switch are temporary.</p>
+    <div class="grid g-3">
+      <figure class="tone-cand">
+        <div class="insight" data-tone="sage" data-on="ink" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-chart-line-data-01"></i>sage</div><div class="insight-title">Key summary</div></div>
+        <div class="ramp" data-size="lg" style="grid-template-columns:repeat(4,1fr)"><div style="background:var(--ef-sage-700);color:#F6F0E9">700<span>#5F6D4D</span></div><div style="background:var(--ef-sage-500);color:#181D19">500<span>#9BAE86</span></div><div style="background:var(--ef-sage-300);color:#181D19">300<span>#C6D6B4</span></div><div style="background:var(--ef-sage-100);color:#181D19">100<span>#E4EED9</span></div></div>
+        <figcaption><b>Sage</b>The green hills at dusk. Calm and close to new-growth, but greyer and warmer.</figcaption>
+      </figure>
+      <figure class="tone-cand">
+        <div class="insight" data-tone="slate" data-on="ink" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-chart-line-data-01"></i>slate</div><div class="insight-title">Key summary</div></div>
+        <div class="ramp" data-size="lg" style="grid-template-columns:repeat(4,1fr)"><div style="background:var(--ef-slate-700);color:#F6F0E9">700<span>#566A7E</span></div><div style="background:var(--ef-slate-500);color:#181D19">500<span>#96A8BC</span></div><div style="background:var(--ef-slate-300);color:#181D19">300<span>#C2D1E2</span></div><div style="background:var(--ef-slate-100);color:#181D19">100<span>#E2EBF4</span></div></div>
+        <figcaption><b>Storm slate</b>The grey hills under storm clouds. The quietest of the three, cooler than sky.</figcaption>
+      </figure>
+      <figure class="tone-cand">
+        <div class="insight" data-tone="rose" data-on="ink" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-chart-line-data-01"></i>rose</div><div class="insight-title">Key summary</div></div>
+        <div class="ramp" data-size="lg" style="grid-template-columns:repeat(4,1fr)"><div style="background:var(--ef-rose-700);color:#F6F0E9">700<span>#825D57</span></div><div style="background:var(--ef-rose-500);color:#181D19">500<span>#C79A93</span></div><div style="background:var(--ef-rose-300);color:#181D19">300<span>#EAC6C0</span></div><div style="background:var(--ef-rose-100);color:#181D19">100<span>#F9E4E1</span></div></div>
+        <figcaption><b>Dusk rose</b>The mauve clouds at sunset over the wheat. The warmest, set apart from clay.</figcaption>
+      </figure>
     </div>
   </div>
 
@@ -3202,7 +3235,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
         <div class="card-inset" style="padding:14px"><div class="row between"><span class="t-sm muted">Area</span><span class="badge" data-size="sm" data-status="positive">Yes</span></div><div class="faint t-xs mt-2">Hyde Park</div></div>
       </div>
     </div>
-    <div class="insight" data-tone="sand" data-on="ink">
+    <div class="insight" data-tone="sage" data-tone-pick data-on="ink">
       <div class="insight-top"><span class="insight-pill"><i class="hgi-stroke hgi-sparkles"></i>Top finding</span><span class="insight-count">1 of 4</span></div>
       <div class="insight-metric"><span class="num">21 d</span><span class="unit">since the core group last grew</span></div>
       <div class="insight-title">Momentum is slowing after a strong September</div>
@@ -3455,7 +3488,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
       <div class="card doc-card" data-size="sm"><div class="doc-stage"><div class="doc-thumb quarter back" style="--tone:#0B5C38"><div class="dh"></div><div class="dl"></div><div class="db"></div></div><div class="doc-thumb quarter" style="--tone:#0B5C38"><div class="dh"></div><div class="dl"></div><div class="dl s"></div><div class="db"></div></div></div><div><div class="row between gap-2"><span class="faint t-xs">Commitment · Phase 1</span><span class="row gap-1"><span class="fmt pdf">PDF</span></span></div><div style="font-weight:600;margin-top:6px">Core group commitment card</div><p class="muted t-sm mt-2" style="line-height:1.45">GROW, PRAY and GIVE commitment through Launch Sunday.</p></div></div>
       <div class="card doc-card" data-size="sm"><div class="doc-stage"><div class="doc-thumb" style="--tone:#0B5C38"><div class="dh"></div><div class="dl"></div><div class="dl s"></div><div class="db"></div></div></div><div><div class="row between gap-2"><span class="faint t-xs">Commitment · Phase 1</span><span class="row gap-1"><span class="fmt docx">Word</span></span></div><div style="font-weight:600;margin-top:6px">Expectations of a core group member</div><p class="muted t-sm mt-2" style="line-height:1.45">Presence, GROW, PRAY, GIVE and team participation.</p></div></div>
       <div class="card doc-card" data-size="sm"><div class="doc-stage"><div class="doc-thumb" style="--tone:#0B5C38"><div class="dh"></div><div class="dl"></div><div class="dl s"></div><div class="db"></div></div></div><div><div class="row between gap-2"><span class="faint t-xs">Commitment · Phase 2</span><span class="row gap-1"><span class="fmt docx">Word</span></span></div><div style="font-weight:600;margin-top:6px">Launch team commitment</div><p class="muted t-sm mt-2" style="line-height:1.45">Member commitment letter for the weeks before launch.</p></div></div>
-      <div class="card doc-card" data-size="sm"><div class="doc-stage"><div class="doc-thumb" style="--tone:#646B65"><div class="dh"></div><div class="dl"></div><div class="dl s"></div><div class="db"></div></div></div><div><div class="row between gap-2"><span class="faint t-xs">Administrative</span><span class="row gap-1"><span class="fmt docx">Word</span></span></div><div style="font-weight:600;margin-top:6px">Board or elder meeting agenda</div><p class="muted t-sm mt-2" style="line-height:1.45">Prayer, minutes, finances, ministry and action items.</p></div></div>
+      <div class="card doc-card" data-size="sm"><div class="doc-stage"><div class="doc-thumb" style="--tone:#636A78"><div class="dh"></div><div class="dl"></div><div class="dl s"></div><div class="db"></div></div></div><div><div class="row between gap-2"><span class="faint t-xs">Administrative</span><span class="row gap-1"><span class="fmt docx">Word</span></span></div><div style="font-weight:600;margin-top:6px">Board or elder meeting agenda</div><p class="muted t-sm mt-2" style="line-height:1.45">Prayer, minutes, finances, ministry and action items.</p></div></div>
       <div class="card doc-card" data-size="sm"><div class="doc-stage"><div class="doc-thumb grid-sheet" style="--tone:#9A4A0C"><div class="dh"></div><div class="dl"></div><div class="dl s"></div><div class="db"></div></div></div><div><div class="row between gap-2"><span class="faint t-xs">Administrative</span><span class="row gap-1"><span class="fmt xlsx">Excel</span></span></div><div style="font-weight:600;margin-top:6px">First-year budget</div><p class="muted t-sm mt-2" style="line-height:1.45">12-month income and expenses with live totals.</p></div></div>
       <div class="card doc-card" data-size="sm"><div class="doc-stage"><div class="doc-thumb grid-sheet" style="--tone:#9A4A0C"><div class="dh"></div><div class="dl"></div><div class="dl s"></div><div class="db"></div></div></div><div><div class="row between gap-2"><span class="faint t-xs">Administrative</span><span class="row gap-1"><span class="fmt xlsx">Excel</span></span></div><div style="font-weight:600;margin-top:6px">Budget worksheet</div><p class="muted t-sm mt-2" style="line-height:1.45">Monthly versus annual planner with live totals.</p></div></div>
       <div class="card doc-card" data-size="sm"><div class="doc-stage"><div class="doc-thumb" style="--tone:#6244CC"><div class="dh"></div><div class="dl"></div><div class="dl s"></div><div class="db"></div></div></div><div><div class="row between gap-2"><span class="faint t-xs">Launch · Phase 4</span><span class="row gap-1"><span class="fmt pdf">PDF</span></span></div><div style="font-weight:600;margin-top:6px">Launch Sunday checklists</div><p class="muted t-sm mt-2" style="line-height:1.45">Six team checklists: setup, hospitality, worship, kids, connections, prayer.</p></div></div>
@@ -3912,7 +3945,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 <tr><td class="faint t-sm">Layout</td><td class="cell-title">Page header</td><td><code class="k">&lt;PageHeader&gt;</code></td><td class="muted t-sm">Breadcrumb, Title, Subtitle, Actions</td><td class="muted t-sm">size xl</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
 <tr><td class="faint t-sm">Layout</td><td class="cell-title">Breadcrumb</td><td><code class="k">&lt;Breadcrumb&gt;</code></td><td class="muted t-sm">Item, Separator</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
 <tr><td class="faint t-sm">Surfaces</td><td class="cell-title">Card</td><td><code class="k">&lt;Card&gt;</code></td><td class="muted t-sm">Header, Title, Description, Actions, Close, Body, ScrollArea, Footer, Inset</td><td class="muted t-sm">variant default/raised/flat/callout · size md/sm · tone</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">ScrollArea</span></td></tr>
-<tr><td class="faint t-sm">Surfaces</td><td class="cell-title">Insight card</td><td><code class="k">&lt;InsightCard&gt;</code></td><td class="muted t-sm">Pill, Count, Metric, Title, Text, Spark, Footer</td><td class="muted t-sm">tone field/sky/clay/sand · size</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
+<tr><td class="faint t-sm">Surfaces</td><td class="cell-title">Insight card</td><td><code class="k">&lt;InsightCard&gt;</code></td><td class="muted t-sm">Pill, Count, Metric, Title, Text, Spark, Footer</td><td class="muted t-sm">tone field/sky/clay/sage/slate/rose · size</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
 <tr><td class="faint t-sm">Actions</td><td class="cell-title">Button</td><td><code class="k">&lt;Button&gt;</code></td><td class="muted t-sm">Icon, Label</td><td class="muted t-sm">variant primary/brand/secondary/outline/ghost/light/glass/danger · size sm/md</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Button</span></td></tr>
 <tr><td class="faint t-sm">Actions</td><td class="cell-title">Icon button</td><td><code class="k">&lt;IconButton&gt;</code></td><td class="muted t-sm">Icon</td><td class="muted t-sm">variant default/soft/square · size</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Button</span></td></tr>
 <tr><td class="faint t-sm">Inputs</td><td class="cell-title">Field</td><td><code class="k">&lt;Field&gt;</code></td><td class="muted t-sm">Label, Control, Hint, Error</td><td class="muted t-sm">invalid</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Field</span></td></tr>
@@ -4439,7 +4472,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 
   <div id="ni-enough">
   <div class="grid" style="grid-template-columns: minmax(0,1.5fr) minmax(0,1fr); align-items:stretch; margin-bottom:20px">
-    <div class="insight" data-tone="sand" data-on="ink" style="min-height:0">
+    <div class="insight" data-tone="sage" data-tone-pick data-on="ink" style="min-height:0">
       <div class="insight-top"><span class="insight-pill"><i class="hgi-stroke hgi-sparkles"></i>Top network finding</span><span class="insight-count" id="ni-count">From 11 of 14 plants</span></div>
       <div class="insight-metric"><span class="num" id="ni-num">4 of 6</span><span class="unit" id="ni-unit">plants within a year of launch have a Concern on Emerging leadership</span></div>
       <div class="insight-title" id="ni-title">Emerging leadership is the most common gap before launch</div>
@@ -4566,6 +4599,8 @@ body[data-role="member"] [data-author-only] { display: none !important; }
   <div class="pp-opts" data-pp="role"><button data-v="owner" aria-pressed="true">Owner</button><button data-v="member" aria-pressed="false">Member · own tasks</button></div>
   <h4>Data</h4>
   <div class="pp-opts" data-pp="data"><button data-v="live" aria-pressed="true">Live</button><button data-v="firstweek" aria-pressed="false">First week</button><button data-v="loading" aria-pressed="false">Loading</button><button data-v="error" aria-pressed="false">Error</button><button data-v="noaccess" aria-pressed="false">No access</button><button data-v="empty" aria-pressed="false">Empty</button></div>
+  <h4>Fourth tone (temporary)</h4>
+  <div class="pp-opts" data-pp="tone4"><button data-v="sage" aria-pressed="true">Sage</button><button data-v="slate" aria-pressed="false">Storm slate</button><button data-v="rose" aria-pressed="false">Dusk rose</button></div>
   <p class="pp-note">Data states are drawn for Overview and People. Member view hides administration across the app. Tasks shows what a Member does on their own tasks.</p>
 </div>
 <!-- ================= BELL DROP-DOWN  <NotificationPopover> ================= -->
@@ -5284,10 +5319,18 @@ document.getElementById('preview-pop').addEventListener('click', e => {
   const b = e.target.closest('.pp-opts button'); if (!b) return;
   const key = b.parentElement.dataset.pp;
   b.parentElement.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  if (key === 'tone4') { setTone4(b.dataset.v); return; }
   document.body.dataset[key] = b.dataset.v;
   document.getElementById('preview-val').textContent = PREVIEW_LABEL[document.body.dataset.role] + ' · ' + PREVIEW_LABEL[document.body.dataset.data];
   const el = document.querySelector('.page[data-active="true"]'); if (el) staggerReveal(el);
 });
+/* Fourth-tone candidates (temporary): the cards that used sand show the chosen candidate. */
+function setTone4(t) {
+  document.querySelectorAll('.insight[data-tone-pick]').forEach(c => c.dataset.tone = t);
+  document.querySelectorAll('[data-pp="tone4"] button').forEach(x => x.setAttribute('aria-pressed', x.dataset.v === t));
+  try { localStorage.setItem('ef-tone4', t); } catch (e) {}
+}
+setTone4((() => { try { const t = localStorage.getItem('ef-tone4'); if (['sage', 'slate', 'rose'].includes(t)) return t; } catch (e) {} })() || 'sage');
 document.addEventListener('click', e => { if (!e.target.closest('#preview-pop, #preview-btn')) { document.getElementById('preview-pop').dataset.open = 'false'; document.getElementById('preview-btn').setAttribute('aria-expanded', 'false'); } });
 
 
