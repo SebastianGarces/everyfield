@@ -2,7 +2,7 @@ import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { fixture } from "./invitations-support.mts";
 import { sql } from "../../../packages/db/src/query.ts";
-import { currentActor, readViewer } from "../../../packages/domain/src/access/index.ts";
+import { currentActor, readOwnResidency, readViewer } from "../../../packages/domain/src/access/index.ts";
 import {
 	readHistory,
 	readPlantSharing,
@@ -119,5 +119,34 @@ test("INV-reads: viewer, roster, invitation list, sharing history, sharing choic
 		all.some((q) => /for\s+(update|share)/i.test(q)),
 		false,
 		"page reads must not lock rows",
+	);
+});
+
+test("INV-reads: a resident's own residency read reuses the observed actor and takes no lock", async (t) => {
+	const s = await f.setup("sending_network"),
+		person = await f.resident(s.w),
+		i = await f.invitation(s, person);
+	const accepted = await f.invitations.respondResident(s.recipient.session, {
+		...i.claim,
+		input: { ...i.claim.input, decision: "accept", choices: { shareFoundations: false, shareMilestones: false } },
+	});
+	assert.equal(accepted.status, "accepted");
+	const viewer = await readViewer(f.db, sessionId.parse(s.recipient.session));
+	assert.equal(viewer.authority.actor.context.kind, "account");
+	const authority = viewer.authority;
+	const residency = await count(() =>
+		f.db.transaction((tx) => {
+			authority.observe(tx);
+			return readOwnResidency(tx, authority.session, s.w, { personId: person });
+		}),
+	);
+	assert.equal(residency.value?.personId, person);
+	assert.equal(residency.value?.organization.id, s.w.id);
+	t.diagnostic(JSON.stringify({ residency: residency.statements.length }));
+	assert.ok(residency.statements.length <= 4, `residency read: ${residency.statements.length} statements`);
+	assert.equal(
+		residency.statements.some((q) => /for\s+(update|share)|access_session|invitation_identity/i.test(q)),
+		false,
+		"the residency read must not lock or resolve the actor again",
 	);
 });

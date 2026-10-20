@@ -201,6 +201,11 @@ export async function currentActor(tx: Transaction, session: z.infer<typeof sess
 	return resolveActor(tx, session, parsed.data);
 }
 const requestReads = new WeakMap<Transaction, RequestActor>();
+/** The actor a read transaction observed for this session, or null. */
+export function observedActor(tx: Transaction, session: z.infer<typeof sessionId>) {
+	const observed = requestReads.get(tx);
+	return observed && observed.session === session ? observed.actor : null;
+}
 
 type ActiveActor = Extract<z.infer<typeof currentActorResult>, { status: "active" }>;
 const principalRow = z.object({
