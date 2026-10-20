@@ -7869,7 +7869,6 @@
         "B03-007",
         "B03-008",
         "B03-009",
-        "EVRY-REAL-CHILD-TASK-PARITY",
         "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE",
         "TARGET-TSK-001",
         "TARGET-TSK-002",
@@ -7881,13 +7880,10 @@
       ],
       "own_operation_ids": [
         "tasks.applyManagedStatus",
-        "tasks.bulkComplete",
-        "tasks.bulkReschedule",
         "tasks.changeStatus",
         "tasks.complete",
         "tasks.count",
         "tasks.create",
-        "tasks.createSubtask",
         "tasks.delete",
         "tasks.edit",
         "tasks.eligibleAssignees",
@@ -7897,14 +7893,11 @@
         "tasks.get",
         "tasks.importReceipt",
         "tasks.list",
-        "tasks.listSubtasks",
         "tasks.normalizeDescription",
         "tasks.previewDescription",
         "tasks.relationOptions",
-        "tasks.removeSubtask",
         "tasks.reopen",
         "tasks.reopenObligation",
-        "tasks.setSubtaskCompletion",
         "tasks.settleManagedEvaluation",
         "tasks.statusHistory",
         "tasks.waive"
@@ -7978,7 +7971,6 @@
         "CASE-LCH-005",
         "EVRY-FAMILY-IDENTITY-PLATFORM",
         "EVRY-FAMILY-TASKS",
-        "EVRY-REAL-CHILD-TASK-PARITY",
         "GAP-EVR-405",
         "GAP-EVR-407",
         "INH-CROSS-05",
@@ -8003,9 +7995,7 @@
         "TARGET-TSK-002",
         "TARGET-TSK-003",
         "TARGET-TSK-004",
-        "TARGET-TSK-005",
         "TARGET-TSK-007",
-        "TARGET-TSK-008",
         "TARGET-TSK-010",
         "TARGET-TSK-011",
         "TARGET-TSK-014",
@@ -8034,13 +8024,10 @@
         "notifications.cancelTaskReminders",
         "notifications.syncTaskReminders",
         "tasks.applyManagedStatus",
-        "tasks.bulkComplete",
-        "tasks.bulkReschedule",
         "tasks.changeStatus",
         "tasks.complete",
         "tasks.count",
         "tasks.create",
-        "tasks.createSubtask",
         "tasks.delete",
         "tasks.edit",
         "tasks.eligibleAssignees",
@@ -8051,14 +8038,11 @@
         "tasks.get",
         "tasks.importReceipt",
         "tasks.list",
-        "tasks.listSubtasks",
         "tasks.normalizeDescription",
         "tasks.previewDescription",
         "tasks.relationOptions",
-        "tasks.removeSubtask",
         "tasks.reopen",
         "tasks.reopenObligation",
-        "tasks.setSubtaskCompletion",
         "tasks.settleManagedEvaluation",
         "tasks.statusHistory",
         "tasks.waive"
@@ -8129,12 +8113,18 @@
         "TARGET-TSK-018"
       ],
       "own_operation_ids": [
+        "tasks.bulkComplete",
+        "tasks.bulkReschedule",
         "tasks.completeOccurrence",
         "tasks.configureRecurrence",
+        "tasks.createSubtask",
         "tasks.findOpenOccurrence",
         "tasks.listPrerequisites",
+        "tasks.listSubtasks",
         "tasks.prerequisiteCandidates",
-        "tasks.replacePrerequisites"
+        "tasks.removeSubtask",
+        "tasks.replacePrerequisites",
+        "tasks.setSubtaskCompletion"
       ],
       "case_requirements_at_start": [
         "REQ-KNOW-115"
@@ -8153,13 +8143,7 @@
       ],
       "consumed_acceptance_requirement_ids": [],
       "consumed_acceptance_operation_ids": [
-        "tasks.bulkComplete",
-        "tasks.bulkReschedule",
-        "tasks.createSubtask",
-        "tasks.get",
-        "tasks.listSubtasks",
-        "tasks.removeSubtask",
-        "tasks.setSubtaskCompletion"
+        "tasks.get"
       ],
       "acceptance_ids": [
         "AC-TSK-005--TSK-005",
@@ -8221,13 +8205,7 @@
         "tasks.setSubtaskCompletion"
       ],
       "shared_operation_ids": [
-        "tasks.bulkComplete",
-        "tasks.bulkReschedule",
-        "tasks.createSubtask",
-        "tasks.get",
-        "tasks.listSubtasks",
-        "tasks.removeSubtask",
-        "tasks.setSubtaskCompletion"
+        "tasks.get"
       ],
       "shared_contract_ids": [],
       "unresolved_current_operation_references": [],
