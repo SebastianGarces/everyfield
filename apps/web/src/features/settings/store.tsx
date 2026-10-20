@@ -2,7 +2,7 @@
 
 import type { Loadable } from "@everyfield/ui/display";
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { begin, discard, edit, emptyBook, finish, isDirty, isSaving, same, visible, type Book } from "./drafts";
+import { begin, discard, edit, emptyBook, finish, isDirty, isSaving, rebase, same, visible, type Book } from "./drafts";
 import { errorReference, errorText } from "./model";
 import type { Refusal } from "./save";
 import type { GetSectionRequest, SectionKey, SectionResult, SettingsPort, SettingsViewer } from "./port";
@@ -61,11 +61,15 @@ export function SettingsProvider({
 	}, []);
 	const [servers, setServers] = useState<Partial<Record<SectionKey, unknown>>>({});
 	const serversRef = useRef(servers);
-	const observe = useCallback((key: SectionKey, server: unknown) => {
-		if (key in serversRef.current && same(serversRef.current[key], server)) return;
-		serversRef.current = { ...serversRef.current, [key]: server };
-		setServers(serversRef.current);
-	}, []);
+	const observe = useCallback(
+		(key: SectionKey, server: unknown) => {
+			if (key in serversRef.current && same(serversRef.current[key], server)) return;
+			if (key in serversRef.current) commit(rebase(bookRef.current, key, serversRef.current[key], server));
+			serversRef.current = { ...serversRef.current, [key]: server };
+			setServers(serversRef.current);
+		},
+		[commit],
+	);
 	const [sections, setSections] = useState(() => new Map<string, SectionResult>());
 	const editDraft = useCallback(
 		(key: SectionKey, value: unknown, server: unknown) => commit(edit(bookRef.current, key, value, server)),
