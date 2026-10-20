@@ -24,6 +24,7 @@ import "server-only";
 import { z } from "zod";
 import {
 	appendEvent,
+	auditChange,
 	begin,
 	calendarEligible,
 	deny,
@@ -218,9 +219,17 @@ export function timezoneOperations(
 						kind: "plant_timezone",
 					});
 					await effects.invalidate(s, { owner: v.input.plant, revision: next, operationId: c.id });
-					events.push(
-						await appendEvent(s, c, a.plant.id, "preference", "plant.profile_changed", a.plant.revision, next),
+					const event = await appendEvent(
+						s,
+						c,
+						a.plant.id,
+						"preference",
+						"plant.profile_changed",
+						a.plant.revision,
+						next,
 					);
+					auditChange(c, event, "plant", { timeZone: a.plant.timezone }, { timeZone: zone });
+					events.push(event);
 				}
 				return finish(s, c, q.plantTimezoneResult, () =>
 					changed

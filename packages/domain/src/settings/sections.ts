@@ -11,6 +11,7 @@ import { applySharingMutation } from "../organizations/sharing.ts";
 import {
 	actor,
 	appendEvent,
+	auditChange,
 	begin,
 	canonical,
 	deny,
@@ -213,6 +214,8 @@ export function sectionOperations(
 		let changed = false;
 		let current: q.SectionResult;
 		const events: string[] = [];
+		// The section's fields before and after, so the audit row can name what changed.
+		let diff: { before: Record<string, unknown>; after: Record<string, unknown> } | null = null;
 		switch (i.section) {
 			case "account": {
 				revision(v.expectedRevision, a.account.revision);
@@ -222,6 +225,7 @@ export function sectionOperations(
 						sql`WITH changed_name AS MATERIALIZED (SELECT settings_update_name(${ctx.session}::uuid,${i.name})) UPDATE account SET revision=revision+1 FROM changed_name WHERE id=${a.account.id}::uuid`,
 					);
 				}
+				diff = { before: { name: a.principal.display_name }, after: { name: i.name } };
 				current = accountValue({
 					...a,
 					account: { ...a.account, revision: changed ? String(BigInt(a.account.revision) + 1n) : a.account.revision },
@@ -304,6 +308,8 @@ export function sectionOperations(
 							.set({ revision: sql`${t.account.revision}+1` })
 							.where(eq(t.account.id, a.account.id)),
 					);
+				const field = patch.kind === "channel" ? `${category}.${patch.choice.channel}` : `${category}.cadence`;
+				diff = { before: { [field]: false }, after: { [field]: changed } };
 				current = q.sectionResult.parse({
 					...current,
 					revision: changed ? String(BigInt(a.account.revision) + 1n) : a.account.revision,
@@ -380,6 +386,8 @@ export function sectionOperations(
 						},
 						i.plant,
 					);
+					if (current.section === "plant" && old.section === "plant")
+						diff = { before: plantFields(old), after: plantFields(current) };
 					const next = String(BigInt(p.plant.revision) + 1n);
 					await deps.effects.invalidate(tx, { owner: i.plant, revision: next, operationId: c.id });
 					if (i.change.kind === "digest")
@@ -397,6 +405,7 @@ export function sectionOperations(
 				if (!team) deny();
 				revision(v.expectedRevision, team.revision);
 				changed = team.name !== i.name;
+				diff = { before: { name: team.name }, after: { name: i.name } };
 				if (changed)
 					c.writes.push(
 						tx
@@ -467,18 +476,19 @@ export function sectionOperations(
 				break;
 			}
 		}
-		if (changed && i.section !== "affiliations" && i.section !== "organization")
-			events.push(
-				await appendEvent(
-					tx,
-					c,
-					i.section === "teams" ? i.teamId : ctx.selected.id,
-					"preference",
-					"settings.changed",
-					v.expectedRevision,
-					String(BigInt(v.expectedRevision) + 1n),
-				),
+		if (changed && diff) {
+			const id = await appendEvent(
+				tx,
+				c,
+				i.section === "teams" ? i.teamId : ctx.selected.id,
+				"preference",
+				i.section === "plant" ? "plant.profile_changed" : "settings.changed",
+				v.expectedRevision,
+				String(BigInt(v.expectedRevision) + 1n),
 			);
+			auditChange(c, id, i.section, diff.before, diff.after);
+			events.push(id);
+		}
 		return finish(tx, c, q.savedSectionResult, () => ({ current }));
 	}
 	const operations: Pick<
@@ -515,6 +525,11 @@ export function sectionOperations(
 			}),
 	};
 	return operations;
+}
+/** A church section as flat audit fields: the profile fields, the inactivity days and the digest schedule. */
+function plantFields(section: Extract<q.SectionResult, { section: "plant" }>): Record<string, unknown> {
+	const v = section.values;
+	return { ...v.profile, warningDays: v.inactivity.warningDays, alertDays: v.inactivity.alertDays, digest: v.digest };
 }
 function requestFor(i: q.SaveSectionRequest["input"]): q.GetSectionRequest {
 	switch (i.section) {
