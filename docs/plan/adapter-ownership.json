@@ -5,7 +5,6 @@
     "owner": "evry-kernel-integrator",
     "packages": [
       "WP-051",
-      "WP-052",
       "WP-053",
       "WP-054",
       "WP-055"
@@ -18,9 +17,7 @@
         "packages/evry/src/conversations/",
         "packages/evry/src/context/",
         "apps/web/src/features/evry/conversation/",
-        "tests/evry/runtime/"
-      ],
-      "WP-052": [
+        "tests/evry/runtime/",
         "packages/evry/src/catalog/",
         "tests/evry/catalog/"
       ],
@@ -46,7 +43,7 @@
     {
       "work_package": "WP-059",
       "domain": "people",
-      "kind": "authorized_reads",
+      "kind": "authorized_reads_and_candidate_preparation",
       "consumes": [],
       "may_modify_shared_root": false,
       "composition_owner": "evry-kernel-integrator",
@@ -54,36 +51,12 @@
       "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-011",
-        "WP-012",
-        "WP-013",
-        "WP-014",
-        "WP-015",
-        "WP-023"
+        "WP-012"
       ],
-      "operation_kind": "query",
+      "operation_kind": "query_and_command",
       "owning_paths": [
         "packages/evry/src/adapters/people/reads/",
-        "tests/evry/adapters/people/reads/"
-      ]
-    },
-    {
-      "work_package": "WP-060",
-      "domain": "people",
-      "kind": "candidate_preparation",
-      "consumes": [],
-      "may_modify_shared_root": false,
-      "composition_owner": "evry-kernel-integrator",
-      "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
-      "domain_producer_description": "Packages that own the selected domain features.",
-      "domain_producers": [
-        "WP-011",
-        "WP-012",
-        "WP-013",
-        "WP-014",
-        "WP-015"
-      ],
-      "operation_kind": "command",
-      "owning_paths": [
+        "tests/evry/adapters/people/reads/",
         "packages/evry/src/adapters/people/commands/",
         "tests/evry/adapters/people/commands/"
       ]
@@ -181,9 +154,9 @@
       "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-020",
-        "WP-021",
         "WP-022",
-        "WP-023"
+        "WP-023",
+        "WP-017"
       ],
       "operation_kind": "query",
       "owning_paths": [
@@ -202,9 +175,9 @@
       "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
         "WP-020",
-        "WP-021",
         "WP-022",
-        "WP-023"
+        "WP-023",
+        "WP-017"
       ],
       "operation_kind": "command",
       "owning_paths": [
@@ -264,7 +237,6 @@
       "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
       "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
-        "WP-016",
         "WP-017",
         "WP-018",
         "WP-019"
@@ -285,7 +257,6 @@
       "closure_gate": "Acceptance case IDs are listed in the package context manifest.",
       "domain_producer_description": "Packages that own the selected domain features.",
       "domain_producers": [
-        "WP-016",
         "WP-017",
         "WP-018",
         "WP-019"

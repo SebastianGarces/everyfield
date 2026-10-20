@@ -34,11 +34,7 @@
         "AC-EVR-001--EVR-001"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055"
+        "WP-051"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
@@ -83,8 +79,7 @@
         "AC-EVR-002--EVR-002"
       ],
       "work_packages": [
-        "WP-083",
-        "WP-084"
+        "WP-051"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
@@ -111,7 +106,7 @@
       "feature_ids": [
         "EVR-003"
       ],
-      "text": "Register only operations flagged as model tools, under their native authority and purpose projections. Authorized reads and nonpersistent drafts need no write approval; return bounded results with source references, completeness, exclusions and cursors. Native-only and internal operations are not model tools.",
+      "text": "Register only operations flagged as model tools, under their native authority and purpose projections. Authorized reads and nonpersistent drafts need no write approval; return bounded results with source references, completeness, exclusions and whether more results exist, letting the user get the next page. Native-only and internal operations are not model tools.",
       "operations": [
         "evry.invokeRead",
         "evry.readCatalog"
@@ -124,11 +119,7 @@
         "AC-EVR-003--EVR-003"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055"
+        "WP-051"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
@@ -167,11 +158,7 @@
         "AC-EVR-004--EVR-004"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055"
+        "WP-051"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
@@ -219,11 +206,7 @@
         "AC-EVR-005--EVR-005"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055"
+        "WP-051"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
@@ -257,11 +240,7 @@
         "AC-EVR-006--EVR-006"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055"
+        "WP-051"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
@@ -290,11 +269,7 @@
         "AC-EVR-007--EVR-007"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055"
+        "WP-054"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
@@ -337,11 +312,7 @@
         "AC-EVR-008--EVR-008"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055"
+        "WP-051"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
@@ -380,7 +351,7 @@
       "feature_ids": [
         "EVR-009"
       ],
-      "text": "Compile bounded context from at most 24 recent messages, 32,000 context tokens, 64 verified references and 16,000 characters per retrieved section. Remove forbidden references before each model call. Compaction failure preserves exact drafts and receipts and asks a narrow clarification; summaries cannot authorize execution.",
+      "text": "Compile bounded context from at most 24 recent messages, 32,000 context tokens, 64 verified references and 16,000 characters per retrieved section. Remove forbidden references before each model call. If Evry cannot shorten the context, it keeps drafts and saved outcomes and asks one narrow question; summaries cannot authorize execution.",
       "operations": [
         "evry.compileContext"
       ],
@@ -394,11 +365,7 @@
         "AC-EVR-009--EVR-009"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055"
+        "WP-054"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
@@ -430,11 +397,7 @@
         "AC-EVR-010--EVR-010"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055"
+        "WP-053"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
@@ -451,7 +414,7 @@
       "feature_ids": [
         "EVR-011"
       ],
-      "text": "Prepare immutable proposal revisions with exact targets, arguments, exclusions, dates, audience, bytes and induced consequences. Bind the canonical digest and current grant/resource versions. Editing any review-sensitive fact supersedes the old revision and its approval.",
+      "text": "Approval applies only to the exact content the user reviewed: targets, arguments, exclusions, dates, audience, files and consequences. Any change to a reviewed fact needs a new approval.",
       "operations": [
         "evry.prepareProposal",
         "evry.reviseProposal"
@@ -464,11 +427,7 @@
         "AC-EVR-011--EVR-011"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055"
+        "WP-053"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
@@ -489,7 +448,7 @@
       "feature_ids": [
         "EVR-012"
       ],
-      "text": "Every durable domain, file or outbound effect requires a visible trusted exact review and human approval. Bind approval to account, exact context, proposal revision, canonical digest, current versions and a 15-minute expiry; conversational yes alone is insufficient. Cancelled, superseded or expired approval cannot start an unresolved effect.",
+      "text": "Every durable domain, file or outbound effect requires a visible trusted exact review and human approval. Approval belongs to the approving account and context, covers only the reviewed content, and lapses after 15 minutes; conversational yes alone is insufficient. Cancelled, superseded or expired approval cannot start an unresolved effect.",
       "operations": [
         "evry.approveProposal",
         "evry.cancelProposal",
@@ -531,11 +490,7 @@
         "AC-EVR-012--EVR-012"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055"
+        "WP-053"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
@@ -590,11 +545,7 @@
         "AC-EVR-013--EVR-013"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055"
+        "WP-053"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
@@ -615,11 +566,8 @@
       "feature_ids": [
         "EVR-014"
       ],
-      "text": "Only work covered by the initiating account, acting context and exact current human approval may execute. Each committed mutation, its required audit/history and known outcome agree. Repeating or reconnecting to a completed action returns its recorded outcome without repeating effects. Expired, cancelled or replaced execution cannot publish. The representation of execution ownership and saved outcomes follows EveryField patterns. Recording an outcome creates no new domain permission.",
-      "operations": [
-        "evry.claimEffect",
-        "evry.recordEffectResult"
-      ],
+      "text": "Only work covered by the initiating account, acting context and exact current human approval may execute. Each executed effect writes its audit record together with the change, and its history and known outcome agree. Supported closed outcome values: completed, partial, failed, refused, unknown. Repeating or reconnecting to a completed action returns its recorded outcome without repeating effects. Expired, cancelled or replaced execution cannot publish. The representation of execution ownership and saved outcomes follows EveryField patterns. Recording an outcome creates no new domain permission.",
+      "operations": [],
       "case_ids": [
         "EVRY-FAMILY-RUNTIME-REVIEW-EXECUTION",
         "EVRY-LEASE-FENCE"
@@ -628,31 +576,13 @@
         "AC-EVR-014--EVR-014"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055"
+        "WP-053"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
-      "behavior_rules": [
-        {
-          "operation": "evry.recordEffectResult",
-          "rule": "Supported closed outcome values: completed, partial, failed, refused, unknown."
-        }
-      ],
-      "operation_refs": [
-        {
-          "operation_id": "evry.claimEffect",
-          "catalog": "docs/catalog/operations.json"
-        },
-        {
-          "operation_id": "evry.recordEffectResult",
-          "catalog": "docs/catalog/operations.json"
-        }
-      ],
-      "title": "Durable effect claims and exact relational audit identity"
+      "behavior_rules": [],
+      "operation_refs": [],
+      "title": "Approved actions run once with a matching audit record"
     },
     {
       "id": "REQ-EVR-015",
@@ -673,10 +603,6 @@
         "AC-EVR-015-MEETING-INVITE--EVR-015"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
         "WP-055"
       ],
       "spec": "docs/product/evry.md",
@@ -721,11 +647,7 @@
         "AC-EVR-016--EVR-016"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055"
+        "WP-051"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
@@ -739,7 +661,7 @@
           "catalog": "docs/catalog/operations.json"
         }
       ],
-      "title": "Active run claim, streaming, reconnect and restart recovery"
+      "title": "One active run per conversation, with streaming and recovery"
     },
     {
       "id": "REQ-EVR-017",
@@ -788,9 +710,8 @@
       "feature_ids": [
         "EVR-018"
       ],
-      "text": "Retain append-only product audit and exact proposal/effect identity with current review inspection and factual receipts. Reads remain scoped and omit private care and forbidden body data. Audit history records actual outcomes and does not imply approval, permission or implementation.",
+      "text": "Retain append-only product audit and exact proposal/effect identity with current review inspection and recorded outcomes. Reads remain scoped and omit private care and forbidden body data. Audit history records actual outcomes and does not imply approval, permission or implementation.",
       "operations": [
-        "evry.appendAudit",
         "evry.readReview"
       ],
       "case_ids": [
@@ -801,25 +722,12 @@
         "AC-EVR-018--EVR-018"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055"
+        "WP-053"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
-      "behavior_rules": [
-        {
-          "operation": "evry.appendAudit",
-          "rule": "required owning domain consequence or bounded operator protocol"
-        }
-      ],
+      "behavior_rules": [],
       "operation_refs": [
-        {
-          "operation_id": "evry.appendAudit",
-          "catalog": "docs/catalog/operations.json"
-        },
         {
           "operation_id": "evry.readReview",
           "catalog": "docs/catalog/operations.json"
@@ -846,10 +754,6 @@
         "AC-EVR-019--EVR-019"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
         "WP-055"
       ],
       "spec": "docs/product/evry.md",
@@ -883,11 +787,7 @@
         "AC-EVR-020--EVR-020"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055"
+        "WP-051"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
@@ -943,11 +843,7 @@
         "AC-EVR-021--EVR-021"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055"
+        "WP-051"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
@@ -988,10 +884,6 @@
         "AC-EVR-022--EVR-022"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
         "WP-055"
       ],
       "spec": "docs/product/evry.md",
@@ -1009,7 +901,7 @@
       "feature_ids": [
         "EVR-023"
       ],
-      "text": "Keep revisioned planning notes, clarifications and todo state as bounded candidate conversation context. Saving assistant protocol state does not authorize domain effects. Submitted user messages, review revisions and actual outcomes remain distinguishable.",
+      "text": "Keep editable planning notes (a stale edit is refused), clarifications and todo state as bounded candidate conversation context. Saving assistant protocol state does not authorize domain effects. Submitted user messages, review revisions and actual outcomes remain distinguishable.",
       "operations": [
         "evry.askClarification",
         "evry.readDraft",
@@ -1024,11 +916,7 @@
         "AC-EVR-023--EVR-023"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055"
+        "WP-054"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
@@ -1053,7 +941,7 @@
       "feature_ids": [
         "EVR-024"
       ],
-      "text": "Return source-bound result cards and allow compatible selection only from returned authorized rows. Selection cannot expand a result set or invent IDs, and current access is checked before reuse. Keep cursor, exclusions and completeness visible.",
+      "text": "Return source-bound result cards and allow compatible selection only from returned authorized rows. Selection cannot expand a result set or invent IDs, and current access is checked before reuse. Say when more results exist, and keep exclusions and completeness visible.",
       "operations": [
         "evry.projectArtifact",
         "evry.selectReturnedRows"
@@ -1066,11 +954,7 @@
         "AC-EVR-024--EVR-024"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055"
+        "WP-051"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
@@ -1091,7 +975,7 @@
       "feature_ids": [
         "EVR-025"
       ],
-      "text": "Stage attachments privately under authorized account/context/session manifests with frozen type, size, hash and object identity. Bind only eligible files, validate import through native rules and clean only unreferenced staged objects under current fences. A staged file is not a domain import or publication approval.",
+      "text": "Attachments stay private to the account, context and session. An attached file the user reviewed cannot change before import. Only eligible files attach, imports follow native rules, and unused attachments are removed. A staged file is not a domain import or publication approval.",
       "operations": [
         "evry.bindAttachment",
         "evry.cleanupAttachments",
@@ -1110,13 +994,7 @@
         "AC-EVR-025--EVR-025"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055",
-        "WP-059",
-        "WP-060"
+        "WP-054"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
@@ -1163,11 +1041,7 @@
         "AC-EVR-026--EVR-026"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055"
+        "WP-054"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
@@ -1204,10 +1078,6 @@
         "AC-EVR-027--EVR-027"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
         "WP-055"
       ],
       "spec": "docs/product/evry.md",
@@ -1241,10 +1111,6 @@
         "AC-EVR-028--EVR-028"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
         "WP-055"
       ],
       "spec": "docs/product/evry.md",
@@ -1280,11 +1146,7 @@
         "AC-EVR-029--EVR-029"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055"
+        "WP-051"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
@@ -1325,10 +1187,6 @@
         "AC-EVR-030--EVR-030"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
         "WP-055"
       ],
       "spec": "docs/product/evry.md",
@@ -1369,11 +1227,7 @@
         "AC-EVR-031--EVR-031"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055"
+        "WP-054"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
@@ -1420,11 +1274,7 @@
         "AC-EVR-032--EVR-032"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055"
+        "WP-051"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
@@ -1453,11 +1303,7 @@
         "AC-EVR-033--EVR-033"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
-        "WP-055"
+        "WP-053"
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
@@ -1486,10 +1332,6 @@
         "AC-EVR-034--EVR-034"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054",
         "WP-055"
       ],
       "spec": "docs/product/evry.md",

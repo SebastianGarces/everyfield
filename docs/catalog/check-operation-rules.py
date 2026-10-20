@@ -366,7 +366,10 @@ def audit(base, report):
     assert len(added_ids) == len(additions), 'Duplicate operation addition'
     assert not added_ids & {o['id'] for o in before['operations']}, 'Addition already in baseline'
     assert all(a['reason'].strip() for a in additions), 'Operation addition needs a ruling'
-    assert {o['id'] for o in inventory} == {o['id'] for o in before['operations']} | added_ids, 'Operation lost or unreviewed addition'
+    removals = json.loads((ROOT / 'docs/catalog/rule-placement.json').read_text()).get('operation_removals', [])
+    removed_ids = {r['id'] for r in removals}
+    assert all(r['reason'].strip() for r in removals), 'Operation removal needs a ruling'
+    assert {o['id'] for o in inventory} == ({o['id'] for o in before['operations']} - removed_ids) | added_ids, 'Operation lost or unreviewed addition'
     assert all(set(o) in [INVENTORY_KEYS, INVENTORY_KEYS - {'changes'}] for o in inventory), 'Unexpected inventory contract field'
     tables = {t['name'] for t in json.loads((ROOT / 'docs/schema/target.json').read_text())['tables']}
     omitted = []

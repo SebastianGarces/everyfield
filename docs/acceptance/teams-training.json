@@ -13,7 +13,7 @@
         "AC-TEAM-002--TEAM-002"
       ],
       "work_packages": [
-        "WP-016"
+        "WP-017"
       ],
       "status": "future-not-run",
       "description": "Hospitality live with roles/members/training; prior membership history",
@@ -854,7 +854,7 @@
       ],
       "acceptance_ids": [],
       "work_packages": [
-        "WP-016"
+        "WP-017"
       ],
       "status": "future-not-run",
       "description": "Childrens team renamed Hospitality; source `templateKey` mentions child-care; Person has a source-only background field",
@@ -1410,11 +1410,10 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual team-role-leader references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual team-role-leader references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1744,11 +1743,10 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual team-role-leader references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual team-role-leader references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2082,14 +2080,12 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-016",
         "WP-017",
         "WP-018",
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual team-role-leader references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual team-role-leader references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2411,11 +2407,10 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual team-role-leader references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual team-role-leader references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2764,11 +2759,10 @@
       ],
       "work_packages": [
         "WP-019",
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3089,11 +3083,10 @@
       ],
       "work_packages": [
         "WP-019",
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3418,11 +3411,10 @@
       ],
       "work_packages": [
         "WP-019",
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3745,11 +3737,10 @@
       ],
       "work_packages": [
         "WP-019",
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual training-applicability-completion references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -4094,7 +4085,6 @@
       ],
       "work_packages": [
         "WP-019",
-        "WP-055",
         "WP-070"
       ],
       "status": "future-not-run",
@@ -4216,7 +4206,6 @@
       ],
       "work_packages": [
         "WP-019",
-        "WP-038",
         "WP-040",
         "WP-044"
       ],
@@ -4442,12 +4431,8 @@
       ],
       "work_packages": [
         "WP-019",
-        "WP-029",
-        "WP-038",
         "WP-040",
         "WP-044",
-        "WP-052",
-        "WP-055",
         "WP-069"
       ],
       "status": "future-not-run",
@@ -4559,7 +4544,6 @@
       ],
       "work_packages": [
         "WP-040",
-        "WP-055",
         "WP-073",
         "WP-074"
       ],
@@ -4673,10 +4657,7 @@
         "AC-PI-014--PI-014"
       ],
       "work_packages": [
-        "WP-039",
         "WP-040",
-        "WP-052",
-        "WP-055",
         "WP-073"
       ],
       "status": "future-not-run",
@@ -4902,12 +4883,9 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-038",
         "WP-040",
         "WP-041",
         "WP-044",
-        "WP-052",
-        "WP-055",
         "WP-073"
       ],
       "status": "future-not-run",
@@ -5005,12 +4983,8 @@
       ],
       "work_packages": [
         "WP-019",
-        "WP-039",
         "WP-040",
         "WP-044",
-        "WP-052",
-        "WP-053",
-        "WP-055",
         "WP-070",
         "WP-073",
         "WP-074"
@@ -5207,7 +5181,7 @@
         "AC-TEAM-002--TEAM-002"
       ],
       "work_packages": [
-        "WP-016"
+        "WP-017"
       ],
       "status": "future-not-run",
       "description": "Archive a staffed team with program, meeting and current duty; include archived list/chart; stale edit; restore and retry.",
@@ -7026,7 +7000,6 @@
       ],
       "work_packages": [
         "WP-019",
-        "WP-039",
         "WP-040",
         "WP-044",
         "WP-073",

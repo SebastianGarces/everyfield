@@ -324,6 +324,17 @@ def validate_metadata(schema, dag, capability_files):
     """INV-schema-authority: metadata must resolve to the adopted graph and actual packages."""
     errors = []
     packages = {p['id'] for p in dag['packages']}
+    # Generated table metadata may name a retired package; it resolves to the package that took its scope.
+    retired = {r['id']: r['scope_moved_to'] for r in dag.get('retired_packages', [])}
+
+    def resolve(value):
+        if isinstance(value, dict):
+            return {k: resolve(v) for k, v in value.items()}
+        if isinstance(value, list):
+            items = [resolve(v) for v in value]
+            return list(dict.fromkeys(items)) if all(isinstance(v, str) for v in items) else items
+        return retired.get(value, value) if isinstance(value, str) else value
+    schema = resolve(schema)
     caps = {c['id']: c for f in capability_files for c in f['capabilities']}
     old = schema['legacy_table_producers']
     by = {t['name']: t for t in schema['tables']}
