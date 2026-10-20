@@ -8,7 +8,7 @@
 <title>Everyfield UI · visual identity and component kit</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..700&family=DM+Serif+Display&family=DM+Serif+Text&display=swap" rel="stylesheet">
 <!-- Hugeicons free icon font, current build. The old cdn.hugeicons.com/font endpoint is deprecated and frozen on a 2024 build. -->
 <link rel="stylesheet" href="https://use.hugeicons.com/font/icons.css">
 <style>
@@ -22,18 +22,13 @@
   --ef-cream: #F6F0E9;
   --ef-green: #1AF197;
 
-  /* muted photo palette (2026-10-20). Sampled from the two field photos, tuned in OKLCH to low chroma.
+  /* muted photo palette (2026-10-20). Sampled from the field photos, tuned in OKLCH to low chroma.
      Each ramp: 100 pale tint, 300 light, 500 mid (the photo color), 700 deep = text-safe (4.5:1 or more on
-     white, cream and the frame). They paint the gradient cards and brand moments, not status. */
+     white, cream and the frame). They paint the gradient cards and the category hues, not status.
+     sky = the open sky, sage = the green hills at dusk, rose = the mauve sunset clouds. */
   --ef-sky-100: #D6EAF2;  --ef-sky-300: #B2D2DE;  --ef-sky-500: #83AAB8;  --ef-sky-700: #4C6F7C;
-  --ef-clay-100: #F5DED0; --ef-clay-300: #E4BAA2; --ef-clay-500: #AF7A5A; --ef-clay-700: #83583D;
-  /* Fourth-tone candidates (2026-10-20), replacing Sand. Sebastian picks one; the others are deleted.
-     sage = the green hills at dusk, slate = the grey storm hills, rose = the mauve sunset clouds. */
-  --ef-sage-100: #E4EED9;  --ef-sage-300: #C6D6B4;  --ef-sage-500: #9BAE86;  --ef-sage-700: #5F6D4D;
-  --ef-slate-100: #E2EBF4; --ef-slate-300: #C2D1E2; --ef-slate-500: #96A8BC; --ef-slate-700: #566A7E;
-  --ef-rose-100: #F9E4E1;  --ef-rose-300: #EAC6C0;  --ef-rose-500: #C79A93;  --ef-rose-700: #825D57;
-  --ef-soil: #3F2F23;
-  --ef-cloud: #787A80;
+  --ef-sage-100: #E4EED9; --ef-sage-300: #C6D6B4; --ef-sage-500: #9BAE86; --ef-sage-700: #5F6D4D;
+  --ef-rose-100: #F9E4E1; --ef-rose-300: #EAC6C0; --ef-rose-500: #C79A93; --ef-rose-700: #825D57;
 
   /* neutrals (cool grey). Cream is for brand and marketing, not app surfaces */
   --ef-ink-2: #343843;
@@ -58,21 +53,21 @@
   color-scheme: light;
 
   /* hues: 600 text/solid, 500 solid, 300 hatch, 100 tint, 50 wash */
-  /* Data hues, anchored on the gradient tones (Field, Sky, Dawn, Lilac).
-     500/300/100/50 come from the gradient colors; 600/700 are deeper shades
-     for text and icons and reach 4.5:1 on their 100 tint and on the surface. */
+  /* Data hues. Green, blue, magenta and amber carry status. Violet and teal only label
+     categories; they take the rose and sky ramps of the muted palette (600 = the muted 700 step).
+     600/700 are text and icon shades and reach 4.5:1 on their 100 tint and on the surface. */
   --ef-green-700: #0B5C38;
-  --ef-green-600: #0C7648;   /* text-safe new-growth: 4.7:1 on surface-2 */
+  --ef-green-600: #026B40;   /* text-safe new-growth, same as marketing: 5.7:1 on surface-2 */
   --ef-green-500: #1AF197;   /* new-growth, fills only */
   --ef-green-300: #80F3B3;
   --ef-green-100: #CAFBDC;
   --ef-green-50:  #E7FDEF;
 
-  --ef-blue-600: #1C5BB5;
-  --ef-blue-500: #6AAEFF;
-  --ef-blue-300: #B5D7FF;
-  --ef-blue-100: #E3EFFF;
-  --ef-blue-50:  #F2F8FF;
+  --ef-blue-600: #2A6296;   /* blue softened toward the muted sky (2026-10-20) */
+  --ef-blue-500: #6E9FCF;
+  --ef-blue-300: #BED7F0;
+  --ef-blue-100: #E6EFF9;
+  --ef-blue-50:  #F4F8FC;
 
   --ef-magenta-600: #B02A4A;
   --ef-magenta-500: #F2728A;
@@ -87,17 +82,17 @@
   --ef-amber-100: #FFEBD6;
   --ef-amber-50:  #FFF6EC;
 
-  --ef-violet-600: #6244CC;
-  --ef-violet-500: #A48CF5;
-  --ef-violet-300: #D2C4FF;
-  --ef-violet-100: #EEE8FF;
-  --ef-violet-50:  #F8F5FF;
+  --ef-violet-600: #825D57;   /* category: rose ramp */
+  --ef-violet-500: #C79A93;
+  --ef-violet-300: #EAC6C0;
+  --ef-violet-100: #F9E4E1;
+  --ef-violet-50:  #FFF4F2;
 
-  --ef-teal-600: #11736A;
-  --ef-teal-500: #4CC9BB;
-  --ef-teal-300: #A6E9E0;
-  --ef-teal-100: #DCF7F3;
-  --ef-teal-50:  #F1FCFA;
+  --ef-teal-600: #4C6F7C;     /* category: sky ramp; 100 is lighter than sky-100 so 600 reaches 4.5:1 on it */
+  --ef-teal-500: #83AAB8;
+  --ef-teal-300: #B2D2DE;
+  --ef-teal-100: #DFF0F7;
+  --ef-teal-50:  #F0F8FC;
 
   /* semantic roles */
   --ef-positive: var(--ef-green-600);
@@ -107,9 +102,11 @@
   --ef-attention: var(--ef-amber-500);
 
   /* type */
+  /* headings: DM Serif Display at 24px and above, DM Serif Text below 24px; both at -0.02em */
   --ef-font-display: "DM Serif Display", Georgia, "Times New Roman", serif;
-  --ef-font-figures: var(--ef-font-body);   /* dense numbers: tables, heat cells, counters */
-  --ef-font-body: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --ef-font-title: "DM Serif Text", "DM Serif Display", Georgia, "Times New Roman", serif;
+  --ef-font-figures: var(--ef-font-body);   /* dense numbers: tables, heat cells, counters (tabular) */
+  --ef-font-body: "DM Sans", ui-sans-serif, system-ui, sans-serif;
   --ef-text-xs: 12px;
   --ef-text-sm: 13px;
   --ef-text-md: 14px;
@@ -199,12 +196,12 @@
   --ef-dock-bg: rgba(38,43,51,.94);
 
   --ef-green-700: #B2F7CD; --ef-green-600: #55EEA0; --ef-green-500: #1AF197; --ef-green-300: #185E3B; --ef-green-100: #113120; --ef-green-50: #12271B;
-  --ef-blue-600: #A9CFFF;  --ef-blue-500: #6AAEFF;  --ef-blue-300: #2E4E7A;  --ef-blue-100: #172840;  --ef-blue-50: #131F31;
+  --ef-blue-600: #B3CFED;  --ef-blue-500: #6E9FCF;  --ef-blue-300: #36506A;  --ef-blue-100: #1B2937;  --ef-blue-50: #15202A;
   --ef-magenta-600: #FFA9B6; --ef-magenta-500: #F2728A; --ef-magenta-300: #7A3443; --ef-magenta-100: #3A1D24; --ef-magenta-50: #2B171C;
   --ef-amber-display: #FFA552;
   --ef-amber-600: #FFC68F; --ef-amber-500: #FFA552; --ef-amber-300: #6E4422; --ef-amber-100: #36241A; --ef-amber-50: #2A1D15;
-  --ef-violet-600: #CDBEFF; --ef-violet-500: #A48CF5; --ef-violet-300: #4A3D80; --ef-violet-100: #282245; --ef-violet-50: #1E1A33;
-  --ef-teal-600: #8EE6DB;  --ef-teal-500: #4CC9BB;  --ef-teal-300: #1E5B55;  --ef-teal-100: #13302D;  --ef-teal-50: #102622;
+  --ef-violet-600: #EAC6C0; --ef-violet-500: #C79A93; --ef-violet-300: #61403B; --ef-violet-100: #362320; --ef-violet-50: #281A18;
+  --ef-teal-600: #B2D2DE;  --ef-teal-500: #83AAB8;  --ef-teal-300: #2D4F5C;  --ef-teal-100: #182C33;  --ef-teal-50: #122126;
 
   --ef-shadow-card: 0 1px 0 rgba(255,255,255,.04) inset, 0 1px 2px rgba(0,0,0,.35), 0 8px 20px -12px rgba(0,0,0,.6);
   --ef-shadow-raised: 0 1px 2px rgba(0,0,0,.4), 0 4px 12px -4px rgba(0,0,0,.45);
@@ -213,7 +210,7 @@
   --ef-shadow-nav: 0 0 0 1px rgba(255,255,255,.06), 0 1px 2px rgba(0,0,0,.3), 0 2px 6px -3px rgba(0,0,0,.4);
   --ef-shadow-nav-active: 0 1px 2px rgba(0,0,0,.45), 0 2px 5px -2px rgba(0,0,0,.4);
 }
-[data-theme="dark"] .heat .h3 { color: #0B0D10; }
+[data-theme="dark"] .heat .h3, [data-theme="dark"] .heat .h4 { color: #0B0D10; }
 /* Brief color fade when the theme changes. */
 html.theme-switching, html.theme-switching * { transition: background-color .3s ease, color .3s ease, border-color .3s ease, box-shadow .3s ease !important; }
 
@@ -234,6 +231,8 @@ body {
   line-height: 1.45;
 }
 h1, h2, h3, h4 { font-family: var(--ef-font-display); font-weight: 400; margin: 0; letter-spacing: -0.02em; }
+/* Below 24px, titles and numbers use the text cut of the serif. */
+h3, h4, .num:is(.t-xs, .t-sm, .t-md, .t-lg), .role-slot .num { font-family: var(--ef-font-title); }
 p { margin: 0; }
 a { color: inherit; text-decoration: none; }
 button { font: inherit; color: inherit; }
@@ -441,7 +440,7 @@ button { font: inherit; color: inherit; }
 
 .page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 26px; }
 .page-header .titles { min-width: 0; }
-.page-title { font-size: var(--ef-display-sm); line-height: 1.05; letter-spacing: -0.035em; font-weight: 500; }
+.page-title { font-size: var(--ef-display-sm); line-height: 1.05; letter-spacing: -0.02em; font-weight: 500; }
 .page-title.xl { font-size: 52px; }
 .page-sub { color: var(--ef-text-2); margin-top: 8px; font-size: 15px; }
 .page-actions { display: flex; gap: 10px; align-items: center; flex: none; }
@@ -552,7 +551,7 @@ textarea.input:focus-visible { box-shadow: 0 0 0 1.5px var(--ef-focus), 0 0 0 5p
 .card[data-pad="none"] { padding: 0; }
 .card-header { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 20px; }
 .card-header .grow { min-width: 0; }
-.card-title { font-family: var(--ef-font-display); font-size: var(--ef-title-md); font-weight:400; letter-spacing: -0.02em; line-height: 1.2; }
+.card-title { font-family: var(--ef-font-title); font-size: var(--ef-title-md); font-weight:400; letter-spacing: -0.02em; line-height: 1.2; }
 .card-title.sm { font-size: var(--ef-title-sm); }
 .card-description { color: var(--ef-text-3); margin-top: 4px; font-size: var(--ef-text-md); }
 .card-actions { display: flex; align-items: center; gap: 8px; flex: none; }
@@ -576,15 +575,14 @@ textarea.input:focus-visible { box-shadow: 0 0 0 1.5px var(--ef-focus), 0 0 0 5p
 .tone-teal { --tint: var(--ef-teal-100); --tone: var(--ef-teal-600); }
 .tone-ink { --tint: var(--ef-surface-2); --tone: var(--ef-ink-2); }
 
-/* ---- InsightCard  (<InsightCard tone="field|sky|clay|sage|slate|rose">) : the gradient card ----
+/* ---- InsightCard  (<InsightCard tone="field|sky|sage|rose">) : the gradient card ----
    Muted gradients from the photo palette (2026-10-20). Three layers:
    a base color on the card, a blurred mesh of five color blobs (::before) and film grain (::after).
    The mesh mixes in OKLCH, so blends between neighbors stay clean and never pass through grey.
    field = new-growth, the brand card, for the default and for growth.
    sky   = desaturated sky blue, for neutral findings.
-   clay  = muted clay orange, for attention and gaps.
-   fourth tone, for the most important summary on a page. Sand is retired; one of three candidates
-   replaces it (sage, slate, rose). Sebastian picks one; the final task deletes the other two.
+   sage  = the green hills at dusk, for the most important summary on a page.
+   rose  = the mauve sunset clouds, for risk and findings that need attention.
    All tones carry ink text and look the same in both themes. */
 .insight {
   position: relative; overflow: hidden; isolation: isolate;
@@ -620,13 +618,9 @@ textarea.input:focus-visible { box-shadow: 0 0 0 1.5px var(--ef-focus), 0 0 0 5p
 .insight[data-tone="field"] { --g-base: #1AF197; --g1: #AFF8D0; --g2: #1AF197; --g3: #4BDC95; --g4: var(--ef-sky-300); --g5: #FBF6ED; --g-shadow: rgba(3,119,72,.45); }
 /* sky: the desaturated blue of the field photo, warmed by a pale wheat horizon at the bottom */
 .insight[data-tone="sky"] { --g-base: var(--ef-sky-300); --g1: var(--ef-sky-100); --g2: #99BECC; --g3: #F7EBD8; --g4: var(--ef-sky-500); --g5: #ECF6FA; --g-shadow: rgba(55,85,96,.45); }
-/* clay: the stubble and sunset of the photos, muted */
-.insight[data-tone="clay"] { --g-base: var(--ef-clay-300); --g1: var(--ef-clay-100); --g2: #C9997A; --g3: #E8D3B0; --g4: #DEB58F; --g5: #FBF6ED; --g-shadow: rgba(102,68,47,.45); }
-/* Fourth-tone candidates. Each: base 300, pale 100, mid 500, one light from its photo, one deeper blob. */
+/* Sage and rose: base 300, pale 100, mid 500, one light from the photo, one deeper blob. */
 /* sage: the green hills at dusk, lit by a pale gold sky */
 .insight[data-tone="sage"] { --g-base: var(--ef-sage-300); --g1: var(--ef-sage-100); --g2: var(--ef-sage-500); --g3: #F3EECC; --g4: #AAC099; --g5: #FBF6ED; --g-shadow: rgba(66,77,52,.45); }
-/* slate: the grey storm hills, with one break of pale light in the clouds */
-.insight[data-tone="slate"] { --g-base: var(--ef-slate-300); --g1: var(--ef-slate-100); --g2: var(--ef-slate-500); --g3: #EFEBE5; --g4: #A5B4C9; --g5: #F3F6FA; --g-shadow: rgba(60,75,92,.45); }
 /* rose: the mauve sunset clouds over the wheat, with a warm glow below */
 .insight[data-tone="rose"] { --g-base: var(--ef-rose-300); --g1: var(--ef-rose-100); --g2: var(--ef-rose-500); --g3: #F2D7B9; --g4: #D5B2A5; --g5: #FBF6ED; --g-shadow: rgba(96,66,61,.45); }
 /* A panel nested in the card is frosted. */
@@ -651,7 +645,7 @@ textarea.input:focus-visible { box-shadow: 0 0 0 1.5px var(--ef-focus), 0 0 0 5p
 .insight-footer { margin-top: auto; padding-top: 26px; display: flex; gap: 10px; align-items: center; }
 .insight[data-size="sm"] { min-height: 0; padding: 22px 24px; }
 .insight[data-size="sm"] .insight-metric .num { font-size: 46px; }
-.insight[data-size="sm"] .insight-title { font-size: 21px; }
+.insight[data-size="sm"] .insight-title { font-size: 21px; font-family: var(--ef-font-title); }
 .insight .btn[data-variant="light"] { background: var(--btn-bg); color: var(--btn-fg); box-shadow: 0 8px 18px -10px rgba(24,29,25,.6); }
 .insight .btn[data-variant="glass"] { background: var(--pill-bg); color: var(--on); box-shadow: 0 0 0 1px var(--pill-edge) inset; }
 .insight-dots { display: flex; gap: 6px; }
@@ -672,7 +666,7 @@ textarea.input:focus-visible { box-shadow: 0 0 0 1.5px var(--ef-focus), 0 0 0 5p
 .btn i { font-size: 18px; }
 .btn[data-variant="primary"] { background: var(--ef-ink); color: var(--ef-on-ink); box-shadow: var(--ef-shadow-pill); }
 .btn[data-variant="primary"]:hover { background: color-mix(in srgb, var(--ef-ink) 88%, var(--ef-frame)); }
-.btn[data-variant="brand"] { background: var(--ef-green-600); color: #fff; box-shadow: 0 4px 10px -6px rgba(3,125,76,.6); }
+.btn[data-variant="brand"] { background: var(--ef-green-600); color: var(--ef-on-ink); box-shadow: 0 4px 10px -6px rgba(3,125,76,.6); }
 .btn[data-variant="secondary"] { background: var(--ef-surface-2); color: var(--ef-ink); }
 .btn[data-variant="secondary"]:hover { background: var(--ef-surface-3); }
 .btn[data-variant="outline"] { background: var(--ef-surface-raised); color: var(--ef-ink); box-shadow: 0 0 0 1px var(--ef-line-2); }
@@ -842,7 +836,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 /* ---- Stat  (<Stat label value delta caption size>) ---- */
 .stat-label { color: var(--ef-text-3); font-size: var(--ef-text-md); }
 .stat-value { font-family: var(--ef-font-display); font-size: var(--ef-display-sm); line-height: 1; letter-spacing: -0.02em; margin-top: 10px; font-weight: 400; }
-.stat-value.xl { font-size: var(--ef-display-lg); letter-spacing: -0.05em; }
+.stat-value.xl { font-size: var(--ef-display-lg); }
 .stat-value.lg { font-size: var(--ef-display-md); }
 .stat-caption { color: var(--ef-text-2); margin-top: 8px; font-size: var(--ef-text-md); }
 .stat-strip { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; }
@@ -865,7 +859,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .meter-hatch > span { position: absolute; inset: 2px auto 2px 2px; border-radius: var(--corner-pill); }
 .ring { --p: 60; --c: var(--ef-green-500); width: 56px; height: 56px; border-radius: 50%; flex: none;
   background: conic-gradient(var(--c) calc(var(--p) * 1%), var(--ef-surface-2) 0); display: grid; place-items: center; }
-.ring::after { content: attr(data-label); width: calc(100% - 12px); height: calc(100% - 12px); border-radius: 50%; background: var(--ef-surface); display: grid; place-items: center; font-family: var(--ef-font-display); font-size: 14px; font-weight:400; letter-spacing: -0.02em; }
+.ring::after { content: attr(data-label); width: calc(100% - 12px); height: calc(100% - 12px); border-radius: 50%; background: var(--ef-surface); display: grid; place-items: center; font-family: var(--ef-font-title); font-size: 14px; font-weight:400; letter-spacing: -0.02em; }
 
 /* ---- ListRow  (<ListRow icon title subtitle trailing>) ---- */
 .list { display: flex; flex-direction: column; }
@@ -878,7 +872,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .kv { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; border-top: 1px solid var(--ef-line); }
 .kv:first-child { border-top: 0; }
 .kv .k { color: var(--ef-text-2); }
-.kv .v { font-family: var(--ef-font-display); font-size: 20px; font-weight:400; letter-spacing: -0.02em; }
+.kv .v { font-family: var(--ef-font-title); font-size: 20px; font-weight:400; letter-spacing: -0.02em; }
 
 /* ---- Table  (<DataTable>, <Pagination>) ---- */
 .table { width: 100%; border-collapse: separate; border-spacing: 0; }
@@ -1082,7 +1076,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .prose p { margin: 0 0 14px; }
 .prose ul, .prose ol { padding-left: 22px; margin: 0 0 16px; }
 .prose li { margin: 6px 0; }
-.prose blockquote { margin: 20px 0; padding: 16px 20px; border-radius: var(--corner-card); background: var(--ef-surface-2); font-family: var(--ef-font-display); font-size: 19px; color: var(--ef-ink); line-height: 1.45; letter-spacing: -0.02em; }
+.prose blockquote { margin: 20px 0; padding: 16px 20px; border-radius: var(--corner-card); background: var(--ef-surface-2); font-family: var(--ef-font-title); font-size: 19px; color: var(--ef-ink); line-height: 1.45; letter-spacing: -0.02em; }
 .prose blockquote cite { display: block; font-family: var(--ef-font-body); font-size: 13px; color: var(--ef-text-3); font-style: normal; margin-top: 8px; }
 .prose a { color: var(--ef-ink); text-decoration: underline; text-decoration-color: var(--ef-green-500); text-decoration-thickness: 2px; text-underline-offset: 3px; }
 .toc { display: flex; flex-direction: column; gap: 2px; border-left: 1.5px solid var(--ef-line); }
@@ -1090,7 +1084,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .toc a[aria-current] { color: var(--ef-ink); border-left-color: var(--ef-ink); font-weight: 500; }
 .tree { display: flex; flex-direction: column; gap: 2px; }
 .tree-phase { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--corner-card); font-weight: 500; cursor: pointer; }
-.tree-phase .ph { width: 24px; height: 24px; border-radius: var(--corner-card); display: grid; place-items: center; font-size: 12px; font-weight:400; background: var(--ef-surface-2); color: var(--ef-text-2); font-family: var(--ef-font-display); letter-spacing: -0.02em; }
+.tree-phase .ph { width: 24px; height: 24px; border-radius: var(--corner-card); display: grid; place-items: center; font-size: 12px; font-weight:400; background: var(--ef-surface-2); color: var(--ef-text-2); font-family: var(--ef-font-title); letter-spacing: -0.02em; }
 .tree-phase[data-open] .ph { background: var(--ef-ink); color: var(--ef-on-ink); }
 .tree-item { padding: 7px 10px 7px 44px; border-radius: var(--corner-card); color: var(--ef-text-2); font-size: var(--ef-text-md); cursor: pointer; display: flex; align-items: center; gap: 8px; }
 .tree-item[aria-current] { color: var(--ef-ink); font-weight: 500; }
@@ -1220,7 +1214,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .journal-item .jt { font-weight: 500; }
 .journal-item .jm { color: var(--ef-text-3); font-size: var(--ef-text-sm); margin-top: 2px; }
 .outcome-field { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-radius: var(--corner-card); background: var(--ef-surface-2); }
-.outcome-field .ov { font-family: var(--ef-font-display); font-size: 18px; color: var(--ef-text-3); letter-spacing: -0.02em; }
+.outcome-field .ov { font-family: var(--ef-font-title); font-size: 18px; color: var(--ef-text-3); letter-spacing: -0.02em; }
 
 /* ---- Domain: communication (<DeliveryBar>, <Composer>, <MergeField>) ---- */
 .delivery-bar { display: flex; height: 8px; border-radius: var(--corner-pill); overflow: hidden; gap: 2px; background: var(--ef-surface-2); width: 120px; }
@@ -1240,7 +1234,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .doc-card[data-selected] { box-shadow: 0 0 0 2px var(--ef-ink), var(--ef-shadow-card); }
 .doc-stage { height: 150px; border-radius: var(--corner-card); background: var(--ef-surface-2); display: grid; place-items: center; overflow: hidden; position: relative; }
 .doc-thumb { width: 92px; aspect-ratio: 8.5 / 11; background: #fff; border-radius: var(--corner-card); padding: 9px 8px; box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 8px 18px -10px rgba(0,0,0,.35); display: flex; flex-direction: column; gap: 4px; transform: rotate(-2deg) translateY(10px); }
-.doc-thumb .dh { height: 5px; width: 60%; border-radius: var(--corner-card); background: var(--tone, #1C5BB5); }
+.doc-thumb .dh { height: 5px; width: 60%; border-radius: var(--corner-card); background: var(--tone, #2A6296); }
 .doc-thumb .dl { height: 3px; border-radius: var(--corner-card); background: #E3E6EB; }
 .doc-thumb .dl.s { width: 70%; }
 .doc-thumb .db { flex: 1; border-radius: var(--corner-card); background: repeating-linear-gradient(#EEF0F3 0 3px, transparent 3px 7px); }
@@ -1352,7 +1346,7 @@ body[data-shell="bare"] .main { max-width: none; }
 .em-list { margin: 8px 0 16px; }
 .em-li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid #F0EDE7; font-size: 15px; }
 .em-li:first-child { border-top: 0; }
-.em-li .av { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; background: #E3EFFF; color: #1C5BB5; flex: none; }
+.em-li .av { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; background: #E6EFF9; color: #2A6296; flex: none; }
 .em-li .tag { margin-left: auto; font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: var(--corner-pill); background: #FFE5E9; color: #B02A4A; white-space: nowrap; }
 .em-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0 18px; }
 .em-stat { background: #F7F5F1; border-radius: var(--corner-card); padding: 12px 14px; }
@@ -1361,7 +1355,7 @@ body[data-shell="bare"] .main { max-width: none; }
 .em-note { display: flex; gap: 10px; align-items: flex-start; background: #EEE8FF; border-radius: var(--corner-card); padding: 12px 14px; font-size: 14.5px; line-height: 1.5; color: #3A3F3B; }
 .em-sig { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
 .em-sig .av { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; background: #CAFBDC; color: #0B5C38; }
-.em-foot { padding: 18px 10px 0; font-size: 12.5px; line-height: 1.6; color: #7A7E78; text-align: center; }
+.em-foot { padding: 18px 10px 0; font-size: 12.5px; line-height: 1.6; color: #666A64; text-align: center; }
 .em-foot a { color: #4D5361; text-decoration: underline; }
 .em-page[data-w="phone"] .em-card { padding: 24px 20px; }
 .em-page[data-w="phone"] .em-card h1 { font-size: 24px; }
@@ -1404,7 +1398,7 @@ body[data-shell="bare"] .main { max-width: none; }
 .pipeline { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 10px; align-items: start; }
 .pipeline .pl { display: flex; flex-direction: column; gap: 6px; }
 .pipeline .pl-col { height: 120px; display: flex; align-items: flex-end; }
-.pipeline .pl-col span { width: 100%; border-radius: var(--corner-card); background: var(--ef-violet-300); display: grid; place-items: start center; padding-top: 6px; font-weight: 600; font-size: 13px; color: #181D19; min-height: 26px; }
+.pipeline .pl-col span { width: 100%; border-radius: var(--corner-card); background: var(--ef-violet-300); display: grid; place-items: start center; padding-top: 6px; font-weight: 600; font-size: 13px; color: var(--ef-ink); min-height: 26px; }
 .pipeline .pl-n { font-size: 13px; font-weight: 600; color: var(--ef-ink); }
 .pipeline .pl-s { font-size: 12px; color: var(--ef-text-2); line-height: 1.35; }
 .launch-cal { display: grid; grid-template-columns: repeat(12, minmax(0,1fr)); gap: 4px; }
@@ -1412,7 +1406,7 @@ body[data-shell="bare"] .main { max-width: none; }
 .launch-cal .lc-m { font-size: 11px; color: var(--ef-text-3); text-transform: uppercase; letter-spacing: .04em; }
 .launch-cal .lc-d { width: 100%; min-height: 64px; border-radius: var(--corner-card); background: var(--ef-surface-2); display: flex; flex-direction: column; gap: 3px; padding: 4px; }
 .launch-cal .lc-d { align-items: center; justify-content: center; }
-.launch-cal .lc-d b { font-family: var(--ef-font-display); font-size: 20px; font-weight:400; color: var(--ef-green-700); line-height: 1; letter-spacing: -0.02em; }
+.launch-cal .lc-d b { font-family: var(--ef-font-title); font-size: 20px; font-weight:400; color: var(--ef-green-700); line-height: 1; letter-spacing: -0.02em; }
 .launch-cal .lc-d small { font-size: 11px; color: var(--ef-text-2); }
 .launch-cal .lc-d[data-has] { background: var(--ef-green-100); }
 .cov-row { display: grid; grid-template-columns: 130px minmax(0,1fr) 54px; gap: 12px; align-items: center; padding: 8px 0; font-size: var(--ef-text-sm); }
@@ -1560,7 +1554,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 .steps { list-style: none; counter-reset: step; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
 .steps > li { counter-increment: step; position: relative; padding: 14px 0 18px 54px; border-top: 1px solid var(--ef-line); }
 .steps > li:first-child { border-top: 0; }
-.steps > li::before { content: counter(step); position: absolute; left: 0; top: 12px; width: 34px; height: 34px; border-radius: var(--corner-card); background: var(--ef-surface-2); display: grid; place-items: center; font-family: var(--ef-font-display); font-weight:400; color: var(--ef-ink); letter-spacing: -0.02em; }
+.steps > li::before { content: counter(step); position: absolute; left: 0; top: 12px; width: 34px; height: 34px; border-radius: var(--corner-card); background: var(--ef-surface-2); display: grid; place-items: center; font-family: var(--ef-font-title); font-weight:400; color: var(--ef-ink); letter-spacing: -0.02em; }
 .steps > li b { color: var(--ef-ink); font-weight: 600; }
 .steps > li p { margin: 4px 0 0; color: var(--ef-ink-2); line-height: 1.6; }
 .ui-ref { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: var(--corner-pill); background: var(--ef-surface-2); color: var(--ef-ink); font-size: 13px; font-weight: 500; white-space: nowrap; }
@@ -1611,7 +1605,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 .phase-opt { display: flex; align-items: center; gap: 14px; padding: 16px 18px; border-radius: var(--corner-card); background: var(--ef-surface-raised); border: 1px solid var(--ef-line); box-shadow: var(--ef-shadow-card); cursor: pointer; position: relative; }
 .phase-opt > span:nth-child(2) { display: flex; flex-direction: column; gap: 3px; flex: 1; }
 .phase-opt > span:nth-child(2) span { color: var(--ef-text-3); font-size: var(--ef-text-sm); }
-.phase-opt .po-n { width: 34px; height: 34px; border-radius: var(--corner-card); display: grid; place-items: center; background: var(--ef-surface-2); font-family: var(--ef-font-display); font-weight:400; flex: none; letter-spacing: -0.02em; }
+.phase-opt .po-n { width: 34px; height: 34px; border-radius: var(--corner-card); display: grid; place-items: center; background: var(--ef-surface-2); font-family: var(--ef-font-title); font-weight:400; flex: none; letter-spacing: -0.02em; }
 .phase-opt[data-selected] { box-shadow: 0 0 0 2px var(--ef-ink), var(--ef-shadow-card); }
 .phase-opt[data-selected] .po-n { background: var(--ef-ink); color: var(--ef-on-ink); }
 .phase-opt .po-check { font-size: 18px; color: var(--ef-ink); }
@@ -1689,10 +1683,6 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 .ramp { display: grid; grid-template-columns: repeat(5, 1fr); border-radius: var(--corner-card); overflow: hidden; height: 54px; }
 .ramp div { display: flex; align-items: flex-end; padding: 6px 8px; font-size: 11px; font-family: ui-monospace, Menlo, monospace; }
 .ramp[data-size="lg"] { height: 84px; }
-/* Fourth-tone candidates (temporary, removed after the pick) */
-.tone-cand { margin: 0; display: grid; gap: 12px; }
-.tone-cand figcaption { font-size: var(--ef-text-sm); color: var(--ef-text-2); line-height: 1.45; }
-.tone-cand figcaption b { display: block; color: var(--ef-text); font-weight: 600; }
 .ramp[data-size="lg"] div { flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 2px; font-weight: 600; }
 .ramp[data-size="lg"] span { font-weight: 400; }
 .brand-tile { border-radius: var(--corner-media); height: 210px; display: grid; place-items: center; }
@@ -1804,7 +1794,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 
   <div class="doc-section">
     <div class="doc-h"><h2>Brand colors</h2><code>--ef-ink · --ef-green · --ef-cream</code></div>
-    <p class="doc-note">The app runs on neutral greys so the data hues stand out. Ink carries the brand inside the app. Field green is for the logo and rare brand moments. Cream is for the landing page, marketing and print.</p>
+    <p class="doc-note">The app runs on neutral greys so the data hues and the gradient cards stand out. Ink #181D19 carries the brand inside the app. New-growth is for the logo, the field card and rare brand moments; it is never text. Cream is for the landing page, marketing, print and text on ink or photos, never for app surfaces.</p>
     <div class="grid g-3">
       <div class="swatch"><div class="chipc" style="background:#181D19"></div><div class="info"><b>Ink</b><span>#181D19 · text, active nav, primary button</span></div></div>
       <div class="swatch"><div class="chipc" style="background:#1AF197"></div><div class="info"><b>New-growth</b><span>#1AF197 · logo, brand moments and the green 500 step</span></div></div>
@@ -1814,83 +1804,62 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 
   <div class="doc-section">
     <div class="doc-h"><h2>Data hues and roles</h2><code>--ef-{hue}-{600|500|300|100|50}</code></div>
-    <p class="doc-note">Every hue has one job, and each ramp is built from a gradient tone. Green (Field, the brand green) means healthy or committed. Blue (Sky) means measured or actual. Rose means risk or a gap. Orange (Dawn) means attention or waiting. Lilac and teal only label categories, like pipeline stages. Steps 500 to 50 come from the gradient colors; 600 and 700 are deeper shades for text that reach 4.5:1. Tints are light and clean, never grey. Token names stay generic (green, blue, magenta, amber) so a hue can change without renaming.</p>
+    <p class="doc-note">Every hue has one job. Green (new-growth) means healthy or committed. Blue, softened toward the muted sky, means measured or actual. Magenta means risk or a gap. Orange means attention or waiting. Two category hues only label categories, like pipeline stages; they take the rose and sky ramps of the muted palette. 600 and 700 are deeper shades for text that reach 4.5:1. Token names stay generic (green, blue, magenta, amber, violet, teal) so a hue can change without renaming.</p>
     <div class="grid g-3">
       <div class="specimen"><div class="specimen-label"><span class="badge" data-status="positive" data-size="sm">Green</span>healthy · committed · positive</div>
-        <div class="ramp"><div style="background:var(--ef-green-700);color:var(--ef-on-ink)">700</div><div style="background:var(--ef-green-500)">500</div><div style="background:var(--ef-green-300)">300</div><div style="background:var(--ef-green-100)">100</div><div style="background:var(--ef-green-50)">50</div></div></div>
+        <div class="ramp"><div style="background:var(--ef-green-700);color:var(--ef-on-ink)">700</div><div style="background:var(--ef-green-500);color:#181D19">500</div><div style="background:var(--ef-green-300)">300</div><div style="background:var(--ef-green-100)">100</div><div style="background:var(--ef-green-50)">50</div></div></div>
       <div class="specimen"><div class="specimen-label"><span class="badge" data-status="measured" data-size="sm">Blue</span>measured · actual · info</div>
-        <div class="ramp"><div style="background:var(--ef-blue-600);color:var(--ef-on-ink)">600</div><div style="background:var(--ef-blue-500)">500</div><div style="background:var(--ef-blue-300)">300</div><div style="background:var(--ef-blue-100)">100</div><div style="background:var(--ef-blue-50)">50</div></div></div>
-      <div class="specimen"><div class="specimen-label"><span class="badge" data-status="risk" data-size="sm">Rose</span>risk · gap · overdue</div>
-        <div class="ramp"><div style="background:var(--ef-magenta-600);color:var(--ef-on-ink)">600</div><div style="background:var(--ef-magenta-500)">500</div><div style="background:var(--ef-magenta-300)">300</div><div style="background:var(--ef-magenta-100)">100</div><div style="background:var(--ef-magenta-50)">50</div></div></div>
+        <div class="ramp"><div style="background:var(--ef-blue-600);color:var(--ef-on-ink)">600</div><div style="background:var(--ef-blue-500);color:#181D19">500</div><div style="background:var(--ef-blue-300)">300</div><div style="background:var(--ef-blue-100)">100</div><div style="background:var(--ef-blue-50)">50</div></div></div>
+      <div class="specimen"><div class="specimen-label"><span class="badge" data-status="risk" data-size="sm">Magenta</span>risk · gap · overdue</div>
+        <div class="ramp"><div style="background:var(--ef-magenta-600);color:var(--ef-on-ink)">600</div><div style="background:var(--ef-magenta-500);color:#181D19">500</div><div style="background:var(--ef-magenta-300)">300</div><div style="background:var(--ef-magenta-100)">100</div><div style="background:var(--ef-magenta-50)">50</div></div></div>
       <div class="specimen"><div class="specimen-label"><span class="badge" data-status="attention" data-size="sm">Orange</span>attention · waiting · draft</div>
-        <div class="ramp"><div style="background:var(--ef-amber-600);color:var(--ef-on-ink)">600</div><div style="background:var(--ef-amber-500)">500</div><div style="background:var(--ef-amber-300)">300</div><div style="background:var(--ef-amber-100)">100</div><div style="background:var(--ef-amber-50)">50</div></div></div>
-      <div class="specimen"><div class="specimen-label"><span class="tag tone-violet">Lilac</span><span class="tag tone-teal">Teal</span>category only</div>
-        <div class="ramp" style="grid-template-columns:repeat(6,1fr)"><div style="background:var(--ef-violet-600);color:var(--ef-on-ink)">v600</div><div style="background:var(--ef-violet-500)">v500</div><div style="background:var(--ef-violet-100)">v100</div><div style="background:var(--ef-teal-600);color:var(--ef-on-ink)">t600</div><div style="background:var(--ef-teal-500)">t500</div><div style="background:var(--ef-teal-100)">t100</div></div></div>
+        <div class="ramp"><div style="background:var(--ef-amber-600);color:var(--ef-on-ink)">600</div><div style="background:var(--ef-amber-500);color:#181D19">500</div><div style="background:var(--ef-amber-300)">300</div><div style="background:var(--ef-amber-100)">100</div><div style="background:var(--ef-amber-50)">50</div></div></div>
+      <div class="specimen"><div class="specimen-label"><span class="tag tone-violet">Rose</span><span class="tag tone-teal">Sky</span>category only</div>
+        <div class="ramp" style="grid-template-columns:repeat(6,1fr)"><div style="background:var(--ef-violet-600);color:var(--ef-on-ink)">v600</div><div style="background:var(--ef-violet-500);color:#181D19">v500</div><div style="background:var(--ef-violet-100)">v100</div><div style="background:var(--ef-teal-600);color:var(--ef-on-ink)">t600</div><div style="background:var(--ef-teal-500);color:#181D19">t500</div><div style="background:var(--ef-teal-100)">t100</div></div></div>
       <div class="specimen"><div class="specimen-label">Neutrals (app UI)</div>
         <div class="ramp" style="grid-template-columns:repeat(6,1fr)"><div style="background:var(--ef-text-2);color:var(--ef-on-ink)">text-2</div><div style="background:var(--ef-text-3);color:var(--ef-on-ink)">text-3</div><div style="background:var(--ef-canvas)">canvas</div><div style="background:var(--ef-frame)">frame</div><div style="background:var(--ef-surface)">surface</div><div style="background:var(--ef-surface-raised)">raised</div></div></div>
     </div>
   </div>
 
   <div class="doc-section">
-    <div class="doc-h"><h2>Muted palette</h2><code>--ef-{sky|clay}-{100|300|500|700} · --ef-soil · --ef-cloud</code></div>
-    <p class="doc-note">Colors taken from the two field photos and muted in OKLCH, so they sit next to new-growth without competing with it. They paint the gradient cards, the marketing phase cards and brand moments. They are not status colors. 100 is the pale tint, 300 the light step, 500 the photo color and 700 the deep step, which is safe for text on white, cream and the frame. On dark surfaces, use 300 for text.</p>
+    <div class="doc-h"><h2>Muted palette</h2><code>--ef-green · --ef-{sky|sage|rose}-{100|300|500|700}</code></div>
+    <p class="doc-note">New-growth is the fixed brand color and the field card. The other colors come from the field photos and are muted in OKLCH, so they sit next to new-growth without competing with it. They paint the gradient cards and the two category hues. They are not status colors. 100 is the pale tint, 300 the light step, 500 the photo color and 700 the deep step, which is safe for text on white, cream and the frame. On dark surfaces, use 300 for text.</p>
     <div class="grid g-2">
+      <div class="specimen"><div class="specimen-label"><b style="color:var(--ef-text);font-weight:600">Field</b>new-growth, the fixed brand color</div>
+        <div class="ramp" data-size="lg" style="grid-template-columns:repeat(4,1fr)"><div style="background:#0B5C38;color:#F6F0E9">700<span>#0B5C38</span></div><div style="background:#1AF197;color:#181D19">500<span>#1AF197</span></div><div style="background:#80F3B3;color:#181D19">300<span>#80F3B3</span></div><div style="background:#CAFBDC;color:#181D19">100<span>#CAFBDC</span></div></div></div>
       <div class="specimen"><div class="specimen-label"><b style="color:var(--ef-text);font-weight:600">Sky</b>the open sky over the field</div>
         <div class="ramp" data-size="lg" style="grid-template-columns:repeat(4,1fr)"><div style="background:var(--ef-sky-700);color:#F6F0E9">700<span>#4C6F7C</span></div><div style="background:var(--ef-sky-500);color:#181D19">500<span>#83AAB8</span></div><div style="background:var(--ef-sky-300);color:#181D19">300<span>#B2D2DE</span></div><div style="background:var(--ef-sky-100);color:#181D19">100<span>#D6EAF2</span></div></div></div>
-      <div class="specimen"><div class="specimen-label"><b style="color:var(--ef-text);font-weight:600">Clay</b>stubble and the low sun</div>
-        <div class="ramp" data-size="lg" style="grid-template-columns:repeat(4,1fr)"><div style="background:var(--ef-clay-700);color:#F6F0E9">700<span>#83583D</span></div><div style="background:var(--ef-clay-500);color:#181D19">500<span>#AF7A5A</span></div><div style="background:var(--ef-clay-300);color:#181D19">300<span>#E4BAA2</span></div><div style="background:var(--ef-clay-100);color:#181D19">100<span>#F5DED0</span></div></div></div>
-    </div>
-    <div class="grid g-3 mt-4">
-      <div class="swatch"><div class="chipc" style="background:#1AF197"></div><div class="info"><b>New-growth</b><span>#1AF197 · the fixed brand color, the field card</span></div></div>
-      <div class="swatch"><div class="chipc" style="background:var(--ef-soil)"></div><div class="info"><b>Soil</b><span>#3F2F23 · the shadowed ground, deep accents</span></div></div>
-      <div class="swatch"><div class="chipc" style="background:var(--ef-cloud)"></div><div class="info"><b>Cloud</b><span>#787A80 · storm cloud grey, quiet lines on photos</span></div></div>
+      <div class="specimen"><div class="specimen-label"><b style="color:var(--ef-text);font-weight:600">Sage</b>the green hills at dusk</div>
+        <div class="ramp" data-size="lg" style="grid-template-columns:repeat(4,1fr)"><div style="background:var(--ef-sage-700);color:#F6F0E9">700<span>#5F6D4D</span></div><div style="background:var(--ef-sage-500);color:#181D19">500<span>#9BAE86</span></div><div style="background:var(--ef-sage-300);color:#181D19">300<span>#C6D6B4</span></div><div style="background:var(--ef-sage-100);color:#181D19">100<span>#E4EED9</span></div></div></div>
+      <div class="specimen"><div class="specimen-label"><b style="color:var(--ef-text);font-weight:600">Rose</b>the mauve clouds at sunset</div>
+        <div class="ramp" data-size="lg" style="grid-template-columns:repeat(4,1fr)"><div style="background:var(--ef-rose-700);color:#F6F0E9">700<span>#825D57</span></div><div style="background:var(--ef-rose-500);color:#181D19">500<span>#C79A93</span></div><div style="background:var(--ef-rose-300);color:#181D19">300<span>#EAC6C0</span></div><div style="background:var(--ef-rose-100);color:#181D19">100<span>#F9E4E1</span></div></div></div>
     </div>
   </div>
 
   <div class="doc-section">
     <div class="doc-h"><h2>Gradients</h2><code>&lt;InsightCard tone&gt;</code></div>
-    <p class="doc-note">The gradient card is the signature surface. Colors from the muted palette are mixed in OKLCH, blurred, lit by one small highlight and covered with film grain. Use at most two per page, and only for one finding the person should act on. <b>Field</b> is new-growth, for the default and for growth. <b>Sky</b> is the muted blue, for neutral findings. <b>Clay</b> is the muted orange, for attention and gaps. A fourth tone holds the most important summary on a page; its three candidates are below. All tones carry ink text and look the same in both themes.</p>
-    <div class="grid g-3">
+    <p class="doc-note">The gradient card is the signature surface. Colors from the muted palette are mixed in OKLCH, blurred, lit by one small highlight and covered with film grain. Use at most two per page, and only for one finding the person should act on. <b>Field</b> is new-growth, for the default and for growth. <b>Sky</b> is the muted blue, for neutral findings. <b>Sage</b> is the muted hill green, for the most important summary on a page. <b>Rose</b> is the muted sunset pink, for risk and findings that need attention. All tones carry ink text and look the same in both themes.</p>
+    <div class="grid g-4">
       <div class="insight" data-tone="field" data-on="ink" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-plant-01"></i>field</div><div class="insight-title">Default and growth</div></div>
       <div class="insight" data-tone="sky" data-on="ink" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-sparkles"></i>sky</div><div class="insight-title">Neutral finding</div></div>
-      <div class="insight" data-tone="clay" data-on="ink" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-alert-02"></i>clay</div><div class="insight-title">Risk or gap</div></div>
-    </div>
-  </div>
-
-  <div class="doc-section" id="tone-candidates">
-    <div class="doc-h"><h2>Fourth tone: pick one</h2><code>--ef-{sage|slate|rose}-{100|300|500|700}</code></div>
-    <p class="doc-note">Sand is retired. These three candidates come from the new photos and use the same OKLCH steps as sky and clay. 700 is safe for text on white, cream and the frame. To see one on the real cards (Plant Intelligence, Network Intelligence), open Preview in the dock and choose the fourth tone. This section and the switch are temporary.</p>
-    <div class="grid g-3">
-      <figure class="tone-cand">
-        <div class="insight" data-tone="sage" data-on="ink" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-chart-line-data-01"></i>sage</div><div class="insight-title">Key summary</div></div>
-        <div class="ramp" data-size="lg" style="grid-template-columns:repeat(4,1fr)"><div style="background:var(--ef-sage-700);color:#F6F0E9">700<span>#5F6D4D</span></div><div style="background:var(--ef-sage-500);color:#181D19">500<span>#9BAE86</span></div><div style="background:var(--ef-sage-300);color:#181D19">300<span>#C6D6B4</span></div><div style="background:var(--ef-sage-100);color:#181D19">100<span>#E4EED9</span></div></div>
-        <figcaption><b>Sage</b>The green hills at dusk. Calm and close to new-growth, but greyer and warmer.</figcaption>
-      </figure>
-      <figure class="tone-cand">
-        <div class="insight" data-tone="slate" data-on="ink" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-chart-line-data-01"></i>slate</div><div class="insight-title">Key summary</div></div>
-        <div class="ramp" data-size="lg" style="grid-template-columns:repeat(4,1fr)"><div style="background:var(--ef-slate-700);color:#F6F0E9">700<span>#566A7E</span></div><div style="background:var(--ef-slate-500);color:#181D19">500<span>#96A8BC</span></div><div style="background:var(--ef-slate-300);color:#181D19">300<span>#C2D1E2</span></div><div style="background:var(--ef-slate-100);color:#181D19">100<span>#E2EBF4</span></div></div>
-        <figcaption><b>Storm slate</b>The grey hills under storm clouds. The quietest of the three, cooler than sky.</figcaption>
-      </figure>
-      <figure class="tone-cand">
-        <div class="insight" data-tone="rose" data-on="ink" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-chart-line-data-01"></i>rose</div><div class="insight-title">Key summary</div></div>
-        <div class="ramp" data-size="lg" style="grid-template-columns:repeat(4,1fr)"><div style="background:var(--ef-rose-700);color:#F6F0E9">700<span>#825D57</span></div><div style="background:var(--ef-rose-500);color:#181D19">500<span>#C79A93</span></div><div style="background:var(--ef-rose-300);color:#181D19">300<span>#EAC6C0</span></div><div style="background:var(--ef-rose-100);color:#181D19">100<span>#F9E4E1</span></div></div>
-        <figcaption><b>Dusk rose</b>The mauve clouds at sunset over the wheat. The warmest, set apart from clay.</figcaption>
-      </figure>
+      <div class="insight" data-tone="sage" data-on="ink" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-chart-line-data-01"></i>sage</div><div class="insight-title">Key summary</div></div>
+      <div class="insight" data-tone="rose" data-on="ink" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-alert-02"></i>rose</div><div class="insight-title">Risk or gap</div></div>
     </div>
   </div>
 
   <div class="doc-section">
-    <div class="doc-h"><h2>Type</h2><code>--ef-font-display · --ef-font-body</code></div>
+    <div class="doc-h"><h2>Type</h2><code>--ef-font-display · --ef-font-title · --ef-font-body</code></div>
     <div class="grid g-2">
       <div class="specimen">
-        <div class="specimen-label">DM Serif Display · titles and numbers</div>
+        <div class="specimen-label">DM Serif Display · titles and numbers at 24px and above</div>
         <div class="num" style="font-size:76px;line-height:1">34 of 50</div>
         <div style="font-family:var(--ef-font-display);font-size:40px;letter-spacing:-.02em;margin-top:12px">Core group</div>
-        <div style="font-family:var(--ef-font-display);letter-spacing:-.02em;font-size:22px;margin-top:10px">Vision meeting · Oct 12</div>
-        <div class="faint t-sm mt-3">display-lg 76 · display-sm 40 · title-lg 28 · title-md 22 · title-sm 18</div>
+        <div class="specimen-label mt-4">DM Serif Text · titles below 24px</div>
+        <div style="font-family:var(--ef-font-title);letter-spacing:-.02em;font-size:22px">Vision meeting · Oct 12</div>
+        <div class="faint t-sm mt-3">display-lg 76 · display-sm 40 · title-lg 28 (Display) · title-md 22 · title-sm 18 (Text)</div>
       </div>
       <div class="specimen">
-        <div class="specimen-label">Instrument Sans · body and UI</div>
+        <div class="specimen-label">DM Sans · body, UI and table figures</div>
         <p style="font-size:16px">Gather a core group of committed adults who share the vision before launch.</p>
         <p class="mt-3" style="font-size:14px">Body 14 is the default for UI text, lists and tables.</p>
         <p class="mt-3 muted" style="font-size:13px">Small 13 is for captions, table headers and helper text.</p>
@@ -2007,7 +1976,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
         <div class="insight-title">Quick follow-up doubles return visits</div>
         <div class="insight-footer"><button class="btn" data-variant="light">Review 7 guests <i class="hgi-stroke hgi-arrow-right-01"></i></button></div>
       </div>
-      <div class="insight" data-tone="clay" data-on="ink">
+      <div class="insight" data-tone="rose" data-on="ink">
         <div class="insight-top"><span class="insight-pill"><i class="hgi-stroke hgi-alert-02"></i>Needs attention</span><span class="insight-count">Before launch</span></div>
         <div class="insight-metric"><span class="num">4</span><span class="unit">leader roles still open</span></div>
         <div class="insight-title">Children's ministry has no leader yet</div>
@@ -2198,7 +2167,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
         <div class="card-header"><div class="grow"><div class="card-title sm">Phase track</div></div></div>
         <div class="phase-track"><span class="phase-seg" data-state="done"></span><span class="phase-seg hatch" data-state="current"></span><span class="phase-seg"></span><span class="phase-seg"></span><span class="phase-seg"></span><span class="phase-seg"></span><span class="phase-seg"></span></div>
         <div class="phase-labels"><span>0</span><b>1</b><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span></div>
-        <div class="mt-4"><span class="t-sm muted">Phase 1</span><div style="font-family:var(--ef-font-display);letter-spacing:-.02em;font-size:20px">Core Group Development</div></div>
+        <div class="mt-4"><span class="t-sm muted">Phase 1</span><div style="font-family:var(--ef-font-title);letter-spacing:-.02em;font-size:20px">Core Group Development</div></div>
       </div>
     </div>
   </div>
@@ -2765,7 +2734,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
         <div class="kv"><span class="k row gap-2"><span class="ring" style="--p:30;--c:var(--ef-amber-500);width:36px;height:36px" data-label=""></span>Met in last 4 weeks</span><span class="v">3 of 10</span></div>
       </div>
     </div>
-    <div class="insight" data-tone="clay" data-on="ink" data-size="sm" style="min-height:0">
+    <div class="insight" data-tone="rose" data-on="ink" data-size="sm" style="min-height:0">
       <div class="insight-top"><span class="insight-pill"><i class="hgi-stroke hgi-alert-02"></i>Staffing gap</span><span class="insight-count">Before Phase 2</span></div>
       <div class="row gap-4" style="align-items:flex-end;margin-top:16px"><span class="num" style="font-size:52px;line-height:.95">2</span><span style="color:var(--on-2);font-size:14px;max-width:200px">ministries have no leader, and both serve families</span></div>
       <div class="insight-title" style="margin-top:12px">Kids and Students need leaders</div>
@@ -3079,7 +3048,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
     </div>
 
     <div class="stack" style="gap:20px">
-      <div class="insight" data-tone="clay" data-on="ink" data-size="sm" style="min-height:0">
+      <div class="insight" data-tone="rose" data-on="ink" data-size="sm" style="min-height:0">
         <div class="insight-top"><span class="insight-pill"><i class="hgi-stroke hgi-clock-01"></i>Follow-up window</span></div>
         <div class="row gap-4" style="align-items:flex-end;margin-top:16px"><span class="num" style="font-size:52px;line-height:.95">3</span><span style="color:var(--on-2);font-size:14px;max-width:200px">follow-ups passed the 48-hour mark this week</span></div>
         <div class="insight-title" style="margin-top:12px">Guests called late come back half as often</div>
@@ -3235,7 +3204,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
         <div class="card-inset" style="padding:14px"><div class="row between"><span class="t-sm muted">Area</span><span class="badge" data-size="sm" data-status="positive">Yes</span></div><div class="faint t-xs mt-2">Hyde Park</div></div>
       </div>
     </div>
-    <div class="insight" data-tone="sage" data-tone-pick data-on="ink">
+    <div class="insight" data-tone="sage" data-on="ink">
       <div class="insight-top"><span class="insight-pill"><i class="hgi-stroke hgi-sparkles"></i>Top finding</span><span class="insight-count">1 of 4</span></div>
       <div class="insight-metric"><span class="num">21 d</span><span class="unit">since the core group last grew</span></div>
       <div class="insight-title">Momentum is slowing after a strong September</div>
@@ -3483,15 +3452,15 @@ body[data-role="member"] [data-author-only] { display: none !important; }
     <div class="grid g-3" style="gap:16px">
       <div class="card doc-card" data-size="sm" data-selected><div class="doc-stage"><div class="doc-thumb quarter back" style="--tone:#B02A4A"><div class="dh"></div><div class="dl"></div><div class="db"></div></div><div class="doc-thumb quarter" style="--tone:#B02A4A"><div class="dh"></div><div class="dl"></div><div class="dl s"></div><div class="db"></div></div></div><div><div class="row between gap-2"><span class="faint t-xs">Vision meetings · Phase 1</span><span class="row gap-1"><span class="fmt pdf">PDF</span></span></div><div style="font-weight:600;margin-top:6px">Response card</div><p class="muted t-sm mt-2" style="line-height:1.45">Guest contact and how they want to get involved.</p></div></div>
       <div class="card doc-card" data-size="sm"><div class="doc-stage"><div class="doc-thumb sheet" style="--tone:#B02A4A"><div class="dh"></div><div class="dl"></div><div class="dl s"></div><div class="db"></div></div></div><div><div class="row between gap-2"><span class="faint t-xs">Vision meetings · Phase 1</span><span class="row gap-1"><span class="fmt pdf">PDF</span></span></div><div style="font-weight:600;margin-top:6px">Guest sign-in sheet</div><p class="muted t-sm mt-2" style="line-height:1.45">Names, contact and who invited each guest.</p></div></div>
-      <div class="card doc-card" data-size="sm"><div class="doc-stage"><div class="doc-thumb" style="--tone:#1C5BB5"><div class="dh"></div><div class="dl"></div><div class="dl s"></div><div class="db"></div></div></div><div><div class="row between gap-2"><span class="faint t-xs">Vision meetings · Phase 1</span><span class="row gap-1"><span class="fmt pdf">PDF</span><span class="fmt docx">Word</span></span></div><div style="font-weight:600;margin-top:6px">Vision meeting agenda</div><p class="muted t-sm mt-2" style="line-height:1.45">Welcome, story, vision and the GROW, PRAY, GIVE ask.</p></div></div>
-      <div class="card doc-card" data-size="sm"><div class="doc-stage"><div class="doc-thumb" style="--tone:#1C5BB5"><div class="dh"></div><div class="dl"></div><div class="dl s"></div><div class="db"></div></div></div><div><div class="row between gap-2"><span class="faint t-xs">Vision meetings · Phase 1</span><span class="row gap-1"><span class="fmt docx">Word</span></span></div><div style="font-weight:600;margin-top:6px">Follow-up letter</div><p class="muted t-sm mt-2" style="line-height:1.45">Thank-you and next-step invitation for guests.</p></div></div>
+      <div class="card doc-card" data-size="sm"><div class="doc-stage"><div class="doc-thumb" style="--tone:#2A6296"><div class="dh"></div><div class="dl"></div><div class="dl s"></div><div class="db"></div></div></div><div><div class="row between gap-2"><span class="faint t-xs">Vision meetings · Phase 1</span><span class="row gap-1"><span class="fmt pdf">PDF</span><span class="fmt docx">Word</span></span></div><div style="font-weight:600;margin-top:6px">Vision meeting agenda</div><p class="muted t-sm mt-2" style="line-height:1.45">Welcome, story, vision and the GROW, PRAY, GIVE ask.</p></div></div>
+      <div class="card doc-card" data-size="sm"><div class="doc-stage"><div class="doc-thumb" style="--tone:#2A6296"><div class="dh"></div><div class="dl"></div><div class="dl s"></div><div class="db"></div></div></div><div><div class="row between gap-2"><span class="faint t-xs">Vision meetings · Phase 1</span><span class="row gap-1"><span class="fmt docx">Word</span></span></div><div style="font-weight:600;margin-top:6px">Follow-up letter</div><p class="muted t-sm mt-2" style="line-height:1.45">Thank-you and next-step invitation for guests.</p></div></div>
       <div class="card doc-card" data-size="sm"><div class="doc-stage"><div class="doc-thumb quarter back" style="--tone:#0B5C38"><div class="dh"></div><div class="dl"></div><div class="db"></div></div><div class="doc-thumb quarter" style="--tone:#0B5C38"><div class="dh"></div><div class="dl"></div><div class="dl s"></div><div class="db"></div></div></div><div><div class="row between gap-2"><span class="faint t-xs">Commitment · Phase 1</span><span class="row gap-1"><span class="fmt pdf">PDF</span></span></div><div style="font-weight:600;margin-top:6px">Core group commitment card</div><p class="muted t-sm mt-2" style="line-height:1.45">GROW, PRAY and GIVE commitment through Launch Sunday.</p></div></div>
       <div class="card doc-card" data-size="sm"><div class="doc-stage"><div class="doc-thumb" style="--tone:#0B5C38"><div class="dh"></div><div class="dl"></div><div class="dl s"></div><div class="db"></div></div></div><div><div class="row between gap-2"><span class="faint t-xs">Commitment · Phase 1</span><span class="row gap-1"><span class="fmt docx">Word</span></span></div><div style="font-weight:600;margin-top:6px">Expectations of a core group member</div><p class="muted t-sm mt-2" style="line-height:1.45">Presence, GROW, PRAY, GIVE and team participation.</p></div></div>
       <div class="card doc-card" data-size="sm"><div class="doc-stage"><div class="doc-thumb" style="--tone:#0B5C38"><div class="dh"></div><div class="dl"></div><div class="dl s"></div><div class="db"></div></div></div><div><div class="row between gap-2"><span class="faint t-xs">Commitment · Phase 2</span><span class="row gap-1"><span class="fmt docx">Word</span></span></div><div style="font-weight:600;margin-top:6px">Launch team commitment</div><p class="muted t-sm mt-2" style="line-height:1.45">Member commitment letter for the weeks before launch.</p></div></div>
       <div class="card doc-card" data-size="sm"><div class="doc-stage"><div class="doc-thumb" style="--tone:#636A78"><div class="dh"></div><div class="dl"></div><div class="dl s"></div><div class="db"></div></div></div><div><div class="row between gap-2"><span class="faint t-xs">Administrative</span><span class="row gap-1"><span class="fmt docx">Word</span></span></div><div style="font-weight:600;margin-top:6px">Board or elder meeting agenda</div><p class="muted t-sm mt-2" style="line-height:1.45">Prayer, minutes, finances, ministry and action items.</p></div></div>
       <div class="card doc-card" data-size="sm"><div class="doc-stage"><div class="doc-thumb grid-sheet" style="--tone:#9A4A0C"><div class="dh"></div><div class="dl"></div><div class="dl s"></div><div class="db"></div></div></div><div><div class="row between gap-2"><span class="faint t-xs">Administrative</span><span class="row gap-1"><span class="fmt xlsx">Excel</span></span></div><div style="font-weight:600;margin-top:6px">First-year budget</div><p class="muted t-sm mt-2" style="line-height:1.45">12-month income and expenses with live totals.</p></div></div>
       <div class="card doc-card" data-size="sm"><div class="doc-stage"><div class="doc-thumb grid-sheet" style="--tone:#9A4A0C"><div class="dh"></div><div class="dl"></div><div class="dl s"></div><div class="db"></div></div></div><div><div class="row between gap-2"><span class="faint t-xs">Administrative</span><span class="row gap-1"><span class="fmt xlsx">Excel</span></span></div><div style="font-weight:600;margin-top:6px">Budget worksheet</div><p class="muted t-sm mt-2" style="line-height:1.45">Monthly versus annual planner with live totals.</p></div></div>
-      <div class="card doc-card" data-size="sm"><div class="doc-stage"><div class="doc-thumb" style="--tone:#6244CC"><div class="dh"></div><div class="dl"></div><div class="dl s"></div><div class="db"></div></div></div><div><div class="row between gap-2"><span class="faint t-xs">Launch · Phase 4</span><span class="row gap-1"><span class="fmt pdf">PDF</span></span></div><div style="font-weight:600;margin-top:6px">Launch Sunday checklists</div><p class="muted t-sm mt-2" style="line-height:1.45">Six team checklists: setup, hospitality, worship, kids, connections, prayer.</p></div></div>
+      <div class="card doc-card" data-size="sm"><div class="doc-stage"><div class="doc-thumb" style="--tone:#825D57"><div class="dh"></div><div class="dl"></div><div class="dl s"></div><div class="db"></div></div></div><div><div class="row between gap-2"><span class="faint t-xs">Launch · Phase 4</span><span class="row gap-1"><span class="fmt pdf">PDF</span></span></div><div style="font-weight:600;margin-top:6px">Launch Sunday checklists</div><p class="muted t-sm mt-2" style="line-height:1.45">Six team checklists: setup, hospitality, worship, kids, connections, prayer.</p></div></div>
     </div>
 
     <div class="stack" style="gap:20px;position:sticky;top:100px">
@@ -3707,7 +3676,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
     <div class="phone-col">
       <div class="phone"><div class="phone-notch"></div><div class="phone-screen">
         <div class="row between"><button class="icon-btn" data-size="sm"><i class="hgi-stroke hgi-arrow-left-01"></i></button><div style="font-weight:600">Follow-up</div><span class="badge" data-size="sm" data-status="risk">22 h left</span></div>
-        <div style="text-align:center;margin-top:10px"><span class="avatar tone-magenta" data-size="lg" style="margin:0 auto">KW</span><div style="font-family:var(--ef-font-display);letter-spacing:-.02em;font-size:22px;margin-top:8px">Kim Wu</div><div class="faint t-sm">First visit Sunday · invited by Tom</div></div>
+        <div style="text-align:center;margin-top:10px"><span class="avatar tone-magenta" data-size="lg" style="margin:0 auto">KW</span><div style="font-family:var(--ef-font-title);letter-spacing:-.02em;font-size:22px;margin-top:8px">Kim Wu</div><div class="faint t-sm">First visit Sunday · invited by Tom</div></div>
         <div class="grid g-2 mt-3" style="gap:8px"><button class="btn" data-variant="primary"><i class="hgi-stroke hgi-call"></i>Call</button><button class="btn" data-variant="secondary"><i class="hgi-stroke hgi-message-01"></i>Text</button></div>
         <div class="faint t-xs mt-3" style="margin-bottom:6px">How did it go?</div>
         <div class="stack" style="gap:8px">
@@ -3945,7 +3914,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 <tr><td class="faint t-sm">Layout</td><td class="cell-title">Page header</td><td><code class="k">&lt;PageHeader&gt;</code></td><td class="muted t-sm">Breadcrumb, Title, Subtitle, Actions</td><td class="muted t-sm">size xl</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
 <tr><td class="faint t-sm">Layout</td><td class="cell-title">Breadcrumb</td><td><code class="k">&lt;Breadcrumb&gt;</code></td><td class="muted t-sm">Item, Separator</td><td class="muted t-sm"></td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
 <tr><td class="faint t-sm">Surfaces</td><td class="cell-title">Card</td><td><code class="k">&lt;Card&gt;</code></td><td class="muted t-sm">Header, Title, Description, Actions, Close, Body, ScrollArea, Footer, Inset</td><td class="muted t-sm">variant default/raised/flat/callout · size md/sm · tone</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">ScrollArea</span></td></tr>
-<tr><td class="faint t-sm">Surfaces</td><td class="cell-title">Insight card</td><td><code class="k">&lt;InsightCard&gt;</code></td><td class="muted t-sm">Pill, Count, Metric, Title, Text, Spark, Footer</td><td class="muted t-sm">tone field/sky/clay/sage/slate/rose · size</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
+<tr><td class="faint t-sm">Surfaces</td><td class="cell-title">Insight card</td><td><code class="k">&lt;InsightCard&gt;</code></td><td class="muted t-sm">Pill, Count, Metric, Title, Text, Spark, Footer</td><td class="muted t-sm">tone field/sky/sage/rose · size</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">none</span></td></tr>
 <tr><td class="faint t-sm">Actions</td><td class="cell-title">Button</td><td><code class="k">&lt;Button&gt;</code></td><td class="muted t-sm">Icon, Label</td><td class="muted t-sm">variant primary/brand/secondary/outline/ghost/light/glass/danger · size sm/md</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Button</span></td></tr>
 <tr><td class="faint t-sm">Actions</td><td class="cell-title">Icon button</td><td><code class="k">&lt;IconButton&gt;</code></td><td class="muted t-sm">Icon</td><td class="muted t-sm">variant default/soft/square · size</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Button</span></td></tr>
 <tr><td class="faint t-sm">Inputs</td><td class="cell-title">Field</td><td><code class="k">&lt;Field&gt;</code></td><td class="muted t-sm">Label, Control, Hint, Error</td><td class="muted t-sm">invalid</td><td><span class="tag tone-blue" style="height:22px;font-size:12px">Field</span></td></tr>
@@ -4472,7 +4441,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 
   <div id="ni-enough">
   <div class="grid" style="grid-template-columns: minmax(0,1.5fr) minmax(0,1fr); align-items:stretch; margin-bottom:20px">
-    <div class="insight" data-tone="sage" data-tone-pick data-on="ink" style="min-height:0">
+    <div class="insight" data-tone="sage" data-on="ink" style="min-height:0">
       <div class="insight-top"><span class="insight-pill"><i class="hgi-stroke hgi-sparkles"></i>Top network finding</span><span class="insight-count" id="ni-count">From 11 of 14 plants</span></div>
       <div class="insight-metric"><span class="num" id="ni-num">4 of 6</span><span class="unit" id="ni-unit">plants within a year of launch have a Concern on Emerging leadership</span></div>
       <div class="insight-title" id="ni-title">Emerging leadership is the most common gap before launch</div>
@@ -4599,8 +4568,6 @@ body[data-role="member"] [data-author-only] { display: none !important; }
   <div class="pp-opts" data-pp="role"><button data-v="owner" aria-pressed="true">Owner</button><button data-v="member" aria-pressed="false">Member · own tasks</button></div>
   <h4>Data</h4>
   <div class="pp-opts" data-pp="data"><button data-v="live" aria-pressed="true">Live</button><button data-v="firstweek" aria-pressed="false">First week</button><button data-v="loading" aria-pressed="false">Loading</button><button data-v="error" aria-pressed="false">Error</button><button data-v="noaccess" aria-pressed="false">No access</button><button data-v="empty" aria-pressed="false">Empty</button></div>
-  <h4>Fourth tone (temporary)</h4>
-  <div class="pp-opts" data-pp="tone4"><button data-v="sage" aria-pressed="true">Sage</button><button data-v="slate" aria-pressed="false">Storm slate</button><button data-v="rose" aria-pressed="false">Dusk rose</button></div>
   <p class="pp-note">Data states are drawn for Overview and People. Member view hides administration across the app. Tasks shows what a Member does on their own tasks.</p>
 </div>
 <!-- ================= BELL DROP-DOWN  <NotificationPopover> ================= -->
@@ -4635,7 +4602,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 <div class="modal" id="settings" data-open="false" role="dialog" aria-label="Settings" onclick="if (event.target === this) leaveSettings()">
   <div class="modal-panel">
     <nav class="modal-side">
-      <div style="font-family:var(--ef-font-display);letter-spacing:-.02em;font-size:22px;padding:4px 12px 14px">Settings</div>
+      <div style="font-family:var(--ef-font-title);letter-spacing:-.02em;font-size:22px;padding:4px 12px 14px">Settings</div>
       <a href="#/settings/church" data-settings-nav="church"><i class="hgi-stroke hgi-church"></i>Church profile</a>
       <a href="#/settings/seats" data-settings-nav="seats"><i class="hgi-stroke hgi-user-multiple"></i>Seats and invitations</a>
       <a href="#/settings/notifications" data-settings-nav="notifications"><i class="hgi hgi-stroke hgi-rounded hgi-bell"></i>Notifications</a>
@@ -4760,7 +4727,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 <aside class="evry-panel guide-panel" id="guide" data-open="false" data-kind="article" aria-label="Guide">
   <div class="evry-head">
     <span class="g-icon"><i class="hgi-stroke hgi-book-open-02"></i></span>
-    <div class="grow"><div style="font-family:var(--ef-font-display);letter-spacing:-.02em;font-size:19px;font-weight:400">Guide</div><div style="font-size:12px;color:var(--ef-text-3)" id="guide-sub">For this page</div></div>
+    <div class="grow"><div style="font-family:var(--ef-font-title);letter-spacing:-.02em;font-size:19px;font-weight:400">Guide</div><div style="font-size:12px;color:var(--ef-text-3)" id="guide-sub">For this page</div></div>
     <a class="icon-btn" data-size="sm" title="Open in Wiki" id="guide-open-wiki" href="#/wiki" onclick="closeGuide()"><i class="hgi-stroke hgi-arrow-up-right-01"></i></a>
     <button class="icon-btn" data-size="sm" title="Close (Esc)" onclick="closeGuide()"><i class="hgi-stroke hgi-cancel-01"></i></button>
   </div>
@@ -4862,7 +4829,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 <aside class="evry-panel" id="evry" data-open="false" aria-label="Evry">
   <div class="evry-head">
     <span class="evry-bot" data-size="lg" data-mood="idle" data-follow id="evry-head-bot" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span>
-    <div class="grow"><div style="font-family:var(--ef-font-display);letter-spacing:-.02em;font-size:19px;font-weight:400">Evry</div><div style="font-size:12px;color:var(--ef-text-3)">Reads and drafts. You approve every change.</div></div>
+    <div class="grow"><div style="font-family:var(--ef-font-title);letter-spacing:-.02em;font-size:19px;font-weight:400">Evry</div><div style="font-size:12px;color:var(--ef-text-3)">Reads and drafts. You approve every change.</div></div>
     <button class="icon-btn" data-size="sm" title="History" onclick="const p=document.getElementById('evry'); p.dataset.view = p.dataset.view === 'history' ? 'chat' : 'history'"><i class="hgi-stroke hgi-clock-01"></i></button>
     <button class="icon-btn" data-size="sm" title="Close (Esc)" onclick="closeEvry()"><i class="hgi-stroke hgi-cancel-01"></i></button>
   </div>
@@ -5319,18 +5286,10 @@ document.getElementById('preview-pop').addEventListener('click', e => {
   const b = e.target.closest('.pp-opts button'); if (!b) return;
   const key = b.parentElement.dataset.pp;
   b.parentElement.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
-  if (key === 'tone4') { setTone4(b.dataset.v); return; }
   document.body.dataset[key] = b.dataset.v;
   document.getElementById('preview-val').textContent = PREVIEW_LABEL[document.body.dataset.role] + ' · ' + PREVIEW_LABEL[document.body.dataset.data];
   const el = document.querySelector('.page[data-active="true"]'); if (el) staggerReveal(el);
 });
-/* Fourth-tone candidates (temporary): the cards that used sand show the chosen candidate. */
-function setTone4(t) {
-  document.querySelectorAll('.insight[data-tone-pick]').forEach(c => c.dataset.tone = t);
-  document.querySelectorAll('[data-pp="tone4"] button').forEach(x => x.setAttribute('aria-pressed', x.dataset.v === t));
-  try { localStorage.setItem('ef-tone4', t); } catch (e) {}
-}
-setTone4((() => { try { const t = localStorage.getItem('ef-tone4'); if (['sage', 'slate', 'rose'].includes(t)) return t; } catch (e) {} })() || 'sage');
 document.addEventListener('click', e => { if (!e.target.closest('#preview-pop, #preview-btn')) { document.getElementById('preview-pop').dataset.open = 'false'; document.getElementById('preview-btn').setAttribute('aria-expanded', 'false'); } });
 
 
