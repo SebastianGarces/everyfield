@@ -13,6 +13,7 @@ import {
 	parseTask,
 	partsOf,
 	pathsForPart,
+	recordedPathsFor,
 	readJson,
 	run,
 } from "./lib.ts";
@@ -78,7 +79,7 @@ export function reviewedMilestone(root: string, record: ShippedRecord): boolean 
 	)
 		return false;
 	if (!gitOk(root, "merge-base", "--is-ancestor", record.merge_commit, baseRef(root, cfg))) return false;
-	const paths = pathsForPart(findPackage(loadDag(root), task.wp), task.part);
+	const paths = recordedPathsFor(findPackage(loadDag(root), task.wp), task.part);
 	const tested = git(root, "diff", "--binary", record.base_sha, record.verified_head, "--", ...paths);
 	return (
 		!!tested && tested === git(root, "diff", "--binary", `${record.merge_commit}^`, record.merge_commit, "--", ...paths)
@@ -88,9 +89,8 @@ export function producerReady(root: string, wp: string): boolean {
 	const path = join(root, "docs/build-progress.json");
 	const p = existsSync(path) ? readJson<Progress>(path).packages[wp] : undefined;
 	if (p?.status === "done") return true;
-	const pkg = findPackage(loadDag(root), wp),
-		parts = partsOf(pkg);
-	const anchor = parts.includes("contract") ? "contract" : parts.includes("api") ? "api" : null;
+	const pkg = findPackage(loadDag(root), wp);
+	const anchor = partsOf(pkg).includes("api") ? "api" : null;
 	const task = anchor ? `${wp}/${anchor}` : wp,
 		record = retained(root, task);
 	if (record?.acknowledged && reviewedMilestone(root, record)) return true;
@@ -108,7 +108,7 @@ export function producerReady(root: string, wp: string): boolean {
 export function recordProgress(root: string, record: ShippedRecord, acknowledged: boolean): boolean {
 	const wp = record.package_id;
 	if (wp === null) return false; // Feedback and upkeep do not complete build packages.
-	const paths = pathsForPart(findPackage(loadDag(root), wp), record.part);
+	const paths = recordedPathsFor(findPackage(loadDag(root), wp), record.part);
 	if (!git(root, "diff", "--binary", record.base_sha, record.verified_head, "--", ...paths)) return false;
 	if (!reviewedMilestone(root, record)) fail("Progress requires an independently reviewed, integrated shipped record.");
 	updateProgress(root, (progress) => {

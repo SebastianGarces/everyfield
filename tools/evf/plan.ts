@@ -29,7 +29,7 @@ type Block = {
 	acceptanceCount: number;
 };
 
-const SHARE: Record<string, number> = { contract: 0.2, api: 0.5, ui: 0.3 };
+const SHARE: Record<string, number> = { api: 0.7, ui: 0.3 };
 
 function keyOf(wp: string, part: Part): string {
 	return part ? `${wp.toLowerCase()}-${part}` : wp.toLowerCase();
@@ -74,7 +74,7 @@ export function buildBlocks(root: string, pkgs: Package[]): { blocks: Block[]; e
 	const finalKeys = new Map(
 		pkgs.map((p) => [
 			p.id,
-			[keyOf(p.id, partsOf(p).includes("contract") ? "contract" : partsOf(p).includes("api") ? "api" : null)],
+			[keyOf(p.id, partsOf(p).includes("api") ? "api" : null)],
 		]),
 	);
 	const blocks: Block[] = [];
@@ -93,14 +93,7 @@ export function buildBlocks(root: string, pkgs: Package[]): { blocks: Block[]; e
 				if (inSet.has(dep)) dependsOn.push(...(finalKeys.get(dep) ?? []));
 				else external.add(dep);
 			}
-			if (part === "api" || part === "ui") {
-				const anchor = parts.includes("contract")
-					? keyOf(pkg.id, "contract")
-					: part === "ui"
-						? keyOf(pkg.id, "api")
-						: null;
-				if (anchor) dependsOn.push(anchor);
-			}
+			if (part === "ui") dependsOn.push(keyOf(pkg.id, "api"));
 			const ui = part === "ui" || (part === null && pkg.owning_paths.every(isUiPath));
 			blocks.push({
 				key,

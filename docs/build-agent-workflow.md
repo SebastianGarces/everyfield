@@ -10,8 +10,10 @@ Task notes hold progress and blockers. Owners never submit manual progress patch
 3. Transfer evf's exact generated progress into one reviewed OPS worktree per coordinator round.
    Restore the root's committed progress after transfer. Use the normal CI and review flow.
 
-Split packages expose their contract first, or API when no contract exists. A merged part leaves
-the package in_progress. Feedback and maintenance do not complete build packages.
+Split packages ship an api part, then a ui part. The api part builds the package's contract first.
+The merged api part unlocks dependents and the ui part. A merged part leaves the package
+in_progress. Contract milestones shipped before this rule stay valid records. Feedback and
+maintenance do not complete build packages.
 
 Full-target WP-056/WP-057 integration verifies every closing package's behavior and gates.
 Its verifier may include `"packageClosures":["WP-NNN"]` in the exact-head EVF-Review record.
