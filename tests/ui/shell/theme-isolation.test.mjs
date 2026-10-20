@@ -1,7 +1,7 @@
 // BUG-PR83: browser Back must retain the theme selected before leaving the product page.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { BASE, ENGINES, withPage } from "../setup.mjs";
+import { BASE, ENGINES, hydrated, withPage } from "../setup.mjs";
 
 for (const [name, engine] of ENGINES) {
 	test(`BUG-PR83 (${name}): Back to a cached product page keeps the theme chosen there`, { timeout: 60_000 }, () =>
@@ -13,6 +13,8 @@ for (const [name, engine] of ENGINES) {
 				}));
 
 			await page.goto(BASE + "/design/shell/owner");
+			// A click before hydration reaches markup without its handler (flaky WebKit run on the UI round).
+			await hydrated(page);
 			await page.getByRole("radio", { name: "Dark mode" }).click();
 			assert.deepEqual(await themes(), { html: "dark", root: "dark" }, "the switch selects dark");
 
