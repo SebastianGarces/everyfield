@@ -1686,6 +1686,9 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 .ramp[data-size="lg"] div { flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 2px; font-weight: 600; }
 .ramp[data-size="lg"] span { font-weight: 400; }
 .brand-tile { border-radius: var(--corner-media); height: 210px; display: grid; place-items: center; }
+/* Brand specimens are fixed artwork: they pin the brand tokens, so they look the same in both themes.
+   Only the page chrome around them (cards, labels, captions) follows the theme. */
+.brand-fixed { --ef-ink: #181D19; --ef-green: #1AF197; --ef-cream: #F6F0E9; --ef-green-700: #0B5C38; --ef-green-500: #1AF197; --ef-green-300: #80F3B3; --ef-green-100: #CAFBDC; }
 .inventory td code { font-size: 12px; }
 .anatomy { position: relative; }
 .anatomy [data-slot] { outline: 1.5px dashed rgba(47,85,228,.45); outline-offset: 3px; border-radius: 6px; position: relative; }
@@ -1784,18 +1787,18 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 
   <div class="doc-section">
     <div class="doc-h"><h2>Logo</h2><code>#ef-mark · #ef-wordmark · #ef-lockup</code></div>
-    <div class="grid g-3">
+    <div class="grid g-3 brand-fixed">
       <div class="brand-tile" style="background:var(--ef-ink);color:var(--ef-cream)"><svg viewBox="0 0 1308 241" width="260" aria-label="Everyfield"><use href="#ef-lockup"/></svg></div>
       <div class="brand-tile" style="background:var(--ef-green);color:var(--ef-ink)"><svg viewBox="0 0 1308 241" width="260" aria-label="Everyfield"><use href="#ef-lockup"/></svg></div>
       <div class="brand-tile" style="background:var(--ef-cream);color:var(--ef-ink);box-shadow:var(--ef-shadow-card)"><svg viewBox="0 0 1308 241" width="260" aria-label="Everyfield"><use href="#ef-lockup"/></svg></div>
     </div>
-    <div class="row gap-6 mt-4 muted t-sm"><span>In the app: ink mark, no background (top bar). Chips below are for avatars, favicons and social images.</span><span class="row gap-2"><span class="logo-chip"><svg viewBox="0 0 340 340" style="color:var(--ef-green)"><use href="#ef-mark"/></svg></span><span class="logo-chip" style="background:var(--ef-green)"><svg viewBox="0 0 340 340" style="color:var(--ef-ink)"><use href="#ef-mark"/></svg></span><span class="logo-chip" style="background:var(--ef-cream)"><svg viewBox="0 0 340 340" style="color:var(--ef-ink)"><use href="#ef-mark"/></svg></span></span></div>
+    <div class="row gap-6 mt-4 muted t-sm"><span>In the app: ink mark, no background (top bar). Chips below are for avatars, favicons and social images.</span><span class="row gap-2 brand-fixed"><span class="logo-chip"><svg viewBox="0 0 340 340" style="color:var(--ef-green)"><use href="#ef-mark"/></svg></span><span class="logo-chip" style="background:var(--ef-green)"><svg viewBox="0 0 340 340" style="color:var(--ef-ink)"><use href="#ef-mark"/></svg></span><span class="logo-chip" style="background:var(--ef-cream)"><svg viewBox="0 0 340 340" style="color:var(--ef-ink)"><use href="#ef-mark"/></svg></span></span></div>
   </div>
 
   <div class="doc-section">
     <div class="doc-h"><h2>Brand colors</h2><code>--ef-ink · --ef-green · --ef-cream</code></div>
     <p class="doc-note">The app runs on neutral greys so the data hues and the gradient cards stand out. Ink #181D19 carries the brand inside the app. New-growth is for the logo, the field card and rare brand moments; it is never text. Cream is for the landing page, marketing, print and text on ink or photos, never for app surfaces.</p>
-    <div class="grid g-3">
+    <div class="grid g-3 brand-fixed">
       <div class="swatch"><div class="chipc" style="background:#181D19"></div><div class="info"><b>Ink</b><span>#181D19 · text, active nav, primary button</span></div></div>
       <div class="swatch"><div class="chipc" style="background:#1AF197"></div><div class="info"><b>New-growth</b><span>#1AF197 · logo, brand moments and the green 500 step</span></div></div>
       <div class="swatch"><div class="chipc" style="background:#F6F0E9"></div><div class="info"><b>Cream</b><span>#F6F0E9 · brand and marketing only, glow in gradients</span></div></div>
@@ -1824,7 +1827,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
   <div class="doc-section">
     <div class="doc-h"><h2>Muted palette</h2><code>--ef-green · --ef-{sky|sage|rose}-{100|300|500|700}</code></div>
     <p class="doc-note">New-growth is the fixed brand color and the field card. The other colors come from the field photos and are muted in OKLCH, so they sit next to new-growth without competing with it. They paint the gradient cards and the two category hues. They are not status colors. 100 is the pale tint, 300 the light step, 500 the photo color and 700 the deep step, which is safe for text on white, cream and the frame. On dark surfaces, use 300 for text.</p>
-    <div class="grid g-2">
+    <div class="grid g-2 brand-fixed">
       <div class="specimen"><div class="specimen-label"><b style="color:var(--ef-text);font-weight:600">Field</b>new-growth, the fixed brand color</div>
         <div class="ramp" data-size="lg" style="grid-template-columns:repeat(4,1fr)"><div style="background:#0B5C38;color:#F6F0E9">700<span>#0B5C38</span></div><div style="background:#1AF197;color:#181D19">500<span>#1AF197</span></div><div style="background:#80F3B3;color:#181D19">300<span>#80F3B3</span></div><div style="background:#CAFBDC;color:#181D19">100<span>#CAFBDC</span></div></div></div>
       <div class="specimen"><div class="specimen-label"><b style="color:var(--ef-text);font-weight:600">Sky</b>the open sky over the field</div>
@@ -1839,7 +1842,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
   <div class="doc-section">
     <div class="doc-h"><h2>Gradients</h2><code>&lt;InsightCard tone&gt;</code></div>
     <p class="doc-note">The gradient card is the signature surface. Colors from the muted palette are mixed in OKLCH, blurred, lit by one small highlight and covered with film grain. Use at most two per page, and only for one finding the person should act on. <b>Field</b> is new-growth, for the default and for growth. <b>Sky</b> is the muted blue, for neutral findings. <b>Sage</b> is the muted hill green, for the most important summary on a page. <b>Rose</b> is the muted sunset pink, for risk and findings that need attention. All tones carry ink text and look the same in both themes.</p>
-    <div class="grid g-4">
+    <div class="grid g-4 brand-fixed">
       <div class="insight" data-tone="field" data-on="ink" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-plant-01"></i>field</div><div class="insight-title">Default and growth</div></div>
       <div class="insight" data-tone="sky" data-on="ink" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-sparkles"></i>sky</div><div class="insight-title">Neutral finding</div></div>
       <div class="insight" data-tone="sage" data-on="ink" data-size="sm" style="min-height:170px"><div class="insight-pill" style="align-self:flex-start"><i class="hgi-stroke hgi-chart-line-data-01"></i>sage</div><div class="insight-title">Key summary</div></div>
