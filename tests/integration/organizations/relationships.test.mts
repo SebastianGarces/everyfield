@@ -241,6 +241,8 @@ test("INV-relationships: invitation rotation, duplicate intents, decline, revoke
 		i = await invite(pa, o, oa.email),
 		old = S.proofs.get(i.invitationId);
 	await assert.rejects(invite(pa, o, oa.email), /pending_invitation/);
+	// BUG-wp007-writes: the same address for another organization while one request waits is a refusal, not a database error.
+	await assert.rejects(invite(pa, await S.tenant("sending_network"), oa.email), /address_pending/);
 	await assert.rejects(
 		S.call("associations.resendInvitation", pa, S.command({ invitationId: i.invitationId })),
 		/resend_cooldown/,

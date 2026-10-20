@@ -120,6 +120,8 @@ const inviteFacts = z.object({
 	now: z.coerce.date(),
 	recent: z.number().int(),
 	pending: z.boolean(),
+	/** This subject already has a pending request out to this address (unique per tenant and address). */
+	address_pending: z.boolean(),
 	active_pair: z.boolean(),
 	pair_live: z.boolean(),
 	subject_authority: z.boolean(),
@@ -178,6 +180,7 @@ export function relationshipCommands(
 		(SELECT count(*)::int FROM invitation WHERE recipient_email=${q.input.recipientEmail} AND created_at>clock_timestamp()-interval '30 days') AS recent,
 		EXISTS(SELECT FROM invitation i JOIN relationship_invitation ON relationship_invitation.invitation_id=i.id
 			WHERE ${pairMatch(tables.relationship_invitation, pair)} AND i.state='pending' AND i.created_at>clock_timestamp()-interval '30 days') AS pending,
+		EXISTS(SELECT FROM invitation WHERE tenant_id=${subject.id} AND recipient_email=${q.input.recipientEmail} AND state='pending') AS address_pending,
 		coalesce((SELECT bool_or(ended_at IS NULL) FROM a),false) AS active_pair,
 		${pairLive(pair)} AS pair_live,${discoveryAuthority(pair)} AS subject_authority,
 		${subject.kind === "account" ? sql`relationship_inviter_name(${session})` : sql`NULL`} AS inviter_name`,
@@ -191,6 +194,8 @@ export function relationshipCommands(
 			if (facts.active_pair) refuse("already_active");
 			if (facts.recent >= 3) refuse("invitation_limit");
 			if (facts.pending) refuse("pending_invitation");
+			// One pending request per subject and address (invitation_uq_1): refuse instead of failing the insert.
+			if (facts.address_pending) refuse("address_pending");
 			const id = randomUUID(),
 				expiry = new Date(facts.now.getTime() + 30 * DAY).toISOString(),
 				proof = randomBytes(32).toString("base64url");
