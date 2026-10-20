@@ -12,9 +12,8 @@ permissions:
   contents: read
   pull-requests: read
 
-concurrency:
-  group: pr-body-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+# Every event must finish its required check, including edits on the same head.
+# A concurrency group can cancel running or pending duplicates and leave a cancelled check.
 
 jobs:
   pr-body:
