@@ -1,17 +1,18 @@
-import { auditSavepoint } from "../operations/writes.ts";
-import { setAuditDetails } from "../operations/writes.ts";
+import { writeActor } from "./core.ts";
 import { alias } from "@everyfield/db/columns";
-import { getTableColumns, and, eq, gt, isNull, sql } from "@everyfield/db/query";
+import { and, eq, getTableColumns, gt, isNull, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
+import { auditSavepoint, setAuditDetails } from "../operations/writes.ts";
 
-import { randomBytes, timingSafeEqual } from "node:crypto";
-import type { Transaction } from "@everyfield/db/client";
-import { z } from "zod";
-import { recordId, accountId, tenantId, revision, type Owner, type sessionId } from "@everyfield/contracts/common";
-import * as Q from "@everyfield/contracts/organizations";
+import { accountId, recordId, revision, tenantId, type Owner, type sessionId } from "@everyfield/contracts/common";
 import type { OrganizationAdapter, RelationshipPair } from "@everyfield/contracts/organizations";
+import * as Q from "@everyfield/contracts/organizations";
+import type { Transaction } from "@everyfield/db/client";
+import { randomBytes, timingSafeEqual } from "node:crypto";
+import { z } from "zod";
 import {
 	administrator,
+	affiliationSchema,
 	appendEvent,
 	beginCommand,
 	checkRevision,
@@ -20,10 +21,8 @@ import {
 	finishCommand,
 	hash,
 	invalidate,
-	loadAffiliation,
-	affiliationSchema,
 	liveOwner,
-	lock,
+	loadAffiliation,
 	pairOf,
 	projection,
 	refuse,
@@ -174,8 +173,7 @@ export function relationshipCommands(
 		return auditSavepoint(tx, async () => {
 			const q = Q.inviteRelationshipRequest.parse(raw),
 				pair = q.input.pair;
-			await lock(tx, "pair/" + JSON.stringify(endpointValues(pair)));
-			const actor = await currentActor(tx, session, selected);
+			const actor = await writeActor(tx, session, selected);
 			if (actor.status !== "active" || !(await subjectAuthority(tx, actor, pair)) || !(await validPair(tx, pair)))
 				refuse();
 			const c = await beginCommand(tx, actor, selected, "associations.invite", q);
@@ -187,7 +185,21 @@ export function relationshipCommands(
 			);
 			checkRevision(q.expectedRevision, revision.parse(root.rows[0]?.revision));
 			if ((await findPair(tx, pair))?.ended_at === null) refuse("already_active");
-			await lock(tx, "invite-address/" + q.input.recipientEmail);
+			// A real address-budget row serializes cross-workspace invitation admission.
+			const addressKey = hash("relationship-address/" + q.input.recipientEmail),
+				addressId =
+					addressKey.slice(0, 8) +
+					"-" +
+					addressKey.slice(8, 12) +
+					"-" +
+					addressKey.slice(12, 16) +
+					"-" +
+					addressKey.slice(16, 20) +
+					"-" +
+					addressKey.slice(20, 32);
+			await tx.execute(
+				sql`INSERT INTO admission_attempt(id,kind,identifier_hash,workspace_key,reserved_at,state,expires_at) VALUES(${addressId}::uuid,'relationship_invite',${addressKey},'relationship-address',clock_timestamp(),'counted',clock_timestamp()+interval '720 hours') ON CONFLICT(id) DO UPDATE SET expires_at=greatest(admission_attempt.expires_at,excluded.expires_at)`,
+			);
 			const limit = await tx
 				.select({ count: sql<number>`(count(*))::int` })
 				.from(tables.invitation)
@@ -242,7 +254,7 @@ export function relationshipCommands(
 				inviter_description: description,
 				subject_revision: q.expectedRevision,
 			});
-			const event = await appendEvent(tx, c, id, "create", null, "0", "1");
+			await appendEvent(tx, c, id, "create", null, "0", "1");
 			await effects.invitation(tx, {
 				invitationId: id,
 				owner: subject,
@@ -252,20 +264,15 @@ export function relationshipCommands(
 				expiresAt: expiry,
 				operationId: c.id,
 			});
-			return finishCommand(
-				tx,
-				c,
-				(r) =>
-					Q.invitationResult.parse({
-						status: "pending",
-						invitationId: id,
-						pair,
-						revision: "1",
-						expiresAt: expiry,
-						inviterDescription: description,
-						receipt: r,
-					}),
-				[event],
+			return finishCommand(tx, c, () =>
+				Q.invitationResult.parse({
+					status: "pending",
+					invitationId: id,
+					pair,
+					revision: "1",
+					expiresAt: expiry,
+					inviterDescription: description,
+				}),
 			);
 		});
 	}
@@ -287,8 +294,7 @@ export function relationshipCommands(
 			const i = await loadInvitation(tx, q.input.invitationId);
 			if (!i) refuse();
 			const pair = pairFor(i);
-			await lock(tx, "pair/" + JSON.stringify(endpointValues(pair)));
-			const actor = await currentActor(tx, session, selected);
+			const actor = await writeActor(tx, session, selected);
 			if (
 				actor.status !== "active" ||
 				!(await validPair(tx, pair)) ||
@@ -322,13 +328,8 @@ export function relationshipCommands(
 				})
 				.where(eq(tables.invitation.id, i.id));
 			if (!accept) {
-				const event = await appendEvent(tx, c, i.id, "remove", null, i.revision, String(BigInt(i.revision) + 1n));
-				return finishCommand(
-					tx,
-					c,
-					(r) => Q.invitationDecisionResult.parse({ status: "declined", invitationId: i.id, receipt: r }),
-					[event],
-				);
+				await appendEvent(tx, c, i.id, "remove", null, i.revision, String(BigInt(i.revision) + 1n));
+				return finishCommand(tx, c, () => Q.invitationDecisionResult.parse({ status: "declined", invitationId: i.id }));
 			}
 			let a = await findPair(tx, pair);
 			if (a?.ended_at === null) refuse("already_active");
@@ -383,11 +384,8 @@ export function relationshipCommands(
 				revision: a.revision,
 				operationId: c.id,
 			});
-			return finishCommand(
-				tx,
-				c,
-				(r) => Q.invitationDecisionResult.parse({ status: "accepted", relationship: projection(a), receipt: r }),
-				[event],
+			return finishCommand(tx, c, () =>
+				Q.invitationDecisionResult.parse({ status: "accepted", relationship: projection(a) }),
 			);
 		});
 	}
@@ -403,7 +401,7 @@ export function relationshipCommands(
 				i = await loadInvitation(tx, q.input.invitationId);
 			if (!i) refuse();
 			const pair = pairFor(i),
-				actor = await currentActor(tx, session, selected);
+				actor = await writeActor(tx, session, selected);
 			if (actor.status !== "active" || !(await subjectAuthority(tx, actor, pair)) || !(await validPair(tx, pair)))
 				refuse();
 			const c = await beginCommand(
@@ -427,8 +425,8 @@ export function relationshipCommands(
 						revision: sql<unknown>`(${tables.invitation.revision} + 1)`,
 					})
 					.where(eq(tables.invitation.id, i.id));
-				const event = await appendEvent(tx, c, i.id, "revoke", "invitation.revoked", i.revision, next);
-				return finishCommand(tx, c, (r) => Q.mutationResult.parse({ status: "committed", receipt: r }), [event]);
+				await appendEvent(tx, c, i.id, "revoke", "invitation.revoked", i.revision, next);
+				return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
 			}
 			if (now.getTime() - (i.resent_at ?? i.created_at).getTime() < 60000) refuse("resend_cooldown");
 			const proof = randomBytes(32).toString("base64url"),
@@ -441,7 +439,7 @@ export function relationshipCommands(
 					revision: sql<unknown>`(${tables.invitation.revision} + 1)`,
 				})
 				.where(eq(tables.invitation.id, i.id));
-			const event = await appendEvent(tx, c, i.id, "resend", null, i.revision, next);
+			await appendEvent(tx, c, i.id, "resend", null, i.revision, next);
 			await effects.invitation(tx, {
 				invitationId: i.id,
 				owner: subjectOwner(pair),
@@ -451,20 +449,15 @@ export function relationshipCommands(
 				expiresAt,
 				operationId: c.id,
 			});
-			return finishCommand(
-				tx,
-				c,
-				(r) =>
-					Q.invitationResult.parse({
-						status: "pending",
-						invitationId: i.id,
-						pair,
-						revision: next,
-						expiresAt,
-						inviterDescription: i.inviter_description,
-						receipt: r,
-					}),
-				[event],
+			return finishCommand(tx, c, () =>
+				Q.invitationResult.parse({
+					status: "pending",
+					invitationId: i.id,
+					pair,
+					revision: next,
+					expiresAt,
+					inviterDescription: i.inviter_description,
+				}),
 			);
 		});
 	}
@@ -486,9 +479,8 @@ export function relationshipCommands(
 					.where(eq(tables.discovery.account_id, q.input.pair.accountId))
 					.for("update");
 			}
-			await lock(tx, "pair/" + JSON.stringify(endpointValues(q.input.pair)));
 			const a = await loadAffiliation(tx, q.input.relationshipId, true),
-				actor = await currentActor(tx, session, selected);
+				actor = await writeActor(tx, session, selected);
 			if (
 				!a ||
 				actor.status !== "active" ||
@@ -502,8 +494,7 @@ export function relationshipCommands(
 				refuse();
 			const c = await beginCommand(tx, actor, selected, "associations.end", q);
 			if (c.kind === "replay") return Q.mutationResult.parse(c.result);
-			if (a.ended_at !== null)
-				return finishCommand(tx, c, (r) => Q.mutationResult.parse({ status: "committed", receipt: r }), [], false);
+			if (a.ended_at !== null) return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
 			checkRevision(q.expectedRevision, a.revision);
 			await tx
 				.update(tables.affiliation)
@@ -524,7 +515,7 @@ export function relationshipCommands(
 				revision: next,
 				operationId: c.id,
 			});
-			return finishCommand(tx, c, (r) => Q.mutationResult.parse({ status: "committed", receipt: r }), [event]);
+			return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
 		});
 	}
 	return {
@@ -541,7 +532,7 @@ export function relationshipCommands(
 }
 
 const invitationDetailRequest = z.strictObject({ invitationId: recordId, proof: z.string().min(1).max(4096) });
-const pendingInvitation = Q.invitationResult.omit({ receipt: true });
+const pendingInvitation = Q.invitationResult.omit({});
 
 /**
  * Bounded invitation-detail read for the native answer page (WP-007/ui ruling D48). Before any detail leaves, it

@@ -1,14 +1,14 @@
-import { type AuditWrite, setAuditDetails } from "../operations/writes.ts";
-import { currentActor, liveOwner } from "../access/session.ts";
-import { randomUUID } from "node:crypto";
-import { z } from "zod";
+import { accountId, owner, revision as revisionId, tenantId } from "@everyfield/contracts/common";
+import * as c from "@everyfield/contracts/onboarding";
+import { organizationOwner, plantOwner, sharingChoices } from "@everyfield/contracts/organizations";
 import { and, eq, isNull, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
-import * as c from "@everyfield/contracts/onboarding";
-import { accountId, tenantId, owner, revision as revisionId } from "@everyfield/contracts/common";
-import { sharingChoices, organizationOwner, plantOwner } from "@everyfield/contracts/organizations";
-import { accountPersonProducer } from "../people/index.ts";
+import { randomUUID } from "node:crypto";
+import { z } from "zod";
+import { currentActor, liveOwner } from "../access/session.ts";
+import { setAuditDetails, type AuditWrite } from "../operations/writes.ts";
 import { choices, loadAffiliations, pairOf, type OrganizationEffects } from "../organizations/core.ts";
+import { accountPersonProducer } from "../people/index.ts";
 import { recordCreationEntry } from "../phases/creation-entry/index.ts";
 import {
 	actor,
@@ -21,9 +21,9 @@ import {
 	reply,
 	revision,
 	seatless,
+	type NewCommand,
 	type Tx,
 	type WriteContext,
-	type NewCommand,
 } from "./core.ts";
 import { ownReading } from "./reading.ts";
 
@@ -132,11 +132,8 @@ async function provision(
 		.update(t.account)
 		.set({ registration_state: "active", revision: sql`${t.account.revision}+1` })
 		.where(eq(t.account.id, account.id));
-	const events = [
-		creation.eventId,
-		await event(tx, cx, plantId, "plant.created", "create"),
-		await event(tx, cx, seat!.id, "membership.created", "create"),
-	];
+	await event(tx, cx, plantId, "plant.created", "create");
+	await event(tx, cx, seat!.id, "membership.created", "create");
 	return {
 		plant: plantOwner.parse({ kind: "plant", id: plantId }),
 		revision: "1",
@@ -144,7 +141,6 @@ async function provision(
 		currentPhase: 1,
 		ownerSeat: { seatId: seat!.id, role: "owner", personId: linked.value.personId },
 		creation,
-		events,
 	};
 }
 async function currentCreation<
@@ -196,12 +192,11 @@ export function creation(effects: OnboardingEffects) {
 					},
 					cx,
 				);
-				const { events, ...facts } = result;
-				return finish(tx, cx, events, c.createPlantResult, (receipt) => ({
+				const facts = result;
+				return finish(tx, cx, c.createPlantResult, () => ({
 					status: "created",
 					...facts,
 					initialSharing: off,
-					receipt,
 				}));
 			});
 		},
@@ -240,8 +235,7 @@ export function creation(effects: OnboardingEffects) {
 						.set({ registration_state: "active", revision: sql`${t.account.revision}+1` })
 						.where(eq(t.account.id, a.account.id)),
 				);
-
-				const id = await event(tx, cx, d!.id, "identity.domain_accepted", "create");
+				await event(tx, cx, d!.id, "identity.domain_accepted", "create");
 				await effects.enqueue(
 					tx,
 					{
@@ -254,10 +248,9 @@ export function creation(effects: OnboardingEffects) {
 					cx,
 				);
 				const savedProfile = await profile(tx, a.account.id, d!);
-				return finish(tx, cx, [id], c.createDiscoveryResult, (receipt) => ({
+				return finish(tx, cx, c.createDiscoveryResult, () => ({
 					status: "active",
 					profile: savedProfile,
-					receipt,
 				}));
 			});
 		},
@@ -301,10 +294,10 @@ export function creation(effects: OnboardingEffects) {
 					revision(selection.expectedConsentRevision, old.consent_revision);
 					selected.push({ old, selection });
 				}
-				const result = await provision(tx, cx, a.account, q.input, a.principal.display_name),
-					relationships: z.infer<typeof c.conversionRelationship>[] = [],
-					events = [...result.events],
-					notices: Parameters<OrganizationEffects["notice"]>[1][] = [];
+				const result = await provision(tx, cx, a.account, q.input, a.principal.display_name);
+				const relationships: z.infer<typeof c.conversionRelationship>[] = [];
+
+				const notices: Parameters<OrganizationEffects["notice"]>[1][] = [];
 				const newLinks = selected.length
 					? await tx
 							.insert(t.affiliation)
@@ -328,7 +321,7 @@ export function creation(effects: OnboardingEffects) {
 				for (const { old, selection } of selected) {
 					const link = newLinks.find((link) => link.organization_id === old.organization_id)!;
 					const id = await event(tx, cx, link!.id, "affiliation.approved", "accept");
-					events.push(id);
+
 					setAuditDetails(
 						cx,
 						id,
@@ -370,7 +363,7 @@ export function creation(effects: OnboardingEffects) {
 					);
 				for (const old of links) {
 					const id = await event(tx, cx, old.id, "affiliation.ended", "remove");
-					events.push(id);
+
 					const original = { ...old, revision: revisionId.parse(String(BigInt(old.revision) + 1n)) };
 					setAuditDetails(cx, id, { pair: pairOf(original), sourceInvitationId: null }, null);
 					notices.push({
@@ -404,7 +397,7 @@ export function creation(effects: OnboardingEffects) {
 					})
 					.where(eq(t.discovery.id, d.id))
 					.returning();
-				events.push(await event(tx, cx, d.id, "identity.domain_accepted", "retire"));
+				await event(tx, cx, d.id, "identity.domain_accepted", "retire");
 				await effects.enqueue(
 					tx,
 					{
@@ -416,16 +409,15 @@ export function creation(effects: OnboardingEffects) {
 					},
 					cx,
 				);
-				const { events: _, ...facts } = result;
-				void _;
-				return finish(tx, cx, events, c.convertDiscoveryResult, (receipt) => ({
+				const facts = result;
+
+				return finish(tx, cx, c.convertDiscoveryResult, () => ({
 					status: "converted",
 					...facts,
 					discoveryId: d.id,
 					convertedAt: converted!.converted_at!.toISOString(),
 					relationships,
 					documentProposals: [],
-					receipt,
 				}));
 			});
 		},

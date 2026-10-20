@@ -22,7 +22,6 @@ import { PeopleReadContext } from "./core.ts";
 import type { sessionId } from "@everyfield/contracts/common";
 import type { Tx, Context } from "./core.ts";
 import { openDuties } from "./people.ts";
-import { pipelineMetrics } from "./metrics.ts";
 const task_t = alias(tables.task, "t");
 const plant_p = alias(tables.plant, "p");
 const obligation_o = alias(tables.obligation, "o");
@@ -324,9 +323,6 @@ export const peopleReader: PeopleReader<Tx> = {
 			});
 		});
 	},
-	async readPipelineMetrics(tx, ctx, raw) {
-		return readReply(() => pipelineMetrics(tx, ctx, raw));
-	},
 };
 export async function getAccountLink(tx: Tx, ctx: Context, raw: unknown) {
 	return readReply(async () => {
@@ -364,7 +360,7 @@ export async function readPeopleViewer(tx: Tx, session: z.infer<typeof sessionId
 	if (!(authority instanceof RequestActor)) return { status: "no_access" } as const;
 	const actor = authority.actor;
 	if (actor.context.kind !== "seat" || actor.context.owner.kind !== "plant") return { status: "no_access" } as const;
-	const summary = await getViewerSummary(tx, new PeopleReadContext(authority, "native"));
+	const summary = await getViewerSummary(tx, new PeopleReadContext(authority));
 	if (summary.status !== "ok") return { status: "no_access" } as const;
 	return {
 		status: "viewer",

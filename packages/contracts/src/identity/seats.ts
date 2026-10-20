@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { accountId, defineSafeError, recordId, revision, role, safeError } from "../common/values.ts";
-import { instant } from "../common/time.ts";
-import { commandEnvelope, receipt } from "../common/transaction.ts";
 import { tenantOwner } from "../access/results.ts";
+import { instant } from "../common/time.ts";
+import { accountId, defineSafeError, recordId, revision, role, safeError } from "../common/values.ts";
+import { commandEnvelope } from "../common/writes.ts";
 import { ordinarySeatRole } from "./invitations.ts";
 
 export const listSeatsRequest = z.strictObject({ workspace: tenantOwner, after: recordId.optional() });
@@ -92,21 +92,16 @@ const dutyOutcome = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("needs_owner"), dutyId: recordId }),
 	z.strictObject({ status: z.literal("remaining"), dutyId: recordId }),
 ]);
-export const seatMutationResult = z
-	.strictObject({
-		seatId: recordId,
-		revision,
-		outcome: z.enum(["changed", "noop", "partial"]),
-		duties: z
-			.array(dutyOutcome)
-			.max(MAX_REMOVAL_ITEMS)
-			.refine((v) => new Set(v.map((d) => d.dutyId)).size === v.length),
-		receipt,
-	})
-	.refine(
-		(v) =>
-			v.receipt.outcome === v.outcome && (v.outcome === "partial" || v.duties.every((d) => d.status !== "remaining")),
-	);
+export const seatMutationResult = z.strictObject({
+	seatId: recordId,
+	revision,
+	outcome: z.enum(["changed", "noop", "partial"]),
+	duties: z
+		.array(dutyOutcome)
+		.max(MAX_REMOVAL_ITEMS)
+		.refine((v) => new Set(v.map((d) => d.dutyId)).size === v.length),
+});
+seatMutationResult.refine((v) => v.outcome === "partial" || v.duties.every((d) => d.status !== "remaining"));
 export const seatError = z.discriminatedUnion("code", [
 	...safeError.options,
 	defineSafeError("protected_owner", {}, "never"),

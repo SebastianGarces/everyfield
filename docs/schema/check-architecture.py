@@ -50,8 +50,7 @@ def check(root):
     audit = (root / 'docs/architecture/audit.md').read_text()
     actions = set(re.findall(r'\b[a-z_]+\.[a-z_]+\b', '\n'.join(l for l in audit.splitlines() if l.startswith('|'))))
     operations=json.loads((root/'docs/catalog/operations.json').read_text())['operations']
-    command_names={o['id'] for o in operations if not o['id'].startswith('privateCare.')}
-    if actions | command_names | {'note_correction'} != set(schema['type_contracts']['audit_event.action']):
+    if actions | {'note_correction'} != set(schema['type_contracts']['audit_event.action']):
         errors.append('audit action inventory differs from audit_event.action')
     acceptance = json.loads((root / 'docs/acceptance/schema.json').read_text())
     for case in acceptance['cases']:

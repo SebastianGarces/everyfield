@@ -1,12 +1,13 @@
-import "server-only";
-import { randomUUID } from "node:crypto";
-import { z } from "zod";
-import type { PgInsertValue } from "@everyfield/db/columns";
+import { writeAction } from "./actions.ts";
+import { requestIdentity, type RequestIdentity } from "@everyfield/contracts/common";
 import type { Database, Transaction } from "@everyfield/db/client";
+import type { PgInsertValue } from "@everyfield/db/columns";
 import { sql, type SQLWrapper } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
-import { requestIdentity, type RequestIdentity } from "@everyfield/contracts/common";
-import { writeVisibility, requestWrite, clearRequestWrite } from "../access/session.ts";
+import { randomUUID } from "node:crypto";
+import "server-only";
+import { z } from "zod";
+import { clearRequestWrite, requestWrite, writeVisibility } from "../access/session.ts";
 
 export class WriteUnavailable extends Error {
 	constructor() {
@@ -21,50 +22,27 @@ export type AuditWrite = {
 };
 
 /** Read a committed exact-request reply. A unique audit key arbitrates absent-key races at commit. */
-export async function prepareWrite(
-	tx: Transaction,
-	_name: string,
-	request: RequestIdentity,
-	input: unknown,
-	effectHash: string,
-	reviewReplay: "current" | "committed",
-) {
-	const o = request.origin;
-	const approved =
-		o.kind === "native"
-			? sql`true`
-			: sql`EXISTS(SELECT r.id FROM review r JOIN conversation v ON v.id=r.conversation_id AND v.tenant_id=r.tenant_id JOIN effect e ON e.review_id=r.id AND e.tenant_id=r.tenant_id
- WHERE r.id=${o.reviewId}::uuid AND r.tenant_id=${request.owner.id}::uuid AND r.conversation_id=${o.conversationId}::uuid AND r.digest=${o.planDigest}
- AND r.approved_by_id=${request.actorId}::uuid AND r.cancelled_at IS NULL AND r.superseded_at IS NULL AND r.approved_at<=clock_timestamp() AND r.approved_at>clock_timestamp()-interval '15 minutes'
- AND v.owner_id=${request.actorId}::uuid AND v.state='open' AND e.kind=${request.operation} AND e.payload_hash=${effectHash} AND e.arguments=${JSON.stringify({ operation: request.operation, input })}::jsonb AND e.state IN ('unstarted','claimed') FOR SHARE OF r,v,e)`;
-	const result =
-		await tx.execute(sql`SELECT ${writeVisibility(request.actorId, request.owner)} AS allowed, ${approved} AS approved,
+export async function prepareWrite(tx: Transaction, request: RequestIdentity) {
+	const result = await tx.execute(sql`SELECT ${writeVisibility(request.actorId, request.owner)} AS allowed,
  a.id,a.subject_id,a.request_identity,a.result FROM (SELECT 1) seed LEFT JOIN audit_event a
  ON a.tenant_id=${request.owner.id}::uuid AND a.request_key=${request.requestKey}`);
 	const row = z
 		.object({
 			allowed: z.boolean(),
-			approved: z.boolean(),
 			id: z.uuid().nullable(),
 			subject_id: z.uuid().nullable(),
 			request_identity: z.unknown(),
 			result: z.unknown(),
 		})
 		.parse(result.rows[0]);
-	if (!row.allowed || (reviewReplay === "current" && !row.approved)) return { kind: "unavailable" as const };
+	if (!row.allowed) return { kind: "unavailable" as const };
 	if (row.id) {
 		if (row.request_identity === null || row.result === null) return { kind: "unavailable" as const };
 		const prior = requestIdentity.parse(row.request_identity);
-		if (
-			prior.actorId !== request.actorId ||
-			prior.operation !== request.operation ||
-			prior.digest !== request.digest ||
-			JSON.stringify(prior.origin) !== JSON.stringify(request.origin)
-		)
+		if (prior.actorId !== request.actorId || prior.operation !== request.operation || prior.digest !== request.digest)
 			return { kind: "conflict" as const, id: row.id };
 		return { kind: "replay" as const, id: row.id, subject: row.subject_id, value: row.result };
 	}
-	if (!row.approved) return { kind: "unavailable" as const };
 	return {
 		kind: "new" as const,
 		id: randomUUID(),
@@ -80,7 +58,7 @@ export async function finishAudit(tx: Transaction, command: AuditWrite, request:
 			id: command.id,
 			tenant_id: request.owner.id,
 			actor_id: request.actorId,
-			action: request.operation,
+			action: writeAction(request.operation),
 			kind: "edit",
 			subject_type: "command",
 			subject_id: request.owner.id,

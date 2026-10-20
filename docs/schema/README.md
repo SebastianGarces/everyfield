@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 123 tables, 1411 columns, 490 declared FKs and 21 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 118 tables, 1346 columns, 462 declared FKs and 18 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -50,7 +50,6 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `digest_coverage` | Recipient digest coverage splits from inbox notification production. | WP-004, WP-030 |
 | `early_access_attempt` | WP-097 owns the applied migration 0001 limiter table, without an invented primary key. | WP-097 |
 | `early_access_request` | WP-097 owns the applied early access migration 0001 request table; no product scaffold or tenant prerequisite. Field shape follows the approved E3 contract and receipt shape follows E4. | WP-097 |
-| `effect_dependency` | Relational dependency DAG splits from reviewed effect manifests. | WP-004, WP-053 |
 | `enrollment_milestone` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
 | `enrollment_plan` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
 | `evidence_link` | Selections, citations, provenance and inverse guards split from the named previous consumer manifests; original consumers retain their writer responsibilities. | WP-004, WP-015, WP-019, WP-021, WP-022, WP-024, WP-027, WP-028, WP-029, WP-030, WP-031, WP-033, WP-035, WP-038, WP-042, WP-043, WP-045, WP-046, WP-047, WP-050, WP-051, WP-053, WP-057 |
@@ -67,7 +66,7 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `pipeline_stage_move` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
 | `private_calendar` | Original-author rollover splits from private check-in facts; no generic record or shared event identity. | WP-004, WP-039 |
 | `prompt_dismissal` | Own-context optional prompt choice splits from feedback production. | WP-004, WP-049 |
-| `record` | Referenceable subtype writers must bind their own actual identity and owner; inherit the union of those writers, with WP-004 owning trigger/DDL proof. | WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-012, WP-013, WP-014, WP-015, WP-016, WP-017, WP-018, WP-019, WP-020, WP-021, WP-022, WP-023, WP-024, WP-026, WP-027, WP-028, WP-029, WP-030, WP-031, WP-032, WP-033, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-042, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049, WP-050, WP-051, WP-053, WP-054, WP-057, WP-098, WP-099 |
+| `record` | Referenceable subtype writers must bind their own actual identity and owner; inherit the union of those writers, with WP-004 owning trigger/DDL proof. | WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-012, WP-013, WP-014, WP-015, WP-016, WP-017, WP-018, WP-019, WP-020, WP-021, WP-022, WP-023, WP-024, WP-026, WP-027, WP-028, WP-029, WP-030, WP-031, WP-032, WP-033, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-042, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049, WP-050, WP-054, WP-057, WP-098, WP-099 |
 | `relationship_invitation` | WP-007 native organization adapter storage introduced by forward migration 0005; D29/D32 current-catalog authority. | WP-007 |
 | `residency_link` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-008 |
 | `schema_migration` | WP-097 installs the migration runner ledger with its physical text primary key. | WP-097 |
@@ -88,12 +87,12 @@ This mapping is generated from `replaces`; Fix 2 uses it to align architecture, 
 | `account_person_link` | `person` |
 | `app_account` | `account`, `lifecycle_witness` |
 | `assessment_demand` | `assessment` |
-| `assistant_approval` | `review` |
-| `assistant_artifact` | `conversation_entry` |
-| `assistant_attachment` | `conversation_entry` |
-| `assistant_conversation` | `conversation` |
-| `assistant_message` | `conversation_entry` |
-| `assistant_plan` | `conversation` |
+| `assistant_approval` | Removed unused assistant protocol; the future feature introduces its own schema when implemented (D70/D72). |
+| `assistant_artifact` | Removed unused assistant protocol; the future feature introduces its own schema when implemented (D70/D72). |
+| `assistant_attachment` | Removed unused assistant protocol; the future feature introduces its own schema when implemented (D70/D72). |
+| `assistant_conversation` | Removed unused assistant protocol; the future feature introduces its own schema when implemented (D70/D72). |
+| `assistant_message` | Removed unused assistant protocol; the future feature introduces its own schema when implemented (D70/D72). |
+| `assistant_plan` | Removed unused assistant protocol; the future feature introduces its own schema when implemented (D70/D72). |
 | `association_event` | `audit_event` |
 | `association_invitation` | `invitation` |
 | `audit_event` | `audit_event` |
@@ -139,7 +138,7 @@ This mapping is generated from `replaces`; Fix 2 uses it to align architecture, 
 | `ministry_team` | `team` |
 | `notification_preference` | `notification_preference` |
 | `object_metadata` | `file_object` |
-| `operation_effect` | `effect` |
+| `operation_effect` | Removed unused assistant protocol; the future feature introduces its own schema when implemented (D70/D72). |
 | `operation_execution` | `audit_event` |
 | `operation_result` | `audit_event` |
 | `organization` | `organization` |

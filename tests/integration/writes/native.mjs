@@ -2,9 +2,7 @@ import { randomBytes } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
-import { recoverCallback } from "../../../apps/web/src/server/jobs/webhook.ts";
 import { enqueueJob } from "../../../apps/web/src/server/jobs/queue.ts";
-import { operatorOperations } from "../../../packages/domain/src/operations/operator.ts";
 import { deletionOperations, issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/deletion.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -166,15 +164,6 @@ try {
 		),
 	);
 	assert.equal(cancelled.status, "ok");
-	const ops = operatorOperations(f.db, async () => ({
-		principal: s.sender.id,
-		tenant: s.w.id,
-		purpose: "incident",
-		operations: ["ops.readiness", "ops.errorCorrelation"],
-		expiresAt: new Date(Date.now() + 60000),
-	}));
-	assert.deepEqual(await ops.withReadiness(async () => ({ ready: true })), { ready: true });
-	assert.equal(await ops.errorCorrelation(randomUUID()), null);
 
 	const mail = createMailService({
 		db: f.db,
@@ -220,14 +209,7 @@ try {
 		sql`UPDATE mail SET state='unknown',provider_message_id='synthetic-provider' WHERE id=${mailId}`,
 	);
 	assert.deepEqual(await mail.reconcileUnknownOutcome(mailId), { kind: "accepted", id: "synthetic-provider" });
-	const callback = randomUUID();
-	await f.admin.execute(
-		sql`INSERT INTO provider_event(id,event_key,message_id,kind,occurred_at,received_at,payload_hash,safe_payload) VALUES(${callback},${callback},'synthetic-provider','delivered',clock_timestamp(),clock_timestamp(),${"a".repeat(64)},'{"hard_bounce":false}'::jsonb)`,
-	);
-	const recovered = await recoverCallback(f.db, callback, async (_tx, tenant) =>
-		tenant === s.w.id ? { actorId: s.sender.id, operationId: created.value.receiptId } : null,
-	);
-	assert.equal(recovered, "applied");
+
 	await f.admin.execute(sql`UPDATE meeting SET revision=2,status='cancelled' WHERE id=${meeting}`);
 	const cancelledNotices = await f.db.transaction((tx) =>
 		notifications.cancelForEntity(tx, s.w.id, { kind: "meeting", id: meeting, revision: "2" }),

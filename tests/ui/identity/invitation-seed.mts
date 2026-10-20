@@ -30,7 +30,11 @@ const ENGINES = ["chromium", "webkit"] as const;
 async function up(origin: string) {
 	const env = await openSeedEnvironment(origin);
 	const { admin, runtime, authDb, secret, mailKey, addressKey } = env;
- async function verifiedWriteActor(value:string){const actor=await runtime.transaction(tx=>RequestActor.resolve(tx,sessionId.parse(value)));if(!(actor instanceof RequestActor))throw Error('unavailable');return actor;}
+	async function verifiedWriteActor(value: string) {
+		const actor = await runtime.transaction((tx) => RequestActor.resolve(tx, sessionId.parse(value)));
+		if (!(actor instanceof RequestActor)) throw Error("unavailable");
+		return actor;
+	}
 	const sent: { to: string; text: string }[] = [];
 	const mail = createMailService({
 		db: runtime,
@@ -57,17 +61,21 @@ async function up(origin: string) {
 		people: accountPersonProducer,
 		enqueueMail: (tx, m, command) => {
 			if (m.owner.kind === "global") throw Error("unavailable");
-			return mail.append(tx, {
-				owner: m.owner,
-				purpose: m.purpose,
-				logicalKey: m.logicalKey,
-				recipient: m.recipientAccountId,
-				address: m.recipientEmail,
-				content: { subject: m.subject, text: m.text },
-				operation: m.operationId,
-				notice: null,
-				eligibleAt: new Date().toISOString(),
-			}, command.writes);
+			return mail.append(
+				tx,
+				{
+					owner: m.owner,
+					purpose: m.purpose,
+					logicalKey: m.logicalKey,
+					recipient: m.recipientAccountId,
+					address: m.recipientEmail,
+					content: { subject: m.subject, text: m.text },
+					operation: m.operationId,
+					notice: null,
+					eligibleAt: new Date().toISOString(),
+				},
+				command.writes,
+			);
 		},
 	});
 	let ip = 1;
@@ -125,8 +133,6 @@ async function up(origin: string) {
 			{
 				session: owner.sessionId,
 				selected: { kind: "account", id: owner.accountId },
-				purpose: "native",
-				origin: { kind: "native" },
 			} as never,
 			{
 				requestKey: randomUUID(),

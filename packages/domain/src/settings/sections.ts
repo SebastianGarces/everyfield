@@ -1,31 +1,31 @@
-import "server-only";
-import * as t from "@everyfield/db/tables";
-import { and, eq, isNull, sql } from "@everyfield/db/query";
+import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
 import * as q from "@everyfield/contracts/settings";
 import type { SettingsContext, SettingsProducer } from "@everyfield/contracts/settings/server";
 import type { Transaction } from "@everyfield/db/client";
-import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
-import {
-	actor,
-	self,
-	plantAdmin,
-	deny,
-	parse,
-	reply,
-	revision,
-	begin,
-	finish,
-	preference,
-	sameOwner,
-	canonical,
-	appendEvent,
-	type Tx,
-	type Context,
-	type WriteContext,
-} from "./core.ts";
-import { loadAffiliation, pairOf, choices, active, type OrganizationEffects } from "../organizations/core.ts";
+import { and, eq, isNull, sql } from "@everyfield/db/query";
+import * as t from "@everyfield/db/tables";
+import "server-only";
+import { active, choices, loadAffiliation, pairOf, type OrganizationEffects } from "../organizations/core.ts";
 import { applyOrganizationProfile } from "../organizations/profile.ts";
 import { applySharingMutation } from "../organizations/sharing.ts";
+import {
+	actor,
+	appendEvent,
+	begin,
+	canonical,
+	deny,
+	finish,
+	parse,
+	plantAdmin,
+	preference,
+	reply,
+	revision,
+	sameOwner,
+	self,
+	type Context,
+	type Tx,
+	type WriteContext,
+} from "./core.ts";
 export interface SettingsEffects {
 	replan(
 		tx: Tx,
@@ -182,12 +182,7 @@ export function sectionOperations(
 			}
 		}
 	}
-	async function save(
-		tx: Tx,
-		ctx: WriteContext,
-		raw: unknown,
-		name: typeof t.effect.$inferInsert.kind = "settings.saveSection",
-	) {
+	async function save(tx: Tx, ctx: WriteContext, raw: unknown, name: string = "settings.saveSection") {
 		const v = parse(q.saveSectionRequest, raw);
 		const a = await actor(tx, ctx, "command");
 		const i = v.input;
@@ -477,7 +472,7 @@ export function sectionOperations(
 					String(BigInt(v.expectedRevision) + 1n),
 				),
 			);
-		return finish(tx, c, q.savedSectionResult, events, (r) => ({ receipt: r, current }), changed);
+		return finish(tx, c, q.savedSectionResult, () => ({ current }));
 	}
 	const operations: Pick<
 		SettingsProducer<Tx>,

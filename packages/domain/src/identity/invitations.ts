@@ -1,13 +1,13 @@
-import "server-only";
-import { RequestActor } from "../access/session.ts";
-import { randomBytes, randomUUID, createHmac } from "node:crypto";
+import type { Owner } from "@everyfield/contracts/common";
+import * as c from "@everyfield/contracts/identity";
+import type { AccountPersonProducer } from "@everyfield/contracts/people";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { and, asc, eq, gt, isNull, or, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
-import type { Owner, Receipt } from "@everyfield/contracts/common";
-import type { AccountPersonProducer } from "@everyfield/contracts/people";
-import * as c from "@everyfield/contracts/identity";
+import { createHmac, randomBytes, randomUUID } from "node:crypto";
+import "server-only";
 import { z } from "zod";
+import { RequestActor } from "../access/session.ts";
 import { transaction } from "./budget.ts";
 import * as d from "./invitation-core.ts";
 export interface InvitationMail {
@@ -130,6 +130,7 @@ export function createInvitationService(config: InvitationConfig) {
 			const inviter = bound.principal;
 			const cmd = await d.begin(tx, selected, a.accountId, resident ? "residency.invite" : "seats.invite", v);
 			if (cmd.kind === "replay") return c.invitationSentResult.parse(cmd.result);
+			if (v.expectedRevision !== (bound.plant?.revision ?? bound.organization?.revision)) d.refuse();
 			if ("personId" in v.input && (await activePerson(tx, selected.id, v.input.personId)).linked_account_id)
 				d.refuse();
 			await charge(tx, selected, v.input.recipientEmail, resident ? "relationship_invite" : "seat_invite");
@@ -153,10 +154,10 @@ export function createInvitationService(config: InvitationConfig) {
 				inviter_description: inviter.display_name.slice(0, 500),
 			};
 			cmd.writes.push(tx.insert(t.invitation).values(i));
-			const effect = await mail(tx, i, cmd, proof),
-				event = await d.event(tx, cmd, id, "create", null, "0", "1"),
-				invitation = await description(tx, i);
-			return d.finish(tx, cmd, (r) => c.invitationSentResult.parse({ invitation, receipt: r }), [event], [effect]);
+			await mail(tx, i, cmd, proof);
+			await d.event(tx, cmd, id, "create", null, "0", "1");
+			const invitation = await description(tx, i);
+			return d.finish(tx, cmd, () => c.invitationSentResult.parse({ invitation }));
 		});
 	}
 	async function list(session: string, raw: unknown) {
@@ -242,7 +243,7 @@ export function createInvitationService(config: InvitationConfig) {
 			if (resend && i.purpose === "residency_link") await activePerson(tx, i.tenant_id, i.resident_person_id!);
 			const after = d.bump(i.revision);
 			let updated = i;
-			let effects: string[] = [];
+
 			if (resend) {
 				const retry = new Date((i.resent_at ?? i.created_at).getTime() + 60000);
 				if (retry > (await d.now(tx))) d.refuse("invitation_cooldown", retry.toISOString());
@@ -254,31 +255,26 @@ export function createInvitationService(config: InvitationConfig) {
 					.returning();
 				if (!changedInvitation) d.refuse();
 				updated = changedInvitation;
-				effects = [await mail(tx, updated, cmd, proof)];
+				await mail(tx, updated, cmd, proof);
 			} else
 				await tx
 					.update(t.invitation)
 					.set({ state: "revoked", acted_at: sql`clock_timestamp()`, revision: after })
 					.where(eq(t.invitation.id, i.id));
-			const e = await d.event(
-					tx,
-					cmd,
-					i.id,
-					resend ? "resend" : "revoke",
-					resend ? null : "invitation.revoked",
-					i.revision,
-					after,
-				),
-				invitation = resend ? await description(tx, updated) : null;
-			return d.finish(
+			await d.event(
 				tx,
 				cmd,
-				(r) =>
-					resend
-						? c.invitationSentResult.parse({ invitation, receipt: r })
-						: c.invitationRevokedResult.parse({ status: "revoked", invitationId: i.id, revision: after, receipt: r }),
-				[e],
-				effects,
+				i.id,
+				resend ? "resend" : "revoke",
+				resend ? null : "invitation.revoked",
+				i.revision,
+				after,
+			);
+			const invitation = resend ? await description(tx, updated) : null;
+			return d.finish(tx, cmd, () =>
+				resend
+					? c.invitationSentResult.parse({ invitation })
+					: c.invitationRevokedResult.parse({ status: "revoked", invitationId: i.id, revision: after }),
 			);
 		});
 	}
@@ -320,10 +316,10 @@ export function createInvitationService(config: InvitationConfig) {
 					? c.residentInvitationDecisionResult.parse(cmd.result)
 					: c.seatInvitationAcceptedResult.parse(cmd.result);
 			await d.pending(tx, i, v.expectedRevision);
-			const events: string[] = [],
-				effects: string[] = [],
-				after = d.bump(i.revision);
-			let result: (r: Receipt) => unknown;
+			const events: string[] = [];
+
+			const after = d.bump(i.revision);
+			let result: () => unknown;
 			if (resident) {
 				const p = await activePerson(tx, selected.id, i.resident_person_id!);
 				if (p.linked_account_id !== null && p.linked_account_id !== a.account_id) d.refuse();
@@ -338,8 +334,7 @@ export function createInvitationService(config: InvitationConfig) {
 							revision: after,
 						})
 						.where(eq(t.invitation.id, i.id));
-					result = (r) =>
-						c.residentInvitationDecisionResult.parse({ status: "declined", invitationId: i.id, receipt: r });
+					result = () => c.residentInvitationDecisionResult.parse({ status: "declined", invitationId: i.id });
 				} else {
 					const competing = await tx
 						.select({ id: t.residency_link.id })
@@ -417,7 +412,7 @@ export function createInvitationService(config: InvitationConfig) {
 						})
 						.where(eq(t.invitation.id, i.id));
 					events.push(await d.event(tx, cmd, p.id, "edit", "people.updated", p.revision, d.bump(p.revision)));
-					result = (r) =>
+					result = () =>
 						c.residentInvitationDecisionResult.parse({
 							status: "accepted",
 							invitationId: i.id,
@@ -426,7 +421,6 @@ export function createInvitationService(config: InvitationConfig) {
 							personId: p.id,
 							consentRevision: "1",
 							choices,
-							receipt: r,
 						});
 				}
 			} else {
@@ -473,14 +467,13 @@ export function createInvitationService(config: InvitationConfig) {
 					})
 					.where(eq(t.invitation.id, i.id));
 				events.push(await d.event(tx, cmd, id, "create", "membership.created", "0", "1"));
-				result = (r) =>
+				result = () =>
 					c.seatInvitationAcceptedResult.parse({
 						status: "accepted",
 						invitationId: i.id,
 						accountId: a.account_id,
 						registrationState: "active",
 						seat,
-						receipt: r,
 					});
 			}
 			const declined = "decision" in v.input && v.input.decision === "decline";
@@ -503,24 +496,22 @@ export function createInvitationService(config: InvitationConfig) {
 					recorded_at: sql`clock_timestamp()`,
 					event_key: cmd.id,
 				});
-				effects.push(
-					await enqueue(tx, cmd, {
-						owner: selected,
-						invitationId: i.id,
-						operationId: cmd.id,
-						recipientEmail: a.email,
-						recipientAccountId: a.account_id,
-						purpose: "relationship_receipt",
-						logicalKey: `invitation-accepted/${i.id}`,
-						subject: "Your invitation was accepted",
-						text: resident
-							? "You accepted an invitation to link your EveryField account. This link does not add a workspace seat. Sign in to review your sharing choices."
-							: "You accepted an invitation to join an EveryField workspace. Sign in to review your membership. If this was not you, review your account security.",
-					}),
-				);
+				await enqueue(tx, cmd, {
+					owner: selected,
+					invitationId: i.id,
+					operationId: cmd.id,
+					recipientEmail: a.email,
+					recipientAccountId: a.account_id,
+					purpose: "relationship_receipt",
+					logicalKey: `invitation-accepted/${i.id}`,
+					subject: "Your invitation was accepted",
+					text: resident
+						? "You accepted an invitation to link your EveryField account. This link does not add a workspace seat. Sign in to review your sharing choices."
+						: "You accepted an invitation to join an EveryField workspace. Sign in to review your membership. If this was not you, review your account security.",
+				});
 			}
 			events.push(await d.event(tx, cmd, i.id, "accept", declined ? null : "invitation.claimed", i.revision, after));
-			return d.finish(tx, cmd, result, events, effects);
+			return d.finish(tx, cmd, result);
 		});
 	}
 	async function registrationEligible(proof: string, email: string) {

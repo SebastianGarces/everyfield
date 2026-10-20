@@ -1,30 +1,31 @@
-import { auditSavepoint } from "../operations/writes.ts";
-import { and, eq, sql } from "@everyfield/db/query";
-import * as tables from "@everyfield/db/tables";
-import { alias } from "@everyfield/db/columns";
-import type { Transaction } from "@everyfield/db/client";
-import type { z } from "zod";
+import { writeActor } from "./core.ts";
 import { revision, type Owner, type sessionId } from "@everyfield/contracts/common";
 import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
 import * as Q from "@everyfield/contracts/organizations";
+import type { Transaction } from "@everyfield/db/client";
+import { alias } from "@everyfield/db/columns";
+import { and, eq, sql } from "@everyfield/db/query";
+import * as tables from "@everyfield/db/tables";
+import type { z } from "zod";
+import { auditSavepoint } from "../operations/writes.ts";
 import {
-	subjectAuthority,
-	validPair,
-	endpointValues,
-	choices,
 	active,
 	administrator,
 	appendEvent,
 	beginCommand,
 	checkRevision,
+	choices,
 	currentActor,
+	endpointValues,
 	finishCommand,
 	invalidate,
 	loadAffiliation,
 	pairOf,
 	refuse,
 	sameOwner,
+	subjectAuthority,
 	unavailable,
+	validPair,
 	type OrganizationEffects,
 } from "./core.ts";
 const affiliation_a = alias(tables.affiliation, "a");
@@ -73,7 +74,7 @@ export function sharingOperations(
 			return auditSavepoint(tx, async () => {
 				const q = Q.setSharingRequest.parse(raw),
 					a = await loadAffiliation(tx, q.input.relationshipId, true),
-					actor = await currentActor(tx, session, selected);
+					actor = await writeActor(tx, session, selected);
 				if (
 					!a ||
 					actor.status !== "active" ||
@@ -88,20 +89,8 @@ export function sharingOperations(
 				if (c.kind === "replay") return Q.mutationResult.parse(c.result);
 				checkRevision(q.expectedRevision, a.revision);
 				checkRevision(q.input.expectedConsentRevision, a.consent_revision);
-				const changed = await applySharingMutation(
-					tx,
-					a,
-					c,
-					{ ...choices(a), [q.input.category]: q.input.enabled },
-					effects,
-				);
-				return finishCommand(
-					tx,
-					c,
-					(r) => Q.mutationResult.parse({ status: "committed", receipt: r }),
-					changed.events,
-					changed.changed,
-				);
+				await applySharingMutation(tx, a, c, { ...choices(a), [q.input.category]: q.input.enabled }, effects);
+				return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
 			});
 		},
 	};

@@ -1,27 +1,31 @@
-import { WriteUnavailable } from "../operations/writes.ts";
-import { notExists, and, desc, eq, inArray, isNull, sql, type SQLWrapper } from "@everyfield/db/query";
-import * as tables from "@everyfield/db/tables";
-import "server-only";
-import { prepareWrite, finishAudit, auditSavepoint, auditTransaction, type AuditWrite } from "../operations/writes.ts";
 import { requestIdentity } from "@everyfield/contracts/common";
-import { createHash, randomUUID } from "node:crypto";
 import type { Database, Transaction } from "@everyfield/db/client";
+import { and, desc, eq, inArray, isNull, notExists, sql, type SQLWrapper } from "@everyfield/db/query";
+import * as tables from "@everyfield/db/tables";
+import { createHash, randomUUID } from "node:crypto";
+import "server-only";
 import { z } from "zod";
-import { currentActor, RequestActor, requestWrite } from "../access/session.ts";
 import { readPipelinePerson } from "../access/pipeline.ts";
-import { isAdministrator } from "../access/policy.ts";
+import { currentActor, RequestActor, requestWrite } from "../access/session.ts";
+import {
+	auditSavepoint,
+	auditTransaction,
+	finishAudit,
+	prepareWrite,
+	WriteUnavailable,
+	type AuditWrite,
+} from "../operations/writes.ts";
+
 import { owner, revision } from "@everyfield/contracts/common";
+import type { PeopleContext, PeopleReply, PeopleWriteContext } from "@everyfield/contracts/people";
 import * as c from "@everyfield/contracts/people";
-import type { PeopleContext, PeopleWriteContext, PeopleReply } from "@everyfield/contracts/people";
 
 export type Tx = Transaction;
 /** A read-only request observation. Its owner and session derive from one native authority. */
 export class PeopleReadContext {
 	readonly authority: RequestActor;
-	readonly purpose: PeopleContext["purpose"];
-	constructor(authority: RequestActor, purpose: PeopleContext["purpose"]) {
+	constructor(authority: RequestActor) {
 		this.authority = authority;
-		this.purpose = purpose;
 	}
 	get session() {
 		return this.authority.session;
@@ -106,8 +110,6 @@ export async function withPeopleWrite<T>(
 			const result = await body(tx, {
 				session: authority.session,
 				selected,
-				purpose: "native",
-				origin: { kind: "native" },
 			});
 			if (result.status === "refused") throw new Refusal(result.error.code);
 			return result.value;
@@ -376,29 +378,22 @@ export async function mutation<T>(
 	await lockOwner(tx, context);
 	const note = ["people.addNote", "people.editNote", "people.deleteNote"].includes(name);
 	const orgNote = context.selected.kind === "organization" && note;
-	const actor = await authorize(
-		tx,
-		{ session: context.session, selected: context.selected, purpose: context.purpose },
-		!orgNote,
-	);
+	const actor = await authorize(tx, { session: context.session, selected: context.selected }, !orgNote);
 	if (orgNote) {
 		const subject = parse(z.object({ input: z.object({ personId: z.uuid() }) }), input).input.personId;
 		const access = await readPipelinePerson(tx, context.session, context.selected, { personId: subject });
-		if (context.purpose !== "native" || access.status !== "allowed" || !access.duties.some((d) => d.canReadStaffNotes))
-			deny();
+		if (access.status !== "allowed" || !access.duties.some((d) => d.canReadStaffNotes)) deny();
 	}
-	const digest = hash({ name, input, origin: context.origin });
-
-	if (context.purpose === "model" && context.origin.kind !== "assistant") deny();
+	// Native digest bytes are persisted; keep already committed retry keys stable.
+	const digest = hash({ name, input, origin: { kind: "native" } });
 	const identity = requestIdentity.parse({
 		owner: context.selected,
 		actorId: actor.accountId,
 		operation: name,
 		requestKey: input.requestKey,
 		digest,
-		origin: context.origin,
 	});
-	const claim = await prepareWrite(tx, name, identity, input, hash({ name, input }), "committed");
+	const claim = await prepareWrite(tx, identity);
 	if (claim.kind === "conflict") deny("conflict");
 	if (claim.kind === "unavailable") deny();
 	if (claim.kind === "replay") {
@@ -478,3 +473,6 @@ export async function attribution(tx: Tx, actorId: string | null, token: string)
 	return { kind: "former_account", scopeLocalToken: token };
 }
 export { owner };
+
+const isAdministrator = (actor: { context: { kind: string; role?: string } }) =>
+	actor.context.kind === "seat" && actor.context.role !== "member";

@@ -1,34 +1,33 @@
-import "server-only";
-import { randomBytes, randomUUID } from "node:crypto";
-import { z } from "zod";
-import * as t from "@everyfield/db/tables";
-import { and, eq, isNull, sql } from "@everyfield/db/query";
-import type { Database } from "@everyfield/db/client";
-import { owner, accountId, sessionId, receipt } from "@everyfield/contracts/common";
+import { accountId, owner, sessionId } from "@everyfield/contracts/common";
 import * as q from "@everyfield/contracts/settings";
 import * as n from "@everyfield/contracts/settings/native";
 import type {
 	DeletionProducer,
-	SettingsWriteContext,
 	NativeSettingsContext,
+	SettingsWriteContext,
 } from "@everyfield/contracts/settings/server";
+import type { Database } from "@everyfield/db/client";
+import { and, eq, isNull, sql } from "@everyfield/db/query";
+import * as t from "@everyfield/db/tables";
+import { randomBytes, randomUUID } from "node:crypto";
+import "server-only";
+import { z } from "zod";
 import { lock as lockSeats } from "../identity/invitation-core.ts";
 import {
-	parse,
-	reply,
-	self,
-	native,
-	plantAdmin,
-	begin,
-	finish,
-	revision,
-	now,
-	deny,
-	hash,
 	appendEvent,
+	begin,
+	deny,
+	finish,
+	hash,
+	now,
+	parse,
+	plantAdmin,
+	reply,
+	revision,
+	self,
 	type Tx,
 } from "./core.ts";
-const requestRecord = z.object({ receipt, deletion: n.deletionStatus });
+const requestRecord = z.object({ deletion: n.deletionStatus });
 export type DeletionSubject = z.infer<typeof n.deletionSubject>;
 export type DeletionRequest = { subject: DeletionSubject; requestId: string; revision: string };
 export interface DeletionEffects {
@@ -124,7 +123,7 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 		kind: "account" | "plant",
 	) {
 		const v = kind === "account" ? parse(q.requestAccountDeletion, raw) : parse(q.requestWorkspaceDeletion, raw);
-		if (kind === "plant") native(ctx);
+
 		const subject =
 			kind === "account"
 				? owner.parse({ kind: "account", id: (await self(tx, ctx)).account.id })
@@ -149,8 +148,7 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 				if (owners.some((s) => !hidden.some((w) => w.id === s.plant_id))) deny("manual_owner_exception_required");
 			}
 		}
-		const wctx: SettingsWriteContext =
-			ctx.purpose === "model" ? ctx : { ...ctx, purpose: "native", origin: { kind: "native" } };
+		const wctx: SettingsWriteContext = ctx;
 		const c = await begin(
 			tx,
 			wctx,
@@ -198,7 +196,7 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 			witnessId: w!.id,
 			eligibleAt: cancelUntil.toISOString(),
 		});
-		const event = await appendEvent(
+		await appendEvent(
 			tx,
 			c,
 			subject.id,
@@ -207,7 +205,7 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 			v.expectedRevision,
 			v.expectedRevision,
 		);
-		const result = await finish(tx, c, requestRecord, [event], (r) => ({ receipt: r, deletion: status(w!) }));
+		const result = await finish(tx, c, requestRecord, () => ({ deletion: status(w!) }));
 		return result.deletion;
 	}
 	async function cancel(tx: Tx, ctx: n.RestrictedDeletionContext, raw: unknown, kind: "account" | "plant") {

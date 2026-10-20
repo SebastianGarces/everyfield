@@ -26,7 +26,6 @@ export async function readOnboardingEntry(
 	const read = (selected: OnboardingContext["selected"]): OnboardingContext => ({
 		session: s.sessionId,
 		selected,
-		purpose: "native",
 	});
 	const context = authority?.actor.context;
 	if (s.status === "active" && !context) return { kind: "elsewhere", reason: "unavailable" };

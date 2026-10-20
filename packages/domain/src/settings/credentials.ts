@@ -9,7 +9,7 @@ import * as n from "@everyfield/contracts/settings/native";
 import type { NativeAccountProducer, NativeSettingsContext } from "@everyfield/contracts/settings/server";
 import { identityAuth } from "../identity/auth.ts";
 import { attemptBudget, IdentityRefusal } from "../identity/budget.ts";
-import { self, native, now, hash, deny, Refusal, reply, parse, type Tx } from "./core.ts";
+import { self, now, hash, deny, Refusal, reply, parse, type Tx } from "./core.ts";
 export interface CredentialConfig {
 	db: Database;
 	authDb: Database;
@@ -63,7 +63,6 @@ export function createAccountCredentials(
 		},
 	});
 	async function prepare(ctx: NativeSettingsContext) {
-		native(ctx);
 		const a = await config.db.transaction((tx) => self(tx, ctx, "preview"));
 		const ingress = await config.request(ctx);
 		if (

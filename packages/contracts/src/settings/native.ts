@@ -1,12 +1,12 @@
 import { z } from "zod";
-import { recordId, revision, sessionId, owner } from "../common/values.ts";
 import { instant, timeZone } from "../common/time.ts";
-import { commandEnvelope } from "../common/transaction.ts";
+import { owner, recordId, revision, sessionId } from "../common/values.ts";
+import { commandEnvelope } from "../common/writes.ts";
 import { normalizedEmail } from "../identity/requests.ts";
 
 import { timezonePreference } from "./values.ts";
 export { changePasswordRequest } from "../identity/requests.ts";
-export { retainedHistoryReference, retainedAttribution, credentialOutcome } from "../identity/results.ts";
+export { credentialOutcome, retainedAttribution, retainedHistoryReference } from "../identity/results.ts";
 
 // Native auth adapter only. Fresh own identity/mailbox proof and authenticated
 // proof-owner matching are checked by Better Auth, never a durable command.

@@ -1,22 +1,15 @@
-import { rethrowWriteError } from "./budget.ts";
-import { prepareWrite, finishAudit, auditTransaction } from "../operations/writes.ts";
-import "server-only";
-import { createHash, randomUUID } from "node:crypto";
+import { writeAction } from "../operations/actions.ts";
+import { accountId, owner, requestIdentity, sessionId, type Owner } from "@everyfield/contracts/common";
+import { invitationError, seatError } from "@everyfield/contracts/identity";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { eq, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
+import { createHash, randomUUID } from "node:crypto";
+import "server-only";
 import { z } from "zod";
-import {
-	accountId,
-	owner,
-	receipt,
-	requestIdentity,
-	sessionId,
-	type Owner,
-	type Receipt,
-} from "@everyfield/contracts/common";
-import { invitationError, seatError } from "@everyfield/contracts/identity";
 import { currentActor, liveOwner, RequestActor, requestWrite } from "../access/session.ts";
+import { auditTransaction, finishAudit, prepareWrite } from "../operations/writes.ts";
+import { rethrowWriteError } from "./budget.ts";
 export { currentActor, liveOwner };
 export const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 export function canonical(value: unknown): string {
@@ -104,9 +97,8 @@ export async function begin(
 		operation: name,
 		requestKey: command.requestKey,
 		digest: hash(canonical(command)),
-		origin: { kind: "native" },
 	});
-	const claim = await prepareWrite(tx, name, request, command, hash(canonical({ name, input: command })), "current");
+	const claim = await prepareWrite(tx, request);
 	if (claim.kind === "unavailable") refuse();
 	if (claim.kind === "conflict") refuse("idempotency_conflict");
 	if (claim.kind === "replay") {
@@ -115,24 +107,8 @@ export async function begin(
 	return { kind: "new" as const, id: claim.id, request, writes: claim.writes, events: claim.events };
 }
 export type Command = Extract<Awaited<ReturnType<typeof begin>>, { kind: "new" }>;
-export async function finish<T>(
-	tx: Transaction,
-	c: Command,
-	output: (r: Receipt) => T,
-	events: string[],
-	effects: string[] = [],
-	changed = true,
-) {
-	const r = receipt.parse({
-		id: c.id,
-		request: c.request,
-		completedAt: new Date().toISOString(),
-		outcome: changed ? "changed" : "noop",
-		subjects: [{ kind: "audit_event", id: c.id, owner: c.request.owner }],
-		eventIds: events,
-		effectIds: effects,
-	});
-	const result = output(r);
+export async function finish<T>(tx: Transaction, c: Command, output: () => T) {
+	const result = output();
 	await finishAudit(tx, c, c.request, result);
 	return result;
 }
@@ -152,7 +128,7 @@ export function eventRow(
 		command_id: c.id,
 		actor_id: c.request.actorId,
 		kind,
-		action: action ?? c.request.operation,
+		action: action ?? writeAction(c.request.operation),
 		occurred_at: sql`clock_timestamp()`,
 		recorded_at: sql`clock_timestamp()`,
 		before_revision: before,

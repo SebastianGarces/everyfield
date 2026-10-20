@@ -1,31 +1,29 @@
-import "server-only";
-import { randomUUID, createHash } from "node:crypto";
-import { z } from "zod";
-import * as t from "@everyfield/db/tables";
+import * as q from "@everyfield/contracts/settings";
+import type { NativeAccountProducer, NativeSettingsContext } from "@everyfield/contracts/settings/server";
+import type { Database } from "@everyfield/db/client";
 import { and, eq, sql } from "@everyfield/db/query";
 import {
-	validateAvatar,
 	putPrivateObject,
 	readAuthorizedObject,
+	validateAvatar,
 	type PrivateStorage,
 	type ResourceAuthorizer,
 } from "@everyfield/db/schema";
-import type { Database } from "@everyfield/db/client";
-import * as q from "@everyfield/contracts/settings";
-import { receipt } from "@everyfield/contracts/common";
-import type { NativeAccountProducer, NativeSettingsContext } from "@everyfield/contracts/settings/server";
-import { native, self, reply, parse, now, revision, begin, finish, appendEvent, deny, type Tx } from "./core.ts";
+import * as t from "@everyfield/db/tables";
+import { createHash, randomUUID } from "node:crypto";
+import "server-only";
+import { z } from "zod";
+import { appendEvent, begin, deny, finish, now, parse, reply, revision, self, type Tx } from "./core.ts";
 export interface AvatarCleanup {
 	enqueue(tx: Tx, input: { accountId: string; fileId: string; eligibleAt: string }): Promise<void>;
 }
-const resultRecord = z.object({ receipt, result: q.avatarResult });
+const resultRecord = z.object({ result: q.avatarResult });
 export function avatarOperations(
 	cleanup: AvatarCleanup,
 ): Pick<NativeAccountProducer<Tx>, "requestAvatarUpload" | "getAvatar" | "finalizeAvatar" | "removeAvatar"> {
 	return {
 		requestAvatarUpload: (tx, ctx, raw) =>
 			reply(tx, async (s) => {
-				native(ctx);
 				const input = parse(q.requestAvatarUpload, raw);
 				const a = await self(s, ctx, "preview");
 				const [clock] = await s.select({ at: now }).from(t.account).where(eq(t.account.id, a.account.id));
@@ -49,7 +47,6 @@ export function avatarOperations(
 			}),
 		getAvatar: (tx, ctx, raw) =>
 			reply(tx, async (s) => {
-				native(ctx);
 				const v = parse(q.getAvatarRequest, raw);
 				const a = await self(s, ctx, "read");
 				// The account's composite avatar foreign key already binds this reference to its tenant.
@@ -70,16 +67,9 @@ export function avatarOperations(
 			}),
 		finalizeAvatar: (tx, ctx, raw) =>
 			reply(tx, async (s) => {
-				native(ctx);
 				const v = parse(q.finalizeAvatarRequest, raw);
 				const a = await self(s, ctx);
-				const c = await begin(
-					s,
-					{ ...ctx, purpose: "native", origin: { kind: "native" } },
-					a.account.id,
-					"account.finalizeAvatar",
-					v,
-				);
+				const c = await begin(s, { ...ctx }, a.account.id, "account.finalizeAvatar", v);
 				if (c.kind === "replay") {
 					const prior = resultRecord.parse(c.value);
 					return prior.result;
@@ -100,23 +90,21 @@ export function avatarOperations(
 				const [clock] = await s.select({ at: now }).from(t.account).where(eq(t.account.id, a.account.id));
 				if (!f || !f.expires_at || f.expires_at <= clock!.at) deny();
 				const changed = a.account.avatar_object_id !== f.id;
-				let events: string[] = [];
+
 				if (changed) {
 					await s
 						.update(t.account)
 						.set({ avatar_object_id: f.id, revision: sql`${t.account.revision}+1` })
 						.where(eq(t.account.id, a.account.id));
-					events = [
-						await appendEvent(
-							s,
-							c,
-							a.account.id,
-							"edit",
-							"files.finalized",
-							a.account.revision,
-							String(BigInt(a.account.revision) + 1n),
-						),
-					];
+					await appendEvent(
+						s,
+						c,
+						a.account.id,
+						"edit",
+						"files.finalized",
+						a.account.revision,
+						String(BigInt(a.account.revision) + 1n),
+					);
 					if (a.account.avatar_object_id)
 						await cleanup.enqueue(s, {
 							accountId: a.account.id,
@@ -124,35 +112,20 @@ export function avatarOperations(
 							eligibleAt: clock!.at.toISOString(),
 						});
 				}
-				const result = await finish(
-					s,
-					c,
-					resultRecord,
-					events,
-					(r) => ({
-						receipt: r,
-						result: { status: "available", avatar: { accountId: a.account.id, versionId: f.id } },
-					}),
-					changed,
-				);
+				const result = await finish(s, c, resultRecord, () => ({
+					result: { status: "available", avatar: { accountId: a.account.id, versionId: f.id } },
+				}));
 				return result.result;
 			}),
 		removeAvatar: (tx, ctx, raw) =>
 			reply(tx, async (s) => {
-				native(ctx);
 				const v = parse(q.removeAvatarRequest, raw);
 				const a = await self(s, ctx);
-				const c = await begin(
-					s,
-					{ ...ctx, purpose: "native", origin: { kind: "native" } },
-					a.account.id,
-					"account.removeAvatar",
-					v,
-				);
+				const c = await begin(s, { ...ctx }, a.account.id, "account.removeAvatar", v);
 				if (c.kind === "replay") return resultRecord.parse(c.value).result;
 				revision(v.expectedRevision, a.account.revision);
 				const changed = a.account.avatar_object_id !== null;
-				let events: string[] = [];
+
 				if (changed) {
 					await s
 						.update(t.account)
@@ -164,27 +137,22 @@ export function avatarOperations(
 						fileId: a.account.avatar_object_id!,
 						eligibleAt: clock!.at.toISOString(),
 					});
-					events = [
-						await appendEvent(
-							s,
-							c,
-							a.account.id,
-							"edit",
-							"files.finalized",
-							a.account.revision,
-							String(BigInt(a.account.revision) + 1n),
-						),
-					];
+					await appendEvent(
+						s,
+						c,
+						a.account.id,
+						"edit",
+						"files.finalized",
+						a.account.revision,
+						String(BigInt(a.account.revision) + 1n),
+					);
 				}
-				return (
-					await finish(s, c, resultRecord, events, (r) => ({ receipt: r, result: { status: "absent" } }), changed)
-				).result;
+				return (await finish(s, c, resultRecord, () => ({ result: { status: "absent" } }))).result;
 			}),
 	};
 }
 function authorization(ctx: NativeSettingsContext, uploadId: string, upload: boolean): ResourceAuthorizer {
 	return async (tx, file, intent) => {
-		native(ctx);
 		const a = await self(tx, ctx, "preview");
 		if (
 			(!upload && file.id !== uploadId) ||
@@ -206,7 +174,6 @@ export async function uploadAvatar(
 ) {
 	const id = parse(z.uuid(), raw.uploadId);
 	const file = await db.transaction(async (tx) => {
-		native(ctx);
 		const a = await self(tx, ctx, "preview");
 		const [f] = await tx
 			.select()

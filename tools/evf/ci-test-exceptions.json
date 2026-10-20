@@ -1,6 +1,1 @@
-{
-	"tests/integration/platform/requests.test.mts": {
-		"reason": "Platform request proof requires a synthetic shared database, its own preview and S3. D63a retains local verification.",
-		"command": "corepack pnpm --filter @everyfield/web test:platform"
-	}
-}
+{}

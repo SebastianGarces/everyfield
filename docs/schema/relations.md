@@ -72,7 +72,6 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `communication(author_id)` | `account(id)` | restrict |  |
 | `communication(template_id, plant_id)` | `message_template(id, plant_id)` | restrict |  |
 | `communication(meeting_id, plant_id)` | `meeting(id, plant_id)` | restrict |  |
-| `communication(review_id)` | `review(id)` | restrict | Initiating account conversation context may differ from the plant output. Exact native operation validates actor, plant authority, review and target ownership. |
 | `communication(original_communication_id, plant_id)` | `communication(id, plant_id)` | restrict |  |
 | `communication(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `communication_recipient(plant_id)` | `plant(id)` | restrict |  |
@@ -88,16 +87,6 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `contact_outcome(meeting_id, plant_id)` | `meeting(id, plant_id)` | restrict |  |
 | `contact_outcome(supersedes_id, plant_id)` | `contact_outcome(id, plant_id)` | restrict |  |
 | `contact_outcome(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
-| `conversation(tenant_id)` | `tenant(id)` | restrict |  |
-| `conversation(owner_id)` | `account(id)` | restrict |  |
-| `conversation(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
-| `conversation_entry(tenant_id)` | `tenant(id)` | restrict |  |
-| `conversation_entry(conversation_id, tenant_id)` | `conversation(id, tenant_id)` | restrict |  |
-| `conversation_entry(object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
-| `conversation_entry(review_id, tenant_id)` | `review(id, tenant_id)` | restrict |  |
-| `conversation_entry(operation_id, tenant_id)` | `audit_event(id, tenant_id)` | restrict |  |
-| `conversation_entry(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
-| `conversation_entry(bound_effect_id, tenant_id)` | `effect(id, tenant_id)` | restrict |  |
 | `development_enrollment(organization_id)` | `organization(id)` | restrict |  |
 | `development_enrollment(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
 | `development_enrollment(person_id, organization_id)` | `person(id, tenant_id)` | restrict |  |
@@ -140,18 +129,6 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `document_revision(document_id, tenant_id)` | `document(id, tenant_id)` | restrict |  |
 | `document_revision(import_object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
 | `document_revision(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
-| `effect(tenant_id)` | `tenant(id)` | restrict |  |
-| `effect(operation_id, tenant_id)` | `audit_event(id, tenant_id)` | restrict |  |
-| `effect(review_id, tenant_id)` | `review(id, tenant_id)` | restrict |  |
-| `effect(target_record_id)` | `record(id)` | restrict | Reviewed targets can be global sources or an explicitly different output owner; exact command authorizes owner and kind. |
-| `effect(source_record_id)` | `record(id)` | restrict | Entitled source may be public/global or another explicitly authorized owner; source is not a grant. |
-| `effect(job_id, tenant_id)` | `job(id, tenant_id)` | restrict |  |
-| `effect(result_record_id)` | `record(id)` | restrict | Reviewed effect output may acquire its explicit domain owner; validated before bind. |
-| `effect(inverse_effect_id, tenant_id)` | `effect(id, tenant_id)` | restrict |  |
-| `effect(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
-| `effect_dependency(tenant_id)` | `tenant(id)` | restrict |  |
-| `effect_dependency(effect_id, tenant_id)` | `effect(id, tenant_id)` | restrict |  |
-| `effect_dependency(prerequisite_id, tenant_id)` | `effect(id, tenant_id)` | restrict |  |
 | `enrollment_milestone(organization_id)` | `organization(id)` | restrict |  |
 | `enrollment_milestone(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
 | `enrollment_milestone(enrollment_id, version_id, organization_id)` | `enrollment_plan(enrollment_id, version_id, organization_id)` | restrict |  |
@@ -175,7 +152,6 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `feedback(id, account_id)` | `record(id, tenant_id)` | restrict |  |
 | `feedback_publication(account_id)` | `account(id)` | restrict |  |
 | `feedback_publication(feedback_id, account_id)` | `feedback(id, account_id)` | restrict |  |
-| `feedback_publication(effect_id)` | `effect(id)` | restrict | Restricted public publication can use its own global effect, independently of private intake ownership; clear private linkage on purge. |
 | `feedback_publication(id)` | `record(id)` | restrict | Subtype trigger binds actual record owner for a global/public or retained body-free variant whose live root pointer is nullable. |
 | `file_object(tenant_id)` | `tenant(id)` | restrict |  |
 | `file_object(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
@@ -410,10 +386,6 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `responsibility(team_id, plant_id)` | `team(id, plant_id)` | restrict |  |
 | `responsibility(source_version_id)` | `reference_version(id)` | restrict |  |
 | `responsibility(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
-| `review(tenant_id)` | `tenant(id)` | restrict |  |
-| `review(conversation_id, tenant_id)` | `conversation(id, tenant_id)` | restrict |  |
-| `review(approved_by_id)` | `account(id)` | restrict |  |
-| `review(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `rsvp_proof(plant_id)` | `plant(id)` | restrict |  |
 | `rsvp_proof(participation_id, plant_id)` | `participation(id, plant_id)` | restrict |  |
 | `seat(account_id)` | `account(id)` | restrict |  |

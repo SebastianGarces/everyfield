@@ -1,12 +1,12 @@
-import { randomUUID } from "node:crypto";
-import { z } from "zod";
-import { and, eq, isNull, ne, sql } from "@everyfield/db/query";
-import * as t from "@everyfield/db/tables";
 import * as c from "@everyfield/contracts/onboarding";
 import type { OnboardingProducer } from "@everyfield/contracts/onboarding/server";
-import { plantReading } from "./reading.ts";
+import { and, eq, isNull, ne, sql } from "@everyfield/db/query";
+import * as t from "@everyfield/db/tables";
+import { randomUUID } from "node:crypto";
+import { z } from "zod";
+import { begin, bump, deny, event, finish, now, parse, plantOwner, reply, revision, type Tx } from "./core.ts";
 import { pending } from "./creation.ts";
-import { begin, bump, deny, event, finish, now, plantOwner, parse, reply, revision, type Tx } from "./core.ts";
+import { plantReading } from "./reading.ts";
 
 const savedLead = c.leadAnswerResult.shape.lead;
 const savedJourney = c.journeyResult.shape.journey;
@@ -127,11 +127,10 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 			const plant = await bump(tx, a.plant.id),
 				ids = [await event(tx, cx, a.plant.id, "attestation.recorded")];
 			if (lead.answer === "yes") ids.push(await event(tx, cx, lead.assignment.roleId, "roles.changed", "assign"));
-			return finish(tx, cx, ids, c.leadAnswerResult, (receipt) => ({
+			return finish(tx, cx, c.leadAnswerResult, () => ({
 				plant: ctx.selected,
 				revision: plant.revision,
 				lead,
-				receipt,
 			}));
 		});
 	},
@@ -187,7 +186,7 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 				.where(eq(t.plant.id, a.plant.id));
 			const plant = await bump(tx, a.plant.id);
 			ids.push(await event(tx, cx, a.plant.id, "attestation.recorded"));
-			return finish(tx, cx, ids, c.journeyResult, (receipt) => ({
+			return finish(tx, cx, c.journeyResult, () => ({
 				plant: ctx.selected,
 				revision: plant.revision,
 				currentPhase: plant.phase,
@@ -195,7 +194,6 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 				launch,
 				scheduledLaunchDate:
 					q.input.launch.answer === "planned" ? q.input.launch.date : (schedule?.target_date ?? null),
-				receipt,
 			}));
 		});
 	},
@@ -220,21 +218,12 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 				completedAt: plant.onboarding_completed_at!.toISOString(),
 				materialRevision: a.setup.completed_material_revision ?? plant.material_revision,
 			};
-			const id = await event(
-				tx,
-				cx,
-				plant.id,
-				"attestation.recorded",
-				a.plant.onboarding_completed_at ? "noop" : "complete",
-			);
-			return finish(
-				tx,
-				cx,
-				[id],
-				c.completeOnboardingResult,
-				(receipt) => ({ plant: ctx.selected, revision: plant.revision, completion, receipt }),
-				!a.plant.onboarding_completed_at,
-			);
+			await event(tx, cx, plant.id, "attestation.recorded", a.plant.onboarding_completed_at ? "noop" : "complete");
+			return finish(tx, cx, c.completeOnboardingResult, () => ({
+				plant: ctx.selected,
+				revision: plant.revision,
+				completion,
+			}));
 		});
 	},
 	async getResume(tx, ctx, raw) {

@@ -1,10 +1,10 @@
-import "server-only";
-import type { Transaction } from "@everyfield/db/client";
-import type { PeopleContext, PeopleReply, PeopleWriteContext } from "@everyfield/contracts/people";
-import { type readPeopleViewer, PeopleReadContext, withPeopleWrite } from "@everyfield/domain/people";
-import { readPeoplePage, readPersonPage } from "./page-data.ts";
-import type { PeopleQuery } from "./model.ts";
 import { requestDatabase } from "@/server/database";
+import type { PeopleContext, PeopleReply, PeopleWriteContext } from "@everyfield/contracts/people";
+import type { Transaction } from "@everyfield/db/client";
+import { type readPeopleViewer, PeopleReadContext, withPeopleWrite } from "@everyfield/domain/people";
+import "server-only";
+import type { PeopleQuery } from "./model.ts";
+import { readPeoplePage, readPersonPage } from "./page-data.ts";
 
 // Layout, pages and actions share this request's native session and actor.
 // Reads consume that observation; writes recheck authority inside their transaction.
@@ -21,7 +21,7 @@ export async function read<T>(
 	const store = requestDatabase();
 	if (!store) return { status: "failed" };
 	try {
-		return await store.transaction((tx) => run(tx, new PeopleReadContext(viewer.authority, "native")));
+		return await store.transaction((tx) => run(tx, new PeopleReadContext(viewer.authority)));
 	} catch (error) {
 		console.error(JSON.stringify({ component: "people", outcome: "read_failed", error: String(error) }));
 		return { status: "failed" };

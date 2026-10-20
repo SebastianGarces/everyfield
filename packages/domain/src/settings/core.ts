@@ -1,27 +1,16 @@
-import { WriteUnavailable } from "../operations/writes.ts";
-import { prepareWrite, finishAudit, auditSavepoint, auditTransaction } from "../operations/writes.ts";
-import "server-only";
-import { createHash, randomUUID } from "node:crypto";
-import { z } from "zod";
-import type { Database, Transaction } from "@everyfield/db/client";
-import * as t from "@everyfield/db/tables";
-import { and, eq, isNull, sql } from "@everyfield/db/query";
-import { RequestActor } from "../access/session.ts";
-import { currentActor, liveOwner, requestWrite, currentWriteAllowed } from "../access/session.ts";
-import { canonical, appendEvent } from "../organizations/core.ts";
-import {
-	receipt,
-	tenantId,
-	requestIdentity,
-	sameOwner,
-	sessionId,
-	accountId,
-	type Owner,
-	type Receipt,
-} from "@everyfield/contracts/common";
+import { accountId, requestIdentity, sameOwner, sessionId, tenantId, type Owner } from "@everyfield/contracts/common";
 import { settingsError } from "@everyfield/contracts/settings";
-import type { SettingsContext, SettingsWriteContext, SettingsReply } from "@everyfield/contracts/settings/server";
-export { canonical, appendEvent, sameOwner };
+import type { SettingsContext, SettingsReply, SettingsWriteContext } from "@everyfield/contracts/settings/server";
+import type { Database, Transaction } from "@everyfield/db/client";
+import { and, eq, isNull, sql } from "@everyfield/db/query";
+import * as t from "@everyfield/db/tables";
+import { createHash, randomUUID } from "node:crypto";
+import "server-only";
+import { z } from "zod";
+import { currentActor, currentWriteAllowed, liveOwner, RequestActor, requestWrite } from "../access/session.ts";
+import { auditSavepoint, auditTransaction, finishAudit, prepareWrite, WriteUnavailable } from "../operations/writes.ts";
+import { appendEvent, canonical } from "../organizations/core.ts";
+export { appendEvent, canonical, sameOwner };
 export type Tx = Transaction;
 export type Context = SettingsContext;
 export type WriteContext = SettingsWriteContext;
@@ -111,9 +100,7 @@ export async function self(tx: Tx, ctx: Context, use: "read" | "command" | "prev
 	if (ctx.selected.kind !== "account" || ctx.selected.id !== a.account.id) deny();
 	return a;
 }
-export function native(ctx: Context) {
-	if (ctx.purpose !== "native") deny();
-}
+
 export async function plantAdmin(tx: Tx, ctx: Context, plant: Owner, use: "read" | "command" | "preview" = "read") {
 	const a = await actor(tx, ctx, use);
 	if (
@@ -129,23 +116,15 @@ export async function plantAdmin(tx: Tx, ctx: Context, plant: Owner, use: "read"
 	return { ...a, plant: row };
 }
 export type Command = { requestKey: string; expectedRevision: string; input: unknown };
-export async function begin(
-	tx: Tx,
-	ctx: WriteContext,
-	actorId: string,
-	name: typeof t.effect.$inferInsert.kind,
-	q: Command,
-) {
-	if (ctx.purpose === "model" && ctx.origin.kind !== "assistant") deny();
+export async function begin(tx: Tx, ctx: WriteContext, actorId: string, name: string, q: Command) {
 	const identity = requestIdentity.parse({
 		owner: ctx.selected,
 		actorId,
 		operation: name,
 		requestKey: q.requestKey,
 		digest: hash(q),
-		origin: ctx.origin,
 	});
-	const claim = await prepareWrite(tx, name, identity, q, hash({ name, input: q }), "current");
+	const claim = await prepareWrite(tx, identity);
 	if (claim.kind === "unavailable") deny();
 	if (claim.kind === "conflict") deny("conflict");
 
@@ -155,24 +134,8 @@ export async function begin(
 	return { kind: "new" as const, id: claim.id, identity, writes: claim.writes, events: claim.events };
 }
 export type NewCommand = Extract<Awaited<ReturnType<typeof begin>>, { kind: "new" }>;
-export async function finish<T>(
-	tx: Tx,
-	c: NewCommand,
-	schema: z.ZodType<T>,
-	events: string[],
-	body: (r: Receipt) => unknown,
-	changed = true,
-) {
-	const r = receipt.parse({
-		id: c.id,
-		request: c.identity,
-		completedAt: new Date().toISOString(),
-		outcome: changed ? "changed" : "noop",
-		subjects: [{ kind: "audit_event", id: c.id, owner: c.identity.owner }],
-		eventIds: events,
-		effectIds: [],
-	});
-	const value = schema.parse(body(r));
+export async function finish<T>(tx: Tx, c: NewCommand, schema: z.ZodType<T>, body: () => unknown) {
+	const value = schema.parse(body());
 	await finishAudit(tx, c, c.identity, value);
 	return value;
 }

@@ -1,19 +1,19 @@
-import { WriteUnavailable } from "../operations/writes.ts";
-import { prepareWrite, finishAudit, auditSavepoint, auditTransaction } from "../operations/writes.ts";
-import "server-only";
-import { randomUUID, createHash } from "node:crypto";
-import { z } from "zod";
-import type { Database, Transaction } from "@everyfield/db/client";
-import * as t from "@everyfield/db/tables";
-import { and, eq, isNull, sql } from "@everyfield/db/query";
-import { RequestActor, currentActor, liveOwner, requestWrite, lockWriteAuthority } from "../access/session.ts";
-import { receipt, requestIdentity, sessionId, accountId, type Receipt } from "@everyfield/contracts/common";
+import { writeAction } from "../operations/actions.ts";
+import { accountId, requestIdentity, sessionId } from "@everyfield/contracts/common";
 import { onboardingError } from "@everyfield/contracts/onboarding";
 import type {
 	OnboardingContext,
-	OnboardingWriteContext,
 	OnboardingReply,
+	OnboardingWriteContext,
 } from "@everyfield/contracts/onboarding/server";
+import type { Database, Transaction } from "@everyfield/db/client";
+import { and, eq, isNull, sql } from "@everyfield/db/query";
+import * as t from "@everyfield/db/tables";
+import { createHash, randomUUID } from "node:crypto";
+import "server-only";
+import { z } from "zod";
+import { RequestActor, currentActor, liveOwner, lockWriteAuthority, requestWrite } from "../access/session.ts";
+import { WriteUnavailable, auditSavepoint, auditTransaction, finishAudit, prepareWrite } from "../operations/writes.ts";
 
 export type Tx = Transaction;
 export type Context = OnboardingContext;
@@ -162,17 +162,15 @@ export async function begin(
 		| "onboarding.complete",
 	input: Command,
 ) {
-	if (ctx.purpose === "model" && ctx.origin.kind !== "assistant") deny();
 	const identity = requestIdentity.parse({
 		owner: ctx.selected,
 		actorId,
 		operation: name,
 		requestKey: input.requestKey,
 		digest: hash(input),
-		origin: ctx.origin,
 	});
 
-	const claim = await prepareWrite(tx, name, identity, input, hash({ name, input: input }), "committed");
+	const claim = await prepareWrite(tx, identity);
 	if (claim.kind === "unavailable") deny();
 	if (claim.kind === "conflict") deny("idempotency_conflict");
 	if (claim.kind === "replay") {
@@ -199,31 +197,15 @@ export async function event(
 		command_id: c.id,
 		actor_id: c.identity.actorId,
 		kind,
-		action: action ?? c.identity.operation,
+		action: action ?? writeAction(c.identity.operation),
 		occurred_at: now,
 		recorded_at: now,
 		event_key: c.id + "/" + target + "/" + action,
 	});
 	return id;
 }
-export async function finish<T>(
-	tx: Tx,
-	c: NewCommand,
-	events: string[],
-	schema: z.ZodType<T>,
-	result: (r: Receipt) => unknown,
-	changed = true,
-) {
-	const r = receipt.parse({
-		id: c.id,
-		request: c.identity,
-		completedAt: new Date().toISOString(),
-		outcome: changed ? "changed" : "noop",
-		subjects: [{ kind: "audit_event", id: c.id, owner: c.identity.owner }],
-		eventIds: events,
-		effectIds: [],
-	});
-	const value = schema.parse(result(r));
+export async function finish<T>(tx: Tx, c: NewCommand, schema: z.ZodType<T>, result: () => unknown) {
+	const value = schema.parse(result());
 	await finishAudit(tx, c, c.identity, value);
 	return value;
 }

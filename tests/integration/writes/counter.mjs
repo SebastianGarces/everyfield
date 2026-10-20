@@ -26,7 +26,6 @@ const factories = {
 	createNotificationService: "notifications",
 	createDigestService: "digest",
 	createLifecycleCleanup: "lifecycle.purge",
-	operatorOperations: "operator",
 	referenceService: "reference",
 	attemptBudget: "identity.budget",
 };
@@ -50,7 +49,7 @@ const standalone = {
 		"checkpoint",
 		"scanPage",
 	],
-	"/apps/web/src/server/jobs/webhook.ts": ["receiveMailCallback", "replayStoredCallbacks", "recoverCallback"],
+	"/apps/web/src/server/jobs/webhook.ts": ["receiveMailCallback", "replayStoredCallbacks"],
 	"/apps/web/src/server/jobs/notifications.ts": ["sendDiscoveryAssociationReceipt", "sendOnboardingRelationships"],
 };
 
@@ -182,7 +181,6 @@ registerHooks({
 				source = source.slice(0, offset) + text + source.slice(offset);
 			const objects = {
 				"/packages/domain/src/people/people.ts": { peopleWriter: "people", accountPersonProducer: "accountPerson" },
-				"/packages/domain/src/people/organization.ts": { organizationPeople: "orgPeople" },
 			};
 			for (const [name, prefix] of Object.entries(objects[path.slice(root.length)] ?? {}))
 				source += `\nglobalThis.__evfWriteCounts.decorate(${JSON.stringify(prefix)},${name});`;

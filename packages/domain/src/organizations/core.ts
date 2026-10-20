@@ -1,21 +1,15 @@
-import { prepareWrite, finishAudit } from "../operations/writes.ts";
-import { type SQL, getTableColumns, and, eq, isNull, lte, sql } from "@everyfield/db/query";
-import * as tables from "@everyfield/db/tables";
-import { alias } from "@everyfield/db/columns";
-import { createHash, randomUUID } from "node:crypto";
-import type { Transaction } from "@everyfield/db/client";
-import { z } from "zod";
+import { writeAction } from "../operations/actions.ts";
+import { RequestActor, requestWrite } from "../access/session.ts";
+import { sessionId } from "@everyfield/contracts/common";
 import {
+	accountId,
 	owner,
 	recordId,
-	accountId,
-	tenantId,
-	revision,
-	receipt,
 	requestIdentity,
+	revision,
 	sameOwner,
+	tenantId,
 	type Owner,
-	type Receipt,
 } from "@everyfield/contracts/common";
 import {
 	relationshipPair,
@@ -23,8 +17,14 @@ import {
 	sharingChoices,
 	type RelationshipPair,
 } from "@everyfield/contracts/organizations";
-import { currentActor } from "@everyfield/domain/access";
-import { liveOwner } from "@everyfield/domain/access";
+import type { Transaction } from "@everyfield/db/client";
+import { alias } from "@everyfield/db/columns";
+import { and, eq, getTableColumns, isNull, lte, sql, type SQL } from "@everyfield/db/query";
+import * as tables from "@everyfield/db/tables";
+import { currentActor, liveOwner } from "@everyfield/domain/access";
+import { createHash, randomUUID } from "node:crypto";
+import { z } from "zod";
+import { finishAudit, prepareWrite } from "../operations/writes.ts";
 
 export { currentActor, liveOwner, sameOwner };
 export type Actor = Extract<Awaited<ReturnType<typeof currentActor>>, { status: "active" }>;
@@ -50,8 +50,10 @@ export function canonical(value: unknown): string {
 		);
 	return JSON.stringify(value);
 }
-export async function lock(tx: Transaction, key: string) {
-	await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${sql.param(key)},7007))`);
+export async function writeActor(tx: Transaction, session: string, selected: Owner) {
+	const bound = requestWrite(tx) ?? (await RequestActor.claimWrite(tx, sessionId.parse(session), selected));
+	if (!bound || bound.authority.session !== session || !sameOwner(bound.selected, selected)) refuse();
+	return bound.actor;
 }
 export const subjectOwner = (pair: RelationshipPair): Owner =>
 	pair.kind === "discovery" ? owner.parse({ kind: "account", id: pair.accountId }) : pair.subject;
@@ -235,9 +237,8 @@ export async function beginCommand(tx: Transaction, actor: Actor, selected: Owne
 		operation: name,
 		requestKey: command.requestKey,
 		digest: hash(canonical(command)),
-		origin: { kind: "native" },
 	});
-	const claim = await prepareWrite(tx, name, identity, command, hash(canonical({ name, input: command })), "current");
+	const claim = await prepareWrite(tx, identity);
 	if (claim.kind === "unavailable") refuse();
 	if (claim.kind === "conflict") refuse("request_conflict");
 	if (claim.kind === "replay") {
@@ -246,24 +247,8 @@ export async function beginCommand(tx: Transaction, actor: Actor, selected: Owne
 	return { kind: "new" as const, id: claim.id, identity, writes: claim.writes, events: claim.events };
 }
 export type NewCommand = Extract<Awaited<ReturnType<typeof beginCommand>>, { kind: "new" }>;
-export async function finishCommand<T>(
-	tx: Transaction,
-	c: NewCommand,
-	result: (r: Receipt) => T,
-	eventIds: string[],
-	changed = true,
-): Promise<T> {
-	const now = new Date().toISOString();
-	const r = receipt.parse({
-		id: c.id,
-		request: c.identity,
-		completedAt: now,
-		outcome: changed ? "changed" : "noop",
-		subjects: [{ kind: "audit_event", id: c.id, owner: c.identity.owner }],
-		eventIds,
-		effectIds: [],
-	});
-	const output = result(r);
+export async function finishCommand<T>(tx: Transaction, c: NewCommand, result: () => T): Promise<T> {
+	const output = result();
 	await finishAudit(tx, c, c.identity, output);
 	return output;
 }
@@ -284,7 +269,7 @@ export async function appendEvent(
 		command_id: c.id,
 		actor_id: c.identity.actorId,
 		kind: kind,
-		action: action ?? c.identity.operation,
+		action: action ?? writeAction(c.identity.operation),
 		occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
 		recorded_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
 		before_revision: sql`${before}`,

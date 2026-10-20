@@ -112,8 +112,6 @@ export async function onboardingCommand(op: Op, input: unknown): Promise<Reply> 
 	const write = (selected: OnboardingWriteContext["selected"]): OnboardingWriteContext => ({
 		session: s.sessionId,
 		selected,
-		purpose: "native",
-		origin: { kind: "native" },
 	});
 	const account = write({ kind: "account", id: s.accountId });
 	const p = m.producer;

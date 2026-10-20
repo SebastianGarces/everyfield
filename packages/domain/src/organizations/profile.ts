@@ -1,12 +1,14 @@
-import { auditSavepoint } from "../operations/writes.ts";
+import { requestWrite } from "../access/session.ts";
+import { writeActor } from "./core.ts";
+import { revision } from "@everyfield/contracts/common";
+import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
+import * as Q from "@everyfield/contracts/organizations";
+import type { Transaction } from "@everyfield/db/client";
+import { alias } from "@everyfield/db/columns";
 import { and, desc, eq, isNotNull, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
-import { alias } from "@everyfield/db/columns";
-import type { Transaction } from "@everyfield/db/client";
 import { z } from "zod";
-import { revision } from "@everyfield/contracts/common";
-import * as Q from "@everyfield/contracts/organizations";
-import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
+import { auditSavepoint } from "../operations/writes.ts";
 import {
 	administrator,
 	appendEvent,
@@ -63,24 +65,18 @@ export function profileOperations(
 		async "organizations.updateProfile"(tx, session, selected, raw) {
 			return auditSavepoint(tx, async () => {
 				const q = Q.updateOrganizationProfileRequest.parse(raw),
-					actor = await currentActor(tx, session, selected);
+					actor = await writeActor(tx, session, selected);
 				if (actor.status !== "active" || !administrator(actor) || !sameOwner(selected, q.input.organization)) refuse();
 				const c = await beginCommand(tx, actor, selected, "organizations.updateProfile", q);
 				if (c.kind === "replay") return Q.mutationResult.parse(c.result);
-				const changed = await applyOrganizationProfile(tx, c, selected.id, q.input.patch, q.expectedRevision);
-				return finishCommand(
-					tx,
-					c,
-					(r) => Q.mutationResult.parse({ status: "committed", receipt: r }),
-					changed.events,
-					changed.changed,
-				);
+				await applyOrganizationProfile(tx, c, selected.id, q.input.patch, q.expectedRevision);
+				return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
 			});
 		},
 		async "organizations.correctReportingLocation"(tx, session, selected, raw) {
 			return auditSavepoint(tx, async () => {
 				const q = Q.correctReportingLocationRequest.parse(raw),
-					actor = await currentActor(tx, session, selected);
+					actor = await writeActor(tx, session, selected);
 				if (actor.status !== "active" || !administrator(actor) || !sameOwner(selected, q.input.plant)) refuse();
 				const c = await beginCommand(tx, actor, selected, "organizations.correctReportingLocation", q);
 				if (c.kind === "replay") return Q.mutationResult.parse(c.result);
@@ -157,8 +153,8 @@ export function profileOperations(
 						material_revision: sql<unknown>`(${tables.plant.material_revision} + 1)`,
 					})
 					.where(eq(tables.plant.id, selected.id));
-				const next = String(BigInt(q.expectedRevision) + 1n),
-					event = await appendEvent(tx, c, selected.id, "correct", "plant.profile_changed", q.expectedRevision, next);
+				const next = String(BigInt(q.expectedRevision) + 1n);
+				await appendEvent(tx, c, selected.id, "correct", "plant.profile_changed", q.expectedRevision, next);
 				const orgs = await tx.execute<{ organization_id: string; kind: string }>(
 					sql`UPDATE organization o SET material_revision=o.material_revision+1 FROM affiliation a WHERE a.organization_id=o.id AND a.plant_id=${sql.param(selected.id)} AND a.ended_at IS NULL RETURNING o.id AS organization_id,o.kind`,
 				);
@@ -170,7 +166,7 @@ export function profileOperations(
 						sourceId: selected.id,
 						revision: next,
 					});
-				return finishCommand(tx, c, (r) => Q.mutationResult.parse({ status: "committed", receipt: r }), [event]);
+				return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
 			});
 		},
 	};
@@ -187,7 +183,9 @@ export async function applyOrganizationProfile(
 	locked?: typeof tables.organization.$inferSelect,
 ) {
 	const stored =
-		locked ?? (await tx.select().from(tables.organization).where(eq(tables.organization.id, id)).for("update"))[0];
+		locked ??
+		(requestWrite(tx)?.organization?.id === id ? requestWrite(tx)?.organization : undefined) ??
+		(await tx.select().from(tables.organization).where(eq(tables.organization.id, id)).for("update"))[0];
 	if (!stored) refuse();
 	const organization = Q.organizationOwner.parse({ kind: "organization", id, organizationKind: stored.kind });
 	const row = profileRow.parse(stored);
@@ -213,10 +211,12 @@ export async function applyOrganizationProfile(
 	}
 	if (!Object.keys(patch).length)
 		return { changed: false, events: [] as string[], current: profileValue(row, organization) };
-	await tx
-		.update(tables.organization)
-		.set({ ...patch, revision: sql`${tables.organization.revision}+1` })
-		.where(eq(tables.organization.id, id));
+	c.writes.push(
+		tx
+			.update(tables.organization)
+			.set({ ...patch, revision: sql`${tables.organization.revision}+1` })
+			.where(eq(tables.organization.id, id)),
+	);
 	const event = await appendEvent(
 		tx,
 		c,
@@ -226,6 +226,15 @@ export async function applyOrganizationProfile(
 		row.revision,
 		String(BigInt(row.revision) + 1n),
 	);
+	const audit = c.events.find((e) => e.id === event);
+	if (!audit) throw Error("missing_audit_entry");
+	audit.before_value = Object.fromEntries(
+		Object.values(fields)
+			.filter((field) => Object.hasOwn(patch, field))
+			.map((field) => [field, row[field]]),
+	);
+	audit.after_value = patch;
+
 	return {
 		changed: true,
 		events: [event],

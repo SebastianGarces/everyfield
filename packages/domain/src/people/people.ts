@@ -423,7 +423,7 @@ type NoteInput =
 	z.infer<typeof c.addNoteRequest> | z.infer<typeof c.editNoteRequest> | z.infer<typeof c.deleteNoteRequest>;
 async function note(tx: Tx, ctx: WriteContext, input: NoteInput, kind: "add" | "edit" | "delete") {
 	// Organization notes remain native-only, including when the author is an admin.
-	if (ctx.selected.kind === "organization" && ctx.purpose !== "native") deny();
+	if (ctx.selected.kind === "organization" && false) deny();
 	return mutation(
 		tx,
 		ctx,

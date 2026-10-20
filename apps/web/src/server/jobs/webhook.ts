@@ -1,14 +1,14 @@
+import type { Database, Transaction } from "@everyfield/db/client";
 import { alias, and, asc, eq, isNull, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
-import "server-only";
 import { createHash } from "node:crypto";
-import type { Database, Transaction } from "@everyfield/db/client";
+import "server-only";
 import { z } from "zod";
 import { boundedBytes, safeBoundary, safeResponse } from "../platform/boundary.ts";
 import { transaction } from "../platform/database.ts";
 import { verifyCallback } from "../platform/webhook.ts";
 const provider_event_e = alias(tables.provider_event, "e");
-const mail_m = alias(tables.mail, "m");
+
 const kinds = [
 	"accepted",
 	"scheduled",
@@ -191,39 +191,4 @@ export async function callbackVisibility(
 		})
 		.from(provider_event_e);
 	return { endpoint, ...z.object({ pending: z.number().int(), unmatched: z.number().int() }).parse(r[0]) };
-}
-// The operator adapter must establish fresh restricted authority for this exact mail owner.
-export async function recoverCallback(
-	db: Database,
-	eventId: string,
-	authorize: (tx: Transaction, tenant: string) => Promise<{ actorId: string; operationId: string } | null>,
-) {
-	z.uuid().parse(eventId);
-	return transaction(db, async (tx) => {
-		const found = await tx
-			.select({ tenant_id: mail_m.tenant_id, id: mail_m.id })
-			.from(provider_event_e)
-			.innerJoin(mail_m, eq(mail_m.provider_message_id, provider_event_e.message_id))
-			.where(eq(provider_event_e.id, eventId));
-		if (found.length !== 1) return "unmatched" as const;
-		const m = z.object({ tenant_id: z.uuid(), id: z.uuid() }).parse(found[0]);
-		const actor = await authorize(tx, m.tenant_id);
-		if (!actor) throw Error("recovery_unavailable");
-		const result = await apply(tx, eventId);
-		await tx
-			.insert(tables.audit_event)
-			.values({
-				tenant_id: m.tenant_id,
-				subject_id: m.id,
-				actor_id: actor.actorId,
-				command_id: actor.operationId,
-				kind: "reconcile",
-				occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-				recorded_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-				event_key: `callback-recovery/${eventId}/${actor.operationId}`,
-				action: "mail.reconciled",
-			})
-			.onConflictDoNothing({ target: [tables.audit_event.subject_id, tables.audit_event.event_key] });
-		return result;
-	});
 }

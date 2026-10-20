@@ -2576,8 +2576,6 @@
         "communication",
         "communication_recipient",
         "contact_outcome",
-        "conversation",
-        "conversation_entry",
         "development_enrollment",
         "development_milestone",
         "development_program",
@@ -2588,8 +2586,6 @@
         "discovery",
         "document",
         "document_revision",
-        "effect",
-        "effect_dependency",
         "enrollment_milestone",
         "enrollment_plan",
         "evidence_link",
@@ -2653,7 +2649,6 @@
         "reference_version",
         "residency_link",
         "responsibility",
-        "review",
         "rsvp_proof",
         "seat",
         "sending_goal",
@@ -5677,7 +5672,6 @@
       ],
       "consumer_table_names": [
         "audit_event",
-        "effect",
         "evidence_link",
         "person"
       ],
@@ -6206,7 +6200,6 @@
       ],
       "consumer_table_names": [
         "commitment",
-        "effect",
         "four_cs",
         "interview",
         "organization_person_removal",
@@ -6709,7 +6702,6 @@
       "consumer_table_names": [
         "account",
         "audit_event",
-        "effect",
         "evidence_link",
         "onboarding_setup",
         "person",
@@ -8247,7 +8239,6 @@
         "assessment",
         "assessment_fact",
         "audit_event",
-        "effect",
         "evidence_link",
         "meeting",
         "obligation",
@@ -8767,7 +8758,6 @@
       "consumer_table_names": [
         "audit_event",
         "contact_outcome",
-        "effect",
         "evidence_link",
         "obligation",
         "record",
@@ -8928,7 +8918,6 @@
         "record"
       ],
       "consumer_table_names": [
-        "effect",
         "evidence_link",
         "notice",
         "reference_version",
@@ -10406,7 +10395,6 @@
         "communication",
         "communication_recipient",
         "digest_coverage",
-        "effect",
         "job",
         "notice",
         "phase_transition"
@@ -13245,7 +13233,6 @@
         "account",
         "attestation",
         "audit_event",
-        "effect",
         "finding",
         "notice",
         "onboarding_setup",
@@ -18150,7 +18137,6 @@
         "auth_session",
         "auth_user",
         "auth_verification",
-        "effect",
         "feedback",
         "feedback_publication"
       ],
@@ -18457,14 +18443,12 @@
         "WP-090"
       ],
       "producer_table_names": [
-        "conversation",
-        "conversation_entry",
-        "evidence_link",
-        "record"
+        "evidence_link"
       ],
       "consumer_table_names": [
         "audit_event",
-        "job"
+        "job",
+        "record"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
@@ -19375,8 +19359,6 @@
       "ui_prerequisites": [],
       "producer_table_names": [],
       "consumer_table_names": [
-        "conversation",
-        "conversation_entry",
         "evidence_link",
         "record"
       ],
@@ -20442,14 +20424,11 @@
       ],
       "producer_table_names": [
         "audit_event",
-        "conversation",
-        "effect",
-        "effect_dependency",
-        "evidence_link",
-        "record",
-        "review"
+        "evidence_link"
       ],
-      "consumer_table_names": [],
+      "consumer_table_names": [
+        "record"
+      ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
@@ -20739,7 +20718,6 @@
         "WP-090"
       ],
       "producer_table_names": [
-        "conversation_entry",
         "file_object",
         "record"
       ],
@@ -22343,9 +22321,6 @@
       "producer_table_names": [],
       "consumer_table_names": [
         "audit_event",
-        "conversation_entry",
-        "effect",
-        "effect_dependency",
         "evidence_link",
         "file_object",
         "record",
@@ -28291,8 +28266,6 @@
         "communication",
         "communication_recipient",
         "contact_outcome",
-        "conversation",
-        "conversation_entry",
         "development_enrollment",
         "development_milestone",
         "development_program",
@@ -28305,8 +28278,6 @@
         "document_revision",
         "early_access_attempt",
         "early_access_request",
-        "effect",
-        "effect_dependency",
         "enrollment_milestone",
         "enrollment_plan",
         "evidence_link",
@@ -28373,7 +28344,6 @@
         "relationship_invitation",
         "residency_link",
         "responsibility",
-        "review",
         "rsvp_proof",
         "schema_migration",
         "seat",
@@ -34329,8 +34299,6 @@
         "communication",
         "communication_recipient",
         "contact_outcome",
-        "conversation",
-        "conversation_entry",
         "development_enrollment",
         "development_milestone",
         "development_program",
@@ -34343,8 +34311,6 @@
         "document_revision",
         "early_access_attempt",
         "early_access_request",
-        "effect",
-        "effect_dependency",
         "enrollment_milestone",
         "enrollment_plan",
         "feedback",
@@ -34407,7 +34373,6 @@
         "relationship_invitation",
         "residency_link",
         "responsibility",
-        "review",
         "rsvp_proof",
         "schema_migration",
         "seat",

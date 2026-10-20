@@ -4,7 +4,7 @@ The approved target has 101 active single-owner packages. WP-086 is retired into
 
 Start with a [short package brief](context.md). Read detailed requirements and cases on demand. The [DAG](dag.json) owns scope and dependencies; builders choose filenames and internal structures within the owned directories.
 
-Rough scope-based effort is 246 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 90 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
+Rough scope-based effort is 245.5 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 90 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
 
 ## Foundation and shared UI
 
@@ -39,7 +39,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-001 | Current source references and version identity | 0 | 0 | 0 | 0 | 1 |
 | WP-002 | Shared identity, access, time and change-history behavior | 5 | 2 | 8 | 0 | 1.5 |
 | WP-003 | Secure sign-in, private files and streamed responses | 12 | 0 | 11 | 2 | 1.5 |
-| WP-004 | Data storage for shipped features with tenant isolation | 20 | 4 | 46 | 115 | 5 |
+| WP-004 | Data storage for shipped features with tenant isolation | 20 | 4 | 46 | 110 | 5 |
 | WP-031 | Reliable background work and delivery recovery | 17 | 17 | 22 | 8 | 2.5 |
 | WP-088 | Product design foundations, dark mode and application shell | 0 | 0 | 0 | 0 | 2 |
 | WP-089 | Shared controls, surfaces and overlays | 0 | 0 | 0 | 0 | 3 |
@@ -89,10 +89,10 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-048 | Dashboard/navigation/settings integration | 3 | 6 | 5 | 2 | 1.5 |
 | WP-049 | Feedback and later public marketing | 19 | 10 | 14 | 4 | 2 |
 | WP-050 | Environment bootstrap/ops/observability | 37 | 35 | 69 | 10 | 3.5 |
-| WP-051 | Evry conversations and runs | 32 | 18 | 19 | 4 | 2.5 |
+| WP-051 | Evry conversations and runs | 32 | 18 | 19 | 1 | 2.5 |
 | WP-052 | Evry per-feature read/tool coverage | 40 | 2 | 66 | 0 | 2.5 |
-| WP-053 | Human approval and execution of Evry proposals | 52 | 13 | 69 | 7 | 3.5 |
-| WP-054 | Evry private uploads/artifacts/recovery | 33 | 5 | 15 | 3 | 2.5 |
+| WP-053 | Human approval and execution of Evry proposals | 52 | 13 | 69 | 2 | 3 |
+| WP-054 | Evry private uploads/artifacts/recovery | 33 | 5 | 15 | 2 | 2.5 |
 | WP-059 | Evry people-core reads/helper adapters | 4 | 21 | 20 | 0 | 2 |
 | WP-060 | Evry people-core draft/propose/execute adapters | 3 | 16 | 10 | 0 | 1.5 |
 | WP-061 | Evry people-assessments reads/helper adapters | 2 | 5 | 9 | 0 | 1.5 |

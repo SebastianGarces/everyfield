@@ -810,29 +810,9 @@
       "policy": "Purpose-checked selections, citations and inverse witnesses may reference person-kind record identities; preserve original snapshots and guard current rewritten relation by exact revisions."
     },
     {
-      "table": "effect",
-      "field": "arguments",
-      "policy": "Frozen reviewed Person arguments remain immutable; merge invalidates stale review, never rewrites reviewed intent."
-    },
-    {
       "table": "generated_document",
       "field": "inputs",
       "policy": "Frozen generated Person data and bytes retain original provenance; merge grants no regeneration or disclosure."
-    },
-    {
-      "table": "effect",
-      "field": "target_record_id",
-      "policy": "Person-kind record identity stays frozen on merge and Unmerge; never retarget the stored reference or rewrite original evidence. Current reads resolve merged_into_person_id under current same-plant permissions, and retirement blocks new operational references. Unmerge follows the current guarded identity; it does not replay effects, jobs, notices or disclosures. Execution rechecks original source/target revisions and refuses stale reviewed intent. Person movement transfers no account grants, private authorship or conversation ownership."
-    },
-    {
-      "table": "effect",
-      "field": "source_record_id",
-      "policy": "Person-kind record identity stays frozen on merge and Unmerge; never retarget the stored reference or rewrite original evidence. Current reads resolve merged_into_person_id under current same-plant permissions, and retirement blocks new operational references. Unmerge follows the current guarded identity; it does not replay effects, jobs, notices or disclosures. Execution rechecks original source/target revisions and refuses stale reviewed intent. Person movement transfers no account grants, private authorship or conversation ownership."
-    },
-    {
-      "table": "effect",
-      "field": "result_record_id",
-      "policy": "Person-kind record identity stays frozen on merge and Unmerge; never retarget the stored reference or rewrite original evidence. Current reads resolve merged_into_person_id under current same-plant permissions, and retirement blocks new operational references. Unmerge follows the current guarded identity; it does not replay effects, jobs, notices or disclosures. Execution rechecks original source/target revisions and refuses stale reviewed intent. Person movement transfers no account grants, private authorship or conversation ownership."
     },
     {
       "table": "job",

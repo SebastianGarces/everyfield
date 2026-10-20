@@ -51,19 +51,11 @@ const RETRY: Record<ErrorCode, "never" | "refresh" | "same_request" | "reconcile
 	already_declared: "refresh",
 	idempotency_conflict: "never",
 };
-const OPERATION: Record<Op, string> = {
-	createPlant: "onboarding.createPlant",
-	createDiscovery: "discovery.create",
-	convertDiscovery: "discovery.convertToPlant",
-	declareJourney: "onboarding.declareJourney",
-	answerLead: "identity.answerLeadOnboarding",
-	complete: "onboarding.complete",
-};
+
 export const DECLARATION_REASON = "Declared at setup — where this plant already was when it joined EveryField.";
 
 const id = () => crypto.randomUUID();
-const hex = () =>
-	Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, "0")).join("");
+
 const now = () => new Date().toISOString();
 const ACCOUNT = "6f1c2a8e-3b7d-4c55-9a0e-1d2f3a4b5c6d";
 const ORG_A = "3e9b1d24-6a5f-4c71-8b2e-9f0a1b2c3d4e";
@@ -243,25 +235,6 @@ const refuse = (code: ErrorCode): never => {
 	throw new Refused(code);
 };
 
-function receipt(w: World, op: Op, cmd: Command, owner: Raw) {
-	return {
-		id: id(),
-		request: {
-			owner,
-			actorId: ACCOUNT,
-			operation: OPERATION[op],
-			requestKey: cmd.requestKey,
-			digest: hex(),
-			origin: { kind: "native" },
-		},
-		completedAt: now(),
-		outcome: "changed",
-		subjects: [],
-		eventIds: [id()],
-		effectIds: [],
-	};
-}
-
 function create(w: World, op: "createPlant" | "convertDiscovery", cmd: Command, input: Raw) {
 	if (w.resume) refuse("active_seat_conflict");
 	if (op === "createPlant" && w.discovery) refuse("association_resolution_required");
@@ -272,16 +245,14 @@ function create(w: World, op: "createPlant" | "convertDiscovery", cmd: Command, 
 	w.resume = freshResume(plantId);
 	w.registration = "active";
 	w.accountRevision = String(Number(w.accountRevision) + 1);
-	const owner = { kind: "account", id: ACCOUNT };
-	const r = receipt(w, op, cmd, owner);
-	const creation = { kind: "church_creation", eventId: r.eventIds[0], fromPhase: null, toPhase: 1, recordedAt: now() };
+
+	const creation = { kind: "church_creation", eventId: id(), fromPhase: null, toPhase: 1, recordedAt: now() };
 	const base = {
 		plant: { kind: "plant", id: plantId },
 		revision: "1",
 		materialRevision: "1",
 		ownerSeat: { seatId: id(), role: "owner", personId: id() },
 		creation,
-		receipt: r,
 		currentPhase: 1,
 	};
 	if (op === "createPlant") return { status: "created", ...base, initialSharing: OFF };
@@ -326,14 +297,12 @@ function apply(w: World, op: Op, cmd: Command): unknown {
 		};
 		w.registration = "active";
 		w.offer = null;
-		const r = receipt(w, op, cmd, { kind: "account", id: ACCOUNT });
-		return C.createDiscoveryResult.parse({ status: "active", profile: w.discovery, receipt: r });
+		return C.createDiscoveryResult.parse({ status: "active", profile: w.discovery });
 	}
 	const resume = w.resume ?? refuse("unavailable");
 	if (cmd.expectedRevision !== resume.revision) refuse("conflict");
 	const plant = resume.plant as Raw;
 	const bump = () => (resume.revision = String(Number(resume.revision) + 1));
-	const r = receipt(w, op, cmd, plant);
 	if (op === "declareJourney") {
 		const journey = input.journey as Raw;
 		const launch = input.launch as Raw;
@@ -358,7 +327,6 @@ function apply(w: World, op: Op, cmd: Command): unknown {
 			journey: resume.journey,
 			launch: resume.launch,
 			scheduledLaunchDate: resume.scheduledLaunchDate,
-			receipt: r,
 		});
 	}
 	if (op === "answerLead") {
@@ -368,7 +336,7 @@ function apply(w: World, op: Op, cmd: Command): unknown {
 				? { answer: "yes", assignment: { teamId: id(), roleId: id(), personId: id() }, savedAt: at }
 				: { answer: input.answer, savedAt: at };
 		bump();
-		return C.leadAnswerResult.parse({ plant, revision: resume.revision, lead: resume.lead, receipt: r });
+		return C.leadAnswerResult.parse({ plant, revision: resume.revision, lead: resume.lead });
 	}
 	const completion = resume.completion as Raw;
 	if (completion.status !== "completed") {
@@ -380,7 +348,6 @@ function apply(w: World, op: Op, cmd: Command): unknown {
 		plant,
 		revision: resume.revision,
 		completion: resume.completion,
-		receipt: r,
 	});
 }
 

@@ -11,12 +11,17 @@ import { migrate, migrationArtifact } from "../../../packages/db/src/schema/migr
 
 test("INV-schema: fresh and upgraded affiliation schemas use canonical ministry_teams and preserve existing consent", async () => {
 	const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
+	const ci =
+		process.env.CI === "true" &&
+		process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
+		["localhost", "127.0.0.1"].includes(source.hostname) &&
+		source.pathname === "/everyfield_ci";
 	if (
-		source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech" ||
+		(!ci && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
 		process.env.NODE_ENV === "production"
 	)
 		throw Error("Only shared development direct endpoint allowed");
-	source.searchParams.set("sslmode", "verify-full");
+	if (!ci) source.searchParams.set("sslmode", "verify-full");
 	const schema = "wp007upgrade_" + randomUUID().replaceAll("-", ""),
 		fresh = "wp007fresh_" + randomUUID().replaceAll("-", ""),
 		db = createDatabase({ connectionString: source.href, max: 2 });

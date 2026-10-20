@@ -1,15 +1,16 @@
-import { and, eq, gt, isNull, or, sql } from "@everyfield/db/query";
-import * as tables from "@everyfield/db/tables";
-import "server-only";
-import { readAccountContacts } from "@everyfield/domain/identity";
-import { enqueueJobs } from "./queue";
-import type { Transaction } from "@everyfield/db/client";
-import { z } from "zod";
+import { gt } from "@everyfield/db/query";
 import { instant } from "@everyfield/contracts/common";
-import { createMailService, type MailIntent } from "./mail.ts";
-import { taskReminderTimes, meetingReminderTimes } from "./calendar.ts";
-export { notificationCategory as category } from "@everyfield/contracts/settings";
 import { notificationCategory as category } from "@everyfield/contracts/settings";
+import type { Transaction } from "@everyfield/db/client";
+import { and, eq, isNull, or, sql } from "@everyfield/db/query";
+import * as tables from "@everyfield/db/tables";
+import { readAccountContacts } from "@everyfield/domain/identity";
+import "server-only";
+import { z } from "zod";
+import { meetingReminderTimes, taskReminderTimes } from "./calendar.ts";
+import { createMailService, type MailIntent } from "./mail.ts";
+import { enqueueJobs } from "./queue";
+export { notificationCategory as category } from "@everyfield/contracts/settings";
 const sourceSchema = z.strictObject({
 	kind: z.enum(["task", "meeting", "affiliation", "phase_transition", "launch_milestone", "article_editor_state"]),
 	id: z.uuid(),
@@ -95,57 +96,6 @@ export async function channelEnabled(
 			),
 		);
 	return row[0] ? z.boolean().parse(row[0].enabled) : !(preference === "planter_digest" && channel === "in_app");
-}
-export async function lockSource(tx: Transaction, tenant: string, source: NoticeSource) {
-	const s = sourceSchema.parse(source);
-	if (s.kind === "phase_transition") {
-		const phase = await tx
-			.select({ id: tables.phase_transition.id })
-			.from(tables.phase_transition)
-			.where(
-				and(
-					and(
-						and(
-							and(eq(tables.phase_transition.id, s.id), eq(tables.phase_transition.plant_id, tenant)),
-							eq(tables.phase_transition.kind, "movement"),
-						),
-						gt(tables.phase_transition.to_phase, tables.phase_transition.from_phase),
-					),
-					sql`${s.revision}='1'`,
-				),
-			)
-			.for("share");
-		return phase.length === 1;
-	}
-	if (s.kind === "affiliation") {
-		const relationship = await tx
-			.select({ id: tables.affiliation.id })
-			.from(tables.affiliation)
-			.where(
-				and(
-					and(
-						eq(tables.affiliation.id, s.id),
-						or(eq(tables.affiliation.plant_id, tenant), eq(tables.affiliation.organization_id, tenant)),
-					),
-					eq(tables.affiliation.revision, s.revision),
-				),
-			)
-			.for("share");
-		return relationship.length === 1;
-	}
-	const sources = {
-		task: [tables.task, tables.task.plant_id],
-		meeting: [tables.meeting, tables.meeting.plant_id],
-		launch_milestone: [tables.launch_milestone, tables.launch_milestone.plant_id],
-		article_editor_state: [tables.article_editor_state, tables.article_editor_state.organization_id],
-	} as const;
-	const [table, column] = sources[s.kind];
-	const r = await tx
-		.select({ id: table.id })
-		.from(table)
-		.where(and(eq(table.id, s.id), eq(column, tenant), eq(table.revision, s.revision)))
-		.for("share");
-	return r.length === 1;
 }
 export function createNotificationService(config: {
 	mail: ReturnType<typeof createMailService>;
@@ -488,4 +438,56 @@ export async function sendOnboardingRelationships(
 			};
 		}),
 	);
+}
+
+export async function lockSource(tx: Transaction, tenant: string, source: NoticeSource) {
+	const s = sourceSchema.parse(source);
+	if (s.kind === "phase_transition") {
+		const phase = await tx
+			.select({ id: tables.phase_transition.id })
+			.from(tables.phase_transition)
+			.where(
+				and(
+					and(
+						and(
+							and(eq(tables.phase_transition.id, s.id), eq(tables.phase_transition.plant_id, tenant)),
+							eq(tables.phase_transition.kind, "movement"),
+						),
+						gt(tables.phase_transition.to_phase, tables.phase_transition.from_phase),
+					),
+					sql`${s.revision}='1'`,
+				),
+			)
+			.for("share");
+		return phase.length === 1;
+	}
+	if (s.kind === "affiliation") {
+		const relationship = await tx
+			.select({ id: tables.affiliation.id })
+			.from(tables.affiliation)
+			.where(
+				and(
+					and(
+						eq(tables.affiliation.id, s.id),
+						or(eq(tables.affiliation.plant_id, tenant), eq(tables.affiliation.organization_id, tenant)),
+					),
+					eq(tables.affiliation.revision, s.revision),
+				),
+			)
+			.for("share");
+		return relationship.length === 1;
+	}
+	const sources = {
+		task: [tables.task, tables.task.plant_id],
+		meeting: [tables.meeting, tables.meeting.plant_id],
+		launch_milestone: [tables.launch_milestone, tables.launch_milestone.plant_id],
+		article_editor_state: [tables.article_editor_state, tables.article_editor_state.organization_id],
+	} as const;
+	const [table, column] = sources[s.kind];
+	const r = await tx
+		.select({ id: table.id })
+		.from(table)
+		.where(and(eq(table.id, s.id), eq(column, tenant), eq(table.revision, s.revision)))
+		.for("share");
+	return r.length === 1;
 }

@@ -139,10 +139,6 @@
 		"limit": 15,
 		"retry": 30
 	},
-	"jobs/webhook.recoverCallback": {
-		"limit": 11,
-		"retry": 22
-	},
 	"jobs/webhook.replayStoredCallbacks": {
 		"limit": 10,
 		"retry": 20
@@ -238,46 +234,6 @@
 	"onboarding/core.withOnboardingWrite": {
 		"limit": 8,
 		"retry": 16
-	},
-	"operator.errorCorrelation": {
-		"limit": 7,
-		"retry": 14
-	},
-	"operator.inspectAudit": {
-		"limit": 8,
-		"retry": 16
-	},
-	"operator.inspectLag": {
-		"limit": 8,
-		"retry": 16
-	},
-	"operator.withReadiness": {
-		"limit": 6,
-		"retry": 12
-	},
-	"orgPeople.create": {
-		"limit": 5,
-		"retry": 10
-	},
-	"orgPeople.export": {
-		"limit": 11,
-		"retry": 22
-	},
-	"orgPeople.remove": {
-		"limit": 19,
-		"retry": 38
-	},
-	"orgPeople.restore": {
-		"limit": 7,
-		"retry": 14
-	},
-	"orgPeople.retire": {
-		"limit": 7,
-		"retry": 14
-	},
-	"orgPeople.update": {
-		"limit": 3,
-		"retry": 6
 	},
 	"organizations.associations.acceptInvitation": {
 		"limit": 25,

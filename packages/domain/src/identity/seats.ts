@@ -1,11 +1,11 @@
-import "server-only";
-import { type RequestActor } from "../access/session.ts";
+import { sessionId, type Owner } from "@everyfield/contracts/common";
+import * as c from "@everyfield/contracts/identity";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { and, asc, eq, gt, inArray, isNull, notInArray, or, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
+import "server-only";
 import { z } from "zod";
-import { sessionId, type Owner } from "@everyfield/contracts/common";
-import * as c from "@everyfield/contracts/identity";
+import { type RequestActor } from "../access/session.ts";
 import { transaction } from "./budget.ts";
 import * as d from "./invitation-core.ts";
 const inWorkspace = (selected: Owner) =>
@@ -495,20 +495,13 @@ export function createSeatService(db: Database) {
 						after,
 					),
 				);
-			return d.finish(
-				tx,
-				cmd,
-				(r) =>
-					c.seatMutationResult.parse({
-						seatId: s.id,
-						revision: after,
-						outcome: changed ? "changed" : "noop",
-						duties,
-						receipt: r,
-					}),
-				events,
-				[],
-				changed,
+			return d.finish(tx, cmd, () =>
+				c.seatMutationResult.parse({
+					seatId: s.id,
+					revision: after,
+					outcome: changed ? "changed" : "noop",
+					duties,
+				}),
 			);
 		});
 	}

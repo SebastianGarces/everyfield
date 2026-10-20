@@ -1,8 +1,8 @@
-import { asc, eq, sql } from "@everyfield/db/query";
-import * as tables from "@everyfield/db/tables";
-import "server-only";
-import { randomUUID } from "node:crypto";
 import type { Database, Transaction } from "@everyfield/db/client";
+import { eq, sql } from "@everyfield/db/query";
+import * as tables from "@everyfield/db/tables";
+import { randomUUID } from "node:crypto";
+import "server-only";
 import { z } from "zod";
 import { transaction } from "../platform/database.ts";
 
@@ -202,19 +202,6 @@ export async function checkpoint(tx: Transaction, claim: Claim, key: string): Pr
 		.set({ checkpoint_key: key, revision: sql<unknown>`(${tables.job.revision} + 1)` })
 		.where(eq(tables.job.id, claim.id));
 	return true;
-}
-export async function jobVisibility(db: Database) {
-	const r = await db
-		.select({
-			kind: tables.job.kind,
-			state: tables.job.state,
-			count: sql<number>`(count(*))::int`,
-			lag_seconds: sql<number>`(greatest(0, extract(epoch FROM (clock_timestamp() - min(${tables.job.eligible_at})))))::float8`,
-		})
-		.from(tables.job)
-		.groupBy(tables.job.kind, tables.job.state)
-		.orderBy(asc(tables.job.kind), asc(tables.job.state));
-	return z.array(z.object({ kind: jobKind, state: z.string(), count: z.number(), lag_seconds: z.number() })).parse(r);
 }
 
 // Owed-tail scans commit each processed page and cursor together. No provider work here.

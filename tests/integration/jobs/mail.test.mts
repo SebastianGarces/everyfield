@@ -61,9 +61,11 @@ const transport = createResendTransport("synthetic", async (url, init) =>
 	fetch(endpoint + new URL(url).pathname, init),
 );
 const authorize = async (tx, mail) => {
- const input=mail.map(m=>({id:m.id,recipient:m.recipient,tenant:m.tenant}));
- const r=await tx.execute(querySql`SELECT i.id FROM jsonb_to_recordset(${JSON.stringify(input)}::jsonb) i(id uuid,recipient uuid,tenant uuid) JOIN seat s ON s.account_id=i.recipient AND s.plant_id=i.tenant AND s.ended_at IS NULL FOR SHARE OF s`);
- return new Set(r.rows.map(r=>r.id));
+	const input = mail.map((m) => ({ id: m.id, recipient: m.recipient, tenant: m.tenant }));
+	const r = await tx.execute(
+		querySql`SELECT i.id FROM jsonb_to_recordset(${JSON.stringify(input)}::jsonb) i(id uuid,recipient uuid,tenant uuid) JOIN seat s ON s.account_id=i.recipient AND s.plant_id=i.tenant AND s.ended_at IS NULL FOR SHARE OF s`,
+	);
+	return new Set(r.rows.map((r) => r.id));
 };
 const service = createMailService({
 	db: runtime,
@@ -368,7 +370,9 @@ test("INV-recovery: only a freshly authorized operator can attach provider evide
 	await db.execute(
 		querySql`UPDATE mail_request SET first_dispatched_at=clock_timestamp()-interval '24 hours' WHERE id=(SELECT request_id FROM mail_request_member WHERE mail_id=${querySql.param(id)})`,
 	);
-	await db.execute(querySql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,request_key,metadata) VALUES(${querySql.param(operation)},${querySql.param(tenant)},${querySql.param(account)},'notifications.reconcileUnknownOutcome','edit','command',${querySql.param(tenant)},now(),now(),${querySql.param(operation)},jsonb_build_object('outcome',NULL))`);
+	await db.execute(
+		querySql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,request_key,metadata) VALUES(${querySql.param(operation)},${querySql.param(tenant)},${querySql.param(account)},'mail.reconciled','edit','command',${querySql.param(tenant)},now(),now(),${querySql.param(operation)},jsonb_build_object('outcome',NULL))`,
+	);
 	const recovery = createMailService({
 		db: runtime,
 		encryptionKey: key,
@@ -377,7 +381,7 @@ test("INV-recovery: only a freshly authorized operator can attach provider evide
 		authorize,
 		transport,
 		authorizeRecovery: async (tx, m, p) => {
-			if (m.id !== id || p !== providerId || !(await authorize(tx,[m])).has(m.id)) return null;
+			if (m.id !== id || p !== providerId || !(await authorize(tx, [m])).has(m.id)) return null;
 			const r =
 				await tx.execute(querySql`SELECT g.id FROM platform_grant g JOIN audit_event o ON o.id=${querySql.param(operation)} AND o.tenant_id=${querySql.param(m.tenant)} AND o.actor_id=g.account_id
     WHERE g.account_id=${querySql.param(account)} AND g.capability='recovery_operator' AND g.revoked_at IS NULL AND (g.expires_at IS NULL OR g.expires_at>clock_timestamp()) FOR SHARE OF g`);

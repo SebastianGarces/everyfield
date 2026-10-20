@@ -1,12 +1,5 @@
-import "server-only";
 import type { Clock } from "@everyfield/contracts/common";
-import { randomUUID } from "node:crypto";
-import { z } from "zod";
-import * as t from "@everyfield/db/tables";
-import { and, asc, eq, isNull, sql } from "@everyfield/db/query";
-import { canonicalTimeZone } from "@everyfield/db/schema";
 import {
-	receipt,
 	addCivilDays,
 	calendarContext,
 	frozenClock,
@@ -19,29 +12,34 @@ import {
 import * as q from "@everyfield/contracts/settings";
 import * as n from "@everyfield/contracts/settings/native";
 import type {
-	SettingsProducer,
 	NativeAccountProducer,
 	NativeSettingsContext,
+	SettingsProducer,
 } from "@everyfield/contracts/settings/server";
+import { and, asc, eq, isNull, sql } from "@everyfield/db/query";
+import { canonicalTimeZone } from "@everyfield/db/schema";
+import * as t from "@everyfield/db/tables";
+import { randomUUID } from "node:crypto";
+import "server-only";
+import { z } from "zod";
 import {
-	parse,
-	reply,
-	self,
-	native,
-	plantAdmin,
-	begin,
-	finish,
-	revision,
-	preference,
-	now,
-	hash,
-	deny,
 	appendEvent,
+	begin,
 	calendarEligible,
+	deny,
+	finish,
+	hash,
+	now,
+	parse,
+	plantAdmin,
+	preference,
+	reply,
+	revision,
+	self,
 	type Tx,
 } from "./core.ts";
 import type { SettingsEffects } from "./sections.ts";
-const personalRecord = z.object({ receipt, preference: n.personalTimezoneResult.shape.preference });
+const personalRecord = z.object({ preference: n.personalTimezoneResult.shape.preference });
 export interface PersonalCalendar {
 	// WP-039 owns private plan storage. These handles must never contain a body,
 	// calendar revision, author-existence flag or telemetry payload.
@@ -224,21 +222,14 @@ export function timezoneOperations(
 						await appendEvent(s, c, a.plant.id, "preference", "plant.profile_changed", a.plant.revision, next),
 					);
 				}
-				return finish(
-					s,
-					c,
-					q.plantTimezoneResult,
-					events,
-					(r) =>
-						changed
-							? { status: "changed", plant: v.input.plant, timeZone: zone, revision: next, replanIntentId, receipt: r }
-							: { status: "noop", plant: v.input.plant, timeZone: zone, revision: next, receipt: r },
-					changed,
+				return finish(s, c, q.plantTimezoneResult, () =>
+					changed
+						? { status: "changed", plant: v.input.plant, timeZone: zone, revision: next, replanIntentId }
+						: { status: "noop", plant: v.input.plant, timeZone: zone, revision: next },
 				);
 			}),
 		previewPersonalTimezone: (tx, ctx, raw) =>
 			reply(tx, async (s) => {
-				native(ctx);
 				const v = parse(n.previewPersonalTimezoneRequest, raw);
 				const a = await self(s, ctx, "preview");
 				const zone = canonicalTimeZone(v.timeZone);
@@ -268,17 +259,10 @@ export function timezoneOperations(
 			}),
 		setPersonalTimezone: (tx, ctx, raw) =>
 			reply(tx, async (s) => {
-				native(ctx);
 				const v = parse(n.setPersonalTimezoneRequest, raw);
 				const a = await self(s, ctx);
 				const zone = canonicalTimeZone(v.input.timeZone);
-				const c = await begin(
-					s,
-					{ ...ctx, purpose: "native", origin: { kind: "native" } },
-					a.account.id,
-					"account.setPersonalTimezone",
-					v,
-				);
+				const c = await begin(s, { ...ctx }, a.account.id, "account.setPersonalTimezone", v);
 				if (c.kind === "replay")
 					return n.personalTimezoneResult.parse({ preference: personalRecord.parse(c.value).preference });
 				revision(v.expectedRevision, a.account.personal_timezone_revision);
@@ -314,20 +298,12 @@ export function timezoneOperations(
 						operationId: c.id,
 						kind: "personal_timezone",
 					});
-					const result = await finish(s, c, personalRecord, [], (r) => ({
-						receipt: r,
+					const result = await finish(s, c, personalRecord, () => ({
 						preference: { status: "confirmed", timeZone: zone, revision: next },
 					}));
 					return n.personalTimezoneResult.parse({ preference: result.preference });
 				}
-				const result = await finish(
-					s,
-					c,
-					personalRecord,
-					[],
-					(r) => ({ receipt: r, preference: preference(a.account) }),
-					false,
-				);
+				const result = await finish(s, c, personalRecord, () => ({ preference: preference(a.account) }));
 				return n.personalTimezoneResult.parse({ preference: result.preference });
 			}),
 	};

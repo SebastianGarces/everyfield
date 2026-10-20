@@ -409,10 +409,10 @@ test("AC:C0-REPLAY-001 AC:AUDIT-001 AC:AUDIT-002 INV-transaction: audit failure 
 		runtime.transaction(async (tx) => {
 			await tx.execute(querySql`UPDATE document SET title='changed',revision=revision+1 WHERE id=${querySql.param(x)}`);
 			await tx.execute(
-				querySql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,request_key,metadata) VALUES(gen_random_uuid(),${querySql.param(p)},${querySql.param(a)},'documents.saveNative','edit','command',${querySql.param(p)},now(),now(),'rollback-receipt',jsonb_build_object('outcome',NULL))`,
+				querySql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,request_key,metadata) VALUES(gen_random_uuid(),${querySql.param(p)},${querySql.param(a)},'documents.saved','edit','command',${querySql.param(p)},now(),now(),'rollback-receipt',jsonb_build_object('outcome',NULL))`,
 			);
 			await tx.execute(
-				querySql`INSERT INTO audit_event(tenant_id,subject_id,kind,occurred_at,recorded_at,system_cause,event_key,action) VALUES(${querySql.param(p)},${querySql.param(x)},'edit',now(),now(),'synthetic','bad','not_allowed')`,
+				querySql`INSERT INTO audit_event(tenant_id,subject_id,kind,occurred_at,recorded_at,system_cause,event_key,action) VALUES(${querySql.param(p)},${querySql.param(x)},'edit',now(),now(),'synthetic','bad','people.getPerson')`,
 			);
 		}),
 		(e) => e.cause?.code === "23514",
@@ -733,7 +733,7 @@ test("INV-baseline: Launch links, creation journal and retained purge clocks use
 	const operation = async () => {
 		const id = randomUUID();
 		await admin.execute(
-			querySql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,request_key,metadata) VALUES(${querySql.param(id)},${querySql.param(p)},${querySql.param(a)},'onboarding.createPlant','edit','command',${querySql.param(p)},now(),now(),${querySql.param(id)},jsonb_build_object('outcome',NULL))`,
+			querySql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,request_key,metadata) VALUES(${querySql.param(id)},${querySql.param(p)},${querySql.param(a)},'plant.created','edit','command',${querySql.param(p)},now(),now(),${querySql.param(id)},jsonb_build_object('outcome',NULL))`,
 		);
 		return id;
 	};

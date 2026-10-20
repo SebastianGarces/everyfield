@@ -1,20 +1,19 @@
-import * as tables from "@everyfield/db/tables";
-import { and, asc, eq, gt, isNull, lte, or, sql } from "@everyfield/db/query";
-import { alias } from "@everyfield/db/query";
-import "server-only";
-import type { Transaction } from "@everyfield/db/client";
-import { z } from "zod";
-import { owner, type Owner, type sessionId } from "@everyfield/contracts/common";
 import {
-	organizationPersonRequest,
 	organizationNotesRequest,
-	pipelineAccessResult,
 	organizationNotesResult,
+	organizationPersonRequest,
 	ownResidencyProjection,
+	pipelineAccessResult,
 	pipelineDuty,
 } from "@everyfield/contracts/access";
+import { owner, type Owner, type sessionId } from "@everyfield/contracts/common";
+import type { Transaction } from "@everyfield/db/client";
+import { alias, and, asc, eq, gt, isNull, lte, or, sql } from "@everyfield/db/query";
+import * as tables from "@everyfield/db/tables";
+import "server-only";
+import { z } from "zod";
 import { currentActor, liveOwner } from "./session.ts";
-import { isAdministrator } from "./policy.ts";
+
 const development_enrollment_e = alias(tables.development_enrollment, "e");
 const development_program_p = alias(tables.development_program, "p");
 const residency_link_l = alias(tables.residency_link, "l");
@@ -252,3 +251,6 @@ export async function readOwnResidency(
 		revision: links[0]!.revision,
 	});
 }
+
+const isAdministrator = (actor: { context: { kind: string; role?: string } }) =>
+	actor.context.kind === "seat" && actor.context.role !== "member";
