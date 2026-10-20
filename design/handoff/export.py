@@ -24,7 +24,7 @@ HERE = Path(__file__).resolve().parent
 SOURCE = HERE.parent / "everyfield-ui.html"
 TARGET = HERE / "tokens.css"
 ASSETS = HERE / "assets"
-SYMBOLS = {"ef-mark": "everyfield-mark.svg", "ef-wordmark": "everyfield-wordmark.svg"}
+SYMBOLS = {"ef-mark": "everyfield-mark.svg", "ef-wordmark": "everyfield-wordmark.svg", "ef-lockup": "everyfield-lockup.svg"}
 
 
 def block(css, selector):
@@ -49,8 +49,14 @@ def gradient_tones(css):
     return tones
 
 
+def corners(css):
+    """The --corner-* shape variables that the --ef-radius-* tokens read (declarations only)."""
+    return dict(re.findall(r"(--corner-[a-z]+):\s*([^;]+);", css))
+
+
 def render(css):
     light = tokens(block(css, ":root"))
+    shape = corners(css)
     dark = tokens(block(css, '[data-theme="dark"]'))
     tones = gradient_tones(css)
 
@@ -59,7 +65,7 @@ def render(css):
 
     hue_map = []
     for k in light:
-        m = re.fullmatch(r"(green|blue|magenta|amber|violet|teal)-(\d+|display)", k)
+        m = re.fullmatch(r"(green|blue|magenta|amber|violet|teal|sky|sage|rose)-(\d+|display)", k)
         if m:
             hue_map.append(f"  --color-{k}: var(--ef-{k});")
     plain_colors = ["ink", "ink-2", "cream", "green", "text", "text-2", "text-3", "focus", "canvas", "frame",
@@ -91,6 +97,8 @@ def render(css):
      @import "<path>/design/handoff/tokens.css"; */
 
 :root {{
+  /* Corner shape: every radius token reads these. All corners are square. */
+{chr(10).join(f"  {k}: {v};" for k, v in shape.items())}
 {decls(light)}
 
   /* Gradient card tones (InsightCard). Light and dark use the same values. */
@@ -124,6 +132,7 @@ def render(css):
 
 @theme inline {{
   --font-display: var(--ef-font-display);
+  --font-title: var(--ef-font-title);
   --font-sans: var(--ef-font-body);
 {chr(10).join(color_map)}
 {chr(10).join(hue_map)}
@@ -160,12 +169,22 @@ def render(css):
 
 
 def symbols(html):
+    found = {sid: re.search(r'<symbol id="%s" viewBox="([^"]+)">(.*?)</symbol>' % sid, html, re.S) for sid in SYMBOLS}
+
+    def inline(use):
+        """Replace <use href="#sym"> with a nested <svg>, so each file stands alone."""
+        ref = found[use.group(1)]
+        attrs = use.group(2).strip().rstrip("/").strip()
+        inner = " ".join(line.strip() for line in ref.group(2).strip().splitlines())
+        return f'<svg viewBox="{ref.group(1)}" {attrs}>{inner}</svg>'
+
     files = {}
     for sid, name in SYMBOLS.items():
-        m = re.search(r'<symbol id="%s" viewBox="([^"]+)">(.*?)</symbol>' % sid, html, re.S)
-        body = "\n".join("  " + line.strip() for line in m.group(2).strip().splitlines())
+        m = found[sid]
+        text = re.sub(r'<use href="#([a-z-]+)"([^>]*)>', inline, m.group(2))
+        body = "\n".join("  " + line.strip() for line in text.strip().splitlines())
         files[ASSETS / name] = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{m.group(1)}" fill="none">\n'
-                                f'  <!-- Everyfield brand. Paths use currentColor: set color to ink #181D19, cream #F6F0E9 or green #1CE362. -->\n'
+                                f'  <!-- Everyfield brand. Paths use currentColor: set color to ink #181D19 or cream #F6F0E9; new-growth #1AF197 only as a tile behind an ink symbol. -->\n'
                                 f'{body}\n</svg>\n')
     return files
 
