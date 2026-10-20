@@ -4,7 +4,6 @@ import { createHash } from "node:crypto";
 import { fixture, key } from "./invitations-support.mts";
 import { and, eq, isNull, sql } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
-import { canReadResidentProgress } from "../../../packages/domain/src/organizations/index.ts";
 let f;
 before(async () => {
 	f = await fixture();
@@ -228,6 +227,31 @@ test("AC:TARGET-IDN-017 INV-budget: rolling workspace address budget is persiste
 		).invitation.subject.role,
 		"admin",
 	);
+});
+test("AC:ADR1-004 AC:WP008-MUL-004-ATOMIC resident accept is addressed, atomic, consent-specific and seatless", async () => {
+	const s = await f.setup("sending_church"),
+		person = await f.resident(s.w),
+		i = await f.invitation(s, person),
+		claim = {
+			...i.claim,
+			input: { ...i.claim.input, decision: "accept", choices: { shareFoundations: true, shareMilestones: false } },
+		};
+	f.setMailFault(true);
+	try {
+		await assert.rejects(f.invitations.respondResident(s.recipient.session, claim), /synthetic_outbox_failure/);
+	} finally {
+		f.setMailFault(false);
+	}
+	assert.equal(await count(t.residency_link, eq(t.residency_link.person_id, person)), 0);
+	const [a, b] = await Promise.all([
+		f.invitations.respondResident(s.recipient.session, claim),
+		f.invitations.respondResident(s.recipient.session, claim),
+	]);
+	assert.deepEqual(a, b);
+	assert.equal(a.consentRevision, "1");
+	assert.deepEqual(a.choices, { shareFoundations: true, shareMilestones: false });
+	assert.equal(await count(t.seat, eq(t.seat.account_id, s.recipient.id)), 0);
+	assert.equal(await count(t.residency_link, eq(t.residency_link.person_id, person)), 1);
 });
 test("AC:ADR1-004 resident decline leaves account unchanged and retired or foreign Persons refuse", async () => {
 	const s = await f.setup("sending_network"),
