@@ -2560,91 +2560,55 @@
         "account",
         "affiliation",
         "article_editor_state",
-        "article_link",
         "article_revision",
-        "assessment",
-        "assessment_contributor",
-        "assessment_fact",
-        "assignment_feedback",
         "attestation",
+        "audit_event",
         "auth_account",
         "auth_session",
         "auth_user",
         "auth_verification",
         "commitment",
-        "communication",
-        "communication_recipient",
         "contact_outcome",
-        "conversation",
-        "conversation_entry",
         "development_enrollment",
-        "development_milestone",
         "development_program",
         "development_program_version",
-        "development_reading",
         "development_stage",
         "digest_coverage",
         "discovery",
         "document",
         "document_revision",
-        "effect",
-        "effect_dependency",
-        "enrollment_milestone",
-        "enrollment_plan",
-        "event",
-        "evidence_link",
-        "feedback",
-        "feedback_publication",
         "file_object",
-        "finding",
-        "four_cs",
-        "generated_document",
         "household",
         "identity_proof",
         "interview",
         "invitation",
         "job",
         "launch",
-        "launch_debrief",
-        "launch_guest",
         "launch_milestone",
-        "leadership_conversation",
         "lifecycle_witness",
         "mail",
         "mail_attempt",
         "mail_request",
         "mail_request_member",
         "meeting",
-        "meeting_evaluation",
-        "meeting_item",
-        "message_template",
         "notice",
         "notification_preference",
         "obligation",
-        "operation",
         "organization",
         "organization_person_removal",
         "participation",
         "passage",
         "person",
-        "person_merge",
         "person_note",
-        "person_skill",
         "person_tag",
         "phase_transition",
         "pipeline_person",
         "pipeline_sharing",
         "pipeline_stage",
-        "pipeline_stage_move",
         "plant",
         "plant_geography",
         "platform_grant",
-        "private_calendar",
-        "private_week",
-        "private_week_revision",
-        "prompt_dismissal",
         "provider_event",
-        "reader_feedback",
         "reading",
         "record",
         "recurrence",
@@ -2654,42 +2618,25 @@
         "reference_version",
         "residency_link",
         "responsibility",
-        "review",
-        "rsvp_proof",
         "seat",
-        "sending_goal",
         "suppression",
         "tag",
         "task",
-        "task_dependency",
         "team",
         "team_role",
         "team_tenure",
         "tenant",
-        "training_assignment",
-        "training_credit",
-        "training_program",
-        "training_requirement",
-        "training_version",
-        "venue",
-        "wiki_preference"
+        "venue"
       ],
       "consumer_table_names": [
         "admission_attempt",
         "early_access_attempt",
         "early_access_request",
-        "identity_operation_result",
-        "onboarding_result",
         "onboarding_setup",
-        "organization_operation_result",
         "people_column",
-        "people_history",
-        "people_result",
-        "relationship_history",
         "relationship_invitation",
         "schema_migration",
-        "settings_preview",
-        "settings_result"
+        "settings_preview"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
@@ -2929,13 +2876,11 @@
         "tenant"
       ],
       "consumer_table_names": [
-        "event",
-        "evidence_link",
+        "audit_event",
         "mail",
         "mail_attempt",
         "mail_request",
         "mail_request_member",
-        "operation",
         "organization",
         "plant"
       ],
@@ -3201,16 +3146,12 @@
       ],
       "consumer_table_names": [
         "account",
+        "audit_event",
         "auth_account",
         "auth_session",
         "auth_user",
         "auth_verification",
-        "event",
-        "identity_operation_result",
         "organization_person_removal",
-        "people_history",
-        "people_result",
-        "person_merge",
         "team",
         "tenant"
       ],
@@ -3880,48 +3821,34 @@
       ],
       "producer_table_names": [
         "affiliation",
+        "audit_event",
         "discovery",
         "lifecycle_witness",
         "organization",
-        "organization_operation_result",
         "pipeline_sharing",
         "plant",
         "plant_geography",
         "record",
-        "relationship_history",
         "relationship_invitation",
         "tenant"
       ],
       "consumer_table_names": [
         "account",
         "admission_attempt",
-        "assessment",
-        "assessment_contributor",
-        "assessment_fact",
         "auth_account",
         "auth_session",
         "auth_user",
         "auth_verification",
         "digest_coverage",
-        "event",
-        "evidence_link",
-        "finding",
-        "identity_operation_result",
         "identity_proof",
         "invitation",
         "job",
         "mail",
         "notice",
-        "onboarding_result",
         "onboarding_setup",
-        "operation",
         "phase_transition",
-        "private_calendar",
-        "private_week",
-        "reader_feedback",
         "residency_link",
-        "settings_preview",
-        "settings_result"
+        "settings_preview"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
@@ -4221,7 +4148,7 @@
         "WP-090"
       ],
       "producer_table_names": [
-        "identity_operation_result",
+        "audit_event",
         "invitation",
         "record",
         "residency_link",
@@ -4231,22 +4158,15 @@
         "account",
         "admission_attempt",
         "affiliation",
-        "event",
-        "evidence_link",
         "mail",
         "mail_attempt",
         "mail_request",
         "mail_request_member",
-        "operation",
         "organization",
-        "organization_operation_result",
-        "people_history",
-        "people_result",
         "person",
         "pipeline_sharing",
         "plant",
         "platform_grant",
-        "relationship_history",
         "relationship_invitation",
         "team",
         "tenant"
@@ -4519,23 +4439,17 @@
       ],
       "producer_table_names": [
         "affiliation",
-        "event",
+        "audit_event",
         "invitation",
-        "onboarding_result",
         "onboarding_setup",
         "record"
       ],
       "consumer_table_names": [
         "account",
         "discovery",
-        "identity_operation_result",
-        "operation",
         "organization",
         "organization_person_removal",
-        "people_history",
-        "people_result",
         "person",
-        "person_merge",
         "person_note",
         "plant",
         "team"
@@ -5009,11 +4923,11 @@
       ],
       "producer_table_names": [
         "account",
+        "audit_event",
         "identity_proof",
         "lifecycle_witness",
         "record",
         "settings_preview",
-        "settings_result",
         "tenant"
       ],
       "consumer_table_names": [
@@ -5023,20 +4937,15 @@
         "auth_session",
         "auth_user",
         "auth_verification",
-        "event",
         "file_object",
         "mail",
         "notification_preference",
         "organization",
-        "organization_operation_result",
         "plant",
         "plant_geography",
-        "private_calendar",
-        "private_week",
         "reference_item",
         "reference_release",
         "reference_version",
-        "relationship_history",
         "suppression"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -5405,23 +5314,17 @@
         "WP-090"
       ],
       "producer_table_names": [
+        "audit_event",
         "organization_person_removal",
         "people_column",
-        "people_history",
-        "people_result",
         "person",
         "person_note",
         "record"
       ],
       "consumer_table_names": [
         "account",
-        "event",
-        "identity_operation_result",
-        "onboarding_result",
         "onboarding_setup",
-        "operation",
         "organization",
-        "person_merge",
         "plant"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -5619,13 +5522,9 @@
       ],
       "consumer_table_names": [
         "account",
-        "event",
+        "audit_event",
         "file_object",
-        "people_history",
-        "people_result",
-        "person_skill",
         "person_tag",
-        "settings_result",
         "tag"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -5710,18 +5609,12 @@
         "WP-090"
       ],
       "producer_table_names": [
-        "person_skill",
         "person_tag",
         "record",
         "tag"
       ],
       "consumer_table_names": [
-        "effect",
-        "event",
-        "evidence_link",
-        "operation",
-        "people_history",
-        "people_result",
+        "audit_event",
         "person"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -5916,16 +5809,13 @@
         "WP-090"
       ],
       "producer_table_names": [
+        "audit_event",
         "commitment",
-        "event",
-        "four_cs",
         "interview",
         "person_note",
         "record"
       ],
       "consumer_table_names": [
-        "people_history",
-        "people_result",
         "person"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -6244,21 +6134,15 @@
         "WP-090"
       ],
       "producer_table_names": [
-        "event",
-        "evidence_link",
-        "person_merge",
-        "record"
+        "audit_event"
       ],
       "consumer_table_names": [
         "commitment",
-        "effect",
-        "four_cs",
         "interview",
         "organization_person_removal",
-        "people_history",
-        "people_result",
         "person",
-        "person_note"
+        "person_note",
+        "record"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
@@ -6416,9 +6300,8 @@
         "team"
       ],
       "consumer_table_names": [
+        "audit_event",
         "commitment",
-        "event",
-        "four_cs",
         "interview"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -6755,15 +6638,8 @@
       ],
       "consumer_table_names": [
         "account",
-        "effect",
-        "event",
-        "evidence_link",
-        "identity_operation_result",
-        "onboarding_result",
+        "audit_event",
         "onboarding_setup",
-        "operation",
-        "people_history",
-        "people_result",
         "person",
         "plant",
         "platform_grant",
@@ -6884,7 +6760,7 @@
         "responsibility"
       ],
       "consumer_table_names": [
-        "event",
+        "audit_event",
         "team"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -7172,25 +7048,14 @@
         "WP-090"
       ],
       "producer_table_names": [
-        "event",
-        "evidence_link",
-        "record",
-        "training_assignment",
-        "training_credit",
-        "training_program",
-        "training_requirement",
-        "training_version"
+        "audit_event"
       ],
       "consumer_table_names": [
         "attestation",
         "commitment",
-        "four_cs",
-        "identity_operation_result",
         "interview",
         "meeting",
         "participation",
-        "people_history",
-        "people_result",
         "person",
         "team",
         "team_tenure"
@@ -7438,12 +7303,11 @@
       ],
       "producer_table_names": [
         "meeting",
-        "meeting_item",
         "record",
         "venue"
       ],
       "consumer_table_names": [
-        "event",
+        "audit_event",
         "job",
         "mail",
         "notice",
@@ -7637,13 +7501,11 @@
         "WP-090"
       ],
       "producer_table_names": [
-        "evidence_link",
         "participation",
-        "record",
-        "rsvp_proof"
+        "record"
       ],
       "consumer_table_names": [
-        "event",
+        "audit_event",
         "job",
         "mail",
         "notice"
@@ -7983,18 +7845,13 @@
         "WP-090"
       ],
       "producer_table_names": [
-        "event",
-        "evidence_link",
+        "audit_event",
         "meeting",
-        "meeting_evaluation",
-        "meeting_item",
         "participation",
         "record"
       ],
       "consumer_table_names": [
         "obligation",
-        "people_history",
-        "people_result",
         "person",
         "person_note",
         "venue"
@@ -8301,17 +8158,10 @@
         "record"
       ],
       "consumer_table_names": [
-        "assessment",
-        "assessment_fact",
-        "effect",
-        "event",
-        "evidence_link",
+        "audit_event",
         "meeting",
         "obligation",
-        "operation",
         "people_column",
-        "people_history",
-        "people_result",
         "person",
         "task"
       ],
@@ -8600,20 +8450,16 @@
         "WP-090"
       ],
       "producer_table_names": [
-        "event",
-        "evidence_link",
+        "audit_event",
         "obligation",
         "record",
         "recurrence",
         "task"
       ],
       "consumer_table_names": [
-        "identity_operation_result",
         "job",
         "mail",
         "notice",
-        "people_history",
-        "people_result",
         "person",
         "platform_grant",
         "seat",
@@ -8824,16 +8670,11 @@
         "WP-089",
         "WP-090"
       ],
-      "producer_table_names": [
-        "task_dependency"
-      ],
+      "producer_table_names": [],
       "consumer_table_names": [
+        "audit_event",
         "contact_outcome",
-        "effect",
-        "event",
-        "evidence_link",
         "obligation",
-        "operation",
         "record",
         "recurrence",
         "task"
@@ -8987,14 +8828,11 @@
         "WP-090"
       ],
       "producer_table_names": [
-        "operation",
+        "audit_event",
         "phase_transition",
         "record"
       ],
       "consumer_table_names": [
-        "effect",
-        "event",
-        "evidence_link",
         "notice",
         "reference_version",
         "task"
@@ -9218,15 +9056,9 @@
         "WP-089",
         "WP-090"
       ],
-      "producer_table_names": [
-        "communication",
-        "evidence_link",
-        "message_template",
-        "record"
-      ],
+      "producer_table_names": [],
       "consumer_table_names": [
-        "communication_recipient",
-        "event",
+        "audit_event",
         "reference_version"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -9470,20 +9302,16 @@
         "WP-090"
       ],
       "producer_table_names": [
-        "evidence_link",
         "mail",
         "mail_attempt",
         "mail_request",
         "mail_request_member",
         "provider_event",
         "record",
-        "rsvp_proof",
         "suppression"
       ],
       "consumer_table_names": [
-        "communication",
-        "communication_recipient",
-        "event",
+        "audit_event",
         "participation"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -9754,15 +9582,10 @@
         "WP-089",
         "WP-090"
       ],
-      "producer_table_names": [
-        "communication",
-        "communication_recipient",
-        "evidence_link",
-        "record"
-      ],
+      "producer_table_names": [],
       "consumer_table_names": [
+        "audit_event",
         "contact_outcome",
-        "event",
         "mail",
         "obligation"
       ],
@@ -10061,19 +9884,15 @@
       ],
       "producer_table_names": [
         "digest_coverage",
-        "evidence_link",
         "notice",
         "notification_preference",
         "record"
       ],
       "consumer_table_names": [
         "affiliation",
-        "event",
+        "audit_event",
         "job",
         "mail",
-        "organization_operation_result",
-        "relationship_history",
-        "settings_result",
         "suppression"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -10460,7 +10279,6 @@
       ],
       "ui_prerequisites": [],
       "producer_table_names": [
-        "evidence_link",
         "mail",
         "mail_attempt",
         "mail_request",
@@ -10470,14 +10288,10 @@
         "suppression"
       ],
       "consumer_table_names": [
-        "communication",
-        "communication_recipient",
+        "audit_event",
         "digest_coverage",
-        "effect",
-        "event",
         "job",
         "notice",
-        "operation",
         "phase_transition"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -10886,20 +10700,13 @@
       ],
       "ui_prerequisites": [],
       "producer_table_names": [
-        "message_template",
         "record",
         "reference_version"
       ],
       "consumer_table_names": [
-        "assessment",
-        "assessment_contributor",
-        "assessment_fact",
         "attestation",
-        "event",
-        "evidence_link",
-        "finding",
+        "audit_event",
         "plant_geography",
-        "reader_feedback",
         "reference_activation",
         "reference_item",
         "reference_release"
@@ -11064,9 +10871,7 @@
       ],
       "ui_prerequisites": [],
       "producer_table_names": [
-        "article_link",
         "article_revision",
-        "evidence_link",
         "passage",
         "record",
         "reference_activation",
@@ -11641,17 +11446,14 @@
         "WP-090"
       ],
       "producer_table_names": [
-        "event",
+        "audit_event",
         "reading",
         "record",
-        "reference_item",
-        "wiki_preference"
+        "reference_item"
       ],
       "consumer_table_names": [
         "article_editor_state",
-        "article_link",
         "article_revision",
-        "evidence_link",
         "reference_activation",
         "reference_release",
         "reference_version"
@@ -12215,20 +12017,16 @@
       ],
       "producer_table_names": [
         "article_editor_state",
-        "article_link",
         "article_revision",
-        "evidence_link",
-        "reader_feedback",
         "record"
       ],
       "consumer_table_names": [
-        "event",
+        "audit_event",
         "job",
         "mail",
         "notice",
         "reading",
-        "reference_item",
-        "wiki_preference"
+        "reference_item"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
@@ -12518,12 +12316,11 @@
       "producer_table_names": [
         "document",
         "document_revision",
-        "generated_document",
         "record"
       ],
       "consumer_table_names": [
+        "audit_event",
         "file_object",
-        "operation",
         "reference_item",
         "reference_release",
         "reference_version"
@@ -12883,14 +12680,12 @@
       ],
       "producer_table_names": [
         "file_object",
-        "generated_document",
         "record"
       ],
       "consumer_table_names": [
+        "audit_event",
         "document",
-        "document_revision",
-        "event",
-        "operation"
+        "document_revision"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
@@ -13305,22 +13100,15 @@
         "WP-090"
       ],
       "producer_table_names": [
-        "assessment",
-        "assessment_fact",
-        "evidence_link",
         "phase_transition",
         "record"
       ],
       "consumer_table_names": [
         "account",
         "attestation",
-        "effect",
-        "event",
-        "finding",
+        "audit_event",
         "notice",
-        "onboarding_result",
         "onboarding_setup",
-        "operation",
         "plant",
         "reference_item",
         "reference_release",
@@ -13659,22 +13447,13 @@
       ],
       "producer_table_names": [
         "attestation",
-        "private_calendar",
-        "private_week",
-        "private_week_revision",
         "record"
       ],
       "consumer_table_names": [
         "account",
         "affiliation",
-        "assessment",
-        "assessment_fact",
-        "event",
-        "evidence_link",
-        "organization_operation_result",
-        "relationship_history",
-        "settings_preview",
-        "settings_result"
+        "audit_event",
+        "settings_preview"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
@@ -14302,17 +14081,12 @@
         "WP-089",
         "WP-090"
       ],
-      "producer_table_names": [
-        "assessment_fact",
-        "record"
-      ],
+      "producer_table_names": [],
       "consumer_table_names": [
-        "assessment",
         "attestation",
-        "event",
-        "evidence_link",
-        "finding",
-        "job"
+        "audit_event",
+        "job",
+        "record"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
@@ -14607,14 +14381,8 @@
         "reference_release"
       ],
       "consumer_table_names": [
-        "assessment",
-        "assessment_contributor",
-        "assessment_fact",
-        "event",
-        "evidence_link",
-        "finding",
+        "audit_event",
         "job",
-        "reader_feedback",
         "reference_item",
         "reference_version"
       ],
@@ -15028,19 +14796,12 @@
         "WP-089",
         "WP-090"
       ],
-      "producer_table_names": [
-        "assessment",
-        "assessment_fact",
-        "evidence_link",
-        "record"
-      ],
+      "producer_table_names": [],
       "consumer_table_names": [
-        "assessment_contributor",
-        "event",
-        "finding",
+        "audit_event",
         "job",
         "plant_geography",
-        "reader_feedback",
+        "record",
         "reference_item",
         "reference_release",
         "reference_version"
@@ -15508,19 +15269,12 @@
         "WP-089",
         "WP-090"
       ],
-      "producer_table_names": [
-        "assessment",
-        "assessment_contributor",
-        "assessment_fact",
-        "evidence_link",
-        "finding",
-        "record"
-      ],
+      "producer_table_names": [],
       "consumer_table_names": [
-        "event",
+        "audit_event",
         "job",
         "plant_geography",
-        "reader_feedback",
+        "record",
         "reference_item",
         "reference_release",
         "reference_version"
@@ -16299,18 +16053,11 @@
         "WP-089",
         "WP-090"
       ],
-      "producer_table_names": [
-        "assessment",
-        "assessment_fact",
-        "reader_feedback",
-        "record"
-      ],
+      "producer_table_names": [],
       "consumer_table_names": [
-        "assessment_contributor",
-        "event",
-        "evidence_link",
-        "finding",
+        "audit_event",
         "plant_geography",
+        "record",
         "reference_item",
         "reference_release",
         "reference_version"
@@ -16668,23 +16415,18 @@
         "WP-090"
       ],
       "producer_table_names": [
+        "audit_event",
         "document",
         "document_revision",
-        "event",
-        "evidence_link",
         "launch",
-        "launch_debrief",
         "launch_milestone",
         "phase_transition",
         "record"
       ],
       "consumer_table_names": [
         "account",
-        "launch_guest",
         "notice",
-        "onboarding_result",
         "onboarding_setup",
-        "operation",
         "plant"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -17032,19 +16774,13 @@
         "WP-090"
       ],
       "producer_table_names": [
+        "audit_event",
         "document",
         "document_revision",
-        "event",
-        "evidence_link",
         "launch",
-        "launch_debrief",
-        "launch_guest",
         "record"
       ],
       "consumer_table_names": [
-        "assessment",
-        "assessment_fact",
-        "finding",
         "launch_milestone"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -17470,18 +17206,12 @@
       ],
       "producer_table_names": [
         "affiliation",
-        "assessment",
-        "assessment_contributor",
-        "assessment_fact",
-        "evidence_link",
         "reading",
         "record"
       ],
       "consumer_table_names": [
-        "event",
-        "finding",
+        "audit_event",
         "plant_geography",
-        "reader_feedback",
         "reference_item",
         "reference_release",
         "reference_version"
@@ -17582,11 +17312,9 @@
       ],
       "consumer_table_names": [
         "account",
-        "onboarding_result",
+        "audit_event",
         "onboarding_setup",
-        "operation",
-        "plant",
-        "prompt_dismissal"
+        "plant"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
@@ -17744,16 +17472,9 @@
         "WP-089",
         "WP-090"
       ],
-      "producer_table_names": [
-        "feedback",
-        "feedback_publication",
-        "prompt_dismissal",
-        "record"
-      ],
+      "producer_table_names": [],
       "consumer_table_names": [
-        "event",
-        "identity_operation_result",
-        "operation",
+        "audit_event",
         "platform_grant",
         "seat",
         "tenant"
@@ -18213,8 +17934,7 @@
       "ui_prerequisites": [],
       "producer_table_names": [
         "admission_attempt",
-        "event",
-        "evidence_link",
+        "audit_event",
         "identity_proof",
         "job",
         "lifecycle_witness",
@@ -18225,15 +17945,10 @@
       ],
       "consumer_table_names": [
         "account",
-        "assessment",
         "auth_account",
         "auth_session",
         "auth_user",
-        "auth_verification",
-        "effect",
-        "feedback",
-        "feedback_publication",
-        "operation"
+        "auth_verification"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
@@ -18537,16 +18252,11 @@
         "WP-089",
         "WP-090"
       ],
-      "producer_table_names": [
-        "conversation",
-        "conversation_entry",
-        "evidence_link",
-        "record"
-      ],
+      "producer_table_names": [],
       "consumer_table_names": [
-        "event",
+        "audit_event",
         "job",
-        "operation"
+        "record"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
@@ -19457,9 +19167,6 @@
       "ui_prerequisites": [],
       "producer_table_names": [],
       "consumer_table_names": [
-        "conversation",
-        "conversation_entry",
-        "evidence_link",
         "record"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -20523,16 +20230,11 @@
         "WP-090"
       ],
       "producer_table_names": [
-        "conversation",
-        "effect",
-        "effect_dependency",
-        "event",
-        "evidence_link",
-        "operation",
-        "record",
-        "review"
+        "audit_event"
       ],
-      "consumer_table_names": [],
+      "consumer_table_names": [
+        "record"
+      ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
@@ -20822,13 +20524,10 @@
         "WP-090"
       ],
       "producer_table_names": [
-        "conversation_entry",
         "file_object",
         "record"
       ],
-      "consumer_table_names": [
-        "evidence_link"
-      ],
+      "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
@@ -22425,13 +22124,8 @@
       "ui_prerequisites": [],
       "producer_table_names": [],
       "consumer_table_names": [
-        "conversation_entry",
-        "effect",
-        "effect_dependency",
-        "event",
-        "evidence_link",
+        "audit_event",
         "file_object",
-        "operation",
         "record",
         "reference_item",
         "reference_release",
@@ -28359,28 +28053,18 @@
         "admission_attempt",
         "affiliation",
         "article_editor_state",
-        "article_link",
         "article_revision",
-        "assessment",
-        "assessment_contributor",
-        "assessment_fact",
-        "assignment_feedback",
         "attestation",
+        "audit_event",
         "auth_account",
         "auth_session",
         "auth_user",
         "auth_verification",
         "commitment",
-        "communication",
-        "communication_recipient",
         "contact_outcome",
-        "conversation",
-        "conversation_entry",
         "development_enrollment",
-        "development_milestone",
         "development_program",
         "development_program_version",
-        "development_reading",
         "development_stage",
         "digest_coverage",
         "discovery",
@@ -28388,71 +28072,40 @@
         "document_revision",
         "early_access_attempt",
         "early_access_request",
-        "effect",
-        "effect_dependency",
-        "enrollment_milestone",
-        "enrollment_plan",
-        "event",
-        "evidence_link",
-        "feedback",
-        "feedback_publication",
         "file_object",
-        "finding",
-        "four_cs",
-        "generated_document",
         "household",
-        "identity_operation_result",
         "identity_proof",
         "interview",
         "invitation",
         "job",
         "launch",
-        "launch_debrief",
-        "launch_guest",
         "launch_milestone",
-        "leadership_conversation",
         "lifecycle_witness",
         "mail",
         "mail_attempt",
         "mail_request",
         "mail_request_member",
         "meeting",
-        "meeting_evaluation",
-        "meeting_item",
-        "message_template",
         "notice",
         "notification_preference",
         "obligation",
-        "onboarding_result",
         "onboarding_setup",
-        "operation",
         "organization",
-        "organization_operation_result",
         "organization_person_removal",
         "participation",
         "passage",
         "people_column",
-        "people_history",
-        "people_result",
         "person",
-        "person_merge",
         "person_note",
-        "person_skill",
         "person_tag",
         "phase_transition",
         "pipeline_person",
         "pipeline_sharing",
         "pipeline_stage",
-        "pipeline_stage_move",
         "plant",
         "plant_geography",
         "platform_grant",
-        "private_calendar",
-        "private_week",
-        "private_week_revision",
-        "prompt_dismissal",
         "provider_event",
-        "reader_feedback",
         "reading",
         "record",
         "recurrence",
@@ -28460,32 +28113,20 @@
         "reference_item",
         "reference_release",
         "reference_version",
-        "relationship_history",
         "relationship_invitation",
         "residency_link",
         "responsibility",
-        "review",
-        "rsvp_proof",
         "schema_migration",
         "seat",
-        "sending_goal",
         "settings_preview",
-        "settings_result",
         "suppression",
         "tag",
         "task",
-        "task_dependency",
         "team",
         "team_role",
         "team_tenure",
         "tenant",
-        "training_assignment",
-        "training_credit",
-        "training_program",
-        "training_requirement",
-        "training_version",
-        "venue",
-        "wiki_preference"
+        "venue"
       ],
       "proof_stage": "whole-target integration; no deferred portions",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
@@ -34394,7 +34035,6 @@
       ],
       "ui_prerequisites": [],
       "producer_table_names": [
-        "evidence_link",
         "identity_proof",
         "lifecycle_witness",
         "record",
@@ -34405,28 +34045,18 @@
         "admission_attempt",
         "affiliation",
         "article_editor_state",
-        "article_link",
         "article_revision",
-        "assessment",
-        "assessment_contributor",
-        "assessment_fact",
-        "assignment_feedback",
         "attestation",
+        "audit_event",
         "auth_account",
         "auth_session",
         "auth_user",
         "auth_verification",
         "commitment",
-        "communication",
-        "communication_recipient",
         "contact_outcome",
-        "conversation",
-        "conversation_entry",
         "development_enrollment",
-        "development_milestone",
         "development_program",
         "development_program_version",
-        "development_reading",
         "development_stage",
         "digest_coverage",
         "discovery",
@@ -34434,99 +34064,57 @@
         "document_revision",
         "early_access_attempt",
         "early_access_request",
-        "effect",
-        "effect_dependency",
-        "enrollment_milestone",
-        "enrollment_plan",
-        "event",
-        "feedback",
-        "feedback_publication",
         "file_object",
-        "finding",
-        "four_cs",
-        "generated_document",
         "household",
-        "identity_operation_result",
         "interview",
         "invitation",
         "job",
         "launch",
-        "launch_debrief",
-        "launch_guest",
         "launch_milestone",
-        "leadership_conversation",
         "mail",
         "mail_attempt",
         "mail_request",
         "mail_request_member",
         "meeting",
-        "meeting_evaluation",
-        "meeting_item",
-        "message_template",
         "notice",
         "notification_preference",
         "obligation",
-        "onboarding_result",
         "onboarding_setup",
-        "operation",
         "organization",
-        "organization_operation_result",
         "organization_person_removal",
         "participation",
         "passage",
         "people_column",
-        "people_history",
-        "people_result",
         "person",
-        "person_merge",
         "person_note",
-        "person_skill",
         "person_tag",
         "phase_transition",
         "pipeline_person",
         "pipeline_sharing",
         "pipeline_stage",
-        "pipeline_stage_move",
         "plant",
         "plant_geography",
         "platform_grant",
-        "private_calendar",
-        "private_week",
-        "private_week_revision",
-        "prompt_dismissal",
         "provider_event",
-        "reader_feedback",
         "reading",
         "recurrence",
         "reference_activation",
         "reference_item",
         "reference_release",
         "reference_version",
-        "relationship_history",
         "relationship_invitation",
         "residency_link",
         "responsibility",
-        "review",
-        "rsvp_proof",
         "schema_migration",
         "seat",
-        "sending_goal",
         "settings_preview",
-        "settings_result",
         "suppression",
         "tag",
         "task",
-        "task_dependency",
         "team",
         "team_role",
         "team_tenure",
-        "training_assignment",
-        "training_credit",
-        "training_program",
-        "training_requirement",
-        "training_version",
-        "venue",
-        "wiki_preference"
+        "venue"
       ],
       "proof_stage": "whole-target integration; no deferred portions",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
@@ -34819,14 +34407,8 @@
       "ui_prerequisites": [],
       "producer_table_names": [],
       "consumer_table_names": [
-        "assessment",
-        "assessment_contributor",
-        "assessment_fact",
-        "event",
-        "evidence_link",
-        "finding",
+        "audit_event",
         "plant_geography",
-        "reader_feedback",
         "record",
         "reference_item",
         "reference_release",
@@ -39202,14 +38784,8 @@
       "ui_prerequisites": [],
       "producer_table_names": [],
       "consumer_table_names": [
-        "assessment",
-        "assessment_contributor",
-        "assessment_fact",
-        "event",
-        "evidence_link",
-        "finding",
+        "audit_event",
         "plant_geography",
-        "reader_feedback",
         "record",
         "reference_item",
         "reference_release",
@@ -39685,14 +39261,8 @@
       "ui_prerequisites": [],
       "producer_table_names": [],
       "consumer_table_names": [
-        "assessment",
-        "assessment_contributor",
-        "assessment_fact",
-        "event",
-        "evidence_link",
-        "finding",
+        "audit_event",
         "plant_geography",
-        "reader_feedback",
         "record",
         "reference_item",
         "reference_release",
@@ -40843,9 +40413,9 @@
       "ui_prerequisites": [],
       "producer_table_names": [],
       "consumer_table_names": [
+        "audit_event",
         "document",
         "document_revision",
-        "event",
         "file_object"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -41101,9 +40671,9 @@
       "ui_prerequisites": [],
       "producer_table_names": [],
       "consumer_table_names": [
+        "audit_event",
         "document",
         "document_revision",
-        "event",
         "file_object"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -43771,13 +43341,10 @@
         "WP-090"
       ],
       "producer_table_names": [
-        "leadership_conversation",
         "person_note",
         "pipeline_person",
         "pipeline_stage",
-        "pipeline_stage_move",
-        "record",
-        "sending_goal"
+        "record"
       ],
       "consumer_table_names": [],
       "proof_stage": "stages 1 and 2 producer; final whole-target integration admits no deferrals",
@@ -43879,15 +43446,10 @@
         "WP-090"
       ],
       "producer_table_names": [
-        "assignment_feedback",
         "development_enrollment",
-        "development_milestone",
         "development_program",
         "development_program_version",
-        "development_reading",
         "development_stage",
-        "enrollment_milestone",
-        "enrollment_plan",
         "record"
       ],
       "consumer_table_names": [],
@@ -43972,8 +43534,6 @@
       ],
       "producer_table_names": [],
       "consumer_table_names": [
-        "development_reading",
-        "enrollment_milestone",
         "residency_link"
       ],
       "proof_stage": "stages 1 and 2 producer; final whole-target integration admits no deferrals",
@@ -44081,15 +43641,10 @@
       ],
       "producer_table_names": [],
       "consumer_table_names": [
-        "assignment_feedback",
         "development_enrollment",
-        "development_milestone",
         "development_program",
         "development_program_version",
-        "development_reading",
-        "development_stage",
-        "enrollment_milestone",
-        "enrollment_plan"
+        "development_stage"
       ],
       "proof_stage": "stages 1 and 2 producer; final whole-target integration admits no deferrals",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
@@ -44408,30 +43963,19 @@
       "producer_table_names": [],
       "consumer_table_names": [
         "affiliation",
-        "assignment_feedback",
+        "audit_event",
         "development_enrollment",
-        "development_milestone",
         "development_program",
         "development_program_version",
-        "development_reading",
         "development_stage",
-        "enrollment_milestone",
-        "enrollment_plan",
-        "identity_operation_result",
         "invitation",
-        "leadership_conversation",
         "organization_person_removal",
-        "people_history",
-        "people_result",
         "person",
-        "person_merge",
         "person_note",
         "pipeline_person",
         "pipeline_sharing",
         "pipeline_stage",
-        "pipeline_stage_move",
-        "residency_link",
-        "sending_goal"
+        "residency_link"
       ],
       "proof_stage": "stages 1 and 2 producer; final whole-target integration admits no deferrals",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."

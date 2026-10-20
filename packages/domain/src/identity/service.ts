@@ -1,34 +1,34 @@
-import { readIdentityAccount, readIdentitySession, userRow } from "./reads.ts";
-import * as tables from "@everyfield/db/tables";
-import { and, eq, gt, sql } from "@everyfield/db/query";
-import "server-only";
-import { createHash, randomUUID } from "node:crypto";
-import { isIP } from "node:net";
-import type { Database, Transaction } from "@everyfield/db/client";
-import type { BetterAuthPlugin } from "better-auth";
-import { verifyPassword } from "better-auth/crypto";
-import { z } from "zod";
 import {
-	registrationRequest,
-	registrationResult,
-	seatInvitationAcceptedResult,
-	registrationStatus,
-	sessionResult,
-	signInRequest,
+	identityError,
+	invalidSessionReturn,
 	passwordRecoveryRequest,
 	recoverPasswordRequest,
-	identityError,
-	verifyEmailRequest,
-	selfSessionRequest,
+	registrationOptions,
+	registrationRequest,
+	registrationResult,
+	registrationStatus,
 	resumeRegistrationRequest,
 	safeReturn,
-	invalidSessionReturn,
-	registrationOptions,
+	seatInvitationAcceptedResult,
+	selfSessionRequest,
+	sessionResult,
+	signInRequest,
+	verifyEmailRequest,
 } from "@everyfield/contracts/identity";
-import type { createInvitationService } from "./invitations.ts";
-import { InvitationRefusal } from "./invitation-core.ts";
+import type { Database, Transaction } from "@everyfield/db/client";
+import { and, eq, gt, sql } from "@everyfield/db/query";
+import * as tables from "@everyfield/db/tables";
+import type { BetterAuthPlugin } from "better-auth";
+import { verifyPassword } from "better-auth/crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { isIP } from "node:net";
+import "server-only";
+import { z } from "zod";
 import { identityAuth } from "./auth.ts";
 import { attemptBudget, IdentityRefusal, transaction } from "./budget.ts";
+import { InvitationRefusal } from "./invitation-core.ts";
+import type { createInvitationService } from "./invitations.ts";
+import { readIdentityAccount, readIdentitySession, userRow } from "./reads.ts";
 
 export type IdentityMail = {
 	accountId: string;
@@ -446,7 +446,6 @@ export function createIdentityService(config: IdentityConfig) {
 						registrationResult.parse({
 							status: "active",
 							accountId: accepted.accountId,
-							operationId: accepted.receipt.id,
 						}),
 					),
 					s.response,
@@ -484,10 +483,10 @@ export function createIdentityService(config: IdentityConfig) {
 		tx?: Transaction,
 	) {
 		const result = await (tx ?? config.db)
-			.insert(tables.event)
+			.insert(tables.audit_event)
 			.values({
 				tenant_id: id,
-				target_record_id: id,
+				subject_id: id,
 				actor_id: id,
 				kind: "outcome",
 				occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
@@ -495,7 +494,7 @@ export function createIdentityService(config: IdentityConfig) {
 				event_key: key,
 				action: action,
 			})
-			.returning({ id: tables.event.id });
+			.returning({ id: tables.audit_event.id });
 		return z.uuid().parse(result[0]?.id);
 	}
 	return { handle, auth };

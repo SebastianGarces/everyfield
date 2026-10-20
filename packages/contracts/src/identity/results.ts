@@ -1,16 +1,15 @@
 import { z } from "zod";
+import { instant } from "../common/time.ts";
 import {
 	accountId,
 	correlationId,
 	defineSafeError,
 	eventId,
-	operationId,
 	owner,
 	recordId,
 	safeError,
 	sessionId,
 } from "../common/values.ts";
-import { instant } from "../common/time.ts";
 import { accountKind } from "./requests.ts";
 
 export const identityError = z.discriminatedUnion("code", [
@@ -34,7 +33,7 @@ export const otherSessionsRevokedResult = z.strictObject({ status: z.literal("ot
 export const registrationResult = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("continue_identity_proof") }),
 	z.strictObject({ status: z.literal("pending_domain"), accountId }),
-	z.strictObject({ status: z.literal("active"), accountId, operationId }),
+	z.strictObject({ status: z.literal("active"), accountId }),
 ]);
 // Only actual native self authentication may produce these bounded projections.
 export const registrationStatus = z.discriminatedUnion("status", [

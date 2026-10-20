@@ -1,31 +1,33 @@
-import "server-only";
-import * as t from "@everyfield/db/tables";
-import { and, eq, isNull, sql } from "@everyfield/db/query";
+import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
 import * as q from "@everyfield/contracts/settings";
 import type { SettingsContext, SettingsProducer } from "@everyfield/contracts/settings/server";
 import type { Transaction } from "@everyfield/db/client";
-import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
-import {
-	actor,
-	self,
-	plantAdmin,
-	deny,
-	parse,
-	reply,
-	revision,
-	begin,
-	finish,
-	preference,
-	sameOwner,
-	canonical,
-	appendEvent,
-	type Tx,
-	type Context,
-	type WriteContext,
-} from "./core.ts";
-import { loadAffiliation, pairOf, choices, active, type OrganizationEffects } from "../organizations/core.ts";
+import { and, eq, isNull, sql } from "@everyfield/db/query";
+import * as t from "@everyfield/db/tables";
+import "server-only";
+import type { z } from "zod";
+import { active, choices, loadAffiliation, pairOf, type OrganizationEffects } from "../organizations/core.ts";
 import { applyOrganizationProfile } from "../organizations/profile.ts";
 import { applySharingMutation } from "../organizations/sharing.ts";
+import {
+	actor,
+	appendEvent,
+	auditChange,
+	begin,
+	canonical,
+	deny,
+	finish,
+	parse,
+	plantAdmin,
+	preference,
+	reply,
+	revision,
+	sameOwner,
+	self,
+	type Context,
+	type Tx,
+	type WriteContext,
+} from "./core.ts";
 export interface SettingsEffects {
 	replan(
 		tx: Tx,
@@ -45,7 +47,10 @@ export interface SectionDependencies {
 	suppression(tx: Tx, email: string): Promise<"clear" | "suppressed" | "unavailable">;
 }
 export async function accountSection(tx: Tx, ctx: Context) {
-	const a = await self(tx, ctx);
+	const a = await self(tx, ctx, "read");
+	return accountValue(a);
+}
+function accountValue(a: Pick<Awaited<ReturnType<typeof actor>>, "account" | "principal">) {
 	return q.sectionResult.parse({
 		section: "account",
 		accountId: a.account.id,
@@ -64,7 +69,9 @@ export async function plantSection(
 	p: Extract<q.GetSectionRequest, { section: "plant" }>["plant"],
 ) {
 	const a = await plantAdmin(tx, ctx, p);
-	const r = a.plant;
+	return plantValue(a.plant, p);
+}
+function plantValue(r: typeof t.plant.$inferSelect, p: Extract<q.GetSectionRequest, { section: "plant" }>["plant"]) {
 	return q.sectionResult.parse({
 		section: "plant",
 		plant: p,
@@ -89,8 +96,13 @@ export async function plantSection(
 		},
 	});
 }
-async function notifications(tx: Tx, ctx: Context, deps: SectionDependencies) {
-	const a = await self(tx, ctx);
+async function notifications(
+	tx: Tx,
+	ctx: Context,
+	deps: SectionDependencies,
+	snapshot?: Awaited<ReturnType<typeof actor>>,
+) {
+	const a = snapshot ?? (await self(tx, ctx, "read"));
 	const rows = await tx
 		.select()
 		.from(t.notification_preference)
@@ -128,7 +140,10 @@ async function notifications(tx: Tx, ctx: Context, deps: SectionDependencies) {
 }
 export function sectionOperations(
 	deps: SectionDependencies,
-): Pick<SettingsProducer<Tx>, "getSection" | "saveSection" | "updatePlantProfile" | "setDigestSchedule"> {
+): Pick<
+	SettingsProducer<Tx>,
+	"getSection" | "saveSection" | "saveChurch" | "updatePlantProfile" | "setDigestSchedule"
+> {
 	async function read(tx: Tx, ctx: SettingsContext, v: q.GetSectionRequest): Promise<q.SectionResult> {
 		switch (v.section) {
 			case "account":
@@ -172,25 +187,44 @@ export function sectionOperations(
 			}
 		}
 	}
+	/**
+	 * One section save. A church submission (`church`) carries up to three plant changes and is still one command:
+	 * one plant update, one audit row naming every changed field, one request key.
+	 */
 	async function save(
 		tx: Tx,
 		ctx: WriteContext,
 		raw: unknown,
-		name: typeof t.effect.$inferInsert.kind = "settings.saveSection",
+		name: string = "settings.saveSection",
+		church?: z.infer<typeof q.saveChurchRequest>,
 	) {
-		const v = parse(q.saveSectionRequest, raw);
-		const a = await actor(tx, ctx, true);
+		const v: q.SaveSectionRequest = church
+			? {
+					requestKey: church.requestKey,
+					expectedRevision: church.expectedRevision,
+					input: { section: "plant", plant: church.input.plant, change: church.input.changes[0]! },
+				}
+			: parse(q.saveSectionRequest, raw);
+		const a = await actor(tx, ctx, "command");
 		const i = v.input;
-		if (i.section === "account" || i.section === "notifications") await self(tx, ctx);
-		else if (i.section === "organization") {
+		if (i.section === "account" || i.section === "notifications") {
+			if (ctx.selected.kind !== "account" || ctx.selected.id !== a.account.id) deny();
+		} else if (i.section === "organization") {
 			if (
 				!sameOwner(ctx.selected, i.organization) ||
 				a.identity.context.kind !== "seat" ||
 				a.identity.context.role === "member"
 			)
 				deny();
-		} else await plantAdmin(tx, ctx, i.plant, true);
-		const c = await begin(tx, ctx, a.account.id, name, v);
+		} else if (
+			!sameOwner(ctx.selected, i.plant) ||
+			ctx.selected.kind !== "plant" ||
+			a.identity.context.kind !== "seat" ||
+			a.identity.context.role === "member" ||
+			!a.plant
+		)
+			deny();
+		const c = await begin(tx, ctx, a.account.id, name, church ?? v);
 		if (c.kind === "replay") {
 			// Replay receipts never restore stale projections or bypass current scope.
 			const old = q.savedSectionResult.parse(c.value);
@@ -198,25 +232,33 @@ export function sectionOperations(
 			return q.savedSectionResult.parse({ ...old, current });
 		}
 		let changed = false;
+		let current: q.SectionResult;
 		const events: string[] = [];
+		// The section's fields before and after, so the audit row can name what changed.
+		let diff: { before: Record<string, unknown>; after: Record<string, unknown> } | null = null;
 		switch (i.section) {
 			case "account": {
 				revision(v.expectedRevision, a.account.revision);
 				changed = i.name !== a.principal.display_name;
 				if (changed) {
-					await tx.execute(sql`SELECT settings_update_name(${ctx.session}::uuid,${i.name})`);
-					await tx
-						.update(t.account)
-						.set({ revision: sql`${t.account.revision}+1` })
-						.where(eq(t.account.id, a.account.id));
+					c.writes.push(
+						sql`WITH changed_name AS MATERIALIZED (SELECT settings_update_name(${ctx.session}::uuid,${i.name})) UPDATE account SET revision=revision+1 FROM changed_name WHERE id=${a.account.id}::uuid`,
+					);
 				}
+				diff = { before: { name: a.principal.display_name }, after: { name: i.name } };
+				current = accountValue({
+					...a,
+					account: { ...a.account, revision: changed ? String(BigInt(a.account.revision) + 1n) : a.account.revision },
+					principal: { ...a.principal, display_name: i.name },
+				});
 				break;
 			}
 			case "notifications": {
 				revision(v.expectedRevision, a.account.revision);
-				const current = await notifications(tx, ctx, deps);
+				current = await notifications(tx, ctx, deps, a);
 				if (current.section !== "notifications") deny();
 				const patch = i.patch;
+				const values = current.values;
 				const category =
 					patch.kind === "channel"
 						? patch.choice.category
@@ -230,40 +272,14 @@ export function sectionOperations(
 						current.values.choices.find((r) => r.category === category && r.channel === choice.channel)?.enabled !==
 						choice.enabled;
 					if (changed)
-						await tx
-							.insert(t.notification_preference)
-							.values({
-								account_id: a.account.id,
-								category,
-								channel: choice.channel,
-								enabled: choice.enabled,
-								unsubscribe_revision: "1",
-							})
-							.onConflictDoUpdate({
-								target: [
-									t.notification_preference.account_id,
-									t.notification_preference.category,
-									t.notification_preference.channel,
-								],
-								set: { enabled: choice.enabled, revision: sql`${t.notification_preference.revision}+1` },
-							});
-				} else {
-					changed =
-						(patch.kind === "planter_cadence" ? current.values.planterCadence : current.values.oversightCadence) !==
-						patch.cadence;
-					if (changed)
-						for (const channel of ["email", "in_app"] as const)
-							await tx
+						c.writes.push(
+							tx
 								.insert(t.notification_preference)
 								.values({
 									account_id: a.account.id,
 									category,
-									channel,
-									enabled: current.values.choices.find((r) => r.category === category && r.channel === channel)!
-										.enabled,
-									cadence: patch.cadence,
-									weekday: 0,
-									hour: 16,
+									channel: choice.channel,
+									enabled: choice.enabled,
 									unsubscribe_revision: "1",
 								})
 								.onConflictDoUpdate({
@@ -272,59 +288,110 @@ export function sectionOperations(
 										t.notification_preference.category,
 										t.notification_preference.channel,
 									],
+									set: { enabled: choice.enabled, revision: sql`${t.notification_preference.revision}+1` },
+								}),
+						);
+				} else {
+					changed =
+						(patch.kind === "planter_cadence" ? current.values.planterCadence : current.values.oversightCadence) !==
+						patch.cadence;
+					if (changed)
+						c.writes.push(
+							tx
+								.insert(t.notification_preference)
+								.values(
+									(["email", "in_app"] as const).map((channel) => ({
+										account_id: a.account.id,
+										category,
+										channel,
+										enabled: values.choices.find((r) => r.category === category && r.channel === channel)!.enabled,
+										cadence: patch.cadence,
+										weekday: 0,
+										hour: 16,
+										unsubscribe_revision: "1",
+									})),
+								)
+								.onConflictDoUpdate({
+									target: [
+										t.notification_preference.account_id,
+										t.notification_preference.category,
+										t.notification_preference.channel,
+									],
 									set: { cadence: patch.cadence, revision: sql`${t.notification_preference.revision}+1` },
-								});
+								}),
+						);
 				}
 				if (changed)
-					await tx
-						.update(t.account)
-						.set({ revision: sql`${t.account.revision}+1` })
-						.where(eq(t.account.id, a.account.id));
+					c.writes.push(
+						tx
+							.update(t.account)
+							.set({ revision: sql`${t.account.revision}+1` })
+							.where(eq(t.account.id, a.account.id)),
+					);
+				const field = patch.kind === "channel" ? `${category}.${patch.choice.channel}` : `${category}.cadence`;
+				diff = { before: { [field]: false }, after: { [field]: changed } };
+				current = q.sectionResult.parse({
+					...current,
+					revision: changed ? String(BigInt(a.account.revision) + 1n) : a.account.revision,
+					values: {
+						...values,
+						choices:
+							patch.kind === "channel"
+								? values.choices.map((choice) =>
+										choice.category === patch.choice.category && choice.channel === patch.choice.channel
+											? patch.choice
+											: choice,
+									)
+								: values.choices,
+						planterCadence: patch.kind === "planter_cadence" ? patch.cadence : values.planterCadence,
+						oversightCadence: patch.kind === "oversight_cadence" ? patch.cadence : values.oversightCadence,
+					},
+				});
 				break;
 			}
 			case "plant": {
-				const p = await plantAdmin(tx, ctx, i.plant, true);
+				if (!a.plant) deny();
+				const p = { plant: a.plant };
 				revision(v.expectedRevision, p.plant.revision);
-				const old = await plantSection(tx, ctx, i.plant);
+				const old = plantValue(p.plant, i.plant);
 				if (old.section !== "plant") deny();
-				let patch: Partial<typeof t.plant.$inferInsert> = {};
-				if (i.change.kind === "profile") {
-					const v = i.change.patch;
-					patch = {
-						...(v.name !== undefined ? { name: v.name } : {}),
-						...(v.street !== undefined ? { street: v.street } : {}),
-						...(v.description !== undefined ? { description: v.description } : {}),
-						...(v.city !== undefined ? { city: v.city } : {}),
-						...(v.stateProvince !== undefined ? { state_province: v.stateProvince } : {}),
-						...(v.country !== undefined ? { country: v.country } : {}),
-					};
-					changed = Object.entries(v).some(([k, value]) => Reflect.get(old.values.profile, k) !== value);
-				} else if (i.change.kind === "inactivity") {
-					patch = { warning_days: i.change.value.warningDays, alert_days: i.change.value.alertDays };
-					changed = canonical(old.values.inactivity) !== canonical(i.change.value);
-				} else {
-					const s = i.change.value;
-					patch = {
-						digest_cadence: s.cadence,
-						...(s.cadence !== "off" ? { digest_hour: s.hour } : {}),
-						...(s.cadence === "weekly" ? { digest_weekday: s.weekday } : {}),
-					};
-					changed = canonical(old.values.digest) !== canonical(s);
-				}
+				const patch: Partial<typeof t.plant.$inferInsert> = Object.assign(
+					{},
+					...(church ? church.input.changes : [i.change]).map(plantPatch),
+				);
+				const next = plantValue(
+					{
+						...p.plant,
+						...patch,
+						revision: String(BigInt(p.plant.revision) + 1n),
+						material_revision: String(BigInt(p.plant.material_revision) + 1n),
+					},
+					i.plant,
+				);
+				if (next.section !== "plant") deny();
+				diff = { before: plantFields(old), after: plantFields(next) };
+				changed = canonical(diff.before) !== canonical(diff.after);
 				if (changed) {
-					await tx
-						.update(t.plant)
-						.set({
-							...patch,
-							revision: sql`${t.plant.revision}+1`,
-							material_revision: sql`${t.plant.material_revision}+1`,
-						})
-						.where(eq(t.plant.id, i.plant.id));
-					const next = String(BigInt(p.plant.revision) + 1n);
-					await deps.effects.invalidate(tx, { owner: i.plant, revision: next, operationId: c.id });
-					if (i.change.kind === "digest")
-						await deps.effects.replan(tx, { owner: i.plant, revision: next, operationId: c.id, kind: "digest" });
+					c.writes.push(
+						tx
+							.update(t.plant)
+							.set({
+								...patch,
+								revision: sql`${t.plant.revision}+1`,
+								material_revision: sql`${t.plant.material_revision}+1`,
+							})
+							.where(eq(t.plant.id, i.plant.id)),
+					);
+					await deps.effects.invalidate(tx, { owner: i.plant, revision: next.revision, operationId: c.id });
+					if (canonical(old.values.digest) !== canonical(next.values.digest))
+						await deps.effects.replan(tx, {
+							owner: i.plant,
+							revision: next.revision,
+							operationId: c.id,
+							kind: "digest",
+						});
 				}
+				current = changed ? next : old;
 				break;
 			}
 			case "teams": {
@@ -336,17 +403,35 @@ export function sectionOperations(
 				if (!team) deny();
 				revision(v.expectedRevision, team.revision);
 				changed = team.name !== i.name;
+				diff = { before: { name: team.name }, after: { name: i.name } };
 				if (changed)
-					await tx
-						.update(t.team)
-						.set({ name: i.name, revision: sql`${t.team.revision}+1` })
-						.where(eq(t.team.id, i.teamId));
+					c.writes.push(
+						tx
+							.update(t.team)
+							.set({ name: i.name, revision: sql`${t.team.revision}+1` })
+							.where(eq(t.team.id, i.teamId)),
+					);
+				current = q.sectionResult.parse({
+					section: "teams",
+					plant: i.plant,
+					teamId: i.teamId,
+					revision: changed ? String(BigInt(team.revision) + 1n) : team.revision,
+					name: i.name,
+				});
 				break;
 			}
 			case "organization": {
 				try {
-					const effect = await applyOrganizationProfile(tx, c, i.organization.id, i.patch, v.expectedRevision);
+					const effect = await applyOrganizationProfile(
+						tx,
+						c,
+						i.organization.id,
+						i.patch,
+						v.expectedRevision,
+						a.organization ?? undefined,
+					);
 					changed = effect.changed;
+					current = { section: "organization", values: effect.current };
 					events.push(...effect.events);
 				} catch (e) {
 					if (e instanceof Error && e.message === "stale_revision") deny("conflict");
@@ -356,12 +441,7 @@ export function sectionOperations(
 			}
 			case "affiliations": {
 				const row = await loadAffiliation(tx, i.relationshipId, true);
-				if (
-					!row ||
-					row.plant_id !== i.plant.id ||
-					!sameOwner(pairOf(row).organization, i.organization) ||
-					!(await active(tx, row))
-				)
+				if (!row || row.plant_id !== i.plant.id || !sameOwner(pairOf(row).organization, i.organization) || !active(row))
 					deny();
 				revision(v.expectedRevision, row.revision);
 				revision(i.expectedConsentRevision, row.consent_revision);
@@ -373,31 +453,45 @@ export function sectionOperations(
 					deps.organizationEffects,
 				);
 				changed = effect.changed;
+				current = q.sectionResult.parse({
+					section: "affiliations",
+					values: {
+						view: "plant_administration",
+						plant: i.plant,
+						organization: i.organization,
+						organizationDisplayName: row.organization_name,
+						activeAffiliation: true,
+						consentRevision: effect.current.consent_revision,
+						choices: choices(effect.current),
+					},
+				});
 				events.push(...effect.events);
 				break;
 			}
 		}
-		if (changed && i.section !== "affiliations" && i.section !== "organization")
-			events.push(
-				await appendEvent(
-					tx,
-					c,
-					i.section === "teams" ? i.teamId : ctx.selected.id,
-					"preference",
-					"settings.changed",
-					v.expectedRevision,
-					String(BigInt(v.expectedRevision) + 1n),
-				),
+		if (changed && diff) {
+			const id = await appendEvent(
+				tx,
+				c,
+				i.section === "teams" ? i.teamId : ctx.selected.id,
+				"preference",
+				i.section === "plant" ? "plant.profile_changed" : "settings.changed",
+				v.expectedRevision,
+				String(BigInt(v.expectedRevision) + 1n),
 			);
-		const current = await read(tx, ctx, requestFor(i));
-		return finish(tx, c, q.savedSectionResult, events, (r) => ({ receipt: r, current }), changed);
+			auditChange(c, id, i.section, diff.before, diff.after);
+			events.push(id);
+		}
+		return finish(tx, c, q.savedSectionResult, () => ({ current }));
 	}
 	const operations: Pick<
 		SettingsProducer<Tx>,
-		"getSection" | "saveSection" | "updatePlantProfile" | "setDigestSchedule"
+		"getSection" | "saveSection" | "saveChurch" | "updatePlantProfile" | "setDigestSchedule"
 	> = {
 		getSection: (tx, ctx, raw) => reply(tx, (s) => read(s, ctx, parse(q.getSectionRequest, raw))),
 		saveSection: (tx, ctx, raw) => reply(tx, (s) => save(s, ctx, raw)),
+		saveChurch: (tx, ctx, raw) =>
+			reply(tx, (s) => save(s, ctx, null, "settings.saveChurch", parse(q.saveChurchRequest, raw))),
 		updatePlantProfile: (tx, ctx, raw) =>
 			reply(tx, (s) => {
 				const v = parse(q.updatePlantProfileRequest, raw);
@@ -426,6 +520,37 @@ export function sectionOperations(
 			}),
 	};
 	return operations;
+}
+/** The plant columns one church change sets. Fields the change leaves out keep their stored value. */
+function plantPatch(change: q.PlantChange): Partial<typeof t.plant.$inferInsert> {
+	switch (change.kind) {
+		case "profile": {
+			const v = change.patch;
+			return {
+				...(v.name !== undefined ? { name: v.name } : {}),
+				...(v.street !== undefined ? { street: v.street } : {}),
+				...(v.description !== undefined ? { description: v.description } : {}),
+				...(v.city !== undefined ? { city: v.city } : {}),
+				...(v.stateProvince !== undefined ? { state_province: v.stateProvince } : {}),
+				...(v.country !== undefined ? { country: v.country } : {}),
+			};
+		}
+		case "inactivity":
+			return { warning_days: change.value.warningDays, alert_days: change.value.alertDays };
+		case "digest": {
+			const s = change.value;
+			return {
+				digest_cadence: s.cadence,
+				...(s.cadence !== "off" ? { digest_hour: s.hour } : {}),
+				...(s.cadence === "weekly" ? { digest_weekday: s.weekday } : {}),
+			};
+		}
+	}
+}
+/** A church section as flat audit fields: the profile fields, the inactivity days and the digest schedule. */
+function plantFields(section: Extract<q.SectionResult, { section: "plant" }>): Record<string, unknown> {
+	const v = section.values;
+	return { ...v.profile, warningDays: v.inactivity.warningDays, alertDays: v.inactivity.alertDays, digest: v.digest };
 }
 function requestFor(i: q.SaveSectionRequest["input"]): q.GetSectionRequest {
 	switch (i.section) {

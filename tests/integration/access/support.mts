@@ -8,12 +8,13 @@ const require = createRequire(new URL("../../../packages/domain/package.json", i
 export const id = randomUUID;
 export async function database() {
 	const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
+	const ci=process.env.CI==='true'&&process.env.EARLY_ACCESS_TEST_DATABASE==='1'&&['localhost','127.0.0.1'].includes(source.hostname)&&source.pathname==='/everyfield_ci';
 	if (
-		source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech" ||
+		(!ci && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
 		process.env.NODE_ENV === "production"
 	)
 		throw Error("Only approved shared development endpoint allowed");
-	source.searchParams.set("sslmode", "verify-full");
+	if(!ci)source.searchParams.set("sslmode", "verify-full");
 	const schema = "wp006_" + id().replaceAll("-", "");
 	const roles = ["runtime", "cleanup"].map((kind) => ({ name: "wp006_" + randomBytes(8).toString("hex"), kind }));
 	const options = `-c search_path=${schema},pg_catalog,pg_temp`;

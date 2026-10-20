@@ -48,14 +48,12 @@ export function previewViewer(persona: PreviewPersona): SettingsViewer {
 			context: "organization",
 			accountId: ACCOUNT.network,
 			organization: NETWORK,
-			organizationName: "Austin Sending Network",
 			role: "admin",
 		};
 	return {
 		context: "plant",
 		accountId: ACCOUNT[persona],
 		plant: PLANT,
-		plantName: "Harvest Point Church",
 		role: persona,
 	};
 }
@@ -91,7 +89,6 @@ type Store = {
 const nowIso = (ms: number) => new Date(ms).toISOString();
 let counter = 100;
 const nextId = () => uuid(++counter, 9);
-const hex = () => "a".repeat(64);
 
 function initialSections(persona: PreviewPersona): Map<string, SectionResult> {
 	const account = ACCOUNT[persona];
@@ -272,7 +269,6 @@ export function createFixturePort(
 	const faults = new Map<Operation, Fault>();
 	const calls: Record<string, number> = {};
 	const listeners = new Set<() => void>();
-	const owner = { kind: "account" as const, id: ACCOUNT[persona] };
 
 	const wait = (ms = delay) => new Promise((r) => setTimeout(r, ms));
 	const refuse = (code: SettingsError["code"]): { status: "refused"; error: SettingsError } => ({
@@ -304,22 +300,7 @@ export function createFixturePort(
 		return refuse(fault);
 	}
 	const ok = <T>(schema: z.ZodType<T>, value: unknown): Reply<T> => ({ status: "ok", value: schema.parse(value) });
-	const receipt = (requestKey: string, receiptOwner: unknown, operation: string) => ({
-		id: nextId(),
-		request: {
-			owner: receiptOwner,
-			actorId: ACCOUNT[persona],
-			operation,
-			requestKey,
-			digest: hex(),
-			origin: { kind: "native" },
-		},
-		completedAt: nowIso(now()),
-		outcome: "changed",
-		subjects: [],
-		eventIds: [],
-		effectIds: [],
-	});
+
 	const bump = (revision: string) => String(BigInt(revision) + 1n);
 	const canAdminPlant = persona === "owner" || persona === "admin";
 
@@ -342,7 +323,6 @@ export function createFixturePort(
 			if (!row) return refuse("access_denied");
 			if ((input.section === "plant" || input.section === "teams") && !canAdminPlant) return refuse("access_denied");
 			let next: SectionResult;
-			let receiptOwner: unknown = owner;
 			switch (input.section) {
 				case "account": {
 					if (row.section !== "account") return refuse("invalid_input");
@@ -379,7 +359,6 @@ export function createFixturePort(
 								? { ...row.values, inactivity: c.value }
 								: { ...row.values, digest: c.value };
 					next = { ...row, values, revision: bump(row.revision) as typeof row.revision };
-					receiptOwner = PLANT;
 					break;
 				}
 				case "organization": {
@@ -393,7 +372,6 @@ export function createFixturePort(
 							revision: bump(row.values.revision) as typeof row.values.revision,
 						},
 					};
-					receiptOwner = NETWORK;
 					break;
 				}
 				case "affiliations": {
@@ -410,7 +388,6 @@ export function createFixturePort(
 							choices: S.applyAffiliationPatch(row.values.choices, input.patch),
 						},
 					};
-					receiptOwner = PLANT;
 					break;
 				}
 				case "teams":
@@ -418,9 +395,25 @@ export function createFixturePort(
 			}
 			store.sections.set(key, next);
 			return ok(S.savedSectionResult, {
-				receipt: receipt(request.requestKey, receiptOwner, "settings.saveSection"),
 				current: next,
 			});
+		},
+		async saveChurch(raw) {
+			const request = S.saveChurchRequest.parse(raw);
+			let reply = await port.saveSection({
+				requestKey: request.requestKey,
+				expectedRevision: request.expectedRevision,
+				input: { section: "plant", plant: request.input.plant, change: request.input.changes[0]! },
+			});
+			for (const change of request.input.changes.slice(1)) {
+				if (reply.status !== "ok" || reply.value.current.section !== "plant") break;
+				reply = await port.saveSection({
+					requestKey: `${request.requestKey}/${change.kind}`,
+					expectedRevision: reply.value.current.revision,
+					input: { section: "plant", plant: request.input.plant, change },
+				});
+			}
+			return reply;
 		},
 		async previewPlantTimezone(request) {
 			const fault = await enter("previewPlantTimezone");
@@ -485,131 +478,138 @@ export function createFixturePort(
 				timeZone: request.input.timeZone,
 				revision,
 				replanIntentId: nextId(),
-				receipt: receipt(request.requestKey, PLANT, "plant.setTimezone"),
 			});
 		},
-		async requestAvatarUpload(request) {
-			await wait(150);
-			S.requestAvatarUpload.parse(request);
-			return ok(S.avatarUploadResult, { uploadId: nextId(), expiresAt: nowIso(now() + 15 * 60_000) });
-		},
-		async uploadAvatarBytes(uploadId, file) {
-			await wait(300);
-			store.staged.set(uploadId, file);
-			return { status: "ok", value: null };
-		},
-		async finalizeAvatar(raw) {
-			const fault = await enter("finalizeAvatar");
-			if (fault) return fault;
-			const request = S.finalizeAvatarRequest.parse(raw);
-			const bytes = store.staged.get(request.input.uploadId);
-			const row = store.sections.get("account");
-			if (!bytes || !row || row.section !== "account") return refuse("invalid_input");
-			const versionId = nextId();
-			store.avatars.set(versionId, URL.createObjectURL(bytes));
-			const avatar = S.avatarResult.parse({ status: "available", avatar: { accountId: ACCOUNT[persona], versionId } });
-			store.sections.set("account", { ...row, avatar, revision: bump(row.revision) as typeof row.revision });
-			return { status: "ok", value: avatar };
-		},
-		async removeAvatar(raw) {
-			await wait();
-			S.removeAvatarRequest.parse(raw);
-			const row = store.sections.get("account");
-			if (!row || row.section !== "account") return refuse("invalid_input");
-			const avatar = S.avatarResult.parse({ status: "absent" });
-			store.sections.set("account", { ...row, avatar, revision: bump(row.revision) as typeof row.revision });
-			return { status: "ok", value: avatar };
-		},
-		avatarSrc(avatar) {
-			return store.avatars.get(avatar.versionId) ?? S.avatarRoute(avatar);
-		},
-		async requestEmailChange(request) {
-			const fault = await enter("requestEmailChange");
-			if (fault) return fault;
-			N.requestEmailChange.parse(request);
-			return { status: "ok", value: { status: "verification_requested" } };
-		},
-		async confirmEmailChange(request) {
-			await wait();
-			N.confirmEmailChange.parse(request);
-			const correlationId = nextId();
-			if (request.proof === "valid")
+		flows: {
+			async requestAvatarUpload(request) {
+				await wait(150);
+				S.requestAvatarUpload.parse(request);
+				return ok(S.avatarUploadResult, { uploadId: nextId(), expiresAt: nowIso(now() + 15 * 60_000) });
+			},
+			async uploadAvatarBytes(uploadId, file) {
+				await wait(300);
+				store.staged.set(uploadId, file);
+				return { status: "ok", value: null };
+			},
+			async finalizeAvatar(raw) {
+				const fault = await enter("finalizeAvatar");
+				if (fault) return fault;
+				const request = S.finalizeAvatarRequest.parse(raw);
+				const bytes = store.staged.get(request.input.uploadId);
+				const row = store.sections.get("account");
+				if (!bytes || !row || row.section !== "account") return refuse("invalid_input");
+				const versionId = nextId();
+				store.avatars.set(versionId, URL.createObjectURL(bytes));
+				const avatar = S.avatarResult.parse({
+					status: "available",
+					avatar: { accountId: ACCOUNT[persona], versionId },
+				});
+				store.sections.set("account", { ...row, avatar, revision: bump(row.revision) as typeof row.revision });
+				return { status: "ok", value: avatar };
+			},
+			async removeAvatar(raw) {
+				await wait();
+				S.removeAvatarRequest.parse(raw);
+				const row = store.sections.get("account");
+				if (!row || row.section !== "account") return refuse("invalid_input");
+				const avatar = S.avatarResult.parse({ status: "absent" });
+				store.sections.set("account", { ...row, avatar, revision: bump(row.revision) as typeof row.revision });
+				return { status: "ok", value: avatar };
+			},
+			avatarSrc(avatar) {
+				return store.avatars.get(avatar.versionId) ?? S.avatarRoute(avatar);
+			},
+			async requestEmailChange(request) {
+				const fault = await enter("requestEmailChange");
+				if (fault) return fault;
+				N.requestEmailChange.parse(request);
+				return { status: "ok", value: { status: "verification_requested" } };
+			},
+			async confirmEmailChange(request) {
+				await wait();
+				N.confirmEmailChange.parse(request);
+				const correlationId = nextId();
+				if (request.proof === "valid")
+					return N.credentialOutcome.parse({
+						status: "succeeded",
+						correlationId,
+						accountId: ACCOUNT[persona],
+						action: "email_changed",
+						reporting: { status: "recorded", eventId: nextId(), mailIntentId: nextId() },
+					});
+				return N.credentialOutcome.parse({
+					status: request.proof === "unknown" ? "unknown" : "refused",
+					correlationId,
+				});
+			},
+			async changePassword(request) {
+				const fault = await enter("changePassword");
+				const correlationId = nextId();
+				if (fault)
+					return N.credentialOutcome.parse({
+						status: fault.error.code === "unknown" ? "unknown" : "refused",
+						correlationId,
+					});
+				N.changePasswordRequest.parse(request);
+				if (request.currentPassword !== "correct horse" || request.newPassword === request.currentPassword)
+					return N.credentialOutcome.parse({ status: "refused", correlationId });
 				return N.credentialOutcome.parse({
 					status: "succeeded",
 					correlationId,
 					accountId: ACCOUNT[persona],
-					action: "email_changed",
+					action: "password_changed",
 					reporting: { status: "recorded", eventId: nextId(), mailIntentId: nextId() },
 				});
-			return N.credentialOutcome.parse({ status: request.proof === "unknown" ? "unknown" : "refused", correlationId });
-		},
-		async changePassword(request) {
-			const fault = await enter("changePassword");
-			const correlationId = nextId();
-			if (fault)
-				return N.credentialOutcome.parse({
-					status: fault.error.code === "unknown" ? "unknown" : "refused",
-					correlationId,
+			},
+			async getPersonalTimezone() {
+				await wait(200);
+				return ok(S.timezonePreference, store.personalZone);
+			},
+			async previewPersonalTimezone(request) {
+				await wait(250);
+				N.previewPersonalTimezoneRequest.parse(request);
+				const previewId = nextId();
+				const at = now();
+				store.previews.set(previewId, { zone: request.timeZone, expiresAt: at + 10 * 60_000 });
+				return ok(N.personalTimezonePreview, {
+					previewId,
+					preference: store.personalZone,
+					expectedRevision: store.personalZone.status === "confirmed" ? store.personalZone.revision : "0",
+					newZone: request.timeZone,
+					asOf: nowIso(at),
+					expiresAt: nowIso(at + 10 * 60_000),
 				});
-			N.changePasswordRequest.parse(request);
-			if (request.currentPassword !== "correct horse" || request.newPassword === request.currentPassword)
-				return N.credentialOutcome.parse({ status: "refused", correlationId });
-			return N.credentialOutcome.parse({
-				status: "succeeded",
-				correlationId,
-				accountId: ACCOUNT[persona],
-				action: "password_changed",
-				reporting: { status: "recorded", eventId: nextId(), mailIntentId: nextId() },
-			});
-		},
-		async getPersonalTimezone() {
-			await wait(200);
-			return ok(S.timezonePreference, store.personalZone);
-		},
-		async previewPersonalTimezone(request) {
-			await wait(250);
-			N.previewPersonalTimezoneRequest.parse(request);
-			const previewId = nextId();
-			const at = now();
-			store.previews.set(previewId, { zone: request.timeZone, expiresAt: at + 10 * 60_000 });
-			return ok(N.personalTimezonePreview, {
-				previewId,
-				preference: store.personalZone,
-				expectedRevision: store.personalZone.status === "confirmed" ? store.personalZone.revision : "0",
-				newZone: request.timeZone,
-				asOf: nowIso(at),
-				expiresAt: nowIso(at + 10 * 60_000),
-			});
-		},
-		async setPersonalTimezone(raw) {
-			const fault = await enter("setPersonalTimezone");
-			if (fault) return fault;
-			const request = N.setPersonalTimezoneRequest.parse(raw);
-			const preview = store.previews.get(request.input.previewId);
-			if (!preview || preview.zone !== request.input.timeZone || preview.expiresAt <= now())
-				return refuse("stale_preview");
-			const current = store.personalZone.status === "confirmed" ? store.personalZone.revision : "0";
-			if (current !== request.expectedRevision) return refuse("conflict");
-			store.personalZone = S.timezonePreference.parse({
-				status: "confirmed",
-				timeZone: request.input.timeZone,
-				revision: bump(current),
-			});
-			return ok(N.personalTimezoneResult, { preference: store.personalZone });
-		},
-		async requestAccountDeletion(raw) {
-			const fault = await enter("requestAccountDeletion");
-			if (fault) return fault;
-			S.requestAccountDeletion.parse(raw);
-			if (persona === "owner") return refuse("manual_owner_exception_required");
-			return ok(N.deletionStatus, pending({ kind: "account", id: ACCOUNT[persona] }, now()));
-		},
-		async requestWorkspaceDeletion(raw) {
-			const fault = await enter("requestWorkspaceDeletion");
-			if (fault) return fault;
-			S.requestWorkspaceDeletion.parse(raw);
-			if (persona !== "owner") return refuse("access_denied");
-			return ok(N.deletionStatus, pending(PLANT, now()));
+			},
+			async setPersonalTimezone(raw) {
+				const fault = await enter("setPersonalTimezone");
+				if (fault) return fault;
+				const request = N.setPersonalTimezoneRequest.parse(raw);
+				const preview = store.previews.get(request.input.previewId);
+				if (!preview || preview.zone !== request.input.timeZone || preview.expiresAt <= now())
+					return refuse("stale_preview");
+				const current = store.personalZone.status === "confirmed" ? store.personalZone.revision : "0";
+				if (current !== request.expectedRevision) return refuse("conflict");
+				store.personalZone = S.timezonePreference.parse({
+					status: "confirmed",
+					timeZone: request.input.timeZone,
+					revision: bump(current),
+				});
+				return ok(N.personalTimezoneResult, { preference: store.personalZone });
+			},
+			async requestAccountDeletion(raw) {
+				const fault = await enter("requestAccountDeletion");
+				if (fault) return fault;
+				S.requestAccountDeletion.parse(raw);
+				if (persona === "owner") return refuse("manual_owner_exception_required");
+				return ok(N.deletionStatus, pending({ kind: "account", id: ACCOUNT[persona] }, now()));
+			},
+			async requestWorkspaceDeletion(raw) {
+				const fault = await enter("requestWorkspaceDeletion");
+				if (fault) return fault;
+				S.requestWorkspaceDeletion.parse(raw);
+				if (persona !== "owner") return refuse("access_denied");
+				return ok(N.deletionStatus, pending(PLANT, now()));
+			},
 		},
 	};
 

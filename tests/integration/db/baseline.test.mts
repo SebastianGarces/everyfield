@@ -386,8 +386,8 @@ test("AC:TEN-009 INV-runtime: real login cannot own schema, change audit history
 	);
 	for (const statement of [
 		"CREATE TABLE forbidden(id int)",
-		"UPDATE event SET kind='edit'",
-		"DELETE FROM event",
+		"UPDATE audit_event SET kind='edit'",
+		"DELETE FROM audit_event",
 		"SELECT * FROM schema_migration",
 		"SELECT * FROM auth_user",
 		"INSERT INTO record(id,kind,tenant_id) VALUES(gen_random_uuid(),'person','" + p + "')",
@@ -395,10 +395,10 @@ test("AC:TEN-009 INV-runtime: real login cannot own schema, change audit history
 		await rejected(statement, [], "42501", runtime);
 	const x = await doc(p);
 	await runtime.execute(
-		querySql`INSERT INTO event(tenant_id,target_record_id,kind,occurred_at,recorded_at,system_cause,event_key,action) VALUES(${querySql.param(p)},${querySql.param(x)},'create',now(),now(),'synthetic','first','documents.saved')`,
+		querySql`INSERT INTO audit_event(tenant_id,subject_id,kind,occurred_at,recorded_at,system_cause,event_key,action) VALUES(${querySql.param(p)},${querySql.param(x)},'create',now(),now(),'synthetic','first','documents.saved')`,
 	);
 	assert.equal(
-		(await runtime.execute(querySql`SELECT count(*)::int n FROM event WHERE target_record_id=${querySql.param(x)}`))
+		(await runtime.execute(querySql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${querySql.param(x)}`))
 			.rows[0].n,
 		1,
 	);
@@ -409,10 +409,10 @@ test("AC:C0-REPLAY-001 AC:AUDIT-001 AC:AUDIT-002 INV-transaction: audit failure 
 		runtime.transaction(async (tx) => {
 			await tx.execute(querySql`UPDATE document SET title='changed',revision=revision+1 WHERE id=${querySql.param(x)}`);
 			await tx.execute(
-				querySql`INSERT INTO operation(id,tenant_id,actor_id,name,request_key,request_digest,state,started_at,tool_calls,reserved_input,reserved_output,used_input,used_output) VALUES(gen_random_uuid(),${querySql.param(p)},${querySql.param(a)},'documents.saveNative','rollback-receipt',${querySql.param(hash)},'pending',now(),0,0,0,0,0)`,
+				querySql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,request_key,metadata) VALUES(gen_random_uuid(),${querySql.param(p)},${querySql.param(a)},'documents.saved','edit','command',${querySql.param(p)},now(),now(),'rollback-receipt',jsonb_build_object('outcome',NULL))`,
 			);
 			await tx.execute(
-				querySql`INSERT INTO event(tenant_id,target_record_id,kind,occurred_at,recorded_at,system_cause,event_key,action) VALUES(${querySql.param(p)},${querySql.param(x)},'edit',now(),now(),'synthetic','bad','not_allowed')`,
+				querySql`INSERT INTO audit_event(tenant_id,subject_id,kind,occurred_at,recorded_at,system_cause,event_key,action) VALUES(${querySql.param(p)},${querySql.param(x)},'edit',now(),now(),'synthetic','bad','people.getPerson')`,
 			);
 		}),
 		(e) => e.cause?.code === "23514",
@@ -422,50 +422,36 @@ test("AC:C0-REPLAY-001 AC:AUDIT-001 AC:AUDIT-002 INV-transaction: audit failure 
 		"Synthetic",
 	);
 	assert.equal(
-		(await admin.execute(querySql`SELECT count(*)::int n FROM operation WHERE request_key='rollback-receipt'`)).rows[0]
-			.n,
+		(await admin.execute(querySql`SELECT count(*)::int n FROM audit_event WHERE request_key='rollback-receipt'`))
+			.rows[0].n,
 		0,
 	);
 	const sql =
-		"INSERT INTO event(tenant_id,target_record_id,kind,occurred_at,recorded_at,system_cause,event_key) VALUES($1,$2,'create',now(),now(),'synthetic','replay') ON CONFLICT(target_record_id,event_key) DO NOTHING";
+		"INSERT INTO audit_event(tenant_id,subject_id,kind,occurred_at,recorded_at,system_cause,event_key,action) VALUES($1,$2,'create',now(),now(),'synthetic','replay','documents.saved') ON CONFLICT(subject_id,event_key) DO NOTHING";
 	await runtime.execute(statement(sql, [p, x]));
 	await runtime.execute(statement(sql, [p, x]));
 	assert.equal(
-		(await admin.execute(querySql`SELECT count(*)::int n FROM event WHERE target_record_id=${querySql.param(x)}`))
+		(await admin.execute(querySql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${querySql.param(x)}`))
 			.rows[0].n,
 		1,
 	);
 });
-test("AC:AUDIT-003 INV-audit: exact UTF-8 limit and dedicated private care identity", async () => {
+test("AC:AUDIT-003 INV-audit: exact UTF-8 limit for audit changed fields", async () => {
 	const x = await doc(p);
 	const sql =
-		"INSERT INTO event(tenant_id,target_record_id,kind,occurred_at,recorded_at,system_cause,event_key,action,diff) VALUES($1,$2,'edit',now(),now(),'synthetic',$3,'documents.saved',$4)";
+		"INSERT INTO audit_event(tenant_id,subject_id,kind,occurred_at,recorded_at,system_cause,event_key,action,metadata) VALUES($1,$2,'edit',now(),now(),'synthetic',$3,'documents.saved',jsonb_build_object('diff',$4::jsonb))";
 	// JSONB text adds 9 bytes for this key/value shape.
 	const size = (n) => JSON.stringify({ x: "a".repeat(n - 9) });
 	await runtime.execute(statement(sql, [p, x, "boundary", size(2048)]));
 	assert.equal(
 		(
 			await admin.execute(
-				querySql`SELECT octet_length(convert_to(diff::text,'UTF8')) n FROM event WHERE target_record_id=${querySql.param(x)}`,
+				querySql`SELECT octet_length(convert_to((metadata->'diff')::text,'UTF8')) n FROM audit_event WHERE subject_id=${querySql.param(x)}`,
 			)
 		).rows[0].n,
 		2048,
 	);
 	await rejected(sql, [p, x, "oversized", size(2049)]);
-	const week = randomUUID();
-	await runtime.execute(
-		querySql`INSERT INTO private_week(id,plant_id,author_id,ordinal,monday,timezone,starts_at,ends_at,revision,note) VALUES(${querySql.param(week)},${querySql.param(p)},${querySql.param(a)},1,'2026-10-12','America/Chicago','2026-10-12T05:00Z','2026-10-19T05:00Z',1,'CARE-CANARY')`,
-	);
-	assert.equal(
-		(await admin.execute(querySql`SELECT count(*)::int n FROM record WHERE id=${querySql.param(week)}`)).rows[0].n,
-		0,
-	);
-	await rejected("UPDATE private_week SET author_id=$1 WHERE id=$2", [b, week]);
-	assert.equal(
-		(await admin.execute(querySql`SELECT count(*)::int n FROM event WHERE target_record_id=${querySql.param(week)}`))
-			.rows[0].n,
-		0,
-	);
 });
 test("INV-calendar-revision: canonical named zones and full int64 precision in real PostgreSQL", async () => {
 	await admin.execute(
@@ -562,7 +548,7 @@ test("INV-storage: server-owned key, current authorization, five-minute signing 
 	assert.equal(
 		(
 			await admin.execute(
-				querySql`SELECT count(*)::int n FROM event WHERE target_record_id=${querySql.param(uploaded.id)} AND action='files.finalized'`,
+				querySql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${querySql.param(uploaded.id)} AND action='files.finalized'`,
 			)
 		).rows[0].n,
 		1,
@@ -644,7 +630,7 @@ test("INV-storage: server-owned key, current authorization, five-minute signing 
 	assert.equal(
 		(
 			await admin.execute(
-				querySql`SELECT count(*)::int n FROM event WHERE target_record_id=${querySql.param(recovered.id)} AND action='files.finalized'`,
+				querySql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${querySql.param(recovered.id)} AND action='files.finalized'`,
 			)
 		).rows[0].n,
 		1,
@@ -714,26 +700,11 @@ test("INV-auth-adapter: pinned Better Auth uses app-owned physical UUID and snak
 	);
 });
 test("INV-baseline: Launch links, creation journal and retained purge clocks use typed immutable facts", async () => {
-	const personP = await person(p),
-		personQ = await person(q);
 	await admin.execute(querySql`INSERT INTO launch(plant_id,status) VALUES(${querySql.param(p)},'planning')`);
-	await admin.execute(
-		querySql`INSERT INTO launch_guest(plant_id,person_id,kind,recorded_at) VALUES(${querySql.param(p)},${querySql.param(personP)},'first_time',now())`,
-	);
-	await rejected(
-		"INSERT INTO launch_guest(plant_id,person_id,kind,recorded_at) VALUES($1,$2,'returning',now())",
-		[p, personP],
-		"23505",
-	);
-	await rejected(
-		"INSERT INTO launch_guest(plant_id,person_id,kind,recorded_at) VALUES($1,$2,'first_time',now())",
-		[p, personQ],
-		"23503",
-	);
 	const operation = async () => {
 		const id = randomUUID();
 		await admin.execute(
-			querySql`INSERT INTO operation(id,tenant_id,actor_id,name,request_key,request_digest,state,started_at,tool_calls,reserved_input,reserved_output,used_input,used_output) VALUES(${querySql.param(id)},${querySql.param(p)},${querySql.param(a)},'onboarding.createPlant',${querySql.param(id)},${querySql.param(hash)},'pending',now(),0,0,0,0,0)`,
+			querySql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,request_key,metadata) VALUES(${querySql.param(id)},${querySql.param(p)},${querySql.param(a)},'plant.created','edit','command',${querySql.param(p)},now(),now(),${querySql.param(id)},jsonb_build_object('outcome',NULL))`,
 		);
 		return id;
 	};

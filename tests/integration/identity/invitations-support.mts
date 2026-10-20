@@ -11,6 +11,9 @@ import {
 } from "../../../packages/domain/src/identity/index.ts";
 import { accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
+import {RequestActor} from "../../../packages/domain/src/access/session.ts";
+import {refuse} from "../../../packages/domain/src/identity/invitation-core.ts";
+import {sessionId} from "../../../packages/contracts/src/common/index.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
 export const key = randomUUID;
 export async function fixture({ lockTimeout = "0" } = {}) {
@@ -75,14 +78,15 @@ export async function fixture({ lockTimeout = "0" } = {}) {
 			},
 		},
 	});
+	async function actor(session:string){const a=await db.transaction(tx=>RequestActor.resolve(tx,sessionId.parse(session)));if(!(a instanceof RequestActor))refuse();return a;}
 	const invitations = createInvitationService({
 		db,
 		origin: "http://invitation.example.test",
 		budgetSecret: randomBytes(32).toString("hex"),
 		people: accountPersonProducer,
-		enqueueMail: async (tx, m) => {
+		enqueueMail: async (tx,m,command) => {
 			if (mailFault) throw Error("synthetic_outbox_failure");
-			return mail.enqueue(tx, {
+			return mail.append(tx, {
 				owner: m.owner,
 				purpose: m.purpose,
 				logicalKey: m.logicalKey,
@@ -92,7 +96,7 @@ export async function fixture({ lockTimeout = "0" } = {}) {
 				operation: m.operationId,
 				notice: null,
 				eligibleAt: new Date().toISOString(),
-			});
+			},command.writes);
 		},
 	});
 	const identitySecret = randomBytes(32).toString("hex");
@@ -229,8 +233,8 @@ export async function fixture({ lockTimeout = "0" } = {}) {
 				: { workspace: s.w, role: "member", recipientEmail: s.recipient.email },
 		};
 		const result = await (residentId
-			? invitations.inviteResident(s.sender.session, command)
-			: invitations.invite(s.sender.session, command));
+			? invitations.inviteResident(await actor(s.sender.session), command)
+			: invitations.invite(await actor(s.sender.session), command));
 		const token = await proof(result.invitation.invitationId);
 		return {
 			result,
@@ -244,6 +248,7 @@ export async function fixture({ lockTimeout = "0" } = {}) {
 		};
 	}
 	return {
+		actor,
 		schema,
 		native,
 		admin,

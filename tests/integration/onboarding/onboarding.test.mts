@@ -1,3 +1,6 @@
+import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import { sessionId as writeSessionId } from "../../../packages/contracts/src/common/index.ts";
+import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/notifications.ts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
@@ -5,10 +8,11 @@ import { createDatabase, closeDatabase } from "../../../packages/db/src/client.t
 import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { sql, eq, and } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import * as t from "../../../packages/db/src/schema/tables.ts";
-import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
+import { createOnboardingProducer, readOnboardingEntry } from "../../../packages/domain/src/onboarding/index.ts";
+import { readViewer } from "../../../packages/domain/src/access/index.ts";
 import { createInvitationService } from "../../../packages/domain/src/identity/index.ts";
 import { accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
-import { enqueueJob } from "../../../apps/web/src/server/jobs/queue.ts";
+import { enqueueJob, enqueueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import foundations from "../../../docs/reference/discovery-foundations.json" with { type: "json" };
 
@@ -50,8 +54,6 @@ const command = (input = {}, expectedRevision = "1", requestKey = randomUUID()) 
 const ctx = (a, selected = { kind: "account", id: a.id }) => ({
 	session: a.session,
 	selected,
-	purpose: "native",
-	origin: { kind: "native" },
 });
 const call = (name, a, q, selected) => db.transaction((tx) => api[name](tx, ctx(a, selected), q));
 async function actor(kind = "planter", state = "active") {
@@ -75,7 +77,7 @@ async function makePlant(a = undefined) {
 }
 async function counts() {
 	const r = await admin.execute(
-		sql`SELECT (SELECT count(*)::int FROM plant) plants,(SELECT count(*)::int FROM person) people,(SELECT count(*)::int FROM seat) seats,(SELECT count(*)::int FROM operation) operations,(SELECT count(*)::int FROM event) events,(SELECT count(*)::int FROM mail) mail,(SELECT count(*)::int FROM job) jobs`,
+		sql`SELECT (SELECT count(*)::int FROM plant) plants,(SELECT count(*)::int FROM person) people,(SELECT count(*)::int FROM seat) seats,(SELECT count(*)::int FROM audit_event) operations,(SELECT count(*)::int FROM audit_event) events,(SELECT count(*)::int FROM mail) mail,(SELECT count(*)::int FROM job) jobs`,
 	);
 	return r.rows[0];
 }
@@ -99,7 +101,7 @@ before(async () => {
 		encryptionKey: randomBytes(32),
 		addressKey: randomBytes(32),
 		from: "test@example.test",
-		authorize: async () => true,
+		authorize: async (_tx, mail) => new Set(mail.map((m) => m.id)),
 		transport: {
 			send: async () => {
 				throw Error("No provider calls in producer transaction");
@@ -110,57 +112,26 @@ before(async () => {
 		},
 	});
 	api = createOnboardingProducer({
-		async invalidate(tx, input) {
-			await enqueueJob(tx, {
-				tenant: input.owner.id,
-				kind: "assessment",
-				subject: input.sourceId,
-				key: "onboarding/" + input.sourceId + "/" + input.revision,
-				revision: input.revision,
-				eligibleAt: new Date().toISOString(),
-			});
-		},
-		async notice(tx, input) {
-			const [operation] = await tx.select().from(t.operation).where(eq(t.operation.id, input.operationId));
-			const seats = await tx
-				.select({ id: t.seat.account_id })
-				.from(t.seat)
-				.where(
-					and(
-						eq(t.seat.organization_id, input.pair.organization.id),
-						eq(t.seat.role, "owner"),
-						sql`${t.seat.ended_at} IS NULL`,
-					),
-				);
-			for (const recipient of new Set([operation.actor_id, ...seats.map((s) => s.id)])) {
-				const contact = await tx.execute(sql`SELECT * FROM access_account_contact(${recipient})`);
-				await mail.enqueue(tx, {
-					owner: { kind: "account", id: recipient },
-					purpose: input.pair.kind === "discovery" ? "discovery_receipt" : "relationship_receipt",
-					logicalKey: "relationship/" + input.eventId + "/" + recipient,
-					recipient,
-					address: contact.rows[0].email,
-					content: { subject: "Relationship updated", text: "Your relationship changed." },
-					operation: null,
-					notice: null,
-					eligibleAt: new Date().toISOString(),
-				});
-			}
+		relationships: async (tx, inputs) => {
+			await sendOnboardingRelationships(tx, inputs, mail);
 			if (faults) throw Error("required_intent_fault");
 		},
-		async enqueue(tx, input) {
-			const contact = await tx.execute(sql`SELECT * FROM access_account_contact(${input.accountId})`);
-			await mail.enqueue(tx, {
-				owner: { kind: "account", id: input.accountId },
-				purpose: input.kind === "discovery_created" ? "discovery_receipt" : "notification",
-				logicalKey: `onboarding/${input.operationId}/${input.kind}`,
-				recipient: input.accountId,
-				address: contact.rows[0].email,
-				content: { subject: "Onboarding saved", text: "Your selected onboarding changes were saved." },
-				operation: input.operationId,
-				notice: null,
-				eligibleAt: new Date().toISOString(),
-			});
+		async enqueue(tx, input, command) {
+			mail.append(
+				tx,
+				{
+					owner: { kind: "account", id: input.accountId },
+					purpose: input.kind === "discovery_created" ? "discovery_receipt" : "notification",
+					logicalKey: `onboarding/${input.operationId}/${input.kind}`,
+					recipient: input.accountId,
+					address: input.address,
+					content: { subject: "Onboarding saved", text: "Your selected onboarding changes were saved." },
+					operation: input.operationId,
+					notice: null,
+					eligibleAt: new Date().toISOString(),
+				},
+				command.writes,
+			);
 			if (faults) throw Error("required_intent_fault");
 		},
 	});
@@ -183,7 +154,7 @@ test("AC:TARGET-IDN-013 AC:ROLE43-003 AC:ROLE43-014 AC:DC-021 AC:DC-027 AC:DC-02
 		second = ok(results[1]);
 	assert.equal(first.plant.id, second.plant.id);
 	assert.deepEqual(new Set([first.status, second.status]), new Set(["created", "existing"]));
-	assert.deepEqual(first.receipt, second.receipt);
+	assert.deepEqual(first.creation, second.creation);
 	const [plant] = await admin.select().from(t.plant).where(eq(t.plant.id, first.plant.id));
 	assert.equal(plant.name, "Harvest Point");
 	assert.equal(plant.city, "Boston");
@@ -198,7 +169,7 @@ test("AC:TARGET-IDN-013 AC:ROLE43-003 AC:ROLE43-014 AC:DC-021 AC:DC-027 AC:DC-02
 	assert.equal(person.adult_classification, "unknown");
 	assert.equal(person.commitment_state, "unknown");
 	assert.equal(person.linked_account_id, a.id);
-	const history = await admin.select().from(t.people_history).where(eq(t.people_history.person_id, person.id));
+	const history = await admin.select().from(t.audit_event).where(eq(t.audit_event.subject_id, person.id));
 	assert.equal(history[0].after_value.stage, "leader");
 	const entries = await admin.select().from(t.phase_transition).where(eq(t.phase_transition.plant_id, plant.id));
 	assert.equal(entries.length, 1);
@@ -305,7 +276,7 @@ test("AC:DC-022 explicit journey allows 0..6 once with fixed reason; launch and 
 		const saved = ok(await call("declareJourney", f.a, q, f.p));
 		assert.equal(saved.currentPhase, phase);
 		assert.equal(saved.scheduledLaunchDate, "2026-11-10");
-		assert.deepEqual(ok(await call("declareJourney", f.a, q, f.p)).receipt, saved.receipt);
+		assert.deepEqual(ok(await call("declareJourney", f.a, q, f.p)), saved);
 		const entries = await admin
 			.select()
 			.from(t.phase_transition)
@@ -363,7 +334,6 @@ test("AC:TARGET-IDN-015 AC:DC-018 AC:DC-030 AC:DC-032 unsure, discerning and ski
 		);
 		const again = ok(await call("complete", f.a, command({}, r.revision), f.p));
 		assert.deepEqual(again.completion, done.completion);
-		assert.equal(again.receipt.outcome, "noop");
 	}
 });
 
@@ -533,7 +503,7 @@ test("AC:TARGET-IDN-016 AC:AF-012 AC:DC-001 Discovery is explicit and seatless; 
 	const before = await counts(),
 		replay = ok(await call("convertDiscovery", d.a, q));
 	assert.equal(replay.status, "existing");
-	assert.deepEqual(replay.receipt, converted.receipt);
+	assert.deepEqual(replay.creation, converted.creation);
 	assert.deepEqual(await counts(), before);
 	const r = await resume({ a: d.a, p: converted.plant });
 	assert.equal(r.reading.status, "incomplete");
@@ -555,24 +525,28 @@ test("AC:TARGET-IDN-016 an unlinked Discovery may accept a seat, then conversion
 		origin: "http://onboarding.example.test",
 		budgetSecret: randomBytes(32).toString("hex"),
 		people: accountPersonProducer,
-		async enqueueMail(tx, input) {
+		async enqueueMail(tx, input, command) {
 			const token = input.text.match(/http:\/\/onboarding\.example\.test\/invitation#proof=([^\s]+)/);
 			if (token) proof = decodeURIComponent(token[1]);
-			return mail.enqueue(tx, {
-				owner: input.owner,
-				purpose: input.purpose,
-				logicalKey: input.logicalKey,
-				recipient: input.recipientAccountId,
-				address: input.recipientEmail,
-				content: { subject: input.subject, text: input.text },
-				operation: input.operationId,
-				notice: null,
-				eligibleAt: new Date().toISOString(),
-			});
+			return mail.append(
+				tx,
+				{
+					owner: input.owner,
+					purpose: input.purpose,
+					logicalKey: input.logicalKey,
+					recipient: input.recipientAccountId,
+					address: input.recipientEmail,
+					content: { subject: input.subject, text: input.text },
+					operation: input.operationId,
+					notice: null,
+					eligibleAt: new Date().toISOString(),
+				},
+				command.writes,
+			);
 		},
 	});
 	const invited = await invitations.invite(
-		sender.a.session,
+		await verifiedWriteActor(sender.a.session),
 		command(
 			{ workspace: sender.p, role: "member", recipientEmail: d.a.user + "@example.test" },
 			sender.result.revision,
@@ -903,125 +877,9 @@ test("INV-onboarding-authority: lifecycle, registration, current Owner and linke
 	denied(await call("createPlant", hidden, command({ name: "Hidden", confirmed: true })));
 });
 
-test("INV-onboarding-review: model writes require current exact approved effects", async () => {
-	const a = await actor(),
-		q = command({ name: "Unreviewed", confirmed: true }),
-		before = await counts();
-	denied(
-		await db.transaction((tx) =>
-			api.createPlant(
-				tx,
-				{
-					...ctx(a),
-					purpose: "model",
-					origin: {
-						kind: "assistant",
-						reviewId: randomUUID(),
-						conversationId: randomUUID(),
-						planDigest: "f".repeat(64),
-					},
-				},
-				q,
-			),
-		),
-	);
-	assert.deepEqual(await counts(), before);
-});
-
-test("INV-onboarding-review: exact approved model intent executes and each changed review fact refuses", async () => {
-	const { hash } = await import("../../../packages/domain/src/onboarding/core.ts");
-	const a = await actor(),
-		other = await actor(),
-		q = command({ name: "Reviewed plant", confirmed: true }),
-		name = "onboarding.createPlant";
-	const conversation = randomUUID(),
-		review = randomUUID(),
-		effect = randomUUID(),
-		digest = "c".repeat(64),
-		manifest = hash({ name, input: q });
-	await admin
-		.insert(t.conversation)
-		.values({ id: conversation, tenant_id: a.id, owner_id: a.id, title: "Review", state: "open" });
-	await admin.insert(t.review).values({
-		id: review,
-		tenant_id: a.id,
-		conversation_id: conversation,
-		proposal_number: 1,
-		digest,
-		effect_manifest_hash: manifest,
-		published_at: new Date(),
-		approved_by_id: a.id,
-		approved_at: new Date(),
-		witness_hash: manifest,
-	});
-	await admin.insert(t.effect).values({
-		id: effect,
-		tenant_id: a.id,
-		review_id: review,
-		effect_key: "onboarding",
-		kind: name,
-		payload_hash: manifest,
-		state: "unstarted",
-		arguments: { operation: name, input: q },
-	});
-	const context = {
-		...ctx(a),
-		purpose: "model",
-		origin: { kind: "assistant", reviewId: review, conversationId: conversation, planDigest: digest },
-	};
-	const execute = (input = q, contextOverride = context) =>
-		db.transaction((tx) => api.createPlant(tx, contextOverride, input));
-	const before = await counts();
-	for (const [table, id, patch, restore] of [
-		[t.review, review, { approved_by_id: other.id }, { approved_by_id: a.id }],
-		[
-			t.review,
-			review,
-			{ approved_at: null, approved_by_id: null, witness_hash: null },
-			{ approved_at: new Date(), approved_by_id: a.id, witness_hash: manifest },
-		],
-		[t.review, review, { approved_at: new Date(Date.now() - 16 * 60000) }, { approved_at: new Date() }],
-		[t.review, review, { approved_at: new Date(Date.now() + 60000) }, { approved_at: new Date() }],
-		[t.review, review, { cancelled_at: new Date() }, { cancelled_at: null }],
-		[t.review, review, { superseded_at: new Date() }, { superseded_at: null }],
-		[t.review, review, { digest: "d".repeat(64) }, { digest }],
-		[t.conversation, conversation, { state: "archived" }, { state: "open" }],
-		[t.conversation, conversation, { owner_id: other.id }, { owner_id: a.id }],
-		[t.effect, effect, { kind: "discovery.create" }, { kind: name }],
-		[t.effect, effect, { state: "cancelled" }, { state: "unstarted" }],
-		[t.effect, effect, { payload_hash: "e".repeat(64) }, { payload_hash: manifest }],
-		[
-			t.effect,
-			effect,
-			{ arguments: { operation: name, input: { ...q, input: { name: "Other", confirmed: true } } } },
-			{ arguments: { operation: name, input: q } },
-		],
-	]) {
-		await admin.update(table).set(patch).where(eq(table.id, id));
-		denied(await execute());
-		await admin.update(table).set(restore).where(eq(table.id, id));
-	}
-	for (const origin of [
-		{ ...context.origin, reviewId: randomUUID() },
-		{ ...context.origin, conversationId: randomUUID() },
-	])
-		denied(await execute(q, { ...context, origin }));
-	denied(await execute({ ...q, input: { name: "Forged", confirmed: true } }));
-	assert.deepEqual(await counts(), before);
-	const created = ok(await execute());
-	assert.equal(created.status, "created");
-	assert.equal(created.receipt.request.origin.kind, "assistant");
-	assert.equal(created.receipt.request.origin.reviewId, review);
-	await admin.update(t.review).set({ cancelled_at: new Date() }).where(eq(t.review.id, review));
-	const beforeReplay = await counts();
-	const replay = ok(await execute());
-	assert.deepEqual(replay.receipt, created.receipt);
-	assert.deepEqual(await counts(), beforeReplay);
-});
-
 test("INV-discovery-race: conversion and organization ending serialize account, profile, affiliation without deadlock", async () => {
 	const { createOrganizationAdapter } = await import("../../../packages/domain/src/organizations/index.ts");
-	const { enqueueJob } = await import("../../../apps/web/src/server/jobs/queue.ts");
+	const { queueJobs } = await import("../../../apps/web/src/server/jobs/queue.ts");
 	const d = await discovery(),
 		link = await relationship(d.a, "sending_church", false),
 		orgActor = await actor("sending_church");
@@ -1033,28 +891,30 @@ test("INV-discovery-race: conversion and organization ending serialize account, 
 			async invitation() {
 				throw Error("Invitation is outside this race");
 			},
-			async notice(tx, input) {
-				await mail.enqueue(tx, {
-					owner: { kind: "account", id: d.a.id },
-					purpose: "discovery_receipt",
-					logicalKey: "race/" + input.eventId,
-					recipient: d.a.id,
-					address: d.a.user + "@example.test",
-					content: { subject: "Relationship ended", text: "Your relationship ended." },
-					operation: null,
-					notice: null,
-					eligibleAt: new Date().toISOString(),
-				});
+			notice(tx, input) {
+				return queueJobs(tx, [
+					{
+						tenant: input.pair.organization.id,
+						kind: "notification",
+						subject: input.relationshipId,
+						key: "race/" + input.eventId,
+						revision: input.revision,
+						eligibleAt: new Date().toISOString(),
+					},
+				]);
 			},
-			async invalidate(tx, input) {
-				await enqueueJob(tx, {
-					tenant: input.owner.id,
-					kind: "assessment",
-					subject: input.sourceId,
-					key: "race/" + input.sourceId,
-					revision: input.revision,
-					eligibleAt: new Date().toISOString(),
-				});
+			invalidate(tx, input) {
+				return queueJobs(
+					tx,
+					input.owners.map((owner) => ({
+						tenant: owner.id,
+						kind: "assessment",
+						subject: input.sourceId,
+						key: "race/" + input.sourceId,
+						revision: input.revision,
+						eligibleAt: new Date().toISOString(),
+					})),
+				);
 			},
 		},
 		{
@@ -1245,4 +1105,145 @@ test("AC:TARGET-IDN-013 AC:TARGET-IDN-016 active seatless accounts explicitly ch
 		pendingDiscovery = await actor("discovery", "pending_domain");
 	denied(await call("createDiscovery", pendingPlant, command()));
 	denied(await call("createPlant", pendingDiscovery, command({ name: "Wrong pending choice", confirmed: true })));
+});
+
+async function verifiedWriteActor(session: string) {
+	return db.transaction(async (tx) => {
+		const actor = await RequestActor.resolve(tx, writeSessionId.parse(session));
+		if (!(actor instanceof RequestActor)) throw Error("verified_actor_required");
+		return actor;
+	});
+}
+
+test("INV-reads: the onboarding entry of a plant owner is one transaction with a fixed statement count and no locks", async (t) => {
+	const f = await makePlant();
+	const viewer = await readViewer(db, writeSessionId.parse(f.a.session));
+	assert.equal(viewer.authority.actor.context.role, "owner");
+	const statements = [];
+	let recording = false;
+	const instrumented = new WeakSet();
+	db.$client.on("acquire", (client) => {
+		if (instrumented.has(client)) return;
+		instrumented.add(client);
+		const query = client.query;
+		client.query = function (...args) {
+			if (recording) statements.push(typeof args[0] === "string" ? args[0] : args[0].text);
+			return Reflect.apply(query, this, args);
+		};
+	});
+	recording = true;
+	const entry = await readOnboardingEntry(
+		db,
+		api,
+		{
+			status: "active",
+			accountId: f.a.id,
+			sessionId: f.a.session,
+			expiresAt: new Date(Date.now() + 3600000).toISOString(),
+		},
+		viewer.authority,
+		true,
+	);
+	recording = false;
+	assert.equal(entry.kind, "plant");
+	assert.equal(entry.plantName, "Harvest Point");
+	assert.equal(entry.resume.basics, "created");
+	t.diagnostic(JSON.stringify({ onboardingEntryStatements: statements.length }));
+	assert.ok(statements.length <= 12, `onboarding entry: ${statements.length} statements`);
+	assert.equal(statements.filter((q) => /^\s*BEGIN/i.test(q)).length, 1, "one transaction");
+	assert.equal(
+		statements.some((q) => /for\s+(update|share)|pg_advisory/i.test(q)),
+		false,
+		"the entry read must not lock",
+	);
+});
+
+test("INV-reads: a seatless account's onboarding entry reads no identity row for update and takes no lock", async (t) => {
+	const a = await actor("planter", "active");
+	const viewer = await readViewer(db, writeSessionId.parse(a.session));
+	assert.equal(viewer.authority.actor.context.kind, "account");
+	const statements = [];
+	let recording = false;
+	const instrumented = new WeakSet();
+	db.$client.on("acquire", (client) => {
+		if (instrumented.has(client)) return;
+		instrumented.add(client);
+		const query = client.query;
+		client.query = function (...args) {
+			if (recording) statements.push(typeof args[0] === "string" ? args[0] : args[0].text);
+			return Reflect.apply(query, this, args);
+		};
+	});
+	recording = true;
+	const entry = await readOnboardingEntry(
+		db,
+		api,
+		{
+			status: "active",
+			accountId: a.id,
+			sessionId: a.session,
+			expiresAt: new Date(Date.now() + 3600000).toISOString(),
+		},
+		viewer.authority,
+		true,
+	);
+	recording = false;
+	assert.deepEqual(entry, { kind: "start", offer: "either", accountRevision: "1" });
+	t.diagnostic(JSON.stringify({ seatlessEntryStatements: statements.length }));
+	assert.ok(statements.length <= 6, `seatless entry: ${statements.length} statements`);
+	assert.equal(
+		statements.some((q) => /for\s+(update|share)|pg_advisory|invitation_identity/i.test(q)),
+		false,
+		"the seatless entry read must not lock or read the identity row for update",
+	);
+	const unverified = await readOnboardingEntry(
+		db,
+		api,
+		{
+			status: "active",
+			accountId: a.id,
+			sessionId: a.session,
+			expiresAt: new Date(Date.now() + 3600000).toISOString(),
+		},
+		viewer.authority,
+		false,
+	);
+	assert.deepEqual(unverified, { kind: "confirm_email" });
+});
+
+test("INV-reads: a pending account's onboarding entry reads only its account row, no identity lock", async (t) => {
+	const a = await actor("discovery", "pending_domain");
+	const viewer = await readViewer(db, writeSessionId.parse(a.session));
+	assert.equal(viewer.registration, "pending_domain");
+	assert.equal(viewer.authority, null);
+	const statements = [];
+	let recording = false;
+	const instrumented = new WeakSet();
+	db.$client.on("acquire", (client) => {
+		if (instrumented.has(client)) return;
+		instrumented.add(client);
+		const query = client.query;
+		client.query = function (...args) {
+			if (recording) statements.push(typeof args[0] === "string" ? args[0] : args[0].text);
+			return Reflect.apply(query, this, args);
+		};
+	});
+	const session = {
+		status: "pending_domain",
+		accountId: a.id,
+		sessionId: a.session,
+		expiresAt: new Date(Date.now() + 3600000).toISOString(),
+	};
+	recording = true;
+	const entry = await readOnboardingEntry(db, api, session, null, true);
+	recording = false;
+	assert.deepEqual(entry, { kind: "start", offer: "discovery", accountRevision: "1" });
+	t.diagnostic(JSON.stringify({ pendingEntryStatements: statements.length }));
+	assert.ok(statements.length <= 1, `pending entry: ${statements.length} statements`);
+	assert.equal(
+		statements.some((q) => /for\s+(update|share)|pg_advisory|invitation_identity/i.test(q)),
+		false,
+		"the pending entry read must not lock or read the identity row for update",
+	);
+	assert.deepEqual(await readOnboardingEntry(db, api, session, null, false), { kind: "confirm_email" });
 });

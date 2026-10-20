@@ -201,6 +201,8 @@ function TopNavItem({ link, current }: { link: ShellLink; current: boolean }) {
 		<Link
 			href={link.href}
 			aria-current={current ? "page" : undefined}
+			onNavigate={link.onNavigate}
+			prefetch={link.onNavigate ? false : undefined}
 			{...handlers}
 			className="relative inline-flex h-11 items-center gap-2 rounded-nav-item px-4 text-nav text-ink-2 aria-[current=page]:bg-ink aria-[current=page]:text-on-ink aria-[current=page]:shadow-nav-active max-app-xl:px-[13px]"
 		>
@@ -280,7 +282,14 @@ function RailItem({ item, current }: { item: ShellItem; current: boolean }) {
 	);
 	if (item.kind === "link") {
 		return (
-			<Link href={item.href} aria-current={current ? "page" : undefined} {...handlers} className={RAIL_ITEM}>
+			<Link
+				href={item.href}
+				aria-current={current ? "page" : undefined}
+				onNavigate={item.onNavigate}
+				prefetch={item.onNavigate ? false : undefined}
+				{...handlers}
+				className={RAIL_ITEM}
+			>
 				{body}
 			</Link>
 		);
@@ -389,6 +398,8 @@ function MenuRow({ item, current, onChoose }: { item: ShellItem; current: boolea
 				href={item.href}
 				aria-current={current ? "page" : undefined}
 				onClick={onChoose}
+				onNavigate={item.onNavigate}
+				prefetch={item.onNavigate ? false : undefined}
 				{...handlers}
 				className={MENU_ROW}
 			>

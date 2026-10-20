@@ -40,7 +40,7 @@ Follow [EveryField patterns](patterns.md): authority in the write, one append-on
 
 ## 2026-10-19: performance budget and optimistic UI
 
-Every simple read or write completes in under one second end to end on a production build. Reports and analytics may take longer with the exception stated in their PR. Actions update the screen optimistically and confirm or clearly roll back on failure; verification checks smoothness and needless requests. The budget measures the person's experience, not just an isolated database statement.
+Every simple read or write completes in under one second end to end on a production build. Reports and analytics may take longer with the exception stated in their PR. Actions update the screen optimistically and confirm or clearly roll back on failure; verification checks smoothness and needless requests. The budget measures the person's experience, not just an isolated database statement. A review judges the actions a PR changes: slowness that main already has, measured with the same setup, is recorded in the review with its owning task and does not count against the PR, while a PR that makes an action slower than main fails the budget. The Settings section full load of 1.1 to 1.4 seconds on main 6ac8e8d is pre-existing and belongs to [Settings section pages load under 1 second](intent://local/task/cee6d6b9-c0a5-45a9-8de0-4a29d0688adf).
 
 ## 2026-10-19: requirements describe the end state
 

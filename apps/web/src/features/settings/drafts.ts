@@ -63,6 +63,24 @@ export function edit<K extends string, R>(book: Book<K, R>, key: K, value: unkno
 	return { ...book, edits: { ...book.edits, [key]: { value } }, refusals };
 }
 
+type Fields = Record<string, unknown>;
+const isFields = (v: unknown): v is Fields => typeof v === "object" && v !== null && !Array.isArray(v);
+
+/**
+ * The server value changed under an edit while no save runs (Load latest after a conflict). For a form of fields,
+ * the fields the person changed keep their edit and every other field shows the new server value, so a later save
+ * cannot write back a value someone else replaced. The refusal that asked for the reload is cleared.
+ */
+export function rebase<K extends string, R>(book: Book<K, R>, key: K, before: unknown, after: unknown): Book<K, R> {
+	const edit = book.edits[key];
+	if (!edit || isSaving(book, key) || !isFields(edit.value) || !isFields(before) || !isFields(after)) return book;
+	const value: Fields = { ...after };
+	for (const [field, typed] of Object.entries(edit.value)) if (!same(typed, before[field])) value[field] = typed;
+	const refusals = without(book.refusals, key);
+	if (same(value, after)) return { ...book, edits: without(book.edits, key), refusals };
+	return { ...book, edits: { ...book.edits, [key]: { value } }, refusals };
+}
+
 /** Drop the section's edit (discard). An in-flight save keeps running and still reports. */
 export function discard<K extends string, R>(book: Book<K, R>, key: K): Book<K, R> {
 	return { ...book, edits: without(book.edits, key), refusals: without(book.refusals, key) };

@@ -1,16 +1,16 @@
 import { z } from "zod";
 import { recordId, revision } from "../common/values.ts";
-import { commandEnvelope } from "../common/transaction.ts";
+import { commandEnvelope } from "../common/writes.ts";
 import { normalizedEmail } from "../identity/requests.ts";
 import {
+	hasHistoryEndpoint,
+	networkOwner,
 	organizationOwner,
 	plantOwner,
+	relationshipHistoryScope,
 	relationshipPair,
 	residentChoices,
 	sharingCategory,
-	networkOwner,
-	relationshipHistoryScope,
-	hasHistoryEndpoint,
 } from "./subjects.ts";
 
 // Session, actor, roles, current scope, approval and clock come from server adapters.

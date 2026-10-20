@@ -7,9 +7,10 @@ const require = createRequire(new URL("../../../apps/web/package.json", import.m
 
 const schema = "wp031_" + randomUUID().replaceAll("-", "");
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-if (source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech" || process.env.NODE_ENV === "production")
+const ci=process.env.CI==='true' && process.env.EARLY_ACCESS_TEST_DATABASE==='1' && ['localhost','127.0.0.1'].includes(source.hostname) && source.pathname==='/everyfield_ci';
+if ((!ci && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") || process.env.NODE_ENV === "production")
 	throw Error("Only approved shared development direct endpoint allowed");
-source.searchParams.set("sslmode", "verify-full");
+if(!ci) source.searchParams.set("sslmode", "verify-full");
 export const db = createDatabase({
 	connectionString: source.href,
 	max: 6,

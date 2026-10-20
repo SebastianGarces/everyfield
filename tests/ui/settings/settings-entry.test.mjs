@@ -5,11 +5,16 @@
 //     the settings pages keep the same frame, so Sharing is two steps from Seats and there is one main landmark;
 //     closing Your account returns focus to the name button (useReturnFocus, verifier finding on e32ce2b).
 //   INV-settings-member: a Member gets the same menu and reads Seats without the invitation form.
+//   AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:WP010-IDN-012 (finding 6, Settings in production): an Owner, a Member and
+//     an organization Owner each change what their seat may change through the real settings server, without a
+//     page request, and a fresh load of the section link shows the saved value.
+//   UI-round-own-seat: an Admin who makes their own seat Member sends one request; the page drops what only Owners and
+//     Admins manage and the top bar says Member, without reading the page again (verifier finding on d94d92f).
 // It runs against a running app seeded with the People fixture (tests/ui/people/seed.mts) through the shared setup
 // (tests/ui/setup.mjs).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { BASE, ENGINES, fixture, signIn, withPage as onPreview } from "../setup.mjs";
+import { BASE, ENGINES, fixture, hydrated, signIn, withPage as onPreview } from "../setup.mjs";
 
 const ITEMS = ["Your account", "Seats and invitations", "Sharing and privacy", "Sign out"];
 
@@ -37,6 +42,8 @@ for (const [name, engine] of ENGINES) {
 		await withPage(engine, "owner", async (page) => {
 			await page.goto(`${BASE}/people`, { waitUntil: "networkidle" });
 			await page.getByRole("heading", { level: 1, name: "People" }).waitFor({ timeout: 60_000 });
+			// The menu opens from the keyboard only once the page has hydrated (flaky serial run on #149).
+			await hydrated(page);
 
 			// Keyboard: Enter opens the menu on its first item, Esc closes it and returns focus to the name button.
 			await trigger(page).focus();
@@ -64,19 +71,150 @@ for (const [name, engine] of ENGINES) {
 			assert.equal(new URL(page.url()).pathname, "/settings/sharing");
 			assert.equal(await page.getByRole("main").count(), 1);
 
-			// Your account opens from the keyboard; closing it returns focus to the name button, not the page body.
+			// Your account opens from the keyboard over the page, at its own link; closing it returns to the page's
+			// address and focus to the name button, not the page body.
 			await trigger(page).focus();
 			await page.keyboard.press("Enter");
 			await page.getByRole("menuitem", { name: "Your account" }).and(page.locator(":focus")).waitFor();
 			await page.keyboard.press("Enter");
 			const account = page.getByRole("dialog", { name: "Your account" });
 			await account.getByRole("button", { name: "Sign out", exact: true }).waitFor();
+			assert.equal(new URL(page.url()).pathname, "/settings/account");
+			assert.equal(await page.locator("h1", { hasText: "Sharing and privacy" }).count(), 1);
 			await page.keyboard.press("Escape");
 			await account.waitFor({ state: "detached" });
 			await trigger(page).and(page.locator(":focus")).waitFor({ timeout: 5_000 });
+			assert.equal(new URL(page.url()).pathname, "/settings/sharing");
 
 			await page.getByRole("link", { name: "People", exact: true }).first().click();
 			await page.getByRole("heading", { level: 1, name: "People" }).waitFor({ timeout: 60_000 });
+		});
+	});
+}
+
+/**
+ * What each seat may change, and how to change it inside the open Settings dialog: `fields` maps a label to its new
+ * value for one run. The Owner's church save changes the profile and the inactivity days together, two contract
+ * changes in one transaction (saveChurch).
+ */
+const ROLES = [
+	{
+		who: "owner",
+		sections: ["Church profile", "Notifications", "Your account"],
+		edits: [
+			{ section: "Your account", path: "/settings/account", fields: { "Your name": (t) => `Daniel Reyes ${t}` } },
+			{
+				section: "Church profile",
+				path: "/settings/church",
+				fields: { City: (t) => `Austin ${t}`, "Inactive after (days)": (_, n) => String(100 + (n % 200)) },
+			},
+		],
+	},
+	{
+		who: "member",
+		sections: ["Notifications", "Your account"],
+		locked: "/settings/church",
+		edits: [{ section: "Your account", path: "/settings/account", fields: { "Your name": (t) => `Ruth Allen ${t}` } }],
+	},
+	{
+		who: "organization",
+		sections: ["Organization profile", "Notifications", "Your account"],
+		edits: [
+			{ section: "Organization profile", path: "/settings/organization", fields: { City: (t) => `Dallas ${t}` } },
+		],
+	},
+];
+
+for (const [name, engine] of ENGINES) {
+	for (const role of ROLES) {
+		test(`AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:WP010-IDN-012 (${name}, ${role.who}): settings saves what the seat may change`, async () => {
+			await withPage(engine, role.who, async (page) => {
+				const n = Date.now();
+				const tag = `${name}-${n.toString(36)}`;
+				const dialog = page.getByRole("dialog").first();
+				let documents = 0;
+				page.on("request", (r) => (r.resourceType() === "document" || r.url().includes("_rsc=")) && documents++);
+				await page.goto(`${BASE}${role.edits[0].path}`, { waitUntil: "networkidle" });
+				const nav = await dialog.getByRole("navigation").getByRole("link").allTextContents();
+				assert.deepEqual(
+					nav.map((s) => s.trim()),
+					role.sections,
+				);
+				documents = 0;
+				for (const edit of role.edits) {
+					// Switching sections changes the address without a page request.
+					await dialog.getByRole("link", { name: edit.section }).click();
+					await page.waitForURL(`**${edit.path}`);
+					for (const [label, value] of Object.entries(edit.fields)) await dialog.getByLabel(label).fill(value(tag, n));
+					await dialog.getByRole("button", { name: "Save" }).click();
+					await dialog.getByText("No unsaved changes.").waitFor({ timeout: 10_000 });
+				}
+				// A notification switch shows its new value at once and keeps it once the server confirms.
+				await dialog.getByRole("link", { name: "Notifications" }).click();
+				const toggle = dialog.getByRole("switch").first();
+				const was = await toggle.getAttribute("aria-checked");
+				await toggle.click();
+				await dialog.locator("[role=status]").waitFor({ state: "detached" });
+				const now = await toggle.getAttribute("aria-checked");
+				assert.notEqual(now, was);
+				assert.equal(documents, 0, "saves update the dialog without a page request");
+
+				for (const edit of role.edits) {
+					await page.goto(`${BASE}${edit.path}`, { waitUntil: "networkidle" });
+					for (const [label, value] of Object.entries(edit.fields))
+						assert.equal(await dialog.getByLabel(label).inputValue(), value(tag, n));
+				}
+				await page.goto(`${BASE}/settings/notifications`, { waitUntil: "networkidle" });
+				assert.equal(await dialog.getByRole("switch").first().getAttribute("aria-checked"), now);
+				if (role.locked) {
+					await page.goto(`${BASE}${role.locked}`, { waitUntil: "networkidle" });
+					await dialog.getByText("Church profile is not available to you").waitFor();
+				}
+			});
+		});
+	}
+}
+
+for (const [name, engine] of ENGINES) {
+	test(`UI-round-own-seat (${name}): demoting your own Admin seat is one request and the frame follows`, async () => {
+		const roleOf = (page, who) => page.getByRole("combobox", { name: `Role for ${who}` });
+		const choose = async (page, select, role) => {
+			await select.click();
+			await page.getByRole("option", { name: role }).click();
+		};
+		// The Owner makes the Member an Admin for this test; the Admin's own demotion ends it as Member again.
+		let member = "";
+		await withPage(engine, "member", async (page) => {
+			await page.goto(`${BASE}/settings/seats`, { waitUntil: "networkidle" });
+			const own = page.locator("li p", { hasText: "(you)" }).first();
+			await own.waitFor();
+			member = (await own.evaluate((p) => p.firstChild.textContent)).trim();
+		});
+		await withPage(engine, "owner", async (page) => {
+			await page.goto(`${BASE}/settings/seats`, { waitUntil: "networkidle" });
+			await hydrated(page);
+			await choose(page, roleOf(page, member), "Admin");
+			await page.getByText(`${member} is now an Admin.`).waitFor({ timeout: 30_000 });
+		});
+		await withPage(engine, "member", async (page) => {
+			await page.goto(`${BASE}/settings/seats`, { waitUntil: "networkidle" });
+			await hydrated(page);
+			await page.getByRole("button", { name: "Send invitation" }).waitFor();
+			assert.match(await trigger(page).textContent(), /Admin/);
+			const sent = [];
+			page.on("request", (r) => {
+				if (!["document", "fetch", "xhr"].includes(r.resourceType())) return;
+				sent.push(r.headers()["next-action"] ? `${r.method()} action` : `${r.method()} ${new URL(r.url()).pathname}`);
+			});
+			await choose(page, roleOf(page, member), "Member");
+			await page.getByText(`${member} is now a Member.`).waitFor({ timeout: 30_000 });
+			await page.waitForLoadState("networkidle");
+			await page.waitForTimeout(1000);
+			assert.deepEqual(sent, ["POST action"], "one request, no reload");
+			assert.equal(await page.getByRole("button", { name: "Send invitation" }).count(), 0, "no invitation form");
+			assert.equal(await page.getByRole("combobox", { name: /^Role for / }).count(), 0, "no seat actions");
+			assert.match(await trigger(page).textContent(), /Member/);
+			assert.doesNotMatch(await trigger(page).textContent(), /Admin/);
 		});
 	});
 }

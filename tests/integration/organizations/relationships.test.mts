@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import * as S from "./support.mts";
 import * as Q from "../../../packages/contracts/src/organizations/index.ts";
 import { readAnswerableInvitation } from "../../../packages/domain/src/organizations/index.ts";
+import { RequestActor } from "../../../packages/domain/src/access/index.ts";
 before(S.setup);
 after(S.teardown);
 const accepted = (v: unknown) => {
@@ -92,12 +93,11 @@ test("AC:AF-008 AC:AF-009 AC:AF-011 AC:AF-018 AC:AF-027 approval is exact-addres
 		n = await invite(pa, network, na.email),
 		key = randomUUID();
 	const result = await Promise.all([approve(c, ca, key), approve(c, ca, key), approve(n, na)]);
-	assert.equal(result[0].receipt.id, result[1].receipt.id);
-	assert.notEqual(result[0].receipt.id, result[2].receipt.id);
+
 	assert.equal(
 		(
 			await S.db.execute(
-				sql`SELECT count(*)::int AS n FROM relationship_history WHERE relationship_id=${sql.param(result[0].relationship.id)}`,
+				sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${sql.param(result[0].relationship.id)}`,
 			)
 		).rows[0].n,
 		1,
@@ -215,7 +215,7 @@ test("AC:AF-010 AC:AF-014 AC:AF-015 AC:AF-020 AC:AF-021 AC:AF-022 AC:AF-023 AC:A
 		1,
 	);
 	const audit = await S.db.execute(
-		sql`SELECT count(*)::int AS n,bool_and(e.tenant_id=r.tenant_id) AS owned,bool_and(e.reason IS NULL) AS safe FROM relationship_history h JOIN event e ON e.id=h.id JOIN record r ON r.id=e.target_record_id WHERE h.relationship_id=${sql.param(a.relationship.id)}`,
+		sql`SELECT count(*)::int AS n,bool_and(e.tenant_id IN (coalesce(a.plant_id,a.account_id,a.sending_church_id),a.organization_id)) AS owned,bool_and(NOT(e.metadata ?| ARRAY['body','email','notes'])) AS safe FROM audit_event h JOIN audit_event e ON e.id=h.id JOIN affiliation a ON a.id=e.subject_id WHERE h.subject_id=${sql.param(a.relationship.id)}`,
 	);
 	assert.deepEqual(audit.rows, [{ n: 2, owned: true, safe: true }]);
 	assert.equal(
@@ -241,6 +241,8 @@ test("INV-relationships: invitation rotation, duplicate intents, decline, revoke
 		i = await invite(pa, o, oa.email),
 		old = S.proofs.get(i.invitationId);
 	await assert.rejects(invite(pa, o, oa.email), /pending_invitation/);
+	// BUG-wp007-writes: the same address for another organization while one request waits is a refusal, not a database error.
+	await assert.rejects(invite(pa, await S.tenant("sending_network"), oa.email), /address_pending/);
 	await assert.rejects(
 		S.call("associations.resendInvitation", pa, S.command({ invitationId: i.invitationId })),
 		/resend_cooldown/,
@@ -273,7 +275,9 @@ test("INV-relationships: invitation rotation, duplicate intents, decline, revoke
 	const k = await invite(pa, o, oa.email);
 	await S.call("associations.revokeInvitation", pa, S.command({ invitationId: k.invitationId }));
 	await assert.rejects(invite(pa, o, oa.email), /invitation_limit/);
-	const saved = await S.db.execute(sql`SELECT receipt,result FROM organization_operation_result`);
+	const saved = await S.db.execute(
+		sql`SELECT result->'receipt' AS receipt,result FROM audit_event WHERE result IS NOT NULL`,
+	);
 	assert.equal(JSON.stringify(saved.rows).includes(S.proofs.get(k.invitationId)), false);
 });
 
@@ -297,6 +301,34 @@ test("INV-invitation-detail: only the addressed receiving Owner or Admin can rea
 	assert.equal(shown.status, "pending");
 	if (shown.status !== "pending") throw Error();
 	assert.equal(shown.invitationId, i.invitationId);
+	// INV-reads: the respond page reads the request with the observed actor, in a fixed number of statements, no lock.
+	const statements: string[] = [];
+	let recording = false;
+	const instrumented = new WeakSet<object>();
+	S.runtime.$client.on("acquire", (client) => {
+		if (instrumented.has(client)) return;
+		instrumented.add(client);
+		const query = client.query;
+		client.query = function (...args: unknown[]) {
+			if (recording) statements.push(typeof args[0] === "string" ? args[0] : (args[0] as { text: string }).text);
+			return Reflect.apply(query, this, args);
+		} as typeof client.query;
+	});
+	const authority = await S.tx((c) => RequestActor.resolve(c, oa.session));
+	if (!(authority instanceof RequestActor)) throw Error();
+	recording = true;
+	const observed = await S.tx((c) => {
+		authority.observe(c);
+		return readAnswerableInvitation(c, oa.session, oa.selected, { invitationId: i.invitationId, proof });
+	});
+	recording = false;
+	assert.deepEqual(observed, shown);
+	assert.ok(statements.length <= 10, `respond read: ${statements.length} statements`);
+	assert.equal(
+		statements.some((q) => /for\s+(update|share)|access_session|invitation_identity/i.test(q)),
+		false,
+		"the respond read must not lock or resolve the actor again",
+	);
 	assert.equal(shown.inviterDescription, "Harvest Point");
 	assert.deepEqual(shown.pair, i.pair);
 	await S.call(

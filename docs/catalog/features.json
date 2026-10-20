@@ -1330,7 +1330,7 @@
     "id": "PPL-007",
     "title": "Recruitment pipeline grouping, ordering, inactivity and follow-up warnings",
     "module": "people",
-    "behavior": "Preserve five visible pipeline columns with final core-group column also containing launch_team/leader milestone badges. Reorder only current active same plant IDs with conflict detection for concurrent changes to that ordering; empty request no-op and foreign/stale order refuses rather than changes unrelated contacts. Read-only viewers have no drag mutation. Cards display only active parent follow-up work and due-local-day overdue/missing warnings. Complete/no_longer_needed/deleted obligations do not show open urgency; a contact without any explicitly created duty may be uncovered but is not invented urgent work. Page/bound queries without dropping full filtered result semantics.",
+    "behavior": "Preserve five visible pipeline columns with final core-group column also containing launch_team/leader milestone badges. Moving a person within or between columns keeps the order every viewer sees, changes only that person and never another church's or a retired contact; a move based on an outdated view of the column is refused with a clear message. Read-only viewers have no drag mutation. Cards display only active parent follow-up work and due-local-day overdue/missing warnings. Complete/no_longer_needed/deleted obligations do not show open urgency; a contact without any explicitly created duty may be uncovered but is not invented urgent work. Page/bound queries without dropping full filtered result semantics.",
     "spec_file": "docs/product/people.md#req-ppl-007",
     "requirement_ids": [
       "REQ-MTG-022",
@@ -5081,7 +5081,7 @@
     "id": "WIKI-001",
     "title": "Published Wiki corpus visibility, church overrides and MDX rendering",
     "module": "wiki",
-    "behavior": "Render current eligible published tutorial/how-to/explanation/reference/overview/guide content; no foreign body. Curated global MDX is compiled only after release validation with fixed safe components and no executable expressions/imports. Organization/native content uses sanitized editor nodes, never arbitrary MDX code.",
+    "behavior": "Render current eligible published tutorial/how-to/explanation/reference/overview/guide content; no foreign body. Curated global MDX is compiled only after release validation with fixed safe components and no executable expressions/imports. Organization/native content uses sanitized editor nodes, never arbitrary MDX code. A seatless Discovery account reads the entire currently published global Wiki, not only the six canonical Discovery foundation articles; those six remain the required reading for the Discovery foundations milestone (REQ-WIKI-012) and its reading list, not a limit on what the account may read.",
     "spec_file": "docs/product/knowledge-documents.md#article-resolution-and-editing",
     "requirement_ids": [
       "REQ-KNOW-015",

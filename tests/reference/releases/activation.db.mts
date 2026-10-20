@@ -76,8 +76,8 @@ function command(key: string, expected: string, kind: "activate" | "rollback" = 
 async function counts() {
 	return (
 		await db.execute(querySql`SELECT (SELECT count(*)::int FROM reference_activation) AS activations,
-    (SELECT count(*)::int FROM reference_release) AS releases,(SELECT count(*)::int FROM operation) AS operations,
-    (SELECT count(*)::int FROM event) AS events`)
+    (SELECT count(*)::int FROM reference_release) AS releases,(SELECT count(*)::int FROM audit_event) AS operations,
+    (SELECT count(*)::int FROM audit_event) AS events`)
 	).rows[0];
 }
 async function refused(cmd: Promotion, code: string) {
@@ -154,12 +154,9 @@ test("AC:REFREL-001 initial install, exact replay and changed immutable hash ref
 	const mail = await db.execute(querySql`SELECT count(*)::int AS n FROM reference_item WHERE kind='mail_template'`);
 	assert.equal(mail.rows[0]!.n, 7);
 	const sideEffects = await db.execute(
-		querySql`SELECT (SELECT count(*)::int FROM message_template) AS forks,(SELECT count(*)::int FROM mail) AS mail,(SELECT count(*)::int FROM task) AS tasks`,
+		querySql`SELECT (SELECT count(*)::int FROM mail) AS mail,(SELECT count(*)::int FROM task) AS tasks`,
 	);
-	assert.deepEqual(sideEffects.rows[0], { forks: 0, mail: 0, tasks: 1 });
-	await db.execute(querySql`INSERT INTO message_template(plant_id,source_item_id,source_version_id,name,category,subject,body_html)
-    SELECT ${querySql.param(plant)},i.id,v.id,'Plant fork','meeting_invitation','My reviewed subject','<p>Plant edit survives</p>'
-    FROM reference_item i JOIN reference_version v ON v.item_id=i.id WHERE i.kind='mail_template' AND i.canonical_key='Vision Meeting Invitation'`);
+	assert.deepEqual(sideEffects.rows[0], { mail: 0, tasks: 1 });
 });
 
 test("AC:REFREL-004 concurrent promotions have one winner and stale claim loses", async () => {
@@ -209,9 +206,6 @@ test("AC:REFREL-005 rollback appends attributable activation and preserves old g
 	assert.deepEqual((await db.execute(querySql`SELECT title,status,due_kind FROM task`)).rows, [
 		{ title: "Keep edited title", status: "in_progress", due_kind: "undated" },
 	]);
-	assert.deepEqual((await db.execute(querySql`SELECT subject,body_html FROM message_template`)).rows, [
-		{ subject: "My reviewed subject", body_html: "<p>Plant edit survives</p>" },
-	]);
 });
 
 test("INV-reference-authority: live session, current grant and exact trusted review are required even on replay", async () => {
@@ -257,7 +251,7 @@ test("INV-reference-atomicity: required audit fault rolls back candidate, mappin
 		querySql`CREATE FUNCTION fail_reference_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic audit fault' USING ERRCODE='P0001'; END $$`,
 	);
 	await db.execute(
-		querySql`CREATE TRIGGER fail_reference_audit BEFORE INSERT ON event FOR EACH ROW EXECUTE FUNCTION fail_reference_audit()`,
+		querySql`CREATE TRIGGER fail_reference_audit BEFORE INSERT ON audit_event FOR EACH ROW EXECUTE FUNCTION fail_reference_audit()`,
 	);
 	try {
 		await assert.rejects(
@@ -271,7 +265,7 @@ test("INV-reference-atomicity: required audit fault rolls back candidate, mappin
 				e.cause.code === "P0001",
 		);
 	} finally {
-		await db.execute(querySql`DROP TRIGGER fail_reference_audit ON event`);
+		await db.execute(querySql`DROP TRIGGER fail_reference_audit ON audit_event`);
 	}
 	assert.deepEqual(await counts(), { activations: 3, releases: 2, operations: 4, events: 4 });
 	assert.equal((await service.current())?.release_key, "R1");

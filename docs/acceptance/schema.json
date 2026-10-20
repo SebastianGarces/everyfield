@@ -137,7 +137,8 @@
             "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "AUDIT-001",
@@ -265,7 +266,8 @@
           "replay_new_successful_events": 0
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "AUDIT-002",
@@ -371,7 +373,8 @@
           "secret_in_event": null
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "AUDIT-003",
@@ -499,7 +502,8 @@
           "whole_row_dump": null
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "AUDIT-004",
@@ -609,7 +613,8 @@
           "purge_private_care_counts": null
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "AUDIT-005",
@@ -709,7 +714,8 @@
           "generic_audit_existence": null
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "AUDIT-006",
@@ -826,7 +832,8 @@
           "retained_actor_email": null
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "AUDIT-007",
@@ -954,7 +961,8 @@
           "duplicate_business_events": 0
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "AUDIT-008",
@@ -1058,7 +1066,8 @@
           "fault_domain_committed": false
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "AUTH-001",
@@ -1186,7 +1195,8 @@
             "reason": "The original scenario exercises accounts.resumeRegistration and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
         }
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "AUTH-002",
@@ -1327,7 +1337,8 @@
             "reason": "The original scenario exercises seats.acceptInvitation and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
         }
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "AUTH-003",
@@ -1451,7 +1462,8 @@
           "grants_created": 0
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "AUTH-004",
@@ -1620,7 +1632,8 @@
             "event": []
           }
         }
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "AUTH-005",
@@ -1747,7 +1760,8 @@
             "reason": "The original scenario exercises account.changePassword and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
         }
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "AUTH-006",
@@ -1964,7 +1978,8 @@
             "event": null
           }
         }
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "AUTH-007",
@@ -2088,7 +2103,8 @@
             "reason": "The original scenario exercises account.requestDeletion and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
         }
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "AUTH-008",
@@ -2199,7 +2215,8 @@
             "reason": "The original scenario exercises auth.getSession and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
         }
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "REF-CASE-001",
@@ -2311,7 +2328,8 @@
           "one_byte_edit_accepted": false
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "REF-CASE-002",
@@ -2425,7 +2443,8 @@
           "vectors_imported": 0
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "REF-CASE-003",
@@ -2532,7 +2551,8 @@
           "tenant_edited_document_overwritten": false
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "REF-CASE-004",
@@ -2694,7 +2714,8 @@
           "user_edits_overwritten": false
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "REF-CASE-005",
@@ -2835,7 +2856,8 @@
           "forced_teams": 0
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "REF-CASE-006",
@@ -2971,7 +2993,8 @@
           "seeded_sends": 0
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "REF-CASE-007",
@@ -3099,7 +3122,8 @@
             "reason": "The original scenario exercises reference.rebuildEmbeddings and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
         }
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "SCHEMA-001",
@@ -3149,10 +3173,9 @@
         "plant",
         "organization",
         "plant_geography",
-        "task",
-        "conversation"
+        "task"
       ],
-      "description": "Two plants, two sending churches, one network and two accounts; exercise each owner-bound reference with valid and foreign parent IDs, invalid org kind and alternate-owner double shape. Ownership controls cover every child→parent ownership variant, including exact organization assessment→job and same-plant merge inverse receipt; foreign scope kind/ID rejects even with an existing parent ID. Task due controls cover task.due_kind=undated with all due fields null; task.due_kind=date_only; task.due_kind=timed with due_date/due_time/due_at and confirmed timezone and chosen DST occurrence. Reject mixed/null shapes, mismatched wall/instant/zone and foreign or nested child Task parents. Profile controls use the adopted plant and organization columns plus immutable effective plant_geography rows for locality; valid nullable field clears and malformed/oversize request controls follow their requirement boundaries; request controls reject unknown object keys and forged immutable fields. Assistant account-context controls use active explicit no-seat Discovery with conversation.tenant_id=conversation.owner_id; reject foreign account, mixed account/plant/org tuple and platform/affiliation context. Child-task controls reject due/zone/date/time/instant, recurrence series/occurrence/predecessor and contact/outcome-hook values while accepting an undated unhooked same-plant child with nullable eligible assignee.",
+      "description": "Two plants, two sending churches, one network and two accounts; exercise each owner-bound reference with valid and foreign parent IDs, invalid org kind and alternate-owner double shape. Ownership controls cover every child\u2192parent ownership variant, including exact organization assessment\u2192job and same-plant merge inverse receipt; foreign scope kind/ID rejects even with an existing parent ID. Task due controls cover task.due_kind=undated with all due fields null; task.due_kind=date_only; task.due_kind=timed with due_date/due_time/due_at and confirmed timezone and chosen DST occurrence. Reject mixed/null shapes, mismatched wall/instant/zone and foreign or nested child Task parents. Profile controls use the adopted plant and organization columns plus immutable effective plant_geography rows for locality; valid nullable field clears and malformed/oversize request controls follow their requirement boundaries; request controls reject unknown object keys and forged immutable fields. Assistant account-context controls use active explicit no-seat Discovery with conversation.tenant_id=conversation.owner_id; reject foreign account, mixed account/plant/org tuple and platform/affiliation context. Child-task controls reject due/zone/date/time/instant, recurrence series/occurrence/predecessor and contact/outcome-hook values while accepting an undated unhooked same-plant child with nullable eligible assignee.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3424,9 +3447,7 @@
         "sql"
       ],
       "schema_tables": [
-        "affiliation",
-        "assessment",
-        "assessment_contributor"
+        "affiliation"
       ],
       "description": "A plant affiliated with sending churches A/B and network N; org run points to plant ID, wrong kind or parent-network-only reach; end A while B valid.",
       "given": {
@@ -3541,11 +3562,7 @@
         "request",
         "sql"
       ],
-      "schema_tables": [
-        "training_assignment",
-        "training_credit",
-        "training_version"
-      ],
+      "schema_tables": [],
       "description": "Review bulk teams/leaders with overlap and selector revisions; save person/program episodes; mutate live membership; concurrently duplicate assign/remove/correct; completion without assignment and assignment without completion.",
       "given": {
         "P": {
@@ -3765,10 +3782,7 @@
         "sql"
       ],
       "schema_tables": [
-        "launch_guest",
-        "launch_debrief",
-        "document",
-        "evidence_link"
+        "document"
       ],
       "description": "Name-only guest, actual aggregate attendance larger than named count, submitted debrief then new draft, corrected submission, separately reviewed category summary, Person merge collision.",
       "given": {
@@ -4096,11 +4110,7 @@
         "request",
         "sql"
       ],
-      "schema_tables": [
-        "private_calendar",
-        "private_week",
-        "private_week_revision"
-      ],
+      "schema_tables": [],
       "description": "Authors A/B in exact plant, A records ordinal/start/zone; BAdmin tries read/update/history; repeated zone edits and date-line rollover concurrent answer; missing middle answer in mixed strained/struggling streak.",
       "given": {
         "P": {
@@ -4350,9 +4360,7 @@
         "sql"
       ],
       "schema_tables": [
-        "person",
-        "person_merge",
-        "evidence_link"
+        "person"
       ],
       "description": "Enumerate all current Person-bearing references, including immutable snapshots; one synthetic pair with memberships, training, RSVP/card/participation, Launch, tasks, mail, human records and household head; retirement and same-scope merge.",
       "given": {
@@ -4458,9 +4466,7 @@
         "sql"
       ],
       "schema_tables": [
-        "person_merge",
-        "event",
-        "operation"
+        "audit_event"
       ],
       "description": "Review merge and immediately inverse; change a moved row, duplicate-role/training/card/attendance collision and delivered/unknown provider effect before inverse; unauthorized/crossplant actor.",
       "given": {
@@ -4654,11 +4660,7 @@
         "sql"
       ],
       "schema_tables": [
-        "lifecycle_witness",
-        "assessment",
-        "assessment_fact",
-        "finding",
-        "assessment_contributor"
+        "lifecycle_witness"
       ],
       "description": "Account private+shared records; plant owned objects/affiliations; request then cancel before/after 30 day fence; purge with dependent current state links and scheduled effects; restore snapshot predating purge. Plant A contributes with B to saved organization run, assessment_fact, finding, assessment_contributor and protected lineage, linked feedback/export/artifact and a pending job. Request deletion, revoke A sharing independently, cancel with stale versus current grants, then purge and restore a pre-purge copy. Inspect lifecycle_witness pending_deletion, cancelled and purged with immutable request/revision, cancel_until, cancelled_at, live_purged_at and copy_expires_at; restore before request, between request/cancel and before completed purge.",
       "given": {
@@ -4797,8 +4799,6 @@
       "schema_tables": [
         "plant",
         "organization",
-        "assessment",
-        "assessment_fact",
         "job"
       ],
       "description": "People/training/attendance/contact/date/geography/sharing correction and merge during inference, paused wakeup outbox; quiet unchanged plant ages past refresh; reclaim job and resume old generation. Compare the installed material-trigger table set with every assessment input builder table, including conditional inputs; mutate an input and fail/roll back the transaction.",
@@ -4997,7 +4997,6 @@
       "schema_tables": [
         "job",
         "mail",
-        "effect",
         "provider_event",
         "task",
         "recurrence"
@@ -5277,10 +5276,7 @@
         "request",
         "sql"
       ],
-      "schema_tables": [
-        "feedback",
-        "feedback_publication"
-      ],
+      "schema_tables": [],
       "description": "Private feedback contains name/email/screenshots/logs and adversarial tool instructions; frozen allowlisted public DTO; actual repo issue result then response lost; original author loses seat.",
       "given": {
         "P": {
@@ -5480,7 +5476,8 @@
           "secret_in_browser": null
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "SEC-02",
@@ -5606,7 +5603,8 @@
           "private_care_tool_registered": false
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "SEC-03",
@@ -5731,7 +5729,8 @@
             "reason": "The original scenario exercises auth.getSession and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
         }
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "SEC-04",
@@ -5849,7 +5848,8 @@
             "reason": "The original scenario exercises access.projectRead and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
         }
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "SEC-05",
@@ -5976,7 +5976,8 @@
             "reason": "The original scenario exercises access.projectRead and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
         }
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "SEC-06",
@@ -6105,7 +6106,8 @@
             "reason": "The original scenario exercises access.checkOperation and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
         }
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "SEC-07",
@@ -6260,7 +6262,8 @@
             "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "SEC-08",
@@ -7273,7 +7276,8 @@
             "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "SEC-09",
@@ -7389,7 +7393,8 @@
             "reason": "The original scenario exercises mail.acceptWebhook and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
         }
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "SEC-10",
@@ -7496,7 +7501,8 @@
           "fixture_writes": 0
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "SEC-11",
@@ -7633,7 +7639,8 @@
             "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "SEC-12",
@@ -7764,7 +7771,8 @@
             "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "TEN-001",
@@ -7873,7 +7881,8 @@
           "null_owner_bypass": false
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "TEN-002",
@@ -8030,7 +8039,8 @@
           "actor_selected_trusted_scope": false
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "TEN-003",
@@ -8168,7 +8178,8 @@
             "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "TEN-004",
@@ -8311,7 +8322,8 @@
           "prior_effect_replayed": false
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "TEN-005",
@@ -8461,7 +8473,8 @@
             "reason": "The original scenario exercises seats.acceptInvitation and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
         }
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "TEN-006",
@@ -8577,7 +8590,8 @@
             "reason": "The original scenario exercises privateCare.readCurrent and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
         }
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "TEN-007",
@@ -8705,7 +8719,8 @@
             "reason": "The original scenario exercises account.requestDeletion and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
         }
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "TEN-008",
@@ -8829,7 +8844,8 @@
           "private_canary_in_trace": false
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "TEN-009",
@@ -8936,7 +8952,8 @@
           "RLS_isolation_claimed": false
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "C0-SCOPE-001",
@@ -8992,7 +9009,8 @@
           "foreign_scope_error": "access_denied"
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "C0-REPLAY-001",
@@ -9047,7 +9065,8 @@
           "external_unknown_retry": "reconcile"
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "C0-REVISION-001",
@@ -9101,7 +9120,8 @@
           "private_care_error": "invalid_subject"
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "C0-PERSON-001",
@@ -9158,7 +9178,8 @@
           "history_rewrite": false
         },
         "event": null
-      }
+      },
+      "schema_tables": []
     },
     {
       "id": "WP004-IDN-029",
@@ -9246,7 +9267,8 @@
       ],
       "layers": [
         "sql"
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "WP004-KNOW-012",
@@ -9317,7 +9339,8 @@
       ],
       "layers": [
         "sql"
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "WP004-KNOW-014",
@@ -9388,7 +9411,8 @@
       ],
       "layers": [
         "sql"
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "WP004-KNOW-069",
@@ -9469,7 +9493,8 @@
       ],
       "layers": [
         "sql"
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "WP004-KNOW-072",
@@ -9549,7 +9574,8 @@
       ],
       "layers": [
         "sql"
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "WP004-KNOW-073",
@@ -9618,7 +9644,8 @@
       ],
       "layers": [
         "sql"
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "WP004-KNOW-078",
@@ -9693,7 +9720,8 @@
       ],
       "layers": [
         "sql"
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "WP004-KNOW-081",
@@ -9762,7 +9790,8 @@
       ],
       "layers": [
         "sql"
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "WP004-KNOW-082",
@@ -9835,7 +9864,8 @@
       ],
       "layers": [
         "sql"
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "WP004-KNOW-083",
@@ -9908,7 +9938,8 @@
       ],
       "layers": [
         "sql"
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "WP004-KNOW-084",
@@ -9977,7 +10008,8 @@
       ],
       "layers": [
         "sql"
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "WP004-KNOW-085",
@@ -10048,7 +10080,8 @@
       ],
       "layers": [
         "sql"
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "WP004-KNOW-086",
@@ -10121,7 +10154,8 @@
       ],
       "layers": [
         "sql"
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "WP004-KNOW-087",
@@ -10190,7 +10224,8 @@
       ],
       "layers": [
         "sql"
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "WP004-KNOW-088",
@@ -10261,7 +10296,8 @@
       ],
       "layers": [
         "sql"
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "WP004-KNOW-089",
@@ -10338,7 +10374,8 @@
       ],
       "layers": [
         "sql"
-      ]
+      ],
+      "schema_tables": []
     },
     {
       "id": "WP004-PPL-024",
@@ -10414,7 +10451,8 @@
       ],
       "layers": [
         "sql"
-      ]
+      ],
+      "schema_tables": []
     }
   ],
   "schema_authority": "docs/schema/target.json"

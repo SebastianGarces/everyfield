@@ -6,23 +6,31 @@ import { Button, Card, CardIcon, Skeleton } from "@everyfield/ui/controls";
 import { LoadableView } from "@everyfield/ui/display";
 import { useCallback, useState } from "react";
 import { NotAvailable } from "../access/AccessStates";
-import { EndDialog, type Side } from "./EndDialog";
+import { EndDialog, type EndConnection, type Side } from "./EndDialog";
 import { HistoryList, otherSide, type ReadHistory } from "./History";
 import { useIntent, useLoad } from "./intent";
 import { InviteDialog, type InviteTarget, type ReadDisclosure } from "./InviteDialog";
 import { formatDay, kindLabel, subjectOf } from "./model";
 import { ProblemLine } from "./parts";
-import { SharingChoices, type ReadSharing } from "./Sharing";
+import { SharingChoices, type ReadSharing, type SaveSharing, type SharingRow } from "./Sharing";
 import type { History, NameOf, PendingInvitation, Relationship, Run } from "./port";
 
-/** One read of the list: the first history page with the current connections, and the requests still waiting. */
-export type ConnectionsData = { history: { status: "unavailable" } | History; pending: PendingInvitation[] };
+/**
+ * One read of the list: the first history page with the current connections, the requests still waiting, and for a
+ * plant what each connection sees, keyed by relationship id.
+ */
+export type ConnectionsData = {
+	history: { status: "unavailable" } | History;
+	pending: PendingInvitation[];
+	sharing: Record<string, SharingRow>;
+};
 
 /**
  * The connections of one plant, sending church or Discovery account, or of one organization, with their history
- * (REQ-IDN-020, REQ-IDN-021). Several connections can exist at once and each one is ended on its own. Every change
- * reloads the list from the server, so the screen never guesses an outcome. `canManage` only hides controls; the
- * server still checks every command.
+ * (REQ-IDN-020, REQ-IDN-021). Several connections can exist at once and each one is ended on its own. The server
+ * renders the first list with the page. Each confirmed command answers with what changed (the invitation, the history
+ * as it is now, the sharing as saved), and the list applies that answer: one request, no reload. The list reads again
+ * only after an unconfirmed command. `canManage` only hides controls; the server still checks every command.
  */
 export function Connections({
 	side,
@@ -32,25 +40,32 @@ export function Connections({
 	nameOf,
 	zone,
 	run,
+	end,
 	invite,
 	readSharing,
+	initial,
 }: {
 	/** `subject` words the list for the side that asks to connect; `organization` for the side that receives. */
 	side: Side;
 	load: () => Promise<ConnectionsData>;
+	/** The list as the server rendered it with the page, so the first paint needs no second read. */
+	initial?: ConnectionsData;
 	readMore: ReadHistory;
 	canManage: boolean;
 	nameOf: NameOf;
 	zone: string;
 	run: Run;
+	end: EndConnection;
 	/** Present when this viewer can ask organizations to connect. */
 	invite?: { targets: InviteTarget[]; readDisclosure: ReadDisclosure; expectedRevision: string };
-	/** Present for a plant: each connection row shows what that organization can see. */
-	readSharing?: ReadSharing;
+	/** Present for a plant: each connection row shows what that organization can see, and saves a change. */
+	readSharing?: { read: ReadSharing; save: SaveSharing };
 }) {
 	const [status, setStatus] = useState("");
 	const fetch = useCallback(() => load(), [load]);
-	const { state, reload, refreshing } = useLoad<ConnectionsData>(fetch, "Connections did not load");
+	const { state, reload, update, refreshing } = useLoad<ConnectionsData>(fetch, "Connections did not load", initial);
+	const changePending = (change: (p: PendingInvitation[]) => PendingInvitation[]) =>
+		update((d) => ({ ...d, pending: change(d.pending) }));
 
 	const subject = side === "subject";
 	const titleId = `${side}-connections-title`;
@@ -70,13 +85,13 @@ export function Connections({
 				</div>
 				{canManage && invite ? (
 					<InviteDialog
-						targets={invite.targets}
+						targets={state.status === "ready" ? available(invite.targets, state.data.history) : invite.targets}
 						readDisclosure={invite.readDisclosure}
 						expectedRevision={invite.expectedRevision}
 						run={run}
-						onSent={(_, target) => {
+						onSent={(invitation, target) => {
 							setStatus(`Invitation sent. ${target.name} has 30 days to accept.`);
-							reload();
+							changePending((p) => [invitation, ...p.filter((i) => i.invitationId !== invitation.invitationId)]);
 						}}
 						onUnconfirmed={reload}
 						trigger={
@@ -102,7 +117,7 @@ export function Connections({
 					</div>
 				}
 			>
-				{({ history, pending }) =>
+				{({ history, pending, sharing }) =>
 					history.status === "unavailable" ? (
 						<NotAvailable scope="section" />
 					) : (
@@ -110,16 +125,20 @@ export function Connections({
 							<ActiveList
 								side={side}
 								history={history}
+								sharing={sharing}
 								canManage={canManage}
 								nameOf={nameOf}
 								zone={zone}
-								run={run}
-								onEnded={(name, ended) => {
-									if (ended) setStatus(`The connection with ${name} ended.`);
-									reload();
+								end={end}
+								onEnded={(name, history) => {
+									if (!history) return reload();
+									setStatus(`The connection with ${name} ended.`);
+									update((d) => ({ ...d, history }));
 								}}
 								readSharing={readSharing}
-								onChanged={reload}
+								onRevision={(relationshipId, revision) =>
+									update((d) => ({ ...d, history: withRevision(d.history, relationshipId, revision) }))
+								}
 								stale={refreshing}
 							/>
 							{invite && pending.length > 0 ? (
@@ -129,10 +148,11 @@ export function Connections({
 									nameOf={nameOf}
 									zone={zone}
 									run={run}
-									onChange={(text) => {
-										if (text) setStatus(text);
-										reload();
+									onChange={(text, change) => {
+										setStatus(text);
+										changePending(change);
 									}}
+									onStale={reload}
 									stale={refreshing}
 								/>
 							) : null}
@@ -157,6 +177,31 @@ export function Connections({
 	);
 }
 
+type EndAnswer = Parameters<Parameters<typeof EndDialog>[0]["onEnded"]>[0];
+type SharingPort = { read: ReadSharing; save: SaveSharing };
+
+/** Organizations this viewer may ask, without the ones it is connected with now as the asking side. */
+function available(targets: InviteTarget[], history: ConnectionsData["history"]) {
+	if (history.status !== "available") return targets;
+	const connected = new Set(
+		history.activeRelationships
+			.filter((r) => sideIn(history.scope, r) === "subject")
+			.map((r) => r.pair.organization.id),
+	);
+	return targets.filter((t) => !connected.has(t.pair.organization.id));
+}
+
+/** The history with one current connection's new revision, after a sharing change moved it. */
+function withRevision(history: ConnectionsData["history"], relationshipId: string, revision: string) {
+	if (history.status !== "available") return history;
+	return {
+		...history,
+		activeRelationships: history.activeRelationships.map((r) =>
+			r.id === relationshipId ? { ...r, revision: revision as Relationship["revision"] } : r,
+		),
+	};
+}
+
 /** The side this viewer holds in one connection: the receiving organization, or the side that asked. */
 function sideIn(scope: History["scope"], relationship: Relationship): Side {
 	return "organization" in scope && scope.organization.id === relationship.pair.organization.id
@@ -170,10 +215,11 @@ function ActiveList({
 	canManage,
 	nameOf,
 	zone,
-	run,
+	end,
 	onEnded,
 	readSharing,
-	onChanged,
+	sharing,
+	onRevision,
 	stale,
 }: {
 	side: Side;
@@ -181,10 +227,11 @@ function ActiveList({
 	canManage: boolean;
 	nameOf: NameOf;
 	zone: string;
-	run: Run;
-	onEnded: (name: string, ended: boolean) => void;
-	readSharing?: ReadSharing;
-	onChanged: () => void;
+	end: EndConnection;
+	onEnded: (name: string, history: EndAnswer) => void;
+	readSharing?: SharingPort;
+	sharing: Record<string, SharingRow>;
+	onRevision: (relationshipId: string, revision: string) => void;
 	stale: boolean;
 }) {
 	const rows = history.activeRelationships;
@@ -206,10 +253,11 @@ function ActiveList({
 					name={otherSide(history.scope, relationship.pair, nameOf)}
 					canManage={canManage}
 					zone={zone}
-					run={run}
+					end={end}
 					onEnded={onEnded}
 					readSharing={readSharing}
-					onChanged={onChanged}
+					sharing={sharing[relationship.id]}
+					onRevision={onRevision}
 					stale={stale}
 				/>
 			))}
@@ -223,10 +271,11 @@ function ActiveRow({
 	name,
 	canManage,
 	zone,
-	run,
+	end,
 	onEnded,
 	readSharing,
-	onChanged,
+	sharing,
+	onRevision,
 	stale,
 }: {
 	side: Side;
@@ -234,10 +283,12 @@ function ActiveRow({
 	name: string;
 	canManage: boolean;
 	zone: string;
-	run: Run;
-	onEnded: (name: string, ended: boolean) => void;
-	readSharing?: ReadSharing;
-	onChanged: () => void;
+	end: EndConnection;
+	onEnded: (name: string, history: EndAnswer) => void;
+	readSharing?: SharingPort;
+	/** What this connection sees, as the list read it; a save answers with it as saved. */
+	sharing?: SharingRow;
+	onRevision: (relationshipId: string, revision: string) => void;
 	/** The list is reloading; this row's revision may be old, so Leave waits. */
 	stale: boolean;
 }) {
@@ -261,8 +312,8 @@ function ActiveRow({
 						side={side}
 						relationship={relationship}
 						otherName={name}
-						run={run}
-						onEnded={(ended) => onEnded(name, ended)}
+						end={end}
+						onEnded={(history) => onEnded(name, history)}
 						trigger={
 							<Button
 								variant="ghost"
@@ -281,9 +332,10 @@ function ActiveRow({
 					<SharingChoices
 						relationship={relationship}
 						organizationName={name}
-						read={readSharing}
-						run={run}
-						onChanged={onChanged}
+						initial={sharing}
+						read={readSharing.read}
+						save={readSharing.save}
+						onChanged={(revision) => onRevision(relationship.id, revision)}
 					/>
 				</div>
 			) : null}
@@ -311,6 +363,7 @@ function PendingList({
 	zone,
 	run,
 	onChange,
+	onStale,
 	stale,
 }: {
 	invitations: PendingInvitation[];
@@ -318,7 +371,10 @@ function PendingList({
 	nameOf: NameOf;
 	zone: string;
 	run: Run;
-	onChange: (status: string | null) => void;
+	/** A confirmed command: what to say, and the list as it is now. */
+	onChange: (status: string, change: (list: PendingInvitation[]) => PendingInvitation[]) => void;
+	/** After an unconfirmed command: read the list again. */
+	onStale: () => void;
 	stale: boolean;
 }) {
 	const resend = useIntent<InvitationCommand>("relationship-resend");
@@ -337,22 +393,26 @@ function PendingList({
 				input: { invitationId: invitation.invitationId },
 			});
 		const name = nameOf(invitation.pair.organization);
-		const result =
-			action === "resend"
-				? await resend.run(
-						invitation.invitationId,
-						make,
-						(command) => run("associations.resendInvitation", command),
-						() => true,
-					)
-				: await withdraw.run(
-						invitation.invitationId,
-						make,
-						(command) => run("associations.revokeInvitation", command),
-						(r) => r.status === "committed",
-					);
+		const id = invitation.invitationId;
+		if (action === "resend") {
+			const result = await resend.run(
+				id,
+				make,
+				(command) => run("associations.resendInvitation", command),
+				() => true,
+			);
+			if (result.ok)
+				onChange(`A new link went to ${name}.`, (list) => list.map((i) => (i.invitationId === id ? result.reply : i)));
+			return;
+		}
+		const result = await withdraw.run(
+			id,
+			make,
+			(command) => run("associations.revokeInvitation", command),
+			(r) => r.status === "committed",
+		);
 		if (result.ok)
-			onChange(action === "resend" ? `A new link went to ${name}.` : `The invitation to ${name} was withdrawn.`);
+			onChange(`The invitation to ${name} was withdrawn.`, (list) => list.filter((i) => i.invitationId !== id));
 	};
 
 	return (
@@ -426,7 +486,7 @@ function PendingList({
 						variant="secondary"
 						onClick={() => {
 							intent.release();
-							onChange(null);
+							onStale();
 						}}
 					>
 						Reload the list

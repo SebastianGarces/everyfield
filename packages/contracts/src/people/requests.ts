@@ -1,16 +1,17 @@
 import { z } from "zod";
-import { personId, recordId, revision, requestKey } from "../common/values.ts";
-import { localDate, instant } from "../common/time.ts";
-import { commandEnvelope } from "../common/transaction.ts";
+import { instant, localDate } from "../common/time.ts";
+import { personId, recordId, requestKey, revision } from "../common/values.ts";
+import { commandEnvelope } from "../common/writes.ts";
 import {
+	adultClassification,
 	contactFields,
 	displayName,
+	noteBody,
+	pageInput,
+	pipelineColumn,
+	reason,
 	recruitmentSource,
 	stage,
-	adultClassification,
-	noteBody,
-	reason,
-	pageInput,
 } from "./values.ts";
 
 // No owner, account link, creator, storage key, authority or approval in bodies.
@@ -66,6 +67,8 @@ export const listPeopleRequest = z.strictObject({
 	commitment: z.enum(["active", "withdrawn", "unknown", "any"]).default("any"),
 	archived: z.enum(["exclude", "include", "only"]).default("exclude"),
 	sort: z.literal("created_at_id").default("created_at_id"),
+	// Pipeline only: "Show more" names the one column it reads.
+	column: pipelineColumn.optional(),
 });
 export const activityRequest = z.strictObject({
 	personId,
@@ -94,14 +97,16 @@ export const restorePersonRequest = commandEnvelope(z.strictObject({ personId })
 export const classifyAdultRequest = commandEnvelope(
 	z.strictObject({ personId, classification: adultClassification, occurredOn: localDate, reason }),
 );
+// Places one person in a pipeline column: right after `afterId`, or first when it is null. The expected revision is the
+// column's, so a move against an order that changed meanwhile is refused (REQ-PPL-007).
 export const reorderPipelineRequest = commandEnvelope(
-	z.strictObject({
-		column: z.enum(["prospect", "attendee", "following_up", "interviewed", "core_group"]),
-		personIds: z
-			.array(personId)
-			.max(100)
-			.refine((v) => new Set(v).size === v.length),
-	}),
+	z
+		.strictObject({
+			column: z.enum(["prospect", "attendee", "following_up", "interviewed", "core_group"]),
+			personId,
+			afterId: personId.nullable(),
+		})
+		.refine((v) => v.afterId !== v.personId),
 );
 export const pipelineMetricsRequest = z
 	.strictObject({ asOf: instant, from: localDate, through: localDate })

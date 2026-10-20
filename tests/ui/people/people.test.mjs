@@ -115,7 +115,10 @@ for (const [name, engine] of ENGINES) {
 				const revision = () =>
 					page.evaluate(
 						(l) =>
-							document.querySelector(`[aria-label="${l}"]`)?.closest("[data-revision]")?.getAttribute("data-revision"),
+							document
+								.querySelector(`[aria-label="${l}"]:not([hidden] *)`)
+								?.closest("[data-revision]")
+								?.getAttribute("data-revision"),
 						label,
 					);
 				const before = await revision();
@@ -126,15 +129,18 @@ for (const [name, engine] of ENGINES) {
 				await page.keyboard.press("Home");
 				await page.keyboard.press("Enter");
 				await page.waitForFunction(
-					([l, n]) => document.querySelector(`[aria-label="${l}"] article`)?.getAttribute("aria-label") === n,
+					([l, n]) =>
+						document.querySelector(`[aria-label="${l}"]:not([hidden] *) article`)?.getAttribute("aria-label") === n,
 					[label, second],
 					{ timeout: 30_000 },
 				);
 				// Wait for the refresh: the column shows the server's new revision, so a remount would have happened.
 				await page.waitForFunction(
 					([l, r]) =>
-						document.querySelector(`[aria-label="${l}"]`)?.closest("[data-revision]")?.getAttribute("data-revision") !==
-						r,
+						document
+							.querySelector(`[aria-label="${l}"]:not([hidden] *)`)
+							?.closest("[data-revision]")
+							?.getAttribute("data-revision") !== r,
 					[label, before],
 					{ timeout: 60_000 },
 				);
@@ -170,7 +176,10 @@ for (const [name, engine] of ENGINES) {
 			await message.waitFor({ timeout: 30_000 });
 			// The refusal refreshes page B to the server's order; the message must survive that refresh.
 			await b.waitForFunction(
-				(n) => document.querySelector('[aria-label="Following up people"] article')?.getAttribute("aria-label") === n,
+				(n) =>
+					document
+						.querySelector('[aria-label="Following up people"]:not([hidden] *) article')
+						?.getAttribute("aria-label") === n,
 				second,
 				{ timeout: 30_000 },
 			);
@@ -207,12 +216,13 @@ for (const [name, engine] of ENGINES) {
 
 	test(`AC:TARGET-PPL-007 BUG-124-replay (${name}): a replayed reorder shows the column's latest order with its revision`, async () => {
 		await withPage(engine, "owner", async (a, context) => {
+			// The accessible list only: right after a load, WebKit can still hold React's hidden streamed copy of the page
+			// (<div hidden id="S:0">), which a document query would count twice.
 			const order = (p) =>
-				p.evaluate(() =>
-					[...document.querySelectorAll('[aria-label="Following up people"] article')].map((x) =>
-						x.getAttribute("aria-label"),
-					),
-				);
+				p
+					.getByRole("list", { name: "Following up people" })
+					.getByRole("article")
+					.evaluateAll((a) => a.map((x) => x.getAttribute("aria-label")));
 			await a.goto(`${BASE}/people?view=pipeline`);
 			await a.getByRole("list", { name: "Following up people" }).waitFor();
 			const [x, y] = await order(a);
@@ -224,7 +234,7 @@ for (const [name, engine] of ENGINES) {
 					!dropped &&
 					r.method() === "POST" &&
 					r.headers()["next-action"] &&
-					(r.postData() ?? "").includes("personIds")
+					(r.postData() ?? "").includes("afterId")
 				) {
 					dropped = true;
 					await route.fetch();
@@ -365,5 +375,189 @@ for (const [name, engine] of ENGINES) {
 				},
 				{ width, height },
 			);
+	});
+
+	test(`AC:TARGET-PPL-007 D68-one-request (${name}): a move sends one POST and no GET, and the card moves before the answer`, async () => {
+		// Desktop and phone: on a phone the board scrolls sideways, and a move must still send no prefetch (verifier
+		// finding on 52980ca: a profile GET after a stage move at 390 px).
+		for (const width of [1440, 390])
+			await withPage(
+				engine,
+				"owner",
+				async (page) => {
+					await page.goto(`${BASE}/people?view=pipeline`);
+					const column = (label) => page.getByRole("list", { name: label });
+					const names = (label) =>
+						column(label)
+							.getByRole("article")
+							.evaluateAll((a) => a.map((x) => x.getAttribute("aria-label")));
+					await column("Following up people").waitFor();
+					await page.waitForLoadState("networkidle");
+					await page.waitForTimeout(1000);
+					const sent = [];
+					const ms = [];
+					page.on("request", (r) => {
+						if (["document", "fetch", "xhr"].includes(r.resourceType())) sent.push(r.method());
+					});
+					// While `hold` is set, a server action's answer waits for it, so the test sees the card move before the answer.
+					let hold = null;
+					await page.route("**/*", async (route) => {
+						const r = route.request();
+						if (r.method() !== "POST" || !r.headers()["next-action"]) return route.fallback();
+						const held = hold;
+						const start = performance.now();
+						const response = await route.fetch();
+						if (held) ms.push(Math.round(performance.now() - start));
+						await held?.wait;
+						return route.fulfill({ response });
+					});
+					const held = () => {
+						let release;
+						hold = { wait: new Promise((r) => (release = r)) };
+						return () => {
+							hold = null;
+							release();
+						};
+					};
+					const settle = () => page.waitForTimeout(1500);
+
+					// Reorder inside a column.
+					const [, second] = await names("Following up people");
+					let release = held();
+					sent.length = 0;
+					await page.getByRole("button", { name: `Move ${second}` }).click();
+					await page.getByRole("menuitem", { name: "Move up" }).click();
+					await page.waitForFunction(
+						(n) =>
+							document
+								.querySelector('[aria-label="Following up people"]:not([hidden] *) article')
+								?.getAttribute("aria-label") === n,
+						second,
+						{ timeout: 5_000 },
+					);
+					release();
+					await page.getByText(`${second} moved up.`).waitFor({ state: "attached", timeout: 30_000 });
+					await settle();
+					assert.deepEqual(sent, ["POST"], "a reorder is one POST and no GET");
+
+					// Change stage there and back: each move is one POST once the dialog's warnings are loaded.
+					const stageMove = async (person, stage, from, to) => {
+						await page.getByRole("button", { name: `Move ${person}` }).click();
+						await page.getByRole("menuitem", { name: stage }).click();
+						const dialog = page.getByRole("dialog");
+						const save = dialog.getByRole("button", { name: `Move to ${stage.toLowerCase()}` });
+						await dialog.getByLabel("Reason").fill("Checking one request per move");
+						await page.waitForFunction(
+							(label) => {
+								const b = [...document.querySelectorAll('[role="dialog"] button')].find((x) => x.textContent === label);
+								return b && !b.disabled;
+							},
+							`Move to ${stage.toLowerCase()}`,
+							{ timeout: 30_000 },
+						);
+						await page.waitForTimeout(500);
+						release = held();
+						sent.length = 0;
+						await save.click();
+						// The dialog hides the board from the accessibility tree while it is open, so read the DOM directly.
+						const inList = (label, n) =>
+							page.evaluate(
+								([l, n]) =>
+									[...document.querySelectorAll(`[aria-label="${l}"]:not([hidden] *) article`)].some(
+										(a) => a.getAttribute("aria-label") === n,
+									),
+								[label, n],
+							);
+						await page.waitForFunction(
+							([l, n]) =>
+								[...document.querySelectorAll(`[aria-label="${l}"]:not([hidden] *) article`)].some(
+									(a) => a.getAttribute("aria-label") === n,
+								),
+							[to, person],
+							{ timeout: 5_000 },
+						);
+						assert.equal(await inList(from, person), false, `${person} left ${from}`);
+						release();
+						await dialog.waitFor({ state: "detached", timeout: 30_000 });
+						await settle();
+						assert.deepEqual(sent, ["POST"], `moving ${person} to ${stage} is one POST and no GET`);
+					};
+					// Verifier sequence on #145: reorder, away, back, away again. Each move must save; none may be refused as
+					// "changed while you were working", because this page made every change.
+					await stageMove(second, "Attendee", "Following up people", "Attendee people");
+					await stageMove(second, "Following up", "Attendee people", "Following up people");
+					await stageMove(second, "Attendee", "Following up people", "Attendee people");
+					// The page shows the saved order: a reload shows the same columns.
+					const shown = [await names("Following up people"), await names("Attendee people")];
+					await page.reload();
+					await column("Following up people").waitFor();
+					assert.deepEqual([await names("Following up people"), await names("Attendee people")], shown);
+					// Put the person back for the other tests.
+					await page.waitForLoadState("networkidle");
+					await stageMove(second, "Following up", "Attendee people", "Following up people");
+					console.log(`D68 ${name} ${width}px move answer times (ms): ${ms.join(", ")}`);
+				},
+				{ width },
+			);
+	});
+
+	test(`AC:TARGET-PPL-008 UI-round-no-reload (${name}): each person change is one POST, no page request, and Activity shows it`, async () => {
+		await withPage(engine, "owner", async (page) => {
+			await addPerson(page, unique(name));
+			await page.waitForLoadState("networkidle");
+			const sent = [];
+			page.on("request", (r) => {
+				if (!["document", "fetch", "xhr"].includes(r.resourceType())) return;
+				sent.push(r.headers()["next-action"] ? `${r.method()} action` : `${r.method()} ${new URL(r.url()).pathname}`);
+			});
+			const activity = page.getByRole("list", { name: "Activity, oldest first" });
+			/** Runs one change and checks it sent exactly one server action and that Activity shows `entry`. */
+			const one = async (what, change, entry) => {
+				sent.length = 0;
+				await change();
+				await activity.getByText(entry, { exact: true }).waitFor({ timeout: 30_000 });
+				await page.waitForTimeout(1000);
+				assert.deepEqual(sent, ["POST action"], `${what}: one request, no page reload`);
+			};
+
+			const note = `Met at the park ${Date.now().toString(36)}`;
+			await one(
+				"a note",
+				async () => {
+					await page.getByLabel(/^Add a note about/).fill(note);
+					await page.getByRole("button", { name: "Save note" }).click();
+				},
+				note,
+			);
+
+			await page.getByRole("button", { name: "Edit profile" }).first().click();
+			const profile = page.getByRole("dialog", { name: "Edit profile" });
+			await profile.getByLabel("Phone").fill("512-555-0101");
+			await one(
+				"a profile edit",
+				() => profile.getByRole("button", { name: "Save changes" }).click(),
+				"Details changed",
+			);
+
+			// The stage dialog reads its warnings when it opens; the move itself is one request once they are shown.
+			await page.getByRole("button", { name: "Change stage" }).click();
+			const stage = page.getByRole("dialog");
+			await stage.getByLabel("New stage").click();
+			await page.getByRole("option", { name: "Attendee" }).click();
+			await stage.getByLabel("Reason").fill("Came to the Sunday gathering");
+			const move = stage.getByRole("button", { name: "Move to attendee" });
+			await page.waitForFunction((b) => b && !b.disabled, await move.elementHandle(), { timeout: 30_000 });
+			await one("a stage change", () => move.click(), "Stage changed from prospect to attendee");
+			assert.equal(await page.getByText(note, { exact: true }).count(), 1, "earlier entries stay");
+
+			// Retire reads open duties when it opens; its own save must not read them again (found by the request log).
+			await page.getByRole("button", { name: "More actions" }).click();
+			await page.getByRole("menuitem", { name: "Retire person" }).click();
+			const retire = page.getByRole("dialog");
+			await retire.getByLabel("Reason").fill("Moved away");
+			const confirm = retire.getByRole("button", { name: "Retire person" });
+			await page.waitForFunction((b) => b && !b.disabled, await confirm.elementHandle(), { timeout: 30_000 });
+			await one("a retire", () => confirm.click(), "Retired");
+		});
 	});
 }

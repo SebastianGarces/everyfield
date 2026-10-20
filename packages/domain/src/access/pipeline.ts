@@ -1,20 +1,19 @@
-import * as tables from "@everyfield/db/tables";
-import { and, asc, eq, gt, isNull, lte, or, sql } from "@everyfield/db/query";
-import { alias } from "@everyfield/db/query";
-import "server-only";
-import type { Transaction } from "@everyfield/db/client";
-import { z } from "zod";
-import { owner, type Owner, type sessionId } from "@everyfield/contracts/common";
 import {
-	organizationPersonRequest,
 	organizationNotesRequest,
-	pipelineAccessResult,
 	organizationNotesResult,
+	organizationPersonRequest,
 	ownResidencyProjection,
+	pipelineAccessResult,
 	pipelineDuty,
 } from "@everyfield/contracts/access";
-import { currentActor, liveOwner } from "./session.ts";
-import { isAdministrator } from "./policy.ts";
+import { owner, type Owner, type sessionId } from "@everyfield/contracts/common";
+import type { Transaction } from "@everyfield/db/client";
+import { alias, and, asc, eq, gt, isNull, lte, or, sql } from "@everyfield/db/query";
+import * as tables from "@everyfield/db/tables";
+import "server-only";
+import { z } from "zod";
+import { currentActor, liveOwner, observedActor } from "./session.ts";
+
 const development_enrollment_e = alias(tables.development_enrollment, "e");
 const development_program_p = alias(tables.development_program, "p");
 const residency_link_l = alias(tables.residency_link, "l");
@@ -47,8 +46,8 @@ export async function readPipelinePerson(
 				),
 				eq(tables.person.state, "live"),
 			),
-		)
-		.for("share");
+		);
+
 	if (person.length !== 1) return unavailable();
 	const duties: z.input<typeof pipelineDuty>[] = [];
 	if (isAdministrator(actor)) duties.push({ kind: "organization_administration", canReadStaffNotes: true });
@@ -63,8 +62,8 @@ export async function readPipelinePerson(
 				),
 				eq(tables.pipeline_person.responsible_seat_id, actor.context.seatId),
 			),
-		)
-		.for("share");
+		);
+
 	if (staff.length) duties.push({ kind: "responsible_staff", canReadStaffNotes: true });
 	const director = await tx
 		.select({ id: development_enrollment_e.id })
@@ -87,8 +86,8 @@ export async function readPipelinePerson(
 				),
 				eq(development_program_p.director_seat_id, actor.context.seatId),
 			),
-		)
-		.for("share", { of: [development_enrollment_e, development_program_p] });
+		);
+
 	if (director.length) duties.push({ kind: "program_director", canReadStaffNotes: false });
 	return duties.length
 		? pipelineAccessResult.parse({ status: "allowed", organization: selected, personId: input.data.personId, duties })
@@ -136,8 +135,8 @@ export async function readOrganizationNotes(
 			),
 		)
 		.orderBy(asc(tables.person_note.id))
-		.limit(101)
-		.for("share");
+		.limit(101);
+
 	const notes = result.slice(0, 100).map((note) => ({
 		id: note.id,
 		author: note.author_id === null ? { kind: "removed" } : { kind: "account", accountId: note.author_id },
@@ -163,13 +162,16 @@ export async function readOwnResidency(
 	raw: unknown,
 ) {
 	const input = organizationPersonRequest.safeParse(raw);
-	if (!input.success || organization.kind !== "organization" || !(await liveOwner(tx, organization))) return null;
-	const identity = await tx.execute<{ account_id: string }>(sql`SELECT account_id FROM access_session(${session})`);
-	if (identity.rows.length !== 1) return null;
-	const selected = { kind: "account", id: identity.rows[0]!.account_id };
-	// Parse the trusted database identity through the same account-context loader.
-	const accountOwner = owner.parse(selected);
-	const actor = await currentActor(tx, session, accountOwner);
+	if (!input.success || organization.kind !== "organization" || !(await liveOwner(tx, organization, false)))
+		return null;
+	// The request actor observed on this transaction names the account; otherwise one lock-free session read does.
+	const observed = observedActor(tx, session);
+	const accountId = observed
+		? observed.accountId
+		: (await tx.execute<{ account_id: string }>(sql`SELECT account_id FROM access_session(${session})`)).rows[0]
+				?.account_id;
+	if (!accountId) return null;
+	const actor = await currentActor(tx, session, owner.parse({ kind: "account", id: accountId }));
 	if (actor.status !== "active") return null;
 	const links = await tx
 		.select({ id: residency_link_l.id, revision: residency_link_l.revision })
@@ -242,8 +244,8 @@ export async function readOwnResidency(
 				),
 				sql<unknown>`(NOT EXISTS (SELECT  FROM lifecycle_witness  AS w  WHERE ((w .affiliation_id = a .id) AND (w .state NOT IN (('active'), ('cancelled'))))))`,
 			),
-		)
-		.for("share", { of: [residency_link_l, affiliation_a, invitation_i, person_p] });
+		);
+
 	if (links.length !== 1) return null;
 	return ownResidencyProjection.parse({
 		organization,
@@ -252,3 +254,6 @@ export async function readOwnResidency(
 		revision: links[0]!.revision,
 	});
 }
+
+const isAdministrator = (actor: { context: { kind: string; role?: string } }) =>
+	actor.context.kind === "seat" && actor.context.role !== "member";

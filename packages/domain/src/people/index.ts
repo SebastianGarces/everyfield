@@ -1,8 +1,13 @@
 import "server-only";
-export { peopleWriter, accountPersonProducer } from "./people.ts";
-export { peopleReader, getAccountLink, getViewerSummary, readPeopleViewer } from "./queries.ts";
-export { organizationPeople, downloadOrganizationExport } from "./organization.ts";
-export { peoplePolicies } from "./policies.ts";
-export { lockPersonReference, detachAccountPersonLinks } from "./references.ts";
+export { accountPersonProducer, peopleWriter } from "./people.ts";
+export {
+	getAccountLink,
+	peopleReader,
+	peopleViewer,
+	readColumnOrders,
+	readPeopleViewer,
+	readPersonPage,
+} from "./queries.ts";
+export { detachAccountPersonLinks } from "./references.ts";
 
-export { PeopleReadContext } from "./core.ts";
+export { PeopleReadContext, withPeopleWrite } from "./core.ts";

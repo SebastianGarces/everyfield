@@ -3,20 +3,18 @@ import { LockKeyIcon, UserSearch01Icon } from "@hugeicons/core-free-icons";
 import { personRequest } from "@everyfield/contracts/people";
 import { buttonVariants, Card, EmptyState, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import { TableSkeleton } from "@everyfield/ui/display";
-import { parseTheme, ProductRoot, THEME_COOKIE } from "@everyfield/ui/foundations";
-import { RoleBanner } from "@everyfield/ui/shell";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import { settingsViewerOf } from "../settings/server";
 import { parseQuery, querySearch } from "./model.ts";
 import { PeopleFrame } from "./PeopleFrame.tsx";
 import { PeopleScreen } from "./PeopleScreen.tsx";
 import { PersonScreen } from "./PersonScreen.tsx";
 import { canWrite, loadPeople, loadPerson, type Viewer } from "./server.ts";
 
-// The People routes. The files under apps/web/src/app/(product)/people/ only re-export these, so the screens, their
+// The People routes. The files under apps/web/src/app/(product)/(frame)/people/ only re-export these, so the screens, their
 // data loading and their states stay in this feature folder.
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
@@ -26,31 +24,14 @@ const params = (raw: Record<string, string | string[] | undefined>) => {
 	return out;
 };
 
-/** The product root and frame for every People page, so loading and error states also sit inside the frame. */
-export async function PeopleLayout({ children }: { children: ReactNode }) {
-	const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
+/**
+ * The product frame around every People and Settings page, so loading and error states sit inside it and moving
+ * between them keeps the frame. The name and role are the signed-in actor's, for plant and organization seats alike.
+ */
+export async function ProductFrameLayout({ children }: { children: ReactNode }) {
 	const v = await getViewer();
 	return (
-		<ProductRoot initialTheme={theme}>
-			<Frame viewer={v?.people ?? null}>{children}</Frame>
-		</ProductRoot>
-	);
-}
-
-/** The frame with the viewer's own name. The own account person is the name source; no other account is read. */
-async function Frame({ viewer, children }: { viewer: Viewer | null; children: ReactNode }) {
-	return (
-		<PeopleFrame
-			name={viewer?.displayName ?? "You"}
-			role={viewer?.role ?? null}
-			banner={
-				viewer?.role === "member" ? (
-					<RoleBanner>
-						You have a Member seat. You can see people and their history; Owners and Admins change them.
-					</RoleBanner>
-				) : null
-			}
-		>
+		<PeopleFrame name={v?.displayName ?? "You"} settings={settingsViewerOf(v)}>
 			{children}
 		</PeopleFrame>
 	);
@@ -114,6 +95,7 @@ export async function PersonPage({ params }: { params: Promise<{ personId: strin
 
 	return (
 		<PersonScreen
+			key={person.id}
 			person={person}
 			activities={
 				activities?.status === "ok"

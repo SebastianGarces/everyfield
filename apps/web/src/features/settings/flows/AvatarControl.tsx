@@ -6,7 +6,7 @@ import { useRef, useState } from "react";
 import { refusalOf } from "../save";
 import type { AvatarMime, AvatarResult, SectionResult } from "../port";
 import { newRequestKey } from "../port";
-import { useSettings } from "../store";
+import { useFlows } from "../store";
 
 type Account = Extract<SectionResult, { section: "account" }>;
 
@@ -35,7 +35,7 @@ export function AvatarControl({
 	onChanged: (avatar: AvatarResult) => void;
 	onReload: () => void;
 }) {
-	const { port } = useSettings();
+	const port = useFlows();
 	const input = useRef<HTMLInputElement>(null);
 	const [busy, setBusy] = useState<"upload" | "remove" | null>(null);
 	const [message, setMessage] = useState<{ tone: "error" | "info"; text: string } | null>(null);

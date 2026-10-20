@@ -1,17 +1,25 @@
 import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
-import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
+import { sql, type SQLWrapper } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { randomBytes, randomUUID } from "node:crypto";
 
 import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
-import { enqueueJob } from "../../../apps/web/src/server/jobs/queue.ts";
+import { queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { owner, sessionId } from "../../../packages/contracts/src/common/index.ts";
 
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-if (source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech" || process.env.NODE_ENV === "production")
+const ci =
+	process.env.CI === "true" &&
+	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
+	["localhost", "127.0.0.1"].includes(source.hostname) &&
+	source.pathname === "/everyfield_ci";
+if (
+	(!ci && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
+	process.env.NODE_ENV === "production"
+)
 	throw Error("Only shared development direct endpoint allowed");
-source.searchParams.set("sslmode", "verify-full");
+if (!ci) source.searchParams.set("sslmode", "verify-full");
 export const schema = "wp007_" + randomUUID().replaceAll("-", "");
 export const db = createDatabase({
 	connectionString: source.href,
@@ -102,7 +110,7 @@ export const mail = createMailService({
 	encryptionKey: randomBytes(32),
 	addressKey: randomBytes(32),
 	from: "test@example.test",
-	authorize: async () => true,
+	authorize: async (_tx, mail) => new Set(mail.map((m) => m.id)),
 	transport: {
 		send: async () => {
 			throw Error("No provider call allowed");
@@ -116,46 +124,51 @@ export const effects = {
 	async invitation(
 		c: import("../../../packages/db/src/client.ts").Transaction,
 		v: Parameters<import("../../../packages/domain/src/organizations/index.ts").OrganizationEffects["invitation"]>[1],
+		writes: SQLWrapper[],
 	) {
 		proofs.set(v.invitationId, v.proof);
-		await mail.enqueue(c, {
-			owner:
-				v.owner.kind === "global"
-					? (() => {
-							throw Error("global");
-						})()
-					: v.owner,
-			purpose: "relationship_invitation",
-			logicalKey: "relationship/" + v.invitationId + "/" + v.operationId,
-			recipient: null,
-			address: v.recipientEmail,
-			content: { subject: v.inviterDescription, text: "https://example.test/accept-relationship?token=" + v.proof },
-			operation: v.operationId,
-			notice: null,
-			eligibleAt: new Date().toISOString(),
-		});
+		await mail.append(
+			c,
+			{
+				owner:
+					v.owner.kind === "global"
+						? (() => {
+								throw Error("global");
+							})()
+						: v.owner,
+				purpose: "relationship_invitation",
+				logicalKey: "relationship/" + v.invitationId + "/" + v.operationId,
+				recipient: null,
+				address: v.recipientEmail,
+				content: { subject: v.inviterDescription, text: "https://example.test/accept-relationship?token=" + v.proof },
+				operation: v.operationId,
+				notice: null,
+				eligibleAt: new Date().toISOString(),
+			},
+			writes,
+		);
 	},
-	async notice(
+	notice(
 		c: import("../../../packages/db/src/client.ts").Transaction,
 		v: Parameters<import("../../../packages/domain/src/organizations/index.ts").OrganizationEffects["notice"]>[1],
 	) {
 		const target = v.pair.kind === "plant" ? v.pair.subject.id : v.pair.organization.id;
-		await enqueueJob(c, {
-			tenant: target,
-			kind: "notification",
-			subject: v.relationshipId,
-			key: v.kind + "/" + v.eventId,
-			revision: v.revision,
-			eligibleAt: new Date().toISOString(),
-		});
+		return queueJobs(c, [
+			{
+				tenant: target,
+				kind: "notification",
+				subject: v.relationshipId,
+				key: v.kind + "/" + v.eventId,
+				revision: v.revision,
+				eligibleAt: new Date().toISOString(),
+			},
+		]);
 	},
-	async invalidate(
-		c: import("../../../packages/db/src/client.ts").Transaction,
+	invalidate(
+		_c: import("../../../packages/db/src/client.ts").Transaction,
 		v: Parameters<import("../../../packages/domain/src/organizations/index.ts").OrganizationEffects["invalidate"]>[1],
 	) {
-		await c.execute(
-			sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${sql.param(v.sourceId)} AND kind IN ('assessment','digest') AND state IN ('ready','retry_wait','claimed')`,
-		);
+		return sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${sql.param(v.sourceId)} AND kind IN ('assessment','digest') AND state IN ('ready','retry_wait','claimed')`;
 	},
 };
 export const api = createOrganizationAdapter(effects, { candidates: async () => [] });

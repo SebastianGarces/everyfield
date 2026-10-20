@@ -49,7 +49,7 @@
         },
         {
           "operation": "communication.recordContactFromTask",
-          "rule": "Visible information for registered_internal_producer_or_exact_operator: contact projection revision, receipt id, safe outcome."
+          "rule": "Visible information for registered_internal_producer_or_exact_operator: contact projection revision, recorded outcome reference, safe outcome."
         },
         {
           "operation": "communication.recordContactFromTask",
@@ -335,7 +335,7 @@
         },
         {
           "operation": "meetings.populateKit",
-          "rule": "Exact canonical approved kit once with receipt; reads never seed, non-Vision denied."
+          "rule": "Exact canonical approved kit once with a recorded outcome; reads never seed, non-Vision denied."
         },
         {
           "operation": "meetings.updateKitItem",
@@ -535,7 +535,7 @@
         },
         {
           "operation": "meetings.checkIn",
-          "rule": "one atomic transaction: fresh attendance authority + attendance mutation + history + assessment freshness + operation + safe audit + required effect intent; provider/model outside transaction."
+          "rule": "one all-or-nothing change: fresh attendance authority, attendance change, history, assessment freshness, safe audit record and required notices; provider/model outside the change."
         },
         {
           "operation": "meetings.checkIn",

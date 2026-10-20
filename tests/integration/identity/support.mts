@@ -12,12 +12,13 @@ const require = createRequire(new URL("../../../apps/web/package.json", import.m
 
 export async function fixture() {
 	const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
+	const ci=process.env.CI==='true'&&process.env.EARLY_ACCESS_TEST_DATABASE==='1'&&['localhost','127.0.0.1'].includes(source.hostname)&&source.pathname==='/everyfield_ci';
 	if (
-		source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech" ||
+		(!ci && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
 		process.env.NODE_ENV === "production"
 	)
 		throw Error("Approved shared development database required");
-	source.searchParams.set("sslmode", "verify-full");
+	if(!ci)source.searchParams.set("sslmode", "verify-full");
 	const schema = "wp005_" + randomUUID().replaceAll("-", ""),
 		role = "wp005_" + randomBytes(8).toString("hex"),
 		password = randomBytes(32).toString("hex");
@@ -76,16 +77,11 @@ export async function fixture() {
 		encryptionKey,
 		addressKey,
 		from: "security@example.test",
-		authorize: async (tx, m) => {
-			const a = await tx.execute(querySql`SELECT auth_user_id FROM account WHERE id=${m.tenant}`);
-			if (!a.rowCount) return false;
-			const row = await authDb.execute(querySql`SELECT email FROM auth_user WHERE id=${a.rows[0].auth_user_id}`);
-			return (
-				m.recipient === m.tenant &&
-				["password_reset", "email_verification"].includes(m.purpose) &&
-				row.rows[0] &&
-				m.addressHash === createHmac("sha256", addressKey).update(row.rows[0].email).digest("hex")
-			);
+		authorize: async (tx,mail) => {
+ const accounts=mail.map(m=>m.tenant);
+ const result=await tx.execute(querySql`SELECT a.id,c.email FROM account a CROSS JOIN LATERAL access_account_contact(a.id) c WHERE a.id=ANY(${querySql.param(accounts)}::uuid[]) FOR SHARE OF a`);
+ const contacts=new Map(result.rows.map(row=>[row.id,row.email]));
+ return new Set(mail.filter(m=>{const email=contacts.get(m.tenant);return m.recipient===m.tenant&&["password_reset","email_verification"].includes(m.purpose)&&email&&createHmac("sha256",addressKey).update(email).digest("hex")===m.addressHash;}).map(m=>m.id));
 		},
 		transport: {
 			async send(payload, key) {

@@ -1,20 +1,36 @@
-import "server-only";
-import { randomUUID, createHash } from "node:crypto";
-import { z } from "zod";
-import type { Transaction } from "@everyfield/db/client";
-import * as t from "@everyfield/db/tables";
-import { and, eq, isNull, sql, gt, lte } from "@everyfield/db/query";
-import { currentActor, liveOwner } from "../access/session.ts";
-import { receipt, requestIdentity, sessionId, accountId, type Receipt } from "@everyfield/contracts/common";
+import { writeAction } from "../operations/actions.ts";
+import { accountId, requestIdentity, sessionId } from "@everyfield/contracts/common";
 import { onboardingError } from "@everyfield/contracts/onboarding";
 import type {
 	OnboardingContext,
-	OnboardingWriteContext,
 	OnboardingReply,
+	OnboardingWriteContext,
 } from "@everyfield/contracts/onboarding/server";
+import type { Database, Transaction } from "@everyfield/db/client";
+import { and, eq, isNull, sql } from "@everyfield/db/query";
+import * as t from "@everyfield/db/tables";
+import { createHash, randomUUID } from "node:crypto";
+import "server-only";
+import { z } from "zod";
+import { RequestActor, currentActor, liveOwner, lockWriteAuthority, requestWrite } from "../access/session.ts";
+import { WriteUnavailable, auditSavepoint, auditTransaction, finishAudit, prepareWrite } from "../operations/writes.ts";
 
 export type Tx = Transaction;
-export type Context = OnboardingContext;
+/** A read-only request observation (D59): its session and owner derive from one verified authority. */
+export class OnboardingReadContext {
+	readonly authority: RequestActor;
+	readonly selected: OnboardingContext["selected"];
+	constructor(authority: RequestActor) {
+		const owner = authority.actor.context.owner;
+		if (owner.kind !== "plant" && owner.kind !== "account") deny();
+		this.authority = authority;
+		this.selected = owner;
+	}
+	get session() {
+		return this.authority.session;
+	}
+}
+export type Context = OnboardingContext | OnboardingReadContext;
 export type WriteContext = OnboardingWriteContext;
 export class Refusal extends Error {
 	readonly code: z.infer<typeof onboardingError>["code"];
@@ -42,44 +58,90 @@ export function stable(value: unknown): string {
 }
 export const hash = (v: unknown) => createHash("sha256").update(stable(v)).digest("hex");
 export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<OnboardingReply<T>> {
-	return tx
-		.transaction(async (savepoint) => {
-			void savepoint;
-			return { status: "ok" as const, value: await body() };
-		})
-		.catch((error) => {
-			if (!(error instanceof Refusal)) throw error;
-			return {
-				status: "refused" as const,
-				error: onboardingError.parse({
-					code: error.code,
-					details: {},
-					correlationId: randomUUID(),
-					retry: (
-						{
-							invalid_input: "never",
-							access_denied: "never",
-							unavailable: "never",
-							invalid_subject: "never",
-							conflict: "refresh",
-							temporary: "same_request",
-							unknown: "reconcile",
-							active_seat_conflict: "refresh",
-							association_resolution_required: "refresh",
-							already_declared: "refresh",
-							idempotency_conflict: "never",
-						} as const
-					)[error.code],
-				}),
-			};
-		});
+	if (requestWrite(tx)) return { status: "ok", value: await body() };
+	return recover(async () => ({ status: "ok", value: await auditSavepoint(tx, async () => body()) }));
+}
+/** A read changes nothing, so it needs no savepoint. */
+export async function readReply<T>(body: () => Promise<T>): Promise<OnboardingReply<T>> {
+	return recover(async () => ({ status: "ok", value: await body() }));
+}
+async function recover<T>(body: () => Promise<OnboardingReply<T>>): Promise<OnboardingReply<T>> {
+	return body().catch((error) => {
+		if (error instanceof WriteUnavailable) error = new Refusal("unavailable");
+		if (!(error instanceof Refusal)) throw error;
+		return {
+			status: "refused" as const,
+			error: onboardingError.parse({
+				code: error.code,
+				details: {},
+				correlationId: randomUUID(),
+				retry: (
+					{
+						invalid_input: "never",
+						access_denied: "never",
+						unavailable: "never",
+						invalid_subject: "never",
+						conflict: "refresh",
+						temporary: "same_request",
+						unknown: "reconcile",
+						active_seat_conflict: "refresh",
+						association_resolution_required: "refresh",
+						already_declared: "refresh",
+						idempotency_conflict: "never",
+					} as const
+				)[error.code],
+			}),
+		};
+	});
 }
 // Account is the shared arbiter with first-seat acceptance. Take its row lock
 // before currentActor acquires lifecycle/seat share locks.
-export async function actor(tx: Tx, ctx: Context, allowPending = false) {
+export async function actor(tx: Tx, ctx: Context, allowPending = false, write = false) {
+	const bound = requestWrite(tx);
+	if (
+		bound &&
+		bound.authority.session === ctx.session &&
+		bound.selected.id === ctx.selected.id &&
+		bound.selected.kind === ctx.selected.kind
+	)
+		return {
+			identity: bound.actor,
+			account: bound.account,
+			principal: bound.principal,
+			plant: bound.plant,
+			organization: bound.organization,
+			setup: bound.setup,
+		};
+
+	if (write) {
+		const locked = await lockWriteAuthority(tx, ctx.session, ctx.selected);
+		if (!locked || (locked.identity.status === "pending_domain" && !allowPending)) deny();
+		return locked;
+	}
+	if (ctx instanceof OnboardingReadContext) {
+		// The request already verified this actor: one statement reads the rows a read needs, without locks.
+		const a = ctx.authority.actor;
+		if (ctx.selected.kind === "account" && ctx.selected.id !== a.accountId) deny();
+		const plantId = ctx.selected.kind === "plant" ? ctx.selected.id : null;
+		const [row] = await tx
+			.select({ account: t.account, plant: t.plant, setup: t.onboarding_setup })
+			.from(t.account)
+			.leftJoin(t.plant, sql`${t.plant.id}=${plantId}::uuid`)
+			.leftJoin(t.onboarding_setup, eq(t.onboarding_setup.plant_id, t.plant.id))
+			.where(eq(t.account.id, a.accountId));
+		if (!row) deny();
+		return {
+			account: row.account,
+			identity: a,
+			principal: null,
+			plant: row.plant,
+			organization: null,
+			setup: row.setup,
+		};
+	}
 	const raw = await tx.execute(sql`SELECT * FROM invitation_identity(${sessionId.parse(ctx.session)})`);
 	const row = z
-		.object({ account_id: accountId, display_name: z.string(), verified: z.boolean() })
+		.object({ account_id: accountId, email: z.string(), display_name: z.string(), verified: z.boolean() })
 		.safeParse(raw.rows[0]);
 	if (!row.success) deny();
 	const [account] = await tx.select().from(t.account).where(eq(t.account.id, row.data.account_id)).for("update");
@@ -89,18 +151,18 @@ export async function actor(tx: Tx, ctx: Context, allowPending = false) {
 	if (ctx.selected.kind === "account" && ctx.selected.id !== a.accountId) deny();
 	if (a.status === "pending_domain" && (ctx.selected.kind !== "account" || !(await liveOwner(tx, ctx.selected))))
 		deny();
-	return { account, identity: a, principal: row.data };
+	return { account, identity: a, principal: row.data, plant: null, organization: null, setup: null };
 }
-export async function seatless(tx: Tx, id: string) {
-	const seats = await tx
+export async function seatless(tx: Tx, id: string, lock = true) {
+	const query = tx
 		.select({ id: t.seat.id })
 		.from(t.seat)
-		.where(and(eq(t.seat.account_id, id), isNull(t.seat.ended_at)))
-		.for("update");
+		.where(and(eq(t.seat.account_id, id), isNull(t.seat.ended_at)));
+	const seats = await (lock ? query.for("update") : query);
 	if (seats.length) deny("active_seat_conflict");
 }
-export async function plantOwner(tx: Tx, ctx: Context) {
-	const a = await actor(tx, ctx);
+export async function plantOwner(tx: Tx, ctx: Context, write = true) {
+	const a = await actor(tx, ctx, false, write);
 	if (
 		a.identity.status !== "active" ||
 		a.identity.context.kind !== "seat" ||
@@ -108,13 +170,10 @@ export async function plantOwner(tx: Tx, ctx: Context) {
 		ctx.selected.kind !== "plant"
 	)
 		deny();
-	await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${ctx.selected.id},11011))`);
-	const [plant] = await tx.select().from(t.plant).where(eq(t.plant.id, ctx.selected.id)).for("update");
-	const [setup] = await tx
-		.select()
-		.from(t.onboarding_setup)
-		.where(eq(t.onboarding_setup.plant_id, ctx.selected.id))
-		.for("update");
+	// A write holds the locked rows from its authority; a read observes them without locks.
+	const plant = a.plant ?? (await tx.select().from(t.plant).where(eq(t.plant.id, ctx.selected.id)))[0];
+	const setup =
+		a.setup ?? (await tx.select().from(t.onboarding_setup).where(eq(t.onboarding_setup.plant_id, ctx.selected.id)))[0];
 	if (!plant || !setup || setup.account_id !== a.account.id) deny();
 	return { ...a, plant, setup };
 }
@@ -141,123 +200,45 @@ export async function begin(
 		operation: name,
 		requestKey: input.requestKey,
 		digest: hash(input),
-		origin: ctx.origin,
 	});
 
-	const [old] = await tx
-		.select({ value: t.onboarding_result.value })
-		.from(t.onboarding_result)
-		.innerJoin(t.operation, eq(t.operation.id, t.onboarding_result.operation_id))
-		.where(and(eq(t.operation.tenant_id, ctx.selected.id), eq(t.operation.request_key, input.requestKey)));
-	if (old) {
-		const saved = z.object({ receipt }).parse(old.value);
-		if (stable(saved.receipt.request) !== stable(identity)) deny("idempotency_conflict");
-		return { kind: "replay" as const, value: old.value };
+	const claim = await prepareWrite(tx, identity);
+	if (claim.kind === "unavailable") deny();
+	if (claim.kind === "conflict") deny("idempotency_conflict");
+	if (claim.kind === "replay") {
+		return { kind: "replay" as const, value: claim.value };
 	}
-	if (ctx.purpose === "model") {
-		if (ctx.origin.kind !== "assistant") deny();
-		const o = ctx.origin;
-		const review = await tx
-			.select({ id: t.review.id })
-			.from(t.review)
-			.innerJoin(
-				t.conversation,
-				and(eq(t.conversation.id, t.review.conversation_id), eq(t.conversation.tenant_id, t.review.tenant_id)),
-			)
-			.innerJoin(t.effect, and(eq(t.effect.review_id, t.review.id), eq(t.effect.tenant_id, t.review.tenant_id)))
-			.where(
-				and(
-					eq(t.review.id, o.reviewId),
-					eq(t.review.tenant_id, ctx.selected.id),
-					eq(t.review.conversation_id, o.conversationId),
-					eq(t.review.digest, o.planDigest),
-					eq(t.review.approved_by_id, actorId),
-					isNull(t.review.cancelled_at),
-					isNull(t.review.superseded_at),
-					lte(t.review.approved_at, now),
-					gt(t.review.approved_at, sql`clock_timestamp()-interval '15 minutes'`),
-					eq(t.conversation.owner_id, actorId),
-					eq(t.conversation.state, "open"),
-					eq(t.effect.kind, name),
-					eq(t.effect.payload_hash, hash({ name, input })),
-					eq(t.effect.arguments, { operation: name, input }),
-					sql`${t.effect.state} IN ('unstarted','claimed')`,
-				),
-			)
-			.for("share", { of: [t.review, t.conversation, t.effect] });
-		if (!review.length) deny();
-	}
-	const id = randomUUID();
-	await tx.insert(t.operation).values({
-		id,
-		tenant_id: ctx.selected.id,
-		actor_id: actorId,
-		name,
-		request_key: input.requestKey,
-		request_digest: identity.digest,
-		review_id: ctx.origin.kind === "assistant" ? ctx.origin.reviewId : null,
-		conversation_id: ctx.origin.kind === "assistant" ? ctx.origin.conversationId : null,
-		state: "running",
-		started_at: now,
-		tool_calls: 0,
-		reserved_input: 0,
-		reserved_output: 0,
-		used_input: 0,
-		used_output: 0,
-	});
-	return { kind: "new" as const, id, identity };
+
+	return { kind: "new" as const, id: claim.id, identity, writes: claim.writes, events: claim.events };
 }
 export type NewCommand = Extract<Awaited<ReturnType<typeof begin>>, { kind: "new" }>;
 export async function event(
-	tx: Tx,
+	_tx: Tx,
 	c: NewCommand,
 	target: string,
-	action: typeof t.event.$inferInsert.action,
-	kind: typeof t.event.$inferInsert.kind = "edit",
+	action: typeof t.audit_event.$inferInsert.action | null,
+	kind: typeof t.audit_event.$inferInsert.kind = "edit",
 	tenant = c.identity.owner.id,
 ) {
-	const [record] = await tx.select({ tenant: t.record.tenant_id }).from(t.record).where(eq(t.record.id, target));
-	const ownedTarget = record?.tenant === tenant ? target : tenant;
-	const [row] = await tx
-		.insert(t.event)
-		.values({
-			tenant_id: tenant,
-			target_record_id: ownedTarget,
-			operation_id: c.id,
-			actor_id: c.identity.actorId,
-			kind,
-			action,
-			occurred_at: now,
-			recorded_at: now,
-			event_key: c.id + "/" + target + "/" + action,
-		})
-		.returning({ id: t.event.id });
-	return row!.id;
-}
-export async function finish<T>(
-	tx: Tx,
-	c: NewCommand,
-	events: string[],
-	schema: z.ZodType<T>,
-	result: (r: Receipt) => unknown,
-	changed = true,
-) {
-	const [clock] = await tx.select({ at: now }).from(t.operation).where(eq(t.operation.id, c.id));
-	const r = receipt.parse({
-		id: c.id,
-		request: c.identity,
-		completedAt: clock!.at.toISOString(),
-		outcome: changed ? "changed" : "noop",
-		subjects: [{ kind: "operation", id: c.id, owner: c.identity.owner }],
-		eventIds: events,
-		effectIds: [],
+	const id = c.events.length ? randomUUID() : c.id;
+	const ownedTarget = sql<string>`coalesce((SELECT id FROM ${t.record} WHERE id=${target}::uuid AND tenant_id=${tenant}::uuid),${tenant}::uuid)`;
+	c.events.push({
+		id,
+		tenant_id: tenant,
+		subject_id: ownedTarget,
+		command_id: c.id,
+		actor_id: c.identity.actorId,
+		kind,
+		action: action ?? writeAction(c.identity.operation),
+		occurred_at: now,
+		recorded_at: now,
+		event_key: c.id + "/" + target + "/" + action,
 	});
-	const value = schema.parse(result(r));
-	await tx
-		.update(t.operation)
-		.set({ state: "complete", outcome: changed ? "committed" : "no_effect", completed_at: now })
-		.where(eq(t.operation.id, c.id));
-	await tx.insert(t.onboarding_result).values({ operation_id: c.id, tenant_id: c.identity.owner.id, value });
+	return id;
+}
+export async function finish<T>(tx: Tx, c: NewCommand, schema: z.ZodType<T>, result: () => unknown) {
+	const value = schema.parse(result());
+	await finishAudit(tx, c, c.identity, value);
 	return value;
 }
 export async function bump(tx: Tx, id: string) {
@@ -273,4 +254,21 @@ export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S>
 	const result = schema.safeParse(raw);
 	if (!result.success) deny("invalid_input");
 	return result.data;
+}
+
+/** The request owns rollback; native writes need no nested savepoint. */
+export async function withOnboardingWrite<T>(
+	db: Database,
+	authority: RequestActor | undefined,
+	context: WriteContext,
+	body: (tx: Tx) => Promise<OnboardingReply<T>>,
+): Promise<OnboardingReply<T>> {
+	return recover(() =>
+		auditTransaction(db, async (tx) => {
+			if (authority && !(await authority.bind(tx, context.selected))) deny();
+			const result = await body(tx);
+			if (result.status === "refused") throw new Refusal(result.error.code);
+			return result;
+		}),
+	);
 }

@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { recordId, revision } from "../common/values.ts";
 import { timeZone } from "../common/time.ts";
-import { commandEnvelope } from "../common/transaction.ts";
-import { organizationOwner, plantOwner } from "../organizations/subjects.ts";
+import { recordId, revision } from "../common/values.ts";
+import { commandEnvelope } from "../common/writes.ts";
 import { profileFields } from "../organizations/requests.ts";
+import { organizationOwner, plantOwner } from "../organizations/subjects.ts";
 import {
 	affiliationPatch,
 	digestSchedule,
@@ -22,6 +22,11 @@ export const getSectionRequest = z.discriminatedUnion("section", [
 	z.strictObject({ section: z.literal("affiliations"), plant: plantOwner, organization: organizationOwner }),
 ]);
 const profilePatch = plantProfile.partial().refine((v) => Object.values(v).some((x) => x !== undefined));
+export const plantChange = z.discriminatedUnion("kind", [
+	z.strictObject({ kind: z.literal("profile"), patch: profilePatch }),
+	z.strictObject({ kind: z.literal("inactivity"), value: inactivity }),
+	z.strictObject({ kind: z.literal("digest"), value: digestSchedule }),
+]);
 export const saveSectionRequest = commandEnvelope(
 	z.discriminatedUnion("section", [
 		z.strictObject({ section: z.literal("account"), name: settingsName }),
@@ -29,11 +34,7 @@ export const saveSectionRequest = commandEnvelope(
 		z.strictObject({
 			section: z.literal("plant"),
 			plant: plantOwner,
-			change: z.discriminatedUnion("kind", [
-				z.strictObject({ kind: z.literal("profile"), patch: profilePatch }),
-				z.strictObject({ kind: z.literal("inactivity"), value: inactivity }),
-				z.strictObject({ kind: z.literal("digest"), value: digestSchedule }),
-			]),
+			change: plantChange,
 		}),
 		z.strictObject({ section: z.literal("teams"), plant: plantOwner, teamId: recordId, name: settingsName }),
 		z.strictObject({
@@ -78,5 +79,12 @@ export const requestAccountDeletion = commandEnvelope(z.strictObject({ confirmed
 export const requestWorkspaceDeletion = commandEnvelope(
 	z.strictObject({ plant: plantOwner, confirmed: z.literal(true) }),
 );
+// One church form submission: up to three changes of different kinds, one write, one audit row and one request key.
+export const saveChurchRequest = commandEnvelope(
+	z
+		.strictObject({ plant: plantOwner, changes: z.array(plantChange).min(1).max(3) })
+		.refine((v) => new Set(v.changes.map((c) => c.kind)).size === v.changes.length),
+);
 export type GetSectionRequest = z.infer<typeof getSectionRequest>;
 export type SaveSectionRequest = z.infer<typeof saveSectionRequest>;
+export type PlantChange = z.infer<typeof plantChange>;

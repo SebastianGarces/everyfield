@@ -3,6 +3,7 @@
 import { Button, Field, Input, Skeleton } from "@everyfield/ui/controls";
 import { LoadableView } from "@everyfield/ui/display";
 import { useState } from "react";
+import { SessionActions } from "../../identity/SessionActions";
 import { AvatarControl } from "../flows/AvatarControl";
 import { AccountDeletionDialog } from "../flows/DeletionDialogs";
 import { EmailChange } from "../flows/EmailChange";
@@ -77,9 +78,15 @@ function AccountForm({
 	return (
 		<>
 			<SectionBody>
-				<SettingRow label="Photo" description="Shown next to your name to people in your church.">
-					<AvatarControl account={account} onChanged={(avatar) => replace({ ...account, avatar })} onReload={reload} />
-				</SettingRow>
+				{port.flows ? (
+					<SettingRow label="Photo" description="Shown next to your name to people in your church.">
+						<AvatarControl
+							account={account}
+							onChanged={(avatar) => replace({ ...account, avatar })}
+							onReload={reload}
+						/>
+					</SettingRow>
+				) : null}
 				<SettingRow label="Name">
 					<Field label={<span className="sr-only">Your name</span>} error={showError ? nameError : undefined}>
 						<Input
@@ -90,23 +97,34 @@ function AccountForm({
 						/>
 					</Field>
 				</SettingRow>
-				<SettingRow label="Email" description="We send a link to the new address to confirm it.">
-					<EmailChange currentEmail={account.email} />
-				</SettingRow>
-				<SettingRow label="Password" description="Changing it signs out your other devices.">
-					<PasswordDialog />
-				</SettingRow>
-				<SettingRow
-					label="Your time zone"
-					description="Sets when your own week starts, for things only you see. Your church's time zone is separate."
-				>
-					<PersonalTimezone />
-				</SettingRow>
-				<SettingRow
-					label="Delete your account"
-					description="Deletes your login only. You have 30 days to change your mind."
-				>
-					<AccountDeletionDialog section={account} onRequested={onDeletionRequested} />
+				{port.flows ? (
+					<>
+						<SettingRow label="Email" description="We send a link to the new address to confirm it.">
+							<EmailChange currentEmail={account.email} />
+						</SettingRow>
+						<SettingRow label="Password" description="Changing it signs out your other devices.">
+							<PasswordDialog />
+						</SettingRow>
+						<SettingRow
+							label="Your time zone"
+							description="Sets when your own week starts, for things only you see. Your church's time zone is separate."
+						>
+							<PersonalTimezone />
+						</SettingRow>
+						<SettingRow
+							label="Delete your account"
+							description="Deletes your login only. You have 30 days to change your mind."
+						>
+							<AccountDeletionDialog section={account} onRequested={onDeletionRequested} />
+						</SettingRow>
+					</>
+				) : (
+					<SettingRow label="Email" description="The address you sign in with.">
+						<p className="pt-2 break-all text-ink-2">{account.email}</p>
+					</SettingRow>
+				)}
+				<SettingRow label="Sessions" description="Sign out here, or on every other device at once.">
+					<SessionActions />
 				</SettingRow>
 			</SectionBody>
 			<SaveFooter

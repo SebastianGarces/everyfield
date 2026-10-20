@@ -1,21 +1,28 @@
-import { parseTheme, ProductRoot, THEME_COOKIE } from "@everyfield/ui/foundations";
-import { cookies } from "next/headers";
-import type { ReactNode } from "react";
+import type { Metadata } from "next";
+import { notFound, redirect } from "next/navigation";
 import { getViewer } from "@/server/request-context";
-import { PeopleFrame } from "../people/PeopleFrame";
+import { dialogSection } from "./model";
+
+export const settingsMetadata: Metadata = { title: "Settings", robots: { index: false, follow: false } };
 
 /**
- * The product root and frame around every /settings page, the same frame as People, so the name button's user menu
- * reaches the other settings pages and People is one click away. Each page still checks its own viewer and access.
+ * A fresh load of a settings section link (/settings/account). The frame's Settings dialog opens from the address;
+ * this page is what lies underneath it. Signed-out visitors sign in and come back.
  */
-export async function SettingsLayout({ children }: { children: ReactNode }) {
-	const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
-	const viewer = (await getViewer())?.people ?? null;
-	return (
-		<ProductRoot initialTheme={theme}>
-			<PeopleFrame name={viewer?.displayName ?? "You"} role={viewer?.role ?? null}>
-				{children}
-			</PeopleFrame>
-		</ProductRoot>
-	);
+export async function SettingsSectionPage({ params }: { params: Promise<{ section: string }> }) {
+	const section = dialogSection((await params).section);
+	if (!section) notFound();
+	const v = await getViewer();
+	if (!v || v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(`/settings/${section}`)}`);
+	return <h1 className="sr-only">Settings</h1>;
+}
+
+/**
+ * /settings is the Settings dialog on the first section this viewer is offered, in one request: the frame's dialog
+ * picks that section from the address (ProductSettings), so no role meets a missing page and there is no redirect.
+ */
+export async function SettingsIndexPage() {
+	const v = await getViewer();
+	if (!v || v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent("/settings")}`);
+	return <h1 className="sr-only">Settings</h1>;
 }

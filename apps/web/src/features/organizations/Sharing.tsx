@@ -9,7 +9,7 @@ import { NotAvailable } from "../access/AccessStates";
 import { useIntent, useLoad } from "./intent";
 import { CATEGORIES, CATEGORY_TEXT } from "./model";
 import { ProblemLine } from "./parts";
-import type { Category, Relationship, Run } from "./port";
+import type { Category, Relationship } from "./port";
 
 type Sharing = z.infer<typeof sharingResult>;
 type Admin = Extract<Sharing, { view: "plant_administration" }>;
@@ -23,30 +23,36 @@ const REFUSED: Record<string, string> = {
  * The organization's view of this connection and the connection revision a change must carry. privacy.getSharing
  * returns only the consent revision, so the caller supplies the connection revision (ruling D17).
  */
+export type SharingRow = { sharing: Sharing; relationshipRevision: string };
 export type ReadSharing = (
 	relationshipId: string,
 	request: ReturnType<typeof readSharingRequest.parse>,
-) => Promise<{ sharing: Sharing; relationshipRevision: string }>;
+) => Promise<SharingRow>;
+/** Saves one choice. The answer is the connection's sharing as saved now, or null when nothing was saved. */
+export type SaveSharing = (command: SetCommand) => Promise<SharingRow | null>;
 
 /**
  * What one connected organization can see (REQ-IDN-022), on the plant's own connection row. Owners and Admins turn
  * each category on or off for this exact organization; Members see that Owners and Admins choose. The words match
- * the settings sharing card (WP-010/ui). The card loads its own state and reloads it after each save, so every
- * change carries the current connection and consent revisions.
+ * the settings sharing card (WP-010/ui). The list reads the card's state with the page; each save answers with the
+ * state as saved, so the next change carries the current connection and consent revisions without another read.
  */
 export function SharingChoices({
 	relationship,
 	organizationName,
+	initial,
 	read,
-	run,
+	save,
 	onChanged,
 }: {
 	relationship: Relationship;
 	organizationName: string;
+	/** The state as the list read it with the page; the card reads again only after a save. */
+	initial?: SharingRow;
 	read: ReadSharing;
-	run: Run;
-	/** After a save: the connection's revision moved, so the list that owns Leave must reload too. */
-	onChanged: () => void;
+	save: SaveSharing;
+	/** After a save: the connection's revision moved, so the list that owns Leave takes the new one. */
+	onChanged: (relationshipRevision: string) => void;
 }) {
 	const pair = relationship.pair;
 	const fetch = useCallback(
@@ -56,7 +62,11 @@ export function SharingChoices({
 				: Promise.resolve({ sharing: { status: "unavailable" } as Sharing, relationshipRevision: "0" }),
 		[pair, read, relationship.id],
 	);
-	const { state, reload, refreshing } = useLoad(fetch, `What ${organizationName} can see did not load`);
+	const { state, reload, update, refreshing } = useLoad(
+		fetch,
+		`What ${organizationName} can see did not load`,
+		initial,
+	);
 	return (
 		<LoadableView
 			state={state}
@@ -83,12 +93,13 @@ export function SharingChoices({
 						data={data}
 						relationshipId={relationship.id}
 						relationshipRevision={relationshipRevision}
-						run={run}
+						save={save}
 						refreshing={refreshing}
-						onSaved={() => {
-							reload();
-							onChanged();
+						onSaved={(row) => {
+							update(() => row);
+							onChanged(row.relationshipRevision);
 						}}
+						onStale={reload}
 					/>
 				)
 			}
@@ -100,17 +111,20 @@ function Switches({
 	data,
 	relationshipId,
 	relationshipRevision,
-	run,
+	save: send,
 	refreshing,
 	onSaved,
+	onStale,
 }: {
 	data: Admin;
 	relationshipId: string;
 	relationshipRevision: string;
-	run: Run;
+	save: SaveSharing;
 	/** A fresh read is running: the revisions on screen may be old, so nothing is sent until it arrives. */
 	refreshing: boolean;
-	onSaved: () => void;
+	onSaved: (row: SharingRow) => void;
+	/** Read the latest state, after an unconfirmed change. */
+	onStale: () => void;
 }) {
 	const save = useIntent<SetCommand>("privacy-sharing");
 	const [next, setNext] = useState<{ category: Category; value: boolean } | null>(null);
@@ -133,11 +147,11 @@ function Switches({
 						enabled: value,
 					},
 				}),
-			(command) => run("privacy.setSharing", command),
-			(r) => r.status === "committed",
+			send,
+			(row) => row !== null,
 		);
 		// On success the switches re-mount on the new revisions; until then they keep the saved value and stay disabled.
-		if (result.ok) onSaved();
+		if (result.ok && result.reply) onSaved(result.reply);
 		else setNext(null);
 	};
 
@@ -191,7 +205,7 @@ function Switches({
 						onClick={() => {
 							// Reading the latest state resolves an unconfirmed change; a new switch is a new command.
 							save.release();
-							onSaved();
+							onStale();
 						}}
 					>
 						Load latest

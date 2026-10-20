@@ -86,18 +86,8 @@ const pair = (
 ) => C.relationshipPair.parse({ kind: "plant", subject, organization });
 const CHURCH_PAIR = C.relationshipPair.parse({ kind: "sending_church", subject: GRACE, organization: AUSTIN });
 
-const hex = () => Array.from({ length: 64 }, () => "0123456789abcdef"[Math.floor(Math.random() * 16)]).join("");
 let counter = 100;
 const nextId = () => uuid(counter++);
-const receipt = (requestKey: string, owner: unknown, operation: OperationName) => ({
-	id: nextId(),
-	request: { owner, actorId: DANIEL, operation, requestKey, digest: hex(), origin: { kind: "native" } },
-	completedAt: new Date().toISOString(),
-	outcome: "changed",
-	subjects: [],
-	eventIds: [],
-	effectIds: [],
-});
 /** A waiting invitation without the receipt that only its own command returns. */
 const bare = (i: PendingInvitation): PendingInvitation => ({
 	status: i.status,
@@ -274,7 +264,7 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 	let pending: PendingInvitation[] =
 		scenario === "connected" && side === "subject"
 			? [
-					C.invitationResult.omit({ receipt: true }).parse({
+					C.invitationResult.omit({}).parse({
 						status: "pending",
 						invitationId: uuid(50),
 						pair: pair(PLANT, RIVERBEND),
@@ -344,7 +334,6 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 					revision: "1",
 					expiresAt: days(30),
 					inviterDescription: "Daniel Reyes, Owner of Harvest Point Church",
-					receipt: receipt(command.requestKey, PLANT, operation),
 				});
 				pending = [bare(made), ...pending];
 				return made;
@@ -356,7 +345,6 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 					...original,
 					revision: String(Number(original.revision) + 1),
 					expiresAt: days(30),
-					receipt: receipt(command.requestKey, PLANT, operation),
 				});
 				pending = pending.map((i) => (i.invitationId === next.invitationId ? bare(next) : i));
 				return next;
@@ -365,7 +353,7 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 				const found = pending.some((i) => i.invitationId === command.input.invitationId);
 				if (refuse || !found) return C.mutationResult.parse({ status: "unavailable" });
 				pending = pending.filter((i) => i.invitationId !== command.input.invitationId);
-				return C.mutationResult.parse({ status: "committed", receipt: receipt(command.requestKey, PLANT, operation) });
+				return C.mutationResult.parse({ status: "committed" });
 			}
 			case "associations.end": {
 				const index = active.findIndex((r) => r.relationship.id === command.input.relationshipId);
@@ -383,13 +371,12 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 				);
 				return C.mutationResult.parse({
 					status: "committed",
-					receipt: receipt(command.requestKey, side === "subject" ? PLANT : AUSTIN, operation),
 				});
 			}
 			case "associations.respondInvitation": {
 				if (refuse) return C.invitationDecisionResult.parse({ status: "unavailable" });
 				const decision = command.input.decision as "accept" | "decline";
-				const r = receipt(command.requestKey, AUSTIN, operation);
+
 				return C.invitationDecisionResult.parse(
 					decision === "accept"
 						? {
@@ -401,9 +388,8 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 									acceptedAt: new Date().toISOString(),
 									endedAt: null,
 								},
-								receipt: r,
 							}
-						: { status: "declined", invitationId: command.input.invitationId, receipt: r },
+						: { status: "declined", invitationId: command.input.invitationId },
 				);
 			}
 			case "privacy.getSharing": {
@@ -440,7 +426,7 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 						revision: String(Number(row.relationship.revision) + 1),
 					}),
 				};
-				return C.mutationResult.parse({ status: "committed", receipt: receipt(command.requestKey, PLANT, operation) });
+				return C.mutationResult.parse({ status: "committed" });
 			}
 			case "residency.readSharing":
 				return C.residencySharingResult.parse(
@@ -466,7 +452,6 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 				};
 				return C.mutationResult.parse({
 					status: "committed",
-					receipt: receipt(command.requestKey, { kind: "account", id: DANIEL }, operation),
 				});
 			case "residency.leave":
 				if (refuse) return C.mutationResult.parse({ status: "unavailable" });
@@ -475,7 +460,6 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 				residency = { ...residency, status: "ended" };
 				return C.mutationResult.parse({
 					status: "committed",
-					receipt: receipt(command.requestKey, { kind: "account", id: DANIEL }, operation),
 				});
 			case "pipelineSharing.readConsent":
 				return C.pipelineConsentResult.parse({
@@ -488,7 +472,7 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 			case "pipelineSharing.setConsent":
 				if (refuse) return C.mutationResult.parse({ status: "unavailable" });
 				pipeline = { revision: pipeline.revision + 1, share: command.input.sharePipelineTotals as boolean };
-				return C.mutationResult.parse({ status: "committed", receipt: receipt(command.requestKey, GRACE, operation) });
+				return C.mutationResult.parse({ status: "committed" });
 			default:
 				throw new Error(`The preview has no sample reply for ${operation}.`);
 		}
@@ -496,7 +480,7 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 
 	const load = async () => {
 		const history = await read(null);
-		return { history, pending };
+		return { history, pending, sharing: {} };
 	};
 	const readResidency = async (linkId: string) => ({
 		sharing: (await run("residency.readSharing", C.residencySharingRequest.parse({ linkId }))) as z.infer<
@@ -518,11 +502,29 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 		}
 		return sampleDisclosure(p);
 	};
-	return { load, read, run, readResidency, readSharing, readDisclosure, residencyLink: RESIDENT_LINK };
+	// The real actions answer an end with the history and a save with the sharing as saved, in the same request.
+	const end = async (command: z.infer<typeof C.endRelationshipRequest>) => {
+		const r = (await run("associations.end", command)) as z.infer<typeof C.mutationResult>;
+		return r.status === "committed" ? read(null) : null;
+	};
+	const saveSharing = async (command: z.infer<typeof C.setSharingRequest>) => {
+		const r = (await run("privacy.setSharing", command)) as z.infer<typeof C.mutationResult>;
+		return r.status === "committed" ? readSharing(command.input.relationshipId, command.input) : null;
+	};
+	return {
+		load,
+		read,
+		run,
+		end,
+		readResidency,
+		sharing: { read: readSharing, save: saveSharing },
+		readDisclosure,
+		residencyLink: RESIDENT_LINK,
+	};
 }
 
 /** The request the recipient opened from the emailed link (WP-008 owns the link landing). */
-export const INVITATION: PendingInvitation = C.invitationResult.omit({ receipt: true }).parse({
+export const INVITATION: PendingInvitation = C.invitationResult.omit({}).parse({
 	status: "pending",
 	invitationId: uuid(60),
 	pair: pair(EASTSIDE, AUSTIN),

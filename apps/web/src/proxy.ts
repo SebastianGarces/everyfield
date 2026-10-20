@@ -10,4 +10,5 @@ export function proxy(request: NextRequest) {
 	return NextResponse.next();
 }
 
-export const config = { matcher: ["/people/:path*"] };
+// Signed-out visitors to product pages go to sign-in before any server work; the pages still check the real session.
+export const config = { matcher: ["/people/:path*", "/settings/:path*", "/onboarding/:path*"] };

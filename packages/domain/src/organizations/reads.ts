@@ -1,11 +1,11 @@
-import "server-only";
-import { z } from "zod";
-import type { Database } from "@everyfield/db/client";
-import { and, eq, inArray, isNull, sql } from "@everyfield/db/query";
-import * as t from "@everyfield/db/tables";
 import type { Owner } from "@everyfield/contracts/common";
 import { sessionResult } from "@everyfield/contracts/identity";
 import * as C from "@everyfield/contracts/organizations";
+import type { Database } from "@everyfield/db/client";
+import { and, eq, sql } from "@everyfield/db/query";
+import * as t from "@everyfield/db/tables";
+import "server-only";
+import { z } from "zod";
 
 /** `account`: a seatless account without a Discovery profile, for example a resident. It sees only its own residency
  * links. */
@@ -26,38 +26,19 @@ export type Viewer = {
 export async function namesFor(db: Database, viewer: Viewer, ids: string[]): Promise<Record<string, string>> {
 	const unique = [...new Set(ids)];
 	if (unique.length === 0) return {};
-	const plants = await db
-		.select({ id: t.plant.id, name: t.plant.name })
-		.from(t.plant)
-		.where(inArray(t.plant.id, unique));
-	const orgs = await db
-		.select({ id: t.organization.id, name: t.organization.name })
-		.from(t.organization)
-		.where(inArray(t.organization.id, unique));
 	const workspace = viewer.selected.kind === "account" ? null : viewer.selected;
-	const visible = await db
-		.select({ id: t.account.id })
-		.from(t.account)
-		.where(
-			and(
-				inArray(t.account.id, unique),
-				workspace
-					? sql`(${t.account.id} = ${viewer.accountId} OR EXISTS (SELECT 1 FROM seat s WHERE s.account_id = ${t.account.id} AND s.ended_at IS NULL AND (s.plant_id = ${workspace.id} OR s.organization_id = ${workspace.id})))`
-					: eq(t.account.id, viewer.accountId),
-			),
-		);
-	// The name comes through seat_identity, the reviewed definer function the seat service uses (auth_user is not
-	// readable by the runtime role).
-	const people = visible.length
-		? (
-				await db.execute<{ id: string; name: string | null }>(sql`
-		SELECT a.id, identity.display_name AS name
-		FROM unnest(${sql.param(visible.map((row) => row.id))}::uuid[]) WITH ORDINALITY AS a(id, position)
-		CROSS JOIN LATERAL seat_identity(a.id) identity ORDER BY a.position
-	`)
-			).rows.map((row) => ({ id: row.id, name: row.name ?? "" }))
-		: [];
-	return Object.fromEntries([...plants, ...orgs, ...people.filter((p) => p.name)].map((r) => [r.id, r.name]));
+	// One statement. Account names come through seat_identity, the reviewed definer function (auth_user is not readable
+	// by the runtime role).
+	const rows = await db.execute<{ id: string; name: string | null }>(sql`
+		SELECT p.id, p.name FROM plant p WHERE p.id=ANY(${sql.param(unique)}::uuid[])
+		UNION ALL SELECT o.id, o.name FROM organization o WHERE o.id=ANY(${sql.param(unique)}::uuid[])
+		UNION ALL SELECT a.id, identity.display_name FROM account a CROSS JOIN LATERAL seat_identity(a.id) identity
+		WHERE a.id=ANY(${sql.param(unique)}::uuid[]) AND (a.id=${viewer.accountId} OR ${
+			workspace
+				? sql`EXISTS (SELECT 1 FROM seat s WHERE s.account_id=a.id AND s.ended_at IS NULL AND (s.plant_id=${workspace.id} OR s.organization_id=${workspace.id}))`
+				: sql`false`
+		})`);
+	return Object.fromEntries(rows.rows.filter((r) => r.name).map((r) => [r.id, r.name!]));
 }
 
 /** IDs of every endpoint and actor a history page names. */
@@ -102,7 +83,7 @@ export async function pendingFor(db: Database, viewer: Viewer) {
 		ORDER BY i.created_at DESC LIMIT 50`,
 	);
 	return rows.rows.map((r) =>
-		C.invitationResult.omit({ receipt: true }).parse({
+		C.invitationResult.omit({}).parse({
 			status: "pending",
 			invitationId: r.invitation_id,
 			pair: pairOf(viewer, { kind: "organization", id: r.organization_id, organizationKind: r.organization_kind }),
@@ -198,12 +179,4 @@ export async function connectionRevision(db: Database, viewer: Viewer, relations
 		.from(t.affiliation)
 		.where(and(eq(t.affiliation.id, relationshipId), eq(t.affiliation.plant_id, viewer.selected.id)));
 	return r ? String(r.revision) : null;
-}
-
-export async function hasDiscoveryProfile(db: Database, accountId: string) {
-	const rows = await db
-		.select({ id: t.discovery.id })
-		.from(t.discovery)
-		.where(and(eq(t.discovery.account_id, accountId), isNull(t.discovery.converted_at)));
-	return rows.length > 0;
 }

@@ -24,6 +24,9 @@ if (!["openai", "anthropic"].includes(family)) refuse("--family must be openai o
 if (!["approved", "changes_requested"].includes(verdict)) refuse("--verdict must be approved or changes_requested");
 if (!["approved", "changes_requested"].includes(quality.verdict)) refuse("--quality-verdict must be approved or changes_requested");
 if (!quality.principles?.length || quality.principles.some((name) => !name)) refuse("--principles must name the principles checked, separated by commas");
+const requiredPrinciples = ["laziness-protocol", "minimize-reader-load", "subtract-before-you-add", "test-behavior-not-implementation"];
+const missingPrinciples = requiredPrinciples.filter((name) => !quality.principles.includes(name));
+if (missingPrinciples.length) refuse(`--principles is missing required names: ${missingPrinciples.join(", ")}`);
 if (verdict === "approved" && quality.verdict !== "approved") refuse("approval needs an approved code quality review");
 if (!["approved", "changes_requested"].includes(experience.verdict)) refuse("--experience-verdict must be approved or changes_requested");
 if (!["met", "exceeded", "not_applicable"].includes(experience.budget)) refuse("--budget must be met, exceeded or not_applicable");

@@ -3,7 +3,7 @@ import { eq } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import * as c from "@everyfield/contracts/onboarding";
 import type { OnboardingProducer } from "@everyfield/contracts/onboarding/server";
-import { actor, deny, parse, reply, seatless, type Tx } from "./core.ts";
+import { actor, deny, parse, readReply, seatless, type Tx } from "./core.ts";
 import { creation, profile, type OnboardingEffects } from "./creation.ts";
 import { setup } from "./setup.ts";
 export type { OnboardingEffects };
@@ -13,7 +13,7 @@ export function createOnboardingProducer(effects: OnboardingEffects): Onboarding
 		...creation(effects),
 		...setup,
 		async getDiscoveryProfile(tx, ctx, raw) {
-			return reply(tx, async () => {
+			return readReply(async () => {
 				parse(c.getDiscoveryProfileRequest, raw);
 				if (ctx.selected.kind !== "account") deny();
 				const a = await actor(tx, ctx);
@@ -26,7 +26,7 @@ export function createOnboardingProducer(effects: OnboardingEffects): Onboarding
 						plant: { kind: "plant", id: d.converted_plant_id },
 						convertedAt: d.converted_at.toISOString(),
 					});
-				await seatless(tx, a.account.id);
+				await seatless(tx, a.account.id, false);
 				return c.discoveryProfileResult.parse({ status: "active", profile: await profile(tx, a.account.id, d) });
 			});
 		},
@@ -35,3 +35,5 @@ export function createOnboardingProducer(effects: OnboardingEffects): Onboarding
 
 export { readOnboardingEntry, readOnboardingNoticeRecipients } from "./reads.ts";
 export type { RawEntry } from "./reads.ts";
+
+export { withOnboardingWrite } from "./core.ts";

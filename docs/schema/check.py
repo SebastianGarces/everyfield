@@ -16,9 +16,8 @@ LIBRARY_TABLES = {'auth_user', 'auth_account', 'auth_session', 'auth_verificatio
 CLOSED_VALUE_COLUMNS = {
     'mail': ['purpose'], 'notice': ['purpose'], 'effect': ['kind'],
     'operation': ['name', 'stop_reason'],
-    'evidence_link': ['purpose', 'projection', 'source_purpose'],
-    'assessment_fact': ['evidence_quality'], 'contact_outcome': ['contact_channel'],
-    'person': ['source'], 'event': ['action'], 'job': ['kind'],
+    'contact_outcome': ['contact_channel'],
+    'person': ['source'], 'audit_event': ['action','kind'], 'job': ['kind'],
 }
 OWNER_COLUMNS = {'tenant_id', 'plant_id', 'organization_id', 'account_id', 'owner_id', 'author_id'}
 OWNER_ROOTS = {'account', 'plant', 'organization'}
@@ -229,10 +228,8 @@ def validate_catalog_sets(schema, operations):
     """Literal operation sets follow the inventory; projections follow schema metadata."""
     operations = [o for o in operations if not o['id'].startswith('privateCare.')]
     expected = {
-        ('operation', 'name'): {o['id'] for o in operations},
+        ('audit_event','action'): set(re.findall(r'\b[a-z_]+\.[a-z_]+\b','\n'.join(line for line in (ROOT/'docs/architecture/audit.md').read_text().splitlines() if line.startswith('|'))))|{'note_correction'},
         ('effect', 'kind'): {o['id'] for o in operations if o['kind'] == 'command'},
-        ('evidence_link', 'source_purpose'): {o['id'] for o in operations if o['kind'] == 'query'},
-        ('evidence_link', 'projection'): set(schema['type_contracts']['evidence_link.projection']),
     }
     tables = {t['name']: t for t in schema['tables']}
     errors = []
@@ -259,9 +256,11 @@ def coverage(capability_files, features, schema):
     feature_ids = {f['id'] for f in features}
     covered_features = {f for c in capabilities for f in c['feature_ids']}
     persistent = {c['id'] for c in capabilities if c['persists']}
+    deferred=set(schema.get('schema_deferred_capabilities', []))
+    if deferred - persistent: errors.append('Deferred schema capability must name a persistent product capability')
     served = {c for t in schema['tables'] for c in t['capabilities']}
     missing_features = sorted(active_ids - covered_features)
-    missing_capabilities = sorted(persistent - served)
+    missing_capabilities = sorted(persistent - served - deferred)
     unknown_features = sorted(covered_features - feature_ids)
     unknown_capabilities = sorted(served - set(capability_ids))
     if missing_features:
@@ -392,20 +391,19 @@ def self_test(root):
         ('missing unique column', 'unique', 1, 'key names missing columns'),
         ('unmapped persistent capability', 'capability', 1, 'persistent capabilities without a table'),
         ('missing active feature', 'feature', 1, 'active features missing from capabilities'),
-        ('mixed-scope child without compound FK', 'tenant_fk', 1, 'tenant-owned parent conversation lacks compound owner FK'),
+        ('mixed-scope child without compound FK', 'tenant_fk', 1, 'tenant-owned parent document lacks compound owner FK'),
         ('INV-tenancy: mail Person FK without plant owner', 'plant_fk', 1, 'tenant-owned parent person lacks compound owner FK'),
         ('INV-tenancy: editor revision FK without organization owner', 'organization_fk', 1, 'tenant-owned parent article_revision lacks compound owner FK'),
-        ('INV-tenancy: publication FK without account owner', 'account_fk', 1, 'tenant-owned parent feedback lacks compound owner FK'),
         ('INV-tenancy: root avatar FK without account owner', 'root_fk', 1, 'authority.account: tenant-owned parent file_object lacks compound owner FK'),
         ('INV-tenancy: invented scope exception', 'undocumented_exception', 1, 'scope exception not named in README: mail(recipient_person_id) -> person(id)'),
         ('INV-tenancy: documented cross-owner source', 'documented_exception', 0, 'PASS: structural keys'),
-        ('mixed-scope child without any parent FK', 'missing_parent', 1, 'UUID relation conversation_id has no FK'),
+        ('mixed-scope child without any parent FK', 'missing_parent', 1, 'UUID relation document_id has no FK'),
         ('nullable global owner bypass', 'nullable_tenant', 1, 'tenant_id must be nonnull'),
-        ('unconditional NULL CHECK', 'null_check', 1, 'CHECK forces column title to stay null'),
-        ('conjunctive NULL CHECK', 'null_and', 1, 'CHECK forces column title to stay null'),
-        ('NULL in every alternative', 'null_or', 1, 'CHECK forces column title to stay null'),
+        ('unconditional NULL CHECK', 'null_check', 1, 'CHECK forces column body to stay null'),
+        ('conjunctive NULL CHECK', 'null_and', 1, 'CHECK forces column body to stay null'),
+        ('NULL in every alternative', 'null_or', 1, 'CHECK forces column body to stay null'),
         ('missing closed-value CHECK', 'closed', 1, 'closed-value column purpose lacks literal IN CHECK'),
-        ('catalog drift', 'catalog', 1, 'name IN CHECK differs from current operation catalog'),
+        ('catalog drift', 'catalog', 1, 'action IN CHECK differs from current operation catalog'),
         ('missing producer', 'producer', 1, 'no producer package'),
         ('unknown producer', 'producer_unknown', 1, 'unknown producer packages'),
         ('missing inherited producer', 'producer_inherited', 1, 'missing inherited producer packages'),
@@ -442,14 +440,13 @@ def self_test(root):
                     for capability in file['capabilities']:
                         capability['feature_ids'] = [f for f in capability['feature_ids'] if f != 'IDN-001']
             elif fault == 'tenant_fk':
-                entry = next(t for t in candidate['tables'] if t['name'] == 'conversation_entry')
-                parent = next(f for f in entry['foreign_keys'] if f['references']['table'] == 'conversation')
-                parent['columns'], parent['references']['columns'] = ['conversation_id'], ['id']
-            elif fault in {'plant_fk', 'organization_fk', 'account_fk', 'root_fk', 'undocumented_exception', 'documented_exception'}:
+                entry = next(t for t in candidate['tables'] if t['name'] == 'document_revision')
+                parent = next(f for f in entry['foreign_keys'] if f['references']['table'] == 'document')
+                parent['columns'], parent['references']['columns'] = ['document_id'], ['id']
+            elif fault in {'plant_fk', 'organization_fk', 'root_fk', 'undocumented_exception', 'documented_exception'}:
                 table_name, column = {
                     'plant_fk': ('mail', 'recipient_person_id'),
                     'organization_fk': ('article_editor_state', 'draft_revision_id'),
-                    'account_fk': ('feedback_publication', 'feedback_id'),
                     'root_fk': ('account', 'avatar_object_id'),
                     'undocumented_exception': ('mail', 'recipient_person_id'),
                     'documented_exception': ('mail', 'recipient_person_id'),
@@ -464,24 +461,24 @@ def self_test(root):
                         registered = next(r for r in candidate['person_references'] if r['table'] == 'mail')
                         registered['columns'], registered['target_columns'] = [column], ['id']
             elif fault == 'missing_parent':
-                entry = next(t for t in candidate['tables'] if t['name'] == 'conversation_entry')
-                entry['foreign_keys'] = [f for f in entry['foreign_keys'] if f['references']['table'] != 'conversation']
+                entry = next(t for t in candidate['tables'] if t['name'] == 'document_revision')
+                entry['foreign_keys'] = [f for f in entry['foreign_keys'] if f['references']['table'] != 'document']
             elif fault == 'nullable_tenant':
-                entry = next(t for t in candidate['tables'] if t['name'] == 'conversation_entry')
+                entry = next(t for t in candidate['tables'] if t['name'] == 'document_revision')
                 next(c for c in entry['columns'] if c['name'] == 'tenant_id')['nullable'] = True
             elif fault in {'null_check', 'null_and', 'null_or'}:
-                conversation = next(t for t in candidate['tables'] if t['name'] == 'conversation')
+                conversation = next(t for t in candidate['tables'] if t['name'] == 'document_revision')
                 conversation['checks'].append({
-                    'null_check': '(title IS NULL)',
-                    'null_and': '(title is null) and revision >= 1',
-                    'null_or': "(title is null and state = 'open') or (state = 'archived' and title is null)",
+                    'null_check': '(body IS NULL)',
+                    'null_and': '(body is null) and version_number >= 1',
+                    'null_or': "(body is null and version_number = 1) or (version_number = 2 and body is null)",
                 }[fault])
             elif fault == 'closed':
                 mail = next(t for t in candidate['tables'] if t['name'] == 'mail')
                 mail['checks'] = [c for c in mail['checks'] if not c.startswith('purpose in')]
             elif fault == 'catalog':
-                operation = next(t for t in candidate['tables'] if t['name'] == 'operation')
-                operation['checks'] = ["name in ('invented.command')" if c.startswith('name in') else c for c in operation['checks']]
+                operation=next(t for t in candidate['tables'] if t['name']=='audit_event')
+                operation['checks']=["action in ('invented.command')" if c.startswith('action in') else c for c in operation['checks']]
             elif fault == 'producer':
                 candidate['tables'][0]['producer_work_packages'] = []
             elif fault == 'producer_unknown':

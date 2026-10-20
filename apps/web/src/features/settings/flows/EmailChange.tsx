@@ -5,7 +5,7 @@ import { normalizedEmail } from "@everyfield/contracts/identity";
 import { Button, Field, Input } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
 import { refusalOf } from "../save";
-import { useFlowState, useSettings } from "../store";
+import { useFlowState, useFlows } from "../store";
 
 type State =
 	| { step: "idle" }
@@ -19,7 +19,7 @@ type State =
  * answer, so the screen never hides a link that was sent.
  */
 export function EmailChange({ currentEmail }: { currentEmail: string }) {
-	const { port } = useSettings();
+	const port = useFlows();
 	// Kept in the settings store: leaving Your account while a link sends, or after it was sent, keeps that step.
 	const [state, setState] = useFlowState<State>("email-change", { step: "idle" });
 	const start = () => setState({ step: "editing", value: "", sending: false });

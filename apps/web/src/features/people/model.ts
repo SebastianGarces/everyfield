@@ -370,6 +370,23 @@ export async function runSave<P extends Saved, D, T>(
 	return result;
 }
 
+/**
+ * Activity after a saved change, without reading it again: an entry with a new ID joins the end of the list (Activity
+ * is oldest first), and an entry with a known ID (an edited or deleted note) replaces it in place. While later pages
+ * are still unloaded the new entry belongs to them, so the loaded pages stay as they are.
+ */
+export function withEntry<E extends { id: string }, A extends { items: E[]; next: number | null }>(
+	activities: Outcome<A>,
+	entry: E,
+): Outcome<A> {
+	if (activities.status !== "ok") return activities;
+	const list = activities.value;
+	if (list.items.some((e) => e.id === entry.id))
+		return { status: "ok", value: { ...list, items: list.items.map((e) => (e.id === entry.id ? entry : e)) } };
+	if (list.next !== null) return activities;
+	return { status: "ok", value: { ...list, items: [...list.items, entry] } };
+}
+
 /** A column order with one person moved one place up or down. The same order when that move leaves the column. */
 export function moveInOrder(ids: readonly string[], id: string, direction: "up" | "down"): string[] {
 	const from = ids.indexOf(id),
@@ -378,4 +395,49 @@ export function moveInOrder(ids: readonly string[], id: string, direction: "up" 
 	const next = [...ids];
 	[next[from], next[to]] = [next[to]!, next[from]!];
 	return next;
+}
+
+/** The pipeline column a stage shows in: core group, launch team and leader share the last column. */
+export function columnOf(stage: StageValue): ColumnValue {
+	return stage === "launch_team" || stage === "leader" ? "core_group" : stage;
+}
+
+/** A column as the server saved it, from a reorder or stage-change answer (D68). */
+export type ColumnAnswer<R extends string = string> = {
+	revision: string;
+	personIds: string[];
+	personRevisions: Record<string, R>;
+};
+
+/**
+ * The cards one pipeline column shows (D68). It starts from the loaded server copy and applies the moves since then.
+ * A card shows in the column of its current stage. Cards keep the column's latest saved order (`order` while a reorder
+ * is pending), and anyone the answer does not list goes to the end. Each person carries the newest revision that any
+ * answer gave, so a later move never sends an older one.
+ */
+export function columnCards<C extends { person: { id: string; stage: StageValue; revision: R } }, R extends string>(
+	column: ColumnValue,
+	loaded: readonly C[],
+	moved: ReadonlyMap<string, C>,
+	answer: ColumnAnswer<R> | undefined,
+	order?: readonly string[],
+): C[] {
+	const here = loaded.map((c) => moved.get(c.person.id) ?? c).filter((c) => columnOf(c.person.stage) === column);
+	const arrived = [...moved.values()].filter(
+		(c) => columnOf(c.person.stage) === column && !loaded.some((l) => l.person.id === c.person.id),
+	);
+	const cards = [...here, ...arrived].map((c) => {
+		const saved = answer?.personRevisions[c.person.id];
+		return saved && newerRevision(saved, c.person.revision) ? { ...c, person: { ...c.person, revision: saved } } : c;
+	});
+	const ids = order ?? answer?.personIds;
+	if (!ids) return cards;
+	const rank = (c: C) => {
+		const i = ids.indexOf(c.person.id);
+		return i < 0 ? ids.length : i;
+	};
+	return cards
+		.map((c, i) => ({ c, i }))
+		.sort((a, b) => rank(a.c) - rank(b.c) || a.i - b.i)
+		.map(({ c }) => c);
 }
