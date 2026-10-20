@@ -8,6 +8,7 @@ import {
 	invitationFor,
 	namesFor,
 	pendingFor,
+	readHistory,
 	residencyRevision,
 	runOperation,
 	scopeOf,
@@ -15,9 +16,10 @@ import {
 	type Operation,
 	type Reply,
 } from "@/server/organizations";
+import type { OrganizationOperations } from "@everyfield/contracts/organizations";
 
-// The browser's only door to the organization mount (WP-007/ui ruling D11). Each returns plain contract values;
-// real.ts parses them again before a screen sees them. Every call re-reads the session and the current seat.
+// The browser's only door to the organization mount (WP-007/ui ruling D11). Each action returns the typed contract
+// value of its operation; the screens trust it. Every call re-reads the session and the current seat once.
 
 const OPERATIONS = [
 	"associations.invite",
@@ -36,35 +38,27 @@ const OPERATIONS = [
 	"pipelineSharing.checkAggregateAccess",
 ] as const satisfies readonly Operation[];
 const operation = z.enum(OPERATIONS);
-const refused: Reply = { status: "refused", code: "unavailable" };
+const refused: Reply<never> = { status: "refused", code: "unavailable" };
 
-export async function runOrganizationOperation(name: string, input: unknown): Promise<Reply> {
+type Ops = OrganizationOperations;
+export async function runOrganizationOperation<K extends Operation>(
+	name: K,
+	input: Ops[K]["input"],
+): Promise<Reply<Ops[K]["output"]>> {
 	const op = operation.safeParse(name);
 	if (!op.success) return refused;
 	const who = await viewerOf();
 	if (who.kind !== "viewer") return refused;
-	return runOperation(who.mount, who.viewer, op.data, input, who.authority);
+	return runOperation(who.mount, who.viewer, op.data as K, input, who.authority);
 }
 
-/** One history page of this viewer's own scope, with the names it shows. */
+/** One history page of this viewer's own scope, with the names it shows: two statements after the viewer. */
 export async function loadHistoryPage(after: string | null) {
 	const who = await viewerOf();
 	if (who.kind !== "viewer") return { page: { status: "unavailable" as const }, names: {} };
-	const cursor = after === null ? {} : { after };
-	const reply = await runOperation(
-		who.mount,
-		who.viewer,
-		"associations.getHistory",
-		{
-			...scopeOf(who.viewer),
-			...cursor,
-		},
-		who.authority,
-	);
-	if (reply.status !== "ok") return { page: { status: "unavailable" as const }, names: {} };
-	const page = reply.value as Parameters<typeof idsIn>[0] & { status: string };
+	const page = await readHistory(who.mount.db, who.authority, { ...scopeOf(who.viewer), ...(after ? { after } : {}) });
 	const names = page.status === "available" ? await namesFor(who.mount.db, who.viewer, idsIn(page)) : {};
-	return { page: reply.value, names };
+	return { page, names };
 }
 
 /** The connections list: first history page, the requests still waiting, and their names. */
@@ -102,7 +96,9 @@ export async function loadInvitation(invitationId: string, proof: string) {
 }
 
 /** One of this account's own residency links: the consent and the link revision a change must carry. */
-export async function loadResidency(linkId: string) {
+export async function loadResidency(
+	linkId: string,
+): Promise<{ sharing: Ops["residency.readSharing"]["output"]; linkRevision: string }> {
 	const unavailable = { sharing: { status: "unavailable" as const }, linkRevision: "0" };
 	const who = await viewerOf();
 	if (who.kind !== "viewer") return unavailable;
@@ -115,7 +111,10 @@ export async function loadResidency(linkId: string) {
 }
 
 /** One of this plant's own connections: what it shares and the connection revision a change must carry. */
-export async function loadSharing(relationshipId: string, request: unknown) {
+export async function loadSharing(
+	relationshipId: string,
+	request: Ops["privacy.getSharing"]["input"],
+): Promise<{ sharing: Ops["privacy.getSharing"]["output"]; relationshipRevision: string }> {
 	const unavailable = { sharing: { status: "unavailable" as const }, relationshipRevision: "0" };
 	const who = await viewerOf();
 	if (who.kind !== "viewer") return unavailable;

@@ -35,7 +35,7 @@ const env = z.object({
 
 type Ops = OrganizationOperations;
 export type Operation = keyof Ops;
-export type Reply = { status: "ok"; value: unknown } | { status: "refused"; code: string };
+export type Reply<T = unknown> = { status: "ok"; value: T } | { status: "refused"; code: string };
 
 /** The domain refuses by throwing a short code (`refuse()` in core.ts); anything else is not a refusal. */
 const REFUSAL_CODE = /^[a-z_]{3,40}$/;
@@ -153,18 +153,26 @@ export async function viewerOf(): Promise<
 	};
 }
 
-/** Run one operation for this viewer. Residency consent is the resident's own, so it runs as the account. */
-export async function runOperation(
+/**
+ * Run one operation for this viewer, typed by the operation name. Residency consent is the resident's own, so it
+ * runs as the account. The domain parses the input; the browser input reaches it as unknown.
+ */
+export async function runOperation<K extends Operation>(
 	m: Mount,
 	viewer: Viewer,
-	op: Operation,
-	input: unknown,
+	op: K,
+	input: Ops[K]["input"] | unknown,
 	authority: RequestActor,
-): Promise<Reply> {
+): Promise<Reply<Ops[K]["output"]>> {
 	const selected = op.startsWith("residency.")
 		? owner.parse({ kind: "account", id: viewer.accountId })
 		: viewer.selected;
-	const call = m.adapter[op] as (tx: Transaction, s: Viewer["session"], o: Owner, i: unknown) => Promise<unknown>;
+	const call = m.adapter[op] as (
+		tx: Transaction,
+		s: Viewer["session"],
+		o: Owner,
+		i: unknown,
+	) => Promise<Ops[K]["output"]>;
 	try {
 		const value = await auditTransaction(m.db, async (tx) => {
 			if (!(await authority.bind(tx, selected))) throw new Error("unavailable");
@@ -210,6 +218,7 @@ export {
 	namesFor,
 	pairOf,
 	pendingFor,
+	readHistory,
 	residencyLinks,
 	residencyRevision,
 	subjectFacts,

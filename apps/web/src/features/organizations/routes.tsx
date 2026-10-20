@@ -5,7 +5,10 @@ import { redirect } from "next/navigation";
 import { Card } from "@everyfield/ui/controls";
 import { NotAvailable } from "../access/AccessStates";
 import {
+	idsIn,
 	namesFor,
+	pendingFor,
+	readHistory,
 	residencyLinks,
 	runOperation,
 	scopeOf,
@@ -13,7 +16,6 @@ import {
 	targetsFor,
 	viewerOf,
 } from "@/server/organizations";
-import * as C from "@everyfield/contracts/organizations";
 import { RealRespond } from "./RealRespond";
 import { RealSharing, type SharingPageData } from "./RealSharing";
 
@@ -42,11 +44,11 @@ export async function SharingPage() {
 	const { mount: m, viewer } = who;
 	// A seatless account without a Discovery profile has only its own residency links here.
 	if (viewer.kind === "account" && (await residencyLinks(m.db, viewer)).length === 0) return refused;
-	const first =
+	// The first connections list renders with the page: history, waiting requests and their names in one pass.
+	const [history, pending] =
 		viewer.kind === "account"
-			? ({ status: "refused", code: "unavailable" } as const)
-			: await runOperation(m, viewer, "associations.getHistory", scopeOf(viewer), who.authority);
-	const history = first.status === "ok" ? C.relationshipHistoryResult.parse(first.value) : null;
+			? [null, []]
+			: await Promise.all([readHistory(m.db, who.authority, scopeOf(viewer)), pendingFor(m.db, viewer)]);
 	const active = history && history.status === "available" ? history.activeRelationships : [];
 	const activeOrgs = new Set(
 		active
@@ -61,11 +63,10 @@ export async function SharingPage() {
 		subjectFacts(m.db, viewer),
 		viewer.canManage ? targetsFor(m.db, viewer, activeOrgs) : Promise.resolve([]),
 		residencyLinks(m.db, viewer),
-		namesFor(
-			m.db,
-			viewer,
-			networks.map((n) => n.pair.organization.id),
-		),
+		namesFor(m.db, viewer, [
+			...(history?.status === "available" ? idsIn(history) : []),
+			...pending.map((p) => p.pair.organization.id),
+		]),
 		viewer.kind === "sending_network" && viewer.selected.kind === "organization"
 			? runOperation(m, viewer, "pipelineSharing.checkAggregateAccess", { network: viewer.selected }, who.authority)
 			: Promise.resolve(null),
@@ -78,8 +79,9 @@ export async function SharingPage() {
 		names,
 		targets,
 		networks: networks.map((n) => ({ relationshipId: n.id, name: names[n.pair.organization.id] ?? "Network" })),
-		aggregate: aggregate && aggregate.status === "ok" ? C.pipelineAggregateAccessResult.parse(aggregate.value) : null,
+		aggregate: aggregate?.status === "ok" ? aggregate.value : null,
 		residencies,
+		connections: history ? { history, pending } : null,
 	};
 	return <RealSharing data={data} />;
 }

@@ -117,8 +117,11 @@ export const affiliationSchema = z.object({
 export type Affiliation = z.infer<typeof affiliationSchema>;
 const receivingOrganization = alias(tables.organization, "receiving_organization");
 const sendingOrganization = alias(tables.organization, "sending_organization");
-export async function loadAffiliations(tx: Transaction, predicate: SQL, write = false) {
-	const rows = await tx
+/** A pool or a transaction: a read needs no transaction. */
+export type Reader = Pick<Transaction, "select" | "execute">;
+/** Affiliations with their names and a computed `active` flag. A write locks the rows; a read takes no lock. */
+export async function loadAffiliations(tx: Reader, predicate: SQL, write = false) {
+	const query = tx
 		.select({
 			...getTableColumns(tables.affiliation),
 			organization_kind: receivingOrganization.kind,
@@ -130,8 +133,8 @@ export async function loadAffiliations(tx: Transaction, predicate: SQL, write = 
 		.innerJoin(receivingOrganization, eq(receivingOrganization.id, tables.affiliation.organization_id))
 		.leftJoin(sendingOrganization, eq(sendingOrganization.id, tables.affiliation.sending_church_id))
 		.where(predicate)
-		.orderBy(tables.affiliation.id)
-		.for(write ? "update" : "share", { of: tables.affiliation });
+		.orderBy(tables.affiliation.id);
+	const rows = await (write ? query.for("update", { of: tables.affiliation }) : query);
 	return rows.map((row) => ({ ...affiliationSchema.parse(row), active: row.active }));
 }
 export async function loadAffiliation(tx: Transaction, id: string, write = false): Promise<Affiliation | null> {

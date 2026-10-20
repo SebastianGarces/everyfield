@@ -1,6 +1,6 @@
 import "server-only";
 import type { Transaction } from "@everyfield/db/client";
-import { listPeopleRequest, type PeopleContext, type PeopleReply } from "@everyfield/contracts/people";
+import { listPeopleRequest, type PeopleContext } from "@everyfield/contracts/people";
 import type * as people from "@everyfield/contracts/people";
 import { peopleReader, readPersonPage as readPersonPageData } from "@everyfield/domain/people";
 import type { z } from "zod";

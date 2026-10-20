@@ -20,8 +20,8 @@ export type ConnectionsData = { history: { status: "unavailable" } | History; pe
 
 /**
  * The connections of one plant, sending church or Discovery account, or of one organization, with their history
- * (REQ-IDN-020, REQ-IDN-021). Several connections can exist at once and each one is ended on its own. Every change
- * reloads the list from the server, so the screen never guesses an outcome. `canManage` only hides controls; the
+ * (REQ-IDN-020, REQ-IDN-021). Several connections can exist at once and each one is ended on its own. The server
+ * renders the first list with the page; every change reloads it, so the screen never guesses an outcome. `canManage` only hides controls; the
  * server still checks every command.
  */
 export function Connections({
@@ -34,10 +34,13 @@ export function Connections({
 	run,
 	invite,
 	readSharing,
+	initial,
 }: {
 	/** `subject` words the list for the side that asks to connect; `organization` for the side that receives. */
 	side: Side;
 	load: () => Promise<ConnectionsData>;
+	/** The list as the server rendered it with the page, so the first paint needs no second read. */
+	initial?: ConnectionsData;
 	readMore: ReadHistory;
 	canManage: boolean;
 	nameOf: NameOf;
@@ -50,7 +53,7 @@ export function Connections({
 }) {
 	const [status, setStatus] = useState("");
 	const fetch = useCallback(() => load(), [load]);
-	const { state, reload, refreshing } = useLoad<ConnectionsData>(fetch, "Connections did not load");
+	const { state, reload, refreshing } = useLoad<ConnectionsData>(fetch, "Connections did not load", initial);
 
 	const subject = side === "subject";
 	const titleId = `${side}-connections-title`;
