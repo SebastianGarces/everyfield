@@ -21,9 +21,7 @@ test("BUG-workflow: preserve selected producer dependencies across forward refer
 		for (const p of dag.packages)
 			for (const d of p.depends_on) {
 				const producer = by.get(d)!;
-				const finals = [
-					producer.find((b) => b.part === "contract") ?? producer.find((b) => b.part === "api") ?? producer[0],
-				].map((b) => b.key);
+				const finals = [producer.find((b) => b.part === "api") ?? producer[0]].map((b) => b.key);
 				for (const b of by.get(p.id)!)
 					for (const key of finals) assert.ok(b.dependsOn.includes(key), `${b.taskId} lost ${d}: ${key}`);
 			}
@@ -620,10 +618,19 @@ test("BUG-plan-context: plan and brief use the same manifest acceptance scope, i
 		assert.deepEqual(
 			parts.filter((b) => b.wp === "WP-005").map((b) => [b.part, b.dependsOn]),
 			[
-				["contract", []],
-				["api", ["wp-005-contract"]],
-				["ui", ["wp-088", "wp-089", "wp-090", "wp-005-contract"]],
+				["api", []],
+				["ui", ["wp-088", "wp-089", "wp-090", "wp-005-api"]],
 			],
+		);
+		const api = parts.find((b) => b.taskId === "WP-005/api")!;
+		assert.ok(api.paths.includes("packages/contracts/src/identity/"), "the api part owns the contract paths");
+		assert.match(
+			renderBrief(f.root, parseTask("WP-005/api"), {}),
+			/Contract first: build packages\/contracts\/[^\n]* before the server work that uses it\./,
+		);
+		assert.throws(
+			() => renderBrief(f.root, parseTask("WP-005/contract"), {}),
+			/WP-005\/contract is retired\. The contract work is the first step of WP-005\/api\./,
 		);
 		const ui = renderBrief(f.root, parseTask("WP-005/ui"), {});
 		assert.match(ui, /Design prototype: design\/everyfield-ui\.html/);

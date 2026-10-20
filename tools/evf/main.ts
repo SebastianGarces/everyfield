@@ -72,7 +72,7 @@ Browser checks (any role)
         runs a browser check in its own process group (default timeout 900 s), then closes its
         agent-browser session and stops every process it started, also on failure or timeout
 
-<task> is WP-NNN for a single-part package, WP-NNN/contract, WP-NNN/api, WP-NNN/ui,
+<task> is WP-NNN for a single-part package, WP-NNN/api (contract first), WP-NNN/ui,
 FB-<n> for public feedback issue n, or OPS-<n> for reviewed tooling maintenance.`;
 
 function flag(args: string[], name: string): boolean {
