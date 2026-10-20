@@ -121,6 +121,7 @@ export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S>
 	if (!r.success) deny("invalid_input");
 	return r.data;
 }
+type ActiveActor = Awaited<ReturnType<typeof authorize>>;
 export async function authorize(tx: Tx, context: Context, write = false) {
 	const actor =
 		!write && context instanceof PeopleReadContext
@@ -197,8 +198,9 @@ export async function person(tx: Tx, context: Pick<Context, "selected">, id: str
 	if (!rows[0]!) deny();
 	return personRow.parse(rows[0]!);
 }
-export async function canReadPerson(tx: Tx, context: Context, p: Person) {
-	const a = await authorize(tx, context);
+/** The reader's authority over one Person. Pass the actor a reader already resolved to avoid a second lookup. */
+export async function canReadPerson(tx: Tx, context: Context, p: Person, actor?: ActiveActor) {
+	const a = actor ?? (await authorize(tx, context));
 	if (context.selected.kind === "organization" && !isAdministrator(a)) {
 		const r = await readPipelinePerson(tx, context.session, context.selected, {
 			personId: p.id,

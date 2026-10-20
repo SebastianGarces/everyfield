@@ -104,9 +104,9 @@ export const peopleReader: PeopleReader<Tx> = {
 	async getPerson(tx, ctx, raw) {
 		return readReply(async () => {
 			const input = parse(c.personRequest, raw);
-			await authorize(tx, ctx);
+			const a = await authorize(tx, ctx);
 			const p = await person(tx, ctx, input.personId);
-			await canReadPerson(tx, ctx, p);
+			await canReadPerson(tx, ctx, p, a);
 			return c.personResult.parse({
 				status: "available",
 				person: await project(tx, ctx, p),
@@ -136,9 +136,9 @@ export const peopleReader: PeopleReader<Tx> = {
 		return readReply(async () => {
 			if (ctx.selected.kind !== "plant") deny();
 			const input = parse(c.personRequest, raw);
-			await authorize(tx, ctx);
+			const a = await authorize(tx, ctx);
 			const p = await person(tx, ctx, input.personId);
-			await canReadPerson(tx, ctx, p);
+			await canReadPerson(tx, ctx, p, a);
 			// One read, no locks: the dialog needs three booleans, the review revision and the open duties.
 			const result = await tx.execute(sql`SELECT pl.material_revision::text AS review,
       EXISTS(SELECT FROM interview i WHERE i.person_id=${p.id} AND i.plant_id=${ctx.selected.id}) AS interview,
@@ -264,9 +264,9 @@ export const peopleReader: PeopleReader<Tx> = {
 		return readReply(async () => {
 			if (ctx.selected.kind !== "plant") deny();
 			const input = parse(c.activityRequest, raw);
-			await authorize(tx, ctx);
+			const a = await authorize(tx, ctx);
 			const p = await person(tx, ctx, input.personId);
-			await canReadPerson(tx, ctx, p);
+			await canReadPerson(tx, ctx, p, a);
 			return activities(tx, ctx, p, input);
 		});
 	},
@@ -340,9 +340,9 @@ async function activities(tx: Tx, ctx: Context, p: Person, input: z.infer<typeof
 export async function readPersonPage(tx: Tx, ctx: Context, raw: unknown, limit: number) {
 	return readReply(async () => {
 		const input = parse(c.personRequest, raw);
-		await authorize(tx, ctx);
+		const a = await authorize(tx, ctx);
 		const p = await person(tx, ctx, input.personId);
-		await canReadPerson(tx, ctx, p);
+		await canReadPerson(tx, ctx, p, a);
 		const found = c.personResult.parse({ status: "available", person: await project(tx, ctx, p) });
 		const feed =
 			ctx.selected.kind === "plant"
@@ -362,9 +362,9 @@ export async function readPersonPage(tx: Tx, ctx: Context, raw: unknown, limit: 
 export async function getAccountLink(tx: Tx, ctx: Context, raw: unknown) {
 	return readReply(async () => {
 		const input = parse(c.personRequest, raw);
-		await authorize(tx, ctx);
+		const a = await authorize(tx, ctx);
 		const p = await person(tx, ctx, input.personId);
-		await canReadPerson(tx, ctx, p);
+		await canReadPerson(tx, ctx, p, a);
 		return c.accountLinkResult.parse(
 			p.linked_account_id ? { status: "linked", personId: p.id } : { status: "unlinked" },
 		);

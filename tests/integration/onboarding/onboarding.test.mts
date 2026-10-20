@@ -8,7 +8,8 @@ import { createDatabase, closeDatabase } from "../../../packages/db/src/client.t
 import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { sql, eq, and } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import * as t from "../../../packages/db/src/schema/tables.ts";
-import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
+import { createOnboardingProducer, readOnboardingEntry } from "../../../packages/domain/src/onboarding/index.ts";
+import { readViewer } from "../../../packages/domain/src/access/index.ts";
 import { createInvitationService } from "../../../packages/domain/src/identity/index.ts";
 import { accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
 import { enqueueJob, enqueueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
@@ -1114,3 +1115,45 @@ async function verifiedWriteActor(session: string) {
 		return actor;
 	});
 }
+
+test("INV-reads: the onboarding entry of a plant owner is one transaction with a fixed statement count and no locks", async (t) => {
+	const f = await makePlant();
+	const viewer = await readViewer(db, writeSessionId.parse(f.a.session));
+	assert.equal(viewer.authority.actor.context.role, "owner");
+	const statements = [];
+	let recording = false;
+	const instrumented = new WeakSet();
+	db.$client.on("acquire", (client) => {
+		if (instrumented.has(client)) return;
+		instrumented.add(client);
+		const query = client.query;
+		client.query = function (...args) {
+			if (recording) statements.push(typeof args[0] === "string" ? args[0] : args[0].text);
+			return Reflect.apply(query, this, args);
+		};
+	});
+	recording = true;
+	const entry = await readOnboardingEntry(
+		db,
+		api,
+		{
+			status: "active",
+			accountId: f.a.id,
+			sessionId: f.a.session,
+			expiresAt: new Date(Date.now() + 3600000).toISOString(),
+		},
+		viewer.authority,
+	);
+	recording = false;
+	assert.equal(entry.kind, "plant");
+	assert.equal(entry.plantName, "Harvest Point");
+	assert.equal(entry.resume.basics, "created");
+	t.diagnostic(JSON.stringify({ onboardingEntryStatements: statements.length }));
+	assert.ok(statements.length <= 12, `onboarding entry: ${statements.length} statements`);
+	assert.equal(statements.filter((q) => /^\s*BEGIN/i.test(q)).length, 1, "one transaction");
+	assert.equal(
+		statements.some((q) => /for\s+(update|share)|pg_advisory/i.test(q)),
+		false,
+		"the entry read must not lock",
+	);
+});
