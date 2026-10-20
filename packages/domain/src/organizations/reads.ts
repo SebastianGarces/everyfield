@@ -1,11 +1,11 @@
-import "server-only";
-import { z } from "zod";
-import type { Database } from "@everyfield/db/client";
-import { and, eq, inArray, isNull, sql } from "@everyfield/db/query";
-import * as t from "@everyfield/db/tables";
 import type { Owner } from "@everyfield/contracts/common";
 import { sessionResult } from "@everyfield/contracts/identity";
 import * as C from "@everyfield/contracts/organizations";
+import type { Database } from "@everyfield/db/client";
+import { and, eq, inArray, isNull, sql } from "@everyfield/db/query";
+import * as t from "@everyfield/db/tables";
+import "server-only";
+import { z } from "zod";
 
 /** `account`: a seatless account without a Discovery profile, for example a resident. It sees only its own residency
  * links. */
@@ -102,7 +102,7 @@ export async function pendingFor(db: Database, viewer: Viewer) {
 		ORDER BY i.created_at DESC LIMIT 50`,
 	);
 	return rows.rows.map((r) =>
-		C.invitationResult.omit({ receipt: true }).parse({
+		C.invitationResult.omit({}).parse({
 			status: "pending",
 			invitationId: r.invitation_id,
 			pair: pairOf(viewer, { kind: "organization", id: r.organization_id, organizationKind: r.organization_kind }),

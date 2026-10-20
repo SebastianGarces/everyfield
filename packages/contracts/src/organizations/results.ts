@@ -1,17 +1,16 @@
 import { z } from "zod";
-import { accountId, eventId, recordId, revision } from "../common/values.ts";
 import { instant, timeZone } from "../common/time.ts";
-import { receipt } from "../common/transaction.ts";
+import { accountId, eventId, recordId, revision } from "../common/values.ts";
+import { profileFields } from "./requests.ts";
 import {
+	hasHistoryEndpoint,
 	organizationOwner,
 	plantOwner,
+	relationshipHistoryScope,
 	relationshipPair,
 	residentChoices,
 	sharingChoices,
-	relationshipHistoryScope,
-	hasHistoryEndpoint,
 } from "./subjects.ts";
-import { profileFields } from "./requests.ts";
 
 export const unavailableResult = z.strictObject({ status: z.literal("unavailable") });
 export const relationshipProjection = z
@@ -24,16 +23,14 @@ export const invitationResult = z.strictObject({
 	revision,
 	expiresAt: instant,
 	inviterDescription: z.string().trim().min(1).max(500),
-	receipt,
 });
 // A committed response never claims mail delivery. Delivery/retry is outbox-owned.
-export const mutationResult = z.union([unavailableResult, z.strictObject({ status: z.literal("committed"), receipt })]);
+export const mutationResult = z.union([unavailableResult, z.strictObject({ status: z.literal("committed") })]);
 const acceptedInvitation = z.strictObject({
 	status: z.literal("accepted"),
 	relationship: relationshipProjection,
-	receipt,
 });
-const declinedInvitation = z.strictObject({ status: z.literal("declined"), invitationId: recordId, receipt });
+const declinedInvitation = z.strictObject({ status: z.literal("declined"), invitationId: recordId });
 export const acceptedInvitationResult = z.union([unavailableResult, acceptedInvitation]);
 export const declinedInvitationResult = z.union([unavailableResult, declinedInvitation]);
 export const invitationDecisionResult = z.union([unavailableResult, acceptedInvitation, declinedInvitation]);

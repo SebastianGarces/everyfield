@@ -53,8 +53,22 @@ export function checkCiTests(root: string): void {
 			} else if (["node", "tsx"].includes(tokens[0]) && tokens.includes("--test")) {
 				for (const token of tokens.slice(tokens.indexOf("--test") + 1)) {
 					if (!/\.test\.(?:mts|ts)$/.test(token)) continue;
-					for (const file of globSync(token, { cwd: resolve(root, pkg.dir) }))
+					for (const file of globSync(token, { cwd: resolve(root, pkg.dir) })) {
 						covered.add(relative(root, resolve(root, pkg.dir, file)));
+						// The write budget harness executes exactly the same checked-in suite manifest.
+						if (relative(root, resolve(root, pkg.dir, file)) === "tests/integration/writes/statements.test.mts") {
+							const manifest: unknown = JSON.parse(
+								readFileSync(join(root, "tests/integration/writes/suites.json"), "utf8"),
+							);
+							if (
+								!Array.isArray(manifest) ||
+								!manifest.every((p) => typeof p === "string" && !p.startsWith("/") && !p.includes(".."))
+							)
+								fail("Write census suite paths must stay inside the repository.");
+							for (const pattern of manifest)
+								for (const nested of globSync(pattern, { cwd: root })) covered.add(nested);
+						}
+					}
 				}
 			}
 		}

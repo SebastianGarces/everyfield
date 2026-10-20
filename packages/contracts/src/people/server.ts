@@ -1,10 +1,9 @@
 import type { z } from "zod";
-import type { accountId, sessionId, Owner } from "../common/values.ts";
+import type { accountId, Owner, sessionId } from "../common/values.ts";
+import type { lockedPersonReference } from "./references.ts";
+import type { OrganizationExport, RemovalResult } from "./removal.ts";
 import type * as request from "./requests.ts";
 import type * as result from "./results.ts";
-import type { OrganizationExport, RemovalResult } from "./removal.ts";
-import type { commandOrigin } from "../common/transaction.ts";
-import type { lockedPersonReference } from "./references.ts";
 
 // Server-only producer interface. Each invocation reads the real session,
 // account, exact current seat/duty, purpose, lifecycle and consent inside Tx.
@@ -20,17 +19,11 @@ import type { lockedPersonReference } from "./references.ts";
 export type PeopleContext = {
 	session: z.infer<typeof sessionId>;
 	selected: Owner;
-	purpose: "native" | "model" | "export";
 };
 // Origin is built by the trusted native/review adapter, never parsed from an
 // action body. Assistant review binds exact initiator/owner/effects/revisions;
 // the producer rechecks approval and current authority at execution.
-type Origin = z.infer<typeof commandOrigin>;
-export type PeopleWriteContext = Omit<PeopleContext, "purpose"> &
-	(
-		| { purpose: "native"; origin: Extract<Origin, { kind: "native" }> }
-		| { purpose: "model"; origin: Extract<Origin, { kind: "assistant" }> }
-	);
+export type PeopleWriteContext = PeopleContext;
 export type PeopleReply<T> =
 	{ status: "ok"; value: T } | { status: "refused"; error: z.infer<typeof result.peopleError> };
 export interface PeopleReader<Tx> {
@@ -64,11 +57,6 @@ export interface PeopleReader<Tx> {
 		context: PeopleContext,
 		input: z.infer<typeof request.ownAccountPersonRequest>,
 	): Promise<PeopleReply<z.infer<typeof result.accountLinkResult>>>;
-	readPipelineMetrics(
-		tx: Tx,
-		context: PeopleContext & { purpose: "native" },
-		input: z.infer<typeof request.pipelineMetricsRequest>,
-	): Promise<PeopleReply<z.infer<typeof result.pipelineMetricsResult>>>;
 }
 export interface PeopleWriter<Tx> {
 	addNote(

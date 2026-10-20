@@ -1,0 +1,190 @@
+import { registerHooks, createRequire } from "node:module";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { appendFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
+
+const root = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
+const require = createRequire(root + "/packages/domain/package.json");
+const ts = require("typescript");
+const frames = new AsyncLocalStorage();
+const output = process.env.EVF_WRITE_COUNTS;
+const emit = (row) => {
+	if (output) appendFileSync(output, JSON.stringify(row) + "\n");
+};
+const read =
+	/^(?:get|read|list|describe|registrationEligible|addressHash|jobVisibility|append|current|registrationIntent|checkAggregateAccess)/;
+const factories = {
+	createOrganizationAdapter: "organizations",
+	createSettingsProducer: "settings",
+	createAccountCredentials: "settings",
+	createOnboardingProducer: "onboarding",
+	createInvitationService: "invitations",
+	createSeatService: "seats",
+	createIdentityService: "identity",
+	createMailService: "mail",
+	createNotificationService: "notifications",
+	createDigestService: "digest",
+	createLifecycleCleanup: "lifecycle.purge",
+	referenceService: "reference",
+	attemptBudget: "identity.budget",
+};
+const standalone = {
+	"/packages/domain/src/early-access/index.ts": ["receiveAccessRequest"],
+	"/packages/domain/src/people/core.ts": ["withPeopleWrite"],
+	"/packages/domain/src/onboarding/core.ts": ["withOnboardingWrite"],
+	"/packages/domain/src/settings/core.ts": ["withSettingsWrite"],
+	"/packages/domain/src/settings/avatar.ts": ["uploadAvatar"],
+	"/packages/domain/src/settings/deletion.ts": ["issueRestrictedDeletionSession"],
+	"/packages/domain/src/people/references.ts": ["detachAccountPersonLinks"],
+	"/packages/domain/src/phases/creation-entry/index.ts": ["recordCreationEntry"],
+	"/apps/web/src/server/jobs/queue.ts": [
+		"enqueueJob",
+		"enqueueJobs",
+		"claimDue",
+		"claimUnknownMail",
+		"extendLease",
+		"finishClaim",
+		"recoverLease",
+		"checkpoint",
+		"scanPage",
+	],
+	"/apps/web/src/server/jobs/webhook.ts": ["receiveMailCallback", "replayStoredCallbacks"],
+	"/apps/web/src/server/jobs/notifications.ts": ["sendDiscoveryAssociationReceipt", "sendOnboardingRelationships"],
+};
+
+export async function measure(name, body) {
+	const frame = { name, count: 0, writes: 0, rollbacks: 0 };
+	return frames.run([...(frames.getStore() ?? []), frame], async () => {
+		const started = performance.now();
+		let status = "threw";
+		try {
+			const result = await body();
+			status = result?.status ?? "returned";
+			return result;
+		} finally {
+			emit({ kind: "sample", ...frame, status, ms: Math.round(performance.now() - started) });
+		}
+	});
+}
+function decorate(prefix, value) {
+	if (typeof value === "function")
+		return function (...args) {
+			return measure(prefix, () => Reflect.apply(value, this, args));
+		};
+	for (const key of Object.keys(value)) {
+		if (typeof value[key] !== "function" || key === "addressHash") continue;
+		const name = prefix + "." + key,
+			fn = value[key];
+		emit({ kind: "declaration", name, write: !read.test(key.split(".").at(-1)) });
+		value[key] = function (...args) {
+			const variant =
+				prefix === "settings" && key === "saveSection"
+					? ":" + args[2]?.input?.section
+					: prefix === "identity" && key === "handle"
+						? ":" + new URL(args[0].url).pathname.replace(/^\/api\/auth\//, "")
+						: "";
+			return measure(name + variant, () => Reflect.apply(fn, this, args));
+		};
+	}
+	return value;
+}
+function observeDatabase(db) {
+	db.$client.on("connect", (client) => {
+		const query = client.query;
+		client.query = function (...args) {
+			const text = typeof args[0] === "string" ? args[0] : (args[0]?.text ?? "");
+			for (const frame of frames.getStore() ?? []) {
+				frame.count++;
+				if (/\b(?:INSERT\s+INTO|DELETE\s+FROM|UPDATE\s+(?:"?[\w]+"?)(?:\s+\w+)?\s+SET)\b/i.test(text)) frame.writes++;
+				if (/^\s*ROLLBACK/i.test(text)) frame.rollbacks++;
+			}
+			return Reflect.apply(query, this, args);
+		};
+	});
+	return db;
+}
+globalThis.__evfWriteCounts = { measure, decorate, observeDatabase };
+
+registerHooks({
+	load(url, context, next) {
+		const loaded = next(url, context);
+		if (!output || !url.startsWith("file:") || url.includes("/node_modules/")) return loaded;
+		const path = fileURLToPath(url);
+		if (!path.startsWith(root + "/")) return loaded;
+		let source = typeof loaded.source === "string" ? loaded.source : loaded.source?.toString();
+		if (!source) return loaded;
+		if (path === root + "/packages/db/src/client.ts") {
+			const pattern = /return drizzle\(\{\s*client:\s*pool,\s*schema\s*\}\);?/;
+			if (!pattern.test(source)) throw Error("Statement counter must observe createDatabase's real pool");
+			source = source.replace(
+				pattern,
+				"return globalThis.__evfWriteCounts.observeDatabase(drizzle({client:pool,schema}));",
+			);
+		} else if (
+			path.includes("/packages/reference/src/") ||
+			path.includes("/packages/domain/src/") ||
+			path.includes("/apps/web/src/server/jobs/")
+		) {
+			const ast = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true),
+				edits = [];
+			const names = standalone[path.slice(root.length)] ?? [];
+			const localAliases = path.endsWith("/jobs/notifications.ts")
+				? { enqueueMany: "notifications.enqueueMany", cancelForEntity: "notifications.cancelForEntity" }
+				: {};
+			function walk(n) {
+				if (ts.isReturnStatement(n) && n.expression) {
+					let ancestor = n.parent;
+					while (
+						ancestor &&
+						!ts.isFunctionDeclaration(ancestor) &&
+						!ts.isArrowFunction(ancestor) &&
+						!ts.isMethodDeclaration(ancestor) &&
+						!ts.isFunctionExpression(ancestor)
+					)
+						ancestor = ancestor.parent;
+					const name = ancestor?.name?.getText(ast),
+						prefix = factories[name];
+					if (prefix)
+						edits.push(
+							[n.expression.getStart(ast), ` (globalThis.__evfWriteCounts.decorate(${JSON.stringify(prefix)},`],
+							[n.expression.end, "))"],
+						);
+				}
+				if (
+					ts.isFunctionDeclaration(n) &&
+					n.name &&
+					n.body &&
+					(names.includes(n.name.getText(ast)) || localAliases[n.name.getText(ast)])
+				) {
+					const name =
+						localAliases[n.name.getText(ast)] ??
+						path
+							.slice(root.length + 1)
+							.replace(/^packages\/domain\/src\/|^apps\/web\/src\/server\//, "")
+							.replace(/\.ts$/, "") +
+							"." +
+							n.name.getText(ast);
+					edits.push(
+						[
+							n.body.getStart(ast) + 1,
+							`return await globalThis.__evfWriteCounts.measure(${JSON.stringify(name)},async()=>{`,
+						],
+						[n.body.end - 1, "});"],
+					);
+					emit({ kind: "declaration", name, write: true });
+				}
+				ts.forEachChild(n, walk);
+			}
+			walk(ast);
+			for (const [offset, text] of edits.sort((a, b) => b[0] - a[0]))
+				source = source.slice(0, offset) + text + source.slice(offset);
+			const objects = {
+				"/packages/domain/src/people/people.ts": { peopleWriter: "people", accountPersonProducer: "accountPerson" },
+			};
+			for (const [name, prefix] of Object.entries(objects[path.slice(root.length)] ?? {}))
+				source += `\nglobalThis.__evfWriteCounts.decorate(${JSON.stringify(prefix)},${name});`;
+		}
+		return { ...loaded, source };
+	},
+});

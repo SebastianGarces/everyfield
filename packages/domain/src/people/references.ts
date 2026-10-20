@@ -1,23 +1,7 @@
 import { and, asc, eq, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
-import * as c from "@everyfield/contracts/people";
-import type { z } from "zod";
-import { deny, expected, live, person } from "./core.ts";
 import type { Tx } from "./core.ts";
-// Internal consumer protocol. The authenticated consumer owns authority and calls
-// this inside the same transaction before inserting its current Person reference.
-export async function lockPersonReference(tx: Tx, input: z.infer<typeof c.lockedPersonReference>) {
-	const reference = c.lockedPersonReference.parse(input);
-	const p = await person(tx, { selected: reference.owner }, reference.personId, true);
-	live(p);
-	expected(p, reference.revision);
-	return c.lockedPersonReference.parse({
-		owner: reference.owner,
-		personId: p.id,
-		revision: p.revision,
-		state: "live",
-	});
-}
+import { deny } from "./core.ts";
 // Account removal keeps independently owned Person facts. Cleanup supplies the
 // real account under its lifecycle lock; creator identity never selects ownership.
 export async function detachAccountPersonLinks(tx: Tx, accountId: string) {

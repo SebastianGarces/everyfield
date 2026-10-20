@@ -8,10 +8,8 @@ import { migrate, migrationArtifact } from "../../../packages/db/src/schema/migr
 import {
 	peopleWriter as write,
 	peopleReader as read,
-	organizationPeople as org,
 	accountPersonProducer as accounts,
 	getAccountLink,
-	downloadOrganizationExport,
 	readColumnOrder,
 } from "../../../packages/domain/src/people/index.ts";
 
@@ -47,8 +45,6 @@ const plants = [randomUUID(), randomUUID()],
 const ctx = (who = 0, selected = { kind: "plant", id: plants[0] }) => ({
 	session: actors[who].session,
 	selected,
-	purpose: "native",
-	origin: { kind: "native" },
 });
 const orgCtx = () =>
 	ctx(3, {
@@ -154,7 +150,7 @@ test("AC:TARGET-PPL-002 AC:WP011-KNOW-099 AC:SEC-02 AC:TEN-002 minimal contact, 
 	assert.deepEqual(again, first);
 	const replayCounts = (
 		await admin.execute(
-			sql`SELECT (SELECT count(*)::int FROM person) people,(SELECT count(*)::int FROM operation) operations,(SELECT count(*)::int FROM event) events`,
+			sql`SELECT (SELECT count(*)::int FROM person) people,(SELECT count(*)::int FROM audit_event) operations,(SELECT count(*)::int FROM audit_event) events`,
 		)
 	).rows[0];
 	for (const changed of [
@@ -171,7 +167,7 @@ test("AC:TARGET-PPL-002 AC:WP011-KNOW-099 AC:SEC-02 AC:TEN-002 minimal contact, 
 	assert.deepEqual(
 		(
 			await admin.execute(
-				sql`SELECT (SELECT count(*)::int FROM person) people,(SELECT count(*)::int FROM operation) operations,(SELECT count(*)::int FROM event) events`,
+				sql`SELECT (SELECT count(*)::int FROM person) people,(SELECT count(*)::int FROM audit_event) operations,(SELECT count(*)::int FROM audit_event) events`,
 			)
 		).rows[0],
 		replayCounts,
@@ -206,7 +202,9 @@ test("AC:TARGET-PPL-002 AC:WP011-KNOW-099 AC:SEC-02 AC:TEN-002 minimal contact, 
 		"Jamie",
 	);
 	const event = (
-		await admin.execute(sql`SELECT actor_id,reason,diff FROM event WHERE operation_id=${sql.param(changed.receiptId)}`)
+		await admin.execute(
+			sql`SELECT actor_id,reason,metadata->'diff' AS diff FROM audit_event WHERE command_id=${sql.param(changed.receiptId)}`,
+		)
 	).rows[0];
 	assert.equal(event.actor_id, actors[0].id);
 	assert.equal(event.reason, null);
@@ -412,7 +410,7 @@ test("AC:TARGET-PPL-004 AC:ROLE43-003 exact account links, ambiguous contact sel
 	assert.deepEqual(bootstrap, { stage: "leader", adult_classification: "unknown", commitment_state: "unknown" });
 	const bootstrapHistory = (
 		await admin.execute(
-			sql`SELECT after_value->>'stage' AS stage FROM people_history WHERE person_id=${sql.param(replacement.personId)}`,
+			sql`SELECT after_value->>'stage' AS stage FROM audit_event WHERE subject_id=${sql.param(replacement.personId)}`,
 		)
 	).rows;
 	assert.deepEqual(bootstrapHistory, [{ stage: "leader" }]);
@@ -423,7 +421,7 @@ test("AC:TARGET-PPL-004 AC:ROLE43-003 exact account links, ambiguous contact sel
 	};
 	const counts = (
 		await admin.execute(
-			sql`SELECT (SELECT count(*)::int FROM operation) operations,(SELECT count(*)::int FROM people_history) history,(SELECT count(*)::int FROM event) events`,
+			sql`SELECT (SELECT count(*)::int FROM audit_event) operations,(SELECT count(*)::int FROM audit_event) history,(SELECT count(*)::int FROM audit_event) events`,
 		)
 	).rows[0];
 	await tx(async (t) => {
@@ -436,7 +434,7 @@ test("AC:TARGET-PPL-004 AC:ROLE43-003 exact account links, ambiguous contact sel
 	assert.deepEqual(
 		(
 			await admin.execute(
-				sql`SELECT (SELECT count(*)::int FROM operation) operations,(SELECT count(*)::int FROM people_history) history,(SELECT count(*)::int FROM event) events`,
+				sql`SELECT (SELECT count(*)::int FROM audit_event) operations,(SELECT count(*)::int FROM audit_event) history,(SELECT count(*)::int FROM audit_event) events`,
 			)
 		).rows[0],
 		counts,
@@ -688,9 +686,9 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 	assert.deepEqual(
 		(
 			await admin.execute(sql`SELECT
-			(SELECT count(*)::int FROM event e JOIN operation o ON o.id=e.operation_id WHERE e.target_record_id=${p.id} AND o.name IN ('people.addNote','people.editNote','people.deleteNote')) AS audits,
-			(SELECT count(*)::int FROM people_history WHERE person_id=${p.id} AND action='note_correction') AS corrections,
-			(SELECT count(*)::int FROM people_history WHERE person_id=${p.id} AND action='people.updated') AS updates`)
+			(SELECT count(*)::int FROM audit_event e JOIN audit_event o ON o.id=e.command_id WHERE e.subject_id=${p.id} AND o.request_identity->>'operation' IN ('people.addNote','people.editNote','people.deleteNote')) AS audits,
+			(SELECT count(*)::int FROM audit_event WHERE subject_id=${p.id} AND metadata->>'correction'='true') AS corrections,
+			(SELECT count(*)::int FROM audit_event WHERE subject_id=${p.id} AND action='people.updated' AND metadata->>'category' IS DISTINCT FROM 'note') AS updates`)
 		).rows[0],
 		{ audits: 3, corrections: 2, updates: 0 },
 	);
@@ -702,186 +700,6 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 		ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id, kinds: ["note"] }))).items[0].kind,
 		"note_removed",
 	);
-});
-
-test("AC:ADR1-001 AC:WP011-MUL-001 AC:ADR1-005 AC:WP011-MUL-005 organization projection, safe fresh downloads and immediate removal", async () => {
-	const request = {
-		requestKey: randomUUID(),
-		input: { displayName: "=2+3", email: "contact@example.test" },
-	};
-	const created = ok(await tx((t) => org.create(t, orgCtx(), request)));
-	assert.equal("stage" in created.person, false);
-	assert.equal("adultClassification" in created.person, false);
-	const p = created.person;
-	refused(await tx((t) => read.getPerson(t, ctx(), { personId: p.id })));
-	const exp = { personId: p.id, format: "csv" };
-	const data = ok(await tx((t) => org.export(t, orgCtx(), exp)));
-	assert.equal(data.contact.displayName, "=2+3");
-	assert.equal("notes" in data, false);
-	const csv = ok(await tx((t) => downloadOrganizationExport(t, orgCtx(), exp)));
-	assert.match(csv.bytes.toString(), /"'=2\+3"/);
-	const retired = ok(
-		await tx((t) =>
-			org.retire(t, orgCtx(), {
-				requestKey: randomUUID(),
-				expectedRevision: p.revision,
-				input: {
-					personId: p.id,
-					reviewRevision: p.revision,
-					reason: "Retire",
-					handoffs: [],
-				},
-			}),
-		),
-	);
-	assert.equal(retired.person.lifecycle.state, "retired");
-	const restored = ok(
-		await tx((t) =>
-			org.restore(t, orgCtx(), {
-				requestKey: randomUUID(),
-				expectedRevision: retired.person.revision,
-				input: { personId: p.id },
-			}),
-		),
-	);
-	const removed = ok(
-		await tx((t) =>
-			org.remove(t, orgCtx(), {
-				requestKey: randomUUID(),
-				expectedRevision: restored.person.revision,
-				input: { personId: p.id, reason: "Person requested removal" },
-			}),
-		),
-	);
-	assert.equal(removed.witness.personRecordId, p.id);
-	assert.equal("cancelUntil" in removed, false);
-	refused(await tx((t) => downloadOrganizationExport(t, orgCtx(), exp)));
-	refused(await tx((t) => org.read(t, orgCtx(), { personId: p.id })));
-	refused(await tx((t) => org.create(t, orgCtx(), request)));
-	const row = (
-		await admin.execute(sql`SELECT display_name,email,notes,linked_account_id FROM person WHERE id=${sql.param(p.id)}`)
-	).rows[0];
-	assert.deepEqual(row, {
-		display_name: "Former participant",
-		email: null,
-		notes: null,
-		linked_account_id: null,
-	});
-	const history = (
-		await admin.execute(
-			sql`SELECT before_value,after_value,reason FROM people_history WHERE person_id=${sql.param(p.id)}`,
-		)
-	).rows;
-	assert.ok(history.every((h) => h.before_value === null && h.reason === null));
-	assert.equal(JSON.stringify(history).includes("contact@example.test"), false);
-});
-
-test("AC:TARGET-PPL-023 distinct transitions use fixed plant-local days across UTC and plant midnight", async () => {
-	const plant = randomUUID(),
-		actor = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
-	await admin.execute(
-		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${sql.param(actor.user)},${sql.param(actor.id + "@example.test")},true,'Synthetic metrics')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${sql.param(actor.id)},${sql.param(actor.user)},'active','planter')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${sql.param(actor.session)},${sql.param(actor.user)},${sql.param(randomUUID())},clock_timestamp()+interval '1 day')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${sql.param(plant)},'Metrics fixture','America/New_York',7,14,1,8,1,1)`,
-	);
-	await admin.execute(
-		sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${sql.param(actor.id)},${sql.param(plant)},'owner',clock_timestamp())`,
-	);
-	const context = {
-		session: actor.session,
-		selected: { kind: "plant", id: plant },
-		purpose: "native",
-		origin: { kind: "native" },
-	};
-	let saved = ok(
-		await tx((t) =>
-			write.createPerson(t, context, {
-				requestKey: randomUUID(),
-				input: { displayName: "Fixed-clock metrics" },
-			}),
-		),
-	);
-	let p = saved.person;
-	const operations = [saved.receiptId];
-	for (const stage of ["attendee", "prospect", "attendee"]) {
-		saved = ok(
-			await tx((t) =>
-				write.changeStatus(t, context, {
-					requestKey: randomUUID(),
-					expectedRevision: p.revision,
-					input: { personId: p.id, stage, reason: "Recorded move", handoffs: [] },
-				}),
-			),
-		);
-		p = saved.person;
-		operations.push(saved.receiptId);
-	}
-	// Clock and history are fixed together. The dates are the plant's calendar,
-	// including the hours after UTC midnight that still belong to the prior day.
-	const clockCases = [
-		{ asOf: "2020-06-01T23:59:59.000Z", day: "2020-06-01" },
-		{ asOf: "2020-06-02T00:00:01.000Z", day: "2020-06-01" },
-		{ asOf: "2020-06-02T03:59:59.000Z", day: "2020-06-01" },
-		{ asOf: "2020-06-02T04:00:01.000Z", day: "2020-06-02" },
-	];
-	for (const { asOf, day } of clockCases) {
-		const at = Date.parse(asOf);
-		await admin.execute(
-			sql`UPDATE person SET created_at=${sql.param(new Date(at - 900).toISOString())} WHERE id=${sql.param(p.id)}`,
-		);
-		for (const [i, operation] of operations.entries()) {
-			const occurredAt = new Date(at - [900, 600, 400, 200][i]).toISOString();
-			await admin.execute(
-				sql`UPDATE people_history SET occurred_at=${sql.param(occurredAt)},recorded_at=${sql.param(occurredAt)} WHERE person_id=${sql.param(p.id)} AND operation_id=${sql.param(operation)}`,
-			);
-		}
-		const metrics = ok(await tx((t) => read.readPipelineMetrics(t, context, { asOf, from: day, through: day })));
-		assert.equal(metrics.unit, "distinct_canonical_people");
-		assert.equal(metrics.asOf, asOf);
-		assert.equal(metrics.zone, "America/New_York");
-		assert.deepEqual(
-			metrics.currentStages.map((r) => [r.stage, r.distinctPeople]),
-			[
-				["prospect", 0],
-				["attendee", 1],
-				["following_up", 0],
-				["interviewed", 0],
-				["core_group", 0],
-				["launch_team", 0],
-				["leader", 0],
-			],
-		);
-		assert.deepEqual(metrics.transitions[0], {
-			from: "prospect",
-			to: "attendee",
-			distinctPeople: 1,
-			conversion: { status: "unknown", reason: "empty_cohort" },
-		});
-	}
-	const firstClock = clockCases[0];
-	refused(
-		await tx((t) =>
-			read.readPipelineMetrics(
-				t,
-				{ ...context, purpose: "model" },
-				{
-					asOf: firstClock.asOf,
-					from: firstClock.day,
-					through: firstClock.day,
-				},
-			),
-		),
-	);
-	const artifact = await migrationArtifact();
-	assert.ok(artifact.every((m) => /^[a-f0-9]{64}$/.test(m.sha256)));
-	assert.deepEqual(await migrate(admin, schema), []);
 });
 
 test("AC:CA014 explicit adult classification retains genuine historical acquisition rather than creating a join today", async () => {
@@ -960,323 +778,11 @@ test("INV-people: concurrent edits serialize to one current revision and one con
 	assert.equal(
 		(
 			await admin.execute(
-				sql`SELECT count(*)::int n FROM people_history WHERE person_id=${sql.param(p.id)} AND action='people.updated'`,
+				sql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${sql.param(p.id)} AND action='people.updated'`,
 			)
 		).rows[0].n,
 		1,
 	);
-});
-
-test("INV-people: reviewed assistant writes bind the exact actor, arguments, current review and fresh revision", async () => {
-	const { hash } = await import("../../../packages/domain/src/people/core.ts");
-	const p = await create("Reviewed"),
-		input = {
-			requestKey: randomUUID(),
-			expectedRevision: p.revision,
-			input: { personId: p.id, patch: { displayName: "Reviewed change" } },
-		},
-		name = "people.updatePerson";
-	const conversation = randomUUID(),
-		review = randomUUID(),
-		effect = randomUUID(),
-		digest = "b".repeat(64);
-	await admin.execute(
-		sql`INSERT INTO conversation(id,tenant_id,owner_id,title,state) VALUES(${sql.param(conversation)},${sql.param(plants[0])},${sql.param(actors[0].id)},'Synthetic review','open')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO review(id,tenant_id,conversation_id,proposal_number,digest,effect_manifest_hash,published_at,approved_by_id,approved_at,witness_hash) VALUES(${sql.param(review)},${sql.param(plants[0])},${sql.param(conversation)},1,${sql.param(digest)},${sql.param(hash({ name, input }))},clock_timestamp(),${sql.param(actors[0].id)},clock_timestamp(),${sql.param(hash({ name, input }))})`,
-	);
-	await admin.execute(
-		sql`INSERT INTO effect(id,tenant_id,review_id,effect_key,kind,payload_hash,state,arguments) VALUES(${sql.param(effect)},${sql.param(plants[0])},${sql.param(review)},'people-effect',${sql.param(name)},${sql.param(hash({ name, input }))},'unstarted',${sql.param(JSON.stringify({ operation: name, input }))})`,
-	);
-	const model = {
-		...ctx(),
-		purpose: "model",
-		origin: {
-			kind: "assistant",
-			reviewId: review,
-			conversationId: conversation,
-			planDigest: digest,
-		},
-	};
-	refused(
-		await tx((t) =>
-			write.updatePerson(t, model, {
-				...input,
-				input: { ...input.input, patch: { displayName: "Forged effects" } },
-			}),
-		),
-	);
-	const changed = ok(await tx((t) => write.updatePerson(t, model, input)));
-	assert.equal(changed.person.displayName, "Reviewed change");
-	await admin.execute(
-		sql`UPDATE review SET approved_at=clock_timestamp()-interval '16 minutes' WHERE id=${sql.param(review)}`,
-	);
-	assert.deepEqual(ok(await tx((t) => write.updatePerson(t, model, input))), changed);
-	refused(
-		await tx((t) =>
-			write.updatePerson(t, model, {
-				...input,
-				requestKey: randomUUID(),
-				expectedRevision: changed.person.revision,
-			}),
-		),
-	);
-});
-
-test("AC:GAP-PPL-023 reconstructs the actual historical cohort and counts each forward transition once", async () => {
-	const plant = randomUUID(),
-		actor = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
-	await admin.execute(
-		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${sql.param(actor.user)},${sql.param(actor.id + "@example.test")},true,'Synthetic metrics')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${sql.param(actor.id)},${sql.param(actor.user)},'active','planter')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${sql.param(actor.session)},${sql.param(actor.user)},${sql.param(randomUUID())},clock_timestamp()+interval '1 day')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${sql.param(plant)},'Metrics fixture','America/New_York',7,14,1,8,1,1)`,
-	);
-	await admin.execute(
-		sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${sql.param(actor.id)},${sql.param(plant)},'owner',clock_timestamp())`,
-	);
-	const context = {
-		session: actor.session,
-		selected: { kind: "plant", id: plant },
-		purpose: "native",
-		origin: { kind: "native" },
-	};
-	const people = [];
-	for (const name of ["Alex", "Casey", "Jamie"])
-		people.push(
-			ok(
-				await tx((t) =>
-					write.createPerson(t, context, {
-						requestKey: randomUUID(),
-						input: { displayName: name },
-					}),
-				),
-			).person,
-		);
-	for (const [index, moves] of [
-		[0, ["attendee", "prospect", "attendee", "prospect"]],
-		[1, ["attendee"]],
-	]) {
-		for (const stage of moves)
-			people[index] = ok(
-				await tx((t) =>
-					write.changeStatus(t, context, {
-						requestKey: randomUUID(),
-						expectedRevision: people[index].revision,
-						input: {
-							personId: people[index].id,
-							stage,
-							reason: "Historical fixture",
-							handoffs: [],
-						},
-					}),
-				),
-			).person;
-	}
-	for (const [index, p] of people.entries()) {
-		await admin.execute(sql`UPDATE person SET created_at='2026-09-01T12:00:00Z' WHERE id=${sql.param(p.id)}`);
-		const history = (
-			await admin.execute(
-				sql`SELECT id,action FROM people_history WHERE person_id=${sql.param(p.id)} ORDER BY occurred_at,id`,
-			)
-		).rows;
-		for (const [i, event] of history.entries()) {
-			const at =
-				i === 0 ? "2026-09-01T12:00:00Z" : `2026-10-${String(index === 0 ? i + 1 : 6).padStart(2, "0")}T12:00:00Z`;
-			await admin.execute(sql`UPDATE people_history SET occurred_at=${sql.param(at)} WHERE id=${sql.param(event.id)}`);
-		}
-	}
-	const query = {
-		asOf: "2026-10-13T16:00:00Z",
-		from: "2026-10-01",
-		through: "2026-10-13",
-	};
-	const result = ok(await tx((t) => read.readPipelineMetrics(t, context, query)));
-	assert.deepEqual(
-		result.currentStages.map((r) => [r.stage, r.distinctPeople]),
-		[
-			["prospect", 2],
-			["attendee", 1],
-			["following_up", 0],
-			["interviewed", 0],
-			["core_group", 0],
-			["launch_team", 0],
-			["leader", 0],
-		],
-	);
-	assert.deepEqual(result.transitions[0], {
-		from: "prospect",
-		to: "attendee",
-		distinctPeople: 2,
-		conversion: { status: "known", cohortPeople: 3, cohortTransitionPeople: 2 },
-	});
-	const empty = ok(
-		await tx((t) =>
-			read.readPipelineMetrics(t, context, {
-				...query,
-				from: "2026-07-01",
-				through: "2026-07-31",
-			}),
-		),
-	);
-	assert.deepEqual(empty.transitions[0].conversion, {
-		status: "unknown",
-		reason: "empty_cohort",
-	});
-	const review = ok(await tx((t) => read.getStatusWarnings(t, context, { personId: people[0].id }))).reviewRevision;
-	ok(
-		await tx((t) =>
-			write.retirePerson(t, context, {
-				requestKey: randomUUID(),
-				expectedRevision: people[0].revision,
-				input: {
-					personId: people[0].id,
-					reviewRevision: review,
-					reason: "Historical retirement",
-					handoffs: [],
-				},
-			}),
-		),
-	);
-	await admin.execute(sql`UPDATE person SET retired_at='2026-10-07T12:00:00Z' WHERE id=${sql.param(people[0].id)}`);
-	await admin.execute(
-		sql`UPDATE people_history SET occurred_at='2026-10-07T12:00:00Z' WHERE person_id=${sql.param(people[0].id)} AND action='people.retired'`,
-	);
-	const retired = ok(await tx((t) => read.readPipelineMetrics(t, context, query)));
-	assert.equal(retired.currentStages[0].distinctPeople, 1);
-	assert.equal(retired.transitions[0].distinctPeople, 2);
-	await admin.execute(
-		sql`DELETE FROM people_history WHERE person_id=${sql.param(people[0].id)} AND action='people.created'`,
-	);
-	const missing = ok(await tx((t) => read.readPipelineMetrics(t, context, query)));
-	assert.equal(missing.transitions[0].distinctPeople, 2);
-	assert.deepEqual(missing.transitions[0].conversion, {
-		status: "unknown",
-		reason: "cohort_unavailable",
-	});
-	refused(await tx((t) => read.readPipelineMetrics(t, { ...ctx(2), selected: context.selected }, query)));
-});
-
-test("INV-organization-removal: fresh consent gates progress and removal revokes links while preserving reported independent facts", async () => {
-	const created = ok(
-		await tx((t) =>
-			org.create(t, orgCtx(), {
-				requestKey: randomUUID(),
-				input: {
-					displayName: "Resident fixture",
-					email: "resident@example.test",
-				},
-			}),
-		),
-	).person;
-	const p = created.id,
-		invite = randomUUID(),
-		affiliation = randomUUID(),
-		link = randomUUID(),
-		program = randomUUID(),
-		version = randomUUID(),
-		stage = randomUUID(),
-		enrollment = randomUUID(),
-		milestone = randomUUID(),
-		completion = randomUUID(),
-		feedback = randomUUID();
-	const director = (
-		await admin.execute(sql`SELECT id FROM seat WHERE account_id=${sql.param(actors[3].id)} AND ended_at IS NULL`)
-	).rows[0].id;
-	await admin.execute(sql`UPDATE person SET linked_account_id=${sql.param(actors[1].id)} WHERE id=${sql.param(p)}`);
-	await admin.execute(
-		sql`INSERT INTO invitation(id,tenant_id,purpose,recipient_email,token_hash,state,created_at,accepted_account_id,resident_person_id) VALUES(${sql.param(invite)},${sql.param(organization)},'residency_link','resident@example.test',${sql.param(randomUUID())},'accepted',clock_timestamp(),${sql.param(actors[1].id)},${sql.param(p)})`,
-	);
-	await admin.execute(
-		sql`INSERT INTO affiliation(id,account_id,organization_id,accepted_at,invitation_id,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings) VALUES(${sql.param(affiliation)},${sql.param(actors[1].id)},${sql.param(organization)},clock_timestamp(),${sql.param(invite)},false,false,false,false,false,false,false)`,
-	);
-	await admin.execute(
-		sql`INSERT INTO residency_link(id,organization_id,person_id,account_id,affiliation_id,invitation_id,accepted_at,consent_revision,share_foundations,share_milestones,revision) VALUES(${sql.param(link)},${sql.param(organization)},${sql.param(p)},${sql.param(actors[1].id)},${sql.param(affiliation)},${sql.param(invite)},clock_timestamp(),1,false,true,1)`,
-	);
-	await admin.execute(
-		sql`INSERT INTO development_program(id,organization_id,kind,name,director_seat_id,revision) VALUES(${sql.param(program)},${sql.param(organization)},'residency','Synthetic program',${sql.param(director)},1)`,
-	);
-	await admin.execute(
-		sql`INSERT INTO development_program_version(id,organization_id,program_id,version_number,rhythm,expected_months,published_at,revision) VALUES(${sql.param(version)},${sql.param(organization)},${sql.param(program)},1,'Monthly',12,clock_timestamp(),1)`,
-	);
-	await admin.execute(
-		sql`INSERT INTO development_stage(id,organization_id,version_id,label,position,min_months,max_months,revision) VALUES(${sql.param(stage)},${sql.param(organization)},${sql.param(version)},'Training',0,2,3,1)`,
-	);
-	await admin.execute(
-		sql`INSERT INTO development_enrollment(id,organization_id,person_id,program_id,version_id,cohort_label,started_on,expected_end_on,status,current_stage_id,meeting_timezone,revision) VALUES(${sql.param(enrollment)},${sql.param(organization)},${sql.param(p)},${sql.param(program)},${sql.param(version)},'Synthetic','2026-01-01','2026-12-31','active',${sql.param(stage)},'America/New_York',1)`,
-	);
-	await admin.execute(
-		sql`INSERT INTO development_milestone(id,organization_id,version_id,description,stage_id,position,revision) VALUES(${sql.param(milestone)},${sql.param(organization)},${sql.param(version)},'Synthetic milestone',${sql.param(stage)},0,1)`,
-	);
-	await admin.execute(
-		sql`INSERT INTO enrollment_plan(id,organization_id,enrollment_id,program_id,version_id,adopted_at,adopted_by,revision) VALUES(${sql.param(randomUUID())},${sql.param(organization)},${sql.param(enrollment)},${sql.param(program)},${sql.param(version)},clock_timestamp(),${sql.param(actors[3].id)},1)`,
-	);
-	await admin.execute(
-		sql`INSERT INTO enrollment_milestone(id,organization_id,enrollment_id,version_id,milestone_id,completed_by,completed_at,completion_source,revision) VALUES(${sql.param(completion)},${sql.param(organization)},${sql.param(enrollment)},${sql.param(version)},${sql.param(milestone)},${sql.param(actors[1].id)},clock_timestamp(),'resident_self',1)`,
-	);
-	await admin.execute(
-		sql`INSERT INTO assignment_feedback(id,organization_id,enrollment_milestone_id,author_id,recorded_at,body,revision) VALUES(${sql.param(feedback)},${sql.param(organization)},${sql.param(completion)},${sql.param(actors[3].id)},clock_timestamp(),${sql.param("PRIVATE-FEEDBACK-CANARY")},1)`,
-	);
-	const note = ok(
-		await tx((t) =>
-			write.addNote(t, orgCtx(), {
-				requestKey: randomUUID(),
-				expectedRevision: created.revision,
-				input: { personId: p, body: "PRIVATE-STAFF-NOTE-CANARY" },
-			}),
-		),
-	);
-	const exportInput = { personId: p, format: "csv" };
-	const shared = ok(await tx((t) => org.export(t, orgCtx(), exportInput)));
-	assert.equal(shared.completions.length, 1);
-	assert.equal(JSON.stringify(shared).includes("CANARY"), false);
-	await admin.execute(
-		sql`UPDATE residency_link SET share_milestones=false,consent_revision=consent_revision+1 WHERE id=${sql.param(link)}`,
-	);
-	const withdrawn = ok(await tx((t) => org.export(t, orgCtx(), exportInput)));
-	assert.deepEqual(withdrawn.completions, []);
-	assert.equal(withdrawn.consentRevision, "2");
-	const current = ok(await tx((t) => org.read(t, orgCtx(), { personId: p })));
-	const removed = ok(
-		await tx((t) =>
-			org.remove(t, orgCtx(), {
-				requestKey: randomUUID(),
-				expectedRevision: current.revision,
-				input: { personId: p, reason: "Removal requested" },
-			}),
-		),
-	);
-	assert.deepEqual(
-		new Set(removed.retained.map((x) => x.category)),
-		new Set(["enrollment", "program_completion", "relationship_receipt"]),
-	);
-	const ended = (
-		await admin.execute(
-			sql`SELECT ended_at,share_foundations,share_milestones FROM residency_link WHERE id=${sql.param(link)}`,
-		)
-	).rows[0];
-	assert.ok(ended.ended_at);
-	assert.equal(ended.share_milestones, false);
-	assert.equal(
-		(await admin.execute(sql`SELECT body FROM person_note WHERE id=${sql.param(note.noteId)}`)).rows[0].body,
-		"",
-	);
-	assert.equal(
-		(await admin.execute(sql`SELECT body FROM assignment_feedback WHERE id=${sql.param(feedback)}`)).rows[0].body,
-		"",
-	);
-	assert.ok(
-		(await admin.execute(sql`SELECT completed_at FROM enrollment_milestone WHERE id=${sql.param(completion)}`)).rows[0]
-			.completed_at,
-	);
-	refused(await tx((t) => downloadOrganizationExport(t, orgCtx(), exportInput)));
 });
 
 test("AC:WP011-KNOW-069 account removal severs account links and preserves church-owned facts with minimal attribution", async () => {
@@ -1319,7 +825,7 @@ test("AC:WP011-KNOW-069 account removal severs account links and preserves churc
 	refused(await tx((t) => read.getPerson(t, ctx(4), { personId: p.id })));
 });
 
-test("INV-pipeline: native and reviewed moves place one person, persist and retry once", async () => {
+test("INV-pipeline: native moves place one person, persist and retry once", async () => {
 	await create("Order A");
 	await create("Order B");
 	const column = async () =>
@@ -1351,51 +857,6 @@ test("INV-pipeline: native and reviewed moves place one person, persist and retr
 	refused(await tx((t) => write.reorderPipeline(t, ctx(), { ...order, requestKey: randomUUID() })), "conflict");
 	const refreshedPipeline = ok(await tx((t) => read.getPipelineData(t, ctx(), { stages: ["leader"] })));
 	assert.equal(refreshedPipeline.groups.find((g) => g.column === "prospect").revision, "2");
-	const { hash } = await import("../../../packages/domain/src/people/core.ts"),
-		input = {
-			requestKey: randomUUID(),
-			expectedRevision: refreshedPipeline.groups.find((g) => g.column === "prospect").revision,
-			input: { column: "prospect", personId: last, afterId: first[1] },
-		},
-		name = "people.reorderPipeline",
-		conversation = randomUUID(),
-		review = randomUUID(),
-		digest = "c".repeat(64);
-	await admin.execute(
-		sql`INSERT INTO conversation(id,tenant_id,owner_id,title,state) VALUES(${sql.param(conversation)},${sql.param(plants[0])},${sql.param(actors[0].id)},'Synthetic order','open')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO review(id,tenant_id,conversation_id,proposal_number,digest,effect_manifest_hash,published_at,approved_by_id,approved_at,witness_hash) VALUES(${sql.param(review)},${sql.param(plants[0])},${sql.param(conversation)},1,${sql.param(digest)},${sql.param(hash({ name, input }))},clock_timestamp(),${sql.param(actors[0].id)},clock_timestamp(),${sql.param(hash({ name, input }))})`,
-	);
-	await admin.execute(
-		sql`INSERT INTO effect(tenant_id,review_id,effect_key,kind,payload_hash,state,arguments) VALUES(${sql.param(plants[0])},${sql.param(review)},'order',${sql.param(name)},${sql.param(hash({ name, input }))},'cancelled',${sql.param(JSON.stringify({ operation: name, input }))})`,
-	);
-	const model = {
-		...ctx(),
-		purpose: "model",
-		origin: {
-			kind: "assistant",
-			reviewId: review,
-			conversationId: conversation,
-			planDigest: digest,
-		},
-	};
-	refused(await tx((t) => write.reorderPipeline(t, model, input)));
-	await admin.execute(sql`UPDATE effect SET state='unstarted' WHERE review_id=${sql.param(review)}`);
-	const reviewed = ok(await tx((t) => write.reorderPipeline(t, model, input)));
-	assert.equal(reviewed.outcome, "changed");
-	assert.deepEqual(
-		ok(
-			await tx((t) =>
-				read.listPeople(t, ctx(), {
-					view: "pipeline",
-					stages: ["prospect"],
-					limit: 100,
-				}),
-			),
-		).items.map((p) => p.id),
-		[first[1], last, ...first.slice(2)],
-	);
 });
 
 test("BUG-FB-review-1: full People pages and pipeline use fixed database round trips", async (t) => {
@@ -1486,7 +947,7 @@ test("BUG-FB-review-1: full People pages and pipeline use fixed database round t
 
 test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one transaction with a constant round-trip count", async (t) => {
 	const ids = Array.from({ length: 10 }, () => randomUUID()).sort();
-	// No cleanup: receipts keep references to these people, and the disposable schema is dropped after the suite.
+	// No cleanup: the disposable schema is dropped after the suite.
 	// People with keys 1, 2, 3, ... in id order, as the writer leaves a column.
 	const insert = (some, from) =>
 		admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,pipeline_position,state,created_at)
@@ -1495,7 +956,7 @@ test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one trans
 	const history = async () =>
 		(
 			await admin.execute(
-				sql`SELECT count(*)::int AS n FROM people_history WHERE person_id=ANY(${sql.param(ids)}::uuid[]) AND action='people.updated'`,
+				sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=ANY(${sql.param(ids)}::uuid[]) AND action='people.updated'`,
 			)
 		).rows[0].n;
 	// The reorder action: the producer's command plus one column read, in one transaction.
@@ -1525,8 +986,8 @@ test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one trans
 	assert.deepEqual(many.order, [ids[2], ids[0], ids[9], ids[1], ...ids.slice(3, 9)]);
 	t.diagnostic(JSON.stringify({ reorder: [few.count, many.count] }));
 	assert.equal(many.count, few.count, "a move in a column of 10 costs the same as in a column of 3");
-	assert.deepEqual([few.history, many.history], [1, 1], "a move changes one person and writes one history row");
-	assert.ok(few.count <= 20, `reorder round trips: ${few.count}`);
+	assert.deepEqual([few.history, many.history], [1, 1], "a move changes one person and writes one audit event");
+	assert.ok(few.count <= 10, `reorder round trips: ${few.count}`);
 	// Two neighbours with the same key (people created before keys were unique): the column is spread once.
 	await admin.execute(sql`UPDATE person SET pipeline_position=5 WHERE id=ANY(${sql.param([ids[3], ids[4]])}::uuid[])`);
 	const tie = await move(ids[1], ids[3]);
@@ -1554,5 +1015,5 @@ test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one trans
 	assert.equal(moved.person.stage, "attendee");
 	assert.ok(moved.column.personIds.includes(first.id));
 	assert.equal(moved.column.personRevisions[first.id], moved.person.revision);
-	assert.ok(queries.length <= 25, `stage change round trips: ${queries.length}`);
+	assert.ok(queries.length <= 9, `stage change round trips: ${queries.length}`);
 });

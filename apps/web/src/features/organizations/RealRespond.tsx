@@ -1,13 +1,13 @@
 "use client";
 
+import * as C from "@everyfield/contracts/organizations";
 import { Button, Card, Skeleton } from "@everyfield/ui/controls";
 import { useEffect, useMemo, useState } from "react";
 import { AuthFrame, AuthHeading } from "../identity/AuthFrame";
 import { loadInvitation } from "./actions";
 import { InvitationResponse } from "./InvitationResponse";
-import { createNames, realRun } from "./real";
 import type { PendingInvitation } from "./port";
-import * as C from "@everyfield/contracts/organizations";
+import { createNames, realRun } from "./real";
 
 type State =
 	| { kind: "loading" }
@@ -46,7 +46,7 @@ export function RealRespond({ invitationId }: { invitationId: string | null }) {
 				if (r.kind !== "invitation") return setState({ kind: "unavailable" });
 				setState({
 					kind: "invitation",
-					invitation: C.invitationResult.omit({ receipt: true }).parse(r.invitation) as PendingInvitation,
+					invitation: C.invitationResult.omit({}).parse(r.invitation) as PendingInvitation,
 					names: r.names,
 					proof,
 				});

@@ -30,7 +30,15 @@ for (const value of Object.values(declarations))
 		}
 function literalSet(value: string) {
 	const match = value.match(/^\(?([a-z_][\w]*) = ANY \(ARRAY\[((?:'(?:''|[^'])*'::text(?:, )?)+)\]\)\)?$/);
-	if (!match?.[1] || !match[2]) return undefined;
+	if (!match?.[1] || !match[2]) {
+		const explicit = value.match(/^\(?([a-z_][\w]*) IN \(((?:'(?:''|[^'])*'(?:,\s*)?)+)\)\)?$/);
+		if (!explicit?.[1] || !explicit[2]) return undefined;
+		return {
+			column: explicit[1],
+			sql: explicit[2],
+			values: [...explicit[2].matchAll(/'((?:''|[^'])*)'/g)].map((m) => (m[1] ?? "").replaceAll("''", "'")),
+		};
+	}
 	return {
 		column: match[1],
 		sql: match[2].replaceAll("::text", ""),

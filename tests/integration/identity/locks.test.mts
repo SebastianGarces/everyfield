@@ -48,7 +48,6 @@ test("BUG-124: People membership read takes no account write lock", async () => 
 				{
 					session: s.sender.session,
 					selected: member.workspace,
-					purpose: "native",
 				},
 				{ search: "No matching person" },
 			),
@@ -75,7 +74,8 @@ test("BUG-127: resend during a 250-duty removal completes or safely retries", as
 	const s = await f.setup(),
 		invitation = await f.invitation(s);
 	const accepted = await f.invitations.accept(s.recipient.session, invitation.claim);
-	const pending = await f.invitations.invite(s.sender.session, {
+	const authority = await f.actor(s.sender.session);
+	const pending = await f.invitations.invite(authority, {
 		requestKey: key(),
 		expectedRevision: "1",
 		input: { workspace: s.w, role: "member", recipientEmail: key() + "@example.test" },
@@ -118,9 +118,9 @@ test("BUG-127: resend during a 250-duty removal completes or safely retries", as
 		await f.admin.transaction(async (tx) => {
 			await tx.select().from(t.task).where(eq(t.task.id, ids[0])).for("update");
 			const r = await tx.execute(sql`SELECT pg_backend_pid() AS pid`);
-			removal = outcome(f.seats.remove(s.sender.session, s.w, command));
+			removal = outcome(f.seats.remove(authority, s.w, command));
 			await waitingOn(r.rows[0].pid);
-			concurrent = outcome(f.invitations.resend(s.sender.session, resend));
+			concurrent = outcome(f.invitations.resend(authority, resend));
 		});
 	} finally {
 		if (removal) await removal;
@@ -134,15 +134,14 @@ test("BUG-127: resend during a 250-duty removal completes or safely retries", as
 		assert.equal(sent.error.value?.code, "temporary");
 		assert.equal(sent.error.value.retry, "same_request");
 	}
-	const result = sent.value ?? (await f.invitations.resend(s.sender.session, resend));
+	const result = sent.value ?? (await f.invitations.resend(authority, resend));
 	assert.equal(result.invitation.revision, "2");
-	assert.deepEqual(await f.seats.remove(s.sender.session, s.w, command), removed.value);
+	assert.deepEqual(await f.seats.remove(authority, s.w, command), removed.value);
 	const [{ n }] = await f.admin
 		.select({ n: sql`count(*)::int` })
 		.from(t.task)
 		.where(and(eq(t.task.plant_id, s.w.id), eq(t.task.assignee_id, s.sender.id), eq(t.task.revision, "2")));
 	assert.equal(n, 250);
-	assert.equal(removed.value.receipt.eventIds.length, 251);
 });
 
 test("BUG-124: HTTP resume returns 503 temporary after lock timeout, with the same request retry", async () => {
@@ -219,16 +218,16 @@ test("BUG-127: statement timeout rolls back every handoff and permits exact retr
 		sql`CREATE FUNCTION stall_receipt() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(11); RETURN NEW; END $$`,
 	);
 	await f.admin.execute(
-		sql`CREATE TRIGGER stall_receipt BEFORE INSERT ON identity_operation_result FOR EACH ROW EXECUTE FUNCTION stall_receipt()`,
+		sql`CREATE TRIGGER stall_receipt BEFORE INSERT ON audit_event FOR EACH ROW EXECUTE FUNCTION stall_receipt()`,
 	);
 	try {
-		await assert.rejects(f.seats.remove(s.sender.session, s.w, command), (error) => {
+		await assert.rejects(f.seats.remove(await f.actor(s.sender.session), s.w, command), (error) => {
 			assert.equal(error.value?.code, "temporary");
 			assert.equal(error.value.retry, "same_request");
 			return true;
 		});
 	} finally {
-		await f.admin.execute(sql`DROP TRIGGER stall_receipt ON identity_operation_result`);
+		await f.admin.execute(sql`DROP TRIGGER stall_receipt ON audit_event`);
 		await f.admin.execute(sql`DROP FUNCTION stall_receipt()`);
 	}
 	const [task] = await f.admin.select().from(t.task).where(eq(t.task.id, duty));
@@ -237,10 +236,10 @@ test("BUG-127: statement timeout rolls back every handoff and permits exact retr
 	assert.equal((await f.seats.readCurrentMembership(s.recipient.session)).status, "active");
 	const [{ n }] = await f.admin
 		.select({ n: sql`count(*)::int` })
-		.from(t.operation)
-		.where(eq(t.operation.request_key, command.requestKey));
+		.from(t.audit_event)
+		.where(eq(t.audit_event.request_key, command.requestKey));
 	assert.equal(n, 0);
-	const result = await f.seats.remove(s.sender.session, s.w, command);
+	const result = await f.seats.remove(await f.actor(s.sender.session), s.w, command);
 	assert.deepEqual(result.duties, [{ status: "moved", dutyId: duty, recipientAccountId: s.sender.id }]);
 });
 
@@ -461,7 +460,7 @@ test("INV-request-page: revoked membership refuses writes from a stale viewer", 
 		viewer = resolved.viewer;
 		assert.equal(viewer.displayName, "Request Person 00");
 		assert.equal(viewer.ownPersonId, ids[0]);
-		return f.db.transaction((tx) => page(tx, new PeopleReadContext(viewer.authority, "native")));
+		return f.db.transaction((tx) => page(tx, new PeopleReadContext(viewer.authority)));
 	}
 	const list = await pageRead((tx, ctx) =>
 		readPeoplePage(tx, ctx, parseQuery(new URLSearchParams("search=Request+Person"))),
@@ -479,7 +478,7 @@ test("INV-request-page: revoked membership refuses writes from a stale viewer", 
 	// A read snapshot can never authorize a later write. The writer must recheck
 	// its session/seat inside the mutation transaction even with this context.
 	await f.admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.id, seat));
-	const stale = Object.assign(new PeopleReadContext(viewer.authority, "native"), { origin: { kind: "native" } });
+	const stale = Object.assign(new PeopleReadContext(viewer.authority), {});
 	const changed = await f.db.transaction((tx) =>
 		peopleWriter.updatePerson(tx, stale, {
 			requestKey: key(),

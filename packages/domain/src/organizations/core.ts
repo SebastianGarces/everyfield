@@ -1,20 +1,15 @@
-import { getTableColumns, and, eq, isNull, lte, sql } from "@everyfield/db/query";
-import * as tables from "@everyfield/db/tables";
-import { alias } from "@everyfield/db/columns";
-import { createHash, randomUUID } from "node:crypto";
-import type { Transaction } from "@everyfield/db/client";
-import { z } from "zod";
+import { writeAction } from "../operations/actions.ts";
+import { RequestActor, requestWrite } from "../access/session.ts";
+import { sessionId } from "@everyfield/contracts/common";
 import {
+	accountId,
 	owner,
 	recordId,
-	accountId,
-	tenantId,
-	revision,
-	receipt,
 	requestIdentity,
+	revision,
 	sameOwner,
+	tenantId,
 	type Owner,
-	type Receipt,
 } from "@everyfield/contracts/common";
 import {
 	relationshipPair,
@@ -22,10 +17,14 @@ import {
 	sharingChoices,
 	type RelationshipPair,
 } from "@everyfield/contracts/organizations";
-import { currentActor } from "@everyfield/domain/access";
-import { liveOwner } from "@everyfield/domain/access";
-const organization_operation_result_r = alias(tables.organization_operation_result, "r");
-const operation_o = alias(tables.operation, "o");
+import type { Transaction } from "@everyfield/db/client";
+import { alias } from "@everyfield/db/columns";
+import { and, eq, getTableColumns, isNull, lte, sql, type SQL } from "@everyfield/db/query";
+import * as tables from "@everyfield/db/tables";
+import { currentActor, liveOwner } from "@everyfield/domain/access";
+import { createHash, randomUUID } from "node:crypto";
+import { z } from "zod";
+import { finishAudit, prepareWrite } from "../operations/writes.ts";
 
 export { currentActor, liveOwner, sameOwner };
 export type Actor = Extract<Awaited<ReturnType<typeof currentActor>>, { status: "active" }>;
@@ -51,8 +50,10 @@ export function canonical(value: unknown): string {
 		);
 	return JSON.stringify(value);
 }
-export async function lock(tx: Transaction, key: string) {
-	await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${sql.param(key)},7007))`);
+export async function writeActor(tx: Transaction, session: string, selected: Owner) {
+	const bound = requestWrite(tx) ?? (await RequestActor.claimWrite(tx, sessionId.parse(session), selected));
+	if (!bound || bound.authority.session !== session || !sameOwner(bound.selected, selected)) refuse();
+	return bound.actor;
 }
 export const subjectOwner = (pair: RelationshipPair): Owner =>
 	pair.kind === "discovery" ? owner.parse({ kind: "account", id: pair.accountId }) : pair.subject;
@@ -91,12 +92,13 @@ export async function validPair(tx: Transaction, pair: RelationshipPair) {
 		);
 	return true;
 }
-const affiliationSchema = z.object({
+export const affiliationSchema = z.object({
 	id: recordId,
 	plant_id: tenantId.nullable(),
 	account_id: accountId.nullable(),
 	sending_church_id: tenantId.nullable(),
 	organization_id: tenantId,
+	organization_name: z.string(),
 	organization_kind: z.enum(["sending_church", "sending_network"]),
 	subject_kind: z.enum(["sending_church", "sending_network"]).nullable(),
 	accepted_at: z.date(),
@@ -115,19 +117,25 @@ const affiliationSchema = z.object({
 export type Affiliation = z.infer<typeof affiliationSchema>;
 const receivingOrganization = alias(tables.organization, "receiving_organization");
 const sendingOrganization = alias(tables.organization, "sending_organization");
-export async function loadAffiliation(tx: Transaction, id: string, write = false): Promise<Affiliation | null> {
+export async function loadAffiliations(tx: Transaction, predicate: SQL, write = false) {
 	const rows = await tx
 		.select({
 			...getTableColumns(tables.affiliation),
 			organization_kind: receivingOrganization.kind,
+			organization_name: receivingOrganization.name,
 			subject_kind: sendingOrganization.kind,
+			active: sql<boolean>`${tables.affiliation.ended_at} IS NULL AND ${tables.affiliation.accepted_at}<=clock_timestamp() AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (w.affiliation_id=${tables.affiliation.id} OR (w.opaque_subject_id IN (${tables.affiliation.organization_id},${tables.affiliation.plant_id},${tables.affiliation.account_id},${tables.affiliation.sending_church_id}) AND w.kind IN ('account','plant','organization')))) AND (${tables.affiliation.account_id} IS NULL OR EXISTS(SELECT FROM discovery d WHERE d.account_id=${tables.affiliation.account_id} AND d.converted_at IS NULL))`,
 		})
 		.from(tables.affiliation)
 		.innerJoin(receivingOrganization, eq(receivingOrganization.id, tables.affiliation.organization_id))
 		.leftJoin(sendingOrganization, eq(sendingOrganization.id, tables.affiliation.sending_church_id))
-		.where(eq(tables.affiliation.id, id))
+		.where(predicate)
+		.orderBy(tables.affiliation.id)
 		.for(write ? "update" : "share", { of: tables.affiliation });
-	return rows[0] ? affiliationSchema.parse(rows[0]) : null;
+	return rows.map((row) => ({ ...affiliationSchema.parse(row), active: row.active }));
+}
+export async function loadAffiliation(tx: Transaction, id: string, write = false): Promise<Affiliation | null> {
+	return (await loadAffiliations(tx, eq(tables.affiliation.id, id), write))[0] ?? null;
 }
 
 export function pairOf(a: Affiliation): RelationshipPair {
@@ -211,6 +219,7 @@ export interface OrganizationEffects {
 		tx: Transaction,
 		input: {
 			eventId: string;
+			actorId?: string;
 			relationshipId: string;
 			pair: RelationshipPair;
 			kind: "relationship_approved" | "relationship_ended" | "sharing_changed";
@@ -218,106 +227,49 @@ export interface OrganizationEffects {
 			operationId: string;
 		},
 	): Promise<void>;
-	invalidate(tx: Transaction, input: { owner: Owner; sourceId: string; revision: string }): Promise<void>;
+	invalidate(tx: Transaction, input: { owners: readonly Owner[]; sourceId: string; revision: string }): Promise<void>;
 }
 type Command = { requestKey: string; expectedRevision: string; input: unknown };
-export async function beginCommand(
-	tx: Transaction,
-	actor: Actor,
-	selected: Owner,
-	name: typeof tables.operation.$inferInsert.name,
-	command: Command,
-) {
+export async function beginCommand(tx: Transaction, actor: Actor, selected: Owner, name: string, command: Command) {
 	const identity = requestIdentity.parse({
 		owner: selected,
 		actorId: actor.accountId,
 		operation: name,
 		requestKey: command.requestKey,
 		digest: hash(canonical(command)),
-		origin: { kind: "native" },
 	});
-	await lock(tx, "request/" + selected.id + "/" + command.requestKey);
-	const prior = await tx
-		.select({ receipt: organization_operation_result_r.receipt, result: organization_operation_result_r.result })
-		.from(operation_o)
-		.innerJoin(organization_operation_result_r, eq(organization_operation_result_r.operation_id, operation_o.id))
-		.where(and(eq(operation_o.tenant_id, selected.id), eq(operation_o.request_key, command.requestKey)));
-	if (prior[0]) {
-		const saved = receipt.parse(prior[0].receipt);
-		if (canonical(saved.request) !== canonical(identity)) refuse("request_conflict");
-		return { kind: "replay" as const, result: prior[0].result, receipt: saved };
+	const claim = await prepareWrite(tx, identity);
+	if (claim.kind === "unavailable") refuse();
+	if (claim.kind === "conflict") refuse("request_conflict");
+	if (claim.kind === "replay") {
+		return { kind: "replay" as const, result: claim.value };
 	}
-	const id = randomUUID();
-	await tx.insert(tables.operation).values({
-		id: id,
-		tenant_id: selected.id,
-		actor_id: actor.accountId,
-		name: name,
-		request_key: command.requestKey,
-		request_digest: identity.digest,
-		state: "running",
-		started_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-		tool_calls: 0,
-		reserved_input: 0,
-		reserved_output: 0,
-		used_input: 0,
-		used_output: 0,
-	});
-	return { kind: "new" as const, id, identity };
+	return { kind: "new" as const, id: claim.id, identity, writes: claim.writes, events: claim.events };
 }
 export type NewCommand = Extract<Awaited<ReturnType<typeof beginCommand>>, { kind: "new" }>;
-export async function finishCommand<T>(
-	tx: Transaction,
-	c: NewCommand,
-	result: (r: Receipt) => T,
-	eventIds: string[],
-	changed = true,
-): Promise<T> {
-	const now = new Date(
-		(await tx.execute<{ now: string }>(sql`SELECT clock_timestamp() AS now`)).rows[0]!.now,
-	).toISOString();
-	const r = receipt.parse({
-		id: c.id,
-		request: c.identity,
-		completedAt: now,
-		outcome: changed ? "changed" : "noop",
-		subjects: [{ kind: "operation", id: c.id, owner: c.identity.owner }],
-		eventIds,
-		effectIds: [],
-	});
-	const output = result(r);
-	await tx
-		.update(tables.operation)
-		.set({ state: "complete", outcome: changed ? "committed" : "no_effect", completed_at: sql`${now}` })
-		.where(eq(tables.operation.id, c.id));
-	await tx.insert(tables.organization_operation_result).values({ operation_id: c.id, receipt: r, result: output });
+export async function finishCommand<T>(tx: Transaction, c: NewCommand, result: () => T): Promise<T> {
+	const output = result();
+	await finishAudit(tx, c, c.identity, output);
 	return output;
 }
 export async function appendEvent(
-	tx: Transaction,
+	_tx: Transaction,
 	c: NewCommand,
 	target: string,
-	kind: typeof tables.event.$inferInsert.kind,
-	action: typeof tables.event.$inferInsert.action,
+	kind: typeof tables.audit_event.$inferInsert.kind,
+	action: typeof tables.audit_event.$inferInsert.action | null,
 	before: string,
 	after: string,
 ) {
-	const id = randomUUID();
-	const record = await tx
-		.select({ tenant_id: tables.record.tenant_id })
-		.from(tables.record)
-		.where(eq(tables.record.id, target));
-	// Bilateral decisions are recorded in the acting endpoint scope. The private
-	// relationship history carries the exact pair; audit never targets a foreign body.
-	const ownedTarget = record[0]?.tenant_id === c.identity.owner.id ? target : c.identity.owner.id;
-	await tx.insert(tables.event).values({
+	const id = c.events.length ? randomUUID() : c.id;
+	c.events.push({
 		id: id,
 		tenant_id: c.identity.owner.id,
-		target_record_id: ownedTarget,
-		operation_id: c.id,
+		subject_id: target,
+		command_id: c.id,
 		actor_id: c.identity.actorId,
 		kind: kind,
-		action: action,
+		action: action ?? writeAction(c.identity.operation),
 		occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
 		recorded_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
 		before_revision: sql`${before}`,
@@ -337,5 +289,5 @@ export async function invalidate(
 		.update(tables.organization)
 		.set({ material_revision: sql<unknown>`(${tables.organization.material_revision} + 1)` })
 		.where(eq(tables.organization.id, pair.organization.id));
-	await effects.invalidate(tx, { owner: pair.organization, sourceId: id, revision: rev });
+	await effects.invalidate(tx, { owners: [pair.organization], sourceId: id, revision: rev });
 }

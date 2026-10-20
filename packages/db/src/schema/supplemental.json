@@ -45,12 +45,6 @@
 		{
 			"deferrable": true,
 			"initially_deferred": false,
-			"name": "affiliation_fk_5",
-			"table_name": "affiliation"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
 			"name": "article_editor_state_fk_0",
 			"table_name": "article_editor_state"
 		},
@@ -148,12 +142,6 @@
 			"deferrable": true,
 			"initially_deferred": false,
 			"name": "assessment_contributor_fk_2",
-			"table_name": "assessment_contributor"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "assessment_contributor_fk_3",
 			"table_name": "assessment_contributor"
 		},
 		{
@@ -321,12 +309,6 @@
 		{
 			"deferrable": true,
 			"initially_deferred": false,
-			"name": "communication_fk_4",
-			"table_name": "communication"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
 			"name": "communication_fk_5",
 			"table_name": "communication"
 		},
@@ -395,54 +377,6 @@
 			"initially_deferred": false,
 			"name": "contact_outcome_fk_5",
 			"table_name": "contact_outcome"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "conversation_entry_fk_0",
-			"table_name": "conversation_entry"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "conversation_entry_fk_1",
-			"table_name": "conversation_entry"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "conversation_entry_fk_2",
-			"table_name": "conversation_entry"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "conversation_entry_fk_3",
-			"table_name": "conversation_entry"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "conversation_entry_fk_4",
-			"table_name": "conversation_entry"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "conversation_entry_fk_6",
-			"table_name": "conversation_entry"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "conversation_fk_0",
-			"table_name": "conversation"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "conversation_fk_1",
-			"table_name": "conversation"
 		},
 		{
 			"deferrable": true,
@@ -579,12 +513,6 @@
 		{
 			"deferrable": true,
 			"initially_deferred": false,
-			"name": "digest_coverage_fk_3",
-			"table_name": "digest_coverage"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
 			"name": "discovery_fk_0",
 			"table_name": "discovery"
 		},
@@ -592,12 +520,6 @@
 			"deferrable": true,
 			"initially_deferred": false,
 			"name": "discovery_fk_1",
-			"table_name": "discovery"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "discovery_fk_2",
 			"table_name": "discovery"
 		},
 		{
@@ -635,54 +557,6 @@
 			"initially_deferred": false,
 			"name": "document_revision_fk_2",
 			"table_name": "document_revision"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "effect_dependency_fk_0",
-			"table_name": "effect_dependency"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "effect_dependency_fk_1",
-			"table_name": "effect_dependency"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "effect_dependency_fk_2",
-			"table_name": "effect_dependency"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "effect_fk_0",
-			"table_name": "effect"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "effect_fk_1",
-			"table_name": "effect"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "effect_fk_2",
-			"table_name": "effect"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "effect_fk_5",
-			"table_name": "effect"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "effect_fk_7",
-			"table_name": "effect"
 		},
 		{
 			"deferrable": true,
@@ -741,55 +615,7 @@
 		{
 			"deferrable": true,
 			"initially_deferred": false,
-			"name": "event_fk_0",
-			"table_name": "event"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "event_fk_2",
-			"table_name": "event"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "event_fk_3",
-			"table_name": "event"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "event_fk_4",
-			"table_name": "event"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "event_fk_5",
-			"table_name": "event"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "event_fk_6",
-			"table_name": "event"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
 			"name": "evidence_link_fk_0",
-			"table_name": "evidence_link"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "evidence_link_fk_1",
-			"table_name": "evidence_link"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "evidence_link_fk_3",
 			"table_name": "evidence_link"
 		},
 		{
@@ -814,12 +640,6 @@
 			"deferrable": true,
 			"initially_deferred": false,
 			"name": "feedback_publication_fk_1",
-			"table_name": "feedback_publication"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "feedback_publication_fk_2",
 			"table_name": "feedback_publication"
 		},
 		{
@@ -868,12 +688,6 @@
 			"deferrable": true,
 			"initially_deferred": false,
 			"name": "generated_document_fk_2",
-			"table_name": "generated_document"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "generated_document_fk_3",
 			"table_name": "generated_document"
 		},
 		{
@@ -1077,12 +891,6 @@
 		{
 			"deferrable": true,
 			"initially_deferred": false,
-			"name": "mail_fk_3",
-			"table_name": "mail"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
 			"name": "mail_fk_4",
 			"table_name": "mail"
 		},
@@ -1251,36 +1059,6 @@
 		{
 			"deferrable": true,
 			"initially_deferred": false,
-			"name": "operation_fk_0",
-			"table_name": "operation"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "operation_fk_1",
-			"table_name": "operation"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "operation_fk_2",
-			"table_name": "operation"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "operation_fk_3",
-			"table_name": "operation"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "operation_fk_4",
-			"table_name": "operation"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
 			"name": "organization_person_removal_fk_0",
 			"table_name": "organization_person_removal"
 		},
@@ -1407,18 +1185,6 @@
 		{
 			"deferrable": true,
 			"initially_deferred": false,
-			"name": "person_merge_fk_3",
-			"table_name": "person_merge"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "person_merge_fk_4",
-			"table_name": "person_merge"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
 			"name": "person_merge_fk_6",
 			"table_name": "person_merge"
 		},
@@ -1486,12 +1252,6 @@
 			"deferrable": true,
 			"initially_deferred": false,
 			"name": "phase_transition_fk_0",
-			"table_name": "phase_transition"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "phase_transition_fk_1",
 			"table_name": "phase_transition"
 		},
 		{
@@ -1869,24 +1629,6 @@
 		{
 			"deferrable": true,
 			"initially_deferred": false,
-			"name": "review_fk_0",
-			"table_name": "review"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "review_fk_1",
-			"table_name": "review"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "review_fk_2",
-			"table_name": "review"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
 			"name": "rsvp_proof_fk_0",
 			"table_name": "rsvp_proof"
 		},
@@ -1935,12 +1677,6 @@
 		{
 			"deferrable": true,
 			"initially_deferred": false,
-			"name": "suppression_fk_1",
-			"table_name": "suppression"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
 			"name": "tag_fk_0",
 			"table_name": "tag"
 		},
@@ -1984,12 +1720,6 @@
 			"deferrable": true,
 			"initially_deferred": false,
 			"name": "task_fk_11",
-			"table_name": "task"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "task_fk_12",
 			"table_name": "task"
 		},
 		{
@@ -2139,12 +1869,6 @@
 		{
 			"deferrable": true,
 			"initially_deferred": false,
-			"name": "training_assignment_fk_4",
-			"table_name": "training_assignment"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
 			"name": "training_credit_fk_0",
 			"table_name": "training_credit"
 		},
@@ -2253,12 +1977,6 @@
 		{
 			"deferrable": true,
 			"initially_deferred": false,
-			"name": "wiki_preference_fk_2",
-			"table_name": "wiki_preference"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
 			"name": "wiki_preference_fk_4",
 			"table_name": "wiki_preference"
 		},
@@ -2277,6 +1995,12 @@
 		{
 			"deferrable": true,
 			"initially_deferred": true,
+			"name": "affiliation_fk_5",
+			"table_name": "affiliation"
+		},
+		{
+			"deferrable": true,
+			"initially_deferred": true,
 			"name": "affiliation_fk_6",
 			"table_name": "affiliation"
 		},
@@ -2291,6 +2015,12 @@
 			"initially_deferred": true,
 			"name": "article_revision_fk_7",
 			"table_name": "article_revision"
+		},
+		{
+			"deferrable": true,
+			"initially_deferred": true,
+			"name": "assessment_contributor_fk_3",
+			"table_name": "assessment_contributor"
 		},
 		{
 			"deferrable": true,
@@ -2325,6 +2055,12 @@
 		{
 			"deferrable": true,
 			"initially_deferred": true,
+			"name": "audit_public_subject",
+			"table_name": "audit_event"
+		},
+		{
+			"deferrable": true,
+			"initially_deferred": true,
 			"name": "commitment_fk_5",
 			"table_name": "commitment"
 		},
@@ -2345,18 +2081,6 @@
 			"initially_deferred": true,
 			"name": "contact_outcome_fk_6",
 			"table_name": "contact_outcome"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": true,
-			"name": "conversation_entry_fk_5",
-			"table_name": "conversation_entry"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": true,
-			"name": "conversation_fk_2",
-			"table_name": "conversation"
 		},
 		{
 			"deferrable": true,
@@ -2397,8 +2121,20 @@
 		{
 			"deferrable": true,
 			"initially_deferred": true,
+			"name": "digest_coverage_fk_3",
+			"table_name": "digest_coverage"
+		},
+		{
+			"deferrable": true,
+			"initially_deferred": true,
 			"name": "digest_coverage_fk_4",
 			"table_name": "digest_coverage"
+		},
+		{
+			"deferrable": true,
+			"initially_deferred": true,
+			"name": "discovery_fk_2",
+			"table_name": "discovery"
 		},
 		{
 			"deferrable": true,
@@ -2421,30 +2157,6 @@
 		{
 			"deferrable": true,
 			"initially_deferred": true,
-			"name": "effect_fk_3",
-			"table_name": "effect"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": true,
-			"name": "effect_fk_4",
-			"table_name": "effect"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": true,
-			"name": "effect_fk_6",
-			"table_name": "effect"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": true,
-			"name": "effect_fk_8",
-			"table_name": "effect"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": true,
 			"name": "enrollment_milestone_fk_1",
 			"table_name": "enrollment_milestone"
 		},
@@ -2457,13 +2169,19 @@
 		{
 			"deferrable": true,
 			"initially_deferred": true,
-			"name": "event_fk_1",
-			"table_name": "event"
+			"name": "evidence_link_fk_1",
+			"table_name": "evidence_link"
 		},
 		{
 			"deferrable": true,
 			"initially_deferred": true,
 			"name": "evidence_link_fk_2",
+			"table_name": "evidence_link"
+		},
+		{
+			"deferrable": true,
+			"initially_deferred": true,
+			"name": "evidence_link_fk_3",
 			"table_name": "evidence_link"
 		},
 		{
@@ -2513,6 +2231,12 @@
 			"initially_deferred": true,
 			"name": "four_cs_fk_2",
 			"table_name": "four_cs"
+		},
+		{
+			"deferrable": true,
+			"initially_deferred": true,
+			"name": "generated_document_fk_3",
+			"table_name": "generated_document"
 		},
 		{
 			"deferrable": true,
@@ -2589,6 +2313,12 @@
 		{
 			"deferrable": true,
 			"initially_deferred": true,
+			"name": "mail_fk_3",
+			"table_name": "mail"
+		},
+		{
+			"deferrable": true,
+			"initially_deferred": true,
 			"name": "mail_fk_7",
 			"table_name": "mail"
 		},
@@ -2649,8 +2379,8 @@
 		{
 			"deferrable": true,
 			"initially_deferred": true,
-			"name": "operation_fk_5",
-			"table_name": "operation"
+			"name": "onboarding_setup_creation_operation_id_audit_event_id_fk",
+			"table_name": "onboarding_setup"
 		},
 		{
 			"deferrable": true,
@@ -2691,14 +2421,20 @@
 		{
 			"deferrable": true,
 			"initially_deferred": true,
-			"name": "people_history_operation_id_tenant_id_fkey",
-			"table_name": "people_history"
+			"name": "person_fk_5",
+			"table_name": "person"
 		},
 		{
 			"deferrable": true,
 			"initially_deferred": true,
-			"name": "person_fk_5",
-			"table_name": "person"
+			"name": "person_merge_fk_3",
+			"table_name": "person_merge"
+		},
+		{
+			"deferrable": true,
+			"initially_deferred": true,
+			"name": "person_merge_fk_4",
+			"table_name": "person_merge"
 		},
 		{
 			"deferrable": true,
@@ -2717,6 +2453,12 @@
 			"initially_deferred": true,
 			"name": "person_skill_fk_2",
 			"table_name": "person_skill"
+		},
+		{
+			"deferrable": true,
+			"initially_deferred": true,
+			"name": "phase_transition_fk_1",
+			"table_name": "phase_transition"
 		},
 		{
 			"deferrable": true,
@@ -2841,12 +2583,6 @@
 		{
 			"deferrable": true,
 			"initially_deferred": true,
-			"name": "review_fk_3",
-			"table_name": "review"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": true,
 			"name": "seat_fk_4",
 			"table_name": "seat"
 		},
@@ -2859,6 +2595,12 @@
 		{
 			"deferrable": true,
 			"initially_deferred": true,
+			"name": "suppression_fk_1",
+			"table_name": "suppression"
+		},
+		{
+			"deferrable": true,
+			"initially_deferred": true,
 			"name": "suppression_fk_2",
 			"table_name": "suppression"
 		},
@@ -2867,6 +2609,12 @@
 			"initially_deferred": true,
 			"name": "tag_fk_1",
 			"table_name": "tag"
+		},
+		{
+			"deferrable": true,
+			"initially_deferred": true,
+			"name": "task_fk_12",
+			"table_name": "task"
 		},
 		{
 			"deferrable": true,
@@ -2891,6 +2639,12 @@
 			"initially_deferred": true,
 			"name": "team_tenure_fk_4",
 			"table_name": "team_tenure"
+		},
+		{
+			"deferrable": true,
+			"initially_deferred": true,
+			"name": "training_assignment_fk_4",
+			"table_name": "training_assignment"
 		},
 		{
 			"deferrable": true,
@@ -2927,6 +2681,12 @@
 			"initially_deferred": true,
 			"name": "venue_fk_1",
 			"table_name": "venue"
+		},
+		{
+			"deferrable": true,
+			"initially_deferred": true,
+			"name": "wiki_preference_fk_2",
+			"table_name": "wiki_preference"
 		},
 		{
 			"deferrable": true,
@@ -2991,6 +2751,12 @@
 			"table_name": "attestation"
 		},
 		{
+			"definition": "CREATE CONSTRAINT TRIGGER assert_record_binding AFTER INSERT OR UPDATE ON <schema>.audit_event DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_record_binding('\"tenant_id\"')",
+			"enabled": "O",
+			"name": "assert_record_binding",
+			"table_name": "audit_event"
+		},
+		{
 			"definition": "CREATE CONSTRAINT TRIGGER assert_record_binding AFTER INSERT OR UPDATE ON <schema>.commitment DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_record_binding('\"plant_id\"')",
 			"enabled": "O",
 			"name": "assert_record_binding",
@@ -3013,18 +2779,6 @@
 			"enabled": "O",
 			"name": "assert_record_binding",
 			"table_name": "contact_outcome"
-		},
-		{
-			"definition": "CREATE CONSTRAINT TRIGGER assert_record_binding AFTER INSERT OR UPDATE ON <schema>.conversation DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_record_binding('\"tenant_id\"')",
-			"enabled": "O",
-			"name": "assert_record_binding",
-			"table_name": "conversation"
-		},
-		{
-			"definition": "CREATE CONSTRAINT TRIGGER assert_record_binding AFTER INSERT OR UPDATE ON <schema>.conversation_entry DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_record_binding('\"tenant_id\"')",
-			"enabled": "O",
-			"name": "assert_record_binding",
-			"table_name": "conversation_entry"
 		},
 		{
 			"definition": "CREATE CONSTRAINT TRIGGER assert_record_binding AFTER INSERT OR UPDATE ON <schema>.development_enrollment DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_record_binding('\"organization_id\"')",
@@ -3085,12 +2839,6 @@
 			"enabled": "O",
 			"name": "assert_record_binding",
 			"table_name": "document_revision"
-		},
-		{
-			"definition": "CREATE CONSTRAINT TRIGGER assert_record_binding AFTER INSERT OR UPDATE ON <schema>.effect DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_record_binding('\"tenant_id\"')",
-			"enabled": "O",
-			"name": "assert_record_binding",
-			"table_name": "effect"
 		},
 		{
 			"definition": "CREATE CONSTRAINT TRIGGER assert_record_binding AFTER INSERT OR UPDATE ON <schema>.enrollment_milestone DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_record_binding('\"organization_id\"')",
@@ -3255,12 +3003,6 @@
 			"table_name": "obligation"
 		},
 		{
-			"definition": "CREATE CONSTRAINT TRIGGER assert_record_binding AFTER INSERT OR UPDATE ON <schema>.operation DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_record_binding('\"tenant_id\"')",
-			"enabled": "O",
-			"name": "assert_record_binding",
-			"table_name": "operation"
-		},
-		{
 			"definition": "CREATE CONSTRAINT TRIGGER assert_record_binding AFTER INSERT OR UPDATE ON <schema>.organization DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_record_binding('id')",
 			"enabled": "O",
 			"name": "assert_record_binding",
@@ -3423,12 +3165,6 @@
 			"table_name": "responsibility"
 		},
 		{
-			"definition": "CREATE CONSTRAINT TRIGGER assert_record_binding AFTER INSERT OR UPDATE ON <schema>.review DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_record_binding('\"tenant_id\"')",
-			"enabled": "O",
-			"name": "assert_record_binding",
-			"table_name": "review"
-		},
-		{
 			"definition": "CREATE CONSTRAINT TRIGGER assert_record_binding AFTER INSERT OR UPDATE ON <schema>.seat DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_record_binding('coalesce(plant_id,organization_id)')",
 			"enabled": "O",
 			"name": "assert_record_binding",
@@ -3579,6 +3315,12 @@
 			"table_name": "attestation"
 		},
 		{
+			"definition": "CREATE TRIGGER bind_record AFTER INSERT OR UPDATE ON <schema>.audit_event FOR EACH ROW EXECUTE FUNCTION audit_event_bind_record()",
+			"enabled": "O",
+			"name": "bind_record",
+			"table_name": "audit_event"
+		},
+		{
 			"definition": "CREATE TRIGGER bind_record AFTER INSERT OR UPDATE ON <schema>.commitment FOR EACH ROW EXECUTE FUNCTION commitment_bind_record()",
 			"enabled": "O",
 			"name": "bind_record",
@@ -3601,18 +3343,6 @@
 			"enabled": "O",
 			"name": "bind_record",
 			"table_name": "contact_outcome"
-		},
-		{
-			"definition": "CREATE TRIGGER bind_record AFTER INSERT OR UPDATE ON <schema>.conversation FOR EACH ROW EXECUTE FUNCTION conversation_bind_record()",
-			"enabled": "O",
-			"name": "bind_record",
-			"table_name": "conversation"
-		},
-		{
-			"definition": "CREATE TRIGGER bind_record AFTER INSERT OR UPDATE ON <schema>.conversation_entry FOR EACH ROW EXECUTE FUNCTION conversation_entry_bind_record()",
-			"enabled": "O",
-			"name": "bind_record",
-			"table_name": "conversation_entry"
 		},
 		{
 			"definition": "CREATE TRIGGER bind_record AFTER INSERT OR UPDATE ON <schema>.development_enrollment FOR EACH ROW EXECUTE FUNCTION development_enrollment_bind_record()",
@@ -3673,12 +3403,6 @@
 			"enabled": "O",
 			"name": "bind_record",
 			"table_name": "document_revision"
-		},
-		{
-			"definition": "CREATE TRIGGER bind_record AFTER INSERT OR UPDATE ON <schema>.effect FOR EACH ROW EXECUTE FUNCTION effect_bind_record()",
-			"enabled": "O",
-			"name": "bind_record",
-			"table_name": "effect"
 		},
 		{
 			"definition": "CREATE TRIGGER bind_record AFTER INSERT OR UPDATE ON <schema>.enrollment_milestone FOR EACH ROW EXECUTE FUNCTION enrollment_milestone_bind_record()",
@@ -3843,12 +3567,6 @@
 			"table_name": "obligation"
 		},
 		{
-			"definition": "CREATE TRIGGER bind_record AFTER INSERT OR UPDATE ON <schema>.operation FOR EACH ROW EXECUTE FUNCTION operation_bind_record()",
-			"enabled": "O",
-			"name": "bind_record",
-			"table_name": "operation"
-		},
-		{
 			"definition": "CREATE TRIGGER bind_record AFTER INSERT OR UPDATE ON <schema>.organization FOR EACH ROW EXECUTE FUNCTION organization_bind_record()",
 			"enabled": "O",
 			"name": "bind_record",
@@ -4011,12 +3729,6 @@
 			"table_name": "responsibility"
 		},
 		{
-			"definition": "CREATE TRIGGER bind_record AFTER INSERT OR UPDATE ON <schema>.review FOR EACH ROW EXECUTE FUNCTION review_bind_record()",
-			"enabled": "O",
-			"name": "bind_record",
-			"table_name": "review"
-		},
-		{
 			"definition": "CREATE TRIGGER bind_record AFTER INSERT OR UPDATE ON <schema>.seat FOR EACH ROW EXECUTE FUNCTION seat_bind_record()",
 			"enabled": "O",
 			"name": "bind_record",
@@ -4123,12 +3835,6 @@
 			"enabled": "O",
 			"name": "file_ready_object_id",
 			"table_name": "commitment"
-		},
-		{
-			"definition": "CREATE TRIGGER file_ready_object_id BEFORE INSERT OR UPDATE OF object_id ON <schema>.conversation_entry FOR EACH ROW EXECUTE FUNCTION require_ready_file('object_id')",
-			"enabled": "O",
-			"name": "file_ready_object_id",
-			"table_name": "conversation_entry"
 		},
 		{
 			"definition": "CREATE TRIGGER file_ready_object_id BEFORE INSERT OR UPDATE OF object_id ON <schema>.generated_document FOR EACH ROW EXECUTE FUNCTION require_ready_file('object_id')",
@@ -4346,6 +4052,11 @@
 		},
 		{
 			"arguments": "",
+			"definition": "CREATE OR REPLACE FUNCTION <schema>.audit_event_bind_record()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE actual_owner uuid;\nBEGIN\n  actual_owner := NEW.tenant_id;\n  \n  IF TG_OP='UPDATE' AND NEW.id <> OLD.id THEN RAISE EXCEPTION 'immutable_record_id' USING ERRCODE='23514'; END IF;\n  INSERT INTO record(id,kind,tenant_id) VALUES (NEW.id,'audit_event',actual_owner) ON CONFLICT DO NOTHING;\n  PERFORM 1 FROM record WHERE id=NEW.id AND kind='audit_event' AND tenant_id=actual_owner FOR KEY SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'record_subtype_owner_mismatch' USING ERRCODE='23514'; END IF;\n  RETURN NEW;\nEND $function$\n",
+			"name": "audit_event_bind_record"
+		},
+		{
+			"arguments": "",
 			"definition": "CREATE OR REPLACE FUNCTION <schema>.check_owner_kind()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE owner_kind text;\nBEGIN\n  SELECT kind INTO owner_kind FROM tenant WHERE id=NEW.tenant_id;\n  IF NOT owner_kind = ANY(string_to_array(TG_ARGV[0],',')) THEN\n    RAISE EXCEPTION 'invalid_tenant_kind' USING ERRCODE='23514';\n  END IF;\n  RETURN NEW;\nEND $function$\n",
 			"name": "check_owner_kind"
 		},
@@ -4368,16 +4079,6 @@
 			"arguments": "",
 			"definition": "CREATE OR REPLACE FUNCTION <schema>.contact_outcome_bind_record()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE actual_owner uuid;\nBEGIN\n  actual_owner := NEW.plant_id;\n  \n  IF TG_OP='UPDATE' AND NEW.id <> OLD.id THEN RAISE EXCEPTION 'immutable_record_id' USING ERRCODE='23514'; END IF;\n  INSERT INTO record(id,kind,tenant_id) VALUES (NEW.id,'contact_outcome',actual_owner) ON CONFLICT DO NOTHING;\n  PERFORM 1 FROM record WHERE id=NEW.id AND kind='contact_outcome' AND tenant_id=actual_owner FOR KEY SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'record_subtype_owner_mismatch' USING ERRCODE='23514'; END IF;\n  RETURN NEW;\nEND $function$\n",
 			"name": "contact_outcome_bind_record"
-		},
-		{
-			"arguments": "",
-			"definition": "CREATE OR REPLACE FUNCTION <schema>.conversation_bind_record()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE actual_owner uuid;\nBEGIN\n  actual_owner := NEW.tenant_id;\n  \n  IF TG_OP='UPDATE' AND NEW.id <> OLD.id THEN RAISE EXCEPTION 'immutable_record_id' USING ERRCODE='23514'; END IF;\n  INSERT INTO record(id,kind,tenant_id) VALUES (NEW.id,'conversation',actual_owner) ON CONFLICT DO NOTHING;\n  PERFORM 1 FROM record WHERE id=NEW.id AND kind='conversation' AND tenant_id=actual_owner FOR KEY SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'record_subtype_owner_mismatch' USING ERRCODE='23514'; END IF;\n  RETURN NEW;\nEND $function$\n",
-			"name": "conversation_bind_record"
-		},
-		{
-			"arguments": "",
-			"definition": "CREATE OR REPLACE FUNCTION <schema>.conversation_entry_bind_record()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE actual_owner uuid;\nBEGIN\n  actual_owner := NEW.tenant_id;\n  \n  IF TG_OP='UPDATE' AND NEW.id <> OLD.id THEN RAISE EXCEPTION 'immutable_record_id' USING ERRCODE='23514'; END IF;\n  INSERT INTO record(id,kind,tenant_id) VALUES (NEW.id,'conversation_entry',actual_owner) ON CONFLICT DO NOTHING;\n  PERFORM 1 FROM record WHERE id=NEW.id AND kind='conversation_entry' AND tenant_id=actual_owner FOR KEY SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'record_subtype_owner_mismatch' USING ERRCODE='23514'; END IF;\n  RETURN NEW;\nEND $function$\n",
-			"name": "conversation_entry_bind_record"
 		},
 		{
 			"arguments": "",
@@ -4433,11 +4134,6 @@
 			"arguments": "",
 			"definition": "CREATE OR REPLACE FUNCTION <schema>.document_revision_owner()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nBEGIN\n  IF NEW.current_revision_id IS NOT NULL AND NOT EXISTS(\n    SELECT FROM document_revision WHERE id=NEW.current_revision_id AND document_id=NEW.id AND tenant_id=NEW.tenant_id\n  ) THEN RAISE EXCEPTION 'foreign_document_revision' USING ERRCODE='23514'; END IF;\n  IF NEW.kind='launch_summary' AND NOT EXISTS(SELECT FROM tenant WHERE id=NEW.tenant_id AND kind='plant') THEN\n    RAISE EXCEPTION 'launch_summary_requires_plant' USING ERRCODE='23514';\n  END IF;\n  RETURN NEW;\nEND $function$\n",
 			"name": "document_revision_owner"
-		},
-		{
-			"arguments": "",
-			"definition": "CREATE OR REPLACE FUNCTION <schema>.effect_bind_record()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE actual_owner uuid;\nBEGIN\n  actual_owner := NEW.tenant_id;\n  \n  IF TG_OP='UPDATE' AND NEW.id <> OLD.id THEN RAISE EXCEPTION 'immutable_record_id' USING ERRCODE='23514'; END IF;\n  INSERT INTO record(id,kind,tenant_id) VALUES (NEW.id,'effect',actual_owner) ON CONFLICT DO NOTHING;\n  PERFORM 1 FROM record WHERE id=NEW.id AND kind='effect' AND tenant_id=actual_owner FOR KEY SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'record_subtype_owner_mismatch' USING ERRCODE='23514'; END IF;\n  RETURN NEW;\nEND $function$\n",
-			"name": "effect_bind_record"
 		},
 		{
 			"arguments": "",
@@ -4588,11 +4284,6 @@
 			"arguments": "",
 			"definition": "CREATE OR REPLACE FUNCTION <schema>.obligation_bind_record()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE actual_owner uuid;\nBEGIN\n  actual_owner := NEW.plant_id;\n  \n  IF TG_OP='UPDATE' AND NEW.id <> OLD.id THEN RAISE EXCEPTION 'immutable_record_id' USING ERRCODE='23514'; END IF;\n  INSERT INTO record(id,kind,tenant_id) VALUES (NEW.id,'obligation',actual_owner) ON CONFLICT DO NOTHING;\n  PERFORM 1 FROM record WHERE id=NEW.id AND kind='obligation' AND tenant_id=actual_owner FOR KEY SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'record_subtype_owner_mismatch' USING ERRCODE='23514'; END IF;\n  RETURN NEW;\nEND $function$\n",
 			"name": "obligation_bind_record"
-		},
-		{
-			"arguments": "",
-			"definition": "CREATE OR REPLACE FUNCTION <schema>.operation_bind_record()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE actual_owner uuid;\nBEGIN\n  actual_owner := NEW.tenant_id;\n  \n  IF TG_OP='UPDATE' AND NEW.id <> OLD.id THEN RAISE EXCEPTION 'immutable_record_id' USING ERRCODE='23514'; END IF;\n  INSERT INTO record(id,kind,tenant_id) VALUES (NEW.id,'operation',actual_owner) ON CONFLICT DO NOTHING;\n  PERFORM 1 FROM record WHERE id=NEW.id AND kind='operation' AND tenant_id=actual_owner FOR KEY SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'record_subtype_owner_mismatch' USING ERRCODE='23514'; END IF;\n  RETURN NEW;\nEND $function$\n",
-			"name": "operation_bind_record"
 		},
 		{
 			"arguments": "",
@@ -4756,11 +4447,6 @@
 		},
 		{
 			"arguments": "",
-			"definition": "CREATE OR REPLACE FUNCTION <schema>.review_bind_record()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE actual_owner uuid;\nBEGIN\n  actual_owner := NEW.tenant_id;\n  \n  IF TG_OP='UPDATE' AND NEW.id <> OLD.id THEN RAISE EXCEPTION 'immutable_record_id' USING ERRCODE='23514'; END IF;\n  INSERT INTO record(id,kind,tenant_id) VALUES (NEW.id,'review',actual_owner) ON CONFLICT DO NOTHING;\n  PERFORM 1 FROM record WHERE id=NEW.id AND kind='review' AND tenant_id=actual_owner FOR KEY SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'record_subtype_owner_mismatch' USING ERRCODE='23514'; END IF;\n  RETURN NEW;\nEND $function$\n",
-			"name": "review_bind_record"
-		},
-		{
-			"arguments": "",
 			"definition": "CREATE OR REPLACE FUNCTION <schema>.seat_bind_record()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE actual_owner uuid;\nBEGIN\n  actual_owner := coalesce(NEW.plant_id,NEW.organization_id);\n  \n  IF TG_OP='UPDATE' AND NEW.id <> OLD.id THEN RAISE EXCEPTION 'immutable_record_id' USING ERRCODE='23514'; END IF;\n  INSERT INTO record(id,kind,tenant_id) VALUES (NEW.id,'seat',actual_owner) ON CONFLICT DO NOTHING;\n  PERFORM 1 FROM record WHERE id=NEW.id AND kind='seat' AND tenant_id=actual_owner FOR KEY SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'record_subtype_owner_mismatch' USING ERRCODE='23514'; END IF;\n  RETURN NEW;\nEND $function$\n",
 			"name": "seat_bind_record"
 		},
@@ -4866,12 +4552,12 @@
 		},
 		{
 			"arguments": "object_id uuid",
-			"definition": "CREATE OR REPLACE FUNCTION <schema>.file_is_referenced(object_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$ SELECT EXISTS (SELECT 1 FROM \"account\" WHERE \"avatar_object_id\" = object_id UNION ALL SELECT 1 FROM \"person\" WHERE \"photo_object_id\" = object_id UNION ALL SELECT 1 FROM \"commitment\" WHERE \"object_id\" = object_id UNION ALL SELECT 1 FROM \"document_revision\" WHERE \"import_object_id\" = object_id UNION ALL SELECT 1 FROM \"generated_document\" WHERE \"object_id\" = object_id UNION ALL SELECT 1 FROM \"conversation_entry\" WHERE \"object_id\" = object_id) $function$\n",
+			"definition": "CREATE OR REPLACE FUNCTION <schema>.file_is_referenced(object_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$ SELECT EXISTS (SELECT 1 FROM \"account\" WHERE \"avatar_object_id\" = object_id UNION ALL SELECT 1 FROM \"person\" WHERE \"photo_object_id\" = object_id UNION ALL SELECT 1 FROM \"commitment\" WHERE \"object_id\" = object_id UNION ALL SELECT 1 FROM \"document_revision\" WHERE \"import_object_id\" = object_id UNION ALL SELECT 1 FROM \"generated_document\" WHERE \"object_id\" = object_id) $function$\n",
 			"name": "file_is_referenced"
 		},
 		{
 			"arguments": "org uuid, subject uuid",
-			"definition": "CREATE OR REPLACE FUNCTION <schema>.purge_organization_person_history(org uuid, subject uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nBEGIN\n PERFORM 1 FROM organization_person_removal w JOIN person p ON p.id=w.person_record_id AND p.organization_id=w.organization_id\n WHERE w.organization_id=org AND w.person_record_id=subject AND p.state='retired' FOR SHARE OF w,p;\n IF NOT FOUND THEN RAISE EXCEPTION 'removal_witness_required' USING ERRCODE='23514'; END IF;\n UPDATE people_history SET before_value=NULL,after_value=NULL,reason=NULL,actor_id=NULL WHERE tenant_id=org AND person_id=subject;\n UPDATE people_result SET value='{}' WHERE tenant_id=org AND person_id=subject;\nEND $function$\n",
+			"definition": "CREATE OR REPLACE FUNCTION <schema>.purge_organization_person_history(org uuid, subject uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nBEGIN\n PERFORM 1 FROM organization_person_removal w JOIN person p ON p.id=w.person_record_id AND p.organization_id=w.organization_id\n WHERE w.organization_id=org AND w.person_record_id=subject AND p.state='retired' FOR SHARE OF w,p;\n IF NOT FOUND THEN RAISE EXCEPTION 'removal_witness_required' USING ERRCODE='23514'; END IF;\n UPDATE audit_event SET before_value=NULL,after_value=NULL,reason=NULL,actor_token=coalesce(actor_token,encode(sha256(convert_to(tenant_id::text||'/'||actor_id::text,'UTF8')),'hex')),actor_id=NULL,result=NULL,request_identity=NULL WHERE tenant_id=org AND subject_id=subject;\nEND $function$\n",
 			"name": "purge_organization_person_history"
 		},
 		{
@@ -4891,7 +4577,7 @@
 		},
 		{
 			"arguments": "subject uuid",
-			"definition": "CREATE OR REPLACE FUNCTION <schema>.scrub_people_account_author(subject uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nBEGIN\n PERFORM 1 FROM lifecycle_witness WHERE account_id=subject AND state IN ('purging','purged') FOR SHARE;\n IF NOT FOUND THEN RAISE EXCEPTION 'account_purge_witness_required' USING ERRCODE='23514'; END IF;\n UPDATE person_note SET author_id=NULL WHERE author_id=subject;\n UPDATE people_history SET actor_id=NULL WHERE actor_id=subject;\n UPDATE people_history SET before_value=before_value-'linked_account_id' WHERE before_value->>'linked_account_id'=subject::text;\n UPDATE people_history SET after_value=after_value-'linked_account_id' WHERE after_value->>'linked_account_id'=subject::text;\nEND $function$\n",
+			"definition": "CREATE OR REPLACE FUNCTION <schema>.scrub_people_account_author(subject uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nBEGIN\n PERFORM 1 FROM lifecycle_witness WHERE account_id=subject AND state IN ('purging','purged') FOR SHARE;\n IF NOT FOUND THEN RAISE EXCEPTION 'account_purge_witness_required' USING ERRCODE='23514'; END IF;\n UPDATE person_note SET author_id=NULL WHERE author_id=subject;\n UPDATE audit_event SET actor_token=coalesce(actor_token,encode(sha256(convert_to(tenant_id::text||'/'||subject::text,'UTF8')),'hex')),actor_id=NULL WHERE actor_id=subject;\n UPDATE audit_event SET before_value=before_value-'linked_account_id' WHERE before_value->>'linked_account_id'=subject::text;\n UPDATE audit_event SET after_value=after_value-'linked_account_id' WHERE after_value->>'linked_account_id'=subject::text;\nEND $function$\n",
 			"name": "scrub_people_account_author"
 		},
 		{
@@ -4901,7 +4587,7 @@
 		},
 		{
 			"arguments": "witness uuid, request uuid, expected bigint",
-			"definition": "CREATE OR REPLACE FUNCTION <schema>.settings_purge_content(witness uuid, request uuid, expected bigint)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE w lifecycle_witness%ROWTYPE; s uuid; n bigint; removed bigint; pass integer; copied uuid[];\nBEGIN\n SELECT * INTO w FROM lifecycle_witness WHERE id=witness AND request_id=request AND request_revision=expected AND state='purging' AND cancel_until<=clock_timestamp() FOR UPDATE;\n IF NOT FOUND THEN RAISE EXCEPTION 'unavailable' USING ERRCODE='42501'; END IF;\n s=w.opaque_subject_id;\n UPDATE provider_event SET mail_id=NULL WHERE mail_id IN (SELECT id FROM mail WHERE tenant_id=s);\n DELETE FROM feedback_publication WHERE state IN ('pending','held','rejected') AND feedback_id IN (SELECT id FROM feedback WHERE (account_id=s AND w.kind='account') OR (plant_context_id=s AND w.kind='plant'));\n UPDATE feedback_publication SET feedback_id=NULL,account_id=NULL,category=NULL,public_area=NULL,sanitized_title=NULL,sanitized_body=NULL,state=CASE WHEN state='publishing' THEN 'unknown' ELSE state END WHERE feedback_id IN (SELECT id FROM feedback WHERE (account_id=s AND w.kind='account') OR (plant_context_id=s AND w.kind='plant'));\n UPDATE mail SET notice_id=NULL WHERE notice_id IN (SELECT id FROM notice WHERE tenant_id=s OR (recipient_id=s AND w.kind='account'));\n SELECT array_agg(assessment_id) INTO copied FROM assessment_contributor WHERE plant_id=s AND w.kind='plant';\n -- Detach mutable current pointers before deleting immutable revision bodies.\n UPDATE document SET current_revision_id=NULL WHERE tenant_id=s;\n IF w.kind='account' THEN\n  UPDATE operation SET conversation_id=NULL,review_id=NULL WHERE conversation_id IN (SELECT id FROM conversation WHERE owner_id=s);\n  UPDATE event SET effect_id=NULL WHERE effect_id IN (SELECT id FROM effect WHERE review_id IN (SELECT id FROM review WHERE conversation_id IN (SELECT id FROM conversation WHERE owner_id=s)));\n  UPDATE mail SET notice_id=NULL WHERE recipient_account_id=s;\n  UPDATE account SET avatar_object_id=NULL,personal_timezone=NULL,registration_digest=NULL WHERE id=s;\n  UPDATE mail SET recipient_address_encrypted=NULL,frozen_payload=NULL,address_hash=NULL,recipient_account_id=NULL,state=CASE WHEN state IN ('pending','dispatched') THEN 'cancelled' ELSE state END WHERE recipient_account_id=s;\n  UPDATE seat SET ended_at=coalesce(ended_at,clock_timestamp()) WHERE account_id=s;\n  UPDATE affiliation SET ended_at=coalesce(ended_at,clock_timestamp()) WHERE account_id=s;\n  UPDATE residency_link SET ended_at=coalesce(ended_at,clock_timestamp()) WHERE account_id=s;\n  PERFORM scrub_people_account_author(s);\n UPDATE \"article_revision\" SET \"author_id\"=NULL WHERE \"author_id\"=s;\n UPDATE \"assignment_feedback\" SET \"author_id\"=NULL WHERE \"author_id\"=s;\n UPDATE \"communication\" SET \"author_id\"=NULL WHERE \"author_id\"=s;\n UPDATE \"enrollment_milestone\" SET \"completed_by\"=NULL WHERE \"completed_by\"=s;\n UPDATE \"enrollment_milestone\" SET \"confirmed_by\"=NULL WHERE \"confirmed_by\"=s;\n UPDATE \"enrollment_plan\" SET \"adopted_by\"=NULL WHERE \"adopted_by\"=s;\n UPDATE \"event\" SET \"actor_id\"=NULL,system_cause=coalesce(system_cause,'removed_account') WHERE \"actor_id\"=s;\n UPDATE \"leadership_conversation\" SET \"staff_account_id\"=NULL WHERE \"staff_account_id\"=s;\n UPDATE \"meeting\" SET \"creator_id\"=NULL WHERE \"creator_id\"=s;\n UPDATE \"obligation\" SET \"assignee_id\"=NULL WHERE \"assignee_id\"=s;\n UPDATE \"operation\" SET \"actor_id\"=NULL WHERE \"actor_id\"=s;\n UPDATE \"organization_person_removal\" SET \"requested_by\"=NULL WHERE \"requested_by\"=s;\n UPDATE \"participation\" SET \"card_author_id\"=NULL WHERE \"card_author_id\"=s;\n UPDATE \"people_history\" SET \"actor_id\"=NULL WHERE \"actor_id\"=s;\n UPDATE \"person\" SET \"linked_account_id\"=NULL WHERE \"linked_account_id\"=s;\n UPDATE \"person_note\" SET \"author_id\"=NULL WHERE \"author_id\"=s;\n UPDATE \"pipeline_sharing\" SET \"changed_by\"=NULL WHERE \"changed_by\"=s;\n UPDATE \"pipeline_stage_move\" SET \"actor_id\"=NULL WHERE \"actor_id\"=s;\n UPDATE \"reference_activation\" SET \"actor_id\"=NULL,actor_tombstone='removed_account' WHERE \"actor_id\"=s;\n UPDATE \"task\" SET \"creator_id\"=NULL WHERE \"creator_id\"=s;\n UPDATE \"task\" SET \"assignee_id\"=NULL WHERE \"assignee_id\"=s;\n  -- Shared onboarding setup/phase facts survive. The original account-scoped\n  -- result keeps only church creation evidence, without a login/seat snapshot.\n  UPDATE onboarding_result r SET value=jsonb_build_object('plant',r.value->'plant','creation',r.value->'creation') WHERE r.operation_id IN (SELECT creation_operation_id FROM onboarding_setup WHERE account_id=s);\n  UPDATE auth_user SET name='Removed account',email='removed-'||s::text||'@removed.invalid',image=NULL,email_verified=false WHERE id=(SELECT auth_user_id FROM account WHERE id=s);\n  DELETE FROM auth_session WHERE user_id=(SELECT auth_user_id FROM account WHERE id=s);\n  DELETE FROM auth_account WHERE user_id=(SELECT auth_user_id FROM account WHERE id=s);\n  DELETE FROM auth_verification WHERE value=(SELECT auth_user_id::text FROM account WHERE id=s);\n END IF;\n -- Required FK dependencies determine which deletion can make progress. A\n -- surviving reference refuses completion, instead of cascading another owner.\n FOR pass IN 1..93 LOOP\n  removed=0;\n  BEGIN\n   DELETE FROM \"affiliation\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"article_link\" WHERE revision_id IN (SELECT id FROM article_revision WHERE tenant_id=s);\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"article_revision\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"assessment\" WHERE tenant_id=s OR (w.kind='plant' AND id=ANY(copied));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"assessment_contributor\" WHERE (w.kind='plant' AND (plant_id=s)) OR (w.kind='plant' AND assessment_id=ANY(copied));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"assessment_fact\" WHERE tenant_id=s OR (w.kind='plant' AND assessment_id=ANY(copied));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"attestation\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"commitment\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"communication\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"communication_recipient\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"contact_outcome\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"conversation\" WHERE tenant_id=s OR (w.kind='account' AND (owner_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"conversation_entry\" WHERE tenant_id=s OR (w.kind='account' AND conversation_id IN (SELECT id FROM conversation WHERE owner_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"digest_coverage\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"discovery\" WHERE (w.kind='account' AND (account_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"document\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"document_revision\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"effect\" WHERE tenant_id=s OR (w.kind='account' AND review_id IN (SELECT id FROM review WHERE conversation_id IN (SELECT id FROM conversation WHERE owner_id=s)));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"effect_dependency\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"event\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"evidence_link\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"feedback\" WHERE (w.kind='plant' AND (plant_context_id=s)) OR (w.kind='account' AND (account_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"finding\" WHERE tenant_id=s OR (w.kind='plant' AND assessment_id=ANY(copied));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"four_cs\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"generated_document\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"household\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"identity_operation_result\" WHERE operation_id IN (SELECT id FROM operation WHERE tenant_id=s);\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"identity_proof\" WHERE (w.kind='account' AND (account_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"interview\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"invitation\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"job\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"launch\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"launch_debrief\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"launch_guest\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"launch_milestone\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"mail\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"mail_attempt\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"mail_request\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"mail_request_member\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"meeting\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"meeting_evaluation\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"meeting_item\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"message_template\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"notice\" WHERE tenant_id=s OR (w.kind='account' AND (recipient_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"notification_preference\" WHERE (w.kind='account' AND (account_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"obligation\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"onboarding_result\" WHERE (tenant_id=s) AND operation_id NOT IN (SELECT creation_operation_id FROM onboarding_setup WHERE plant_id<>s) OR (operation_id IN (SELECT creation_operation_id FROM onboarding_setup WHERE plant_id=s)) AND operation_id NOT IN (SELECT creation_operation_id FROM onboarding_setup WHERE plant_id<>s);\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"onboarding_setup\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"organization_operation_result\" WHERE operation_id IN (SELECT id FROM operation WHERE tenant_id=s);\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"participation\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"passage\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"people_column\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"people_history\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"people_result\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"person\" WHERE tenant_id=s OR (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"person_merge\" WHERE tenant_id=s OR (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"person_note\" WHERE tenant_id=s OR (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"person_skill\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"person_tag\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"phase_transition\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"plant_geography\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"platform_grant\" WHERE (w.kind='account' AND (account_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"private_calendar\" WHERE (w.kind='account' AND (account_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"private_week\" WHERE (w.kind='plant' AND (plant_id=s)) OR (w.kind='account' AND (author_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"private_week_revision\" WHERE (w.kind='plant' AND (plant_id=s)) OR (w.kind='account' AND (author_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"prompt_dismissal\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"reader_feedback\" WHERE (w.kind='plant' AND (plant_context_id=s)) OR (w.kind='account' AND (account_id=s)) OR (w.kind='plant' AND assessment_id=ANY(copied));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"reading\" WHERE (w.kind='plant' AND (plant_context_id=s)) OR (w.kind='account' AND (account_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"recurrence\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"reference_item\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"reference_release\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"relationship_history\" WHERE relationship_id IN (SELECT id FROM affiliation WHERE plant_id=s AND w.kind='plant');\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"relationship_invitation\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"responsibility\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"review\" WHERE tenant_id=s OR (w.kind='account' AND conversation_id IN (SELECT id FROM conversation WHERE owner_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"rsvp_proof\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"seat\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"settings_preview\" WHERE tenant_id=s OR (w.kind='account' AND (account_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"settings_result\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"tag\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"task\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"task_dependency\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"team\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"team_role\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"team_tenure\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"training_assignment\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"training_credit\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"training_program\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"training_requirement\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"training_version\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"venue\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"wiki_preference\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  EXIT WHEN removed=0;\n END LOOP;\n IF EXISTS(SELECT FROM \"affiliation\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:affiliation' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"article_link\" WHERE revision_id IN (SELECT id FROM article_revision WHERE tenant_id=s)) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:article_link' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"article_revision\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:article_revision' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"assessment\" WHERE tenant_id=s OR (w.kind='plant' AND id=ANY(copied))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:assessment' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"assessment_contributor\" WHERE (w.kind='plant' AND (plant_id=s)) OR (w.kind='plant' AND assessment_id=ANY(copied))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:assessment_contributor' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"assessment_fact\" WHERE tenant_id=s OR (w.kind='plant' AND assessment_id=ANY(copied))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:assessment_fact' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"attestation\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:attestation' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"commitment\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:commitment' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"communication\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:communication' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"communication_recipient\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:communication_recipient' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"contact_outcome\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:contact_outcome' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"conversation\" WHERE tenant_id=s OR (w.kind='account' AND (owner_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:conversation' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"conversation_entry\" WHERE tenant_id=s OR (w.kind='account' AND conversation_id IN (SELECT id FROM conversation WHERE owner_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:conversation_entry' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"digest_coverage\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:digest_coverage' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"discovery\" WHERE (w.kind='account' AND (account_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:discovery' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"document\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:document' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"document_revision\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:document_revision' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"effect\" WHERE tenant_id=s OR (w.kind='account' AND review_id IN (SELECT id FROM review WHERE conversation_id IN (SELECT id FROM conversation WHERE owner_id=s)))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:effect' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"effect_dependency\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:effect_dependency' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"event\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:event' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"evidence_link\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:evidence_link' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"feedback\" WHERE (w.kind='plant' AND (plant_context_id=s)) OR (w.kind='account' AND (account_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:feedback' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"finding\" WHERE tenant_id=s OR (w.kind='plant' AND assessment_id=ANY(copied))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:finding' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"four_cs\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:four_cs' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"generated_document\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:generated_document' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"household\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:household' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"identity_operation_result\" WHERE operation_id IN (SELECT id FROM operation WHERE tenant_id=s)) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:identity_operation_result' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"identity_proof\" WHERE (w.kind='account' AND (account_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:identity_proof' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"interview\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:interview' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"invitation\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:invitation' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"job\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:job' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"launch\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:launch' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"launch_debrief\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:launch_debrief' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"launch_guest\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:launch_guest' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"launch_milestone\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:launch_milestone' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"mail\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:mail' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"mail_attempt\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:mail_attempt' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"mail_request\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:mail_request' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"mail_request_member\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:mail_request_member' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"meeting\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:meeting' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"meeting_evaluation\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:meeting_evaluation' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"meeting_item\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:meeting_item' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"message_template\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:message_template' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"notice\" WHERE tenant_id=s OR (w.kind='account' AND (recipient_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:notice' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"notification_preference\" WHERE (w.kind='account' AND (account_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:notification_preference' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"obligation\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:obligation' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"onboarding_result\" WHERE (tenant_id=s) AND operation_id NOT IN (SELECT creation_operation_id FROM onboarding_setup WHERE plant_id<>s) OR (operation_id IN (SELECT creation_operation_id FROM onboarding_setup WHERE plant_id=s)) AND operation_id NOT IN (SELECT creation_operation_id FROM onboarding_setup WHERE plant_id<>s)) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:onboarding_result' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"onboarding_setup\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:onboarding_setup' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"organization_operation_result\" WHERE operation_id IN (SELECT id FROM operation WHERE tenant_id=s)) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:organization_operation_result' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"participation\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:participation' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"passage\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:passage' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"people_column\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:people_column' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"people_history\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:people_history' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"people_result\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:people_result' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"person\" WHERE tenant_id=s OR (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:person' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"person_merge\" WHERE tenant_id=s OR (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:person_merge' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"person_note\" WHERE tenant_id=s OR (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:person_note' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"person_skill\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:person_skill' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"person_tag\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:person_tag' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"phase_transition\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:phase_transition' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"plant_geography\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:plant_geography' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"platform_grant\" WHERE (w.kind='account' AND (account_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:platform_grant' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"private_calendar\" WHERE (w.kind='account' AND (account_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:private_calendar' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"private_week\" WHERE (w.kind='plant' AND (plant_id=s)) OR (w.kind='account' AND (author_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:private_week' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"private_week_revision\" WHERE (w.kind='plant' AND (plant_id=s)) OR (w.kind='account' AND (author_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:private_week_revision' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"prompt_dismissal\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:prompt_dismissal' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"reader_feedback\" WHERE (w.kind='plant' AND (plant_context_id=s)) OR (w.kind='account' AND (account_id=s)) OR (w.kind='plant' AND assessment_id=ANY(copied))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:reader_feedback' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"reading\" WHERE (w.kind='plant' AND (plant_context_id=s)) OR (w.kind='account' AND (account_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:reading' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"recurrence\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:recurrence' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"reference_item\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:reference_item' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"reference_release\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:reference_release' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"relationship_history\" WHERE relationship_id IN (SELECT id FROM affiliation WHERE plant_id=s AND w.kind='plant')) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:relationship_history' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"relationship_invitation\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:relationship_invitation' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"responsibility\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:responsibility' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"review\" WHERE tenant_id=s OR (w.kind='account' AND conversation_id IN (SELECT id FROM conversation WHERE owner_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:review' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"rsvp_proof\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:rsvp_proof' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"seat\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:seat' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"settings_preview\" WHERE tenant_id=s OR (w.kind='account' AND (account_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:settings_preview' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"settings_result\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:settings_result' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"tag\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:tag' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"task\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:task' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"task_dependency\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:task_dependency' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"team\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:team' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"team_role\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:team_role' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"team_tenure\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:team_tenure' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"training_assignment\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:training_assignment' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"training_credit\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:training_credit' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"training_program\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:training_program' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"training_requirement\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:training_requirement' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"training_version\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:training_version' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"venue\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:venue' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"wiki_preference\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:wiki_preference' USING ERRCODE='23514'; END IF;\n IF w.kind='plant' THEN\n  UPDATE plant SET name='Removed workspace',street=NULL,description=NULL,city=NULL,state_province=NULL,country=NULL WHERE id=s;\n END IF;\n UPDATE mail SET recipient_address_encrypted=NULL,frozen_payload=NULL,address_hash=NULL,recipient_account_id=NULL,state=CASE WHEN state IN ('pending','dispatched') THEN 'cancelled' ELSE state END WHERE recipient_account_id=s AND w.kind='account';\nEND $function$\n",
+			"definition": "CREATE OR REPLACE FUNCTION <schema>.settings_purge_content(witness uuid, request uuid, expected bigint)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE w lifecycle_witness%ROWTYPE; s uuid; n bigint; removed bigint; pass integer; copied uuid[];\nBEGIN\n SELECT * INTO w FROM lifecycle_witness WHERE id=witness AND request_id=request AND request_revision=expected AND state='purging' AND cancel_until<=clock_timestamp() FOR UPDATE;\n IF NOT FOUND THEN RAISE EXCEPTION 'unavailable' USING ERRCODE='42501'; END IF;\n s=w.opaque_subject_id;\n UPDATE audit_event SET actor_token=coalesce(actor_token,encode(sha256(convert_to(tenant_id::text||'/'||s::text,'UTF8')),'hex')),actor_id=NULL,request_identity=NULL,result=CASE WHEN id IN (SELECT creation_operation_id FROM onboarding_setup WHERE account_id=s AND plant_id<>s) THEN result ELSE NULL END WHERE actor_id=s AND w.kind='account';\n UPDATE audit_event a SET result=jsonb_build_object('plant',a.result->'plant','creation',a.result->'creation'),request_identity=NULL,request_key=NULL,before_value=NULL,after_value=NULL,metadata='{}' WHERE a.id IN (SELECT creation_operation_id FROM onboarding_setup WHERE account_id=s AND plant_id<>s);\n UPDATE provider_event SET mail_id=NULL WHERE mail_id IN (SELECT id FROM mail WHERE tenant_id=s);\n DELETE FROM feedback_publication WHERE state IN ('pending','held','rejected') AND feedback_id IN (SELECT id FROM feedback WHERE (account_id=s AND w.kind='account') OR (plant_context_id=s AND w.kind='plant'));\n UPDATE feedback_publication SET feedback_id=NULL,account_id=NULL,category=NULL,public_area=NULL,sanitized_title=NULL,sanitized_body=NULL,state=CASE WHEN state='publishing' THEN 'unknown' ELSE state END WHERE feedback_id IN (SELECT id FROM feedback WHERE (account_id=s AND w.kind='account') OR (plant_context_id=s AND w.kind='plant'));\n UPDATE mail SET notice_id=NULL WHERE notice_id IN (SELECT id FROM notice WHERE tenant_id=s OR (recipient_id=s AND w.kind='account'));\n SELECT array_agg(assessment_id) INTO copied FROM assessment_contributor WHERE plant_id=s AND w.kind='plant';\n -- Detach mutable current pointers before deleting immutable revision bodies.\n UPDATE document SET current_revision_id=NULL WHERE tenant_id=s;\n IF w.kind='account' THEN\n  UPDATE mail SET notice_id=NULL WHERE recipient_account_id=s;\n  UPDATE account SET avatar_object_id=NULL,personal_timezone=NULL,registration_digest=NULL WHERE id=s;\n  UPDATE mail SET recipient_address_encrypted=NULL,frozen_payload=NULL,address_hash=NULL,recipient_account_id=NULL,state=CASE WHEN state IN ('pending','dispatched') THEN 'cancelled' ELSE state END WHERE recipient_account_id=s;\n  UPDATE seat SET ended_at=coalesce(ended_at,clock_timestamp()) WHERE account_id=s;\n  UPDATE affiliation SET ended_at=coalesce(ended_at,clock_timestamp()) WHERE account_id=s;\n  UPDATE residency_link SET ended_at=coalesce(ended_at,clock_timestamp()) WHERE account_id=s;\n  PERFORM scrub_people_account_author(s);\n UPDATE \"article_revision\" SET \"author_id\"=NULL WHERE \"author_id\"=s;\n UPDATE \"assignment_feedback\" SET \"author_id\"=NULL WHERE \"author_id\"=s;\n UPDATE \"communication\" SET \"author_id\"=NULL WHERE \"author_id\"=s;\n UPDATE \"enrollment_milestone\" SET \"completed_by\"=NULL WHERE \"completed_by\"=s;\n UPDATE \"enrollment_milestone\" SET \"confirmed_by\"=NULL WHERE \"confirmed_by\"=s;\n UPDATE \"enrollment_plan\" SET \"adopted_by\"=NULL WHERE \"adopted_by\"=s;\n UPDATE \"leadership_conversation\" SET \"staff_account_id\"=NULL WHERE \"staff_account_id\"=s;\n UPDATE \"meeting\" SET \"creator_id\"=NULL WHERE \"creator_id\"=s;\n UPDATE \"obligation\" SET \"assignee_id\"=NULL WHERE \"assignee_id\"=s;\n UPDATE \"organization_person_removal\" SET \"requested_by\"=NULL WHERE \"requested_by\"=s;\n UPDATE \"participation\" SET \"card_author_id\"=NULL WHERE \"card_author_id\"=s;\n UPDATE \"person\" SET \"linked_account_id\"=NULL WHERE \"linked_account_id\"=s;\n UPDATE \"person_note\" SET \"author_id\"=NULL WHERE \"author_id\"=s;\n UPDATE \"pipeline_sharing\" SET \"changed_by\"=NULL WHERE \"changed_by\"=s;\n UPDATE \"pipeline_stage_move\" SET \"actor_id\"=NULL WHERE \"actor_id\"=s;\n UPDATE \"reference_activation\" SET \"actor_id\"=NULL,actor_tombstone='removed_account' WHERE \"actor_id\"=s;\n UPDATE \"task\" SET \"creator_id\"=NULL WHERE \"creator_id\"=s;\n UPDATE \"task\" SET \"assignee_id\"=NULL WHERE \"assignee_id\"=s;\n  -- Shared onboarding setup/phase facts survive. The original account-scoped\n  -- result keeps only church creation evidence, without a login/seat snapshot.\n  UPDATE auth_user SET name='Removed account',email='removed-'||s::text||'@removed.invalid',image=NULL,email_verified=false WHERE id=(SELECT auth_user_id FROM account WHERE id=s);\n  DELETE FROM auth_session WHERE user_id=(SELECT auth_user_id FROM account WHERE id=s);\n  DELETE FROM auth_account WHERE user_id=(SELECT auth_user_id FROM account WHERE id=s);\n  DELETE FROM auth_verification WHERE value=(SELECT auth_user_id::text FROM account WHERE id=s);\n END IF;\n -- Required FK dependencies determine which deletion can make progress. A\n -- surviving reference refuses completion, instead of cascading another owner.\n FOR pass IN 1..93 LOOP\n  removed=0;\n  BEGIN\n   DELETE FROM \"affiliation\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"article_link\" WHERE revision_id IN (SELECT id FROM article_revision WHERE tenant_id=s);\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"article_revision\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"assessment\" WHERE tenant_id=s OR (w.kind='plant' AND id=ANY(copied));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"assessment_contributor\" WHERE (w.kind='plant' AND (plant_id=s)) OR (w.kind='plant' AND assessment_id=ANY(copied));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"assessment_fact\" WHERE tenant_id=s OR (w.kind='plant' AND assessment_id=ANY(copied));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"attestation\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"commitment\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"communication\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"communication_recipient\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"contact_outcome\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"digest_coverage\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"discovery\" WHERE (w.kind='account' AND (account_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"document\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"document_revision\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"evidence_link\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"feedback\" WHERE (w.kind='plant' AND (plant_context_id=s)) OR (w.kind='account' AND (account_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"finding\" WHERE tenant_id=s OR (w.kind='plant' AND assessment_id=ANY(copied));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"four_cs\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"generated_document\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"household\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"identity_proof\" WHERE (w.kind='account' AND (account_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"interview\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"invitation\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"job\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"launch\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"launch_debrief\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"launch_guest\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"launch_milestone\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"mail\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"mail_attempt\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"mail_request\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"mail_request_member\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"meeting\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"meeting_evaluation\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"meeting_item\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"message_template\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"notice\" WHERE tenant_id=s OR (w.kind='account' AND (recipient_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"notification_preference\" WHERE (w.kind='account' AND (account_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"obligation\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"onboarding_setup\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"participation\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"passage\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"people_column\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"person\" WHERE tenant_id=s OR (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"person_merge\" WHERE tenant_id=s OR (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"person_note\" WHERE tenant_id=s OR (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"person_skill\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"person_tag\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"phase_transition\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"plant_geography\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"platform_grant\" WHERE (w.kind='account' AND (account_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"private_calendar\" WHERE (w.kind='account' AND (account_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"private_week\" WHERE (w.kind='plant' AND (plant_id=s)) OR (w.kind='account' AND (author_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"private_week_revision\" WHERE (w.kind='plant' AND (plant_id=s)) OR (w.kind='account' AND (author_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"prompt_dismissal\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"reader_feedback\" WHERE (w.kind='plant' AND (plant_context_id=s)) OR (w.kind='account' AND (account_id=s)) OR (w.kind='plant' AND assessment_id=ANY(copied));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"reading\" WHERE (w.kind='plant' AND (plant_context_id=s)) OR (w.kind='account' AND (account_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"recurrence\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"reference_item\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"reference_release\" WHERE tenant_id=s;\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"relationship_invitation\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"responsibility\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"rsvp_proof\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"seat\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"settings_preview\" WHERE tenant_id=s OR (w.kind='account' AND (account_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"tag\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"task\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"task_dependency\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"team\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"team_role\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"team_tenure\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"training_assignment\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"training_credit\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"training_program\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"training_requirement\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"training_version\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"venue\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  BEGIN\n   DELETE FROM \"wiki_preference\" WHERE (w.kind='plant' AND (plant_id=s));\n   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;\n  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;\n  EXIT WHEN removed=0;\n END LOOP;\n DELETE FROM audit_event WHERE tenant_id=s AND id NOT IN (SELECT creation_operation_id FROM onboarding_setup WHERE plant_id<>s) AND (command_id IS NULL OR command_id NOT IN (SELECT creation_operation_id FROM onboarding_setup WHERE plant_id<>s));\n IF EXISTS(SELECT FROM \"affiliation\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:affiliation' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"article_link\" WHERE revision_id IN (SELECT id FROM article_revision WHERE tenant_id=s)) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:article_link' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"article_revision\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:article_revision' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"assessment\" WHERE tenant_id=s OR (w.kind='plant' AND id=ANY(copied))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:assessment' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"assessment_contributor\" WHERE (w.kind='plant' AND (plant_id=s)) OR (w.kind='plant' AND assessment_id=ANY(copied))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:assessment_contributor' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"assessment_fact\" WHERE tenant_id=s OR (w.kind='plant' AND assessment_id=ANY(copied))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:assessment_fact' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"attestation\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:attestation' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"commitment\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:commitment' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"communication\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:communication' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"communication_recipient\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:communication_recipient' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"contact_outcome\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:contact_outcome' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"digest_coverage\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:digest_coverage' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"discovery\" WHERE (w.kind='account' AND (account_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:discovery' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"document\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:document' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"document_revision\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:document_revision' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"evidence_link\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:evidence_link' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"feedback\" WHERE (w.kind='plant' AND (plant_context_id=s)) OR (w.kind='account' AND (account_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:feedback' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"finding\" WHERE tenant_id=s OR (w.kind='plant' AND assessment_id=ANY(copied))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:finding' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"four_cs\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:four_cs' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"generated_document\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:generated_document' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"household\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:household' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"identity_proof\" WHERE (w.kind='account' AND (account_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:identity_proof' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"interview\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:interview' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"invitation\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:invitation' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"job\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:job' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"launch\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:launch' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"launch_debrief\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:launch_debrief' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"launch_guest\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:launch_guest' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"launch_milestone\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:launch_milestone' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"mail\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:mail' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"mail_attempt\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:mail_attempt' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"mail_request\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:mail_request' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"mail_request_member\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:mail_request_member' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"meeting\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:meeting' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"meeting_evaluation\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:meeting_evaluation' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"meeting_item\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:meeting_item' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"message_template\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:message_template' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"notice\" WHERE tenant_id=s OR (w.kind='account' AND (recipient_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:notice' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"notification_preference\" WHERE (w.kind='account' AND (account_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:notification_preference' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"obligation\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:obligation' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"onboarding_setup\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:onboarding_setup' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"participation\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:participation' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"passage\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:passage' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"people_column\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:people_column' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"person\" WHERE tenant_id=s OR (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:person' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"person_merge\" WHERE tenant_id=s OR (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:person_merge' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"person_note\" WHERE tenant_id=s OR (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:person_note' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"person_skill\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:person_skill' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"person_tag\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:person_tag' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"phase_transition\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:phase_transition' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"plant_geography\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:plant_geography' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"platform_grant\" WHERE (w.kind='account' AND (account_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:platform_grant' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"private_calendar\" WHERE (w.kind='account' AND (account_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:private_calendar' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"private_week\" WHERE (w.kind='plant' AND (plant_id=s)) OR (w.kind='account' AND (author_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:private_week' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"private_week_revision\" WHERE (w.kind='plant' AND (plant_id=s)) OR (w.kind='account' AND (author_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:private_week_revision' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"prompt_dismissal\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:prompt_dismissal' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"reader_feedback\" WHERE (w.kind='plant' AND (plant_context_id=s)) OR (w.kind='account' AND (account_id=s)) OR (w.kind='plant' AND assessment_id=ANY(copied))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:reader_feedback' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"reading\" WHERE (w.kind='plant' AND (plant_context_id=s)) OR (w.kind='account' AND (account_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:reading' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"recurrence\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:recurrence' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"reference_item\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:reference_item' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"reference_release\" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:reference_release' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"relationship_invitation\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:relationship_invitation' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"responsibility\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:responsibility' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"rsvp_proof\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:rsvp_proof' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"seat\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:seat' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"settings_preview\" WHERE tenant_id=s OR (w.kind='account' AND (account_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:settings_preview' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"tag\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:tag' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"task\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:task' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"task_dependency\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:task_dependency' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"team\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:team' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"team_role\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:team_role' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"team_tenure\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:team_tenure' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"training_assignment\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:training_assignment' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"training_credit\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:training_credit' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"training_program\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:training_program' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"training_requirement\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:training_requirement' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"training_version\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:training_version' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"venue\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:venue' USING ERRCODE='23514'; END IF;\n IF EXISTS(SELECT FROM \"wiki_preference\" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:wiki_preference' USING ERRCODE='23514'; END IF;\n IF w.kind='plant' THEN\n  UPDATE plant SET name='Removed workspace',street=NULL,description=NULL,city=NULL,state_province=NULL,country=NULL WHERE id=s;\n END IF;\n UPDATE mail SET recipient_address_encrypted=NULL,frozen_payload=NULL,address_hash=NULL,recipient_account_id=NULL,state=CASE WHEN state IN ('pending','dispatched') THEN 'cancelled' ELSE state END WHERE recipient_account_id=s AND w.kind='account';\nEND $function$\n",
 			"name": "settings_purge_content"
 		},
 		{
@@ -5348,6 +5034,27 @@
 			"grantee": "everyfield_cleanup",
 			"is_grantable": false,
 			"kind": "table",
+			"object": "audit_event",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "audit_event",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "audit_event",
+			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
 			"object": "commitment",
 			"privilege_type": "DELETE"
 		},
@@ -5426,48 +5133,6 @@
 			"is_grantable": false,
 			"kind": "table",
 			"object": "contact_outcome",
-			"privilege_type": "UPDATE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "conversation_entry",
-			"privilege_type": "DELETE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "conversation_entry",
-			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "conversation_entry",
-			"privilege_type": "UPDATE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "conversation",
-			"privilege_type": "DELETE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "conversation",
-			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "conversation",
 			"privilege_type": "UPDATE"
 		},
 		{
@@ -5677,48 +5342,6 @@
 			"grantee": "everyfield_cleanup",
 			"is_grantable": false,
 			"kind": "table",
-			"object": "effect_dependency",
-			"privilege_type": "DELETE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "effect_dependency",
-			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "effect_dependency",
-			"privilege_type": "UPDATE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "effect",
-			"privilege_type": "DELETE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "effect",
-			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "effect",
-			"privilege_type": "UPDATE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
 			"object": "enrollment_milestone",
 			"privilege_type": "DELETE"
 		},
@@ -5755,27 +5378,6 @@
 			"is_grantable": false,
 			"kind": "table",
 			"object": "enrollment_plan",
-			"privilege_type": "UPDATE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "event",
-			"privilege_type": "DELETE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "event",
-			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "event",
 			"privilege_type": "UPDATE"
 		},
 		{
@@ -5945,20 +5547,6 @@
 			"kind": "table",
 			"object": "household",
 			"privilege_type": "UPDATE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "identity_operation_result",
-			"privilege_type": "DELETE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "identity_operation_result",
-			"privilege_type": "SELECT"
 		},
 		{
 			"grantee": "everyfield_cleanup",
@@ -6398,27 +5986,6 @@
 			"grantee": "everyfield_cleanup",
 			"is_grantable": false,
 			"kind": "table",
-			"object": "onboarding_result",
-			"privilege_type": "DELETE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "onboarding_result",
-			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "onboarding_result",
-			"privilege_type": "UPDATE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
 			"object": "onboarding_setup",
 			"privilege_type": "DELETE"
 		},
@@ -6434,48 +6001,6 @@
 			"is_grantable": false,
 			"kind": "table",
 			"object": "onboarding_setup",
-			"privilege_type": "UPDATE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "operation",
-			"privilege_type": "DELETE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "operation",
-			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "operation",
-			"privilege_type": "UPDATE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "organization_operation_result",
-			"privilege_type": "DELETE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "organization_operation_result",
-			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "organization_operation_result",
 			"privilege_type": "UPDATE"
 		},
 		{
@@ -6560,34 +6085,6 @@
 			"is_grantable": false,
 			"kind": "table",
 			"object": "passage",
-			"privilege_type": "UPDATE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "people_history",
-			"privilege_type": "UPDATE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "people_result",
-			"privilege_type": "DELETE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "people_result",
-			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "people_result",
 			"privilege_type": "UPDATE"
 		},
 		{
@@ -7126,27 +6623,6 @@
 			"grantee": "everyfield_cleanup",
 			"is_grantable": false,
 			"kind": "table",
-			"object": "relationship_history",
-			"privilege_type": "DELETE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "relationship_history",
-			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "relationship_history",
-			"privilege_type": "UPDATE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
 			"object": "relationship_invitation",
 			"privilege_type": "DELETE"
 		},
@@ -7204,27 +6680,6 @@
 			"is_grantable": false,
 			"kind": "table",
 			"object": "responsibility",
-			"privilege_type": "UPDATE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "review",
-			"privilege_type": "DELETE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "review",
-			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "review",
 			"privilege_type": "UPDATE"
 		},
 		{
@@ -7309,27 +6764,6 @@
 			"is_grantable": false,
 			"kind": "table",
 			"object": "settings_preview",
-			"privilege_type": "UPDATE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "settings_result",
-			"privilege_type": "DELETE"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "settings_result",
-			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "settings_result",
 			"privilege_type": "UPDATE"
 		},
 		{
@@ -8036,6 +7470,20 @@
 			"grantee": "everyfield_runtime",
 			"is_grantable": false,
 			"kind": "table",
+			"object": "audit_event",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "audit_event",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
 			"object": "commitment",
 			"privilege_type": "DELETE"
 		},
@@ -8142,62 +7590,6 @@
 			"is_grantable": false,
 			"kind": "table",
 			"object": "contact_outcome",
-			"privilege_type": "UPDATE"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "conversation_entry",
-			"privilege_type": "DELETE"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "conversation_entry",
-			"privilege_type": "INSERT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "conversation_entry",
-			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "conversation_entry",
-			"privilege_type": "UPDATE"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "conversation",
-			"privilege_type": "DELETE"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "conversation",
-			"privilege_type": "INSERT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "conversation",
-			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "conversation",
 			"privilege_type": "UPDATE"
 		},
 		{
@@ -8477,62 +7869,6 @@
 			"grantee": "everyfield_runtime",
 			"is_grantable": false,
 			"kind": "table",
-			"object": "effect_dependency",
-			"privilege_type": "DELETE"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "effect_dependency",
-			"privilege_type": "INSERT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "effect_dependency",
-			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "effect_dependency",
-			"privilege_type": "UPDATE"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "effect",
-			"privilege_type": "DELETE"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "effect",
-			"privilege_type": "INSERT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "effect",
-			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "effect",
-			"privilege_type": "UPDATE"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
 			"object": "enrollment_milestone",
 			"privilege_type": "DELETE"
 		},
@@ -8584,20 +7920,6 @@
 			"kind": "table",
 			"object": "enrollment_plan",
 			"privilege_type": "UPDATE"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "event",
-			"privilege_type": "INSERT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "event",
-			"privilege_type": "SELECT"
 		},
 		{
 			"grantee": "everyfield_runtime",
@@ -8822,20 +8144,6 @@
 			"kind": "table",
 			"object": "household",
 			"privilege_type": "UPDATE"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "identity_operation_result",
-			"privilege_type": "INSERT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "identity_operation_result",
-			"privilege_type": "SELECT"
 		},
 		{
 			"grantee": "everyfield_runtime",
@@ -9422,20 +8730,6 @@
 			"grantee": "everyfield_runtime",
 			"is_grantable": false,
 			"kind": "table",
-			"object": "onboarding_result",
-			"privilege_type": "INSERT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "onboarding_result",
-			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
 			"object": "onboarding_setup",
 			"privilege_type": "INSERT"
 		},
@@ -9457,48 +8751,6 @@
 			"grantee": "everyfield_runtime",
 			"is_grantable": false,
 			"kind": "table",
-			"object": "operation",
-			"privilege_type": "DELETE"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "operation",
-			"privilege_type": "INSERT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "operation",
-			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "operation",
-			"privilege_type": "UPDATE"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "organization_operation_result",
-			"privilege_type": "INSERT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "organization_operation_result",
-			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
 			"object": "organization_person_removal",
 			"privilege_type": "DELETE"
 		},
@@ -9633,48 +8885,6 @@
 			"is_grantable": false,
 			"kind": "table",
 			"object": "people_column",
-			"privilege_type": "UPDATE"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "people_history",
-			"privilege_type": "INSERT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "people_history",
-			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "people_result",
-			"privilege_type": "DELETE"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "people_result",
-			"privilege_type": "INSERT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "people_result",
-			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "people_result",
 			"privilege_type": "UPDATE"
 		},
 		{
@@ -10374,20 +9584,6 @@
 			"grantee": "everyfield_runtime",
 			"is_grantable": false,
 			"kind": "table",
-			"object": "relationship_history",
-			"privilege_type": "INSERT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "relationship_history",
-			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
 			"object": "relationship_invitation",
 			"privilege_type": "INSERT"
 		},
@@ -10465,34 +9661,6 @@
 			"grantee": "everyfield_runtime",
 			"is_grantable": false,
 			"kind": "table",
-			"object": "review",
-			"privilege_type": "DELETE"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "review",
-			"privilege_type": "INSERT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "review",
-			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "review",
-			"privilege_type": "UPDATE"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
 			"object": "rsvp_proof",
 			"privilege_type": "DELETE"
 		},
@@ -10600,20 +9768,6 @@
 			"kind": "table",
 			"object": "settings_preview",
 			"privilege_type": "UPDATE"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "settings_result",
-			"privilege_type": "INSERT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
-			"object": "settings_result",
-			"privilege_type": "SELECT"
 		},
 		{
 			"grantee": "everyfield_runtime",

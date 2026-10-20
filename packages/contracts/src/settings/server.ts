@@ -1,20 +1,14 @@
 import type { z } from "zod";
 import type { Owner, sessionId } from "../common/values.ts";
-import type { commandOrigin } from "../common/transaction.ts";
-import type { credentialOutcome } from "../identity/results.ts";
 import type { changePasswordRequest } from "../identity/requests.ts";
+import type { credentialOutcome } from "../identity/results.ts";
+import type * as native from "./native.ts";
 import type * as request from "./requests.ts";
 import type * as result from "./results.ts";
-import type * as native from "./native.ts";
 
-export type SettingsContext = { session: z.infer<typeof sessionId>; selected: Owner; purpose: "native" | "model" };
-export type NativeSettingsContext = Omit<SettingsContext, "purpose"> & { purpose: "native" };
-type Origin = z.infer<typeof commandOrigin>;
-export type SettingsWriteContext = Omit<SettingsContext, "purpose"> &
-	(
-		| { purpose: "native"; origin: Extract<Origin, { kind: "native" }> }
-		| { purpose: "model"; origin: Extract<Origin, { kind: "assistant" }> }
-	);
+export type SettingsContext = { session: z.infer<typeof sessionId>; selected: Owner };
+export type NativeSettingsContext = Omit<SettingsContext, "purpose"> & {};
+export type SettingsWriteContext = SettingsContext;
 export type SettingsReply<T> = { status: "ok"; value: T } | { status: "refused"; error: result.SettingsError };
 type Operation<Tx, Context, Input extends z.ZodType, Output extends z.ZodType> = (
 	tx: Tx,

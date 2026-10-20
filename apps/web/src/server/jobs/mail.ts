@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, sql } from "@everyfield/db/query";
+import { and, eq, inArray, isNull, sql, type SQLWrapper } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import "server-only";
 import { notificationCategory } from "@everyfield/contracts/settings";
@@ -6,15 +6,7 @@ import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, 
 import type { Database, Transaction } from "@everyfield/db/client";
 import { z } from "zod";
 import { transaction } from "../platform/database.ts";
-import {
-	enqueueJob,
-	finishClaim,
-	lockClaim,
-	checkpoint,
-	claimSchema,
-	DEFAULT_LEASE_SECONDS,
-	type Claim,
-} from "./queue.ts";
+import { finishClaim, lockClaim, checkpoint, claimSchema, DEFAULT_LEASE_SECONDS, type Claim } from "./queue.ts";
 
 const owner = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("account"), id: z.uuid() }),
@@ -68,7 +60,7 @@ export type AuthorizeRecovery = (
 	mail: MailAuthority,
 	providerId: string,
 ) => Promise<RecoveryEvidence | null>;
-export type AuthorizeMail = (tx: Transaction, mail: MailAuthority) => Promise<boolean>;
+export type AuthorizeMail = (tx: Transaction, mail: readonly MailAuthority[]) => Promise<ReadonlySet<string>>;
 export type TransportOutcome =
 	| { kind: "accepted"; id: string }
 	| { kind: "refused"; retryable: boolean; retryAfterSeconds?: number }
@@ -208,15 +200,15 @@ export function createMailService(config: {
 				);
 			if (choice[0]?.enabled === false) return false;
 		}
-		return config.authorize(tx, authority(m));
+		return (await config.authorize(tx, [authority(m)])).has(m.id);
 	}
 	async function audit(tx: Transaction, m: z.infer<typeof stored>, key: string, action: string) {
 		await tx
-			.insert(tables.event)
+			.insert(tables.audit_event)
 			.values({
 				tenant_id: m.tenant_id,
-				target_record_id: m.id,
-				operation_id: m.operation_id,
+				subject_id: m.id,
+				command_id: m.operation_id,
 				kind: "outcome",
 				occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
 				recorded_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
@@ -224,25 +216,15 @@ export function createMailService(config: {
 				event_key: key,
 				action: sql`${action}`,
 			})
-			.onConflictDoNothing({ target: [tables.event.target_record_id, tables.event.event_key] });
+			.onConflictDoNothing({ target: [tables.audit_event.subject_id, tables.audit_event.event_key] });
 	}
-	async function enqueue(tx: Transaction, input: MailIntent): Promise<string> {
+	/** The verified producer queues a required intent with its facts and audit. Dispatch rechecks its live source. */
+	async function append(tx: Transaction, input: MailIntent, writes: SQLWrapper[]): Promise<string> {
 		const v = intentSchema.parse(input),
-			id = randomUUID();
-		const actual = await tx
-			.select({ kind: tables.tenant.kind })
-			.from(tables.tenant)
-			.where(eq(tables.tenant.id, v.owner.id));
-		if (actual[0]?.kind !== v.owner.kind) throw Error("mail_owner_mismatch");
-		if (v.owner.kind === "organization") {
-			const org = await tx
-				.select({ kind: tables.organization.kind })
-				.from(tables.organization)
-				.where(eq(tables.organization.id, v.owner.id))
-				.for("share");
-			if (org[0]?.kind !== v.owner.organizationKind) throw Error("mail_owner_mismatch");
-		}
-		const address = v.address.trim().toLowerCase();
+			id = randomUUID(),
+			job = randomUUID(),
+			request = randomUUID(),
+			address = v.address.trim().toLowerCase();
 		const addressHash = createHmac("sha256", addressKey).update(address).digest("hex");
 		const hash = digest(
 			JSON.stringify({
@@ -255,44 +237,9 @@ export function createMailService(config: {
 				operation: v.operation,
 			}),
 		);
-		const prior = await tx
-			.select({ id: tables.mail.id, payload_hash: tables.mail.payload_hash })
-			.from(tables.mail)
-			.where(and(eq(tables.mail.tenant_id, v.owner.id), eq(tables.mail.logical_key, v.logicalKey)))
-			.for("update");
-		const a: MailAuthority = {
-			id: prior[0]?.id ?? id,
-			tenant: v.owner.id,
-			purpose: v.purpose,
-			recipient: v.recipient,
-			notice: v.notice,
-			operation: v.operation,
-			addressHash,
-			logicalKey: v.logicalKey,
-		};
-		const barriers = await tx
-			.select({ id: tables.lifecycle_witness.id })
-			.from(tables.lifecycle_witness)
-			.where(
-				and(
-					inArray(
-						tables.lifecycle_witness.opaque_subject_id,
-						[v.owner.id, v.recipient].filter((value): value is string => value !== null),
-					),
-					sql<boolean>`(${tables.lifecycle_witness.state} IN ('pending_deletion', 'purging', 'purged', 'revoked'))`,
-				),
-			)
-			.for("share");
-		if (barriers.length || !(await config.authorize(tx, a))) throw Error("mail_unavailable");
-		if (prior[0]) {
-			if (prior[0].payload_hash !== hash) throw Error("mail_identity_conflict");
-			return z.uuid().parse(prior[0].id);
-		}
-		const encrypted = seal(JSON.stringify({ ...v.content, from: config.from }), aad(id, v.owner.id, v.purpose));
-		const inserted = await tx
-			.insert(tables.mail)
-			.values({
-				id: id,
+		writes.push(
+			tx.insert(tables.mail).values({
+				id,
 				tenant_id: v.owner.id,
 				recipient_account_id: v.recipient,
 				purpose: v.purpose,
@@ -301,42 +248,157 @@ export function createMailService(config: {
 				notice_id: v.notice,
 				payload_hash: hash,
 				audience_hash: addressHash,
-				frozen_payload: { v: 1, sealed: encrypted },
+				frozen_payload: {
+					v: 1,
+					sealed: seal(JSON.stringify({ ...v.content, from: config.from }), aad(id, v.owner.id, v.purpose)),
+				},
 				recipient_address_encrypted: seal(address, aad(id, v.owner.id, "address")),
 				address_hash: addressHash,
 				state: "pending",
-				created_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-			})
-			.onConflictDoNothing({ target: [tables.mail.tenant_id, tables.mail.logical_key] })
-			.returning({ id: tables.mail.id });
-		if (!inserted.length) {
-			const original = await tx
-				.select({ id: tables.mail.id, payload_hash: tables.mail.payload_hash })
-				.from(tables.mail)
-				.where(and(eq(tables.mail.tenant_id, v.owner.id), eq(tables.mail.logical_key, v.logicalKey)));
-			if (original[0]?.payload_hash !== hash) throw Error("mail_identity_conflict");
-			return z.uuid().parse(original[0].id);
-		}
-		// One immutable singleton request, including security/account mail. No regrouping on retry.
-		const request = randomUUID();
-		await tx
-			.insert(tables.mail_request)
-			.values({ id: request, tenant_id: v.owner.id, provider_key: `mail/${request}`, request_hash: hash });
-		await tx
-			.insert(tables.mail_request_member)
-			.values({ request_id: request, tenant_id: v.owner.id, mail_id: id, position: 0 });
-		const job = await enqueueJob(tx, {
-			tenant: v.owner.id,
-			kind: "mail",
-			subject: id,
-			key: `${id}/1`,
-			revision: "1",
-			eligibleAt: v.eligibleAt,
-			maxAttempts: 4,
-		});
-		await tx.update(tables.mail).set({ job_id: job }).where(eq(tables.mail.id, id));
+				created_at: new Date(),
+				job_id: job,
+			}),
+			tx
+				.insert(tables.mail_request)
+				.values({ id: request, tenant_id: v.owner.id, provider_key: "mail/" + request, request_hash: hash }),
+			tx
+				.insert(tables.mail_request_member)
+				.values({ request_id: request, tenant_id: v.owner.id, mail_id: id, position: 0 }),
+			tx.insert(tables.job).values({
+				id: job,
+				tenant_id: v.owner.id,
+				kind: "mail",
+				subject_record_id: id,
+				producer_key: id + "/1",
+				source_revision: "1",
+				state: "ready",
+				eligible_at: new Date(v.eligibleAt),
+				attempt_count: 0,
+				max_attempts: 4,
+				claim_generation: "0",
+			}),
+		);
 		return id;
 	}
+	async function enqueueMany(tx: Transaction, inputs: readonly MailIntent[]): Promise<string[]> {
+		const intents = inputs.map((input) => {
+			const v = intentSchema.parse(input),
+				id = randomUUID(),
+				address = v.address.trim().toLowerCase();
+			const addressHash = createHmac("sha256", addressKey).update(address).digest("hex");
+			const hash = digest(
+				JSON.stringify({
+					purpose: v.purpose,
+					recipient: v.recipient,
+					address,
+					content: v.content,
+					from: config.from,
+					notice: v.notice,
+					operation: v.operation,
+				}),
+			);
+			return { v, id, address, addressHash, hash, job: randomUUID(), request: randomUUID() };
+		});
+		if (!intents.length) return [];
+		const input = intents.map((i, n) => ({ n, tenant: i.v.owner.id, recipient: i.v.recipient, key: i.v.logicalKey }));
+		const raw =
+			await tx.execute(sql`WITH input AS (SELECT * FROM jsonb_to_recordset(${JSON.stringify(input)}::jsonb) i(n int,tenant uuid,recipient uuid,key text)),
+   account_roots AS MATERIALIZED (SELECT a.id FROM account a WHERE a.id IN (SELECT tenant FROM input UNION SELECT recipient FROM input) ORDER BY a.id FOR SHARE),
+   plant_roots AS MATERIALIZED (SELECT p.id FROM plant p WHERE p.id IN (SELECT tenant FROM input) AND (SELECT count(*) FROM account_roots)>=0 ORDER BY p.id FOR SHARE),
+   organization_roots AS MATERIALIZED (SELECT o.id,o.kind FROM organization o WHERE o.id IN (SELECT tenant FROM input) AND (SELECT count(*) FROM plant_roots)>=0 ORDER BY o.id FOR SHARE),
+   prior AS MATERIALIZED (SELECT m.id,m.tenant_id,m.logical_key,m.payload_hash FROM mail m JOIN input i ON i.tenant=m.tenant_id AND i.key=m.logical_key WHERE (SELECT count(*) FROM organization_roots)>=0 ORDER BY m.id FOR UPDATE OF m),
+   barriers AS MATERIALIZED (SELECT w.opaque_subject_id FROM lifecycle_witness w WHERE w.opaque_subject_id IN (SELECT tenant FROM input UNION SELECT recipient FROM input) AND w.state IN ('pending_deletion','purging','purged','revoked') AND (SELECT count(*) FROM organization_roots)>=0 FOR SHARE)
+   SELECT i.n,t.kind,o.kind AS organization_kind,p.id AS prior_id,p.payload_hash AS prior_hash,
+    EXISTS(SELECT FROM barriers b WHERE b.opaque_subject_id IN (i.tenant,i.recipient)) AS blocked
+   FROM input i LEFT JOIN tenant t ON t.id=i.tenant LEFT JOIN organization_roots o ON o.id=i.tenant
+   LEFT JOIN prior p ON p.tenant_id=i.tenant AND p.logical_key=i.key ORDER BY i.n`);
+		const observations = z
+			.array(
+				z.object({
+					n: z.number().int(),
+					kind: z.string().nullable(),
+					organization_kind: z.string().nullable(),
+					prior_id: z.uuid().nullable(),
+					prior_hash: z.string().nullable(),
+					blocked: z.boolean(),
+				}),
+			)
+			.parse(raw.rows);
+		const authorities: MailAuthority[] = intents.map((i, n) => ({
+			id: observations[n]?.prior_id ?? i.id,
+			tenant: i.v.owner.id,
+			purpose: i.v.purpose,
+			recipient: i.v.recipient,
+			notice: i.v.notice,
+			operation: i.v.operation,
+			addressHash: i.addressHash,
+			logicalKey: i.v.logicalKey,
+		}));
+		for (const [n, i] of intents.entries()) {
+			const r = observations[n];
+			if (
+				!r ||
+				r.kind !== i.v.owner.kind ||
+				(i.v.owner.kind === "organization" && r.organization_kind !== i.v.owner.organizationKind)
+			)
+				throw Error("mail_owner_mismatch");
+			if (r.blocked) throw Error("mail_unavailable");
+		}
+		const authorized = await config.authorize(tx, authorities);
+		if (authorities.some((a) => !authorized.has(a.id))) throw Error("mail_unavailable");
+		for (const [n, i] of intents.entries())
+			if (observations[n]?.prior_id && observations[n]?.prior_hash !== i.hash) throw Error("mail_identity_conflict");
+		const values = intents.map((i) => ({
+			id: i.id,
+			tenant: i.v.owner.id,
+			recipient: i.v.recipient,
+			purpose: i.v.purpose,
+			key: i.v.logicalKey,
+			operation: i.v.operation,
+			notice: i.v.notice,
+			hash: i.hash,
+			addressHash: i.addressHash,
+			payload: {
+				v: 1,
+				sealed: seal(JSON.stringify({ ...i.v.content, from: config.from }), aad(i.id, i.v.owner.id, i.v.purpose)),
+			},
+			address: seal(i.address, aad(i.id, i.v.owner.id, "address")),
+			job: i.job,
+			request: i.request,
+			eligible: i.v.eligibleAt,
+		}));
+		const result =
+			await tx.execute(sql`WITH input AS MATERIALIZED (SELECT * FROM jsonb_to_recordset(${JSON.stringify(values)}::jsonb) i(id uuid,tenant uuid,recipient uuid,purpose text,key text,operation uuid,notice uuid,hash text,"addressHash" text,payload jsonb,address text,job uuid,request uuid,eligible timestamptz)),
+   inserted AS (
+    INSERT INTO mail(id,tenant_id,recipient_account_id,purpose,logical_key,operation_id,notice_id,payload_hash,audience_hash,frozen_payload,recipient_address_encrypted,address_hash,state,created_at,job_id)
+    SELECT id,tenant,recipient,purpose,key,operation,notice,hash,"addressHash",payload,address,"addressHash",'pending',clock_timestamp(),job FROM input
+    ON CONFLICT(tenant_id,logical_key) DO UPDATE SET logical_key=excluded.logical_key RETURNING id,tenant_id,logical_key,payload_hash
+   ), requests AS (
+    INSERT INTO mail_request(id,tenant_id,provider_key,request_hash) SELECT i.request,i.tenant,'mail/'||i.request::text,i.hash FROM input i JOIN inserted m ON m.id=i.id RETURNING id,tenant_id
+   ), members AS (
+    INSERT INTO mail_request_member(request_id,tenant_id,mail_id,position) SELECT r.id,i.tenant,i.id,0 FROM input i JOIN requests r ON r.id=i.request RETURNING mail_id
+   ), jobs AS (
+    INSERT INTO job(id,tenant_id,kind,subject_record_id,producer_key,source_revision,state,eligible_at,attempt_count,max_attempts,claim_generation)
+    SELECT i.job,i.tenant,'mail',i.id,i.id::text||'/1',1,'ready',i.eligible,0,4,0 FROM input i JOIN members m ON m.mail_id=i.id RETURNING id
+   ) SELECT m.id,m.payload_hash,i.hash,i.id AS input_id FROM inserted m JOIN input i ON m.tenant_id=i.tenant AND m.logical_key=i.key`);
+		const rows = z
+			.array(z.object({ id: z.uuid(), input_id: z.uuid(), payload_hash: z.string(), hash: z.string() }))
+			.parse(result.rows);
+		if (rows.length !== intents.length || rows.some((r) => r.payload_hash !== r.hash))
+			throw Error("mail_identity_conflict");
+		const byKey = new Map(rows.map((r) => [r.input_id, r.id]));
+		return intents.map((i) => {
+			const id = byKey.get(i.id);
+			if (!id) throw Error("mail_identity_conflict");
+			return id;
+		});
+	}
+	async function enqueue(tx: Transaction, input: MailIntent): Promise<string> {
+		const [id] = await enqueueMany(tx, [input]);
+		if (!id) throw Error("mail_identity_conflict");
+		return id;
+	}
+
 	async function dispatch(claim: Claim) {
 		const prepared = await transaction(config.db, async (tx) => {
 			if (claim.kind !== "mail" || !(await lockClaim(tx, claim))) return null;
@@ -573,12 +635,12 @@ export function createMailService(config: {
 				})
 				.where(and(eq(tables.job.id, sql`${m.job_id}`), eq(tables.job.state, "reconcile")));
 			await tx
-				.insert(tables.event)
+				.insert(tables.audit_event)
 				.values({
 					tenant_id: m.tenant_id,
-					target_record_id: m.id,
+					subject_id: m.id,
 					actor_id: e.actorId,
-					operation_id: e.operationId,
+					command_id: e.operationId,
 					kind: "reconcile",
 					occurred_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
 					recorded_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
@@ -586,12 +648,14 @@ export function createMailService(config: {
 					action: "mail.reconciled",
 					reason: `provider_receipt/${e.evidenceHash}`,
 				})
-				.onConflictDoNothing({ target: [tables.event.target_record_id, tables.event.event_key] });
+				.onConflictDoNothing({ target: [tables.audit_event.subject_id, tables.audit_event.event_key] });
 			return observed;
 		});
 	}
 	return {
+		append,
 		enqueue,
+		enqueueMany,
 		dispatch,
 		reconcileUnknownOutcome,
 		recordProviderReceipt,

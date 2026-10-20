@@ -48,7 +48,7 @@ test("AC:ORG55-001 AC:TARGET-IDN-026 exact organization Owner/Admin profile chan
 			),
 		);
 		const events = await S.db.execute(
-			sql`SELECT action,diff,reason FROM event WHERE target_record_id=${sql.param(o.id)}`,
+			sql`SELECT action,metadata->'diff' AS diff,reason FROM audit_event WHERE subject_id=${sql.param(o.id)}`,
 		);
 		assert.deepEqual(events.rows, [{ action: "organization.profile_changed", diff: null, reason: null }]);
 	}

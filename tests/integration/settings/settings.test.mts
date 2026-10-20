@@ -1,3 +1,4 @@
+import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/notifications.ts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes, createHash } from "node:crypto";
@@ -15,7 +16,7 @@ import {
 } from "../../../packages/domain/src/settings/index.ts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
-import { enqueueJob } from "../../../apps/web/src/server/jobs/queue.ts";
+import { enqueueJob, enqueueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
 import { currentActor } from "../../../packages/domain/src/access/session.ts";
@@ -61,8 +62,6 @@ const command = (input = {}, expectedRevision = "1", requestKey = randomUUID()) 
 const ctx = (a, selected = { kind: "account", id: a.id }) => ({
 	session: a.session,
 	selected,
-	purpose: "native",
-	origin: { kind: "native" },
 });
 const call = (name, a, v, selected) => db.transaction((tx) => api[name](tx, ctx(a, selected), v));
 async function actor() {
@@ -137,7 +136,7 @@ before(async () => {
 		encryptionKey: randomBytes(32),
 		addressKey: randomBytes(32),
 		from: "test@example.test",
-		authorize: async () => true,
+		authorize: async (_tx, mail) => new Set(mail.map((m) => m.id)),
 		transport: {
 			send: async () => {
 				throw Error("No real mail");
@@ -161,14 +160,17 @@ before(async () => {
 			if (faults) throw Error("notice_fault");
 		},
 		invalidate: async (tx, i) => {
-			await enqueueJob(tx, {
-				tenant: i.owner.id,
-				kind: "assessment",
-				subject: i.sourceId,
-				key: "invalidate/" + i.sourceId + "/" + i.revision,
-				revision: i.revision,
-				eligibleAt: new Date().toISOString(),
-			});
+			await enqueueJobs(
+				tx,
+				i.owners.map((owner) => ({
+					tenant: owner.id,
+					kind: "assessment",
+					subject: i.sourceId,
+					key: "invalidate/" + i.sourceId + "/" + i.revision,
+					revision: i.revision,
+					eligibleAt: new Date().toISOString(),
+				})),
+			);
 		},
 	};
 	const organizations = createOrganizationAdapter(organizationEffects, { candidates: async () => [] });
@@ -250,20 +252,23 @@ before(async () => {
 	};
 	api = createSettingsProducer(producerDeps);
 	onboarding = createOnboardingProducer({
-		notice: organizationEffects.notice,
-		invalidate: organizationEffects.invalidate,
-		enqueue: async (tx, i) => {
-			await mail.enqueue(tx, {
-				owner: { kind: "account", id: i.accountId },
-				purpose: "notification",
-				logicalKey: "onboarding/" + i.operationId,
-				recipient: i.accountId,
-				address: "test@example.test",
-				content: { subject: "Saved", text: "Saved" },
-				operation: i.operationId,
-				notice: null,
-				eligibleAt: new Date().toISOString(),
-			});
+		relationships: (tx, inputs) => sendOnboardingRelationships(tx, inputs, mail),
+		enqueue: async (tx, i, command) => {
+			mail.append(
+				tx,
+				{
+					owner: { kind: "account", id: i.accountId },
+					purpose: "notification",
+					logicalKey: "onboarding/" + i.operationId,
+					recipient: i.accountId,
+					address: i.address,
+					content: { subject: "Saved", text: "Saved" },
+					operation: i.operationId,
+					notice: null,
+					eligibleAt: new Date().toISOString(),
+				},
+				command.writes,
+			);
 		},
 	});
 });
@@ -305,10 +310,10 @@ test("AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:ROLE43-002 AC:ROLE43-005 scoped set
 	denied(await call("saveSection", other.a, command(v.input, "2"), other.p));
 	denied(await call("saveSection", f.a, command(v.input), f.p), "conflict");
 	const replay = ok(await call("saveSection", adminActor, v, f.p));
-	assert.deepEqual(replay.receipt, saved.receipt);
+	assert.deepEqual(replay, saved);
 	assert.equal(replay.current.revision, "2");
 	const noop = ok(await call("saveSection", f.a, command(v.input, "2"), f.p));
-	assert.equal(noop.receipt.outcome, "noop");
+
 	assert.equal(noop.current.revision, "2");
 	faults = true;
 	await assert.rejects(
@@ -409,8 +414,6 @@ test("AC:TARGET-IDN-031 AC:TARGET-IDN-032 AC:TARGET-TSK-018 personal zones canon
 	);
 	faults = false;
 	assert.equal(ok(await call("getSection", a, { section: "account" })).personalTimezone.timeZone, "America/Chicago");
-	const wrong = { ...ctx(a), purpose: "model", origin: { kind: "assistant" } };
-	denied(await db.transaction((tx) => api.previewPersonalTimezone(tx, wrong, { timeZone: "UTC" })));
 });
 
 test("INV-private-calendar: revoked seat keeps its personal preference but cannot invoke the author calendar", async () => {
@@ -440,17 +443,15 @@ test("INV-private-calendar: revoked seat keeps its personal preference but canno
 	assert.equal(ok(await apply(first)).preference.timeZone, "America/New_York");
 	assert.deepEqual(calls, { preview: 1, apply: 1 });
 	const [seat] = await admin.select().from(t.seat).where(eq(t.seat.account_id, f.a.id));
-	await admin
-		.insert(t.lifecycle_witness)
-		.values({
-			kind: "seat",
-			opaque_subject_id: seat.id,
-			seat_id: seat.id,
-			request_revision: "1",
-			state: "revoked",
-			witness_checkpoint: "1",
-			cleanup_state: "not_started",
-		});
+	await admin.insert(t.lifecycle_witness).values({
+		kind: "seat",
+		opaque_subject_id: seat.id,
+		seat_id: seat.id,
+		request_revision: "1",
+		state: "revoked",
+		witness_checkpoint: "1",
+		cleanup_state: "not_started",
+	});
 	const next = ok(await preview("Europe/Paris"));
 	assert.deepEqual(ok(await apply(next)).preference, { status: "confirmed", timeZone: "Europe/Paris", revision: "3" });
 	assert.deepEqual(calls, { preview: 1, apply: 1 });
@@ -671,13 +672,10 @@ test("AC:WP010-KNOW-072 AC:WP010-KNOW-073 AC:DEL58-009 deadline refuses cancella
 	assert.equal(shared.linked_account_id, null);
 	assert.equal(shared.display_name, "Synthetic");
 	const [setup] = await admin.select().from(t.onboarding_setup).where(eq(t.onboarding_setup.plant_id, f.p.id));
-	assert.equal(setup.creation_operation_id, f.result.receipt.id);
+
 	assert.equal(setup.plant_id, f.p.id);
-	const [creation] = await admin
-		.select()
-		.from(t.onboarding_result)
-		.where(eq(t.onboarding_result.operation_id, setup.creation_operation_id));
-	assert.deepEqual(Object.keys(creation.value).sort(), ["creation", "plant"]);
+	const [creation] = await admin.select().from(t.audit_event).where(eq(t.audit_event.id, setup.creation_operation_id));
+	assert.deepEqual(Object.keys(creation.result).sort(), ["creation", "plant"]);
 	const [user] = await admin.select().from(t.auth_user).where(eq(t.auth_user.id, f.a.user));
 	assert.equal(user.name, "Removed account");
 	assert.equal(user.email, `removed-${f.a.id}@removed.invalid`);
@@ -872,8 +870,8 @@ test("AC:TARGET-IDN-008 AC:ROLE43-018 password proof precedes unchanged refusal;
 	assert.equal(ok(await call("getSection", fresh, { section: "account" })).email, a.email);
 	const [count] = await admin
 		.select({ n: sql`count(*)::int` })
-		.from(t.event)
-		.where(and(eq(t.event.tenant_id, a.id), eq(t.event.action, "identity.credential_changed")));
+		.from(t.audit_event)
+		.where(and(eq(t.audit_event.tenant_id, a.id), eq(t.audit_event.action, "identity.credential_changed")));
 	assert.equal(count.n, 0);
 });
 
@@ -922,7 +920,7 @@ test("AC:ORG55-001 AC:ORG55-007 AC:TARGET-IDN-026 organization profile and exact
 	assert.equal(saved.current.values.choices.activity, false);
 	assert.equal(saved.current.values.choices.people, true);
 	assert.equal(saved.current.values.choices.shared_findings, true);
-	assert.equal(saved.receipt.eventIds.length, 1);
+
 	denied(await call("saveSection", g.a, command(input), g.p));
 	denied(await call("saveSection", org.a, command({ ...input, expectedConsentRevision: "2" }, "2"), org.o));
 	denied(await call("saveSection", f.a, command(input, "2"), f.p), "conflict");
@@ -956,95 +954,10 @@ test("AC:ORG55-001 AC:ORG55-007 AC:TARGET-IDN-026 organization profile and exact
 			org.o,
 		),
 	);
-	assert.equal(noop.receipt.outcome, "noop");
+
 	assert.equal(noop.current.values.revision, "2");
 	const wrong = { ...org.o, organizationKind: "sending_church" };
 	denied(await call("getSection", org.a, { section: "organization", organization: wrong }, org.o));
-});
-
-async function approve(a, name, q) {
-	const { hash } = await import("../../../packages/domain/src/settings/core.ts");
-	const conversation = randomUUID(),
-		review = randomUUID(),
-		effect = randomUUID(),
-		digest = "c".repeat(64),
-		manifest = hash({ name, input: q });
-	await admin
-		.insert(t.conversation)
-		.values({ id: conversation, tenant_id: a.id, owner_id: a.id, title: "Review", state: "open" });
-	await admin.insert(t.review).values({
-		id: review,
-		tenant_id: a.id,
-		conversation_id: conversation,
-		proposal_number: 1,
-		digest,
-		effect_manifest_hash: manifest,
-		published_at: new Date(),
-		approved_by_id: a.id,
-		approved_at: new Date(),
-		witness_hash: manifest,
-	});
-	await admin.insert(t.effect).values({
-		id: effect,
-		tenant_id: a.id,
-		review_id: review,
-		effect_key: "settings",
-		kind: name,
-		payload_hash: manifest,
-		state: "unstarted",
-		arguments: { operation: name, input: q },
-	});
-	return {
-		context: {
-			...ctx(a),
-			purpose: "model",
-			origin: { kind: "assistant", reviewId: review, conversationId: conversation, planDigest: digest },
-		},
-		review,
-		effect,
-		conversation,
-		manifest,
-	};
-}
-test("AC:AI44-001 INV-settings-review: only the exact live human-approved effects commit and replay rechecks approval", async () => {
-	const a = await actor(),
-		other = await actor(),
-		q = command({ section: "account", name: "Reviewed Name" }),
-		name = "settings.saveSection";
-	const r = await approve(a, name, q);
-	const execute = (context = r.context, input = q) => db.transaction((tx) => api.saveSection(tx, context, input));
-	for (const [table, id, patch, restore] of [
-		[t.review, r.review, { approved_by_id: other.id }, { approved_by_id: a.id }],
-		[t.review, r.review, { approved_at: new Date(Date.now() - 16 * 60000) }, { approved_at: new Date() }],
-		[t.review, r.review, { approved_at: new Date(Date.now() + 60000) }, { approved_at: new Date() }],
-		[t.review, r.review, { cancelled_at: new Date() }, { cancelled_at: null }],
-		[t.review, r.review, { superseded_at: new Date() }, { superseded_at: null }],
-		[t.effect, r.effect, { payload_hash: "d".repeat(64) }, { payload_hash: r.manifest }],
-		[
-			t.effect,
-			r.effect,
-			{ arguments: { operation: name, input: { ...q, input: { section: "account", name: "Other" } } } },
-			{ arguments: { operation: name, input: q } },
-		],
-		[t.conversation, r.conversation, { state: "archived" }, { state: "open" }],
-		[t.conversation, r.conversation, { owner_id: other.id }, { owner_id: a.id }],
-	]) {
-		await admin.update(table).set(patch).where(eq(table.id, id));
-		denied(await execute());
-		await admin.update(table).set(restore).where(eq(table.id, id));
-	}
-	for (const origin of [
-		{ ...r.context.origin, reviewId: randomUUID() },
-		{ ...r.context.origin, conversationId: randomUUID() },
-		{ ...r.context.origin, planDigest: "a".repeat(64) },
-		{ kind: "native" },
-	])
-		denied(await execute({ ...r.context, origin }));
-	const saved = ok(await execute());
-	assert.equal(saved.current.name, "Reviewed Name");
-	assert.equal(saved.receipt.request.origin.reviewId, r.review);
-	await admin.update(t.review).set({ cancelled_at: new Date() }).where(eq(t.review.id, r.review));
-	denied(await execute());
 });
 
 test("INV-lifecycle: an account root read serializes first-witness deletion even before any witness exists", async () => {
@@ -1249,7 +1162,7 @@ test("AC:WP010-IDN-012 exact task preference reaches enqueue and dispatch; churc
 		encryptionKey: randomBytes(32),
 		addressKey: randomBytes(32),
 		from: "test@example.test",
-		authorize: async () => true,
+		authorize: async (_tx, mail) => new Set(mail.map((m) => m.id)),
 		transport: {
 			send: async (input) => {
 				sent.push(input);
@@ -1260,18 +1173,12 @@ test("AC:WP010-IDN-012 exact task preference reaches enqueue and dispatch; churc
 	});
 	const notifications = createNotificationService({
 		mail: sender,
-		eligible: async (tx, input) => {
-			const [s] = await tx
-				.select()
-				.from(t.seat)
-				.where(
-					and(
-						eq(t.seat.account_id, input.recipient),
-						eq(t.seat.plant_id, input.owner.id),
-						sql`${t.seat.ended_at} IS NULL`,
-					),
-				);
-			return s ? { address: "test@example.test" } : null;
+		eligible: async (tx, inputs) => {
+			const data = inputs.map((v, n) => ({ n, recipient: v.recipient, owner: v.owner.id }));
+			const r = await tx.execute(
+				sql`SELECT i.n FROM jsonb_to_recordset(${JSON.stringify(data)}::jsonb) i(n int,recipient uuid,owner uuid) JOIN seat s ON s.account_id=i.recipient AND s.plant_id=i.owner AND s.ended_at IS NULL`,
+			);
+			return inputs.map((v, n) => (r.rows.some((r) => r.n === n) ? { address: "test@example.test" } : null));
 		},
 	});
 	const initialPreferences = ok(await call("getSection", f.a, { section: "notifications" }));
@@ -1416,20 +1323,6 @@ test("AC:WP005-KNOW-069 AC:WP005-KNOW-072 AC:WP010-KNOW-069 AC:WP010-KNOW-072 AC
 		pace: "steady",
 		note: "Synthetic private note",
 	});
-	const conversation = randomUUID();
-	await admin
-		.insert(t.conversation)
-		.values({ id: conversation, tenant_id: f.p.id, owner_id: f.a.id, title: "Personal conversation", state: "open" });
-	await admin.insert(t.conversation_entry).values({
-		tenant_id: f.p.id,
-		conversation_id: conversation,
-		sequence: "1",
-		kind: "message",
-		role: "user",
-		body: "Personal conversation body",
-		occurred_at: new Date(),
-		recorded_at: new Date(),
-	});
 	const feedback = randomUUID(),
 		publication = randomUUID();
 	await admin.insert(t.feedback).values({
@@ -1514,12 +1407,6 @@ test("AC:WP005-KNOW-069 AC:WP005-KNOW-072 AC:WP010-KNOW-069 AC:WP010-KNOW-072 AC
 		(await admin.select().from(t.private_calendar).where(eq(t.private_calendar.account_id, subject.id))).length,
 		0,
 	);
-	assert.equal(
-		(await admin.select().from(t.conversation_entry).where(eq(t.conversation_entry.conversation_id, conversation)))
-			.length,
-		0,
-	);
-	assert.equal((await admin.select().from(t.conversation).where(eq(t.conversation.id, conversation))).length, 0);
 	assert.equal((await admin.select().from(t.feedback).where(eq(t.feedback.id, feedback))).length, 0);
 	assert.equal(
 		(await admin.select().from(t.document_revision).where(eq(t.document_revision.id, docs[0].version))).length,
@@ -1582,8 +1469,16 @@ test("INV-settings-preview: expiry is checked independently from actor, subject,
 		),
 		"stale_preview",
 	);
-	assert.deepEqual(ok(await call("getSection", f.a, { section: "account" })).personalTimezone, { status: "unconfirmed" });
+	assert.deepEqual(ok(await call("getSection", f.a, { section: "account" })).personalTimezone, {
+		status: "unconfirmed",
+	});
 	const fresh = ok(await call("previewPersonalTimezone", f.a, { timeZone: "UTC" }));
-	const saved = ok(await call("setPersonalTimezone", f.a, command({ timeZone: "UTC", previewId: fresh.previewId, confirmed: true }, fresh.expectedRevision)));
+	const saved = ok(
+		await call(
+			"setPersonalTimezone",
+			f.a,
+			command({ timeZone: "UTC", previewId: fresh.previewId, confirmed: true }, fresh.expectedRevision),
+		),
+	);
 	assert.deepEqual(saved.preference, { status: "confirmed", timeZone: "UTC", revision: "2" });
 });

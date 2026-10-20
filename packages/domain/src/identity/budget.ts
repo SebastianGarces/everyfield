@@ -1,3 +1,4 @@
+import { WriteUnavailable, auditTransaction } from "../operations/writes.ts";
 import * as tables from "@everyfield/db/tables";
 import { and, desc, eq, gt, isNotNull, lte, sql } from "@everyfield/db/query";
 import "server-only";
@@ -25,18 +26,21 @@ export class IdentityRefusal extends Error {
 }
 export async function transaction<T>(db: Database, body: (tx: Transaction) => Promise<T>): Promise<T> {
 	try {
-		return await db.transaction(async (tx) => {
-			await tx.execute(sql`SET LOCAL statement_timeout='10s'`);
-			await tx.execute(sql`SET LOCAL lock_timeout='5s'`);
+		return await auditTransaction(db, async (tx) => {
+			await tx.execute(sql`SELECT set_config('statement_timeout','10s',true),set_config('lock_timeout','5s',true)`);
 			return body(tx);
 		});
 	} catch (error) {
-		// The transaction has rolled back before an exact-request retry is offered.
-		const storage = z.object({ cause: z.object({ code: z.string() }) }).safeParse(error);
-		if (storage.success && ["55P03", "57014"].includes(storage.data.cause.code)) refuse("temporary");
-		throw error;
+		rethrowWriteError(error);
 	}
 }
+export function rethrowWriteError(error: unknown): never {
+	if (error instanceof WriteUnavailable) refuse();
+	const storage = z.object({ cause: z.object({ code: z.string() }) }).safeParse(error);
+	if (storage.success && ["55P03", "57014"].includes(storage.data.cause.code)) refuse("temporary");
+	throw error;
+}
+
 export function attemptBudget(db: Database, key: string) {
 	const hash = (value: string) => createHmac("sha256", key).update(value).digest("hex");
 	async function reserve(

@@ -1,20 +1,15 @@
-import "server-only";
-import { createHash, randomUUID } from "node:crypto";
-import type { Transaction } from "@everyfield/db/client";
-import { and, eq, sql } from "@everyfield/db/query";
-import * as t from "@everyfield/db/tables";
-import { z } from "zod";
-import {
-	accountId,
-	owner,
-	receipt,
-	requestIdentity,
-	sessionId,
-	type Owner,
-	type Receipt,
-} from "@everyfield/contracts/common";
+import { writeAction } from "../operations/actions.ts";
+import { accountId, owner, requestIdentity, sessionId, type Owner } from "@everyfield/contracts/common";
 import { invitationError, seatError } from "@everyfield/contracts/identity";
-import { currentActor, liveOwner } from "../access/session.ts";
+import type { Database, Transaction } from "@everyfield/db/client";
+import { eq, sql } from "@everyfield/db/query";
+import * as t from "@everyfield/db/tables";
+import { createHash, randomUUID } from "node:crypto";
+import "server-only";
+import { z } from "zod";
+import { currentActor, liveOwner, RequestActor, requestWrite } from "../access/session.ts";
+import { auditTransaction, finishAudit, prepareWrite } from "../operations/writes.ts";
+import { rethrowWriteError } from "./budget.ts";
 export { currentActor, liveOwner };
 export const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 export function canonical(value: unknown): string {
@@ -67,16 +62,33 @@ export async function identity(tx: Transaction, session: string) {
 	if (!(await liveOwner(tx, owner.parse({ kind: "account", id: a.account_id })))) refuse();
 	return a;
 }
-export async function administer(tx: Transaction, session: string, selected: Owner) {
-	const a = await currentActor(tx, sessionId.parse(session), selected);
-	if (a.status !== "active" || a.context.kind !== "seat" || a.context.role === "member") refuse();
-	return a;
+export async function readAdministrator(tx: Transaction, session: string, selected: Owner) {
+	const actor = await currentActor(tx, sessionId.parse(session), selected);
+	if (actor.status !== "active" || actor.context.kind !== "seat" || actor.context.role === "member") refuse();
+	return actor;
 }
+export async function writeAsAdministrator<T>(
+	db: Database,
+	authority: RequestActor,
+	selected: Owner,
+	body: (tx: Transaction, bound: NonNullable<Awaited<ReturnType<RequestActor["bind"]>>>) => Promise<T>,
+): Promise<T> {
+	try {
+		return await auditTransaction(db, async (tx) => {
+			const bound = await authority.bind(tx, selected);
+			if (!bound || bound.actor.context.kind !== "seat" || bound.actor.context.role === "member") refuse();
+			return body(tx, bound);
+		});
+	} catch (error) {
+		rethrowWriteError(error);
+	}
+}
+
 export async function begin(
 	tx: Transaction,
 	selected: Owner,
 	actor: string,
-	name: typeof t.operation.$inferSelect.name,
+	name: string,
 	command: { requestKey: string; expectedRevision: string; input: unknown },
 ) {
 	const request = requestIdentity.parse({
@@ -85,68 +97,26 @@ export async function begin(
 		operation: name,
 		requestKey: command.requestKey,
 		digest: hash(canonical(command)),
-		origin: { kind: "native" },
 	});
-	await lock(tx, "request/" + selected.id + "/" + command.requestKey);
-	const [prior] = await tx
-		.select({ receipt: t.identity_operation_result.receipt, result: t.identity_operation_result.result })
-		.from(t.operation)
-		.innerJoin(t.identity_operation_result, eq(t.identity_operation_result.operation_id, t.operation.id))
-		.where(and(eq(t.operation.tenant_id, selected.id), eq(t.operation.request_key, command.requestKey)));
-	if (prior) {
-		const saved = receipt.parse(prior.receipt);
-		if (canonical(saved.request) !== canonical(request)) refuse("idempotency_conflict");
-		return { kind: "replay" as const, result: prior.result };
+	const claim = await prepareWrite(tx, request);
+	if (claim.kind === "unavailable") refuse();
+	if (claim.kind === "conflict") refuse("idempotency_conflict");
+	if (claim.kind === "replay") {
+		return { kind: "replay" as const, result: claim.value };
 	}
-	const id = randomUUID();
-	await tx.insert(t.operation).values({
-		id,
-		tenant_id: selected.id,
-		actor_id: actor,
-		name,
-		request_key: command.requestKey,
-		request_digest: request.digest,
-		state: "running",
-		started_at: sql`clock_timestamp()`,
-		tool_calls: 0,
-		reserved_input: 0,
-		reserved_output: 0,
-		used_input: 0,
-		used_output: 0,
-	});
-	return { kind: "new" as const, id, request };
+	return { kind: "new" as const, id: claim.id, request, writes: claim.writes, events: claim.events };
 }
 export type Command = Extract<Awaited<ReturnType<typeof begin>>, { kind: "new" }>;
-export async function finish<T>(
-	tx: Transaction,
-	c: Command,
-	output: (r: Receipt) => T,
-	events: string[],
-	effects: string[] = [],
-	changed = true,
-) {
-	const r = receipt.parse({
-		id: c.id,
-		request: c.request,
-		completedAt: (await now(tx)).toISOString(),
-		outcome: changed ? "changed" : "noop",
-		subjects: [{ kind: "operation", id: c.id, owner: c.request.owner }],
-		eventIds: events,
-		effectIds: effects,
-	});
-	const result = output(r);
-	await tx
-		.update(t.operation)
-		.set({ state: "complete", outcome: changed ? "committed" : "no_effect", completed_at: new Date(r.completedAt) })
-		.where(eq(t.operation.id, c.id));
-	await tx.insert(t.identity_operation_result).values({ operation_id: c.id, receipt: r, result });
+export async function finish<T>(tx: Transaction, c: Command, output: () => T) {
+	const result = output();
+	await finishAudit(tx, c, c.request, result);
 	return result;
 }
 export function eventRow(
 	c: Command,
 	target: string,
-	kind: typeof t.event.$inferInsert.kind,
-	action: typeof t.event.$inferInsert.action,
+	kind: typeof t.audit_event.$inferInsert.kind,
+	action: typeof t.audit_event.$inferInsert.action | null,
 	before: string,
 	after: string,
 ) {
@@ -154,11 +124,11 @@ export function eventRow(
 	return {
 		id,
 		tenant_id: c.request.owner.id,
-		target_record_id: target,
-		operation_id: c.id,
+		subject_id: target,
+		command_id: c.id,
 		actor_id: c.request.actorId,
 		kind,
-		action,
+		action: action ?? writeAction(c.request.operation),
 		occurred_at: sql`clock_timestamp()`,
 		recorded_at: sql`clock_timestamp()`,
 		before_revision: before,
@@ -166,9 +136,10 @@ export function eventRow(
 		event_key: c.id + "/" + (action ?? kind) + "/" + target,
 	};
 }
-export async function event(tx: Transaction, ...args: Parameters<typeof eventRow>) {
+export async function event(_tx: Transaction, ...args: Parameters<typeof eventRow>) {
 	const row = eventRow(...args);
-	await tx.insert(t.event).values(row);
+	if (!args[0].events.some((e) => e.id === args[0].id)) row.id = args[0].id;
+	args[0].events.push(row);
 	return row.id;
 }
 export type Invitation = typeof t.invitation.$inferSelect;
@@ -178,6 +149,9 @@ export async function load(tx: Transaction, id: string) {
 	return i;
 }
 export async function workspace(tx: Transaction, id: string) {
+	const bound = requestWrite(tx);
+	if (bound?.selected.id === id && bound.selected.kind !== "account")
+		return { selected: bound.selected, name: bound.plant?.name ?? bound.organization?.name ?? null };
 	const [r] = await tx
 		.select({
 			kind: t.tenant.kind,

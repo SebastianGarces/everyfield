@@ -4,7 +4,6 @@ import { createHash } from "node:crypto";
 import { fixture, key } from "./invitations-support.mts";
 import { and, eq, isNull, sql } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
-import { canReadResidentProgress } from "../../../packages/domain/src/organizations/index.ts";
 let f;
 before(async () => {
 	f = await fixture();
@@ -40,8 +39,8 @@ test("AC:TARGET-IDN-017 AC:TARGET-IDN-003 AC:ROLE43-006 ordinary invitation hide
 	assert.equal(new Date(i.result.invitation.expiresAt).getTime() - row.created_at.getTime(), 30 * 86400000);
 	assert.equal(JSON.stringify(i.result).includes("accountExists"), false);
 	assert.equal(JSON.stringify(i.result).includes(i.proof), false);
-	assert.deepEqual(await f.invitations.invite(s.sender.session, i.command), i.result);
-	assert.equal(await count(t.mail, eq(t.mail.operation_id, i.result.receipt.id)), 1);
+	assert.deepEqual(await f.invitations.invite(await f.actor(s.sender.session), i.command), i.result);
+
 	// INV-proof-fragment (D54): the mailed link carries the proof only after #, which no browser request sends.
 	const sent = f.effects.findLast((e) => e.text.includes(i.proof) || e.text.includes(encodeURIComponent(i.proof)));
 	assert.match(sent.text, /\/invitation#proof=\S+/);
@@ -58,15 +57,13 @@ test("AC:TARGET-IDN-002 AC:TARGET-IDN-030 AC:SCHEMA-002 INV-acceptance: concurre
 	assert.equal(a.registrationState, "active");
 	assert.equal(a.seat.role, "member");
 	assert.equal(a.accountId, s.recipient.id);
-	assert.equal(a.receipt.request.owner.id, s.w.id);
-	assert.equal(a.receipt.request.actorId, s.recipient.id);
+
 	assert.equal(await count(t.seat, and(eq(t.seat.account_id, s.recipient.id), isNull(t.seat.ended_at))), 1);
 	assert.equal(
 		await count(t.person, and(eq(t.person.plant_id, s.w.id), eq(t.person.linked_account_id, s.recipient.id))),
 		1,
 	);
-	assert.equal(await count(t.identity_operation_result, eq(t.identity_operation_result.operation_id, a.receipt.id)), 1);
-	assert.equal(await count(t.mail, eq(t.mail.operation_id, a.receipt.id)), 1);
+
 	const [person] = await f.admin.select().from(t.person).where(eq(t.person.id, a.seat.personId));
 	assert.equal(person.adult_classification, "unknown");
 	assert.equal(await count(t.team_tenure, eq(t.team_tenure.person_id, person.id)), 0);
@@ -87,27 +84,22 @@ test("AC:TARGET-IDN-030 INV-atomicity: required outbox or receipt failure rolls 
 	assert.equal(account.registration_state, "pending_domain");
 	assert.equal(await count(t.seat, eq(t.seat.account_id, s.recipient.id)), 0);
 	assert.equal(await count(t.person, eq(t.person.linked_account_id, s.recipient.id)), 0);
-	await f.admin.execute(
-		sql`REVOKE INSERT ON ${sql.identifier(f.schema)}.identity_operation_result FROM everyfield_runtime`,
-	);
+	await f.admin.execute(sql`REVOKE INSERT ON ${sql.identifier(f.schema)}.audit_event FROM everyfield_runtime`);
 	try {
 		await assert.rejects(f.invitations.accept(s.recipient.session, i.claim), (error) => {
 			assert.equal(error.cause?.code, "42501");
 			return true;
 		});
 	} finally {
-		await f.admin.execute(
-			sql`GRANT INSERT ON ${sql.identifier(f.schema)}.identity_operation_result TO everyfield_runtime`,
-		);
+		await f.admin.execute(sql`GRANT INSERT ON ${sql.identifier(f.schema)}.audit_event TO everyfield_runtime`);
 	}
 	assert.equal(
 		(await f.admin.select().from(t.invitation).where(eq(t.invitation.id, i.result.invitation.invitationId)))[0].state,
 		"pending",
 	);
-	assert.equal(await count(t.operation, eq(t.operation.request_key, i.claim.requestKey)), 0);
+	assert.equal(await count(t.audit_event, eq(t.audit_event.request_key, i.claim.requestKey)), 0);
 	const accepted = await f.invitations.accept(s.recipient.session, i.claim);
 	assert.equal(accepted.status, "accepted");
-	assert.equal(await count(t.effect, eq(t.effect.operation_id, accepted.receipt.id)), 1);
 });
 test("AC:TEN-005 AC:SEC-02 AC:AUTH-002 INV-claim: wrong mailbox unverified account and deletion witness cannot claim", async () => {
 	const s = await f.setup(),
@@ -171,14 +163,14 @@ test("AC:ROLE43-007 INV-token: revoke claim resend and expiry serialize with one
 		i = await f.invitation(s),
 		change = { requestKey: key(), expectedRevision: "1", input: { invitationId: i.result.invitation.invitationId } };
 	const outcomes = await Promise.allSettled([
-		f.invitations.revoke(s.sender.session, change),
+		f.invitations.revoke(await f.actor(s.sender.session), change),
 		f.invitations.accept(s.recipient.session, i.claim),
 	]);
 	assert.equal(outcomes.filter((x) => x.status === "fulfilled").length, 1);
 	const s2 = await f.setup(),
 		i2 = await f.invitation(s2);
 	await denied(
-		f.invitations.resend(s2.sender.session, {
+		f.invitations.resend(await f.actor(s2.sender.session), {
 			...change,
 			requestKey: key(),
 			input: { invitationId: i2.result.invitation.invitationId },
@@ -189,7 +181,7 @@ test("AC:ROLE43-007 INV-token: revoke claim resend and expiry serialize with one
 		.update(t.invitation)
 		.set({ resent_at: new Date(Date.now() - 61000), created_at: new Date(Date.now() - 120000) })
 		.where(eq(t.invitation.id, i2.result.invitation.invitationId));
-	const sent = await f.invitations.resend(s2.sender.session, {
+	const sent = await f.invitations.resend(await f.actor(s2.sender.session), {
 		...change,
 		requestKey: key(),
 		input: { invitationId: i2.result.invitation.invitationId },
@@ -209,14 +201,14 @@ test("AC:TARGET-IDN-017 INV-budget: rolling workspace address budget is persiste
 	const s = await f.setup();
 	for (let n = 0; n < 3; n++) {
 		const i = await f.invitation(s);
-		await f.invitations.revoke(s.sender.session, {
+		await f.invitations.revoke(await f.actor(s.sender.session), {
 			requestKey: key(),
 			expectedRevision: "1",
 			input: { invitationId: i.result.invitation.invitationId },
 		});
 	}
 	await denied(
-		f.invitations.invite(s.sender.session, {
+		f.invitations.invite(await f.actor(s.sender.session), {
 			requestKey: key(),
 			expectedRevision: "1",
 			input: { workspace: s.w, role: "member", recipientEmail: s.recipient.email },
@@ -227,7 +219,7 @@ test("AC:TARGET-IDN-017 INV-budget: rolling workspace address budget is persiste
 	other.recipient.email = s.recipient.email;
 	assert.equal(
 		(
-			await f.invitations.invite(other.sender.session, {
+			await f.invitations.invite(await f.actor(other.sender.session), {
 				requestKey: key(),
 				expectedRevision: "1",
 				input: { workspace: other.w, role: "admin", recipientEmail: s.recipient.email },
@@ -256,26 +248,6 @@ test("AC:ADR1-004 AC:WP008-MUL-004-ATOMIC resident accept is addressed, atomic, 
 		f.invitations.respondResident(s.recipient.session, claim),
 	]);
 	assert.deepEqual(a, b);
-	assert.equal(
-		await f.db.transaction((tx) =>
-			canReadResidentProgress(tx, s.sender.session, s.w, {
-				linkId: a.linkId,
-				consentRevision: "1",
-				category: "foundations",
-			}),
-		),
-		true,
-	);
-	assert.equal(
-		await f.db.transaction((tx) =>
-			canReadResidentProgress(tx, s.sender.session, s.w, {
-				linkId: a.linkId,
-				consentRevision: "1",
-				category: "milestones",
-			}),
-		),
-		false,
-	);
 	assert.equal(a.consentRevision, "1");
 	assert.deepEqual(a.choices, { shareFoundations: true, shareMilestones: false });
 	assert.equal(await count(t.seat, eq(t.seat.account_id, s.recipient.id)), 0);
@@ -317,20 +289,20 @@ test("AC:TARGET-IDN-019 AC:ROLE43-009 AC:ROLE43-017 roster and ordinary role cha
 		expectedRevision: "1",
 		input: { seatId: a.seat.seatId, expectedRole: "member", to: "admin" },
 	};
-	await denied(f.seats.appointAdmin(s.recipient.session, s.w, cmd));
-	const changed = await f.seats.appointAdmin(s.sender.session, s.w, cmd);
+	await denied(f.seats.appointAdmin(await f.actor(s.recipient.session), s.w, cmd));
+	const changed = await f.seats.appointAdmin(await f.actor(s.sender.session), s.w, cmd);
 	assert.equal(changed.revision, "2");
-	assert.deepEqual(await f.seats.appointAdmin(s.sender.session, s.w, cmd), changed);
+	assert.deepEqual(await f.seats.appointAdmin(await f.actor(s.sender.session), s.w, cmd), changed);
 	const owner = list.items.find((x) => x.role === "owner");
 	await denied(
-		f.seats.remove(s.recipient.session, s.w, {
+		f.seats.remove(await f.actor(s.recipient.session), s.w, {
 			requestKey: key(),
 			expectedRevision: "1",
 			input: { seatId: owner.seatId, expectedRole: "admin", handoffs: [] },
 		}),
 		"protected_owner",
 	);
-	const demoted = await f.seats.demote(s.recipient.session, s.w, {
+	const demoted = await f.seats.demote(await f.actor(s.recipient.session), s.w, {
 		requestKey: key(),
 		expectedRevision: "2",
 		input: { seatId: a.seat.seatId, expectedRole: "admin", to: "member" },
@@ -374,8 +346,8 @@ test("AC:TARGET-IDN-019 INV-removal: exact open-duty handoff retains Person and 
 		expectedRevision: "1",
 		input: { seatId: a.seat.seatId, expectedRole: "member", handoffs: [] },
 	};
-	await denied(f.seats.remove(s.sender.session, s.w, cmd), "conflict");
-	const result = await f.seats.remove(s.sender.session, s.w, {
+	await denied(f.seats.remove(await f.actor(s.sender.session), s.w, cmd), "conflict");
+	const result = await f.seats.remove(await f.actor(s.sender.session), s.w, {
 		...cmd,
 		requestKey: key(),
 		input: {
@@ -439,7 +411,7 @@ test("AC:TARGET-IDN-019 INV-removal-review: the review names exactly the duties 
 		[s.sender.id],
 	);
 	// The review is exactly what remove needs: handing off each listed duty succeeds at once.
-	const result = await f.seats.remove(s.sender.session, s.w, {
+	const result = await f.seats.remove(await f.actor(s.sender.session), s.w, {
 		requestKey: key(),
 		expectedRevision: review.expectedRevision,
 		input: {
@@ -497,10 +469,10 @@ test("AC:TARGET-IDN-019 INV-removal-bound: 101 and 250 open duties are all revie
 			.update(t.task)
 			.set({ revision: "2" })
 			.where(eq(t.task.id, ids[n - 1]));
-		await denied(f.seats.remove(s.sender.session, s.w, command(stale)), "conflict");
+		await denied(f.seats.remove(await f.actor(s.sender.session), s.w, command(stale)), "conflict");
 		assert.equal(await count(t.task, eq(t.task.assignee_id, s.sender.id)), 0);
 		const fresh = await f.seats.readRemoval(s.sender.session, s.w, target);
-		const result = await f.seats.remove(s.sender.session, s.w, command(fresh));
+		const result = await f.seats.remove(await f.actor(s.sender.session), s.w, command(fresh));
 		assert.equal(result.duties.filter((d) => d.status === "moved").length, n);
 		assert.equal(await count(t.task, and(eq(t.task.plant_id, s.w.id), eq(t.task.assignee_id, s.sender.id))), n);
 	}
@@ -575,10 +547,7 @@ test("AC:TARGET-IDN-002 AC:TARGET-IDN-003 AC:TARGET-IDN-030 AC:SEC-03 native inv
 	assert.equal(accepted.status, "active");
 	assert.equal(accepted.accountId, account.id);
 	assert.equal((await f.admin.select().from(t.seat).where(eq(t.seat.account_id, account.id)))[0].role, "member");
-	assert.equal(
-		await count(t.identity_operation_result, eq(t.identity_operation_result.operation_id, accepted.operationId)),
-		1,
-	);
+
 	assert.deepEqual(await (await native("resume-registration", intent, cookie)).json(), accepted);
 	const foreign = await native("resume-registration", intent);
 	assert.equal(foreign.status, 401);
@@ -589,7 +558,7 @@ test("AC:ADR1-004 INV-resident: foreign Person, foreign linked account and stale
 		foreign = await f.setup("sending_network"),
 		p = await f.resident(foreign.w);
 	await denied(
-		f.invitations.inviteResident(s.sender.session, {
+		f.invitations.inviteResident(await f.actor(s.sender.session), {
 			requestKey: key(),
 			expectedRevision: "1",
 			input: { organization: s.w, personId: p, recipientEmail: s.recipient.email },
@@ -614,7 +583,7 @@ test("AC:ROLE43-006 INV-invitations: pending and Member actors cannot send or li
 	const accepted = await f.invitations.accept(s.recipient.session, i.claim);
 	assert.equal(accepted.seat.role, "member");
 	await denied(
-		f.invitations.invite(s.recipient.session, {
+		f.invitations.invite(await f.actor(s.recipient.session), {
 			requestKey: key(),
 			expectedRevision: "1",
 			input: { workspace: s.w, role: "admin", recipientEmail: key() + "@example.test" },
@@ -622,25 +591,25 @@ test("AC:ROLE43-006 INV-invitations: pending and Member actors cannot send or li
 	);
 	await denied(f.invitations.list(s.recipient.session, { workspace: s.w }));
 	const changed = { ...i.command, input: { ...i.command.input, role: "admin" } };
-	await denied(f.invitations.invite(s.sender.session, changed), "idempotency_conflict");
+	await denied(f.invitations.invite(await f.actor(s.sender.session), changed), "idempotency_conflict");
 });
 
 test("AC:TARGET-IDN-017 INV-mail: revoked invitation cancels its pending outbox handoff", async () => {
 	const s = await f.setup(),
-		result = await f.invitations.invite(s.sender.session, {
+		result = await f.invitations.invite(await f.actor(s.sender.session), {
 			requestKey: key(),
 			expectedRevision: "1",
 			input: { workspace: s.w, role: "admin", recipientEmail: s.recipient.email },
 		}),
 		before = f.effects.filter((e) => e.to === s.recipient.email).length;
-	await f.invitations.revoke(s.sender.session, {
+	await f.invitations.revoke(await f.actor(s.sender.session), {
 		requestKey: key(),
 		expectedRevision: "1",
 		input: { invitationId: result.invitation.invitationId },
 	});
 	await f.dispatch();
 	assert.equal(f.effects.filter((e) => e.to === s.recipient.email).length, before);
-	const [mail] = await f.admin.select().from(t.mail).where(eq(t.mail.operation_id, result.receipt.id));
+	const [mail] = await f.admin.select().from(t.mail).where(eq(t.mail.tenant_id, s.w.id));
 	assert.equal(mail.state, "cancelled");
 });
 
