@@ -115,7 +115,10 @@ for (const [name, engine] of ENGINES) {
 				const revision = () =>
 					page.evaluate(
 						(l) =>
-							document.querySelector(`[aria-label="${l}"]`)?.closest("[data-revision]")?.getAttribute("data-revision"),
+							document
+								.querySelector(`[aria-label="${l}"]:not([hidden] *)`)
+								?.closest("[data-revision]")
+								?.getAttribute("data-revision"),
 						label,
 					);
 				const before = await revision();
@@ -126,15 +129,18 @@ for (const [name, engine] of ENGINES) {
 				await page.keyboard.press("Home");
 				await page.keyboard.press("Enter");
 				await page.waitForFunction(
-					([l, n]) => document.querySelector(`[aria-label="${l}"] article`)?.getAttribute("aria-label") === n,
+					([l, n]) =>
+						document.querySelector(`[aria-label="${l}"]:not([hidden] *) article`)?.getAttribute("aria-label") === n,
 					[label, second],
 					{ timeout: 30_000 },
 				);
 				// Wait for the refresh: the column shows the server's new revision, so a remount would have happened.
 				await page.waitForFunction(
 					([l, r]) =>
-						document.querySelector(`[aria-label="${l}"]`)?.closest("[data-revision]")?.getAttribute("data-revision") !==
-						r,
+						document
+							.querySelector(`[aria-label="${l}"]:not([hidden] *)`)
+							?.closest("[data-revision]")
+							?.getAttribute("data-revision") !== r,
 					[label, before],
 					{ timeout: 60_000 },
 				);
@@ -170,7 +176,10 @@ for (const [name, engine] of ENGINES) {
 			await message.waitFor({ timeout: 30_000 });
 			// The refusal refreshes page B to the server's order; the message must survive that refresh.
 			await b.waitForFunction(
-				(n) => document.querySelector('[aria-label="Following up people"] article')?.getAttribute("aria-label") === n,
+				(n) =>
+					document
+						.querySelector('[aria-label="Following up people"]:not([hidden] *) article')
+						?.getAttribute("aria-label") === n,
 				second,
 				{ timeout: 30_000 },
 			);
@@ -207,12 +216,13 @@ for (const [name, engine] of ENGINES) {
 
 	test(`AC:TARGET-PPL-007 BUG-124-replay (${name}): a replayed reorder shows the column's latest order with its revision`, async () => {
 		await withPage(engine, "owner", async (a, context) => {
+			// The accessible list only: right after a load, WebKit can still hold React's hidden streamed copy of the page
+			// (<div hidden id="S:0">), which a document query would count twice.
 			const order = (p) =>
-				p.evaluate(() =>
-					[...document.querySelectorAll('[aria-label="Following up people"] article')].map((x) =>
-						x.getAttribute("aria-label"),
-					),
-				);
+				p
+					.getByRole("list", { name: "Following up people" })
+					.getByRole("article")
+					.evaluateAll((a) => a.map((x) => x.getAttribute("aria-label")));
 			await a.goto(`${BASE}/people?view=pipeline`);
 			await a.getByRole("list", { name: "Following up people" }).waitFor();
 			const [x, y] = await order(a);
@@ -419,7 +429,9 @@ for (const [name, engine] of ENGINES) {
 					await page.getByRole("menuitem", { name: "Move up" }).click();
 					await page.waitForFunction(
 						(n) =>
-							document.querySelector('[aria-label="Following up people"] article')?.getAttribute("aria-label") === n,
+							document
+								.querySelector('[aria-label="Following up people"]:not([hidden] *) article')
+								?.getAttribute("aria-label") === n,
 						second,
 						{ timeout: 5_000 },
 					);
@@ -451,14 +463,14 @@ for (const [name, engine] of ENGINES) {
 						const inList = (label, n) =>
 							page.evaluate(
 								([l, n]) =>
-									[...document.querySelectorAll(`[aria-label="${l}"] article`)].some(
+									[...document.querySelectorAll(`[aria-label="${l}"]:not([hidden] *) article`)].some(
 										(a) => a.getAttribute("aria-label") === n,
 									),
 								[label, n],
 							);
 						await page.waitForFunction(
 							([l, n]) =>
-								[...document.querySelectorAll(`[aria-label="${l}"] article`)].some(
+								[...document.querySelectorAll(`[aria-label="${l}"]:not([hidden] *) article`)].some(
 									(a) => a.getAttribute("aria-label") === n,
 								),
 							[to, person],
