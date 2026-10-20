@@ -6,6 +6,8 @@ import { readFile } from "node:fs/promises";
 import { randomUUID, randomBytes } from "node:crypto";
 
 import { migrate, migrationArtifact } from "../../../packages/db/src/schema/migrate.ts";
+import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
 import {
 	peopleWriter as write,
 	peopleReader as read,
@@ -986,7 +988,9 @@ test("BUG-FB-review-1: full People pages and pipeline use fixed database round t
 	// "Show more" names its column and reads one page of it with the same fixed statement count.
 	queries = [];
 	const more = ok(
-		await tx((t) => read.getPipelineData(t, ctx(), { search: "Batch regression", limit: 25, page: 2, column: "prospect" })),
+		await tx((t) =>
+			read.getPipelineData(t, ctx(), { search: "Batch regression", limit: 25, page: 2, column: "prospect" }),
+		),
 	);
 	assert.equal(queries.length, counts.pipeline[0]);
 	const prospects = more.groups.find((g) => g.column === "prospect");
@@ -1033,6 +1037,21 @@ test("BUG-FB-review-1: full People pages and pipeline use fixed database round t
 	const overdue = randomUUID();
 	await admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,due_date,person_id)
 		VALUES(${overdue},${plants[0]},'Call','follow_up','medium','not_started',clock_timestamp(),'date_only','2000-01-01',${ids[1]})`);
+	// The page's own boundary (D59): one resolved actor, then the pipeline read with known commitments stays within
+	// BEGIN, column revisions, one window over the read columns, commitment evidence, duties, COMMIT.
+	const authority = await tx((t) => RequestActor.resolve(t, actors[0].session));
+	const viewer = new PeopleReadContext(authority);
+	for (const column of [undefined, "prospect"]) {
+		queries = [];
+		const known = ok(
+			await tx((t) => read.getPipelineData(t, viewer, { search: "Batch regression", limit: 25, column })),
+		);
+		assert.equal(known.groups[0].cards[0].person.commitment.state, "withdrawn");
+		assert.ok(
+			queries.length <= 6,
+			`pipeline read with known commitments (${column ?? "all columns"}): ${queries.length} statements`,
+		);
+	}
 	const pipeline = ok(await tx((t) => read.getPipelineData(t, ctx(), { search: "Batch regression", limit: 25 })));
 	const cards = pipeline.groups.find((g) => g.column === "prospect").cards;
 	assert.deepEqual(cards[0], {
