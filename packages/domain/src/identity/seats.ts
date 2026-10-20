@@ -1,4 +1,5 @@
 import "server-only";
+import {type RequestActor} from "../access/session.ts";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { and, asc, eq, gt, inArray, isNull, notInArray, or, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
@@ -263,7 +264,7 @@ export function createSeatService(db: Database) {
 		});
 	}
 	async function mutation(
-		session: string,
+		session: string | RequestActor,
 		selected: Owner,
 		raw: unknown,
 		mode: "role" | "remove" | "appoint" | "demote",
@@ -489,9 +490,9 @@ export function createSeatService(db: Database) {
 		list,
 		readCurrentMembership: membership,
 		readRemoval,
-		changeOrdinaryRole: (s: string, o: Owner, v: unknown) => mutation(s, o, v, "role"),
-		appointAdmin: (s: string, o: Owner, v: unknown) => mutation(s, o, v, "appoint"),
-		demote: (s: string, o: Owner, v: unknown) => mutation(s, o, v, "demote"),
-		remove: (s: string, o: Owner, v: unknown) => mutation(s, o, v, "remove"),
+		changeOrdinaryRole: (s: string | RequestActor, o: Owner, v: unknown) => mutation(s, o, v, "role"),
+		appointAdmin: (s: string | RequestActor, o: Owner, v: unknown) => mutation(s, o, v, "appoint"),
+		demote: (s: string | RequestActor, o: Owner, v: unknown) => mutation(s, o, v, "demote"),
+		remove: (s: string | RequestActor, o: Owner, v: unknown) => mutation(s, o, v, "remove"),
 	};
 }

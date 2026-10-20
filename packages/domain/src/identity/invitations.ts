@@ -1,4 +1,5 @@
 import "server-only";
+import {RequestActor,requestWrite} from "../access/session.ts";
 import { randomBytes, randomUUID, createHmac } from "node:crypto";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { and, asc, eq, gt, isNull, lte, or, sql } from "@everyfield/db/query";
@@ -165,17 +166,17 @@ export function createInvitationService(config: InvitationConfig) {
 			expires_at: sql`clock_timestamp()+interval '720 hours'`,
 		});
 	}
-	async function invite(session: string, raw: unknown, resident = false) {
+	async function invite(session: string | RequestActor, raw: unknown, resident = false) {
 		const v = resident ? c.inviteResidentRequest.parse(raw) : c.inviteSeatRequest.parse(raw),
 			selected = "workspace" in v.input ? v.input.workspace : v.input.organization;
 		return transaction(config.db, async (tx) => {
 			await d.lock(tx, "workspace-seats/" + selected.id);
 			const a = await d.administer(tx, session, selected);
-			const info = await tx.execute(sql`SELECT * FROM seat_identity(${a.accountId}::uuid)`);
-			const inviter = z.object({ display_name: z.string() }).parse(info.rows[0]);
+			const bound=requestWrite(tx);
+			const inviter = bound?.principal ?? z.object({display_name:z.string()}).parse((await tx.execute(sql`SELECT * FROM seat_identity(${a.accountId}::uuid)`)).rows[0]);
 			const cmd = await d.begin(tx, selected, a.accountId, resident ? "residency.invite" : "seats.invite", v);
 			if (cmd.kind === "replay") return c.invitationSentResult.parse(cmd.result);
-			const [root] =
+			const root = bound?.plant ?? bound?.organization ?? (
 				selected.kind === "plant"
 					? await tx
 							.select({ revision: t.plant.revision })
@@ -186,7 +187,8 @@ export function createInvitationService(config: InvitationConfig) {
 							.select({ revision: t.organization.revision })
 							.from(t.organization)
 							.where(eq(t.organization.id, selected.id))
-							.for("update");
+							.for("update")
+				)[0];
 			if (root?.revision !== v.expectedRevision) d.refuse("conflict");
 			if ("personId" in v.input && (await activePerson(tx, selected.id, v.input.personId)).linked_account_id)
 				d.refuse();
@@ -204,7 +206,7 @@ export function createInvitationService(config: InvitationConfig) {
 			if (duplicate.length) d.refuse();
 			const proof = randomBytes(32).toString("base64url"),
 				id = randomUUID();
-			await tx.insert(t.invitation).values({
+			const [i] = await tx.insert(t.invitation).values({
 				id,
 				tenant_id: selected.id,
 				purpose: resident ? "residency_link" : "seat",
@@ -216,8 +218,9 @@ export function createInvitationService(config: InvitationConfig) {
 				created_at: sql`clock_timestamp()`,
 				resident_person_id: "personId" in v.input ? v.input.personId : null,
 				inviter_description: inviter.display_name.slice(0, 500),
-			});
-			const i = await d.load(tx, id),
+			}).returning();
+			if(!i) d.refuse();
+			const
 				effect = await mail(tx, i, cmd, proof),
 				event = await d.event(tx, cmd, id, "create", null, "0", "1"),
 				invitation = await description(tx, i);
@@ -287,7 +290,7 @@ export function createInvitationService(config: InvitationConfig) {
 			throw e;
 		});
 	}
-	async function change(session: string, raw: unknown, resend: boolean) {
+	async function change(session: string | RequestActor, raw: unknown, resend: boolean) {
 		const v = (resend ? c.resendInvitationRequest : c.revokeInvitationRequest).parse(raw);
 		return transaction(config.db, async (tx) => {
 			// Read only the owner key first; the source is locked after current actor proof.
@@ -311,16 +314,19 @@ export function createInvitationService(config: InvitationConfig) {
 			await d.pending(tx, i, v.expectedRevision);
 			if (resend && i.purpose === "residency_link") await activePerson(tx, i.tenant_id, i.resident_person_id!);
 			const after = d.bump(i.revision);
+			let updated=i;
 			let effects: string[] = [];
 			if (resend) {
 				const retry = new Date((i.resent_at ?? i.created_at).getTime() + 60000);
 				if (retry > (await d.now(tx))) d.refuse("invitation_cooldown", retry.toISOString());
 				const proof = randomBytes(32).toString("base64url");
-				await tx
+				const [changedInvitation] = await tx
 					.update(t.invitation)
 					.set({ token_hash: d.hash(proof), resent_at: sql`clock_timestamp()`, revision: after })
-					.where(eq(t.invitation.id, i.id));
-				effects = [await mail(tx, await d.load(tx, i.id), cmd, proof)];
+					.where(eq(t.invitation.id, i.id)).returning();
+				if(!changedInvitation) d.refuse();
+				updated=changedInvitation;
+				effects = [await mail(tx, updated, cmd, proof)];
 			} else
 				await tx
 					.update(t.invitation)
@@ -335,7 +341,7 @@ export function createInvitationService(config: InvitationConfig) {
 					i.revision,
 					after,
 				),
-				invitation = await description(tx, await d.load(tx, i.id));
+				invitation = resend ? await description(tx, updated) : null;
 			return d.finish(
 				tx,
 				cmd,
@@ -619,12 +625,12 @@ export function createInvitationService(config: InvitationConfig) {
 	return {
 		registrationEligible,
 		resume,
-		invite: (s: string, v: unknown) => invite(s, v),
-		inviteResident: (s: string, v: unknown) => invite(s, v, true),
+		invite: (s: string | RequestActor, v: unknown) => invite(s, v),
+		inviteResident: (s: string | RequestActor, v: unknown) => invite(s, v, true),
 		list,
 		describe,
-		resend: (s: string, v: unknown) => change(s, v, true),
-		revoke: (s: string, v: unknown) => change(s, v, false),
+		resend: (s: string | RequestActor, v: unknown) => change(s, v, true),
+		revoke: (s: string | RequestActor, v: unknown) => change(s, v, false),
 		accept: (s: string, v: unknown) => accept(s, v),
 		respondResident: (s: string, v: unknown) => accept(s, v, true),
 	};

@@ -15,7 +15,7 @@ import {
 	type Receipt,
 } from "@everyfield/contracts/common";
 import { invitationError, seatError } from "@everyfield/contracts/identity";
-import { currentActor, liveOwner } from "../access/session.ts";
+import { currentActor, liveOwner, RequestActor, requestWrite } from "../access/session.ts";
 export { currentActor, liveOwner };
 export const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 export function canonical(value: unknown): string {
@@ -68,8 +68,9 @@ export async function identity(tx: Transaction, session: string) {
 	if (!(await liveOwner(tx, owner.parse({ kind: "account", id: a.account_id })))) refuse();
 	return a;
 }
-export async function administer(tx: Transaction, session: string, selected: Owner) {
-	const a = await currentActor(tx, sessionId.parse(session), selected);
+export async function administer(tx: Transaction, session: string | RequestActor, selected: Owner) {
+	if(session instanceof RequestActor && !(await session.bind(tx,selected))) refuse();
+	const a = await currentActor(tx, sessionId.parse(typeof session==="string"?session:session.session), selected);
 	if (a.status !== "active" || a.context.kind !== "seat" || a.context.role === "member") refuse();
 	return a;
 }
@@ -173,6 +174,8 @@ export async function load(tx: Transaction, id: string) {
 	return i;
 }
 export async function workspace(tx: Transaction, id: string) {
+	const bound=requestWrite(tx);
+	if(bound?.selected.id===id && bound.selected.kind!=="account") return {selected:bound.selected,name:bound.plant?.name ?? bound.organization?.name ?? null};
 	const [r] = await tx
 		.select({
 			kind: t.tenant.kind,
