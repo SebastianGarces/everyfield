@@ -36,11 +36,11 @@ export function renderBrief(root: string, task: TaskRef, opts: { uiTier?: string
 	const L = [
 		`# ${task.id}: ${pkg.title}`,
 		`Goal: ${pkg.goal}`,
-		`Outputs: ${pkg.outputs.join("\n")}`,
+		`Features: ${pkg.outputs.join("\n")}`,
 		`Owned requirements: ${context.own_requirement_ids.join(", ") || "package output gates"}`,
 		`Worktree: ${worktreePath(root, loadConfig(root), task)}`,
 		`Owning paths: ${pathsForPart(pkg, task.part).join(", ")}`,
-		`Acceptance gates:\n${pkg.acceptance_gates.map((gate, index) => `${index + 1}. ${gate}`).join("\n")}`,
+		`Acceptance cases:\n${pkg.acceptance_gates.map((gate, index) => `${index + 1}. ${gate}`).join("\n")}`,
 		`Proof stage: ${pkg.context_scope.proof_stage}`,
 		`Integration and bounded ownership: ${pkg.integration_rule}`,
 		`Fast track: ${pkg.fast_track ? JSON.stringify(pkg.fast_track) : "none"}`,
