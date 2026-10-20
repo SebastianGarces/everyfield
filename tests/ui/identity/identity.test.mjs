@@ -8,13 +8,11 @@
 //   INV-session: the signed-in state, sign-out and an ended session lead back to sign-in.
 //   BUG-PR113 focus: an invalid field with keyboard focus still shows the focus ring (shared Input, D38).
 // The API answers are stubbed at the browser boundary with contract-shaped bodies, so the rows pin the screens; the
-// real WP-005 API has its own database tests. It runs against a running app: set UI_BASE_URL to the task preview.
-//   UI_BASE_URL=http://wp-005-ui-....localhost:1355 corepack pnpm test:ui
+// real WP-005 API has its own database tests. It runs against a running app through the shared setup (tests/ui/setup.mjs).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { chromium, webkit } from "../../../apps/web/node_modules/playwright/index.mjs";
+import { BASE, ENGINES, withPage as onPreview } from "../setup.mjs";
 
-const BASE = process.env.UI_BASE_URL;
 const CORRELATION = "6f1c2f6e-4a8e-4c55-9a39-2f4b7c2d9e10";
 const ACCOUNT = "0b0f6a7e-1d6f-4f7e-8c35-5b8f5c0f4d21";
 const SESSION = "4d3c2b1a-0f9e-4d8c-8b7a-6a5b4c3d2e1f";
@@ -39,28 +37,29 @@ const OPEN = ok({
  * Opens a page with /api/auth stubbed. `api` maps a path to a reply, a list of replies (one per call; the last one
  * repeats) or a function of the requests sent so far. Gives the page and the requests sent, as { path, body }.
  */
-async function withPage(engine, api, run, { width = 1440 } = {}) {
-	assert.ok(BASE, "Set UI_BASE_URL to a running preview of this worktree.");
-	const browser = await engine.launch();
-	try {
-		const context = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: "reduce" });
-		const sent = [];
-		const calls = {};
-		await context.route("**/api/auth/**", async (route) => {
-			const request = route.request();
-			const path = new URL(request.url()).pathname.replace("/api/auth/", "");
-			sent.push({ path, body: request.postData() ? JSON.parse(request.postData()) : null });
-			const given = api[path] ?? (path === "get-session" ? UNAUTHENTICATED : refusal("unavailable"));
-			const replies = [typeof given === "function" ? given(sent) : given].flat();
-			const reply = replies[Math.min((calls[path] = (calls[path] ?? -1) + 1), replies.length - 1)];
-			await route.fulfill({ status: reply.status, contentType: "application/json", body: JSON.stringify(reply.body) });
-		});
-		const page = await context.newPage();
-		await run(page, sent);
-	} finally {
-		await browser.close();
-	}
-}
+const withPage = (engine, api, run, { width = 1440 } = {}) =>
+	onPreview(
+		engine,
+		async (page, context) => {
+			const sent = [];
+			const calls = {};
+			await context.route("**/api/auth/**", async (route) => {
+				const request = route.request();
+				const path = new URL(request.url()).pathname.replace("/api/auth/", "");
+				sent.push({ path, body: request.postData() ? JSON.parse(request.postData()) : null });
+				const given = api[path] ?? (path === "get-session" ? UNAUTHENTICATED : refusal("unavailable"));
+				const replies = [typeof given === "function" ? given(sent) : given].flat();
+				const reply = replies[Math.min((calls[path] = (calls[path] ?? -1) + 1), replies.length - 1)];
+				await route.fulfill({
+					status: reply.status,
+					contentType: "application/json",
+					body: JSON.stringify(reply.body),
+				});
+			});
+			await run(page, sent);
+		},
+		{ width },
+	);
 
 const alertText = async (page) => (await page.getByRole("alert").filter({ hasText: /\w/ }).innerText()).trim();
 // The session the server would report: signed in until a sign-out, or until the second "other devices" call fails.
@@ -72,10 +71,7 @@ const sessionUntil = (status, ended) => (sent) =>
 // --ef-focus in each theme (design/handoff/tokens.css).
 const FOCUS = { light: "rgb(28, 91, 181)", dark: "rgb(169, 207, 255)" };
 
-for (const [name, engine] of [
-	["chromium", chromium],
-	["webkit", webkit],
-]) {
+for (const [name, engine] of ENGINES) {
 	test(
 		`AC:TARGET-IDN-001 INV-nonenumeration (${name}): sign-in refuses a wrong password and a blocked account alike`,
 		{ timeout: 60_000 },

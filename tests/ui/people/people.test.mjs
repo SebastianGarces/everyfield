@@ -1,35 +1,21 @@
 // Escaped People bugs require real producer state and a seeded production preview.
 // Set UI_BASE_URL and PEOPLE_UI_FIXTURE from seed.mts; both browser engines run.
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { chromium, webkit } from "../../../apps/web/node_modules/playwright/index.mjs";
+import { BASE, ENGINES, fixture, signIn, withPage as onPreview } from "../setup.mjs";
 
-const BASE = process.env.UI_BASE_URL;
-const FIXTURE = process.env.PEOPLE_UI_FIXTURE ?? "/tmp/everyfield-people-ui.json";
-const seed = () => JSON.parse(readFileSync(FIXTURE, "utf8"));
+const seed = () => fixture("people");
 
 /** Opens a page signed in as `who` (owner, member, seatless or null for signed out). */
-async function withPage(engine, who, run, { width = 1440, height = 900 } = {}) {
-	assert.ok(BASE, "Set UI_BASE_URL to a running, seeded preview of this worktree.");
-	const browser = await engine.launch();
-	try {
-		// Portless previews use a local certificate the test browsers do not know.
-		const context = await browser.newContext({
-			viewport: { width, height },
-			reducedMotion: "reduce",
-			ignoreHTTPSErrors: true,
-		});
-		if (who) {
-			const [name, value] = seed()[who].cookie.split(/=(.*)/s);
-			await context.addCookies([{ name, value, url: BASE, httpOnly: true, secure: BASE.startsWith("https:") }]);
-		}
-		const page = await context.newPage();
-		await run(page, context);
-	} finally {
-		await browser.close();
-	}
-}
+const withPage = (engine, who, run, size = {}) =>
+	onPreview(
+		engine,
+		async (page, context) => {
+			if (who) await signIn(context, seed()[who].cookie);
+			await run(page, context);
+		},
+		size,
+	);
 
 /** Server actions are POSTs with a Next-Action header. `handle` gets each one and decides what reaches the server. */
 async function onActions(context, handle) {
@@ -52,10 +38,7 @@ async function addPerson(page, name) {
 	return page.url();
 }
 
-for (const [name, engine] of [
-	["chromium", chromium],
-	["webkit", webkit],
-]) {
+for (const [name, engine] of ENGINES) {
 	test(`BUG-hydration (${name}): a person page with dated activity hydrates without a page error`, async () => {
 		await withPage(engine, "owner", async (page) => {
 			const errors = [];

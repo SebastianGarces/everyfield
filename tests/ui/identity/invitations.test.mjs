@@ -1,33 +1,10 @@
 // BUG-99d7882: following a second invitation fragment must replace the displayed invitation and clear its proof.
 // Seed the isolated preview with invitation-seed.mts before running this regression.
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
-import { chromium, webkit } from "../../../apps/web/node_modules/playwright/index.mjs";
+import { ENGINES, fixture, withPage } from "../setup.mjs";
 
-const BASE = process.env.UI_BASE_URL;
-const FIXTURE = process.env.INVITATION_UI_FIXTURE ?? "/tmp/everyfield-invitation-ui.json";
-const seed = () => JSON.parse(readFileSync(FIXTURE, "utf8"));
-
-const ENGINES = [
-	["chromium", chromium],
-	["webkit", webkit],
-].filter(([name]) => !process.env.UI_ENGINE || process.env.UI_ENGINE === name);
-
-async function withPage(engine, run) {
-	const browser = await engine.launch();
-	try {
-		// Portless previews use a local certificate the test browsers do not know.
-		const context = await browser.newContext({
-			viewport: { width: 1440, height: 900 },
-			reducedMotion: "reduce",
-			ignoreHTTPSErrors: true,
-		});
-		await run(await context.newPage());
-	} finally {
-		await browser.close();
-	}
-}
+const seed = () => fixture("invitation");
 
 for (const [name, engine] of ENGINES) {
 	describe(`invitation acceptance (${name})`, () => {
