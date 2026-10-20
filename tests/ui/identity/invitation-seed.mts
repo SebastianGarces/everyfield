@@ -1,18 +1,15 @@
-// Seeds an invitation preview on the shared development database (WP-008/ui). It creates an isolated schema with its own
-// login roles, applies every migration, signs up real accounts through the identity service, creates a church through
-// the onboarding producer and an organization with a pipeline person, then sends real invitations through the WP-008
-// invitation service. The invitation mail goes through the real outbox; a capturing transport reads each link.
+// Seeds an invitation preview on the shared development database (WP-008/ui). It opens the shared tests/ui seed
+// environment (tests/ui/seed-env.mts: one isolated schema, login roles and apps/web/.env.local per worktree), signs up
+// real accounts through the identity service, creates a church through the onboarding producer and an organization with
+// a pipeline person, then sends real invitations through the WP-008 invitation service. The invitation mail goes through
+// the real outbox; a capturing transport reads each link.
 //
 //   up:   node --env-file=<home apps/web/.env.local> --conditions=react-server --import tsx tests/ui/identity/invitation-seed.mts up <preview-url>
 //   down: node --env-file=<home apps/web/.env.local> --conditions=react-server --import tsx tests/ui/identity/invitation-seed.mts down
 //
-// `up` writes apps/web/.env.local in this worktree (git-ignored, mode 0600) so the preview's identity mount uses the
-// schema, and writes the accounts and invitation links the browser test needs to $INVITATION_UI_FIXTURE (default
-// /tmp/everyfield-invitation-ui.json). `down` drops the schema and roles and deletes both files. It refuses any database
-// host other than the shared development database.
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+// `up` writes the accounts and invitation links the browser test needs to $INVITATION_UI_FIXTURE (default
+// /tmp/everyfield-invitation-ui.json). `down` deletes it and drops the shared schema when no other seed still uses it.
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import {
 	authorizeInvitationMail,
 	createIdentityService,
@@ -22,60 +19,15 @@ import { createOnboardingProducer } from "../../../packages/domain/src/onboardin
 import { accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
-import { createHmac, randomBytes, randomUUID } from "node:crypto";
-import { readFileSync, rmSync, writeFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { createHmac, randomUUID } from "node:crypto";
+import { dropSeed, openSeedEnvironment, writeFixture } from "../seed-env.mts";
 
-const ENV_FILE = fileURLToPath(new URL("../../../apps/web/.env.local", import.meta.url));
-const FIXTURE = process.env.INVITATION_UI_FIXTURE ?? "/tmp/everyfield-invitation-ui.json";
 const PASSWORD = "Invite-preview-pass-1";
 const ENGINES = ["chromium", "webkit"] as const;
 
-function adminUrl() {
-	const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-	if (
-		source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech" ||
-		process.env.NODE_ENV === "production"
-	)
-		throw Error("Approved shared development database required");
-	source.searchParams.set("sslmode", "verify-full");
-	return source;
-}
-
 async function up(origin: string) {
-	if (!/^https?:\/\/[a-z0-9.-]+\.localhost(:\d+)?$/.test(origin)) throw Error("Give the local preview URL");
-	const source = adminUrl();
-	const schema = "wp008ui_" + randomUUID().replaceAll("-", "").slice(0, 16),
-		role = "wp008ui_" + randomBytes(6).toString("hex"),
-		authRole = role + "_auth",
-		password = randomBytes(24).toString("hex");
-	const options = `-c search_path=${schema},pg_catalog,pg_temp`;
-	writeFileSync(FIXTURE, JSON.stringify({ schema, role, authRole }), { mode: 0o600 });
-	const admin = createDatabase({ connectionString: source.href, max: 3, options });
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	for (const [name, grant] of [
-		[role, "everyfield_runtime"],
-		[authRole, "everyfield_auth"],
-	] as const) {
-		await admin.execute(
-			sql.raw(
-				`CREATE ROLE ${name} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-			),
-		);
-		await admin.execute(sql.raw(`GRANT ${grant} TO ${name}`));
-	}
-	const url = (name: string) => {
-		const u = new URL(source);
-		u.username = name;
-		u.password = password;
-		return u;
-	};
-	const runtime = createDatabase({ connectionString: url(role).href, max: 4, options });
-	const authDb = createDatabase({ connectionString: url(authRole).href, max: 3, options });
-	const secret = randomBytes(32).toString("hex"),
-		mailKey = randomBytes(32),
-		addressKey = randomBytes(32);
+	const env = await openSeedEnvironment(origin);
+	const { admin, runtime, authDb, secret, mailKey, addressKey } = env;
 	const sent: { to: string; text: string }[] = [];
 	const mail = createMailService({
 		db: runtime,
@@ -123,7 +75,7 @@ async function up(origin: string) {
 		scheduleDelivery: () => {},
 		origin,
 		secret,
-		trustedIp: () => `127.0.0.${ip}`,
+		trustedIp: () => env.loopback("invitation", ip),
 		enqueueMail: async () => randomUUID(),
 		diagnostic: () => {},
 	});
@@ -228,52 +180,13 @@ async function up(origin: string) {
 		};
 	}
 
-	const settings = (name: string) => {
-		const u = url(name);
-		u.searchParams.set("options", options);
-		return u.href;
-	};
-	writeFileSync(
-		ENV_FILE,
-		[
-			`IDENTITY_DATABASE_URL=${settings(role)}`,
-			`IDENTITY_AUTH_DATABASE_URL=${settings(authRole)}`,
-			`IDENTITY_ORIGIN=${origin}`,
-			`IDENTITY_SECRET=${secret}`,
-			`IDENTITY_MAIL_KEY=${mailKey.toString("hex")}`,
-			`IDENTITY_ADDRESS_KEY=${addressKey.toString("hex")}`,
-			`IDENTITY_MAIL_FROM=security@example.test`,
-			"",
-		].join("\n"),
-		{ mode: 0o600 },
-	);
-	writeFileSync(FIXTURE, JSON.stringify({ schema, role, authRole, origin, password: PASSWORD, flows }, null, "\t"), {
-		mode: 0o600,
-	});
-	await closeDatabase(runtime);
-	await closeDatabase(authDb);
-	await closeDatabase(admin);
-	console.log(JSON.stringify({ schema, fixture: FIXTURE, env: ENV_FILE }));
-}
-
-async function down() {
-	const state = JSON.parse(readFileSync(FIXTURE, "utf8")) as { schema: string; role: string; authRole: string };
-	if (!/^wp008ui_[a-f0-9]+$/.test(state.schema)) throw Error("Not an invitation seed schema");
-	const admin = createDatabase({ connectionString: adminUrl().href, max: 1 });
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${state.schema} CASCADE`));
-		for (const r of [state.role, state.authRole])
-			if (/^wp008ui_[a-f0-9]+(_auth)?$/.test(r)) await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${r}`));
-	} finally {
-		await closeDatabase(admin);
-	}
-	rmSync(ENV_FILE, { force: true });
-	rmSync(FIXTURE, { force: true });
-	console.log(JSON.stringify({ dropped: state.schema }));
+	const fixture = writeFixture("invitation", env.schema, { origin, password: PASSWORD, flows });
+	await env.close();
+	console.log(JSON.stringify({ schema: env.schema, fresh: env.fresh, fixture }));
 }
 
 const [action, arg] = process.argv.slice(2);
 if (action === "up" && arg) await up(arg.replace(/\/$/, ""));
-else if (action === "down") await down();
+else if (action === "down") console.log(JSON.stringify(await dropSeed("invitation")));
 else throw Error("Usage: invitation-seed.mts up <preview-url> | down");
 process.exit(0);
