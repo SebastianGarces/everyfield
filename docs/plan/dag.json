@@ -308,7 +308,7 @@
       "depends_on": [
         "WP-003"
       ],
-      "estimate_engineer_days": 5.0,
+      "estimate_engineer_days": 4.0,
       "inputs": [],
       "outputs": [
         "DOC-015: Private storage service and uploaded commitment attachments",
@@ -1289,7 +1289,7 @@
         "WP-012",
         "WP-014"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [],
       "outputs": [
         "MUL-017: Organization duplicates, merge and guarded Unmerge",
@@ -1730,7 +1730,7 @@
         "WP-011",
         "WP-016"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [],
       "outputs": [
         "MTG-002: Create, edit, delete and change meeting status",
@@ -2604,7 +2604,7 @@
       "depends_on": [
         "WP-004"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [],
       "outputs": [
         "COM-012: Native drafts and reviewed scheduled email",
@@ -2684,7 +2684,7 @@
         "WP-001",
         "WP-004"
       ],
-      "estimate_engineer_days": 2.0,
+      "estimate_engineer_days": 1.5,
       "inputs": [],
       "outputs": [
         "COM-008: Canonical message-template bootstrap and meeting invitation selection",
@@ -2807,7 +2807,7 @@
         "WP-032",
         "WP-033"
       ],
-      "estimate_engineer_days": 4.5,
+      "estimate_engineer_days": 4.0,
       "inputs": [],
       "outputs": [
         "REF-002: Approved global Wiki article/section bootstrap",
@@ -2962,7 +2962,7 @@
       "depends_on": [
         "WP-034"
       ],
-      "estimate_engineer_days": 4.5,
+      "estimate_engineer_days": 4.0,
       "inputs": [],
       "outputs": [
         "NTF-014: Declared notification producers and unused email helpers",
@@ -3531,7 +3531,7 @@
         "WP-046",
         "WP-004"
       ],
-      "estimate_engineer_days": 3.5,
+      "estimate_engineer_days": 3.0,
       "inputs": [],
       "outputs": [
         "PI-001: Deterministic fact-snapshot assembly",
@@ -3859,7 +3859,7 @@
         "WP-003",
         "WP-047"
       ],
-      "estimate_engineer_days": 2.5,
+      "estimate_engineer_days": 2.0,
       "inputs": [],
       "outputs": [
         "PI-018: Typed dual-audience judge and product-rule validation",
@@ -4638,7 +4638,7 @@
         "WP-038",
         "WP-046"
       ],
-      "estimate_engineer_days": 3.0,
+      "estimate_engineer_days": 2.5,
       "inputs": [],
       "outputs": [
         "IDN-023: Oversight dashboard, plant directory, consent-gated aggregates and health entry",
@@ -9309,7 +9309,7 @@
         "WP-037",
         "WP-015"
       ],
-      "estimate_engineer_days": 4.0,
+      "estimate_engineer_days": 3.5,
       "inputs": [],
       "outputs": [
         "MUL-007: Sending goals and observed counts",
@@ -9370,7 +9370,7 @@
       "depends_on": [
         "WP-098"
       ],
-      "estimate_engineer_days": 4.0,
+      "estimate_engineer_days": 3.5,
       "inputs": [],
       "outputs": [
         "MUL-010: Apprenticeship and residency program definitions",
@@ -9745,10 +9745,10 @@
     "WP-031",
     "WP-005",
     "WP-006",
-    "WP-011",
-    "WP-012",
-    "WP-015",
-    "WP-019",
+    "WP-007",
+    "WP-008",
+    "WP-009",
+    "WP-038",
     "WP-045",
     "WP-046",
     "WP-040",
@@ -9765,8 +9765,8 @@
     "WP-057",
     "WP-058"
   ],
-  "critical_path_unconstrained_days": 90.0,
-  "total_engineer_days": 245.5,
+  "critical_path_unconstrained_days": 87.5,
+  "total_engineer_days": 239.0,
   "contract_milestones": {
     "C0": [
       "WP-002"

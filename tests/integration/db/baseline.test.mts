@@ -436,7 +436,7 @@ test("AC:C0-REPLAY-001 AC:AUDIT-001 AC:AUDIT-002 INV-transaction: audit failure 
 		1,
 	);
 });
-test("AC:AUDIT-003 INV-audit: exact UTF-8 limit and dedicated private care identity", async () => {
+test("AC:AUDIT-003 INV-audit: exact UTF-8 limit for audit changed fields", async () => {
 	const x = await doc(p);
 	const sql =
 		"INSERT INTO audit_event(tenant_id,subject_id,kind,occurred_at,recorded_at,system_cause,event_key,action,metadata) VALUES($1,$2,'edit',now(),now(),'synthetic',$3,'documents.saved',jsonb_build_object('diff',$4::jsonb))";
@@ -452,20 +452,6 @@ test("AC:AUDIT-003 INV-audit: exact UTF-8 limit and dedicated private care ident
 		2048,
 	);
 	await rejected(sql, [p, x, "oversized", size(2049)]);
-	const week = randomUUID();
-	await runtime.execute(
-		querySql`INSERT INTO private_week(id,plant_id,author_id,ordinal,monday,timezone,starts_at,ends_at,revision,note) VALUES(${querySql.param(week)},${querySql.param(p)},${querySql.param(a)},1,'2026-10-12','America/Chicago','2026-10-12T05:00Z','2026-10-19T05:00Z',1,'CARE-CANARY')`,
-	);
-	assert.equal(
-		(await admin.execute(querySql`SELECT count(*)::int n FROM record WHERE id=${querySql.param(week)}`)).rows[0].n,
-		0,
-	);
-	await rejected("UPDATE private_week SET author_id=$1 WHERE id=$2", [b, week]);
-	assert.equal(
-		(await admin.execute(querySql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${querySql.param(week)}`))
-			.rows[0].n,
-		0,
-	);
 });
 test("INV-calendar-revision: canonical named zones and full int64 precision in real PostgreSQL", async () => {
 	await admin.execute(
@@ -714,22 +700,7 @@ test("INV-auth-adapter: pinned Better Auth uses app-owned physical UUID and snak
 	);
 });
 test("INV-baseline: Launch links, creation journal and retained purge clocks use typed immutable facts", async () => {
-	const personP = await person(p),
-		personQ = await person(q);
 	await admin.execute(querySql`INSERT INTO launch(plant_id,status) VALUES(${querySql.param(p)},'planning')`);
-	await admin.execute(
-		querySql`INSERT INTO launch_guest(plant_id,person_id,kind,recorded_at) VALUES(${querySql.param(p)},${querySql.param(personP)},'first_time',now())`,
-	);
-	await rejected(
-		"INSERT INTO launch_guest(plant_id,person_id,kind,recorded_at) VALUES($1,$2,'returning',now())",
-		[p, personP],
-		"23505",
-	);
-	await rejected(
-		"INSERT INTO launch_guest(plant_id,person_id,kind,recorded_at) VALUES($1,$2,'first_time',now())",
-		[p, personQ],
-		"23503",
-	);
 	const operation = async () => {
 		const id = randomUUID();
 		await admin.execute(
