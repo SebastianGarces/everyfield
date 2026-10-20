@@ -11,7 +11,7 @@ import {
 	peopleReader as read,
 	accountPersonProducer as accounts,
 	getAccountLink,
-	readColumnOrder,
+	readColumnOrders,
 } from "../../../packages/domain/src/people/index.ts";
 
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
@@ -836,13 +836,10 @@ test("INV-pipeline: native moves place one person, persist and retry once", asyn
 	const all = await column();
 	const last = all.at(-1);
 	const initialPipeline = ok(await tx((t) => read.getPipelineData(t, ctx(), {})));
-	assert.deepEqual(
-		initialPipeline.groups.map((g) => g.revision),
-		["1", "1", "1", "1", "1"],
-	);
+	const seen = initialPipeline.groups.find((g) => g.column === "prospect").revision;
 	const order = {
 		requestKey: randomUUID(),
-		expectedRevision: initialPipeline.groups.find((g) => g.column === "prospect").revision,
+		expectedRevision: seen,
 		input: { column: "prospect", personId: last, afterId: null },
 	};
 	refused(await tx((t) => write.reorderPipeline(t, ctx(1), order)));
@@ -860,7 +857,81 @@ test("INV-pipeline: native moves place one person, persist and retry once", asyn
 	assert.deepEqual(await column(), first);
 	refused(await tx((t) => write.reorderPipeline(t, ctx(), { ...order, requestKey: randomUUID() })), "conflict");
 	const refreshedPipeline = ok(await tx((t) => read.getPipelineData(t, ctx(), { stages: ["leader"] })));
-	assert.equal(refreshedPipeline.groups.find((g) => g.column === "prospect").revision, "2");
+	assert.equal(refreshedPipeline.groups.find((g) => g.column === "prospect").revision, String(Number(seen) + 1));
+});
+
+test("AC:TARGET-PPL-007 INV-stale-view (D68): joining or leaving a column refuses a move from the older view", async () => {
+	const revision = async (column) => (await tx(async (t) => (await readColumnOrders(t, ctx(), [column]))[0])).revision;
+	// A move with the given column revision; refused when the column changed since that view (verifier finding on 93cf953).
+	const moveWith = (rev, personId, afterId) =>
+		tx((t) =>
+			write.reorderPipeline(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: rev,
+				input: { column: "following_up", personId, afterId },
+			}),
+		);
+	const a = await create("Stale A", { stage: "following_up" });
+	const b = await create("Stale B", { stage: "following_up" });
+	const c = await create("Stale C", { stage: "following_up" });
+	// Create: someone joins the column.
+	let seen = await revision("following_up");
+	await create("Stale D", { stage: "following_up" });
+	refused(await moveWith(seen, a.id, c.id), "conflict");
+	// Stage change: B leaves for attendee; both columns move on, so a view of either is outdated.
+	seen = await revision("following_up");
+	const attendeeSeen = await revision("attendee");
+	const moved = ok(
+		await tx((t) =>
+			write.changeStatus(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: b.revision,
+				input: { personId: b.id, stage: "attendee", reason: "Stale view", handoffs: [] },
+			}),
+		),
+	);
+	assert.notEqual(await revision("attendee"), attendeeSeen, "the column B joined moves on");
+	refused(await moveWith(seen, a.id, c.id), "conflict");
+	// Retire and restore: C leaves, then comes back.
+	seen = await revision("following_up");
+	const review = ok(await tx((t) => read.getStatusWarnings(t, ctx(), { personId: c.id }))).reviewRevision;
+	const retired = ok(
+		await tx((t) =>
+			write.retirePerson(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: c.revision,
+				input: { personId: c.id, reason: "Stale view", reviewRevision: review, handoffs: [] },
+			}),
+		),
+	);
+	refused(await moveWith(seen, a.id, null), "conflict");
+	seen = await revision("following_up");
+	ok(
+		await tx((t) =>
+			write.restorePerson(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: retired.person.revision,
+				input: { personId: c.id },
+			}),
+		),
+	);
+	refused(await moveWith(seen, a.id, null), "conflict");
+	// The current view saves.
+	ok(await moveWith(await revision("following_up"), a.id, null));
+	// A change inside the committed column (core group to leader) keeps that column's order and revision.
+	const core = await create("Stale core", { stage: "core_group" });
+	const coreSeen = await revision("core_group");
+	ok(
+		await tx((t) =>
+			write.changeStatus(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: core.revision,
+				input: { personId: core.id, stage: "leader", reason: "Milestone", handoffs: [] },
+			}),
+		),
+	);
+	assert.equal(await revision("core_group"), coreSeen);
+	assert.equal(moved.person.stage, "attendee");
 });
 
 test("BUG-FB-review-1: full People pages and pipeline use fixed database round trips", async (t) => {
@@ -961,7 +1032,7 @@ test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one trans
 	const history = async () => (await admin.execute(sql`SELECT count(*)::int AS n FROM audit_event`)).rows[0].n;
 	// The reorder action: the producer's command plus one column read, in one transaction.
 	const move = async (personId, afterId) => {
-		const column = await tx((t) => readColumnOrder(t, ctx(), "interviewed"));
+		const column = await tx(async (t) => (await readColumnOrders(t, ctx(), ["interviewed"]))[0]);
 		const rows = await history();
 		queries = [];
 		const order = ok(
@@ -971,7 +1042,9 @@ test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one trans
 					expectedRevision: column.revision,
 					input: { column: "interviewed", personId, afterId },
 				});
-				return done.status === "ok" ? { status: "ok", value: await readColumnOrder(t, ctx(), "interviewed") } : done;
+				return done.status === "ok"
+					? { status: "ok", value: (await readColumnOrders(t, ctx(), ["interviewed"]))[0] }
+					: done;
 			}),
 		);
 		const count = queries.length;
@@ -994,7 +1067,7 @@ test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one trans
 	ids.push(...legacy);
 	await insert(legacy, 0);
 	await admin.execute(sql`UPDATE person SET pipeline_position=0 WHERE id=ANY(${sql.param(ids)}::uuid[])`);
-	const tied = (await tx((t) => readColumnOrder(t, ctx(), "interviewed"))).personIds;
+	const tied = (await tx(async (t) => (await readColumnOrders(t, ctx(), ["interviewed"]))[0])).personIds;
 	await admin.execute(
 		sql.raw(
 			await readFile(
@@ -1013,7 +1086,11 @@ test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one trans
 		);
 	const spread = await positions();
 	assert.equal(new Set(spread.values()).size, 30, "the migration gives every person a key of their own");
-	assert.deepEqual((await tx((t) => readColumnOrder(t, ctx(), "interviewed"))).personIds, tied, "and keeps the order");
+	assert.deepEqual(
+		(await tx(async (t) => (await readColumnOrders(t, ctx(), ["interviewed"]))[0])).personIds,
+		tied,
+		"and keeps the order",
+	);
 	const [mover, anchor] = [tied[25], tied[3]];
 	const legacyMove = await move(mover, anchor);
 	const expected = tied.filter((x) => x !== mover);
@@ -1052,7 +1129,7 @@ test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one trans
 				input: { personId: first.id, stage: "attendee", reason: "Moved back", handoffs: [] },
 			});
 			return done.status === "ok"
-				? { status: "ok", value: { ...done.value, column: await readColumnOrder(t, ctx(), "attendee") } }
+				? { status: "ok", value: { ...done.value, column: (await readColumnOrders(t, ctx(), ["attendee"]))[0] } }
 				: done;
 		}),
 	);

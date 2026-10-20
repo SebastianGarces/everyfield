@@ -377,24 +377,29 @@ export async function readPeopleViewer(tx: Tx, session: z.infer<typeof sessionId
 }
 
 /**
- * One pipeline column's saved order and revision, in one query inside the move's own transaction (D68). A reorder and a
- * stage change answer with it instead of re-reading the whole pipeline. The writer has already authorized the move.
- * It also gives every listed person's revision, which a reorder changes and the page's next move must send.
+ * Pipeline columns' saved order and revision, in one query inside the move's own transaction (D68). A reorder answers
+ * with its column, a stage change with the column the person left and the one they joined, instead of re-reading the
+ * whole pipeline. Each column lists every person's revision, which the page's next move must send.
  */
-export async function readColumnOrder(tx: Tx, ctx: Context, column: z.infer<typeof c.pipelineColumn>) {
-	const stages = column === "core_group" ? ["core_group", "launch_team", "leader"] : [column];
-	const result = await tx.execute(sql`SELECT
-		coalesce((SELECT revision::text FROM people_column WHERE plant_id=${ctx.selected.id} AND column_name=${column}), '1') AS revision,
+export async function readColumnOrders(tx: Tx, ctx: Context, columns: readonly z.infer<typeof c.pipelineColumn>[]) {
+	const result = await tx.execute(sql`SELECT u.c AS column,
+		coalesce((SELECT revision::text FROM people_column WHERE plant_id=${ctx.selected.id} AND column_name=u.c), '1') AS revision,
 		coalesce((SELECT json_agg(json_build_object('id', id, 'revision', revision::text) ORDER BY pipeline_position, created_at, id)
-			FROM person WHERE plant_id=${ctx.selected.id} AND state='live' AND stage=ANY(${sql.param(stages)})), '[]') AS people`);
-	const row = columnRow.parse(result.rows[0]);
-	return {
-		revision: row.revision,
-		personIds: row.people.map((p) => p.id),
-		personRevisions: Object.fromEntries(row.people.map((p) => [p.id, p.revision])),
-	};
+			FROM person WHERE plant_id=${ctx.selected.id} AND state='live'
+			AND stage=ANY(CASE WHEN u.c='core_group' THEN ARRAY['core_group','launch_team','leader'] ELSE ARRAY[u.c] END)), '[]') AS people
+		FROM unnest(${sql.param(columns)}::text[]) WITH ORDINALITY AS u(c, i) ORDER BY u.i`);
+	return result.rows.map((r) => {
+		const row = columnRow.parse(r);
+		return {
+			column: row.column,
+			revision: row.revision,
+			personIds: row.people.map((p) => p.id),
+			personRevisions: Object.fromEntries(row.people.map((p) => [p.id, p.revision])),
+		};
+	});
 }
 const columnRow = z.object({
+	column: c.pipelineColumn,
 	revision: z.string(),
 	people: z.array(z.object({ id: z.uuid(), revision })),
 });

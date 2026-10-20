@@ -133,11 +133,12 @@ export function PipelineBoard({
 					onOpenChange={(open) => !open && setMoving(null)}
 					store={moving.store}
 					target={moving.target}
-					// Sent: the card moves now. Answered: the saved person, in their column's saved order. Refused: the card
-					// as it was.
-					onStage={(person, column) => {
+					// Sent: the card moves now. Answered: the saved person, and the saved order and revision of the columns it
+					// left and joined. Refused: the card as it was.
+					from={columnOf(moving.card.person.stage)}
+					onStage={(person, columns) => {
 						place({ ...moving.card, person: person ?? moving.card.person });
-						if (column) answered(column.column, column);
+						for (const column of columns ?? []) answered(column.column, column);
 					}}
 				/>
 			) : null}

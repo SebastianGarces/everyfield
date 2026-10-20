@@ -3,9 +3,9 @@
 import { getViewer } from "@/server/request-context";
 
 import * as c from "@everyfield/contracts/people";
-import { peopleReader, peopleWriter, readColumnOrder } from "@everyfield/domain/people";
+import { peopleReader, peopleWriter, readColumnOrders } from "@everyfield/domain/people";
 import type { z } from "zod";
-import { columnOf, parseQuery, type ColumnValue, type Outcome } from "./model.ts";
+import { columnOf, parseQuery, type Outcome } from "./model.ts";
 import { loadPeople, read, write, type PeopleView, type Viewer } from "./server.ts";
 
 // Server actions behind the People screens: the browser boundary. Each one rebuilds the viewer from the request,
@@ -85,26 +85,31 @@ export async function statusWarnings(personId: string): Promise<Outcome<z.infer<
 	);
 }
 
+type ColumnOrder = Awaited<ReturnType<typeof readColumnOrders>>[number];
+
 /**
- * Changes a person's stage. The answer is the saved person and the column they are in now: its saved order and
- * revision, read in the same transaction (D68), so the pipeline shows what a reload would show without reloading.
+ * Changes a person's stage. The answer is the saved person and the columns the move touched, read in the same
+ * transaction (D68): the column they joined and, when the pipeline names it, the column they left. Both revisions
+ * move on with a change of column, so the pipeline shows what a reload would show, and its next move sends the
+ * current revisions.
  */
 export async function changeStatus(
 	requestKey: string,
 	expectedRevision: string,
 	input: unknown,
-): Promise<
-	Outcome<{ person: PlantPerson; column: { column: ColumnValue } & Awaited<ReturnType<typeof readColumnOrder>> }>
-> {
+	from?: unknown,
+): Promise<Outcome<{ person: PlantPerson; columns: ColumnOrder[] }>> {
+	const left = c.pipelineColumn.safeParse(from);
 	return boundary(c.changeStatusRequest, { requestKey, expectedRevision, input }, async (v, request) =>
 		outcome(
 			await write(v, async (tx, ctx) => {
 				const done = await peopleWriter.changeStatus(tx, ctx, request);
 				if (done.status !== "ok") return done;
-				const column = columnOf(done.value.person.stage);
+				const joined = columnOf(done.value.person.stage);
+				const touched = left.success && left.data !== joined ? [joined, left.data] : [joined];
 				return {
 					status: "ok",
-					value: { person: done.value.person, column: { column, ...(await readColumnOrder(tx, ctx, column)) } },
+					value: { person: done.value.person, columns: await readColumnOrders(tx, ctx, touched) },
 				};
 			}),
 			(r) => r,
@@ -209,14 +214,14 @@ export async function reorderPipeline(
 	requestKey: string,
 	expectedRevision: string,
 	input: unknown,
-): Promise<Outcome<{ outcome: "changed" | "noop" } & Awaited<ReturnType<typeof readColumnOrder>>>> {
+): Promise<Outcome<{ outcome: "changed" | "noop" } & ColumnOrder>> {
 	return boundary(c.reorderPipelineRequest, { requestKey, expectedRevision, input }, async (v, request) =>
 		outcome(
 			await write(v, async (tx, ctx) => {
 				const done = await peopleWriter.reorderPipeline(tx, ctx, request);
 				if (done.status !== "ok") return done;
-				const column = await readColumnOrder(tx, ctx, request.input.column);
-				return { status: "ok", value: { outcome: done.value.outcome, ...column } };
+				const [column] = await readColumnOrders(tx, ctx, [request.input.column]);
+				return { status: "ok", value: { outcome: done.value.outcome, ...column! } };
 			}),
 			(r) => r,
 		),

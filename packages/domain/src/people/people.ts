@@ -71,6 +71,7 @@ export function appendPerson(
 	writes.push(
 		tx.insert(tables.person).values({ ...row, birth_date: row.birth_date?.toISOString().slice(0, 10) ?? null }),
 	);
+	if (plant) writes.push(columnsChanged(context.selected.id, [row.stage]));
 	return row;
 }
 
@@ -86,6 +87,14 @@ function freshPosition(id: string, at = new Date()): string {
 }
 const COMMITTED = ["core_group", "launch_team", "leader"];
 const sameColumn = (a: string, b: string) => a === b || (COMMITTED.includes(a) && COMMITTED.includes(b));
+/**
+ * A person joining or leaving a pipeline column changes the order its viewers see, so the column's revision moves on
+ * in the same write; a move based on the older view is then refused (REQ-PPL-007). One queued statement.
+ */
+function columnsChanged(plantId: string, stages: readonly (string | null)[]): SQLWrapper {
+	const columns = [...new Set(stages.filter((s) => s !== null).map((s) => (COMMITTED.includes(s) ? "core_group" : s)))];
+	return sql`INSERT INTO people_column(plant_id, column_name, revision) SELECT ${plantId}::uuid, c, 2 FROM unnest(${sql.param(columns)}::text[]) c ON CONFLICT (plant_id, column_name) DO UPDATE SET revision = people_column.revision + 1`;
+}
 
 async function output(tx: Tx, ctx: Context, p: Person, id: string, needsOwner: string[] = [], outcome = "changed") {
 	return {
@@ -257,6 +266,8 @@ export const peopleWriter: PeopleWriter<Tx> = {
 								})
 								.where(eq(tables.person.id, before.id)),
 						);
+					if (!noop && !sameColumn(before.stage!, input.input.stage))
+						audit.writes.push(columnsChanged(ctx.selected.id, [before.stage, input.input.stage]));
 					const after = personRow.parse({
 						...before,
 						stage: noop ? before.stage : input.input.stage,
@@ -359,6 +370,7 @@ export async function retire(
 				.returning();
 			after = personRow.parse(updated);
 			if (ctx.selected.kind === "plant") {
+				audit.writes.push(columnsChanged(ctx.selected.id, [before.stage]));
 				audit.writes.push(
 					tx
 						.update(tables.team_tenure)
@@ -404,7 +416,7 @@ export async function restore(
 	input: z.infer<typeof c.restorePersonRequest>,
 	name: Parameters<typeof mutation>[2],
 ) {
-	return mutation(tx, ctx, name, input, async (_a, id) => {
+	return mutation(tx, ctx, name, input, async (_a, id, audit) => {
 		const before = await person(tx, ctx, input.input.personId, true);
 		expected(before, input.expectedRevision);
 		if (before.state === "merged") deny("use_reviewed_unmerge");
@@ -423,6 +435,7 @@ export async function restore(
 					.where(eq(tables.person.id, before.id))
 					.returning();
 				after = personRow.parse(updated);
+				if (before.pipeline_position !== null) audit.writes.push(columnsChanged(ctx.selected.id, [before.stage]));
 			} catch (error) {
 				// The unique live account/plant index also arbitrates concurrent relinks.
 				// reply() rolls this statement back to its savepoint before returning.

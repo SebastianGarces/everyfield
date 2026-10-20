@@ -27,6 +27,7 @@ import {
 	STAGE_KEY,
 	STAGE_LABEL,
 	STAGES,
+	type ColumnValue,
 	type PersonStore,
 	type StageValue,
 } from "./model.ts";
@@ -55,6 +56,7 @@ export function StageDialog({
 	onOpenChange,
 	store,
 	target,
+	from,
 	onStage,
 	onDone,
 }: {
@@ -63,11 +65,13 @@ export function StageDialog({
 	store: PersonStore<PlantPerson, PersonDraft>;
 	/** A stage chosen before the dialog opened, such as a pipeline drop. */
 	target?: StageValue;
+	/** The pipeline column the person is in now, so the answer also brings that column's new order and revision. */
+	from?: ColumnValue;
 	/**
-	 * The move as it goes: the person at the new stage when sent; the saved person and their column's saved order when
-	 * answered; null if refused.
+	 * The move as it goes: the person at the new stage when sent; the saved person and the touched columns' saved order
+	 * when answered; null if refused.
 	 */
-	onStage?: (person: PlantPerson | null, column?: Moved["column"]) => void;
+	onStage?: (person: PlantPerson | null, columns?: Moved["columns"]) => void;
 	/** After a saved move. The dialog never refreshes the page itself (D68); a caller that needs fresh data does. */
 	onDone?: (person: PlantPerson) => void;
 }) {
@@ -108,11 +112,11 @@ export function StageDialog({
 		const input = { personId: person.id, stage: chosen, reason: draft.reason.trim(), handoffs };
 		const rev = person.revision;
 		onStage?.({ ...person, stage: chosen });
-		const result = await runSave(store, "stage", { input, rev }, (key) => changeStatus(key, rev, input), {
+		const result = await runSave(store, "stage", { input, rev }, (key) => changeStatus(key, rev, input, from), {
 			fresh,
 			toPerson: (v) => v.person,
 		});
-		if (result?.status === "ok") onStage?.(result.value.person, result.value.column);
+		if (result?.status === "ok") onStage?.(result.value.person, result.value.columns);
 		else onStage?.(null);
 		if (result?.status === "ok") {
 			setTouched(false);
