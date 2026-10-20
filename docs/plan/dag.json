@@ -1172,7 +1172,7 @@
       "spec_paths": [
         "docs/product/people.md"
       ],
-      "integration_rule": "Scope: PPL-018, PPL-019.",
+      "integration_rule": "Scope: PPL-018, PPL-019. Tables that exist on main for this domain were kept for foreign keys or shipped readers; they are not a contract, so reshape or replace them. The shipped readers are: packages/domain/src/people/people.ts (task, team, participation, commitment), packages/domain/src/people/queries.ts (task, obligation), packages/domain/src/people/core.ts (commitment), apps/web/src/server/jobs/notifications.ts (task, meeting).",
       "goal": "People CSV import/export.",
       "context_scope": {
         "features": "owned",
@@ -6026,7 +6026,7 @@
       "spec_paths": [
         "docs/product/evry.md"
       ],
-      "integration_rule": "Scope: Evry people read and command adapters. Includes the retired WP-060 commands. The CSV tools move to WP-063 and WP-064, the merge tools to WP-061 and WP-062, and followups.listContactHistory to WP-067, so WP-013, WP-015 and WP-023 are not prerequisites.",
+      "integration_rule": "Scope: Evry people read and command adapters. Includes the retired WP-060 commands. The CSV tools move to WP-063 and WP-064, the merge tools to WP-061 and WP-062, and followups.listContactHistory to WP-067, so WP-013, WP-015 and WP-023 are not prerequisites. Tables that exist on main for this domain were kept for foreign keys or shipped readers; they are not a contract, so reshape or replace them. The shipped readers are: packages/domain/src/people/people.ts (task, team, participation, commitment), packages/domain/src/people/queries.ts (task, obligation), packages/domain/src/people/core.ts (commitment), apps/web/src/server/jobs/notifications.ts (task, meeting).",
       "goal": "Evry people read and command adapters.",
       "context_scope": {
         "features": "owned",
