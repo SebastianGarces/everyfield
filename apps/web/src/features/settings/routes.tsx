@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { getViewer } from "@/server/request-context";
-import { dialogSection, firstSection } from "./model";
-import { settingsViewerOf } from "./server";
+import { dialogSection } from "./model";
 
 export const settingsMetadata: Metadata = { title: "Settings", robots: { index: false, follow: false } };
 
@@ -18,9 +17,12 @@ export async function SettingsSectionPage({ params }: { params: Promise<{ sectio
 	return <h1 className="sr-only">Settings</h1>;
 }
 
-/** /settings opens the first section this viewer is offered, so no role meets a missing page. */
-export async function SettingsIndexPage(): Promise<never> {
+/**
+ * /settings is the Settings dialog on the first section this viewer is offered, in one request: the frame's dialog
+ * picks that section from the address (ProductSettings), so no role meets a missing page and there is no redirect.
+ */
+export async function SettingsIndexPage() {
 	const v = await getViewer();
 	if (!v || v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent("/settings")}`);
-	redirect(`/settings/${firstSection(settingsViewerOf(v))}`);
+	return <h1 className="sr-only">Settings</h1>;
 }

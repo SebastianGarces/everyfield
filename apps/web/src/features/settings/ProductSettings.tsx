@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { loadPage } from "../identity/api";
 import { getSection, previewPlantTimezone, saveChurch, saveSection, setPlantTimezone } from "./actions";
-import { dialogSection, type DialogSection } from "./model";
+import { dialogSection, firstSection, type DialogSection } from "./model";
 import type { SectionKey, SettingsPort, SettingsViewer } from "./port";
 import { SettingsDialog } from "./SettingsDialog";
 import { SettingsProvider } from "./store";
@@ -13,7 +13,8 @@ import { SettingsProvider } from "./store";
 // or switching a section writes /settings/<section> to the address with history.pushState, which Next.js keeps in
 // step with usePathname, so the page underneath stays as it was and makes no request. Closing writes the page's
 // address back; Back and Forward move between those entries. A fresh load of a section link renders the settings
-// route (app/settings/[section]), and closing then goes to the viewer's home page.
+// route (app/settings/[section]), and closing then goes to the viewer's home page. /settings shows the first section
+// the viewer is offered without changing the address.
 
 const PORT: SettingsPort = { getSection, saveSection, saveChurch, previewPlantTimezone, setPlantTimezone };
 const hrefFor = (key: SectionKey) => `/settings/${key}`;
@@ -26,7 +27,11 @@ const hrefFor = (key: SectionKey) => `/settings/${key}`;
 export function useProductSettings(viewer: SettingsViewer | null) {
 	const pathname = usePathname();
 	const router = useRouter();
-	const atPath = dialogSection(pathname.match(/^\/settings\/([a-z]+)$/)?.[1]);
+	// /settings itself opens the first section the viewer is offered.
+	const atPath =
+		pathname === "/settings" && viewer
+			? firstSection(viewer)
+			: dialogSection(pathname.match(/^\/settings\/([a-z]+)$/)?.[1]);
 	// The section asked for in this document until the address catches up; undefined means "follow the address".
 	const [asked, setAsked] = useState<{ section: SectionKey | null; path: string } | undefined>(undefined);
 	if (asked && asked.path !== pathname) setAsked(undefined);
