@@ -120,6 +120,10 @@ Briefs use the current catalog and context manifest. Missing context fails expli
 Task starts retain kickoff gates and producer dependencies. OPS tasks use reviewed title,
 owning paths and tooling checks in `maintenanceTasks`; they cannot authorize application code.
 The only design file they may own is `design/handoff/screens.md`, the generated package-owner map.
+An entry with `"route": "design"` is a design task instead: it owns only `design/` paths and never
+changes `design/everyfield-ui.html`, the approved prototype that the app tokens come from. Its
+`evf ship` checks CI and the different-family review, posts the verified status and stops.
+Sebastian approves it in chat, then `evf approve` checks that status and the changed files and merges.
 An owning path naming an existing folder must end in `/`; paths without it name exact files.
 `taskRisks` can mark sensitive work, which requires an owner decision. Paid services retain
 concrete spending approval. Doctor reports readiness without executing checks or changing settings.
