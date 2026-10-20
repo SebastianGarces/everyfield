@@ -28,8 +28,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -91,8 +91,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -210,14 +210,14 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "description": "Two connections claim same due job concurrently then one expired generation resumes.",
+      "description": "Two workers attempt the same due work concurrently; a replaced worker later resumes.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -243,7 +243,7 @@
           "fixture_type": "job",
           "id": "J",
           "state": "ready",
-          "generation": 4,
+          "worker_identity": "fixture-state-4",
           "due_at": "2026-10-13T15:00:00Z"
         },
         "execution": {
@@ -292,8 +292,8 @@
       "expected": {
         "state": {},
         "result": {
-          "current_claims": 1,
-          "current_generation": 5
+          "active_workers": 1,
+          "current_worker_identity": "fixture-state-5"
         },
         "event": null
       },
@@ -304,8 +304,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -331,13 +331,13 @@
               "fixture_type": "job",
               "id": "J",
               "state": "claimed",
-              "generation": 5,
+              "worker_identity": "fixture-state-5",
               "lease_until": "2026-10-13T16:05:00Z"
             },
             "execution": {
               "fixture_type": "test_execution",
               "job": "J",
-              "claim_generation": 4,
+              "worker_identity": "fixture-state-4",
               "checkpoint": "complete"
             },
             "caller-capability": {
@@ -383,7 +383,7 @@
             },
             "event": null
           },
-          "name": "expired-generation-cannot-publish"
+          "name": "expired-worker-cannot-publish"
         }
       ],
       "coverage_notes": [
@@ -431,8 +431,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -458,7 +458,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -581,8 +581,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -721,8 +721,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -748,7 +748,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -882,8 +882,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -909,7 +909,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -1046,14 +1046,14 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "description": "Time-only assessment demand at unchanged source; provider call reaches 45 second timeout, source changes during inference, and stale claimant resumes after its 120 second assessment lease.",
+      "description": "Time-only assessment demand at unchanged source; provider call reaches 45 second timeout, source changes during inference, and the worker loses execution ownership before resuming.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -1079,7 +1079,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -1099,9 +1099,9 @@
           "provider_timeout_seconds": 45,
           "tick_budget_seconds": 90,
           "source_revision_at_start": 11,
-          "current_source_revision": 12,
-          "claim_generation": 4,
-          "current_generation": 5
+          "current_source_state": "fixture-state-12",
+          "worker_identity": "fixture-state-4",
+          "current_worker_identity": "fixture-state-5"
         },
         "executor-config": {
           "fixture_type": "executor_configuration",
@@ -1110,14 +1110,14 @@
         "execution": {
           "fixture_type": "test_execution",
           "subject": "P",
-          "expected_revision": 3,
+          "reviewed_state": "fixture-state-3",
           "assessment_lease_seconds": 120,
           "provider_timeout_seconds": 45,
           "tick_budget_seconds": 90,
           "source_revision_at_start": 11,
-          "current_source_revision": 12,
-          "claim_generation": 4,
-          "current_generation": 5
+          "current_source_state": "fixture-state-12",
+          "worker_identity": "fixture-state-4",
+          "current_worker_identity": "fixture-state-5"
         },
         "assessment-J": {
           "fixture_type": "job",
@@ -1166,10 +1166,9 @@
         "result": {
           "stale_publication": false,
           "prior_result": "R0",
-          "lease_seconds": 120,
           "provider_timeout_seconds": 45,
-          "tick_budget_seconds": 90,
-          "time_only_demand_has_new_identity": true
+          "time_only_demand_has_new_identity": true,
+          "expired_worker_cannot_publish": true
         },
         "event": null
       },
@@ -1218,8 +1217,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -1245,7 +1244,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -1367,8 +1366,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -1394,7 +1393,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -1517,8 +1516,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -1652,8 +1651,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -1679,20 +1678,20 @@
           "fixture_type": "deletion_request",
           "subject": "P",
           "state": "cancelled",
-          "revision": 1
+          "observed_state": "fixture-state-1"
         },
         "R2": {
           "fixture_type": "deletion_request",
           "subject": "P",
           "state": "pending",
-          "revision": 2,
+          "observed_state": "fixture-state-2",
           "deadline": "2026-10-13T16:00:00Z",
-          "generation": 2
+          "worker_identity": "fixture-state-2"
         },
         "old-cancel": {
           "fixture_type": "cancellation_receipt",
           "request": "R1",
-          "request_revision": 1
+          "deletion_request_state": "fixture-state-1"
         },
         "caller-capability": {
           "fixture_type": "operation_capability",
@@ -1729,7 +1728,7 @@
         "arguments": {
           "subject": "P",
           "request": "R2",
-          "claim_generation": 2,
+          "worker_identity": "fixture-state-2",
           "chunk": 1
         }
       },
@@ -1749,8 +1748,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -1776,20 +1775,20 @@
               "fixture_type": "deletion_request",
               "subject": "P",
               "state": "cancelled",
-              "revision": 1
+              "observed_state": "fixture-state-1"
             },
             "R2": {
               "fixture_type": "deletion_request",
               "subject": "P",
               "state": "pending",
-              "revision": 2,
+              "observed_state": "fixture-state-2",
               "deadline": "2026-10-13T16:00:01Z",
-              "generation": 2
+              "worker_identity": "fixture-state-2"
             },
             "old-cancel": {
               "fixture_type": "cancellation_receipt",
               "request": "R1",
-              "request_revision": 1
+              "deletion_request_state": "fixture-state-1"
             },
             "caller-capability": {
               "fixture_type": "operation_capability",
@@ -1826,7 +1825,7 @@
             "arguments": {
               "subject": "P",
               "request": "R2",
-              "claim_generation": 2,
+              "worker_identity": "fixture-state-2",
               "chunk": 1
             }
           },
@@ -1886,8 +1885,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -1913,7 +1912,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",

@@ -5,8 +5,8 @@
 //   INV-request-key: a retry after a lost answer reuses the key (the server replays); a refusal or a changed payload
 //     gets a new key.
 //   INV-revision: an older revision never replaces a newer saved person.
-//   AC:TARGET-PPL-001 INV-url: filters, search and view live in the address; a change resets the cursor trail and keeps
-//     the sibling filters; values outside the closed lists are ignored.
+//   AC:TARGET-PPL-001 INV-url (D67): filters, search, view and page number live in the address; a change goes back to
+//     page one and keeps the sibling filters; values outside the closed lists are ignored.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -16,13 +16,9 @@ import {
 	PersonStore,
 	querySearch,
 	runSave,
-	skippedStages,
-	leavesCommitted,
 	withFilters,
-	nextPage,
-	previousPage,
+	pageCount,
 	rangeText,
-	moveInOrder,
 } from "../../../apps/web/src/features/people/model.ts";
 
 const person = (revision, extra = {}) => ({ id: "p1", revision, displayName: "Maria Santos", ...extra });
@@ -153,102 +149,39 @@ test("INV-edit-patch: edit profile sends only the fields that changed", () => {
 	assert.deepEqual(changedFields(base, base), {});
 });
 
-test("AC:TARGET-PPL-006 stage guidance names skipped stages and leaving the committed stages", () => {
-	assert.deepEqual(skippedStages("prospect", "leader"), [
-		"attendee",
-		"following_up",
-		"interviewed",
-		"core_group",
-		"launch_team",
-	]);
-	assert.deepEqual(skippedStages("leader", "attendee"), []);
-	assert.deepEqual(skippedStages("prospect", "attendee"), []);
-	assert.equal(leavesCommitted("leader", "attendee"), true);
-	assert.equal(leavesCommitted("core_group", "launch_team"), false);
-	assert.equal(leavesCommitted("interviewed", "prospect"), false);
-});
-
 const url = (s) => new URLSearchParams(s);
-test("AC:TARGET-PPL-001 INV-url: a filter change resets the cursor trail and keeps the other filters", () => {
-	const q = parseQuery(url("q=ana&stage=attendee,leader&source=website&adult=adult&after=c1&after=c2"));
-	assert.deepEqual(q.stages, ["attendee", "leader"]);
-	assert.deepEqual(q.trail, ["c1", "c2"]);
-	const changed = withFilters(q, { sources: ["event"] });
-	assert.deepEqual(changed.trail, []);
-	assert.equal(changed.search, "ana");
-	assert.deepEqual(changed.stages, ["attendee", "leader"]);
-	assert.equal(changed.classification, "adult");
-	assert.equal(querySearch(changed), "?q=ana&stage=attendee%2Cleader&source=event&adult=adult");
-	// The current page's cursor is the last one in the trail; Previous drops it.
-	assert.equal(listRequest(q).after, "c2");
-	assert.deepEqual(previousPage(q).trail, ["c1"]);
-	assert.deepEqual(nextPage(q, "c3").trail, ["c1", "c2", "c3"]);
+test("AC:TARGET-PPL-001 INV-url (D67): the page number lives in the address; a filter change goes back to page one", () => {
+	const q = parseQuery(url("q=ana&stage=attendee,leader&source=website&adult=adult&page=3"));
+	assert.equal(q.page, 3);
+	assert.equal(listRequest(q).page, 3);
+	assert.equal(querySearch(q), "?q=ana&stage=attendee%2Cleader&source=website&adult=adult&page=3");
 	assert.equal(rangeText(q, 24, 100), "Showing 49–72 of 100 people");
-	assert.equal(rangeText(withFilters(q, {}), 1, 1), "Showing 1 of 1 person");
-});
-
-test("AC:TARGET-PPL-001 INV-url: unknown values are ignored and the pipeline has no list cursor", () => {
-	const q = parseQuery(url("view=board&stage=friend,attendee&adult=teen&commitment=maybe&retired=all"));
-	assert.equal(q.view, "list");
-	assert.deepEqual(q.stages, ["attendee"]);
-	assert.equal(q.classification, null);
-	assert.equal(q.commitment, "any");
-	assert.equal(q.archived, "exclude");
-	assert.equal(querySearch(q), "?stage=attendee");
-	const pipeline = parseQuery(url("view=pipeline&after=c1&retired=only"));
-	assert.equal(querySearch(pipeline), "?view=pipeline&retired=only");
-	assert.equal(listRequest(pipeline).after, undefined);
-	assert.equal(listRequest(pipeline).archived, "exclude", "the pipeline shows active people only");
-	assert.equal(listRequest(parseQuery(url(""))).limit, 24);
-});
-
-test("AC:TARGET-PPL-007 INV-reorder: a move sends the whole column with one person moved one place", () => {
-	assert.deepEqual(moveInOrder(["a", "b", "c"], "c", "up"), ["a", "c", "b"]);
-	assert.deepEqual(moveInOrder(["a", "b", "c"], "a", "down"), ["b", "a", "c"]);
-	assert.deepEqual(moveInOrder(["a", "b", "c"], "a", "up"), ["a", "b", "c"]);
-	assert.deepEqual(moveInOrder(["a", "b", "c"], "c", "down"), ["a", "b", "c"]);
+	const changed = withFilters(q, { sources: ["event"] });
+	assert.equal(changed.page, 1);
+	assert.deepEqual([changed.search, changed.stages, changed.classification], ["ana", ["attendee", "leader"], "adult"]);
+	assert.equal(querySearch(changed), "?q=ana&stage=attendee%2Cleader&source=event&adult=adult");
+	assert.equal(rangeText(changed, 1, 1), "Showing 1 of 1 person");
+	// The pipeline has no page number; each column loads its own pages.
+	assert.equal(
+		querySearch({ ...q, view: "pipeline" }),
+		"?view=pipeline&q=ana&stage=attendee%2Cleader&source=website&adult=adult",
+	);
+	assert.equal(listRequest({ ...q, view: "pipeline" }).page, 1);
+	for (const bad of ["0", "-2", "1.5", "two", ""]) assert.equal(parseQuery(url(`page=${bad}`)).page, 1, bad);
+	assert.equal(parseQuery(url("page=999999999")).page, 100_000, "the contract's highest page");
+	assert.deepEqual([0, 24, 25, 48, 49].map(pageCount), [1, 1, 2, 2, 3]);
 });
 
 const T1 = "0b0f6a7e-1d6f-4f7e-8c35-5b8f5c0f4d21",
 	T2 = "4d3c2b1a-0f9e-4d8c-8b7a-6a5b4c3d2e1f";
 test("AC:TARGET-PPL-001 INV-tags: repeated tag ids stay in the address and ask for people with all of them", () => {
-	const q = parseQuery(url(`tag=${T1}&tag=${T2.toUpperCase()}&tag=not-a-tag&tag=${T1}&after=c1`));
+	const q = parseQuery(url(`tag=${T1}&tag=${T2.toUpperCase()}&tag=not-a-tag&tag=${T1}&page=2`));
 	assert.deepEqual(q.tags, [T1, T2], "valid, lowercased, once each");
-	assert.equal(querySearch(q), `?tag=${T1}&tag=${T2}&after=c1`);
+	assert.equal(querySearch(q), `?tag=${T1}&tag=${T2}&page=2`);
 	assert.deepEqual(listRequest(q).tags, [T1, T2]);
 	assert.equal(listRequest(q).tagOperator, "all");
 	const removed = withFilters(q, { tags: [T2] });
-	assert.deepEqual(removed.trail, [], "a tag change goes back to page one");
+	assert.equal(removed.page, 1, "a tag change goes back to page one");
 	assert.equal(querySearch(removed), `?tag=${T2}`);
 	assert.equal(querySearch(withFilters(q, { tags: [] })), "");
-});
-
-test("AC:TARGET-PPL-001 INV-deep-pages (D50): Next keeps going past the kept cursors; the address stays bounded", () => {
-	let q = parseQuery(url(""));
-	for (let i = 1; i <= 45; i++) {
-		q = nextPage(q, `c${i}`);
-		// Ruling D50: at page 41 and 45 the request uses the cursor the server just gave.
-		if (i === 40 || i === 44) {
-			assert.equal(q.page, i + 1);
-			assert.equal(listRequest(q).after, `c${i}`, `page ${i + 1} uses the server cursor`);
-		}
-	}
-	assert.equal(q.page, 46, "45 Next presses reach page 46");
-	assert.equal(q.trail.length, 40, "only the newest 40 cursors are kept");
-	assert.equal(listRequest(q).after, "c45", "the request uses the newest cursor");
-	assert.equal(rangeText(q, 24, 2000), "Showing 1081–1104 of 2000 people");
-	// The address carries the page number once cursors were dropped, and reads back the same query.
-	const again = parseQuery(url(querySearch(q).slice(1)));
-	assert.equal(again.page, 46);
-	assert.deepEqual(again.trail, q.trail);
-	// Back one page while its cursor is kept.
-	const back = previousPage(q);
-	assert.equal(back.page, 45);
-	assert.equal(listRequest(back).after, "c44");
-	// Beyond the kept window the earlier cursor is gone, so Previous goes to page one.
-	let edge = q;
-	for (let i = 0; i < 40; i++) edge = previousPage(edge);
-	assert.equal(edge.page, 1);
-	assert.equal(listRequest(edge).after, undefined);
-	assert.equal(withFilters(q, {}).page, 1, "a filter change goes back to page one");
 });

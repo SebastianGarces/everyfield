@@ -8,7 +8,7 @@
         "DOC-001",
         "WIKI-010"
       ],
-      "text": "Immutable global generation manifest pins article/source/revision/hash/topology and rubric/Playbook/template/chunker/embedding profile+complete checksum sets. Validate complete candidate and atomically CAS one activation pointer/current global map with new activation receipt; failed build keeps old active. Rollback is a new reviewed activation of validated prior generation, preserving attribution/current entitlement and excluding org adoption or departed-body access.",
+      "text": "Immutable global generations preserve exact articles, source versions and hashes, topology, rubric, Playbook, templates and derivative profile with complete checksums. Only a complete validated generation may become current. Concurrent activation has one winner, readers see a coherent release, and failed builds leave the prior release serving. Rollback is a new attributable reviewed activation of a revalidated prior generation, preserving current entitlement and source provenance without organization adoption or departed-body access. Activation storage and concurrency mechanisms follow EveryField patterns.",
       "spec": "docs/architecture/reference-release.md#build-validation-and-promotion",
       "operations": [
         "reference.validateBundle",

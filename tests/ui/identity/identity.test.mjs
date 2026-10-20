@@ -116,12 +116,17 @@ for (const [name, engine] of [
 		{ timeout: 60_000 },
 		async () => {
 			const signedIn = (returnTo) => ok({ status: "signed_in", returnTo });
+			const destination = async (page, path) =>
+				page.route(BASE + path, (route) =>
+					route.fulfill({ contentType: "text/html", body: "<main>Signed in destination</main>" }),
+				);
 			await withPage(engine, { "sign-in/email": signedIn("//evil.example/steal") }, async (page, sent) => {
+				await destination(page, "/onboarding");
 				await page.goto(BASE + "/signin?returnTo=%2F%2Fevil.example%2Fsteal");
 				await page.getByLabel("Email").fill("ana@harvestpoint.org");
 				await page.getByLabel("Password", { exact: true }).fill("a-long-password");
 				await page.getByRole("button", { name: "Sign in", exact: true }).click();
-				await page.waitForURL((url) => url.pathname === "/signin" && !url.search);
+				await page.waitForURL((url) => url.pathname === "/onboarding" && !url.search);
 				assert.equal(new URL(page.url()).origin, new URL(BASE).origin, "a protocol-relative echo never leaves");
 				assert.equal(
 					"returnTo" in sent.find((r) => r.path === "sign-in/email").body,
@@ -130,6 +135,7 @@ for (const [name, engine] of [
 				);
 			});
 			await withPage(engine, { "sign-in/email": signedIn("/people?view=list") }, async (page, sent) => {
+				await destination(page, "/people?view=list");
 				await page.goto(BASE + "/signin?returnTo=%2Fpeople%3Fview%3Dlist");
 				await page.getByRole("heading", { name: "Welcome back" }).waitFor();
 				assert.equal(await page.getByText("Sign in to continue.").count(), 1);

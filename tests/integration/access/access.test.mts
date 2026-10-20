@@ -39,7 +39,7 @@ const checkInput = (
 		? { kind, operation, subject: { kind: subjectKind, id: subjectId, owner: tenant }, expectedRevision }
 		: { kind, operation, subject: { kind: subjectKind, id: subjectId, owner: tenant }, purpose: "native" };
 
-test("AC:WP006-API-IDN-029 INV-tenancy: fresh session and one exact typed current seat; account identity is independent", async () => {
+test("AC:WP006-IDN-029 AC:C0-SCOPE-001 AC:WP006-API-IDN-029 INV-tenancy: fresh session and one exact typed current seat; account identity is independent", async () => {
 	const a = await account(db.admin),
 		p = await plant(db.admin),
 		o = await organization(db.admin);
@@ -76,7 +76,7 @@ test("AC:WP006-API-IDN-029 INV-tenancy: fresh session and one exact typed curren
 	assert.deepEqual(await transaction(db.runtime, (tx) => currentActor(tx, expired.session, own(expired))), unavailable);
 });
 
-test("AC:WP006-API-KNOW-116 INV-policy: Owner/Admin parity, Owner-only workspace deletion, real operation kind, exact revision and protected Owner", async () => {
+test("AC:WP006-KNOW-116 AC:C0-REVISION-001 AC:WP006-API-KNOW-116 INV-policy: Owner/Admin parity, Owner-only workspace deletion, real operation kind, exact revision and protected Owner", async () => {
 	const p = await plant(db.admin),
 		foreign = await plant(db.admin);
 	const actors = {};
@@ -145,7 +145,41 @@ test("AC:WP006-API-KNOW-116 INV-policy: Owner/Admin parity, Owner-only workspace
 	assert.deepEqual((await db.admin.execute(querySql`SELECT count(*)::int n FROM event`)).rows, [{ n: 0 }]);
 });
 
-test("AC:WP006-API-MUL-002 INV-pipeline: exact organization duties, protected native notes and no resident internal access", async () => {
+test("INV-tenancy: operation checks reject a mismatched subject owner and a foreign subject ID", async () => {
+	const selected = await plant(db.admin),
+		foreign = await plant(db.admin),
+		actor = await account(db.admin);
+	await seat(db.admin, actor, selected, "member");
+	const localPerson = await person(db.admin, selected),
+		foreignPerson = await person(db.admin, foreign);
+	const policy = accessReader([
+		{
+			operation: "people.getPerson",
+			subjectKinds: ["person"],
+			async authorize(_tx, current) {
+				return current.context.kind === "seat";
+			},
+		},
+	]);
+	const check = (owner, personId) =>
+		transaction(db.runtime, (tx) =>
+			policy.checkOperation(
+				tx,
+				actor.session,
+				selected,
+				checkInput("people.getPerson", owner, "read", "1", "person", personId),
+			),
+		);
+	assert.deepEqual(await check(selected, localPerson), { status: "allowed" });
+	assert.deepEqual(await check(foreign, localPerson), unavailable, "claimed owner must match the selected tenant");
+	assert.deepEqual(
+		await check(selected, foreignPerson),
+		unavailable,
+		"stored subject must belong to the selected tenant",
+	);
+});
+
+test("AC:WP006-MUL-002 AC:WP006-API-MUL-002 INV-pipeline: exact organization duties, protected native notes and no resident internal access", async () => {
 	const o = await organization(db.admin),
 		other = await organization(db.admin);
 	const admin = await account(db.admin),

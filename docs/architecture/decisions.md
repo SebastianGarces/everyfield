@@ -1,0 +1,63 @@
+# Architecture decisions
+
+These owner and coordinator rulings govern the current build. Later rulings override earlier mechanisms. [EveryField patterns](patterns.md) records the current implementation defaults; requirements and acceptance cases define product behavior.
+
+## D59, 2026-10-19: one actor per request
+
+Resolve the verified session, account, selected owner and seat once per server request and share that context across its callers. Domain reads accept it; writes confirm current authority when changing data. Prefer a short shared read transaction where practical and count page round trips. This removes repeated actor resolution. D60 and D64 refine the authentication mechanism; D70 refines write checks.
+
+## D60, 2026-10-19: standard request authentication
+
+Use a server-only data access layer with one cached session lookup through auth.api.getSession and one cached viewer lookup per request. The proxy checks cookie presence only for redirects; real authorization stays on the server. Domain reads receive the verified viewer. This replaces synthetic requests through the identity handler and hidden proxy routing headers with the supported framework pattern.
+
+## D64 and its update, 2026-10-19: cookie cache stays off
+
+Use the framework's session cookie, request cache and optimistic proxy redirect without custom authentication layers. The initial five-minute cookie-cache proposal was withdrawn the same day. The current ruling keeps Better Auth's cookie cache off: auth.api.getSession checks the database once per request inside React's request cache, so a revoked session fails on the next request. This preserves immediate revocation while removing duplicate session lookups.
+
+## D65, 2026-10-19: one app-wide authentication path
+
+Every server mount uses the shared cached session/viewer lookup. Use one shared web database pool, retaining a separate role only where a distinct login requires it. Move onboarding and organization data reads into the domain and delete per-mount pools and synthetic session requests. This applies the same behavior across the app without duplicate authentication and connection machinery; behavior and tests remain unchanged.
+
+## D66, 2026-10-19: code quality is part of review
+
+Every verifier review includes a Code quality section with concrete simplifications and a verdict. Check laziness-protocol, minimize-reader-load, subtract-before-you-add, test-behavior-not-implementation and other principles the change touches. Working code that adds needless layers, duplicates patterns or keeps dead code still requires changes. Acceptance alone cannot establish maintainable implementation.
+
+## D67, 2026-10-19: People uses page numbers
+
+People lists, cards and pipeline columns use page numbers with 24-row UI pages and filters in the URL. The server derives the church from the session; URLs carry no owner, query hash or signature. Filter changes return to page one. A page past the end shows the last page or an empty state, never an error. This removes cursor signing, page trails and expired-cursor recovery, superseding D50 and the cursor portions of D46/D47. Person detail has no cursor; activity history describes authorized paging rather than a cursor representation.
+
+## D68, 2026-10-19: one fast pipeline move
+
+One move uses one server action and one transaction to change stage when needed and set position. Return only the changed columns' order and relevant state with one query per changed column. The UI updates optimistically and reconciles the answer without a page refresh; warnings load with pipeline data or when the stage dialog opens, not on every move. Target under 300 milliseconds of server time on a production build from Sebastian's Mac, with a fixed small query count. This removes the repeated requests and full rereads that made dragging slow.
+
+## D69, 2026-10-19: bounded write work
+
+Every simple write uses a fixed small statement count, about four to six in total, with a production target under 100 milliseconds. Reuse the verified viewer, combine authority and required bookkeeping where possible, batch row changes and return only changed data. History records changed fields unless a product requirement needs full snapshots. Each module checks statement counts for its writes. This removes one round trip per bookkeeping step and work that grows with row count; D70 defines the shared audit and retry mechanism.
+
+## D70, 2026-10-19: shared write and audit patterns
+
+Follow [EveryField patterns](patterns.md): authority in the write, one append-only audit record with permitted changed fields, request keys only for repeatable actions, conflict checks where concurrent edits require them, and recoverable jobs for side effects. Replace redundant operation, result, event and history bookkeeping with the shared audit record. Audit, privacy, safe retries and recoverable consequences remain required; a deviation needs a product reason in the PR. This keeps writes small without dropping product behavior.
+
+## 2026-10-19: performance budget and optimistic UI
+
+Every simple read or write completes in under one second end to end on a production build. Reports and analytics may take longer with the exception stated in their PR. Actions update the screen optimistically and confirm or clearly roll back on failure; verification checks smoothness and needless requests. The budget measures the person's experience, not just an isolated database statement.
+
+## 2026-10-19: requirements describe the end state
+
+Requirements and acceptance cases preserve product behavior and case IDs while leaving tables, receipts, revision fields, locks and execution machinery to the implementation patterns. This prevents a chosen mechanism from becoming a permanent product obligation.
+
+## 2026-10-19: S1 waits for simplification
+
+Do not start S1 until the simplification phase is complete and reviewed: decide patterns, remove mechanism prescriptions, apply the patterns to shipped code, encode budget and smoothness checks, and review every shipped module. This prevents later features from copying the current complexity.
+
+## D71, 2026-10-19: durable rules live in the repository
+
+Keep durable rulings here and implementation defaults in [EveryField patterns](patterns.md), with short pointers in the agent instructions and roles. Use repository links between these documents because other workspaces cannot read this workspace's notes.
+
+## D72, 2026-10-19: plan and schema grow with features
+
+The plan keeps packages, dependencies, owning paths, product features and acceptance case IDs. It does not prescribe outputs, interfaces or mechanism gates. After the writes round, remove tables no shipped feature reads or writes while retaining authentication, early-access data and the migration ledger. Later packages design and migrate their own tables when their features are built and tested. This avoids implementing a speculative whole-app schema. D73 supersedes the original separate production-approval requirement before customer launch.
+
+## D73, 2026-10-19: migrations before customer launch
+
+Sebastian confirmed that the product has no customers yet. Until launch to real customers, schema changes and their production migrations need no separate owner approval. Preserve the early-access tables and their rows, which contain real sign-ups from the WP-097 site. Revisit this rule when the product ships to real customers. This changes migration approval only; spending, credential, deployment and merge authority still applies.

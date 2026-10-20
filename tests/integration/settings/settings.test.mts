@@ -1131,7 +1131,7 @@ test("INV-preference-migration: grouped existing choices become independent exac
 	]);
 });
 
-test("AC:TARGET-TSK-018 church timezone preserves date-only tasks and one-time appointments while binding preview to future sources", async () => {
+test("AC:B03-017 AC:TARGET-TSK-018 church timezone preserves date-only tasks and one-time appointments while binding preview to future sources", async () => {
 	const f = await plant(),
 		task = randomUUID(),
 		meeting = randomUUID();
@@ -1359,7 +1359,7 @@ test("AC:TARGET-IDN-007 AC:TARGET-IDN-008 native credential budgets use own logi
 	assert.equal(ok(await call("getSection", old, { section: "account" })).email, b.email);
 });
 
-test("AC:WP010-KNOW-069 AC:WP010-KNOW-072 AC:TARGET-IDN-032 account purge removes personal bodies and confirms private bytes while preserving church documents", async () => {
+test("AC:WP005-KNOW-069 AC:WP005-KNOW-072 AC:WP010-KNOW-069 AC:WP010-KNOW-072 AC:TARGET-IDN-032 account purge removes personal bodies and confirms private bytes while preserving church documents", async () => {
 	const { deleteUnreferencedObject } = await import("../../../packages/db/src/schema/storage.ts");
 	const f = await plant(),
 		subject = { kind: "account", id: f.a.id };
@@ -1582,4 +1582,8 @@ test("INV-settings-preview: expiry is checked independently from actor, subject,
 		),
 		"stale_preview",
 	);
+	assert.deepEqual(ok(await call("getSection", f.a, { section: "account" })).personalTimezone, { status: "unconfirmed" });
+	const fresh = ok(await call("previewPersonalTimezone", f.a, { timeZone: "UTC" }));
+	const saved = ok(await call("setPersonalTimezone", f.a, command({ timeZone: "UTC", previewId: fresh.previewId, confirmed: true }, fresh.expectedRevision)));
+	assert.deepEqual(saved.preference, { status: "confirmed", timeZone: "UTC", revision: "2" });
 });

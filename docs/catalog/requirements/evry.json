@@ -178,7 +178,7 @@
       "behavior_rules": [
         {
           "operation": "evry.selectQualifiedModel",
-          "rule": "Current-authorized pure bounded assistant projection; no domain/protocol mutation, history, material revision or provider handoff."
+          "rule": "Current-authorized pure bounded assistant projection; no domain/protocol mutation, history, assessment freshness or provider handoff."
         }
       ],
       "operation_refs": [
@@ -444,7 +444,7 @@
           "catalog": "docs/catalog/operations.json"
         }
       ],
-      "title": "Typed read, clarification, review, progress, receipt and boundary cards"
+      "title": "Read, clarification, review, progress, outcome and boundary cards"
     },
     {
       "id": "REQ-EVR-011",
@@ -482,7 +482,7 @@
           "catalog": "docs/catalog/operations.json"
         }
       ],
-      "title": "Immutable proposals, canonical fingerprints and revision supersession"
+      "title": "Changed proposals invalidate prior approval"
     },
     {
       "id": "REQ-EVR-012",
@@ -570,7 +570,7 @@
       "feature_ids": [
         "EVR-013"
       ],
-      "text": "Execute only unresolved effects covered by the current exact approval and fresh authority/revision checks. Preserve dependency ordering, partial receipts and truthful skips. Lost responses replay stored receipts; retry only declared safe unresolved effects under the same key. Unknown provider outcomes require reconciliation before another attempt.",
+      "text": "Execute only unresolved effects covered by the current exact approval and fresh authority/unchanged reviewed state checks. Preserve required consequence ordering, partial outcomes and truthful skips. Lost responses return known outcomes; retry only declared safe unresolved effects of the same approved action. Unknown provider outcomes require reconciliation before another attempt.",
       "operations": [
         "evry.executeProposal",
         "evry.retryUnresolvedEffects"
@@ -615,7 +615,7 @@
       "feature_ids": [
         "EVR-014"
       ],
-      "text": "Claim each effect under its exact account/context/review identity and current lease generation. Mutation, history, safe audit, receipt and required intent commit together under the owning domain contract. Stale claims cannot publish; recording an outcome creates no new domain permission.",
+      "text": "Only work covered by the initiating account, acting context and exact current human approval may execute. Each committed mutation, its required audit/history and known outcome agree. Repeating or reconnecting to a completed action returns its recorded outcome without repeating effects. Expired, cancelled or replaced execution cannot publish. The representation of execution ownership and saved outcomes follows EveryField patterns. Recording an outcome creates no new domain permission.",
       "operations": [
         "evry.claimEffect",
         "evry.recordEffectResult"
@@ -698,7 +698,7 @@
       "feature_ids": [
         "EVR-016"
       ],
-      "text": "Allow one active run per account/context/conversation with a 60-second lease renewed every 15 seconds and increasing claim generation. Stream and reconnect from factual saved state. Lease loss stops further work; a new worker checks existing receipts before resuming, and stale generations cannot publish.",
+      "text": "Allow at most one active run per account, acting context and conversation. Stream progress and recover interrupted runs from factual saved state. A run that loses execution ownership stops further work and cannot publish. Resuming work preserves committed outcomes and executes only still-authorized unresolved effects. Lease duration, renewal and ownership representation follow EveryField patterns.",
       "operations": [
         "evry.observeRun",
         "evry.resumeRun"
@@ -927,7 +927,7 @@
       "feature_ids": [
         "EVR-021"
       ],
-      "text": "Run one app-owned conversation, turn, saved review and effect protocol using shared job, receipt and effect storage. Session ownership is private to the initiating account and exact context. Transport exposes only the allowed application operations; no arbitrary code, network, filesystem, SQL or approval capability is granted.",
+      "text": "Conversations, turns, saved reviews and approved effects remain app-owned and recoverable. Native and Evry calls use the same domain policy and outcomes. Reconnect, replay, interruption and retry preserve factual progress without authorizing or duplicating effects. Storage and background execution follow EveryField patterns; no per-feature execution protocol is required. Session ownership stays private to the initiating account and exact context. Transport exposes only allowed application operations and grants no arbitrary code, network, filesystem, SQL or approval capability.",
       "operations": [
         "evry.cancelTurn",
         "evry.createConversation",
@@ -1046,7 +1046,7 @@
           "catalog": "docs/catalog/operations.json"
         }
       ],
-      "title": "Revisioned planning notes, clarification and todo"
+      "title": "Editable planning notes, clarifications and todo"
     },
     {
       "id": "REQ-EVR-024",
@@ -1340,7 +1340,7 @@
         },
         {
           "operation": "evry.runEvaluation",
-          "rule": "Actor/exact-context-private protocol state and receipt only; no owning domain effect, provider handoff or plant material revision."
+          "rule": "Actor/exact-context-private conversation state and known outcomes only; no owning domain effect, provider handoff or plant assessment freshness."
         }
       ],
       "operation_refs": [
@@ -1467,7 +1467,7 @@
           "catalog": "docs/catalog/operations.json"
         }
       ],
-      "title": "Current-review status and historic durable receipts"
+      "title": "Current review status and historic factual outcomes"
     },
     {
       "id": "REQ-EVR-034",

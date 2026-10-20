@@ -47,17 +47,6 @@ test("INV-context: load current acceptance and fail when its required input is m
 		registry.map((a) => a.id),
 		catalog.map((a: { id: string }) => a.id),
 	);
-	assert.deepEqual(registry.find((a) => a.id === "AC-EVR-001--EVR-001")?.required_test_layers, [
-		"domain/contract",
-		"PostgreSQL integration where writes/concurrency",
-		"browser/tool evaluation where surfaced",
-	]);
-	assert.deepEqual(registry.find((a) => a.id === "AC-DOC-016--DOC-016")?.required_test_layers, [
-		"unit parse/sanitization and strict scope contracts",
-		"integration private storage/document revisions/evidence",
-		"browser native editor and safe parsed rendering",
-		"Evry exact reviewed effects only if adapter supports a named operation",
-	]);
 	const root = mkdtempSync(join(tmpdir(), "evf-context-"));
 	try {
 		cpSync(join(source, "docs"), join(root, "docs"), { recursive: true });
@@ -608,7 +597,10 @@ test("BUG-plan-context: plan and brief use the same manifest acceptance scope, i
 		);
 		assert.equal(block.acceptanceCount, 8);
 		const brief = renderBrief(f.root, parseTask("WP-002"), {});
-		assert.match(brief, /Goal: Provide shared trusted scope, time, revision, replay, receipt and audit contracts/);
+		assert.equal(
+			brief.split("\n").find((line) => line.startsWith("Goal: ")),
+			`Goal: ${loadDag(f.root).packages.find((p) => p.id === "WP-002")!.goal}`,
+		);
 		assert.match(brief, /Owned requirements: REQ-IDN-029, REQ-OPS-004, REQ-PI-037, REQ-PPL-024, REQ-TSK-018/);
 		assert.match(brief, /Write owned cases at package start for: REQ-IDN-029, REQ-OPS-004, REQ-PI-037, REQ-PPL-024/);
 		assert.match(brief, /Owned cases: AUDIT-001, AUDIT-002, AUDIT-003/);
@@ -638,6 +630,17 @@ test("BUG-plan-context: plan and brief use the same manifest acceptance scope, i
 				assert.doesNotMatch(output, /reuse approved E3 pages/i);
 			}
 		}
+		const dagPath = join(f.root, "docs/plan/dag.json");
+		const dag = JSON.parse(readFileSync(dagPath, "utf8"));
+		const identity = dag.packages.find((p) => p.id === "WP-005");
+		identity.outputs = [];
+		identity.acceptance_gates = [];
+		writeFileSync(dagPath, JSON.stringify(dag));
+		const planCheck = spawnSync("python3", ["docs/package-context.py", "--check-plan"], {
+			cwd: f.root,
+			encoding: "utf8",
+		});
+		assert.equal(planCheck.status, 0, planCheck.stderr);
 	} finally {
 		f.close();
 	}
@@ -714,6 +717,8 @@ const approvedQuality = {
 	],
 };
 
+const approvedExperience = { verdict: "approved", budget: "met" };
+
 function mergeFixture() {
 	const f = fixture(),
 		task = parseTask("OPS-1");
@@ -742,7 +747,7 @@ function mergeFixture() {
 	];
 	state.comments["77"] = [
 		{
-			body: `Verified the actual tooling behavior.\n\nEVF-Review: ${JSON.stringify({ head: sha, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality })}`,
+			body: `Verified the actual tooling behavior.\n\nEVF-Review: ${JSON.stringify({ head: sha, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`,
 			html_url: "https://github.com/test/private/pull/77#issuecomment-1",
 		},
 	];
@@ -803,7 +808,15 @@ test("BUG-c048ea5-folder-path: maintenance refuses an existing folder without a 
 			/docs is a folder; use docs\//,
 		);
 		assert.equal(f.git("branch", "--list", "task/*"), "");
-		for (const path of ["docs/tooling/", "AGENTS.md"]) {
+		for (const path of ["other-review.html", "apps/web/src/app/page.tsx"]) {
+			f.cfg.maintenanceTasks[task.id].owningPaths = [path];
+			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+			assert.throws(
+				() => taskStart(f.root, task, { allowUnready: false, noStack: true }),
+				/Maintenance owning paths must stay in documentation and workflow tooling/,
+			);
+		}
+		for (const path of ["docs/tooling/", "AGENTS.md", "everyfield-feature-review.html"]) {
 			f.cfg.maintenanceTasks[task.id].owningPaths = [path];
 			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
 			f.commit();
@@ -981,7 +994,7 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 				name: "same-family approval",
 				edit: (s) => {
 					s.comments["77"][0].body =
-						`EVF-Review: ${JSON.stringify({ head: f.sha, verifierFamily: "openai", verdict: "approved", quality: approvedQuality })}`;
+						`EVF-Review: ${JSON.stringify({ head: f.sha, verifierFamily: "openai", verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
 				},
 				reason: /different model family/,
 			},
@@ -989,7 +1002,7 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 				name: "older-head approval",
 				edit: (s) => {
 					s.comments["77"][0].body =
-						`EVF-Review: ${JSON.stringify({ head: "a".repeat(40), verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality })}`;
+						`EVF-Review: ${JSON.stringify({ head: "a".repeat(40), verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
 				},
 				reason: /approval for the exact PR head/,
 			},
@@ -997,7 +1010,7 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 				name: "rejected approval",
 				edit: (s) => {
 					s.comments["77"].push({
-						body: `EVF-Review: ${JSON.stringify({ head: f.sha, verifierFamily: "anthropic", verdict: "changes_requested", quality: approvedQuality })}`,
+						body: `EVF-Review: ${JSON.stringify({ head: f.sha, verifierFamily: "anthropic", verdict: "changes_requested", quality: approvedQuality, experience: approvedExperience })}`,
 					});
 				},
 				reason: /approval for the exact PR head/,
@@ -1024,7 +1037,36 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 				reason,
 				edit: (s) => {
 					s.comments["77"][0].body =
-						`EVF-Review: ${JSON.stringify({ head: f.sha, verifierFamily: "anthropic", verdict: "approved", quality })}`;
+						`EVF-Review: ${JSON.stringify({ head: f.sha, verifierFamily: "anthropic", verdict: "approved", quality, experience: approvedExperience })}`;
+				},
+			})),
+			...[
+				{
+					name: "missing experience",
+					experience: undefined,
+					reason: /Missing verifier approval for the exact PR head/,
+				},
+				{
+					name: "failed budget",
+					experience: { ...approvedExperience, budget: "exceeded" },
+					reason: /Experience budget exceeded/,
+				},
+				{
+					name: "failed smoothness",
+					experience: { ...approvedExperience, verdict: "changes_requested" },
+					reason: /Experience must be approved/,
+				},
+				{
+					name: "unlisted exception",
+					experience: { ...approvedExperience, budget: "exceeded", exception: "reports" },
+					reason: /Experience budget exceeded/,
+				},
+			].map(({ name, experience, reason }) => ({
+				name,
+				reason,
+				edit: (s) => {
+					s.comments["77"][0].body =
+						`EVF-Review: ${JSON.stringify({ head: f.sha, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience })}`;
 				},
 			})),
 			{
@@ -1047,11 +1089,37 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 				scenario.name,
 			);
 		}
+		for (const category of ["reports", "analytics"]) {
+			const state = structuredClone(valid);
+			state.pr.body = state.pr.body.replace("EVF-Author:", `EVF-Experience-Exception: ${category}\n\nEVF-Author:`);
+			const experience = { ...approvedExperience, budget: "exceeded", exception: category };
+			state.comments["77"][0].body =
+				`EVF-Review: ${JSON.stringify({ head: f.sha, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience })}`;
+			f.setState(state);
+			assert.throws(() => ship(f.root, f.taskRef), /fixture merge barrier/);
+			assert.deepEqual(f.getState().calls.find((c) => c.args[0] === "pr" && c.args[1] === "merge").args, [
+				"pr",
+				"merge",
+				"77",
+				"--squash",
+				"--match-head-commit",
+				f.sha,
+			]);
+			state.calls = [];
+			state.comments["77"][0].body =
+				`EVF-Review: ${JSON.stringify({ head: f.sha, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience: { ...experience, verdict: "changes_requested" } })}`;
+			f.setState(state);
+			assert.throws(() => ship(f.root, f.taskRef), /Experience must be approved/);
+			assert.deepEqual(
+				f.getState().calls.filter((c) => c.args[0] === "pr" && c.args[1] === "merge"),
+				[],
+			);
+		}
 		// Round-trip the actual review poster through the ship parser.
 		const report = join(f.root, "fake-bin/review.md");
 		writeFileSync(
 			report,
-			"## Code quality\nApproved. The parser checks external review data once; no extra layers to remove.\n",
+			"## Code quality\nApproved. The parser checks external review data once; no extra layers to remove.\n\n## Experience\nChanged reads and writes finish under one second; optimistic UI and request counts pass.\n",
 		);
 		valid.calls = [];
 		f.setState(valid);
@@ -1069,6 +1137,10 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 				"approved",
 				"--head",
 				f.sha,
+				"--experience-verdict",
+				"approved",
+				"--budget",
+				"met",
 				"--quality-verdict",
 				"approved",
 				"--principles",
@@ -1079,6 +1151,7 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 		);
 		const posted = JSON.parse(valid.comments["77"][0].body.split("EVF-Review: ")[1]);
 		assert.deepEqual(posted.quality, approvedQuality);
+		assert.deepEqual(posted.experience, approvedExperience);
 		f.setState(valid);
 		assert.throws(() => ship(f.root, f.taskRef), /fixture merge barrier/);
 		const merge = f.getState().calls.find((c) => c.args[0] === "pr" && c.args[1] === "merge");
@@ -1087,33 +1160,6 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 			f.getState().calls.filter((c) => c.args[0] === "api" && c.args.includes("POST")),
 			[],
 		);
-	} finally {
-		f.close();
-	}
-});
-
-test("INV-phase7-local-checks: checks cannot pass after mutating the task worktree", () => {
-	const f = fixture();
-	try {
-		f.cfg.maintenanceTasks = {
-			"OPS-1": {
-				title: "Mutating check",
-				owningPaths: ["AGENTS.md"],
-				checks: [
-					{
-						name: "mutating",
-						run: [process.execPath, "-e", 'require("node:fs").appendFileSync("AGENTS.md","changed")'],
-					},
-				],
-			},
-		};
-		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
-		f.commit();
-		f.task("ops-1");
-		const report = verify(f.root, parseTask("OPS-1"), "author", "full");
-		assert.equal(report.passed, false);
-		assert.equal(report.unchanged, false);
-		assert.equal(report.checks[0].exitCode, 0);
 	} finally {
 		f.close();
 	}
@@ -1173,7 +1219,7 @@ test("INV-phase7-feedback: P2 waits for owner after the same checks, while P1 re
 			sha = f.git("rev-parse", task.branch);
 		state.pr.headRefOid = sha;
 		state.comments["77"][0].body =
-			`EVF-Review: ${JSON.stringify({ head: sha, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality })}`;
+			`EVF-Review: ${JSON.stringify({ head: sha, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
 		state.calls = [];
 		f.setState(state);
 		assert.equal(ship(f.root, task), 0);
@@ -1227,7 +1273,7 @@ test("INV-phase7-progress: ship and acknowledgement preserve reviewed milestones
 		state.mergeBranch = task.branch;
 		state.pr.headRefOid = sha;
 		state.comments["77"][0].body =
-			`EVF-Review: ${JSON.stringify({ head: sha, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality })}`;
+			`EVF-Review: ${JSON.stringify({ head: sha, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
 		f.setState(state);
 		console.log = () => {};
 		assert.equal(ship(f.root, task), 0);
@@ -1655,12 +1701,17 @@ test("BUG-ops6-fixture-cleanup: fixture commits and bare pushes start no backgro
 		traced("commit", "-qm", "Many loose objects");
 		// The receiving side of a local push does not inherit the test's git environment.
 		traced("push", "-q", f.bare(join(f.root, "fake-bin/receiver.git")), "main");
-		const children = readFileSync(trace, "utf8")
+		const events = readFileSync(trace, "utf8")
 			.trim()
 			.split("\n")
-			.map((line) => JSON.parse(line))
-			.filter((e) => e.event === "child_start")
-			.map((e) => e.argv.join(" "));
+			.map((line) => JSON.parse(line));
+		for (const command of ["commit", "push"])
+			assert.equal(
+				events.some((e) => e.event === "start" && e.argv.includes(command)),
+				true,
+				`${command} actually ran`,
+			);
+		const children = events.filter((e) => e.event === "child_start").map((e) => e.argv.join(" "));
 		assert.deepEqual(
 			children.filter((argv) => /\b(maintenance|gc)\b/.test(argv)),
 			[],

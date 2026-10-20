@@ -291,6 +291,65 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-14": {
+			"title": "Build plan keeps only features, dependencies and acceptance",
+			"owningPaths": [
+				"docs/plan/",
+				"docs/package-context.py",
+				"tools/evf/tests/reconciliation.test.ts",
+				"evf.config.json"
+			],
+			"checks": [
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				},
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				}
+			],
+			"risk": "ordinary"
+		},
+		"OPS-13": {
+			"title": "Docs: requirements describe the end state",
+			"owningPaths": [
+				"evf.config.json",
+				"everyfield-feature-review.html",
+				"tools/evf/policy.ts",
+				"tools/evf/tests/reconciliation.test.ts",
+				"docs/catalog/",
+				"docs/acceptance/",
+				"docs/product/",
+				"docs/architecture/"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		},
+		"OPS-12": {
+			"title": "Verification checks budget and smoothness",
+			"owningPaths": ["tools/evf/", "evf.config.json", "AGENTS.md", ".agents/roles/", ".agents/skills/verify-preview/"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {

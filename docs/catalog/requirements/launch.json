@@ -126,7 +126,7 @@
         "EVR-020",
         "LCH-004"
       ],
-      "text": "Current valid re-confirmation uses current subject authority, expected revision and a fresh linked-task digest. Open linked tasks do not block completion. Old completion history is not erased or relabelled.",
+      "text": "Current valid re-confirmation uses current subject authority, unchanged reviewed state and a fresh linked-task digest. Open linked tasks do not block completion. Old completion history is not erased or relabelled.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
       "operations": [],
       "acceptance_ids": [
@@ -574,7 +574,7 @@
       "feature_ids": [
         "EVR-020"
       ],
-      "text": "Native/Evry Launch read/correct/guest/debrief/summary adapters use the same current authority/revision/history; every durable effect exact reviewed, no raw reflection/private-care model input or hidden task/send/phase effect.",
+      "text": "Native/Evry Launch read/correct/guest/debrief/summary adapters use the same current authority/conflict detection/history; every durable effect exact reviewed, no raw reflection/private-care model input or hidden task/send/phase effect.",
       "spec": "docs/product/launch.md#actual-launch-and-named-guests",
       "operations": [],
       "acceptance_ids": [
@@ -844,7 +844,7 @@
         "MTG-002",
         "PI-028"
       ],
-      "text": "Active target catalog preserves unchanged canonical rubric/Playbook criterion keys and names chosen native practice/debrief commands explicitly. Current source inventory remains separate evidence; a declaration or retained table never manufactures active operation authority.",
+      "text": "Active target catalog preserves unchanged canonical rubric/Playbook criterion keys and names chosen native practice/debrief commands explicitly. Current source inventory remains separate evidence; a declaration or retained data never manufactures active operation authority.",
       "spec": "docs/product/launch.md#actual-launch-and-named-guests",
       "operations": [],
       "acceptance_ids": [
@@ -1162,7 +1162,7 @@
         "PI-028",
         "PI-030"
       ],
-      "text": "Correction/no-op/current revision/history remain attributable; changing the missing answer updates current derived criterion while historical readings and already advanced phase remain.",
+      "text": "Correction/no-op/current state/history remain attributable; changing the missing answer updates current derived criterion while historical readings and already advanced phase remain.",
       "spec": "docs/product/launch.md#actual-launch-and-named-guests",
       "operations": [],
       "acceptance_ids": [
@@ -1463,7 +1463,7 @@
       "feature_ids": [
         "LCH-001"
       ],
-      "text": "Current plant Owner/Admin sets/moves/postpones/recommits canonical planned local date under expected revision with real YYYY-MM-DD validation and note≤2000. Planning/scheduled/postponed/completed remain explicit; no-op/replay returns original receipt and date/status journal. Moving date does not rewrite task due dates/assignments/status or move phase.",
+      "text": "Current plant Owner/Admin sets/moves/postpones/recommits canonical planned local date under unchanged reviewed state with real YYYY-MM-DD validation and note≤2000. Planning/scheduled/postponed/completed remain explicit; no-op/replay returns original recorded outcome and date/status journal. Moving date does not rewrite task due dates/assignments/status or move phase.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
       "operations": [
         "launch.schedule",
@@ -1529,7 +1529,7 @@
       "feature_ids": [
         "LCH-003"
       ],
-      "text": "First schedule and fixed nine Playbook milestones/23 actual source undated ordinary launch_prep Tasks initialize in one bounded history/audit/receipt transaction with stable seed identities. Preserve approved wording and existing user edits/deletions; task system owns assignee/date/status. Three actual prelaunch_practice occurrences supply their own evidence; task ticks never fabricate those events.",
+      "text": "First schedule and fixed nine Playbook milestones/23 actual source undated ordinary launch_prep Tasks initialize in one bounded history, audit and the recorded outcome transaction with stable seed identities. Preserve approved wording and existing user edits/deletions; task system owns assignee/date/status. Three actual prelaunch_practice occurrences supply their own evidence; task ticks never fabricate those events.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
       "operations": [
         "launch.ensureReadiness"
@@ -1553,7 +1553,7 @@
       "feature_ids": [
         "LCH-004"
       ],
-      "text": "Complete or reopen a readiness milestone under current subject authority and expected revision in the same history/audit/receipt transaction. Completion is allowed with open linked tasks. The linked-task digest compares the reviewed view with current linked tasks and refuses only a stale view; it does not require tasks to be complete. Reopening or correcting linked work makes current evidence Needs review while preserving prior human completion history. Guest/debrief evidence is derived and cannot be overridden by a manual checkbox.",
+      "text": "Complete or reopen a readiness milestone under current subject authority and unchanged reviewed state in the same history, audit and the recorded outcome transaction. Completion is allowed with open linked tasks. The linked-task digest compares the reviewed view with current linked tasks and refuses only a stale view; it does not require tasks to be complete. Reopening or correcting linked work makes current evidence Needs review while preserving prior human completion history. Guest/debrief evidence is derived and cannot be overridden by a manual checkbox.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
       "operations": [
         "launch.completeMilestone",
@@ -1667,7 +1667,7 @@
       "feature_ids": [
         "LCH-007"
       ],
-      "text": "Correct canonical actual Launch/date/count/debrief/guest relation/summary under expected revision with before/after actor/history and no-op replay. New incomplete draft preserves last valid submitted evidence. Corrected guest answer updates current derived criterion without erasing old snapshot or silently demoting phase; aggregate headcount/missing count never silently recalc from roster.",
+      "text": "Correct canonical actual Launch/date/count/debrief/guest relation/summary under unchanged reviewed state with before/after actor/history and no-op replay. New incomplete draft preserves last valid submitted evidence. Corrected guest answer updates current derived criterion without erasing old snapshot or silently demoting phase; aggregate headcount/missing count never silently recalc from roster.",
       "spec": "docs/product/launch.md#actual-launch-and-named-guests",
       "operations": [
         "launch.correctOutcome",
@@ -1791,7 +1791,7 @@
       "feature_ids": [
         "LCH-009"
       ],
-      "text": "Repair partial initialization by stable launch/milestone/task seed identity under current plant/source revision, creating incomplete-initialization items exactly once. Retained seed receipts and task/link tombstones distinguish deliberate user deletion, which repair never resurrects. Existing edits/completion/history survive and no arbitrary recurring service or automatic readiness completion is created.",
+      "text": "Repair partial initialization by stable launch/milestone/task seed identity under current plant/source state, creating incomplete-initialization items exactly once. Retained seed receipts and task/link tombstones distinguish deliberate user deletion, which repair never resurrects. Existing edits/completion/history survive and no arbitrary recurring service or automatic readiness completion is created.",
       "spec": "docs/product/launch.md#schedule-and-readiness",
       "operations": [
         "launch.ensureReadiness"

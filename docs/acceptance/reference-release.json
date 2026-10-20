@@ -22,8 +22,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -107,8 +107,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -191,8 +191,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -332,8 +332,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "execution": {
@@ -383,7 +383,7 @@
               "error_code": "source_unavailable",
               "new_domain_writes": 0,
               "new_provider_effects": 0,
-              "prior_committed_receipts_retained": true
+              "prior_committed_outcomes_retained": true
             },
             "event": null
           },
@@ -411,8 +411,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -539,8 +539,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -567,7 +567,7 @@
               "error_code": "source_unavailable",
               "new_domain_writes": 0,
               "new_provider_effects": 0,
-              "prior_committed_receipts_retained": true
+              "prior_committed_outcomes_retained": true
             },
             "event": null
           },
@@ -594,8 +594,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -718,8 +718,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -750,7 +750,7 @@
               "error_code": "source_unavailable",
               "new_domain_writes": 0,
               "new_provider_effects": 0,
-              "prior_committed_receipts_retained": true
+              "prior_committed_outcomes_retained": true
             },
             "event": null
           },
@@ -777,8 +777,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -916,8 +916,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "execution": {
@@ -966,7 +966,7 @@
               "error_code": "source_unavailable",
               "new_domain_writes": 0,
               "new_provider_effects": 0,
-              "prior_committed_receipts_retained": true
+              "prior_committed_outcomes_retained": true
             },
             "event": null
           },
@@ -993,8 +993,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -1136,8 +1136,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "execution": {
@@ -1186,7 +1186,7 @@
               "error_code": "source_unavailable",
               "new_domain_writes": 0,
               "new_provider_effects": 0,
-              "prior_committed_receipts_retained": true
+              "prior_committed_outcomes_retained": true
             },
             "event": null
           },
@@ -1213,8 +1213,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -1290,8 +1290,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "A": {
@@ -1416,8 +1416,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "execution": {
@@ -1446,7 +1446,7 @@
               "error_code": "source_unavailable",
               "new_domain_writes": 0,
               "new_provider_effects": 0,
-              "prior_committed_receipts_retained": true
+              "prior_committed_outcomes_retained": true
             },
             "event": null
           },
@@ -1481,8 +1481,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -1605,8 +1605,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             }
           },
@@ -1632,7 +1632,7 @@
               "error_code": "source_unavailable",
               "new_domain_writes": 0,
               "new_provider_effects": 0,
-              "prior_committed_receipts_retained": true
+              "prior_committed_outcomes_retained": true
             },
             "event": null
           },
@@ -1659,8 +1659,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -1808,8 +1808,8 @@
               "fixture_type": "plant",
               "id": "P",
               "timezone": "America/Chicago",
-              "revision": 7,
-              "material_revision": 11,
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
             },
             "execution": {
@@ -1859,7 +1859,7 @@
               "error_code": "source_unavailable",
               "new_domain_writes": 0,
               "new_provider_effects": 0,
-              "prior_committed_receipts_retained": true
+              "prior_committed_outcomes_retained": true
             },
             "event": null
           },
@@ -1894,8 +1894,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -1921,7 +1921,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -1987,7 +1987,7 @@
       "action": {
         "operation": "reference.activateGeneration",
         "arguments": {
-          "generation": "R1",
+          "worker_identity": "fixture-state-R1",
           "expected_activation": 0,
           "request_key": "activate-1"
         }
@@ -2025,8 +2025,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -2052,7 +2052,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -2151,8 +2151,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -2178,7 +2178,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -2278,8 +2278,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -2305,7 +2305,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -2328,7 +2328,7 @@
           ],
           "concurrent": true,
           "stale_worker_generation": 1,
-          "current_generation": 2
+          "current_worker_identity": "fixture-state-2"
         },
         "execution": {
           "fixture_type": "test_execution",
@@ -2336,14 +2336,14 @@
             {
               "operation": "reference.activateGeneration",
               "arguments": {
-                "generation": "R3",
+                "worker_identity": "fixture-state-R3",
                 "expected_activation": 1,
                 "request_key": "activate-R3"
               }
             }
           ],
           "stale_worker_generation": 1,
-          "current_generation": 2
+          "current_worker_identity": "fixture-state-2"
         },
         "R1": {
           "fixture_type": "reference_generation",
@@ -2394,7 +2394,7 @@
       "action": {
         "operation": "reference.activateGeneration",
         "arguments": {
-          "generation": "R2",
+          "worker_identity": "fixture-state-R2",
           "expected_activation": 1,
           "request_key": "activate-R2"
         }
@@ -2436,8 +2436,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -2463,7 +2463,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -2480,7 +2480,7 @@
         "activation": {
           "fixture_type": "reference_activation",
           "id": 2,
-          "generation": "R2",
+          "worker_identity": "fixture-state-R2",
           "previous": "R1"
         },
         "R1": {
@@ -2521,7 +2521,7 @@
         "operation": "reference.rollbackActivation",
         "arguments": {
           "activation": 2,
-          "generation": "R1",
+          "worker_identity": "fixture-state-R1",
           "reason": "Reviewed compatible rollback"
         }
       },
@@ -2562,8 +2562,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -2589,7 +2589,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -2606,7 +2606,7 @@
         "activation": {
           "fixture_type": "reference_activation",
           "id": 3,
-          "generation": "R1"
+          "worker_identity": "fixture-state-R1"
         },
         "S1": {
           "fixture_type": "organization",
@@ -2699,8 +2699,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -2726,7 +2726,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -2825,8 +2825,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -2852,7 +2852,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",

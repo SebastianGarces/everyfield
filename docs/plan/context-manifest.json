@@ -1747,7 +1747,7 @@
       ],
       "consumer_table_names": [],
       "proof_stage": "early access site only; product privacy update belongs to WP-049",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-001",
@@ -1890,7 +1890,7 @@
         "reference_version"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-002",
@@ -1977,7 +1977,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-003",
@@ -2080,7 +2080,7 @@
       ],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-004",
@@ -2692,7 +2692,7 @@
         "settings_result"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-005",
@@ -2940,7 +2940,7 @@
         "plant"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-006",
@@ -3215,7 +3215,7 @@
         "tenant"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-007",
@@ -3924,7 +3924,7 @@
         "settings_result"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-008",
@@ -4252,7 +4252,7 @@
         "tenant"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-009",
@@ -4541,7 +4541,7 @@
         "team"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-010",
@@ -5040,7 +5040,7 @@
         "suppression"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-011",
@@ -5425,7 +5425,7 @@
         "plant"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-012",
@@ -5629,7 +5629,7 @@
         "tag"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-013",
@@ -5725,7 +5725,7 @@
         "person"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-014",
@@ -5929,7 +5929,7 @@
         "person"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-015",
@@ -6261,7 +6261,7 @@
         "person_note"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-016",
@@ -6422,7 +6422,7 @@
         "interview"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-017",
@@ -6772,7 +6772,7 @@
         "tenant"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-018",
@@ -6888,7 +6888,7 @@
         "team"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-019",
@@ -7196,7 +7196,7 @@
         "team_tenure"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-020",
@@ -7450,7 +7450,7 @@
         "participation"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-021",
@@ -7649,7 +7649,7 @@
         "notice"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-022",
@@ -8000,7 +8000,7 @@
         "venue"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-023",
@@ -8316,7 +8316,7 @@
         "task"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-024",
@@ -8621,7 +8621,7 @@
         "tenant"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-025",
@@ -8839,7 +8839,7 @@
         "task"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-026",
@@ -9000,7 +9000,7 @@
         "task"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-027",
@@ -9230,7 +9230,7 @@
         "reference_version"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-028",
@@ -9487,7 +9487,7 @@
         "participation"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-029",
@@ -9767,7 +9767,7 @@
         "obligation"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-030",
@@ -10077,7 +10077,7 @@
         "suppression"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-031",
@@ -10481,7 +10481,7 @@
         "phase_transition"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-032",
@@ -10905,7 +10905,7 @@
         "reference_release"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-033",
@@ -11076,7 +11076,7 @@
       ],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-034",
@@ -11657,7 +11657,7 @@
         "reference_version"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-035",
@@ -12231,7 +12231,7 @@
         "wiki_preference"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-036",
@@ -12529,7 +12529,7 @@
         "reference_version"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-037",
@@ -12893,7 +12893,7 @@
         "operation"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-038",
@@ -13328,7 +13328,7 @@
         "task"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-039",
@@ -13677,7 +13677,7 @@
         "settings_result"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-040",
@@ -14315,7 +14315,7 @@
         "job"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-041",
@@ -14619,7 +14619,7 @@
         "reference_version"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-042",
@@ -15046,7 +15046,7 @@
         "reference_version"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-043",
@@ -15526,7 +15526,7 @@
         "reference_version"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-044",
@@ -16316,7 +16316,7 @@
         "reference_version"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-045",
@@ -16688,7 +16688,7 @@
         "plant"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-046",
@@ -17048,7 +17048,7 @@
         "launch_milestone"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-047",
@@ -17487,7 +17487,7 @@
         "reference_version"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-048",
@@ -17589,7 +17589,7 @@
         "prompt_dismissal"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-049",
@@ -17759,7 +17759,7 @@
         "tenant"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-050",
@@ -18236,7 +18236,7 @@
         "operation"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-051",
@@ -18549,7 +18549,7 @@
         "operation"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-052",
@@ -19463,7 +19463,7 @@
         "record"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-053",
@@ -20534,7 +20534,7 @@
       ],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-054",
@@ -20830,7 +20830,7 @@
         "evidence_link"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-055",
@@ -22438,7 +22438,7 @@
         "reference_version"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-056",
@@ -28488,7 +28488,7 @@
         "wiki_preference"
       ],
       "proof_stage": "whole-target integration; no deferred portions",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-057",
@@ -34529,7 +34529,7 @@
         "wiki_preference"
       ],
       "proof_stage": "whole-target integration; no deferred portions",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-058",
@@ -34833,7 +34833,7 @@
         "reference_version"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-059",
@@ -35154,7 +35154,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-060",
@@ -35457,7 +35457,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-061",
@@ -35627,7 +35627,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-062",
@@ -35793,7 +35793,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-063",
@@ -35957,7 +35957,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-064",
@@ -36130,7 +36130,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-065",
@@ -36430,7 +36430,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-066",
@@ -36807,7 +36807,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-067",
@@ -37113,7 +37113,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-068",
@@ -37413,7 +37413,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-069",
@@ -37700,7 +37700,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-070",
@@ -37994,7 +37994,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-071",
@@ -38265,7 +38265,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-072",
@@ -38483,7 +38483,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-073",
@@ -39216,7 +39216,7 @@
         "reference_version"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-074",
@@ -39699,7 +39699,7 @@
         "reference_version"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-075",
@@ -39851,7 +39851,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-076",
@@ -40036,7 +40036,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-077",
@@ -40268,7 +40268,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-078",
@@ -40530,7 +40530,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-079",
@@ -40849,7 +40849,7 @@
         "file_object"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-080",
@@ -41107,7 +41107,7 @@
         "file_object"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-081",
@@ -41286,7 +41286,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-082",
@@ -41540,7 +41540,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-083",
@@ -41956,7 +41956,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-084",
@@ -42462,7 +42462,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-085",
@@ -42564,7 +42564,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-087",
@@ -42591,7 +42591,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "local workflow or shared UI producer; no whole-target acceptance",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-088",
@@ -42618,7 +42618,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "local workflow or shared UI producer; no whole-target acceptance",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-089",
@@ -42645,7 +42645,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "local workflow or shared UI producer; no whole-target acceptance",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-090",
@@ -42673,7 +42673,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "local workflow or shared UI producer; no whole-target acceptance",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-091",
@@ -42921,7 +42921,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "scoped integration producer; final whole-target gate admits no deferred portions",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-092",
@@ -43003,7 +43003,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "scoped integration producer; final whole-target gate admits no deferred portions",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-093",
@@ -43286,7 +43286,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "scoped integration producer; final whole-target gate admits no deferred portions",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-094",
@@ -43360,7 +43360,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "scoped integration producer; final whole-target gate admits no deferred portions",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-095",
@@ -43422,7 +43422,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "scoped integration producer; final whole-target gate admits no deferred portions",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-096",
@@ -43657,7 +43657,7 @@
       "producer_table_names": [],
       "consumer_table_names": [],
       "proof_stage": "scoped integration producer; final whole-target gate admits no deferred portions",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-098",
@@ -43781,7 +43781,7 @@
       ],
       "consumer_table_names": [],
       "proof_stage": "stages 1 and 2 producer; final whole-target integration admits no deferrals",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-099",
@@ -43892,7 +43892,7 @@
       ],
       "consumer_table_names": [],
       "proof_stage": "stages 1 and 2 producer; final whole-target integration admits no deferrals",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-100",
@@ -43977,7 +43977,7 @@
         "residency_link"
       ],
       "proof_stage": "stages 1 and 2 producer; final whole-target integration admits no deferrals",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-101",
@@ -44092,7 +44092,7 @@
         "enrollment_plan"
       ],
       "proof_stage": "stages 1 and 2 producer; final whole-target integration admits no deferrals",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
     {
       "id": "WP-102",
@@ -44434,10 +44434,10 @@
         "sending_goal"
       ],
       "proof_stage": "stages 1 and 2 producer; final whole-target integration admits no deferrals",
-      "contract_consumption_rule": "Selected internal/native-only contracts prove exclusion or producer parity. Consumption grants no model/HTTP exposure or producer ownership."
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     }
   ],
   "package_count": 101,
   "shared_contract_source": "docs/catalog/shared-contracts.json",
-  "omission_policy": "All selected IDs remain indexed. Details are on demand; pages report totalPages and selectedCount and never truncate records. Package gates account for owned and explicitly deferred portions, without a mandatory full-packet read."
+  "omission_policy": "All selected IDs remain indexed. Read full requirements and acceptance cases on demand; selected context does not change package ownership."
 }

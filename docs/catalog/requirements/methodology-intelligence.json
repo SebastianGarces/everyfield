@@ -31,7 +31,7 @@
       "behavior_rules": [
         {
           "operation": "phases.declare",
-          "rule": "One existing-journey declaration under locked plant/unique slot. Caller cannot choose church_creation kind. Unsure/discerning/skip is no declaration; initial declaration emits no reached-new-phase consequence."
+          "rule": "At most one existing-journey declaration per plant, including concurrent requests. Caller cannot choose church_creation kind. Unsure/discerning/skip is no declaration; initial declaration emits no reached-new-phase consequence."
         }
       ],
       "title": "One-time midjourney initial phase declaration"
@@ -41,7 +41,7 @@
       "feature_ids": [
         "PHASE-002"
       ],
-      "text": "Reasoned forward/backward/skip/correct transition uses protected current phase+expected revision and atomic journal/current phase/material revision/audit/receipt. Readiness never blocks or advances automatically. Target phase is a number/integer 0..6; reason is string trimmed 1..2000 and rejects exact reserved initial-declaration sentence after trim, including noop requests; declaration kind is unreachable here.",
+      "text": "Reasoned forward/backward/skip/correct transition uses protected current phase+unchanged reviewed state and atomic journal/current phase/assessment freshness/audit and recorded outcome. Readiness never blocks or advances automatically. Target phase is a number/integer 0..6; reason is string trimmed 1..2000 and rejects exact reserved initial-declaration sentence after trim, including noop requests; declaration kind is unreachable here.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "phases.transition"
@@ -68,7 +68,7 @@
         },
         {
           "operation": "phases.transition",
-          "rule": "Derive from phase from locked current state, never caller-authoritative from phase. Advisory evidence does not block. Same-phase preserves one noop journal/event receipt without material bump or task creation; exact replay no duplicate."
+          "rule": "Derive the prior phase from current state, never caller-authoritative from phase. Advisory evidence does not block. Same-phase preserves one noop journal/event receipt without material bump or task creation; exact replay no duplicate."
         }
       ],
       "title": "Reasoned forward/backward/skipping/correcting phase transition"
@@ -222,7 +222,7 @@
       "feature_ids": [
         "PHASE-007"
       ],
-      "text": "Read attributed current/historical phase journal and actual chronology with creation/initial declaration distinctions, expected revision/concurrency and current permissions; no rewritten prior journey.",
+      "text": "Read attributed current/historical phase journal and actual chronology with creation/initial declaration distinctions, unchanged reviewed state/concurrency and current permissions; no rewritten prior journey.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "phases.readHistory"
@@ -1031,7 +1031,7 @@
       "behavior_rules": [
         {
           "operation": "intelligence.requestRefresh",
-          "rule": "Mutation/history/audit/required intents/receipt and synchronous material-revision change in one atomic transaction; exact replay no duplicate."
+          "rule": "Mutation, attributable history, audit, required consequences and assessment freshness succeed or fail together; exact retry creates no duplicate."
         },
         {
           "operation": "intelligence.runAssessmentBatch",
@@ -1093,7 +1093,7 @@
         },
         {
           "operation": "intelligence.settleRun",
-          "rule": "Current claim/status CAS; complete result cannot be demoted, and prior valid completed result remains available. No hidden generic retry/publication grant."
+          "rule": "Current execution ownership and status checks; complete result cannot be demoted, and prior valid completed result remains available. No hidden generic retry/publication grant."
         },
         {
           "operation": "intelligence.settleRun",
@@ -1106,7 +1106,7 @@
       "feature_ids": [
         "PI-023"
       ],
-      "text": "Persist insights, overall durable summary, immutable complete metadata, snapshot deltas and assessment availability atomically after source/reference/current-claim/current-grant CAS. Severity orders insights only; no plant ranking. Bus failure after commit cannot demote complete. Canonical model urgency positive|info|watch|urgent maps exactly to persisted info|low|medium|high respectively; critical is reserved and never produced by ordinary assessment mapping.",
+      "text": "Persist insights, overall durable summary, immutable complete metadata, snapshot deltas and assessment availability atomically after current source, reference, execution ownership and grant checks. Severity orders insights only; no plant ranking. Bus failure after commit cannot demote complete. Canonical model urgency positive|info|watch|urgent maps exactly to persisted info|low|medium|high respectively; critical is reserved and never produced by ordinary assessment mapping.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.publishAssessment",
@@ -1144,11 +1144,11 @@
         },
         {
           "operation": "intelligence.publishAssessment",
-          "rule": "One CAS transaction persists supported findings, overall summary, completed assessment, availability and required intents. Check source, reference activation, current claim/lease/lifecycle and every exact-org current contributor grant. Plant publication changes projection, never its own source material revision."
+          "rule": "One all-or-nothing change persists supported findings, overall summary, completed assessment, availability and required intents. Check source, reference activation, current execution ownership and lifecycle and every exact-org current contributor grant. Plant publication changes projection, never its own assessment input state."
         },
         {
           "operation": "intelligence.publishAssessment",
-          "rule": "Plant publication completes the paired assessment and its availability; organization publication compares the current contributor source revisions without advancing organization material revision for a source-only change. Organization publication completes aggregate-safe findings/slices and assessment availability; do not recursively invalidate its own material source. Current projections derive from eligible complete rows, with no separately mutable pointer."
+          "rule": "Plant publication completes the paired assessment and its availability; organization publication compares the current contributor source facts without unrelated organization bookkeeping. Organization publication completes aggregate-safe findings/slices and assessment availability; do not recursively invalidate its own material source. Current reads return the latest eligible complete result."
         },
         {
           "operation": "intelligence.publishAssessment",
@@ -1160,7 +1160,7 @@
         },
         {
           "operation": "intelligence.publishAssessment",
-          "rule": "Current contract is renamed to the exact canonical request/result below; this is not a promise that an old source API with undocumented inputs has equivalent behavior. A complete validated paired version, source/reference/current claim/current grant CAS and pointer publication are indivisible; never a raw insight insert."
+          "rule": "Current contract is renamed to the exact canonical request/result below; this is not a promise that an old source API with undocumented inputs has equivalent behavior. A complete validated paired version, current source, reference, execution ownership and grant checks and pointer publication are indivisible; never a raw insight insert."
         }
       ],
       "title": "Insight persistence, severity/rank and snapshot deltas"
@@ -1197,7 +1197,7 @@
       "behavior_rules": [
         {
           "operation": "intelligence.markAssessmentSeen",
-          "rule": "Native explicit eligible open acknowledgment / exact reviewed Evry request with trusted presentation witness; one immutable first-open receipt. Release eligibility commits transactionally; replay creates no duplicate. Organization publication compares current contributor and released source revisions. Only affiliation and sharing changes advance organization material revision."
+          "rule": "Native explicit eligible open acknowledgment / exact reviewed Evry request with trusted presentation witness; one immutable first-open receipt. Release eligibility commits transactionally; replay creates no duplicate. Organization publication compares current contributor and released source revisions. Current affiliations, sharing and contributing source facts govern organization freshness."
         }
       ]
     },
@@ -1512,7 +1512,7 @@
         },
         {
           "operation": "intelligence.releaseAssessmentToOversight",
-          "rule": "Verified actual eligible open OR 72 elapsed hours from durable availability; same concern/evidence and current permissions. Organization publication compares current contributor and released source revisions without advancing organization material revision. Only affiliation and sharing changes advance organization material revision. No plant-source self-invalidation."
+          "rule": "Verified actual eligible open OR 72 elapsed hours from durable availability; same concern/evidence and current permissions. Organization publication compares current contributor and released source revisions without requiring redundant organization bookkeeping. Current affiliations, sharing and contributing source facts govern organization freshness. No plant-source self-invalidation."
         }
       ],
       "title": "Planter-paired concerns and seen-or-72-hour release"
@@ -1648,14 +1648,14 @@
           "rule": "Explicit scoped operator evaluation only in isolated synthetic environment and bounded reserved model budget; no customer/private care input or shared-source destructive seed. Actual results, never file-presence pass."
         }
       ],
-      "title": "Offline fleet eval, assessment trigger and language audit tooling"
+      "title": "Offline fleet evaluation, assessment requests and language audit"
     },
     {
       "id": "REQ-PI-037",
       "feature_ids": [
         "PI-037"
       ],
-      "text": "Database triggers on every assessment input table advance plant.material_revision in the same transaction as the relevant fact mutation. WP-040 derives the trigger set from every table read by the actual input builder, including conditional branches, and proves no missing inputs or unexplained extra tables. Revisions are monotonic freshness fences; multiple changed rows may advance them more than once. Organization material revision advances only on affiliation and sharing changes, including category grants. Other plant input changes are fenced by contributor source revisions at organization publication. Reference activation is a separate monotonic fence. Trigger failure rolls back the fact change; exact replay and real no-ops do not advance revision. After-commit wake-up is advisory. Private care is excluded from inputs and triggers; no material-writer registry or caller revision helper is required.",
+      "text": "Every committed change to assessment-relevant input makes affected assessments stale, across native, Evry, import, correction, merge, removal and system writers. WP-040 proves that all inputs actually used by the fact builder, including conditional inputs, participate in freshness checks. Failed changes, exact retries, real no-ops and unrelated fields do not create changed assessment evidence. Organization results reflect current affiliation, category sharing, contributor inputs and released source assessments. Current reference activation also governs publication. Missed wake-ups cannot lose refresh work. Private-care bodies, existence, calendars, corrections, nudges and support questions never affect assessment inputs or freshness. The implementation must preserve these outcomes without requiring a revision column, trigger set or caller helper.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.scheduleAssessment",
@@ -1724,7 +1724,7 @@
           "rule": "Create idempotent demand only; no as of forced onto every future attempt, no model generation or publication. Time window is independently identifiable with unchanged source."
         }
       ],
-      "title": "Assessment input triggers and revision freshness"
+      "title": "Assessment input freshness across every writer"
     },
     {
       "id": "REQ-PI-038",
@@ -1760,7 +1760,7 @@
         },
         {
           "feature": "PI-038",
-          "rule": "Native current exact Owner/Admin original-author conjunction, stable week/calendar CAS, private-only receipt/history; no model/audit/log/PI/organization existence path."
+          "rule": "Require the original author and current exact-plant Owner/Admin authority. Preserve stable week/calendar identity and private history through concurrent edits and retries. No model, broad audit, log, PI or organization path may reveal care existence."
         },
         {
           "operation": "privateCare.readCurrent",
@@ -1817,14 +1817,14 @@
       "work_packages": [
         "WP-039"
       ],
-      "title": "Full private check-in history with preserved revisions"
+      "title": "Full private check-in correction history"
     },
     {
       "id": "REQ-PI-041",
       "feature_ids": [
         "PI-041"
       ],
-      "text": "Correct only own existing private entry with expected revision, old/new native history and idempotency. Personal zone edit keeps the open week until first strictly future Monday in the requested zone then one next ordinal; serialize rollover/edit/save and preserve missing weeks without duplicate credit.",
+      "text": "Correct only own existing private entry with unchanged reviewed state, old/new native history and idempotency. Personal zone edit keeps the open week until first strictly future Monday in the requested zone then one next ordinal; serialize rollover/edit/save and preserve missing weeks without duplicate credit.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "privateCare.correct"
@@ -1868,7 +1868,7 @@
         },
         {
           "operation": "privateCare.correct",
-          "rule": "Serialize native author calendar rollover/edit/save under calendar CAS; atomically own entry+private correction+private receipt only; preserve original week/zone/author, unchanged save no-op; no shared audit/material revision/telemetry/model/org/PI input."
+          "rule": "Concurrent native calendar rollover, edits and saves preserve the original week, zone and author. Entry changes and private correction history agree; unchanged saves have no new effect. No shared audit, telemetry, model, organization or PI input is created."
         },
         {
           "operation": "privateCare.correct",
@@ -2044,7 +2044,7 @@
         },
         {
           "operation": "organizationIntelligence.read",
-          "rule": "Visible information for organization_member: organization, assessment id, run id, status, as of, material revision, reference activation number, rubric, group scope, available evidence coverage, supported findings, bounded plant lens rows, own feedback only, safe failure code, next cursor."
+          "rule": "Visible information for organization_member: organization, assessment id, run id, status, as of, assessment freshness, reference activation number, rubric, group scope, available evidence coverage, supported findings, bounded plant lens rows, own feedback only, safe failure code, next cursor."
         },
         {
           "operation": "organizationIntelligence.read",
@@ -2191,7 +2191,7 @@
         "TEAM-007",
         "TEAM-011"
       ],
-      "text": "Selected ministry/role imports and team metric units preserve actual configuration, stable keys, explicit safe role fill, current authority, idempotent receipts, Unknown composites and the 40/35/25 weights. Preview/read/skip creates zero rows; valid custom structure retained; only exact reviewed ordinary assignment creates occupants.",
+      "text": "Selected ministry/role imports and team metric units preserve actual configuration, stable keys, explicit safe role fill, current authority, retry-safe recorded outcomes, Unknown composites and the 40/35/25 weights. Preview/read/skip creates zero rows; valid custom structure retained; only exact reviewed ordinary assignment creates occupants.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "teams.initialize",

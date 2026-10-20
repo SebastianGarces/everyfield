@@ -122,7 +122,7 @@
         },
         {
           "operation": "documents.download",
-          "rule": "Purpose-specific exact document ID/revision/history/download; account-private read needs no plant. Recheck current entitlement before signed access; saved history bytes unaffected by template/contact changes."
+          "rule": "Purpose-specific exact document ID/conflict detection/history/download; account-private read needs no plant. Recheck current entitlement before signed access; saved history bytes unaffected by template/contact changes."
         },
         {
           "operation": "documents.history.list",
@@ -491,7 +491,7 @@
         },
         {
           "operation": "documents.saveNative",
-          "rule": "Closed create/edit owner variant supplies existing ID and expected revision on update; private account author before plant creation is eligible, plant Owner/Admin for church-owned documents."
+          "rule": "Closed create/edit owner variant supplies existing ID and unchanged reviewed state on update; private account author before plant creation is eligible, plant Owner/Admin for church-owned documents."
         },
         {
           "operation": "documents.saveNative",
@@ -2132,7 +2132,7 @@
         "WIKI-001",
         "WIKI-009"
       ],
-      "text": "Current plant Owner/Admin explicit order write with expected revision/history; exact Evryreview; no CRM title or org editor preference grant.",
+      "text": "Current plant Owner/Admin explicit order write with unchanged reviewed state/history; exact Evryreview; no CRM title or org editor preference grant.",
       "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
       "operations": [],
       "acceptance_ids": [
@@ -2308,7 +2308,7 @@
         "WIKI-001",
         "WIKI-009"
       ],
-      "text": "revision_conflict_requires_new_review",
+      "text": "Changed reviewed content requires a new review.",
       "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
       "operations": [],
       "acceptance_ids": [
@@ -2571,7 +2571,7 @@
       "feature_ids": [
         "WIKI-006"
       ],
-      "text": "Own helpful/unhelpful vote under current plant/article/source scope; closed input and revision/no-op semantics. Account-private Discovery reading does not manufacture a church vote. No new admin analysis surface.",
+      "text": "Own helpful/unhelpful vote under current plant/article/source scope; closed input and conflict detection and no-op semantics. Account-private Discovery reading does not manufacture a church vote. No new admin analysis surface.",
       "spec": "docs/product/knowledge-documents.md#article-resolution-and-editing",
       "operations": [
         "wiki.feedback.getMine",
@@ -2713,7 +2713,7 @@
         },
         {
           "operation": "wiki.organizationArticles.hide",
-          "rule": "Record explicit own-source hide with revision/history; default winner suppressed but authorized alternate browse remains."
+          "rule": "Record explicit own-source hide with conflict detection/history; default winner suppressed but authorized alternate browse remains."
         },
         {
           "operation": "wiki.organizationArticles.publish",
@@ -2829,7 +2829,7 @@
       "behavior_rules": [
         {
           "operation": "wiki.setSourceOrder",
-          "rule": "One explicit sequence per kind; setting preference moves entry to head preserving rest. Reject duplicate/foreign/wrong-kind/inactive entries and stale revision; no grant/affiliation primacy change."
+          "rule": "One explicit sequence per kind; setting preference moves entry to head preserving rest. Reject duplicate/foreign/wrong-kind/inactive entries and changed reviewed state; no grant/affiliation primacy change."
         }
       ]
     },
