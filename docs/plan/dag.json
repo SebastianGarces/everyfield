@@ -1678,6 +1678,8 @@
         "TARGET-MTG-008",
         "TARGET-MTG-009",
         "TARGET-MTG-011",
+        "TARGET-MTG-013",
+        "TARGET-MTG-018",
         "TARGET-MTG-019",
         "TARGET-TSK-018"
       ],
@@ -1700,8 +1702,6 @@
           "REQ-KNOW-047",
           "REQ-KNOW-056",
           "REQ-KNOW-057",
-          "REQ-MTG-013",
-          "REQ-MTG-018",
           "REQ-PPL-024"
         ]
       },
@@ -1759,12 +1759,10 @@
         "SCHEMA-009",
         "TARGET-MTG-010",
         "TARGET-MTG-012",
-        "TARGET-MTG-013",
         "TARGET-MTG-014",
         "TARGET-MTG-015",
         "TARGET-MTG-016",
         "TARGET-MTG-017",
-        "TARGET-MTG-018",
         "TARGET-MTG-020",
         "TARGET-TSK-017"
       ],

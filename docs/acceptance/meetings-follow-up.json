@@ -6900,7 +6900,7 @@
         "AC-MTG-013--MTG-013"
       ],
       "work_packages": [
-        "WP-022"
+        "WP-020"
       ],
       "status": "future-not-run",
       "description": "No-cardvsnot_interested, absent guest card versus attended denominator, correction/clear, malformed value and public/org request for prayer notes.",
@@ -7515,7 +7515,7 @@
         "AC-MTG-018--MTG-018"
       ],
       "work_packages": [
-        "WP-022"
+        "WP-020"
       ],
       "status": "future-not-run",
       "description": "DST civil offset, creator also guest, add/remove/reschedule before queued dispatch, completed meeting, provider unknown and email open.",

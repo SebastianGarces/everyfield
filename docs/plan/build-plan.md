@@ -56,12 +56,12 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-014 | Assessments interviews commitments | 8 | 10 | 13 | 5 | 2 |
 | WP-015 | Corrections duplicate resolution and merge | 9 | 10 | 36 | 1 | 2 |
 | WP-032 | Canonical reference/template manifest | 7 | 12 | 15 | 2 | 1.5 |
-| WP-020 | Meetings, venues, list and detail, invitations and RSVP | 29 | 37 | 33 | 4 | 3 |
+| WP-020 | Meetings, venues, list and detail, invitations and RSVP | 29 | 48 | 35 | 4 | 3 |
 | WP-017 | Teams, roster, roles, leader appointments and org chart | 11 | 41 | 26 | 4 | 2.5 |
 | WP-018 | Responsibilities canonical offer | 3 | 7 | 3 | 2 | 1.5 |
 | WP-019 | Training programs completion revoke/correct | 14 | 10 | 27 | 1 | 2 |
 | WP-024 | Task core | 11 | 22 | 14 | 5 | 2 |
-| WP-022 | Attendance, finalization, evaluation and analytics | 13 | 30 | 17 | 4 | 2 |
+| WP-022 | Attendance, finalization, evaluation and analytics | 13 | 19 | 15 | 4 | 2 |
 | WP-023 | Follow-up obligation/outcome C2b | 12 | 10 | 17 | 2 | 2 |
 | WP-025 | Task structure | 6 | 12 | 7 | 0 | 1.5 |
 | WP-038 | Phase initial declaration and transitions | 32 | 7 | 23 | 2 | 2.5 |
@@ -87,7 +87,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-048 | Dashboard/navigation/settings integration | 3 | 6 | 5 | 2 | 1.5 |
 | WP-049 | Feedback and later public marketing | 19 | 10 | 12 | 0 | 2 |
 | WP-050 | Environment bootstrap/ops/observability | 37 | 35 | 69 | 9 | 3.5 |
-| WP-051 | Evry conversations, reads and runs | 21 | 18 | 57 | 0 | 2.5 |
+| WP-051 | Evry conversations, reads and runs | 21 | 17 | 57 | 0 | 2.5 |
 | WP-053 | Evry approval and execution | 27 | 9 | 37 | 1 | 2.5 |
 | WP-054 | Evry files, history and conversation extras | 7 | 8 | 14 | 2 | 1.5 |
 | WP-059 | Evry people adapters | 3 | 26 | 8 | 0 | 2 |
@@ -116,7 +116,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-083 | Evry platform reads/helper adapters | 0 | 38 | 0 | 0 | 2 |
 | WP-084 | Evry platform draft/propose/execute adapters | 1 | 53 | 1 | 0 | 2 |
 | WP-085 | Evry named helpers and candidate preparation | 1 | 2 | 9 | 0 | 1.5 |
-| WP-055 | Evry autonomy policy/evals/human ownership | 28 | 4 | 31 | 0 | 2 |
+| WP-055 | Evry autonomy policy/evals/human ownership | 28 | 5 | 31 | 0 | 2 |
 | WP-091 | Identity, people, meetings, tasks, teams, Evry and operations integration | 10 | 0 | 82 | 0 | 2.5 |
 | WP-092 | Knowledge, communication and reference integration | 9 | 0 | 12 | 0 | 1.5 |
 | WP-093 | Phases, intelligence and Launch integration | 6 | 0 | 34 | 0 | 2 |
