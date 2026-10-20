@@ -5,6 +5,8 @@
 //   INV-request-key: a retry after a lost answer reuses the key (the server replays); a refusal or a changed payload
 //     gets a new key.
 //   INV-revision: an older revision never replaces a newer saved person.
+//   INV-activity-entry: a saved change shows in Activity from its answer: a new entry joins the end of a fully loaded
+//     list, a known entry is replaced in place, and while later pages are unloaded the loaded pages stay as they are.
 //   AC:TARGET-PPL-001 INV-url (D67): filters, search, view and page number live in the address; a change goes back to
 //     page one and keeps the sibling filters; values outside the closed lists are ignored.
 import assert from "node:assert/strict";
@@ -20,6 +22,7 @@ import {
 	pageCount,
 	rangeText,
 	columnCards,
+	withEntry,
 } from "../../../apps/web/src/features/people/model.ts";
 
 const person = (revision, extra = {}) => ({ id: "p1", revision, displayName: "Maria Santos", ...extra });
@@ -219,4 +222,15 @@ test("AC:TARGET-PPL-007 INV-move-revisions (D68): after reorder, away and back, 
 		columnCards("following_up", following, moved, answer, ["B"]).map((c) => c.person.id),
 		["B", "A"],
 	);
+});
+
+test("INV-activity-entry: a saved change joins the end, replaces its own entry, and waits for unloaded pages", () => {
+	const note = { id: "n1", kind: "note", body: "First" };
+	const loaded = (next, items = [note]) => ({ status: "ok", value: { items, next } });
+	const added = { id: "a1", kind: "activity", action: "updated" };
+	assert.deepEqual(withEntry(loaded(null), added).value.items, [note, added]);
+	assert.deepEqual(withEntry(loaded(null), { ...note, body: "Edited" }).value.items, [{ ...note, body: "Edited" }]);
+	assert.deepEqual(withEntry(loaded(2), added), loaded(2));
+	assert.deepEqual(withEntry(loaded(2), { ...note, body: "Edited" }).value.items, [{ ...note, body: "Edited" }]);
+	assert.deepEqual(withEntry({ status: "lost" }, added), { status: "lost" });
 });

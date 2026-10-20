@@ -21,8 +21,8 @@ const NAMES = new Set([
 ]);
 
 const SRC = here("../src");
-// Public site sources. The sign-in screens (WP-005) and the product design preview are not the public site.
-const SKIP = ["app/(identity)/", "app/design/", "features/"];
+// Public site sources only: the product pages under app/(product) are not the public site.
+const SKIP = ["app/(product)/", "features/"];
 const walk = (dir) =>
 	readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
 		e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)],

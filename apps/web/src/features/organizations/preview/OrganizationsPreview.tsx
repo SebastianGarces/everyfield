@@ -145,8 +145,9 @@ function Flow({
 						nameOf={nameOf}
 						zone={ZONE}
 						run={backend.run}
+						end={backend.end}
 						invite={{ targets: PLANT_TARGETS, readDisclosure: backend.readDisclosure, expectedRevision: "7" }}
-						readSharing={backend.readSharing}
+						readSharing={backend.sharing}
 					/>
 				</>
 			);
@@ -165,6 +166,7 @@ function Flow({
 						nameOf={nameOf}
 						zone={ZONE}
 						run={backend.run}
+						end={backend.end}
 					/>
 					<PipelineAccessNote access={scenario === "connected" ? AGGREGATE.allowed : AGGREGATE.withheld} />
 				</>

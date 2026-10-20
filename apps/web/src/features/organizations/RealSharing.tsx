@@ -7,7 +7,7 @@ import type { z } from "zod";
 import { Connections, type ConnectionsData } from "./Connections";
 import type { InviteTarget } from "./InviteDialog";
 import { PipelineAccessNote, PipelineTotals } from "./Pipeline";
-import { createNames, readResidency, readSharing, realRun } from "./real";
+import { createNames, readResidency, readSharing, realRun, saveSharingChoice } from "./real";
 import { ResidencySharing } from "./Residency";
 
 export type SharingPageData = {
@@ -36,7 +36,12 @@ const INTRO: Record<SharingPageData["kind"], string> = {
 
 /** /settings/sharing on the real WP-007 API: connections, pipeline totals and the viewer's own residency consent. */
 export function RealSharing({ data }: { data: SharingPageData }) {
-	const names = useMemo(() => createNames(data.names), [data.names]);
+	// Invite targets' names are known too, so a request sent from this page names its organization at once.
+	const names = useMemo(
+		() =>
+			createNames({ ...data.names, ...Object.fromEntries(data.targets.map((t) => [t.pair.organization.id, t.name])) }),
+		[data.names, data.targets],
+	);
 	const subject = data.kind === "plant" || data.kind === "discovery";
 	return (
 		<div className="mx-auto flex max-w-[880px] flex-col gap-6">
@@ -51,7 +56,8 @@ export function RealSharing({ data }: { data: SharingPageData }) {
 					nameOf={names.nameOf}
 					zone={data.zone}
 					run={realRun}
-					readSharing={data.kind === "plant" ? readSharing : undefined}
+					end={names.end}
+					readSharing={data.kind === "plant" ? { read: readSharing, save: saveSharingChoice } : undefined}
 					invite={
 						data.kind !== "sending_network"
 							? { targets: data.targets, readDisclosure: names.readDisclosure, expectedRevision: data.revision }

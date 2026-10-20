@@ -16,10 +16,10 @@ import {
 	Skeleton,
 	Textarea,
 } from "@everyfield/ui/controls";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { z } from "zod";
-import { classifyAdult, restorePerson, retirePerson, updatePerson } from "./actions.ts";
+import { classifyAdult, restorePerson, retirePerson, updatePerson, type Receipt } from "./actions.ts";
+import type { EntryFields } from "./ActivityCard.tsx";
 import {
 	changedFields,
 	CLASSIFICATION_LABEL,
@@ -29,11 +29,13 @@ import {
 	SOURCES,
 	type PersonStore,
 } from "./model.ts";
-import { FormProblem, fresh, problemOf, problemText, useStore, useWarnings } from "./parts.tsx";
+import { FormProblem, fresh, isConflict, problemOf, problemText, useStore, useWarnings } from "./parts.tsx";
 import type { PersonDraft } from "./StageDialog.tsx";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
 type Store = PersonStore<PlantPerson, PersonDraft>;
+/** What every person dialog reports: a saved change with its Activity entry, or a refusal because the page is old. */
+type Reported = { onSaved: (receipt: Receipt, entry: EntryFields) => void; onConflict: () => void };
 
 // ---------------------------------------------------------------------------------------------------------------
 // Edit profile (REQ-PPL-002). The draft keeps the person as it was when editing began; Save sends only the fields
@@ -90,12 +92,13 @@ export function EditProfileDialog({
 	open,
 	onOpenChange,
 	store,
+	onSaved,
+	onConflict,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	store: Store;
-}) {
-	const router = useRouter();
+} & Reported) {
 	const state = useStore(store);
 	const person = state.saved;
 	const pending = state.pending === "profile";
@@ -129,14 +132,13 @@ export function EditProfileDialog({
 		const rev = person.revision;
 		const result = await runSave(store, "profile", { patch, rev }, (key) => updatePerson(key, rev, person.id, patch), {
 			fresh,
-			toPerson: (p) => p,
+			toPerson: (v) => v.person,
 		});
 		if (result?.status === "ok") {
 			setTouched(false);
 			onOpenChange(false);
-			// The saved change adds a history entry; refresh so Activity shows it now.
-			router.refresh();
-		}
+			onSaved(result.value.receipt, { kind: "activity", action: "updated" });
+		} else if (isConflict(result)) onConflict();
 	}
 
 	const text = (k: keyof typeof LABEL, props: Partial<React.ComponentProps<typeof Input>> = {}) => (
@@ -262,12 +264,13 @@ export function ClassificationDialog({
 	open,
 	onOpenChange,
 	store,
+	onSaved,
+	onConflict,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	store: Store;
-}) {
-	const router = useRouter();
+} & Reported) {
 	const state = useStore(store);
 	const person = state.saved;
 	const correction = person.adultClassification !== "unknown";
@@ -310,13 +313,13 @@ export function ClassificationDialog({
 			"classify",
 			{ input, rev, correction },
 			(key) => classifyAdult(key, rev, correction, input),
-			{ fresh, toPerson: (p) => p },
+			{ fresh, toPerson: (v) => v.person },
 		);
 		if (result?.status === "ok") {
 			close(false);
-			// The saved classification adds a history entry; refresh so Activity shows it now.
-			router.refresh();
-		}
+			const action = correction ? "classification_corrected" : "classification_recorded";
+			onSaved(result.value.receipt, { kind: "activity", action });
+		} else if (isConflict(result)) onConflict();
 	}
 
 	return (
@@ -394,17 +397,20 @@ export function RetireDialog({
 	open,
 	onOpenChange,
 	store,
+	onSaved,
+	onConflict,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	store: Store;
-}) {
-	const router = useRouter();
+} & Reported) {
 	const state = useStore(store);
 	const person = state.saved;
 	const pending = state.pending === "retire";
 	const reason = (state.drafts.retire as { body: string } | undefined)?.body ?? "";
-	const warnings = useWarnings(person.id, person.revision);
+	// Read when the dialog opens and again after a conflict, never because this dialog's own save moved the revision.
+	const [round, setRound] = useState(0);
+	const warnings = useWarnings(person.id, round);
 	const [touched, setTouched] = useState(false);
 	const close = (next: boolean) => {
 		if (pending) return;
@@ -432,12 +438,15 @@ export function RetireDialog({
 		const rev = person.revision;
 		const result = await runSave(store, "retire", { input, rev }, (key) => retirePerson(key, rev, input), {
 			fresh,
-			toPerson: (p) => p,
+			toPerson: (v) => v.person,
 		});
 		if (result?.status === "ok") {
 			close(false);
-			router.refresh();
-		} else if (result?.status === "refused" && result.code === "conflict") router.refresh();
+			onSaved(result.value.receipt, { kind: "activity", action: "retired" });
+		} else if (isConflict(result)) {
+			setRound((r) => r + 1);
+			onConflict();
+		}
 	}
 
 	const duties = ready?.openDuties.length ?? 0;
@@ -502,12 +511,13 @@ export function RestoreDialog({
 	open,
 	onOpenChange,
 	store,
+	onSaved,
+	onConflict,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	store: Store;
-}) {
-	const router = useRouter();
+} & Reported) {
 	const person = useStore(store).saved;
 	return (
 		<ConfirmDialog
@@ -524,12 +534,13 @@ export function RestoreDialog({
 				const rev = person.revision;
 				const result = await runSave(store, "restore", { rev }, (key) => restorePerson(key, rev, person.id), {
 					fresh,
-					toPerson: (p) => p,
+					toPerson: (v) => v.person,
 				});
 				// ConfirmDialog shows a thrown message in the dialog and keeps it open for another try.
 				if (result === null) throw new Error("Another change to this person is still saving. Try again in a moment.");
+				if (isConflict(result)) onConflict();
 				if (result.status !== "ok") throw new Error(problemText(problemOf(result) ?? "unavailable"));
-				router.refresh();
+				onSaved(result.value.receipt, { kind: "activity", action: "restored" });
 			}}
 		/>
 	);

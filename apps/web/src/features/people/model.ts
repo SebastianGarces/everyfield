@@ -370,6 +370,23 @@ export async function runSave<P extends Saved, D, T>(
 	return result;
 }
 
+/**
+ * Activity after a saved change, without reading it again: an entry with a new ID joins the end of the list (Activity
+ * is oldest first), and an entry with a known ID (an edited or deleted note) replaces it in place. While later pages
+ * are still unloaded the new entry belongs to them, so the loaded pages stay as they are.
+ */
+export function withEntry<E extends { id: string }, A extends { items: E[]; next: number | null }>(
+	activities: Outcome<A>,
+	entry: E,
+): Outcome<A> {
+	if (activities.status !== "ok") return activities;
+	const list = activities.value;
+	if (list.items.some((e) => e.id === entry.id))
+		return { status: "ok", value: { ...list, items: list.items.map((e) => (e.id === entry.id ? entry : e)) } };
+	if (list.next !== null) return activities;
+	return { status: "ok", value: { ...list, items: [...list.items, entry] } };
+}
+
 /** A column order with one person moved one place up or down. The same order when that move leaves the column. */
 export function moveInOrder(ids: readonly string[], id: string, direction: "up" | "down"): string[] {
 	const from = ids.indexOf(id),

@@ -488,4 +488,64 @@ for (const [name, engine] of ENGINES) {
 				{ width },
 			);
 	});
+
+	test(`AC:TARGET-PPL-008 UI-round-no-reload (${name}): each person change is one POST, no page request, and Activity shows it`, async () => {
+		await withPage(engine, "owner", async (page) => {
+			await addPerson(page, unique(name));
+			await page.waitForLoadState("networkidle");
+			const sent = [];
+			page.on("request", (r) => {
+				if (!["document", "fetch", "xhr"].includes(r.resourceType())) return;
+				sent.push(r.headers()["next-action"] ? `${r.method()} action` : `${r.method()} ${new URL(r.url()).pathname}`);
+			});
+			const activity = page.getByRole("list", { name: "Activity, oldest first" });
+			/** Runs one change and checks it sent exactly one server action and that Activity shows `entry`. */
+			const one = async (what, change, entry) => {
+				sent.length = 0;
+				await change();
+				await activity.getByText(entry, { exact: true }).waitFor({ timeout: 30_000 });
+				await page.waitForTimeout(1000);
+				assert.deepEqual(sent, ["POST action"], `${what}: one request, no page reload`);
+			};
+
+			const note = `Met at the park ${Date.now().toString(36)}`;
+			await one(
+				"a note",
+				async () => {
+					await page.getByLabel(/^Add a note about/).fill(note);
+					await page.getByRole("button", { name: "Save note" }).click();
+				},
+				note,
+			);
+
+			await page.getByRole("button", { name: "Edit profile" }).first().click();
+			const profile = page.getByRole("dialog", { name: "Edit profile" });
+			await profile.getByLabel("Phone").fill("512-555-0101");
+			await one(
+				"a profile edit",
+				() => profile.getByRole("button", { name: "Save changes" }).click(),
+				"Details changed",
+			);
+
+			// The stage dialog reads its warnings when it opens; the move itself is one request once they are shown.
+			await page.getByRole("button", { name: "Change stage" }).click();
+			const stage = page.getByRole("dialog");
+			await stage.getByLabel("New stage").click();
+			await page.getByRole("option", { name: "Attendee" }).click();
+			await stage.getByLabel("Reason").fill("Came to the Sunday gathering");
+			const move = stage.getByRole("button", { name: "Move to attendee" });
+			await page.waitForFunction((b) => b && !b.disabled, await move.elementHandle(), { timeout: 30_000 });
+			await one("a stage change", () => move.click(), "Stage changed from prospect to attendee");
+			assert.equal(await page.getByText(note, { exact: true }).count(), 1, "earlier entries stay");
+
+			// Retire reads open duties when it opens; its own save must not read them again (found by the request log).
+			await page.getByRole("button", { name: "More actions" }).click();
+			await page.getByRole("menuitem", { name: "Retire person" }).click();
+			const retire = page.getByRole("dialog");
+			await retire.getByLabel("Reason").fill("Moved away");
+			const confirm = retire.getByRole("button", { name: "Retire person" });
+			await page.waitForFunction((b) => b && !b.disabled, await confirm.elementHandle(), { timeout: 30_000 });
+			await one("a retire", () => confirm.click(), "Retired");
+		});
+	});
 }

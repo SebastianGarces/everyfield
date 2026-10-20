@@ -1,6 +1,4 @@
-import { parseTheme, ProductRoot, THEME_COOKIE } from "@everyfield/ui/foundations";
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Card } from "@everyfield/ui/controls";
 import { NotAvailable } from "../access/AccessStates";
@@ -22,15 +20,10 @@ import { RealRespond } from "./RealRespond";
 import { RealSharing, type SharingPageData } from "./RealSharing";
 
 // The real organization routes. apps/web/src/app/{settings/sharing,connections/respond} only re-export these.
-// /settings/sharing sits inside the settings layout's product frame (WP-010); the respond page is a bare product page.
+// /settings/sharing sits inside the product frame (WP-010); the respond page is a bare product page.
 
 export const sharingMetadata: Metadata = { title: "Sharing and privacy", robots: { index: false, follow: false } };
 export const respondMetadata: Metadata = { title: "Connection request", robots: { index: false, follow: false } };
-
-async function Frame({ children }: { children: React.ReactNode }) {
-	const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
-	return <ProductRoot initialTheme={theme}>{children}</ProductRoot>;
-}
 
 export async function SharingPage() {
 	const who = await viewerOf();
@@ -56,18 +49,15 @@ export async function SharingPage() {
 					readPlantSharing(m.db, who.authority),
 				]);
 	const active = history && history.status === "available" ? history.activeRelationships : [];
-	const activeOrgs = new Set(
-		active
-			.filter((r) => viewer.kind !== "sending_church" || r.pair.kind === "sending_church")
-			.map((r) => r.pair.organization.id),
-	);
 	const networks =
 		viewer.kind === "sending_church"
 			? active.filter((r) => r.pair.kind === "sending_church" && r.pair.subject.id === viewer.selected.id)
 			: [];
 	const [facts, targets, residencies, names, aggregate] = await Promise.all([
 		subjectFacts(m.db, viewer),
-		viewer.canManage ? targetsFor(m.db, viewer, activeOrgs) : Promise.resolve([]),
+		// Every organization this viewer may ask; the list hides the ones it is connected with now, from its own history,
+		// so an organization appears again right after a Leave without another read.
+		viewer.canManage ? targetsFor(m.db, viewer, new Set()) : Promise.resolve([]),
 		residencyLinks(m.db, viewer),
 		namesFor(m.db, viewer, [
 			...(history?.status === "available" ? idsIn(history) : []),
@@ -102,9 +92,5 @@ export async function SharingPage() {
 type Search = Promise<Record<string, string | string[] | undefined>>;
 export async function RespondPage({ searchParams }: { searchParams: Search }) {
 	const raw = (await searchParams).invitation;
-	return (
-		<Frame>
-			<RealRespond invitationId={typeof raw === "string" ? raw : null} />
-		</Frame>
-	);
+	return <RealRespond invitationId={typeof raw === "string" ? raw : null} />;
 }

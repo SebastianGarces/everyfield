@@ -85,7 +85,8 @@ export function useIntent<C>(intent: string) {
 /**
  * Loads one read. A reply belongs to one fetch and attempt, so a slow earlier reply never replaces a later one and a
  * retry never shows an old failure. `reload` starts a new attempt; while it runs, the last data stays on screen so a
- * save never blanks the list. Only the first load shows the skeleton, and an error offers Try again.
+ * save never blanks the list. Only the first load shows the skeleton, and an error offers Try again. `update` applies
+ * a confirmed command's answer to the data on screen, so a change needs no second read.
  */
 export function useLoad<T>(fetch: () => Promise<T>, errorTitle: string, initial?: T) {
 	const [attempt, setAttempt] = useState(0);
@@ -111,6 +112,10 @@ export function useLoad<T>(fetch: () => Promise<T>, errorTitle: string, initial?
 		};
 	}, [fetch, attempt, initial]);
 	const reload = useCallback(() => setAttempt((n) => n + 1), []);
+	const update = useCallback((change: (data: T) => T) => {
+		setReply((r) => (r && r.data !== undefined ? { ...r, data: change(r.data) } : r));
+		setShown((s) => (s ? { ...s, data: change(s.data) } : s));
+	}, []);
 	const current = reply && reply.attempt === attempt && reply.fetch === fetch ? reply : null;
 	const last = shown && shown.fetch === fetch ? shown : null;
 	const state: Loadable<T> = current?.failed
@@ -122,5 +127,5 @@ export function useLoad<T>(fetch: () => Promise<T>, errorTitle: string, initial?
 				: { status: "loading" };
 	/** True while a reload runs over data already on screen: commands built from that data would be stale. */
 	const refreshing = !current && last !== null;
-	return { state, reload, refreshing };
+	return { state, reload, update, refreshing };
 }

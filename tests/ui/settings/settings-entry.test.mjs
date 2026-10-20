@@ -8,11 +8,13 @@
 //   AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:WP010-IDN-012 (finding 6, Settings in production): an Owner, a Member and
 //     an organization Owner each change what their seat may change through the real settings server, without a
 //     page request, and a fresh load of the section link shows the saved value.
+//   UI-round-own-seat: an Admin who makes their own seat Member sends one request; the page drops what only Owners and
+//     Admins manage and the top bar says Member, without reading the page again (verifier finding on d94d92f).
 // It runs against a running app seeded with the People fixture (tests/ui/people/seed.mts) through the shared setup
 // (tests/ui/setup.mjs).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { BASE, ENGINES, fixture, signIn, withPage as onPreview } from "../setup.mjs";
+import { BASE, ENGINES, fixture, hydrated, signIn, withPage as onPreview } from "../setup.mjs";
 
 const ITEMS = ["Your account", "Seats and invitations", "Sharing and privacy", "Sign out"];
 
@@ -40,6 +42,8 @@ for (const [name, engine] of ENGINES) {
 		await withPage(engine, "owner", async (page) => {
 			await page.goto(`${BASE}/people`, { waitUntil: "networkidle" });
 			await page.getByRole("heading", { level: 1, name: "People" }).waitFor({ timeout: 60_000 });
+			// The menu opens from the keyboard only once the page has hydrated (flaky serial run on #149).
+			await hydrated(page);
 
 			// Keyboard: Enter opens the menu on its first item, Esc closes it and returns focus to the name button.
 			await trigger(page).focus();
@@ -169,4 +173,48 @@ for (const [name, engine] of ENGINES) {
 			});
 		});
 	}
+}
+
+for (const [name, engine] of ENGINES) {
+	test(`UI-round-own-seat (${name}): demoting your own Admin seat is one request and the frame follows`, async () => {
+		const roleOf = (page, who) => page.getByRole("combobox", { name: `Role for ${who}` });
+		const choose = async (page, select, role) => {
+			await select.click();
+			await page.getByRole("option", { name: role }).click();
+		};
+		// The Owner makes the Member an Admin for this test; the Admin's own demotion ends it as Member again.
+		let member = "";
+		await withPage(engine, "member", async (page) => {
+			await page.goto(`${BASE}/settings/seats`, { waitUntil: "networkidle" });
+			const own = page.locator("li p", { hasText: "(you)" }).first();
+			await own.waitFor();
+			member = (await own.evaluate((p) => p.firstChild.textContent)).trim();
+		});
+		await withPage(engine, "owner", async (page) => {
+			await page.goto(`${BASE}/settings/seats`, { waitUntil: "networkidle" });
+			await hydrated(page);
+			await choose(page, roleOf(page, member), "Admin");
+			await page.getByText(`${member} is now an Admin.`).waitFor({ timeout: 30_000 });
+		});
+		await withPage(engine, "member", async (page) => {
+			await page.goto(`${BASE}/settings/seats`, { waitUntil: "networkidle" });
+			await hydrated(page);
+			await page.getByRole("button", { name: "Send invitation" }).waitFor();
+			assert.match(await trigger(page).textContent(), /Admin/);
+			const sent = [];
+			page.on("request", (r) => {
+				if (!["document", "fetch", "xhr"].includes(r.resourceType())) return;
+				sent.push(r.headers()["next-action"] ? `${r.method()} action` : `${r.method()} ${new URL(r.url()).pathname}`);
+			});
+			await choose(page, roleOf(page, member), "Member");
+			await page.getByText(`${member} is now a Member.`).waitFor({ timeout: 30_000 });
+			await page.waitForLoadState("networkidle");
+			await page.waitForTimeout(1000);
+			assert.deepEqual(sent, ["POST action"], "one request, no reload");
+			assert.equal(await page.getByRole("button", { name: "Send invitation" }).count(), 0, "no invitation form");
+			assert.equal(await page.getByRole("combobox", { name: /^Role for / }).count(), 0, "no seat actions");
+			assert.match(await trigger(page).textContent(), /Member/);
+			assert.doesNotMatch(await trigger(page).textContent(), /Admin/);
+		});
+	});
 }
