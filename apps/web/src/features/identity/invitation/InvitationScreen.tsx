@@ -708,6 +708,8 @@ function ResidentOutcome({ done, organizationName }: { done: ResidentDone; organ
 			title={`You joined the residency at ${organizationName}`}
 			actions={
 				<Button asChild variant="primary" className="w-full">
+					{/* A full load, so the page reads the residency this answer just created. */}
+					{/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
 					<a href="/settings/sharing">Review your sharing</a>
 				</Button>
 			}

@@ -17,7 +17,7 @@ import { useState } from "react";
 import type { DeletionStatus, SectionResult } from "../port";
 import { useWrite } from "../save";
 import { SaveError } from "../SettingsDialog";
-import { useSettings } from "../store";
+import { useFlows } from "../store";
 
 type PlantSection = Extract<SectionResult, { section: "plant" }>;
 type AccountSection = Extract<SectionResult, { section: "account" }>;
@@ -42,7 +42,7 @@ export function WorkspaceDeletionDialog({
 	section: PlantSection;
 	onRequested: (status: DeletionStatus) => void;
 }) {
-	const { port } = useSettings();
+	const port = useFlows();
 	const [open, setOpen] = useState(false);
 	const [typed, setTyped] = useState("");
 	const write = useWrite("workspace-deletion");
@@ -120,7 +120,7 @@ export function AccountDeletionDialog({
 	section: AccountSection;
 	onRequested: (status: DeletionStatus) => void;
 }) {
-	const { port } = useSettings();
+	const port = useFlows();
 	const [open, setOpen] = useState(false);
 	const write = useWrite("account-deletion");
 	return (

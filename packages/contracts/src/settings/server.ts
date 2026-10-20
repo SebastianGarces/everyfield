@@ -28,6 +28,7 @@ type Operation<Tx, Context, Input extends z.ZodType, Output extends z.ZodType> =
 export interface SettingsProducer<Tx> {
 	getSection: Operation<Tx, SettingsContext, typeof request.getSectionRequest, typeof result.sectionResult>;
 	saveSection: Operation<Tx, SettingsWriteContext, typeof request.saveSectionRequest, typeof result.savedSectionResult>;
+	saveChurch: Operation<Tx, SettingsWriteContext, typeof request.saveChurchRequest, typeof result.savedSectionResult>;
 	updatePlantProfile: Operation<
 		Tx,
 		SettingsWriteContext,

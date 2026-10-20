@@ -131,6 +131,31 @@ try {
 		),
 	);
 	assert.equal(profile.status, "ok");
+	if (profile.status !== "ok") throw Error("profile_refused");
+	// One church submission with two changes is one write: one audit row naming both, under one request key.
+	const churchKey = randomUUID();
+	const church = await measure("settings.saveChurch", () =>
+		withSettingsWrite(f.db, actor, plantContext, (tx) =>
+			sections.saveChurch(tx, plantContext, {
+				requestKey: churchKey,
+				expectedRevision: profile.value.current.revision,
+				input: {
+					plant: s.w,
+					changes: [
+						{ kind: "profile", patch: { city: "Native city" } },
+						{ kind: "inactivity", value: { warningDays: 10, alertDays: 40 } },
+					],
+				},
+			}),
+		),
+	);
+	assert.equal(church.status, "ok");
+	if (church.status !== "ok") throw Error("church_refused");
+	const churchAudit = await f.db.execute(
+		sql`SELECT metadata FROM audit_event WHERE command_id = (SELECT id FROM audit_event WHERE request_key = ${churchKey})`,
+	);
+	assert.equal(churchAudit.rows.length, 1);
+	assert.deepEqual(Object.keys(churchAudit.rows[0].metadata.diff).sort(), ["alertDays", "city", "warningDays"]);
 	const deletion = deletionOperations({
 		async enqueue(tx, i) {
 			await enqueueJob(tx, {
@@ -147,7 +172,7 @@ try {
 		withSettingsWrite(f.db, actor, plantContext, (tx) =>
 			deletion.requestWorkspaceDeletion(tx, plantContext, {
 				requestKey: randomUUID(),
-				expectedRevision: "2",
+				expectedRevision: church.value.current.revision,
 				input: { plant: s.w, confirmed: true },
 			}),
 		),
