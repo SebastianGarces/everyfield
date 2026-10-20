@@ -114,6 +114,24 @@ export function withRole(
 	}));
 }
 
+/**
+ * The page after the viewer demoted their own Admin seat to Member: a Member reads the roster but manages nothing, so
+ * the invitation form, the pending invitations and every seat action go away (REQ-IDN-017).
+ */
+export function withOwnDemotion(d: SeatsData, seatId: string, revision: Seat["revision"]): SeatsData {
+	return {
+		...d,
+		canManage: false,
+		invitations: null,
+		roster: {
+			...d.roster,
+			items: d.roster.items.map((s) =>
+				s.seatId === seatId ? { ...s, role: "member", revision, allowedActions: [] } : { ...s, allowedActions: [] },
+			),
+		},
+	};
+}
+
 /** A seat after a confirmed removal: it moves to Removed seats and allows nothing. */
 export function withRemoved(d: SeatsData, seatId: string, revision: Seat["revision"]): SeatsData {
 	return mapSeat(d, seatId, (s) => ({ ...s, status: "removed", revision, allowedActions: [] }));

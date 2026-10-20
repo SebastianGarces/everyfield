@@ -3,7 +3,6 @@ import { LockKeyIcon, UserSearch01Icon } from "@hugeicons/core-free-icons";
 import { personRequest } from "@everyfield/contracts/people";
 import { buttonVariants, Card, EmptyState, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import { TableSkeleton } from "@everyfield/ui/display";
-import { RoleBanner } from "@everyfield/ui/shell";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -31,20 +30,8 @@ const params = (raw: Record<string, string | string[] | undefined>) => {
  */
 export async function ProductFrameLayout({ children }: { children: ReactNode }) {
 	const v = await getViewer();
-	const settings = settingsViewerOf(v);
 	return (
-		<PeopleFrame
-			name={v?.displayName ?? "You"}
-			role={settings && settings.context !== "account" ? settings.role : null}
-			settings={settings}
-			banner={
-				v?.people?.role === "member" ? (
-					<RoleBanner>
-						You have a Member seat. You can see people and their history; Owners and Admins change them.
-					</RoleBanner>
-				) : null
-			}
-		>
+		<PeopleFrame name={v?.displayName ?? "You"} settings={settingsViewerOf(v)}>
 			{children}
 		</PeopleFrame>
 	);

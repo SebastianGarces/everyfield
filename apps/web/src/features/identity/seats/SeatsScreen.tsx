@@ -31,6 +31,7 @@ import { useCallback, useRef, useState, type FormEvent } from "react";
 import { NotAvailable } from "../../access/AccessStates";
 import { Refusal, useIntent } from "../../organizations/intent";
 import { ProblemLine } from "../../organizations/parts";
+import { useOwnSeatChange } from "../../people/PeopleFrame";
 import { FormMessage } from "../parts";
 import { readSeats, readSeatsPage, runSeatCommand, type SeatOperation } from "./actions";
 import { RemoveDialog } from "./RemoveDialog";
@@ -47,6 +48,7 @@ import {
 	type Seat,
 	type SeatsData,
 	withInvitation,
+	withOwnDemotion,
 	withoutInvitation,
 	withPage,
 	withRemoved,
@@ -82,6 +84,7 @@ export function SeatsScreen({ initial }: { initial: SeatsData }) {
 	const [reloadFailed, setReloadFailed] = useState(false);
 	const [status, setStatus] = useState<string | null>(null);
 	const attempt = useRef(0);
+	const frameSeat = useOwnSeatChange();
 
 	// A reload belongs to one attempt, so a slow earlier reply never replaces a later one.
 	const reload = useCallback(async () => {
@@ -102,6 +105,9 @@ export function SeatsScreen({ initial }: { initial: SeatsData }) {
 	if ("gone" in state)
 		return (
 			<Shell title="Seats and invitations" subtitle={null}>
+				<div role="status" className="empty:hidden">
+					{status ? <FormMessage tone="success">{status}</FormMessage> : null}
+				</div>
 				<Card>
 					<NotAvailable scope="section" headingLevel="h2" />
 				</Card>
@@ -114,10 +120,24 @@ export function SeatsScreen({ initial }: { initial: SeatsData }) {
 		setState((s) => ("gone" in s ? s : { ...s, data: change(s.data) }));
 		if (message !== undefined) setStatus(message);
 	};
-	/** The page was out of date, or the viewer's own seat changed: the lists load again. */
-	const stale = (message: string | null = null) => {
-		setStatus(message);
+	/** The page was out of date: the lists load again. */
+	const stale = () => {
+		setStatus(null);
 		void reload();
+	};
+	/**
+	 * A confirmed change to the viewer's own seat. Demoted to Member, the page keeps the roster and drops what only
+	 * Owners and Admins manage; removed, the page has nothing left to show. The frame shows the new role at once.
+	 */
+	const ownSeat: OwnSeat = (change, message) => {
+		setStatus(message);
+		if (change.removed) {
+			frameSeat(null);
+			setState((s) => ({ attempt: s.attempt, gone: true }));
+			return;
+		}
+		frameSeat("member");
+		setState((s) => ("gone" in s ? s : { ...s, data: withOwnDemotion(s.data, change.seatId, change.revision) }));
 	};
 	return (
 		<Shell
@@ -145,7 +165,7 @@ export function SeatsScreen({ initial }: { initial: SeatsData }) {
 			{data.canManage ? (
 				<InviteCard key={state.attempt} data={data} refreshing={refreshing} onApply={apply} onStale={stale} />
 			) : null}
-			<RosterCard data={data} refreshing={refreshing} onApply={apply} onStale={stale} />
+			<RosterCard data={data} refreshing={refreshing} onApply={apply} onStale={stale} onOwnSeat={ownSeat} />
 			{data.canManage && data.invitations ? (
 				<PendingCard
 					data={data}
@@ -170,7 +190,8 @@ function Shell({ title, subtitle, children }: { title: string; subtitle: string 
 }
 
 type Apply = (change: (d: SeatsData) => SeatsData, message?: string | null) => void;
-type Changes = { onApply: Apply; onStale: (message?: string | null) => void };
+type Changes = { onApply: Apply; onStale: () => void };
+type OwnSeat = (change: { seatId: string; revision: Seat["revision"]; removed: boolean }, message: string) => void;
 
 type InviteCommand = ReturnType<typeof inviteSeatRequest.parse>;
 const ROLE_OPTIONS = [
@@ -320,9 +341,11 @@ function RosterCard({
 	refreshing,
 	onApply,
 	onStale,
+	onOwnSeat,
 }: {
 	data: SeatsData;
 	refreshing: boolean;
+	onOwnSeat: OwnSeat;
 } & Changes) {
 	const roleIntent = useIntent<RoleCommand>("seat-role");
 	const [more, setMore] = useState<"idle" | "loading" | "failed">("idle");
@@ -357,8 +380,9 @@ function RosterCard({
 			() => true,
 		);
 		const said = `${seat.displayName} is now ${to === "admin" ? "an Admin" : "a Member"}.`;
-		// Your own role decides what this page offers you, so a change to it loads the page again.
-		if (result.ok && seat.isSelf) onStale(said);
+		// Your own role decides what this page offers you: the page and the frame follow the answer.
+		if (result.ok && seat.isSelf)
+			onOwnSeat({ seatId: seat.seatId, revision: result.reply.revision, removed: false }, said);
 		else if (result.ok) onApply((d) => withRole(d, seat.seatId, to, result.reply.revision), said);
 		// A refusal means this screen was out of date; load the current roles and revisions at once.
 		else if (result.problem === "refused") onStale();
@@ -439,7 +463,9 @@ function RosterCard({
 										seat={seat}
 										workspaceName={data.workspaceName}
 										onRemoved={(said, revision) =>
-											seat.isSelf ? onStale(said) : onApply((d) => withRemoved(d, seat.seatId, revision), said)
+											seat.isSelf
+												? onOwnSeat({ seatId: seat.seatId, revision, removed: true }, said)
+												: onApply((d) => withRemoved(d, seat.seatId, revision), said)
 										}
 										onClosedUnconfirmed={() => onStale()}
 										trigger={
