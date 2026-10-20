@@ -422,8 +422,8 @@ test("AC:C0-REPLAY-001 AC:AUDIT-001 AC:AUDIT-002 INV-transaction: audit failure 
 		"Synthetic",
 	);
 	assert.equal(
-		(await admin.execute(querySql`SELECT count(*)::int n FROM audit_event WHERE request_key='rollback-receipt'`)).rows[0]
-			.n,
+		(await admin.execute(querySql`SELECT count(*)::int n FROM audit_event WHERE request_key='rollback-receipt'`))
+			.rows[0].n,
 		0,
 	);
 	const sql =
