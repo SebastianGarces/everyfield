@@ -31,18 +31,13 @@
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Instrument+Sans:wght@400..700&display=swap" rel="stylesheet">
-<!-- HERO SWITCHER hook: preload only the picked hero photo. The final task puts back the two static preload links for the picked photo:
-<link rel="preload" as="image" href="assets/photos/wheat-2400.avif" type="image/avif" fetchpriority="high" media="(min-width: 901px)">
-<link rel="preload" as="image" href="assets/photos/wheat-1200.avif" type="image/avif" fetchpriority="high" media="(max-width: 900px)"> -->
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..700&family=DM+Serif+Display&family=DM+Serif+Text&display=swap" rel="stylesheet">
+<!-- Preload the hero photo of the page in the hash: home = wildflowers, /oversight = bluebells. The other pages have no photo hero. -->
 <script>
 (function () {
-  var ids = "wheat field storm hills harvest trees plain reeds lake bluebells poppies wildflowers blossom meadow glow".split(" "), blur = /^(bluebells|poppies|wildflowers|blossom|meadow|glow)$/;
-  var p = new URLSearchParams(location.hash.split("?")[1] || ""), saved = {};
-  try { saved = JSON.parse(localStorage.getItem("evf-hero") || "{}") || {}; } catch (e) {}
-  var id = p.get("hero") || saved.photo; if (ids.indexOf(id) < 0) id = "wheat";
-  if (!/^#\/?(\?|$)/.test(location.hash || "#/")) id = "wheat"; /* other pages: the /oversight hero keeps wheat */
-  [[blur.test(id) ? 1200 : 2400, "(min-width: 901px)"], [blur.test(id) ? 600 : 1200, "(max-width: 900px)"]].forEach(function (x) {
+  var m = /^#\/([a-z-]*)/.exec(location.hash || "#/"), page = m ? m[1] : "", id = page === "" ? "wildflowers" : page === "oversight" ? "bluebells" : "";
+  if (!id) return;
+  [[1200, "(min-width: 901px)"], [600, "(max-width: 900px)"]].forEach(function (x) {
     var l = document.createElement("link"); l.rel = "preload"; l.as = "image"; l.type = "image/avif"; l.setAttribute("fetchpriority", "high");
     l.href = "assets/photos/" + id + "-" + x[0] + ".avif"; l.media = x[1]; document.head.appendChild(l);
   });
@@ -54,7 +49,8 @@
    Rule: never set #1AF197 (green-500) as text on a light background. Use it as a fill with ink text. */
 :root {
   --mk-font-display: "DM Serif Display", Georgia, "Times New Roman", serif;
-  --mk-font-body: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --mk-font-text: "DM Serif Text", Georgia, "Times New Roman", serif; /* serif below 24px; DM Serif Display at 24px and above */
+  --mk-font-body: "DM Sans", ui-sans-serif, system-ui, sans-serif;
   --mk-ease: cubic-bezier(.2, .8, .2, 1);
 }
 .mk-signal {
@@ -134,11 +130,11 @@
   --ef-canvas: #E9ECF0; --ef-frame: #F2F4F7; --ef-surface: #FAFBFC; --ef-surface-2: #EDF0F4; --ef-surface-raised: #FFFFFF;
   --ef-line: rgba(22,30,46,.075); --ef-line-2: rgba(22,30,46,.13); --ef-on-ink: #FFFFFF; --ef-card-edge: rgba(255,255,255,.85);
   --ef-green-700: #026B40; --ef-green-600: #037D4C; --ef-green-500: #1AF197; --ef-green-300: #8AF0B6; --ef-green-100: #D6FBE3; --ef-green-50: #EEFEF4;
-  --ef-blue-600: #1C5BB5; --ef-blue-500: #6AAEFF; --ef-blue-300: #B5D7FF; --ef-blue-100: #E3EFFF;
+  --ef-blue-600: #265E90; --ef-blue-500: #6E9FCF; --ef-blue-300: #BBD4EE; --ef-blue-100: #E6F0FA; /* softened toward #6E9FCF (OKLCH hue 249); 600 is 6.8:1 on white */
   --ef-magenta-600: #B02A4A; --ef-magenta-500: #F2728A; --ef-magenta-100: #FFE5E9;
   --ef-amber-600: #9A4A0C; --ef-amber-display: #D9780F; --ef-amber-500: #FFA552; --ef-amber-100: #FFEBD6; --ef-amber-50: #FFF6EC;
-  --ef-violet-600: #6244CC; --ef-violet-500: #A48CF5; --ef-violet-100: #EEE8FF;
-  --ef-teal-600: #11736A; --ef-teal-500: #4CC9BB; --ef-teal-100: #DCF7F3;
+  --ef-violet-600: #825D57; --ef-violet-500: #C79A93; --ef-violet-100: #F9E4E1; /* category hue: the rose ramp (700, 500, 100) */
+  --ef-teal-600: #5F6D4D; --ef-teal-500: #9BAE86; --ef-teal-100: #E4EED9; /* category hue: the sage ramp (700, 500, 100) */
   --ef-shadow-card: 0 1px 0 rgba(255,255,255,.9) inset, 0 1px 2px rgba(24,29,25,.04), 0 6px 18px -10px rgba(24,29,25,.10);
   --ef-shadow-raised: 0 1px 2px rgba(24,29,25,.06), 0 4px 12px -4px rgba(24,29,25,.10);
   --ef-shadow-pill: 0 1px 1px rgba(24,29,25,.08), 0 6px 14px -6px rgba(24,29,25,.45);
@@ -159,7 +155,7 @@
 .ef .muted { color: var(--ef-text-2); }
 .ef .t-sm { font-size: 13px; }
 .ef .t-xs { font-size: 12px; }
-.ef .num, .ef .disp { font-family: var(--mk-font-display); font-weight: 400; letter-spacing: var(--mk-tracking-display); font-stretch: 100%; }
+.ef .num, .ef .disp { font-family: var(--mk-font-text); font-weight: 400; letter-spacing: var(--mk-tracking-display); font-stretch: 100%; }
 
 .app-frame { background: var(--ef-frame); border-radius: var(--corner-card); box-shadow: var(--mk-shadow-media); overflow: hidden; border: 1px solid var(--ef-line); }
 .af-top { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
@@ -178,7 +174,7 @@
 .ef .card { background: var(--ef-surface); border-radius: var(--corner-card); box-shadow: var(--ef-shadow-card); border: 1px solid var(--ef-card-edge); padding: 20px 22px; display: flex; flex-direction: column; min-width: 0; position: relative; }
 .ef .card-inset { background: var(--ef-surface-raised); border-radius: var(--corner-card); padding: 14px 16px; box-shadow: 0 1px 2px rgba(24,29,25,.04); }
 .ef .card-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
-.ef .card-title { font-family: var(--mk-font-display); font-size: 19px; font-weight: 400; letter-spacing: var(--mk-tracking-display); line-height: 1.2; }
+.ef .card-title { font-family: var(--mk-font-text); font-size: 19px; font-weight: 400; letter-spacing: var(--mk-tracking-display); line-height: 1.2; }
 .ef .card-description { color: var(--ef-text-3); margin-top: 3px; font-size: 13px; }
 .ef .card-icon { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; flex: none; background: var(--tint, var(--ef-surface-2)); color: var(--tone, var(--ef-ink-2)); }
 .tone-green { --tint: var(--ef-green-100); --tone: var(--ef-green-700); }
@@ -198,7 +194,7 @@
 .ef .kv { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 0; border-top: 1px solid var(--ef-line); }
 .ef .kv:first-child { border-top: 0; }
 .ef .kv .k { color: var(--ef-text-2); font-size: 13px; }
-.ef .kv .v { font-family: var(--mk-font-display); font-size: 18px; font-weight: 400; letter-spacing: var(--mk-tracking-display); }
+.ef .kv .v { font-family: var(--mk-font-text); font-size: 18px; font-weight: 400; letter-spacing: var(--mk-tracking-display); }
 .ef .delta { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: var(--corner-pill); background: var(--ef-surface-raised); font-weight: 600; font-size: 12.5px; box-shadow: 0 0 0 1px var(--ef-line) inset; white-space: nowrap; }
 .ef .delta::before { content: ""; border-left: 5px solid transparent; border-right: 5px solid transparent; }
 .ef .delta[data-dir="up"]::before { border-bottom: 7px solid var(--ef-green-500); }
@@ -261,7 +257,6 @@
    - Text on a photo is cream. Check 4.5:1 for each crop at each width before you ship it.
    ===================================================================== */
 :root {
-  --photo-wheat: image-set(url("assets/photos/wheat-2400.avif") type("image/avif"), url("assets/photos/wheat-2400.jpg") type("image/jpeg"));
   --photo-field: image-set(url("assets/photos/field-2400.avif") type("image/avif"), url("assets/photos/field-2400.jpg") type("image/jpeg"));
   --photo-storm: image-set(url("assets/photos/storm-2400.avif") type("image/avif"), url("assets/photos/storm-2400.jpg") type("image/jpeg"));
   --photo-hills: image-set(url("assets/photos/hills-2400.avif") type("image/avif"), url("assets/photos/hills-2400.jpg") type("image/jpeg"));
@@ -280,7 +275,6 @@
 }
 @media (max-width: 900px) {
   :root {
-    --photo-wheat: image-set(url("assets/photos/wheat-1200.avif") type("image/avif"), url("assets/photos/wheat-1200.jpg") type("image/jpeg"));
     --photo-field: image-set(url("assets/photos/field-1200.avif") type("image/avif"), url("assets/photos/field-1200.jpg") type("image/jpeg"));
     --photo-storm: image-set(url("assets/photos/storm-1200.avif") type("image/avif"), url("assets/photos/storm-1200.jpg") type("image/jpeg"));
     --photo-hills: image-set(url("assets/photos/hills-1200.avif") type("image/avif"), url("assets/photos/hills-1200.jpg") type("image/jpeg"));
@@ -306,8 +300,7 @@
 .photo:not(.seen)::before { background-image: none; }
 .photo::after { z-index: -1; background: var(--photo-grain) 0 0 / 260px 260px; opacity: var(--photo-grain-mix, .34); mix-blend-mode: overlay; }
 .photo :focus-visible { outline: 2px solid #F6F0E9; outline-offset: 2px; }
-/* Landscapes. wheat-dusk is the hero; lake is soft and dark enough for cream text at the 20% overlay (the CTA). */
-[data-photo="wheat-dusk"] { --photo-src: var(--photo-wheat); --photo-pos: 50% 58%; }
+/* Landscapes. lake is soft and dark enough for cream text at the 20% overlay (the CTA). */
 [data-photo="field-sky"]  { --photo-src: var(--photo-field); --photo-pos: 50% 16%; }
 [data-photo="storm"]      { --photo-src: var(--photo-storm); --photo-pos: 30% 60%; }
 [data-photo="hills"]      { --photo-src: var(--photo-hills); --photo-pos: 50% 60%; }
@@ -316,7 +309,7 @@
 [data-photo="plain"]      { --photo-src: var(--photo-plain); --photo-pos: 30% 70%; }
 [data-photo="reeds"]      { --photo-src: var(--photo-reeds); --photo-pos: 50% 72%; }
 [data-photo="lake"]       { --photo-src: var(--photo-lake); --photo-pos: 50% 67%; }
-/* Blurred colorful photos: the six phase-card rail cards. */
+/* Blurred colorful photos: the phase-card rail cards. Final picks: wildflowers is the home hero, bluebells the /oversight hero. */
 [data-photo="bluebells"]   { --photo-src: var(--photo-bluebells); --photo-pos: 30% 40%; }
 [data-photo="poppies"]     { --photo-src: var(--photo-poppies); --photo-pos: 50% 92%; --photo-zoom: 1.5; }
 [data-photo="wildflowers"] { --photo-src: var(--photo-wildflowers); --photo-pos: 60% 45%; }
@@ -330,13 +323,14 @@
    Muted gradients (2026-10-20). The same engine as the dashboard InsightCard (design/everyfield-ui.html).
    Used by the InsightCard copies and by photo slots that hold a colorful UI card.
    Three layers: a base color, a blurred mesh of five color blobs mixed in OKLCH (::before), film grain (::after).
-   - Use: class="mesh" data-mesh="field|sky|clay". All tones carry ink text.
-   - Palette: --ef-{sky|clay}-{100|300|500|700}, sampled from the photos and muted in OKLCH.
-     700 is the text-safe step (4.5:1 or more on white and cream). Sand is removed (round 4); its replacement comes from the dashboard task.
+   - Use: class="mesh" data-mesh="field|sky|sage|rose". All tones carry ink text. Rose is the risk / needs-attention tone.
+   - Palette: --ef-{sky|sage|rose}-{100|300|500|700}, sampled from the photos and muted in OKLCH (sage and rose: design/everyfield-ui.html, 5e2f9b5).
+     700 is the text-safe step (4.5:1 or more on white and cream). The earlier tones are retired (final picks, 2026-10-20).
    ===================================================================== */
 :root {
   --ef-sky-100: #D6EAF2;  --ef-sky-300: #B2D2DE;  --ef-sky-500: #83AAB8;  --ef-sky-700: #4C6F7C;
-  --ef-clay-100: #F5DED0; --ef-clay-300: #E4BAA2; --ef-clay-500: #AF7A5A; --ef-clay-700: #83583D;
+  --ef-sage-100: #E4EED9; --ef-sage-300: #C6D6B4; --ef-sage-500: #9BAE86; --ef-sage-700: #5F6D4D;
+  --ef-rose-100: #F9E4E1; --ef-rose-300: #EAC6C0; --ef-rose-500: #C79A93; --ef-rose-700: #825D57;
   --ef-soil: #3F2F23; --ef-cloud: #787A80;
 }
 .mesh { position: relative; isolation: isolate; overflow: hidden; background: var(--g-base); color: #181D19;
@@ -353,7 +347,8 @@
 .mesh :focus-visible { outline: 2px solid #181D19; outline-offset: 2px; }
 [data-mesh="field"] { --g-base: #1AF197; --g1: #AFF8D0; --g2: #1AF197; --g3: #4BDC95; --g4: var(--ef-sky-300); --g5: #FBF6ED; }
 [data-mesh="sky"]   { --g-base: var(--ef-sky-300); --g1: var(--ef-sky-100); --g2: #99BECC; --g3: #ECF6FA; --g4: var(--ef-sky-500); --g5: #ECF6FA; }
-[data-mesh="clay"]  { --g-base: var(--ef-clay-300); --g1: var(--ef-clay-100); --g2: #C9997A; --g3: #F2CDB6; --g4: #DEB58F; --g5: #FBF6ED; }
+[data-mesh="sage"]  { --g-base: var(--ef-sage-300); --g1: var(--ef-sage-100); --g2: var(--ef-sage-500); --g3: #F3EECC; --g4: #AAC099; --g5: #FBF6ED; } /* the green hills at dusk, lit by a pale gold sky */
+[data-mesh="rose"]  { --g-base: var(--ef-rose-300); --g1: var(--ef-rose-100); --g2: var(--ef-rose-500); --g3: #F2D7B9; --g4: #D5B2A5; --g5: #FBF6ED; } /* the mauve sunset clouds; risk and needs attention */
 
 /* InsightCard: copied from the dashboard, on the same muted gradients with ink text (class="insight mesh"). */
 .insight { border-radius: var(--corner-card); padding: 22px 24px; color: var(--on); display: flex; flex-direction: column; box-shadow: 0 18px 36px -24px rgba(24,29,25,.55); }
@@ -361,9 +356,9 @@
 .insight-pill { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px; border-radius: var(--corner-pill); background: var(--pill-bg); box-shadow: 0 0 0 1px var(--pill-edge) inset; font-weight: 600; font-size: 13px; }
 .insight-count { font-size: 12.5px; color: var(--on-3); }
 .insight-metric { display: flex; align-items: flex-end; gap: 12px; margin-top: 20px; }
-.insight-metric .num { font-size: 52px; line-height: .95; }
+.insight-metric .num { font-family: var(--mk-font-display); font-size: 52px; line-height: .95; }
 .insight-metric .unit { font-size: 13.5px; color: var(--on-2); max-width: 180px; line-height: 1.3; padding-bottom: 3px; }
-.insight-title { font-family: var(--mk-font-display); font-size: 23px; line-height: 1.18; font-weight: 400; margin-top: 14px; letter-spacing: var(--mk-tracking-display); }
+.insight-title { font-family: var(--mk-font-text); font-size: 23px; line-height: 1.18; font-weight: 400; margin-top: 14px; letter-spacing: var(--mk-tracking-display); }
 .insight-text { color: var(--on-2); margin-top: 10px; font-size: 14px; }
 .insight-footer { margin-top: auto; padding-top: 20px; display: flex; gap: 8px; flex-wrap: wrap; }
 .insight .btn[data-variant="light"] { background: #181D19; color: #F6F0E9; box-shadow: 0 8px 18px -10px rgba(24,29,25,.6); }
@@ -380,7 +375,7 @@
 .review-card .rc-foot { display: flex; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--ef-line); }
 .evry-panel { background: var(--ef-surface); border-radius: var(--corner-card); box-shadow: var(--mk-shadow-media); border: 1px solid var(--ef-line); padding: 18px; display: flex; flex-direction: column; gap: 12px; }
 .ep-head { display: flex; align-items: center; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid var(--ef-line); }
-.ep-name { font-family: var(--mk-font-display); font-size: 18px; font-weight: 400; }
+.ep-name { font-family: var(--mk-font-text); font-size: 18px; font-weight: 400; letter-spacing: var(--mk-tracking-display); }
 .bubble { max-width: 86%; padding: 11px 14px; border-radius: var(--corner-card); font-size: 14px; line-height: 1.45; }
 .bubble.me { align-self: flex-end; background: var(--ef-ink); color: var(--ef-on-ink); border-bottom-right-radius: min(6px, var(--corner-card)); }
 .bubble.ai { align-self: flex-start; background: var(--ef-surface-2); border-bottom-left-radius: min(6px, var(--corner-card)); }
@@ -426,7 +421,9 @@ h1, h2, h3, h4 { margin: 0; font-weight: inherit; }
 .h-hero { font-size: var(--mk-fs-hero); }
 .h1 { font-size: var(--mk-fs-h1); }
 .h2 { font-size: var(--mk-fs-h2); line-height: calc(var(--mk-lh-display) + .04); }
-.h3 { font-size: var(--mk-fs-h3); line-height: 1.15; }
+.h3 { font-size: var(--mk-fs-h3); line-height: 1.15; font-family: var(--mk-font-text); }
+/* Serif by size: DM Serif Text below 24px, DM Serif Display at 24px and above. --mk-fs-h3 reaches 24px at a 1334px viewport. */
+@media (min-width: 1334px) { .h3 { font-family: var(--mk-font-display); } }
 .eyebrow { display: inline-block; font-size: var(--mk-fs-eyebrow); letter-spacing: var(--mk-tracking-eyebrow); text-transform: var(--mk-eyebrow-transform); color: var(--mk-eyebrow); font-weight: 600; line-height: 1.3; }
 .lead { font-size: var(--mk-fs-lead); color: var(--mk-text-2); max-width: var(--mk-measure); line-height: 1.5; }
 .body-2 { color: var(--mk-text-2); max-width: var(--mk-measure); }
@@ -545,7 +542,7 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .ef .pv-h { display: flex; align-items: center; gap: 10px; }
 .ef .pv-h .card-icon { width: 34px; height: 34px; }
 .ef .pv-h .card-icon svg.i, .ef .pv-in .card-icon svg.i { width: 16px; height: 16px; }
-.ef .pv-t { font-family: var(--mk-font-display); font-size: 16px; font-weight: 400; letter-spacing: var(--mk-tracking-display); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ef .pv-t { font-family: var(--mk-font-text); font-size: 16px; font-weight: 400; letter-spacing: var(--mk-tracking-display); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ef .pv-s { font-size: 12px; color: var(--ef-text-3); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ef .pv-k { font-size: 12px; font-weight: 600; color: var(--ef-text-2); white-space: nowrap; }
 .ef .pv-it { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -560,10 +557,11 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .ef .pv-read.on i { background: rgba(3, 125, 76,.24); }
 .ef .pv-now { font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: var(--corner-pill); background: #181D19; color: #FFFFFF; flex: none; }
 .ef .pv-stat { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
-.ef .pv-stat .num { font-size: 50px; line-height: .95; letter-spacing: -.05em; }
+.ef .pv-stat .num { font-family: var(--mk-font-display); font-size: 50px; line-height: .95; }
 .ef .pv-in { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 10px 12px; border-radius: var(--corner-card); background: var(--ef-surface); box-shadow: 0 0 0 1px var(--ef-line) inset; }
 .ef .pv-in .card-icon { width: 30px; height: 30px; }
 .ef .pv-in .pv-s { margin-top: 2px; }
+.ef .pv-in .pv-it { font-size: 12.5px; } /* DM Sans runs wider than the old body font: keeps "13 days between vision meetings" whole at 1440 */
 .ef .pv-seats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 6px; margin-top: 14px; }
 .ef .pv-seat { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; }
 .ef .pv-seat .avatar { width: 32px; height: 32px; font-size: 11px; }
@@ -592,8 +590,9 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .phc-card:focus-visible { outline: 2px solid #181D19; outline-offset: 2px; }
 /* Card art: the number sits top left; the vignette is centered below it and is cropped by the bottom of the art. */
 /* Round 4: the art is a blurred colorful photo with a cream phase number on a soft top shade. */
-.phc-art.photo { position: relative; height: 236px; flex: none; margin: 8px 8px 0; border-radius: var(--corner-media); }
+.phc-art { position: relative; height: 236px; flex: none; margin: 8px 8px 0; border-radius: var(--corner-media); }
 .phc-num { position: absolute; left: 18px; top: 16px; font-family: var(--mk-font-display); font-size: 96px; font-weight: 400; line-height: .8; letter-spacing: var(--mk-tracking-display); color: #F6F0E9; font-variant-numeric: tabular-nums; }
+.phc-art.mesh .phc-num { color: #181D19; } /* a gradient card carries ink text, like every mesh tone */
 .phc-art.photo::before { background-image: radial-gradient(130% 100% at 0% 0%, rgba(24, 29, 25, .78), rgba(24, 29, 25, .36) 36%, rgba(24, 29, 25, 0) 66%), var(--photo-src); background-size: auto, cover; }
 .phc-art.photo:not(.seen)::before { background-image: radial-gradient(130% 100% at 0% 0%, rgba(24, 29, 25, .78), rgba(24, 29, 25, .36) 36%, rgba(24, 29, 25, 0) 66%); }
 .phc-vig { position: absolute; left: 0; right: 0; top: 112px; width: min(calc(100% - 28px), 292px); margin: 0 auto; }
@@ -606,13 +605,14 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .ph-sec.pinned .phc-frame { position: sticky; top: var(--phc-top); }
 .ph-sec.pinned .phc-rail { overflow: clip; scroll-snap-type: none; cursor: auto; }
 .ph-sec.pinned .phc-list { will-change: transform; }
-.phc-txt h3 { margin-top: 10px; font-size: clamp(21px, 1.65vw, 25px); }
+.phc-txt h3 { margin-top: 10px; font-size: clamp(21px, 1.65vw, 25px); font-family: var(--mk-font-text); }
+@media (min-width: 1455px) { .phc-txt h3 { font-family: var(--mk-font-display); } } /* 24px at a 1455px viewport */
 .phc-txt p { margin-top: 8px; font-size: 15px; line-height: 1.5; color: var(--mk-text-2); }
 
 @media (max-width: 640px) {
   .ph-sec .sec-head { margin-bottom: 26px; }
   .phc-card { width: min(82vw, 320px); height: auto; }
-  .phc-art.photo { height: 200px; }
+  .phc-art { height: 200px; }
 }
 
 /* Audiences: Cohere pattern. Three columns topped by rules, each with a "learn more" link. */
@@ -660,7 +660,7 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .ft-lead .mk-btn { background: #F6F0E9; color: #181D19; height: 46px; }
 .ft-lead .mk-btn:hover { background: #1AF197; }
 .ft-cols { grid-column: 7 / span 6; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
-.ft-cols h4 { font-family: var(--mk-font-display); font-size: 17px; font-weight: 400; letter-spacing: var(--mk-tracking-display); line-height: 1.2; color: #F6F0E9; margin-bottom: 12px; }
+.ft-cols h4 { font-family: var(--mk-font-text); font-size: 17px; font-weight: 400; letter-spacing: var(--mk-tracking-display); line-height: 1.2; color: #F6F0E9; margin-bottom: 12px; }
 .ft-cols li { margin: 0 0 10px; font-size: 14.5px; }
 .ft-cols a { color: #B8B5AF; text-decoration: none; } /* cream at 72% on ink, 8.4:1 */
 .ft-cols a:hover { color: #F6F0E9; text-decoration: underline; text-underline-offset: 3px; }
@@ -728,8 +728,8 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .rv.rv-up { --rv-y: 28px; transition-duration: .5s; }
 
 /* =====================================================================
-   Revision 3 hero: one rounded panel. 2026-10-19 rebrand: the field gradient is now the wheat photo
-   (.hero-bg.photo, data-photo="wheat-dusk": photo, 20% black overlay, grain).
+   Revision 3 hero: one rounded panel. 2026-10-19 rebrand: the field gradient is now a photo
+   (.hero-bg.photo: photo, 20% black overlay, grain). 2026-10-20 final pick: fade style, home = wildflowers, /oversight = bluebells.
    It holds the eyebrow, headline, subtext, CTAs, the animation and its step tabs.
    The page canvas around it stays plain. The animation card sits on the green.
    One person (Maria) goes from first contact to the core group.
@@ -782,7 +782,7 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .ha-h { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
 .ha-h .card-icon { width: 36px; height: 36px; }
 .ha-h .card-icon svg { width: 17px; height: 17px; }
-.ha-title { font-family: var(--mk-font-display); font-size: 17px; font-weight: 400; letter-spacing: var(--mk-tracking-display); line-height: 1.2; }
+.ha-title { font-family: var(--mk-font-text); font-size: 17px; font-weight: 400; letter-spacing: var(--mk-tracking-display); line-height: 1.2; }
 .ha-sub { font-size: 12.5px; color: var(--ef-text-3); margin-top: 2px; }
 .ha-lab { display: block; font-size: 12px; font-weight: 600; color: var(--ef-text-2); margin-bottom: 6px; }
 .ha [data-st] { will-change: transform, opacity; }
@@ -879,6 +879,7 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .cx-step.on .cx-num b { background: var(--mk-accent); color: var(--mk-accent-text); }
 .cx-step h3 { margin-top: 14px; }
 /* Revision 7: smaller step titles in both chapters (24 px at 1440, was 28). */
+.cx-step .h3 { font-family: var(--mk-font-text); } /* --cx-h3 stays below 24px */
 .cx-step { --cx-h3: clamp(18px, 1.4vw, 21px); --cx-ti: calc(var(--cx-h3) * 1.48); }
 .cx-step h3.h3 { font-size: var(--cx-h3); }
 .cx-step p { margin-top: 10px; color: var(--mk-text-2); max-width: 46ch; }
@@ -944,7 +945,7 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .cx-step .cx-tl + p { margin-top: 12px; }
 /* Gatherings */
 .cx-in { position: relative; display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; border-radius: var(--corner-card); background: var(--ef-surface); box-shadow: inset 0 0 0 1px var(--ef-line-2); font-size: 13.5px; font-weight: 500; color: var(--ef-ink); white-space: nowrap; overflow: hidden; }
-.cx-in .cx-fr { position: absolute; inset: 0; border-radius: var(--corner-card); box-shadow: inset 0 0 0 1.5px var(--ef-blue-500), 0 0 0 3px rgba(80, 150, 255, .16); opacity: 0; pointer-events: none; }
+.cx-in .cx-fr { position: absolute; inset: 0; border-radius: var(--corner-card); box-shadow: inset 0 0 0 1.5px var(--ef-blue-500), 0 0 0 3px rgba(110, 159, 207, .2); opacity: 0; pointer-events: none; }
 .cx-in .cx-chev { width: 15px; height: 15px; margin-left: auto; color: var(--ef-text-3); transform: rotate(90deg); }
 .cx-in .cx-tw { flex: 1; min-width: 0; }
 .cx-roll { height: 1.3em; line-height: 1.3em; }
@@ -954,7 +955,7 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .cx-att > .row { justify-content: space-between; }
 .cx-att > .row > .row { gap: 8px; }
 .cx-att .ha-lab { margin: 0; }
-.cx-cnt { font-family: var(--mk-font-display); font-size: 22px; font-weight: 400; line-height: 1; font-variant-numeric: tabular-nums; display: inline-block; transform-origin: 100% 100%; will-change: transform; }
+.cx-cnt { font-family: var(--mk-font-text); font-size: 22px; font-weight: 400; letter-spacing: var(--mk-tracking-display); line-height: 1; font-variant-numeric: tabular-nums; display: inline-block; transform-origin: 100% 100%; will-change: transform; }
 .cx-att .badge { opacity: 0; will-change: transform, opacity; }
 .cx-guests { margin-top: 10px; }
 /* Follow-up tasks */
@@ -982,7 +983,7 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .cx-team { margin-top: 12px; }
 .cx-team:first-of-type { margin-top: 0; }
 .cx-team .row { justify-content: space-between; min-height: 28px; }
-.cx-team .num { font-family: var(--mk-font-display); font-size: 22px; font-weight: 400; line-height: 1; font-variant-numeric: tabular-nums; display: inline-block; transform-origin: 100% 100%; will-change: transform; }
+.cx-team .num { font-family: var(--mk-font-text); font-size: 22px; font-weight: 400; letter-spacing: var(--mk-tracking-display); line-height: 1; font-variant-numeric: tabular-nums; display: inline-block; transform-origin: 100% 100%; will-change: transform; }
 .cx-sublab { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--ef-line); font-size: 12px; font-weight: 600; color: var(--ef-text-2); }
 .cx-sublab + .list-row { border-top: 0; padding-top: 8px; }
 .cx-card .list-row .ha-av { width: 30px; height: 30px; font-size: 10.5px; flex: none; }
@@ -1005,6 +1006,7 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .cx-ring .bg { stroke: var(--ef-surface-2); }
 .cx-ring .fg { stroke: var(--ef-amber-500); stroke-linecap: round; stroke-dasharray: 169.65; stroke-dashoffset: 169.65; }
 .cx-pct { font-size: 30px; line-height: 1; }
+.cx-pct.num { font-family: var(--mk-font-display); } /* 30px: Display; beats .ef .num (Text) */
 .cx-names { display: flex; flex-wrap: nowrap; gap: 6px; height: 30px; margin-top: 10px; overflow: hidden; }
 .cx-names .ha-chip { height: 28px; font-size: 12px; padding: 0 10px 0 4px; opacity: 0; will-change: transform, opacity; }
 .cx-names .ha-av { width: 20px; height: 20px; font-size: 9px; }
@@ -1123,7 +1125,7 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .sd-pl .num { font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
 .sd-pl .wk { font-size: 11.5px; color: var(--ef-text-3); text-align: right; white-space: nowrap; opacity: 0; will-change: opacity; }
 .sd-sum { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; padding: 11px 14px; border-radius: var(--corner-card); background: var(--ef-surface-2); font-size: 13px; font-weight: 600; }
-.sd-sum .num { font-family: var(--mk-font-display); font-size: 22px; font-weight: 400; line-height: 1; font-variant-numeric: tabular-nums; }
+.sd-sum .num { font-family: var(--mk-font-text); font-size: 22px; font-weight: 400; letter-spacing: var(--mk-tracking-display); line-height: 1; font-variant-numeric: tabular-nums; }
 /* Lenses */
 .sd-lenses { display: grid; gap: 8px; }
 .sd-lens .lens-head { justify-content: flex-start; }
@@ -1148,9 +1150,9 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
   .sd-pl { grid-template-columns: 84px minmax(0, 1fr) 14px 36px; gap: 8px; }
   .sd-th, .sd-area { grid-template-columns: minmax(0, 1fr) 38px 70px; }
   .sd-stat { padding: 9px 10px 10px; }
-  .sd-stat .num { font-size: 22px; }
-  .cx-card[data-k="top"] .insight-top { flex-wrap: wrap; row-gap: 6px; }
-  .cx-card[data-k="top"] .insight-pill { white-space: nowrap; }
+  .sd-stat .num { font-family: var(--mk-font-text); font-size: 22px; }
+  .cx-card[data-k="top"] .insight-top, .cx-card[data-k="help"] .insight-top { flex-wrap: wrap; row-gap: 6px; }
+  .cx-card[data-k="top"] .insight-pill, .cx-card[data-k="help"] .insight-pill { white-space: nowrap; }
   .cx-card[data-k="top"] .insight-metric .num { font-size: 44px; }
 }
 
@@ -1169,7 +1171,7 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 /* R6 (2026-10-17): Sebastian chose variant B. The Phase 1 card carries its benchmark, level 3 is a launch milestone, and
    the zoom's green line runs on through a "Monday morning" label down to the Monday overview in the same section. */
 .vz-bm { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
-.vz-num.vz-num-s { margin-left: 0; padding-top: 0; font-size: 20px; }
+.vz-num.vz-num-s { margin-left: 0; padding-top: 0; font-family: var(--mk-font-text); font-size: 20px; }
 .vz-ms { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .vz-ms .vz-bar i { width: 100%; background: var(--ef-green-500); }
 .vz-bridge { grid-column: 2; margin: -36px 0; display: flex; flex-direction: column; align-items: center; }
@@ -1217,7 +1219,7 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .vz-bar { position: relative; height: 8px; border-radius: var(--corner-pill); overflow: hidden; background: var(--ef-surface-2); box-shadow: inset 0 0 0 1px var(--ef-line); }
 .vz-bar i { position: absolute; inset: 0 auto 0 0; width: 68%; border-radius: var(--corner-pill); background: var(--ef-blue-500); transform-origin: left; }
 .vz-meter .vz-l { margin-top: 8px; }
-.vz-week-t { font-family: var(--mk-font-display); font-weight: 400; letter-spacing: var(--mk-tracking-display); font-size: 19px; line-height: 1.2; }
+.vz-week-t { font-family: var(--mk-font-text); font-weight: 400; letter-spacing: var(--mk-tracking-display); font-size: 19px; line-height: 1.2; }
 .vz-tasks { list-style: none; margin: 0; padding: 0 0 6px; }
 .vz-tasks li { position: relative; border-top: 1px solid var(--ef-line); }
 .vz-tasks .vz-row { padding: 12px 20px; }
@@ -1299,7 +1301,7 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .ov-gh .list-title { font-size: 13.5px; }
 .ov-gh .list-sub { font-size: 11.5px; margin-top: 1px; }
 .ov-gn { font-size: 12px; color: var(--ef-text-2); white-space: nowrap; }
-.ov-gn b { font-family: var(--mk-font-display); font-size: 18px; font-weight: 400; color: var(--ef-ink); font-variant-numeric: tabular-nums; margin-right: 3px; }
+.ov-gn b { font-family: var(--mk-font-text); font-size: 18px; font-weight: 400; letter-spacing: var(--mk-tracking-display); color: var(--ef-ink); font-variant-numeric: tabular-nums; margin-right: 3px; }
 .ov-gp { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
 .ov-pc { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px 0 8px; border-radius: var(--corner-pill); background: var(--ef-surface-2); font-size: 11.5px; font-weight: 500; color: var(--ef-ink-2); white-space: nowrap; will-change: opacity; }
 .ov-pc i { width: 6px; height: 6px; border-radius: 50%; background: var(--ef-green-500); }
@@ -1404,7 +1406,7 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .faq-i:last-child { border-bottom: 1px solid var(--mk-line); }
 .faq-h { margin: 0; font: inherit; }
 .faq-q { display: flex; align-items: center; justify-content: space-between; gap: 24px; width: 100%; padding: 22px 0; border: 0; background: none; color: var(--mk-text); cursor: pointer; text-align: left;
-  font-family: var(--mk-font-display); font-size: clamp(18px, 1.4vw, 21px); font-weight: 400; letter-spacing: var(--mk-tracking-display); line-height: 1.3; }
+  font-family: var(--mk-font-text); font-size: clamp(18px, 1.4vw, 21px); font-weight: 400; letter-spacing: var(--mk-tracking-display); line-height: 1.3; }
 .faq-q:focus-visible { outline: 2px solid #181D19; outline-offset: 2px; border-radius: 6px; }
 .faq-pm { position: relative; flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--mk-surface-2); transition: background-color .3s var(--mk-ease); }
 .faq-q:hover .faq-pm { background: #EAE7E0; }
@@ -1488,79 +1490,8 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .evry-bot[data-size="lg"] { --s: 40px; }
 @media (prefers-reduced-motion: reduce) { .evry-bot *, .evry-bot::after { animation: none !important; } .evry-bot .eb-face { transition: none; } }
 
-/* ===== HERO SWITCHER (temporary, 2026-10-20). Sebastian picks the home hero photo and style here.
-   The final task deletes this block, the HERO SWITCHER block in the script and the four "HERO SWITCHER hook" lines.
-   Style "fade": the photo fades up from the canvas, ink text, a canvas veil over the text zone (--hp-a).
-   Style "full": the photo fills the panel edge to edge, cream text, a black scrim over the text zone (--hp-a).
-   The scrim covers the panel from the top to --hp-end (under the buttons, set by the script), then fades out over 160 px.
-   The 20% black photo overlay and the grain stay in both styles. ===== */
-.hero-panel::after { content: ""; position: absolute; left: 0; right: 0; top: 0; z-index: -1; pointer-events: none; border-radius: inherit;
-  height: calc(var(--hp-end, 0px) + 160px); opacity: var(--hp-a, 0);
-  background: linear-gradient(to bottom, rgb(var(--hp-rgb, 252 251 248)) calc(100% - 160px), rgb(var(--hp-rgb, 252 251 248) / 0) 100%); }
-.hero.hp-full > .wrap { padding: 0; }
-.hero.hp-full .hero-panel { max-width: none; border-radius: 0; box-shadow: none; color: #F6F0E9; --on: #F6F0E9; --hp-rgb: 0 0 0; }
-.hero.hp-full .hero-bg { -webkit-mask-image: none; mask-image: none; }
-.hero.hp-full .hero-title, .hero.hp-full .hero-panel .lead { color: #F6F0E9; }
-.hero.hp-full .hero-panel .hero-note { color: rgba(246, 240, 233, .92); }
-.hero.hp-full .hero-panel .ha-pause { color: #F6F0E9; }
-.hero.hp-full .hero-panel .ha-pause:hover { background: rgba(24, 29, 25, .35); }
-.hero.hp-full .hero-panel :focus-visible { outline-color: #F6F0E9; }
-/* The bar button and the floating panel use the neutral prototype bar colors. */
-.pbar .pb-hero img { width: 22px; height: 16px; border-radius: 3px; object-fit: cover; flex: none; }
-.pbar .pb-hero[aria-expanded="true"] { background: #EEF0F4; color: #111318; }
-.pbar .pb-hero:disabled { cursor: not-allowed; opacity: .38; }
-.hp { position: fixed; right: 16px; bottom: 76px; z-index: 1001; width: 304px; max-height: calc(100vh - 168px); overflow: auto; overscroll-behavior: contain;
-  padding: 12px; border-radius: 16px; background: rgba(17, 19, 24, .96); color: #EEF0F4; font: 500 13px/1.3 "Instrument Sans", ui-sans-serif, system-ui, sans-serif; letter-spacing: 0;
-  box-shadow: 0 16px 40px -12px rgba(0, 0, 0, .55), 0 0 0 1px rgba(255, 255, 255, .08) inset; }
-.hp[hidden], body.shot .hp { display: none !important; }
-.hp-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 8px; padding-left: 4px; }
-.hp-head h2 { margin: 0; font: 600 11px/1 "Instrument Sans", system-ui, sans-serif; text-transform: uppercase; letter-spacing: .08em; color: #8A919E; }
-.hp button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
-.hp-x { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 8px; background: rgba(255, 255, 255, .07); }
-.hp-x:hover { background: rgba(255, 255, 255, .14); }
-.hp-x svg { width: 15px; height: 15px; }
-.hp fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
-.hp legend { padding: 0 0 6px 4px; color: #8A919E; font-size: 11.5px; }
-.hp input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
-.hp-style { margin-bottom: 12px; }
-.hp-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 3px; border-radius: 11px; background: rgba(255, 255, 255, .07); }
-.hp-seg label { position: relative; display: block; padding: 8px 10px; border-radius: 8px; color: #B1B7C2; text-align: center; cursor: pointer; white-space: nowrap; }
-.hp-seg label:hover { color: #fff; background: rgba(255, 255, 255, .06); }
-.hp-seg label:has(:checked) { background: #EEF0F4; color: #111318; }
-.hp-list { display: grid; gap: 2px; }
-.hp-tile { position: relative; display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 10px; min-height: 40px; padding: 3px 8px 3px 3px; border-radius: 10px; color: #D5D9E0; cursor: pointer; }
-.hp-tile:hover { background: rgba(255, 255, 255, .07); color: #fff; }
-.hp-tile:has(:checked) { background: rgba(255, 255, 255, .12); color: #fff; box-shadow: 0 0 0 1px rgba(255, 255, 255, .22) inset; }
-.hp-tile img { width: 44px; height: 32px; border-radius: 5px; object-fit: cover; display: block; }
-.hp-tile .hp-v { color: #8A919E; font-size: 11.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.hp-tile:has(:checked) .hp-v { color: #C9CED6; }
-/* WebKit does not set :focus-visible on a radio focused by the script or the arrow keys, so the ring follows the last input type (data-pointer). */
-.hp:not([data-pointer]) label:has(input:focus) { outline: 2px solid #6CF2B4; outline-offset: 2px; }
-.hp .hp-x:focus-visible { outline: 2px solid #6CF2B4; outline-offset: 2px; }
-.hp-meta { margin: 10px 4px 2px; color: #B1B7C2; font-size: 12px; line-height: 1.45; }
-.hp-meta b { color: #EEF0F4; font-weight: 600; }
-/* Below 1100 px the hero text is too wide for a side panel: the panel becomes a strip above the bar and the photos scroll sideways. */
-@media (max-width: 1100px) {
-  .hp { left: 8px; right: 8px; width: auto; bottom: 126px; max-height: none; overflow: visible; padding: 10px; }
-  .hp-top { display: flex; align-items: flex-end; gap: 8px; }
-  .hp-top .hp-head { flex: none; margin: 0; }
-  .hp-style { flex: 1; margin: 0; }
-  .hp-style legend, .hp-head h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .hp-photos { margin-top: 8px; }
-  .hp-photos legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-  .hp-list { display: flex; gap: 6px; overflow-x: auto; scroll-snap-type: x proximity; padding: 2px 2px 4px; scrollbar-width: thin; }
-  .hp-tile { flex: none; width: 76px; grid-template-columns: 1fr; gap: 4px; padding: 4px; min-height: 0; scroll-snap-align: start; font-size: 11.5px; }
-  .hp-tile img { width: 68px; height: 44px; }
-  .hp-tile span:not(.hp-v) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .hp-tile .hp-v { display: none; }
-  .hp-meta { margin: 6px 2px 0; font-size: 11.5px; }
-}
-@media (min-width: 1101px) { .hp-top { display: contents; } }
-@media (min-width: 901px) and (max-width: 1100px) { .hp { bottom: 76px; } }
-@media (prefers-reduced-motion: no-preference) { .hp-tile, .hp-seg label, .hp-x { transition: background-color .15s, color .15s; } }
-/* ===== end HERO SWITCHER ===== */
 /* Prototype control bar: neutral, never styled by the --mk-* tokens */
-.pbar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 1000; display: flex; align-items: center; gap: 8px; padding: 7px; border-radius: 16px; background: rgba(17,19,24,.95); color: #EEF0F4; font: 500 13px/1 "Instrument Sans", ui-sans-serif, system-ui, sans-serif; letter-spacing: 0; box-shadow: 0 16px 40px -12px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.08) inset; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); max-width: calc(100vw - 16px); }
+.pbar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 1000; display: flex; align-items: center; gap: 8px; padding: 7px; border-radius: 16px; background: rgba(17,19,24,.95); color: #EEF0F4; font: 500 13px/1 "DM Sans", ui-sans-serif, system-ui, sans-serif; letter-spacing: 0; box-shadow: 0 16px 40px -12px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.08) inset; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); max-width: calc(100vw - 16px); }
 .pbar .pb-tag { padding: 0 6px 0 8px; color: #8A919E; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; white-space: nowrap; }
 .pbar .pb-group { display: flex; align-items: center; gap: 6px; }
 .pbar .pb-lab { color: #8A919E; font-size: 11.5px; padding-left: 4px; white-space: nowrap; }
@@ -1580,12 +1511,12 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .pbar .pb-btn:hover { background: rgba(255,255,255,.14); }
 .pbar .pb-note { color: #8A919E; font-size: 11.5px; white-space: nowrap; }
 .pbar svg { width: 15px; height: 15px; }
-.pbar-show { position: fixed; right: 14px; bottom: 14px; z-index: 1000; display: none; font: 600 12.5px/1 "Instrument Sans", system-ui, sans-serif; padding: 10px 12px; border-radius: 12px; background: rgba(17,19,24,.92); color: #EEF0F4; border: 0; cursor: pointer; }
+.pbar-show { position: fixed; right: 14px; bottom: 14px; z-index: 1000; display: none; font: 600 12.5px/1 "DM Sans", system-ui, sans-serif; padding: 10px 12px; border-radius: 12px; background: rgba(17,19,24,.92); color: #EEF0F4; border: 0; cursor: pointer; }
 body.pbar-hidden .pbar { display: none; }
 body.pbar-hidden .pbar-show { display: block; }
 body.shot .pbar, body.shot .pbar-show { display: none !important; }
 body.pbar-hidden { padding-bottom: 0; }
-.toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%) translateY(8px); z-index: 1001; background: #111318; color: #EEF0F4; font: 500 13.5px/1.3 "Instrument Sans", system-ui, sans-serif; padding: 11px 14px; border-radius: 12px; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; box-shadow: 0 10px 30px -10px rgba(0,0,0,.5); }
+.toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%) translateY(8px); z-index: 1001; background: #111318; color: #EEF0F4; font: 500 13.5px/1.3 "DM Sans", system-ui, sans-serif; padding: 11px 14px; border-radius: 12px; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; box-shadow: 0 10px 30px -10px rgba(0,0,0,.5); }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 /* =================== Responsive: 1440 / 768 / 375 =================== */
@@ -2751,7 +2682,6 @@ function hrefFor(page, at, over) {
   var p = new URLSearchParams();
   p.set("story", s.story);
   if (at) p.set("at", at);
-  hpParams(p); /* HERO SWITCHER hook */
   return "#" + (page === "home" ? "/" : "/" + page) + "?" + p.toString();
 }
 function pageStory() { return state.page === "home" ? state.story : PAGE[state.page].story; }
@@ -2938,7 +2868,7 @@ function vMap(story, tall) {
   var W = 1200, H = tall ? 900 : 525;
   var cs = "";
   for (var k = 1; k <= 9; k++) cs += contour(W * 0.56, H * 0.52, 34 * k, k);
-  var s = '<svg viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="xMidYMid slice" font-family="Instrument Sans, ui-sans-serif, system-ui, sans-serif" role="img" aria-label="Illustrated map of the plant area with meetings and people">' +
+  var s = '<svg viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="xMidYMid slice" font-family="DM Sans, ui-sans-serif, system-ui, sans-serif" role="img" aria-label="Illustrated map of the plant area with meetings and people">' +
     '<rect width="' + W + '" height="' + H + '" fill="var(--mk-surface)"/>' +
     '<g fill="none" stroke="var(--mk-line)" stroke-width="1.2">' + cs + "</g>" +
     '<path d="M-20 ' + (H * 0.86) + " C" + W * 0.2 + " " + H * 0.76 + " " + W * 0.35 + " " + H * 0.98 + " " + W * 0.55 + " " + H * 0.86 + " S" + W * 0.85 + " " + H * 0.72 + " " + (W + 20) + " " + H * 0.8 + '" fill="none" stroke="#B5D7FF" stroke-width="22" stroke-linecap="round" opacity=".75"/>' +
@@ -2949,7 +2879,7 @@ function vMap(story, tall) {
     '<path d="M' + W * 0.36 + " " + H * 0.22 + " L" + W * 0.5 + " " + H * 0.2 + " L" + W * 0.52 + " " + H * 0.36 + " L" + W * 0.37 + " " + H * 0.39 + 'Z" fill="#D6FBE3" stroke="#8AF0B6"/>' +
     '<text x="' + W * 0.385 + '" y="' + H * 0.3 + '" font-size="12" font-weight="700" letter-spacing="2" fill="#026B40">HYDE PARK</text>';
   if (story === "oversight") {
-    var pins = [[0.42, 0.5, "#1AF197", "Harvest Point Church", "On track"], [0.27, 0.16, "#6AAEFF", "Northline Church", "Launch readiness"], [0.56, 0.3, "#FFA552", "Eastside Commons", "Watch"], [0.1, 0.42, "none", "Mueller Fellowship", "Limited visibility"], [0.34, 0.8, "#1AF197", "River City Church", "On track"]];
+    var pins = [[0.42, 0.5, "#1AF197", "Harvest Point Church", "On track"], [0.27, 0.16, "#6E9FCF", "Northline Church", "Launch readiness"], [0.56, 0.3, "#FFA552", "Eastside Commons", "Watch"], [0.1, 0.42, "none", "Mueller Fellowship", "Limited visibility"], [0.34, 0.8, "#1AF197", "River City Church", "On track"]];
     pins.forEach(function (p, i) {
       var x = W * p[0], y = H * p[1];
       s += '<circle cx="' + x + '" cy="' + y + '" r="11" fill="' + (p[2] === "none" ? "var(--mk-surface)" : p[2]) + '" stroke="#181D19" stroke-width="2"' + (p[2] === "none" ? ' stroke-dasharray="3 3"' : "") + "/>" + mapLabel(x, y, p[3], p[4], false);
@@ -3420,17 +3350,17 @@ var CX_DEFS = {
     return [s.panel, ["mesh:sky", "storm", "storm", "storm"][i], ["Focus", "Facts", "Evry", "Sharing"][i], s.title, s.body]; }) },
   /* Revision 19: copy from shared.sending in marketing-copy.json. Its photo crops differ from the Plant Intelligence crops above. */
   sending: { title: COPY.shared.sending.title, auto: true, mirror: true, link: COPY.shared.sending.link, steps: ["scope", "pipe", "lens", "top"].map(function (k, i) {
-    var st = COPY.shared.sending.steps[i]; return [k, ["harvest", "harvest", "harvest", "mesh:clay"][i], "", st.title, st.body]; }) },
+    var st = COPY.shared.sending.steps[i]; return [k, ["harvest", "harvest", "harvest", "mesh:sage"][i], "", st.title, st.body]; }) },
   /* Revision 25 /oversight: the home network auto list with the same panels and step length (shared.oversight_page.intelligence). */
   /* Revision 26: the pinned chapter is now an auto list (panel right, list left) without the sharing step. Its photo crops
      differ from the network list below it. */
   "every-plant": { title: COPY.shared.oversight_page.chapter.title, auto: true, steps: COPY.shared.oversight_page.chapter.steps.map(function (s, i) { return [s.panel, ["field-sky", "hills", "plain", "mesh:sky"][i], "", s.title, s.body]; }) },
   "network-intelligence": { title: COPY.shared.oversight_page.intelligence.title, auto: true, mirror: true, steps: ["scope", "pipe", "lens", "top"].map(function (k, i) {
-    var st = COPY.shared.oversight_page.intelligence.steps[i]; return [k, ["storm", "storm", "storm", "mesh:clay"][i], "", st.title, st.body]; }) }
+    var st = COPY.shared.oversight_page.intelligence.steps[i]; return [k, ["storm", "storm", "storm", "mesh:sage"][i], "", st.title, st.body]; }) }
 };
 /* Round 4: a step background is a photo crop, or "mesh:<tone>" when the step's card is a colorful InsightCard (gradient, not photo). */
 function cxBg(s, extra) { var m = /^mesh:(.+)/.exec(s[1]); return '<span class="cx-bg ' + (m ? 'mesh" data-mesh="' + m[1] : 'photo" data-photo="' + s[1]) + '"' + (extra || "") + "></span>"; }
-function cxCard(kind) { return '<div class="cx-card' + (kind === "focus" ? ' insight mesh" data-mesh="field' : kind === "top" ? ' insight mesh" data-mesh="sky' : kind === "help" ? ' insight mesh" data-mesh="clay' : kind === "evry" ? " evry-panel" : "") + '" data-k="' + kind + '">' + CX_MARK[kind]() + cxCur() + "</div>"; }
+function cxCard(kind) { return '<div class="cx-card' + (kind === "focus" ? ' insight mesh" data-mesh="field' : kind === "top" ? ' insight mesh" data-mesh="sky' : kind === "help" ? ' insight mesh" data-mesh="rose' : kind === "evry" ? " evry-panel" : "") + '" data-k="' + kind + '">' + CX_MARK[kind]() + cxCur() + "</div>"; }
 function chapterSection(id, cls) {
   var d = CX_DEFS[id];
   if (d.auto) return autoSection(id, cls, d);
@@ -3941,7 +3871,7 @@ window.EFChapters = {
 function hero(h, story, opts) {
   opts = opts || {};
   var pts = opts.points ? '<ul class="checks hero-points">' + opts.points.map(function (p) { return "<li>" + icon("check") + "<span>" + t(p) + "</span></li>"; }).join("") + "</ul>" : "";
-  return '<section class="hero' + (opts.page ? " page-hero" : "") + (opts.cls ? " " + opts.cls : "") + '" id="top"><div class="wrap">' + (opts.panel ? '<div class="hero-panel"><span class="hero-bg photo seen" data-photo="' + (opts.cls === "hero-anim" ? hpFind(hp.photo).crop /* HERO SWITCHER hook */ : "wheat-dusk") + '" aria-hidden="true"></span>' : "") +
+  return '<section class="hero' + (opts.page ? " page-hero" : "") + (opts.cls ? " " + opts.cls : "") + '" id="top"><div class="wrap">' + (opts.panel ? '<div class="hero-panel"><span class="hero-bg photo seen" data-photo="' + opts.photo + '" aria-hidden="true"></span>' : "") +
     (h.eyebrow ? '<span class="eyebrow">' + t(h.eyebrow) + "</span>" : "") +
     '<h1 class="display h-hero hero-title">' + t(h.headline) + "</h1>" +
     '<div class="hero-row"><div class="hero-lead"><p class="lead">' + t(h.subhead) + "</p>" + pts + '</div><div class="hero-act"><div class="btn-row">' + btn(h.cta_primary, "primary", opts.hrefs && opts.hrefs[0]) + (h.cta_secondary ? btn(h.cta_secondary, "secondary", opts.hrefs && opts.hrefs[1]) : "") + "</div>" +
@@ -4019,11 +3949,14 @@ function features(f, opts) {
    horizontal rail with scroll-snap, mouse drag, touch swipe and arrow keys. In both modes each card takes focus. */
 /* Revision 29: six different tones in each rail. Home: sky, field, dawn, lilac, sun, sea. /oversight (opts.tones): lilac, sea, dawn,
    field, sky, sun, so sea is not next to field or sky, and dawn is not next to sun. */
-/* Round 4: the six blurred colorful photos, one per card. /oversight uses the same six in another order. */
-var PH_PHOTOS = ["bluebells", "poppies", "wildflowers", "blossom", "meadow", "glow"];
-var OV_PH_PHOTOS = ["meadow", "glow", "bluebells", "wildflowers", "poppies", "blossom"];
+/* Round 4: the six blurred colorful photos, one per card. /oversight uses the same six in another order.
+   Final picks: the hero photo of a page does not repeat on its rail, so that card is a muted gradient ("mesh:<tone>"):
+   home card 3 (wildflowers is the home hero) = sage, /oversight card 3 (bluebells is its hero) = sky. */
+var PH_PHOTOS = ["bluebells", "poppies", "mesh:sage", "blossom", "meadow", "glow"];
+var OV_PH_PHOTOS = ["meadow", "glow", "mesh:sky", "wildflowers", "poppies", "blossom"];
 var PH = { root: null, off: null, raf: 0, ro: null, pin: false, st: null };
 var PH_WIDE = window.matchMedia ? window.matchMedia("(min-width: 901px)") : { matches: true };
+function phArt(p) { var m = /^mesh:(.+)/.exec(p); return m ? 'mesh" data-mesh="' + m[1] : 'photo" data-photo="' + p; }
 function phNum(i) { return (i < 9 ? "0" : "") + (i + 1); }
 function phTag(i, it) { return '<span class="feat-tag"><span class="ph-n">' + phNum(i) + '</span><span class="feat-label">' + t(it.label) + "</span></span>"; }
 function pvHead(ic, tone, title, sub, right) {
@@ -4066,7 +3999,7 @@ function phSection(f, opts) {
   return '<section class="sec sec-features ph-sec" id="' + (opts.id || "features") + '"><div class="phc-pin"><div class="phc-frame">' +
     '<div class="wrap"><div class="sec-head solo"><h2 class="display h2 sh-title" id="ph-title">' + t(f.headline) + "</h2></div>" + track + "</div>" +
     '<div class="phc-rail" role="region" aria-roledescription="carousel" aria-labelledby="ph-title"><ol class="phc-list">' + f.items.map(function (x, i) {
-      return '<li class="phc-card" tabindex="0" aria-label="' + phNum(i) + " · " + t(x.label) + '"><div class="phc-art photo" data-photo="' + (opts.photos || PH_PHOTOS)[i] + '"><span class="phc-num" aria-hidden="true">' + phNum(i) + '</span><div class="phc-vig ef" aria-hidden="true">' + (opts.vig || phVig)(i) + "</div></div>" +
+      return '<li class="phc-card" tabindex="0" aria-label="' + phNum(i) + " · " + t(x.label) + '"><div class="phc-art ' + phArt((opts.photos || PH_PHOTOS)[i]) + '"><span class="phc-num" aria-hidden="true">' + phNum(i) + '</span><div class="phc-vig ef" aria-hidden="true">' + (opts.vig || phVig)(i) + "</div></div>" +
         '<div class="phc-txt">' + phTag(i, x) + '<h3 class="display h3">' + t(x.title) + "</h3><p>" + t(x.short || x.body) + "</p></div></li>";
     }).join("") + "</ol></div></div></div></section>";
 }
@@ -4244,7 +4177,7 @@ document.addEventListener("pointermove", function (e) {
 /* ---------- Pages ---------- */
 function home(story) {
   var s = DIR[story].sections;
-  return hero(s.hero, story, { visual: heroSlot(), cls: "hero-anim", panel: true }) + problem(s.problem) + weekChapter() + vision(s.vision) + features(s.features) + intelligenceChapter() + sendingChapter() + (s.trust ? trust(s.trust) : "") + cta(s.cta);
+  return hero(s.hero, story, { visual: heroSlot(), cls: "hero-anim", panel: true, photo: "wildflowers" }) + problem(s.problem) + weekChapter() + vision(s.vision) + features(s.features) + intelligenceChapter() + sendingChapter() + (s.trust ? trust(s.trust) : "") + cta(s.cta);
 }
 function pagePlanters() {
   var s = DIR.journey.sections;
@@ -4259,7 +4192,7 @@ function pagePlanters() {
    stacking chapter and an FAQ replaces the privacy section. Revision 28: the sending paths are one section (ovPaths). */
 function pageOversight() {
   var P = COPY.shared.oversight_page;
-  return hero(P.hero, "oversight", { visual: '<div class="ov-dash">' + visual(vNetworkDash()) + "</div>", cls: "hero-anim ov-hero", panel: true, hrefs: [hrefFor("access", "network-form"), hrefFor("oversight", "every-plant")] }) +
+  return hero(P.hero, "oversight", { visual: '<div class="ov-dash">' + visual(vNetworkDash()) + "</div>", cls: "hero-anim ov-hero", panel: true, photo: "bluebells", hrefs: [hrefFor("access", "network-form"), hrefFor("oversight", "every-plant")] }) +
     problem(P.problem) + chapterSection("every-plant", "sec-ov-plants") + chapterSection("network-intelligence", "sec-ov-intelligence") +
     phSection(P.plants, { id: "plants", vig: ovVig, photos: OV_PH_PHOTOS }) + ovPaths(P.paths) + ovFaq(P.faq) + cta(P.cta);
 }
@@ -4415,7 +4348,7 @@ function pageTrust() {
     '<section class="sec" id="who-sees-what" style="padding-top:0"><div class="wrap"><div class="sec-head"><h2 class="display h2 sh-title">Who sees what</h2><p class="body-2 sh-text">' + t("Planters own their records. Each role sees only what it needs.") + "</p></div>" +
     '<div class="access-table-wrap"><table class="access-table"><thead><tr><th>Role</th><th>People and notes</th><th>Meetings and tasks</th><th>Plant Intelligence</th><th>Private check-in</th><th>Can change records</th></tr></thead><tbody>' +
     rows.map(function (r) { return "<tr><th>" + r[0] + "</th>" + r.slice(1).map(function (c) { return "<td>" + c + "</td>"; }).join("") + "</tr>"; }).join("") + "</tbody></table></div></div></section>" +
-    '<section class="sec" style="padding-top:0"><div class="wrap rule-groups">' + groups.map(function (g) { return '<div><div class="sec-head solo" style="margin-bottom:28px"><div class="sh-title"><span class="eyebrow">' + g[0] + '</span><h2 class="display h3" style="margin-top:12px;font-size:var(--mk-fs-h2)">' + t(g[1].headline) + "</h2></div></div>" + trustGrid(g[1].items) + "</div>"; }).join("") +
+    '<section class="sec" style="padding-top:0"><div class="wrap rule-groups">' + groups.map(function (g) { return '<div><div class="sec-head solo" style="margin-bottom:28px"><div class="sh-title"><span class="eyebrow">' + g[0] + '</span><h2 class="display h3" style="margin-top:12px;font-size:var(--mk-fs-h2);font-family:var(--mk-font-display)">' + t(g[1].headline) + "</h2></div></div>" + trustGrid(g[1].items) + "</div>"; }).join("") +
     '<div><div class="sec-head solo" style="margin-bottom:28px"><div class="sh-title"><span class="eyebrow">Evry</span></div></div><div class="trust-grid three">' + limits.map(function (l) { return '<div class="trust-item"><span class="ti-icon">' + icon("shield") + "</span><p>" + t(l) + "</p></div>"; }).join("") + "</div></div></div></section>" +
     cta(A.cta);
 }
@@ -4498,139 +4431,8 @@ function renderBar() {
     '<div class="pb-group"><span class="pb-lab">Story</span><div class="seg" role="group" aria-label="Story">' + STORIES.map(function (s) { return '<button type="button" data-story="' + s.id + '" title="' + esc(DIR[s.id].name) + '" aria-pressed="' + (s.id === ps) + '"' + (onHome ? "" : " disabled") + "><b>" + s.key + "</b>" + s.short + "</button>"; }).join("") + "</div>" +
     (onHome ? "" : '<span class="pb-note">Fixed for this page</span>') + "</div>" +
     '<div class="pb-group"><button type="button" class="pb-btn pb-copy" title="Copy a link to this page and story">' + icon("link") + '<span class="l">Copy link</span></button>' +
-    hpButton() + /* HERO SWITCHER hook */ '<button type="button" class="pb-btn pb-hide" title="Hide controls" aria-label="Hide controls">' + icon("x") + "</button></div>";
+    '<button type="button" class="pb-btn pb-hide" title="Hide controls" aria-label="Hide controls">' + icon("x") + "</button></div>";
 }
-
-/* ===== HERO SWITCHER (temporary, 2026-10-20). Sebastian tries every photo as the home hero and picks one.
-   State: #...&hero=<photo>&hstyle=fade|full in the URL (a shared link wins), else localStorage "evf-hero", else wheat + fade.
-   Only the selected photo loads: the hero layer gets one data-photo; the thumbnails are inline 112x80 JPEGs.
-   HP_PHOTOS: id, crop (the [data-photo] crop that supplies the image), name, hero focus point (wide, phone),
-   then the text-zone overlay for each style (fade: canvas veil, full: black scrim) and the lowest measured text contrast
-   at 1440 and 390 with that overlay (contrast probe, 1st percentile of the glyph pixels).
-   The final task deletes this block, the CSS block and the four "HERO SWITCHER hook" lines (hero() keeps the picked crop). ===== */
-var HP_THUMBS = {
- "wheat": "data:image/jpeg;base64,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",
- "field": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAwICQsJCAwLCgsODQwOEh4UEhEREiUbHBYeLCcuLisnKyoxN0Y7MTRCNCorPVM+QkhKTk9OLztWXFVMW0ZNTkv/2wBDAQ0ODhIQEiQUFCRLMisyS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0v/wAARCABQAHADASIAAhEBAxEB/8QAGgAAAgMBAQAAAAAAAAAAAAAAAQQCAwUABv/EADoQAAEDAwEEBggDCQEAAAAAAAEAAgMEERIhBSIxQRNCUWFxkQYUFTKBobHRkuHwFiQzQ1JiY3KCwf/EABkBAQEBAQEBAAAAAAAAAAAAAAEAAgMEBf/EAB8RAQACAgIDAQEAAAAAAAAAAAACEQESE1EDFEEEIf/aAAwDAQACEQMRAD8A9HiuwV+C7Bd7fO1UYoFivwQLFWNVGCiWJjFAtVaouWoYq8tQxTYpQWoFqvxXYKtUXxQLExgo4KsUXLUC1MFiiWJsU1cV2GivxXYrlb16qMe5AsV+C7BVjUuWqOCYLECzuVY1LliGCYwQwTa1L4IFiYwQwVY1L9GhgmcEMVWNSxjUTGmixRLU2NWhousFj+2m2uIz+JcdtO6sTfEkry88O30ODydNiy7FYbttTdVsA8SSoHbNVydT/gcjng16029iuxWD7YrG6uNNbvBF/mh7ariN2Okcf9ynngvWm3sUMFht2rtR38ujb/04qL9pbW6raXwAJ/8AVc8B6029ghh3LzM+2NqwssTHlzPQ2aPv+uCob6RbQM4jzaGtblI4xjQcAPEn6K54n1ZvWYLsF5U+ktaJXND4XANadY+0kKP7TbTxdhFSvcx1i0gi/Mc+YTzRGfyzw9XggWLx7vTHaTY8/UIHN7QXaeOqXd6e1lj+5U/4nLWPJFzz4ZY+LjTuc4npX68ABoFwpWx4l0jyRzJ+5VMOy4S0uc+aQ89+1la2jowCOiY7hqdV4KfUvLi5jTZ7325b4HyC5nQyC7Y5JLadYhF1VQ0YO9Cx7TawAuoHat3WhhlkyHF26D8SqjaxrTfFlDe/MtAB+JKuwnLTg2GHvOv0slBXVUoOToohzDN4+egS1RPFHd1VUvfbkXaeQTqLPl7mAF9dc9jGAfdFtYGgWErr9aR5H2WL646Tc2fSHQavIx+SWnEhDvWpy/8AxtO6CtaM7Yb7tt4cMSOG5r80nUekMkm70MZb/dqViPdewAFhoBa1lE68eC1iGHPPkz8NO2m8VIkdHEQ4Brm46EXut9lNDLjWU7nODmYvYCOHLyK8jKACD2J6h2jPSkYSOa3+ki4KpQ6UZ9ttsMfT9JDNgXaSRub73f3FKVlE0y9I2OORh95gNrntGmieDWV7RIG9FNbU2080lMZIH4zB1j1mjUrFf10Vtnr5RvSxwC13EC90DC4tGUsr3HUZP3XfBVmuiY2N0rmucB7oN9f19EtLXzSYx07HBpFm349ui6Uxt20444act/hQX1BA1NuN1TPXsEt6dvrGtmtaeGizjTSxyOEpDnjqh3x48lN0xLDi1sbSBdwOpTQ2XGoqZoQ1+bBwxY0NPmoNEMbS0RSZHjkb/MqiSU9GfeGVib6qEhsSNbXHDsVTOZGJK1hAYyLojwJacSfEqgF5ddxadb3PNUnFwsGkC9viol4d7tsD38fy7e1apnMs5WB41vw7hx7EbtNgDrzvwCp03Trcgn4fmpMLiL9YfInklkZCCd25+aELgW6k3t5oSWy1OhNvIKMRJAu7kDa6snDX2ZWiF4aXPF+/6heiHQ1kBAcLkWOnDxuvGNJa4OYLEG1+aapq+eN+QIIub6Wv3LlKNusZ/Mv/2Q==",
- "storm": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAwICQsJCAwLCgsODQwOEh4UEhEREiUbHBYeLCcuLisnKyoxN0Y7MTRCNCorPVM+QkhKTk9OLztWXFVMW0ZNTkv/2wBDAQ0ODhIQEiQUFCRLMisyS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0v/wAARCABQAHADASIAAhEBAxEB/8QAGwAAAwADAQEAAAAAAAAAAAAAAgMEAAEGBQf/xAAwEAACAgEBBQYGAQUAAAAAAAAAAQIDEQUEEjFBURMhQmGBkQYUIjIzcVMVgpKx8P/EABgBAAMBAQAAAAAAAAAAAAAAAAABAgQD/8QAGBEBAQEBAQAAAAAAAAAAAAAAAAEREgL/2gAMAwEAAhEDEQA/APQgg1FhwgMUDpqMZWnwLtnxB95NCI2Xch6WK7NyfNJisQjx7yV2vqBK4cKqZ2pPu4C3JMldoLtKkJW5JIXKQh3AStDAZKQiyWTUrBcpjkTa1JgSZqUgHIpL21AJVss+Wa5G+xfQxdNnKZR3TU8sq7B44ATqaRU9FygmJmXTq49xPKp9C56TfKV5QDbKJVsXKB0npzvkhtguQySFtFJsC5AthOJrdY0lyYEmMlFi3EBj6VPZU+Qv5SKLFNM22jFka9qN7NEXPZ4YLnu9AHGL5CxWvMnskeQp7FE9KyMf+ZPKPJAENmxJ8Eiaen5PRnXPkyexWp9zLlTY867TWllE/wApu8T0pzs8UkT2T6tFz1UWRI9mXAGdCjyKO0S5oCdmeDTL6qeYjsr6InlDBVbY14SSy7yHKVjplqsl9tuf7jHrNi8b9z5P/XZY+5+4S1yfKyX+Rj5rRsfU5a3P+SQqWvTT/J7s+aLXbv5H7hLXbHxeRc09j6Bd8RyhxsfoiSz4lk3+W2OeiOKetKT+qIL1OmTzmSf6Kkwq6y/X039V9r9yWz4hjn89j9WczPa6pcLP9iJ3x8NkCpUWOnl8RYfdfYn+2FHXLZxyr5vJyTvmucX6oB3zfHPoy9Tjrpa1eljtX6pC3rd3f9Sfocg7bHn6pIF2yXjkmPosdZPW7uvpgRPWLXxSOZjc8tOySx5mltMo5WW/33j6GJco3leYtMzJzdDM+Zib6i/Q2AM3pdX7mb8+rF5N7wAe/PqzN+XUDeMyAE7JeZm+/MHJjYAXafsztPNgZMAD7U12iANAT//Z",
- "hills": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAwICQsJCAwLCgsODQwOEh4UEhEREiUbHBYeLCcuLisnKyoxN0Y7MTRCNCorPVM+QkhKTk9OLztWXFVMW0ZNTkv/2wBDAQ0ODhIQEiQUFCRLMisyS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0v/wAARCABQAHADASIAAhEBAxEB/8QAGwAAAgMBAQEAAAAAAAAAAAAAAQQCAwUABgf/xAAyEAABBAAEAwYFAwUAAAAAAAABAAIDEQQhMUEFEpETQlFhcYEUMlKSoQYiUyMzQ3KC/8QAGAEAAwEBAAAAAAAAAAAAAAAAAAECAwT/xAAiEQEBAAMAAQIHAAAAAAAAAAAAAQIREgMhUQQTIjFBYfH/2gAMAwEAAhEDEQA/APpVIIrlwrCl1LrXWls3UhSNoWEtjTlyFjxXWl0NOXIWgXgakD1KOj0khardKxvzPaPUhQOKgGs0f3hHQ0vtApZ2PwrdcREP+wksT+ouGYew7EhxGzGkpdHyVdxGSs5HfcqzxWZnyyP6rPdO3xHVUSYmJppz2j1K4O66NRpScbxOnOeqpdxzFbuyWQ/F4ckjnPVVifDu/wAgHqq3kfM9mq/j2J+rJVO47idnLMfiYhkJfwFQ/GAGmynoFU2NRqu47i9nFRPHMTVuc/z1pYUmOluhI/oEu/GvJ/c4keYWkwyqbY33fqCfTtiB6lUScckdm6TmrwJXn5MWCcyqX4lu5Ws8SLk3puNvO5J880pLxmY6Or2WO7ENOhVZlGvM2lpPDE3JoS8TnfkZXdUs/EOdq4n3Spe12ruiiTFebiOq2mEiLXqMBxNmIlEcjGAkGjzEK2bCTPJPOzqV5MS3lqm8PjpoW8oeXN8CdFyZfD2XeLb5jYfgZ/5I/uVTsDPvJH9xS7OIF2uqk7EuI+VTryT7jtYcJJWbo7/2Kh8PO022Ro9JCqjM491D+o7vAK/q/NR0m9mLvKQHO/7ig8Ys65+jgUOxedZaXdg3vSu6py6/ibaokhncaLXeuVJeSCVriC158wLT/ZxN77z7riYhs4+quZ1NrMp90XOafMUoOfK3Pnd4LV7SMdzqVEzR/wAbFc8l9ksoyzR5l5F+6HxMu0l+y1DOzZjOgUTOPpb0Crv9FshdIh17qJQaSCtBsxHFzkczuX2TbIez0mDh5hKsnIH7me4Kt7dpGRWOXVV6HBMxo0B9AgcU0bfhIul81U5/qonj9yuTQdjB4Hoq3Ytp2/CQLihzOVzxwradM7DuFAyNOhCWDijZ3CfMiV1g7rstqVJdWoHuh2o2Fp6Ei/mY0W5wACr+KgINOuh4JHFSlz6Jpo2CXutFpPHuep6ONnq7FoGWyqLQJV8mZMorLVFr7CUtEOpHINF2Wq5rr3SxfaHP5pcg211j5lPno1aQ5yCiJDeZRwRjEYgtoMPuqm4iT6jSrc4OKFgaKpjNBc6TwzKg6UkKHNaGRTkG3Ely4BEKTaGZ1TD/2Q==",
- "harvest": "data:image/jpeg;base64,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",
- "trees": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAwICQsJCAwLCgsODQwOEh4UEhEREiUbHBYeLCcuLisnKyoxN0Y7MTRCNCorPVM+QkhKTk9OLztWXFVMW0ZNTkv/2wBDAQ0ODhIQEiQUFCRLMisyS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0v/wAARCABQAHADASIAAhEBAxEB/8QAHAAAAgIDAQEAAAAAAAAAAAAAAwQBAgAFBgcI/8QAMhAAAgIBAwMDAwEHBQEAAAAAAQIDEQAEEiEFMUETUWEGInGBIzJSkaGx4QcUFXLB0f/EABgBAAMBAQAAAAAAAAAAAAAAAAABAgME/8QAHhEAAwEAAwADAQAAAAAAAAAAAAERAhIhMQMiUUH/2gAMAwEAAhEDEQA/AO6VDhApPejl4oyD9y/1wpiA7cZVJSAGI+Mr6ZHcYyCb7YRRfjFRwWUEHkHLEA4yI+Mq8J8DChBJ1+MGVx30Gypi98dE0JbcnbWMmLBspBx0UAEZBU4UrlawpMBFcG6YxRyrLjoQ5DSf6gSSdTPrRhdGzHjuyi+CK989DjljlRSpsEWG8EZ86wuRMCxAPznpGj+rZNJ9Nab0dRC+qMyrtqysYHIrx7ec5+U9N+J6FNLFAm+eREW63M1DAxdS0bTNEsy7lv8AWhzWeX/UX1XN1ucwxrs0iyBkUjkGqP8A7k9L1WyYFmsnucjXyteGmPi5enrqMrqGUgqRYI85Jrzmr6DqVk0Q3SA/dSi+QKx+V46pyaPegc0ztazSNZ46hEk8EbFZJEU+xbnFZeo6RW2+qDX8IvE+ofUPR9Fqmh1cih0SyWS/097wGo6v05ely9S0aIwjW1BG3c3gd+D8YPaDizYv1XTRj7hIPyuLTdY0m37AzH2qs4L6f12rm64jS6r1l1J++Pedq3fuKBBoUPxneepGAVk09fiMG8S0g4lF1suoQnTabdXuf84SF5XS5YljPkWeMxCiFdjSBf4V4Ay7FPck/J5w5j4A3cLZLAAe+Ck1SoLLCj575dpYy/pK6+oF3bDya7XXtlSkbgj55o41sl4PCfTkJtUNY1CJBHWwk/8AbDyba3gmhwRkwC6tgQfOYvXRrx7KBZgxars+M2Wj9dgHHvXJwKSRxDw1/GHj1qqOKH4zNummYjo+k9X1PTjvUAsAQATeF1f1L1ieV2jZkUggKvAH8859OoFQCKPyeMKvUA62ayO0afV+mu1kereRnMbWfnMfX9TTp40MW6OFW9Tai0SfcnGpNct3QJ+cD/u1piFUk+fbLWn+EaS/TXxf8hp7aNpEY8na1c//AHG9B9Qde6dFJDFPJtkO77qYg/BPbE9Rq5Hax2vvhtLqiRsZLrm8utdwz6sGJfqD6klBrXagX7MB/bAR9Y68m9U6hqaDHgynufzhJZbH2/aB3oYISkC9wJPj4w5v8E8pf0XeXq7aw6uSWc6givVEv3UOwu+2JiPqSymZfWV927cHIN97x5552ZDQN967DLxSM7/tLVfjGtMmZE4pGQMHUkfByTOqnanH64BdS22/c0BmFhVKBZ78Y+IULvdz37d8LE25wrHgcn4wEdrXj2zC+1iL5Pvig0zaiWP+HiqGBmlCDhr/AB4xFZd3J5AykjNIQAL8ADJWSnqjLS7jV2MPHJuWhS/p2xVISig9ye3gZRpGUV5/ONImtDn7MgBpPuJ7VjOnOnhQ7raRud3gZqUIBBbDSzfapQ8Cv5YPN6BanYTVasM20Gji8LU5+4E9yTijkjcSeScsCUjs+ctZiIeqOPqGFtfihi5lkaxvwW9h3a8gOxPBONZhLY7Hogygk4CaMxuUQmh3PfHnnAAA4PgDBqPUY7iDt8f5zJafrN2l4hGQshohvi8koyrurv2x14gtsWseaOBa2a6FeMtapLzAIVq/vzjOnjFWTR8YP7RfmsurnzWDEug0jDbVjgUAOwwBIY/u/r75R5Nwodv74Jm/T4GCQNl7FkjLA2AvAB7m8Fyew2j+uZvCih4N5RFCMikAWePjBObWq85dWPct+mYSo7nAGCAF0Act+7wOMJ9i+OT7nMJDduD+MdCH/9k=",
- "plain": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAwICQsJCAwLCgsODQwOEh4UEhEREiUbHBYeLCcuLisnKyoxN0Y7MTRCNCorPVM+QkhKTk9OLztWXFVMW0ZNTkv/2wBDAQ0ODhIQEiQUFCRLMisyS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0v/wAARCABQAHADASIAAhEBAxEB/8QAGgAAAgMBAQAAAAAAAAAAAAAAAgMAAQQFBv/EADIQAAICAQIEBAMHBQEAAAAAAAECABEDBCEFEjFBE1FhcQYigRUyQlKRsdEjM0NiocH/xAAYAQEBAQEBAAAAAAAAAAAAAAAAAQIDBP/EAB8RAQACAgICAwAAAAAAAAAAAAABEQIUA1ESEyFBYf/aAAwDAQACEQMRAD8A9eo3jRFKYamAwGXcG5IF1JKupLkVJLl7StpUXcqQmSie0CrgmM5ZVShREBo54hwZBFMaJFxwwoHeS1DZk3hULksQBowgJRYSvEEAwJe0WckHxIsaFIkLCI8USHIJbSji8EtElxJziLDCRAYAwC8BnMDQDL9zFBh5CGGmLapCD2MA35xnMJOYekWtFlT5yuX1jC0EvJZQCB6wSPeM5x5iCXHmIsLI95RNd5b5FUEswAHcmB4iN0dTXkZqEFzyHKRF84/MIJZT+NR9ZUGcrHpFtkf0gkqOuRR9YPNjI/uCVHNx5dQjBjxJz6Mor9I7LxvwcgTkyOtfNkUChPIafh3FF+7reUfUzU2h4i4+biJXzIUD/wAnlnljt6o4p6eo+2AbK85HrQgNxq75HU+7/wATzI4XrXTl+1sxBPWt4xOE5UoHiWoB89hM+7Htr1T06uo+IsmH/Czt7kCvO5ztT8Q6xmVkYKH+6OXaveUeCF7L6/UvvRBI/iHi4LjU76jOwHYuP4iOfGEngykacb1KsqvT2LsVX7xyccyd8Iv2P8yl4dpLUjmDAfn6w00mHGWO4vreQybGLWvJGp4i+qXlyY2QdduhlJql0ShmfkRj1PSNx6TTKSyYxZFXZO0i6LTJ0wICbB2uxGzHRrfrHrfiLHhFYnOZz+Fdh+s5x+Is7k8uHftuTZncGDEg+RUS/JRI2xAGQj0EmzPS60dvPji3E8y0cLoT3CmKduNZCOV89f7Gv3noGDDfxHoesSxAF2avrcmxlJr4x9hxZOY7lwoNmjU0eLzqSvTsLnNTVAZHQfL9bh49aqgoznlJqgKJnGYdoluXJkDE8wAPTrtGDIxFuVskf8mNNRSFjuav5jW0jagqgC1v0sdplpv8Z9hYo7yDLkBJ6mq3apjOtVV+VxYG526Rg1nimxRAHWjvFSvwdkzG65BXn2gNnxITaUR1JikzFxZWwTuB3lPqUVj/AEgm1cp6xRZx1CmuVgVO4oVINSAAqoWJ29RMSZEZ+oKjyPSW2VVttmQnsx2jxLPyalwx5kO3fvB8cmiyptv6iZ25SxB+W97JmfIOYGiaB8ql8UtqfUKPL3iM2rQEgWxHcRPhUdjYIgFG7EV3A7GbjGGJmX//2Q==",
- "reeds": "data:image/jpeg;base64,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",
- "lake": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAwICQsJCAwLCgsODQwOEh4UEhEREiUbHBYeLCcuLisnKyoxN0Y7MTRCNCorPVM+QkhKTk9OLztWXFVMW0ZNTkv/2wBDAQ0ODhIQEiQUFCRLMisyS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0v/wAARCABQAHADASIAAhEBAxEB/8QAGwAAAgMBAQEAAAAAAAAAAAAAAwQCBQYBAAf/xAArEAACAgICAgEDAwQDAAAAAAABAgADBBESIQUxQQYiURQyYRMVI4FCkaH/xAAYAQEBAQEBAAAAAAAAAAAAAAABAgADBP/EABoRAQEBAQEBAQAAAAAAAAAAAAABEQIhEkH/2gAMAwEAAhEDEQA/ANSokwIhiZYsA7jTXqo2TOjmNJCVd3kUU+4TGzQ/zBljOxNs2tfZE9+urPzMTk9FP11QH7pxfIVE65CZjk5Afqq9b3FLvJ1o3bATMsZExfHzEtHsQ5YfmYOGQM81ij5grb1VCdzMxHjfNhF7Ml5H6jIXjWdmY1LWXXcI9nJJN6XJFxV5axwS7ne4/R53+mv7pk+c6thjrLzL89fZb9jkLPf3zI4/uO5QljuTDw1ly3nsll0GIkKvNZCOCXJlSHE4W0ZtZqa/PXlPcr8ryttjbZj1K5LwFgmfkx1HWaHx31DZQQHOxL4fUtf9PkT1PnhcqY0t3+HUm9WGSVr7fqdGU8Wlbd9Tu3IdiZnnoyDN3HUmK8C4jZU6nGwrh6U6mpoyaCoB1O2X4yjfUPFYyqYF7f8AEwyeKyG74n/qaWnKxiPiO15WNx9iXkT6xbeOuDaIkz4q/XQmky8rH5gjUZoysdqxrUPDjIHxeQO+Jkf0Nu9FSJtRdjkehEc66hfgSbhkZn+3XEbAnqsVhvkO5q8KyiyrZ1FMxal2w1C2Yuc+s3ZiWM32jqEpwMiz7Qp3Lau+lB3qWXjbqWuG9am2D5Zl/EZS+0MXfCuQ/cpE+ju+Nv4lL5s0ADjrf8S7JjnPazmBYXs4k9RvLxm1tSe4h49SbevzLa1mVO55rcr1czZ6SxVKtpjD2q3pWMC6ktsHUKmwQSZP1dX8zMRGO5P3ExyvGatNg/E69itWNHsSSXkU6Mm92mcSAvaUHuKXs9m9nqMHjY2jJWoip+Jvo3mA4nNB00BnZD61uF2V9GL5I5DZ+ZUqLMngVCNcPcscGt1fQJ3FcXSEa+ZaYrolikzXo88+BZhyajy5HUrsjIsf9zdzQ+RdLKft9zNZKEP18SvrfEXnPRsNPuDJGTaWfgxldi3tWvQ6E69rGzmT1+ZNl0zqYayG16hcRlJ1b+0jRP4/mKi0Xr3oMJ0OVWFitOW1Nj2sjH1/7/MgLtDuHstTM8cGrGr8YDmu/afkf7+JW8yRoyflX0YSwFt7kr25a76itY63Dt2vXcf0S7A2J9CRYFvc9Y3E99GRD7HX+4po1QWFYlCDuKBiryV1pIEM9O+GrcwlNRNn2e5AHbjZ6kr+JYcfQjmDdj//2Q==",
- "bluebells": "data:image/jpeg;base64,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",
- "poppies": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAwICQsJCAwLCgsODQwOEh4UEhEREiUbHBYeLCcuLisnKyoxN0Y7MTRCNCorPVM+QkhKTk9OLztWXFVMW0ZNTkv/2wBDAQ0ODhIQEiQUFCRLMisyS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0v/wAARCABQAHADASIAAhEBAxEB/8QAGgAAAgMBAQAAAAAAAAAAAAAAAwQAAQIFBv/EADkQAAIBAgEICAMGBwAAAAAAAAECAAMRBBITITFBUXGRBQYiMmGBkqEUUmIVQkNygsEjk6Kx4fDx/8QAGAEAAwEBAAAAAAAAAAAAAAAAAAECAwT/xAAlEQACAQMDAwUBAAAAAAAAAAAAAQIDERIUITEiQVEEEzKBobH/2gAMAwEAAhEDEQA/APZgGaAjIw/iJoYfxk5BgxYCXaNDDmaGGiyDAUyZMmODDS/ho7hiJ5MvJjnw3jIaCjWYrjxE8mTIjRRBtlFF2GFwxFciTJjgpA7RNZgbxFceIjkysiP5gbxKNFRtEWQ8Ucr7cwGsYheRmW6xYJLdtmv8qzwq1BvMKtUeM4XXZdp+D3A6w4IjQanpkPWLDDuq5nihVG8yZ47ItRIVpHsj1kpbKZ82mT1kXZSHqnjs++4SxWbcIaiQKMnweuPWG+qmnqMG/WB9iJ6jPL5xjull23iLUsftVH2PQt0/VP3KfOZPT9fYlPlPP5zeJWdEl+pfk0j6Ss+x3j0/idmbH6f8wT9P4w6mUeU4xrCCfEINvvFqJMvR1UdGv0rjqt74qqv5SBFK+OxdRQr4zFWHyvb+0TbEoT3hzmDVB/7DMnTVH3Bq3jCKWOpvaLhlOz3hV8F94mjVYWs0HUNtb2hFFtZgA3HnNF2A0W5yHFvuVGVOPMf6MZVtso1bRfOVT91ZpSx1rJxa5Zqpxfxjb6NmuN8ycSvGXkqdYtIaVP8A0R4pkuc48GfiVbVrmcsnU01amuoSwVbZaGC8Fal2tJg8ptoEhIOtYQ00Om4kNEEaG94WRKlUe6dxKso2IvKKMzA90CdNqbga2i1RWOo3m0GRUk7bFphD8yA8YdcO6i5ZD+qI5wkdke4MrtsOzk3lYyfLIfsriO49UdlFspfJ4rUrudAfmRN0qNYm4AtvAEZWnUC90/yxJ2iSoSqd2hKnnXPeX1CPYenUOtlt+YSxo1qrHxQQ9ErtQSZSudFGiovd3CqqAdpSeDCRnpAamHHTNgK34Q5zFVaexFvxtMrNnRUxS2SBZaNcEXHjLVKZ0qp5wL0gDq/eYNQ0xpAA4S7PsccZxv1pDDkoeyB5wVSody+0E2Kvo7HkYB6xF9B5ylFkzqR7P8CVK5XWgEGa6bVgKmIuCBpPCBCVjpA/qmqj5OaU5N9O/wBC9Io51jmYcUUJBBMEik6inolNTYtYC/5Rb95u+SsbLdXHVq5trBmJ8oUYxwLafMTnCnTB7TVAeAm8tEHZq1PMCZuCYZyXG32dFMSBpdFPtDL0hTX8Ec5yErg95/YQ61KJ05engJEoJcm9NVpfC34dD7TVjZUyR4sZr4sNa7ked5zTWQbQR4ATGfpMbNdeEMPBMnOL67M6NSpS0k1ADF3IYXNS6/TBrVoHQAhP1CMIKDLpop5AyX0mkaTq7bIXOZvpzg8pP4LkBK1QHxa0OcNSbSFI4TAw5B7DkHcbRqSZa9PKHNrDFNaeTbO5XEibVaQU31/SRAWrrtB4wNaoy6HVZOLbOl1IQR//2Q==",
- "wildflowers": "data:image/jpeg;base64,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",
- "blossom": "data:image/jpeg;base64,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",
- "meadow": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAwICQsJCAwLCgsODQwOEh4UEhEREiUbHBYeLCcuLisnKyoxN0Y7MTRCNCorPVM+QkhKTk9OLztWXFVMW0ZNTkv/2wBDAQ0ODhIQEiQUFCRLMisyS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0v/wAARCABQAHADASIAAhEBAxEB/8QAGwAAAgMBAQEAAAAAAAAAAAAABAUCAwYBAAf/xAAwEAABBAEBBgUCBgMAAAAAAAABAAIDEQQhBRIiQWFxBhMjMVEUgSQyQnKxwTRSkf/EABkBAAMBAQEAAAAAAAAAAAAAAAIDBQEEAP/EACIRAAMAAgEEAgMAAAAAAAAAAAABAgMRIQQFEjFBcRMyM//aAAwDAQACEQMRAD8AUMjMWQWuFAEgLj3009bUp5LyiepQkr7cQuXE3S2ybkSl6RrvC/FjgciSm2djtc5le+qT+FtMZh7pzkP9VvYpeRJpplzpeMcguPibspJPNE7T3YsRx6FRjf6pVG35N3Ak/aUESkuB2atS2Y+J9n72nvhZtYcfZZlji3/i1Phj/Ei7BOoj9HzZo3mmHslu9xo+Y1GeyWt1cUjJ7RdkJjcrch9QHsqYgu5p3cd3ZNhbF29GI2lI52TI6tAaV+HkkRhpXtoADGJrV0iHxx7EFZnheOmQ8NVObaBnvucnqVS88dKLncf3K9I71APhNxcSIyfsbPwuPwbD0P8AKaZDvWH7Us8M0MGM3y/tH5Dx5xrXRKsu9N/Ofo7CfVd3QviV1bPk/arYJAJDfMobxOfwElHkEGM3qXrHX0ZMuHl6/wCq1ewajxY+yyO76Jd0pPNlZ24GMXRS4I/TWotNmonm9MoGN1i10yiRhXI2cKQ58nstflCoXXVqO0nVjHsotO5SG2pOPp3C9aTIXOgclLxbM1tBxdHE35cSoYo5dF3NduuxwfglURzbjyR2RZpdLSIkWpybYuLuJce7jvqoB1uKkTxIpWkZXNGq8N54OP5R0LE1Mm/I4josViZEkLOA7vPujsPbD4xJ5nESdELjfo68fUeCUs0TZd2UEn9VITxDmW0R3ofdZ521Z5JrB0D7pSzMh0xL3r0Y9MHP1PlLlE5CPpjVKMUroiCCqt+4QOy648SdonttDiHaDxHqjYdpHc4kjY6o2olx9MDqg8UPnNa+RrNtIea0A6IfLmM5IB4QCljnHzD3V2NISXA+y2Uk9hPPVcMF2oD9QwDk1CWR90fl1NlkgewpWQbN81vF7oclzC3QuYrJWpM5GbcVMu9lRG6rXd72RD3HIVv1G3svNdbqVTjoOwUofzL0ej1r5JxNuT7ojI0ZfT+1GEDfK7lGwjOdvdHGas+4VzOKSuSoHCwV8qUUtPNrzAaC5OEMAVj5KA72hXyguCm99sKEDZ0PJF9UTjk13IQcZ4Sjcchob3/pYFPslAzeyHXzITnHYAT3H8JViEHIvqnkbRpXypncKa0ix26E9s+evxiyAP5kgKt8TmAWOSYyODjG3lvIrOxriprf0hd029chXh03r4EtFytitpXK3Sb5FWQ0TSbPo4rZdGa1UZ36qz8rUPMbP3RnNK3RaziYFADiK7GajUQ7VYZrlknu1AXnSndVTjxhccdAhPKAmORMI5OEfPulEZtwR0TiSdeS1AufFjPZ1F7SflPYTbQe6z2z3U4dLTiCZojaSf02pPcPei3230f/2Q==",
- "glow": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAwICQsJCAwLCgsODQwOEh4UEhEREiUbHBYeLCcuLisnKyoxN0Y7MTRCNCorPVM+QkhKTk9OLztWXFVMW0ZNTkv/2wBDAQ0ODhIQEiQUFCRLMisyS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0v/wAARCABQAHADASIAAhEBAxEB/8QAGwAAAgMBAQEAAAAAAAAAAAAAAgMAAQQFBgf/xAAiEAADAAIBBQADAQAAAAAAAAAAAQIDEQQSEyExURRBYYH/xAAaAQADAQEBAQAAAAAAAAAAAAABAgMABAUG/8QAIREBAQACAQQCAwAAAAAAAAAAAAECEQMEEhMhMUEUQlH/2gAMAwEAAhEDEQA/APo60F4MEc7HWvZqjJNenshMpVbjYdtF7QtMIOw0PZNg7IBtD2TYJZttpZCiA2yybIQ22XshRYNs8ZjzNfs24OU5aaemcqaHRZKx1/Lv4Ob1NKtD1ypdaT/04EZWh0ZmDvsDxyvQK017BvPM/wBORHJpemW8zf7BeW69BOJ1FyU2xizT9RyFkCWV/SXmyhrwx1+5Ot78FrIvpyllf0JZH9FvVWfRfC6itP0wtnLnK0/Y+eS9Ax6zH9iXis+G3ZNmZcha8l/kIf8AK4/6TsrxE0NmjPI2Tpq8aJobNGeWMliU8aJoNUIljEydPDlQc14FIKPRHKHhyoNUKQSJZQdGqglQpBJnNnjC2G9ROpgJlnn8uF+i6eWkdIiGMln1liEp8jZETQc0JYeU+Q0Jmg1Qlh5Tkw5fgR1lzfglcTytKoJUZ1YSsncKbbQqCVGbrL6yV429NKotUZu4WshDLg23a87DGyzJOQYsp7e3FGpMYmZVlCWVg2aNSYSoyrKy+6LaZrVEivBk7n9CnLoXcM2dRaoyrOX3weh9tXUX1GXvonfQNRt1q6ynk0ZXyEA+RP03ZK3fY//Z"
-};
-var HP_PHOTOS = [
-  {"id": "wheat", "crop": "wheat-dusk", "name": "Wheat at dusk", "pos": ["50% 58%", "50% 58%"], "fade": {"a": 0.0, "cr": [5.05, 5.97]}, "full": {"a": 0.45, "cr": [4.94, 5.02]}},
-  {"id": "field", "crop": "field-sky", "name": "Field and sky", "pos": ["50% 60%", "50% 60%"], "fade": {"a": 0.0, "cr": [5.87, 6.1]}, "full": {"a": 0.45, "cr": [5.03, 6.14]}},
-  {"id": "storm", "crop": "storm", "name": "Storm", "pos": ["30% 60%", "30% 60%"], "fade": {"a": 0.0, "cr": [5.34, 6.03]}, "full": {"a": 0.35, "cr": [4.68, 4.78]}},
-  {"id": "hills", "crop": "hills", "name": "Hills", "pos": ["50% 60%", "50% 60%"], "fade": {"a": 0.05, "cr": [4.68, 5.78]}, "full": {"a": 0.5, "cr": [5.37, 5.27]}},
-  {"id": "harvest", "crop": "harvest", "name": "Harvest", "pos": ["50% 62%", "50% 62%"], "fade": {"a": 0.0, "cr": [5.57, 5.89]}, "full": {"a": 0.4, "cr": [5.02, 6.65]}},
-  {"id": "trees", "crop": "trees", "name": "Trees", "pos": ["55% 50%", "55% 50%"], "fade": {"a": 0.05, "cr": [4.63, 6.16]}, "full": {"a": 0.5, "cr": [4.92, 4.92]}},
-  {"id": "plain", "crop": "plain", "name": "Plain", "pos": ["30% 70%", "30% 70%"], "fade": {"a": 0.0, "cr": [5.63, 6.18]}, "full": {"a": 0.4, "cr": [4.64, 4.71]}},
-  {"id": "reeds", "crop": "reeds", "name": "Reeds", "pos": ["50% 72%", "50% 72%"], "fade": {"a": 0.05, "cr": [4.67, 6.18]}, "full": {"a": 0.4, "cr": [7.51, 4.74]}},
-  {"id": "lake", "crop": "lake", "name": "Lake", "pos": ["50% 67%", "50% 67%"], "fade": {"a": 0.05, "cr": [4.67, 6.18]}, "full": {"a": 0.4, "cr": [8.86, 4.77]}},
-  {"id": "bluebells", "crop": "bluebells", "name": "Bluebells", "pos": ["30% 40%", "30% 40%"], "fade": {"a": 0.0, "cr": [4.71, 5.7]}, "full": {"a": 0.35, "cr": [4.71, 5.97]}},
-  {"id": "poppies", "crop": "poppies", "name": "Poppies", "pos": ["50% 60%", "50% 60%"], "fade": {"a": 0.0, "cr": [5.11, 5.92]}, "full": {"a": 0.5, "cr": [5.12, 5.18]}},
-  {"id": "wildflowers", "crop": "wildflowers", "name": "Wildflowers", "pos": ["60% 45%", "60% 45%"], "fade": {"a": 0.0, "cr": [4.93, 5.99]}, "full": {"a": 0.45, "cr": [4.95, 4.99]}},
-  {"id": "blossom", "crop": "blossom", "name": "Pink streaks", "pos": ["50% 40%", "50% 40%"], "fade": {"a": 0.0, "cr": [5.04, 5.87]}, "full": {"a": 0.4, "cr": [5.18, 4.71]}},
-  {"id": "meadow", "crop": "meadow", "name": "Green streaks", "pos": ["40% 50%", "40% 50%"], "fade": {"a": 0.0, "cr": [4.88, 5.69]}, "full": {"a": 0.35, "cr": [4.84, 4.64]}},
-  {"id": "glow", "crop": "glow", "name": "Golden haze", "pos": ["50% 30%", "50% 30%"], "fade": {"a": 0.0, "cr": [6.04, 6.34]}, "full": {"a": 0.5, "cr": [5.07, 5.02]}}
-];
-var HP_STYLES = [{ id: "fade", name: "Fade", long: "Photo fades up from the canvas, ink text", veil: "canvas veil" }, { id: "full", name: "Full-bleed", long: "Photo fills the panel, cream text", veil: "black scrim" }];
-var HP_KEY = "evf-hero";
-var hp = { photo: "wheat", style: "fade", open: false };
-function hpFind(id) { for (var i = 0; i < HP_PHOTOS.length; i++) if (HP_PHOTOS[i].id === id) return HP_PHOTOS[i]; return null; }
-function hpRead() {
-  var q = location.hash.split("?")[1] || "", p = new URLSearchParams(q), saved = {};
-  try { saved = JSON.parse(localStorage.getItem(HP_KEY) || "{}") || {}; } catch (e) { saved = {}; }
-  var ph = p.get("hero") || saved.photo, st = p.get("hstyle") || saved.style;
-  hp.photo = hpFind(ph) ? ph : "wheat";
-  hp.style = st === "full" ? "full" : "fade";
-  hpSave();
-}
-function hpSave() { try { localStorage.setItem(HP_KEY, JSON.stringify({ photo: hp.photo, style: hp.style })); } catch (e) {} }
-function hpParams(p) { p.set("hero", hp.photo); p.set("hstyle", hp.style); }
-function hpPct(v) { return Math.round(v * 100) + "%"; }
-var hpRO = null;
-function hpApply() {
-  var sec = document.querySelector("#view .hero.hero-anim:not(.ov-hero)");
-  if (hpRO) { hpRO.disconnect(); hpRO = null; }
-  if (sec) {
-    var f = hpFind(hp.photo), o = f[hp.style], panel = sec.querySelector(".hero-panel"), bg = sec.querySelector(".hero-bg"), row = sec.querySelector(".hero-row");
-    sec.classList.toggle("hp-full", hp.style === "full");
-    bg.dataset.photo = f.crop;
-    bg.style.setProperty("--photo-pos", f.pos[0]); bg.style.setProperty("--photo-zoom", "1"); bg.style.setProperty("--photo-shade", ".2");
-    panel.style.setProperty("--hp-a", o.a);
-    var narrow = window.matchMedia("(max-width: 640px)");
-    var measure = function () {
-      bg.style.setProperty("--photo-pos", f.pos[narrow.matches ? 1 : 0]);
-      var pr = panel.getBoundingClientRect(), rr = row.getBoundingClientRect();
-      panel.style.setProperty("--hp-end", Math.round(rr.bottom - pr.top + 24) + "px");
-    };
-    measure();
-    if ("ResizeObserver" in window) { hpRO = new ResizeObserver(measure); hpRO.observe(panel); hpRO.observe(row); }
-  }
-  hpSync();
-}
-function hpMeta() {
-  var f = hpFind(hp.photo), o = f[hp.style], s = HP_STYLES[hp.style === "full" ? 1 : 0];
-  return "<b>" + esc(f.name) + " · " + s.name + "</b><br>" + s.long + ". Photo overlay 20% black, " + s.veil + " " + hpPct(o.a) + " over the text. Lowest text contrast " + o.cr[0].toFixed(1) + ":1 at 1440, " + o.cr[1].toFixed(1) + ":1 at 390.";
-}
-function hpButton() {
-  var f = hpFind(hp.photo), home = state.page === "home";
-  return '<button type="button" class="pb-btn pb-hero" aria-controls="hp" aria-expanded="' + (hp.open && home) + '"' + (home ? "" : " disabled") +
-    ' aria-label="Hero background: ' + esc(f.name) + '" title="' + (home ? "Hero background: photo and style" : "Hero background: home page only") + '"><img src="' + HP_THUMBS[f.id] + '" alt="" width="22" height="16"><span class="l">Hero: ' + esc(f.name) + "</span></button>";
-}
-function hpPanel() {
-  var el = document.getElementById("hp");
-  if (!el) {
-    el = document.createElement("div"); el.id = "hp"; el.className = "hp"; el.setAttribute("role", "dialog"); el.setAttribute("aria-labelledby", "hp-title"); el.hidden = true;
-    el.innerHTML = '<div class="hp-top"><div class="hp-head"><h2 id="hp-title">Hero background</h2><button type="button" class="hp-x" aria-label="Close hero background">' + icon("x") + "</button></div>" +
-      '<fieldset class="hp-style"><legend>Style</legend><div class="hp-seg">' + HP_STYLES.map(function (s) {
-        return '<label title="' + esc(s.long) + '"><input type="radio" name="hp-style" value="' + s.id + '">' + s.name + "</label>"; }).join("") + "</div></fieldset></div>" +
-      '<fieldset class="hp-photos"><legend>Photo</legend><div class="hp-list">' + HP_PHOTOS.map(function (f) {
-        return '<label class="hp-tile"><input type="radio" name="hp-photo" value="' + f.id + '"><img src="' + HP_THUMBS[f.id] + '" alt="" width="44" height="32"><span>' + esc(f.name) + '</span><span class="hp-v" data-v="' + f.id + '"></span></label>'; }).join("") + "</div></fieldset>" +
-      '<p class="hp-meta" aria-live="polite"></p>';
-    var bar = document.getElementById("pbar"); bar.parentNode.insertBefore(el, bar.nextSibling);
-    el.addEventListener("pointerdown", function () { el.dataset.pointer = ""; });
-    document.addEventListener("keydown", function () { delete el.dataset.pointer; }, true);
-    el.addEventListener("change", function (e) {
-      if (e.target.name === "hp-photo") hp.photo = e.target.value; else if (e.target.name === "hp-style") hp.style = e.target.value; else return;
-      hpSave(); history.replaceState(null, "", hrefFor(state.page, state.at)); hpApply();
-    });
-    el.addEventListener("click", function (e) { if (e.target.closest(".hp-x")) hpOpen(false, true); });
-    el.addEventListener("keydown", function (e) { if (e.key === "Escape") { e.stopPropagation(); hpOpen(false, true); } });
-  }
-  return el;
-}
-function hpSync() {
-  var el = hpPanel(), home = state.page === "home";
-  if (!home) hp.open = false;
-  el.hidden = !hp.open;
-  Array.prototype.forEach.call(el.querySelectorAll("input"), function (i) { i.checked = i.value === (i.name === "hp-photo" ? hp.photo : hp.style); });
-  Array.prototype.forEach.call(el.querySelectorAll(".hp-v"), function (v) { v.textContent = hpPct(hpFind(v.dataset.v)[hp.style].a); });
-  el.querySelector(".hp-meta").innerHTML = hpMeta();
-  var b = document.querySelector(".pb-hero");
-  if (b) {
-    var f = hpFind(hp.photo);
-    b.setAttribute("aria-expanded", String(hp.open)); b.querySelector("img").src = HP_THUMBS[f.id]; b.querySelector(".l").textContent = "Hero: " + f.name; b.setAttribute("aria-label", "Hero background: " + f.name);
-  }
-}
-function hpOpen(on, refocus) {
-  hp.open = on; hpSync();
-  if (on) { var c = document.querySelector('#hp input[name="hp-photo"]:checked'); if (c) { c.focus({ preventScroll: true }); c.closest("label").scrollIntoView({ block: "nearest" }); } }
-  else if (refocus) { var b = document.querySelector(".pb-hero"); if (b) b.focus(); }
-}
-document.addEventListener("click", function (e) { if (e.target.closest(".pb-hero")) hpOpen(!hp.open, false); });
-window.addEventListener("hashchange", function () { hpRead(); hpApply(); });
-hpRead();
-/* ===== end HERO SWITCHER ===== */
 
 /* ---------- Apply ---------- */
 var last = {};
@@ -4667,7 +4469,6 @@ function render(scrollMode) {
     if (target && target.classList.contains("faq-i")) faqSet(target, true);
     if (target) setTimeout(function () { target.scrollIntoView({ behavior: "smooth", block: "start" }); }, 30);
   }
-  hpApply(); /* HERO SWITCHER hook */
   if (needView) { photoInit(v); setupMotion(); seedBots(); haInit(); cxInit(); phInit(); ovsInit(); visionPlay(v); }
   last = { page: state.page, story: state.story };
 }

@@ -16,7 +16,8 @@
 
 :root {
   --mk-font-display: "DM Serif Display", Georgia, "Times New Roman", serif;
-  --mk-font-body: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --mk-font-text: "DM Serif Text", Georgia, "Times New Roman", serif; /* serif below 24px; DM Serif Display at 24px and above */
+  --mk-font-body: "DM Sans", ui-sans-serif, system-ui, sans-serif;
 
   /* Shared spacing scale (4px base, same as --ef-space-*) */
   --mk-space-1: 4px;
@@ -52,7 +53,6 @@
    - Text on a photo is cream. Check 4.5:1 for each crop at each width before you ship it.
    ===================================================================== */
 :root {
-  --photo-wheat: image-set(url("assets/photos/wheat-2400.avif") type("image/avif"), url("assets/photos/wheat-2400.jpg") type("image/jpeg"));
   --photo-field: image-set(url("assets/photos/field-2400.avif") type("image/avif"), url("assets/photos/field-2400.jpg") type("image/jpeg"));
   --photo-storm: image-set(url("assets/photos/storm-2400.avif") type("image/avif"), url("assets/photos/storm-2400.jpg") type("image/jpeg"));
   --photo-hills: image-set(url("assets/photos/hills-2400.avif") type("image/avif"), url("assets/photos/hills-2400.jpg") type("image/jpeg"));
@@ -71,7 +71,6 @@
 }
 @media (max-width: 900px) {
   :root {
-    --photo-wheat: image-set(url("assets/photos/wheat-1200.avif") type("image/avif"), url("assets/photos/wheat-1200.jpg") type("image/jpeg"));
     --photo-field: image-set(url("assets/photos/field-1200.avif") type("image/avif"), url("assets/photos/field-1200.jpg") type("image/jpeg"));
     --photo-storm: image-set(url("assets/photos/storm-1200.avif") type("image/avif"), url("assets/photos/storm-1200.jpg") type("image/jpeg"));
     --photo-hills: image-set(url("assets/photos/hills-1200.avif") type("image/avif"), url("assets/photos/hills-1200.jpg") type("image/jpeg"));
@@ -97,8 +96,7 @@
 .photo:not(.seen)::before { background-image: none; }
 .photo::after { z-index: -1; background: var(--photo-grain) 0 0 / 260px 260px; opacity: var(--photo-grain-mix, .34); mix-blend-mode: overlay; }
 .photo :focus-visible { outline: 2px solid #F6F0E9; outline-offset: 2px; }
-/* Landscapes. wheat-dusk is the hero; lake is soft and dark enough for cream text at the 20% overlay (the CTA). */
-[data-photo="wheat-dusk"] { --photo-src: var(--photo-wheat); --photo-pos: 50% 58%; }
+/* Landscapes. lake is soft and dark enough for cream text at the 20% overlay (the CTA). */
 [data-photo="field-sky"]  { --photo-src: var(--photo-field); --photo-pos: 50% 16%; }
 [data-photo="storm"]      { --photo-src: var(--photo-storm); --photo-pos: 30% 60%; }
 [data-photo="hills"]      { --photo-src: var(--photo-hills); --photo-pos: 50% 60%; }
@@ -107,7 +105,7 @@
 [data-photo="plain"]      { --photo-src: var(--photo-plain); --photo-pos: 30% 70%; }
 [data-photo="reeds"]      { --photo-src: var(--photo-reeds); --photo-pos: 50% 72%; }
 [data-photo="lake"]       { --photo-src: var(--photo-lake); --photo-pos: 50% 67%; }
-/* Blurred colorful photos: the six phase-card rail cards. */
+/* Blurred colorful photos: the phase-card rail cards. Final picks: wildflowers is the home hero, bluebells the /oversight hero. */
 [data-photo="bluebells"]   { --photo-src: var(--photo-bluebells); --photo-pos: 30% 40%; }
 [data-photo="poppies"]     { --photo-src: var(--photo-poppies); --photo-pos: 50% 92%; --photo-zoom: 1.5; }
 [data-photo="wildflowers"] { --photo-src: var(--photo-wildflowers); --photo-pos: 60% 45%; }
@@ -121,13 +119,14 @@
    Muted gradients (2026-10-20). The same engine as the dashboard InsightCard (design/everyfield-ui.html).
    Used by the InsightCard copies and by photo slots that hold a colorful UI card.
    Three layers: a base color, a blurred mesh of five color blobs mixed in OKLCH (::before), film grain (::after).
-   - Use: class="mesh" data-mesh="field|sky|clay". All tones carry ink text.
-   - Palette: --ef-{sky|clay}-{100|300|500|700}, sampled from the photos and muted in OKLCH.
-     700 is the text-safe step (4.5:1 or more on white and cream). Sand is removed (round 4); its replacement comes from the dashboard task.
+   - Use: class="mesh" data-mesh="field|sky|sage|rose". All tones carry ink text. Rose is the risk / needs-attention tone.
+   - Palette: --ef-{sky|sage|rose}-{100|300|500|700}, sampled from the photos and muted in OKLCH (sage and rose: design/everyfield-ui.html, 5e2f9b5).
+     700 is the text-safe step (4.5:1 or more on white and cream). The earlier tones are retired (final picks, 2026-10-20).
    ===================================================================== */
 :root {
   --ef-sky-100: #D6EAF2;  --ef-sky-300: #B2D2DE;  --ef-sky-500: #83AAB8;  --ef-sky-700: #4C6F7C;
-  --ef-clay-100: #F5DED0; --ef-clay-300: #E4BAA2; --ef-clay-500: #AF7A5A; --ef-clay-700: #83583D;
+  --ef-sage-100: #E4EED9; --ef-sage-300: #C6D6B4; --ef-sage-500: #9BAE86; --ef-sage-700: #5F6D4D;
+  --ef-rose-100: #F9E4E1; --ef-rose-300: #EAC6C0; --ef-rose-500: #C79A93; --ef-rose-700: #825D57;
   --ef-soil: #3F2F23; --ef-cloud: #787A80;
 }
 .mesh { position: relative; isolation: isolate; overflow: hidden; background: var(--g-base); color: #181D19;
@@ -144,7 +143,8 @@
 .mesh :focus-visible { outline: 2px solid #181D19; outline-offset: 2px; }
 [data-mesh="field"] { --g-base: #1AF197; --g1: #AFF8D0; --g2: #1AF197; --g3: #4BDC95; --g4: var(--ef-sky-300); --g5: #FBF6ED; }
 [data-mesh="sky"]   { --g-base: var(--ef-sky-300); --g1: var(--ef-sky-100); --g2: #99BECC; --g3: #ECF6FA; --g4: var(--ef-sky-500); --g5: #ECF6FA; }
-[data-mesh="clay"]  { --g-base: var(--ef-clay-300); --g1: var(--ef-clay-100); --g2: #C9997A; --g3: #F2CDB6; --g4: #DEB58F; --g5: #FBF6ED; }
+[data-mesh="sage"]  { --g-base: var(--ef-sage-300); --g1: var(--ef-sage-100); --g2: var(--ef-sage-500); --g3: #F3EECC; --g4: #AAC099; --g5: #FBF6ED; } /* the green hills at dusk, lit by a pale gold sky */
+[data-mesh="rose"]  { --g-base: var(--ef-rose-300); --g1: var(--ef-rose-100); --g2: var(--ef-rose-500); --g3: #F2D7B9; --g4: #D5B2A5; --g5: #FBF6ED; } /* the mauve sunset clouds; risk and needs attention */
 
 /* ------------------------------------------------------------------ */
 /* A. Field Notes                                                       */
@@ -172,7 +172,7 @@
   --mk-eyebrow: #9A4A0C;         /* --ef-amber-600, 5.5:1 on canvas */
   --mk-chart-1: #037D4C;
   --mk-chart-2: #D9780F;         /* --ef-amber-display, graphics only */
-  --mk-chart-3: #1C5BB5;         /* --ef-blue-600 */
+  --mk-chart-3: #265E90;         /* --ef-blue-600 */
 
   --mk-cta-bg: #181D19;
   --mk-cta-text: #F6F0E9;        /* 15.1:1 */
@@ -241,8 +241,8 @@
   --mk-highlight: #D6FBE3;       /* --ef-green-100 chip, text #026B40 at 6.0:1 */
   --mk-eyebrow: #4D5361;
   --mk-chart-1: #1AF197;
-  --mk-chart-2: #6AAEFF;         /* --ef-blue-500 */
-  --mk-chart-3: #A48CF5;         /* --ef-violet-500 */
+  --mk-chart-2: #6E9FCF;         /* --ef-blue-500 */
+  --mk-chart-3: #C79A93;         /* --ef-violet-500 (rose ramp) */
 
   --mk-cta-bg: #181D19;
   --mk-cta-text: #FFFFFF;        /* 17.1:1 */
@@ -311,7 +311,7 @@
   --mk-highlight: rgba(26, 241, 151, .14);
   --mk-eyebrow: #8A919E;
   --mk-chart-1: #1AF197;
-  --mk-chart-2: #6AAEFF;
+  --mk-chart-2: #6E9FCF;
   --mk-chart-3: #F2728A;         /* --ef-magenta-500 */
 
   --mk-cta-bg: #1AF197;
@@ -383,7 +383,7 @@
   --mk-eyebrow: #9A4A0C;         /* 5.5:1 on canvas; use #FFA552 on green band */
   --mk-chart-1: #026B40;
   --mk-chart-2: #D9780F;
-  --mk-chart-3: #11736A;         /* --ef-teal-600 */
+  --mk-chart-3: #5F6D4D;         /* --ef-teal-600 (sage ramp) */
 
   --mk-cta-bg: #FFA552;
   --mk-cta-text: #181D19;        /* 8.8:1 */
