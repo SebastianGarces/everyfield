@@ -27,9 +27,7 @@ def compile_current(root):
         def ui(path):
             return path.startswith(('apps/web/src/features/', 'apps/web/src/components/', 'tests/browser/', 'packages/ui/', 'tests/ui/')) or path.startswith('apps/web/src/app/') and not path.startswith('apps/web/src/app/api/')
         paths=pkg['owning_paths'];web=any(ui(p) for p in paths);nonweb=any(not ui(p) for p in paths)
-        contract=any(p.startswith(('packages/contracts/', 'tests/contracts/')) for p in paths)
-        backend=any(not ui(p) and not p.startswith(('packages/contracts/', 'tests/contracts/')) for p in paths)
-        pkg['producer_task']=pkg['id']+('/contract' if contract and backend else '/api') if web and nonweb else pkg['id']
+        pkg['producer_task']=pkg['id']+'/api' if web and nonweb else pkg['id']
     byf={f['id']:f for f in features}
     for f in features:
         f['tables']=[t['id'] for t in tables if f['id'] in t['featureIds']];f['v3_operations']=f['operations'];f['decision']='Current clauses: '+', '.join(f['requirement_ids'])+'; specification: '+f['spec_file'];f['source_refs']=[f['spec_file']];f['tests']=f['case_ids'];f['permissions']=[];f['validation']=[];f['states']=[];f['failures']=[]

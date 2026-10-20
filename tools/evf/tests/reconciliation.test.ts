@@ -21,9 +21,7 @@ test("BUG-workflow: preserve selected producer dependencies across forward refer
 		for (const p of dag.packages)
 			for (const d of p.depends_on) {
 				const producer = by.get(d)!;
-				const finals = [
-					producer.find((b) => b.part === "contract") ?? producer.find((b) => b.part === "api") ?? producer[0],
-				].map((b) => b.key);
+				const finals = [producer.find((b) => b.part === "api") ?? producer[0]].map((b) => b.key);
 				for (const b of by.get(p.id)!)
 					for (const key of finals) assert.ok(b.dependsOn.includes(key), `${b.taskId} lost ${d}: ${key}`);
 			}
@@ -301,7 +299,7 @@ test("INV-workflow-routing: Next server paths stay with implementor and presenta
 
 import { ship, listShipped, prOpen, checkPr } from "../ship.ts";
 import { approve } from "../approve.ts";
-import { requireImplementation, requireSpend } from "../policy.ts";
+import { requireImplementation, requireSpend, requireTaskScope } from "../policy.ts";
 test("INV-gate-phases: local evidence producers can start before runtime completion; paid commitment remains gated", () => {
 	const f = fixture();
 	try {
@@ -620,10 +618,19 @@ test("BUG-plan-context: plan and brief use the same manifest acceptance scope, i
 		assert.deepEqual(
 			parts.filter((b) => b.wp === "WP-005").map((b) => [b.part, b.dependsOn]),
 			[
-				["contract", []],
-				["api", ["wp-005-contract"]],
-				["ui", ["wp-088", "wp-089", "wp-090", "wp-005-contract"]],
+				["api", []],
+				["ui", ["wp-088", "wp-089", "wp-090", "wp-005-api"]],
 			],
+		);
+		const api = parts.find((b) => b.taskId === "WP-005/api")!;
+		assert.ok(api.paths.includes("packages/contracts/src/identity/"), "the api part owns the contract paths");
+		assert.match(
+			renderBrief(f.root, parseTask("WP-005/api"), {}),
+			/Contract first: build packages\/contracts\/[^\n]* before the server work that uses it\./,
+		);
+		assert.throws(
+			() => renderBrief(f.root, parseTask("WP-005/contract"), {}),
+			/WP-005\/contract is retired\. The contract work is the first step of WP-005\/api\./,
 		);
 		const ui = renderBrief(f.root, parseTask("WP-005/ui"), {});
 		assert.match(ui, /Design prototype: design\/everyfield-ui\.html/);
@@ -792,6 +799,34 @@ test("BUG-c048ea5-body-path: PR create and edit read body files relative to the 
 			}
 	} finally {
 		process.chdir(cwd);
+		f.close();
+	}
+});
+
+test("BUG-pr165-ledger: only a transfer-only OPS task commits the progress ledger; reconcile refuses a task worktree", () => {
+	const f = fixture(),
+		task = parseTask("OPS-1");
+	try {
+		for (const owningPaths of [["docs/plan/", "docs/build-progress.json"], ["docs/"]]) {
+			f.cfg.maintenanceTasks = { [task.id]: { title: "Plan review", owningPaths, checks: f.cfg.checks } };
+			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+			f.commit();
+			assert.throws(
+				() => taskStart(f.root, task, { allowUnready: false, noStack: true }),
+				/Only a transfer task that owns exactly docs\/build-progress.json may commit the progress ledger/,
+			);
+			assert.equal(f.git("branch", "--list", "task/*"), "");
+		}
+		f.cfg.maintenanceTasks![task.id].owningPaths = ["docs/build-progress.json"];
+		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+		f.commit();
+		requireTaskScope(f.root, task);
+		const wt = f.task(task.slug),
+			ledger = readFileSync(join(wt, "docs/build-progress.json"), "utf8");
+		assert.throws(() => reconcileProgress(wt), /Reconcile progress in the home checkout, not a task worktree/);
+		assert.equal(readFileSync(join(wt, "docs/build-progress.json"), "utf8"), ledger);
+		reconcileProgress(f.root);
+	} finally {
 		f.close();
 	}
 });

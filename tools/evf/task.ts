@@ -16,7 +16,6 @@ import {
 	loadConfig,
 	loadDag,
 	pathsForPart,
-	partsOf,
 	evfDataDir,
 	requireWorktree,
 	run,
@@ -114,15 +113,7 @@ export function taskStart(
 		requireImplementation(root, task.wp, task.part);
 		requireTaskRisk(root, task);
 		renderBrief(root, task, {}); // Resolve all current context before any worktree/remote mutation.
-		const parts = partsOf(pkg),
-			anchor =
-				task.part === "api" && parts.includes("contract")
-					? "contract"
-					: task.part === "ui"
-						? parts.includes("contract")
-							? "contract"
-							: "api"
-						: null;
+		const anchor = task.part === "ui" ? "api" : null;
 		if (anchor) {
 			const path = join(evfDataDir(root), "shipped", `${task.wp.toLowerCase()}-${anchor}.json`);
 			if (!existsSync(path)) fail(`Required ${task.wp}/${anchor} merged-part evidence is missing.`);

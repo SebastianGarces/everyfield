@@ -7,11 +7,16 @@ Task notes hold progress and blockers. Owners never submit manual progress patch
 2. Acknowledge with `bin/evf shipped --clear <task>`. Records remain outside the checkout.
    Exact replays do not advance revisions. Acknowledged producer/interface milestones unlock
    dependents, even before the generated progress projection merges.
-3. Transfer evf's exact generated progress into one reviewed OPS worktree per coordinator round.
-   Restore the root's committed progress after transfer. Use the normal CI and review flow.
+3. The home checkout owns the ledger. Only OPS-7 commits it; plan and tooling PRs never do.
+   After a plan PR merges, fast-forward the home checkout and reconcile there.
+   Copy the home ledger byte for byte into one OPS-7 worktree per round. Use normal CI and review.
+4. Main only receives home bytes, so the home ledger is never older than main's. To fast-forward
+   past a transfer, copy the home ledger aside, restore the committed file, pull and copy it back.
 
-Split packages expose their contract first, or API when no contract exists. A merged part leaves
-the package in_progress. Feedback and maintenance do not complete build packages.
+Split packages ship an api part, then a ui part. The api part builds the package's contract first.
+The merged api part unlocks dependents and the ui part. A merged part leaves the package
+in_progress. Contract milestones shipped before this rule stay valid records. Feedback and
+maintenance do not complete build packages.
 
 Full-target WP-056/WP-057 integration verifies every closing package's behavior and gates.
 Its verifier may include `"packageClosures":["WP-NNN"]` in the exact-head EVF-Review record.
