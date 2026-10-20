@@ -8,6 +8,8 @@
 //   AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:WP010-IDN-012 (finding 6, Settings in production): an Owner, a Member and
 //     an organization Owner each change what their seat may change through the real settings server, without a
 //     page request, and a fresh load of the section link shows the saved value.
+//   BUG-cc8d8b4-settings-load: a fresh load of a section link reads the section with the page, so it sends no
+//     settings request after the page starts (it waited for hydration, then asked again, past the 1 s budget).
 //   UI-round-own-seat: an Admin who makes their own seat Member sends one request; the page drops what only Owners and
 //     Admins manage and the top bar says Member, without reading the page again (verifier finding on d94d92f).
 // It runs against a running app seeded with the People fixture (tests/ui/people/seed.mts) through the shared setup
@@ -159,6 +161,8 @@ for (const [name, engine] of ENGINES) {
 				assert.notEqual(now, was);
 				assert.equal(documents, 0, "saves update the dialog without a page request");
 
+				let actions = 0;
+				page.on("request", (r) => r.headers()["next-action"] && actions++);
 				for (const edit of role.edits) {
 					await page.goto(`${BASE}${edit.path}`, { waitUntil: "networkidle" });
 					for (const [label, value] of Object.entries(edit.fields))
@@ -166,6 +170,7 @@ for (const [name, engine] of ENGINES) {
 				}
 				await page.goto(`${BASE}/settings/notifications`, { waitUntil: "networkidle" });
 				assert.equal(await dialog.getByRole("switch").first().getAttribute("aria-checked"), now);
+				assert.equal(actions, 0, "a fresh load reads its section with the page, not in a later request");
 				if (role.locked) {
 					await page.goto(`${BASE}${role.locked}`, { waitUntil: "networkidle" });
 					await dialog.getByText("Church profile is not available to you").waitFor();

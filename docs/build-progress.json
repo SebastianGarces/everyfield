@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "project_id": "everyfield-v3",
-  "revision": 74,
-  "updated_at": "2026-10-19T10:04:06.723Z",
+  "revision": 75,
+  "updated_at": "2026-10-20T19:08:13.816Z",
   "packages": {
     "WP-001": {
       "status": "in_progress",
@@ -597,12 +597,13 @@
       "updated_at": null
     },
     "WP-016": {
-      "status": "not_started",
+      "status": "retired",
       "evidence": [],
-      "notes": "",
+      "notes": "Scope moved to WP-017; ID must not be reused.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-10-20T19:08:13.816Z",
+      "retired_into": "WP-017"
     },
     "WP-017": {
       "status": "not_started",
@@ -637,12 +638,13 @@
       "updated_at": null
     },
     "WP-021": {
-      "status": "not_started",
+      "status": "retired",
       "evidence": [],
-      "notes": "",
+      "notes": "Scope moved to WP-020; ID must not be reused.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-10-20T19:08:13.816Z",
+      "retired_into": "WP-020"
     },
     "WP-022": {
       "status": "not_started",
@@ -945,12 +947,13 @@
       "updated_at": null
     },
     "WP-052": {
-      "status": "not_started",
+      "status": "retired",
       "evidence": [],
-      "notes": "",
+      "notes": "Scope moved to WP-051; ID must not be reused.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-10-20T19:08:13.816Z",
+      "retired_into": "WP-051"
     },
     "WP-053": {
       "status": "not_started",
@@ -1009,12 +1012,13 @@
       "updated_at": null
     },
     "WP-060": {
-      "status": "not_started",
+      "status": "retired",
       "evidence": [],
-      "notes": "",
+      "notes": "Scope moved to WP-059; ID must not be reused.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-10-20T19:08:13.816Z",
+      "retired_into": "WP-059"
     },
     "WP-061": {
       "status": "not_started",

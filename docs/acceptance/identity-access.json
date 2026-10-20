@@ -8739,7 +8739,7 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual account-link references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual account-link references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -9065,7 +9065,7 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual account-link references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual account-link references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -9395,7 +9395,7 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual account-link references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual account-link references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -9723,7 +9723,7 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual account-link references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual account-link references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -10072,7 +10072,7 @@
       ],
       "work_packages": [
         "WP-006",
-        "WP-052",
+        "WP-051",
         "WP-053"
       ],
       "status": "future-not-run",
@@ -10742,8 +10742,7 @@
         "AC-TEAM-006--TEAM-006"
       ],
       "work_packages": [
-        "WP-009",
-        "WP-017"
+        "WP-009"
       ],
       "status": "future-not-run",
       "description": "Owner answers yes with ordinary lead role/container absent, then present; occupied optional Senior Pastor role and unrelated templates exist.",
@@ -10835,8 +10834,7 @@
       ],
       "work_packages": [
         "WP-009",
-        "WP-010",
-        "WP-017"
+        "WP-010"
       ],
       "status": "future-not-run",
       "description": "Owner answers no or skips, later edits ordinary ministry lead title.",
@@ -11379,10 +11377,7 @@
         "AC-PI-038--PI-038"
       ],
       "work_packages": [
-        "WP-017",
-        "WP-022",
-        "WP-023",
-        "WP-039"
+        "WP-023"
       ],
       "status": "future-not-run",
       "description": "Remove/change lead title while account seat, private answers and required meeting work exist.",
@@ -11793,8 +11788,6 @@
       ],
       "work_packages": [
         "WP-039",
-        "WP-052",
-        "WP-053",
         "WP-055",
         "WP-073",
         "WP-074"
@@ -11894,9 +11887,7 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-038",
-        "WP-040"
+        "WP-044"
       ],
       "status": "future-not-run",
       "description": "Single eligible reader ratios 0.80/0.8001; Owner 0/6, accepted Admin lead 6/6; two eligible readers each disjoint 3/6.",
@@ -12144,7 +12135,6 @@
         "AC-TSK-012--TSK-012"
       ],
       "work_packages": [
-        "WP-022",
         "WP-023"
       ],
       "status": "future-not-run",
@@ -14433,8 +14423,7 @@
         "AC-IDN-014--IDN-014"
       ],
       "work_packages": [
-        "WP-009",
-        "WP-017"
+        "WP-009"
       ],
       "status": "future-not-run",
       "description": "Owner yes/no/skip; ordinary lead role/container absent or present; optional Senior Pastor role occupied/selected; other CRM lead without account seat; finalization with no lead title.",
@@ -14820,7 +14809,7 @@
         "AC-IDN-005--IDN-005"
       ],
       "work_packages": [
-        "WP-052"
+        "WP-051"
       ],
       "status": "future-not-run",
       "description": "Forged coach invitation/assignment route or assistant request; external relationship attestation.",
@@ -16580,7 +16569,7 @@
         "WP-006",
         "WP-010",
         "WP-039",
-        "WP-052",
+        "WP-051",
         "WP-053",
         "WP-091"
       ],

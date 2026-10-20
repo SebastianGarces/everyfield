@@ -415,7 +415,7 @@
         "AC-MTG-004--MTG-004"
       ],
       "work_packages": [
-        "WP-022"
+        "WP-020"
       ],
       "status": "future-not-run",
       "description": "Hall archived after existing meeting selected it; archived list off by default",
@@ -698,7 +698,7 @@
         "AC-MTG-008--MTG-008"
       ],
       "work_packages": [
-        "WP-021"
+        "WP-020"
       ],
       "status": "future-not-run",
       "description": "Invited Alex has Pending RSVP, no attendance; live invitation token",
@@ -1082,7 +1082,7 @@
         "AC-MTG-011--MTG-011"
       ],
       "work_packages": [
-        "WP-020"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Meeting with guest Casey; two duplicate Alex names; no Jamie Person",
@@ -1804,11 +1804,10 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual meeting-checklist-person references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual meeting-checklist-person references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2136,11 +2135,10 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual meeting-checklist-person references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual meeting-checklist-person references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2473,11 +2471,10 @@
       ],
       "work_packages": [
         "WP-020",
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual meeting-checklist-person references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual meeting-checklist-person references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2799,11 +2796,10 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual meeting-checklist-person references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual meeting-checklist-person references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3149,11 +3145,10 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual meeting-invitation-rsvp-attendance-card references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual meeting-invitation-rsvp-attendance-card references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3484,11 +3479,10 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual meeting-invitation-rsvp-attendance-card references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual meeting-invitation-rsvp-attendance-card references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3823,15 +3817,14 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-021",
+        "WP-020",
         "WP-022",
         "WP-023",
         "WP-028",
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual meeting-invitation-rsvp-attendance-card references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual meeting-invitation-rsvp-attendance-card references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -4153,11 +4146,10 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual meeting-invitation-rsvp-attendance-card references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual meeting-invitation-rsvp-attendance-card references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -4506,8 +4498,7 @@
         "AC-COM-011--COM-011"
       ],
       "work_packages": [
-        "WP-023",
-        "WP-029"
+        "WP-023"
       ],
       "status": "future-not-run",
       "description": "Person linked administrative task, contacted/attempt/waiver, email delivery/open and corrected latest contact.",
@@ -4634,7 +4625,7 @@
         "AC-MTG-001--MTG-001"
       ],
       "work_packages": [
-        "WP-022"
+        "WP-020"
       ],
       "status": "future-not-run",
       "description": "Past/upcoming/cancelled records, unknown/repeated type, equal starts At paging, filtered empty with history and foreign detail.",
@@ -5044,7 +5035,7 @@
         "AC-MTG-004--MTG-004"
       ],
       "work_packages": [
-        "WP-022"
+        "WP-020"
       ],
       "status": "future-not-run",
       "description": "Archive venue used by old meeting, unchanged edit versus new selection, restore/retry, two correction tabs.",
@@ -6000,7 +5991,7 @@
         "AC-MTG-007--MTG-007"
       ],
       "work_packages": [
-        "WP-021"
+        "WP-020"
       ],
       "status": "future-not-run",
       "description": "P has 2 team roles, later Q joins, retry import, self/foreign inviter, guest remove with card/pending reminder/performed follow-up.",
@@ -6132,7 +6123,7 @@
         "AC-MTG-008--MTG-008"
       ],
       "work_packages": [
-        "WP-021"
+        "WP-020"
       ],
       "status": "future-not-run",
       "description": "Pending token race with admin confirmed/reset, answered token, foreign guest, then reviewed new invite.",
@@ -6257,7 +6248,7 @@
         "AC-MTG-009--MTG-009"
       ],
       "work_packages": [
-        "WP-021"
+        "WP-020"
       ],
       "status": "future-not-run",
       "description": "Wrong account/tenant/not on guest list, malformed body, expired/used token, GET page and own/admin/token concurrent replies.",
@@ -6909,7 +6900,7 @@
         "AC-MTG-013--MTG-013"
       ],
       "work_packages": [
-        "WP-021"
+        "WP-020"
       ],
       "status": "future-not-run",
       "description": "No-cardvsnot_interested, absent guest card versus attended denominator, correction/clear, malformed value and public/org request for prayer notes.",
@@ -7524,7 +7515,7 @@
         "AC-MTG-018--MTG-018"
       ],
       "work_packages": [
-        "WP-021"
+        "WP-020"
       ],
       "status": "future-not-run",
       "description": "DST civil offset, creator also guest, add/remove/reschedule before queued dispatch, completed meeting, provider unknown and email open.",
@@ -7636,7 +7627,7 @@
         "AC-MTG-019--MTG-019"
       ],
       "work_packages": [
-        "WP-021"
+        "WP-020"
       ],
       "status": "future-not-run",
       "description": "Legacy inviter artifact, current guest RSVP, self referral, merge with matching tokens, and request old invitation tree.",
@@ -7763,7 +7754,6 @@
         "AC-TSK-012--TSK-012"
       ],
       "work_packages": [
-        "WP-024",
         "WP-022",
         "WP-023",
         "WP-091"
@@ -8087,10 +8077,7 @@
         "AC-TSK-011--TSK-011"
       ],
       "work_packages": [
-        "WP-024",
-        "WP-022",
         "WP-023",
-        "WP-029",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -8268,7 +8255,6 @@
       ],
       "work_packages": [
         "WP-023",
-        "WP-029",
         "WP-040"
       ],
       "status": "future-not-run",

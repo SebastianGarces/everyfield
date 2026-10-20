@@ -30,7 +30,12 @@ def load_acceptance(root, path='docs/catalog/acceptance.json'):
 
 def load_schema(root):
     schema = read(root, 'docs/schema/target.json')['tables']
-    packages = {p['id'] for p in read(root, 'docs/plan/dag.json')['packages']}
+    dag = read(root, 'docs/plan/dag.json')
+    packages = {p['id'] for p in dag['packages']}
+    # Table metadata is generated from packages/db; a retired producer resolves to the package that took its scope.
+    retired = {r['id']: r['scope_moved_to'] for r in dag.get('retired_packages', [])}
+    for table in schema:
+        table['producer_work_packages'] = list(dict.fromkeys(retired.get(x, x) for x in table['producer_work_packages']))
     for table in schema:
         producers = set(table['producer_work_packages'])
         if not producers or not producers <= packages:
@@ -256,7 +261,8 @@ def brief(root, manifest, package):
         case_requirements_at_start=package['case_requirements_at_start'],
         owned_requirements_without_cases=missing,
         chapter_links=sorted(links),
-        schema_links={'source': 'docs/schema/target.json', 'producer_tables': package['producer_table_names'],
+        schema_links={'status': 'current schema on main, not a target; reshape or replace these tables when a feature needs it',
+                      'source': 'docs/schema/target.json', 'producer_tables': package['producer_table_names'],
                       'consumer_tables': package['consumer_table_names']},
         direct_prerequisites=own['depends_on'], ui_prerequisites=own.get('ui_depends_on', []),
         design_links=ui_design_links(root, package) if own.get('ui_composition_rule') or own.get('ui_specialist') or own['lane'] == 'ui' else None,
@@ -301,6 +307,30 @@ def package_ancestry(dag):
     return ancestors
 
 
+def exercised_operations(case):
+    """Operations a case calls: its action, parallel and additional calls, subcases and declared operation_ids."""
+    ops = {case['action']['operation']}
+    execution = case.get('given', {}).get('execution', {})
+    for field in ['parallel_calls', 'additional_calls']:
+        ops |= {call['operation'] for call in execution.get(field, [])}
+    for subcase in case.get('subcases', []):
+        ops |= exercised_operations(subcase)
+    return ops | set(case.get('operation_ids', []))
+
+
+def gate_ownership_violations(dag, cases, operations, ancestors):
+    """A case is a gate for a package only if that package or an ancestor owns every operation it exercises."""
+    owner = {o['id']: o['owning_package'] for o in operations}
+    violations = []
+    for p in dag['packages']:
+        for cid in p['acceptance_gates']:
+            later = sorted({f'{oid} ({owner[oid]})' for oid in exercised_operations(cases[cid])
+                            if oid in owner and owner[oid] != p['id'] and owner[oid] not in ancestors(p['id'])})
+            if later:
+                violations.append(f"{p['id']}/{cid}: " + ', '.join(later))
+    return violations
+
+
 def check_plan(root, manifest):
     dag = read(root, 'docs/plan/dag.json')
     by = {p['id']: p for p in dag['packages']}
@@ -343,6 +373,10 @@ def check_plan(root, manifest):
                 raise ValueError('Feature UI lacks design-system dependency: ' + p['id'])
     adapters = read(root, 'docs/plan/adapter-ownership.json')['adapter_packages']
     operations = read(root, read(root, 'docs/catalog/index.json')['operation_source'])['operations']
+    violations = gate_ownership_violations(dag, cases, operations, ancestors)
+    if violations:
+        raise ValueError(f'Gate ownership fails for {len(violations)} gates; move each gate to the package that owns '
+                         'its last operation or to the slice integration package: ' + '; '.join(violations[:20]))
     paths = []
     for adapter in adapters:
         pid = adapter['work_package']
@@ -516,7 +550,7 @@ def plan_projection(root, manifest):
             lines.append(f'  {dep.replace("-", "")} --> {pid.replace("-", "")}')
         for dep in by[pid].get('ui_depends_on', []):
             lines.append(f'  {dep.replace("-", "")} -. UI .-> {pid.replace("-", "")}')
-    lines += ['```', '', 'Run --check-plan for nonempty scope, directory ownership, disjoint adapter paths, operation-kind ownership, producer ancestry, slice closure, estimates and graph projections. Manifest and planning checks are documentation/tooling proof; they do not establish application acceptance.', '']
+    lines += ['```', '', 'Run --check-plan for nonempty scope, directory ownership, disjoint adapter paths, operation-kind ownership, producer ancestry, gate ownership, slice closure, estimates and graph projections. Manifest and planning checks are documentation/tooling proof; they do not establish application acceptance.', '']
     return dag, '\n'.join(lines)
 
 
