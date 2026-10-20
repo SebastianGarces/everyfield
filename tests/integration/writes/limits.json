@@ -458,5 +458,9 @@
 	"settings/deletion.issueRestrictedDeletionSession": {
 		"limit": 7,
 		"retry": 14
+	},
+	"native.organizations.profile": {
+		"limit": 5,
+		"retry": 10
 	}
 }

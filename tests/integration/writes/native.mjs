@@ -1,3 +1,4 @@
+import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { randomBytes } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
@@ -54,27 +55,34 @@ try {
 
 	const org = await f.setup("sending_church"),
 		orgActor = await f.actor(org.sender.session);
-	const orgCreated = await withPeopleWrite(f.db, orgActor, (tx, ctx) =>
-		organizationPeople.create(tx, ctx, { requestKey: randomUUID(), input: { displayName: "Organization native" } }),
+	const unused = async () => {
+		throw Error("unexpected_profile_collaborator");
+	};
+	const organizations = createOrganizationAdapter(
+		{ invitation: unused, notice: unused, invalidate: unused },
+		{ candidates: unused },
 	);
-	assert.equal(orgCreated.status, "ok");
-	if (orgCreated.status !== "ok") throw Error("org_create");
-	const orgUpdated = await withPeopleWrite(f.db, orgActor, (tx, ctx) =>
-		organizationPeople.update(tx, ctx, {
-			requestKey: randomUUID(),
-			expectedRevision: orgCreated.value.person.revision,
-			input: { personId: orgCreated.value.person.id, patch: { displayName: "Updated organization native" } },
+	const orgUpdated = await measure("native.organizations.profile", () =>
+		f.db.transaction(async (tx) => {
+			assert.ok(await orgActor.bind(tx, org.w));
+			return organizations["organizations.updateProfile"](tx, orgActor.session, org.w, {
+				requestKey: randomUUID(),
+				expectedRevision: "1",
+				input: { organization: org.w, patch: { name: "Native organization" } },
+			});
 		}),
 	);
-	assert.equal(orgUpdated.status, "ok");
+	assert.equal(orgUpdated.status, "committed");
+	const orgProfile = await f.db.transaction((tx) =>
+		organizations["organizations.getProfile"](tx, orgActor.session, org.w, { organization: org.w }),
+	);
+	assert.equal(orgProfile.profile.name, "Native organization");
 
 	const a = await f.account(),
 		self = await f.actor(a.session),
 		context = {
 			session: self.session,
 			selected: self.actor.context.owner,
-			purpose: "native",
-			origin: { kind: "native" },
 		};
 	const unexpected = async () => {
 		throw Error("unexpected_collaborator");
@@ -112,8 +120,6 @@ try {
 	const plantContext = {
 		session: actor.session,
 		selected: actor.actor.context.owner,
-		purpose: "native",
-		origin: { kind: "native" },
 	};
 	const profile = await measure("settings.updatePlantProfile", () =>
 		withSettingsWrite(f.db, actor, plantContext, (tx) =>
