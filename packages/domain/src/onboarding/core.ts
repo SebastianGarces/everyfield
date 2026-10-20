@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { Transaction } from "@everyfield/db/client";
 import * as t from "@everyfield/db/tables";
 import { and, eq, isNull, sql, gt, lte } from "@everyfield/db/query";
-import { currentActor, liveOwner, requestWrite } from "../access/session.ts";
+import { currentActor, liveOwner, requestWrite, lockWriteAuthority } from "../access/session.ts";
 import { receipt, requestIdentity, sessionId, accountId, type Receipt } from "@everyfield/contracts/common";
 import { onboardingError } from "@everyfield/contracts/onboarding";
 import type {
@@ -77,7 +77,7 @@ export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<Onboardi
 }
 // Account is the shared arbiter with first-seat acceptance. Take its row lock
 // before currentActor acquires lifecycle/seat share locks.
-export async function actor(tx: Tx, ctx: Context, allowPending = false) {
+export async function actor(tx: Tx, ctx: Context, allowPending = false, write = false) {
 	const bound = requestWrite(tx);
 	if (
 		bound &&
@@ -85,8 +85,20 @@ export async function actor(tx: Tx, ctx: Context, allowPending = false) {
 		bound.selected.id === ctx.selected.id &&
 		bound.selected.kind === ctx.selected.kind
 	)
-		return { identity: bound.actor, account: bound.account, principal: bound.principal };
+		return {
+			identity: bound.actor,
+			account: bound.account,
+			principal: bound.principal,
+			plant: bound.plant,
+			organization: bound.organization,
+			setup: bound.setup,
+		};
 
+	if (write) {
+		const locked = await lockWriteAuthority(tx, ctx.session, ctx.selected, true);
+		if (!locked || (locked.identity.status === "pending_domain" && !allowPending)) deny();
+		return locked;
+	}
 	const raw = await tx.execute(sql`SELECT * FROM invitation_identity(${sessionId.parse(ctx.session)})`);
 	const row = z
 		.object({ account_id: accountId, display_name: z.string(), verified: z.boolean() })
@@ -99,7 +111,7 @@ export async function actor(tx: Tx, ctx: Context, allowPending = false) {
 	if (ctx.selected.kind === "account" && ctx.selected.id !== a.accountId) deny();
 	if (a.status === "pending_domain" && (ctx.selected.kind !== "account" || !(await liveOwner(tx, ctx.selected))))
 		deny();
-	return { account, identity: a, principal: row.data };
+	return { account, identity: a, principal: row.data, plant: null, organization: null, setup: null };
 }
 export async function seatless(tx: Tx, id: string) {
 	const seats = await tx
@@ -109,8 +121,8 @@ export async function seatless(tx: Tx, id: string) {
 		.for("update");
 	if (seats.length) deny("active_seat_conflict");
 }
-export async function plantOwner(tx: Tx, ctx: Context) {
-	const a = await actor(tx, ctx);
+export async function plantOwner(tx: Tx, ctx: Context, write = true) {
+	const a = await actor(tx, ctx, false, write);
 	if (
 		a.identity.status !== "active" ||
 		a.identity.context.kind !== "seat" ||
@@ -118,6 +130,10 @@ export async function plantOwner(tx: Tx, ctx: Context) {
 		ctx.selected.kind !== "plant"
 	)
 		deny();
+	if (write) {
+		if (!a.plant || !a.setup || a.setup.account_id !== a.account.id) deny();
+		return { ...a, plant: a.plant, setup: a.setup };
+	}
 	await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${ctx.selected.id},11011))`);
 	const [plant] = await tx.select().from(t.plant).where(eq(t.plant.id, ctx.selected.id)).for("update");
 	const [setup] = await tx

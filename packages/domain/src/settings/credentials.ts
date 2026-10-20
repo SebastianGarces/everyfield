@@ -64,7 +64,7 @@ export function createAccountCredentials(
 	});
 	async function prepare(ctx: NativeSettingsContext) {
 		native(ctx);
-		const a = await config.db.transaction((tx) => self(tx, ctx));
+		const a = await config.db.transaction((tx) => self(tx, ctx, "preview"));
 		const ingress = await config.request(ctx);
 		if (
 			!ingress.trustedIp ||
@@ -139,7 +139,7 @@ export function createAccountCredentials(
 				// open while Better Auth changes its credential tables on a separate client.
 				await config.db
 					.transaction(async (tx) => {
-						await self(tx, ctx);
+						await self(tx, ctx, "preview");
 						const [p] = await tx
 							.select()
 							.from(t.identity_proof)

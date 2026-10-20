@@ -6,7 +6,7 @@ import type { Transaction } from "@everyfield/db/client";
 import * as t from "@everyfield/db/tables";
 import { and, eq, gt, isNull, lte, sql } from "@everyfield/db/query";
 import { lock as lockSeats } from "../identity/invitation-core.ts";
-import { currentActor, liveOwner, requestWrite } from "../access/session.ts";
+import { currentActor, liveOwner, requestWrite, lockWriteAuthority, currentWriteAllowed } from "../access/session.ts";
 import { canonical, appendEvent } from "../organizations/core.ts";
 import {
 	receipt,
@@ -61,42 +61,56 @@ export async function reply<T>(tx: Tx, body: (tx: Tx) => Promise<T>): Promise<Se
 		};
 	}
 }
-export async function actor(tx: Tx, ctx: Context, write = false) {
+export async function actor(tx: Tx, ctx: Context, use: "read" | "command" | "preview" = "read") {
 	const bound = requestWrite(tx);
 	if (
 		bound &&
 		bound.authority.session === ctx.session &&
 		bound.selected.id === ctx.selected.id &&
 		bound.selected.kind === ctx.selected.kind
-	)
-		return { identity: bound.actor, account: bound.account, principal: bound.principal };
+	) {
+		if (use !== "command" && !(await currentWriteAllowed(tx, bound.actor.accountId, ctx.selected))) deny();
+		return {
+			identity: bound.actor,
+			account: bound.account,
+			principal: bound.principal,
+			plant: bound.plant,
+			organization: bound.organization,
+			setup: bound.setup,
+		};
+	}
 
 	if (ctx.selected.kind === "plant") await lockSeats(tx, "workspace-seats/" + ctx.selected.id);
+	if (use !== "read") {
+		const locked = await lockWriteAuthority(tx, ctx.session, ctx.selected, true);
+		if (!locked || locked.identity.status !== "active") deny();
+		if (use === "preview" && !(await currentWriteAllowed(tx, locked.identity.accountId, ctx.selected))) deny();
+		return { ...locked, identity: locked.identity };
+	}
+
 	// This capability takes the account write lock before session and user share locks.
 	const raw = await tx.execute(sql`SELECT * FROM invitation_identity(${sessionId.parse(ctx.session)})`);
 	const p = z
 		.object({ account_id: accountId, display_name: z.string(), email: z.string(), verified: z.boolean() })
 		.safeParse(raw.rows[0]);
 	if (!p.success || !p.data.verified) deny();
-	// Serialize writes on the root before currentActor takes seat/lifecycle share locks.
-	if (write && ctx.selected.kind === "plant")
-		await tx.select({ id: t.plant.id }).from(t.plant).where(eq(t.plant.id, ctx.selected.id)).for("update");
+
 	const a = await currentActor(tx, ctx.session, ctx.selected);
 	if (a.status !== "active") deny();
 	const [account] = await tx.select().from(t.account).where(eq(t.account.id, a.accountId));
 	if (!account) deny();
-	return { identity: a, account, principal: p.data };
+	return { identity: a, account, principal: p.data, plant: null, organization: null, setup: null };
 }
-export async function self(tx: Tx, ctx: Context) {
-	const a = await actor(tx, ctx, true);
+export async function self(tx: Tx, ctx: Context, use: "read" | "command" | "preview" = "command") {
+	const a = await actor(tx, ctx, use);
 	if (ctx.selected.kind !== "account" || ctx.selected.id !== a.account.id) deny();
 	return a;
 }
 export function native(ctx: Context) {
 	if (ctx.purpose !== "native") deny();
 }
-export async function plantAdmin(tx: Tx, ctx: Context, plant: Owner, write = false) {
-	const a = await actor(tx, ctx, write);
+export async function plantAdmin(tx: Tx, ctx: Context, plant: Owner, use: "read" | "command" | "preview" = "read") {
+	const a = await actor(tx, ctx, use);
 	if (
 		!sameOwner(ctx.selected, plant) ||
 		ctx.selected.kind !== "plant" ||
@@ -104,6 +118,7 @@ export async function plantAdmin(tx: Tx, ctx: Context, plant: Owner, write = fal
 		a.identity.context.role === "member"
 	)
 		deny();
+	if (a.plant) return { ...a, plant: a.plant };
 	const [row] = await tx.select().from(t.plant).where(eq(t.plant.id, plant.id));
 	if (!row) deny();
 	return { ...a, plant: row };

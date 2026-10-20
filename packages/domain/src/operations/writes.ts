@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { writeVisibility } from "../access/session.ts";
 import { randomUUID } from "node:crypto";
 import type { PgInsertValue } from "@everyfield/db/columns";
 import type { Transaction } from "@everyfield/db/client";
@@ -21,11 +22,8 @@ export async function claimOperation(
   SELECT ${id}::uuid,${request.owner.id}::uuid,${request.actorId}::uuid,${name},${request.requestKey},${request.digest},
    ${request.origin.kind === "assistant" ? request.origin.reviewId : null}::uuid,
    ${request.origin.kind === "assistant" ? request.origin.conversationId : null}::uuid,'running',clock_timestamp(),0,0,0,0,0
-  WHERE NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (
-   (w.kind='account' AND w.opaque_subject_id=${request.actorId}::uuid) OR
-   (w.kind=${request.owner.kind} AND w.opaque_subject_id=${request.owner.id}::uuid) OR
-   (${request.owner.kind}<>'account' AND w.seat_id IN (SELECT id FROM seat
-    WHERE account_id=${request.actorId}::uuid AND coalesce(plant_id,organization_id)=${request.owner.id}::uuid AND ended_at IS NULL))))
+  WHERE ${writeVisibility(request.actorId, request.owner)}
+  AND (${request.origin.kind !== "assistant"} OR EXISTS (SELECT 1 FROM review r WHERE r.id=${request.origin.kind === "assistant" ? request.origin.reviewId : null}::uuid AND r.tenant_id=${request.owner.id}::uuid AND r.conversation_id=${request.origin.kind === "assistant" ? request.origin.conversationId : null}::uuid))
   ON CONFLICT (tenant_id,request_key) DO UPDATE SET request_key=excluded.request_key
   RETURNING id,actor_id AS actor,name,request_digest AS digest`);
 	const row = z

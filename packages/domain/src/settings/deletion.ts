@@ -130,7 +130,7 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 				? owner.parse({ kind: "account", id: (await self(tx, ctx)).account.id })
 				: parse(q.requestWorkspaceDeletion, raw).input.plant;
 		if (subject.kind !== "account" && subject.kind !== "plant") deny();
-		const a = subject.kind === "account" ? await self(tx, ctx) : await plantAdmin(tx, ctx, subject, true);
+		const a = subject.kind === "account" ? await self(tx, ctx) : await plantAdmin(tx, ctx, subject, "command");
 		if (subject.kind === "plant" && (a.identity.context.kind !== "seat" || a.identity.context.role !== "owner")) deny();
 		if (subject.kind === "account") {
 			const owners = await tx
@@ -165,7 +165,7 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 		if (c.kind === "replay") return requestRecord.parse(c.value).deletion;
 		revision(
 			v.expectedRevision,
-			subject.kind === "account" ? a.account.revision : (await plantAdmin(tx, ctx, subject, true)).plant.revision,
+			subject.kind === "account" ? a.account.revision : (await plantAdmin(tx, ctx, subject, "command")).plant.revision,
 		);
 		await root(tx, subject);
 		const old = await witness(tx, subject);

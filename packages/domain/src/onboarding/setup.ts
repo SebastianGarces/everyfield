@@ -241,7 +241,7 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 		return reply(tx, async () => {
 			parse(c.getResumeRequest, raw);
 			if (ctx.selected.kind !== "plant") return c.resumeResult.parse({ status: "unavailable" });
-			const a = await plantOwner(tx, ctx);
+			const a = await plantOwner(tx, ctx, false);
 			const [schedule] = await tx.select().from(t.launch).where(eq(t.launch.plant_id, a.plant.id));
 			const values = await tx
 				.select({ id: t.document.id })

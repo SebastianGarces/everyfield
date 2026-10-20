@@ -142,7 +142,8 @@ export async function authorize(tx: Tx, context: Context, write = false) {
 	return actor;
 }
 export async function lockOwner(tx: Tx, context: Context) {
-	if (requestWrite(tx)?.ownerLocked) return;
+	const locked = requestWrite(tx);
+	if (locked?.ownerLocked && locked.selected.id === context.selected.id && locked.selected.kind === context.selected.kind) return;
 	await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${sql.param(context.selected.id)},11011))`);
 	// Serialize writers before currentActor takes shared lifecycle/seat locks.
 	// Parent rows are updated only after account and subject locks, matching provisioning.

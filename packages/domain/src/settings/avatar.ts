@@ -27,7 +27,7 @@ export function avatarOperations(
 			reply(tx, async (s) => {
 				native(ctx);
 				const input = parse(q.requestAvatarUpload, raw);
-				const a = await self(s, ctx);
+				const a = await self(s, ctx, "preview");
 				const [clock] = await s.select({ at: now }).from(t.account).where(eq(t.account.id, a.account.id));
 				const id = randomUUID(),
 					expiresAt = new Date(clock!.at.getTime() + 15 * 60_000).toISOString();
@@ -51,7 +51,7 @@ export function avatarOperations(
 			reply(tx, async (s) => {
 				native(ctx);
 				const v = parse(q.getAvatarRequest, raw);
-				const a = await self(s, ctx);
+				const a = await self(s, ctx, "read");
 				// The account's composite avatar foreign key already binds this reference to its tenant.
 				if (a.account.avatar_object_id !== v.versionId) deny();
 				const [file] = await s
@@ -185,7 +185,7 @@ export function avatarOperations(
 function authorization(ctx: NativeSettingsContext, uploadId: string, upload: boolean): ResourceAuthorizer {
 	return async (tx, file, intent) => {
 		native(ctx);
-		const a = await self(tx, ctx);
+		const a = await self(tx, ctx, "preview");
 		if (
 			(!upload && file.id !== uploadId) ||
 			file.tenant_id !== a.account.id ||
@@ -207,7 +207,7 @@ export async function uploadAvatar(
 	const id = parse(z.uuid(), raw.uploadId);
 	const file = await db.transaction(async (tx) => {
 		native(ctx);
-		const a = await self(tx, ctx);
+		const a = await self(tx, ctx, "preview");
 		const [f] = await tx
 			.select()
 			.from(t.file_object)

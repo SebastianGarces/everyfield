@@ -96,7 +96,7 @@ export async function profile(tx: Tx, accountId: string, d: typeof t.discovery.$
 }
 async function eligible(tx: Tx, ctx: WriteContext, kind: "planter" | "discovery") {
 	if (ctx.selected.kind !== "account") deny();
-	const a = await actor(tx, ctx, true);
+	const a = await actor(tx, ctx, true, true);
 	if (a.account.registration_state === "pending_domain" && a.account.registration_kind !== kind) deny();
 	if (!a.principal.verified) deny();
 	return a;

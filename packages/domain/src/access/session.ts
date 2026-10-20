@@ -1,5 +1,5 @@
 import * as tables from "@everyfield/db/tables";
-import { and, eq, sql } from "@everyfield/db/query";
+import { and, eq, sql, getTableColumns, isNull, type SQLWrapper } from "@everyfield/db/query";
 import { alias } from "@everyfield/db/query";
 import "server-only";
 import type { Transaction } from "@everyfield/db/client";
@@ -190,18 +190,6 @@ export async function currentActor(tx: Transaction, session: z.infer<typeof sess
 }
 
 type ActiveActor = Extract<z.infer<typeof currentActorResult>, { status: "active" }>;
-const accountRow: z.ZodType<typeof tables.account.$inferSelect> = z.object({
-	id: z.uuid(),
-	auth_user_id: z.uuid(),
-	registration_state: z.enum(tables.account.registration_state.enumValues),
-	registration_kind: z.enum(tables.account.registration_kind.enumValues),
-	registration_digest: z.string().nullable(),
-	personal_timezone: z.string().nullable(),
-	avatar_object_id: z.uuid().nullable(),
-	revision: z.string(),
-	personal_timezone_revision: z.string(),
-});
-
 const principalRow = z.object({
 	account_id: accountId,
 	email: z.email(),
@@ -216,6 +204,9 @@ type RequestWrite = {
 	account: typeof tables.account.$inferSelect;
 	principal: z.infer<typeof principalRow>;
 	ownerLocked: boolean;
+	plant: typeof tables.plant.$inferSelect | null;
+	organization: typeof tables.organization.$inferSelect | null;
+	setup: typeof tables.onboarding_setup.$inferSelect | null;
 };
 const requestWrites = new WeakMap<Transaction, RequestWrite>();
 /** An immutable observation held by the native command's outer transaction. */
@@ -231,80 +222,20 @@ export class RequestActor {
 		this.actor = actor;
 	}
 
-	/** Lock the request's known identity once. Admission checks lifecycle in its next, fresh snapshot. */
+	/** Bind one verified actor to the transaction that owns this command's rollback. */
 	async bind(tx: Transaction, selected: Owner, ownerLocked = false): Promise<boolean> {
-		if (
-			selected.kind === "global" ||
-			(selected.kind === "account" && selected.id !== this.actor.accountId) ||
-			(selected.kind !== "account" && !sameOwner(selected, this.actor.context.owner))
-		)
-			return false;
-
-		const rows = await tx.execute(sql`
-   WITH request_gate AS MATERIALIZED (
-    SELECT ${this.session}::uuid AS handle,CASE WHEN ${ownerLocked} THEN pg_advisory_xact_lock(hashtextextended(${selected.id},11011)) END
-   ), principal AS MATERIALIZED (
-    SELECT i.* FROM request_gate g CROSS JOIN LATERAL invitation_identity(g.handle) i LIMIT 1
-   ), seats AS MATERIALIZED (
-    SELECT s.id,s.plant_id,s.organization_id,s.role,s.revision::text,s.accepted_at FROM seat s
-    JOIN principal i ON i.account_id=s.account_id WHERE s.ended_at IS NULL ORDER BY s.id FOR SHARE OF s
-   ), plant_root AS MATERIALIZED (
-    SELECT p.id FROM plant p WHERE ${selected.kind}='plant' AND p.id=${selected.id}::uuid
-    AND EXISTS(SELECT FROM principal) AND (SELECT count(*) FROM seats)<=1 FOR SHARE OF p
-   ), organization_root AS MATERIALIZED (
-    SELECT o.id FROM organization o WHERE ${selected.kind}='organization' AND o.id=${selected.id}::uuid
-    AND EXISTS(SELECT FROM principal) AND (SELECT count(*) FROM seats)<=1 FOR SHARE OF o
-   )
-   SELECT to_jsonb(a)||jsonb_build_object('revision',a.revision::text,'personal_timezone_revision',a.personal_timezone_revision::text) AS account,
-    (SELECT row_to_json(i) FROM principal i) AS principal,
-    (SELECT coalesce(jsonb_agg(s),'[]'::jsonb) FROM seats s) AS seats,
-    EXISTS(SELECT FROM tenant t LEFT JOIN organization o ON o.id=t.id WHERE t.id=${selected.id}::uuid AND t.kind=${selected.kind}
-     AND CASE ${selected.kind} WHEN 'plant' THEN EXISTS(SELECT FROM plant_root)
-     WHEN 'organization' THEN EXISTS(SELECT FROM organization_root) AND o.kind=${selected.kind === "organization" ? selected.organizationKind : null}
-     WHEN 'account' THEN true ELSE false END) AS root
-   FROM account a WHERE a.id=${this.actor.accountId}::uuid FOR UPDATE OF a`);
-		const row = z
-			.object({ account: accountRow, principal: z.unknown(), seats: z.unknown(), root: z.boolean() })
-			.optional()
-			.parse(rows.rows[0]);
-		if (!row || !row.root) return false;
-		const identity = principalRow.safeParse(row.principal),
-			currentSeats = z.array(seatRow).parse(row.seats);
-		if (
-			!identity.success ||
-			!identity.data.verified ||
-			identity.data.account_id !== this.actor.accountId ||
-			identity.data.registration_state !== "active" ||
-			row.account.registration_state !== "active" ||
-			currentSeats.length > 1
-		)
-			return false;
-		let actor: ActiveActor;
-		if (selected.kind === "account")
-			actor = { status: "active", accountId: this.actor.accountId, context: { kind: "account", owner: selected } };
-		else {
-			const seat = currentSeats[0];
-			if (
-				this.actor.context.kind !== "seat" ||
-				!seat ||
-				seat.id !== this.actor.context.seatId ||
-				seat.role !== this.actor.context.role ||
-				seat.revision !== this.actor.context.revision ||
-				seat.accepted_at > new Date() ||
-				(selected.kind === "plant"
-					? seat.plant_id !== selected.id || seat.organization_id !== null
-					: seat.organization_id !== selected.id || seat.plant_id !== null)
-			)
-				return false;
-			actor = this.actor;
-		}
+		const locked = await lockWriteAuthority(tx, this.session, selected, ownerLocked, this);
+		if (!locked || locked.identity.status !== "active") return false;
 		requestWrites.set(tx, {
 			authority: this,
 			selected,
-			actor,
-			account: row.account,
-			principal: identity.data,
+			actor: locked.identity,
+			account: locked.account,
+			principal: locked.principal,
 			ownerLocked,
+			plant: locked.plant,
+			organization: locked.organization,
+			setup: locked.setup,
 		});
 		return true;
 	}
@@ -313,4 +244,184 @@ export class RequestActor {
 		const actor = await resolveActor(tx, session);
 		return actor.status === "active" ? new RequestActor(session, actor) : actor;
 	}
+}
+
+/** One locked snapshot. A command's admission checks lifecycle again after any lock wait. */
+export function writeVisibility(actor: string | SQLWrapper, selected: Owner) {
+	return sql<boolean>`NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (
+  (w.kind='account' AND w.opaque_subject_id=${actor}::uuid) OR (w.kind=${selected.kind} AND w.opaque_subject_id=${selected.id}::uuid) OR
+  (${selected.kind}<>'account' AND w.seat_id IN (SELECT id FROM seat WHERE account_id=${actor}::uuid
+   AND coalesce(plant_id,organization_id)=${selected.id}::uuid AND ended_at IS NULL))))`;
+}
+export async function currentWriteAllowed(tx: Transaction, actor: string, selected: Owner) {
+	const result = await tx.execute(sql`SELECT ${writeVisibility(actor, selected)} AS allowed`);
+	return z.boolean().parse(result.rows[0]?.allowed);
+}
+
+export async function lockWriteAuthority(
+	tx: Transaction,
+	session: z.infer<typeof sessionId>,
+	selected: Owner,
+	ownerLocked = false,
+	observed?: RequestActor,
+) {
+	if (selected.kind === "global") return null;
+	const gate = tx.$with("write_gate").as(
+		tx
+			.select({
+				handle: sql<string>`${session}::uuid`.as("handle"),
+				locked: sql`CASE WHEN ${ownerLocked} THEN pg_advisory_xact_lock(hashtextextended(${selected.id},11011)) END`.as(
+					"locked",
+				),
+			})
+			.from(sql`(SELECT 1) seed`),
+	);
+	const principal = tx.$with("write_principal").as(
+		tx
+			.select({
+				account_id: sql<string>`i.account_id`.as("account_id"),
+				email: sql<string>`i.email`.as("email"),
+				display_name: sql<string>`i.display_name`.as("display_name"),
+				verified: sql<boolean>`i.verified`.as("verified"),
+				registration_state: sql<string>`i.registration_state`.as("registration_state"),
+			})
+			.from(sql`${gate} g CROSS JOIN LATERAL invitation_identity(g.handle) i`)
+			.limit(1),
+	);
+	const account = tx
+		.$with("write_account")
+		.as(
+			tx
+				.select(getTableColumns(tables.account))
+				.from(tables.account)
+				.innerJoin(principal, eq(tables.account.id, principal.account_id))
+				.for("update", { of: tables.account }),
+		);
+	const seats = tx.$with("write_seats").as(
+		tx
+			.select({
+				id: tables.seat.id,
+				plant_id: tables.seat.plant_id,
+				organization_id: tables.seat.organization_id,
+				role: tables.seat.role,
+				revision: sql<string>`${tables.seat.revision}::text`.as("revision"),
+				accepted_at: tables.seat.accepted_at,
+			})
+			.from(tables.seat)
+			.innerJoin(account, eq(tables.seat.account_id, account.id))
+			.where(isNull(tables.seat.ended_at))
+			.orderBy(tables.seat.id)
+			.for("share", { of: tables.seat }),
+	);
+	const plant = tx.$with("write_plant").as(
+		tx
+			.select(getTableColumns(tables.plant))
+			.from(tables.plant)
+			.where(
+				and(
+					sql`${selected.kind}='plant'`,
+					eq(tables.plant.id, selected.id),
+					sql`EXISTS(SELECT FROM ${account}) AND (SELECT count(*) FROM ${seats})<=1`,
+				),
+			)
+			.for("update"),
+	);
+	const organization = tx.$with("write_organization").as(
+		tx
+			.select(getTableColumns(tables.organization))
+			.from(tables.organization)
+			.where(
+				and(
+					sql`${selected.kind}='organization'`,
+					eq(tables.organization.id, selected.id),
+					sql`EXISTS(SELECT FROM ${account}) AND (SELECT count(*) FROM ${seats})<=1`,
+				),
+			)
+			.for("update"),
+	);
+	const setup = tx
+		.$with("write_setup")
+		.as(
+			tx
+				.select(getTableColumns(tables.onboarding_setup))
+				.from(tables.onboarding_setup)
+				.innerJoin(plant, eq(tables.onboarding_setup.plant_id, plant.id))
+				.for("update", { of: tables.onboarding_setup }),
+		);
+	const a = alias(tables.account, "write_account"),
+		p = alias(tables.plant, "write_plant"),
+		o = alias(tables.organization, "write_organization"),
+		s = alias(tables.onboarding_setup, "write_setup");
+	const [row] = await tx
+		.with(gate, principal, account, seats, plant, organization, setup)
+		.select({
+			account: a,
+			plant: p,
+			organization: o,
+			setup: s,
+			principal: sql<unknown>`(SELECT row_to_json(i) FROM ${principal} i)`,
+			seats: sql<unknown>`(SELECT coalesce(jsonb_agg(s),'[]'::jsonb) FROM ${seats} s)`,
+			now: sql<Date>`clock_timestamp()`.mapWith((v: string) => new Date(v)),
+			root: sql<boolean>`EXISTS(SELECT FROM tenant t WHERE t.id=${selected.id}::uuid AND t.kind=${selected.kind})`,
+			visible: writeVisibility(account.id, selected),
+		})
+		.from(account)
+		.leftJoin(plant, sql`true`)
+		.leftJoin(organization, sql`true`)
+		.leftJoin(setup, sql`true`);
+	if (!row || !row.root || !row.visible) return null;
+	const identity = principalRow.safeParse(row.principal),
+		currentSeats = z.array(seatRow).parse(row.seats);
+	if (
+		!identity.success ||
+		!identity.data.verified ||
+		identity.data.account_id !== row.account.id ||
+		currentSeats.length > 1
+	)
+		return null;
+	if (selected.kind === "account" && selected.id !== row.account.id) return null;
+	let actor: Exclude<z.infer<typeof currentActorResult>, { status: "unavailable" }>;
+	if (row.account.registration_state === "pending_domain") {
+		if (selected.kind !== "account") return null;
+		actor = { status: "pending_domain", accountId: identity.data.account_id };
+	} else if (selected.kind === "account")
+		actor = { status: "active", accountId: identity.data.account_id, context: { kind: "account", owner: selected } };
+	else {
+		const seat = currentSeats[0];
+		if (
+			!seat ||
+			seat.accepted_at > row.now ||
+			(selected.kind === "plant"
+				? !row.plant || seat.plant_id !== selected.id || seat.organization_id !== null
+				: !row.organization ||
+					row.organization.kind !== selected.organizationKind ||
+					seat.organization_id !== selected.id ||
+					seat.plant_id !== null)
+		)
+			return null;
+		if (
+			observed &&
+			(observed.actor.accountId !== row.account.id ||
+				observed.actor.context.kind !== "seat" ||
+				!sameOwner(observed.actor.context.owner, selected) ||
+				seat.id !== observed.actor.context.seatId ||
+				seat.role !== observed.actor.context.role ||
+				seat.revision !== observed.actor.context.revision)
+		)
+			return null;
+		actor = {
+			status: "active",
+			accountId: identity.data.account_id,
+			context: { kind: "seat", owner: selected, seatId: seat.id, role: seat.role, revision: seat.revision },
+		};
+	}
+	if (observed && observed.actor.accountId !== row.account.id) return null;
+	return {
+		identity: actor,
+		account: row.account,
+		principal: identity.data,
+		plant: row.plant,
+		organization: row.organization,
+		setup: row.setup,
+	};
 }

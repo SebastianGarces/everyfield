@@ -145,7 +145,7 @@ export function timezoneOperations(
 		previewPlantTimezone: (tx, ctx, raw) =>
 			reply(tx, async (s) => {
 				const v = parse(q.previewPlantTimezoneRequest, raw);
-				const a = await plantAdmin(s, ctx, v.plant, true);
+				const a = await plantAdmin(s, ctx, v.plant, "preview");
 				const newZone = canonicalTimeZone(v.timeZone);
 				const clock = await readClock(s, a.account.id, injectedClock);
 				const asOf = clock.at.toISOString(),
@@ -181,7 +181,7 @@ export function timezoneOperations(
 		setPlantTimezone: (tx, ctx, raw) =>
 			reply(tx, async (s) => {
 				const v = parse(q.setPlantTimezoneRequest, raw);
-				const a = await plantAdmin(s, ctx, v.input.plant, true);
+				const a = await plantAdmin(s, ctx, v.input.plant, "command");
 				const zone = canonicalTimeZone(v.input.timeZone);
 				const c = await begin(s, ctx, a.account.id, "plant.setTimezone", v);
 				if (c.kind === "replay") return q.plantTimezoneResult.parse(c.value);
@@ -240,7 +240,7 @@ export function timezoneOperations(
 			reply(tx, async (s) => {
 				native(ctx);
 				const v = parse(n.previewPersonalTimezoneRequest, raw);
-				const a = await self(s, ctx);
+				const a = await self(s, ctx, "preview");
 				const zone = canonicalTimeZone(v.timeZone);
 				const clock = await readClock(s, a.account.id, injectedClock);
 				const previewId = randomUUID(),

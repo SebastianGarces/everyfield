@@ -45,7 +45,7 @@ export interface SectionDependencies {
 	suppression(tx: Tx, email: string): Promise<"clear" | "suppressed" | "unavailable">;
 }
 export async function accountSection(tx: Tx, ctx: Context) {
-	const a = await self(tx, ctx);
+	const a = await self(tx, ctx, "read");
 	return q.sectionResult.parse({
 		section: "account",
 		accountId: a.account.id,
@@ -90,7 +90,7 @@ export async function plantSection(
 	});
 }
 async function notifications(tx: Tx, ctx: Context, deps: SectionDependencies) {
-	const a = await self(tx, ctx);
+	const a = await self(tx, ctx, "read");
 	const rows = await tx
 		.select()
 		.from(t.notification_preference)
@@ -179,7 +179,7 @@ export function sectionOperations(
 		name: typeof t.effect.$inferInsert.kind = "settings.saveSection",
 	) {
 		const v = parse(q.saveSectionRequest, raw);
-		const a = await actor(tx, ctx, true);
+		const a = await actor(tx, ctx, "command");
 		const i = v.input;
 		if (i.section === "account" || i.section === "notifications") await self(tx, ctx);
 		else if (i.section === "organization") {
@@ -189,7 +189,7 @@ export function sectionOperations(
 				a.identity.context.role === "member"
 			)
 				deny();
-		} else await plantAdmin(tx, ctx, i.plant, true);
+		} else await plantAdmin(tx, ctx, i.plant, "command");
 		const c = await begin(tx, ctx, a.account.id, name, v);
 		if (c.kind === "replay") {
 			// Replay receipts never restore stale projections or bypass current scope.
@@ -283,7 +283,7 @@ export function sectionOperations(
 				break;
 			}
 			case "plant": {
-				const p = await plantAdmin(tx, ctx, i.plant, true);
+				const p = await plantAdmin(tx, ctx, i.plant, "command");
 				revision(v.expectedRevision, p.plant.revision);
 				const old = await plantSection(tx, ctx, i.plant);
 				if (old.section !== "plant") deny();
