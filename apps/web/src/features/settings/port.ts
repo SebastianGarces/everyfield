@@ -13,6 +13,7 @@ export type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: 
 export type SectionResult = z.infer<typeof S.sectionResult>;
 export type SavedSection = z.infer<typeof S.savedSectionResult>;
 export type SaveSectionRequest = z.input<typeof S.saveSectionRequest>;
+export type SaveChurchRequest = z.input<typeof S.saveChurchRequest>;
 export type GetSectionRequest = z.input<typeof S.getSectionRequest>;
 /** The exact plant or organization a section belongs to, as the requests take it. */
 export type PlantOwner = { kind: "plant"; id: string };
@@ -67,8 +68,8 @@ export type Relationship = {
 export interface SettingsPort {
 	getSection(request: GetSectionRequest): Promise<Reply<SectionResult>>;
 	saveSection(request: SaveSectionRequest): Promise<Reply<SavedSection>>;
-	/** Up to three church changes saved together; a refusal of one keeps all of them unsaved. */
-	saveChurch(requests: SaveSectionRequest[]): Promise<Reply<SavedSection>>;
+	/** Up to three church changes saved as one write; a refusal keeps all of them unsaved. */
+	saveChurch(request: SaveChurchRequest): Promise<Reply<SavedSection>>;
 	previewPlantTimezone(request: z.input<typeof S.previewPlantTimezoneRequest>): Promise<Reply<PlantTimezonePreview>>;
 	setPlantTimezone(request: z.input<typeof S.setPlantTimezoneRequest>): Promise<Reply<PlantTimezoneResult>>;
 	/**

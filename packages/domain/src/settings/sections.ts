@@ -5,6 +5,7 @@ import type { Transaction } from "@everyfield/db/client";
 import { and, eq, isNull, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import "server-only";
+import type { z } from "zod";
 import { active, choices, loadAffiliation, pairOf, type OrganizationEffects } from "../organizations/core.ts";
 import { applyOrganizationProfile } from "../organizations/profile.ts";
 import { applySharingMutation } from "../organizations/sharing.ts";
@@ -139,7 +140,10 @@ async function notifications(
 }
 export function sectionOperations(
 	deps: SectionDependencies,
-): Pick<SettingsProducer<Tx>, "getSection" | "saveSection" | "updatePlantProfile" | "setDigestSchedule"> {
+): Pick<
+	SettingsProducer<Tx>,
+	"getSection" | "saveSection" | "saveChurch" | "updatePlantProfile" | "setDigestSchedule"
+> {
 	async function read(tx: Tx, ctx: SettingsContext, v: q.GetSectionRequest): Promise<q.SectionResult> {
 		switch (v.section) {
 			case "account":
@@ -183,8 +187,24 @@ export function sectionOperations(
 			}
 		}
 	}
-	async function save(tx: Tx, ctx: WriteContext, raw: unknown, name: string = "settings.saveSection") {
-		const v = parse(q.saveSectionRequest, raw);
+	/**
+	 * One section save. A church submission (`church`) carries up to three plant changes and is still one command:
+	 * one plant update, one audit row naming every changed field, one request key.
+	 */
+	async function save(
+		tx: Tx,
+		ctx: WriteContext,
+		raw: unknown,
+		name: string = "settings.saveSection",
+		church?: z.infer<typeof q.saveChurchRequest>,
+	) {
+		const v: q.SaveSectionRequest = church
+			? {
+					requestKey: church.requestKey,
+					expectedRevision: church.expectedRevision,
+					input: { section: "plant", plant: church.input.plant, change: church.input.changes[0]! },
+				}
+			: parse(q.saveSectionRequest, raw);
 		const a = await actor(tx, ctx, "command");
 		const i = v.input;
 		if (i.section === "account" || i.section === "notifications") {
@@ -204,7 +224,7 @@ export function sectionOperations(
 			!a.plant
 		)
 			deny();
-		const c = await begin(tx, ctx, a.account.id, name, v);
+		const c = await begin(tx, ctx, a.account.id, name, church ?? v);
 		if (c.kind === "replay") {
 			// Replay receipts never restore stale projections or bypass current scope.
 			const old = q.savedSectionResult.parse(c.value);
@@ -331,41 +351,26 @@ export function sectionOperations(
 			}
 			case "plant": {
 				if (!a.plant) deny();
-				// a.plant is the row as it was when this transaction bound the actor. A later change of the same church
-				// save (one transaction) expects the revision the earlier change wrote, so read the row again then.
-				const [row] =
-					v.expectedRevision === a.plant.revision
-						? [a.plant]
-						: await tx.select().from(t.plant).where(eq(t.plant.id, a.plant.id));
-				if (!row) deny();
-				const p = { plant: row };
+				const p = { plant: a.plant };
 				revision(v.expectedRevision, p.plant.revision);
 				const old = plantValue(p.plant, i.plant);
 				if (old.section !== "plant") deny();
-				let patch: Partial<typeof t.plant.$inferInsert> = {};
-				if (i.change.kind === "profile") {
-					const v = i.change.patch;
-					patch = {
-						...(v.name !== undefined ? { name: v.name } : {}),
-						...(v.street !== undefined ? { street: v.street } : {}),
-						...(v.description !== undefined ? { description: v.description } : {}),
-						...(v.city !== undefined ? { city: v.city } : {}),
-						...(v.stateProvince !== undefined ? { state_province: v.stateProvince } : {}),
-						...(v.country !== undefined ? { country: v.country } : {}),
-					};
-					changed = Object.entries(v).some(([k, value]) => Reflect.get(old.values.profile, k) !== value);
-				} else if (i.change.kind === "inactivity") {
-					patch = { warning_days: i.change.value.warningDays, alert_days: i.change.value.alertDays };
-					changed = canonical(old.values.inactivity) !== canonical(i.change.value);
-				} else {
-					const s = i.change.value;
-					patch = {
-						digest_cadence: s.cadence,
-						...(s.cadence !== "off" ? { digest_hour: s.hour } : {}),
-						...(s.cadence === "weekly" ? { digest_weekday: s.weekday } : {}),
-					};
-					changed = canonical(old.values.digest) !== canonical(s);
-				}
+				const patch: Partial<typeof t.plant.$inferInsert> = Object.assign(
+					{},
+					...(church ? church.input.changes : [i.change]).map(plantPatch),
+				);
+				const next = plantValue(
+					{
+						...p.plant,
+						...patch,
+						revision: String(BigInt(p.plant.revision) + 1n),
+						material_revision: String(BigInt(p.plant.material_revision) + 1n),
+					},
+					i.plant,
+				);
+				if (next.section !== "plant") deny();
+				diff = { before: plantFields(old), after: plantFields(next) };
+				changed = canonical(diff.before) !== canonical(diff.after);
 				if (changed) {
 					c.writes.push(
 						tx
@@ -377,23 +382,16 @@ export function sectionOperations(
 							})
 							.where(eq(t.plant.id, i.plant.id)),
 					);
-					current = plantValue(
-						{
-							...p.plant,
-							...patch,
-							revision: String(BigInt(p.plant.revision) + 1n),
-							material_revision: String(BigInt(p.plant.material_revision) + 1n),
-						},
-						i.plant,
-					);
-					if (current.section === "plant" && old.section === "plant")
-						diff = { before: plantFields(old), after: plantFields(current) };
-					const next = String(BigInt(p.plant.revision) + 1n);
-					await deps.effects.invalidate(tx, { owner: i.plant, revision: next, operationId: c.id });
-					if (i.change.kind === "digest")
-						await deps.effects.replan(tx, { owner: i.plant, revision: next, operationId: c.id, kind: "digest" });
+					await deps.effects.invalidate(tx, { owner: i.plant, revision: next.revision, operationId: c.id });
+					if (canonical(old.values.digest) !== canonical(next.values.digest))
+						await deps.effects.replan(tx, {
+							owner: i.plant,
+							revision: next.revision,
+							operationId: c.id,
+							kind: "digest",
+						});
 				}
-				if (!changed) current = old;
+				current = changed ? next : old;
 				break;
 			}
 			case "teams": {
@@ -493,10 +491,12 @@ export function sectionOperations(
 	}
 	const operations: Pick<
 		SettingsProducer<Tx>,
-		"getSection" | "saveSection" | "updatePlantProfile" | "setDigestSchedule"
+		"getSection" | "saveSection" | "saveChurch" | "updatePlantProfile" | "setDigestSchedule"
 	> = {
 		getSection: (tx, ctx, raw) => reply(tx, (s) => read(s, ctx, parse(q.getSectionRequest, raw))),
 		saveSection: (tx, ctx, raw) => reply(tx, (s) => save(s, ctx, raw)),
+		saveChurch: (tx, ctx, raw) =>
+			reply(tx, (s) => save(s, ctx, null, "settings.saveChurch", parse(q.saveChurchRequest, raw))),
 		updatePlantProfile: (tx, ctx, raw) =>
 			reply(tx, (s) => {
 				const v = parse(q.updatePlantProfileRequest, raw);
@@ -525,6 +525,32 @@ export function sectionOperations(
 			}),
 	};
 	return operations;
+}
+/** The plant columns one church change sets. Fields the change leaves out keep their stored value. */
+function plantPatch(change: q.PlantChange): Partial<typeof t.plant.$inferInsert> {
+	switch (change.kind) {
+		case "profile": {
+			const v = change.patch;
+			return {
+				...(v.name !== undefined ? { name: v.name } : {}),
+				...(v.street !== undefined ? { street: v.street } : {}),
+				...(v.description !== undefined ? { description: v.description } : {}),
+				...(v.city !== undefined ? { city: v.city } : {}),
+				...(v.stateProvince !== undefined ? { state_province: v.stateProvince } : {}),
+				...(v.country !== undefined ? { country: v.country } : {}),
+			};
+		}
+		case "inactivity":
+			return { warning_days: change.value.warningDays, alert_days: change.value.alertDays };
+		case "digest": {
+			const s = change.value;
+			return {
+				digest_cadence: s.cadence,
+				...(s.cadence !== "off" ? { digest_hour: s.hour } : {}),
+				...(s.cadence === "weekly" ? { digest_weekday: s.weekday } : {}),
+			};
+		}
+	}
 }
 /** A church section as flat audit fields: the profile fields, the inactivity days and the digest schedule. */
 function plantFields(section: Extract<q.SectionResult, { section: "plant" }>): Record<string, unknown> {

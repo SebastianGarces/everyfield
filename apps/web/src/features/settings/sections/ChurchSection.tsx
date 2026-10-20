@@ -121,7 +121,7 @@ function ChurchForm({
 	const visible = showErrors ? errors : {};
 	const set = <K extends keyof Form>(key: K, value: Form[K]) => setDraft({ ...draft, [key]: value });
 
-	// One section save sends up to three contract changes together. A refusal of any of them saves none, keeps every
+	// One section save sends up to three contract changes as one write. A refusal saves none of them, keeps every
 	// value in the draft and says why.
 	const save = () => {
 		setShowErrors(true);
@@ -146,13 +146,11 @@ function ChurchForm({
 			].filter((c) => c !== null);
 			if (changes.length === 0) return { ok: true, server: saved };
 			const result = await attempt("plant-settings", (requestKey) =>
-				port.saveChurch(
-					changes.map((change, i) => ({
-						requestKey: `${requestKey}/${i}`,
-						expectedRevision: section.revision,
-						input: { section: "plant" as const, plant: section.plant, change },
-					})),
-				),
+				port.saveChurch({
+					requestKey,
+					expectedRevision: section.revision,
+					input: { plant: section.plant, changes },
+				}),
 			);
 			if (!result.ok) return { ok: false, refusal: result.refusal };
 			const current = result.value.current.section === "plant" ? result.value.current : section;

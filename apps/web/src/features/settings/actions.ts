@@ -1,13 +1,14 @@
 "use server";
 
 import * as S from "@everyfield/contracts/settings";
-import { z } from "zod";
+import type { z } from "zod";
 import type {
 	GetSectionRequest,
 	PlantTimezonePreview,
 	PlantTimezoneResult,
 	Reply,
 	SavedSection,
+	SaveChurchRequest,
 	SaveSectionRequest,
 	SectionResult,
 } from "./port";
@@ -37,28 +38,14 @@ export async function saveSection(request: SaveSectionRequest): Promise<Reply<Sa
 	);
 }
 
-/**
- * One church save: up to three plant changes (profile, inactivity, digest) in one transaction. Each later change
- * expects the revision the one before it returned, so the browser sends the section's revision on every request; a
- * refusal of any change rolls back all of them. Every Save sends fresh request keys.
- */
-export async function saveChurch(requests: SaveSectionRequest[]): Promise<Reply<SavedSection>> {
+/** One church form submission: up to three changes in one write, with one audit row and one request key. */
+export async function saveChurch(request: SaveChurchRequest): Promise<Reply<SavedSection>> {
 	return run(
 		"write",
-		z.array(S.saveSectionRequest).min(1).max(3),
-		requests,
+		S.saveChurchRequest,
+		request,
 		() => "plant",
-		async (ops, tx, context, [first, ...rest]) => {
-			let reply = await ops.sections.saveSection(tx, context, first!);
-			for (const next of rest) {
-				if (reply.status !== "ok" || reply.value.current.section !== "plant") break;
-				reply = await ops.sections.saveSection(tx, context, {
-					...next,
-					expectedRevision: reply.value.current.revision,
-				});
-			}
-			return reply;
-		},
+		(ops, tx, context, r) => ops.sections.saveChurch(tx, context, r),
 	);
 }
 

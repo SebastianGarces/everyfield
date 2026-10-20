@@ -398,11 +398,20 @@ export function createFixturePort(
 				current: next,
 			});
 		},
-		async saveChurch(requests) {
-			let reply = await port.saveSection(requests[0]!);
-			for (const next of requests.slice(1)) {
+		async saveChurch(raw) {
+			const request = S.saveChurchRequest.parse(raw);
+			let reply = await port.saveSection({
+				requestKey: request.requestKey,
+				expectedRevision: request.expectedRevision,
+				input: { section: "plant", plant: request.input.plant, change: request.input.changes[0]! },
+			});
+			for (const change of request.input.changes.slice(1)) {
 				if (reply.status !== "ok" || reply.value.current.section !== "plant") break;
-				reply = await port.saveSection({ ...next, expectedRevision: reply.value.current.revision });
+				reply = await port.saveSection({
+					requestKey: `${request.requestKey}/${change.kind}`,
+					expectedRevision: reply.value.current.revision,
+					input: { section: "plant", plant: request.input.plant, change },
+				});
 			}
 			return reply;
 		},
