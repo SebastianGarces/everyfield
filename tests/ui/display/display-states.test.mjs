@@ -9,7 +9,12 @@ async function withPage(engine, { dark = false, group = "all" } = {}, run) {
 	assert.ok(BASE, "Set UI_BASE_URL to a running preview of this worktree.");
 	const browser = await engine.launch();
 	try {
-		const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
+		const context = await browser.newContext({
+			viewport: { width: 1440, height: 900 },
+			reducedMotion: "reduce",
+			// The portless preview uses a local certificate (same as the other tests/ui suites).
+			ignoreHTTPSErrors: true,
+		});
 		if (dark) await context.addCookies([{ name: "ef-theme", value: "dark", url: BASE }]);
 		const page = await context.newPage();
 		await page.goto(BASE + "/design/display");

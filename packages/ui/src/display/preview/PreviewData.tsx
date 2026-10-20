@@ -6,8 +6,6 @@ import {
 	Calendar03Icon,
 	CheckmarkCircle02Icon,
 	MusicNote01Icon,
-	Tick02Icon,
-	UserIcon,
 	UserMultipleIcon,
 } from "@hugeicons/core-free-icons";
 import { useMemo, useState } from "react";
@@ -16,26 +14,17 @@ import { Icon } from "../../foundations";
 import {
 	Avatar,
 	AvatarGroup,
-	BulkBar,
-	CoverageBar,
 	DataTable,
 	DeltaChip,
 	KeyValue,
 	KeyValueList,
-	Legend,
 	List,
 	ListRow,
 	Pagination,
-	Progress,
-	Ring,
-	Stat,
 	StageChip,
-	StatStrip,
 	StatusBadge,
 	STAGES,
 	Tag,
-	TargetBar,
-	ZeroMetric,
 	type Loadable,
 } from "..";
 import { PEOPLE, type Person } from "./fixtures";
@@ -127,33 +116,15 @@ export function BadgesSection({ index }: { index: number }) {
 	);
 }
 
-export function StatsSection({ index }: { index: number }) {
+export function ListsSection({ index }: { index: number }) {
 	return (
 		<Section
 			index={index}
-			title="Stats, meters and lists"
-			code="<Stat> <StatStrip> <Metric zero> <TargetBar> <Progress> <Meter> <Ring> <KeyValue> <ListRow> <Legend> <CoverageBar>"
-			note="A count that nobody recorded says “Not recorded”; a real zero shows 0 with what will make it grow."
+			title="Key values and lists"
+			code="<KeyValueList> <KeyValue> <List> <ListRow>"
+			note="A count that nobody recorded says “Not recorded”; a real zero shows 0."
 		>
-			<Grid cols={3}>
-				<Specimen>
-					<Stat
-						label="Core group"
-						value={34}
-						size="xl"
-						delta={<DeltaChip dir="up">9</DeltaChip>}
-						caption="16 committed adults to the 50 benchmark. The Playbook aims for 50 to 100."
-					>
-						<TargetBar
-							className="mt-6"
-							label="Core group toward the benchmark"
-							value={34}
-							max={60}
-							target={50}
-							targetLabel="Benchmark 50"
-						/>
-					</Stat>
-				</Specimen>
+			<Grid cols={2}>
 				<Specimen>
 					<KeyValueList>
 						<KeyValue
@@ -184,16 +155,8 @@ export function StatsSection({ index }: { index: number }) {
 								</DeltaChip>
 							}
 						/>
+						<KeyValue k="Based on" value="Everyfield global v4" size="sm" />
 					</KeyValueList>
-					<div className="mt-4 flex flex-col gap-2">
-						<Progress label="Followed up in 48 hours" value={71} />
-						<Progress label="Interviews done" value={48} size="sm" tone="blue" />
-						<div className="mt-2 flex gap-4">
-							<Ring label="Followed up" value={71} />
-							<Ring label="Roles filled" value={4} max={10} display="4/10" tone="amber" />
-							<Ring label="Trained" value={90} tone="blue" />
-						</div>
-					</div>
 				</Specimen>
 				<Specimen title="Needs you" description="4 things this week">
 					<List>
@@ -221,55 +184,7 @@ export function StatsSection({ index }: { index: number }) {
 						/>
 					</List>
 				</Specimen>
-				<Specimen title="Core group" description="Committed adults">
-					<ZeroMetric>
-						The Playbook aims for 50 to 100 adults who share the vision before launch. Your count starts when someone
-						commits.
-					</ZeroMetric>
-					<Progress label="Core group toward the benchmark" value={0} size="sm" className="mt-4" />
-				</Specimen>
-				<Specimen title="Evidence" description="How much of the portfolio each insight can see">
-					<CoverageBar category="Findings" n={11} total={14} />
-					<CoverageBar category="People" n={12} total={14} />
-					<CoverageBar category="Wiki reading" n={7} total={14} />
-					<p className="mt-2.5 text-xs text-text-3">
-						Plants that do not share a category count as unknown, never as zero.
-					</p>
-				</Specimen>
-				<Specimen title="Legend">
-					<Legend
-						items={[
-							{ label: "Lost", tone: "magenta", count: 7 },
-							{ label: "At risk", tone: "amber", count: 14 },
-							{ label: "Returning", tone: "blue", count: 10 },
-							{ label: "Committed", tone: "green", count: 31 },
-						]}
-					/>
-					<Legend
-						className="mt-4"
-						items={[
-							{ label: "History", tone: "blue", mark: "hatch" },
-							{ label: "This meeting", tone: "blue", mark: "swatch" },
-						]}
-					/>
-				</Specimen>
 			</Grid>
-			<Specimen className="mt-5">
-				<StatStrip>
-					<Stat label="People" value={214} caption="12 new this month" />
-					<Stat
-						label="Core group"
-						value={34}
-						delta={
-							<DeltaChip dir="up" size="sm">
-								9
-							</DeltaChip>
-						}
-					/>
-					<Stat label="Guests last Sunday" value={null} caption="Attendance not finalized" />
-					<Stat label="Leaders" value={6} caption="of 8 roles" />
-				</StatStrip>
-			</Specimen>
 		</Section>
 	);
 }
@@ -382,17 +297,6 @@ export function TableSection({ index }: { index: number }) {
 						<Pagination page={page} pageCount={9} onPageChange={setPage} label="People pages" />
 					</div>
 				) : null}
-				<BulkBar
-					className="mt-4"
-					count={state.status === "ready" ? state.data.filter((p) => selected.has(p.id)).length : 0}
-					noun={["person", "people"]}
-					actions={[
-						{ label: "Complete", icon: Tick02Icon, onClick: () => undefined },
-						{ label: "Reschedule", icon: Calendar03Icon, onClick: () => undefined },
-						{ label: "Reassign", icon: UserIcon, onClick: () => undefined },
-					]}
-					onClear={() => setSelected(new Set())}
-				/>
 			</Specimen>
 		</Section>
 	);
