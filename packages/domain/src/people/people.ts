@@ -660,6 +660,8 @@ async function pipelineOrder(tx: Tx, ctx: WriteContext, input: z.infer<typeof c.
 			const stages = column === "core_group" ? ["core_group", "launch_team", "leader"] : [column];
 			// One statement locks the column row and takes its next revision (a first move creates it at 2), and finds the
 			// key between the anchor and the next person in column order; the key is null when those two share one.
+			// The midpoint multiplies by 0.5: numeric multiplication is exact, where division rounds and could land on a
+			// neighbour after many moves into the same gap.
 			const found = placeRow.parse(
 				(
 					await tx.execute(sql`WITH lock AS (
@@ -673,7 +675,7 @@ async function pipelineOrder(tx: Tx, ctx: WriteContext, input: z.infer<typeof c.
 						${afterId}::uuid IS NULL OR EXISTS(SELECT FROM col WHERE id=${afterId}::uuid) AS found,
 						(CASE WHEN ${afterId}::uuid IS NULL
 							THEN coalesce((SELECT k - 1 FROM col WHERE n=1), (SELECT pipeline_position FROM person WHERE id=${moving}::uuid))
-							ELSE (SELECT CASE WHEN nx.k IS NULL THEN a.k + 1 WHEN nx.k > a.k THEN (a.k + nx.k) / 2 END
+							ELSE (SELECT CASE WHEN nx.k IS NULL THEN a.k + 1 WHEN nx.k > a.k THEN (a.k + nx.k) * 0.5 END
 								FROM anchor a LEFT JOIN col nx ON nx.n = a.n + 1) END)::text AS key`)
 				).rows[0],
 			);

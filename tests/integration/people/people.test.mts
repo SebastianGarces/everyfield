@@ -1023,6 +1023,24 @@ test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one trans
 	assert.deepEqual(changedRows, [mover], "exactly one row changed");
 	assert.equal(legacyMove.history, 1, "one audit event");
 	assert.equal(legacyMove.count, few.count, "the same statements in a column of 30");
+	// 200 alternating moves into the same gap (verifier repro on 38c508f failed at move 59): each move halves the gap,
+	// lands strictly between its neighbours, changes exactly one row and writes one audit event.
+	const [top, m1, m2] = legacyMove.order;
+	let keys = await positions();
+	for (let i = 0; i < 200; i++) {
+		const [mover, other] = i % 2 ? [m1, m2] : [m2, m1];
+		const step = await move(mover, top);
+		assert.deepEqual(step.order.slice(0, 3), [top, mover, other], `move ${i + 1} keeps the requested order`);
+		const now = await positions();
+		assert.deepEqual(
+			[...now].filter(([pid, k]) => keys.get(pid) !== k).map(([pid]) => pid),
+			[mover],
+			`move ${i + 1} changes one row`,
+		);
+		assert.equal(new Set(now.values()).size, 30, `move ${i + 1} keeps every key distinct`);
+		assert.equal(step.history, 1, `move ${i + 1} writes one audit event`);
+		keys = now;
+	}
 	const [first] = ok(await tx((t) => read.listPeople(t, ctx(), { search: "Move regression", limit: 1 }))).items;
 	queries = [];
 	// The stage-change action: the producer's command plus the target column's saved order, in one transaction.
