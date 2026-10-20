@@ -683,7 +683,7 @@ async function pipelineOrder(tx: Tx, ctx: WriteContext, input: z.infer<typeof c.
 			const before = await person(tx, ctx, moving, true);
 			if (before.state !== "live" || !stages.includes(before.stage!)) deny("conflict");
 			if (!found.found) deny("conflict");
-			// Keys are unique in a column (new, re-staged and restored people get a fresh key, and migration 0014 spread the
+			// Keys are unique in a column (new, re-staged and restored people get a fresh key, and migration 0015 spread the
 			// old ones), so a key strictly between two neighbours always exists and a move changes exactly one row.
 			const after = personRow.parse({
 				...before,

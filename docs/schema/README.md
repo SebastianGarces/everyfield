@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 118 tables, 1346 columns, 462 declared FKs and 18 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 78 tables, 898 columns, 289 declared FKs and 14 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -38,23 +38,14 @@ Each replaced table inherits the union of producer packages from its previous ta
 
 | New table | Ownership basis and ruling | Producers |
 |---|---|---|
-| `article_link` | Typed topology splits from immutable Wiki article revision facts. | WP-004, WP-033, WP-035 |
-| `assessment_fact` | Typed immutable facts split from plant/organization assessment snapshots; WP-040 owns fact capture. Add WP-040 for the explicit deterministic fact-capture producer. | WP-004, WP-038, WP-040, WP-042, WP-043, WP-044, WP-047 |
-| `assignment_feedback` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
 | `development_enrollment` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
-| `development_milestone` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
 | `development_program` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
 | `development_program_version` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
-| `development_reading` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
 | `development_stage` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
 | `digest_coverage` | Recipient digest coverage splits from inbox notification production. | WP-004, WP-030 |
 | `early_access_attempt` | WP-097 owns the applied migration 0001 limiter table, without an invented primary key. | WP-097 |
 | `early_access_request` | WP-097 owns the applied early access migration 0001 request table; no product scaffold or tenant prerequisite. Field shape follows the approved E3 contract and receipt shape follows E4. | WP-097 |
-| `enrollment_milestone` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
-| `enrollment_plan` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
-| `evidence_link` | Selections, citations, provenance and inverse guards split from the named previous consumer manifests; original consumers retain their writer responsibilities. | WP-004, WP-015, WP-019, WP-021, WP-022, WP-024, WP-027, WP-028, WP-029, WP-030, WP-031, WP-033, WP-035, WP-038, WP-042, WP-043, WP-045, WP-046, WP-047, WP-050, WP-051, WP-053, WP-057 |
 | `identity_proof` | Application-owned email-change/cancellation proof splits from account/auth and deletion facts; password reset remains library-owned. | WP-004, WP-005, WP-010, WP-050, WP-057 |
-| `leadership_conversation` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
 | `mail_request` | Exact request/replay clock splits from the shared mail intent/attempt ledger. | WP-004, WP-028, WP-031 |
 | `mail_request_member` | Exact ordered membership splits from the shared mail intent/attempt ledger. | WP-004, WP-028, WP-031 |
 | `onboarding_setup` | WP-009 additive onboarding storage. | WP-009 |
@@ -63,17 +54,12 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `pipeline_person` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
 | `pipeline_sharing` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-007 |
 | `pipeline_stage` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
-| `pipeline_stage_move` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
-| `private_calendar` | Original-author rollover splits from private check-in facts; no generic record or shared event identity. | WP-004, WP-039 |
-| `prompt_dismissal` | Own-context optional prompt choice splits from feedback production. | WP-004, WP-049 |
-| `record` | Referenceable subtype writers must bind their own actual identity and owner; inherit the union of those writers, with WP-004 owning trigger/DDL proof. | WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-012, WP-013, WP-014, WP-015, WP-016, WP-017, WP-018, WP-019, WP-020, WP-021, WP-022, WP-023, WP-024, WP-026, WP-027, WP-028, WP-029, WP-030, WP-031, WP-032, WP-033, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-040, WP-041, WP-042, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049, WP-050, WP-054, WP-057, WP-098, WP-099 |
+| `record` | Referenceable subtype writers must bind their own actual identity and owner; inherit the union of those writers, with WP-004 owning trigger/DDL proof. | WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-012, WP-013, WP-014, WP-016, WP-017, WP-018, WP-020, WP-021, WP-022, WP-023, WP-024, WP-026, WP-028, WP-030, WP-031, WP-032, WP-033, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-041, WP-045, WP-046, WP-047, WP-048, WP-050, WP-054, WP-057, WP-098, WP-099 |
 | `relationship_invitation` | WP-007 native organization adapter storage introduced by forward migration 0005; D29/D32 current-catalog authority. | WP-007 |
 | `residency_link` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-008 |
 | `schema_migration` | WP-097 installs the migration runner ledger with its physical text primary key. | WP-097 |
-| `sending_goal` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
 | `settings_preview` | WP-010 settings storage through Drizzle Kit. | WP-010 |
 | `tenant` | Stable body-free ownership is shared by root and deletion producers; no independent access grant. | WP-004, WP-005, WP-007, WP-010, WP-050, WP-057 |
-| `training_requirement` | Required work splits from the existing immutable training version. | WP-004, WP-019 |
 
 `assessment_fact` also adds WP-040, which owns deterministic fact capture. Its remaining producers inherit the replaced assessment stores. Original-author care excludes generic record/history movement. The Person registry is rebuilt from all adopted Person FKs; generic person-kind record references and frozen opaque inputs are separately registered as immutable evidence.
 
@@ -86,7 +72,7 @@ This mapping is generated from `replaces`; Fix 2 uses it to align architecture, 
 | `access_invitation` | `invitation` |
 | `account_person_link` | `person` |
 | `app_account` | `account`, `lifecycle_witness` |
-| `assessment_demand` | `assessment` |
+| `assessment_demand` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
 | `assistant_approval` | Removed unused assistant protocol; the future feature introduces its own schema when implemented (D70/D72). |
 | `assistant_artifact` | Removed unused assistant protocol; the future feature introduces its own schema when implemented (D70/D72). |
 | `assistant_attachment` | Removed unused assistant protocol; the future feature introduces its own schema when implemented (D70/D72). |
@@ -102,39 +88,33 @@ This mapping is generated from `replaces`; Fix 2 uses it to align architecture, 
 | `auth_user` | `auth_user` |
 | `auth_verification` | `auth_verification` |
 | `command_receipt` | `audit_event` |
-| `communication` | `communication` |
-| `communication_delivery_retry` | `communication` |
-| `communication_recipient` | `communication_recipient` |
+| `communication_delivery_retry` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
 | `deletion_witness` | `lifecycle_witness` |
 | `discovery_association` | `affiliation` |
 | `discovery_profile` | `discovery` |
 | `email_attempt` | `mail_attempt` |
 | `email_intent` | `mail` |
 | `email_suppression` | `suppression` |
-| `feedback_publication` | `feedback_publication` |
 | `follow_up_obligation` | `obligation` |
 | `follow_up_outcome` | `contact_outcome` |
-| `generated_document` | `generated_document` |
 | `household` | `household` |
 | `inbox_entry` | `notice` |
-| `intelligence_assessment_run` | `assessment` |
-| `intelligence_feedback` | `reader_feedback` |
-| `intelligence_insight` | `finding` |
+| `intelligence_assessment_run` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
+| `intelligence_feedback` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
+| `intelligence_insight` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
 | `job` | `job` |
-| `launch` | `document`, `document_revision`, `launch`, `launch_debrief` |
+| `launch` | `document`, `document_revision`, `launch` |
 | `launch_event` | `audit_event` |
 | `launch_milestone` | `launch_milestone` |
 | `launch_milestone_task` | `launch_milestone` |
-| `launch_person_attendance` | `launch_guest` |
-| `meeting` | `meeting`, `meeting_item` |
-| `meeting_checklist_item` | `meeting_item` |
-| `meeting_evaluation` | `meeting_evaluation` |
+| `launch_person_attendance` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
+| `meeting` | `meeting` |
+| `meeting_checklist_item` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
 | `meeting_event` | `audit_event` |
 | `meeting_invitation` | `participation` |
 | `meeting_location` | `venue` |
 | `meeting_participation` | `participation` |
-| `meeting_rsvp_token` | `rsvp_proof` |
-| `message_template` | `message_template` |
+| `meeting_rsvp_token` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
 | `ministry_team` | `team` |
 | `notification_preference` | `notification_preference` |
 | `object_metadata` | `file_object` |
@@ -142,22 +122,20 @@ This mapping is generated from `replaces`; Fix 2 uses it to align architecture, 
 | `operation_execution` | `audit_event` |
 | `operation_result` | `audit_event` |
 | `organization` | `organization` |
-| `organization_intelligence_assessments` | `assessment` |
-| `organization_intelligence_contributor` | `assessment_contributor` |
-| `organization_intelligence_runs` | `assessment` |
+| `organization_intelligence_assessments` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
+| `organization_intelligence_contributor` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
+| `organization_intelligence_runs` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
 | `organization_network_link` | `affiliation` |
 | `organization_sharing_settings` | `affiliation` |
 | `organization_wiki_article_state` | `article_editor_state` |
 | `owned_document_revisions` | `document_revision` |
 | `owned_documents` | `document` |
 | `person` | `person` |
-| `person_4c_assessment` | `four_cs` |
+| `person_4c_assessment` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
 | `person_activity` | `audit_event`, `person_note` |
 | `person_attestation` | `attestation` |
 | `person_commitment` | `commitment` |
 | `person_interview` | `interview` |
-| `person_merge` | `person_merge` |
-| `person_skill` | `person_skill` |
 | `person_tag` | `person_tag` |
 | `person_tag_definition` | `tag` |
 | `phase_template_offer_response` | `phase_transition` |
@@ -165,12 +143,12 @@ This mapping is generated from `replaces`; Fix 2 uses it to align architecture, 
 | `plant` | `lifecycle_witness`, `plant`, `plant_geography` |
 | `plant_affiliation` | `affiliation` |
 | `plant_attestation` | `attestation` |
-| `plant_wiki_source_order` | `wiki_preference` |
-| `plant_wiki_source_order_entry` | `wiki_preference` |
-| `planter_checkin` | `private_week` |
-| `planter_checkin_event` | `private_week_revision` |
+| `plant_wiki_source_order` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
+| `plant_wiki_source_order_entry` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
+| `planter_checkin` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
+| `planter_checkin_event` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
 | `platform_grant` | `platform_grant` |
-| `product_feedback` | `feedback` |
+| `product_feedback` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
 | `provider_event_receipt` | `provider_event` |
 | `record_correction` | `audit_event` |
 | `recovery_manifest` | Encrypted restricted external backup/restore artifact, outside the live application database. |
@@ -181,7 +159,6 @@ This mapping is generated from `replaces`; Fix 2 uses it to align architecture, 
 | `reference_section` | `article_revision`, `reference_item`, `reference_version` |
 | `reference_template_version` | `reference_version` |
 | `task` | `task` |
-| `task_dependency` | `task_dependency` |
 | `task_relation` | `task` |
 | `task_status_event` | `audit_event` |
 | `team_membership` | `team_tenure` |
@@ -189,15 +166,14 @@ This mapping is generated from `replaces`; Fix 2 uses it to align architecture, 
 | `team_role` | `team_role` |
 | `template_import_receipt` | `audit_event` |
 | `tenancy_membership` | `seat` |
-| `training_assignment_episode` | `training_assignment` |
+| `training_assignment_episode` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
 | `training_assignment_event` | `audit_event` |
-| `training_completion` | `training_credit` |
-| `training_program` | `training_program` |
-| `training_requirement_version` | `training_version` |
+| `training_completion` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
+| `training_requirement_version` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
 | `upload_intent` | `file_object` |
 | `vision_response` | `participation` |
 | `wiki_article` | `reference_item` |
-| `wiki_article_feedback` | `reader_feedback` |
+| `wiki_article_feedback` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
 | `wiki_article_version` | `article_revision` |
 | `wiki_bookmark` | `reading` |
 | `wiki_read_event` | `audit_event` |
@@ -387,33 +363,20 @@ Each name identifies one exact FK. The checker requires this list whenever `targ
 ## Additional scope exceptions
 
 - `affiliation(recognition_operation_id) -> audit_event(id)`: D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.
-- `assessment_contributor(recognition_operation_id) -> audit_event(id)`: D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.
-- `assignment_feedback(author_id) -> account(id)`: Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal.
 - `audit_event(command_id) -> audit_event(id)`: Original command correlation may cross the owned endpoint of a reviewed conversion. Cleanup may sever correlation while retaining only independently owned facts.
 - `audit_event(subject_id) -> record(id)`: D70 audit subject or original-command correlation may name an authorized bilateral endpoint or retained identity; pair/source checks and current authority remain mandatory. Operator projections omit protected history and retry content.
 - `development_program(director_seat_id) -> seat(id)`: Current eligible duty seat belongs to the exact organization. Serialized boundary checks seat tenant/kind and current authority; the relation grants no broader access.
-- `development_reading(article_id) -> reference_item(id)`: Reading source may be global or an entitled organization revision. Recheck canonical article identity, published state and current source rights at every read; the pointer grants no library access.
-- `development_reading(source_revision_id) -> article_revision(id)`: Reading source may be global or an entitled organization revision. Recheck canonical article identity, published state and current source rights at every read; the pointer grants no library access.
 - `discovery(conversion_operation_id) -> audit_event(id)`: D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.
-- `enrollment_milestone(completed_by) -> account(id)`: Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal.
-- `enrollment_milestone(confirmed_by) -> account(id)`: Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal.
-- `generated_document(generation_operation_id) -> audit_event(id)`: D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.
-- `leadership_conversation(staff_account_id) -> account(id)`: Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal.
 - `onboarding_setup(creation_operation_id) -> audit_event(id)`: D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.
-- `person_merge(operation_id) -> audit_event(id)`: D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.
-- `person_merge(reversed_operation_id) -> audit_event(id)`: D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.
 - `phase_transition(operation_id) -> audit_event(id)`: D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.
 - `pipeline_person(responsible_seat_id) -> seat(id)`: Current eligible duty seat belongs to the exact organization. Serialized boundary checks seat tenant/kind and current authority; the relation grants no broader access.
 - `pipeline_sharing(relationship_id) -> affiliation(id)`: The affiliation must name this sending church and exact current sending network; no inherited or transitive sharing.
 - `pipeline_sharing(changed_by) -> account(id)`: Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal.
-- `pipeline_stage_move(actor_id) -> account(id)`: Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal.
 - `relationship_invitation(invitation_id) -> invitation(id)`: Invitation owner is the initiating endpoint. The native invitation command validates this exact typed pair and current subject authority.
 - `residency_link(account_id) -> account(id)`: Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal.
 - `residency_link(affiliation_id) -> affiliation(id)`: The current exact account/organization affiliation must match the accepted link endpoints; it never authorizes general account or organization reads.
 - `suppression(clear_operation_id) -> audit_event(id)`: D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.
 - `task(import_operation_id) -> audit_event(id)`: D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.
-- `training_assignment(selection_operation_id) -> audit_event(id)`: D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.
-- `wiki_preference(recognition_operation_id) -> audit_event(id)`: D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.
 
 ## Architecture alignment amendments
 

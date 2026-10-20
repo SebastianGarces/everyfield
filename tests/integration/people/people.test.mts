@@ -988,7 +988,7 @@ test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one trans
 	assert.equal(many.count, few.count, "a move in a column of 10 costs the same as in a column of 3");
 	assert.deepEqual([few.history, many.history], [1, 1], "a move changes one person and writes one audit event");
 	assert.ok(few.count <= 10, `reorder round trips: ${few.count}`);
-	// Legacy ties: 30 people who all share key 0, as every person had before migration 0014. After the migration a move
+	// Legacy ties: 30 people who all share key 0, as every person had before migration 0015. After the migration a move
 	// between any two neighbours still changes exactly one row and writes one audit event.
 	const legacy = Array.from({ length: 20 }, () => randomUUID()).sort();
 	ids.push(...legacy);
@@ -998,7 +998,7 @@ test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one trans
 	await admin.execute(
 		sql.raw(
 			await readFile(
-				new URL("../../../packages/db/migrations/0014_unique_pipeline_positions.sql", import.meta.url),
+				new URL("../../../packages/db/migrations/0015_unique_pipeline_positions.sql", import.meta.url),
 				"utf8",
 			),
 		),
