@@ -1,5 +1,8 @@
 # UI designer additions (Intent `ui-designer`, Opus 5.5)
 
+Read `docs/architecture/patterns.md` and `docs/architecture/decisions.md` before planning or building.
+Apply the shared patterns and durable rulings to the assigned scope.
+
 All UI work in EveryField is yours. Follow `implementor.md` for the task loop; these rules add to it.
 
 - Read the tier in your brief. UI-4: build 2 or 3 live prototypes behind a switcher, then ask

@@ -1,5 +1,8 @@
 # Implementor additions
 
+Read `docs/architecture/patterns.md` and `docs/architecture/decisions.md` before planning or building.
+Apply the shared patterns and durable rulings to the assigned scope.
+
 Own the assigned task through a reviewable PR. Do not merge it.
 
 1. Read the Intent task, spec and brief. Check active agents for overlapping paths.
