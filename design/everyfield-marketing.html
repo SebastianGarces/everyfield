@@ -593,8 +593,9 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .phc-art { position: relative; height: 236px; flex: none; margin: 8px 8px 0; border-radius: var(--corner-media); }
 .phc-num { position: absolute; left: 18px; top: 16px; font-family: var(--mk-font-display); font-size: 96px; font-weight: 400; line-height: .8; letter-spacing: var(--mk-tracking-display); color: #F6F0E9; font-variant-numeric: tabular-nums; }
 .phc-art.mesh .phc-num { color: #181D19; } /* a gradient card carries ink text, like every mesh tone */
-.phc-art.photo::before { background-image: radial-gradient(130% 100% at 0% 0%, rgba(24, 29, 25, .78), rgba(24, 29, 25, .36) 36%, rgba(24, 29, 25, 0) 66%), var(--photo-src); background-size: auto, cover; }
-.phc-art.photo:not(.seen)::before { background-image: radial-gradient(130% 100% at 0% 0%, rgba(24, 29, 25, .78), rgba(24, 29, 25, .36) 36%, rgba(24, 29, 25, 0) 66%); }
+/* Corner shade under the cream phase number: strong enough for 3:1 on every glyph on the light crops (glow, wildflowers) at 390. */
+.phc-art.photo::before { background-image: radial-gradient(130% 100% at 0% 0%, rgba(24, 29, 25, .82), rgba(24, 29, 25, .5) 40%, rgba(24, 29, 25, 0) 72%), var(--photo-src); background-size: auto, cover; }
+.phc-art.photo:not(.seen)::before { background-image: radial-gradient(130% 100% at 0% 0%, rgba(24, 29, 25, .82), rgba(24, 29, 25, .5) 40%, rgba(24, 29, 25, 0) 72%); }
 .phc-vig { position: absolute; left: 0; right: 0; top: 112px; width: min(calc(100% - 28px), 292px); margin: 0 auto; }
 .phc-txt { padding: 20px 22px 22px; }
 /* Pinned mode (desktop, no reduced motion). The pin is a tall track (frame height + travel, set by JS); the frame is sticky
@@ -711,12 +712,10 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .sec-cta .cta-box .lead, .sec-cta .cta-box .small { color: rgba(246, 240, 233, .9); }
 .sec-cta .cta-box .mk-btn.primary { background: #F6F0E9; color: #181D19; }
 .sec-cta .cta-box .mk-btn.primary:hover { background: #FFFFFF; }
+/* Secondary CTA: 42% ink backing so its label stays at 4.5:1 over bright reed stems at every width. */
 .sec-cta .cta-box .mk-btn.secondary { background: rgba(24, 29, 25, .42); color: #F6F0E9; box-shadow: inset 0 0 0 1px rgba(246, 240, 233, .7); }
 .sec-cta .cta-box .mk-btn.secondary:hover { background: rgba(24, 29, 25, .56); box-shadow: inset 0 0 0 1.5px #F6F0E9; }
 @media (max-width: 900px) { .sec-cta .cta-box { --photo-zoom: 1.9; --photo-pos: 50% 61%; } } /* tall box: zoom into the brown band behind the text */
-@media (max-width: 900px) { /* tall box: bright reed stems cross the secondary button; a 40% ink backing keeps its label at 4.5:1 or more */
-  .sec-cta .cta-box .mk-btn.secondary { background: rgba(24, 29, 25, .4); }
-  .sec-cta .cta-box .mk-btn.secondary:hover { background: rgba(24, 29, 25, .56); } }
 @media (min-width: 901px) { .sec-cta .cta-box { --photo-shade: .45; } } /* wide box: the lake crop puts bright reed tips behind the lead; a 45% overlay keeps every glyph at 4.5:1 or more (lowest 4.88:1 at 1280) */
 .cta-mark { display: block; width: clamp(44px, 4.4vw, 64px); height: auto; aspect-ratio: 1; color: #F6F0E9; }
 
