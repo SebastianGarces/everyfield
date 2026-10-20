@@ -22,7 +22,7 @@ export function RestrictedPreview({ flow }: { flow: RestrictedFlow }) {
 		() => createDeletionPort(flow === "account-deletion" ? "account" : "plant", scenario),
 		[flow, scenario],
 	);
-	const emailPort = useMemo(() => createFixturePort("admin").port, []);
+	const emailPort = useMemo(() => createFixturePort("admin").port.flows!, []);
 
 	if (flow === "confirm-email")
 		return (

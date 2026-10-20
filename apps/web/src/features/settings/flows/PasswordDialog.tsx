@@ -14,7 +14,7 @@ import {
 } from "@everyfield/ui/controls";
 import { useState } from "react";
 import type { CredentialOutcome } from "../port";
-import { useSettings } from "../store";
+import { useFlows } from "../store";
 
 type Form = { currentPassword: string; newPassword: string; confirmPassword: string };
 const EMPTY: Form = { currentPassword: "", newPassword: "", confirmPassword: "" };
@@ -41,7 +41,7 @@ const OUTCOME_TEXT: Record<Failure, string> = {
  * keeps this one. Passwords live only in this dialog's state: they are cleared when it closes and never retried.
  */
 export function PasswordDialog() {
-	const { port } = useSettings();
+	const port = useFlows();
 	const [open, setOpen] = useState(false);
 	const [form, setForm] = useState<Form>(EMPTY);
 	const [checked, setChecked] = useState(false);
