@@ -60,6 +60,7 @@ export function requireTaskScope(root: string, task: TaskRef, wp?: string): void
 			".gitignore",
 			"bin/evf",
 			"everyfield-feature-review.html",
+			"design/handoff/screens.md",
 		];
 		const directories = [".agents/", ".claude/", "docs/", "tools/evf/", ".github/"];
 		if (
