@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { offeredSections, parseSectionKey, SECTION_LABEL } from "../model";
 import type { DeletionStatus, SectionKey } from "../port";
 import { SettingsDialog } from "../SettingsDialog";
+import { SharingSection } from "../sections/SharingSection";
 import { SettingsProvider } from "../store";
 import {
 	createFixturePort,
@@ -69,7 +70,7 @@ export function SettingsPreview() {
 					section={section}
 					onNavigate={navigate}
 					hrefFor={hrefFor}
-					relationships={PREVIEW_RELATIONSHIPS}
+					slots={{ sharing: <SharingSection relationships={PREVIEW_RELATIONSHIPS} /> }}
 					onDeletionRequested={deleted}
 				/>
 			</SettingsProvider>
@@ -105,7 +106,7 @@ function PreviewPage({
 		() => JSON.stringify(fixture.calls),
 		() => "{}",
 	);
-	const sections = offeredSections(previewViewer(persona), []);
+	const sections = offeredSections(previewViewer(persona), ["sharing"]);
 
 	return (
 		<div className="flex flex-col gap-6">
