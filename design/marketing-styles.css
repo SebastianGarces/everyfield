@@ -40,21 +40,53 @@
 :root { --corner-card: 0px; --corner-control: 0px; --corner-pill: 0px; --corner-petal: 0px; --corner-media: 0px; }
 
 /* =====================================================================
-   Photo treatment (2026-10-19 rebrand). It replaces the gradient surfaces. Copy this block to reuse it.
+   Photo treatment (2026-10-19 rebrand, round 4 photos 2026-10-20). Copy this block to reuse it.
    One photo surface has three layers: the image, a flat black overlay (default 20%), then film grain.
-   - Add a photo: put the web copies in assets/photos/ and add one --photo-<name> token (wide and narrow).
+   - Add a photo: put the web copies in assets/photos/ (long edge 2400 and 1200; blurred rail photos 1200 and 600)
+     and add one --photo-<name> token for each width.
    - Use: class="photo" data-photo="<crop>". A crop sets --photo-src, --photo-pos (focus point and zoom origin)
      and --photo-zoom (1 = cover). Change --photo-shade only for text on a photo (see .photo-text).
+   - Rule: one photo per slot, and no photo twice on the same page. A slot that holds a colorful UI card uses .mesh.
+   - Lazy load: the image loads when the slot is near the viewport (JS adds .seen). Above the fold, put .seen in the markup.
    - The slot sets the corners with border-radius: var(--corner-media).
    - Text on a photo is cream. Check 4.5:1 for each crop at each width before you ship it.
    ===================================================================== */
 :root {
   --photo-wheat: image-set(url("assets/photos/wheat-2400.avif") type("image/avif"), url("assets/photos/wheat-2400.jpg") type("image/jpeg"));
   --photo-field: image-set(url("assets/photos/field-2400.avif") type("image/avif"), url("assets/photos/field-2400.jpg") type("image/jpeg"));
+  --photo-storm: image-set(url("assets/photos/storm-2400.avif") type("image/avif"), url("assets/photos/storm-2400.jpg") type("image/jpeg"));
+  --photo-hills: image-set(url("assets/photos/hills-2400.avif") type("image/avif"), url("assets/photos/hills-2400.jpg") type("image/jpeg"));
+  --photo-harvest: image-set(url("assets/photos/harvest-2400.avif") type("image/avif"), url("assets/photos/harvest-2400.jpg") type("image/jpeg"));
+  --photo-trees: image-set(url("assets/photos/trees-2400.avif") type("image/avif"), url("assets/photos/trees-2400.jpg") type("image/jpeg"));
+  --photo-plain: image-set(url("assets/photos/plain-2400.avif") type("image/avif"), url("assets/photos/plain-2400.jpg") type("image/jpeg"));
+  --photo-reeds: image-set(url("assets/photos/reeds-2400.avif") type("image/avif"), url("assets/photos/reeds-2400.jpg") type("image/jpeg"));
+  --photo-lake: image-set(url("assets/photos/lake-2400.avif") type("image/avif"), url("assets/photos/lake-2400.jpg") type("image/jpeg"));
+  --photo-bluebells: image-set(url("assets/photos/bluebells-1200.avif") type("image/avif"), url("assets/photos/bluebells-1200.jpg") type("image/jpeg"));
+  --photo-poppies: image-set(url("assets/photos/poppies-1200.avif") type("image/avif"), url("assets/photos/poppies-1200.jpg") type("image/jpeg"));
+  --photo-wildflowers: image-set(url("assets/photos/wildflowers-1200.avif") type("image/avif"), url("assets/photos/wildflowers-1200.jpg") type("image/jpeg"));
+  --photo-blossom: image-set(url("assets/photos/blossom-1200.avif") type("image/avif"), url("assets/photos/blossom-1200.jpg") type("image/jpeg"));
+  --photo-meadow: image-set(url("assets/photos/meadow-1200.avif") type("image/avif"), url("assets/photos/meadow-1200.jpg") type("image/jpeg"));
+  --photo-glow: image-set(url("assets/photos/glow-1200.avif") type("image/avif"), url("assets/photos/glow-1200.jpg") type("image/jpeg"));
   --photo-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncG type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncB type='linear' slope='1.6' intercept='-.3'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 @media (max-width: 900px) {
-  :root { --photo-wheat: image-set(url("assets/photos/wheat-1200.avif") type("image/avif"), url("assets/photos/wheat-1200.jpg") type("image/jpeg")); --photo-field: image-set(url("assets/photos/field-1200.avif") type("image/avif"), url("assets/photos/field-1200.jpg") type("image/jpeg")); }
+  :root {
+    --photo-wheat: image-set(url("assets/photos/wheat-1200.avif") type("image/avif"), url("assets/photos/wheat-1200.jpg") type("image/jpeg"));
+    --photo-field: image-set(url("assets/photos/field-1200.avif") type("image/avif"), url("assets/photos/field-1200.jpg") type("image/jpeg"));
+    --photo-storm: image-set(url("assets/photos/storm-1200.avif") type("image/avif"), url("assets/photos/storm-1200.jpg") type("image/jpeg"));
+    --photo-hills: image-set(url("assets/photos/hills-1200.avif") type("image/avif"), url("assets/photos/hills-1200.jpg") type("image/jpeg"));
+    --photo-harvest: image-set(url("assets/photos/harvest-1200.avif") type("image/avif"), url("assets/photos/harvest-1200.jpg") type("image/jpeg"));
+    --photo-trees: image-set(url("assets/photos/trees-1200.avif") type("image/avif"), url("assets/photos/trees-1200.jpg") type("image/jpeg"));
+    --photo-plain: image-set(url("assets/photos/plain-1200.avif") type("image/avif"), url("assets/photos/plain-1200.jpg") type("image/jpeg"));
+    --photo-reeds: image-set(url("assets/photos/reeds-1200.avif") type("image/avif"), url("assets/photos/reeds-1200.jpg") type("image/jpeg"));
+    --photo-lake: image-set(url("assets/photos/lake-1200.avif") type("image/avif"), url("assets/photos/lake-1200.jpg") type("image/jpeg"));
+    --photo-bluebells: image-set(url("assets/photos/bluebells-600.avif") type("image/avif"), url("assets/photos/bluebells-600.jpg") type("image/jpeg"));
+    --photo-poppies: image-set(url("assets/photos/poppies-600.avif") type("image/avif"), url("assets/photos/poppies-600.jpg") type("image/jpeg"));
+    --photo-wildflowers: image-set(url("assets/photos/wildflowers-600.avif") type("image/avif"), url("assets/photos/wildflowers-600.jpg") type("image/jpeg"));
+    --photo-blossom: image-set(url("assets/photos/blossom-600.avif") type("image/avif"), url("assets/photos/blossom-600.jpg") type("image/jpeg"));
+    --photo-meadow: image-set(url("assets/photos/meadow-600.avif") type("image/avif"), url("assets/photos/meadow-600.jpg") type("image/jpeg"));
+    --photo-glow: image-set(url("assets/photos/glow-600.avif") type("image/avif"), url("assets/photos/glow-600.jpg") type("image/jpeg"));
+  }
 }
 .photo { position: relative; isolation: isolate; overflow: hidden; background-color: #3A3529; color: #F6F0E9;
   --on: #F6F0E9; --on-2: rgba(246, 240, 233, .92); --on-3: rgba(246, 240, 233, .9); --pill-bg: rgba(24, 29, 25, .42); --pill-edge: rgba(246, 240, 233, .3); --spark: rgba(246, 240, 233, .32); --spark-hi: #F6F0E9; }
@@ -62,32 +94,40 @@
 .photo::before { z-index: -2; background: var(--photo-src) var(--photo-pos, 50% 50%) / cover no-repeat;
   transform: scale(var(--photo-zoom, 1)); transform-origin: var(--photo-pos, 50% 50%);
   filter: brightness(calc(1 - var(--photo-shade, .2))); } /* brightness(.8) = a 20% black overlay */
+.photo:not(.seen)::before { background-image: none; }
 .photo::after { z-index: -1; background: var(--photo-grain) 0 0 / 260px 260px; opacity: var(--photo-grain-mix, .34); mix-blend-mode: overlay; }
 .photo :focus-visible { outline: 2px solid #F6F0E9; outline-offset: 2px; }
-/* Crops of the two photos. Dark crops (wheat-grain, wheat-low) carry cream text at the 20% overlay. */
-[data-photo="wheat-dusk"]    { --photo-src: var(--photo-wheat); --photo-pos: 50% 58%; }
-[data-photo="wheat-sun"]     { --photo-src: var(--photo-wheat); --photo-pos: 6% 34%; --photo-zoom: 1.55; }
-[data-photo="wheat-clouds"]  { --photo-src: var(--photo-wheat); --photo-pos: 74% 26%; --photo-zoom: 1.6; }
-[data-photo="wheat-grain"]   { --photo-src: var(--photo-wheat); --photo-pos: 38% 100%; --photo-zoom: 1.5; }
-[data-photo="wheat-low"]     { --photo-src: var(--photo-wheat); --photo-pos: 88% 100%; --photo-zoom: 1.5; }
-[data-photo="field-sky"]     { --photo-src: var(--photo-field); --photo-pos: 50% 16%; }
-[data-photo="field-horizon"] { --photo-src: var(--photo-field); --photo-pos: 50% 56%; }
-[data-photo="field-rows"]    { --photo-src: var(--photo-field); --photo-pos: 50% 100%; --photo-zoom: 1.45; }
+/* Landscapes. wheat-dusk is the hero; lake is soft and dark enough for cream text at the 20% overlay (the CTA). */
+[data-photo="wheat-dusk"] { --photo-src: var(--photo-wheat); --photo-pos: 50% 58%; }
+[data-photo="field-sky"]  { --photo-src: var(--photo-field); --photo-pos: 50% 16%; }
+[data-photo="storm"]      { --photo-src: var(--photo-storm); --photo-pos: 30% 60%; }
+[data-photo="hills"]      { --photo-src: var(--photo-hills); --photo-pos: 50% 60%; }
+[data-photo="harvest"]    { --photo-src: var(--photo-harvest); --photo-pos: 50% 62%; }
+[data-photo="trees"]      { --photo-src: var(--photo-trees); --photo-pos: 55% 50%; }
+[data-photo="plain"]      { --photo-src: var(--photo-plain); --photo-pos: 30% 70%; }
+[data-photo="reeds"]      { --photo-src: var(--photo-reeds); --photo-pos: 50% 72%; }
+[data-photo="lake"]       { --photo-src: var(--photo-lake); --photo-pos: 50% 67%; }
+/* Blurred colorful photos: the six phase-card rail cards. */
+[data-photo="bluebells"]   { --photo-src: var(--photo-bluebells); --photo-pos: 30% 40%; }
+[data-photo="poppies"]     { --photo-src: var(--photo-poppies); --photo-pos: 50% 92%; --photo-zoom: 1.5; }
+[data-photo="wildflowers"] { --photo-src: var(--photo-wildflowers); --photo-pos: 60% 45%; }
+[data-photo="blossom"]     { --photo-src: var(--photo-blossom); --photo-pos: 50% 40%; }
+[data-photo="meadow"]      { --photo-src: var(--photo-meadow); --photo-pos: 40% 50%; }
+[data-photo="glow"]        { --photo-src: var(--photo-glow); --photo-pos: 50% 30%; --photo-shade: .36; } /* the lightest blur: a deeper overlay keeps the cream number at 3:1 */
 /* Small tiles and light crops that carry cream text or icons use a deeper overlay. */
 .photo-text { --photo-shade: .55; }
 
 /* =====================================================================
    Muted gradients (2026-10-20). The same engine as the dashboard InsightCard (design/everyfield-ui.html).
-   Used by the InsightCard copies and the phase-card rail. Every other surface keeps its photo.
+   Used by the InsightCard copies and by photo slots that hold a colorful UI card.
    Three layers: a base color, a blurred mesh of five color blobs mixed in OKLCH (::before), film grain (::after).
-   - Use: class="mesh" data-mesh="field|sky|clay|sand|haze|dusk". All tones carry ink text.
-   - Palette: --ef-{sky|clay|sand}-{100|300|500|700}, sampled from the two photos and muted in OKLCH.
-     700 is the text-safe step (4.5:1 or more on white and cream).
+   - Use: class="mesh" data-mesh="field|sky|clay". All tones carry ink text.
+   - Palette: --ef-{sky|clay}-{100|300|500|700}, sampled from the photos and muted in OKLCH.
+     700 is the text-safe step (4.5:1 or more on white and cream). Sand is removed (round 4); its replacement comes from the dashboard task.
    ===================================================================== */
 :root {
   --ef-sky-100: #D6EAF2;  --ef-sky-300: #B2D2DE;  --ef-sky-500: #83AAB8;  --ef-sky-700: #4C6F7C;
   --ef-clay-100: #F5DED0; --ef-clay-300: #E4BAA2; --ef-clay-500: #AF7A5A; --ef-clay-700: #83583D;
-  --ef-sand-100: #F7EBD8; --ef-sand-300: #E8D3B0; --ef-sand-500: #C7B18C; --ef-sand-700: #7A694E;
   --ef-soil: #3F2F23; --ef-cloud: #787A80;
 }
 .mesh { position: relative; isolation: isolate; overflow: hidden; background: var(--g-base); color: #181D19;
@@ -103,12 +143,8 @@
 .mesh::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit; background: var(--photo-grain) 0 0 / 260px 260px; opacity: .4; mix-blend-mode: overlay; }
 .mesh :focus-visible { outline: 2px solid #181D19; outline-offset: 2px; }
 [data-mesh="field"] { --g-base: #1AF197; --g1: #AFF8D0; --g2: #1AF197; --g3: #4BDC95; --g4: var(--ef-sky-300); --g5: #FBF6ED; }
-[data-mesh="sky"]   { --g-base: var(--ef-sky-300); --g1: var(--ef-sky-100); --g2: #99BECC; --g3: var(--ef-sand-100); --g4: var(--ef-sky-500); --g5: #ECF6FA; }
-[data-mesh="clay"]  { --g-base: var(--ef-clay-300); --g1: var(--ef-clay-100); --g2: #C9997A; --g3: var(--ef-sand-300); --g4: #DEB58F; --g5: #FBF6ED; }
-[data-mesh="sand"]  { --g-base: var(--ef-sand-300); --g1: var(--ef-sand-100); --g2: var(--ef-sand-500); --g3: var(--ef-clay-100); --g4: var(--ef-sky-300); --g5: #FBF6ED; }
-/* Two blends for the six-card rail: haze = sky over a sand horizon, dusk = clay under a sky corner. */
-[data-mesh="haze"]  { --g-base: var(--ef-sky-100); --g1: var(--ef-sky-300); --g2: var(--ef-sand-100); --g3: var(--ef-sand-300); --g4: #99BECC; --g5: #FBF6ED; }
-[data-mesh="dusk"]  { --g-base: var(--ef-clay-100); --g1: var(--ef-sky-300); --g2: var(--ef-clay-300); --g3: #DEB58F; --g4: var(--ef-sand-300); --g5: #ECF6FA; }
+[data-mesh="sky"]   { --g-base: var(--ef-sky-300); --g1: var(--ef-sky-100); --g2: #99BECC; --g3: #ECF6FA; --g4: var(--ef-sky-500); --g5: #ECF6FA; }
+[data-mesh="clay"]  { --g-base: var(--ef-clay-300); --g1: var(--ef-clay-100); --g2: #C9997A; --g3: #F2CDB6; --g4: #DEB58F; --g5: #FBF6ED; }
 
 /* ------------------------------------------------------------------ */
 /* A. Field Notes                                                       */
