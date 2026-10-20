@@ -416,11 +416,47 @@
 				"docs/plan/",
 				"docs/catalog/",
 				"docs/acceptance/",
-				"docs/build-progress.json",
 				"docs/package-context.py",
 				"docs/architecture/",
 				"docs/schema/",
 				".agents/skills/portless-preview/SKILL.md"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		},
+		"OPS-19": {
+			"title": "Give the progress ledger one committed owner",
+			"owningPaths": ["tools/evf/", "evf.config.json", "docs/build-agent-workflow.md"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		},
+		"OPS-20": {
+			"title": "Fold contract parts into api parts",
+			"owningPaths": [
+				"tools/evf/",
+				"evf.config.json",
+				"AGENTS.md",
+				".agents/roles/ui-designer.md",
+				"docs/build-agent-workflow.md",
+				"docs/refresh-explorer-plan.py"
 			],
 			"checks": [
 				{

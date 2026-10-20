@@ -1,4 +1,5 @@
 import {
+	contractPathsOf,
 	currentCatalog,
 	isUiPath,
 	fail,
@@ -40,6 +41,9 @@ export function renderBrief(root: string, task: TaskRef, opts: { uiTier?: string
 		`Owned requirements: ${context.own_requirement_ids.join(", ") || "package output gates"}`,
 		`Worktree: ${worktreePath(root, loadConfig(root), task)}`,
 		`Owning paths: ${pathsForPart(pkg, task.part).join(", ")}`,
+		...(task.part === "api" && contractPathsOf(pkg).length
+			? [`Contract first: build ${contractPathsOf(pkg).join(", ")} before the server work that uses it.`]
+			: []),
 		`Acceptance cases:\n${pkg.acceptance_gates.map((gate, index) => `${index + 1}. ${gate}`).join("\n")}`,
 		`Proof stage: ${pkg.context_scope.proof_stage}`,
 		`Integration and bounded ownership: ${pkg.integration_rule}`,

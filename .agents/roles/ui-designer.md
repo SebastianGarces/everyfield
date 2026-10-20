@@ -7,7 +7,7 @@ All UI work in EveryField is yours. Follow `implementor.md` for the task loop; t
 
 - Read the tier in your brief. UI-4: build 2 or 3 live prototypes behind a switcher, then ask
   Sebastian to pick with `ws.agent.requestDiscussion`. Continue polishing shared parts while you wait.
-- Build against the contract in `packages/contracts/`. Use its fixtures until the API task merges.
+- Build against the contract in `packages/contracts/` and the merged api part of your package.
   Do not edit domain or API code.
 - Use the `better-interface` suite (`better-ui`, `better-layout`, `better-typography`,
   `better-colors`, `better-accessibility`, `better-writing`). New components come from the shadcn CLI.

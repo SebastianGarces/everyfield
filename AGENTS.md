@@ -15,7 +15,7 @@ Current requirements and cases live in `docs/catalog/index.json`. Keep this file
    `verify-preview`, posts the exact-head review on the PR and runs `bin/evf ship <task>`.
    Ship requires green required GitHub CI, independent approval and a valid PR body.
 
-Use `bin/evf help` for commands. IDs are WP-NNN, WP-NNN/contract, /api or /ui,
+Use `bin/evf help` for commands. IDs are WP-NNN, WP-NNN/api or /ui,
 FB-<n> for feedback and OPS-<n> for tooling maintenance.
 
 ## Rules
