@@ -16,3 +16,13 @@ export async function SettingsSectionPage({ params }: { params: Promise<{ sectio
 	if (!v || v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(`/settings/${section}`)}`);
 	return <h1 className="sr-only">Settings</h1>;
 }
+
+/**
+ * /settings is the Settings dialog on the first section this viewer is offered, in one request: the frame's dialog
+ * picks that section from the address (ProductSettings), so no role meets a missing page and there is no redirect.
+ */
+export async function SettingsIndexPage() {
+	const v = await getViewer();
+	if (!v || v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent("/settings")}`);
+	return <h1 className="sr-only">Settings</h1>;
+}
