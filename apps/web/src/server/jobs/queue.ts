@@ -151,26 +151,26 @@ export async function finishClaim(tx: Transaction, claim: Claim, result: JobResu
 export async function recoverLease(db: Database, limit = 100): Promise<number> {
 	z.number().int().min(1).max(100).parse(limit);
 	return transaction(db, async (tx) => {
-		const rows = await tx.execute(sql`WITH expired AS (SELECT id FROM job WHERE state='claimed'
-      AND lease_until<=clock_timestamp() ORDER BY lease_until,id FOR UPDATE SKIP LOCKED LIMIT ${limit})
-      UPDATE job j SET state=CASE WHEN checkpoint_key='external' THEN 'reconcile'
-      WHEN attempt_count>=max_attempts THEN 'failed' ELSE 'retry_wait' END,
-      error_code='lease_expired',lease_owner=NULL,lease_until=NULL,
-      next_attempt_at=clock_timestamp()+interval '5 minutes',
-      finished_at=CASE WHEN checkpoint_key IS DISTINCT FROM 'external' AND attempt_count>=max_attempts THEN clock_timestamp() ELSE NULL END,
-      claim_generation=claim_generation+1,revision=revision+1
-      FROM expired WHERE j.id=expired.id RETURNING j.id,j.kind,j.subject_record_id,j.state`);
-		for (const row of rows.rows) {
-			if (row.kind === "mail" && row.state === "reconcile") {
-				await tx
-					.update(tables.mail)
-					.set({ state: "unknown" })
-					.where(and(eq(tables.mail.id, sql`${row.subject_record_id}`), eq(tables.mail.state, "dispatched")));
-				await tx.execute(sql`UPDATE mail_attempt a SET outcome='unknown',safe_error='lease_expired',completed_at=clock_timestamp()
-          FROM mail_request_member m WHERE m.mail_id=${row.subject_record_id} AND m.request_id=a.request_id AND a.outcome='in_flight'`);
-			}
-		}
-		return rows.rowCount ?? 0;
+		const rows=await tx.execute(sql`WITH expired AS (
+ SELECT id FROM job WHERE state='claimed' AND lease_until<=clock_timestamp()
+ ORDER BY lease_until,id FOR UPDATE SKIP LOCKED LIMIT ${limit}
+), recovered AS (
+ UPDATE job j SET state=CASE WHEN checkpoint_key='external' THEN 'reconcile'
+ WHEN attempt_count>=max_attempts THEN 'failed' ELSE 'retry_wait' END,
+ error_code='lease_expired',lease_owner=NULL,lease_until=NULL,
+ next_attempt_at=clock_timestamp()+interval '5 minutes',
+ finished_at=CASE WHEN checkpoint_key IS DISTINCT FROM 'external' AND attempt_count>=max_attempts THEN clock_timestamp() ELSE NULL END,
+ claim_generation=claim_generation+1,revision=revision+1 FROM expired WHERE j.id=expired.id
+ RETURNING j.id,j.kind,j.subject_record_id,j.state
+), unknown_mail AS (
+ UPDATE mail m SET state='unknown' FROM recovered r
+ WHERE r.kind='mail' AND r.state='reconcile' AND m.id=r.subject_record_id AND m.state='dispatched' RETURNING m.id
+), unknown_attempt AS (
+ UPDATE mail_attempt a SET outcome='unknown',safe_error='lease_expired',completed_at=clock_timestamp()
+ FROM mail_request_member m, recovered r WHERE r.kind='mail' AND r.state='reconcile'
+ AND m.mail_id=r.subject_record_id AND m.request_id=a.request_id AND a.outcome='in_flight' RETURNING a.id
+) SELECT count(*)::int AS count FROM recovered`);
+ return z.number().parse(rows.rows[0]?.count);
 	});
 }
 export async function checkpoint(tx: Transaction, claim: Claim, key: string): Promise<boolean> {
@@ -203,7 +203,7 @@ export async function scanPage(
 	config: {
 		size: number;
 		load: (tx: Transaction, after: string | null, limit: number) => Promise<string[]>;
-		process: (tx: Transaction, id: string) => Promise<void>;
+		process: (tx: Transaction, ids: readonly string[]) => Promise<void>;
 	},
 ) {
 	z.number().int().min(1).max(100).parse(config.size);
@@ -219,7 +219,7 @@ export async function scanPage(
 		previous = id;
 	}
 	if (ids.length === 0) return finishClaim(tx, claim, { state: "succeeded" });
-	for (const id of ids) await config.process(tx, id);
+	await config.process(tx, ids);
 	// Progress begins a fresh retry budget for the next chunk, never for a failed chunk.
 	await tx
 		.update(tables.job)
