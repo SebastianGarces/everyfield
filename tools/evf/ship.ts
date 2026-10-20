@@ -282,6 +282,7 @@ export function checkPr(root: string, number: number, expectedHead?: string): Me
 		fail("GitHub verifier comments are unreadable.");
 	const comments = pages.flat();
 	let selected: { approval: Approval; url: string } | undefined;
+	let missingFields: string[] = [];
 	for (const comment of comments)
 		for (const match of String(comment?.body ?? "").matchAll(/^EVF-Review: (.+)$/gm)) {
 			let value: unknown;
@@ -290,12 +291,18 @@ export function checkPr(root: string, number: number, expectedHead?: string): Me
 			} catch {
 				continue;
 			}
+			if (value && typeof value === "object" && "head" in value && value.head === pr.headRefOid) {
+				missingFields = ["quality", "experience"].filter((field) => !(field in value));
+			}
 			const approval = readApproval(value);
 			if (!approval || approval.head !== pr.headRefOid) continue;
 			selected = { approval, url: typeof comment.html_url === "string" ? comment.html_url : "" };
 		}
-	if (!selected?.url || selected.approval.verdict !== "approved")
+	if (!selected?.url || selected.approval.verdict !== "approved") {
+		if (missingFields.length)
+			fail(`Missing ${missingFields.join(" and ")} field in verifier review for the exact PR head.`);
 		fail("Missing verifier approval for the exact PR head.");
+	}
 	if (selected.approval.quality.verdict !== "approved") fail("Code quality must be approved before shipping.");
 	if (selected.approval.experience.verdict !== "approved") fail("Experience must be approved before shipping.");
 	const experience = selected.approval.experience;
@@ -388,9 +395,10 @@ function afterMerge(
 	mkdirSync(dir, { recursive: true });
 	writeFileSync(join(dir, `${task.slug}.json`), `${JSON.stringify(record, null, 2)}\n`);
 	git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
-	recordProgress(root, record, false);
+	const recorded = recordProgress(root, record, false);
 	console.log(`ship: merged PR #${prNumber} as ${mergeSha.slice(0, 10)}.`);
 	if (task.kind === "fb") onFeedbackShipped(root, task);
+	else if (recorded === false) console.log("ship: merged; no package progress recorded.");
 	else
 		console.log(
 			`progress: recorded automatically; the coordinator reviews and acknowledges with evf shipped --clear ${task.id}.`,

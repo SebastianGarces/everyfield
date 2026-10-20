@@ -163,6 +163,13 @@ export function taskStart(
 		"shell: your shell starts in the workspace root. evf commands find the worktree from the task ID; for other commands use `git -C` or the worktree path.",
 	);
 
+	if (task.kind !== "ops" && existsSync(join(wt, "package.json"))) {
+		const result = run("corepack", ["pnpm", "install", "--frozen-lockfile"], { cwd: wt, inherit: true });
+		if (result.code !== 0)
+			fail(
+				`Dependency install failed with exit code ${result.code}. The worktree exists; fix the install, then rerun evf task start ${task.id}.`,
+			);
+	}
 	if (!opts.noStack && task.kind !== "ops") {
 		const code = stack(root, task, "up", true);
 		if (code !== 0)

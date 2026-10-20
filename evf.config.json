@@ -350,6 +350,26 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-15": {
+			"title": "Small evf fixes collected today",
+			"owningPaths": [
+				"tools/evf/",
+				".agents/skills/verify-preview/scripts/",
+				"docs/package-context.py",
+				"evf.config.json"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
