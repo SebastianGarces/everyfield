@@ -188,7 +188,10 @@ Only evf writes canonical progress on ship and coordinator acknowledgement. Read
 review, merge and owning-path evidence. Full package closure belongs to integration.
 WP-097's documentary fast-track import remains available with its original owner go-live record.
 
-Reconcile plan membership with Node 24+ `tools/evf/progress.ts --reconcile`, then transfer its
-output through reviewed OPS maintenance. Never discard dirty shared checkouts or change their
+The home checkout owns `docs/build-progress.json`. Ship, acknowledgement and reconcile write it
+there, and task worktrees read it there. Only a transfer task that owns exactly that file (OPS-7)
+may commit it, so plan PRs leave it alone and the home checkout fast-forwards past them.
+Reconcile plan membership in the home checkout with Node 24+ `tools/evf/progress.ts --reconcile`;
+it refuses a task worktree. Transfer the result through OPS-7. Never discard dirty shared checkouts or change their
 branches while another agent is working. Configure GitHub settings only with current owner
 approval. W2 owns the CI workflow, branch protection and GitHub auto-merge setup.
