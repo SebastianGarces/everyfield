@@ -454,9 +454,8 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .site-nav .wrap, .nav-pill .wrap { display: flex; align-items: center; gap: 28px; }
 .site-nav .wrap { height: 70px; }
 .logo { display: inline-flex; align-items: center; gap: 10px; color: var(--logo, #181D19); text-decoration: none; flex: none; }
-/* Rebrand: the nav shows the lockup (1443x261). The symbol fills the full height; the wordmark is 241/261 of it.
-   Heights are 261/241 of the earlier lockup sizes, so the wordmark keeps its size. */
-.logo .ll { width: auto; height: 30px; aspect-ratio: 1443 / 261; overflow: visible; }
+/* Rebrand: the nav shows the lockup (1308x241). Its height sets the size; the wordmark fills the full height. */
+.logo .ll { width: auto; height: 28px; aspect-ratio: 1308 / 241; overflow: visible; }
 .logo .lm { display: none; width: 22px; height: 22px; }
 .logo .lw { width: auto; height: 22px; aspect-ratio: 1052 / 241; overflow: visible; }
 /* Revision 6: nav logo as a flex anchor (no inline baseline gap). Rebrand: one ink lockup, as in the source SVG. */
@@ -1551,7 +1550,7 @@ body.pbar-hidden { padding-bottom: 0; }
 @media (max-width: 640px) {
   .nav-end .signin { display: none; }
   .nav-end .mk-btn { height: 40px; padding: 0 14px; font-size: 13.5px; }
-  .logo .ll { height: 26px; }
+  .logo .ll { height: 24px; }
   .site-nav .wrap, .nav-pill .wrap { gap: 12px; }
   .site-nav .wrap { height: 64px; }
   [id] { scroll-margin-top: 76px; }
@@ -1608,7 +1607,7 @@ body.pbar-hidden { padding-bottom: 0; }
 </head>
 <body class="mk-signal">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-<!-- BEGIN logo symbols: the EveryField symbol (340x340), wordmark (1052x241) and lockup (1443x261). Source: Brand logo SVGs note. -->
+<!-- BEGIN logo symbols: the EveryField symbol (340x340), wordmark (1052x241) and lockup (1308x241). Source: Brand logo SVGs note. -->
 <symbol id="ef-symbol" viewBox="0 0 340 340">
     <path fill-rule="evenodd" clip-rule="evenodd" fill="currentColor" d="M85.1309 0C104.232 0.00640781 121.859 6.33218 136.041 17.0039C156.662 32.5207 170 57.2254 170 85.0508V85.1074C170.025 38.2127 208.071 0.204104 255 0.204102H340V85.1826C339.994 104.295 333.671 121.933 323.006 136.123C307.498 156.756 282.809 170.103 255 170.103C301.93 170.103 339.977 208.112 340 255.008V340H255C235.865 340 218.206 333.681 204 323.017C183.354 307.518 170 282.843 170 255.051C170 301.953 131.967 339.977 85.043 340H0V255.051C5.70642e-05 235.927 6.32349 218.28 16.9941 204.082C32.4866 183.469 57.1431 170.128 84.9189 170.103C38.1152 170.004 0.204104 131.962 0.204102 85.0508V0H85.1309ZM110.207 110.972V231.389H229.793V110.972H110.207Z"/>
   </symbol>
@@ -1623,9 +1622,9 @@ body.pbar-hidden { padding-bottom: 0; }
     <path d="M175.446 180.781L130.631 73.1732C128.268 67.4342 124.216 63.6362 118.477 61.7795L114.933 60.7667V58.2347H180.51V60.7667L175.952 61.7795C169.369 63.4674 167.344 67.8561 169.876 74.9456L196.461 145.587L221.274 75.452C222.625 72.076 222.962 69.2909 222.287 67.0965C221.612 64.9022 219.586 63.2986 216.21 62.2859L209.881 60.7667V58.2347H246.594V60.7667L239.251 62.5391C236.044 63.383 233.512 64.649 231.655 66.337C229.967 68.0249 228.533 70.5569 227.351 73.9328L190.131 180.781H175.446Z" fill="currentColor"/>
     <path d="M62.5391 54.4368C73.5108 54.4368 82.879 56.7156 90.6436 61.2731C98.4083 65.6618 104.316 71.7385 108.367 79.5031C112.587 87.0989 114.697 95.7919 114.697 105.582C114.697 107.439 114.613 109.38 114.444 111.406C114.275 113.262 113.938 114.95 113.431 116.47H37.9792C38.148 134.7 41.3551 147.866 47.6006 155.968C54.0148 163.901 63.4674 167.868 75.9583 167.868C84.3982 167.868 91.2344 166.518 96.4671 163.817C101.7 161.116 106.595 157.149 111.152 151.917L113.684 154.195C108.452 163.479 101.447 170.738 92.6692 175.97C84.0606 181.203 73.6796 183.819 61.5263 183.819C49.5417 183.819 38.9076 181.287 29.6238 176.223C20.34 170.991 13.0817 163.564 7.84903 153.942C2.61635 144.321 0 132.843 0 119.508C0 105.667 3.03834 93.9352 9.11501 84.3138C15.1917 74.5236 22.9563 67.0966 32.4089 62.0327C42.0303 56.9688 52.0737 54.4368 62.5391 54.4368ZM61.7795 59.5007C56.8844 59.5007 52.6645 61.0199 49.1197 64.0582C45.7438 66.9278 43.0431 72.1605 41.0175 79.7563C39.1608 87.1833 38.148 97.7331 37.9792 111.406H81.2755C82.9634 93.0068 82.2882 79.7563 79.2499 71.6541C76.2116 63.5518 70.3881 59.5007 61.7795 59.5007Z" fill="currentColor"/>
   </symbol>
-<symbol id="ef-lockup" viewBox="0 0 1443 261">
-    <use href="#ef-symbol" x="0" y="0" width="260.409" height="260.409"/>
-    <use href="#ef-wordmark" x="391.154" y="10.346" width="1052" height="241"/>
+<symbol id="ef-lockup" viewBox="0 0 1308 241">
+    <use href="#ef-symbol" x="0" y="23.668" width="192.33" height="192.33"/>
+    <use href="#ef-wordmark" x="256.489" y="0" width="1052" height="241"/>
   </symbol>
 <!-- END logo symbols -->
 </svg>
@@ -2636,10 +2635,10 @@ function esc(s) {
 function t(s) {
   return esc(s).replace(/Everyfield/g, "EveryField");
 }
-/* Logos. logo(): the lockup (symbol + wordmark, 1443x261). wordmark(): the wordmark alone (1052x241).
+/* Logos. logo(): the lockup (symbol + wordmark, 1308x241). wordmark(): the wordmark alone (1052x241).
    mark(): the symbol alone (340x340). All three use currentColor. */
 function logo(extra) {
-  return '<span class="logo ' + (extra || "") + '"><svg class="ll" viewBox="0 0 1443 261" role="img" aria-label="EveryField"><use href="#ef-lockup"/></svg>' +
+  return '<span class="logo ' + (extra || "") + '"><svg class="ll" viewBox="0 0 1308 241" role="img" aria-label="EveryField"><use href="#ef-lockup"/></svg>' +
     '<svg class="lm" viewBox="0 0 340 340" role="img" aria-label="EveryField"><use href="#ef-symbol"/></svg></span>';
 }
 function wordmark() {
