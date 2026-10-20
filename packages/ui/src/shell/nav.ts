@@ -9,7 +9,8 @@ export type ShellLink = {
 	icon: IconSvgElement;
 	match?: "exact" | "prefix";
 	/** Runs on a plain click before the client navigation (next/link onNavigate). Settings prevents it and opens its
-	 * dialog over the current page; a new tab or a fresh load still follows `href`. */
+	 * dialog over the current page; a new tab or a fresh load still follows `href`.
+	 * Such a link is never prefetched: a plain click does not load the route. */
 	onNavigate?: (event: { preventDefault: () => void }) => void;
 };
 
