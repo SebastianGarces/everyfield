@@ -7,6 +7,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import { sectionSeed } from "../settings/routes";
 import { settingsViewerOf } from "../settings/server";
 import { parseQuery, querySearch } from "./model.ts";
 import { PeopleFrame } from "./PeopleFrame.tsx";
@@ -30,8 +31,9 @@ const params = (raw: Record<string, string | string[] | undefined>) => {
  */
 export async function ProductFrameLayout({ children }: { children: ReactNode }) {
 	const v = await getViewer();
+	const settings = settingsViewerOf(v);
 	return (
-		<PeopleFrame name={v?.displayName ?? "You"} settings={settingsViewerOf(v)}>
+		<PeopleFrame name={v?.displayName ?? "You"} settings={settings} seed={await sectionSeed(settings)}>
 			{children}
 		</PeopleFrame>
 	);

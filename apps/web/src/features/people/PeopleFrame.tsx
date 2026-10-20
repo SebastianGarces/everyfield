@@ -7,7 +7,7 @@ import { AppShell, RoleBanner, type ShellNav } from "@everyfield/ui/shell";
 import { createContext, use, useState, type ReactNode } from "react";
 import { AccountMenu } from "../settings/AccountMenu";
 import { firstSection } from "../settings/model";
-import type { SettingsViewer } from "../settings/port";
+import type { SectionSeed, SettingsViewer } from "../settings/port";
 import { useProductSettings } from "../settings/ProductSettings";
 import type { Role } from "./server.ts";
 
@@ -22,6 +22,8 @@ type FrameProps = {
 	name: string;
 	/** The viewer as Settings sees it, with the seat's role; null when there is no active actor. */
 	settings: SettingsViewer | null;
+	/** The settings section read the server started for this page's address, for the server's viewer only. */
+	seed?: SectionSeed | null;
 	children: ReactNode;
 };
 
@@ -32,7 +34,7 @@ type FrameProps = {
 const OwnSeat = createContext<(role: Role | null) => void>(() => {});
 export const useOwnSeatChange = () => use(OwnSeat);
 
-export function PeopleFrame({ settings: initial, ...props }: FrameProps) {
+export function PeopleFrame({ settings: initial, seed, ...props }: FrameProps) {
 	// The server's viewer is the source until a page reports a change to the viewer's own seat.
 	const [own, setOwn] = useState({ from: initial, settings: initial });
 	const settings = own.from === initial ? own.settings : initial;
@@ -49,15 +51,15 @@ export function PeopleFrame({ settings: initial, ...props }: FrameProps) {
 	return (
 		<ToastProvider>
 			<OwnSeat value={change}>
-				<Frame {...props} settings={settings} />
+				<Frame {...props} settings={settings} seed={settings === initial ? seed : null} />
 			</OwnSeat>
 		</ToastProvider>
 	);
 }
 
-function Frame({ name, settings, children }: FrameProps) {
+function Frame({ name, settings, seed = null, children }: FrameProps) {
 	const toast = useToast();
-	const dialog = useProductSettings(settings);
+	const dialog = useProductSettings(settings, seed);
 	const role = settings && settings.context !== "account" ? settings.role : null;
 	// A plant Member reads People but does not change it; organization seats have no People list.
 	const banner =

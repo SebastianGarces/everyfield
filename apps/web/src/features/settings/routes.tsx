@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
+import { PATH_HEADER } from "@/proxy";
 import { getViewer } from "@/server/request-context";
-import { dialogSection } from "./model";
+import { getSection } from "./actions";
+import { dialogSection, sectionAt, sectionRequest } from "./model";
+import type { SectionSeed, SettingsViewer } from "./port";
 
 export const settingsMetadata: Metadata = { title: "Settings", robots: { index: false, follow: false } };
 
@@ -25,4 +29,15 @@ export async function SettingsIndexPage() {
 	const v = await getViewer();
 	if (!v || v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent("/settings")}`);
 	return <h1 className="sr-only">Settings</h1>;
+}
+
+/**
+ * A fresh load at a Settings address starts that section's read while the page renders, in the same request, and the
+ * frame hands the pending result to the dialog. Without it the dialog asks again only after the page has hydrated.
+ */
+export async function sectionSeed(viewer: SettingsViewer | null): Promise<SectionSeed | null> {
+	const section = sectionAt((await headers()).get(PATH_HEADER) ?? "", viewer);
+	const request = viewer && section ? sectionRequest(viewer, section) : null;
+	if (!request) return null;
+	return { request, value: getSection(request).then((reply) => (reply.status === "ok" ? reply.value : null)) };
 }

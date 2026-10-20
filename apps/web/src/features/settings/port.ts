@@ -15,6 +15,11 @@ export type SavedSection = z.infer<typeof S.savedSectionResult>;
 export type SaveSectionRequest = z.input<typeof S.saveSectionRequest>;
 export type SaveChurchRequest = z.input<typeof S.saveChurchRequest>;
 export type GetSectionRequest = z.input<typeof S.getSectionRequest>;
+/**
+ * A section read the server started while rendering the page at that section's address, so a fresh load shows the
+ * section without a second request after the page starts. It settles to null when the read was refused.
+ */
+export type SectionSeed = { request: GetSectionRequest; value: Promise<SectionResult | null> };
 /** The exact plant or organization a section belongs to, as the requests take it. */
 export type PlantOwner = { kind: "plant"; id: string };
 export type OrganizationOwner = {

@@ -4,8 +4,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { loadPage } from "../identity/api";
 import { getSection, previewPlantTimezone, saveChurch, saveSection, setPlantTimezone } from "./actions";
-import { dialogSection, firstSection, type DialogSection } from "./model";
-import type { SectionKey, SettingsPort, SettingsViewer } from "./port";
+import { sectionAt, type DialogSection } from "./model";
+import type { SectionKey, SectionSeed, SettingsPort, SettingsViewer } from "./port";
 import { SettingsDialog } from "./SettingsDialog";
 import { SettingsProvider } from "./store";
 
@@ -24,14 +24,10 @@ const hrefFor = (key: SectionKey) => `/settings/${key}`;
  * the click, before Next.js reports the new address, so it opens while the opener still has focus and Escape
  * returns focus there.
  */
-export function useProductSettings(viewer: SettingsViewer | null) {
+export function useProductSettings(viewer: SettingsViewer | null, seed: SectionSeed | null = null) {
 	const pathname = usePathname();
 	const router = useRouter();
-	// /settings itself opens the first section the viewer is offered.
-	const atPath =
-		pathname === "/settings" && viewer
-			? firstSection(viewer)
-			: dialogSection(pathname.match(/^\/settings\/([a-z]+)$/)?.[1]);
+	const atPath = sectionAt(pathname, viewer);
 	// The section asked for in this document until the address catches up; undefined means "follow the address".
 	const [asked, setAsked] = useState<{ section: SectionKey | null; path: string } | undefined>(undefined);
 	if (asked && asked.path !== pathname) setAsked(undefined);
@@ -50,7 +46,7 @@ export function useProductSettings(viewer: SettingsViewer | null) {
 	};
 
 	const element = viewer ? (
-		<SettingsProvider key={`${viewer.accountId}-${viewer.context}`} port={PORT} viewer={viewer}>
+		<SettingsProvider key={`${viewer.accountId}-${viewer.context}`} port={PORT} viewer={viewer} seed={seed}>
 			<SettingsDialog
 				section={section}
 				onNavigate={navigate}
