@@ -22,8 +22,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -49,7 +49,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -144,14 +144,14 @@
         "WP-049"
       ],
       "status": "future-not-run",
-      "description": "Plant Admin tries platform list; platform principal edits status with stale revision, missing row or unchanged value.",
+      "description": "Plant Admin tries platform list; platform principal edits status with changed reviewed state, missing row or unchanged value.",
       "given": {
         "P": {
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -177,7 +177,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -211,7 +211,7 @@
         "operation": "feedback.admin.list",
         "arguments": {
           "subject": "P",
-          "expected_revision": 3,
+          "reviewed_state": "fixture-state-3",
           "caller_role": "plant_Admin",
           "platform_grant": false,
           "requested_status": "closed"
@@ -247,8 +247,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -274,7 +274,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -357,8 +357,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -384,7 +384,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -419,7 +419,7 @@
         "operation": "dashboard.resolveHome",
         "arguments": {
           "subject": "P",
-          "expected_revision": 3,
+          "reviewed_state": "fixture-state-3",
           "active_seat": null,
           "discovery": true,
           "client_onboarding_complete": true,
@@ -455,8 +455,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -482,7 +482,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -2801,8 +2801,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -2828,7 +2828,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -2897,8 +2897,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -2924,7 +2924,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -2943,8 +2943,8 @@
           "backlog_tenant": "P",
           "owed_tenant": "Q",
           "concurrent_ticks": 2,
-          "old_generation": 1,
-          "current_generation": 2
+          "previous_worker_identity": "fixture-state-1",
+          "current_worker_identity": "fixture-state-2"
         },
         "execution": {
           "fixture_type": "test_execution",
@@ -2952,8 +2952,8 @@
           "backlog_tenant": "P",
           "owed_tenant": "Q",
           "concurrent_ticks": 2,
-          "old_generation": 1,
-          "current_generation": 2
+          "previous_worker_identity": "fixture-state-1",
+          "current_worker_identity": "fixture-state-2"
         },
         "caller-capability": {
           "fixture_type": "operation_capability",
@@ -3028,8 +3028,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -3055,7 +3055,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -3125,8 +3125,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -3152,7 +3152,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -3265,8 +3265,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -3292,7 +3292,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -3321,21 +3321,21 @@
           "plant": "P",
           "type": "vision_meeting",
           "status": "in_progress",
-          "revision": 4
+          "observed_state": "fixture-state-4"
         },
         "Alex": {
           "fixture_type": "person",
           "id": "Alex",
           "plant": "P",
           "stage": "prospect",
-          "revision": 1
+          "observed_state": "fixture-state-1"
         },
         "attendance-Alex": {
           "fixture_type": "meeting_attendance",
           "meeting": "M",
           "person": "Alex",
           "present": true,
-          "revision": 1
+          "observed_state": "fixture-state-1"
         }
       },
       "actor": {
@@ -3351,7 +3351,7 @@
         "operation": "meetings.finalizeAttendance",
         "arguments": {
           "meeting": "M",
-          "expected_revision": 4,
+          "reviewed_state": "fixture-state-4",
           "request_key": "finalize-1"
         }
       },
@@ -3396,7 +3396,7 @@
             "operation": "meetings.finalizeAttendance",
             "arguments": {
               "meeting": "M",
-              "expected_revision": 4,
+              "reviewed_state": "fixture-state-4",
               "request_key": "finalize-1"
             }
           },
@@ -3430,8 +3430,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -3457,7 +3457,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -3479,7 +3479,7 @@
         "execution": {
           "fixture_type": "test_execution",
           "subject": "P",
-          "expected_revision": 3,
+          "reviewed_state": "fixture-state-3",
           "request_key": "CASE-OPS-005-request-1",
           "repeat": 2,
           "migration_checksum_matches": false,
@@ -3550,8 +3550,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -3577,7 +3577,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -3670,8 +3670,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -3697,7 +3697,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -3792,8 +3792,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -3819,7 +3819,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -3911,8 +3911,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -3938,7 +3938,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -4040,8 +4040,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4067,7 +4067,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -4156,8 +4156,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4183,7 +4183,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -4277,8 +4277,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4304,7 +4304,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -4424,8 +4424,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4519,8 +4519,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4625,8 +4625,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4731,8 +4731,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4836,8 +4836,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -4959,8 +4959,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -5205,8 +5205,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -5344,8 +5344,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -5467,8 +5467,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -5581,8 +5581,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -5710,8 +5710,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -5802,8 +5802,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -5829,7 +5829,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -5921,8 +5921,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -6012,8 +6012,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -6148,8 +6148,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -6228,8 +6228,8 @@
           "fixture_type": "plant",
           "id": "P",
           "timezone": "America/Chicago",
-          "revision": 7,
-          "material_revision": 11,
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
           "phase": "Phase1"
         },
         "A": {
@@ -6255,7 +6255,7 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York",
-          "revision": 3
+          "observed_state": "fixture-state-3"
         },
         "B": {
           "fixture_type": "account",
@@ -6481,7 +6481,7 @@
         "WP-050"
       ],
       "status": "future-not-run",
-      "description": "A registered owning adapter writes source, required history/receipt and advisory job in one real transaction. Failure at a required writer rolls back all writes; success commits one durable intent even without an in-memory wakeup.",
+      "description": "A registered owning adapter writes source, required history and recorded outcome and advisory job in one real transaction. Failure at a required writer rolls back all writes; success commits one durable intent even without an in-memory wakeup.",
       "given": {
         "execution": {
           "fixture_type": "test_execution",

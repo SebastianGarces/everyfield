@@ -135,7 +135,7 @@
     "id": "IDN-005",
     "title": "Current tenancy, capability and own-duty guards",
     "module": "identity",
-    "behavior": "Implement REQ-IDN-029 with one active account-seat constraint, typed tenant identity and fail-closed handling of inconsistent membership rows. Enforce authority on the server and in the write transaction, independently of hidden/read-only UI controls. Own seat, Discovery relationship, exact organization oversight and platform allowlist are distinct contexts, never pooled grants. Subject/own-duty guards remain narrower than generic routine administration. Return bounded DTOs; foreign/not-found records cannot disclose another tenant through detail, download, aggregate, cache or assistant paths.",
+    "behavior": "Implement REQ-IDN-029 with one active account-seat constraint, typed tenant identity and fail-closed handling of inconsistent membership rows. Enforce authority on the server and when changing data, independently of hidden/read-only UI controls. Own seat, Discovery relationship, exact organization oversight and platform allowlist are distinct contexts, never pooled grants. Subject/own-duty guards remain narrower than generic routine administration. Return bounded DTOs; foreign/not-found records cannot disclose another tenant through detail, download, aggregate, cache or assistant paths.",
     "spec_file": "docs/product/identity-access.md#req-idn-005",
     "requirement_ids": [
       "REQ-IDN-005",
@@ -345,7 +345,7 @@
     "id": "IDN-010",
     "title": "Settings dialog, deep links and draft protection",
     "module": "identity",
-    "behavior": "Expose only known authorized account/church/association/team/organization/notification sections as typed DTOs. Use the v3 settings section links from design/handoff/screens.md with no v2 redirects. Preserve back/forward, focus/keyboard access and dirty draft protection across navigation/dismissal; a simpler shell is allowed. Preference auto save reports pending/error and restores server state on failure; rejected explicit save retains the user's draft. Server rechecks section owner/current scope/revision and cached results key exact actor/tenant. Personal timezone and deletion/cancellation native entry points integrate here; restricted deletion sessions cannot load normal settings. Affiliation settings use the same exact-organization category policy as privacy.setSharing: teams maps to ministry_teams and activityPush maps to activity; shared_findings is the single released-health/NI permission. An omitted category preserves its stored value. A nonempty closed patch binds current relationship and consent revisions, accepts only actual same-plant Owner/Admin, and commits through the shared organization helper in one domain transaction. Organization roles cannot edit plant consent; stale/missing/revoked policies refuse without reset or partial effects.",
+    "behavior": "Expose only known authorized account/church/association/team/organization/notification sections as typed DTOs. Use the v3 settings section links from design/handoff/screens.md with no v2 redirects. Preserve back/forward, focus/keyboard access and dirty draft protection across navigation/dismissal; a simpler shell is allowed. Preference auto save reports pending/error and restores server state on failure; rejected explicit save retains the user's draft. Server rechecks section owner/current scope/revision and cached results key exact actor/tenant. Personal timezone and deletion/cancellation native entry points integrate here; restricted deletion sessions cannot load normal settings. Affiliation settings use the same exact-organization category policy as privacy.setSharing: teams maps to ministry_teams and activityPush maps to activity; shared_findings is the single released-health/NI permission. An omitted category preserves its stored value. A nonempty closed patch binds current relationship and consent revisions, accepts only actual same-plant Owner/Admin, and commits through the shared organization helper in one all-or-nothing domain change. Organization roles cannot edit plant consent; stale/missing/revoked policies refuse without reset or partial effects.",
     "spec_file": "docs/product/identity-access.md#req-idn-010",
     "requirement_ids": [
       "REQ-IDN-010",
@@ -466,7 +466,7 @@
     "id": "IDN-013",
     "title": "Church creation, onboarding basics and account-person bootstrap",
     "module": "identity",
-    "behavior": "For a proven eligible account create one plant, Owner membership, all-OFF self-start sharing settings and one stable account-linked CRM Person in the domain transaction. Trim required plant name; allow partial independent locality. Repeated intent returns the same plant; simultaneous seat acceptance/creation cannot create a second active seat, orphan authority or stray Person. Account-linked Owner is CRM leader-stage bootstrap history, not proof of commitment/adult eligibility. Actual church creation enters Phase 1, with a once-only church_creation history variant from no previous plant phase; it does not attest an existing journey or mark readiness/reading complete. Retry returns the actual current phase without overwriting later history. A successful basics step cannot be reentered to provision again. Global canonical seed is separate from customer creation.",
+    "behavior": "For a proven eligible account create one plant, Owner membership, all-OFF self-start sharing settings and one stable account-linked CRM Person as part of the same all-or-nothing domain change. Trim required plant name; allow partial independent locality. Repeated intent returns the same plant; simultaneous seat acceptance/creation cannot create a second active seat, orphan authority or stray Person. Account-linked Owner is CRM leader-stage bootstrap history, not proof of commitment/adult eligibility. Actual church creation enters Phase 1, with a once-only church_creation history variant from no previous plant phase; it does not attest an existing journey or mark readiness/reading complete. Retry returns the actual current phase without overwriting later history. A successful basics step cannot be reentered to provision again. Global canonical seed is separate from customer creation.",
     "spec_file": "docs/product/identity-access.md#req-idn-013",
     "requirement_ids": [
       "REQ-IDN-013",
@@ -551,7 +551,7 @@
     "id": "IDN-015",
     "title": "Journey declaration, launch-date setup, completion and resume",
     "module": "identity",
-    "behavior": "Persist basics/lead answer/journey/People facts and derive resume from them. Optional steps may be skipped; finishing stamps onboarding completion once and material source revision without claiming all facts are complete or generating an assessment synchronously. Existing-journey declaration is optional human attestation, separate from actual creation-entry Phase 1. A saved unsure/discerning/skip answer can complete that setup step but is not an attestation and keeps actual creation Phase 1. It never silently maps back to Phase 0; later explicit validated reasoned phase correction remains available. Native launch plan accepts no-date and cannot clear an existing schedule accidentally during onboarding; phase and launch writes are a single reviewed resumable intent if they cannot share the short transaction. Back/reentry cannot rerun finished provisioning. Missing facts remain visible after finish; no mandatory six-article gate for actual Phase 1 creation.",
+    "behavior": "Persist basics/lead answer/journey/People facts and derive resume from them. Optional steps may be skipped; finishing stamps onboarding completion once and affected assessment freshness without claiming all facts are complete or generating an assessment synchronously. Existing-journey declaration is optional human attestation, separate from actual creation-entry Phase 1. A saved unsure/discerning/skip answer can complete that setup step but is not an attestation and keeps actual creation Phase 1. It never silently maps back to Phase 0; later explicit validated reasoned phase correction remains available. Native launch plan accepts no-date and cannot clear an existing schedule accidentally during onboarding; phase and launch writes are a single reviewed resumable intent if they cannot share the short transaction. Back/reentry cannot rerun finished provisioning. Missing facts remain visible after finish; no mandatory six-article gate for actual Phase 1 creation.",
     "spec_file": "docs/product/identity-access.md#req-idn-015",
     "requirement_ids": [
       "REQ-IDN-015",
@@ -582,7 +582,7 @@
     "id": "IDN-016",
     "title": "Discovery identity, associations and conversion to plant",
     "module": "identity",
-    "behavior": "Maintain explicit Discovery profile and scoped sending-church/network relationships without any organization seat. Seatless former Member is not automatically Discovery. Conversion by the proven profile owner locks account/profile, creates plant at Phase 1 with once-only creation-entry provenance plus Owner/Person and transfers only chosen disclosed relationships/sharing choices in one domain transaction, retiring the Discovery profile with history. Associated Discovery must resolve/leave incompatible association before ordinary first-seat acceptance; no automatic tenancy move. Race conversion, relationship edit and invitation claim under the same account lock and one-active-seat arbiter.",
+    "behavior": "Maintain explicit Discovery profile and scoped sending-church/network relationships without any organization seat. Seatless former Member is not automatically Discovery. Conversion by the proven profile owner validates current account/profile state, creates plant at Phase 1 with once-only creation-entry provenance plus Owner/Person and transfers only chosen disclosed relationships/sharing choices in one all-or-nothing domain change, retiring the Discovery profile with history. Associated Discovery must resolve/leave incompatible association before ordinary first-seat acceptance; no automatic tenancy move. Race conversion, relationship edit and invitation claim under the same account eligibility and one-active-seat rules.",
     "spec_file": "docs/product/identity-access.md#req-idn-016",
     "requirement_ids": [
       "REQ-IDN-016",
@@ -615,7 +615,7 @@
     "id": "IDN-017",
     "title": "Seat invitation create, pending list, resend, revoke, expire and first-seat acceptance",
     "module": "identity",
-    "behavior": "Owner/Admin invite ordinary Admin/Member into their exact workspace. Keep addressed hashed purpose token, pending\u2192accepted/expired/revoked, 30 elapsed-day expiry, at most 3 new invitation attempts per exact workspace/address in 30 elapsed days, persistent 60 elapsed-second resend cool down and one pending subject/address intent. Resend rotates token after current revision/cool down check; revoke/accept/resend race has one winner. Pending lists/sender responses redact account-resolution data. Proven existing seatless account may accept its first seat; new account uses REQ-IDN-030. Refuse already active-seat accounts, wrong mailbox, malformed target/type, expired/revoked/superseded token and incompatible associated Discovery rather than moving tenancy. Validate inside the claim transaction; mail retry returns the same invitation receipt.",
+    "behavior": "Owner/Admin invite ordinary Admin/Member into their exact workspace. Keep addressed hashed purpose token, pending\u2192accepted/expired/revoked, 30 elapsed-day expiry, at most 3 new invitation attempts per exact workspace/address in 30 elapsed days, persistent 60 elapsed-second resend cool down and one pending subject/address intent. Resend rotates token after current state/cool down check; revoke/accept/resend race has one winner. Pending lists/sender responses redact account-resolution data. Proven existing seatless account may accept its first seat; new account uses REQ-IDN-030. Refuse already active-seat accounts, wrong mailbox, malformed target/type, expired/revoked/superseded token and incompatible associated Discovery rather than moving tenancy. Validate when accepting the invitation; mail retry returns the same invitation receipt.",
     "spec_file": "docs/product/identity-access.md#req-idn-017",
     "requirement_ids": [
       "REQ-IDN-017",
@@ -656,7 +656,7 @@
     "id": "IDN-019",
     "title": "Seat roster, Admin appointment/demotion and authority removal",
     "module": "identity",
-    "behavior": "Owner/Admin manage ordinary same-workspace Admin/Member seats under expected current role/revision. Protect actual Owner; deny self-promotion, foreign target, generic Owner removal and role changes that violate one-active-seat integrity. Joined date uses accepted invite provenance or clearly labelled original-account fallback. Removal revokes membership authority/sessions, retains CRM/account link and qualification/team history, clears access-dependent team leadership, and presents exact actionable-duty handoff to a currently eligible recipient or visible Needs owner. Closed/waived/deleted duties remain closed. Role/grant/duty/audit changes commit together, or return durable named moved/remaining outcomes; no generic success after partial hidden work. Removal is not account deletion/ownership transfer.",
+    "behavior": "Owner/Admin manage ordinary same-workspace Admin/Member seats under current role and unchanged reviewed seat. Protect actual Owner; deny self-promotion, foreign target, generic Owner removal and role changes that violate one-active-seat integrity. Joined date uses accepted invite provenance or clearly labelled original-account fallback. Removal revokes membership authority/sessions, retains CRM/account link and qualification/team history, clears access-dependent team leadership, and presents exact actionable-duty handoff to a currently eligible recipient or visible Needs owner. Closed/waived/deleted duties remain closed. Role/grant/duty/audit changes commit together, or return durable named moved/remaining outcomes; no generic success after partial hidden work. Removal is not account deletion/ownership transfer.",
     "spec_file": "docs/product/identity-access.md#req-idn-019",
     "requirement_ids": [
       "REQ-IDN-019",
@@ -770,7 +770,7 @@
     "id": "IDN-021",
     "title": "Relationship leaving, organization severing and association history",
     "module": "identity",
-    "behavior": "An authorized subject-side Owner/Admin may leave exactly its own affiliation; exact own-org Owner/Admin may end only that organization's link with confirmation and retryable notice to the plant. Preserve other affiliations and independent access paths. Append typed actor/org/subject/source-invite/time/reason history for plant, sending-church and Discovery subjects; do not fabricate missing legacy history. Repeated sever returns the existing/no-effect receipt and no duplicate event. Current entitlement is removed immediately for that link's bodies/results/caches while minimal allowed relationship history remains. Returning through a new ordinary approved invitation preserves history and existing per-org consent; no special rejoin restoration engine.",
+    "behavior": "An authorized subject-side Owner/Admin may leave exactly its own affiliation; exact own-org Owner/Admin may end only that organization's link with confirmation and retryable notice to the plant. Preserve other affiliations and independent access paths. Append typed actor/org/subject/source-invite/time/reason history for plant, sending-church and Discovery subjects; do not fabricate missing legacy history. Repeated sever returns the existing/no-effect outcome and no duplicate event. Current entitlement is removed immediately for that link's bodies/results/caches while minimal allowed relationship history remains. Returning through a new ordinary approved invitation preserves history and existing per-org consent; no special rejoin restoration engine.",
     "spec_file": "docs/product/identity-access.md#req-idn-021",
     "requirement_ids": [
       "REQ-IDN-021",
@@ -836,7 +836,7 @@
     "id": "IDN-022",
     "title": "Privacy pull sharing, push consent and first-invitation defaults",
     "module": "identity",
-    "behavior": "Store each accepted plant/org pair's approved aggregate categories and separate activity push consent. Self-start defaults all OFF; accepted first invitation discloses active categories default ON for that exact organization, with later independent ON/OFF changes. Never reset previous consent on rejoin or another-org acceptance. Retain People/Meetings/Tasks/Teams/Wiki aggregate categories, independent activity push consent, and the existing shared_findings permission for released health/NI findings. The closed category-to-column mapping is people\u2192share_people, meetings\u2192share_meetings, tasks\u2192share_tasks, ministry_teams\u2192share_ministry_teams, wiki\u2192share_wiki, activity\u2192share_activity, shared_findings\u2192shared_findings. Activity remains independently stored push consent in the same sharing command; shared_findings is one existing permission, with no second NI consent. Finance/facility/background/coach/private-care categories are absent. Missing relationship/settings fail closed. Turning a category OFF stops new reads/results/cache reuse/dispatch from it, without hiding the basic relationship directory or unaffected affiliates; coarse relationship notice must not name restricted toggle or body. Org preferences cannot authorize pull data.",
+    "behavior": "Store each accepted plant/org pair's approved aggregate categories and separate activity push consent. Self-start defaults all OFF; accepted first invitation discloses active categories default ON for that exact organization, with later independent ON/OFF changes. Never reset previous consent on rejoin or another-org acceptance. Retain People/Meetings/Tasks/Teams/Wiki aggregate categories, independent activity push consent, and the existing shared_findings permission for released health/NI findings. The permitted categories are People, Meetings, Tasks, Teams, Wiki, activity push and shared findings. Each applies only to its own approved projection. Activity remains independently stored push consent in the same sharing command; shared_findings is one existing permission, with no second NI consent. Finance/facility/background/coach/private-care categories are absent. Missing relationship/settings fail closed. Turning a category OFF stops new reads/results/cache reuse/dispatch from it, without hiding the basic relationship directory or unaffected affiliates; coarse relationship notice must not name restricted toggle or body. Org preferences cannot authorize pull data.",
     "spec_file": "docs/product/identity-access.md#req-idn-022",
     "requirement_ids": [
       "REQ-IDN-022",
@@ -976,7 +976,7 @@
     "id": "IDN-026",
     "title": "Organization profile and account/workspace deletion boundaries",
     "module": "identity",
-    "behavior": "Implement the accepted target follow-through for formerly unwired organization settings: exact own sending-church/network Owner/Admin edit bounded name/contact/profile fields with protected org kind/identity, current revision and audit. No billing, ownership transfer, delete-org or wider intelligence/CRM access is implied. Personal self deletion and Owner-only church workspace deletion follow REQ-IDN-032 with explicit review, shared church history/minimal attribution and restricted native cancellation. Admin/Member/CRM lead cannot delete workspace or another login. Leaving Owner who keeps church running uses external manual exception; no claim/transfer/special rejoin UI.",
+    "behavior": "Implement the accepted target follow-through for formerly unwired organization settings: exact own sending-church/network Owner/Admin edit bounded name/contact/profile fields with protected org kind/identity, current state and audit. No billing, ownership transfer, delete-org or wider intelligence/CRM access is implied. Personal self deletion and Owner-only church workspace deletion follow REQ-IDN-032 with explicit review, shared church history/minimal attribution and restricted native cancellation. Admin/Member/CRM lead cannot delete workspace or another login. Leaving Owner who keeps church running uses external manual exception; no claim/transfer/special rejoin UI.",
     "spec_file": "docs/product/identity-access.md#req-idn-026",
     "requirement_ids": [
       "REQ-IDN-026",
@@ -1049,7 +1049,7 @@
     "id": "IDN-027",
     "title": "Relationship removal through authorized domain operations",
     "module": "identity",
-    "behavior": "Uncalled direct-FK-null helpers are not separate user operations. Replace their alias semantics with the actor-bearing, typed, versioned, audited exact-link commands of IDN-021. No unguarded disassociate helper appears in the native or assistant target catalog; every relationship end shares receipt/history/notice and current entitlement removal.",
+    "behavior": "Uncalled direct-FK-null helpers are not separate user operations. Replace their alias semantics with the actor-bearing, typed, versioned, audited exact-link commands of IDN-021. No unguarded disassociate helper appears in the native or assistant target catalog; every relationship end shares recorded outcome and history/notice and current entitlement removal.",
     "spec_file": "docs/product/identity-access.md#req-idn-027",
     "requirement_ids": [
       "REQ-IDN-027"
@@ -1297,7 +1297,7 @@
     "id": "PPL-006",
     "title": "Manual recruitment-stage movement, warnings, reasons and handoff",
     "module": "people",
-    "behavior": "Allow all 7 closed stages, deliberate forward skips and backward moves with shown skipped-stage guidance, actor/date/reason and expected revision. Same-stage is a no-op receipt. Use one change-stage command from profile and pipeline so profile edit cannot bypass warnings. Leaving committed statuses core_group/launch_team/leader offers exact open-duty handoff to current eligible owner or explicit decline/Needs owner; no hidden partial loop. Stage change alone never withdraws commitment, changes adult classification or revokes earned training/seat. Recording interview/commitment or correction never incidentally demotes an advanced stage.",
+    "behavior": "Allow all 7 closed stages, deliberate forward skips and backward moves with shown skipped-stage guidance, actor/date/reason and unchanged reviewed state. Same-stage is a no-op outcome. Use one change-stage command from profile and pipeline so profile edit cannot bypass warnings. Leaving committed statuses core_group/launch_team/leader offers exact open-duty handoff to current eligible owner or explicit decline/Needs owner; no hidden partial loop. Stage change alone never withdraws commitment, changes adult classification or revokes earned training/seat. Recording interview/commitment or correction never incidentally demotes an advanced stage.",
     "spec_file": "docs/product/people.md#req-ppl-006",
     "requirement_ids": [
       "REQ-PPL-006",
@@ -1330,7 +1330,7 @@
     "id": "PPL-007",
     "title": "Recruitment pipeline grouping, ordering, inactivity and follow-up warnings",
     "module": "people",
-    "behavior": "Preserve five visible pipeline columns with final core-group column also containing launch_team/leader milestone badges. Reorder only current active same plant IDs under column/version lock; empty request no-op and foreign/stale order refuses rather than changes unrelated contacts. Read-only viewers have no drag mutation. Cards display only active parent follow-up work and due-local-day overdue/missing warnings. Complete/no_longer_needed/deleted obligations do not show open urgency; a contact without any explicitly created duty may be uncovered but is not invented urgent work. Page/bound queries without dropping full filtered result semantics.",
+    "behavior": "Preserve five visible pipeline columns with final core-group column also containing launch_team/leader milestone badges. Reorder only current active same plant IDs with conflict detection for concurrent changes to that ordering; empty request no-op and foreign/stale order refuses rather than changes unrelated contacts. Read-only viewers have no drag mutation. Cards display only active parent follow-up work and due-local-day overdue/missing warnings. Complete/no_longer_needed/deleted obligations do not show open urgency; a contact without any explicitly created duty may be uncovered but is not invented urgent work. Page/bound queries without dropping full filtered result semantics.",
     "spec_file": "docs/product/people.md#req-ppl-007",
     "requirement_ids": [
       "REQ-MTG-022",
@@ -1395,7 +1395,7 @@
     "id": "PPL-009",
     "title": "Household lifecycle, member roles and deliberate address propagation",
     "module": "people",
-    "behavior": "Tenant household name/address and head/spouse/child/other membership roles are operational facts, not adult classification. Create household+initial head coherently; join validates live same plant Person/household and copies household address only if Person lacks meaningful address. Leaving preserves Person address. Address propagation previews exact active members/current revisions and deliberately overwrites them in one bounded transaction, returning actual count. Empty-household deletion refuses active members; retired member references detach from current household while immutable old membership snapshots retain provenance. Lock Person/household consistently against retire/join/delete to avoid orphan records.",
+    "behavior": "Tenant household name/address and head/spouse/child/other membership roles are operational facts, not adult classification. Create household+initial head coherently; join validates live same plant Person/household and copies household address only if Person lacks meaningful address. Leaving preserves Person address. Address propagation previews exact active members/current reviewed state and deliberately overwrites them in one bounded all-or-nothing change, returning actual count. Empty-household deletion refuses active members; retired member references detach from current household while immutable old membership snapshots retain provenance. Concurrent Person retirement, household joining and deletion cannot leave orphan records.",
     "spec_file": "docs/product/people.md#req-ppl-009",
     "requirement_ids": [
       "REQ-PPL-009",
@@ -1431,7 +1431,7 @@
     "id": "PPL-010",
     "title": "Church-defined tags and person assignment",
     "module": "people",
-    "behavior": "Keep church-defined tags with a name trimmed of leading and trailing spaces, 1\u2013100 characters. Normalize names with lower(btrim(name)); names differing only by case or surrounding spaces share the same plant-local unique key (plant_id, normalized_name). Internal spaces remain significant. Color is nullable: omission on update keeps the saved color, null clears it, and a supplied color must be a supported named or hex color. There is no archived-tag state or archived-tag filter. Assignment validates live Person and tag in the same plant and a unique pair. Retried assign/remove returns one semantic activity or the original no-op receipt. Rename updates views/export; deletion previews linked count, removes current links and preserves attributable history without becoming a global taxonomy.",
+    "behavior": "Keep church-defined tags with a name trimmed of leading and trailing spaces, 1\u2013100 characters. Normalize names with lower(btrim(name)); names differing only by case or surrounding spaces share the same plant-local unique key (plant_id, normalized_name). Internal spaces remain significant. Color is nullable: omission on update keeps the saved color, null clears it, and a supplied color must be a supported named or hex color. There is no archived-tag state or archived-tag filter. Assignment validates live Person and tag in the same plant and a unique pair. Retried assign/remove returns one semantic activity or the original no-op outcome. Rename updates views/export; deletion previews linked count, removes current links and preserves attributable history without becoming a global taxonomy.",
     "spec_file": "docs/product/people.md#req-ppl-010",
     "requirement_ids": [
       "REQ-PPL-010"
@@ -1464,7 +1464,7 @@
     "id": "PPL-011",
     "title": "Skills, gifts, proficiency and category grouping",
     "module": "people",
-    "behavior": "Preserve categories worship/tech/admin/teaching/hospitality/leadership/other, optional proficiency beginner/intermediate/advanced/expert, trimmed skill name 1\u2013100 and bounded 5000 character notes. Add/edit/remove have expected revision and atomic activity/correction; category grouping and null clear roundtrip. Retire removed current item while preserving owned history. Recorded skill search/organization is allowed; it does not replace human Gifted interview criterion or infer calling/readiness.",
+    "behavior": "Preserve categories worship/tech/admin/teaching/hospitality/leadership/other, optional proficiency beginner/intermediate/advanced/expert, trimmed skill name 1\u2013100 and bounded 5000 character notes. Add/edit/remove have unchanged reviewed state and atomic activity/correction; category grouping and null clear roundtrip. Retire removed current item while preserving owned history. Recorded skill search/organization is allowed; it does not replace human Gifted interview criterion or infer calling/readiness.",
     "spec_file": "docs/product/people.md#req-ppl-011",
     "requirement_ids": [
       "REQ-PPL-011"
@@ -1547,7 +1547,7 @@
     "id": "PPL-014",
     "title": "Commitment recording, private document and Core Group entry",
     "module": "people",
-    "behavior": "Preserve core_group/launch_team commitment types, actual signed LocalDate, optional witness/notes/private PDF/JPG/PNG\u226410 MiB and authenticated document download. Witness is an optional same plant Person selected from valid tenant record; unstructured external witness may be dated text without foreign Person FK. Support 10 MiB through bounded authenticated upload reference flow rather than oversize action body; failure tracks orphan bytes and never links arbitrary keys. Record/signature, person level active commitment projection, history/source revision/audit and lower-stage core_group entry commit together. Advanced stage is not demoted by repeat card. Explicit dated withdrawal/reactivation changes person lifecycle not stage; old signature cannot override withdrawal. Apply REQ-PPL-026 for current adult size/genuine history.",
+    "behavior": "Preserve core_group/launch_team commitment types, actual signed LocalDate, optional witness/notes/private PDF/JPG/PNG\u226410 MiB and authenticated document download. Witness is an optional same plant Person selected from valid tenant record; unstructured external witness may be dated text without a foreign Person reference. Support 10 MiB through bounded authenticated upload reference flow rather than oversize action body; failure tracks orphan bytes and never links arbitrary keys. Record/signature, person level active commitment projection, history/assessment freshness/audit and lower-stage core_group entry commit together. Advanced stage is not demoted by repeat card. Explicit dated withdrawal/reactivation changes person lifecycle not stage; old signature cannot override withdrawal. Apply REQ-PPL-026 for current adult size/genuine history.",
     "spec_file": "docs/product/people.md#req-ppl-014",
     "requirement_ids": [
       "REQ-KNOW-079",
@@ -1593,7 +1593,7 @@
     "id": "PPL-015",
     "title": "Correct assessment, interview and commitment records",
     "module": "people",
-    "behavior": "Correct exact same plant Person/record kind under current Owner/Admin and expected record revision. Reuse original domain validations; recompute assessment total, preserve original recording actor/time and append typed old/new/corrector/time/reason/receipt before commit. Ordinary score/result/notes/occurrence date correction never replays stage automation. Immutable original account/private author cannot be changed. Document/witness/original assessor replacement is outside ordinary correction fields; no arbitrary field patch or universal Undo. Use explicit new evidence record where necessary, retaining previous private document and provenance under ownership/deletion rules. Invalid historical commitment/lifecycle may be voided/corrected with attributable history and recomputed current projection, preserving earlier assessments. Stale foreign/cross-person or replayed conflicting mutation writes nothing.",
+    "behavior": "Correct exact same plant Person/record kind under current Owner/Admin and unchanged reviewed record. Reuse original domain validations; recompute assessment total, preserve original recording actor/time and append typed old/new/corrector/time/reason/receipt before commit. Ordinary score/result/notes/occurrence date correction never replays stage automation. Immutable original account/private author cannot be changed. Document/witness/original assessor replacement is outside ordinary correction fields; no arbitrary field patch or universal Undo. Use explicit new evidence record where necessary, retaining previous private document and provenance under ownership/deletion rules. Invalid historical commitment/lifecycle may be voided/corrected with attributable history and recomputed current projection, preserving earlier assessments. Stale foreign/cross-person or replayed conflicting mutation writes nothing.",
     "spec_file": "docs/product/people.md#req-ppl-015",
     "requirement_ids": [
       "REQ-PPL-015",
@@ -1632,7 +1632,7 @@
     "id": "PPL-016",
     "title": "Duplicate hints and duplicate-pair review directory",
     "module": "people",
-    "behavior": "Return active same plant exact/potential/no-match hints from normalized email/phone/name; ignore empty/short contact signals and escape SQL wildcards literally. Family name/shared mailbox is only hint, never unique human identity or mandatory merge. Import hints redact to ID/display name. Pair review requires current revisions and disclose conservative blocked merge cause. User may intentionally create duplicate with explicit choice; no foreign retired row or model identity judgment leaks.",
+    "behavior": "Return active same plant exact/potential/no-match hints from normalized email/phone/name; ignore empty/short contact signals and escape SQL wildcards literally. Family name/shared mailbox is only hint, never unique human identity or mandatory merge. Import hints redact to ID/display name. Pair review requires current reviewed state and disclose conservative blocked merge cause. User may intentionally create duplicate with explicit choice; no foreign retired row or model identity judgment leaks.",
     "spec_file": "docs/product/people.md#req-ppl-016",
     "requirement_ids": [
       "REQ-KNOW-100",
@@ -1659,9 +1659,9 @@
   },
   {
     "id": "PPL-017",
-    "title": "Duplicate merge, reference transfer, receipt and survivor navigation",
+    "title": "Reviewed duplicate merge and survivor navigation",
     "module": "people",
-    "behavior": "Implement REQ-PPL-024 and REQ-PPL-025 as the complete merge/retirement/reference/inverse contract. Preserve field choice preview, account-link survivor protection, private photo choice, source and correction history, exact conflict checks, idempotent receipt and acyclic merged-source redirects. The required Unmerge inverse stays available; raw restore cannot replace it. Historical source callable identity is unavailable in current evidence and no implemented source symbol is claimed. Every later consumer's actual reference integration must pass before that package closes.",
+    "behavior": "Implement REQ-PPL-024 and REQ-PPL-025 as the complete merge/retirement/reference/inverse contract. Preserve field choice preview, account-link survivor protection, private photo choice, source and correction history, exact conflict checks, retry-safe recorded outcome and acyclic merged-source redirects. The required Unmerge inverse stays available; raw restore cannot replace it. Historical source callable identity is unavailable in current evidence and no implemented source symbol is claimed. Every later consumer's actual reference integration must pass before that package closes.",
     "spec_file": "docs/product/people.md#req-ppl-017",
     "requirement_ids": [
       "REQ-KNOW-100",
@@ -1776,7 +1776,7 @@
     "id": "PPL-018",
     "title": "CSV template, preview, row validation, duplicate resolutions and partial import",
     "module": "people",
-    "behavior": "Use RFC 4180 parser with BOM/CRLF/commas/escaped quotes/quoted multiline and explicit malformed quoting errors. Keep 12 contact input columns(first_name, last_name, email, phone, street, city, state, postal_code, country, source, source_details, notes); normalizer/defaults match People and background fields are absent. Server limits 10 MiB/10000 rows and reparses validated original bytes/row digest, never trusts client-returned parsed rows. Preview all valid/invalid/existing and within-file duplicate rows; resolutions skip/create/create_and_review never overwrite existing Person. Save frozen reviewed row/resolution digest with import intent; per-row short transactions record created/skipped/error and optional new review pair. Retry resumes only unfinished row keys, no duplicate earlier success. Stale review/authority/digest refuses; partial import returns named row reasons and remaining work, not generic failed after commits.",
+    "behavior": "Use RFC 4180 parser with BOM/CRLF/commas/escaped quotes/quoted multiline and explicit malformed quoting errors. Keep 12 contact input columns(first_name, last_name, email, phone, street, city, state, postal_code, country, source, source_details, notes); normalizer/defaults match People and background fields are absent. Server limits 10 MiB/10000 rows and reparses validated original bytes/row digest, never trusts client-returned parsed rows. Preview all valid/invalid/existing and within-file duplicate rows; resolutions skip/create/create_and_review never overwrite existing Person. Save frozen reviewed row/resolution digest with import intent; independent all-or-nothing row changes record created/skipped/error and optional new review pair. Retry resumes only unfinished row keys, no duplicate earlier success. Stale review/authority/digest refuses; partial import returns named row reasons and remaining work, not generic failed after commits.",
     "spec_file": "docs/product/people.md#req-ppl-018",
     "requirement_ids": [
       "REQ-PPL-018"
@@ -1833,7 +1833,7 @@
     "id": "PPL-020",
     "title": "Recorded events and cross-domain recruitment auto-advancement",
     "module": "people",
-    "behavior": "Preserve only conditional source transitions: attended Vision prospect\u2192attendee, active ministry membership core_group\u2192launch_team, ordinary ministry leadership launch_team\u2192leader. Interview event advances earlier stage to interviewed, commitment earlier stage to core_group; repeated recording/correction preserves advanced stage. Perform approved progression with original actor/history/source revision in producer transaction; async wake-up cannot be the only critical writer. Retry same event no-ops without duplicate history. No automatic demotion on role leave, training revoke, commitment withdrawal or plant launch date/phase change. No process-local noop handler is a durable feature.",
+    "behavior": "Preserve only conditional source transitions: attended Vision prospect\u2192attendee, active ministry membership core_group\u2192launch_team, ordinary ministry leadership launch_team\u2192leader. Interview event advances earlier stage to interviewed, commitment earlier stage to core_group; repeated recording/correction preserves advanced stage. Perform approved progression with original actor/history/assessment freshness in the same all-or-nothing producer change; async wake-up cannot be the only critical writer. Retry same event no-ops without duplicate history. No automatic demotion on role leave, training revoke, commitment withdrawal or plant launch date/phase change. No process-local noop handler is a durable feature.",
     "spec_file": "docs/product/people.md#req-ppl-020",
     "requirement_ids": [
       "REQ-MTG-020",
@@ -1986,7 +1986,7 @@
     "id": "MTG-002",
     "title": "Create, edit, delete and change meeting status",
     "module": "meetings",
-    "behavior": "Retain vision_meeting/orientation/team_meeting and subtypes regular/training/planning/special/rehearsal; add approved distinct prelaunch_practice type. States planning/ready/in_progress/completed/cancelled; expected-revision transitions are explicit. Type/team linkage cannot change through ordinary edit. Atomically create selected active venue/snapshot, meeting, fresh agenda/kit and reviewed unique roster; lock tenant counter for distinct Vision numbers. Record resolved Instant/zone/offset for entered times. Delete from current list through attributable retirement; void an invalid occurrence separately, preserving history and actual held evidence. Completed practice requires actual nonfuture occurrence; three distinct valid held completed IDs meet practice count, four still meet. Scheduled/future/cancelled/not-held/duplicate/voided records do not count. Practice supports ordinary venue/agenda/guest/notes, but no Vision number/kit/card/evaluation/first-timer work or training credit. Correction/reopen/void changes current facts with history, never auto phase or milestones.",
+    "behavior": "Retain vision_meeting/orientation/team_meeting and subtypes regular/training/planning/special/rehearsal; add approved distinct prelaunch_practice type. States planning/ready/in_progress/completed/cancelled; reviewed-state transitions are explicit. Type/team linkage cannot change through ordinary edit. Atomically create selected active venue/snapshot, meeting, fresh agenda/kit and reviewed unique roster; preserve distinct Vision numbers even with concurrent creation. Record resolved Instant/zone/offset for entered times. Delete from current list through attributable retirement; void an invalid occurrence separately, preserving history and actual held evidence. Completed practice requires actual nonfuture occurrence; three distinct valid held completed IDs meet practice count, four still meet. Scheduled/future/cancelled/not-held/duplicate/voided records do not count. Practice supports ordinary venue/agenda/guest/notes, but no Vision number/kit/card/evaluation/first-timer work or training credit. Correction/reopen/void changes current facts with history, never auto phase or milestones.",
     "spec_file": "docs/product/meetings-follow-up.md#req-mtg-002",
     "requirement_ids": [
       "REQ-KNOW-040",
@@ -2079,7 +2079,7 @@
     "id": "MTG-004",
     "title": "Archive, restore and correct venues",
     "module": "meetings",
-    "behavior": "Discover archived venues, restore deliberately and retain all linked meeting records. Expected revision correction/archive/restore writes current state and old/new/corrector/time/reason atomically. Stale edit writes neither row nor history; no-op active-state request converges. Existing unchanged archived selection may remain on a meeting; new/reselected archived location is refused. Restore does not rewrite historical copied venue facts.",
+    "behavior": "Discover archived venues, restore deliberately and retain all linked meeting records. Unchanged reviewed state correction/archive/restore writes current state and old/new/corrector/time/reason atomically. Stale edit writes neither row nor history; no-op active-state request converges. Existing unchanged archived selection may remain on a meeting; new/reselected archived location is refused. Restore does not rewrite historical copied venue facts.",
     "spec_file": "docs/product/meetings-follow-up.md#req-mtg-004",
     "requirement_ids": [
       "REQ-MTG-004"
@@ -2136,7 +2136,7 @@
     "id": "MTG-006",
     "title": "Vision kit checklist",
     "module": "meetings",
-    "behavior": "Retain canonical versioned kit categories essential/materials/setup/av/organization with item text, assigned Person, check state and bounded notes. Seed exact reviewed kit once with meeting create or explicit accepted offer; repeated population converges. Assignee must be live same plant, all FK/current revision checked; uncheck reverses check and summary counts actual checked rows. Non Vision including practice cannot request kit. Read never seeds missing rows silently.",
+    "behavior": "Retain canonical versioned kit categories essential/materials/setup/av/organization with item text, assigned Person, check state and bounded notes. Seed exact reviewed kit once with meeting create or explicit accepted offer; repeated population converges. Assignee must be live same plant, all ownership, reference and current-state rules checked; uncheck reverses check and summary counts actual checked rows. Non Vision including practice cannot request kit. Read never seeds missing rows silently.",
     "spec_file": "docs/product/meetings-follow-up.md#req-mtg-006",
     "requirement_ids": [
       "REQ-MTG-006"
@@ -2163,7 +2163,7 @@
     "id": "MTG-007",
     "title": "Guests, inviters and team roster snapshot",
     "module": "meetings",
-    "behavior": "One meeting/Person guest row, invited initially absent and optional valid same plant inviter distinct from Person. Team roster expands current active memberships to unique live Persons, snapshots at creation/import and does not dynamically follow later joins/leaves. Explicit roster reconciliation previews additions/removals and current revisions. Guest remove cancels pending linked reminders/tokens and removes current card with history, preserving unrelated Person/contact/outcome evidence; performed work cannot be undone by removal. Read joins email tracking without turning engagement into presence.",
+    "behavior": "One meeting/Person guest row, invited initially absent and optional valid same plant inviter distinct from Person. Team roster expands current active memberships to unique live Persons, snapshots at creation/import and does not dynamically follow later joins/leaves. Explicit roster reconciliation previews additions/removals and current reviewed state. Guest remove cancels pending linked reminders/tokens and removes current card with history, preserving unrelated Person/contact/outcome evidence; performed work cannot be undone by removal. Read joins email tracking without turning engagement into presence.",
     "spec_file": "docs/product/meetings-follow-up.md#req-mtg-007",
     "requirement_ids": [
       "REQ-MTG-007"
@@ -2192,7 +2192,7 @@
     "id": "MTG-008",
     "title": "Administrative RSVP correction",
     "module": "meetings",
-    "behavior": "Owner/Admin may set confirmed/declined or reset null=Pending for exact guest/Person/meeting/tenant under current revision. Use one authoritative guest RSVP projection: admin change appends provenance, synchronizes recognized linked invitation response and supersedes pending bearer tokens so an old token cannot overwrite the correction. Reset returns Pending and invalidates old tokens; a new outgoing invitation explicitly mints a fresh token. It never changes attendance/card/contact/mail delivery. This resolves the source attendance-only inconsistency rather than retaining 2 current truths.",
+    "behavior": "Owner/Admin may set confirmed/declined or reset null=Pending for exact guest/Person/meeting/tenant under current state. Use one authoritative guest RSVP projection: admin change appends provenance, synchronizes recognized linked invitation response and supersedes pending bearer tokens so an old token cannot overwrite the correction. Reset returns Pending and invalidates old tokens; a new outgoing invitation explicitly mints a fresh token. It never changes attendance/card/contact/mail delivery. This resolves the source attendance-only inconsistency rather than retaining 2 current truths.",
     "spec_file": "docs/product/meetings-follow-up.md#req-mtg-008",
     "requirement_ids": [
       "REQ-MTG-008"
@@ -2218,7 +2218,7 @@
     "id": "MTG-009",
     "title": "Own RSVP and public token response",
     "module": "meetings",
-    "behavior": "Authenticated own reply binds current account\u2192live Person\u2192existing guest inside the transaction and accepts only confirmed/declined. No client Person/account ID establishes subject. Public page view is read-only; purpose token must be live addressed meeting/guest, pending, unexpired/unrevoked and single-response. Under guest/token locks set canonical RSVP, claim/supersede pending tokens and update recognized invitation artifact; concurrent own/admin/token response has one current winner. Missing session 401, invalid 400, denied 403, unavailable 404; token links disclose only bounded invite context. Attendance/card/notes/delivery untouched.",
+    "behavior": "Authenticated own reply binds current account\u2192live Person\u2192existing guest inside the transaction and accepts only confirmed/declined. No client Person/account ID establishes subject. Public page view is read-only; purpose token must be live addressed meeting/guest, pending, unexpired/unrevoked and single-response. Atomically set canonical RSVP for the exact guest and token, claim/supersede pending tokens and update recognized invitation artifact; concurrent own/admin/token response has one current winner. Missing session 401, invalid 400, denied 403, unavailable 404; token links disclose only bounded invite context. Attendance/card/notes/delivery untouched.",
     "spec_file": "docs/product/meetings-follow-up.md#req-mtg-009",
     "requirement_ids": [
       "REQ-MTG-009"
@@ -2248,7 +2248,7 @@
     "id": "MTG-010",
     "title": "Attendance, check-in and walk-ins",
     "module": "meetings",
-    "behavior": "Retain attended/absent/excused and first_time/returning/core_group categories with one guest row. For Vision first-time use prior chronologically earlier actually attended Vision only; team/orientation/practice/RSVP never substitutes. Core-group category remains distinct from first/returning and captures committed-stage evidence basis at recording/finalized snapshot, not later automatic stage edit. Finalized historical classification changes only reviewed correction; late prior Vision correction recomputes affected current eligibility/obligation delta with history. Whole batch validates/locks all Persons and commits all or none; own team leader only its attendance. Leader clear changes presence only, retaining guest/RSVP/card. Unknown row refuses instead of false success; summary counts attended Persons, including actual planter attendance.",
+    "behavior": "Retain attended/absent/excused and first_time/returning/core_group categories with one guest row. For Vision first-time use prior chronologically earlier actually attended Vision only; team/orientation/practice/RSVP never substitutes. Core-group category remains distinct from first/returning and captures committed-stage evidence basis at recording/finalized snapshot, not later automatic stage edit. Finalized historical classification changes only reviewed correction; late prior Vision correction recomputes affected current eligibility/obligation delta with history. The whole batch validates current Person eligibility and commits all or none; own team leader only its attendance. Leader clear changes presence only, retaining guest/RSVP/card. Unknown row refuses instead of false success; summary counts attended Persons, including actual planter attendance.",
     "spec_file": "docs/product/meetings-follow-up.md#req-mtg-010",
     "requirement_ids": [
       "REQ-KNOW-043",
@@ -2286,7 +2286,7 @@
     "id": "MTG-011",
     "title": "Quick-add meeting guests and attendees",
     "module": "meetings",
-    "behavior": "Quick existing Person attachment validates live exact tenant and duplicates/merge policy. Quick new named contact uses the People minimal name/contact validation, source meeting_guest_list/prospect and shown country default. Person+guest and optional walk-in presence commit with one operation receipt; failed/foreign/invalid meeting cannot leave orphan new contact. Creating guest/walk in grants no login, consent, adulthood or commitment. Same-name hint does not automatically merge.",
+    "behavior": "Quick existing Person attachment validates live exact tenant and duplicates/merge policy. Quick new named contact uses the People minimal name/contact validation, source meeting_guest_list/prospect and shown country default. Person+guest and optional walk-in presence commit with one recorded outcome; failed/foreign/invalid meeting cannot leave orphan new contact. Creating guest/walk in grants no login, consent, adulthood or commitment. Same-name hint does not automatically merge.",
     "spec_file": "docs/product/meetings-follow-up.md#req-mtg-011",
     "requirement_ids": [
       "REQ-KNOW-056",
@@ -2317,7 +2317,7 @@
     "id": "MTG-012",
     "title": "Finalize and reconcile attendance",
     "module": "meetings",
-    "behavior": "Implement REQ-MTG-020/021: exact identity snapshot, required People progression/obligations/evaluation task/history/receipt/source revision share one UoW. Outcomes finalized/already_finalized/reconciled distinguish new effect/replay/correction. Late same-count replacements and removal towards 0 are identity deltas. Required generated effects are in exact review and missing assignee shown Needs owner. Meeting completed status is independent; neither means cards/evaluation/contact finished.",
+    "behavior": "Implement REQ-MTG-020/021: exact identity snapshot, required People progression/obligations/evaluation task/history and recorded outcome/source revision share one all-or-nothing change. Outcomes finalized/already_finalized/reconciled distinguish new effect/replay/correction. Late same-count replacements and removal towards 0 are identity deltas. Required generated effects are in exact review and missing assignee shown Needs owner. Meeting completed status is independent; neither means cards/evaluation/contact finished.",
     "spec_file": "docs/product/meetings-follow-up.md#req-mtg-012",
     "requirement_ids": [
       "REQ-KNOW-043",
@@ -2412,7 +2412,7 @@
     "id": "MTG-015",
     "title": "Correct a Vision evaluation",
     "module": "meetings",
-    "behavior": "Correct allowed factor/notes under Owner/Admin, current meeting and expected row revision. Append old/new/actor/time/reason atomically, recompute average and source revision; stale edit creates no history. Current comparisons/PI use corrected effective evidence, while old receipts/snapshots remain interpretable. Correction never re-emits first evaluation completion or completes managed task again; task reopen requires separate explicit command.",
+    "behavior": "Correct allowed factor/notes under Owner/Admin, current meeting and unchanged reviewed row. Append old/new/actor/time/reason atomically, recompute average and source revision; stale edit creates no history. Current comparisons/PI use corrected effective evidence, while old receipts/snapshots remain interpretable. Correction never re-emits first evaluation completion or completes managed task again; task reopen requires separate explicit command.",
     "spec_file": "docs/product/meetings-follow-up.md#req-mtg-015",
     "requirement_ids": [
       "REQ-MTG-015"
@@ -2552,7 +2552,7 @@
     "id": "TSK-001",
     "title": "Task views, search, filters and counts",
     "module": "tasks",
-    "behavior": "Preserve My/All/Assignments, title search, closed status/priority/category/relation filters and sorting due/priority/status/title/created. Page default 50/max 100 with stable sort key+ID cursor and null due last. Counts use exactly the same current query scope, counting top-level tasks separately from checklist sub tasks. Team filter applies to My/All, not independent Assignments contact-coverage view; foreign/unavailable team reveals no name/rows. Filter navigation/clear retains siblings and resets cursor. Deleted cursor either resumes from signed stored sort tuple or returns explicit reset, never silently skips/leaks.",
+    "behavior": "Preserve My/All/Assignments, title search, closed status/priority/category/relation filters and sorting by due, priority, status, title or creation time. Pages default to 50 and allow at most 100 rows with deterministic ordering and null due dates last. Counts use the same authorized query scope, counting top-level tasks separately from checklist subtasks. The Team filter applies to My/All, not the independent Assignments contact-coverage view; foreign or unavailable teams reveal no names or rows. Filter changes preserve sibling filters and reset pagination. Concurrent deletion either permits coherent continuation or an explicit reset, without silent skips, duplicates or leaks. Pagination representation follows EveryField patterns.",
     "spec_file": "docs/product/tasks.md#req-tsk-001",
     "requirement_ids": [
       "REQ-TSK-001",
@@ -2595,7 +2595,7 @@
     "id": "TSK-002",
     "title": "Create, edit and delete tasks",
     "module": "tasks",
-    "behavior": "Full/quick task retains trimmed nonempty bounded title, safe description, state/priority/category, optional LocalDate/time, current same plant assignee, person/meeting/team relation, parent, recurrence and prerequisites. Reject facility relation and malformed/mismatched relation pair; explicit null clears. Generated obligation/evaluation relation/source identity is protected from ordinary edit. Validate/lock task, graph, series and related subjects; edit+status+prerequisites/history/receipt/intent commit all or none, with no failed response after hidden title change. Soft-delete parent+children coherently; generated obligation/history persists. Parent deletion reviews consequences and cancels live reminders without erasing already performed evidence.",
+    "behavior": "Full/quick task retains trimmed nonempty bounded title, safe description, state/priority/category, optional LocalDate/time, current same plant assignee, person/meeting/team relation, parent, recurrence and prerequisites. Reject facility relation and malformed/mismatched relation pair; explicit null clears. Generated obligation/evaluation relation/source identity is protected from ordinary edit. Validate current task, graph, series and related subjects; concurrent edits must preserve their invariants; edit+status+prerequisites/history and recorded outcome/intent commit all or none, with no failed response after hidden title change. Soft-delete parent+children coherently; generated obligation/history persists. Parent deletion reviews consequences and cancels live reminders without erasing already performed evidence.",
     "spec_file": "docs/product/tasks.md#req-tsk-002",
     "requirement_ids": [
       "REQ-KNOW-115",
@@ -2634,7 +2634,7 @@
     "id": "TSK-003",
     "title": "Complete and reopen tasks under own-duty authority",
     "module": "tasks",
-    "behavior": "Recheck actual assignee/current authority inside transaction; Member completes/reopens only own duty, Owner/Admin any current same plant task. CAS completion stores effective completion Instant/actor, status history and required successor/outcome effects atomically. Same intent retry returns original receipt and no duplicate event. Reopen clears current completion projection but retains prior history and recomputes current metrics/contact evidence where affected; it does not forge past success or unsend delivery. Recurring older occurrence reopen fails if another open successor exists and names it. Parent completion remains explicit human judgment. Person linked administrative completion never implies contact.",
+    "behavior": "Recheck actual assignee/current authority at execution; Member completes/reopens only own duty, Owner/Admin any current same plant task. Completion records effective completion Instant/actor, status history and required successor/outcome effects atomically. Same intent retry returns original recorded outcome and no duplicate event. Reopen clears current completion projection but retains prior history and recomputes current metrics/contact evidence where affected; it does not forge past success or unsend delivery. Recurring older occurrence reopen fails if another open successor exists and names it. Parent completion remains explicit human judgment. Person linked administrative completion never implies contact.",
     "spec_file": "docs/product/tasks.md#req-tsk-003",
     "requirement_ids": [
       "REQ-MTG-021",
@@ -2671,7 +2671,7 @@
     "id": "TSK-004",
     "title": "Close a task as no longer needed",
     "module": "tasks",
-    "behavior": "Retain no_longer_needed as closure distinct from complete. It suppresses open/overdue/due notices and actionable follow-up warnings but earns no successful task/48 h/contact credit. Generated immutable obligation records waiver permanently; edit/soft delete/replay/legacy fallback cannot regenerate waived task. Explicit reopen/correction with current revision changes current state while preserving waiver history and one active obligation task. No bulk complete implicitly converts waiver into success.",
+    "behavior": "Retain no_longer_needed as closure distinct from complete. It suppresses open/overdue/due notices and actionable follow-up warnings but earns no successful task/48 h/contact credit. Generated immutable obligation records waiver permanently; edit/soft delete/replay/legacy fallback cannot regenerate waived task. Explicit reopen/correction with current state changes current state while preserving waiver history and one active obligation task. No bulk complete implicitly converts waiver into success.",
     "spec_file": "docs/product/tasks.md#req-tsk-004",
     "requirement_ids": [
       "REQ-MTG-021",
@@ -2742,7 +2742,7 @@
     "id": "TSK-006",
     "title": "Task prerequisites and derived blocking",
     "module": "tasks",
-    "behavior": "Top-level same-tenant tasks only, unique edges and composite FKs. Deny self/foreign/deleted candidate; serialize graph edits under tenant graph lock before longer cycle detection, so concurrent opposite edges cannot both commit. Show derived blocked badge for unfinished actionable prerequisite, distinct from manual blocked status; Complete, no_longer_needed, or an existing prerequisite soft-deleted after the edge was saved releases derived blocking. Deletion supplies no successful-completion/48-hour/contact credit and preserves the predecessor and edge history. Badge is advisory and does not prevent explicit allowed completion. Current/history edge correction is audited and retry-safe; no generalized project work flow engine.",
+    "behavior": "Top-level same-tenant tasks have unique prerequisite relationships. Deny self, foreign and deleted candidates. Cycles are forbidden, including when concurrent opposite relationships are proposed. Show derived blocked badge for unfinished actionable prerequisite, distinct from manual blocked status; Complete, no_longer_needed, or an existing prerequisite soft-deleted after the edge was saved releases derived blocking. Deletion supplies no successful-completion/48-hour/contact credit and preserves the predecessor and edge history. Badge is advisory and does not prevent explicit allowed completion. Current/history edge correction is audited and retry-safe; no generalized project work flow engine.",
     "spec_file": "docs/product/tasks.md#req-tsk-006",
     "requirement_ids": [
       "REQ-TSK-006"
@@ -2801,7 +2801,7 @@
     "id": "TSK-008",
     "title": "Bulk completion and rescheduling",
     "module": "tasks",
-    "behavior": "Accept at most 100 deduplicated IDs with frozen reviewed selection and expected per row revision. Prevalidate shared request/date/policy, then run bounded per-task transactions for completion/recurrence or reschedule/reminder intent, returning exact success/noop/missing/deleted/foreign/closed/unauthorized/stale/conflict outcomes and remaining IDs. No generic failure hides committed rows. Own-duty bulk complete rechecks assignee per row; admin reschedule cannot invent due dates on unselected tasks. Replay intent resumes only unsettled rows, completed recurrence cannot duplicate and one bad row does not claim whole batch success.",
+    "behavior": "Accept at most 100 deduplicated IDs with frozen reviewed selection and unchanged state of each reviewed row. Prevalidate shared request/date/policy, then run bounded independent task changes for completion/recurrence or reschedule/reminder intent, returning exact success/noop/missing/deleted/foreign/closed/unauthorized/stale/conflict outcomes and remaining IDs. No generic failure hides committed rows. Own-duty bulk complete rechecks assignee per row; admin reschedule cannot invent due dates on unselected tasks. Replay intent resumes only unsettled rows, completed recurrence cannot duplicate and one bad row does not claim whole batch success.",
     "spec_file": "docs/product/tasks.md#req-tsk-008",
     "requirement_ids": [
       "REQ-TSK-008"
@@ -2856,7 +2856,7 @@
     "id": "TSK-010",
     "title": "Review a phase-transition task offer",
     "module": "tasks",
-    "behavior": "Latest unanswered actual transition ID offers current phase valid templates; phase event alone creates no tasks. Human may decline or accept any explicit valid subset, which answers that transition. Lock unique answer/transition; selected tasks+answer/history/receipt commit atomically, anchored to actual transition LocalDate. Stale transition/forged keys/authority refuses zero effects. Concurrent devices one winner; response loss returns durable actual inserted IDs, not temporary cookie-only receipt. Optional atomic bounded import failure leaves offer unanswered; no hidden partial claim strands selected templates.",
+    "behavior": "Latest unanswered actual transition ID offers current phase valid templates; phase event alone creates no tasks. Human may decline or accept any explicit valid subset, which answers that transition. Allow only one answer to each transition; selected tasks+answer/history and recorded outcome commit atomically, anchored to actual transition LocalDate. Stale transition/forged keys/authority refuses zero effects. Concurrent devices one winner; response loss returns durable actual inserted IDs, not temporary cookie-only receipt. Optional atomic bounded import failure leaves offer unanswered; no hidden partial claim strands selected templates.",
     "spec_file": "docs/product/tasks.md#req-tsk-010",
     "requirement_ids": [
       "REQ-TSK-010"
@@ -2932,7 +2932,7 @@
     "id": "TSK-012",
     "title": "Follow-up assignments and unowned contacts",
     "module": "tasks",
-    "behavior": "Eligible owner is actual account linked live same plant committed stage Person(core_group/launch_team/leader) with current seat; shared email/unlinked contact cannot own. Current demotion/access loss resolves stale assignee Needs owner even if stored ID remains. Assignment validates now under lock, derived labels from stored Person not client name. Manual create+assign may remain undated and has distinct manual origin; no invented due date or 48 h lineage invented. Assignment view shows actionable open tasks, grouped current owners, uncovered contact coverage without claiming urgent task when no explicit duty exists. No lead title-based authorization.",
+    "behavior": "Eligible owner is actual account linked live same plant committed stage Person(core_group/launch_team/leader) with current seat; shared email/unlinked contact cannot own. Current demotion/access loss resolves stale assignee Needs owner even if stored ID remains. Assignment validates current eligibility at execution, derived labels from stored Person not client name. Manual create+assign may remain undated and has distinct manual origin; no invented due date or 48 h lineage invented. Assignment view shows actionable open tasks, grouped current owners, uncovered contact coverage without claiming urgent task when no explicit duty exists. No lead title-based authorization.",
     "spec_file": "docs/product/tasks.md#req-tsk-012",
     "requirement_ids": [
       "REQ-MTG-020",
@@ -2966,7 +2966,7 @@
     "id": "TSK-013",
     "title": "Follow-up handoff after authority loss",
     "module": "tasks",
-    "behavior": "Preview exact actionable parent follow-ups owned by departing/demoted account and currently eligible recipient. Review selection/revisions, then move bounded\u2264100 tasks in one transaction with history/reminder intent/receipt; larger selection uses durable named chunks and moved/remaining IDs under one intent. Decline writes nothing and all unresolved duties remain visible Needs owner. Foreign/ineligible recipient, stale selection or protected Owner exception refuses before chunk effects. Closed/waived/deleted tasks never reopen. Account/Person and former duty history remain.",
+    "behavior": "Preview exact actionable parent follow-ups owned by departing/demoted account and currently eligible recipient. Review selection/revisions, then move bounded\u2264100 tasks in one all-or-nothing change with history/reminder intent/receipt; larger selection uses durable named chunks and moved/remaining IDs under one intent. Decline writes nothing and all unresolved duties remain visible Needs owner. Foreign/ineligible recipient, stale selection or protected Owner exception refuses before chunk effects. Closed/waived/deleted tasks never reopen. Account/Person and former duty history remain.",
     "spec_file": "docs/product/tasks.md#req-tsk-013",
     "requirement_ids": [
       "REQ-TSK-013"
@@ -3031,7 +3031,7 @@
     "id": "TSK-015",
     "title": "Durable task status history",
     "module": "tasks",
-    "behavior": "All status writers(native/Evry/bulk/generated evaluation/recurrence/correction) append previous/new state, effective Instant, recorded Instant, actual actor or identified system cause, revision and receipt in same UoW. Preserve initial creation state and close/reopen/waiver lineage. No-op retry creates no fake history. Read history requires current owned task scope, retains soft-deleted receipt as allowed and never renders anonymous source trigger rows as full actor evidence. Shared audit is not universal public browser/export or retention exemption.",
+    "behavior": "All status writers(native/Evry/bulk/generated evaluation/recurrence/correction) append previous/new state, effective Instant, recorded Instant, actual actor or identified system cause, the known outcome in the same all-or-nothing change. Preserve initial creation state and close/reopen/waiver lineage. No-op retry creates no fake history. Read history requires current owned task scope, retains soft-deleted receipt as allowed and never renders anonymous source trigger rows as full actor evidence. Shared audit is not universal public browser/export or retention exemption.",
     "spec_file": "docs/product/tasks.md#req-tsk-015",
     "requirement_ids": [
       "REQ-TSK-015",
@@ -3125,7 +3125,7 @@
     "id": "TEAM-002",
     "title": "Archive, restore and correct teams",
     "module": "teams",
-    "behavior": "Archive hides a team from operational selectors, current staffing/health and default chart/list while retaining team/role/membership/training/meeting history. Explicit archived inclusion permits discovery and authorized restoration. Historical Person tabs show labelled former/archive records. Current follow-up duties remain visible; archiving does not waive them or broaden team programs to churchwide. Edit/archive/restore under expected revision commits current row plus before/after actor/reason history and material revision; repeated same state no-ops. Restoration does not restore revoked seats or rewrite old tenure.",
+    "behavior": "Archive hides a team from operational selectors, current staffing/health and default chart/list while retaining team/role/membership/training/meeting history. Explicit archived inclusion permits discovery and authorized restoration. Historical Person tabs show labelled former/archive records. Current follow-up duties remain visible; archiving does not waive them or broaden team programs to churchwide. Edit/archive/restore under unchanged reviewed state commits current state, before/after actor/reason history and assessment freshness; repeated same state no-ops. Restoration does not restore revoked seats or rewrite old tenure.",
     "spec_file": "docs/product/teams-training.md#req-team-002",
     "requirement_ids": [
       "REQ-TEAM-002"
@@ -3200,7 +3200,7 @@
     "id": "TEAM-004",
     "title": "Appoint and synchronize team leaders",
     "module": "teams",
-    "behavior": "Store leader provenance explicit/role-derived/legacy without fabricated history. Explicit appointment outranks role-derived fallback and survives removing that role; fallback only fills an empty leader. Unlinked live contact may be a visible ministry leader but gains no account grant. Linked account must have current same plant seat to receive own-team actions. Seat revocation clears access-dependent appointment without erasing prior provenance. Candidate search is database-backed beyond the first 100 People. Parent/team-before-role/member locking makes assignment/vacate/retire/access-removal races coherent, with history and source revision in the same transaction.",
+    "behavior": "Store leader provenance explicit/role-derived/legacy without fabricated history. Explicit appointment outranks role-derived fallback and survives removing that role; fallback only fills an empty leader. Unlinked live contact may be a visible ministry leader but gains no account grant. Linked account must have current same plant seat to receive own-team actions. Seat revocation clears access-dependent appointment without erasing prior provenance. Candidate search is database-backed beyond the first 100 People. Concurrent assignment, vacancy, retirement and access removal preserve valid leadership and membership, with attributable history and assessment freshness updated atomically.",
     "spec_file": "docs/product/teams-training.md#req-team-004",
     "requirement_ids": [
       "REQ-TEAM-004"
@@ -3307,7 +3307,7 @@
     "id": "TEAM-007",
     "title": "Team responsibilities",
     "module": "teams",
-    "behavior": "Preserve custom/predefined responsibility CRUD and tick/untick. Versioned structured Playbook lines are offered explicitly once during setup or later deliberate acceptance; reads/preview have no writes. The accepted/declined offer stamp, selected rows, receipt and audit commit together. Deleted/edited/declined lines never reappear on reload/bootstrap or upstream update. Complete has one current state/date with history and no implied phase pass. Foreign keys/selections and stale revision refuse all effects.",
+    "behavior": "Preserve custom/predefined responsibility CRUD and tick/untick. Versioned structured Playbook lines are offered explicitly once during setup or later deliberate acceptance; reads/preview have no writes. The accepted/declined offer stamp, selected rows, receipt and audit commit together. Deleted/edited/declined lines never reappear on reload/bootstrap or upstream update. Complete has one current state/date with history and no implied phase pass. Foreign keys/selections and changed reviewed state refuse all effects.",
     "spec_file": "docs/product/teams-training.md#req-team-007",
     "requirement_ids": [
       "REQ-PI-045",
@@ -3389,7 +3389,7 @@
     "id": "TEAM-009",
     "title": "Correct, revoke and redo training",
     "module": "teams",
-    "behavior": "Expected-revision program correction retains before/after actor/version. Completion revoke marks current evidence invalid without deletion; redo appends a new earned event/date/verifier and retains original/revoked/corrected evidence, never silently overwrites history. Reject repeated invalid transition or return original retry receipt. All current training/health/PI queries exclude revoked evidence and respect requirement-version compatibility. Revocation/correction/redo updates material revision with history atomically; assignment episodes stay separate.",
+    "behavior": "Reviewed-state program correction retains before/after actor/version. Completion revoke marks current evidence invalid without deletion; redo appends a new earned event/date/verifier and retains original/revoked/corrected evidence, never silently overwrites history. Reject repeated invalid transition or return original retry outcome. All current training/health/PI queries exclude revoked evidence and respect requirement-version compatibility. Revocation/correction/redo makes affected assessments stale with history atomically; assignment episodes stay separate.",
     "spec_file": "docs/product/teams-training.md#req-team-009",
     "requirement_ids": [
       "REQ-KNOW-018",
@@ -3549,7 +3549,7 @@
     "id": "TEAM-015",
     "title": "Team assignment consequences",
     "module": "teams",
-    "behavior": "Active role assignment advances only core_group\u2192launch_team; qualifying ordinary ministry leadership advances only launch_team\u2192leader. Required People history and plant source revision commit with membership/leader mutation and original actor; repeat/no-op produces no duplicate semantic event. Removal never demotes automatically. Staffing/program/assignment corrections synchronously dirty relevant fact revision. Communication Hub owns actual team sends; emitted staffing/training_scheduled placeholders do not claim welcome mail, calendar, weekly alert or task delivery.",
+    "behavior": "Active role assignment advances only core_group\u2192launch_team; qualifying ordinary ministry leadership advances only launch_team\u2192leader. Required People history and plant source state commit with membership/leader mutation and original actor; repeat/no-op produces no duplicate semantic event. Removal never demotes automatically. Staffing/program/assignment corrections make affected assessments stale. Communication Hub owns actual team sends; emitted staffing/training_scheduled placeholders do not claim welcome mail, calendar, weekly alert or task delivery.",
     "spec_file": "docs/product/teams-training.md#req-team-015",
     "requirement_ids": [
       "REQ-TEAM-015"
@@ -3721,7 +3721,7 @@
     "id": "COM-005",
     "title": "Bulk provider dispatch and per-recipient outcome correlation",
     "module": "communication",
-    "behavior": "Dispatch exact frozen per-recipient payloads through one mail/mail_attempt ledger; correlate ordered batches of at most 100 by intent ID, apply suppression/current handoff checks, and retain accepted/rejected/unknown facts separately. A short result array or exception never marks all recipients sent. Unknown acceptance reconciles with the same frozen provider key within its retention window and blocks blind new-key replay afterward.",
+    "behavior": "Dispatch exact frozen per-recipient payloads with one truthful delivery history; correlate ordered batches of at most 100 by intent ID, apply suppression/current handoff checks, and retain accepted/rejected/unknown facts separately. A short result array or exception never marks all recipients sent. Unknown acceptance reconciles with the same frozen provider key within its retention window and blocks blind new-key replay afterward.",
     "spec_file": "docs/product/communications-notifications.md#composition-and-history",
     "requirement_ids": [
       "REQ-COM-005",
@@ -3796,7 +3796,7 @@
     "id": "COM-007",
     "title": "System and church message-template CRUD and copy-on-write forks",
     "module": "communication",
-    "behavior": "Browse global system and same-plant templates. Owner/Admin communication writers create/update same-plant email templates and fork global templates once per plant/source identity. Name 1\u2013255, description \u22641000, subject \u2264500, nonempty sanitized body; expected revision on edit. System originals are immutable to plant writers. Archive referenced templates; delete an unreferenced fork may reveal current global source.",
+    "behavior": "Browse global system and same-plant templates. Owner/Admin communication writers create/update same-plant email templates and fork global templates once per plant/source identity. Name 1\u2013255, description \u22641000, subject \u2264500, nonempty sanitized body; unchanged reviewed state on edit. System originals are immutable to plant writers. Archive referenced templates; delete an unreferenced fork may reveal current global source.",
     "spec_file": "docs/product/communications-notifications.md#composition-and-history",
     "requirement_ids": [
       "REQ-COM-007"
@@ -3889,7 +3889,7 @@
     "id": "COM-010",
     "title": "Public token RSVP and email engagement linkage",
     "module": "communication",
-    "behavior": "Random purpose-bound public RSVP token is scoped to one real same-plant Person/meeting, normally expires after seven days and has one live pending identity per pair. GET displays, explicit POST confirms/declines. Answer CAS and canonical meeting response share one transaction; scanner fetch never answers. Expired pending renewal preserves answered history. Token answer affects RSVP/engagement, never attendance/commitment/contact.",
+    "behavior": "Random purpose-bound public RSVP token is scoped to one real same-plant Person/meeting, normally expires after seven days and has one live pending identity per pair. GET displays, explicit POST confirms/declines. The answer and canonical meeting response succeed or fail together; scanner fetch never answers. Expired pending renewal preserves answered history. Token answer affects RSVP/engagement, never attendance/commitment/contact.",
     "spec_file": "docs/product/communications-notifications.md#composition-and-history",
     "requirement_ids": [
       "REQ-COM-010"
@@ -3954,7 +3954,7 @@
     "id": "COM-012",
     "title": "Native drafts and reviewed scheduled email",
     "module": "communication",
-    "behavior": "Save/reload/edit/delete incomplete native email drafts in the existing communication aggregate with revision/history and no mail intent. Review exact audience/per-recipient safe content/Instant before Resend API scheduling within 30 days. Reviewed time-only update preserves content; content/audience replacement waits for confirmed cancellation of all affected original sends. Sent/unknown/partial cancellation blocks automatic replacement. SMS/inbound/custom beyond-window scheduling are excluded.",
+    "behavior": "Save/reload/edit/delete incomplete native email drafts in the existing communication aggregate with conflict detection/history and no mail intent. Review exact audience/per-recipient safe content/Instant before Resend API scheduling within 30 days. Reviewed time-only update preserves content; content/audience replacement waits for confirmed cancellation of all affected original sends. Sent/unknown/partial cancellation blocks automatic replacement. SMS/inbound/custom beyond-window scheduling are excluded.",
     "spec_file": "docs/product/communications-notifications.md#drafts-and-provider-scheduling",
     "requirement_ids": [
       "REQ-COM-012",
@@ -4048,7 +4048,7 @@
     "id": "NTF-002",
     "title": "Atomic channel dispatcher, batching, backoff and live-subject cancellation",
     "module": "notifications",
-    "behavior": "Due claim, generation fence, timeout/backoff, cancellation, unknown reconciliation follow execution; fairness tuning belongs to G-LOAD; mail uses the one ledger. Recipient, current preference, live subject/entity and sharing are rechecked at dispatch.",
+    "behavior": "Due claim, generation fence, timeout/backoff, cancellation, unknown reconciliation follow execution; fairness tuning belongs to G-LOAD; mail preserves one truthful delivery history. Recipient, current preference, live subject/entity and sharing are rechecked at dispatch.",
     "spec_file": "docs/product/communications-notifications.md#notification-product",
     "requirement_ids": [
       "REQ-KNOW-006",
@@ -4105,7 +4105,7 @@
     "id": "NTF-003",
     "title": "In-app notification feed, unread filters, pagination and bell",
     "module": "notifications",
-    "behavior": "Self feed/unread/bell show only due visible uncanceled entries under current grants; keyset cursor(createdAt, id), unread filter, individual mark and mark-all-visible use identical predicates. Future/foreign/revoked entries and their counts are hidden. Read does not complete work. Empty differs from unavailable.",
+    "behavior": "Self feed/unread/bell show only due visible uncanceled entries under current grants; deterministic bounded pagination, unread filter, individual mark and mark-all-visible use identical predicates. Future/foreign/revoked entries and their counts are hidden. Read does not complete work. Empty differs from unavailable.",
     "spec_file": "docs/product/communications-notifications.md#notification-product",
     "requirement_ids": [
       "REQ-KNOW-001",
@@ -4143,7 +4143,7 @@
     "id": "NTF-004",
     "title": "User category/channel preferences with explicit-choice intent",
     "module": "notifications",
-    "behavior": "Own category/channel explicit choices, planter cadence/local schedule and organization oversight cadence use small closed inputs and expected revision. Only actual producers appear as enabled functionality. No custom rules, arbitrary schedules, snooze or alert families.",
+    "behavior": "Own category/channel explicit choices, planter cadence/local schedule and organization oversight cadence use small closed inputs and unchanged reviewed state. Only actual producers appear as enabled functionality. No custom rules, arbitrary schedules, snooze or alert families.",
     "spec_file": "docs/product/communications-notifications.md#notification-product",
     "requirement_ids": [
       "REQ-KNOW-001",
@@ -4483,9 +4483,9 @@
   },
   {
     "id": "NTF-013",
-    "title": "Shared transactional email transport and protected email templates",
+    "title": "Protected security and invitation mail",
     "module": "notifications",
-    "behavior": "Protected transactional HTML/plain-text templates use one durable mail intent/attempt transport with bounded timeout/idempotency/outcome reconciliation. Domain issuer fixes purpose/address/token, not arbitrary Evry inputs. Security/invitation purposes are separate from optional preference toggles; credentials/tokens/body/address stay out of logs/context.",
+    "behavior": "Protected transactional HTML/plain-text templates use recoverable delivery with bounded timeout/idempotency/outcome reconciliation. Domain issuer fixes purpose/address/token, not arbitrary Evry inputs. Security/invitation purposes are separate from optional preference toggles; credentials/tokens/body/address stay out of logs/context.",
     "spec_file": "docs/product/communications-notifications.md#notification-product",
     "requirement_ids": [
       "REQ-KNOW-003",
@@ -4548,7 +4548,7 @@
   },
   {
     "id": "NTF-015",
-    "title": "Discovery association postcommit transactional receipts",
+    "title": "Discovery relationship notices",
     "module": "notifications",
     "behavior": "Winning Discovery association acceptance/decline/departure/removal occurrence creates transactional-purpose receipts to the Discovery account and valid owners of that exact organization, deduplicated by recipient. Seatless account needs no phantom plant/inbox. Admin title alone does not add a receipt recipient. Commit association/history first with required durable mail intent; rendering/refusal does not undo the association.",
     "spec_file": "docs/product/communications-notifications.md#notification-product",
@@ -5399,7 +5399,7 @@
     "id": "WIKI-006",
     "title": "Helpful/unhelpful article rating with current church/user identity",
     "module": "wiki",
-    "behavior": "Own helpful/unhelpful vote under current plant/article/source scope; closed input and revision/no-op semantics. Account-private Discovery reading does not manufacture a church vote. No new admin analysis surface.",
+    "behavior": "Own helpful/unhelpful vote under current plant/article/source scope; closed input and conflict detection and no-op semantics. Account-private Discovery reading does not manufacture a church vote. No new admin analysis surface.",
     "spec_file": "docs/product/knowledge-documents.md#article-resolution-and-editing",
     "requirement_ids": [
       "REQ-WIKI-006"
@@ -5786,7 +5786,7 @@
     "id": "ADM-002",
     "title": "Platform-wide feedback triage and status transitions",
     "module": "admin",
-    "behavior": "Explicit immutable platform-principal grant, separate from plant/org roles, permits bounded private triage filter/list and new/reviewed/resolved/dismissed status changes with expected revision/actual actor/history/no-op receipt. Unknown row refuses and stale edit conflicts. Public issue closure remains external observed fact, not proof of implementation/PR/deployment.",
+    "behavior": "Explicit immutable platform-principal grant, separate from plant/org roles, permits bounded private triage filter/list and new/reviewed/resolved/dismissed status changes with unchanged reviewed state/actual actor/history/no-op receipt. Unknown row refuses and stale edit conflicts. Public issue closure remains external observed fact, not proof of implementation/PR/deployment.",
     "spec_file": "docs/product/operations.md#private-intake-and-public-feedback",
     "requirement_ids": [
       "REQ-ADM-002",
@@ -5996,7 +5996,7 @@
     "id": "OPS-001",
     "title": "External schedules and bounded HTTP job ticks",
     "module": "operations",
-    "behavior": "One authenticated bounded Next/Postgres executor, durable owed work, lease/fencing/checkpoint/reconciliation/recovery contract in execution; fairness and alert tuning belong to G-LOAD. Triggers contain no business authority. Actual schedule/account tier is configuration proof, not inferred from free development.",
+    "behavior": "Background execution is authenticated, bounded, durable and recoverable under the execution contract. Worker replacement, cancellation and stale input cannot publish or duplicate work. Unknown provider outcomes require reconciliation. G-LOAD owns measured fairness and alert tuning. Schedule invocation supplies no business authority, and actual deployment schedule and limits require configuration proof. Execution mechanisms follow EveryField patterns.",
     "spec_file": "docs/product/operations.md#engineering-and-operational-scope",
     "requirement_ids": [
       "REQ-OPS-001",
@@ -6096,7 +6096,7 @@
     "id": "OPS-004",
     "title": "Atomic domain consequences and durable advisory intents",
     "module": "operations",
-    "behavior": "Required cross-domain consequences use one short owning transaction; attendance/obligation/task/audit/receipt consistency is not in-memory event delivery. Advisory named effects get durable outbox/job intent and idempotent consumer. Each consumer rechecks subject/scope. No public arbitrary-event RPC or universal workflow engine.",
+    "behavior": "Required cross-domain consequences succeed or fail together. Attendance, follow-up obligations, tasks, audit and reported outcomes remain consistent after failure, retry and concurrent changes. Optional background effects remain recoverable after interruption and do not duplicate completed work. Each consumer applies current subject and scope authority. No public arbitrary-event executor is exposed.",
     "spec_file": "docs/product/operations.md#engineering-and-operational-scope",
     "requirement_ids": [
       "REQ-OPS-004"
@@ -6121,7 +6121,7 @@
     "id": "OPS-005",
     "title": "Migration generation, journal provenance and safe operator diagnostics",
     "module": "operations",
-    "behavior": "Fresh versioned migration history/checksums and approved reference bootstrap; positively identified owned DB target, advisory lock and replay provenance. Preserve applied history and refuse conflicting checksum/unknown target. No db:push, legacy-chain requirement, live ledger patching or customer migration. Recovery uses recovery.",
+    "behavior": "Fresh versioned migration history/checksums and approved reference bootstrap; positively identified owned DB target, safe concurrent execution and replay provenance. Preserve applied history and refuse conflicting checksum/unknown target. No db:push, legacy-chain requirement, live ledger patching or customer migration. Recovery uses recovery.",
     "spec_file": "docs/product/operations.md#engineering-and-operational-scope",
     "requirement_ids": [
       "REQ-KNOW-011",
@@ -7199,7 +7199,7 @@
     "id": "PI-023",
     "title": "Insight persistence, severity/rank and snapshot deltas",
     "module": "intelligence",
-    "behavior": "Persist insights, overall durable summary, immutable complete metadata, snapshot deltas and assessment availability atomically after source/reference/current-claim/current-grant CAS. Severity orders insights only; no plant ranking. Bus failure after commit cannot demote complete. Canonical model urgency positive|info|watch|urgent maps exactly to persisted info|low|medium|high respectively; critical is reserved and never produced by ordinary assessment mapping.",
+    "behavior": "Persist insights, overall durable summary, immutable complete metadata, snapshot deltas and assessment availability atomically after current source, reference, execution ownership and grant checks. Severity orders insights only; no plant ranking. Bus failure after commit cannot demote complete. Canonical model urgency positive|info|watch|urgent maps exactly to persisted info|low|medium|high respectively; critical is reserved and never produced by ordinary assessment mapping.",
     "spec_file": "docs/product/methodology-intelligence.md",
     "requirement_ids": [
       "REQ-PI-023"
@@ -7769,7 +7769,7 @@
   },
   {
     "id": "PI-036",
-    "title": "Offline fleet eval, assessment trigger and language audit tooling",
+    "title": "Offline fleet evaluation, assessment requests and language audit",
     "module": "intelligence",
     "behavior": "Offline reference/fleet language/numeric/privacy evaluation and bounded authorized operator triggers use synthetic permitted fixtures and exact pinned versions; future protocol/pass/fail declared, not falsely counted as runtime success or live account proof.",
     "spec_file": "docs/product/methodology-intelligence.md",
@@ -7806,9 +7806,9 @@
   },
   {
     "id": "PI-037",
-    "title": "Assessment input triggers and revision freshness",
+    "title": "Assessment input freshness across every writer",
     "module": "intelligence",
-    "behavior": "Database triggers on every assessment input table advance plant.material_revision in the same transaction as the relevant fact mutation. WP-040 derives the trigger set from every table read by the actual input builder, including conditional branches, and proves no missing inputs or unexplained extra tables. Revisions are monotonic freshness fences; multiple changed rows may advance them more than once. Organization material revision advances only on affiliation and sharing changes, including category grants. Other plant input changes are fenced by contributor source revisions at organization publication. Reference activation is a separate monotonic fence. Trigger failure rolls back the fact change; exact replay and real no-ops do not advance revision. After-commit wake-up is advisory. Private care is excluded from inputs and triggers; no material-writer registry or caller revision helper is required.",
+    "behavior": "Every committed change to assessment-relevant input makes affected assessments stale, across native, Evry, import, correction, merge, removal and system writers. WP-040 proves that all inputs actually used by the fact builder, including conditional inputs, participate in freshness checks. Failed changes, exact retries, real no-ops and unrelated fields do not create changed assessment evidence. Organization results reflect current affiliation, category sharing, contributor inputs and released source assessments. Current reference activation also governs publication. Missed wake-ups cannot lose refresh work. Private-care bodies, existence, calendars, corrections, nudges and support questions never affect assessment inputs or freshness. The implementation must preserve these outcomes without requiring a revision column, trigger set or caller helper.",
     "spec_file": "docs/product/methodology-intelligence.md",
     "requirement_ids": [
       "REQ-PI-037"
@@ -7976,7 +7976,7 @@
   },
   {
     "id": "PI-040",
-    "title": "Full private check-in history with preserved revisions",
+    "title": "Full private check-in correction history",
     "module": "private-checkins",
     "behavior": "Own native full private history keeps stable original author+plant+week IDs, personal-zone starts/ordinals and all corrections; current eligibility required, no cross-author/CRM merge ownership substitution.",
     "spec_file": "docs/product/methodology-intelligence.md",
@@ -8027,7 +8027,7 @@
     "id": "PI-041",
     "title": "Correct existing check-in without deleting history",
     "module": "private-checkins",
-    "behavior": "Correct only own existing private entry with expected revision, old/new native history and idempotency. Personal zone edit keeps the open week until first strictly future Monday in the requested zone then one next ordinal; serialize rollover/edit/save and preserve missing weeks without duplicate credit.",
+    "behavior": "Correct only own existing private entry with unchanged reviewed state, old/new native history and idempotency. Personal zone edit keeps the open week until first strictly future Monday in the requested zone then one next ordinal; serialize rollover/edit/save and preserve missing weeks without duplicate credit.",
     "spec_file": "docs/product/methodology-intelligence.md",
     "requirement_ids": [
       "REQ-KNOW-069",
@@ -8143,7 +8143,7 @@
     "id": "PHASE-002",
     "title": "Reasoned forward/backward/skipping/correcting phase transition",
     "module": "phases",
-    "behavior": "Reasoned forward/backward/skip/correct transition uses protected current phase+expected revision and atomic journal/current phase/material revision/audit/receipt. Readiness never blocks or advances automatically. Target phase is a number/integer 0..6; reason is string trimmed 1..2000 and rejects exact reserved initial-declaration sentence after trim, including noop requests; declaration kind is unreachable here.",
+    "behavior": "Reasoned forward/backward/skip/correct transition uses protected current phase+unchanged reviewed state and atomic journal/current phase/assessment freshness/audit and recorded outcome. Readiness never blocks or advances automatically. Target phase is a number/integer 0..6; reason is string trimmed 1..2000 and rejects exact reserved initial-declaration sentence after trim, including noop requests; declaration kind is unreachable here.",
     "spec_file": "docs/product/methodology-intelligence.md",
     "requirement_ids": [
       "REQ-PHASE-002"
@@ -8282,7 +8282,7 @@
     "id": "PHASE-007",
     "title": "Phase transition audit and journey chronology",
     "module": "phases",
-    "behavior": "Read attributed current/historical phase journal and actual chronology with creation/initial declaration distinctions, expected revision/concurrency and current permissions; no rewritten prior journey.",
+    "behavior": "Read attributed current/historical phase journal and actual chronology with creation/initial declaration distinctions, unchanged reviewed state/concurrency and current permissions; no rewritten prior journey.",
     "spec_file": "docs/product/methodology-intelligence.md",
     "requirement_ids": [
       "REQ-PHASE-007"
@@ -8341,7 +8341,7 @@
     "id": "LCH-001",
     "title": "Set, move, postpone and recommit canonical launch date",
     "module": "launch",
-    "behavior": "Current plant Owner/Admin sets/moves/postpones/recommits canonical planned local date under expected revision with real YYYY-MM-DD validation and note\u22642000. Planning/scheduled/postponed/completed remain explicit; no-op/replay returns original receipt and date/status journal. Moving date does not rewrite task due dates/assignments/status or move phase.",
+    "behavior": "Current plant Owner/Admin sets/moves/postpones/recommits canonical planned local date under unchanged reviewed state with real YYYY-MM-DD validation and note\u22642000. Planning/scheduled/postponed/completed remain explicit; no-op/replay returns original recorded outcome and date/status journal. Moving date does not rewrite task due dates/assignments/status or move phase.",
     "spec_file": "docs/product/launch.md#schedule-and-readiness",
     "requirement_ids": [
       "REQ-KNOW-035",
@@ -8409,7 +8409,7 @@
     "id": "LCH-003",
     "title": "Nine Playbook milestones and 23 linked preparation tasks",
     "module": "launch",
-    "behavior": "First schedule and fixed nine Playbook milestones/23 actual source undated ordinary launch_prep Tasks initialize in one bounded history/audit/receipt transaction with stable seed identities. Preserve approved wording and existing user edits/deletions; task system owns assignee/date/status. Three actual prelaunch_practice occurrences supply their own evidence; task ticks never fabricate those events.",
+    "behavior": "First schedule and fixed nine Playbook milestones/23 actual source undated ordinary launch_prep Tasks initialize in one bounded history, audit and the recorded outcome transaction with stable seed identities. Preserve approved wording and existing user edits/deletions; task system owns assignee/date/status. Three actual prelaunch_practice occurrences supply their own evidence; task ticks never fabricate those events.",
     "spec_file": "docs/product/launch.md#schedule-and-readiness",
     "requirement_ids": [
       "REQ-KNOW-037",
@@ -8447,7 +8447,7 @@
     "id": "LCH-004",
     "title": "Complete and reopen milestones with a fresh linked-task view",
     "module": "launch",
-    "behavior": "Complete or reopen a readiness milestone under current subject authority and expected revision in the same history/audit/receipt transaction. Completion is allowed with open linked tasks. The linked-task digest compares the reviewed view with current linked tasks and refuses only a stale view; it does not require tasks to be complete. Reopening or correcting linked work makes current evidence Needs review while preserving prior human completion history. Guest/debrief evidence is derived and cannot be overridden by a manual checkbox.",
+    "behavior": "Complete or reopen a readiness milestone under current subject authority and unchanged reviewed state in the same history, audit and the recorded outcome transaction. Completion is allowed with open linked tasks. The linked-task digest compares the reviewed view with current linked tasks and refuses only a stale view; it does not require tasks to be complete. Reopening or correcting linked work makes current evidence Needs review while preserving prior human completion history. Guest/debrief evidence is derived and cannot be overridden by a manual checkbox.",
     "spec_file": "docs/product/launch.md#schedule-and-readiness",
     "requirement_ids": [
       "REQ-KNOW-037",
@@ -8600,7 +8600,7 @@
     "id": "LCH-007",
     "title": "Correct recorded outcome with journal/no-op semantics",
     "module": "launch",
-    "behavior": "Correct canonical actual Launch/date/count/debrief/guest relation/summary under expected revision with before/after actor/history and no-op replay. New incomplete draft preserves last valid submitted evidence. Corrected guest answer updates current derived criterion without erasing old snapshot or silently demoting phase; aggregate headcount/missing count never silently recalc from roster.",
+    "behavior": "Correct canonical actual Launch/date/count/debrief/guest relation/summary under unchanged reviewed state with before/after actor/history and no-op replay. New incomplete draft preserves last valid submitted evidence. Corrected guest answer updates current derived criterion without erasing old snapshot or silently demoting phase; aggregate headcount/missing count never silently recalc from roster.",
     "spec_file": "docs/product/launch.md#actual-launch-and-named-guests",
     "requirement_ids": [
       "REQ-KNOW-052",
@@ -8700,7 +8700,7 @@
     "id": "LCH-009",
     "title": "Converge missing readiness after seed failure",
     "module": "launch",
-    "behavior": "Repair partial initialization by stable launch/milestone/task seed identity under current plant/source revision, creating incomplete-initialization items exactly once. Retained seed receipts and task/link tombstones distinguish deliberate user deletion, which repair never resurrects. Existing edits/completion/history survive and no arbitrary recurring service or automatic readiness completion is created.",
+    "behavior": "Repair partial initialization by stable launch/milestone/task seed identity under current plant/source state, creating incomplete-initialization items exactly once. Retained seed receipts and task/link tombstones distinguish deliberate user deletion, which repair never resurrects. Existing edits/completion/history survive and no arbitrary recurring service or automatic readiness completion is created.",
     "spec_file": "docs/product/launch.md#schedule-and-readiness",
     "requirement_ids": [
       "REQ-LCH-009"
@@ -9343,7 +9343,7 @@
   },
   {
     "id": "EVR-010",
-    "title": "Typed read, clarification, review, progress, receipt and boundary cards",
+    "title": "Read, clarification, review, progress, outcome and boundary cards",
     "module": "evry",
     "behavior": "Show source-bound read, clarification, review, progress, receipt and boundary cards. Cards distinguish recorded facts, unknown/unavailable results and proposed effects; model text cannot impersonate trusted approval controls or claim an unsaved outcome.",
     "spec_file": "docs/product/evry.md",
@@ -9370,7 +9370,7 @@
   },
   {
     "id": "EVR-011",
-    "title": "Immutable proposals, canonical fingerprints and revision supersession",
+    "title": "Changed proposals invalidate prior approval",
     "module": "evry",
     "behavior": "Prepare immutable proposal revisions with exact targets, arguments, exclusions, dates, audience, bytes and induced consequences. Bind the canonical digest and current grant/resource versions. Editing any review-sensitive fact supersedes the old revision and its approval.",
     "spec_file": "docs/product/evry.md",
@@ -9451,7 +9451,7 @@
     "id": "EVR-013",
     "title": "Executor, partial results, dependency skips and safe retry",
     "module": "evry",
-    "behavior": "Execute only unresolved effects covered by the current exact approval and fresh authority/revision checks. Preserve dependency ordering, partial receipts and truthful skips. Lost responses replay stored receipts; retry only declared safe unresolved effects under the same key. Unknown provider outcomes require reconciliation before another attempt.",
+    "behavior": "Execute only unresolved effects covered by the current exact approval and fresh authority/unchanged reviewed state checks. Preserve required consequence ordering, partial outcomes and truthful skips. Lost responses return known outcomes; retry only declared safe unresolved effects of the same approved action. Unknown provider outcomes require reconciliation before another attempt.",
     "spec_file": "docs/product/evry.md",
     "requirement_ids": [
       "REQ-EVR-013"
@@ -9483,7 +9483,7 @@
     "id": "EVR-014",
     "title": "Durable effect claims and exact relational audit identity",
     "module": "evry",
-    "behavior": "Claim each effect under its exact account/context/review identity and current lease generation. Mutation, history, safe audit, receipt and required intent commit together under the owning domain contract. Stale claims cannot publish; recording an outcome creates no new domain permission.",
+    "behavior": "Only work covered by the initiating account, acting context and exact current human approval may execute. Each committed mutation, its required audit/history and known outcome agree. Repeating or reconnecting to a completed action returns its recorded outcome without repeating effects. Expired, cancelled or replaced execution cannot publish. The representation of execution ownership and saved outcomes follows EveryField patterns. Recording an outcome creates no new domain permission.",
     "spec_file": "docs/product/evry.md",
     "requirement_ids": [
       "REQ-EVR-014"
@@ -9536,7 +9536,7 @@
     "id": "EVR-016",
     "title": "Active run claim, streaming, reconnect and restart recovery",
     "module": "evry",
-    "behavior": "Allow one active run per account/context/conversation with a 60-second lease renewed every 15 seconds and increasing claim generation. Stream and reconnect from factual saved state. Lease loss stops further work; a new worker checks existing receipts before resuming, and stale generations cannot publish.",
+    "behavior": "Allow at most one active run per account, acting context and conversation. Stream progress and recover interrupted runs from factual saved state. A run that loses execution ownership stops further work and cannot publish. Resuming work preserves committed outcomes and executes only still-authorized unresolved effects. Lease duration, renewal and ownership representation follow EveryField patterns.",
     "spec_file": "docs/product/evry.md",
     "requirement_ids": [
       "REQ-EVR-016"
@@ -9679,7 +9679,7 @@
     "id": "EVR-021",
     "title": "Owned conversation runtime and private session access",
     "module": "evry",
-    "behavior": "Run one app-owned conversation, turn, saved review and effect protocol using shared job, receipt and effect storage. Session ownership is private to the initiating account and exact context. Transport exposes only the allowed application operations; no arbitrary code, network, filesystem, SQL or approval capability is granted.",
+    "behavior": "Conversations, turns, saved reviews and approved effects remain app-owned and recoverable. Native and Evry calls use the same domain policy and outcomes. Reconnect, replay, interruption and retry preserve factual progress without authorizing or duplicating effects. Storage and background execution follow EveryField patterns; no per-feature execution protocol is required. Session ownership stays private to the initiating account and exact context. Transport exposes only allowed application operations and grants no arbitrary code, network, filesystem, SQL or approval capability.",
     "spec_file": "docs/product/evry.md",
     "requirement_ids": [
       "REQ-EVR-021"
@@ -9736,7 +9736,7 @@
   },
   {
     "id": "EVR-023",
-    "title": "Revisioned planning notes, clarification and todo",
+    "title": "Editable planning notes, clarifications and todo",
     "module": "evry",
     "behavior": "Keep revisioned planning notes, clarifications and todo state as bounded candidate conversation context. Saving assistant protocol state does not authorize domain effects. Submitted user messages, review revisions and actual outcomes remain distinguishable.",
     "spec_file": "docs/product/evry.md",
@@ -10027,7 +10027,7 @@
   },
   {
     "id": "EVR-033",
-    "title": "Current-review status and historic durable receipts",
+    "title": "Current review status and historic factual outcomes",
     "module": "evry",
     "behavior": "Show the current proposal review status separately from historic factual durable receipts. A later cancelled, expired or superseded review cannot erase a completed effect or authorize another one. Read only the current authorized account/context projection.",
     "spec_file": "docs/product/evry.md",
@@ -10674,7 +10674,7 @@
     "id": "MUL-011",
     "title": "Enrollment, cohort and deliberate plan changes",
     "module": "people",
-    "behavior": "Enroll an active same-organization pipeline person in a program and cohort with start, expected end, current program stage, status and next meeting with timezone. A person may have different programs but cannot have duplicate active enrollment in the same program. Enrollment fixes the published version and its milestones. A director may explicitly apply a reviewed new version to selected enrollments, preserving attributable completion/confirmation history and exposing added, removed or changed work. Reject foreign person, director, program or stage and stale revisions. Current program stages are distinct from internal pipeline stages.",
+    "behavior": "Enroll an active same-organization pipeline person in a program and cohort with start, expected end, current program stage, status and next meeting with timezone. A person may have different programs but cannot have duplicate active enrollment in the same program. Enrollment fixes the published version and its milestones. A director may explicitly apply a reviewed new version to selected enrollments, preserving attributable completion/confirmation history and exposing added, removed or changed work. Reject foreign person, director, program or stage and changed reviewed states. Current program stages are distinct from internal pipeline stages.",
     "spec_file": "docs/product/people.md#req-mul-011",
     "requirement_ids": [
       "REQ-MUL-011"
@@ -10839,7 +10839,7 @@
     "id": "MUL-017",
     "title": "Organization duplicates, merge and guarded Unmerge",
     "module": "people",
-    "behavior": "In S1, reuse the Person correction and merge producer for organization-owned identities. Duplicate suggestions never prove identity or choose a survivor automatically. An exact-organization Owner or Admin reviews the selected source, survivor and field choices. Merge requires reviewed field choices, current revisions and same-owner identities, preserves historical endpoints and refuses linked-account, enrollment or other current-reference collisions. Unmerge restores only the exact reviewed prior state and refuses conflicting edits, new references or irreversible disclosure. No merge or inverse transfers account consent, private care, note authorship or organization/plant authority. Register downstream enrollment, stage-history and resident-link collisions before those consumers close.",
+    "behavior": "In S1, reuse the Person correction and merge producer for organization-owned identities. Duplicate suggestions never prove identity or choose a survivor automatically. An exact-organization Owner or Admin reviews the selected source, survivor and field choices. Merge requires reviewed field choices, current reviewed state and same-owner identities, preserves historical endpoints and refuses linked-account, enrollment or other current-reference collisions. Unmerge restores only the exact reviewed prior state and refuses conflicting edits, new references or irreversible disclosure. No merge or inverse transfers account consent, private care, note authorship or organization/plant authority. Register downstream enrollment, stage-history and resident-link collisions before those consumers close.",
     "spec_file": "docs/product/people.md#req-mul-017",
     "requirement_ids": [
       "REQ-MUL-017"
