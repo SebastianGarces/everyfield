@@ -172,7 +172,7 @@
   --mk-eyebrow: #9A4A0C;         /* --ef-amber-600, 5.5:1 on canvas */
   --mk-chart-1: #037D4C;
   --mk-chart-2: #D9780F;         /* --ef-amber-display, graphics only */
-  --mk-chart-3: #265E90;         /* --ef-blue-600 */
+  --mk-chart-3: #2A6296;         /* --ef-blue-600 */
 
   --mk-cta-bg: #181D19;
   --mk-cta-text: #F6F0E9;        /* 15.1:1 */
@@ -383,7 +383,7 @@
   --mk-eyebrow: #9A4A0C;         /* 5.5:1 on canvas; use #FFA552 on green band */
   --mk-chart-1: #026B40;
   --mk-chart-2: #D9780F;
-  --mk-chart-3: #5F6D4D;         /* --ef-teal-600 (sage ramp) */
+  --mk-chart-3: #4C6F7C;         /* --ef-teal-600 (sky ramp) */
 
   --mk-cta-bg: #FFA552;
   --mk-cta-text: #181D19;        /* 8.8:1 */
