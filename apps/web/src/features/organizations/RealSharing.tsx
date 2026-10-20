@@ -4,7 +4,7 @@ import type { pipelineAggregateAccessResult } from "@everyfield/contracts/organi
 import { PageHeader } from "@everyfield/ui/controls";
 import { useMemo } from "react";
 import type { z } from "zod";
-import { Connections } from "./Connections";
+import { Connections, type ConnectionsData } from "./Connections";
 import type { InviteTarget } from "./InviteDialog";
 import { PipelineAccessNote, PipelineTotals } from "./Pipeline";
 import { createNames, readResidency, readSharing, realRun } from "./real";
@@ -22,6 +22,8 @@ export type SharingPageData = {
 	/** Network only: whether combined pipeline totals could be shown (S0 check). */
 	aggregate: z.infer<typeof pipelineAggregateAccessResult> | null;
 	residencies: { linkId: string; organizationName: string }[];
+	/** The connections list read with the page; null for a seatless account, which has no list. */
+	connections: ConnectionsData | null;
 };
 
 const INTRO: Record<SharingPageData["kind"], string> = {
@@ -43,6 +45,7 @@ export function RealSharing({ data }: { data: SharingPageData }) {
 				<Connections
 					side={subject ? "subject" : "organization"}
 					load={names.load}
+					initial={data.connections ?? undefined}
 					readMore={names.readMore}
 					canManage={data.canManage}
 					nameOf={names.nameOf}

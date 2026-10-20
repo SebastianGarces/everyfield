@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import * as S from "./support.mts";
 import * as Q from "../../../packages/contracts/src/organizations/index.ts";
 import { readAnswerableInvitation } from "../../../packages/domain/src/organizations/index.ts";
+import { RequestActor } from "../../../packages/domain/src/access/index.ts";
 before(S.setup);
 after(S.teardown);
 const accepted = (v: unknown) => {
@@ -298,6 +299,34 @@ test("INV-invitation-detail: only the addressed receiving Owner or Admin can rea
 	assert.equal(shown.status, "pending");
 	if (shown.status !== "pending") throw Error();
 	assert.equal(shown.invitationId, i.invitationId);
+	// INV-reads: the respond page reads the request with the observed actor, in a fixed number of statements, no lock.
+	const statements: string[] = [];
+	let recording = false;
+	const instrumented = new WeakSet<object>();
+	S.runtime.$client.on("acquire", (client) => {
+		if (instrumented.has(client)) return;
+		instrumented.add(client);
+		const query = client.query;
+		client.query = function (...args: unknown[]) {
+			if (recording) statements.push(typeof args[0] === "string" ? args[0] : (args[0] as { text: string }).text);
+			return Reflect.apply(query, this, args);
+		} as typeof client.query;
+	});
+	const authority = await S.tx((c) => RequestActor.resolve(c, oa.session));
+	if (!(authority instanceof RequestActor)) throw Error();
+	recording = true;
+	const observed = await S.tx((c) => {
+		authority.observe(c);
+		return readAnswerableInvitation(c, oa.session, oa.selected, { invitationId: i.invitationId, proof });
+	});
+	recording = false;
+	assert.deepEqual(observed, shown);
+	assert.ok(statements.length <= 10, `respond read: ${statements.length} statements`);
+	assert.equal(
+		statements.some((q) => /for\s+(update|share)|access_session|invitation_identity/i.test(q)),
+		false,
+		"the respond read must not lock or resolve the actor again",
+	);
 	assert.equal(shown.inviterDescription, "Harvest Point");
 	assert.deepEqual(shown.pair, i.pair);
 	await S.call(

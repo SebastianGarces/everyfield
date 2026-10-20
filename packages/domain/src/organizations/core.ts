@@ -19,7 +19,7 @@ import {
 } from "@everyfield/contracts/organizations";
 import type { Transaction } from "@everyfield/db/client";
 import { alias } from "@everyfield/db/columns";
-import { and, eq, getTableColumns, isNull, lte, sql, type SQL } from "@everyfield/db/query";
+import { and, eq, getTableColumns, isNull, sql, type SQL } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { currentActor, liveOwner } from "@everyfield/domain/access";
 import { createHash, randomUUID } from "node:crypto";
@@ -63,33 +63,36 @@ export const endpointValues = (pair: RelationshipPair) => [
 	pair.kind === "sending_church" ? pair.subject.id : null,
 	pair.organization.id,
 ];
-export async function subjectAuthority(tx: Transaction, actor: Actor, pair: RelationshipPair): Promise<boolean> {
+export async function subjectAuthority(
+	tx: Transaction,
+	actor: Actor,
+	pair: RelationshipPair,
+	lock = true,
+): Promise<boolean> {
 	if (!sameOwner(actor.context.owner, subjectOwner(pair))) return false;
 	if (pair.kind !== "discovery") return administrator(actor);
-	const d = await tx
+	const discovery = tx
 		.select({ id: tables.discovery.id })
 		.from(tables.discovery)
-		.where(and(eq(tables.discovery.account_id, pair.accountId), isNull(tables.discovery.converted_at)))
-		.for("share");
-	const s = await tx
+		.where(and(eq(tables.discovery.account_id, pair.accountId), isNull(tables.discovery.converted_at)));
+	const seats = tx
 		.select({ id: tables.seat.id })
 		.from(tables.seat)
-		.where(and(eq(tables.seat.account_id, pair.accountId), isNull(tables.seat.ended_at)))
-		.for("share");
+		.where(and(eq(tables.seat.account_id, pair.accountId), isNull(tables.seat.ended_at)));
+	const d = await (lock ? discovery.for("share") : discovery);
+	const s = await (lock ? seats.for("share") : seats);
 	return d.length === 1 && s.length === 0;
 }
-export async function validPair(tx: Transaction, pair: RelationshipPair) {
-	if (!(await liveOwner(tx, subjectOwner(pair))) || !(await liveOwner(tx, pair.organization))) return false;
-	if (pair.kind === "discovery")
-		return (
-			(
-				await tx
-					.select({ id: tables.discovery.id })
-					.from(tables.discovery)
-					.where(and(eq(tables.discovery.account_id, pair.accountId), isNull(tables.discovery.converted_at)))
-					.for("share")
-			).length === 1
-		);
+/** Both endpoints exist and are not being deleted. A write locks them; a read observes. */
+export async function validPair(tx: Transaction, pair: RelationshipPair, lock = true) {
+	if (!(await liveOwner(tx, subjectOwner(pair), lock)) || !(await liveOwner(tx, pair.organization, lock))) return false;
+	if (pair.kind === "discovery") {
+		const discovery = tx
+			.select({ id: tables.discovery.id })
+			.from(tables.discovery)
+			.where(and(eq(tables.discovery.account_id, pair.accountId), isNull(tables.discovery.converted_at)));
+		return (await (lock ? discovery.for("share") : discovery)).length === 1;
+	}
 	return true;
 }
 export const affiliationSchema = z.object({
@@ -113,12 +116,17 @@ export const affiliationSchema = z.object({
 	share_wiki: z.boolean(),
 	share_activity: z.boolean(),
 	shared_findings: z.boolean(),
+	/** Computed by loadAffiliations: not ended, accepted, no lifecycle witness on any endpoint, Discovery still open. */
+	active: z.boolean(),
 });
 export type Affiliation = z.infer<typeof affiliationSchema>;
 const receivingOrganization = alias(tables.organization, "receiving_organization");
 const sendingOrganization = alias(tables.organization, "sending_organization");
-export async function loadAffiliations(tx: Transaction, predicate: SQL, write = false) {
-	const rows = await tx
+/** A pool or a transaction: a read needs no transaction. */
+export type Reader = Pick<Transaction, "select" | "execute">;
+/** Affiliations with their names and a computed `active` flag. A write locks the rows; a read takes no lock. */
+export async function loadAffiliations(tx: Reader, predicate: SQL, write = false) {
+	const query = tx
 		.select({
 			...getTableColumns(tables.affiliation),
 			organization_kind: receivingOrganization.kind,
@@ -130,9 +138,9 @@ export async function loadAffiliations(tx: Transaction, predicate: SQL, write = 
 		.innerJoin(receivingOrganization, eq(receivingOrganization.id, tables.affiliation.organization_id))
 		.leftJoin(sendingOrganization, eq(sendingOrganization.id, tables.affiliation.sending_church_id))
 		.where(predicate)
-		.orderBy(tables.affiliation.id)
-		.for(write ? "update" : "share", { of: tables.affiliation });
-	return rows.map((row) => ({ ...affiliationSchema.parse(row), active: row.active }));
+		.orderBy(tables.affiliation.id);
+	const rows = await (write ? query.for("update", { of: tables.affiliation }) : query);
+	return rows.map((row) => affiliationSchema.parse(row));
 }
 export async function loadAffiliation(tx: Transaction, id: string, write = false): Promise<Affiliation | null> {
 	return (await loadAffiliations(tx, eq(tables.affiliation.id, id), write))[0] ?? null;
@@ -170,38 +178,8 @@ export const choices = (a: Affiliation) =>
 		activity: a.share_activity,
 		shared_findings: a.shared_findings,
 	});
-export async function active(tx: Transaction, a: Affiliation) {
-	return (
-		a.ended_at === null &&
-		(
-			await tx
-				.select({ id: tables.affiliation.id })
-				.from(tables.affiliation)
-				.where(
-					and(
-						eq(tables.affiliation.id, a.id),
-						lte(
-							tables.affiliation.accepted_at,
-							sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-						),
-					),
-				)
-		).length === 1 &&
-		(await validPair(tx, pairOf(a))) &&
-		!(
-			await tx
-				.select({ id: tables.lifecycle_witness.id })
-				.from(tables.lifecycle_witness)
-				.where(
-					and(
-						eq(tables.lifecycle_witness.affiliation_id, a.id),
-						sql<unknown>`(${tables.lifecycle_witness.state} != 'active')`,
-					),
-				)
-				.for("share")
-		).length
-	);
-}
+/** The live flag loadAffiliations computed in the same statement that read the row. */
+export const active = (a: Affiliation) => a.active;
 export interface OrganizationEffects {
 	invitation(
 		tx: Transaction,

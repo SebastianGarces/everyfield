@@ -95,7 +95,7 @@ export async function onboardingEntry() {
 	if (!m) return { kind: "elsewhere", reason: "unavailable" } as const;
 	const session = await getViewer();
 	if (!session) return { kind: "elsewhere", reason: "unavailable" } as const;
-	return readOnboardingEntry(m.db, m.producer, session, session.authority);
+	return readOnboardingEntry(m.db, m.producer, session, session.authority, session.verified);
 }
 
 const refusal = (code: "unavailable" | "invalid_input"): Reply => ({

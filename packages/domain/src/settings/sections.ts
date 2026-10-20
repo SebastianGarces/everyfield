@@ -441,12 +441,7 @@ export function sectionOperations(
 			}
 			case "affiliations": {
 				const row = await loadAffiliation(tx, i.relationshipId, true);
-				if (
-					!row ||
-					row.plant_id !== i.plant.id ||
-					!sameOwner(pairOf(row).organization, i.organization) ||
-					!(await active(tx, row))
-				)
+				if (!row || row.plant_id !== i.plant.id || !sameOwner(pairOf(row).organization, i.organization) || !active(row))
 					deny();
 				revision(v.expectedRevision, row.revision);
 				revision(i.expectedConsentRevision, row.consent_revision);

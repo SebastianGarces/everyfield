@@ -68,8 +68,9 @@ const pairFor = (i: Invite) =>
 	});
 const receivingOrganization = alias(tables.organization, "receiving_organization");
 const sendingOrganization = alias(tables.organization, "sending_organization");
-async function loadInvitation(tx: Transaction, id: string) {
-	const rows = await tx
+/** A relationship invitation with its organizations. A command locks it; the respond page reads it. */
+async function loadInvitation(tx: Transaction, id: string, lock = true) {
+	const query = tx
 		.select({
 			...getTableColumns(tables.invitation),
 			...getTableColumns(tables.relationship_invitation),
@@ -81,51 +82,55 @@ async function loadInvitation(tx: Transaction, id: string) {
 		.innerJoin(tables.relationship_invitation, eq(tables.relationship_invitation.invitation_id, tables.invitation.id))
 		.innerJoin(receivingOrganization, eq(receivingOrganization.id, tables.relationship_invitation.organization_id))
 		.leftJoin(sendingOrganization, eq(sendingOrganization.id, tables.relationship_invitation.sending_church_id))
-		.where(eq(tables.invitation.id, id))
-		.for("update", { of: tables.invitation });
+		.where(eq(tables.invitation.id, id));
+	const rows = await (lock ? query.for("update", { of: tables.invitation }) : query);
 	return rows[0] ? invitationRow.parse(rows[0]) : null;
 }
-async function assertInviter(tx: Transaction, i: Invite, pair: RelationshipPair) {
-	if (!i.inviter_id || !(await liveOwner(tx, { kind: "account", id: i.inviter_id }))) return false;
+async function assertInviter(tx: Transaction, i: Invite, pair: RelationshipPair, lock = true) {
+	const locked = <T>(q: PromiseLike<T> & { for(strength: "share"): PromiseLike<T> }) => (lock ? q.for("share") : q);
+	if (!i.inviter_id || !(await liveOwner(tx, { kind: "account", id: i.inviter_id }, lock))) return false;
 	if (pair.kind === "discovery")
 		return (
 			i.inviter_id === pair.accountId &&
 			(
-				await tx
-					.select({ id: tables.discovery.id })
-					.from(tables.discovery)
-					.where(and(eq(tables.discovery.account_id, pair.accountId), isNull(tables.discovery.converted_at)))
-					.for("share")
+				await locked(
+					tx
+						.select({ id: tables.discovery.id })
+						.from(tables.discovery)
+						.where(and(eq(tables.discovery.account_id, pair.accountId), isNull(tables.discovery.converted_at))),
+				)
 			).length === 1 &&
 			!(
-				await tx
-					.select({ id: tables.seat.id })
-					.from(tables.seat)
-					.where(and(eq(tables.seat.account_id, pair.accountId), isNull(tables.seat.ended_at)))
-					.for("share")
+				await locked(
+					tx
+						.select({ id: tables.seat.id })
+						.from(tables.seat)
+						.where(and(eq(tables.seat.account_id, pair.accountId), isNull(tables.seat.ended_at))),
+				)
 			).length
 		);
 	return (
 		(
-			await tx
-				.select({ id: tables.seat.id })
-				.from(tables.seat)
-				.where(
-					and(
+			await locked(
+				tx
+					.select({ id: tables.seat.id })
+					.from(tables.seat)
+					.where(
 						and(
 							and(
 								and(
-									eq(tables.seat.account_id, i.inviter_id),
-									eq(sql<string>`coalesce(${tables.seat.plant_id}, ${tables.seat.organization_id})`, pair.subject.id),
+									and(
+										eq(tables.seat.account_id, i.inviter_id),
+										eq(sql<string>`coalesce(${tables.seat.plant_id}, ${tables.seat.organization_id})`, pair.subject.id),
+									),
+									sql<boolean>`(${tables.seat.role} IN ('owner', 'admin'))`,
 								),
-								sql<boolean>`(${tables.seat.role} IN ('owner', 'admin'))`,
+								isNull(tables.seat.ended_at),
 							),
-							isNull(tables.seat.ended_at),
+							sql<unknown>`(NOT exists(SELECT  FROM lifecycle_witness  AS w  WHERE ((w .seat_id = seat .id) AND (w .state != ('active')))))`,
 						),
-						sql<unknown>`(NOT exists(SELECT  FROM lifecycle_witness  AS w  WHERE ((w .seat_id = seat .id) AND (w .state != ('active')))))`,
 					),
-				)
-				.for("share")
+			)
 		).length === 1
 	);
 }
@@ -345,7 +350,8 @@ export function relationshipCommands(
 					})
 					.where(eq(tables.affiliation.id, a.id))
 					.returning();
-				a = affiliationSchema.parse({ ...a, ...updated });
+				// Just accepted by a checked pair: live until a later read computes the flag again.
+				a = affiliationSchema.parse({ ...a, ...updated, active: true });
 			} else {
 				const r = await tx
 					.insert(tables.affiliation)
@@ -370,6 +376,7 @@ export function relationshipCommands(
 					organization_kind: pair.organization.organizationKind,
 					organization_name: "",
 					subject_kind: pair.kind === "sending_church" ? pair.subject.organizationKind : null,
+					active: true,
 				});
 			}
 			if (!a) refuse();
@@ -548,18 +555,19 @@ export async function readAnswerableInvitation(
 ) {
 	const q = invitationDetailRequest.safeParse(raw);
 	if (!q.success) return { status: "unavailable" } as const;
-	const i = await loadInvitation(tx, q.data.invitationId);
+	// A read: nothing is locked; the answer command re-reads and locks what it changes.
+	const i = await loadInvitation(tx, q.data.invitationId, false);
 	if (!i || !proofMatches(q.data.proof, i.token_hash)) return { status: "unavailable" } as const;
 	const pair = pairFor(i),
 		actor = await currentActor(tx, session, selected);
 	if (
 		actor.status !== "active" ||
-		!(await validPair(tx, pair)) ||
+		!(await validPair(tx, pair, false)) ||
 		!(await authorizedReceiver(tx, actor, i, pair, session))
 	)
 		return { status: "unavailable" } as const;
 	const expires = i.created_at.getTime() + 30 * 86400000;
-	if (i.state !== "pending" || (await time(tx)).getTime() >= expires || !(await assertInviter(tx, i, pair)))
+	if (i.state !== "pending" || Date.now() >= expires || !(await assertInviter(tx, i, pair, false)))
 		return { status: "unavailable" } as const;
 	return pendingInvitation.parse({
 		status: "pending",
