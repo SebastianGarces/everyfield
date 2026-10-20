@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 340 340%22%3E%3Cpath fill=%22%231AF197%22 fill-rule=%22evenodd%22 d=%22M85.1309%200C104.232%200.00640781%20121.859%206.33218%20136.041%2017.0039C156.662%2032.5207%20170%2057.2254%20170%2085.0508V85.1074C170.025%2038.2127%20208.071%200.204104%20255%200.204102H340V85.1826C339.994%20104.295%20333.671%20121.933%20323.006%20136.123C307.498%20156.756%20282.809%20170.103%20255%20170.103C301.93%20170.103%20339.977%20208.112%20340%20255.008V340H255C235.865%20340%20218.206%20333.681%20204%20323.017C183.354%20307.518%20170%20282.843%20170%20255.051C170%20301.953%20131.967%20339.977%2085.043%20340H0V255.051C5.70642e-05%20235.927%206.32349%20218.28%2016.9941%20204.082C32.4866%20183.469%2057.1431%20170.128%2084.9189%20170.103C38.1152%20170.004%200.204104%20131.962%200.204102%2085.0508V0H85.1309ZM110.207%20110.972V231.389H229.793V110.972H110.207Z%22/%3E%3C/svg%3E">
-<script>try{document.documentElement.dataset.theme=localStorage.getItem("ef-theme")||"light";document.documentElement.dataset.corners=localStorage.getItem("ef-corners")||"a"}catch(e){document.documentElement.dataset.corners="a"}</script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem("ef-theme")||"light";document.documentElement.dataset.corners=localStorage.getItem("ef-corners")||"a";document.documentElement.dataset.insight=localStorage.getItem("ef-insight")||"flat"}catch(e){document.documentElement.dataset.corners="a";document.documentElement.dataset.insight="flat"}</script>
 <title>Everyfield UI · visual identity and component kit</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -493,7 +493,7 @@ body[data-role="member"] .role-banner { display: flex; }
 .input:has(input:focus-visible) { box-shadow: 0 0 0 1.5px var(--ef-focus), 0 0 0 5px rgba(106,174,255,.25); }
 .input input:focus-visible, textarea.input:focus-visible { outline: 0; }
 textarea.input:focus-visible { box-shadow: 0 0 0 1.5px var(--ef-focus), 0 0 0 5px rgba(106,174,255,.25); }
-.insight :focus-visible { outline-color: #181D19; }
+.insight :focus-visible { outline-color: var(--on); }
 .rail-item:focus-visible .rail-tip { opacity: 1; transform: translateY(-50%); }
 .list-row:focus-visible, .task-row:focus-visible, .card:focus-visible, tbody tr:focus-visible { outline-offset: -2px; }
 
@@ -566,49 +566,78 @@ textarea.input:focus-visible { box-shadow: 0 0 0 1.5px var(--ef-focus), 0 0 0 5p
 .tone-teal { --tint: var(--ef-teal-100); --tone: var(--ef-teal-600); }
 .tone-ink { --tint: var(--ef-surface-2); --tone: var(--ef-ink-2); }
 
-/* ---- InsightCard  (<InsightCard tone="field|sky|dawn|lilac">) : the gradient card ----
-   Three layers: a base color, a heavily blurred mesh of color blobs (::before),
-   and film grain (::after). Tones set the four blob colors. */
+/* ---- InsightCard  (<InsightCard tone="field|sky|dawn|lilac">) : the brand finding card ----
+   Two surface options for Sebastian to pick, set on <html data-insight="flat|photo">
+   (Preview > Insight cards, saved in localStorage ef-insight):
+   flat  = one brand tone with film grain. field = new-growth, sky = sand (deep cream),
+           dawn = warm cream, lilac = ink with cream text.
+   photo = a treated photo: the image, a 20% black overlay, a short shade behind the top row
+           and film grain, with cream text. The tone picks the photo and its crop.
+   Corners follow --corner-media, so the card gets the top-right petal in option B.
+   Layers: base color on the card, photo and overlay in ::before, grain in ::after. */
 .insight {
   position: relative; overflow: hidden; isolation: isolate;
   border-radius: var(--corner-media); padding: 28px 30px; color: var(--on);
   display: flex; flex-direction: column; min-height: 300px;
-  background: var(--g-base);
+  background: var(--tone-bg);
   box-shadow: 0 18px 36px -24px rgba(24,29,25,.45);
+  /* text and parts on a light tone: ink. Counter text is 6:1 or better on every light tone. */
+  --on: #181D19; --on-2: rgba(24,29,25,.84); --on-3: rgba(24,29,25,.78);
+  --pill-bg: rgba(24,29,25,.07); --pill-edge: rgba(24,29,25,.18);
+  --spark: rgba(24,29,25,.18); --spark-hi: #181D19;
+  --btn-bg: #181D19; --btn-fg: #F6F0E9;
+  --grain: .4; --grain-blend: overlay;
 }
 .insight::before {
-  content: ""; position: absolute; inset: -25%; z-index: -2; pointer-events: none;
-  /* Analogous colors mixed in OKLCH so the blends stay bright, never grey. g5 is a small highlight. */
-  background:
-    radial-gradient(in oklch circle at 82% 18%, var(--g5) 0%, transparent 22%),
-    radial-gradient(in oklch 38% 44% at 24% 26%, var(--g1) 0%, transparent 72%),
-    radial-gradient(in oklch 44% 48% at 74% 38%, var(--g2) 0%, transparent 72%),
-    radial-gradient(in oklch 46% 42% at 64% 80%, var(--g3) 0%, transparent var(--g3-reach, 72%)),
-    radial-gradient(in oklch 36% 38% at 26% 78%, var(--g4) 0%, transparent 72%);
-  filter: blur(52px) saturate(1.1);
+  content: ""; position: absolute; inset: 0; z-index: -2; pointer-events: none;
+  background: var(--photo-layers, none);
 }
 .insight::after {
-  /* Grain: grey fractal noise blended with overlay, strong on purpose. */
+  /* Grain: grey fractal noise, 260px tile. */
   content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncG type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncB type='linear' slope='1.6' intercept='-.3'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-size: 260px 260px;
-  opacity: var(--grain); mix-blend-mode: overlay;
+  opacity: var(--grain); mix-blend-mode: var(--grain-blend);
 }
-/* All tones carry ink text (data-on="ink"). */
-.insight { --on: #fff; --on-2: rgba(255,255,255,.78); --on-3: rgba(255,255,255,.62); --pill-bg: rgba(255,255,255,.12); --pill-edge: rgba(255,255,255,.2); --spark: rgba(255,255,255,.24); --spark-hi: rgba(255,255,255,.9); --grain: .62; }
-.insight[data-on="ink"] { --on: #181D19; --on-2: rgba(24,29,25,.74); --on-3: rgba(24,29,25,.6); --pill-bg: rgba(24,29,25,.07); --pill-edge: rgba(24,29,25,.16); --spark: rgba(24,29,25,.16); --spark-hi: #181D19; --grain: .42; }
-/* field: the brand green, lit from the top right */
-.insight[data-tone="field"] { --g-base: #0AE18C; --g1: #1AF197; --g2: #4DF4AE; --g3: #01C278; --g4: #01A866; --g5: #E7FFEF; box-shadow: 0 18px 36px -24px rgba(3,119,72,.55); }
-/* sky: light blue */
-.insight[data-tone="sky"] { --g-base: #93C6FF; --g1: #A6D1FF; --g2: #7DB6FF; --g3: #C5E3FF; --g4: #6AA6F7; --g5: #F5FAFF; box-shadow: 0 18px 36px -24px rgba(40,90,170,.45); }
-/* ink: brand ink with a low ember of orange and a cream highlight */
-/* dawn: light orange and cream */
-.insight[data-tone="dawn"] { --g-base: #FFC48A; --g1: #FFD2A1; --g2: #FFB26A; --g3: #FFE4C4; --g4: #F7A05A; --g5: #FFF7EC; box-shadow: 0 18px 36px -24px rgba(190,110,40,.5); }
-/* lilac: soft violet */
-.insight[data-tone="lilac"] { --g-base: #C3B2FF; --g1: #D2C4FF; --g2: #B09AFF; --g3: #E4DBFF; --g4: #A48CF5; --g5: #F8F5FF; box-shadow: 0 18px 36px -24px rgba(110,80,200,.45); }
-/* Gradient cards look the same in both themes. In dark mode, neutral tokens inside them keep
-   their light values, so nested panels, buttons and text stay readable on the light gradient. */
-[data-theme="dark"] .insight[data-on="ink"] { --ef-ink: #181D19; --ef-ink-2: #313732; --ef-text: #181D19; --ef-text-2: #4E544F; --ef-text-3: #646B65; --ef-focus: #1C5BB5; --ef-surface: #FCFBF8; --ef-surface-2: #F0EAE3; --ef-surface-3: #E5DFD6; --ef-surface-raised: #FFFFFF; --ef-line: rgba(24, 29, 25, .08); --ef-line-2: rgba(24, 29, 25, .14); --ef-on-ink: #FFFFFF; --ef-on-ink-soft: rgba(255,255,255,.12); --ef-hover: rgba(24, 29, 25, .05); --ef-card-edge: rgba(255,255,255,.85); --ef-switch-off: #D9D3CC; color-scheme: light; }
+/* Option 1, flat brand tones */
+.insight[data-tone="field"] { --tone-bg: #1AF197; }
+.insight[data-tone="sky"] { --tone-bg: #E9DFD1; }
+.insight[data-tone="dawn"] { --tone-bg: #F6DCB4; }
+.insight[data-tone="lilac"], [data-insight="photo"] .insight[data-tone] {
+  /* text and parts on a dark surface: cream */
+  --on: #F6F0E9; --on-2: rgba(246,240,233,.88); --on-3: rgba(246,240,233,.8);
+  --pill-bg: rgba(246,240,233,.12); --pill-edge: rgba(246,240,233,.26);
+  --spark: rgba(246,240,233,.26); --spark-hi: #1AF197;
+  --btn-bg: #F6F0E9; --btn-fg: #181D19;
+}
+.insight[data-tone="lilac"] { --tone-bg: #181D19; --grain: .1; --grain-blend: screen; }
+[data-theme="dark"] .insight[data-tone="lilac"] { box-shadow: 0 0 0 1px rgba(246,240,233,.12) inset, 0 18px 36px -24px rgba(0,0,0,.6); }
+/* Option 2, treated photo. The photo layer is taller than the card and anchored to the bottom,
+   so every card shows the darker ground of the photo, never the bright sky. The 20% black overlay
+   and the grain sit above the photo, so a new photo only needs a path. */
+[data-insight="photo"] .insight[data-tone] {
+  --tone-bg: #2A2B22; --grain: .3; --grain-blend: overlay; --spark-hi: #F6F0E9;
+  --on-2: rgba(246,240,233,.94); --on-3: rgba(246,240,233,.9);
+  --pill-bg: rgba(24,29,25,.36); --pill-edge: rgba(246,240,233,.24);
+  /* overlay: 20% black. Shade: a short darker band behind the pill and counter row,
+     where stubble and wheat tips are brightest. Both measured to 4.5:1 for cream text. */
+  --photo-layers:
+    linear-gradient(rgba(0,0,0,.2), rgba(0,0,0,.2)),
+    linear-gradient(rgba(0,0,0,.34), rgba(0,0,0,0) 30%) 0 100% / 100% calc(100% * 100% / var(--photo-reach, 230%)) no-repeat,
+    var(--photo) var(--photo-x, 50%) 100% / cover no-repeat;
+  box-shadow: 0 18px 36px -24px rgba(0,0,0,.6);
+}
+[data-insight="photo"] .insight[data-tone]::before { inset: auto 0 0 0; height: var(--photo-reach, 230%); }
+[data-insight="photo"] .insight[data-tone="field"] { --photo: image-set(url("./assets/photos/wheat-1200.avif") type("image/avif"), url("./assets/photos/wheat-1200.jpg") type("image/jpeg")); --photo-x: 40%; }
+[data-insight="photo"] .insight[data-tone="sky"] { --photo: image-set(url("./assets/photos/field-1200.avif") type("image/avif"), url("./assets/photos/field-1200.jpg") type("image/jpeg")); --photo-x: 50%; --photo-reach: 300%; }
+[data-insight="photo"] .insight[data-tone="dawn"] { --photo: image-set(url("./assets/photos/wheat-1200.avif") type("image/avif"), url("./assets/photos/wheat-1200.jpg") type("image/jpeg")); --photo-x: 100%; }
+[data-insight="photo"] .insight[data-tone="lilac"] { --photo: image-set(url("./assets/photos/field-1200.avif") type("image/avif"), url("./assets/photos/field-1200.jpg") type("image/jpeg")); --photo-x: 0%; --photo-reach: 300%; }
+/* A panel nested in the card: frosted on a flat tone, solid on a photo so its text never sits on the image. */
+.insight .insight-panel { background: rgba(255,255,255,.72); }
+[data-insight="photo"] .insight .insight-panel { background: var(--ef-surface); }
+/* In dark mode, neutral tokens inside the light flat tones keep their light values, so nested
+   panels, buttons and text stay readable. The ink tone and the photos already carry cream text. */
+[data-theme="dark"]:not([data-insight="photo"]) .insight[data-tone]:not([data-tone="lilac"]) { --ef-ink: #181D19; --ef-ink-2: #313732; --ef-text: #181D19; --ef-text-2: #4E544F; --ef-text-3: #646B65; --ef-focus: #1C5BB5; --ef-surface: #FCFBF8; --ef-surface-2: #F0EAE3; --ef-surface-3: #E5DFD6; --ef-surface-raised: #FFFFFF; --ef-line: rgba(24, 29, 25, .08); --ef-line-2: rgba(24, 29, 25, .14); --ef-on-ink: #FFFFFF; --ef-on-ink-soft: rgba(255,255,255,.12); --ef-hover: rgba(24, 29, 25, .05); --ef-card-edge: rgba(255,255,255,.85); --ef-switch-off: #D9D3CC; color-scheme: light; }
 .insight-top { display: flex; align-items: center; justify-content: space-between; }
 .insight-pill {
   display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 14px;
@@ -627,8 +656,7 @@ textarea.input:focus-visible { box-shadow: 0 0 0 1.5px var(--ef-focus), 0 0 0 5p
 .insight[data-size="sm"] { min-height: 0; padding: 22px 24px; }
 .insight[data-size="sm"] .insight-metric .num { font-size: 46px; }
 .insight[data-size="sm"] .insight-title { font-size: 21px; }
-.insight .btn[data-variant="light"] { box-shadow: 0 8px 18px -10px rgba(0,0,0,.5); }
-.insight[data-on="ink"] .btn[data-variant="light"] { background: #181D19; color: #F6F0E9; box-shadow: 0 8px 18px -10px rgba(24,29,25,.6); }
+.insight .btn[data-variant="light"] { background: var(--btn-bg); color: var(--btn-fg); box-shadow: 0 8px 18px -10px rgba(24,29,25,.6); }
 .insight .btn[data-variant="glass"] { background: var(--pill-bg); color: var(--on); box-shadow: 0 0 0 1px var(--pill-edge) inset; }
 .insight-dots { display: flex; gap: 6px; }
 .insight-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--spark); }
@@ -2303,7 +2331,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
         <div class="insight-top"><span class="insight-pill"><i class="hgi-stroke hgi-plant-01"></i>Week 1</span><span class="insight-count">2 of 5 done</span></div>
         <div class="insight-title" style="font-size:32px;max-width:520px">Welcome to Everyfield, Daniel. Here is your first week.</div>
         <div class="insight-text">Phase 1 is about gathering a core group. These steps get your plan, your people and your team into one place.</div>
-        <div class="card mt-6" style="padding:6px 20px;background:rgba(255,255,255,.72);box-shadow:none">
+        <div class="card insight-panel mt-6" style="padding:6px 20px;box-shadow:none">
           <div class="setup-step" data-done><span class="ss-n"><i class="hgi-stroke hgi-tick-02"></i></span><div><div class="ss-t">Create Harvest Point Church</div></div><span></span></div>
           <div class="setup-step" data-done><span class="ss-n"><i class="hgi-stroke hgi-tick-02"></i></span><div><div class="ss-t">Choose your phase and launch target</div></div><span></span></div>
           <div class="setup-step"><span class="ss-n">3</span><div><div class="ss-t">Add the people you already know</div><div class="ss-s">Import a spreadsheet or add them one by one.</div></div><a class="btn" data-variant="primary" data-size="sm" href="#/people/import">Import</a></div>
@@ -2908,7 +2936,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
     </div>
     <div class="insight" data-tone="sky" data-on="ink" data-size="sm" style="min-height:0">
       <div class="insight-top"><span class="insight-pill"><i class="hgi-stroke hgi-clock-01"></i>From meeting #11</span><span class="insight-count">22 h left</span></div>
-      <div class="row gap-4" style="align-items:flex-end;margin-top:16px"><span class="num" style="font-size:52px;line-height:.95">3<span style="font-size:28px;opacity:.6">/9</span></span><span style="color:var(--on-2);font-size:14px;max-width:190px">first-timers still wait for a call</span></div>
+      <div class="row gap-4" style="align-items:flex-end;margin-top:16px"><span class="num" style="font-size:52px;line-height:.95">3<span style="font-size:28px;color:var(--on-3)">/9</span></span><span style="color:var(--on-2);font-size:14px;max-width:190px">first-timers still wait for a call</span></div>
       <div class="insight-title" style="margin-top:12px">Close the 48-hour follow-up before Sunday</div>
       <div class="row gap-2 mt-3"><div class="avatar-group"><span class="avatar tone-magenta" data-size="sm">KW</span><span class="avatar tone-amber" data-size="sm">EP</span><span class="avatar tone-blue" data-size="sm">SN</span></div><span style="color:var(--on-2);font-size:13px">Kim, Eli and Sara</span></div>
       <div class="insight-footer" style="padding-top:16px"><button class="btn" data-variant="light" data-size="sm">Assign callers <i class="hgi-stroke hgi-arrow-right-01"></i></button></div>
@@ -4531,6 +4559,8 @@ body[data-role="member"] [data-author-only] { display: none !important; }
   <div class="pp-opts" data-pp="role"><button data-v="owner" aria-pressed="true">Owner</button><button data-v="member" aria-pressed="false">Member · own tasks</button></div>
   <h4>Corners</h4>
   <div class="pp-opts" data-pp="corners"><button data-v="a" aria-pressed="true">A · Square</button><button data-v="b" aria-pressed="false">B · Petal</button><button data-v="c" aria-pressed="false">C · Round controls</button></div>
+  <h4>Insight cards</h4>
+  <div class="pp-opts" data-pp="insight"><button data-v="flat" aria-pressed="true">Flat · Brand tone</button><button data-v="photo" aria-pressed="false">Photo</button></div>
   <h4>Data</h4>
   <div class="pp-opts" data-pp="data"><button data-v="live" aria-pressed="true">Live</button><button data-v="firstweek" aria-pressed="false">First week</button><button data-v="loading" aria-pressed="false">Loading</button><button data-v="error" aria-pressed="false">Error</button><button data-v="noaccess" aria-pressed="false">No access</button><button data-v="empty" aria-pressed="false">Empty</button></div>
   <p class="pp-note">Data states are drawn for Overview and People. Member view hides administration across the app. Tasks shows what a Member does on their own tasks.</p>
@@ -5242,6 +5272,7 @@ document.addEventListener('keydown', e => {
 /* Preview states from the design dock: role and data state on <body>. */
 document.body.dataset.role = 'owner'; document.body.dataset.data = 'live';
 document.querySelectorAll('[data-pp="corners"] button').forEach(x => x.setAttribute('aria-pressed', x.dataset.v === document.documentElement.dataset.corners));
+document.querySelectorAll('[data-pp="insight"] button').forEach(x => x.setAttribute('aria-pressed', x.dataset.v === document.documentElement.dataset.insight));
 const PREVIEW_LABEL = { owner: 'Owner', member: 'Member', live: 'Live', firstweek: 'First week', loading: 'Loading', error: 'Error', noaccess: 'No access', empty: 'Empty' };
 function togglePreview(btn) {
   const pop = document.getElementById('preview-pop'), open = pop.dataset.open !== 'true';
@@ -5256,6 +5287,9 @@ document.getElementById('preview-pop').addEventListener('click', e => {
     document.documentElement.dataset.corners = b.dataset.v;
     try { localStorage.setItem('ef-corners', b.dataset.v); } catch (err) {}
     requestAnimationFrame(refreshHoverGroups);
+  } else if (key === 'insight') {
+    document.documentElement.dataset.insight = b.dataset.v;
+    try { localStorage.setItem('ef-insight', b.dataset.v); } catch (err) {}
   } else document.body.dataset[key] = b.dataset.v;
   document.getElementById('preview-val').textContent = PREVIEW_LABEL[document.body.dataset.role] + ' · ' + PREVIEW_LABEL[document.body.dataset.data] + ' · ' + document.documentElement.dataset.corners.toUpperCase();
   const el = document.querySelector('.page[data-active="true"]'); if (el) staggerReveal(el);
