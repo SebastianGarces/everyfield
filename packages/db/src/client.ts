@@ -15,7 +15,9 @@ export type DatabaseOptions = {
 };
 
 export function createDatabase(options: DatabaseOptions) {
-	const pool = new pg.Pool({ connectionTimeoutMillis: 10_000, idleTimeoutMillis: 10_000, ...options });
+	// An idle client stays open for five minutes, so the first query after a short pause reuses a warm connection
+	// instead of paying a new TLS handshake and authentication. Five minutes matches Neon's own inactivity window.
+	const pool = new pg.Pool({ connectionTimeoutMillis: 10_000, idleTimeoutMillis: 300_000, ...options });
 	return drizzle({ client: pool, schema });
 }
 
