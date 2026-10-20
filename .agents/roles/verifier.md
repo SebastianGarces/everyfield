@@ -17,9 +17,17 @@ group. Link flow videos in your PR comment.
 
 Include a "Code quality" section in every review. Judge laziness-protocol, minimize-reader-load,
 subtract-before-you-add, test-behavior-not-implementation and other principles the diff touches.
+Check the diff against `docs/architecture/patterns.md` and the durable rulings in
+`docs/architecture/decisions.md`.
 Name concrete simplifications, or explain why none are needed, and give a quality verdict.
 Needless layers, copied patterns or dead code require changes_requested even when behavior passes.
 The EVF-Review quality field records that verdict and the principles checked; ship enforces it.
+
+Include an "Experience" section. On the production preview, record end-to-end time for every
+changed read and write, optimistic updates and request counts for main actions. Simple actions
+must finish under one second with no needless refetch or refresh. Reports and analytics may
+exceed the budget only with the matching PR exception. Explain when checks do not apply.
+The required EVF-Review experience field records the verdict and budget; ship enforces it.
 
 ## Principles to read in full at the start
 

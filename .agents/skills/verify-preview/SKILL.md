@@ -100,6 +100,13 @@ difference into `$E/ui-results.json`. The flow runs on both sides with a video. 
 a non-200 status, a page or console error, an axe violation that main does not have, or a failed
 flow check on the branch.
 
+On the production preview, measure end-to-end time for every changed read and write, from the
+user action until its confirmed result. Simple actions must finish in under 1 second. Record
+whether writes update the UI optimistically and roll back clearly on failure. Count requests for
+main actions and inspect them for needless refetches or refreshes. Keep timings and request logs
+in `$E` and summarize them in the Experience section. Reports and analytics may exceed the time
+budget only when the PR names that approved category and explains the slower action.
+
 Then check the changed behavior by hand with agent-browser on the branch preview: open the pages,
 use the controls, read `ab errors` and `ab console`, and take screenshots of states the flow does
 not reach. When a flow matters more than a still image (an overlay, focus order, a transition, a
@@ -200,8 +207,19 @@ New accessibility violations: none. Present on main too: <list or none>.
 
 **Principles checked:** laziness-protocol, minimize-reader-load, subtract-before-you-add,
 test-behavior-not-implementation, <other applicable principles>.
+**Patterns checked:** `docs/architecture/patterns.md`.
 **Simplifications:** <concrete changes needed, or why none are needed>.
 **Quality verdict:** approved | changes_requested.
+
+## Experience
+
+| Changed read or write | End-to-end time | Optimistic update and rollback | Requests |
+|---|---|---|---|
+| <action> | <milliseconds on production preview> | <observed behavior or not applicable> | <count and purpose> |
+
+**Experience verdict:** approved | changes_requested. <Needless refetch or refresh fails.>
+**Budget:** met | exceeded | not_applicable. <For non-UI work explain why this does not apply.>
+**Exception:** <reports or analytics, slower action and reason; otherwise none>.
 ```
 
 Read the diff against those principles. Needless layers, copied patterns or dead code require
@@ -210,13 +228,21 @@ changes_requested even when behavior passes. Post it once:
 ```bash
 node $S/post-review.mjs --pr <n> --report "$E/report.md" --family <your family> \
   --verdict approved --head <40-char sha> --quality-verdict approved \
+  --experience-verdict approved --budget met \
   --principles laziness-protocol,minimize-reader-load,subtract-before-you-add,test-behavior-not-implementation \
   --results "$E/ui-results.json" --results "$E/backend-results.json"
 ```
 
 Pass only the results files you produced. Include every applicable principle in --principles.
 
-The script appends `EVF-Review: {"head":...,"verifierFamily":...,"verdict":...,"quality":{"verdict":...,"principles":[...]}}` and posts one
+Use `--budget not_applicable` only when there is no UI experience to measure, and explain why.
+For an approved reports or analytics timing exception, pass `--budget exceeded
+--experience-exception reports` (or `analytics`); the PR body must contain the matching standalone
+line `EVF-Experience-Exception: reports` (or `analytics`) and explain the action and reason.
+These categories are the approved timing exceptions in EveryField patterns. They never waive
+failed smoothness or code quality; use `--experience-verdict changes_requested` for those failures.
+
+The script appends `EVF-Review: {"head":...,"verifierFamily":...,"verdict":...,"quality":{"verdict":...,"principles":[...]},"experience":{"verdict":...,"budget":...}}` and posts one
 comment. It refuses a head that is not the PR's current head, your own family, results captured on
 another head, and an approval when any results file or the report shows a failure. Use
 `--verdict changes_requested` when anything fails, then send the failures to the coordinator.
