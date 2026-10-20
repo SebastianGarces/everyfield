@@ -981,7 +981,36 @@ test("BUG-FB-review-1: full People pages and pipeline use fixed database round t
 	assert.deepEqual(counts.card, counts.list);
 	assert.ok(counts.list[0] <= 9, "list round-trip budget includes authorization and transaction overhead");
 	assert.deepEqual(counts.pipeline, [counts.pipeline[0], counts.pipeline[0], counts.pipeline[0]]);
-	assert.ok(counts.pipeline[0] <= 32, "pipeline round-trip budget includes all columns");
+	// BEGIN, column revisions, one window over all columns, commitment, duties, COMMIT.
+	assert.ok(counts.pipeline[0] <= 6, `pipeline read: ${counts.pipeline[0]} statements`);
+	// "Show more" names its column and reads one page of it with the same fixed statement count.
+	queries = [];
+	const more = ok(
+		await tx((t) => read.getPipelineData(t, ctx(), { search: "Batch regression", limit: 25, page: 2, column: "prospect" })),
+	);
+	assert.equal(queries.length, counts.pipeline[0]);
+	const prospects = more.groups.find((g) => g.column === "prospect");
+	assert.deepEqual(
+		prospects.cards.map((c) => c.person.id),
+		ids.slice(25, 50),
+	);
+	assert.deepEqual([prospects.total, prospects.next], [101, 3]);
+	assert.deepEqual(
+		more.groups.filter((g) => g.column !== "prospect").map((g) => [g.cards, g.total, g.next]),
+		Array.from({ length: 4 }, () => [[], null, null]),
+	);
+	// A page past the end is empty and still reports the column total (D67).
+	const past = ok(await tx((t) => read.getPipelineData(t, ctx(), { search: "Batch regression", limit: 25, page: 9 })));
+	assert.deepEqual(
+		past.groups.map((g) => [g.column, g.cards.length, g.total, g.next]),
+		[
+			["prospect", 0, 101, null],
+			["attendee", 0, 0, null],
+			["following_up", 0, 0, null],
+			["interviewed", 0, 0, null],
+			["core_group", 0, 0, null],
+		],
+	);
 	const evidence = [randomUUID(), randomUUID()].sort();
 	await admin.execute(sql`INSERT INTO commitment(id,plant_id,person_id,kind,signed_on,recorded_at)
 		SELECT id,${plants[0]}::uuid,${ids[0]}::uuid,'launch_team','2099-01-01',clock_timestamp() FROM unnest(${sql.param(evidence)}::uuid[]) id`);
