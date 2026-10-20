@@ -398,6 +398,14 @@ export function createFixturePort(
 				current: next,
 			});
 		},
+		async saveChurch(requests) {
+			let reply = await port.saveSection(requests[0]!);
+			for (const next of requests.slice(1)) {
+				if (reply.status !== "ok" || reply.value.current.section !== "plant") break;
+				reply = await port.saveSection({ ...next, expectedRevision: reply.value.current.revision });
+			}
+			return reply;
+		},
 		async previewPlantTimezone(request) {
 			const fault = await enter("previewPlantTimezone");
 			if (fault) return fault;

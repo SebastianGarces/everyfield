@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { loadPage } from "../identity/api";
-import { getSection, previewPlantTimezone, saveSection, setPlantTimezone } from "./actions";
+import { getSection, previewPlantTimezone, saveChurch, saveSection, setPlantTimezone } from "./actions";
 import { dialogSection, type DialogSection } from "./model";
 import type { SectionKey, SettingsPort, SettingsViewer } from "./port";
 import { SettingsDialog } from "./SettingsDialog";
@@ -15,7 +15,7 @@ import { SettingsProvider } from "./store";
 // address back; Back and Forward move between those entries. A fresh load of a section link renders the settings
 // route (app/settings/[section]), and closing then goes to the viewer's home page.
 
-const PORT: SettingsPort = { getSection, saveSection, previewPlantTimezone, setPlantTimezone };
+const PORT: SettingsPort = { getSection, saveSection, saveChurch, previewPlantTimezone, setPlantTimezone };
 const hrefFor = (key: SectionKey) => `/settings/${key}`;
 
 /**

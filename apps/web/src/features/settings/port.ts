@@ -67,6 +67,8 @@ export type Relationship = {
 export interface SettingsPort {
 	getSection(request: GetSectionRequest): Promise<Reply<SectionResult>>;
 	saveSection(request: SaveSectionRequest): Promise<Reply<SavedSection>>;
+	/** Up to three church changes saved together; a refusal of one keeps all of them unsaved. */
+	saveChurch(requests: SaveSectionRequest[]): Promise<Reply<SavedSection>>;
 	previewPlantTimezone(request: z.input<typeof S.previewPlantTimezoneRequest>): Promise<Reply<PlantTimezonePreview>>;
 	setPlantTimezone(request: z.input<typeof S.setPlantTimezoneRequest>): Promise<Reply<PlantTimezoneResult>>;
 	/**
