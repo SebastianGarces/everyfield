@@ -356,9 +356,12 @@ const approveWrites = (f: any) =>
 test("INV-human-approve-scope: ordinary build and OPS PRs refuse evf approve before any write", () => {
 	const f = fixture();
 	try {
+		// An OPS branch's route comes from the registration committed at its PR head, so the head is fetched.
+		f.git("remote", "add", "origin", f.bare(join(f.root, "fake-bin/origin.git")));
+		f.git("push", "-q", "origin", "main", "main:refs/heads/task/ops-1");
 		for (const branch of ["task/wp-001", "task/ops-1", "ops/some-tooling"]) {
 			const s = f.getState();
-			s.pr = approvePr(branch, { files: [{ path: "tools/evf/ship.ts" }] });
+			s.pr = approvePr(branch, { files: [{ path: "tools/evf/ship.ts" }], headRefOid: f.git("rev-parse", "main") });
 			f.setState(s);
 			assert.throws(
 				() => approve(f.root, 77, { ownerApproval: "Approved for this PR" }),
@@ -737,11 +740,11 @@ const approvedQuality = {
 
 const approvedExperience = { verdict: "approved", budget: "met" };
 
-function mergeFixture() {
+function mergeFixture(scope: Record<string, unknown> = { owningPaths: ["tools/evf/"] }) {
 	const f = fixture(),
 		task = parseTask("OPS-1");
 	f.cfg.maintenanceTasks = {
-		[task.id]: { title: "Workflow upkeep", owningPaths: ["tools/evf/"], checks: f.cfg.checks },
+		[task.id]: { title: "Workflow upkeep", checks: f.cfg.checks, ...scope },
 	};
 	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
 	f.commit();
@@ -820,7 +823,7 @@ test("BUG-pr165-ledger: only a transfer-only OPS task commits the progress ledge
 		f.cfg.maintenanceTasks![task.id].owningPaths = ["docs/build-progress.json"];
 		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
 		f.commit();
-		requireTaskScope(f.root, task);
+		requireTaskScope(f.root, f.root, task);
 		const wt = f.task(task.slug),
 			ledger = readFileSync(join(wt, "docs/build-progress.json"), "utf8");
 		assert.throws(() => reconcileProgress(wt), /Reconcile progress in the home checkout, not a task worktree/);
@@ -862,6 +865,7 @@ test("BUG-c048ea5-folder-path: maintenance refuses an existing folder without a 
 		]) {
 			f.cfg.maintenanceTasks[task.id].owningPaths = [path];
 			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+			f.commit();
 			assert.throws(
 				() => taskStart(f.root, task, { allowUnready: false, noStack: true }),
 				/Maintenance owning paths must stay in documentation and workflow tooling/,
@@ -1901,18 +1905,22 @@ test("BUG-ops15-dependencies: task start installs before stack startup and stops
 });
 
 test("INV-design-route: a design task owns only design/, waits after the verifier and merges only on Sebastian's approval", () => {
-	const f = mergeFixture();
+	const f = mergeFixture({ owningPaths: ["design/"], route: "design" });
 	try {
-		const scope = f.cfg.maintenanceTasks[f.taskRef.id];
-		const setScope = (next: Record<string, unknown>) => {
-			f.cfg.maintenanceTasks[f.taskRef.id] = { ...scope, ...next };
-			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+		// The registration under check is the one committed on the task branch.
+		const commitScope = (next: Record<string, unknown>) => {
+			const cfg = JSON.parse(readFileSync(join(f.wt, "evf.config.json"), "utf8"));
+			cfg.maintenanceTasks[f.taskRef.id] = { ...cfg.maintenanceTasks[f.taskRef.id], ...next };
+			writeFileSync(join(f.wt, "evf.config.json"), JSON.stringify(cfg));
+			execFileSync("git", ["-C", f.wt, "commit", "-qam", "Change the registration"]);
 		};
-		setScope({ owningPaths: ["design/"] });
-		assert.throws(() => requireTaskScope(f.root, f.taskRef), /must stay in documentation and workflow tooling/);
-		setScope({ owningPaths: ["design/", "tools/evf/"], route: "design" });
-		assert.throws(() => requireTaskScope(f.root, f.taskRef), /A design task owns only design\/ paths/);
-		setScope({ owningPaths: ["design/"], route: "design" });
+		commitScope({ owningPaths: ["design/"], route: undefined });
+		assert.throws(() => requireTaskScope(f.root, f.wt, f.taskRef), /must stay in documentation and workflow tooling/);
+		commitScope({ owningPaths: ["design/", "tools/evf/"], route: "design" });
+		assert.throws(() => requireTaskScope(f.root, f.wt, f.taskRef), /A design task owns only design\/ paths/);
+		execFileSync("git", ["-C", f.wt, "reset", "-q", "--hard", f.sha]);
+		requireTaskScope(f.root, f.wt, f.taskRef);
+		f.git("push", "-q", "origin", f.taskRef.branch);
 
 		const merges = () => f.getState().calls.filter((c: any) => c.args[0] === "pr" && c.args[1] === "merge");
 		assert.equal(ship(f.root, f.taskRef), 0);

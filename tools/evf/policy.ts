@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { existsSync, statSync } from "node:fs";
 import {
 	baseRef,
+	committedConfig,
 	git,
 	fail,
 	findPackage,
@@ -9,6 +10,7 @@ import {
 	loadConfig,
 	readJson,
 	prerequisitesForPart,
+	type MaintenanceScope,
 	type Part,
 	type TaskRef,
 } from "./lib.ts";
@@ -46,45 +48,59 @@ export function requireSpend(root: string): void {
 		fail("G-SPEND must approve the concrete paid provider envelope before usage or subscription commitment.");
 }
 
-export function requireTaskScope(root: string, task: TaskRef, wp?: string): void {
-	if (task.kind === "ops") {
-		const scope = loadConfig(root).maintenanceTasks?.[task.id];
-		if (!scope?.title || !scope.owningPaths.length || !scope.checks?.length)
-			fail("Maintenance requires a reviewed title, owning paths and local tooling checks in maintenanceTasks.");
-		for (const path of scope.owningPaths) {
-			if (!path.endsWith("/") && existsSync(join(root, path)) && statSync(join(root, path)).isDirectory())
-				fail(`Maintenance owning path ${path} is a folder; use ${path}/ to include its files.`);
-		}
-		const ledger = "docs/build-progress.json";
-		if (
-			scope.owningPaths.join("\n") !== ledger &&
-			scope.owningPaths.some((p) => (p.endsWith("/") ? ledger.startsWith(p) : p === ledger))
+/**
+ * An OPS task's registration is its maintenanceTasks entry committed at the checked commit: the task branch
+ * for the author, the PR head for the verifier. evf never reads or edits the home checkout's file for it.
+ */
+export function maintenanceScope(checkout: string, task: TaskRef, rev = "HEAD"): MaintenanceScope {
+	const scope = committedConfig(checkout, rev).maintenanceTasks?.[task.id];
+	if (!scope?.title || !scope.owningPaths?.length || !scope.checks?.length)
+		fail(
+			`Commit the reviewed ${task.id} entry (title, owning paths, tooling checks) to maintenanceTasks in evf.config.json on the task branch in ${checkout}. evf reads it from the checked commit, never from the home checkout.`,
+		);
+	for (const path of scope.owningPaths) {
+		if (!path.endsWith("/") && existsSync(join(checkout, path)) && statSync(join(checkout, path)).isDirectory())
+			fail(`Maintenance owning path ${path} is a folder; use ${path}/ to include its files.`);
+	}
+	const ledger = "docs/build-progress.json";
+	if (
+		scope.owningPaths.join("\n") !== ledger &&
+		scope.owningPaths.some((p) => (p.endsWith("/") ? ledger.startsWith(p) : p === ledger))
+	)
+		fail(`Only a transfer task that owns exactly ${ledger} may commit the progress ledger (OPS-7).`);
+	const files = [
+		"README.md",
+		"AGENTS.md",
+		"evf.config.json",
+		"skills-lock.json",
+		".gitignore",
+		"bin/evf",
+		"everyfield-feature-review.html",
+		"design/handoff/screens.md",
+	];
+	const directories = [".agents/", ".claude/", "docs/", "tools/evf/", ".github/"];
+	if (scope.route === "design") {
+		if (scope.owningPaths.some((path) => !path.startsWith("design/") || path.split("/").includes("..")))
+			fail("A design task owns only design/ paths.");
+	} else if (
+		scope.owningPaths.some(
+			(path) =>
+				path.split("/").includes("..") || (!files.includes(path) && !directories.some((dir) => path.startsWith(dir))),
 		)
-			fail(`Only a transfer task that owns exactly ${ledger} may commit the progress ledger (OPS-7).`);
-		const files = [
-			"README.md",
-			"AGENTS.md",
-			"evf.config.json",
-			"skills-lock.json",
-			".gitignore",
-			"bin/evf",
-			"everyfield-feature-review.html",
-			"design/handoff/screens.md",
-		];
-		const directories = [".agents/", ".claude/", "docs/", "tools/evf/", ".github/"];
-		if (scope.route === "design") {
-			if (scope.owningPaths.some((path) => !path.startsWith("design/") || path.split("/").includes("..")))
-				fail("A design task owns only design/ paths.");
-		} else if (
-			scope.owningPaths.some(
-				(path) =>
-					path.split("/").includes("..") || (!files.includes(path) && !directories.some((dir) => path.startsWith(dir))),
-			)
-		)
-			fail(
-				"Maintenance owning paths must stay in documentation and workflow tooling; OPS cannot authorize application code.",
-			);
-	} else {
+	)
+		fail(
+			"Maintenance owning paths must stay in documentation and workflow tooling; OPS cannot authorize application code.",
+		);
+	const risk = scope.risk ?? "ordinary";
+	if (risk !== "ordinary")
+		fail(`${task.id} is ${risk}; get the owner's scoped approval in Intent before implementation or merge.`);
+	return scope;
+}
+
+/** `checkout` is the commit under check; OPS tasks read their registration there. */
+export function requireTaskScope(root: string, checkout: string, task: TaskRef, wp?: string): void {
+	if (task.kind === "ops") maintenanceScope(checkout, task);
+	else {
 		if (!wp) fail("Missing reviewed task scope.");
 		requireImplementation(root, wp, task.part);
 	}
@@ -93,22 +109,35 @@ export function requireTaskScope(root: string, task: TaskRef, wp?: string): void
 
 /** Sensitive work still needs an owner decision in Intent. Ordinary task scope is the default. */
 export function requireTaskRisk(root: string, task: TaskRef): void {
-	const cfg = loadConfig(root),
-		risk = cfg.taskRisks?.[task.id] ?? cfg.maintenanceTasks?.[task.id]?.risk ?? "ordinary";
+	const risk = loadConfig(root).taskRisks?.[task.id] ?? "ordinary";
 	if (risk !== "ordinary")
 		fail(`${task.id} is ${risk}; get the owner's scoped approval in Intent before implementation or merge.`);
 }
 
-/** Check the task's scope, including candidate tooling changes. */
+/** True when evf.config.json differs between `base` and `head` only in the task's own maintenanceTasks entry. */
+export function changesOnlyOwnRegistration(repo: string, task: TaskRef, base: string, head: string): boolean {
+	const withoutOwnEntry = (rev: string) => {
+		const cfg = committedConfig(repo, rev);
+		delete cfg.maintenanceTasks?.[task.id];
+		return JSON.stringify(cfg);
+	};
+	return withoutOwnEntry(base) === withoutOwnEntry(head);
+}
+
+/**
+ * Check the task's changed paths. An OPS branch may change evf.config.json only in its own maintenanceTasks
+ * entry, whether or not it owns the file: that is how it registers, and the verifier reviews the entry.
+ */
 export function requireMaintenancePaths(root: string, wt: string, task: TaskRef): void {
-	const cfg = loadConfig(root);
-	if (task.kind === "ops") {
-		const owns = (path: string) =>
-			cfg.maintenanceTasks![task.id].owningPaths.some((p) => (p.endsWith("/") ? path.startsWith(p) : path === p));
-		const changed = git(wt, "diff", "--name-only", "--no-renames", baseRef(root, cfg), "HEAD")
-			.split("\n")
-			.filter(Boolean);
-		if (changed.some((p) => !owns(p))) fail("Maintenance candidate changes paths outside its reviewed owning paths.");
-		if (changed.includes(APPROVED_PROTOTYPE)) fail(`${APPROVED_PROTOTYPE} keeps its approved bytes.`);
-	}
+	if (task.kind !== "ops") return;
+	const base = baseRef(root, loadConfig(root)),
+		scope = maintenanceScope(wt, task);
+	// evf.config.json holds every task's registration, so owning it never waives the own-entry rule.
+	const owns = (path: string) =>
+		path === "evf.config.json"
+			? changesOnlyOwnRegistration(wt, task, base, "HEAD")
+			: scope.owningPaths.some((p) => (p.endsWith("/") ? path.startsWith(p) : path === p));
+	const changed = git(wt, "diff", "--name-only", "--no-renames", base, "HEAD").split("\n").filter(Boolean);
+	if (changed.some((p) => !owns(p))) fail("Maintenance candidate changes paths outside its reviewed owning paths.");
+	if (changed.includes(APPROVED_PROTOTYPE)) fail(`${APPROVED_PROTOTYPE} keeps its approved bytes.`);
 }

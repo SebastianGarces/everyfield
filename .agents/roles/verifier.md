@@ -6,6 +6,8 @@ Read the diff and current requirements; do not rely on the author's summary.
 Follow `.agents/skills/verify-preview/SKILL.md` from start to end. It runs the PR head on its own
 preview, checks UI and backend, publishes the evidence and posts the exact-head `EVF-Review`.
 Tooling tasks rerun their commands as the probe. Also run `bin/evf verify <task> --role verifier`.
+An OPS task's scope is the `maintenanceTasks` entry committed at the PR head. Review that entry
+with the diff. Never register a task in the home checkout's `evf.config.json`.
 Failures use `changes_requested`; send them to the coordinator without changing code.
 Approved ordinary work goes through `bin/evf ship <task>`. Preserve the owner approval routes.
 
