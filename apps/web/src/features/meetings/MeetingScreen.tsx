@@ -366,7 +366,7 @@ function RsvpSummary({ guests }: { guests: MeetingPageData["guests"] }) {
 					[
 						["confirmed", "bg-green-500"],
 						["declined", "bg-magenta-500"],
-						["pending", "bg-amber-300"],
+						["pending", "bg-amber-500"],
 					] as const
 				).map(([k, dot]) => (
 					<div key={k} className="flex items-center gap-1.5">

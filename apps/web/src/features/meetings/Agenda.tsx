@@ -173,25 +173,27 @@ function AgendaForm({
 								<li key={r.id} className="flex flex-col gap-1">
 									<div className="flex items-center gap-2">
 										<span className="w-6 flex-none text-right text-sm text-text-3 tabular-nums">{i + 1}</span>
-										<Input
-											aria-label={`Section ${i + 1} title`}
-											value={r.title}
-											maxLength={120}
-											invalid={Boolean(error && r.title.trim() === "")}
-											onChange={(e) => update(i, { title: e.target.value })}
-											boxClassName="flex-1"
-											autoComplete="off"
-										/>
-										<Input
-											aria-label={`Section ${i + 1} minutes`}
-											inputMode="numeric"
-											value={r.minutes}
-											maxLength={3}
-											invalid={Boolean(error && r.title.trim() !== "")}
-											onChange={(e) => update(i, { minutes: e.target.value })}
-											boxClassName="w-[92px] flex-none"
-											trailing={<span className="text-sm text-text-3">min</span>}
-										/>
+										<div className="min-w-0 flex-1">
+											<Input
+												aria-label={`Section ${i + 1} title`}
+												value={r.title}
+												maxLength={120}
+												invalid={Boolean(error && r.title.trim() === "")}
+												onChange={(e) => update(i, { title: e.target.value })}
+												autoComplete="off"
+											/>
+										</div>
+										<div className="w-[104px] flex-none">
+											<Input
+												aria-label={`Section ${i + 1} minutes`}
+												inputMode="numeric"
+												value={r.minutes}
+												maxLength={3}
+												invalid={Boolean(error && r.title.trim() !== "")}
+												onChange={(e) => update(i, { minutes: e.target.value })}
+												trailing={<span className="text-sm text-text-3">min</span>}
+											/>
+										</div>
 										<IconButton
 											icon={ArrowUp01Icon}
 											label={`Move section ${i + 1} up`}

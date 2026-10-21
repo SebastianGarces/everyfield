@@ -84,7 +84,7 @@ export function RsvpBar({
 			{total === 0 ? <span className="flex-1 bg-surface-3" /> : null}
 			{yes ? <span className="bg-green-500" style={{ flex: yes }} /> : null}
 			{no ? <span className="bg-magenta-500" style={{ flex: no }} /> : null}
-			{pending ? <span className="bg-amber-300" style={{ flex: pending }} /> : null}
+			{pending ? <span className="bg-amber-500" style={{ flex: pending }} /> : null}
 			{other ? <span className="bg-surface-3" style={{ flex: other }} /> : null}
 		</span>
 	);
