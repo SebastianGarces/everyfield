@@ -23,6 +23,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { z } from "zod";
 import type { Outcome } from "../model.ts";
 import { problemText } from "../parts.tsx";
+import { focusFirstInvalid } from "./focus.ts";
 import { findHouseholds, readHousehold } from "./actions.ts";
 import {
 	addressLine,
@@ -119,6 +120,7 @@ function FormDialog({
 					onSubmit={(e) => {
 						e.preventDefault();
 						if (!disabled) onSubmit();
+						focusFirstInvalid(e.currentTarget);
 					}}
 				>
 					<DialogHeader icon={icon} tone={tone} title={title} description={description} />
@@ -331,7 +333,14 @@ export function JoinHouseholdDialog({
 						{search.trim() ? "No household has that name." : "Your church has no households yet. Start one instead."}
 					</p>
 				) : (
-					<RadioGroup aria-label="Household" value={choice} onValueChange={setChoice} className="gap-0 px-4">
+					<RadioGroup
+						aria-label="Household"
+						aria-invalid={(touched && !choice) || undefined}
+						aria-describedby={touched && !choice ? "household-choice-error" : undefined}
+						value={choice}
+						onValueChange={setChoice}
+						className="gap-0 px-4"
+					>
 						{items.map((h) => (
 							<Radio
 								key={h.id}
@@ -349,7 +358,11 @@ export function JoinHouseholdDialog({
 					</RadioGroup>
 				)}
 			</div>
-			{touched && !choice ? <p className="text-xs font-medium text-magenta-600">Choose a household.</p> : null}
+			{touched && !choice ? (
+				<p id="household-choice-error" className="text-xs font-medium text-magenta-600">
+					Choose a household.
+				</p>
+			) : null}
 			{found?.status === "ok" && found.value.total > items.length ? (
 				<p className="text-xs text-text-3">
 					Showing {items.length} of {found.value.total}. Search to narrow the list.

@@ -55,12 +55,14 @@ export function ManageTagsDialog({
 	// Read fresh on every opening: the counts change whenever anyone tags a person.
 	const [loaded, setLoaded] = useState<Outcome<ChurchTag[]> | null>(null);
 	const tags = loaded?.status === "ok" ? loaded.value : [];
-	const [shown, apply] = useOptimistic(tags, (all, next: ChurchTag) =>
-		all.map((t) => (t.id === next.id ? next : t)).sort(byName),
+	// Create, rename, recolor and delete show at once; a refused change falls back to the saved list with its reason.
+	const [shown, apply] = useOptimistic(tags, (all, change: { put: ChurchTag } | { remove: string }) =>
+		"put" in change
+			? [...all.filter((t) => t.id !== change.put.id), change.put].sort(byName)
+			: all.filter((t) => t.id !== change.remove),
 	);
 	const [, start] = useTransition();
 	const [name, setName] = useState("");
-	const [adding, setAdding] = useState(false);
 	const [addProblem, setAddProblem] = useState<string>();
 	const [rowProblem, setRowProblem] = useState<{ id: string; text: string } | null>(null);
 	const [renaming, setRenaming] = useState<string | null>(null);
@@ -103,23 +105,39 @@ export function ManageTagsDialog({
 		if (now) setDeleting(now);
 	}
 
-	async function create(event: React.FormEvent) {
+	function create(event: React.FormEvent) {
 		event.preventDefault();
 		const term = name.trim();
-		if (!term || adding) return;
-		setAdding(true);
-		setAddProblem(undefined);
-		const r = await createChurchTag(fresh(), { name: term }).catch(() => ({ status: "lost" }) as const);
-		setAdding(false);
-		if (r.status !== "ok") return setAddProblem(problem(r));
+		if (!term) return;
 		setName("");
-		save((all) => [...all.filter((t) => t.id !== r.value.id), r.value]);
+		setAddProblem(undefined);
+		start(async () => {
+			apply({ put: { id: `new:${term}`, name: term, color: null, revision: "0", linkedPeople: 0 } as ChurchTag });
+			const r = await createChurchTag(fresh(), { name: term }).catch(() => ({ status: "lost" }) as const);
+			if (r.status !== "ok") {
+				// The typed name comes back so a retry needs no retyping.
+				setName((now) => now || term);
+				return setAddProblem(problem(r));
+			}
+			save((all) => [...all.filter((t) => t.id !== r.value.id), r.value]);
+		});
+	}
+	function remove(tag: ChurchTag) {
+		setDeleting(null);
+		setRowProblem(null);
+		start(async () => {
+			apply({ remove: tag.id });
+			const r = await deleteChurchTag(fresh(), tag.revision, tag.id).catch(() => ({ status: "lost" }) as const);
+			if (r.status !== "ok")
+				return setRowProblem({ id: tag.id, text: `${tag.name} was not deleted. ${tagProblem(problem(r)!)}` });
+			save((all) => all.filter((t) => t.id !== tag.id));
+		});
 	}
 
 	function change(tag: ChurchTag, patch: { name?: string; color?: string | null }) {
 		setRowProblem(null);
 		start(async () => {
-			apply({ ...tag, ...patch } as ChurchTag);
+			apply({ put: { ...tag, ...patch } as ChurchTag });
 			const r = await updateChurchTag(fresh(), tag.revision, { tagId: tag.id, ...patch }).catch(
 				() => ({ status: "lost" }) as const,
 			);
@@ -144,10 +162,9 @@ export function ManageTagsDialog({
 							placeholder="New tag name"
 							value={name}
 							maxLength={100}
-							readOnly={adding}
 							onChange={(e) => setName(e.target.value)}
 						/>
-						<Button type="submit" variant="secondary" loading={adding} disabled={!name.trim()}>
+						<Button type="submit" variant="secondary" disabled={!name.trim()}>
 							Add tag
 						</Button>
 					</form>
@@ -178,26 +195,38 @@ export function ManageTagsDialog({
 											}}
 										/>
 									) : (
-										<div className="flex min-h-11 items-center gap-3">
-											<ColorMenu tag={t} onColor={(color) => change(t, { color })} />
+										<div className={cn("flex min-h-11 items-center gap-3", t.id.startsWith("new:") && "opacity-60")}>
+											{t.id.startsWith("new:") ? (
+												<span className="grid size-8 flex-none place-items-center">
+													<Swatch />
+												</span>
+											) : (
+												<ColorMenu tag={t} onColor={(color) => change(t, { color })} />
+											)}
 											<span className="min-w-0 flex-1 truncate font-medium text-ink">{t.name}</span>
 											<span className="text-sm text-text-3 tabular-nums">
 												{t.linkedPeople} {t.linkedPeople === 1 ? "person" : "people"}
 											</span>
-											<Menu>
-												<MenuTrigger asChild>
-													<IconButton icon={MoreHorizontalIcon} label={`Actions for ${t.name}`} size="sm" />
-												</MenuTrigger>
-												<MenuContent align="end">
-													<MenuItem icon={Edit02Icon} onSelect={() => setRenaming(t.id)}>
-														Rename
-													</MenuItem>
-													<MenuSeparator />
-													<MenuItem icon={Delete02Icon} danger onSelect={() => void confirmDelete(t)}>
-														Delete tag
-													</MenuItem>
-												</MenuContent>
-											</Menu>
+											{t.id.startsWith("new:") ? (
+												<span role="status" className="text-xs text-text-3">
+													Saving…
+												</span>
+											) : (
+												<Menu>
+													<MenuTrigger asChild>
+														<IconButton icon={MoreHorizontalIcon} label={`Actions for ${t.name}`} size="sm" />
+													</MenuTrigger>
+													<MenuContent align="end">
+														<MenuItem icon={Edit02Icon} onSelect={() => setRenaming(t.id)}>
+															Rename
+														</MenuItem>
+														<MenuSeparator />
+														<MenuItem icon={Delete02Icon} danger onSelect={() => void confirmDelete(t)}>
+															Delete tag
+														</MenuItem>
+													</MenuContent>
+												</Menu>
+											)}
 										</div>
 									)}
 									{rowProblem?.id === t.id ? (
@@ -229,14 +258,7 @@ export function ManageTagsDialog({
 						"Their history keeps a record of the tag.",
 					]}
 					confirmLabel="Delete tag"
-					onConfirm={async () => {
-						const r = await deleteChurchTag(fresh(), deleting.revision, deleting.id).catch(
-							() => ({ status: "lost" }) as const,
-						);
-						if (r.status !== "ok") throw new Error(tagProblem(problem(r)!));
-						save((all) => all.filter((t) => t.id !== deleting.id));
-						setDeleting(null);
-					}}
+					onConfirm={() => remove(deleting)}
 				/>
 			) : null}
 		</Dialog>

@@ -31,6 +31,7 @@ import type { Receipt } from "../boundary.ts";
 import type { Outcome } from "../model.ts";
 import { FormProblem, fresh, problemText } from "../parts.tsx";
 import { addSkill, removeSkill, updateSkill } from "./actions.ts";
+import { focusFirstInvalid } from "./focus.ts";
 import {
 	CATEGORY_LABEL,
 	PROFICIENCIES,
@@ -259,6 +260,7 @@ function SkillDialog({
 						e.preventDefault();
 						setTouched(true);
 						if (!nameMissing && !categoryMissing) onSubmit(draft);
+						else focusFirstInvalid(e.currentTarget);
 					}}
 				>
 					<DialogHeader
