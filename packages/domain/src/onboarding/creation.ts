@@ -271,6 +271,11 @@ export function creation(effects: OnboardingEffects) {
 					.for("update");
 				if (!d || d.converted_at) deny();
 				revision(q.expectedRevision, d.revision);
+				// Lock order shared with organization writes, whose gate locks the actor account, then the organization,
+				// then the link: the owners' accounts the notices share-lock, then the organizations, before any link.
+				await tx.execute(sql`WITH linked AS (SELECT organization_id FROM affiliation WHERE account_id=${a.account.id}::uuid AND ended_at IS NULL),
+	owners AS MATERIALIZED (SELECT o.id FROM account o WHERE o.id IN (SELECT account_id FROM seat WHERE organization_id IN (SELECT organization_id FROM linked) AND role='owner' AND ended_at IS NULL) ORDER BY o.id FOR SHARE)
+	SELECT o.id FROM organization o WHERE o.id IN (SELECT organization_id FROM linked) AND (SELECT count(*) FROM owners)>=0 ORDER BY o.id FOR NO KEY UPDATE`);
 				const links = await loadAffiliations(
 					tx,
 					and(eq(t.affiliation.account_id, a.account.id), isNull(t.affiliation.ended_at))!,
