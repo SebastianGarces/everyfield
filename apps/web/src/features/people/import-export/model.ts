@@ -18,13 +18,10 @@ export type PreviewRow = Preview["rows"][number];
 export type ValidRow = Extract<PreviewRow, { status: "valid" }>;
 export type Choice = z.infer<typeof csv.importChoice>;
 export type ImportReceipt = z.infer<typeof csv.importReceipt>;
-export type ReceiptRow = ImportReceipt["rows"][number];
 export type RowProblem = z.infer<typeof csv.rowProblem>;
-export type ExportReceipt = z.infer<typeof csv.peopleExport>["receipt"];
 
-/** The file limits the server enforces (contract importLimits), checked here first so a too-big file sends nothing. */
+/** The file size limit the server enforces (contract importLimits), checked here first so a too-big file sends nothing. */
 export const MAX_BYTES = 10 * 1024 * 1024;
-export const MAX_ROWS = 10_000;
 export const ROWS_PER_PAGE = 24;
 
 /** A valid row with an existing or earlier-row match: it needs a person's choice. */
@@ -174,6 +171,10 @@ export const LOST_CHECK: Notice = {
 export const NOT_STARTED: Notice = {
 	title: "The import did not start",
 	text: "Nothing was saved. Send it again with the same choices.",
+};
+export const ACCESS_LOST: Notice = {
+	title: "We cannot show this import",
+	text: "Your seat no longer lets you read imports, so we cannot tell which rows were saved. Ask an Owner or Admin to check People before anyone imports this file again.",
 };
 export const RECONNECTING: Notice = {
 	title: "Reconnecting",

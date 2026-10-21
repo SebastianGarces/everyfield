@@ -7,6 +7,7 @@ import {
 	addCount,
 	choicesPayload,
 	fileRefusal,
+	ACCESS_LOST,
 	importRefusal,
 	LOST_CHECK,
 	MAX_BYTES,
@@ -71,15 +72,17 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 	});
 	const heading = useRef<HTMLHeadingElement>(null);
 	const step = state.step;
-	// A new step moves focus to its heading, so keyboard and screen reader users start there.
+	// A new step or a blocking problem moves focus, so keyboard and screen reader users start there. A refusal on the
+	// new step wins over its heading: the person must hear what went wrong first.
+	const blocking = state.step === "import" && state.trouble !== RECONNECTING ? state.trouble?.title : null;
 	const first = useRef(true);
 	useEffect(() => {
 		if (first.current) {
 			first.current = false;
 			return;
 		}
-		heading.current?.focus();
-	}, [step]);
+		(document.querySelector<HTMLElement>("[data-import-problem]") ?? heading.current)?.focus();
+	}, [step, blocking]);
 
 	const check = async (picked: File) => {
 		if (picked.size > MAX_BYTES) {
@@ -135,7 +138,9 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 		setState({ step: "import", review, key, receipt: null, trouble: null });
 		const got = await readReceipt(key);
 		if (got.status === "ok") return settle(review, key, got.value);
-		setState({ step: "import", review, key, receipt: null, trouble: got.status === "lost" ? LOST_CHECK : NOT_STARTED });
+		// Only "no such import" proves nothing was saved. Any other refusal (a seat that changed) leaves the outcome unknown.
+		const trouble = got.status === "lost" ? LOST_CHECK : got.code === "unavailable" ? NOT_STARTED : ACCESS_LOST;
+		setState({ step: "import", review, key, receipt: null, trouble });
 	};
 
 	const settle = (review: Review | null, key: string, receipt: ImportReceipt) =>
@@ -160,6 +165,9 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 				wait = 1000;
 				setState((s) => (s.step === "import" && s.key === runningKey ? next(s, got.value) : s));
 				if (finished(got.value)) return;
+			} else if (got.status === "refused") {
+				setState((s) => (s.step === "import" && s.key === runningKey ? { ...s, trouble: ACCESS_LOST } : s));
+				return;
 			} else {
 				wait = Math.min(wait * 2, 8000);
 				setState((s) => (s.step === "import" && s.key === runningKey ? { ...s, trouble: RECONNECTING } : s));

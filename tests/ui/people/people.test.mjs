@@ -601,6 +601,30 @@ for (const [name, engine] of ENGINES) {
 		},
 	);
 
+	test(`AC:TARGET-PPL-018 BUG-198-focus (${name}): a refused import moves focus to the alert, not the step heading`, async () => {
+		await withPage(engine, "owner", async (page, context) => {
+			await context.route("**/api/people/import", (route) =>
+				route.request().method() === "POST"
+					? route.fulfill({ json: { status: "refused", code: "review_stale" } })
+					: route.fallback(),
+			);
+			const tag = `${name}${Date.now().toString(36)}`;
+			await page.goto(`${BASE}/people/import`);
+			await page.locator("input[type=file]").setInputFiles({
+				name: "people.csv",
+				mimeType: "text/csv",
+				buffer: Buffer.from(`first_name,email\r\nZed,zed-${tag}@example.test\r\n`),
+			});
+			await page.getByRole("button", { name: "Import 1 person" }).click({ timeout: 30_000 });
+			await page.locator("[data-import-problem]").waitFor();
+			await page.waitForTimeout(500);
+			assert.match(
+				await page.evaluate(() => document.activeElement?.textContent ?? ""),
+				/^People changed since you checked this file/,
+			);
+		});
+	});
+
 	test(`AC:TARGET-PPL-019 INV-filters (${name}): a Member's export holds exactly the people the filtered directory counts`, async () => {
 		await withPage(engine, "member", async (page) => {
 			await page.goto(`${BASE}/people?stage=prospect`);

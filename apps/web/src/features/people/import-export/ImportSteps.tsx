@@ -132,6 +132,7 @@ function Problem({ notice, actions }: { notice: Notice; actions?: ReactNode }) {
 			variant="callout"
 			tone="magenta"
 			role="alert"
+			data-import-problem=""
 			className="outline-none focus-visible:outline-2 focus-visible:outline-focus"
 		>
 			<CalloutLabel tone="magenta" icon={Alert02Icon}>

@@ -5,7 +5,7 @@ import { getViewer } from "@/server/request-context";
 import { exportPeopleRequest, importReceiptRequest, type PeopleReply } from "@everyfield/contracts/people";
 import { executeBulkImport, peopleCsv } from "@everyfield/domain/people";
 import { listRequest, parseQuery } from "../model.ts";
-import { read, type Viewer } from "../server.ts";
+import { canWrite, read, type Viewer } from "../server.ts";
 import { MAX_BYTES } from "./model.ts";
 
 // The CSV routes under /api/people (REQ-PPL-018, REQ-PPL-019). They sit outside the /people proxy, which would cut a
@@ -96,7 +96,9 @@ export function readReceipt(v: Viewer, requestKey: unknown) {
 /** GET /api/people/import?key=: the import's outcome for each row, read again while it runs or after a lost reply. */
 export async function receiptRoute(request: Request) {
 	const v = await viewer();
-	if (!v) return refused("access_denied");
+	// The producer answers "unavailable" both for a missing import and for a seat that cannot read imports. The seat is
+	// checked here first, so "unavailable" means the import does not exist and the screen may say nothing was saved.
+	if (!v || !canWrite(v)) return refused("access_denied");
 	const reply = await readReceipt(v, new URL(request.url).searchParams.get("key"));
 	if (!reply) return refused("unavailable");
 	if (reply.status === "ok" && reply.value.status === "in_progress") drainPeopleImports();
