@@ -11,6 +11,7 @@ for (const [name, engine] of ENGINES) {
 		const { token, first } = links[name];
 		await withPage(engine, async (page, context) => {
 			await page.goto(`${BASE}/rsvp/${token}`);
+			await hydrated(page);
 			await page.getByRole("button", { name: "Yes, I'll come" }).click();
 			await page.getByRole("heading", { level: 1, name: `See you there, ${first}` }).waitFor();
 			// The answer shows at once; this line appears when the server has recorded it.
