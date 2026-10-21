@@ -303,7 +303,7 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 		setAnnounce(seen.startsWith("loading") ? "" : announcement(view, review, r.now));
 	}
 	// Focus that was on a control the change removed goes to the card's head, so keyboard users stay in the card
-	// (BUG #197 F2).
+	// (PR 197, finding F2).
 	useLayoutEffect(() => {
 		const active = document.activeElement;
 		if (focusInside.current && (!active || active === document.body || !card.current?.contains(active)))
