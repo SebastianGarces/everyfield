@@ -114,7 +114,9 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 			} else toast({ message: `Your answer was not saved. ${problemText(problemOf(r)!)}`, tone: "error" });
 		});
 	}
-	const m = { ...data.meeting, status };
+	// An edit in flight: the page shows the edited meeting until the answer arrives.
+	const [preview, setPreview] = useState<Detail | null>(null);
+	const m = { ...(preview ?? data.meeting), status };
 	const thisYear = Number(data.now.slice(0, 4));
 	const vision = m.type === "vision_meeting";
 	const practice = m.type === "prelaunch_practice";
@@ -299,7 +301,13 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 
 			{canWrite ? (
 				<>
-					<PlanMeetingDialog open={editing} onOpenChange={setEditing} meeting={m} onSaved={setMeeting} />
+					<PlanMeetingDialog
+						open={editing}
+						onOpenChange={setEditing}
+						meeting={data.meeting}
+						onSaved={setMeeting}
+						onPreview={setPreview}
+					/>
 					<HeldDialog open={holding} onOpenChange={setHolding} meeting={m} onSaved={setMeeting} now={data.now} />
 					<ReasonDialog
 						open={reason !== null}

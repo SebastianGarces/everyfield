@@ -22,7 +22,9 @@ import { problemText, type Outcome, type Venue } from "./model.ts";
 import { Problem, useSave } from "./parts.tsx";
 
 type History = Extract<Awaited<ReturnType<typeof getVenue>>, { status: "ok" }>["value"];
-type Screen = { kind: "list" } | { kind: "new" } | { kind: "venue"; id: string } | { kind: "edit"; venue: Venue };
+/** `saved` is the place a save just answered with: the screen shows it at once and loads only its history. */
+type Screen =
+	{ kind: "list" } | { kind: "new" } | { kind: "venue"; id: string; saved?: Venue } | { kind: "edit"; venue: Venue };
 
 /**
  * Places (REQ-MTG-003, REQ-MTG-004): the church's saved venues. Archived places are hidden unless asked for, and stay
@@ -63,7 +65,9 @@ export function VenuesSheet({
 				/>
 			) : screen.kind === "venue" ? (
 				<Place
+					key={screen.id + (screen.saved?.revision ?? "")}
 					id={screen.id}
+					saved={screen.saved}
 					canWrite={canWrite}
 					onBack={() => setScreen({ kind: "list" })}
 					onEdit={(venue) => setScreen({ kind: "edit", venue })}
@@ -71,7 +75,7 @@ export function VenuesSheet({
 			) : (
 				<VenueForm
 					venue={screen.kind === "edit" ? screen.venue : undefined}
-					onDone={(id) => setScreen(id ? { kind: "venue", id } : { kind: "list" })}
+					onDone={(id, saved) => setScreen(id ? { kind: "venue", id, saved } : { kind: "list" })}
 				/>
 			)}
 		</Sheet>
@@ -176,17 +180,23 @@ function Places({ canWrite, onOpen, onAdd }: { canWrite: boolean; onOpen: (id: s
 
 function Place({
 	id,
+	saved,
 	canWrite,
 	onBack,
 	onEdit,
 }: {
 	id: string;
+	saved?: Venue;
 	canWrite: boolean;
 	onBack: () => void;
 	onEdit: (venue: Venue) => void;
 }) {
 	const toast = useToast();
-	const [got, setGot] = useState<Outcome<History> | null>(null);
+	const [got, setGot] = useState<Outcome<History> | null>(() =>
+		saved ? { status: "ok", value: { status: "available", venue: saved, history: [] } } : null,
+	);
+	// After a save the place shows from the save's answer; only its history is still on the way.
+	const [historyPending, setHistoryPending] = useState(saved !== undefined);
 	const [, startTransition] = useTransition();
 	const [active, setActive] = useOptimistic<boolean | null>(null);
 	const [archiving, setArchiving] = useState(false);
@@ -194,13 +204,21 @@ function Place({
 	useEffect(() => {
 		let live = true;
 		getVenue(id).then(
-			(r) => live && setGot(r),
-			() => live && setGot({ status: "lost" }),
+			(r) => {
+				if (!live) return;
+				setHistoryPending(false);
+				if (r.status === "ok" || !saved) setGot(r);
+			},
+			() => {
+				if (!live) return;
+				setHistoryPending(false);
+				if (!saved) setGot({ status: "lost" });
+			},
 		);
 		return () => {
 			live = false;
 		};
-	}, [id]);
+	}, [id, saved]);
 
 	const back = (
 		<Button variant="ghost" size="sm" icon={ArrowLeft01Icon} onClick={onBack} className="self-start">
@@ -306,7 +324,11 @@ function Place({
 				<h4 id="place-history" className="mb-2 text-sm font-semibold text-ink">
 					History
 				</h4>
-				{loaded.history.length === 0 ? (
+				{historyPending ? (
+					<p role="status" className="text-sm text-text-3">
+						Loading history…
+					</p>
+				) : loaded.history.length === 0 ? (
 					<p className="text-sm text-text-3">No changes yet.</p>
 				) : (
 					<ol className="flex flex-col">
@@ -361,7 +383,7 @@ type VenueDraft = Record<
 const text = (v: string | null) => v ?? "";
 
 /** Add a place, or change one. A change with a reason is a correction and keeps the reason in the history. */
-function VenueForm({ venue, onDone }: { venue?: Venue; onDone: (id: string | null) => void }) {
+function VenueForm({ venue, onDone }: { venue?: Venue; onDone: (id: string | null, saved?: Venue) => void }) {
 	const [draft, setDraft] = useState<VenueDraft>({
 		name: text(venue?.name ?? null),
 		address: text(venue?.address ?? null),
@@ -407,7 +429,7 @@ function VenueForm({ venue, onDone }: { venue?: Venue; onDone: (id: string | nul
 		};
 		if (!venue) {
 			const r = await save(fields, (key) => createVenue(key, fields));
-			if (r?.status === "ok") onDone(r.value.venue.id);
+			if (r?.status === "ok") onDone(r.value.venue.id, r.value.venue);
 			return;
 		}
 		const patch = Object.fromEntries(
@@ -418,7 +440,7 @@ function VenueForm({ venue, onDone }: { venue?: Venue; onDone: (id: string | nul
 		const op = reason ? "correct" : "edit";
 		const input = { venueId: venue.id, patch, ...(reason ? { reason } : {}) };
 		const r = await save({ op, input }, (key) => changeVenue(op, key, venue.revision, input));
-		if (r?.status === "ok") onDone(venue.id);
+		if (r?.status === "ok") onDone(venue.id, r.value.venue);
 	}
 
 	const show = (k: keyof typeof errors) => (touched ? errors[k] : null);

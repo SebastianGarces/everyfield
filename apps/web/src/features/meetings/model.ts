@@ -30,6 +30,16 @@ export const TYPE_LABEL: Record<MeetingType, string> = {
 	team_meeting: "Team meeting",
 	prelaunch_practice: "Pre-launch practice",
 };
+/** The title a meeting shows without its own title, as the producer builds it ("Vision Meeting #12"). */
+const DEFAULT_TITLE: Record<MeetingType, string> = {
+	vision_meeting: "Vision Meeting",
+	orientation: "Orientation",
+	team_meeting: "Team Meeting",
+	prelaunch_practice: "Pre-launch Practice",
+};
+export const defaultTitle = (m: { type: MeetingType; visionNumber: number | null }) =>
+	DEFAULT_TITLE[m.type] + (m.visionNumber ? ` #${m.visionNumber}` : "");
+
 /** Short labels for filters. */
 export const TYPE_SHORT: Record<MeetingType, string> = {
 	vision_meeting: "Vision",

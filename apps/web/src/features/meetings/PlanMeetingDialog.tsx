@@ -18,7 +18,16 @@ import {
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { editMeeting, listVenues, scheduleMeeting } from "./actions.ts";
-import { NEW_TYPES, offsetText, timeText, TYPE_LABEL, type Detail, type MeetingType, type Venue } from "./model.ts";
+import {
+	defaultTitle,
+	NEW_TYPES,
+	offsetText,
+	timeText,
+	TYPE_LABEL,
+	type Detail,
+	type MeetingType,
+	type Venue,
+} from "./model.ts";
 import { Problem, useSave } from "./parts.tsx";
 
 type Choice = { instant: string; offsetSeconds: number };
@@ -58,28 +67,46 @@ export function PlanMeetingDialog({
 	onOpenChange,
 	meeting,
 	onSaved,
+	onPreview,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	/** The meeting to edit. Without it the dialog plans a new one. */
 	meeting?: Detail;
 	onSaved?: (meeting: Detail) => void;
+	/** Edit only: the meeting as it will look, shown while the save runs; null when the answer arrives. */
+	onPreview?: (meeting: Detail | null) => void;
 }) {
+	// The form stays mounted while the dialog is closed, so an edit that fails after the dialog closed reopens with
+	// the person's input and the reason.
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			{open ? <Form meeting={meeting} onClose={() => onOpenChange(false)} onSaved={onSaved} /> : null}
+			<Form
+				open={open}
+				meeting={meeting}
+				onClose={() => onOpenChange(false)}
+				onReopen={() => onOpenChange(true)}
+				onSaved={onSaved}
+				onPreview={onPreview}
+			/>
 		</Dialog>
 	);
 }
 
 function Form({
+	open,
 	meeting,
 	onClose,
+	onReopen,
 	onSaved,
+	onPreview,
 }: {
+	open: boolean;
 	meeting?: Detail;
 	onClose: () => void;
+	onReopen: () => void;
 	onSaved?: (meeting: Detail) => void;
+	onPreview?: (meeting: Detail | null) => void;
 }) {
 	const router = useRouter();
 	const editing = meeting !== undefined;
@@ -89,6 +116,20 @@ function Form({
 	const [offset, setOffset] = useState<number | null>(null);
 	const [venues, setVenues] = useState<Venue[] | null>(null);
 	const { save, pending, problem, setProblem } = useSave();
+	// Each opening starts from the meeting as it is now, unless it reopens after a failed save.
+	const [wasOpen, setWasOpen] = useState(open);
+	const [keep, setKeep] = useState(false);
+	if (open !== wasOpen) {
+		setWasOpen(open);
+		if (open && keep) setKeep(false);
+		else if (open) {
+			setDraft(initial(meeting));
+			setTouched(false);
+			setChoices(null);
+			setOffset(null);
+			setProblem(null);
+		}
+	}
 	const set = (patch: Partial<Draft>) => {
 		setDraft((d) => ({ ...d, ...patch }));
 		// A new date or time is a new question: an earlier fold choice no longer applies.
@@ -98,7 +139,11 @@ function Form({
 		}
 	};
 
+	// Saved places load the first time the dialog opens, not with the page, and once only.
+	const [asked, setAsked] = useState(false);
+	if (open && !asked) setAsked(true);
 	useEffect(() => {
+		if (!asked) return;
 		let live = true;
 		listVenues({ limit: 100 }).then(
 			(r) => live && setVenues(r.status === "ok" ? r.value.items : []),
@@ -107,7 +152,7 @@ function Form({
 		return () => {
 			live = false;
 		};
-	}, []);
+	}, [asked]);
 
 	const missing = {
 		date: draft.date === "",
@@ -130,38 +175,58 @@ function Form({
 		setTouched(true);
 		if (Object.values(missing).some(Boolean)) return;
 		if (choices && offset === null) return setProblem("ambiguous_local_time");
-		const result = editing
-			? await (() => {
-					const moved = draft.date !== meeting.localDate || draft.time !== meeting.localTime;
-					const patch = {
-						...(blank(draft.title) !== meeting.title ? { title: blank(draft.title) } : {}),
-						...(blank(draft.notes) !== meeting.notes ? { notes: blank(draft.notes) } : {}),
-						...(moved || offset !== null ? when : {}),
-						...(venue ? { venue } : {}),
-					};
-					return save(patch, (key) => editMeeting(key, meeting.revision, meeting.id, patch));
-				})()
-			: await (() => {
-					const input = {
-						type: draft.type,
-						title: blank(draft.title),
-						notes: blank(draft.notes),
-						...when,
-						venue: venue ?? { kind: "none" },
-					};
-					return save(input, (key) => scheduleMeeting(key, input));
-				})();
+		if (editing) {
+			const moved = draft.date !== meeting.localDate || draft.time !== meeting.localTime;
+			const patch = {
+				...(blank(draft.title) !== meeting.title ? { title: blank(draft.title) } : {}),
+				...(blank(draft.notes) !== meeting.notes ? { notes: blank(draft.notes) } : {}),
+				...(moved || offset !== null ? when : {}),
+				...(venue ? { venue } : {}),
+			};
+			// The page shows the change at once; the answer confirms it, or the page goes back and the dialog reopens.
+			const chosen = venues?.find((v) => v.id === draft.place);
+			onPreview?.({
+				...meeting,
+				title: blank(draft.title),
+				displayTitle: blank(draft.title) ?? defaultTitle(meeting),
+				notes: blank(draft.notes),
+				localDate: draft.date as Detail["localDate"],
+				localTime: draft.time,
+				venue:
+					draft.place === "keep"
+						? meeting.venue
+						: draft.place === "none"
+							? null
+							: draft.place === "new"
+								? { id: null, name: draft.placeName.trim(), address: draft.placeAddress.trim() }
+								: chosen
+									? { id: chosen.id, name: chosen.name, address: chosen.address }
+									: meeting.venue,
+			});
+			onClose();
+			const result = await save(patch, (key) => editMeeting(key, meeting.revision, meeting.id, patch));
+			onPreview?.(null);
+			if (!result) return;
+			if (result.status === "ok") return onSaved?.(result.value.meeting);
+			if (result.status === "refused" && result.choices) setChoices(result.choices);
+			setKeep(true);
+			onReopen();
+			return;
+		}
+		const input = {
+			type: draft.type,
+			title: blank(draft.title),
+			notes: blank(draft.notes),
+			...when,
+			venue: venue ?? { kind: "none" },
+		};
+		const result = await save(input, (key) => scheduleMeeting(key, input));
 		if (!result) return;
 		if (result.status === "refused" && result.choices) {
 			setChoices(result.choices);
 			return;
 		}
-		if (result.status !== "ok") return;
-		const saved = result.value.meeting;
-		if (editing) {
-			onSaved?.(saved);
-			onClose();
-		} else router.push(`/meetings/${saved.id}`);
+		if (result.status === "ok") router.push(`/meetings/${result.value.meeting.id}`);
 	}
 
 	const placeOptions = [
@@ -173,6 +238,7 @@ function Form({
 		{ value: "new", label: "Add a new place" },
 	];
 
+	if (!open) return null;
 	return (
 		<DialogContent aria-busy={pending || undefined} onInteractOutside={(e) => pending && e.preventDefault()}>
 			<form onSubmit={submit} noValidate className="contents">
