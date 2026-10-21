@@ -1,12 +1,12 @@
 import { requestIdentity } from "@everyfield/contracts/common";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { and, desc, eq, inArray, isNull, notExists, sql, type SQLWrapper } from "@everyfield/db/query";
+import { and, desc, eq, inArray, isNull, notExists, sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { readPipelinePerson } from "../access/pipeline.ts";
-import { currentActor, RequestActor, requestWrite } from "../access/session.ts";
+import { currentActor, RequestActor, requestWrite, writeVisibility } from "../access/session.ts";
 import {
 	auditSavepoint,
 	auditTransaction,
@@ -16,7 +16,7 @@ import {
 	type AuditWrite,
 } from "../operations/writes.ts";
 
-import { owner, revision } from "@everyfield/contracts/common";
+import { owner, revision, type Owner } from "@everyfield/contracts/common";
 import type { PeopleContext, PeopleReply, PeopleWriteContext } from "@everyfield/contracts/people";
 import * as c from "@everyfield/contracts/people";
 
@@ -136,6 +136,29 @@ export async function authorize(tx: Tx, context: Context, write = false) {
 	if (write && !isAdministrator(actor)) deny();
 	return actor;
 }
+/**
+ * C13: the reader's access as it is now, as one condition inside each statement that returns church data. The session
+ * is live, its account is active and holds an accepted, unended seat in this church (an Owner's or Admin's when
+ * `admin`), and no lifecycle witness hides the account, the church or the seat. A seat ended, signed out, held or
+ * demoted after the request resolved its actor reads nothing.
+ */
+export function readAuthority(ctx: { session: string; selected: Owner }, admin = false): SQL {
+	const church = ctx.selected.kind === "organization" ? sql`s.organization_id` : sql`s.plant_id`;
+	return sql`EXISTS(SELECT FROM access_session(${ctx.session}::uuid) i JOIN seat s ON s.account_id=i.account_id
+ WHERE i.registration_state='active' AND ${church}=${ctx.selected.id}::uuid AND s.ended_at IS NULL
+ AND s.accepted_at<=clock_timestamp() ${admin ? sql`AND s.role<>'member'` : sql``}
+ AND ${writeVisibility(sql`i.account_id`, ctx.selected)})`;
+}
+/**
+ * The actor a read resolved and the C13 gate each of its statements repeats. An organization Admin reads every person,
+ * so the gate keeps that Admin role; any other reader's role does not change what it reads.
+ */
+export async function authorizeRead(tx: Tx, context: Context) {
+	const actor = await authorize(tx, context);
+	return { actor, gate: readAuthority(context, context.selected.kind === "organization" && isAdministrator(actor)) };
+}
+/** A write's statements need no read gate: its locked authority holds until COMMIT (D70). */
+export const lockedWrite = sql`true`;
 export async function lockOwner(tx: Tx, context: Context) {
 	const locked = requestWrite(tx);
 	if (locked && locked.selected.id === context.selected.id && locked.selected.kind === context.selected.kind) return;
@@ -172,8 +195,13 @@ export const personRow = z.object({
 	pipeline_position: z.string().nullable(),
 });
 export type Person = z.infer<typeof personRow>;
-/** One Person row. A write locks it for update; a read observes it without a lock. */
-export async function person(tx: Tx, context: Pick<Context, "selected">, id: string, lock = false): Promise<Person> {
+/** One Person row. A write passes `true` and locks it for update; a read passes its C13 gate and takes no lock. */
+export async function person(
+	tx: Tx,
+	context: Pick<Context, "selected">,
+	id: string,
+	lock: true | SQL,
+): Promise<Person> {
 	const query = tx
 		.select()
 		.from(tables.person)
@@ -181,6 +209,7 @@ export async function person(tx: Tx, context: Pick<Context, "selected">, id: str
 			and(
 				eq(tables.person.id, id),
 				eq(tables.person.tenant_id, context.selected.id),
+				lock === true ? undefined : lock,
 				notExists(
 					tx
 						.select({ id: tables.organization_person_removal.id })
@@ -194,7 +223,7 @@ export async function person(tx: Tx, context: Pick<Context, "selected">, id: str
 				),
 			),
 		);
-	const rows = await (lock ? query.for("update", { of: tables.person }) : query);
+	const rows = await (lock === true ? query.for("update", { of: tables.person }) : query);
 	if (!rows[0]!) deny();
 	return personRow.parse(rows[0]!);
 }
@@ -209,10 +238,10 @@ export async function canReadPerson(tx: Tx, context: Context, p: Person, actor?:
 	}
 	return a;
 }
-export async function project(tx: Tx, context: Context, p: Person) {
-	return (await projectPeople(tx, context, [p]))[0]!;
+export async function project(tx: Tx, context: Context, p: Person, gate: SQL) {
+	return (await projectPeople(tx, context, [p], gate))[0]!;
 }
-export async function projectPeople(tx: Tx, context: Context, people: Person[]) {
+export async function projectPeople(tx: Tx, context: Context, people: Person[], gate: SQL) {
 	const evidence =
 		context.selected.kind === "plant" && people.some((p) => p.commitment_state !== "unknown")
 			? await tx
@@ -232,6 +261,7 @@ export async function projectPeople(tx: Tx, context: Context, people: Person[]) 
 								people.map((p) => p.id),
 							),
 							isNull(tables.commitment.voided_at),
+							gate,
 						),
 					)
 					.orderBy(tables.commitment.person_id, desc(tables.commitment.signed_on), desc(tables.commitment.id))
