@@ -546,12 +546,16 @@ function ConfirmMerge({
 	/** Shows a problem; each one gets a new number, so a repeat of the same words still takes focus. */
 	const say = (p: { text: string; retry?: boolean }) => setProblem((old) => ({ ...p, n: (old?.n ?? 0) + 1 }));
 	const moves = referenceGroups(review.references).moves;
-	const done = (moved: Merged["moved"]) =>
+	// After a merge the result heading takes focus; the closing dialog must not move it back to the page.
+	const finished = useRef(false);
+	const done = (moved: Merged["moved"]) => {
+		finished.current = true;
 		onDone({
 			merged: { moved, sourceId: review.source.personId, survivorId: review.survivor.personId },
 			source,
 			survivor,
 		});
+	};
 
 	async function merge() {
 		const input = {
@@ -595,7 +599,11 @@ function ConfirmMerge({
 
 	return (
 		<Dialog open onOpenChange={(open) => !open && !pending && onClose()}>
-			<DialogContent size="sm" aria-busy={pending || undefined}>
+			<DialogContent
+				size="sm"
+				aria-busy={pending || undefined}
+				onCloseAutoFocus={(event) => finished.current && event.preventDefault()}
+			>
 				<DialogHeader icon={GitMergeIcon} tone="blue" title={`Merge ${source} into ${survivor}?`} />
 				<DialogBody className="flex flex-col gap-4">
 					<ul className="flex flex-col gap-2 rounded-md bg-surface px-5 py-4 text-text-2">
