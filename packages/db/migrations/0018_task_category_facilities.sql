@@ -1,0 +1,2 @@
+ALTER TABLE "task" DROP CONSTRAINT "task_ck_9";--> statement-breakpoint
+ALTER TABLE "task" ADD CONSTRAINT "task_ck_9" CHECK ((category = ANY (ARRAY['administrative'::text, 'vision_meeting'::text, 'follow_up'::text, 'general'::text, 'ministry_team'::text, 'launch_prep'::text, 'training'::text, 'promotion'::text, 'recurring'::text, 'facilities'::text])));

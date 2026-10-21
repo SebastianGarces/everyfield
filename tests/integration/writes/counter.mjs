@@ -28,6 +28,7 @@ const factories = {
 	createLifecycleCleanup: "lifecycle.purge",
 	referenceService: "reference",
 	attemptBudget: "identity.budget",
+	createTaskWriter: "tasks",
 };
 const standalone = {
 	"/packages/domain/src/early-access/index.ts": ["receiveAccessRequest"],
@@ -37,6 +38,7 @@ const standalone = {
 	"/packages/domain/src/meetings/notifications.ts": ["syncNotifications"],
 	"/packages/domain/src/onboarding/core.ts": ["withOnboardingWrite"],
 	"/packages/domain/src/settings/core.ts": ["withSettingsWrite"],
+	"/packages/domain/src/tasks/core.ts": ["withTaskWrite"],
 	"/packages/domain/src/settings/avatar.ts": ["uploadAvatar"],
 	"/packages/domain/src/settings/deletion.ts": ["issueRestrictedDeletionSession"],
 	"/packages/domain/src/people/references.ts": ["detachAccountPersonLinks"],
