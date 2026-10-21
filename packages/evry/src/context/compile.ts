@@ -31,6 +31,7 @@ export async function classifyRequest(model: LanguageModelV4, text: string, sign
 		system:
 			"Classify the user's request to EveryField's church-planting assistant. pastoral_boundary: the user asks for pastoral or Biblical counsel, a prayer to be written, or a judgment of someone's spiritual readiness or suitability. capabilities: the user asks what the assistant can do. application: anything else, including records that merely mention prayer.",
 		prompt: scrub(text),
+		telemetry: { functionId: "evry.classify" },
 	});
 	return { kind: output.kind, usage };
 }

@@ -26,6 +26,8 @@ const turnRow = z.object({
 	message: z.object({
 		sequence: z.coerce.number(),
 		body: z.object({ text: z.string(), references: z.array(reference).default([]) }),
+		/** When the user submitted it. */
+		createdAt: z.coerce.date(),
 	}),
 });
 export type Turn = z.infer<typeof turnRow>;
@@ -61,7 +63,7 @@ export async function loadHistory(
 export async function loadTurn(db: Database, lease: RunLease): Promise<Turn | null> {
 	const r = await db.execute(sql`
 		SELECT c.id AS conversation_id,c.tenant_id,c.account_id,c.active_session_id AS session_id,
-			(SELECT jsonb_build_object('sequence',m.sequence,'body',m.body) FROM conversation_event m
+			(SELECT jsonb_build_object('sequence',m.sequence,'body',m.body,'createdAt',m.created_at) FROM conversation_event m
 				WHERE m.conversation_id=c.id AND m.turn_id=${lease.turnId}::uuid AND m.kind='user_message') AS message
 		FROM conversation c JOIN job j ON j.subject_record_id=c.id
 		WHERE j.id=${lease.turnId}::uuid AND c.active_turn_id=${lease.turnId}::uuid AND ${fence(lease)}`);

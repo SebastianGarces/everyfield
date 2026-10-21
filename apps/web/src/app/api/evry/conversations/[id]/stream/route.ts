@@ -1,4 +1,5 @@
-import { observeConversation, projectError, readConversation } from "@everyfield/evry";
+import { flushTraces, observeConversation, projectError, readConversation } from "@everyfield/evry";
+import { after as afterResponse } from "next/server";
 import { errorResponse, evryDatabase, requestActor } from "@/server/evry";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,8 @@ export const GET = async (request: Request, { params }: { params: Promise<{ id: 
 	} catch (error) {
 		return errorResponse(error);
 	}
+	// The first delivery of a turn's text adds a span to that turn's trace; it is exported once the stream ends.
+	afterResponse(flushTraces);
 	const encoder = new TextEncoder();
 	const stream = new ReadableStream({
 		async start(controller) {
