@@ -353,10 +353,18 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 AC:PROVIDER48-
 	);
 	refused(await uploadCommitmentDocument(db, storage, ctx(1), { uploadId: pending.uploadId, bytes: png }));
 	assert.equal(storage.objects.size, 0);
+	// BUG-PR210: rejected bytes of the declared length leave the upload retryable; the real image then stores.
+	refused(
+		await uploadCommitmentDocument(db, storage, ctx(), {
+			uploadId: pending.uploadId,
+			bytes: Buffer.alloc(png.length),
+		}),
+		"invalid_input",
+	);
+	ok(await uploadCommitmentDocument(db, storage, ctx(), { uploadId: pending.uploadId, bytes: png }));
 
 	// The card, its document, the Core Group advance and the active commitment come back together; a retry adds nothing.
-	const document = await upload(png);
-	ok(document.stored);
+	const document = { id: pending.uploadId };
 	const requestKey = key();
 	const input = {
 		occurredOn: day(5),
