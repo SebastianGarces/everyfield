@@ -65,15 +65,31 @@ export const reader = {
 		taskReader.statusHistory(tx, v.authority, { taskId, page, limit: 50 }).then(outcome),
 };
 
-/** One open task with its first history page, read in one transaction: two statements. */
+/**
+ * One open task for its panel, read in one transaction: the task and its first history page (two statements), plus
+ * the tasks it waits for when it has any and its series' open occurrence when it repeats (one statement each).
+ */
 export async function loadTask(tx: Transaction, viewer: TaskViewer, taskId: string) {
 	const found = await reader.get(tx, viewer, taskId);
 	if (found.status !== "ok") return found;
 	if (found.value.status !== "available") return { status: "refused", code: "unavailable" } as const;
+	const task = found.value.task;
 	const history = await reader.history(tx, viewer, taskId);
+	const prerequisites = task.prerequisiteIds.length
+		? await taskReader.listPrerequisites(tx, viewer.authority, { taskId }).then(outcome)
+		: null;
+	const occurrence = task.recurrence
+		? await taskReader.findOpenOccurrence(tx, viewer.authority, { taskId }).then(outcome)
+		: null;
+	const ok = <T>(r: Outcome<T> | null) => (r?.status === "ok" ? r.value : null);
 	return {
 		status: "ok",
-		value: { task: found.value.task, history: history.status === "ok" ? history.value : null },
+		value: {
+			task,
+			history: ok(history),
+			prerequisites: task.prerequisiteIds.length ? ok(prerequisites) : { taskId: task.id, items: [], blocked: false },
+			occurrence: ok(occurrence),
+		},
 	} as const;
 }
 
