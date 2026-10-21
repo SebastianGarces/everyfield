@@ -29,7 +29,7 @@ import {
 import { KeyValue, KeyValueList, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { startTransition, useOptimistic, useState, useTransition } from "react";
-import { runSave, STAGE_LABEL, type KeyedPayload, type Outcome } from "../model.ts";
+import { newerRevision, runSave, STAGE_LABEL, type KeyedPayload, type Outcome } from "../model.ts";
 import { fresh, isConflict, LocalDay } from "../parts.tsx";
 import {
 	changeCommitment,
@@ -74,10 +74,14 @@ type Editing =
 			draft: LifecycleDraft;
 			problem?: string;
 			key?: KeyedPayload;
-			/** The person revision an earlier try sent; a resumed try sends it again. */
-			revision?: string;
+			/**
+			 * A lost try's own context: the person revision it sent and the earliest date it allowed. Resuming it replays
+			 * that request, so it is not checked again against state that changed after it was sent.
+			 */
+			replay?: { revision: string; since: string | null };
 	  }
 	| { form: "correct"; card: Commitment; draft: CorrectionDraft; problem?: string; key?: KeyedPayload };
+type Replay = { revision: string; since: string | null };
 /** What the card shows while a save runs: a new card, a state change or a corrected card. */
 type Expected = { card: Commitment } | { current: CommitmentStatus };
 
@@ -109,6 +113,9 @@ export function CommitmentCard({
 	const toast = useToast();
 	const history = useHistory(initial, (page) => loadCommitments(personId, page));
 	const [current, setCurrent] = useState<CommitmentStatus | null>(initial?.current ?? null);
+	/** Takes a commitment state from an answer only when it is newer: a late or replayed answer never undoes a later one. */
+	const setLatest = (next: CommitmentStatus) =>
+		setCurrent((now) => (now && newerRevision(now.personRevision, next.personRevision) ? now : next));
 	const [firstOn, setFirstOn] = useState<FirstAcquisition>(initial?.firstAcquisition ?? { status: "unknown" });
 	const [names, setNames] = useState<Record<string, string>>(initial?.witnessNames ?? {});
 	const [view, expect] = useOptimistic({ items: history.items, current }, (v, e: Expected) =>
@@ -209,7 +216,7 @@ export function CommitmentCard({
 			const { commitment, current: now2, person } = r.value;
 			startTransition(() => {
 				history.add(commitment);
-				setCurrent(now2);
+				setLatest(now2);
 				setFirstOn((f) => withCard(f, commitment));
 				if (draft.witness.kind === "person") {
 					const w = draft.witness;
@@ -231,18 +238,21 @@ export function CommitmentCard({
 		});
 	}
 
-	function lifecycle(change: "withdraw" | "reactivate", draft: LifecycleDraft, earlier?: string) {
+	function lifecycle(change: "withdraw" | "reactivate", draft: LifecycleDraft, replay?: Replay) {
 		if (!current) return;
+		const since = replay ? replay.since : current.effectiveOn;
 		const { token, keyFor: keyOf } = dialog.send();
 		start(async () => {
-			expect({
-				current: {
-					...current,
-					state: change === "withdraw" ? "withdrawn" : "active",
-					effectiveOn: draft.effectiveOn as CommitmentStatus["effectiveOn"],
-				},
-			});
-			const revision = earlier ?? store.get().saved.revision;
+			// A replay's result is already decided on the server; the card shows it once the answer says it is newer.
+			if (!replay)
+				expect({
+					current: {
+						...current,
+						state: change === "withdraw" ? "withdrawn" : "active",
+						effectiveOn: draft.effectiveOn as CommitmentStatus["effectiveOn"],
+					},
+				});
+			const revision = replay?.revision ?? store.get().saved.revision;
 			const input = { personId, effectiveOn: draft.effectiveOn, reason: draft.reason || null };
 			const key = keyOf({ input, revision });
 			const r = await runSave(
@@ -253,16 +263,25 @@ export function CommitmentCard({
 				{ fresh, key, toPerson: (v) => personAfter(v.current.personRevision) },
 			);
 			if (r?.status !== "ok")
-				return reopen(token, { form: change, draft, revision: r?.status === "lost" ? revision : undefined }, r, key);
-			startTransition(() => setCurrent(r.value.current));
+				return reopen(
+					token,
+					{ form: change, draft, replay: r?.status === "lost" ? { revision, since } : undefined },
+					r,
+					key,
+				);
+			startTransition(() => setLatest(r.value.current));
 			onSaved(r.value.receipt, {
 				kind: "activity",
 				action: change === "withdraw" ? "commitment_withdrawn" : "commitment_reactivated",
 			});
 			toast({
 				tone: "success",
-				message:
-					change === "withdraw" ? `${first}'s commitment is withdrawn.` : `${first}'s commitment is active again.`,
+				// A replay saved an earlier change; a later change may have moved the state on since, so name the change only.
+				message: replay
+					? `Your earlier ${change === "withdraw" ? "withdrawal" : "reactivation"} is saved.`
+					: change === "withdraw"
+						? `${first}'s commitment is withdrawn.`
+						: `${first}'s commitment is active again.`,
 			});
 		});
 	}
@@ -296,7 +315,7 @@ export function CommitmentCard({
 			const page = r.value.commitments;
 			startTransition(() => {
 				history.setPage({ items: page.items, next: page.next, total: page.total });
-				setCurrent(page.current);
+				setLatest(page.current);
 				setFirstOn(page.firstAcquisition);
 				setNames(page.witnessNames);
 			});
@@ -479,9 +498,9 @@ export function CommitmentCard({
 					draft={editing.draft}
 					problem={editing.problem}
 					personName={first}
-					since={current?.effectiveOn ?? null}
+					since={editing.replay ? editing.replay.since : (current?.effectiveOn ?? null)}
 					onClose={dialog.close}
-					onSubmit={(d) => lifecycle(editing.form as "withdraw" | "reactivate", d, editing.revision)}
+					onSubmit={(d) => lifecycle(editing.form as "withdraw" | "reactivate", d, editing.replay)}
 				/>
 			) : editing?.form === "correct" ? (
 				<CorrectionDialog
