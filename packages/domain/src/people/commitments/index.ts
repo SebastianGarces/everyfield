@@ -20,7 +20,6 @@ import {
 	mutation,
 	parse,
 	readReply,
-	Refusal,
 	reply,
 	type Context,
 	type Tx,
