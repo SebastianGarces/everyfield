@@ -154,3 +154,21 @@ test("INV-no-false-refusal (review F4d/F4e, C65): a save waits for the other sav
 	assert.equal(stillUnknown({ status: "lost" }), true);
 	assert.equal(stillUnknown({ status: "refused", code: "conflict" }), false, "only a server answer says not saved");
 });
+
+test("INV-one-save-per-card (C68): no form submits while the last save is in flight or unknown", async () => {
+	const { waitOf, formUnknown, formStart, formRefused, formSend, formOpen } =
+		await import("../../../apps/web/src/features/people/assessments/model.ts");
+	assert.equal(waitOf(true, null), "saving");
+	const unknown = formUnknown(formStart(), "kA", "A", () => {}).notice;
+	assert.equal(waitOf(false, unknown), "unknown", "an unknown result must be checked first");
+	assert.equal(waitOf(true, unknown), "saving");
+	const sent = formSend(formOpen(formStart(), { draft: "A" }));
+	const refused = formRefused(
+		formOpen(sent.state, { draft: "B" }),
+		sent.token,
+		{ draft: "A", problem: "x" },
+		{ id: "kA", what: "A" },
+	).notice;
+	assert.equal(waitOf(false, refused), null, "a server refusal is final; new forms may submit");
+	assert.equal(waitOf(false, null), null);
+});

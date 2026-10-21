@@ -32,6 +32,8 @@ import {
 	sendTwice,
 	runWhenIdle,
 	stillUnknown,
+	waitOf,
+	type Wait,
 } from "./model.ts";
 import {
 	ChoiceField,
@@ -77,6 +79,7 @@ export function AssessmentCard({
 	const form = useRecordForm<Editing>();
 	/** Another change to this person is saving; Check again waits for it, so it never reads as refused. */
 	const saving = useStore(store).pending !== null;
+	const wait = waitOf(saving, form.notice);
 	const [open, setOpen] = useState(false);
 	const first = firstName(personName);
 	const latest = shown[0] ?? null;
@@ -221,7 +224,7 @@ export function AssessmentCard({
 				<AssessmentDialog
 					editing={form.editing}
 					personName={first}
-					busy={saving}
+					wait={wait}
 					onClose={form.close}
 					onSubmit={submit}
 				/>
@@ -267,14 +270,14 @@ function Scores({ assessment: a }: { assessment: Assessment }) {
 }
 
 function AssessmentDialog({
-	busy,
+	wait,
 	editing,
 	personName,
 	onClose,
 	onSubmit,
 }: {
-	/** Another save to this person is running: saving waits and the form keeps its answers. */
-	busy: boolean;
+	/** The card's last save is in flight or unknown (C68): saving waits, and the form keeps its answers. */
+	wait: Wait;
 	editing: Editing;
 	personName: string;
 	onClose: () => void;
@@ -288,7 +291,7 @@ function AssessmentDialog({
 	const futureDate = editing.problem === "future_date";
 	return (
 		<RecordDialog
-			busy={busy}
+			wait={wait}
 			icon={Analytics01Icon}
 			tone="green"
 			title={`Record the 4 C's for ${personName}`}

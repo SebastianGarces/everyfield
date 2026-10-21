@@ -184,3 +184,11 @@ export async function runWhenIdle<P extends Saved, D, T>(
 		if (r !== null) return r;
 	}
 }
+
+/**
+ * One save per card (ruling C68). While a save on the card is in flight, or its result is still unknown, no other form on
+ * the card can submit: "saving" until the save ends, "unknown" until its replay or Check again settles it.
+ */
+export type Wait = "saving" | "unknown" | null;
+export const waitOf = (saving: boolean, notice: Notice | null): Wait =>
+	saving ? "saving" : notice?.tone === "unknown" ? "unknown" : null;

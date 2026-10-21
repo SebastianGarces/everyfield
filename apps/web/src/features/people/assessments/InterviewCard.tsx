@@ -42,6 +42,8 @@ import {
 	sendTwice,
 	runWhenIdle,
 	stillUnknown,
+	waitOf,
+	type Wait,
 } from "./model.ts";
 import {
 	ChoiceField,
@@ -103,6 +105,7 @@ export function InterviewCard({
 	const form = useRecordForm<Editing>();
 	/** Another change to this person is saving; Check again waits for it, so it never reads as refused. */
 	const saving = useStore(store).pending !== null;
+	const wait = waitOf(saving, form.notice);
 	const [open, setOpen] = useState(false);
 	const first = firstName(personName);
 	const latest = shown[0] ?? null;
@@ -276,7 +279,7 @@ export function InterviewCard({
 			<p className="mt-4 text-xs text-text-3">Next steps are notes. They do not create tasks.</p>
 			{form.editing ? (
 				<InterviewDialog
-					busy={saving}
+					wait={wait}
 					editing={form.editing}
 					personName={first}
 					moves={moves}
@@ -319,15 +322,15 @@ function Criteria({ interview: i }: { interview: Interview }) {
 }
 
 function InterviewDialog({
-	busy,
+	wait,
 	editing,
 	personName,
 	moves,
 	onClose,
 	onSubmit,
 }: {
-	/** Another save to this person is running: saving waits and the form keeps its answers. */
-	busy: boolean;
+	/** The card's last save is in flight or unknown (C68): saving waits, and the form keeps its answers. */
+	wait: Wait;
 	editing: Editing;
 	personName: string;
 	moves: boolean;
@@ -343,7 +346,7 @@ function InterviewDialog({
 	const futureDate = editing.problem === "future_date";
 	return (
 		<RecordDialog
-			busy={busy}
+			wait={wait}
 			icon={UserCheck01Icon}
 			tone="violet"
 			title={`Record an interview with ${personName}`}

@@ -27,6 +27,7 @@ import {
 	withRecord,
 	type FormState,
 	type Notice,
+	type Wait,
 } from "./model.ts";
 
 /** Why a record was not saved, or may not be, in words. `busy` means another change to this person is still saving. */
@@ -76,7 +77,7 @@ export function RecordDialog({
 	action,
 	problem,
 	size = "md",
-	busy = false,
+	wait = null,
 	onClose,
 	onSubmit,
 	children,
@@ -88,8 +89,8 @@ export function RecordDialog({
 	action: string;
 	problem?: string;
 	size?: "md" | "lg";
-	/** Another save to this person is running: saving waits, and the form keeps its answers. */
-	busy?: boolean;
+	/** The card's last save is in flight or unknown (C68): the form keeps its answers and cannot submit yet. */
+	wait?: Wait;
 	onClose: () => void;
 	/** Returns false when the form has missing answers. */
 	onSubmit: () => boolean;
@@ -112,7 +113,7 @@ export function RecordDialog({
 					className="contents"
 					onSubmit={(e) => {
 						e.preventDefault();
-						if (busy) return;
+						if (wait) return;
 						if (!onSubmit()) focusFirstProblem(e.currentTarget);
 					}}
 				>
@@ -132,9 +133,9 @@ export function RecordDialog({
 						{children}
 					</DialogBody>
 					<DialogFooter>
-						{busy ? (
+						{wait ? (
 							<p id={busyId} className="mr-auto text-xs text-text-2 max-app-sm:basis-full">
-								Saving waits until the other save to this person ends.
+								{wait === "saving" ? "Waiting for the last save." : "Check the last save first."}
 							</p>
 						) : null}
 						<Button variant="secondary" type="button" onClick={onClose}>
@@ -143,8 +144,8 @@ export function RecordDialog({
 						<Button
 							variant={tone === "magenta" ? "danger" : "primary"}
 							type="submit"
-							disabled={busy}
-							aria-describedby={busy ? busyId : undefined}
+							disabled={wait !== null}
+							aria-describedby={wait ? busyId : undefined}
 						>
 							{action}
 						</Button>
@@ -346,9 +347,11 @@ export function SaveNotice({
 								Check again
 							</Button>
 						) : null}
-						<Button size="sm" variant="ghost" onClick={onDismiss}>
-							Dismiss
-						</Button>
+						{notice.tone === "refused" ? (
+							<Button size="sm" variant="ghost" onClick={onDismiss}>
+								Dismiss
+							</Button>
+						) : null}
 					</div>
 					{notice.tone === "unknown" && busy && !notice.checking ? (
 						<p id={hintId} className="text-xs text-magenta-600">

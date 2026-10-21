@@ -64,6 +64,7 @@ import {
 	sendTwice,
 	runWhenIdle,
 	stillUnknown,
+	waitOf,
 } from "./model.ts";
 import { codeOf, recorder, SaveNotice, ShowEarlier, useHistory, useRecordForm } from "./parts.tsx";
 import type { PlantPerson, RecordProps } from "./RecordsSection.tsx";
@@ -115,6 +116,7 @@ export function CommitmentCard({
 	const dialog = useRecordForm<Editing>();
 	/** Another change to this person is saving; Check again waits for it, so it never reads as refused. */
 	const saving = useStore(store).pending !== null;
+	const wait = waitOf(saving, dialog.notice);
 	const editing = dialog.editing;
 	const first = firstName(personName);
 	const moves = advancedStage(stage, "core_group") !== stage;
@@ -481,7 +483,7 @@ export function CommitmentCard({
 
 			{editing?.form === "record" ? (
 				<RecordCommitmentDialog
-					busy={saving}
+					wait={wait}
 					draft={editing.draft}
 					problem={editing.problem}
 					personId={personId}
@@ -493,7 +495,7 @@ export function CommitmentCard({
 				/>
 			) : editing?.form === "withdraw" || editing?.form === "reactivate" ? (
 				<LifecycleDialog
-					busy={saving}
+					wait={wait}
 					change={editing.form}
 					draft={editing.draft}
 					problem={editing.problem}
@@ -504,7 +506,7 @@ export function CommitmentCard({
 				/>
 			) : editing?.form === "correct" ? (
 				<CorrectionDialog
-					busy={saving}
+					wait={wait}
 					card={editing.card}
 					draft={editing.draft}
 					problem={editing.problem}
