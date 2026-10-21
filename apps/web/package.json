@@ -6,10 +6,12 @@
 		"dev": "next dev",
 		"build": "next build",
 		"start": "next start",
-		"lint": "eslint --max-warnings=0 . && node scripts/render-share-images.mjs --check && node scripts/render-mesh-images.mjs --check && node scripts/check-color-literals.mjs && node scripts/check-type-scale.mjs",
+		"lint": "eslint --max-warnings=0 . && node scripts/render-share-images.mjs --check && node scripts/render-mesh-images.mjs --check && node scripts/render-photo-css.mjs --check && node scripts/check-color-literals.mjs && node scripts/check-type-scale.mjs",
 		"typecheck": "tsc --noEmit",
 		"share-images": "node scripts/render-share-images.mjs",
 		"mesh-images": "node scripts/render-mesh-images.mjs",
+		"photo-css": "node scripts/render-photo-css.mjs",
+		"hero-photos": "node scripts/render-hero-photos.mjs",
 		"test:unit": "node --conditions=react-server --test ../../tests/integration/platform/unit.test.mts ../../tests/integration/jobs/calendar.test.mts",
 		"typecheck:ts7": "tsgo --noEmit",
 		"test:jobs": "node --conditions=react-server --env-file-if-exists=.env.local --test ../../tests/integration/jobs/*.test.mts"

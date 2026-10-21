@@ -1,0 +1,17 @@
+{
+	"field": { "small": "field-1200", "large": "field-2400", "pos": "50% 16%" },
+	"storm": { "small": "storm-1200", "large": "storm-2400", "pos": "30% 60%" },
+	"hills": { "small": "hills-1200", "large": "hills-2400", "pos": "50% 60%" },
+	"harvest": { "small": "harvest-1200", "large": "harvest-2400", "pos": "50% 62%" },
+	"trees": { "small": "trees-1200", "large": "trees-2400", "pos": "55% 50%" },
+	"plain": { "small": "plain-1200", "large": "plain-2400", "pos": "30% 70%" },
+	"reeds": { "small": "reeds-1200", "large": "reeds-2400", "pos": "50% 72%" },
+	"lake": { "small": "lake-1200", "large": "lake-2400", "pos": "50% 67%" },
+	"wheat": { "small": "wheat-1200", "large": "wheat-2400", "pos": "50% 62%" },
+	"bluebells": { "small": "bluebells-600", "large": "bluebells-1200", "pos": "30% 40%" },
+	"poppies": { "small": "poppies-600", "large": "poppies-1200", "pos": "50% 92%", "zoom": 1.5 },
+	"wildflowers": { "small": "wildflowers-600", "large": "wildflowers-1200", "pos": "60% 45%" },
+	"blossom": { "small": "blossom-600", "large": "blossom-1200", "pos": "50% 40%" },
+	"meadow": { "small": "meadow-600", "large": "meadow-1200", "pos": "40% 50%" },
+	"glow": { "small": "glow-600", "large": "glow-1200", "pos": "50% 30%", "shade": 0.36 }
+}

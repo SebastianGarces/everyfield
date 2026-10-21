@@ -1,12 +1,12 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties } from "react";
 import { cn } from "@/components/cn";
-import { photoSources, type Backdrop as Bg, type MeshTone } from "./photos";
+import type { Backdrop as Bg, MeshTone } from "./photos";
 
 /** Full class names, so Tailwind finds them. */
 const MESH: Record<MeshTone, string> = { field: "g-field", sky: "g-sky", sage: "g-sage", rose: "g-rose" };
 
 export type Layer = {
-	/** Layout classes of the layer (position, inset, z-index, corners, mask). */
+	/** Layout classes of the layer (position, inset, z-index, mask). */
 	className?: string;
 	style?: CSSProperties;
 	/** A deeper black overlay where cream text or icons sit on the photo (0.2 is the brand default). */
@@ -17,67 +17,20 @@ export type Layer = {
 
 /**
  * A surface layer: a treated photo (the photo, a black overlay and film grain, foundations.md Marketing photos) or a muted
- * gradient (mk-gsurf). It is decorative (aria-hidden); the caller places it behind its content. The photo loads when it
- * nears the viewport (PhotoLoader); without JavaScript the noscript copy loads it natively.
+ * gradient (mk-gsurf). One decorative span: the stylesheet draws the photo (mk-photo, photos.generated.css) once
+ * PhotoLoader sees it near the viewport. The caller places it behind its content.
  */
-export function Backdrop({
-	bg,
-	sizes,
-	...layer
-}: Layer & {
-	bg: Bg;
-	/** The rendered width of the slot, for the browser's choice of file. Cover can need more than the slot width when
-	 *  the slot is taller than the photo's shape; pass the width the photo covers. */
-	sizes: string;
-}) {
+export function Backdrop({ bg, className, style, shade, zoom }: Layer & { bg: Bg }) {
 	if (bg.startsWith("mesh:"))
 		return (
-			<span
-				aria-hidden="true"
-				className={cn("mk-gsurf", MESH[bg.slice(5) as MeshTone], layer.className)}
-				style={layer.style}
-			/>
+			<span aria-hidden="true" className={cn("mk-gsurf", MESH[bg.slice(5) as MeshTone], className)} style={style} />
 		);
-	const { avif, jpeg, src, crop } = photoSources(bg as Exclude<Bg, `mesh:${string}`>);
 	return (
-		<PhotoLayer
-			{...layer}
-			pos={crop.pos}
-			cropShade={crop.shade}
-			cropZoom={crop.zoom}
-			noscript={
-				<picture>
-					<source type="image/avif" srcSet={avif} sizes={sizes} />
-					<img src={src} srcSet={jpeg} sizes={sizes} alt="" loading="lazy" decoding="async" />
-				</picture>
-			}
-		>
-			{/* PhotoLoader sets the sources when the photo nears the viewport. */}
-			<source type="image/avif" data-srcset={avif} sizes={sizes} />
-			{/* eslint-disable-next-line @next/next/no-img-element -- the <picture> is in PhotoLayer; the files are web-sized AVIF and JPEG copies */}
-			<img data-src={src} data-srcset={jpeg} sizes={sizes} alt="" decoding="async" />
-		</PhotoLayer>
-	);
-}
-
-/** The photo layer: the <picture> under the overlay and the grain (mk-photo). */
-export function PhotoLayer({
-	className,
-	style,
-	shade,
-	zoom,
-	pos,
-	cropShade,
-	cropZoom,
-	children,
-	noscript,
-}: Layer & { pos: string; cropShade?: number; cropZoom?: number; noscript?: ReactNode; children: ReactNode }) {
-	// The crop as custom properties, so a slot can change it at a breakpoint (an important utility beats the inline value).
-	const vars = { ...style, "--shade": shade ?? cropShade, "--pos": pos, "--zoom": zoom ?? cropZoom } as CSSProperties;
-	return (
-		<span aria-hidden="true" className={cn("mk-photo", className)} style={vars}>
-			<picture>{children}</picture>
-			{noscript ? <noscript>{noscript}</noscript> : null}
-		</span>
+		<span
+			aria-hidden="true"
+			data-photo={bg}
+			className={cn("mk-photo", className)}
+			style={{ ...style, "--shade": shade, "--zoom": zoom } as CSSProperties}
+		/>
 	);
 }

@@ -1,0 +1,137 @@
+/* Written by scripts/render-photo-css.mjs from src/marketing/photo/photos.json. Do not edit. */
+:root {
+	--photo-field: url("/photos/field-1200.jpg");
+	--photo-storm: url("/photos/storm-1200.jpg");
+	--photo-hills: url("/photos/hills-1200.jpg");
+	--photo-harvest: url("/photos/harvest-1200.jpg");
+	--photo-trees: url("/photos/trees-1200.jpg");
+	--photo-plain: url("/photos/plain-1200.jpg");
+	--photo-reeds: url("/photos/reeds-1200.jpg");
+	--photo-lake: url("/photos/lake-1200.jpg");
+	--photo-wheat: url("/photos/wheat-1200.jpg");
+	--photo-bluebells: url("/photos/bluebells-600.jpg");
+	--photo-poppies: url("/photos/poppies-600.jpg");
+	--photo-wildflowers: url("/photos/wildflowers-600.jpg");
+	--photo-blossom: url("/photos/blossom-600.jpg");
+	--photo-meadow: url("/photos/meadow-600.jpg");
+	--photo-glow: url("/photos/glow-600.jpg");
+}
+@media (min-width: 901px) and (min-resolution: 2dppx) {
+	:root {
+		--photo-field: url("/photos/field-2400.jpg");
+		--photo-storm: url("/photos/storm-2400.jpg");
+		--photo-hills: url("/photos/hills-2400.jpg");
+		--photo-harvest: url("/photos/harvest-2400.jpg");
+		--photo-trees: url("/photos/trees-2400.jpg");
+		--photo-plain: url("/photos/plain-2400.jpg");
+		--photo-reeds: url("/photos/reeds-2400.jpg");
+		--photo-lake: url("/photos/lake-2400.jpg");
+		--photo-wheat: url("/photos/wheat-2400.jpg");
+		--photo-bluebells: url("/photos/bluebells-1200.jpg");
+		--photo-poppies: url("/photos/poppies-1200.jpg");
+		--photo-wildflowers: url("/photos/wildflowers-1200.jpg");
+		--photo-blossom: url("/photos/blossom-1200.jpg");
+		--photo-meadow: url("/photos/meadow-1200.jpg");
+		--photo-glow: url("/photos/glow-1200.jpg");
+	}
+}
+@supports (background-image: image-set(url("/photos/glow-600.avif") type("image/avif"))) {
+	:root {
+		--photo-field: image-set(url("/photos/field-1200.avif") type("image/avif"), url("/photos/field-1200.jpg") type("image/jpeg"));
+		--photo-storm: image-set(url("/photos/storm-1200.avif") type("image/avif"), url("/photos/storm-1200.jpg") type("image/jpeg"));
+		--photo-hills: image-set(url("/photos/hills-1200.avif") type("image/avif"), url("/photos/hills-1200.jpg") type("image/jpeg"));
+		--photo-harvest: image-set(url("/photos/harvest-1200.avif") type("image/avif"), url("/photos/harvest-1200.jpg") type("image/jpeg"));
+		--photo-trees: image-set(url("/photos/trees-1200.avif") type("image/avif"), url("/photos/trees-1200.jpg") type("image/jpeg"));
+		--photo-plain: image-set(url("/photos/plain-1200.avif") type("image/avif"), url("/photos/plain-1200.jpg") type("image/jpeg"));
+		--photo-reeds: image-set(url("/photos/reeds-1200.avif") type("image/avif"), url("/photos/reeds-1200.jpg") type("image/jpeg"));
+		--photo-lake: image-set(url("/photos/lake-1200.avif") type("image/avif"), url("/photos/lake-1200.jpg") type("image/jpeg"));
+		--photo-wheat: image-set(url("/photos/wheat-1200.avif") type("image/avif"), url("/photos/wheat-1200.jpg") type("image/jpeg"));
+		--photo-bluebells: image-set(url("/photos/bluebells-600.avif") type("image/avif"), url("/photos/bluebells-600.jpg") type("image/jpeg"));
+		--photo-poppies: image-set(url("/photos/poppies-600.avif") type("image/avif"), url("/photos/poppies-600.jpg") type("image/jpeg"));
+		--photo-wildflowers: image-set(url("/photos/wildflowers-600.avif") type("image/avif"), url("/photos/wildflowers-600.jpg") type("image/jpeg"));
+		--photo-blossom: image-set(url("/photos/blossom-600.avif") type("image/avif"), url("/photos/blossom-600.jpg") type("image/jpeg"));
+		--photo-meadow: image-set(url("/photos/meadow-600.avif") type("image/avif"), url("/photos/meadow-600.jpg") type("image/jpeg"));
+		--photo-glow: image-set(url("/photos/glow-600.avif") type("image/avif"), url("/photos/glow-600.jpg") type("image/jpeg"));
+	}
+	@media (min-width: 901px) and (min-resolution: 2dppx) {
+		:root {
+			--photo-field: image-set(url("/photos/field-2400.avif") type("image/avif"), url("/photos/field-2400.jpg") type("image/jpeg"));
+			--photo-storm: image-set(url("/photos/storm-2400.avif") type("image/avif"), url("/photos/storm-2400.jpg") type("image/jpeg"));
+			--photo-hills: image-set(url("/photos/hills-2400.avif") type("image/avif"), url("/photos/hills-2400.jpg") type("image/jpeg"));
+			--photo-harvest: image-set(url("/photos/harvest-2400.avif") type("image/avif"), url("/photos/harvest-2400.jpg") type("image/jpeg"));
+			--photo-trees: image-set(url("/photos/trees-2400.avif") type("image/avif"), url("/photos/trees-2400.jpg") type("image/jpeg"));
+			--photo-plain: image-set(url("/photos/plain-2400.avif") type("image/avif"), url("/photos/plain-2400.jpg") type("image/jpeg"));
+			--photo-reeds: image-set(url("/photos/reeds-2400.avif") type("image/avif"), url("/photos/reeds-2400.jpg") type("image/jpeg"));
+			--photo-lake: image-set(url("/photos/lake-2400.avif") type("image/avif"), url("/photos/lake-2400.jpg") type("image/jpeg"));
+			--photo-wheat: image-set(url("/photos/wheat-2400.avif") type("image/avif"), url("/photos/wheat-2400.jpg") type("image/jpeg"));
+			--photo-bluebells: image-set(url("/photos/bluebells-1200.avif") type("image/avif"), url("/photos/bluebells-1200.jpg") type("image/jpeg"));
+			--photo-poppies: image-set(url("/photos/poppies-1200.avif") type("image/avif"), url("/photos/poppies-1200.jpg") type("image/jpeg"));
+			--photo-wildflowers: image-set(url("/photos/wildflowers-1200.avif") type("image/avif"), url("/photos/wildflowers-1200.jpg") type("image/jpeg"));
+			--photo-blossom: image-set(url("/photos/blossom-1200.avif") type("image/avif"), url("/photos/blossom-1200.jpg") type("image/jpeg"));
+			--photo-meadow: image-set(url("/photos/meadow-1200.avif") type("image/avif"), url("/photos/meadow-1200.jpg") type("image/jpeg"));
+			--photo-glow: image-set(url("/photos/glow-1200.avif") type("image/avif"), url("/photos/glow-1200.jpg") type("image/jpeg"));
+		}
+	}
+}
+[data-photo="field"] {
+	--photo-src: var(--photo-field);
+	--pos: 50% 16%;
+}
+[data-photo="storm"] {
+	--photo-src: var(--photo-storm);
+	--pos: 30% 60%;
+}
+[data-photo="hills"] {
+	--photo-src: var(--photo-hills);
+	--pos: 50% 60%;
+}
+[data-photo="harvest"] {
+	--photo-src: var(--photo-harvest);
+	--pos: 50% 62%;
+}
+[data-photo="trees"] {
+	--photo-src: var(--photo-trees);
+	--pos: 55% 50%;
+}
+[data-photo="plain"] {
+	--photo-src: var(--photo-plain);
+	--pos: 30% 70%;
+}
+[data-photo="reeds"] {
+	--photo-src: var(--photo-reeds);
+	--pos: 50% 72%;
+}
+[data-photo="lake"] {
+	--photo-src: var(--photo-lake);
+	--pos: 50% 67%;
+}
+[data-photo="wheat"] {
+	--photo-src: var(--photo-wheat);
+	--pos: 50% 62%;
+}
+[data-photo="bluebells"] {
+	--photo-src: var(--photo-bluebells);
+	--pos: 30% 40%;
+}
+[data-photo="poppies"] {
+	--photo-src: var(--photo-poppies);
+	--pos: 50% 92%;
+	--zoom: 1.5;
+}
+[data-photo="wildflowers"] {
+	--photo-src: var(--photo-wildflowers);
+	--pos: 60% 45%;
+}
+[data-photo="blossom"] {
+	--photo-src: var(--photo-blossom);
+	--pos: 50% 40%;
+}
+[data-photo="meadow"] {
+	--photo-src: var(--photo-meadow);
+	--pos: 40% 50%;
+}
+[data-photo="glow"] {
+	--photo-src: var(--photo-glow);
+	--pos: 50% 30%;
+	--shade: 0.36;
+}

@@ -49,7 +49,7 @@ export function PhasesRail(props: Props) {
 						className="flex h-[444px] w-[clamp(296px,26vw,372px)] snap-start flex-col overflow-hidden border border-mk-ink-06 bg-white shadow-mk-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink max-mk-sm:h-auto max-mk-sm:w-[min(82vw,320px)]"
 					>
 						<div className="relative isolate mx-2 mt-2 h-[236px] flex-none overflow-hidden max-mk-sm:h-[200px]">
-							<Backdrop bg={art} sizes="(max-width: 640px) 82vw, 372px" className="absolute inset-0 -z-1" />
+							<Backdrop bg={art} className="absolute inset-0 -z-1" />
 							{/* A photo carries a cream number on an ink corner shade (3:1 on the lightest crops); a gradient carries ink. */}
 							{mesh ? null : <span aria-hidden="true" className="mk-corner-shade absolute inset-0 -z-1" />}
 							<span

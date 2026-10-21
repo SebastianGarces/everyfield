@@ -114,7 +114,7 @@ function Meter({ fx, fill, color }: { fx: string; fill: string; color: string })
 export function VisionZoom() {
 	return (
 		<VisionScene className="ef-ui relative isolate overflow-hidden px-[clamp(16px,3vw,40px)] py-[clamp(20px,3.2vw,44px)] shadow-mk-frame">
-			<Backdrop bg="reeds" sizes="(max-width: 900px) 100vw, 50vw" className="absolute inset-0 z-0" />
+			<Backdrop bg="reeds" className="absolute inset-0 z-0" />
 			<div className="relative mx-auto flex max-w-[500px] flex-col gap-3">
 				{/* Launch Sunday: the date the whole plan leads to. */}
 				<Move fx="vision.card" n={0} className={cn(CARD, "px-5 pt-5 pb-5")}>

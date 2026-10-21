@@ -519,7 +519,7 @@ export function ScrollChapter({ id, title, steps }: Props) {
 											className="ef-ui relative isolate mb-[22px] hidden place-items-center overflow-hidden rounded-card px-4 pt-11 pb-7 shadow-mk-frame-flat max-mk-cx:grid"
 											data-idle={mobOn[i] && !reduced ? undefined : ""}
 										>
-											<Backdrop bg={s.bg} sizes="100vw" className="absolute inset-0 z-0" />
+											<Backdrop bg={s.bg} className="absolute inset-0 z-0" />
 											<PanelSlotProvider slot={clocks.mob[i]!}>{s.panel}</PanelSlotProvider>
 										</div>
 										{s.text}
@@ -656,7 +656,7 @@ export function DeskBg({
 			)}
 			style={{ opacity, zIndex }}
 		>
-			<Backdrop bg={bg} sizes="(max-width: 900px) 100vw, 50vw" className="absolute inset-0" />
+			<Backdrop bg={bg} className="absolute inset-0" />
 		</m.span>
 	);
 }

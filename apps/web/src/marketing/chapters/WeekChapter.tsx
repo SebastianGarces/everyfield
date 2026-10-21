@@ -66,7 +66,7 @@ export function WeekChapter() {
 							className="relative isolate mt-[calc((var(--cx-h3)*1.15-var(--cx-ti))/2)] grid size-(--cx-ti) flex-none place-items-center overflow-hidden text-cream shadow-mk-icon-tile"
 						>
 							{/* The step's photo, zoomed, under a deeper overlay so the cream icon reads. */}
-							<Backdrop bg={photo} sizes="48px" shade={0.55} zoom={3} className="absolute inset-0 -z-1" />
+							<Backdrop bg={photo} shade={0.55} zoom={3} className="absolute inset-0 -z-1" />
 							<Icon
 								icon={isIconName(s.icon) ? ICONS[s.icon] : ICONS.sparkle}
 								className="size-1/2 [&_path]:[stroke-width:1.8]"
