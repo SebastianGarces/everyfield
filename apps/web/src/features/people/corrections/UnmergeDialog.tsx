@@ -54,7 +54,6 @@ export function UnmergeDialog({
 	const [done, setDone] = useState<{ restored: Restored; names: UnmergeView["names"] } | null>(null);
 	const [pending, setPending] = useState(false);
 	const seq = useRef(0);
-	const lost = useRef(false);
 	const slot = `unmerge:${mergeId}`;
 	// An earlier Unmerge of this merge whose answer was lost: only a server answer may say what happened, never a failed read.
 	const uncertain = useStore(store).errors[slot] === "lost";
@@ -90,7 +89,6 @@ export function UnmergeDialog({
 			return onUnmerged(r.value);
 		}
 		if (r.status === "lost") {
-			lost.current = true;
 			setPending(false);
 			return say({
 				retry: true,

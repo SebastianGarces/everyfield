@@ -297,10 +297,6 @@ export function commitmentChanges(base: CommitmentValues, draft: CommitmentValue
 /** The Four Cs total, as the server computes it: the sum of the four scores. */
 export const totalOf = (v: Record<Lens, ScoreValue>) => LENSES.reduce((sum, l) => sum + v[l].score, 0);
 
-/** A record value applied over its record: the record as the server holds it after a saved correction. */
-export function applied<T extends object>(record: T, changes: Partial<T>): T {
-	return { ...record, ...changes };
-}
 
 /** A corrected field's name in words, as the history lists it. */
 export function correctedFieldLabel(field: string): string {
