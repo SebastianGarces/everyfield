@@ -13,7 +13,16 @@ import { Button, IconButton, SearchInput, Sheet, Skeleton, StatePanel, Tooltip }
 import { Tag } from "@everyfield/ui/display";
 import { cn, EvryBot, Icon, type EvryMood } from "@everyfield/ui/foundations";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode, type Ref } from "react";
+import {
+	useEffect,
+	useId,
+	useRef,
+	useState,
+	type FormEvent,
+	type KeyboardEvent,
+	type ReactNode,
+	type Ref,
+} from "react";
 import * as api from "./api.ts";
 import {
 	answerText,
@@ -110,6 +119,7 @@ function EvryPanel({
 						label="History"
 						size="sm"
 						aria-pressed={view === "history"}
+						className="aria-pressed:bg-surface-2"
 						onClick={() => setView((v) => (v === "history" ? "chat" : "history"))}
 					/>
 				</Tooltip>
@@ -123,8 +133,14 @@ function EvryPanel({
 						busy={c.state.activeTurnId !== null}
 						stopping={c.state.stopping}
 						disabled={c.load !== "ready"}
-						onSend={(text, references) => c.send(text, references)}
-						onStop={() => void c.cancel()}
+						onSend={(text, references) => {
+							c.send(text, references);
+							composer.current?.focus();
+						}}
+						onStop={() => {
+							void c.cancel();
+							composer.current?.focus();
+						}}
 						suggestions={c.state.conversation || c.state.sends.length ? [] : suggestionsFor(inPlant)}
 					/>
 				) : undefined
@@ -143,32 +159,57 @@ function EvryPanel({
 					}}
 				/>
 			) : (
-				<Chat c={c} onEdit={(s) => (c.discard(s.key), setDraft(s.text), composer.current?.focus())} />
+				<Chat
+					c={c}
+					focusComposer={() => composer.current?.focus()}
+					onEdit={(s) => {
+						c.discard(s.key);
+						setDraft(s.text);
+						composer.current?.focus();
+					}}
+				/>
 			)}
 		</Sheet>
 	);
 }
 
 const suggestionsFor = (inPlant: boolean) =>
-	inPlant ? ["Who is in this church?", "What can you help with?"] : ["What can you help with?"];
+	inPlant ? ["List the people in this church", "What can you help with?"] : ["What can you help with?"];
 
 // ---------------------------------------------------------------------------------------------------------------
 // Chat
 
 type Model = ReturnType<typeof useConversation>;
 
-function Chat({ c, onEdit }: { c: Model; onEdit: (send: Send) => void }) {
+function Chat({ c, onEdit, focusComposer }: { c: Model; onEdit: (send: Send) => void; focusComposer: () => void }) {
 	const end = useRef<HTMLDivElement>(null);
 	const { turns, state } = c;
 	const lastTurn = turns.at(-1);
 
-	// Keep the newest message in view while Evry answers, unless the person scrolled up to read.
-	const size = state.events.length + state.sends.length;
+	// Keep the newest message in view while Evry answers, unless the person scrolled up to read. A new message from the
+	// person always scrolls to the end.
+	const stick = useRef(true);
+	const hasMessages = turns.length > 0 || state.sends.length > 0;
 	useEffect(() => {
-		const el = end.current;
-		const box = el?.parentElement?.parentElement;
-		if (!el || !box) return;
-		if (box.scrollHeight - box.scrollTop - box.clientHeight < 160) el.scrollIntoView({ block: "end" });
+		const box = end.current?.parentElement?.parentElement;
+		if (!box) return;
+		const onScroll = () => (stick.current = box.scrollHeight - box.scrollTop - box.clientHeight < 80);
+		box.addEventListener("scroll", onScroll, { passive: true });
+		// The composer can grow (page context, a long draft) and shrink the list; the end stays in view.
+		const resized = new ResizeObserver(() => stick.current && end.current?.scrollIntoView({ block: "end" }));
+		resized.observe(box);
+		return () => {
+			box.removeEventListener("scroll", onScroll);
+			resized.disconnect();
+		};
+	}, [c.load, hasMessages]);
+	const sent = state.sends.length;
+	useEffect(() => {
+		if (sent) stick.current = true;
+	}, [sent]);
+	const size = state.events.length + sent;
+	useEffect(() => {
+		if (stick.current) end.current?.scrollIntoView({ block: "end" });
 	}, [size]);
 
 	if (c.load === "idle" || c.load === "loading")
@@ -195,14 +236,14 @@ function Chat({ c, onEdit }: { c: Model; onEdit: (send: Send) => void }) {
 				Check your connection and try again.
 			</StatePanel>
 		);
-	if (!turns.length && !state.sends.length)
+	if (!hasMessages)
 		return (
 			<div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
 				<EvryBot size="lg" />
 				<h3 className="font-title text-title-sm leading-[1.2] tracking-[-0.02em] text-ink">Ask Evry</h3>
 				<p className="max-w-[340px] text-pretty text-text-2">
-					Evry reads the records you can see and answers with the sources it used. It never changes anything
-					without your approval.
+					Evry reads the records you can see and answers with the sources it used. It never changes anything without
+					your approval.
 				</p>
 			</div>
 		);
@@ -218,7 +259,10 @@ function Chat({ c, onEdit }: { c: Model; onEdit: (send: Send) => void }) {
 						stopping={state.stopping}
 						canRetry={turn === lastTurn && retryable(state, turns)}
 						retrying={c.retrying}
-						onRetry={() => void c.retry(turn.id)}
+						onRetry={() => {
+							void c.retry(turn.id);
+							focusComposer();
+						}}
 					/>
 				))}
 				{state.sends.map((s) => (
@@ -483,20 +527,26 @@ function Composer({
 							Using the person on this page
 						</Tag>
 					) : (
-						<Tag icon={Unlink01Icon}>Page not shared</Tag>
+						<Tag icon={Unlink01Icon}>Page left out</Tag>
 					)}
 					<Button
 						size="sm"
 						variant="ghost"
-						aria-pressed={usePage}
 						onClick={() => setUsePage((v) => !v)}
 						className="h-[26px] px-2 text-text-2"
 					>
-						{usePage ? "Don't use" : "Use page"}
+						{usePage ? "Leave out" : "Include page"}
 					</Button>
 				</div>
 			) : null}
-			<div className="rounded-card bg-surface-raised px-4 pt-3 pb-2.5 shadow-[0_0_0_1px_var(--ef-line-2)] focus-within:shadow-[0_0_0_2px_var(--ef-ink)]">
+			<div
+				className={cn(
+					"rounded-card bg-surface-raised px-4 pt-3 pb-2.5 shadow-[0_0_0_1px_var(--ef-line-2)] transition-[box-shadow] duration-150",
+					tooLong
+						? "shadow-[0_0_0_1px_var(--ef-magenta-500)]"
+						: "focus-within:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)]",
+				)}
+			>
 				<label className="sr-only" htmlFor={`${hint}-input`}>
 					Message Evry
 				</label>
@@ -605,7 +655,7 @@ function History({
 	return (
 		<div className="flex flex-col gap-3">
 			<div className="flex items-center justify-between gap-3">
-				<h3 className="font-semibold text-ink">History</h3>
+				<h3 className="font-body text-md font-semibold text-ink">History</h3>
 				<Button size="sm" variant="ghost" icon={Add01Icon} onClick={onNew}>
 					New chat
 				</Button>
@@ -655,16 +705,20 @@ function History({
 									<span className="block truncate text-sm font-medium text-ink">{item.title}</span>
 									<span className="block text-xs text-text-3">{when(item.updatedAt)}</span>
 								</span>
-								{item.activeTurnId ? (
-									<span className="flex-none text-xs text-text-3">Answering</span>
-								) : null}
+								{item.activeTurnId ? <span className="flex-none text-xs text-text-3">Answering</span> : null}
 							</button>
 						</li>
 					))}
 				</ul>
 			)}
 			{next !== null && state !== "failed" ? (
-				<Button size="sm" variant="outline" className="self-center" loading={state === "more"} onClick={() => void more()}>
+				<Button
+					size="sm"
+					variant="outline"
+					className="self-center"
+					loading={state === "more"}
+					onClick={() => void more()}
+				>
 					Show more
 				</Button>
 			) : null}

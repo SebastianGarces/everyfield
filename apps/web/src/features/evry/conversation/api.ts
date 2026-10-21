@@ -28,8 +28,7 @@ export type ConversationPage = { items: Conversation[]; total: number; page: num
 
 /** The latest conversation in this context, or none. Opening never creates one. */
 export const openLatest = () => call<ReadConversation | { conversation: null }>("open");
-export const readConversation = (id: string, after = 0) =>
-	call<ReadConversation>(`conversations/${id}?after=${after}`);
+export const readConversation = (id: string, after = 0) => call<ReadConversation>(`conversations/${id}?after=${after}`);
 export const listConversations = (search: string, page: number) =>
 	call<ConversationPage>(
 		`conversations?${new URLSearchParams({ page: String(page), ...(search ? { q: search } : {}) })}`,

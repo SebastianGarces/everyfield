@@ -144,9 +144,7 @@ export function useConversation(open: boolean) {
 			type: "sent",
 			key: send.key,
 			patch:
-				reply.status === "refused"
-					? { state: "refused", error: reply.error }
-					: { state: "unconfirmed", error: null },
+				reply.status === "refused" ? { state: "refused", error: reply.error } : { state: "unconfirmed", error: null },
 		});
 
 	/** Sends one message. A send that was not confirmed goes again with the same key, so it is saved once. */

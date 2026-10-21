@@ -227,7 +227,11 @@ export function endNotice(end: TurnEnd | null): Notice | null {
 	if (end.state === "stopped")
 		switch (end.reason) {
 			case "cancelled":
-				return { tone: "neutral", title: "You stopped this answer", text: "What Evry read before you stopped stays here." };
+				return {
+					tone: "neutral",
+					title: "You stopped this answer",
+					text: "What Evry read before you stopped stays here.",
+				};
 			case "tool_budget":
 				return {
 					tone: "neutral",

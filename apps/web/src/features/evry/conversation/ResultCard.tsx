@@ -1,10 +1,13 @@
 "use client";
 
 import { Edit02Icon, UserIcon, UserMultipleIcon } from "@hugeicons/core-free-icons";
+import { Button } from "@everyfield/ui/controls";
 import { cn, Icon } from "@everyfield/ui/foundations";
-import { Avatar, STAGES, StageChip, type Stage } from "@everyfield/ui/display";
+import { Avatar, StageChip } from "@everyfield/ui/display";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { STAGE_KEY, STAGE_LABEL } from "../../people/model.ts";
 import type { SourceResult } from "./model.ts";
 
 // A source-bound result card (REQ-EVR-024): the rows Evry read, as they are now, with the count, whether more exist and
@@ -16,7 +19,9 @@ const TITLE: Record<string, string> = {
 	"evry.selectReturnedRows": "Selected people",
 };
 
-const isStage = (value: unknown): value is Stage => STAGES.includes(value as Stage);
+const isStage = (value: unknown): value is keyof typeof STAGE_KEY => typeof value === "string" && value in STAGE_KEY;
+/** A long result starts with this many rows; the rest open on request. */
+const FIRST_ROWS = 6;
 const count = (n: number, one: string, many: string) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 
 export function ResultCard({
@@ -29,6 +34,7 @@ export function ResultCard({
 	originalTotal: number | null;
 }) {
 	const router = useRouter();
+	const [all, setAll] = useState(false);
 	const title = TITLE[operation] ?? "Records";
 	const shown = result.rows.length;
 	const summary =
@@ -59,7 +65,7 @@ export function ResultCard({
 			</header>
 			{shown ? (
 				<ul className="flex flex-col px-2 py-1.5">
-					{result.rows.map((row) => {
+					{(all ? result.rows : result.rows.slice(0, FIRST_ROWS)).map((row) => {
 						const city = typeof row.fields.city === "string" ? row.fields.city : null;
 						const href = `/people/${row.id}`;
 						const prefetch = () => router.prefetch(href);
@@ -78,15 +84,29 @@ export function ResultCard({
 										<span className="block truncate font-medium">{row.label}</span>
 										{city ? <span className="block truncate text-xs text-text-3">{city}</span> : null}
 									</span>
-									{isStage(row.fields.stage) ? <StageChip stage={row.fields.stage} /> : null}
+									{isStage(row.fields.stage) ? (
+										<StageChip stage={STAGE_KEY[row.fields.stage]}>{STAGE_LABEL[row.fields.stage]}</StageChip>
+									) : null}
 								</Link>
 							</li>
 						);
 					})}
 				</ul>
 			) : null}
+			{shown > FIRST_ROWS && !all ? (
+				<div className="px-2 pb-2">
+					<Button size="sm" variant="ghost" onClick={() => setAll(true)}>
+						Show all {shown}
+					</Button>
+				</div>
+			) : null}
 			{facts.length ? (
-				<div className={cn("flex flex-col gap-1 bg-surface-2 px-4 py-2.5 text-sm text-text-2", shown > 0 && "border-t border-line")}>
+				<div
+					className={cn(
+						"flex flex-col gap-1 bg-surface-2 px-4 py-2.5 text-sm text-text-2",
+						shown > 0 && "border-t border-line",
+					)}
+				>
 					{facts.map((fact) => (
 						<p key={fact}>{fact}</p>
 					))}
