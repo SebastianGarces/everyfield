@@ -38,7 +38,7 @@ import {
 	useToast,
 } from "@everyfield/ui/controls";
 import { Avatar, DataTable, StatusBadge, type Column } from "@everyfield/ui/display";
-import { startTransition, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 import {
 	clearCard,
 	correctRsvp,
@@ -133,17 +133,28 @@ export function GuestList({
 			}
 		});
 	}
-	/** A form's write: the form closes at once and reopens with its input and the reason when the write fails. */
-	function submitForm<T>(changes: Change[], call: SaveCall<T>, done: (value: T) => void) {
+	/**
+	 * A form's write: the form closes at once. Its answer closes it for good, or reopens it with its input and the reason.
+	 * Only that form: when another form opened meanwhile, a failure says so in a message instead.
+	 */
+	const current = useRef(form);
+	useEffect(() => {
+		current.current = form;
+	});
+	function submitForm<T>(changes: Change[], call: SaveCall<T>, done: (value: T) => void, what: string) {
+		const key = form?.key;
 		setForm((f) => f && { ...f, visible: false });
 		run(
 			changes,
 			call,
 			(v) => {
 				done(v);
-				setForm(null);
+				setForm((f) => (f?.key === key ? null : f));
 			},
-			() => setForm((f) => f && { ...f, visible: true }),
+			(code) => {
+				if (current.current?.key === key) setForm((f) => f && { ...f, visible: true });
+				else toast({ message: `${what} was not saved. ${problemText(code)}`, tone: "error" });
+			},
 		);
 	}
 
@@ -352,10 +363,15 @@ export function GuestList({
 								guestIds={shown.map((g) => g.person.personId)}
 								onClose={() => setForm(null)}
 								onSubmit={(guest, call) =>
-									submitForm([{ kind: "guest", guest }], call, (v) => {
-										onGuest(v.guest);
-										toast({ message: `${v.guest.person.displayName} is on the guest list.`, tone: "success" });
-									})
+									submitForm(
+										[{ kind: "guest", guest }],
+										call,
+										(v) => {
+											onGuest(v.guest);
+											toast({ message: `${v.guest.person.displayName} is on the guest list.`, tone: "success" });
+										},
+										`Adding ${guest.person.displayName}`,
+									)
 								}
 							/>
 						) : form?.kind === "inviter" ? (
@@ -365,7 +381,14 @@ export function GuestList({
 								guest={form.guest}
 								meetingId={meeting.id}
 								onClose={() => setForm(null)}
-								onSubmit={(guest, call) => submitForm([{ kind: "guest", guest }], call, (v) => onGuest(v.guest))}
+								onSubmit={(guest, call) =>
+									submitForm(
+										[{ kind: "guest", guest }],
+										call,
+										(v) => onGuest(v.guest),
+										`Who invited ${guest.person.displayName}`,
+									)
+								}
 							/>
 						) : form?.kind === "card" ? (
 							<CardForm
@@ -387,6 +410,7 @@ export function GuestList({
 											onCard(v.card.personId, v.card);
 											onGuest({ ...form.guest, revision: v.card.revision as Guest["revision"], hasCard: true });
 										},
+										`The card for ${form.guest.person.displayName}`,
 									)
 								}
 							/>
