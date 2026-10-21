@@ -18,8 +18,9 @@ import { peopleReader, peopleWriter } from "../../../packages/domain/src/people/
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
 import { taskReminders } from "../../../apps/web/src/server/tasks/reminders.ts";
+import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
 
-let f, writer, reminders, plant, other, owner, member, admin2, foreign;
+let f, writer, reminders, mail, sent, plant, other, owner, member, admin2, foreign;
 const ok = (r) => {
 	assert.equal(r.status, "ok", JSON.stringify(r));
 	return r.value;
@@ -106,8 +107,8 @@ before(async () => {
 			return Reflect.apply(query, this, args);
 		};
 	});
-	const sent = [];
-	const mail = createMailService({
+	sent = [];
+	mail = createMailService({
 		db: f.db,
 		encryptionKey: randomBytes(32),
 		addressKey: randomBytes(32),
@@ -664,6 +665,59 @@ test("INV-statements: page reads are one statement and generated work costs the 
 		[
 			[3, 3, 3, 3],
 			[3, 3, 3, 3],
+		],
+	);
+});
+
+test("AC:TARGET-TSK-014 a delivered due reminder is not sent again after the deadline moves", async () => {
+	// Church-local wall time of an instant, as a person enters a deadline.
+	const local = (ms) =>
+		new Intl.DateTimeFormat("sv-SE", {
+			timeZone: "America/Chicago",
+			year: "numeric",
+			month: "2-digit",
+			day: "2-digit",
+			hour: "2-digit",
+			minute: "2-digit",
+			second: "2-digit",
+		})
+			.format(ms)
+			.replace(" ", "T");
+	const dispatch = async () => {
+		for (const claim of await claimDue(f.db, ["mail"], 10)) await mail.dispatch(claim);
+	};
+	const wait = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, ms - Date.now()) + 200));
+	const before = sent.length;
+	const first = Date.now() + 3000;
+	const t = await create(owner, {
+		title: "Print programs",
+		assigneeId: member.id,
+		due: { kind: "resolved_instant", local: local(first) },
+	});
+	await wait(first);
+	await dispatch();
+	assert.equal(sent.length, before + 1);
+	const second = Date.now() + 3000;
+	ok(
+		await write(owner, "edit", {
+			requestKey: randomUUID(),
+			expectedRevision: t.revision,
+			input: { taskId: t.id, patch: { due: { kind: "resolved_instant", local: local(second) } } },
+		}),
+	);
+	await wait(second);
+	await dispatch();
+	assert.equal(sent.length, before + 1);
+	// The overdue slot is still owed, once, at the new deadline plus 24 hours.
+	assert.deepEqual(
+		await rows(
+			sql`SELECT split_part(logical_key,'/',2) slot, to_char(eligible_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS".000Z"') eligible_at FROM notice WHERE source_record_id=${t.id} AND cancelled_at IS NULL`,
+		),
+		[
+			{
+				slot: "task_overdue",
+				eligible_at: new Date(Date.parse(new Date(second).toISOString().slice(0, 19) + "Z") + 86_400_000).toISOString(),
+			},
 		],
 	);
 });
