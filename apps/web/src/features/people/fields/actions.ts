@@ -1,6 +1,7 @@
 "use server";
 
 import { requestDatabase } from "@/server/database";
+import { drainObjectCleanup } from "@/server/jobs/drain-object-cleanup";
 import { requestKey, revision } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/people";
 import type { PeopleReply, PeopleWriteContext } from "@everyfield/contracts/people";
@@ -11,7 +12,8 @@ import { boundary, invalid, outcome, receipt, type Receipt } from "../boundary.t
 import type { Outcome } from "../model.ts";
 import { read, write } from "../server.ts";
 import type { ChurchTag, HouseholdResult, PersonTag, PhotoResult, Skill } from "./model.ts";
-import { peopleContext, privateStorage } from "./server.ts";
+import { privateStorage } from "@everyfield/db/schema";
+import { peopleContext } from "./server.ts";
 
 // Server actions for the person fields (REQ-PPL-005, 009, 010, 011). Each parses the browser's input with the WP-012
 // contract, runs one producer write in one transaction and answers with what changed, so the screen updates from the
@@ -298,6 +300,7 @@ export async function uploadPhoto(form: FormData): Promise<Outcome<PhotoSaved>> 
 	const { requestKey, expectedRevision, personId, file } = parsed.data;
 	const mime = c.photoMime.safeParse(file.type);
 	if (!mime.success || file.size < 1 || file.size > c.PHOTO_MAX_BYTES) return invalid;
+	drainObjectCleanup(); // after the response: delete the bytes of the photo this change released
 	return boundary(c.personFieldsRequest, { personId }, async (v) => {
 		const storage = privateStorage();
 		const db = requestDatabase();
@@ -334,6 +337,7 @@ export async function removePhoto(
 	expectedRevision: string,
 	personId: string,
 ): Promise<Outcome<PhotoSaved>> {
+	drainObjectCleanup(); // after the response: delete the bytes of the photo this change released
 	return boundary(
 		c.removePersonPhotoRequest,
 		{ requestKey, expectedRevision, input: { personId } },

@@ -6,7 +6,7 @@ import type { Conversation, ProjectedError, ReadConversation, Reference } from "
 
 export type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: ProjectedError } | { status: "lost" };
 
-async function call<T>(path: string, init?: { method: "POST"; body: unknown }): Promise<Reply<T>> {
+export async function call<T>(path: string, init?: { method: "POST"; body: unknown }): Promise<Reply<T>> {
 	try {
 		const r = await fetch(`/api/evry/${path}`, {
 			cache: "no-store",

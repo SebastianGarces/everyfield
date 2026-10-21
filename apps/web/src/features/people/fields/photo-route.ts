@@ -4,7 +4,8 @@ import { getViewer } from "@/server/request-context";
 import { personFields, readPersonPhoto } from "@everyfield/domain/people";
 import { z } from "zod";
 import { read } from "../server.ts";
-import { peopleContext, privateStorage } from "./server.ts";
+import { privateStorage } from "@everyfield/db/schema";
+import { peopleContext } from "./server.ts";
 
 // GET /people/{personId}/photo/{versionId}: the exact photo version of a live person, for a reader who can see that
 // person now (REQ-PPL-005). There is no storage link. Every request rechecks the session, seat and person: a browser
