@@ -463,6 +463,38 @@
 		"limit": 7,
 		"retry": 14
 	},
+	"tasks.changeStatus": {
+		"limit": 13,
+		"retry": 26
+	},
+	"tasks.complete": {
+		"limit": 13,
+		"retry": 26
+	},
+	"tasks.create": {
+		"limit": 13,
+		"retry": 26
+	},
+	"tasks.delete": {
+		"limit": 7,
+		"retry": 14
+	},
+	"tasks.edit": {
+		"limit": 14,
+		"retry": 28
+	},
+	"tasks.reopen": {
+		"limit": 13,
+		"retry": 26
+	},
+	"tasks.waive": {
+		"limit": 13,
+		"retry": 26
+	},
+	"tasks/core.withTaskWrite": {
+		"limit": 18,
+		"retry": 36
+	},
 	"native.organizations.profile": {
 		"limit": 5,
 		"retry": 10

@@ -174,15 +174,17 @@ export async function setStatus(
 	input: { status: z.infer<typeof c.taskStatus>; reason?: string | null; source?: z.infer<typeof c.historySource> },
 ) {
 	if (row.status === input.status) {
-		auditRow(cmd, {
-			taskId: row.id,
-			action: "tasks.changed",
-			kind: "noop",
-			before: null,
-			after: null,
-			beforeRevision: row.revision,
-			afterRevision: row.revision,
-		});
+		// A task command still needs its row to keep the request key; generated work adds nothing.
+		if (input.source !== "generated")
+			auditRow(cmd, {
+				taskId: row.id,
+				action: "tasks.changed",
+				kind: "noop",
+				before: null,
+				after: null,
+				beforeRevision: row.revision,
+				afterRevision: row.revision,
+			});
 		return { value: mutation(cmd, row, "noop") };
 	}
 	const reopening = !OPEN(row.status) && OPEN(input.status);

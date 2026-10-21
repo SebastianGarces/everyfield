@@ -315,13 +315,16 @@ test("AC:TARGET-TSK-003 AC:TARGET-TSK-015 own-duty completion, one result per re
 	refused(await command(member, "complete", others), "unavailable");
 	refused(await command(member, "edit", moved, { patch: { title: "Renamed" } }), "unavailable");
 
-	const request = { requestKey: randomUUID(), expectedRevision: moved.revision, input: { taskId: t.id } };
+	// The assignee may change the status of their own task.
+	const started = ok(await command(member, "changeStatus", moved, { status: "in_progress" })).task;
+	assert.equal(started.status, "in_progress");
+	const request = { requestKey: randomUUID(), expectedRevision: started.revision, input: { taskId: t.id } };
 	const done = ok(await write(member, "complete", request));
 	// A lost response: the same request shows the earlier result and adds no history.
 	assert.deepEqual(ok(await write(member, "complete", request)), done);
 	assert.equal(done.task.status, "complete");
 	assert.ok(done.task.completedAt);
-	refused(await command(member, "complete", moved), "conflict");
+	refused(await command(member, "complete", started), "conflict");
 	const reopened = ok(await command(member, "reopen", done.task)).task;
 	assert.deepEqual([reopened.status, reopened.completedAt], ["not_started", null]);
 	const again = ok(await command(member, "reopen", reopened));
@@ -332,7 +335,8 @@ test("AC:TARGET-TSK-003 AC:TARGET-TSK-015 own-duty completion, one result per re
 		history.items.map((h) => [h.from, h.to, h.actor.kind === "account" ? h.actor.accountId : h.actor.kind, h.source]),
 		[
 			[null, "not_started", owner.id, "person"],
-			["not_started", "complete", member.id, "person"],
+			["not_started", "in_progress", member.id, "person"],
+			["in_progress", "complete", member.id, "person"],
 			["complete", "not_started", member.id, "person"],
 		],
 	);
@@ -478,30 +482,37 @@ test("AC:TARGET-TSK-017 AC:PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE generated foll
 			}),
 			"protected_source",
 		);
-	// Recording the evaluation completes its task inside the same command, attributed as generated work.
-	await auditTransaction(f.db, async (tx) => {
-		await owner.actor.bind(tx, plant);
-		const identity = requestIdentity.parse({
-			owner: plant,
-			actorId: owner.id,
-			operation: "meetings.recordEvaluation",
-			requestKey: randomUUID(),
-			digest: "1".repeat(64),
+	// Recording the evaluation completes its task inside the same command, attributed as generated work; a repeat
+	// leaves it as it is.
+	const recordEvaluation = () =>
+		auditTransaction(f.db, async (tx) => {
+			await owner.actor.bind(tx, plant);
+			const identity = requestIdentity.parse({
+				owner: plant,
+				actorId: owner.id,
+				operation: "meetings.recordEvaluation",
+				requestKey: randomUUID(),
+				digest: "1".repeat(64),
+			});
+			const claim = await prepareWrite(tx, identity);
+			const cmd = { ...claim, actor: { accountId: owner.id, plantId: plant.id } };
+			const r = await applyManagedStatus(tx, cmd, reminders, {
+				obligationId: first[2].obligationId,
+				status: "complete",
+			});
+			cmd.events.unshift({
+				id: cmd.id,
+				tenant_id: plant.id,
+				actor_id: owner.id,
+				action: "meetings.changed",
+				kind: "edit",
+				subject_type: "meeting",
+				subject_id: m1,
+			});
+			await finishAudit(tx, cmd, identity, r.value);
+			return r.value.outcome;
 		});
-		const claim = await prepareWrite(tx, identity);
-		const cmd = { ...claim, actor: { accountId: owner.id, plantId: plant.id } };
-		const r = await applyManagedStatus(tx, cmd, reminders, { obligationId: first[2].obligationId, status: "complete" });
-		cmd.events.unshift({
-			id: cmd.id,
-			tenant_id: plant.id,
-			actor_id: owner.id,
-			action: "meetings.changed",
-			kind: "edit",
-			subject_type: "meeting",
-			subject_id: m1,
-		});
-		await finishAudit(tx, cmd, identity, r.value);
-	});
+	assert.deepEqual([await recordEvaluation(), await recordEvaluation()], ["changed", "noop"]);
 	assert.deepEqual(
 		ok(await read(owner, "statusHistory", { taskId: evaluation.id })).items.map((h) => [h.to, h.source]),
 		[
