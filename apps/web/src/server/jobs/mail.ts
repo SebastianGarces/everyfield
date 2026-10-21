@@ -219,7 +219,7 @@ export function createMailService(config: {
 			.onConflictDoNothing({ target: [tables.audit_event.subject_id, tables.audit_event.event_key] });
 	}
 	/** The verified producer queues a required intent with its facts and audit. Dispatch rechecks its live source. */
-	async function append(tx: Transaction, input: MailIntent, writes: SQLWrapper[]): Promise<string> {
+	async function append(tx: Pick<Transaction, "insert">, input: MailIntent, writes: SQLWrapper[]): Promise<string> {
 		const v = intentSchema.parse(input),
 			id = randomUUID(),
 			job = randomUUID(),

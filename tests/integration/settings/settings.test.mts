@@ -13,6 +13,7 @@ import {
 	createAccountCredentials,
 	uploadAvatar,
 	readAvatar,
+	withSettingsWrite,
 } from "../../../packages/domain/src/settings/index.ts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
@@ -63,7 +64,12 @@ const ctx = (a, selected = { kind: "account", id: a.id }) => ({
 	session: a.session,
 	selected,
 });
-const call = (name, a, v, selected) => db.transaction((tx) => api[name](tx, ctx(a, selected), v));
+/** The credential operations take no app transaction, as the web mount calls them. */
+const CREDENTIALS = ["requestEmailChange", "confirmEmailChange", "changePassword"];
+const call = (name, a, v, selected) =>
+	CREDENTIALS.includes(name)
+		? api[name](ctx(a, selected), v)
+		: db.transaction((tx) => api[name](tx, ctx(a, selected), v));
 /** The viewer the settings mount passes: the request actor and the user row of the session's Better Auth lookup. */
 async function viewerOf(a) {
 	const v = await readViewer(db, a.session);
@@ -196,25 +202,35 @@ before(async () => {
 		request: async (c) => {
 			const request = ingress.get(c.session);
 			if (!request) throw Error("missing_native_request");
-			return { request, trustedIp: "198.51.100.21" };
+			const v = await viewerOf({ session: c.session });
+			const viewer = v && {
+				accountId: v.authority.actor.accountId,
+				email: v.principal.email,
+				verified: v.principal.verified,
+			};
+			return { request, trustedIp: "198.51.100.21", viewer };
 		},
 		responseCookies: async () => {},
-		deliverVerification: async (i) => {
+		deliverVerification: async (_tx, i) => {
 			deliveries.push(i);
 		},
-		securityNotice: async (tx, i) => {
+		securityNotice: async (tx, i, writes) => {
 			if (faults) throw Error("security_intent_fault");
-			return await mail.enqueue(tx, {
-				owner: { kind: "account", id: i.accountId },
-				purpose: "notification",
-				logicalKey: "security/" + i.correlationId,
-				recipient: i.accountId,
-				address: i.address,
-				content: { subject: "Security update", text: "Your sign-in details changed." },
-				operation: null,
-				notice: null,
-				eligibleAt: new Date().toISOString(),
-			});
+			return await mail.append(
+				tx,
+				{
+					owner: { kind: "account", id: i.accountId },
+					purpose: "notification",
+					logicalKey: "security/" + i.correlationId,
+					recipient: i.accountId,
+					address: i.address,
+					content: { subject: "Security update", text: "Your sign-in details changed." },
+					operation: null,
+					notice: null,
+					eligibleAt: new Date().toISOString(),
+				},
+				writes,
+			);
 		},
 	});
 	producerDeps = {
@@ -236,29 +252,33 @@ before(async () => {
 		},
 		suppression: async () => "unavailable",
 		avatarCleanup: {
-			enqueue: async (tx, i) => {
-				await enqueueJob(tx, {
-					tenant: i.accountId,
-					kind: "object_cleanup",
-					subject: i.fileId,
-					key: "avatar/" + i.fileId,
-					revision: "1",
-					eligibleAt: i.eligibleAt,
-				});
+			queue: (tx, i) => {
 				if (faults) throw Error("cleanup_intent_fault");
+				return queueJobs(tx, [
+					{
+						tenant: i.accountId,
+						kind: "object_cleanup",
+						subject: i.fileId,
+						key: "avatar/" + i.fileId,
+						revision: "1",
+						eligibleAt: i.eligibleAt,
+					},
+				]);
 			},
 		},
 		deletion: {
-			enqueue: async (tx, i) => {
-				await enqueueJob(tx, {
-					tenant: i.subject.id,
-					kind: "lifecycle_purge",
-					subject: i.witnessId,
-					key: "purge/" + i.requestId,
-					revision: i.revision,
-					eligibleAt: i.eligibleAt,
-				});
+			queue: (tx, i) => {
 				if (faults) throw Error("purge_intent_fault");
+				return queueJobs(tx, [
+					{
+						tenant: i.subject.id,
+						kind: "lifecycle_purge",
+						subject: i.witnessId,
+						key: "purge/" + i.requestId,
+						revision: i.revision,
+						eligibleAt: i.eligibleAt,
+					},
+				]);
 			},
 		},
 		credentials,
@@ -766,6 +786,26 @@ test("AC:TARGET-IDN-006 AC:SEC-07 AC:PROVIDER48-002 avatar verifies private byte
 	const saved = ok(await call("finalizeAvatar", a, command({ uploadId: upload.uploadId })));
 	assert.deepEqual(saved, { status: "available", avatar: { accountId: a.id, versionId: upload.uploadId } });
 	assert.deepEqual(await readAvatar(db, storage, ctx(a), upload.uploadId), bytes);
+	// INV-C27: the photo read takes no session lock. It finishes while another transaction holds the session row.
+	let entered, release;
+	const locked = new Promise((r) => (entered = r)),
+		held = new Promise((r) => (release = r));
+	const holder = admin.transaction(async (tx) => {
+		await tx.execute(sql`SELECT 1 FROM auth_session WHERE id=${a.session} FOR UPDATE`);
+		entered();
+		await held;
+	});
+	await locked;
+	try {
+		const read = await Promise.race([
+			readAvatar(db, storage, ctx(a), upload.uploadId),
+			new Promise((_, reject) => setTimeout(() => reject(Error("photo read waited for the session lock")), 3000)),
+		]);
+		assert.deepEqual(read, bytes);
+	} finally {
+		release();
+		await holder;
+	}
 	denied(await call("getAvatar", foreign, { versionId: upload.uploadId }));
 	const clear = ok(await call("removeAvatar", a, command({}, "2")));
 	assert.deepEqual(clear, { status: "absent" });
@@ -1433,17 +1473,22 @@ async function mountRead(a, request) {
 		recording = false;
 	}
 }
+const instrumented = new WeakSet();
+/** Records every statement the pools send while `recording` is on. */
+function instrument(...pools) {
+	for (const pool of pools)
+		pool.$client.on("acquire", (client) => {
+			if (instrumented.has(client)) return;
+			instrumented.add(client);
+			const query = client.query;
+			client.query = function (...args) {
+				if (recording) statements.push(typeof args[0] === "string" ? args[0] : args[0].text);
+				return Reflect.apply(query, this, args);
+			};
+		});
+}
 test("INV-performance: each settings section reads in one statement on the pool, without a transaction", async () => {
-	const instrumented = new WeakSet();
-	db.$client.on("acquire", (client) => {
-		if (instrumented.has(client)) return;
-		instrumented.add(client);
-		const query = client.query;
-		client.query = function (...args) {
-			if (recording) statements.push(typeof args[0] === "string" ? args[0] : args[0].text);
-			return Reflect.apply(query, this, args);
-		};
-	});
+	instrument(db);
 	const f = await plant(),
 		org = await organization();
 	const [team] = await admin
@@ -1619,4 +1664,124 @@ test("BUG-3213d18: notifications read the account's saved choices and an organiz
 	assert.equal(stored.enabled, true);
 	const reload = ok(await section(org.a, { section: "notifications" }));
 	assert.equal(reload.values.choices.find((c) => c.category === "task_due" && c.channel === "email").enabled, true);
+});
+
+/** One write the way the web mount runs it: the request's actor bound in its own transaction, every statement recorded. */
+async function mountWrite(a, body) {
+	const viewer = await viewerOf(a),
+		context = { session: a.session, selected: { kind: "account", id: a.id } };
+	statements.length = 0;
+	recording = true;
+	try {
+		const value = ok(await withSettingsWrite(db, viewer.authority, context, (tx) => body(tx, context)));
+		return { value, count: statements.length };
+	} finally {
+		recording = false;
+	}
+}
+/** The audit rows of one command, by its request key. */
+const auditOf = (requestKey) =>
+	admin.execute(
+		sql`SELECT action, metadata, result FROM audit_event WHERE command_id=(SELECT id FROM audit_event WHERE request_key=${requestKey})`,
+	);
+test("INV-performance: photo, own time zone and deletion writes use a fixed small statement count and one audit row naming only fields", async () => {
+	instrument(db);
+	const a = await actor();
+	const upload = await mountWrite(a, (tx, c) => api.requestAvatarUpload(tx, c, { mime: "image/png", byteLength: 68 }));
+	// The byte adapter verified and stored the bytes.
+	await admin
+		.update(t.file_object)
+		.set({ state: "ready", byte_count: "68", sha256: "0".repeat(64) })
+		.where(eq(t.file_object.id, upload.value.uploadId));
+	const finalizeKey = randomUUID();
+	const finalized = await mountWrite(a, (tx, c) =>
+		api.finalizeAvatar(tx, c, command({ uploadId: upload.value.uploadId }, "1", finalizeKey)),
+	);
+	assert.deepEqual(finalized.value, {
+		status: "available",
+		avatar: { accountId: a.id, versionId: upload.value.uploadId },
+	});
+	const retriedPhoto = await mountWrite(a, (tx, c) =>
+		api.finalizeAvatar(tx, c, command({ uploadId: upload.value.uploadId }, "1", finalizeKey)),
+	);
+	assert.deepEqual(retriedPhoto.value, finalized.value);
+	const removeKey = randomUUID();
+	const removed = await mountWrite(a, (tx, c) => api.removeAvatar(tx, c, command({}, "2", removeKey)));
+	assert.deepEqual(removed.value, { status: "absent" });
+	const preview = await mountWrite(a, (tx, c) => api.previewPersonalTimezone(tx, c, { timeZone: "Europe/Paris" }));
+	const zoneKey = randomUUID();
+	const zone = await mountWrite(a, (tx, c) =>
+		api.setPersonalTimezone(
+			tx,
+			c,
+			command({ timeZone: "Europe/Paris", previewId: preview.value.previewId, confirmed: true }, "1", zoneKey),
+		),
+	);
+	assert.deepEqual(zone.value.preference, { status: "confirmed", timeZone: "Europe/Paris", revision: "2" });
+	// An exact retry returns the same reply from the replay record.
+	const retried = await mountWrite(a, (tx, c) =>
+		api.setPersonalTimezone(
+			tx,
+			c,
+			command({ timeZone: "Europe/Paris", previewId: preview.value.previewId, confirmed: true }, "1", zoneKey),
+		),
+	);
+	assert.deepEqual(retried.value, zone.value);
+	const deletionKey = randomUUID();
+	const deletion = await mountWrite(a, (tx, c) =>
+		api.requestAccountDeletion(tx, c, command({ confirmed: true }, "4", deletionKey)),
+	);
+	assert.equal(deletion.value.status, "pending_deletion");
+	// BEGIN, the bound actor and COMMIT, plus: the insert; the replay check, the file and the write; the replay check
+	// and the write; the insert; the replay check, the preview, the replan job and the write; the replay check, the
+	// witness read, the witness, the suspension and the write.
+	assert.deepEqual(
+		[upload.count, finalized.count, removed.count, preview.count, zone.count, deletion.count],
+		[4, 6, 5, 4, 7, 8],
+	);
+	for (const [key, field] of [
+		[finalizeKey, "avatar"],
+		[removeKey, "avatar"],
+		[zoneKey, "personalTimezone"],
+	]) {
+		const rows = (await auditOf(key)).rows;
+		assert.equal(rows.length, 1, field);
+		assert.deepEqual(rows[0].metadata, { section: "account", diff: { [field]: true } });
+	}
+	assert.equal((await auditOf(deletionKey)).rows.length, 1);
+	// The whole audit row, replay record included, holds no personal value: no zone, no photo reference.
+	assert.deepEqual((await auditOf(zoneKey)).rows[0].result, { revision: "2" });
+	assert.deepEqual((await auditOf(finalizeKey)).rows[0].result, {});
+	assert.deepEqual((await auditOf(removeKey)).rows[0].result, {});
+});
+
+test("AC:DEL58-002 INV-performance: a fresh password proof opens only the account's current request; status and cancel stay small", async () => {
+	instrument(db);
+	const a = await credentialActor();
+	const [row] = await admin.select().from(t.account).where(eq(t.account.id, a.id));
+	const pending = ok(await call("requestAccountDeletion", a, command({ confirmed: true }, row.revision)));
+	const open = (password) => producerDeps.credentials.openAccountDeletion({ email: a.email, password }, null);
+	assert.deepEqual(await open("Wrong secret 1234!"), { status: "refused", code: "proof_invalid" });
+	const opened = await open(a.password);
+	assert.equal(opened.status, "ok");
+	assert.deepEqual(opened.value.subject, { kind: "account", id: a.id });
+	assert.equal(opened.value.requestId, pending.requestId);
+	const request = { subject: opened.value.subject, requestId: opened.value.requestId };
+	const measured = async (body) => {
+		statements.length = 0;
+		recording = true;
+		try {
+			return { value: ok(await db.transaction(body)), count: statements.length };
+		} finally {
+			recording = false;
+		}
+	};
+	const status = await measured((tx) => api.getAccountDeletionStatus(tx, opened.value.session, request));
+	assert.deepEqual(status.value, pending);
+	const cancelled = await measured((tx) =>
+		api.cancelAccountDeletion(tx, opened.value.session, command(request, pending.revision)),
+	);
+	assert.equal(cancelled.value.status, "cancelled");
+	// BEGIN, SAVEPOINT, the locking read, [the witness and audit write,] RELEASE, COMMIT.
+	assert.deepEqual([status.count, cancelled.count], [5, 6]);
 });
