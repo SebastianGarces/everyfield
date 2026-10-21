@@ -264,10 +264,18 @@ export function creation(effects: OnboardingEffects) {
 						await currentCreation(tx, ctx, c.convertDiscoveryResult.parse(cx.value)),
 					);
 				await seatless(tx, a.account.id);
+				// Lock order shared with organization writes, whose gate locks the actor account, then the organization,
+				// then the link. With the profile, this statement locks the owners' accounts the notices share-lock, then
+				// the linked organizations, before any link.
+				const linked = sql`SELECT organization_id FROM affiliation WHERE account_id=${a.account.id}::uuid AND ended_at IS NULL`;
+				const organizationsLocked = sql`(SELECT count(*) FROM (WITH owners AS MATERIALIZED (SELECT o.id FROM account o WHERE o.id IN (SELECT account_id FROM seat WHERE organization_id IN (${linked}) AND role='owner' AND ended_at IS NULL) ORDER BY o.id FOR SHARE)
+	SELECT o.id FROM organization o WHERE o.id IN (${linked}) AND (SELECT count(*) FROM owners)>=0 ORDER BY o.id FOR NO KEY UPDATE) locked)>=0`;
 				const [d] = await tx
 					.select()
 					.from(t.discovery)
-					.where(and(eq(t.discovery.id, q.input.discoveryId), eq(t.discovery.account_id, a.account.id)))
+					.where(
+						and(eq(t.discovery.id, q.input.discoveryId), eq(t.discovery.account_id, a.account.id), organizationsLocked),
+					)
 					.for("update");
 				if (!d || d.converted_at) deny();
 				revision(q.expectedRevision, d.revision);
