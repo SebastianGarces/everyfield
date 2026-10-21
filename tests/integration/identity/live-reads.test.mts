@@ -112,7 +112,9 @@ test("INV-reads (C22, C27): Tasks, Settings, Evry and residency reads hold no lo
 			try {
 				await f.admin.transaction(async (a) => {
 					await a.execute(sql`SET LOCAL lock_timeout='250ms'`);
-					await a.execute(sql`UPDATE auth_session SET expires_at=expires_at WHERE id=ANY(${sql.param(sessions)}::uuid[])`);
+					await a.execute(
+						sql`UPDATE auth_session SET expires_at=expires_at WHERE id=ANY(${sql.param(sessions)}::uuid[])`,
+					);
 				});
 			} catch {
 				waited.push(name);
