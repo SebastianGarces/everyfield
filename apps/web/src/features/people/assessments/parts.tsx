@@ -39,8 +39,10 @@ export function recordProblem(code: string): string {
 			return "This date is after today at your church. Choose today or an earlier date.";
 		case "storage_unavailable":
 			return "Document storage is not set up yet. Save without the document, or try again later.";
+		case "upload_unreadable":
+			return "This file could not be read as a PDF, JPG or PNG, so nothing was saved. Choose another file of 10 MB or less.";
 		case "upload_failed":
-			return "The document did not upload, and nothing was saved. Check that it is a PDF, JPG or PNG under 10 MB, then try again.";
+			return "The document did not upload, and nothing was saved. Try again in a moment.";
 		case "upload_lost":
 			return "The document upload did not finish, and nothing was saved. Try again.";
 		default:

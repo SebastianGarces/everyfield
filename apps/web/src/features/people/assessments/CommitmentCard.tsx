@@ -212,7 +212,9 @@ export function CommitmentCard({
 							? "upload_lost"
 							: stored.code === "storage_unavailable"
 								? "storage_unavailable"
-								: "upload_failed";
+								: stored.code === "invalid_input"
+									? "upload_unreadable"
+									: "upload_failed";
 					return { status: "refused", code };
 				}
 				doc.uploadId = stored.value.uploadId;
@@ -607,11 +609,11 @@ function CardRow({
 					<a
 						href={`/people/${personId}/commitments/${card.id}/document`}
 						rel="noreferrer"
-						className="mt-2 inline-flex min-h-6 items-center gap-1.5 rounded-xs text-sm font-medium text-ink underline underline-offset-[3px]"
+						className="mt-2 inline-flex min-h-6 flex-wrap items-center gap-x-1.5 rounded-xs text-sm font-medium text-ink underline underline-offset-[3px]"
 					>
 						<Icon icon={File02Icon} size={16} />
-						Download signed card
-						<span className="font-normal text-text-3">
+						<span className="whitespace-nowrap">Download signed card</span>
+						<span className="font-normal whitespace-nowrap text-text-3">
 							({fileKind(card.document.mediaType)}, {fileSize(card.document.byteCount)})
 						</span>
 					</a>
