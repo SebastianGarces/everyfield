@@ -4,15 +4,18 @@ import { APICallError, wrapLanguageModel } from "ai";
 import { LIMITS } from "../context/limits.ts";
 import { scriptedModel } from "./scripted.ts";
 
-/** USD per million tokens. Every input token counts at the full rate, also when the provider served it from cache. */
-export type Price = { input: number; output: number };
+/**
+ * USD per million tokens. Every input token counts at the full rate, also when the provider served it from cache. A call
+ * with more than `longContextAbove` input tokens costs twice the input rate and 1.5 times the output rate.
+ */
+export type Price = { input: number; output: number; longContextAbove: number };
 /** A paid model's price and the deployment's monthly limit, in millionths of a US dollar. */
 export type Spend = { price: Price; capMicroUsd: number };
 export type QualifiedModel =
 	{ status: "qualified"; id: string; model: LanguageModelV4; spend?: Spend } | { status: "unavailable" };
 
 /** The paid models Sebastian approved (D77), with OpenAI's standard prices from 2026-10-21. */
-const OPENAI: Record<string, Price> = { "gpt-6-luna": { input: 0.1, output: 0.5 } };
+const OPENAI: Record<string, Price> = { "gpt-6-luna": { input: 0.1, output: 0.5, longContextAbove: 272_000 } };
 /** Two databases (shared development and production) share D77's 40 USD a month. */
 const DEFAULT_CAP_USD = 20;
 
@@ -38,20 +41,6 @@ export function selectQualifiedModel(env: Record<string, string | undefined> = p
 		spend: { price, capMicroUsd: Math.round(cap * 1_000_000) },
 	};
 }
-
-/** A turn's cost in millionths of a US dollar, rounded up. */
-export const costMicroUsd = (price: Price, usage: { inputTokens: number; outputTokens: number }) =>
-	Math.ceil(usage.inputTokens * price.input + usage.outputTokens * price.output);
-
-/**
- * The most one turn can cost. The token budgets are checked after each model call, so the last call can pass them
- * by up to one more full prompt (input) and one more call's output.
- */
-export const worstTurnMicroUsd = (price: Price) =>
-	costMicroUsd(price, {
-		inputTokens: 2 * LIMITS.inputTokens,
-		outputTokens: LIMITS.outputTokens + LIMITS.outputTokensPerCall,
-	});
 
 const transient = (error: unknown) => APICallError.isInstance(error) && error.isRetryable;
 

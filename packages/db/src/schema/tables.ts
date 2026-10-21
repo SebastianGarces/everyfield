@@ -4761,8 +4761,8 @@ export const conversation_event = pgTable(
 
 /**
  * What paid Evry model calls have committed this calendar month (UTC) in this database, in millionths of a US dollar
- * (D77). A paid run reserves its worst case here before any model call and gives back what it did not use; a run that
- * stopped with a call still open keeps its reservation. It holds no personal data and outlives conversation deletion.
+ * (D77). Each paid call reserves its worst case here before the provider sees it and settles to its reported usage; a
+ * call that never reports usage keeps its reservation. It holds no personal data and outlives conversation deletion.
  */
 export const model_spend = pgTable(
 	"model_spend",

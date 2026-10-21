@@ -21302,7 +21302,7 @@
     {
       "name": "model_spend",
       "domain": "assistant",
-      "purpose": "Paid Evry model spend committed per calendar month (UTC) in this database: reservations for runs in progress plus the settled cost of finished runs, checked against the monthly limit before any paid model call (D77).",
+      "purpose": "Paid Evry model spend committed per calendar month (UTC) in this database: reservations for model calls in progress plus the settled cost of finished calls, checked against the monthly limit before the provider sees any paid call (D77).",
       "library_owned": false,
       "jsonb_keys": {},
       "capabilities": [
@@ -21329,11 +21329,11 @@
       "future_case_ids": [],
       "scope": "assistant",
       "invariants": [
-        "A paid run reserves its worst-case cost in one conditional statement before any model call; the charge never passes the configured monthly limit at reservation.",
-        "A run gives back only the unused part of its reservation, and only when no model call it started is still open."
+        "A paid model call reserves its byte-bounded worst-case cost in one conditional statement before the provider sees it; the charge never passes the configured monthly limit at reservation.",
+        "A call settles once to its reported usage; a call that never reports usage keeps its whole reservation."
       ],
       "revision": "One row per month; reservations add and settlements subtract in single statements.",
-      "idempotency": "A run settles once; a run that stopped without settling keeps its full reservation.",
+      "idempotency": "A call settles at most once; a call that stopped without usage keeps its full reservation.",
       "deletion": "Holds no personal or tenant data; conversation, account and tenant purges leave it unchanged.",
       "physical_verified": false,
       "columns": [
