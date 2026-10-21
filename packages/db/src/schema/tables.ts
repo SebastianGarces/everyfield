@@ -1564,6 +1564,7 @@ export const job = pgTable(
 				"assistant_turn",
 				"document_render",
 				"people_import",
+				"evry_effect",
 			],
 		}).notNull(),
 		subject_record_id: uuid("subject_record_id"),
@@ -1606,7 +1607,7 @@ export const job = pgTable(
 		check("job_ck_0", sql`(revision >= 1)`),
 		check(
 			"job_ck_1",
-			sql`(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'assessment'::text, 'reference_generation'::text, 'feedback_publication'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'document_render'::text, 'people_import'::text]))`,
+			sql`(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'assessment'::text, 'reference_generation'::text, 'feedback_publication'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'document_render'::text, 'people_import'::text, 'evry_effect'::text]))`,
 		),
 		check(
 			"job_ck_2",
@@ -4678,6 +4679,7 @@ export const conversation = pgTable(
 			foreignColumns: [job.id, job.tenant_id],
 		}),
 		index("conversation_owner_recent").on(t.account_id, t.tenant_id, t.updated_at, t.id),
+		unique("conversation_identity").on(t.id, t.tenant_id),
 	],
 );
 /** The saved, ordered record of a conversation: submitted messages, assistant text, source-bound results and run states. */
@@ -4736,6 +4738,59 @@ export const person_import = pgTable(
 		check("person_import_failed", sql`jsonb_typeof(${t.failed})='array'`),
 	],
 );
+/**
+ * One durable change Evry proposed in a conversation and its exact human review. A new revision replaces the reviewed
+ * arguments, digest and expiry and clears any approval. Once approved, one evry_effect job runs the owning domain
+ * write, whose own audit row is the effect's record; the outcome is saved here with it.
+ */
+export const proposal = pgTable(
+	"proposal",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		tenant_id: uuid("tenant_id")
+			.notNull()
+			.references(() => tenant.id),
+		account_id: uuid("account_id")
+			.notNull()
+			.references(() => account.id),
+		conversation_id: uuid("conversation_id").notNull(),
+		operation: text("operation", { enum: ["people.updatePerson"] }).notNull(),
+		revision: integer("revision").notNull().default(1),
+		/** The owning operation's exact arguments, including the expected revision of its target. */
+		input: jsonb("input").notNull(),
+		/** The exact review a person sees: the target and every changed field before and after. */
+		review: jsonb("review").notNull(),
+		digest: text("digest").notNull(),
+		state: text("state", { enum: ["pending", "approved", "cancelled", "expired"] }).notNull(),
+		expires_at: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+		approved_at: timestamp("approved_at", { withTimezone: true, mode: "date" }),
+		/** The approving session; execution reads its live authority. Signing out clears it, which refuses the effect. */
+		approved_session_id: uuid("approved_session_id").references(() => auth_session.id, { onDelete: "set null" }),
+		/** The evry_effect job that runs the approved revision. */
+		job_id: uuid("job_id"),
+		outcome: text("outcome", { enum: ["completed", "failed", "refused"] }),
+		receipt: jsonb("receipt"),
+		created_at: timestamp("created_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+		updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		check("proposal_revision", sql`${t.revision} >= 1`),
+		check("proposal_approval", sql`(${t.state}='approved') = (${t.approved_at} IS NOT NULL)`),
+		check("proposal_outcome", sql`${t.outcome} IS NULL OR ${t.state}='approved'`),
+		check("proposal_json", sql`jsonb_typeof(${t.input})='object' AND jsonb_typeof(${t.review})='object'`),
+		foreignKey({
+			name: "proposal_conversation_owner",
+			columns: [t.conversation_id, t.tenant_id],
+			foreignColumns: [conversation.id, conversation.tenant_id],
+		}).onDelete("cascade"),
+		foreignKey({ name: "proposal_job", columns: [t.job_id, t.tenant_id], foreignColumns: [job.id, job.tenant_id] }),
+		index("proposal_conversation").on(t.conversation_id),
+	],
+);
 
 /** Attributable domain changes and their optional exact-request reply. Ordinary writers append only. */
 export const audit_event = pgTable(
@@ -4774,7 +4829,7 @@ export const audit_event = pgTable(
 		check(
 			"audit_action",
 			sql.raw(
-				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.send_intended','deletion.cancelled','deletion.live_purge_completed','documents.copied','documents.saved','evry.conversation_created','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.hidden','wiki.published','wiki.source_order_changed'))",
+				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.send_intended','deletion.cancelled','deletion.live_purge_completed','documents.copied','documents.saved','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.hidden','wiki.published','wiki.source_order_changed'))",
 			),
 		),
 		check(

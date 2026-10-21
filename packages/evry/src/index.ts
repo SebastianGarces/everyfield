@@ -19,3 +19,14 @@ export { observeConversation } from "./runtime/observe.ts";
 export { selectQualifiedModel, type QualifiedModel } from "./runtime/model.ts";
 export { runTurn, type RunDeps, type RunOutcome } from "./runtime/turn.ts";
 export type { RunLease } from "./runtime/run-store.ts";
+export {
+	approveProposal,
+	cancelProposal,
+	prepareProposal,
+	readReview,
+	retryUnresolvedEffects,
+	reviseProposal,
+	REVIEW_MINUTES,
+	type Proposal,
+} from "./proposals/store.ts";
+export { executeProposal, type EffectLease, type EffectOutcome } from "./execution/execute.ts";

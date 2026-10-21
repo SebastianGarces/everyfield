@@ -162,6 +162,13 @@
       "when": 1792586357841,
       "tag": "0023_people_import",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792587981352,
+      "tag": "0024_evry_proposals",
+      "breakpoints": true
     }
   ]
 }
