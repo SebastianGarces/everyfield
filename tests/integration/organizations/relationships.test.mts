@@ -342,7 +342,6 @@ test("INV-invitation-detail: only the addressed receiving Owner or Admin can rea
 });
 
 test("AC:TARGET-IDN-021 a Discovery conversion and an organization ending that link at the same time both finish", async () => {
-	// The production mounts bind the write gate before the command body; this binds it the same way.
 	const onboarding = createOnboardingProducer({
 		relationships: (c, inputs) => sendOnboardingRelationships(c, inputs, S.mail),
 		async enqueue() {},
@@ -357,10 +356,9 @@ test("AC:TARGET-IDN-021 a Discovery conversion and an organization ending that l
 	const pair = { kind: "discovery", accountId: d.account, organization: o };
 	let bound!: () => void;
 	const gate = new Promise<void>((resolve) => (bound = resolve));
-	const end = S.tx(async (c) => {
-		assert.ok(await RequestActor.claimWrite(c, oa.session, oa.selected));
+	const end = S.write(oa, async (c) => {
 		bound();
-		await waitingOnLock();
+		await S.waitingOnLock();
 		return S.api["associations.end"](
 			c,
 			oa.session,
@@ -391,14 +389,3 @@ test("AC:TARGET-IDN-021 a Discovery conversion and an organization ending that l
 	);
 	assert.deepEqual(rows.rows[0], { ended: true, end_events: 1, converted: true });
 });
-/** Resolves once another transaction of this test role waits for a row lock. */
-async function waitingOnLock() {
-	for (let attempt = 0; attempt < 400; attempt++) {
-		const r = await S.runtime.execute(
-			sql`SELECT count(*)::int AS n FROM pg_stat_activity WHERE usename=current_user AND wait_event_type='Lock'`,
-		);
-		if ((r.rows[0] as { n: number }).n > 0) return;
-		await new Promise((resolve) => setTimeout(resolve, 25));
-	}
-	throw Error("the rival transaction never waited for a lock");
-}

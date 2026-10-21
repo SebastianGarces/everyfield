@@ -4,6 +4,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 
 import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
+import { RequestActor } from "../../../packages/domain/src/access/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { owner, sessionId } from "../../../packages/contracts/src/common/index.ts";
@@ -177,8 +178,45 @@ export const command = (input: unknown, expectedRevision = "1", requestKey = ran
 	expectedRevision,
 	input,
 });
-export async function call(name: keyof typeof api, actor: Awaited<ReturnType<typeof identity>>, input: unknown) {
-	return tx((c) => api[name](c, actor.session, actor.selected, input as never));
+/** The operations the production mounts run through query(), without the write gate. Every other one is a command. */
+const reads = new Set<keyof typeof api>([
+	"associations.getHistory",
+	"organizations.getProfile",
+	"privacy.getSharing",
+	"residency.readSharing",
+	"pipelineSharing.readConsent",
+	"pipelineSharing.checkAggregateAccess",
+]);
+type Actor = Pick<Awaited<ReturnType<typeof identity>>, "session" | "selected">;
+/**
+ * One command transaction as the production mounts run it (command() in apps/web/src/server/organizations): the write
+ * gate locks the actor's account and selected owner before the body starts. A body that locks first hides lock-order
+ * faults that production has.
+ */
+export async function write<T>(
+	actor: Actor,
+	body: (c: import("../../../packages/db/src/client.ts").Transaction) => Promise<T>,
+): Promise<T> {
+	return tx(async (c) => {
+		if (!(await RequestActor.claimWrite(c, actor.session, actor.selected))) throw Error("unavailable");
+		return body(c);
+	});
+}
+export async function call(name: keyof typeof api, actor: Actor, input: unknown) {
+	const run = (c: import("../../../packages/db/src/client.ts").Transaction) =>
+		api[name](c, actor.session, actor.selected, input as never);
+	return reads.has(name) ? tx(run) : write(actor, run);
+}
+/** Resolves once another transaction of this test role waits for a row lock. */
+export async function waitingOnLock() {
+	for (let attempt = 0; attempt < 400; attempt++) {
+		const r = await runtime.execute(
+			sql`SELECT count(*)::int AS n FROM pg_stat_activity WHERE usename=current_user AND wait_event_type='Lock'`,
+		);
+		if ((r.rows[0] as { n: number }).n > 0) return;
+		await new Promise((resolve) => setTimeout(resolve, 25));
+	}
+	throw Error("the rival transaction never waited for a lock");
 }
 export async function affiliation(
 	plant: ReturnType<typeof owner.parse>,
