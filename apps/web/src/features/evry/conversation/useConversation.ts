@@ -87,6 +87,8 @@ export function useConversation(open: boolean) {
 	const latest = useRef(state);
 	const createKey = useRef<string | null>(null);
 	const retryKeys = useRef(new Map<string, string>());
+	/** Counts what the person chose to show (open, a History pick, a new chat); a read that answers late never wins. */
+	const shown = useRef(0);
 	useEffect(() => {
 		latest.current = state;
 	});
@@ -98,8 +100,10 @@ export function useConversation(open: boolean) {
 	};
 
 	const reload = async () => {
+		const mine = ++shown.current;
 		setLoad("loading");
 		const r = await api.openLatest();
+		if (mine !== shown.current) return;
 		if (r.status !== "ok") return setLoad("failed");
 		openState(r.value.conversation ? opened(r.value as ReadConversation) : EMPTY);
 		setLoad("ready");
@@ -157,10 +161,11 @@ export function useConversation(open: boolean) {
 			if (created.status !== "ok") return fail(send, created);
 			createKey.current = null;
 			conversation = created.value;
-			// A chat opened from History while the conversation was being created keeps the other conversation.
-			if (latest.current.conversation) return dispatch({ type: "drop", key: send.key });
-			latest.current = { ...latest.current, conversation };
-			dispatch({ type: "conversation", conversation });
+			// The message is saved in its new conversation even when the person opened another one meanwhile.
+			if (!latest.current.conversation) {
+				latest.current = { ...latest.current, conversation };
+				dispatch({ type: "conversation", conversation });
+			}
 		}
 		const r = await api.submitTurn(conversation.id, send.key, send.text, send.references);
 		if (r.status !== "ok") return fail(send, r);
@@ -222,8 +227,10 @@ export function useConversation(open: boolean) {
 	/** Opens a conversation from History. */
 	const select = async (conversationId: string) => {
 		if (conversationId === latest.current.conversation?.id) return;
+		const mine = ++shown.current;
 		setLoad("loading");
 		const r = await readAll(conversationId);
+		if (mine !== shown.current) return;
 		setLoad("ready");
 		if (r.status !== "ok") return setProblem("That conversation could not open. Check your connection and try again.");
 		openState(opened(r.value));
@@ -231,6 +238,7 @@ export function useConversation(open: boolean) {
 
 	/** A new chat is created by its first message, so an empty one is never saved. */
 	const newChat = () => {
+		shown.current++;
 		createKey.current = null;
 		openState(EMPTY);
 		setLoad("ready");

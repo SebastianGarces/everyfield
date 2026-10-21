@@ -207,10 +207,11 @@ function Chat({ c, onEdit, focusComposer }: { c: Model; onEdit: (send: Send) => 
 	useEffect(() => {
 		if (sent) stick.current = true;
 	}, [sent]);
-	const size = state.events.length + sent;
+	// Anything that adds a line at the end: a saved event, a send changing state, a notice.
+	const tail = `${state.events.length}:${state.sends.map((s) => s.state).join()}:${c.stream}:${c.problem}`;
 	useEffect(() => {
 		if (stick.current) end.current?.scrollIntoView({ block: "end" });
-	}, [size]);
+	}, [tail]);
 
 	if (c.load === "idle" || c.load === "loading")
 		return (
