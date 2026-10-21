@@ -17,6 +17,7 @@ export const jobKind = z.enum([
 	"lifecycle_purge",
 	"assistant_turn",
 	"document_render",
+	"people_import",
 	"evry_effect",
 ]);
 export type JobKind = z.infer<typeof jobKind>;

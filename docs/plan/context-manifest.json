@@ -2638,6 +2638,7 @@
         "early_access_request",
         "onboarding_setup",
         "people_column",
+        "person_import",
         "proposal",
         "relationship_invitation",
         "schema_migration",
@@ -5587,6 +5588,7 @@
         "WP-090"
       ],
       "producer_table_names": [
+        "person_import",
         "person_tag",
         "record",
         "tag"
@@ -26007,6 +26009,7 @@
         "passage",
         "people_column",
         "person",
+        "person_import",
         "person_note",
         "person_skill",
         "person_tag",
@@ -31993,6 +31996,7 @@
         "passage",
         "people_column",
         "person",
+        "person_import",
         "person_note",
         "person_skill",
         "person_tag",

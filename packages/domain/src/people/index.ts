@@ -12,3 +12,4 @@ export { detachAccountPersonLinks } from "./references.ts";
 
 export { contactColumns, PeopleReadContext, Refusal, withPeopleWrite } from "./core.ts";
 export { personFields, readPersonPhoto, uploadPersonPhoto } from "./fields/index.ts";
+export { executeBulkImport, peopleCsv, runPeopleImport } from "./csv/index.ts";
