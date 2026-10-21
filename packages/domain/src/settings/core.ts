@@ -36,7 +36,7 @@ export async function reply<T>(tx: Tx, body: (tx: Tx) => Promise<T>): Promise<Se
 	if (requestWrite(tx)) return { status: "ok", value: await body(tx) };
 	return recover(async () => ({ status: "ok", value: await auditSavepoint(tx, body) }));
 }
-async function recover<T>(body: () => Promise<SettingsReply<T>>): Promise<SettingsReply<T>> {
+export async function recover<T>(body: () => Promise<SettingsReply<T>>): Promise<SettingsReply<T>> {
 	try {
 		return await body();
 	} catch (e) {
