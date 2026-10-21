@@ -9,6 +9,7 @@ export {
 	readPersonPage,
 } from "./queries.ts";
 export { detachAccountPersonLinks } from "./references.ts";
+export { checkForDuplicates } from "./duplicates.ts";
 
 export { contactColumns, PeopleReadContext, Refusal, withPeopleWrite } from "./core.ts";
 export { personFields, readPersonPhoto, uploadPersonPhoto } from "./fields/index.ts";
