@@ -7,6 +7,8 @@ const config: NextConfig = {
 	turbopack: { root: path.join(import.meta.dirname, "../..") },
 	outputFileTracingRoot: path.join(import.meta.dirname, "../.."),
 	poweredByHeader: false,
+	// `next dev` prints each server action call with its arguments, which carry passwords and proofs (BUG-PR199).
+	logging: { serverFunctions: false },
 	// Marketing photos (next/image, static imports): AVIF first, WebP fallback, one quality, and a year of cache for the
 	// optimized copies (their URLs carry the content hash of the source file).
 	images: { formats: ["image/avif", "image/webp"], qualities: [70], minimumCacheTTL: 31536000 },
