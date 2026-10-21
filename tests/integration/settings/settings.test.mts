@@ -13,6 +13,7 @@ import {
 	createAccountCredentials,
 	uploadAvatar,
 	readAvatar,
+	withSettingsWrite,
 } from "../../../packages/domain/src/settings/index.ts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
@@ -199,22 +200,26 @@ before(async () => {
 			return { request, trustedIp: "198.51.100.21" };
 		},
 		responseCookies: async () => {},
-		deliverVerification: async (i) => {
+		deliverVerification: async (_tx, i) => {
 			deliveries.push(i);
 		},
-		securityNotice: async (tx, i) => {
+		securityNotice: async (tx, i, writes) => {
 			if (faults) throw Error("security_intent_fault");
-			return await mail.enqueue(tx, {
-				owner: { kind: "account", id: i.accountId },
-				purpose: "notification",
-				logicalKey: "security/" + i.correlationId,
-				recipient: i.accountId,
-				address: i.address,
-				content: { subject: "Security update", text: "Your sign-in details changed." },
-				operation: null,
-				notice: null,
-				eligibleAt: new Date().toISOString(),
-			});
+			return await mail.append(
+				tx,
+				{
+					owner: { kind: "account", id: i.accountId },
+					purpose: "notification",
+					logicalKey: "security/" + i.correlationId,
+					recipient: i.accountId,
+					address: i.address,
+					content: { subject: "Security update", text: "Your sign-in details changed." },
+					operation: null,
+					notice: null,
+					eligibleAt: new Date().toISOString(),
+				},
+				writes,
+			);
 		},
 	});
 	producerDeps = {
@@ -236,29 +241,33 @@ before(async () => {
 		},
 		suppression: async () => "unavailable",
 		avatarCleanup: {
-			enqueue: async (tx, i) => {
-				await enqueueJob(tx, {
-					tenant: i.accountId,
-					kind: "object_cleanup",
-					subject: i.fileId,
-					key: "avatar/" + i.fileId,
-					revision: "1",
-					eligibleAt: i.eligibleAt,
-				});
+			queue: (tx, i) => {
 				if (faults) throw Error("cleanup_intent_fault");
+				return queueJobs(tx, [
+					{
+						tenant: i.accountId,
+						kind: "object_cleanup",
+						subject: i.fileId,
+						key: "avatar/" + i.fileId,
+						revision: "1",
+						eligibleAt: i.eligibleAt,
+					},
+				]);
 			},
 		},
 		deletion: {
-			enqueue: async (tx, i) => {
-				await enqueueJob(tx, {
-					tenant: i.subject.id,
-					kind: "lifecycle_purge",
-					subject: i.witnessId,
-					key: "purge/" + i.requestId,
-					revision: i.revision,
-					eligibleAt: i.eligibleAt,
-				});
+			queue: (tx, i) => {
 				if (faults) throw Error("purge_intent_fault");
+				return queueJobs(tx, [
+					{
+						tenant: i.subject.id,
+						kind: "lifecycle_purge",
+						subject: i.witnessId,
+						key: "purge/" + i.requestId,
+						revision: i.revision,
+						eligibleAt: i.eligibleAt,
+					},
+				]);
 			},
 		},
 		credentials,
@@ -1433,17 +1442,22 @@ async function mountRead(a, request) {
 		recording = false;
 	}
 }
+const instrumented = new WeakSet();
+/** Records every statement the pools send while `recording` is on. */
+function instrument(...pools) {
+	for (const pool of pools)
+		pool.$client.on("acquire", (client) => {
+			if (instrumented.has(client)) return;
+			instrumented.add(client);
+			const query = client.query;
+			client.query = function (...args) {
+				if (recording) statements.push(typeof args[0] === "string" ? args[0] : args[0].text);
+				return Reflect.apply(query, this, args);
+			};
+		});
+}
 test("INV-performance: each settings section reads in one statement on the pool, without a transaction", async () => {
-	const instrumented = new WeakSet();
-	db.$client.on("acquire", (client) => {
-		if (instrumented.has(client)) return;
-		instrumented.add(client);
-		const query = client.query;
-		client.query = function (...args) {
-			if (recording) statements.push(typeof args[0] === "string" ? args[0] : args[0].text);
-			return Reflect.apply(query, this, args);
-		};
-	});
+	instrument(db);
 	const f = await plant(),
 		org = await organization();
 	const [team] = await admin
@@ -1619,4 +1633,79 @@ test("BUG-3213d18: notifications read the account's saved choices and an organiz
 	assert.equal(stored.enabled, true);
 	const reload = ok(await section(org.a, { section: "notifications" }));
 	assert.equal(reload.values.choices.find((c) => c.category === "task_due" && c.channel === "email").enabled, true);
+});
+
+/** One write the way the web mount runs it: the request's actor bound in its own transaction, every statement recorded. */
+async function mountWrite(a, body) {
+	const viewer = await viewerOf(a),
+		context = { session: a.session, selected: { kind: "account", id: a.id } };
+	statements.length = 0;
+	recording = true;
+	try {
+		const value = ok(await withSettingsWrite(db, viewer.authority, context, (tx) => body(tx, context)));
+		return { value, count: statements.length };
+	} finally {
+		recording = false;
+	}
+}
+/** The audit rows of one command, by its request key. */
+const auditOf = (requestKey) =>
+	admin.execute(
+		sql`SELECT action, metadata FROM audit_event WHERE command_id=(SELECT id FROM audit_event WHERE request_key=${requestKey})`,
+	);
+test("INV-performance: photo, own time zone and deletion writes use a fixed small statement count and one audit row naming only fields", async () => {
+	instrument(db);
+	const a = await actor();
+	const upload = await mountWrite(a, (tx, c) => api.requestAvatarUpload(tx, c, { mime: "image/png", byteLength: 68 }));
+	// The byte adapter verified and stored the bytes.
+	await admin
+		.update(t.file_object)
+		.set({ state: "ready", byte_count: "68", sha256: "0".repeat(64) })
+		.where(eq(t.file_object.id, upload.value.uploadId));
+	const finalizeKey = randomUUID();
+	const finalized = await mountWrite(a, (tx, c) =>
+		api.finalizeAvatar(tx, c, command({ uploadId: upload.value.uploadId }, "1", finalizeKey)),
+	);
+	assert.deepEqual(finalized.value, {
+		status: "available",
+		avatar: { accountId: a.id, versionId: upload.value.uploadId },
+	});
+	const removeKey = randomUUID();
+	const removed = await mountWrite(a, (tx, c) => api.removeAvatar(tx, c, command({}, "2", removeKey)));
+	assert.deepEqual(removed.value, { status: "absent" });
+	const preview = await mountWrite(a, (tx, c) => api.previewPersonalTimezone(tx, c, { timeZone: "Europe/Paris" }));
+	const zoneKey = randomUUID();
+	const zone = await mountWrite(a, (tx, c) =>
+		api.setPersonalTimezone(
+			tx,
+			c,
+			command({ timeZone: "Europe/Paris", previewId: preview.value.previewId, confirmed: true }, "1", zoneKey),
+		),
+	);
+	assert.deepEqual(zone.value.preference, { status: "confirmed", timeZone: "Europe/Paris", revision: "2" });
+	const deletionKey = randomUUID();
+	const deletion = await mountWrite(a, (tx, c) =>
+		api.requestAccountDeletion(tx, c, command({ confirmed: true }, "4", deletionKey)),
+	);
+	assert.equal(deletion.value.status, "pending_deletion");
+	console.log(
+		JSON.stringify({
+			upload: upload.count,
+			finalized: finalized.count,
+			removed: removed.count,
+			preview: preview.count,
+			zone: zone.count,
+			deletion: deletion.count,
+		}),
+	);
+	for (const [key, field] of [
+		[finalizeKey, "avatar"],
+		[removeKey, "avatar"],
+		[zoneKey, "personalTimezone"],
+	]) {
+		const rows = (await auditOf(key)).rows;
+		assert.equal(rows.length, 1, field);
+		assert.deepEqual(rows[0].metadata, { section: "account", diff: { [field]: true } });
+	}
+	assert.equal((await auditOf(deletionKey)).rows.length, 1);
 });

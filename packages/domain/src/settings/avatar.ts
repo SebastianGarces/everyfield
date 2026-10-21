@@ -1,7 +1,7 @@
 import * as q from "@everyfield/contracts/settings";
 import type { NativeAccountProducer, NativeSettingsContext } from "@everyfield/contracts/settings/server";
 import type { Database } from "@everyfield/db/client";
-import { and, eq, sql } from "@everyfield/db/query";
+import { and, eq, sql, type SQLWrapper } from "@everyfield/db/query";
 import {
 	putPrivateObject,
 	readAuthorizedObject,
@@ -13,36 +13,78 @@ import * as t from "@everyfield/db/tables";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { appendEvent, begin, deny, finish, now, parse, reply, revision, self, type Tx } from "./core.ts";
+import { executeWrites } from "../operations/writes.ts";
+import {
+	appendEvent,
+	auditChange,
+	begin,
+	deny,
+	finish,
+	parse,
+	reply,
+	revision,
+	self,
+	type NewCommand,
+	type Tx,
+} from "./core.ts";
 export interface AvatarCleanup {
-	enqueue(tx: Tx, input: { accountId: string; fileId: string; eligibleAt: string }): Promise<void>;
+	/** The cleanup job for one avatar file, as an insert the caller adds to its own write statement (D70). */
+	queue(tx: Tx, input: { accountId: string; fileId: string; eligibleAt: string }): SQLWrapper;
 }
 const resultRecord = z.object({ result: q.avatarResult });
+/** The 15 minutes a staged upload stays open for its bytes and its finalize. */
+const STAGING_MS = 15 * 60_000;
 export function avatarOperations(
 	cleanup: AvatarCleanup,
 ): Pick<NativeAccountProducer<Tx>, "requestAvatarUpload" | "getAvatar" | "finalizeAvatar" | "removeAvatar"> {
+	/** The account's avatar reference changes from `before` to `after`: the account row, the old file's cleanup and the audit entry. */
+	async function change(s: Tx, c: NewCommand, account: typeof t.account.$inferSelect, after: string | null) {
+		const before = account.avatar_object_id;
+		if (before === after) return;
+		c.writes.push(
+			s
+				.update(t.account)
+				.set({ avatar_object_id: after, revision: sql`${t.account.revision}+1` })
+				.where(eq(t.account.id, account.id)),
+		);
+		// The old bytes are unreferenced once this commits; cleanup may start at once.
+		if (before)
+			c.writes.push(cleanup.queue(s, { accountId: account.id, fileId: before, eligibleAt: new Date().toISOString() }));
+		const event = await appendEvent(
+			s,
+			c,
+			account.id,
+			"edit",
+			"files.finalized",
+			account.revision,
+			String(BigInt(account.revision) + 1n),
+		);
+		auditChange(c, event, "account", { avatar: before }, { avatar: after });
+	}
 	return {
+		// The staged file and its orphan cleanup commit in one statement, so a later failed upload or finalize leaves
+		// no file without cleanup.
 		requestAvatarUpload: (tx, ctx, raw) =>
 			reply(tx, async (s) => {
 				const input = parse(q.requestAvatarUpload, raw);
-				const a = await self(s, ctx, "preview");
-				const [clock] = await s.select({ at: now }).from(t.account).where(eq(t.account.id, a.account.id));
+				const a = await self(s, ctx);
 				const id = randomUUID(),
-					expiresAt = new Date(clock!.at.getTime() + 15 * 60_000).toISOString();
-				await s.insert(t.file_object).values({
-					id,
-					tenant_id: a.account.id,
-					purpose: "avatar",
-					opaque_key: `private/${a.account.id}/${randomUUID()}`,
-					media_type: input.mime,
-					max_bytes: String(input.byteLength),
-					state: "pending",
-					upload_key: id,
-					claim_generation: "0",
-					expires_at: new Date(expiresAt),
-				});
-				// This intent already exists if a later upload/finalize response or SQL save fails.
-				await cleanup.enqueue(s, { accountId: a.account.id, fileId: id, eligibleAt: expiresAt });
+					expiresAt = new Date(Date.now() + STAGING_MS).toISOString();
+				await executeWrites(s, [
+					s.insert(t.file_object).values({
+						id,
+						tenant_id: a.account.id,
+						purpose: "avatar",
+						opaque_key: `private/${a.account.id}/${randomUUID()}`,
+						media_type: input.mime,
+						max_bytes: String(input.byteLength),
+						state: "pending",
+						upload_key: id,
+						claim_generation: "0",
+						expires_at: new Date(expiresAt),
+					}),
+					cleanup.queue(s, { accountId: a.account.id, fileId: id, eligibleAt: expiresAt }),
+				]);
 				return q.avatarUploadResult.parse({ uploadId: id, expiresAt });
 			}),
 		getAvatar: (tx, ctx, raw) =>
@@ -70,13 +112,11 @@ export function avatarOperations(
 				const v = parse(q.finalizeAvatarRequest, raw);
 				const a = await self(s, ctx);
 				const c = await begin(s, { ...ctx }, a.account.id, "account.finalizeAvatar", v);
-				if (c.kind === "replay") {
-					const prior = resultRecord.parse(c.value);
-					return prior.result;
-				}
+				if (c.kind === "replay") return resultRecord.parse(c.value).result;
 				revision(v.expectedRevision, a.account.revision);
+				// The account's own uploaded, verified and unexpired file, locked until the reference commits.
 				const [f] = await s
-					.select()
+					.select({ id: t.file_object.id })
 					.from(t.file_object)
 					.where(
 						and(
@@ -84,34 +124,12 @@ export function avatarOperations(
 							eq(t.file_object.tenant_id, a.account.id),
 							eq(t.file_object.purpose, "avatar"),
 							eq(t.file_object.state, "ready"),
+							sql`${t.file_object.expires_at}>clock_timestamp()`,
 						),
 					)
 					.for("update");
-				const [clock] = await s.select({ at: now }).from(t.account).where(eq(t.account.id, a.account.id));
-				if (!f || !f.expires_at || f.expires_at <= clock!.at) deny();
-				const changed = a.account.avatar_object_id !== f.id;
-
-				if (changed) {
-					await s
-						.update(t.account)
-						.set({ avatar_object_id: f.id, revision: sql`${t.account.revision}+1` })
-						.where(eq(t.account.id, a.account.id));
-					await appendEvent(
-						s,
-						c,
-						a.account.id,
-						"edit",
-						"files.finalized",
-						a.account.revision,
-						String(BigInt(a.account.revision) + 1n),
-					);
-					if (a.account.avatar_object_id)
-						await cleanup.enqueue(s, {
-							accountId: a.account.id,
-							fileId: a.account.avatar_object_id,
-							eligibleAt: clock!.at.toISOString(),
-						});
-				}
+				if (!f) deny();
+				await change(s, c, a.account, f.id);
 				const result = await finish(s, c, resultRecord, () => ({
 					result: { status: "available", avatar: { accountId: a.account.id, versionId: f.id } },
 				}));
@@ -124,29 +142,7 @@ export function avatarOperations(
 				const c = await begin(s, { ...ctx }, a.account.id, "account.removeAvatar", v);
 				if (c.kind === "replay") return resultRecord.parse(c.value).result;
 				revision(v.expectedRevision, a.account.revision);
-				const changed = a.account.avatar_object_id !== null;
-
-				if (changed) {
-					await s
-						.update(t.account)
-						.set({ avatar_object_id: null, revision: sql`${t.account.revision}+1` })
-						.where(eq(t.account.id, a.account.id));
-					const [clock] = await s.select({ at: now }).from(t.account).where(eq(t.account.id, a.account.id));
-					await cleanup.enqueue(s, {
-						accountId: a.account.id,
-						fileId: a.account.avatar_object_id!,
-						eligibleAt: clock!.at.toISOString(),
-					});
-					await appendEvent(
-						s,
-						c,
-						a.account.id,
-						"edit",
-						"files.finalized",
-						a.account.revision,
-						String(BigInt(a.account.revision) + 1n),
-					);
-				}
+				await change(s, c, a.account, null);
 				return (await finish(s, c, resultRecord, () => ({ result: { status: "absent" } }))).result;
 			}),
 	};

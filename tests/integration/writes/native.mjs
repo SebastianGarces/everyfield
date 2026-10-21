@@ -257,16 +257,17 @@ try {
 	assert.equal(churchAudit.rows.length, 1);
 	assert.deepEqual(Object.keys(churchAudit.rows[0].metadata.diff).sort(), ["alertDays", "city", "warningDays"]);
 	const deletion = deletionOperations({
-		async enqueue(tx, i) {
-			await enqueueJob(tx, {
-				tenant: i.subject.id,
-				kind: "lifecycle_purge",
-				subject: i.witnessId,
-				key: "native/" + i.requestId,
-				revision: i.revision,
-				eligibleAt: i.eligibleAt,
-			});
-		},
+		queue: (tx, i) =>
+			queueJobs(tx, [
+				{
+					tenant: i.subject.id,
+					kind: "lifecycle_purge",
+					subject: i.witnessId,
+					key: "native/" + i.requestId,
+					revision: i.revision,
+					eligibleAt: i.eligibleAt,
+				},
+			]),
 	});
 	const requested = await measure("settings.requestWorkspaceDeletion", () =>
 		withSettingsWrite(f.db, actor, plantContext, (tx) =>

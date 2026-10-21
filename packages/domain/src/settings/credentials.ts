@@ -1,13 +1,14 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { and, eq, isNull, sql } from "@everyfield/db/query";
+import { and, eq, isNull, sql, type SQLWrapper } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { credentialOutcome, type CredentialOutcome } from "@everyfield/contracts/identity";
 import * as n from "@everyfield/contracts/settings/native";
 import type { NativeAccountProducer, NativeSettingsContext } from "@everyfield/contracts/settings/server";
 import { identityAuth } from "../identity/auth.ts";
+import { executeWrites } from "../operations/writes.ts";
 import { attemptBudget, IdentityRefusal } from "../identity/budget.ts";
 import { self, now, hash, deny, Refusal, reply, parse, type Tx } from "./core.ts";
 export interface CredentialConfig {
@@ -19,10 +20,17 @@ export interface CredentialConfig {
 	// Native adapter binds actual cookie and overwritten trusted IP to this session.
 	request(ctx: NativeSettingsContext): Promise<{ request: Request; trustedIp: string | null }>;
 	responseCookies(ctx: NativeSettingsContext, cookies: string[]): Promise<void>;
-	deliverVerification(input: { accountId: string; address: string; token: string }): Promise<void>;
+	/** Adds the verification mail for the new address to `writes`, which commit with its proof row. */
+	deliverVerification(
+		tx: Transaction,
+		input: { accountId: string; address: string; token: string },
+		writes: SQLWrapper[],
+	): Promise<void>;
+	/** Adds the security notice to the old address to `writes`, which commit with the app security event. */
 	securityNotice(
 		tx: Transaction,
 		input: { accountId: string; address: string; action: "password_changed" | "email_changed"; correlationId: string },
+		writes: SQLWrapper[],
 	): Promise<string>;
 }
 export function createAccountCredentials(
@@ -36,8 +44,14 @@ export function createAccountCredentials(
 		emailChange: true,
 		deliver: async (user, purpose, token) => {
 			if (purpose !== "email_verification") throw Error("unsupported_credential_mail");
-			const a = await config.db.transaction(async (tx) => {
-				const [account] = await tx.select().from(t.account).where(eq(t.account.auth_user_id, user.id)).for("update");
+			// The new proof supersedes any older one first: one live proof per account is a unique index. The new proof
+			// and its mail then commit together in one statement.
+			await config.db.transaction(async (tx) => {
+				const [account] = await tx
+					.select({ id: t.account.id })
+					.from(t.account)
+					.where(eq(t.account.auth_user_id, user.id))
+					.for("update");
 				if (!account) deny();
 				await tx
 					.update(t.identity_proof)
@@ -50,23 +64,25 @@ export function createAccountCredentials(
 							isNull(t.identity_proof.consumed_at),
 						),
 					);
-				await tx.insert(t.identity_proof).values({
-					account_id: account.id,
-					purpose: "email_change",
-					token_hash: hash(token),
-					proposed_email: user.email,
-					expires_at: sql`clock_timestamp()+interval '24 hours'`,
-				});
-				return account;
+				const writes: SQLWrapper[] = [
+					tx.insert(t.identity_proof).values({
+						account_id: account.id,
+						purpose: "email_change",
+						token_hash: hash(token),
+						proposed_email: user.email,
+						expires_at: sql`clock_timestamp()+interval '24 hours'`,
+					}),
+				];
+				await config.deliverVerification(tx, { accountId: account.id, address: user.email, token }, writes);
+				await executeWrites(tx, writes);
 			});
-			await config.deliverVerification({ accountId: a.id, address: user.email, token });
 		},
 	});
 	async function prepare(ctx: NativeSettingsContext) {
 		const a = await config.db.transaction((tx) => self(tx, ctx, "preview"));
 		const ingress = await config.request(ctx);
+		// Without a trusted proxy address (a local server) the budgets count the own login only, as sign-in does.
 		if (
-			!ingress.trustedIp ||
 			new URL(ingress.request.url).origin !== config.origin ||
 			ingress.request.headers.get("origin") !== config.origin
 		)
@@ -82,10 +98,12 @@ export function createAccountCredentials(
 		correlationId: string,
 	): Promise<CredentialOutcome> {
 		try {
+			// The security event and the notice to the old address commit together in one statement.
 			const reporting = await config.db.transaction(async (tx) => {
-				const [event] = await tx
-					.insert(t.audit_event)
-					.values({
+				const eventId = randomUUID();
+				const writes: SQLWrapper[] = [
+					tx.insert(t.audit_event).values({
+						id: eventId,
 						tenant_id: accountId,
 						subject_id: accountId,
 						actor_id: accountId,
@@ -94,10 +112,11 @@ export function createAccountCredentials(
 						occurred_at: now,
 						recorded_at: now,
 						event_key: correlationId,
-					})
-					.returning({ id: t.audit_event.id });
-				const mailIntentId = await config.securityNotice(tx, { accountId, address, action, correlationId });
-				return { status: "recorded" as const, eventId: event!.id, mailIntentId };
+					}),
+				];
+				const mailIntentId = await config.securityNotice(tx, { accountId, address, action, correlationId }, writes);
+				await executeWrites(tx, writes);
+				return { status: "recorded" as const, eventId, mailIntentId };
 			});
 			return credentialOutcome.parse({ status: "succeeded", accountId, action, correlationId, reporting });
 		} catch {
