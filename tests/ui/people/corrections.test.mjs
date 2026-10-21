@@ -3,6 +3,8 @@
 //   INV-merge-choices: a merge never drops a known value by default, and the request names only fields taken from
 //     the source, so a field left out keeps the survivor's value.
 //   INV-survivor: without an explicit choice the person with an account stays, otherwise the person added first.
+//   BUG-217-F3: a correction made through Correct a record stays on its record card after a correction to another
+//     record; a newer save on the card itself still wins.
 //   INV-correction-patch: a correction sends only the changed fields, a cleared note as null, nothing when nothing
 //     changed, and the shown total is the sum the server computes.
 import assert from "node:assert/strict";
@@ -16,6 +18,7 @@ import {
 	sourceChoices,
 	totalOf,
 } from "../../../apps/web/src/features/people/corrections/model.ts";
+import { withCorrections } from "../../../apps/web/src/features/people/assessments/model.ts";
 
 test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 INV-merge-choices: an empty survivor value takes the source's; only source picks are sent", () => {
 	const fields = [
@@ -77,4 +80,35 @@ test("AC:TARGET-PPL-015 INV-correction-patch: only changed fields are sent, a cl
 	assert.deepEqual(commitmentChanges({ notes: null }, { notes: "Witnessed by the pastor." }), {
 		notes: "Witnessed by the pastor.",
 	});
+});
+
+test("AC:TARGET-PPL-015 BUG-217-F3: every correction stays on its card; a newer save on the card still wins", () => {
+	const rec = (id, revision, total, occurredOn = "2026-10-01") => ({
+		id,
+		revision,
+		total,
+		occurredOn,
+		recordedAt: `${occurredOn}T10:00:00.000Z`,
+	});
+	const card = [rec("a1", "3", 14), rec("a2", "1", 12, "2026-09-01")];
+	// Two corrections made through Correct a record, then a correction to another record type (not in this card).
+	const corrections = [rec("a1", "4", 17), rec("a2", "2", 13, "2026-09-01")];
+	assert.deepEqual(
+		withCorrections(card, corrections).map((r) => [r.id, r.total]),
+		[
+			["a1", 17],
+			["a2", 13],
+		],
+	);
+	// The card later saves a1 itself (revision 5): the older correction no longer replaces it.
+	const saved = [rec("a1", "5", 18), rec("a2", "1", 12, "2026-09-01")];
+	assert.deepEqual(
+		withCorrections(saved, corrections).map((r) => [r.id, r.total]),
+		[
+			["a1", 18],
+			["a2", 13],
+		],
+	);
+	// A correction for a record this card has not loaded adds nothing.
+	assert.equal(withCorrections(card, [rec("zz", "9", 20)]).length, 2);
 });

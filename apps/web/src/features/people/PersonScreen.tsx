@@ -126,8 +126,8 @@ export function PersonScreen({
 		...patch,
 	}));
 	const [open, setOpen] = useState<Open>(null);
-	/** The last record Correct a record saved, so its card shows the corrected values. */
-	const [corrected, setCorrected] = useState<CorrectedRecord | null>(null);
+	/** Every record Correct a record saved on this page, the newest per record, so each card shows its corrected values. */
+	const [corrected, setCorrected] = useState<CorrectedRecord[]>([]);
 	const busy = state.pending !== null;
 	const lifecycle = p.lifecycle;
 	const live = lifecycle.state === "live";
@@ -455,7 +455,7 @@ export function PersonScreen({
 							accountId={accountId}
 							onClose={close}
 							onCorrected={(receipt, next) => {
-								setCorrected(next);
+								setCorrected((all) => [...all.filter((c) => c.record.id !== next.record.id), next]);
 								if (receipt)
 									saved(receipt, {
 										kind: "activity",

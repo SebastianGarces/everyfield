@@ -102,7 +102,7 @@ export function InterviewCard({
 	const history = useHistory(
 		initial,
 		(page) => loadInterviews(personId, page),
-		corrected?.type === "interview" ? corrected.record : null,
+		corrected?.flatMap((c) => (c.type === "interview" ? [c.record] : [])),
 	);
 	const [shown, expect] = useOptimistic(history.items, withRecord<Interview>);
 	const [, start] = useTransition();

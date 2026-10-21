@@ -105,7 +105,7 @@ export function CommitmentCard({
 	const history = useHistory(
 		initial,
 		(page) => loadCommitments(personId, page),
-		corrected?.type === "commitment" ? corrected.record : null,
+		corrected?.flatMap((c) => (c.type === "commitment" ? [c.record] : [])),
 	);
 	const [current, setCurrent] = useState<CommitmentStatus | null>(initial?.current ?? null);
 	/** Takes a commitment state from an answer only when it is newer: a late or replayed answer never undoes a later one. */

@@ -76,7 +76,7 @@ export function AssessmentCard({
 	const history = useHistory(
 		initial,
 		(page) => loadAssessments(personId, page),
-		corrected?.type === "assessment" ? corrected.record : null,
+		corrected?.flatMap((c) => (c.type === "assessment" ? [c.record] : [])),
 	);
 	const [shown, expect] = useOptimistic(history.items, withRecord<Assessment>);
 	const [, start] = useTransition();

@@ -12,7 +12,7 @@ import {
 } from "@everyfield/ui/controls";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import { useId, useRef, useState, type ReactNode } from "react";
-import { newerRevision, type Outcome } from "../model.ts";
+import type { Outcome } from "../model.ts";
 import { fresh, problemText } from "../parts.tsx";
 import {
 	formChecking,
@@ -24,6 +24,7 @@ import {
 	formSettled,
 	formStart,
 	formUnknown,
+	withCorrections,
 	withRecord,
 	type FormState,
 	type Notice,
@@ -241,8 +242,8 @@ type Dated = { id: string; occurredOn: string; recordedAt: string };
 export function useHistory<R extends Dated & { revision: string }>(
 	initial: Page<R> | null,
 	load: (page: number) => Promise<Outcome<Page<R>>>,
-	/** A record saved elsewhere on the page (a correction); it replaces the shown copy of that record. */
-	pushed?: R | null,
+	/** Records saved elsewhere on the page (corrections); each replaces the shown copy of that record when newer. */
+	pushed: readonly R[] = [],
 ) {
 	const [page, setPage] = useState<Page<R>>(initial ?? { items: [], next: null, total: 0 });
 	const [state, setState] = useState<"idle" | "loading" | "failed">("idle");
@@ -265,10 +266,7 @@ export function useHistory<R extends Dated & { revision: string }>(
 			total: Math.max(p.total, r.value.total),
 		}));
 	}
-	// A pushed record shows in place of its copy when it is newer; a later save of that record on this card wins.
-	const held = pushed ? page.items.find((r) => r.id === pushed.id) : undefined;
-	const items =
-		pushed && held && newerRevision(pushed.revision, held.revision) ? withRecord(page.items, pushed) : page.items;
+	const items = withCorrections(page.items, pushed);
 	return { ...page, items, setPage, add, more, loading: state === "loading", failed: state === "failed" };
 }
 
