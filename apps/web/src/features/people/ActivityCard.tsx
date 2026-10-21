@@ -52,6 +52,12 @@ const ACTION: Record<Extract<Item, { kind: "activity" }>["action"], string> = {
 	restored: "Restored",
 	classification_recorded: "Adult or child recorded",
 	classification_corrected: "Adult or child corrected",
+	assessment_recorded: "Four Cs assessment recorded",
+	interview_recorded: "Interview recorded",
+	commitment_recorded: "Commitment recorded",
+	commitment_withdrawn: "Commitment withdrawn",
+	commitment_reactivated: "Commitment reactivated",
+	commitment_corrected: "Commitment corrected",
 };
 const FOLLOW_UP: Record<Extract<Item, { kind: "follow_up" }>["outcome"], string> = {
 	contacted: "Follow-up: contacted",

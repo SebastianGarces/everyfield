@@ -393,8 +393,10 @@ export async function mutation<T>(
 		before?: Revisioned;
 		after?: Revisioned;
 		subjectType?: "tag" | "household" | "person_skill";
-		reason?: string;
+		reason?: string | null;
 		outcome?: "changed" | "noop";
+		// Bounded audit metadata, such as the record an assessment, interview or commitment event names.
+		metadata?: Record<string, string>;
 	}>,
 ): Promise<unknown> {
 	await lockOwner(tx, context);
@@ -465,7 +467,11 @@ export async function mutation<T>(
 		before_value: note ? entry?.before_value : delta.before,
 		after_value: note ? entry?.after_value : delta.after,
 		reason: result.reason ?? entry?.reason ?? null,
-		...(note ? { metadata: entry?.metadata ?? { category: "note" } } : {}),
+		...(note
+			? { metadata: entry?.metadata ?? { category: "note" } }
+			: result.metadata
+				? { metadata: result.metadata }
+				: {}),
 	};
 	if (entry) Object.assign(entry, audit);
 	else claim.events.push(audit);

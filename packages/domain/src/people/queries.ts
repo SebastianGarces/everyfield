@@ -43,10 +43,12 @@ const activityRow = z.object({
 		.nullable(),
 	obligation_id: z.uuid().nullable(),
 	outcome: z.string().nullable(),
+	record_id: z.uuid().nullable(),
 	actor_exists: z.boolean(),
 });
 const warningsRow = z.object({
 	review: z.string(),
+	assessment: z.boolean(),
 	interview: z.boolean(),
 	committed: z.boolean(),
 	duties: z.array(z.object({ id: z.uuid(), revision: z.string() })),
@@ -155,6 +157,7 @@ export const peopleReader: PeopleReader<Tx> = {
 			await canReadPerson(tx, ctx, p, actor);
 			// One read, no locks: the dialog needs three booleans, the review revision and the open duties.
 			const result = await tx.execute(sql`SELECT pl.material_revision::text AS review,
+      EXISTS(SELECT FROM four_cs f WHERE f.person_id=${p.id} AND f.plant_id=${ctx.selected.id}) AS assessment,
       EXISTS(SELECT FROM interview i WHERE i.person_id=${p.id} AND i.plant_id=${ctx.selected.id}) AS interview,
       (${p.commitment_state === "active"} AND EXISTS(SELECT FROM commitment e WHERE e.plant_id=${ctx.selected.id} AND e.person_id=${p.id} AND e.voided_at IS NULL)) AS committed,
       coalesce((SELECT jsonb_agg(jsonb_build_object('id',t.id,'revision',t.revision::text) ORDER BY t.id) FROM task t
@@ -169,6 +172,8 @@ export const peopleReader: PeopleReader<Tx> = {
 				reviewRevision: row.review,
 				openDuties: row.duties,
 				warnings: [
+					// REQ-PPL-012: advisory only; the stage command never requires an assessment.
+					...(!row.assessment ? ["assessment_not_recorded"] : []),
 					...(!row.interview ? ["interview_not_recorded"] : []),
 					...(!row.committed ? ["commitment_not_recorded"] : []),
 					...(row.duties.length ? ["open_duties"] : []),
@@ -320,11 +325,11 @@ export const peopleReader: PeopleReader<Tx> = {
 /** One statement: notes, audit events and follow-ups in one window, with the actor account joined for attribution. */
 async function activities(tx: Tx, ctx: Context, p: Person, input: z.infer<typeof c.activityRequest>, gate: SQL) {
 	const result = await tx.execute(sql`SELECT a.*,EXISTS(SELECT FROM account WHERE id=a.actor_id) AS actor_exists FROM (
-      SELECT id,occurred_at,recorded_at,author_id AS actor_id,revision,body,edited_at,removed_at,'note' AS category,'note' AS kind,NULL::text AS action,NULL::jsonb AS before_value,NULL::jsonb AS after_value,NULL::uuid AS obligation_id,NULL::text AS outcome FROM person_note WHERE tenant_id=${sql.param(ctx.selected.id)} AND person_id=${sql.param(p.id)}
+      SELECT id,occurred_at,recorded_at,author_id AS actor_id,revision,body,edited_at,removed_at,'note' AS category,'note' AS kind,NULL::text AS action,NULL::jsonb AS before_value,NULL::jsonb AS after_value,NULL::uuid AS obligation_id,NULL::text AS outcome,NULL::uuid AS record_id FROM person_note WHERE tenant_id=${sql.param(ctx.selected.id)} AND person_id=${sql.param(p.id)}
       UNION ALL
-      SELECT id,occurred_at,recorded_at,actor_id,after_revision AS revision,NULL,NULL,NULL,'activity',CASE WHEN action='people.stage_changed' THEN 'stage_changed' WHEN coalesce(before_value ? 'membership' OR after_value ? 'membership',false) THEN 'household_changed' ELSE 'activity' END,action,CASE WHEN action='people.stage_changed' AND NOT coalesce(before_value ? 'stage',false) THEN jsonb_build_object('stage',(SELECT prev.after_value->'stage' FROM audit_event prev WHERE prev.subject_id=h.subject_id AND prev.tenant_id=h.tenant_id AND prev.after_revision<=h.after_revision AND prev.after_value ? 'stage' ORDER BY prev.after_revision DESC,prev.occurred_at DESC,prev.id DESC LIMIT 1)) ELSE before_value END,CASE WHEN action='people.stage_changed' AND NOT coalesce(after_value ? 'stage',false) THEN jsonb_build_object('stage',(SELECT prev.after_value->'stage' FROM audit_event prev WHERE prev.subject_id=h.subject_id AND prev.tenant_id=h.tenant_id AND prev.after_revision<=h.after_revision AND prev.after_value ? 'stage' ORDER BY prev.after_revision DESC,prev.occurred_at DESC,prev.id DESC LIMIT 1)) ELSE after_value END,NULL,NULL FROM audit_event h WHERE metadata->>'category' IS DISTINCT FROM 'note' AND kind<>'noop' AND tenant_id=${sql.param(ctx.selected.id)} AND subject_id=${sql.param(p.id)} AND action IN ('people.created','people.updated','people.retired','people.restored','people.stage_changed','people.recorded','people.corrected')
+      SELECT id,occurred_at,recorded_at,actor_id,after_revision AS revision,NULL,NULL,NULL,'activity',CASE WHEN metadata ? 'event' THEN 'record' WHEN action='people.stage_changed' THEN 'stage_changed' WHEN coalesce(before_value ? 'membership' OR after_value ? 'membership',false) THEN 'household_changed' ELSE 'activity' END,coalesce(metadata->>'event',action),CASE WHEN action='people.stage_changed' AND NOT coalesce(before_value ? 'stage',false) THEN jsonb_build_object('stage',(SELECT prev.after_value->'stage' FROM audit_event prev WHERE prev.subject_id=h.subject_id AND prev.tenant_id=h.tenant_id AND prev.after_revision<=h.after_revision AND prev.after_value ? 'stage' ORDER BY prev.after_revision DESC,prev.occurred_at DESC,prev.id DESC LIMIT 1)) ELSE before_value END,CASE WHEN action='people.stage_changed' AND NOT coalesce(after_value ? 'stage',false) THEN jsonb_build_object('stage',(SELECT prev.after_value->'stage' FROM audit_event prev WHERE prev.subject_id=h.subject_id AND prev.tenant_id=h.tenant_id AND prev.after_revision<=h.after_revision AND prev.after_value ? 'stage' ORDER BY prev.after_revision DESC,prev.occurred_at DESC,prev.id DESC LIMIT 1)) ELSE after_value END,NULL,NULL,(metadata->>'recordId')::uuid FROM audit_event h WHERE metadata->>'category' IS DISTINCT FROM 'note' AND kind<>'noop' AND tenant_id=${sql.param(ctx.selected.id)} AND subject_id=${sql.param(p.id)} AND action IN ('people.created','people.updated','people.retired','people.restored','people.stage_changed','people.recorded','people.corrected')
       UNION ALL
-      SELECT id,occurred_at,recorded_at,(SELECT actor_id FROM audit_event WHERE subject_id=contact_outcome.id ORDER BY recorded_at,id LIMIT 1),revision,NULL,NULL,NULL,'follow_up','follow_up',NULL,NULL,NULL,obligation_id,outcome FROM contact_outcome WHERE plant_id=${sql.param(ctx.selected.id)} AND person_id=${sql.param(p.id)} AND voided_at IS NULL
+      SELECT id,occurred_at,recorded_at,(SELECT actor_id FROM audit_event WHERE subject_id=contact_outcome.id ORDER BY recorded_at,id LIMIT 1),revision,NULL,NULL,NULL,'follow_up','follow_up',NULL,NULL,NULL,obligation_id,outcome,NULL FROM contact_outcome WHERE plant_id=${sql.param(ctx.selected.id)} AND person_id=${sql.param(p.id)} AND voided_at IS NULL
     ) a WHERE ${gate} AND category=ANY(${sql.param(input.kinds ?? ["note", "activity", "follow_up"])}) ORDER BY occurred_at,id LIMIT ${sql.param(input.limit + 1)} OFFSET ${sql.param((input.page - 1) * input.limit)}`);
 	const rows = result.rows.slice(0, input.limit).map((row) => activityRow.parse(row)),
 		items = [];
@@ -367,7 +372,18 @@ async function activities(tx: Tx, ctx: Context, p: Person, input: z.infer<typeof
 				action: actions[r.action ?? ""],
 				household: { from: r.before_value?.membership ?? null, to: r.after_value?.membership ?? null },
 			});
-		else if (r.kind === "follow_up")
+		else if (r.kind === "record") {
+			// An assessment, interview or commitment event, with the stage advance it caused.
+			const from = r.before_value?.stage,
+				to = r.after_value?.stage;
+			items.push({
+				...base,
+				kind: "activity",
+				action: r.action,
+				...(r.record_id ? { recordId: r.record_id } : {}),
+				...(from && to && from !== to ? { stage: { from, to } } : {}),
+			});
+		} else if (r.kind === "follow_up")
 			items.push({
 				...base,
 				kind: "follow_up",

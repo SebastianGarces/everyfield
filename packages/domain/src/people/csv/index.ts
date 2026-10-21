@@ -9,6 +9,7 @@ import "server-only";
 import { z } from "zod";
 import { liveRead, writeVisibility, type RequestActor } from "../../access/session.ts";
 import { deny, hash, parse, readReply, type Context, type Tx } from "../core.ts";
+import { contactSignals, personEmail, personPhone } from "../duplicates.ts";
 import { plantId } from "../fields/shared.ts";
 import { newPerson } from "../people.ts";
 import { peopleFilters } from "../queries.ts";
@@ -87,14 +88,7 @@ function readRow(row: number, header: string[], fields: string[]): FileRow {
 		return { row, status: "invalid", problems: [...problems.values()] };
 	}
 	const values = c.importValues.parse(parsed.data);
-	const phone = values.phone?.replace(/\D/g, "") ?? "";
-	return {
-		row,
-		status: "valid",
-		values,
-		email: values.email?.toLowerCase() ?? null,
-		phone: phone.length >= 7 ? phone : null,
-	};
+	return { row, status: "valid", values, ...contactSignals(values) };
 }
 
 /** The uploaded bytes themselves, within the size and row limits, before any database work. */
@@ -134,11 +128,11 @@ function existingPeople(plant: string, rows: FileRow[], unless: SQL = sql`false`
 	const valid = rows.filter((r) => r.status === "valid");
 	const emails = valid.flatMap((r) => (r.email ? [r.email] : [])),
 		phones = valid.flatMap((r) => (r.phone ? [r.phone] : []));
-	return sql`coalesce((SELECT jsonb_agg(jsonb_build_object('id',p.id,'displayName',p.display_name,'email',lower(btrim(p.email)),
- 'phone',regexp_replace(coalesce(p.phone,''),'\\D','','g')) ORDER BY p.created_at,p.id) FROM person p
+	return sql`coalesce((SELECT jsonb_agg(jsonb_build_object('id',p.id,'displayName',p.display_name,'email',${personEmail},
+ 'phone',${personPhone}) ORDER BY p.created_at,p.id) FROM person p
  WHERE NOT ${unless} AND p.plant_id=${plant}::uuid AND p.state='live'
- AND (lower(btrim(p.email)) IN (SELECT unnest(${sql.param(emails)}::text[]))
- OR regexp_replace(coalesce(p.phone,''),'\\D','','g') IN (SELECT unnest(${sql.param(phones)}::text[])))),'[]'::jsonb)`;
+ AND (${personEmail} IN (SELECT unnest(${sql.param(emails)}::text[]))
+ OR ${personPhone} IN (SELECT unnest(${sql.param(phones)}::text[])))),'[]'::jsonb)`;
 }
 
 type Finding = { existing: Match[]; earlier: number | null };
