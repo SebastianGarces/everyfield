@@ -174,7 +174,7 @@ test("AC:UI45-004 AC:UI45-003 AC:INH-REGRESSION-REVISED-APPROVAL AC:INH-REGRESSI
 	for (const who of ["member", "foreign"] as const) {
 		const other = await actor(who);
 		assert.equal(await refusal(readReview(db, other, proposal.id)), "not_found");
-		assert.equal(await refusal(approveProposal(db, other, proposal.id, witness(proposal))), "not_found");
+		assert.equal(await refusal(approveProposal(db, other, proposal.id, witness(proposal), null)), "not_found");
 	}
 
 	// Editing a reviewed fact makes a new revision; the old approval witness no longer applies.
@@ -187,20 +187,20 @@ test("AC:UI45-004 AC:UI45-003 AC:INH-REGRESSION-REVISED-APPROVAL AC:INH-REGRESSI
 	assert.equal(counted(start), 1);
 	assert.deepEqual([revised.revision, revised.review.changes], [2, [{ field: "city", before: null, after: "Denver" }]]);
 	assert.notEqual(revised.digest, proposal.digest);
-	assert.equal(await refusal(approveProposal(db, owner, proposal.id, witness(proposal))), "review_changed");
+	assert.equal(await refusal(approveProposal(db, owner, proposal.id, witness(proposal), null)), "review_changed");
 	assert.equal(
-		await refusal(approveProposal(db, owner, proposal.id, { revision: 2, digest: proposal.digest })),
+		await refusal(approveProposal(db, owner, proposal.id, { revision: 2, digest: proposal.digest }, null)),
 		"review_changed",
 	);
 	assert.deepEqual(await effectJobs(proposal.id), []);
 
 	// A double confirm queues one effect; the second returns the same approval.
 	start = queries.length;
-	const first = await approveProposal(db, owner, proposal.id, witness(revised));
+	const first = await approveProposal(db, owner, proposal.id, witness(revised), null);
 	assert.equal(counted(start), 1);
 	const [a, b] = await Promise.all([
-		approveProposal(db, owner, proposal.id, witness(revised)),
-		approveProposal(db, owner, proposal.id, witness(revised)),
+		approveProposal(db, owner, proposal.id, witness(revised), null),
+		approveProposal(db, owner, proposal.id, witness(revised), null),
 	]);
 	assert.deepEqual([first.replayed, a.replayed, b.replayed, first.proposal.status], [false, true, true, "approved"]);
 	assert.deepEqual(await effectJobs(proposal.id), ["ready"]);
@@ -225,7 +225,7 @@ test("AC:UI45-004 AC:UI45-003 AC:INH-REGRESSION-REVISED-APPROVAL AC:INH-REGRESSI
 	);
 
 	// Confirming, retrying or cancelling again returns the recorded outcome and repeats nothing.
-	assert.equal((await approveProposal(db, owner, proposal.id, witness(revised))).proposal.outcome, "completed");
+	assert.equal((await approveProposal(db, owner, proposal.id, witness(revised), null)).proposal.outcome, "completed");
 	assert.equal((await retryUnresolvedEffects(db, owner, proposal.id)).retried, false);
 	const cancel = await cancelProposal(db, owner, proposal.id);
 	assert.deepEqual([cancel.cancelled, cancel.proposal.outcome], [false, "completed"]);
@@ -238,7 +238,7 @@ test("AC:INH-REGRESSION-EXPIRED-APPROVAL AC:UI45-004 AC:SEC-12 an approval at or
 	const before = await person(people.casey);
 	const { proposal } = await propose(owner, "Change Casey's phone to 555-0100");
 	await admin.execute(sql`UPDATE proposal SET expires_at=clock_timestamp() WHERE id=${proposal.id}`);
-	assert.equal(await refusal(approveProposal(db, owner, proposal.id, witness(proposal))), "review_expired");
+	assert.equal(await refusal(approveProposal(db, owner, proposal.id, witness(proposal), null)), "review_expired");
 	assert.equal((await readReview(db, owner, proposal.id)).status, "expired");
 
 	// A fresh review gets a new expiry; an approval that lapses before the effect starts still changes nothing.
@@ -248,7 +248,7 @@ test("AC:INH-REGRESSION-EXPIRED-APPROVAL AC:UI45-004 AC:SEC-12 an approval at or
 		input: { personId: people.casey, patch: { phone: "555-0100" } },
 	});
 	assert.ok(fresh.expiresAt.getTime() - Date.now() > 14 * 60_000);
-	await approveProposal(db, owner, proposal.id, witness(fresh));
+	await approveProposal(db, owner, proposal.id, witness(fresh), null);
 	await admin.execute(sql`UPDATE proposal SET expires_at=clock_timestamp() WHERE id=${proposal.id}`);
 	assert.equal((await effects())?.outcome, "expired");
 	const lapsed = await readReview(db, owner, proposal.id);
@@ -261,7 +261,7 @@ test("AC:INH-REGRESSION-EXPIRED-APPROVAL AC:UI45-004 AC:SEC-12 an approval at or
 		revision: 2,
 		input: { personId: people.casey, patch: { phone: "555-0100" } },
 	});
-	await approveProposal(db, owner, proposal.id, witness(late));
+	await approveProposal(db, owner, proposal.id, witness(late), null);
 	await admin.execute(
 		sql`UPDATE proposal SET expires_at=clock_timestamp()+interval '1 second' WHERE id=${proposal.id}`,
 	);
@@ -285,13 +285,13 @@ test("AC:INH-REGRESSION-EXPIRED-APPROVAL AC:UI45-004 AC:SEC-12 an approval at or
 		revision: 3,
 		input: { personId: people.casey, patch: { phone: "555-0100" } },
 	});
-	await approveProposal(db, owner, proposal.id, witness(again));
+	await approveProposal(db, owner, proposal.id, witness(again), null);
 	let start = queries.length;
 	const cancelled = await cancelProposal(db, owner, proposal.id);
 	assert.equal(counted(start), 1);
 	assert.deepEqual([cancelled.cancelled, cancelled.proposal.status], [true, "cancelled"]);
 	assert.equal(await effects(), null);
-	assert.equal(await refusal(approveProposal(db, owner, proposal.id, witness(again))), "review_closed");
+	assert.equal(await refusal(approveProposal(db, owner, proposal.id, witness(again), null)), "review_closed");
 	assert.deepEqual(
 		[await person(people.casey), await effectAudits(proposal.id), await effectJobs(proposal.id)],
 		[before, [], ["succeeded", "succeeded", "cancelled"]],
@@ -323,7 +323,7 @@ test("AC:INH-REGRESSION-REVOKED-SEAT AC:SEC-02 AC:B03-036 AC:SEC-12 INV-tenancy:
 	];
 	for (const [name, change, restore, code] of cases) {
 		const { proposal } = await propose(owner, "Change Chen's city to Joliet");
-		await approveProposal(db, owner, proposal.id, witness(proposal));
+		await approveProposal(db, owner, proposal.id, witness(proposal), null);
 		await change();
 		const expected = (await person(people.alexChen)).city;
 		const ran = await effects();
@@ -351,7 +351,7 @@ test("AC:INH-REGRESSION-REVOKED-SEAT AC:SEC-02 AC:B03-036 AC:SEC-12 INV-tenancy:
 	);
 	const second = evryActor((await readViewer(db, session as never))!.authority!);
 	const { proposal } = await propose(owner, "Change Chen's city to Joliet");
-	await approveProposal(db, second, proposal.id, witness(proposal));
+	await approveProposal(db, second, proposal.id, witness(proposal), null);
 	await admin.execute(sql`DELETE FROM auth_session WHERE id=${session}`);
 	assert.equal((await effects())?.outcome, "refused");
 	assert.deepEqual(
@@ -363,7 +363,7 @@ test("AC:INH-REGRESSION-REVOKED-SEAT AC:SEC-02 AC:B03-036 AC:SEC-12 INV-tenancy:
 test("AC:EVRY-LEASE-FENCE AC:INH-REGRESSION-RETRY AC:INH-EDGES-12: an executor stalled before or after its first check cannot publish once its claim is replaced; a retry never repeats a completed effect", async () => {
 	const owner = await actor("owner");
 	const { proposal } = await propose(owner, "Change Rivera's city to Naperville");
-	await approveProposal(db, owner, proposal.id, witness(proposal));
+	await approveProposal(db, owner, proposal.id, witness(proposal), null);
 	assert.equal((await readReview(db, owner, proposal.id)).executing, true);
 	// The executor passes its first check, then waits for the plant lock while its lease expires and recovery
 	// replaces the claim. When the lock frees, it must not publish the change, its audit row or an outcome.
@@ -429,7 +429,7 @@ test("AC:UI45-006 AC:EVRY-CONTEXT-BOUNDS a review's fields leave model input onc
 test("AC:EVRY-LEASE-FENCE an executor whose lease expires while it waits for the publication locks does not publish", async () => {
 	const owner = await actor("owner");
 	const { proposal } = await propose(owner, "Change Chen's city to Aurora");
-	await approveProposal(db, owner, proposal.id, witness(proposal));
+	await approveProposal(db, owner, proposal.id, witness(proposal), null);
 	const before = await person(people.alexChen);
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
 	assert.ok(claim);
