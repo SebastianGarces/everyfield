@@ -59,6 +59,7 @@ function useReview(proposalId: string) {
 	const [now, setNow] = useState(() => Date.now());
 	// Every action takes a new generation; a read that started before it is dropped when it answers late.
 	const generation = useRef(0);
+	const inFlight = useRef(false);
 	const show = (next: Review) => {
 		setReview(next);
 		setLoad("ready");
@@ -133,31 +134,36 @@ function useReview(proposalId: string) {
 		done: (now: Review, before: Review) => boolean,
 		settled: (now: Review) => Notice | null = () => null,
 	) {
-		if (busy || !review) return false;
+		// A ref, not state: three clicks in one frame all see the same render, and only the first may send.
+		if (inFlight.current || !review) return false;
+		inFlight.current = true;
 		const before = review;
 		setBusy(action);
 		setNotice(null);
 		const g = ++generation.current;
 		const reply = await send(before);
-		if (g !== generation.current) return false;
-		let current: Review | null = null;
-		if (reply.status === "ok") current = result(reply.value);
-		else {
+		let current: Review | null = reply.status === "ok" ? result(reply.value) : null;
+		let refused = false;
+		if (reply.status !== "ok") {
 			const reread = await api.readReview(before.id);
-			if (g !== generation.current) return false;
-			if (reread.status === "refused") {
-				setBusy(null);
-				gone();
-				return false;
-			}
 			if (reread.status === "ok") current = reread.value;
+			refused = reread.status === "refused";
 		}
+		inFlight.current = false;
+		if (g !== generation.current) return false;
 		setBusy(null);
+		if (refused) {
+			gone();
+			return false;
+		}
 		if (current) show(current);
 		if (current && (reply.status === "ok" || done(current, before))) {
 			setNotice(settled(current));
 			return true;
 		}
+		// An expired or closed review says so in its own state; only a changed review or an unknown result needs words.
+		const code = reply.status === "refused" ? reply.error.code : null;
+		if (current && (code === "review_expired" || code === "review_closed")) return false;
 		setNotice({ text: actionNotice(reply.status === "refused" ? reply.error : "lost"), tone: "error" });
 		return false;
 	}
@@ -289,11 +295,12 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 	const { review, view, notice } = r;
 
 	// A change of view after the card loaded is announced once (the previous-value pattern, no effect).
-	const [seen, setSeen] = useState<View>(view);
+	const key = `${view}:${review?.revision ?? 0}`;
+	const [seen, setSeen] = useState(key);
 	const [announce, setAnnounce] = useState("");
-	if (seen !== view) {
-		setSeen(view);
-		setAnnounce(seen === "loading" ? "" : announcement(view, review, r.now));
+	if (seen !== key) {
+		setSeen(key);
+		setAnnounce(seen.startsWith("loading") ? "" : announcement(view, review, r.now));
 	}
 	// Focus that was on a control the change removed goes to the card's head, so keyboard users stay in the card
 	// (BUG #197 F2).
@@ -301,7 +308,7 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 		const active = document.activeElement;
 		if (focusInside.current && (!active || active === document.body || !card.current?.contains(active)))
 			head.current?.focus();
-	}, [view]);
+	}, [key]);
 	useEffect(() => {
 		if (notice?.tone === "error") noticeRef.current?.focus();
 	}, [notice]);
