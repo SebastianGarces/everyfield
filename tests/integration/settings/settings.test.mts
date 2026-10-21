@@ -694,6 +694,44 @@ test("AC:WP010-KNOW-072 AC:DEL58-005 workspace purge hides and removes only its 
 	const f = await plant(),
 		other = await plant();
 	const subject = { kind: "plant", id: f.p.id };
+	const owner = f.result.ownerSeat.personId,
+		guest = randomUUID();
+	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,
+		commitment_state,pipeline_position,state,created_at) VALUES(${guest},${f.p.id},${f.p.id},'Guest','other','prospect',
+		'unknown','unknown',1000,'live',clock_timestamp())`);
+	const [m] = await admin
+		.insert(t.meeting)
+		.values({
+			plant_id: f.p.id,
+			type: "vision_meeting",
+			vision_number: 1,
+			kit_version: 1,
+			local_date: "2026-11-01",
+			local_time: "18:00",
+			timezone: "UTC",
+			starts_at: new Date("2026-11-01T18:00:00Z"),
+			resolver_version: 1,
+			status: "planning",
+			attendance_revision: "1",
+		})
+		.returning();
+	await admin.insert(t.meeting_kit_item).values({
+		plant_id: f.p.id,
+		meeting_id: m.id,
+		item_key: "vision_slides",
+		position: 1,
+		category: "essential",
+		text: "Vision slides",
+		assignee_person_id: owner,
+	});
+	await admin.insert(t.participation).values({
+		plant_id: f.p.id,
+		meeting_id: m.id,
+		person_id: guest,
+		inviter_person_id: owner,
+		roster_member: false,
+		presence: "absent",
+	});
 	const p = await overdue(f.a, subject);
 	denied(await call("getSection", f.a, { section: "plant", plant: f.p }, f.p));
 	assert.equal(
@@ -704,9 +742,13 @@ test("AC:WP010-KNOW-072 AC:DEL58-005 workspace purge hides and removes only its 
 		authorize: async () => true,
 		removeOwnedResources: async () => true,
 	});
+	for (const table of [t.meeting, t.meeting_kit_item, t.participation])
+		assert.equal((await admin.select().from(table).where(eq(table.plant_id, f.p.id))).length, 1);
 	const done = await purge({ subject, requestId: p.requestId, revision: p.revision });
 	assert.equal(done.status, "purged");
 	assert.equal((await admin.select().from(t.person).where(eq(t.person.plant_id, f.p.id))).length, 0);
+	for (const table of [t.meeting, t.meeting_kit_item, t.participation])
+		assert.equal((await admin.select().from(table).where(eq(table.plant_id, f.p.id))).length, 0);
 	assert.equal(
 		(await admin.select().from(t.onboarding_setup).where(eq(t.onboarding_setup.plant_id, f.p.id))).length,
 		0,
