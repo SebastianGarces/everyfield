@@ -29,7 +29,7 @@ import {
 import { KeyValue, KeyValueList, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { startTransition, useOptimistic, useState, useTransition } from "react";
-import { newerRevision, runSave, STAGE_LABEL, type KeyedPayload, type Outcome } from "../model.ts";
+import { newerRevision, STAGE_LABEL, type KeyedPayload, type Outcome } from "../model.ts";
 import { fresh, isConflict, LocalDay, useStore } from "../parts.tsx";
 import {
 	changeCommitment,
@@ -62,7 +62,7 @@ import {
 	type CommitmentStatus,
 	type FirstAcquisition,
 	sendTwice,
-	notSent,
+	runWhenIdle,
 	stillUnknown,
 } from "./model.ts";
 import { codeOf, recorder, SaveNotice, ShowEarlier, useHistory, useRecordForm } from "./parts.tsx";
@@ -201,16 +201,13 @@ export function CommitmentCard({
 		token: number,
 		draft: CommitmentDraft,
 	) {
-		const r = await runSave(store, "commitment", input, (k) => sendTwice(() => recordCommitment(k, input)), {
+		const r = await runWhenIdle(store, "commitment", input, (k) => sendTwice(() => recordCommitment(k, input)), {
 			fresh,
 			key,
 			toPerson: (v: CommitmentSaved) => personAfter(v.person.revision, v.person.stage),
 		});
 		const what = "Your commitment card";
-		if (stillUnknown(r, token))
-			return dialog.unknown(key.key, what, () => start(() => commitCard(input, key, -1, draft)));
-		// Nothing was sent: another save to the person was running (C65). It waits, never reads as refused.
-		if (notSent(r, token)) return dialog.waiting(key.key, what, () => start(() => commitCard(input, key, -2, draft)));
+		if (stillUnknown(r)) return dialog.unknown(key.key, what, () => start(() => commitCard(input, key, -1, draft)));
 		if (r?.status !== "ok") return refused(token, { form: "record", draft }, r, key.key, what);
 		dialog.settled(key.key);
 		const { commitment, current: now, person } = r.value;
@@ -263,7 +260,7 @@ export function CommitmentCard({
 		token: number,
 		draft: LifecycleDraft,
 	) {
-		const r = await runSave(
+		const r = await runWhenIdle(
 			store,
 			change,
 			{ input, revision },
@@ -271,11 +268,8 @@ export function CommitmentCard({
 			{ fresh, key, toPerson: (v) => personAfter(v.current.personRevision) },
 		);
 		const what = change === "withdraw" ? "Your withdrawal" : "Your reactivation";
-		if (stillUnknown(r, token))
+		if (stillUnknown(r))
 			return dialog.unknown(key.key, what, () => start(() => commitLifecycle(change, input, revision, key, -1, draft)));
-		// Nothing was sent: another save to the person was running (C65). It waits, never reads as refused.
-		if (notSent(r, token))
-			return dialog.waiting(key.key, what, () => start(() => commitLifecycle(change, input, revision, key, -2, draft)));
 		if (r?.status !== "ok") return refused(token, { form: change, draft }, r, key.key, what);
 		dialog.settled(key.key);
 		startTransition(() => setLatest(r.value.current));
@@ -323,7 +317,7 @@ export function CommitmentCard({
 		token: number,
 		draft: CorrectionDraft,
 	) {
-		const r = await runSave(
+		const r = await runWhenIdle(
 			store,
 			`correct:${card.id}`,
 			{ input, revision: card.revision },
@@ -331,11 +325,8 @@ export function CommitmentCard({
 			{ fresh, key, toPerson: (v) => personAfter(v.commitments.current.personRevision) },
 		);
 		const what = draft.action === "void" ? "Your void of the card" : "Your card correction";
-		if (stillUnknown(r, token))
+		if (stillUnknown(r))
 			return dialog.unknown(key.key, what, () => start(() => commitCorrection(card, input, key, -1, draft)));
-		// Nothing was sent: another save to the person was running (C65). It waits, never reads as refused.
-		if (notSent(r, token))
-			return dialog.waiting(key.key, what, () => start(() => commitCorrection(card, input, key, -2, draft)));
 		if (r?.status !== "ok") return refused(token, { form: "correct", card, draft }, r, key.key, what);
 		dialog.settled(key.key);
 		const page = r.value.commitments;
@@ -490,6 +481,7 @@ export function CommitmentCard({
 
 			{editing?.form === "record" ? (
 				<RecordCommitmentDialog
+					busy={saving}
 					draft={editing.draft}
 					problem={editing.problem}
 					personId={personId}
@@ -501,6 +493,7 @@ export function CommitmentCard({
 				/>
 			) : editing?.form === "withdraw" || editing?.form === "reactivate" ? (
 				<LifecycleDialog
+					busy={saving}
 					change={editing.form}
 					draft={editing.draft}
 					problem={editing.problem}
@@ -511,6 +504,7 @@ export function CommitmentCard({
 				/>
 			) : editing?.form === "correct" ? (
 				<CorrectionDialog
+					busy={saving}
 					card={editing.card}
 					draft={editing.draft}
 					problem={editing.problem}

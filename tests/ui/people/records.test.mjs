@@ -120,13 +120,37 @@ test("INV-request-key (C58, review F4): Check again sends the same key; a new in
 	assert.deepEqual(sent.slice(3), ["k1", "k1"]);
 });
 
-test("INV-no-false-refusal (review F4d, C65): a save that could not start is never shown as refused", async () => {
-	const { notSent, stillUnknown } = await import("../../../apps/web/src/features/people/assessments/model.ts");
-	assert.equal(stillUnknown({ status: "lost" }, 3), true);
-	assert.equal(stillUnknown(null, -1), true, "a blocked Check again sent nothing: the first request may be saved");
-	assert.equal(notSent(null, -1), false);
-	assert.equal(notSent(null, 3), true, "a blocked first save sent nothing: it waits");
-	assert.equal(notSent(null, -2), true, "a blocked Save now waits again");
-	assert.equal(stillUnknown({ status: "refused", code: "conflict" }, -1), false);
-	assert.equal(notSent({ status: "refused", code: "conflict" }, 3), false, "only a server answer says not saved");
+test("INV-no-false-refusal (review F4d/F4e, C65): a save waits for the other save, never answers busy", async () => {
+	const { PersonStore } = await import("../../../apps/web/src/features/people/model.ts");
+	const { runWhenIdle, stillUnknown } = await import("../../../apps/web/src/features/people/assessments/model.ts");
+	const store = new PersonStore({ id: "p1", revision: "1" });
+	const order = [];
+	let release;
+	const first = runWhenIdle(
+		store,
+		"a",
+		{ a: 1 },
+		() => new Promise((r) => (release = () => (order.push("A done"), r({ status: "ok", value: null })))),
+		{
+			fresh: () => "kA",
+		},
+	);
+	// B starts while A runs: it waits, sends after A settles, and is never refused as busy.
+	const second = runWhenIdle(
+		store,
+		"b",
+		{ b: 1 },
+		(key) => (order.push(`B sent ${key}`), Promise.resolve({ status: "ok", value: null })),
+		{
+			fresh: () => "kB",
+		},
+	);
+	await new Promise((r) => setTimeout(r, 10));
+	assert.deepEqual(order, [], "B has not been sent while A runs");
+	release();
+	assert.deepEqual(await first, { status: "ok", value: null });
+	assert.deepEqual(await second, { status: "ok", value: null });
+	assert.deepEqual(order, ["A done", "B sent kB"]);
+	assert.equal(stillUnknown({ status: "lost" }), true);
+	assert.equal(stillUnknown({ status: "refused", code: "conflict" }), false, "only a server answer says not saved");
 });

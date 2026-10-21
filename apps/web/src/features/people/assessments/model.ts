@@ -2,7 +2,7 @@
 // code, so the rules run the same in the browser, on the server and in node tests.
 import type * as c from "@everyfield/contracts/people";
 import type { z } from "zod";
-import { STAGES, type Outcome, type StageValue } from "../model.ts";
+import { runSave, STAGES, type Outcome, type PersonStore, type Saved, type StageValue } from "../model.ts";
 
 export type Assessment = z.infer<typeof c.assessment>;
 export type Interview = z.infer<typeof c.interview>;
@@ -123,7 +123,7 @@ export async function sendTwice<T>(call: () => Promise<Outcome<T>>): Promise<Out
 
 export type Notice =
 	| { tone: "refused"; id: string; what: string; problem: string }
-	| { tone: "unknown" | "waiting"; id: string; what: string; check: () => void; checking: boolean };
+	| { tone: "unknown"; id: string; what: string; check: () => void; checking: boolean };
 export type FormState<E> = { editing: E | null; notice: Notice | null; intent: number };
 export const formStart = <E>(): FormState<E> => ({ editing: null, notice: null, intent: 0 });
 export const formOpen = <E>(s: FormState<E>, e: E): FormState<E> => ({ ...s, editing: e, intent: s.intent + 1 });
@@ -149,23 +149,38 @@ export const formUnknown = <E>(s: FormState<E>, id: string, what: string, check:
 	...s,
 	notice: { tone: "unknown", id, what, check, checking: false },
 });
-/** A save that could not start because another save to the person was running: nothing was sent (ruling C65). */
-export const formWaiting = <E>(s: FormState<E>, id: string, what: string, send: () => void): FormState<E> => ({
-	...s,
-	notice: { tone: "waiting", id, what, check: send, checking: false },
-});
 export const formChecking = <E>(s: FormState<E>): FormState<E> =>
-	s.notice && s.notice.tone !== "refused" ? { ...s, notice: { ...s.notice, checking: true } } : s;
+	s.notice?.tone === "unknown" ? { ...s, notice: { ...s.notice, checking: true } } : s;
 /** A save that is now known to be saved clears its own notice, never another one. */
 export const formSettled = <E>(s: FormState<E>, id: string): FormState<E> =>
 	s.notice?.id === id ? { ...s, notice: null } : s;
 export const formDismiss = <E>(s: FormState<E>): FormState<E> => ({ ...s, notice: null });
 
+/** A save whose result is still unknown: both answers were lost. Only a server answer says "not saved". */
+export const stillUnknown = (r: Outcome<unknown>): boolean => r.status === "lost";
+
+/** Resolves once no save to the person is running. */
+export function whenIdle<P extends Saved, D>(store: PersonStore<P, D>): Promise<void> {
+	return new Promise((resolve) => {
+		if (store.get().pending === null) return resolve();
+		const stop = store.subscribe(() => {
+			if (store.get().pending !== null) return;
+			stop();
+			resolve();
+		});
+	});
+}
+
 /**
- * A save whose result is still unknown: its answer was lost twice, or a Check again (token -1) could not start because
- * another change to the person was saving. That sent nothing, so the first request may still be saved: never a refusal.
+ * runSave that waits its turn instead of answering busy (ruling C65, review F4e): a save starts only once no other save
+ * to the person runs, so nothing is ever reported as not saved without a server answer, and no newer form is lost.
  */
-export const stillUnknown = (r: Outcome<unknown> | null, token: number): boolean =>
-	r?.status === "lost" || (r === null && token === -1);
-/** A first save that could not start (another save was running): nothing was sent, so it is waiting, never refused. */
-export const notSent = (r: Outcome<unknown> | null, token: number): boolean => r === null && token !== -1;
+export async function runWhenIdle<P extends Saved, D, T>(
+	...args: Parameters<typeof runSave<P, D, T>>
+): Promise<Outcome<T>> {
+	for (;;) {
+		await whenIdle(args[0]);
+		const r = await runSave(...args);
+		if (r !== null) return r;
+	}
+}

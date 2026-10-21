@@ -24,7 +24,6 @@ import {
 	formSettled,
 	formStart,
 	formUnknown,
-	formWaiting,
 	withRecord,
 	type FormState,
 	type Notice,
@@ -77,6 +76,7 @@ export function RecordDialog({
 	action,
 	problem,
 	size = "md",
+	busy = false,
 	onClose,
 	onSubmit,
 	children,
@@ -88,12 +88,15 @@ export function RecordDialog({
 	action: string;
 	problem?: string;
 	size?: "md" | "lg";
+	/** Another save to this person is running: saving waits, and the form keeps its answers. */
+	busy?: boolean;
 	onClose: () => void;
 	/** Returns false when the form has missing answers. */
 	onSubmit: () => boolean;
 	children: ReactNode;
 }) {
 	const alert = useRef<HTMLDivElement>(null);
+	const busyId = useId();
 	return (
 		<Dialog open onOpenChange={(next) => !next && onClose()}>
 			<DialogContent
@@ -109,6 +112,7 @@ export function RecordDialog({
 					className="contents"
 					onSubmit={(e) => {
 						e.preventDefault();
+						if (busy) return;
 						if (!onSubmit()) focusFirstProblem(e.currentTarget);
 					}}
 				>
@@ -128,10 +132,20 @@ export function RecordDialog({
 						{children}
 					</DialogBody>
 					<DialogFooter>
+						{busy ? (
+							<p id={busyId} className="mr-auto text-xs text-text-2 max-app-sm:basis-full">
+								Saving waits until the other save to this person ends.
+							</p>
+						) : null}
 						<Button variant="secondary" type="button" onClick={onClose}>
 							Cancel
 						</Button>
-						<Button variant={tone === "magenta" ? "danger" : "primary"} type="submit">
+						<Button
+							variant={tone === "magenta" ? "danger" : "primary"}
+							type="submit"
+							disabled={busy}
+							aria-describedby={busy ? busyId : undefined}
+						>
 							{action}
 						</Button>
 					</DialogFooter>
@@ -280,25 +294,16 @@ export function useRecordForm<E extends { problem?: string }>() {
 					check();
 				}),
 			),
-		waiting: (id: string, what: string, send: () => void) =>
-			apply(
-				formWaiting(state.current, id, what, () => {
-					apply(formChecking(state.current));
-					send();
-				}),
-			),
 		settled: (id: string) => apply(formSettled(state.current, id)),
 		dismiss: () => apply(formDismiss(state.current)),
 	};
 }
 
-/** The notice in words. Only a server answer says "not saved"; a save that never left says it is not sent yet. */
+/** The notice in words. Only a server answer says "not saved". */
 function noticeText(notice: Notice): string {
 	switch (notice.tone) {
 		case "unknown":
 			return `${notice.what} may already be saved. We did not hear back from the server. Check again to find out; it will not be saved twice.`;
-		case "waiting":
-			return `${notice.what} is not sent yet, because another save to this person was running.`;
 		case "refused":
 			return `${notice.what} was not saved. ${recordProblem(notice.problem)}`;
 	}
@@ -329,7 +334,7 @@ export function SaveNotice({
 						<span>{noticeText(notice)}</span>
 					</p>
 					<div className="flex flex-wrap gap-2">
-						{notice.tone !== "refused" ? (
+						{notice.tone === "unknown" ? (
 							<Button
 								size="sm"
 								variant="secondary"
@@ -338,16 +343,16 @@ export function SaveNotice({
 								aria-describedby={busy && !notice.checking ? hintId : undefined}
 								onClick={notice.check}
 							>
-								{notice.tone === "unknown" ? "Check again" : "Save now"}
+								Check again
 							</Button>
 						) : null}
 						<Button size="sm" variant="ghost" onClick={onDismiss}>
 							Dismiss
 						</Button>
 					</div>
-					{notice.tone !== "refused" && busy && !notice.checking ? (
+					{notice.tone === "unknown" && busy && !notice.checking ? (
 						<p id={hintId} className="text-xs text-magenta-600">
-							{notice.tone === "unknown" ? "Check again" : "Save now"} waits until the other save to this person ends.
+							Check again waits until the other save to this person ends.
 						</p>
 					) : null}
 				</div>

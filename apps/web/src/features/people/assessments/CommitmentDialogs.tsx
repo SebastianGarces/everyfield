@@ -51,6 +51,7 @@ export const blankCommitment = (): CommitmentDraft => ({
 
 /** Record a signed commitment card (REQ-PPL-014): kind, signed date, witness, notes and the private document. */
 export function RecordCommitmentDialog({
+	busy,
 	draft: initial,
 	problem,
 	personId,
@@ -60,6 +61,8 @@ export function RecordCommitmentDialog({
 	onClose,
 	onSubmit,
 }: {
+	/** Another save to this person is running: saving waits and the form keeps its answers. */
+	busy: boolean;
 	draft: CommitmentDraft;
 	problem?: string;
 	personId: string;
@@ -82,6 +85,7 @@ export function RecordCommitmentDialog({
 	const futureDate = problem === "future_date";
 	return (
 		<RecordDialog
+			busy={busy}
 			icon={SignatureIcon}
 			tone="green"
 			title={`Record ${personName}'s commitment`}
@@ -326,6 +330,7 @@ export type LifecycleDraft = { effectiveOn: string; reason: string };
 
 /** Withdraw or reactivate the current commitment on a date (REQ-PPL-014, 026). The stage never changes. */
 export function LifecycleDialog({
+	busy,
 	change,
 	draft: initial,
 	problem,
@@ -334,6 +339,8 @@ export function LifecycleDialog({
 	onClose,
 	onSubmit,
 }: {
+	/** Another save to this person is running: saving waits and the form keeps its answers. */
+	busy: boolean;
 	change: "withdraw" | "reactivate";
 	draft: LifecycleDraft;
 	problem?: string;
@@ -350,6 +357,7 @@ export function LifecycleDialog({
 	const withdraw = change === "withdraw";
 	return (
 		<RecordDialog
+			busy={busy}
 			icon={withdraw ? UserRemove01Icon : UserCheck01Icon}
 			tone={withdraw ? "magenta" : "green"}
 			title={withdraw ? `Withdraw ${personName}'s commitment` : `Reactivate ${personName}'s commitment`}
@@ -404,12 +412,15 @@ export type CorrectionDraft = { action: "correct" | "void"; occurredOn: string; 
 
 /** Correct one card's signed date or kind, or void a card that was never genuine (REQ-PPL-026). */
 export function CorrectionDialog({
+	busy,
 	card,
 	draft: initial,
 	problem,
 	onClose,
 	onSubmit,
 }: {
+	/** Another save to this person is running: saving waits and the form keeps its answers. */
+	busy: boolean;
 	card: Commitment;
 	draft: CorrectionDraft;
 	problem?: string;
@@ -424,6 +435,7 @@ export function CorrectionDialog({
 	const complete = draft.reason.trim() !== "" && (voiding || (draft.occurredOn !== "" && !unchanged));
 	return (
 		<RecordDialog
+			busy={busy}
 			icon={voiding ? Delete02Icon : Edit02Icon}
 			tone={voiding ? "magenta" : "blue"}
 			title={voiding ? "Void this card" : "Correct this card"}

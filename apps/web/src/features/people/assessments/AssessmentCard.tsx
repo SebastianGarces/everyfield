@@ -16,7 +16,7 @@ import {
 } from "@everyfield/ui/controls";
 import { cn } from "@everyfield/ui/foundations";
 import { startTransition, useOptimistic, useState, useTransition } from "react";
-import { type KeyedPayload, runSave } from "../model.ts";
+import type { KeyedPayload } from "../model.ts";
 import { fresh, LocalDay, useStore } from "../parts.tsx";
 import { loadAssessments, recordAssessment } from "./actions.ts";
 import {
@@ -30,7 +30,7 @@ import {
 	type Assessments,
 	type Lens,
 	sendTwice,
-	notSent,
+	runWhenIdle,
 	stillUnknown,
 } from "./model.ts";
 import {
@@ -109,15 +109,13 @@ export function AssessmentCard({
 
 	/** One save of one intent: its first send, or Check again with the same request and key (token -1). */
 	async function commit(input: unknown, key: KeyedPayload, token: number, draft: Draft) {
-		const r = await runSave(store, "assessment", input, (k) => sendTwice(() => recordAssessment(k, input)), {
+		const r = await runWhenIdle(store, "assessment", input, (k) => sendTwice(() => recordAssessment(k, input)), {
 			fresh,
 			key,
 			toPerson: (v) => ({ ...store.get().saved, stage: v.person.stage, revision: v.person.revision }) as PlantPerson,
 		});
 		const what = "Your 4 C's assessment";
-		if (stillUnknown(r, token)) return form.unknown(key.key, what, () => start(() => commit(input, key, -1, draft)));
-		// Nothing was sent: another save to the person was running (C65). It waits, never reads as refused.
-		if (notSent(r, token)) return form.waiting(key.key, what, () => start(() => commit(input, key, -2, draft)));
+		if (stillUnknown(r)) return form.unknown(key.key, what, () => start(() => commit(input, key, -1, draft)));
 		if (r?.status !== "ok") {
 			const code = r?.status === "refused" && r.code === "invalid_input" ? "future_date" : codeOf(r);
 			return startTransition(() => form.refused(token, { draft, problem: code }, key.key, what));
@@ -220,7 +218,13 @@ export function AssessmentCard({
 			)}
 			<p className="mt-4 text-xs text-text-3">Human judgment. Evry and Plant Intelligence never set these.</p>
 			{form.editing ? (
-				<AssessmentDialog editing={form.editing} personName={first} onClose={form.close} onSubmit={submit} />
+				<AssessmentDialog
+					editing={form.editing}
+					personName={first}
+					busy={saving}
+					onClose={form.close}
+					onSubmit={submit}
+				/>
 			) : null}
 		</Card>
 	);
@@ -263,11 +267,14 @@ function Scores({ assessment: a }: { assessment: Assessment }) {
 }
 
 function AssessmentDialog({
+	busy,
 	editing,
 	personName,
 	onClose,
 	onSubmit,
 }: {
+	/** Another save to this person is running: saving waits and the form keeps its answers. */
+	busy: boolean;
 	editing: Editing;
 	personName: string;
 	onClose: () => void;
@@ -281,6 +288,7 @@ function AssessmentDialog({
 	const futureDate = editing.problem === "future_date";
 	return (
 		<RecordDialog
+			busy={busy}
 			icon={Analytics01Icon}
 			tone="green"
 			title={`Record the 4 C's for ${personName}`}
