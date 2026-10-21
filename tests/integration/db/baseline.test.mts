@@ -15,6 +15,7 @@ import { pgTable, integer, text } from "../../../packages/db/src/columns.ts";
 import { assertCurrentCatalog } from "../../../packages/db/src/schema/catalog.ts";
 import { migrate, adoptMigrationHistory, migrationArtifact } from "../../../packages/db/src/schema/migrate.ts";
 import { pdf } from "../platform/fixtures.mjs";
+import { pdfParsing, validateCommitment } from "../../../packages/db/src/schema/validate-file.ts";
 import { auth_user, auth_account, auth_session, auth_verification } from "../../../packages/db/src/schema/tables.ts";
 import { authStorage } from "../../../packages/db/src/schema/auth-storage.ts";
 import { canonicalTimeZone } from "../../../packages/db/src/schema/time.ts";
@@ -137,6 +138,14 @@ after(async () => {
 	await admin.execute(querySql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
 	for (const name of [role, authRole]) await admin.execute(querySql.raw(`DROP ROLE IF EXISTS ${name}`));
 	await closeDatabase(admin);
+});
+
+test("BUG-176: a valid PDF passes when the parse worker starts late; a parse past its limit still fails", async () => {
+	// The worker's parser import takes 3.5 s, longer than the 3-second parse limit, as on a loaded runner or a cold start.
+	const slowStart = `await new Promise((r) => setTimeout(r, 3500)); export * from ${JSON.stringify(pdfParsing.entry)};`;
+	const late = { ...pdfParsing, entry: "data:text/javascript," + encodeURIComponent(slowStart) };
+	await validateCommitment(pdf(), "application/pdf", late);
+	await assert.rejects(validateCommitment(pdf(), "application/pdf", { ...pdfParsing, parseMs: 1 }), /invalid_file/);
 });
 
 test("INV-storage: only a Vercel production deployment may use the production bucket", () => {
