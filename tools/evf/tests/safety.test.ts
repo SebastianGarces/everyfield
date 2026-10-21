@@ -360,11 +360,11 @@ test("BUG-OPS32-fresh: parallel fresh checks of one head both pass, and a crashe
 		rmSync(join(fresh, "gone"), { recursive: true, force: true });
 		assert.equal(await check("verifier"), 0);
 		assert.deepEqual(readdirSync(fresh), [sha]);
-		assert.deepEqual(
-			git(f.root, "worktree", "list", "--porcelain").match(/^worktree /gm),
-			["worktree "],
-			"each run removes and prunes only its own worktree registration",
-		);
+		// Runs remove only their own registration: an unrelated missing-folder registration stays for its owner.
+		const listed = git(f.root, "worktree", "list", "--porcelain");
+		assert.equal(listed.match(/^worktree /gm)?.length, 2);
+		assert.match(listed, new RegExp(`^worktree ${join(realpathSync(fresh), "gone")}$`, "m"));
+		assert.equal(readdirSync(join(git(f.root, "rev-parse", "--absolute-git-dir"), "worktrees")).length, 1);
 	} finally {
 		f.close();
 	}

@@ -226,9 +226,11 @@ export function freshCheckoutTypecheck(
 	mkdirSync(base, { recursive: true });
 	const fresh = mkdtempSync(join(base, `${sha.slice(0, 12)}-${role}-`));
 	let output = "",
-		exitCode = 0;
+		exitCode = 0,
+		admin: string | undefined;
 	try {
 		git(wt, "worktree", "add", "--quiet", "--detach", fresh, sha);
+		admin = git(fresh, "rev-parse", "--absolute-git-dir");
 		for (const argv of steps) {
 			const result = run(argv[0], argv.slice(1), { cwd: fresh });
 			output += `$ ${argv.join(" ")}\n\n${result.stdout}\n${result.stderr}\n`;
@@ -236,9 +238,10 @@ export function freshCheckoutTypecheck(
 			if (exitCode !== 0) break;
 		}
 	} finally {
+		// Clean up only this run's folder and registration. A global prune would also drop other worktrees' entries.
 		run("git", ["worktree", "remove", "--force", fresh], { cwd: wt });
 		rmSync(fresh, { recursive: true, force: true });
-		run("git", ["worktree", "prune"], { cwd: wt });
+		if (admin) rmSync(admin, { recursive: true, force: true });
 	}
 	writeFileSync(log, output);
 	console.error(`evf verify: fresh-checkout-typecheck ${exitCode === 0 ? "passed" : "failed"}.`);
