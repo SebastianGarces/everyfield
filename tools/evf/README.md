@@ -119,6 +119,13 @@ exceptions stale and fail the check. Local-only suites remain acceptance work fo
 Briefs use the current catalog and context manifest. Missing context fails explicitly.
 Task starts retain kickoff gates and producer dependencies. OPS tasks use reviewed title,
 owning paths and tooling checks in `maintenanceTasks`; they cannot authorize application code.
+evf reads that entry from the commit under check, never from the home checkout's file: the task
+branch for `task start`, `verify`, `pr open` and `ship`, and the PR head for the verifier and
+`evf approve`. A new task registers on its own branch. `task start` creates the worktree and
+names the missing entry; commit it there and run `task start` again for the brief. A start refuses
+an invalid entry that main or the task branch already carries before it creates the worktree.
+The branch may change `evf.config.json` only in its own entry, even when it owns the file; the verifier
+reviews that entry.
 The only design file they may own is `design/handoff/screens.md`, the generated package-owner map.
 An entry with `"route": "design"` is a design task instead: it owns only `design/` paths and never
 changes `design/everyfield-ui.html`, the approved prototype that the app tokens come from. Its

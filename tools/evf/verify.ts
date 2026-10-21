@@ -21,7 +21,7 @@ import {
 } from "./lib.ts";
 import { stackEnv, stackInfo } from "./task.ts";
 import { cachedTriage } from "./feedback.ts";
-import { requireSpend, requireTaskScope, requireMaintenancePaths } from "./policy.ts";
+import { maintenanceScope, requireSpend, requireTaskScope, requireMaintenancePaths } from "./policy.ts";
 import { caseCoverage, caseGrep, hasCaseMarkers, testsOf } from "./coverage.ts";
 import { formatScope, wpScope, type ScopeReport } from "./scope.ts";
 
@@ -54,7 +54,7 @@ export function verify(root: string, task: TaskRef, role: Role, mode: Mode, head
 			: requireWorktree(root, loadConfig(root), task);
 	const cfg = loadConfig(wt);
 	const wp = task.kind === "wp" ? task.wp : task.kind === "fb" ? cachedTriage(root, task.issue!)?.wp : undefined;
-	requireTaskScope(root, task, wp);
+	requireTaskScope(root, wt, task, wp);
 	requireMaintenancePaths(root, wt, task);
 	if (hasRemote(root, cfg)) git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
 	const ref = baseRef(root, cfg),
@@ -91,7 +91,7 @@ export function verify(root: string, task: TaskRef, role: Role, mode: Mode, head
 		EVF_MODE: mode,
 		EVF_BASE_URL: vars.baseUrl,
 	};
-	const definitions = task.kind === "ops" ? cfg.maintenanceTasks![task.id].checks : cfg.checks;
+	const definitions = task.kind === "ops" ? maintenanceScope(wt, task).checks : cfg.checks;
 	if (task.kind !== "ops" && cfg.stack?.usesPaidProviders) requireSpend(root);
 	const reports: string[] = [];
 	const inputsUnchanged = () => git(wt, "rev-parse", "HEAD") === sha && isClean(wt);
