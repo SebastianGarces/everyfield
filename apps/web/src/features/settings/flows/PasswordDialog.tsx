@@ -85,6 +85,8 @@ export function PasswordDialog() {
 		}
 		setFailure(status);
 		setForm(status === "unknown" ? EMPTY : { ...form, currentPassword: "" });
+		// The alert explains the refusal; the emptied field shows no second message.
+		setChecked(false);
 		if (status === "refused") focusFirst(["currentPassword"]);
 	};
 

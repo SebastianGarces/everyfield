@@ -14,7 +14,7 @@ function notSent(error: SettingsError | null): string {
 	if (!error || error.code === "unknown")
 		return "We could not confirm that the link was sent. Send it again: the new link replaces the old one.";
 	if (error.code === "temporary")
-		return "The link was not sent. You can ask 3 times in an hour, and the address must not already sign in to Everyfield. Wait, or use another address.";
+		return "The link was not sent. You can ask for 3 links in an hour. Wait a while, then try again.";
 	return `The link was not sent. ${refusalOf(error).message}`;
 }
 
@@ -63,7 +63,7 @@ export function EmailChange({ currentEmail }: { currentEmail: string }) {
 	return (
 		<div className="flex flex-col gap-3">
 			<div className="flex flex-wrap items-center gap-3">
-				<span className="font-medium break-all text-ink" data-current-email>
+				<span className="font-medium [overflow-wrap:anywhere] text-ink" data-current-email>
 					{currentEmail}
 				</span>
 				{state.step === "idle" ? (
@@ -105,8 +105,8 @@ export function EmailChange({ currentEmail }: { currentEmail: string }) {
 					<Icon icon={Mail01Icon} size={18} className="mt-px text-blue-600" />
 					<div className="min-w-0 flex-1">
 						<p>
-							We sent a link to <b className="font-semibold break-all text-ink">{state.email}</b>. Open it within 24
-							hours to finish. Until then you sign in with {currentEmail}.
+							We sent a link to <b className="font-semibold [overflow-wrap:anywhere] text-ink">{state.email}</b>. Open
+							it within 24 hours to finish. Until then you sign in with {currentEmail}.
 						</p>
 						<p className="mt-1 text-text-3">A new request replaces this one, and only the newest link works.</p>
 						<Button size="sm" variant="ghost" className="mt-1.5 -ml-2.5" onClick={start}>

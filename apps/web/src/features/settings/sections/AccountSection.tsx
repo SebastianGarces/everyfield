@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, Field, Input, Skeleton } from "@everyfield/ui/controls";
-import { LoadableView } from "@everyfield/ui/display";
+import { Avatar, LoadableView } from "@everyfield/ui/display";
 import { useState } from "react";
 import { SessionActions } from "../../identity/SessionActions";
 import { AvatarControl } from "../flows/AvatarControl";
@@ -92,14 +92,24 @@ function AccountForm({
 					</SettingRow>
 				) : null}
 				<SettingRow label="Name">
-					<Field label={<span className="sr-only">Your name</span>} error={showError ? nameError : undefined}>
-						<Input
-							value={draft.name}
-							onChange={(e) => setDraft({ name: e.target.value })}
-							autoComplete="name"
-							invalid={showError && Boolean(nameError)}
-						/>
-					</Field>
+					<div className="flex items-start gap-4">
+						{/* Without photos (Q2) the initials stand in, as the prototype's Photo and name row draws them. */}
+						{port.flows.avatar ? null : (
+							<Avatar name={account.name} label={`${account.name}, no photo`} size="lg" tone="green" />
+						)}
+						<Field
+							label={<span className="sr-only">Your name</span>}
+							error={showError ? nameError : undefined}
+							className="min-w-0 flex-1"
+						>
+							<Input
+								value={draft.name}
+								onChange={(e) => setDraft({ name: e.target.value })}
+								autoComplete="name"
+								invalid={showError && Boolean(nameError)}
+							/>
+						</Field>
+					</div>
 				</SettingRow>
 				<SettingRow label="Email" description="You sign in with it. We send a link to a new address to confirm it.">
 					<EmailChange currentEmail={account.email} />
@@ -116,11 +126,11 @@ function AccountForm({
 						onSaved={(personalTimezone) => replace({ ...account, personalTimezone })}
 					/>
 				</SettingRow>
-				<SettingRow label="Delete your account" description={deletionText(viewer)}>
-					{ownsSeat(viewer) ? null : <AccountDeletionDialog section={account} onRequested={onDeletionRequested} />}
-				</SettingRow>
 				<SettingRow label="Sessions" description="Sign out here, or on every other device at once.">
 					<SessionActions />
+				</SettingRow>
+				<SettingRow label="Delete your account" description={deletionText(viewer)}>
+					{ownsSeat(viewer) ? null : <AccountDeletionDialog section={account} onRequested={onDeletionRequested} />}
 				</SettingRow>
 			</SectionBody>
 			<SaveFooter
