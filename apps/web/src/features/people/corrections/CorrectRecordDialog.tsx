@@ -61,9 +61,9 @@ type Chosen =
 	| { type: "interview"; record: Interview }
 	| { type: "commitment"; record: Commitment };
 
-/** The record kind inside a sentence: "the Four Cs assessment". */
+/** The record kind inside a sentence: "the 4 C's assessment". */
 const TYPE_NAME: Record<RecordType, string> = {
-	assessment: "Four Cs assessment",
+	assessment: "4 C's assessment",
 	interview: "interview",
 	commitment: "commitment card",
 };
@@ -89,7 +89,7 @@ const interviewValues = (r: Interview): InterviewValues => ({
 });
 
 /**
- * Correct a record (REQ-PPL-015, a flow the prototype does not draw). One dialog lists the person's Four Cs
+ * Correct a record (REQ-PPL-015, a flow the prototype does not draw). One dialog lists the person's 4 C's
  * assessments, interviews and commitment cards; choosing one opens its values to correct, with a required reason and
  * the corrections already made to it (old value, new value, who and why). Only changed fields are sent. The recorder,
  * the recorded time, the witness and the document never change, and the stage never moves. Each correction is one
@@ -166,7 +166,7 @@ export function CorrectRecordDialog({
 								{person.displayName} · <LocalDay day={current.record.occurredOn} />
 							</>
 						) : (
-							`${person.displayName}’s Four Cs assessments, interviews and commitment cards`
+							`${person.displayName}’s 4 C's assessments, interviews and commitment cards`
 						)
 					}
 				/>
@@ -314,7 +314,7 @@ function RecordList({
 	}[] = [
 		{
 			type: "assessment",
-			title: "Four Cs assessments",
+			title: "4 C's assessments",
 			rows: data.assessments.map((r) => ({ id: r.id, day: r.occurredOn, text: `Total ${r.total} of 20` })),
 		},
 		{
@@ -336,7 +336,7 @@ function RecordList({
 	if (groups.every((g) => g.rows.length === 0))
 		return (
 			<p className="py-6 text-center text-text-3">
-				No Four Cs assessments, interviews or commitment cards are recorded yet, so there is nothing to correct.
+				No 4 C&rsquo;s assessments, interviews or commitment cards are recorded yet, so there is nothing to correct.
 			</p>
 		);
 	return (

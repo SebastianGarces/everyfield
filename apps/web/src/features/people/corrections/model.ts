@@ -67,7 +67,7 @@ export const KIND_LABEL: Record<ReferenceKind, [one: string, many: string]> = {
 	tag: ["tag", "tags"],
 	skill: ["skill", "skills"],
 	note: ["note", "notes"],
-	assessment: ["Four Cs assessment", "Four Cs assessments"],
+	assessment: ["4 C's assessment", "4 C's assessments"],
 	interview: ["interview", "interviews"],
 	commitment: ["commitment card", "commitment cards"],
 	merged_person: ["earlier merged person", "earlier merged people"],
@@ -294,7 +294,7 @@ export function interviewChanges(base: InterviewValues, draft: InterviewValues) 
 export function commitmentChanges(base: CommitmentValues, draft: CommitmentValues) {
 	return clean(draft.notes) !== clean(base.notes) ? { notes: clean(draft.notes) } : {};
 }
-/** The Four Cs total, as the server computes it: the sum of the four scores. */
+/** The 4 C's total, as the server computes it: the sum of the four scores. */
 export const totalOf = (v: Record<Lens, ScoreValue>) => LENSES.reduce((sum, l) => sum + v[l].score, 0);
 
 /** A corrected field's name in words, as the history lists it. */

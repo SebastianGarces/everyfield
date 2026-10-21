@@ -61,7 +61,7 @@ const ACTION: Record<Extract<Item, { kind: "activity" }>["action"], string> = {
 	commitment_withdrawn: "Commitment withdrawn",
 	commitment_reactivated: "Commitment reactivated",
 	commitment_corrected: "Commitment corrected",
-	assessment_corrected: "Four Cs assessment corrected",
+	assessment_corrected: "4 C's assessment corrected",
 	interview_corrected: "Interview corrected",
 	person_merged: "A duplicate was merged into this person",
 	person_unmerged: "A merge was undone",
