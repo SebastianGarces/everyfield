@@ -4913,3 +4913,88 @@ export const audit_event = pgTable(
 		index("audit_command").on(table.command_id),
 	],
 );
+/**
+ * One reviewed merge of a source Person into a survivor in the same church or organization (REQ-PPL-017, 025). It keeps
+ * what Unmerge needs to restore both people exactly: the survivor field values the merge replaced, the source facts it
+ * cleared, the references it moved or deduplicated and the revisions it left. These values are domain history, read only
+ * by Owners and Admins; central audit names the merge without them (audit.md). Rows go with their Person on purge.
+ */
+export const person_merge = pgTable(
+	"person_merge",
+	{
+		id: uuid("id").notNull(),
+		tenant_id: uuid("tenant_id")
+			.notNull()
+			.references(() => tenant.id),
+		source_id: uuid("source_id").notNull(),
+		survivor_id: uuid("survivor_id").notNull(),
+		merged_at: timestamp("merged_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+		prior: jsonb("prior").notNull(),
+		moved: jsonb("moved").notNull(),
+		source_revision: int64("source_revision").notNull(),
+		survivor_revision: int64("survivor_revision").notNull(),
+		references_digest: text("references_digest").notNull(),
+		unmerged_at: timestamp("unmerged_at", { withTimezone: true, mode: "date" }),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "person_merge_pkey", columns: [t.id] }),
+		foreignKey({
+			name: "person_merge_source",
+			columns: [t.source_id, t.tenant_id],
+			foreignColumns: [person.id, person.tenant_id],
+		}).onDelete("cascade"),
+		foreignKey({
+			name: "person_merge_survivor",
+			columns: [t.survivor_id, t.tenant_id],
+			foreignColumns: [person.id, person.tenant_id],
+		}).onDelete("cascade"),
+		check("person_merge_distinct", sql`${t.source_id}<>${t.survivor_id}`),
+		check("person_merge_prior", sql`jsonb_typeof(${t.prior})='object'`),
+		check("person_merge_moved", sql`jsonb_typeof(${t.moved})='object'`),
+		// A Person is merged away at most once at a time.
+		uniqueIndex("person_merge_open_source")
+			.on(t.source_id)
+			.where(sql`unmerged_at IS NULL`),
+		index("person_merge_survivor_ref").on(t.survivor_id, t.tenant_id),
+	],
+);
+/**
+ * One correction of an assessment, interview or commitment card (REQ-PPL-015): the changed fields with their old and new
+ * values and the reason. The record keeps its original recorder and recorded instant. The corrector is the audit row
+ * with the same ID. Values are private plant history, never central audit.
+ */
+export const record_correction = pgTable(
+	"record_correction",
+	{
+		id: uuid("id").notNull(),
+		plant_id: uuid("plant_id")
+			.notNull()
+			.references(() => plant.id),
+		person_id: uuid("person_id").notNull(),
+		record_type: text("record_type", { enum: ["assessment", "interview", "commitment"] }).notNull(),
+		record_id: uuid("record_id").notNull(),
+		corrected_at: timestamp("corrected_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+		before_value: jsonb("before_value").notNull(),
+		after_value: jsonb("after_value").notNull(),
+		reason: text("reason").notNull(),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "record_correction_pkey", columns: [t.id] }),
+		foreignKey({
+			name: "record_correction_person",
+			columns: [t.person_id, t.plant_id],
+			foreignColumns: [person.id, person.tenant_id],
+		}).onDelete("cascade"),
+		foreignKey({
+			name: "record_correction_target",
+			columns: [t.record_id, t.plant_id],
+			foreignColumns: [record.id, record.tenant_id],
+		}).onDelete("cascade"),
+		check("record_correction_type", sql`${t.record_type} IN ('assessment','interview','commitment')`),
+		index("record_correction_record").on(t.plant_id, t.record_id, t.corrected_at),
+	],
+);

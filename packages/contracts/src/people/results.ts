@@ -2,6 +2,7 @@ import { z } from "zod";
 import { personId, recordId, accountId, operationId, revision, defineSafeError, safeError } from "../common/values.ts";
 import { instant, localDate, timeZone } from "../common/time.ts";
 import { csvError } from "./csv/index.ts";
+import { mergeErrors } from "./merge/errors.ts";
 import {
 	contactFields,
 	plantOwner,
@@ -165,6 +166,10 @@ export const activity = z.discriminatedUnion("kind", [
 			"commitment_withdrawn",
 			"commitment_reactivated",
 			"commitment_corrected",
+			"assessment_corrected",
+			"interview_corrected",
+			"person_merged",
+			"person_unmerged",
 		]),
 		// An assessment, interview or commitment event names its record; the stage advance it caused shows with it.
 		recordId: recordId.optional(),
@@ -241,6 +246,7 @@ export const peopleError = z.discriminatedUnion("code", [
 	defineSafeError("use_reviewed_unmerge", {}, "refresh"),
 	defineSafeError("source_unavailable", {}, "same_request"),
 	...csvError,
+	...mergeErrors,
 ]);
 /** Duplicate hints: an exact hint shares an email or phone, a potential hint only a name. Never proof of identity. */
 export const duplicateHints = z.strictObject({
