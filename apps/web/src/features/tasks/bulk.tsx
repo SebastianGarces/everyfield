@@ -169,7 +169,7 @@ export function BulkReport({
 						<button
 							type="button"
 							onClick={() => onOpen(t.id)}
-							className="cursor-pointer rounded-xs text-left font-medium text-ink underline-offset-[3px] hover:underline"
+							className="inline-flex min-h-6 cursor-pointer items-center rounded-xs text-left font-medium text-ink underline-offset-[3px] hover:underline"
 						>
 							{t.title}
 						</button>
