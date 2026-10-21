@@ -2,7 +2,7 @@
 // code, so the rules run the same in the browser, on the server and in node tests.
 import type * as c from "@everyfield/contracts/people";
 import type { z } from "zod";
-import { runSave, STAGES, type Outcome, type PersonStore, type Saved, type StageValue } from "../model.ts";
+import { STAGES, type Outcome, type StageValue } from "../model.ts";
 
 export type Assessment = z.infer<typeof c.assessment>;
 export type Interview = z.infer<typeof c.interview>;
@@ -156,34 +156,12 @@ export const formSettled = <E>(s: FormState<E>, id: string): FormState<E> =>
 	s.notice?.id === id ? { ...s, notice: null } : s;
 export const formDismiss = <E>(s: FormState<E>): FormState<E> => ({ ...s, notice: null });
 
-/** A save whose result is still unknown: both answers were lost. Only a server answer says "not saved". */
-export const stillUnknown = (r: Outcome<unknown>): boolean => r.status === "lost";
-
-/** Resolves once no save to the person is running. */
-export function whenIdle<P extends Saved, D>(store: PersonStore<P, D>): Promise<void> {
-	return new Promise((resolve) => {
-		if (store.get().pending === null) return resolve();
-		const stop = store.subscribe(() => {
-			if (store.get().pending !== null) return;
-			stop();
-			resolve();
-		});
-	});
-}
-
 /**
- * runSave that waits its turn instead of answering busy (ruling C65, review F4e): a save starts only once no other save
- * to the person runs, so nothing is ever reported as not saved without a server answer, and no newer form is lost.
+ * A save whose result is still unknown: both answers were lost, or a Check again (token -1) could not start. A Check
+ * again sends nothing then, so the first request may still be saved. Only a server answer says "not saved".
  */
-export async function runWhenIdle<P extends Saved, D, T>(
-	...args: Parameters<typeof runSave<P, D, T>>
-): Promise<Outcome<T>> {
-	for (;;) {
-		await whenIdle(args[0]);
-		const r = await runSave(...args);
-		if (r !== null) return r;
-	}
-}
+export const stillUnknown = (r: Outcome<unknown> | null, token: number): boolean =>
+	r?.status === "lost" || (r === null && token === -1);
 
 /**
  * One save per card (ruling C68). While a save on the card is in flight, or its result is still unknown, no other form on

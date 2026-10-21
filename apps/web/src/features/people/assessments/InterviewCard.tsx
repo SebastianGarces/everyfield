@@ -19,7 +19,7 @@ import {
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { startTransition, useId, useOptimistic, useState, useTransition } from "react";
-import { type KeyedPayload, STAGE_LABEL } from "../model.ts";
+import { runSave, STAGE_LABEL, type KeyedPayload } from "../model.ts";
 import { fresh, LocalDay, useStore } from "../parts.tsx";
 import { loadInterviews, recordInterview } from "./actions.ts";
 import {
@@ -40,7 +40,6 @@ import {
 	type Rating,
 	type Result,
 	sendTwice,
-	runWhenIdle,
 	stillUnknown,
 	waitOf,
 	type Wait,
@@ -145,13 +144,13 @@ export function InterviewCard({
 
 	/** One save of one intent: its first send, or Check again with the same request and key (token -1). */
 	async function commit(input: unknown, key: KeyedPayload, token: number, draft: Draft) {
-		const r = await runWhenIdle(store, "interview", input, (k) => sendTwice(() => recordInterview(k, input)), {
+		const r = await runSave(store, "interview", input, (k) => sendTwice(() => recordInterview(k, input)), {
 			fresh,
 			key,
 			toPerson: (v) => ({ ...store.get().saved, stage: v.person.stage, revision: v.person.revision }) as PlantPerson,
 		});
 		const what = "Your interview";
-		if (stillUnknown(r)) return form.unknown(key.key, what, () => start(() => commit(input, key, -1, draft)));
+		if (stillUnknown(r, token)) return form.unknown(key.key, what, () => start(() => commit(input, key, -1, draft)));
 		if (r?.status !== "ok") {
 			const code = r?.status === "refused" && r.code === "invalid_input" ? "future_date" : codeOf(r);
 			return startTransition(() => form.refused(token, { draft, problem: code }, key.key, what));

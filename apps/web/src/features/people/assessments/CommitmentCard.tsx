@@ -29,7 +29,7 @@ import {
 import { KeyValue, KeyValueList, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { startTransition, useOptimistic, useState, useTransition } from "react";
-import { newerRevision, STAGE_LABEL, type KeyedPayload, type Outcome } from "../model.ts";
+import { newerRevision, runSave, STAGE_LABEL, type KeyedPayload, type Outcome } from "../model.ts";
 import { fresh, isConflict, LocalDay, useStore } from "../parts.tsx";
 import {
 	changeCommitment,
@@ -62,7 +62,6 @@ import {
 	type CommitmentStatus,
 	type FirstAcquisition,
 	sendTwice,
-	runWhenIdle,
 	stillUnknown,
 	waitOf,
 } from "./model.ts";
@@ -164,9 +163,31 @@ export function CommitmentCard({
 				} as Commitment,
 			});
 			expectPerson({ stage: advancedStage(stage, "core_group") });
-			// The document is stored first. A failed upload saves nothing, so the form opens again with the reason.
-			let uploadId: string | null = null;
-			if (draft.file) {
+			const base = {
+				personId,
+				kind: draft.kind,
+				occurredOn: draft.occurredOn,
+				witness,
+				notes: draft.notes.trim() || null,
+			};
+			await commitCard(base, { uploadId: null }, key, token, draft);
+		});
+	}
+
+	/**
+	 * One card save of one intent: its first send, or Check again with the same request and key (token -1). The document
+	 * uploads inside the save, so the card counts as saving from the first byte (C68). Check again reuses that upload, so
+	 * its request stays the same. A failed upload saves nothing: no card exists without its document.
+	 */
+	async function commitCard(
+		base: { personId: string } & Record<string, unknown>,
+		doc: { uploadId: string | null },
+		key: KeyedPayload,
+		token: number,
+		draft: CommitmentDraft,
+	) {
+		const send = async (k: string): Promise<Outcome<CommitmentSaved>> => {
+			if (draft.file && !doc.uploadId) {
 				const form = new FormData();
 				form.set("personId", personId);
 				form.set("file", draft.file);
@@ -178,38 +199,21 @@ export function CommitmentCard({
 							: stored.code === "storage_unavailable"
 								? "storage_unavailable"
 								: "upload_failed";
-					return startTransition(() =>
-						dialog.refused(token, { form: "record", draft, problem: code }, key.key, "Your commitment card"),
-					);
+					return { status: "refused", code };
 				}
-				uploadId = stored.value.uploadId;
+				doc.uploadId = stored.value.uploadId;
 			}
-			const input = {
-				personId,
-				kind: draft.kind,
-				occurredOn: draft.occurredOn,
-				witness,
-				notes: draft.notes.trim() || null,
-				documentUploadId: uploadId,
-			};
-			await commitCard(input, key, token, draft);
-		});
-	}
-
-	/** One card save of one intent: its first send, or Check again with the same request and key (token -1). */
-	async function commitCard(
-		input: { personId: string } & Record<string, unknown>,
-		key: KeyedPayload,
-		token: number,
-		draft: CommitmentDraft,
-	) {
-		const r = await runWhenIdle(store, "commitment", input, (k) => sendTwice(() => recordCommitment(k, input)), {
+			const input = { ...base, documentUploadId: doc.uploadId };
+			return sendTwice(() => recordCommitment(k, input));
+		};
+		const r = await runSave(store, "commitment", base, send, {
 			fresh,
 			key,
 			toPerson: (v: CommitmentSaved) => personAfter(v.person.revision, v.person.stage),
 		});
 		const what = "Your commitment card";
-		if (stillUnknown(r)) return dialog.unknown(key.key, what, () => start(() => commitCard(input, key, -1, draft)));
+		if (stillUnknown(r, token))
+			return dialog.unknown(key.key, what, () => start(() => commitCard(base, doc, key, -1, draft)));
 		if (r?.status !== "ok") return refused(token, { form: "record", draft }, r, key.key, what);
 		dialog.settled(key.key);
 		const { commitment, current: now, person } = r.value;
@@ -262,7 +266,7 @@ export function CommitmentCard({
 		token: number,
 		draft: LifecycleDraft,
 	) {
-		const r = await runWhenIdle(
+		const r = await runSave(
 			store,
 			change,
 			{ input, revision },
@@ -270,7 +274,7 @@ export function CommitmentCard({
 			{ fresh, key, toPerson: (v) => personAfter(v.current.personRevision) },
 		);
 		const what = change === "withdraw" ? "Your withdrawal" : "Your reactivation";
-		if (stillUnknown(r))
+		if (stillUnknown(r, token))
 			return dialog.unknown(key.key, what, () => start(() => commitLifecycle(change, input, revision, key, -1, draft)));
 		if (r?.status !== "ok") return refused(token, { form: change, draft }, r, key.key, what);
 		dialog.settled(key.key);
@@ -319,7 +323,7 @@ export function CommitmentCard({
 		token: number,
 		draft: CorrectionDraft,
 	) {
-		const r = await runWhenIdle(
+		const r = await runSave(
 			store,
 			`correct:${card.id}`,
 			{ input, revision: card.revision },
@@ -327,7 +331,7 @@ export function CommitmentCard({
 			{ fresh, key, toPerson: (v) => personAfter(v.commitments.current.personRevision) },
 		);
 		const what = draft.action === "void" ? "Your void of the card" : "Your card correction";
-		if (stillUnknown(r))
+		if (stillUnknown(r, token))
 			return dialog.unknown(key.key, what, () => start(() => commitCorrection(card, input, key, -1, draft)));
 		if (r?.status !== "ok") return refused(token, { form: "correct", card, draft }, r, key.key, what);
 		dialog.settled(key.key);

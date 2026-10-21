@@ -33,6 +33,8 @@ import {
 /** Why a record was not saved, or may not be, in words. `busy` means another change to this person is still saving. */
 export function recordProblem(code: string): string {
 	switch (code) {
+		case "busy":
+			return "The last save on this card is still running. Your answers are kept; save again when it ends.";
 		case "future_date":
 			return "This date is after today at your church. Choose today or an earlier date.";
 		case "storage_unavailable":
