@@ -31,6 +31,8 @@ export async function validateCommitment(
 		throw new Error("invalid_file");
 	await new Promise<void>((resolve, reject) => {
 		const worker = new Worker(new URL("./parse-pdf.worker.mjs", import.meta.url), {
+			// Plain Node: a parent's loader flags (tsx in tests) would load pdfjs through their hooks and pass the heap limit.
+			execArgv: [],
 			workerData: { entry: pdf.entry, bytes: Uint8Array.from(bytes) },
 			resourceLimits: { maxOldGenerationSizeMb: 96, maxYoungGenerationSizeMb: 16, stackSizeMb: 4 },
 		});
