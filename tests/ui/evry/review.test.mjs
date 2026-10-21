@@ -39,7 +39,9 @@ for (const [engine, launcher] of ENGINES)
 				await card.getByRole("button", { name: "Update review" }).click();
 				await card.getByText("Revision 2", { exact: true }).waitFor();
 
-				await card.getByRole("button", { name: "Approve" }).click();
+				// Keyboard use: Safari does not focus a button on a mouse click.
+				await card.getByRole("button", { name: "Approve" }).focus();
+				await page.keyboard.press("Enter");
 				const saved = panel.getByRole("region", { name: "Saved" });
 				await saved.waitFor({ timeout: 15_000 });
 				assert.equal(approvals.length, 1);
