@@ -255,6 +255,7 @@ function Form({
 				relation: null,
 				parentId: null,
 				checklist: { total: 0, complete: 0 },
+				openPrerequisites: 0,
 				managed: null,
 				createdAt: new Date().toISOString() as never,
 				completedAt: null,
