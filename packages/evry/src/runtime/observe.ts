@@ -19,7 +19,7 @@ export async function* observeConversation(
 	conversationId: string,
 	after: number,
 	signal: AbortSignal,
-	pollMs = 250,
+	pollMs = 100,
 ): AsyncGenerator<ConversationEvent> {
 	let cursor = after;
 	while (!signal.aborted) {
