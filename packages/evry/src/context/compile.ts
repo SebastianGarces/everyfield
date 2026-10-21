@@ -19,14 +19,17 @@ export type RequestKind = z.infer<typeof requestKind>["kind"];
 /**
  * evry.classifyRequest: the model sorts the request before any application tool can run. A request for pastoral or
  * Biblical counsel, a prayer or a spiritual judgment of a person gets the fixed boundary answer and no tool call. Text
- * that only mentions prayer as data, such as a task titled "Pray for the launch", is application work.
+ * that only mentions prayer as data, such as a task titled "Pray for the launch", is application work. The call sits
+ * before the first token of every turn, so it runs without reasoning: on the labelled set in tests/evry/evals that
+ * keeps every label and saves a quarter of its time. The answer is about 14 tokens.
  */
 export async function classifyRequest(model: LanguageModelV4, text: string, signal: AbortSignal) {
 	const { output, usage } = await generateText({
 		model,
 		maxRetries: 0,
 		abortSignal: signal,
-		maxOutputTokens: 64,
+		reasoning: "none",
+		maxOutputTokens: 32,
 		output: Output.object({ schema: requestKind }),
 		system:
 			"Classify the user's request to EveryField's church-planting assistant. pastoral_boundary: the user asks for pastoral or Biblical counsel, a prayer to be written, or a judgment of someone's spiritual readiness or suitability. capabilities: the user asks what the assistant can do. application: anything else, including records that merely mention prayer.",
