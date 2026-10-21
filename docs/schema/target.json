@@ -71,7 +71,7 @@
   "as_of": "2026-10-17",
   "implementation_authorized": false,
   "table_count": 82,
-  "column_count": 945,
+  "column_count": 946,
   "foreign_key_count": 301,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
@@ -32763,6 +32763,13 @@
           "type": "bigint",
           "nullable": false,
           "default": "1"
+        },
+        {
+          "note": "Advisory prerequisites of a top-level task, replaced as one set (WP-025). Each element names a task of the same plant; tasks.replacePrerequisites validates new elements and refuses cycles. The audit record keeps edge history.",
+          "name": "prerequisite_ids",
+          "type": "uuid[]",
+          "nullable": false,
+          "default": "'{}'::uuid[]"
         }
       ],
       "primary_key": [
@@ -33074,6 +33081,7 @@
         "(revision >= 1)",
         "status in ('not_started', 'in_progress', 'blocked', 'complete', 'no_longer_needed')",
         "((launch_id IS NULL) OR (launch_id = plant_id))",
+        "((cardinality(prerequisite_ids) <= 50) AND (NOT (id = ANY (prerequisite_ids))) AND ((parent_id IS NULL) OR (cardinality(prerequisite_ids) = 0)))",
         "priority in ('low', 'medium', 'high', 'urgent')",
         "due_kind in ('undated', 'date_only', 'timed')",
         "(num_nonnulls(person_id, meeting_id, team_id, launch_id) <= 1)",
@@ -33472,6 +33480,7 @@
           "task_ck_7",
           "task_ck_8",
           "task_ck_9",
+          "task_ck_11",
           "task_timezone_iana"
         ]
       },
