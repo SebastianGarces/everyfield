@@ -28,12 +28,19 @@ type Props = {
  */
 export function Backdrop({ bg, className, style, sizes, priority, shade, zoom }: Props) {
 	if (bg.startsWith("mesh:"))
-		return <span aria-hidden="true" className={cn("mk-gsurf", MESH[bg.slice(5) as MeshTone], className)} style={style} />;
+		return (
+			<span aria-hidden="true" className={cn("mk-gsurf", MESH[bg.slice(5) as MeshTone], className)} style={style} />
+		);
 	const { avif, jpeg, src, crop } = photoSources(bg as Exclude<Bg, `mesh:${string}`>);
 	if (priority)
 		preload(src, { as: "image", type: "image/avif", imageSrcSet: avif, imageSizes: sizes, fetchPriority: "high" });
 	// The crop as custom properties, so a slot can change it at a breakpoint (an important utility beats the inline value).
-	const layer = { ...style, "--shade": shade ?? crop.shade, "--pos": crop.pos, "--zoom": zoom ?? crop.zoom } as CSSProperties;
+	const layer = {
+		...style,
+		"--shade": shade ?? crop.shade,
+		"--pos": crop.pos,
+		"--zoom": zoom ?? crop.zoom,
+	} as CSSProperties;
 	return (
 		<span aria-hidden="true" className={cn("mk-photo", className)} style={layer}>
 			<picture>
