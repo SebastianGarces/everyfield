@@ -100,11 +100,17 @@ function draftOf(task: TaskDetail | null, viewer: Viewer): Draft {
 	};
 }
 
-// The church's seats change rarely, so one read serves every dialog on this page; a failed read is tried again on the
-// next open. Intent on New task or a row's menu starts it, so a save never waits behind it (Next runs one action at a
-// time).
+// The church's seats change rarely, so one read serves every dialog and step form on this page; a failed read is
+// forgotten, so the next use tries again. Intent on New task, Edit or a step's Assigned to starts it, so a save never
+// waits behind it (Next runs one action at a time).
 let seats: ReturnType<typeof assigneeOptions> | null = null;
-export const warmAssignees = () => (seats ??= assigneeOptions().catch(() => ({ status: "lost" }) as const));
+export const warmAssignees = () =>
+	(seats ??= assigneeOptions()
+		.catch(() => ({ status: "lost" }) as const)
+		.then((r) => {
+			if (r.status !== "ok") seats = null;
+			return r;
+		}));
 
 /**
  * New task and Edit task (REQ-TSK-002, REQ-TSK-018). A due date is a day, a church-local time or nothing. A time the
@@ -451,10 +457,7 @@ function AssigneeField({
 		let live = true;
 		warmAssignees().then((r) => {
 			if (!live) return;
-			if (r.status !== "ok") {
-				seats = null;
-				return setOptions("failed");
-			}
+			if (r.status !== "ok") return setOptions("failed");
 			setOptions(
 				r.value.items.map((s) => ({
 					value: s.accountId,
