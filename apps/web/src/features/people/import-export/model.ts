@@ -156,3 +156,49 @@ export function describeFilters(q: PeopleQuery): string[] {
 	);
 	return out;
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// The import screen's state pieces and the notices it shows.
+
+export type FailedRow = Extract<ImportReceipt["rows"][number], { status: "failed" }>;
+export type Review = { file: File; preview: Preview; choices: Map<number, Choice> };
+export type Notice = { title: string; text: string };
+export const NOT_FOUND: Notice = {
+	title: "We found no import for this link",
+	text: "It may belong to another church, or it never started. Choose the file to import it.",
+};
+export const LOST_CHECK: Notice = {
+	title: "We could not confirm the import",
+	text: "The connection dropped before the answer arrived. The import may be running. Check again to see where it stands.",
+};
+export const NOT_STARTED: Notice = {
+	title: "The import did not start",
+	text: "Nothing was saved. Send it again with the same choices.",
+};
+export const RECONNECTING: Notice = {
+	title: "Reconnecting",
+	text: "The import keeps running on the server. This page tries again in a few seconds.",
+};
+
+export function importRefusal(code: string): Notice {
+	switch (code) {
+		case "review_stale":
+			return {
+				title: "People changed since you checked this file",
+				text: "Someone added or changed people, so some duplicates may be different now. Check the file again, then review the rows.",
+			};
+		case "file_changed":
+			return {
+				title: "The file changed since you checked it",
+				text: "Check the file again, then review the rows.",
+			};
+		case "access_denied":
+		case "unavailable":
+			return {
+				title: "You cannot import people now",
+				text: "Only Owners and Admins of this church can import. Your seat may have changed. Nothing was saved.",
+			};
+		default:
+			return { title: "The import did not start", text: "Nothing was saved. Check the file again, then import." };
+	}
+}
