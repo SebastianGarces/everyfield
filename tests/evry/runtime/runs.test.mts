@@ -9,15 +9,29 @@ import type {
 import {
 	cancelTurn,
 	createConversation,
+	observeConversation,
 	readConversation,
 	submitTurn,
 	type EvryActor,
 } from "../../../packages/evry/src/index.ts";
-import { PASTORAL_BOUNDARY, compileContext } from "../../../packages/evry/src/context/compile.ts";
+import { PASTORAL_BOUNDARY, compileContext, resolveReferences } from "../../../packages/evry/src/context/compile.ts";
 import { readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
 import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
 import { transientRetry, withTransientRetry } from "../../../packages/evry/src/runtime/model.ts";
-import { accounts, actor, admin, db, people, plant, otherPlant, setup, sql, teardown, work } from "./support.mts";
+import {
+	accounts,
+	actor,
+	admin,
+	db,
+	people,
+	plant,
+	otherPlant,
+	queries,
+	setup,
+	sql,
+	teardown,
+	work,
+} from "./support.mts";
 
 before(setup);
 after(teardown);
@@ -390,11 +404,11 @@ test("AC:INH-CROSS-08 AC:EVRY-RETRY-CANCEL INV-run-fence cancel stops model work
 	const session = (await admin.execute(sql`DELETE FROM auth_session WHERE id=${accounts.member.session} RETURNING *`))
 		.rows[0]!;
 	assert.equal(await work(), "failed");
-	const refusedRun = await events(member, signedOut);
-	assert.deepEqual([refusedRun.cards.length, refusedRun.status.error.code], [0, "access_denied"]);
 	await admin.execute(
 		sql`INSERT INTO auth_session SELECT * FROM json_populate_record(null::auth_session, ${JSON.stringify(session)}::json)`,
 	);
+	const refusedRun = await events(member, signedOut);
+	assert.deepEqual([refusedRun.cards.length, refusedRun.status.error.code], [0, "access_denied"]);
 
 	// A run whose lease expired cannot publish, and does not block the next turn.
 	const stale = await ask(owner, "Find Casey");
@@ -405,4 +419,86 @@ test("AC:INH-CROSS-08 AC:EVRY-RETRY-CANCEL INV-run-fence cancel stops model work
 	await submitTurn(db, owner, stale, { requestKey: randomUUID(), text: "Find Casey again" });
 	assert.equal(await work(), "succeeded");
 	assert.equal((await events(owner, stale)).status.state, "completed");
+});
+
+test("AC:SEC-02 AC:TEN-002 AC:UI45-006 AC:SEC-11 INV-tenancy: an ended seat stops an open stream and every later reference read; credentials are scrubbed from all model input; reference reads use one statement", async () => {
+	const owner = await actor("owner");
+	const endSeat = () =>
+		admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${owner.accountId}`);
+	const restoreSeat = () => admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE account_id=${owner.accountId}`);
+
+	// An open stream checks current access on every poll: after the seat ends it delivers nothing more.
+	const open = await ask(owner, "Find Casey");
+	const seen: string[] = [];
+	await assert.rejects(
+		async () => {
+			for await (const e of observeConversation(db, owner, open, 0, AbortSignal.timeout(5_000), 50)) {
+				seen.push(e.kind);
+				if (seen.length === 1) await endSeat();
+			}
+		},
+		(e: { code?: string }) => e.code === "not_found",
+	);
+	assert.deepEqual(seen, ["user_message"]);
+	await restoreSeat();
+	await cancelTurn(db, owner, open);
+
+	// The seat ends while the classifier runs: the references and reads that follow see nothing.
+	const base = recorded();
+	const ending: LanguageModelV4 = {
+		...base.model.model,
+		async doGenerate(options) {
+			await endSeat();
+			return base.model.model.doGenerate(options);
+		},
+	};
+	const id = await ask(owner, "Find Alex sk-live-abcdefghijklmnopqrstuvwx", [
+		{ kind: "person", id: people.alexRivera },
+	]);
+	assert.equal(await work(qualified(ending)), "failed");
+	await restoreSeat();
+	const seenByModel = JSON.stringify(base.calls);
+	assert.ok(!seenByModel.includes("Alex Rivera"), "no reference read after the seat ended");
+	assert.ok(
+		!seenByModel.includes("sk-live-abcdefghijklmnopqrstuvwx") && seenByModel.includes("[removed]"),
+		"classifier input is scrubbed",
+	);
+	const { cards, status } = await events(owner, id);
+	assert.deepEqual([cards.length, status.error.code], [0, "access_denied"]);
+
+	// Retained history and reference labels are scrubbed too.
+	await admin.execute(
+		sql`UPDATE person SET display_name='Ruth sk-live-zyxwvutsrqponmlkjihgfedcb' WHERE id=${people.alexChen}`,
+	);
+	const history = await ask(owner, "Find Casey", [{ kind: "person", id: people.alexChen }]);
+	assert.equal(await work(), "succeeded");
+	await submitTurn(db, owner, history, {
+		requestKey: randomUUID(),
+		text: "Find Casey again",
+		references: [{ kind: "person", id: people.alexChen }],
+	});
+	const again = recorded();
+	assert.equal(await work(again.model), "succeeded");
+	assert.ok(!JSON.stringify(again.calls).includes("sk-live-"));
+	await admin.execute(sql`UPDATE person SET display_name='Alex Chen' WHERE id=${people.alexChen}`);
+
+	// One statement for one reference or for ten.
+	const counted = async (ids: string[]) => {
+		const start = queries.length;
+		const result = await resolveReferences(
+			db,
+			owner,
+			ids.map((id) => ({ kind: "person" as const, id })),
+		);
+		return { verified: result.verified.length, statements: queries.length - start };
+	};
+	const ten = [
+		people.alexRivera,
+		people.alexChen,
+		people.casey,
+		people.foreign,
+		...Array.from({ length: 6 }, () => randomUUID()),
+	];
+	assert.deepEqual(await counted([people.alexRivera]), { verified: 1, statements: 1 });
+	assert.deepEqual(await counted(ten), { verified: 3, statements: 1 });
 });

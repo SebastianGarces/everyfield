@@ -1,9 +1,9 @@
 import type { Database } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
-import { writeVisibility } from "@everyfield/domain/access";
+import { sql } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
+import { currentAuthority } from "../context/authority.ts";
 import { EvryRefusal } from "../context/errors.ts";
 
 // Conversation commands are one statement each (D70): the current-authority check, the change, the run's job row and
@@ -35,14 +35,6 @@ function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
 	return r.data;
 }
 
-/** The actor still holds the exact context: its own account context, or a live seat in that plant or organization. */
-function currentAuthority(actor: EvryActor): SQL {
-	const seat =
-		actor.owner.kind === "account"
-			? sql`${actor.owner.id}::uuid=${actor.accountId}::uuid`
-			: sql`EXISTS(SELECT FROM seat s WHERE s.account_id=${actor.accountId}::uuid AND coalesce(s.plant_id,s.organization_id)=${actor.owner.id}::uuid AND s.ended_at IS NULL)`;
-	return sql`(${seat} AND ${writeVisibility(actor.accountId, actor.owner)})`;
-}
 const owned = (actor: EvryActor, alias: string) =>
 	sql`${sql.raw(alias)}.account_id=${actor.accountId}::uuid AND ${sql.raw(alias)}.tenant_id=${actor.owner.id}::uuid`;
 
@@ -104,7 +96,7 @@ export async function listConversations(db: Database, actor: EvryActor, raw: unk
 	const r = await db.execute(sql`
 		WITH matched AS (
 			SELECT c.* FROM conversation c
-			WHERE ${owned(actor, "c")} AND (${pattern}::text IS NULL OR c.title ILIKE ${pattern} OR EXISTS(
+			WHERE ${owned(actor, "c")} AND ${currentAuthority(actor)} AND (${pattern}::text IS NULL OR c.title ILIKE ${pattern} OR EXISTS(
 				SELECT FROM conversation_event e WHERE e.conversation_id=c.id AND e.kind='user_message' AND e.body->>'text' ILIKE ${pattern}))
 		)
 		SELECT (SELECT count(*)::int FROM matched) AS total,
@@ -132,7 +124,7 @@ export async function readConversation(db: Database, actor: EvryActor, id: strin
 			(SELECT j.state FROM job j WHERE j.id=c.active_turn_id) AS run_state,
 			coalesce((SELECT jsonb_agg(jsonb_build_object('sequence',e.sequence,'turnId',e.turn_id,'kind',e.kind,'body',e.body,'createdAt',e.created_at) ORDER BY e.sequence)
 				FROM (SELECT * FROM conversation_event WHERE conversation_id=c.id AND sequence>${cursor} ORDER BY sequence LIMIT ${EVENT_PAGE}) e), '[]'::jsonb) AS events
-		FROM conversation c WHERE c.id=${conversationId}::uuid AND ${owned(actor, "c")}`);
+		FROM conversation c WHERE c.id=${conversationId}::uuid AND ${owned(actor, "c")} AND ${currentAuthority(actor)}`);
 	if (!r.rows.length) throw new EvryRefusal("not_found");
 	const row = z
 		.object({ conversation: conversationRow, run_state: z.string().nullable(), events: z.array(eventRow) })
@@ -149,7 +141,7 @@ export async function readConversation(db: Database, actor: EvryActor, id: strin
 export async function latestConversation(db: Database, actor: EvryActor): Promise<Conversation | null> {
 	const r = await db.execute(sql`
 		SELECT ${conversationJson("c")} AS conversation FROM conversation c
-		WHERE ${owned(actor, "c")} ORDER BY c.updated_at DESC, c.id DESC LIMIT 1`);
+		WHERE ${owned(actor, "c")} AND ${currentAuthority(actor)} ORDER BY c.updated_at DESC, c.id DESC LIMIT 1`);
 	return r.rows.length ? conversationRow.parse(r.rows[0]!.conversation) : null;
 }
 
@@ -248,7 +240,7 @@ export async function retryTurn(db: Database, actor: EvryActor, conversationId: 
 			(SELECT jsonb_build_object('turnId',k.turn_id,'sequence',k.sequence) FROM conversation_event k WHERE k.conversation_id=c.id AND k.request_key=${key}) AS known
 		FROM conversation c
 		JOIN LATERAL (SELECT * FROM conversation_event e WHERE e.conversation_id=c.id AND e.kind='user_message' ORDER BY e.sequence DESC LIMIT 1) m ON true
-		WHERE c.id=${id}::uuid AND ${owned(actor, "c")}`);
+		WHERE c.id=${id}::uuid AND ${owned(actor, "c")} AND ${currentAuthority(actor)}`);
 	if (!r.rows.length) throw new EvryRefusal("not_found");
 	const last = z
 		.object({

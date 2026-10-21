@@ -3,7 +3,7 @@ import { sql } from "@everyfield/db/query";
 import { streamText, tool, type StopCondition, type ToolSet } from "ai";
 import { z } from "zod";
 import { READ_DOMAINS, readCatalog, SELECT_RETURNED_ROWS } from "../catalog/catalog.ts";
-import { getPerson } from "../catalog/people.ts";
+import { verifyPeople } from "../catalog/people.ts";
 import type { ReadAdapter, SourceResult } from "../catalog/types.ts";
 import { sameContext, type EvryActor } from "../context/actor.ts";
 import {
@@ -207,10 +207,7 @@ export async function runTurn(deps: RunDeps, lease: RunLease): Promise<RunOutcom
 					const rejected = ids.filter((id) => !returned.has(id));
 					if (!source || rejected.length) return { error: "not_returned", rejected: rejected.length };
 					// Current access is checked again before a returned row is reused.
-					const rows: SourceResult["rows"] = [];
-					await db.transaction(async (tx) => {
-						for (const personId of ids) rows.push(...(await getPerson.invoke(tx, fresh, { personId })).rows);
-					});
+					const rows = await verifyPeople(db, fresh, ids);
 					const result: SourceResult = {
 						operation: SELECT_RETURNED_ROWS,
 						status: "available",

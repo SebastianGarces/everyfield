@@ -1,10 +1,12 @@
-import type { Transaction } from "@everyfield/db/client";
+import type { Database, Transaction } from "@everyfield/db/client";
+import { sql } from "@everyfield/db/query";
 import { PeopleReadContext, peopleReader } from "@everyfield/domain/people";
 import { listPeopleRequest, personRequest, stage } from "@everyfield/contracts/people";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
+import { currentAuthority } from "../context/authority.ts";
 import { EvryRefusal } from "../context/errors.ts";
-import type { ReadAdapter, SourceResult } from "./types.ts";
+import type { ReadAdapter, SourceResult, SourceRow } from "./types.ts";
 
 // The built-in first adapter: the two People reads native screens use, under the same domain authority (WP-059 adds
 // the rest of the People tools). Only the safe identifying fields a person sees in the list reach the model.
@@ -83,3 +85,27 @@ export const getPerson: ReadAdapter<z.infer<typeof getInput>> = {
 		};
 	},
 };
+
+const verifiedRow = z.object({
+	id: z.uuid(),
+	display_name: z.string(),
+	city: z.string().nullable(),
+	stage: z.string(),
+});
+/**
+ * The live people of the actor's church among these ids, in the given order, with the same safe fields a list row has.
+ * One statement for any number of ids: current session, seat and lifecycle authority are checked in the same read, so
+ * a reference or a selection never outlives the access that returned it. Foreign, retired and guessed ids drop out.
+ */
+export async function verifyPeople(db: Database, actor: EvryActor, ids: readonly string[]): Promise<SourceRow[]> {
+	if (!ids.length || !inPlant(actor)) return [];
+	const r = await db.execute(sql`
+		SELECT p.id,p.display_name,p.city,p.stage FROM person p
+		WHERE p.id=ANY(${sql.param([...ids])}::uuid[]) AND p.tenant_id=${actor.owner.id}::uuid AND p.plant_id=${actor.owner.id}::uuid
+			AND p.state='live' AND ${currentAuthority(actor)}
+		ORDER BY array_position(${sql.param([...ids])}::uuid[], p.id)`);
+	return r.rows.map((raw) => {
+		const p = verifiedRow.parse(raw);
+		return row({ id: p.id, displayName: p.display_name, city: p.city, stage: p.stage });
+	});
+}

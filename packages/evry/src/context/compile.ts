@@ -3,7 +3,7 @@ import type { Database } from "@everyfield/db/client";
 import { generateText, Output, type ModelMessage } from "ai";
 import { z } from "zod";
 import type { Catalog } from "../catalog/catalog.ts";
-import { getPerson } from "../catalog/people.ts";
+import { verifyPeople } from "../catalog/people.ts";
 import type { ConversationEvent } from "../conversations/store.ts";
 import type { EvryActor } from "./actor.ts";
 import { scrub } from "./errors.ts";
@@ -30,7 +30,7 @@ export async function classifyRequest(model: LanguageModelV4, text: string, sign
 		output: Output.object({ schema: requestKind }),
 		system:
 			"Classify the user's request to EveryField's church-planting assistant. pastoral_boundary: the user asks for pastoral or Biblical counsel, a prayer to be written, or a judgment of someone's spiritual readiness or suitability. capabilities: the user asks what the assistant can do. application: anything else, including records that merely mention prayer.",
-		prompt: text,
+		prompt: scrub(text),
 	});
 	return { kind: output.kind, usage };
 }
@@ -49,20 +49,20 @@ export function describeCatalog(catalog: Catalog) {
 
 /**
  * evry.resolveReferences: page context and entity references are hints. Each one is read again under the actor's
- * current authority; a stale, foreign, retired or guessed reference is dropped, never used as permission. At most 64.
+ * current authority in one statement; a stale, foreign, retired or guessed reference is dropped, never used as
+ * permission. At most 64.
  */
 export async function resolveReferences(
 	db: Database,
 	actor: EvryActor,
 	references: readonly { kind: "person"; id: string }[],
 ) {
-	const verified: { kind: "person"; id: string; label: string }[] = [];
-	if (!getPerson.allowed(actor)) return { verified, dropped: references.length };
-	for (const ref of references.slice(0, LIMITS.references)) {
-		const result = await db.transaction((tx) => getPerson.invoke(tx, actor, { personId: ref.id }));
-		const row = result.rows[0];
-		if (row) verified.push({ kind: "person", id: row.id, label: row.label });
-	}
+	const ids = [...new Set(references.slice(0, LIMITS.references).map((r) => r.id))];
+	const verified = (await verifyPeople(db, actor, ids)).map((r) => ({
+		kind: "person" as const,
+		id: r.id,
+		label: r.label,
+	}));
 	return { verified, dropped: references.length - verified.length };
 }
 
@@ -85,9 +85,9 @@ export function compileContext(input: {
 	const turns: ModelMessage[] = [];
 	for (const e of input.history) {
 		if (e.kind === "user_message" && typeof e.body.text === "string")
-			turns.push({ role: "user", content: e.body.text });
+			turns.push({ role: "user", content: scrub(e.body.text) });
 		if (e.kind === "status" && typeof e.body.text === "string" && e.body.text)
-			turns.push({ role: "assistant", content: e.body.text });
+			turns.push({ role: "assistant", content: scrub(e.body.text) });
 	}
 	let recent = turns.slice(-LIMITS.recentMessages);
 	const budget = LIMITS.contextTokens - estimate(input.text) - 2_000;
@@ -101,7 +101,7 @@ export function compileContext(input: {
 		"You cannot change records. Changes need the user's review in the app.",
 		`Context: ${input.actor.contextKind}. Current time (trusted server clock): ${input.now.toISOString()}.`,
 		describeCatalog(input.catalog),
-		refs.length ? "Verified references on the user's page: " + JSON.stringify(refs) : "",
+		refs.length ? "Verified references on the user's page: " + scrub(JSON.stringify(refs)) : "",
 	]
 		.filter(Boolean)
 		.join("\n\n");
