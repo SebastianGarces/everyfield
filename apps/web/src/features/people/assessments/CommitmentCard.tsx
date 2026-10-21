@@ -336,7 +336,7 @@ export function CommitmentCard({
 				</CardHeading>
 				{canEdit && initial !== null ? (
 					<div className="flex items-center gap-1.5">
-						{history.items.length > 0 ? (
+						{view.items.length > 0 ? (
 							<IconButton
 								icon={Add01Icon}
 								label={`Record a commitment card for ${first}`}
