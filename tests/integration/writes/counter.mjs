@@ -1,5 +1,5 @@
 import { registerHooks, createRequire } from "node:module";
-import { AsyncLocalStorage } from "node:async_hooks";
+import { AsyncLocalStorage, AsyncResource } from "node:async_hooks";
 import { appendFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
@@ -97,6 +97,12 @@ function decorate(prefix, value) {
 	return value;
 }
 export function observeDatabase(db) {
+	// pg-pool runs a queued connect callback inside the release of whichever request freed the client.
+	// Binding it here keeps the caller's frames. Promise-style connect already keeps them.
+	const connect = db.$client.connect;
+	db.$client.connect = function (callback) {
+		return Reflect.apply(connect, this, typeof callback === "function" ? [AsyncResource.bind(callback)] : []);
+	};
 	db.$client.on("connect", (client) => {
 		const query = client.query;
 		client.query = function (...args) {
