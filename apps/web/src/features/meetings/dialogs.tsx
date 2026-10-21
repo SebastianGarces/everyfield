@@ -128,8 +128,9 @@ function ReasonForm({
 export type PickedPerson = { id: string; name: string };
 
 /**
- * Find one person of this church by name, email or phone. The results are a radio group: arrow keys move, and the
- * chosen person stays chosen while the search changes. `none` adds a first choice for "no one".
+ * Find one person of this church by name, email or phone. It searches only after the person types, so opening a form
+ * sends no read. The results are a radio group: arrow keys move, and the chosen person stays chosen while the search
+ * changes. `none` adds a first choice for "no one".
  */
 export function PersonPicker({
 	label,
@@ -153,9 +154,11 @@ export function PersonPicker({
 		query: string;
 		value: Outcome<{ id: string; name: string; detail: string }[]>;
 	} | null>(null);
-	const result = got?.query === query ? got.value : null;
+	const idle = query === "";
+	const result = idle ? ({ status: "ok", value: [] } as const) : got?.query === query ? got.value : null;
 	const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 	useEffect(() => {
+		if (query === "") return;
 		let live = true;
 		searchPeople(query).then(
 			(value) => live && setGot({ query, value }),
@@ -208,8 +211,8 @@ export function PersonPicker({
 							<Radio key={p.id} value={p.id} label={p.name} description={p.detail || undefined} />
 						))}
 						{options.length === 0 ? (
-							<p className="px-2 py-3 text-sm text-text-3">
-								{query ? "No one matches. Try another spelling, or add someone new." : "No people yet."}
+							<p className="px-2 py-3 text-sm text-text-3" aria-live="polite">
+								{idle ? "Type a name, email or phone." : "No one matches. Try another spelling, or add someone new."}
 							</p>
 						) : null}
 					</RadioGroup>

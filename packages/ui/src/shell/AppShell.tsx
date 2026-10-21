@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Menu, MenuContent, MenuTrigger } from "../controls";
 import { cn, EvryBot, HoverGroup, Icon, Lockup, LogoMark, useHoverItem } from "../foundations";
-import { currentKey, type ShellItem, type ShellLink, type ShellNav, type ShellUser } from "./nav";
+import { currentKey, linkPrefetch, type ShellItem, type ShellLink, type ShellNav, type ShellUser } from "./nav";
 import { RailTip, ThemeToggle } from "./ThemeToggle";
 
 /** What the top-bar controls do. The overlays they open (command palette, notifications, Evry) belong to other packages. */
@@ -199,7 +199,7 @@ function TopNavItem({ link, current }: { link: ShellLink; current: boolean }) {
 			href={link.href}
 			aria-current={current ? "page" : undefined}
 			onNavigate={link.onNavigate}
-			prefetch={link.onNavigate ? false : undefined}
+			prefetch={linkPrefetch(link)}
 			{...handlers}
 			className="relative inline-flex h-11 items-center gap-2 rounded-nav-item px-4 text-nav text-ink-2 aria-[current=page]:bg-ink aria-[current=page]:text-on-ink aria-[current=page]:shadow-nav-active max-app-xl:px-[13px]"
 		>
@@ -283,7 +283,7 @@ function RailItem({ item, current }: { item: ShellItem; current: boolean }) {
 				href={item.href}
 				aria-current={current ? "page" : undefined}
 				onNavigate={item.onNavigate}
-				prefetch={item.onNavigate ? false : undefined}
+				prefetch={linkPrefetch(item)}
 				{...handlers}
 				className={RAIL_ITEM}
 			>
@@ -396,7 +396,7 @@ function MenuRow({ item, current, onChoose }: { item: ShellItem; current: boolea
 				aria-current={current ? "page" : undefined}
 				onClick={onChoose}
 				onNavigate={item.onNavigate}
-				prefetch={item.onNavigate ? false : undefined}
+				prefetch={linkPrefetch(item)}
 				{...handlers}
 				className={MENU_ROW}
 			>

@@ -7,7 +7,7 @@ export type Crumb = { label: string; href?: string };
 
 /**
  * Breadcrumb (components.md): a nav landmark with an ordered list. The last item is the current page and is not a
- * link. Separators are decorative.
+ * link. Separators are decorative. Links are not prefetched: a page should send no request the person did not ask for.
  */
 export function Breadcrumb({ items, className }: { items: Crumb[]; className?: string }) {
 	return (
@@ -24,6 +24,7 @@ export function Breadcrumb({ items, className }: { items: Crumb[]; className?: s
 							) : item.href ? (
 								<Link
 									href={item.href}
+									prefetch={false}
 									className="rounded-xs underline-offset-[3px] transition-colors hover:text-ink hover:underline"
 								>
 									{item.label}

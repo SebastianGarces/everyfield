@@ -25,22 +25,44 @@ import {
 	IconButton,
 	Input,
 } from "@everyfield/ui/controls";
-import { useState } from "react";
+import { startTransition, useState } from "react";
 import { replaceAgenda } from "./actions.ts";
 import { addMinutes, durationText, timeText, type AgendaSection, type Detail } from "./model.ts";
-import { Problem, useSave } from "./parts.tsx";
+import type { Change } from "./page-state.ts";
+import { Problem, useSave, type SaveCall } from "./parts.tsx";
 
 /** The agenda (REQ-MTG-005): sections with their start times from the meeting's start, and the total length. */
 export function AgendaCard({
 	meeting,
 	canWrite,
+	project,
 	onSaved,
 }: {
 	meeting: Detail;
 	canWrite: boolean;
+	project: (change: Change) => void;
 	onSaved: (agenda: Detail["agenda"]) => void;
 }) {
-	const [editing, setEditing] = useState(false);
+	// The editor stays mounted from opening until its save is confirmed, so a failed save reopens it with the rows.
+	const [editor, setEditor] = useState<{ key: number; visible: boolean } | null>(null);
+	const setEditing = (on: boolean) => setEditor((e) => (on ? { key: e?.key ?? Date.now(), visible: true } : null));
+	/** The new agenda shows at once; the answer confirms it, or the old one comes back and the editor reopens. */
+	function submit(sections: AgendaSection[], call: SaveCall<{ agenda: Detail["agenda"] }>) {
+		startTransition(async () => {
+			project({
+				kind: "agenda",
+				agenda: { ...meeting.agenda, sections, totalMinutes: sections.reduce((n, s) => n + s.minutes, 0) },
+			});
+			setEditor((e) => e && { ...e, visible: false });
+			const r = await call();
+			if (r?.status === "ok")
+				startTransition(() => {
+					onSaved(r.value.agenda);
+					setEditor(null);
+				});
+			else if (r) setEditor((e) => e && { ...e, visible: true });
+		});
+	}
 	const { sections, totalMinutes } = meeting.agenda;
 	// Each section starts when the one before it ends, counted from the meeting's start.
 	const starts = sections.reduce<string[]>(
@@ -94,15 +116,14 @@ export function AgendaCard({
 					})}
 				</ol>
 			)}
-			<Dialog open={editing} onOpenChange={setEditing}>
-				{editing ? (
+			<Dialog open={editor?.visible ?? false} onOpenChange={setEditing}>
+				{editor ? (
 					<AgendaForm
+						key={editor.key}
+						open={editor.visible}
 						meeting={meeting}
 						onClose={() => setEditing(false)}
-						onSaved={(agenda) => {
-							onSaved(agenda);
-							setEditing(false);
-						}}
+						onSubmit={submit}
 					/>
 				) : null}
 			</Dialog>
@@ -114,13 +135,15 @@ type Row = { id: string; title: string; minutes: string };
 
 /** Add, remove, reorder and retime sections. The whole agenda is saved at once; a problem names the row. */
 function AgendaForm({
+	open,
 	meeting,
 	onClose,
-	onSaved,
+	onSubmit,
 }: {
+	open: boolean;
 	meeting: Detail;
 	onClose: () => void;
-	onSaved: (agenda: Detail["agenda"]) => void;
+	onSubmit: (sections: AgendaSection[], call: SaveCall<{ agenda: Detail["agenda"] }>) => void;
 }) {
 	const [rows, setRows] = useState<Row[]>(() =>
 		meeting.agenda.sections.map((s) => ({ id: s.id, title: s.title, minutes: String(s.minutes) })),
@@ -143,7 +166,7 @@ function AgendaForm({
 			return next;
 		});
 
-	async function submit(event: React.FormEvent) {
+	function submit(event: React.FormEvent) {
 		event.preventDefault();
 		setTouched(true);
 		if (rows.some(errorOf)) return;
@@ -152,10 +175,10 @@ function AgendaForm({
 			title: r.title.trim(),
 			minutes: Number(r.minutes),
 		}));
-		const r = await save(sections, (key) => replaceAgenda(key, meeting.revision, meeting.id, sections));
-		if (r?.status === "ok") onSaved(r.value.agenda);
+		onSubmit(sections, () => save(sections, (key) => replaceAgenda(key, meeting.revision, meeting.id, sections)));
 	}
 
+	if (!open) return null;
 	return (
 		<DialogContent size="lg" aria-busy={pending || undefined}>
 			<form onSubmit={submit} noValidate className="contents">

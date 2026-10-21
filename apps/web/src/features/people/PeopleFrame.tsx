@@ -16,7 +16,15 @@ import type { Role } from "./server.ts";
 // ship. Settings sits at the bottom of the rail and in the user menu behind the name button (screens.md, Overlays).
 
 const PEOPLE = { kind: "link", key: "people", label: "People", href: "/people", icon: UserMultipleIcon } as const;
-const MEETINGS = { kind: "link", key: "meetings", label: "Meetings", href: "/meetings", icon: Calendar03Icon } as const;
+// Meetings is a dynamic page; it loads when chosen, not whenever the frame renders.
+const MEETINGS = {
+	kind: "link",
+	key: "meetings",
+	label: "Meetings",
+	href: "/meetings",
+	icon: Calendar03Icon,
+	prefetch: false,
+} as const;
 const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Member" };
 
 type FrameProps = {

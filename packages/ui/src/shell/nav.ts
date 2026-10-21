@@ -12,7 +12,12 @@ export type ShellLink = {
 	 * dialog over the current page; a new tab or a fresh load still follows `href`.
 	 * Such a link is never prefetched: a plain click does not load the route. */
 	onNavigate?: (event: { preventDefault: () => void }) => void;
+	/** false: never prefetched, for a dynamic page whose prefetch would be a request nobody asked for. */
+	prefetch?: false;
 };
+
+/** Next.js link prefetch for a shell link: off for links that open something else or opt out, else the default. */
+export const linkPrefetch = (link: ShellLink) => (link.onNavigate || link.prefetch === false ? false : undefined);
 
 /** A control that opens something over the page (Guide, Send feedback). `expanded` reports an open panel. */
 export type ShellAction = {

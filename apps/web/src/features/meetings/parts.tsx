@@ -104,6 +104,9 @@ export function Problem({ code, className }: { code: string | null | undefined; 
 	);
 }
 
+/** A save the form prepared; the caller decides when to run it and what the page shows meanwhile. */
+export type SaveCall<T> = () => Promise<Outcome<T> | null>;
+
 export const problemOf = (o: Outcome<unknown>): string | null =>
 	o.status === "ok" ? null : o.status === "lost" ? "lost" : o.code;
 

@@ -66,9 +66,9 @@ import {
 	whenText,
 	type Detail,
 	type MeetingStatus,
-	type Rsvp,
 } from "./model.ts";
 import { MeetingStatusBadge, Problem, problemOf, RsvpBar, useSave } from "./parts.tsx";
+import { applyChange, type Change, type PageView } from "./page-state.ts";
 import { PlanMeetingDialog } from "./PlanMeetingDialog.tsx";
 import type { MeetingPageData } from "./server.ts";
 
@@ -92,15 +92,15 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 	const [reason, setReason] = useState<Reason>(null);
 	const [, startTransition] = useTransition();
 	const [status, setOptimisticStatus] = useOptimistic(data.meeting.status);
-	// The viewer's own answer shows at once in their card, their guest row and the RSVP summary; the answer confirms it
-	// or all three go back together.
-	const [view, answerOwn] = useOptimistic({ guests: data.guests, own: data.own }, (v, rsvp: Rsvp) => ({
-		guests: v.guests?.map((g) => (g.id === v.own?.guestId ? { ...g, rsvp, rsvpSource: "own" as const } : g)) ?? null,
-		own: v.own ? { ...v.own, rsvp } : null,
-	}));
+	// One optimistic page state: a write projects its change at once into every place it shows, then the confirmed
+	// data replaces it, or the page goes back when the write fails (page-state.ts).
+	const [view, project] = useOptimistic<PageView, Change>(
+		{ guests: data.guests, cards: data.cards, own: data.own, agenda: data.meeting.agenda },
+		applyChange,
+	);
 	function chooseOwn(rsvp: "confirmed" | "declined") {
 		startTransition(async () => {
-			answerOwn(rsvp);
+			project({ kind: "own", rsvp });
 			const r = await saveOwnRsvp(crypto.randomUUID(), m.id, rsvp).catch(() => ({ status: "lost" }) as const);
 			if (r.status === "ok") {
 				const g = r.value.guest;
@@ -116,7 +116,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 	}
 	// An edit in flight: the page shows the edited meeting until the answer arrives.
 	const [preview, setPreview] = useState<Detail | null>(null);
-	const m = { ...(preview ?? data.meeting), status };
+	const m = { ...(preview ?? data.meeting), status, agenda: view.agenda };
 	const thisYear = Number(data.now.slice(0, 4));
 	const vision = m.type === "vision_meeting";
 	const practice = m.type === "prelaunch_practice";
@@ -261,13 +261,14 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 					) : (
 						<NotesCard notes={m.notes} />
 					)}
-					{vision ? <CardsSummary guests={data.guests} cards={data.cards} /> : null}
+					{vision ? <CardsSummary guests={view.guests} cards={view.cards} /> : null}
 				</div>
 				<div className="grid grid-cols-[1fr_1.6fr] items-start gap-5 max-app-lg:grid-cols-1">
 					<div className="flex min-w-0 flex-col gap-5">
 						<AgendaCard
 							meeting={m}
 							canWrite={canWrite}
+							project={project}
 							onSaved={(agenda) =>
 								setData((d) => ({ ...d, meeting: { ...d.meeting, agenda, revision: agenda.revision } }))
 							}
@@ -277,8 +278,9 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 					<GuestList
 						meeting={m}
 						guests={view.guests}
-						cards={data.cards}
+						cards={view.cards}
 						canWrite={canWrite}
+						project={project}
 						onGuest={(g) =>
 							setData((d) => ({
 								...d,
