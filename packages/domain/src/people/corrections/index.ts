@@ -102,17 +102,15 @@ export const recordCorrections = {
 			const input = parse(c.correctPersonRecordRequest, raw);
 			return c.correctionResult.parse(
 				await mutation<unknown>(tx, ctx, "people.correctPersonRecord", input, async (_actor, receiptId, audit) => {
-					const { recordType, recordId, reason, changes } = input.input;
+					const { recordType, personId, recordId, reason, changes } = input.input;
 					const def = records[recordType];
 					const table = sql.identifier(def.table);
 					const target = sql`FROM ${table} r WHERE r.id=${recordId}::uuid AND r.plant_id=${plant}::uuid`;
-					const p = await subject(
-						tx,
-						ctx,
-						sql`(SELECT r.person_id ${target})`,
-						sql`(SELECT ${recordJson(recordType)} ${target})`,
-					);
+					// Lock the reviewed Person; a record that now belongs to someone else is a stale view.
+					const p = await subject(tx, ctx, personId, sql`(SELECT ${recordJson(recordType)} ${target})`);
+					if (p.extra === null) deny();
 					const record = found.parse(p.extra);
+					if (record.person_id !== p.id) deny("conflict");
 					expectRevision(record.revision, input.expectedRevision);
 					if (record.voided) deny("invalid_subject");
 					const after: Record<string, unknown> = { ...record.values, ...changes };

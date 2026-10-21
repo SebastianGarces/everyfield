@@ -586,6 +586,7 @@ try {
 					expectedRevision: recorded.revision,
 					input: {
 						recordType: "assessment",
+						personId: merging.id,
 						recordId: recorded.id,
 						reason: "Synthetic",
 						changes: { committed: { score: 4, notes: null } },

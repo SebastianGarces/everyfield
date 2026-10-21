@@ -248,21 +248,6 @@ test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SK
 			}),
 		),
 	).assessment;
-	// A corrected record moves with its correction history (F1 at 9e1275b).
-	const correction = ok(
-		await tx((t) =>
-			recordCorrections.correctPersonRecord(t, ctx(), {
-				requestKey: key(),
-				expectedRevision: assessment.revision,
-				input: {
-					recordType: "assessment",
-					recordId: assessment.id,
-					reason: "Typo",
-					changes: { courageous: lens(5) },
-				},
-			}),
-		),
-	).correctionId;
 	const interview = ok(
 		await tx((t) =>
 			interviews.createInterview(t, ctx(), {
@@ -279,6 +264,30 @@ test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SK
 			}),
 		),
 	).commitment;
+	// Each record kind carries a correction, which moves with its record (F1 at 9e1275b).
+	const fix = (recordType, personId, recordId, expectedRevision, changes, reason = "Typo") =>
+		tx((t) =>
+			recordCorrections.correctPersonRecord(t, ctx(), {
+				requestKey: key(),
+				expectedRevision,
+				input: { recordType, personId, recordId, reason, changes },
+			}),
+		);
+	const corrected = [
+		ok(await fix("assessment", s.id, assessment.id, assessment.revision, { courageous: lens(5) })).correctionId,
+		ok(await fix("interview", s.id, interview.id, interview.revision, { result: "follow_up" })).correctionId,
+		ok(await fix("commitment", s.id, card.id, card.revision, { notes: "Signed after service" })).correctionId,
+	].sort();
+	const correctionOwners = async () =>
+		(
+			await rows(sql`SELECT person_id FROM record_correction WHERE id=ANY(${sql.param(corrected)}::uuid[]) ORDER BY id`)
+		).map((x) => x.person_id);
+	const correctionTrail = async () =>
+		(
+			await rows(sql`SELECT (SELECT count(*)::int FROM record_correction WHERE record_id=${sql.param(assessment.id)}) n,
+ (SELECT count(*)::int FROM audit_event WHERE action='people.corrected') a,
+ (SELECT courageous FROM four_cs WHERE id=${sql.param(assessment.id)}) score`)
+		)[0];
 	// An earlier merge of a third record into S: its redirect follows S to the survivor.
 	ok(await merge(earlier.id, s.id));
 	const before = { d: await personRow(d.id), s: await personRow(s.id) };
@@ -294,7 +303,7 @@ test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SK
 	assert.deepEqual(r.commitment, { result: "active", effectiveOn: day(3) });
 	assert.deepEqual(Object.fromEntries(r.references.map((x) => [x.kind, [x.count, x.treatment]])), {
 		assessment: [1, "move"],
-		correction: [1, "move"],
+		correction: [3, "move"],
 		commitment: [1, "move"],
 		interview: [1, "move"],
 		merged_person: [1, "move"],
@@ -350,7 +359,13 @@ test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SK
 	assert.deepEqual(await tagIds(s.id), []);
 	assert.deepEqual(await skillsOf(d.id), ["Hospitality", "Sound"]);
 	assert.deepEqual(await owners("four_cs", [assessment.id]), [d.id]);
-	assert.deepEqual(await owners("record_correction", [correction]), [d.id]);
+	assert.deepEqual(await correctionOwners(), [d.id, d.id, d.id]);
+	// A correction form kept from before the merge is refused, whether it names S or D, and leaves no trace (F3).
+	const trail = await correctionTrail();
+	assert.equal(trail.score, 5);
+	refused(await fix("assessment", s.id, assessment.id, "2", { courageous: lens(1) }, "Old form"));
+	refused(await fix("assessment", d.id, assessment.id, "2", { courageous: lens(1) }, "Old form"), "conflict");
+	assert.deepEqual(await correctionTrail(), trail);
 	assert.equal(ok(await corrections(d.id)).items[0].reason, "Typo");
 	assert.deepEqual(await owners("interview", [interview.id]), [d.id]);
 	assert.deepEqual(await owners("commitment", [card.id]), [d.id]);
@@ -416,7 +431,11 @@ test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SK
 	assert.deepEqual([await tagIds(d.id), await tagIds(s.id)], [[shared], [shared, own].sort()]);
 	assert.deepEqual([await skillsOf(d.id), await skillsOf(s.id)], [["Hospitality"], ["Sound"]]);
 	assert.deepEqual(await owners("four_cs", [assessment.id]), [s.id]);
-	assert.deepEqual(await owners("record_correction", [correction]), [s.id]);
+	assert.deepEqual(await correctionOwners(), [s.id, s.id, s.id]);
+	// A form reviewed while the record sat on D is refused after Unmerge (F3).
+	const current = (await one(sql`SELECT revision::text r FROM four_cs WHERE id=${sql.param(assessment.id)}`)).r;
+	refused(await fix("assessment", d.id, assessment.id, current, { courageous: lens(1) }, "Old form"), "conflict");
+	assert.deepEqual(await correctionTrail(), trail);
 	assert.deepEqual(await owners("person_note", [note.noteId]), [s.id]);
 	assert.equal((await personRow(earlier.id)).merged_into_person_id, s.id);
 	// A repeat changes nothing more; the merge stays in history as reversed.
@@ -537,12 +556,12 @@ test("AC:PERSONREF-ACCOUNT-LINK-CONFLICT AC:TARGET-PPL-017 AC:TARGET-PPL-016 mer
 	);
 });
 
-const correct = (recordType, recordId, expectedRevision, changes, who = 0, requestKey = key()) =>
+const correct = (recordType, personId, recordId, expectedRevision, changes, who = 0, requestKey = key()) =>
 	tx((t) =>
 		recordCorrections.correctPersonRecord(t, ctx(who), {
 			requestKey,
 			expectedRevision,
-			input: { recordType, recordId, reason: "Entered from the wrong form", changes },
+			input: { recordType, personId, recordId, reason: "Entered from the wrong form", changes },
 		}),
 	);
 const corrections = (personId, who = 0) =>
@@ -566,23 +585,35 @@ test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 corrections keep the recorder, recompu
 		),
 	).assessment;
 	// A correction against an outdated view, by a Member or from another church writes nothing.
-	refused(await correct("assessment", a.id, "2", { committed: lens(5) }), "conflict");
-	refused(await correct("assessment", a.id, a.revision, { committed: lens(5) }, 1));
-	refused(await correct("assessment", a.id, a.revision, { committed: lens(5) }, 2));
+	refused(await correct("assessment", p.id, a.id, "2", { committed: lens(5) }), "conflict");
+	refused(await correct("assessment", p.id, a.id, a.revision, { committed: lens(5) }, 1));
+	refused(await correct("assessment", p.id, a.id, a.revision, { committed: lens(5) }, 2));
 	// Original recorder, recorded instant and totals are not correction fields.
-	refused(await correct("assessment", a.id, a.revision, { total: 20 }), "invalid_input");
-	refused(await correct("assessment", a.id, a.revision, { recordedAt: new Date().toISOString() }), "invalid_input");
+	refused(await correct("assessment", p.id, a.id, a.revision, { total: 20 }), "invalid_input");
+	refused(
+		await correct("assessment", p.id, a.id, a.revision, { recordedAt: new Date().toISOString() }),
+		"invalid_input",
+	);
 	assert.equal(ok(await corrections(p.id)).total, 0);
 
 	const requestKey = key();
 	const changed = ok(
-		await correct("assessment", a.id, a.revision, { committed: { score: 5, notes: "Corrected note" } }, 0, requestKey),
+		await correct(
+			"assessment",
+			p.id,
+			a.id,
+			a.revision,
+			{ committed: { score: 5, notes: "Corrected note" } },
+			0,
+			requestKey,
+		),
 	);
 	assert.deepEqual([changed.outcome, changed.revision], ["changed", "2"]);
 	assert.deepEqual(
 		ok(
 			await correct(
 				"assessment",
+				p.id,
 				a.id,
 				a.revision,
 				{ committed: { score: 5, notes: "Corrected note" } },
@@ -594,7 +625,7 @@ test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 corrections keep the recorder, recompu
 	);
 	// Correcting to the values it already holds changes nothing more.
 	assert.equal(
-		ok(await correct("assessment", a.id, "2", { committed: { score: 5, notes: "Corrected note" } })).outcome,
+		ok(await correct("assessment", p.id, a.id, "2", { committed: { score: 5, notes: "Corrected note" } })).outcome,
 		"noop",
 	);
 	const read = ok(await tx((t) => assessments.getAssessments(t, ctx(), { personId: p.id }))).latest;
@@ -612,8 +643,8 @@ test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 corrections keep the recorder, recompu
 			}),
 		),
 	).interview;
-	ok(await correct("interview", i.id, i.revision, { result: "not_qualified", occurredOn: day(7) }));
-	refused(await correct("interview", i.id, "2", { occurredOn: day(-1) }), "invalid_input");
+	ok(await correct("interview", p.id, i.id, i.revision, { result: "not_qualified", occurredOn: day(7) }));
+	refused(await correct("interview", p.id, i.id, "2", { occurredOn: day(-1) }), "invalid_input");
 	assert.equal((await personRow(p.id)).stage, "leader");
 
 	// A card's date correction (CA013) and a note correction show in the same history.
@@ -638,7 +669,7 @@ test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 corrections keep the recorder, recompu
 			}),
 		),
 	);
-	ok(await correct("commitment", card.id, "2", { notes: "Signed at the picnic" }));
+	ok(await correct("commitment", p.id, card.id, "2", { notes: "Signed at the picnic" }));
 	const history = ok(await corrections(p.id));
 	assert.deepEqual(
 		history.items.map((x) => [x.recordType, x.recordId, x.changes, x.actor.accountId]),
@@ -726,6 +757,21 @@ test("AC:ADR1-017 organization duplicates are hints for a human, and an organiza
 		session: staff.session,
 		selected: { kind: "organization", id: org, organizationKind: "sending_church" },
 	};
+	// An organization Member with no pipeline duty for these people (F4).
+	const member = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
+	await admin.execute(
+		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${sql.param(member.user)},${sql.param(member.id + "@example.test")},true,'Synthetic')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${sql.param(member.id)},${sql.param(member.user)},'active','planter')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${sql.param(member.session)},${sql.param(member.user)},${sql.param(randomUUID())},clock_timestamp()+interval '1 day')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO seat(account_id,organization_id,role,accepted_at) VALUES(${sql.param(member.id)},${sql.param(org)},'member',clock_timestamp())`,
+	);
+	const mctx = { ...octx, session: member.session };
 	const orgPerson = async (name, email, owner = org) => {
 		const id = randomUUID();
 		await admin.execute(sql`INSERT INTO person(id,tenant_id,organization_id,display_name,email,source,state,created_at,revision)
@@ -772,6 +818,10 @@ test("AC:ADR1-017 organization duplicates are hints for a human, and an organiza
 		],
 		["merged", p, actors[1].id],
 	);
+	// The Owner or Admin follows the merged Person; the Member sees no identity or state, as getPerson refuses it too.
+	assert.equal(ok(await tx((t) => peopleMerge.mergedPersonDestination(t, octx, { personId: q }))).destinationId, p);
+	refused(await tx((t) => peopleMerge.mergedPersonDestination(t, mctx, { personId: q })));
+	refused(await tx((t) => peopleReader.getPerson(t, mctx, { personId: p })));
 	const preview = ok(await tx((t) => peopleUnmerge.previewUnmerge(t, octx, { mergeId: merged.mergeId })));
 	const back = ok(
 		await tx((t) =>

@@ -174,10 +174,13 @@ const ownerKind = (ctx: Pick<Context, "selected">) => {
 	return ctx.selected.kind;
 };
 
-/** The SQL that moves one kind of reference from `from` to `to`; Unmerge passes the rows the merge moved. */
+/**
+ * The SQL that moves one kind of reference from `from` to `to`; Unmerge passes the rows the merge moved. A moved row
+ * gets a new revision, so a form reviewed against its old owner is refused.
+ */
 export function moveRefs(owner: string, k: Kind, ids: string[], from: string, to: string): SQLWrapper {
 	const e = registrationOf(k);
-	return sql`UPDATE ${sql.identifier(e.table)} SET ${sql.identifier(e.column)}=${to}::uuid
+	return sql`UPDATE ${sql.identifier(e.table)} SET ${sql.identifier(e.column)}=${to}::uuid${e.revision ? sql`,revision=revision+1` : sql``}
  WHERE ${sql.identifier(e.column)}=${from}::uuid AND ${sql.identifier(e.owner)}=${owner}::uuid
  AND ${sql.identifier(e.key)}=ANY(${sql.param(ids)}::uuid[])`;
 }
@@ -275,7 +278,9 @@ export const peopleMerge = {
 					// What the survivor holds after the merge; Unmerge proceeds only while it is unchanged.
 					const after = [
 						...survivor.refs,
-						...source.refs.filter((x) => !(x.kind === "tag" && p.droppedTags.includes(x.id))),
+						...source.refs
+							.filter((x) => !(x.kind === "tag" && p.droppedTags.includes(x.id)))
+							.map((x) => (x.revision === null ? x : { ...x, revision: String(BigInt(x.revision) + 1n) })),
 						{ kind: "merged_person" as const, id: source.id, revision: sourceRevision },
 					];
 					audit.writes.push(
@@ -312,9 +317,11 @@ export const peopleMerge = {
 	/** people.mergedPersonDestination: where a merged Person's links lead. Any reader of the church may follow it. */
 	async mergedPersonDestination(tx: Tx, ctx: Context, raw: unknown) {
 		return readReply(async () => {
-			ownerKind(ctx);
+			const kind = ownerKind(ctx);
 			const input = parse(c.mergedPersonDestinationRequest, raw);
-			const { gate } = await authorizeRead(tx, ctx);
+			// Any reader of the church may follow a merged Person. In an organization only Owners and Admins read every
+			// Person, so only they follow one; a Member's per-Person pipeline access does not reach merged identities.
+			const gate = kind === "plant" ? (await authorizeRead(tx, ctx)).gate : (await authorize(tx, ctx), adminRead(ctx));
 			const result = await tx.execute(sql`SELECT p.state,coalesce(p.merged_into_person_id,p.id) AS destination,
  (SELECT m.id FROM person_merge m WHERE m.source_id=p.id AND m.tenant_id=p.tenant_id AND m.unmerged_at IS NULL) AS merge_id
  FROM person p WHERE ${gate} AND p.id=${input.personId}::uuid AND p.tenant_id=${ctx.selected.id}::uuid

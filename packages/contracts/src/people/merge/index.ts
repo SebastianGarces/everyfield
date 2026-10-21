@@ -149,12 +149,14 @@ export const interviewCorrection = z
 // A card's date and kind change through people.correctCommitmentLifecycle; its notes change here.
 export const commitmentCorrection = z.strictObject({ notes });
 export const recordType = z.enum(["assessment", "interview", "commitment"]);
-// The expected revision is the record's.
+// The expected revision is the record's. The Person is the one the corrector reviewed: a record that has since moved to
+// another Person, by merge or Unmerge, refuses the correction.
+const corrected = { personId, recordId, reason };
 export const correctPersonRecordRequest = commandEnvelope(
 	z.discriminatedUnion("recordType", [
-		z.strictObject({ recordType: z.literal("assessment"), recordId, reason, changes: assessmentCorrection }),
-		z.strictObject({ recordType: z.literal("interview"), recordId, reason, changes: interviewCorrection }),
-		z.strictObject({ recordType: z.literal("commitment"), recordId, reason, changes: commitmentCorrection }),
+		z.strictObject({ recordType: z.literal("assessment"), ...corrected, changes: assessmentCorrection }),
+		z.strictObject({ recordType: z.literal("interview"), ...corrected, changes: interviewCorrection }),
+		z.strictObject({ recordType: z.literal("commitment"), ...corrected, changes: commitmentCorrection }),
 	]),
 );
 export const correctionResult = z.strictObject({
