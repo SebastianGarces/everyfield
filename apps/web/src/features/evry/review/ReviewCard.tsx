@@ -7,11 +7,13 @@ import {
 	CheckmarkCircle02Icon,
 	Clock01Icon,
 	Edit02Icon,
+	Image01Icon,
+	ImageNotFound01Icon,
 	SquareLock02Icon,
 	Tick02Icon,
 	UserAdd01Icon,
 } from "@hugeicons/core-free-icons";
-import { Button, Field, Input, IntentLink, Select, Spinner, Textarea } from "@everyfield/ui/controls";
+import { Button, Field, Input, IntentLink, Select, Skeleton, Spinner, Textarea } from "@everyfield/ui/controls";
 import { Avatar, StageChip } from "@everyfield/ui/display";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode, type Ref } from "react";
@@ -50,14 +52,19 @@ import {
 
 type Action = "approve" | "revise" | "cancel" | "retry";
 type Notice = { text: string; tone: "error" | "neutral" };
-/** What the card shows: the review's phase, or why there is no review to show. */
-type View = Phase | "loading" | "lost" | "unavailable";
+/**
+ * What the card shows: the review's phase, or why there is no review to show. photo_unavailable is a pending set-photo
+ * review whose upload is gone: it stays on screen, but can't be approved.
+ */
+type View = Phase | "loading" | "lost" | "unavailable" | "photo_unavailable";
 
 function useReview(proposalId: string) {
 	const [review, setReview] = useState<Review | null>(null);
 	const [load, setLoad] = useState<"loading" | "ready" | "lost" | "unavailable">("loading");
 	const [busy, setBusy] = useState<Action | null>(null);
 	const [notice, setNotice] = useState<Notice | null>(null);
+	/** The server's last refusal of an action, for the revision it refused. */
+	const [refused, setRefused] = useState<{ code: string; revision: number } | null>(null);
 	const [now, setNow] = useState(() => Date.now());
 	// Every action takes a new generation; a read that started before it is dropped when it answers late.
 	const generation = useRef(0);
@@ -93,7 +100,8 @@ function useReview(proposalId: string) {
 		};
 	}, [proposalId]);
 
-	const view: View = load === "ready" && review ? phaseOf(review, now) : load === "ready" ? "loading" : load;
+	const view: Exclude<View, "photo_unavailable"> =
+		load === "ready" && review ? phaseOf(review, now) : load === "ready" ? "loading" : load;
 
 	// The clock only matters at the expiry: one timer flips a pending review to expired, with no request.
 	useEffect(() => {
@@ -154,6 +162,7 @@ function useReview(proposalId: string) {
 		inFlight.current = false;
 		if (g !== generation.current) return false;
 		setBusy(null);
+		setRefused(reply.status === "refused" ? { code: reply.error.code, revision: before.revision } : null);
 		if (refused) {
 			gone();
 			return false;
@@ -165,7 +174,7 @@ function useReview(proposalId: string) {
 		}
 		// An expired or closed review says so in its own state; only a changed review or an unknown result needs words.
 		const code = reply.status === "refused" ? reply.error.code : null;
-		if (current && (code === "review_expired" || code === "review_closed")) return false;
+		if (current && (code === "review_expired" || code === "review_closed" || code === "photo_unavailable")) return false;
 		setNotice({ text: actionNotice(reply.status === "refused" ? reply.error : "lost"), tone: "error" });
 		return false;
 	}
@@ -175,6 +184,7 @@ function useReview(proposalId: string) {
 		view,
 		busy,
 		notice,
+		refused,
 		now,
 		reload: () => {
 			setLoad("loading");
@@ -183,7 +193,7 @@ function useReview(proposalId: string) {
 		approve: () =>
 			act(
 				"approve",
-				// The witness is the request key: the same revision and digest, however often it is sent.
+				// The witness is the request key: the same revision and digest, sent once more after a lost reply.
 				(r) => api.approve(r),
 				(v) => v.proposal,
 				(now, before) => now.revision === before.revision && now.status === "approved",
@@ -219,6 +229,40 @@ function useReview(proposalId: string) {
 	};
 }
 
+type Staged = { upload: string; status: "ready"; src: string } | { upload: string; status: "gone" | "lost" };
+/** What the card knows about a set-photo review's upload: shown, being read, gone, not read (lost) or not asked for. */
+type StagedPhoto = { status: "idle" | "loading" | "gone" | "lost" } | { status: "ready"; src: string };
+
+/**
+ * The exact upload a pending set-photo review would save. It is the content under review (REQ-EVR-011), so the card
+ * reads it once as soon as the pending review shows, and keeps the bytes while it shows them: after approval the
+ * same image stays on screen with no second request. A lost read can be tried again; a refused one is gone.
+ */
+function useStagedPhoto(proposalId: string, upload: string | null, wanted: boolean) {
+	const [loaded, setLoaded] = useState<Staged | null>(null);
+	const mine = loaded && loaded.upload === upload ? loaded : null;
+	const need = wanted && upload !== null && mine === null;
+	useEffect(() => {
+		if (!need || upload === null) return;
+		let live = true;
+		void api.readStagedPhoto(proposalId).then((reply) => {
+			if (!live) return;
+			setLoaded(
+				reply.status === "ok"
+					? { upload, status: "ready", src: URL.createObjectURL(reply.value) }
+					: { upload, status: reply.status === "refused" ? "gone" : "lost" },
+			);
+		});
+		return () => {
+			live = false;
+		};
+	}, [need, proposalId, upload]);
+	const src = loaded?.status === "ready" ? loaded.src : null;
+	useEffect(() => () => void (src && URL.revokeObjectURL(src)), [src]);
+	const photo: StagedPhoto = mine ?? { status: need ? "loading" : "idle" };
+	return { photo, retry: () => setLoaded(null) };
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 
 type Tone = "amber" | "green" | "magenta" | "gray";
@@ -232,6 +276,7 @@ const HEAD: Record<Exclude<View, "loading" | "lost">, { icon: IconSvgElement; ti
 	expired: { icon: Clock01Icon, title: "Expired", tone: "gray" },
 	cancelled: { icon: Cancel01Icon, title: "Cancelled", tone: "gray" },
 	withheld: { icon: SquareLock02Icon, title: "No longer available", tone: "gray" },
+	photo_unavailable: { icon: ImageNotFound01Icon, title: "Photo not available", tone: "gray" },
 	unavailable: { icon: SquareLock02Icon, title: "Not available to you", tone: "gray" },
 };
 const HEAD_TONE: Record<Tone, string> = {
@@ -246,8 +291,6 @@ function note(view: View, review: Review | null, now: number): string | null {
 	const who = review?.review.target?.label ?? null;
 	switch (view) {
 		case "pending":
-			if (review && !approvable(review))
-				return `Evry can't show this uploaded photo, so you can't approve it here. Set the photo on ${who ?? "the person"}'s page, where you can see it.`;
 			return review && review.revision > 1
 				? `You revised this change. Only revision ${review.revision} can be approved.`
 				: null;
@@ -263,6 +306,8 @@ function note(view: View, review: Review | null, now: number): string | null {
 			return review && retryable(review, now)
 				? "Evry can't confirm that this was saved. Try again. A change that was saved is not saved twice."
 				: "Evry can't confirm that this was saved, and the approval expired. Open the person to check.";
+		case "photo_unavailable":
+			return `The uploaded photo is no longer available, so you can't approve this change. Nothing was changed. Upload the photo again on ${who ?? "the person"}'s page.`;
 		case "expired":
 			return "This review expired, so nothing was changed. Prepare it again to check the current values.";
 		case "cancelled":
@@ -300,7 +345,14 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 	const noticeRef = useRef<HTMLParagraphElement>(null);
 	const reviseButton = useRef<HTMLButtonElement>(null);
 	const focusInside = useRef(false);
-	const { review, view, notice } = r;
+	const { review, notice } = r;
+	const upload =
+		review?.operation === "people.setPersonPhoto" ? review.review.changes.find((c) => c.field === "photo")?.after : null;
+	const staged = useStagedPhoto(proposalId, typeof upload === "string" ? upload : null, r.view === "pending");
+	const photoGone =
+		staged.photo.status === "gone" ||
+		(r.refused?.code === "photo_unavailable" && r.refused.revision === review?.revision);
+	const view: View = r.view === "pending" && photoGone ? "photo_unavailable" : r.view;
 
 	// A change of view after the card loaded is announced once (the previous-value pattern, no effect).
 	const key = `${view}:${review?.revision ?? 0}`;
@@ -383,9 +435,9 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 						)}
 					>
 						<Affects review={review} />
-						<Changes review={review} />
+						<Changes review={review} staged={photoGone ? { status: "gone" } : staged.photo} onRetry={staged.retry} />
 						{consequence(review) ? <p className="text-sm text-text-2">{consequence(review)}</p> : null}
-						{view === "pending" && approvable(review) ? (
+						{view === "pending" ? (
 							<p className="text-xs text-text-3">
 								Nothing changes until you approve. Approve by {clock(review.expiresAt)}.
 							</p>
@@ -406,6 +458,7 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 					<Footer
 						view={view}
 						review={review}
+						canApprove={approvable(review, staged.photo.status === "ready")}
 						r={r}
 						reviseButton={reviseButton}
 						onRevise={() => {
@@ -425,12 +478,15 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 function Footer({
 	view,
 	review,
+	canApprove,
 	r,
 	reviseButton,
 	onRevise,
 }: {
-	view: Phase;
+	view: Phase | "photo_unavailable";
 	review: Review;
+	/** False while a new photo is not shown yet: the owner approves only what the card shows. */
+	canApprove: boolean;
 	r: ReturnType<typeof useReview>;
 	reviseButton: Ref<HTMLButtonElement>;
 	onRevise: () => void;
@@ -452,25 +508,31 @@ function Footer({
 	if (view === "pending")
 		body = (
 			<>
-				{approvable(review) ? (
-					<Button
-						size="sm"
-						variant="primary"
-						icon={Tick02Icon}
-						loading={r.busy === "approve"}
-						disabled={other("approve")}
-						onClick={() => void r.approve()}
-					>
-						Approve
-					</Button>
-				) : who ? (
-					<Button size="sm" variant="secondary" asChild>
-						<IntentLink href={`/people/${who.id}`}>Open {who.label}</IntentLink>
-					</Button>
-				) : null}
+				<Button
+					size="sm"
+					variant="primary"
+					icon={Tick02Icon}
+					loading={r.busy === "approve"}
+					disabled={other("approve") || !canApprove}
+					onClick={() => void r.approve()}
+				>
+					Approve
+				</Button>
 				{editableChanges(review).length ? (
 					<Button ref={reviseButton} size="sm" variant="secondary" disabled={r.busy !== null} onClick={onRevise}>
 						Revise
+					</Button>
+				) : null}
+				<span className="flex-1" />
+				{cancel}
+			</>
+		);
+	else if (view === "photo_unavailable")
+		body = (
+			<>
+				{who ? (
+					<Button size="sm" variant="secondary" asChild>
+						<IntentLink href={`/people/${who.id}`}>Open {who.label}</IntentLink>
 					</Button>
 				) : null}
 				<span className="flex-1" />
@@ -583,81 +645,149 @@ function Value({ field, value, before }: { field: string; value: unknown; before
 	return <span className={cn("break-words", before ? "text-text-2" : "font-medium text-ink")}>{text}</span>;
 }
 
-/**
- * A photo before and after. People serves only a person's current photo, so the card shows the current one, and the
- * new one once it is saved. An upload that is not saved yet shows its file reference, so two uploads never look the same.
- */
-function PhotoValue({
-	personId,
+type TileState = "image" | "none" | "loading" | "gone" | "lost" | "hidden";
+const TILE_TEXT: Partial<Record<TileState, string>> = {
+	none: "No photo",
+	gone: "Not available",
+	lost: "Didn't load",
+};
+
+/** One photo in the comparison: an 80 px square with its caption and file reference, in every state it can be in. */
+function PhotoTile({
+	caption,
 	value,
-	image,
-	label,
+	src,
+	alt,
+	state,
+	onRetry,
 }: {
-	personId: string;
+	caption: string;
 	value: unknown;
-	image: boolean;
-	label: string;
+	src?: string;
+	alt: string;
+	state: TileState;
+	onRetry?: () => void;
 }) {
-	const [failed, setFailed] = useState(false);
-	if (value === null || value === undefined) return <span className="text-text-3 italic">No photo</span>;
-	const ref = photoRef(value);
+	const [failed, setFailed] = useState<string | null>(null);
+	const shown = state === "image" && src && failed !== src ? "image" : state === "image" ? "gone" : state;
 	return (
-		<span className="flex items-center gap-2">
-			{image && !failed ? (
-				// eslint-disable-next-line @next/next/no-img-element -- a private, per-request photo; next/image would cache it
-				<img
-					src={`/people/${personId}/photo/${String(value)}`}
-					alt={label}
-					width={40}
-					height={40}
-					onError={() => setFailed(true)}
-					className="size-10 rounded-md object-cover shadow-[inset_0_0_0_1px_var(--ef-line)]"
-				/>
-			) : null}
-			<span className="flex flex-col leading-tight">
-				<span className="font-medium text-ink">{label}</span>
-				<span className="text-xs text-text-3 tabular-nums">Ref {ref}</span>
+		<figure className="flex w-20 flex-none flex-col gap-1.5" aria-busy={shown === "loading" || undefined}>
+			<span className="grid size-20 place-items-center overflow-hidden rounded-md bg-surface-raised text-text-3 shadow-[inset_0_0_0_1px_var(--ef-line)]">
+				{shown === "image" ? (
+					// eslint-disable-next-line @next/next/no-img-element -- private per-request bytes; next/image would cache them
+					<img
+						src={src}
+						alt={alt}
+						width={80}
+						height={80}
+						onError={() => setFailed(src ?? null)}
+						className="size-20 object-cover outline-1 -outline-offset-1 outline-line"
+					/>
+				) : shown === "loading" ? (
+					<>
+						<Skeleton shape="block" width={80} height={80} />
+						<span className="sr-only">Loading the photo…</span>
+					</>
+				) : (
+					<span className="flex flex-col items-center gap-1 px-1 text-center text-xs leading-tight">
+						<Icon icon={shown === "gone" || shown === "lost" ? ImageNotFound01Icon : Image01Icon} size={20} />
+						{TILE_TEXT[shown] ?? null}
+					</span>
+				)}
 			</span>
-		</span>
+			<figcaption className="flex flex-col text-xs leading-tight">
+				<span className="font-medium text-ink">{caption}</span>
+				{value ? <span className="text-text-3 tabular-nums">Ref {photoRef(value)}</span> : null}
+			</figcaption>
+			{shown === "lost" && onRetry ? (
+				<Button size="sm" variant="ghost" className="-ml-2 self-start" onClick={onRetry}>
+					Try again
+				</Button>
+			) : null}
+		</figure>
+	);
+}
+
+/**
+ * A photo before and after, side by side, so the owner approves the exact upload they see. The current photo comes
+ * from People; the new one from this review's own upload read, kept after approval. A card opened after the review
+ * ended shows a saved photo from People and otherwise only the file reference, so two uploads never look the same.
+ */
+function PhotoChange({
+	review,
+	change,
+	staged,
+	onRetry,
+}: {
+	review: Review;
+	change: Change;
+	staged: StagedPhoto;
+	onRetry: () => void;
+}) {
+	const target = review.review.target!;
+	const saved = review.outcome === "completed";
+	const after: { state: TileState; src?: string } =
+		change.after === null || change.after === undefined
+			? { state: "none" }
+			: staged.status === "ready"
+				? { state: "image", src: staged.src }
+				: saved
+					? { state: "image", src: `/people/${target.id}/photo/${String(change.after)}` }
+					: { state: staged.status === "idle" ? "hidden" : staged.status };
+	return (
+		<div className="flex flex-col gap-2">
+			<dt className="text-text-2">{fieldLabel(change.field)}</dt>
+			<dd className="flex items-start gap-3">
+				<span className="sr-only">from </span>
+				<PhotoTile
+					caption={saved ? "Before" : "Current"}
+					value={change.before}
+					src={change.before ? `/people/${target.id}/photo/${String(change.before)}` : undefined}
+					alt={`${saved ? "Previous" : "Current"} photo of ${target.label}`}
+					state={change.before ? "image" : "none"}
+				/>
+				<Icon icon={ArrowRight02Icon} size={16} className="mt-8 flex-none text-text-3" />
+				<span className="sr-only"> to </span>
+				<PhotoTile
+					caption={saved ? "New" : "Uploaded"}
+					value={change.after}
+					src={after.src}
+					alt={`${saved ? "New" : "Uploaded"} photo for ${target.label}`}
+					state={after.state}
+					onRetry={onRetry}
+				/>
+			</dd>
+		</div>
 	);
 }
 
 /** Each changed field: its value now, then what it will be. A new person and a reason have no before. */
-function Changes({ review }: { review: Review }) {
+function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPhoto; onRetry: () => void }) {
 	const changes = shownChanges(review.review.changes);
 	if (!changes.length) return null;
 	const create = review.operation === "people.createPerson";
 	return (
 		<dl className="flex flex-col gap-2 rounded-md bg-surface-2 px-3 py-2.5 text-sm">
-			{changes.map((c: Change) => (
-				<div key={c.field} className="grid grid-cols-[minmax(88px,auto)_1fr] items-baseline gap-x-3">
-					<dt className="text-text-2">{fieldLabel(c.field)}</dt>
-					<dd className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
-						{create || c.field === "reason" ? null : (
-							<>
-								<span className="sr-only">from </span>
-								{c.field === "photo" && review.review.target ? (
-									<PhotoValue personId={review.review.target.id} value={c.before} image label="Current photo" />
-								) : (
+			{changes.map((c: Change) =>
+				c.field === "photo" && review.review.target ? (
+					<PhotoChange key={c.field} review={review} change={c} staged={staged} onRetry={onRetry} />
+				) : (
+					<div key={c.field} className="grid grid-cols-[minmax(88px,auto)_1fr] items-baseline gap-x-3">
+						<dt className="text-text-2">{fieldLabel(c.field)}</dt>
+						<dd className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
+							{create || c.field === "reason" ? null : (
+								<>
+									<span className="sr-only">from </span>
 									<Value field={c.field} value={c.before} before />
-								)}
-								<Icon icon={ArrowRight02Icon} size={16} className="text-text-3" />
-								<span className="sr-only"> to </span>
-							</>
-						)}
-						{c.field === "photo" && review.review.target ? (
-							<PhotoValue
-								personId={review.review.target.id}
-								value={c.after}
-								image={review.outcome === "completed"}
-								label={review.outcome === "completed" ? "New photo" : "Uploaded photo"}
-							/>
-						) : (
+									<Icon icon={ArrowRight02Icon} size={16} className="text-text-3" />
+									<span className="sr-only"> to </span>
+								</>
+							)}
 							<Value field={c.field} value={c.after} />
-						)}
-					</dd>
-				</div>
-			))}
+						</dd>
+					</div>
+				),
+			)}
 		</dl>
 	);
 }

@@ -3,7 +3,8 @@
 //   AC:UI45-002 AC:INH-REGRESSION-REVISED-APPROVAL INV-revise: revising a reviewed value makes revision 2, which is
 //     the one approved and saved.
 //   AC:INH-REGRESSION-CONFIRM-REPLAY INV-lost-approval: an approval whose reply is lost after the server saved it shows
-//     as saved, never as "not approved"; one approval was sent, the person changed once, and focus stays in the card.
+//     as saved, never as "not approved"; the same request is sent once more and no more (C58), the person changed
+//     once, and focus stays in the card.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
@@ -44,7 +45,9 @@ for (const [engine, launcher] of ENGINES)
 				await page.keyboard.press("Enter");
 				const saved = panel.getByRole("region", { name: "Saved" });
 				await saved.waitFor({ timeout: 15_000 });
-				assert.equal(approvals.length, 1);
+				// One replay of the same request key after the lost reply, then the card reads the saved state.
+				assert.equal(approvals.length, 2);
+				assert.equal(approvals[1], approvals[0]);
 				assert.equal(JSON.parse(approvals[0]).revision, 2);
 				assert.match(await saved.innerText(), new RegExp(city));
 				// The Approve button is gone; focus moved to the card's head, not to <body>.
