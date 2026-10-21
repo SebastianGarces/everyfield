@@ -70,9 +70,9 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 78,
-  "column_count": 898,
-  "foreign_key_count": 289,
+  "table_count": 80,
+  "column_count": 915,
+  "foreign_key_count": 293,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -152,6 +152,18 @@
       "phone",
       "text",
       "video"
+    ],
+    "conversation.context_kind": [
+      "account",
+      "plant",
+      "sending_church",
+      "sending_network"
+    ],
+    "conversation_event.kind": [
+      "user_message",
+      "assistant_text",
+      "tool_result",
+      "status"
     ],
     "development_enrollment.status": [
       "active",
@@ -1197,6 +1209,10 @@
       "deletion.live_purge_completed",
       "documents.copied",
       "documents.saved",
+      "evry.conversation_created",
+      "evry.turn_cancelled",
+      "evry.turn_retried",
+      "evry.turn_submitted",
       "execution.cancelled",
       "execution.completed",
       "execution.partial",
@@ -10429,7 +10445,7 @@
         }
       ],
       "checks": [
-        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.send_intended','deletion.cancelled','deletion.live_purge_completed','documents.copied','documents.saved','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.hidden','wiki.published','wiki.source_order_changed')",
+        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.send_intended','deletion.cancelled','deletion.live_purge_completed','documents.copied','documents.saved','evry.conversation_created','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.hidden','wiki.published','wiki.source_order_changed')",
         "num_nonnulls(actor_id,actor_token,system_cause)>=1",
         "kind in ('create','edit','correct','retire','restore','merge','unmerge','stage_change','classification_change','commitment_change','assign','remove','accept','revoke','resend','role_change','leader_change','tick','untick','archive','earn','revoke_credit','offer_answer','publish','hide','read','progress','complete','reopen','waive','supersede','finalize','reconcile','noop','triage','suppress','suppression_clear','preference','model_attempt','tool_attempt','effect_result','mail_member','outcome','declaration','movement')",
         "jsonb_typeof(metadata)='object' AND (metadata->'diff' IS NULL OR (jsonb_typeof(metadata->'diff')='object' AND octet_length(convert_to((metadata->'diff')::text,'UTF8'))<=2048))"
@@ -12159,6 +12175,359 @@
           "contact_outcome_ck_1",
           "contact_outcome_ck_2",
           "contact_outcome_ck_3"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "conversation",
+      "domain": "assistant",
+      "purpose": "Private Evry conversation of one initiating account in one exact account, plant or organization context.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-051"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-051"
+        ],
+        "rule": "WP-051 Evry conversation storage through Drizzle Kit."
+      },
+      "feature_ids": [
+        "EVR-005",
+        "EVR-008",
+        "EVR-016",
+        "EVR-021",
+        "EVR-029"
+      ],
+      "acceptance_ids": [],
+      "future_case_ids": [],
+      "scope": "assistant",
+      "invariants": [
+        "Only the initiating account in the same exact context reads or writes it; others see no existence.",
+        "At most one active run (assistant_turn job) at a time."
+      ],
+      "revision": "Append-only ordered events; one active run per conversation through active_turn_id.",
+      "idempotency": "A submitted message's request key is unique per conversation; a retry returns the saved turn.",
+      "deletion": "Account or tenant purge removes the conversation and its events; no other owner inherits them.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "",
+          "name": "tenant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "account_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "context_kind",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "title",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "last_sequence",
+          "type": "bigint",
+          "nullable": false,
+          "default": "0"
+        },
+        {
+          "note": "",
+          "name": "active_turn_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "active_session_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        },
+        {
+          "note": "",
+          "name": "updated_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "no_action",
+            "policy": "Account or tenant purge removes the private conversation before its owner rows. A conversation never transfers to another account."
+          },
+          "columns": [
+            "account_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action"
+        },
+        {
+          "deletion": {
+            "action": "no_action",
+            "policy": "The run pointer clears when the run ends or is cancelled."
+          },
+          "columns": [
+            "active_turn_id"
+          ],
+          "references": {
+            "table": "job",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null"
+        },
+        {
+          "deletion": {
+            "action": "no_action",
+            "policy": "Account or tenant purge removes the private conversation before its owner rows. A conversation never transfers to another account."
+          },
+          "columns": [
+            "tenant_id"
+          ],
+          "references": {
+            "table": "tenant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action"
+        }
+      ],
+      "checks": [
+        "char_length(\"conversation\".\"title\") BETWEEN 1 AND 120"
+      ],
+      "indexes": {
+        "conversation_owner_recent": {
+          "name": "conversation_owner_recent",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "updated_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [],
+        "unique": [],
+        "foreign": [
+          "conversation_tenant_id_tenant_id_fk",
+          "conversation_account_id_account_id_fk",
+          "conversation_active_turn_id_job_id_fk"
+        ],
+        "checks": [
+          "conversation_title"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "conversation_event",
+      "domain": "assistant",
+      "purpose": "Ordered saved record of one conversation: submitted messages, assistant text, source-bound result cards and run states. Replay reads only these rows.",
+      "library_owned": false,
+      "jsonb_keys": {
+        "body": [
+          "text",
+          "tool",
+          "operation",
+          "result",
+          "state",
+          "reason",
+          "usage",
+          "error",
+          "references"
+        ]
+      },
+      "capabilities": [],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-051"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-051"
+        ],
+        "rule": "WP-051 Evry conversation storage through Drizzle Kit."
+      },
+      "feature_ids": [
+        "EVR-005",
+        "EVR-008",
+        "EVR-016",
+        "EVR-021",
+        "EVR-029"
+      ],
+      "acceptance_ids": [],
+      "future_case_ids": [],
+      "scope": "assistant",
+      "invariants": [
+        "Workers append only while they hold the run's current job lease.",
+        "Private care, credentials and storage keys never enter a body."
+      ],
+      "revision": "Append-only ordered events; one active run per conversation through active_turn_id.",
+      "idempotency": "A submitted message's request key is unique per conversation; a retry returns the saved turn.",
+      "deletion": "Account or tenant purge removes the conversation and its events; no other owner inherits them.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "conversation_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "sequence",
+          "type": "bigint",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "turn_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "kind",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "body",
+          "type": "jsonb",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "request_key",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        }
+      ],
+      "primary_key": [
+        "conversation_id",
+        "sequence"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "conversation_id",
+            "request_key"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Events go with their conversation."
+          },
+          "columns": [
+            "conversation_id"
+          ],
+          "references": {
+            "table": "conversation",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "cascade"
+        }
+      ],
+      "checks": [
+        "jsonb_typeof(\"conversation_event\".\"body\")='object'"
+      ],
+      "indexes": {},
+      "constraint_names": {
+        "primary": [
+          "conversation_event_pkey"
+        ],
+        "unique": [
+          "conversation_event_request"
+        ],
+        "foreign": [
+          "conversation_event_conversation_id_conversation_id_fk"
+        ],
+        "checks": [
+          "conversation_event_body"
         ]
       },
       "policies": {},

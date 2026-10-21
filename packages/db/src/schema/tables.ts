@@ -4504,6 +4504,61 @@ export const settings_preview = pgTable(
 	],
 );
 
+/** One private Evry conversation of one account in one exact account, plant or organization context. */
+export const conversation = pgTable(
+	"conversation",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		tenant_id: uuid("tenant_id")
+			.notNull()
+			.references(() => tenant.id),
+		account_id: uuid("account_id")
+			.notNull()
+			.references(() => account.id),
+		context_kind: text("context_kind", {
+			enum: ["account", "plant", "sending_church", "sending_network"],
+		}).notNull(),
+		title: text("title").notNull(),
+		last_sequence: int64("last_sequence").notNull().default(sql`0`),
+		/** The assistant_turn job that is the conversation's one active run, if any. */
+		active_turn_id: uuid("active_turn_id").references(() => job.id, { onDelete: "set null" }),
+		/** The session that submitted the active turn; meaningful only with active_turn_id. The worker re-reads its authority before every read. */
+		active_session_id: uuid("active_session_id"),
+		created_at: timestamp("created_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+		updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		check("conversation_title", sql`char_length(${t.title}) BETWEEN 1 AND 120`),
+		index("conversation_owner_recent").on(t.account_id, t.tenant_id, t.updated_at, t.id),
+	],
+);
+/** The saved, ordered record of a conversation: submitted messages, assistant text, source-bound results and run states. */
+export const conversation_event = pgTable(
+	"conversation_event",
+	{
+		conversation_id: uuid("conversation_id")
+			.notNull()
+			.references(() => conversation.id, { onDelete: "cascade" }),
+		sequence: int64("sequence").notNull(),
+		turn_id: uuid("turn_id"),
+		kind: text("kind", { enum: ["user_message", "assistant_text", "tool_result", "status"] }).notNull(),
+		body: jsonb("body").notNull(),
+		request_key: text("request_key"),
+		created_at: timestamp("created_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "conversation_event_pkey", columns: [t.conversation_id, t.sequence] }),
+		unique("conversation_event_request").on(t.conversation_id, t.request_key),
+		check("conversation_event_body", sql`jsonb_typeof(${t.body})='object'`),
+	],
+);
+
 /** Attributable domain changes and their optional exact-request reply. Ordinary writers append only. */
 export const audit_event = pgTable(
 	"audit_event",
@@ -4541,7 +4596,7 @@ export const audit_event = pgTable(
 		check(
 			"audit_action",
 			sql.raw(
-				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.send_intended','deletion.cancelled','deletion.live_purge_completed','documents.copied','documents.saved','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.hidden','wiki.published','wiki.source_order_changed'))",
+				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.send_intended','deletion.cancelled','deletion.live_purge_completed','documents.copied','documents.saved','evry.conversation_created','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.hidden','wiki.published','wiki.source_order_changed'))",
 			),
 		),
 		check(
