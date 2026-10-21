@@ -202,7 +202,13 @@ before(async () => {
 		request: async (c) => {
 			const request = ingress.get(c.session);
 			if (!request) throw Error("missing_native_request");
-			return { request, trustedIp: "198.51.100.21" };
+			const v = await viewerOf({ session: c.session });
+			const viewer = v && {
+				accountId: v.authority.actor.accountId,
+				email: v.principal.email,
+				verified: v.principal.verified,
+			};
+			return { request, trustedIp: "198.51.100.21", viewer };
 		},
 		responseCookies: async () => {},
 		deliverVerification: async (_tx, i) => {

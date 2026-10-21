@@ -22,6 +22,7 @@ import {
 	type SectionViewer,
 } from "@everyfield/domain/settings";
 import { cookies, headers } from "next/headers";
+import { after } from "next/server";
 import { createHmac, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { database } from "@/server/database";
@@ -185,11 +186,22 @@ function create(v: z.infer<typeof env>) {
 		admissionDb: db,
 		origin,
 		secret: v.IDENTITY_SECRET,
-		// The browser's own request: its session cookie and Origin header go to Better Auth unchanged.
+		// The browser's own request: its session cookie and Origin header go to Better Auth unchanged. The viewer is
+		// this request's cached lookup (D60), so the call reads no session again.
 		async request() {
 			const request = new Request(`${origin}/api/auth/settings`, { method: "POST", headers: await headers() });
-			return { request, trustedIp: trustedIdentityIp(request, process.env.VERCEL === "1") };
+			const viewer = await signedIn();
+			return {
+				request,
+				trustedIp: trustedIdentityIp(request, process.env.VERCEL === "1"),
+				viewer: viewer && {
+					accountId: viewer.accountId,
+					email: viewer.principal.email,
+					verified: viewer.principal.verified,
+				},
+			};
 		},
+		later: after,
 		// Better Auth's new session cookie after a password or email change.
 		async responseCookies(_ctx, list) {
 			const jar = await cookies();

@@ -11,7 +11,7 @@ import { identityAuth } from "../identity/auth.ts";
 import { executeWrites } from "../operations/writes.ts";
 import { attemptBudget, IdentityRefusal } from "../identity/budget.ts";
 import { accountId } from "@everyfield/contracts/common";
-import { readViewer, writeVisibility } from "../access/session.ts";
+import { writeVisibility } from "../access/session.ts";
 import { now, hash, deny, Refusal, recover, parse, type Tx } from "./core.ts";
 import { issueRestrictedDeletionSession } from "./deletion.ts";
 export interface CredentialConfig {
@@ -20,8 +20,15 @@ export interface CredentialConfig {
 	admissionDb: Database;
 	origin: string;
 	secret: string;
-	// Native adapter binds actual cookie and overwritten trusted IP to this session.
-	request(ctx: NativeSettingsContext): Promise<{ request: Request; trustedIp: string | null }>;
+	// Native adapter binds actual cookie and overwritten trusted IP to this session, with the request's verified viewer
+	// (D60): its account and the Better Auth user row its session lookup read. Null when the session is not live.
+	request(ctx: NativeSettingsContext): Promise<{
+		request: Request;
+		trustedIp: string | null;
+		viewer: { accountId: string; email: string; verified: boolean } | null;
+	}>;
+	/** Runs bookkeeping after the response is sent (Next.js `after`). Without it the work runs before the reply. */
+	later?(work: () => Promise<unknown>): void;
 	responseCookies(ctx: NativeSettingsContext, cookies: string[]): Promise<void>;
 	/** Adds the verification mail for the new address to `writes`, which commit with its proof row. */
 	deliverVerification(
@@ -98,8 +105,8 @@ export function createAccountCredentials(config: CredentialConfig): Pick<
 		},
 	});
 	/**
-	 * The live self this credential call acts for: Better Auth's session for the browser's own cookie, and in parallel
-	 * one app statement for the same session's account, unhidden and fully registered. Both must name this context.
+	 * The live self this credential call acts for: the request's verified viewer, which must be this context's own
+	 * account with a verified address. Better Auth checks the session cookie again inside each credential call.
 	 */
 	async function prepare(ctx: NativeSettingsContext) {
 		const ingress = await config.request(ctx);
@@ -109,20 +116,15 @@ export function createAccountCredentials(config: CredentialConfig): Pick<
 			ingress.request.headers.get("origin") !== config.origin
 		)
 			deny();
-		const [checked, viewer] = await Promise.all([
-			auth.api.getSession({ headers: ingress.request.headers }),
-			readViewer(config.db, ctx.session),
-		]);
-		if (
-			!checked ||
-			!checked.user.emailVerified ||
-			checked.session.id !== ctx.session ||
-			viewer?.registration !== "active" ||
-			ctx.selected.kind !== "account" ||
-			ctx.selected.id !== viewer.accountId
-		)
-			deny();
-		return { account: { id: viewer.accountId }, principal: { email: checked.user.email }, ingress };
+		const viewer = ingress.viewer;
+		if (!viewer?.verified || ctx.selected.kind !== "account" || ctx.selected.id !== viewer.accountId) deny();
+		return { account: { id: viewer.accountId }, principal: { email: viewer.email }, ingress };
+	}
+	/** Settles a budget reservation after the reply when the host supports it; a failure there changes no outcome. */
+	function settle(reservation: Awaited<ReturnType<typeof budget.reserve>>, success: boolean) {
+		const work = () => budget.finish(reservation, success).catch(() => undefined);
+		if (config.later) config.later(work);
+		else return work();
 	}
 	async function recorded(
 		accountId: string,
@@ -174,7 +176,7 @@ export function createAccountCredentials(config: CredentialConfig): Pick<
 					.catch(() => deny("temporary"));
 				try {
 					await auth.api.changeEmail({ headers: a.ingress.request.headers, body: { newEmail: v.newEmail } });
-					await budget.finish(reservation, true);
+					await settle(reservation, true);
 					return { status: "ok" as const, value: { status: "verification_requested" as const } };
 				} catch {
 					await budget.finish(reservation, false);
@@ -268,12 +270,9 @@ export function createAccountCredentials(config: CredentialConfig): Pick<
 				committedAccount = a.account.id;
 				// The host consumes supported Set-Cookie headers separately. Never store token.
 				await config.responseCookies(ctx, changed.headers.getSetCookie());
-				// Clearing the failure budget and recording the event are independent; a budget failure cannot undo the change.
-				const [, outcome] = await Promise.all([
-					budget.finish(reservation, true).catch(() => undefined),
-					recorded(a.account.id, a.principal.email, "password_changed", correlationId),
-				]);
-				return outcome;
+				// Clearing the failure budget waits for no one; a budget failure cannot undo the change.
+				await settle(reservation, true);
+				return await recorded(a.account.id, a.principal.email, "password_changed", correlationId);
 			} catch (e) {
 				if (committedAccount)
 					return credentialOutcome.parse({
