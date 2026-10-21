@@ -643,6 +643,38 @@
 		"limit": 7,
 		"retry": 14
 	},
+	"tasks.bulkComplete": {
+		"limit": 13,
+		"retry": 26
+	},
+	"tasks.bulkReschedule": {
+		"limit": 13,
+		"retry": 26
+	},
+	"tasks.completeOccurrence": {
+		"limit": 13,
+		"retry": 26
+	},
+	"tasks.configureRecurrence": {
+		"limit": 3,
+		"retry": 6
+	},
+	"tasks.createSubtask": {
+		"limit": 4,
+		"retry": 8
+	},
+	"tasks.removeSubtask": {
+		"limit": 3,
+		"retry": 6
+	},
+	"tasks.replacePrerequisites": {
+		"limit": 4,
+		"retry": 8
+	},
+	"tasks.setSubtaskCompletion": {
+		"limit": 3,
+		"retry": 6
+	},
 	"tasks.changeStatus": {
 		"limit": 13,
 		"retry": 26
