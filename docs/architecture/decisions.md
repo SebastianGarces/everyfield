@@ -4,7 +4,7 @@ These owner and coordinator rulings govern the current build. Later rulings over
 
 ## D59, 2026-10-19: one actor per request
 
-Resolve the verified session, account, selected owner and seat once per server request and share that context across its callers. Domain reads accept it; writes confirm current authority when changing data. Prefer a short shared read transaction where practical and count page round trips. This removes repeated actor resolution. D60 and D64 refine the authentication mechanism; D70 refines write checks.
+Resolve the verified session, account, selected owner and seat once per server request and share that context across its callers. Domain reads accept it; writes confirm current authority when changing data. Prefer a short shared read transaction where practical and count page round trips. This removes repeated actor resolution. D60 and D64 refine the authentication mechanism; D70 refines write checks; C13 refines read checks.
 
 ## D60, 2026-10-19: standard request authentication
 
@@ -69,3 +69,7 @@ The preview supervisor runs four previews at a time. The managed portless launch
 ## D75, 2026-10-20: S1 plan review
 
 Sebastian approved the S1 plan review. A case is an acceptance gate for a package only when that package or one of its dependencies owns every operation the case calls; the package context plan check enforces this, and the case-action baseline is empty. WP-016, WP-021, WP-052 and WP-060 are retired into WP-017, WP-020, WP-051 and WP-059. Tables on main are not a contract: S1 briefs say so, and the schema reference is labelled as the current schema on main. The internal Evry steps evry.claimEffect, evry.appendAudit and evry.recordEffectResult are no longer catalog operations; an executed effect writes its audit record with the change. Their former authority rule, "required owning domain consequence or bounded operator protocol", now applies to evry.executeProposal. This keeps every gate provable when its package closes and keeps requirements free of mechanisms.
+
+## C13, 2026-10-21: live access inside every tenant read
+
+In S1, PR #178 (task reads), PR #180 (Evry reads and stream) and PR #181 (Settings reads) each had a read that trusted the request actor resolved at the start of the request. A seat that ended or a role that changed after that lookup still read tenant data. A read that returns tenant data now checks the live session, seat, role and lifecycle inside the same statement, with no extra statement. D59 and D60 still apply: one cached viewer lookup per request identifies the actor, and each read checks that the actor still has access. Main has no shared fragment for the whole check. The access.writeVisibility fragment covers lifecycle only. PR #180 adds a fragment in packages/evry/src/context/authority.ts that checks session, seat and lifecycle but not role. A shared fragment in packages/domain/src/access/ that also checks role is a follow-up. This closes the gap between the first lookup of a request and each later read.
