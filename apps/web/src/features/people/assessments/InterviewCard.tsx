@@ -20,7 +20,7 @@ import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { startTransition, useId, useOptimistic, useState, useTransition } from "react";
 import { type KeyedPayload, runSave, STAGE_LABEL } from "../model.ts";
-import { LocalDay } from "../parts.tsx";
+import { fresh, LocalDay } from "../parts.tsx";
 import { loadInterviews, recordInterview } from "./actions.ts";
 import {
 	advancedStage,
@@ -136,7 +136,8 @@ export function InterviewCard({
 			} as Interview);
 			expectPerson({ stage: advancedStage(stage, "interviewed") });
 			const r = await runSave(store, "interview", input, (k) => sendTwice(() => recordInterview(k, input)), {
-				fresh: () => key.key,
+				fresh,
+				key,
 				toPerson: (v) => ({ ...store.get().saved, stage: v.person.stage, revision: v.person.revision }) as PlantPerson,
 			});
 			if (r?.status !== "ok") {

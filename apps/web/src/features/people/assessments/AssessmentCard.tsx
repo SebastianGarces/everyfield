@@ -17,7 +17,7 @@ import {
 import { cn } from "@everyfield/ui/foundations";
 import { startTransition, useOptimistic, useState, useTransition } from "react";
 import { type KeyedPayload, runSave } from "../model.ts";
-import { LocalDay } from "../parts.tsx";
+import { fresh, LocalDay } from "../parts.tsx";
 import { loadAssessments, recordAssessment } from "./actions.ts";
 import {
 	firstName,
@@ -103,7 +103,8 @@ export function AssessmentCard({
 				total: LENSES.reduce((t, l) => t + input[l].score, 0),
 			} as Assessment);
 			const r = await runSave(store, "assessment", input, (k) => sendTwice(() => recordAssessment(k, input)), {
-				fresh: () => key.key,
+				fresh,
+				key,
 				toPerson: (v) => ({ ...store.get().saved, stage: v.person.stage, revision: v.person.revision }) as PlantPerson,
 			});
 			if (r?.status !== "ok") {

@@ -30,7 +30,7 @@ import { KeyValue, KeyValueList, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { startTransition, useOptimistic, useState, useTransition } from "react";
 import { runSave, STAGE_LABEL, type KeyedPayload, type Outcome } from "../model.ts";
-import { isConflict, LocalDay } from "../parts.tsx";
+import { fresh, isConflict, LocalDay } from "../parts.tsx";
 import {
 	changeCommitment,
 	correctCommitment,
@@ -193,7 +193,8 @@ export function CommitmentCard({
 			};
 			const key = keyOf(input);
 			const r = await runSave(store, "commitment", input, (k) => sendTwice(() => recordCommitment(k, input)), {
-				fresh: () => key.key,
+				fresh,
+				key,
 				toPerson: (v: CommitmentSaved) => personAfter(v.person.revision, v.person.stage),
 			});
 			if (r?.status !== "ok") {
@@ -249,7 +250,7 @@ export function CommitmentCard({
 				change,
 				{ input, revision },
 				(k) => sendTwice(() => changeCommitment(change, k, revision, input)),
-				{ fresh: () => key.key, toPerson: (v) => personAfter(v.current.personRevision) },
+				{ fresh, key, toPerson: (v) => personAfter(v.current.personRevision) },
 			);
 			if (r?.status !== "ok")
 				return reopen(token, { form: change, draft, revision: r?.status === "lost" ? revision : undefined }, r, key);
@@ -289,7 +290,7 @@ export function CommitmentCard({
 				`correct:${card.id}`,
 				{ input, revision: card.revision },
 				(k) => sendTwice(() => correctCommitment(k, card.revision, personId, input)),
-				{ fresh: () => key.key, toPerson: (v) => personAfter(v.commitments.current.personRevision) },
+				{ fresh, key, toPerson: (v) => personAfter(v.commitments.current.personRevision) },
 			);
 			if (r?.status !== "ok") return reopen(token, { form: "correct", card, draft }, r, key);
 			const page = r.value.commitments;

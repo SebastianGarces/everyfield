@@ -104,3 +104,24 @@ test("INV-form-intent (review F2): a failed save reopens its form only when no f
 	assert.equal(late.editing, null, "no form opens by itself");
 	assert.equal(late.failed.draft, "A");
 });
+
+test("INV-request-key (review F4, round 3): a new intent with the same answers as a lost one gets its own key", async () => {
+	const { PersonStore, runSave } = await import("../../../apps/web/src/features/people/model.ts");
+	const store = new PersonStore({ id: "p1", revision: "1" });
+	let n = 0;
+	const fresh = () => `key-${++n}`;
+	const same = { personId: "p1", occurredOn: "2026-10-01", committed: { score: 3, notes: "same" } };
+	const sent = [];
+	const call = (outcome) => (key) => (sent.push(key), Promise.resolve(outcome));
+	// A: its own intent key; the answer is lost, so the store keeps A's key for the slot.
+	const a = { key: "intent-A", body: "A" };
+	await runSave(store, "assessment", same, call({ status: "lost" }), { fresh, key: a });
+	// B: a new form with the same answers and its own intent key. It must not replay A.
+	const b = { key: "intent-B", body: "B" };
+	await runSave(store, "assessment", same, call({ status: "ok", value: null }), { fresh, key: b });
+	assert.deepEqual(sent, ["intent-A", "intent-B"]);
+	// A caller without its own key keeps the slot rule: a retry of the same payload after a loss replays the lost key.
+	await runSave(store, "other", same, call({ status: "lost" }), { fresh });
+	await runSave(store, "other", same, call({ status: "ok", value: null }), { fresh });
+	assert.equal(sent[2], sent[3]);
+});
