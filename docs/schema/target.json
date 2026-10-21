@@ -70,9 +70,9 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 85,
-  "column_count": 986,
-  "foreign_key_count": 312,
+  "table_count": 88,
+  "column_count": 1009,
+  "foreign_key_count": 318,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -711,6 +711,11 @@
       "training_version",
       "venue",
       "wiki_preference"
+    ],
+    "record_correction.record_type": [
+      "assessment",
+      "interview",
+      "commitment"
     ],
     "recurrence.interval": [
       "daily",
@@ -6352,6 +6357,78 @@
       "future_case_ids": [
         "PERSONREF-MEETING-CHECKLIST-PERSON-RETIRE"
       ]
+    },
+    {
+      "table": "person_merge",
+      "columns": [
+        "source_id",
+        "tenant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-015"
+      ],
+      "meaning": "Merge lineage: the source and survivor of one reviewed merge.",
+      "lock_order": "Lock owner and live same-owner source/survivor Persons in UUID order, then consumer rows; reference inserts take the same Person locks.",
+      "merge_policy": "Immutable lineage of an earlier merge; never moved. A chained merge changes the survivor revision, so the earlier Unmerge is refused.",
+      "inverse_policy": "Unmerge marks the row reversed; it is never rewritten to another Person.",
+      "retirement_policy": "Lineage stays while either Person exists and goes with it on purge.",
+      "privacy_policy": "Holds reviewed Person field values for Owners and Admins only; never in central audit.",
+      "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
+      "future_case_ids": [
+        "ADR1-017"
+      ]
+    },
+    {
+      "table": "person_merge",
+      "columns": [
+        "survivor_id",
+        "tenant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-015"
+      ],
+      "meaning": "Merge lineage: the source and survivor of one reviewed merge.",
+      "lock_order": "Lock owner and live same-owner source/survivor Persons in UUID order, then consumer rows; reference inserts take the same Person locks.",
+      "merge_policy": "Immutable lineage of an earlier merge; never moved. A chained merge changes the survivor revision, so the earlier Unmerge is refused.",
+      "inverse_policy": "Unmerge marks the row reversed; it is never rewritten to another Person.",
+      "retirement_policy": "Lineage stays while either Person exists and goes with it on purge.",
+      "privacy_policy": "Holds reviewed Person field values for Owners and Admins only; never in central audit.",
+      "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
+      "future_case_ids": [
+        "ADR1-017"
+      ]
+    },
+    {
+      "table": "record_correction",
+      "columns": [
+        "person_id",
+        "plant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-015"
+      ],
+      "meaning": "Correction history of a record of this Person.",
+      "lock_order": "Lock owner and live same-owner source/survivor Persons in UUID order, then consumer rows; reference inserts take the same Person locks.",
+      "merge_policy": "Moves with its record to the survivor; the correction keeps its original corrector and values.",
+      "inverse_policy": "Moves back with its record on a guarded Unmerge.",
+      "retirement_policy": "History stays under current permission and goes with the Person on purge.",
+      "privacy_policy": "Private qualification values stay in plant history; never in central audit.",
+      "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
+      "future_case_ids": [
+        "ADR1-017"
+      ]
     }
   ],
   "person_snapshot_references": [
@@ -6379,6 +6456,11 @@
       "table": "audit_event",
       "field": "subject_id/before_value/after_value/result",
       "policy": "Protected changed-field Person history and exact replies retain original owner and actor attribution. Current Person removal scrubs bodies and request replies; record identity confers no current access."
+    },
+    {
+      "table": "record_correction",
+      "field": "record_id",
+      "policy": "The corrected assessment, interview or commitment record; never a Person. The record identity stays frozen on merge and Unmerge, and the correction moves with its record's Person."
     }
   ],
   "person_source_ruling": {
@@ -21300,6 +21382,94 @@
       "rls": false
     },
     {
+      "name": "model_spend",
+      "domain": "assistant",
+      "purpose": "Paid Evry model spend committed per calendar month (UTC) in this database: reservations for model calls in progress plus the settled cost of finished calls, checked against the monthly limit before the provider sees any paid call (D77).",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-C-035"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-051"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-051"
+        ],
+        "rule": "WP-051 Evry model qualification spend limit through Drizzle Kit."
+      },
+      "feature_ids": [
+        "EVR-004",
+        "EVR-019",
+        "EVR-027",
+        "EVR-030"
+      ],
+      "acceptance_ids": [],
+      "future_case_ids": [],
+      "scope": "assistant",
+      "invariants": [
+        "A paid model call reserves its byte-bounded worst-case cost in one conditional statement before the provider sees it; the charge never passes the configured monthly limit at reservation.",
+        "A call settles once to its reported usage; a call that never reports usage keeps its whole reservation."
+      ],
+      "revision": "One row per month; reservations add and settlements subtract in single statements.",
+      "idempotency": "A call settles at most once; a call that stopped without usage keeps its full reservation.",
+      "deletion": "Holds no personal or tenant data; conversation, account and tenant purges leave it unchanged.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "",
+          "name": "month",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "charged_micro_usd",
+          "type": "bigint",
+          "nullable": false
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "month"
+          ]
+        }
+      ],
+      "foreign_keys": [],
+      "checks": [
+        "\"model_spend\".\"charged_micro_usd\" >= 0",
+        "\"model_spend\".\"month\"=date_trunc('month',\"model_spend\".\"month\")::date"
+      ],
+      "indexes": {},
+      "constraint_names": {
+        "primary": [],
+        "unique": [
+          "model_spend_month_key"
+        ],
+        "foreign": [],
+        "checks": [
+          "model_spend_month",
+          "model_spend_charged"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
       "name": "notice",
       "domain": "communication",
       "purpose": "Per-recipient occurrence, future reminder and due-visible inbox read state. Exactly one account, plant or organization owns this row. Purpose selects the closed native event/reminder kind; source must match that kind.",
@@ -24972,6 +25142,253 @@
         "checks": [
           "person_import_plan",
           "person_import_failed"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "person_merge",
+      "domain": "people",
+      "purpose": "One reviewed merge of a source Person into a survivor of the same owner: the survivor values it replaced, the source facts it cleared, the references it moved and the revisions it left, so a guarded Unmerge restores both exactly.",
+      "library_owned": false,
+      "jsonb_keys": {
+        "prior": [
+          "source",
+          "survivor"
+        ],
+        "moved": [
+          "tag",
+          "tag_dropped",
+          "skill",
+          "note",
+          "assessment",
+          "interview",
+          "commitment",
+          "merged_person"
+        ]
+      },
+      "capabilities": [
+        "CAP-A-029"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-015"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-015"
+        ],
+        "rule": "WP-015 People merge and record correction storage through Drizzle Kit."
+      },
+      "feature_ids": [
+        "PPL-017"
+      ],
+      "acceptance_ids": [],
+      "future_case_ids": [],
+      "scope": "tenant",
+      "invariants": [
+        "Source and survivor share the owner.",
+        "At most one open merge names a source.",
+        "Unmerge proceeds only while both revisions and the survivor reference digest are unchanged."
+      ],
+      "revision": "Unmerge sets unmerged_at once.",
+      "idempotency": "The merge audit row's request key returns the recorded result.",
+      "deletion": "Rows cascade with either Person, so church purge removes them.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "tenant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "source_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "survivor_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "merged_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        },
+        {
+          "note": "",
+          "name": "prior",
+          "type": "jsonb",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "moved",
+          "type": "jsonb",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "source_revision",
+          "type": "bigint",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "survivor_revision",
+          "type": "bigint",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "references_digest",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "unmerged_at",
+          "type": "timestamptz",
+          "nullable": true
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "source_id"
+          ],
+          "where": "unmerged_at IS NULL"
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "A merge goes with its Person."
+          },
+          "columns": [
+            "source_id",
+            "tenant_id"
+          ],
+          "references": {
+            "table": "person",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "A merge goes with its Person."
+          },
+          "columns": [
+            "survivor_id",
+            "tenant_id"
+          ],
+          "references": {
+            "table": "person",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "no_action",
+            "policy": "Owner purge deletes the people first, which removes their merges."
+          },
+          "columns": [
+            "tenant_id"
+          ],
+          "references": {
+            "table": "tenant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action"
+        }
+      ],
+      "checks": [
+        "\"person_merge\".\"source_id\"<>\"person_merge\".\"survivor_id\"",
+        "jsonb_typeof(\"person_merge\".\"moved\")='object'",
+        "jsonb_typeof(\"person_merge\".\"prior\")='object'"
+      ],
+      "indexes": {
+        "person_merge_open_source": {
+          "name": "person_merge_open_source",
+          "isUnique": true,
+          "where": "unmerged_at IS NULL",
+          "columns": [
+            {
+              "expression": "source_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "person_merge_survivor_ref": {
+          "name": "person_merge_survivor_ref",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "survivor_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "person_merge_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "person_merge_tenant_id_tenant_id_fk",
+          "person_merge_source",
+          "person_merge_survivor"
+        ],
+        "checks": [
+          "person_merge_distinct",
+          "person_merge_prior",
+          "person_merge_moved"
         ]
       },
       "policies": {},
@@ -29600,6 +30017,237 @@
         "checks": [
           "record_ck_0",
           "record_ck_1"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "record_correction",
+      "domain": "people",
+      "purpose": "One correction of an assessment, interview or commitment card: the changed fields with old and new values and the reason. The audit row with the same ID names the corrector.",
+      "library_owned": false,
+      "jsonb_keys": {
+        "before_value": [
+          "occurredOn",
+          "committed",
+          "compelled",
+          "contagious",
+          "courageous",
+          "maturity",
+          "gifted",
+          "chemistry",
+          "rightReasons",
+          "season",
+          "result",
+          "nextSteps",
+          "notes"
+        ],
+        "after_value": [
+          "occurredOn",
+          "committed",
+          "compelled",
+          "contagious",
+          "courageous",
+          "maturity",
+          "gifted",
+          "chemistry",
+          "rightReasons",
+          "season",
+          "result",
+          "nextSteps",
+          "notes"
+        ]
+      },
+      "capabilities": [
+        "CAP-A-028"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-015"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-015"
+        ],
+        "rule": "WP-015 People merge and record correction storage through Drizzle Kit."
+      },
+      "feature_ids": [
+        "PPL-015",
+        "TEAM-002",
+        "TEAM-009"
+      ],
+      "acceptance_ids": [],
+      "future_case_ids": [],
+      "scope": "plant",
+      "invariants": [
+        "A correction names a record of its own Person and church.",
+        "Original recorder and recorded instant never change."
+      ],
+      "revision": "Append-only.",
+      "idempotency": "The correction audit row's request key returns the recorded result.",
+      "deletion": "Rows cascade with their Person, so church purge removes them.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "person_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "record_type",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "record_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "corrected_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        },
+        {
+          "note": "",
+          "name": "before_value",
+          "type": "jsonb",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "after_value",
+          "type": "jsonb",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "reason",
+          "type": "text",
+          "nullable": false
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "A correction goes with its Person."
+          },
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "person",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "no_action",
+            "policy": "Owner purge deletes the people first, which removes their corrections."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action"
+        },
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "A correction goes with its record."
+          },
+          "columns": [
+            "record_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "record",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        }
+      ],
+      "checks": [
+        "\"record_correction\".\"record_type\" IN ('assessment','interview','commitment')"
+      ],
+      "indexes": {
+        "record_correction_record": {
+          "name": "record_correction_record",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "record_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "corrected_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "record_correction_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "record_correction_plant_id_plant_id_fk",
+          "record_correction_person",
+          "record_correction_target"
+        ],
+        "checks": [
+          "record_correction_type"
         ]
       },
       "policies": {},

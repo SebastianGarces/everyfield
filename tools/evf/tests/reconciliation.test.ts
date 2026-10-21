@@ -1319,6 +1319,72 @@ test("INV-carry-approval: an approval carries only over clean merges of main on 
 	}
 });
 
+test("BUG-196-carry-progress: a carried approval on owning paths records progress only while its carry proof holds", () => {
+	const f = mergeFixture(),
+		log = console.log;
+	try {
+		f.authorize("WP-032");
+		const progressPath = join(f.root, "docs/build-progress.json"),
+			initial = JSON.parse(readFileSync(progressPath, "utf8"));
+		initial.packages["WP-001"].status = "not_started";
+		writeFileSync(progressPath, JSON.stringify(initial));
+		reconcileProgress(f.root);
+		f.commit();
+		f.git("push", "-q", "origin", "main");
+		const task = parseTask("WP-001"),
+			wt = f.task(task.slug);
+		const inWt = (...args: string[]) => execFileSync("git", ["-C", wt, ...args], { encoding: "utf8" }).trim();
+		mkdirSync(join(wt, "packages/reference"), { recursive: true });
+		writeFileSync(join(wt, "packages/reference/fixture.txt"), "Reviewed reference bundle");
+		inWt("add", "packages/reference/fixture.txt");
+		inWt("commit", "-qm", "Reviewed fixture output");
+		const approved = inWt("rev-parse", "HEAD");
+		writeFileSync(join(f.root, "docs/main-only.md"), "Main only.\n");
+		f.git("add", "docs/main-only.md");
+		f.git("commit", "-qm", "Main changes an unrelated path");
+		f.git("push", "-q", "origin", "main");
+		inWt("fetch", "-q", "origin", "main");
+		inWt("merge", "-q", "--no-edit", "origin/main");
+		const head = inWt("rev-parse", "HEAD"),
+			state = f.getState();
+		state.allowMerge = true;
+		state.mergeBranch = task.branch;
+		state.pr.headRefOid = head;
+		state.comments["77"][0].body =
+			`EVF-Review: ${JSON.stringify({ head: approved, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
+		f.setState(state);
+		console.log = () => {};
+		assert.equal(ship(f.root, task), 0);
+		const record = JSON.parse(readFileSync(join(evfDataDir(f.root), "shipped", `${task.slug}.json`), "utf8"));
+		assert.equal(record.verified_head, head);
+		assert.equal(record.verification.approval.head, approved);
+		assert.equal(record.verification.carry.approvedHead, approved);
+		assert.equal(loadProgress(f.root)["WP-001"].milestones[task.id].merge_commit, record.merge_commit);
+		const progress = readFileSync(progressPath, "utf8");
+
+		// The carry must still prove itself: a record whose proof names another head, or whose approved head
+		// does not reach the tested head through clean merges of main, is refused as before.
+		const refused = (edit: (r) => void) => {
+			const copy = structuredClone(record);
+			edit(copy);
+			assert.throws(() => recordProgress(f.root, copy, true), /independently reviewed/);
+			assert.equal(readFileSync(progressPath, "utf8"), progress);
+		};
+		refused((r) => delete r.verification.carry);
+		refused((r) => (r.verification.carry.approvedHead = f.sha));
+		refused((r) => {
+			r.verification.approval.head = f.sha;
+			r.verification.carry.approvedHead = f.sha;
+		});
+		refused((r) => (r.verification.checks[0].bucket = "fail"));
+		listShipped(f.root, [task.id]);
+		assert.equal(producerReady(f.root, "WP-001"), true);
+	} finally {
+		console.log = log;
+		f.close();
+	}
+});
+
 test("BUG-179-red-main: ship refuses while main's latest CI run failed, unless the PR fixes the open P0 issue", () => {
 	const f = mergeFixture();
 	try {

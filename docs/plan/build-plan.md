@@ -54,7 +54,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-012 | Households tags skills and person fields | 8 | 21 | 10 | 4 | 2 |
 | WP-013 | People CSV import/export | 2 | 5 | 3 | 4 | 1.5 |
 | WP-014 | Assessments interviews commitments | 8 | 10 | 13 | 6 | 2 |
-| WP-015 | Corrections duplicate resolution and merge | 9 | 10 | 36 | 1 | 2 |
+| WP-015 | Corrections duplicate resolution and merge | 9 | 10 | 36 | 3 | 2 |
 | WP-032 | Canonical reference/template manifest | 7 | 12 | 15 | 2 | 1.5 |
 | WP-020 | Meetings, venues, list and detail, invitations and RSVP | 29 | 48 | 35 | 5 | 3 |
 | WP-017 | Teams, roster, roles, leader appointments and org chart | 11 | 41 | 26 | 4 | 2.5 |
@@ -87,7 +87,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-048 | Dashboard/navigation/settings integration | 3 | 6 | 5 | 2 | 1.5 |
 | WP-049 | Feedback and later public marketing | 19 | 10 | 12 | 0 | 2 |
 | WP-050 | Environment bootstrap/ops/observability | 37 | 35 | 69 | 9 | 3.5 |
-| WP-051 | Evry conversations, reads and runs | 21 | 17 | 57 | 2 | 2.5 |
+| WP-051 | Evry conversations, reads and runs | 21 | 17 | 57 | 3 | 2.5 |
 | WP-053 | Evry approval and execution | 27 | 9 | 37 | 2 | 2.5 |
 | WP-054 | Evry files, history and conversation extras | 7 | 8 | 14 | 2 | 1.5 |
 | WP-059 | Evry people adapters | 3 | 26 | 8 | 0 | 2 |

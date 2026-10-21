@@ -1,6 +1,6 @@
 "use client";
 
-import { Edit02Icon, UserIcon, UserMultipleIcon } from "@hugeicons/core-free-icons";
+import { UserIcon, UserMultipleIcon } from "@hugeicons/core-free-icons";
 import { Button, IntentLink } from "@everyfield/ui/controls";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { Avatar, StageChip, Tag } from "@everyfield/ui/display";
@@ -142,28 +142,6 @@ export function ResultCard({
 					))}
 				</div>
 			) : null}
-		</section>
-	);
-}
-
-/**
- * The place for a prepared change in the conversation. WP-053/ui replaces this with the review card (approve, edit,
- * cancel); until then the panel says plainly that a change waits and that nothing changes without approval.
- */
-export function ReviewSlot({ proposalId, target }: { proposalId: string; target: string | null }) {
-	return (
-		<section
-			data-proposal={proposalId}
-			aria-label="Prepared change"
-			className="overflow-hidden rounded-card bg-surface-raised shadow-[inset_0_0_0_1px_var(--ef-line),var(--ef-shadow-raised)]"
-		>
-			<header className="flex items-center gap-2.5 border-b border-line bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-600">
-				<Icon icon={Edit02Icon} size={16} />
-				{target ? `Change prepared for ${target}` : "Change prepared"}
-			</header>
-			<p className="px-4 py-3 text-sm text-text-2">
-				Nothing changes until you approve it. Reviewing changes in this panel is not available yet.
-			</p>
 		</section>
 	);
 }

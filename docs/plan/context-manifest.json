@@ -2637,10 +2637,13 @@
         "conversation_event",
         "early_access_attempt",
         "early_access_request",
+        "model_spend",
         "onboarding_setup",
         "people_column",
         "person_import",
+        "person_merge",
         "proposal",
+        "record_correction",
         "relationship_invitation",
         "schema_migration",
         "settings_preview"
@@ -6054,7 +6057,9 @@
         "WP-090"
       ],
       "producer_table_names": [
-        "audit_event"
+        "audit_event",
+        "person_merge",
+        "record_correction"
       ],
       "consumer_table_names": [
         "commitment",
@@ -6543,6 +6548,7 @@
         "person",
         "plant",
         "platform_grant",
+        "record_correction",
         "seat",
         "tenant"
       ],
@@ -6946,6 +6952,7 @@
         "meeting",
         "participation",
         "person",
+        "record_correction",
         "team",
         "team_tenure"
       ],
@@ -18657,7 +18664,8 @@
       ],
       "producer_table_names": [
         "conversation",
-        "conversation_event"
+        "conversation_event",
+        "model_spend"
       ],
       "consumer_table_names": [
         "audit_event",
@@ -20046,6 +20054,7 @@
       "producer_table_names": [],
       "consumer_table_names": [
         "audit_event",
+        "model_spend",
         "proposal",
         "record",
         "reference_item",
@@ -26002,6 +26011,7 @@
         "mail_request_member",
         "meeting",
         "meeting_kit_item",
+        "model_spend",
         "notice",
         "notification_preference",
         "obligation",
@@ -26013,6 +26023,7 @@
         "people_column",
         "person",
         "person_import",
+        "person_merge",
         "person_note",
         "person_skill",
         "person_tag",
@@ -26027,6 +26038,7 @@
         "provider_event",
         "reading",
         "record",
+        "record_correction",
         "recurrence",
         "reference_activation",
         "reference_item",
@@ -31990,6 +32002,7 @@
         "mail_request_member",
         "meeting",
         "meeting_kit_item",
+        "model_spend",
         "notice",
         "notification_preference",
         "obligation",
@@ -32001,6 +32014,7 @@
         "people_column",
         "person",
         "person_import",
+        "person_merge",
         "person_note",
         "person_skill",
         "person_tag",
@@ -32014,6 +32028,7 @@
         "proposal",
         "provider_event",
         "reading",
+        "record_correction",
         "recurrence",
         "reference_activation",
         "reference_item",
