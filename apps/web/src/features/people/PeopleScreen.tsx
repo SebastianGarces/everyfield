@@ -2,6 +2,8 @@
 
 import {
 	Cancel01Icon,
+	FileExportIcon,
+	FileImportIcon,
 	FilterHorizontalIcon,
 	GridViewIcon,
 	KanbanIcon,
@@ -12,21 +14,25 @@ import {
 import type * as people from "@everyfield/contracts/people";
 import {
 	Button,
+	buttonVariants,
 	Card,
 	EmptyState,
 	FilterChip,
 	IconButton,
+	IntentLink,
 	PageHeader,
 	SearchInput,
 	SegmentedControl,
 	StatePanel,
 } from "@everyfield/ui/controls";
 import { Avatar, DataTable, Pagination, PersonCard, StageChip, StatusBadge, type Column } from "@everyfield/ui/display";
+import { Icon } from "@everyfield/ui/foundations";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import type { z } from "zod";
 import { loadPeopleView } from "./actions.ts";
 import { AddPersonDialog } from "./AddPersonDialog.tsx";
+import { ExportDialog } from "./import-export/ExportDialog.tsx";
 import {
 	CLASSIFICATION_LABEL,
 	CLASSIFICATIONS,
@@ -69,6 +75,7 @@ export function PeopleScreen({ loaded, canWrite }: { loaded: PeopleView; canWrit
 	const pathname = usePathname();
 	const [navigating, startTransition] = useTransition();
 	const [adding, setAdding] = useState(false);
+	const [exporting, setExporting] = useState(false);
 	const [server, setServer] = useState(loaded);
 	const [views, setViews] = useState<Partial<Record<Kind, PeopleView>>>(() => ({
 		[kindOf(loaded.query.view)]: loaded,
@@ -127,11 +134,24 @@ export function PeopleScreen({ loaded, canWrite }: { loaded: PeopleView; canWrit
 				title="People"
 				subtitle="Everyone you have met, from first visit to leader."
 				actions={
-					canWrite ? (
-						<Button variant="primary" icon={UserAdd01Icon} onClick={() => setAdding(true)}>
-							Add person
-						</Button>
-					) : null
+					<>
+						{shown.workspaceEmpty ? null : (
+							<Button variant="secondary" icon={FileExportIcon} onClick={() => setExporting(true)}>
+								Export CSV
+							</Button>
+						)}
+						{canWrite ? (
+							<>
+								<IntentLink href="/people/import" className={buttonVariants({ variant: "secondary" })}>
+									<Icon icon={FileImportIcon} size={18} />
+									Import CSV
+								</IntentLink>
+								<Button variant="primary" icon={UserAdd01Icon} onClick={() => setAdding(true)}>
+									Add person
+								</Button>
+							</>
+						) : null}
+					</>
 				}
 			/>
 			{shown.workspaceEmpty ? (
@@ -142,9 +162,15 @@ export function PeopleScreen({ loaded, canWrite }: { loaded: PeopleView; canWrit
 						headingLevel="h2"
 						action={
 							canWrite ? (
-								<Button variant="primary" icon={UserAdd01Icon} onClick={() => setAdding(true)}>
-									Add a person
-								</Button>
+								<>
+									<IntentLink href="/people/import" className={buttonVariants({ variant: "primary" })}>
+										<Icon icon={FileImportIcon} size={18} />
+										Import a spreadsheet
+									</IntentLink>
+									<Button variant="secondary" icon={UserAdd01Icon} onClick={() => setAdding(true)}>
+										Add a person
+									</Button>
+								</>
 							) : null
 						}
 					>
@@ -162,6 +188,7 @@ export function PeopleScreen({ loaded, canWrite }: { loaded: PeopleView; canWrit
 				</Card>
 			)}
 			{canWrite ? <AddPersonDialog open={adding} onOpenChange={setAdding} /> : null}
+			<ExportDialog query={query} open={exporting} onOpenChange={setExporting} />
 		</>
 	);
 }
