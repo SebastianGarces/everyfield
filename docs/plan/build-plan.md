@@ -39,7 +39,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-001 | Current source references and version identity | 0 | 0 | 0 | 0 | 1 |
 | WP-002 | Shared identity, access, time and change-history behavior | 5 | 2 | 8 | 0 | 1.5 |
 | WP-003 | Secure sign-in, private files and streamed responses | 12 | 0 | 11 | 2 | 1.5 |
-| WP-004 | Data storage for shipped features with tenant isolation | 20 | 4 | 46 | 70 | 4 |
+| WP-004 | Data storage for shipped features with tenant isolation | 20 | 4 | 46 | 71 | 4 |
 | WP-031 | Reliable background work and delivery recovery | 17 | 17 | 22 | 7 | 2 |
 | WP-088 | Product design foundations, dark mode and application shell | 0 | 0 | 0 | 0 | 2 |
 | WP-089 | Shared controls, surfaces and overlays | 0 | 0 | 0 | 0 | 3 |
@@ -51,7 +51,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-008 | Invitation lifecycle and atomic acceptance | 7 | 13 | 42 | 5 | 2 |
 | WP-009 | Onboarding and discovery conversion | 7 | 8 | 23 | 5 | 2 |
 | WP-010 | Account and settings surfaces | 20 | 21 | 39 | 7 | 2.5 |
-| WP-012 | Households tags skills and person fields | 8 | 21 | 10 | 3 | 2 |
+| WP-012 | Households tags skills and person fields | 8 | 21 | 10 | 4 | 2 |
 | WP-013 | People CSV import/export | 2 | 5 | 3 | 3 | 1.5 |
 | WP-014 | Assessments interviews commitments | 8 | 10 | 13 | 5 | 2 |
 | WP-015 | Corrections duplicate resolution and merge | 9 | 10 | 36 | 1 | 2 |
