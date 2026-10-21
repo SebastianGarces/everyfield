@@ -210,7 +210,9 @@ export function blockerText(cause: Blocker, names: { source: string; survivor: s
 		case "linked_account_collision":
 			return `${names.source} and ${names.survivor} both have an EveryField account. Two accounts cannot become one person.`;
 		case "linked_source":
-			return `${names.source} has an EveryField account, so ${names.source} must be the person you keep.`;
+			return names.source === names.survivor
+				? "The record with an EveryField account must be the one you keep."
+				: `${names.source} has an EveryField account, so ${names.source} must be the person you keep.`;
 		case "unregistered_reference":
 			return `${names.source} still has ${kindList(kinds)}. EveryField cannot move these yet. Finish or reassign them, then review again.`;
 	}

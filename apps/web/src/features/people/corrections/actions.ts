@@ -20,8 +20,8 @@ const pairRequest = z.strictObject({ person: personId, with: personId, keep: per
 /** The review again, after the reviewed state changed or the reviewer chose the other person to keep. */
 export async function reviewPair(query: unknown): Promise<Outcome<PairView>> {
 	return boundary(pairRequest, query, async (v, q): Promise<Outcome<PairView>> => {
-		const view = await readPair(v, q);
-		return view.kind === "failed" ? { status: "lost" } : { status: "ok", value: view };
+		const r = await read(v, async (tx, ctx) => ({ status: "ok", value: await readPair(tx, ctx, q) }));
+		return r.status === "ok" ? { status: "ok", value: r.value } : { status: "lost" };
 	});
 }
 
@@ -44,7 +44,7 @@ export async function mergeDestination(sourceId: string): Promise<Outcome<z.infe
 
 export async function unmergePreview(mergeId: string): Promise<Outcome<UnmergeView>> {
 	return boundary(c.unmergePreviewRequest, { mergeId }, async (v, request) =>
-		outcome(await readUnmerge(v, request.mergeId), (r) => r),
+		outcome(await read(v, (tx, ctx) => readUnmerge(tx, ctx, request.mergeId)), (r) => r),
 	);
 }
 
@@ -79,7 +79,7 @@ export async function unmergePair(
 
 export async function loadRecords(id: string): Promise<Outcome<Records>> {
 	return boundary(c.personRequest, { personId: id }, async (v, request) =>
-		outcome(await readRecords(v, request.personId), (r) => r),
+		outcome(await read(v, (tx, ctx) => readRecords(tx, ctx, request.personId)), (r) => r),
 	);
 }
 

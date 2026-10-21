@@ -191,6 +191,11 @@ function PairReview({
 	const blocked = review.blockers.causes.length > 0;
 	const fromSource = (review.fields as Field[]).filter((f) => choices[f.field] === "source").map((f) => f.field);
 	const stageMoves = review.stage && review.stage.result !== review.stage.survivor;
+	// Two records with one name: name the swap by record, not by a name that fits both.
+	const swapLabel =
+		source.displayName === survivor.displayName
+			? "Keep the other record instead"
+			: `Keep ${source.displayName} instead`;
 
 	return (
 		<div className="grid grid-cols-[minmax(0,1fr)_340px] items-start gap-5 max-app-lg:grid-cols-1">
@@ -226,7 +231,7 @@ function PairReview({
 						loading={loading}
 						onClick={() => onKeep(source.personId)}
 					>
-						Keep {source.displayName} instead
+						{swapLabel}
 					</Button>
 				</div>
 				<div className="mt-2 flex flex-col">
@@ -295,14 +300,17 @@ function PairReview({
 							</CardTitle>
 						</CardHeading>
 					</CardHeader>
-					{groups.moves.length ? (
+					{groups.moves.length || groups.blocked.length ? (
 						<ul className="flex flex-col">
-							{groups.moves.map((r) => (
+							{[...groups.moves, ...groups.blocked].map((r) => (
 								<li
 									key={r.kind}
 									className="flex items-center justify-between gap-3 border-t border-line py-2.5 text-sm first:border-t-0"
 								>
-									<span className="text-text-2">{kindTitle(r.kind)}</span>
+									<span className="text-text-2">
+										{kindTitle(r.kind)}
+										{r.treatment === "block" ? <span className="text-magenta-600"> · cannot move yet</span> : null}
+									</span>
 									<span className="font-semibold text-ink tabular-nums">{r.count}</span>
 								</li>
 							))}
@@ -341,7 +349,7 @@ function PairReview({
 												loading={loading}
 												onClick={() => onKeep(source.personId)}
 											>
-												Keep {source.displayName} instead
+												{swapLabel}
 											</Button>
 										) : null}
 									</li>

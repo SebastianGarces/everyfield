@@ -3,7 +3,7 @@ import { buttonVariants, Card, IntentLink, PageHeader, StatePanel } from "@every
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { gate } from "../routes.tsx";
-import { canWrite } from "../server.ts";
+import { canWrite, read } from "../server.ts";
 import { DuplicatesScreen } from "./DuplicatesScreen.tsx";
 import { pairHref } from "./model.ts";
 import { readPair } from "./server.ts";
@@ -46,7 +46,8 @@ export async function DuplicatesPage({
 			</Closed>
 		);
 	const pair = { person: q.person, with: q.with, keep: q.keep };
-	return <DuplicatesScreen initial={await readPair(viewer, pair)} query={pair} />;
+	const r = await read(viewer, async (tx, ctx) => ({ status: "ok", value: await readPair(tx, ctx, pair) }));
+	return <DuplicatesScreen initial={r.status === "ok" ? r.value : { kind: "failed" }} query={pair} />;
 }
 
 function Closed({ title, children }: { title: string; children: ReactNode }) {

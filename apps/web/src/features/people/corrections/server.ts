@@ -14,16 +14,16 @@ import {
 	recordCorrections,
 } from "@everyfield/domain/people";
 import type { z } from "zod";
-import { read, type Viewer } from "../server.ts";
 import { defaultSurvivor, fieldText, type Households, type MergeField } from "./model.ts";
 
-// The reads behind the duplicate review, Unmerge preview and record corrections. Each screen read is one transaction:
-// the reads it needs, never one request per part.
+// The reads behind the duplicate review, Unmerge preview and record corrections. Each one runs inside the caller's single
+// read transaction (people/server.ts read()), so a screen read is one transaction with the reads it needs, never one
+// request per part. They take the transaction, so the statement census can count them (tests/integration/writes).
 
 type Review = z.infer<typeof c.mergeReview>;
 type PersonResult = z.infer<typeof c.personResult>;
 type PersonId = z.infer<typeof c.personRequest>["personId"];
-type PairQuery = { person: PersonId; with: PersonId; keep: PersonId | null };
+export type PairQuery = { person: PersonId; with: PersonId; keep: PersonId | null };
 export type PairPerson = { id: string; displayName: string; createdAt: string; linked: boolean };
 export type Photos = Partial<Record<"source" | "survivor", string>>;
 /** The duplicates page for one pair of people. */
@@ -42,12 +42,7 @@ const available = (r: { status: string; value?: PersonResult }) =>
  * The review of `person` and `with`, with the person in `keep` (or the default, see defaultSurvivor) as the survivor.
  * Reads both people, the merge review and, only when those fields differ, the two households' names and photos.
  */
-export async function readPair(viewer: Viewer, q: PairQuery): Promise<PairView> {
-	const reply = await read<PairView>(viewer, async (tx, ctx) => ({ status: "ok", value: await pair(tx, ctx, q) }));
-	return reply.status === "ok" && reply.value ? reply.value : { kind: "failed" };
-}
-
-async function pair(tx: Transaction, ctx: PeopleContext, q: PairQuery): Promise<PairView> {
+export async function readPair(tx: Transaction, ctx: PeopleContext, q: PairQuery): Promise<PairView> {
 	if (q.person === q.with) return { kind: "unavailable" };
 	const a = available(await peopleReader.getPerson(tx, ctx, { personId: q.person }));
 	const b = available(await peopleReader.getPerson(tx, ctx, { personId: q.with }));
@@ -119,19 +114,17 @@ export async function readDuplicateHints(
 export type DuplicateHints = NonNullable<Awaited<ReturnType<typeof readDuplicateHints>>>;
 
 /** The Unmerge preview with both people's names, in one transaction. */
-export async function readUnmerge(viewer: Viewer, mergeId: string) {
-	return read(viewer, async (tx, ctx) => {
-		const r = await peopleUnmerge.previewUnmerge(tx, ctx, { mergeId });
-		if (r.status !== "ok") return r;
-		const name = async (personId: PersonId) =>
-			available(await peopleReader.getPerson(tx, ctx, { personId }))?.displayName;
-		const source = await name(r.value.sourceId);
-		const survivor = await name(r.value.survivorId);
-		return {
-			status: "ok" as const,
-			value: { preview: r.value, names: { source: source ?? "The other person", survivor: survivor ?? "This person" } },
-		};
-	});
+export async function readUnmerge(tx: Transaction, ctx: PeopleContext, mergeId: string) {
+	const r = await peopleUnmerge.previewUnmerge(tx, ctx, { mergeId });
+	if (r.status !== "ok") return r;
+	const name = async (personId: PersonId) =>
+		available(await peopleReader.getPerson(tx, ctx, { personId }))?.displayName;
+	const source = await name(r.value.sourceId);
+	const survivor = await name(r.value.survivorId);
+	return {
+		status: "ok" as const,
+		value: { preview: r.value, names: { source: source ?? "The other person", survivor: survivor ?? "This person" } },
+	};
 }
 export type UnmergeView = Extract<Awaited<ReturnType<typeof readUnmerge>>, { status: "ok" }>["value"];
 
@@ -139,27 +132,25 @@ export type UnmergeView = Extract<Awaited<ReturnType<typeof readUnmerge>>, { sta
  * Everything the correction dialog shows for one person, in one transaction: their assessments, interviews and cards
  * (latest first, the first 100 of each) and every correction already made to them.
  */
-export async function readRecords(viewer: Viewer, personId: string) {
-	return read(viewer, async (tx, ctx) => {
-		const request = { personId, limit: 100 };
-		const a = await assessments.getAssessments(tx, ctx, request);
-		if (a.status !== "ok") return a;
-		const i = await interviews.getInterviews(tx, ctx, request);
-		if (i.status !== "ok") return i;
-		const m = await commitments.getCommitments(tx, ctx, request);
-		if (m.status !== "ok") return m;
-		const x = await recordCorrections.listRecordCorrections(tx, ctx, request);
-		if (x.status !== "ok") return x;
-		return {
-			status: "ok" as const,
-			value: {
-				assessments: a.value.items,
-				interviews: i.value.items,
-				commitments: m.value.items,
-				corrections: x.value.items,
-				partial: Boolean(a.value.next || i.value.next || m.value.next || x.value.next),
-			},
-		};
-	});
+export async function readRecords(tx: Transaction, ctx: PeopleContext, personId: PersonId) {
+	const request = { personId, limit: 100 };
+	const a = await assessments.getAssessments(tx, ctx, request);
+	if (a.status !== "ok") return a;
+	const i = await interviews.getInterviews(tx, ctx, request);
+	if (i.status !== "ok") return i;
+	const m = await commitments.getCommitments(tx, ctx, request);
+	if (m.status !== "ok") return m;
+	const x = await recordCorrections.listRecordCorrections(tx, ctx, request);
+	if (x.status !== "ok") return x;
+	return {
+		status: "ok" as const,
+		value: {
+			assessments: a.value.items,
+			interviews: i.value.items,
+			commitments: m.value.items,
+			corrections: x.value.items,
+			partial: Boolean(a.value.next || i.value.next || m.value.next || x.value.next),
+		},
+	};
 }
 export type Records = Extract<Awaited<ReturnType<typeof readRecords>>, { status: "ok" }>["value"];

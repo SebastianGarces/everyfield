@@ -34,6 +34,7 @@ import { createOnboardingProducer, withOnboardingWrite } from "../../../packages
 import { withSettingsWrite } from "../../../packages/domain/src/settings/index.ts";
 import { sectionOperations } from "../../../packages/domain/src/settings/sections.ts";
 import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/notifications.ts";
+import { readPair, readRecords, readUnmerge } from "../../../apps/web/src/features/people/corrections/server.ts";
 import { measure } from "./counter.mjs";
 
 // Exercise the outer request boundary too; the existing suites also cover tool producers and races.
@@ -537,6 +538,14 @@ try {
 				),
 			);
 		const ids = { sourceId: merging.id, survivorId: kept.id };
+		// The duplicates page reads both people and the review in its own transaction (WP-015/ui).
+		const page = value(
+			await view("duplicatePair", async (tx, ctx) => ({
+				status: "ok",
+				value: await readPair(tx, ctx, { person: kept.id, with: merging.id, keep: kept.id }),
+			})),
+		);
+		assert.equal(page.kind, "ready");
 		const reviewed = value(await view("getMergeReview", (tx, ctx) => peopleMerge.getMergeReview(tx, ctx, ids)));
 		const merged = value(
 			await run("mergePeople", (tx, ctx) =>
@@ -555,6 +564,8 @@ try {
 			await view("previewUnmerge", (tx, ctx) => peopleUnmerge.previewUnmerge(tx, ctx, { mergeId: merged.mergeId })),
 		);
 		assert.deepEqual(preview.conflicts, []);
+		// The Unmerge dialog reads the preview and both names in one transaction (WP-015/ui).
+		value(await view("unmergeView", (tx, ctx) => readUnmerge(tx, ctx, merged.mergeId)));
 		value(
 			await run("unmergePeople", (tx, ctx) =>
 				peopleUnmerge.unmergePeople(tx, ctx, {
@@ -599,6 +610,8 @@ try {
 				recordCorrections.listRecordCorrections(tx, ctx, { personId: merging.id }),
 			),
 		);
+		// The correction dialog reads the three histories and the corrections in one transaction (WP-015/ui).
+		value(await view("correctionRecords", (tx, ctx) => readRecords(tx, ctx, merging.id)));
 	}
 	for (const name of [
 		"getMergeReview",
@@ -608,6 +621,9 @@ try {
 		"unmergePeople",
 		"correctPersonRecord",
 		"listRecordCorrections",
+		"duplicatePair",
+		"unmergeView",
+		"correctionRecords",
 	])
 		await fixed(name);
 	// Meetings at the native boundary: the bound actor, one replay check, one locked read and one write statement.
