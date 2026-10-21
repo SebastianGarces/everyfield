@@ -10,6 +10,7 @@ import {
 	turnsOf,
 	type Conversation,
 	type ConversationEvent,
+	type ProjectedError,
 	type ReadConversation,
 	type Reference,
 	type Send,
@@ -121,6 +122,35 @@ export function useConversation(open: boolean) {
 		if (load === "idle") void reload();
 	};
 
+	/** A stream ended by a refusal: nothing more comes for this run, so the panel stops waiting and says why. */
+	const stopped = (error: ProjectedError) => {
+		if (error.outcome !== "refused") return setStream("lost");
+		dispatch({ type: "active", turnId: null });
+		setStream("idle");
+		setProblem(
+			error.code === "access_denied" || error.code === "not_found"
+				? "Your access changed, so Evry stopped. Nothing was changed."
+				: "Evry stopped. Nothing was changed.",
+		);
+	};
+
+	/** After the stream closed for good: the saved events and the run's state, or the refusal that closed it. */
+	const settle = async (conversationId: string) => {
+		const r = await api.readConversation(conversationId, cursor(latest.current));
+		if (latest.current.conversation?.id !== conversationId) return;
+		if (r.status === "refused") return stopped(r.error);
+		if (r.status === "lost") return setStream("lost");
+		dispatch({ type: "events", events: r.value.events });
+		if (r.value.run) setStream("lost");
+		else dispatch({ type: "active", turnId: null });
+	};
+
+	// The stream's handlers call the newest helpers without reopening the stream when they change.
+	const ends = useRef({ stopped, settle });
+	useEffect(() => {
+		ends.current = { stopped, settle };
+	});
+
 	// Follow the run while the panel is open. The stream sends saved events after the cursor first, so it also catches
 	// up after the panel was closed. On a dropped connection the browser reconnects with Last-Event-ID by itself.
 	const id = state.conversation?.id;
@@ -139,11 +169,17 @@ export function useConversation(open: boolean) {
 			dispatch({ type: "active", turnId: null });
 		});
 		source.addEventListener("error", (e) => {
-			// A projected error from the server (access ended, the conversation is gone) ends the stream for good.
-			if (e instanceof MessageEvent || source.readyState === EventSource.CLOSED) {
+			// The server's projected error (access ended, signed out, the conversation is gone) ends the stream for good.
+			if (e instanceof MessageEvent) {
 				source.close();
-				setStream("lost");
-			} else setStream("reconnecting");
+				return ends.current.stopped(JSON.parse(e.data) as ProjectedError);
+			}
+			// The browser gave up (the server refused to reopen the stream): read what was saved to learn why.
+			if (source.readyState === EventSource.CLOSED) {
+				source.close();
+				return void ends.current.settle(id);
+			}
+			setStream("reconnecting");
 		});
 		return () => {
 			source.close();
@@ -161,23 +197,26 @@ export function useConversation(open: boolean) {
 
 	/** Sends one message. A send that was not confirmed goes again with the same key, so it is saved once. */
 	const deliver = async (send: Send) => {
+		// The view this send belongs to. If the person opens another conversation or a new chat meanwhile, the message
+		// is still saved, but its answers never replace what the person chose to show.
+		const view = shown.current;
+		const here = () => shown.current === view;
 		dispatch({ type: "sent", key: send.key, patch: { state: "sending", error: null } });
 		let conversation = latest.current.conversation;
 		if (!conversation) {
-			createKey.current ??= crypto.randomUUID();
-			const created = await api.createConversation(createKey.current);
+			const key = (createKey.current ??= crypto.randomUUID());
+			const created = await api.createConversation(key);
+			if (!here())
+				return void (created.status === "ok" && api.submitTurn(created.value.id, send.key, send.text, send.references));
 			if (created.status !== "ok") return fail(send, created);
-			createKey.current = null;
+			if (createKey.current === key) createKey.current = null;
 			conversation = created.value;
-			// The message is saved in its new conversation even when the person opened another one meanwhile.
-			if (!latest.current.conversation) {
-				latest.current = { ...latest.current, conversation };
-				dispatch({ type: "conversation", conversation });
-			}
+			latest.current = { ...latest.current, conversation };
+			dispatch({ type: "conversation", conversation });
 		}
 		const r = await api.submitTurn(conversation.id, send.key, send.text, send.references);
+		if (!here()) return;
 		if (r.status !== "ok") return fail(send, r);
-		if (latest.current.conversation?.id !== conversation.id) return;
 		dispatch({ type: "sent", key: send.key, patch: { sequence: r.value.sequence } });
 		const ended = latest.current.events.some((e) => e.kind === "status" && e.turnId === r.value.turnId);
 		if (!ended) dispatch({ type: "active", turnId: r.value.turnId });
