@@ -1226,3 +1226,103 @@ test("INV-reads: the person page and the status warnings use a fixed number of s
 		"a dialog read must not lock rows",
 	);
 });
+
+test("INV-tenancy (C13): a seat ended, signed out, held or demoted after the viewer lookup reads no People data", async (t) => {
+	const plant = randomUUID(),
+		made = [];
+	t.after(async () => {
+		await admin.execute(sql`DELETE FROM lifecycle_witness WHERE opaque_subject_id=ANY(${sql.param(made)}::uuid[])`);
+	});
+	await admin.execute(
+		sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${plant},'Synthetic','America/New_York',7,14,1,8,1,1)`,
+	);
+	const seated = async (role, selected = { kind: "plant", id: plant }) => {
+		const a = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
+		await admin.execute(
+			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${a.user},${a.id + "@example.test"},true,'Synthetic')`,
+		);
+		await admin.execute(
+			sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${a.id},${a.user},'active','planter')`,
+		);
+		await admin.execute(
+			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${a.session},${a.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
+		);
+		const seat = (
+			await admin.execute(
+				sql`INSERT INTO seat(account_id,plant_id,organization_id,role,accepted_at) VALUES(${a.id},${selected.kind === "plant" ? selected.id : null},${selected.kind === "organization" ? selected.id : null},${role},clock_timestamp()) RETURNING id`,
+			)
+		).rows[0].id;
+		// The request's viewer lookup, before the change lands (D59).
+		const reader = new PeopleReadContext(await tx((t) => RequestActor.resolve(t, a.session)));
+		return { ...a, seat, selected, reader };
+	};
+	const owner = await seated("owner");
+	const p = ok(
+		await tx((t) =>
+			write.createPerson(
+				t,
+				{ session: owner.session, selected: owner.selected },
+				{
+					requestKey: randomUUID(),
+					input: { displayName: "C13 private person" },
+				},
+			),
+		),
+	).person;
+	const orgPerson = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO person(id,tenant_id,organization_id,display_name,source,state,created_at,revision) VALUES(${orgPerson},${organization},${organization},'C13 organization person','other','live',clock_timestamp(),1)`,
+	);
+	const plantReads = (v) => [
+		["listPeople", (t) => read.listPeople(t, v, {})],
+		["getPipelineData", (t) => read.getPipelineData(t, v, {})],
+		["getPerson", (t) => read.getPerson(t, v, { personId: p.id })],
+		["readPersonPage", (t) => readPersonPage(t, v, { personId: p.id }, 50)],
+		["getStatusWarnings", (t) => read.getStatusWarnings(t, v, { personId: p.id })],
+		["getActivities", (t) => read.getActivities(t, v, { personId: p.id })],
+		["getAccountLink", (t) => getAccountLink(t, v, { personId: p.id })],
+		["getOwnAccountPerson", (t) => read.getOwnAccountPerson(t, v, {})],
+	];
+	const orgReads = (v) => [
+		["getPerson", (t) => read.getPerson(t, v, { personId: orgPerson })],
+		["readPersonPage", (t) => readPersonPage(t, v, { personId: orgPerson }, 50)],
+		["getAccountLink", (t) => getAccountLink(t, v, { personId: orgPerson })],
+	];
+	const org = { kind: "organization", id: organization, organizationKind: "sending_church" };
+	const [removed, signedOut, held, churchHeld, demoted] = [
+		await seated("admin"),
+		await seated("member"),
+		await seated("member"),
+		await seated("member"),
+		await seated("admin", org),
+	];
+	for (const who of [removed, signedOut, held, churchHeld])
+		for (const [, run] of plantReads(who.reader)) ok(await tx(run));
+	for (const [, run] of orgReads(demoted.reader)) ok(await tx(run));
+	const hold = (kind, subject) =>
+		admin.execute(
+			sql`INSERT INTO lifecycle_witness(kind,opaque_subject_id,plant_id,request_revision,state,witness_checkpoint,cleanup_state,request_id,requested_at,cancel_until) VALUES(${kind},${subject}::uuid,CASE WHEN ${kind}='plant' THEN ${subject}::uuid END,1,'pending_deletion',1,'not_started',${randomUUID()},statement_timestamp(),statement_timestamp()+interval '720 hours')`,
+		);
+	// Each change lands after the viewer lookup, as in a request that already resolved its actor.
+	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${removed.seat}`);
+	await admin.execute(sql`UPDATE auth_session SET expires_at=clock_timestamp() WHERE id=${signedOut.session}`);
+	await hold("account", held.id);
+	made.push(held.id);
+	await admin.execute(sql`UPDATE seat SET role='member' WHERE id=${demoted.seat}`);
+	const failures = [];
+	const expectRefused = async (who, name, reads) => {
+		for (const [op, run] of reads) {
+			const result = await tx(run);
+			if (result.status !== "refused" || result.error.code !== "unavailable") failures.push(`${name} ${op}`);
+		}
+	};
+	await expectRefused(removed, "seat ended:", plantReads(removed.reader));
+	await expectRefused(signedOut, "session expired:", plantReads(signedOut.reader));
+	await expectRefused(held, "account on hold:", plantReads(held.reader));
+	// A demoted organization Admin keeps no Admin-wide read of a person they have no duty for.
+	await expectRefused(demoted, "Admin demoted:", orgReads(demoted.reader));
+	await hold("plant", plant);
+	made.push(plant);
+	await expectRefused(churchHeld, "church on hold:", plantReads(churchHeld.reader));
+	assert.deepEqual(failures, []);
+});
