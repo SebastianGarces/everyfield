@@ -77,8 +77,15 @@ export async function PeoplePage({ searchParams }: { searchParams: Search }) {
 }
 
 export const personMetadata: Metadata = { title: "Person", robots: { index: false, follow: false } };
-export async function PersonPage({ params }: { params: Promise<{ personId: string }> }) {
+export async function PersonPage({
+	params,
+	searchParams,
+}: {
+	params: Promise<{ personId: string }>;
+	searchParams: Search;
+}) {
 	const raw = (await params).personId;
+	const followed = (await searchParams).merged !== undefined;
 	const g = await gate(`/people/${encodeURIComponent(raw)}`);
 	if ("blocked" in g) return g.blocked;
 	const { viewer } = g;
@@ -95,6 +102,9 @@ export async function PersonPage({ params }: { params: Promise<{ personId: strin
 	const { found, activities, link, survivor } = loaded.value;
 	if (found.status !== "available" || !("stage" in found.person)) notFound();
 	const person = found.person;
+	// REQ-PPL-025: a merged person's links open the survivor, which holds all of its history now.
+	if (person.lifecycle.state === "merged" && survivor?.status === "ok" && survivor.value.status === "available")
+		redirect(`/people/${survivor.value.person.id}?merged`);
 
 	return (
 		<PersonScreen
@@ -117,6 +127,8 @@ export async function PersonPage({ params }: { params: Promise<{ personId: strin
 			accountId={viewer.accountId}
 			canWrite={canWrite(viewer)}
 			fields={loaded.value.fields}
+			duplicates={loaded.value.duplicates}
+			followedMerge={followed}
 			photosEnabled={privateStorage() !== null}
 		/>
 	);

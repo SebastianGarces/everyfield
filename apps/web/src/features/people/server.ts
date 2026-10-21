@@ -4,6 +4,7 @@ import type { Transaction } from "@everyfield/db/client";
 import { type readPeopleViewer, PeopleReadContext, withPeopleWrite } from "@everyfield/domain/people";
 import "server-only";
 import type { PeopleQuery } from "./model.ts";
+import { readDuplicateHints } from "./corrections/server.ts";
 import { readPersonFields } from "./fields/server.ts";
 import { readPeoplePage, readPersonPage } from "./page-data.ts";
 
@@ -47,19 +48,23 @@ export async function write<T>(
 export type { PeopleData, PeopleView } from "./page-data.ts";
 
 /**
- * The person page: the person, their first Activity page and, for the page itself, their WP-012 fields, in one read
- * transaction. A conflict reload passes `withFields: false`: it needs only the person and Activity, and each field card
- * reads its own part again when its own save is refused.
+ * The person page: the person, their first Activity page and, for the page itself, their WP-012 fields and duplicate
+ * hints (WP-015), in one read transaction. A conflict reload passes `withFields: false`: it needs only the person and
+ * Activity, and each field card reads its own part again when its own save is refused.
  */
 export async function loadPerson(viewer: Viewer, personId: Parameters<typeof readPersonPage>[2], withFields = true) {
 	return read(viewer, async (tx, ctx) => {
 		const page = await readPersonPage(tx, ctx, personId);
 		if (page.status !== "ok") return page;
 		const { found } = page.value;
-		const plant = withFields && found.status === "available" && "stage" in found.person;
+		const person = withFields && found.status === "available" && "stage" in found.person ? found.person : null;
 		return {
 			status: "ok" as const,
-			value: { ...page.value, fields: plant ? await readPersonFields(tx, ctx, personId) : null },
+			value: {
+				...page.value,
+				fields: person ? await readPersonFields(tx, ctx, personId) : null,
+				duplicates: person?.lifecycle.state === "live" ? await readDuplicateHints(tx, ctx, person) : null,
+			},
 		};
 	});
 }

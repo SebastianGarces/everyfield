@@ -1,8 +1,10 @@
 "use client";
 
 import {
+	ArrowTurnBackwardIcon,
 	Delete02Icon,
 	Edit02Icon,
+	GitMergeIcon,
 	Home01Icon,
 	Note01Icon,
 	Route01Icon,
@@ -58,11 +60,10 @@ const ACTION: Record<Extract<Item, { kind: "activity" }>["action"], string> = {
 	commitment_withdrawn: "Commitment withdrawn",
 	commitment_reactivated: "Commitment reactivated",
 	commitment_corrected: "Commitment corrected",
-	// C16: plain labels so the build accepts the WP-015 events; WP-015/ui owns their design.
-	assessment_corrected: "Assessment corrected",
+	assessment_corrected: "Four Cs assessment corrected",
 	interview_corrected: "Interview corrected",
-	person_merged: "Merged a duplicate",
-	person_unmerged: "Unmerged a duplicate",
+	person_merged: "A duplicate was merged into this person",
+	person_unmerged: "A merge was undone",
 };
 const FOLLOW_UP: Record<Extract<Item, { kind: "follow_up" }>["outcome"], string> = {
 	contacted: "Follow-up: contacted",
@@ -84,6 +85,7 @@ export function ActivityCard({
 	onConflict,
 	accountId,
 	canWrite,
+	onUnmerge,
 }: {
 	store: Store;
 	activities: Outcome<Activities>;
@@ -95,6 +97,8 @@ export function ActivityCard({
 	/** The viewer's account, to tell their own notes from others'. */
 	accountId: string;
 	canWrite: boolean;
+	/** Opens the Unmerge preview for a merge in this history (WP-015). Owners and Admins only. */
+	onUnmerge?: (mergeId: string) => void;
 }) {
 	const state = useStore(store);
 	const person = state.saved;
@@ -104,6 +108,14 @@ export function ActivityCard({
 	const first = person.displayName.split(" ")[0] ?? person.displayName;
 	const composer = (state.drafts.note as { body: string } | undefined)?.body ?? "";
 	const writing = canWrite && live;
+	// A merge that a later loaded entry undid offers no Unmerge; the dialog still guards one undone on an unloaded page.
+	const undone = new Set(
+		activities.status === "ok"
+			? activities.value.items.flatMap((i) =>
+					i.kind === "activity" && i.action === "person_unmerged" && i.recordId ? [i.recordId] : [],
+				)
+			: [],
+	);
 
 	async function reload() {
 		const fresh = await loadActivities(person.id).catch(() => ({ status: "lost" }) as const);
@@ -204,6 +216,11 @@ export function ActivityCard({
 							onRemove={setRemoving}
 							onEntry={onEntry}
 							onConflict={onConflict}
+							onUnmerge={
+								live && !(item.kind === "activity" && item.recordId && undone.has(item.recordId))
+									? onUnmerge
+									: undefined
+							}
 						/>
 					))}
 				</ol>
@@ -241,6 +258,7 @@ function Row({
 	onRemove,
 	onEntry,
 	onConflict,
+	onUnmerge,
 }: {
 	item: Item;
 	store: Store;
@@ -249,6 +267,7 @@ function Row({
 	onRemove: (note: Extract<Item, { kind: "note" }>) => void;
 	onEntry: (item: Item) => void;
 	onConflict: () => void;
+	onUnmerge?: (mergeId: string) => void;
 }) {
 	const state = useStore(store);
 	const slot = `note:${item.id}`;
@@ -349,6 +368,19 @@ function Row({
 						</>
 					) : null}
 				</p>
+				{onUnmerge && item.kind === "activity" && item.action === "person_merged" && item.recordId ? (
+					<div className="mt-2 -ml-3">
+						<Button
+							variant="ghost"
+							size="sm"
+							icon={ArrowTurnBackwardIcon}
+							disabled={state.pending !== null}
+							onClick={() => onUnmerge(item.recordId!)}
+						>
+							Review Unmerge
+						</Button>
+					</div>
+				) : null}
 				{item.kind === "note" && mine && writing ? (
 					<div className="mt-2 -ml-3 flex gap-1">
 						<Button
@@ -390,9 +422,10 @@ function describe(item: Item, by: string): { title: string; icon: IconSvgElement
 			};
 		case "activity":
 			// A household join, leave or role change names the household as it was then (REQ-PPL-009).
-			return item.household
-				? { title: householdChange(item.household), icon: Home01Icon, tone: "teal" }
-				: { title: ACTION[item.action], icon: UserEdit01Icon, tone: "blue" };
+			if (item.household) return { title: householdChange(item.household), icon: Home01Icon, tone: "teal" };
+			if (item.action === "person_merged" || item.action === "person_unmerged")
+				return { title: ACTION[item.action], icon: GitMergeIcon, tone: "violet" };
+			return { title: ACTION[item.action], icon: UserEdit01Icon, tone: "blue" };
 		case "follow_up":
 			return { title: FOLLOW_UP[item.outcome], icon: TaskDone01Icon, tone: "amber" };
 	}

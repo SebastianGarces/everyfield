@@ -4,6 +4,8 @@ import {
 	ArrowTurnBackwardIcon,
 	Delete02Icon,
 	Edit02Icon,
+	FileEditIcon,
+	GitMergeIcon,
 	MoreHorizontalIcon,
 	UserCheck01Icon,
 	UserIcon,
@@ -22,6 +24,8 @@ import {
 	MenuSeparator,
 	MenuTrigger,
 	Breadcrumb,
+	CalloutLabel,
+	CalloutText,
 	StatePanel,
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, StageChip, StatusBadge } from "@everyfield/ui/display";
@@ -39,9 +43,13 @@ import type { HouseholdResult, PersonFields } from "./fields/model.ts";
 import { PersonPhoto } from "./fields/PersonPhoto.tsx";
 import { SkillsCard } from "./fields/SkillsCard.tsx";
 import { TagsField } from "./fields/TagsField.tsx";
+import { CorrectRecordDialog } from "./corrections/CorrectRecordDialog.tsx";
+import { DuplicateHints } from "./corrections/DuplicateHints.tsx";
+import type { DuplicateHints as Hints } from "./corrections/server.ts";
+import { UnmergeDialog } from "./corrections/UnmergeDialog.tsx";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
-type Open = "stage" | "profile" | "classify" | "retire" | "restore" | null;
+type Open = "stage" | "profile" | "classify" | "retire" | "restore" | "correct" | { unmerge: string } | null;
 
 /**
  * Person (REQ-PPL-002/003/004/006/008). The header says who and where in the pipeline; Owners and Admins change the
@@ -60,6 +68,8 @@ export function PersonScreen({
 	canWrite,
 	fields,
 	photosEnabled,
+	duplicates = null,
+	followedMerge = false,
 }: {
 	person: PlantPerson;
 	activities: Outcome<Activities>;
@@ -74,6 +84,10 @@ export function PersonScreen({
 	fields: PersonFields | null;
 	/** Private photo storage is configured, so photos can be added. */
 	photosEnabled: boolean;
+	/** Possible duplicates of this live person (WP-015). Null when they do not apply or could not be read. */
+	duplicates?: Hints | null;
+	/** The page opened from a link to a person who was merged into this one. */
+	followedMerge?: boolean;
 }) {
 	const [store, state] = usePersonStore<PlantPerson, PersonDraft>(person);
 	const [history, setHistory] = useState(activities);
@@ -110,6 +124,7 @@ export function PersonScreen({
 	const lifecycle = p.lifecycle;
 	const live = lifecycle.state === "live";
 	const toggle = (which: Exclude<Open, null>) => (next: boolean) => setOpen(next ? which : null);
+	const close = () => setOpen(null);
 
 	return (
 		<>
@@ -170,6 +185,9 @@ export function PersonScreen({
 									<MenuItem icon={UserIcon} onSelect={() => setOpen("classify")}>
 										{p.adultClassification === "unknown" ? "Record adult or child" : "Correct adult or child"}
 									</MenuItem>
+									<MenuItem icon={FileEditIcon} onSelect={() => setOpen("correct")}>
+										Correct a record
+									</MenuItem>
 									<MenuSeparator />
 									<MenuItem icon={Delete02Icon} danger onSelect={() => setOpen("retire")}>
 										Retire person
@@ -181,6 +199,17 @@ export function PersonScreen({
 				</div>
 			</header>
 
+			{followedMerge && live ? (
+				<Card variant="callout" tone="blue" className="mb-5">
+					<CalloutLabel tone="blue" icon={GitMergeIcon}>
+						Opened from a merged person
+					</CalloutLabel>
+					<CalloutText className="text-sm">
+						The link you followed was for a person who was merged into {p.displayName}. Their history is in this
+						Activity.
+					</CalloutText>
+				</Card>
+			) : null}
 			{lifecycle.state === "retired" ? (
 				<Card className="mb-5">
 					<StatePanel
@@ -225,6 +254,7 @@ export function PersonScreen({
 						onConflict={reload}
 						accountId={accountId}
 						canWrite={canWrite}
+						onUnmerge={canWrite ? (mergeId) => setOpen({ unmerge: mergeId }) : undefined}
 					/>
 				</div>
 				<div className="flex min-w-0 flex-col gap-5 max-app-lg:order-first">
@@ -284,6 +314,7 @@ export function PersonScreen({
 							/>
 						) : null}
 					</Card>
+					{duplicates && live ? <DuplicateHints personId={p.id} hints={duplicates} canReview={canWrite} /> : null}
 					{fields ? (
 						<>
 							<HouseholdCard
@@ -390,6 +421,28 @@ export function PersonScreen({
 					) : null}
 					{open === "restore" ? (
 						<RestoreDialog open onOpenChange={toggle("restore")} store={store} onSaved={saved} onConflict={reload} />
+					) : null}
+					{open === "correct" ? (
+						<CorrectRecordDialog
+							person={p}
+							store={store}
+							accountId={accountId}
+							onClose={close}
+							onCorrected={(receipt, type, recordId) =>
+								saved(receipt, { kind: "activity", action: `${type}_corrected`, recordId } as EntryFields)
+							}
+						/>
+					) : null}
+					{open && typeof open === "object" ? (
+						<UnmergeDialog
+							mergeId={open.unmerge}
+							store={store}
+							onClose={close}
+							onUnmerged={(done) => {
+								if (done.activities) setHistory({ status: "ok", value: done.activities });
+								else saved(done.receipt, { kind: "activity", action: "person_unmerged" });
+							}}
+						/>
 					) : null}
 				</>
 			) : null}
