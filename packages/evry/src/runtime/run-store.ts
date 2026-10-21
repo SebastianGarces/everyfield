@@ -98,3 +98,14 @@ export async function savedResult(db: Database, conversationId: string, sequence
 		SELECT body FROM conversation_event WHERE conversation_id=${conversationId}::uuid AND sequence=${sequence} AND kind='tool_result'`);
 	return r.rows.length ? (r.rows[0]!.body as Record<string, unknown>) : null;
 }
+
+/**
+ * What paid turns cost this calendar month (UTC) in this database, in millionths of a US dollar: the sum of the costs
+ * their final status events recorded. One lock-free statement.
+ */
+export async function monthSpend(db: Database): Promise<number> {
+	const r = await db.execute(sql`
+		SELECT coalesce(sum((body->'usage'->>'costMicroUsd')::bigint),0) AS spent FROM conversation_event
+		WHERE kind='status' AND created_at>=date_trunc('month',clock_timestamp(),'UTC')`);
+	return z.coerce.number().parse(r.rows[0]!.spent);
+}

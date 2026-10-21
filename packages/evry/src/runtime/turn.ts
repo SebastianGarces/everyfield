@@ -16,8 +16,8 @@ import {
 import { EvryRefusal, projectError, scrub } from "../context/errors.ts";
 import { LIMITS, type StopReason } from "../context/limits.ts";
 import { allowedWrites, prepareProposal } from "../proposals/store.ts";
-import type { QualifiedModel } from "./model.ts";
-import { appendEvent, loadHistory, loadTurn, savedResult, type RunLease } from "./run-store.ts";
+import { costMicroUsd, worstTurnMicroUsd, type QualifiedModel } from "./model.ts";
+import { appendEvent, loadHistory, loadTurn, monthSpend, savedResult, type RunLease } from "./run-store.ts";
 
 export type RunDeps = {
 	db: Database;
@@ -72,6 +72,7 @@ export async function runTurn(deps: RunDeps, lease: RunLease): Promise<RunOutcom
 	let pending = "";
 	let toolCalls = 0;
 	const usage = { inputTokens: 0, outputTokens: 0 };
+	const spend = deps.model.status === "qualified" ? deps.model.spend : undefined;
 	const save = async (kind: "assistant_text" | "tool_result", body: Record<string, unknown>) => {
 		const sequence = lost ? null : await appendEvent(db, lease, turn.conversation_id, kind, body);
 		if (sequence === null && !lost) {
@@ -103,7 +104,7 @@ export async function runTurn(deps: RunDeps, lease: RunLease): Promise<RunOutcom
 				state: failed ? "failed" : stop === "completed" || stop === "policy_boundary" ? "completed" : "stopped",
 				reason: stop,
 				text,
-				usage: { ...usage, toolCalls },
+				usage: { ...usage, toolCalls, ...(spend && { costMicroUsd: costMicroUsd(spend.price, usage) }) },
 				...(failed ? { error: projectError(failure) } : {}),
 			},
 			true,
@@ -118,6 +119,9 @@ export async function runTurn(deps: RunDeps, lease: RunLease): Promise<RunOutcom
 		if (!session || !actor || actor.accountId !== turn.account_id || actor.owner.id !== turn.tenant_id)
 			throw new EvryRefusal("access_denied");
 		if (deps.model.status !== "qualified") throw new EvryRefusal("model_unavailable");
+		// A paid turn starts only when its worst case still fits this month's limit (D76).
+		if (spend && (await monthSpend(db)) + worstTurnMicroUsd(spend.price) > spend.capMicroUsd)
+			throw new EvryRefusal("model_unavailable");
 		const model = deps.model.model;
 		const catalog = readCatalog(actor);
 		const request = turn.message.body.text;

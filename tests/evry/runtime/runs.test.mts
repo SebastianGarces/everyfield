@@ -177,6 +177,32 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 	}
 });
 
+test("D76 a paid turn records its cost; a turn whose worst case would pass the monthly limit is refused before any model call", async () => {
+	const owner = await actor("owner");
+	const price = { input: 0.1, output: 0.5 };
+	const priced = (capMicroUsd: number) => {
+		const r = recorded();
+		return { calls: r.calls, model: { ...r.model, spend: { price, capMicroUsd } } };
+	};
+	const first = priced(1_000_000);
+	const id = await ask(owner, "Show all people and tell me the exact total.");
+	assert.equal(await work(first.model), "succeeded");
+	const usage = (await events(owner, id)).status.usage;
+	const spent = Math.ceil(usage.inputTokens * price.input + usage.outputTokens * price.output);
+	assert.ok(usage.inputTokens > 0 && first.calls.length > 0);
+	assert.equal(usage.costMicroUsd, spent);
+
+	// Worst case at these prices: twice the 128,000 input tokens and 16,000 + 8,000 output tokens = 37,600 micro-USD.
+	const tight = priced(spent + 37_600 - 1);
+	const refused = await ask(owner, "Show all people.");
+	assert.equal(await work(tight.model), "failed");
+	assert.deepEqual([tight.calls.length, (await events(owner, refused)).status.error.code], [0, "model_unavailable"]);
+	const fits = priced(spent + 37_600);
+	await ask(owner, "Show all people.");
+	assert.equal(await work(fits.model), "succeeded");
+	assert.ok(fits.calls.length > 0);
+});
+
 test("AC:INH-EDGES-01 AC:INH-REGRESSION-CLARIFICATION-NAME AC:SEC-11 two people named Alex get one clarification with safe distinguishing fields only; credentials never reach the model", async () => {
 	const owner = await actor("owner");
 	await admin.execute(
