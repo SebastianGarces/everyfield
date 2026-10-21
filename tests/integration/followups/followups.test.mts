@@ -19,7 +19,8 @@ import {
 	followUpReader,
 	withFollowUpWrite,
 } from "../../../packages/domain/src/followups/index.ts";
-import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
+import { peopleReader, peopleWriter } from "../../../packages/domain/src/people/index.ts";
+import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
 import { taskReminders } from "../../../apps/web/src/server/tasks/reminders.ts";
@@ -675,4 +676,51 @@ test("AC:TARGET-TSK-013 INV-statements handoff moves reviewed open follow-ups or
 		await counted(() => read(c.owner, "listContactHistory", { personId: alex })),
 	];
 	assert.deepEqual(await reads(), Array(5).fill(3));
+});
+
+test("AC:TARGET-PPL-007 INV-inactivity: a card warns after the church's inactivity days without activity; new activity clears it", async () => {
+	const c = await church();
+	// The church's Settings: a warning after 7 days, an alert after 14.
+	await f.admin.execute(sql`UPDATE plant SET warning_days=7, alert_days=14 WHERE id=${c.w.id}`);
+	const added = async (name, daysAgo) => {
+		const id = randomUUID();
+		await f.admin
+			.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,pipeline_position,state,created_at)
+			VALUES(${id},${c.w.id},${c.w.id},${name},'other','prospect','unknown','unknown',0,'live',now()-make_interval(days=>${daysAgo}))`);
+		return id;
+	};
+	const people = {
+		recent: await added("Recent", 1),
+		quiet: await added("Quiet", 10),
+		silent: await added("Silent", 20),
+	};
+	const levels = async () => {
+		const pipeline = ok(
+			await f.db.transaction((tx) => peopleReader.getPipelineData(tx, new PeopleReadContext(c.member.actor), {})),
+		);
+		const cards = pipeline.groups.flatMap((g) => g.cards);
+		return Object.fromEntries(
+			Object.entries(people).map(([name, id]) => [name, cards.find((k) => k.person.id === id).inactivity.level]),
+		);
+	};
+	assert.deepEqual(await levels(), { recent: "none", quiet: "warning", silent: "alert" });
+	// A contact two days ago is activity; a withdrawn one is not.
+	ok(
+		await record(c.owner, { kind: "person", personId: people.silent }, "contacted", {
+			occurredAt: hours(new Date().toISOString(), -48),
+		}),
+	);
+	const wrong = ok(
+		await record(c.owner, { kind: "person", personId: people.quiet }, "contacted", {
+			occurredAt: hours(new Date().toISOString(), -1),
+		}),
+	);
+	ok(
+		await write(c.owner, "correctOutcome", {
+			requestKey: key(),
+			expectedRevision: wrong.record.revision,
+			input: { outcomeId: wrong.record.id, correction: { kind: "void" }, reason: "Wrong person" },
+		}),
+	);
+	assert.deepEqual(await levels(), { recent: "none", quiet: "warning", silent: "none" });
 });
