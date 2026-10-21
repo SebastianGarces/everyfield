@@ -34,6 +34,7 @@ import {
 	people,
 	plant,
 	queries,
+	role,
 	setup,
 	sql,
 	teardown,
@@ -75,9 +76,10 @@ async function stalledEffect(during: (claim: Claim) => Promise<void>) {
 	await admin.transaction(async (tx) => {
 		await tx.execute(sql`SELECT id FROM plant WHERE id=${plant} FOR UPDATE`);
 		running = executeProposal(db, lease(claim));
-		for (let waiting = 0; !waiting;) {
+		for (let waiting = 0, deadline = Date.now() + 20_000; !waiting;) {
+			assert.ok(Date.now() < deadline, "the executor never waited for write authority");
 			const r = await admin.execute(
-				sql`SELECT count(*)::int n FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE '%write_gate%'`,
+				sql`SELECT count(*)::int n FROM pg_stat_activity WHERE wait_event_type='Lock' AND usename=${role} AND query LIKE '%write_gate%'`,
 			);
 			waiting = (r.rows[0] as { n: number }).n;
 		}
@@ -444,7 +446,7 @@ test("AC:EVRY-LEASE-FENCE an executor whose lease expires while it waits for the
 		for (let waiting = 0, deadline = Date.now() + 20_000; !waiting;) {
 			assert.ok(Date.now() < deadline, "the executor never waited for the job row");
 			const r = await admin.execute(
-				sql`SELECT count(*)::int n FROM pg_stat_activity WHERE wait_event_type='Lock' AND usename LIKE 'wp051\_%'`,
+				sql`SELECT count(*)::int n FROM pg_stat_activity WHERE wait_event_type='Lock' AND usename=${role}`,
 			);
 			waiting = (r.rows[0] as { n: number }).n;
 		}
