@@ -60,9 +60,10 @@ function routeOf(root: string, cfg: Config, pr: Pr): Route {
 	if (task && design?.route === "design") {
 		const base = git(root, "merge-base", baseRef(root, cfg), pr.headRefOid);
 		const owns = (path: string) =>
-			path !== APPROVED_PROTOTYPE &&
-			(design.owningPaths.some((p) => (p.endsWith("/") ? path.startsWith(p) : path === p)) ||
-				(path === "evf.config.json" && changesOnlyOwnRegistration(root, task, base, pr.headRefOid)));
+			path === "evf.config.json"
+				? changesOnlyOwnRegistration(root, task, base, pr.headRefOid)
+				: path !== APPROVED_PROTOTYPE &&
+					design.owningPaths.some((p) => (p.endsWith("/") ? path.startsWith(p) : path === p));
 		const other = pr.files.map((f) => f.path).filter((path) => !owns(path));
 		if (other.length)
 			fail(

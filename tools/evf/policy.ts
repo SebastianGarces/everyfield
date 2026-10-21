@@ -125,16 +125,18 @@ export function changesOnlyOwnRegistration(repo: string, task: TaskRef, base: st
 }
 
 /**
- * Check the task's changed paths. An OPS branch may also change evf.config.json when the only difference
- * from base is its own maintenanceTasks entry: that is how it registers, and the verifier reviews the entry.
+ * Check the task's changed paths. An OPS branch may change evf.config.json only in its own maintenanceTasks
+ * entry, whether or not it owns the file: that is how it registers, and the verifier reviews the entry.
  */
 export function requireMaintenancePaths(root: string, wt: string, task: TaskRef): void {
 	if (task.kind !== "ops") return;
 	const base = baseRef(root, loadConfig(root)),
 		scope = maintenanceScope(wt, task);
+	// evf.config.json holds every task's registration, so owning it never waives the own-entry rule.
 	const owns = (path: string) =>
-		scope.owningPaths.some((p) => (p.endsWith("/") ? path.startsWith(p) : path === p)) ||
-		(path === "evf.config.json" && changesOnlyOwnRegistration(wt, task, base, "HEAD"));
+		path === "evf.config.json"
+			? changesOnlyOwnRegistration(wt, task, base, "HEAD")
+			: scope.owningPaths.some((p) => (p.endsWith("/") ? path.startsWith(p) : path === p));
 	const changed = git(wt, "diff", "--name-only", "--no-renames", base, "HEAD").split("\n").filter(Boolean);
 	if (changed.some((p) => !owns(p))) fail("Maintenance candidate changes paths outside its reviewed owning paths.");
 	if (changed.includes(APPROVED_PROTOTYPE)) fail(`${APPROVED_PROTOTYPE} keeps its approved bytes.`);

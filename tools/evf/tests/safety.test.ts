@@ -268,10 +268,22 @@ test("BUG-home-registration: an OPS task registers on its own branch and verifie
 		const report = verify(f.root, task, "author", "full");
 		assert.equal(report.passed, true);
 		assert.match(readFileSync(report.checks[0].log, "utf8"), /branch check ran/);
-		cfg.checks = [];
+		// Owning evf.config.json never waives the rule: the branch still changes only its own entry.
+		cfg.maintenanceTasks["OPS-900"].owningPaths = ["tools/evf/", "evf.config.json"];
 		writeFileSync(join(wt, "evf.config.json"), JSON.stringify(cfg));
-		git(wt, "commit", "-qam", "Change another config key");
-		assert.throws(() => verify(f.root, task, "author", "full"), /outside its reviewed owning paths/);
+		git(wt, "commit", "-qam", "Own the config file");
+		assert.equal(verify(f.root, task, "author", "full").passed, true);
+		for (const edit of [
+			(c: any) => (c.checks = []),
+			(c: any) => (c.maintenanceTasks["OPS-1"] = { ...c.maintenanceTasks["OPS-1"], owningPaths: ["tools/evf/"] }),
+		]) {
+			const other = structuredClone(cfg);
+			edit(other);
+			writeFileSync(join(wt, "evf.config.json"), JSON.stringify(other));
+			git(wt, "commit", "-qam", "Change another task's entry or another config key");
+			assert.throws(() => verify(f.root, task, "author", "full"), /outside its reviewed owning paths/);
+			git(wt, "reset", "-q", "--hard", "HEAD~1");
+		}
 		assert.deepEqual(readFileSync(join(f.root, "evf.config.json")), home);
 	} finally {
 		f.close();
