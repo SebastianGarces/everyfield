@@ -7,6 +7,8 @@
 //   AC:B03-008 AC:B03-009 AC:TARGET-TSK-018: a deadline is sent as church-local wall time, with the chosen offset only
 //     after the person picks one occurrence of a repeated time; a missing day or time is caught before any request.
 //   INV-counts: a confirmed change moves one task between tallies; a deleted task only leaves.
+//   AC:TARGET-TSK-001 INV-membership: a saved task joins the list only when it matches the query (view, search, status,
+//     priority, category, link, due kind, team), as the server's scope would.
 //   INV-optimistic: changes in flight show at once (new task first, edit applied, delete hidden, status shown) and the
 //     confirmed rows stand when they fall away.
 import assert from "node:assert/strict";
@@ -15,6 +17,7 @@ import {
 	countsAfter,
 	dueInputOf,
 	listRequest,
+	matches,
 	NO_PENDING,
 	shownRows,
 	withChange,
@@ -140,4 +143,44 @@ test("INV-optimistic: changes in flight show at once; the confirmed rows stand w
 		],
 	);
 	assert.deepEqual(shownRows(items, NO_PENDING), items);
+});
+
+test("AC:TARGET-TSK-001 INV-membership: a saved task joins the list only when it matches the query", () => {
+	const me = "a1",
+		ruth = "r1";
+	const task = (extra = {}) => ({
+		id: "t",
+		title: "Order chairs",
+		status: "not_started",
+		priority: "medium",
+		category: "general",
+		due: { kind: "undated" },
+		assignee: { accountId: me, displayName: "Me" },
+		relation: null,
+		parentId: null,
+		deleted: false,
+		...extra,
+	});
+	const q = parse("q=order&status=any");
+	assert.equal(matches(q, task(), me), true);
+	assert.equal(
+		matches(q, task({ assignee: { accountId: ruth, displayName: "Ruth" } }), me),
+		false,
+		"Mine excludes Ruth's task",
+	);
+	assert.equal(matches(parse("view=all&q=order"), task({ assignee: null }), me), true);
+	assert.equal(matches(parse("view=all&q=order"), task({ title: "Call James" }), me), false, "search");
+	assert.equal(matches(parse("view=all"), task({ status: "complete" }), me), false, "open statuses by default");
+	assert.equal(matches(parse("view=all&priority=urgent"), task(), me), false, "priority");
+	assert.equal(
+		matches(parse("view=all&relation=none"), task({ relation: { kind: "team", id: "x", label: "T" } }), me),
+		false,
+	);
+	const team = "0b6c3f1e-2a7d-4c3b-9f5e-1d2c3b4a5f60";
+	assert.equal(
+		matches(parse(`view=all&team=${team}`), task({ relation: { kind: "team", id: team, label: "T" } }), me),
+		true,
+	);
+	assert.equal(matches(parse(`view=all&team=${team}`), task(), me), false, "team");
+	assert.equal(matches(parse("view=all&due=local_date"), task(), me), false, "due kind");
 });

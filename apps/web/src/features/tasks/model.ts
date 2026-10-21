@@ -421,3 +421,22 @@ export function shownRows(items: readonly TaskItem[], p: Pending): TaskItem[] {
 		return [status ? { ...row, status } : row];
 	});
 }
+
+/**
+ * Whether a task belongs in the list the query shows, by the same rules as the server's scope: view, title search,
+ * status, priority, category, link, due kind and team. A saved task that does not belong stays out of the rows and the
+ * counts.
+ */
+export function matches(q: TaskQuery, t: TaskItem, you: string): boolean {
+	if (t.deleted || t.parentId) return false;
+	if (q.view === "my" && t.assignee?.accountId !== you) return false;
+	if (q.search && !t.title.toLowerCase().includes(q.search.toLowerCase())) return false;
+	if (q.statuses.length && !q.statuses.includes(t.status)) return false;
+	if (q.priorities.length && !q.priorities.includes(t.priority)) return false;
+	if (q.categories.length && !q.categories.includes(t.category)) return false;
+	if (q.relation === "none" ? t.relation !== null : q.relation !== "any" && t.relation?.kind !== q.relation)
+		return false;
+	if (q.due !== "any" && t.due.kind !== q.due) return false;
+	if (q.teamId && !(t.relation?.kind === "team" && t.relation.id === q.teamId)) return false;
+	return true;
+}

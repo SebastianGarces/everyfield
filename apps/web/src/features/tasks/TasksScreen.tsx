@@ -41,6 +41,7 @@ import { useEffect, useOptimistic, useRef, useState, useTransition, type ReactNo
 import { changeTaskStatus, deleteTask, type StatusAction } from "./actions.ts";
 import { loadTask, relationOptions } from "./fetch.ts";
 import {
+	matches,
 	NO_PENDING,
 	PENDING_PREFIX,
 	shownRows,
@@ -165,7 +166,8 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 		window.history.replaceState(null, "", url.pathname + url.search);
 	};
 	const warm = (id: string) => {
-		if (loading.current.has(id) || details[id]?.status === "ok") return;
+		const known = details[id];
+		if (loading.current.has(id) || (known?.status === "ok" && known.history !== null)) return;
 		loading.current.add(id);
 		setDetails((d) => ({ ...d, [id]: { status: "loading" } }));
 		loadTask(id)
@@ -192,21 +194,27 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	};
 
 	/** A confirmed write: the row, the counts and an open panel show the saved task; its history gains the entry. */
-	const confirm = (before: TaskItem | null, saved: Saved) => {
+	const confirm = (before: TaskItem | null, saved: Saved, fields = false) => {
 		const task = saved.task;
 		// A task opened from the address may be outside this list (a closed task in the open list): only its panel changes.
-		const inList = !before || listed.current.some((r) => r.id === task.id);
-		if (inList) {
+		// A status change keeps its row in place, struck through; a new or edited task is listed and counted only when it
+		// matches the query (F5), as the server would list it.
+		const wasIn = before !== null && listed.current.some((r) => r.id === task.id);
+		const nowIn = task.deleted ? false : fields ? matches(query, task, viewer.accountId) : wasIn;
+		if (wasIn || nowIn) {
 			setItems((rows) =>
-				task.deleted
+				!nowIn
 					? rows.filter((r) => r.id !== task.id)
 					: rows.some((r) => r.id === task.id)
 						? rows.map((r) => (r.id === task.id ? task : r))
-						: [task, ...rows],
+						: before
+							? rows
+							: [task, ...rows],
 			);
-			if (saved.changed) setCounts((c) => countsAfter(c, before, task.deleted ? null : task));
-			if (!before) setTotal((t) => t + 1);
-			if (task.deleted) setTotal((t) => Math.max(0, t - 1));
+			if (saved.changed && (wasIn || !before))
+				setCounts((c) => countsAfter(c, wasIn ? before : null, nowIn ? task : null));
+			if (!before && nowIn) setTotal((t) => t + 1);
+			if (wasIn && !nowIn) setTotal((t) => Math.max(0, t - 1));
 		}
 		setDetails((d) => {
 			const cur = d[task.id];
@@ -215,7 +223,8 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				void _;
 				return rest;
 			}
-			if (cur?.status !== "ok") return before ? d : { ...d, [task.id]: { status: "ok", task, history: null } };
+			// Nothing cached yet (a new task): the panel reads the task and its history when it opens (F6).
+			if (cur?.status !== "ok") return d;
 			const moved = saved.changed && before && before.status !== task.status;
 			const history =
 				moved && cur.history && cur.history.next === null
@@ -382,7 +391,11 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 		const id = before?.id ?? c.preview.id;
 		serial(
 			id,
-			() => setPending(before ? { kind: "row", id, row: c.preview } : { kind: "add", row: c.preview }),
+			() => {
+				const fits = matches(query, c.preview, viewer.accountId);
+				if (before) setPending({ kind: "row", id, row: fits ? c.preview : null });
+				else if (fits) setPending({ kind: "add", row: c.preview });
+			},
 			() => keyed(id, before ? `edit:${id}` : "create", c.payload, c.send, before ? revisionOf(before) : "0"),
 			(r) => {
 				if (r.status === "ok") return saved(before, r.value);
@@ -404,19 +417,19 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 		);
 	};
 	const saved = (before: TaskItem | null, value: Saved) => {
-		confirm(before, value);
-		const inView = query.view === "all" || value.task.assignee?.accountId === viewer.accountId;
+		confirm(before, value, true);
+		const inView = matches(query, value.task, viewer.accountId);
+		const what = before ? `Saved “${value.task.title}”.` : `Added “${value.task.title}”.`;
 		toast({
 			tone: "success",
-			message: before ? `Saved “${value.task.title}”.` : `Added “${value.task.title}”.`,
-			action:
-				!before && !inView
-					? {
-							label: "Show all tasks",
-							altText: "Choose All above the list",
-							onSelect: () => go(withFilters(query, { view: "all" })),
-						}
-					: undefined,
+			message: inView ? what : `${what} It does not match this list’s view or filters, so it is not shown here.`,
+			action: inView
+				? undefined
+				: {
+						label: "Show it",
+						altText: "Open the task",
+						onSelect: () => open(value.task.id),
+					},
 		});
 	};
 	const toggle = (task: TaskItem) => act(task, isSettled(task.status) ? { kind: "reopen" } : { kind: "complete" });
