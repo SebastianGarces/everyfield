@@ -42,14 +42,7 @@ export async function assertCurrentCatalog(db: Database | Transaction, schema: s
      JOIN information_schema.tables t ON t.table_schema=c.table_schema AND t.table_name=c.table_name
      WHERE c.table_schema=${sql.param(schema)} AND t.table_type='BASE TABLE'`);
 	assert.deepEqual(
-		sort(
-			columns.rows.map((c) => [
-				c.table_name,
-				c.column_name,
-				typeName(c.udt_name),
-				c.is_nullable === "YES",
-			]),
-		),
+		sort(columns.rows.map((c) => [c.table_name, c.column_name, typeName(c.udt_name), c.is_nullable === "YES"])),
 		sort(expected.tables.flatMap((t) => t.columns.map((c) => [t.name, c.name, c.type, c.nullable]))),
 		"Migrated columns/types/nullability differ from target.json",
 	);

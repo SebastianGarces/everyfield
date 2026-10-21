@@ -874,7 +874,8 @@ test("AC:TARGET-TSK-005 AC:EVRY-REAL-CHILD-TASK-PARITY checklist rows are one-le
 
 	// A parent holds at most the 500 rows a task reads back with; the next one refuses and the parent stays readable.
 	const full = await create(owner, { title: "Full" });
-	await f.admin.execute(sql`INSERT INTO task (id, plant_id, title, category, priority, status, created_at, due_kind, parent_id)
+	await f.admin
+		.execute(sql`INSERT INTO task (id, plant_id, title, category, priority, status, created_at, due_kind, parent_id)
 		SELECT gen_random_uuid(), ${plant.id}, 'Row ' || n, 'general', 'medium', 'not_started', now(), 'undated', ${full.id}
 		FROM generate_series(1, 500) n`);
 	refused(await child(owner, full, {}), "invalid_input");
