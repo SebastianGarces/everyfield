@@ -12,7 +12,7 @@ export type EffectResult = { receiptId: string; revision: string } | { refused: 
  * propose it; a person approves the exact review; the executor runs the native command once under live authority.
  */
 export type ReviewedWrite<I> = {
-	operation: "people.updatePerson";
+	operation: string;
 	description: string;
 	input: z.ZodType<I>;
 	/** Current authority decides availability, the same as the native command's role floor. */

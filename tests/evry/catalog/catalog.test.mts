@@ -16,7 +16,12 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		...Object.values(READ_DOMAINS).flatMap((adapters) => adapters.map((a) => a.operation)),
 		SELECT_RETURNED_ROWS,
 	];
-	assert.deepEqual(installed, ["people.listPeople", "people.getPerson", "evry.selectReturnedRows"]);
+	assert.deepEqual(installed, [
+		"people.listPeople",
+		"people.getPerson",
+		"people.getPersonPhoto",
+		"evry.selectReturnedRows",
+	]);
 	for (const id of installed) {
 		const op = operations.get(id);
 		assert.ok(op, id);
