@@ -17,6 +17,7 @@ export const jobKind = z.enum([
 	"lifecycle_purge",
 	"assistant_turn",
 	"document_render",
+	"evry_effect",
 ]);
 export type JobKind = z.infer<typeof jobKind>;
 export const DEFAULT_LEASE_SECONDS = 300;

@@ -53,10 +53,37 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (options.responseFormat?.type === "json")
 		return [{ type: "text", text: JSON.stringify({ kind: classify(text) }) }];
 	const hasPeople = options.tools?.some((t) => t.name === "people_read") ?? false;
+	const canPropose = options.tools?.some((t) => t.name === "propose_change") ?? false;
+	// "Change Maria's city to Austin": find the person, then propose the change for review.
+	const change = /\b(?:change|set|update)\s+([A-Z][\w'-]+?)(?:'s)?\s+(city|phone|email)\s+to\s+(.+?)\.?\s*$/i.exec(
+		text,
+	);
 	const result = lastToolOutput(options.prompt);
 	if (result) {
 		if (result.error) return [{ type: "text", text: `I could not finish that read (${String(result.error)}).` }];
-		const rows = (result.rows as { label: string; fields: { city: string | null } }[] | undefined) ?? [];
+		if (typeof result.proposalId === "string") {
+			const review = result.review as {
+				target: { label: string };
+				changes: { field: string; before: unknown; after: unknown }[];
+			};
+			const changes = review.changes.map(
+				(c) => `${c.field} from ${String(c.before ?? "empty")} to ${String(c.after ?? "empty")}`,
+			);
+			return [
+				{
+					type: "text",
+					text: `I prepared a change for ${review.target.label}: ${changes.join(", ")}. Nothing changes until you approve it.`,
+				},
+			];
+		}
+		const rows = (result.rows as { id: string; label: string; fields: { city: string | null } }[] | undefined) ?? [];
+		if (change && canPropose && rows.length === 1)
+			return [
+				toolCall("propose_change", {
+					operation: "people.updatePerson",
+					input: { personId: rows[0]!.id, patch: { [change[2]!.toLowerCase()]: change[3] } },
+				}),
+			];
 		// "every" asks for all pages: keep reading while the result says more exist; the runtime's budget stops it.
 		if (/\bevery\b/i.test(text) && typeof result.next === "number")
 			return [
@@ -67,7 +94,7 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 			];
 		if (result.status === "not_found") return [{ type: "text", text: "I can't find that person in this church." }];
 		const names = rows.map((r) => (r.fields.city ? `${r.label} (${r.fields.city})` : r.label));
-		if (/\bwhich\b|\bfind\b/i.test(text) && rows.length > 1)
+		if ((/\bwhich\b|\bfind\b/i.test(text) || change) && rows.length > 1)
 			return [{ type: "text", text: `I found ${rows.length} matches: ${names.join(", ")}. Which one do you mean?` }];
 		const more = result.completeness === "partial" ? ` More exist; ask for page ${String(result.next)}.` : "";
 		return [
@@ -77,7 +104,7 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (hasPeople) {
 		const id = /\b([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/i.exec(text)?.[1];
 		if (id) return [toolCall("people_read", { operation: "people.getPerson", input: { personId: id } })];
-		const name = /\b(?:[Ff]ind|named|called|for)\s+([A-Z][\w'-]+)/.exec(text)?.[1];
+		const name = change?.[1] ?? /\b(?:[Ff]ind|named|called|for)\s+([A-Z][\w'-]+)/.exec(text)?.[1];
 		if (name) return [toolCall("people_read", { operation: "people.listPeople", input: { search: name } })];
 		if (/\bpeople|everyone|members?\b/i.test(text))
 			return [toolCall("people_read", { operation: "people.listPeople", input: { limit: pageSize(text) } })];

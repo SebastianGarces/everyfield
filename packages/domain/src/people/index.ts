@@ -10,5 +10,5 @@ export {
 } from "./queries.ts";
 export { detachAccountPersonLinks } from "./references.ts";
 
-export { PeopleReadContext, withPeopleWrite } from "./core.ts";
+export { contactColumns, PeopleReadContext, Refusal, withPeopleWrite } from "./core.ts";
 export { personFields, readPersonPhoto, uploadPersonPhoto } from "./fields/index.ts";

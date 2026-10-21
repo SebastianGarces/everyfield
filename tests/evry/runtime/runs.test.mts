@@ -150,11 +150,15 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 	const none = await ask(seatless, "What can you do for me?");
 	assert.equal(await work(), "succeeded");
 	assert.match((await events(seatless, none)).text, /no application reads available/);
-	// No catalog offers writes, approvals, code, private care or coach tools to any context.
+	// No catalog offers direct writes, approvals, code, private care or coach tools to any context. Only a plant Owner or
+	// Admin may propose the reviewed People change, the same floor as the native command.
 	for (const who of ["owner", "member", "orgOwner", "seatless"] as const) {
 		const catalog = readCatalog(await actor(who));
 		const operations = catalog.domains.flatMap((d) => d.operations.map((o) => o.operation));
-		assert.deepEqual(catalog.reviewedWrites, []);
+		assert.deepEqual(
+			catalog.reviewedWrites.map((w) => w.operation),
+			who === "owner" ? ["people.updatePerson"] : [],
+		);
 		assert.ok(operations.every((o) => o === "people.listPeople" || o === "people.getPerson"));
 		assert.equal(operations.length, who === "owner" || who === "member" ? 2 : 0);
 	}
@@ -211,8 +215,8 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 	assert.ok(seen.includes("Alex Rivera"), "an authorized page reference is verified");
 	assert.deepEqual(
 		[...new Set(calls.flatMap((c) => c.tools?.map((t) => t.name) ?? []))].sort(),
-		["people_read", "select_returned_rows"],
-		"prompt text cannot add tools or scope",
+		["people_read", "propose_change", "select_returned_rows"],
+		"prompt text cannot add tools or scope; the owner's catalog decides them",
 	);
 });
 
