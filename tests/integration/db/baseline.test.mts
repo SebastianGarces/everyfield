@@ -23,6 +23,7 @@ import {
 	readAuthorizedObject,
 	createAuthorizedDownload,
 	deleteUnreferencedObject,
+	privateStorageFrom,
 } from "../../../packages/db/src/schema/storage.ts";
 const require = createRequire(new URL("../../../packages/db/package.json", import.meta.url));
 
@@ -136,6 +137,21 @@ after(async () => {
 	await admin.execute(querySql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
 	for (const name of [role, authRole]) await admin.execute(querySql.raw(`DROP ROLE IF EXISTS ${name}`));
 	await closeDatabase(admin);
+});
+
+test("INV-storage: only a Vercel production deployment may use the production bucket", () => {
+	const keys = {
+		AWS_ACCESS_KEY_ID: "synthetic",
+		AWS_SECRET_ACCESS_KEY: "synthetic",
+		AWS_ENDPOINT_URL_S3: "https://storage.example.test",
+	};
+	const bucket = (env) => privateStorageFrom({ ...keys, ...env })?.bucket ?? null;
+	// A local preview is a production build: NODE_ENV=production alone is not production.
+	for (const env of [{}, { NODE_ENV: "production" }, { VERCEL_ENV: "preview" }])
+		assert.throws(() => bucket({ ...env, AWS_BUCKET_NAME: "everyfield" }), /production only/);
+	assert.equal(bucket({ AWS_BUCKET_NAME: "everyfield", VERCEL_ENV: "production" }), "everyfield");
+	assert.equal(bucket({ AWS_BUCKET_NAME: "everyfield-dev" }), "everyfield-dev");
+	assert.equal(bucket({}), null);
 });
 
 test("BUG-112: a Kit column-drop migration passes the drift gate on fresh and upgraded databases", async () => {
