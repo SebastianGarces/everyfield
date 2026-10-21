@@ -23,6 +23,7 @@ export function taskReminders(notifications: ReturnType<typeof createNotificatio
 				},
 				due: s.due,
 				open: s.open && s.assigneeId !== null,
+				created: s.created,
 				asOf,
 			})),
 		);
