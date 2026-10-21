@@ -1062,5 +1062,17 @@
 	"meetings/core.withMeetingsWrite:native.meetings.reconcileAttendance.assigned": {
 		"limit": 10,
 		"retry": 20
+	},
+	"meetings/core.withMeetingsWrite:meetings.finalizeAttendance": {
+		"limit": 12,
+		"retry": 24
+	},
+	"meetings/core.withMeetingsWrite:meetings.reconcileAttendance": {
+		"limit": 10,
+		"retry": 20
+	},
+	"meetings/core.withMeetingsWrite:meetings.recordEvaluation": {
+		"limit": 10,
+		"retry": 20
 	}
 }

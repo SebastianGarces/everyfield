@@ -61,8 +61,10 @@ const standalone = {
 	"/apps/web/src/server/jobs/notifications.ts": ["sendDiscoveryAssociationReceipt", "sendOnboardingRelationships"],
 };
 
-export async function measure(name, body) {
+export async function measure(name, body, options = {}) {
 	const frame = { name, count: 0, writes: 0, rollbacks: 0 };
+	const parent = frames.getStore()?.at(-1);
+	if (parent && parent.first === undefined) parent.first = name;
 	return frames.run([...(frames.getStore() ?? []), frame], async () => {
 		const started = performance.now();
 		let status = "threw";
@@ -71,7 +73,10 @@ export async function measure(name, body) {
 			status = result?.status ?? "returned";
 			return result;
 		} finally {
-			emit({ kind: "sample", ...frame, status, ms: Math.round(performance.now() - started) });
+			const { first, ...counts } = frame;
+			// A shared wrapper outside any named check takes the operation it ran as its variant.
+			const label = options.byFirst && first ? frame.name + ":" + first : frame.name;
+			emit({ kind: "sample", ...counts, name: label, status, ms: Math.round(performance.now() - started) });
 		}
 	});
 }
@@ -119,14 +124,14 @@ export function observeDatabase(db) {
 	return db;
 }
 /**
- * A shared native wrapper measured inside a named boundary check takes that check's name as its variant, so an
- * operation with a larger reviewed budget gets its own limit and every other call keeps the wrapper's own budget.
+ * A shared native wrapper takes a variant: the named boundary check around it, or else the first operation it runs.
+ * An operation with a larger reviewed budget gets its own limit; every other call keeps the wrapper's own budget.
  */
-const within = () => {
+function measureWrapper(name, body) {
 	const outer = frames.getStore()?.at(-1);
-	return outer ? ":" + outer.name : "";
-};
-globalThis.__evfWriteCounts = { measure, decorate, observeDatabase, within };
+	return outer ? measure(name + ":" + outer.name, body) : measure(name, body, { byFirst: true });
+}
+globalThis.__evfWriteCounts = { measure, measureWrapper, decorate, observeDatabase };
 
 registerHooks({
 	load(url, context, next) {
@@ -190,7 +195,7 @@ registerHooks({
 					edits.push(
 						[
 							n.body.getStart(ast) + 1,
-							`return await globalThis.__evfWriteCounts.measure(${JSON.stringify(name)}+globalThis.__evfWriteCounts.within(),async()=>{`,
+							`return await globalThis.__evfWriteCounts.measureWrapper(${JSON.stringify(name)},async()=>{`,
 						],
 						[n.body.end - 1, "});"],
 					);
