@@ -385,6 +385,23 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 AC:TARGET-TSK-017 AC:GAP-PPL-020 AC:CA
 	assert.ok(corrected.work.some((w) => w.meetingId === later && w.personId === riley && w.outcome === "created"));
 	// The earlier meeting's open follow-up closes as no longer needed; it is not deleted or completed.
 	assert.equal((await work(early)).find((w) => w.person_id === riley).status, "no_longer_needed");
+
+	// A correction names the real owner of an existing later duty: Sam's owned later follow-up, closed by a backdated
+	// Vision, stays closed and owned when that Vision is reconciled away.
+	const sam = await person("Sam");
+	const samLater = await meeting("vision_meeting", "2026-09-13T23:00:00Z"),
+		samEarly = await meeting("vision_meeting", "2026-09-06T23:00:00Z");
+	ok(await finalize(owner, samLater, [sam], { followUpAssigneeId: member.id }));
+	ok(await finalize(owner, samEarly, [sam]));
+	const undone = ok(await reconcile(owner, samEarly, []));
+	assert.deepEqual(
+		undone.work.filter((w) => w.meetingId === samLater).map((w) => [w.personId, w.outcome, w.assigneeId, w.needsOwner]),
+		[[sam, "existing", member.id, false]],
+	);
+	assert.deepEqual(
+		(await work(samLater)).filter((w) => w.kind === "follow_up").map((w) => [w.status, w.assignee_id]),
+		[["no_longer_needed", member.id]],
+	);
 });
 
 test("AC:TARGET-MTG-014 AC:GAP-MTG-015 AC:TARGET-MTG-015 one evaluation, computed average, reviewed corrections", async () => {

@@ -1030,5 +1030,37 @@
 	"meetings/core.withMeetingsWrite:native.meetings.finalizeAttendance.assigned": {
 		"limit": 12,
 		"retry": 24
+	},
+	"meetings/core.withMeetingsWrite:native.meetings.finalizeAttendance": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings/core.withMeetingsWrite:native.meetings.recordEvaluation": {
+		"limit": 6,
+		"retry": 12
+	},
+	"native.meetings.recordEvaluation.assigned": {
+		"limit": 10,
+		"retry": 20
+	},
+	"meetings/core.withMeetingsWrite:native.meetings.recordEvaluation.assigned": {
+		"limit": 10,
+		"retry": 20
+	},
+	"native.meetings.reconcileAttendance": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings/core.withMeetingsWrite:native.meetings.reconcileAttendance": {
+		"limit": 6,
+		"retry": 12
+	},
+	"native.meetings.reconcileAttendance.assigned": {
+		"limit": 10,
+		"retry": 20
+	},
+	"meetings/core.withMeetingsWrite:native.meetings.reconcileAttendance.assigned": {
+		"limit": 10,
+		"retry": 20
 	}
 }

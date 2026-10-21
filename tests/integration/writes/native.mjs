@@ -602,6 +602,11 @@ try {
 		.execute(sql`INSERT INTO meeting(id,plant_id,type,local_date,local_time,timezone,starts_at,resolver_version,
 		status,attendance_revision) VALUES(${recent},${s.w.id},'vision_meeting',${heldAt.slice(0, 10)},'00:00','UTC',
 		${heldAt},'1','completed',1)`);
+	// A Person with no earlier Vision, so the meeting owes them an owned first-Vision follow-up.
+	const newcomer = randomUUID();
+	await f.admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,
+		commitment_state,pipeline_position,state,created_at) VALUES(${newcomer},${s.w.id},${s.w.id},'Newcomer','other',
+		'prospect','unknown','unknown',0,'live',clock_timestamp())`);
 	const owned = await measure("native.meetings.finalizeAttendance.assigned", () =>
 		withMeetingsWrite(f.db, actor, (tx, ctx) =>
 			createAttendanceWriter({ reminders: taskReminders(planned) }).finalizeAttendance(tx, ctx, {
@@ -609,7 +614,7 @@ try {
 				expectedRevision: "1",
 				input: {
 					meetingId: recent,
-					attendeeIds: [created.value.person.id],
+					attendeeIds: [newcomer],
 					followUpAssigneeId: s.sender.id,
 					evaluationAssigneeId: s.sender.id,
 				},
@@ -617,6 +622,62 @@ try {
 		),
 	);
 	assert.equal(owned.status, "ok", JSON.stringify(owned));
+	// Completing the assigned evaluation task cancels its future notices; reconciling to nobody closes the follow-ups,
+	// owned (notices cancelled) and unowned (no reminder work).
+	const attendanceWrite = (name, reminders, body) =>
+		measure("native.meetings." + name, () =>
+			withMeetingsWrite(f.db, actor, (tx, ctx) => body(createAttendanceWriter({ reminders }), tx, ctx)),
+		);
+	const reminded = taskReminders(planned),
+		quiet = async () => {
+			throw Error("unexpected_reminders");
+		};
+	for (const [name, reminders, body] of [
+		[
+			"recordEvaluation.assigned",
+			reminded,
+			(w, tx, ctx) =>
+				w.recordEvaluation(tx, ctx, {
+					requestKey: randomUUID(),
+					input: {
+						meetingId: recent,
+						scores: {
+							attendanceScore: 4,
+							locationScore: 4,
+							logisticsScore: 4,
+							agendaScore: 4,
+							vibeScore: 4,
+							messageScore: 4,
+							closeScore: 4,
+							nextStepsScore: 4,
+						},
+					},
+				}),
+		],
+		[
+			"reconcileAttendance.assigned",
+			reminded,
+			(w, tx, ctx) =>
+				w.reconcileAttendance(tx, ctx, {
+					requestKey: randomUUID(),
+					expectedRevision: "2",
+					input: { meetingId: recent, attendeeIds: [], reason: "Sign-in sheet checked" },
+				}),
+		],
+		[
+			"reconcileAttendance",
+			quiet,
+			(w, tx, ctx) =>
+				w.reconcileAttendance(tx, ctx, {
+					requestKey: randomUUID(),
+					expectedRevision: "2",
+					input: { meetingId: held, attendeeIds: [], reason: "Sign-in sheet checked" },
+				}),
+		],
+	]) {
+		const r = await attendanceWrite(name, reminders, body);
+		assert.equal(r.status, "ok", JSON.stringify(r));
+	}
 	assert.equal(
 		(
 			await f.admin.execute(sql`SELECT count(*)::int n FROM notice n JOIN task t ON t.id=n.source_record_id

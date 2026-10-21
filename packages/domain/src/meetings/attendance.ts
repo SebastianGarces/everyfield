@@ -61,6 +61,7 @@ const laterRow = guestRow.omit({ display_name: true, person_state: true, rsvp: t
 	meeting_zone: z.string(),
 	meeting_at: date,
 });
+const lockedTasks = z.array(z.object({ obligation_id: z.uuid(), assignee_id: z.uuid().nullable() }));
 const obligationRow = z.object({
 	id: z.uuid(),
 	kind: z.enum(["follow_up", "evaluation"]),
@@ -548,6 +549,11 @@ async function settle(
 	const work: z.infer<typeof c.generatedWork>[] = [];
 	const after: (() => Promise<unknown>)[] = [];
 	const known = (id: string) => f.obligations.find((o) => o.id === id);
+	// The real owner of each existing duty: this meeting's duties and the locked follow-up tasks of the People involved,
+	// which include later meetings' follow-ups.
+	const owners = new Map<string, string | null>(f.obligations.map((o) => [o.id, o.assignee_id]));
+	for (const t of lockedTasks.parse(f.tasks ?? [])) owners.set(t.obligation_id, t.assignee_id);
+	const ownerOf = (id: string) => owners.get(id) ?? null;
 	if (vision && noop)
 		for (const o of f.obligations)
 			work.push(
@@ -597,7 +603,7 @@ async function settle(
 		for (const e of ensured.value) {
 			const assigneeId =
 				e.outcome === "existing"
-					? (known(e.obligationId)?.assignee_id ?? null)
+					? ownerOf(e.obligationId)
 					: e.meetingId !== f.id
 						? null
 						: e.kind === "meeting_evaluation"
@@ -634,7 +640,7 @@ async function settle(
 						obligationId: t.obligationId,
 						taskId: t.taskId,
 						outcome: "closed",
-						assigneeId: known(t.obligationId)?.assignee_id ?? null,
+						assigneeId: ownerOf(t.obligationId),
 						needsOwner: false,
 					}),
 				);
