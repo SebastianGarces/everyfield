@@ -435,6 +435,7 @@ export function ship(root: string, task: TaskRef): number {
 		if (!(cfg.mergePolicy.feedbackVerifierMerge as string[]).includes(cls))
 			fail("This feedback class requires the owner approval route.");
 	}
+	requireGreenMain(wt, cfg, gh(wt, ["pr", "view", String(pr.number), "--json", "body", "--jq", ".body"]));
 	if (verification.carry) {
 		const { approvedHead, merges, base, mainIncluded } = verification.carry;
 		const proof = [
@@ -453,6 +454,46 @@ export function ship(root: string, task: TaskRef): number {
 			`Merge refused: ${(merge.stderr || merge.stdout).trim()}. A changed head needs fresh CI and verifier approval.`,
 		);
 	return afterMerge(root, cfg, task, wt, pr.number, verification, baseSha);
+}
+
+const MAIN_CI_WORKFLOW = "ci.yml",
+	MAIN_CI_ISSUE = "P0: CI failed on main";
+
+/**
+ * Main's latest finished CI run decides, not the issue state: a red main merges only the PR whose body says
+ * Fixes #N for the open fail-forward issue. Cancelled and skipped runs prove nothing either way.
+ */
+function requireGreenMain(cwd: string, cfg: Config, body: string): void {
+	const runs = JSON.parse(
+		gh(cwd, [
+			"run",
+			"list",
+			"--workflow",
+			MAIN_CI_WORKFLOW,
+			"--branch",
+			cfg.baseBranch,
+			"--event",
+			"push",
+			"--status",
+			"completed",
+			"--limit",
+			"20",
+			"--json",
+			"conclusion,headSha,url",
+		]),
+	) as Array<{ conclusion: string; headSha: string; url: string }>;
+	const latest = runs.find((r) => r.conclusion !== "cancelled" && r.conclusion !== "skipped");
+	if (!latest) fail(`Cannot find a finished ${MAIN_CI_WORKFLOW} run on ${cfg.baseBranch}.`);
+	if (latest.conclusion === "success") return;
+	const repo = nameWithOwner(cwd);
+	const fixesOpenIssue = [...body.matchAll(/\bFixes #(\d+)\b/gi)].some(([, n]) => {
+		const issue = JSON.parse(gh(cwd, ["api", `repos/${repo}/issues/${n}`])) as { state?: string; title?: string };
+		return issue.state === "open" && issue.title === MAIN_CI_ISSUE;
+	});
+	if (!fixesOpenIssue)
+		fail(
+			`Main CI is red (${latest.conclusion} at ${latest.headSha.slice(0, 10)}, ${latest.url}). Only a PR whose body says Fixes #<n> for the open "${MAIN_CI_ISSUE}" issue may merge.`,
+		);
 }
 
 function afterMerge(

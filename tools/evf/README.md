@@ -24,6 +24,10 @@ previous head and whose second parent is on main, each merge tree equals the cle
 base do not overlap, and required CI passes on H. Ship posts the proof as an `EVF-Carry:` comment
 before it merges and keeps it in the shipped record. Any other change refuses as before.
 Design tasks, P2/P3 feedback and every `evf approve` route keep exact-head review.
+
+Ship never merges on red main. Before it merges, it reads main's latest finished `ci.yml` push run,
+skipping cancelled and skipped runs. When that run failed, only a PR whose body says `Fixes #<n>`
+for the open `P0: CI failed on main` issue may merge. The gate reads the run, not the issue state.
 The ship skill defines the review record and owner approval exceptions.
 
 Model families are `openai` and `anthropic`, not individual model names. Authors put

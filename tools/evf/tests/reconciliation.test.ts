@@ -1311,6 +1311,53 @@ test("INV-carry-approval: an approval carries only over clean merges of main on 
 	}
 });
 
+test("BUG-179-red-main: ship refuses while main's latest CI run failed, unless the PR fixes the open P0 issue", () => {
+	const f = mergeFixture();
+	try {
+		const run = (conclusion: string) => ({ conclusion, headSha: "c".repeat(40), url: "https://example.invalid/run" });
+		const attempt = (edit: (s) => void) => {
+			const state = f.getState();
+			state.mainRuns = [run("cancelled"), run("failure"), run("success")];
+			state.issues = [
+				...state.issues.filter((i) => i.number !== 176),
+				{ number: 176, title: "P0: CI failed on main", state: "open" },
+			];
+			state.calls = [];
+			edit(state);
+			f.setState(state);
+			return () => ship(f.root, f.taskRef);
+		};
+		const merges = () => f.getState().calls.filter((c) => c.args[0] === "pr" && c.args[1] === "merge");
+		const fixes = (n: number) => (s) => {
+			s.pr.body = s.pr.body.replace("EVF-Author:", `Fixes #${n}\n\nEVF-Author:`);
+		};
+		assert.throws(
+			attempt(() => {}),
+			/Main CI is red \(failure at cccccccccc/,
+		);
+		assert.deepEqual(merges(), []);
+		assert.throws(attempt(fixes(3)), /Main CI is red/);
+		assert.throws(
+			attempt((s) => {
+				fixes(176)(s);
+				s.issues.at(-1).state = "closed";
+			}),
+			/Main CI is red/,
+		);
+		assert.deepEqual(merges(), []);
+		assert.throws(attempt(fixes(176)), /fixture merge barrier/);
+		assert.equal(merges().length, 1);
+		assert.throws(
+			attempt((s) => {
+				s.mainRuns = [run("skipped"), run("success"), run("failure")];
+			}),
+			/fixture merge barrier/,
+		);
+	} finally {
+		f.close();
+	}
+});
+
 test("BUG-wave1-0016: renumber a migration that collides with main and keep the journal and snapshot chain valid", () => {
 	const f = mergeFixture();
 	try {
