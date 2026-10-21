@@ -328,8 +328,19 @@ export async function runTurn(deps: RunDeps, lease: RunLease): Promise<RunOutcom
 							JSON.stringify({
 								proposalId: proposal.id,
 								status: "awaiting_approval",
-								review: proposal.review,
 								expiresAt: proposal.expiresAt,
+								// The reviewed fields live in their source row, so a later model call withholds them with
+								// the row once the target is no longer available (withLiveRows).
+								rows: target
+									? [
+											{
+												kind: "person",
+												id: target.id,
+												label: target.label,
+												fields: { changes: proposal.review.changes },
+											},
+										]
+									: [],
 							}),
 						),
 					) as Record<string, unknown>;

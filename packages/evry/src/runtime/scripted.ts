@@ -62,17 +62,18 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (result) {
 		if (result.error) return [{ type: "text", text: `I could not finish that read (${String(result.error)}).` }];
 		if (typeof result.proposalId === "string") {
-			const review = result.review as {
-				target: { label: string };
-				changes: { field: string; before: unknown; after: unknown }[];
-			};
-			const changes = review.changes.map(
+			const [target] = result.rows as {
+				label: string;
+				fields: { changes: { field: string; before: unknown; after: unknown }[] };
+			}[];
+			if (!target) return [{ type: "text", text: "I prepared a change, but its source is no longer available." }];
+			const changes = target.fields.changes.map(
 				(c) => `${c.field} from ${String(c.before ?? "empty")} to ${String(c.after ?? "empty")}`,
 			);
 			return [
 				{
 					type: "text",
-					text: `I prepared a change for ${review.target.label}: ${changes.join(", ")}. Nothing changes until you approve it.`,
+					text: `I prepared a change for ${target.label}: ${changes.join(", ")}. Nothing changes until you approve it.`,
 				},
 			];
 		}

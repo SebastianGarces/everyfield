@@ -1,12 +1,19 @@
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { wrapLanguageModel } from "../../../packages/evry/node_modules/ai/dist/index.js";
+import type {
+	LanguageModelV4,
+	LanguageModelV4CallOptions,
+} from "../../../packages/evry/node_modules/@ai-sdk/provider/dist/index.js";
 import {
 	approveProposal,
 	cancelProposal,
+	cancelTurn,
 	createConversation,
 	executeProposal,
 	readConversation,
+	prepareProposal,
 	readReview,
 	retryUnresolvedEffects,
 	reviseProposal,
@@ -15,9 +22,23 @@ import {
 } from "../../../packages/evry/src/index.ts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { evryActor } from "../../../packages/evry/src/context/actor.ts";
+import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
 import { transaction } from "../../../apps/web/src/server/platform/database.ts";
 import { claimDue, finishClaim, recoverLease, type Claim } from "../../../apps/web/src/server/jobs/queue.ts";
-import { accounts, actor, admin, db, people, plant, queries, setup, sql, teardown, work } from "../runtime/support.mts";
+import {
+	accounts,
+	actor,
+	admin,
+	db,
+	freshActor,
+	people,
+	plant,
+	queries,
+	setup,
+	sql,
+	teardown,
+	work,
+} from "../runtime/support.mts";
 
 before(setup);
 after(teardown);
@@ -126,6 +147,26 @@ test("AC:UI45-004 AC:UI45-003 AC:INH-REGRESSION-REVISED-APPROVAL AC:INH-REGRESSI
 		],
 	);
 	assert.deepEqual([await person(people.casey), await effectAudits(proposal.id)], [before, []]);
+	let start = queries.length;
+	await readReview(db, owner, proposal.id);
+	assert.equal(counted(start), 1);
+
+	// Preparing a review inside a running turn is one statement, and needs that turn's current claim.
+	const c = await createConversation(db, owner, { requestKey: randomUUID() });
+	await submitTurn(db, owner, c.id, { requestKey: randomUUID(), text: "hold this turn" });
+	const [turn] = await claimDue(db, ["assistant_turn"], 1, 240);
+	const run = {
+		turnId: turn!.id,
+		tenantId: turn!.tenant_id,
+		leaseOwner: turn!.lease_owner,
+		generation: turn!.claim_generation,
+	};
+	const call = { operation: "people.updatePerson", input: { personId: people.casey, patch: { city: "Elgin" } } };
+	start = queries.length;
+	assert.equal((await prepareProposal(db, owner, run, c.id, call))?.status, "pending");
+	assert.equal(counted(start), 1);
+	await cancelTurn(db, owner, c.id);
+	assert.equal(await prepareProposal(db, owner, run, c.id, call), null);
 
 	// Another account or context sees nothing, and cannot approve.
 	for (const who of ["member", "foreign"] as const) {
@@ -135,7 +176,7 @@ test("AC:UI45-004 AC:UI45-003 AC:INH-REGRESSION-REVISED-APPROVAL AC:INH-REGRESSI
 	}
 
 	// Editing a reviewed fact makes a new revision; the old approval witness no longer applies.
-	let start = queries.length;
+	start = queries.length;
 	const revised = await reviseProposal(db, owner, proposal.id, {
 		operation: "people.updatePerson",
 		revision: 1,
@@ -243,7 +284,9 @@ test("AC:INH-REGRESSION-EXPIRED-APPROVAL AC:UI45-004 AC:SEC-12 an approval at or
 		input: { personId: people.casey, patch: { phone: "555-0100" } },
 	});
 	await approveProposal(db, owner, proposal.id, witness(again));
+	let start = queries.length;
 	const cancelled = await cancelProposal(db, owner, proposal.id);
+	assert.equal(counted(start), 1);
 	assert.deepEqual([cancelled.cancelled, cancelled.proposal.status], [true, "cancelled"]);
 	assert.equal(await effects(), null);
 	assert.equal(await refusal(approveProposal(db, owner, proposal.id, witness(again))), "review_closed");
@@ -332,7 +375,9 @@ test("AC:EVRY-LEASE-FENCE AC:INH-REGRESSION-RETRY AC:INH-EDGES-12: an executor s
 	assert.deepEqual([await effectAudits(proposal.id), (await person(people.alexRivera)).city], [[], "Chicago"]);
 	// The outcome is unknown, not failed: the retry resumes the same effect key.
 	assert.equal((await readReview(db, owner, proposal.id)).outcome, "unknown");
+	const start = queries.length;
 	assert.equal((await retryUnresolvedEffects(db, owner, proposal.id)).retried, true);
+	assert.equal(counted(start), 1);
 	assert.equal((await effects())?.outcome, "completed");
 	assert.equal(await executeProposal(db, lease(stalled!)), "lost");
 	const retry = await retryUnresolvedEffects(db, owner, proposal.id);
@@ -340,4 +385,41 @@ test("AC:EVRY-LEASE-FENCE AC:INH-REGRESSION-RETRY AC:INH-EDGES-12: an executor s
 	assert.equal(await effects(), null);
 	const audits = await effectAudits(proposal.id);
 	assert.deepEqual([audits.length, (await person(people.alexRivera)).city], [1, "Naperville"]);
+});
+
+test("AC:UI45-006 AC:EVRY-CONTEXT-BOUNDS a review's fields leave model input once its target is retired during the turn", async () => {
+	const owner = await actor("owner");
+	const robin = randomUUID();
+	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,city,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state)
+		VALUES(${robin},${plant},${plant},'Robin Vale','Oldtown','other',clock_timestamp(),'prospect','unknown','unknown',500,'live')`);
+	const calls: LanguageModelV4CallOptions[] = [];
+	const model = wrapLanguageModel({
+		model: scriptedModel(),
+		middleware: { specificationVersion: "v4", transformParams: async ({ params }) => (calls.push(params), params) },
+	}) as LanguageModelV4;
+	// Robin is retired right after the review is saved, before the next model call reads its input.
+	const retiring = async (session: string) => {
+		await admin.execute(sql`UPDATE person SET state='retired',retired_at=clock_timestamp()
+			WHERE id=${robin} AND state='live' AND EXISTS(SELECT FROM proposal WHERE review->'target'->>'id'=${robin})`);
+		return freshActor(session);
+	};
+	const c = await createConversation(db, owner, { requestKey: randomUUID() });
+	await submitTurn(db, owner, c.id, { requestKey: randomUUID(), text: "Change Robin's city to Newtown" });
+	assert.equal(await work({ status: "qualified", id: "test", model }, { freshActor: retiring }), "succeeded");
+	const page = await readConversation(db, owner, c.id);
+	const card = page.events.find((e) => e.kind === "tool_result" && e.body.operation === "evry.prepareProposal");
+	assert.ok(card, "a review was prepared before the retirement");
+	const last = JSON.stringify(calls.at(-1)!.prompt);
+	assert.ok(
+		!last.includes("Oldtown") && !last.includes("Robin Vale"),
+		"no retired source fields reach the next model call",
+	);
+	assert.ok(
+		JSON.stringify(calls[calls.length - 2]!.prompt).includes("Robin Vale"),
+		"the earlier call did see the live row",
+	);
+	assert.equal(
+		(await readReview(db, owner, (card.body.result as { proposalId: string }).proposalId)).review.withheld,
+		true,
+	);
 });
