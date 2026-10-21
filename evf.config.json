@@ -516,6 +516,17 @@
 			],
 			"risk": "ordinary"
 		},
+		"OPS-24": {
+			"title": "Evidence uploads use their own Tigris key",
+			"owningPaths": [".agents/skills/verify-preview/", "evf.config.json"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				}
+			],
+			"risk": "ordinary"
+		},
 		"OPS-25": {
 			"title": "Live access check inside every tenant read",
 			"owningPaths": ["docs/architecture/patterns.md", "docs/architecture/decisions.md", "evf.config.json"],
