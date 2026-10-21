@@ -165,6 +165,9 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	// A failure that started in the open panel is told there: the modal panel hides the toasts from assistive
 	// technology and keeps keyboard focus inside, so a toast's Try again would be out of reach.
 	const [problem, setProblem] = useState<PanelProblem | null>(null);
+	// The page's "Blocked by" badges: a read in flight, and whether the last one failed.
+	const readingBadges = useRef(false);
+	const [badgesStale, setBadgesStale] = useState(false);
 	if (server !== loaded) {
 		setServer(loaded);
 		setItems(loaded.page.items);
@@ -172,6 +175,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 		setTotal(loaded.page.total);
 		setSelected(new Set());
 		setReport(null);
+		setBadgesStale(false);
 	}
 	// Changes in flight (status, edit, delete, new task). They show at once and fall away when the write settles.
 	const [pending, setPending] = useOptimistic(NO_PENDING, withChange);
@@ -342,14 +346,36 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 			const held = st?.status === "ok" && st.prerequisites !== null;
 			return !held && !by.has(r.id) && !isSettled(r.status) && (reopened || r.openPrerequisites > 0);
 		});
-		if (!unknown) return;
+		// A read still in flight started before this change, so its answer may be older than it: it is dropped, and a
+		// new read covers both changes.
+		if (unknown || readingBadges.current) readBadges();
+	};
+	/**
+	 * One read of this page's badges for the rows whose prerequisites the screen does not hold. Only the newest read
+	 * applies. A failed read is tried twice more; after that the list says its badges may be out of date and offers
+	 * to read them again, so a wrong badge is never silent.
+	 */
+	const readBadges = (attempt = 0) => {
 		const n = ++blocking.current;
+		readingBadges.current = true;
+		setBadgesStale(false);
 		loadBlocking(window.location.search).then((r) => {
-			if (r.status !== "ok" || n !== blocking.current) return;
+			if (n !== blocking.current) return;
+			if (r.status !== "ok") {
+				if (attempt < 2)
+					return void setTimeout(() => n === blocking.current && readBadges(attempt + 1), 1000 * (attempt + 1));
+				readingBadges.current = false;
+				return setBadgesStale(true);
+			}
+			readingBadges.current = false;
 			const fresh = new Map(r.value.map((t) => [t.id, t.openPrerequisites]));
+			const held = (id: string) => {
+				const st = known.current[id];
+				return st?.status === "ok" && st.prerequisites !== null;
+			};
 			setItems((rows) =>
 				rows.map((row) =>
-					fresh.has(row.id) && fresh.get(row.id) !== row.openPrerequisites
+					fresh.has(row.id) && !held(row.id) && fresh.get(row.id) !== row.openPrerequisites
 						? { ...row, openPrerequisites: fresh.get(row.id)! }
 						: row,
 				),
@@ -959,6 +985,16 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				<Card className="gap-2 px-[18px] py-5 max-app-sm:px-3">
 					<Toolbar query={query} go={go} admin={admin} rows={items} />
 					{report ? <BulkReport report={report} onOpen={open} onClose={() => setReport(null)} /> : null}
+					<div role="status" className="empty:hidden">
+						{badgesStale ? (
+							<p className="mx-1.5 mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-surface px-4 py-2 text-sm text-text-2">
+								Some “Blocked by” notes on this page may be out of date. We could not check them.
+								<Button variant="ghost" size="sm" onClick={() => readBadges()}>
+									Check again
+								</Button>
+							</p>
+						) : null}
+					</div>
 					<div aria-busy={navigating || undefined} className="transition-opacity duration-150 aria-busy:opacity-60">
 						{shown.length === 0 ? (
 							<Empty
