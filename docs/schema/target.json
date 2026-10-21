@@ -70,8 +70,8 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 85,
-  "column_count": 986,
+  "table_count": 86,
+  "column_count": 988,
   "foreign_key_count": 312,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
@@ -21294,6 +21294,74 @@
           "meeting_kit_item_ck_2",
           "meeting_kit_item_ck_3",
           "meeting_kit_item_ck_4"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "model_spend",
+      "domain": "assistant",
+      "purpose": "Paid Evry model spend committed per calendar month (UTC) in this database: reservations for runs in progress plus the settled cost of finished runs, checked against the monthly limit before any paid model call (D76).",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-051"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-051"
+        ],
+        "rule": "WP-051 Evry model qualification spend limit through Drizzle Kit."
+      },
+      "feature_ids": [
+        "EVR-004"
+      ],
+      "acceptance_ids": [],
+      "future_case_ids": [],
+      "scope": "assistant",
+      "invariants": [
+        "A paid run reserves its worst-case cost in one conditional statement before any model call; the charge never passes the configured monthly limit at reservation.",
+        "A run gives back only the unused part of its reservation, and only when no model call it started is still open."
+      ],
+      "revision": "One row per month; reservations add and settlements subtract in single statements.",
+      "idempotency": "A run settles once; a run that stopped without settling keeps its full reservation.",
+      "deletion": "Holds no personal or tenant data; conversation, account and tenant purges leave it unchanged.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "month",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "charged_micro_usd",
+          "type": "bigint",
+          "nullable": false
+        }
+      ],
+      "primary_key": [
+        "month"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [],
+      "checks": [
+        "\"model_spend\".\"charged_micro_usd\" >= 0",
+        "\"model_spend\".\"month\"=date_trunc('month',\"model_spend\".\"month\")::date"
+      ],
+      "indexes": {},
+      "constraint_names": {
+        "primary": [],
+        "unique": [],
+        "foreign": [],
+        "checks": [
+          "model_spend_month",
+          "model_spend_charged"
         ]
       },
       "policies": {},

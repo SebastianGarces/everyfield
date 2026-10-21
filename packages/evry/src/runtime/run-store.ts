@@ -100,12 +100,23 @@ export async function savedResult(db: Database, conversationId: string, sequence
 }
 
 /**
- * What paid turns cost this calendar month (UTC) in this database, in millionths of a US dollar: the sum of the costs
- * their final status events recorded. One lock-free statement.
+ * Reserves `micro` millionths of a US dollar of this month's (UTC) paid model spend when the month's charge stays within
+ * `cap`. Returns the reserved month, or null when the limit would be passed. One statement; its row lock ends with it.
  */
-export async function monthSpend(db: Database): Promise<number> {
+export async function reserveSpend(db: Database, micro: number, cap: number): Promise<string | null> {
 	const r = await db.execute(sql`
-		SELECT coalesce(sum((body->'usage'->>'costMicroUsd')::bigint),0) AS spent FROM conversation_event
-		WHERE kind='status' AND created_at>=date_trunc('month',clock_timestamp(),'UTC')`);
-	return z.coerce.number().parse(r.rows[0]!.spent);
+		INSERT INTO model_spend(month,charged_micro_usd)
+		SELECT date_trunc('month',clock_timestamp() AT TIME ZONE 'UTC')::date,${micro}::bigint WHERE ${micro}::bigint<=${cap}::bigint
+		ON CONFLICT (month) DO UPDATE SET charged_micro_usd=model_spend.charged_micro_usd+EXCLUDED.charged_micro_usd
+			WHERE model_spend.charged_micro_usd+EXCLUDED.charged_micro_usd<=${cap}::bigint
+		RETURNING month::text`);
+	return r.rows.length ? z.string().parse(r.rows[0]!.month) : null;
+}
+
+/** Gives back the unused part of a reservation (a negative amount charges more). One statement. */
+export async function refundSpend(db: Database, month: string, micro: number) {
+	if (micro !== 0)
+		await db.execute(
+			sql`UPDATE model_spend SET charged_micro_usd=charged_micro_usd-${micro}::bigint WHERE month=${month}::date`,
+		);
 }

@@ -176,6 +176,13 @@
       "when": 1792589328928,
       "tag": "0025_four_cs_commitment_lifecycle",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792604167418,
+      "tag": "0026_evry_model_spend",
+      "breakpoints": true
     }
   ]
 }

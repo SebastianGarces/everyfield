@@ -177,30 +177,71 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 	}
 });
 
-test("D76 a paid turn records its cost; a turn whose worst case would pass the monthly limit is refused before any model call", async () => {
+test("D76 paid turns reserve their worst case before any model call: concurrent turns never pass the monthly limit; a cut-off call keeps its reservation; deleting a conversation keeps its charge", async () => {
 	const owner = await actor("owner");
 	const price = { input: 0.1, output: 0.5 };
-	const priced = (capMicroUsd: number) => {
-		const r = recorded();
-		return { calls: r.calls, model: { ...r.model, spend: { price, capMicroUsd } } };
+	// Worst case at these prices: twice the 128,000 input tokens and 16,000 + 8,000 output tokens = 37,600 micro-USD.
+	const worst = 37_600;
+	const charged = async () =>
+		Number((await admin.execute(sql`SELECT coalesce(sum(charged_micro_usd),0) n FROM model_spend`)).rows[0]!.n);
+	/** The scripted model with a price; `before` runs ahead of each model call. */
+	const priced = (
+		capMicroUsd: number,
+		before: (call: number, signal?: AbortSignal) => Promise<void> = async () => {},
+	) => {
+		let calls = 0;
+		const model = wrapLanguageModel({
+			model: scriptedModel(),
+			middleware: {
+				specificationVersion: "v4",
+				wrapGenerate: async ({ doGenerate }) => (await before(++calls), doGenerate()),
+				wrapStream: async ({ doStream }) => (await before(++calls), doStream()),
+			},
+		}) as LanguageModelV4;
+		return { calls: () => calls, model: { ...qualified(model), spend: { price, capMicroUsd } } };
 	};
+
+	// A finished turn charges exactly its counted tokens and saves that cost with its status.
 	const first = priced(1_000_000);
 	const id = await ask(owner, "Show all people and tell me the exact total.");
 	assert.equal(await work(first.model), "succeeded");
 	const usage = (await events(owner, id)).status.usage;
 	const spent = Math.ceil(usage.inputTokens * price.input + usage.outputTokens * price.output);
-	assert.ok(usage.inputTokens > 0 && first.calls.length > 0);
-	assert.equal(usage.costMicroUsd, spent);
+	assert.ok(usage.inputTokens > 0 && first.calls() > 0);
+	assert.deepEqual([usage.costMicroUsd, await charged()], [spent, spent]);
 
-	// Worst case at these prices: twice the 128,000 input tokens and 16,000 + 8,000 output tokens = 37,600 micro-USD.
-	const tight = priced(spent + 37_600 - 1);
-	const refused = await ask(owner, "Show all people.");
-	assert.equal(await work(tight.model), "failed");
-	assert.deepEqual([tight.calls.length, (await events(owner, refused)).status.error.code], [0, "model_unavailable"]);
-	const fits = priced(spent + 37_600);
-	await ask(owner, "Show all people.");
-	assert.equal(await work(fits.model), "succeeded");
-	assert.ok(fits.calls.length > 0);
+	// Three turns start together under a limit with room for one worst case: one runs, two end before any model call.
+	const slow = priced(spent + 2 * worst - 1, () => new Promise((r) => setTimeout(r, 300)));
+	const ids = [
+		await ask(owner, "Show all people."),
+		await ask(owner, "Show all people."),
+		await ask(owner, "Show all people."),
+	];
+	const outcomes = await Promise.all([work(slow.model), work(slow.model), work(slow.model)]);
+	assert.deepEqual(outcomes.toSorted(), ["failed", "failed", "succeeded"]);
+	const ends = await Promise.all(ids.map(async (c) => (await events(owner, c)).status));
+	const ran = ends.find((e) => e.state === "completed")!;
+	assert.deepEqual(
+		ends.filter((e) => e.state === "failed").map((e) => e.error.code),
+		["model_unavailable", "model_unavailable"],
+	);
+	assert.equal(await charged(), spent + ran.usage.costMicroUsd);
+	assert.ok((await charged()) <= spent + 2 * worst - 1);
+
+	// A model call cut off by cancel may still be billed: the run keeps its whole reservation.
+	const before = await charged();
+	const cancelled = await ask(owner, "Show all people.");
+	const cut = priced(1_000_000, async (call) => {
+		if (call < 2) return;
+		await cancelTurn(db, owner, cancelled);
+		throw Error("connection reset before the usage arrived");
+	});
+	assert.equal(await work(cut.model), "lost");
+	assert.equal(await charged(), before + worst);
+
+	// Deleting conversations removes their events, never the month's charge.
+	await admin.execute(sql`DELETE FROM conversation WHERE id IN (${id}::uuid, ${cancelled}::uuid)`);
+	assert.equal(await charged(), before + worst);
 });
 
 test("AC:INH-EDGES-01 AC:INH-REGRESSION-CLARIFICATION-NAME AC:SEC-11 two people named Alex get one clarification with safe distinguishing fields only; credentials never reach the model", async () => {

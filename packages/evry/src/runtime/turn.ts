@@ -1,5 +1,14 @@
+import type { LanguageModelV4StreamPart } from "@ai-sdk/provider";
 import type { Database } from "@everyfield/db/client";
-import { streamText, tool, type ModelMessage, type StopCondition, type ToolSet } from "ai";
+import {
+	streamText,
+	tool,
+	wrapLanguageModel,
+	type LanguageModelMiddleware,
+	type ModelMessage,
+	type StopCondition,
+	type ToolSet,
+} from "ai";
 import { z } from "zod";
 import { READ_DOMAINS, readCatalog, SELECT_RETURNED_ROWS } from "../catalog/catalog.ts";
 import { invokeRead } from "../catalog/invoke.ts";
@@ -17,7 +26,15 @@ import { EvryRefusal, projectError, scrub } from "../context/errors.ts";
 import { LIMITS, type StopReason } from "../context/limits.ts";
 import { allowedWrites, prepareProposal } from "../proposals/store.ts";
 import { costMicroUsd, worstTurnMicroUsd, type QualifiedModel } from "./model.ts";
-import { appendEvent, loadHistory, loadTurn, monthSpend, savedResult, type RunLease } from "./run-store.ts";
+import {
+	appendEvent,
+	loadHistory,
+	loadTurn,
+	refundSpend,
+	reserveSpend,
+	savedResult,
+	type RunLease,
+} from "./run-store.ts";
 
 export type RunDeps = {
 	db: Database;
@@ -73,6 +90,37 @@ export async function runTurn(deps: RunDeps, lease: RunLease): Promise<RunOutcom
 	let toolCalls = 0;
 	const usage = { inputTokens: 0, outputTokens: 0 };
 	const spend = deps.model.status === "qualified" ? deps.model.spend : undefined;
+	// A paid run's reservation (D76). It is settled to the counted cost only when every model call it started has
+	// reported its usage; a call cut off by cancel, lost lease or error may still be billed, so the run then keeps it all.
+	let reserved: { month: string; micro: number } | null = null;
+	let openCalls = 0;
+	/** Counts model calls that have not reported their usage yet: a generate call until it returns, a stream until its
+	 * finish part. */
+	const countCalls = (): LanguageModelMiddleware => ({
+		specificationVersion: "v4",
+		wrapGenerate: async ({ doGenerate }) => {
+			openCalls++;
+			const result = await doGenerate();
+			openCalls--;
+			return result;
+		},
+		wrapStream: async ({ doStream }) => {
+			openCalls++;
+			const result = await doStream();
+			const finished = new TransformStream<LanguageModelV4StreamPart, LanguageModelV4StreamPart>({
+				transform(part, controller) {
+					if (part.type === "finish") openCalls--;
+					controller.enqueue(part);
+				},
+			});
+			return { ...result, stream: result.stream.pipeThrough(finished) };
+		},
+	});
+	const settle = async () => {
+		const r = reserved;
+		reserved = null;
+		if (r && spend && openCalls === 0) await refundSpend(db, r.month, r.micro - costMicroUsd(spend.price, usage));
+	};
 	const save = async (kind: "assistant_text" | "tool_result", body: Record<string, unknown>) => {
 		const sequence = lost ? null : await appendEvent(db, lease, turn.conversation_id, kind, body);
 		if (sequence === null && !lost) {
@@ -93,6 +141,7 @@ export async function runTurn(deps: RunDeps, lease: RunLease): Promise<RunOutcom
 		abort.abort("failed");
 	};
 	const finish = async (): Promise<RunOutcome> => {
+		await settle().catch(() => undefined);
 		if (lost) return "lost";
 		const failed = stop === "failed";
 		const sequence = await appendEvent(
@@ -120,9 +169,13 @@ export async function runTurn(deps: RunDeps, lease: RunLease): Promise<RunOutcom
 			throw new EvryRefusal("access_denied");
 		if (deps.model.status !== "qualified") throw new EvryRefusal("model_unavailable");
 		// A paid turn starts only when its worst case still fits this month's limit (D76).
-		if (spend && (await monthSpend(db)) + worstTurnMicroUsd(spend.price) > spend.capMicroUsd)
-			throw new EvryRefusal("model_unavailable");
-		const model = deps.model.model;
+		if (spend) {
+			const micro = worstTurnMicroUsd(spend.price);
+			const month = await reserveSpend(db, micro, spend.capMicroUsd);
+			if (!month) throw new EvryRefusal("model_unavailable");
+			reserved = { month, micro };
+		}
+		const model = spend ? wrapLanguageModel({ model: deps.model.model, middleware: countCalls() }) : deps.model.model;
 		const catalog = readCatalog(actor);
 		const request = turn.message.body.text;
 

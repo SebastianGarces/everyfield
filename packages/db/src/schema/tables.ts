@@ -4760,6 +4760,23 @@ export const conversation_event = pgTable(
 );
 
 /**
+ * What paid Evry model calls have committed this calendar month (UTC) in this database, in millionths of a US dollar
+ * (D76). A paid run reserves its worst case here before any model call and gives back what it did not use; a run that
+ * stopped with a call still open keeps its reservation. It holds no personal data and outlives conversation deletion.
+ */
+export const model_spend = pgTable(
+	"model_spend",
+	{
+		month: date("month", { mode: "string" }).primaryKey(),
+		charged_micro_usd: int64("charged_micro_usd").notNull(),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		check("model_spend_month", sql`${t.month}=date_trunc('month',${t.month})::date`),
+		check("model_spend_charged", sql`${t.charged_micro_usd} >= 0`),
+	],
+);
+
+/**
  * One People CSV import: its frozen plan, the uploaded file the server reviewed (gzip, base64) and the rows whose last
  * write failed. The file is cleared when the import completes; the job's deletion removes the import.
  */
