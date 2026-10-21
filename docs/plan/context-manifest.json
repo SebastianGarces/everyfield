@@ -2578,6 +2578,7 @@
         "document",
         "document_revision",
         "file_object",
+        "four_cs",
         "household",
         "identity_proof",
         "interview",
@@ -5781,6 +5782,7 @@
       "producer_table_names": [
         "audit_event",
         "commitment",
+        "four_cs",
         "interview",
         "person_note",
         "record"
@@ -25985,6 +25987,7 @@
         "early_access_attempt",
         "early_access_request",
         "file_object",
+        "four_cs",
         "household",
         "identity_proof",
         "interview",
@@ -31974,6 +31977,7 @@
         "early_access_attempt",
         "early_access_request",
         "file_object",
+        "four_cs",
         "household",
         "interview",
         "invitation",
