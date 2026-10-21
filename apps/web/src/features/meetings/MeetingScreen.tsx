@@ -479,7 +479,7 @@ function Breakdown({
 }) {
 	return (
 		<div className={className}>
-			<h3 className="mb-1 text-xs font-semibold tracking-[0.04em] text-text-3 uppercase">{label}</h3>
+			<h3 className="mb-1 font-sans text-xs font-semibold tracking-[0.04em] text-text-3 uppercase">{label}</h3>
 			<dl className="flex flex-col">
 				{CARD_RESPONSES.map((r) => (
 					<div
