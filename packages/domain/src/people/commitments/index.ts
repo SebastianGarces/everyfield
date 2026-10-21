@@ -51,7 +51,6 @@ const commitmentRow = z.object({
 	revision: z.string(),
 	kind: c.commitmentKind,
 	witness_id: z.uuid().nullable(),
-	witness_name: z.string().nullable(),
 	external_witness: z.string().nullable(),
 	notes: z.string().nullable(),
 	media_type: c.commitmentMime.nullable(),
@@ -70,7 +69,7 @@ function commitmentView(plant: string, raw: unknown) {
 		revision: r.revision,
 		kind: r.kind,
 		witness: r.witness_id
-			? { kind: "person", personId: r.witness_id, displayName: r.witness_name }
+			? { kind: "person", personId: r.witness_id }
 			: r.external_witness
 				? { kind: "external", text: r.external_witness }
 				: null,
@@ -83,7 +82,7 @@ function commitmentView(plant: string, raw: unknown) {
 }
 const commitmentJson = sql`jsonb_build_object('id',r.id,'person_id',r.person_id,'occurred_on',r.signed_on::text,
  'recorded_at',r.recorded_at,'actor_id',${recorderSql("r")},'revision',r.revision::text,'kind',r.kind,
- 'witness_id',r.witness_person_id,'witness_name',(SELECT w.display_name FROM person w WHERE w.id=r.witness_person_id),
+ 'witness_id',r.witness_person_id,
  'external_witness',r.external_witness,'notes',r.notes,
  'media_type',(SELECT f.media_type FROM file_object f WHERE f.id=r.object_id),
  'byte_count',(SELECT f.byte_count FROM file_object f WHERE f.id=r.object_id),'voided_at',r.voided_at)`;
@@ -256,7 +255,6 @@ export const commitments = {
 							revision: "1",
 							kind: k.kind,
 							witness_id: witnessId,
-							witness_name: found.witness,
 							external_witness: k.witness && "external" in k.witness ? k.witness.external : null,
 							notes: k.notes,
 							media_type: found.upload?.media_type ?? null,
@@ -371,7 +369,9 @@ export const commitments = {
 				latestFirst,
 				sql`jsonb_build_object('state',p.commitment_state,'effective_on',p.commitment_effective_on::text,'revision',p.revision::text,
  'first',(SELECT jsonb_build_object('id',k.id,'on',k.signed_on::text) FROM commitment k WHERE k.person_id=p.id
-   AND k.plant_id=p.plant_id AND k.voided_at IS NULL ORDER BY k.signed_on,k.recorded_at,k.id LIMIT 1))`,
+   AND k.plant_id=p.plant_id AND k.voided_at IS NULL ORDER BY k.signed_on,k.recorded_at,k.id LIMIT 1),
+ 'witnesses',(SELECT coalesce(jsonb_object_agg(w.id,w.display_name),'{}') FROM person w WHERE w.tenant_id=p.plant_id
+   AND w.id IN (SELECT k.witness_person_id FROM commitment k WHERE k.person_id=p.id AND k.plant_id=p.plant_id)))`,
 			);
 			const extra = z
 				.object({
@@ -379,6 +379,7 @@ export const commitments = {
 					effective_on: z.string().nullable(),
 					revision: z.string(),
 					first: z.object({ id: z.uuid(), on: z.string() }).nullable(),
+					witnesses: z.record(z.string(), z.string()),
 				})
 				.parse(h.extra);
 			return c.commitmentsResult.parse({
@@ -390,6 +391,7 @@ export const commitments = {
 					: { status: "none" },
 				latest: h.latest ? commitmentView(h.plant, h.latest) : null,
 				items: h.items.map((r) => commitmentView(h.plant, r)),
+				witnessNames: extra.witnesses,
 				next: h.next,
 				total: h.total,
 			});

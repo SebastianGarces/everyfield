@@ -129,7 +129,8 @@ export const interview = z.strictObject({
 	nextSteps: notes.nullable(),
 });
 export const witness = z.discriminatedUnion("kind", [
-	z.strictObject({ kind: z.literal("person"), personId, displayName: z.string() }),
+	// The card names its witness; the history read supplies current names, so a saved card never changes with a rename.
+	z.strictObject({ kind: z.literal("person"), personId }),
 	z.strictObject({ kind: z.literal("external"), text: z.string() }),
 ]);
 export const commitmentDocument = z.discriminatedUnion("status", [
@@ -172,6 +173,8 @@ export const commitmentsResult = z.strictObject({
 	firstAcquisition,
 	latest: commitment.nullable(),
 	items: z.array(commitment).max(100),
+	// Current display names of the witness Persons these cards name, by Person ID.
+	witnessNames: z.record(z.string(), z.string()),
 	...page,
 });
 

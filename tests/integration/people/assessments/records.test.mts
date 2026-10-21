@@ -371,10 +371,24 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 AC:PROVIDER48-
 			"active",
 			day(5),
 			{ status: "attached", mediaType: "image/png", byteCount: png.length },
-			{ kind: "person", personId: casey.id, displayName: "Casey Reed" },
+			{ kind: "person", personId: casey.id },
 		],
 	);
 	assert.equal(await count("commitment", alex.id), 1);
+	// Renaming the witness changes the names the history shows, never the saved card or its retry.
+	ok(
+		await tx(async (t) =>
+			people.updatePerson(t, ctx(), {
+				requestKey: key(),
+				expectedRevision: await revisionOf(casey.id),
+				input: { personId: casey.id, patch: { displayName: "Casey Morgan" } },
+			}),
+		),
+	);
+	assert.deepEqual(ok(await card(input, requestKey)), saved);
+	assert.deepEqual(ok(await tx((t) => commitments.getCommitments(t, ctx(), { personId: alex.id }))).witnessNames, {
+		[casey.id]: "Casey Morgan",
+	});
 	// One document belongs to one card.
 	refused(await card({ occurredOn: day(4), documentUploadId: document.id }));
 
