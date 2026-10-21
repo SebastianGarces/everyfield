@@ -345,6 +345,14 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 AC:PROVIDER48-
 	// A witness from another church is refused.
 	refused(await card({ occurredOn: day(5), witness: { personId: foreign.id } }));
 	assert.equal(await count("commitment", alex.id), 0);
+	// INV-tenancy: a member cannot store the bytes of an Owner's pending upload; nothing reaches the bucket.
+	const pending = ok(
+		await tx((t) =>
+			commitments.requestCommitmentUpload(t, ctx(), { personId: alex.id, mime: "image/png", byteLength: png.length }),
+		),
+	);
+	refused(await uploadCommitmentDocument(db, storage, ctx(1), { uploadId: pending.uploadId, bytes: png }));
+	assert.equal(storage.objects.size, 0);
 
 	// The card, its document, the Core Group advance and the active commitment come back together; a retry adds nothing.
 	const document = await upload(png);

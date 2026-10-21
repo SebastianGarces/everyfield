@@ -5,7 +5,6 @@ import { and, eq, sql } from "@everyfield/db/query";
 import {
 	createAuthorizedDownload,
 	putPrivateObject,
-	validateCommitment,
 	type PrivateStorage,
 	type ResourceAuthorizer,
 } from "@everyfield/db/schema";
@@ -13,6 +12,7 @@ import * as tables from "@everyfield/db/tables";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
+import { writeVisibility } from "../../access/session.ts";
 import {
 	authorize,
 	deny,
@@ -440,37 +440,34 @@ export async function uploadCommitmentDocument(
 	return readReply(async () => {
 		const plant = plantId(ctx);
 		const input = parse(z.object({ uploadId: z.uuid(), bytes: z.instanceof(Uint8Array) }), raw);
-		const file = await db.transaction(async (tx) => {
-			await authorize(tx, ctx, true);
-			const [pending] = await tx
-				.select()
-				.from(tables.file_object)
-				.where(
-					and(
-						eq(tables.file_object.id, input.uploadId),
-						eq(tables.file_object.tenant_id, plant),
-						eq(tables.file_object.purpose, "commitment"),
-						eq(tables.file_object.state, "pending"),
-					),
-				)
-				.for("update");
-			if (!pending) deny();
-			// A failed upload changes nothing: the object stays pending and its cleanup removes it.
-			if (input.bytes.length !== Number(pending.max_bytes)) deny("invalid_input");
-			await validateCommitment(input.bytes, pending.media_type).catch(() => deny("invalid_input"));
-			await tx
-				.update(tables.file_object)
-				.set({ byte_count: String(input.bytes.length), sha256: createHash("sha256").update(input.bytes).digest("hex") })
-				.where(eq(tables.file_object.id, pending.id));
-			return pending;
-		});
+		// One statement records the verified size and hash on this church's own pending upload. The Owner or Admin
+		// authority is inside it and access_session locks it like any write (D70, C27). A wrong length changes nothing; a
+		// failed upload stays pending for its cleanup.
+		const sha256 = createHash("sha256").update(input.bytes).digest("hex");
+		const result = await db.execute(sql`WITH f AS (SELECT id,media_type,upload_key,max_bytes FROM file_object
+ WHERE id=${input.uploadId}::uuid AND tenant_id=${plant}::uuid AND purpose='commitment' AND state='pending'
+ AND expires_at>clock_timestamp() AND EXISTS(SELECT FROM access_session(${ctx.session}::uuid) i JOIN seat s
+ ON s.account_id=i.account_id WHERE i.registration_state='active' AND s.plant_id=${plant}::uuid AND s.ended_at IS NULL
+ AND s.accepted_at<=clock_timestamp() AND s.role<>'member' AND ${writeVisibility(sql`i.account_id`, ctx.selected)})),
+ u AS (UPDATE file_object o SET byte_count=${String(input.bytes.length)},sha256=${sha256} FROM f
+ WHERE o.id=f.id AND f.max_bytes=${String(input.bytes.length)} RETURNING o.id)
+ SELECT f.id,f.media_type,f.upload_key,EXISTS(SELECT FROM u) AS recorded FROM f`);
+		const file = z
+			.object({ id: z.uuid(), media_type: c.commitmentMime, upload_key: z.string(), recorded: z.boolean() })
+			.optional()
+			.parse(result.rows[0]);
+		if (!file) deny();
+		if (!file.recorded) deny("invalid_input");
+		// putPrivateObject verifies the PDF, JPG or PNG itself before it stores anything.
 		await putPrivateObject(db, storage, documentAuthority(ctx), {
 			tenantId: plant,
 			purpose: "commitment",
 			mediaType: file.media_type,
 			bytes: input.bytes,
 			uploadKey: file.upload_key,
-		}).catch(() => deny());
+		}).catch((error: unknown) =>
+			deny(error instanceof Error && error.message === "invalid_file" ? "invalid_input" : "unavailable"),
+		);
 		return { uploadId: file.id };
 	});
 }
