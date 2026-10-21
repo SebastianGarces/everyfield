@@ -45,16 +45,15 @@ const tagProblem = (code: string) =>
 export function ManageTagsDialog({
 	open,
 	onOpenChange,
-	initial,
 	onChurchTags,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	initial: ChurchTag[] | null;
 	/** Every change to the church's tags, so chips on the page follow it. */
 	onChurchTags: (tags: ChurchTag[]) => void;
 }) {
-	const [loaded, setLoaded] = useState<Outcome<ChurchTag[]> | null>(initial ? { status: "ok", value: initial } : null);
+	// Read fresh on every opening: the counts change whenever anyone tags a person.
+	const [loaded, setLoaded] = useState<Outcome<ChurchTag[]> | null>(null);
 	const tags = loaded?.status === "ok" ? loaded.value : [];
 	const [shown, apply] = useOptimistic(tags, (all, next: ChurchTag) =>
 		all.map((t) => (t.id === next.id ? next : t)).sort(byName),
@@ -67,7 +66,7 @@ export function ManageTagsDialog({
 	const [renaming, setRenaming] = useState<string | null>(null);
 	const [deleting, setDeleting] = useState<ChurchTag | null>(null);
 	// The list as last saved. Saves that finish out of order each start from it, so none brings back an older tag.
-	const latest = useRef<ChurchTag[]>(initial ?? []);
+	const latest = useRef<ChurchTag[]>([]);
 
 	useEffect(() => {
 		if (loaded) return;
@@ -90,6 +89,19 @@ export function ManageTagsDialog({
 		setLoaded({ status: "ok", value: all });
 		onChurchTags(all);
 	};
+
+	/**
+	 * Delete starts from the church's tags read now, so the confirmation names how many people have the tag at this
+	 * moment and the delete sends the tag's current revision (REQ-PPL-010: deletion previews the linked count).
+	 */
+	async function confirmDelete(tag: ChurchTag) {
+		setRowProblem(null);
+		const r = await listChurchTags().catch(() => ({ status: "lost" }) as const);
+		if (r.status !== "ok") return setRowProblem({ id: tag.id, text: tagProblem(problem(r)!) });
+		save(() => r.value);
+		const now = r.value.find((t) => t.id === tag.id);
+		if (now) setDeleting(now);
+	}
 
 	async function create(event: React.FormEvent) {
 		event.preventDefault();
@@ -181,7 +193,7 @@ export function ManageTagsDialog({
 														Rename
 													</MenuItem>
 													<MenuSeparator />
-													<MenuItem icon={Delete02Icon} danger onSelect={() => setDeleting(t)}>
+													<MenuItem icon={Delete02Icon} danger onSelect={() => void confirmDelete(t)}>
 														Delete tag
 													</MenuItem>
 												</MenuContent>

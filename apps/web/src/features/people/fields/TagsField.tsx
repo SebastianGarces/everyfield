@@ -49,9 +49,12 @@ export function TagsField({
 	const [managing, setManaging] = useState(false);
 	const loading = useRef(false);
 
-	/** Reads the church's tags once, when the picker is about to open (pointer, touch or keyboard focus on Add tag). */
+	/**
+	 * Reads the church's tags when the picker is about to open (pointer, touch or keyboard focus on Add tag), so names
+	 * and counts are current each time; the last list stays on screen while the new one arrives.
+	 */
 	function warm() {
-		if (loading.current || church?.status === "ok") return;
+		if (loading.current) return;
 		loading.current = true;
 		listChurchTags()
 			.catch(() => ({ status: "lost" }) as const)
@@ -60,6 +63,16 @@ export function TagsField({
 				setChurch(r);
 			});
 	}
+	/** This person's saved change moves the tag's count in the open picker by one. */
+	const count = (tagId: string, by: 1 | -1) =>
+		setChurch((c) =>
+			c?.status === "ok"
+				? {
+						...c,
+						value: c.value.map((t) => (t.id === tagId ? { ...t, linkedPeople: Math.max(0, t.linkedPeople + by) } : t)),
+					}
+				: c,
+		);
 	const fail = (what: string, r: Outcome<unknown>) =>
 		toast({ tone: "error", message: `${what} ${problemText(r.status === "refused" ? r.code : "lost")}` });
 
@@ -75,6 +88,7 @@ export function TagsField({
 			setTags(r.value.tags);
 			const created = r.value.created;
 			if (created) setChurch((c) => (c?.status === "ok" ? { ...c, value: [...c.value, created].sort(byName) } : c));
+			if (r.value.receipt.changed) count(created?.id ?? ("id" in tag ? tag.id : ""), 1);
 			onSaved(r.value.receipt);
 		});
 	}
@@ -84,6 +98,7 @@ export function TagsField({
 			const r = await removePersonTag(fresh(), { personId, tagId: tag.id }).catch(() => ({ status: "lost" }) as const);
 			if (r.status !== "ok") return fail(`${tag.name} was not removed.`, r);
 			setTags(r.value.tags);
+			if (r.value.receipt.changed) count(tag.id, -1);
 			onSaved(r.value.receipt);
 		});
 	}
@@ -134,7 +149,6 @@ export function TagsField({
 				<ManageTagsDialog
 					open
 					onOpenChange={setManaging}
-					initial={church?.status === "ok" ? church.value : null}
 					onChurchTags={(all) => {
 						setChurch({ status: "ok", value: all });
 						// A rename, recolor or delete shows on this person's chips at once.
