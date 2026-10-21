@@ -26,9 +26,13 @@ const tagRow = z.object({
 	color: z.string().nullable(),
 	revision: z.string(),
 	linked: z.coerce.number(),
+	links: z.coerce.number(),
 });
-/** Tags with the live people who carry them, in name order. One query. */
-async function readTags(tx: Tx, plant: string, id?: string): Promise<Tag[]> {
+/**
+ * Tags with the live people who carry them, in name order, and each tag's count of all current links (retired people
+ * included), which deletion removes. One query.
+ */
+async function readTags(tx: Tx, plant: string, id?: string): Promise<{ tag: Tag; links: number }[]> {
 	const rows = await tx
 		.select({
 			id: tables.tag.id,
@@ -37,32 +41,27 @@ async function readTags(tx: Tx, plant: string, id?: string): Promise<Tag[]> {
 			revision: tables.tag.revision,
 			linked: sql<number>`(SELECT count(*) FROM person_tag pt JOIN person p ON p.id=pt.person_id AND p.tenant_id=pt.plant_id
 				WHERE pt.tag_id=tag.id AND pt.plant_id=tag.plant_id AND p.state='live')`,
+			links: sql<number>`(SELECT count(*) FROM person_tag pt WHERE pt.tag_id=tag.id AND pt.plant_id=tag.plant_id)`,
 		})
 		.from(tables.tag)
 		.where(and(eq(tables.tag.plant_id, plant), id ? eq(tables.tag.id, id) : undefined))
 		.orderBy(tables.tag.normalized_name, tables.tag.id);
 	return rows.map((row) => {
 		const r = tagRow.parse(row);
-		return f.tag.parse({ id: r.id, name: r.name, color: r.color, revision: r.revision, linkedPeople: r.linked });
+		const tag = f.tag.parse({ id: r.id, name: r.name, color: r.color, revision: r.revision, linkedPeople: r.linked });
+		return { tag, links: r.links };
 	});
 }
-async function oneTag(tx: Tx, plant: string, id: string): Promise<Tag> {
+async function oneTag(tx: Tx, plant: string, id: string) {
 	const [found] = await readTags(tx, plant, id);
 	if (!found) deny();
 	return found;
 }
-async function personTags(tx: Tx, plant: string, personId: string) {
-	const rows = await tx
-		.select({ id: tables.tag.id, name: tables.tag.name, color: tables.tag.color })
-		.from(tables.person_tag)
-		.innerJoin(
-			tables.tag,
-			and(eq(tables.tag.id, tables.person_tag.tag_id), eq(tables.tag.plant_id, tables.person_tag.plant_id)),
-		)
-		.where(and(eq(tables.person_tag.plant_id, plant), eq(tables.person_tag.person_id, personId)))
-		.orderBy(tables.tag.normalized_name, tables.tag.id);
-	return rows.map((row) => f.personTag.parse(row));
-}
+/** One Person's tags in name order, as a scalar subquery read with the Person row (it names the outer `person`). */
+const personTagsJson = (plant: string) =>
+	sql`coalesce((SELECT jsonb_agg(jsonb_build_object('id',t.id,'name',t.name,'color',t.color) ORDER BY t.normalized_name,t.id)
+ FROM person_tag pt JOIN tag t ON t.id=pt.tag_id AND t.plant_id=pt.plant_id WHERE pt.person_id=person.id AND pt.plant_id=${plant}::uuid),'[]')`;
+const personTags = (raw: unknown) => z.array(f.personTag).parse(raw);
 const tagFacts = (t: { revision: string; name: string; color: string | null }) => ({
 	revision: t.revision,
 	name: t.name,
@@ -115,7 +114,7 @@ export const tagsAndSkills = {
 			const plant = plantId(ctx);
 			parse(f.listTagsRequest, raw);
 			await authorize(tx, ctx);
-			return f.tagsResult.parse({ items: await readTags(tx, plant) });
+			return f.tagsResult.parse({ items: (await readTags(tx, plant)).map((r) => r.tag) });
 		});
 	},
 	async getPersonTags(tx: Tx, ctx: Context, raw: unknown) {
@@ -123,8 +122,8 @@ export const tagsAndSkills = {
 			const plant = plantId(ctx);
 			const input = parse(f.personFieldsRequest, raw);
 			await authorize(tx, ctx);
-			await personFacts(tx, plant, input.personId);
-			return f.personTagsResult.parse({ personId: input.personId, tags: await personTags(tx, plant, input.personId) });
+			const p = await personFacts(tx, plant, input.personId, personTagsJson(plant));
+			return f.personTagsResult.parse({ personId: input.personId, tags: personTags(p.extra) });
 		});
 	},
 	async createTag(tx: Tx, ctx: WriteContext, raw: unknown) {
@@ -141,7 +140,7 @@ export const tagsAndSkills = {
 							and(eq(tables.tag.plant_id, plant), sql`${tables.tag.normalized_name}=lower(btrim(${input.input.name}))`),
 						);
 					if (same) {
-						const tag = await oneTag(tx, plant, same.id);
+						const { tag } = await oneTag(tx, plant, same.id);
 						const value = { tag, outcome: "noop" as const, receiptId };
 						return { value, subject: tag.id, subjectType: "tag", action: "people.created", outcome: "noop" };
 					}
@@ -172,7 +171,7 @@ export const tagsAndSkills = {
 			const input = parse(f.updateTagRequest, raw);
 			return f.tagMutationResult.parse(
 				await mutation<unknown>(tx, ctx, "people.updateTag", input, async (_actor, receiptId, audit) => {
-					const before = await oneTag(tx, plant, input.input.tagId);
+					const { tag: before } = await oneTag(tx, plant, input.input.tagId);
 					expectRevision(before.revision, input.expectedRevision);
 					const name = input.input.name ?? before.name,
 						color = input.input.color === undefined ? before.color : input.input.color;
@@ -223,22 +222,22 @@ export const tagsAndSkills = {
 			const input = parse(f.deleteTagRequest, raw);
 			return f.deleteTagResult.parse(
 				await mutation<unknown>(tx, ctx, "people.deleteTag", input, async (_actor, receiptId, audit) => {
-					const before = await oneTag(tx, plant, input.input.tagId);
+					const { tag: before, links } = await oneTag(tx, plant, input.input.tagId);
 					expectRevision(before.revision, input.expectedRevision);
-					// Current links go first: the tag's foreign key restricts its deletion. Person history keeps each link.
-					const removed = await tx
-						.delete(tables.person_tag)
-						.where(and(eq(tables.person_tag.plant_id, plant), eq(tables.person_tag.tag_id, before.id)))
-						.returning({ person: tables.person_tag.person_id });
+					// The links, the tag and its audit row go in one statement; the church lock keeps the read count exact.
+					// Each Person's history keeps its own link.
 					audit.writes.push(
+						tx
+							.delete(tables.person_tag)
+							.where(and(eq(tables.person_tag.plant_id, plant), eq(tables.person_tag.tag_id, before.id))),
 						tx.delete(tables.tag).where(and(eq(tables.tag.id, before.id), eq(tables.tag.plant_id, plant))),
 					);
 					return {
-						value: { tagId: before.id, removedLinks: removed.length, receiptId },
+						value: { tagId: before.id, removedLinks: links, receiptId },
 						subject: before.id,
 						subjectType: "tag",
 						action: "people.retired",
-						before: { ...tagFacts(before), links: removed.length },
+						before: { ...tagFacts(before), links },
 					};
 				}),
 			);
@@ -374,10 +373,19 @@ async function changeTagLink(tx: Tx, ctx: WriteContext, raw: unknown, name: "peo
 		return f.tagAssignmentResult.parse(
 			await mutation<unknown>(tx, ctx, name, input, async (_actor, receiptId, audit) => {
 				const { personId, tagId } = input.input;
-				const p = await personFacts(tx, plant, personId);
+				// The Person, its tags and the target tag in one read.
+				const p = await personFacts(
+					tx,
+					plant,
+					personId,
+					sql`jsonb_build_object('tags',${personTagsJson(plant)},'tag',(SELECT jsonb_build_object('id',t.id,'name',t.name,'color',t.color)
+ FROM tag t WHERE t.id=${tagId}::uuid AND t.plant_id=${plant}::uuid))`,
+				);
 				livePerson(p);
-				const tag = await oneTag(tx, plant, tagId);
-				const before = await personTags(tx, plant, personId);
+				const facts = z.object({ tags: z.unknown(), tag: f.personTag.nullable() }).parse(p.extra);
+				if (!facts.tag) deny();
+				const tag = facts.tag,
+					before = personTags(facts.tags);
 				const linked = before.some((t) => t.id === tagId);
 				const assign = name === "people.assignTag";
 				// A repeated assign or remove changes nothing and records no activity (REQ-PPL-010).

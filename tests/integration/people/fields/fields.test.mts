@@ -401,19 +401,39 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 			}),
 		),
 	).result;
-	const memberIds = preview.members.map((m) => m.personId);
-	const propagate = (rev, ids = memberIds) =>
+	const reviewed = preview.members.map((m) => ({ personId: m.personId, revision: m.revision }));
+	const propagate = (rev, members = reviewed) =>
 		tx((t) =>
 			fields.propagateAddress(t, ctx(), {
 				requestKey: key(),
 				expectedRevision: rev,
-				input: { householdId: h.id, memberIds: ids },
+				input: { householdId: h.id, members },
 			}),
 		);
 	refused(await propagate(preview.household.revision), "conflict");
 	assert.equal((await rows(sql`SELECT street FROM person WHERE id=${sql.param(casey.id)}`))[0].street, "1 Own St");
-	refused(await propagate(edited.household.revision, memberIds.slice(1)), "conflict");
-	const propagated = ok(await propagate(edited.household.revision));
+	refused(await propagate(edited.household.revision, reviewed.slice(1)), "conflict");
+	// A member's own edit after the preview makes it stale too: nothing is written and nothing is audited.
+	ok(
+		await tx(async (t) =>
+			people.updatePerson(t, ctx(), {
+				requestKey: key(),
+				expectedRevision: await revisionOf(casey.id),
+				input: { personId: casey.id, patch: { street: "2 New St" } },
+			}),
+		),
+	);
+	const audited = await rows(sql`SELECT count(*)::int n FROM audit_event`);
+	refused(await propagate(edited.household.revision), "conflict");
+	assert.equal((await rows(sql`SELECT street FROM person WHERE id=${sql.param(casey.id)}`))[0].street, "2 New St");
+	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM audit_event`), audited);
+	const fresh = ok(await tx((t) => fields.getHouseholdMembers(t, ctx(), { householdId: h.id })));
+	const propagated = ok(
+		await propagate(
+			fresh.household.revision,
+			fresh.members.map((m) => ({ personId: m.personId, revision: m.revision })),
+		),
+	);
 	assert.equal(propagated.updatedPeople, 3);
 	assert.deepEqual(new Set(propagated.result.members.map((m) => m.street)), new Set(["10 Oak Ave"]));
 	assert.deepEqual(await rows(sql`SELECT DISTINCT street FROM person WHERE household_id=${sql.param(h.id)}`), [
@@ -504,7 +524,15 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 	}
 	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM person WHERE household_id IS NOT NULL`), [{ n: 0 }]);
 	assert.deepEqual(ok(await tx((t) => fields.getHousehold(t, ctx(), { personId: jamie.id }))), { status: "none" });
-	assert.ok((await audit(jamie.id)).some((a) => a.after_value?.household?.name === "Rivera household"));
+	// The public history still names the household the retired person belonged to.
+	const history = ok(await tx((t) => peopleReader.getActivities(t, ctx(), { personId: jamie.id }))).items;
+	assert.deepEqual(
+		history.filter((a) => a.kind === "household_changed").map((a) => [a.from?.role ?? null, a.to?.name, a.to?.role]),
+		[
+			[null, "Rivera household", "child"],
+			["child", "Rivera household", "other"],
+		],
+	);
 	assert.equal((await audit(h.id)).at(-1).action, "people.retired");
 	assert.equal(ok(await tx((t) => fields.listHouseholds(t, ctx(), {}))).total, 0);
 });

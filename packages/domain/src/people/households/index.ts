@@ -1,5 +1,5 @@
 import * as f from "@everyfield/contracts/people";
-import { and, eq, ne, sql } from "@everyfield/db/query";
+import { and, eq, ne, sql, type SQL } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { randomUUID } from "node:crypto";
 import "server-only";
@@ -48,16 +48,24 @@ const householdRow = z.object({
 type Household = z.infer<typeof householdRow>;
 type Member = z.infer<typeof memberRow>;
 
-/** One household with its live members, in role then name order. Retired members are history, not membership. */
+/**
+ * One household with its live members as one JSON value; retired members are history, not membership. A scalar
+ * subquery, so a write reads it in the same round trip as its Person (`id` may name the outer `person`).
+ */
+const householdJson = (plant: string, id: SQL) =>
+	sql`(SELECT jsonb_build_object('id',h.id,'name',h.name,'revision',h.revision::text,'street',h.street,'city',h.city,
+ 'state_province',h.state_province,'postal_code',h.postal_code,'country',h.country,'members',
+ coalesce((SELECT jsonb_agg(jsonb_build_object('id',m.id,'display_name',m.display_name,'household_role',m.household_role,
+   'revision',m.revision::text,'street',m.street,'city',m.city,'state_province',m.state_province,'postal_code',m.postal_code,
+   'country',m.country)) FROM person m WHERE m.household_id=h.id AND m.tenant_id=h.plant_id AND m.state='live'),'[]'))
+ FROM household h WHERE h.id=${id} AND h.plant_id=${plant}::uuid)`;
+function household(raw: unknown): Household {
+	if (!raw) deny();
+	return householdRow.parse(raw);
+}
 async function readHousehold(tx: Tx, plant: string, id: string): Promise<Household> {
-	const result =
-		await tx.execute(sql`SELECT h.id,h.name,h.revision,h.street,h.city,h.state_province,h.postal_code,h.country,
- coalesce((SELECT jsonb_agg(jsonb_build_object('id',p.id,'display_name',p.display_name,'household_role',p.household_role,
-   'revision',p.revision::text,'street',p.street,'city',p.city,'state_province',p.state_province,'postal_code',p.postal_code,
-   'country',p.country)) FROM person p WHERE p.household_id=h.id AND p.tenant_id=h.plant_id AND p.state='live'),'[]') AS members
- FROM household h WHERE h.id=${id}::uuid AND h.plant_id=${plant}::uuid`);
-	if (!result.rows[0]) deny();
-	return householdRow.parse(result.rows[0]);
+	const result = await tx.execute(sql`SELECT ${householdJson(plant, sql`${id}::uuid`)} AS h`);
+	return household(result.rows[0]?.h);
 }
 const memberOrder = (a: Member, b: Member) =>
 	roleOrder.indexOf(a.household_role) - roleOrder.indexOf(b.household_role) ||
@@ -99,9 +107,9 @@ function householdTouched(tx: Tx, plant: string, id: string) {
 		.set({ revision: sql`${tables.household.revision}+1` })
 		.where(and(eq(tables.household.id, id), eq(tables.household.plant_id, plant)));
 }
-const membership = (p: { household_id: string | null; household_role: Role | null }, name: string | null) => ({
-	household: p.household_id && { id: p.household_id, name },
-	householdRole: p.household_role,
+/** A Person's history records its membership as one value, so the activity feed can show every join, leave and role. */
+const membership = (household: { id: string; name: string } | null, role: Role | null) => ({
+	membership: household && role ? { householdId: household.id, name: household.name, role } : null,
 });
 const householdFacts = (h: Household) => ({ revision: h.revision, name: h.name, ...addressOf(h) });
 type HouseholdValue = z.input<typeof f.householdMutationResult>;
@@ -141,14 +149,9 @@ export const households = {
 			const plant = plantId(ctx);
 			const input = parse(f.householdRequest, raw);
 			await authorize(tx, ctx);
-			let id: string;
-			if ("householdId" in input) id = input.householdId;
-			else {
-				const p = await personFacts(tx, plant, input.personId);
-				if (!p.household_id) return f.householdResult.parse({ status: "none" });
-				id = p.household_id;
-			}
-			return view(await readHousehold(tx, plant, id));
+			if ("householdId" in input) return view(await readHousehold(tx, plant, input.householdId));
+			const p = await personFacts(tx, plant, input.personId, householdJson(plant, sql`person.household_id`));
+			return p.household_id ? view(household(p.extra)) : f.householdResult.parse({ status: "none" });
 		});
 	},
 	// The preview for address propagation: the exact live members and the household revision.
@@ -187,12 +190,8 @@ export const households = {
 						value: { result: view(home), outcome: "changed", receiptId } satisfies HouseholdValue,
 						subject: p.id,
 						action: "people.updated",
-						before: { revision: p.revision, ...membership(p, null), ...addressOf(p) },
-						after: {
-							revision: head.revision,
-							...membership({ household_id: home.id, household_role: "head" }, name),
-							...addressOf(head),
-						},
+						before: { revision: p.revision, ...membership(null, null), ...addressOf(p) },
+						after: { revision: head.revision, ...membership(home, "head"), ...addressOf(head) },
 					};
 				}),
 			);
@@ -256,18 +255,19 @@ export const households = {
 					const h = await readHousehold(tx, plant, input.input.householdId);
 					expectRevision(h.revision, input.expectedRevision);
 					if (h.members.length) deny("conflict");
-					// Retired members leave the current household; their own history keeps the household they joined.
-					await tx
-						.update(tables.person)
-						.set({ household_id: null, household_role: null, revision: sql`${tables.person.revision}+1` })
-						.where(
-							and(
-								eq(tables.person.household_id, h.id),
-								eq(tables.person.tenant_id, plant),
-								ne(tables.person.state, "live"),
-							),
-						);
+					// Retired members leave the current household in the same statement that deletes it; their own history keeps the
+					// household they joined.
 					audit.writes.push(
+						tx
+							.update(tables.person)
+							.set({ household_id: null, household_role: null, revision: sql`${tables.person.revision}+1` })
+							.where(
+								and(
+									eq(tables.person.household_id, h.id),
+									eq(tables.person.tenant_id, plant),
+									ne(tables.person.state, "live"),
+								),
+							),
 						tx.delete(tables.household).where(and(eq(tables.household.id, h.id), eq(tables.household.plant_id, plant))),
 					);
 					return {
@@ -288,10 +288,10 @@ export const households = {
 			return f.householdMutationResult.parse(
 				await mutation<unknown>(tx, ctx, "people.addToHousehold", input, async (_actor, receiptId, audit) => {
 					const { householdId, personId, role } = input.input;
-					const p = await personFacts(tx, plant, personId);
+					const p = await personFacts(tx, plant, personId, householdJson(plant, sql`${householdId}::uuid`));
 					livePerson(p);
 					expectRevision(p.revision, input.expectedRevision);
-					const h = await readHousehold(tx, plant, householdId);
+					const h = household(p.extra);
 					if (p.household_id === h.id) {
 						const value: HouseholdValue = { result: view(h), outcome: "noop", receiptId };
 						return { value, subject: p.id, action: "people.updated", outcome: "noop" };
@@ -308,12 +308,8 @@ export const households = {
 						value: { result: view(after), outcome: "changed", receiptId } satisfies HouseholdValue,
 						subject: p.id,
 						action: "people.updated",
-						before: { revision: p.revision, ...membership(p, null), ...addressOf(p) },
-						after: {
-							revision: member.revision,
-							...membership({ household_id: h.id, household_role: role }, h.name),
-							...addressOf(member),
-						},
+						before: { revision: p.revision, ...membership(null, null), ...addressOf(p) },
+						after: { revision: member.revision, ...membership(h, role), ...addressOf(member) },
 					};
 				}),
 			);
@@ -325,14 +321,14 @@ export const households = {
 			const input = parse(f.removeFromHouseholdRequest, raw);
 			return f.householdMutationResult.parse(
 				await mutation<unknown>(tx, ctx, "people.removeFromHousehold", input, async (_actor, receiptId, audit) => {
-					const p = await personFacts(tx, plant, input.input.personId);
+					const p = await personFacts(tx, plant, input.input.personId, householdJson(plant, sql`person.household_id`));
 					livePerson(p);
 					expectRevision(p.revision, input.expectedRevision);
 					if (!p.household_id) {
 						const value: HouseholdValue = { result: { status: "none" }, outcome: "noop", receiptId };
 						return { value, subject: p.id, action: "people.updated", outcome: "noop" };
 					}
-					const h = await readHousehold(tx, plant, p.household_id);
+					const h = household(p.extra);
 					// Leaving keeps the person's own address.
 					audit.writes.push(
 						personUpdate(tx, plant, p, { household_id: null, household_role: null }),
@@ -343,8 +339,8 @@ export const households = {
 						value: { result: view(after), outcome: "changed", receiptId } satisfies HouseholdValue,
 						subject: p.id,
 						action: "people.updated",
-						before: { revision: p.revision, ...membership(p, h.name) },
-						after: { revision: next(p.revision), ...membership({ household_id: null, household_role: null }, null) },
+						before: { revision: p.revision, ...membership(h, p.household_role) },
+						after: { revision: next(p.revision), ...membership(null, null) },
 					};
 				}),
 			);
@@ -356,11 +352,11 @@ export const households = {
 			const input = parse(f.setHouseholdRoleRequest, raw);
 			return f.householdMutationResult.parse(
 				await mutation<unknown>(tx, ctx, "people.setHouseholdRole", input, async (_actor, receiptId, audit) => {
-					const p = await personFacts(tx, plant, input.input.personId);
+					const p = await personFacts(tx, plant, input.input.personId, householdJson(plant, sql`person.household_id`));
 					livePerson(p);
 					expectRevision(p.revision, input.expectedRevision);
 					if (!p.household_id) deny("invalid_subject");
-					const h = await readHousehold(tx, plant, p.household_id);
+					const h = household(p.extra);
 					if (p.household_role === input.input.role) {
 						const value: HouseholdValue = { result: view(h), outcome: "noop", receiptId };
 						return { value, subject: p.id, action: "people.updated", outcome: "noop" };
@@ -376,8 +372,8 @@ export const households = {
 						value: { result: view(after), outcome: "changed", receiptId } satisfies HouseholdValue,
 						subject: p.id,
 						action: "people.updated",
-						before: { revision: p.revision, householdRole: p.household_role },
-						after: { revision: next(p.revision), householdRole: input.input.role },
+						before: { revision: p.revision, ...membership(h, p.household_role) },
+						after: { revision: next(p.revision), ...membership(h, input.input.role) },
 					};
 				}),
 			);
@@ -392,8 +388,9 @@ export const households = {
 					const h = await readHousehold(tx, plant, input.input.householdId);
 					expectRevision(h.revision, input.expectedRevision);
 					// The reviewed preview must still be the exact live membership; otherwise nothing is written.
-					const ids = new Set<string>(input.input.memberIds);
-					if (ids.size !== h.members.length || h.members.some((m) => !ids.has(m.id))) deny("conflict");
+					const reviewed = new Map<string, string>(input.input.members.map((m) => [m.personId, m.revision]));
+					if (reviewed.size !== h.members.length || h.members.some((m) => reviewed.get(m.id) !== m.revision))
+						deny("conflict");
 					const home = addressOf(h);
 					audit.writes.push(
 						tx
@@ -422,7 +419,7 @@ export const households = {
 						subjectType: "household",
 						action: "people.updated",
 						before: { revision: h.revision, propagated: null },
-						after: { revision: h.revision, propagated: { ...home, people: [...ids].sort() } },
+						after: { revision: h.revision, propagated: { ...home, people: [...reviewed.keys()].sort() } },
 					};
 				}),
 			);

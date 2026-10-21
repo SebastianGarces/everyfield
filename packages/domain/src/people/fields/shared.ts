@@ -1,6 +1,6 @@
 import { revision } from "@everyfield/contracts/common";
 import type { Owner } from "@everyfield/contracts/common";
-import { and, eq, sql } from "@everyfield/db/query";
+import { and, eq, sql, type SQL } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import "server-only";
 import { z } from "zod";
@@ -48,8 +48,17 @@ const factRow = z.object({
 	...address,
 });
 export type PersonFacts = z.infer<typeof factRow>;
-/** The Person columns these fields read and write. A missing or foreign Person is unavailable. */
-export async function personFacts(tx: Tx, plant: string, id: string): Promise<PersonFacts> {
+/**
+ * The Person columns these fields read and write. A missing or foreign Person is unavailable. A write passes the related
+ * row it also needs (a household, tags, an upload) as `extra`, a scalar subquery that may name the outer `person`, so
+ * both come back in one round trip.
+ */
+export async function personFacts(
+	tx: Tx,
+	plant: string,
+	id: string,
+	extra?: SQL,
+): Promise<PersonFacts & { extra: unknown }> {
 	const [row] = await tx
 		.select({
 			id: tables.person.id,
@@ -64,11 +73,12 @@ export async function personFacts(tx: Tx, plant: string, id: string): Promise<Pe
 			state_province: tables.person.state_province,
 			postal_code: tables.person.postal_code,
 			country: tables.person.country,
+			extra: extra ? sql<unknown>`${extra}` : sql<unknown>`NULL`,
 		})
 		.from(tables.person)
 		.where(and(eq(tables.person.id, id), eq(tables.person.tenant_id, plant), eq(tables.person.plant_id, plant)));
 	if (!row) deny();
-	return factRow.parse(row);
+	return { ...factRow.parse(row), extra: row.extra };
 }
 /** New current facts name only a live Person (REQ-PPL-024). */
 export function livePerson(p: PersonFacts) {

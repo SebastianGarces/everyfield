@@ -61,7 +61,15 @@ const photo = {
 			return f.photoMutationResult.parse(
 				await mutation<unknown>(tx, ctx, "people.setPersonPhoto", input, async (_actor, receiptId, audit) => {
 					const { personId, uploadId } = input.input;
-					const p = await personFacts(tx, plant, personId);
+					// Only this church's own verified, unexpired, unclaimed upload can become the photo. One read with the Person.
+					const p = await personFacts(
+						tx,
+						plant,
+						personId,
+						sql`EXISTS(SELECT FROM file_object f WHERE f.id=${uploadId}::uuid AND f.tenant_id=${plant}::uuid
+ AND f.purpose='person_photo' AND f.state='ready' AND f.expires_at>clock_timestamp()
+ AND NOT EXISTS(SELECT FROM person o WHERE o.photo_object_id=f.id))`,
+					);
 					livePerson(p);
 					expectRevision(p.revision, input.expectedRevision);
 					const available = { status: "available", personId, versionId: uploadId };
@@ -69,21 +77,7 @@ const photo = {
 						const value = { photo: available, personRevision: p.revision, outcome: "noop", receiptId };
 						return { value, subject: p.id, action: "people.updated", outcome: "noop" };
 					}
-					// Only this church's own verified, unexpired, unclaimed upload can become the photo.
-					const [file] = await tx
-						.select({ id: tables.file_object.id })
-						.from(tables.file_object)
-						.where(
-							and(
-								eq(tables.file_object.id, uploadId),
-								eq(tables.file_object.tenant_id, plant),
-								eq(tables.file_object.purpose, "person_photo"),
-								eq(tables.file_object.state, "ready"),
-								sql`${tables.file_object.expires_at}>clock_timestamp()`,
-								sql`NOT EXISTS(SELECT FROM person o WHERE o.photo_object_id=${tables.file_object.id})`,
-							),
-						);
-					if (!file) deny();
+					if (p.extra !== true) deny();
 					audit.writes.push(
 						tx
 							.update(tables.person)

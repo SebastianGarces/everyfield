@@ -8,7 +8,15 @@ import { deletionOperations, issueRestrictedDeletionSession } from "../../../pac
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { fixture } from "../identity/invitations-support.mts";
-import { peopleWriter, withPeopleWrite } from "../../../packages/domain/src/people/index.ts";
+import {
+	PeopleReadContext,
+	peopleWriter,
+	personFields,
+	readPersonPhoto,
+	uploadPersonPhoto,
+	withPeopleWrite,
+} from "../../../packages/domain/src/people/index.ts";
+import { readFile } from "node:fs/promises";
 import { createOnboardingProducer, withOnboardingWrite } from "../../../packages/domain/src/onboarding/index.ts";
 import { withSettingsWrite } from "../../../packages/domain/src/settings/index.ts";
 import { sectionOperations } from "../../../packages/domain/src/settings/sections.ts";
@@ -44,6 +52,262 @@ try {
 		}),
 	);
 	assert.equal(note.status, "ok");
+
+	// WP-012 people fields, as the web mount runs them: writes in withPeopleWrite, reads in one read transaction with the
+	// request's actor. Reads and writes whose work could grow with rows run at two sizes and must use the same count.
+	const view = (name, body) =>
+		measure("native.people." + name, () => f.db.transaction((tx) => body(tx, new PeopleReadContext(actor))));
+	const value = (result) => {
+		assert.equal(result.status, "ok", JSON.stringify(result));
+		return result.value;
+	};
+	const fixed = async (name) => {
+		const counts = (await readFile(process.env.EVF_WRITE_COUNTS, "utf8"))
+			.trim()
+			.split("\n")
+			.map((line) => JSON.parse(line))
+			.filter((row) => row.kind === "sample" && row.name === "native.people." + name)
+			.map((row) => row.count);
+		assert.ok(counts.length >= 2, name + " ran at one size only");
+		assert.equal(new Set(counts).size, 1, `${name} statements vary with rows: ${counts}`);
+	};
+	const key = () => randomUUID();
+	const people = [];
+	for (let i = 0; i < 6; i++)
+		people.push(
+			value(
+				await run("createPerson", (tx, ctx) =>
+					peopleWriter.createPerson(tx, ctx, { requestKey: key(), input: { displayName: "Fields " + i } }),
+				),
+			).person,
+		);
+	const tag = async (name) =>
+		value(await run("createTag", (tx, ctx) => personFields.createTag(tx, ctx, { requestKey: key(), input: { name } })))
+			.tag;
+	const listTags = () => view("listTags", (tx, ctx) => personFields.listTags(tx, ctx, {}));
+	const tags = [await tag("Native 0")];
+	value(await listTags());
+	for (let i = 1; i < 6; i++) tags.push(await tag("Native " + i));
+	assert.equal(value(await listTags()).items.length, 6);
+	await fixed("listTags");
+	const assign = (p, t) =>
+		run("assignTag", (tx, ctx) =>
+			personFields.assignTag(tx, ctx, { requestKey: key(), input: { personId: p.id, tagId: t.id } }),
+		);
+	const personTags = () =>
+		view("getPersonTags", (tx, ctx) => personFields.getPersonTags(tx, ctx, { personId: people[0].id }));
+	value(await assign(people[0], tags[0]));
+	value(await personTags());
+	for (const t of tags.slice(1)) value(await assign(people[0], t));
+	assert.equal(value(await personTags()).tags.length, 6);
+	await fixed("getPersonTags");
+	await fixed("assignTag");
+	value(
+		await run("removeTag", (tx, ctx) =>
+			personFields.removeTag(tx, ctx, { requestKey: key(), input: { personId: people[0].id, tagId: tags[5].id } }),
+		),
+	);
+	value(
+		await run("updateTag", (tx, ctx) =>
+			personFields.updateTag(tx, ctx, {
+				requestKey: key(),
+				expectedRevision: tags[4].revision,
+				input: { tagId: tags[4].id, color: "blue" },
+			}),
+		),
+	);
+	for (const p of people.slice(1)) value(await assign(p, tags[0]));
+	const deleteTag = (t) =>
+		run("deleteTag", (tx, ctx) =>
+			personFields.deleteTag(tx, ctx, { requestKey: key(), expectedRevision: t.revision, input: { tagId: t.id } }),
+		);
+	assert.equal(value(await deleteTag(tags[2])).removedLinks, 1);
+	assert.equal(value(await deleteTag(tags[0])).removedLinks, 6);
+	await fixed("deleteTag");
+
+	const addSkill = (name) =>
+		run("addSkill", (tx, ctx) =>
+			personFields.addSkill(tx, ctx, {
+				requestKey: key(),
+				input: { personId: people[1].id, name, category: "worship", proficiency: "beginner" },
+			}),
+		);
+	const skills = () =>
+		view("getPersonSkills", (tx, ctx) => personFields.getPersonSkills(tx, ctx, { personId: people[1].id }));
+	const first = value(await addSkill("Skill 0")).skills[0];
+	value(await skills());
+	for (let i = 1; i < 6; i++) value(await addSkill("Skill " + i));
+	assert.equal(value(await skills()).skills.length, 6);
+	await fixed("getPersonSkills");
+	await fixed("addSkill");
+	const updated = value(
+		await run("updateSkill", (tx, ctx) =>
+			personFields.updateSkill(tx, ctx, {
+				requestKey: key(),
+				expectedRevision: first.revision,
+				input: { skillId: first.id, patch: { proficiency: null } },
+			}),
+		),
+	).skills.find((s) => s.id === first.id);
+	value(
+		await run("removeSkill", (tx, ctx) =>
+			personFields.removeSkill(tx, ctx, {
+				requestKey: key(),
+				expectedRevision: updated.revision,
+				input: { skillId: first.id },
+			}),
+		),
+	);
+
+	const revisionOf = async (p) =>
+		(await f.db.execute(sql`SELECT revision::text AS r FROM person WHERE id=${p.id}`)).rows[0].r;
+	const household = async (head, name) =>
+		value(
+			await run("createHouseholdWithHead", async (tx, ctx) =>
+				personFields.createHouseholdWithHead(tx, ctx, {
+					requestKey: key(),
+					expectedRevision: await revisionOf(head),
+					input: { name, street: "1 Native St", headPersonId: head.id },
+				}),
+			),
+		).result.household;
+	const home = await household(people[1], "Native household");
+	const members = () =>
+		view("getHouseholdMembers", (tx, ctx) => personFields.getHouseholdMembers(tx, ctx, { householdId: home.id }));
+	const getHousehold = () =>
+		view("getHousehold", (tx, ctx) => personFields.getHousehold(tx, ctx, { personId: people[1].id }));
+	const listHouseholds = () => view("listHouseholds", (tx, ctx) => personFields.listHouseholds(tx, ctx, {}));
+	const propagate = async () => {
+		const preview = value(await members());
+		return value(
+			await run("propagateAddress", (tx, ctx) =>
+				personFields.propagateAddress(tx, ctx, {
+					requestKey: key(),
+					expectedRevision: preview.household.revision,
+					input: {
+						householdId: home.id,
+						members: preview.members.map((m) => ({ personId: m.personId, revision: m.revision })),
+					},
+				}),
+			),
+		);
+	};
+	value(await getHousehold());
+	value(await listHouseholds());
+	assert.equal((await propagate()).updatedPeople, 1);
+	for (const p of people.slice(2))
+		value(
+			await run("addToHousehold", async (tx, ctx) =>
+				personFields.addToHousehold(tx, ctx, {
+					requestKey: key(),
+					expectedRevision: await revisionOf(p),
+					input: { householdId: home.id, personId: p.id, role: "child" },
+				}),
+			),
+		);
+	assert.equal(value(await getHousehold()).members.length, 5);
+	assert.equal((await propagate()).updatedPeople, 5);
+	const other = await household(people[0], "Second native household");
+	assert.equal(value(await listHouseholds()).total, 2);
+	for (const name of ["getHousehold", "getHouseholdMembers", "listHouseholds", "propagateAddress", "addToHousehold"])
+		await fixed(name);
+	const current = value(await members()).household;
+	value(
+		await run("updateHousehold", (tx, ctx) =>
+			personFields.updateHousehold(tx, ctx, {
+				requestKey: key(),
+				expectedRevision: current.revision,
+				input: { householdId: home.id, patch: { name: "Renamed native household" } },
+			}),
+		),
+	);
+	value(
+		await run("setHouseholdRole", async (tx, ctx) =>
+			personFields.setHouseholdRole(tx, ctx, {
+				requestKey: key(),
+				expectedRevision: await revisionOf(people[2]),
+				input: { personId: people[2].id, role: "spouse" },
+			}),
+		),
+	);
+	const left = value(
+		await run("removeFromHousehold", async (tx, ctx) =>
+			personFields.removeFromHousehold(tx, ctx, {
+				requestKey: key(),
+				expectedRevision: await revisionOf(people[0]),
+				input: { personId: people[0].id },
+			}),
+		),
+	);
+	value(
+		await run("deleteHousehold", (tx, ctx) =>
+			personFields.deleteHousehold(tx, ctx, {
+				requestKey: key(),
+				expectedRevision: left.result.household.revision,
+				input: { householdId: other.id },
+			}),
+		),
+	);
+
+	const png = Buffer.from(
+		"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWPgEpH7DwABpAE8sdwFIwAAAABJRU5ErkJggg==",
+		"base64",
+	);
+	const objects = new Map();
+	const storage = {
+		bucket: "synthetic-only",
+		client: {
+			send: async (command) => {
+				const i = command.input;
+				if (command.constructor.name === "GetBucketAclCommand")
+					return { Grants: [{ Grantee: { ID: "private-owner" }, Permission: "FULL_CONTROL" }] };
+				if (command.constructor.name === "PutObjectCommand") return objects.set(i.Key, Buffer.from(i.Body)) && {};
+				if (command.constructor.name === "GetObjectCommand") {
+					const body = objects.get(i.Key);
+					return { ContentLength: body.length, Body: { transformToByteArray: async () => body } };
+				}
+				throw Error("unexpected provider operation");
+			},
+		},
+	};
+	const upload = value(
+		await run("requestPersonPhotoUpload", (tx, ctx) =>
+			personFields.requestPersonPhotoUpload(tx, ctx, {
+				personId: people[3].id,
+				mime: "image/png",
+				byteLength: png.length,
+			}),
+		),
+	);
+	const plantContext0 = { session: actor.session, selected: actor.actor.context.owner };
+	value(await uploadPersonPhoto(f.db, storage, plantContext0, { uploadId: upload.uploadId, bytes: png }));
+	value(
+		await run("setPersonPhoto", async (tx, ctx) =>
+			personFields.setPersonPhoto(tx, ctx, {
+				requestKey: key(),
+				expectedRevision: await revisionOf(people[3]),
+				input: { personId: people[3].id, uploadId: upload.uploadId },
+			}),
+		),
+	);
+	assert.equal(
+		value(await view("getPersonPhoto", (tx, ctx) => personFields.getPersonPhoto(tx, ctx, { personId: people[3].id })))
+			.versionId,
+		upload.uploadId,
+	);
+	const delivered = await measure("native.people.readPersonPhoto", () =>
+		readPersonPhoto(f.db, storage, plantContext0, { personId: people[3].id, versionId: upload.uploadId }),
+	);
+	assert.deepEqual(Buffer.from(value(delivered).bytes), png);
+	value(
+		await run("removePersonPhoto", async (tx, ctx) =>
+			personFields.removePersonPhoto(tx, ctx, {
+				requestKey: key(),
+				expectedRevision: await revisionOf(people[3]),
+				input: { personId: people[3].id },
+			}),
+		),
+	);
 	const ordinary = await f.account(),
 		ordinarySeat = await f.seat(ordinary, s.w, "admin");
 	const role = await f.seats.changeOrdinaryRole(actor, s.w, {

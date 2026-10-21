@@ -35,6 +35,8 @@ export const skillName = z.string().trim().min(1).max(100);
 export const skillNotes = z.string().trim().max(5000);
 // REQ-PPL-009: operational household facts, not adult classification.
 export const householdRole = z.enum(["head", "spouse", "child", "other"]);
+// One Person's household membership as its history records it (REQ-PPL-009).
+export const householdMembership = z.strictObject({ householdId: recordId, name: z.string(), role: householdRole });
 export const householdName = z.string().trim().min(1).max(255);
 const addressFields = {
 	street: contactFields.street,
@@ -104,9 +106,12 @@ export const deleteHouseholdRequest = commandEnvelope(z.strictObject({ household
 export const addToHouseholdRequest = commandEnvelope(z.strictObject({ householdId, personId, role: householdRole }));
 export const removeFromHouseholdRequest = commandEnvelope(z.strictObject({ personId }));
 export const setHouseholdRoleRequest = commandEnvelope(z.strictObject({ personId, role: householdRole }));
-// The household revision and the exact live members that the person reviewed in the preview.
+// The household revision and the exact live members, with each Person's revision, from the reviewed preview.
 export const propagateAddressRequest = commandEnvelope(
-	z.strictObject({ householdId, memberIds: z.array(personId).min(1).max(100) }),
+	z.strictObject({
+		householdId,
+		members: z.array(z.strictObject({ personId, revision })).min(1).max(100),
+	}),
 );
 
 export const requestPhotoUploadRequest = z.strictObject({
