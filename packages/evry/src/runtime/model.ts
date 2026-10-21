@@ -9,8 +9,7 @@ export type Price = { input: number; output: number };
 /** A paid model's price and the deployment's monthly limit, in millionths of a US dollar. */
 export type Spend = { price: Price; capMicroUsd: number };
 export type QualifiedModel =
-	| { status: "qualified"; id: string; model: LanguageModelV4; spend?: Spend }
-	| { status: "unavailable" };
+	{ status: "qualified"; id: string; model: LanguageModelV4; spend?: Spend } | { status: "unavailable" };
 
 /** The paid models Sebastian approved (D76), with OpenAI's standard prices from 2026-10-21. */
 const OPENAI: Record<string, Price> = { "gpt-6-luna": { input: 0.1, output: 0.5 } };
