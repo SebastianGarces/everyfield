@@ -5,6 +5,13 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
 	advancedStage,
+	formClose,
+	formFail,
+	formOpen,
+	formResume,
+	formSend,
+	formStart,
+	keptKey,
 	sendTwice,
 	withCard,
 	withRecord,
@@ -60,4 +67,40 @@ test("INV-request-key: a lost answer is sent once more through the same call; a 
 		code: "conflict",
 	});
 	assert.equal(refused, 1);
+});
+
+test("INV-request-key (review F4): a lost save A, a newer save B, then A resumed: A sends its first key again", () => {
+	let n = 0;
+	const fresh = () => `key-${++n}`;
+	const A = { values: "A" };
+	const B = { values: "B" };
+	// A is sent; its answer is lost twice. B was opened meanwhile, so A waits.
+	let s = formOpen(formStart(), { draft: A });
+	const a = formSend(s, fresh);
+	const aKey = a.keyFor(A);
+	s = formOpen(a.state, { draft: B });
+	s = formFail(s, a.token, { draft: A, problem: "lost", key: keptKey({ status: "lost" }, aKey) });
+	assert.equal(s.editing.draft, B, "the newer form stays open");
+	assert.equal(s.failed.draft, A, "A waits in the card notice");
+	// B saves with its own key and succeeds.
+	const b = formSend(s, fresh);
+	assert.notEqual(b.keyFor(B).key, aKey.key);
+	s = b.state;
+	// A is opened again and saved with the same answers: the same key, so the producer replays it.
+	s = formResume(s);
+	assert.equal(s.failed, null);
+	assert.equal(formSend(s, fresh).keyFor(A).key, aKey.key);
+	// Changed answers or a refused try get a new key.
+	assert.notEqual(formSend(s, fresh).keyFor({ values: "A, changed" }).key, aKey.key);
+	assert.equal(keptKey({ status: "refused", code: "conflict" }, aKey), undefined);
+});
+
+test("INV-form-intent (review F2): a failed save reopens its form only when no form was opened or closed since", () => {
+	const fresh = () => "k";
+	const sent = formSend(formOpen(formStart(), { draft: "A" }), fresh);
+	assert.equal(formFail(sent.state, sent.token, { draft: "A", problem: "conflict" }).editing.draft, "A");
+	const closed = formClose(formOpen(sent.state, { draft: "B" }));
+	const late = formFail(closed, sent.token, { draft: "A", problem: "conflict" });
+	assert.equal(late.editing, null, "no form opens by itself");
+	assert.equal(late.failed.draft, "A");
 });

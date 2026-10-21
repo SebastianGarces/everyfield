@@ -61,9 +61,10 @@ import {
 	type Commitments,
 	type CommitmentStatus,
 	type FirstAcquisition,
+	keptKey,
 	sendTwice,
 } from "./model.ts";
-import { codeOf, FailedSave, keptKey, recorder, ShowEarlier, useHistory, useRecordForm } from "./parts.tsx";
+import { codeOf, FailedSave, recorder, ShowEarlier, useHistory, useRecordForm } from "./parts.tsx";
 import type { PlantPerson, RecordProps } from "./RecordsSection.tsx";
 
 type Editing =
@@ -372,22 +373,25 @@ export function CommitmentCard({
 					</div>
 				) : null}
 			</CardHeader>
-			{dialog.failed ? (
-				<FailedSave
-					what={
-						dialog.failed.form === "record"
-							? "Your last commitment card save needs a look."
-							: dialog.failed.form === "correct"
-								? "Your last card correction needs a look."
-								: dialog.failed.form === "withdraw"
-									? "Your last withdrawal needs a look."
-									: "Your last reactivation needs a look."
-					}
-					problem={dialog.failed.problem}
-					onResume={dialog.resume}
-					onDismiss={dialog.dismiss}
-				/>
-			) : null}
+			<FailedSave
+				notice={
+					dialog.failed
+						? {
+								what:
+									dialog.failed.form === "record"
+										? "Your last commitment card save needs a look."
+										: dialog.failed.form === "correct"
+											? "Your last card correction needs a look."
+											: dialog.failed.form === "withdraw"
+												? "Your last withdrawal needs a look."
+												: "Your last reactivation needs a look.",
+								problem: dialog.failed.problem,
+							}
+						: null
+				}
+				onResume={dialog.resume}
+				onDismiss={dialog.dismiss}
+			/>
 
 			{initial === null ? (
 				<p className="text-sm text-text-3">Commitments did not load. Reload the page to see them.</p>

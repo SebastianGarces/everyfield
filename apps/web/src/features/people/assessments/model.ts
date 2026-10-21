@@ -2,7 +2,7 @@
 // code, so the rules run the same in the browser, on the server and in node tests.
 import type * as c from "@everyfield/contracts/people";
 import type { z } from "zod";
-import { STAGES, type Outcome, type StageValue } from "../model.ts";
+import { keyFor, STAGES, type KeyedPayload, type Outcome, type StageValue } from "../model.ts";
 
 export type Assessment = z.infer<typeof c.assessment>;
 export type Interview = z.infer<typeof c.interview>;
@@ -113,3 +113,37 @@ export async function sendTwice<T>(call: () => Promise<Outcome<T>>): Promise<Out
 	const first = await once();
 	return first.status === "lost" ? once() : first;
 }
+
+// One card's record form and its save intents (review F2, F4). A save closes the form. A failed save opens it again only
+// when no form was opened or closed since; otherwise it waits as `failed`, so a late reply never replaces newer work.
+// Each intent keeps its own request key: a failed draft carries the key its lost try used, and resuming it sends that
+// key again even after another save succeeded, so the producer replays instead of saving twice.
+
+/** A form's values, the reason it failed and the key of its last lost try. */
+export type Intent = { problem?: string; key?: KeyedPayload };
+export type FormState<E extends Intent> = { editing: E | null; failed: E | null; intent: number };
+export const formStart = <E extends Intent>(): FormState<E> => ({ editing: null, failed: null, intent: 0 });
+export const formOpen = <E extends Intent>(s: FormState<E>, e: E): FormState<E> => ({
+	...s,
+	editing: e,
+	intent: s.intent + 1,
+});
+export const formClose = <E extends Intent>(s: FormState<E>): FormState<E> => ({
+	...s,
+	editing: null,
+	intent: s.intent + 1,
+});
+/** Closes the form for a save: the token tells whether it is still the latest form when the save fails. */
+export function formSend<E extends Intent>(s: FormState<E>, fresh: () => string) {
+	const prior = s.editing?.key ?? null;
+	const state = formClose(s);
+	return { state, token: state.intent, prior, keyFor: (payload: unknown) => keyFor(prior, payload, fresh) };
+}
+export const formFail = <E extends Intent>(s: FormState<E>, token: number, e: E): FormState<E> =>
+	token === s.intent ? { ...s, editing: e } : { ...s, failed: e };
+export const formResume = <E extends Intent>(s: FormState<E>): FormState<E> =>
+	s.failed ? { ...formOpen(s, s.failed), failed: null } : s;
+export const formDismiss = <E extends Intent>(s: FormState<E>): FormState<E> => ({ ...s, failed: null });
+/** What a failed save keeps for its next try: its key after a lost answer, none after a refusal (a final answer). */
+export const keptKey = (r: Outcome<unknown> | null, key: KeyedPayload) =>
+	r === null || r.status === "lost" ? key : undefined;

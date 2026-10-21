@@ -39,13 +39,13 @@ import {
 	type Interviews,
 	type Rating,
 	type Result,
+	keptKey,
 	sendTwice,
 } from "./model.ts";
 import {
 	ChoiceField,
 	codeOf,
 	FailedSave,
-	keptKey,
 	RecordDialog,
 	recorder,
 	ShowEarlier,
@@ -194,14 +194,11 @@ export function InterviewCard({
 					/>
 				) : null}
 			</CardHeader>
-			{form.failed ? (
-				<FailedSave
-					what="Your last interview save needs a look."
-					problem={form.failed.problem}
-					onResume={form.resume}
-					onDismiss={form.dismiss}
-				/>
-			) : null}
+			<FailedSave
+				notice={form.failed ? { what: "Your last interview save needs a look.", problem: form.failed.problem } : null}
+				onResume={form.resume}
+				onDismiss={form.dismiss}
+			/>
 
 			{initial === null ? (
 				<p className="text-sm text-text-3">Interviews did not load. Reload the page to see them.</p>

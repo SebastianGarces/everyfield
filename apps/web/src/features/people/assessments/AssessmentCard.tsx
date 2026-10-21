@@ -29,13 +29,13 @@ import {
 	type Assessment,
 	type Assessments,
 	type Lens,
+	keptKey,
 	sendTwice,
 } from "./model.ts";
 import {
 	ChoiceField,
 	codeOf,
 	FailedSave,
-	keptKey,
 	RecordDialog,
 	recorder,
 	ShowEarlier,
@@ -142,14 +142,11 @@ export function AssessmentCard({
 					/>
 				) : null}
 			</CardHeader>
-			{form.failed ? (
-				<FailedSave
-					what="Your last 4 C's save needs a look."
-					problem={form.failed.problem}
-					onResume={form.resume}
-					onDismiss={form.dismiss}
-				/>
-			) : null}
+			<FailedSave
+				notice={form.failed ? { what: "Your last 4 C's save needs a look.", problem: form.failed.problem } : null}
+				onResume={form.resume}
+				onDismiss={form.dismiss}
+			/>
 
 			{initial === null ? (
 				<p className="text-sm text-text-3">The 4 C&rsquo;s did not load. Reload the page to see them.</p>

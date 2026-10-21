@@ -12,9 +12,20 @@ import {
 } from "@everyfield/ui/controls";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import { useId, useRef, useState, type ReactNode } from "react";
-import { keyFor, type KeyedPayload, type Outcome } from "../model.ts";
+import type { Outcome } from "../model.ts";
 import { fresh, problemText } from "../parts.tsx";
-import { withRecord } from "./model.ts";
+import {
+	formClose,
+	formDismiss,
+	formFail,
+	formOpen,
+	formResume,
+	formSend,
+	formStart,
+	withRecord,
+	type FormState,
+	type Intent,
+} from "./model.ts";
 
 /** Why a record was not saved, or may not be, in words. `busy` means another change to this person is still saving. */
 export function recordProblem(code: string): string {
@@ -239,80 +250,67 @@ export function useHistory<R extends Dated>(
 	return { ...page, setPage, add, more, loading: state === "loading", failed: state === "failed" };
 }
 
-/** What a failed save keeps for its next try: its key after a lost answer, none after a refusal (a final answer). */
-export const keptKey = (r: Outcome<unknown> | null, key: KeyedPayload) =>
-	r === null || r.status === "lost" ? key : undefined;
-
 /**
- * One card's record form and the saves it sends. A save closes the form at once. When it fails, the form opens again
- * with the reason only if the person has not opened or closed a form since that save. Otherwise the newer form stays
- * as it is, and the failed one waits in the card's own notice, so a late reply never replaces newer work.
+ * One card's record form and the saves it sends, over the rules in model.ts (formSend, formFail and the rest). The
+ * ref is the latest state, read synchronously by a save or a late reply; the state copy renders the card.
  */
-export function useRecordForm<E extends { problem?: string; key?: KeyedPayload }>() {
-	const [editing, setEditing] = useState<E | null>(null);
-	const [failed, setFailed] = useState<E | null>(null);
-	const intent = useRef(0);
-	const open = (e: E) => {
-		intent.current++;
-		setEditing(e);
+export function useRecordForm<E extends Intent>() {
+	const state = useRef<FormState<E>>(formStart<E>());
+	const [view, setView] = useState<FormState<E>>(formStart<E>);
+	const apply = (next: FormState<E>) => {
+		state.current = next;
+		setView(next);
 	};
-	const close = () => {
-		intent.current++;
-		setEditing(null);
+	return {
+		editing: view.editing,
+		failed: view.failed,
+		open: (e: E) => apply(formOpen(state.current, e)),
+		close: () => apply(formClose(state.current)),
+		send: () => {
+			const sent = formSend(state.current, fresh);
+			apply(sent.state);
+			return sent;
+		},
+		fail: (token: number, e: E) => apply(formFail(state.current, token, e)),
+		resume: () => apply(formResume(state.current)),
+		dismiss: () => apply(formDismiss(state.current)),
 	};
-	/**
-	 * Closes the form for a save. The token says whether the form is still the person's latest when the save fails. The
-	 * key is this save intent's own request key: the one its earlier lost try used when the payload is the same, so a
-	 * failed save resumed later (even after another save succeeded) can never be saved twice.
-	 */
-	const send = () => {
-		const prior = editing?.key ?? null;
-		close();
-		return { token: intent.current, prior, keyFor: (payload: unknown) => keyFor(prior, payload, fresh) };
-	};
-	const fail = (token: number, e: E) => {
-		if (token === intent.current) setEditing(e);
-		else setFailed(e);
-	};
-	const resume = () => {
-		if (!failed) return;
-		open(failed);
-		setFailed(null);
-	};
-	return { editing, open, close, send, fail, failed, resume, dismiss: () => setFailed(null) };
 }
 
-/** A save that failed while the person worked on something else: its reason and a way back to its form. */
+/**
+ * A save that failed while the person worked on something else: its reason and a way back to its form. The live region
+ * is always on the page, so a newer dialog that opens later keeps it readable (the dialog hides everything else from
+ * screen readers): the failure is announced without moving focus or changing the newer form.
+ */
 export function FailedSave({
-	what,
-	problem,
+	notice,
 	onResume,
 	onDismiss,
 }: {
-	what: string;
-	problem?: string;
+	notice: { what: string; problem?: string } | null;
 	onResume: () => void;
 	onDismiss: () => void;
 }) {
 	return (
-		<div
-			role="alert"
-			className="mb-4 flex flex-col items-start gap-2.5 rounded-md bg-magenta-50 px-3.5 py-3 text-sm text-magenta-600"
-		>
-			<p className="flex items-start gap-2">
-				<Icon icon={Alert02Icon} size={16} className="mt-px flex-none" />
-				<span>
-					{what} {problem ? recordProblem(problem) : null}
-				</span>
-			</p>
-			<div className="flex flex-wrap gap-2">
-				<Button size="sm" variant="secondary" onClick={onResume}>
-					Open it again
-				</Button>
-				<Button size="sm" variant="ghost" onClick={onDismiss}>
-					Dismiss
-				</Button>
-			</div>
+		<div aria-live="assertive" aria-atomic="true">
+			{notice ? (
+				<div className="mb-4 flex flex-col items-start gap-2.5 rounded-md bg-magenta-50 px-3.5 py-3 text-sm text-magenta-600">
+					<p className="flex items-start gap-2">
+						<Icon icon={Alert02Icon} size={16} className="mt-px flex-none" />
+						<span>
+							{notice.what} {notice.problem ? recordProblem(notice.problem) : null}
+						</span>
+					</p>
+					<div className="flex flex-wrap gap-2">
+						<Button size="sm" variant="secondary" onClick={onResume}>
+							Open it again
+						</Button>
+						<Button size="sm" variant="ghost" onClick={onDismiss}>
+							Dismiss
+						</Button>
+					</div>
+				</div>
+			) : null}
 		</div>
 	);
 }
