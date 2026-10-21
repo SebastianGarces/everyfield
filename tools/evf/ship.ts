@@ -23,6 +23,7 @@ import { formatScope, wpScope } from "./scope.ts";
 import { recordProgress, type ShippedRecord } from "./progress.ts";
 import { requireVerifiedHead } from "./verify.ts";
 import { stack } from "./task.ts";
+import { requireFreeMigrationNumbers } from "./migrations.ts";
 import {
 	cachedTriage,
 	fbOwningPaths,
@@ -99,6 +100,7 @@ export function prOpen(root: string, task: TaskRef, bodyFile?: string): number {
 	if (!isClean(wt)) fail("Commit your work first. The worktree is not clean.");
 	const sha = requireVerifiedHead(root, task);
 	git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
+	requireFreeMigrationNumbers(wt, baseRef(root, cfg), task);
 
 	if (!bodyFile || !existsSync(bodyFile))
 		fail("Write the PR body following the PR standard, then pass --body-file <file>.");
@@ -409,6 +411,7 @@ export function ship(root: string, task: TaskRef): number {
 	git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
 	const sha = git(wt, "rev-parse", "HEAD"),
 		baseSha = git(root, "merge-base", sha, baseRef(root, cfg));
+	requireFreeMigrationNumbers(wt, baseRef(root, cfg), task);
 	const design = task.kind === "ops" && maintenanceScope(wt, task).route === "design",
 		cls = task.kind === "fb" ? cachedTriage(root, task.issue!)?.class : undefined;
 	// The PR #13 owner routes keep exact-head review; only routes that merge here may carry an approval.

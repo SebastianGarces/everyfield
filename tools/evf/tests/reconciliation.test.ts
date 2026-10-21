@@ -68,7 +68,7 @@ import {
 } from "../feedback.ts";
 import { verify } from "../verify.ts";
 import { taskStart } from "../task.ts";
-import { readFileSync, writeFileSync, mkdirSync, realpathSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync, mkdirSync, realpathSync } from "node:fs";
 
 test("INV-authorization: unready override and unopened application gate cannot mutate worktrees", () => {
 	const f = fixture();
@@ -298,6 +298,7 @@ test("INV-workflow-routing: Next server paths stay with implementor and presenta
 });
 
 import { ship, listShipped, prOpen, checkPr } from "../ship.ts";
+import { renumberMigrations } from "../migrations.ts";
 import { approve } from "../approve.ts";
 import { requireImplementation, requireSpend, requireTaskScope } from "../policy.ts";
 test("INV-gate-phases: local evidence producers can start before runtime completion; paid commitment remains gated", () => {
@@ -1305,6 +1306,108 @@ test("INV-carry-approval: an approval carries only over clean merges of main on 
 		inWt("merge", "-q", "--no-edit", "origin/main");
 		assert.throws(attempt(inWt("rev-parse", "HEAD")), /main changed paths this PR also changes: README.md/);
 		assert.deepEqual(merges(), []);
+	} finally {
+		f.close();
+	}
+});
+
+test("BUG-wave1-0016: renumber a migration that collides with main and keep the journal and snapshot chain valid", () => {
+	const f = mergeFixture();
+	try {
+		const dir = "packages/db/migrations";
+		const inWt = (...args: string[]) => execFileSync("git", ["-C", f.wt, ...args], { encoding: "utf8" }).trim();
+		const snapshot = (id: string, prevId: string, tables: string[]) =>
+			JSON.stringify({
+				id,
+				prevId,
+				version: "7",
+				dialect: "postgresql",
+				tables: Object.fromEntries(
+					tables
+						.map((t) => t.split(":"))
+						.map(([t, column]) => [`public.${t}`, { name: t, columns: column ? { [column]: { name: column } } : {} }]),
+				),
+				enums: {},
+			});
+		const add = (repo: string, name: string, tables: string[], prevId: string, id: string) => {
+			mkdirSync(join(repo, dir, "meta"), { recursive: true });
+			const journalPath = join(repo, dir, "meta/_journal.json");
+			const journal = existsSync(journalPath)
+				? JSON.parse(readFileSync(journalPath, "utf8"))
+				: { version: "7", dialect: "postgresql", entries: [] };
+			const idx = Number(name.slice(0, 4));
+			journal.entries.push({ idx, version: "7", when: 1000 + idx, tag: name, breakpoints: true });
+			writeFileSync(journalPath, JSON.stringify(journal, null, 2));
+			writeFileSync(join(repo, dir, `${name}.sql`), `CREATE TABLE ${tables.at(-1)!.split(":")[0]} ();\n`);
+			writeFileSync(join(repo, dir, `meta/${name.slice(0, 4)}_snapshot.json`), snapshot(id, prevId, tables));
+			execFileSync("git", ["-C", repo, "add", dir]);
+			execFileSync("git", ["-C", repo, "commit", "-qm", `Add ${name}`]);
+		};
+		add(f.root, "0001_a", ["a"], "00000000-0000-0000-0000-000000000000", "s1");
+		add(f.root, "0002_main", ["a", "main_table"], "s1", "s2-main");
+		f.git("push", "-q", "origin", "main");
+		inWt("reset", "-q", "--hard", "HEAD");
+		execFileSync("git", ["-C", f.wt, "merge", "-q", "--ff-only", "main~1"]);
+		add(f.wt, "0002_branch", ["a", "branch_table"], "s1", "s2-branch");
+		const branchTip = inWt("rev-parse", "HEAD");
+		inWt("fetch", "-q", "origin", "main");
+		const mainSnapshot = f.git("show", `origin/main:${dir}/meta/0002_snapshot.json`);
+
+		// The author resolves the merge by hand: both 0002 migrations stay and ship refuses the collision.
+		assert.notEqual(spawnSync("git", ["-C", f.wt, "merge", "-q", "--no-edit", "origin/main"]).status, 0);
+		inWt("checkout", "--ours", "--", `${dir}/meta`);
+		inWt("commit", "-qam", "Merge main");
+		assert.throws(() => ship(f.root, f.taskRef), /New migrations 0002_branch.sql reuse numbers main already has/);
+		assert.deepEqual(
+			f.getState().calls.filter((c) => c.args[0] === "pr" && c.args[1] === "merge"),
+			[],
+		);
+
+		const expectValid = () => {
+			const read = (path: string) => readFileSync(join(f.wt, dir, path), "utf8");
+			const journal = JSON.parse(read("meta/_journal.json"));
+			assert.deepEqual(
+				journal.entries.map((e) => [e.idx, e.tag]),
+				[
+					[1, "0001_a"],
+					[2, "0002_main"],
+					[3, "0003_branch"],
+				],
+			);
+			assert.ok(journal.entries.every((e, i) => i === 0 || e.when > journal.entries[i - 1].when));
+			assert.deepEqual(
+				readdirSync(join(f.wt, dir)).filter((n) => n.endsWith(".sql")),
+				["0001_a.sql", "0002_main.sql", "0003_branch.sql"],
+			);
+			assert.equal(read("meta/0002_snapshot.json"), mainSnapshot);
+			const moved = JSON.parse(read("meta/0003_snapshot.json"));
+			assert.deepEqual([moved.id, moved.prevId], ["s2-branch", "s2-main"]);
+			assert.deepEqual(Object.keys(moved.tables), ["public.a", "public.main_table", "public.branch_table"]);
+			assert.equal(read("0003_branch.sql"), "CREATE TABLE branch_table ();\n");
+		};
+		assert.deepEqual(renumberMigrations(f.wt, "origin/main"), ["0002_branch.sql -> 0003_branch.sql"]);
+		inWt("commit", "-qm", "Renumber migrations after main");
+		expectValid();
+		const repaired = inWt("rev-parse", "HEAD^{tree}");
+		renumberMigrations(f.wt, "origin/main");
+		assert.equal(inWt("status", "--porcelain"), "");
+
+		// Inside a conflicted merge, the command resolves the migration files to the same result.
+		inWt("reset", "-q", "--hard", branchTip);
+		assert.notEqual(spawnSync("git", ["-C", f.wt, "merge", "-q", "--no-edit", "origin/main"]).status, 0);
+		renumberMigrations(f.wt, "origin/main");
+		inWt("commit", "-q", "--no-edit");
+		expectValid();
+		assert.equal(inWt("rev-parse", "HEAD^{tree}"), repaired);
+
+		// Both sides change the same table: no silent merge.
+		inWt("reset", "-q", "--hard", branchTip);
+		add(f.wt, "0003_branch_more", ["a", "main_table:x", "branch_table"], "s2-branch", "s3-branch");
+		assert.notEqual(spawnSync("git", ["-C", f.wt, "merge", "-q", "--no-edit", "origin/main"]).status, 0);
+		assert.throws(
+			() => renumberMigrations(f.wt, "origin/main"),
+			/Main and this branch both change snapshot.tables.public.main_table/,
+		);
 	} finally {
 		f.close();
 	}

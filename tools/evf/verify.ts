@@ -24,6 +24,7 @@ import { cachedTriage } from "./feedback.ts";
 import { maintenanceScope, requireSpend, requireTaskScope, requireMaintenancePaths } from "./policy.ts";
 import { caseCoverage, caseGrep, hasCaseMarkers, testsOf } from "./coverage.ts";
 import { formatScope, wpScope, type ScopeReport } from "./scope.ts";
+import { requireFreeMigrationNumbers } from "./migrations.ts";
 
 export type Role = "author" | "verifier";
 export type Mode = "full" | "quick";
@@ -64,6 +65,7 @@ export function verify(root: string, task: TaskRef, role: Role, mode: Mode, head
 		fail(`Checkout HEAD ${sha} does not match requested SHA ${head}.`);
 	if (!isClean(wt)) fail(`The checked checkout ${wt} is not clean. Commit the task changes before verification.`);
 	if (!gitOk(wt, "merge-base", "--is-ancestor", baseSha, "HEAD")) fail("Include current main before verification.");
+	requireFreeMigrationNumbers(wt, baseSha, task);
 	const cases = wp ? packageContext(wt, wp).case_ids : [];
 	const dir = evidenceDir(root, task, sha, `${role}-${mode}`);
 	mkdirSync(dir, { recursive: true });

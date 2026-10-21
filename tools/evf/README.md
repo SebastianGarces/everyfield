@@ -98,6 +98,16 @@ its recorded head, no newer task start, no open PR, and no live Portless preview
 records its new start outside the repository. Unavailable or malformed provider status keeps the
 worktree. Cleanup never stops previews itself.
 
+## Migration numbers
+
+A branch takes the next migration number on main when it generates a migration. When main gains a
+migration first, include main and run `bin/evf migrations renumber <task>`, during the merge or after
+committing it. It moves the branch's new migrations after main's last number, restores main's
+journal and snapshot bytes, and rebuilds each branch snapshot as main's latest schema plus the
+branch's own changes, chained to main's last snapshot. SQL bytes do not change. It refuses when
+main and the branch change the same table; generate those migrations again on current main.
+`evf verify`, `evf pr open` and `evf ship` refuse new migration numbers that main already uses (D76).
+
 ## Foreground checks and CI test coverage
 
 `verify`, `pre-push`, `stack up` and `test` wait for their child commands and print an expected
