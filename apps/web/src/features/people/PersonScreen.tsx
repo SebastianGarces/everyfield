@@ -24,7 +24,7 @@ import {
 	Breadcrumb,
 	StatePanel,
 } from "@everyfield/ui/controls";
-import { Avatar, KeyValue, KeyValueList, StageChip, StatusBadge } from "@everyfield/ui/display";
+import { KeyValue, KeyValueList, StageChip, StatusBadge } from "@everyfield/ui/display";
 import Link from "next/link";
 import { useState } from "react";
 import type { z } from "zod";
@@ -34,6 +34,11 @@ import { CLASSIFICATION_LABEL, SOURCE_LABEL, STAGE_KEY, STAGE_LABEL, withEntry, 
 import { ClassificationDialog, EditProfileDialog, RestoreDialog, RetireDialog } from "./PersonDialogs.tsx";
 import { LocalDay, usePersonStore, When } from "./parts.tsx";
 import { StageDialog, type PersonDraft } from "./StageDialog.tsx";
+import { HouseholdCard } from "./fields/HouseholdCard.tsx";
+import type { HouseholdResult, PersonFields } from "./fields/model.ts";
+import { PersonPhoto } from "./fields/PersonPhoto.tsx";
+import { SkillsCard } from "./fields/SkillsCard.tsx";
+import { TagsField } from "./fields/TagsField.tsx";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
 type Open = "stage" | "profile" | "classify" | "retire" | "restore" | null;
@@ -53,6 +58,8 @@ export function PersonScreen({
 	survivor,
 	accountId,
 	canWrite,
+	fields,
+	photosEnabled,
 }: {
 	person: PlantPerson;
 	activities: Outcome<Activities>;
@@ -63,6 +70,10 @@ export function PersonScreen({
 	survivor: { id: string; name: string } | null;
 	accountId: string;
 	canWrite: boolean;
+	/** Tags, skills, household and photo (WP-012). Null for a person they do not apply to. */
+	fields: PersonFields | null;
+	/** Private photo storage is configured, so photos can be added. */
+	photosEnabled: boolean;
 }) {
 	const [store, state] = usePersonStore<PlantPerson, PersonDraft>(person);
 	const [history, setHistory] = useState(activities);
@@ -78,6 +89,10 @@ export function PersonScreen({
 			...fields,
 		} as Item);
 	};
+	const [household, setHousehold] = useState<HouseholdResult | null>(fields?.household ?? null);
+	/** A saved tag, skill or photo change: Activity records it as a change to the person's details. */
+	const changed = (receipt: Receipt) => saved(receipt, { kind: "activity", action: "updated" });
+	const householdName = household?.status === "available" ? household.household.name : null;
 	async function reload() {
 		const r = await reloadPerson(person.id).catch(() => null);
 		if (r?.status !== "ok") return;
@@ -97,7 +112,14 @@ export function PersonScreen({
 				<div className="min-w-0">
 					<Breadcrumb items={[{ label: "People", href: "/people" }, { label: p.displayName }]} className="mb-4" />
 					<div className="flex items-center gap-6 max-app-sm:gap-4">
-						<Avatar name={p.displayName} size="xl" decorative />
+						<PersonPhoto
+							store={store}
+							person={p}
+							initial={fields?.photo ?? { status: "absent" }}
+							canEdit={canWrite && live}
+							enabled={photosEnabled}
+							onSaved={changed}
+						/>
 						<div className="min-w-0">
 							<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
 								<h1 className="text-display-sm leading-[1.05] tracking-[-0.02em] text-ink text-balance max-app-sm:text-title-lg">
@@ -109,6 +131,7 @@ export function PersonScreen({
 							</div>
 							<p className="mt-2 flex flex-wrap items-center gap-2 text-[15px] text-text-2">
 								<span>
+									{householdName ? `${householdName} · ` : null}
 									Added <When at={p.createdAt} />
 									{p.source !== "other" ? ` · met through ${SOURCE_LABEL[p.source].toLowerCase()}` : null}
 								</span>
@@ -246,7 +269,38 @@ export function PersonScreen({
 							{p.sourceDetails ? <KeyValue size="sm" k="Source details" value={p.sourceDetails} /> : null}
 							<KeyValue size="sm" k="Birth date" value={p.birthDate ? <LocalDay day={p.birthDate} /> : null} />
 						</KeyValueList>
+						{fields ? (
+							<TagsField
+								personId={p.id}
+								personName={p.displayName}
+								initial={fields.tags}
+								canEdit={canWrite && live}
+								onSaved={changed}
+							/>
+						) : null}
 					</Card>
+					{fields ? (
+						<>
+							<HouseholdCard
+								store={store}
+								person={p}
+								household={household}
+								onHousehold={setHousehold}
+								canEdit={canWrite && live}
+								onMembership={(receipt, change) =>
+									saved(receipt, { kind: "activity", action: "updated", household: change })
+								}
+								onConflict={reload}
+							/>
+							<SkillsCard
+								personId={p.id}
+								personName={p.displayName}
+								initial={fields.skills}
+								canEdit={canWrite && live}
+								onSaved={changed}
+							/>
+						</>
+					) : null}
 					<Card>
 						<CardHeader className="mb-2">
 							<CardHeading>

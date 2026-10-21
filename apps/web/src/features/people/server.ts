@@ -4,6 +4,7 @@ import type { Transaction } from "@everyfield/db/client";
 import { type readPeopleViewer, PeopleReadContext, withPeopleWrite } from "@everyfield/domain/people";
 import "server-only";
 import type { PeopleQuery } from "./model.ts";
+import { readPersonFields } from "./fields/server.ts";
 import { readPeoplePage, readPersonPage } from "./page-data.ts";
 
 // Layout, pages and actions share this request's native session and actor.
@@ -45,8 +46,18 @@ export async function write<T>(
 
 export type { PeopleData, PeopleView } from "./page-data.ts";
 
+/** The person page: the person, their first Activity page and their WP-012 fields, in one read transaction. */
 export async function loadPerson(viewer: Viewer, personId: Parameters<typeof readPersonPage>[2]) {
-	return read(viewer, (tx, ctx) => readPersonPage(tx, ctx, personId));
+	return read(viewer, async (tx, ctx) => {
+		const page = await readPersonPage(tx, ctx, personId);
+		if (page.status !== "ok") return page;
+		const { found } = page.value;
+		const plant = found.status === "available" && "stage" in found.person;
+		return {
+			status: "ok" as const,
+			value: { ...page.value, fields: plant ? await readPersonFields(tx, ctx, personId) : null },
+		};
+	});
 }
 
 export async function loadPeople(viewer: Viewer, query: PeopleQuery) {
