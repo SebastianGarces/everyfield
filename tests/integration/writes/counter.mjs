@@ -29,6 +29,7 @@ const factories = {
 	referenceService: "reference",
 	attemptBudget: "identity.budget",
 	createTaskWriter: "tasks",
+	createAttendanceWriter: "meetings",
 };
 const standalone = {
 	"/packages/domain/src/early-access/index.ts": ["receiveAccessRequest"],
@@ -195,6 +196,7 @@ registerHooks({
 				"/packages/domain/src/meetings/meetings.ts": { meetingsWriter: "meetings" },
 				"/packages/domain/src/meetings/guests.ts": { guestsWriter: "meetings" },
 				"/packages/domain/src/meetings/venues.ts": { venuesWriter: "venues" },
+				"/packages/domain/src/meetings/analytics.ts": { attendanceReader: "meetings" },
 			};
 			for (const [name, prefix] of Object.entries(objects[path.slice(root.length)] ?? {}))
 				source += `\nglobalThis.__evfWriteCounts.decorate(${JSON.stringify(prefix)},${name});`;

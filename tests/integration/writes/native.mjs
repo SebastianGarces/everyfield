@@ -26,7 +26,12 @@ import {
 } from "../../../packages/domain/src/people/index.ts";
 import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/dist-cjs/index.js";
 import { readFile } from "node:fs/promises";
-import { guestsWriter, meetingsWriter, withMeetingsWrite } from "../../../packages/domain/src/meetings/index.ts";
+import {
+	createAttendanceWriter,
+	guestsWriter,
+	meetingsWriter,
+	withMeetingsWrite,
+} from "../../../packages/domain/src/meetings/index.ts";
 import { createOnboardingProducer, withOnboardingWrite } from "../../../packages/domain/src/onboarding/index.ts";
 import { withSettingsWrite } from "../../../packages/domain/src/settings/index.ts";
 import { sectionOperations } from "../../../packages/domain/src/settings/sections.ts";
@@ -535,6 +540,45 @@ try {
 		}),
 	);
 	assert.equal(answered.status, "ok");
+	// WP-022 at the same boundary: finalizing a held Vision with Needs-owner work and recording its evaluation. Unowned
+	// tasks owe no reminders, so the reminder port must not run.
+	const attendance = createAttendanceWriter({
+		reminders: async () => {
+			throw Error("unexpected_reminders");
+		},
+	});
+	const held = randomUUID();
+	await f.admin
+		.execute(sql`INSERT INTO meeting(id,plant_id,type,local_date,local_time,timezone,starts_at,resolver_version,
+		status,attendance_revision) VALUES(${held},${s.w.id},'vision_meeting','2026-10-01','18:00','UTC',
+		'2026-10-01T18:00:00Z','1','completed',1)`);
+	const finalized = await meetingWrite("finalizeAttendance", (tx, ctx) =>
+		attendance.finalizeAttendance(tx, ctx, {
+			requestKey: randomUUID(),
+			expectedRevision: "1",
+			input: { meetingId: held, attendeeIds: [created.value.person.id] },
+		}),
+	);
+	assert.equal(finalized.status, "ok");
+	const evaluated = await meetingWrite("recordEvaluation", (tx, ctx) =>
+		attendance.recordEvaluation(tx, ctx, {
+			requestKey: randomUUID(),
+			input: {
+				meetingId: held,
+				scores: {
+					attendanceScore: 4,
+					locationScore: 4,
+					logisticsScore: 4,
+					agendaScore: 4,
+					vibeScore: 4,
+					messageScore: 4,
+					closeScore: 4,
+					nextStepsScore: 3,
+				},
+			},
+		}),
+	);
+	assert.equal(evaluated.status, "ok");
 	const ordinary = await f.account(),
 		ordinarySeat = await f.seat(ordinary, s.w, "admin");
 	const role = await f.seats.changeOrdinaryRole(actor, s.w, {

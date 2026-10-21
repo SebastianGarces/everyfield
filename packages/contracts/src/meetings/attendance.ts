@@ -24,7 +24,10 @@ export const evaluationFactors = [
 export const factorVersion = 1;
 const score = z.int().min(1).max(5);
 export const scores = z.strictObject(
-	Object.fromEntries(evaluationFactors.map((f) => [f, score])) as Record<(typeof evaluationFactors)[number], typeof score>,
+	Object.fromEntries(evaluationFactors.map((f) => [f, score])) as Record<
+		(typeof evaluationFactors)[number],
+		typeof score
+	>,
 );
 /** The arithmetic mean of the eight scores, rounded to one decimal. */
 export const averageOf = (s: z.infer<typeof scores>) =>
@@ -100,9 +103,7 @@ export const correctEvaluationRequest = z.strictObject({
 		reason: z.string().trim().min(1).max(500),
 	}),
 });
-export const addAttendeeNoteRequest = create(
-	z.strictObject({ ...target, text: z.string().trim().min(1).max(5000) }),
-);
+export const addAttendeeNoteRequest = create(z.strictObject({ ...target, text: z.string().trim().min(1).max(5000) }));
 
 export const attendanceListRequest = z.strictObject({
 	meetingId,
@@ -308,9 +309,7 @@ export const taskProgress = z.strictObject({
 		closed: z.int().min(0),
 		needsOwner: z.int().min(0),
 	}),
-	evaluation: z
-		.strictObject({ taskId: recordId.nullable(), status: z.string(), needsOwner: z.boolean() })
-		.nullable(),
+	evaluation: z.strictObject({ taskId: recordId.nullable(), status: z.string(), needsOwner: z.boolean() }).nullable(),
 });
 export const meetingAnalytics = z.strictObject({
 	meetingId,

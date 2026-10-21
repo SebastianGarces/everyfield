@@ -1,13 +1,15 @@
 import { accountId, instant, localDate, personId, recordId, revision, timeZone } from "@everyfield/contracts/common";
+import { meetingType } from "@everyfield/contracts/meetings";
 import * as c from "@everyfield/contracts/tasks";
 import { sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
+import { displayTitle } from "../meetings/rows.ts";
 import { auditRow, deny, parse, type AuditCommand, type Tx } from "./core.ts";
-import { loadTask, storageKind, storedKind, type TaskRow } from "./queries.ts";
-import { audited, changeTo, reminderChange, type TaskReminders } from "./writes.ts";
+import { loadManagedTasks, storageKind, storedKind, type TaskRow } from "./queries.ts";
+import { audited, reminderChange, setStatus, syncAll, type TaskReminders } from "./writes.ts";
 
 // Generated work for a finalized meeting (REQ-TSK-017). The caller is the meeting domain's own reviewed command: it
 // holds the meeting row lock and passes its audit command, so obligations, tasks and audit rows commit in its one
@@ -43,7 +45,7 @@ export async function ensureMeetingObligations(
 		(a) => a !== null,
 	);
 	const r = await tx.execute(sql`SELECT
-		(SELECT jsonb_build_object('title',title) FROM meeting WHERE id=${v.meetingId}::uuid AND plant_id=${plant}::uuid) AS meeting,
+		(SELECT jsonb_build_object('title',title,'type',type,'vision_number',vision_number) FROM meeting WHERE id=${v.meetingId}::uuid AND plant_id=${plant}::uuid) AS meeting,
 		(SELECT coalesce(jsonb_agg(jsonb_build_object('id',o.id,'kind',o.kind,'person_id',o.person_id,
 			'task_id',(SELECT t.id FROM task t WHERE t.obligation_id=o.id ORDER BY t.deleted_at NULLS FIRST LIMIT 1))),'[]')
 			FROM obligation o WHERE o.meeting_id=${v.meetingId}::uuid AND o.plant_id=${plant}::uuid) AS existing,
@@ -55,7 +57,9 @@ export async function ensureMeetingObligations(
 		(SELECT timezone FROM plant WHERE id=${plant}::uuid) AS zone`);
 	const row = z
 		.object({
-			meeting: z.object({ title: z.string() }).nullable(),
+			meeting: z
+				.object({ title: z.string().nullable(), type: meetingType, vision_number: z.number().int().nullable() })
+				.nullable(),
 			existing: z.array(existingRow),
 			people: z.record(z.string(), z.string()),
 			seats: z.record(z.string(), z.string()),
@@ -83,7 +87,7 @@ export async function ensureMeetingObligations(
 						kind: "meeting_evaluation" as const,
 						personId: null,
 						assigneeId: v.evaluation.assigneeId,
-						title: `Evaluate ${row.meeting.title}`,
+						title: `Evaluate ${displayTitle(row.meeting)}`,
 					},
 				]
 			: []),
@@ -133,7 +137,7 @@ export async function ensureMeetingObligations(
 			obligation_id: obligationId,
 			obligation_kind: w.kind,
 			assignee_name: w.assigneeId ? row.seats[w.assigneeId]! : null,
-			relation_label: w.personId ? row.people[w.personId]! : row.meeting.title,
+			relation_label: w.personId ? row.people[w.personId]! : displayTitle(row.meeting),
 			child_total: 0,
 			child_complete: 0,
 			plant_zone: row.zone,
@@ -201,14 +205,16 @@ export async function ensureMeetingObligations(
 }
 
 export const applyManagedStatusInput = z.strictObject({
-	obligationId: recordId,
+	obligationIds: z.array(recordId).min(1).max(500),
 	status: c.taskStatus,
 	reason: z.string().trim().min(1).max(500).nullable().default(null),
 });
 /**
- * Settle or reopen the live task of a generated duty inside the caller's reviewed command, for example completing the
- * evaluation task when the evaluation is recorded (tasks.applyManagedStatus, tasks.settleManagedEvaluation). A waived
- * duty stays waived: only an explicit reopen of that task clears it. A deleted task stays deleted.
+ * Settle or reopen the live tasks of generated duties inside the caller's reviewed command, for example completing the
+ * evaluation task when the evaluation is recorded, or closing the follow-ups of attendees a reconcile removed
+ * (tasks.applyManagedStatus, tasks.settleManagedEvaluation). A waived duty stays waived: only an explicit reopen of
+ * that task clears it. A deleted task stays deleted. Closing never undoes performed work: a completed task stays
+ * complete. One read statement for any number of duties; the changes join the caller's write statement.
  */
 export async function applyManagedStatus(
 	tx: Tx,
@@ -217,9 +223,22 @@ export async function applyManagedStatus(
 	raw: z.input<typeof applyManagedStatusInput>,
 ) {
 	const v = parse(applyManagedStatusInput, raw);
-	const row = await loadTask(tx, cmd.actor.plantId, { obligationId: v.obligationId }, true);
-	if (!row || row.status === "no_longer_needed")
-		return { value: { outcome: "unchanged" as const, taskId: row?.id ?? null } };
-	const result = changeTo(tx, cmd, reminders, row, { status: v.status, reason: v.reason, source: "generated" });
-	return { value: { outcome: result.value.outcome, taskId: row.id }, after: result.after };
+	const rows = await loadManagedTasks(tx, cmd.actor.plantId, v.obligationIds);
+	const tasks = [],
+		changes = [];
+	for (const row of rows) {
+		if (row.status === "no_longer_needed" || (v.status === "no_longer_needed" && row.status === "complete")) {
+			tasks.push({ obligationId: row.obligation_id!, taskId: row.id, outcome: "unchanged" as const });
+			continue;
+		}
+		const r = setStatus(tx, cmd, row, { status: v.status, reason: v.reason, source: "generated" });
+		tasks.push({ obligationId: row.obligation_id!, taskId: row.id, outcome: r.outcome });
+		changes.push(...r.changes);
+	}
+	const outcome = tasks.some((t) => t.outcome === "changed")
+		? ("changed" as const)
+		: tasks.some((t) => t.outcome === "noop")
+			? ("noop" as const)
+			: ("unchanged" as const);
+	return { value: { outcome, tasks }, after: syncAll(reminders, tx, changes) };
 }

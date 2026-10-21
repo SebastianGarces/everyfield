@@ -143,6 +143,13 @@ export async function loadTasks(tx: Tx, plantId: string, ids: readonly string[])
 			.map((row) => [row.id, row]),
 	);
 }
+/** The live tasks of generated duties, locked in ID order like loadTasks. One statement. */
+export async function loadManagedTasks(tx: Tx, plantId: string, obligationIds: readonly string[]) {
+	const r = await tx.execute(
+		sql`${taskQuery(plantId, sql`t.obligation_id=ANY(${sql.param(obligationIds)}::uuid[]) AND t.deleted_at IS NULL`)} ORDER BY t.id FOR UPDATE OF t`,
+	);
+	return z.array(taskRow).parse(r.rows);
+}
 const taskQuery = (plantId: string, which: SQL) =>
 	sql`SELECT ${columns}, ${checklist}, 1 AS ord ${joins} WHERE ${which} AND t.plant_id=${plantId}::uuid`;
 

@@ -537,7 +537,7 @@ test("AC:TARGET-TSK-017 AC:PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE generated foll
 			const claim = await prepareWrite(tx, identity);
 			const cmd = { ...claim, actor: { accountId: owner.id, plantId: plant.id } };
 			const r = await applyManagedStatus(tx, cmd, reminders, {
-				obligationId: first[2].obligationId,
+				obligationIds: [first[2].obligationId],
 				status: "complete",
 			});
 			cmd.events.unshift({
