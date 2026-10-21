@@ -1,70 +1,64 @@
-CREATE TABLE "four_cs" (
-	"id" uuid DEFAULT gen_random_uuid() NOT NULL,
-	"plant_id" uuid NOT NULL,
-	"person_id" uuid NOT NULL,
-	"assessed_on" date NOT NULL,
-	"recorded_at" timestamp with time zone NOT NULL,
-	"committed" integer NOT NULL,
-	"compelled" integer NOT NULL,
-	"contagious" integer NOT NULL,
-	"courageous" integer NOT NULL,
-	"committed_notes" text,
-	"compelled_notes" text,
-	"contagious_notes" text,
-	"courageous_notes" text,
-	"revision" bigint DEFAULT 1 NOT NULL,
-	CONSTRAINT "four_cs_pkey" PRIMARY KEY("id"),
-	CONSTRAINT "four_cs_uq_0" UNIQUE("id","plant_id"),
-	CONSTRAINT "four_cs_ck_0" CHECK ((revision >= 1)),
-	CONSTRAINT "four_cs_ck_1" CHECK (((committed >= 1) AND (committed <= 5))),
-	CONSTRAINT "four_cs_ck_2" CHECK (((compelled >= 1) AND (compelled <= 5))),
-	CONSTRAINT "four_cs_ck_3" CHECK (((contagious >= 1) AND (contagious <= 5))),
-	CONSTRAINT "four_cs_ck_4" CHECK (((courageous >= 1) AND (courageous <= 5)))
+CREATE TABLE "conversation" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"account_id" uuid NOT NULL,
+	"context_kind" text NOT NULL,
+	"title" text NOT NULL,
+	"last_sequence" bigint DEFAULT 0 NOT NULL,
+	"active_turn_id" uuid,
+	"active_session_id" uuid,
+	"created_at" timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+	CONSTRAINT "conversation_title" CHECK (char_length("conversation"."title") BETWEEN 1 AND 120)
 );
 --> statement-breakpoint
-ALTER TABLE "person" ADD COLUMN "commitment_effective_on" date;--> statement-breakpoint
-ALTER TABLE "four_cs" ADD CONSTRAINT "four_cs_fk_0" FOREIGN KEY ("plant_id") REFERENCES "plant"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "four_cs" ADD CONSTRAINT "four_cs_fk_1" FOREIGN KEY ("person_id","plant_id") REFERENCES "person"("id","tenant_id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "four_cs" ADD CONSTRAINT "four_cs_fk_2" FOREIGN KEY ("id","plant_id") REFERENCES "record"("id","tenant_id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "four_cs_ref_0" ON "four_cs" USING btree ("plant_id");--> statement-breakpoint
-CREATE INDEX "four_cs_ref_1" ON "four_cs" USING btree ("person_id","plant_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "commitment_object_uq" ON "commitment" USING btree ("object_id");
+CREATE TABLE "conversation_event" (
+	"conversation_id" uuid NOT NULL,
+	"sequence" bigint NOT NULL,
+	"turn_id" uuid,
+	"kind" text NOT NULL,
+	"body" jsonb NOT NULL,
+	"request_key" text,
+	"created_at" timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+	CONSTRAINT "conversation_event_pkey" PRIMARY KEY("conversation_id","sequence"),
+	CONSTRAINT "conversation_event_request" UNIQUE("conversation_id","request_key"),
+	CONSTRAINT "conversation_event_body" CHECK (jsonb_typeof("conversation_event"."body")='object')
+);
 --> statement-breakpoint
--- WP-014: a Four Cs assessment is a record-bound plant fact like interview and commitment.
-ALTER TABLE "four_cs" ALTER CONSTRAINT "four_cs_fk_0" DEFERRABLE INITIALLY IMMEDIATE;
+ALTER TABLE "audit_event" DROP CONSTRAINT "audit_action";--> statement-breakpoint
+ALTER TABLE "conversation" ADD CONSTRAINT "conversation_tenant_id_tenant_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "tenant"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "conversation" ADD CONSTRAINT "conversation_account_id_account_id_fk" FOREIGN KEY ("account_id") REFERENCES "account"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "conversation" ADD CONSTRAINT "conversation_active_session_id_auth_session_id_fk" FOREIGN KEY ("active_session_id") REFERENCES "auth_session"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "conversation" ADD CONSTRAINT "conversation_active_turn" FOREIGN KEY ("active_turn_id","tenant_id") REFERENCES "job"("id","tenant_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "conversation_event" ADD CONSTRAINT "conversation_event_conversation_id_conversation_id_fk" FOREIGN KEY ("conversation_id") REFERENCES "conversation"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "conversation_event" ADD CONSTRAINT "conversation_event_turn_id_job_id_fk" FOREIGN KEY ("turn_id") REFERENCES "job"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "conversation_owner_recent" ON "conversation" USING btree ("account_id","tenant_id","updated_at","id");--> statement-breakpoint
+ALTER TABLE "audit_event" ADD CONSTRAINT "audit_action" CHECK ((action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.send_intended','deletion.cancelled','deletion.live_purge_completed','documents.copied','documents.saved','evry.conversation_created','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.hidden','wiki.published','wiki.source_order_changed')));
 --> statement-breakpoint
-ALTER TABLE "four_cs" ALTER CONSTRAINT "four_cs_fk_1" DEFERRABLE INITIALLY IMMEDIATE;
---> statement-breakpoint
-ALTER TABLE "four_cs" ALTER CONSTRAINT "four_cs_fk_2" DEFERRABLE INITIALLY DEFERRED;
---> statement-breakpoint
-CREATE OR REPLACE FUNCTION four_cs_bind_record()
- RETURNS trigger
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path FROM CURRENT
-AS $function$
+-- Custom: record binding, runtime privileges and owner cleanup for Evry conversations.
+CREATE FUNCTION conversation_bind_record() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path FROM CURRENT AS $$
 DECLARE actual_owner uuid;
 BEGIN
-  actual_owner := NEW.plant_id;
-  
+  actual_owner := NEW.tenant_id;
   IF TG_OP='UPDATE' AND NEW.id <> OLD.id THEN RAISE EXCEPTION 'immutable_record_id' USING ERRCODE='23514'; END IF;
-  INSERT INTO record(id,kind,tenant_id) VALUES (NEW.id,'four_cs',actual_owner) ON CONFLICT DO NOTHING;
-  PERFORM 1 FROM record WHERE id=NEW.id AND kind='four_cs' AND tenant_id=actual_owner FOR KEY SHARE;
+  INSERT INTO record(id,kind,tenant_id) VALUES (NEW.id,'conversation',actual_owner) ON CONFLICT DO NOTHING;
+  PERFORM 1 FROM record WHERE id=NEW.id AND kind='conversation' AND tenant_id=actual_owner FOR KEY SHARE;
   IF NOT FOUND THEN RAISE EXCEPTION 'record_subtype_owner_mismatch' USING ERRCODE='23514'; END IF;
   RETURN NEW;
-END $function$;
+END $$;
 --> statement-breakpoint
-REVOKE ALL ON FUNCTION four_cs_bind_record() FROM PUBLIC;
+REVOKE ALL ON FUNCTION conversation_bind_record() FROM PUBLIC;
 --> statement-breakpoint
-CREATE TRIGGER bind_record AFTER INSERT OR UPDATE ON "four_cs" FOR EACH ROW EXECUTE FUNCTION four_cs_bind_record();
+CREATE TRIGGER bind_record AFTER INSERT OR UPDATE OF id,tenant_id ON conversation FOR EACH ROW EXECUTE FUNCTION conversation_bind_record();
 --> statement-breakpoint
-CREATE CONSTRAINT TRIGGER assert_record_binding AFTER INSERT OR UPDATE ON "four_cs" DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_record_binding('"plant_id"');
+CREATE CONSTRAINT TRIGGER assert_record_binding AFTER INSERT OR UPDATE OF id,tenant_id ON conversation DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_record_binding('"tenant_id"');
 --> statement-breakpoint
-GRANT SELECT,INSERT,UPDATE,DELETE ON "four_cs" TO everyfield_runtime;
+GRANT SELECT,INSERT,UPDATE ON conversation TO everyfield_runtime;
 --> statement-breakpoint
-GRANT SELECT,UPDATE,DELETE ON "four_cs" TO everyfield_cleanup;
+GRANT SELECT,INSERT ON conversation_event TO everyfield_runtime;
 --> statement-breakpoint
--- Church deletion purges Four Cs assessments with the other plant-owned people facts.
+GRANT SELECT,UPDATE,DELETE ON conversation,conversation_event TO everyfield_cleanup;
+--> statement-breakpoint
 CREATE OR REPLACE FUNCTION settings_purge_content(witness uuid, request uuid, expected bigint)
  RETURNS void
  LANGUAGE plpgsql
@@ -76,6 +70,8 @@ BEGIN
  SELECT * INTO w FROM lifecycle_witness WHERE id=witness AND request_id=request AND request_revision=expected AND state='purging' AND cancel_until<=clock_timestamp() FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION 'unavailable' USING ERRCODE='42501'; END IF;
  s=w.opaque_subject_id;
+ -- Private Evry conversations go with their account or exact context; their events cascade.
+ DELETE FROM conversation WHERE tenant_id=s OR (w.kind='account' AND account_id=s);
  UPDATE audit_event SET actor_token=coalesce(actor_token,encode(sha256(convert_to(tenant_id::text||'/'||s::text,'UTF8')),'hex')),actor_id=NULL,request_identity=NULL,result=CASE WHEN id IN (SELECT creation_operation_id FROM onboarding_setup WHERE account_id=s AND plant_id<>s) THEN result ELSE NULL END WHERE actor_id=s AND w.kind='account';
  UPDATE audit_event a SET result=jsonb_build_object('plant',a.result->'plant','creation',a.result->'creation'),request_identity=NULL,request_key=NULL,before_value=NULL,after_value=NULL,metadata='{}' WHERE a.id IN (SELECT creation_operation_id FROM onboarding_setup WHERE account_id=s AND plant_id<>s);
  UPDATE provider_event SET mail_id=NULL WHERE mail_id IN (SELECT id FROM mail WHERE tenant_id=s);
@@ -166,10 +162,6 @@ BEGIN
   EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;
   BEGIN
    DELETE FROM "identity_proof" WHERE (w.kind='account' AND (account_id=s));
-   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;
-  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;
-  BEGIN
-   DELETE FROM "four_cs" WHERE (w.kind='plant' AND (plant_id=s));
    GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;
   EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;
   BEGIN
@@ -341,7 +333,6 @@ BEGIN
  IF EXISTS(SELECT FROM "document_revision" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:document_revision' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM "household" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:household' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM "identity_proof" WHERE (w.kind='account' AND (account_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:identity_proof' USING ERRCODE='23514'; END IF;
- IF EXISTS(SELECT FROM "four_cs" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:four_cs' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM "interview" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:interview' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM "invitation" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:invitation' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM "job" WHERE tenant_id=s) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:job' USING ERRCODE='23514'; END IF;

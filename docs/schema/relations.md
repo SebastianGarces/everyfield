@@ -52,6 +52,12 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `contact_outcome(meeting_id, plant_id)` | `meeting(id, plant_id)` | restrict |  |
 | `contact_outcome(supersedes_id, plant_id)` | `contact_outcome(id, plant_id)` | restrict |  |
 | `contact_outcome(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
+| `conversation(account_id)` | `account(id)` | no_action |  |
+| `conversation(active_session_id)` | `auth_session(id)` | set_null |  |
+| `conversation(active_turn_id, tenant_id)` | `job(id, tenant_id)` | no_action |  |
+| `conversation(tenant_id)` | `tenant(id)` | no_action |  |
+| `conversation_event(conversation_id)` | `conversation(id)` | cascade |  |
+| `conversation_event(turn_id)` | `job(id)` | no_action |  |
 | `development_enrollment(organization_id)` | `organization(id)` | restrict |  |
 | `development_enrollment(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
 | `development_enrollment(person_id, organization_id)` | `person(id, tenant_id)` | restrict |  |

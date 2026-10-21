@@ -15797,6 +15797,173 @@
 					}
 				}
 			}
+		},
+		"conversation": {
+			"table": {
+				"name": "conversation",
+				"domain": "assistant",
+				"purpose": "Private Evry conversation of one initiating account in one exact account, plant or organization context.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-C-027", "CAP-C-033"],
+				"replaces": [],
+				"producer_work_packages": ["WP-051"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-051"],
+					"rule": "WP-051 Evry conversation storage through Drizzle Kit."
+				},
+				"feature_ids": ["EVR-005", "EVR-008", "EVR-016", "EVR-021", "EVR-029", "EVR-031"],
+				"acceptance_ids": [],
+				"future_case_ids": [],
+				"scope": "assistant",
+				"invariants": [
+					"Only the initiating account in the same exact context reads or writes it; others see no existence.",
+					"At most one active run (assistant_turn job) at a time."
+				],
+				"revision": "Append-only ordered events; one active run per conversation through active_turn_id.",
+				"idempotency": "A submitted message's request key is unique per conversation; a retry returns the saved turn.",
+				"deletion": "Account or tenant purge removes the conversation and its events; no other owner inherits them.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"tenant_id": {
+					"note": ""
+				},
+				"account_id": {
+					"note": ""
+				},
+				"context_kind": {
+					"note": ""
+				},
+				"title": {
+					"note": ""
+				},
+				"last_sequence": {
+					"note": ""
+				},
+				"active_turn_id": {
+					"note": ""
+				},
+				"active_session_id": {
+					"note": ""
+				},
+				"created_at": {
+					"note": ""
+				},
+				"updated_at": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"tenant_id->tenant(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Account or tenant purge removes the private conversation before its owner rows. A conversation never transfers to another account."
+					}
+				},
+				"account_id->account(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Account or tenant purge removes the private conversation before its owner rows. A conversation never transfers to another account."
+					}
+				},
+				"active_session_id->auth_session(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Signing out clears the run session; the turn then stops at its next authority check."
+					}
+				},
+				"active_turn_id,tenant_id->job(id,tenant_id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "The run pointer clears when the run ends or is cancelled; owner purge deletes conversations before jobs."
+					}
+				}
+			}
+		},
+		"conversation_event": {
+			"table": {
+				"name": "conversation_event",
+				"domain": "assistant",
+				"purpose": "Ordered saved record of one conversation: submitted messages, assistant text, source-bound result cards and run states. Replay reads only these rows.",
+				"library_owned": false,
+				"jsonb_keys": {
+					"body": ["text", "tool", "operation", "result", "state", "reason", "usage", "error", "references"]
+				},
+				"capabilities": ["CAP-C-027", "CAP-C-028", "CAP-C-033"],
+				"replaces": [],
+				"producer_work_packages": ["WP-051"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-051"],
+					"rule": "WP-051 Evry conversation storage through Drizzle Kit."
+				},
+				"feature_ids": [
+					"EVR-005",
+					"EVR-006",
+					"EVR-008",
+					"EVR-009",
+					"EVR-010",
+					"EVR-016",
+					"EVR-020",
+					"EVR-021",
+					"EVR-024",
+					"EVR-029",
+					"EVR-031"
+				],
+				"acceptance_ids": [],
+				"future_case_ids": [],
+				"scope": "assistant",
+				"invariants": [
+					"Workers append only while they hold the run's current job lease.",
+					"Private care, credentials and storage keys never enter a body."
+				],
+				"revision": "Append-only ordered events; one active run per conversation through active_turn_id.",
+				"idempotency": "A submitted message's request key is unique per conversation; a retry returns the saved turn.",
+				"deletion": "Account or tenant purge removes the conversation and its events; no other owner inherits them.",
+				"physical_verified": false
+			},
+			"columns": {
+				"conversation_id": {
+					"note": ""
+				},
+				"sequence": {
+					"note": ""
+				},
+				"turn_id": {
+					"note": ""
+				},
+				"kind": {
+					"note": ""
+				},
+				"body": {
+					"note": ""
+				},
+				"request_key": {
+					"note": ""
+				},
+				"created_at": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"conversation_id->conversation(id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Events go with their conversation."
+					}
+				},
+				"turn_id->job(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Events go with their conversation, which owner purge deletes before jobs."
+					}
+				}
+			}
 		}
 	}
 }
