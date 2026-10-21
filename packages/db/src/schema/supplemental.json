@@ -4497,13 +4497,6 @@
 			"grantee": "everyfield_cleanup",
 			"is_grantable": false,
 			"kind": "table",
-			"object": "record",
-			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_cleanup",
-			"is_grantable": false,
-			"kind": "table",
 			"object": "record_correction",
 			"privilege_type": "DELETE"
 		},
@@ -4520,6 +4513,13 @@
 			"kind": "table",
 			"object": "record_correction",
 			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "record",
+			"privilege_type": "SELECT"
 		},
 		{
 			"grantee": "everyfield_cleanup",
@@ -6590,13 +6590,6 @@
 			"grantee": "everyfield_runtime",
 			"is_grantable": false,
 			"kind": "table",
-			"object": "record",
-			"privilege_type": "SELECT"
-		},
-		{
-			"grantee": "everyfield_runtime",
-			"is_grantable": false,
-			"kind": "table",
 			"object": "record_correction",
 			"privilege_type": "INSERT"
 		},
@@ -6605,6 +6598,13 @@
 			"is_grantable": false,
 			"kind": "table",
 			"object": "record_correction",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "record",
 			"privilege_type": "SELECT"
 		},
 		{
