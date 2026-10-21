@@ -126,6 +126,13 @@ const receivingOrganization = alias(tables.organization, "receiving_organization
 const sendingOrganization = alias(tables.organization, "sending_organization");
 /** A pool or a transaction: a read needs no transaction. */
 export type Reader = Pick<Transaction, "select" | "execute">;
+/**
+ * Lock order shared by every write on a link: the organization, then the link. An organization's write gate locks the
+ * organization before its command body; a subject-side write updates the organization's material revision after the
+ * link. This filter takes the organization lock before the row lock in the same statement, so both sides queue on
+ * the organization instead of deadlocking.
+ */
+const organizationFirst = sql<boolean>`EXISTS(SELECT FROM organization o WHERE o.id=${tables.affiliation.organization_id} FOR NO KEY UPDATE)`;
 /** Affiliations with their names and a computed `active` flag. A write locks the rows; a read takes no lock. */
 export async function loadAffiliations(tx: Reader, predicate: SQL, write = false) {
 	const live = sql<boolean>`(NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (w.affiliation_id=${tables.affiliation.id} OR (w.opaque_subject_id IN (${tables.affiliation.organization_id},${tables.affiliation.plant_id},${tables.affiliation.account_id},${tables.affiliation.sending_church_id}) AND w.kind IN ('account','plant','organization')))) AND (${tables.affiliation.account_id} IS NULL OR EXISTS(SELECT FROM discovery d WHERE d.account_id=${tables.affiliation.account_id} AND d.converted_at IS NULL)))`;
@@ -141,7 +148,7 @@ export async function loadAffiliations(tx: Reader, predicate: SQL, write = false
 		.from(tables.affiliation)
 		.innerJoin(receivingOrganization, eq(receivingOrganization.id, tables.affiliation.organization_id))
 		.leftJoin(sendingOrganization, eq(sendingOrganization.id, tables.affiliation.sending_church_id))
-		.where(predicate)
+		.where(write ? and(predicate, organizationFirst) : predicate)
 		.orderBy(tables.affiliation.id);
 	const rows = await (write ? query.for("update", { of: tables.affiliation }) : query);
 	return rows.map((row) => affiliationSchema.parse(row));

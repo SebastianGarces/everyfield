@@ -1,25 +1,31 @@
 import "server-only";
 import { owner, type Owner } from "@everyfield/contracts/common";
-import { settingsError, type SettingsError } from "@everyfield/contracts/settings";
+import { sectionResult, settingsError, type SettingsError } from "@everyfield/contracts/settings";
 import type { SettingsReply } from "@everyfield/contracts/settings/server";
 import type { Transaction } from "@everyfield/db/client";
 import { and, eq, isNull } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import type { RequestActor } from "@everyfield/domain/access";
-import { sectionOperations, timezoneOperations, withSettingsWrite } from "@everyfield/domain/settings";
+import {
+	sectionOperations,
+	timezoneOperations,
+	withSettingsWrite,
+	type SectionViewer,
+} from "@everyfield/domain/settings";
 import { createHmac, randomUUID } from "node:crypto";
 import type { z } from "zod";
 import { enqueueJob } from "@/server/jobs/queue";
 import { current as organizationMount } from "@/server/organizations";
-import { getViewer } from "@/server/request-context";
+import { getSession, getViewer } from "@/server/request-context";
 import type { SettingsViewer } from "./port";
 
 // The settings mount (WP-010): the one door from the settings server actions to the settings domain. The session and
-// actor come from the request's getViewer; every write binds that actor in its own transaction (withSettingsWrite)
-// and the domain checks authority again. Changes queue their jobs in the same transaction; a worker acts on them.
+// actor come from the request's getViewer. A section read uses that viewer on the pool, without a transaction; every
+// write binds that actor in its own transaction (withSettingsWrite) and the domain checks authority again. Changes
+// queue their jobs in the same transaction; a worker acts on them.
 
 type Viewer = NonNullable<Awaited<ReturnType<typeof getViewer>>>;
-type Signed = { authority: RequestActor; accountId: string };
+type Signed = SectionViewer & { accountId: string };
 type Mount = NonNullable<ReturnType<typeof create>>;
 type Context = { session: RequestActor["session"]; selected: Owner };
 
@@ -56,9 +62,9 @@ function create(addressKey: Buffer) {
 		organizationEffects: organizations.effects,
 		effects,
 		// The mail worker's suppression list, keyed the same way: HMAC of the trimmed, lower-case address.
-		async suppression(tx, email) {
+		async suppression(db, email) {
 			const hash = createHmac("sha256", addressKey).update(email.trim().toLowerCase()).digest("hex");
-			const rows = await tx
+			const rows = await db
 				.select({ id: t.suppression.id })
 				.from(t.suppression)
 				.where(and(eq(t.suppression.address_hash, hash), isNull(t.suppression.cleared_at)))
@@ -100,14 +106,29 @@ function refusal(code: keyof typeof RETRY): { status: "refused"; error: Settings
 }
 
 /**
- * Runs one settings operation for this request's viewer. The raw browser input is parsed with the contract `schema`
- * first; a request it refuses never reaches the database. `ownerOf` names the section: your account and
- * notifications belong to your account, every other section to the plant or organization of your seat. A write binds
- * the actor in its transaction; a read uses one plain transaction. A thrown error is logged and reads as temporary
- * (read) or unknown (write): the screen then offers to load the latest value.
+ * Reads one settings section for this request's viewer on the pool: one statement, two for notifications, and no
+ * transaction. The domain parses the request before it reads. A thrown error is logged and reads as temporary.
+ */
+export async function readSection(raw: unknown): Promise<SettingsReply<z.infer<typeof sectionResult>>> {
+	const viewer = await signedIn();
+	const ops = settingsMount();
+	if (!viewer || !ops) return refusal("access_denied");
+	try {
+		return await ops.sections.getSection(ops.db, viewer, raw);
+	} catch (error) {
+		console.error(JSON.stringify({ component: "settings", outcome: "read_failed", error: String(error) }));
+		return refusal("temporary");
+	}
+}
+
+/**
+ * Runs one settings write for this request's viewer. The raw browser input is parsed with the contract `schema`
+ * first; a request it refuses never reaches the database. `section` names the section: your account and
+ * notifications belong to your account, every other section to the plant or organization of your seat. The write
+ * binds the actor in its transaction. A thrown error is logged and reads as unknown: the screen then offers to load
+ * the latest value.
  */
 export async function run<S extends z.ZodType, T>(
-	use: "read" | "write",
 	schema: S,
 	raw: unknown,
 	section: (input: z.output<S>) => string,
@@ -122,16 +143,21 @@ export async function run<S extends z.ZodType, T>(
 	const selected = self ? owner.parse({ kind: "account", id: viewer.accountId }) : viewer.authority.actor.context.owner;
 	const context = { session: viewer.authority.session, selected };
 	try {
-		return use === "write"
-			? await withSettingsWrite(ops.db, viewer.authority, context, (tx) => operation(ops, tx, context, input.data))
-			: await ops.db.transaction((tx) => operation(ops, tx, context, input.data));
+		return await withSettingsWrite(ops.db, viewer.authority, context, (tx) => operation(ops, tx, context, input.data));
 	} catch (error) {
-		console.error(JSON.stringify({ component: "settings", outcome: `${use}_failed`, error: String(error) }));
-		return refusal(use === "write" ? "unknown" : "temporary");
+		console.error(JSON.stringify({ component: "settings", outcome: "write_failed", error: String(error) }));
+		return refusal("unknown");
 	}
 }
 
+/** The active viewer with the user row Better Auth already read for this request's session. */
 async function signedIn(): Promise<Signed | null> {
-	const v = await getViewer();
-	return v?.status === "active" && v.authority ? { authority: v.authority, accountId: v.accountId } : null;
+	const [v, session] = await Promise.all([getViewer(), getSession()]);
+	if (v?.status !== "active" || !v.authority || !session) return null;
+	const principal = {
+		display_name: session.user.name,
+		email: session.user.email,
+		verified: session.user.emailVerified,
+	};
+	return { authority: v.authority, principal, accountId: v.accountId };
 }

@@ -14,7 +14,10 @@ export function createSettingsProducer(
 		personalCalendar?: PersonalCalendar;
 		clock?: Clock;
 	},
-): SettingsProducer<Tx> & NativeAccountProducer<Tx> & DeletionProducer<Tx> {
+): SettingsProducer<Tx> &
+	Pick<ReturnType<typeof sectionOperations>, "getSection"> &
+	NativeAccountProducer<Tx> &
+	DeletionProducer<Tx> {
 	return {
 		...sectionOperations(deps),
 		...timezoneOperations(deps.effects, deps.personalCalendar, deps.clock),
@@ -30,7 +33,7 @@ export type { CredentialConfig } from "./credentials.ts";
 export { createLifecycleCleanup, issueRestrictedDeletionSession } from "./deletion.ts";
 export type { DeletionRequest, DeletionSubject } from "./deletion.ts";
 export { sectionOperations } from "./sections.ts";
-export type { SettingsEffects } from "./sections.ts";
+export type { Principal, SectionViewer, SettingsEffects } from "./sections.ts";
 export { timezoneOperations } from "./timezones.ts";
 export type { PersonalCalendar } from "./timezones.ts";
 

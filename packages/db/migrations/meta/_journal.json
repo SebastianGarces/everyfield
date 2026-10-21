@@ -120,6 +120,13 @@
       "when": 1792563207367,
       "tag": "0017_meetings_privileges",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792566331224,
+      "tag": "0018_task_category_facilities",
+      "breakpoints": true
     }
   ]
 }
