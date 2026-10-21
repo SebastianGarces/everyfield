@@ -58,8 +58,8 @@ for (const file of walk(SRC).filter((f) => /\.tsx?$/.test(f))) {
 // (font-title) below 24px. Coverage: one class string literal at a time, and only where the same variant prefix sets
 // both a size and a serif ("font-title text-[18px] md:font-display md:text-[28px]" checks "" and "md:"). It does not
 // follow responsive inheritance, a family inherited from a parent or a size set in another string; the rendered
-// browser check covers those. Checked in apps/web/src and packages/ui/src. Marketing roles that step up through CSS
-// variables list their steps.
+// check in tests/ui/foundations/typography.test.mjs covers those. Checked in apps/web/src and packages/ui/src.
+// Marketing roles that step up through CSS variables list their steps.
 const PX = {
 	...Object.fromEntries(
 		[...TOKENS.matchAll(/--ef-((?:text|title|display)-[a-z]+):\s*(\d+)px;/g)].map((m) => [
