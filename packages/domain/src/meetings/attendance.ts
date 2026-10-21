@@ -61,8 +61,6 @@ const factsRow = z.object({
 	id: z.uuid(),
 	type: c.meetingType,
 	status: c.meetingStatus,
-	title: z.string().nullable(),
-	vision_number: z.number().int().nullable(),
 	local_date: z.string(),
 	timezone: z.string(),
 	occurred_at: date,
@@ -73,7 +71,6 @@ const factsRow = z.object({
 	finalized_revision: z.string().nullable(),
 	leads: z.boolean(),
 	now: date,
-	today: z.string(),
 	guests: z.array(guestRow),
 	people: z.array(personRow),
 	earlier: z.record(z.string(), z.uuid()),
@@ -97,7 +94,7 @@ async function lockAttendance(tx: Tx, w: Writer, meetingId: string, personIds: r
 	const ids = sql`${sql.param([...personIds])}::uuid[]`;
 	const subjects = sql`(SELECT unnest(${ids}) UNION SELECT s.person_id FROM participation s
 		WHERE s.meeting_id = m.id AND s.presence = 'attended' AND s.removed_at IS NULL)`;
-	const query = sql`SELECT m.id, m.type, m.status, m.title, m.vision_number, m.local_date::text AS local_date, m.timezone,
+	const query = sql`SELECT m.id, m.type, m.status, m.local_date::text AS local_date, m.timezone,
 		${here} AS occurred_at, m.occurrence_voided_at IS NOT NULL AS voided,
 		m.attendance_revision::text AS attendance_revision,
 		(SELECT x.attendance_revision::text FROM meeting x WHERE x.id = m.id) AS snapshot_revision,
@@ -105,7 +102,7 @@ async function lockAttendance(tx: Tx, w: Writer, meetingId: string, personIds: r
 		(m.type = 'team_meeting' AND EXISTS (SELECT FROM team t JOIN person lp ON lp.id = t.leader_person_id
 			WHERE t.id = m.team_id AND t.plant_id = m.plant_id AND t.archived_at IS NULL AND lp.state = 'live'
 			AND lp.linked_account_id = ${w.accountId}::uuid)) AS leads,
-		clock_timestamp() AS now, (clock_timestamp() AT TIME ZONE m.timezone)::date::text AS today,
+		clock_timestamp() AS now,
 		(SELECT coalesce(json_agg(x ORDER BY x.id), '[]') FROM (SELECT g.id, g.revision::text AS revision, g.person_id,
 			g.presence, coalesce(g.rsvp, 'pending') AS rsvp, g.card_response IS NOT NULL AS has_card, g.removed_at,
 			g.classification, g.classification_stage, g.classification_person_revision::text AS classification_person_revision,
