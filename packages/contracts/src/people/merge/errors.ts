@@ -14,7 +14,9 @@ export const referenceKind = z.enum([
 	"interview",
 	"commitment",
 	"merged_person",
+	"correction",
 	"commitment_witness",
+	"merge_record",
 	"attestation",
 	"contact_outcome",
 	"development_enrollment",
@@ -37,7 +39,7 @@ export const inverseConflict = z.enum(["survivor_changed", "source_changed", "re
 export const mergeErrors = [
 	defineSafeError(
 		"merge_blocked",
-		{ causes: z.array(mergeBlocker).min(1).max(3), references: z.array(referenceKind).max(22) },
+		{ causes: z.array(mergeBlocker).min(1).max(3), references: z.array(referenceKind).max(24) },
 		"never",
 	),
 	defineSafeError("inverse_conflict", { causes: z.array(inverseConflict).min(1).max(3) }, "refresh"),

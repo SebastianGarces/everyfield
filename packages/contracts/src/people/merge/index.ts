@@ -73,9 +73,7 @@ export const mergePeopleRequest = z.strictObject({
 		})
 		.refine(distinct),
 });
-const moved = z
-	.array(z.strictObject({ kind: referenceKind, count: z.int().min(1) }))
-	.max(referenceKind.options.length);
+const moved = z.array(z.strictObject({ kind: referenceKind, count: z.int().min(1) })).max(referenceKind.options.length);
 export const mergeResult = z.strictObject({
 	mergeId: recordId,
 	sourceId: personId,
