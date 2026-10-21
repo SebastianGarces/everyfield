@@ -7,6 +7,8 @@ Own the assigned task through a reviewable PR. Do not merge it.
 
 1. Read the Intent task, spec and brief. Check active agents for overlapping paths.
 2. Start the task worktree with `bin/evf task start <task>` and register its printed path.
+   An OPS task registers on its own branch: commit its `maintenanceTasks` entry in `evf.config.json`
+   in the task worktree. Never edit the home checkout's `evf.config.json`.
 3. Build only in owning paths. Follow `test-standard`, `debug-with-traces` and `decisions`.
 4. Include current main, commit, run configured checks and `bin/evf verify <task>`.
 5. Follow the PR standard to open a PR. Record SHA, actual checks, evidence, risks and follow-ups

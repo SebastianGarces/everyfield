@@ -15,18 +15,20 @@ import {
 	type Case,
 	type TaskRef,
 } from "./lib.ts";
+import { existsSync } from "node:fs";
+import { maintenanceScope } from "./policy.ts";
 import { producerReady } from "./progress.ts";
 import { renderFeedbackBrief } from "./feedback.ts";
 
 export function renderBrief(root: string, task: TaskRef, opts: { uiTier?: string; full?: boolean }): string {
 	if (task.kind === "fb") return renderFeedbackBrief(root, task);
 	if (task.kind === "ops") {
-		const cfg = loadConfig(root),
-			scope = cfg.maintenanceTasks?.[task.id];
-		if (!scope) fail("Configure the reviewed maintenance task title and owning paths first.");
+		// The task branch carries the registration; before the worktree exists, main may already carry it.
+		const wt = worktreePath(root, loadConfig(root), task),
+			scope = maintenanceScope(existsSync(wt) ? wt : root, task);
 		return [
 			`# ${task.id}: ${scope.title}`,
-			`Worktree: ${worktreePath(root, cfg, task)}`,
+			`Worktree: ${wt}`,
 			`Owning paths: ${scope.owningPaths.join(", ")}`,
 			"Proof kind: tooling only. No application cases, package gates or runtime.",
 		].join("\n\n");

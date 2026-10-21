@@ -236,3 +236,44 @@ test("BUG-OPS9-gc: dry run and apply preserve active tasks, open PRs and live pr
 		f.close();
 	}
 });
+
+test("BUG-home-registration: an OPS task registers on its own branch and verifies without touching the home config", () => {
+	const f = fixture();
+	try {
+		const home = readFileSync(join(f.root, "evf.config.json")),
+			task = parseTask("OPS-900");
+		assert.throws(
+			() => capture(() => taskStart(f.root, task, { allowUnready: false, noStack: true })),
+			/Commit the reviewed OPS-900 entry .* on the task branch/,
+		);
+		const wt = join(f.root, ".worktrees/ops-900"),
+			cfg = JSON.parse(readFileSync(join(wt, "evf.config.json"), "utf8"));
+		cfg.maintenanceTasks = {
+			...cfg.maintenanceTasks,
+			"OPS-900": {
+				title: "Branch registration",
+				owningPaths: ["tools/evf/"],
+				checks: [{ name: "check", run: [process.execPath, "-e", "console.log('branch check ran')"] }],
+			},
+		};
+		writeFileSync(join(wt, "evf.config.json"), JSON.stringify(cfg));
+		mkdirSync(join(wt, "tools/evf"), { recursive: true });
+		writeFileSync(join(wt, "tools/evf/change.ts"), "export {};\n");
+		git(wt, "add", "evf.config.json", "tools/evf/change.ts");
+		git(wt, "commit", "-qm", "Register OPS-900 and change tooling");
+		assert.match(
+			capture(() => taskStart(f.root, task, { allowUnready: false, noStack: true })),
+			/# OPS-900: Branch registration/,
+		);
+		const report = verify(f.root, task, "author", "full");
+		assert.equal(report.passed, true);
+		assert.match(readFileSync(report.checks[0].log, "utf8"), /branch check ran/);
+		cfg.checks = [];
+		writeFileSync(join(wt, "evf.config.json"), JSON.stringify(cfg));
+		git(wt, "commit", "-qam", "Change another config key");
+		assert.throws(() => verify(f.root, task, "author", "full"), /outside its reviewed owning paths/);
+		assert.deepEqual(readFileSync(join(f.root, "evf.config.json")), home);
+	} finally {
+		f.close();
+	}
+});
