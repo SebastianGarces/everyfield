@@ -5,6 +5,9 @@ import { randomUUID } from "node:crypto";
 import * as S from "./support.mts";
 import * as Q from "../../../packages/contracts/src/organizations/index.ts";
 import { readAnswerableInvitation } from "../../../packages/domain/src/organizations/index.ts";
+import { RequestActor } from "../../../packages/domain/src/access/index.ts";
+import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
+import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/notifications.ts";
 before(S.setup);
 after(S.teardown);
 const accepted = (v: unknown) => {
@@ -240,6 +243,8 @@ test("INV-relationships: invitation rotation, duplicate intents, decline, revoke
 		i = await invite(pa, o, oa.email),
 		old = S.proofs.get(i.invitationId);
 	await assert.rejects(invite(pa, o, oa.email), /pending_invitation/);
+	// BUG-wp007-writes: the same address for another organization while one request waits is a refusal, not a database error.
+	await assert.rejects(invite(pa, await S.tenant("sending_network"), oa.email), /address_pending/);
 	await assert.rejects(
 		S.call("associations.resendInvitation", pa, S.command({ invitationId: i.invitationId })),
 		/resend_cooldown/,
@@ -298,6 +303,34 @@ test("INV-invitation-detail: only the addressed receiving Owner or Admin can rea
 	assert.equal(shown.status, "pending");
 	if (shown.status !== "pending") throw Error();
 	assert.equal(shown.invitationId, i.invitationId);
+	// INV-reads: the respond page reads the request with the observed actor, in a fixed number of statements, no lock.
+	const statements: string[] = [];
+	let recording = false;
+	const instrumented = new WeakSet<object>();
+	S.runtime.$client.on("acquire", (client) => {
+		if (instrumented.has(client)) return;
+		instrumented.add(client);
+		const query = client.query;
+		client.query = function (...args: unknown[]) {
+			if (recording) statements.push(typeof args[0] === "string" ? args[0] : (args[0] as { text: string }).text);
+			return Reflect.apply(query, this, args);
+		} as typeof client.query;
+	});
+	const authority = await S.tx((c) => RequestActor.resolve(c, oa.session));
+	if (!(authority instanceof RequestActor)) throw Error();
+	recording = true;
+	const observed = await S.tx((c) => {
+		authority.observe(c);
+		return readAnswerableInvitation(c, oa.session, oa.selected, { invitationId: i.invitationId, proof });
+	});
+	recording = false;
+	assert.deepEqual(observed, shown);
+	assert.ok(statements.length <= 10, `respond read: ${statements.length} statements`);
+	assert.equal(
+		statements.some((q) => /for\s+(update|share)|access_session|invitation_identity/i.test(q)),
+		false,
+		"the respond read must not lock or resolve the actor again",
+	);
 	assert.equal(shown.inviterDescription, "Harvest Point");
 	assert.deepEqual(shown.pair, i.pair);
 	await S.call(
@@ -306,4 +339,114 @@ test("INV-invitation-detail: only the addressed receiving Owner or Admin can rea
 		S.command({ invitationId: i.invitationId, proof, decision: "decline" }),
 	);
 	assert.deepEqual(await read(oa), { status: "unavailable" });
+});
+
+test("AC:TARGET-IDN-021 a Discovery conversion and an organization ending that link at the same time both finish", async () => {
+	const onboarding = createOnboardingProducer({
+		relationships: (c, inputs) => sendOnboardingRelationships(c, inputs, S.mail),
+		async enqueue() {},
+	});
+	const o = await S.tenant("sending_church"),
+		oa = await S.identity(o),
+		d = await S.identity();
+	const [discovery] = (
+		await S.db.execute(sql`INSERT INTO discovery(account_id) VALUES(${sql.param(d.account)}) RETURNING id`)
+	).rows as { id: string }[];
+	const link = await S.affiliation(d.selected, o);
+	const pair = { kind: "discovery", accountId: d.account, organization: o };
+	const [ended, converted] = await S.race(
+		oa,
+		(c) =>
+			S.api["associations.end"](
+				c,
+				oa.session,
+				oa.selected,
+				S.command({ relationshipId: link, pair, confirmed: true, reason: null }),
+			),
+		() =>
+			S.tx((c) =>
+				onboarding.convertDiscovery(
+					c,
+					{ session: d.session, selected: d.selected },
+					S.command({ discoveryId: discovery!.id, name: "New plant", confirmed: true, relationships: [] }),
+				),
+			),
+	);
+	assert.deepEqual(ended, { status: "committed" });
+	assert.equal((converted as { value?: { status?: string } }).value?.status, "converted", JSON.stringify(converted));
+	const rows = await S.db.execute(
+		sql`SELECT (SELECT ended_at IS NOT NULL FROM affiliation WHERE id=${sql.param(link)}) AS ended,
+		(SELECT count(*)::int FROM audit_event WHERE subject_id=${sql.param(link)} AND action='affiliation.ended') AS end_events,
+		(SELECT converted_at IS NOT NULL FROM discovery WHERE id=${sql.param(discovery!.id)}) AS converted`,
+	);
+	assert.deepEqual(rows.rows[0], { ended: true, end_events: 1, converted: true });
+});
+
+test("INV-lock-order: a subject-side write and the organization ending that link at the same time both finish", async (t) => {
+	// The organization's gate holds the organization while the subject's command runs. On the old order the subject
+	// locked the link, then waited for the organization, and the end deadlocked waiting for the link (40P01).
+	const rows = [
+		{
+			name: "the plant ends the link too",
+			subject: "plant" as const,
+			organization: "sending_church" as const,
+			run: (a: S.Actor, link: string, pair: unknown) =>
+				S.call("associations.end", a, S.command({ relationshipId: link, pair, confirmed: true, reason: null })),
+			outcome: { status: "committed" },
+		},
+		{
+			name: "the sending church changes pipeline consent",
+			subject: "sending_church" as const,
+			organization: "sending_network" as const,
+			share: false,
+			run: (a: S.Actor, link: string) =>
+				S.call("pipelineSharing.setConsent", a, S.command({ relationshipId: link, sharePipelineTotals: true })),
+			outcome: { refused: "unavailable" },
+		},
+		{
+			name: "the plant changes a sharing choice",
+			subject: "plant" as const,
+			organization: "sending_church" as const,
+			run: (a: S.Actor, link: string, _pair: unknown, subject: S.Actor["selected"], organization: unknown) =>
+				S.call(
+					"privacy.setSharing",
+					a,
+					S.command({
+						plant: subject,
+						organization,
+						relationshipId: link,
+						expectedConsentRevision: "1",
+						category: "people",
+						enabled: false,
+					}),
+				),
+			outcome: { refused: "unavailable" },
+		},
+	];
+	for (const row of rows)
+		await t.test(row.name, async () => {
+			const subject = await S.tenant(row.subject),
+				sa = await S.identity(subject),
+				o = await S.tenant(row.organization),
+				oa = await S.identity(o),
+				link = await S.affiliation(subject, o, row.share ?? true),
+				pair = { kind: row.subject, subject, organization: o };
+			const [ended, rival] = await S.race(
+				oa,
+				(c) =>
+					S.api["associations.end"](
+						c,
+						oa.session,
+						oa.selected,
+						S.command({ relationshipId: link, pair, confirmed: true, reason: null }),
+					),
+				() => row.run(sa, link, pair, subject, o),
+			);
+			assert.deepEqual({ ended, rival }, { ended: { status: "committed" }, rival: row.outcome });
+			const facts = await S.db.execute(
+				sql`SELECT (SELECT ended_at IS NOT NULL FROM affiliation WHERE id=${sql.param(link)}) AS ended,
+			(SELECT count(*)::int FROM audit_event WHERE subject_id=${sql.param(link)} AND action='affiliation.ended') AS end_events`,
+			);
+			assert.deepEqual(facts.rows[0], { ended: true, end_events: 1 });
+		});
 });

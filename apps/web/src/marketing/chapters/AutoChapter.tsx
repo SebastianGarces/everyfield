@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/components/cn";
 import { Display } from "@/components/Display";
 import { COPY } from "../copy";
+import type { Backdrop } from "../photo/photos";
 import { isPanelKind, type PanelKind } from "../scene-data";
 import { AutoList, type AutoStep } from "./AutoList";
 
@@ -10,19 +11,21 @@ type Def = {
 	title: string;
 	lead?: string;
 	mirror?: boolean;
-	steps: { kind: PanelKind; tone: string; title: string; body: string }[];
+	steps: { kind: PanelKind; bg: Backdrop; title: string; body: string }[];
 };
 
+/* Panel backgrounds (photo rules): a step whose card is a colorful InsightCard gets a muted gradient; the other steps of a
+   chapter share one landscape, so no photo repeats on the page. */
 const NETWORK = ["scope", "pipe", "lens", "top"] as const;
-const NETWORK_TONES = ["g-sea", "g-rose", "g-sun", "g-slate"];
+const NETWORK_BGS: Backdrop[] = ["plain", "plain", "plain", "mesh:sage"];
 const LEADERS = ["stages", "goals", "talks", "program"] as const;
-const LEADER_TONES = ["g-lilac", "g-field", "g-sun", "g-sky"];
+const LEADER_BGS: Backdrop[] = ["wheat", "wheat", "wheat", "wheat"];
 
 /** Steps whose panel kind the copy file names. */
-function named(chapter: string, steps: { panel: string; title: string; body: string }[], tones: string[]) {
+function named(chapter: string, steps: { panel: string; title: string; body: string }[], bgs: Backdrop[]) {
 	return steps.map((s, i) => {
 		if (!isPanelKind(s.panel)) throw new Error(`${chapter} step ${i}: unknown panel "${s.panel}"`);
-		return { kind: s.panel, tone: tones[i]!, title: s.title, body: s.body };
+		return { kind: s.panel, bg: bgs[i]!, title: s.title, body: s.body };
 	});
 }
 
@@ -34,22 +37,22 @@ function defs(id: Id): Def {
 			return {
 				title: S.intelligence.title,
 				lead: S.intelligence.lead,
-				steps: named(id, S.intelligence.steps, ["g-lilac", "g-field", "g-sky", "g-dawn"]),
+				steps: named(id, S.intelligence.steps, ["mesh:sky", "plain", "plain", "plain"]),
 			};
 		case "every-plant":
-			return { title: O.chapter.title, steps: named(id, O.chapter.steps, ["g-lilac", "g-dawn", "g-sky", "g-sun"]) };
+			return { title: O.chapter.title, steps: named(id, O.chapter.steps, ["field", "field", "field", "mesh:sky"]) };
 		// The /oversight chapters alternate sides: plants, leaders (mirrored), then Network Intelligence.
 		case "leaders":
 			return {
 				title: O.leaders.headline,
 				lead: O.leaders.lead,
 				mirror: true,
-				steps: LEADERS.map((k, i) => ({ kind: k, tone: LEADER_TONES[i]!, ...O.leaders.steps[i]! })),
+				steps: LEADERS.map((k, i) => ({ kind: k, bg: LEADER_BGS[i]!, ...O.leaders.steps[i]! })),
 			};
 		case "network-intelligence":
 			return {
 				title: O.intelligence.title,
-				steps: NETWORK.map((k, i) => ({ kind: k, tone: NETWORK_TONES[i]!, ...O.intelligence.steps[i]! })),
+				steps: NETWORK.map((k, i) => ({ kind: k, bg: NETWORK_BGS[i]!, ...O.intelligence.steps[i]! })),
 			};
 	}
 }

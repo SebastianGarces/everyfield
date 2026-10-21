@@ -1,10 +1,10 @@
 # Future build plan
 
-The approved target has 101 active single-owner packages. WP-086 is retired into WP-085; IDs are never reused. Implementation state lives only in docs/build-progress.json.
+The approved target has 97 active single-owner packages. WP-086 is retired into WP-085; WP-016 is retired into WP-017; WP-021 is retired into WP-020; WP-052 is retired into WP-051; WP-060 is retired into WP-059; IDs are never reused. Implementation state lives only in docs/build-progress.json.
 
 Start with a [short package brief](context.md). Read detailed requirements and cases on demand. The [DAG](dag.json) owns scope and dependencies; builders choose filenames and internal structures within the owned directories.
 
-Rough scope-based effort is 239 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 87.5 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
+Rough scope-based effort is 229.5 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 89 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
 
 ## Foundation and shared UI
 
@@ -21,7 +21,7 @@ Each row lists only packages newly reached in that dependency-closed slice.
 | Slice | Delivery | New packages |
 |---|---|---|
 | S0 | Fresh foundation and identity/reference skeleton | WP-097, WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-031, WP-032, WP-050, WP-087, WP-088, WP-089, WP-090 |
-| S1 | People/meeting/task native and reviewed Evry vertical slice | WP-012, WP-013, WP-014, WP-015, WP-016, WP-020, WP-021, WP-022, WP-023, WP-024, WP-025, WP-051, WP-052, WP-053, WP-059, WP-060 |
+| S1 | People, meeting and task native features with a reviewed Evry slice for people; Evry meeting and task adapters arrive in S4 | WP-012, WP-013, WP-014, WP-015, WP-020, WP-022, WP-023, WP-024, WP-025, WP-051, WP-053, WP-059 |
 | S2 | Teams/training/communication/Wiki/documents | WP-017, WP-018, WP-019, WP-027, WP-028, WP-029, WP-030, WP-033, WP-034, WP-035, WP-036, WP-037 |
 | S2M | ADR-001 stages 1 and 2 after planter S2 and before alpha | WP-098, WP-099, WP-100, WP-101, WP-102 |
 | S3 | Full phases/Plant and Network Intelligence/Launch/operations | WP-026, WP-038, WP-039, WP-040, WP-041, WP-042, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049 |
@@ -39,7 +39,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-001 | Current source references and version identity | 0 | 0 | 0 | 0 | 1 |
 | WP-002 | Shared identity, access, time and change-history behavior | 5 | 2 | 8 | 0 | 1.5 |
 | WP-003 | Secure sign-in, private files and streamed responses | 12 | 0 | 11 | 2 | 1.5 |
-| WP-004 | Data storage for shipped features with tenant isolation | 20 | 4 | 46 | 70 | 4 |
+| WP-004 | Data storage for shipped features with tenant isolation | 20 | 4 | 46 | 73 | 4 |
 | WP-031 | Reliable background work and delivery recovery | 17 | 17 | 22 | 7 | 2 |
 | WP-088 | Product design foundations, dark mode and application shell | 0 | 0 | 0 | 0 | 2 |
 | WP-089 | Shared controls, surfaces and overlays | 0 | 0 | 0 | 0 | 3 |
@@ -51,79 +51,75 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-008 | Invitation lifecycle and atomic acceptance | 7 | 13 | 42 | 5 | 2 |
 | WP-009 | Onboarding and discovery conversion | 7 | 8 | 23 | 5 | 2 |
 | WP-010 | Account and settings surfaces | 20 | 21 | 39 | 7 | 2.5 |
-| WP-012 | Households tags skills and person fields | 9 | 21 | 11 | 3 | 2 |
-| WP-013 | People CSV import/export | 2 | 5 | 5 | 3 | 1.5 |
-| WP-014 | Assessments interviews commitments | 8 | 10 | 24 | 5 | 2 |
-| WP-015 | Corrections duplicate resolution and merge | 9 | 10 | 89 | 1 | 2 |
+| WP-012 | Households tags skills and person fields | 8 | 21 | 10 | 4 | 2 |
+| WP-013 | People CSV import/export | 2 | 5 | 3 | 4 | 1.5 |
+| WP-014 | Assessments interviews commitments | 8 | 10 | 13 | 6 | 2 |
+| WP-015 | Corrections duplicate resolution and merge | 9 | 10 | 36 | 1 | 2 |
 | WP-032 | Canonical reference/template manifest | 7 | 12 | 15 | 2 | 1.5 |
-| WP-016 | Team catalog and lifecycle | 1 | 22 | 6 | 2 | 1.5 |
-| WP-017 | Roster roles leader appointments/org chart | 8 | 17 | 30 | 3 | 2 |
-| WP-018 | Responsibilities canonical offer | 3 | 7 | 4 | 2 | 1.5 |
-| WP-019 | Training programs completion revoke/correct | 14 | 10 | 33 | 1 | 2 |
-| WP-020 | Meeting and location lifecycle | 19 | 17 | 29 | 3 | 2 |
-| WP-021 | Meeting invitations and RSVP | 8 | 16 | 9 | 2 | 2 |
-| WP-024 | Tasks lifecycle/bulk/status history | 11 | 28 | 25 | 5 | 2 |
-| WP-022 | Attendance finalization/evaluation C2a | 15 | 36 | 25 | 4 | 2.5 |
-| WP-023 | Follow-up obligation/outcome C2b | 16 | 10 | 29 | 2 | 2 |
-| WP-025 | Task dependencies and recurrence | 8 | 6 | 17 | 0 | 1.5 |
-| WP-038 | Phase initial declaration and transitions | 32 | 7 | 66 | 2 | 2.5 |
-| WP-026 | Phase task templates and prompts | 5 | 7 | 7 | 3 | 1.5 |
-| WP-027 | Communication composition/templates | 14 | 17 | 18 | 0 | 2 |
-| WP-028 | Shared email delivery and webhook reconciliation | 20 | 19 | 26 | 7 | 2.5 |
-| WP-029 | Communication history and resend | 19 | 9 | 22 | 0 | 2 |
-| WP-030 | Notification feed/preferences | 19 | 19 | 28 | 4 | 2.5 |
+| WP-020 | Meetings, venues, list and detail, invitations and RSVP | 29 | 48 | 35 | 5 | 3 |
+| WP-017 | Teams, roster, roles, leader appointments and org chart | 11 | 41 | 26 | 4 | 2.5 |
+| WP-018 | Responsibilities canonical offer | 3 | 7 | 3 | 2 | 1.5 |
+| WP-019 | Training programs completion revoke/correct | 14 | 10 | 27 | 1 | 2 |
+| WP-024 | Task core | 11 | 22 | 14 | 5 | 2 |
+| WP-022 | Attendance, finalization, evaluation and analytics | 13 | 19 | 15 | 4 | 2 |
+| WP-023 | Follow-up obligation/outcome C2b | 12 | 10 | 17 | 2 | 2 |
+| WP-025 | Task structure | 6 | 12 | 7 | 0 | 1.5 |
+| WP-038 | Phase initial declaration and transitions | 32 | 7 | 23 | 2 | 2.5 |
+| WP-026 | Phase task templates and prompts | 5 | 7 | 5 | 3 | 1.5 |
+| WP-027 | Communication composition/templates | 14 | 17 | 5 | 0 | 2 |
+| WP-028 | Shared email delivery and webhook reconciliation | 20 | 19 | 25 | 7 | 2.5 |
+| WP-029 | Communication history and resend | 19 | 9 | 18 | 0 | 2 |
+| WP-030 | Notification feed/preferences | 19 | 19 | 25 | 4 | 2.5 |
 | WP-033 | Approve and version available global Wiki snapshot | 4 | 4 | 10 | 7 | 1.5 |
-| WP-034 | Wiki browsing/search/progress/bookmarks | 80 | 21 | 95 | 4 | 4 |
-| WP-035 | Wiki feedback/admin/revalidation | 89 | 7 | 92 | 3 | 4 |
-| WP-036 | Document template and format contracts | 22 | 5 | 28 | 3 | 2 |
-| WP-037 | Generated files and native owned documents | 20 | 15 | 16 | 2 | 2 |
-| WP-039 | Check-ins manual signals and corrections | 15 | 11 | 51 | 2 | 2 |
-| WP-045 | Launch plan/readiness/milestones | 18 | 10 | 25 | 7 | 2 |
-| WP-046 | Launch outcomes/events/history | 43 | 11 | 56 | 5 | 3 |
-| WP-040 | Assessment facts, metrics and their source history | 41 | 4 | 150 | 0 | 3 |
-| WP-041 | Rubric/reference retrieval and history C3a | 6 | 3 | 51 | 4 | 2 |
-| WP-047 | Oversight portfolio and health | 14 | 14 | 128 | 3 | 2.5 |
-| WP-042 | AI assessment results and quality evaluation | 8 | 2 | 112 | 0 | 2 |
-| WP-043 | Assessment orchestration/retry/publication | 11 | 5 | 117 | 0 | 2.5 |
-| WP-044 | Plant Intelligence/oversight assessment UI | 41 | 25 | 161 | 0 | 3.5 |
+| WP-034 | Wiki browsing/search/progress/bookmarks | 80 | 21 | 88 | 4 | 4 |
+| WP-035 | Wiki feedback/admin/revalidation | 89 | 7 | 88 | 3 | 4 |
+| WP-036 | Document template and format contracts | 22 | 5 | 11 | 3 | 2 |
+| WP-037 | Generated files and native owned documents | 20 | 15 | 25 | 2 | 2 |
+| WP-039 | Check-ins manual signals and corrections | 15 | 11 | 41 | 2 | 2 |
+| WP-045 | Launch plan/readiness/milestones | 18 | 10 | 19 | 7 | 2 |
+| WP-046 | Launch outcomes/events/history | 43 | 11 | 45 | 5 | 3 |
+| WP-040 | Assessment facts, metrics and their source history | 41 | 4 | 125 | 0 | 3 |
+| WP-041 | Rubric/reference retrieval and history C3a | 6 | 3 | 17 | 4 | 1.5 |
+| WP-047 | Oversight portfolio and health | 14 | 14 | 124 | 3 | 2.5 |
+| WP-042 | AI assessment results and quality evaluation | 8 | 2 | 92 | 0 | 2 |
+| WP-043 | Assessment orchestration/retry/publication | 11 | 5 | 112 | 0 | 2.5 |
+| WP-044 | Plant Intelligence/oversight assessment UI | 41 | 25 | 167 | 0 | 3.5 |
 | WP-048 | Dashboard/navigation/settings integration | 3 | 6 | 5 | 2 | 1.5 |
-| WP-049 | Feedback and later public marketing | 19 | 10 | 14 | 0 | 2 |
+| WP-049 | Feedback and later public marketing | 19 | 10 | 12 | 0 | 2 |
 | WP-050 | Environment bootstrap/ops/observability | 37 | 35 | 69 | 9 | 3.5 |
-| WP-051 | Evry conversations and runs | 32 | 18 | 19 | 0 | 2.5 |
-| WP-052 | Evry per-feature read/tool coverage | 40 | 2 | 66 | 0 | 2.5 |
-| WP-053 | Human approval and execution of Evry proposals | 52 | 13 | 69 | 1 | 3 |
-| WP-054 | Evry private uploads/artifacts/recovery | 33 | 5 | 15 | 2 | 2.5 |
-| WP-059 | Evry people-core reads/helper adapters | 4 | 21 | 20 | 0 | 2 |
-| WP-060 | Evry people-core draft/propose/execute adapters | 3 | 16 | 10 | 0 | 1.5 |
-| WP-061 | Evry people-assessments reads/helper adapters | 2 | 5 | 9 | 0 | 1.5 |
-| WP-062 | Evry people-assessments draft/propose/execute adapters | 0 | 7 | 7 | 0 | 1.5 |
-| WP-063 | Evry people-organization reads/helper adapters | 1 | 7 | 6 | 0 | 1.5 |
-| WP-064 | Evry people-organization draft/propose/execute adapters | 1 | 18 | 6 | 0 | 1.5 |
-| WP-065 | Evry meetings reads/helper adapters | 0 | 29 | 10 | 0 | 1.5 |
-| WP-066 | Evry meetings draft/propose/execute adapters | 7 | 40 | 13 | 0 | 2 |
-| WP-067 | Evry tasks reads/helper adapters | 0 | 20 | 14 | 0 | 1.5 |
-| WP-068 | Evry tasks draft/propose/execute adapters | 1 | 30 | 10 | 0 | 2 |
-| WP-069 | Evry teams reads/helper adapters | 1 | 26 | 14 | 0 | 1.5 |
-| WP-070 | Evry teams draft/propose/execute adapters | 1 | 30 | 9 | 0 | 2 |
-| WP-071 | Evry communication reads/helper adapters | 1 | 21 | 9 | 0 | 1.5 |
-| WP-072 | Evry communication draft/propose/execute adapters | 1 | 24 | 7 | 0 | 1.5 |
-| WP-073 | Evry intelligence reads/helper adapters | 5 | 45 | 51 | 0 | 2.5 |
-| WP-074 | Evry intelligence draft/propose/execute adapters | 6 | 26 | 36 | 0 | 2 |
-| WP-075 | Evry launch reads/helper adapters | 2 | 5 | 11 | 0 | 1.5 |
-| WP-076 | Evry launch draft/propose/execute adapters | 3 | 16 | 8 | 0 | 1.5 |
-| WP-077 | Evry wiki reads/helper adapters | 0 | 19 | 4 | 0 | 1.5 |
-| WP-078 | Evry wiki draft/propose/execute adapters | 0 | 9 | 1 | 0 | 1.5 |
-| WP-079 | Evry documents reads/helper adapters | 2 | 14 | 8 | 0 | 1.5 |
-| WP-080 | Evry documents draft/propose/execute adapters | 0 | 10 | 5 | 0 | 1.5 |
-| WP-081 | Evry notifications reads/helper adapters | 2 | 8 | 9 | 0 | 1.5 |
-| WP-082 | Evry notifications draft/propose/execute adapters | 2 | 28 | 7 | 0 | 2 |
-| WP-083 | Evry platform reads/helper adapters | 1 | 38 | 1 | 0 | 2 |
-| WP-084 | Evry platform draft/propose/execute adapters | 2 | 53 | 2 | 0 | 2 |
-| WP-085 | Evry named helpers and candidate preparation | 1 | 2 | 7 | 0 | 1.5 |
-| WP-055 | Evry autonomy policy/evals/human ownership | 53 | 4 | 100 | 0 | 3 |
-| WP-091 | Identity, people, meetings, tasks, teams, Evry and operations integration | 10 | 0 | 80 | 0 | 2.5 |
-| WP-092 | Knowledge, communication and reference integration | 9 | 0 | 11 | 0 | 1.5 |
-| WP-093 | Phases, intelligence and Launch integration | 6 | 0 | 32 | 0 | 1.5 |
+| WP-051 | Evry conversations, reads and runs | 21 | 17 | 57 | 2 | 2.5 |
+| WP-053 | Evry approval and execution | 27 | 9 | 37 | 2 | 2.5 |
+| WP-054 | Evry files, history and conversation extras | 7 | 8 | 14 | 2 | 1.5 |
+| WP-059 | Evry people adapters | 3 | 26 | 8 | 0 | 2 |
+| WP-061 | Evry people-assessments reads/helper adapters | 2 | 8 | 7 | 0 | 1.5 |
+| WP-062 | Evry people-assessments draft/propose/execute adapters | 0 | 9 | 5 | 0 | 1.5 |
+| WP-063 | Evry people-organization reads/helper adapters | 1 | 11 | 5 | 0 | 1.5 |
+| WP-064 | Evry people-organization draft/propose/execute adapters | 1 | 19 | 5 | 0 | 1.5 |
+| WP-065 | Evry meetings reads/helper adapters | 0 | 29 | 6 | 0 | 1.5 |
+| WP-066 | Evry meetings draft/propose/execute adapters | 7 | 40 | 9 | 0 | 2 |
+| WP-067 | Evry tasks reads/helper adapters | 0 | 21 | 6 | 0 | 1.5 |
+| WP-068 | Evry tasks draft/propose/execute adapters | 1 | 30 | 5 | 0 | 2 |
+| WP-069 | Evry teams reads/helper adapters | 1 | 26 | 12 | 0 | 1.5 |
+| WP-070 | Evry teams draft/propose/execute adapters | 1 | 30 | 8 | 0 | 2 |
+| WP-071 | Evry communication reads/helper adapters | 1 | 21 | 4 | 0 | 1.5 |
+| WP-072 | Evry communication draft/propose/execute adapters | 1 | 24 | 2 | 0 | 1.5 |
+| WP-073 | Evry intelligence reads/helper adapters | 5 | 45 | 49 | 0 | 2.5 |
+| WP-074 | Evry intelligence draft/propose/execute adapters | 6 | 26 | 34 | 0 | 2 |
+| WP-075 | Evry launch reads/helper adapters | 2 | 5 | 10 | 0 | 1.5 |
+| WP-076 | Evry launch draft/propose/execute adapters | 3 | 16 | 7 | 0 | 1.5 |
+| WP-077 | Evry wiki reads/helper adapters | 0 | 19 | 3 | 0 | 1.5 |
+| WP-078 | Evry wiki draft/propose/execute adapters | 0 | 9 | 0 | 0 | 1.5 |
+| WP-079 | Evry documents reads/helper adapters | 2 | 14 | 7 | 0 | 1.5 |
+| WP-080 | Evry documents draft/propose/execute adapters | 0 | 10 | 4 | 0 | 1.5 |
+| WP-081 | Evry notifications reads/helper adapters | 2 | 8 | 8 | 0 | 1.5 |
+| WP-082 | Evry notifications draft/propose/execute adapters | 2 | 28 | 3 | 0 | 1.5 |
+| WP-083 | Evry platform reads/helper adapters | 0 | 38 | 0 | 0 | 2 |
+| WP-084 | Evry platform draft/propose/execute adapters | 1 | 53 | 1 | 0 | 2 |
+| WP-085 | Evry named helpers and candidate preparation | 1 | 2 | 9 | 0 | 1.5 |
+| WP-055 | Evry autonomy policy/evals/human ownership | 28 | 5 | 31 | 0 | 2 |
+| WP-091 | Identity, people, meetings, tasks, teams, Evry and operations integration | 10 | 0 | 82 | 0 | 2.5 |
+| WP-092 | Knowledge, communication and reference integration | 9 | 0 | 12 | 0 | 1.5 |
+| WP-093 | Phases, intelligence and Launch integration | 6 | 0 | 34 | 0 | 2 |
 | WP-098 | Organization pipeline, goals and conversations | 3 | 13 | 3 | 4 | 3.5 |
 | WP-099 | Development programs and enrollment | 3 | 11 | 3 | 5 | 3.5 |
 | WP-100 | My residency and consented progress | 2 | 3 | 2 | 0 | 2.5 |
@@ -149,9 +145,9 @@ WP-057: WP-094, WP-095, WP-096, WP-057. The same domain partition for browser/fi
 
 ## Critical prerequisite chain
 
-WP-097 → WP-087 → WP-001 → WP-002 → WP-003 → WP-004 → WP-031 → WP-005 → WP-006 → WP-007 → WP-008 → WP-009 → WP-038 → WP-045 → WP-046 → WP-040 → WP-041 → WP-042 → WP-043 → WP-044 → WP-073 → WP-074 → WP-055 → WP-091 → WP-056 → WP-094 → WP-057 → WP-058
+WP-097 → WP-087 → WP-001 → WP-002 → WP-003 → WP-004 → WP-031 → WP-005 → WP-006 → WP-007 → WP-008 → WP-020 → WP-017 → WP-019 → WP-045 → WP-046 → WP-040 → WP-041 → WP-042 → WP-043 → WP-044 → WP-073 → WP-074 → WP-055 → WP-091 → WP-056 → WP-094 → WP-057 → WP-058
 
-The graph has 520 edges. The chain above is the maximum sum of scope estimates along prerequisites, calculated by docs/package-context.py --refresh-plan.
+The graph has 499 edges. The chain above is the maximum sum of scope estimates along prerequisites, calculated by docs/package-context.py --refresh-plan.
 
 ## Exact dependency graph
 
@@ -179,16 +175,14 @@ graph LR
   WP014["WP-014: Assessments interviews commitments"]
   WP015["WP-015: Corrections duplicate resolution and merge"]
   WP032["WP-032: Canonical reference/template manifest"]
-  WP016["WP-016: Team catalog and lifecycle"]
-  WP017["WP-017: Roster roles leader appointments/org chart"]
+  WP020["WP-020: Meetings, venues, list and detail, invitations and RSVP"]
+  WP017["WP-017: Teams, roster, roles, leader appointments and org chart"]
   WP018["WP-018: Responsibilities canonical offer"]
   WP019["WP-019: Training programs completion revoke/correct"]
-  WP020["WP-020: Meeting and location lifecycle"]
-  WP021["WP-021: Meeting invitations and RSVP"]
-  WP024["WP-024: Tasks lifecycle/bulk/status history"]
-  WP022["WP-022: Attendance finalization/evaluation C2a"]
+  WP024["WP-024: Task core"]
+  WP022["WP-022: Attendance, finalization, evaluation and analytics"]
   WP023["WP-023: Follow-up obligation/outcome C2b"]
-  WP025["WP-025: Task dependencies and recurrence"]
+  WP025["WP-025: Task structure"]
   WP038["WP-038: Phase initial declaration and transitions"]
   WP026["WP-026: Phase task templates and prompts"]
   WP027["WP-027: Communication composition/templates"]
@@ -212,12 +206,10 @@ graph LR
   WP048["WP-048: Dashboard/navigation/settings integration"]
   WP049["WP-049: Feedback and later public marketing"]
   WP050["WP-050: Environment bootstrap/ops/observability"]
-  WP051["WP-051: Evry conversations and runs"]
-  WP052["WP-052: Evry per-feature read/tool coverage"]
-  WP053["WP-053: Human approval and execution of Evry proposals"]
-  WP054["WP-054: Evry private uploads/artifacts/recovery"]
-  WP059["WP-059: Evry people-core reads/helper adapters"]
-  WP060["WP-060: Evry people-core draft/propose/execute adapters"]
+  WP051["WP-051: Evry conversations, reads and runs"]
+  WP053["WP-053: Evry approval and execution"]
+  WP054["WP-054: Evry files, history and conversation extras"]
+  WP059["WP-059: Evry people adapters"]
   WP061["WP-061: Evry people-assessments reads/helper adapters"]
   WP062["WP-062: Evry people-assessments draft/propose/execute adapters"]
   WP063["WP-063: Evry people-organization reads/helper adapters"]
@@ -311,6 +303,7 @@ graph LR
   WP090 -. UI .-> WP013
   WP011 --> WP014
   WP001 --> WP014
+  WP012 --> WP014
   WP088 -. UI .-> WP014
   WP089 -. UI .-> WP014
   WP090 -. UI .-> WP014
@@ -321,17 +314,20 @@ graph LR
   WP090 -. UI .-> WP015
   WP001 --> WP032
   WP004 --> WP032
-  WP011 --> WP016
-  WP032 --> WP016
-  WP088 -. UI .-> WP016
-  WP089 -. UI .-> WP016
-  WP090 -. UI .-> WP016
-  WP016 --> WP017
+  WP011 --> WP020
+  WP008 --> WP020
+  WP031 --> WP020
+  WP088 -. UI .-> WP020
+  WP089 -. UI .-> WP020
+  WP090 -. UI .-> WP020
+  WP011 --> WP017
+  WP032 --> WP017
   WP008 --> WP017
+  WP020 --> WP017
   WP088 -. UI .-> WP017
   WP089 -. UI .-> WP017
   WP090 -. UI .-> WP017
-  WP016 --> WP018
+  WP017 --> WP018
   WP088 -. UI .-> WP018
   WP089 -. UI .-> WP018
   WP090 -. UI .-> WP018
@@ -340,24 +336,14 @@ graph LR
   WP088 -. UI .-> WP019
   WP089 -. UI .-> WP019
   WP090 -. UI .-> WP019
-  WP011 --> WP020
-  WP016 --> WP020
-  WP088 -. UI .-> WP020
-  WP089 -. UI .-> WP020
-  WP090 -. UI .-> WP020
-  WP020 --> WP021
-  WP008 --> WP021
-  WP088 -. UI .-> WP021
-  WP089 -. UI .-> WP021
-  WP090 -. UI .-> WP021
   WP006 --> WP024
   WP011 --> WP024
   WP088 -. UI .-> WP024
   WP089 -. UI .-> WP024
   WP090 -. UI .-> WP024
   WP020 --> WP022
-  WP021 --> WP022
   WP024 --> WP022
+  WP014 --> WP022
   WP088 -. UI .-> WP022
   WP089 -. UI .-> WP022
   WP090 -. UI .-> WP022
@@ -508,16 +494,12 @@ graph LR
   WP031 --> WP050
   WP003 --> WP051
   WP006 --> WP051
+  WP011 --> WP051
   WP031 --> WP051
   WP088 -. UI .-> WP051
   WP089 -. UI .-> WP051
   WP090 -. UI .-> WP051
-  WP051 --> WP052
-  WP006 --> WP052
-  WP052 --> WP053
-  WP008 --> WP053
-  WP015 --> WP053
-  WP024 --> WP053
+  WP051 --> WP053
   WP031 --> WP053
   WP088 -. UI .-> WP053
   WP089 -. UI .-> WP053
@@ -528,27 +510,16 @@ graph LR
   WP088 -. UI .-> WP054
   WP089 -. UI .-> WP054
   WP090 -. UI .-> WP054
-  WP052 --> WP059
-  WP011 --> WP059
+  WP053 --> WP059
   WP012 --> WP059
-  WP015 --> WP059
-  WP013 --> WP059
-  WP023 --> WP059
-  WP053 --> WP060
-  WP059 --> WP060
-  WP011 --> WP060
-  WP012 --> WP060
-  WP015 --> WP060
-  WP013 --> WP060
-  WP023 --> WP060
-  WP052 --> WP061
+  WP051 --> WP061
   WP014 --> WP061
   WP015 --> WP061
   WP053 --> WP062
   WP061 --> WP062
   WP014 --> WP062
   WP015 --> WP062
-  WP052 --> WP063
+  WP051 --> WP063
   WP012 --> WP063
   WP013 --> WP063
   WP014 --> WP063
@@ -557,18 +528,18 @@ graph LR
   WP063 --> WP064
   WP012 --> WP064
   WP013 --> WP064
-  WP052 --> WP065
+  WP051 --> WP065
   WP020 --> WP065
-  WP021 --> WP065
   WP022 --> WP065
   WP023 --> WP065
+  WP017 --> WP065
   WP053 --> WP066
   WP065 --> WP066
   WP020 --> WP066
-  WP021 --> WP066
   WP022 --> WP066
   WP023 --> WP066
-  WP052 --> WP067
+  WP017 --> WP066
+  WP051 --> WP067
   WP023 --> WP067
   WP024 --> WP067
   WP025 --> WP067
@@ -579,7 +550,7 @@ graph LR
   WP024 --> WP068
   WP025 --> WP068
   WP026 --> WP068
-  WP052 --> WP069
+  WP051 --> WP069
   WP017 --> WP069
   WP018 --> WP069
   WP019 --> WP069
@@ -588,7 +559,7 @@ graph LR
   WP017 --> WP070
   WP018 --> WP070
   WP019 --> WP070
-  WP052 --> WP071
+  WP051 --> WP071
   WP027 --> WP071
   WP028 --> WP071
   WP029 --> WP071
@@ -597,7 +568,7 @@ graph LR
   WP027 --> WP072
   WP028 --> WP072
   WP029 --> WP072
-  WP052 --> WP073
+  WP051 --> WP073
   WP039 --> WP073
   WP040 --> WP073
   WP041 --> WP073
@@ -610,35 +581,35 @@ graph LR
   WP041 --> WP074
   WP043 --> WP074
   WP044 --> WP074
-  WP052 --> WP075
+  WP051 --> WP075
   WP045 --> WP075
   WP046 --> WP075
   WP053 --> WP076
   WP075 --> WP076
   WP045 --> WP076
   WP046 --> WP076
-  WP052 --> WP077
+  WP051 --> WP077
   WP034 --> WP077
   WP035 --> WP077
   WP053 --> WP078
   WP077 --> WP078
   WP034 --> WP078
   WP035 --> WP078
-  WP052 --> WP079
+  WP051 --> WP079
   WP036 --> WP079
   WP037 --> WP079
   WP053 --> WP080
   WP079 --> WP080
   WP036 --> WP080
   WP037 --> WP080
-  WP052 --> WP081
+  WP051 --> WP081
   WP030 --> WP081
   WP031 --> WP081
   WP053 --> WP082
   WP081 --> WP082
   WP030 --> WP082
   WP031 --> WP082
-  WP052 --> WP083
+  WP051 --> WP083
   WP010 --> WP083
   WP047 --> WP083
   WP048 --> WP083
@@ -651,16 +622,16 @@ graph LR
   WP048 --> WP084
   WP049 --> WP084
   WP050 --> WP084
-  WP052 --> WP085
+  WP051 --> WP085
   WP013 --> WP085
   WP019 --> WP085
-  WP021 --> WP085
+  WP020 --> WP085
   WP037 --> WP085
   WP053 --> WP085
   WP054 --> WP055
   WP042 --> WP055
   WP001 --> WP055
-  WP060 --> WP055
+  WP059 --> WP055
   WP062 --> WP055
   WP064 --> WP055
   WP066 --> WP055
@@ -780,4 +751,4 @@ graph LR
   WP033 --> WP058
 ```
 
-Run --check-plan for nonempty scope, directory ownership, disjoint adapter paths, operation-kind ownership, producer ancestry, slice closure, estimates and graph projections. Manifest and planning checks are documentation/tooling proof; they do not establish application acceptance.
+Run --check-plan for nonempty scope, directory ownership, disjoint adapter paths, operation-kind ownership, producer ancestry, gate ownership, slice closure, estimates and graph projections. Manifest and planning checks are documentation/tooling proof; they do not establish application acceptance.

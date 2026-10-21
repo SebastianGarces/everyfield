@@ -1,62 +1,71 @@
-import { revision } from "@everyfield/contracts/common";
-import * as C from "@everyfield/contracts/organizations";
+import type { OrganizationOperations as Ops } from "@everyfield/contracts/organizations";
+import type { Reply } from "@/server/organizations";
 import {
+	checkPipelineAggregateAccess,
+	endConnection,
+	getAssociationHistory,
+	getSharing,
+	inviteAssociation,
+	leaveResidency,
 	loadConnections,
 	loadDisclosure,
 	loadHistoryPage,
 	loadResidency,
 	loadSharing,
-	runOrganizationOperation,
+	readPipelineConsent,
+	readResidencySharing,
+	resendAssociationInvitation,
+	respondAssociationInvitation,
+	revokeAssociationInvitation,
+	saveSharing,
+	setPipelineConsent,
+	setResidencySharing,
 } from "./actions";
 import type { ConnectionsData } from "./Connections";
 import type { ReadHistory } from "./History";
 import { Refusal } from "./intent";
+import type { EndConnection } from "./EndDialog";
 import type { ReadDisclosure } from "./InviteDialog";
-import type { History, NameOf, OperationName, PendingInvitation, Run } from "./port";
+import type { NameOf, OperationName, Run } from "./port";
 import type { ReadResidency } from "./Residency";
-import type { ReadSharing } from "./Sharing";
+import type { ReadSharing, SaveSharing } from "./Sharing";
 
-// The real port (WP-007/ui ruling D11): server actions in, contract parsers out. A server refusal becomes a
-// Refusal; a lost reply stays a thrown network error, so useIntent keeps the command frozen.
+// The real port (WP-007/ui ruling D11): one typed server action per operation. The server parses the browser's input
+// and answers with the contract value, which the screens trust. A server refusal becomes a Refusal; a lost reply stays
+// a thrown network error, so useIntent keeps the command frozen.
 
-const RESULT: Partial<Record<OperationName, { parse: (v: unknown) => unknown }>> = {
-	"associations.invite": C.invitationResult,
-	"associations.resendInvitation": C.invitationResult,
-	"associations.revokeInvitation": C.mutationResult,
-	"associations.end": C.mutationResult,
-	"associations.respondInvitation": C.invitationDecisionResult,
-	"associations.getHistory": C.relationshipHistoryResult,
-	"privacy.getSharing": C.sharingResult,
-	"privacy.setSharing": C.mutationResult,
-	"residency.readSharing": C.residencySharingResult,
-	"residency.setSharing": C.mutationResult,
-	"residency.leave": C.mutationResult,
-	"pipelineSharing.readConsent": C.pipelineConsentResult,
-	"pipelineSharing.setConsent": C.mutationResult,
-	"pipelineSharing.checkAggregateAccess": C.pipelineAggregateAccessResult,
+/** The operations the screens call; the contract's other operations have no screen and no action. */
+type Actions = { [K in OperationName]?: (input: Ops[K]["input"]) => Promise<Reply<Ops[K]["output"]>> };
+const ACTIONS: Actions = {
+	"associations.invite": inviteAssociation,
+	"associations.resendInvitation": resendAssociationInvitation,
+	"associations.revokeInvitation": revokeAssociationInvitation,
+	"associations.respondInvitation": respondAssociationInvitation,
+	"associations.getHistory": getAssociationHistory,
+	"privacy.getSharing": getSharing,
+	"residency.readSharing": readResidencySharing,
+	"residency.setSharing": setResidencySharing,
+	"residency.leave": leaveResidency,
+	"pipelineSharing.readConsent": readPipelineConsent,
+	"pipelineSharing.setConsent": setPipelineConsent,
+	"pipelineSharing.checkAggregateAccess": checkPipelineAggregateAccess,
 };
 
-/** One own residency link through the server, parsed again here. */
-export const readResidency: ReadResidency = async (linkId) => {
-	const r = await loadResidency(linkId);
-	return { sharing: C.residencySharingResult.parse(r.sharing), linkRevision: revision.parse(r.linkRevision) };
+export const readResidency: ReadResidency = loadResidency;
+export const readSharing: ReadSharing = loadSharing;
+export const saveSharingChoice: SaveSharing = async (command) => {
+	const r = await saveSharing(command);
+	if (r.reply.status === "refused") throw new Refusal(r.reply.code);
+	return r.row;
 };
 
-/** One of the plant's own connections through the server, parsed again here. */
-export const readSharing: ReadSharing = async (relationshipId, request) => {
-	const r = await loadSharing(relationshipId, request);
-	return { sharing: C.sharingResult.parse(r.sharing), relationshipRevision: revision.parse(r.relationshipRevision) };
-};
-
-export const realRun = (async (operation: OperationName, input: unknown) => {
-	const schema = RESULT[operation];
-	if (!schema) throw new Refusal("unavailable");
-	const reply = await runOrganizationOperation(operation, input);
+export const realRun: Run = async <K extends OperationName>(operation: K, input: Ops[K]["input"]) => {
+	const action: Actions[K] = ACTIONS[operation];
+	if (!action) throw new Refusal("unavailable");
+	const reply = await action(input);
 	if (reply.status === "refused") throw new Refusal(reply.code);
-	return schema.parse(reply.value);
-}) as Run;
-
-const pending = C.invitationResult.omit({});
+	return reply.value;
+};
 
 /** Names learned from the server so far. Pages add to it as they load; unknown IDs get a neutral word. */
 export function createNames(initial: Record<string, string>) {
@@ -69,17 +78,20 @@ export function createNames(initial: Record<string, string>) {
 	const load = async (): Promise<ConnectionsData> => {
 		const r = await loadConnections();
 		learn(r.names);
-		const history = C.relationshipHistoryResult.parse(r.history) as ConnectionsData["history"];
-		return { history, pending: r.pending.map((p) => pending.parse(p) as PendingInvitation) };
+		return { history: r.history, pending: r.pending, sharing: r.sharing };
 	};
 	const readMore: ReadHistory = async (after) => {
 		const r = await loadHistoryPage(after);
 		learn(r.names);
-		return C.relationshipHistoryResult.parse(r.page) as { status: "unavailable" } | History;
+		return r.page;
 	};
-	const readDisclosure: ReadDisclosure = async (pair) => {
-		const r = await loadDisclosure(pair);
-		return r ? C.sharingDisclosure.parse(r) : null;
+	const readDisclosure: ReadDisclosure = (pair) => loadDisclosure(pair);
+	const end: EndConnection = async (command) => {
+		const r = await endConnection(command);
+		if (r.reply.status === "refused") throw new Refusal(r.reply.code);
+		if (!r.history) return null;
+		learn(r.history.names);
+		return r.history.page;
 	};
-	return { nameOf, learn, load, readMore, readDisclosure };
+	return { nameOf, learn, load, readMore, readDisclosure, end };
 }

@@ -26,7 +26,7 @@ Rules that apply to every component:
 | Layout | Page header | `<PageHeader>` | Breadcrumb, Title, Subtitle, Actions | size xl | none |
 | Layout | Breadcrumb | `<Breadcrumb>` | Item, Separator |  | none |
 | Surfaces | Card | `<Card>` | Header, Title, Description, Actions, Close, Body, ScrollArea, Footer, Inset | variant default/raised/flat/callout · size md/sm · tone | ScrollArea |
-| Surfaces | Insight card | `<InsightCard>` | Pill, Count, Metric, Title, Text, Spark, Footer | tone field/sky/dawn/lilac · size | none |
+| Surfaces | Insight card | `<InsightCard>` | Pill, Count, Metric, Title, Text, Spark, Footer | tone field/sky/sage/rose · size | none |
 | Actions | Button | `<Button>` | Icon, Label | variant primary/brand/secondary/outline/ghost/light/glass/danger · size sm/md | Button |
 | Actions | Icon button | `<IconButton>` | Icon | variant default/soft/square · size | Button |
 | Inputs | Field | `<Field>` | Label, Control, Hint, Error | invalid | Field |

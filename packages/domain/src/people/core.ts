@@ -1,12 +1,12 @@
 import { requestIdentity } from "@everyfield/contracts/common";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { and, desc, eq, inArray, isNull, notExists, sql, type SQLWrapper } from "@everyfield/db/query";
+import { and, desc, eq, inArray, isNull, notExists, sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { readPipelinePerson } from "../access/pipeline.ts";
-import { currentActor, RequestActor, requestWrite } from "../access/session.ts";
+import { currentActor, liveRead, RequestActor, requestWrite } from "../access/session.ts";
 import {
 	auditSavepoint,
 	auditTransaction,
@@ -52,26 +52,24 @@ function stable(v: unknown): string {
 }
 export class Refusal extends Error {
 	readonly code: z.infer<typeof c.peopleError>["code"];
-	constructor(code: z.infer<typeof c.peopleError>["code"]) {
+	readonly details: object;
+	constructor(code: z.infer<typeof c.peopleError>["code"], details: object = {}) {
 		super(code);
 		this.code = code;
+		this.details = details;
 	}
 }
-export function deny(code: Refusal["code"] = "unavailable"): never {
-	throw new Refusal(code);
+export function deny(code: Refusal["code"] = "unavailable", details?: object): never {
+	throw new Refusal(code, details);
 }
 function refused(error: Refusal): PeopleReply<never> {
-	const retry =
-		error.code === "conflict" || error.code === "use_reviewed_unmerge"
-			? "refresh"
-			: error.code === "source_unavailable"
-				? "same_request"
-				: "never";
+	// Each refusal code declares its own retry eligibility.
+	const retry = c.peopleError.options.find((o) => o.shape.code.value === error.code)!.shape.retry.value;
 	return {
 		status: "refused",
 		error: c.peopleError.parse({
 			code: error.code,
-			details: {},
+			details: error.details,
 			correlationId: randomUUID(),
 			retry,
 		}),
@@ -121,20 +119,32 @@ export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S>
 	if (!r.success) deny("invalid_input");
 	return r.data;
 }
+type ActiveActor = Awaited<ReturnType<typeof authorize>>;
 export async function authorize(tx: Tx, context: Context, write = false) {
 	const actor =
 		!write && context instanceof PeopleReadContext
 			? context.authority.actor
-			: await currentActor(tx, context.session, context.selected);
-	if (
-		actor.status !== "active" ||
-		actor.context.kind !== "seat" ||
-		!["plant", "organization"].includes(context.selected.kind)
-	)
-		deny();
+			: await currentActor(tx, context.session, context.selected, write);
+	if (actor.status !== "active" || !["plant", "organization"].includes(context.selected.kind)) deny();
+	const seat = actor.context;
+	if (seat.kind !== "seat") deny();
 	if (write && !isAdministrator(actor)) deny();
-	return actor;
+	return { ...actor, context: seat };
 }
+/**
+ * The actor a read resolved and the live access check (C13, C22) each of its statements repeats. An organization Admin
+ * reads every person, so the check keeps that Admin role; any other reader's role does not change what it reads.
+ */
+export async function authorizeRead(tx: Tx, context: Context) {
+	const actor = await authorize(tx, context);
+	const admin = context.selected.kind === "organization" && isAdministrator(actor);
+	return {
+		actor,
+		gate: liveRead({ session: context.session, owner: context.selected, seatId: actor.context.seatId }, admin),
+	};
+}
+/** A write's statements need no read gate: its locked authority holds until COMMIT (D70). */
+export const lockedWrite = sql`true`;
 export async function lockOwner(tx: Tx, context: Context) {
 	const locked = requestWrite(tx);
 	if (locked && locked.selected.id === context.selected.id && locked.selected.kind === context.selected.kind) return;
@@ -171,14 +181,21 @@ export const personRow = z.object({
 	pipeline_position: z.string().nullable(),
 });
 export type Person = z.infer<typeof personRow>;
-export async function person(tx: Tx, context: Pick<Context, "selected">, id: string, lock = false): Promise<Person> {
-	const rows = await tx
+/** One Person row. A write passes `true` and locks it for update; a read passes its C13 gate and takes no lock. */
+export async function person(
+	tx: Tx,
+	context: Pick<Context, "selected">,
+	id: string,
+	lock: true | SQL,
+): Promise<Person> {
+	const query = tx
 		.select()
 		.from(tables.person)
 		.where(
 			and(
 				eq(tables.person.id, id),
 				eq(tables.person.tenant_id, context.selected.id),
+				lock === true ? undefined : lock,
 				notExists(
 					tx
 						.select({ id: tables.organization_person_removal.id })
@@ -191,13 +208,14 @@ export async function person(tx: Tx, context: Pick<Context, "selected">, id: str
 						),
 				),
 			),
-		)
-		.for(lock ? "update" : "share", { of: tables.person });
+		);
+	const rows = await (lock === true ? query.for("update", { of: tables.person }) : query);
 	if (!rows[0]!) deny();
 	return personRow.parse(rows[0]!);
 }
-export async function canReadPerson(tx: Tx, context: Context, p: Person) {
-	const a = await authorize(tx, context);
+/** The reader's authority over one Person. Pass the actor a reader already resolved to avoid a second lookup. */
+export async function canReadPerson(tx: Tx, context: Context, p: Person, actor?: ActiveActor) {
+	const a = actor ?? (await authorize(tx, context));
 	if (context.selected.kind === "organization" && !isAdministrator(a)) {
 		const r = await readPipelinePerson(tx, context.session, context.selected, {
 			personId: p.id,
@@ -206,10 +224,10 @@ export async function canReadPerson(tx: Tx, context: Context, p: Person) {
 	}
 	return a;
 }
-export async function project(tx: Tx, context: Context, p: Person) {
-	return (await projectPeople(tx, context, [p]))[0]!;
+export async function project(tx: Tx, context: Context, p: Person, gate: SQL) {
+	return (await projectPeople(tx, context, [p], gate))[0]!;
 }
-export async function projectPeople(tx: Tx, context: Context, people: Person[]) {
+export async function projectPeople(tx: Tx, context: Context, people: Person[], gate: SQL) {
 	const evidence =
 		context.selected.kind === "plant" && people.some((p) => p.commitment_state !== "unknown")
 			? await tx
@@ -229,6 +247,7 @@ export async function projectPeople(tx: Tx, context: Context, people: Person[]) 
 								people.map((p) => p.id),
 							),
 							isNull(tables.commitment.voided_at),
+							gate,
 						),
 					)
 					.orderBy(tables.commitment.person_id, desc(tables.commitment.signed_on), desc(tables.commitment.id))
@@ -341,7 +360,7 @@ export async function patchPerson(
 	return { before, after };
 }
 
-export function personChanges(before?: Person, after?: Person) {
+export function personChanges(before?: Revisioned, after?: Revisioned) {
 	const prior = new Map(Object.entries(before ?? {})),
 		next = new Map(Object.entries(after ?? {}));
 	const changed = new Set(
@@ -356,6 +375,8 @@ export function personChanges(before?: Person, after?: Person) {
 }
 
 export type Mutation = { requestKey: string; expectedRevision?: string };
+/** The fact a write changed: a Person, or another revisioned people fact such as a tag or household. */
+export type Revisioned = { revision: string };
 export async function mutation<T>(
 	tx: Tx,
 	context: WriteContext,
@@ -369,10 +390,13 @@ export async function mutation<T>(
 		value: T;
 		subject: string;
 		action: NonNullable<typeof tables.audit_event.$inferInsert.action>;
-		before?: Person;
-		after?: Person;
-		reason?: string;
+		before?: Revisioned;
+		after?: Revisioned;
+		subjectType?: "tag" | "household" | "person_skill";
+		reason?: string | null;
 		outcome?: "changed" | "noop";
+		// Bounded audit metadata, such as the record an assessment, interview or commitment event names.
+		metadata?: Record<string, string>;
 	}>,
 ): Promise<unknown> {
 	await lockOwner(tx, context);
@@ -425,7 +449,7 @@ export async function mutation<T>(
 		tenant_id: context.selected.id,
 		actor_id: actor.accountId,
 		actor_token: hash([context.selected.id, actor.accountId]),
-		subject_type: result.subject === context.selected.id ? context.selected.kind : "person",
+		subject_type: result.subjectType ?? (result.subject === context.selected.id ? context.selected.kind : "person"),
 		subject_id: result.subject,
 		action: result.action,
 		kind:
@@ -443,7 +467,11 @@ export async function mutation<T>(
 		before_value: note ? entry?.before_value : delta.before,
 		after_value: note ? entry?.after_value : delta.after,
 		reason: result.reason ?? entry?.reason ?? null,
-		...(note ? { metadata: entry?.metadata ?? { category: "note" } } : {}),
+		...(note
+			? { metadata: entry?.metadata ?? { category: "note" } }
+			: result.metadata
+				? { metadata: result.metadata }
+				: {}),
 	};
 	if (entry) Object.assign(entry, audit);
 	else claim.events.push(audit);
@@ -464,13 +492,6 @@ export function expected(p: Person, revision: string) {
 }
 export function live(p: Person) {
 	if (p.state !== "live") deny();
-}
-export async function attribution(tx: Tx, actorId: string | null, token: string) {
-	if (actorId) {
-		const a = await tx.select({ id: tables.account.id }).from(tables.account).where(eq(tables.account.id, actorId));
-		if (a.length) return { kind: "current_account", accountId: actorId };
-	}
-	return { kind: "former_account", scopeLocalToken: token };
 }
 export { owner };
 

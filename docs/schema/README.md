@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 78 tables, 898 columns, 289 declared FKs and 14 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 85 tables, 986 columns, 312 declared FKs and 21 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -38,6 +38,8 @@ Each replaced table inherits the union of producer packages from its previous ta
 
 | New table | Ownership basis and ruling | Producers |
 |---|---|---|
+| `conversation` | WP-051 Evry conversation storage through Drizzle Kit. | WP-051 |
+| `conversation_event` | WP-051 Evry conversation storage through Drizzle Kit. | WP-051 |
 | `development_enrollment` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
 | `development_program` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
 | `development_program_version` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
@@ -51,10 +53,12 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `onboarding_setup` | WP-009 additive onboarding storage. | WP-009 |
 | `organization_person_removal` | WP-011 owns removal and WP-050 synchronizes body-free witnesses into recovery; WP-004 installs the baseline. | WP-004, WP-011, WP-050 |
 | `people_column` | WP-011 People producer storage introduced by additive migration 0004; D30/D32 current-catalog registration. | WP-011 |
+| `person_import` | WP-013 People CSV import job payload through Drizzle Kit. | WP-013 |
 | `pipeline_person` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
 | `pipeline_sharing` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-007 |
 | `pipeline_stage` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
-| `record` | Referenceable subtype writers must bind their own actual identity and owner; inherit the union of those writers, with WP-004 owning trigger/DDL proof. | WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-012, WP-013, WP-014, WP-016, WP-017, WP-018, WP-020, WP-021, WP-022, WP-023, WP-024, WP-026, WP-028, WP-030, WP-031, WP-032, WP-033, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-041, WP-045, WP-046, WP-047, WP-048, WP-050, WP-054, WP-057, WP-098, WP-099 |
+| `proposal` | WP-053 Evry review and execution storage through Drizzle Kit. | WP-053 |
+| `record` | Referenceable subtype writers must bind their own actual identity and owner; inherit the union of those writers, with WP-004 owning trigger/DDL proof. | WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-012, WP-013, WP-014, WP-017, WP-018, WP-020, WP-022, WP-023, WP-024, WP-026, WP-028, WP-030, WP-031, WP-032, WP-033, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-041, WP-045, WP-046, WP-047, WP-048, WP-050, WP-054, WP-057, WP-098, WP-099 |
 | `relationship_invitation` | WP-007 native organization adapter storage introduced by forward migration 0005; D29/D32 current-catalog authority. | WP-007 |
 | `residency_link` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-008 |
 | `schema_migration` | WP-097 installs the migration runner ledger with its physical text primary key. | WP-097 |
@@ -109,7 +113,7 @@ This mapping is generated from `replaces`; Fix 2 uses it to align architecture, 
 | `launch_milestone_task` | `launch_milestone` |
 | `launch_person_attendance` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
 | `meeting` | `meeting` |
-| `meeting_checklist_item` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
+| `meeting_checklist_item` | `meeting_kit_item` |
 | `meeting_event` | `audit_event` |
 | `meeting_invitation` | `participation` |
 | `meeting_location` | `venue` |
@@ -131,11 +135,12 @@ This mapping is generated from `replaces`; Fix 2 uses it to align architecture, 
 | `owned_document_revisions` | `document_revision` |
 | `owned_documents` | `document` |
 | `person` | `person` |
-| `person_4c_assessment` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
+| `person_4c_assessment` | `four_cs` |
 | `person_activity` | `audit_event`, `person_note` |
 | `person_attestation` | `attestation` |
 | `person_commitment` | `commitment` |
 | `person_interview` | `interview` |
+| `person_skill` | `person_skill` |
 | `person_tag` | `person_tag` |
 | `person_tag_definition` | `tag` |
 | `phase_template_offer_response` | `phase_transition` |

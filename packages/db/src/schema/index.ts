@@ -1,11 +1,11 @@
 import "server-only";
-export { canonicalTimeZone } from "./time.js";
+export { canonicalTimeZone } from "./time.ts";
 export {
 	putPrivateObject,
 	readAuthorizedObject,
 	createAuthorizedDownload,
 	deleteUnreferencedObject,
-} from "./storage.js";
-export type { PrivateStorage, ResourceAuthorizer, FileAuthorization, FilePurpose, FileIdentity } from "./storage.js";
-export { authStorage } from "./auth-storage.js";
-export { validateAvatar } from "./validate-file.js";
+} from "./storage.ts";
+export type { PrivateStorage, ResourceAuthorizer, FileAuthorization, FilePurpose, FileIdentity } from "./storage.ts";
+export { authStorage } from "./auth-storage.ts";
+export { validateAvatar, validateCommitment } from "./validate-file.ts";

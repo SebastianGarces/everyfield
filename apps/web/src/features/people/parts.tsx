@@ -63,6 +63,8 @@ export function useStore<P extends Saved, D>(store: PersonStore<P, D>): PersonSt
 
 export const fresh = () => crypto.randomUUID();
 export const isOk = <T,>(o: Outcome<T> | null): o is { status: "ok"; value: T } => o?.status === "ok";
+/** A refusal because this page's copy is out of date: the screen reads the person again. */
+export const isConflict = <T,>(o: Outcome<T> | null) => o?.status === "refused" && o.code === "conflict";
 export const problemOf = <T,>(o: Outcome<T> | null): string | undefined =>
 	!o || o.status === "ok" ? undefined : o.status === "lost" ? "lost" : o.code;
 
@@ -100,14 +102,15 @@ export function SectionNote({ children }: { children: ReactNode }) {
 }
 
 /**
- * The person's status warnings, open duties and review revision, read when a dialog opens and again whenever the
- * person's revision changes. Null while loading. Dialogs mount when they open, so every opening reads afresh.
+ * The person's status warnings, open duties and review revision, read when a dialog opens and again when `round`
+ * changes (the dialog's save was refused as out of date). Null while loading. Dialogs mount when they open, so every
+ * opening reads afresh; a dialog's own save never causes a second read.
  */
 export function useWarnings(
 	personId: string,
-	revision: string,
+	round: number,
 ): Outcome<z.infer<typeof people.statusWarningsResult>> | null {
-	const key = `${personId}:${revision}`;
+	const key = `${personId}:${round}`;
 	const [got, setGot] = useState<{ key: string; value: Outcome<z.infer<typeof people.statusWarningsResult>> } | null>(
 		null,
 	);
@@ -138,12 +141,13 @@ export function CardLink({ className, ...props }: ComponentProps<typeof PersonLi
 /**
  * A link to one person from the People list, cards or pipeline. A view switch shows up to a page of new person links
  * at once, and Next.js would prefetch every one that scrolls into view, so a switch would send a request per person.
- * These links prefetch only when a person shows intent (pointer, touch or keyboard focus), so the switch itself
- * sends nothing and opening a person still starts early.
+ * These links prefetch only when a person shows intent: the mouse moves over the link, a finger touches it, or keyboard
+ * focus reaches it. Content that slides under a resting pointer after a move, or focus that code restores when a
+ * dialog closes, is not intent and sends nothing (D68 verifier finding: a stage move sent a profile prefetch).
  */
 export function PersonLink({
 	href,
-	onMouseEnter,
+	onPointerMove,
 	onTouchStart,
 	onFocus,
 	...props
@@ -155,16 +159,16 @@ export function PersonLink({
 			{...props}
 			href={href}
 			prefetch={false}
-			onMouseEnter={(e) => {
-				warm();
-				onMouseEnter?.(e);
+			onPointerMove={(e) => {
+				if (e.pointerType === "mouse") warm();
+				onPointerMove?.(e);
 			}}
 			onTouchStart={(e) => {
 				warm();
 				onTouchStart?.(e);
 			}}
 			onFocus={(e) => {
-				warm();
+				if (e.currentTarget.matches(":focus-visible")) warm();
 				onFocus?.(e);
 			}}
 		/>

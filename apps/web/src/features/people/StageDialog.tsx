@@ -16,7 +16,6 @@ import {
 } from "@everyfield/ui/controls";
 import { StageChip, StatusBadge } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { z } from "zod";
 import { changeStatus } from "./actions.ts";
@@ -27,6 +26,7 @@ import {
 	STAGE_KEY,
 	STAGE_LABEL,
 	STAGES,
+	type ColumnValue,
 	type PersonStore,
 	type StageValue,
 } from "./model.ts";
@@ -34,11 +34,13 @@ import { FormProblem, fresh, problemOf, useStore, useWarnings } from "./parts.ts
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
 type Warnings = z.infer<typeof people.statusWarningsResult>;
+type Moved = Extract<Awaited<ReturnType<typeof changeStatus>>, { status: "ok" }>["value"];
 export type StageDraft = { stage: StageValue | null; reason: string };
 /** Drafts of different forms share one store; each form reads its own slot and knows its own shape. */
 export type PersonDraft = unknown;
 
 const WARNING: Record<Warnings["warnings"][number], string> = {
+	assessment_not_recorded: "No Four Cs assessment is recorded for this person.",
 	interview_not_recorded: "No interview is recorded for this person.",
 	commitment_not_recorded: "No current commitment is recorded for this person.",
 	open_duties: "This person has open follow-up work.",
@@ -54,21 +56,36 @@ export function StageDialog({
 	onOpenChange,
 	store,
 	target,
+	from,
+	onStage,
 	onDone,
+	onConflict,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	store: PersonStore<PlantPerson, PersonDraft>;
 	/** A stage chosen before the dialog opened, such as a pipeline drop. */
 	target?: StageValue;
-	onDone?: (person: PlantPerson) => void;
+	/** The pipeline column the person is in now, so the answer also brings that column's new order and revision. */
+	from?: ColumnValue;
+	/**
+	 * The move as it goes: the person at the new stage when sent; the saved person and the touched columns' saved order
+	 * when answered; null if refused.
+	 */
+	onStage?: (person: PlantPerson | null, columns?: Moved["columns"]) => void;
+	/** After a saved move: the saved person, the stage they left and the write's receipt, for the Activity entry. */
+	onDone?: (moved: Moved & { from: StageValue }) => void;
+	/** The move was refused because the person changed elsewhere: the caller reads the latest copy (D68). */
+	onConflict: () => void;
 }) {
-	const router = useRouter();
 	const state = useStore(store);
 	const person = state.saved;
 	const pending = state.pending === "stage";
 	const draft = (state.drafts.stage as StageDraft | undefined) ?? { stage: target ?? null, reason: "" };
-	const warnings = useWarnings(person.id, person.revision);
+	// Read once when the dialog opens and again after a conflict, never because this dialog's own save changed the
+	// person's revision (D68: the warnings request was repeating after every move).
+	const [round, setRound] = useState(0);
+	const warnings = useWarnings(person.id, round);
 	const [touched, setTouched] = useState(false);
 
 	const set = (patch: Partial<StageDraft>) =>
@@ -96,16 +113,21 @@ export function StageDialog({
 		if (!chosen || reasonMissing || !ready || chosen === person.stage) return;
 		const input = { personId: person.id, stage: chosen, reason: draft.reason.trim(), handoffs };
 		const rev = person.revision;
-		const result = await runSave(store, "stage", { input, rev }, (key) => changeStatus(key, rev, input), {
+		onStage?.({ ...person, stage: chosen });
+		const result = await runSave(store, "stage", { input, rev }, (key) => changeStatus(key, rev, input, from), {
 			fresh,
-			toPerson: (p) => p,
+			toPerson: (v) => v.person,
 		});
+		if (result?.status === "ok") onStage?.(result.value.person, result.value.columns);
+		else onStage?.(null);
 		if (result?.status === "ok") {
 			setTouched(false);
 			onOpenChange(false);
-			onDone?.(result.value);
-			router.refresh();
-		} else if (result?.status === "refused" && result.code === "conflict") router.refresh();
+			onDone?.({ ...result.value, from: person.stage });
+		} else if (result?.status === "refused" && result.code === "conflict") {
+			setRound((r) => r + 1);
+			onConflict();
+		}
 	}
 
 	return (
@@ -118,7 +140,7 @@ export function StageDialog({
 					description={`Now ${STAGE_LABEL[person.stage].toLowerCase()}`}
 				/>
 				<DialogBody className="flex flex-col gap-5">
-					<div className="rounded-[18px] bg-surface p-4">
+					<div className="rounded-card bg-surface p-4">
 						<div className="flex flex-wrap items-end gap-4">
 							<div>
 								<div className="text-sm text-text-3">Now</div>
@@ -220,7 +242,7 @@ function Guidance({
 				</ul>
 			) : null}
 			{handoffs ? (
-				<div className="rounded-[14px] bg-amber-50 px-4 py-3 text-sm text-ink-2">
+				<div className="rounded-card bg-amber-50 px-4 py-3 text-sm text-ink-2">
 					<p className="font-medium text-ink">
 						{handoffs === 1 ? "1 open duty needs an owner" : `${handoffs} open duties need an owner`}
 					</p>

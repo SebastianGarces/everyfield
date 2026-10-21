@@ -1,10 +1,10 @@
 import type { ComponentPropsWithRef, ReactNode } from "react";
 import { cn, Icon, type IconSvgElement } from "../foundations";
 
-export type InsightTone = "field" | "sky" | "dawn" | "lilac";
+export type InsightTone = "field" | "sky" | "sage" | "rose";
 
 type InsightCardProps = ComponentPropsWithRef<"section"> & {
-	/** field: default and growth · sky: neutral findings · dawn: attention and gaps · lilac: the top summary. */
+	/** field: default and growth · sky: neutral findings · sage: the top summary · rose: risk and needs attention. */
 	tone?: InsightTone;
 	size?: "md" | "sm";
 };
@@ -39,7 +39,7 @@ export function InsightTop({ className, ...props }: ComponentPropsWithRef<"div">
 
 export function InsightPill({ icon, children }: { icon?: IconSvgElement; children: ReactNode }) {
 	return (
-		<span className="inline-flex h-8 items-center gap-2 rounded-full bg-[var(--pill-bg)] px-3.5 text-sm font-medium shadow-[inset_0_0_0_1px_var(--pill-edge)] backdrop-blur-[8px]">
+		<span className="inline-flex h-8 items-center gap-2 rounded-pill bg-[var(--pill-bg)] px-3.5 text-sm font-medium shadow-[inset_0_0_0_1px_var(--pill-edge)] backdrop-blur-[8px]">
 			{icon ? <Icon icon={icon} size={16} /> : null}
 			{children}
 		</span>
@@ -54,12 +54,7 @@ export function InsightCount({ className, ...props }: ComponentPropsWithRef<"spa
 export function InsightMetric({ value, unit, size = "md" }: { value: string; unit?: ReactNode; size?: "md" | "sm" }) {
 	return (
 		<p className="mt-[26px] flex items-end gap-3.5">
-			<span
-				className={cn(
-					"num leading-[.95] font-medium",
-					size === "sm" ? "text-[46px]" : "text-[64px] max-app-sm:text-[46px]",
-				)}
-			>
+			<span className={cn("num leading-[.95]", size === "sm" ? "text-[46px]" : "text-[64px] max-app-sm:text-[46px]")}>
 				{value}
 			</span>
 			{unit ? <span className="max-w-[170px] pb-1 text-md leading-[1.3] text-[var(--on-2)]">{unit}</span> : null}
@@ -76,8 +71,10 @@ export function InsightTitle({
 	return (
 		<Comp
 			className={cn(
-				"mt-[18px] max-w-[440px] font-display leading-[1.18] font-medium tracking-[-0.02em] text-balance",
-				size === "sm" ? "text-[21px]" : "text-[27px] max-app-sm:text-[22px]",
+				"mt-[18px] max-w-[440px] leading-[1.18] tracking-[-0.02em] text-balance",
+				size === "sm"
+					? "font-title text-[21px]"
+					: "font-display text-[27px] max-app-sm:font-title max-app-sm:text-[22px]",
 				className,
 			)}
 			{...props}
@@ -101,10 +98,7 @@ export function InsightSpark({ values, label }: { values: number[]; label: strin
 				<span
 					key={i}
 					style={{ height: `${Math.max((v / max) * 100, 4)}%` }}
-					className={cn(
-						"flex-1 rounded-t-[4px] rounded-b-[2px]",
-						i === values.length - 1 ? "bg-[var(--spark-hi)]" : "bg-[var(--spark)]",
-					)}
+					className={cn("flex-1 rounded-md", i === values.length - 1 ? "bg-[var(--spark-hi)]" : "bg-[var(--spark)]")}
 				/>
 			))}
 		</div>

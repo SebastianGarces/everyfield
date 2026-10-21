@@ -30,12 +30,10 @@ const columns = footer.columns
 export function SiteFooter({ headline = footer.headline }: { headline?: string }) {
 	return (
 		<footer className="px-page pt-[clamp(24px,4vw,48px)] pb-page">
-			<div className="mx-auto grid max-w-mk grid-cols-12 gap-x-6 gap-y-8 rounded-[32px] bg-ink px-[clamp(22px,5vw,72px)] pt-[clamp(28px,5vw,72px)] pb-[clamp(22px,3vw,32px)] text-white">
-				<div className="col-[1/span_5] flex flex-col items-start gap-[22px] max-mk-lg:col-[1/-1]">
-					<span className="grid size-11 place-items-center rounded-[13px] bg-green text-ink">
-						<Mark className="h-[18px] w-[22px]" />
-					</span>
-					<Display as="h2" className="max-w-[16ch] text-title-lg/[1.1] mk-xl:text-display-sm/[1.1]">
+			<div className="mx-auto grid max-w-mk grid-cols-12 gap-x-6 gap-y-8 bg-ink px-[clamp(22px,5vw,72px)] pt-[clamp(28px,5vw,72px)] pb-[clamp(22px,3vw,32px)] text-cream">
+				<div className="col-[1/span_6] flex flex-col items-start gap-[22px] max-mk-lg:col-[1/-1]">
+					<Mark className="size-11 text-green" />
+					<Display as="h2" className="max-w-[26ch] font-display text-title-lg/[1.1] mk-xl:text-display-sm/[1.1]">
 						{headline}
 					</Display>
 					<ButtonLink
@@ -53,13 +51,13 @@ export function SiteFooter({ headline = footer.headline }: { headline?: string }
 				>
 					{columns.map((c) => (
 						<div key={c.title}>
-							<h3 className="mb-3.5 type-sm font-semibold text-white">{c.title}</h3>
+							<h3 className="mb-3 font-title type-title-sm leading-[1.2] tracking-[-0.02em] text-cream">{c.title}</h3>
 							<ul>
 								{c.links.map((l) => (
 									<li key={l.label} className="mb-2.5 type-md">
 										<Link
 											href={l.href}
-											className="text-mk-on-ink-2 no-underline hover:text-white hover:underline hover:underline-offset-3 focus-visible:outline-white"
+											className="text-mk-on-ink-2 no-underline hover:text-cream hover:underline hover:underline-offset-3 focus-visible:outline-cream"
 										>
 											{l.label}
 										</Link>
@@ -69,7 +67,7 @@ export function SiteFooter({ headline = footer.headline }: { headline?: string }
 						</div>
 					))}
 				</nav>
-				<div className="col-[1/-1] flex flex-wrap items-center justify-between gap-3 border-t border-white/12 pt-[22px] type-md text-mk-on-ink-2">
+				<div className="col-[1/-1] flex flex-wrap items-center justify-between gap-3 border-t border-cream/14 pt-[22px] type-md text-mk-on-ink-2">
 					<Logo variant="footer" />
 					<span>{footer.fineprint}</span>
 				</div>

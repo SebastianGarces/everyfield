@@ -7,6 +7,8 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Reac
 import { cn } from "@/components/cn";
 import { Icon } from "@/components/Icon";
 import { PlaybackGlyph } from "@/components/kit/kit";
+import { Backdrop } from "../photo/Backdrop";
+import type { PhotoName } from "../photo/photos";
 
 type Props = {
 	/** The whole sentence for screen readers ("Sent by a church, a network through a church or a network. Seen in one place."). */
@@ -14,30 +16,15 @@ type Props = {
 	lead: string;
 	tail: string;
 	phrases: string[];
-	/** Per state: the text pane and the product card (server-rendered) and the gradient tone utility. */
+	/** Per state: the text pane, the product card (server-rendered) and the photo behind the card. */
 	panes: ReactNode[];
 	apps: ReactNode[];
-	tones: string[];
+	photos: PhotoName[];
 };
 
 /* Revision 28: one timer moves the phrase and the card together every STEP ms, only while 30 % of the block is on screen. */
 const STEP = 5500;
 const EASE = "cubic-bezier(.65,0,.35,1)";
-
-/* The highlight gradient's direction, 100deg: (sin, -cos) in screen axes. */
-const DX = Math.sin((100 * Math.PI) / 180),
-	DY = -Math.cos((100 * Math.PI) / 180);
-/**
- * A linear gradient at an angle drawn on a w x h box runs along a gradient line of length w*DX + h*DY through the box
- * centre. The same gradient drawn on the widest box (max x h) and transformed by matrix(a, 0, c, 1, 0, 0) from its top
- * left corner shows, at every point, the colour of the gradient drawn on a w x h box: a matches the gradient lengths,
- * c the tilt of its colour lines, and the translation is 0 (the start corners coincide).
- */
-function highlightMatrix(w: number, max: number, h: number) {
-	const a = (w * DX + h * DY) / (max * DX + h * DY),
-		c = (DY * (a - 1)) / DX;
-	return `matrix(${a.toFixed(6)},0,${c.toFixed(6)},1,0,0)`;
-}
 
 /**
  * The /oversight sending paths: "Sent by <phrase>. Seen in one place." over one large card. The phrase rolls up one line,
@@ -50,22 +37,18 @@ function highlightMatrix(w: number, max: number, h: number) {
  * - The highlight's visible width wk is a window: the slot is a rounded window at the widest width, and an inner rounded
  *   window of the same size slides left by (widest - wk) while its content slides back by the same amount. Their
  *   intersection is the prototype's clip, inset(0 (widest - wk) 0 0 round .2em), at every frame.
- * - The prototype's gradient is sized to wk (background-size). Here it is drawn once at the widest width and mapped onto
- *   wk with matrix(a, 0, c, 1, 0, 0) (see highlightMatrix); a and c are linear in wk, so the transform transition draws
- *   the same gradient as the background-size transition at every frame.
  * - Each phrase is centred in the painted highlight: its offset is (wk - its width) / 2, also linear in wk.
  * Phrase widths are measured once per resize. Reduced motion: no auto advance and no transitions; the control shows
  * the next state.
  */
-export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, tones }: Props) {
+export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos }: Props) {
 	const reduced = useReduced();
 	const run = useRef<HTMLDivElement>(null);
 	const items = useRef<(HTMLSpanElement | null)[]>([]);
 	const dot = useRef<HTMLSpanElement>(null);
-	const slot = useRef<HTMLSpanElement>(null);
 	const [k, setK] = useState(0);
 	const [paused, setPaused] = useState(false);
-	const [w, setW] = useState<{ items: number[]; max: number; dot: number; h: number } | null>(null);
+	const [w, setW] = useState<{ items: number[]; max: number; dot: number } | null>(null);
 	const seen = useInView(run, { amount: 0.3 });
 	const n = phrases.length;
 
@@ -75,13 +58,8 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, tones }
 			items: ws,
 			max: Math.max(...ws),
 			dot: dot.current?.offsetWidth ?? 0,
-			h: slot.current?.offsetHeight ?? 0,
 		};
-		setW((c) =>
-			c && c.max === next.max && c.dot === next.dot && c.h === next.h && c.items.join() === next.items.join()
-				? c
-				: next,
-		);
+		setW((c) => (c && c.max === next.max && c.dot === next.dot && c.items.join() === next.items.join() ? c : next));
 	}, []);
 	useEffect(() => {
 		const r = run.current;
@@ -114,7 +92,7 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, tones }
 	return (
 		<div ref={run} className="relative">
 			<h2
-				className="mk-display mx-auto mb-[clamp(32px,3.8vw,56px)] max-w-[1100px] overflow-x-clip text-center type-title-lg mk-sm:type-display-sm mk-lg:type-display-md leading-[1.14]"
+				className="mk-display font-display mx-auto mb-[clamp(32px,3.8vw,56px)] max-w-[1100px] overflow-x-clip text-center type-title-lg mk-sm:type-display-sm mk-lg:type-display-md leading-[1.14]"
 				style={vars}
 			>
 				<span className="sr-only">{sentence}</span>
@@ -127,16 +105,13 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, tones }
 					</span>{" "}
 					<br className="hidden max-mk-sm:inline" />
 					<span className="relative inline-block [transform:translateX(var(--dx,0px))]" style={{ transition: t }}>
-						<span ref={slot} className="relative inline-block h-[1.14em] overflow-hidden rounded-[.2em] align-bottom">
+						<span className="relative inline-block h-[1.14em] overflow-hidden rounded-[.2em] align-bottom">
 							<span
 								className="block h-full overflow-hidden rounded-[.2em] [transform:translateX(calc(var(--cut,0px)*-1))]"
 								style={{ transition: t }}
 							>
 								<span className="block [transform:translateX(var(--cut,0px))]" style={{ transition: t }}>
-									<span
-										className="absolute top-0 left-0 -z-1 h-[1.14em] w-full origin-top-left bg-(image:--mk-paths-highlight)"
-										style={{ transform: w ? highlightMatrix(wk, w.max, w.h) : undefined, transition: t }}
-									/>
+									<span className="absolute top-0 left-0 -z-1 h-[1.14em] w-full bg-green-100" />
 									<span
 										className="flex flex-col items-start [transform:translateY(calc(var(--k)*-1.14em))]"
 										style={{ "--k": k, transition: t } as CSSProperties}
@@ -169,7 +144,7 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, tones }
 					{tail}
 				</span>
 			</h2>
-			<div className="relative mx-auto grid h-[304px] max-w-[1200px] grid-cols-[minmax(0,5fr)_minmax(0,7fr)] overflow-hidden rounded-frame border border-mk-ink-06 bg-white shadow-mk-card max-mk-cx:h-auto max-mk-cx:grid-cols-[minmax(0,1fr)]">
+			<div className="relative mx-auto grid h-[304px] max-w-[1200px] grid-cols-[minmax(0,5fr)_minmax(0,7fr)] overflow-hidden border border-mk-ink-06 bg-white shadow-mk-card max-mk-cx:h-auto max-mk-cx:grid-cols-[minmax(0,1fr)]">
 				<div className="grid items-center px-[clamp(28px,3.4vw,52px)] max-mk-cx:px-6 max-mk-cx:pt-7 max-mk-cx:pb-2 max-mk-sm:px-5 max-mk-sm:pt-[22px] max-mk-sm:pb-1">
 					{panes.map((p, i) => (
 						<Fade key={i} on={i === k} reduced={reduced}>
@@ -179,12 +154,14 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, tones }
 				</div>
 				<div
 					aria-hidden="true"
-					className="ef-ui relative isolate m-2 grid grid-cols-[minmax(0,1fr)] place-items-center overflow-hidden rounded-[26px] px-6 py-4 max-mk-cx:min-h-[300px] max-mk-cx:pb-[52px] max-mk-sm:m-1.5 max-mk-sm:min-h-0 max-mk-sm:px-3 max-mk-sm:pt-7"
+					className="ef-ui relative isolate m-2 grid grid-cols-[minmax(0,1fr)] place-items-center overflow-hidden px-6 py-4 max-mk-cx:min-h-[300px] max-mk-cx:pb-[52px] max-mk-sm:m-1.5 max-mk-sm:min-h-0 max-mk-sm:px-3 max-mk-sm:pt-7"
 				>
-					{tones.map((tone, i) => (
-						<span
-							key={tone}
-							className={cn("mk-gsurf absolute inset-0 z-0 [--grain:.3]", tone, i === k ? "opacity-100" : "opacity-0")}
+					{photos.map((photo, i) => (
+						<Backdrop
+							key={photo}
+							bg={photo}
+							sizes="(max-width: 900px) 100vw, 700px"
+							className={cn("absolute inset-0 z-0", i === k ? "opacity-100" : "opacity-0")}
 							style={{ transition: reduced ? "none" : `opacity .7s ${EASE}` }}
 						/>
 					))}
@@ -200,7 +177,7 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, tones }
 						reduced ? "Show the next sending path" : paused ? "Play the sending paths" : "Pause the sending paths"
 					}
 					onClick={() => (reduced ? setK((c) => (c + 1) % n) : setPaused((p) => !p))}
-					className="absolute right-4 bottom-4 z-2 grid size-[34px] cursor-pointer place-items-center rounded-sm border-0 bg-transparent text-ink hover:bg-white/35 max-mk-sm:right-3 max-mk-sm:bottom-3"
+					className="absolute right-4 bottom-4 z-2 grid size-[34px] cursor-pointer place-items-center rounded-full border-0 bg-mk-ink-46 text-cream hover:bg-mk-ink-66 focus-visible:outline-cream max-mk-sm:right-3 max-mk-sm:bottom-3"
 				>
 					{reduced ? <Icon icon={ArrowRight02Icon} size={14} /> : <PlaybackGlyph paused={paused} />}
 				</button>

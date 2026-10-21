@@ -34,7 +34,7 @@ export function KeyValue({
 				) : (
 					<span
 						className={
-							size === "sm" ? "text-right font-medium text-ink" : "num text-xl font-medium tracking-[-0.02em] text-ink"
+							size === "sm" ? "text-right font-medium text-ink" : "num font-title text-xl tracking-[-0.02em] text-ink"
 						}
 					>
 						{typeof value === "number" ? formatCount(value) : value}
@@ -101,7 +101,7 @@ export function ListRow({
 		>
 			{leading ??
 				(icon ? (
-					<span aria-hidden="true" className={cn("grid size-11 flex-none place-items-center rounded-full", TINT[tone])}>
+					<span aria-hidden="true" className={cn("grid size-11 flex-none place-items-center rounded-pill", TINT[tone])}>
 						<Icon icon={icon} size={20} />
 					</span>
 				) : null)}

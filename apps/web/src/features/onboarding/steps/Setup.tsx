@@ -193,7 +193,7 @@ export function LaunchStep({ state, actions, resume, plantName }: Props) {
 					title="We have a target date"
 				/>
 				{shown?.answer === "planned" ? (
-					<div className="rounded-[18px] border border-line bg-surface-raised px-[18px] py-4">
+					<div className="rounded-card border border-line bg-surface-raised px-[18px] py-4">
 						<Field label="Launch date" error={problem ?? undefined}>
 							<Input
 								type="date"
@@ -281,7 +281,7 @@ export function TeamStep({ state, actions, resume, plantName }: Props) {
 					detail="We add one lead role and assign it to you."
 				/>
 				{shown?.answer === "yes" ? (
-					<div className="rounded-[18px] border border-line bg-surface-raised px-[18px] py-4">
+					<div className="rounded-card border border-line bg-surface-raised px-[18px] py-4">
 						<div className="grid gap-4 sm:grid-cols-2">
 							<Field label="Role" error={problems.roleName}>
 								<Input
@@ -370,7 +370,7 @@ export function FinishStep({
 					? "You can fill in what is still missing at any time."
 					: "Check your answers. Finishing saves where setup ended; nothing missing is filled in for you."}
 			</StepHeading>
-			<div className="mx-auto mt-[34px] max-w-[820px] rounded-[18px] border border-line bg-surface-raised px-6 py-3 shadow-card">
+			<div className="mx-auto mt-[34px] max-w-[820px] rounded-card border border-line bg-surface-raised px-6 py-3 shadow-card">
 				<dl>
 					<Fact label="Church">{plantName ?? "Your church"}</Fact>
 					<Fact label="Phase">

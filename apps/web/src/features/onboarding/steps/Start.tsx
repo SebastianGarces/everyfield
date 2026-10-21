@@ -167,7 +167,7 @@ export function DiscoveryHome({ state, actions, articles }: Props & { articles: 
 				Your private space to explore church planting. Nothing here is shared with a church until you choose.
 			</StepHeading>
 			<div className="mx-auto mt-[34px] grid max-w-[820px] gap-4 md:grid-cols-2">
-				<div className="rounded-[18px] border border-line bg-surface-raised p-6 shadow-card">
+				<div className="rounded-card border border-line bg-surface-raised p-6 shadow-card">
 					<h2 className="font-sans text-md font-semibold tracking-normal text-ink">Foundations</h2>
 					<p className="mt-1 text-sm text-text-2">
 						{read.size} of {articles.length} read. Reading never blocks starting a church.
@@ -185,7 +185,7 @@ export function DiscoveryHome({ state, actions, articles }: Props & { articles: 
 						))}
 					</ul>
 				</div>
-				<div className="rounded-[18px] border border-line bg-surface-raised p-6 shadow-card">
+				<div className="rounded-card border border-line bg-surface-raised p-6 shadow-card">
 					<h2 className="font-sans text-md font-semibold tracking-normal text-ink">Relationships</h2>
 					{profile.relationships.length ? (
 						<ul className="mt-2 flex flex-col gap-3 text-sm">

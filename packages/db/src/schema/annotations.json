@@ -1508,7 +1508,9 @@
 				"object_cleanup",
 				"lifecycle_purge",
 				"assistant_turn",
-				"document_render"
+				"document_render",
+				"people_import",
+				"evry_effect"
 			],
 			"job.state": ["ready", "claimed", "retry_wait", "reconcile", "succeeded", "failed", "cancelled", "superseded"],
 			"lifecycle_witness.kind": ["account", "plant", "seat", "affiliation"],
@@ -1749,7 +1751,9 @@
 			"development_program.kind": ["apprenticeship", "residency"],
 			"development_enrollment.status": ["active", "completed", "withdrawn"],
 			"schema_migration.provenance": ["original", "adopted"],
-			"people_column.column_name": ["prospect", "attendee", "following_up", "interviewed", "core_group"]
+			"people_column.column_name": ["prospect", "attendee", "following_up", "interviewed", "core_group"],
+			"meeting_kit_item.category": ["essential", "materials", "setup", "av", "organization"],
+			"participation.rsvp_source": ["invitation", "token", "own", "admin"]
 		},
 		"auth_adapter_configuration": {
 			"session_storage": "PostgreSQL database sessions only; no secondary store",
@@ -1815,20 +1819,21 @@
 			"person": ["WP-004", "WP-011", "WP-012"],
 			"person_tag_definition": ["WP-004", "WP-013"],
 			"person_tag": ["WP-004", "WP-013"],
+			"person_skill": ["WP-004", "WP-012"],
 			"person_interview": ["WP-004", "WP-014"],
 			"person_commitment": ["WP-004", "WP-014"],
 			"person_activity": ["WP-004", "WP-014"],
 			"record_correction": ["WP-004", "WP-015"],
-			"ministry_team": ["WP-004", "WP-016"],
+			"ministry_team": ["WP-004", "WP-017"],
 			"team_role": ["WP-004", "WP-017"],
 			"team_membership": ["WP-004", "WP-017"],
 			"team_responsibility": ["WP-004", "WP-018"],
 			"training_assignment_event": ["WP-004", "WP-019"],
 			"meeting_location": ["WP-004", "WP-020"],
 			"meeting": ["WP-004", "WP-020", "WP-022"],
-			"meeting_participation": ["WP-004", "WP-021", "WP-022"],
-			"meeting_invitation": ["WP-004", "WP-021"],
-			"vision_response": ["WP-004", "WP-021"],
+			"meeting_participation": ["WP-004", "WP-020", "WP-022"],
+			"meeting_invitation": ["WP-004", "WP-020"],
+			"vision_response": ["WP-004", "WP-020"],
 			"meeting_event": ["WP-004", "WP-022"],
 			"recurrence_series": ["WP-004", "WP-024"],
 			"follow_up_obligation": ["WP-004", "WP-024"],
@@ -1877,7 +1882,7 @@
 			"training_requirement_version": ["WP-004", "WP-019"],
 			"training_assignment_episode": ["WP-004", "WP-019"],
 			"training_completion": ["WP-004", "WP-019"],
-			"meeting_rsvp_token": ["WP-004", "WP-021", "WP-028"],
+			"meeting_rsvp_token": ["WP-004", "WP-020", "WP-028"],
 			"meeting_checklist_item": ["WP-004", "WP-020"],
 			"launch_person_attendance": ["WP-004", "WP-046"],
 			"planter_checkin": ["WP-004", "WP-039"],
@@ -1978,10 +1983,38 @@
 				"future_case_ids": ["ADR1-001", "ADR1-005", "ADR1-017"]
 			},
 			{
+				"table": "person_skill",
+				"columns": ["person_id", "plant_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-004", "WP-012"],
+				"meaning": "Current relation with immutable original provenance",
+				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
+				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
+				"inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
+				"retirement_policy": "No new current references to retired or merged Persons; historical evidence remains under current permission.",
+				"privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
+				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
+				"future_case_ids": ["SCHEMA-009", "SCHEMA-010"]
+			},
+			{
 				"table": "person_tag",
 				"columns": ["person_id", "plant_id"],
 				"target_columns": ["id", "tenant_id"],
 				"consumer_work_packages": ["WP-004", "WP-013"],
+				"meaning": "Current relation with immutable original provenance",
+				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
+				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
+				"inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
+				"retirement_policy": "No new current references to retired or merged Persons; historical evidence remains under current permission.",
+				"privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
+				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
+				"future_case_ids": ["SCHEMA-009", "SCHEMA-010"]
+			},
+			{
+				"table": "four_cs",
+				"columns": ["person_id", "plant_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-004", "WP-014"],
 				"meaning": "Current relation with immutable original provenance",
 				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
 				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
@@ -2037,7 +2070,7 @@
 				"table": "team",
 				"columns": ["leader_person_id", "plant_id"],
 				"target_columns": ["id", "tenant_id"],
-				"consumer_work_packages": ["WP-004", "WP-016"],
+				"consumer_work_packages": ["WP-004", "WP-017"],
 				"meaning": "Current relation with immutable original provenance",
 				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
 				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
@@ -2065,7 +2098,7 @@
 				"table": "participation",
 				"columns": ["person_id", "plant_id"],
 				"target_columns": ["id", "tenant_id"],
-				"consumer_work_packages": ["WP-004", "WP-021", "WP-022"],
+				"consumer_work_packages": ["WP-004", "WP-020", "WP-022"],
 				"meaning": "Current relation with immutable original provenance",
 				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
 				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
@@ -2079,7 +2112,7 @@
 				"table": "participation",
 				"columns": ["inviter_person_id", "plant_id"],
 				"target_columns": ["id", "tenant_id"],
-				"consumer_work_packages": ["WP-004", "WP-021", "WP-022"],
+				"consumer_work_packages": ["WP-004", "WP-020", "WP-022"],
 				"meaning": "Current relation with immutable original provenance",
 				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
 				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
@@ -2200,6 +2233,20 @@
 				"privacy_policy": "No transfer of account grants, private reading/documents/care or staff-note visibility.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
 				"future_case_ids": ["ADR1-001", "ADR1-005", "ADR1-017"]
+			},
+			{
+				"table": "meeting_kit_item",
+				"columns": ["assignee_person_id", "plant_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-020"],
+				"meaning": "Current kit-item assignee; a retired or merged Person drops out of operational selection while history keeps the original reference.",
+				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
+				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
+				"inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
+				"retirement_policy": "No new current references to retired or merged Persons; historical evidence remains under current permission.",
+				"privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
+				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
+				"future_case_ids": ["PERSONREF-MEETING-CHECKLIST-PERSON-RETIRE"]
 			}
 		],
 		"person_snapshot_references": [
@@ -4675,6 +4722,9 @@
 				},
 				"revision": {
 					"note": ""
+				},
+				"commitment_effective_on": {
+					"note": "Church-local date the current commitment state took effect: the signed date that made it active, or the dated withdrawal or reactivation. Null while the state is unknown."
 				}
 			},
 			"foreignKeys": {
@@ -4724,6 +4774,99 @@
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				}
+			}
+		},
+		"four_cs": {
+			"table": {
+				"name": "four_cs",
+				"domain": "people",
+				"purpose": "Dated human Four Cs assessment: four 1 to 5 scores and optional lens notes. The total is computed, never stored. Original recorder comes from the Person's audit history.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-025"],
+				"replaces": ["person_4c_assessment"],
+				"producer_work_packages": ["WP-004", "WP-014"],
+				"producer_derivation": {
+					"old_target_tables": ["person_4c_assessment"],
+					"rule": "Union of producer packages of replaced tables."
+				},
+				"feature_ids": ["PPL-012"],
+				"acceptance_ids": ["AC-PPL-012--PPL-012"],
+				"future_case_ids": ["GAP-PPL-012", "TARGET-PPL-012"],
+				"scope": "people",
+				"invariants": [
+					"Each score is an integer 1 to 5; the total 4 to 20 is their sum, computed on read.",
+					"Chronological latest uses assessment date, recorded Instant and ID; a late historical entry cannot become latest by recording time.",
+					"Recording an assessment never changes stage. Scores and notes never enter platform audit."
+				],
+				"revision": "Expected revision fences mutable updates; meaningful writes advance it atomically.",
+				"idempotency": "Replay and no-op behavior follow the named native producer and its exact receipt/unique-key contract. Private care remains isolated from shared operation receipts.",
+				"deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"plant_id": {
+					"note": ""
+				},
+				"person_id": {
+					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
+				},
+				"assessed_on": {
+					"note": ""
+				},
+				"recorded_at": {
+					"note": ""
+				},
+				"committed": {
+					"note": ""
+				},
+				"compelled": {
+					"note": ""
+				},
+				"contagious": {
+					"note": ""
+				},
+				"courageous": {
+					"note": ""
+				},
+				"committed_notes": {
+					"note": ""
+				},
+				"compelled_notes": {
+					"note": ""
+				},
+				"contagious_notes": {
+					"note": ""
+				},
+				"courageous_notes": {
+					"note": ""
+				},
+				"revision": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"person_id,plant_id->person(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"id,plant_id->record(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
 					}
 				}
 			}
@@ -4997,6 +5140,80 @@
 			},
 			"foreignKeys": {
 				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"id,plant_id->record(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				}
+			}
+		},
+		"person_skill": {
+			"table": {
+				"name": "person_skill",
+				"domain": "people",
+				"purpose": "Recorded skill and closed proficiency without inferred qualification.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-024"],
+				"replaces": ["person_skill"],
+				"producer_work_packages": ["WP-004", "WP-012"],
+				"producer_derivation": {
+					"old_target_tables": ["person_skill"],
+					"rule": "Union of producer packages of replaced tables."
+				},
+				"feature_ids": ["PPL-011"],
+				"acceptance_ids": ["AC-PPL-011--PPL-011"],
+				"future_case_ids": ["GAP-PPL-011", "TARGET-PPL-011"],
+				"scope": "people",
+				"invariants": [
+					"Category/proficiency values are closed and nullable clears are explicit.",
+					"Removing a skill deletes its current row; the audit record keeps its history. A skill cannot rewrite human interview testimony."
+				],
+				"revision": "Expected revision fences mutable updates; meaningful writes advance it atomically.",
+				"idempotency": "Replay and no-op behavior follow the named native producer and its exact receipt/unique-key contract. Private care remains isolated from shared operation receipts.",
+				"deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"plant_id": {
+					"note": ""
+				},
+				"person_id": {
+					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
+				},
+				"name": {
+					"note": ""
+				},
+				"category": {
+					"note": ""
+				},
+				"proficiency": {
+					"note": ""
+				},
+				"notes": {
+					"note": ""
+				},
+				"revision": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"person_id,plant_id->person(id,tenant_id)": {
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
@@ -5360,7 +5577,7 @@
 				"jsonb_keys": {},
 				"capabilities": ["CAP-A-032", "CAP-A-034", "CAP-A-036", "CAP-A-037"],
 				"replaces": ["ministry_team"],
-				"producer_work_packages": ["WP-004", "WP-016"],
+				"producer_work_packages": ["WP-004", "WP-017"],
 				"producer_derivation": {
 					"old_target_tables": ["ministry_team"],
 					"rule": "Union of producer packages of replaced tables."
@@ -5916,7 +6133,13 @@
 				"domain": "meetings",
 				"purpose": "Scheduled meeting, frozen civil-time facts and separately held occurrence.",
 				"library_owned": false,
-				"jsonb_keys": {},
+				"jsonb_keys": {
+					"agenda": [
+						"id: stable section ID, unique in the agenda",
+						"title: trimmed section title, 1-120 characters",
+						"minutes: whole minutes, 0-600"
+					]
+				},
 				"capabilities": ["CAP-B-001", "CAP-B-007", "CAP-A-042"],
 				"replaces": ["meeting"],
 				"producer_work_packages": ["WP-004", "WP-020", "WP-022"],
@@ -6066,6 +6289,18 @@
 				},
 				"revision": {
 					"note": ""
+				},
+				"agenda": {
+					"note": "Ordered agenda sections copied at creation; never rewritten by later reference versions."
+				},
+				"agenda_version": {
+					"note": "Copied default agenda version; null when the agenda did not start from a default."
+				},
+				"kit_version": {
+					"note": "Canonical Vision kit version seeded for this meeting; null until populated."
+				},
+				"retired_at": {
+					"note": "Deleted from current lists; history and held-occurrence evidence remain."
 				}
 			},
 			"foreignKeys": {
@@ -6116,7 +6351,7 @@
 				"jsonb_keys": {},
 				"capabilities": ["CAP-B-005", "CAP-B-006", "CAP-B-008", "CAP-A-042"],
 				"replaces": ["meeting_participation", "meeting_invitation", "vision_response"],
-				"producer_work_packages": ["WP-004", "WP-021", "WP-022"],
+				"producer_work_packages": ["WP-004", "WP-020", "WP-022"],
 				"producer_derivation": {
 					"old_target_tables": ["meeting_participation", "meeting_invitation", "vision_response"],
 					"rule": "Union of producer packages of replaced tables."
@@ -6248,6 +6483,24 @@
 				},
 				"revision": {
 					"note": ""
+				},
+				"removed_at": {
+					"note": "Guest removed from the current list; the row stays for history and references."
+				},
+				"rsvp_source": {
+					"note": "Provenance of the current RSVP answer."
+				},
+				"rsvp_token_hash": {
+					"note": "SHA-256 of the one live public RSVP token for this meeting/Person pair; the token itself is never stored."
+				},
+				"rsvp_token_expires_at": {
+					"note": "Expiry of the current public RSVP token."
+				},
+				"rsvp_token_open": {
+					"note": "Whether the current token may still answer; any later answer closes it."
+				},
+				"card_occurred_at": {
+					"note": "When the response card was filled in."
 				}
 			},
 			"foreignKeys": {
@@ -6472,6 +6725,9 @@
 				},
 				"obligation_id": {
 					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
+				},
+				"prerequisite_ids": {
+					"note": "Advisory prerequisites of a top-level task, replaced as one set (WP-025). Each element names a task of the same plant; tasks.replacePrerequisites validates new elements and refuses cycles. The audit record keeps edge history."
 				},
 				"completed_at": {
 					"note": ""
@@ -11994,11 +12250,9 @@
 					"WP-012",
 					"WP-013",
 					"WP-014",
-					"WP-016",
 					"WP-017",
 					"WP-018",
 					"WP-020",
-					"WP-021",
 					"WP-022",
 					"WP-023",
 					"WP-024",
@@ -12043,6 +12297,7 @@
 						"document",
 						"document_revision",
 						"file_object",
+						"four_cs",
 						"household",
 						"interview",
 						"invitation",
@@ -12062,6 +12317,7 @@
 						"passage",
 						"person",
 						"person_note",
+						"person_skill",
 						"phase_transition",
 						"pipeline_person",
 						"pipeline_sharing",
@@ -15457,6 +15713,467 @@
 						"policy": "Restricted policy cleanup only; ordinary writers can append but cannot change or delete audit evidence."
 					},
 					"scope_exception": "D70 audit subject or original-command correlation may name an authorized bilateral endpoint or retained identity; pair/source checks and current authority remain mandatory. Operator projections omit protected history and retry content."
+				}
+			}
+		},
+		"meeting_kit_item": {
+			"table": {
+				"name": "meeting_kit_item",
+				"domain": "meetings",
+				"purpose": "One canonical Vision kit checklist item per meeting with an optional same-plant assignee.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-B-004"],
+				"replaces": ["meeting_checklist_item"],
+				"producer_work_packages": ["WP-004", "WP-020"],
+				"producer_derivation": {
+					"old_target_tables": ["meeting_checklist_item"],
+					"rule": "Union of producer packages of replaced tables."
+				},
+				"feature_ids": ["MTG-006"],
+				"acceptance_ids": ["AC-MTG-006--MTG-006"],
+				"future_case_ids": ["TARGET-MTG-006", "PERSONREF-MEETING-CHECKLIST-PERSON-RETIRE"],
+				"scope": "meetings",
+				"invariants": [
+					"Every item and its assignee belong to the meeting's plant.",
+					"A new assignee names a live Person.",
+					"Population converges on one row per canonical item key."
+				],
+				"revision": "Expected revision fences each item update; meaningful writes advance it atomically.",
+				"idempotency": "Populate converges through the unique meeting/item key; updates use request keys and expected revisions.",
+				"deletion": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"plant_id": {
+					"note": ""
+				},
+				"meeting_id": {
+					"note": ""
+				},
+				"item_key": {
+					"note": ""
+				},
+				"position": {
+					"note": ""
+				},
+				"category": {
+					"note": ""
+				},
+				"text": {
+					"note": ""
+				},
+				"assignee_person_id": {
+					"note": ""
+				},
+				"checked": {
+					"note": ""
+				},
+				"checked_at": {
+					"note": ""
+				},
+				"notes": {
+					"note": ""
+				},
+				"revision": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Dependency-ordered owner cleanup or witnessed attribution scrubbing; no retained private body or new retention exemption."
+					}
+				},
+				"meeting_id,plant_id->meeting(id,plant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Kit items are part of their meeting and go with it."
+					}
+				},
+				"assignee_person_id,plant_id->person(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Dependency-ordered owner cleanup or witnessed attribution scrubbing; no retained private body or new retention exemption."
+					}
+				}
+			}
+		},
+		"conversation": {
+			"table": {
+				"name": "conversation",
+				"domain": "assistant",
+				"purpose": "Private Evry conversation of one initiating account in one exact account, plant or organization context.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-C-027", "CAP-C-033"],
+				"replaces": [],
+				"producer_work_packages": ["WP-051"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-051"],
+					"rule": "WP-051 Evry conversation storage through Drizzle Kit."
+				},
+				"feature_ids": ["EVR-005", "EVR-008", "EVR-016", "EVR-021", "EVR-029", "EVR-031"],
+				"acceptance_ids": [],
+				"future_case_ids": [],
+				"scope": "assistant",
+				"invariants": [
+					"Only the initiating account in the same exact context reads or writes it; others see no existence.",
+					"At most one active run (assistant_turn job) at a time."
+				],
+				"revision": "Append-only ordered events; one active run per conversation through active_turn_id.",
+				"idempotency": "A submitted message's request key is unique per conversation; a retry returns the saved turn.",
+				"deletion": "Account or tenant purge removes the conversation and its events; no other owner inherits them.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"tenant_id": {
+					"note": ""
+				},
+				"account_id": {
+					"note": ""
+				},
+				"context_kind": {
+					"note": ""
+				},
+				"title": {
+					"note": ""
+				},
+				"last_sequence": {
+					"note": ""
+				},
+				"active_turn_id": {
+					"note": ""
+				},
+				"active_session_id": {
+					"note": ""
+				},
+				"created_at": {
+					"note": ""
+				},
+				"updated_at": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"tenant_id->tenant(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Account or tenant purge removes the private conversation before its owner rows. A conversation never transfers to another account."
+					}
+				},
+				"account_id->account(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Account or tenant purge removes the private conversation before its owner rows. A conversation never transfers to another account."
+					}
+				},
+				"active_session_id->auth_session(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Signing out clears the run session; the turn then stops at its next authority check."
+					}
+				},
+				"active_turn_id,tenant_id->job(id,tenant_id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "The run pointer clears when the run ends or is cancelled; owner purge deletes conversations before jobs."
+					}
+				}
+			}
+		},
+		"conversation_event": {
+			"table": {
+				"name": "conversation_event",
+				"domain": "assistant",
+				"purpose": "Ordered saved record of one conversation: submitted messages, assistant text, source-bound result cards and run states. Replay reads only these rows.",
+				"library_owned": false,
+				"jsonb_keys": {
+					"body": ["text", "tool", "operation", "result", "state", "reason", "usage", "error", "references"]
+				},
+				"capabilities": ["CAP-C-027", "CAP-C-028", "CAP-C-033"],
+				"replaces": [],
+				"producer_work_packages": ["WP-051"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-051"],
+					"rule": "WP-051 Evry conversation storage through Drizzle Kit."
+				},
+				"feature_ids": [
+					"EVR-005",
+					"EVR-006",
+					"EVR-008",
+					"EVR-009",
+					"EVR-010",
+					"EVR-016",
+					"EVR-020",
+					"EVR-021",
+					"EVR-024",
+					"EVR-029",
+					"EVR-031"
+				],
+				"acceptance_ids": [],
+				"future_case_ids": [],
+				"scope": "assistant",
+				"invariants": [
+					"Workers append only while they hold the run's current job lease.",
+					"Private care, credentials and storage keys never enter a body."
+				],
+				"revision": "Append-only ordered events; one active run per conversation through active_turn_id.",
+				"idempotency": "A submitted message's request key is unique per conversation; a retry returns the saved turn.",
+				"deletion": "Account or tenant purge removes the conversation and its events; no other owner inherits them.",
+				"physical_verified": false
+			},
+			"columns": {
+				"conversation_id": {
+					"note": ""
+				},
+				"sequence": {
+					"note": ""
+				},
+				"turn_id": {
+					"note": ""
+				},
+				"kind": {
+					"note": ""
+				},
+				"body": {
+					"note": ""
+				},
+				"request_key": {
+					"note": ""
+				},
+				"created_at": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"conversation_id->conversation(id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Events go with their conversation."
+					}
+				},
+				"turn_id->job(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Events go with their conversation, which owner purge deletes before jobs."
+					}
+				}
+			}
+		},
+		"person_import": {
+			"table": {
+				"name": "person_import",
+				"domain": "people",
+				"purpose": "One People CSV import: the frozen plan for every row, the uploaded file the server reviewed (compressed) and the rows whose last write failed. Its audit intent holds the request key and review digest.",
+				"library_owned": false,
+				"jsonb_keys": {
+					"plan": ["rows", "skip", "invalid", "create"],
+					"failed": ["row", "reason"]
+				},
+				"capabilities": ["CAP-A-030"],
+				"replaces": [],
+				"producer_work_packages": ["WP-013"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-013"],
+					"rule": "WP-013 People CSV import job payload through Drizzle Kit."
+				},
+				"feature_ids": ["PPL-018"],
+				"acceptance_ids": [],
+				"future_case_ids": [],
+				"scope": "plant",
+				"invariants": [
+					"The upload holds the exact bytes the request parsed and the plan's digest names.",
+					"The upload is cleared when every reviewed row is created."
+				],
+				"revision": "The worker that holds the job lease replaces failed and clears the upload.",
+				"idempotency": "Person IDs derive from the import and row number; a resumed job never creates a row twice.",
+				"deletion": "Owner purge deletes the church's jobs, which removes their imports.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"tenant_id": {
+					"note": ""
+				},
+				"job_id": {
+					"note": ""
+				},
+				"actor_id": {
+					"note": ""
+				},
+				"plan": {
+					"note": ""
+				},
+				"upload": {
+					"note": ""
+				},
+				"failed": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"tenant_id->tenant(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Owner purge deletes the church's jobs first, which removes their imports."
+					}
+				},
+				"actor_id->account(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Account purge clears the importer; the job then stops at its next authority check and created people keep their audit attribution."
+					}
+				},
+				"job_id,tenant_id->job(id,tenant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "The import goes with its job."
+					}
+				}
+			}
+		},
+		"proposal": {
+			"table": {
+				"name": "proposal",
+				"domain": "assistant",
+				"purpose": "One durable change Evry proposed in a conversation, its exact current review and approval, and the saved outcome of the approved revision.",
+				"library_owned": false,
+				"jsonb_keys": {
+					"input": ["personId", "patch", "expectedRevision"],
+					"review": ["target", "changes"],
+					"receipt": ["receiptId", "revision", "code"]
+				},
+				"capabilities": ["CAP-C-030", "CAP-C-031", "CAP-C-032"],
+				"replaces": [],
+				"producer_work_packages": ["WP-053"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-053"],
+					"rule": "WP-053 Evry review and execution storage through Drizzle Kit."
+				},
+				"feature_ids": [
+					"EVR-011",
+					"EVR-012",
+					"EVR-013",
+					"EVR-014",
+					"EVR-015",
+					"EVR-018",
+					"EVR-020",
+					"EVR-033",
+					"EVR-034"
+				],
+				"acceptance_ids": [],
+				"future_case_ids": [],
+				"scope": "assistant",
+				"invariants": [
+					"Only the initiating account in the same exact context reads, approves, cancels or revises it; others see no existence.",
+					"Approval covers one exact revision and digest and lapses 15 minutes after that revision was published.",
+					"An approved revision runs at most once: its owning domain write uses one effect key, and that write's audit row is the effect record."
+				],
+				"revision": "Each revision replaces the reviewed arguments, digest and expiry in place and clears any approval.",
+				"idempotency": "The effect key (proposal and revision) is the owning write's request key; a retry returns the saved receipt.",
+				"deletion": "Goes with its conversation; account or tenant purge removes both.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"tenant_id": {
+					"note": ""
+				},
+				"account_id": {
+					"note": ""
+				},
+				"conversation_id": {
+					"note": ""
+				},
+				"operation": {
+					"note": ""
+				},
+				"revision": {
+					"note": ""
+				},
+				"input": {
+					"note": ""
+				},
+				"review": {
+					"note": ""
+				},
+				"digest": {
+					"note": ""
+				},
+				"state": {
+					"note": ""
+				},
+				"expires_at": {
+					"note": ""
+				},
+				"approved_at": {
+					"note": ""
+				},
+				"approved_session_id": {
+					"note": ""
+				},
+				"job_id": {
+					"note": ""
+				},
+				"outcome": {
+					"note": ""
+				},
+				"receipt": {
+					"note": ""
+				},
+				"created_at": {
+					"note": ""
+				},
+				"updated_at": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"tenant_id->tenant(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Owner purge removes conversations, and their proposals, before owner rows."
+					}
+				},
+				"account_id->account(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Owner purge removes conversations, and their proposals, before owner rows."
+					}
+				},
+				"approved_session_id->auth_session(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Signing out clears the approving session; an effect that has not started is then refused."
+					}
+				},
+				"job_id,tenant_id->job(id,tenant_id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Owner purge deletes conversations and their proposals before jobs."
+					}
+				},
+				"conversation_id,tenant_id->conversation(id,tenant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "A proposal goes with its conversation, in the same tenant."
+					}
 				}
 			}
 		}

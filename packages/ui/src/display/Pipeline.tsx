@@ -36,7 +36,7 @@ export function PersonCard({
 			data-selected={selected ? "true" : undefined}
 			data-dragging={dragging ? "true" : undefined}
 			className={cn(
-				"relative flex flex-col gap-2.5 rounded-[16px] bg-surface-raised p-3 shadow-raised transition-[box-shadow,transform] duration-150",
+				"relative flex flex-col gap-2.5 rounded-card bg-surface-raised p-3 shadow-raised transition-[box-shadow,transform] duration-150",
 				selected && "shadow-[var(--ef-shadow-raised),inset_0_0_0_1.5px_var(--ef-ink)]",
 				dragging && "rotate-[1.5deg] shadow-pop motion-reduce:rotate-0",
 				className,
@@ -47,7 +47,7 @@ export function PersonCard({
 				<div className="min-w-0">
 					<div className="truncate text-sm leading-[1.2] font-semibold text-ink">
 						{href ? (
-							<Link href={href} className="after:absolute after:inset-0 after:rounded-[16px] hover:underline">
+							<Link href={href} className="after:absolute after:inset-0 after:rounded-card hover:underline">
 								{name}
 							</Link>
 						) : (
@@ -89,7 +89,7 @@ export function PipelineColumn({
 			aria-labelledby={id}
 			data-drop-target={dropTarget ? "true" : undefined}
 			className={cn(
-				"relative flex min-h-[420px] min-w-[220px] flex-col gap-2.5 rounded-[22px] bg-surface-2 p-2.5 transition-shadow duration-150",
+				"relative flex min-h-[420px] min-w-[220px] flex-col gap-2.5 rounded-card bg-surface-2 p-2.5 transition-shadow duration-150",
 				dropTarget && "shadow-[inset_0_0_0_2px_var(--ef-green-500)]",
 				className,
 			)}
@@ -106,7 +106,7 @@ export function PipelineColumn({
 				</span>
 			</h3>
 			{count === 0 && !children ? (
-				<p className="rounded-[16px] border-[1.5px] border-dashed border-line-2 px-3 py-6 text-center text-sm text-text-3">
+				<p className="rounded-card border-[1.5px] border-dashed border-line-2 px-3 py-6 text-center text-sm text-text-3">
 					{emptyText}
 				</p>
 			) : (

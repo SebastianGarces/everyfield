@@ -41,7 +41,7 @@ export function SetupChecklist({ steps, label, className }: { steps: SetupStep[]
 					<span
 						aria-hidden="true"
 						className={cn(
-							"grid size-7 place-items-center rounded-full text-[13px] font-semibold",
+							"grid size-7 place-items-center rounded-pill text-[13px] font-semibold",
 							s.done ? "bg-green-500 text-ink-fixed" : "bg-surface-2 text-ink",
 						)}
 					>
@@ -62,7 +62,7 @@ export function SetupChecklist({ steps, label, className }: { steps: SetupStep[]
 /** UiRef (components.md, How-to steps: UI reference): the name of a button or page, written as it looks in the app. */
 export function UiRef({ icon, children }: { icon?: IconSvgElement; children: ReactNode }) {
 	return (
-		<span className="inline-flex items-center gap-[5px] rounded-[7px] bg-surface-2 px-2 py-px align-baseline text-[13px] font-medium whitespace-nowrap text-ink">
+		<span className="inline-flex items-center gap-[5px] rounded-md bg-surface-2 px-2 py-px align-baseline text-[13px] font-medium whitespace-nowrap text-ink">
 			{icon ? <Icon icon={icon} size={16} className="size-[13px]" /> : null}
 			{children}
 		</span>
@@ -83,7 +83,7 @@ export function HowToSteps({
 				<li key={i} className="relative border-t border-line pt-3.5 pr-0 pb-[18px] pl-[54px] first:border-t-0">
 					<span
 						aria-hidden="true"
-						className="absolute top-3 left-0 grid size-[34px] place-items-center rounded-[11px] bg-surface-2 font-display font-semibold text-ink"
+						className="absolute top-3 left-0 grid size-[34px] place-items-center rounded-md bg-surface-2 font-title tracking-[-0.02em] text-ink"
 					>
 						{i + 1}
 					</span>
@@ -115,7 +115,7 @@ export function FaqList({
 				<Accordion.Item key={item.id} value={item.id} className="border-t border-line first:border-t-0">
 					<Accordion.Header asChild>
 						<FaqHeading level={headingLevel}>
-							<Accordion.Trigger className="group/faq flex w-full cursor-pointer items-center gap-3 py-[15px] text-left font-medium text-ink">
+							<Accordion.Trigger className="group/faq flex w-full cursor-pointer items-center gap-3 py-[15px] text-left font-sans font-medium tracking-normal text-ink">
 								<span className="min-w-0 flex-1">{item.question}</span>
 								<Icon
 									icon={Add01Icon}
@@ -149,10 +149,10 @@ export function Prose({ size = "md", className, ...props }: { size?: "md" | "sm"
 				size === "md" ? "max-w-[700px] text-base leading-[1.7]" : "text-[15px] leading-[1.65]",
 				"[&_h2]:mt-[34px] [&_h2]:mb-2.5 [&_h2]:text-[26px] [&_h2]:text-ink [&_h2]:scroll-mt-28",
 				"[&_h3]:mt-[26px] [&_h3]:mb-2 [&_h3]:text-[19px] [&_h3]:text-ink [&_h3]:scroll-mt-28",
-				size === "sm" && "[&_h2]:mt-6 [&_h2]:mb-2 [&_h2]:text-[21px] [&_h3]:text-[17px]",
+				size === "sm" && "[&_h2]:mt-6 [&_h2]:mb-2 [&_h2]:font-title [&_h2]:text-[21px] [&_h3]:text-[17px]",
 				"[&_p]:mb-3.5 [&_ol]:mb-4 [&_ol]:list-decimal [&_ol]:pl-[22px] [&_ul]:mb-4 [&_ul]:list-disc [&_ul]:pl-[22px] [&_li]:my-1.5",
-				"[&_blockquote]:my-5 [&_blockquote]:rounded-[18px] [&_blockquote]:bg-surface-2 [&_blockquote]:px-5 [&_blockquote]:py-4 [&_blockquote]:font-display [&_blockquote]:text-[19px] [&_blockquote]:leading-[1.45] [&_blockquote]:text-ink",
-				"[&_cite]:mt-2 [&_cite]:block [&_cite]:font-body [&_cite]:text-[13px] [&_cite]:text-text-3 [&_cite]:not-italic",
+				"[&_blockquote]:my-5 [&_blockquote]:rounded-card [&_blockquote]:bg-surface-2 [&_blockquote]:px-5 [&_blockquote]:py-4 [&_blockquote]:font-title [&_blockquote]:tracking-[-0.02em] [&_blockquote]:text-[19px] [&_blockquote]:leading-[1.45] [&_blockquote]:text-ink",
+				"[&_cite]:mt-2 [&_cite]:block [&_cite]:font-body [&_cite]:tracking-normal [&_cite]:text-[13px] [&_cite]:text-text-3 [&_cite]:not-italic",
 				"[&_a]:text-ink [&_a]:underline [&_a]:decoration-green-500 [&_a]:decoration-2 [&_a]:underline-offset-[3px]",
 				className,
 			)}
@@ -197,11 +197,11 @@ export function WikiTree({
 						<Accordion.Header>
 							<Accordion.Trigger
 								data-focus-inset=""
-								className="group/ph flex w-full cursor-pointer items-center gap-2.5 rounded-[12px] px-2.5 py-[9px] text-left font-medium text-ink transition-colors hover:bg-surface-2"
+								className="group/ph flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-[9px] text-left font-medium text-ink transition-colors hover:bg-surface-2"
 							>
 								<span
 									aria-hidden="true"
-									className="grid size-6 flex-none place-items-center rounded-[7px] bg-surface-2 font-display text-xs font-bold text-text-2 group-data-[state=open]/ph:bg-ink group-data-[state=open]/ph:text-on-ink"
+									className="grid size-6 flex-none place-items-center rounded-md bg-surface-2 font-title tracking-[-0.02em] text-xs text-text-2 group-data-[state=open]/ph:bg-ink group-data-[state=open]/ph:text-on-ink"
 								>
 									{p.number}
 								</span>
@@ -217,7 +217,7 @@ export function WikiTree({
 											href={item.href}
 											aria-current={item.id === currentId ? "page" : undefined}
 											data-focus-inset=""
-											className="flex items-center gap-2 rounded-[10px] py-[7px] pr-2.5 pl-11 text-md text-text-2 transition-colors hover:bg-surface-2 hover:text-ink aria-[current=page]:font-medium aria-[current=page]:text-ink"
+											className="flex items-center gap-2 rounded-md py-[7px] pr-2.5 pl-11 text-md text-text-2 transition-colors hover:bg-surface-2 hover:text-ink aria-[current=page]:font-medium aria-[current=page]:text-ink"
 										>
 											{item.title}
 											{item.read ? (
@@ -315,7 +315,7 @@ function OrgBadge({ source, size = "sm" }: { source: WikiSource; size?: "sm" | "
 			aria-hidden="true"
 			className={cn(
 				"grid flex-none place-items-center text-[11px] font-bold",
-				size === "sm" ? "size-[26px] rounded-[8px]" : "size-[30px] rounded-[9px]",
+				size === "sm" ? "size-[26px] rounded-md" : "size-[30px] rounded-md",
 				source.kind === "global" ? "bg-green-100 text-green-700" : "bg-violet-100 text-violet-600",
 			)}
 		>
@@ -355,7 +355,7 @@ export function WikiSourceBar({
 		<div
 			data-view={named ? "named" : "default"}
 			className={cn(
-				"flex flex-wrap items-center gap-3 rounded-[18px] bg-surface py-2.5 pr-3 pl-2.5 shadow-card",
+				"flex flex-wrap items-center gap-3 rounded-card bg-surface py-2.5 pr-3 pl-2.5 shadow-card",
 				named && "shadow-[var(--ef-shadow-card),inset_0_0_0_1.5px_var(--ef-blue-300)]",
 				className,
 			)}
@@ -364,7 +364,7 @@ export function WikiSourceBar({
 				<MenuTrigger asChild>
 					<button
 						type="button"
-						className="inline-flex h-10 cursor-pointer items-center gap-2.5 rounded-[13px] bg-surface-2 pr-3 pl-2 text-ink transition-colors hover:bg-surface-3"
+						className="inline-flex h-10 cursor-pointer items-center gap-2.5 rounded-md bg-surface-2 pr-3 pl-2 text-ink transition-colors hover:bg-surface-3"
 					>
 						<OrgBadge source={current} />
 						<span>
@@ -380,7 +380,7 @@ export function WikiSourceBar({
 							<DropdownMenu.RadioItem
 								key={s.id}
 								value={s.id}
-								className="grid cursor-pointer grid-cols-[30px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-[12px] p-2.5 outline-none data-[highlighted]:bg-surface-2"
+								className="grid cursor-pointer grid-cols-[30px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-md p-2.5 outline-none data-[highlighted]:bg-surface-2"
 							>
 								<OrgBadge source={s} size="md" />
 								<span className="min-w-0">
@@ -404,7 +404,7 @@ export function WikiSourceBar({
 						<DropdownMenu.Item asChild>
 							<a
 								href={settingsHref}
-								className="flex h-[38px] items-center rounded-[10px] px-2.5 text-md text-ink outline-none data-[highlighted]:bg-surface-2"
+								className="flex h-[38px] items-center rounded-md px-2.5 text-md text-ink outline-none data-[highlighted]:bg-surface-2"
 							>
 								Change the preferred source
 							</a>
@@ -453,7 +453,7 @@ const TOOLS: ({ cmd: EditorCommand; label: string; icon: IconSvgElement; toggle?
 ];
 
 const TOOL =
-	"grid size-9 cursor-pointer place-items-center rounded-[10px] text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 aria-pressed:bg-surface-2 aria-pressed:text-ink data-[state=on]:bg-surface-2 data-[state=on]:text-ink";
+	"grid size-9 cursor-pointer place-items-center rounded-md text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 aria-pressed:bg-surface-2 aria-pressed:text-ink data-[state=on]:bg-surface-2 data-[state=on]:text-ink";
 
 /**
  * WikiEditor (components.md): Toolbar, Title, Body blocks, Change marks and the side panel. This is the frame only:
@@ -491,7 +491,7 @@ export function WikiEditor({
 			<article className="min-w-0 rounded-card border border-[var(--ef-card-edge)] bg-surface px-11 pt-[22px] pb-11 shadow-card max-app-sm:px-5">
 				<Toolbar.Root
 					aria-label="Formatting"
-					className="sticky top-24 z-[3] mb-[18px] flex flex-wrap items-center gap-0.5 rounded-[16px] bg-surface-raised p-1.5 shadow-[var(--ef-shadow-raised),inset_0_0_0_1px_var(--ef-line)]"
+					className="sticky top-24 z-[3] mb-[18px] flex flex-wrap items-center gap-0.5 rounded-card bg-surface-raised p-1.5 shadow-[var(--ef-shadow-raised),inset_0_0_0_1px_var(--ef-line)]"
 				>
 					<Toolbar.Button
 						onClick={() => onCommand("block")}
@@ -523,11 +523,11 @@ export function WikiEditor({
 					{changeKey ? (
 						<span className="ml-auto flex flex-wrap gap-3.5 pr-2 text-xs text-text-2">
 							<span className="inline-flex items-center gap-1.5">
-								<i aria-hidden="true" className="inline-block h-3 w-[3px] rounded-[2px] bg-blue-500" />
+								<i aria-hidden="true" className="inline-block h-3 w-[3px] rounded-md bg-blue-500" />
 								Changed from global
 							</span>
 							<span className="inline-flex items-center gap-1.5">
-								<i aria-hidden="true" className="inline-block h-3 w-[3px] rounded-[2px] bg-green-500" />
+								<i aria-hidden="true" className="inline-block h-3 w-[3px] rounded-md bg-green-500" />
 								Added by your network
 							</span>
 						</span>
@@ -541,12 +541,12 @@ export function WikiEditor({
 						if (e.key === "Enter") e.preventDefault();
 					}}
 					aria-label="Article title"
-					className="mb-3.5 field-sizing-content w-full resize-none border-0 bg-transparent p-0 font-display text-[38px] leading-[1.12] font-medium tracking-[-0.03em] text-ink outline-none max-app-sm:text-[28px]"
+					className="mb-3.5 field-sizing-content w-full resize-none border-0 bg-transparent p-0 font-display text-[38px] leading-[1.12] tracking-[-0.02em] text-ink outline-none max-app-sm:text-[28px]"
 				/>
 				<Prose
 					className={cn(
 						"m-0 min-h-[520px]",
-						"[&_[data-change]]:relative [&_[data-change]]:before:absolute [&_[data-change]]:before:top-1 [&_[data-change]]:before:bottom-1 [&_[data-change]]:before:-left-[22px] [&_[data-change]]:before:w-[3px] [&_[data-change]]:before:rounded-[3px] [&_[data-change]]:before:content-[''] [&_[data-change=changed]]:before:bg-blue-500 [&_[data-change=added]]:before:bg-green-500",
+						"[&_[data-change]]:relative [&_[data-change]]:before:absolute [&_[data-change]]:before:top-1 [&_[data-change]]:before:bottom-1 [&_[data-change]]:before:-left-[22px] [&_[data-change]]:before:w-[3px] [&_[data-change]]:before:rounded-md [&_[data-change]]:before:content-[''] [&_[data-change=changed]]:before:bg-blue-500 [&_[data-change=added]]:before:bg-green-500",
 						"max-app-sm:[&_[data-change]]:before:-left-3",
 					)}
 				>

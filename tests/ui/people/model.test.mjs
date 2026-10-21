@@ -5,6 +5,8 @@
 //   INV-request-key: a retry after a lost answer reuses the key (the server replays); a refusal or a changed payload
 //     gets a new key.
 //   INV-revision: an older revision never replaces a newer saved person.
+//   INV-activity-entry: a saved change shows in Activity from its answer: a new entry joins the end of a fully loaded
+//     list, a known entry is replaced in place, and while later pages are unloaded the loaded pages stay as they are.
 //   AC:TARGET-PPL-001 INV-url (D67): filters, search, view and page number live in the address; a change goes back to
 //     page one and keeps the sibling filters; values outside the closed lists are ignored.
 import assert from "node:assert/strict";
@@ -19,6 +21,8 @@ import {
 	withFilters,
 	pageCount,
 	rangeText,
+	columnCards,
+	withEntry,
 } from "../../../apps/web/src/features/people/model.ts";
 
 const person = (revision, extra = {}) => ({ id: "p1", revision, displayName: "Maria Santos", ...extra });
@@ -184,4 +188,49 @@ test("AC:TARGET-PPL-001 INV-tags: repeated tag ids stay in the address and ask f
 	assert.equal(removed.page, 1, "a tag change goes back to page one");
 	assert.equal(querySearch(removed), `?tag=${T2}`);
 	assert.equal(querySearch(withFilters(q, { tags: [] })), "");
+});
+
+test("AC:TARGET-PPL-007 INV-move-revisions (D68): after reorder, away and back, a card keeps its newest revision and the saved order", () => {
+	const card = (id, stage, revision) => ({ person: { id, stage, revision } });
+	// The server copy: A and B follow up, C attends.
+	const following = [card("A", "following_up", "1"), card("B", "following_up", "1")];
+	const attending = [card("C", "attendee", "1")];
+	const view = (column, loaded, moved, answer) =>
+		columnCards(column, loaded, moved, answer).map((c) => `${c.person.id}@${c.person.revision}`);
+	// 1. Reorder: B up. The answer gives both people revision 2.
+	let answer = { revision: "2", personIds: ["B", "A"], personRevisions: { A: "2", B: "2" } };
+	const moved = new Map();
+	assert.deepEqual(view("following_up", following, moved, answer), ["B@2", "A@2"]);
+	// 2. B to attendee: the stage answer is B at 3, in the attendee column's saved order.
+	moved.set("B", card("B", "attendee", "3"));
+	const attendee = { revision: "1", personIds: ["C", "B"], personRevisions: { C: "1", B: "3" } };
+	assert.deepEqual(view("following_up", following, moved, answer), ["A@2"]);
+	assert.deepEqual(view("attendee", attending, moved, attendee), ["C@1", "B@3"]);
+	// 3. B back: B is at 4. The reorder answer still says B@2; the newer revision wins.
+	moved.set("B", card("B", "following_up", "4"));
+	answer = { revision: "2", personIds: ["A", "B"], personRevisions: { A: "2", B: "4" } };
+	assert.deepEqual(view("following_up", following, moved, answer), ["A@2", "B@4"]);
+	assert.deepEqual(view("following_up", following, moved, { ...answer, personRevisions: { A: "2", B: "2" } }), [
+		"A@2",
+		"B@4",
+	]);
+	// 4. The next move of B sends revision 4, not the reorder's 2 (the verifier's false "changed" refusal).
+	const b = columnCards("following_up", following, moved, answer).find((c) => c.person.id === "B");
+	assert.equal(b.person.revision, "4");
+	// A pending reorder shows its own order first; people it does not list keep their place after it.
+	assert.deepEqual(
+		columnCards("following_up", following, moved, answer, ["B"]).map((c) => c.person.id),
+		["B", "A"],
+	);
+});
+
+test("INV-activity-entry: a saved change joins the end, replaces its own entry, and waits for unloaded pages", () => {
+	const note = { id: "n1", kind: "note", body: "First" };
+	const loaded = (next, items = [note]) => ({ status: "ok", value: { items, next } });
+	const added = { id: "a1", kind: "activity", action: "updated" };
+	assert.deepEqual(withEntry(loaded(null), added).value.items, [note, added]);
+	assert.deepEqual(withEntry(loaded(null), { ...note, body: "Edited" }).value.items, [{ ...note, body: "Edited" }]);
+	assert.deepEqual(withEntry(loaded(2), added), loaded(2));
+	assert.deepEqual(withEntry(loaded(2), { ...note, body: "Edited" }).value.items, [{ ...note, body: "Edited" }]);
+	assert.deepEqual(withEntry({ status: "lost" }, added), { status: "lost" });
 });

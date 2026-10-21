@@ -3,6 +3,7 @@
 import {
 	Delete02Icon,
 	Edit02Icon,
+	Home01Icon,
 	Note01Icon,
 	Route01Icon,
 	TaskDone01Icon,
@@ -27,17 +28,20 @@ import {
 } from "@everyfield/ui/controls";
 import { TINT, type Tone } from "@everyfield/ui/display";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { z } from "zod";
 import { addNote, deleteNote, editNote, loadActivities } from "./actions.ts";
+import { householdChange } from "./fields/model.ts";
 import { runSave, STAGE_LABEL, type Outcome, type PersonStore } from "./model.ts";
-import { FormProblem, fresh, problemOf, useStore, When } from "./parts.tsx";
+import { FormProblem, fresh, isConflict, problemOf, useStore, When } from "./parts.tsx";
 import type { PersonDraft } from "./StageDialog.tsx";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
-type Activities = z.infer<typeof people.activitiesResult>;
-type Item = Activities["items"][number];
+export type Activities = z.infer<typeof people.activitiesResult>;
+export type Item = Activities["items"][number];
+type Base = "id" | "occurredAt" | "recordedAt" | "actor";
+/** An Activity entry without the parts every entry has: what a saved change adds, before its receipt is known. */
+export type EntryFields = Item extends infer I ? (I extends Item ? Omit<I, Base> : never) : never;
 type Store = PersonStore<PlantPerson, PersonDraft>;
 type NoteEdit = { body: string; reason: string };
 
@@ -48,6 +52,12 @@ const ACTION: Record<Extract<Item, { kind: "activity" }>["action"], string> = {
 	restored: "Restored",
 	classification_recorded: "Adult or child recorded",
 	classification_corrected: "Adult or child corrected",
+	assessment_recorded: "Four Cs assessment recorded",
+	interview_recorded: "Interview recorded",
+	commitment_recorded: "Commitment recorded",
+	commitment_withdrawn: "Commitment withdrawn",
+	commitment_reactivated: "Commitment reactivated",
+	commitment_corrected: "Commitment corrected",
 };
 const FOLLOW_UP: Record<Extract<Item, { kind: "follow_up" }>["outcome"], string> = {
 	contacted: "Follow-up: contacted",
@@ -59,16 +69,24 @@ const FOLLOW_UP: Record<Extract<Item, { kind: "follow_up" }>["outcome"], string>
 /**
  * Activity (REQ-PPL-008): ordinary notes, stage changes, record activity and follow-up history, oldest first, in the
  * server's time-and-ID order. Only a note's author edits or deletes it, with a reason that goes to the history. A
- * deleted note keeps a marker of who removed it and when; its words are gone.
+ * deleted note keeps a marker of who removed it and when; its words are gone. A saved note shows from its answer.
  */
 export function ActivityCard({
 	store,
-	initial,
+	activities,
+	onActivities: setActivities,
+	onEntry,
+	onConflict,
 	accountId,
 	canWrite,
 }: {
 	store: Store;
-	initial: Outcome<Activities>;
+	activities: Outcome<Activities>;
+	onActivities: (activities: Outcome<Activities>) => void;
+	/** A saved note change: a new entry, or a known entry as it is now. */
+	onEntry: (item: Item) => void;
+	/** A note change was refused because this page is out of date: read the person again. */
+	onConflict: () => void;
 	/** The viewer's account, to tell their own notes from others'. */
 	accountId: string;
 	canWrite: boolean;
@@ -76,12 +94,6 @@ export function ActivityCard({
 	const state = useStore(store);
 	const person = state.saved;
 	const live = person.lifecycle.state === "live";
-	const router = useRouter();
-	// The server's first page is the source of truth; a refresh after any change replaces it. Pages loaded with
-	// "Show later activity" or "Try again" belong to the server copy they were loaded on.
-	const [loaded, setLoaded] = useState({ from: initial, value: initial });
-	const activities = loaded.from === initial ? loaded.value : initial;
-	const setActivities = (value: Outcome<Activities>) => setLoaded({ from: initial, value });
 	const [more, setMore] = useState<{ loading: boolean; problem?: string }>({ loading: false });
 	const [removing, setRemoving] = useState<Extract<Item, { kind: "note" }> | null>(null);
 	const first = person.displayName.split(" ")[0] ?? person.displayName;
@@ -109,9 +121,21 @@ export function ActivityCard({
 		const rev = person.revision;
 		const r = await runSave(store, "note", { input, rev }, (key) => addNote(key, rev, input), {
 			fresh,
-			toPerson: (p) => p,
+			toPerson: (v) => v.person,
 		});
-		if (r?.status === "ok") router.refresh();
+		if (r?.status === "ok") {
+			const { note, receipt } = r.value;
+			onEntry({
+				id: note.id,
+				occurredAt: receipt.at,
+				recordedAt: receipt.at,
+				actor: { kind: "current_account", accountId } as Item["actor"],
+				kind: "note",
+				revision: note.revision,
+				body,
+				editedAt: null,
+			});
+		} else if (isConflict(r)) onConflict();
 	}
 
 	return (
@@ -123,7 +147,7 @@ export function ActivityCard({
 				</CardHeading>
 			</CardHeader>
 			{writing ? (
-				<form onSubmit={saveNote} className="mb-4 flex flex-col gap-2.5 rounded-[18px] bg-surface p-4">
+				<form onSubmit={saveNote} className="mb-4 flex flex-col gap-2.5 rounded-card bg-surface p-4">
 					<Field label={`Add a note about ${first}`}>
 						<Textarea
 							rows={2}
@@ -173,7 +197,8 @@ export function ActivityCard({
 							mine={item.actor.kind === "current_account" && item.actor.accountId === accountId}
 							writing={writing}
 							onRemove={setRemoving}
-							onSaved={async () => router.refresh()}
+							onEntry={onEntry}
+							onConflict={onConflict}
 						/>
 					))}
 				</ol>
@@ -188,10 +213,11 @@ export function ActivityCard({
 				note={removing}
 				store={store}
 				onClose={() => setRemoving(null)}
-				onDeleted={async () => {
+				onDeleted={(entry) => {
 					setRemoving(null);
-					router.refresh();
+					onEntry(entry);
 				}}
+				onConflict={onConflict}
 			/>
 		</Card>
 	);
@@ -208,14 +234,16 @@ function Row({
 	mine,
 	writing,
 	onRemove,
-	onSaved,
+	onEntry,
+	onConflict,
 }: {
 	item: Item;
 	store: Store;
 	mine: boolean;
 	writing: boolean;
 	onRemove: (note: Extract<Item, { kind: "note" }>) => void;
-	onSaved: () => Promise<void>;
+	onEntry: (item: Item) => void;
+	onConflict: () => void;
 }) {
 	const state = useStore(store);
 	const slot = `note:${item.id}`;
@@ -239,12 +267,12 @@ function Row({
 			const rev = item.revision;
 			const r = await runSave(store, slot, { input, rev }, (key) => editNote(key, rev, input), {
 				fresh,
-				toPerson: (p) => p,
+				toPerson: (v) => v.person,
 			});
 			if (r?.status === "ok") {
 				setTouched(false);
-				await onSaved();
-			}
+				onEntry({ ...item, body: input.body, editedAt: r.value.receipt.at, revision: r.value.note.revision });
+			} else if (isConflict(r)) onConflict();
 		}
 		return (
 			<li className="border-t border-line py-4 first:border-t-0">
@@ -298,7 +326,7 @@ function Row({
 		<li className="flex items-start gap-3.5 border-t border-line py-4 first:border-t-0">
 			<span
 				aria-hidden="true"
-				className={cn("grid size-10 flex-none place-items-center rounded-full", TINT[view.tone])}
+				className={cn("grid size-10 flex-none place-items-center rounded-pill", TINT[view.tone])}
 			>
 				<Icon icon={view.icon} size={18} />
 			</span>
@@ -356,7 +384,10 @@ function describe(item: Item, by: string): { title: string; icon: IconSvgElement
 				tone: "green",
 			};
 		case "activity":
-			return { title: ACTION[item.action], icon: UserEdit01Icon, tone: "blue" };
+			// A household join, leave or role change names the household as it was then (REQ-PPL-009).
+			return item.household
+				? { title: householdChange(item.household), icon: Home01Icon, tone: "teal" }
+				: { title: ACTION[item.action], icon: UserEdit01Icon, tone: "blue" };
 		case "follow_up":
 			return { title: FOLLOW_UP[item.outcome], icon: TaskDone01Icon, tone: "amber" };
 	}
@@ -367,11 +398,14 @@ function DeleteNoteDialog({
 	store,
 	onClose,
 	onDeleted,
+	onConflict,
 }: {
 	note: Extract<Item, { kind: "note" }> | null;
 	store: Store;
 	onClose: () => void;
-	onDeleted: () => Promise<void>;
+	/** The note's entry as it is now: a marker that it was deleted. */
+	onDeleted: (entry: Item) => void;
+	onConflict: () => void;
 }) {
 	const state = useStore(store);
 	const slot = note ? `delete:${note.id}` : "delete";
@@ -391,12 +425,13 @@ function DeleteNoteDialog({
 		const rev = note.revision;
 		const r = await runSave(store, slot, { input, rev }, (key) => deleteNote(key, rev, input), {
 			fresh,
-			toPerson: (p) => p,
+			toPerson: (v) => v.person,
 		});
 		if (r?.status === "ok") {
 			setTouched(false);
-			await onDeleted();
-		}
+			const { id, occurredAt, recordedAt, actor } = note;
+			onDeleted({ id, occurredAt, recordedAt, actor, kind: "note_removed", revision: r.value.note.revision });
+		} else if (isConflict(r)) onConflict();
 	}
 	return (
 		<Dialog open={note !== null} onOpenChange={(open) => !open && close()}>

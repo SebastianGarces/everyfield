@@ -131,7 +131,7 @@ export function StaffNotesPanel({
 						<CardTitle id={titleId} size="sm">
 							Staff notes
 						</CardTitle>
-						<span className="inline-flex h-[26px] items-center gap-1.5 rounded-full bg-violet-100 px-2.5 text-[13px] font-semibold text-violet-600">
+						<span className="inline-flex h-[26px] items-center gap-1.5 rounded-pill bg-violet-100 px-2.5 text-[13px] font-semibold text-violet-600">
 							<Icon icon={LockKeyIcon} size={16} className="size-3.5" />
 							Staff only
 						</span>
@@ -249,7 +249,7 @@ function NoteRow({ note, authorName, zone }: { note: Note; authorName: (id: stri
 						aria-expanded={open}
 						aria-controls={bodyId}
 						onClick={() => setOpen((o) => !o)}
-						className="mt-1.5 rounded-[4px] text-sm font-semibold text-ink underline-offset-4 hover:underline"
+						className="mt-1.5 rounded-md text-sm font-semibold text-ink underline-offset-4 hover:underline"
 					>
 						{open ? "Show less" : "Show the whole note"}
 					</button>

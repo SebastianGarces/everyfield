@@ -65,13 +65,13 @@ export function DoneButton({
 			ref={ref}
 			className={cn(
 				"relative inline-grid flex-none place-items-center overflow-hidden bg-ink font-semibold whitespace-nowrap text-white shadow-pill will-change-transform",
-				size === "md" ? "h-10 rounded-[12px] px-4 type-sm" : "h-[34px] rounded-[11px] px-[13px] type-sm",
+				size === "md" ? "h-10 px-4 type-sm" : "h-[34px] px-[13px] type-sm",
 				className,
 			)}
 			style={{ transform }}
 		>
 			<m.span
-				className="absolute inset-0 bg-[linear-gradient(180deg,var(--color-mk-done-top),var(--ef-grad-field-g3))] opacity-0"
+				className="absolute inset-0 bg-[linear-gradient(180deg,var(--color-mk-done-top),var(--color-mk-done-bottom))] opacity-0"
 				style={{ opacity: fill }}
 			/>
 			<m.span

@@ -1820,9 +1820,7 @@
         "AC-PPL-020--PPL-020"
       ],
       "work_packages": [
-        "WP-014",
-        "WP-022",
-        "WP-023"
+        "WP-022"
       ],
       "status": "future-not-run",
       "description": "Contact Alex invited but not attended; Casey already Leader; first actual Vision attendance and team assignment fixtures",
@@ -2915,7 +2913,7 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual assessment-interview-commitment references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual assessment-interview-commitment references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3247,7 +3245,7 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual assessment-interview-commitment references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual assessment-interview-commitment references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3584,7 +3582,7 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual assessment-interview-commitment references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual assessment-interview-commitment references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3910,7 +3908,7 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual assessment-interview-commitment references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual assessment-interview-commitment references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -4257,11 +4255,10 @@
       ],
       "work_packages": [
         "WP-039",
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual candidate-person-attestation references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual candidate-person-attestation references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -4582,11 +4579,10 @@
       ],
       "work_packages": [
         "WP-039",
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual candidate-person-attestation references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual candidate-person-attestation references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -4911,11 +4907,10 @@
       ],
       "work_packages": [
         "WP-039",
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual candidate-person-attestation references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual candidate-person-attestation references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5238,11 +5233,10 @@
       ],
       "work_packages": [
         "WP-039",
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual candidate-person-attestation references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual candidate-person-attestation references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5584,7 +5578,7 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual household-tag-skill-note references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual household-tag-skill-note references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5918,7 +5912,7 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual household-tag-skill-note references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual household-tag-skill-note references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6259,7 +6253,7 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual household-tag-skill-note references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual household-tag-skill-note references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6585,7 +6579,7 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual household-tag-skill-note references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual household-tag-skill-note references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6937,7 +6931,7 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual person-redirect-merge-history references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual person-redirect-merge-history references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7270,7 +7264,7 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual person-redirect-merge-history references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual person-redirect-merge-history references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7608,7 +7602,7 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual person-redirect-merge-history references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual person-redirect-merge-history references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7935,7 +7929,7 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual person-redirect-merge-history references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual person-redirect-merge-history references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -8286,7 +8280,7 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual shared-receipt-audit-person-subject references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual shared-receipt-audit-person-subject references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -8611,7 +8605,7 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual shared-receipt-audit-person-subject references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual shared-receipt-audit-person-subject references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -8940,7 +8934,7 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual shared-receipt-audit-person-subject references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual shared-receipt-audit-person-subject references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -9267,7 +9261,7 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual shared-receipt-audit-person-subject references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual shared-receipt-audit-person-subject references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -10030,8 +10024,7 @@
         "AC-PPL-002--PPL-002"
       ],
       "work_packages": [
-        "WP-011",
-        "WP-012"
+        "WP-011"
       ],
       "status": "future-not-run",
       "description": "Whitespace name, single-name Launch guest, nullable clear, forged account/storage key, valid partial address; request background field.",
@@ -10474,8 +10467,7 @@
         "AC-PPL-006--PPL-006"
       ],
       "work_packages": [
-        "WP-011",
-        "WP-014"
+        "WP-011"
       ],
       "status": "future-not-run",
       "description": "Skip prospect→leader, backward leader→attendee, same-stage retry, concurrent edits and declined open-duty handoff.",
@@ -10581,8 +10573,7 @@
         "AC-PPL-007--PPL-007"
       ],
       "work_packages": [
-        "WP-011",
-        "WP-023"
+        "WP-011"
       ],
       "status": "future-not-run",
       "description": "All 7 stages; foreign ID reorder; stale column order; completed/waived/overdue/undated task and uncovered sans duty.",
@@ -12628,9 +12619,7 @@
         "AC-PPL-020--PPL-020"
       ],
       "work_packages": [
-        "WP-014",
-        "WP-022",
-        "WP-023"
+        "WP-091"
       ],
       "status": "future-not-run",
       "description": "Each allowed prior stage vs advanced stage, retried event, failed audit, removed role/withdrawn commitment and launch date change.",
@@ -13161,7 +13150,6 @@
         "AC-PPL-021--PPL-021"
       ],
       "work_packages": [
-        "WP-023",
         "WP-091",
         "WP-094"
       ],
@@ -13313,8 +13301,6 @@
       ],
       "work_packages": [
         "WP-015",
-        "WP-059",
-        "WP-060",
         "WP-063",
         "WP-064",
         "WP-091",

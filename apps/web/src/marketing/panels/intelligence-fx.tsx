@@ -61,7 +61,7 @@ export function ShareSwitch() {
 	const knob = useTransform(t, (v) => "translate3d(" + (14 * back(on(v))).toFixed(2) + "px,0,0)");
 	return (
 		<m.span ref={ref} className={cn(SWITCH, "will-change-transform")} style={{ transform: pressT }}>
-			<m.b className="absolute inset-0 rounded-full bg-green-500 opacity-0" style={{ opacity: fill }} />
+			<m.b className="absolute inset-0 bg-green-500 opacity-0" style={{ opacity: fill }} />
 			<m.i className={KNOB} style={{ transform: knob }} />
 		</m.span>
 	);

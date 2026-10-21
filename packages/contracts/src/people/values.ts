@@ -28,6 +28,7 @@ export const recruitmentSource = z.enum([
 	"other",
 ]);
 export const adultClassification = z.enum(["adult", "child", "unknown"]);
+export const pipelineColumn = z.enum(["prospect", "attendee", "following_up", "interviewed", "core_group"]);
 export const displayName = z.string().trim().min(1).max(255);
 export const shortText = z.string().trim().max(255);
 export const noteBody = z.string().trim().min(1).max(5000);

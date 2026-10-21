@@ -26,8 +26,8 @@ type Operation<Tx, Context, Input extends z.ZodType, Output extends z.ZodType> =
 // and consent CAS, one history/audit/receipt/intents set, omitted fields preserved.
 // No-op/replay does not bump material revision; private care never enters settings.
 export interface SettingsProducer<Tx> {
-	getSection: Operation<Tx, SettingsContext, typeof request.getSectionRequest, typeof result.sectionResult>;
 	saveSection: Operation<Tx, SettingsWriteContext, typeof request.saveSectionRequest, typeof result.savedSectionResult>;
+	saveChurch: Operation<Tx, SettingsWriteContext, typeof request.saveChurchRequest, typeof result.savedSectionResult>;
 	updatePlantProfile: Operation<
 		Tx,
 		SettingsWriteContext,
@@ -81,21 +81,6 @@ export interface NativeAccountProducer<Tx> {
 	>;
 	removeAvatar: Operation<Tx, NativeSettingsContext, typeof request.removeAvatarRequest, typeof result.avatarResult>;
 	getAvatar: Operation<Tx, NativeSettingsContext, typeof request.getAvatarRequest, typeof result.avatarResult>;
-	requestEmailChange(
-		tx: Tx,
-		context: NativeSettingsContext,
-		input: z.infer<typeof native.requestEmailChange>,
-	): Promise<SettingsReply<{ status: "verification_requested" }>>;
-	confirmEmailChange(
-		tx: Tx,
-		context: NativeSettingsContext,
-		input: z.infer<typeof native.confirmEmailChange>,
-	): Promise<z.infer<typeof credentialOutcome>>;
-	changePassword(
-		tx: Tx,
-		context: NativeSettingsContext,
-		input: z.infer<typeof changePasswordRequest>,
-	): Promise<z.infer<typeof credentialOutcome>>;
 	previewPersonalTimezone: Operation<
 		Tx,
 		NativeSettingsContext,
@@ -168,6 +153,23 @@ export interface DeletionProducer<Tx> {
 		typeof native.cancelWorkspaceDeletionRequest,
 		typeof native.deletionStatus
 	>;
+}
+
+// Better Auth changes its own tables on its own client, so these calls take no app transaction: each opens the
+// short transactions it needs, and no app lock is held while Better Auth runs.
+export interface CredentialProducer {
+	requestEmailChange(
+		context: NativeSettingsContext,
+		input: z.infer<typeof native.requestEmailChange>,
+	): Promise<SettingsReply<{ status: "verification_requested" }>>;
+	confirmEmailChange(
+		context: NativeSettingsContext,
+		input: z.infer<typeof native.confirmEmailChange>,
+	): Promise<z.infer<typeof credentialOutcome>>;
+	changePassword(
+		context: NativeSettingsContext,
+		input: z.infer<typeof changePasswordRequest>,
+	): Promise<z.infer<typeof credentialOutcome>>;
 }
 
 // WP-039 supplies this server-only collaborator. The account producer invokes it

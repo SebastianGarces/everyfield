@@ -263,7 +263,7 @@ function SignedOut({ description, proof }: { description: Description; proof: st
 }
 
 const INLINE =
-	"cursor-pointer rounded-[4px] font-semibold text-ink underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:opacity-60";
+	"cursor-pointer rounded-md font-semibold text-ink underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:opacity-60";
 
 function JoinForm({
 	proof,
@@ -708,6 +708,8 @@ function ResidentOutcome({ done, organizationName }: { done: ResidentDone; organ
 			title={`You joined the residency at ${organizationName}`}
 			actions={
 				<Button asChild variant="primary" className="w-full">
+					{/* A full load, so the page reads the residency this answer just created. */}
+					{/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
 					<a href="/settings/sharing">Review your sharing</a>
 				</Button>
 			}

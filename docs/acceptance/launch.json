@@ -17,7 +17,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-038",
         "WP-040",
         "WP-044",
         "WP-045"
@@ -109,7 +108,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-038",
         "WP-044",
         "WP-045",
         "WP-046"
@@ -506,8 +504,6 @@
       ],
       "work_packages": [
         "WP-045",
-        "WP-053",
-        "WP-055",
         "WP-076"
       ],
       "status": "future-not-run",
@@ -732,9 +728,6 @@
       ],
       "work_packages": [
         "WP-020",
-        "WP-022",
-        "WP-053",
-        "WP-055",
         "WP-066"
       ],
       "status": "future-not-run",
@@ -824,11 +817,8 @@
       ],
       "work_packages": [
         "WP-020",
-        "WP-038",
         "WP-044",
         "WP-045",
-        "WP-053",
-        "WP-055",
         "WP-066"
       ],
       "status": "future-not-run",
@@ -929,7 +919,6 @@
       ],
       "work_packages": [
         "WP-020",
-        "WP-038",
         "WP-044"
       ],
       "status": "future-not-run",
@@ -1023,7 +1012,6 @@
       ],
       "work_packages": [
         "WP-022",
-        "WP-038",
         "WP-044"
       ],
       "status": "future-not-run",
@@ -1110,11 +1098,8 @@
       ],
       "work_packages": [
         "WP-020",
-        "WP-038",
         "WP-044",
         "WP-045",
-        "WP-053",
-        "WP-055",
         "WP-066"
       ],
       "status": "future-not-run",
@@ -1380,8 +1365,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-020",
-        "WP-038",
         "WP-044",
         "WP-045"
       ],
@@ -1478,8 +1461,6 @@
       ],
       "work_packages": [
         "WP-020",
-        "WP-053",
-        "WP-055",
         "WP-066"
       ],
       "status": "future-not-run",
@@ -1573,8 +1554,6 @@
         "AC-EVR-EFFECT--EVR-172"
       ],
       "work_packages": [
-        "WP-053",
-        "WP-055",
         "WP-066"
       ],
       "status": "future-not-run",
@@ -1658,12 +1637,8 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-038",
-        "WP-039",
         "WP-040",
         "WP-044",
-        "WP-053",
-        "WP-055",
         "WP-074"
       ],
       "status": "future-not-run",
@@ -1739,7 +1714,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-038",
         "WP-044"
       ],
       "status": "future-not-run",
@@ -1820,7 +1794,6 @@
         "AC-LCH-008--LCH-008"
       ],
       "work_packages": [
-        "WP-045",
         "WP-046"
       ],
       "status": "future-not-run",
@@ -1905,7 +1878,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-038",
         "WP-044",
         "WP-046"
       ],
@@ -2007,7 +1979,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-038",
         "WP-040",
         "WP-044",
         "WP-046"
@@ -2102,9 +2073,6 @@
         "AC-EVR-READ--EVR-419"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-053",
-        "WP-055",
         "WP-075",
         "WP-076"
       ],
@@ -2194,7 +2162,7 @@
         "AC-PPL-002--PPL-002"
       ],
       "work_packages": [
-        "WP-055"
+        "WP-093"
       ],
       "status": "future-not-run",
       "description": "Single supplied name guest with no phone/email/age/account.",
@@ -2298,7 +2266,7 @@
         "AC-PPL-002--PPL-002"
       ],
       "work_packages": [
-        "WP-055"
+        "WP-093"
       ],
       "status": "future-not-run",
       "description": "Same-name duplicate candidate selected existing ID and replay named create.",
@@ -2399,7 +2367,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-038",
         "WP-044",
         "WP-046"
       ],
@@ -2485,8 +2452,6 @@
       ],
       "work_packages": [
         "WP-044",
-        "WP-053",
-        "WP-055",
         "WP-074"
       ],
       "status": "future-not-run",
@@ -2566,8 +2531,6 @@
       ],
       "work_packages": [
         "WP-044",
-        "WP-052",
-        "WP-055",
         "WP-073"
       ],
       "status": "future-not-run",
@@ -2653,8 +2616,7 @@
         "AC-PI-032--PI-032"
       ],
       "work_packages": [
-        "WP-044",
-        "WP-047"
+        "WP-044"
       ],
       "status": "future-not-run",
       "description": "Previous released concern during new unpublished result under current revoked category.",
@@ -2928,7 +2890,6 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-038",
         "WP-044",
         "WP-046"
       ],
@@ -5105,7 +5066,7 @@
         "AC-LCH-011--LCH-011"
       ],
       "work_packages": [
-        "WP-046"
+        "WP-040"
       ],
       "status": "future-not-run",
       "description": "Phase 6 plant with Sunday headcounts, prelaunch Vision 48h follow-up and no approved postlaunch service-contact capture",
@@ -5705,7 +5666,6 @@
         "AC-LCH-006--LCH-006"
       ],
       "work_packages": [
-        "WP-015",
         "WP-046"
       ],
       "status": "future-not-run",
@@ -5917,7 +5877,6 @@
       ],
       "work_packages": [
         "WP-046",
-        "WP-038",
         "WP-040"
       ],
       "status": "future-not-run",
@@ -7080,10 +7039,6 @@
         "AC-EVR-EFFECT--EVR-257"
       ],
       "work_packages": [
-        "WP-025",
-        "WP-053",
-        "WP-055",
-        "WP-068",
         "WP-046"
       ],
       "status": "future-not-run",
@@ -7294,9 +7249,7 @@
         "AC-PI-028--PI-028"
       ],
       "work_packages": [
-        "WP-038",
-        "WP-040",
-        "WP-046"
+        "WP-044"
       ],
       "status": "future-not-run",
       "description": "Headcount/`outcomeRecorded` set but no submitted questionnaire; arbitrary manual signal attempted.",
@@ -7381,7 +7334,6 @@
         "AC-LCH-010--LCH-010"
       ],
       "work_packages": [
-        "WP-015",
         "WP-046"
       ],
       "status": "future-not-run",
@@ -7492,10 +7444,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-040",
-        "WP-042",
-        "WP-043",
-        "WP-046",
         "WP-055"
       ],
       "status": "future-not-run",
@@ -7588,11 +7536,10 @@
       ],
       "work_packages": [
         "WP-046",
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual launch-named-guest references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual launch-named-guest references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7913,11 +7860,10 @@
       ],
       "work_packages": [
         "WP-046",
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual launch-named-guest references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual launch-named-guest references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -8242,11 +8188,10 @@
       ],
       "work_packages": [
         "WP-046",
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual launch-named-guest references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual launch-named-guest references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -8569,11 +8514,10 @@
       ],
       "work_packages": [
         "WP-046",
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual launch-named-guest references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual launch-named-guest references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",

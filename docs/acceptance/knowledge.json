@@ -240,7 +240,6 @@
         "AC-DOC-003--DOC-003"
       ],
       "work_packages": [
-        "WP-036",
         "WP-037"
       ],
       "status": "future-not-run",
@@ -347,7 +346,7 @@
         "AC-DOC-004--DOC-004"
       ],
       "work_packages": [
-        "WP-036"
+        "WP-037"
       ],
       "status": "future-not-run",
       "description": "Generate Core Group Commitment Card with frozen named church/leader/date fields in every offered format; open actual bytes and compare preview content/footer/formulas against the approved immutable template.",
@@ -473,7 +472,7 @@
         "AC-DOC-005--DOC-005"
       ],
       "work_packages": [
-        "WP-036"
+        "WP-037"
       ],
       "status": "future-not-run",
       "description": "Generate Response Card with frozen named church/leader/date fields in every offered format; open actual bytes and compare preview content/footer/formulas against the approved immutable template.",
@@ -590,7 +589,7 @@
         "AC-DOC-006--DOC-006"
       ],
       "work_packages": [
-        "WP-036"
+        "WP-037"
       ],
       "status": "future-not-run",
       "description": "Generate Guest Sign-in Sheet with frozen named church/leader/date fields in every offered format; open actual bytes and compare preview content/footer/formulas against the approved immutable template.",
@@ -712,7 +711,7 @@
         "AC-DOC-007--DOC-007"
       ],
       "work_packages": [
-        "WP-036"
+        "WP-037"
       ],
       "status": "future-not-run",
       "description": "Generate Vision Meeting Agenda with frozen named church/leader/date fields in every offered format; open actual bytes and compare preview content/footer/formulas against the approved immutable template.",
@@ -946,7 +945,7 @@
         "AC-DOC-008--DOC-008"
       ],
       "work_packages": [
-        "WP-036"
+        "WP-037"
       ],
       "status": "future-not-run",
       "description": "Generate Expectations of a Core Group Member with frozen named church/leader/date fields in every offered format; open actual bytes and compare preview content/footer/formulas against the approved immutable template.",
@@ -1065,7 +1064,7 @@
         "AC-DOC-009--DOC-009"
       ],
       "work_packages": [
-        "WP-036"
+        "WP-037"
       ],
       "status": "future-not-run",
       "description": "Generate Launch Team Commitment with frozen named church/leader/date fields in every offered format; open actual bytes and compare preview content/footer/formulas against the approved immutable template.",
@@ -1184,7 +1183,7 @@
         "AC-DOC-010--DOC-010"
       ],
       "work_packages": [
-        "WP-036"
+        "WP-037"
       ],
       "status": "future-not-run",
       "description": "Generate Vision Meeting Follow-up Letter with frozen named church/leader/date fields in every offered format; open actual bytes and compare preview content/footer/formulas against the approved immutable template.",
@@ -1303,7 +1302,7 @@
         "AC-DOC-011--DOC-011"
       ],
       "work_packages": [
-        "WP-036"
+        "WP-037"
       ],
       "status": "future-not-run",
       "description": "Generate Board / Elder Meeting Agenda with frozen named church/leader/date fields in every offered format; open actual bytes and compare preview content/footer/formulas against the approved immutable template.",
@@ -1422,7 +1421,7 @@
         "AC-DOC-012--DOC-012"
       ],
       "work_packages": [
-        "WP-036"
+        "WP-037"
       ],
       "status": "future-not-run",
       "description": "Generate First-Year Budget with frozen named church/leader/date fields in every offered format; open actual bytes and compare preview content/footer/formulas against the approved immutable template.",
@@ -1541,7 +1540,7 @@
         "AC-DOC-013--DOC-013"
       ],
       "work_packages": [
-        "WP-036"
+        "WP-037"
       ],
       "status": "future-not-run",
       "description": "Generate Budget Worksheet with frozen named church/leader/date fields in every offered format; open actual bytes and compare preview content/footer/formulas against the approved immutable template.",
@@ -1660,7 +1659,7 @@
         "AC-DOC-014--DOC-014"
       ],
       "work_packages": [
-        "WP-036"
+        "WP-037"
       ],
       "status": "future-not-run",
       "description": "Generate Launch Sunday Checklists with frozen named church/leader/date fields in every offered format; open actual bytes and compare preview content/footer/formulas against the approved immutable template.",
@@ -1959,7 +1958,6 @@
         "AC-DOC-016--DOC-016"
       ],
       "work_packages": [
-        "WP-036",
         "WP-037"
       ],
       "status": "future-not-run",
@@ -3727,9 +3725,6 @@
         "AC-WIKI-004--WIKI-004"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-035",
-        "WP-038",
         "WP-044"
       ],
       "status": "future-not-run",
@@ -3825,9 +3820,6 @@
         "AC-WIKI-004--WIKI-004"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-035",
-        "WP-038",
         "WP-044"
       ],
       "status": "future-not-run",
@@ -4387,10 +4379,7 @@
         "AC-WIKI-011--WIKI-011"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-052",
-        "WP-053",
-        "WP-054"
+        "WP-055"
       ],
       "operation_ids": [
         "discovery.convertToPlant",
@@ -5028,8 +5017,6 @@
         "AC-EVR-025--EVR-025"
       ],
       "work_packages": [
-        "WP-036",
-        "WP-037",
         "WP-054"
       ],
       "status": "future-not-run",
@@ -5270,8 +5257,6 @@
         "AC-EVR-025--EVR-025"
       ],
       "work_packages": [
-        "WP-036",
-        "WP-037",
         "WP-054"
       ],
       "status": "future-not-run",
@@ -5526,7 +5511,7 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual document-commitment-evidence references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual document-commitment-evidence references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -5841,7 +5826,7 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual document-commitment-evidence references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual document-commitment-evidence references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6160,7 +6145,7 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual document-commitment-evidence references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual document-commitment-evidence references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -6477,7 +6462,7 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual document-commitment-evidence references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual document-commitment-evidence references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7451,10 +7436,7 @@
         "AC-WIKI-004--WIKI-004"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-038",
-        "WP-044",
-        "WP-019"
+        "WP-044"
       ],
       "status": "future-not-run",
       "description": "Completed Discovery six and training records, meaningful article update with no new evidence.",
@@ -7796,9 +7778,7 @@
         "AC-WIKI-001--WIKI-001"
       ],
       "work_packages": [
-        "WP-036",
-        "WP-037",
-        "WP-034"
+        "WP-037"
       ],
       "status": "future-not-run",
       "description": "Plant-specific guide/corevalues native Church Document and extant plant local Wiki read; plant Wiki edit attempted.",

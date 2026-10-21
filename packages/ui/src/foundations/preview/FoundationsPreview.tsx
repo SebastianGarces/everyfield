@@ -1,23 +1,27 @@
 import {
+	Alert02Icon,
 	BookOpen01Icon,
 	Calendar03Icon,
+	ChartLineData01Icon,
 	HandPrayerIcon,
 	MentorIcon,
 	Plant01Icon,
 	Rocket01Icon,
+	SparklesIcon,
 	TaskDone01Icon,
 	UserGroupIcon,
 	UserMultipleIcon,
 } from "@hugeicons/core-free-icons";
 import type { ReactNode } from "react";
-import { cn, EvryBot, Icon, LogoMark, revealDelay, Wordmark, type EvryBotSize, type EvryMood } from "..";
+import { cn, EvryBot, Icon, Lockup, LogoMark, revealDelay, type EvryBotSize, type EvryMood } from "..";
+import { InsightCard, InsightPill, InsightTitle, type InsightTone } from "../../controls";
 import { PageHead } from "../../shell/preview/ShellPreview";
 import { HoverDemo } from "./HoverDemo";
 
 /**
  * The foundations preview at /design/foundations, after the prototype's #/foundations page: logo, color roles, type,
- * shape, elevation, patterns, focus, motion and the Evry character. Every value comes from tokens.css. Gradient cards
- * (InsightCard) are surfaces and ship with WP-089.
+ * muted palette, gradients, shape, elevation, patterns, focus, motion and the Evry character. Every value comes from
+ * tokens.css. Brand specimens (ef-brand-fixed) keep their brand values in dark mode; the chrome around them follows it.
  */
 export function FoundationsPreview() {
 	return (
@@ -27,33 +31,44 @@ export function FoundationsPreview() {
 				same token names with dark values: switch it with the sun and moon in the rail.
 			</PageHead>
 
-			<Section index={1} title="Logo" code="LogoMark · Wordmark">
-				<div className="grid gap-5 app-md:grid-cols-3">
-					<BrandTile className="bg-ink-fixed text-cream" />
-					<BrandTile className="bg-green text-ink-fixed" />
-					<BrandTile className="bg-cream text-ink-fixed shadow-card" />
+			<Section index={1} title="Logo" code="LogoMark · Wordmark · Lockup">
+				<div className="ef-brand-fixed grid gap-5 app-md:grid-cols-3">
+					<BrandTile className="bg-ink text-cream" />
+					<BrandTile className="bg-green text-ink" />
+					<BrandTile className="bg-cream text-ink shadow-card" />
 				</div>
-				<Note className="mt-4">
-					In the app the mark is brand green and the wordmark is ink, with no background (top bar).
-				</Note>
+				<div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-text-2">
+					<p>
+						In the app: the ink lockup, no background (top bar). The logo is cream on ink. New-growth is only a tile
+						behind an ink symbol. Chips are for avatars, favicons and social images.
+					</p>
+					<div className="ef-brand-fixed flex gap-2">
+						<LogoChip className="bg-ink text-green" />
+						<LogoChip className="bg-green text-ink" />
+						<LogoChip className="bg-cream text-ink" />
+					</div>
+				</div>
 			</Section>
 
 			<Section index={2} title="Brand colors" code="--ef-ink · --ef-green · --ef-cream">
 				<Note>
-					The app runs on neutral greys so the data hues stand out. Ink carries the brand inside the app. Field green is
-					for the logo and rare brand moments. Cream is for marketing and print.
+					The app runs on neutral greys so the data hues and the gradient cards stand out. Ink carries the brand inside
+					the app. New-growth is for the logo, the field card and rare brand moments; it is never text. Cream is for
+					marketing, print and text on ink or photos, never for app surfaces.
 				</Note>
-				<div className="grid gap-5 app-md:grid-cols-3">
+				<div className="ef-brand-fixed grid gap-5 app-md:grid-cols-3">
 					<Swatch className="bg-ink" name="Ink" use="--ef-ink · text, active nav, primary button" />
-					<Swatch className="bg-green" name="Field green" use="--ef-green · logo, brand moments, green 500" />
+					<Swatch className="bg-green" name="New-growth" use="--ef-green · logo, brand moments, green 500" />
 					<Swatch className="bg-cream" name="Cream" use="--ef-cream · brand and marketing only" />
 				</div>
 			</Section>
 
 			<Section index={3} title="Data hues and roles" code="--ef-{hue}-{600|500|300|100|50}">
 				<Note>
-					Every hue has one job. 600 and 700 are for text and icons. Text on a 500 fill is ink, never white. 300 draws
-					hatch lines, 100 tints badges and 50 washes large areas.
+					Every hue has one job. Green (new-growth) means healthy or committed. Blue, softened toward the muted sky,
+					means measured or actual. Magenta means risk or a gap. Orange means attention or waiting. Two category hues
+					only label categories, like pipeline stages; they take the rose and sky ramps of the muted palette. 600 and
+					700 are for text and icons. Text on a 500 fill is ink, never white.
 				</Note>
 				<div className="grid gap-5 app-md:grid-cols-2 app-lg:grid-cols-3">
 					<Ramp
@@ -77,7 +92,7 @@ export function FoundationsPreview() {
 						]}
 					/>
 					<Ramp
-						label="Rose · risk, gap, overdue"
+						label="Magenta · risk, gap, overdue"
 						steps={[
 							["600", "bg-magenta-600"],
 							["500", "bg-magenta-500"],
@@ -97,7 +112,7 @@ export function FoundationsPreview() {
 						]}
 					/>
 					<Ramp
-						label="Lilac and teal · categories only"
+						label="Rose and sky · category only"
 						steps={[
 							["v600", "bg-violet-600"],
 							["v500", "bg-violet-500"],
@@ -121,17 +136,53 @@ export function FoundationsPreview() {
 				</div>
 			</Section>
 
-			<Section index={4} title="Type" code="--ef-font-display · --ef-font-body">
+			<Section index={4} title="Muted palette" code="--ef-green · --ef-{sky|sage|rose}-{100|300|500|700}">
+				<Note>
+					New-growth is the fixed brand color and the field card. The other colors come from the field photos and are
+					muted in OKLCH, so they sit next to new-growth without competing with it. They paint the gradient cards and
+					the two category hues. They are not status colors. 700 is safe for text on white, cream and the frame; on dark
+					surfaces, use 300 for text.
+				</Note>
+				<div className="ef-brand-fixed grid gap-5 app-md:grid-cols-2">
+					<MutedRamp name="Field" note="new-growth, the fixed brand color" hue="green" />
+					<MutedRamp name="Sky" note="the open sky over the field" hue="sky" />
+					<MutedRamp name="Sage" note="the green hills at dusk" hue="sage" />
+					<MutedRamp name="Rose" note="the mauve clouds at sunset" hue="rose" />
+				</div>
+			</Section>
+
+			<Section index={5} title="Gradients" code="<InsightCard tone>">
+				<Note>
+					The gradient card is the signature surface. Use at most two per page, and only for one finding the person
+					should act on. Field is new-growth, for the default and for growth. Sky is for neutral findings. Sage is for
+					the most important summary on a page. Rose is for risk and findings that need attention. All tones carry ink
+					text and look the same in both themes.
+				</Note>
+				<div className="grid gap-5 app-md:grid-cols-2 app-lg:grid-cols-4">
+					{GRADIENTS.map(([tone, icon, title]) => (
+						<InsightCard key={tone} tone={tone} size="sm" className="min-h-[170px]" aria-labelledby={`g-${tone}`}>
+							<span className="self-start">
+								<InsightPill icon={icon}>{tone}</InsightPill>
+							</span>
+							<InsightTitle id={`g-${tone}`} size="sm">
+								{title}
+							</InsightTitle>
+						</InsightCard>
+					))}
+				</div>
+			</Section>
+
+			<Section index={6} title="Type" code="--ef-font-display · --ef-font-title · --ef-font-body">
 				<div className="grid gap-5 app-md:grid-cols-2">
-					<Specimen label="Bricolage Grotesque · titles and numbers">
+					<Specimen label="DM Serif Display 24px and up · DM Serif Text below">
 						<div className="num text-[76px] leading-none text-ink max-app-sm:text-display-md">34 of 50</div>
-						<div className="mt-3 font-display text-display-sm tracking-[-.035em] text-ink">Core group</div>
-						<div className="mt-2.5 font-display text-title-md text-ink">Vision meeting · Oct 12</div>
+						<div className="mt-3 font-display text-display-sm tracking-[-0.02em] text-ink">Core group</div>
+						<div className="mt-2.5 font-title tracking-[-0.02em] text-title-md text-ink">Vision meeting · Oct 12</div>
 						<p className="mt-3 text-sm text-text-3">
 							display-lg 76 · display-sm 40 · title-lg 28 · title-md 22 · title-sm 18
 						</p>
 					</Specimen>
-					<Specimen label="Instrument Sans · body and UI">
+					<Specimen label="DM Sans · body, UI and table numbers">
 						<p className="text-lg text-ink">
 							Gather a core group of committed adults who share the vision before launch.
 						</p>
@@ -146,17 +197,18 @@ export function FoundationsPreview() {
 				</div>
 			</Section>
 
-			<Section index={5} title="Shape, elevation and patterns" code="--ef-radius-* · --ef-shadow-* · .hatch">
+			<Section index={7} title="Shape, elevation and patterns" code="--corner-* · --ef-shadow-* · .hatch">
 				<div className="grid gap-5 app-md:grid-cols-2 app-lg:grid-cols-4">
-					<Specimen label="Radius">
+					<Specimen label="Corners">
 						<div className="flex flex-wrap items-end gap-3">
-							<div className="size-10 rounded-xs bg-surface-2" />
-							<div className="size-12 rounded-sm bg-surface-2" />
-							<div className="size-14 rounded-md bg-surface-2" />
-							<div className="size-16 rounded-lg bg-surface-2" />
+							<div className="h-14 w-[72px] rounded-card bg-surface-2" />
+							<div className="h-9 w-[72px] rounded-md bg-surface-2" />
+							<div className="h-6 w-14 rounded-pill bg-surface-2" />
 							<div className="size-[72px] rounded-card bg-surface-2" />
 						</div>
-						<p className="mt-3 text-xs text-text-3">6 · 10 · 14 · 20 · 26 card · 34 frame</p>
+						<p className="mt-3 text-xs text-text-3">
+							card · control · pill · media. All square; avatars and dots stay round.
+						</p>
 					</Specimen>
 					<Specimen label="Elevation">
 						<div className="flex gap-3">
@@ -195,7 +247,7 @@ export function FoundationsPreview() {
 				</div>
 			</Section>
 
-			<Section index={6} title="Focus and motion" code="--ef-focus · --ef-slide-dur · --ef-slide-ease">
+			<Section index={8} title="Focus and motion" code="--ef-focus · --ef-slide-dur · --ef-slide-ease">
 				<Note>
 					Press Tab to see the focus ring: 2px in --ef-focus with a 2px offset, on keyboard focus only. One shared
 					highlight slides to the hovered or focused item and rests on the selected one. Reduced motion turns the slide,
@@ -209,7 +261,7 @@ export function FoundationsPreview() {
 				</div>
 			</Section>
 
-			<Section index={7} title="Evry character" code="EvryBot size · mood" id="evry">
+			<Section index={9} title="Evry character" code="EvryBot size · mood" id="evry">
 				<div className="grid gap-5 app-md:grid-cols-2">
 					<Specimen label="Sizes · xs 18 · sm 24 · md 30 · lg 40 · xl 96">
 						<div className="flex flex-wrap items-end gap-5">
@@ -231,7 +283,7 @@ export function FoundationsPreview() {
 				</div>
 			</Section>
 
-			<Section index={8} title="Content width" code='--ef-content-max · data-width="wide"'>
+			<Section index={10} title="Content width" code='--ef-content-max · data-width="wide"'>
 				<Note>
 					The top bar and the rail span the window. The content column stops at 1536px and centers in the space beside
 					the rail. Dense list pages (People, Meetings, Documents) use the wide column, up to 1920px. Below 1024px the
@@ -283,10 +335,55 @@ function Specimen({ label, children }: { label: string; children: ReactNode }) {
 
 function BrandTile({ className }: { className: string }) {
 	return (
-		<div className={cn("grid h-[210px] place-items-center rounded-[22px] max-app-sm:h-40", className)}>
-			<div className="flex items-center gap-4">
-				<LogoMark className="h-auto w-16 max-app-sm:w-12" />
-				<Wordmark className="h-auto w-[220px] max-app-sm:w-40" />
+		<div className={cn("grid h-[210px] place-items-center rounded-card max-app-sm:h-40", className)}>
+			<Lockup className="h-auto w-[260px] max-app-sm:w-48" />
+		</div>
+	);
+}
+
+function LogoChip({ className }: { className: string }) {
+	return (
+		<span className={cn("grid size-[34px] place-items-center rounded-card", className)}>
+			<LogoMark className="h-auto w-5" />
+		</span>
+	);
+}
+
+const GRADIENTS: [InsightTone, typeof Plant01Icon, string][] = [
+	["field", Plant01Icon, "Default and growth"],
+	["sky", SparklesIcon, "Neutral finding"],
+	["sage", ChartLineData01Icon, "Key summary"],
+	["rose", Alert02Icon, "Risk or gap"],
+];
+
+/** A muted ramp, 700 to 100: cream text on 700, brand ink on the lighter steps, in both themes. */
+function MutedRamp({ name, note, hue }: { name: string; note: string; hue: "green" | "sky" | "sage" | "rose" }) {
+	const steps = ["700", "500", "300", "100"] as const;
+	const fill = {
+		green: ["bg-green-700", "bg-green-500", "bg-green-300", "bg-green-100"],
+		sky: ["bg-sky-700", "bg-sky-500", "bg-sky-300", "bg-sky-100"],
+		sage: ["bg-sage-700", "bg-sage-500", "bg-sage-300", "bg-sage-100"],
+		rose: ["bg-rose-700", "bg-rose-500", "bg-rose-300", "bg-rose-100"],
+	}[hue];
+	return (
+		<div className="rounded-lg bg-surface p-[22px] shadow-card">
+			<p className="mb-3 text-xs text-text-3">
+				<b className="mr-1.5 font-semibold text-text">{name}</b>
+				{note}
+			</p>
+			<div className="grid h-[72px] grid-cols-4 overflow-hidden rounded-md">
+				{steps.map((step, i) => (
+					<div
+						key={step}
+						className={cn(
+							"flex items-end px-2.5 py-2 font-mono text-[11px]",
+							fill[i],
+							i === 0 ? "text-cream" : "text-ink",
+						)}
+					>
+						{step}
+					</div>
+				))}
 			</div>
 		</div>
 	);
@@ -294,10 +391,10 @@ function BrandTile({ className }: { className: string }) {
 
 function Swatch({ className, name, use }: { className: string; name: string; use: string }) {
 	return (
-		<div className="overflow-hidden rounded-[18px] bg-surface shadow-card">
+		<div className="overflow-hidden rounded-card bg-surface shadow-card">
 			<div className={cn("h-[92px]", className)} />
 			<div className="px-3.5 py-3">
-				<b className="block font-semibold text-ink">{name}</b>
+				<b className="block font-semibold text-text">{name}</b>
 				<span className="font-mono text-xs text-text-3">{use}</span>
 			</div>
 		</div>

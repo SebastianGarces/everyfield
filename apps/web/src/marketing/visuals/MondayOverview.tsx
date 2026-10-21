@@ -44,7 +44,7 @@ export function MondayOverview({ demo: d }: { demo: MondayDemo }) {
 					</div>
 					<div className="flex min-w-0 flex-col gap-4 max-mk-nav:col-span-full max-mk-nav:grid max-mk-nav:grid-cols-[1fr_1fr] max-mk-sm:grid-cols-[1fr]">
 						<Insight
-							tone="g-dawn"
+							tone="g-field"
 							icon={ICONS.compass}
 							label="Focus this week"
 							count="Plant Intelligence"
@@ -73,9 +73,7 @@ function CoreGroup({ d }: { d: MondayDemo }) {
 	return (
 		<DashCard>
 			<DashHead title={d.core} sub="Committed adults" right={<More />} />
-			<div className="font-display type-display-lg leading-none font-medium tracking-[-0.05em] max-mk-sm:type-display-md">
-				34
-			</div>
+			<div className="font-display type-display-lg leading-none tracking-[-0.02em] max-mk-sm:type-display-md">34</div>
 			<div className="mt-2.5 flex items-center gap-2">
 				<Delta dir="up">9 people</Delta>
 				<span className="type-sm text-text-3">vs prior 28 days</span>
@@ -154,13 +152,11 @@ function People() {
 					<div key={s[1]}>
 						<div className="flex items-center justify-between gap-2">
 							<StageChip tone={s[0]}>{s[1]}</StageChip>
-							<span className="font-display type-title-sm font-medium tracking-[-0.03em] whitespace-nowrap">
-								{s[2]}
-							</span>
+							<span className="font-title type-title-sm tracking-[-0.02em] whitespace-nowrap">{s[2]}</span>
 						</div>
-						<div className="relative mt-1.5 h-2.5 overflow-hidden rounded-full bg-surface-raised shadow-[inset_0_0_0_1px_var(--color-line)]">
+						<div className="relative mt-1.5 h-2.5 overflow-hidden bg-surface-raised shadow-[inset_0_0_0_1px_var(--color-line)]">
 							<span
-								className={cn("absolute top-0.5 bottom-0.5 left-0.5 rounded-full", s[5] && "mk-hatch")}
+								className={cn("absolute top-0.5 bottom-0.5 left-0.5", s[5] && "mk-hatch")}
 								style={
 									s[5]
 										? ({ width: s[3] + "%", "--hatch": s[4] } as CSSProperties)
@@ -171,7 +167,7 @@ function People() {
 					</div>
 				))}
 			</div>
-			<div className="mt-4 rounded-[14px] bg-surface-raised px-4 py-3.5 shadow-mk-hairline">
+			<div className="mt-4 bg-surface-raised px-4 py-3.5 shadow-mk-hairline">
 				<div className="type-md font-semibold">14 interviewed people have not committed yet.</div>
 				<div className="mt-1 type-sm text-text-3">Half of them were interviewed more than 3 weeks ago.</div>
 			</div>

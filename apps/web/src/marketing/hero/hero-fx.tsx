@@ -303,13 +303,10 @@ function Live({
 	});
 	return (
 		<m.span
-			className="pointer-events-none absolute top-0 left-0 z-6 inline-flex h-[30px] origin-center items-center gap-[7px] rounded-full bg-white pr-3 pl-1 type-sm font-semibold whitespace-nowrap text-ink opacity-0 shadow-mk-chip will-change-[transform,opacity]"
+			className="pointer-events-none absolute top-0 left-0 z-6 inline-flex h-[30px] origin-center items-center gap-[7px] bg-white pr-3 pl-1 type-sm font-semibold whitespace-nowrap text-ink opacity-0 shadow-mk-chip will-change-[transform,opacity]"
 			style={{ transform, opacity }}
 		>
-			<m.span
-				className="absolute -inset-px rounded-full opacity-0 shadow-[0_0_0_2px_var(--color-green-500)]"
-				style={ring}
-			/>
+			<m.span className="absolute -inset-px opacity-0 shadow-[0_0_0_2px_var(--color-green-500)]" style={ring} />
 			{children}
 		</m.span>
 	);

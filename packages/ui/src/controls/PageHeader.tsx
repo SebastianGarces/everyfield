@@ -1,13 +1,13 @@
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { cn, Icon } from "../foundations";
+import { IntentLink } from "./IntentLink";
 
 export type Crumb = { label: string; href?: string };
 
 /**
  * Breadcrumb (components.md): a nav landmark with an ordered list. The last item is the current page and is not a
- * link. Separators are decorative.
+ * link. Separators are decorative. Links prefetch on intent only (hover, touch or keyboard focus), never because they are in view.
  */
 export function Breadcrumb({ items, className }: { items: Crumb[]; className?: string }) {
 	return (
@@ -22,12 +22,12 @@ export function Breadcrumb({ items, className }: { items: Crumb[]; className?: s
 									{item.label}
 								</span>
 							) : item.href ? (
-								<Link
+								<IntentLink
 									href={item.href}
 									className="rounded-xs underline-offset-[3px] transition-colors hover:text-ink hover:underline"
 								>
 									{item.label}
-								</Link>
+								</IntentLink>
 							) : (
 								<span>{item.label}</span>
 							)}
@@ -64,7 +64,7 @@ export function PageHeader({ title, breadcrumb, subtitle, actions, size = "defau
 				{breadcrumb?.length ? <Breadcrumb items={breadcrumb} className="mb-2.5" /> : null}
 				<h1
 					className={cn(
-						"leading-[1.05] font-medium tracking-[-0.035em] text-ink text-balance",
+						"leading-[1.05] tracking-[-0.02em] text-ink text-balance",
 						size === "xl" ? "text-[52px] max-app-sm:text-[36px]" : "text-display-sm max-app-sm:text-title-lg",
 					)}
 				>

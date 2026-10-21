@@ -119,6 +119,18 @@ exceptions stale and fail the check. Local-only suites remain acceptance work fo
 Briefs use the current catalog and context manifest. Missing context fails explicitly.
 Task starts retain kickoff gates and producer dependencies. OPS tasks use reviewed title,
 owning paths and tooling checks in `maintenanceTasks`; they cannot authorize application code.
+evf reads that entry from the commit under check, never from the home checkout's file: the task
+branch for `task start`, `verify`, `pr open` and `ship`, and the PR head for the verifier and
+`evf approve`. A new task registers on its own branch. `task start` creates the worktree and
+names the missing entry; commit it there and run `task start` again for the brief. A start refuses
+an invalid entry that main or the task branch already carries before it creates the worktree.
+The branch may change `evf.config.json` only in its own entry, even when it owns the file; the verifier
+reviews that entry.
+The only design file they may own is `design/handoff/screens.md`, the generated package-owner map.
+An entry with `"route": "design"` is a design task instead: it owns only `design/` paths and never
+changes `design/everyfield-ui.html`, the approved prototype that the app tokens come from. Its
+`evf ship` checks CI and the different-family review, posts the verified status and stops.
+Sebastian approves it in chat, then `evf approve` checks that status and the changed files and merges.
 An owning path naming an existing folder must end in `/`; paths without it name exact files.
 `taskRisks` can mark sensitive work, which requires an owner decision. Paid services retain
 concrete spending approval. Doctor reports readiness without executing checks or changing settings.
@@ -187,7 +199,10 @@ Only evf writes canonical progress on ship and coordinator acknowledgement. Read
 review, merge and owning-path evidence. Full package closure belongs to integration.
 WP-097's documentary fast-track import remains available with its original owner go-live record.
 
-Reconcile plan membership with Node 24+ `tools/evf/progress.ts --reconcile`, then transfer its
-output through reviewed OPS maintenance. Never discard dirty shared checkouts or change their
+The home checkout owns `docs/build-progress.json`. Ship, acknowledgement and reconcile write it
+there, and task worktrees read it there. Only a transfer task that owns exactly that file (OPS-7)
+may commit it, so plan PRs leave it alone and the home checkout fast-forwards past them.
+Reconcile plan membership in the home checkout with Node 24+ `tools/evf/progress.ts --reconcile`;
+it refuses a task worktree. Transfer the result through OPS-7. Never discard dirty shared checkouts or change their
 branches while another agent is working. Configure GitHub settings only with current owner
 approval. W2 owns the CI workflow, branch protection and GitHub auto-merge setup.

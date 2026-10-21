@@ -8,4 +8,4 @@ export { createSeatService } from "./seats.ts";
 export { createIdentityService } from "./service.ts";
 export type { IdentityConfig, IdentityMail } from "./service.ts";
 
-export { readAccountContact, readAccountContacts, readIdentitySession } from "./reads.ts";
+export { readAccountContact, readAccountContacts } from "./reads.ts";

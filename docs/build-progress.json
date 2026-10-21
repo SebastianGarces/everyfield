@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "project_id": "everyfield-v3",
-  "revision": 74,
-  "updated_at": "2026-10-19T10:04:06.723Z",
+  "revision": 98,
+  "updated_at": "2026-10-20T20:34:37.643Z",
   "packages": {
     "WP-001": {
       "status": "in_progress",
@@ -104,16 +104,23 @@
           "test": "GitHub required CI and anthropic approval",
           "result": "passed",
           "note": "WP-004 merged in PR #112 after cross-model verification at d424cb59a4. https://github.com/SebastianGarces/everyfield/pull/112#issuecomment-6254462490"
+        },
+        {
+          "path": "packages/db/src/schema/",
+          "commit": "4c0342c014be3392d1f251d937afa8498d1e2246",
+          "test": "GitHub required CI and openai approval",
+          "result": "passed",
+          "note": "WP-004 merged in PR #149 after cross-model verification at dec5fd2c4b. https://github.com/SebastianGarces/everyfield/pull/149#issuecomment-6284290414"
         }
       ],
       "notes": "Reviewed task milestones retained; full package closure remains at integration.",
       "owner": null,
-      "revision": 3,
-      "updated_at": "2026-10-18T19:59:11.272Z",
+      "revision": 4,
+      "updated_at": "2026-10-20T05:47:05.472Z",
       "milestones": {
         "WP-004": {
           "task": "WP-004",
-          "merge_commit": "3b4d0f4239ba815cb7af3dc30164b9e82a9dfeec",
+          "merge_commit": "4c0342c014be3392d1f251d937afa8498d1e2246",
           "acknowledged": true,
           "stage": "producer",
           "passed_case_portions": [],
@@ -146,12 +153,33 @@
           "test": "GitHub required CI and openai approval",
           "result": "passed",
           "note": "WP-005/ui merged in PR #113 after cross-model verification at bfdf3867a0. https://github.com/SebastianGarces/everyfield/pull/113#issuecomment-6254984458"
+        },
+        {
+          "path": "packages/domain/src/identity/",
+          "commit": "a40161e6c78c450034cb137b932ac94f6cdf7849",
+          "test": "GitHub required CI and anthropic approval",
+          "result": "passed",
+          "note": "WP-005/api merged in PR #131 after cross-model verification at 8e737f5b8c. https://github.com/SebastianGarces/everyfield/pull/131#issuecomment-6273815380"
+        },
+        {
+          "path": "packages/domain/src/identity/",
+          "commit": "7db7cbf42d4c3fd7ce096f20dd1c92a22b088b9b",
+          "test": "GitHub required CI and anthropic approval",
+          "result": "passed",
+          "note": "WP-005/api merged in PR #135 after cross-model verification at 95bb39f9b4. https://github.com/SebastianGarces/everyfield/pull/135#issuecomment-6276995353"
+        },
+        {
+          "path": "packages/domain/src/identity/",
+          "commit": "755914a682523749c2bae329b4f329c9eee9ab03",
+          "test": "GitHub required CI and openai approval",
+          "result": "passed",
+          "note": "WP-005/api merged in PR #150 after cross-model verification at fdf749ec83. https://github.com/SebastianGarces/everyfield/pull/150#issuecomment-6286161377"
         }
       ],
       "notes": "Reviewed task milestones retained; full package closure remains at integration.",
       "owner": null,
-      "revision": 6,
-      "updated_at": "2026-10-18T20:51:11.189Z",
+      "revision": 9,
+      "updated_at": "2026-10-20T07:54:35.163Z",
       "milestones": {
         "WP-005/contract": {
           "task": "WP-005/contract",
@@ -165,7 +193,7 @@
         },
         "WP-005/api": {
           "task": "WP-005/api",
-          "merge_commit": "d663801f2bba9751774bd583fec42178fa5991c8",
+          "merge_commit": "755914a682523749c2bae329b4f329c9eee9ab03",
           "acknowledged": true,
           "stage": "api",
           "passed_case_portions": [],
@@ -208,12 +236,19 @@
           "test": "GitHub required CI and openai approval",
           "result": "passed",
           "note": "WP-006/ui merged in PR #123 after cross-model verification at 8f69554153. https://github.com/SebastianGarces/everyfield/pull/123#issuecomment-6258194410"
+        },
+        {
+          "path": "packages/domain/src/access/",
+          "commit": "f09ce27ff853b772fad1f280ece7e1935d062691",
+          "test": "GitHub required CI and anthropic approval",
+          "result": "passed",
+          "note": "WP-006/api merged in PR #139 after cross-model verification at 9277623449. https://github.com/SebastianGarces/everyfield/pull/139#issuecomment-6279619086"
         }
       ],
       "notes": "Reviewed task milestones retained; full package closure remains at integration.",
       "owner": null,
-      "revision": 6,
-      "updated_at": "2026-10-19T02:14:36.756Z",
+      "revision": 7,
+      "updated_at": "2026-10-19T23:28:45.277Z",
       "milestones": {
         "WP-006/contract": {
           "task": "WP-006/contract",
@@ -227,7 +262,7 @@
         },
         "WP-006/api": {
           "task": "WP-006/api",
-          "merge_commit": "23ef418020a344954ced748cea0fe07c4807a073",
+          "merge_commit": "f09ce27ff853b772fad1f280ece7e1935d062691",
           "acknowledged": true,
           "stage": "api",
           "passed_case_portions": [],
@@ -270,12 +305,19 @@
           "test": "GitHub required CI and openai approval",
           "result": "passed",
           "note": "WP-007/ui merged in PR #125 after cross-model verification at 0da385251d. https://github.com/SebastianGarces/everyfield/pull/125#issuecomment-6261944370"
+        },
+        {
+          "path": "packages/domain/src/organizations/",
+          "commit": "262e08aaa59c4b82bd59e19471cc8ee195bc9bba",
+          "test": "GitHub required CI and openai approval",
+          "result": "passed",
+          "note": "WP-007/api merged in PR #158 after cross-model verification at 350f2a5289. https://github.com/SebastianGarces/everyfield/pull/158#issuecomment-6289853658"
         }
       ],
       "notes": "Reviewed task milestones retained; full package closure remains at integration.",
       "owner": null,
-      "revision": 6,
-      "updated_at": "2026-10-19T07:27:06.156Z",
+      "revision": 7,
+      "updated_at": "2026-10-20T11:30:35.197Z",
       "milestones": {
         "WP-007/contract": {
           "task": "WP-007/contract",
@@ -289,7 +331,7 @@
         },
         "WP-007/api": {
           "task": "WP-007/api",
-          "merge_commit": "6c314572e5dae749984a329b5e7337bd9381dd99",
+          "merge_commit": "262e08aaa59c4b82bd59e19471cc8ee195bc9bba",
           "acknowledged": true,
           "stage": "api",
           "passed_case_portions": [],
@@ -332,12 +374,19 @@
           "test": "GitHub required CI and openai approval",
           "result": "passed",
           "note": "WP-008/ui merged in PR #127 after cross-model verification at 4b9976be3f. https://github.com/SebastianGarces/everyfield/pull/127#issuecomment-6264658231"
+        },
+        {
+          "path": "packages/domain/src/identity/",
+          "commit": "69e144a8f58b8b8e74f21444d40a6bffaddc1c72",
+          "test": "GitHub required CI and anthropic approval",
+          "result": "passed",
+          "note": "WP-008/api merged in PR #129 after cross-model verification at 79a840584c. https://github.com/SebastianGarces/everyfield/pull/129#issuecomment-6265351869"
         }
       ],
       "notes": "Reviewed task milestones retained; full package closure remains at integration.",
       "owner": null,
-      "revision": 6,
-      "updated_at": "2026-10-19T10:04:06.723Z",
+      "revision": 7,
+      "updated_at": "2026-10-19T10:42:20.581Z",
       "milestones": {
         "WP-008/contract": {
           "task": "WP-008/contract",
@@ -351,7 +400,7 @@
         },
         "WP-008/api": {
           "task": "WP-008/api",
-          "merge_commit": "609866f9a6d8b66aaa914fa7c3e579d03a1d51a6",
+          "merge_commit": "69e144a8f58b8b8e74f21444d40a6bffaddc1c72",
           "acknowledged": true,
           "stage": "api",
           "passed_case_portions": [],
@@ -456,12 +505,33 @@
           "test": "GitHub required CI and anthropic approval",
           "result": "passed",
           "note": "WP-010/api merged in PR #120 after cross-model verification at 683d45475f. https://github.com/SebastianGarces/everyfield/pull/120#issuecomment-6257706229"
+        },
+        {
+          "path": "apps/web/src/features/settings/",
+          "commit": "19591ebcade9c27b64a559b2a935a0f1aa85793d",
+          "test": "GitHub required CI and openai approval",
+          "result": "passed",
+          "note": "WP-010/ui merged in PR #136 after cross-model verification at cdc33d0c91. https://github.com/SebastianGarces/everyfield/pull/136#issuecomment-6278290748"
+        },
+        {
+          "path": "apps/web/src/features/settings/",
+          "commit": "a5b44d63ae53a549aa795eb3795edf49bf044034",
+          "test": "GitHub required CI and openai approval",
+          "result": "passed",
+          "note": "WP-010/ui merged in PR #151 after cross-model verification at c4aa6ca6f0. https://github.com/SebastianGarces/everyfield/pull/151#issuecomment-6285454347"
+        },
+        {
+          "path": "apps/web/src/features/settings/",
+          "commit": "ef379f784e7eb0ab4fb074579e56b5e558ab8829",
+          "test": "GitHub required CI and openai approval",
+          "result": "passed",
+          "note": "WP-010/ui merged in PR #163 after cross-model verification at 28d4766bc4. https://github.com/SebastianGarces/everyfield/pull/163#issuecomment-6300879809"
         }
       ],
       "notes": "Reviewed task milestones retained; full package closure remains at integration.",
       "owner": null,
-      "revision": 6,
-      "updated_at": "2026-10-19T01:28:43.299Z",
+      "revision": 9,
+      "updated_at": "2026-10-20T20:34:37.643Z",
       "milestones": {
         "WP-010/contract": {
           "task": "WP-010/contract",
@@ -475,7 +545,7 @@
         },
         "WP-010/ui": {
           "task": "WP-010/ui",
-          "merge_commit": "275f624d475f1b087ddb4f54e52408500aadd047",
+          "merge_commit": "ef379f784e7eb0ab4fb074579e56b5e558ab8829",
           "acknowledged": true,
           "stage": "ui",
           "passed_case_portions": [],
@@ -525,12 +595,61 @@
           "test": "GitHub required CI and openai approval",
           "result": "passed",
           "note": "WP-011/ui merged in PR #124 after cross-model verification at 8b33e932cb. https://github.com/SebastianGarces/everyfield/pull/124#issuecomment-6261705704"
+        },
+        {
+          "path": "packages/domain/src/people/",
+          "commit": "25b8ac3194f1451160f4c83dc4c2b4134d732d91",
+          "test": "GitHub required CI and anthropic approval",
+          "result": "passed",
+          "note": "WP-011/api merged in PR #130 after cross-model verification at 4942236e8c. https://github.com/SebastianGarces/everyfield/pull/130#issuecomment-6275168078"
+        },
+        {
+          "path": "apps/web/src/features/people/",
+          "commit": "f3734dd7efe76aa602cb0c0233b7950f39a379ac",
+          "test": "GitHub required CI and openai approval",
+          "result": "passed",
+          "note": "WP-011/ui merged in PR #132 after cross-model verification at 6fad9a2bec. https://github.com/SebastianGarces/everyfield/pull/132#issuecomment-6275452305"
+        },
+        {
+          "path": "apps/web/src/features/people/",
+          "commit": "4a1895140a2d2183b4f6431be2107beb6eef3eb3",
+          "test": "GitHub required CI and openai approval",
+          "result": "passed",
+          "note": "WP-011/ui merged in PR #141 after cross-model verification at fb6f90e7f4. https://github.com/SebastianGarces/everyfield/pull/141#issuecomment-6279842432"
+        },
+        {
+          "path": "packages/domain/src/people/",
+          "commit": "89f9c6783b1adda441674787ff890b1c93899261",
+          "test": "GitHub required CI and anthropic approval",
+          "result": "passed",
+          "note": "WP-011/api merged in PR #147 after cross-model verification at 04afceaeb4. https://github.com/SebastianGarces/everyfield/pull/147#issuecomment-6283484041"
+        },
+        {
+          "path": "apps/web/src/features/people/",
+          "commit": "1b70489016c2bfb351d36c39b3ded1f3cbf82bc6",
+          "test": "GitHub required CI and openai approval",
+          "result": "passed",
+          "note": "WP-011/ui merged in PR #145 after cross-model verification at edef95345f. https://github.com/SebastianGarces/everyfield/pull/145#issuecomment-6287454550"
+        },
+        {
+          "path": "packages/domain/src/people/",
+          "commit": "9bb976add9db9cd761003f4fcd6fecfb7061548d",
+          "test": "GitHub required CI and openai approval",
+          "result": "passed",
+          "note": "WP-011/api merged in PR #156 after cross-model verification at 2d832d6ebb. https://github.com/SebastianGarces/everyfield/pull/156#issuecomment-6288815089"
+        },
+        {
+          "path": "apps/web/src/features/people/",
+          "commit": "99ff53dd2926289ab2d070ce2222ba86e1a33558",
+          "test": "GitHub required CI and openai approval",
+          "result": "passed",
+          "note": "WP-011/ui merged in PR #157 after cross-model verification at 403905468a. https://github.com/SebastianGarces/everyfield/pull/157#issuecomment-6289612251"
         }
       ],
       "notes": "Reviewed task milestones retained; full package closure remains at integration.",
       "owner": null,
-      "revision": 7,
-      "updated_at": "2026-10-19T07:08:46.661Z",
+      "revision": 14,
+      "updated_at": "2026-10-20T11:17:45.561Z",
       "milestones": {
         "WP-011/contract": {
           "task": "WP-011/contract",
@@ -544,7 +663,7 @@
         },
         "WP-011/api": {
           "task": "WP-011/api",
-          "merge_commit": "503557115616a35cf59683be2e3edd0db19281ab",
+          "merge_commit": "9bb976add9db9cd761003f4fcd6fecfb7061548d",
           "acknowledged": true,
           "stage": "api",
           "passed_case_portions": [],
@@ -554,7 +673,7 @@
         },
         "WP-011/ui": {
           "task": "WP-011/ui",
-          "merge_commit": "37313a5c785e9e8305b52c60646a615165fe7024",
+          "merge_commit": "99ff53dd2926289ab2d070ce2222ba86e1a33558",
           "acknowledged": true,
           "stage": "ui",
           "passed_case_portions": [],
@@ -597,12 +716,13 @@
       "updated_at": null
     },
     "WP-016": {
-      "status": "not_started",
+      "status": "retired",
       "evidence": [],
-      "notes": "",
+      "notes": "Scope moved to WP-017; ID must not be reused.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-10-20T19:08:13.816Z",
+      "retired_into": "WP-017"
     },
     "WP-017": {
       "status": "not_started",
@@ -637,12 +757,13 @@
       "updated_at": null
     },
     "WP-021": {
-      "status": "not_started",
+      "status": "retired",
       "evidence": [],
-      "notes": "",
+      "notes": "Scope moved to WP-020; ID must not be reused.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-10-20T19:08:13.816Z",
+      "retired_into": "WP-020"
     },
     "WP-022": {
       "status": "not_started",
@@ -945,12 +1066,13 @@
       "updated_at": null
     },
     "WP-052": {
-      "status": "not_started",
+      "status": "retired",
       "evidence": [],
-      "notes": "",
+      "notes": "Scope moved to WP-051; ID must not be reused.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-10-20T19:08:13.816Z",
+      "retired_into": "WP-051"
     },
     "WP-053": {
       "status": "not_started",
@@ -1009,12 +1131,13 @@
       "updated_at": null
     },
     "WP-060": {
-      "status": "not_started",
+      "status": "retired",
       "evidence": [],
-      "notes": "",
+      "notes": "Scope moved to WP-059; ID must not be reused.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-10-20T19:08:13.816Z",
+      "retired_into": "WP-059"
     },
     "WP-061": {
       "status": "not_started",
@@ -1227,8 +1350,8 @@
     },
     "WP-087": {
       "status": "in_progress",
-      "revision": 3,
-      "updated_at": "2026-10-18T15:44:17.568Z",
+      "revision": 5,
+      "updated_at": "2026-10-20T09:26:05.110Z",
       "evidence": [
         {
           "path": "scripts/",
@@ -1243,13 +1366,27 @@
           "test": "GitHub required CI and anthropic approval",
           "result": "passed",
           "note": "WP-087 merged in PR #104 after cross-model verification at 4f3fb3b3fc. https://github.com/SebastianGarces/everyfield/pull/104#issuecomment-6251843587"
+        },
+        {
+          "path": "scripts/",
+          "commit": "ef03a90369572dc44749ee77fa6a5812d26d7bcd",
+          "test": "GitHub required CI and openai approval",
+          "result": "passed",
+          "note": "WP-087 merged in PR #154 after cross-model verification at be10294922. https://github.com/SebastianGarces/everyfield/pull/154#issuecomment-6286803829"
+        },
+        {
+          "path": "scripts/",
+          "commit": "1e38e2adee10abc5e19d489f50b48340f334ad0d",
+          "test": "GitHub required CI and anthropic approval",
+          "result": "passed",
+          "note": "WP-087 merged in PR #155 after cross-model verification at 24a891a23a. https://github.com/SebastianGarces/everyfield/pull/155#issuecomment-6287792061"
         }
       ],
       "notes": "Reviewed task milestones retained; full package closure remains at integration.",
       "milestones": {
         "WP-087": {
           "task": "WP-087",
-          "merge_commit": "3417da53561003907786cf483c8534c8c8aeda63",
+          "merge_commit": "1e38e2adee10abc5e19d489f50b48340f334ad0d",
           "acknowledged": true,
           "stage": "producer",
           "passed_case_portions": [],
@@ -1261,8 +1398,8 @@
     },
     "WP-088": {
       "status": "in_progress",
-      "revision": 2,
-      "updated_at": "2026-10-18T08:00:55.237Z",
+      "revision": 4,
+      "updated_at": "2026-10-20T16:08:41.595Z",
       "evidence": [
         {
           "path": "packages/ui/src/foundations/",
@@ -1270,13 +1407,27 @@
           "test": "GitHub required CI and openai approval",
           "result": "passed",
           "note": "WP-088 merged in PR #83 after cross-model verification at 991a7adfaf. https://github.com/SebastianGarces/everyfield/pull/83#issuecomment-6247391785"
+        },
+        {
+          "path": "packages/ui/src/foundations/",
+          "commit": "61d084689fc7ad003de4a82f9551e38359bc002b",
+          "test": "GitHub required CI and openai approval",
+          "result": "passed",
+          "note": "WP-088 merged in PR #138 after cross-model verification at 80f598453c. https://github.com/SebastianGarces/everyfield/pull/138#issuecomment-6279097069"
+        },
+        {
+          "path": "packages/ui/src/foundations/",
+          "commit": "055f6a9d0606c4cd7aa839648d02459dd4839a9f",
+          "test": "GitHub required CI and openai approval",
+          "result": "passed",
+          "note": "WP-088 merged in PR #160 after cross-model verification at 040d191c45. https://github.com/SebastianGarces/everyfield/pull/160#issuecomment-6295398367"
         }
       ],
       "notes": "Reviewed task milestones retained; full package closure remains at integration.",
       "milestones": {
         "WP-088": {
           "task": "WP-088",
-          "merge_commit": "37733bc59a4c8fa918135dab364e4dbf758e4786",
+          "merge_commit": "055f6a9d0606c4cd7aa839648d02459dd4839a9f",
           "acknowledged": true,
           "stage": "producer",
           "passed_case_portions": [],
@@ -1315,8 +1466,8 @@
     },
     "WP-090": {
       "status": "in_progress",
-      "revision": 2,
-      "updated_at": "2026-10-18T18:25:40.615Z",
+      "revision": 3,
+      "updated_at": "2026-10-20T01:37:10.513Z",
       "evidence": [
         {
           "path": "packages/ui/src/display/",
@@ -1324,13 +1475,20 @@
           "test": "GitHub required CI and openai approval",
           "result": "passed",
           "note": "WP-090 merged in PR #109 after cross-model verification at edd55ae22c. https://github.com/SebastianGarces/everyfield/pull/109#issuecomment-6253451590"
+        },
+        {
+          "path": "packages/ui/src/display/",
+          "commit": "51eebc92647e3af707ec049eaf28885ea56ea395",
+          "test": "GitHub required CI and openai approval",
+          "result": "passed",
+          "note": "WP-090 merged in PR #146 after cross-model verification at bedab092fa. https://github.com/SebastianGarces/everyfield/pull/146#issuecomment-6281265352"
         }
       ],
       "notes": "Reviewed task milestones retained; full package closure remains at integration.",
       "milestones": {
         "WP-090": {
           "task": "WP-090",
-          "merge_commit": "a1698d4c1409437a83d82a9c9dc8707400083b39",
+          "merge_commit": "51eebc92647e3af707ec049eaf28885ea56ea395",
           "acknowledged": true,
           "stage": "producer",
           "passed_case_portions": [],
@@ -1384,8 +1542,8 @@
     },
     "WP-097": {
       "status": "done",
-      "revision": 2,
-      "updated_at": "2026-10-19T00:08:30.970Z",
+      "revision": 3,
+      "updated_at": "2026-10-19T10:13:56.538Z",
       "evidence": [
         {
           "path": "intent://local/current-review/note/ab46702e-0b0e-498f-953d-194f02211bf5 (Final color check and go-live authorization: independent Sol/Codex approval at b084c1484a3b6258a8aa01dd815c068d29bf32f2; Squash merge and first production deployment: identical tree at release 7470996c9857b4feb847f6260fc90e84ab543558); /Users/sebastian/dev/everyfield_v3/.git/evf/evidence/E5-go-live/launch-summary.json; /Users/sebastian/dev/everyfield_v3/.git/evf/evidence/E5-go-live/step-zero.json; intent://local/current-review/note/9eaee90d-ca4b-414e-8741-faae553df175 (supporting earlier Opus integrated-preview approval only, at e70a0c88)",
@@ -1443,7 +1601,7 @@
         "WP-097": {
           "task": "WP-097",
           "merge_commit": "fc7bf4c95de549abdada130af1ca95c3dd3a6266",
-          "acknowledged": false,
+          "acknowledged": true,
           "stage": "producer",
           "passed_case_portions": [],
           "passed_gate_portions": [],

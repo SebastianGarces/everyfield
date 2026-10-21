@@ -9,7 +9,8 @@ const ITEM_ICONS: IconName[] = ["task", "eye", "flag", "users"];
 
 /**
  * "Why the numbers are true": four short reasons, with a still picture of what one plant shares (IDN-022). The heading
- * and the reasons sit left of the picture on wide screens; on phones the picture follows the reasons.
+ * and the reasons sit left of the picture on wide screens; on phones the picture follows the reasons. The picture sits on a
+ * flat cream panel: every photo already has a slot on this page (no repeats), and its white card is not colorful.
  */
 export function TrustSection({ headline, items }: { headline: string; items: { title: string; body: string }[] }) {
 	return (
@@ -24,7 +25,7 @@ export function TrustSection({ headline, items }: { headline: string; items: { t
 							<li key={x.title} className="flex gap-4">
 								<CardIcon tone="ink" icon={ICONS[ITEM_ICONS[i]!]} size={38} glyph={18} className="mt-0.5" />
 								<div className="min-w-0">
-									<h3 className="font-display type-title-sm mk-xl:type-title-md leading-[1.2] font-medium tracking-[-0.02em]">
+									<h3 className="font-title type-title-sm mk-xl:type-title-md leading-[1.2] tracking-[-0.02em]">
 										{x.title}
 									</h3>
 									<p className="mt-1.5 max-w-[52ch] type-lg leading-[1.55] text-pretty text-text-2">{x.body}</p>
@@ -36,15 +37,13 @@ export function TrustSection({ headline, items }: { headline: string; items: { t
 				<Reveal className="col-span-5 col-start-8 min-w-0 max-mk-cx:col-span-12 max-mk-cx:col-start-1">
 					<div
 						aria-hidden="true"
-						className="ef-ui mk-gsurf g-sky relative isolate grid place-items-center overflow-hidden rounded-card px-[clamp(16px,3vw,48px)] py-[clamp(28px,4vw,56px)]"
+						className="ef-ui relative isolate grid place-items-center overflow-hidden bg-cream px-[clamp(16px,3vw,48px)] py-[clamp(28px,4vw,56px)]"
 					>
-						<div className="w-[min(400px,100%)] rounded-[22px] bg-white px-5 pt-[18px] pb-2 type-sm text-text shadow-mk-panel-flat">
+						<div className="w-[min(400px,100%)] bg-white px-5 pt-[18px] pb-2 type-sm text-text shadow-mk-panel-flat">
 							<div className="mb-2 flex items-center gap-3">
 								<CardIcon tone="green" icon={ICONS.pin} size={36} glyph={17} />
 								<div className="min-w-0 flex-1">
-									<div className="font-display type-title-sm leading-[1.2] font-medium tracking-[-0.02em]">
-										Harvest Point Church
-									</div>
+									<div className="font-title type-title-sm leading-[1.2] tracking-[-0.02em]">Harvest Point Church</div>
 									<div className="mt-0.5 type-sm text-text-3">Sharing with Grace Church</div>
 								</div>
 							</div>
@@ -55,13 +54,13 @@ export function TrustSection({ headline, items }: { headline: string; items: { t
 										{on ? "Shared" : "Not shared"}
 										<span
 											className={cn(
-												"relative h-[22px] w-[38px] flex-none rounded-full",
+												"relative h-[22px] w-[38px] flex-none",
 												on ? "bg-green-500" : "bg-surface-2 shadow-[inset_0_0_0_1px_var(--color-line-2)]",
 											)}
 										>
 											<span
 												className={cn(
-													"absolute top-[3px] size-4 rounded-full bg-white shadow-raised",
+													"absolute top-[3px] size-4 bg-white shadow-raised",
 													on ? "left-[19px]" : "left-[3px]",
 												)}
 											/>

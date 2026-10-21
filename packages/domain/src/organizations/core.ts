@@ -19,7 +19,7 @@ import {
 } from "@everyfield/contracts/organizations";
 import type { Transaction } from "@everyfield/db/client";
 import { alias } from "@everyfield/db/columns";
-import { and, eq, getTableColumns, isNull, lte, sql, type SQL } from "@everyfield/db/query";
+import { and, eq, getTableColumns, isNull, sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { currentActor, liveOwner } from "@everyfield/domain/access";
 import { createHash, randomUUID } from "node:crypto";
@@ -63,33 +63,36 @@ export const endpointValues = (pair: RelationshipPair) => [
 	pair.kind === "sending_church" ? pair.subject.id : null,
 	pair.organization.id,
 ];
-export async function subjectAuthority(tx: Transaction, actor: Actor, pair: RelationshipPair): Promise<boolean> {
+export async function subjectAuthority(
+	tx: Transaction,
+	actor: Actor,
+	pair: RelationshipPair,
+	lock = true,
+): Promise<boolean> {
 	if (!sameOwner(actor.context.owner, subjectOwner(pair))) return false;
 	if (pair.kind !== "discovery") return administrator(actor);
-	const d = await tx
+	const discovery = tx
 		.select({ id: tables.discovery.id })
 		.from(tables.discovery)
-		.where(and(eq(tables.discovery.account_id, pair.accountId), isNull(tables.discovery.converted_at)))
-		.for("share");
-	const s = await tx
+		.where(and(eq(tables.discovery.account_id, pair.accountId), isNull(tables.discovery.converted_at)));
+	const seats = tx
 		.select({ id: tables.seat.id })
 		.from(tables.seat)
-		.where(and(eq(tables.seat.account_id, pair.accountId), isNull(tables.seat.ended_at)))
-		.for("share");
+		.where(and(eq(tables.seat.account_id, pair.accountId), isNull(tables.seat.ended_at)));
+	const d = await (lock ? discovery.for("share") : discovery);
+	const s = await (lock ? seats.for("share") : seats);
 	return d.length === 1 && s.length === 0;
 }
-export async function validPair(tx: Transaction, pair: RelationshipPair) {
-	if (!(await liveOwner(tx, subjectOwner(pair))) || !(await liveOwner(tx, pair.organization))) return false;
-	if (pair.kind === "discovery")
-		return (
-			(
-				await tx
-					.select({ id: tables.discovery.id })
-					.from(tables.discovery)
-					.where(and(eq(tables.discovery.account_id, pair.accountId), isNull(tables.discovery.converted_at)))
-					.for("share")
-			).length === 1
-		);
+/** Both endpoints exist and are not being deleted. A write locks them; a read observes. */
+export async function validPair(tx: Transaction, pair: RelationshipPair, lock = true) {
+	if (!(await liveOwner(tx, subjectOwner(pair), lock)) || !(await liveOwner(tx, pair.organization, lock))) return false;
+	if (pair.kind === "discovery") {
+		const discovery = tx
+			.select({ id: tables.discovery.id })
+			.from(tables.discovery)
+			.where(and(eq(tables.discovery.account_id, pair.accountId), isNull(tables.discovery.converted_at)));
+		return (await (lock ? discovery.for("share") : discovery)).length === 1;
+	}
 	return true;
 }
 export const affiliationSchema = z.object({
@@ -113,26 +116,42 @@ export const affiliationSchema = z.object({
 	share_wiki: z.boolean(),
 	share_activity: z.boolean(),
 	shared_findings: z.boolean(),
+	/** Computed by loadAffiliations: no lifecycle witness on the link or any endpoint, and a Discovery subject still open. */
+	live: z.boolean(),
+	/** Computed by loadAffiliations: live, not ended and accepted. */
+	active: z.boolean(),
 });
 export type Affiliation = z.infer<typeof affiliationSchema>;
 const receivingOrganization = alias(tables.organization, "receiving_organization");
 const sendingOrganization = alias(tables.organization, "sending_organization");
-export async function loadAffiliations(tx: Transaction, predicate: SQL, write = false) {
-	const rows = await tx
+/** A pool or a transaction: a read needs no transaction. */
+export type Reader = Pick<Transaction, "select" | "execute">;
+/**
+ * Lock order shared by every write on a link: the organization, then the link. An organization's write gate locks the
+ * organization before its command body; a subject-side write updates the organization's material revision after the
+ * link. This filter takes the organization lock before the row lock in the same statement, so both sides queue on
+ * the organization instead of deadlocking.
+ */
+const organizationFirst = sql<boolean>`EXISTS(SELECT FROM organization o WHERE o.id=${tables.affiliation.organization_id} FOR NO KEY UPDATE)`;
+/** Affiliations with their names and a computed `active` flag. A write locks the rows; a read takes no lock. */
+export async function loadAffiliations(tx: Reader, predicate: SQL, write = false) {
+	const live = sql<boolean>`(NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (w.affiliation_id=${tables.affiliation.id} OR (w.opaque_subject_id IN (${tables.affiliation.organization_id},${tables.affiliation.plant_id},${tables.affiliation.account_id},${tables.affiliation.sending_church_id}) AND w.kind IN ('account','plant','organization')))) AND (${tables.affiliation.account_id} IS NULL OR EXISTS(SELECT FROM discovery d WHERE d.account_id=${tables.affiliation.account_id} AND d.converted_at IS NULL)))`;
+	const query = tx
 		.select({
 			...getTableColumns(tables.affiliation),
 			organization_kind: receivingOrganization.kind,
 			organization_name: receivingOrganization.name,
 			subject_kind: sendingOrganization.kind,
-			active: sql<boolean>`${tables.affiliation.ended_at} IS NULL AND ${tables.affiliation.accepted_at}<=clock_timestamp() AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (w.affiliation_id=${tables.affiliation.id} OR (w.opaque_subject_id IN (${tables.affiliation.organization_id},${tables.affiliation.plant_id},${tables.affiliation.account_id},${tables.affiliation.sending_church_id}) AND w.kind IN ('account','plant','organization')))) AND (${tables.affiliation.account_id} IS NULL OR EXISTS(SELECT FROM discovery d WHERE d.account_id=${tables.affiliation.account_id} AND d.converted_at IS NULL))`,
+			live,
+			active: sql<boolean>`${tables.affiliation.ended_at} IS NULL AND ${tables.affiliation.accepted_at}<=clock_timestamp() AND ${live}`,
 		})
 		.from(tables.affiliation)
 		.innerJoin(receivingOrganization, eq(receivingOrganization.id, tables.affiliation.organization_id))
 		.leftJoin(sendingOrganization, eq(sendingOrganization.id, tables.affiliation.sending_church_id))
-		.where(predicate)
-		.orderBy(tables.affiliation.id)
-		.for(write ? "update" : "share", { of: tables.affiliation });
-	return rows.map((row) => ({ ...affiliationSchema.parse(row), active: row.active }));
+		.where(write ? and(predicate, organizationFirst) : predicate)
+		.orderBy(tables.affiliation.id);
+	const rows = await (write ? query.for("update", { of: tables.affiliation }) : query);
+	return rows.map((row) => affiliationSchema.parse(row));
 }
 export async function loadAffiliation(tx: Transaction, id: string, write = false): Promise<Affiliation | null> {
 	return (await loadAffiliations(tx, eq(tables.affiliation.id, id), write))[0] ?? null;
@@ -170,39 +189,10 @@ export const choices = (a: Affiliation) =>
 		activity: a.share_activity,
 		shared_findings: a.shared_findings,
 	});
-export async function active(tx: Transaction, a: Affiliation) {
-	return (
-		a.ended_at === null &&
-		(
-			await tx
-				.select({ id: tables.affiliation.id })
-				.from(tables.affiliation)
-				.where(
-					and(
-						eq(tables.affiliation.id, a.id),
-						lte(
-							tables.affiliation.accepted_at,
-							sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-						),
-					),
-				)
-		).length === 1 &&
-		(await validPair(tx, pairOf(a))) &&
-		!(
-			await tx
-				.select({ id: tables.lifecycle_witness.id })
-				.from(tables.lifecycle_witness)
-				.where(
-					and(
-						eq(tables.lifecycle_witness.affiliation_id, a.id),
-						sql<unknown>`(${tables.lifecycle_witness.state} != 'active')`,
-					),
-				)
-				.for("share")
-		).length
-	);
-}
+/** The live flag loadAffiliations computed in the same statement that read the row. */
+export const active = (a: Affiliation) => a.active;
 export interface OrganizationEffects {
+	/** Queue the invitation mail into `writes`, the command's single write statement (D70). */
 	invitation(
 		tx: Transaction,
 		input: {
@@ -214,7 +204,9 @@ export interface OrganizationEffects {
 			expiresAt: string;
 			operationId: string;
 		},
+		writes: SQLWrapper[],
 	): Promise<void>;
+	/** One job row for the coarse notice. The command runs it inside its single write statement (D70). */
 	notice(
 		tx: Transaction,
 		input: {
@@ -226,8 +218,9 @@ export interface OrganizationEffects {
 			revision: string;
 			operationId: string;
 		},
-	): Promise<void>;
-	invalidate(tx: Transaction, input: { owners: readonly Owner[]; sourceId: string; revision: string }): Promise<void>;
+	): SQLWrapper;
+	/** Stops queued work that read the old grant. Runs inside the command's single write statement (D70). */
+	invalidate(tx: Transaction, input: { owners: readonly Owner[]; sourceId: string; revision: string }): SQLWrapper;
 }
 type Command = { requestKey: string; expectedRevision: string; input: unknown };
 export async function beginCommand(tx: Transaction, actor: Actor, selected: Owner, name: string, command: Command) {
@@ -278,16 +271,53 @@ export async function appendEvent(
 	});
 	return id;
 }
-export async function invalidate(
+/** Queue the organization's material bump and the stale-work supersede into the command's write statement. */
+export function invalidate(
 	tx: Transaction,
 	effects: OrganizationEffects,
+	c: NewCommand,
 	pair: RelationshipPair,
 	id: string,
 	rev: string,
 ) {
-	await tx
-		.update(tables.organization)
-		.set({ material_revision: sql<unknown>`(${tables.organization.material_revision} + 1)` })
-		.where(eq(tables.organization.id, pair.organization.id));
-	await effects.invalidate(tx, { owners: [pair.organization], sourceId: id, revision: rev });
+	c.writes.push(
+		tx
+			.update(tables.organization)
+			.set({ material_revision: sql<unknown>`(${tables.organization.material_revision} + 1)` })
+			.where(eq(tables.organization.id, pair.organization.id)),
+		effects.invalidate(tx, { owners: [pair.organization], sourceId: id, revision: rev }),
+	);
 }
+/** SQL fragments for one-statement fact reads: the checks validPair and subjectAuthority make, as boolean columns. */
+export const witnessHides = (kind: "account" | "plant", id: SQL) =>
+	sql<boolean>`EXISTS(SELECT FROM lifecycle_witness w WHERE w.kind=${kind} AND w.opaque_subject_id=${id} AND w.state NOT IN ('active','cancelled'))`;
+export const discoveryOpen = (accountId: SQL) =>
+	sql<boolean>`EXISTS(SELECT FROM discovery d WHERE d.account_id=${accountId} AND d.converted_at IS NULL)`;
+export const seatless = (accountId: SQL) =>
+	sql<boolean>`NOT EXISTS(SELECT FROM seat s WHERE s.account_id=${accountId} AND s.ended_at IS NULL)`;
+const uuid = (value: string) => sql`${sql.param(value)}::uuid`;
+/** The endpoint root exists with that kind and no lifecycle witness hides it. Organizations carry no witness. */
+export function liveEndpoint(o: Owner): SQL<boolean> {
+	if (o.kind === "global") return sql<boolean>`false`;
+	if (o.kind === "organization")
+		return sql<boolean>`EXISTS(SELECT FROM organization WHERE id=${uuid(o.id)} AND kind=${o.organizationKind})`;
+	const root = o.kind === "plant" ? sql`plant` : sql`account`;
+	return sql<boolean>`(EXISTS(SELECT FROM ${root} WHERE id=${uuid(o.id)}) AND NOT ${witnessHides(o.kind, uuid(o.id))})`;
+}
+/** Both endpoints exist and are not being deleted, and a Discovery subject is still open: validPair in one column. */
+export function pairLive(pair: RelationshipPair): SQL<boolean> {
+	const live = sql<boolean>`(${liveEndpoint(subjectOwner(pair))} AND ${liveEndpoint(pair.organization)})`;
+	return pair.kind === "discovery" ? sql<boolean>`(${live} AND ${discoveryOpen(uuid(pair.accountId))})` : live;
+}
+/** The subject may act for a discovery pair only while the profile is open and the account holds no live seat. */
+export const discoveryAuthority = (pair: RelationshipPair) =>
+	pair.kind === "discovery"
+		? sql<boolean>`(${discoveryOpen(uuid(pair.accountId))} AND ${seatless(uuid(pair.accountId))})`
+		: sql<boolean>`true`;
+type PairColumns = Record<"plant_id" | "account_id" | "sending_church_id" | "organization_id", SQLWrapper>;
+/** The rows of this exact pair in `affiliation` or `relationship_invitation`. */
+export const pairMatch = (t: PairColumns, pair: RelationshipPair) => {
+	const [plant, account, church, organization] = endpointValues(pair);
+	const nullable = (v: string | null | undefined) => (v ? uuid(v) : sql`NULL::uuid`);
+	return sql`${t.plant_id} IS NOT DISTINCT FROM ${nullable(plant)} AND ${t.account_id} IS NOT DISTINCT FROM ${nullable(account)} AND ${t.sending_church_id} IS NOT DISTINCT FROM ${nullable(church)} AND ${t.organization_id}=${uuid(organization!)}`;
+};

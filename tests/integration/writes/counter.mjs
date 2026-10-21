@@ -28,13 +28,20 @@ const factories = {
 	createLifecycleCleanup: "lifecycle.purge",
 	referenceService: "reference",
 	attemptBudget: "identity.budget",
+	createTaskWriter: "tasks",
 };
 const standalone = {
 	"/packages/domain/src/early-access/index.ts": ["receiveAccessRequest"],
 	"/packages/domain/src/people/core.ts": ["withPeopleWrite"],
+	"/packages/domain/src/meetings/core.ts": ["withMeetingsWrite"],
+	"/packages/domain/src/meetings/tokens.ts": ["answerRsvpToken"],
+	"/packages/domain/src/meetings/notifications.ts": ["syncNotifications"],
 	"/packages/domain/src/onboarding/core.ts": ["withOnboardingWrite"],
 	"/packages/domain/src/settings/core.ts": ["withSettingsWrite"],
+	"/packages/domain/src/tasks/core.ts": ["withTaskWrite"],
 	"/packages/domain/src/settings/avatar.ts": ["uploadAvatar"],
+	"/packages/domain/src/people/fields/index.ts": ["uploadPersonPhoto"],
+	"/packages/domain/src/people/commitments/index.ts": ["uploadCommitmentDocument", "getCommitmentDownload"],
 	"/packages/domain/src/settings/deletion.ts": ["issueRestrictedDeletionSession"],
 	"/packages/domain/src/people/references.ts": ["detachAccountPersonLinks"],
 	"/packages/domain/src/phases/creation-entry/index.ts": ["recordCreationEntry"],
@@ -181,6 +188,13 @@ registerHooks({
 				source = source.slice(0, offset) + text + source.slice(offset);
 			const objects = {
 				"/packages/domain/src/people/people.ts": { peopleWriter: "people", accountPersonProducer: "accountPerson" },
+				"/packages/domain/src/people/fields/index.ts": { personFields: "people" },
+				"/packages/domain/src/people/assessments/index.ts": { assessments: "people" },
+				"/packages/domain/src/people/interviews/index.ts": { interviews: "people" },
+				"/packages/domain/src/people/commitments/index.ts": { commitments: "people" },
+				"/packages/domain/src/meetings/meetings.ts": { meetingsWriter: "meetings" },
+				"/packages/domain/src/meetings/guests.ts": { guestsWriter: "meetings" },
+				"/packages/domain/src/meetings/venues.ts": { venuesWriter: "venues" },
 			};
 			for (const [name, prefix] of Object.entries(objects[path.slice(root.length)] ?? {}))
 				source += `\nglobalThis.__evfWriteCounts.decorate(${JSON.stringify(prefix)},${name});`;

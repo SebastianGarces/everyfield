@@ -35,7 +35,7 @@ export function FactsPanel() {
 						<FactsRing />
 					</svg>
 					<div>
-						<Num className="block type-title-lg leading-none">
+						<Num className="block font-display type-title-lg leading-none">
 							<Count fx="facts.pct" max={71} unit="%" />
 						</Num>
 						<div className="type-sm text-text-3">of new guests contacted within 48 hours</div>
@@ -56,7 +56,7 @@ export function FactsPanel() {
 									Open
 								</Badge>
 							) : null}
-							<span className="font-display type-title-sm font-medium tracking-[-0.02em] whitespace-nowrap">
+							<span className="font-title type-title-sm tracking-[-0.02em] whitespace-nowrap">
 								<Count fx="facts.kv" n={k} max={r[1]} />
 							</span>
 						</span>
@@ -102,25 +102,22 @@ export function EvryPanel({ demo }: { demo: EvryDemo }) {
 				<St i={0} className="flex items-center gap-2.5 border-b border-line pb-3">
 					<MoodBot fx="evry.mood" follow />
 					<div className="min-w-0 flex-1">
-						<div className="font-display type-title-sm font-medium">Evry</div>
+						<div className="font-title tracking-[-0.02em] type-title-sm">Evry</div>
 						<div className="type-xs text-text-3">Reads and drafts. You approve every change.</div>
 					</div>
 				</St>
-				<St
-					i={1}
-					className="max-w-[86%] self-end rounded-2xl rounded-br-xs bg-ink px-3.5 py-[11px] type-sm leading-[1.45] text-on-ink"
-				>
+				<St i={1} className="max-w-[86%] self-end bg-ink px-3.5 py-[11px] type-sm leading-[1.45] text-on-ink">
 					<Typed text={demo.q} fx="evry.q" />
 				</St>
 				<Move
 					fx="evry.aIn"
-					className="max-w-[86%] self-start rounded-2xl rounded-bl-xs bg-surface-2 px-3.5 py-[11px] type-sm leading-[1.45] opacity-0"
+					className="max-w-[86%] self-start bg-surface-2 px-3.5 py-[11px] type-sm leading-[1.45] opacity-0"
 				>
 					<Typed text={demo.a} fx="evry.a" />
 				</Move>
 				<Move
 					fx="evry.card"
-					className="overflow-hidden rounded-[18px] bg-white opacity-0 shadow-[inset_0_0_0_1px_var(--color-line),var(--shadow-raised)]"
+					className="overflow-hidden bg-white opacity-0 shadow-[inset_0_0_0_1px_var(--color-line),var(--shadow-raised)]"
 				>
 					<div className="flex items-center gap-2.5 border-b border-mk-amber-500-18 bg-amber-50 px-4 py-3 type-sm font-semibold text-amber-600">
 						<Icon icon={ICONS.edit} />
@@ -187,7 +184,7 @@ export function SharePanel({ unshared }: { unshared: string }) {
 						{i === 1 ? <ShareSwitch /> : <Switch on={!!r[1]} lock={!!r[2]} />}
 					</St>
 				))}
-				<St i={5} className="mt-3 rounded-[14px] bg-surface-2 px-3.5 py-3">
+				<St i={5} className="mt-3 bg-surface-2 px-3.5 py-3">
 					<div className="type-xs text-text-3">What Grace Church sees</div>
 					<div className="mt-1.5 flex items-center justify-between gap-2 type-sm font-semibold">
 						<span>Harvest Point · Phase 1</span>
@@ -214,7 +211,7 @@ export function SharePanel({ unshared }: { unshared: string }) {
 function Switch({ on, lock }: { on: boolean; lock: boolean }) {
 	return (
 		<span className={cn(SWITCH, lock && "opacity-60")}>
-			<b className={cn("absolute inset-0 rounded-full bg-green-500", on ? "opacity-100" : "opacity-0")} />
+			<b className={cn("absolute inset-0 bg-green-500", on ? "opacity-100" : "opacity-0")} />
 			<i className={cn(KNOB, on && "[transform:translateX(14px)]")} />
 		</span>
 	);

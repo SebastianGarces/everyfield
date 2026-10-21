@@ -21,9 +21,7 @@ test("BUG-workflow: preserve selected producer dependencies across forward refer
 		for (const p of dag.packages)
 			for (const d of p.depends_on) {
 				const producer = by.get(d)!;
-				const finals = [
-					producer.find((b) => b.part === "contract") ?? producer.find((b) => b.part === "api") ?? producer[0],
-				].map((b) => b.key);
+				const finals = [producer.find((b) => b.part === "api") ?? producer[0]].map((b) => b.key);
 				for (const b of by.get(p.id)!)
 					for (const key of finals) assert.ok(b.dependsOn.includes(key), `${b.taskId} lost ${d}: ${key}`);
 			}
@@ -58,7 +56,7 @@ test("INV-context: load current acceptance and fail when its required input is m
 });
 
 import { fixture } from "./fixtures.ts";
-import { parseTask, evfDataDir, loadConfig } from "../lib.ts";
+import { parseTask, evfDataDir, loadConfig, runtimeDir } from "../lib.ts";
 import {
 	feedbackTriage,
 	startFeedbackTask,
@@ -301,7 +299,7 @@ test("INV-workflow-routing: Next server paths stay with implementor and presenta
 
 import { ship, listShipped, prOpen, checkPr } from "../ship.ts";
 import { approve } from "../approve.ts";
-import { requireImplementation, requireSpend } from "../policy.ts";
+import { requireImplementation, requireSpend, requireTaskScope } from "../policy.ts";
 test("INV-gate-phases: local evidence producers can start before runtime completion; paid commitment remains gated", () => {
 	const f = fixture();
 	try {
@@ -358,9 +356,12 @@ const approveWrites = (f: any) =>
 test("INV-human-approve-scope: ordinary build and OPS PRs refuse evf approve before any write", () => {
 	const f = fixture();
 	try {
+		// An OPS branch's route comes from the registration committed at its PR head, so the head is fetched.
+		f.git("remote", "add", "origin", f.bare(join(f.root, "fake-bin/origin.git")));
+		f.git("push", "-q", "origin", "main", "main:refs/heads/task/ops-1");
 		for (const branch of ["task/wp-001", "task/ops-1", "ops/some-tooling"]) {
 			const s = f.getState();
-			s.pr = approvePr(branch, { files: [{ path: "tools/evf/ship.ts" }] });
+			s.pr = approvePr(branch, { files: [{ path: "tools/evf/ship.ts" }], headRefOid: f.git("rev-parse", "main") });
 			f.setState(s);
 			assert.throws(
 				() => approve(f.root, 77, { ownerApproval: "Approved for this PR" }),
@@ -601,6 +602,17 @@ test("BUG-plan-context: plan and brief use the same manifest acceptance scope, i
 			brief.split("\n").find((line) => line.startsWith("Goal: ")),
 			`Goal: ${loadDag(f.root).packages.find((p) => p.id === "WP-002")!.goal}`,
 		);
+		const plan = loadDag(f.root).packages.find((p) => p.id === "WP-002")!;
+		assert.ok(brief.includes(`Features: ${plan.outputs.join("\n")}`));
+		assert.ok(brief.includes(`Acceptance cases:\n${plan.acceptance_gates.map((c, i) => `${i + 1}. ${c}`).join("\n")}`));
+		assert.doesNotMatch(brief, /Outputs:|Acceptance gates:/);
+		const acceptance = JSON.parse(
+			execFileSync("python3", [join(f.root, "docs/package-context.py"), "--acceptance", "--root", f.root], {
+				encoding: "utf8",
+			}),
+		);
+		assert.ok(acceptance.every((bundle) => !("test_protocol" in bundle)));
+
 		assert.match(brief, /Owned requirements: REQ-IDN-029, REQ-OPS-004, REQ-PI-037, REQ-PPL-024, REQ-TSK-018/);
 		assert.match(brief, /Write owned cases at package start for: REQ-IDN-029, REQ-OPS-004, REQ-PI-037, REQ-PPL-024/);
 		assert.match(brief, /Owned cases: AUDIT-001, AUDIT-002, AUDIT-003/);
@@ -609,10 +621,19 @@ test("BUG-plan-context: plan and brief use the same manifest acceptance scope, i
 		assert.deepEqual(
 			parts.filter((b) => b.wp === "WP-005").map((b) => [b.part, b.dependsOn]),
 			[
-				["contract", []],
-				["api", ["wp-005-contract"]],
-				["ui", ["wp-088", "wp-089", "wp-090", "wp-005-contract"]],
+				["api", []],
+				["ui", ["wp-088", "wp-089", "wp-090", "wp-005-api"]],
 			],
+		);
+		const api = parts.find((b) => b.taskId === "WP-005/api")!;
+		assert.ok(api.paths.includes("packages/contracts/src/identity/"), "the api part owns the contract paths");
+		assert.match(
+			renderBrief(f.root, parseTask("WP-005/api"), {}),
+			/Contract first: build packages\/contracts\/[^\n]* before the server work that uses it\./,
+		);
+		assert.throws(
+			() => renderBrief(f.root, parseTask("WP-005/contract"), {}),
+			/WP-005\/contract is retired\. The contract work is the first step of WP-005\/api\./,
 		);
 		const ui = renderBrief(f.root, parseTask("WP-005/ui"), {});
 		assert.match(ui, /Design prototype: design\/everyfield-ui\.html/);
@@ -719,11 +740,11 @@ const approvedQuality = {
 
 const approvedExperience = { verdict: "approved", budget: "met" };
 
-function mergeFixture() {
+function mergeFixture(scope: Record<string, unknown> = { owningPaths: ["tools/evf/"] }) {
 	const f = fixture(),
 		task = parseTask("OPS-1");
 	f.cfg.maintenanceTasks = {
-		[task.id]: { title: "Workflow upkeep", owningPaths: ["tools/evf/"], checks: f.cfg.checks },
+		[task.id]: { title: "Workflow upkeep", checks: f.cfg.checks, ...scope },
 	};
 	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
 	f.commit();
@@ -785,6 +806,34 @@ test("BUG-c048ea5-body-path: PR create and edit read body files relative to the 
 	}
 });
 
+test("BUG-pr165-ledger: only a transfer-only OPS task commits the progress ledger; reconcile refuses a task worktree", () => {
+	const f = fixture(),
+		task = parseTask("OPS-1");
+	try {
+		for (const owningPaths of [["docs/plan/", "docs/build-progress.json"], ["docs/"]]) {
+			f.cfg.maintenanceTasks = { [task.id]: { title: "Plan review", owningPaths, checks: f.cfg.checks } };
+			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+			f.commit();
+			assert.throws(
+				() => taskStart(f.root, task, { allowUnready: false, noStack: true }),
+				/Only a transfer task that owns exactly docs\/build-progress.json may commit the progress ledger/,
+			);
+			assert.equal(f.git("branch", "--list", "task/*"), "");
+		}
+		f.cfg.maintenanceTasks![task.id].owningPaths = ["docs/build-progress.json"];
+		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+		f.commit();
+		requireTaskScope(f.root, f.root, task);
+		const wt = f.task(task.slug),
+			ledger = readFileSync(join(wt, "docs/build-progress.json"), "utf8");
+		assert.throws(() => reconcileProgress(wt), /Reconcile progress in the home checkout, not a task worktree/);
+		assert.equal(readFileSync(join(wt, "docs/build-progress.json"), "utf8"), ledger);
+		reconcileProgress(f.root);
+	} finally {
+		f.close();
+	}
+});
+
 test("BUG-c048ea5-folder-path: maintenance refuses an existing folder without a trailing slash before creating its worktree", () => {
 	const f = fixture(),
 		task = parseTask("OPS-1");
@@ -808,15 +857,21 @@ test("BUG-c048ea5-folder-path: maintenance refuses an existing folder without a 
 			/docs is a folder; use docs\//,
 		);
 		assert.equal(f.git("branch", "--list", "task/*"), "");
-		for (const path of ["other-review.html", "apps/web/src/app/page.tsx"]) {
+		for (const path of [
+			"other-review.html",
+			"apps/web/src/app/page.tsx",
+			"design/handoff/",
+			"design/handoff/export.py",
+		]) {
 			f.cfg.maintenanceTasks[task.id].owningPaths = [path];
 			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+			f.commit();
 			assert.throws(
 				() => taskStart(f.root, task, { allowUnready: false, noStack: true }),
 				/Maintenance owning paths must stay in documentation and workflow tooling/,
 			);
 		}
-		for (const path of ["docs/tooling/", "AGENTS.md", "everyfield-feature-review.html"]) {
+		for (const path of ["docs/tooling/", "AGENTS.md", "everyfield-feature-review.html", "design/handoff/screens.md"]) {
 			f.cfg.maintenanceTasks[task.id].owningPaths = [path];
 			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
 			f.commit();
@@ -1016,7 +1071,11 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 				reason: /approval for the exact PR head/,
 			},
 			...[
-				{ name: "missing quality", quality: undefined, reason: /Missing verifier approval for the exact PR head/ },
+				{
+					name: "missing quality",
+					quality: undefined,
+					reason: /Missing quality field in verifier review for the exact PR head/,
+				},
 				{
 					name: "rejected quality",
 					quality: { ...approvedQuality, verdict: "changes_requested" },
@@ -1044,7 +1103,7 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 				{
 					name: "missing experience",
 					experience: undefined,
-					reason: /Missing verifier approval for the exact PR head/,
+					reason: /Missing experience field in verifier review for the exact PR head/,
 				},
 				{
 					name: "failed budget",
@@ -1123,32 +1182,36 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 		);
 		valid.calls = [];
 		f.setState(valid);
-		valid.comments["77"][0].body = execFileSync(
-			process.execPath,
-			[
-				join(source, ".agents/skills/verify-preview/scripts/post-review.mjs"),
-				"--pr",
-				"77",
-				"--report",
-				report,
-				"--family",
-				"anthropic",
-				"--verdict",
-				"approved",
-				"--head",
-				f.sha,
-				"--experience-verdict",
-				"approved",
-				"--budget",
-				"met",
-				"--quality-verdict",
-				"approved",
-				"--principles",
-				approvedQuality.principles.join(","),
-				"--dry-run",
-			],
-			{ cwd: f.root, encoding: "utf8" },
-		);
+		const posterArgs = [
+			join(source, ".agents/skills/verify-preview/scripts/post-review.mjs"),
+			"--pr",
+			"77",
+			"--report",
+			report,
+			"--family",
+			"anthropic",
+			"--verdict",
+			"approved",
+			"--head",
+			f.sha,
+			"--experience-verdict",
+			"approved",
+			"--budget",
+			"met",
+			"--quality-verdict",
+			"approved",
+			"--principles",
+			approvedQuality.principles.join(","),
+			"--dry-run",
+		];
+		for (const omitted of approvedQuality.principles) {
+			const args = [...posterArgs];
+			args[args.indexOf("--principles") + 1] = approvedQuality.principles.filter((name) => name !== omitted).join(",");
+			const result = spawnSync(process.execPath, args, { cwd: f.root, encoding: "utf8" });
+			assert.equal(result.status, 1, `poster accepted missing ${omitted}`);
+			assert.ok(result.stderr.includes(`--principles is missing required names: ${omitted}`), result.stderr);
+		}
+		valid.comments["77"][0].body = execFileSync(process.execPath, posterArgs, { cwd: f.root, encoding: "utf8" });
 		const posted = JSON.parse(valid.comments["77"][0].body.split("EVF-Review: ")[1]);
 		assert.deepEqual(posted.quality, approvedQuality);
 		assert.deepEqual(posted.experience, approvedExperience);
@@ -1306,6 +1369,33 @@ test("INV-phase7-progress: ship and acknowledgement preserve reviewed milestones
 			/independently reviewed/,
 		);
 		assert.equal(readFileSync(join(f.root, "docs/build-progress.json"), "utf8"), progress);
+		const priorMilestone = JSON.parse(progress).packages["WP-001"].milestones[task.id];
+		f.git("push", "-q", "origin", "main");
+		const later = f.task(task.slug);
+		writeFileSync(join(later, "README.md"), "Later reviewed outside-path fix\n");
+		execFileSync("git", ["-C", later, "add", "README.md"]);
+		execFileSync("git", ["-C", later, "commit", "-qm", "Later maintenance"]);
+		const laterSha = f.git("rev-parse", task.branch),
+			laterState = f.getState();
+		laterState.pr.headRefOid = laterSha;
+		laterState.comments["77"][0].body =
+			`EVF-Review: ${JSON.stringify({ head: laterSha, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
+		f.setState(laterState);
+		assert.equal(ship(f.root, task), 0);
+		assert.equal(producerReady(f.root, "WP-001"), true, "new outside-path record hid reviewed producer");
+		listShipped(f.root, [task.id]);
+		assert.equal(producerReady(f.root, "WP-001"), true);
+		requireImplementation(f.root, "WP-032");
+		assert.equal(readFileSync(progressPath, "utf8"), progress);
+		const canonical = JSON.parse(progress);
+		canonical.packages["WP-001"].milestones[task.id].acknowledged = false;
+		writeFileSync(progressPath, JSON.stringify(canonical));
+		assert.equal(producerReady(f.root, "WP-001"), false, "unacknowledged producer cannot unlock dependents");
+		canonical.packages["WP-001"].milestones[task.id] = { ...priorMilestone, merge_commit: "a".repeat(40) };
+		writeFileSync(progressPath, JSON.stringify(canonical));
+		assert.equal(producerReady(f.root, "WP-001"), false, "unintegrated producer cannot unlock dependents");
+		writeFileSync(progressPath, progress);
+
 		// BUG-ops7-progress-shape (D20): the build explorer renders evf-written milestones, and reconcile upgrades older ones.
 		const explorer = () =>
 			spawnSync("python3", [join(f.root, "docs/render-build-explorer.py"), "--check", "--root", f.root], {
@@ -1721,4 +1811,162 @@ test("BUG-ops6-fixture-cleanup: fixture commits and bare pushes start no backgro
 		rmSync(traces, { recursive: true, force: true });
 	}
 	assert.equal(existsSync(f.root), false);
+});
+
+test("BUG-ops15-ship: an outside-path merge succeeds and cleans up without package progress", () => {
+	const f = mergeFixture(),
+		log = console.log,
+		lines = [];
+	try {
+		f.authorize("WP-001");
+		f.cfg.stack = {
+			down: [process.execPath, "-e", 'require("node:fs").writeFileSync(process.env.EVF_RUNTIME_DIR+"/stopped", "yes")'],
+		};
+		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+		f.commit();
+		f.git("push", "-q", "origin", "main");
+		const task = parseTask("WP-001"),
+			wt = f.task(task.slug);
+		writeFileSync(join(wt, "README.md"), "Outside the package owning paths\n");
+		const candidateGit = (...args) => execFileSync("git", ["-C", wt, ...args], { encoding: "utf8" }).trim();
+		candidateGit("add", "README.md");
+		candidateGit("commit", "-qm", "Reviewed outside-path change");
+		const sha = candidateGit("rev-parse", "HEAD"),
+			state = f.getState();
+		state.allowMerge = true;
+		state.mergeBranch = task.branch;
+		state.pr.headRefOid = sha;
+		state.comments["77"][0].body =
+			`EVF-Review: ${JSON.stringify({ head: sha, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
+		f.setState(state);
+		mkdirSync(runtimeDir(f.root, task), { recursive: true });
+		const before = readFileSync(join(f.root, "docs/build-progress.json"), "utf8");
+		console.log = (...args) => lines.push(args.join(" "));
+		assert.equal(ship(f.root, task), 0);
+		assert.match(lines.join("\n"), /merged; no package progress recorded/);
+		assert.equal(readFileSync(join(f.root, "docs/build-progress.json"), "utf8"), before);
+		assert.equal(readFileSync(join(runtimeDir(f.root, task), "stopped"), "utf8"), "yes");
+		assert.equal(existsSync(wt), false);
+		listShipped(f.root, [task.id]);
+		assert.equal(readFileSync(join(f.root, "docs/build-progress.json"), "utf8"), before);
+		assert.equal(
+			JSON.parse(readFileSync(join(evfDataDir(f.root), "shipped", task.slug + ".json"), "utf8")).acknowledged,
+			true,
+		);
+		assert.equal(producerReady(f.root, "WP-001"), false, "maintenance alone cannot create a producer milestone");
+	} finally {
+		console.log = log;
+		f.close();
+	}
+});
+
+test("BUG-ops15-dependencies: task start installs before stack startup and stops on install failure", () => {
+	for (const installCode of [0, 7]) {
+		const f = fixture();
+		try {
+			writeFileSync(join(f.root, "package.json"), '{"private":true}');
+			f.git("add", "package.json");
+			f.cfg.stack = {
+				usesPaidProviders: false,
+				up: [
+					process.execPath,
+					"-e",
+					'const fs=require("node:fs"); if(!fs.existsSync("node_modules/ready")) process.exit(9); fs.writeFileSync("stack-started", "yes")',
+				],
+			};
+			f.authorize("WP-001");
+			f.commit();
+			// Give the child its own Node directory, so its fake installer is first on PATH too.
+			const nodeDir = join(f.root, "fake-bin/runtime");
+			mkdirSync(nodeDir);
+			cpSync(process.execPath, join(nodeDir, "node"));
+			const installer = join(nodeDir, "corepack");
+			writeFileSync(
+				installer,
+				`#!${process.execPath}\nconst fs=require('node:fs'); fs.writeFileSync('install-args', JSON.stringify(process.argv.slice(2))); fs.mkdirSync('node_modules',{recursive:true}); fs.writeFileSync('node_modules/ready','yes'); process.exit(${installCode});`,
+			);
+			execFileSync("chmod", ["+x", installer]);
+			const task = parseTask("WP-001"),
+				wt = join(f.root, ".worktrees", task.slug);
+			const code = `import {taskStart} from ${JSON.stringify(join(source, "tools/evf/task.ts"))}; import {parseTask} from ${JSON.stringify(join(source, "tools/evf/lib.ts"))}; process.exit(taskStart(${JSON.stringify(f.root)}, parseTask("WP-001"), {allowUnready:false, noStack:false}));`;
+			const result = spawnSync(join(nodeDir, "node"), ["--input-type=module", "-e", code], { encoding: "utf8" });
+			assert.equal(result.status, installCode ? 1 : 0, result.stderr);
+			if (installCode) assert.match(result.stderr, /Dependency install failed with exit code 7/);
+			assert.deepEqual(JSON.parse(readFileSync(join(wt, "install-args"), "utf8")), [
+				"pnpm",
+				"install",
+				"--frozen-lockfile",
+			]);
+			assert.equal(existsSync(join(wt, "stack-started")), installCode === 0);
+		} finally {
+			f.close();
+		}
+	}
+});
+
+test("INV-design-route: a design task owns only design/, waits after the verifier and merges only on Sebastian's approval", () => {
+	const f = mergeFixture({ owningPaths: ["design/"], route: "design" });
+	try {
+		// The registration under check is the one committed on the task branch.
+		const commitScope = (next: Record<string, unknown>) => {
+			const cfg = JSON.parse(readFileSync(join(f.wt, "evf.config.json"), "utf8"));
+			cfg.maintenanceTasks[f.taskRef.id] = { ...cfg.maintenanceTasks[f.taskRef.id], ...next };
+			writeFileSync(join(f.wt, "evf.config.json"), JSON.stringify(cfg));
+			execFileSync("git", ["-C", f.wt, "commit", "-qam", "Change the registration"]);
+		};
+		commitScope({ owningPaths: ["design/"], route: undefined });
+		assert.throws(() => requireTaskScope(f.root, f.wt, f.taskRef), /must stay in documentation and workflow tooling/);
+		commitScope({ owningPaths: ["design/", "tools/evf/"], route: "design" });
+		assert.throws(() => requireTaskScope(f.root, f.wt, f.taskRef), /A design task owns only design\/ paths/);
+		execFileSync("git", ["-C", f.wt, "reset", "-q", "--hard", f.sha]);
+		requireTaskScope(f.root, f.wt, f.taskRef);
+		f.git("push", "-q", "origin", f.taskRef.branch);
+
+		const merges = () => f.getState().calls.filter((c: any) => c.args[0] === "pr" && c.args[1] === "merge");
+		assert.equal(ship(f.root, f.taskRef), 0);
+		assert.deepEqual(merges(), []);
+		const status = f.getState().calls.find((c: any) => c.args.some((a: string) => a.endsWith(`statuses/${f.sha}`)));
+		assert.ok(
+			status.args.includes("state=success") &&
+				status.args.includes(`description=Verified by anthropic at ${f.sha.slice(0, 10)}`),
+		);
+
+		const s = f.getState();
+		const pr = { ...s.pr, ...approvePr("task/ops-1", { headRefOid: f.sha }) };
+		s.pr = { ...pr, files: [{ path: "design/everyfield-ui.html" }] };
+		s.calls = [];
+		f.setState(s);
+		assert.throws(
+			() => approve(f.root, 77, { ownerApproval: "Approved for this PR" }),
+			/outside its owning paths or design\/everyfield-ui.html/,
+		);
+		s.pr = { ...pr, files: [{ path: "design/everyfield-marketing.html" }] };
+		f.setState(s);
+		assert.throws(
+			() => approve(f.root, 77, { ownerApproval: "Approved for this PR" }),
+			/needs the verifier to pass it first \(bin\/evf ship OPS-1\)/,
+		);
+		assert.deepEqual(approveWrites(f), []);
+		s.commitStatus = {
+			statuses: [
+				{ context: "evf/verify", state: "success", description: `Verified by anthropic at ${f.sha.slice(0, 10)}` },
+			],
+		};
+		f.setState(s);
+		assert.throws(
+			() => approve(f.root, 77, { ownerApproval: "Approved for this PR", head: f.sha }),
+			/fixture merge barrier/,
+		);
+		assert.deepEqual(merges()[0].args, ["pr", "merge", "77", "--squash", "--match-head-commit", f.sha]);
+
+		writeFileSync(join(f.wt, "design/everyfield-ui.html"), "<!-- changed prototype -->\n");
+		execFileSync("git", ["-C", f.wt, "add", "design"]);
+		execFileSync("git", ["-C", f.wt, "commit", "-qm", "Change the approved prototype"]);
+		assert.throws(
+			() => verify(f.root, f.taskRef, "author", "full"),
+			/design\/everyfield-ui.html keeps its approved bytes/,
+		);
+	} finally {
+		f.close();
+	}
 });

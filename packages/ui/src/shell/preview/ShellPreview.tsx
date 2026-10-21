@@ -144,7 +144,7 @@ function RoleLink({ role, current }: { role: PreviewRole; current: boolean }) {
 			href={`/design/shell/${role}`}
 			aria-current={current ? "page" : undefined}
 			{...handlers}
-			className="relative inline-flex h-9 items-center rounded-[10px] px-3.5 text-md font-medium text-text-2 aria-[current=page]:bg-surface-raised aria-[current=page]:text-ink aria-[current=page]:shadow-nav-active"
+			className="relative inline-flex h-9 items-center rounded-md px-3.5 text-md font-medium text-text-2 aria-[current=page]:bg-surface-raised aria-[current=page]:text-ink aria-[current=page]:shadow-nav-active"
 		>
 			{indicator}
 			{ROLE_LABEL[role]}
@@ -173,7 +173,7 @@ export function PageHead({
 			</p>
 			<h1
 				className={cn(
-					"leading-[1.05] tracking-[-0.035em] text-ink max-app-sm:text-title-lg",
+					"leading-[1.05] tracking-[-0.02em] text-ink max-app-sm:text-title-lg",
 					size === "xl" ? "text-[52px]" : "text-display-sm",
 				)}
 			>
@@ -190,7 +190,7 @@ function Panel({ title, index, children }: { title: string; index: number; child
 			className={cn("reveal flex flex-col gap-3 rounded-lg bg-surface p-[22px] shadow-card")}
 			style={revealDelay(index + 1)}
 		>
-			<h2 className="text-title-sm text-ink">{title}</h2>
+			<h2 className="font-title text-title-sm text-ink">{title}</h2>
 			{children}
 		</section>
 	);

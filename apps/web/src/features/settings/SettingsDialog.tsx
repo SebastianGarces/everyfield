@@ -14,13 +14,12 @@ import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import { createContext, use, useEffect, useId, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { offeredSections, SECTION_LABEL } from "./model";
-import type { Relationship, SectionKey } from "./port";
+import type { SectionKey } from "./port";
 import { useDirtySections, useSettings } from "./store";
 import { AccountSection } from "./sections/AccountSection";
 import { ChurchSection } from "./sections/ChurchSection";
 import { NotificationsSection } from "./sections/NotificationsSection";
 import { OrganizationSection } from "./sections/OrganizationSection";
-import { SharingSection } from "./sections/SharingSection";
 import type { DeletionStatus } from "./port";
 
 const ICON: Record<SectionKey, IconSvgElement> = {
@@ -51,12 +50,10 @@ export type SettingsDialogProps = {
 	onNavigate: (section: SectionKey | null) => void;
 	/** The link for a section, so each one can be opened in a new tab or shared. */
 	hrefFor: (section: SectionKey) => string;
-	/** Sections other packages draw inside this frame, such as Seats and invitations (WP-008/ui). */
+	/** Sections drawn by their caller inside this frame, such as Seats (WP-008/ui) and Sharing (WP-007). */
 	slots?: Partial<Record<SectionKey, ReactNode>>;
-	/** The plant's current organization relationships (WP-007). Sharing shows one card for each. */
-	relationships?: Relationship[];
 	/** A deletion was requested: the session ends and the restricted status page takes over. */
-	onDeletionRequested: (status: DeletionStatus) => void;
+	onDeletionRequested: (status: DeletionStatus | null) => void;
 };
 
 /**
@@ -64,14 +61,7 @@ export type SettingsDialogProps = {
  * Every section has its own URL. Drafts stay while you move between sections; closing with unsaved changes asks
  * before discarding them, also when Back leaves settings (REQ-IDN-010).
  */
-export function SettingsDialog({
-	section,
-	onNavigate,
-	hrefFor,
-	slots = {},
-	relationships = [],
-	onDeletionRequested,
-}: SettingsDialogProps) {
+export function SettingsDialog({ section, onNavigate, hrefFor, slots = {}, onDeletionRequested }: SettingsDialogProps) {
 	const { viewer } = useSettings();
 	const dirty = useDirtySections();
 	const offered = offeredSections(viewer, Object.keys(slots) as SectionKey[]);
@@ -163,7 +153,10 @@ export function SettingsDialog({
 							aria-labelledby={navLabel}
 							className="flex flex-col gap-0.5 border-r border-line bg-frame px-3.5 py-[22px] max-app-sm:border-r-0 max-app-sm:border-b max-app-sm:px-3 max-app-sm:py-3"
 						>
-							<p id={navLabel} className="px-3 pt-1 pb-3.5 font-display text-[22px] max-app-sm:sr-only">
+							<p
+								id={navLabel}
+								className="px-3 pt-1 pb-3.5 font-title tracking-[-0.02em] text-[22px] max-app-sm:sr-only"
+							>
 								Settings
 							</p>
 							<ul className="flex flex-col gap-0.5 max-app-sm:flex-row max-app-sm:flex-wrap max-app-sm:gap-1.5">
@@ -178,7 +171,7 @@ export function SettingsDialog({
 												data-settings-nav={key}
 												aria-current={isCurrent ? "page" : undefined}
 												className={cn(
-													"flex h-[42px] items-center gap-2.5 rounded-sm px-3 font-medium transition-[background-color,box-shadow,color] duration-150 max-app-sm:h-9 max-app-sm:rounded-full max-app-sm:px-3 max-app-sm:text-sm",
+													"flex h-[42px] items-center gap-2.5 rounded-sm px-3 font-medium transition-[background-color,box-shadow,color] duration-150 max-app-sm:h-9 max-app-sm:px-3 max-app-sm:text-sm",
 													isCurrent ? "bg-surface-raised text-ink shadow-raised" : "text-ink-2 hover:bg-hover",
 												)}
 											>
@@ -207,7 +200,9 @@ export function SettingsDialog({
 							<DialogHeader
 								title={
 									// The prototype's section title is 26px (the dialog header default is smaller).
-									<span className="text-[26px] leading-[1.15]">{current ? SECTION_LABEL[current] : "Settings"}</span>
+									<span className="font-display text-[26px] leading-[1.15] tracking-[-0.02em]">
+										{current ? SECTION_LABEL[current] : "Settings"}
+									</span>
 								}
 								description={allowed && current ? DESCRIPTION[current] : undefined}
 							/>
@@ -216,7 +211,6 @@ export function SettingsDialog({
 									key={current}
 									section={current}
 									slots={slots}
-									relationships={relationships}
 									onDeletionRequested={onDeletionRequested}
 								/>
 							) : (
@@ -254,13 +248,11 @@ function listNames(names: string[]): string {
 function SectionContent({
 	section,
 	slots,
-	relationships,
 	onDeletionRequested,
 }: {
 	section: SectionKey;
 	slots: Partial<Record<SectionKey, ReactNode>>;
-	relationships: Relationship[];
-	onDeletionRequested: (status: DeletionStatus) => void;
+	onDeletionRequested: (status: DeletionStatus | null) => void;
 }) {
 	switch (section) {
 		case "church":
@@ -269,12 +261,11 @@ function SectionContent({
 			return <OrganizationSection />;
 		case "notifications":
 			return <NotificationsSection />;
-		case "sharing":
-			return <SharingSection relationships={relationships} />;
 		case "account":
 			return <AccountSection onDeletionRequested={onDeletionRequested} />;
 		case "seats":
-			return <>{slots.seats}</>;
+		case "sharing":
+			return <>{slots[section]}</>;
 	}
 }
 

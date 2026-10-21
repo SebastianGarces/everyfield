@@ -95,7 +95,7 @@
         },
         {
           "operation": "communication.get",
-          "rule": "Operation requires its one exact communication/draft/execution parent; does not require unrelated message ids or allow cross-domain execution receipt selection."
+          "rule": "Operation requires its one exact communication/draft/execution parent; does not require unrelated message ids or allow cross-domain execution record selection."
         },
         {
           "operation": "communication.listRecipients",
@@ -395,7 +395,7 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-021",
+        "WP-020",
         "WP-028"
       ],
       "behavior_rules": [
@@ -439,7 +439,7 @@
       "behavior_rules": [
         {
           "operation": "communication.deleteDraft",
-          "rule": "Delete only unsent draft under unchanged reviewed state; cannot cancel provider intent or erase sent history."
+          "rule": "Delete only unsent draft under unchanged reviewed state; cannot cancel mail already handed to the provider or erase sent history."
         },
         {
           "operation": "communication.saveDraft",
@@ -732,7 +732,7 @@
       "shared_contract_ids": [],
       "work_packages": [
         "WP-030",
-        "WP-052",
+        "WP-051",
         "WP-053",
         "WP-055",
         "WP-081",
@@ -954,7 +954,7 @@
       "work_packages": [
         "WP-029",
         "WP-071",
-        "WP-052",
+        "WP-051",
         "WP-055"
       ]
     },
@@ -1301,7 +1301,7 @@
       "feature_ids": [
         "NTF-005"
       ],
-      "text": "Task due and one-calendar-day overdue reminder uses current assignee/due revision. Complete/delete/reassign/reschedule invalidates old occurrence and creates applicable replacement intent transactionally. Current task and recipient checked at send.",
+      "text": "Each due and one-calendar-day overdue reminder reaches the current assignee at most once. Completing, deleting, reassigning or rescheduling stops the old reminder; a stale reminder never reaches a former owner.",
       "spec": "docs/product/communications-notifications.md#notification-product",
       "operations": [
         "notifications.syncTaskReminders",
@@ -1315,7 +1315,6 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-024",
         "WP-031"
       ],
       "title": "Task due/overdue reminders and reminder cancellation/resync"

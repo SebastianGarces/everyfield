@@ -2,12 +2,13 @@ import { requireForeground } from "./foreground.ts";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderBrief } from "./brief.ts";
-import { requireImplementation, requireSpend, requireTaskRisk, requireTaskScope } from "./policy.ts";
+import { maintenanceScope, requireImplementation, requireSpend, requireTaskRisk, requireTaskScope } from "./policy.ts";
 import { reviewedMilestone } from "./progress.ts";
 import { startFeedbackTask, cachedTriage } from "./feedback.ts";
 import {
 	baseRef,
 	command,
+	committedConfig,
 	fail,
 	findPackage,
 	git,
@@ -16,7 +17,6 @@ import {
 	loadConfig,
 	loadDag,
 	pathsForPart,
-	partsOf,
 	evfDataDir,
 	requireWorktree,
 	run,
@@ -106,23 +106,19 @@ export function taskStart(
 			`feedback: FB-${task.issue} is ${r.class}; internal issue #${(r as { internalIssue?: number }).internalIssue}.`,
 		);
 	} else if (task.kind === "ops") {
-		requireTaskScope(root, task);
-		renderBrief(root, task, {});
+		// Refuse a registration main or the task branch already carries before any worktree mutation.
+		// A new task without one gets its worktree and registers there; the check after creation names the fix.
+		const rev = gitOk(root, "show-ref", "--verify", "--quiet", `refs/heads/${task.branch}`)
+			? task.branch
+			: baseRef(root, cfg);
+		if (committedConfig(root, rev).maintenanceTasks?.[task.id]) maintenanceScope(root, task, rev);
 	} else {
 		const pkg = findPackage(loadDag(root), task.wp);
 		pathsForPart(pkg, task.part);
 		requireImplementation(root, task.wp, task.part);
 		requireTaskRisk(root, task);
 		renderBrief(root, task, {}); // Resolve all current context before any worktree/remote mutation.
-		const parts = partsOf(pkg),
-			anchor =
-				task.part === "api" && parts.includes("contract")
-					? "contract"
-					: task.part === "ui"
-						? parts.includes("contract")
-							? "contract"
-							: "api"
-						: null;
+		const anchor = task.part === "ui" ? "api" : null;
 		if (anchor) {
 			const path = join(evfDataDir(root), "shipped", `${task.wp.toLowerCase()}-${anchor}.json`);
 			if (!existsSync(path)) fail(`Required ${task.wp}/${anchor} merged-part evidence is missing.`);
@@ -162,7 +158,16 @@ export function taskStart(
 	console.log(
 		"shell: your shell starts in the workspace root. evf commands find the worktree from the task ID; for other commands use `git -C` or the worktree path.",
 	);
+	// An OPS registration is reviewed on its own branch, so it can be checked only once the worktree exists.
+	if (task.kind === "ops") requireTaskScope(root, wt, task);
 
+	if (task.kind !== "ops" && existsSync(join(wt, "package.json"))) {
+		const result = run("corepack", ["pnpm", "install", "--frozen-lockfile"], { cwd: wt, inherit: true });
+		if (result.code !== 0)
+			fail(
+				`Dependency install failed with exit code ${result.code}. The worktree exists; fix the install, then rerun evf task start ${task.id}.`,
+			);
+	}
 	if (!opts.noStack && task.kind !== "ops") {
 		const code = stack(root, task, "up", true);
 		if (code !== 0)

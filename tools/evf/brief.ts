@@ -1,4 +1,5 @@
 import {
+	contractPathsOf,
 	currentCatalog,
 	isUiPath,
 	fail,
@@ -14,18 +15,20 @@ import {
 	type Case,
 	type TaskRef,
 } from "./lib.ts";
+import { existsSync } from "node:fs";
+import { maintenanceScope } from "./policy.ts";
 import { producerReady } from "./progress.ts";
 import { renderFeedbackBrief } from "./feedback.ts";
 
 export function renderBrief(root: string, task: TaskRef, opts: { uiTier?: string; full?: boolean }): string {
 	if (task.kind === "fb") return renderFeedbackBrief(root, task);
 	if (task.kind === "ops") {
-		const cfg = loadConfig(root),
-			scope = cfg.maintenanceTasks?.[task.id];
-		if (!scope) fail("Configure the reviewed maintenance task title and owning paths first.");
+		// The task branch carries the registration; before the worktree exists, main may already carry it.
+		const wt = worktreePath(root, loadConfig(root), task),
+			scope = maintenanceScope(existsSync(wt) ? wt : root, task);
 		return [
 			`# ${task.id}: ${scope.title}`,
-			`Worktree: ${worktreePath(root, cfg, task)}`,
+			`Worktree: ${wt}`,
 			`Owning paths: ${scope.owningPaths.join(", ")}`,
 			"Proof kind: tooling only. No application cases, package gates or runtime.",
 		].join("\n\n");
@@ -36,11 +39,14 @@ export function renderBrief(root: string, task: TaskRef, opts: { uiTier?: string
 	const L = [
 		`# ${task.id}: ${pkg.title}`,
 		`Goal: ${pkg.goal}`,
-		`Outputs: ${pkg.outputs.join("\n")}`,
+		`Features: ${pkg.outputs.join("\n")}`,
 		`Owned requirements: ${context.own_requirement_ids.join(", ") || "package output gates"}`,
 		`Worktree: ${worktreePath(root, loadConfig(root), task)}`,
 		`Owning paths: ${pathsForPart(pkg, task.part).join(", ")}`,
-		`Acceptance gates:\n${pkg.acceptance_gates.map((gate, index) => `${index + 1}. ${gate}`).join("\n")}`,
+		...(task.part === "api" && contractPathsOf(pkg).length
+			? [`Contract first: build ${contractPathsOf(pkg).join(", ")} before the server work that uses it.`]
+			: []),
+		`Acceptance cases:\n${pkg.acceptance_gates.map((gate, index) => `${index + 1}. ${gate}`).join("\n")}`,
 		`Proof stage: ${pkg.context_scope.proof_stage}`,
 		`Integration and bounded ownership: ${pkg.integration_rule}`,
 		`Fast track: ${pkg.fast_track ? JSON.stringify(pkg.fast_track) : "none"}`,

@@ -1,32 +1,29 @@
-import { parseTheme, ProductRoot, THEME_COOKIE } from "@everyfield/ui/foundations";
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Card } from "@everyfield/ui/controls";
 import { NotAvailable } from "../access/AccessStates";
 import {
+	idsIn,
 	namesFor,
+	pendingFor,
+	query,
+	readHistory,
+	readPlantSharing,
 	residencyLinks,
-	runOperation,
 	scopeOf,
 	subjectFacts,
 	targetsFor,
 	viewerOf,
 } from "@/server/organizations";
-import * as C from "@everyfield/contracts/organizations";
+import { pipelineAggregateAccessRequest } from "@everyfield/contracts/organizations";
 import { RealRespond } from "./RealRespond";
 import { RealSharing, type SharingPageData } from "./RealSharing";
 
 // The real organization routes. apps/web/src/app/{settings/sharing,connections/respond} only re-export these.
-// /settings/sharing sits inside the settings layout's product frame (WP-010); the respond page is a bare product page.
+// /settings/sharing sits inside the product frame (WP-010); the respond page is a bare product page.
 
 export const sharingMetadata: Metadata = { title: "Sharing and privacy", robots: { index: false, follow: false } };
 export const respondMetadata: Metadata = { title: "Connection request", robots: { index: false, follow: false } };
-
-async function Frame({ children }: { children: React.ReactNode }) {
-	const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
-	return <ProductRoot initialTheme={theme}>{children}</ProductRoot>;
-}
 
 export async function SharingPage() {
 	const who = await viewerOf();
@@ -42,32 +39,39 @@ export async function SharingPage() {
 	const { mount: m, viewer } = who;
 	// A seatless account without a Discovery profile has only its own residency links here.
 	if (viewer.kind === "account" && (await residencyLinks(m.db, viewer)).length === 0) return refused;
-	const first =
+	// The first connections list renders with the page: history, waiting requests, what each connection sees and names.
+	const [history, pending, sharing] =
 		viewer.kind === "account"
-			? ({ status: "refused", code: "unavailable" } as const)
-			: await runOperation(m, viewer, "associations.getHistory", scopeOf(viewer), who.authority);
-	const history = first.status === "ok" ? C.relationshipHistoryResult.parse(first.value) : null;
+			? [null, [], {}]
+			: await Promise.all([
+					readHistory(m.db, who.authority, scopeOf(viewer)),
+					pendingFor(m.db, viewer),
+					readPlantSharing(m.db, who.authority),
+				]);
 	const active = history && history.status === "available" ? history.activeRelationships : [];
-	const activeOrgs = new Set(
-		active
-			.filter((r) => viewer.kind !== "sending_church" || r.pair.kind === "sending_church")
-			.map((r) => r.pair.organization.id),
-	);
 	const networks =
 		viewer.kind === "sending_church"
 			? active.filter((r) => r.pair.kind === "sending_church" && r.pair.subject.id === viewer.selected.id)
 			: [];
 	const [facts, targets, residencies, names, aggregate] = await Promise.all([
 		subjectFacts(m.db, viewer),
-		viewer.canManage ? targetsFor(m.db, viewer, activeOrgs) : Promise.resolve([]),
+		// Every organization this viewer may ask; the list hides the ones it is connected with now, from its own history,
+		// so an organization appears again right after a Leave without another read.
+		viewer.canManage ? targetsFor(m.db, viewer, new Set()) : Promise.resolve([]),
 		residencyLinks(m.db, viewer),
-		namesFor(
-			m.db,
-			viewer,
-			networks.map((n) => n.pair.organization.id),
-		),
+		namesFor(m.db, viewer, [
+			...(history?.status === "available" ? idsIn(history) : []),
+			...pending.map((p) => p.pair.organization.id),
+		]),
 		viewer.kind === "sending_network" && viewer.selected.kind === "organization"
-			? runOperation(m, viewer, "pipelineSharing.checkAggregateAccess", { network: viewer.selected }, who.authority)
+			? query(m, who.authority, viewer.selected, (tx, s, o) =>
+					m.adapter["pipelineSharing.checkAggregateAccess"](
+						tx,
+						s,
+						o,
+						pipelineAggregateAccessRequest.parse({ network: viewer.selected }),
+					),
+				)
 			: Promise.resolve(null),
 	]);
 	const data: SharingPageData = {
@@ -78,8 +82,9 @@ export async function SharingPage() {
 		names,
 		targets,
 		networks: networks.map((n) => ({ relationshipId: n.id, name: names[n.pair.organization.id] ?? "Network" })),
-		aggregate: aggregate && aggregate.status === "ok" ? C.pipelineAggregateAccessResult.parse(aggregate.value) : null,
+		aggregate: aggregate?.status === "ok" ? aggregate.value : null,
 		residencies,
+		connections: history ? { history, pending, sharing } : null,
 	};
 	return <RealSharing data={data} />;
 }
@@ -87,9 +92,5 @@ export async function SharingPage() {
 type Search = Promise<Record<string, string | string[] | undefined>>;
 export async function RespondPage({ searchParams }: { searchParams: Search }) {
 	const raw = (await searchParams).invitation;
-	return (
-		<Frame>
-			<RealRespond invitationId={typeof raw === "string" ? raw : null} />
-		</Frame>
-	);
+	return <RealRespond invitationId={typeof raw === "string" ? raw : null} />;
 }

@@ -15,6 +15,8 @@ import {
 import { cn } from "@/components/cn";
 import { inOut, out, P, sine } from "@/components/motion/curves";
 import { useTicker, useReduced } from "@/components/motion/scene";
+import { Backdrop } from "../photo/Backdrop";
+import type { Backdrop as Bg } from "../photo/photos";
 import { SCENES, type PanelKind } from "../scene-data";
 import { PanelSlotProvider, type PanelSlot } from "./panel-frame";
 
@@ -22,8 +24,8 @@ export type ChapterStep = {
 	/** The panel kind (timing) and its element, rendered on the server. */
 	kind: PanelKind;
 	panel: ReactNode;
-	/** The gradient tone utility of the panel background (g-field ...). */
-	tone: string;
+	/** The panel background: a photo, or a muted gradient when the step's card is a colorful InsightCard. */
+	bg: Bg;
 	/** The step text, rendered on the server. It holds [data-txt] (the fading block) and [data-tl] (the title row). */
 	text: ReactNode;
 };
@@ -446,7 +448,7 @@ export function ScrollChapter({ id, title, steps }: Props) {
 								"max-mk-cx:static max-mk-cx:border-b-0 max-mk-cx:pb-2 max-mk-cx:before:hidden max-mk-cx:after:hidden",
 							)}
 						>
-							<h2 className="mk-display text-mk-h2 mk-cx:motion-safe:text-[color-mix(in_srgb,var(--color-ink)_52%,var(--color-mk-canvas))]">
+							<h2 className="mk-display font-display text-mk-h2 mk-cx:motion-safe:text-[color-mix(in_srgb,var(--color-ink)_52%,var(--color-mk-canvas))]">
 								{title.map((p, i) =>
 									typeof p === "string" ? (
 										p
@@ -517,9 +519,7 @@ export function ScrollChapter({ id, title, steps }: Props) {
 											className="ef-ui relative isolate mb-[22px] hidden place-items-center overflow-hidden rounded-card px-4 pt-11 pb-7 shadow-mk-frame-flat max-mk-cx:grid"
 											data-idle={mobOn[i] && !reduced ? undefined : ""}
 										>
-											<span
-												className={cn("mk-gsurf absolute inset-0 z-0 will-change-[opacity] [--grain:.3]", s.tone)}
-											/>
+											<Backdrop bg={s.bg} sizes="100vw" className="absolute inset-0 z-0" />
 											<PanelSlotProvider slot={clocks.mob[i]!}>{s.panel}</PanelSlotProvider>
 										</div>
 										{s.text}
@@ -539,7 +539,7 @@ export function ScrollChapter({ id, title, steps }: Props) {
 							className="ef-ui sticky top-(--cx-top) isolate grid h-[min(560px,calc(100vh-var(--cx-top)-28px))] min-h-[500px] place-items-center overflow-hidden rounded-frame shadow-mk-frame"
 						>
 							{steps.map((s, i) => (
-								<DeskBg key={i} tone={s.tone} sw={clocks.sw} sel={clocks.sel} i={i} noScript={i === 0} />
+								<DeskBg key={i} bg={s.bg} sw={clocks.sw} sel={clocks.sel} i={i} noScript={i === 0} />
 							))}
 							{steps.map((s, i) => (
 								<DeskPanel
@@ -627,16 +627,16 @@ export function DeskPanel({
 	);
 	return <PanelSlotProvider slot={slot}>{children}</PanelSlotProvider>;
 }
-/** The active step's gradient fades in over the previous one (500 ms in-out). Layers use z 0 to 2 (not negative):
+/** The active step's background fades in over the previous one (500 ms in-out). Layers use z 0 to 2 (not negative):
  *  axe sorted a negative z-index gradient above the white card and reported false contrast failures. */
 export function DeskBg({
-	tone,
+	bg,
 	sw,
 	sel,
 	i,
 	noScript,
 }: {
-	tone: string;
+	bg: Bg;
 	sw: MotionValue<number>;
 	sel: MotionValue<number>;
 	i: number;
@@ -651,12 +651,13 @@ export function DeskBg({
 		<m.span
 			aria-hidden="true"
 			className={cn(
-				"mk-gsurf absolute inset-0 opacity-0 will-change-[opacity] [--grain:.3]",
-				tone,
+				"absolute inset-0 opacity-0 will-change-[opacity]",
 				noScript && "[html:not([data-js])_&]:opacity-100!",
 			)}
 			style={{ opacity, zIndex }}
-		/>
+		>
+			<Backdrop bg={bg} sizes="(max-width: 900px) 100vw, 50vw" className="absolute inset-0" />
+		</m.span>
 	);
 }
 

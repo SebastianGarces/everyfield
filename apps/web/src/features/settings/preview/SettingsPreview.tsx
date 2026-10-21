@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { offeredSections, parseSectionKey, SECTION_LABEL } from "../model";
 import type { DeletionStatus, SectionKey } from "../port";
 import { SettingsDialog } from "../SettingsDialog";
+import { SharingSection } from "../sections/SharingSection";
 import { SettingsProvider } from "../store";
 import {
 	createFixturePort,
@@ -56,9 +57,12 @@ export function SettingsPreview() {
 
 	const viewer = previewViewer(persona);
 	const navigate = (key: SectionKey | null) => router.push(key ? hrefFor(key) : `${BASE}${query()}`, { scroll: false });
-	const deleted = (status: DeletionStatus) => {
-		const plant = "subject" in status && status.subject.kind === "plant";
-		router.push(`/design/restricted/${plant ? "workspace-deletion" : "account-deletion"}?state=pending`);
+	// As in the product: a workspace request opens its status; an account request is signed out and asks for proof.
+	const deleted = (status: DeletionStatus | null) => {
+		if (status && "subject" in status && status.subject.kind === "plant")
+			return router.push("/design/restricted/workspace-deletion?state=pending");
+		const until = status?.status === "pending_deletion" ? `&until=${encodeURIComponent(status.cancelUntil)}` : "";
+		router.push(`/design/restricted/account-deletion?state=pending&step=proof${until}`);
 	};
 
 	return (
@@ -69,7 +73,7 @@ export function SettingsPreview() {
 					section={section}
 					onNavigate={navigate}
 					hrefFor={hrefFor}
-					relationships={PREVIEW_RELATIONSHIPS}
+					slots={{ sharing: <SharingSection relationships={PREVIEW_RELATIONSHIPS} /> }}
 					onDeletionRequested={deleted}
 				/>
 			</SettingsProvider>
@@ -105,13 +109,13 @@ function PreviewPage({
 		() => JSON.stringify(fixture.calls),
 		() => "{}",
 	);
-	const sections = offeredSections(previewViewer(persona), []);
+	const sections = offeredSections(previewViewer(persona), ["sharing"]);
 
 	return (
 		<div className="flex flex-col gap-6">
 			<div>
 				<p className="text-sm text-text-3">Design preview · WP-010</p>
-				<h1 className="mt-1 font-display text-title-lg font-medium tracking-[-0.02em] text-ink">Settings</h1>
+				<h1 className="mt-1 font-display text-title-lg tracking-[-0.02em] text-ink">Settings</h1>
 				<p className="mt-2 max-w-[640px] text-text-2">
 					This page stands in for whatever page Settings opens over. Each section has its own link. Sample data, no
 					database: replies come from fixtures that the settings contract checks.

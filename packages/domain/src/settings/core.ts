@@ -36,7 +36,7 @@ export async function reply<T>(tx: Tx, body: (tx: Tx) => Promise<T>): Promise<Se
 	if (requestWrite(tx)) return { status: "ok", value: await body(tx) };
 	return recover(async () => ({ status: "ok", value: await auditSavepoint(tx, body) }));
 }
-async function recover<T>(body: () => Promise<SettingsReply<T>>): Promise<SettingsReply<T>> {
+export async function recover<T>(body: () => Promise<SettingsReply<T>>): Promise<SettingsReply<T>> {
 	try {
 		return await body();
 	} catch (e) {
@@ -138,6 +138,23 @@ export async function finish<T>(tx: Tx, c: NewCommand, schema: z.ZodType<T>, bod
 	const value = schema.parse(body());
 	await finishAudit(tx, c, c.identity, value);
 	return value;
+}
+/**
+ * The audit projection of one settings change (docs/architecture/audit.md, coordinator ruling 2026-10-20): the
+ * section and, in the bounded metadata.diff, the name of each changed field. Revisions stay on the row. No before or
+ * after value is kept: personal settings permit field names only.
+ */
+export function auditChange(
+	c: NewCommand,
+	id: string,
+	section: string,
+	before: Record<string, unknown>,
+	after: Record<string, unknown>,
+) {
+	const entry = c.events.find((e) => e.id === id);
+	if (!entry) throw Error("missing_audit_entry");
+	const changed = Object.keys(after).filter((k) => canonical(before[k] ?? null) !== canonical(after[k] ?? null));
+	entry.metadata = { section, diff: Object.fromEntries(changed.map((k) => [k, true])) };
 }
 export const preference = (a: typeof t.account.$inferSelect) =>
 	a.personal_timezone === null

@@ -4,7 +4,7 @@ These owner and coordinator rulings govern the current build. Later rulings over
 
 ## D59, 2026-10-19: one actor per request
 
-Resolve the verified session, account, selected owner and seat once per server request and share that context across its callers. Domain reads accept it; writes confirm current authority when changing data. Prefer a short shared read transaction where practical and count page round trips. This removes repeated actor resolution. D60 and D64 refine the authentication mechanism; D70 refines write checks.
+Resolve the verified session, account, selected owner and seat once per server request and share that context across its callers. Domain reads accept it; writes confirm current authority when changing data. Prefer a short shared read transaction where practical and count page round trips. This removes repeated actor resolution. D60 and D64 refine the authentication mechanism; D70 refines write checks; C13 refines read checks.
 
 ## D60, 2026-10-19: standard request authentication
 
@@ -40,7 +40,7 @@ Follow [EveryField patterns](patterns.md): authority in the write, one append-on
 
 ## 2026-10-19: performance budget and optimistic UI
 
-Every simple read or write completes in under one second end to end on a production build. Reports and analytics may take longer with the exception stated in their PR. Actions update the screen optimistically and confirm or clearly roll back on failure; verification checks smoothness and needless requests. The budget measures the person's experience, not just an isolated database statement.
+Every simple read or write completes in under one second end to end on a production build. Reports and analytics may take longer with the exception stated in their PR. Actions update the screen optimistically and confirm or clearly roll back on failure; verification checks smoothness and needless requests. The budget measures the person's experience, not just an isolated database statement. A review judges the actions a PR changes: slowness that main already has, measured with the same setup, is recorded in the review with its owning task and does not count against the PR, while a PR that makes an action slower than main fails the budget. The Settings section full load of 1.1 to 1.4 seconds on main 6ac8e8d is pre-existing and belongs to [Settings section pages load under 1 second](intent://local/task/cee6d6b9-c0a5-45a9-8de0-4a29d0688adf).
 
 ## 2026-10-19: requirements describe the end state
 
@@ -61,3 +61,15 @@ The plan keeps packages, dependencies, owning paths, product features and accept
 ## D73, 2026-10-19: migrations before customer launch
 
 Sebastian confirmed that the product has no customers yet. Until launch to real customers, schema changes and their production migrations need no separate owner approval. Preserve the early-access tables and their rows, which contain real sign-ups from the WP-097 site. Revisit this rule when the product ships to real customers. This changes migration approval only; spending, credential, deployment and merge authority still applies.
+
+## D74, 2026-10-20: preview slots
+
+The preview supervisor runs four previews at a time. The managed portless launcher in the home bin folder sets the preview limit environment variable to 4. The supervisor reads it when it starts. Builders and verifiers get preview slots first. The coordinator may stop Sebastian's review preview at any time to free a slot and restarts it later on main. No agent stops a preview that belongs to another workspace. This keeps build and verification work moving without losing anyone else's running preview.
+
+## D75, 2026-10-20: S1 plan review
+
+Sebastian approved the S1 plan review. A case is an acceptance gate for a package only when that package or one of its dependencies owns every operation the case calls; the package context plan check enforces this, and the case-action baseline is empty. WP-016, WP-021, WP-052 and WP-060 are retired into WP-017, WP-020, WP-051 and WP-059. Tables on main are not a contract: S1 briefs say so, and the schema reference is labelled as the current schema on main. The internal Evry steps evry.claimEffect, evry.appendAudit and evry.recordEffectResult are no longer catalog operations; an executed effect writes its audit record with the change. Their former authority rule, "required owning domain consequence or bounded operator protocol", now applies to evry.executeProposal. This keeps every gate provable when its package closes and keeps requirements free of mechanisms.
+
+## C13, 2026-10-21: live access inside every tenant read
+
+In S1, PR #178 (task reads), PR #180 (Evry reads and stream) and PR #181 (Settings reads) each had a read that trusted the request actor resolved at the start of the request. A seat that ended or a role that changed after that lookup still read tenant data. A read that returns tenant data now checks the live session, seat, role and lifecycle inside the same statement, with no extra statement. D59 and D60 still apply: one cached viewer lookup per request identifies the actor, and each read checks that the actor still has access. Main has no shared fragment for the whole check. The access.writeVisibility fragment covers lifecycle only. PR #180 adds a fragment in packages/evry/src/context/authority.ts that checks session, seat and lifecycle but not role. A shared fragment in packages/domain/src/access/ that also checks role is a follow-up. This closes the gap between the first lookup of a request and each later read.

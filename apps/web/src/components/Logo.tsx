@@ -4,11 +4,11 @@ import { cn } from "./cn";
 // logo-symbols.ts stays the single source of the logo paths: the share-image renderer and the apple icon read it too.
 // It is parsed once, when the module loads, into typed symbols that render as JSX.
 type Path = { d: string; evenOdd: boolean };
-type Symbol = { id: "ef-mark" | "ef-wordmark"; viewBox: string; paths: Path[] };
+type Symbol = { id: "ef-symbol" | "ef-wordmark"; viewBox: string; paths: Path[] };
 
 function parse(src: string): Symbol[] {
 	const out: Symbol[] = [];
-	for (const m of src.matchAll(/<symbol id="(ef-mark|ef-wordmark)" viewBox="([^"]+)">([\s\S]*?)<\/symbol>/g)) {
+	for (const m of src.matchAll(/<symbol id="(ef-symbol|ef-wordmark)" viewBox="([^"]+)">([\s\S]*?)<\/symbol>/g)) {
 		const paths = [...m[3]!.matchAll(/<path([^>]*)\/>/g)].map((p) => {
 			const d = p[1]!.match(/\sd="([^"]+)"/)?.[1];
 			if (!d) throw new Error(`logo-symbols.ts: a path in ${m[1]} has no d`);
@@ -16,12 +16,13 @@ function parse(src: string): Symbol[] {
 		});
 		out.push({ id: m[1] as Symbol["id"], viewBox: m[2]!, paths });
 	}
-	if (out.length !== 2) throw new Error("logo-symbols.ts: expected the ef-mark and ef-wordmark symbols");
+	if (out.length !== 2) throw new Error("logo-symbols.ts: expected the ef-symbol and ef-wordmark symbols");
 	return out;
 }
 const SYMBOLS = parse(LOGO_SYMBOLS);
 
-/** The logo sprite. Rendered once per page; every logo and the app frames of the product pictures reference it with <use>. */
+/** The logo sprite: the symbol, the wordmark and the lockup (1308x241: the symbol 192.33 high, centred on the wordmark
+ *  band). Rendered once per page; every logo and the app frames of the product pictures reference it with <use>. */
 export function LogoSymbols() {
 	return (
 		<svg width="0" height="0" className="absolute" aria-hidden="true">
@@ -37,46 +38,49 @@ export function LogoSymbols() {
 					))}
 				</symbol>
 			))}
+			<symbol id="ef-lockup" viewBox="0 0 1308 241">
+				<use href="#ef-symbol" x="0" y="23.668" width="192.33" height="192.33" />
+				<use href="#ef-wordmark" x="256.489" y="0" width="1052" height="241" />
+			</symbol>
 		</svg>
 	);
 }
 
-/** The mark alone, sized by the caller. Decorative. */
+/** The symbol alone, square, sized by the caller. Decorative. */
 export function Mark({ className }: { className?: string }) {
 	return (
-		<svg viewBox="0 0 657 530" aria-hidden="true" className={cn("block", className)}>
-			<use href="#ef-mark" />
+		<svg viewBox="0 0 340 340" aria-hidden="true" className={cn("block", className)}>
+			<use href="#ef-symbol" />
 		</svg>
 	);
 }
 
 /**
- * Mark plus wordmark. "nav": green mark, ink wordmark; the wordmark viewBox is padded (-26.4 to 190) so its box centre
- * is the cap-height centre. "pill": the nav logo, without the wordmark at 440 px and below. "footer": white, smaller.
+ * "nav": the ink lockup. "pill": the nav logo, which keeps only the symbol at 440 px and below. "footer": the cream
+ * wordmark on the ink footer card.
  */
 export function Logo({ variant }: { variant: "nav" | "pill" | "footer" }) {
-	const nav = variant !== "footer";
-	return (
-		<span className={cn("inline-flex flex-none items-center gap-2.5 no-underline", nav ? "text-ink" : "text-white")}>
-			<svg
-				viewBox="0 0 657 530"
-				aria-hidden="true"
-				className={cn("block", nav ? "h-[22px] w-[27px] text-green max-mk-sm:h-[19px] max-mk-sm:w-6" : "h-4 w-5")}
-			>
-				<use href="#ef-mark" />
+	if (variant === "footer")
+		return (
+			<svg viewBox="0 0 1052 241" role="img" aria-label="EveryField" className="block h-5 w-auto flex-none text-cream">
+				<use href="#ef-wordmark" />
 			</svg>
+		);
+	return (
+		<span className="inline-flex flex-none items-center text-ink">
 			<svg
-				viewBox={nav ? "0 -26.4 890 216.4" : "0 0 890 186"}
+				viewBox="0 0 1308 241"
 				role="img"
 				aria-label="EveryField"
-				className={cn(
-					"block overflow-visible",
-					nav ? "h-[27.3px] w-28 max-mk-sm:h-[23.4px] max-mk-sm:w-24" : "h-[18px] w-[84px]",
-					variant === "pill" && "max-mk-xs:hidden",
-				)}
+				className={cn("block h-7 w-auto max-mk-sm:h-6", variant === "pill" && "max-mk-xs:hidden")}
 			>
-				{nav ? <use href="#ef-wordmark" width="890" height="186" /> : <use href="#ef-wordmark" />}
+				<use href="#ef-lockup" />
 			</svg>
+			{variant === "pill" ? (
+				<svg viewBox="0 0 340 340" role="img" aria-label="EveryField" className="hidden size-[22px] max-mk-xs:block">
+					<use href="#ef-symbol" />
+				</svg>
+			) : null}
 		</span>
 	);
 }

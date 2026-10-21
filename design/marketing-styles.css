@@ -10,13 +10,14 @@
  * Every class sets the same variable names, so components only read --mk-*.
  * Colours come from the --ef-* ramps in design/everyfield-ui.html.
  * Contrast (WCAG 2.x) for each text pair is noted next to it.
- * Rule for all directions: never set #1CE362 (green-500) as text on a light
+ * Rule for all directions: never set #1AF197 (new-growth) as text on a light
  * background. Use it as a fill with ink text, or as text on dark only.
  */
 
 :root {
-  --mk-font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
-  --mk-font-body: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --mk-font-display: "DM Serif Display", Georgia, "Times New Roman", serif;
+  --mk-font-text: "DM Serif Text", Georgia, "Times New Roman", serif; /* serif below 24px; DM Serif Display at 24px and above */
+  --mk-font-body: "DM Sans", ui-sans-serif, system-ui, sans-serif;
 
   /* Shared spacing scale (4px base, same as --ef-space-*) */
   --mk-space-1: 4px;
@@ -32,6 +33,115 @@
 
   --mk-ease: cubic-bezier(.2, .8, .2, 1);
 }
+
+/* Corner system (2026-10-20): all square, shared with design/everyfield-ui.html.
+     --corner-card     cards, tiles, inputs          --corner-control  buttons and icon buttons
+     --corner-pill     badges, tags, chips, tracks   --corner-petal    reserved, 0 today
+     --corner-media    photos, hero panels, stages */
+:root { --corner-card: 0px; --corner-control: 0px; --corner-pill: 0px; --corner-petal: 0px; --corner-media: 0px; }
+
+/* =====================================================================
+   Photo treatment (2026-10-19 rebrand, round 4 photos 2026-10-20). Copy this block to reuse it.
+   One photo surface has three layers: the image, a flat black overlay (default 20%), then film grain.
+   - Add a photo: put the web copies in assets/photos/ (long edge 2400 and 1200; blurred rail photos 1200 and 600)
+     and add one --photo-<name> token for each width.
+   - Use: class="photo" data-photo="<crop>". A crop sets --photo-src, --photo-pos (focus point and zoom origin)
+     and --photo-zoom (1 = cover). Change --photo-shade only for text on a photo (see .photo-text).
+   - Rule: one photo per slot, and no photo twice on the same page. A slot that holds a colorful UI card uses .mesh.
+   - Lazy load: the image loads when the slot is near the viewport (JS adds .seen). Above the fold, put .seen in the markup.
+   - The slot sets the corners with border-radius: var(--corner-media).
+   - Text on a photo is cream. Check 4.5:1 for each crop at each width before you ship it.
+   ===================================================================== */
+:root {
+  --photo-field: image-set(url("assets/photos/field-2400.avif") type("image/avif"), url("assets/photos/field-2400.jpg") type("image/jpeg"));
+  --photo-plain: image-set(url("assets/photos/plain-2400.avif") type("image/avif"), url("assets/photos/plain-2400.jpg") type("image/jpeg"));
+  --photo-reeds: image-set(url("assets/photos/reeds-2400.avif") type("image/avif"), url("assets/photos/reeds-2400.jpg") type("image/jpeg"));
+  --photo-lake: image-set(url("assets/photos/lake-2400.avif") type("image/avif"), url("assets/photos/lake-2400.jpg") type("image/jpeg"));
+  --photo-bluebells: image-set(url("assets/photos/bluebells-1200.avif") type("image/avif"), url("assets/photos/bluebells-1200.jpg") type("image/jpeg"));
+  --photo-poppies: image-set(url("assets/photos/poppies-1200.avif") type("image/avif"), url("assets/photos/poppies-1200.jpg") type("image/jpeg"));
+  --photo-wildflowers: image-set(url("assets/photos/wildflowers-1200.avif") type("image/avif"), url("assets/photos/wildflowers-1200.jpg") type("image/jpeg"));
+  --photo-blossom: image-set(url("assets/photos/blossom-1200.avif") type("image/avif"), url("assets/photos/blossom-1200.jpg") type("image/jpeg"));
+  --photo-meadow: image-set(url("assets/photos/meadow-1200.avif") type("image/avif"), url("assets/photos/meadow-1200.jpg") type("image/jpeg"));
+  --photo-marigolds: image-set(url("assets/photos/marigolds-1200.avif") type("image/avif"), url("assets/photos/marigolds-1200.jpg") type("image/jpeg"));
+  --photo-lilies: image-set(url("assets/photos/lilies-1200.avif") type("image/avif"), url("assets/photos/lilies-1200.jpg") type("image/jpeg"));
+  --photo-lupins: image-set(url("assets/photos/lupins-1200.avif") type("image/avif"), url("assets/photos/lupins-1200.jpg") type("image/jpeg"));
+  --photo-swirl: image-set(url("assets/photos/swirl-1200.avif") type("image/avif"), url("assets/photos/swirl-1200.jpg") type("image/jpeg"));
+  --photo-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncG type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncB type='linear' slope='1.6' intercept='-.3'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+@media (max-width: 900px) {
+  :root {
+    --photo-field: image-set(url("assets/photos/field-1200.avif") type("image/avif"), url("assets/photos/field-1200.jpg") type("image/jpeg"));
+    --photo-plain: image-set(url("assets/photos/plain-1200.avif") type("image/avif"), url("assets/photos/plain-1200.jpg") type("image/jpeg"));
+    --photo-reeds: image-set(url("assets/photos/reeds-1200.avif") type("image/avif"), url("assets/photos/reeds-1200.jpg") type("image/jpeg"));
+    --photo-lake: image-set(url("assets/photos/lake-1200.avif") type("image/avif"), url("assets/photos/lake-1200.jpg") type("image/jpeg"));
+    --photo-bluebells: image-set(url("assets/photos/bluebells-600.avif") type("image/avif"), url("assets/photos/bluebells-600.jpg") type("image/jpeg"));
+    --photo-poppies: image-set(url("assets/photos/poppies-600.avif") type("image/avif"), url("assets/photos/poppies-600.jpg") type("image/jpeg"));
+    --photo-wildflowers: image-set(url("assets/photos/wildflowers-600.avif") type("image/avif"), url("assets/photos/wildflowers-600.jpg") type("image/jpeg"));
+    --photo-blossom: image-set(url("assets/photos/blossom-600.avif") type("image/avif"), url("assets/photos/blossom-600.jpg") type("image/jpeg"));
+    --photo-meadow: image-set(url("assets/photos/meadow-600.avif") type("image/avif"), url("assets/photos/meadow-600.jpg") type("image/jpeg"));
+    --photo-marigolds: image-set(url("assets/photos/marigolds-600.avif") type("image/avif"), url("assets/photos/marigolds-600.jpg") type("image/jpeg"));
+    --photo-lilies: image-set(url("assets/photos/lilies-600.avif") type("image/avif"), url("assets/photos/lilies-600.jpg") type("image/jpeg"));
+    --photo-lupins: image-set(url("assets/photos/lupins-600.avif") type("image/avif"), url("assets/photos/lupins-600.jpg") type("image/jpeg"));
+    --photo-swirl: image-set(url("assets/photos/swirl-600.avif") type("image/avif"), url("assets/photos/swirl-600.jpg") type("image/jpeg"));
+  }
+}
+.photo { position: relative; isolation: isolate; overflow: hidden; background-color: #3A3529; color: #F6F0E9;
+  --on: #F6F0E9; --on-2: rgba(246, 240, 233, .92); --on-3: rgba(246, 240, 233, .9); --pill-bg: rgba(24, 29, 25, .42); --pill-edge: rgba(246, 240, 233, .3); --spark: rgba(246, 240, 233, .32); --spark-hi: #F6F0E9; }
+.photo::before, .photo::after { content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; }
+.photo::before { z-index: -2; background: var(--photo-src) var(--photo-pos, 50% 50%) / cover no-repeat;
+  transform: scale(var(--photo-zoom, 1)); transform-origin: var(--photo-pos, 50% 50%);
+  filter: brightness(calc(1 - var(--photo-shade, .2))); } /* brightness(.8) = a 20% black overlay */
+.photo:not(.seen)::before { background-image: none; }
+.photo::after { z-index: -1; background: var(--photo-grain) 0 0 / 260px 260px; opacity: var(--photo-grain-mix, .34); mix-blend-mode: overlay; }
+.photo :focus-visible { outline: 2px solid #F6F0E9; outline-offset: 2px; }
+/* Landscapes. lake is soft and dark enough for cream text at the 20% overlay (the CTA). */
+[data-photo="field-sky"]  { --photo-src: var(--photo-field); --photo-pos: 50% 16%; }
+[data-photo="plain"]      { --photo-src: var(--photo-plain); --photo-pos: 30% 70%; }
+[data-photo="reeds"]      { --photo-src: var(--photo-reeds); --photo-pos: 50% 72%; }
+[data-photo="lake"]       { --photo-src: var(--photo-lake); --photo-pos: 50% 67%; }
+/* Blurred colorful photos: the phase-card rail cards. Final picks: wildflowers is the home hero, bluebells the /oversight hero. */
+[data-photo="bluebells"]   { --photo-src: var(--photo-bluebells); --photo-pos: 30% 40%; }
+[data-photo="poppies"]     { --photo-src: var(--photo-poppies); --photo-pos: 50% 92%; --photo-zoom: 1.5; }
+[data-photo="wildflowers"] { --photo-src: var(--photo-wildflowers); --photo-pos: 60% 45%; }
+[data-photo="blossom"]     { --photo-src: var(--photo-blossom); --photo-pos: 50% 40%; }
+[data-photo="meadow"]      { --photo-src: var(--photo-meadow); --photo-pos: 40% 50%; }
+[data-photo="marigolds"]   { --photo-src: var(--photo-marigolds); --photo-pos: 50% 40%; }
+[data-photo="lilies"]      { --photo-src: var(--photo-lilies); --photo-pos: 50% 45%; }
+[data-photo="lupins"]      { --photo-src: var(--photo-lupins); --photo-pos: 50% 50%; }
+[data-photo="swirl"]       { --photo-src: var(--photo-swirl); --photo-pos: 40% 50%; }
+/* Small tiles and light crops that carry cream text or icons use a deeper overlay. */
+.photo-text { --photo-shade: .55; }
+
+/* =====================================================================
+   Muted gradients (2026-10-20). The same engine as the dashboard InsightCard (design/everyfield-ui.html).
+   Used by the InsightCard copies and by photo slots that hold a colorful UI card.
+   Three layers: a base color, a blurred mesh of five color blobs mixed in OKLCH (::before), film grain (::after).
+   - Use: class="mesh" data-mesh="field|sky|sage|rose". All tones carry ink text. Rose is the risk / needs-attention tone.
+   - Palette: --ef-{sky|sage|rose}-{100|300|500|700}, sampled from the photos and muted in OKLCH (sage and rose: design/everyfield-ui.html, 5e2f9b5).
+     700 is the text-safe step (4.5:1 or more on white and cream). The earlier tones are retired (final picks, 2026-10-20).
+   ===================================================================== */
+:root {
+  --ef-sky-100: #D6EAF2;  --ef-sky-300: #B2D2DE;  --ef-sky-500: #83AAB8;  --ef-sky-700: #4C6F7C;
+  --ef-sage-100: #E4EED9; --ef-sage-300: #C6D6B4; --ef-sage-500: #9BAE86; --ef-sage-700: #5F6D4D;
+  --ef-rose-100: #F9E4E1; --ef-rose-300: #EAC6C0; --ef-rose-500: #C79A93; --ef-rose-700: #825D57;
+  --ef-soil: #3F2F23; --ef-cloud: #787A80;
+}
+.mesh { position: relative; isolation: isolate; overflow: hidden; background: var(--g-base); color: #181D19;
+  --on: #181D19; --on-2: rgba(24, 29, 25, .86); --on-3: rgba(24, 29, 25, .8); --pill-bg: rgba(255, 255, 255, .34); --pill-edge: rgba(24, 29, 25, .16); --spark: rgba(24, 29, 25, .18); --spark-hi: #181D19; }
+.mesh::before { content: ""; position: absolute; inset: -25%; z-index: -2; pointer-events: none;
+  background:
+    radial-gradient(in oklch circle at 82% 18%, var(--g5) 0%, transparent 22%),
+    radial-gradient(in oklch 38% 44% at 24% 26%, var(--g1) 0%, transparent 72%),
+    radial-gradient(in oklch 44% 48% at 74% 38%, var(--g2) 0%, transparent 72%),
+    radial-gradient(in oklch 46% 42% at 64% 80%, var(--g3) 0%, transparent 72%),
+    radial-gradient(in oklch 36% 38% at 26% 78%, var(--g4) 0%, transparent 72%);
+  filter: blur(52px); }
+.mesh::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit; background: var(--photo-grain) 0 0 / 260px 260px; opacity: .4; mix-blend-mode: overlay; }
+.mesh :focus-visible { outline: 2px solid #181D19; outline-offset: 2px; }
+[data-mesh="field"] { --g-base: #1AF197; --g1: #AFF8D0; --g2: #1AF197; --g3: #4BDC95; --g4: var(--ef-sky-300); --g5: #FBF6ED; }
+[data-mesh="sky"]   { --g-base: var(--ef-sky-300); --g1: var(--ef-sky-100); --g2: #99BECC; --g3: #ECF6FA; --g4: var(--ef-sky-500); --g5: #ECF6FA; }
+[data-mesh="sage"]  { --g-base: var(--ef-sage-300); --g1: var(--ef-sage-100); --g2: var(--ef-sage-500); --g3: #F3EECC; --g4: #AAC099; --g5: #FBF6ED; } /* the green hills at dusk, lit by a pale gold sky */
+[data-mesh="rose"]  { --g-base: var(--ef-rose-300); --g1: var(--ef-rose-100); --g2: var(--ef-rose-500); --g3: #F2D7B9; --g4: #D5B2A5; --g5: #FBF6ED; } /* the mauve sunset clouds; risk and needs attention */
 
 /* ------------------------------------------------------------------ */
 /* A. Field Notes                                                       */
@@ -52,18 +162,18 @@
   --mk-line: rgba(24, 29, 25, .12);
   --mk-line-strong: rgba(24, 29, 25, .24);
 
-  --mk-accent: #0F7E3C;          /* --ef-green-600, 4.6:1 on canvas */
+  --mk-accent: #037D4C;          /* --ef-green-600, 4.6:1 on canvas */
   --mk-accent-text: #FFFFFF;     /* 5.2:1 on accent */
-  --mk-link: #0F7E3C;
-  --mk-highlight: #1CE362;       /* marker fill behind ink text, 9.9:1 */
+  --mk-link: #037D4C;
+  --mk-highlight: #1AF197;       /* marker fill behind ink text, 9.9:1 */
   --mk-eyebrow: #9A4A0C;         /* --ef-amber-600, 5.5:1 on canvas */
-  --mk-chart-1: #0F7E3C;
+  --mk-chart-1: #037D4C;
   --mk-chart-2: #D9780F;         /* --ef-amber-display, graphics only */
-  --mk-chart-3: #1C5BB5;         /* --ef-blue-600 */
+  --mk-chart-3: #2A6296;         /* --ef-blue-600 */
 
   --mk-cta-bg: #181D19;
   --mk-cta-text: #F6F0E9;        /* 15.1:1 */
-  --mk-cta-bg-hover: #0F7E3C;
+  --mk-cta-bg-hover: #037D4C;
   --mk-cta2-bg: transparent;
   --mk-cta2-text: #181D19;
   --mk-cta2-border: rgba(24, 29, 25, .35);
@@ -84,7 +194,7 @@
   --mk-tracking-display: -0.035em;
   --mk-tracking-eyebrow: 0.08em;
   --mk-eyebrow-transform: uppercase;
-  --mk-display-stretch: 100%;    /* Bricolage wdth axis */
+  --mk-display-stretch: 100%;    /* no width axis in DM Serif Display */
 
   /* Layout: 12 col, wide margins, asymmetric 5/7 heroes */
   --mk-max-width: 1280px;
@@ -95,9 +205,6 @@
   --mk-measure: 62ch;
 
   /* Shape */
-  --mk-radius-card: 6px;
-  --mk-radius-button: 999px;
-  --mk-radius-media: 4px;
   --mk-border-card: 1px solid rgba(24, 29, 25, .12);
   --mk-shadow-card: none;
   --mk-shadow-media: 0 1px 2px rgba(24, 29, 25, .06), 0 18px 40px -24px rgba(24, 29, 25, .35);
@@ -125,14 +232,14 @@
   --mk-line: rgba(22, 30, 46, .075);
   --mk-line-strong: rgba(22, 30, 46, .13);
 
-  --mk-accent: #1CE362;          /* --ef-green-500, fill only */
+  --mk-accent: #1AF197;          /* --ef-green-500, fill only */
   --mk-accent-text: #111318;     /* 10.8:1 on accent */
-  --mk-link: #0F7E3C;            /* 5.2:1 on white */
-  --mk-highlight: #DCFAE7;       /* --ef-green-100 chip, text #0D6B35 at 6.0:1 */
+  --mk-link: #037D4C;            /* 5.2:1 on white */
+  --mk-highlight: #D6FBE3;       /* --ef-green-100 chip, text #026B40 at 6.0:1 */
   --mk-eyebrow: #4D5361;
-  --mk-chart-1: #1CE362;
-  --mk-chart-2: #6AAEFF;         /* --ef-blue-500 */
-  --mk-chart-3: #A48CF5;         /* --ef-violet-500 */
+  --mk-chart-1: #1AF197;
+  --mk-chart-2: #6E9FCF;         /* --ef-blue-500 */
+  --mk-chart-3: #C79A93;         /* --ef-violet-500 (rose ramp) */
 
   --mk-cta-bg: #181D19;
   --mk-cta-text: #FFFFFF;        /* 17.1:1 */
@@ -168,9 +275,6 @@
   --mk-measure: 58ch;
 
   /* Shape: the dashboard's soft cards and pills */
-  --mk-radius-card: 26px;        /* --ef-radius-card */
-  --mk-radius-button: 999px;
-  --mk-radius-media: 34px;       /* --ef-radius-frame */
   --mk-border-card: 0;
   --mk-shadow-card: 0 1px 0 rgba(255,255,255,.9) inset, 0 1px 2px rgba(24,29,25,.04), 0 6px 18px -10px rgba(24,29,25,.10);
   --mk-shadow-media: 0 2px 6px rgba(24,29,25,.06), 0 24px 48px -16px rgba(24,29,25,.28);
@@ -198,18 +302,18 @@
   --mk-line: rgba(255, 255, 255, .07);
   --mk-line-strong: rgba(255, 255, 255, .13);
 
-  --mk-accent: #1CE362;          /* 11.3:1 as text on canvas */
+  --mk-accent: #1AF197;          /* 11.3:1 as text on canvas */
   --mk-accent-text: #111318;     /* 10.8:1 on accent */
-  --mk-link: #62E897;            /* 12.5:1 on canvas */
-  --mk-highlight: rgba(28, 227, 98, .14);
+  --mk-link: #6CF2B4;            /* 12.5:1 on canvas */
+  --mk-highlight: rgba(26, 241, 151, .14);
   --mk-eyebrow: #8A919E;
-  --mk-chart-1: #1CE362;
-  --mk-chart-2: #6AAEFF;
+  --mk-chart-1: #1AF197;
+  --mk-chart-2: #6E9FCF;
   --mk-chart-3: #F2728A;         /* --ef-magenta-500 */
 
-  --mk-cta-bg: #1CE362;
+  --mk-cta-bg: #1AF197;
   --mk-cta-text: #111318;        /* 10.8:1 */
-  --mk-cta-bg-hover: #62E897;
+  --mk-cta-bg-hover: #6CF2B4;
   --mk-cta2-bg: rgba(255, 255, 255, .06);
   --mk-cta2-text: #EEF0F4;
   --mk-cta2-border: rgba(255, 255, 255, .13);
@@ -241,15 +345,12 @@
   --mk-measure: 56ch;
 
   /* Shape */
-  --mk-radius-card: 14px;        /* --ef-radius-md */
-  --mk-radius-button: 10px;      /* --ef-radius-sm */
-  --mk-radius-media: 20px;       /* --ef-radius-lg */
   --mk-border-card: 1px solid rgba(255, 255, 255, .07);
   --mk-shadow-card: 0 1px 0 rgba(255,255,255,.04) inset, 0 1px 2px rgba(0,0,0,.35), 0 8px 20px -12px rgba(0,0,0,.6);
-  --mk-shadow-media: 0 0 0 1px rgba(255,255,255,.06), 0 40px 120px -40px rgba(28,227,98,.25);
+  --mk-shadow-media: 0 0 0 1px rgba(255,255,255,.06), 0 40px 120px -40px rgba(26, 241, 151,.25);
   --mk-nav-bg: rgba(11, 13, 16, .8);
   --mk-nav-blur: 14px;
-  --mk-texture: radial-gradient(60% 50% at 50% 0%, rgba(28, 227, 98, .10), transparent 70%);
+  --mk-texture: radial-gradient(60% 50% at 50% 0%, rgba(26, 241, 151, .10), transparent 70%);
 }
 
 /* ------------------------------------------------------------------ */
@@ -262,7 +363,7 @@
   --mk-canvas: #F6F0E9;          /* --ef-cream for body sections */
   --mk-surface: #FFFDF9;
   --mk-surface-2: #EDE3D5;
-  --mk-surface-inverse: #0F2418; /* --ef-green-50 (dark ramp) for hero and bands */
+  --mk-surface-inverse: #0F2419; /* --ef-green-50 (dark ramp) for hero and bands */
   --mk-ink: #181D19;             /* 15.1:1 on canvas */
   --mk-text: #181D19;
   --mk-text-2: #4D5361;          /* 6.8:1 on canvas */
@@ -274,12 +375,12 @@
 
   --mk-accent: #FFA552;          /* --ef-amber-500, 8.4:1 as text on green band */
   --mk-accent-text: #181D19;     /* 8.8:1 on accent */
-  --mk-link: #0D6B35;            /* --ef-green-700, 5.9:1 on canvas */
+  --mk-link: #026B40;            /* --ef-green-700, 5.9:1 on canvas */
   --mk-highlight: #FFEBD6;       /* --ef-amber-100 */
   --mk-eyebrow: #9A4A0C;         /* 5.5:1 on canvas; use #FFA552 on green band */
-  --mk-chart-1: #0D6B35;
+  --mk-chart-1: #026B40;
   --mk-chart-2: #D9780F;
-  --mk-chart-3: #11736A;         /* --ef-teal-600 */
+  --mk-chart-3: #4C6F7C;         /* --ef-teal-600 (sky ramp) */
 
   --mk-cta-bg: #FFA552;
   --mk-cta-text: #181D19;        /* 8.8:1 */
@@ -315,9 +416,6 @@
   --mk-measure: 60ch;
 
   /* Shape */
-  --mk-radius-card: 20px;
-  --mk-radius-button: 999px;
-  --mk-radius-media: 20px;
   --mk-border-card: 0;
   --mk-shadow-card: 0 1px 2px rgba(15, 36, 24, .06), 0 12px 32px -18px rgba(15, 36, 24, .35);
   --mk-shadow-media: none;

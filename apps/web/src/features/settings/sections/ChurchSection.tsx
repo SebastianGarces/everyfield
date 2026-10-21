@@ -5,7 +5,7 @@ import { LoadableView } from "@everyfield/ui/display";
 import { useState } from "react";
 import { canDeleteWorkspace } from "../model";
 import type { DeletionStatus, DigestSchedule, PlantOwner, PlantSettings, SectionResult } from "../port";
-import { attempt, type Refusal } from "../save";
+import { attempt } from "../save";
 import { SaveError, SaveFooter, SectionBody, SettingRow } from "../SettingsDialog";
 import { useDraft, useSection, useSettings } from "../store";
 import { hourLabel, WEEKDAYS, zoneLabel } from "../time";
@@ -64,7 +64,11 @@ export function validate(form: Form): Errors {
 
 const nullable = (v: string) => (v.trim() === "" ? null : v.trim());
 
-export function ChurchSection({ onDeletionRequested }: { onDeletionRequested: (status: DeletionStatus) => void }) {
+export function ChurchSection({
+	onDeletionRequested,
+}: {
+	onDeletionRequested: (status: DeletionStatus | null) => void;
+}) {
 	const { viewer } = useSettings();
 	if (viewer.context !== "plant") return null;
 	return <ChurchLoaded plant={viewer.plant} onDeletionRequested={onDeletionRequested} />;
@@ -75,7 +79,7 @@ function ChurchLoaded({
 	onDeletionRequested,
 }: {
 	plant: PlantOwner;
-	onDeletionRequested: (status: DeletionStatus) => void;
+	onDeletionRequested: (status: DeletionStatus | null) => void;
 }) {
 	const { state, replace, reload } = useSection({ section: "plant", plant });
 	return (
@@ -109,7 +113,7 @@ function ChurchForm({
 	section: PlantSection;
 	replace: (value: SectionResult) => void;
 	reload: () => void;
-	onDeletionRequested: (status: DeletionStatus) => void;
+	onDeletionRequested: (status: DeletionStatus | null) => void;
 }) {
 	const { port, viewer } = useSettings();
 	const saved = formOf(section.values);
@@ -121,13 +125,12 @@ function ChurchForm({
 	const visible = showErrors ? errors : {};
 	const set = <K extends keyof Form>(key: K, value: Form[K]) => setDraft({ ...draft, [key]: value });
 
-	// One section save can hold up to three contract changes. Each one is sent with the revision the previous one
-	// returned. A refusal stops the rest, keeps every unsaved value in the draft and says why.
+	// One section save sends up to three contract changes as one write. A refusal saves none of them, keeps every
+	// value in the draft and says why.
 	const save = () => {
 		setShowErrors(true);
 		if (Object.keys(errors).length > 0) return;
 		void runSave(async (sent) => {
-			let current = section;
 			const patch = Object.fromEntries(
 				(["name", "street", "city", "stateProvince", "country", "description"] as const)
 					.filter((k) => sent[k].trim() !== saved[k])
@@ -145,24 +148,18 @@ function ChurchForm({
 					? { kind: "digest" as const, value: sent.digest }
 					: null,
 			].filter((c) => c !== null);
-			let refused: Refusal | null = null;
-			for (const change of changes) {
-				const input = { section: "plant" as const, plant: current.plant, change };
-				const result = await attempt("plant-settings", (requestKey) =>
-					port.saveSection({ requestKey, expectedRevision: current.revision, input }),
-				);
-				if (!result.ok) {
-					refused = result.refusal;
-					break;
-				}
-				if (result.value.current.section !== "plant") break;
-				current = result.value.current;
-				replace(current);
-			}
-			// After a refusal, report a server value only when an earlier step of this save committed one.
-			const server = formOf(current.values);
-			if (!refused) return { ok: true, server };
-			return current === section ? { ok: false, refusal: refused } : { ok: false, refusal: refused, server };
+			if (changes.length === 0) return { ok: true, server: saved };
+			const result = await attempt("plant-settings", (requestKey) =>
+				port.saveChurch({
+					requestKey,
+					expectedRevision: section.revision,
+					input: { plant: section.plant, changes },
+				}),
+			);
+			if (!result.ok) return { ok: false, refusal: result.refusal };
+			const current = result.value.current.section === "plant" ? result.value.current : section;
+			replace(current);
+			return { ok: true, server: formOf(current.values) };
 		});
 	};
 
@@ -269,12 +266,16 @@ function ChurchForm({
 				<SettingRow label="Church digest" description="Open items sent to each seat that gets the digest.">
 					<DigestControl value={draft.digest} onChange={(digest) => set("digest", digest)} />
 				</SettingRow>
-				{canDeleteWorkspace(viewer) ? (
+				{port.flows.requestWorkspaceDeletion && canDeleteWorkspace(viewer) ? (
 					<SettingRow
 						label="Delete church workspace"
 						description="Only the Owner can do this. You have 30 days to cancel."
 					>
-						<WorkspaceDeletionDialog section={section} onRequested={onDeletionRequested} />
+						<WorkspaceDeletionDialog
+							section={section}
+							request={port.flows.requestWorkspaceDeletion}
+							onRequested={onDeletionRequested}
+						/>
 					</SettingRow>
 				) : null}
 			</SectionBody>

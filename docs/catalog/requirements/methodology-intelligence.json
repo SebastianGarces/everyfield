@@ -68,7 +68,7 @@
         },
         {
           "operation": "phases.transition",
-          "rule": "Derive the prior phase from current state, never caller-authoritative from phase. Advisory evidence does not block. Same-phase preserves one noop journal/event receipt without material bump or task creation; exact replay no duplicate."
+          "rule": "Derive the prior phase from current state, never caller-authoritative from phase. Advisory evidence does not block. Same-phase preserves one no-op recorded outcome without material bump or task creation; exact replay no duplicate."
         }
       ],
       "title": "Reasoned forward/backward/skipping/correcting phase transition"
@@ -208,7 +208,7 @@
       "behavior_rules": [
         {
           "operation": "tasks.readPhaseOffer",
-          "rule": "Visible information for plant_member: transition id, actual transition local date, current phase, answer state, available versioned template rows, offer revision, previous answer receipt."
+          "rule": "Visible information for plant_member: transition id, actual transition local date, current phase, answer state, available versioned template rows, offer revision, previous recorded answer."
         },
         {
           "operation": "wiki.recommendForPhase",
@@ -637,7 +637,7 @@
       "feature_ids": [
         "PI-011"
       ],
-      "text": "Count actual live follow-up task ownership, distinct eligible assignees/unowned/stale-unowned separately. Removed/ineligible owner is unowned; staleness or volume alone cannot blame the planter.",
+      "text": "Count actual live follow-up task ownership, distinct eligible assignees/unowned/stale-unowned separately. Removed/ineligible owner is unowned; staleness or volume alone cannot blame the planter. This is a report.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.readFacts"
@@ -656,7 +656,6 @@
         "C0-DOMAIN-TRANSACTION"
       ],
       "work_packages": [
-        "WP-023",
         "WP-040"
       ],
       "title": "Measured task follow-up ownership"
@@ -666,7 +665,7 @@
       "feature_ids": [
         "PI-012"
       ],
-      "text": "Measure successful originating-obligation task-completion Instant within 48 elapsed hours from actual originating meeting occurrence, separately from local+2 calendar-day due date and actual contact success. Waiver gets no success credit; manual/missing origin unmeasured. Phase 6 without approved postlaunch origin is Unknown; no Vision substitute. Use one fixed asOf and actual immutable originating occurrence Instant as source-start. Include mature unresolved obligations at age>=48 elapsed hours as measured misses and valid successful completion at/after source-start and by source-start+48 hours (inclusive), even before maturity. Exclude younger pending, future actual origin/effective creation or completion, completion before origin, and missing/invalid origin/completion from the ratio with exact truthful labels. Waived/no_longer_needed obligations are separately excluded, not failures. Soft-deleted genuine originating meetings retain immutable historical evidence. Actual occurrence/completion and recordedAt/database createdAt are distinct: legitimate later recording never invalidates valid backdated evidence. Legacy task-createdAt-start formulas remain labelled only in their original snapshot versions.",
+      "text": "Measure successful originating-obligation task-completion Instant within 48 elapsed hours from actual originating meeting occurrence, separately from local+2 calendar-day due date and actual contact success. Waiver gets no success credit; manual/missing origin unmeasured. Phase 6 without approved postlaunch origin is Unknown; no Vision substitute. Use one fixed asOf and actual immutable originating occurrence Instant as source-start. Include mature unresolved obligations at age>=48 elapsed hours as measured misses and valid successful completion at/after source-start and by source-start+48 hours (inclusive), even before maturity. Exclude younger pending, future actual origin/effective creation or completion, completion before origin, and missing/invalid origin/completion from the ratio with exact truthful labels. Waived/no_longer_needed obligations are separately excluded, not failures. Soft-deleted genuine originating meetings retain immutable historical evidence. Actual occurrence/completion and recordedAt/database createdAt are distinct: legitimate later recording never invalidates valid backdated evidence. Legacy task-createdAt-start formulas remain labelled only in their original snapshot versions. This is a report.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.readFacts"
@@ -686,7 +685,6 @@
         "C0-DOMAIN-TRANSACTION"
       ],
       "work_packages": [
-        "WP-023",
         "WP-040"
       ],
       "title": "48-hour originating-meeting follow-up task metric"
@@ -696,7 +694,7 @@
       "feature_ids": [
         "PI-013"
       ],
-      "text": "Actual effective contacted occurrence updates 14 day contact freshness; attempted/administrative completion/waiver/task status/profile edit/mail opens never prove contact. Missing/future date Unknown; correction retains history.",
+      "text": "Actual effective contacted occurrence updates 14 day contact freshness; attempted/administrative completion/waiver/task status/profile edit/mail opens never prove contact. Missing/future date Unknown; correction retains history. This is a report.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.readFacts"
@@ -717,7 +715,6 @@
         "C0-DOMAIN-TRANSACTION"
       ],
       "work_packages": [
-        "WP-023",
         "WP-040"
       ],
       "title": "Actual contact freshness independent of task completion"
@@ -1144,7 +1141,7 @@
         },
         {
           "operation": "intelligence.publishAssessment",
-          "rule": "One all-or-nothing change persists supported findings, overall summary, completed assessment, availability and required intents. Check source, reference activation, current execution ownership and lifecycle and every exact-org current contributor grant. Plant publication changes projection, never its own assessment input state."
+          "rule": "One all-or-nothing change persists supported findings, overall summary, completed assessment, availability and required notices. Check source, reference activation, current execution ownership and lifecycle and every exact-org current contributor grant. Plant publication changes projection, never its own assessment input state."
         },
         {
           "operation": "intelligence.publishAssessment",
@@ -1197,7 +1194,7 @@
       "behavior_rules": [
         {
           "operation": "intelligence.markAssessmentSeen",
-          "rule": "Native explicit eligible open acknowledgment / exact reviewed Evry request with trusted presentation witness; one immutable first-open receipt. Release eligibility commits transactionally; replay creates no duplicate. Organization publication compares current contributor and released source revisions. Current affiliations, sharing and contributing source facts govern organization freshness."
+          "rule": "Native explicit eligible open acknowledgment / exact reviewed Evry request with trusted presentation witness; one immutable first-open record. Release eligibility commits transactionally; replay creates no duplicate. Organization publication compares current contributor and released source revisions. Current affiliations, sharing and contributing source facts govern organization freshness."
         }
       ]
     },

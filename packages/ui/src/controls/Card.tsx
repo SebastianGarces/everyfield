@@ -92,7 +92,7 @@ export function CardTitle({
 	return (
 		<Comp
 			className={cn(
-				"font-display leading-[1.2] font-medium tracking-[-0.02em] text-ink text-pretty",
+				"font-title leading-[1.2] tracking-[-0.02em] text-ink text-pretty",
 				size === "sm" ? "text-title-sm" : "text-title-md",
 				className,
 			)}
@@ -184,7 +184,7 @@ export function CardIcon({
 		<span
 			aria-hidden="true"
 			className={cn(
-				"grid flex-none place-items-center rounded-full",
+				"grid flex-none place-items-center rounded-pill",
 				TONE[tone],
 				size === 36 ? "size-9" : "size-11",
 				className,
@@ -211,7 +211,7 @@ export function CalloutLabel({
 		<p className={cn("flex items-center gap-2.5 text-sm font-semibold", TONE_TEXT[tone])}>
 			{art ??
 				(icon ? (
-					<span aria-hidden="true" className={cn("grid size-7 flex-none place-items-center rounded-full", TONE[tone])}>
+					<span aria-hidden="true" className={cn("grid size-7 flex-none place-items-center rounded-pill", TONE[tone])}>
 						<Icon icon={icon} size={16} />
 					</span>
 				) : null)}

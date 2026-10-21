@@ -70,11 +70,11 @@
         },
         {
           "operation": "accounts.register",
-          "rule": "Better Auth credentials may exist unprivileged in pending_domain; one all-or-nothing domain change claims token+exact domain/seat/relationship+Person+recorded outcome and audit/security mail intent and activates. Partial identity is resumable with no grant; credentials are not claimed atomic with domain transaction."
+          "rule": "Better Auth credentials may exist unprivileged in pending_domain; one all-or-nothing domain change claims token+exact domain/seat/relationship+Person+recorded outcome, audit record and required security mail and activates. Partial identity is resumable with no grant; credentials are not claimed atomic with domain transaction."
         },
         {
           "operation": "accounts.resumeRegistration",
-          "rule": "Staged native self resume; no domain authority until token+exact grant/Person+recorded outcome and audit/mail intent commit under original account/intent. Retry returns saved outcome; expired/revoked token yields no grant."
+          "rule": "Staged native self resume; no domain authority until token+exact grant/Person+recorded outcome, audit record and required mail commit under original account/intent. Retry returns saved outcome; expired/revoked token yields no grant."
         },
         {
           "operation": "accounts.getRegistrationStatus",
@@ -432,7 +432,7 @@
         },
         {
           "operation": "settings.saveSection",
-          "rule": "Sharing changes made through privacy controls or settings have the same behavior and commit all required changes atomically. One receipt, audit, exact history, required intents and conditional assessment freshness commit together. Changed policy immediately gates saved, current, cached and assistant access; exact replay or no-op does not advance the revision."
+          "rule": "Sharing changes made through privacy controls or settings have the same behavior and commit all required changes atomically. One recorded outcome, audit record, exact history, required notices and conditional assessment freshness commit together. Changed policy immediately gates saved, current, cached and assistant access; exact replay or no-op does not advance the revision."
         },
         {
           "operation": "settings.saveSection",
@@ -775,7 +775,7 @@
         },
         {
           "operation": "seats.acceptInvitation",
-          "rule": "Authenticated addressed account or staged credential proof; no current active seat; no incompatible associated Discovery; exact pending token/address/type/expiry/current state atomically grants first seat+Person+receipt. Existing Admin is not prerequisite."
+          "rule": "Authenticated addressed account or staged credential proof; no current active seat; no incompatible associated Discovery; exact pending token/address/type/expiry/current state atomically grants first seat+Person+recorded outcome. Existing Admin is not prerequisite."
         },
         {
           "operation": "seats.listInvitations",
@@ -805,7 +805,7 @@
       "feature_ids": [
         "IDN-019"
       ],
-      "text": "Owner/Admin manage ordinary same-workspace Admin/Member seats under current role and unchanged reviewed seat. Protect actual Owner; deny self-promotion, foreign target, generic Owner removal and role changes that violate one-active-seat integrity. Joined date uses accepted invite provenance or clearly labelled original-account fallback. Removal revokes membership authority/sessions, retains CRM/account link and qualification/team history, clears access-dependent team leadership, and presents exact actionable-duty handoff to a currently eligible recipient or visible Needs owner. Closed/waived/deleted duties remain closed. Role/grant/duty/audit changes commit together, or return durable named moved/remaining outcomes; no generic success after partial hidden work. Removal is not account deletion/ownership transfer.",
+      "text": "Owner/Admin manage ordinary same-workspace Admin/Member seats under current role and unchanged reviewed seat. Protect actual Owner; deny self-promotion, foreign target, generic Owner removal and role changes that violate one-active-seat integrity. Joined date uses accepted invite provenance or clearly labelled original-account fallback. Removal revokes membership authority/sessions, retains CRM/account link and qualification/team history, clears access-dependent team leadership, and presents exact actionable-duty handoff to a currently eligible recipient or visible Needs owner. Closed/waived/deleted duties remain closed. A role or seat change applies its access, duty and audit consequences together, or names exactly what moved and what remains; it never reports success after hidden partial work. Removal is not account deletion/ownership transfer.",
       "spec": "docs/product/identity-access.md#req-idn-019",
       "operations": [
         "seats.list",
@@ -830,8 +830,7 @@
       "work_packages": [
         "WP-006",
         "WP-008",
-        "WP-017",
-        "WP-024"
+        "WP-017"
       ],
       "behavior_rules": [
         {
@@ -1469,7 +1468,7 @@
         "WP-006",
         "WP-010",
         "WP-039",
-        "WP-052",
+        "WP-051",
         "WP-053",
         "WP-091"
       ]

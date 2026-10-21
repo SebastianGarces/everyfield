@@ -6,8 +6,9 @@ import { Icon } from "../Icon";
 // Product-visual parts for the marketing panels, cards and vignettes (the dashboard kit, scaled for the marketing page).
 // No hooks and no "use client": the same parts render on the server (vignettes, cards) and inside client panels.
 
-/** Display numbers in the product visuals: Bricolage 500, tight tracking, never wrapped. */
-export const NUM = "font-display font-medium tracking-[-0.03em] [font-stretch:100%] whitespace-nowrap";
+/** Numbers in the product visuals: serif at -0.02em, never wrapped. The caller adds the family with the size:
+ * font-display at 24px and up, font-title below. */
+export const NUM = "tracking-[-0.02em] whitespace-nowrap";
 
 export type Tone = "green" | "blue" | "magenta" | "amber" | "violet" | "teal" | "ink";
 /** Tinted background and strong text of a tone (icon circles, stage chips, tags, avatars). */
@@ -50,7 +51,7 @@ export function StageChip({ tone, children, className }: { tone: Tone; children:
 	return (
 		<span
 			className={cn(
-				"inline-flex h-6 items-center gap-1.5 rounded-full px-[9px] type-xs font-semibold whitespace-nowrap before:size-1.5 before:rounded-full before:bg-current before:content-['']",
+				"inline-flex h-6 items-center gap-1.5 px-[9px] type-xs font-semibold whitespace-nowrap before:size-1.5 before:rounded-full before:bg-current before:content-['']",
 				TONE[tone],
 				className,
 			)}
@@ -83,7 +84,7 @@ export function Badge({
 	return (
 		<span
 			className={cn(
-				"inline-flex items-center gap-1.5 rounded-full bg-white font-semibold whitespace-nowrap text-text shadow-mk-badge before:size-[7px] before:rounded-full before:content-['']",
+				"inline-flex items-center gap-1.5 bg-white font-semibold whitespace-nowrap text-text shadow-mk-badge before:size-[7px] before:rounded-full before:content-['']",
 				size === "sm" ? "h-[22px] px-2 type-xs" : "h-[26px] px-2.5 type-sm",
 				DOT[status],
 				className,
@@ -149,7 +150,7 @@ export function UiButton({
 	return (
 		<span
 			className={cn(
-				"inline-flex cursor-default items-center justify-center gap-1.5 rounded-[12px] leading-none font-semibold whitespace-nowrap",
+				"inline-flex cursor-default items-center justify-center gap-1.5 leading-none font-semibold whitespace-nowrap",
 				size === "sm" ? "h-8 px-3 type-sm" : size === "action" ? "h-[34px] px-3.5 type-sm" : "h-9 px-3.5 type-sm",
 				V[variant],
 				className,
@@ -165,7 +166,7 @@ export function Meter({ children, className }: { children: ReactNode; className?
 	return (
 		<div
 			className={cn(
-				"relative mt-1.5 h-2.5 overflow-hidden rounded-full bg-white shadow-[inset_0_0_0_1px_var(--color-line)]",
+				"relative mt-1.5 h-2.5 overflow-hidden bg-white shadow-[inset_0_0_0_1px_var(--color-line)]",
 				className,
 			)}
 		>

@@ -77,9 +77,15 @@ export async function finishAudit(tx: Transaction, command: AuditWrite, request:
 	);
 }
 
-/** Independent changes and their audit entries execute in one statement. */
+/**
+ * The name executeWrites gives the write most recently queued on `command`. A later write that reads it runs after
+ * it inside the one statement, for example an insert that must follow the update freeing a unique slot.
+ */
+export const lastWrite = (command: AuditWrite) => sql.identifier(`write_${command.writes.length - 1}`);
+
+/** Independent changes and their audit entries execute in one statement, on a transaction or alone on the pool. */
 export async function executeWrites(
-	tx: Transaction,
+	tx: Pick<Transaction, "execute">,
 	writes: readonly SQLWrapper[],
 	request?: RequestIdentity,
 ): Promise<void> {

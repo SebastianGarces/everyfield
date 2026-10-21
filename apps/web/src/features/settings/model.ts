@@ -1,4 +1,4 @@
-import type { NotificationChoice, SectionKey, SettingsError, SettingsViewer } from "./port";
+import type { GetSectionRequest, NotificationChoice, SectionKey, SettingsError, SettingsViewer } from "./port";
 
 // Pure settings rules: which sections exist, which a viewer is offered, and the words for each refusal.
 
@@ -20,6 +20,14 @@ export const SECTION_LABEL: Record<SectionKey, string> = {
 	account: "Your account",
 };
 
+/** The sections the product dialog shows. Seats and Sharing are pages of their own (/settings/seats, /sharing). */
+export const DIALOG_SECTIONS = ["church", "organization", "notifications", "account"] as const satisfies SectionKey[];
+export type DialogSection = (typeof DIALOG_SECTIONS)[number];
+
+export function dialogSection(value: string | undefined): DialogSection | null {
+	return (DIALOG_SECTIONS as readonly string[]).includes(value ?? "") ? (value as DialogSection) : null;
+}
+
 export function parseSectionKey(value: string | undefined): SectionKey | null {
 	return (SECTION_ORDER as readonly string[]).includes(value ?? "") ? (value as SectionKey) : null;
 }
@@ -30,7 +38,7 @@ export function parseSectionKey(value: string | undefined): SectionKey | null {
  * that exact context; notifications and your account are always yours.
  */
 export function offeredSections(viewer: SettingsViewer, slots: readonly SectionKey[]): SectionKey[] {
-	const admin = viewer.role === "owner" || viewer.role === "admin";
+	const admin = viewer.context !== "account" && (viewer.role === "owner" || viewer.role === "admin");
 	return SECTION_ORDER.filter((key) => {
 		switch (key) {
 			case "church":
@@ -38,7 +46,7 @@ export function offeredSections(viewer: SettingsViewer, slots: readonly SectionK
 			case "organization":
 				return viewer.context === "organization" && admin;
 			case "sharing":
-				return viewer.context === "plant";
+				return viewer.context === "plant" && slots.includes("sharing");
 			case "seats":
 				return slots.includes("seats");
 			case "notifications":
@@ -46,6 +54,30 @@ export function offeredSections(viewer: SettingsViewer, slots: readonly SectionK
 				return true;
 		}
 	});
+}
+
+/** Where /settings and the rail's Settings open: the first dialog section this viewer is offered. */
+export function firstSection(viewer: SettingsViewer | null): DialogSection {
+	return (viewer && dialogSection(offeredSections(viewer, [])[0])) ?? "account";
+}
+
+/** The dialog section an address opens. /settings opens the first section this viewer is offered. */
+export function sectionAt(pathname: string, viewer: SettingsViewer | null): DialogSection | null {
+	if (pathname === "/settings") return viewer ? firstSection(viewer) : null;
+	return dialogSection(/^\/settings\/([a-z]+)$/.exec(pathname)?.[1]);
+}
+
+/** The read a dialog section makes for this viewer; null when the viewer has no such profile. */
+export function sectionRequest(viewer: SettingsViewer, section: DialogSection): GetSectionRequest | null {
+	switch (section) {
+		case "church":
+			return viewer.context === "plant" ? { section: "plant", plant: viewer.plant } : null;
+		case "organization":
+			return viewer.context === "organization" ? { section: "organization", organization: viewer.organization } : null;
+		case "notifications":
+		case "account":
+			return { section };
+	}
 }
 
 /** Only the current Owner can delete the church workspace (REQ-KNOW-066). Admins and Members never see the action. */

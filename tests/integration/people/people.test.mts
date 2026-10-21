@@ -2,16 +2,20 @@ import { createDatabase, closeDatabase } from "../../../packages/db/src/client.t
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { randomUUID, randomBytes } from "node:crypto";
 
 import { migrate, migrationArtifact } from "../../../packages/db/src/schema/migrate.ts";
+import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
 import {
 	peopleWriter as write,
 	peopleReader as read,
-	organizationPeople as org,
 	accountPersonProducer as accounts,
 	getAccountLink,
-	downloadOrganizationExport,
+	readColumnOrders,
+	readPersonPage,
+	personFields as fields,
 } from "../../../packages/domain/src/people/index.ts";
 
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
@@ -136,6 +140,28 @@ after(async () => {
 		await closeDatabase(admin);
 	}
 });
+
+/** A new account with one accepted seat, and the viewer a request resolves for it before any later change (D59). */
+async function seatedReader(role, selected) {
+	const a = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
+	await admin.execute(
+		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${a.user},${a.id + "@example.test"},true,'Synthetic')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${a.id},${a.user},'active','planter')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${a.session},${a.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
+	);
+	const seat = (
+		await admin.execute(
+			sql`INSERT INTO seat(account_id,plant_id,organization_id,role,accepted_at) VALUES(${a.id},${selected.kind === "plant" ? selected.id : null},${selected.kind === "organization" ? selected.id : null},${role},clock_timestamp()) RETURNING id`,
+		)
+	).rows[0].id;
+	// The request's viewer lookup, before the change lands (D59).
+	const reader = new PeopleReadContext(await tx((t) => RequestActor.resolve(t, a.session)));
+	return { ...a, seat, selected, reader };
+}
 
 test("AC:TARGET-PPL-002 AC:WP011-KNOW-099 AC:SEC-02 AC:TEN-002 minimal contact, explicit null, current tenancy and atomic retry", async () => {
 	const input = {
@@ -588,16 +614,17 @@ test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, c
 	const pipeline = ok(await tx((t) => read.getPipelineData(t, ctx(1), {})));
 	assert.equal(pipeline.groups.length, 5);
 	assert.ok(pipeline.groups.find((g) => g.column === "core_group").cards.some((card) => card.person.id === p.id));
-	const empty = ok(
+	// A person outside the named column is refused, never moved (D68: a move names one person).
+	refused(
 		await tx((t) =>
 			write.reorderPipeline(t, ctx(), {
 				requestKey: randomUUID(),
 				expectedRevision: "1",
-				input: { column: "prospect", personIds: [] },
+				input: { column: "prospect", personId: p.id, afterId: null },
 			}),
 		),
+		"conflict",
 	);
-	assert.equal(empty.outcome, "noop");
 	const survivor = await create("Survivor");
 	await admin.execute(
 		sql`UPDATE person SET state='merged',merged_into_person_id=${sql.param(survivor.id)},retired_at=clock_timestamp() WHERE id=${sql.param(p.id)}`,
@@ -825,51 +852,112 @@ test("AC:WP011-KNOW-069 account removal severs account links and preserves churc
 	refused(await tx((t) => read.getPerson(t, ctx(4), { personId: p.id })));
 });
 
-test("INV-pipeline: complete native orders persist and retry once", async () => {
+test("INV-pipeline: native moves place one person, persist and retry once", async () => {
 	await create("Order A");
 	await create("Order B");
-	const all = ok(await tx((t) => read.listPeople(t, ctx(), { stages: ["prospect"], limit: 100 }))).items.map(
-		(p) => p.id,
-	);
+	const column = async () =>
+		ok(await tx((t) => read.listPeople(t, ctx(), { view: "pipeline", stages: ["prospect"], limit: 100 }))).items.map(
+			(p) => p.id,
+		);
+	const all = await column();
+	const last = all.at(-1);
 	const initialPipeline = ok(await tx((t) => read.getPipelineData(t, ctx(), {})));
-	assert.deepEqual(
-		initialPipeline.groups.map((g) => g.revision),
-		["1", "1", "1", "1", "1"],
-	);
+	const seen = initialPipeline.groups.find((g) => g.column === "prospect").revision;
 	const order = {
 		requestKey: randomUUID(),
-		expectedRevision: initialPipeline.groups.find((g) => g.column === "prospect").revision,
-		input: { column: "prospect", personIds: [...all].reverse() },
+		expectedRevision: seen,
+		input: { column: "prospect", personId: last, afterId: null },
 	};
 	refused(await tx((t) => write.reorderPipeline(t, ctx(1), order)));
 	refused(
-		await tx((t) =>
-			write.reorderPipeline(t, ctx(), {
-				...order,
-				input: { ...order.input, personIds: [...all.slice(1), randomUUID()] },
-			}),
-		),
+		await tx((t) => write.reorderPipeline(t, ctx(), { ...order, input: { ...order.input, afterId: randomUUID() } })),
 		"conflict",
 	);
+	const audits = async () => (await admin.execute(sql`SELECT count(*)::int AS n FROM audit_event`)).rows[0].n;
+	const before = await audits();
 	const saved = ok(await tx((t) => write.reorderPipeline(t, ctx(), order)));
 	assert.equal(saved.outcome, "changed");
 	assert.deepEqual(ok(await tx((t) => write.reorderPipeline(t, ctx(), order))), saved);
-	const ordered = ok(
+	assert.equal((await audits()) - before, 1, "one audit event for the move; the retry replays without writing");
+	const first = [last, ...all.slice(0, -1)];
+	assert.deepEqual(await column(), first);
+	refused(await tx((t) => write.reorderPipeline(t, ctx(), { ...order, requestKey: randomUUID() })), "conflict");
+	const refreshedPipeline = ok(await tx((t) => read.getPipelineData(t, ctx(), { stages: ["leader"] })));
+	assert.equal(refreshedPipeline.groups.find((g) => g.column === "prospect").revision, String(Number(seen) + 1));
+});
+
+test("AC:TARGET-PPL-007 INV-stale-view (D68): joining or leaving a column refuses a move from the older view", async () => {
+	const revision = async (column) => (await tx(async (t) => (await readColumnOrders(t, ctx(), [column]))[0])).revision;
+	// A move with the given column revision; refused when the column changed since that view (verifier finding on 93cf953).
+	const moveWith = (rev, personId, afterId) =>
+		tx((t) =>
+			write.reorderPipeline(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: rev,
+				input: { column: "following_up", personId, afterId },
+			}),
+		);
+	const a = await create("Stale A", { stage: "following_up" });
+	const b = await create("Stale B", { stage: "following_up" });
+	const c = await create("Stale C", { stage: "following_up" });
+	// Create: someone joins the column.
+	let seen = await revision("following_up");
+	await create("Stale D", { stage: "following_up" });
+	refused(await moveWith(seen, a.id, c.id), "conflict");
+	// Stage change: B leaves for attendee; both columns move on, so a view of either is outdated.
+	seen = await revision("following_up");
+	const attendeeSeen = await revision("attendee");
+	const moved = ok(
 		await tx((t) =>
-			read.listPeople(t, ctx(), {
-				view: "pipeline",
-				stages: ["prospect"],
-				limit: 100,
+			write.changeStatus(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: b.revision,
+				input: { personId: b.id, stage: "attendee", reason: "Stale view", handoffs: [] },
 			}),
 		),
 	);
-	assert.deepEqual(
-		ordered.items.map((p) => p.id),
-		order.input.personIds,
+	assert.notEqual(await revision("attendee"), attendeeSeen, "the column B joined moves on");
+	refused(await moveWith(seen, a.id, c.id), "conflict");
+	// Retire and restore: C leaves, then comes back.
+	seen = await revision("following_up");
+	const review = ok(await tx((t) => read.getStatusWarnings(t, ctx(), { personId: c.id }))).reviewRevision;
+	const retired = ok(
+		await tx((t) =>
+			write.retirePerson(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: c.revision,
+				input: { personId: c.id, reason: "Stale view", reviewRevision: review, handoffs: [] },
+			}),
+		),
 	);
-	refused(await tx((t) => write.reorderPipeline(t, ctx(), { ...order, requestKey: randomUUID() })), "conflict");
-	const refreshedPipeline = ok(await tx((t) => read.getPipelineData(t, ctx(), { stages: ["leader"] })));
-	assert.equal(refreshedPipeline.groups.find((g) => g.column === "prospect").revision, "2");
+	refused(await moveWith(seen, a.id, null), "conflict");
+	seen = await revision("following_up");
+	ok(
+		await tx((t) =>
+			write.restorePerson(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: retired.person.revision,
+				input: { personId: c.id },
+			}),
+		),
+	);
+	refused(await moveWith(seen, a.id, null), "conflict");
+	// The current view saves.
+	ok(await moveWith(await revision("following_up"), a.id, null));
+	// A change inside the committed column (core group to leader) keeps that column's order and revision.
+	const core = await create("Stale core", { stage: "core_group" });
+	const coreSeen = await revision("core_group");
+	ok(
+		await tx((t) =>
+			write.changeStatus(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: core.revision,
+				input: { personId: core.id, stage: "leader", reason: "Milestone", handoffs: [] },
+			}),
+		),
+	);
+	assert.equal(await revision("core_group"), coreSeen);
+	assert.equal(moved.person.stage, "attendee");
 });
 
 test("BUG-FB-review-1: full People pages and pipeline use fixed database round trips", async (t) => {
@@ -918,7 +1006,38 @@ test("BUG-FB-review-1: full People pages and pipeline use fixed database round t
 	assert.deepEqual(counts.card, counts.list);
 	assert.ok(counts.list[0] <= 9, "list round-trip budget includes authorization and transaction overhead");
 	assert.deepEqual(counts.pipeline, [counts.pipeline[0], counts.pipeline[0], counts.pipeline[0]]);
-	assert.ok(counts.pipeline[0] <= 32, "pipeline round-trip budget includes all columns");
+	// BEGIN, column revisions, one window over all columns, commitment, duties, COMMIT.
+	assert.ok(counts.pipeline[0] <= 6, `pipeline read: ${counts.pipeline[0]} statements`);
+	// "Show more" names its column and reads one page of it with the same fixed statement count.
+	queries = [];
+	const more = ok(
+		await tx((t) =>
+			read.getPipelineData(t, ctx(), { search: "Batch regression", limit: 25, page: 2, column: "prospect" }),
+		),
+	);
+	assert.equal(queries.length, counts.pipeline[0]);
+	const prospects = more.groups.find((g) => g.column === "prospect");
+	assert.deepEqual(
+		prospects.cards.map((c) => c.person.id),
+		ids.slice(25, 50),
+	);
+	assert.deepEqual([prospects.total, prospects.next], [101, 3]);
+	assert.deepEqual(
+		more.groups.filter((g) => g.column !== "prospect").map((g) => [g.cards, g.total, g.next]),
+		Array.from({ length: 4 }, () => [[], null, null]),
+	);
+	// A page past the end is empty and still reports the column total (D67).
+	const past = ok(await tx((t) => read.getPipelineData(t, ctx(), { search: "Batch regression", limit: 25, page: 9 })));
+	assert.deepEqual(
+		past.groups.map((g) => [g.column, g.cards.length, g.total, g.next]),
+		[
+			["prospect", 0, 101, null],
+			["attendee", 0, 0, null],
+			["following_up", 0, 0, null],
+			["interviewed", 0, 0, null],
+			["core_group", 0, 0, null],
+		],
+	);
 	const evidence = [randomUUID(), randomUUID()].sort();
 	await admin.execute(sql`INSERT INTO commitment(id,plant_id,person_id,kind,signed_on,recorded_at)
 		SELECT id,${plants[0]}::uuid,${ids[0]}::uuid,'launch_team','2099-01-01',clock_timestamp() FROM unnest(${sql.param(evidence)}::uuid[]) id`);
@@ -941,6 +1060,21 @@ test("BUG-FB-review-1: full People pages and pipeline use fixed database round t
 	const overdue = randomUUID();
 	await admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,due_date,person_id)
 		VALUES(${overdue},${plants[0]},'Call','follow_up','medium','not_started',clock_timestamp(),'date_only','2000-01-01',${ids[1]})`);
+	// The page's own boundary (D59): one resolved actor, then the pipeline read with known commitments stays within
+	// BEGIN, column revisions, one window over the read columns, commitment evidence, duties, COMMIT.
+	const authority = await tx((t) => RequestActor.resolve(t, actors[0].session));
+	const viewer = new PeopleReadContext(authority);
+	for (const column of [undefined, "prospect"]) {
+		queries = [];
+		const known = ok(
+			await tx((t) => read.getPipelineData(t, viewer, { search: "Batch regression", limit: 25, column })),
+		);
+		assert.equal(known.groups[0].cards[0].person.commitment.state, "withdrawn");
+		assert.ok(
+			queries.length <= 6,
+			`pipeline read with known commitments (${column ?? "all columns"}): ${queries.length} statements`,
+		);
+	}
 	const pipeline = ok(await tx((t) => read.getPipelineData(t, ctx(), { search: "Batch regression", limit: 25 })));
 	const cards = pipeline.groups.find((g) => g.column === "prospect").cards;
 	assert.deepEqual(cards[0], {
@@ -956,4 +1090,317 @@ test("BUG-FB-review-1: full People pages and pipeline use fixed database round t
 		await tx((t) => read.getPipelineData(t, ctx(), { search: "Batch regression", limit: 25 })),
 		"source_unavailable",
 	);
+});
+
+test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one transaction with a constant round-trip count", async (t) => {
+	const ids = Array.from({ length: 10 }, () => randomUUID()).sort();
+	// No cleanup: the disposable schema is dropped after the suite.
+	// People with keys 1, 2, 3, ... in id order, as the writer leaves a column.
+	const insert = (some, from) =>
+		admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,pipeline_position,state,created_at)
+			SELECT id,${plants[0]}::uuid,${plants[0]}::uuid,'Move regression','other','interviewed','unknown','unknown',${from}::int + n,'live',clock_timestamp()
+			FROM unnest(${sql.param(some)}::uuid[]) WITH ORDINALITY AS t(id, n)`);
+	// Every audit row in the schema: the move must add exactly one, whatever its subject (D70).
+	const history = async () => (await admin.execute(sql`SELECT count(*)::int AS n FROM audit_event`)).rows[0].n;
+	// The reorder action: the producer's command plus one column read, in one transaction.
+	const move = async (personId, afterId) => {
+		const column = await tx(async (t) => (await readColumnOrders(t, ctx(), ["interviewed"]))[0]);
+		const rows = await history();
+		queries = [];
+		const order = ok(
+			await tx(async (t) => {
+				const done = await write.reorderPipeline(t, ctx(), {
+					requestKey: randomUUID(),
+					expectedRevision: column.revision,
+					input: { column: "interviewed", personId, afterId },
+				});
+				return done.status === "ok"
+					? { status: "ok", value: (await readColumnOrders(t, ctx(), ["interviewed"]))[0] }
+					: done;
+			}),
+		);
+		const count = queries.length;
+		assert.equal(order.revision, String(Number(column.revision) + 1));
+		return { count, order: order.personIds, history: (await history()) - rows };
+	};
+	await insert(ids.slice(0, 3), 0);
+	const few = await move(ids[2], null);
+	assert.deepEqual(few.order, [ids[2], ids[0], ids[1]]);
+	await insert(ids.slice(3), 3);
+	const many = await move(ids[9], ids[0]);
+	assert.deepEqual(many.order, [ids[2], ids[0], ids[9], ids[1], ...ids.slice(3, 9)]);
+	t.diagnostic(JSON.stringify({ reorder: [few.count, many.count] }));
+	assert.equal(many.count, few.count, "a move in a column of 10 costs the same as in a column of 3");
+	assert.deepEqual([few.history, many.history], [1, 1], "a move changes one person and writes one audit event");
+	assert.ok(few.count <= 10, `reorder round trips: ${few.count}`);
+	// Legacy ties: 30 people who all share key 0, as every person had before migration 0015. After the migration a move
+	// between any two neighbours still changes exactly one row and writes one audit event.
+	const legacy = Array.from({ length: 20 }, () => randomUUID()).sort();
+	ids.push(...legacy);
+	await insert(legacy, 0);
+	await admin.execute(sql`UPDATE person SET pipeline_position=0 WHERE id=ANY(${sql.param(ids)}::uuid[])`);
+	const tied = (await tx(async (t) => (await readColumnOrders(t, ctx(), ["interviewed"]))[0])).personIds;
+	await admin.execute(
+		sql.raw(
+			await readFile(
+				new URL("../../../packages/db/migrations/0015_unique_pipeline_positions.sql", import.meta.url),
+				"utf8",
+			),
+		),
+	);
+	const positions = async () =>
+		new Map(
+			(
+				await admin.execute(
+					sql`SELECT id, pipeline_position::text AS k FROM person WHERE id=ANY(${sql.param(ids)}::uuid[])`,
+				)
+			).rows.map((r) => [r.id, r.k]),
+		);
+	const spread = await positions();
+	assert.equal(new Set(spread.values()).size, 30, "the migration gives every person a key of their own");
+	assert.deepEqual(
+		(await tx(async (t) => (await readColumnOrders(t, ctx(), ["interviewed"]))[0])).personIds,
+		tied,
+		"and keeps the order",
+	);
+	const [mover, anchor] = [tied[25], tied[3]];
+	const legacyMove = await move(mover, anchor);
+	const expected = tied.filter((x) => x !== mover);
+	expected.splice(expected.indexOf(anchor) + 1, 0, mover);
+	assert.deepEqual(legacyMove.order, expected);
+	const changedRows = [...(await positions())].filter(([pid, k]) => spread.get(pid) !== k).map(([pid]) => pid);
+	assert.deepEqual(changedRows, [mover], "exactly one row changed");
+	assert.equal(legacyMove.history, 1, "one audit event");
+	assert.equal(legacyMove.count, few.count, "the same statements in a column of 30");
+	// 200 alternating moves into the same gap (verifier repro on 38c508f failed at move 59): each move halves the gap,
+	// lands strictly between its neighbours, changes exactly one row and writes one audit event.
+	const [top, m1, m2] = legacyMove.order;
+	let keys = await positions();
+	for (let i = 0; i < 200; i++) {
+		const [mover, other] = i % 2 ? [m1, m2] : [m2, m1];
+		const step = await move(mover, top);
+		assert.deepEqual(step.order.slice(0, 3), [top, mover, other], `move ${i + 1} keeps the requested order`);
+		const now = await positions();
+		assert.deepEqual(
+			[...now].filter(([pid, k]) => keys.get(pid) !== k).map(([pid]) => pid),
+			[mover],
+			`move ${i + 1} changes one row`,
+		);
+		assert.equal(new Set(now.values()).size, 30, `move ${i + 1} keeps every key distinct`);
+		assert.equal(step.history, 1, `move ${i + 1} writes one audit event`);
+		keys = now;
+	}
+	const [first] = ok(await tx((t) => read.listPeople(t, ctx(), { search: "Move regression", limit: 1 }))).items;
+	queries = [];
+	// The stage-change action: the producer's command plus the target column's saved order, in one transaction.
+	const moved = ok(
+		await tx(async (t) => {
+			const done = await write.changeStatus(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: first.revision,
+				input: { personId: first.id, stage: "attendee", reason: "Moved back", handoffs: [] },
+			});
+			return done.status === "ok"
+				? { status: "ok", value: { ...done.value, column: (await readColumnOrders(t, ctx(), ["attendee"]))[0] } }
+				: done;
+		}),
+	);
+	t.diagnostic(JSON.stringify({ changeStatus: queries.length }));
+	assert.equal(moved.person.stage, "attendee");
+	assert.ok(moved.column.personIds.includes(first.id));
+	assert.equal(moved.column.personRevisions[first.id], moved.person.revision);
+	assert.ok(queries.length <= 9, `stage change round trips: ${queries.length}`);
+});
+
+test("INV-reads: the person page and the status warnings use a fixed number of statements without locks", async () => {
+	const p = await create("Reads person");
+	ok(
+		await tx((t) =>
+			write.addNote(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: p.revision,
+				input: { personId: p.id, body: "A note with an actor" },
+			}),
+		),
+	);
+	queries = [];
+	const page = ok(await tx((t) => readPersonPage(t, ctx(), { personId: p.id }, 50)));
+	const pageStatements = queries.length;
+	assert.equal(page.found.person.id, p.id);
+	assert.deepEqual(page.link, { status: "ok", value: { status: "unlinked" } });
+	assert.deepEqual(
+		page.activities.value.items.map((a) => [a.kind === "activity" ? a.action : a.kind, a.actor.kind]),
+		[
+			["created", "current_account"],
+			["note", "current_account"],
+		],
+	);
+	queries = [];
+	const warnings = ok(await tx((t) => read.getStatusWarnings(t, ctx(), { personId: p.id })));
+	const warningStatements = queries.length;
+	assert.deepEqual(warnings.warnings, ["assessment_not_recorded", "interview_not_recorded", "commitment_not_recorded"]);
+	assert.deepEqual(warnings.openDuties, []);
+	// BEGIN, actor, person, activities (or warnings), COMMIT; a commitment projection may add one.
+	assert.ok(pageStatements <= 6, `person page: ${pageStatements} statements`);
+	assert.ok(warningStatements <= 5, `status warnings: ${warningStatements} statements`);
+	assert.equal(
+		queries.some((q) => /for\s+(update|share)/i.test(q)),
+		false,
+		"a dialog read must not lock rows",
+	);
+});
+
+test("INV-tenancy (C13): a seat ended, signed out, held or demoted after the viewer lookup reads no People data", async (t) => {
+	const plant = randomUUID(),
+		made = [];
+	t.after(async () => {
+		await admin.execute(sql`DELETE FROM lifecycle_witness WHERE opaque_subject_id=ANY(${sql.param(made)}::uuid[])`);
+	});
+	await admin.execute(
+		sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${plant},'Synthetic','America/New_York',7,14,1,8,1,1)`,
+	);
+	const seated = (role, selected = { kind: "plant", id: plant }) => seatedReader(role, selected);
+	const owner = await seated("owner");
+	const p = ok(
+		await tx((t) =>
+			write.createPerson(
+				t,
+				{ session: owner.session, selected: owner.selected },
+				{
+					requestKey: randomUUID(),
+					input: { displayName: "C13 private person" },
+				},
+			),
+		),
+	).person;
+	const orgPerson = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO person(id,tenant_id,organization_id,display_name,source,state,created_at,revision) VALUES(${orgPerson},${organization},${organization},'C13 organization person','other','live',clock_timestamp(),1)`,
+	);
+	const plantReads = (v) => [
+		["listPeople", (t) => read.listPeople(t, v, {})],
+		["getPipelineData", (t) => read.getPipelineData(t, v, {})],
+		["getPerson", (t) => read.getPerson(t, v, { personId: p.id })],
+		["readPersonPage", (t) => readPersonPage(t, v, { personId: p.id }, 50)],
+		["getStatusWarnings", (t) => read.getStatusWarnings(t, v, { personId: p.id })],
+		["getActivities", (t) => read.getActivities(t, v, { personId: p.id })],
+		["getAccountLink", (t) => getAccountLink(t, v, { personId: p.id })],
+		["getOwnAccountPerson", (t) => read.getOwnAccountPerson(t, v, {})],
+	];
+	const orgReads = (v) => [
+		["getPerson", (t) => read.getPerson(t, v, { personId: orgPerson })],
+		["readPersonPage", (t) => readPersonPage(t, v, { personId: orgPerson }, 50)],
+		["getAccountLink", (t) => getAccountLink(t, v, { personId: orgPerson })],
+	];
+	const org = { kind: "organization", id: organization, organizationKind: "sending_church" };
+	const [removed, reseated, signedOut, held, churchHeld, demoted] = [
+		await seated("admin"),
+		await seated("member"),
+		await seated("member"),
+		await seated("member"),
+		await seated("member"),
+		await seated("admin", org),
+	];
+	for (const who of [removed, reseated, signedOut, held, churchHeld])
+		for (const [, run] of plantReads(who.reader)) ok(await tx(run));
+	for (const [, run] of orgReads(demoted.reader)) ok(await tx(run));
+	const hold = (kind, subject) =>
+		admin.execute(
+			sql`INSERT INTO lifecycle_witness(kind,opaque_subject_id,plant_id,request_revision,state,witness_checkpoint,cleanup_state,request_id,requested_at,cancel_until) VALUES(${kind},${subject}::uuid,CASE WHEN ${kind}='plant' THEN ${subject}::uuid END,1,'pending_deletion',1,'not_started',${randomUUID()},statement_timestamp(),statement_timestamp()+interval '720 hours')`,
+		);
+	// Each change lands after the viewer lookup, as in a request that already resolved its actor.
+	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${removed.seat}`);
+	// The actor's seat ends and a new one starts: the request's actor named the old seat.
+	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${reseated.seat}`);
+	await admin.execute(
+		sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${reseated.id},${plant},'member',clock_timestamp())`,
+	);
+	await admin.execute(sql`UPDATE auth_session SET expires_at=clock_timestamp() WHERE id=${signedOut.session}`);
+	await hold("account", held.id);
+	made.push(held.id);
+	await admin.execute(sql`UPDATE seat SET role='member' WHERE id=${demoted.seat}`);
+	const failures = [];
+	const expectRefused = async (who, name, reads) => {
+		for (const [op, run] of reads) {
+			const result = await tx(run);
+			if (result.status !== "refused" || result.error.code !== "unavailable") failures.push(`${name} ${op}`);
+		}
+	};
+	await expectRefused(removed, "seat ended:", plantReads(removed.reader));
+	await expectRefused(reseated, "seat replaced:", plantReads(reseated.reader));
+	await expectRefused(signedOut, "session expired:", plantReads(signedOut.reader));
+	await expectRefused(held, "account on hold:", plantReads(held.reader));
+	// A demoted organization Admin keeps no Admin-wide read of a person they have no duty for.
+	await expectRefused(demoted, "Admin demoted:", orgReads(demoted.reader));
+	await hold("plant", plant);
+	made.push(plant);
+	await expectRefused(churchHeld, "church on hold:", plantReads(churchHeld.reader));
+	assert.deepEqual(failures, []);
+});
+
+test("INV-reads (C22): a People read holds no lock on the reader's session, so sign-out never waits for it", async () => {
+	const p = await create("C22 session lock");
+	const viewer = new PeopleReadContext(await tx((t) => RequestActor.resolve(t, actors[0].session)));
+	// An organization Member's person read resolves its pipeline duties in the read itself.
+	const member = await seatedReader("member", {
+		kind: "organization",
+		id: organization,
+		organizationKind: "sending_church",
+	});
+	const orgPerson = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO person(id,tenant_id,organization_id,display_name,source,state,created_at,revision) VALUES(${orgPerson},${organization},${organization},'C22 organization person','other','live',clock_timestamp(),1)`,
+	);
+	// Every People read operation, with the request's cached viewer and with a plain { session, selected } context (as
+	// the photo route sends), which resolves its actor inside the read.
+	const plantReads = (c) => [
+		["listPeople", (t) => read.listPeople(t, c, {})],
+		["getPipelineData", (t) => read.getPipelineData(t, c, {})],
+		["getPerson", (t) => read.getPerson(t, c, { personId: p.id })],
+		["readPersonPage", (t) => readPersonPage(t, c, { personId: p.id }, 50)],
+		["getStatusWarnings", (t) => read.getStatusWarnings(t, c, { personId: p.id })],
+		["getActivities", (t) => read.getActivities(t, c, { personId: p.id })],
+		["getAccountLink", (t) => getAccountLink(t, c, { personId: p.id })],
+		["getOwnAccountPerson", (t) => read.getOwnAccountPerson(t, c, {})],
+		["listTags", (t) => fields.listTags(t, c, {})],
+		["getPersonTags", (t) => fields.getPersonTags(t, c, { personId: p.id })],
+		["getPersonSkills", (t) => fields.getPersonSkills(t, c, { personId: p.id })],
+		["listHouseholds", (t) => fields.listHouseholds(t, c, {})],
+		["getHousehold", (t) => fields.getHousehold(t, c, { personId: p.id })],
+		["getHouseholdMembers", (t) => fields.getHouseholdMembers(t, c, { personId: p.id })],
+		["getPersonPhoto", (t) => fields.getPersonPhoto(t, c, { personId: p.id })],
+	];
+	// An organization Member has no pipeline duty for this person, so person reads refuse after resolving duties in the
+	// read itself; they must still not lock the session on the way. An organization Owner reads every person.
+	const orgReads = (c, person) => [
+		["getPerson", (t) => read.getPerson(t, c, { personId: orgPerson }), person],
+		["readPersonPage", (t) => readPersonPage(t, c, { personId: orgPerson }, 50), person],
+		["getAccountLink", (t) => getAccountLink(t, c, { personId: orgPerson }), person],
+		["getOwnAccountPerson", (t) => read.getOwnAccountPerson(t, c, {}), "ok"],
+	];
+	const label = (name, list) => list.map(([op, ...rest]) => [`${name} ${op}`, ...rest]);
+	const reads = [
+		...label("cached", plantReads(viewer)),
+		...label("plain", plantReads(ctx())),
+		...label("organization Member cached", orgReads(member.reader, "refused")),
+		...label("organization Member plain", orgReads({ session: member.session, selected: member.selected }, "refused")),
+		...label("organization Owner plain", orgReads(orgCtx(), "ok")),
+	];
+	const waited = [];
+	for (const [op, run, expected = "ok"] of reads)
+		await tx(async (t) => {
+			assert.equal((await run(t)).status, expected, op);
+			// The read's transaction is still open: a sign-out or session refresh must not wait for it.
+			try {
+				await admin.transaction(async (a) => {
+					await a.execute(sql`SET LOCAL lock_timeout='250ms'`);
+					await a.execute(
+						sql`UPDATE auth_session SET expires_at=expires_at WHERE id=ANY(${sql.param([actors[0].session, actors[3].session, member.session])}::uuid[])`,
+					);
+				});
+			} catch {
+				waited.push(op);
+			}
+		});
+	assert.deepEqual(waited, []);
 });

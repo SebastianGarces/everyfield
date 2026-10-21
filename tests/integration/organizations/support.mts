@@ -1,18 +1,26 @@
 import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
-import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
+import { sql, type SQLWrapper } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { randomBytes, randomUUID } from "node:crypto";
 
 import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
+import { RequestActor } from "../../../packages/domain/src/access/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
-import { enqueueJob } from "../../../apps/web/src/server/jobs/queue.ts";
+import { queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { owner, sessionId } from "../../../packages/contracts/src/common/index.ts";
 
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const ci=process.env.CI==='true' && process.env.EARLY_ACCESS_TEST_DATABASE==='1' && ['localhost','127.0.0.1'].includes(source.hostname) && source.pathname==='/everyfield_ci';
-if ((!ci && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") || process.env.NODE_ENV === "production")
+const ci =
+	process.env.CI === "true" &&
+	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
+	["localhost", "127.0.0.1"].includes(source.hostname) &&
+	source.pathname === "/everyfield_ci";
+if (
+	(!ci && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
+	process.env.NODE_ENV === "production"
+)
 	throw Error("Only shared development direct endpoint allowed");
-if(!ci) source.searchParams.set("sslmode", "verify-full");
+if (!ci) source.searchParams.set("sslmode", "verify-full");
 export const schema = "wp007_" + randomUUID().replaceAll("-", "");
 export const db = createDatabase({
 	connectionString: source.href,
@@ -103,7 +111,7 @@ export const mail = createMailService({
 	encryptionKey: randomBytes(32),
 	addressKey: randomBytes(32),
 	from: "test@example.test",
-	authorize: async (_tx,mail) => new Set(mail.map(m=>m.id)),
+	authorize: async (_tx, mail) => new Set(mail.map((m) => m.id)),
 	transport: {
 		send: async () => {
 			throw Error("No provider call allowed");
@@ -117,46 +125,51 @@ export const effects = {
 	async invitation(
 		c: import("../../../packages/db/src/client.ts").Transaction,
 		v: Parameters<import("../../../packages/domain/src/organizations/index.ts").OrganizationEffects["invitation"]>[1],
+		writes: SQLWrapper[],
 	) {
 		proofs.set(v.invitationId, v.proof);
-		await mail.enqueue(c, {
-			owner:
-				v.owner.kind === "global"
-					? (() => {
-							throw Error("global");
-						})()
-					: v.owner,
-			purpose: "relationship_invitation",
-			logicalKey: "relationship/" + v.invitationId + "/" + v.operationId,
-			recipient: null,
-			address: v.recipientEmail,
-			content: { subject: v.inviterDescription, text: "https://example.test/accept-relationship?token=" + v.proof },
-			operation: v.operationId,
-			notice: null,
-			eligibleAt: new Date().toISOString(),
-		});
+		await mail.append(
+			c,
+			{
+				owner:
+					v.owner.kind === "global"
+						? (() => {
+								throw Error("global");
+							})()
+						: v.owner,
+				purpose: "relationship_invitation",
+				logicalKey: "relationship/" + v.invitationId + "/" + v.operationId,
+				recipient: null,
+				address: v.recipientEmail,
+				content: { subject: v.inviterDescription, text: "https://example.test/accept-relationship?token=" + v.proof },
+				operation: v.operationId,
+				notice: null,
+				eligibleAt: new Date().toISOString(),
+			},
+			writes,
+		);
 	},
-	async notice(
+	notice(
 		c: import("../../../packages/db/src/client.ts").Transaction,
 		v: Parameters<import("../../../packages/domain/src/organizations/index.ts").OrganizationEffects["notice"]>[1],
 	) {
 		const target = v.pair.kind === "plant" ? v.pair.subject.id : v.pair.organization.id;
-		await enqueueJob(c, {
-			tenant: target,
-			kind: "notification",
-			subject: v.relationshipId,
-			key: v.kind + "/" + v.eventId,
-			revision: v.revision,
-			eligibleAt: new Date().toISOString(),
-		});
+		return queueJobs(c, [
+			{
+				tenant: target,
+				kind: "notification",
+				subject: v.relationshipId,
+				key: v.kind + "/" + v.eventId,
+				revision: v.revision,
+				eligibleAt: new Date().toISOString(),
+			},
+		]);
 	},
-	async invalidate(
-		c: import("../../../packages/db/src/client.ts").Transaction,
+	invalidate(
+		_c: import("../../../packages/db/src/client.ts").Transaction,
 		v: Parameters<import("../../../packages/domain/src/organizations/index.ts").OrganizationEffects["invalidate"]>[1],
 	) {
-		await c.execute(
-			sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${sql.param(v.sourceId)} AND kind IN ('assessment','digest') AND state IN ('ready','retry_wait','claimed')`,
-		);
+		return sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${sql.param(v.sourceId)} AND kind IN ('assessment','digest') AND state IN ('ready','retry_wait','claimed')`;
 	},
 };
 export const api = createOrganizationAdapter(effects, { candidates: async () => [] });
@@ -165,8 +178,45 @@ export const command = (input: unknown, expectedRevision = "1", requestKey = ran
 	expectedRevision,
 	input,
 });
-export async function call(name: keyof typeof api, actor: Awaited<ReturnType<typeof identity>>, input: unknown) {
-	return tx((c) => api[name](c, actor.session, actor.selected, input as never));
+/** The operations the production mounts run through query(), without the write gate. Every other one is a command. */
+const reads = new Set<keyof typeof api>([
+	"associations.getHistory",
+	"organizations.getProfile",
+	"privacy.getSharing",
+	"residency.readSharing",
+	"pipelineSharing.readConsent",
+	"pipelineSharing.checkAggregateAccess",
+]);
+export type Actor = Pick<Awaited<ReturnType<typeof identity>>, "session" | "selected">;
+/**
+ * One command transaction as the production mounts run it (command() in apps/web/src/server/organizations): the write
+ * gate locks the actor's account and selected owner before the body starts. A body that locks first hides lock-order
+ * faults that production has.
+ */
+export async function write<T>(
+	actor: Actor,
+	body: (c: import("../../../packages/db/src/client.ts").Transaction) => Promise<T>,
+): Promise<T> {
+	return tx(async (c) => {
+		if (!(await RequestActor.claimWrite(c, actor.session, actor.selected))) throw Error("unavailable");
+		return body(c);
+	});
+}
+export async function call(name: keyof typeof api, actor: Actor, input: unknown) {
+	const run = (c: import("../../../packages/db/src/client.ts").Transaction) =>
+		api[name](c, actor.session, actor.selected, input as never);
+	return reads.has(name) ? tx(run) : write(actor, run);
+}
+/** Resolves once another transaction of this test role waits for a row lock. */
+export async function waitingOnLock() {
+	for (let attempt = 0; attempt < 400; attempt++) {
+		const r = await runtime.execute(
+			sql`SELECT count(*)::int AS n FROM pg_stat_activity WHERE usename=current_user AND wait_event_type='Lock'`,
+		);
+		if ((r.rows[0] as { n: number }).n > 0) return;
+		await new Promise((resolve) => setTimeout(resolve, 25));
+	}
+	throw Error("the rival transaction never waited for a lock");
 }
 export async function affiliation(
 	plant: ReturnType<typeof owner.parse>,
@@ -177,4 +227,30 @@ export async function affiliation(
 		await db.execute(sql`INSERT INTO affiliation(plant_id,account_id,sending_church_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
  VALUES(${sql.param(plant.kind === "plant" ? plant.id : null)},${sql.param(plant.kind === "account" ? plant.id : null)},${sql.param(plant.kind === "organization" ? plant.id : null)},${sql.param(org.id)},clock_timestamp(),${sql.param(share)},${sql.param(share)},${sql.param(share)},${sql.param(share)},${sql.param(share)},${sql.param(share)},${sql.param(share)}) RETURNING id`);
 	return r.rows[0].id;
+}
+/**
+ * The holder binds its write gate and waits until the rival transaction waits for a lock, then runs its body. Each
+ * side settles to its value, `{ refused: code }` for a domain refusal or `{ failed: code }` for a Postgres error such
+ * as a deadlock (40P01) or lock timeout (55P03).
+ */
+export async function race<A, B>(
+	holder: Actor,
+	held: (c: import("../../../packages/db/src/client.ts").Transaction) => Promise<A>,
+	rival: () => Promise<B>,
+) {
+	let bound!: () => void;
+	const gate = new Promise<void>((resolve) => (bound = resolve));
+	const first = write(holder, async (c) => {
+		bound();
+		await waitingOnLock();
+		return held(c);
+	});
+	await gate;
+	const second = rival();
+	const outcome = (r: PromiseSettledResult<unknown>) => {
+		if (r.status === "fulfilled") return r.value;
+		const e = r.reason as Error & { cause?: { code?: string } };
+		return /^[a-z_]{3,40}$/.test(e.message) ? { refused: e.message } : { failed: e.cause?.code ?? String(e) };
+	};
+	return (await Promise.allSettled([first, second])).map(outcome) as [unknown, unknown];
 }

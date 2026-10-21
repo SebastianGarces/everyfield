@@ -1,11 +1,12 @@
-import { fail, loadConfig, run, type Config } from "./lib.ts";
+import { baseRef, committedConfig, fail, git, loadConfig, parseTask, run, type Config } from "./lib.ts";
 import { cachedTriage } from "./feedback.ts";
 import { checkPr } from "./ship.ts";
+import { APPROVED_PROTOTYPE, changesOnlyOwnRegistration } from "./policy.ts";
 
 /**
- * Human-approved merge for the PRs that never merge automatically: Wiki articles, prototypes,
- * and P2/P3 feedback fixes the verifier passed (mergePolicy.feedbackOwnerAfterVerifier). Every
- * other PR refuses before any write. Sebastian approves in chat;
+ * Human-approved merge for the PRs that never merge automatically: Wiki articles, prototypes, and
+ * the verifier-passed P2/P3 feedback fixes (mergePolicy.feedbackOwnerAfterVerifier) and design tasks
+ * (maintenanceTasks route "design"). Every other PR refuses before any write. Sebastian approves in chat;
  * the agent runs this with his words. Agents never run it without that approval for this PR.
  * It records the approval on the PR, binds it to the exact head commit, and squash-merges.
  * When main is protected, it also posts the evf/verify status for that head.
@@ -23,7 +24,7 @@ type Pr = {
 	mergeStateStatus: string;
 	files: Array<{ path: string }>;
 };
-type Route = { kind: "wiki" | "prototype" } | { kind: "verified-feedback"; id: string };
+type Route = { kind: "wiki" | "prototype" } | { kind: "verified"; id: string };
 
 function gh(args: string[]): string {
 	const r = run("gh", args);
@@ -42,9 +43,34 @@ const readPr = (n: number): Pr =>
 		]),
 	) as Pr;
 
+/** Fetch the PR head: a design task's registration is the one reviewed there, never the home checkout's file. */
+function fetchHead(root: string, cfg: Config, pr: Pr): void {
+	git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch, pr.headRefName);
+	if (git(root, "rev-parse", `${cfg.remote}/${pr.headRefName}`) !== pr.headRefOid)
+		fail(`PR #${pr.number} head moved while evf read it. Check the new head, then retry.`);
+}
+
 /** Only the PR classes the owner policy names may merge on his approval; everything else refuses before any write. */
 function routeOf(root: string, cfg: Config, pr: Pr): Route {
 	const fb = /^task\/fb-(\d+)$/.exec(pr.headRefName);
+	const ops = /^task\/ops-(\d+)$/.exec(pr.headRefName)?.[1];
+	const task = ops ? parseTask(`OPS-${ops}`) : undefined;
+	if (task) fetchHead(root, cfg, pr);
+	const design = task && committedConfig(root, pr.headRefOid).maintenanceTasks?.[task.id];
+	if (task && design?.route === "design") {
+		const base = git(root, "merge-base", baseRef(root, cfg), pr.headRefOid);
+		const owns = (path: string) =>
+			path === "evf.config.json"
+				? changesOnlyOwnRegistration(root, task, base, pr.headRefOid)
+				: path !== APPROVED_PROTOTYPE &&
+					design.owningPaths.some((p) => (p.endsWith("/") ? path.startsWith(p) : path === p));
+		const other = pr.files.map((f) => f.path).filter((path) => !owns(path));
+		if (other.length)
+			fail(
+				`PR #${pr.number} is a design task but changes files outside its owning paths or ${APPROVED_PROTOTYPE} (${other.slice(0, 3).join(", ")}).`,
+			);
+		return { kind: "verified", id: task.id };
+	}
 	if (/^wiki\/[\w.-]+$/.test(pr.headRefName)) {
 		const other = pr.files.map((f) => f.path).filter((path) => !path.startsWith("docs/reference/wiki/"));
 		if (other.length)
@@ -55,7 +81,7 @@ function routeOf(root: string, cfg: Config, pr: Pr): Route {
 	}
 	if (!fb)
 		fail(
-			`PR #${pr.number} (${pr.headRefName}) is not a Wiki article, prototype or P2/P3 feedback fix, so evf approve cannot merge it. Ordinary builds and OPS tasks merge through the verifier: bin/evf ship <task>.`,
+			`PR #${pr.number} (${pr.headRefName}) is not a Wiki article, prototype, P2/P3 feedback fix or design task, so evf approve cannot merge it. Ordinary builds and other OPS tasks merge through the verifier: bin/evf ship <task>.`,
 		);
 	const id = `FB-${fb[1]}`;
 	const cls = cachedTriage(root, Number(fb[1]))?.class;
@@ -64,7 +90,7 @@ function routeOf(root: string, cfg: Config, pr: Pr): Route {
 			`${id} has no local triage record, so its merge route is unknown. Triage it again on this machine (bin/evf feedback triage ${fb[1]} ...), then retry. evf approve does not guess.`,
 		);
 	if (cls === "feature-small") return { kind: "prototype" };
-	if ((cfg.mergePolicy.feedbackOwnerAfterVerifier as string[]).includes(cls)) return { kind: "verified-feedback", id };
+	if ((cfg.mergePolicy.feedbackOwnerAfterVerifier as string[]).includes(cls)) return { kind: "verified", id };
 	if ((cfg.mergePolicy.feedbackVerifierMerge as string[]).includes(cls))
 		fail(`${id} is ${cls}. It merges through the verifier, not evf approve: bin/evf ship ${id}`);
 	fail(`${id} is triaged ${cls}, which has no merge route through evf approve.`);
@@ -85,7 +111,7 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 	const route = routeOf(root, cfg, pr);
 	const head = pr.headRefOid;
 	const again =
-		route.kind === "verified-feedback"
+		route.kind === "verified"
 			? `have the verifier pass the new head (bin/evf ship ${route.id}), then ask Sebastian to approve it`
 			: "ask Sebastian to approve the new head";
 	if (opts.head && !head.startsWith(opts.head))
@@ -99,7 +125,7 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 		);
 
 	const repo = gh(["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"]);
-	if (route.kind === "verified-feedback") {
+	if (route.kind === "verified") {
 		checkPr(root, n, head);
 		const status = JSON.parse(gh(["api", `repos/${repo}/commits/${head}/status`])) as {
 			statuses: Array<{ context: string; state: string; description: string | null }>;
@@ -107,7 +133,7 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 		const verified = status.statuses.find((s) => s.context === cfg.statusContext);
 		if (verified?.state !== "success" || !verified.description?.startsWith("Verified"))
 			fail(
-				`PR #${n} is a P2/P3 feedback fix. The verifier must pass it first (bin/evf ship ${route.id}) at ${head.slice(0, 10)}; a branch update needs a fresh verification.`,
+				`PR #${n} needs the verifier to pass it first (bin/evf ship ${route.id}) at ${head.slice(0, 10)}; a branch update needs a fresh verification.`,
 			);
 	}
 	gh([

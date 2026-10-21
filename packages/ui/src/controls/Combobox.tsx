@@ -78,7 +78,7 @@ function OptionList({
 									keywords={o.description ? [o.description] : undefined}
 									disabled={o.disabled}
 									onSelect={() => onSelect(o.value)}
-									className="relative flex min-h-[38px] cursor-pointer items-center gap-2.5 rounded-[10px] px-2.5 py-1.5 text-md text-ink transition-[background-color] duration-150 select-none data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-45 data-[selected=true]:bg-surface-2"
+									className="relative flex min-h-[38px] cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-md text-ink transition-[background-color] duration-150 select-none data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-45 data-[selected=true]:bg-surface-2"
 								>
 									{multiple ? (
 										<span
@@ -203,7 +203,7 @@ export function FilterChip({
 	return (
 		<span
 			className={cn(
-				"inline-flex h-10 flex-none items-center rounded-[12px] font-medium whitespace-nowrap transition-[background-color,box-shadow] duration-150",
+				"inline-flex h-10 flex-none items-center rounded-md font-medium whitespace-nowrap transition-[background-color,box-shadow] duration-150",
 				active
 					? "bg-amber-100 text-amber-600 shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--ef-amber-500)_35%,transparent)]"
 					: "bg-surface-raised text-ink shadow-[inset_0_0_0_1px_var(--ef-line)] hover:shadow-[inset_0_0_0_1px_var(--ef-line-2)]",
@@ -212,7 +212,7 @@ export function FilterChip({
 			<Popover open={open} onOpenChange={setOpen}>
 				<PopoverTrigger
 					className={cn(
-						"inline-flex h-full cursor-pointer items-center gap-2 rounded-[12px] pl-3.5",
+						"inline-flex h-full cursor-pointer items-center gap-2 rounded-md pl-3.5",
 						active ? "pr-1.5" : "pr-3.5",
 					)}
 				>
@@ -239,7 +239,7 @@ export function FilterChip({
 					type="button"
 					aria-label={`Remove ${label} filter`}
 					onClick={() => onValueChange([])}
-					className="mr-1 grid size-8 cursor-pointer place-items-center rounded-[9px] text-amber-600 transition-[background-color] hover:bg-[color-mix(in_srgb,var(--ef-amber-500)_18%,transparent)]"
+					className="mr-1 grid size-8 cursor-pointer place-items-center rounded-md text-amber-600 transition-[background-color] hover:bg-[color-mix(in_srgb,var(--ef-amber-500)_18%,transparent)]"
 				>
 					<Icon icon={Cancel01Icon} size={16} />
 				</button>

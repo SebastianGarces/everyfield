@@ -29,7 +29,7 @@ const FOCUS_FACTS = [
 export function FocusPanel({ title }: { title: string }) {
 	return (
 		<HomeFx>
-			<PanelCard kind="focus" variant={{ kind: "insight", tone: "dawn" }}>
+			<PanelCard kind="focus" variant={{ kind: "insight", tone: "field" }}>
 				<InsightTop i={0} icon={ICONS.compass} label="Focus this week" count="Plant Intelligence" />
 				<InsightMetric
 					i={1}
@@ -37,9 +37,9 @@ export function FocusPanel({ title }: { title: string }) {
 					unit="people interviewed 5+ weeks ago have not committed"
 				/>
 				<St i={2}>
-					<div className="relative mt-4 h-2 rounded-full bg-mk-ink-12">
-						<span className="absolute inset-0 overflow-hidden rounded-full">
-							<Tf fx="focus.fill" className="absolute inset-0 rounded-full bg-ink" />
+					<div className="relative mt-4 h-2 bg-mk-ink-12">
+						<span className="absolute inset-0 overflow-hidden">
+							<Tf fx="focus.fill" className="absolute inset-0 bg-ink" />
 						</span>
 						<span className="absolute -top-[5px] right-[5%] -bottom-[5px] w-0.5 rounded-[2px] bg-ink" />
 					</div>
@@ -105,7 +105,7 @@ export function ReadinessPanel() {
 					sub="Core Group Development · Harvest Point"
 				/>
 				<St i={1} className="flex items-end gap-3 pb-3">
-					<Num className="type-display-sm leading-[.95]">
+					<Num className="font-display type-display-sm leading-[.95]">
 						<Count fx="ready.met" max={4} />
 					</Num>
 					<span className="pb-1 type-sm leading-[1.3] text-text-3">of 5 met</span>

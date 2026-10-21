@@ -44,6 +44,12 @@
 	html:has([data-product-root]) {
 		scrollbar-gutter: stable;
 	}
+	/* A modal overlay (Radix, through react-remove-scroll) locks scrolling and adds the scrollbar's width to the body as
+     margin. The gutter above still holds that space while the scrollbar is hidden, so the margin would count it twice
+     and pull the page in from the right. The gutter alone keeps the width. */
+	html:has([data-product-root]) body[data-scroll-locked] {
+		margin-right: 0 !important;
+	}
 	html[data-theme] body {
 		background: var(--ef-frame);
 	}
@@ -55,15 +61,19 @@
 		line-height: 1.45;
 		-webkit-font-smoothing: antialiased;
 	}
+	/* Headings: DM Serif Display at 24px and up, DM Serif Text below (h3, h4 and small numbers), both 400 at -0.02em. */
 	[data-product-root] :where(h1, h2, h3, h4) {
 		font-family: var(--ef-font-display);
-		font-weight: 500;
+		font-weight: 400;
 		letter-spacing: -0.02em;
+	}
+	[data-product-root] :where(h3, h4) {
+		font-family: var(--ef-font-title);
 	}
 	[data-product-root] :where(.num) {
 		font-family: var(--ef-font-display);
 		font-variant-numeric: tabular-nums;
-		letter-spacing: -0.03em;
+		letter-spacing: -0.02em;
 	}
 
 	/* Keyboard focus: a 2px --ef-focus ring with a 2px offset, on keyboard focus only (foundations.md, Accessibility).
@@ -89,6 +99,16 @@
 }
 
 @layer components {
+	/* Brand specimens (Foundations preview): logo tiles, brand swatches and the field ramp show the fixed brand values in
+     both themes, like the prototype's .brand-fixed. Only the page chrome around them follows the theme. */
+	[data-product-root] .ef-brand-fixed {
+		--ef-ink: #181d19;
+		--ef-green-700: #0b5c38;
+		--ef-green-500: #1af197;
+		--ef-green-300: #80f3b3;
+		--ef-green-100: #cafbdc;
+	}
+
 	/* Page reveal (foundations.md, Motion): each block rises 14px and fades in over 0.4s. revealDelay() sets the order. */
 	[data-product-root] .reveal {
 		animation: ef-reveal-up 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;

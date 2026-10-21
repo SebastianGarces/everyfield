@@ -1126,9 +1126,9 @@
       ],
       "work_packages": [
         "WP-020",
-        "WP-025",
+        "WP-024",
         "WP-053",
-        "WP-055",
+        "WP-051",
         "WP-066",
         "WP-068"
       ],
@@ -1161,10 +1161,6 @@
           "fixture_type": "session",
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
-        },
-        "calendar-inputs": {
-          "fixture_type": "calendar_fixture",
-          "entered_local": "2026-03-08T02:30:00"
         }
       },
       "actor": {
@@ -1212,9 +1208,9 @@
       ],
       "work_packages": [
         "WP-020",
-        "WP-025",
+        "WP-024",
         "WP-053",
-        "WP-055",
+        "WP-051",
         "WP-066",
         "WP-068"
       ],
@@ -1247,14 +1243,6 @@
           "fixture_type": "session",
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
-        },
-        "calendar-inputs": {
-          "fixture_type": "calendar_fixture",
-          "entered_local": "2026-11-01T01:30:00",
-          "chosen_offsets": [
-            "-05:00",
-            "-06:00"
-          ]
         }
       },
       "actor": {
@@ -1305,8 +1293,7 @@
         "AC-MTG-002--MTG-002"
       ],
       "work_packages": [
-        "WP-010",
-        "WP-055"
+        "WP-010"
       ],
       "status": "future-not-run",
       "description": "Future one-time meeting 2026-10-20T15:00Z ; change church zone, then separate appointment edit.",
@@ -1429,9 +1416,8 @@
         "AC-EVR-READ--EVR-267"
       ],
       "work_packages": [
-        "WP-052",
         "WP-053",
-        "WP-055",
+        "WP-051",
         "WP-066",
         "WP-068",
         "WP-073",
@@ -2065,8 +2051,7 @@
         "AC-EVR-READ--EVR-428"
       ],
       "work_packages": [
-        "WP-071",
-        "WP-072"
+        "WP-055"
       ],
       "operation_ids": [
         "communication.cancelScheduledReviewed",
@@ -2542,8 +2527,7 @@
         "AC-EVR-READ--EVR-416"
       ],
       "work_packages": [
-        "WP-079",
-        "WP-080"
+        "WP-055"
       ],
       "operation_ids": [
         "documents.archive",
@@ -2905,12 +2889,7 @@
         "AC-TSK-003--TSK-003"
       ],
       "work_packages": [
-        "WP-059",
-        "WP-060",
-        "WP-071",
-        "WP-072",
-        "WP-083",
-        "WP-084"
+        "WP-055"
       ],
       "operation_ids": [
         "access.checkOperation",
@@ -3521,8 +3500,7 @@
       ],
       "acceptance_ids": [],
       "work_packages": [
-        "WP-073",
-        "WP-074"
+        "WP-055"
       ],
       "operation_ids": [
         "intelligence.appendAssessmentConsequences",
@@ -3985,8 +3963,7 @@
         "AC-LCH-008--LCH-008"
       ],
       "work_packages": [
-        "WP-075",
-        "WP-076"
+        "WP-055"
       ],
       "operation_ids": [
         "launch.addGuestAttendance",
@@ -4399,8 +4376,7 @@
         "AC-MTG-017--MTG-017"
       ],
       "work_packages": [
-        "WP-065",
-        "WP-066"
+        "WP-055"
       ],
       "operation_ids": [
         "meeting.answerRsvpToken",
@@ -4954,8 +4930,7 @@
         "AC-NTF-003--NTF-003"
       ],
       "work_packages": [
-        "WP-081",
-        "WP-082"
+        "WP-055"
       ],
       "operation_ids": [
         "church.digestSchedule.set",
@@ -5368,8 +5343,7 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-073",
-        "WP-074"
+        "WP-055"
       ],
       "operation_ids": [
         "geography.listReportingRegionCandidates",
@@ -5728,8 +5702,7 @@
         "AC-PPL-019--PPL-019"
       ],
       "work_packages": [
-        "WP-059",
-        "WP-060"
+        "WP-055"
       ],
       "operation_ids": [
         "people.applyRecordedRecruitmentEvent",
@@ -6166,8 +6139,7 @@
         "AC-PPL-011--PPL-011"
       ],
       "work_packages": [
-        "WP-063",
-        "WP-064"
+        "WP-055"
       ],
       "operation_ids": [
         "people.addNote",
@@ -6525,8 +6497,7 @@
         "AC-PPL-014--PPL-014"
       ],
       "work_packages": [
-        "WP-061",
-        "WP-062"
+        "WP-055"
       ],
       "operation_ids": [
         "people.correctCommitmentLifecycle",
@@ -7156,7 +7127,7 @@
         "evry.updateDraft"
       ],
       "status": "future-not-run",
-      "description": "Conversation C belongs to A in plant P, sequence 4, draft revision 2. Two paged note records include Unicode continuation. Returned Person rows Alex/Casey are separate from a Team row. Server clock and timezone are fixed; one retained source is revoked and 25 messages exceed the recent-message budget. A second conversation belongs to B.",
+      "description": "Conversation C belongs to A in plant P with saved messages and a saved draft. Two paged note records include Unicode continuation. Returned Person rows Alex/Casey are separate from a Team row. Server clock and timezone are fixed; one retained source is revoked and 25 messages exceed the recent-message budget. A second conversation belongs to B.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7293,7 +7264,7 @@
         "result": {
           "conversation": "C",
           "new_replay_turns": 0,
-          "sequence": 4,
+          "message_order_kept": true,
           "draft_state": "fixture-state-2",
           "recent_messages_max": 24,
           "Unicode_text": "Alex ✓ Casey",
@@ -7705,7 +7676,7 @@
     },
     {
       "id": "EVRY-FAMILY-RUNTIME-REVIEW-EXECUTION",
-      "requirement": "Only exact valid actor/context/revision/digest executes. One meeting and guest set; unknown send is reconciled, never blindly repeated. Changed/expired/canceled/revoked reviews create zero unresolved effects. Reuse creates a freshly resolved new review. Cancellation blocks unstarted work and reports committed effects truthfully. Replaced workers cannot publish. Closed safe audit links the exact saved outcome and approval without prompt/care/secret content.",
+      "requirement": "Only the exact reviewed content approved by the same actor and context executes. One meeting and guest set; unknown send is reconciled, never blindly repeated. Changed/expired/canceled/revoked reviews create zero unresolved effects. Reuse creates a freshly resolved new review. Cancellation blocks unstarted work and reports committed effects truthfully. A stalled executor cannot publish after another resumes. Closed safe audit links the exact saved outcome and approval without prompt/care/secret content.",
       "feature_ids": [
         "EVR-011",
         "EVR-012",
@@ -7740,18 +7711,15 @@
         "WP-055"
       ],
       "operation_ids": [
-        "evry.appendAudit",
         "evry.approveProposal",
         "evry.cancelProposal",
         "evry.cancelTurn",
-        "evry.claimEffect",
         "evry.executeProposal",
         "evry.expireProposal",
         "evry.observeRun",
         "evry.prepareMeetingInvitation",
         "evry.prepareProposal",
         "evry.readReview",
-        "evry.recordEffectResult",
         "evry.resumeRun",
         "evry.retryTurn",
         "evry.retryUnresolvedEffects",
@@ -7759,7 +7727,7 @@
         "evry.reviseProposal"
       ],
       "status": "future-not-run",
-      "description": "Saved review R has exact meeting/create-guests/send steps, two frozen eligible recipients, revision 1 and expiry T0+15min. Second review is canceled; third edited; fourth actor revoked. One executor loses response after meeting commit; provider send outcome is unknown. Lease worker G is replaced by worker H.",
+      "description": "Saved review R has exact meeting/create-guests/send steps, two eligible recipients and expiry T0+15min. Second review is canceled; third edited; fourth actor revoked. One executor loses response after meeting commit; provider send outcome is unknown. One executor stalls and another resumes the action.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -7873,18 +7841,15 @@
         "operation": "evry.runEvaluation",
         "arguments": {
           "operation_matrix": [
-            "evry.appendAudit",
             "evry.approveProposal",
             "evry.cancelProposal",
             "evry.cancelTurn",
-            "evry.claimEffect",
             "evry.executeProposal",
             "evry.expireProposal",
             "evry.observeRun",
             "evry.prepareMeetingInvitation",
             "evry.prepareProposal",
             "evry.readReview",
-            "evry.recordEffectResult",
             "evry.resumeRun",
             "evry.retryTurn",
             "evry.retryUnresolvedEffects",
@@ -7907,8 +7872,8 @@
           "meeting_count": 1,
           "guest_links": 2,
           "unknown_send_replayed": false,
-          "stale_generation_publish": false,
-          "completed_receipt_retained": true,
+          "stalled_executor_published": false,
+          "completed_outcome_retained": true,
           "audit_prompt": null,
           "audit_secret": null,
           "audit_private_care": null
@@ -7953,18 +7918,15 @@
             "operation": "evry.runEvaluation",
             "arguments": {
               "operation_matrix": [
-                "evry.appendAudit",
                 "evry.approveProposal",
                 "evry.cancelProposal",
                 "evry.cancelTurn",
-                "evry.claimEffect",
                 "evry.executeProposal",
                 "evry.expireProposal",
                 "evry.observeRun",
                 "evry.prepareMeetingInvitation",
                 "evry.prepareProposal",
                 "evry.readReview",
-                "evry.recordEffectResult",
                 "evry.resumeRun",
                 "evry.retryTurn",
                 "evry.retryUnresolvedEffects",
@@ -8012,18 +7974,15 @@
             "operation": "evry.runEvaluation",
             "arguments": {
               "operation_matrix": [
-                "evry.appendAudit",
                 "evry.approveProposal",
                 "evry.cancelProposal",
                 "evry.cancelTurn",
-                "evry.claimEffect",
                 "evry.executeProposal",
                 "evry.expireProposal",
                 "evry.observeRun",
                 "evry.prepareMeetingInvitation",
                 "evry.prepareProposal",
                 "evry.readReview",
-                "evry.recordEffectResult",
                 "evry.resumeRun",
                 "evry.retryTurn",
                 "evry.retryUnresolvedEffects",
@@ -8127,10 +8086,7 @@
         "AC-TSK-016--TSK-016"
       ],
       "work_packages": [
-        "WP-059",
-        "WP-060",
-        "WP-067",
-        "WP-068"
+        "WP-055"
       ],
       "operation_ids": [
         "followups.correctOutcome",
@@ -8670,8 +8626,7 @@
         "AC-TEAM-013--TEAM-013"
       ],
       "work_packages": [
-        "WP-069",
-        "WP-070"
+        "WP-055"
       ],
       "operation_ids": [
         "teams.addResponsibility",
@@ -9156,8 +9111,7 @@
         "AC-WIKI-006--WIKI-006"
       ],
       "work_packages": [
-        "WP-077",
-        "WP-078"
+        "WP-055"
       ],
       "operation_ids": [
         "wiki.article.exportPdf",
@@ -9736,7 +9690,7 @@
     },
     {
       "id": "EVRY-LEASE-FENCE",
-      "requirement": "One fenced run owns unresolved effect claims",
+      "requirement": "A stalled executor cannot publish after another resumes the action",
       "feature_ids": [
         "EVR-013",
         "EVR-014",
@@ -9751,7 +9705,7 @@
         "WP-053"
       ],
       "status": "future-not-run",
-      "description": "Lease 60 sec generation G; renewal every 15 sec; executor-A pauses; B claims G+1 after expiry; domain receipt exists after lost reply",
+      "description": "Executor A stalls after a lost reply; executor B resumes the action. A cannot publish. The user sees the saved outcome once; no repeated change or send.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -9823,8 +9777,6 @@
         },
         "case-input": {
           "fixture_type": "domain_inputs",
-          "lease_seconds": 60,
-          "renew_seconds": 15,
           "worker_identity": "fixture-state-4",
           "current_worker_identity": "fixture-state-5",
           "saved_outcome": "receipt-1"
@@ -9844,11 +9796,9 @@
         "arguments": {
           "conversation": "C",
           "utterances": [
-            "A publishes after B fence; B retries same effect key"
+            "A tries to publish after B resumed; B retries the same action"
           ],
           "request_key": "EVRY-LEASE-FENCE-turn-1",
-          "lease_seconds": 60,
-          "renew_seconds": 15,
           "worker_identity": "fixture-state-4",
           "current_worker_identity": "fixture-state-5",
           "saved_outcome": "receipt-1"
@@ -9857,9 +9807,8 @@
       "expected": {
         "state": {},
         "result": {
-          "error_code": "stale_claim",
           "published": false,
-          "receipt": "receipt-1",
+          "saved_outcome_shown": "receipt-1",
           "new_domain_mutations": 0,
           "new_provider_dispatches": 0
         },
@@ -9904,11 +9853,9 @@
             "arguments": {
               "conversation": "C",
               "utterances": [
-                "A publishes after B fence; B retries same effect key"
+                "A tries to publish after B resumed; B retries the same action"
               ],
               "request_key": "EVRY-LEASE-FENCE-turn-1",
-              "lease_seconds": 60,
-              "renew_seconds": 15,
               "worker_identity": "fixture-state-4",
               "current_worker_identity": "fixture-state-5",
               "saved_outcome": "receipt-1"
@@ -9952,11 +9899,9 @@
             "arguments": {
               "conversation": "C",
               "utterances": [
-                "A publishes after B fence; B retries same effect key"
+                "A tries to publish after B resumed; B retries the same action"
               ],
               "request_key": "EVRY-LEASE-FENCE-turn-1",
-              "lease_seconds": 60,
-              "renew_seconds": 15,
               "worker_identity": "fixture-state-4",
               "current_worker_identity": "fixture-state-5",
               "saved_outcome": "receipt-1",
@@ -9993,7 +9938,6 @@
         "AC-PI-044--PI-044"
       ],
       "work_packages": [
-        "WP-047",
         "WP-051",
         "WP-073",
         "WP-074"
@@ -10245,7 +10189,6 @@
       ],
       "work_packages": [
         "WP-015",
-        "WP-060",
         "WP-091"
       ],
       "status": "future-not-run",
@@ -10613,9 +10556,7 @@
         "AC-TSK-005--TSK-005"
       ],
       "work_packages": [
-        "WP-024",
         "WP-025",
-        "WP-053",
         "WP-067",
         "WP-068"
       ],
@@ -10745,15 +10686,7 @@
             "tasks.createSubtask",
             "tasks.setSubtaskCompletion",
             "tasks.removeSubtask"
-          ],
-          "parent_assignee": "B",
-          "child": "C",
-          "child_assignee": "A",
-          "child_state": "fixture-state-2",
-          "child_status": "not_started",
-          "caller": "A",
-          "other_child_assignee": "D",
-          "deleted_prerequisite": "Q"
+          ]
         }
       },
       "expected": {
@@ -10819,15 +10752,7 @@
                 "tasks.createSubtask",
                 "tasks.setSubtaskCompletion",
                 "tasks.removeSubtask"
-              ],
-              "parent_assignee": "B",
-              "child": "C",
-              "child_assignee": "A",
-              "child_state": "fixture-state-2",
-              "child_status": "not_started",
-              "caller": "A",
-              "other_child_assignee": "D",
-              "deleted_prerequisite": "Q"
+              ]
             }
           },
           "expected": {
@@ -10852,6 +10777,10 @@
               "observed_state": "fixture-state-7",
               "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "fault": "required_write_before_commit"
             }
           },
           "actor": {
@@ -10876,16 +10805,7 @@
                 "tasks.createSubtask",
                 "tasks.setSubtaskCompletion",
                 "tasks.removeSubtask"
-              ],
-              "parent_assignee": "B",
-              "child": "C",
-              "child_assignee": "A",
-              "child_state": "fixture-state-2",
-              "child_status": "not_started",
-              "caller": "A",
-              "other_child_assignee": "D",
-              "deleted_prerequisite": "Q",
-              "fault": "required_write_before_commit"
+              ]
             }
           },
           "expected": {
@@ -10900,6 +10820,9 @@
           },
           "name": "required-boundary-failure"
         }
+      ],
+      "requirement_ids": [
+        "REQ-KNOW-115"
       ]
     },
     {
@@ -11171,8 +11094,7 @@
         "AC-EVR-READ--EVR-400"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-055",
+        "WP-051",
         "WP-085"
       ],
       "status": "future-not-run",
@@ -11449,8 +11371,7 @@
         "AC-EVR-READ--EVR-405"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-055",
+        "WP-051",
         "WP-067"
       ],
       "status": "future-not-run",
@@ -11802,8 +11723,7 @@
         "AC-EVR-READ--EVR-407"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-055",
+        "WP-051",
         "WP-067"
       ],
       "status": "future-not-run",
@@ -12063,8 +11983,7 @@
         "AC-EVR-READ--EVR-408"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-055",
+        "WP-051",
         "WP-065"
       ],
       "status": "future-not-run",
@@ -12425,8 +12344,7 @@
         "AC-EVR-READ--EVR-409"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-055",
+        "WP-051",
         "WP-065"
       ],
       "status": "future-not-run",
@@ -12715,8 +12633,7 @@
         "AC-EVR-READ--EVR-410"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-055",
+        "WP-051",
         "WP-069"
       ],
       "status": "future-not-run",
@@ -13013,8 +12930,7 @@
         "AC-EVR-READ--EVR-411"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-055",
+        "WP-051",
         "WP-069"
       ],
       "status": "future-not-run",
@@ -13294,8 +13210,7 @@
         "AC-EVR-READ--EVR-412"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-055",
+        "WP-051",
         "WP-069"
       ],
       "status": "future-not-run",
@@ -13522,8 +13437,7 @@
         "AC-EVR-READ--EVR-416"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-055",
+        "WP-051",
         "WP-079"
       ],
       "status": "future-not-run",
@@ -13827,8 +13741,7 @@
         "AC-EVR-READ--EVR-417"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-055",
+        "WP-051",
         "WP-077"
       ],
       "status": "future-not-run",
@@ -14069,8 +13982,7 @@
         "AC-EVR-READ--EVR-418"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-055",
+        "WP-051",
         "WP-077"
       ],
       "status": "future-not-run",
@@ -14307,8 +14219,7 @@
         "AC-EVR-READ--EVR-421"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-055",
+        "WP-051",
         "WP-081"
       ],
       "status": "future-not-run",
@@ -14586,8 +14497,7 @@
         "AC-EVR-READ--EVR-422"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-055",
+        "WP-051",
         "WP-085"
       ],
       "status": "future-not-run",
@@ -14831,8 +14741,7 @@
         "AC-EVR-READ--EVR-423"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-055",
+        "WP-051",
         "WP-061"
       ],
       "status": "future-not-run",
@@ -15093,8 +15002,7 @@
         "AC-EVR-READ--EVR-424"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-055",
+        "WP-051",
         "WP-085"
       ],
       "status": "future-not-run",
@@ -15309,8 +15217,7 @@
         "AC-EVR-READ--EVR-425"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-055",
+        "WP-051",
         "WP-085"
       ],
       "status": "future-not-run",
@@ -15549,8 +15456,7 @@
         "AC-EVR-READ--EVR-426"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-055",
+        "WP-051",
         "WP-065"
       ],
       "status": "future-not-run",
@@ -15849,8 +15755,7 @@
         "AC-EVR-READ--EVR-427"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-055",
+        "WP-051",
         "WP-065"
       ],
       "status": "future-not-run",
@@ -16091,8 +15996,7 @@
         "AC-EVR-READ--EVR-428"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-055",
+        "WP-051",
         "WP-085"
       ],
       "status": "future-not-run",
@@ -16351,8 +16255,7 @@
         "AC-EVR-READ--EVR-429"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-055",
+        "WP-051",
         "WP-085"
       ],
       "status": "future-not-run",
@@ -16605,8 +16508,7 @@
         "AC-PPL-014--PPL-014"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-055",
+        "WP-051",
         "WP-059"
       ],
       "status": "future-not-run",
@@ -16884,10 +16786,6 @@
         "AC-TSK-001--TSK-001"
       ],
       "work_packages": [
-        "WP-024",
-        "WP-051",
-        "WP-052",
-        "WP-055",
         "WP-067"
       ],
       "status": "future-not-run",
@@ -17170,8 +17068,6 @@
       ],
       "work_packages": [
         "WP-051",
-        "WP-052",
-        "WP-055",
         "WP-059"
       ],
       "status": "future-not-run",
@@ -17665,9 +17561,8 @@
         "AC-PPL-001--PPL-001"
       ],
       "work_packages": [
-        "WP-052",
         "WP-053",
-        "WP-055",
+        "WP-051",
         "WP-059"
       ],
       "status": "future-not-run",
@@ -17918,9 +17813,8 @@
         "AC-PPL-001--PPL-001"
       ],
       "work_packages": [
-        "WP-052",
         "WP-053",
-        "WP-055",
+        "WP-051",
         "WP-059"
       ],
       "status": "future-not-run",
@@ -18185,10 +18079,6 @@
         "AC-TSK-001--TSK-001"
       ],
       "work_packages": [
-        "WP-024",
-        "WP-052",
-        "WP-053",
-        "WP-055",
         "WP-067"
       ],
       "status": "future-not-run",
@@ -18454,11 +18344,6 @@
         "AC-WIKI-001--WIKI-001"
       ],
       "work_packages": [
-        "WP-034",
-        "WP-035",
-        "WP-052",
-        "WP-053",
-        "WP-055",
         "WP-077"
       ],
       "status": "future-not-run",
@@ -18701,10 +18586,6 @@
         "AC-PPL-008--PPL-008"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-053",
-        "WP-055",
-        "WP-059",
         "WP-065"
       ],
       "status": "future-not-run",
@@ -18972,7 +18853,7 @@
       ],
       "work_packages": [
         "WP-053",
-        "WP-055"
+        "WP-051"
       ],
       "status": "future-not-run",
       "operation_ids": [],
@@ -19212,7 +19093,7 @@
       ],
       "work_packages": [
         "WP-053",
-        "WP-055"
+        "WP-051"
       ],
       "status": "future-not-run",
       "operation_ids": [],
@@ -19452,7 +19333,7 @@
       ],
       "work_packages": [
         "WP-053",
-        "WP-055"
+        "WP-051"
       ],
       "status": "future-not-run",
       "operation_ids": [],
@@ -19693,7 +19574,7 @@
       ],
       "work_packages": [
         "WP-053",
-        "WP-055"
+        "WP-051"
       ],
       "status": "future-not-run",
       "operation_ids": [],
@@ -19924,7 +19805,7 @@
       ],
       "work_packages": [
         "WP-053",
-        "WP-055"
+        "WP-051"
       ],
       "status": "future-not-run",
       "operation_ids": [],
@@ -20155,7 +20036,7 @@
       ],
       "work_packages": [
         "WP-053",
-        "WP-055"
+        "WP-051"
       ],
       "status": "future-not-run",
       "operation_ids": [],
@@ -20416,12 +20297,7 @@
         "AC-PPL-018--PPL-018"
       ],
       "work_packages": [
-        "WP-013",
-        "WP-052",
-        "WP-053",
         "WP-054",
-        "WP-055",
-        "WP-059",
         "WP-085"
       ],
       "status": "future-not-run",
@@ -20680,11 +20556,6 @@
         "AC-TSK-001--TSK-001"
       ],
       "work_packages": [
-        "WP-024",
-        "WP-044",
-        "WP-052",
-        "WP-055",
-        "WP-067",
         "WP-073"
       ],
       "status": "future-not-run",
@@ -20957,15 +20828,6 @@
         "AC-TSK-016--TSK-016"
       ],
       "work_packages": [
-        "WP-024",
-        "WP-025",
-        "WP-026",
-        "WP-045",
-        "WP-046",
-        "WP-052",
-        "WP-053",
-        "WP-055",
-        "WP-067",
         "WP-075"
       ],
       "status": "future-not-run",
@@ -21249,15 +21111,6 @@
         "AC-TSK-001--TSK-001"
       ],
       "work_packages": [
-        "WP-017",
-        "WP-024",
-        "WP-045",
-        "WP-046",
-        "WP-052",
-        "WP-053",
-        "WP-055",
-        "WP-067",
-        "WP-069",
         "WP-075"
       ],
       "status": "future-not-run",
@@ -21525,13 +21378,6 @@
         "AC-TSK-001--TSK-001"
       ],
       "work_packages": [
-        "WP-024",
-        "WP-045",
-        "WP-046",
-        "WP-052",
-        "WP-053",
-        "WP-055",
-        "WP-067",
         "WP-075"
       ],
       "status": "future-not-run",
@@ -21783,11 +21629,6 @@
         "AC-LCH-008--LCH-008"
       ],
       "work_packages": [
-        "WP-045",
-        "WP-046",
-        "WP-052",
-        "WP-053",
-        "WP-055",
         "WP-075"
       ],
       "status": "future-not-run",
@@ -22036,8 +21877,7 @@
         "AC-PPL-008--PPL-008"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-055",
+        "WP-051",
         "WP-059"
       ],
       "status": "future-not-run",
@@ -22293,10 +22133,6 @@
         "AC-NTF-003--NTF-003"
       ],
       "work_packages": [
-        "WP-030",
-        "WP-052",
-        "WP-053",
-        "WP-055",
         "WP-081"
       ],
       "status": "future-not-run",
@@ -22577,7 +22413,6 @@
         "AC-NTF-003--NTF-003"
       ],
       "work_packages": [
-        "WP-030",
         "WP-053"
       ],
       "status": "future-not-run",
@@ -23075,7 +22910,7 @@
         "AC-EVR-016--EVR-016"
       ],
       "work_packages": [
-        "WP-052"
+        "WP-051"
       ],
       "status": "future-not-run",
       "operation_ids": [],
@@ -23294,7 +23129,7 @@
         "AC-PPL-001--PPL-001"
       ],
       "work_packages": [
-        "WP-052"
+        "WP-051"
       ],
       "status": "future-not-run",
       "operation_ids": [],
@@ -23529,8 +23364,7 @@
         "AC-EVR-012--EVR-012"
       ],
       "work_packages": [
-        "WP-053",
-        "WP-055"
+        "WP-054"
       ],
       "status": "future-not-run",
       "operation_ids": [],
@@ -23749,8 +23583,7 @@
         "AC-MTG-002--MTG-002"
       ],
       "work_packages": [
-        "WP-020",
-        "WP-051"
+        "WP-054"
       ],
       "status": "future-not-run",
       "operation_ids": [],
@@ -24012,8 +23845,7 @@
         "AC-MTG-002--MTG-002"
       ],
       "work_packages": [
-        "WP-020",
-        "WP-052"
+        "WP-085"
       ],
       "status": "future-not-run",
       "operation_ids": [],
@@ -24240,8 +24072,7 @@
         "AC-MTG-002--MTG-002"
       ],
       "work_packages": [
-        "WP-020",
-        "WP-052"
+        "WP-085"
       ],
       "status": "future-not-run",
       "operation_ids": [],
@@ -24480,7 +24311,7 @@
       ],
       "work_packages": [
         "WP-053",
-        "WP-055"
+        "WP-051"
       ],
       "status": "future-not-run",
       "operation_ids": [],
@@ -24936,8 +24767,7 @@
         "AC-EVR-012--EVR-012"
       ],
       "work_packages": [
-        "WP-053",
-        "WP-055"
+        "WP-053"
       ],
       "status": "future-not-run",
       "operation_ids": [],
@@ -25166,8 +24996,7 @@
         "AC-EVR-012--EVR-012"
       ],
       "work_packages": [
-        "WP-053",
-        "WP-055"
+        "WP-054"
       ],
       "status": "future-not-run",
       "operation_ids": [],
@@ -25638,9 +25467,6 @@
         "AC-TEAM-006--TEAM-006"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-055",
-        "WP-059",
         "WP-069"
       ],
       "status": "future-not-run",
@@ -25929,9 +25755,6 @@
         "AC-TEAM-006--TEAM-006"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-055",
-        "WP-059",
         "WP-069"
       ],
       "status": "future-not-run",
@@ -26213,9 +26036,6 @@
         "AC-TEAM-008--TEAM-008"
       ],
       "work_packages": [
-        "WP-052",
-        "WP-055",
-        "WP-059",
         "WP-069"
       ],
       "status": "future-not-run",
@@ -26481,34 +26301,23 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-053",
         "WP-054",
-        "WP-059",
-        "WP-060",
         "WP-061",
         "WP-062",
         "WP-063",
         "WP-064",
-        "WP-065",
-        "WP-066",
-        "WP-067",
-        "WP-068",
         "WP-069",
         "WP-070",
-        "WP-071",
-        "WP-072",
         "WP-073",
         "WP-074",
         "WP-075",
         "WP-076",
         "WP-079",
         "WP-080",
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual assistant-verified-context-proposal references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual assistant-verified-context-proposal references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -26818,34 +26627,23 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-053",
         "WP-054",
-        "WP-059",
-        "WP-060",
         "WP-061",
         "WP-062",
         "WP-063",
         "WP-064",
-        "WP-065",
-        "WP-066",
-        "WP-067",
-        "WP-068",
         "WP-069",
         "WP-070",
-        "WP-071",
-        "WP-072",
         "WP-073",
         "WP-074",
         "WP-075",
         "WP-076",
         "WP-079",
         "WP-080",
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual assistant-verified-context-proposal references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual assistant-verified-context-proposal references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -27163,7 +26961,6 @@
         "WP-053",
         "WP-054",
         "WP-059",
-        "WP-060",
         "WP-061",
         "WP-062",
         "WP-063",
@@ -27182,11 +26979,10 @@
         "WP-076",
         "WP-079",
         "WP-080",
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual assistant-verified-context-proposal references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual assistant-verified-context-proposal references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -27498,34 +27294,23 @@
         "AC-PPL-017--PPL-017"
       ],
       "work_packages": [
-        "WP-051",
-        "WP-053",
         "WP-054",
-        "WP-059",
-        "WP-060",
         "WP-061",
         "WP-062",
         "WP-063",
         "WP-064",
-        "WP-065",
-        "WP-066",
-        "WP-067",
-        "WP-068",
         "WP-069",
         "WP-070",
-        "WP-071",
-        "WP-072",
         "WP-073",
         "WP-074",
         "WP-075",
         "WP-076",
         "WP-079",
         "WP-080",
-        "WP-015",
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Two own-plant Person records P1/P2 with actual assistant-verified-context-proposal references listed by registered adapter; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
+      "description": "Two own-plant Person records P1/P2 with actual assistant-verified-context-proposal references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -28091,7 +27876,7 @@
       ],
       "work_packages": [
         "WP-051",
-        "WP-054"
+        "WP-053"
       ],
       "status": "future-not-run",
       "description": "Conversation-C has pending edited review rev2 and completed receipt-R",
@@ -28345,8 +28130,7 @@
         "AC-EVR-012--EVR-012"
       ],
       "work_packages": [
-        "WP-053",
-        "WP-054"
+        "WP-053"
       ],
       "status": "future-not-run",
       "description": "Review rev1 subject Old approved; shared native form changes subject New",
@@ -28837,8 +28621,7 @@
       ],
       "work_packages": [
         "WP-051",
-        "WP-053",
-        "WP-054"
+        "WP-053"
       ],
       "status": "future-not-run",
       "description": "Mobile/keyboard panel, opener focus, pending review and repeated confirm",

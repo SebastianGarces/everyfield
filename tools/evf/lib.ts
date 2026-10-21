@@ -27,17 +27,18 @@ export type Config = {
 	maxAgentsMdLines: number;
 	stack: StackDef | null;
 	checks: CheckDef[];
-	maintenanceTasks?: Record<
-		string,
-		{
-			title: string;
-			owningPaths: string[];
-			checks: CheckDef[];
-			risk?: "ordinary" | "sensitive" | "security" | "privacy" | "irreversible";
-		}
-	>;
+	maintenanceTasks?: Record<string, MaintenanceScope>;
 	taskRisks?: Record<string, "ordinary" | "sensitive" | "security" | "privacy" | "irreversible">;
 	mergePolicy: MergePolicy;
+};
+
+export type MaintenanceScope = {
+	title: string;
+	owningPaths: string[];
+	checks: CheckDef[];
+	risk?: "ordinary" | "sensitive" | "security" | "privacy" | "irreversible";
+	/** A design task owns only design/ files and merges after the verifier and Sebastian's approval. */
+	route?: "design";
 };
 
 export const FEEDBACK_BUG_CLASSES = ["p0", "p1", "p2", "p3"] as const;
@@ -117,6 +118,7 @@ export type Context = {
 	[key: string]: unknown;
 };
 
+/** "contract" names only shipped records from before OPS-20; contract work is now the first step of api. */
 export type Part = "contract" | "api" | "ui" | null;
 
 export type TaskRef = {
@@ -195,6 +197,15 @@ export function loadConfig(root: string): Config {
 	const path = join(root, "evf.config.json");
 	if (!existsSync(path)) fail(`Missing ${path}.`);
 	const cfg = readJson<Config>(path);
+	parseMergePolicy(cfg.mergePolicy);
+	return cfg;
+}
+
+/** The config committed at `rev` in `checkout`: the reviewed text a task branch or PR head carries. */
+export function committedConfig(checkout: string, rev = "HEAD"): Config {
+	const shown = run("git", ["-C", checkout, "show", `${rev}:evf.config.json`]);
+	if (shown.code !== 0) fail(`No committed evf.config.json at ${rev} in ${checkout}.`);
+	const cfg = JSON.parse(shown.stdout) as Config;
 	parseMergePolicy(cfg.mergePolicy);
 	return cfg;
 }
@@ -321,7 +332,7 @@ export function parseTask(raw: string | undefined): TaskRef {
 		return { id: `FB-${n}`, kind: "fb", issue: n, wp: "", part: null, slug: `fb-${n}`, branch: `task/fb-${n}` };
 	}
 	const m = /^(WP-\d{3})(?:\/(contract|api|ui))?$/i.exec(raw.trim());
-	if (!m) fail(`Bad task ID "${raw}". Use WP-NNN, WP-NNN/contract|api|ui, FB-<issue> or OPS-<n>.`);
+	if (!m) fail(`Bad task ID "${raw}". Use WP-NNN, WP-NNN/api|ui, FB-<issue> or OPS-<n>.`);
 	const wp = m[1].toUpperCase();
 	const part = (m[2]?.toLowerCase() ?? null) as Part;
 	const slug = part ? `${wp.toLowerCase()}-${part}` : wp.toLowerCase();
@@ -343,27 +354,29 @@ export const isUiPath = (p: string) =>
 	p.startsWith("tests/ui/");
 const isContract = (p: string) => p.startsWith("packages/contracts/") || p.startsWith("tests/contracts/");
 
-/** Splits a package into the parts that ship as separate tasks. */
+/** Splits a package into the parts that ship as separate tasks: api then ui, or one whole task. */
 export function partsOf(pkg: Package): Part[] {
 	const web = pkg.owning_paths.some(isUiPath);
 	const nonWeb = pkg.owning_paths.some((p) => !isUiPath(p));
-	if (!web || !nonWeb) return [null];
-	const contract = pkg.owning_paths.some(isContract);
-	const backend = pkg.owning_paths.some((p) => !isUiPath(p) && !isContract(p));
-	const parts: Part[] = [];
-	if (contract && backend) parts.push("contract");
-	parts.push("api", "ui");
-	return parts;
+	return web && nonWeb ? ["api", "ui"] : [null];
 }
+
+/** The api part owns the package's contract paths and builds them first. */
+export const contractPathsOf = (pkg: Package): string[] => pkg.owning_paths.filter(isContract);
 
 export function pathsForPart(pkg: Package, part: Part): string[] {
 	const parts = partsOf(pkg);
 	if (part === null) return [...pkg.owning_paths, ...(pkg.root_outputs ?? [])];
+	if (part === "contract") fail(`${pkg.id}/contract is retired. The contract work is the first step of ${pkg.id}/api.`);
 	if (!parts.includes(part))
 		fail(`${pkg.id} does not split into a "${part}" task. Valid: ${parts.map((p) => p ?? "(none)").join(", ")}.`);
 	if (part === "ui") return pkg.owning_paths.filter(isUiPath);
-	if (part === "contract") return pkg.owning_paths.filter(isContract);
-	return pkg.owning_paths.filter((p) => !isUiPath(p) && (parts.includes("contract") ? !isContract(p) : true));
+	return pkg.owning_paths.filter((p) => !isUiPath(p));
+}
+
+/** Paths a shipped record covered, including contract records from before OPS-20. */
+export function recordedPathsFor(pkg: Package, part: Part): string[] {
+	return part === "contract" ? contractPathsOf(pkg) : pathsForPart(pkg, part);
 }
 
 /** Design milestones gate only presentation; server/contracts can proceed independently. */

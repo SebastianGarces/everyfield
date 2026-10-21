@@ -36,7 +36,9 @@ def check(root, write=False):
     files = requirements(root)
     current = {r['id']: r for data in files.values() for r in data.get('requirements', [])}
     before = {r['id']: r for p in files for r in original(p.relative_to(root).as_posix(), base, root).get('requirements', [])}
-    baseline_links = {(rid, op) for rid, req in before.items() for op in req['operations']}
+    removed = {row['id'] for row in mapping.get('operation_removals', [])}
+    assert all(row['reason'].strip() for row in mapping.get('operation_removals', [])), 'Operation removals need a reason'
+    baseline_links = {(rid, op) for rid, req in before.items() for op in req['operations'] if op not in removed}
     added_links = [(row['requirement'], row['operation']) for row in mapping['added_links']]
     assert len(added_links) == len(set(added_links)), 'Duplicate added operation link in ledger'
     assert all(row['reason'].strip() for row in mapping['added_links']), 'Added operation links need a reason'
@@ -60,6 +62,8 @@ def check(root, write=False):
     moved = rewritten = 0
     for p in mapping['placements']:
         old = before[p['from']]['behavior_rules'][p['index']]
+        if old['operation'] in removed:
+            continue
         req = current[p['to']]
         if old['operation'] == 'shared':
             rule = {'feature': p['feature'], 'rule': translated(old['rule'])}

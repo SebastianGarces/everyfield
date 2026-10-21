@@ -264,7 +264,7 @@ function CardsSection() {
 							</CardTitle>
 							<CardDescription>Recent activity</CardDescription>
 						</CardHeading>
-						<span className="num rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-text-2">12</span>
+						<span className="num rounded-pill bg-surface-2 px-2 py-0.5 font-title text-xs text-text-2">12</span>
 					</CardHeader>
 					<CardScrollArea label="Recent activity" maxHeight={190}>
 						<ul className="flex flex-col">
@@ -342,13 +342,13 @@ function InsightSection() {
 						</Button>
 					</InsightFooter>
 				</InsightCard>
-				<InsightCard tone="dawn" aria-labelledby="ins-dawn">
+				<InsightCard tone="rose" aria-labelledby="ins-rose">
 					<InsightTop>
 						<InsightPill icon={Alert02Icon}>Needs attention</InsightPill>
 						<InsightCount>Before launch</InsightCount>
 					</InsightTop>
 					<InsightMetric value="4" unit="leader roles still open" />
-					<InsightTitle id="ins-dawn">Children&apos;s ministry has no leader yet</InsightTitle>
+					<InsightTitle id="ins-rose">Children&apos;s ministry has no leader yet</InsightTitle>
 					<InsightFooter>
 						<Button variant="light">
 							Find candidates <Icon icon={ArrowRight01Icon} size={18} />
@@ -356,17 +356,17 @@ function InsightSection() {
 						<Button variant="glass">Later</Button>
 					</InsightFooter>
 				</InsightCard>
-				<InsightCard tone="lilac" size="sm" aria-labelledby="ins-lilac" className="app-lg:col-span-2">
+				<InsightCard tone="sage" size="sm" aria-labelledby="ins-sage" className="app-lg:col-span-2">
 					<InsightTop>
 						<InsightPill icon={SparklesIcon}>This week</InsightPill>
 						<InsightCount>Size sm</InsightCount>
 					</InsightTop>
 					<InsightMetric size="sm" value="3" unit="steps left in Phase 1" />
-					<InsightTitle id="ins-lilac" size="sm">
+					<InsightTitle id="ins-sage" size="sm">
 						Your next step is the first vision meeting
 					</InsightTitle>
 					<InsightText>
-						Lilac is for the most important summary on a page. Nested text and buttons keep their light colors in dark
+						Sage is for the most important summary on a page. Nested text and buttons keep their light colors in dark
 						mode.
 					</InsightText>
 					<InsightFooter>

@@ -1,7 +1,5 @@
 import { safeReturn } from "@everyfield/contracts/identity";
-import { parseTheme, ProductRoot, THEME_COOKIE } from "@everyfield/ui/foundations";
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 import { AuthFrame } from "./AuthFrame";
 import { InvitationScreen } from "./invitation/InvitationScreen";
@@ -9,20 +7,15 @@ import { RecoverScreen, ResetPasswordScreen, VerifyEmailScreen } from "./Recover
 import { RegisterScreen } from "./RegisterScreen";
 import { SignInScreen } from "./SignInScreen";
 
-// The identity routes. The files under apps/web/src/app/(identity)/ only re-export these, so the screens, their
+// The identity routes. The files under apps/web/src/app/(product)/(identity)/ only re-export these, so the screens, their
 // metadata and their query parsing stay in this feature folder.
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 const one = (value: string | string[] | undefined) => (typeof value === "string" ? value : null);
 
-/** Bare pages (screens.md): no top bar or rail, inside the product root so the product theme applies. */
-export async function IdentityLayout({ children }: { children: ReactNode }) {
-	const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
-	return (
-		<ProductRoot initialTheme={theme}>
-			<AuthFrame>{children}</AuthFrame>
-		</ProductRoot>
-	);
+/** Bare pages (screens.md): no top bar or rail. */
+export function IdentityLayout({ children }: { children: ReactNode }) {
+	return <AuthFrame>{children}</AuthFrame>;
 }
 
 export const signInMetadata: Metadata = { title: "Sign in" };

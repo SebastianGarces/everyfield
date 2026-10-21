@@ -48,14 +48,12 @@ export function previewViewer(persona: PreviewPersona): SettingsViewer {
 			context: "organization",
 			accountId: ACCOUNT.network,
 			organization: NETWORK,
-			organizationName: "Austin Sending Network",
 			role: "admin",
 		};
 	return {
 		context: "plant",
 		accountId: ACCOUNT[persona],
 		plant: PLANT,
-		plantName: "Harvest Point Church",
 		role: persona,
 	};
 }
@@ -82,7 +80,6 @@ export type Fault = SettingsError["code"] | "offline";
 
 type Store = {
 	sections: Map<string, SectionResult>;
-	personalZone: TimezonePreference;
 	previews: Map<string, { zone: string; expiresAt: number }>;
 	avatars: Map<string, string>;
 	staged: Map<string, Blob>;
@@ -102,6 +99,10 @@ function initialSections(persona: PreviewPersona): Map<string, SectionResult> {
 			name: PEOPLE[persona].name,
 			email: PEOPLE[persona].email,
 			avatar: { status: "absent" },
+			personalTimezone:
+				persona === "owner"
+					? { status: "confirmed", timeZone: "America/Chicago", revision: "2" }
+					: { status: "unconfirmed" },
 		}),
 		S.sectionResult.parse({
 			section: "notifications",
@@ -260,10 +261,6 @@ export function createFixturePort(
 ): { port: SettingsPort; controls: FixtureControls } {
 	const store: Store = {
 		sections: initialSections(persona),
-		personalZone:
-			persona === "owner"
-				? ({ status: "confirmed", timeZone: "America/Chicago", revision: "2" } as TimezonePreference)
-				: ({ status: "unconfirmed" } as TimezonePreference),
 		previews: new Map(),
 		avatars: new Map(),
 		staged: new Map(),
@@ -303,6 +300,10 @@ export function createFixturePort(
 	}
 	const ok = <T>(schema: z.ZodType<T>, value: unknown): Reply<T> => ({ status: "ok", value: schema.parse(value) });
 
+	const personalZone = (): TimezonePreference => {
+		const row = store.sections.get("account");
+		return row?.section === "account" ? row.personalTimezone : { status: "unconfirmed" };
+	};
 	const bump = (revision: string) => String(BigInt(revision) + 1n);
 	const canAdminPlant = persona === "owner" || persona === "admin";
 
@@ -400,6 +401,23 @@ export function createFixturePort(
 				current: next,
 			});
 		},
+		async saveChurch(raw) {
+			const request = S.saveChurchRequest.parse(raw);
+			let reply = await port.saveSection({
+				requestKey: request.requestKey,
+				expectedRevision: request.expectedRevision,
+				input: { section: "plant", plant: request.input.plant, change: request.input.changes[0]! },
+			});
+			for (const change of request.input.changes.slice(1)) {
+				if (reply.status !== "ok" || reply.value.current.section !== "plant") break;
+				reply = await port.saveSection({
+					requestKey: `${request.requestKey}/${change.kind}`,
+					expectedRevision: reply.value.current.revision,
+					input: { section: "plant", plant: request.input.plant, change },
+				});
+			}
+			return reply;
+		},
 		async previewPlantTimezone(request) {
 			const fault = await enter("previewPlantTimezone");
 			if (fault) return fault;
@@ -465,128 +483,121 @@ export function createFixturePort(
 				replanIntentId: nextId(),
 			});
 		},
-		async requestAvatarUpload(request) {
-			await wait(150);
-			S.requestAvatarUpload.parse(request);
-			return ok(S.avatarUploadResult, { uploadId: nextId(), expiresAt: nowIso(now() + 15 * 60_000) });
-		},
-		async uploadAvatarBytes(uploadId, file) {
-			await wait(300);
-			store.staged.set(uploadId, file);
-			return { status: "ok", value: null };
-		},
-		async finalizeAvatar(raw) {
-			const fault = await enter("finalizeAvatar");
-			if (fault) return fault;
-			const request = S.finalizeAvatarRequest.parse(raw);
-			const bytes = store.staged.get(request.input.uploadId);
-			const row = store.sections.get("account");
-			if (!bytes || !row || row.section !== "account") return refuse("invalid_input");
-			const versionId = nextId();
-			store.avatars.set(versionId, URL.createObjectURL(bytes));
-			const avatar = S.avatarResult.parse({ status: "available", avatar: { accountId: ACCOUNT[persona], versionId } });
-			store.sections.set("account", { ...row, avatar, revision: bump(row.revision) as typeof row.revision });
-			return { status: "ok", value: avatar };
-		},
-		async removeAvatar(raw) {
-			await wait();
-			S.removeAvatarRequest.parse(raw);
-			const row = store.sections.get("account");
-			if (!row || row.section !== "account") return refuse("invalid_input");
-			const avatar = S.avatarResult.parse({ status: "absent" });
-			store.sections.set("account", { ...row, avatar, revision: bump(row.revision) as typeof row.revision });
-			return { status: "ok", value: avatar };
-		},
-		avatarSrc(avatar) {
-			return store.avatars.get(avatar.versionId) ?? S.avatarRoute(avatar);
-		},
-		async requestEmailChange(request) {
-			const fault = await enter("requestEmailChange");
-			if (fault) return fault;
-			N.requestEmailChange.parse(request);
-			return { status: "ok", value: { status: "verification_requested" } };
-		},
-		async confirmEmailChange(request) {
-			await wait();
-			N.confirmEmailChange.parse(request);
-			const correlationId = nextId();
-			if (request.proof === "valid")
+		flows: {
+			avatar: {
+				async requestAvatarUpload(request) {
+					await wait(150);
+					S.requestAvatarUpload.parse(request);
+					return ok(S.avatarUploadResult, { uploadId: nextId(), expiresAt: nowIso(now() + 15 * 60_000) });
+				},
+				async uploadAvatarBytes(uploadId, file) {
+					await wait(300);
+					store.staged.set(uploadId, file);
+					return { status: "ok", value: null };
+				},
+				async finalizeAvatar(raw) {
+					const fault = await enter("finalizeAvatar");
+					if (fault) return fault;
+					const request = S.finalizeAvatarRequest.parse(raw);
+					const bytes = store.staged.get(request.input.uploadId);
+					const row = store.sections.get("account");
+					if (!bytes || !row || row.section !== "account") return refuse("invalid_input");
+					const versionId = nextId();
+					store.avatars.set(versionId, URL.createObjectURL(bytes));
+					const avatar = S.avatarResult.parse({
+						status: "available",
+						avatar: { accountId: ACCOUNT[persona], versionId },
+					});
+					store.sections.set("account", { ...row, avatar, revision: bump(row.revision) as typeof row.revision });
+					return { status: "ok", value: avatar };
+				},
+				async removeAvatar(raw) {
+					await wait();
+					S.removeAvatarRequest.parse(raw);
+					const row = store.sections.get("account");
+					if (!row || row.section !== "account") return refuse("invalid_input");
+					const avatar = S.avatarResult.parse({ status: "absent" });
+					store.sections.set("account", { ...row, avatar, revision: bump(row.revision) as typeof row.revision });
+					return { status: "ok", value: avatar };
+				},
+				avatarSrc(avatar) {
+					return store.avatars.get(avatar.versionId) ?? S.avatarRoute(avatar);
+				},
+			},
+			async requestEmailChange(request) {
+				const fault = await enter("requestEmailChange");
+				if (fault) return fault;
+				N.requestEmailChange.parse(request);
+				return { status: "ok", value: { status: "verification_requested" } };
+			},
+			async changePassword(request) {
+				const fault = await enter("changePassword");
+				const correlationId = nextId();
+				if (fault)
+					return N.credentialOutcome.parse({
+						status: fault.error.code === "unknown" ? "unknown" : "refused",
+						correlationId,
+					});
+				N.changePasswordRequest.parse(request);
+				if (request.currentPassword !== "correct horse" || request.newPassword === request.currentPassword)
+					return N.credentialOutcome.parse({ status: "refused", correlationId });
 				return N.credentialOutcome.parse({
 					status: "succeeded",
 					correlationId,
 					accountId: ACCOUNT[persona],
-					action: "email_changed",
+					action: "password_changed",
 					reporting: { status: "recorded", eventId: nextId(), mailIntentId: nextId() },
 				});
-			return N.credentialOutcome.parse({ status: request.proof === "unknown" ? "unknown" : "refused", correlationId });
-		},
-		async changePassword(request) {
-			const fault = await enter("changePassword");
-			const correlationId = nextId();
-			if (fault)
-				return N.credentialOutcome.parse({
-					status: fault.error.code === "unknown" ? "unknown" : "refused",
-					correlationId,
+			},
+			async previewPersonalTimezone(request) {
+				await wait(250);
+				N.previewPersonalTimezoneRequest.parse(request);
+				const previewId = nextId();
+				const at = now();
+				store.previews.set(previewId, { zone: request.timeZone, expiresAt: at + 10 * 60_000 });
+				const preference = personalZone();
+				return ok(N.personalTimezonePreview, {
+					previewId,
+					preference,
+					expectedRevision: preference.status === "confirmed" ? preference.revision : "0",
+					newZone: request.timeZone,
+					asOf: nowIso(at),
+					expiresAt: nowIso(at + 10 * 60_000),
 				});
-			N.changePasswordRequest.parse(request);
-			if (request.currentPassword !== "correct horse" || request.newPassword === request.currentPassword)
-				return N.credentialOutcome.parse({ status: "refused", correlationId });
-			return N.credentialOutcome.parse({
-				status: "succeeded",
-				correlationId,
-				accountId: ACCOUNT[persona],
-				action: "password_changed",
-				reporting: { status: "recorded", eventId: nextId(), mailIntentId: nextId() },
-			});
-		},
-		async getPersonalTimezone() {
-			await wait(200);
-			return ok(S.timezonePreference, store.personalZone);
-		},
-		async previewPersonalTimezone(request) {
-			await wait(250);
-			N.previewPersonalTimezoneRequest.parse(request);
-			const previewId = nextId();
-			const at = now();
-			store.previews.set(previewId, { zone: request.timeZone, expiresAt: at + 10 * 60_000 });
-			return ok(N.personalTimezonePreview, {
-				previewId,
-				preference: store.personalZone,
-				expectedRevision: store.personalZone.status === "confirmed" ? store.personalZone.revision : "0",
-				newZone: request.timeZone,
-				asOf: nowIso(at),
-				expiresAt: nowIso(at + 10 * 60_000),
-			});
-		},
-		async setPersonalTimezone(raw) {
-			const fault = await enter("setPersonalTimezone");
-			if (fault) return fault;
-			const request = N.setPersonalTimezoneRequest.parse(raw);
-			const preview = store.previews.get(request.input.previewId);
-			if (!preview || preview.zone !== request.input.timeZone || preview.expiresAt <= now())
-				return refuse("stale_preview");
-			const current = store.personalZone.status === "confirmed" ? store.personalZone.revision : "0";
-			if (current !== request.expectedRevision) return refuse("conflict");
-			store.personalZone = S.timezonePreference.parse({
-				status: "confirmed",
-				timeZone: request.input.timeZone,
-				revision: bump(current),
-			});
-			return ok(N.personalTimezoneResult, { preference: store.personalZone });
-		},
-		async requestAccountDeletion(raw) {
-			const fault = await enter("requestAccountDeletion");
-			if (fault) return fault;
-			S.requestAccountDeletion.parse(raw);
-			if (persona === "owner") return refuse("manual_owner_exception_required");
-			return ok(N.deletionStatus, pending({ kind: "account", id: ACCOUNT[persona] }, now()));
-		},
-		async requestWorkspaceDeletion(raw) {
-			const fault = await enter("requestWorkspaceDeletion");
-			if (fault) return fault;
-			S.requestWorkspaceDeletion.parse(raw);
-			if (persona !== "owner") return refuse("access_denied");
-			return ok(N.deletionStatus, pending(PLANT, now()));
+			},
+			async setPersonalTimezone(raw) {
+				const fault = await enter("setPersonalTimezone");
+				if (fault) return fault;
+				const request = N.setPersonalTimezoneRequest.parse(raw);
+				const preview = store.previews.get(request.input.previewId);
+				if (!preview || preview.zone !== request.input.timeZone || preview.expiresAt <= now())
+					return refuse("stale_preview");
+				const row = store.sections.get("account");
+				if (!row || row.section !== "account") return refuse("access_denied");
+				const current = row.personalTimezone.status === "confirmed" ? row.personalTimezone.revision : "0";
+				if (current !== request.expectedRevision) return refuse("conflict");
+				const preference = N.personalTimezoneResult.shape.preference.parse({
+					status: "confirmed",
+					timeZone: request.input.timeZone,
+					revision: bump(current),
+				});
+				store.sections.set("account", { ...row, personalTimezone: preference });
+				return ok(N.personalTimezoneResult, { preference });
+			},
+			async requestAccountDeletion(raw) {
+				const fault = await enter("requestAccountDeletion");
+				if (fault) return fault;
+				S.requestAccountDeletion.parse(raw);
+				if (persona === "owner") return refuse("manual_owner_exception_required");
+				return ok(N.deletionStatus, pending({ kind: "account", id: ACCOUNT[persona] }, now()));
+			},
+			async requestWorkspaceDeletion(raw) {
+				const fault = await enter("requestWorkspaceDeletion");
+				if (fault) return fault;
+				S.requestWorkspaceDeletion.parse(raw);
+				if (persona !== "owner") return refuse("access_denied");
+				return ok(N.deletionStatus, pending(PLANT, now()));
+			},
 		},
 	};
 
@@ -604,6 +615,22 @@ export function createFixturePort(
 			},
 		},
 	};
+}
+
+/** The page the email-change link opens, for the preview: proof "valid" succeeds, "unknown" is uncertain. */
+export async function confirmFixtureEmail(request: { proof: string }) {
+	await new Promise((r) => setTimeout(r, 450));
+	N.confirmEmailChange.parse(request);
+	const correlationId = nextId();
+	if (request.proof === "valid")
+		return N.credentialOutcome.parse({
+			status: "succeeded",
+			correlationId,
+			accountId: ACCOUNT.admin,
+			action: "email_changed",
+			reporting: { status: "recorded", eventId: nextId(), mailIntentId: nextId() },
+		});
+	return N.credentialOutcome.parse({ status: request.proof === "unknown" ? "unknown" : "refused", correlationId });
 }
 
 function pending(subject: { kind: "account" | "plant"; id: string }, at: number) {
@@ -635,7 +662,11 @@ export const DELETION_SCENARIOS: readonly DeletionScenario[] = [
 export function createDeletionPort(
 	subjectKind: "account" | "plant",
 	scenario: DeletionScenario,
-	{ now = () => Date.now(), delay = 400 }: { now?: () => number; delay?: number } = {},
+	{
+		now = () => Date.now(),
+		delay = 400,
+		signedOut = false,
+	}: { now?: () => number; delay?: number; signedOut?: boolean } = {},
 ): DeletionPort {
 	const subject = subjectKind === "account" ? { kind: "account" as const, id: ACCOUNT.admin } : PLANT;
 	const day = 86_400_000;
@@ -674,10 +705,19 @@ export function createDeletionPort(
 			retry: code === "conflict" ? "refresh" : "never",
 		}),
 	});
+	// Signed out: no restricted session until the original login and password "correct horse" open one.
+	let proven = !signedOut;
 	return {
+		async open(request) {
+			await wait();
+			N.openAccountDeletionRequest.parse(request);
+			if (request.password !== "correct horse") return refuse("proof_invalid");
+			proven = true;
+			return { status: "ok", value: status };
+		},
 		async getStatus() {
 			await wait();
-			return { status: "ok", value: status };
+			return proven ? { status: "ok", value: status } : refuse("proof_invalid");
 		},
 		async cancel(expectedRevision) {
 			await wait();
