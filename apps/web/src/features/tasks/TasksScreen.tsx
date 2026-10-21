@@ -822,7 +822,7 @@ function Summary({ counts, query }: { counts: TaskCounts; query: TaskQuery }) {
 		<Card>
 			<CardTitle size="sm">{query.view === "my" ? "Your tasks" : "All tasks"}</CardTitle>
 			<div className="mt-3 flex items-end gap-3">
-				<span className="num font-title text-[44px] leading-[0.95] tracking-[-0.03em] text-ink">{open}</span>
+				<span className="num font-display text-[40px] leading-[0.95] tracking-[-0.03em] text-ink">{open}</span>
 				<span className="pb-1 text-sm text-text-2">
 					{open === 1 ? "open task" : "open tasks"}
 					{isFiltered(query) ? " match the filters" : ""}
