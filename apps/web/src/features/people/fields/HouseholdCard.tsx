@@ -139,6 +139,11 @@ export function HouseholdCard({
 		const r = await readHousehold(person.id).catch(() => null);
 		if (r?.status === "ok") onHousehold(r.value);
 	}
+	/** The page's person with the revision and address of their row in a household answer. */
+	function fromMember(answer: HouseholdResult): PlantPerson | null {
+		const row = answer.status === "available" ? answer.members.find((m) => m.personId === person.id) : undefined;
+		return row ? { ...store.get().saved, ...addressOf(row), revision: row.revision } : null;
+	}
 	/**
 	 * One membership write through the person store. Gives the refusal text to show, or nothing when saved; a saved
 	 * change updates the household, the person and Activity from the answer.
@@ -150,7 +155,11 @@ export function HouseholdCard({
 	): Promise<string | undefined> {
 		const before = membershipOf(household, person.id);
 		const revision = store.get().saved.revision;
-		const r = await runSave(store, slot, payload, (key) => call(key, revision), { fresh, toPerson: (v) => v.person });
+		const r = await runSave(store, slot, payload, (key) => call(key, revision), {
+			fresh,
+			// The answer's member row carries this person's new revision and address; after leaving, the saved Person.
+			toPerson: (v) => v.person ?? fromMember(v.household),
+		});
 		if (r?.status === "ok") {
 			const after = membershipOf(r.value.household, person.id);
 			// After leaving, the answer is the household the person left; this person is now in none.
@@ -367,7 +376,7 @@ export function HouseholdCard({
 			) : null}
 			{open === "copy" && h ? (
 				<CopyAddressDialog
-					personId={person.id}
+					household={h}
 					onClose={close}
 					retry={retryOf<unknown>("copy")}
 					onSubmit={(preview) => {
@@ -379,12 +388,7 @@ export function HouseholdCard({
 							{ ...preview, members: preview.members.map((m) => ({ ...m, ...copied })) },
 							async () => {
 								const problem = await membership("household-copy", members, (key) =>
-									propagateAddress(
-										key,
-										preview.household.revision,
-										{ householdId: preview.household.id, members },
-										person.id,
-									),
+									propagateAddress(key, preview.household.revision, { householdId: preview.household.id, members }),
 								);
 								if (!problem) toast({ tone: "success", message: `Copied the address of ${preview.household.name}.` });
 								return problem;

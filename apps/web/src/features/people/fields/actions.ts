@@ -159,13 +159,19 @@ export async function removeSkill(
 // Households (REQ-PPL-009).
 
 /** A membership change: the household as it is now for this person, the Person as saved and the receipt. */
-export type MembershipSaved = { household: HouseholdResult; person: PlantPerson; receipt: Receipt };
+/**
+ * A membership change: the household as it is now for this person, and the receipt. `person` is the Person as saved,
+ * read in the same transaction, only after leaving; otherwise the answer's member row already carries this person's
+ * new revision and address, so no second read is spent on it.
+ */
+export type MembershipSaved = { household: HouseholdResult; person: PlantPerson | null; receipt: Receipt };
 type HouseholdAnswer = z.infer<typeof c.householdMutationResult>;
-const membershipSaved = (r: { value: HouseholdAnswer; person: PlantPerson }): MembershipSaved => ({
+const membershipSaved = (r: { value: HouseholdAnswer; person?: PlantPerson }): MembershipSaved => ({
 	household: r.value.result,
-	person: r.person,
+	person: r.person ?? null,
 	receipt: receipt(r.value),
 });
+const asMember = (value: HouseholdAnswer) => membershipSaved({ value });
 
 export async function findHouseholds(search: string, page = 1): Promise<Outcome<z.infer<typeof c.householdsPage>>> {
 	return boundary(c.listHouseholdsRequest, { search, page, limit: 20 }, async (v, request) =>
@@ -186,12 +192,7 @@ export async function startHousehold(
 	input: unknown,
 ): Promise<Outcome<MembershipSaved>> {
 	return boundary(c.createHouseholdWithHeadRequest, { requestKey, expectedRevision, input }, async (v, request) =>
-		outcome(
-			await write(v, async (tx, ctx) =>
-				andPerson(tx, ctx, request.input.headPersonId, await f.createHouseholdWithHead(tx, ctx, request)),
-			),
-			membershipSaved,
-		),
+		outcome(await write(v, (tx, ctx) => f.createHouseholdWithHead(tx, ctx, request)), asMember),
 	);
 }
 
@@ -201,12 +202,7 @@ export async function joinHousehold(
 	input: unknown,
 ): Promise<Outcome<MembershipSaved>> {
 	return boundary(c.addToHouseholdRequest, { requestKey, expectedRevision, input }, async (v, request) =>
-		outcome(
-			await write(v, async (tx, ctx) =>
-				andPerson(tx, ctx, request.input.personId, await f.addToHousehold(tx, ctx, request)),
-			),
-			membershipSaved,
-		),
+		outcome(await write(v, (tx, ctx) => f.addToHousehold(tx, ctx, request)), asMember),
 	);
 }
 
@@ -216,12 +212,7 @@ export async function setHouseholdRole(
 	input: unknown,
 ): Promise<Outcome<MembershipSaved>> {
 	return boundary(c.setHouseholdRoleRequest, { requestKey, expectedRevision, input }, async (v, request) =>
-		outcome(
-			await write(v, async (tx, ctx) =>
-				andPerson(tx, ctx, request.input.personId, await f.setHouseholdRole(tx, ctx, request)),
-			),
-			membershipSaved,
-		),
+		outcome(await write(v, (tx, ctx) => f.setHouseholdRole(tx, ctx, request)), asMember),
 	);
 }
 
@@ -279,15 +270,12 @@ export async function propagateAddress(
 	requestKey: string,
 	expectedRevision: string,
 	input: unknown,
-	personId: string,
 ): Promise<Outcome<MembershipSaved & { updatedPeople: number }>> {
-	const viewing = c.personRequest.shape.personId.safeParse(personId);
-	if (!viewing.success) return invalid;
 	return boundary(c.propagateAddressRequest, { requestKey, expectedRevision, input }, async (v, request) =>
-		outcome(
-			await write(v, async (tx, ctx) => andPerson(tx, ctx, viewing.data, await f.propagateAddress(tx, ctx, request))),
-			(r) => ({ ...membershipSaved(r), updatedPeople: r.value.updatedPeople ?? 0 }),
-		),
+		outcome(await write(v, (tx, ctx) => f.propagateAddress(tx, ctx, request)), (r) => ({
+			...asMember(r),
+			updatedPeople: r.updatedPeople ?? 0,
+		})),
 	);
 }
 

@@ -16,7 +16,6 @@ import {
 	RadioGroup,
 	SearchInput,
 	Select,
-	Skeleton,
 	Spinner,
 } from "@everyfield/ui/controls";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -24,16 +23,8 @@ import type { z } from "zod";
 import type { Outcome } from "../model.ts";
 import { problemText } from "../parts.tsx";
 import { focusFirstInvalid } from "./focus.ts";
-import { findHouseholds, readHousehold } from "./actions.ts";
-import {
-	addressLine,
-	ROLE_LABEL,
-	ROLES,
-	type Household,
-	type HouseholdResult,
-	type HouseholdRole,
-	type HouseholdSummary,
-} from "./model.ts";
+import { findHouseholds } from "./actions.ts";
+import { addressLine, ROLE_LABEL, ROLES, type Household, type HouseholdRole, type HouseholdSummary } from "./model.ts";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
 type Address = { street: string; city: string; stateProvince: string; postalCode: string; country: string };
@@ -390,30 +381,19 @@ export function JoinHouseholdDialog({
  * changed since the preview, nothing is written.
  */
 export function CopyAddressDialog({
-	personId,
+	household: h,
 	onClose,
 	onSubmit,
 	retry,
 }: {
-	personId: string;
+	/** The household as the card shows it now; the server refuses the copy if anyone changed since. */
+	household: Household;
 	onClose: () => void;
 	onSubmit: Submit<Household>;
 	retry?: Retry<unknown>;
 }) {
-	const [preview, setPreview] = useState<Outcome<HouseholdResult> | null>(null);
-	useEffect(() => {
-		let live = true;
-		readHousehold(personId)
-			.catch(() => ({ status: "lost" }) as const)
-			.then((r) => live && setPreview(r));
-		return () => {
-			live = false;
-		};
-	}, [personId]);
-
-	const h = preview?.status === "ok" && preview.value.status === "available" ? preview.value : null;
-	const target = h ? addressLine(h.household) : null;
-	const changes = h ? h.members.filter((m) => addressLine(m) !== target) : [];
+	const target = addressLine(h.household);
+	const changes = h.members.filter((m) => addressLine(m) !== target);
 	return (
 		<FormDialog
 			icon={Copy01Icon}
@@ -425,26 +405,10 @@ export function CopyAddressDialog({
 			}
 			onClose={onClose}
 			problem={retry?.problem}
-			disabled={!h || !target || changes.length === 0}
-			onSubmit={() => h && onSubmit(h)}
+			disabled={!target || changes.length === 0}
+			onSubmit={() => onSubmit(h)}
 		>
-			{preview === null ? (
-				<div aria-busy="true" className="flex flex-col gap-2">
-					<span className="sr-only" role="status">
-						Loading the household
-					</span>
-					<Skeleton className="h-12 rounded-md" />
-					<Skeleton className="h-12 rounded-md" />
-				</div>
-			) : !h ? (
-				<Problem
-					text={
-						preview.status === "ok"
-							? "This person is no longer in a household."
-							: problemText(preview.status === "lost" ? "lost" : preview.code)
-					}
-				/>
-			) : !target ? (
+			{!target ? (
 				<p className="text-sm text-text-2">{h.household.name} has no address yet. Add one with Edit household first.</p>
 			) : (
 				<>
