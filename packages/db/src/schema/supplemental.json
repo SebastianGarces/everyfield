@@ -5918,6 +5918,27 @@
 			"grantee": "everyfield_runtime",
 			"is_grantable": false,
 			"kind": "table",
+			"object": "model_spend",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "model_spend",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "model_spend",
+			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
 			"object": "notice",
 			"privilege_type": "DELETE"
 		},
