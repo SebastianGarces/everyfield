@@ -2601,6 +2601,7 @@
         "passage",
         "person",
         "person_note",
+        "person_skill",
         "person_tag",
         "phase_transition",
         "pipeline_person",
@@ -2631,6 +2632,8 @@
       ],
       "consumer_table_names": [
         "admission_attempt",
+        "conversation",
+        "conversation_event",
         "early_access_attempt",
         "early_access_request",
         "onboarding_setup",
@@ -5494,6 +5497,7 @@
       "producer_table_names": [
         "household",
         "person",
+        "person_skill",
         "record"
       ],
       "consumer_table_names": [
@@ -18646,7 +18650,10 @@
         "WP-089",
         "WP-090"
       ],
-      "producer_table_names": [],
+      "producer_table_names": [
+        "conversation",
+        "conversation_event"
+      ],
       "consumer_table_names": [
         "audit_event",
         "file_object",
@@ -19571,6 +19578,7 @@
         "audit_event"
       ],
       "consumer_table_names": [
+        "conversation_event",
         "record"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -19711,7 +19719,10 @@
         "file_object",
         "record"
       ],
-      "consumer_table_names": [],
+      "consumer_table_names": [
+        "conversation",
+        "conversation_event"
+      ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
@@ -25955,6 +25966,8 @@
         "auth_verification",
         "commitment",
         "contact_outcome",
+        "conversation",
+        "conversation_event",
         "development_enrollment",
         "development_program",
         "development_program_version",
@@ -25991,6 +26004,7 @@
         "people_column",
         "person",
         "person_note",
+        "person_skill",
         "person_tag",
         "phase_transition",
         "pipeline_person",
@@ -31939,6 +31953,8 @@
         "auth_verification",
         "commitment",
         "contact_outcome",
+        "conversation",
+        "conversation_event",
         "development_enrollment",
         "development_program",
         "development_program_version",
@@ -31973,6 +31989,7 @@
         "people_column",
         "person",
         "person_note",
+        "person_skill",
         "person_tag",
         "phase_transition",
         "pipeline_person",

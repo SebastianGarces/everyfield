@@ -87,7 +87,10 @@ test("D69/D70: every shipped write stays within its statement budget", { timeout
 		.split("\n")
 		.map((line) => JSON.parse(line));
 	const limits = JSON.parse(await readFile(new URL("./limits.json", import.meta.url), "utf8"));
-	const samples = rows.filter((row) => row.kind === "sample" && row.writes > 0 && row.status !== "threw");
+	// Writes always need a budget; a read named in the budget file (a native read boundary) is held to it too.
+	const samples = rows.filter(
+		(row) => row.kind === "sample" && row.status !== "threw" && (row.writes > 0 || Object.hasOwn(limits, row.name)),
+	);
 	assert.ok(samples.length > 0, "No database writes were measured");
 	for (const sample of samples) {
 		const name = Object.hasOwn(limits, sample.name) ? sample.name : sample.name.split(":")[0];
