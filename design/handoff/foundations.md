@@ -213,7 +213,7 @@ Both serifs use letter-spacing -0.02em and weight 400 (`font-synthesis-weight: n
 
 ### Shape
 
-All corners are square: cards, controls, pills, tags, nav and photos. Circles stay round: avatars, status dots, radios and switch knobs.
+All corners are square: cards, controls, pills, tags, nav, icon tiles, icon buttons, pagination, switches and photos. Circles stay round: avatars, status dots, radios and the round checkbox. Product code reads the corners through the `rounded-xs|sm|md|lg|card|pill` utilities; `apps/web/scripts/check-corners.mjs` rejects fixed-pixel radii.
 
 ### Marketing photos
 

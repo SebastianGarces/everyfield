@@ -144,7 +144,7 @@ function RoleLink({ role, current }: { role: PreviewRole; current: boolean }) {
 			href={`/design/shell/${role}`}
 			aria-current={current ? "page" : undefined}
 			{...handlers}
-			className="relative inline-flex h-9 items-center rounded-[10px] px-3.5 text-md font-medium text-text-2 aria-[current=page]:bg-surface-raised aria-[current=page]:text-ink aria-[current=page]:shadow-nav-active"
+			className="relative inline-flex h-9 items-center rounded-md px-3.5 text-md font-medium text-text-2 aria-[current=page]:bg-surface-raised aria-[current=page]:text-ink aria-[current=page]:shadow-nav-active"
 		>
 			{indicator}
 			{ROLE_LABEL[role]}

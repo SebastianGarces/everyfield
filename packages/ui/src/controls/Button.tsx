@@ -84,8 +84,8 @@ export const iconButtonVariants = cva(
 	{
 		variants: {
 			variant: {
-				default: "rounded-full bg-transparent shadow-[0_0_0_1px_var(--ef-line-2)] hover:bg-surface-raised",
-				soft: "rounded-full bg-surface-2 hover:bg-surface-3",
+				default: "rounded-md bg-transparent shadow-[0_0_0_1px_var(--ef-line-2)] hover:bg-surface-raised",
+				soft: "rounded-md bg-surface-2 hover:bg-surface-3",
 				square: "rounded-sm bg-transparent shadow-[0_0_0_1px_var(--ef-line-2)] hover:bg-surface-raised",
 			},
 			size: { md: "size-11", sm: "size-[34px]" },

@@ -66,7 +66,7 @@ export function CommandPalette({
 					{...focus}
 					aria-modal="true"
 					aria-describedby={undefined}
-					className="ef-dialog fixed top-[12vh] left-1/2 z-50 w-[calc(100vw-24px)] max-w-[620px] -translate-x-1/2 overflow-hidden rounded-[24px] bg-surface-raised text-md text-ink shadow-pop outline-none max-app-sm:top-3"
+					className="ef-dialog fixed top-[12vh] left-1/2 z-50 w-[calc(100vw-24px)] max-w-[620px] -translate-x-1/2 overflow-hidden rounded-card bg-surface-raised text-md text-ink shadow-pop outline-none max-app-sm:top-3"
 				>
 					<DialogPrimitive.Title className="sr-only">Search</DialogPrimitive.Title>
 					<Command shouldFilter={filter} loop label="Search">
@@ -119,7 +119,7 @@ export function CommandPalette({
 														item.onSelect();
 														onOpenChange(false);
 													}}
-													className="flex h-[42px] cursor-pointer items-center gap-2.5 rounded-[10px] px-2.5 transition-[background-color] duration-150 select-none data-[selected=true]:bg-surface-2"
+													className="flex h-[42px] cursor-pointer items-center gap-2.5 rounded-md px-2.5 transition-[background-color] duration-150 select-none data-[selected=true]:bg-surface-2"
 												>
 													{item.art}
 													<span className="min-w-0 flex-1 truncate">{item.label}</span>

@@ -14,7 +14,7 @@ export const DialogClose = DialogPrimitive.Close;
 
 const SCRIM = "ef-scrim fixed inset-0 z-50 bg-ink-fixed/28 backdrop-blur-[2px]";
 const PANEL =
-	"ef-dialog fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-24px)] w-[calc(100vw-24px)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-[28px] bg-surface-raised text-md text-ink shadow-pop outline-none";
+	"ef-dialog fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-24px)] w-[calc(100vw-24px)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-card bg-surface-raised text-md text-ink shadow-pop outline-none";
 const WIDTH = { sm: "max-w-[440px]", md: "max-w-[560px]", lg: "max-w-[720px]" } as const;
 
 type DialogContentProps = ComponentPropsWithRef<typeof DialogPrimitive.Content> & {
@@ -255,7 +255,7 @@ export function Sheet({
 					{...focus}
 					onInteractOutside={modal ? undefined : (e) => e.preventDefault()}
 					className={cn(
-						"ef-sheet fixed top-3 right-3 bottom-3 z-50 flex w-[420px] max-w-[calc(100vw-24px)] flex-col rounded-[26px] bg-surface-raised text-md text-ink shadow-pop outline-none max-app-sm:top-0 max-app-sm:right-0 max-app-sm:bottom-0 max-app-sm:w-full max-app-sm:max-w-none max-app-sm:rounded-none",
+						"ef-sheet fixed top-3 right-3 bottom-3 z-50 flex w-[420px] max-w-[calc(100vw-24px)] flex-col rounded-card bg-surface-raised text-md text-ink shadow-pop outline-none max-app-sm:top-0 max-app-sm:right-0 max-app-sm:bottom-0 max-app-sm:w-full max-app-sm:max-w-none max-app-sm:rounded-none",
 						className,
 					)}
 				>
@@ -277,7 +277,7 @@ export function Sheet({
 					</div>
 					<div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 text-text-2">{children}</div>
 					{footer ? (
-						<div className="flex flex-none flex-wrap items-center gap-2.5 border-t border-line bg-surface px-6 py-3.5 max-app-sm:rounded-none rounded-b-[26px]">
+						<div className="flex flex-none flex-wrap items-center gap-2.5 border-t border-line bg-surface px-6 py-3.5 max-app-sm:rounded-none rounded-b-card">
 							{footer}
 						</div>
 					) : null}

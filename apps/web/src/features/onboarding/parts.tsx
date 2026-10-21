@@ -2,7 +2,7 @@
 
 import { ArrowLeft01Icon, ArrowRight01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@everyfield/ui/controls";
-import { cn, EvryBot, Icon, LogoMark, Wordmark } from "@everyfield/ui/foundations";
+import { cn, EvryBot, Icon, Lockup } from "@everyfield/ui/foundations";
 import { useEffect, useRef, type ReactNode } from "react";
 import { STEPS, type ErrorCode, type StepKey } from "./model";
 
@@ -22,8 +22,7 @@ export function OnboardingFrame({
 		<div className="flex min-h-dvh flex-col">
 			<header className="flex flex-wrap items-center justify-between gap-x-5 gap-y-3 px-4 py-4 sm:px-8 sm:py-6">
 				<span className="flex items-center gap-3 text-ink" aria-label="Everyfield" role="img">
-					<LogoMark className="w-7" />
-					<Wordmark className="h-5" />
+					<Lockup className="h-6 w-auto" />
 				</span>
 				{steps ? <div className="order-3 w-full sm:order-none sm:w-auto">{steps}</div> : null}
 				{aside ?? <span />}
@@ -48,7 +47,7 @@ export function StepPills({
 }) {
 	return (
 		<nav aria-label="Setup steps">
-			<ol className="flex gap-1.5 rounded-full bg-surface-raised p-[5px] shadow-nav">
+			<ol className="flex gap-1.5 rounded-pill bg-surface-raised p-[5px] shadow-nav">
 				{STEPS.map((step, index) => {
 					const state = step.key === current ? "current" : done(step.key) ? "done" : "todo";
 					const inner = (
@@ -69,7 +68,7 @@ export function StepPills({
 						</>
 					);
 					const pill = cn(
-						"inline-flex h-9 items-center gap-2 rounded-full pr-3.5 pl-1.5 text-sm font-medium whitespace-nowrap max-md:pr-1.5",
+						"inline-flex h-9 items-center gap-2 rounded-pill pr-3.5 pl-1.5 text-sm font-medium whitespace-nowrap max-md:pr-1.5",
 						state === "current" ? "bg-ink text-on-ink max-md:pr-3.5" : state === "done" ? "text-text-2" : "text-text-3",
 					);
 					return (
@@ -155,7 +154,7 @@ export function ChoiceCard({
 	return (
 		<label
 			className={cn(
-				"relative flex cursor-pointer items-center gap-3.5 rounded-[18px] border border-line bg-surface-raised px-[18px] py-4 shadow-card transition-[box-shadow] duration-150",
+				"relative flex cursor-pointer items-center gap-3.5 rounded-card border border-line bg-surface-raised px-[18px] py-4 shadow-card transition-[box-shadow] duration-150",
 				"has-[:checked]:shadow-[0_0_0_2px_var(--ef-ink),var(--ef-shadow-card)]",
 				"has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus",
 				"has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60",
@@ -174,7 +173,7 @@ export function ChoiceCard({
 			{badge !== undefined ? (
 				<span
 					aria-hidden="true"
-					className="grid size-[34px] flex-none place-items-center rounded-[11px] bg-surface-2 font-title tracking-[-0.02em] text-ink peer-checked:bg-ink peer-checked:text-on-ink"
+					className="grid size-[34px] flex-none place-items-center rounded-md bg-surface-2 font-title tracking-[-0.02em] text-ink peer-checked:bg-ink peer-checked:text-on-ink"
 				>
 					{badge}
 				</span>
@@ -271,10 +270,10 @@ export function Notice({ code }: { code: ErrorCode | null }) {
 /** A read-only summary card for an answer that cannot change here. */
 export function SavedCard({ title, children }: { title: string; children?: ReactNode }) {
 	return (
-		<div className="mx-auto mt-[34px] max-w-[820px] rounded-[18px] border border-line bg-surface-raised px-6 py-5 shadow-card">
+		<div className="mx-auto mt-[34px] max-w-[820px] rounded-card border border-line bg-surface-raised px-6 py-5 shadow-card">
 			<div className="flex items-start gap-3.5">
 				<span
-					className="grid size-[34px] flex-none place-items-center rounded-[11px] bg-green-100 text-green-700"
+					className="grid size-[34px] flex-none place-items-center rounded-md bg-green-100 text-green-700"
 					aria-hidden="true"
 				>
 					<Icon icon={Tick02Icon} size={18} />

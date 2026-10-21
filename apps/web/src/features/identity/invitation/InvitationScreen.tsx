@@ -263,7 +263,7 @@ function SignedOut({ description, proof }: { description: Description; proof: st
 }
 
 const INLINE =
-	"cursor-pointer rounded-[4px] font-semibold text-ink underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:opacity-60";
+	"cursor-pointer rounded-md font-semibold text-ink underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:opacity-60";
 
 function JoinForm({
 	proof,

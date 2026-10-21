@@ -465,7 +465,7 @@ const COLUMNS: Column<PlantPerson>[] = [
  */
 function TagChip({ label, onRemove }: { label: string; onRemove: () => void }) {
 	return (
-		<span className="inline-flex h-10 flex-none items-center gap-2 rounded-[12px] bg-amber-100 pr-1.5 pl-3.5 font-medium whitespace-nowrap text-amber-600 shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--ef-amber-500)_35%,transparent)]">
+		<span className="inline-flex h-10 flex-none items-center gap-2 rounded-md bg-amber-100 pr-1.5 pl-3.5 font-medium whitespace-nowrap text-amber-600 shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--ef-amber-500)_35%,transparent)]">
 			{label}
 			<span className="font-normal">Selected</span>
 			<IconButton icon={Cancel01Icon} label={`Remove ${label.toLowerCase()} filter`} size="sm" onClick={onRemove} />

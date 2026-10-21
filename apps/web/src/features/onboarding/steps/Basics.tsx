@@ -43,7 +43,7 @@ export function BasicsForm({
 
 	return (
 		<form noValidate onSubmit={submit} className="mx-auto mt-[34px] max-w-[620px]">
-			<div className="flex flex-col gap-4 rounded-[18px] border border-line bg-surface-raised p-6 shadow-card">
+			<div className="flex flex-col gap-4 rounded-card border border-line bg-surface-raised p-6 shadow-card">
 				<Field label="Church name" error={shown.name}>
 					<Input
 						ref={nameRef}

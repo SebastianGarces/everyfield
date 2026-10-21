@@ -208,6 +208,13 @@ def logo_paths(html):
         out += [f'\t\t{{ d: "{d}", evenOdd: {str(e).lower()} }},' for d, e in paths]
         out.append("\t] as readonly Path[],")
         out.append("};")
+    # The lockup places the mark and the wordmark in one viewBox; keep its geometry, not a third copy of the paths.
+    m = re.search(r'<symbol id="ef-lockup" viewBox="([^"]+)">(.*?)</symbol>', html, re.S)
+    place = {u: dict(re.findall(r'(x|y|width|height)="([^"]+)"', a))
+             for u, a in re.findall(r'<use href="#ef-(mark|wordmark)"([^>]*)>', m.group(2))}
+    box = lambda b: "{ " + ", ".join(f"{k}: {b[k]}" for k in ("x", "y", "width", "height")) + " }"
+    out += ["export const LOCKUP = {", f'\tviewBox: "{m.group(1)}",',
+            f"\tmark: {box(place['mark'])},", f"\twordmark: {box(place['wordmark'])},", "} as const;"]
     return "\n".join(out) + "\n"
 
 

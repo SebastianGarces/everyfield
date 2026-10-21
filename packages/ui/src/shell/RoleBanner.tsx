@@ -8,7 +8,7 @@ import { Icon } from "../foundations";
  */
 export function RoleBanner({ children, action }: { children: ReactNode; action?: ReactNode }) {
 	return (
-		<div className="mb-[18px] flex items-center gap-3 rounded-[16px] bg-blue-50 py-3 pr-4 pl-3.5 text-md text-ink-2 shadow-[inset_0_0_0_1px_var(--ef-blue-100)] max-app-sm:flex-wrap">
+		<div className="mb-[18px] flex items-center gap-3 rounded-card bg-blue-50 py-3 pr-4 pl-3.5 text-md text-ink-2 shadow-[inset_0_0_0_1px_var(--ef-blue-100)] max-app-sm:flex-wrap">
 			<Icon icon={ViewIcon} size={18} className="text-blue-600" />
 			<p className="min-w-0 flex-1">{children}</p>
 			{action}
