@@ -56,8 +56,56 @@ async function team(w = plant) {
 	return id;
 }
 
+// The meeting domain's reviewed command: its own audit row, the generated work, one write statement.
+const finalize = (
+	meetingId,
+	input,
+	fault = false,
+	origin = { at: "2026-10-13T23:00:00Z", date: "2026-10-13", zone: "America/Chicago" },
+) =>
+	auditTransaction(f.db, async (tx) => {
+		if (!(await owner.actor.bind(tx, plant))) throw Error("unbound");
+		const identity = requestIdentity.parse({
+			owner: plant,
+			actorId: owner.id,
+			operation: "meetings.finalizeAttendance",
+			requestKey: randomUUID(),
+			digest: "0".repeat(64),
+		});
+		const claim = await prepareWrite(tx, identity);
+		const cmd = { ...claim, actor: { accountId: owner.id, plantId: plant.id } };
+		const r = await ensureMeetingObligations(tx, cmd, reminders, { meetingId, origin, ...input });
+		cmd.events.unshift({
+			id: cmd.id,
+			tenant_id: plant.id,
+			actor_id: owner.id,
+			action: "meetings.finalized",
+			kind: "finalize",
+			subject_type: "meeting",
+			subject_id: meetingId,
+		});
+		await finishAudit(tx, cmd, identity, r.value);
+		await r.after();
+		if (fault) throw Error("outer_audit_before_commit");
+		return r.value;
+	});
+// Statements this test's runtime pool sends while `body` runs.
+let statements = 0;
+async function counted(body) {
+	const start = statements;
+	await body();
+	return statements - start;
+}
+
 before(async () => {
 	f = await fixture();
+	f.db.$client.on("connect", (client) => {
+		const query = client.query;
+		client.query = function (...args) {
+			statements++;
+			return Reflect.apply(query, this, args);
+		};
+	});
 	const sent = [];
 	const mail = createMailService({
 		db: f.db,
@@ -366,35 +414,6 @@ test("AC:TARGET-TSK-017 AC:PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE generated foll
 		p2 = await person("Alex Chen");
 	const m1 = await meeting("Vision night"),
 		m2 = await meeting("Second vision night");
-	const origin = { at: "2026-10-13T23:00:00Z", date: "2026-10-13", zone: "America/Chicago" };
-	// The meeting domain's reviewed command: its own audit row, the generated work, one write statement.
-	const finalize = (meetingId, input, fault = false) =>
-		auditTransaction(f.db, async (tx) => {
-			if (!(await owner.actor.bind(tx, plant))) throw Error("unbound");
-			const identity = requestIdentity.parse({
-				owner: plant,
-				actorId: owner.id,
-				operation: "meetings.finalizeAttendance",
-				requestKey: randomUUID(),
-				digest: "0".repeat(64),
-			});
-			const claim = await prepareWrite(tx, identity);
-			const cmd = { ...claim, actor: { accountId: owner.id, plantId: plant.id } };
-			const r = await ensureMeetingObligations(tx, cmd, reminders, { meetingId, origin, ...input });
-			cmd.events.unshift({
-				id: cmd.id,
-				tenant_id: plant.id,
-				actor_id: owner.id,
-				action: "meetings.finalized",
-				kind: "finalize",
-				subject_type: "meeting",
-				subject_id: meetingId,
-			});
-			await finishAudit(tx, cmd, identity, r.value);
-			await r.after();
-			if (fault) throw Error("outer_audit_before_commit");
-			return r.value;
-		});
 	const counts = () =>
 		rows(
 			sql`SELECT (SELECT count(*)::int FROM task WHERE obligation_id IS NOT NULL) t,(SELECT count(*)::int FROM obligation) o`,
@@ -609,4 +628,42 @@ test("AC:TARGET-TSK-014 due and overdue reminders follow the current assignee an
 	const undated = await create(owner, { assigneeId: member.id });
 	const unassigned = await create(owner, { due: { kind: "local_date", date: "2099-01-15" } });
 	assert.deepEqual([await notices(undated.id), await notices(unassigned.id)], [[], []]);
+});
+
+test("INV-statements: page reads are one statement and generated work costs the same for any batch size", async () => {
+	const guests = [];
+	for (let n = 0; n < 6; n++) guests.push(await person("Guest " + n));
+	const batch = async (n) => {
+		const m = await meeting("Batch " + n, "2099-01-10");
+		const followUps = guests.slice(0, n).map((personId) => ({ personId, assigneeId: member.id }));
+		const origin = { at: "2099-01-11T00:00:00Z", date: "2099-01-10", zone: "America/Chicago" };
+		return counted(() => finalize(m, { followUps, evaluation: { assigneeId: owner.id } }, false, origin));
+	};
+	// Each generated task is dated and assigned, so each one also gets its two reminders.
+	const [one, five] = [await batch(1), await batch(5)];
+	assert.ok(one > 0);
+	assert.equal(five, one);
+	assert.deepEqual(
+		await rows(
+			sql`SELECT count(*)::int n FROM notice WHERE recipient_id=${member.id} AND cancelled_at IS NULL AND eligible_at>'2099-01-01'`,
+		),
+		[{ n: 12 }],
+	);
+	// A page read is BEGIN, one query and COMMIT, with few or many tasks on the page.
+	const t = await create(owner, { title: "Read me" });
+	const reads = async () => [
+		await counted(() => read(owner, "list", { limit: 100 })),
+		await counted(() => read(owner, "count", {})),
+		await counted(() => read(owner, "get", { taskId: t.id })),
+		await counted(() => read(owner, "statusHistory", { taskId: t.id })),
+	];
+	const few = await reads();
+	for (let n = 0; n < 40; n++) await create(owner, { title: "More " + n, assigneeId: member.id });
+	assert.deepEqual(
+		[few, await reads()],
+		[
+			[3, 3, 3, 3],
+			[3, 3, 3, 3],
+		],
+	);
 });

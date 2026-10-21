@@ -7,7 +7,7 @@ import "server-only";
 import { z } from "zod";
 import { auditRow, deny, parse, type AuditCommand, type Tx } from "./core.ts";
 import { loadTask, storageKind, storedKind, type TaskRow } from "./queries.ts";
-import { audited, setStatus, syncReminders, type TaskReminders } from "./writes.ts";
+import { audited, reminderChange, setStatus, type TaskReminders } from "./writes.ts";
 
 // Generated work for a finalized meeting (REQ-TSK-017). The caller is the meeting domain's own reviewed command: it
 // holds the meeting row lock and passes its audit command, so obligations, tasks and audit rows commit in its one
@@ -187,11 +187,12 @@ export async function ensureMeetingObligations(
 				source: "generated",
 			});
 	}
-	const syncs = created.map((t) => syncReminders(reminders, tx, plant, null, t)).filter((s) => s !== undefined);
+	// Every generated task's reminders go to WP-031 in one call: a fixed statement count for any batch size.
+	const changes = created.map((t) => reminderChange(plant, null, t)).filter((s) => s !== undefined);
 	return {
 		value: results,
 		after: async () => {
-			for (const sync of syncs) await sync();
+			if (changes.length) await reminders(tx, changes);
 		},
 	};
 }

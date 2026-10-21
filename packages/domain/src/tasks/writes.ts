@@ -30,7 +30,8 @@ export type ReminderSource = {
 	due: { kind: "undated" } | { kind: "date_only"; date: string; zone: string } | { kind: "timed"; at: string };
 	open: boolean;
 };
-export type TaskReminders = (tx: Tx, source: ReminderSource) => Promise<unknown>;
+/** All tasks of one write go in one call, so the sync costs a fixed number of statements (patterns.md). */
+export type TaskReminders = (tx: Tx, sources: readonly ReminderSource[]) => Promise<unknown>;
 
 type DueColumns = Pick<TaskRow, "due_kind" | "due_date" | "due_time" | "timezone" | "due_at">;
 /** The server resolves a deadline from the entered church-local time (REQ-TSK-018); the client never sends an instant. */
@@ -110,6 +111,12 @@ function reminderSource(plantId: string, row: TaskRow): ReminderSource {
 }
 const remindable = (s: ReminderSource) => s.open && s.assigneeId !== null && s.due.kind !== "undated";
 /** Reminders change only when the task had or now has owed reminders; other writes keep their small budget. */
+export function reminderChange(plantId: string, before: TaskRow | null, after: TaskRow) {
+	const prior = before && reminderSource(plantId, before),
+		next = reminderSource(plantId, after);
+	if (!(prior && remindable(prior)) && !remindable(next)) return undefined;
+	return { ...next, open: remindable(next) };
+}
 export function syncReminders(
 	reminders: TaskReminders,
 	tx: Tx,
@@ -117,10 +124,8 @@ export function syncReminders(
 	before: TaskRow | null,
 	after: TaskRow,
 ) {
-	const prior = before && reminderSource(plantId, before),
-		next = reminderSource(plantId, after);
-	if (!(prior && remindable(prior)) && !remindable(next)) return undefined;
-	return () => reminders(tx, { ...next, open: remindable(next) });
+	const change = reminderChange(plantId, before, after);
+	return change && (() => reminders(tx, [change]));
 }
 
 /** The persisted fields a status or edit writes, also the values its audit row compares. */

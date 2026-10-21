@@ -278,36 +278,66 @@ export function createNotificationService(config: {
 					),
 				),
 			);
-		// Pending/known-refused work is safe to cancel. Unknown external effects stay unknown.
+		await cancelOwed(tx, tenant, [source.id]);
+	}
+	// Pending/known-refused work is safe to cancel. Unknown external effects stay unknown.
+	async function cancelOwed(tx: Transaction, tenant: string, sources: readonly string[]) {
 		await tx.execute(sql`UPDATE mail m SET state='cancelled' FROM notice n WHERE n.id=m.notice_id AND n.tenant_id=${tenant}
-      AND n.source_record_id=${source.id} AND n.cancelled_at IS NOT NULL AND m.state IN ('pending','refused')`);
+      AND n.source_record_id=ANY(${sql.param(sources)}::uuid[]) AND n.cancelled_at IS NOT NULL AND m.state IN ('pending','refused')`);
 		await tx.execute(sql`UPDATE job j SET state='cancelled',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,
       revision=j.revision+1,finished_at=clock_timestamp() FROM mail m JOIN notice n ON n.id=m.notice_id WHERE m.job_id=j.id AND n.tenant_id=${tenant}
-      AND n.source_record_id=${source.id} AND n.cancelled_at IS NOT NULL AND m.state='cancelled' AND j.state IN ('ready','retry_wait','claimed')`);
+      AND n.source_record_id=ANY(${sql.param(sources)}::uuid[]) AND n.cancelled_at IS NOT NULL AND m.state='cancelled' AND j.state IN ('ready','retry_wait','claimed')`);
 	}
-	// Actual task/meeting producers run these in the mutation transaction, after their new revision.
+	/**
+	 * Replace the owed due and overdue reminders of one or more tasks of one plant, in a fixed number of statements
+	 * whatever the number of tasks. A task at another revision is stale and refuses the whole sync. An open task keeps
+	 * the notices of its current revision and gets its future slots; a closed one loses every owed notice.
+	 * Actual task producers run this in the mutation transaction, after their new revision.
+	 */
 	async function syncTaskReminders(
 		tx: Transaction,
-		input: {
-			base: Omit<NoticeInput, "category" | "occurrence" | "eligibleAt">;
+		inputs: readonly {
+			base: Omit<NoticeInput, "category" | "occurrence" | "eligibleAt" | "recipient"> & { recipient: string | null };
 			due: Parameters<typeof taskReminderTimes>[0];
 			open: boolean;
 			asOf: string;
-		},
+		}[],
 	) {
-		const asOf = instant.parse(input.asOf);
-		await cancelForEntity(tx, input.base.owner.id, input.base.source, input.open);
-		if (!input.open) return [];
+		const tenant = inputs[0]?.base.owner.id;
+		if (!tenant) return [];
+		if (
+			inputs.some((i) => i.base.owner.id !== tenant || i.base.source.kind !== "task" || (i.open && !i.base.recipient))
+		)
+			throw Error("notification_source_mismatch");
+		const sources = inputs.map((i) => ({ id: i.base.source.id, revision: i.base.source.revision, preserve: i.open }));
+		const locked = await tx.execute(sql`SELECT t.id FROM task t
+      JOIN jsonb_to_recordset(${JSON.stringify(sources)}::jsonb) i(id uuid,revision bigint,preserve boolean)
+      ON t.id=i.id AND t.plant_id=${tenant} AND t.revision=i.revision FOR SHARE OF t`);
+		if (locked.rows.length !== new Set(sources.map((s) => s.id)).size) throw Error("notification_source_stale");
+		await tx.execute(sql`UPDATE notice n SET cancelled_at=coalesce(n.cancelled_at,clock_timestamp())
+      FROM jsonb_to_recordset(${JSON.stringify(sources)}::jsonb) i(id uuid,revision bigint,preserve boolean)
+      WHERE n.tenant_id=${tenant} AND n.source_record_id=i.id AND (NOT i.preserve OR n.source_revision<>i.revision)`);
+		await cancelOwed(
+			tx,
+			tenant,
+			sources.map((s) => s.id),
+		);
 		return enqueueMany(
 			tx,
-			taskReminderTimes(input.due)
-				.filter((t) => t.at >= asOf)
-				.map((t) => ({
-					...input.base,
-					category: t.slot === "due" ? "task_due" : "task_overdue",
-					occurrence: t.slot,
-					eligibleAt: t.at,
-				})),
+			inputs
+				.filter((i) => i.open)
+				.flatMap((i) => {
+					const asOf = instant.parse(i.asOf);
+					return taskReminderTimes(i.due)
+						.filter((t) => t.at >= asOf)
+						.map((t) => ({
+							...i.base,
+							recipient: i.base.recipient!,
+							category: t.slot === "due" ? ("task_due" as const) : ("task_overdue" as const),
+							occurrence: t.slot,
+							eligibleAt: t.at,
+						}));
+				}),
 		);
 	}
 	async function syncMeetingReminders(
