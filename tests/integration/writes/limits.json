@@ -932,8 +932,8 @@
 		"retry": 10
 	},
 	"people/commitments/index.uploadCommitmentDocument": {
-		"limit": 16,
-		"retry": 32
+		"limit": 12,
+		"retry": 24
 	},
 	"people/commitments/index.getCommitmentDownload": {
 		"limit": 9,
