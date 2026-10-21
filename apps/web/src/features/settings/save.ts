@@ -4,6 +4,9 @@ import { useRef, useState } from "react";
 import { errorReference, errorText, sameValue } from "./model";
 import { newRequestKey, type Reply, type SettingsError } from "./port";
 
+/** The reference of a write whose reply never arrived: it may have been applied. */
+export const OFFLINE_REFERENCE = "EF-OFFLINE";
+
 export type Refusal = { message: string; reference: string; code: SettingsError["code"] };
 
 export type Outcome<T> = { ok: true; value: T } | { ok: false; refusal: Refusal };
@@ -49,7 +52,7 @@ export function useWrite(prefix: string) {
 		} catch {
 			const refused: Refusal = {
 				message: "Everyfield could not be reached, so this may not have saved. Load the latest version to check.",
-				reference: "EF-OFFLINE",
+				reference: OFFLINE_REFERENCE,
 				code: "unknown",
 			};
 			setRefusal(refused);

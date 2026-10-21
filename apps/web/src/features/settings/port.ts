@@ -74,15 +74,12 @@ export interface SettingsPort {
 	saveChurch(request: SaveChurchRequest): Promise<Reply<SavedSection>>;
 	previewPlantTimezone(request: z.input<typeof S.previewPlantTimezoneRequest>): Promise<Reply<PlantTimezonePreview>>;
 	setPlantTimezone(request: z.input<typeof S.setPlantTimezoneRequest>): Promise<Reply<PlantTimezoneResult>>;
-	/**
-	 * The photo, email, password, own time zone and deletion flows. They have no production server yet (storage, mail
-	 * delivery, the personal calendar and deletion workers), so only the design preview supplies them and the
-	 * sections show these rows only when they are present.
-	 */
-	flows?: FlowPort;
+	/** Your photo, email, password, own time zone and deletion. */
+	flows: FlowPort;
 }
 
-export interface FlowPort {
+/** The photo flow. Its bytes need the private bucket (Q2), so a port without one leaves it out. */
+export interface AvatarPort {
 	requestAvatarUpload(request: z.input<typeof S.requestAvatarUpload>): Promise<Reply<AvatarUpload>>;
 	/** Sends the bytes to the server-owned staging upload. The server verifies type and size again. */
 	uploadAvatarBytes(uploadId: string, file: Blob): Promise<Reply<null>>;
@@ -90,26 +87,32 @@ export interface FlowPort {
 	removeAvatar(request: z.input<typeof S.removeAvatarRequest>): Promise<Reply<AvatarResult>>;
 	/** The authenticated delivery route for one avatar version (avatarRoute). Never a storage key or bearer URL. */
 	avatarSrc(avatar: AvatarReference): string;
+}
+
+export interface FlowPort {
+	/** Absent until a private bucket exists (Q2): Your account then shows no Photo row. */
+	avatar?: AvatarPort;
 
 	requestEmailChange(
 		request: z.input<typeof N.requestEmailChange>,
 	): Promise<Reply<{ status: "verification_requested" }>>;
-	confirmEmailChange(request: z.input<typeof N.confirmEmailChange>): Promise<CredentialOutcome>;
 	changePassword(request: ChangePasswordRequest): Promise<CredentialOutcome>;
 
-	/** The account's own timezone preference, as the contract's timezonePreference. */
-	getPersonalTimezone(): Promise<Reply<TimezonePreference>>;
 	previewPersonalTimezone(
 		request: z.input<typeof N.previewPersonalTimezoneRequest>,
 	): Promise<Reply<PersonalTimezonePreview>>;
 	setPersonalTimezone(request: z.input<typeof N.setPersonalTimezoneRequest>): Promise<Reply<PersonalTimezoneResult>>;
 
 	requestAccountDeletion(request: z.input<typeof S.requestAccountDeletion>): Promise<Reply<DeletionStatus>>;
-	requestWorkspaceDeletion(request: z.input<typeof S.requestWorkspaceDeletion>): Promise<Reply<DeletionStatus>>;
+	/** Absent until church workspace deletion has a server action: the Church section then leaves it out. */
+	requestWorkspaceDeletion?(request: z.input<typeof S.requestWorkspaceDeletion>): Promise<Reply<DeletionStatus>>;
 }
 
 /** The restricted deletion session (REQ-IDN-032): status and cancel for one exact request, nothing else. */
 export interface DeletionPort {
+	/** Fresh proof of the original login. It opens the restricted session for the account's current request. */
+	open(request: z.input<typeof N.openAccountDeletionRequest>): Promise<Reply<DeletionStatus>>;
+	/** Refused with proof_invalid when no restricted session is open. */
 	getStatus(): Promise<Reply<DeletionStatus>>;
 	cancel(expectedRevision: string): Promise<Reply<DeletionStatus>>;
 }
