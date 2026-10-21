@@ -34,11 +34,24 @@ export function appendPerson(
 	writes: SQLWrapper[],
 	linkedAccountId: string | null = null,
 ) {
+	const row = newPerson(context, raw, linkedAccountId);
+	writes.push(
+		tx.insert(tables.person).values({ ...row, birth_date: row.birth_date?.toISOString().slice(0, 10) ?? null }),
+	);
+	if (context.selected.kind === "plant") writes.push(columnsChanged(context.selected.id, [row.stage]));
+	return row;
+}
+/** A new live Person row with the People defaults. The CSV import passes a stable ID and creation time per row. */
+export function newPerson(
+	context: Pick<Context, "selected">,
+	raw: z.infer<typeof c.createPersonRequest>["input"] | z.infer<typeof c.createOrganizationPersonRequest>["input"],
+	linkedAccountId: string | null = null,
+	id: string = randomUUID(),
+	at = new Date(),
+) {
 	const plant = context.selected.kind === "plant",
 		p = c.createPersonRequest.shape.input.parse(raw);
-	const id = randomUUID(),
-		at = new Date();
-	const row = personRow.parse({
+	return personRow.parse({
 		id,
 		tenant_id: context.selected.id,
 		plant_id: plant ? context.selected.id : null,
@@ -69,11 +82,6 @@ export function appendPerson(
 		pipeline_position: plant ? freshPosition(id, at) : null,
 		...contactValues(raw),
 	});
-	writes.push(
-		tx.insert(tables.person).values({ ...row, birth_date: row.birth_date?.toISOString().slice(0, 10) ?? null }),
-	);
-	if (plant) writes.push(columnsChanged(context.selected.id, [row.stage]));
-	return row;
 }
 
 /**
