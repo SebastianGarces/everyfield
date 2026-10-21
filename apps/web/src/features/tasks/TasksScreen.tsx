@@ -165,7 +165,8 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	// A failure that started in the open panel is told there: the modal panel hides the toasts from assistive
 	// technology and keeps keyboard focus inside, so a toast's Try again would be out of reach.
 	const [problem, setProblem] = useState<PanelProblem | null>(null);
-	// The page's "Blocked by" badges: a read in flight, and whether the last one failed.
+	// The page's "Blocked by" badges: the newest read's number, a read in flight, and whether the last one failed.
+	const blocking = useRef(0);
 	const readingBadges = useRef(false);
 	const [badgesStale, setBadgesStale] = useState(false);
 	if (server !== loaded) {
@@ -187,6 +188,12 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 		listed.current = items;
 		known.current = details;
 	}, [items, details]);
+	// A new list (search, filters, page) ends every badge read and retry of the old one: their answers describe rows
+	// that this list no longer shows.
+	useEffect(() => {
+		blocking.current++;
+		readingBadges.current = false;
+	}, [server]);
 	const [busy, setBusy] = useState<ReadonlySet<string>>(() => new Set());
 	const [editing, setEditing] = useState<{ task: TaskDetail | "new"; draft?: Draft } | null>(null);
 	const [deleting, setDeleting] = useState<TaskItem | null>(null);
@@ -310,7 +317,6 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	 * prerequisites it does not hold may wait for a changed task too; one read of this page's badges settles them. A
 	 * newer read replaces an older one.
 	 */
-	const blocking = useRef(0);
 	const blockersChanged = (changed: Blocker[]) => {
 		const by = new Set(changed.map((c) => c.id));
 		const recount = (st: DetailState) =>
@@ -355,12 +361,20 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	 * applies. A failed read is tried twice more; after that the list says its badges may be out of date and offers
 	 * to read them again, so a wrong badge is never silent.
 	 */
+	/** The list the address names, without the open task: opening a panel does not change the list. */
+	const listScope = () => {
+		const p = new URLSearchParams(window.location.search);
+		p.delete("task");
+		return p.toString();
+	};
 	const readBadges = (attempt = 0) => {
 		const n = ++blocking.current;
+		const scope = listScope();
 		readingBadges.current = true;
 		setBadgesStale(false);
-		loadBlocking(window.location.search).then((r) => {
-			if (n !== blocking.current) return;
+		loadBlocking(scope).then((r) => {
+			// Only the newest read for the list still on screen applies, also when it failed.
+			if (n !== blocking.current || listScope() !== scope) return;
 			if (r.status !== "ok") {
 				if (attempt < 2)
 					return void setTimeout(() => n === blocking.current && readBadges(attempt + 1), 1000 * (attempt + 1));
