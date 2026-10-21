@@ -786,6 +786,26 @@ test("AC:TARGET-IDN-006 AC:SEC-07 AC:PROVIDER48-002 avatar verifies private byte
 	const saved = ok(await call("finalizeAvatar", a, command({ uploadId: upload.uploadId })));
 	assert.deepEqual(saved, { status: "available", avatar: { accountId: a.id, versionId: upload.uploadId } });
 	assert.deepEqual(await readAvatar(db, storage, ctx(a), upload.uploadId), bytes);
+	// INV-C27: the photo read takes no session lock. It finishes while another transaction holds the session row.
+	let entered, release;
+	const locked = new Promise((r) => (entered = r)),
+		held = new Promise((r) => (release = r));
+	const holder = admin.transaction(async (tx) => {
+		await tx.execute(sql`SELECT 1 FROM auth_session WHERE id=${a.session} FOR UPDATE`);
+		entered();
+		await held;
+	});
+	await locked;
+	try {
+		const read = await Promise.race([
+			readAvatar(db, storage, ctx(a), upload.uploadId),
+			new Promise((_, reject) => setTimeout(() => reject(Error("photo read waited for the session lock")), 3000)),
+		]);
+		assert.deepEqual(read, bytes);
+	} finally {
+		release();
+		await holder;
+	}
 	denied(await call("getAvatar", foreign, { versionId: upload.uploadId }));
 	const clear = ok(await call("removeAvatar", a, command({}, "2")));
 	assert.deepEqual(clear, { status: "absent" });

@@ -13,7 +13,7 @@ import * as t from "@everyfield/db/tables";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { writeVisibility } from "../access/session.ts";
+import { liveRead, writeVisibility } from "../access/session.ts";
 import { executeWrites } from "../operations/writes.ts";
 import {
 	appendEvent,
@@ -155,20 +155,24 @@ export function avatarOperations(
 	};
 }
 /**
- * This context's own account with its current photo, when the session is live, the account is fully registered and
- * no lifecycle witness hides it: one statement, no lock.
+ * This context's own account, when the session is live, the account is fully registered and no lifecycle witness
+ * hides it, in one statement. A read uses the lock-free live check (C27); the upload, a write, keeps the share locks of
+ * access_session.
  */
-function liveSelf(ctx: NativeSettingsContext) {
+function liveSelf(ctx: NativeSettingsContext, read: boolean) {
 	if (ctx.selected.kind !== "account") return sql`false`;
 	const account = ctx.selected.id;
-	return sql<boolean>`(${t.account.id}=${account}::uuid AND EXISTS(SELECT FROM access_session(${ctx.session}::uuid) x WHERE x.account_id=${account}::uuid AND x.registration_state='active') AND ${writeVisibility(account, ctx.selected)})`;
+	const live = read
+		? liveRead({ session: ctx.session, owner: ctx.selected })
+		: sql`EXISTS(SELECT FROM access_session(${ctx.session}::uuid) x WHERE x.account_id=${account}::uuid AND x.registration_state='active') AND ${writeVisibility(account, ctx.selected)}`;
+	return sql<boolean>`(${t.account.id}=${account}::uuid AND ${live})`;
 }
 function authorization(ctx: NativeSettingsContext, uploadId: string, upload: boolean): ResourceAuthorizer {
 	return async (tx, file, intent) => {
 		const [a] = await tx
 			.select({ id: t.account.id, avatar: t.account.avatar_object_id })
 			.from(t.account)
-			.where(liveSelf(ctx));
+			.where(liveSelf(ctx, !upload));
 		if (
 			!a ||
 			(!upload && file.id !== uploadId) ||
@@ -210,7 +214,7 @@ export async function uploadAvatar(
 				eq(t.file_object.state, "pending"),
 				eq(t.file_object.media_type, mediaType),
 				eq(t.file_object.max_bytes, String(raw.bytes.length)),
-				sql`${t.file_object.tenant_id} IN (SELECT ${t.account.id} FROM ${t.account} WHERE ${liveSelf(ctx)})`,
+				sql`${t.file_object.tenant_id} IN (SELECT ${t.account.id} FROM ${t.account} WHERE ${liveSelf(ctx, false)})`,
 			),
 		)
 		.returning();
