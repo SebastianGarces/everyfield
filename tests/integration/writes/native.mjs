@@ -3,14 +3,17 @@ import { randomBytes } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
-import { enqueueJob, queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
+import { claimDue, enqueueJob, finishClaim, queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { deletionOperations, issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/deletion.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { fixture } from "../identity/invitations-support.mts";
 import {
+	executeBulkImport,
 	PeopleReadContext,
+	peopleCsv,
 	peopleWriter,
+	runPeopleImport,
 	personFields,
 	readPersonPhoto,
 	uploadPersonPhoto,
@@ -309,6 +312,41 @@ try {
 			}),
 		),
 	);
+	// WP-013 people CSV: preview, the import request, its job, the receipt and the export each use the same statements at
+	// two sizes.
+	for (const [n, tag] of [
+		[2, "a"],
+		[40, "b"],
+	]) {
+		const file = new TextEncoder().encode(
+			"first_name,email\r\n" +
+				Array.from({ length: n }, (_, i) => `Csv${tag}${i},csv${tag}${i}@example.test\r\n`).join(""),
+		);
+		const preview = value(await view("previewImport", (tx, ctx) => peopleCsv.previewImport(tx, ctx, { file })));
+		const requestKey = key();
+		const imported = value(
+			await measure("native.people.executeBulkImport", () =>
+				executeBulkImport(f.db, actor, {
+					requestKey,
+					file,
+					fileDigest: preview.fileDigest,
+					reviewDigest: preview.reviewDigest,
+					choices: preview.rows.map((r) => ({ row: r.row, choice: "create" })),
+				}),
+			),
+		);
+		assert.equal(imported.status, "in_progress");
+		const [claim] = await claimDue(f.db, ["people_import"]);
+		assert.equal(await measure("native.people.runPeopleImport", () => runPeopleImport(f.db, claim)), "succeeded");
+		await f.db.transaction((tx) => finishClaim(tx, claim, { state: "succeeded" }));
+		const receipt = value(
+			await view("getImportReceipt", (tx, ctx) => peopleCsv.getImportReceipt(tx, ctx, { requestKey })),
+		);
+		assert.equal(receipt.counts.created, n);
+		value(await view("exportPeople", (tx, ctx) => peopleCsv.exportPeople(tx, ctx, {})));
+	}
+	for (const name of ["previewImport", "executeBulkImport", "runPeopleImport", "getImportReceipt", "exportPeople"])
+		await fixed(name);
 	// Meetings at the native boundary: the bound actor, one replay check, one locked read and one write statement.
 	const meetingWrite = (name, body) => measure("native.meetings." + name, () => withMeetingsWrite(f.db, actor, body));
 	const scheduled = await meetingWrite("schedule", (tx, ctx) =>
@@ -521,16 +559,17 @@ try {
 	assert.equal(churchAudit.rows.length, 1);
 	assert.deepEqual(Object.keys(churchAudit.rows[0].metadata.diff).sort(), ["alertDays", "city", "warningDays"]);
 	const deletion = deletionOperations({
-		async enqueue(tx, i) {
-			await enqueueJob(tx, {
-				tenant: i.subject.id,
-				kind: "lifecycle_purge",
-				subject: i.witnessId,
-				key: "native/" + i.requestId,
-				revision: i.revision,
-				eligibleAt: i.eligibleAt,
-			});
-		},
+		queue: (tx, i) =>
+			queueJobs(tx, [
+				{
+					tenant: i.subject.id,
+					kind: "lifecycle_purge",
+					subject: i.witnessId,
+					key: "native/" + i.requestId,
+					revision: i.revision,
+					eligibleAt: i.eligibleAt,
+				},
+			]),
 	});
 	const requested = await measure("settings.requestWorkspaceDeletion", () =>
 		withSettingsWrite(f.db, actor, plantContext, (tx) =>

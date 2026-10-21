@@ -1,6 +1,6 @@
 "use client";
 
-import { Settings02Icon, Task01Icon, UserMultipleIcon } from "@hugeicons/core-free-icons";
+import { Calendar03Icon, Settings02Icon, Task01Icon, UserMultipleIcon } from "@hugeicons/core-free-icons";
 import { ToastProvider, useToast } from "@everyfield/ui/controls";
 import { initials } from "@everyfield/ui/display";
 import { AppShell, RoleBanner, type ShellNav } from "@everyfield/ui/shell";
@@ -16,6 +16,15 @@ import type { Role } from "./server.ts";
 // ship. Settings sits at the bottom of the rail and in the user menu behind the name button (screens.md, Overlays).
 
 const PEOPLE = { kind: "link", key: "people", label: "People", href: "/people", icon: UserMultipleIcon } as const;
+// Meetings is a dynamic page; it loads when chosen, not whenever the frame renders.
+const MEETINGS = {
+	kind: "link",
+	key: "meetings",
+	label: "Meetings",
+	href: "/meetings",
+	icon: Calendar03Icon,
+	prefetch: false,
+} as const;
 const TASKS = { kind: "link", key: "tasks", label: "Tasks", href: "/tasks", icon: Task01Icon } as const;
 const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Member" };
 
@@ -72,7 +81,7 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 		) : null;
 	// The rail's Settings opens the dialog over the current page, as the user menu does; /settings is its address.
 	const nav: ShellNav = {
-		main: [PEOPLE, TASKS],
+		main: [PEOPLE, MEETINGS, TASKS],
 		pages: [],
 		tools: [
 			{

@@ -1,5 +1,6 @@
 import type { EvryActor } from "../context/actor.ts";
 import { getPerson, listPeople } from "./people.ts";
+import { allowedWrites } from "../proposals/store.ts";
 import type { ReadAdapter } from "./types.ts";
 
 /**
@@ -31,8 +32,9 @@ export function readCatalog(actor: EvryActor) {
 		context: actor.contextKind,
 		domains,
 		selection: domains.length > 0 ? [SELECT_RETURNED_ROWS] : [],
-		// Writes, approvals, code, network, files and SQL are never model tools.
-		reviewedWrites: [] as string[],
+		// A reviewed write is only proposed: a person approves the exact review before it runs. Approvals, code, network,
+		// files and SQL are never model tools.
+		reviewedWrites: allowedWrites(actor).map((w) => ({ operation: w.operation, description: w.description })),
 	};
 }
 export type Catalog = ReturnType<typeof readCatalog>;

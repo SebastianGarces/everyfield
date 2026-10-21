@@ -9,6 +9,9 @@ export type EvryErrorCode =
 	| "model_unavailable"
 	| "source_unavailable"
 	| "interrupted"
+	| "review_changed"
+	| "review_expired"
+	| "review_closed"
 	| "unknown";
 
 export class EvryRefusal extends Error {
@@ -27,6 +30,10 @@ const retry: Record<EvryErrorCode, "never" | "same_request" | "new_turn"> = {
 	model_unavailable: "new_turn",
 	source_unavailable: "new_turn",
 	interrupted: "new_turn",
+	// A changed, expired or closed review needs a new exact review; the old approval never applies again.
+	review_changed: "never",
+	review_expired: "never",
+	review_closed: "never",
 	unknown: "new_turn",
 };
 
