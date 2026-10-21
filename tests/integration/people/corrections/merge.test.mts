@@ -6,6 +6,7 @@ import { randomUUID, randomBytes } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 
 import { migrate } from "../../../../packages/db/src/schema/migrate.ts";
+import { registry } from "../../../../packages/domain/src/people/person-reference-registry/index.ts";
 import {
 	assessments,
 	checkForDuplicates,
@@ -514,5 +515,262 @@ test("AC:PERSONREF-ACCOUNT-LINK-CONFLICT AC:TARGET-PPL-017 AC:TARGET-PPL-016 mer
 	assert.equal(
 		(await rows(sql`SELECT count(*)::int n FROM person WHERE display_name LIKE 'Avery%' AND state='live'`))[0].n,
 		3,
+	);
+});
+
+const correct = (recordType, recordId, expectedRevision, changes, who = 0, requestKey = key()) =>
+	tx((t) =>
+		recordCorrections.correctPersonRecord(t, ctx(who), {
+			requestKey,
+			expectedRevision,
+			input: { recordType, recordId, reason: "Entered from the wrong form", changes },
+		}),
+	);
+const corrections = (personId, who = 0) =>
+	tx((t) => recordCorrections.listRecordCorrections(t, ctx(who), { personId }));
+
+test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 corrections keep the recorder, recompute the total, never move the stage and keep old and new values out of audit", async () => {
+	const p = await person("Morgan Hale", { stage: "leader" });
+	const a = ok(
+		await tx((t) =>
+			assessments.createAssessment(t, ctx(3), {
+				requestKey: key(),
+				input: {
+					personId: p.id,
+					occurredOn: day(6),
+					committed: lens(3),
+					compelled: lens(3),
+					contagious: lens(3),
+					courageous: lens(3),
+				},
+			}),
+		),
+	).assessment;
+	// A correction against an outdated view, by a Member or from another church writes nothing.
+	refused(await correct("assessment", a.id, "2", { committed: lens(5) }), "conflict");
+	refused(await correct("assessment", a.id, a.revision, { committed: lens(5) }, 1));
+	refused(await correct("assessment", a.id, a.revision, { committed: lens(5) }, 2));
+	// Original recorder, recorded instant and totals are not correction fields.
+	refused(await correct("assessment", a.id, a.revision, { total: 20 }), "invalid_input");
+	refused(await correct("assessment", a.id, a.revision, { recordedAt: new Date().toISOString() }), "invalid_input");
+	assert.equal(ok(await corrections(p.id)).total, 0);
+
+	const requestKey = key();
+	const changed = ok(
+		await correct("assessment", a.id, a.revision, { committed: { score: 5, notes: "Corrected note" } }, 0, requestKey),
+	);
+	assert.deepEqual([changed.outcome, changed.revision], ["changed", "2"]);
+	assert.deepEqual(
+		ok(
+			await correct(
+				"assessment",
+				a.id,
+				a.revision,
+				{ committed: { score: 5, notes: "Corrected note" } },
+				0,
+				requestKey,
+			),
+		),
+		changed,
+	);
+	// Correcting to the values it already holds changes nothing more.
+	assert.equal(
+		ok(await correct("assessment", a.id, "2", { committed: { score: 5, notes: "Corrected note" } })).outcome,
+		"noop",
+	);
+	const read = ok(await tx((t) => assessments.getAssessments(t, ctx(), { personId: p.id }))).latest;
+	assert.deepEqual(
+		[read.total, read.revision, read.actor, read.recordedAt],
+		[14, "2", { kind: "current_account", accountId: actors[3].id }, a.recordedAt],
+	);
+
+	// An interview result correction never replays or demotes the stage.
+	const i = ok(
+		await tx((t) =>
+			interviews.createInterview(t, ctx(), {
+				requestKey: key(),
+				input: { personId: p.id, occurredOn: day(5), ...criteria("pass"), result: "qualified", nextSteps: null },
+			}),
+		),
+	).interview;
+	ok(await correct("interview", i.id, i.revision, { result: "not_qualified", occurredOn: day(7) }));
+	refused(await correct("interview", i.id, "2", { occurredOn: day(-1) }), "invalid_input");
+	assert.equal((await personRow(p.id)).stage, "leader");
+
+	// A card's date correction (CA013) and a note correction show in the same history.
+	const card = ok(
+		await tx((t) =>
+			commitments.createCommitment(t, ctx(), {
+				requestKey: key(),
+				input: { personId: p.id, kind: "core_group", occurredOn: day(20), notes: "Signed at lunch" },
+			}),
+		),
+	).commitment;
+	ok(
+		await tx((t) =>
+			commitments.correctCommitmentLifecycle(t, ctx(3), {
+				requestKey: key(),
+				expectedRevision: card.revision,
+				input: {
+					commitmentId: card.id,
+					correction: { action: "correct", occurredOn: day(40) },
+					reason: "Correct source date",
+				},
+			}),
+		),
+	);
+	ok(await correct("commitment", card.id, "2", { notes: "Signed at the picnic" }));
+	const history = ok(await corrections(p.id));
+	assert.deepEqual(
+		history.items.map((x) => [x.recordType, x.recordId, x.changes, x.actor.accountId]),
+		[
+			["commitment", card.id, [{ field: "notes", old: "Signed at lunch", new: "Signed at the picnic" }], actors[0].id],
+			["commitment", card.id, [{ field: "occurredOn", old: day(20), new: day(40) }], actors[3].id],
+			[
+				"interview",
+				i.id,
+				[
+					{ field: "occurredOn", old: day(5), new: day(7) },
+					{ field: "result", old: "qualified", new: "not_qualified" },
+				],
+				actors[0].id,
+			],
+			[
+				"assessment",
+				a.id,
+				[
+					{
+						field: "committed",
+						old: { score: 3, notes: "Private lens 3" },
+						new: { score: 5, notes: "Corrected note" },
+					},
+				],
+				actors[0].id,
+			],
+		],
+	);
+	assert.deepEqual(
+		history.items.map((x) => x.reason),
+		[
+			"Entered from the wrong form",
+			"Correct source date",
+			"Entered from the wrong form",
+			"Entered from the wrong form",
+		],
+	);
+	refused(await corrections(p.id, 1));
+	// Platform audit names each corrected record and holds no value, note or reason (audit.md).
+	const audit = JSON.stringify(
+		(await audits([p.id])).filter((r) => r.metadata.event !== "commitment_corrected" || r.reason === null),
+	);
+	assert.ok(!audit.match(/Corrected note|not_qualified|Signed at|wrong form|"score"/), audit);
+	const feed = ok(await tx((t) => peopleReader.getActivities(t, ctx(), { personId: p.id, limit: 100 }))).items;
+	assert.deepEqual(
+		feed.filter((x) => /_corrected$/.test(x.action ?? "")).map((x) => [x.action, x.recordId]),
+		[
+			["assessment_corrected", a.id],
+			["interview_corrected", i.id],
+			["commitment_corrected", card.id],
+			["commitment_corrected", card.id],
+		],
+	);
+});
+
+test("AC:ADR1-017 organization duplicates are hints for a human, and an organization merge and Unmerge follow the same rules", async () => {
+	const org = randomUUID(),
+		other = randomUUID(),
+		staff = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
+	for (const id of [org, other])
+		await admin.execute(
+			sql`INSERT INTO organization(id,kind,name,timezone,material_revision) VALUES(${sql.param(id)},'sending_church','Synthetic','America/Chicago',1)`,
+		);
+	await admin.execute(
+		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${sql.param(staff.user)},${sql.param(staff.id + "@example.test")},true,'Synthetic')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${sql.param(staff.id)},${sql.param(staff.user)},'active','planter')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${sql.param(staff.session)},${sql.param(staff.user)},${sql.param(randomUUID())},clock_timestamp()+interval '1 day')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO seat(account_id,organization_id,role,accepted_at) VALUES(${sql.param(staff.id)},${sql.param(org)},'admin',clock_timestamp())`,
+	);
+	const octx = {
+		session: staff.session,
+		selected: { kind: "organization", id: org, organizationKind: "sending_church" },
+	};
+	const orgPerson = async (name, email, owner = org) => {
+		const id = randomUUID();
+		await admin.execute(sql`INSERT INTO person(id,tenant_id,organization_id,display_name,email,source,state,created_at,revision)
+ VALUES(${sql.param(id)},${sql.param(owner)},${sql.param(owner)},${name},${email},'other','live',clock_timestamp(),1)`);
+		return id;
+	};
+	const p = await orgPerson("Casey Lee", "casey@example.test"),
+		q = await orgPerson("Casey L.", "Casey@Example.test"),
+		foreign = await orgPerson("Casey Lee", "casey@example.test", other);
+	await admin.execute(sql`UPDATE person SET linked_account_id=${sql.param(actors[1].id)} WHERE id=${sql.param(p)}`);
+	const found = ok(await tx((t) => peopleMerge.findDuplicates(t, octx, { personId: p })));
+	assert.deepEqual(
+		found.items.map((h) => [h.personId, h.match, h.signals]),
+		[[q, "exact", ["email"]]],
+	);
+	assert.deepEqual([(await personRow(p)).state, (await personRow(q)).state], ["live", "live"]);
+	// Another organization's identity cannot be reviewed or merged.
+	refused(await tx((t) => peopleMerge.getMergeReview(t, octx, { sourceId: foreign, survivorId: p })));
+	// Plant-only facts are not organization merge fields.
+	const r = ok(await tx((t) => peopleMerge.getMergeReview(t, octx, { sourceId: q, survivorId: p })));
+	assert.deepEqual([r.stage, r.commitment, r.fields.map((f) => f.field)], [null, null, ["displayName", "email"]]);
+	refused(
+		await tx((t) =>
+			peopleMerge.mergePeople(t, octx, {
+				requestKey: key(),
+				input: { sourceId: q, survivorId: p, reviewDigest: r.reviewDigest, fieldChoices: { household: "source" } },
+			}),
+		),
+		"invalid_input",
+	);
+	const merged = ok(
+		await tx((t) =>
+			peopleMerge.mergePeople(t, octx, {
+				requestKey: key(),
+				input: { sourceId: q, survivorId: p, reviewDigest: r.reviewDigest, fieldChoices: { displayName: "survivor" } },
+			}),
+		),
+	);
+	assert.deepEqual(
+		[
+			(await personRow(q)).state,
+			(await personRow(q)).merged_into_person_id,
+			(await one(sql`SELECT linked_account_id FROM person WHERE id=${sql.param(p)}`)).linked_account_id,
+		],
+		["merged", p, actors[1].id],
+	);
+	const preview = ok(await tx((t) => peopleUnmerge.previewUnmerge(t, octx, { mergeId: merged.mergeId })));
+	const back = ok(
+		await tx((t) =>
+			peopleUnmerge.unmergePeople(t, octx, {
+				requestKey: key(),
+				expectedRevision: preview.reviewRevision,
+				input: { mergeId: merged.mergeId },
+			}),
+		),
+	);
+	assert.deepEqual([back.outcome, (await personRow(q)).state], ["changed", "live"]);
+	assert.deepEqual(
+		(await rows(sql`SELECT action FROM audit_event WHERE subject_id=${sql.param(p)} ORDER BY occurred_at`)).map(
+			(x) => x.action,
+		),
+		["people.merged", "people.unmerged"],
+	);
+});
+
+test("REQ-PPL-024: the reference registry names every Person foreign key in the database exactly once", async () => {
+	const declared = await rows(sql`SELECT c.conrelid::regclass::text AS t,a.attname AS col FROM pg_constraint c
+ JOIN LATERAL unnest(c.conkey) WITH ORDINALITY k(n,i) ON k.i=1 JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=k.n
+ WHERE c.contype='f' AND c.confrelid=${schema + ".person"}::regclass ORDER BY 1,2`);
+	assert.deepEqual(
+		registry.map((e) => `${e.table}.${e.column}`).sort(),
+		declared.map((d) => `${d.t.replace(schema + ".", "")}.${d.col}`).sort(),
 	);
 });

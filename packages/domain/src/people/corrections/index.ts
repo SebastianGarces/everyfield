@@ -6,6 +6,7 @@ import { adminRead, attribution, notFuture, recordEvent, subject } from "../asse
 import {
 	authorize,
 	deny,
+	hash,
 	mutation,
 	parse,
 	readReply,
@@ -80,10 +81,11 @@ const found = z.object({
 	voided: z.boolean(),
 	values: z.record(z.string(), z.unknown()),
 });
-/** The fields whose value differs, with old and new values. */
+/** The fields whose value differs, whatever the key order, with old and new values, by field name. */
 function diff(before: Record<string, unknown>, after: Record<string, unknown>) {
 	return Object.keys({ ...before, ...after })
-		.filter((k) => k !== "id" && JSON.stringify(before[k] ?? null) !== JSON.stringify(after[k] ?? null))
+		.sort()
+		.filter((k) => k !== "id" && hash(before[k] ?? null) !== hash(after[k] ?? null))
 		.map((field) => ({ field, old: before[field] ?? null, new: after[field] ?? null }));
 }
 
