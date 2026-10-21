@@ -70,9 +70,9 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 82,
-  "column_count": 946,
-  "foreign_key_count": 301,
+  "table_count": 83,
+  "column_count": 953,
+  "foreign_key_count": 304,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -296,7 +296,8 @@
       "object_cleanup",
       "lifecycle_purge",
       "assistant_turn",
-      "document_render"
+      "document_render",
+      "people_import"
     ],
     "job.state": [
       "ready",
@@ -17527,7 +17528,7 @@
       ],
       "checks": [
         "(revision >= 1)",
-        "kind in ('mail', 'notification', 'digest', 'assessment', 'reference_generation', 'feedback_publication', 'object_cleanup', 'lifecycle_purge', 'assistant_turn', 'document_render')",
+        "kind in ('mail', 'notification', 'digest', 'assessment', 'reference_generation', 'feedback_publication', 'object_cleanup', 'lifecycle_purge', 'assistant_turn', 'document_render', 'people_import')",
         "state in ('ready', 'claimed', 'retry_wait', 'reconcile', 'succeeded', 'failed', 'cancelled', 'superseded')",
         "((attempt_count >= 0) AND (max_attempts >= 1))",
         "(claim_generation >= 0)",
@@ -24450,6 +24451,183 @@
           "person_ck_7",
           "person_ck_8",
           "person_ck_9"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "person_import",
+      "domain": "people",
+      "purpose": "One People CSV import: the frozen plan for every row, the uploaded file the server reviewed (compressed) and the rows whose last write failed. Its audit intent holds the request key and review digest.",
+      "library_owned": false,
+      "jsonb_keys": {
+        "plan": [
+          "rows",
+          "skip",
+          "invalid",
+          "create"
+        ],
+        "failed": [
+          "row",
+          "reason"
+        ]
+      },
+      "capabilities": [
+        "CAP-A-030"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-013"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-013"
+        ],
+        "rule": "WP-013 People CSV import job payload through Drizzle Kit."
+      },
+      "feature_ids": [
+        "PPL-018"
+      ],
+      "acceptance_ids": [],
+      "future_case_ids": [],
+      "scope": "plant",
+      "invariants": [
+        "The upload holds the exact bytes the request parsed and the plan's digest names.",
+        "The upload is cleared when every reviewed row is created."
+      ],
+      "revision": "The worker that holds the job lease replaces failed and clears the upload.",
+      "idempotency": "Person IDs derive from the import and row number; a resumed job never creates a row twice.",
+      "deletion": "Owner purge deletes the church's jobs, which removes their imports.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "tenant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "job_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "actor_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "plan",
+          "type": "jsonb",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "upload",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "failed",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'[]'::jsonb"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "job_id"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "set_null",
+            "policy": "Account purge clears the importer; the job then stops at its next authority check and created people keep their audit attribution."
+          },
+          "columns": [
+            "actor_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null"
+        },
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "The import goes with its job."
+          },
+          "columns": [
+            "job_id",
+            "tenant_id"
+          ],
+          "references": {
+            "table": "job",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "no_action",
+            "policy": "Owner purge deletes the church's jobs first, which removes their imports."
+          },
+          "columns": [
+            "tenant_id"
+          ],
+          "references": {
+            "table": "tenant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action"
+        }
+      ],
+      "checks": [
+        "jsonb_typeof(\"person_import\".\"failed\")='array'",
+        "jsonb_typeof(\"person_import\".\"plan\")='object'"
+      ],
+      "indexes": {},
+      "constraint_names": {
+        "primary": [
+          "person_import_pkey"
+        ],
+        "unique": [
+          "person_import_job"
+        ],
+        "foreign": [
+          "person_import_tenant_id_tenant_id_fk",
+          "person_import_actor_id_account_id_fk",
+          "person_import_job_owner"
+        ],
+        "checks": [
+          "person_import_plan",
+          "person_import_failed"
         ]
       },
       "policies": {},
