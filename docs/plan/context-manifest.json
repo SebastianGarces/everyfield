@@ -2601,6 +2601,7 @@
         "passage",
         "person",
         "person_note",
+        "person_skill",
         "person_tag",
         "phase_transition",
         "pipeline_person",
@@ -5494,6 +5495,7 @@
       "producer_table_names": [
         "household",
         "person",
+        "person_skill",
         "record"
       ],
       "consumer_table_names": [
@@ -25991,6 +25993,7 @@
         "people_column",
         "person",
         "person_note",
+        "person_skill",
         "person_tag",
         "phase_transition",
         "pipeline_person",
@@ -31973,6 +31976,7 @@
         "people_column",
         "person",
         "person_note",
+        "person_skill",
         "person_tag",
         "phase_transition",
         "pipeline_person",

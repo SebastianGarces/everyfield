@@ -40,6 +40,7 @@ const standalone = {
 	"/packages/domain/src/settings/core.ts": ["withSettingsWrite"],
 	"/packages/domain/src/tasks/core.ts": ["withTaskWrite"],
 	"/packages/domain/src/settings/avatar.ts": ["uploadAvatar"],
+	"/packages/domain/src/people/fields/index.ts": ["uploadPersonPhoto"],
 	"/packages/domain/src/settings/deletion.ts": ["issueRestrictedDeletionSession"],
 	"/packages/domain/src/people/references.ts": ["detachAccountPersonLinks"],
 	"/packages/domain/src/phases/creation-entry/index.ts": ["recordCreationEntry"],
@@ -186,6 +187,7 @@ registerHooks({
 				source = source.slice(0, offset) + text + source.slice(offset);
 			const objects = {
 				"/packages/domain/src/people/people.ts": { peopleWriter: "people", accountPersonProducer: "accountPerson" },
+				"/packages/domain/src/people/fields/index.ts": { personFields: "people" },
 				"/packages/domain/src/meetings/meetings.ts": { meetingsWriter: "meetings" },
 				"/packages/domain/src/meetings/guests.ts": { guestsWriter: "meetings" },
 				"/packages/domain/src/meetings/venues.ts": { venuesWriter: "venues" },

@@ -15,6 +15,7 @@ import {
 	noteBody,
 	pipelineColumn,
 } from "./values.ts";
+import { householdMembership } from "./fields/index.ts";
 
 const identityFields = { id: personId, revision, createdAt: instant, ...contactFields, lifecycle: personLifecycle };
 export const plantPerson = z
@@ -156,6 +157,9 @@ export const activity = z.discriminatedUnion("kind", [
 			"classification_recorded",
 			"classification_corrected",
 		]),
+		// A household join, leave or role change: the membership before and after, with the household name recorded
+		// then, so the history still names a household after it is deleted (REQ-PPL-009).
+		household: z.strictObject({ from: householdMembership.nullable(), to: householdMembership.nullable() }).optional(),
 	}),
 	z.strictObject({
 		...activityBase,

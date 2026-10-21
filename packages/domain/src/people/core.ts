@@ -374,7 +374,7 @@ export async function patchPerson(
 	return { before, after };
 }
 
-export function personChanges(before?: Person, after?: Person) {
+export function personChanges(before?: Revisioned, after?: Revisioned) {
 	const prior = new Map(Object.entries(before ?? {})),
 		next = new Map(Object.entries(after ?? {}));
 	const changed = new Set(
@@ -389,6 +389,8 @@ export function personChanges(before?: Person, after?: Person) {
 }
 
 export type Mutation = { requestKey: string; expectedRevision?: string };
+/** The fact a write changed: a Person, or another revisioned people fact such as a tag or household. */
+export type Revisioned = { revision: string };
 export async function mutation<T>(
 	tx: Tx,
 	context: WriteContext,
@@ -402,8 +404,9 @@ export async function mutation<T>(
 		value: T;
 		subject: string;
 		action: NonNullable<typeof tables.audit_event.$inferInsert.action>;
-		before?: Person;
-		after?: Person;
+		before?: Revisioned;
+		after?: Revisioned;
+		subjectType?: "tag" | "household" | "person_skill";
 		reason?: string;
 		outcome?: "changed" | "noop";
 	}>,
@@ -458,7 +461,7 @@ export async function mutation<T>(
 		tenant_id: context.selected.id,
 		actor_id: actor.accountId,
 		actor_token: hash([context.selected.id, actor.accountId]),
-		subject_type: result.subject === context.selected.id ? context.selected.kind : "person",
+		subject_type: result.subjectType ?? (result.subject === context.selected.id ? context.selected.kind : "person"),
 		subject_id: result.subject,
 		action: result.action,
 		kind:
