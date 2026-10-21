@@ -656,7 +656,7 @@ test("AC:SEC-02 AC:TEN-002 AC:UI45-006 AC:SEC-11 INV-tenancy: an ended seat or c
 	assert.equal(queries.length - start, 1);
 });
 
-test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry run under the live seat, role, session and lifecycle (C13)", async () => {
+test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live seat, role, session and lifecycle first, without locks (C13, C22)", async () => {
 	const owner = await actor("owner");
 	const find = { search: "Alex" };
 	const names = async () => (await invokeRead(db, owner, listPeople, find)).rows.map((r) => r.label).sort();
@@ -710,23 +710,18 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry run under the l
 		}
 	}
 
-	// A seat that ends while the read runs waits for it, and the next read refuses.
-	let ended = false;
-	let ending: Promise<unknown> | undefined;
+	// A seat end during a running read does not wait for it (reads take no locks, C22), and the next read refuses.
 	const racing = {
 		...listPeople,
 		async invoke(tx: Parameters<typeof listPeople.invoke>[0], who: EvryActor, input: typeof find) {
-			ending = admin
-				.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${who.accountId}`)
-				.then(() => (ended = true));
-			await new Promise((r) => setTimeout(r, 300));
-			assert.equal(ended, false, "the seat end waits for the running read");
+			const started = performance.now();
+			await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${who.accountId}`);
+			assert.ok(performance.now() - started < 2_000, "the seat end does not wait for the read");
 			return listPeople.invoke(tx, who, input);
 		},
 	};
 	try {
-		assert.equal((await invokeRead(db, owner, racing, find)).rows.length, 2);
-		await ending;
+		await invokeRead(db, owner, racing, find);
 		await assert.rejects(
 			() => invokeRead(db, owner, listPeople, find),
 			(e: { code?: string }) => e.code === "access_denied",
@@ -734,12 +729,30 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry run under the l
 	} finally {
 		await admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE account_id=${owner.accountId}`);
 	}
+	// Signing out during a running read does not wait either.
+	const signOut = {
+		...listPeople,
+		async invoke(tx: Parameters<typeof listPeople.invoke>[0], who: EvryActor, input: typeof find) {
+			const started = performance.now();
+			await admin.execute(sql`DELETE FROM auth_session WHERE id=${accounts.owner.session}`);
+			assert.ok(performance.now() - started < 2_000, "sign-out does not wait for the read");
+			return listPeople.invoke(tx, who, input);
+		},
+	};
+	try {
+		await invokeRead(db, owner, signOut, find);
+	} finally {
+		await admin.execute(
+			sql`INSERT INTO auth_session SELECT * FROM json_populate_record(null::auth_session, ${JSON.stringify(session)}::json)`,
+		);
+	}
 
-	// The live check is the read's first statement and replaces the timeout statement: no extra round trip.
+	// The live check is one statement before the native read's transaction.
 	const start = queries.length;
 	await invokeRead(db, owner, listPeople, find);
 	const sent = queries.slice(start).filter((q) => !/^(BEGIN|COMMIT)/i.test(q.trim()));
 	const plain = queries.length;
 	await db.transaction((tx) => listPeople.invoke(tx, owner, find));
-	assert.equal(sent.length, queries.slice(plain).filter((q) => !/^(BEGIN|COMMIT)/i.test(q.trim())).length + 1);
+	// One live check and the read timeout, then the adapter's own statements.
+	assert.equal(sent.length, queries.slice(plain).filter((q) => !/^(BEGIN|COMMIT)/i.test(q.trim())).length + 2);
 });
