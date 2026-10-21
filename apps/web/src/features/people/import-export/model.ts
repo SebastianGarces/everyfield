@@ -168,13 +168,14 @@ export const LOST_CHECK: Notice = {
 	title: "We could not confirm the import",
 	text: "The connection dropped before the answer arrived. The import may be running. Check again to see where it stands.",
 };
-export const NOT_STARTED: Notice = {
-	title: "The import did not start",
-	text: "Nothing was saved. Send it again with the same choices.",
-};
-export const ACCESS_LOST: Notice = {
-	title: "We cannot show this import",
-	text: "Your seat no longer lets you read imports, so we cannot tell which rows were saved. Ask an Owner or Admin to check People before anyone imports this file again.",
+/**
+ * The receipt was refused. "unavailable" covers both a missing import and a seat that lost access, so the screen
+ * never says whether rows were saved. Sending again is safe: the same request key returns a saved import's receipt
+ * and never adds a person twice.
+ */
+export const UNCONFIRMED: Notice = {
+	title: "We cannot tell whether the import started",
+	text: "Sending it again is safe: it is the same import, so nobody is added twice. If your seat changed, ask an Owner or Admin to check People.",
 };
 export const RECONNECTING: Notice = {
 	title: "Reconnecting",
@@ -197,9 +198,9 @@ export function importRefusal(code: string): Notice {
 		case "unavailable":
 			return {
 				title: "You cannot import people now",
-				text: "Only Owners and Admins of this church can import. Your seat may have changed. Nothing was saved.",
+				text: "Only Owners and Admins of this church can import. Your seat may have changed. Ask an Owner or Admin to check People before anyone imports this file again.",
 			};
 		default:
-			return { title: "The import did not start", text: "Nothing was saved. Check the file again, then import." };
+			return { title: "The import did not start", text: "Check the file again, then import." };
 	}
 }

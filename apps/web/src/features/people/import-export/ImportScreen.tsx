@@ -7,12 +7,11 @@ import {
 	addCount,
 	choicesPayload,
 	fileRefusal,
-	ACCESS_LOST,
 	importRefusal,
 	LOST_CHECK,
 	MAX_BYTES,
 	NOT_FOUND,
-	NOT_STARTED,
+	UNCONFIRMED,
 	plural,
 	RECONNECTING,
 	suggestedChoices,
@@ -138,9 +137,8 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 		setState({ step: "import", review, key, receipt: null, trouble: null });
 		const got = await readReceipt(key);
 		if (got.status === "ok") return settle(review, key, got.value);
-		// Only "no such import" proves nothing was saved. Any other refusal (a seat that changed) leaves the outcome unknown.
-		const trouble = got.status === "lost" ? LOST_CHECK : got.code === "unavailable" ? NOT_STARTED : ACCESS_LOST;
-		setState({ step: "import", review, key, receipt: null, trouble });
+		// A refusal does not prove that nothing was saved (see UNCONFIRMED), so the screen only offers a safe resend.
+		setState({ step: "import", review, key, receipt: null, trouble: got.status === "lost" ? LOST_CHECK : UNCONFIRMED });
 	};
 
 	const settle = (review: Review | null, key: string, receipt: ImportReceipt) =>
@@ -166,7 +164,7 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 				setState((s) => (s.step === "import" && s.key === runningKey ? next(s, got.value) : s));
 				if (finished(got.value)) return;
 			} else if (got.status === "refused") {
-				setState((s) => (s.step === "import" && s.key === runningKey ? { ...s, trouble: ACCESS_LOST } : s));
+				setState((s) => (s.step === "import" && s.key === runningKey ? { ...s, trouble: UNCONFIRMED } : s));
 				return;
 			} else {
 				wait = Math.min(wait * 2, 8000);
@@ -245,7 +243,7 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 					receipt={state.receipt}
 					trouble={state.trouble}
 					onRetry={
-						state.trouble === NOT_STARTED && state.review
+						state.trouble === UNCONFIRMED && state.review
 							? () => send(state.review!, state.key)
 							: state.trouble === LOST_CHECK
 								? () => confirm(state.review, state.key)

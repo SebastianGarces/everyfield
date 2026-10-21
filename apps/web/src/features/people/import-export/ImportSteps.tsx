@@ -527,7 +527,7 @@ export function ImportStep({
 					<div className="flex flex-wrap gap-2">
 						{onRetry ? (
 							<Button variant="primary" onClick={onRetry}>
-								{trouble === LOST_CHECK ? "Check again" : "Import again"}
+								{trouble === LOST_CHECK ? "Check again" : "Send again"}
 							</Button>
 						) : null}
 						<Button variant="ghost" onClick={onStartOver}>
