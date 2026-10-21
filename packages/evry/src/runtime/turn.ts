@@ -248,6 +248,9 @@ export async function runTurn(deps: RunDeps, lease: RunLease): Promise<RunOutcom
 			maxRetries: 0,
 			maxOutputTokens: LIMITS.outputTokensPerCall,
 			abortSignal: abort.signal,
+			// The stream's error part ends the turn with a projected error; the SDK's default logger would print the raw
+			// provider message, URL and payload.
+			onError: () => undefined,
 		});
 		let flushed = Date.now();
 		for await (const part of stream.fullStream) {

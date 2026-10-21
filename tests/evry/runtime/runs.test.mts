@@ -16,6 +16,7 @@ import {
 } from "../../../packages/evry/src/index.ts";
 import { PASTORAL_BOUNDARY, compileContext, resolveReferences } from "../../../packages/evry/src/context/compile.ts";
 import { readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
+import { verifyPeople } from "../../../packages/evry/src/catalog/people.ts";
 import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
 import { transientRetry, withTransientRetry } from "../../../packages/evry/src/runtime/model.ts";
 import {
@@ -223,10 +224,24 @@ test("AC:EVRY-CONTEXT-BOUNDS the whole prompt keeps at most 24 messages, 32,000 
 		body: { text: `${n} ` + "x".repeat(5_000) },
 		createdAt: new Date(),
 	}));
-	const references = Array.from({ length: 97 }, () => ({ kind: "person" as const, id: randomUUID(), label: "L".repeat(255) }));
-	const context = compileContext({ actor: owner, catalog: readCatalog(owner), history, text: "Continue", references, now: new Date() });
+	const references = Array.from({ length: 97 }, () => ({
+		kind: "person" as const,
+		id: randomUUID(),
+		label: "L".repeat(255),
+	}));
+	const context = compileContext({
+		actor: owner,
+		catalog: readCatalog(owner),
+		history,
+		text: "Continue",
+		references,
+		now: new Date(),
+	});
 	// The same estimate the runtime uses (4 characters per token), plus its 1,000-token tool allowance.
-	const tokens = Math.ceil(context.system.length / 4) + 1_000 + Math.ceil(context.messages.map((m) => String(m.content)).join("\n").length / 4);
+	const tokens =
+		Math.ceil(context.system.length / 4) +
+		1_000 +
+		Math.ceil(context.messages.map((m) => String(m.content)).join("\n").length / 4);
 	assert.ok(context.messages.length <= 24, String(context.messages.length));
 	assert.ok(tokens <= 32_000, String(tokens));
 	assert.equal(context.references.length, 64);
@@ -352,7 +367,20 @@ test("AC:EVRY-RETRY-CANCEL two transient model retries with 1 s then 3 s backoff
 
 	const failing = flaky(3);
 	const bad = await ask(owner, "Find Casey");
-	assert.equal(await work(failing.model), "failed");
+	// Nothing about the provider failure reaches a log: the SDK's default error logger is replaced.
+	const logged: unknown[] = [];
+	const [error, warn] = [console.error, console.warn];
+	console.error = console.warn = (...args: unknown[]) => void logged.push(args);
+	try {
+		assert.equal(await work(failing.model), "failed");
+	} finally {
+		[console.error, console.warn] = [error, warn];
+	}
+	assert.ok(
+		!JSON.stringify(logged, (_k, v) => (v instanceof Error ? String(v) : v)).match(
+			/secret|provider\.example|overloaded/,
+		),
+	);
 	assert.deepEqual(failing.sleeps, [1_000, 3_000]);
 	const { status } = await events(owner, bad);
 	assert.deepEqual([status.state, status.error.code, status.error.retry], ["failed", "model_unavailable", "new_turn"]);
@@ -516,4 +544,26 @@ test("AC:SEC-02 AC:TEN-002 AC:UI45-006 AC:SEC-11 INV-tenancy: an ended seat stop
 	];
 	assert.deepEqual(await counted([people.alexRivera]), { verified: 1, statements: 1 });
 	assert.deepEqual(await counted(ten), { verified: 3, statements: 1 });
+	// A 24-row selection, the most a selection may name, is one read as well.
+	const selection = [...ten, ...Array.from({ length: 14 }, () => randomUUID())];
+	const start = queries.length;
+	assert.equal((await verifyPeople(db, owner, selection)).length, 3);
+	assert.equal(queries.length - start, 1);
+
+	// Submit to the first saved card with 1, 10 and 64 page references.
+	const timings: Record<number, number> = {};
+	for (const n of [1, 10, 64]) {
+		const refs = Array.from({ length: n }, (_, i) => ({
+			kind: "person" as const,
+			id: i === 0 ? people.alexRivera : randomUUID(),
+		}));
+		const id = await ask(owner, "Find Casey", refs);
+		assert.equal(await work(), "succeeded");
+		const r = await admin.execute(
+			sql`SELECT extract(epoch FROM (SELECT min(created_at) FROM conversation_event WHERE conversation_id=${id} AND kind='tool_result') - (SELECT created_at FROM conversation_event WHERE conversation_id=${id} AND kind='user_message'))::float s`,
+		);
+		timings[n] = Math.round(r.rows[0]!.s * 1000);
+	}
+	console.log(JSON.stringify({ submitToFirstCardMsByReferences: timings }));
+	assert.ok(timings[64]! - timings[1]! < 300, "references add one read, not one per reference");
 });

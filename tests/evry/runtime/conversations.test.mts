@@ -78,7 +78,9 @@ test("AC:UI45-001 AC:UI45-002 AC:INH-REGRESSION-SESSION-NAVIGATION AC:EVRY-RETRY
 	assert.equal(read.conversation.title, "Show my people.");
 
 	const retryKey = randomUUID();
-	const retried = await retryTurn(db, owner, c.id, { requestKey: retryKey });
+	const retry = await statements(() => retryTurn(db, owner, c.id, { requestKey: retryKey }));
+	assert.equal(retry.count, 2, "retry is one lookup and one submit statement");
+	const retried = retry.value;
 	assert.equal(retried.replayed, false);
 	assert.equal(await work(), "succeeded");
 	assert.deepEqual(await retryTurn(db, owner, c.id, { requestKey: retryKey }), { ...retried, replayed: true });
