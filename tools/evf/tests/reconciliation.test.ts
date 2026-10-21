@@ -1455,6 +1455,30 @@ test("BUG-wave1-0016: renumber a migration that collides with main and keep the 
 		expectValid();
 		assert.equal(inWt("rev-parse", "HEAD^{tree}"), repaired);
 
+		// BUG-6cdb381: consecutive branch migrations with one suffix move without overwriting each other.
+		inWt("reset", "-q", "--hard", branchTip);
+		add(f.wt, "0003_branch", ["a", "branch_table", "extra"], "s2-branch", "s3-branch");
+		assert.notEqual(spawnSync("git", ["-C", f.wt, "merge", "-q", "--no-edit", "origin/main"]).status, 0);
+		assert.deepEqual(renumberMigrations(f.wt, "origin/main"), [
+			"0002_branch.sql -> 0003_branch.sql",
+			"0003_branch.sql -> 0004_branch.sql",
+		]);
+		assert.equal(readFileSync(join(f.wt, dir, "0003_branch.sql"), "utf8"), "CREATE TABLE branch_table ();\n");
+		assert.equal(readFileSync(join(f.wt, dir, "0004_branch.sql"), "utf8"), "CREATE TABLE extra ();\n");
+		assert.deepEqual(
+			JSON.parse(readFileSync(join(f.wt, dir, "meta/_journal.json"), "utf8")).entries.map((e) => e.tag),
+			["0001_a", "0002_main", "0003_branch", "0004_branch"],
+		);
+		const fourth = JSON.parse(readFileSync(join(f.wt, dir, "meta/0004_snapshot.json"), "utf8"));
+		assert.deepEqual([fourth.id, fourth.prevId], ["s3-branch", "s2-branch"]);
+		assert.deepEqual(Object.keys(fourth.tables), [
+			"public.a",
+			"public.main_table",
+			"public.branch_table",
+			"public.extra",
+		]);
+		inWt("merge", "--abort");
+
 		// Both sides change the same table: no silent merge.
 		inWt("reset", "-q", "--hard", branchTip);
 		add(f.wt, "0003_branch_more", ["a", "main_table:x", "branch_table"], "s2-branch", "s3-branch");

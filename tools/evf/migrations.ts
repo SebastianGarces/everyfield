@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { baseRef, fail, git, gitOk, hasRemote, loadConfig, requireWorktree, run, type TaskRef } from "./lib.ts";
@@ -121,8 +121,11 @@ export function renumberMigrations(repo: string, main: string): string[] {
 	// Main's meta files get main's bytes back; the branch's snapshots and journal entries follow main's.
 	git(repo, "checkout", main, "--", meta);
 	for (const name of readdirSync(join(repo, meta))) if (!mainMeta.includes(name)) unlinkSync(join(repo, meta, name));
-	for (const { move, target, snapshot } of writes) {
-		if (move.name !== `${target}.sql`) renameSync(join(repo, DIR, move.name), join(repo, DIR, `${target}.sql`));
+	// Read every source before writing any target: 0002_x can move onto the name 0003_x still holds.
+	const sources = writes.map(({ move }) => readFileSync(join(repo, DIR, move.name)));
+	for (const { move } of writes) unlinkSync(join(repo, DIR, move.name));
+	for (const [i, { move, target, snapshot }] of writes.entries()) {
+		writeFileSync(join(repo, DIR, `${target}.sql`), sources[i]);
 		writeFileSync(join(repo, meta, `${pad(move.to)}_snapshot.json`), JSON.stringify(snapshot, null, 2));
 	}
 	writeFileSync(join(repo, meta, "_journal.json"), JSON.stringify({ ...mainJournal, entries }, null, 2));
