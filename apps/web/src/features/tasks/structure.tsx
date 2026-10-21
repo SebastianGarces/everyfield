@@ -42,14 +42,20 @@ export function Section({ title, action, children }: { title: string; action?: R
 }
 
 /**
- * An inline form: Escape inside it closes the form, not the panel around it, and focus goes back to the button that
- * opened it. The panel closes on Escape from a document listener, so this one listens on the window first.
+ * An inline form: opening it moves focus to its first field, Escape inside it closes the form, not the panel around it,
+ * and focus goes back to the button that opened it. The panel closes on Escape from a document listener, so this one listens on the window first.
  */
 function useInlineForm(form: RefObject<HTMLElement | null>, onClose: () => void) {
 	const close = useRef(onClose);
 	useEffect(() => {
 		close.current = onClose;
 	});
+	// Opening the form moves focus into it: to the field marked data-first, else the first field.
+	useEffect(() => {
+		const el = form.current;
+		if (el && !el.contains(document.activeElement))
+			(el.querySelector<HTMLElement>("[data-first]") ?? el.querySelector<HTMLElement>("input, button"))?.focus();
+	}, [form]);
 	useEffect(() => {
 		const onKey = (e: KeyboardEvent) => {
 			if (e.key !== "Escape" || !form.current?.contains(document.activeElement)) return;
@@ -447,6 +453,7 @@ function PrerequisiteEditor({
 				<p className="text-sm text-text-3">It waits for no task. Find one below.</p>
 			)}
 			<SearchInput
+				data-first
 				aria-label="Find a task it waits for"
 				placeholder="Find a task"
 				value={search}
