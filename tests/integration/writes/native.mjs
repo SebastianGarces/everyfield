@@ -15,7 +15,13 @@ import {
 	readPersonPhoto,
 	uploadPersonPhoto,
 	withPeopleWrite,
+	assessments,
+	interviews,
+	commitments,
+	uploadCommitmentDocument,
+	getCommitmentDownload,
 } from "../../../packages/domain/src/people/index.ts";
+import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/dist-cjs/index.js";
 import { readFile } from "node:fs/promises";
 import { guestsWriter, meetingsWriter, withMeetingsWrite } from "../../../packages/domain/src/meetings/index.ts";
 import { createOnboardingProducer, withOnboardingWrite } from "../../../packages/domain/src/onboarding/index.ts";
@@ -309,6 +315,164 @@ try {
 			}),
 		),
 	);
+	// WP-014 records, as the web mount runs them. Each write and read runs on a Person with one record and on a Person
+	// with three, and must use the same statement count.
+	const today = (
+		await f.db.execute(
+			sql`SELECT (clock_timestamp() AT TIME ZONE timezone)::date::text AS d FROM plant WHERE id=${plantContext0.selected.id}`,
+		)
+	).rows[0].d;
+	const daysAgo = (n) => new Date(Date.parse(today + "T12:00:00Z") - n * 86_400_000).toISOString().slice(0, 10);
+	const lens = { score: 3, notes: null };
+	const criterion = { rating: "pass", notes: null };
+	const holders = [];
+	for (const name of ["Synthetic records one", "Synthetic records three"])
+		holders.push(
+			value(
+				await run("createPerson", (tx, ctx) =>
+					peopleWriter.createPerson(tx, ctx, { requestKey: key(), input: { displayName: name } }),
+				),
+			).person,
+		);
+	for (const [holder, size] of [
+		[holders[0], 1],
+		[holders[1], 3],
+	])
+		for (let i = 0; i < size; i++) {
+			value(
+				await run("createAssessment", (tx, ctx) =>
+					assessments.createAssessment(tx, ctx, {
+						requestKey: key(),
+						input: {
+							personId: holder.id,
+							occurredOn: daysAgo(10 + i),
+							committed: lens,
+							compelled: lens,
+							contagious: lens,
+							courageous: lens,
+						},
+					}),
+				),
+			);
+			value(
+				await run("createInterview", (tx, ctx) =>
+					interviews.createInterview(tx, ctx, {
+						requestKey: key(),
+						input: {
+							personId: holder.id,
+							occurredOn: daysAgo(10 + i),
+							maturity: criterion,
+							gifted: criterion,
+							chemistry: criterion,
+							rightReasons: criterion,
+							season: criterion,
+							result: "qualified",
+							nextSteps: null,
+						},
+					}),
+				),
+			);
+			value(
+				await run("createCommitment", (tx, ctx) =>
+					commitments.createCommitment(tx, ctx, {
+						requestKey: key(),
+						input: {
+							personId: holder.id,
+							kind: "core_group",
+							occurredOn: daysAgo(10 + i),
+							witness: { personId: people[0].id },
+						},
+					}),
+				),
+			);
+		}
+	for (const holder of holders) {
+		const personId = holder.id;
+		value(await view("getAssessments", (tx, ctx) => assessments.getAssessments(tx, ctx, { personId })));
+		value(await view("getInterviews", (tx, ctx) => interviews.getInterviews(tx, ctx, { personId })));
+		const held = value(await view("getCommitments", (tx, ctx) => commitments.getCommitments(tx, ctx, { personId })));
+		value(
+			await run("withdrawCommitment", async (tx, ctx) =>
+				commitments.withdrawCommitment(tx, ctx, {
+					requestKey: key(),
+					expectedRevision: await revisionOf(holder),
+					input: { personId, effectiveOn: daysAgo(2) },
+				}),
+			),
+		);
+		value(
+			await run("reactivateCommitment", async (tx, ctx) =>
+				commitments.reactivateCommitment(tx, ctx, {
+					requestKey: key(),
+					expectedRevision: await revisionOf(holder),
+					input: { personId, effectiveOn: daysAgo(1) },
+				}),
+			),
+		);
+		value(
+			await run("correctCommitmentLifecycle", (tx, ctx) =>
+				commitments.correctCommitmentLifecycle(tx, ctx, {
+					requestKey: key(),
+					expectedRevision: held.latest.revision,
+					input: {
+						commitmentId: held.latest.id,
+						correction: { action: "correct", kind: "launch_team" },
+						reason: "Synthetic",
+					},
+				}),
+			),
+		);
+	}
+	for (const name of [
+		"createAssessment",
+		"createInterview",
+		"createCommitment",
+		"getAssessments",
+		"getInterviews",
+		"getCommitments",
+		"withdrawCommitment",
+		"reactivateCommitment",
+		"correctCommitmentLifecycle",
+	])
+		await fixed(name);
+	// The commitment document: upload, attach and a signed link to the exact object.
+	const cardUpload = value(
+		await run("requestCommitmentUpload", (tx, ctx) =>
+			commitments.requestCommitmentUpload(tx, ctx, {
+				personId: holders[0].id,
+				mime: "image/png",
+				byteLength: png.length,
+			}),
+		),
+	);
+	value(await uploadCommitmentDocument(f.db, storage, plantContext0, { uploadId: cardUpload.uploadId, bytes: png }));
+	const documented = value(
+		await run("createCommitment", (tx, ctx) =>
+			commitments.createCommitment(tx, ctx, {
+				requestKey: key(),
+				input: {
+					personId: holders[0].id,
+					kind: "core_group",
+					occurredOn: daysAgo(1),
+					documentUploadId: cardUpload.uploadId,
+				},
+			}),
+		),
+	);
+	const signing = {
+		bucket: storage.bucket,
+		client: new S3Client({
+			region: "auto",
+			endpoint: "https://storage.example.test",
+			credentials: { accessKeyId: "synthetic", secretAccessKey: "synthetic" },
+		}),
+	};
+	assert.equal(
+		value(await getCommitmentDownload(f.db, signing, plantContext0, { commitmentId: documented.commitment.id }))
+			.expiresInSeconds,
+		300,
+	);
+
 	// Meetings at the native boundary: the bound actor, one replay check, one locked read and one write statement.
 	const meetingWrite = (name, body) => measure("native.meetings." + name, () => withMeetingsWrite(f.db, actor, body));
 	const scheduled = await meetingWrite("schedule", (tx, ctx) =>

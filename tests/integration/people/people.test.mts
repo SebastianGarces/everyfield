@@ -1215,7 +1215,7 @@ test("INV-reads: the person page and the status warnings use a fixed number of s
 	queries = [];
 	const warnings = ok(await tx((t) => read.getStatusWarnings(t, ctx(), { personId: p.id })));
 	const warningStatements = queries.length;
-	assert.deepEqual(warnings.warnings, ["interview_not_recorded", "commitment_not_recorded"]);
+	assert.deepEqual(warnings.warnings, ["assessment_not_recorded", "interview_not_recorded", "commitment_not_recorded"]);
 	assert.deepEqual(warnings.openDuties, []);
 	// BEGIN, actor, person, activities (or warnings), COMMIT; a commitment projection may add one.
 	assert.ok(pageStatements <= 6, `person page: ${pageStatements} statements`);

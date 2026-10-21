@@ -80,18 +80,18 @@ export function appendPerson(
  * ID so that two people never share a key. New people, a stage change into another column and a restore get one;
  * moves inside a column then always find a key strictly between two neighbours.
  */
-function freshPosition(id: string, at = new Date()): string {
+export function freshPosition(id: string, at = new Date()): string {
 	return `${at.getTime()}.${BigInt("0x" + id.replaceAll("-", "").slice(-12))
 		.toString()
 		.padStart(15, "0")}`;
 }
 const COMMITTED = ["core_group", "launch_team", "leader"];
-const sameColumn = (a: string, b: string) => a === b || (COMMITTED.includes(a) && COMMITTED.includes(b));
+export const sameColumn = (a: string, b: string) => a === b || (COMMITTED.includes(a) && COMMITTED.includes(b));
 /**
  * A person joining or leaving a pipeline column changes the order its viewers see, so the column's revision moves on
  * in the same write; a move based on the older view is then refused (REQ-PPL-007). One queued statement.
  */
-function columnsChanged(plantId: string, stages: readonly (string | null)[]): SQLWrapper {
+export function columnsChanged(plantId: string, stages: readonly (string | null)[]): SQLWrapper {
 	const columns = [...new Set(stages.filter((s) => s !== null).map((s) => (COMMITTED.includes(s) ? "core_group" : s)))];
 	return sql`INSERT INTO people_column(plant_id, column_name, revision) SELECT ${plantId}::uuid, c, 2 FROM unnest(${sql.param(columns)}::text[]) c ON CONFLICT (plant_id, column_name) DO UPDATE SET revision = people_column.revision + 1`;
 }

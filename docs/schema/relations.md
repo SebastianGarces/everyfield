@@ -87,6 +87,9 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `document_revision(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `file_object(tenant_id)` | `tenant(id)` | restrict |  |
 | `file_object(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
+| `four_cs(plant_id)` | `plant(id)` | restrict |  |
+| `four_cs(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
+| `four_cs(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `household(plant_id)` | `plant(id)` | restrict |  |
 | `household(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `identity_proof(account_id)` | `account(id)` | restrict |  |
@@ -311,6 +314,7 @@ Every declared Person FK has one registration in `target.json.person_references`
 | `person_note` | `person_id, tenant_id` | WP-004, WP-006, WP-014, WP-098 |
 | `person_skill` | `person_id, plant_id` | WP-004, WP-012 |
 | `person_tag` | `person_id, plant_id` | WP-004, WP-013 |
+| `four_cs` | `person_id, plant_id` | WP-004, WP-014 |
 | `interview` | `person_id, plant_id` | WP-004, WP-014 |
 | `commitment` | `person_id, plant_id` | WP-004, WP-014 |
 | `commitment` | `witness_person_id, plant_id` | WP-004, WP-014 |

@@ -2009,6 +2009,20 @@
 				"future_case_ids": ["SCHEMA-009", "SCHEMA-010"]
 			},
 			{
+				"table": "four_cs",
+				"columns": ["person_id", "plant_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-004", "WP-014"],
+				"meaning": "Current relation with immutable original provenance",
+				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
+				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
+				"inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
+				"retirement_policy": "No new current references to retired or merged Persons; historical evidence remains under current permission.",
+				"privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
+				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
+				"future_case_ids": ["SCHEMA-009", "SCHEMA-010"]
+			},
+			{
 				"table": "interview",
 				"columns": ["person_id", "plant_id"],
 				"target_columns": ["id", "tenant_id"],
@@ -4706,6 +4720,9 @@
 				},
 				"revision": {
 					"note": ""
+				},
+				"commitment_effective_on": {
+					"note": "Church-local date the current commitment state took effect: the signed date that made it active, or the dated withdrawal or reactivation. Null while the state is unknown."
 				}
 			},
 			"foreignKeys": {
@@ -4755,6 +4772,99 @@
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				}
+			}
+		},
+		"four_cs": {
+			"table": {
+				"name": "four_cs",
+				"domain": "people",
+				"purpose": "Dated human Four Cs assessment: four 1 to 5 scores and optional lens notes. The total is computed, never stored. Original recorder comes from the Person's audit history.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-025"],
+				"replaces": ["person_4c_assessment"],
+				"producer_work_packages": ["WP-004", "WP-014"],
+				"producer_derivation": {
+					"old_target_tables": ["person_4c_assessment"],
+					"rule": "Union of producer packages of replaced tables."
+				},
+				"feature_ids": ["PPL-012"],
+				"acceptance_ids": ["AC-PPL-012--PPL-012"],
+				"future_case_ids": ["GAP-PPL-012", "TARGET-PPL-012"],
+				"scope": "people",
+				"invariants": [
+					"Each score is an integer 1 to 5; the total 4 to 20 is their sum, computed on read.",
+					"Chronological latest uses assessment date, recorded Instant and ID; a late historical entry cannot become latest by recording time.",
+					"Recording an assessment never changes stage. Scores and notes never enter platform audit."
+				],
+				"revision": "Expected revision fences mutable updates; meaningful writes advance it atomically.",
+				"idempotency": "Replay and no-op behavior follow the named native producer and its exact receipt/unique-key contract. Private care remains isolated from shared operation receipts.",
+				"deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"plant_id": {
+					"note": ""
+				},
+				"person_id": {
+					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
+				},
+				"assessed_on": {
+					"note": ""
+				},
+				"recorded_at": {
+					"note": ""
+				},
+				"committed": {
+					"note": ""
+				},
+				"compelled": {
+					"note": ""
+				},
+				"contagious": {
+					"note": ""
+				},
+				"courageous": {
+					"note": ""
+				},
+				"committed_notes": {
+					"note": ""
+				},
+				"compelled_notes": {
+					"note": ""
+				},
+				"contagious_notes": {
+					"note": ""
+				},
+				"courageous_notes": {
+					"note": ""
+				},
+				"revision": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"person_id,plant_id->person(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"id,plant_id->record(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
 					}
 				}
 			}
@@ -12182,6 +12292,7 @@
 						"document",
 						"document_revision",
 						"file_object",
+						"four_cs",
 						"household",
 						"interview",
 						"invitation",
