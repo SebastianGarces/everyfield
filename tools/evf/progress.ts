@@ -17,7 +17,7 @@ import {
 	readJson,
 	run,
 } from "./lib.ts";
-import { type MergeEvidence } from "./ship.ts";
+import { carryProof, type MergeEvidence } from "./ship.ts";
 
 export type ShippedRecord = {
 	task: string;
@@ -62,7 +62,10 @@ function retained(root: string, task: string): ShippedRecord | null {
 	const path = join(evfDataDir(root), "shipped", `${parseTask(task).slug}.json`);
 	return existsSync(path) ? readJson<ShippedRecord>(path) : null;
 }
-/** Retained review names the exact tested head; merged owning-path bytes must match it. */
+/**
+ * Retained review names the exact tested head, or an earlier head whose recorded carry still proves itself
+ * (carryProof); merged owning-path bytes must match the tested head.
+ */
 export function reviewedMilestone(root: string, record: ShippedRecord): boolean {
 	const task = parseTask(record.task),
 		cfg = loadConfig(root),
@@ -71,7 +74,10 @@ export function reviewedMilestone(root: string, record: ShippedRecord): boolean 
 	if (
 		!v ||
 		v.head !== record.verified_head ||
-		v.approval.head !== v.head ||
+		(v.approval.head !== v.head &&
+			(v.carry?.approvedHead !== v.approval.head ||
+				v.carry.head !== v.head ||
+				typeof carryProof(root, v.approval.head, v.head, baseRef(root, cfg)) === "string")) ||
 		v.approval.verdict !== "approved" ||
 		v.authorFamily === v.approval.verifierFamily ||
 		!v.checks.length ||
