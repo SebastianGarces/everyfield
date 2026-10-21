@@ -169,7 +169,7 @@ export const peopleUnmerge = {
 					if (i.conflicts.length) deny("inverse_conflict", { causes: i.conflicts });
 					for (const [k, ids] of Object.entries(merge.moved))
 						if (k !== "tag_dropped" && ids.length)
-							audit.writes.push(moveRefs(tx, owner, k as Kind, ids, survivor.id, source.id));
+							audit.writes.push(moveRefs(owner, k as Kind, ids, survivor.id, source.id));
 					const dropped = merge.moved.tag_dropped ?? [];
 					if (dropped.length)
 						audit.writes.push(

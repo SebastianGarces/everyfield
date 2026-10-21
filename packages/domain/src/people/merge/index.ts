@@ -175,7 +175,7 @@ const ownerKind = (ctx: Pick<Context, "selected">) => {
 };
 
 /** The SQL that moves one kind of reference from `from` to `to`; Unmerge passes the rows the merge moved. */
-export function moveRefs(tx: Tx, owner: string, k: Kind, ids: string[], from: string, to: string): SQLWrapper {
+export function moveRefs(owner: string, k: Kind, ids: string[], from: string, to: string): SQLWrapper {
 	const e = registrationOf(k);
 	return sql`UPDATE ${sql.identifier(e.table)} SET ${sql.identifier(e.column)}=${to}::uuid
  WHERE ${sql.identifier(e.column)}=${from}::uuid AND ${sql.identifier(e.owner)}=${owner}::uuid
@@ -239,10 +239,9 @@ export const peopleMerge = {
 					const mergeId = randomUUID();
 					const moved: Record<string, string[]> = {};
 					for (const [k, refs] of p.byKind) {
-						if (treatmentOf(k) === "keep") continue;
 						const ids = refs.map((x) => x.id).filter((id) => !(k === "tag" && p.droppedTags.includes(id)));
 						moved[k] = ids;
-						if (ids.length) audit.writes.push(moveRefs(tx, owner, k, ids, source.id, survivor.id));
+						if (ids.length) audit.writes.push(moveRefs(owner, k, ids, source.id, survivor.id));
 					}
 					if (p.droppedTags.length) {
 						moved.tag_dropped = p.droppedTags;
@@ -276,10 +275,7 @@ export const peopleMerge = {
 					// What the survivor holds after the merge; Unmerge proceeds only while it is unchanged.
 					const after = [
 						...survivor.refs,
-						...[...p.byKind]
-							.filter(([k]) => treatmentOf(k) !== "keep")
-							.flatMap(([, refs]) => refs)
-							.filter((x) => !(x.kind === "tag" && p.droppedTags.includes(x.id))),
+						...source.refs.filter((x) => !(x.kind === "tag" && p.droppedTags.includes(x.id))),
 						{ kind: "merged_person" as const, id: source.id, revision: sourceRevision },
 					];
 					audit.writes.push(
@@ -293,7 +289,7 @@ export const peopleMerge = {
 							sourceId: source.id,
 							survivorId: survivor.id,
 							survivorRevision,
-							moved: p.references.filter((x) => x.treatment !== "keep").map(({ kind, count }) => ({ kind, count })),
+							moved: p.references.map(({ kind, count }) => ({ kind, count })),
 							outcome: "changed",
 							receiptId,
 						},
