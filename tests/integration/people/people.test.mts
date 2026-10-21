@@ -1326,3 +1326,28 @@ test("INV-tenancy (C13): a seat ended, signed out, held or demoted after the vie
 	await expectRefused(churchHeld, "church on hold:", plantReads(churchHeld.reader));
 	assert.deepEqual(failures, []);
 });
+
+test("INV-reads (C22): a People read holds no lock on the reader's session, so sign-out never waits for it", async () => {
+	const p = await create("C22 session lock");
+	const viewer = new PeopleReadContext(await tx((t) => RequestActor.resolve(t, actors[0].session)));
+	const reads = [
+		["listPeople", (t) => read.listPeople(t, viewer, {})],
+		["getPerson", (t) => read.getPerson(t, viewer, { personId: p.id })],
+		["readPersonPage", (t) => readPersonPage(t, viewer, { personId: p.id }, 50)],
+	];
+	const waited = [];
+	for (const [op, run] of reads)
+		await tx(async (t) => {
+			ok(await run(t));
+			// The read's transaction is still open: a sign-out or session refresh must not wait for it.
+			try {
+				await admin.transaction(async (a) => {
+					await a.execute(sql`SET LOCAL lock_timeout='250ms'`);
+					await a.execute(sql`UPDATE auth_session SET expires_at=expires_at WHERE id=${actors[0].session}`);
+				});
+			} catch {
+				waited.push(op);
+			}
+		});
+	assert.deepEqual(waited, []);
+});
