@@ -366,7 +366,7 @@ function InsightSection() {
 						Your next step is the first vision meeting
 					</InsightTitle>
 					<InsightText>
-						Lilac is for the most important summary on a page. Nested text and buttons keep their light colors in dark
+						Sage is for the most important summary on a page. Nested text and buttons keep their light colors in dark
 						mode.
 					</InsightText>
 					<InsightFooter>
