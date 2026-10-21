@@ -34,6 +34,7 @@ const standalone = {
 	"/packages/domain/src/people/core.ts": ["withPeopleWrite"],
 	"/packages/domain/src/meetings/core.ts": ["withMeetingsWrite"],
 	"/packages/domain/src/meetings/tokens.ts": ["answerRsvpToken"],
+	"/packages/domain/src/meetings/notifications.ts": ["syncNotifications"],
 	"/packages/domain/src/onboarding/core.ts": ["withOnboardingWrite"],
 	"/packages/domain/src/settings/core.ts": ["withSettingsWrite"],
 	"/packages/domain/src/settings/avatar.ts": ["uploadAvatar"],

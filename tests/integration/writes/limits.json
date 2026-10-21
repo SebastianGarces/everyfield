@@ -590,5 +590,9 @@
 	"venues.restore": {
 		"limit": 6,
 		"retry": 12
+	},
+	"meetings/notifications.syncNotifications": {
+		"limit": 2,
+		"retry": 4
 	}
 }

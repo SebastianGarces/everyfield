@@ -11,7 +11,8 @@ import * as c from "@everyfield/contracts/meetings";
 import { sql, type SQLWrapper } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
-import type { Reader } from "./core.ts";
+import { executeWrites } from "../operations/writes.ts";
+import type { Reader, Tx } from "./core.ts";
 import { meetingColumns, meetingRow, plantMeeting, type MeetingRow } from "./rows.ts";
 
 /**
@@ -113,4 +114,19 @@ export async function planNotifications(db: Reader, plantId: string, raw: z.inpu
 			})),
 		],
 	});
+}
+
+/**
+ * Reconciles one meeting's reminder jobs with its current facts (meetings.syncNotifications), for the trusted job
+ * worker or an operator repair in the job's own tenant. The same plan every meeting write applies: slots that moved or
+ * stopped are superseded, missing current ones are queued once, sent ones are never revived.
+ */
+export async function syncNotifications(tx: Tx, plantId: string, raw: z.input<typeof c.meetingRequest>) {
+	const input = c.meetingRequest.parse(raw);
+	const r = await tx.execute(sql`SELECT ${meetingColumns}, clock_timestamp() AS now FROM meeting m
+		WHERE ${plantMeeting(plantId, input.meetingId)} FOR UPDATE OF m`);
+	if (!r.rows[0]) return null;
+	const m = meetingRow.parse(r.rows[0]);
+	await executeWrites(tx, syncReminderJobs(m, z.coerce.date().parse((r.rows[0] as { now: unknown }).now)));
+	return { meetingId: m.id, revision: m.revision };
 }

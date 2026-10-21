@@ -17,6 +17,7 @@ import {
 	meetingsReader as reads,
 	meetingsWriter as meetings,
 	planNotifications,
+	syncNotifications,
 	venuesReader,
 	venuesWriter as venues,
 	withMeetingsWrite,
@@ -1083,6 +1084,16 @@ test("AC:TARGET-MTG-018 AC:CASE-NTF-006 AC:NOTIFY47-007 AC:B03-010 AC:B03-011 AC
 	);
 	assert.equal(same.outcome, "noop");
 	assert.equal((await jobs()).length, afterMove.length, "the same time again queues nothing new");
+	// The worker's reconcile changes nothing when the jobs already match, and requeues a current slot lost in between.
+	await tx((t) => syncNotifications(t, P, { meetingId: m.id }));
+	assert.deepEqual(await jobs(), afterMove);
+	const lost = afterMove.find((j) => j.state === "ready" && j.key.startsWith("meeting/day_7"));
+	await admin.execute(
+		sql`UPDATE job SET state='cancelled' WHERE subject_record_id=${m.id} AND producer_key=${lost.key}`,
+	);
+	await tx((t) => syncNotifications(t, P, { meetingId: m.id }));
+	assert.equal((await jobs()).find((j) => j.key === lost.key).state, "ready");
+	assert.equal((await jobs()).length, afterMove.length);
 	// The member leaves the guest list: their queued reminder audience drops them when the job runs.
 	const g = await guestOf(m.id, memberPerson);
 	ok(
