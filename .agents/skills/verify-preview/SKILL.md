@@ -6,8 +6,8 @@ description: "Apply when you verify a PR written by the other model family. Run 
 # Verify on a preview
 
 You prove the change works on a running copy of the exact PR head. The author's summary is not
-evidence. Scripts are in `scripts/` next to this file. They need Node 22+, `gh`, `portless` and the
-local env files of the main checkout. Every command below runs from any checkout of this repo.
+evidence. Scripts are in `scripts/` next to this file. They need Node 22+, `gh`, `portless`, the
+local env files of the main checkout and, for `publish.mjs`, the evidence env file (step 5). Every command below runs from any checkout of this repo.
 
 ```bash
 S=.agents/skills/verify-preview/scripts            # in your own checkout of main
@@ -155,6 +155,22 @@ node $S/publish.mjs "$E" --task <task>
 It writes `index.html` (before and after side by side, videos, checks, all files) and uploads the
 folder to the `everyfield-evidence` Tigris bucket under a random 128-bit prefix. Objects are
 public-read and the bucket refuses listing, so only the link opens them. It prints the index link.
+
+`publish.mjs` reads its credentials only from the evidence env file:
+`~/.config/everyfield/evidence.env`, or the path in `EVF_EVIDENCE_ENV`. The file is outside the
+repository, mode 600, and holds `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ENDPOINT_URL_S3`
+and `AWS_REGION` for the `everyfield-evidence-upload` key. That key has the Editor role on
+`everyfield-evidence` only and default permissions disabled, so it cannot list or write
+`everyfield` or `everyfield-dev`. `publish.mjs` ignores `AWS_*` in the shell. It refuses
+`.env.prod` (also through a symlink) and any file that holds the production key. To create the
+file on a new machine, sign in to the Tigris CLI and run this. It writes the secret to the file
+and prints nothing:
+
+```bash
+umask 077; mkdir -p ~/.config/everyfield
+tigris access-keys create everyfield-evidence-upload --bucket everyfield-evidence --role Editor \
+  --default-permissions disable --env ~/.config/everyfield/evidence.env --for aws >/dev/null
+```
 Use the PR task ID as `<task>`, for example `OPS-W3` or `WP-012`, so its evidence can be deleted
 together.
 
