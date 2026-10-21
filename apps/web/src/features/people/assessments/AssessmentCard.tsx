@@ -17,7 +17,7 @@ import {
 import { cn } from "@everyfield/ui/foundations";
 import { startTransition, useOptimistic, useState, useTransition } from "react";
 import { type KeyedPayload, runSave } from "../model.ts";
-import { fresh, LocalDay } from "../parts.tsx";
+import { fresh, LocalDay, useStore } from "../parts.tsx";
 import { loadAssessments, recordAssessment } from "./actions.ts";
 import {
 	firstName,
@@ -30,6 +30,7 @@ import {
 	type Assessments,
 	type Lens,
 	sendTwice,
+	stillUnknown,
 } from "./model.ts";
 import {
 	ChoiceField,
@@ -73,6 +74,8 @@ export function AssessmentCard({
 	const [shown, expect] = useOptimistic(history.items, withRecord<Assessment>);
 	const [, start] = useTransition();
 	const form = useRecordForm<Editing>();
+	/** Another change to this person is saving; Check again waits for it, so it never reads as refused. */
+	const saving = useStore(store).pending !== null;
 	const [open, setOpen] = useState(false);
 	const first = firstName(personName);
 	const latest = shown[0] ?? null;
@@ -111,7 +114,7 @@ export function AssessmentCard({
 			toPerson: (v) => ({ ...store.get().saved, stage: v.person.stage, revision: v.person.revision }) as PlantPerson,
 		});
 		const what = "Your 4 C's assessment";
-		if (r?.status === "lost") return form.unknown(key.key, what, () => start(() => commit(input, key, -1, draft)));
+		if (stillUnknown(r, token)) return form.unknown(key.key, what, () => start(() => commit(input, key, -1, draft)));
 		if (r?.status !== "ok") {
 			const code = r?.status === "refused" && r.code === "invalid_input" ? "future_date" : codeOf(r);
 			return startTransition(() => form.refused(token, { draft, problem: code }, key.key, what));
@@ -148,7 +151,7 @@ export function AssessmentCard({
 					/>
 				) : null}
 			</CardHeader>
-			<SaveNotice notice={form.notice} onDismiss={form.dismiss} />
+			<SaveNotice notice={form.notice} busy={saving} onDismiss={form.dismiss} />
 
 			{initial === null ? (
 				<p className="text-sm text-text-3">The 4 C&rsquo;s did not load. Reload the page to see them.</p>

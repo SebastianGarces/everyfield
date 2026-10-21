@@ -291,7 +291,16 @@ export function useRecordForm<E extends { problem?: string }>() {
  * a dialog opened later keeps it readable (the dialog hides everything else from screen readers): the notice is
  * announced without moving focus or changing the open form.
  */
-export function SaveNotice({ notice, onDismiss }: { notice: Notice | null; onDismiss: () => void }) {
+export function SaveNotice({
+	notice,
+	busy,
+	onDismiss,
+}: {
+	notice: Notice | null;
+	/** Another change to this person is saving: Check again waits until it ends. */
+	busy: boolean;
+	onDismiss: () => void;
+}) {
 	return (
 		<div aria-live="assertive" aria-atomic="true">
 			{notice ? (
@@ -306,7 +315,13 @@ export function SaveNotice({ notice, onDismiss }: { notice: Notice | null; onDis
 					</p>
 					<div className="flex flex-wrap gap-2">
 						{notice.tone === "unknown" ? (
-							<Button size="sm" variant="secondary" loading={notice.checking} onClick={notice.check}>
+							<Button
+								size="sm"
+								variant="secondary"
+								loading={notice.checking}
+								disabled={busy && !notice.checking}
+								onClick={notice.check}
+							>
 								Check again
 							</Button>
 						) : null}

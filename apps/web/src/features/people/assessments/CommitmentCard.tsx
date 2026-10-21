@@ -30,7 +30,7 @@ import { KeyValue, KeyValueList, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { startTransition, useOptimistic, useState, useTransition } from "react";
 import { newerRevision, runSave, STAGE_LABEL, type KeyedPayload, type Outcome } from "../model.ts";
-import { fresh, isConflict, LocalDay } from "../parts.tsx";
+import { fresh, isConflict, LocalDay, useStore } from "../parts.tsx";
 import {
 	changeCommitment,
 	correctCommitment,
@@ -62,6 +62,7 @@ import {
 	type CommitmentStatus,
 	type FirstAcquisition,
 	sendTwice,
+	stillUnknown,
 } from "./model.ts";
 import { codeOf, recorder, SaveNotice, ShowEarlier, useHistory, useRecordForm } from "./parts.tsx";
 import type { PlantPerson, RecordProps } from "./RecordsSection.tsx";
@@ -111,6 +112,8 @@ export function CommitmentCard({
 	);
 	const [, start] = useTransition();
 	const dialog = useRecordForm<Editing>();
+	/** Another change to this person is saving; Check again waits for it, so it never reads as refused. */
+	const saving = useStore(store).pending !== null;
 	const editing = dialog.editing;
 	const first = firstName(personName);
 	const moves = advancedStage(stage, "core_group") !== stage;
@@ -203,7 +206,7 @@ export function CommitmentCard({
 			toPerson: (v: CommitmentSaved) => personAfter(v.person.revision, v.person.stage),
 		});
 		const what = "Your commitment card";
-		if (r?.status === "lost")
+		if (stillUnknown(r, token))
 			return dialog.unknown(key.key, what, () => start(() => commitCard(input, key, -1, draft)));
 		if (r?.status !== "ok") return refused(token, { form: "record", draft }, r, key.key, what);
 		dialog.settled(key.key);
@@ -265,7 +268,7 @@ export function CommitmentCard({
 			{ fresh, key, toPerson: (v) => personAfter(v.current.personRevision) },
 		);
 		const what = change === "withdraw" ? "Your withdrawal" : "Your reactivation";
-		if (r?.status === "lost")
+		if (stillUnknown(r, token))
 			return dialog.unknown(key.key, what, () => start(() => commitLifecycle(change, input, revision, key, -1, draft)));
 		if (r?.status !== "ok") return refused(token, { form: change, draft }, r, key.key, what);
 		dialog.settled(key.key);
@@ -322,7 +325,7 @@ export function CommitmentCard({
 			{ fresh, key, toPerson: (v) => personAfter(v.commitments.current.personRevision) },
 		);
 		const what = draft.action === "void" ? "Your void of the card" : "Your card correction";
-		if (r?.status === "lost")
+		if (stillUnknown(r, token))
 			return dialog.unknown(key.key, what, () => start(() => commitCorrection(card, input, key, -1, draft)));
 		if (r?.status !== "ok") return refused(token, { form: "correct", card, draft }, r, key.key, what);
 		dialog.settled(key.key);
@@ -406,7 +409,7 @@ export function CommitmentCard({
 					</div>
 				) : null}
 			</CardHeader>
-			<SaveNotice notice={dialog.notice} onDismiss={dialog.dismiss} />
+			<SaveNotice notice={dialog.notice} busy={saving} onDismiss={dialog.dismiss} />
 
 			{initial === null ? (
 				<p className="text-sm text-text-3">Commitments did not load. Reload the page to see them.</p>

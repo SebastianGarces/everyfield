@@ -20,7 +20,7 @@ import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { startTransition, useId, useOptimistic, useState, useTransition } from "react";
 import { type KeyedPayload, runSave, STAGE_LABEL } from "../model.ts";
-import { fresh, LocalDay } from "../parts.tsx";
+import { fresh, LocalDay, useStore } from "../parts.tsx";
 import { loadInterviews, recordInterview } from "./actions.ts";
 import {
 	advancedStage,
@@ -40,6 +40,7 @@ import {
 	type Rating,
 	type Result,
 	sendTwice,
+	stillUnknown,
 } from "./model.ts";
 import {
 	ChoiceField,
@@ -99,6 +100,8 @@ export function InterviewCard({
 	const [shown, expect] = useOptimistic(history.items, withRecord<Interview>);
 	const [, start] = useTransition();
 	const form = useRecordForm<Editing>();
+	/** Another change to this person is saving; Check again waits for it, so it never reads as refused. */
+	const saving = useStore(store).pending !== null;
 	const [open, setOpen] = useState(false);
 	const first = firstName(personName);
 	const latest = shown[0] ?? null;
@@ -144,7 +147,7 @@ export function InterviewCard({
 			toPerson: (v) => ({ ...store.get().saved, stage: v.person.stage, revision: v.person.revision }) as PlantPerson,
 		});
 		const what = "Your interview";
-		if (r?.status === "lost") return form.unknown(key.key, what, () => start(() => commit(input, key, -1, draft)));
+		if (stillUnknown(r, token)) return form.unknown(key.key, what, () => start(() => commit(input, key, -1, draft)));
 		if (r?.status !== "ok") {
 			const code = r?.status === "refused" && r.code === "invalid_input" ? "future_date" : codeOf(r);
 			return startTransition(() => form.refused(token, { draft, problem: code }, key.key, what));
@@ -200,7 +203,7 @@ export function InterviewCard({
 					/>
 				) : null}
 			</CardHeader>
-			<SaveNotice notice={form.notice} onDismiss={form.dismiss} />
+			<SaveNotice notice={form.notice} busy={saving} onDismiss={form.dismiss} />
 
 			{initial === null ? (
 				<p className="text-sm text-text-3">Interviews did not load. Reload the page to see them.</p>

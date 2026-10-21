@@ -119,3 +119,11 @@ test("INV-request-key (C58, review F4): Check again sends the same key; a new in
 	await runSave(store, "other", same, call({ status: "ok", value: null }), { fresh: () => "k2" });
 	assert.deepEqual(sent.slice(3), ["k1", "k1"]);
 });
+
+test("INV-no-false-refusal (review F4d): a Check again that could not start leaves the result unknown", async () => {
+	const { stillUnknown } = await import("../../../apps/web/src/features/people/assessments/model.ts");
+	assert.equal(stillUnknown({ status: "lost" }, 3), true);
+	assert.equal(stillUnknown(null, -1), true, "Check again blocked by another save sent nothing");
+	assert.equal(stillUnknown(null, 3), false, "a first save that could not start reports busy");
+	assert.equal(stillUnknown({ status: "refused", code: "conflict" }, -1), false);
+});

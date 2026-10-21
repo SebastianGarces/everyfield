@@ -155,3 +155,10 @@ export const formChecking = <E>(s: FormState<E>): FormState<E> =>
 export const formSettled = <E>(s: FormState<E>, id: string): FormState<E> =>
 	s.notice?.id === id ? { ...s, notice: null } : s;
 export const formDismiss = <E>(s: FormState<E>): FormState<E> => ({ ...s, notice: null });
+
+/**
+ * A save whose result is still unknown: its answer was lost twice, or a Check again (token -1) could not start because
+ * another change to the person was saving. That sent nothing, so the first request may still be saved: never a refusal.
+ */
+export const stillUnknown = (r: Outcome<unknown> | null, token: number): boolean =>
+	r?.status === "lost" || (r === null && token === -1);
