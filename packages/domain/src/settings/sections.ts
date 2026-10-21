@@ -7,7 +7,7 @@ import { and, eq, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import "server-only";
 import { z } from "zod";
-import { writeVisibility, type RequestActor } from "../access/session.ts";
+import { liveRead, type RequestActor } from "../access/session.ts";
 import {
 	active,
 	administrator,
@@ -76,20 +76,17 @@ function accountValue(a: { account: typeof t.account.$inferSelect; principal: Pr
 	});
 }
 /**
- * The viewer's authority, checked again inside the statement that reads the section: the session is live, no lifecycle
- * witness hides the account, the owner or the seat, and for a plant or organization the viewer's seat is still open
- * with the same role. A viewer that lost any of these since the request began reads no row and is refused.
+ * The viewer's authority, checked again inside the statement that reads the section (C13), without a session lock
+ * (C27): the session is live, no lifecycle witness hides the account, the owner or the seat, and for a plant or
+ * organization the viewer's seat is still open with the same role. A viewer that lost any of these since the request
+ * began reads no row and is refused.
  */
 function live(v: Viewer, owner: Owner) {
-	const account = v.actor.accountId,
-		c = v.actor.context;
-	const seat =
-		owner.kind === "account"
-			? sql`true`
-			: c.kind === "seat"
-				? sql`EXISTS(SELECT FROM ${t.seat} s WHERE s.id=${c.seatId}::uuid AND s.account_id=${account}::uuid AND coalesce(s.plant_id,s.organization_id)=${owner.id}::uuid AND s.role=${c.role} AND s.ended_at IS NULL)`
-				: sql`false`;
-	return sql<boolean>`(EXISTS(SELECT FROM access_session(${v.session}::uuid) x WHERE x.account_id=${account}::uuid) AND ${seat} AND ${writeVisibility(account, owner)})`;
+	const c = v.actor.context;
+	if (owner.kind === "account") return liveRead({ session: v.session, owner });
+	return c.kind === "seat"
+		? liveRead({ session: v.session, owner, seatId: c.seatId, role: c.role })
+		: sql<boolean>`false`;
 }
 const own = (v: Viewer): Owner => ({ kind: "account", id: v.actor.accountId });
 /** The viewer's own plant when its seat there is Owner or Admin; any other viewer is refused. */
