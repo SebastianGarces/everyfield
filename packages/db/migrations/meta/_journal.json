@@ -197,6 +197,13 @@
       "when": 1792620200467,
       "tag": "0028_meeting_evaluation",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1792623416847,
+      "tag": "0029_contact_outcome_completes_task",
+      "breakpoints": true
     }
   ]
 }

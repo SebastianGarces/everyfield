@@ -7233,6 +7233,9 @@
 				},
 				"revision": {
 					"note": ""
+				},
+				"completes_task": {
+					"note": "The person completed the outcome's task with this outcome. A first-Vision follow-up's 48-hour measure uses the earliest effective completing outcome; a correction keeps the flag."
 				}
 			},
 			"foreignKeys": {
