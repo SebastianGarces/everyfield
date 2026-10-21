@@ -2641,7 +2641,9 @@
         "onboarding_setup",
         "people_column",
         "person_import",
+        "person_merge",
         "proposal",
+        "record_correction",
         "relationship_invitation",
         "schema_migration",
         "settings_preview"
@@ -6055,7 +6057,9 @@
         "WP-090"
       ],
       "producer_table_names": [
-        "audit_event"
+        "audit_event",
+        "person_merge",
+        "record_correction"
       ],
       "consumer_table_names": [
         "commitment",
@@ -6544,6 +6548,7 @@
         "person",
         "plant",
         "platform_grant",
+        "record_correction",
         "seat",
         "tenant"
       ],
@@ -6947,6 +6952,7 @@
         "meeting",
         "participation",
         "person",
+        "record_correction",
         "team",
         "team_tenure"
       ],
@@ -26017,6 +26023,7 @@
         "people_column",
         "person",
         "person_import",
+        "person_merge",
         "person_note",
         "person_skill",
         "person_tag",
@@ -26031,6 +26038,7 @@
         "provider_event",
         "reading",
         "record",
+        "record_correction",
         "recurrence",
         "reference_activation",
         "reference_item",
@@ -32006,6 +32014,7 @@
         "people_column",
         "person",
         "person_import",
+        "person_merge",
         "person_note",
         "person_skill",
         "person_tag",
@@ -32019,6 +32028,7 @@
         "proposal",
         "provider_event",
         "reading",
+        "record_correction",
         "recurrence",
         "reference_activation",
         "reference_item",

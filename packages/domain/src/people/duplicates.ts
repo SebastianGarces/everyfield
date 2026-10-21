@@ -1,4 +1,4 @@
-import { sql } from "@everyfield/db/query";
+import { sql, type SQL } from "@everyfield/db/query";
 import * as c from "@everyfield/contracts/people";
 import "server-only";
 import { z } from "zod";
@@ -30,6 +30,41 @@ const found = z.object({
 	),
 });
 /**
+ * The duplicate hints for one set of contact facts among the live people of one church or organization, in one
+ * statement with the caller's live access check (`gate`) inside it. Shared by people.checkForDuplicates and
+ * orgPeople.findDuplicates, so both match the same way.
+ */
+export async function matchPeople(
+	tx: Tx,
+	owner: string,
+	gate: SQL,
+	input: { displayName?: string | null; email?: string | null; phone?: string | null },
+	exclude?: string,
+) {
+	const { email, phone } = contactSignals(input);
+	const name = nameSignal(input.displayName ?? undefined);
+	const r =
+		await tx.execute(sql`SELECT g.allowed,coalesce((SELECT jsonb_agg(jsonb_build_object('id',m.id,'displayName',m.display_name,
+ 'email',m.e,'phone',m.ph,'name',m.n) ORDER BY m.exact DESC,m.created_at,m.id) FROM (
+  SELECT p.id,p.display_name,p.created_at,coalesce(${personEmail}=${email}::text,false) e,coalesce(${personPhone}=${phone}::text,false) ph,
+   coalesce(${personName}=${name}::text,false) n,coalesce(${personEmail}=${email}::text OR ${personPhone}=${phone}::text,false) exact
+  FROM person p WHERE g.allowed AND p.tenant_id=${owner}::uuid AND p.state='live'
+   AND p.id IS DISTINCT FROM ${exclude ?? null}::uuid
+   AND NOT EXISTS(SELECT FROM organization_person_removal w WHERE w.person_record_id=p.id AND w.organization_id=p.tenant_id)
+   AND (${personEmail}=${email}::text OR ${personPhone}=${phone}::text OR ${personName}=${name}::text)
+  ORDER BY exact DESC,p.created_at,p.id LIMIT ${LIMIT + 1}) m),'[]'::jsonb) AS people
+ FROM (SELECT ${gate} AS allowed) g`);
+	const row = found.parse(r.rows[0]);
+	if (!row.allowed) deny();
+	const items = row.people.slice(0, LIMIT).map((p) => ({
+		personId: p.id,
+		displayName: p.displayName,
+		match: p.email || p.phone ? ("exact" as const) : ("potential" as const),
+		signals: (["email", "phone", "name"] as const).filter((s) => p[s]),
+	}));
+	return c.duplicateHints.parse({ items, completeness: row.people.length > LIMIT ? "partial" : "complete" });
+}
+/**
  * people.checkForDuplicates (REQ-PPL-016): live people of this church who share a normalized email or phone (an exact
  * hint) or the same name (a potential hint). Hints only: they never prove identity or merge anyone. Equality lookups,
  * so wildcard characters match only themselves. One statement, with the lock-free live access check inside it.
@@ -40,26 +75,6 @@ export async function checkForDuplicates(tx: Tx, ctx: Context, raw: unknown) {
 		const plant = ctx.selected.id;
 		const input = parse(c.duplicateCheckRequest, raw);
 		const { gate } = await authorizeRead(tx, ctx);
-		const { email, phone } = contactSignals(input);
-		const name = nameSignal(input.displayName);
-		const r =
-			await tx.execute(sql`SELECT g.allowed,coalesce((SELECT jsonb_agg(jsonb_build_object('id',m.id,'displayName',m.display_name,
- 'email',m.e,'phone',m.ph,'name',m.n) ORDER BY m.exact DESC,m.created_at,m.id) FROM (
-  SELECT p.id,p.display_name,p.created_at,coalesce(${personEmail}=${email}::text,false) e,coalesce(${personPhone}=${phone}::text,false) ph,
-   coalesce(${personName}=${name}::text,false) n,coalesce(${personEmail}=${email}::text OR ${personPhone}=${phone}::text,false) exact
-  FROM person p WHERE g.allowed AND p.tenant_id=${plant}::uuid AND p.plant_id=${plant}::uuid AND p.state='live'
-   AND p.id IS DISTINCT FROM ${input.excludePersonId ?? null}::uuid
-   AND (${personEmail}=${email}::text OR ${personPhone}=${phone}::text OR ${personName}=${name}::text)
-  ORDER BY exact DESC,p.created_at,p.id LIMIT ${LIMIT + 1}) m),'[]'::jsonb) AS people
- FROM (SELECT ${gate} AS allowed) g`);
-		const row = found.parse(r.rows[0]);
-		if (!row.allowed) deny();
-		const items = row.people.slice(0, LIMIT).map((p) => ({
-			personId: p.id,
-			displayName: p.displayName,
-			match: p.email || p.phone ? ("exact" as const) : ("potential" as const),
-			signals: (["email", "phone", "name"] as const).filter((s) => p[s]),
-		}));
-		return c.duplicateHints.parse({ items, completeness: row.people.length > LIMIT ? "partial" : "complete" });
+		return matchPeople(tx, plant, gate, input, input.excludePersonId);
 	});
 }
