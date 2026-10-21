@@ -1,6 +1,7 @@
 [
 	"tests/integration/people/*.test.mts",
 	"tests/integration/people/fields/*.test.mts",
+	"tests/integration/meetings/*.test.mts",
 	"tests/integration/identity/*.test.mts",
 	"tests/integration/organizations/*.test.mts",
 	"tests/integration/onboarding/*.test.mts",

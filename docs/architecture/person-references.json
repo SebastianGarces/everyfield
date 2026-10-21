@@ -234,7 +234,7 @@
       ],
       "consumer_work_packages": [
         "WP-004",
-        "WP-016"
+        "WP-017"
       ],
       "meaning": "Current relation with immutable original provenance",
       "lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
@@ -286,7 +286,7 @@
       ],
       "consumer_work_packages": [
         "WP-004",
-        "WP-021",
+        "WP-020",
         "WP-022"
       ],
       "meaning": "Current relation with immutable original provenance",
@@ -313,7 +313,7 @@
       ],
       "consumer_work_packages": [
         "WP-004",
-        "WP-021",
+        "WP-020",
         "WP-022"
       ],
       "meaning": "Current relation with immutable original provenance",
@@ -539,6 +539,30 @@
         "ADR1-001",
         "ADR1-005",
         "ADR1-017"
+      ]
+    },
+    {
+      "table": "meeting_kit_item",
+      "columns": [
+        "assignee_person_id",
+        "plant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-020"
+      ],
+      "meaning": "Current kit-item assignee; a retired or merged Person drops out of operational selection while history keeps the original reference.",
+      "lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
+      "merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
+      "inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
+      "retirement_policy": "No new current references to retired or merged Persons; historical evidence remains under current permission.",
+      "privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
+      "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
+      "future_case_ids": [
+        "PERSONREF-MEETING-CHECKLIST-PERSON-RETIRE"
       ]
     }
   ],

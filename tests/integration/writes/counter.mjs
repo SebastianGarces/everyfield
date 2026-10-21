@@ -32,6 +32,9 @@ const factories = {
 const standalone = {
 	"/packages/domain/src/early-access/index.ts": ["receiveAccessRequest"],
 	"/packages/domain/src/people/core.ts": ["withPeopleWrite"],
+	"/packages/domain/src/meetings/core.ts": ["withMeetingsWrite"],
+	"/packages/domain/src/meetings/tokens.ts": ["answerRsvpToken"],
+	"/packages/domain/src/meetings/notifications.ts": ["syncNotifications"],
 	"/packages/domain/src/onboarding/core.ts": ["withOnboardingWrite"],
 	"/packages/domain/src/settings/core.ts": ["withSettingsWrite"],
 	"/packages/domain/src/settings/avatar.ts": ["uploadAvatar"],
@@ -183,6 +186,9 @@ registerHooks({
 			const objects = {
 				"/packages/domain/src/people/people.ts": { peopleWriter: "people", accountPersonProducer: "accountPerson" },
 				"/packages/domain/src/people/fields/index.ts": { personFields: "people" },
+				"/packages/domain/src/meetings/meetings.ts": { meetingsWriter: "meetings" },
+				"/packages/domain/src/meetings/guests.ts": { guestsWriter: "meetings" },
+				"/packages/domain/src/meetings/venues.ts": { venuesWriter: "venues" },
 			};
 			for (const [name, prefix] of Object.entries(objects[path.slice(root.length)] ?? {}))
 				source += `\nglobalThis.__evfWriteCounts.decorate(${JSON.stringify(prefix)},${name});`;

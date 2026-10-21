@@ -137,6 +137,9 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `meeting(venue_id, plant_id)` | `venue(id, plant_id)` | restrict |  |
 | `meeting(reference_version_id)` | `reference_version(id)` | restrict |  |
 | `meeting(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
+| `meeting_kit_item(plant_id)` | `plant(id)` | restrict |  |
+| `meeting_kit_item(meeting_id, plant_id)` | `meeting(id, plant_id)` | cascade |  |
+| `meeting_kit_item(assignee_person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `notice(tenant_id)` | `tenant(id)` | restrict |  |
 | `notice(recipient_id)` | `account(id)` | restrict |  |
 | `notice(source_record_id)` | `record(id)` | restrict | Own inbox context may refer to an exact entitled source in another tenant; no inherited grant. |
@@ -311,10 +314,10 @@ Every declared Person FK has one registration in `target.json.person_references`
 | `interview` | `person_id, plant_id` | WP-004, WP-014 |
 | `commitment` | `person_id, plant_id` | WP-004, WP-014 |
 | `commitment` | `witness_person_id, plant_id` | WP-004, WP-014 |
-| `team` | `leader_person_id, plant_id` | WP-004, WP-016 |
+| `team` | `leader_person_id, plant_id` | WP-004, WP-017 |
 | `team_tenure` | `person_id, plant_id` | WP-004, WP-017 |
-| `participation` | `person_id, plant_id` | WP-004, WP-021, WP-022 |
-| `participation` | `inviter_person_id, plant_id` | WP-004, WP-021, WP-022 |
+| `participation` | `person_id, plant_id` | WP-004, WP-020, WP-022 |
+| `participation` | `inviter_person_id, plant_id` | WP-004, WP-020, WP-022 |
 | `task` | `person_id, plant_id` | WP-004, WP-024 |
 | `obligation` | `person_id, plant_id` | WP-004, WP-024 |
 | `contact_outcome` | `person_id, plant_id` | WP-004, WP-023 |
@@ -323,3 +326,4 @@ Every declared Person FK has one registration in `target.json.person_references`
 | `pipeline_person` | `person_id, organization_id` | WP-004, WP-098 |
 | `development_enrollment` | `person_id, organization_id` | WP-004, WP-099 |
 | `residency_link` | `person_id, organization_id` | WP-004, WP-008 |
+| `meeting_kit_item` | `assignee_person_id, plant_id` | WP-020 |

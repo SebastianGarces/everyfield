@@ -658,5 +658,121 @@
 	"native.organizations.accept": {
 		"limit": 7,
 		"retry": 14
+	},
+	"meetings.changeStatus": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings.clearCard": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings.completePractice": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings.correctOccurrence": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings.correctPracticeOccurrence": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings.correctRsvp": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings.createGuestContact": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings.createWalkInContact": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings.delete": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings.edit": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings.inviteGuest": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings.populateKit": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings.recordCard": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings.removeGuest": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings.replaceAgenda": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings.saveOwnRsvp": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings.schedule": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings.setInviter": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings.updateKitItem": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings/core.withMeetingsWrite": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings/tokens.answerRsvpToken": {
+		"limit": 1,
+		"retry": 2
+	},
+	"native.meetings.correctRsvp": {
+		"limit": 6,
+		"retry": 12
+	},
+	"native.meetings.schedule": {
+		"limit": 6,
+		"retry": 12
+	},
+	"venues.archive": {
+		"limit": 6,
+		"retry": 12
+	},
+	"venues.correct": {
+		"limit": 6,
+		"retry": 12
+	},
+	"venues.create": {
+		"limit": 5,
+		"retry": 10
+	},
+	"venues.edit": {
+		"limit": 6,
+		"retry": 12
+	},
+	"venues.restore": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings/notifications.syncNotifications": {
+		"limit": 2,
+		"retry": 4
 	}
 }

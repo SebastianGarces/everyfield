@@ -2505,10 +2505,22 @@
 			"table_name": "reference_release"
 		},
 		{
+			"definition": "CREATE TRIGGER people_live_inviter BEFORE INSERT OR UPDATE OF inviter_person_id ON <schema>.participation FOR EACH ROW EXECUTE FUNCTION people_live_reference('inviter_person_id')",
+			"enabled": "O",
+			"name": "people_live_inviter",
+			"table_name": "participation"
+		},
+		{
 			"definition": "CREATE TRIGGER people_live_leader BEFORE INSERT OR UPDATE OF leader_person_id ON <schema>.team FOR EACH ROW EXECUTE FUNCTION people_live_reference('leader_person_id')",
 			"enabled": "O",
 			"name": "people_live_leader",
 			"table_name": "team"
+		},
+		{
+			"definition": "CREATE TRIGGER people_live_reference BEFORE INSERT OR UPDATE OF assignee_person_id ON <schema>.meeting_kit_item FOR EACH ROW EXECUTE FUNCTION people_live_reference('assignee_person_id')",
+			"enabled": "O",
+			"name": "people_live_reference",
+			"table_name": "meeting_kit_item"
 		},
 		{
 			"definition": "CREATE TRIGGER people_live_reference BEFORE INSERT OR UPDATE OF person_id ON <schema>.development_enrollment FOR EACH ROW EXECUTE FUNCTION people_live_reference('person_id')",
@@ -3813,6 +3825,27 @@
 			"is_grantable": false,
 			"kind": "table",
 			"object": "mail",
+			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "meeting_kit_item",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "meeting_kit_item",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "meeting_kit_item",
 			"privilege_type": "UPDATE"
 		},
 		{
@@ -5549,6 +5582,34 @@
 			"is_grantable": false,
 			"kind": "table",
 			"object": "mail",
+			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "meeting_kit_item",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "meeting_kit_item",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "meeting_kit_item",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "meeting_kit_item",
 			"privilege_type": "UPDATE"
 		},
 		{

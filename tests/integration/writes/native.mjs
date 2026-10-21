@@ -17,6 +17,7 @@ import {
 	withPeopleWrite,
 } from "../../../packages/domain/src/people/index.ts";
 import { readFile } from "node:fs/promises";
+import { guestsWriter, meetingsWriter, withMeetingsWrite } from "../../../packages/domain/src/meetings/index.ts";
 import { createOnboardingProducer, withOnboardingWrite } from "../../../packages/domain/src/onboarding/index.ts";
 import { withSettingsWrite } from "../../../packages/domain/src/settings/index.ts";
 import { sectionOperations } from "../../../packages/domain/src/settings/sections.ts";
@@ -308,6 +309,30 @@ try {
 			}),
 		),
 	);
+	// Meetings at the native boundary: the bound actor, one replay check, one locked read and one write statement.
+	const meetingWrite = (name, body) => measure("native.meetings." + name, () => withMeetingsWrite(f.db, actor, body));
+	const scheduled = await meetingWrite("schedule", (tx, ctx) =>
+		meetingsWriter.schedule(tx, ctx, {
+			requestKey: randomUUID(),
+			input: {
+				type: "vision_meeting",
+				date: new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10),
+				time: "18:00",
+				guests: [created.value.person.id],
+			},
+		}),
+	);
+	assert.equal(scheduled.status, "ok");
+	if (scheduled.status !== "ok") throw Error("schedule_refused");
+	const answered = await meetingWrite("correctRsvp", (tx, ctx) =>
+		guestsWriter.correctRsvp(tx, ctx, {
+			requestKey: randomUUID(),
+			// The guest row the schedule created.
+			expectedRevision: "1",
+			input: { meetingId: scheduled.value.meeting.id, personId: created.value.person.id, rsvp: "confirmed" },
+		}),
+	);
+	assert.equal(answered.status, "ok");
 	const ordinary = await f.account(),
 		ordinarySeat = await f.seat(ordinary, s.w, "admin");
 	const role = await f.seats.changeOrdinaryRole(actor, s.w, {
