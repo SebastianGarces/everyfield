@@ -267,6 +267,96 @@ test("AC:EVRY-CONTEXT-BOUNDS AC:UI45-006 a source retired after its turn is with
 	} finally {
 		await admin.execute(sql`UPDATE person SET state='live',retired_at=NULL WHERE id=${people.casey}`);
 	}
+
+	// The source is retired while the next turn's classifier runs: the model call that follows still sees nothing.
+	const race = await ask(owner, "Find Casey");
+	assert.equal(await work(), "succeeded");
+	await submitTurn(db, owner, race, { requestKey: randomUUID(), text: "Continue" });
+	const raced = recorded();
+	const retiring: LanguageModelV4 = {
+		...raced.model.model,
+		async doGenerate(options) {
+			await admin.execute(sql`UPDATE person SET state='retired',retired_at=clock_timestamp() WHERE id=${people.casey}`);
+			return raced.model.model.doGenerate(options);
+		},
+	};
+	try {
+		assert.equal(await work(qualified(retiring)), "succeeded");
+		const streamed = raced.calls.filter((c) => c.responseFormat?.type !== "json");
+		assert.ok(streamed.length > 0 && !JSON.stringify(streamed).includes("Casey Reed"), "retired during classification");
+	} finally {
+		await admin.execute(sql`UPDATE person SET state='live',retired_at=NULL WHERE id=${people.casey}`);
+	}
+
+	// A source retired between two model calls of one turn: the later call gets the result without that row.
+	const usage = {
+		inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
+		outputTokens: { total: 5, text: 5, reasoning: 0 },
+	};
+	const prompts: string[] = [];
+	let step = 0;
+	const base = scriptedModel();
+	const stepping: LanguageModelV4 = {
+		...base,
+		async doStream(options) {
+			if (options.responseFormat?.type === "json") return base.doStream(options);
+			prompts.push(JSON.stringify(options.prompt));
+			const n = step++;
+			if (n === 1)
+				await admin.execute(
+					sql`UPDATE person SET state='retired',retired_at=clock_timestamp() WHERE id=${people.alexChen}`,
+				);
+			const parts =
+				n === 0
+					? [
+							{
+								type: "tool-call" as const,
+								toolCallId: randomUUID(),
+								toolName: "people_read",
+								input: JSON.stringify({ operation: "people.listPeople", input: { search: "Alex" } }),
+							},
+						]
+					: n === 1
+						? [
+								{
+									type: "tool-call" as const,
+									toolCallId: randomUUID(),
+									toolName: "people_read",
+									input: JSON.stringify({ operation: "people.getPerson", input: { personId: people.casey } }),
+								},
+							]
+						: [
+								{ type: "text-start" as const, id: "t" },
+								{ type: "text-delta" as const, id: "t", delta: "Done." },
+								{ type: "text-end" as const, id: "t" },
+							];
+			return {
+				stream: new ReadableStream({
+					start(c) {
+						for (const p of parts) c.enqueue(p);
+						c.enqueue({
+							type: "finish",
+							finishReason: { unified: n < 2 ? "tool-calls" : "stop", raw: undefined },
+							usage,
+						});
+						c.close();
+					},
+				}),
+			};
+		},
+	};
+	const midTurn = await ask(owner, "Find Alex and then Casey");
+	try {
+		assert.equal(await work(qualified(stepping)), "succeeded");
+		assert.ok(prompts[1]!.includes("Alex Chen"), "before the retirement the result has the row");
+		assert.ok(
+			!prompts[2]!.includes("Alex Chen") && prompts[2]!.includes("withheldRows"),
+			"after it, the row is withheld",
+		);
+	} finally {
+		await admin.execute(sql`UPDATE person SET state='live',retired_at=NULL WHERE id=${people.alexChen}`);
+	}
+	void midTurn;
 });
 
 test("AC:GAP-EVR-400 selection reuses only rows the conversation returned and checks access again", async () => {

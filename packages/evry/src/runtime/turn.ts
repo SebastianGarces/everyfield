@@ -1,6 +1,6 @@
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
-import { streamText, tool, type StopCondition, type ToolSet } from "ai";
+import { streamText, tool, type ModelMessage, type StopCondition, type ToolSet } from "ai";
 import { z } from "zod";
 import { READ_DOMAINS, readCatalog, SELECT_RETURNED_ROWS } from "../catalog/catalog.ts";
 import { verifyPeople } from "../catalog/people.ts";
@@ -16,7 +16,7 @@ import {
 import { EvryRefusal, projectError, scrub } from "../context/errors.ts";
 import { LIMITS, type StopReason } from "../context/limits.ts";
 import type { QualifiedModel } from "./model.ts";
-import { appendEvent, loadTurn, savedResult, type RunLease } from "./run-store.ts";
+import { appendEvent, loadHistory, loadTurn, savedResult, type RunLease } from "./run-store.ts";
 
 export type RunDeps = {
 	db: Database;
@@ -130,15 +130,66 @@ export async function runTurn(deps: RunDeps, lease: RunLease): Promise<RunOutcom
 			return await finish();
 		}
 
-		const references = await resolveReferences(db, actor, turn.message.body.references);
-		const context = compileContext({
-			actor,
-			catalog,
-			history: turn.history,
-			text: request,
-			references: references.verified,
-			now: deps.now?.() ?? new Date(),
-		});
+		// The model input as of now: retained history and page references are read again under current authority right
+		// before every model call, so a source that became unavailable during the turn never reaches the model.
+		const compile = async () => {
+			const history = await loadHistory(db, lease, turn.conversation_id, actor);
+			if (!history) throw new EvryRefusal("access_denied");
+			const references = await resolveReferences(db, actor, turn.message.body.references);
+			return compileContext({
+				actor,
+				catalog,
+				history,
+				text: request,
+				references: references.verified,
+				now: deps.now?.() ?? new Date(),
+			});
+		};
+		const context = await compile();
+		/** This turn's tool results with rows whose source is no longer available removed. One read per model call. */
+		const withLiveRows = async (messages: ModelMessage[]) => {
+			const ids = new Set<string>();
+			const rowsOf = (part: unknown) => {
+				const value = (part as { output?: { type?: string; value?: { rows?: unknown } } }).output;
+				return value?.type === "json" && Array.isArray(value.value?.rows)
+					? (value.value.rows as { id: string }[])
+					: null;
+			};
+			for (const m of messages)
+				if (m.role === "tool") for (const part of m.content) for (const row of rowsOf(part) ?? []) ids.add(row.id);
+			if (!ids.size) return messages;
+			const fresh = await deps.freshActor(session);
+			const live = new Set(
+				(fresh && sameContext(fresh, actor) ? await verifyPeople(db, fresh, [...ids]) : []).map((r) => r.id),
+			);
+			return messages.map((m) =>
+				m.role !== "tool"
+					? m
+					: {
+							...m,
+							content: m.content.map((part) => {
+								const rows = rowsOf(part);
+								if (!rows) return part;
+								const kept = rows.filter((r) => live.has(r.id));
+								if (kept.length === rows.length) return part;
+								const output = (part as { output: { value: Record<string, unknown> } }).output;
+								return {
+									...part,
+									output: {
+										type: "json" as const,
+										value: {
+											...output.value,
+											rows: kept,
+											total: null,
+											completeness: "partial",
+											withheldRows: rows.length - kept.length,
+										},
+									},
+								} as typeof part;
+							}),
+						},
+			);
+		};
 
 		// One budget gate for every tool: the 25th call runs nothing, and a changed context stops the turn.
 		const admit = async () => {
@@ -245,6 +296,15 @@ export async function runTurn(deps: RunDeps, lease: RunLease): Promise<RunOutcom
 			messages: context.messages,
 			tools,
 			stopWhen: budget,
+			prepareStep: async ({ stepNumber, messages }) => {
+				if (stepNumber === 0) return {};
+				const current = await compile();
+				const thisTurn = messages.slice(context.messages.length);
+				return {
+					system: current.system,
+					messages: [...current.messages, ...(await withLiveRows(thisTurn))],
+				};
+			},
 			maxRetries: 0,
 			maxOutputTokens: LIMITS.outputTokensPerCall,
 			abortSignal: abort.signal,

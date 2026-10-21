@@ -1,6 +1,8 @@
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { z } from "zod";
+import type { EvryActor } from "../context/actor.ts";
+import { currentAuthority } from "../context/authority.ts";
 import { LIMITS } from "../context/limits.ts";
 import { retainedEvents } from "../conversations/retained.ts";
 import { eventRow, reference, type ConversationEvent } from "../conversations/store.ts";
@@ -25,23 +27,42 @@ const turnRow = z.object({
 		sequence: z.coerce.number(),
 		body: z.object({ text: z.string(), references: z.array(reference).default([]) }),
 	}),
-	history: z.array(eventRow),
 });
 export type Turn = z.infer<typeof turnRow>;
 
+/** Earlier messages and the final status of each turn, which carries its full reply, as they may be sent to a model
+ * now (retained sources rechecked). */
+const history = (lease: RunLease) =>
+	sql`coalesce((SELECT jsonb_agg(jsonb_build_object('sequence',h.sequence,'turnId',h.turn_id,'kind',h.kind,'body',h.body,'createdAt',h.created_at) ORDER BY h.sequence)
+		FROM (${retainedEvents(sql`SELECT * FROM conversation_event e WHERE e.conversation_id=c.id AND e.kind IN ('user_message','status')
+			AND e.turn_id IS DISTINCT FROM ${lease.turnId}::uuid ORDER BY e.sequence DESC LIMIT ${LIMITS.recentMessages * 2}`)}) h), '[]'::jsonb)`;
+
 /**
- * The claimed turn: its conversation, the submitted message and the recent saved history before it (each earlier
- * message and the final status of its turn, which carries the assistant's full reply). Null when the
+ * The turn's retained history read again right before a model call, with the actor's current authority checked in the
+ * same statement: a source retired or removed since the turn started is withheld. Null when the actor lost access or
+ * the run no longer owns the conversation. One statement.
+ */
+export async function loadHistory(
+	db: Database,
+	lease: RunLease,
+	conversationId: string,
+	actor: EvryActor,
+): Promise<ConversationEvent[] | null> {
+	const r = await db.execute(sql`
+		SELECT ${history(lease)} AS history FROM conversation c
+		WHERE c.id=${conversationId}::uuid AND c.active_turn_id=${lease.turnId}::uuid AND ${fence(lease)} AND ${currentAuthority(actor)}`);
+	return r.rows.length ? z.array(eventRow).parse(r.rows[0]!.history) : null;
+}
+
+/**
+ * The claimed turn: its conversation, its session and the submitted message. Null when the
  * conversation no longer runs this turn (cancelled) or the lease is gone. One statement.
  */
 export async function loadTurn(db: Database, lease: RunLease): Promise<Turn | null> {
 	const r = await db.execute(sql`
 		SELECT c.id AS conversation_id,c.tenant_id,c.account_id,c.active_session_id AS session_id,
 			(SELECT jsonb_build_object('sequence',m.sequence,'body',m.body) FROM conversation_event m
-				WHERE m.conversation_id=c.id AND m.turn_id=${lease.turnId}::uuid AND m.kind='user_message') AS message,
-			coalesce((SELECT jsonb_agg(jsonb_build_object('sequence',h.sequence,'turnId',h.turn_id,'kind',h.kind,'body',h.body,'createdAt',h.created_at) ORDER BY h.sequence)
-				FROM (${retainedEvents(sql`SELECT * FROM conversation_event e WHERE e.conversation_id=c.id AND e.kind IN ('user_message','status')
-					AND e.turn_id IS DISTINCT FROM ${lease.turnId}::uuid ORDER BY e.sequence DESC LIMIT ${LIMITS.recentMessages * 2}`)}) h), '[]'::jsonb) AS history
+				WHERE m.conversation_id=c.id AND m.turn_id=${lease.turnId}::uuid AND m.kind='user_message') AS message
 		FROM conversation c JOIN job j ON j.subject_record_id=c.id
 		WHERE j.id=${lease.turnId}::uuid AND c.active_turn_id=${lease.turnId}::uuid AND ${fence(lease)}`);
 	return r.rows.length ? turnRow.parse(r.rows[0]) : null;
