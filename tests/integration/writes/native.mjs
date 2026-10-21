@@ -4,7 +4,7 @@ import { sql } from "../../../packages/db/src/query.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
 import { taskReminders } from "../../../apps/web/src/server/tasks/reminders.ts";
-import { reminderRecipients } from "../../../packages/domain/src/tasks/index.ts";
+import { authorizeTaskReminders, reminderRecipients } from "../../../packages/domain/src/tasks/index.ts";
 import { claimDue, enqueueJob, finishClaim, queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { deletionOperations, issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/deletion.ts";
 import assert from "node:assert/strict";
@@ -589,13 +589,14 @@ try {
 			encryptionKey: randomBytes(32),
 			addressKey: randomBytes(32),
 			from: "native@example.test",
-			authorize: async (_tx, values) => new Set(values.map((v) => v.id)),
+			authorize: authorizeTaskReminders,
 			transport: {
 				send: async () => ({ kind: "unknown" }),
 				lookup: async () => ({ kind: "accepted", id: "synthetic-provider" }),
 			},
 		}),
-		// The production recipient lookup, as the tasks mount runs it; only the mail transport is synthetic.
+		// The production recipient lookup and mail authorization, as the tasks mount runs them; only the mail transport
+		// is synthetic.
 		async eligible(tx, inputs) {
 			const found = await reminderRecipients(
 				tx,
