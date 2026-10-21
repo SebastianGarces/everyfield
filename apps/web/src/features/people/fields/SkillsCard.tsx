@@ -26,7 +26,7 @@ import {
 } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
-import { useOptimistic, useState, useTransition } from "react";
+import { startTransition, useOptimistic, useState, useTransition } from "react";
 import type { Receipt } from "../boundary.ts";
 import type { Outcome } from "../model.ts";
 import { FormProblem, fresh, problemText } from "../parts.tsx";
@@ -101,7 +101,8 @@ export function SkillsCard({
 					? updateSkill(fresh(), target.revision, { skillId: target.id, patch: values })
 					: addSkill(fresh(), { personId, ...values })
 			).catch(() => ({ status: "lost" }) as const);
-			if (r.status !== "ok") return setEditing({ skill: target, draft, problem: codeOf(r) });
+			// Part of the same transition, so the rollback and the reopened form show together.
+			if (r.status !== "ok") return startTransition(() => setEditing({ skill: target, draft, problem: codeOf(r) }));
 			setSkills(r.value.skills);
 			onSaved(r.value.receipt);
 		});

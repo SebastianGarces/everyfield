@@ -49,8 +49,8 @@ export function TagsField({
 	const loading = useRef(false);
 
 	/**
-	 * Reads the church's tags when the picker is about to open (pointer, touch or keyboard focus on Add tag), so names
-	 * and counts are current each time; the last list stays on screen while the new one arrives.
+	 * Reads the church's tags each time the picker opens, so names and counts are current; the last list stays on screen
+	 * while the new one arrives. Focus that returns to Add tag after the picker or the manager closes reads nothing.
 	 */
 	function warm() {
 		if (loading.current) return;
@@ -112,17 +112,15 @@ export function TagsField({
 				<TagChip key={t.id} tag={t} onRemove={canEdit ? () => remove(t) : undefined} />
 			))}
 			{canEdit ? (
-				<Popover open={open} onOpenChange={setOpen}>
+				<Popover
+					open={open}
+					onOpenChange={(next) => {
+						setOpen(next);
+						if (next) warm();
+					}}
+				>
 					<PopoverTrigger asChild>
-						<Button
-							variant="ghost"
-							size="sm"
-							icon={Add01Icon}
-							className="h-[26px] px-2 text-text-2"
-							onPointerEnter={warm}
-							onFocus={warm}
-							onClick={warm}
-						>
+						<Button variant="ghost" size="sm" icon={Add01Icon} className="h-[26px] px-2 text-text-2">
 							Add tag
 						</Button>
 					</PopoverTrigger>

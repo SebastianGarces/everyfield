@@ -26,7 +26,7 @@ import {
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, StageChip, StatusBadge } from "@everyfield/ui/display";
 import Link from "next/link";
-import { useState } from "react";
+import { useOptimistic, useState } from "react";
 import type { z } from "zod";
 import { reloadPerson, type Receipt } from "./actions.ts";
 import { ActivityCard, type Activities, type EntryFields, type Item } from "./ActivityCard.tsx";
@@ -99,7 +99,12 @@ export function PersonScreen({
 		store.dispatch({ type: "server", person: r.value.person });
 		if (r.value.activities) setHistory({ status: "ok", value: r.value.activities });
 	}
-	const p = state.saved;
+	// The person as shown: the saved person, plus a change the screen expects while it saves (the household address
+	// copied onto this person). It falls back to the saved person when that change is refused.
+	const [p, expectPerson] = useOptimistic(state.saved, (saved, patch: Partial<PlantPerson>) => ({
+		...saved,
+		...patch,
+	}));
 	const [open, setOpen] = useState<Open>(null);
 	const busy = state.pending !== null;
 	const lifecycle = p.lifecycle;
@@ -283,6 +288,7 @@ export function PersonScreen({
 						<>
 							<HouseholdCard
 								store={store}
+								onExpectPerson={expectPerson}
 								person={p}
 								household={household}
 								onHousehold={setHousehold}

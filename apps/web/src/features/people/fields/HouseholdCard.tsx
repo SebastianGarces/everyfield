@@ -21,7 +21,7 @@ import {
 	useToast,
 } from "@everyfield/ui/controls";
 import { Avatar, Tag } from "@everyfield/ui/display";
-import { useOptimistic, useState, useTransition } from "react";
+import { startTransition, useOptimistic, useState, useTransition } from "react";
 import type { z } from "zod";
 import type { Receipt } from "../boundary.ts";
 import { runSave, type Outcome, type PersonStore } from "../model.ts";
@@ -80,6 +80,7 @@ export function HouseholdCard({
 	canEdit,
 	onMembership,
 	onConflict,
+	onExpectPerson,
 }: {
 	store: Store;
 	person: PlantPerson;
@@ -91,6 +92,8 @@ export function HouseholdCard({
 	onMembership: (receipt: Receipt, change: { from: Membership | null; to: Membership | null }) => void;
 	/** The person changed elsewhere: read the person again. */
 	onConflict: () => void;
+	/** Shows a change to this person at once while it saves (the copied address); it rolls back if refused. */
+	onExpectPerson: (patch: Partial<PlantPerson>) => void;
 }) {
 	const toast = useToast();
 	const [open, setOpen] = useState<Open>(null);
@@ -112,15 +115,19 @@ export function HouseholdCard({
 		value: unknown,
 		next: HouseholdResult,
 		work: () => Promise<string | undefined>,
+		personPatch?: Partial<PlantPerson>,
 	) {
 		close();
 		start(async () => {
 			expect(next);
+			if (personPatch) onExpectPerson(personPatch);
 			const problem = await work();
-			if (problem) {
-				setRetry({ kind, value, problem });
-				setOpen(kind);
-			}
+			// Part of the same transition, so the rollback and the reopened form show together.
+			if (problem)
+				startTransition(() => {
+					setRetry({ kind, value, problem });
+					setOpen(kind);
+				});
 		});
 	}
 	const me0 = { personId: person.id, displayName: person.displayName, revision: person.revision };
@@ -393,6 +400,8 @@ export function HouseholdCard({
 								if (!problem) toast({ tone: "success", message: `Copied the address of ${preview.household.name}.` });
 								return problem;
 							},
+							// This person is one of the members, so Details shows the copied address at once too.
+							copied,
 						);
 					}}
 				/>
