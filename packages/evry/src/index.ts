@@ -24,6 +24,7 @@ export {
 	cancelProposal,
 	prepareProposal,
 	readReview,
+	readStagedPhoto,
 	retryUnresolvedEffects,
 	reviseProposal,
 	REVIEW_MINUTES,

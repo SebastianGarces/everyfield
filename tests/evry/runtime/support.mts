@@ -7,7 +7,8 @@ import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { transaction } from "../../../apps/web/src/server/platform/database.ts";
 import { claimDue, finishClaim } from "../../../apps/web/src/server/jobs/queue.ts";
 import { evryActor, runTurn, selectQualifiedModel } from "../../../packages/evry/src/index.ts";
-import { randomBytes, randomUUID } from "node:crypto";
+import type { PrivateStorage } from "../../../packages/db/src/schema/storage.ts";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
 const localCi =
@@ -152,4 +153,33 @@ export async function counts() {
 		(SELECT count(*)::int FROM audit_event) audits, (SELECT count(*)::int FROM person) people`);
 	return r.rows[0] as Record<string, number>;
 }
+/** A private bucket fake that serves exactly the bytes stored under each key, and can lose one. */
+export function bucket() {
+	const objects = new Map<string, Buffer>();
+	const send = async (command: { constructor: { name: string }; input: { Key: string } }) => {
+		if (command.constructor.name !== "GetObjectCommand") throw Error("unexpected provider operation");
+		const body = objects.get(command.input.Key);
+		if (!body) throw Error("NoSuchKey");
+		return { ContentLength: body.length, Body: { transformToByteArray: async () => new Uint8Array(body) } };
+	};
+	const storage = { bucket: "synthetic-only", client: { send } } as never as PrivateStorage;
+	return {
+		storage,
+		objects,
+		/** A verified, ready person-photo upload of these bytes in the tenant, as uploadPersonPhoto leaves it. */
+		async upload(bytes: Buffer, tenant = plant) {
+			const id = randomUUID();
+			const key = `private/${tenant}/${randomUUID()}`;
+			objects.set(key, bytes);
+			await admin.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,byte_count,sha256,state,upload_key,claim_generation,expires_at)
+				VALUES(${id},${tenant},'person_photo',${key},'image/png',${bytes.length},${bytes.length},${createHash("sha256").update(bytes).digest("hex")},'ready',${id},0,clock_timestamp()+interval '15 minutes')`);
+			return { id, key };
+		},
+	};
+}
+/** A 1x1 PNG. */
+export const png = Buffer.from(
+	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWPgEpH7DwABpAE8sdwFIwAAAABJRU5ErkJggg==",
+	"base64",
+);
 export { sql };

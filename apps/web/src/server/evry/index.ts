@@ -42,6 +42,7 @@ const status = {
 	review_changed: 409,
 	review_expired: 409,
 	review_closed: 409,
+	photo_unavailable: 409,
 } as const;
 /** Every failure leaves as a projected error only: a code, a correlation id and whether a retry helps. */
 export function errorResponse(error: unknown) {
