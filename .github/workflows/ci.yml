@@ -43,6 +43,10 @@ jobs:
         run: pnpm lint
       - name: Types
         run: pnpm typecheck
+      - name: Server log privacy (next dev with synthetic passwords)
+        run: pnpm test:logs
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
       - name: Production build
         run: pnpm build
         env:
