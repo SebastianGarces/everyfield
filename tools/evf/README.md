@@ -86,6 +86,13 @@ Verifier mode always uses the caller's Git checkout, including its committed che
 A dirty checkout refuses before checks. Changes to the checked tree or base during checks print
 `INVALIDATED`, stop further checks and require a fresh run on stable inputs.
 
+Local checks see what CI sees. A clean checkout has no modified, staged or untracked files, even when
+the user's git config hides untracked files. OPS tasks run their own checks plus the configured
+`format` and `package-unit-tests` checks, which include the db schema check, because CI runs them
+on every PR. Task start installs dependencies for OPS tasks too. A full application verify also
+type-checks a fresh detached checkout of HEAD, so ignored local files such as Next's generated
+`next-env.d.ts` cannot hide a CI failure (PR #175).
+
 Before a manual push, run `bin/evf pre-push <task>`. It checks for a full passing author report at
 that exact clean HEAD. Quick checks and verifier reports do not satisfy this gate. `evf pr open`
 runs the same gate before its push. Plain `git push` is not intercepted; use the pre-push command

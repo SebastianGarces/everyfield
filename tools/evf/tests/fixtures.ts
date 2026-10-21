@@ -59,6 +59,10 @@ export function fixture() {
 	cfg.stack = null; // Tests that need a stack declare their own; never run the live stack command.
 	cfg.checks = [
 		{ name: "fixture-check", run: [process.execPath, "-e", 'process.stdout.write("checked disposable fixture")'] },
+		...["format", "package-unit-tests"].map((name) => ({
+			name,
+			run: [process.execPath, "-e", `process.stdout.write("${name} ran")`],
+		})),
 	];
 	cfg.feedback = {
 		...cfg.feedback,
