@@ -10,6 +10,8 @@ Every simple read or write finishes in under one second end to end on a producti
 
 Use one cached session lookup and one cached viewer lookup per request. Cookie cache stays off. The proxy checks cookie presence; domain code receives the verified viewer and does not resolve the session again. Prefer one short transaction per page render where practical, set-based queries and page numbers. Do not reread whole projections to answer a write.
 
+The cached viewer names the actor. It does not prove access at the time of a later read. A read that returns tenant data puts the live check in its own statement as a predicate: the session is live, the seat in the selected plant or organization has not ended, the seat's role still permits the read and no lifecycle witness hides the account, owner or seat. The check adds no statement. When it fails, the read returns no tenant data. A stream or worker repeats the check in each statement it runs. On main, the access.writeVisibility fragment in packages/domain/src/access/session.ts covers only the lifecycle part. A shared fragment for the whole check is a follow-up (C13).
+
 ## Writes and concurrency
 
 Include tenant and active-seat authority in the write statement. Zero changed rows means refused or not found. Normal writes need no separate authorize call or advisory lock. Use a revision column checked in the same update only where people can actually edit the same record concurrently. A pipeline move updates one row's sortable position key.
