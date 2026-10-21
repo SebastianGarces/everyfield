@@ -60,7 +60,7 @@ export function NetworkDash({ demo }: { demo: DashDemo }) {
 								<div className="type-sm text-text-2 max-mk-sm:type-xs">{s[0]}</div>
 								<div
 									className={cn(
-										"mt-2 mb-1.5 font-display type-display-md leading-none font-medium tracking-[-0.05em] max-mk-nav:type-display-sm max-mk-sm:mt-1.5 max-mk-sm:type-display-md",
+										"mt-2 mb-1.5 font-display type-display-md leading-none tracking-[-0.02em] max-mk-nav:type-display-sm max-mk-sm:mt-1.5 max-mk-sm:type-display-md",
 										s[3] === 1 && "text-amber-display",
 									)}
 								>
@@ -137,7 +137,7 @@ export function NetworkDash({ demo }: { demo: DashDemo }) {
 							</table>
 						</DashCard>
 						<Insight
-							tone="g-lilac"
+							tone="g-rose"
 							icon={ICONS.sparkle}
 							label="Top network finding"
 							count="From 11 of 14 plants"

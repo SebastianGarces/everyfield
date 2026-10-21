@@ -33,7 +33,7 @@ FB-<n> for feedback and OPS-<n> for tooling maintenance.
 - Keep screenshots, traces and temporary verification scripts outside the repository.
 - Encode repeated corrections in a type, lint rule or test before adding written rules.
 - Put shared workflow enforcement in evf or a skill, never a second host-specific hook.
-- Preserve original reference bytes, unrelated assets and design/everyfield-ui.html.
+- Preserve original reference bytes, unrelated assets and design/everyfield-ui.html (the approved brand prototype).
 
 ## Roles and skills
 

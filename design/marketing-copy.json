@@ -85,14 +85,14 @@
         },
         {
           "panel": "follow",
-          "tone": "dawn",
+          "tone": "sage",
           "icon": "task",
           "title": "No new guest slips through.",
           "body": "Three new guests came to your vision meeting. Evry prepares a follow-up task for each one, and adds them to your week when you approve. You and your team reach out."
         },
         {
           "panel": "teams",
-          "tone": "lilac",
+          "tone": "rose",
           "icon": "heart",
           "title": "Grow your core group and your launch team.",
           "body": "Record each commitment and watch both grow as you get closer to launch."

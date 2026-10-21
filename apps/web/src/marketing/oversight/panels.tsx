@@ -39,7 +39,7 @@ export function DigestPanel() {
 								<div className={cn(TITLE, "truncate")}>{r[1]}</div>
 								<div className={cn(SUB, "mt-0.5 truncate")}>{r[3]}</div>
 							</div>
-							<span className="font-display type-title-sm font-medium whitespace-nowrap text-ink">{r[2]}</span>
+							<span className="font-title tracking-[-0.02em] type-title-sm whitespace-nowrap text-ink">{r[2]}</span>
 						</Move>
 					))}
 				</div>
@@ -69,7 +69,7 @@ export function StagesPanel() {
 							className="relative isolate min-w-0 rounded-[12px] bg-white px-2 pt-2 pb-2.5 shadow-[inset_0_0_0_1px_var(--color-line)] max-mk-sm:px-1.5"
 						>
 							{k === 2 ? <Hl a={2850} b={1e9} box="inset-0 rounded-[12px] bg-green-50 shadow-mk-group-on" /> : null}
-							<Num className="block type-title-md leading-none">
+							<Num className="block font-title type-title-md leading-none">
 								<Count fx="stages.n" n={k} max={9} />
 							</Num>
 							<small className="mt-1.5 block type-mk-pic-xs leading-[1.2] text-text-3 max-mk-sm:type-mk-pic-2xs">
@@ -112,7 +112,7 @@ export function GoalsPanel() {
 			<PanelCard kind="goals" className="min-w-0">
 				<PanelHead tone="green" icon={ICONS.flag} title="Sending goal" sub="Grace Church" />
 				<St i={1} className="flex items-end gap-3 pb-1">
-					<Num className="type-display-md leading-[.95]">6</Num>
+					<Num className="font-display type-display-md leading-[.95]">6</Num>
 					<span className="pb-1 type-md leading-[1.3] text-text-2">leaders raised by 2030</span>
 				</St>
 				<St i={2} className="mt-4">
@@ -129,7 +129,7 @@ export function GoalsPanel() {
 										className="absolute inset-0 origin-left rounded-full bg-[color-mix(in_srgb,var(--color-green-500)_70%,var(--color-white))]"
 									/>
 								</span>
-								<span className="justify-self-end font-display font-semibold tracking-[-0.03em]">
+								<span className="justify-self-end font-title tracking-[-0.02em]">
 									<Count fx="goals.n" n={k} max={9} />
 								</span>
 							</>

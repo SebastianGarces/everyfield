@@ -66,7 +66,7 @@ export function PeoplePanel({ title, note }: { title: string; note: string }) {
 						<St key={r[1]} i={k + 2}>
 							<div className="flex min-h-[26px] items-center gap-2">
 								<StageChip tone={tone(r[0])}>{r[1]}</StageChip>
-								<Num className="ml-auto type-title-sm">
+								<Num className="ml-auto font-title type-title-sm">
 									<Count fx="people.row" n={k} max={r[2]} />
 								</Num>
 							</div>
@@ -147,7 +147,10 @@ export function MeetPanel({ when }: { when: string }) {
 								<BadgeSm>3 new guests</BadgeSm>
 							</Move>
 						</span>
-						<Tf fx="meet.bump" className="grid origin-bottom-right font-display type-title-md leading-none font-medium">
+						<Tf
+							fx="meet.bump"
+							className="grid origin-bottom-right font-title tracking-[-0.02em] type-title-md leading-none"
+						>
 							<Count fx="meet.count" max={12} />
 						</Tf>
 					</div>
@@ -333,7 +336,7 @@ export function TeamsPanel({ demo: d }: { demo: TeamsDemo }) {
 								<Tf
 									fx="teams.bump"
 									n={k}
-									className="grid origin-bottom-right font-display type-title-md leading-none font-medium"
+									className="grid origin-bottom-right font-title tracking-[-0.02em] type-title-md leading-none"
 								>
 									<Count fx="teams.count" n={k} max={r[3] + 1} />
 								</Tf>

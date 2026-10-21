@@ -35,7 +35,7 @@ export function SiteFooter({ headline = footer.headline }: { headline?: string }
 					<span className="grid size-11 place-items-center rounded-[13px] bg-green text-ink">
 						<Mark className="h-[18px] w-[22px]" />
 					</span>
-					<Display as="h2" className="max-w-[16ch] text-title-lg/[1.1] mk-xl:text-display-sm/[1.1]">
+					<Display as="h2" className="max-w-[16ch] font-display text-title-lg/[1.1] mk-xl:text-display-sm/[1.1]">
 						{headline}
 					</Display>
 					<ButtonLink

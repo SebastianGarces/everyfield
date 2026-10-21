@@ -174,7 +174,7 @@ export function ChoiceCard({
 			{badge !== undefined ? (
 				<span
 					aria-hidden="true"
-					className="grid size-[34px] flex-none place-items-center rounded-[11px] bg-surface-2 font-display font-semibold text-ink peer-checked:bg-ink peer-checked:text-on-ink"
+					className="grid size-[34px] flex-none place-items-center rounded-[11px] bg-surface-2 font-title tracking-[-0.02em] text-ink peer-checked:bg-ink peer-checked:text-on-ink"
 				>
 					{badge}
 				</span>

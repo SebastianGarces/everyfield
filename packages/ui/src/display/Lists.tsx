@@ -34,7 +34,7 @@ export function KeyValue({
 				) : (
 					<span
 						className={
-							size === "sm" ? "text-right font-medium text-ink" : "num text-xl font-medium tracking-[-0.02em] text-ink"
+							size === "sm" ? "text-right font-medium text-ink" : "num font-title text-xl tracking-[-0.02em] text-ink"
 						}
 					>
 						{typeof value === "number" ? formatCount(value) : value}

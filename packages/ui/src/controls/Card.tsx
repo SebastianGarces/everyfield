@@ -92,7 +92,7 @@ export function CardTitle({
 	return (
 		<Comp
 			className={cn(
-				"font-display leading-[1.2] font-medium tracking-[-0.02em] text-ink text-pretty",
+				"font-title leading-[1.2] tracking-[-0.02em] text-ink text-pretty",
 				size === "sm" ? "text-title-sm" : "text-title-md",
 				className,
 			)}

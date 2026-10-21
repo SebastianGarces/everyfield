@@ -62,7 +62,7 @@ export function DialogHeader({ title, description, icon, tone = "ink", closable 
 		<div className="flex flex-none items-start gap-4 px-7 pt-[26px] pb-4 max-app-sm:px-5 max-app-sm:pt-5">
 			{icon ? <CardIcon icon={icon} tone={tone} /> : null}
 			<div className="min-w-0 flex-1">
-				<DialogPrimitive.Title className="font-display text-title-md leading-[1.2] font-medium tracking-[-0.02em] text-ink text-balance">
+				<DialogPrimitive.Title className="font-title text-title-md leading-[1.2] tracking-[-0.02em] text-ink text-balance">
 					{title}
 				</DialogPrimitive.Title>
 				{description ? (
@@ -168,7 +168,7 @@ export function ConfirmDialog({
 					<div className="flex flex-none items-start gap-4 px-7 pt-[26px] pb-4 max-app-sm:px-5 max-app-sm:pt-5">
 						{tone === "danger" ? <CardIcon icon={Alert02Icon} tone="magenta" /> : null}
 						<div className="min-w-0 flex-1">
-							<AlertDialog.Title className="font-display text-title-md leading-[1.2] font-medium tracking-[-0.02em] text-ink text-balance">
+							<AlertDialog.Title className="font-title text-title-md leading-[1.2] tracking-[-0.02em] text-ink text-balance">
 								{title}
 							</AlertDialog.Title>
 							{description ? (
@@ -261,7 +261,7 @@ export function Sheet({
 				>
 					<div className="flex flex-none items-start gap-3 border-b border-line px-6 pt-5 pb-4">
 						<div className="min-w-0 flex-1">
-							<DialogPrimitive.Title className="font-display text-title-sm leading-[1.2] font-medium tracking-[-0.02em] text-ink">
+							<DialogPrimitive.Title className="font-title text-title-sm leading-[1.2] tracking-[-0.02em] text-ink">
 								{title}
 							</DialogPrimitive.Title>
 							{description ? (

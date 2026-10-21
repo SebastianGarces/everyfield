@@ -57,7 +57,7 @@ export function AppFrame({
 			<div className="px-5 pt-2 pb-[22px] max-mk-sm:px-3 max-mk-sm:pt-1 max-mk-sm:pb-3.5">
 				<div className="flex items-end justify-between gap-4 px-1 pt-1.5 pb-[18px]">
 					<div>
-						<div className="font-display type-title-lg leading-[1.05] font-medium tracking-[-0.035em] max-mk-sm:type-title-md">
+						<div className="font-display max-mk-sm:font-title type-title-lg leading-[1.05] tracking-[-0.02em] max-mk-sm:type-title-md">
 							{title}
 						</div>
 						<div className="mt-1.5 type-sm text-text-3">{sub}</div>
@@ -88,7 +88,7 @@ export function DashHead({ title, sub, right }: { title: string; sub?: string; r
 	return (
 		<div className="mb-3.5 flex items-start gap-3">
 			<div className="min-w-0 flex-1">
-				<div className="font-display type-title-sm leading-[1.2] font-medium tracking-[-0.02em]">{title}</div>
+				<div className="font-title type-title-sm leading-[1.2] tracking-[-0.02em]">{title}</div>
 				{sub ? <div className="mt-[3px] type-sm text-text-3">{sub}</div> : null}
 			</div>
 			{right}
@@ -107,7 +107,7 @@ export function Kv({ k, first, children }: { k: string; first?: boolean; childre
 		</div>
 	);
 }
-export const KV_V = "font-display type-title-sm font-medium tracking-[-0.02em] whitespace-nowrap";
+export const KV_V = "font-title type-title-sm tracking-[-0.02em] whitespace-nowrap";
 
 /** A change against the prior period: white pill with an up (green) or down (magenta) triangle. */
 export function Delta({ dir, children }: { dir: "up" | "down"; children: ReactNode }) {

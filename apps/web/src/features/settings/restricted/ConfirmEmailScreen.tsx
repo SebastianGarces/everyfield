@@ -60,7 +60,7 @@ export function ConfirmEmailScreen({
 					<CardIcon icon={Mail01Icon} tone={outcome === "succeeded" ? "green" : outcome ? "magenta" : "blue"} />
 					<h1
 						aria-live="polite"
-						className="font-display text-title-md leading-[1.2] font-medium tracking-[-0.02em] text-ink text-balance"
+						className="font-title text-title-md leading-[1.2] tracking-[-0.02em] text-ink text-balance"
 					>
 						{text?.title ?? "Confirm your new email"}
 					</h1>

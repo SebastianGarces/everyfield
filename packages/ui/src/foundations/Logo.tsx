@@ -1,4 +1,4 @@
-import { MARK, WORDMARK } from "./logo-paths";
+import { MARK, WORDMARK } from "./logo-paths.generated";
 
 type Shape = typeof MARK;
 

@@ -82,7 +82,7 @@ export function ScopePanel() {
 							key={l}
 							className="min-w-0 rounded-[14px] bg-white px-3 pt-2.5 pb-[11px] shadow-[inset_0_0_0_1px_var(--color-line)] max-mk-sm:px-2.5 max-mk-sm:pt-[9px] max-mk-sm:pb-2.5"
 						>
-							<Num className="block type-title-lg leading-none max-mk-sm:type-title-md">
+							<Num className="block font-display type-title-lg leading-none max-mk-sm:font-title max-mk-sm:type-title-md">
 								<Count fx="scope.stat" n={k} max={SD_SCOPES[0][(k + 1) as 1 | 2 | 3]} />
 							</Num>
 							<small className="mt-1.5 block type-xs leading-[1.25] text-text-3">{l}</small>
@@ -148,7 +148,7 @@ export function PipePanel() {
 										className="absolute inset-0 origin-left rounded-full bg-[color-mix(in_srgb,var(--color-violet-500)_62%,var(--color-white))]"
 									/>
 								</span>
-								<span className="justify-self-end font-display font-semibold tracking-[-0.03em] whitespace-nowrap">
+								<span className="justify-self-end font-title tracking-[-0.02em] whitespace-nowrap">
 									<Count fx="pipe.count" n={k} max={Math.max(1, r[1])} />
 								</span>
 								<Fade
@@ -176,7 +176,7 @@ export function PipePanel() {
 					className="mt-3 flex items-center justify-between gap-2.5 rounded-[14px] bg-surface-2 px-3.5 py-[11px] type-sm font-semibold"
 				>
 					<span>Launches in the next 12 months</span>
-					<Num className="type-title-md leading-none font-medium">
+					<Num className="font-title type-title-md leading-none">
 						<Count fx="pipe.launch" max={5} />
 					</Num>
 				</St>
@@ -286,7 +286,7 @@ export function LensPanel() {
 export function TopPanel() {
 	return (
 		<NetworkFx>
-			<PanelCard kind="top" variant={{ kind: "insight", tone: "lilac" }}>
+			<PanelCard kind="top" variant={{ kind: "insight", tone: "rose" }}>
 				<InsightTop i={0} icon={ICONS.sparkle} label="Top network finding" count="From 11 of 14 plants" />
 				<InsightMetric
 					i={1}

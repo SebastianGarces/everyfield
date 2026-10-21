@@ -173,7 +173,7 @@ export function PageHead({
 			</p>
 			<h1
 				className={cn(
-					"leading-[1.05] tracking-[-0.035em] text-ink max-app-sm:text-title-lg",
+					"leading-[1.05] tracking-[-0.02em] text-ink max-app-sm:text-title-lg",
 					size === "xl" ? "text-[52px]" : "text-display-sm",
 				)}
 			>
@@ -190,7 +190,7 @@ function Panel({ title, index, children }: { title: string; index: number; child
 			className={cn("reveal flex flex-col gap-3 rounded-lg bg-surface p-[22px] shadow-card")}
 			style={revealDelay(index + 1)}
 		>
-			<h2 className="text-title-sm text-ink">{title}</h2>
+			<h2 className="font-title text-title-sm text-ink">{title}</h2>
 			{children}
 		</section>
 	);

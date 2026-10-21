@@ -205,7 +205,7 @@ function Head({ i, lead, title, sub }: { i: number; lead: ReactNode; title: stri
 		<St i={i} k={0} className="mb-4 flex items-center gap-3">
 			{lead}
 			<div className="min-w-0 flex-1">
-				<div className="font-display type-title-sm leading-[1.2] font-medium tracking-[-0.02em]">{title}</div>
+				<div className="font-title type-title-sm leading-[1.2] tracking-[-0.02em]">{title}</div>
 				<div className="mt-0.5 type-sm text-text-3">{sub}</div>
 			</div>
 		</St>
@@ -270,7 +270,7 @@ function Row({
 			<div className="flex min-h-[30px] items-center gap-2">
 				{chip}
 				{slot}
-				<span className={cn(NUM, "ml-auto type-title-sm")}>{num}</span>
+				<span className={cn(NUM, "ml-auto font-title type-title-sm")}>{num}</span>
 			</div>
 			<div className="relative mt-1.5 h-2.5 overflow-hidden rounded-full bg-surface-2">
 				<Tf fx="meter" n={k} className={cn("absolute inset-0 rounded-full", METER[k])} />

@@ -26,7 +26,7 @@ export function FaqItem({ id, q, children }: { id: string; q: string; children: 
 					aria-expanded={open}
 					aria-controls={id + "-a"}
 					onClick={() => setOpen((o) => !o)}
-					className="group/faq-q flex w-full cursor-pointer items-center justify-between gap-6 border-0 bg-transparent py-[22px] text-left font-display type-mk-lead leading-[1.3] font-medium tracking-[-0.015em] text-ink focus-visible:rounded-[6px] max-mk-cx:py-[18px]"
+					className="group/faq-q flex w-full cursor-pointer items-center justify-between gap-6 border-0 bg-transparent py-[22px] text-left font-title type-mk-lead leading-[1.3] tracking-[-0.02em] text-ink focus-visible:rounded-[6px] max-mk-cx:py-[18px]"
 				>
 					<span>{q}</span>
 					<span

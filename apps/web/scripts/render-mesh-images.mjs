@@ -25,7 +25,11 @@ const sha = (b) => createHash("sha256").update(b).digest("hex");
 const KEYS = ["base", "g1", "g2", "g3", "g4", "g5"];
 
 // Tones from the g-* utilities in marketing.css (token references resolved through tokens.css).
-const tokens = Object.fromEntries([...read("../../../design/handoff/tokens.css").toString().matchAll(/(--ef-grad-[\w-]+):\s*(#[0-9A-Fa-f]{6})/g)].map((m) => [m[1], m[2]]));
+// Light values only (the :root block before the dark theme); a token may point at another token, such as a ramp step.
+const light = read("../../../design/handoff/tokens.css").toString().split('\n[data-theme="dark"] {')[0];
+const raw = Object.fromEntries([...light.matchAll(/(--ef-[\w-]+):\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
+const resolve = (v) => { const r = v.match(/^var\((--ef-[\w-]+)\)$/); return r ? resolve(raw[r[1]]) : v; };
+const tokens = Object.fromEntries(Object.keys(raw).map((k) => [k, resolve(raw[k])]));
 const tones = {};
 for (const m of read("../src/styles/marketing.css").toString().matchAll(/@utility g-(\w+) \{([^}]*)\}/g)) {
   const v = Object.fromEntries([...m[2].matchAll(/--g-?(base|g?\d)\s*:\s*([^;]+);/g)].map((x) => [x[1].startsWith("g") || x[1] === "base" ? x[1] : "g" + x[1], x[2].trim()]));

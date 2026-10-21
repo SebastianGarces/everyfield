@@ -153,7 +153,10 @@ export function SettingsDialog({ section, onNavigate, hrefFor, slots = {}, onDel
 							aria-labelledby={navLabel}
 							className="flex flex-col gap-0.5 border-r border-line bg-frame px-3.5 py-[22px] max-app-sm:border-r-0 max-app-sm:border-b max-app-sm:px-3 max-app-sm:py-3"
 						>
-							<p id={navLabel} className="px-3 pt-1 pb-3.5 font-display text-[22px] max-app-sm:sr-only">
+							<p
+								id={navLabel}
+								className="px-3 pt-1 pb-3.5 font-title tracking-[-0.02em] text-[22px] max-app-sm:sr-only"
+							>
 								Settings
 							</p>
 							<ul className="flex flex-col gap-0.5 max-app-sm:flex-row max-app-sm:flex-wrap max-app-sm:gap-1.5">
@@ -197,7 +200,9 @@ export function SettingsDialog({ section, onNavigate, hrefFor, slots = {}, onDel
 							<DialogHeader
 								title={
 									// The prototype's section title is 26px (the dialog header default is smaller).
-									<span className="text-[26px] leading-[1.15]">{current ? SECTION_LABEL[current] : "Settings"}</span>
+									<span className="font-display text-[26px] leading-[1.15] tracking-[-0.02em]">
+										{current ? SECTION_LABEL[current] : "Settings"}
+									</span>
 								}
 								description={allowed && current ? DESCRIPTION[current] : undefined}
 							/>

@@ -93,10 +93,7 @@ export function InvitationResponse({
 				<CardIcon icon={HierarchyIcon} tone="blue" />
 				<div className="min-w-0 flex-1">
 					<p className="text-sm text-text-3">Connection request for {organization}</p>
-					<h1
-						id="invitation-title"
-						className="mt-1 font-display text-title-md font-medium tracking-[-0.02em] text-ink text-balance"
-					>
+					<h1 id="invitation-title" className="mt-1 font-title text-title-md tracking-[-0.02em] text-ink text-balance">
 						{subject} wants to connect with {organization}
 					</h1>
 				</div>

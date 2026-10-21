@@ -74,7 +74,7 @@ export function Connections({
 		<Card as="section" aria-labelledby={titleId}>
 			<div className="flex flex-wrap items-start gap-x-4 gap-y-3">
 				<div className="min-w-0 flex-1 basis-64">
-					<h2 id={titleId} className="font-display text-title-sm font-medium tracking-[-0.01em] text-ink">
+					<h2 id={titleId} className="font-title text-title-sm tracking-[-0.02em] text-ink">
 						{subject ? "Connections" : "Connected churches"}
 					</h2>
 					<p className="mt-1 text-text-2">

@@ -11,8 +11,8 @@ type Props = { headline: string; items: Item[] } & (
 );
 
 const TONES = {
-	phases: ["g-sky", "g-field", "g-dawn", "g-lilac", "g-sun", "g-sea"],
-	plants: ["g-lilac", "g-sea", "g-dawn", "g-field", "g-sky", "g-sun"],
+	phases: ["g-sky", "g-field", "g-sage", "g-rose", "g-sun", "g-sea"],
+	plants: ["g-rose", "g-sea", "g-sage", "g-field", "g-sky", "g-sun"],
 };
 const num = (i: number) => String(i + 1).padStart(2, "0");
 
@@ -49,7 +49,7 @@ export function PhasesRail(props: Props) {
 					>
 						<span
 							aria-hidden="true"
-							className="absolute top-4 left-[18px] font-display type-mk-display-xl leading-[.8] font-medium tracking-[-0.06em] text-ink tabular-nums"
+							className="absolute top-4 left-[18px] font-display type-mk-display-xl leading-[.8] tracking-[-0.02em] text-ink tabular-nums"
 						>
 							{num(i)}
 						</span>
@@ -62,7 +62,7 @@ export function PhasesRail(props: Props) {
 							<span className="text-text-3 tabular-nums">{num(i)}</span>
 							<span className="text-text-2">{x.label}</span>
 						</span>
-						<h3 className="mt-2.5 font-display type-title-md leading-[1.15] font-medium tracking-[-0.02em] [font-stretch:100%] [text-wrap:balance]">
+						<h3 className="mt-2.5 font-title type-title-md leading-[1.15] tracking-[-0.02em] [text-wrap:balance]">
 							{x.title}
 						</h3>
 						<p className="mt-2 type-lg leading-[1.5] text-text-2">{x.short || x.body || ""}</p>

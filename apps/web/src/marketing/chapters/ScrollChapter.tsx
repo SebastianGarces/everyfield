@@ -446,7 +446,7 @@ export function ScrollChapter({ id, title, steps }: Props) {
 								"max-mk-cx:static max-mk-cx:border-b-0 max-mk-cx:pb-2 max-mk-cx:before:hidden max-mk-cx:after:hidden",
 							)}
 						>
-							<h2 className="mk-display text-mk-h2 mk-cx:motion-safe:text-[color-mix(in_srgb,var(--color-ink)_52%,var(--color-mk-canvas))]">
+							<h2 className="mk-display font-display text-mk-h2 mk-cx:motion-safe:text-[color-mix(in_srgb,var(--color-ink)_52%,var(--color-mk-canvas))]">
 								{title.map((p, i) =>
 									typeof p === "string" ? (
 										p

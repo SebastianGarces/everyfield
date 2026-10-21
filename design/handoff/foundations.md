@@ -4,7 +4,7 @@ The rules behind the prototype in `design/everyfield-ui.html`. Every value named
 
 Open the prototype and use the dock at the bottom of the screen to reach Foundations, Components, Inventory, Mobile and Emails.
 
-This page describes the brand that the app uses today. An approved next brand is drawn in `design/everyfield-ui-rebrand.html` and `design/everyfield-marketing.html`. The app does not use it yet. See [Next brand](#next-brand-approved-2026-10-20-not-in-the-app-yet) at the end of this page.
+This page describes the brand drawn in `design/everyfield-ui.html` and `design/everyfield-marketing.html`, approved on 2026-10-20. The app tokens, fonts and tone names follow it since R1. Where an earlier section and [Brand](#brand-approved-2026-10-20) at the end of this page disagree, the Brand section wins.
 
 ## Themes
 
@@ -18,12 +18,12 @@ Each hue has one job. Token names stay generic so a hue can change later without
 
 | Hue token | Role | Built from |
 |---|---|---|
-| `green` | healthy, committed, positive, growth | Field, the brand green `#1CE362` |
-| `blue` | measured, actual, information | Sky |
-| `amber` | attention, waiting, draft | Dawn |
+| `green` | healthy, committed, positive, growth | new-growth `#1AF197` (500), text-safe `#026B40` (600) |
+| `blue` | measured, actual, information | softened sky (500 `#6E9FCF`, 600 `#2A6296`) |
+| `amber` | attention, waiting, draft | orange |
 | `magenta` | risk, gap, overdue | rose-coral |
-| `violet` | categories, Evry, top finding | Lilac |
-| `teal` | categories only, such as pipeline stages | lighter teal |
+| `violet` | categories, Evry, top finding | the muted rose ramp |
+| `teal` | categories only, such as pipeline stages | the muted sky ramp |
 
 Every hue has the same steps. Use them like this.
 
@@ -37,7 +37,7 @@ Every hue has the same steps. Use them like this.
 
 Semantic aliases exist for the most common uses: `--ef-positive`, `--ef-accent`, `--ef-measured`, `--ef-risk` and `--ef-attention`.
 
-Neutrals are cool grey. Cream `#F6F0E9` is for brand moments and marketing, not app surfaces. The brand green `#1CE362` is the green 500 step and the color of the logo mark in the top bar. The wordmark next to it stays ink.
+Neutrals are cool grey. Cream `#F6F0E9` is for brand moments and marketing, not app surfaces. New-growth `#1AF197` is the green 500 step, a fill only, never text. The logo is ink.
 
 ### Planned values
 
@@ -64,8 +64,8 @@ The gradient card (`InsightCard`) is the signature surface. Use at most two per 
 |---|---|
 | `field` | default and growth |
 | `sky` | neutral findings |
-| `dawn` | attention and gaps |
-| `lilac` | the most important summary on a page |
+| `sage` | the most important summary on a page |
+| `rose` | risk and needs attention |
 
 The card has three layers. Build it the same way.
 
@@ -83,12 +83,13 @@ Performance is the risk with this card. A 52px blur on an element larger than th
 
 | Family | Use | Weights |
 |---|---|---|
-| Bricolage Grotesque | titles, numbers, the Evry and Guide panel titles | 400, 500, 600, 700 with the optical size axis (12 to 96) |
-| Instrument Sans | everything else | 400, 500, 600, 700 |
+| DM Serif Display | titles and large numbers at 24px and above | 400 |
+| DM Serif Text | titles and numbers below 24px | 400 |
+| DM Sans | everything else, including table numbers | 400 to 700 with the optical size axis |
 
-Load both with `next/font/google` and assign them to `--ef-font-display` and `--ef-font-body`. Both are licensed under the SIL Open Font License.
+Load all three with `next/font/google` and assign them to `--ef-font-display`, `--ef-font-title` and `--ef-font-body` (Tailwind `font-display`, `font-title`, `font-sans`). `apps/web/scripts/check-type-scale.mjs` fails a class string that pairs a serif with the wrong size. All three are licensed under the SIL Open Font License.
 
-The scale is `--ef-text-xs` 12, `sm` 13, `md` 14 (default UI text), `lg` 16, `--ef-title-sm` 18, `md` 22, `lg` 28 and `--ef-display-sm` 40, `md` 56, `lg` 76. Large display text uses negative letter spacing around -0.03em. Numbers in tables and counts use tabular figures (`font-variant-numeric: tabular-nums`).
+The scale is `--ef-text-xs` 12, `sm` 13, `md` 14 (default UI text), `lg` 16, `--ef-title-sm` 18, `md` 22, `lg` 28 and `--ef-display-sm` 40, `md` 56, `lg` 76. Both serifs use letter spacing -0.02em. Numbers in tables and counts use tabular figures (`font-variant-numeric: tabular-nums`).
 
 Wiki and help articles cap their text at 700px and center it in the card.
 
@@ -100,7 +101,7 @@ Every icon-only button needs an accessible name. The prototype takes it from the
 
 ## Shape and elevation
 
-Radii run `--ef-radius-xs` 6, `sm` 10, `md` 14 (buttons and inputs), `lg` 20, `card` 26, `frame` 34 and `pill` 999. Navigation has its own pair. The top-bar pills and rail groups use `--ef-nav-radius` (20px), and the items inside them use `--ef-nav-item-radius` (14px): nav links, rail icons, the search and bell buttons, the Ask Evry chip, the active state and the sliding hover highlight. This replaced fully round pills on 2026-10-10. The prototype's Preview menu can still show the pill shape for comparison. Cards use `--ef-shadow-card`, floating controls `--ef-shadow-raised`, menus and dialogs `--ef-shadow-pop`, navigation pills `--ef-shadow-nav` and the active nav item `--ef-shadow-nav-active`.
+All corners are square: every `--ef-radius-*` token reads a `--corner-*` variable (`card`, `control`, `pill`, `petal`, `media`), and all are 0. Avatars, status dots, radios and switch knobs stay round. The tokens keep their names (`xs`, `sm`, `md`, `lg`, `card`, `frame`, `pill`) so a later corner change is one edit. Navigation has its own pair. The top-bar pills and rail groups use `--ef-nav-radius` (20px), and the items inside them use `--ef-nav-item-radius` (14px): nav links, rail icons, the search and bell buttons, the Ask Evry chip, the active state and the sliding hover highlight. This replaced fully round pills on 2026-10-10. The prototype's Preview menu can still show the pill shape for comparison. Cards use `--ef-shadow-card`, floating controls `--ef-shadow-raised`, menus and dialogs `--ef-shadow-pop`, navigation pills `--ef-shadow-nav` and the active nav item `--ef-shadow-nav-active`.
 
 Spacing is a 4px grid: `--ef-space-1` 4 to `--ef-space-10` 40. Card padding is 22 to 30px. Gaps between cards are 20px.
 
@@ -152,14 +153,14 @@ These rules held in the prototype checks. Keep them in the build.
 - "Not recorded" is different from 0. Show "Not recorded" until someone enters a number.
 - Overlays close with Esc. Settings and Feedback are dialogs with `aria-modal`.
 
-## Next brand (approved 2026-10-20, not in the app yet)
+## Brand (approved 2026-10-20)
 
 Sebastian approved this brand on 2026-10-20. It is drawn in two prototypes:
 
-- `design/everyfield-ui-rebrand.html`: the dashboard. It is a copy of `design/everyfield-ui.html` with the new brand.
+- `design/everyfield-ui.html`: the dashboard.
 - `design/everyfield-marketing.html` with `design/marketing-styles.css`: the marketing page.
 
-`tokens.css`, `assets/` and `components.md` still come from `design/everyfield-ui.html`, because the live app imports `tokens.css`. The sections above stay true for the app until the migration. The migration replaces `design/everyfield-ui.html` with the rebrand file, runs `export.py` and moves the app to the new tokens.
+`tokens.css`, `assets/` (symbol, wordmark and lockup), the product logo paths and `components.md` come from `design/everyfield-ui.html` through `export.py`. R1 moved the app tokens, fonts and gradient tone names to this brand. R2 restyles the dashboard components and R3 the marketing pages.
 
 ### Logo
 
@@ -189,7 +190,7 @@ Three muted ramps sampled from the landscape photos, in the same OKLCH lightness
 | `sage` | `#E4EED9` | `#C6D6B4` | `#9BAE86` | `#5F6D4D` |
 | `rose` | `#F9E4E1` | `#EAC6C0` | `#C79A93` | `#825D57` |
 
-The gradient card keeps its three layers (base, blurred OKLCH mesh, grain) with four tones. `dawn` and `lilac` are retired.
+The gradient card keeps its three layers (base, blurred OKLCH mesh, grain) with four tones. `dawn` became `sage` and `lilac` became `rose`; the marketing-only `slate` tone is retired.
 
 | Tone | Use |
 |---|---|

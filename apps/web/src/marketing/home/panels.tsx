@@ -29,7 +29,7 @@ const FOCUS_FACTS = [
 export function FocusPanel({ title }: { title: string }) {
 	return (
 		<HomeFx>
-			<PanelCard kind="focus" variant={{ kind: "insight", tone: "dawn" }}>
+			<PanelCard kind="focus" variant={{ kind: "insight", tone: "sage" }}>
 				<InsightTop i={0} icon={ICONS.compass} label="Focus this week" count="Plant Intelligence" />
 				<InsightMetric
 					i={1}
@@ -105,7 +105,7 @@ export function ReadinessPanel() {
 					sub="Core Group Development · Harvest Point"
 				/>
 				<St i={1} className="flex items-end gap-3 pb-3">
-					<Num className="type-display-sm leading-[.95]">
+					<Num className="font-display type-display-sm leading-[.95]">
 						<Count fx="ready.met" max={4} />
 					</Num>
 					<span className="pb-1 type-sm leading-[1.3] text-text-3">of 5 met</span>

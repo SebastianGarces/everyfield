@@ -77,7 +77,7 @@ function Segment<V extends string>({ option, size }: { option: SegmentOption<V>;
 /** The small count after a tab or segment label. */
 export function CountChip({ children }: { children: ReactNode }) {
 	return (
-		<span className="num rounded-full bg-surface-2 px-[7px] py-px text-xs font-medium tracking-normal text-text-2">
+		<span className="num rounded-full bg-surface-2 px-[7px] py-px font-title text-xs tracking-[-0.02em] text-text-2">
 			{children}
 		</span>
 	);
