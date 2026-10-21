@@ -15,6 +15,7 @@ import { pgTable, integer, text } from "../../../packages/db/src/columns.ts";
 import { assertCurrentCatalog } from "../../../packages/db/src/schema/catalog.ts";
 import { migrate, adoptMigrationHistory, migrationArtifact } from "../../../packages/db/src/schema/migrate.ts";
 import { pdf } from "../platform/fixtures.mjs";
+import { validateCommitment } from "../../../packages/db/src/schema/validate-file.ts";
 import { auth_user, auth_account, auth_session, auth_verification } from "../../../packages/db/src/schema/tables.ts";
 import { authStorage } from "../../../packages/db/src/schema/auth-storage.ts";
 import { canonicalTimeZone } from "../../../packages/db/src/schema/time.ts";
@@ -23,6 +24,7 @@ import {
 	readAuthorizedObject,
 	createAuthorizedDownload,
 	deleteUnreferencedObject,
+	privateStorageFrom,
 } from "../../../packages/db/src/schema/storage.ts";
 const require = createRequire(new URL("../../../packages/db/package.json", import.meta.url));
 
@@ -136,6 +138,36 @@ after(async () => {
 	await admin.execute(querySql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
 	for (const name of [role, authRole]) await admin.execute(querySql.raw(`DROP ROLE IF EXISTS ${name}`));
 	await closeDatabase(admin);
+});
+
+test("BUG-176: a valid PDF passes when the parse worker starts late; a parse past its limit still fails", async () => {
+	// The worker's parser import takes 3.5 s, longer than the 3-second parse limit, as on a loaded runner or a cold start.
+	const parser = pathToFileURL(require.resolve("pdfjs-dist/legacy/build/pdf.mjs")).href;
+	const slowStart = `await new Promise((r) => setTimeout(r, 3500)); export * from ${JSON.stringify(parser)};`;
+	await validateCommitment(pdf(), "application/pdf", {
+		entry: "data:text/javascript," + encodeURIComponent(slowStart),
+	});
+	await assert.rejects(validateCommitment(pdf(), "application/pdf", { parseMs: 1 }), /invalid_file/);
+});
+
+test("INV-storage: only a Vercel production deployment may use the production bucket", () => {
+	const keys = {
+		AWS_ACCESS_KEY_ID: "synthetic",
+		AWS_SECRET_ACCESS_KEY: "synthetic",
+		AWS_ENDPOINT_URL_S3: "https://storage.example.test",
+	};
+	const bucket = (env) => privateStorageFrom({ ...keys, ...env })?.bucket ?? null;
+	// A local preview is a production build: NODE_ENV=production alone is not production.
+	for (const env of [{}, { NODE_ENV: "production" }, { VERCEL_ENV: "preview" }])
+		assert.throws(() => bucket({ ...env, AWS_BUCKET_NAME: "everyfield" }), /production only/);
+	// Incomplete settings with the production bucket are refused too, not read as "no bucket".
+	assert.throws(
+		() => privateStorageFrom({ AWS_BUCKET_NAME: "everyfield", AWS_ENDPOINT_URL_S3: "" }),
+		/production only/,
+	);
+	assert.equal(bucket({ AWS_BUCKET_NAME: "everyfield", VERCEL_ENV: "production" }), "everyfield");
+	assert.equal(bucket({ AWS_BUCKET_NAME: "everyfield-dev" }), "everyfield-dev");
+	assert.equal(bucket({}), null);
 });
 
 test("BUG-112: a Kit column-drop migration passes the drift gate on fresh and upgraded databases", async () => {

@@ -3,7 +3,7 @@ import { sql } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
-import { currentAuthority } from "../context/authority.ts";
+import { currentAuthority, liveAuthority } from "../context/authority.ts";
 import { retainedEvents } from "./retained.ts";
 import { EvryRefusal } from "../context/errors.ts";
 
@@ -97,7 +97,7 @@ export async function listConversations(db: Database, actor: EvryActor, raw: unk
 	const r = await db.execute(sql`
 		WITH matched AS (
 			SELECT c.* FROM conversation c
-			WHERE ${owned(actor, "c")} AND ${currentAuthority(actor)} AND (${pattern}::text IS NULL OR c.title ILIKE ${pattern} OR EXISTS(
+			WHERE ${owned(actor, "c")} AND ${liveAuthority(actor)} AND (${pattern}::text IS NULL OR c.title ILIKE ${pattern} OR EXISTS(
 				SELECT FROM conversation_event e WHERE e.conversation_id=c.id AND e.kind='user_message' AND e.body->>'text' ILIKE ${pattern}))
 		)
 		SELECT (SELECT count(*)::int FROM matched) AS total,
@@ -125,7 +125,7 @@ export async function readConversation(db: Database, actor: EvryActor, id: strin
 			(SELECT j.state FROM job j WHERE j.id=c.active_turn_id) AS run_state,
 			coalesce((SELECT jsonb_agg(jsonb_build_object('sequence',e.sequence,'turnId',e.turn_id,'kind',e.kind,'body',e.body,'createdAt',e.created_at) ORDER BY e.sequence)
 				FROM (${retainedEvents(sql`SELECT * FROM conversation_event WHERE conversation_id=c.id AND sequence>${cursor} ORDER BY sequence LIMIT ${EVENT_PAGE}`)}) e), '[]'::jsonb) AS events
-		FROM conversation c WHERE c.id=${conversationId}::uuid AND ${owned(actor, "c")} AND ${currentAuthority(actor)}`);
+		FROM conversation c WHERE c.id=${conversationId}::uuid AND ${owned(actor, "c")} AND ${liveAuthority(actor)}`);
 	if (!r.rows.length) throw new EvryRefusal("not_found");
 	const row = z
 		.object({ conversation: conversationRow, run_state: z.string().nullable(), events: z.array(eventRow) })
@@ -142,7 +142,7 @@ export async function readConversation(db: Database, actor: EvryActor, id: strin
 export async function latestConversation(db: Database, actor: EvryActor): Promise<Conversation | null> {
 	const r = await db.execute(sql`
 		SELECT ${conversationJson("c")} AS conversation FROM conversation c
-		WHERE ${owned(actor, "c")} AND ${currentAuthority(actor)} ORDER BY c.updated_at DESC, c.id DESC LIMIT 1`);
+		WHERE ${owned(actor, "c")} AND ${liveAuthority(actor)} ORDER BY c.updated_at DESC, c.id DESC LIMIT 1`);
 	return r.rows.length ? conversationRow.parse(r.rows[0]!.conversation) : null;
 }
 

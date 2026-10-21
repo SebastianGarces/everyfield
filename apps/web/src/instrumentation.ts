@@ -1,9 +1,11 @@
 // Runs once when the Node.js server starts, before it serves requests: `next start`, `next dev` and a Vercel function's
 // cold start. The first request after a deploy then finds the identity modules loaded, Better Auth built and one open
 // connection in each identity pool, instead of paying the module load, setup and TLS handshakes itself. The edge runtime
-// (the proxy) has no pools to warm. A failure is logged and never stops the server.
+// (the proxy) has no pools to warm. A warm failure is logged and never stops the server. The private bucket check does
+// stop it: outside production, the production bucket is refused before any request can write to it.
 export async function register() {
 	if (process.env.NEXT_RUNTIME !== "nodejs") return;
+	(await import("@everyfield/db/schema")).privateStorage();
 	const started = performance.now();
 	const ms = () => Math.round(performance.now() - started);
 	try {

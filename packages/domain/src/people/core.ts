@@ -461,7 +461,11 @@ export async function mutation<T>(
 						? "retire"
 						: result.action === "people.restored"
 							? "restore"
-							: "edit",
+							: result.action === "people.merged"
+								? "merge"
+								: result.action === "people.unmerged"
+									? "unmerge"
+									: "edit",
 		before_revision: result.before?.revision ?? null,
 		after_revision: result.after?.revision ?? result.before?.revision ?? "1",
 		before_value: note ? entry?.before_value : delta.before,

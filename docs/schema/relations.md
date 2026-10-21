@@ -192,6 +192,9 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `person_import(actor_id)` | `account(id)` | set_null |  |
 | `person_import(job_id, tenant_id)` | `job(id, tenant_id)` | cascade |  |
 | `person_import(tenant_id)` | `tenant(id)` | no_action |  |
+| `person_merge(source_id, tenant_id)` | `person(id, tenant_id)` | cascade |  |
+| `person_merge(survivor_id, tenant_id)` | `person(id, tenant_id)` | cascade |  |
+| `person_merge(tenant_id)` | `tenant(id)` | no_action |  |
 | `person_note(plant_id)` | `plant(id)` | restrict |  |
 | `person_note(person_id, tenant_id)` | `person(id, tenant_id)` | restrict |  |
 | `person_note(author_id)` | `account(id)` | restrict |  |
@@ -243,6 +246,9 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `reading(completed_revision_id)` | `article_revision(id)` | restrict | Private completion evidence pins an entitled published source revision; completion boundary validates canonical article and exact reader/source rights. |
 | `reading(id, account_id)` | `record(id, tenant_id)` | restrict |  |
 | `record(tenant_id)` | `tenant(id)` | restrict |  |
+| `record_correction(person_id, plant_id)` | `person(id, tenant_id)` | cascade |  |
+| `record_correction(plant_id)` | `plant(id)` | no_action |  |
+| `record_correction(record_id, plant_id)` | `record(id, tenant_id)` | cascade |  |
 | `recurrence(plant_id)` | `plant(id)` | restrict |  |
 | `recurrence(source_task_id, plant_id)` | `task(id, plant_id)` | restrict |  |
 | `recurrence(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
@@ -345,3 +351,6 @@ Every declared Person FK has one registration in `target.json.person_references`
 | `development_enrollment` | `person_id, organization_id` | WP-004, WP-099 |
 | `residency_link` | `person_id, organization_id` | WP-004, WP-008 |
 | `meeting_kit_item` | `assignee_person_id, plant_id` | WP-020 |
+| `person_merge` | `source_id, tenant_id` | WP-015 |
+| `person_merge` | `survivor_id, tenant_id` | WP-015 |
+| `record_correction` | `person_id, plant_id` | WP-015 |
