@@ -617,7 +617,8 @@ export const commitment = pgTable(
 			"btree",
 			table.corrected_commitment_id.asc().nullsLast(),
 			table.plant_id.asc().nullsLast(),
-		),		// One private document belongs to one card.
+		),
+		// One private document belongs to one card.
 		uniqueIndex("commitment_object_uq").using("btree", table.object_id.asc().nullsLast()),
 	],
 );
