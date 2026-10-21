@@ -1,5 +1,5 @@
 import { requireForeground } from "./foreground.ts";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { stripVTControlCharacters } from "node:util";
 import {
@@ -140,7 +140,7 @@ export function verify(root: string, task: TaskRef, role: Role, mode: Mode, head
 	}
 	if (treeUnchanged && task.kind !== "ops" && mode === "full" && existsSync(join(wt, "package.json"))) {
 		console.error("evf verify: running fresh-checkout-typecheck.");
-		checks.push(freshCheckoutTypecheck(root, wt, sha, dir));
+		checks.push(freshCheckoutTypecheck(root, wt, sha, dir, role));
 		treeUnchanged = inputsUnchanged();
 	}
 	// Coverage runs only when some report carries AC: markers; tooling-only reports never opt a task in (D19).
@@ -207,19 +207,28 @@ function withCiParity(own: CheckDef[], configured: CheckDef[]): CheckDef[] {
 /**
  * CI type-checks a fresh clone. Ignored files in the task worktree, such as Next's generated next-env.d.ts, made
  * WP-097's local typecheck pass while CI failed (PR #175), so the typecheck also runs on a clean checkout of HEAD.
+ * Each run checks out into its own new folder and removes only that folder: an author and a verifier checking the
+ * same head at once deleted each other's checkout, and a crashed run's leftover blocked the next run (PR #207).
  */
-function freshCheckoutTypecheck(root: string, wt: string, sha: string, dir: string): CheckResult {
-	const fresh = join(evfDataDir(root), "fresh", sha),
-		log = join(dir, "fresh-checkout-typecheck.log"),
-		steps = [
-			["corepack", "pnpm", "install", "--frozen-lockfile", "--prefer-offline"],
-			["corepack", "pnpm", "typecheck"],
-		];
-	run("git", ["worktree", "remove", "--force", fresh], { cwd: wt });
-	git(wt, "worktree", "add", "--quiet", "--detach", fresh, sha);
+export function freshCheckoutTypecheck(
+	root: string,
+	wt: string,
+	sha: string,
+	dir: string,
+	role: Role,
+	steps: string[][] = [
+		["corepack", "pnpm", "install", "--frozen-lockfile", "--prefer-offline"],
+		["corepack", "pnpm", "typecheck"],
+	],
+): CheckResult {
+	const base = join(evfDataDir(root), "fresh"),
+		log = join(dir, "fresh-checkout-typecheck.log");
+	mkdirSync(base, { recursive: true });
+	const fresh = mkdtempSync(join(base, `${sha.slice(0, 12)}-${role}-`));
 	let output = "",
 		exitCode = 0;
 	try {
+		git(wt, "worktree", "add", "--quiet", "--detach", fresh, sha);
 		for (const argv of steps) {
 			const result = run(argv[0], argv.slice(1), { cwd: fresh });
 			output += `$ ${argv.join(" ")}\n\n${result.stdout}\n${result.stderr}\n`;
@@ -228,6 +237,8 @@ function freshCheckoutTypecheck(root: string, wt: string, sha: string, dir: stri
 		}
 	} finally {
 		run("git", ["worktree", "remove", "--force", fresh], { cwd: wt });
+		rmSync(fresh, { recursive: true, force: true });
+		run("git", ["worktree", "prune"], { cwd: wt });
 	}
 	writeFileSync(log, output);
 	console.error(`evf verify: fresh-checkout-typecheck ${exitCode === 0 ? "passed" : "failed"}.`);
