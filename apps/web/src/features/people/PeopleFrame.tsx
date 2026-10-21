@@ -5,6 +5,7 @@ import { ToastProvider, useToast } from "@everyfield/ui/controls";
 import { initials } from "@everyfield/ui/display";
 import { AppShell, RoleBanner, type ShellNav } from "@everyfield/ui/shell";
 import { createContext, use, useState, type ReactNode } from "react";
+import { useEvryPanel } from "../evry/conversation/EvryPanel.tsx";
 import { AccountMenu } from "../settings/AccountMenu";
 import { firstSection } from "../settings/model";
 import type { SectionSeed, SettingsViewer } from "../settings/port";
@@ -12,7 +13,7 @@ import { useProductSettings } from "../settings/ProductSettings";
 import type { Role } from "./server.ts";
 
 // The product frame around the People and Settings pages. Only destinations that exist are in the navigation; the full
-// product navigation, command palette, notifications and Evry come from their own packages and replace these when they
+// product navigation, command palette and notifications come from their own packages and replace these when they
 // ship. Settings sits at the bottom of the rail and in the user menu behind the name button (screens.md, Overlays).
 
 const PEOPLE = { kind: "link", key: "people", label: "People", href: "/people", icon: UserMultipleIcon } as const;
@@ -70,6 +71,7 @@ export function PeopleFrame({ settings: initial, seed, ...props }: FrameProps) {
 function Frame({ name, settings, seed = null, children }: FrameProps) {
 	const toast = useToast();
 	const dialog = useProductSettings(settings, seed);
+	const evry = useEvryPanel({ inPlant: settings?.context === "plant" });
 	const role = settings && settings.context !== "account" ? settings.role : null;
 	// A plant Member reads People and Tasks and works on their own tasks; organization seats have neither.
 	const banner =
@@ -115,11 +117,12 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 				else later("Search")();
 			}}
 			onNotifications={later("Notifications")}
-			onAskEvry={later("Evry")}
+			onAskEvry={evry.open}
 			banner={banner}
 		>
 			{children}
 			{dialog.element}
+			{evry.element}
 		</AppShell>
 	);
 }
