@@ -1,8 +1,19 @@
 import type { Database, Transaction } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { liveRead } from "@everyfield/domain/access";
-import { PeopleReadContext, peopleReader, personFields } from "@everyfield/domain/people";
-import { listPeopleRequest, personFieldsRequest, personRequest, stage } from "@everyfield/contracts/people";
+import {
+	checkForDuplicates as nativeDuplicates,
+	PeopleReadContext,
+	peopleReader,
+	personFields,
+} from "@everyfield/domain/people";
+import {
+	duplicateCheckRequest,
+	listPeopleRequest,
+	personFieldsRequest,
+	personRequest,
+	stage,
+} from "@everyfield/contracts/people";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
@@ -100,8 +111,38 @@ export const getPersonPhoto: ReadAdapter<z.infer<typeof personInput>> = {
 	},
 };
 
+export const checkForDuplicates: ReadAdapter<z.infer<typeof duplicateCheckRequest>> = {
+	operation: "people.checkForDuplicates",
+	description:
+		"Before proposing a new person, find people in this church who share the email or phone (exact hint) or the name (potential hint). A hint never proves two records are the same person.",
+	input: duplicateCheckRequest,
+	allowed: inPlant,
+	async invoke(tx: Transaction, actor: EvryActor, input): Promise<SourceResult> {
+		const reply = await nativeDuplicates(tx, new PeopleReadContext(actor.authority), input);
+		if (reply.status !== "ok")
+			throw new EvryRefusal(reply.error.code === "invalid_input" ? "invalid_input" : "source_unavailable");
+		const { items, completeness } = reply.value;
+		return {
+			operation: "people.checkForDuplicates",
+			status: "available",
+			rows: items.map((h) => ({
+				kind: "person",
+				id: h.personId,
+				label: h.displayName,
+				fields: { match: h.match, signals: h.signals.join(",") },
+			})),
+			// Hints are bounded; past the bound only the first ones are known, never a false exhaustive total.
+			total: completeness === "complete" ? items.length : null,
+			page: 1,
+			next: null,
+			completeness,
+			exclusions: ["retired people", "contact values"],
+		};
+	},
+};
+
 /** The installed People read tools, in catalog order. */
-export const PEOPLE_READS = [listPeople, getPerson, getPersonPhoto] as const;
+export const PEOPLE_READS = [listPeople, getPerson, getPersonPhoto, checkForDuplicates] as const;
 
 const verifiedRow = z.object({
 	id: z.uuid(),

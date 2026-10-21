@@ -20,6 +20,7 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"people.listPeople",
 		"people.getPerson",
 		"people.getPersonPhoto",
+		"people.checkForDuplicates",
 		"evry.selectReturnedRows",
 	]);
 	for (const id of installed) {

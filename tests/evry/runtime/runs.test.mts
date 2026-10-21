@@ -170,7 +170,9 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 		);
 		assert.deepEqual(
 			operations,
-			who === "owner" || who === "member" ? ["people.listPeople", "people.getPerson", "people.getPersonPhoto"] : [],
+			who === "owner" || who === "member"
+				? ["people.listPeople", "people.getPerson", "people.getPersonPhoto", "people.checkForDuplicates"]
+				: [],
 		);
 	}
 });
