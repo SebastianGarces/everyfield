@@ -34,7 +34,7 @@ import {
 export function recordProblem(code: string): string {
 	switch (code) {
 		case "busy":
-			return "The last save on this card is still running. Your answers are kept; save again when it ends.";
+			return "Another save on this card was still running, so nothing was sent. Save it again when that save ends.";
 		case "future_date":
 			return "This date is after today at your church. Choose today or an earlier date.";
 		case "storage_unavailable":
@@ -288,8 +288,12 @@ export function useRecordForm<E extends { problem?: string }>() {
 			apply(sent.state);
 			return { token: sent.token, key: { key: fresh(), body: "" } };
 		},
-		refused: (token: number, e: E, id: string, what: string) =>
-			apply(formRefused(state.current, token, e, { id, what })),
+		refused: (token: number, e: E, id: string, what: string) => {
+			// Save is disabled while the card waits (C68), so a save that could not start is unexpected: log it (C69).
+			if (e.problem === "busy")
+				console.error(JSON.stringify({ component: "people/records", outcome: "save_not_started", id }));
+			apply(formRefused(state.current, token, e, { id, what }));
+		},
 		unknown: (id: string, what: string, check: () => void) =>
 			apply(
 				formUnknown(state.current, id, what, () => {
