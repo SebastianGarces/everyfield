@@ -27,19 +27,18 @@ export type Config = {
 	maxAgentsMdLines: number;
 	stack: StackDef | null;
 	checks: CheckDef[];
-	maintenanceTasks?: Record<
-		string,
-		{
-			title: string;
-			owningPaths: string[];
-			checks: CheckDef[];
-			risk?: "ordinary" | "sensitive" | "security" | "privacy" | "irreversible";
-			/** A design task owns only design/ files and merges after the verifier and Sebastian's approval. */
-			route?: "design";
-		}
-	>;
+	maintenanceTasks?: Record<string, MaintenanceScope>;
 	taskRisks?: Record<string, "ordinary" | "sensitive" | "security" | "privacy" | "irreversible">;
 	mergePolicy: MergePolicy;
+};
+
+export type MaintenanceScope = {
+	title: string;
+	owningPaths: string[];
+	checks: CheckDef[];
+	risk?: "ordinary" | "sensitive" | "security" | "privacy" | "irreversible";
+	/** A design task owns only design/ files and merges after the verifier and Sebastian's approval. */
+	route?: "design";
 };
 
 export const FEEDBACK_BUG_CLASSES = ["p0", "p1", "p2", "p3"] as const;
@@ -198,6 +197,15 @@ export function loadConfig(root: string): Config {
 	const path = join(root, "evf.config.json");
 	if (!existsSync(path)) fail(`Missing ${path}.`);
 	const cfg = readJson<Config>(path);
+	parseMergePolicy(cfg.mergePolicy);
+	return cfg;
+}
+
+/** The config committed at `rev` in `checkout`: the reviewed text a task branch or PR head carries. */
+export function committedConfig(checkout: string, rev = "HEAD"): Config {
+	const shown = run("git", ["-C", checkout, "show", `${rev}:evf.config.json`]);
+	if (shown.code !== 0) fail(`No committed evf.config.json at ${rev} in ${checkout}.`);
+	const cfg = JSON.parse(shown.stdout) as Config;
 	parseMergePolicy(cfg.mergePolicy);
 	return cfg;
 }

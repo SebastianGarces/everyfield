@@ -1,7 +1,7 @@
-import { fail, loadConfig, run, type Config } from "./lib.ts";
+import { baseRef, committedConfig, fail, git, loadConfig, parseTask, run, type Config } from "./lib.ts";
 import { cachedTriage } from "./feedback.ts";
 import { checkPr } from "./ship.ts";
-import { APPROVED_PROTOTYPE } from "./policy.ts";
+import { APPROVED_PROTOTYPE, changesOnlyOwnRegistration } from "./policy.ts";
 
 /**
  * Human-approved merge for the PRs that never merge automatically: Wiki articles, prototypes, and
@@ -43,21 +43,33 @@ const readPr = (n: number): Pr =>
 		]),
 	) as Pr;
 
+/** Fetch the PR head: a design task's registration is the one reviewed there, never the home checkout's file. */
+function fetchHead(root: string, cfg: Config, pr: Pr): void {
+	git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch, pr.headRefName);
+	if (git(root, "rev-parse", `${cfg.remote}/${pr.headRefName}`) !== pr.headRefOid)
+		fail(`PR #${pr.number} head moved while evf read it. Check the new head, then retry.`);
+}
+
 /** Only the PR classes the owner policy names may merge on his approval; everything else refuses before any write. */
 function routeOf(root: string, cfg: Config, pr: Pr): Route {
 	const fb = /^task\/fb-(\d+)$/.exec(pr.headRefName);
-	const ops = /^task\/ops-(\d+)$/.exec(pr.headRefName);
-	const design = ops && cfg.maintenanceTasks?.[`OPS-${ops[1]}`];
-	if (design?.route === "design") {
+	const ops = /^task\/ops-(\d+)$/.exec(pr.headRefName)?.[1];
+	const task = ops ? parseTask(`OPS-${ops}`) : undefined;
+	if (task) fetchHead(root, cfg, pr);
+	const design = task && committedConfig(root, pr.headRefOid).maintenanceTasks?.[task.id];
+	if (task && design?.route === "design") {
+		const base = git(root, "merge-base", baseRef(root, cfg), pr.headRefOid);
 		const owns = (path: string) =>
-			path !== APPROVED_PROTOTYPE &&
-			design.owningPaths.some((p) => (p.endsWith("/") ? path.startsWith(p) : path === p));
+			path === "evf.config.json"
+				? changesOnlyOwnRegistration(root, task, base, pr.headRefOid)
+				: path !== APPROVED_PROTOTYPE &&
+					design.owningPaths.some((p) => (p.endsWith("/") ? path.startsWith(p) : path === p));
 		const other = pr.files.map((f) => f.path).filter((path) => !owns(path));
 		if (other.length)
 			fail(
 				`PR #${pr.number} is a design task but changes files outside its owning paths or ${APPROVED_PROTOTYPE} (${other.slice(0, 3).join(", ")}).`,
 			);
-		return { kind: "verified", id: `OPS-${ops[1]}` };
+		return { kind: "verified", id: task.id };
 	}
 	if (/^wiki\/[\w.-]+$/.test(pr.headRefName)) {
 		const other = pr.files.map((f) => f.path).filter((path) => !path.startsWith("docs/reference/wiki/"));

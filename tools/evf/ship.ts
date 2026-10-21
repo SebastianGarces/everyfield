@@ -16,7 +16,7 @@ import {
 	type Config,
 	type TaskRef,
 } from "./lib.ts";
-import { requireTaskScope } from "./policy.ts";
+import { maintenanceScope, requireTaskScope } from "./policy.ts";
 import { checkPrBody } from "./pr-body.ts";
 import { formatScope, wpScope } from "./scope.ts";
 import { recordProgress, type ShippedRecord } from "./progress.ts";
@@ -76,15 +76,15 @@ function prFor(wt: string, task: TaskRef): { number: number; url: string; state:
 	return r.code === 0 ? (JSON.parse(r.stdout) as { number: number; url: string; state: string }) : null;
 }
 
-function taskTitle(root: string, task: TaskRef): string {
-	if (task.kind === "ops") return loadConfig(root).maintenanceTasks![task.id].title;
+function taskTitle(root: string, wt: string, task: TaskRef): string {
+	if (task.kind === "ops") return maintenanceScope(wt, task).title;
 	if (task.kind === "fb") return feedbackTitle(root, task.issue!);
 	const pkg = findPackage(loadDag(root), task.wp);
 	return `${pkg.title}${task.part ? ` (${task.part})` : ""}`;
 }
 
-function taskPaths(root: string, task: TaskRef): string[] {
-	if (task.kind === "ops") return loadConfig(root).maintenanceTasks![task.id].owningPaths;
+function taskPaths(root: string, wt: string, task: TaskRef): string[] {
+	if (task.kind === "ops") return maintenanceScope(wt, task).owningPaths;
 	return task.kind === "fb" ? fbOwningPaths(root, task) : pathsForPart(findPackage(loadDag(root), task.wp), task.part);
 }
 
@@ -92,9 +92,9 @@ export function prOpen(root: string, task: TaskRef, bodyFile?: string): number {
 	if (bodyFile) bodyFile = resolve(bodyFile);
 	const cfg = loadConfig(root);
 	const wp = task.kind === "wp" ? task.wp : task.kind === "fb" ? cachedTriage(root, task.issue!)?.wp : undefined;
-	requireTaskScope(root, task, wp);
-	requireRemote(root, cfg);
 	const wt = requireWorktree(root, cfg, task);
+	requireTaskScope(root, wt, task, wp);
+	requireRemote(root, cfg);
 	if (!isClean(wt)) fail("Commit your work first. The worktree is not clean.");
 	const sha = requireVerifiedHead(root, task);
 	git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
@@ -131,7 +131,7 @@ export function prOpen(root: string, task: TaskRef, bodyFile?: string): number {
 			"--head",
 			task.branch,
 			"--title",
-			`${task.id}: ${taskTitle(root, task)}`,
+			`${task.id}: ${taskTitle(root, wt, task)}`,
 			"--body-file",
 			bodyFile,
 			...extra,
@@ -331,9 +331,9 @@ export function checkPr(root: string, number: number, expectedHead?: string): Me
 export function ship(root: string, task: TaskRef): number {
 	const cfg = loadConfig(root),
 		wp = task.kind === "wp" ? task.wp : task.kind === "fb" ? cachedTriage(root, task.issue!)?.wp : undefined;
-	requireTaskScope(root, task, wp);
-	requireRemote(root, cfg);
 	const wt = requireWorktree(root, cfg, task);
+	requireTaskScope(root, wt, task, wp);
+	requireRemote(root, cfg);
 	if (isPrototype(root, task)) fail(`${task.id} is a prototype. Sebastian approves it in chat before evf approve.`);
 	if (!isClean(wt)) fail("The task worktree must be clean before shipping.");
 	const pr = prFor(wt, task);
@@ -343,7 +343,7 @@ export function ship(root: string, task: TaskRef): number {
 	const sha = git(wt, "rev-parse", "HEAD"),
 		baseSha = git(root, "merge-base", sha, baseRef(root, cfg));
 	const verification = checkPr(wt, pr.number, sha);
-	if (task.kind === "ops" && cfg.maintenanceTasks![task.id].route === "design") {
+	if (task.kind === "ops" && maintenanceScope(wt, task).route === "design") {
 		postStatus(wt, cfg, sha, "success", `Verified by ${verification.approval.verifierFamily} at ${sha.slice(0, 10)}`);
 		console.log(
 			`PR #${pr.number} is a verified design task and waits for Sebastian's chat approval, then evf approve.`,
@@ -391,7 +391,7 @@ function afterMerge(
 		base_sha: baseSha,
 		verification,
 		evidence: {
-			path: taskPaths(root, task)[0] ?? "",
+			path: taskPaths(root, wt, task)[0] ?? "",
 			commit: mergeSha,
 			test: `GitHub required CI and ${verification.approval.verifierFamily} approval`,
 			result: "passed",
