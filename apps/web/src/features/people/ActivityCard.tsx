@@ -58,6 +58,11 @@ const ACTION: Record<Extract<Item, { kind: "activity" }>["action"], string> = {
 	commitment_withdrawn: "Commitment withdrawn",
 	commitment_reactivated: "Commitment reactivated",
 	commitment_corrected: "Commitment corrected",
+	// C16: plain labels so the build accepts the WP-015 events; WP-015/ui owns their design.
+	assessment_corrected: "Assessment corrected",
+	interview_corrected: "Interview corrected",
+	person_merged: "Merged a duplicate",
+	person_unmerged: "Unmerged a duplicate",
 };
 const FOLLOW_UP: Record<Extract<Item, { kind: "follow_up" }>["outcome"], string> = {
 	contacted: "Follow-up: contacted",

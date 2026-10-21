@@ -10,6 +10,9 @@ export {
 } from "./queries.ts";
 export { detachAccountPersonLinks } from "./references.ts";
 export { checkForDuplicates } from "./duplicates.ts";
+export { peopleMerge } from "./merge/index.ts";
+export { peopleUnmerge } from "./unmerge/index.ts";
+export { recordCorrections } from "./corrections/index.ts";
 
 export { contactColumns, PeopleReadContext, Refusal, withPeopleWrite } from "./core.ts";
 export { personFields, readPersonPhoto, uploadPersonPhoto } from "./fields/index.ts";
