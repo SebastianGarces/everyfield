@@ -68,7 +68,6 @@ export type Draft = {
 export type Commit = {
 	before: TaskDetail | null;
 	preview: TaskItem;
-	payload: unknown;
 	send: (key: string, revision: string) => Promise<Outcome<Saved>>;
 	draft: Draft;
 };
@@ -271,7 +270,7 @@ function Form({
 				assignee: assigneeId ? { accountId: assigneeId as never, displayName: draft.assigneeName ?? "" } : null,
 				relation: draft.relation as TaskItem["relation"],
 			};
-			return onCommit({ before: task, preview, payload, send, draft });
+			return onCommit({ before: task, preview, send, draft });
 		}
 		const call = (key: string) => send(key, task?.revision ?? "0");
 		const slot = task ? `edit:${task.id}` : "create";

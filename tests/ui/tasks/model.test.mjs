@@ -9,6 +9,8 @@
 //   INV-counts: a confirmed change moves one task between tallies; a deleted task only leaves.
 //   AC:TARGET-TSK-001 INV-membership: a saved task joins the list only when it matches the query (view, search, status,
 //     priority, category, link, due kind, team), as the server's scope would.
+//   INV-intent: each save keeps the key and revision of its first send; a retry resends both even after other saves
+//     (BUG #189 round 2: a retried lost create after another create sent a new key and saved twice).
 //   INV-optimistic: changes in flight show at once (new task first, edit applied, delete hidden, status shown) and the
 //     confirmed rows stand when they fall away.
 import assert from "node:assert/strict";
@@ -16,6 +18,7 @@ import { test } from "node:test";
 import {
 	countsAfter,
 	dueInputOf,
+	Intent,
 	listRequest,
 	matches,
 	NO_PENDING,
@@ -183,4 +186,18 @@ test("AC:TARGET-TSK-001 INV-membership: a saved task joins the list only when it
 	);
 	assert.equal(matches(parse(`view=all&team=${team}`), task(), me), false, "team");
 	assert.equal(matches(parse("view=all&due=local_date"), task(), me), false, "due kind");
+});
+
+test("INV-intent: a retry resends its own first key and revision, whatever other saves happened since", () => {
+	let n = 0;
+	const fresh = () => `k${++n}`;
+	const a = new Intent(fresh);
+	const first = a.send(() => "4");
+	const b = new Intent(fresh);
+	assert.notEqual(b.send(() => "5").key, first.key, "another save has its own key");
+	assert.deepEqual(
+		a.send(() => "9"),
+		{ key: first.key, revision: "4" },
+		"the retry of A is identical to its first send",
+	);
 });

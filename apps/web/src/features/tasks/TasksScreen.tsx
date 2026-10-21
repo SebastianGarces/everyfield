@@ -64,7 +64,7 @@ import {
 	rangeText,
 	RELATION_LABEL,
 	RELATIONS,
-	RequestKeys,
+	Intent,
 	SORT_LABEL,
 	SORTS,
 	STATUS_LABEL,
@@ -150,7 +150,6 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	const [busy, setBusy] = useState<ReadonlySet<string>>(() => new Set());
 	const [editing, setEditing] = useState<{ task: TaskDetail | "new"; draft?: Draft } | null>(null);
 	const [deleting, setDeleting] = useState<TaskItem | null>(null);
-	const keys = useRef(new RequestKeys());
 	const loading = useRef(new Set<string>());
 	const query = loaded.query;
 
@@ -347,33 +346,35 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 		);
 		queue.current.set(id, run);
 	};
-	/** One request with its retry-safe key: a lost answer resends the same key, so the writer replays. */
+	/** One request of a save intent: a retry of a lost answer resends the intent's key and revision. */
 	const keyed = (
 		id: string,
-		slot: string,
-		payload: unknown,
+		intent: Intent,
 		call: (key: string, revision: string) => Promise<Outcome<Saved>>,
-		revision: string,
+		revision: () => string,
 	) => {
-		const key = keys.current.for(slot, { revision, payload });
-		return call(key, revision).then((r) => {
-			keys.current.settle(slot, r);
+		const sent = intent.send(revision);
+		return call(sent.key, sent.revision).then((r) => {
 			if (r.status === "ok") revisions.current.set(id, r.value.task.revision);
 			return r;
 		});
 	};
 
-	const act = (task: Pick<TaskItem, "id" | "revision" | "title" | "status">, action: StatusAction, parentId?: string) =>
+	const act = (
+		task: Pick<TaskItem, "id" | "revision" | "title" | "status">,
+		action: StatusAction,
+		parentId?: string,
+		intent = new Intent(),
+	) =>
 		serial(
 			task.id,
 			() => setPending({ kind: "status", id: task.id, status: targetOf(action) }),
 			() =>
 				keyed(
 					task.id,
-					`status:${task.id}`,
-					action,
+					intent,
 					(key, rev) => changeTaskStatus(key, rev, task.id, action),
-					revisionOf(task),
+					() => revisionOf(task),
 				),
 			(r) => {
 				if (r.status === "ok") {
@@ -381,12 +382,12 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 					else confirm(task as TaskItem, r.value);
 					if (action.kind === "waive")
 						toast({ tone: "success", message: `Closed “${task.title}” as no longer needed.` });
-				} else fail(task, r, () => act(task, action, parentId), parentId);
+				} else fail(task, r, () => act(task, action, parentId, intent), parentId);
 			},
 		);
 
 	/** New task or edit, shown at once. A refusal puts the row back and offers the form again with the person's text. */
-	const commit = (c: Commit) => {
+	const commit = (c: Commit, intent = new Intent()) => {
 		const before = c.before;
 		const id = before?.id ?? c.preview.id;
 		serial(
@@ -396,7 +397,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				if (before) setPending({ kind: "row", id, row: fits ? c.preview : null });
 				else if (fits) setPending({ kind: "add", row: c.preview });
 			},
-			() => keyed(id, before ? `edit:${id}` : "create", c.payload, c.send, before ? revisionOf(before) : "0"),
+			() => keyed(id, intent, c.send, () => (before ? revisionOf(before) : "0")),
 			(r) => {
 				if (r.status === "ok") return saved(before, r.value);
 				const what = before ? `“${before.title}” did not change.` : `“${c.preview.title}” was not added.`;
@@ -405,7 +406,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 					message: `${what} ${problemText(r.status === "lost" ? "lost" : r.code)}`,
 					action:
 						r.status === "lost"
-							? { label: "Try again", altText: "Save the same change again", onSelect: () => commit(c) }
+							? { label: "Try again", altText: "Save the same change again", onSelect: () => commit(c, intent) }
 							: {
 									label: "Open the form",
 									altText: "Open the task form with your changes",
@@ -436,12 +437,18 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	const canAct = (task: Pick<TaskItem, "assignee">) => admin || task.assignee?.accountId === viewer.accountId;
 
 	/** Delete, shown at once: the row leaves; a refusal brings it back with the reason. */
-	const remove = (task: TaskItem) => {
+	const remove = (task: TaskItem, intent = new Intent()) => {
 		if (openId === task.id) close();
 		serial(
 			task.id,
 			() => setPending({ kind: "row", id: task.id, row: null }),
-			() => keyed(task.id, `delete:${task.id}`, null, (key, rev) => deleteTask(key, rev, task.id), revisionOf(task)),
+			() =>
+				keyed(
+					task.id,
+					intent,
+					(key, rev) => deleteTask(key, rev, task.id),
+					() => revisionOf(task),
+				),
 			(r) => {
 				if (r.status === "ok") {
 					confirm(task, r.value);
@@ -452,7 +459,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 					message: `“${task.title}” was not deleted. ${problemText(r.status === "lost" ? "lost" : r.code)}`,
 					action:
 						r.status === "lost"
-							? { label: "Try again", altText: "Delete the task again", onSelect: () => remove(task) }
+							? { label: "Try again", altText: "Delete the task again", onSelect: () => remove(task, intent) }
 							: undefined,
 				});
 				if (r.status === "refused" && r.code === "conflict") refresh(task.id);

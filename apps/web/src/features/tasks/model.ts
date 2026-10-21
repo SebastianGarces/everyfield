@@ -440,3 +440,19 @@ export function matches(q: TaskQuery, t: TaskItem, you: string): boolean {
 	if (q.teamId && !(t.relation?.kind === "team" && t.relation.id === q.teamId)) return false;
 	return true;
 }
+
+/**
+ * One save the person asked for. Its first send fixes the request key and the revision it was based on; every retry of
+ * that save resends both, so the writer replays the first result instead of saving twice. Each intent has its own key,
+ * so later saves never replace it.
+ */
+export class Intent {
+	#sent: { key: string; revision: string } | null = null;
+	readonly #fresh: () => string;
+	constructor(fresh: () => string = () => crypto.randomUUID()) {
+		this.#fresh = fresh;
+	}
+	send(revision: () => string): { key: string; revision: string } {
+		return (this.#sent ??= { key: this.#fresh(), revision: revision() });
+	}
+}
