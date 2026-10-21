@@ -40,6 +40,7 @@ export type StageDraft = { stage: StageValue | null; reason: string };
 export type PersonDraft = unknown;
 
 const WARNING: Record<Warnings["warnings"][number], string> = {
+	assessment_not_recorded: "No Four Cs assessment is recorded for this person.",
 	interview_not_recorded: "No interview is recorded for this person.",
 	commitment_not_recorded: "No current commitment is recorded for this person.",
 	open_duties: "This person has open follow-up work.",

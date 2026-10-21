@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 84 tables, 971 columns, 309 declared FKs and 21 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 85 tables, 986 columns, 312 declared FKs and 21 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -135,7 +135,7 @@ This mapping is generated from `replaces`; Fix 2 uses it to align architecture, 
 | `owned_document_revisions` | `document_revision` |
 | `owned_documents` | `document` |
 | `person` | `person` |
-| `person_4c_assessment` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
+| `person_4c_assessment` | `four_cs` |
 | `person_activity` | `audit_event`, `person_note` |
 | `person_attestation` | `attestation` |
 | `person_commitment` | `commitment` |
