@@ -1,12 +1,19 @@
 "use client";
 
-import { Calendar03Icon, CheckListIcon, Clock01Icon, UserGroupIcon, UserIcon } from "@hugeicons/core-free-icons";
+import {
+	Calendar03Icon,
+	CheckListIcon,
+	Clock01Icon,
+	Link04Icon,
+	UserGroupIcon,
+	UserIcon,
+} from "@hugeicons/core-free-icons";
 import { Checkbox } from "@everyfield/ui/controls";
 import { Avatar, StatusBadge, type Status as Tone } from "@everyfield/ui/display";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import type { PointerEvent, ReactNode } from "react";
 import { When } from "../people/parts.tsx";
-import { dueText, isSettled, PRIORITY_LABEL, STATUS_LABEL, type Status, type TaskItem } from "./model.ts";
+import { blockedText, dueText, isSettled, PRIORITY_LABEL, STATUS_LABEL, type Status, type TaskItem } from "./model.ts";
 
 // Small pieces the task row and the task panel share.
 
@@ -114,6 +121,14 @@ export function MetaLine({ task, year }: { task: TaskItem; year: number }) {
 			<StatusBadge key="status" status={STATUS_TONE[task.status]} size="sm">
 				{STATUS_LABEL[task.status]}
 			</StatusBadge>,
+		);
+	// The advisory badge from unfinished prerequisites, in words and with its own icon, apart from the Blocked status.
+	if (task.openPrerequisites > 0 && !isSettled(task.status))
+		parts.push(
+			<span key="waits" className="inline-flex items-center gap-1.5">
+				<Icon icon={Link04Icon} size={16} />
+				{blockedText(task.openPrerequisites)}
+			</span>,
 		);
 	if (task.priority === "urgent" || task.priority === "high")
 		parts.push(

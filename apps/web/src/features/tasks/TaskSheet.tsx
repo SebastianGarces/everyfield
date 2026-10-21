@@ -1,31 +1,37 @@
 "use client";
 
-import { ArrowDown01Icon, Delete02Icon, PencilEdit02Icon } from "@hugeicons/core-free-icons";
+import { Alert02Icon, ArrowDown01Icon, Delete02Icon, Link04Icon, PencilEdit02Icon } from "@hugeicons/core-free-icons";
 import { Button, Menu, MenuContent, MenuTrigger, Sheet, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { useState } from "react";
 import { PersonLink, When } from "../people/parts.tsx";
 import type { StatusAction } from "./actions.ts";
-import { loadHistory } from "./fetch.ts";
+import { loadHistory, type Loaded } from "./fetch.ts";
 import {
+	blockedText,
 	CATEGORY_LABEL,
 	isSettled,
 	PRIORITY_LABEL,
 	problemText,
+	shownSteps,
 	STATUS_LABEL,
-	type TaskDetail,
+	type Pending,
+	type Prerequisite,
+	type Rule,
+	type Step,
 	type TaskHistory,
 	type TaskItem,
 } from "./model.ts";
-import { DoneBox, DueLine, STATUS_TONE } from "./parts.tsx";
+import { DueLine, STATUS_TONE } from "./parts.tsx";
+import { BlockedBy, Repeats, Section, Steps, type StepAssignee } from "./structure.tsx";
 import { StatusItems, type Viewer } from "./TasksScreen.tsx";
 
-export type DetailState =
-	| { status: "loading" }
-	| { status: "failed"; code: string }
-	| { status: "ok"; task: TaskDetail; history: TaskHistory | null };
-type Step = TaskDetail["checklistItems"][number];
+export type DetailState = { status: "loading" } | { status: "failed"; code: string } | ({ status: "ok" } & Loaded);
+/** The panel section being edited, with the person's choice from a refused save to show again. */
+export type PanelEdit = { kind: "prerequisites"; draft?: Prerequisite[] } | { kind: "repeat"; draft?: Rule | null };
+/** A failed change made from this panel, told here with its next step. */
+export type PanelProblem = { message: string; action?: { label: string; altText: string; onSelect: () => void } };
 type Entry = TaskHistory["items"][number];
 
 const SOURCE: Record<Entry["source"], string> = {
@@ -67,10 +73,19 @@ export function TaskSheet({
 	onEdit,
 	onDelete,
 	onRetry,
-	onStep,
+	pending,
 	canActStep,
 	stepBusy,
-	overlay,
+	onStep,
+	onAddStep,
+	onRemoveStep,
+	edit,
+	onEditPanel,
+	onPrerequisites,
+	onRepeat,
+	onOpenTask,
+	problem,
+	onDismissProblem,
 }: {
 	task: TaskItem | null;
 	state: DetailState | null;
@@ -84,13 +99,23 @@ export function TaskSheet({
 	onEdit: () => void;
 	onDelete: () => void;
 	onRetry: () => void;
-	onStep: (step: Step, a: StatusAction) => void;
+	/** Changes still in flight, shown before they are confirmed. */
+	pending: Pending;
 	canActStep: (step: Step) => boolean;
 	stepBusy: (id: string) => boolean;
-	/** Status changes still in flight, shown before they are confirmed. */
-	overlay: Record<string, TaskItem["status"]>;
+	onStep: (step: Step, complete: boolean) => void;
+	onAddStep: (title: string, assignee: StepAssignee) => void;
+	onRemoveStep: (step: Step) => void;
+	edit: PanelEdit | null;
+	onEditPanel: (edit: PanelEdit | null) => void;
+	onPrerequisites: (items: Prerequisite[]) => void;
+	onRepeat: (rule: Rule | null) => void;
+	onOpenTask: (id: string) => void;
+	problem: PanelProblem | null;
+	onDismissProblem: () => void;
 }) {
 	const detail = state?.status === "ok" ? state.task : null;
+	const panel = detail ? pending.panel[detail.id] : undefined;
 	// The row is the latest confirmed or optimistic state; the detail adds description, steps and history.
 	const task: TaskItem | null = row ?? detail;
 	const admin = viewer.role !== "member";
@@ -105,6 +130,12 @@ export function TaskSheet({
 						<StatusBadge status={STATUS_TONE[task.status]} size="sm">
 							{STATUS_LABEL[task.status]}
 						</StatusBadge>
+						{task.openPrerequisites > 0 && !isSettled(task.status) ? (
+							<span className="inline-flex items-center gap-1.5">
+								<Icon icon={Link04Icon} size={16} />
+								{blockedText(task.openPrerequisites)}
+							</span>
+						) : null}
 						{task.managed ? "Created by a meeting" : null}
 					</span>
 				) : undefined
@@ -140,6 +171,34 @@ export function TaskSheet({
 				<Loading />
 			) : (
 				<div className="flex flex-col gap-6">
+					<div role="alert" className="empty:hidden">
+						{problem ? (
+							<div className="flex flex-col gap-2 rounded-md bg-magenta-50 px-3.5 py-3 text-sm text-magenta-600">
+								<p className="flex items-start gap-2">
+									<Icon icon={Alert02Icon} size={16} className="mt-px flex-none" />
+									{problem.message}
+								</p>
+								<div className="flex gap-2 pl-6">
+									{problem.action ? (
+										<Button
+											variant="secondary"
+											size="sm"
+											aria-label={problem.action.altText}
+											onClick={() => {
+												onDismissProblem();
+												problem.action!.onSelect();
+											}}
+										>
+											{problem.action.label}
+										</Button>
+									) : null}
+									<Button variant="ghost" size="sm" onClick={onDismissProblem}>
+										Dismiss
+									</Button>
+								</div>
+							</div>
+						) : null}
+					</div>
 					{canAct ? (
 						<div className="flex flex-wrap items-center gap-2.5">
 							<Button
@@ -228,30 +287,50 @@ export function TaskSheet({
 									<p className="text-sm text-text-3">No description.</p>
 								)}
 							</Section>
-							{detail.checklistItems.length ? (
-								<Section title="Steps">
-									<ul>
-										{detail.checklistItems
-											.map((saved) => ({ ...saved, status: overlay[saved.id] ?? saved.status }))
-											.map((s) => (
-												<li key={s.id} className="flex items-center gap-3 border-t border-line py-2.5 first:border-t-0">
-													<DoneBox
-														task={s}
-														canAct={canActStep(s)}
-														busy={stepBusy(s.id)}
-														onToggle={() => onStep(s, isSettled(s.status) ? { kind: "reopen" } : { kind: "complete" })}
-													/>
-													<span
-														className={cn("min-w-0 flex-1 text-ink", isSettled(s.status) && "text-text-3 line-through")}
-													>
-														{s.title}
-													</span>
-													<span className="text-sm text-text-3">{s.assignee?.displayName ?? "Needs owner"}</span>
-												</li>
-											))}
-									</ul>
-								</Section>
-							) : null}
+							<Steps
+								steps={shownSteps(detail.checklistItems, detail.id, pending)}
+								taskAssignee={task.assignee}
+								canAdd={!detail.parentId && !detail.deleted && (admin || task.assignee?.accountId === viewer.accountId)}
+								admin={admin}
+								you={viewer.accountId}
+								canTick={canActStep}
+								busy={stepBusy}
+								onTick={onStep}
+								onRemove={onRemoveStep}
+								onAdd={onAddStep}
+							/>
+							{detail.parentId ? null : (
+								<>
+									<BlockedBy
+										task={task}
+										items={
+											panel?.prerequisites ?? (state?.status === "ok" ? (state.prerequisites?.items ?? null) : null)
+										}
+										admin={admin}
+										editing={edit?.kind === "prerequisites"}
+										draft={edit?.kind === "prerequisites" ? edit.draft : undefined}
+										onEdit={() => onEditPanel({ kind: "prerequisites" })}
+										onCancel={() => onEditPanel(null)}
+										onSave={onPrerequisites}
+										onOpen={onOpenTask}
+									/>
+									<Repeats
+										task={{
+											id: detail.id,
+											recurrence: panel && "recurrence" in panel ? (panel.recurrence ?? null) : detail.recurrence,
+										}}
+										occurrence={state?.status === "ok" ? state.occurrence : null}
+										canEdit={admin && !detail.managed && !detail.deleted}
+										editing={edit?.kind === "repeat"}
+										draft={edit?.kind === "repeat" ? edit.draft : undefined}
+										year={year}
+										onEdit={() => onEditPanel({ kind: "repeat" })}
+										onCancel={() => onEditPanel(null)}
+										onSave={onRepeat}
+										onOpen={onOpenTask}
+									/>
+								</>
+							)}
 							<History key={detail.id} taskId={detail.id} history={state?.status === "ok" ? state.history : null} />
 						</>
 					) : state?.status === "failed" ? (
@@ -273,15 +352,6 @@ export function TaskSheet({
 				</div>
 			)}
 		</Sheet>
-	);
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-	return (
-		<section className="flex flex-col gap-2">
-			<h3 className="text-sm font-semibold text-ink-2">{title}</h3>
-			{children}
-		</section>
 	);
 }
 

@@ -12,7 +12,8 @@
 //   INV-intent: each save keeps the key and revision of its first send; a retry resends both even after other saves
 //     (BUG #189 round 2: a retried lost create after another create sent a new key and saved twice).
 //   INV-optimistic: changes in flight show at once (new task first, edit applied, delete hidden, status shown) and the
-//     confirmed rows stand when they fall away.
+//     confirmed rows stand when they fall away. AC:TARGET-TSK-005 (WP-025/ui): the same holds for a task's steps: a new
+//     step shows under its own task, a removed one hides and a tick shows.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -23,6 +24,7 @@ import {
 	matches,
 	NO_PENDING,
 	shownRows,
+	shownSteps,
 	withChange,
 	parseQuery,
 	querySearch,
@@ -146,6 +148,21 @@ test("INV-optimistic: changes in flight show at once; the confirmed rows stand w
 		],
 	);
 	assert.deepEqual(shownRows(items, NO_PENDING), items);
+	// Steps (AC:TARGET-TSK-005): one parent's changes never show under another parent.
+	const steps = [row("s1"), row("s2"), row("s3")];
+	let q = withChange(NO_PENDING, { kind: "step", parentId: "p", step: row("pending:s", { title: "Bring napkins" }) });
+	q = withChange(q, { kind: "step", parentId: "other", step: row("pending:o") });
+	q = withChange(q, { kind: "row", id: "s2", row: null });
+	q = withChange(q, { kind: "status", id: "s3", status: "complete" });
+	assert.deepEqual(
+		shownSteps(steps, "p", q).map((s) => [s.id, s.title, s.status]),
+		[
+			["s1", "s1", "not_started"],
+			["s3", "s3", "complete"],
+			["pending:s", "Bring napkins", "not_started"],
+		],
+	);
+	assert.deepEqual(shownSteps(steps, "p", NO_PENDING), steps);
 });
 
 test("AC:TARGET-TSK-001 INV-membership: a saved task joins the list only when it matches the query", () => {
@@ -197,7 +214,7 @@ test("INV-intent: a retry resends its own first key and revision, whatever other
 	assert.notEqual(b.send(() => "5").key, first.key, "another save has its own key");
 	assert.deepEqual(
 		a.send(() => "9"),
-		{ key: first.key, revision: "4" },
+		{ key: first.key, basis: "4" },
 		"the retry of A is identical to its first send",
 	);
 });

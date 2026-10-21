@@ -5,8 +5,8 @@ import type { z } from "zod";
 import type { Outcome } from "./model.ts";
 import { loadTask, read, reader, taskViewer, type TaskViewer } from "./server.ts";
 
-// GET /tasks/read: the Tasks screens' reads after the first paint (the open task, more history, the seats and the
-// people, meetings or teams a task may name). A GET handler, not a server action, so a read never waits for a save or
+// GET /tasks/read: the Tasks screens' reads after the first paint (the open task, more history, the seats, the
+// people, meetings or teams a task may name, and the tasks one may wait for). A GET handler, not a server action, so a read never waits for a save or
 // holds one up. Every read rechecks the live seat inside its statement (C13).
 
 const answer = (body: Outcome<unknown>) => Response.json(body, { headers: { "cache-control": "private, no-store" } });
@@ -39,6 +39,12 @@ export async function GET(request: Request) {
 		case "seats":
 			return answer(
 				await read(viewer, async (tx) => refusalOf(await taskReader.eligibleAssignees(tx, viewer.authority))),
+			);
+		case "candidates":
+			return answer(
+				await parsed(c.prerequisiteCandidatesRequest, { taskId: p.get("id"), search: p.get("search") ?? "" }, (v) =>
+					read(viewer, async (tx) => refusalOf(await taskReader.prerequisiteCandidates(tx, viewer.authority, v))),
+				),
 			);
 		case "relations":
 			return answer(
