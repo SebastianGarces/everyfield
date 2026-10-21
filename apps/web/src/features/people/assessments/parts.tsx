@@ -24,6 +24,7 @@ import {
 	formSettled,
 	formStart,
 	formUnknown,
+	formWaiting,
 	withRecord,
 	type FormState,
 	type Notice,
@@ -32,8 +33,6 @@ import {
 /** Why a record was not saved, or may not be, in words. `busy` means another change to this person is still saving. */
 export function recordProblem(code: string): string {
 	switch (code) {
-		case "busy":
-			return "Another change to this person is still saving. Try again in a moment.";
 		case "future_date":
 			return "This date is after today at your church. Choose today or an earlier date.";
 		case "storage_unavailable":
@@ -281,9 +280,28 @@ export function useRecordForm<E extends { problem?: string }>() {
 					check();
 				}),
 			),
+		waiting: (id: string, what: string, send: () => void) =>
+			apply(
+				formWaiting(state.current, id, what, () => {
+					apply(formChecking(state.current));
+					send();
+				}),
+			),
 		settled: (id: string) => apply(formSettled(state.current, id)),
 		dismiss: () => apply(formDismiss(state.current)),
 	};
+}
+
+/** The notice in words. Only a server answer says "not saved"; a save that never left says it is not sent yet. */
+function noticeText(notice: Notice): string {
+	switch (notice.tone) {
+		case "unknown":
+			return `${notice.what} may already be saved. We did not hear back from the server. Check again to find out; it will not be saved twice.`;
+		case "waiting":
+			return `${notice.what} is not sent yet, because another save to this person was running.`;
+		case "refused":
+			return `${notice.what} was not saved. ${recordProblem(notice.problem)}`;
+	}
 }
 
 /**
@@ -301,34 +319,37 @@ export function SaveNotice({
 	busy: boolean;
 	onDismiss: () => void;
 }) {
+	const hintId = useId();
 	return (
 		<div aria-live="assertive" aria-atomic="true">
 			{notice ? (
 				<div className="mb-4 flex flex-col items-start gap-2.5 rounded-md bg-magenta-50 px-3.5 py-3 text-sm text-magenta-600">
 					<p className="flex items-start gap-2">
 						<Icon icon={Alert02Icon} size={16} className="mt-px flex-none" />
-						<span>
-							{notice.tone === "unknown"
-								? `${notice.what} may already be saved. We did not hear back from the server. Check again to find out; it will not be saved twice.`
-								: `${notice.what} was not saved. ${recordProblem(notice.problem)}`}
-						</span>
+						<span>{noticeText(notice)}</span>
 					</p>
 					<div className="flex flex-wrap gap-2">
-						{notice.tone === "unknown" ? (
+						{notice.tone !== "refused" ? (
 							<Button
 								size="sm"
 								variant="secondary"
 								loading={notice.checking}
 								disabled={busy && !notice.checking}
+								aria-describedby={busy && !notice.checking ? hintId : undefined}
 								onClick={notice.check}
 							>
-								Check again
+								{notice.tone === "unknown" ? "Check again" : "Save now"}
 							</Button>
 						) : null}
 						<Button size="sm" variant="ghost" onClick={onDismiss}>
 							Dismiss
 						</Button>
 					</div>
+					{notice.tone !== "refused" && busy && !notice.checking ? (
+						<p id={hintId} className="text-xs text-magenta-600">
+							{notice.tone === "unknown" ? "Check again" : "Save now"} waits until the other save to this person ends.
+						</p>
+					) : null}
 				</div>
 			) : null}
 		</div>

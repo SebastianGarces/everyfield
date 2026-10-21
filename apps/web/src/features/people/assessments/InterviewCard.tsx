@@ -40,6 +40,7 @@ import {
 	type Rating,
 	type Result,
 	sendTwice,
+	notSent,
 	stillUnknown,
 } from "./model.ts";
 import {
@@ -148,6 +149,8 @@ export function InterviewCard({
 		});
 		const what = "Your interview";
 		if (stillUnknown(r, token)) return form.unknown(key.key, what, () => start(() => commit(input, key, -1, draft)));
+		// Nothing was sent: another save to the person was running (C65). It waits, never reads as refused.
+		if (notSent(r, token)) return form.waiting(key.key, what, () => start(() => commit(input, key, -2, draft)));
 		if (r?.status !== "ok") {
 			const code = r?.status === "refused" && r.code === "invalid_input" ? "future_date" : codeOf(r);
 			return startTransition(() => form.refused(token, { draft, problem: code }, key.key, what));

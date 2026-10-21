@@ -120,10 +120,13 @@ test("INV-request-key (C58, review F4): Check again sends the same key; a new in
 	assert.deepEqual(sent.slice(3), ["k1", "k1"]);
 });
 
-test("INV-no-false-refusal (review F4d): a Check again that could not start leaves the result unknown", async () => {
-	const { stillUnknown } = await import("../../../apps/web/src/features/people/assessments/model.ts");
+test("INV-no-false-refusal (review F4d, C65): a save that could not start is never shown as refused", async () => {
+	const { notSent, stillUnknown } = await import("../../../apps/web/src/features/people/assessments/model.ts");
 	assert.equal(stillUnknown({ status: "lost" }, 3), true);
-	assert.equal(stillUnknown(null, -1), true, "Check again blocked by another save sent nothing");
-	assert.equal(stillUnknown(null, 3), false, "a first save that could not start reports busy");
+	assert.equal(stillUnknown(null, -1), true, "a blocked Check again sent nothing: the first request may be saved");
+	assert.equal(notSent(null, -1), false);
+	assert.equal(notSent(null, 3), true, "a blocked first save sent nothing: it waits");
+	assert.equal(notSent(null, -2), true, "a blocked Save now waits again");
 	assert.equal(stillUnknown({ status: "refused", code: "conflict" }, -1), false);
+	assert.equal(notSent({ status: "refused", code: "conflict" }, 3), false, "only a server answer says not saved");
 });

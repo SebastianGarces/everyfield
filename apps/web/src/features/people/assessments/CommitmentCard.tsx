@@ -62,6 +62,7 @@ import {
 	type CommitmentStatus,
 	type FirstAcquisition,
 	sendTwice,
+	notSent,
 	stillUnknown,
 } from "./model.ts";
 import { codeOf, recorder, SaveNotice, ShowEarlier, useHistory, useRecordForm } from "./parts.tsx";
@@ -208,6 +209,8 @@ export function CommitmentCard({
 		const what = "Your commitment card";
 		if (stillUnknown(r, token))
 			return dialog.unknown(key.key, what, () => start(() => commitCard(input, key, -1, draft)));
+		// Nothing was sent: another save to the person was running (C65). It waits, never reads as refused.
+		if (notSent(r, token)) return dialog.waiting(key.key, what, () => start(() => commitCard(input, key, -2, draft)));
 		if (r?.status !== "ok") return refused(token, { form: "record", draft }, r, key.key, what);
 		dialog.settled(key.key);
 		const { commitment, current: now, person } = r.value;
@@ -270,6 +273,9 @@ export function CommitmentCard({
 		const what = change === "withdraw" ? "Your withdrawal" : "Your reactivation";
 		if (stillUnknown(r, token))
 			return dialog.unknown(key.key, what, () => start(() => commitLifecycle(change, input, revision, key, -1, draft)));
+		// Nothing was sent: another save to the person was running (C65). It waits, never reads as refused.
+		if (notSent(r, token))
+			return dialog.waiting(key.key, what, () => start(() => commitLifecycle(change, input, revision, key, -2, draft)));
 		if (r?.status !== "ok") return refused(token, { form: change, draft }, r, key.key, what);
 		dialog.settled(key.key);
 		startTransition(() => setLatest(r.value.current));
@@ -327,6 +333,9 @@ export function CommitmentCard({
 		const what = draft.action === "void" ? "Your void of the card" : "Your card correction";
 		if (stillUnknown(r, token))
 			return dialog.unknown(key.key, what, () => start(() => commitCorrection(card, input, key, -1, draft)));
+		// Nothing was sent: another save to the person was running (C65). It waits, never reads as refused.
+		if (notSent(r, token))
+			return dialog.waiting(key.key, what, () => start(() => commitCorrection(card, input, key, -2, draft)));
 		if (r?.status !== "ok") return refused(token, { form: "correct", card, draft }, r, key.key, what);
 		dialog.settled(key.key);
 		const page = r.value.commitments;

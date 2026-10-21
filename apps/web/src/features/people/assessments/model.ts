@@ -123,7 +123,7 @@ export async function sendTwice<T>(call: () => Promise<Outcome<T>>): Promise<Out
 
 export type Notice =
 	| { tone: "refused"; id: string; what: string; problem: string }
-	| { tone: "unknown"; id: string; what: string; check: () => void; checking: boolean };
+	| { tone: "unknown" | "waiting"; id: string; what: string; check: () => void; checking: boolean };
 export type FormState<E> = { editing: E | null; notice: Notice | null; intent: number };
 export const formStart = <E>(): FormState<E> => ({ editing: null, notice: null, intent: 0 });
 export const formOpen = <E>(s: FormState<E>, e: E): FormState<E> => ({ ...s, editing: e, intent: s.intent + 1 });
@@ -149,8 +149,13 @@ export const formUnknown = <E>(s: FormState<E>, id: string, what: string, check:
 	...s,
 	notice: { tone: "unknown", id, what, check, checking: false },
 });
+/** A save that could not start because another save to the person was running: nothing was sent (ruling C65). */
+export const formWaiting = <E>(s: FormState<E>, id: string, what: string, send: () => void): FormState<E> => ({
+	...s,
+	notice: { tone: "waiting", id, what, check: send, checking: false },
+});
 export const formChecking = <E>(s: FormState<E>): FormState<E> =>
-	s.notice?.tone === "unknown" ? { ...s, notice: { ...s.notice, checking: true } } : s;
+	s.notice && s.notice.tone !== "refused" ? { ...s, notice: { ...s.notice, checking: true } } : s;
 /** A save that is now known to be saved clears its own notice, never another one. */
 export const formSettled = <E>(s: FormState<E>, id: string): FormState<E> =>
 	s.notice?.id === id ? { ...s, notice: null } : s;
@@ -162,3 +167,5 @@ export const formDismiss = <E>(s: FormState<E>): FormState<E> => ({ ...s, notice
  */
 export const stillUnknown = (r: Outcome<unknown> | null, token: number): boolean =>
 	r?.status === "lost" || (r === null && token === -1);
+/** A first save that could not start (another save was running): nothing was sent, so it is waiting, never refused. */
+export const notSent = (r: Outcome<unknown> | null, token: number): boolean => r === null && token !== -1;
