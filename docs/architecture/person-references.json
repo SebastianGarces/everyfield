@@ -590,6 +590,78 @@
       "future_case_ids": [
         "PERSONREF-MEETING-CHECKLIST-PERSON-RETIRE"
       ]
+    },
+    {
+      "table": "person_merge",
+      "columns": [
+        "source_id",
+        "tenant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-015"
+      ],
+      "meaning": "Merge lineage: the source and survivor of one reviewed merge.",
+      "lock_order": "Lock owner and live same-owner source/survivor Persons in UUID order, then consumer rows; reference inserts take the same Person locks.",
+      "merge_policy": "Immutable lineage of an earlier merge; never moved. A chained merge changes the survivor revision, so the earlier Unmerge is refused.",
+      "inverse_policy": "Unmerge marks the row reversed; it is never rewritten to another Person.",
+      "retirement_policy": "Lineage stays while either Person exists and goes with it on purge.",
+      "privacy_policy": "Holds reviewed Person field values for Owners and Admins only; never in central audit.",
+      "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
+      "future_case_ids": [
+        "ADR1-017"
+      ]
+    },
+    {
+      "table": "person_merge",
+      "columns": [
+        "survivor_id",
+        "tenant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-015"
+      ],
+      "meaning": "Merge lineage: the source and survivor of one reviewed merge.",
+      "lock_order": "Lock owner and live same-owner source/survivor Persons in UUID order, then consumer rows; reference inserts take the same Person locks.",
+      "merge_policy": "Immutable lineage of an earlier merge; never moved. A chained merge changes the survivor revision, so the earlier Unmerge is refused.",
+      "inverse_policy": "Unmerge marks the row reversed; it is never rewritten to another Person.",
+      "retirement_policy": "Lineage stays while either Person exists and goes with it on purge.",
+      "privacy_policy": "Holds reviewed Person field values for Owners and Admins only; never in central audit.",
+      "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
+      "future_case_ids": [
+        "ADR1-017"
+      ]
+    },
+    {
+      "table": "record_correction",
+      "columns": [
+        "person_id",
+        "plant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-015"
+      ],
+      "meaning": "Correction history of a record of this Person.",
+      "lock_order": "Lock owner and live same-owner source/survivor Persons in UUID order, then consumer rows; reference inserts take the same Person locks.",
+      "merge_policy": "Moves with its record to the survivor; the correction keeps its original corrector and values.",
+      "inverse_policy": "Moves back with its record on a guarded Unmerge.",
+      "retirement_policy": "History stays under current permission and goes with the Person on purge.",
+      "privacy_policy": "Private qualification values stay in plant history; never in central audit.",
+      "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
+      "future_case_ids": [
+        "ADR1-017"
+      ]
     }
   ],
   "person_snapshot_references": [
@@ -617,6 +689,11 @@
       "table": "audit_event",
       "field": "subject_id/before_value/after_value/result",
       "policy": "Protected changed-field Person history and exact replies retain original owner and actor attribution. Current Person removal scrubs bodies and request replies; record identity confers no current access."
+    },
+    {
+      "table": "record_correction",
+      "field": "record_id",
+      "policy": "The corrected assessment, interview or commitment record; never a Person. The record identity stays frozen on merge and Unmerge, and the correction moves with its record's Person."
     }
   ]
 }
