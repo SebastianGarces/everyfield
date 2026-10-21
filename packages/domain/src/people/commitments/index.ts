@@ -89,6 +89,13 @@ const commitmentJson = sql`jsonb_build_object('id',r.id,'person_id',r.person_id,
  'byte_count',(SELECT f.byte_count FROM file_object f WHERE f.id=r.object_id),'voided_at',r.voided_at)`;
 const latestFirst = sql`r.signed_on DESC,r.recorded_at DESC,r.id DESC`;
 
+/** A retried create returns the card as saved: revision 1, its original date and kind, not voided. */
+function asSaved(replay: Record<string, unknown>) {
+	const { card, ...rest } = z
+		.looseObject({ card: z.object({ occurredOn: z.string(), kind: c.commitmentKind }), commitment: z.looseObject({}) })
+		.parse(replay);
+	return { ...rest, commitment: { ...rest.commitment, ...card, revision: "1", voidedAt: null } };
+}
 type State = Subject["commitment_state"];
 const status = (state: State, effectiveOn: string | null, personRevision: string) =>
 	c.commitmentStatus.parse({ state, effectiveOn, personRevision });
@@ -263,7 +270,9 @@ export const commitments = {
 					};
 					fresh = value;
 					return {
-						value: receiptOf(value, "commitment", id),
+						// The card's original date and kind stay in the receipt (the correction history holds them too), so a retry
+						// after a correction or void still returns the card as it was saved.
+						value: { ...receiptOf(value, "commitment", id), card: { occurredOn: k.occurredOn, kind: k.kind } },
 						subject: p.id,
 						action: "people.recorded",
 						before: { revision: p.revision, stage: p.stage, commitment: currentOf(p) },
@@ -274,7 +283,8 @@ export const commitments = {
 			);
 			// A retry rebuilds the private record from its row; central audit holds only the receipt.
 			return c.commitmentMutationResult.parse(
-				fresh ?? (await replayed(tx, plant, stored, "commitment", sql`commitment`, commitmentJson, commitmentView)),
+				fresh ??
+					asSaved(await replayed(tx, plant, stored, "commitment", sql`commitment`, commitmentJson, commitmentView)),
 			);
 		});
 	},

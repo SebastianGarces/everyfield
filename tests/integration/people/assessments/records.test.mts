@@ -414,7 +414,8 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 AC:PROVIDER48-
 		evidenceId: saved.commitment.id,
 	});
 	// An older signature recorded later cannot override the withdrawal.
-	const old = ok(await card({ occurredOn: day(9), kind: "launch_team" }));
+	const oldKey = key();
+	const old = ok(await card({ occurredOn: day(9), kind: "launch_team" }, oldKey));
 	assert.equal(old.current.state, "withdrawn");
 	// Reactivation restores the current commitment without a new acquisition.
 	const reactivated = ok(
@@ -492,6 +493,8 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 AC:PROVIDER48-
 			),
 		);
 	}
+	// A retry of the original create still returns the card as it was saved, after its correction and void.
+	assert.deepEqual(ok(await card({ occurredOn: day(9), kind: "launch_team" }, oldKey)), old);
 	const voided = await commitmentsOf();
 	assert.deepEqual(
 		[voided.current.state, voided.firstAcquisition, voided.items.every((i) => i.voidedAt), await stageOf(alex.id)],
