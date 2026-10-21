@@ -12,7 +12,8 @@
 		"./people": "./src/people/index.ts",
 		"./onboarding": "./src/onboarding/index.ts",
 		"./settings": "./src/settings/index.ts",
-		"./meetings": "./src/meetings/index.ts"
+		"./meetings": "./src/meetings/index.ts",
+		"./tasks": "./src/tasks/index.ts"
 	},
 	"scripts": {
 		"typecheck": "tsc --noEmit",
@@ -30,6 +31,7 @@
 		"test:onboarding": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/onboarding/*.test.mts",
 		"test:invitations": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/identity/invitations.test.mts ../../tests/integration/identity/locks.test.mts",
 		"test:settings": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/settings/*.test.mts",
+		"test:tasks": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/tasks/*.test.mts",
 		"test:writes": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/writes/statements.test.mts"
 	},
 	"dependencies": {

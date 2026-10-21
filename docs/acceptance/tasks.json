@@ -49,14 +49,6 @@
           "fixture_type": "session",
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
-        },
-        "calendar-inputs": {
-          "fixture_type": "calendar_fixture",
-          "due": "2026-10-13",
-          "instants": [
-            "2026-10-14T03:00:00Z",
-            "2026-10-14T05:00:00Z"
-          ]
         }
       },
       "actor": {
@@ -137,14 +129,6 @@
           "fixture_type": "session",
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
-        },
-        "calendar-inputs": {
-          "fixture_type": "calendar_fixture",
-          "deadline": "2026-10-13T18:00:00Z",
-          "now": [
-            "2026-10-13T17:59:59Z",
-            "2026-10-13T18:00:01Z"
-          ]
         }
       },
       "actor": {
@@ -172,8 +156,7 @@
           "overdue": [
             false,
             true
-          ],
-          "deadline": "2026-10-13T18:00:00Z"
+          ]
         },
         "event": null
       }
@@ -930,6 +913,10 @@
           "fixture_type": "plant",
           "id": "Q",
           "timezone": "America/New_York"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "repeat": 2
         }
       },
       "actor": {
@@ -952,8 +939,7 @@
             "P2": "fixture-state-3",
             "reference-1": "fixture-state-2"
           },
-          "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE-1",
-          "repeat": 2
+          "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE-1"
         }
       },
       "expected": {
@@ -982,6 +968,10 @@
               "observed_state": "fixture-state-7",
               "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 2
             }
           },
           "actor": {
@@ -1004,8 +994,7 @@
                 "P2": "fixture-state-3",
                 "reference-1": "fixture-state-2"
               },
-              "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE-1",
-              "repeat": 2
+              "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE-1"
             }
           },
           "expected": {
@@ -1053,6 +1042,10 @@
               "tenant": "P",
               "role": "Member",
               "active": true
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 2
             }
           },
           "actor": {
@@ -1075,8 +1068,7 @@
                 "P2": "fixture-state-3",
                 "reference-1": "fixture-state-2"
               },
-              "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE-1",
-              "repeat": 2
+              "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE-1"
             }
           },
           "expected": {
@@ -1101,6 +1093,11 @@
               "observed_state": "fixture-state-7",
               "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1,
+              "fault": "before_transaction_commit"
             }
           },
           "actor": {
@@ -1123,9 +1120,7 @@
                 "P2": "fixture-state-3",
                 "reference-1": "fixture-state-2"
               },
-              "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE-1",
-              "repeat": 1,
-              "fault": "before_transaction_commit"
+              "request_key": "PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE-1"
             }
           },
           "expected": {
@@ -1174,6 +1169,10 @@
             "reason": "Registered Person consumer retirement/merge/inverse is exercised after its feature adapter exists; schema registration remains SCHEMA-009."
           }
         }
+      ],
+      "requirement_ids": [
+        "REQ-PPL-024",
+        "`AssigneeAccountId` remains account identity; stable obligation/occurrence identities and contact evidence preserved; past completion not new contact."
       ]
     },
     {
@@ -1832,226 +1831,10 @@
       "action": {
         "operation": "tasks.list",
         "arguments": {
-          "subject": "P",
-          "person": "Alex",
-          "reviewed_state": "fixture-state-4",
-          "task": "T",
-          "foreign_control": {
-            "actor": "B",
-            "context": "Q",
-            "subject": "P"
-          },
-          "tasks": [
-            {
-              "id": "T00",
-              "due": null
-            },
-            {
-              "id": "T01",
-              "due": null
-            },
-            {
-              "id": "T02",
-              "due": null
-            },
-            {
-              "id": "T03",
-              "due": null
-            },
-            {
-              "id": "T04",
-              "due": null
-            },
-            {
-              "id": "T05",
-              "due": null
-            },
-            {
-              "id": "T06",
-              "due": null
-            },
-            {
-              "id": "T07",
-              "due": null
-            },
-            {
-              "id": "T08",
-              "due": null
-            },
-            {
-              "id": "T09",
-              "due": null
-            },
-            {
-              "id": "T10",
-              "due": null
-            },
-            {
-              "id": "T11",
-              "due": null
-            },
-            {
-              "id": "T12",
-              "due": null
-            },
-            {
-              "id": "T13",
-              "due": null
-            },
-            {
-              "id": "T14",
-              "due": null
-            },
-            {
-              "id": "T15",
-              "due": null
-            },
-            {
-              "id": "T16",
-              "due": null
-            },
-            {
-              "id": "T17",
-              "due": null
-            },
-            {
-              "id": "T18",
-              "due": null
-            },
-            {
-              "id": "T19",
-              "due": null
-            },
-            {
-              "id": "T20",
-              "due": null
-            },
-            {
-              "id": "T21",
-              "due": null
-            },
-            {
-              "id": "T22",
-              "due": null
-            },
-            {
-              "id": "T23",
-              "due": null
-            },
-            {
-              "id": "T24",
-              "due": null
-            },
-            {
-              "id": "T25",
-              "due": null
-            },
-            {
-              "id": "T26",
-              "due": null
-            },
-            {
-              "id": "T27",
-              "due": null
-            },
-            {
-              "id": "T28",
-              "due": null
-            },
-            {
-              "id": "T29",
-              "due": null
-            },
-            {
-              "id": "T30",
-              "due": null
-            },
-            {
-              "id": "T31",
-              "due": null
-            },
-            {
-              "id": "T32",
-              "due": null
-            },
-            {
-              "id": "T33",
-              "due": null
-            },
-            {
-              "id": "T34",
-              "due": null
-            },
-            {
-              "id": "T35",
-              "due": null
-            },
-            {
-              "id": "T36",
-              "due": null
-            },
-            {
-              "id": "T37",
-              "due": null
-            },
-            {
-              "id": "T38",
-              "due": null
-            },
-            {
-              "id": "T39",
-              "due": null
-            },
-            {
-              "id": "T40",
-              "due": null
-            },
-            {
-              "id": "T41",
-              "due": null
-            },
-            {
-              "id": "T42",
-              "due": null
-            },
-            {
-              "id": "T43",
-              "due": null
-            },
-            {
-              "id": "T44",
-              "due": null
-            },
-            {
-              "id": "T45",
-              "due": null
-            },
-            {
-              "id": "T46",
-              "due": null
-            },
-            {
-              "id": "T47",
-              "due": null
-            },
-            {
-              "id": "T48",
-              "due": null
-            },
-            {
-              "id": "T49",
-              "due": null
-            },
-            {
-              "id": "T50",
-              "due": null
-            }
-          ],
-          "page_size": 50,
-          "child_ids": [
-            "C1",
-            "C2"
-          ]
+          "view": "all",
+          "sort": "due",
+          "page": 2,
+          "limit": 50
         }
       },
       "expected": {
@@ -2065,7 +1848,46 @@
           "child_count": 2
         },
         "event": null
-      }
+      },
+      "subcases": [
+        {
+          "name": "foreign-team-reveals-nothing",
+          "given": {
+            "team-Q": {
+              "fixture_type": "team",
+              "id": "team-Q",
+              "plant": "Q",
+              "name": "Foreign team"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "tasks.list",
+            "arguments": {
+              "view": "all",
+              "team": "team-Q",
+              "page": 1,
+              "limit": 50
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "items": [],
+              "total": 0
+            },
+            "event": null
+          }
+        }
+      ]
     },
     {
       "id": "TARGET-TSK-002",
@@ -2158,20 +1980,23 @@
       "action": {
         "operation": "tasks.create",
         "arguments": {
-          "subject": "P",
-          "person": "Alex",
-          "reviewed_state": "fixture-state-4",
-          "task": "T",
-          "foreign_control": {
-            "actor": "B",
-            "context": "Q",
-            "subject": "P"
-          }
+          "title": "   ",
+          "due": {
+            "kind": "local_date",
+            "date": "2026-02-30"
+          },
+          "assignee": "B",
+          "relation": {
+            "kind": "facility",
+            "id": "F1"
+          },
+          "request_key": "TARGET-TSK-002-request-1"
         }
       },
       "expected": {
         "state": {},
         "result": {
+          "error_code": "invalid_input",
           "new_effects": 0,
           "unauthorized_effects": 0,
           "unauthorized_body": null,
@@ -2266,6 +2091,10 @@
           "reviewed_assignee": "A",
           "reviewed_state": "fixture-state-3",
           "current_state": "fixture-state-4"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "repeat": 2
         }
       },
       "actor": {
@@ -2280,16 +2109,9 @@
       "action": {
         "operation": "tasks.complete",
         "arguments": {
-          "subject": "P",
-          "person": "Alex",
-          "reviewed_state": "fixture-state-3",
           "task": "T",
-          "request_key": "TARGET-TSK-003-request-1",
-          "repeat": 2,
-          "assignee": "B",
-          "caller": "A",
-          "reviewed_assignee": "A",
-          "current_state": "fixture-state-4"
+          "expected_revision": "fixture-state-3",
+          "request_key": "TARGET-TSK-003-request-1"
         }
       },
       "expected": {
@@ -4434,11 +4256,23 @@
         "case-input": {
           "fixture_type": "domain_inputs",
           "due_kind": "date_only",
-          "due_date": "2026-03-08",
+          "due_date": "2026-11-01",
           "zone": "America/Chicago",
           "old_assignee": "A",
-          "current_assignee": "B",
+          "current_assignee": "C",
           "status": "not_started"
+        },
+        "C": {
+          "fixture_type": "account",
+          "id": "C",
+          "email": "jordan@example.test"
+        },
+        "seat-C": {
+          "fixture_type": "seat",
+          "account": "C",
+          "tenant": "P",
+          "role": "Member",
+          "active": true
         }
       },
       "actor": {
@@ -4451,30 +4285,34 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "notifications.syncTaskReminders",
+        "operation": "tasks.edit",
         "arguments": {
-          "subject": "P",
-          "person": "Alex",
-          "reviewed_state": "fixture-state-4",
           "task": "T",
-          "due_kind": "date_only",
-          "due_date": "2026-03-08",
-          "zone": "America/Chicago",
-          "old_assignee": "A",
-          "current_assignee": "B",
-          "status": "not_started"
+          "expected_revision": "fixture-state-4",
+          "patch": {
+            "assignee": "C",
+            "due": {
+              "kind": "local_date",
+              "date": "2026-11-01"
+            }
+          },
+          "request_key": "TARGET-TSK-014-request-1"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "recipient": "B",
+          "recipient": "C",
           "old_assignee_notices": 0,
-          "logical_reminders": 1,
+          "logical_reminders": 2,
           "transport_status": "pending"
         },
         "event": null
-      }
+      },
+      "requirement_ids": [
+        "REQ-TSK-014",
+        "REQ-KNOW-007"
+      ]
     },
     {
       "id": "TARGET-TSK-015",
@@ -4563,6 +4401,16 @@
             "reopened"
           ],
           "actor": "A"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "repeat": 2,
+          "transitions": [
+            "completed",
+            "completed",
+            "reopened"
+          ],
+          "actor": "A"
         }
       },
       "actor": {
@@ -4577,23 +4425,7 @@
       "action": {
         "operation": "tasks.statusHistory",
         "arguments": {
-          "subject": "P",
-          "person": "Alex",
-          "reviewed_state": "fixture-state-4",
-          "task": "T",
-          "foreign_control": {
-            "actor": "B",
-            "context": "Q",
-            "subject": "P"
-          },
-          "request_key": "TARGET-TSK-015-request-1",
-          "repeat": 2,
-          "transitions": [
-            "completed",
-            "completed",
-            "reopened"
-          ],
-          "actor": "A"
+          "task": "T"
         }
       },
       "expected": {
@@ -4826,12 +4658,54 @@
           "person_obligations": 2,
           "evaluation_tasks": 1,
           "fault": "outer_audit_before_commit"
+        },
+        "M1": {
+          "fixture_type": "meeting",
+          "id": "M1",
+          "plant": "P",
+          "type": "vision_meeting",
+          "local_date": "2026-10-13"
+        },
+        "M2": {
+          "fixture_type": "meeting",
+          "id": "M2",
+          "plant": "P",
+          "type": "vision_meeting",
+          "local_date": "2026-10-13"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "fault": "outer_audit_before_commit",
+          "meeting_origins": [
+            "M1",
+            "M2"
+          ]
+        },
+        "caller-capability": {
+          "fixture_type": "operation_capability",
+          "principal": "synthetic-meeting-finalization",
+          "authority": "registered_internal_producer_or_exact_operator",
+          "actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          },
+          "verified": true,
+          "operation_ids": [
+            "tasks.ensureObligation"
+          ],
+          "environment": "isolated-test",
+          "subject_actor": {
+            "account": null,
+            "session": null,
+            "context": null
+          }
         }
       },
       "actor": {
-        "account": "A",
-        "session": "session-A",
-        "context": "P"
+        "account": null,
+        "session": null,
+        "context": null
       },
       "clock": {
         "now": "2026-10-13T16:00:00Z",
@@ -4840,18 +4714,21 @@
       "action": {
         "operation": "tasks.ensureObligation",
         "arguments": {
-          "subject": "P",
-          "person": "Alex",
-          "reviewed_state": "fixture-state-4",
-          "task": "T",
-          "fault": "outer_audit_before_commit",
-          "meeting_origins": [
-            "M1",
-            "M2"
+          "meeting": "M1",
+          "origin": {
+            "at": "2026-10-13T23:00:00Z",
+            "date": "2026-10-13",
+            "zone": "America/Chicago"
+          },
+          "follow_ups": [
+            {
+              "person": "Alex",
+              "assignee": null
+            }
           ],
-          "origin_date": "2026-10-13",
-          "person_obligations": 2,
-          "evaluation_tasks": 1
+          "evaluation": {
+            "assignee": "A"
+          }
         }
       },
       "expected": {
@@ -4864,7 +4741,12 @@
           "waived_obligation_regenerated": false
         },
         "event": null
-      }
+      },
+      "requirement_ids": [
+        "REQ-TSK-017",
+        "REQ-MTG-020",
+        "REQ-MTG-021"
+      ]
     },
     {
       "id": "TARGET-TSK-018",

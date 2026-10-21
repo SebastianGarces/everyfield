@@ -4091,6 +4091,7 @@ export const task = pgTable(
 				"training",
 				"promotion",
 				"recurring",
+				"facilities",
 			],
 		}).notNull(),
 		priority: text("priority", { enum: ["low", "medium", "high", "urgent"] }).notNull(),
@@ -4231,7 +4232,7 @@ export const task = pgTable(
 		check("task_ck_8", sql`((status = 'complete'::text) = (completed_at IS NOT NULL))`),
 		check(
 			"task_ck_9",
-			sql`(category = ANY (ARRAY['administrative'::text, 'vision_meeting'::text, 'follow_up'::text, 'general'::text, 'ministry_team'::text, 'launch_prep'::text, 'training'::text, 'promotion'::text, 'recurring'::text]))`,
+			sql`(category = ANY (ARRAY['administrative'::text, 'vision_meeting'::text, 'follow_up'::text, 'general'::text, 'ministry_team'::text, 'launch_prep'::text, 'training'::text, 'promotion'::text, 'recurring'::text, 'facilities'::text]))`,
 		),
 		check("task_timezone_iana", sql`(timezone = ANY (${canonicalZones7}))`),
 		index("task_ref_0").using("btree", table.plant_id.asc().nullsLast()),
