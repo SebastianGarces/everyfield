@@ -142,6 +142,30 @@ export function withBlockers(items: readonly Prerequisite[], changed: readonly B
 	return { items: next, open: next.filter(blocks).length };
 }
 
+/**
+ * The page's "Blocked by" badge reads (REQ-TSK-006). Only the newest read for the list still on screen applies, also
+ * when it failed: a newer read or a new list (search, filters, page) ends every earlier read and its retries. Opening
+ * a task panel adds `task` to the address but does not change the list.
+ */
+export class BadgeReads {
+	#newest = 0;
+	start(search: string) {
+		return { n: ++this.#newest, scope: listScopeOf(search) };
+	}
+	/** A new list ends every read of the old one. */
+	end() {
+		this.#newest++;
+	}
+	applies(read: { n: number; scope: string }, search: string) {
+		return read.n === this.#newest && listScopeOf(search) === read.scope;
+	}
+}
+const listScopeOf = (search: string) => {
+	const p = new URLSearchParams(search);
+	p.delete("task");
+	return p.toString();
+};
+
 /** Why one task of a bulk change did not change, in words. The same request again changes nothing twice. */
 export function bulkOutcomeText(outcome: BulkOutcome, kind: "complete" | "reschedule"): string {
 	switch (outcome) {

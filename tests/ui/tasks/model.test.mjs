@@ -11,6 +11,8 @@
 //     priority, category, link, due kind, team), as the server's scope would.
 //   AC:TARGET-TSK-006 INV-blocking (WP-025/ui, BUG #196 review): a prerequisite that is done, no longer needed or
 //     deleted stops holding its waiting task back, a reopened one holds it again, and other changes leave it alone.
+//   AC:TARGET-TSK-006 INV-badge-reads (BUG #196 round 3): only the newest badge read for the list still on screen
+//     applies; a newer read or a new list ends older reads and their retries; opening a task panel does not.
 //   INV-intent: each save keeps the key and revision of its first send; a retry resends both even after other saves
 //     (BUG #189 round 2: a retried lost create after another create sent a new key and saved twice).
 //   INV-optimistic: changes in flight show at once (new task first, edit applied, delete hidden, status shown) and the
@@ -27,6 +29,7 @@ import {
 	NO_PENDING,
 	shownRows,
 	shownSteps,
+	BadgeReads,
 	withBlockers,
 	withChange,
 	parseQuery,
@@ -249,4 +252,22 @@ test("AC:TARGET-TSK-006 INV-blocking: a settled or deleted prerequisite releases
 		null,
 		"an unrelated task changes nothing",
 	);
+});
+
+test("AC:TARGET-TSK-006 INV-badge-reads: an old badge read never lands on a newer read or a different list", () => {
+	const reads = new BadgeReads();
+	const list = "?view=all&q=Dep2";
+	const old = reads.start(list);
+	assert.equal(reads.applies(old, list), true, "the only read applies");
+	assert.equal(
+		reads.applies(old, `${list}&task=3f1c2b7e-0000-4000-8000-000000000001`),
+		true,
+		"opening a panel keeps the list",
+	);
+	assert.equal(reads.applies(old, "?view=all&q=Dep"), false, "a changed search is another list");
+	const newer = reads.start(list);
+	assert.equal(reads.applies(old, list), false, "a newer read ends the older one");
+	assert.equal(reads.applies(newer, list), true);
+	reads.end();
+	assert.equal(reads.applies(newer, list), false, "a new list ends every read of the old one, and its retries");
 });

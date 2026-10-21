@@ -54,6 +54,7 @@ import {
 import { BulkBar, BulkReport, type Report } from "./bulk.tsx";
 import { loadBlocking, loadTask, relationOptions, type Loaded as TaskLoad } from "./fetch.ts";
 import {
+	BadgeReads,
 	blocks,
 	withBlockers,
 	type Blocker,
@@ -165,8 +166,8 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	// A failure that started in the open panel is told there: the modal panel hides the toasts from assistive
 	// technology and keeps keyboard focus inside, so a toast's Try again would be out of reach.
 	const [problem, setProblem] = useState<PanelProblem | null>(null);
-	// The page's "Blocked by" badges: the newest read's number, a read in flight, and whether the last one failed.
-	const blocking = useRef(0);
+	// The page's "Blocked by" badges: which read applies, a read in flight, and whether the last one failed.
+	const badgeReads = useRef(new BadgeReads());
 	const readingBadges = useRef(false);
 	const [badgesStale, setBadgesStale] = useState(false);
 	if (server !== loaded) {
@@ -191,7 +192,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	// A new list (search, filters, page) ends every badge read and retry of the old one: their answers describe rows
 	// that this list no longer shows.
 	useEffect(() => {
-		blocking.current++;
+		badgeReads.current.end();
 		readingBadges.current = false;
 	}, [server]);
 	const [busy, setBusy] = useState<ReadonlySet<string>>(() => new Set());
@@ -361,23 +362,15 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	 * applies. A failed read is tried twice more; after that the list says its badges may be out of date and offers
 	 * to read them again, so a wrong badge is never silent.
 	 */
-	/** The list the address names, without the open task: opening a panel does not change the list. */
-	const listScope = () => {
-		const p = new URLSearchParams(window.location.search);
-		p.delete("task");
-		return p.toString();
-	};
 	const readBadges = (attempt = 0) => {
-		const n = ++blocking.current;
-		const scope = listScope();
+		const read = badgeReads.current.start(window.location.search);
+		const current = () => badgeReads.current.applies(read, window.location.search);
 		readingBadges.current = true;
 		setBadgesStale(false);
-		loadBlocking(scope).then((r) => {
-			// Only the newest read for the list still on screen applies, also when it failed.
-			if (n !== blocking.current || listScope() !== scope) return;
+		loadBlocking(read.scope).then((r) => {
+			if (!current()) return;
 			if (r.status !== "ok") {
-				if (attempt < 2)
-					return void setTimeout(() => n === blocking.current && readBadges(attempt + 1), 1000 * (attempt + 1));
+				if (attempt < 2) return void setTimeout(() => current() && readBadges(attempt + 1), 1000 * (attempt + 1));
 				readingBadges.current = false;
 				return setBadgesStale(true);
 			}
