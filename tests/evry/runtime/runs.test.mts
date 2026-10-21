@@ -554,7 +554,7 @@ test("AC:INH-CROSS-08 AC:EVRY-RETRY-CANCEL INV-run-fence cancel stops model work
 	assert.equal((await events(owner, stale)).status.state, "completed");
 });
 
-test("AC:SEC-02 AC:TEN-002 AC:UI45-006 AC:SEC-11 INV-tenancy: an ended seat stops an open stream and every later reference read; credentials are scrubbed from all model input; reference reads use one statement", async () => {
+test("AC:SEC-02 AC:TEN-002 AC:UI45-006 AC:SEC-11 INV-tenancy: an ended seat or changed role stops an open stream and every later reference read; credentials are scrubbed from all model input; reference reads use one statement", async () => {
 	const owner = await actor("owner");
 	const endSeat = () =>
 		admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${owner.accountId}`);
@@ -575,6 +575,16 @@ test("AC:SEC-02 AC:TEN-002 AC:UI45-006 AC:SEC-11 INV-tenancy: an ended seat stop
 	assert.deepEqual(seen, ["user_message"]);
 	await restoreSeat();
 	await cancelTurn(db, owner, open);
+	// A role change ends access the same way (C13): the actor read as owner no longer matches the seat.
+	await admin.execute(sql`UPDATE seat SET role='admin' WHERE account_id=${owner.accountId}`);
+	try {
+		await assert.rejects(
+			() => readConversation(db, owner, open),
+			(e: { code?: string }) => e.code === "not_found",
+		);
+	} finally {
+		await admin.execute(sql`UPDATE seat SET role='owner' WHERE account_id=${owner.accountId}`);
+	}
 
 	// The seat ends while the classifier runs: the references and reads that follow see nothing.
 	const base = recorded();
