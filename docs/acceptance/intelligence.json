@@ -4626,11 +4626,6 @@
           "fixture_type": "session",
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
-        },
-        "calendar-inputs": {
-          "fixture_type": "calendar_fixture",
-          "due_date": null,
-          "launch_date": null
         }
       },
       "actor": {
