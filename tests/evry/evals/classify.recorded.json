@@ -1,0 +1,32 @@
+{
+	"model": "gpt-6-luna",
+	"recordedAt": "2026-10-21T22:45:29.410Z",
+	"answers": {
+		"feb1688589ca9b39": "{\"kind\":\"application\"}",
+		"bc8bac4a020967c3": "{\"kind\":\"application\"}",
+		"200e0c96e31593f6": "{\"kind\":\"application\"}",
+		"3be36a8efa52255c": "{\"kind\":\"application\"}",
+		"f3d15ef69decf28c": "{\"kind\":\"application\"}",
+		"6e74f73d74fc0c3a": "{\"kind\":\"application\"}",
+		"a3629ac86b58e54d": "{\"kind\":\"application\"}",
+		"1301d582df6e3603": "{\"kind\":\"application\"}",
+		"7877bbf58efdf92f": "{\"kind\":\"application\"}",
+		"bf0ee53770d14003": "{\"kind\":\"application\"}",
+		"d7beb86d2c1048f2": "{\"kind\":\"application\"}",
+		"154b5c85b97c8bad": "{\"kind\":\"application\"}",
+		"0de2fd586a02d2aa": "{\"kind\":\"application\"}",
+		"62a2eeb158eda25c": "{\"kind\":\"application\"}",
+		"2e81ef3f75c610f8": "{\"kind\":\"capabilities\"}",
+		"616e56ee7e8d5e38": "{\"kind\":\"capabilities\"}",
+		"5b198e48d405b81a": "{\"kind\":\"capabilities\"}",
+		"36a8ccf9862c180f": "{\"kind\":\"capabilities\"}",
+		"469096c5f34a2ac5": "{\"kind\":\"pastoral_boundary\"}",
+		"6e66e52e81ca2068": "{\"kind\":\"pastoral_boundary\"}",
+		"01ab0b8841e62c89": "{\"kind\":\"pastoral_boundary\"}",
+		"7c38876522710f33": "{\"kind\":\"pastoral_boundary\"}",
+		"79433223488af0f3": "{\"kind\":\"pastoral_boundary\"}",
+		"0a06b0e423de517a": "{\"kind\":\"pastoral_boundary\"}",
+		"adf8260141553f6d": "{\"kind\":\"pastoral_boundary\"}",
+		"cc6e126eef9a9038": "{\"kind\":\"pastoral_boundary\"}"
+	}
+}
