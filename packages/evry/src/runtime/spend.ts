@@ -11,6 +11,7 @@ import { z } from "zod";
 import { EvryRefusal } from "../context/errors.ts";
 import { LIMITS } from "../context/limits.ts";
 import type { Price, Spend } from "./model.ts";
+import { traced } from "./trace.ts";
 
 // Paid model spend (D77). Every paid model call reserves its own worst case in the month's counter before the provider
 // sees it, and settles to its reported usage afterwards. A call that never reports usage keeps its reservation.
@@ -63,7 +64,11 @@ export function meteredModel(db: Database, model: LanguageModelV4, spend: Spend)
 		const input = inputTokenBound(params);
 		const output = params.maxOutputTokens ?? LIMITS.outputTokensPerCall;
 		const micro = callCostMicroUsd(spend.price, input, output);
-		const month = await reserveSpend(db, micro, spend.capMicroUsd);
+		const month = await traced(
+			"spend reservation",
+			() => reserveSpend(db, micro, spend.capMicroUsd),
+			(month) => ({ reservedMicroUsd: micro, granted: month !== null }),
+		);
 		if (!month) throw new EvryRefusal("model_unavailable");
 		charged += micro;
 		let settled = false;
