@@ -70,7 +70,10 @@ test("AC:EVRY-RETRY-CANCEL INV-merge: overlapping reads show each event once, an
 	);
 	assert.equal(s.activeTurnId, null);
 	// A run whose job already ended is never waited for.
-	assert.equal(opened({ conversation, run: { turnId: T, state: "failed" }, events: [ask(1)], more: false }).activeTurnId, null);
+	assert.equal(
+		opened({ conversation, run: { turnId: T, state: "failed" }, events: [ask(1)], more: false }).activeTurnId,
+		null,
+	);
 });
 
 test("INV-optimistic: a sent message falls away when its saved event arrives, before or after the confirmation", () => {
@@ -86,7 +89,14 @@ test("INV-optimistic: a sent message falls away when its saved event arrives, be
 });
 
 test("AC:GAP-EVR-405 INV-turns: text and cards keep their saved order and a withheld text shows no words", () => {
-	const [turn] = turnsOf([ask(1), say(2, "Here "), say(3, "they are."), card(4), say(5, "secret", { withheld: true }), say(6, "more", { withheld: true })]);
+	const [turn] = turnsOf([
+		ask(1),
+		say(2, "Here "),
+		say(3, "they are."),
+		card(4),
+		say(5, "secret", { withheld: true }),
+		say(6, "more", { withheld: true }),
+	]);
 	assert.deepEqual(
 		turn.blocks.map((b) => [b.kind, b.kind === "text" ? b.text : b.result.rows.length]),
 		[
@@ -99,7 +109,8 @@ test("AC:GAP-EVR-405 INV-turns: text and cards keep their saved order and a with
 });
 
 test("INV-retry: only the last turn that did not complete, with no run active and no final refusal", () => {
-	const failed = (code, retry) => end(2, { state: "failed", reason: "failed", error: { code, correlationId: "x", retry, outcome: "refused" } });
+	const failed = (code, retry) =>
+		end(2, { state: "failed", reason: "failed", error: { code, correlationId: "x", retry, outcome: "refused" } });
 	const check = (events, active = null) => retryable({ ...EMPTY, events, activeTurnId: active }, turnsOf(events));
 	assert.equal(check([ask(1), failed("model_unavailable", "new_turn")]), true);
 	assert.equal(check([ask(1), failed("access_denied", "never")]), false);

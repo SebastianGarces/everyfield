@@ -246,6 +246,11 @@ function Chat({ c, onEdit, focusComposer }: { c: Model; onEdit: (send: Send) => 
 					Evry reads the records you can see and answers with the sources it used. It never changes anything without
 					your approval.
 				</p>
+				{c.problem ? (
+					<p role="alert" className="text-sm text-magenta-600">
+						{c.problem}
+					</p>
+				) : null}
 			</div>
 		);
 
@@ -530,12 +535,7 @@ function Composer({
 					) : (
 						<Tag icon={Unlink01Icon}>Page left out</Tag>
 					)}
-					<Button
-						size="sm"
-						variant="ghost"
-						onClick={() => setUsePage((v) => !v)}
-						className="h-[26px] px-2 text-text-2"
-					>
+					<Button size="sm" variant="ghost" onClick={() => setUsePage((v) => !v)} className="h-[26px] px-2 text-text-2">
 						{usePage ? "Leave out" : "Include page"}
 					</Button>
 				</div>

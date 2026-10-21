@@ -1,17 +1,15 @@
 "use client";
 
 import { Edit02Icon, UserIcon, UserMultipleIcon } from "@hugeicons/core-free-icons";
-import { Button } from "@everyfield/ui/controls";
+import { Button, IntentLink } from "@everyfield/ui/controls";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { Avatar, StageChip } from "@everyfield/ui/display";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { STAGE_KEY, STAGE_LABEL } from "../../people/model.ts";
 import type { SourceResult } from "./model.ts";
 
 // A source-bound result card (REQ-EVR-024): the rows Evry read, as they are now, with the count, whether more exist and
-// what the read leaves out. Rows link to their records; a link loads only when the person points at it or focuses it.
+// what the read leaves out. Rows link to their records, which load on intent only.
 
 const TITLE: Record<string, string> = {
 	"people.listPeople": "People",
@@ -33,7 +31,6 @@ export function ResultCard({
 	result: SourceResult;
 	originalTotal: number | null;
 }) {
-	const router = useRouter();
 	const [all, setAll] = useState(false);
 	const title = TITLE[operation] ?? "Records";
 	const shown = result.rows.length;
@@ -67,15 +64,10 @@ export function ResultCard({
 				<ul className="flex flex-col px-2 py-1.5">
 					{(all ? result.rows : result.rows.slice(0, FIRST_ROWS)).map((row) => {
 						const city = typeof row.fields.city === "string" ? row.fields.city : null;
-						const href = `/people/${row.id}`;
-						const prefetch = () => router.prefetch(href);
 						return (
 							<li key={row.id}>
-								<Link
-									href={href}
-									prefetch={false}
-									onPointerEnter={prefetch}
-									onFocus={prefetch}
+								<IntentLink
+									href={`/people/${row.id}`}
 									data-focus-inset=""
 									className="flex min-h-11 items-center gap-3 rounded-md px-2 py-2 text-ink transition-[background-color] hover:bg-hover"
 								>
@@ -87,7 +79,7 @@ export function ResultCard({
 									{isStage(row.fields.stage) ? (
 										<StageChip stage={STAGE_KEY[row.fields.stage]}>{STAGE_LABEL[row.fields.stage]}</StageChip>
 									) : null}
-								</Link>
+								</IntentLink>
 							</li>
 						);
 					})}
