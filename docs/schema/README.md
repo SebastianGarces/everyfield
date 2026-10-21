@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 87 tables, 1006 columns, 318 declared FKs and 25 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 88 tables, 1009 columns, 318 declared FKs and 25 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -50,6 +50,7 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `identity_proof` | Application-owned email-change/cancellation proof splits from account/auth and deletion facts; password reset remains library-owned. | WP-004, WP-005, WP-010, WP-050, WP-057 |
 | `mail_request` | Exact request/replay clock splits from the shared mail intent/attempt ledger. | WP-004, WP-028, WP-031 |
 | `mail_request_member` | Exact ordered membership splits from the shared mail intent/attempt ledger. | WP-004, WP-028, WP-031 |
+| `model_spend` | WP-051 Evry model qualification spend limit through Drizzle Kit. | WP-051 |
 | `onboarding_setup` | WP-009 additive onboarding storage. | WP-009 |
 | `organization_person_removal` | WP-011 owns removal and WP-050 synchronizes body-free witnesses into recovery; WP-004 installs the baseline. | WP-004, WP-011, WP-050 |
 | `people_column` | WP-011 People producer storage introduced by additive migration 0004; D30/D32 current-catalog registration. | WP-011 |

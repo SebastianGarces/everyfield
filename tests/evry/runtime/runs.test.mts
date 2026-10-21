@@ -20,6 +20,7 @@ import { getPerson, listPeople, verifyPeople } from "../../../packages/evry/src/
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
 import { transientRetry, withTransientRetry } from "../../../packages/evry/src/runtime/model.ts";
+import { callCostMicroUsd } from "../../../packages/evry/src/runtime/spend.ts";
 import {
 	accounts,
 	actor,
@@ -175,6 +176,113 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 				: [],
 		);
 	}
+});
+
+test("D77 every paid model call reserves its byte-bounded worst case before the provider sees it: the monthly limit holds for concurrent turns and multi-byte text; a cut-off call keeps its reservation; deleting a conversation keeps the charge", async () => {
+	const owner = await actor("owner");
+	const price = { input: 0.1, output: 0.5, longContextAbove: 272_000 };
+	const charged = async () =>
+		Number((await admin.execute(sql`SELECT coalesce(sum(charged_micro_usd),0) n FROM model_spend`)).rows[0]!.n);
+	/** The scripted model with a price. `before` runs after the call's reservation and before the provider works. */
+	const priced = (capMicroUsd: number, before: (call: number) => Promise<void> = async () => {}) => {
+		let calls = 0;
+		const costs: number[] = [];
+		const cost = (u: { inputTokens: { total?: number }; outputTokens: { total?: number } }) =>
+			costs.push(Math.ceil(u.inputTokens.total! * price.input + u.outputTokens.total! * price.output));
+		const model = wrapLanguageModel({
+			model: scriptedModel(),
+			middleware: {
+				specificationVersion: "v4",
+				wrapGenerate: async ({ doGenerate }) => {
+					await before(++calls);
+					const result = await doGenerate();
+					cost(result.usage);
+					return result;
+				},
+				wrapStream: async ({ doStream }) => {
+					await before(++calls);
+					const result = await doStream();
+					const finish = new TransformStream<any, any>({
+						transform: (part, controller) => (part.type === "finish" && cost(part.usage), controller.enqueue(part)),
+					});
+					return { ...result, stream: result.stream.pipeThrough(finish) };
+				},
+			},
+		}) as LanguageModelV4;
+		return { calls: () => calls, costs, model: { ...qualified(model), spend: { price, capMicroUsd } } };
+	};
+	/** What the first model call of a turn asking `text` reserves. */
+	const reservation = async (text: string) => {
+		let reserved = 0;
+		const base = await charged();
+		const probe = priced(1_000_000_000, async (call) => {
+			if (call === 1) reserved = (await charged()) - base;
+		});
+		await ask(owner, text);
+		await work(probe.model);
+		return reserved;
+	};
+
+	// A finished turn charges the sum of its calls' reported usage and saves that cost with its status.
+	const first = priced(1_000_000);
+	const id = await ask(owner, "Show all people and tell me the exact total.");
+	assert.equal(await work(first.model), "succeeded");
+	const spent = first.costs.reduce((a, b) => a + b, 0);
+	assert.ok(first.costs.length > 1 && spent > 0);
+	assert.deepEqual([(await events(owner, id)).status.usage.costMicroUsd, await charged()], [spent, spent]);
+
+	// Multi-byte text reserves by its UTF-8 bytes, not by characters: the same length in a 3-byte script is refused
+	// before any model call under a limit that the ASCII request's first call fits.
+	const ascii = "a".repeat(6_000);
+	const unicode = "\u0800".repeat(6_000);
+	const fits = await reservation(ascii);
+	const asciiTurn = priced((await charged()) + fits + 600);
+	await ask(owner, ascii);
+	await work(asciiTurn.model);
+	assert.ok(asciiTurn.calls() >= 1);
+	const unicodeTurn = priced((await charged()) + fits + 600);
+	const refusedUnicode = await ask(owner, unicode);
+	assert.equal(await work(unicodeTurn.model), "failed");
+	assert.deepEqual(
+		[unicodeTurn.calls(), (await events(owner, refusedUnicode)).status.error.code],
+		[0, "model_unavailable"],
+	);
+	// More than 272,000 input tokens costs twice the input rate and 1.5 times the output rate for the whole call.
+	assert.deepEqual(
+		[callCostMicroUsd(price, 272_000, 1_000), callCostMicroUsd(price, 272_001, 1_000)],
+		[27_700, Math.ceil(272_001 * 0.2 + 1_000 * 0.75)],
+	);
+
+	// Three turns start together under a limit with room for one first call: one reaches the model, two never do.
+	const one = await reservation("Show all people.");
+	const cap = (await charged()) + one + Math.floor(one / 2);
+	const slow = [0, 1, 2].map(() => priced(cap, () => new Promise((r) => setTimeout(r, 300))));
+	const ids = [
+		await ask(owner, "Show all people."),
+		await ask(owner, "Show all people."),
+		await ask(owner, "Show all people."),
+	];
+	await Promise.all(slow.map((m) => work(m.model)));
+	assert.deepEqual(slow.map((m) => Math.min(m.calls(), 1)).toSorted(), [0, 0, 1]);
+	const ends = await Promise.all(ids.map(async (c) => (await events(owner, c)).status));
+	assert.equal(ends.filter((e) => e.error?.code === "model_unavailable").length >= 2, true);
+	assert.ok((await charged()) <= cap);
+
+	// A model call cut off after cancel may still be billed: the run keeps that call's whole reservation.
+	const cancelled = await ask(owner, "Show all people.");
+	let reservedThrough = 0;
+	const cut = priced(1_000_000_000, async (call) => {
+		if (call < 2) return;
+		reservedThrough = await charged();
+		await cancelTurn(db, owner, cancelled);
+		throw Error("connection reset before the usage arrived");
+	});
+	assert.equal(await work(cut.model), "lost");
+	assert.equal(await charged(), reservedThrough);
+
+	// Deleting conversations removes their events, never the month's charge.
+	await admin.execute(sql`DELETE FROM conversation WHERE id IN (${id}::uuid, ${cancelled}::uuid)`);
+	assert.equal(await charged(), reservedThrough);
 });
 
 test("AC:INH-EDGES-01 AC:INH-REGRESSION-CLARIFICATION-NAME AC:SEC-11 two people named Alex get one clarification with safe distinguishing fields only; credentials never reach the model", async () => {
