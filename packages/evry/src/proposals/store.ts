@@ -1,6 +1,8 @@
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
+import { readAuthorizedObject, type PrivateStorage, type ResourceAuthorizer } from "@everyfield/db/schema";
 import { liveRead } from "@everyfield/domain/access";
+import { photoMediaType } from "@everyfield/domain/people";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
@@ -175,32 +177,113 @@ export async function reviseProposal(db: Database, actor: EvryActor, id: string,
 	throw new EvryRefusal(current.revision !== change.revision ? "review_changed" : "review_closed");
 }
 
+/**
+ * A set-photo proposal's staged upload, while its owner may still review it: the proposal is pending or approved
+ * without an outcome and its 15-minute review has not expired, the person is still live in this church, and the
+ * upload is this church's ready, unexpired person photo that no person uses yet. Lock-free (C13, C27).
+ */
+const staged = (actor: EvryActor, proposalId: string, uploadId: SQL) =>
+	sql`p.id=${proposalId}::uuid AND ${readable(actor)} AND p.operation='people.setPersonPhoto'
+		AND p.state IN ('pending','approved') AND p.outcome IS NULL AND p.expires_at>clock_timestamp()
+		AND (p.input->'input'->>'uploadId')::uuid=${uploadId}
+		AND EXISTS(SELECT FROM person t WHERE t.id=(p.input->'input'->>'personId')::uuid AND t.tenant_id=p.tenant_id AND t.state='live')
+		AND EXISTS(SELECT FROM file_object f WHERE f.id=${uploadId} AND f.tenant_id=p.tenant_id AND f.purpose='person_photo'
+			AND f.state='ready' AND f.expires_at>clock_timestamp() AND NOT EXISTS(SELECT FROM person o WHERE o.photo_object_id=f.id))`;
+
+/**
+ * The exact verified bytes of a staged upload. The storage layer checks it again around the byte transfer, each time
+ * in one statement with the live check, so a sign-out, an ended seat or an expired review stops delivery.
+ */
+async function stagedBytes(
+	db: Database,
+	storage: PrivateStorage | null,
+	actor: EvryActor,
+	proposalId: string,
+	upload: string,
+) {
+	if (!storage) throw new EvryRefusal("not_found");
+	const authorize: ResourceAuthorizer = async (tx, file, intent) => {
+		if (intent !== "read") return null;
+		const r = await tx.execute(
+			sql`SELECT p.account_id FROM proposal p WHERE ${staged(actor, proposalId, sql`${file.id}::uuid`)}`,
+		);
+		const accountId = r.rows[0]?.account_id as string | undefined;
+		return accountId ? { kind: "account", actorId: accountId } : null;
+	};
+	const bytes = await readAuthorizedObject(db, storage, authorize, upload).catch(() => {
+		throw new EvryRefusal("not_found");
+	});
+	const mediaType = photoMediaType(bytes);
+	if (!mediaType) throw new EvryRefusal("not_found");
+	return { bytes, mediaType };
+}
+
+/**
+ * evry.readReview for a set-photo proposal's staged upload: its exact bytes and image type, for the proposal's owner
+ * while the review lasts, so they can see the image they approve. Refuses as not_found otherwise.
+ */
+export async function readStagedPhoto(db: Database, storage: PrivateStorage | null, actor: EvryActor, id: string) {
+	const proposalId = parse(z.uuid(), id);
+	const upload = sql`(p.input->'input'->>'uploadId')::uuid`;
+	const r = await db.execute(
+		sql`SELECT ${upload} AS upload FROM proposal p WHERE ${staged(actor, proposalId, upload)}`,
+	);
+	const found = r.rows[0]?.upload as string | undefined;
+	if (!found) throw new EvryRefusal("not_found");
+	return stagedBytes(db, storage, actor, proposalId, found);
+}
+
 const approval = z.strictObject({ revision: z.int().min(1), digest: z.string().regex(/^[0-9a-f]{64}$/) });
 /**
  * evry.approveProposal: the owner's trusted approval of exactly the revision and digest they reviewed, before it
  * expires (expiresAt itself is too late). Binds the approving session and queues the effect as one evry_effect job.
  * Approving the same revision again returns it and queues nothing. One statement.
+ *
+ * A set-photo proposal approves only after its staged upload was read again, byte for byte, in this request: nobody
+ * may approve an image they could not have seen (REQ-EVR-011). The first statement leaves it pending; the review read
+ * that follows names the upload, the storage layer reads it under the live check, and the approval runs again bound to
+ * that upload. An upload that is gone or unreadable refuses as photo_unavailable and changes nothing.
  */
-export async function approveProposal(db: Database, actor: EvryActor, id: string, raw: unknown) {
+export async function approveProposal(
+	db: Database,
+	actor: EvryActor,
+	id: string,
+	raw: unknown,
+	storage: PrivateStorage | null,
+) {
 	const proposalId = parse(z.uuid(), id);
 	const witness = parse(approval, raw);
-	const job = randomUUID();
-	const r = await db.execute(sql`
-		WITH a AS (
-			UPDATE proposal p SET state='approved',approved_at=clock_timestamp(),approved_session_id=${actor.session}::uuid,
-				job_id=${job}::uuid,updated_at=clock_timestamp()
-			WHERE p.id=${proposalId}::uuid AND ${owned(actor)} AND p.state='pending' AND p.revision=${witness.revision}
-				AND p.digest=${witness.digest} AND p.expires_at>clock_timestamp()
-			RETURNING p.*
-		), run AS (${effectJob(job, "a")}),
-		audit AS (${audit("evry.proposal_approved", "accept", "a")})
-		SELECT ${projection("a")} AS proposal FROM a`);
-	if (r.rows.length) return { proposal: proposalRow.parse(r.rows[0]!.proposal), replayed: false };
+	const approve = async (shownUpload: string | null) => {
+		const job = randomUUID();
+		const r = await db.execute(sql`
+			WITH a AS (
+				UPDATE proposal p SET state='approved',approved_at=clock_timestamp(),approved_session_id=${actor.session}::uuid,
+					job_id=${job}::uuid,updated_at=clock_timestamp()
+				WHERE p.id=${proposalId}::uuid AND ${owned(actor)} AND p.state='pending' AND p.revision=${witness.revision}
+					AND p.digest=${witness.digest} AND p.expires_at>clock_timestamp()
+					AND (p.operation<>'people.setPersonPhoto' OR p.input->'input'->>'uploadId'=${shownUpload}::text)
+				RETURNING p.*
+			), run AS (${effectJob(job, "a")}),
+			audit AS (${audit("evry.proposal_approved", "accept", "a")})
+			SELECT ${projection("a")} AS proposal FROM a`);
+		return r.rows.length ? { proposal: proposalRow.parse(r.rows[0]!.proposal), replayed: false } : null;
+	};
+	/** Not approved now: the known state of the review, or why it cannot be approved. */
+	const settled = (current: Proposal) => {
+		if (current.revision !== witness.revision || current.digest !== witness.digest)
+			throw new EvryRefusal("review_changed");
+		if (current.status === "approved") return { proposal: current, replayed: true };
+		throw new EvryRefusal(current.status === "expired" ? "review_expired" : "review_closed");
+	};
+	const approved = await approve(null);
+	if (approved) return approved;
 	const current = await readReview(db, actor, proposalId);
-	if (current.revision !== witness.revision || current.digest !== witness.digest)
-		throw new EvryRefusal("review_changed");
-	if (current.status === "approved") return { proposal: current, replayed: true };
-	throw new EvryRefusal(current.status === "expired" ? "review_expired" : "review_closed");
+	if (current.operation !== "people.setPersonPhoto" || current.status !== "pending") return settled(current);
+	if (current.revision !== witness.revision || current.digest !== witness.digest) return settled(current);
+	const upload = z.uuid().safeParse(current.review.changes.find((c) => c.field === "photo")?.after);
+	const shown = upload.success && (await stagedBytes(db, storage, actor, proposalId, upload.data).catch(() => null));
+	if (!shown) throw new EvryRefusal("photo_unavailable");
+	return (await approve(upload.data)) ?? settled(await readReview(db, actor, proposalId));
 }
 
 /**
