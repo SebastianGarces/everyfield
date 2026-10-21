@@ -63,13 +63,8 @@ export async function changeStatus(requestKey: string, expectedRevision: string,
 		meetingsWriter.changeStatus(tx, ctx, command(requestKey, expectedRevision, { meetingId, to })),
 	);
 }
-/** Deletes a meeting and returns the meetings list in the same response (see scheduleMeeting). */
 export async function deleteMeeting(requestKey: string, expectedRevision: string, meetingId: string, reason: string) {
-	const r = await act((tx, ctx) =>
-		meetingsWriter.delete(tx, ctx, command(requestKey, expectedRevision, { meetingId, reason })),
-	);
-	if (r.status === "ok") redirect("/meetings");
-	return r;
+	return act((tx, ctx) => meetingsWriter.delete(tx, ctx, command(requestKey, expectedRevision, { meetingId, reason })));
 }
 export async function completePractice(
 	requestKey: string,

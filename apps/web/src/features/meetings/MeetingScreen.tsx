@@ -39,6 +39,7 @@ import {
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
+import { useRouter } from "next/navigation";
 import { useOptimistic, useState, useTransition } from "react";
 import {
 	changeStatus,
@@ -67,6 +68,7 @@ import {
 	type MeetingStatus,
 } from "./model.ts";
 import { MeetingStatusBadge, Problem, problemOf, RsvpBar, useSave } from "./parts.tsx";
+import { deletions } from "./deletions.ts";
 import { applyChange, type Change, type PageView } from "./page-state.ts";
 import { PlanMeetingDialog } from "./PlanMeetingDialog.tsx";
 import type { MeetingPageData } from "./server.ts";
@@ -78,6 +80,7 @@ type Reason = "delete" | "void" | "restore" | "not_held" | null;
  * nothing reloads the page. A change refused as out of date reads the meeting again and says so.
  */
 export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageData; canWrite: boolean }) {
+	const router = useRouter();
 	const toast = useToast();
 	const [server, setServer] = useState(loaded);
 	const [data, setData] = useState(loaded);
@@ -345,17 +348,33 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 										: "Mark as not held"
 						}
 						onConfirm={async (why, save) => {
+							if (reason === "delete") {
+								// The list opens at once without this meeting; the answer confirms it or brings it back.
+								const { id, displayTitle, revision } = m;
+								deletions.hide(id);
+								router.push("/meetings");
+								deleteMeeting(crypto.randomUUID(), revision, id, why)
+									.catch(() => ({ status: "lost" }) as const)
+									.then((r) => {
+										if (r.status === "ok") toast({ message: `${displayTitle} was deleted.`, tone: "success" });
+										else {
+											deletions.show(id);
+											toast({
+												message: `${displayTitle} was not deleted. ${problemText(problemOf(r)!)}`,
+												tone: "error",
+											});
+										}
+									});
+								return true;
+							}
 							const r =
-								reason === "delete"
-									? await save({ reason, why }, (key) => deleteMeeting(key, m.revision, m.id, why))
-									: reason === "not_held"
-										? await save({ reason, why }, (key) =>
-												correctPractice(key, m.revision, { meetingId: m.id, state: "not_completed", reason: why }),
-											)
-										: await save({ reason, why }, (key) =>
-												correctOccurrence(key, m.revision, m.id, reason === "void", why),
-											);
-							// A delete that succeeds redirects to the list in the same answer, so no answer comes back here.
+								reason === "not_held"
+									? await save({ reason, why }, (key) =>
+											correctPractice(key, m.revision, { meetingId: m.id, state: "not_completed", reason: why }),
+										)
+									: await save({ reason, why }, (key) =>
+											correctOccurrence(key, m.revision, m.id, reason === "void", why),
+										);
 							if (r?.status !== "ok") {
 								if (r?.status === "refused" && r.code === "conflict") stale();
 								return false;

@@ -36,6 +36,7 @@ import {
 	type Window,
 } from "./model.ts";
 import { IntentLink, MeetingIcon, MeetingStatusBadge, RsvpBar } from "./parts.tsx";
+import { useDeleted } from "./deletions.ts";
 import { PlanMeetingDialog } from "./PlanMeetingDialog.tsx";
 import type { MeetingsView } from "./server.ts";
 import { VenuesSheet } from "./VenuesSheet.tsx";
@@ -52,7 +53,15 @@ export function MeetingsScreen({ view, canWrite }: { view: MeetingsView; canWrit
 	const [navigating, startTransition] = useTransition();
 	const [planning, setPlanning] = useState(false);
 	const [places, setPlaces] = useState(false);
-	const { query, page, next, hasHistory, now } = view;
+	const { query, hasHistory, now } = view;
+	// A meeting deleted from its page leaves this list at once, while its delete is confirmed (deletions.ts).
+	const deleted = useDeleted();
+	const page = view.page && {
+		...view.page,
+		items: view.page.items.filter((m) => !deleted.has(m.id)),
+		total: view.page.total - view.page.items.filter((m) => deleted.has(m.id)).length,
+	};
+	const next = view.next && !deleted.has(view.next.id) ? view.next : null;
 	const thisYear = Number(now.slice(0, 4));
 	const go = (q: MeetingsQuery) => startTransition(() => router.push(pathname + querySearch(q), { scroll: false }));
 	const filter = (patch: Partial<MeetingsQuery>) => go({ ...query, ...patch, page: 1 });
