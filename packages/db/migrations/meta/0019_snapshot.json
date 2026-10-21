@@ -1,5 +1,5 @@
 {
-  "id": "c56116e7-0a2d-4b53-a7d5-eac4338e1dc0",
+  "id": "d787b921-f340-4ada-b103-de9fb6af0ae0",
   "prevId": "6021bd24-aa6b-454b-bdbc-f62953e0d0a1",
   "version": "7",
   "dialect": "postgresql",
@@ -11448,6 +11448,183 @@
       },
       "isRLSEnabled": false
     },
+    "public.person_skill": {
+      "name": "person_skill",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "plant_id": {
+          "name": "plant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "person_id": {
+          "name": "person_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "proficiency": {
+          "name": "proficiency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revision": {
+          "name": "revision",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "1"
+        }
+      },
+      "indexes": {
+        "person_skill_ref_0": {
+          "name": "person_skill_ref_0",
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "person_skill_ref_1": {
+          "name": "person_skill_ref_1",
+          "columns": [
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "person_skill_fk_0": {
+          "name": "person_skill_fk_0",
+          "tableFrom": "person_skill",
+          "tableTo": "plant",
+          "columnsFrom": [
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "person_skill_fk_1": {
+          "name": "person_skill_fk_1",
+          "tableFrom": "person_skill",
+          "tableTo": "person",
+          "columnsFrom": [
+            "person_id",
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "person_skill_fk_2": {
+          "name": "person_skill_fk_2",
+          "tableFrom": "person_skill",
+          "tableTo": "record",
+          "columnsFrom": [
+            "id",
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "person_skill_pkey": {
+          "name": "person_skill_pkey",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "person_skill_uq_0": {
+          "name": "person_skill_uq_0",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "plant_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "person_skill_ck_0": {
+          "name": "person_skill_ck_0",
+          "value": "(revision >= 1)"
+        },
+        "person_skill_ck_1": {
+          "name": "person_skill_ck_1",
+          "value": "(category = ANY (ARRAY['worship'::text, 'tech'::text, 'admin'::text, 'teaching'::text, 'hospitality'::text, 'leadership'::text, 'other'::text]))"
+        },
+        "person_skill_ck_2": {
+          "name": "person_skill_ck_2",
+          "value": "(proficiency = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text, 'expert'::text]))"
+        },
+        "person_skill_ck_3": {
+          "name": "person_skill_ck_3",
+          "value": "((length(btrim(name)) >= 1) AND (length(btrim(name)) <= 100))"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.person_tag": {
       "name": "person_tag",
       "schema": "",
@@ -15810,13 +15987,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "prerequisite_ids": {
-          "name": "prerequisite_ids",
-          "type": "uuid[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::uuid[]"
-        },
         "completed_at": {
           "name": "completed_at",
           "type": "timestamp with time zone",
@@ -16491,10 +16661,6 @@
         "task_ck_9": {
           "name": "task_ck_9",
           "value": "(category = ANY (ARRAY['administrative'::text, 'vision_meeting'::text, 'follow_up'::text, 'general'::text, 'ministry_team'::text, 'launch_prep'::text, 'training'::text, 'promotion'::text, 'recurring'::text, 'facilities'::text]))"
-        },
-        "task_ck_11": {
-          "name": "task_ck_11",
-          "value": "((cardinality(prerequisite_ids) <= 50) AND (NOT (id = ANY (prerequisite_ids))) AND ((parent_id IS NULL) OR (cardinality(prerequisite_ids) = 0)))"
         },
         "task_timezone_iana": {
           "name": "task_timezone_iana",

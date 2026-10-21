@@ -2882,6 +2882,58 @@ export const person_note = pgTable(
 		index("person_note_ref_5").using("btree", table.tenant_id.asc().nullsLast()),
 	],
 );
+export const person_skill = pgTable(
+	"person_skill",
+	{
+		id: uuid("id")
+			.notNull()
+			.default(sql`gen_random_uuid()`),
+		plant_id: uuid("plant_id").notNull(),
+		person_id: uuid("person_id").notNull(),
+		name: text("name").notNull(),
+		category: text("category", {
+			enum: ["worship", "tech", "admin", "teaching", "hospitality", "leadership", "other"],
+		}).notNull(),
+		proficiency: text("proficiency", { enum: ["beginner", "intermediate", "advanced", "expert"] }),
+		notes: text("notes"),
+		revision: int64("revision")
+			.notNull()
+			.default(sql`1`),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({ name: "person_skill_fk_0", columns: [table.plant_id], foreignColumns: [plant.id] })
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "person_skill_fk_1",
+			columns: [table.person_id, table.plant_id],
+			foreignColumns: [person.id, person.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "person_skill_fk_2",
+			columns: [table.id, table.plant_id],
+			foreignColumns: [record.id, record.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "person_skill_pkey", columns: [table.id] }),
+		unique("person_skill_uq_0").on(table.id, table.plant_id),
+		check("person_skill_ck_0", sql`(revision >= 1)`),
+		check(
+			"person_skill_ck_1",
+			sql`(category = ANY (ARRAY['worship'::text, 'tech'::text, 'admin'::text, 'teaching'::text, 'hospitality'::text, 'leadership'::text, 'other'::text]))`,
+		),
+		check(
+			"person_skill_ck_2",
+			sql`(proficiency = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text, 'expert'::text]))`,
+		),
+		check("person_skill_ck_3", sql`((length(btrim(name)) >= 1) AND (length(btrim(name)) <= 100))`),
+		index("person_skill_ref_0").using("btree", table.plant_id.asc().nullsLast()),
+		index("person_skill_ref_1").using("btree", table.person_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
+	],
+);
 export const person_tag = pgTable(
 	"person_tag",
 	{
