@@ -6,6 +6,7 @@ import {
 	baseRef,
 	findPackage,
 	git,
+	gitOk,
 	hasRemote,
 	isClean,
 	loadConfig,
@@ -22,6 +23,7 @@ import { formatScope, wpScope } from "./scope.ts";
 import { recordProgress, type ShippedRecord } from "./progress.ts";
 import { requireVerifiedHead } from "./verify.ts";
 import { stack } from "./task.ts";
+import { requireFreeMigrationNumbers } from "./migrations.ts";
 import {
 	cachedTriage,
 	fbOwningPaths,
@@ -98,6 +100,7 @@ export function prOpen(root: string, task: TaskRef, bodyFile?: string): number {
 	if (!isClean(wt)) fail("Commit your work first. The worktree is not clean.");
 	const sha = requireVerifiedHead(root, task);
 	git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
+	requireFreeMigrationNumbers(wt, baseRef(root, cfg), task);
 
 	if (!bodyFile || !existsSync(bodyFile))
 		fail("Write the PR body following the PR standard, then pass --body-file <file>.");
@@ -173,6 +176,15 @@ export type Approval = {
 	packageClosures?: string[];
 };
 export type RequiredCheck = { name: string; bucket: string; state: string; link: string };
+/** Why an approval of `approvedHead` still holds at `head`: only clean merges of main, on paths the PR never changed. */
+export type CarryProof = {
+	approvedHead: string;
+	head: string;
+	merges: Array<{ commit: string; branchParent: string; mainParent: string }>;
+	base: string;
+	mainIncluded: string;
+	overlap: string[];
+};
 export type MergeEvidence = {
 	head: string;
 	authorFamily: string;
@@ -180,6 +192,7 @@ export type MergeEvidence = {
 	approvalUrl: string;
 	checks: RequiredCheck[];
 	checkedAt: string;
+	carry?: CarryProof;
 };
 type PullRequest = {
 	number: number;
@@ -249,8 +262,49 @@ function readApproval(input: unknown): Approval | null {
 	};
 }
 
-/** One unsigned review convention, shared by the verifier and GitHub merge workflow. */
-export function checkPr(root: string, number: number, expectedHead?: string): MergeEvidence {
+/**
+ * The approval of `approved` carries to `head` only when every commit between them is a merge whose first parent
+ * is the previous head and whose second parent is on main, each merge tree is the clean `git merge-tree` result,
+ * and the PR's own changes share no path with what main changed since the PR's base. Returns the refusal reason.
+ */
+export function carryProof(repo: string, approved: string, head: string, main: string): CarryProof | string {
+	if (!gitOk(repo, "merge-base", "--is-ancestor", approved, head))
+		return `${approved.slice(0, 10)} is not an ancestor of ${head.slice(0, 10)}`;
+	const merges: CarryProof["merges"] = [];
+	for (let commit = head; commit !== approved;) {
+		const parents = git(repo, "rev-list", "--parents", "-n", "1", commit).split(" ").slice(1);
+		if (parents.length !== 2) return `${commit.slice(0, 10)} is not a merge of main`;
+		const [branchParent, mainParent] = parents;
+		if (!gitOk(repo, "merge-base", "--is-ancestor", approved, branchParent))
+			return `${commit.slice(0, 10)} does not merge into the approved branch`;
+		if (!gitOk(repo, "merge-base", "--is-ancestor", mainParent, main))
+			return `${commit.slice(0, 10)} merges ${mainParent.slice(0, 10)}, which is not on main`;
+		const clean = run("git", ["merge-tree", "--write-tree", branchParent, mainParent], { cwd: repo });
+		if (clean.code !== 0 || clean.stdout.split("\n")[0] !== git(repo, "rev-parse", `${commit}^{tree}`))
+			return `${commit.slice(0, 10)} differs from the clean merge of its parents`;
+		merges.unshift({ commit, branchParent, mainParent });
+		commit = branchParent;
+	}
+	const base = git(repo, "merge-base", approved, main),
+		mainIncluded = git(repo, "merge-base", head, main);
+	const paths = (from: string, to: string) =>
+		git(repo, "diff", "--name-only", "--no-renames", from, to).split("\n").filter(Boolean);
+	const mainPaths = new Set(paths(base, mainIncluded));
+	const overlap = paths(base, approved).filter((path) => mainPaths.has(path));
+	if (overlap.length) return `main changed paths this PR also changes: ${overlap.join(", ")}`;
+	return { approvedHead: approved, head, merges, base, mainIncluded, overlap };
+}
+
+/**
+ * One unsigned review convention, shared by the verifier and GitHub merge workflow. `carry` lets an approval of
+ * an earlier head hold over merge-only commits (carryProof); the owner approval routes never pass it.
+ */
+export function checkPr(
+	root: string,
+	number: number,
+	expectedHead?: string,
+	opts: { carry?: boolean } = {},
+): MergeEvidence {
 	const cfg = loadConfig(root);
 	const pr: PullRequest = JSON.parse(
 		gh(root, ["pr", "view", String(number), "--json", "number,body,headRefOid,baseRefName,state,isDraft"]),
@@ -281,7 +335,7 @@ export function checkPr(root: string, number: number, expectedHead?: string): Me
 	if (!Array.isArray(pages) || pages.some((page) => !Array.isArray(page)))
 		fail("GitHub verifier comments are unreadable.");
 	const comments = pages.flat();
-	let selected: { approval: Approval; url: string } | undefined;
+	let selected: { approval: Approval; url: string } | undefined, latest: typeof selected;
 	let missingFields: string[] = [];
 	for (const comment of comments)
 		for (const match of String(comment?.body ?? "").matchAll(/^EVF-Review: (.+)$/gm)) {
@@ -295,9 +349,22 @@ export function checkPr(root: string, number: number, expectedHead?: string): Me
 				missingFields = ["quality", "experience"].filter((field) => !(field in value));
 			}
 			const approval = readApproval(value);
-			if (!approval || approval.head !== pr.headRefOid) continue;
-			selected = { approval, url: typeof comment.html_url === "string" ? comment.html_url : "" };
+			if (!approval) continue;
+			latest = { approval, url: typeof comment.html_url === "string" ? comment.html_url : "" };
+			if (approval.head === pr.headRefOid) selected = latest;
 		}
+	let carry: CarryProof | undefined;
+	if (!selected && opts.carry && latest?.approval.verdict === "approved") {
+		const approved = latest.approval.head;
+		if (!gitOk(root, "cat-file", "-e", `${approved}^{commit}`))
+			run("git", ["fetch", "--quiet", cfg.remote, approved], { cwd: root });
+		const proof = carryProof(root, approved, pr.headRefOid, baseRef(root, cfg));
+		if (typeof proof === "string")
+			fail(
+				`Missing verifier approval for the exact PR head. The approval of ${approved.slice(0, 10)} does not carry: ${proof}.`,
+			);
+		[selected, carry] = [latest, proof];
+	}
 	if (!selected?.url || selected.approval.verdict !== "approved") {
 		if (missingFields.length)
 			fail(`Missing ${missingFields.join(" and ")} field in verifier review for the exact PR head.`);
@@ -325,6 +392,7 @@ export function checkPr(root: string, number: number, expectedHead?: string): Me
 		approvalUrl: selected.url,
 		checks,
 		checkedAt: new Date().toISOString(),
+		...(carry ? { carry } : {}),
 	};
 }
 
@@ -340,10 +408,17 @@ export function ship(root: string, task: TaskRef): number {
 	if (!pr || pr.state !== "OPEN") fail(`No open PR for ${task.branch}.`);
 	if (cfg.mergePolicy.ordinary !== "automatic-after-independent-review")
 		fail("Ordinary automatic merge is not approved.");
+	git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
 	const sha = git(wt, "rev-parse", "HEAD"),
 		baseSha = git(root, "merge-base", sha, baseRef(root, cfg));
-	const verification = checkPr(wt, pr.number, sha);
-	if (task.kind === "ops" && maintenanceScope(wt, task).route === "design") {
+	requireFreeMigrationNumbers(wt, baseRef(root, cfg), task);
+	const design = task.kind === "ops" && maintenanceScope(wt, task).route === "design",
+		cls = task.kind === "fb" ? cachedTriage(root, task.issue!)?.class : undefined;
+	// The PR #13 owner routes keep exact-head review; only routes that merge here may carry an approval.
+	const ownerRoute =
+		design || (task.kind === "fb" && !(cfg.mergePolicy.feedbackVerifierMerge as string[]).includes(cls ?? ""));
+	const verification = checkPr(wt, pr.number, sha, { carry: !ownerRoute });
+	if (design) {
 		postStatus(wt, cfg, sha, "success", `Verified by ${verification.approval.verifierFamily} at ${sha.slice(0, 10)}`);
 		console.log(
 			`PR #${pr.number} is a verified design task and waits for Sebastian's chat approval, then evf approve.`,
@@ -351,7 +426,6 @@ export function ship(root: string, task: TaskRef): number {
 		return 0;
 	}
 	if (task.kind === "fb") {
-		const cls = cachedTriage(root, task.issue!)?.class;
 		if (!cls) fail("Feedback must be triaged before shipping.");
 		if ((cfg.mergePolicy.feedbackOwnerAfterVerifier as string[]).includes(cls)) {
 			postStatus(wt, cfg, sha, "success", `Verified by ${verification.approval.verifierFamily} at ${sha.slice(0, 10)}`);
@@ -361,12 +435,65 @@ export function ship(root: string, task: TaskRef): number {
 		if (!(cfg.mergePolicy.feedbackVerifierMerge as string[]).includes(cls))
 			fail("This feedback class requires the owner approval route.");
 	}
+	requireGreenMain(wt, cfg, gh(wt, ["pr", "view", String(pr.number), "--json", "body", "--jq", ".body"]));
+	if (verification.carry) {
+		const { approvedHead, merges, base, mainIncluded } = verification.carry;
+		const proof = [
+			`evf ship carries the ${verification.approval.verifierFamily} approval of ${approvedHead} to ${sha}.`,
+			...merges.map((m) => `- ${m.commit}: clean merge of ${m.branchParent} (branch) and ${m.mainParent} (main)`),
+			`PR paths (${base.slice(0, 10)}..${approvedHead.slice(0, 10)}) and main paths (${base.slice(0, 10)}..${mainIncluded.slice(0, 10)}) do not overlap. Required CI is green on ${sha}.`,
+			"",
+			`EVF-Carry: ${JSON.stringify(verification.carry)}`,
+		].join("\n");
+		gh(wt, ["pr", "comment", String(pr.number), "--body", proof]);
+		console.log(proof);
+	}
 	const merge = run("gh", ["pr", "merge", String(pr.number), "--squash", "--match-head-commit", sha], { cwd: wt });
 	if (merge.code !== 0)
 		fail(
 			`Merge refused: ${(merge.stderr || merge.stdout).trim()}. A changed head needs fresh CI and verifier approval.`,
 		);
 	return afterMerge(root, cfg, task, wt, pr.number, verification, baseSha);
+}
+
+const MAIN_CI_WORKFLOW = "ci.yml",
+	MAIN_CI_ISSUE = "P0: CI failed on main";
+
+/**
+ * Main's latest finished CI run decides, not the issue state: a red main merges only the PR whose body says
+ * Fixes #N for the open fail-forward issue. Cancelled and skipped runs prove nothing either way.
+ */
+function requireGreenMain(cwd: string, cfg: Config, body: string): void {
+	const runs = JSON.parse(
+		gh(cwd, [
+			"run",
+			"list",
+			"--workflow",
+			MAIN_CI_WORKFLOW,
+			"--branch",
+			cfg.baseBranch,
+			"--event",
+			"push",
+			"--status",
+			"completed",
+			"--limit",
+			"20",
+			"--json",
+			"conclusion,headSha,url",
+		]),
+	) as Array<{ conclusion: string; headSha: string; url: string }>;
+	const latest = runs.find((r) => r.conclusion !== "cancelled" && r.conclusion !== "skipped");
+	if (!latest) fail(`Cannot find a finished ${MAIN_CI_WORKFLOW} run on ${cfg.baseBranch}.`);
+	if (latest.conclusion === "success") return;
+	const repo = nameWithOwner(cwd);
+	const fixesOpenIssue = [...body.matchAll(/\bFixes #(\d+)\b/gi)].some(([, n]) => {
+		const issue = JSON.parse(gh(cwd, ["api", `repos/${repo}/issues/${n}`])) as { state?: string; title?: string };
+		return issue.state === "open" && issue.title === MAIN_CI_ISSUE;
+	});
+	if (!fixesOpenIssue)
+		fail(
+			`Main CI is red (${latest.conclusion} at ${latest.headSha.slice(0, 10)}, ${latest.url}). Only a PR whose body says Fixes #<n> for the open "${MAIN_CI_ISSUE}" issue may merge.`,
+		);
 }
 
 function afterMerge(
