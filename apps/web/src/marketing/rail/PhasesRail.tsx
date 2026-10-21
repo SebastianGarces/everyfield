@@ -1,8 +1,7 @@
-import { cn } from "@/components/cn";
 import { Display } from "@/components/Display";
 import { Reveal } from "@/components/motion/Reveal";
 import { Backdrop } from "../photo/Backdrop";
-import type { Backdrop as Bg } from "../photo/photos";
+import type { PhotoName } from "../photo/photos";
 import { PinnedRail } from "./PinnedRail";
 import { PhaseVignette, PlantVignette, type PhaseDemo } from "./vignettes";
 
@@ -12,11 +11,11 @@ type Props = { headline: string; items: Item[] } & (
 	{ id: "features"; vignettes: "phases"; demo: PhaseDemo } | { id: "plants"; vignettes: "plants" }
 );
 
-/* The six blurred colorful photos, one per card (photo rule 1). The page's hero photo does not repeat on its rail, so that
-   card is a muted gradient: home's hero is wildflowers, /oversight's is bluebells. */
-const ART: Record<Props["vignettes"], Bg[]> = {
-	phases: ["bluebells", "poppies", "mesh:sage", "blossom", "meadow", "glow"],
-	plants: ["meadow", "glow", "mesh:sky", "wildflowers", "poppies", "blossom"],
+/* Every card shows a blurred colorful photo with a cream number (Sebastian, R3 review). Five colorful photos fill six
+   cards, so a rail may reuse a photo shown elsewhere on its page, and one card uses a second crop. */
+const ART: Record<Props["vignettes"], PhotoName[]> = {
+	phases: ["bluebells", "poppies", "blossom", "meadow", "wildflowers", "bluebellsClose"],
+	plants: ["meadow", "poppies", "wildflowers", "blossom", "bluebells", "poppiesWide"],
 };
 const num = (i: number) => String(i + 1).padStart(2, "0");
 
@@ -38,8 +37,7 @@ export function PhasesRail(props: Props) {
 	return (
 		<PinnedRail id={id} headingId="ph-title" head={head}>
 			{items.map((x, i) => {
-				const art = ART[props.vignettes][i]!,
-					mesh = art.startsWith("mesh:");
+				const art = ART[props.vignettes][i]!;
 				return (
 					<li
 						key={x.label}
@@ -50,14 +48,11 @@ export function PhasesRail(props: Props) {
 					>
 						<div className="relative isolate mx-2 mt-2 h-[236px] flex-none overflow-hidden max-mk-sm:h-[200px]">
 							<Backdrop bg={art} sizes="(max-width: 640px) 82vw, 372px" className="absolute inset-0 -z-1" />
-							{/* A photo carries a cream number on an ink corner shade (3:1 on the lightest crops); a gradient carries ink. */}
-							{mesh ? null : <span aria-hidden="true" className="mk-corner-shade absolute inset-0 -z-1" />}
+							{/* The cream number sits on an ink corner shade: 3:1 or more on the lightest crops. */}
+							<span aria-hidden="true" className="mk-corner-shade absolute inset-0 -z-1" />
 							<span
 								aria-hidden="true"
-								className={cn(
-									"absolute top-4 left-[18px] font-display type-mk-display-xl leading-[.8] tracking-[-0.02em] tabular-nums",
-									mesh ? "text-ink" : "text-cream",
-								)}
+								className="absolute top-4 left-[18px] font-display type-mk-display-xl leading-[.8] tracking-[-0.02em] text-cream tabular-nums"
 							>
 								{num(i)}
 							</span>

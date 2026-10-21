@@ -9,8 +9,8 @@ import type { PhotoName } from "../photo/photos";
 import { PathsCycle } from "./PathsCycle";
 
 type Paths = Copy["shared"]["oversight_page"]["paths"];
-/* One landscape per sending path; the product cards on them are white. */
-const PHOTOS: PhotoName[] = ["trees", "harvest", "reeds"];
+/* The sending paths share one landscape (Sebastian removed trees and harvest); the product cards on it are white. */
+const PHOTOS: PhotoName[] = ["reeds", "reeds", "reeds"];
 
 /**
  * /oversight, Revision 28: the sending paths. One display sentence over one large card; PathsCycle moves both. The panes

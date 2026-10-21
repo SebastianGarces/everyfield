@@ -54,10 +54,6 @@
    ===================================================================== */
 :root {
   --photo-field: image-set(url("assets/photos/field-2400.avif") type("image/avif"), url("assets/photos/field-2400.jpg") type("image/jpeg"));
-  --photo-storm: image-set(url("assets/photos/storm-2400.avif") type("image/avif"), url("assets/photos/storm-2400.jpg") type("image/jpeg"));
-  --photo-hills: image-set(url("assets/photos/hills-2400.avif") type("image/avif"), url("assets/photos/hills-2400.jpg") type("image/jpeg"));
-  --photo-harvest: image-set(url("assets/photos/harvest-2400.avif") type("image/avif"), url("assets/photos/harvest-2400.jpg") type("image/jpeg"));
-  --photo-trees: image-set(url("assets/photos/trees-2400.avif") type("image/avif"), url("assets/photos/trees-2400.jpg") type("image/jpeg"));
   --photo-plain: image-set(url("assets/photos/plain-2400.avif") type("image/avif"), url("assets/photos/plain-2400.jpg") type("image/jpeg"));
   --photo-reeds: image-set(url("assets/photos/reeds-2400.avif") type("image/avif"), url("assets/photos/reeds-2400.jpg") type("image/jpeg"));
   --photo-lake: image-set(url("assets/photos/lake-2400.avif") type("image/avif"), url("assets/photos/lake-2400.jpg") type("image/jpeg"));
@@ -66,16 +62,11 @@
   --photo-wildflowers: image-set(url("assets/photos/wildflowers-1200.avif") type("image/avif"), url("assets/photos/wildflowers-1200.jpg") type("image/jpeg"));
   --photo-blossom: image-set(url("assets/photos/blossom-1200.avif") type("image/avif"), url("assets/photos/blossom-1200.jpg") type("image/jpeg"));
   --photo-meadow: image-set(url("assets/photos/meadow-1200.avif") type("image/avif"), url("assets/photos/meadow-1200.jpg") type("image/jpeg"));
-  --photo-glow: image-set(url("assets/photos/glow-1200.avif") type("image/avif"), url("assets/photos/glow-1200.jpg") type("image/jpeg"));
   --photo-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncG type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncB type='linear' slope='1.6' intercept='-.3'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 @media (max-width: 900px) {
   :root {
     --photo-field: image-set(url("assets/photos/field-1200.avif") type("image/avif"), url("assets/photos/field-1200.jpg") type("image/jpeg"));
-    --photo-storm: image-set(url("assets/photos/storm-1200.avif") type("image/avif"), url("assets/photos/storm-1200.jpg") type("image/jpeg"));
-    --photo-hills: image-set(url("assets/photos/hills-1200.avif") type("image/avif"), url("assets/photos/hills-1200.jpg") type("image/jpeg"));
-    --photo-harvest: image-set(url("assets/photos/harvest-1200.avif") type("image/avif"), url("assets/photos/harvest-1200.jpg") type("image/jpeg"));
-    --photo-trees: image-set(url("assets/photos/trees-1200.avif") type("image/avif"), url("assets/photos/trees-1200.jpg") type("image/jpeg"));
     --photo-plain: image-set(url("assets/photos/plain-1200.avif") type("image/avif"), url("assets/photos/plain-1200.jpg") type("image/jpeg"));
     --photo-reeds: image-set(url("assets/photos/reeds-1200.avif") type("image/avif"), url("assets/photos/reeds-1200.jpg") type("image/jpeg"));
     --photo-lake: image-set(url("assets/photos/lake-1200.avif") type("image/avif"), url("assets/photos/lake-1200.jpg") type("image/jpeg"));
@@ -84,7 +75,6 @@
     --photo-wildflowers: image-set(url("assets/photos/wildflowers-600.avif") type("image/avif"), url("assets/photos/wildflowers-600.jpg") type("image/jpeg"));
     --photo-blossom: image-set(url("assets/photos/blossom-600.avif") type("image/avif"), url("assets/photos/blossom-600.jpg") type("image/jpeg"));
     --photo-meadow: image-set(url("assets/photos/meadow-600.avif") type("image/avif"), url("assets/photos/meadow-600.jpg") type("image/jpeg"));
-    --photo-glow: image-set(url("assets/photos/glow-600.avif") type("image/avif"), url("assets/photos/glow-600.jpg") type("image/jpeg"));
   }
 }
 .photo { position: relative; isolation: isolate; overflow: hidden; background-color: #3A3529; color: #F6F0E9;
@@ -98,10 +88,6 @@
 .photo :focus-visible { outline: 2px solid #F6F0E9; outline-offset: 2px; }
 /* Landscapes. lake is soft and dark enough for cream text at the 20% overlay (the CTA). */
 [data-photo="field-sky"]  { --photo-src: var(--photo-field); --photo-pos: 50% 16%; }
-[data-photo="storm"]      { --photo-src: var(--photo-storm); --photo-pos: 30% 60%; }
-[data-photo="hills"]      { --photo-src: var(--photo-hills); --photo-pos: 50% 60%; }
-[data-photo="harvest"]    { --photo-src: var(--photo-harvest); --photo-pos: 50% 62%; }
-[data-photo="trees"]      { --photo-src: var(--photo-trees); --photo-pos: 55% 50%; }
 [data-photo="plain"]      { --photo-src: var(--photo-plain); --photo-pos: 30% 70%; }
 [data-photo="reeds"]      { --photo-src: var(--photo-reeds); --photo-pos: 50% 72%; }
 [data-photo="lake"]       { --photo-src: var(--photo-lake); --photo-pos: 50% 67%; }
@@ -111,7 +97,6 @@
 [data-photo="wildflowers"] { --photo-src: var(--photo-wildflowers); --photo-pos: 60% 45%; }
 [data-photo="blossom"]     { --photo-src: var(--photo-blossom); --photo-pos: 50% 40%; }
 [data-photo="meadow"]      { --photo-src: var(--photo-meadow); --photo-pos: 40% 50%; }
-[data-photo="glow"]        { --photo-src: var(--photo-glow); --photo-pos: 50% 30%; --photo-shade: .36; } /* the lightest blur: a deeper overlay keeps the cream number at 3:1 */
 /* Small tiles and light crops that carry cream text or icons use a deeper overlay. */
 .photo-text { --photo-shade: .55; }
 

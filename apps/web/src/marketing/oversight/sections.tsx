@@ -60,7 +60,7 @@ export function TrustSection({ headline, items }: { headline: string; items: { t
 										>
 											<span
 												className={cn(
-													"absolute top-[3px] size-4 rounded-full bg-white shadow-raised",
+													"absolute top-[3px] size-4 bg-white shadow-raised",
 													on ? "left-[19px]" : "left-[3px]",
 												)}
 											/>

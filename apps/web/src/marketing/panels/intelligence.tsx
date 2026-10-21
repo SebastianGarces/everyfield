@@ -211,7 +211,7 @@ export function SharePanel({ unshared }: { unshared: string }) {
 function Switch({ on, lock }: { on: boolean; lock: boolean }) {
 	return (
 		<span className={cn(SWITCH, lock && "opacity-60")}>
-			<b className={cn("absolute inset-0 rounded-full bg-green-500", on ? "opacity-100" : "opacity-0")} />
+			<b className={cn("absolute inset-0 bg-green-500", on ? "opacity-100" : "opacity-0")} />
 			<i className={cn(KNOB, on && "[transform:translateX(14px)]")} />
 		</span>
 	);

@@ -258,10 +258,6 @@
    ===================================================================== */
 :root {
   --photo-field: image-set(url("assets/photos/field-2400.avif") type("image/avif"), url("assets/photos/field-2400.jpg") type("image/jpeg"));
-  --photo-storm: image-set(url("assets/photos/storm-2400.avif") type("image/avif"), url("assets/photos/storm-2400.jpg") type("image/jpeg"));
-  --photo-hills: image-set(url("assets/photos/hills-2400.avif") type("image/avif"), url("assets/photos/hills-2400.jpg") type("image/jpeg"));
-  --photo-harvest: image-set(url("assets/photos/harvest-2400.avif") type("image/avif"), url("assets/photos/harvest-2400.jpg") type("image/jpeg"));
-  --photo-trees: image-set(url("assets/photos/trees-2400.avif") type("image/avif"), url("assets/photos/trees-2400.jpg") type("image/jpeg"));
   --photo-plain: image-set(url("assets/photos/plain-2400.avif") type("image/avif"), url("assets/photos/plain-2400.jpg") type("image/jpeg"));
   --photo-reeds: image-set(url("assets/photos/reeds-2400.avif") type("image/avif"), url("assets/photos/reeds-2400.jpg") type("image/jpeg"));
   --photo-lake: image-set(url("assets/photos/lake-2400.avif") type("image/avif"), url("assets/photos/lake-2400.jpg") type("image/jpeg"));
@@ -270,16 +266,11 @@
   --photo-wildflowers: image-set(url("assets/photos/wildflowers-1200.avif") type("image/avif"), url("assets/photos/wildflowers-1200.jpg") type("image/jpeg"));
   --photo-blossom: image-set(url("assets/photos/blossom-1200.avif") type("image/avif"), url("assets/photos/blossom-1200.jpg") type("image/jpeg"));
   --photo-meadow: image-set(url("assets/photos/meadow-1200.avif") type("image/avif"), url("assets/photos/meadow-1200.jpg") type("image/jpeg"));
-  --photo-glow: image-set(url("assets/photos/glow-1200.avif") type("image/avif"), url("assets/photos/glow-1200.jpg") type("image/jpeg"));
   --photo-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncG type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncB type='linear' slope='1.6' intercept='-.3'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 @media (max-width: 900px) {
   :root {
     --photo-field: image-set(url("assets/photos/field-1200.avif") type("image/avif"), url("assets/photos/field-1200.jpg") type("image/jpeg"));
-    --photo-storm: image-set(url("assets/photos/storm-1200.avif") type("image/avif"), url("assets/photos/storm-1200.jpg") type("image/jpeg"));
-    --photo-hills: image-set(url("assets/photos/hills-1200.avif") type("image/avif"), url("assets/photos/hills-1200.jpg") type("image/jpeg"));
-    --photo-harvest: image-set(url("assets/photos/harvest-1200.avif") type("image/avif"), url("assets/photos/harvest-1200.jpg") type("image/jpeg"));
-    --photo-trees: image-set(url("assets/photos/trees-1200.avif") type("image/avif"), url("assets/photos/trees-1200.jpg") type("image/jpeg"));
     --photo-plain: image-set(url("assets/photos/plain-1200.avif") type("image/avif"), url("assets/photos/plain-1200.jpg") type("image/jpeg"));
     --photo-reeds: image-set(url("assets/photos/reeds-1200.avif") type("image/avif"), url("assets/photos/reeds-1200.jpg") type("image/jpeg"));
     --photo-lake: image-set(url("assets/photos/lake-1200.avif") type("image/avif"), url("assets/photos/lake-1200.jpg") type("image/jpeg"));
@@ -288,7 +279,6 @@
     --photo-wildflowers: image-set(url("assets/photos/wildflowers-600.avif") type("image/avif"), url("assets/photos/wildflowers-600.jpg") type("image/jpeg"));
     --photo-blossom: image-set(url("assets/photos/blossom-600.avif") type("image/avif"), url("assets/photos/blossom-600.jpg") type("image/jpeg"));
     --photo-meadow: image-set(url("assets/photos/meadow-600.avif") type("image/avif"), url("assets/photos/meadow-600.jpg") type("image/jpeg"));
-    --photo-glow: image-set(url("assets/photos/glow-600.avif") type("image/avif"), url("assets/photos/glow-600.jpg") type("image/jpeg"));
   }
 }
 .photo { position: relative; isolation: isolate; overflow: hidden; background-color: #3A3529; color: #F6F0E9;
@@ -302,10 +292,6 @@
 .photo :focus-visible { outline: 2px solid #F6F0E9; outline-offset: 2px; }
 /* Landscapes. lake is soft and dark enough for cream text at the 20% overlay (the CTA). */
 [data-photo="field-sky"]  { --photo-src: var(--photo-field); --photo-pos: 50% 16%; }
-[data-photo="storm"]      { --photo-src: var(--photo-storm); --photo-pos: 30% 60%; }
-[data-photo="hills"]      { --photo-src: var(--photo-hills); --photo-pos: 50% 60%; }
-[data-photo="harvest"]    { --photo-src: var(--photo-harvest); --photo-pos: 50% 62%; }
-[data-photo="trees"]      { --photo-src: var(--photo-trees); --photo-pos: 55% 50%; }
 [data-photo="plain"]      { --photo-src: var(--photo-plain); --photo-pos: 30% 70%; }
 [data-photo="reeds"]      { --photo-src: var(--photo-reeds); --photo-pos: 50% 72%; }
 [data-photo="lake"]       { --photo-src: var(--photo-lake); --photo-pos: 50% 67%; }
@@ -315,7 +301,6 @@
 [data-photo="wildflowers"] { --photo-src: var(--photo-wildflowers); --photo-pos: 60% 45%; }
 [data-photo="blossom"]     { --photo-src: var(--photo-blossom); --photo-pos: 50% 40%; }
 [data-photo="meadow"]      { --photo-src: var(--photo-meadow); --photo-pos: 40% 50%; }
-[data-photo="glow"]        { --photo-src: var(--photo-glow); --photo-pos: 50% 30%; --photo-shade: .36; } /* the lightest blur: a deeper overlay keeps the cream number at 3:1 */
 /* Small tiles and light crops that carry cream text or icons use a deeper overlay. */
 .photo-text { --photo-shade: .55; }
 
@@ -3335,7 +3320,7 @@ var CX_SCN = {
 /* Week copy comes from shared.week in marketing-copy.json (Revision 4). The Plant Intelligence copy is still draft. */
 var WK = COPY.shared.week;
 /* Revision 13: week panel and icon colours in step order are blue, orange, green, lilac. Step content keeps its order; the copy JSON tone fields are not used here. */
-var WK_TONES = ["field-sky", "hills", "trees", "plain"];
+var WK_TONES = ["field-sky", "field-sky", "field-sky", "field-sky"];
 /* Revision 13: the title phrase for each step, in step order. The active step's phrase is highlighted (cxTitle, .cx-ttl). */
 var WK_WORDS = ["Reach", "gather", "follow up", "commit"];
 function cxTitle(title, words) {
@@ -3350,16 +3335,16 @@ var CX_DEFS = {
   week: { title: WK.title, final: true, words: WK_WORDS, steps: WK.steps.map(function (s, i) { return [s.panel, WK_TONES[i] || s.tone, s.icon, s.title, s.body]; }) },
   /* R4: the Plant Intelligence lead line and steps come from shared.intelligence in marketing-copy.json. */
   intelligence: { title: COPY.shared.intelligence.title, lead: COPY.shared.intelligence.lead, auto: true, steps: COPY.shared.intelligence.steps.map(function (s, i) {
-    return [s.panel, ["mesh:sky", "storm", "storm", "storm"][i], ["Focus", "Facts", "Evry", "Sharing"][i], s.title, s.body]; }) },
+    return [s.panel, ["mesh:sky", "plain", "plain", "plain"][i], ["Focus", "Facts", "Evry", "Sharing"][i], s.title, s.body]; }) },
   /* Revision 19: copy from shared.sending in marketing-copy.json. Its photo crops differ from the Plant Intelligence crops above. */
   sending: { title: COPY.shared.sending.title, auto: true, mirror: true, link: COPY.shared.sending.link, steps: ["scope", "pipe", "lens", "top"].map(function (k, i) {
-    var st = COPY.shared.sending.steps[i]; return [k, ["harvest", "harvest", "harvest", "mesh:sage"][i], "", st.title, st.body]; }) },
+    var st = COPY.shared.sending.steps[i]; return [k, ["meadow", "meadow", "meadow", "mesh:sage"][i], "", st.title, st.body]; }) },
   /* Revision 25 /oversight: the home network auto list with the same panels and step length (shared.oversight_page.intelligence). */
   /* Revision 26: the pinned chapter is now an auto list (panel right, list left) without the sharing step. Its photo crops
      differ from the network list below it. */
-  "every-plant": { title: COPY.shared.oversight_page.chapter.title, auto: true, steps: COPY.shared.oversight_page.chapter.steps.map(function (s, i) { return [s.panel, ["field-sky", "hills", "plain", "mesh:sky"][i], "", s.title, s.body]; }) },
+  "every-plant": { title: COPY.shared.oversight_page.chapter.title, auto: true, steps: COPY.shared.oversight_page.chapter.steps.map(function (s, i) { return [s.panel, ["field-sky", "field-sky", "field-sky", "mesh:sky"][i], "", s.title, s.body]; }) },
   "network-intelligence": { title: COPY.shared.oversight_page.intelligence.title, auto: true, mirror: true, steps: ["scope", "pipe", "lens", "top"].map(function (k, i) {
-    var st = COPY.shared.oversight_page.intelligence.steps[i]; return [k, ["storm", "storm", "storm", "mesh:sage"][i], "", st.title, st.body]; }) }
+    var st = COPY.shared.oversight_page.intelligence.steps[i]; return [k, ["plain", "plain", "plain", "mesh:sage"][i], "", st.title, st.body]; }) }
 };
 /* Round 4: a step background is a photo crop, or "mesh:<tone>" when the step's card is a colorful InsightCard (gradient, not photo). */
 function cxBg(s, extra) { var m = /^mesh:(.+)/.exec(s[1]); return '<span class="cx-bg ' + (m ? 'mesh" data-mesh="' + m[1] : 'photo" data-photo="' + s[1]) + '"' + (extra || "") + "></span>"; }
@@ -3897,7 +3882,7 @@ function vision(v) {
   var tasks = [["Set the launch team's personal invitation goal", "Launch prep", "tone-green", "Promotion plan chosen"], ["Invite the 9 guests from #11", "Vision meeting #12", "tone-blue", "Committed adults"], ["Interview David Kim", "Close to committing", "tone-blue", "Committed adults"]];
   return '<section class="sec sec-vision" id="vision" aria-labelledby="vision-title"><div class="wrap vz-grid">' +
     '<div class="vz-head"><h2 class="display h2" id="vision-title">' + t(v.headline) + "</h2><p>" + t(v.body) + "</p></div>" +
-    '<div class="vz vz-stage photo" data-photo="reeds"><div class="vz-stack ef">' +
+    '<div class="vz vz-stage photo" data-photo="blossom"><div class="vz-stack ef">' +
       level(0, " vz-launch", "tone-green", "rocket", "Launch Sunday", '<div class="vz-date">Sun, Mar 14, 2027</div><div class="vz-sub">9 launch milestones and 23 preparation tasks</div>') +
       level(1, "", "tone-violet", "route", "Phase 1", '<div class="vz-v">Core Group Development</div>', '<span class="vz-track" aria-hidden="true"><i class="done"></i><i class="now"></i><i></i><i></i><i></i><i></i><i></i></span>',
         '<div class="vz-meter"><div class="vz-bm"><span class="vz-l">Benchmark: committed adults</span><span class="vz-num vz-num-s">34<small>of 50</small></span></div><div class="vz-bar" aria-hidden="true"><i></i></div></div>') +
@@ -3955,8 +3940,8 @@ function features(f, opts) {
 /* Round 4: the six blurred colorful photos, one per card. /oversight uses the same six in another order.
    Final picks: the hero photo of a page does not repeat on its rail, so that card is a muted gradient ("mesh:<tone>"):
    home card 3 (wildflowers is the home hero) = sage, /oversight card 3 (bluebells is its hero) = sky. */
-var PH_PHOTOS = ["bluebells", "poppies", "mesh:sage", "blossom", "meadow", "glow"];
-var OV_PH_PHOTOS = ["meadow", "glow", "mesh:sky", "wildflowers", "poppies", "blossom"];
+var PH_PHOTOS = ["bluebells", "poppies", "blossom", "meadow", "wildflowers", "bluebells"];
+var OV_PH_PHOTOS = ["meadow", "poppies", "wildflowers", "blossom", "bluebells", "poppies"];
 var PH = { root: null, off: null, raf: 0, ro: null, pin: false, st: null };
 var PH_WIDE = window.matchMedia ? window.matchMedia("(min-width: 901px)") : { matches: true };
 function phArt(p) { var m = /^mesh:(.+)/.exec(p); return m ? 'mesh" data-mesh="' + m[1] : 'photo" data-photo="' + p; }
@@ -4231,7 +4216,7 @@ function ovVig(i) {
 /* Revision 28: the sending paths. One display sentence ("Sent by" + changing phrase + tail) over one large card. A single timer moves
    both through the states in copy order (a church, a network through a church, a network) and loops. The facts match Revision 26 B. */
 ICON.plus = ICON.plus || '<path d="M12 5v14M5 12h14"/>';
-var OVS_TONES = ["trees", "harvest", "reeds"];
+var OVS_TONES = ["reeds", "reeds", "reeds"];
 function ovsBy(ic, names) { return '<span class="ovs-by">' + icon(ic) + "<span>Sent by " + names.map(function (n) { return "<b>" + n + "</b>"; }).join('<span class="ovs-dot"> · </span>') + "</span></span>"; }
 var OVS_B = [
   function () {

@@ -5,16 +5,11 @@ import type { StaticImageData } from "next/image";
 import blossom from "./files/blossom.jpg";
 import bluebells from "./files/bluebells.jpg";
 import field from "./files/field.jpg";
-import glow from "./files/glow.jpg";
-import harvest from "./files/harvest.jpg";
-import hills from "./files/hills.jpg";
 import lake from "./files/lake.jpg";
 import meadow from "./files/meadow.jpg";
 import plain from "./files/plain.jpg";
 import poppies from "./files/poppies.jpg";
 import reeds from "./files/reeds.jpg";
-import storm from "./files/storm.jpg";
-import trees from "./files/trees.jpg";
 import wheat from "./files/wheat.jpg";
 import wildflowers from "./files/wildflowers.jpg";
 
@@ -32,10 +27,6 @@ type Crop = {
 export const PHOTOS = {
 	// Landscapes.
 	field: { src: field, pos: "50% 16%" },
-	storm: { src: storm, pos: "30% 60%" },
-	hills: { src: hills, pos: "50% 60%" },
-	harvest: { src: harvest, pos: "50% 62%" },
-	trees: { src: trees, pos: "55% 50%" },
 	plain: { src: plain, pos: "30% 70%" },
 	reeds: { src: reeds, pos: "50% 72%" },
 	lake: { src: lake, pos: "50% 67%" },
@@ -46,8 +37,10 @@ export const PHOTOS = {
 	wildflowers: { src: wildflowers, pos: "60% 45%" },
 	blossom: { src: blossom, pos: "50% 40%" },
 	meadow: { src: meadow, pos: "40% 50%" },
-	// The lightest blur: a deeper overlay keeps its cream rail number at 3:1.
-	glow: { src: glow, pos: "50% 30%", shade: 0.36 },
+	// Second crops for the six-card rails: five colorful photos fill six cards (Sebastian's pick pending, see the task
+	// note). A rail may reuse a photo shown elsewhere on its page; other sections never repeat one.
+	bluebellsClose: { src: bluebells, pos: "80% 70%", zoom: 1.6 },
+	poppiesWide: { src: poppies, pos: "20% 60%", zoom: 1.2 },
 } as const satisfies Record<string, Crop>;
 
 export type PhotoName = keyof typeof PHOTOS;

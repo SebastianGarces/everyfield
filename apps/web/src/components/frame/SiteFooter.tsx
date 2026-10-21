@@ -31,11 +31,9 @@ export function SiteFooter({ headline = footer.headline }: { headline?: string }
 	return (
 		<footer className="px-page pt-[clamp(24px,4vw,48px)] pb-page">
 			<div className="mx-auto grid max-w-mk grid-cols-12 gap-x-6 gap-y-8 bg-ink px-[clamp(22px,5vw,72px)] pt-[clamp(28px,5vw,72px)] pb-[clamp(22px,3vw,32px)] text-cream">
-				<div className="col-[1/span_5] flex flex-col items-start gap-[22px] max-mk-lg:col-[1/-1]">
-					<span className="grid size-11 place-items-center bg-green text-ink">
-						<Mark className="size-[22px]" />
-					</span>
-					<Display as="h2" className="max-w-[16ch] font-display text-title-lg/[1.1] mk-xl:text-display-sm/[1.1]">
+				<div className="col-[1/span_6] flex flex-col items-start gap-[22px] max-mk-lg:col-[1/-1]">
+					<Mark className="size-11 text-green" />
+					<Display as="h2" className="max-w-[26ch] font-display text-title-lg/[1.1] mk-xl:text-display-sm/[1.1]">
 						{headline}
 					</Display>
 					<ButtonLink

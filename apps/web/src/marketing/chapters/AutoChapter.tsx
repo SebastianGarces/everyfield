@@ -17,7 +17,7 @@ type Def = {
 /* Panel backgrounds (photo rules): a step whose card is a colorful InsightCard gets a muted gradient; the other steps of a
    chapter share one landscape, so no photo repeats on the page. */
 const NETWORK = ["scope", "pipe", "lens", "top"] as const;
-const NETWORK_BGS: Backdrop[] = ["storm", "storm", "storm", "mesh:sage"];
+const NETWORK_BGS: Backdrop[] = ["plain", "plain", "plain", "mesh:sage"];
 const LEADERS = ["stages", "goals", "talks", "program"] as const;
 const LEADER_BGS: Backdrop[] = ["wheat", "wheat", "wheat", "wheat"];
 
@@ -37,10 +37,10 @@ function defs(id: Id): Def {
 			return {
 				title: S.intelligence.title,
 				lead: S.intelligence.lead,
-				steps: named(id, S.intelligence.steps, ["mesh:sky", "storm", "storm", "storm"]),
+				steps: named(id, S.intelligence.steps, ["mesh:sky", "plain", "plain", "plain"]),
 			};
 		case "every-plant":
-			return { title: O.chapter.title, steps: named(id, O.chapter.steps, ["field", "hills", "plain", "mesh:sky"]) };
+			return { title: O.chapter.title, steps: named(id, O.chapter.steps, ["field", "field", "field", "mesh:sky"]) };
 		// The /oversight chapters alternate sides: plants, leaders (mirrored), then Network Intelligence.
 		case "leaders":
 			return {
