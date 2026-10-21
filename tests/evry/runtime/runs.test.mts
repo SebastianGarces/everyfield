@@ -16,7 +16,8 @@ import {
 } from "../../../packages/evry/src/index.ts";
 import { PASTORAL_BOUNDARY, compileContext, resolveReferences } from "../../../packages/evry/src/context/compile.ts";
 import { readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
-import { verifyPeople } from "../../../packages/evry/src/catalog/people.ts";
+import { getPerson, listPeople, verifyPeople } from "../../../packages/evry/src/catalog/people.ts";
+import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
 import { transientRetry, withTransientRetry } from "../../../packages/evry/src/runtime/model.ts";
 import {
@@ -653,4 +654,92 @@ test("AC:SEC-02 AC:TEN-002 AC:UI45-006 AC:SEC-11 INV-tenancy: an ended seat or c
 	const start = queries.length;
 	assert.equal((await verifyPeople(db, owner, selection)).length, 3);
 	assert.equal(queries.length - start, 1);
+});
+
+test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry run under the live seat, role, session and lifecycle (C13)", async () => {
+	const owner = await actor("owner");
+	const find = { search: "Alex" };
+	const names = async () => (await invokeRead(db, owner, listPeople, find)).rows.map((r) => r.label).sort();
+	assert.deepEqual(await names(), ["Alex Chen", "Alex Rivera"]);
+
+	// A stale actor, after each kind of change, reads nothing through either adapter.
+	const session = (await admin.execute(sql`SELECT * FROM auth_session WHERE id=${accounts.owner.session}`)).rows[0]!;
+	const witness = randomUUID();
+	const changes: [string, () => Promise<unknown>, () => Promise<unknown>][] = [
+		[
+			"seat ended",
+			() => admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${owner.accountId}`),
+			() => admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE account_id=${owner.accountId}`),
+		],
+		[
+			"role changed",
+			() => admin.execute(sql`UPDATE seat SET role='admin' WHERE account_id=${owner.accountId}`),
+			() => admin.execute(sql`UPDATE seat SET role='owner' WHERE account_id=${owner.accountId}`),
+		],
+		[
+			"session revoked",
+			() => admin.execute(sql`DELETE FROM auth_session WHERE id=${accounts.owner.session}`),
+			() =>
+				admin.execute(
+					sql`INSERT INTO auth_session SELECT * FROM json_populate_record(null::auth_session, ${JSON.stringify(session)}::json)`,
+				),
+		],
+		[
+			"church pending deletion",
+			() =>
+				admin.execute(
+					sql`INSERT INTO lifecycle_witness(id,kind,opaque_subject_id,plant_id,request_revision,state,witness_checkpoint,cleanup_state,request_id,requested_at,cancel_until) VALUES(${witness},'plant',${plant},${plant},1,'pending_deletion',1,'not_started',${randomUUID()},current_timestamp,current_timestamp+interval '30 days')`,
+				),
+			() => admin.execute(sql`DELETE FROM lifecycle_witness WHERE id=${witness}`),
+		],
+	];
+	for (const [name, change, undo] of changes) {
+		await change();
+		try {
+			for (const [adapter, input] of [
+				[listPeople, find],
+				[getPerson, { personId: people.alexRivera }],
+			] as const)
+				await assert.rejects(
+					() => invokeRead(db, owner, adapter as never, input as never),
+					(e: { code?: string }) => e.code === "access_denied",
+					name,
+				);
+		} finally {
+			await undo();
+		}
+	}
+
+	// A seat that ends while the read runs waits for it, and the next read refuses.
+	let ended = false;
+	let ending: Promise<unknown> | undefined;
+	const racing = {
+		...listPeople,
+		async invoke(tx: Parameters<typeof listPeople.invoke>[0], who: EvryActor, input: typeof find) {
+			ending = admin
+				.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${who.accountId}`)
+				.then(() => (ended = true));
+			await new Promise((r) => setTimeout(r, 300));
+			assert.equal(ended, false, "the seat end waits for the running read");
+			return listPeople.invoke(tx, who, input);
+		},
+	};
+	try {
+		assert.equal((await invokeRead(db, owner, racing, find)).rows.length, 2);
+		await ending;
+		await assert.rejects(
+			() => invokeRead(db, owner, listPeople, find),
+			(e: { code?: string }) => e.code === "access_denied",
+		);
+	} finally {
+		await admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE account_id=${owner.accountId}`);
+	}
+
+	// The live check is the read's first statement and replaces the timeout statement: no extra round trip.
+	const start = queries.length;
+	await invokeRead(db, owner, listPeople, find);
+	const sent = queries.slice(start).filter((q) => !/^(BEGIN|COMMIT)/i.test(q.trim()));
+	const plain = queries.length;
+	await db.transaction((tx) => listPeople.invoke(tx, owner, find));
+	assert.equal(sent.length, queries.slice(plain).filter((q) => !/^(BEGIN|COMMIT)/i.test(q.trim())).length + 1);
 });

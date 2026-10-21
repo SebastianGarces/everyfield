@@ -1,8 +1,8 @@
 import type { Database } from "@everyfield/db/client";
-import { sql } from "@everyfield/db/query";
 import { streamText, tool, type ModelMessage, type StopCondition, type ToolSet } from "ai";
 import { z } from "zod";
 import { READ_DOMAINS, readCatalog, SELECT_RETURNED_ROWS } from "../catalog/catalog.ts";
+import { invokeRead } from "../catalog/invoke.ts";
 import { verifyPeople } from "../catalog/people.ts";
 import type { ReadAdapter, SourceResult } from "../catalog/types.ts";
 import { sameContext, type EvryActor } from "../context/actor.ts";
@@ -222,14 +222,10 @@ export async function runTurn(deps: RunDeps, lease: RunLease): Promise<RunOutcom
 		const read = async <I>(adapter: ReadAdapter<I>, input: I) => {
 			const fresh = await admit();
 			if (!fresh) return { error: stop === "tool_budget" ? "tool_budget" : "access_denied" };
-			if (!adapter.allowed(fresh)) return { error: "access_denied" };
 			let result: SourceResult | undefined;
 			for (let attempt = 0; result === undefined; attempt++) {
 				try {
-					result = await db.transaction(async (tx) => {
-						await tx.execute(sql.raw(`SET LOCAL statement_timeout = ${LIMITS.readTimeoutMs}`));
-						return adapter.invoke(tx, fresh, input);
-					});
+					result = await invokeRead(db, fresh, adapter, input);
 				} catch (error) {
 					if (attempt < LIMITS.readRetries && transientRead(error)) continue;
 					fail(error instanceof EvryRefusal ? error : new EvryRefusal("source_unavailable"));

@@ -3,6 +3,7 @@ export { evryActor, type EvryActor, type ContextKind } from "./context/actor.ts"
 export { EvryRefusal, projectError, type ProjectedError } from "./context/errors.ts";
 export { LIMITS, type StopReason } from "./context/limits.ts";
 export { readCatalog, READ_DOMAINS, SELECT_RETURNED_ROWS, type Catalog } from "./catalog/catalog.ts";
+export { invokeRead } from "./catalog/invoke.ts";
 export {
 	cancelTurn,
 	createConversation,
