@@ -1,12 +1,6 @@
 "use client";
 
-import {
-	Calendar03Icon,
-	CheckListIcon,
-	Clock01Icon,
-	UserGroupIcon,
-	UserIcon,
-} from "@hugeicons/core-free-icons";
+import { Calendar03Icon, CheckListIcon, Clock01Icon, UserGroupIcon, UserIcon } from "@hugeicons/core-free-icons";
 import { Checkbox } from "@everyfield/ui/controls";
 import { Avatar, StatusBadge, type Status as Tone } from "@everyfield/ui/display";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
@@ -86,9 +80,10 @@ export function DueLine({ task, year }: { task: Pick<TaskItem, "due" | "overdue"
 
 /** The assignee's initials, or "Needs owner" for a task no one holds (REQ-TSK-017). */
 export function Assignee({ task, you }: { task: Pick<TaskItem, "assignee">; you: string }) {
+	// On a phone the badge moves under the title (MetaLine), so the title keeps its width.
 	if (!task.assignee)
 		return (
-			<StatusBadge status="attention" size="sm">
+			<StatusBadge status="attention" size="sm" className="max-app-sm:hidden">
 				Needs owner
 			</StatusBadge>
 		);
@@ -100,6 +95,12 @@ export function Assignee({ task, you }: { task: Pick<TaskItem, "assignee">; you:
 /** The facts under a task title: due, status, priority, link, steps and completion. */
 export function MetaLine({ task, year }: { task: TaskItem; year: number }) {
 	const parts: ReactNode[] = [];
+	if (!task.assignee)
+		parts.push(
+			<StatusBadge key="owner" status="attention" size="sm" className="app-sm:hidden">
+				Needs owner
+			</StatusBadge>,
+		);
 	if (task.status === "complete" && task.completedAt)
 		parts.push(
 			<span key="done">
@@ -116,7 +117,13 @@ export function MetaLine({ task, year }: { task: TaskItem; year: number }) {
 		);
 	if (task.priority === "urgent" || task.priority === "high")
 		parts.push(
-			<StatusBadge key="priority" status={task.priority === "urgent" ? "risk" : "attention"} size="sm" plain fill="soft">
+			<StatusBadge
+				key="priority"
+				status={task.priority === "urgent" ? "risk" : "attention"}
+				size="sm"
+				plain
+				fill="soft"
+			>
 				{PRIORITY_LABEL[task.priority]}
 			</StatusBadge>,
 		);

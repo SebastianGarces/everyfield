@@ -107,7 +107,11 @@ export function TaskDialog({
 	return (
 		<Dialog open={task !== null} onOpenChange={(o) => !o && onClose()}>
 			{task !== null ? (
-				<Form key={task === "new" ? "new" : `${task.id}:${task.revision}`} task={task === "new" ? null : task} {...{ viewer, onClose, onSaved, onConflict }} />
+				<Form
+					key={task === "new" ? "new" : `${task.id}:${task.revision}`}
+					task={task === "new" ? null : task}
+					{...{ viewer, onClose, onSaved, onConflict }}
+				/>
 			) : null}
 		</Dialog>
 	);
@@ -261,12 +265,22 @@ function Form({
 						/>
 						{draft.due.kind !== "undated" ? (
 							<Field label="Day" error={dateError}>
-								<Input type="date" value={draft.due.date} readOnly={pending} onChange={(e) => setDue({ date: e.target.value })} />
+								<Input
+									type="date"
+									value={draft.due.date}
+									readOnly={pending}
+									onChange={(e) => setDue({ date: e.target.value })}
+								/>
 							</Field>
 						) : null}
 						{draft.due.kind === "resolved_instant" ? (
 							<Field label="Time" hint="In the church’s time zone." error={timeError}>
-								<Input type="time" value={draft.due.time} readOnly={pending} onChange={(e) => setDue({ time: e.target.value })} />
+								<Input
+									type="time"
+									value={draft.due.time}
+									readOnly={pending}
+									onChange={(e) => setDue({ time: e.target.value })}
+								/>
 							</Field>
 						) : null}
 					</div>
@@ -311,7 +325,12 @@ function Form({
 							/>
 						</Field>
 					</div>
-					<RelationField value={draft.relation} locked={Boolean(managed)} disabled={pending} onChange={(relation) => set({ relation })} />
+					<RelationField
+						value={draft.relation}
+						locked={Boolean(managed)}
+						disabled={pending}
+						onChange={(relation) => set({ relation })}
+					/>
 					<div aria-live="assertive" className="empty:hidden">
 						{problem ? (
 							<p className="flex items-start gap-2 rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600">
@@ -432,7 +451,8 @@ function RelationField({
 			</Field>
 		);
 	const choices = Array.isArray(found) ? found : [];
-	const listed = value && value.kind === kind && !choices.some((c) => c.id === value.id) ? [value, ...choices] : choices;
+	const listed =
+		value && value.kind === kind && !choices.some((c) => c.id === value.id) ? [value, ...choices] : choices;
 	return (
 		<div className="flex flex-col gap-3">
 			<Field label="Linked to" optional>

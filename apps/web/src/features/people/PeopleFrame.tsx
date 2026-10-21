@@ -66,8 +66,8 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 	const banner =
 		settings?.context === "plant" && role === "member" ? (
 			<RoleBanner>
-				You have a Member seat. You can read what your seat allows and work on tasks assigned to you. Other changes
-				need an Owner or Admin.
+				You have a Member seat. You can read what your seat allows and work on tasks assigned to you. Other changes need
+				an Owner or Admin.
 			</RoleBanner>
 		) : null;
 	// The rail's Settings opens the dialog over the current page, as the user menu does; /settings is its address.

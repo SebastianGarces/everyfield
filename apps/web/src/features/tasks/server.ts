@@ -56,8 +56,10 @@ export async function write<T>(
 }
 
 export const reader = {
-	list: (tx: Transaction, v: TaskViewer, q: TaskQuery) => taskReader.list(tx, v.authority, listRequest(q)).then(outcome),
-	count: (tx: Transaction, v: TaskViewer, q: TaskQuery) => taskReader.count(tx, v.authority, countRequest(q)).then(outcome),
+	list: (tx: Transaction, v: TaskViewer, q: TaskQuery) =>
+		taskReader.list(tx, v.authority, listRequest(q)).then(outcome),
+	count: (tx: Transaction, v: TaskViewer, q: TaskQuery) =>
+		taskReader.count(tx, v.authority, countRequest(q)).then(outcome),
 	get: (tx: Transaction, v: TaskViewer, taskId: string) => taskReader.get(tx, v.authority, { taskId }).then(outcome),
 	history: (tx: Transaction, v: TaskViewer, taskId: string, page = 1) =>
 		taskReader.statusHistory(tx, v.authority, { taskId, page, limit: 50 }).then(outcome),
@@ -69,7 +71,10 @@ export async function loadTask(tx: Transaction, viewer: TaskViewer, taskId: stri
 	if (found.status !== "ok") return found;
 	if (found.value.status !== "available") return { status: "refused", code: "unavailable" } as const;
 	const history = await reader.history(tx, viewer, taskId);
-	return { status: "ok", value: { task: found.value.task, history: history.status === "ok" ? history.value : null } } as const;
+	return {
+		status: "ok",
+		value: { task: found.value.task, history: history.status === "ok" ? history.value : null },
+	} as const;
 }
 
 /**

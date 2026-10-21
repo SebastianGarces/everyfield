@@ -1,15 +1,7 @@
 "use client";
 
 import { ArrowDown01Icon, Delete02Icon, PencilEdit02Icon } from "@hugeicons/core-free-icons";
-import {
-	Button,
-	Menu,
-	MenuContent,
-	MenuTrigger,
-	Sheet,
-	Skeleton,
-	StatePanel,
-} from "@everyfield/ui/controls";
+import { Button, Menu, MenuContent, MenuTrigger, Sheet, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { useState } from "react";
@@ -77,6 +69,7 @@ export function TaskSheet({
 	onStep,
 	canActStep,
 	stepBusy,
+	overlay,
 }: {
 	task: TaskItem | null;
 	state: DetailState | null;
@@ -93,6 +86,8 @@ export function TaskSheet({
 	onStep: (step: Step, a: StatusAction) => void;
 	canActStep: (step: Step) => boolean;
 	stepBusy: (id: string) => boolean;
+	/** Status changes still in flight, shown before they are confirmed. */
+	overlay: Record<string, TaskItem["status"]>;
 }) {
 	const detail = state?.status === "ok" ? state.task : null;
 	// The row is the latest confirmed or optimistic state; the detail adds description, steps and history.
@@ -169,12 +164,20 @@ export function TaskSheet({
 							)}
 						</div>
 					) : null}
-					{task.managed ? <p className="rounded-md bg-surface px-3.5 py-2.5 text-sm">{MANAGED[task.managed.kind]}</p> : null}
+					{task.managed ? (
+						<p className="rounded-md bg-surface px-3.5 py-2.5 text-sm">{MANAGED[task.managed.kind]}</p>
+					) : null}
 					<KeyValueList>
 						<KeyValue
 							size="sm"
 							k="Due"
-							value={task.due.kind === "undated" ? <span className="text-text-3">No due date</span> : <DueLine task={task} year={year} />}
+							value={
+								task.due.kind === "undated" ? (
+									<span className="text-text-3">No due date</span>
+								) : (
+									<DueLine task={task} year={year} />
+								)
+							}
 						/>
 						<KeyValue
 							size="sm"
@@ -227,17 +230,24 @@ export function TaskSheet({
 							{detail.checklistItems.length ? (
 								<Section title="Steps">
 									<ul>
-										{detail.checklistItems.map((s) => (
-											<li key={s.id} className="flex items-center gap-3 border-t border-line py-2.5 first:border-t-0">
-												<DoneBox task={s} canAct={canActStep(s)} busy={stepBusy(s.id)} onToggle={() =>
-													onStep(s, isSettled(s.status) ? { kind: "reopen" } : { kind: "complete" })
-												} />
-												<span className={cn("min-w-0 flex-1 text-ink", isSettled(s.status) && "text-text-3 line-through")}>
-													{s.title}
-												</span>
-												<span className="text-sm text-text-3">{s.assignee?.displayName ?? "Needs owner"}</span>
-											</li>
-										))}
+										{detail.checklistItems
+											.map((saved) => ({ ...saved, status: overlay[saved.id] ?? saved.status }))
+											.map((s) => (
+												<li key={s.id} className="flex items-center gap-3 border-t border-line py-2.5 first:border-t-0">
+													<DoneBox
+														task={s}
+														canAct={canActStep(s)}
+														busy={stepBusy(s.id)}
+														onToggle={() => onStep(s, isSettled(s.status) ? { kind: "reopen" } : { kind: "complete" })}
+													/>
+													<span
+														className={cn("min-w-0 flex-1 text-ink", isSettled(s.status) && "text-text-3 line-through")}
+													>
+														{s.title}
+													</span>
+													<span className="text-sm text-text-3">{s.assignee?.displayName ?? "Needs owner"}</span>
+												</li>
+											))}
 									</ul>
 								</Section>
 							) : null}

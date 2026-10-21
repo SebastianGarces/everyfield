@@ -27,7 +27,8 @@ export async function TasksPage({ searchParams }: { searchParams: Search }) {
 	const viewer = await taskViewer();
 	if (!viewer) {
 		const v = await getViewer();
-		if (!v || v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent("/tasks" + querySearch(query))}`);
+		if (!v || v.status === "unauthenticated")
+			redirect(`/signin?returnTo=${encodeURIComponent("/tasks" + querySearch(query))}`);
 		return (
 			<Blocked>
 				<StatePanel tone="lock" icon={LockKeyIcon} title="Tasks are not part of your seat" headingLevel="h2">

@@ -22,7 +22,9 @@ import {
 const parse = (s) => parseQuery(new URLSearchParams(s));
 
 test("AC:TARGET-TSK-001 INV-url: filters live in the address, reset the page and keep their siblings", () => {
-	const q = parse("view=all&q=call&status=blocked&priority=urgent&category=follow_up&relation=person&sort=title&page=3");
+	const q = parse(
+		"view=all&q=call&status=blocked&priority=urgent&category=follow_up&relation=person&sort=title&page=3",
+	);
 	assert.deepEqual(listRequest(q), {
 		view: "all",
 		search: "call",
@@ -82,7 +84,10 @@ test("AC:B03-008 AC:B03-009 AC:TARGET-TSK-018: a deadline is church wall time wi
 	});
 	// B03-007: no day or time falls back to today or the epoch; the form asks for it.
 	assert.deepEqual(dueInputOf({ kind: "local_date", date: "", time: "" }), { ok: false, field: "date" });
-	assert.deepEqual(dueInputOf({ kind: "resolved_instant", date: "2026-03-08", time: "" }), { ok: false, field: "time" });
+	assert.deepEqual(dueInputOf({ kind: "resolved_instant", date: "2026-03-08", time: "" }), {
+		ok: false,
+		field: "time",
+	});
 });
 
 test("INV-counts: a confirmed change moves one task between tallies; a deleted task only leaves", () => {

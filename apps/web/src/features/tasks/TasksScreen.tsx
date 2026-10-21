@@ -96,7 +96,13 @@ const GROUP: Record<Group["key"], { label: string; tone: "risk" | "measured" | "
 };
 const lost = { status: "lost" } as const;
 const targetOf = (a: StatusAction): Status =>
-	a.kind === "complete" ? "complete" : a.kind === "reopen" ? "not_started" : a.kind === "waive" ? "no_longer_needed" : a.status;
+	a.kind === "complete"
+		? "complete"
+		: a.kind === "reopen"
+			? "not_started"
+			: a.kind === "waive"
+				? "no_longer_needed"
+				: a.status;
 
 /**
  * Tasks (REQ-TSK-001 to 003, 015): My and All views, search, filters, sort and pages in the address, with counts over
@@ -127,9 +133,12 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 		setCounts(loaded.counts);
 		setTotal(loaded.page.total);
 	}
-	const [shown, setShown] = useOptimistic(items, (rows, p: { id: string; status: Status }) =>
-		rows.map((r) => (r.id === p.id ? { ...r, status: p.status } : r)),
-	);
+	// Status changes in flight, by task or step ID. They show at once and fall away when the change settles.
+	const [overlay, setOverlay] = useOptimistic<Record<string, Status>, { id: string; status: Status }>({}, (o, p) => ({
+		...o,
+		[p.id]: p.status,
+	}));
+	const shown = items.map((r) => (overlay[r.id] ? { ...r, status: overlay[r.id]! } : r));
 	const [busy, setBusy] = useState<ReadonlySet<string>>(() => new Set());
 	const [editing, setEditing] = useState<TaskDetail | "new" | null>(null);
 	const [deleting, setDeleting] = useState<TaskItem | null>(null);
@@ -158,7 +167,10 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				loading.current.delete(id);
 				setDetails((d) => ({
 					...d,
-					[id]: r.status === "ok" ? { status: "ok", ...r.value } : { status: "failed", code: r.status === "lost" ? "lost" : r.code },
+					[id]:
+						r.status === "ok"
+							? { status: "ok", ...r.value }
+							: { status: "failed", code: r.status === "lost" ? "lost" : r.code },
 				}));
 			});
 	};
@@ -216,13 +228,25 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	};
 
 	/** A refused or lost write: the row goes back, the message says why, and an out-of-date copy is read again. */
-	const fail = (task: TaskItem, r: Exclude<Outcome<unknown>, { status: "ok" }>, retry?: () => void) => {
+	const fail = (
+		task: Pick<TaskItem, "id" | "title">,
+		r: Exclude<Outcome<unknown>, { status: "ok" }>,
+		retry?: () => void,
+		parentId?: string,
+	) => {
 		const code = r.status === "lost" ? "lost" : r.code;
 		toast({
 			tone: "error",
 			message: `“${task.title}” did not change. ${problemText(code)}`,
-			action: retry && r.status === "lost" ? { label: "Try again", altText: "Try the change again", onSelect: retry } : undefined,
+			action:
+				retry && r.status === "lost"
+					? { label: "Try again", altText: "Try the change again", onSelect: retry }
+					: undefined,
 		});
+		if (parentId) {
+			if (code !== "lost") refresh(parentId);
+			return;
+		}
 		if (code === "conflict" || code === "open_successor") refresh(task.id);
 		if (code === "unavailable") {
 			setItems((rows) => rows.filter((x) => x.id !== task.id));
@@ -238,13 +262,40 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				setDetails((d) => ({ ...d, [id]: { status: "ok", ...r.value } }));
 			});
 
-	const act = (task: TaskItem, action: StatusAction) => {
+	/** A step's confirmed status: the open panel's checklist and the parent row's step count follow it. */
+	const confirmStep = (parentId: string, before: Pick<TaskItem, "status">, saved: Saved) => {
+		const step = saved.task;
+		const delta = Number(step.status === "complete") - Number(before.status === "complete");
+		setDetails((d) => {
+			const cur = d[parentId];
+			if (cur?.status !== "ok") return d;
+			const checklistItems = cur.task.checklistItems.map((s) =>
+				s.id === step.id
+					? { id: s.id, revision: step.revision, title: step.title, status: step.status, assignee: step.assignee }
+					: s,
+			);
+			return { ...d, [parentId]: { ...cur, task: { ...cur.task, checklistItems } } };
+		});
+		if (!delta) return;
+		setItems((rows) =>
+			rows.map((r) =>
+				r.id === parentId ? { ...r, checklist: { ...r.checklist, complete: r.checklist.complete + delta } } : r,
+			),
+		);
+		setCounts((c) => ({ ...c, childTaskComplete: c.childTaskComplete + delta }));
+	};
+
+	const act = (
+		task: Pick<TaskItem, "id" | "revision" | "title" | "status">,
+		action: StatusAction,
+		parentId?: string,
+	) => {
 		if (busy.has(task.id)) return;
 		const slot = `status:${task.id}`;
 		const key = keys.current.for(slot, { revision: task.revision, action });
 		setBusy((b) => new Set(b).add(task.id));
 		startAction(async () => {
-			setShown({ id: task.id, status: targetOf(action) });
+			setOverlay({ id: task.id, status: targetOf(action) });
 			const r = await changeTaskStatus(key, task.revision, task.id, action).catch(() => lost);
 			keys.current.settle(slot, r);
 			startAction(() => {
@@ -254,9 +305,11 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 					return n;
 				});
 				if (r.status === "ok") {
-					confirm(task, r.value);
-					if (action.kind === "waive") toast({ tone: "success", message: `Closed “${task.title}” as no longer needed.` });
-				} else fail(task, r, () => act(task, action));
+					if (parentId) confirmStep(parentId, task, r.value);
+					else confirm(task as TaskItem, r.value);
+					if (action.kind === "waive")
+						toast({ tone: "success", message: `Closed “${task.title}” as no longer needed.` });
+				} else fail(task, r, () => act(task, action, parentId), parentId);
 			});
 		});
 	};
@@ -322,7 +375,10 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 							groups.map((g) => (
 								<section key={g.key} aria-labelledby={GROUP[g.key] ? `group-${g.key}` : undefined}>
 									{GROUP[g.key] ? (
-										<h2 id={`group-${g.key}`} className="flex items-center gap-2 px-3 pt-[18px] pb-2 text-sm font-semibold text-text-2">
+										<h2
+											id={`group-${g.key}`}
+											className="flex items-center gap-2 px-3 pt-[18px] pb-2 font-sans text-sm font-semibold tracking-normal text-text-2"
+										>
 											<StatusBadge status={GROUP[g.key]!.tone} size="sm">
 												{GROUP[g.key]!.label}
 											</StatusBadge>
@@ -349,10 +405,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 												onEdit={() => {
 													const d = details[t.id];
 													if (d?.status === "ok") setEditing(d.task);
-													else
-														loadTask(t.id).then((r) =>
-															r.status === "ok" ? setEditing(r.value.task) : fail(t, r),
-														);
+													else loadTask(t.id).then((r) => (r.status === "ok" ? setEditing(r.value.task) : fail(t, r)));
 												}}
 												onDelete={() => setDeleting(t)}
 											/>
@@ -367,7 +420,11 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 							<span className="text-sm text-text-3" role="status">
 								{rangeText(query, items.length, total)}
 							</span>
-							<Pagination page={query.page} pageCount={pageCount(total)} onPageChange={(n) => go({ ...query, page: n })} />
+							<Pagination
+								page={query.page}
+								pageCount={pageCount(total)}
+								onPageChange={(n) => go({ ...query, page: n })}
+							/>
 						</div>
 					) : null}
 				</Card>
@@ -389,7 +446,8 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				onEdit={() => openState?.status === "ok" && setEditing(openState.task)}
 				onDelete={() => openTask && setDeleting(openTask)}
 				onRetry={() => openId && warm(openId)}
-				onStep={(step, a) => act({ ...step, assignee: step.assignee } as TaskItem, a)}
+				onStep={(step, a) => openId && act(step, a, openId)}
+				overlay={overlay}
 				canActStep={(step) => canAct(step)}
 				stepBusy={(id) => busy.has(id)}
 			/>
@@ -425,7 +483,9 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				description="The task leaves every list and stops sending reminders."
 				consequences={[
 					...(deleting && deleting.checklist.total > 0
-						? [`Its ${deleting.checklist.total} ${deleting.checklist.total === 1 ? "step is" : "steps are"} deleted with it.`]
+						? [
+								`Its ${deleting.checklist.total} ${deleting.checklist.total === 1 ? "step is" : "steps are"} deleted with it.`,
+							]
 						: []),
 					"Its status history is kept.",
 					...(deleting?.managed ? ["The meeting will not create this task again."] : []),
@@ -515,7 +575,13 @@ function TaskRow({
 }
 
 /** The status choices for one task, shared by the row menu and the task panel. */
-export function StatusItems({ task, onAction }: { task: Pick<TaskItem, "status">; onAction: (a: StatusAction) => void }) {
+export function StatusItems({
+	task,
+	onAction,
+}: {
+	task: Pick<TaskItem, "status">;
+	onAction: (a: StatusAction) => void;
+}) {
 	if (isSettled(task.status))
 		return (
 			<MenuItem icon={ArrowTurnBackwardIcon} onSelect={() => onAction({ kind: "reopen" })}>
@@ -722,22 +788,29 @@ function Empty({
 
 function Summary({ counts, query }: { counts: TaskCounts; query: TaskQuery }) {
 	const open = OPEN_STATUSES.reduce((n, s) => n + tallyOf(counts.byStatus, s), 0);
-	const rows: [ReactNode, number][] = STATUSES.filter((s) => query.statuses.length === 0 || query.statuses.includes(s)).map(
-		(s) => [STATUS_LABEL[s], tallyOf(counts.byStatus, s)],
-	);
+	const rows: [ReactNode, number][] = STATUSES.filter(
+		(s) => query.statuses.length === 0 || query.statuses.includes(s),
+	).map((s) => [STATUS_LABEL[s], tallyOf(counts.byStatus, s)]);
 	return (
 		<Card>
 			<CardTitle size="sm">{query.view === "my" ? "Your tasks" : "All tasks"}</CardTitle>
 			<div className="mt-3 flex items-end gap-3">
 				<span className="num font-title text-[44px] leading-[0.95] tracking-[-0.03em] text-ink">{open}</span>
-				<span className="pb-1 text-sm text-text-2">{open === 1 ? "open task" : "open tasks"}{isFiltered(query) ? " match the filters" : ""}</span>
+				<span className="pb-1 text-sm text-text-2">
+					{open === 1 ? "open task" : "open tasks"}
+					{isFiltered(query) ? " match the filters" : ""}
+				</span>
 			</div>
 			<KeyValueList className="mt-4">
 				{rows.map(([k, v], i) => (
 					<KeyValue key={i} k={k} value={v} size="sm" />
 				))}
 				{counts.childTaskTotal > 0 ? (
-					<KeyValue k="Checklist steps done" value={`${counts.childTaskComplete} of ${counts.childTaskTotal}`} size="sm" />
+					<KeyValue
+						k="Checklist steps done"
+						value={`${counts.childTaskComplete} of ${counts.childTaskTotal}`}
+						size="sm"
+					/>
 				) : null}
 			</KeyValueList>
 		</Card>

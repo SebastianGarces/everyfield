@@ -50,7 +50,12 @@ export const STATUS_LABEL: Record<Status, string> = {
 	complete: "Done",
 	no_longer_needed: "No longer needed",
 };
-export const PRIORITY_LABEL: Record<Priority, string> = { urgent: "Urgent", high: "High", medium: "Medium", low: "Low" };
+export const PRIORITY_LABEL: Record<Priority, string> = {
+	urgent: "Urgent",
+	high: "High",
+	medium: "Medium",
+	low: "Low",
+};
 export const CATEGORY_LABEL: Record<Category, string> = {
 	general: "General",
 	follow_up: "Follow-up",
@@ -198,7 +203,9 @@ export const pageCount = (total: number) => Math.max(1, Math.ceil(total / PAGE_S
 export function rangeText(q: TaskQuery, shown: number, total: number): string {
 	if (total === 0) return "No tasks";
 	const first = (q.page - 1) * PAGE_SIZE + 1;
-	return shown === total ? `${total} ${total === 1 ? "task" : "tasks"}` : `${first}–${first + shown - 1} of ${total} tasks`;
+	return shown === total
+		? `${total} ${total === 1 ? "task" : "tasks"}`
+		: `${first}–${first + shown - 1} of ${total} tasks`;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -234,11 +241,21 @@ export function offsetText(seconds: number): string {
 }
 
 /** The due-date form value. `offsetSeconds` is the occurrence chosen for a time the clocks repeat. */
-export type DueDraft = { kind: "undated" | "local_date" | "resolved_instant"; date: string; time: string; offsetSeconds?: number };
+export type DueDraft = {
+	kind: "undated" | "local_date" | "resolved_instant";
+	date: string;
+	time: string;
+	offsetSeconds?: number;
+};
 export function dueDraftOf(due: Due): DueDraft {
 	if (due.kind === "undated") return { kind: "undated", date: "", time: "" };
 	if (due.kind === "local_date") return { kind: "local_date", date: due.date, time: "" };
-	return { kind: "resolved_instant", date: due.local.slice(0, 10), time: due.local.slice(11, 16), offsetSeconds: due.offsetSeconds };
+	return {
+		kind: "resolved_instant",
+		date: due.local.slice(0, 10),
+		time: due.local.slice(11, 16),
+		offsetSeconds: due.offsetSeconds,
+	};
 }
 /** The contract's due input, or a field problem the form shows before any request. */
 export function dueInputOf(d: DueDraft): { ok: true; due: DueInput } | { ok: false; field: "date" | "time" } {
@@ -267,7 +284,9 @@ export const sameDue = (a: DueDraft, b: DueDraft) =>
 type Tallied = Pick<TaskItem, "status" | "priority" | "category">;
 function bump<V extends string>(tally: { value: V; count: number }[], value: V, by: number) {
 	const found = tally.some((t) => t.value === value);
-	const next = found ? tally.map((t) => (t.value === value ? { ...t, count: t.count + by } : t)) : [...tally, { value, count: by }];
+	const next = found
+		? tally.map((t) => (t.value === value ? { ...t, count: t.count + by } : t))
+		: [...tally, { value, count: by }];
 	return next.filter((t) => t.count > 0);
 }
 export function countsAfter(counts: TaskCounts, before: Tallied | null, after: Tallied | null): TaskCounts {

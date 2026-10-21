@@ -52,7 +52,11 @@ export async function editTask(
 	});
 }
 
-export async function deleteTask(requestKey: string, expectedRevision: string, taskId: string): Promise<Outcome<Saved>> {
+export async function deleteTask(
+	requestKey: string,
+	expectedRevision: string,
+	taskId: string,
+): Promise<Outcome<Saved>> {
 	return boundary(c.taskCommandRequest, { requestKey, expectedRevision, input: { taskId } }, async (v, request) => {
 		const r = await write(v, (w, tx, ctx) => w.delete(tx, ctx, request));
 		return r.status === "ok" ? { status: "ok", value: saved(r.value) } : r;
@@ -122,7 +126,10 @@ export async function assigneeOptions(): Promise<Outcome<z.infer<typeof c.assign
 	});
 }
 
-export async function relationOptions(kind: unknown, search: unknown): Promise<Outcome<z.infer<typeof c.relationOptions>>> {
+export async function relationOptions(
+	kind: unknown,
+	search: unknown,
+): Promise<Outcome<z.infer<typeof c.relationOptions>>> {
 	return boundary(c.relationOptionsRequest, { kind, search }, (v, request) =>
 		read(v, async (tx) => {
 			const r = await taskReader.relationOptions(tx, v.authority, request);
