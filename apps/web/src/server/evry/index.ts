@@ -3,6 +3,7 @@ import {
 	EvryRefusal,
 	evryActor,
 	executeProposal,
+	flushTraces,
 	projectError,
 	runTurn,
 	selectQualifiedModel,
@@ -70,27 +71,36 @@ async function freshActor(session: string) {
 
 const LEASE_SECONDS = 240; // above the 180-second turn wall time
 
-/** After the response, claims due turns through the WP-031 queue and runs them one at a time. */
+/**
+ * After the response, claims due turns through the WP-031 queue and runs them one at a time. The turns' traces are
+ * exported last, inside the function's lifetime, after every turn saved its end.
+ */
 export function drainTurns() {
 	after(async () => {
 		const pool = evryDatabase();
 		const model = selectQualifiedModel();
-		for (let n = 0; n < 4; n++) {
-			const [claim] = await claimDue(pool, ["assistant_turn"], 1, LEASE_SECONDS);
-			if (!claim) return;
-			const outcome = await runTurn(
-				{ db: pool, model, freshActor },
-				{
-					turnId: claim.id,
-					tenantId: claim.tenant_id,
-					leaseOwner: claim.lease_owner,
-					generation: claim.claim_generation,
-				},
-			);
-			if (outcome !== "lost")
-				await transaction(pool, (tx) =>
-					finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }),
+		try {
+			for (let n = 0; n < 4; n++) {
+				const claimStart = new Date();
+				const [claim] = await claimDue(pool, ["assistant_turn"], 1, LEASE_SECONDS);
+				if (!claim) return;
+				const outcome = await runTurn(
+					{ db: pool, model, freshActor },
+					{
+						turnId: claim.id,
+						tenantId: claim.tenant_id,
+						leaseOwner: claim.lease_owner,
+						generation: claim.claim_generation,
+					},
+					{ claimStart, claimEnd: new Date() },
 				);
+				if (outcome !== "lost")
+					await transaction(pool, (tx) =>
+						finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }),
+					);
+			}
+		} finally {
+			await flushTraces();
 		}
 	});
 }

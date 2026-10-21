@@ -18,6 +18,7 @@ export {
 export { observeConversation } from "./runtime/observe.ts";
 export { selectQualifiedModel, type QualifiedModel } from "./runtime/model.ts";
 export { runTurn, type RunDeps, type RunOutcome } from "./runtime/turn.ts";
+export { flushTraces, type Claimed } from "./runtime/trace.ts";
 export type { RunLease } from "./runtime/run-store.ts";
 export {
 	approveProposal,
