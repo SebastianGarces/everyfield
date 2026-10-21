@@ -343,7 +343,8 @@ export const peopleMerge = {
 		return readReply(async () => {
 			if (ctx.selected.kind !== "organization") deny();
 			const input = parse(c.organizationDuplicatesRequest, raw);
-			await authorize(tx, ctx, true);
+			// The live Owner or Admin check is inside each statement (C13); no separate write authority lookup.
+			await authorize(tx, ctx);
 			const gate = adminRead(ctx);
 			const result = await tx.execute(sql`SELECT p.display_name,p.email,p.phone FROM person p WHERE ${gate}
  AND p.id=${input.personId}::uuid AND p.tenant_id=${ctx.selected.id}::uuid AND p.state='live'

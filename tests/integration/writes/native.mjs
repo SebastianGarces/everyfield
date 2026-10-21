@@ -23,6 +23,9 @@ import {
 	commitments,
 	uploadCommitmentDocument,
 	getCommitmentDownload,
+	peopleMerge,
+	peopleUnmerge,
+	recordCorrections,
 } from "../../../packages/domain/src/people/index.ts";
 import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/dist-cjs/index.js";
 import { readFile } from "node:fs/promises";
@@ -510,6 +513,101 @@ try {
 		value(await view("exportPeople", (tx, ctx) => peopleCsv.exportPeople(tx, ctx, {})));
 	}
 	for (const name of ["previewImport", "executeBulkImport", "runPeopleImport", "getImportReceipt", "exportPeople"])
+		await fixed(name);
+	// WP-015 merge, Unmerge and record corrections at the native boundary. Each runs on a pair whose source holds one
+	// skill and on a pair whose source holds twenty, and must use the same statement count.
+	for (const size of [1, 20]) {
+		const pair = [];
+		for (const name of ["Merge survivor " + size, "Merge source " + size])
+			pair.push(
+				value(
+					await run("createPerson", (tx, ctx) =>
+						peopleWriter.createPerson(tx, ctx, { requestKey: key(), input: { displayName: name } }),
+					),
+				).person,
+			);
+		const [kept, merging] = pair;
+		for (let i = 0; i < size; i++)
+			value(
+				await run("addSkill", (tx, ctx) =>
+					personFields.addSkill(tx, ctx, {
+						requestKey: key(),
+						input: { personId: merging.id, name: "Skill " + i, category: "tech" },
+					}),
+				),
+			);
+		const ids = { sourceId: merging.id, survivorId: kept.id };
+		const reviewed = value(await view("getMergeReview", (tx, ctx) => peopleMerge.getMergeReview(tx, ctx, ids)));
+		const merged = value(
+			await run("mergePeople", (tx, ctx) =>
+				peopleMerge.mergePeople(tx, ctx, {
+					requestKey: key(),
+					input: { ...ids, reviewDigest: reviewed.reviewDigest },
+				}),
+			),
+		);
+		value(
+			await view("mergedPersonDestination", (tx, ctx) =>
+				peopleMerge.mergedPersonDestination(tx, ctx, { personId: merging.id }),
+			),
+		);
+		const preview = value(
+			await view("previewUnmerge", (tx, ctx) => peopleUnmerge.previewUnmerge(tx, ctx, { mergeId: merged.mergeId })),
+		);
+		assert.deepEqual(preview.conflicts, []);
+		value(
+			await run("unmergePeople", (tx, ctx) =>
+				peopleUnmerge.unmergePeople(tx, ctx, {
+					requestKey: key(),
+					expectedRevision: preview.reviewRevision,
+					input: { mergeId: merged.mergeId },
+				}),
+			),
+		);
+		const recorded = value(
+			await run("createAssessment", (tx, ctx) =>
+				assessments.createAssessment(tx, ctx, {
+					requestKey: key(),
+					input: {
+						personId: merging.id,
+						occurredOn: daysAgo(3),
+						committed: lens,
+						compelled: lens,
+						contagious: lens,
+						courageous: lens,
+					},
+				}),
+			),
+		).assessment;
+		value(
+			await run("correctPersonRecord", (tx, ctx) =>
+				recordCorrections.correctPersonRecord(tx, ctx, {
+					requestKey: key(),
+					expectedRevision: recorded.revision,
+					input: {
+						recordType: "assessment",
+						recordId: recorded.id,
+						reason: "Synthetic",
+						changes: { committed: { score: 4, notes: null } },
+					},
+				}),
+			),
+		);
+		value(
+			await view("listRecordCorrections", (tx, ctx) =>
+				recordCorrections.listRecordCorrections(tx, ctx, { personId: merging.id }),
+			),
+		);
+	}
+	for (const name of [
+		"getMergeReview",
+		"mergePeople",
+		"mergedPersonDestination",
+		"previewUnmerge",
+		"unmergePeople",
+		"correctPersonRecord",
+		"listRecordCorrections",
+	])
 		await fixed(name);
 	// Meetings at the native boundary: the bound actor, one replay check, one locked read and one write statement.
 	const meetingWrite = (name, body) => measure("native.meetings." + name, () => withMeetingsWrite(f.db, actor, body));
