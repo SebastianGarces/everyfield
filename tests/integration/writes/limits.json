@@ -1002,5 +1002,141 @@
 	"people.correctPersonRecord": {
 		"limit": 7,
 		"retry": 14
+	},
+	"meetings.setAttendance": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings.checkIn": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings.clearAttendance": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings.captureAttendanceBatch": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings.correctEvaluation": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings.addAttendeeNote": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings.finalizeAttendance": {
+		"limit": 10,
+		"retry": 20
+	},
+	"meetings.reconcileAttendance": {
+		"limit": 10,
+		"retry": 20
+	},
+	"meetings.recordEvaluation": {
+		"limit": 10,
+		"retry": 20
+	},
+	"native.meetings.finalizeAttendance": {
+		"limit": 6,
+		"retry": 12
+	},
+	"native.meetings.recordEvaluation": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings.listAttendance": {
+		"limit": 1,
+		"retry": 2
+	},
+	"meetings.attendanceSummary": {
+		"limit": 1,
+		"retry": 2
+	},
+	"meetings.getEvaluation": {
+		"limit": 1,
+		"retry": 2
+	},
+	"meetings.evaluationHistory": {
+		"limit": 1,
+		"retry": 2
+	},
+	"meetings.evaluationTrend": {
+		"limit": 1,
+		"retry": 2
+	},
+	"meetings.compareEvaluation": {
+		"limit": 1,
+		"retry": 2
+	},
+	"meetings.attendanceTrend": {
+		"limit": 1,
+		"retry": 2
+	},
+	"meetings.summaryStats": {
+		"limit": 1,
+		"retry": 2
+	},
+	"meetings.linkedTaskProgress": {
+		"limit": 1,
+		"retry": 2
+	},
+	"meetings.readAnalytics": {
+		"limit": 1,
+		"retry": 2
+	},
+	"native.meetings.finalizeAttendance.assigned": {
+		"limit": 12,
+		"retry": 24
+	},
+	"meetings/core.withMeetingsWrite:native.meetings.finalizeAttendance.assigned": {
+		"limit": 12,
+		"retry": 24
+	},
+	"meetings/core.withMeetingsWrite:native.meetings.finalizeAttendance": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings/core.withMeetingsWrite:native.meetings.recordEvaluation": {
+		"limit": 6,
+		"retry": 12
+	},
+	"native.meetings.recordEvaluation.assigned": {
+		"limit": 10,
+		"retry": 20
+	},
+	"meetings/core.withMeetingsWrite:native.meetings.recordEvaluation.assigned": {
+		"limit": 10,
+		"retry": 20
+	},
+	"native.meetings.reconcileAttendance": {
+		"limit": 6,
+		"retry": 12
+	},
+	"meetings/core.withMeetingsWrite:native.meetings.reconcileAttendance": {
+		"limit": 6,
+		"retry": 12
+	},
+	"native.meetings.reconcileAttendance.assigned": {
+		"limit": 10,
+		"retry": 20
+	},
+	"meetings/core.withMeetingsWrite:native.meetings.reconcileAttendance.assigned": {
+		"limit": 10,
+		"retry": 20
+	},
+	"meetings/core.withMeetingsWrite:meetings.finalizeAttendance": {
+		"limit": 12,
+		"retry": 24
+	},
+	"meetings/core.withMeetingsWrite:meetings.reconcileAttendance": {
+		"limit": 10,
+		"retry": 20
+	},
+	"meetings/core.withMeetingsWrite:meetings.recordEvaluation": {
+		"limit": 10,
+		"retry": 20
 	}
 }

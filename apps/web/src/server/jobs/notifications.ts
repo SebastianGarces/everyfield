@@ -301,6 +301,8 @@ export function createNotificationService(config: {
 			due: Parameters<typeof taskReminderTimes>[0];
 			open: boolean;
 			asOf: string;
+			/** A task this write created has no notices yet: nothing to check, replace or cancel. */
+			created?: boolean;
 		}[],
 	) {
 		const tenant = inputs[0]?.base.owner.id;
@@ -309,31 +311,35 @@ export function createNotificationService(config: {
 			inputs.some((i) => i.base.owner.id !== tenant || i.base.source.kind !== "task" || (i.open && !i.base.recipient))
 		)
 			throw Error("notification_source_mismatch");
-		const sources = inputs.map((i) => ({ id: i.base.source.id, revision: i.base.source.revision, preserve: i.open }));
-		// A slot that reached its recipient under an earlier revision (shown in the inbox or handed to mail) is never
-		// planned again after a reschedule (REQ-TSK-014: at most once per assignee). The current revision's notices replay.
-		const locked =
-			await tx.execute(sql`SELECT t.id, coalesce((SELECT jsonb_agg(DISTINCT n.recipient_id::text||'/'||split_part(n.logical_key,'/',2))
-      FROM notice n WHERE n.tenant_id=t.plant_id AND n.source_record_id=t.id AND n.source_revision<>t.revision AND (
-        (n.archived_at IS NULL AND n.eligible_at<=clock_timestamp() AND (n.cancelled_at IS NULL OR n.cancelled_at>n.eligible_at))
-        OR EXISTS(SELECT FROM mail m WHERE m.notice_id=n.id AND m.state IN ('dispatched','unknown','accepted','scheduled','sent')))),'[]') AS reached
-      FROM task t JOIN jsonb_to_recordset(${JSON.stringify(sources)}::jsonb) i(id uuid,revision bigint,preserve boolean)
-      ON t.id=i.id AND t.plant_id=${tenant} AND t.revision=i.revision FOR SHARE OF t`);
-		if (locked.rows.length !== new Set(sources.map((s) => s.id)).size) throw Error("notification_source_stale");
-		const reached = new Set(
-			z
+		const sources = inputs
+			.filter((i) => !i.created)
+			.map((i) => ({ id: i.base.source.id, revision: i.base.source.revision, preserve: i.open }));
+		const reached = new Set<string>();
+		if (sources.length) {
+			// A slot that reached its recipient under an earlier revision (shown in the inbox or handed to mail) is never
+			// planned again after a reschedule (REQ-TSK-014: at most once per assignee). The current revision's notices replay.
+			const locked =
+				await tx.execute(sql`SELECT t.id, coalesce((SELECT jsonb_agg(DISTINCT n.recipient_id::text||'/'||split_part(n.logical_key,'/',2))
+	      FROM notice n WHERE n.tenant_id=t.plant_id AND n.source_record_id=t.id AND n.source_revision<>t.revision AND (
+	        (n.archived_at IS NULL AND n.eligible_at<=clock_timestamp() AND (n.cancelled_at IS NULL OR n.cancelled_at>n.eligible_at))
+	        OR EXISTS(SELECT FROM mail m WHERE m.notice_id=n.id AND m.state IN ('dispatched','unknown','accepted','scheduled','sent')))),'[]') AS reached
+	      FROM task t JOIN jsonb_to_recordset(${JSON.stringify(sources)}::jsonb) i(id uuid,revision bigint,preserve boolean)
+	      ON t.id=i.id AND t.plant_id=${tenant} AND t.revision=i.revision FOR SHARE OF t`);
+			if (locked.rows.length !== new Set(sources.map((s) => s.id)).size) throw Error("notification_source_stale");
+			for (const slot of z
 				.array(z.object({ id: z.uuid(), reached: z.array(z.string()) }))
 				.parse(locked.rows)
-				.flatMap((r) => r.reached.map((slot) => `${r.id}/${slot}`)),
-		);
-		await tx.execute(sql`UPDATE notice n SET cancelled_at=coalesce(n.cancelled_at,clock_timestamp())
-      FROM jsonb_to_recordset(${JSON.stringify(sources)}::jsonb) i(id uuid,revision bigint,preserve boolean)
-      WHERE n.tenant_id=${tenant} AND n.source_record_id=i.id AND (NOT i.preserve OR n.source_revision<>i.revision)`);
-		await cancelOwed(
-			tx,
-			tenant,
-			sources.map((s) => s.id),
-		);
+				.flatMap((r) => r.reached.map((slot) => `${r.id}/${slot}`)))
+				reached.add(slot);
+			await tx.execute(sql`UPDATE notice n SET cancelled_at=coalesce(n.cancelled_at,clock_timestamp())
+	      FROM jsonb_to_recordset(${JSON.stringify(sources)}::jsonb) i(id uuid,revision bigint,preserve boolean)
+	      WHERE n.tenant_id=${tenant} AND n.source_record_id=i.id AND (NOT i.preserve OR n.source_revision<>i.revision)`);
+			await cancelOwed(
+				tx,
+				tenant,
+				sources.map((s) => s.id),
+			);
+		}
 		return enqueueMany(
 			tx,
 			inputs

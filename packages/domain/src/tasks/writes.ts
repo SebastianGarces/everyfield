@@ -32,6 +32,8 @@ export type ReminderSource = {
 	assigneeId: string | null;
 	due: { kind: "undated" } | { kind: "date_only"; date: string; zone: string } | { kind: "timed"; at: string };
 	open: boolean;
+	/** Created by this write: it has no notices yet, so the sync has nothing to replace or cancel. */
+	created: boolean;
 };
 /** All tasks of one write go in one call, so the sync costs a fixed number of statements (patterns.md). */
 export type TaskReminders = (tx: Tx, sources: readonly ReminderSource[]) => Promise<unknown>;
@@ -106,6 +108,7 @@ function reminderSource(plantId: string, row: TaskRow): ReminderSource {
 					? { kind: "date_only", date: row.due_date!, zone: row.plant_zone }
 					: { kind: "timed", at: row.due_at!.toISOString() },
 		open: OPEN(row.status) && row.deleted_at === null,
+		created: false,
 	};
 }
 const remindable = (s: ReminderSource) => s.open && s.assigneeId !== null && s.due.kind !== "undated";
@@ -114,7 +117,7 @@ export function reminderChange(plantId: string, before: TaskRow | null, after: T
 	const prior = before && reminderSource(plantId, before),
 		next = reminderSource(plantId, after);
 	if (!(prior && remindable(prior)) && !remindable(next)) return undefined;
-	return { ...next, open: remindable(next) };
+	return { ...next, open: remindable(next), created: before === null };
 }
 export function syncReminders(
 	reminders: TaskReminders,
