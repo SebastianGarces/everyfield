@@ -20,6 +20,7 @@ import { runSave, type Outcome, type PersonStore } from "../model.ts";
 import { fresh, useStore, When } from "../parts.tsx";
 import type { PersonDraft } from "../StageDialog.tsx";
 import { unmergePair, unmergePreview, type Unmerged } from "./actions.ts";
+import { takeUnmergePreview } from "./intent.ts";
 import { conflictText, counted, FIELD_LABEL, kindTitle, listText } from "./model.ts";
 import { Problem } from "./parts.tsx";
 import type { UnmergeView } from "./server.ts";
@@ -58,14 +59,17 @@ export function UnmergeDialog({
 	// An earlier Unmerge of this merge whose answer was lost: only a server answer may say what happened, never a failed read.
 	const uncertain = useStore(store).errors[slot] === "lost";
 
-	async function load() {
+	/** Reads the preview. The first read is the one started on intent, when there is one (intent.ts). */
+	async function load(first = false) {
 		const n = ++seq.current;
-		const r = await unmergePreview(mergeId).catch(() => ({ status: "lost" }) as const);
+		const r = first
+			? await takeUnmergePreview(mergeId)
+			: await unmergePreview(mergeId).catch(() => ({ status: "lost" }) as const);
 		if (n === seq.current) setPreview(r);
 		return r;
 	}
 	useEffect(() => {
-		void load();
+		void load(true);
 	}, [mergeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	async function unmerge(view: UnmergeView) {

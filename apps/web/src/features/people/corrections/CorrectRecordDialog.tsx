@@ -26,6 +26,7 @@ import { runSave, type Outcome, type PersonStore } from "../model.ts";
 import { fresh, LocalDay, useStore, When } from "../parts.tsx";
 import type { PersonDraft } from "../StageDialog.tsx";
 import { correctRecord, loadRecords } from "./actions.ts";
+import { takeRecords } from "./intent.ts";
 import {
 	assessmentChanges,
 	commitmentChanges,
@@ -121,14 +122,17 @@ export function CorrectRecordDialog({
 		Object.entries(errors).flatMap(([k, v]) => (k.startsWith("correct:") && v === "lost" ? [k.slice(8)] : [])),
 	);
 
-	async function load() {
+	/** Reads the records. The first read is the one started on intent, when there is one (intent.ts). */
+	async function load(first = false) {
 		const n = ++seq.current;
-		const r = await loadRecords(person.id).catch(() => ({ status: "lost" }) as const);
+		const r = first
+			? await takeRecords(person.id)
+			: await loadRecords(person.id).catch(() => ({ status: "lost" }) as const);
 		if (n === seq.current) setRecords(r);
 		return r;
 	}
 	useEffect(() => {
-		void load();
+		void load(true);
 	}, [person.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	const list = records?.status === "ok" ? records.value : null;

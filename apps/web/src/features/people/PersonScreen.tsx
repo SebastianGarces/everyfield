@@ -45,6 +45,7 @@ import { SkillsCard } from "./fields/SkillsCard.tsx";
 import { TagsField } from "./fields/TagsField.tsx";
 import { CorrectRecordDialog } from "./corrections/CorrectRecordDialog.tsx";
 import { DuplicateHints } from "./corrections/DuplicateHints.tsx";
+import { recordsIntent } from "./corrections/intent.ts";
 import type { DuplicateHints as Hints } from "./corrections/server.ts";
 import { UnmergeDialog } from "./corrections/UnmergeDialog.tsx";
 
@@ -185,7 +186,7 @@ export function PersonScreen({
 									<MenuItem icon={UserIcon} onSelect={() => setOpen("classify")}>
 										{p.adultClassification === "unknown" ? "Record adult or child" : "Correct adult or child"}
 									</MenuItem>
-									<MenuItem icon={FileEditIcon} onSelect={() => setOpen("correct")}>
+									<MenuItem icon={FileEditIcon} onSelect={() => setOpen("correct")} {...recordsIntent(p.id)}>
 										Correct a record
 									</MenuItem>
 									<MenuSeparator />

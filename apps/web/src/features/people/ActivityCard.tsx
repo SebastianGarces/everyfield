@@ -33,6 +33,7 @@ import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import { useState } from "react";
 import type { z } from "zod";
 import { addNote, deleteNote, editNote, loadActivities } from "./actions.ts";
+import { unmergeIntent } from "./corrections/intent.ts";
 import { householdChange } from "./fields/model.ts";
 import { runSave, STAGE_LABEL, type Outcome, type PersonStore } from "./model.ts";
 import { FormProblem, fresh, isConflict, problemOf, useStore, When } from "./parts.tsx";
@@ -376,6 +377,7 @@ function Row({
 							icon={ArrowTurnBackwardIcon}
 							disabled={state.pending !== null}
 							onClick={() => onUnmerge(item.recordId!)}
+							{...unmergeIntent(item.recordId)}
 						>
 							Review Unmerge
 						</Button>
