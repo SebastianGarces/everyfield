@@ -19,6 +19,7 @@ import {
 	lockOwner,
 	mutation,
 	parse,
+	readAuthority,
 	readReply,
 	Refusal,
 	reply,
@@ -28,7 +29,7 @@ import {
 } from "../core.ts";
 import { households } from "../households/index.ts";
 import { tagsAndSkills } from "../tags-skills/index.ts";
-import { expectRevision, livePerson, next, personFacts, plantId, queueObjectCleanup, readAuthority } from "./shared.ts";
+import { expectRevision, livePerson, next, personFacts, plantId, queueObjectCleanup } from "./shared.ts";
 
 /**
  * The person photo (REQ-PPL-005) uses the shared private-object flow, like the account avatar: a pending object, verified

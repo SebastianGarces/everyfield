@@ -9,13 +9,14 @@ import {
 	deny,
 	mutation,
 	parse,
+	readAuthority,
 	readReply,
 	reply,
 	type Context,
 	type Tx,
 	type WriteContext,
 } from "../core.ts";
-import { expectRevision, livePerson, next, personFacts, plantId, readAuthority } from "../fields/shared.ts";
+import { expectRevision, livePerson, next, personFacts, plantId } from "../fields/shared.ts";
 
 type Skill = z.infer<typeof f.skill>;
 

@@ -9,6 +9,7 @@ import {
 	deny,
 	mutation,
 	parse,
+	readAuthority,
 	readReply,
 	reply,
 	type Context,
@@ -25,7 +26,6 @@ import {
 	next,
 	personFacts,
 	plantId,
-	readAuthority,
 	type Address,
 	type PersonFacts,
 } from "../fields/shared.ts";
