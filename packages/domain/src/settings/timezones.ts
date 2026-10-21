@@ -40,7 +40,11 @@ import {
 	type Tx,
 } from "./core.ts";
 import type { SettingsEffects } from "./sections.ts";
-const personalRecord = z.object({ preference: n.personalTimezoneResult.shape.preference });
+// The replay record keeps only the preference revision: personal settings audit never holds the zone. A replay has
+// the same request, so its canonical zone rebuilds the reply.
+const personalRecord = z.object({ revision: n.personalTimezoneResult.shape.preference.shape.revision });
+const personalReply = (timeZone: string, revision: string) =>
+	n.personalTimezoneResult.parse({ preference: { status: "confirmed", timeZone, revision } });
 export interface PersonalCalendar {
 	// WP-039 owns private plan storage. These handles must never contain a body,
 	// calendar revision, author-existence flag or telemetry payload.
@@ -244,11 +248,12 @@ export function timezoneOperations(
 		previewPersonalTimezone: (tx, ctx, raw) =>
 			reply(tx, async (s) => {
 				const v = parse(n.previewPersonalTimezoneRequest, raw);
-				const a = await self(s, ctx, "preview");
+				// The bound write already locked this account and checked its lifecycle; the preview is one insert.
+				const a = await self(s, ctx);
 				const zone = canonicalTimeZone(v.timeZone);
-				const clock = await readClock(s, a.account.id, injectedClock);
+				const at = injectedClock ? new Date(injectedClock.now()) : new Date();
 				const previewId = randomUUID(),
-					expiresAt = new Date(clock.at.getTime() + 15 * 60_000).toISOString();
+					expiresAt = new Date(at.getTime() + 15 * 60_000).toISOString();
 				if (calendar && (await calendarEligible(s, a.account.id)))
 					await calendar.preview(s, ctx, { previewId, zone, expiresAt });
 				const value = n.personalTimezonePreview.parse({
@@ -256,7 +261,7 @@ export function timezoneOperations(
 					preference: preference(a.account),
 					expectedRevision: a.account.personal_timezone_revision,
 					newZone: zone,
-					asOf: clock.at.toISOString(),
+					asOf: at.toISOString(),
 					expiresAt,
 				});
 				await s.insert(t.settings_preview).values({
@@ -276,8 +281,7 @@ export function timezoneOperations(
 				const a = await self(s, ctx);
 				const zone = canonicalTimeZone(v.input.timeZone);
 				const c = await begin(s, { ...ctx }, a.account.id, "account.setPersonalTimezone", v);
-				if (c.kind === "replay")
-					return n.personalTimezoneResult.parse({ preference: personalRecord.parse(c.value).preference });
+				if (c.kind === "replay") return personalReply(zone, personalRecord.parse(c.value).revision);
 				revision(v.expectedRevision, a.account.personal_timezone_revision);
 				// The preview row and the database clock in one statement.
 				const [found] = await s
@@ -302,10 +306,16 @@ export function timezoneOperations(
 					if (calendar && (await calendarEligible(s, a.account.id)))
 						await calendar.apply(s, ctx, { previewId: saved.id, zone });
 					const next = String(BigInt(a.account.personal_timezone_revision) + 1n);
-					await s
-						.update(t.account)
-						.set({ personal_timezone: zone, personal_timezone_revision: next, revision: sql`${t.account.revision}+1` })
-						.where(eq(t.account.id, a.account.id));
+					c.writes.push(
+						s
+							.update(t.account)
+							.set({
+								personal_timezone: zone,
+								personal_timezone_revision: next,
+								revision: sql`${t.account.revision}+1`,
+							})
+							.where(eq(t.account.id, a.account.id)),
+					);
 					// Preference-only operation/intent. No private author existence or calendar metadata.
 					await effects.replan(s, {
 						owner: ctx.selected,
@@ -313,13 +323,29 @@ export function timezoneOperations(
 						operationId: c.id,
 						kind: "personal_timezone",
 					});
-					const result = await finish(s, c, personalRecord, () => ({
-						preference: { status: "confirmed", timeZone: zone, revision: next },
-					}));
-					return n.personalTimezoneResult.parse({ preference: result.preference });
+					// Personal settings audit names the changed field and its revision, never the zones.
+					const event = await appendEvent(
+						s,
+						c,
+						a.account.id,
+						"preference",
+						"settings.changed",
+						a.account.revision,
+						String(BigInt(a.account.revision) + 1n),
+					);
+					auditChange(
+						c,
+						event,
+						"account",
+						{ personalTimezone: a.account.personal_timezone },
+						{ personalTimezone: zone },
+					);
+					await finish(s, c, personalRecord, () => ({ revision: next }));
+					return personalReply(zone, next);
 				}
-				const result = await finish(s, c, personalRecord, () => ({ preference: preference(a.account) }));
-				return n.personalTimezoneResult.parse({ preference: result.preference });
+				// The account already has this zone: nothing changes.
+				await finish(s, c, personalRecord, () => ({ revision: a.account.personal_timezone_revision }));
+				return personalReply(zone, a.account.personal_timezone_revision);
 			}),
 	};
 }

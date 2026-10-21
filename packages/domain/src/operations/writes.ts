@@ -83,9 +83,9 @@ export async function finishAudit(tx: Transaction, command: AuditWrite, request:
  */
 export const lastWrite = (command: AuditWrite) => sql.identifier(`write_${command.writes.length - 1}`);
 
-/** Independent changes and their audit entries execute in one statement. */
+/** Independent changes and their audit entries execute in one statement, on a transaction or alone on the pool. */
 export async function executeWrites(
-	tx: Transaction,
+	tx: Pick<Transaction, "execute">,
 	writes: readonly SQLWrapper[],
 	request?: RequestIdentity,
 ): Promise<void> {

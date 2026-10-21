@@ -57,6 +57,11 @@ export const getWorkspaceDeletionStatusRequest = deletionStatusRequest.extend({
 	subject: deletionSubject.and(owner.options[1]),
 });
 export const cancelAccountDeletionRequest = commandEnvelope(getAccountDeletionStatusRequest);
+// Fresh proof for the restricted page after a personal deletion request: the original login and its current password.
+export const openAccountDeletionRequest = z.strictObject({
+	email: normalizedEmail,
+	password: z.string().min(1).max(1024),
+});
 export const cancelWorkspaceDeletionRequest = commandEnvelope(getWorkspaceDeletionStatusRequest);
 export const previewPersonalTimezoneRequest = z.strictObject({ timeZone });
 export const setPersonalTimezoneRequest = commandEnvelope(
