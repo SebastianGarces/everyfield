@@ -122,8 +122,9 @@ export function structureWriter(reminders: TaskReminders) {
 		/**
 		 * Replace a top-level task's prerequisites (REQ-TSK-006). A new prerequisite must be a live top-level task of the
 		 * church and not the task itself; an existing one may stay after its deletion. A set that would close a cycle,
-		 * directly or through other tasks, refuses with dependency_cycle. The church's prerequisite lock serializes edits,
-		 * so two opposite edges proposed at once cannot both pass. Owner/Admin.
+		 * directly or through other tasks, refuses with dependency_cycle. Every write first locks its church (the bound
+		 * actor's plant row), so the cycle check sees each edge committed before it and two opposite edges proposed at
+		 * once cannot both pass. Owner/Admin.
 		 */
 		async replacePrerequisites(tx: Tx, context: TaskContext, raw: unknown) {
 			return reply(tx, async () => {
@@ -131,7 +132,7 @@ export function structureWriter(reminders: TaskReminders) {
 				return command(tx, context, "tasks.replacePrerequisites", input, async (cmd) => {
 					if (!administers(cmd.actor)) deny();
 					const v = input.input;
-					const row = await current(tx, cmd, v.taskId, input.expectedRevision, false, true);
+					const row = await current(tx, cmd, v.taskId, input.expectedRevision, false);
 					if (row.parent_id) deny("invalid_subject");
 					const ids = v.prerequisiteIds as string[];
 					const added = ids.filter((id) => !row.prerequisite_ids.includes(id));

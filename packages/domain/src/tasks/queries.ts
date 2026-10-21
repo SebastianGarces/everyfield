@@ -122,25 +122,13 @@ const joins = sql`FROM task t JOIN plant pl ON pl.id=t.plant_id
 	LEFT JOIN meeting m ON m.id=t.meeting_id AND m.plant_id=t.plant_id
 	LEFT JOIN team tm ON tm.id=t.team_id AND tm.plant_id=t.plant_id`;
 
-/**
- * One task of the plant with its labels and checklist. A write locks the task row. `serialize` also takes the church's
- * prerequisite lock first, so the next statement sees every edge committed before it (tasks.replacePrerequisites).
- */
-export async function loadTask(
-	tx: Tx,
-	plantId: string,
-	task: string | { obligationId: string },
-	lock: boolean,
-	serialize = false,
-) {
+/** One task of the plant with its labels and checklist. A write locks the task row. */
+export async function loadTask(tx: Tx, plantId: string, task: string | { obligationId: string }, lock: boolean) {
 	const which =
 		typeof task === "string"
 			? sql`t.id=${task}::uuid`
 			: sql`t.obligation_id=${task.obligationId}::uuid AND t.deleted_at IS NULL`;
-	const extra = serialize
-		? sql`, pg_advisory_xact_lock(hashtextextended(${"task_prerequisites:" + plantId}, 0))`
-		: sql``;
-	const r = await tx.execute(sql`${taskQuery(plantId, which, extra)} ${lock ? sql`FOR UPDATE OF t` : sql``}`);
+	const r = await tx.execute(sql`${taskQuery(plantId, which)} ${lock ? sql`FOR UPDATE OF t` : sql``}`);
 	return r.rows[0] ? taskRow.parse(r.rows[0]) : null;
 }
 /** Several tasks of the plant, locked in ID order so two batches never wait on each other in a cycle. One statement. */
@@ -155,8 +143,8 @@ export async function loadTasks(tx: Tx, plantId: string, ids: readonly string[])
 			.map((row) => [row.id, row]),
 	);
 }
-const taskQuery = (plantId: string, which: SQL, extra: SQL = sql``) =>
-	sql`SELECT ${columns}, ${checklist}${extra}, 1 AS ord ${joins} WHERE ${which} AND t.plant_id=${plantId}::uuid`;
+const taskQuery = (plantId: string, which: SQL) =>
+	sql`SELECT ${columns}, ${checklist}, 1 AS ord ${joins} WHERE ${which} AND t.plant_id=${plantId}::uuid`;
 
 /**
  * One read statement: the reader's live authority (C13) and the rows of `query`, which numbers its rows in `ord`.

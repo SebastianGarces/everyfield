@@ -213,15 +213,8 @@ export const audited = (r: TaskRow) => ({
 export const bump = (r: string) => revision.parse(String(BigInt(r) + 1n));
 
 /** The locked live task under the expected revision, or a refusal. Members act only on a task they hold (own duty). */
-export async function current(
-	tx: Tx,
-	cmd: Command,
-	taskId: string,
-	expectedRevision: string,
-	ownDuty: boolean,
-	serialize = false,
-) {
-	const row = await loadTask(tx, cmd.actor.plantId, taskId, true, serialize);
+export async function current(tx: Tx, cmd: Command, taskId: string, expectedRevision: string, ownDuty: boolean) {
+	const row = await loadTask(tx, cmd.actor.plantId, taskId, true);
 	if (!row || row.deleted_at) deny();
 	if (!administers(cmd.actor) && !(ownDuty && row.assignee_id === cmd.actor.accountId)) deny();
 	if (row.revision !== expectedRevision) deny("conflict");
