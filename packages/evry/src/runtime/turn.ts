@@ -90,7 +90,7 @@ export async function runTurn(deps: RunDeps, lease: RunLease): Promise<RunOutcom
 	let toolCalls = 0;
 	const usage = { inputTokens: 0, outputTokens: 0 };
 	const spend = deps.model.status === "qualified" ? deps.model.spend : undefined;
-	// A paid run's reservation (D76). It is settled to the counted cost only when every model call it started has
+	// A paid run's reservation (D77). It is settled to the counted cost only when every model call it started has
 	// reported its usage; a call cut off by cancel, lost lease or error may still be billed, so the run then keeps it all.
 	let reserved: { month: string; micro: number } | null = null;
 	let openCalls = 0;
@@ -168,7 +168,7 @@ export async function runTurn(deps: RunDeps, lease: RunLease): Promise<RunOutcom
 		if (!session || !actor || actor.accountId !== turn.account_id || actor.owner.id !== turn.tenant_id)
 			throw new EvryRefusal("access_denied");
 		if (deps.model.status !== "qualified") throw new EvryRefusal("model_unavailable");
-		// A paid turn starts only when its worst case still fits this month's limit (D76).
+		// A paid turn starts only when its worst case still fits this month's limit (D77).
 		if (spend) {
 			const micro = worstTurnMicroUsd(spend.price);
 			const month = await reserveSpend(db, micro, spend.capMicroUsd);

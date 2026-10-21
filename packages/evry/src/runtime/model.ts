@@ -11,9 +11,9 @@ export type Spend = { price: Price; capMicroUsd: number };
 export type QualifiedModel =
 	{ status: "qualified"; id: string; model: LanguageModelV4; spend?: Spend } | { status: "unavailable" };
 
-/** The paid models Sebastian approved (D76), with OpenAI's standard prices from 2026-10-21. */
+/** The paid models Sebastian approved (D77), with OpenAI's standard prices from 2026-10-21. */
 const OPENAI: Record<string, Price> = { "gpt-6-luna": { input: 0.1, output: 0.5 } };
-/** Two databases (shared development and production) share D76's 40 USD a month. */
+/** Two databases (shared development and production) share D77's 40 USD a month. */
 const DEFAULT_CAP_USD = 20;
 
 /**

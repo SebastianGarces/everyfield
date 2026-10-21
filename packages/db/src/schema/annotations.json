@@ -16181,7 +16181,7 @@
 			"table": {
 				"name": "model_spend",
 				"domain": "assistant",
-				"purpose": "Paid Evry model spend committed per calendar month (UTC) in this database: reservations for runs in progress plus the settled cost of finished runs, checked against the monthly limit before any paid model call (D76).",
+				"purpose": "Paid Evry model spend committed per calendar month (UTC) in this database: reservations for runs in progress plus the settled cost of finished runs, checked against the monthly limit before any paid model call (D77).",
 				"library_owned": false,
 				"jsonb_keys": {},
 				"capabilities": ["CAP-C-035"],

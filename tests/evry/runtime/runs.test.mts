@@ -177,7 +177,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 	}
 });
 
-test("D76 paid turns reserve their worst case before any model call: concurrent turns never pass the monthly limit; a cut-off call keeps its reservation; deleting a conversation keeps its charge", async () => {
+test("D77 paid turns reserve their worst case before any model call: concurrent turns never pass the monthly limit; a cut-off call keeps its reservation; deleting a conversation keeps its charge", async () => {
 	const owner = await actor("owner");
 	const price = { input: 0.1, output: 0.5 };
 	// Worst case at these prices: twice the 128,000 input tokens and 16,000 + 8,000 output tokens = 37,600 micro-USD.
