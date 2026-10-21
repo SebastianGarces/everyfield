@@ -10,7 +10,10 @@ import type { NativeAccountProducer, NativeSettingsContext } from "@everyfield/c
 import { identityAuth } from "../identity/auth.ts";
 import { executeWrites } from "../operations/writes.ts";
 import { attemptBudget, IdentityRefusal } from "../identity/budget.ts";
-import { self, now, hash, deny, Refusal, reply, parse, type Tx } from "./core.ts";
+import { accountId } from "@everyfield/contracts/common";
+import { readViewer, writeVisibility } from "../access/session.ts";
+import { now, hash, deny, Refusal, reply, parse, type Tx } from "./core.ts";
+import { issueRestrictedDeletionSession } from "./deletion.ts";
 export interface CredentialConfig {
 	db: Database;
 	authDb: Database;
@@ -33,9 +36,25 @@ export interface CredentialConfig {
 		writes: SQLWrapper[],
 	): Promise<string>;
 }
-export function createAccountCredentials(
-	config: CredentialConfig,
-): Pick<NativeAccountProducer<Tx>, "requestEmailChange" | "confirmEmailChange" | "changePassword"> {
+export function createAccountCredentials(config: CredentialConfig): Pick<
+	NativeAccountProducer<Tx>,
+	"requestEmailChange" | "confirmEmailChange" | "changePassword"
+> & {
+	openAccountDeletion(
+		raw: unknown,
+		trustedIp: string | null,
+	): Promise<
+		| {
+				status: "ok";
+				value: {
+					session: Awaited<ReturnType<typeof issueRestrictedDeletionSession>>;
+					subject: { kind: "account"; id: z.infer<typeof accountId> };
+					requestId: string;
+				};
+		  }
+		| { status: "refused"; code: Refusal["code"] }
+	>;
+} {
 	const budget = attemptBudget(config.admissionDb, config.secret);
 	const auth = identityAuth({
 		db: config.authDb,
@@ -78,8 +97,11 @@ export function createAccountCredentials(
 			});
 		},
 	});
+	/**
+	 * The live self this credential call acts for: Better Auth's session for the browser's own cookie, and in parallel
+	 * one app statement for the same session's account, unhidden and fully registered. Both must name this context.
+	 */
 	async function prepare(ctx: NativeSettingsContext) {
-		const a = await config.db.transaction((tx) => self(tx, ctx, "preview"));
 		const ingress = await config.request(ctx);
 		// Without a trusted proxy address (a local server) the budgets count the own login only, as sign-in does.
 		if (
@@ -87,9 +109,20 @@ export function createAccountCredentials(
 			ingress.request.headers.get("origin") !== config.origin
 		)
 			deny();
-		const checked = await auth.api.getSession({ headers: ingress.request.headers });
-		if (!checked || checked.session.id !== ctx.session || checked.user.id !== a.account.auth_user_id) deny();
-		return { ...a, ingress };
+		const [checked, viewer] = await Promise.all([
+			auth.api.getSession({ headers: ingress.request.headers }),
+			readViewer(config.db, ctx.session),
+		]);
+		if (
+			!checked ||
+			!checked.user.emailVerified ||
+			checked.session.id !== ctx.session ||
+			viewer?.registration !== "active" ||
+			ctx.selected.kind !== "account" ||
+			ctx.selected.id !== viewer.accountId
+		)
+			deny();
+		return { account: { id: viewer.accountId }, principal: { email: checked.user.email }, ingress };
 	}
 	async function recorded(
 		accountId: string,
@@ -155,33 +188,27 @@ export function createAccountCredentials(
 				const a = await prepare(ctx);
 				// Consume only the live exact requester's proof. No app transaction remains
 				// open while Better Auth changes its credential tables on a separate client.
-				await config.db
-					.transaction(async (tx) => {
-						await self(tx, ctx, "preview");
-						const [p] = await tx
-							.select()
-							.from(t.identity_proof)
-							.where(
-								and(
-									eq(t.identity_proof.account_id, a.account.id),
-									eq(t.identity_proof.token_hash, hash(v.proof)),
-									eq(t.identity_proof.purpose, "email_change"),
-									isNull(t.identity_proof.superseded_at),
-									isNull(t.identity_proof.consumed_at),
-									sql`${t.identity_proof.expires_at}>clock_timestamp()`,
-								),
-							)
-							.for("update");
-						if (!p) deny("proof_invalid");
-						await tx.update(t.identity_proof).set({ consumed_at: now }).where(eq(t.identity_proof.id, p.id));
-					})
-					.catch(async (e) => {
-						if (e instanceof Refusal && e.code === "proof_invalid") {
-							const r = await budget.reserve("email_change", a.principal.email, a.ingress.trustedIp);
-							await budget.finish(r, false);
-						}
-						throw e;
-					});
+				// One statement consumes the live proof, while the account is still unhidden.
+				const consumed = await config.db
+					.update(t.identity_proof)
+					.set({ consumed_at: now })
+					.where(
+						and(
+							eq(t.identity_proof.account_id, a.account.id),
+							eq(t.identity_proof.token_hash, hash(v.proof)),
+							eq(t.identity_proof.purpose, "email_change"),
+							isNull(t.identity_proof.superseded_at),
+							isNull(t.identity_proof.consumed_at),
+							sql`${t.identity_proof.expires_at}>clock_timestamp()`,
+							writeVisibility(a.account.id, ctx.selected),
+						),
+					)
+					.returning({ id: t.identity_proof.id });
+				if (!consumed.length) {
+					const r = await budget.reserve("email_change", a.principal.email, a.ingress.trustedIp);
+					await budget.finish(r, false);
+					deny("proof_invalid");
+				}
 				const changed = await auth.api.verifyEmail({
 					headers: a.ingress.request.headers,
 					query: { token: v.proof },
@@ -218,8 +245,10 @@ export function createAccountCredentials(
 				const v = n.changePasswordRequest.parse(raw);
 				const a = await prepare(ctx);
 				reservation = await budget.reserve("password_change", a.principal.email, a.ingress.trustedIp);
-				await auth.api.verifyPassword({ headers: a.ingress.request.headers, body: { password: v.currentPassword } });
+				// The current password is proved before an unchanged password is refused. Otherwise Better Auth's own
+				// change proves it.
 				if (v.currentPassword === v.newPassword) {
+					await auth.api.verifyPassword({ headers: a.ingress.request.headers, body: { password: v.currentPassword } });
 					await budget.finish(reservation, false);
 					return {
 						status: "refused",
@@ -238,8 +267,12 @@ export function createAccountCredentials(
 				committedAccount = a.account.id;
 				// The host consumes supported Set-Cookie headers separately. Never store token.
 				await config.responseCookies(ctx, changed.headers.getSetCookie());
-				await budget.finish(reservation, true);
-				return await recorded(a.account.id, a.principal.email, "password_changed", correlationId);
+				// Clearing the failure budget and recording the event are independent; a budget failure cannot undo the change.
+				const [, outcome] = await Promise.all([
+					budget.finish(reservation, true).catch(() => undefined),
+					recorded(a.account.id, a.principal.email, "password_changed", correlationId),
+				]);
+				return outcome;
 			} catch (e) {
 				if (committedAccount)
 					return credentialOutcome.parse({
@@ -257,6 +290,50 @@ export function createAccountCredentials(
 							: "unknown",
 					correlationId,
 				});
+			}
+		},
+		/**
+		 * Fresh proof for the restricted deletion page: the original login and its current password, under the sign-in
+		 * failure budget. Better Auth checks the password; no session is created. The proof opens a restricted
+		 * session for the account's current deletion request only.
+		 */
+		openAccountDeletion: async (raw: unknown, trustedIp: string | null) => {
+			try {
+				const v = n.openAccountDeletionRequest.parse(raw);
+				const reservation = await budget.reserve("login", v.email, trustedIp);
+				const context = await auth.$context;
+				const found = await context.internalAdapter.findUserByEmail(v.email, { includeAccounts: true });
+				const stored = found?.accounts.find((a) => a.providerId === "credential")?.password;
+				// An unknown login hashes too, so the answer takes the same time either way.
+				const valid = stored
+					? await context.password.verify({ hash: stored, password: v.password })
+					: !(await context.password.hash(v.password));
+				await budget.finish(reservation, valid);
+				if (!found || !valid) deny("proof_invalid");
+				const provenAt = new Date();
+				const opened = await config.db.transaction(async (tx) => {
+					const [current] = await tx
+						.select({ account: t.account.id, requestId: t.lifecycle_witness.request_id })
+						.from(t.account)
+						.innerJoin(
+							t.lifecycle_witness,
+							and(eq(t.lifecycle_witness.kind, "account"), eq(t.lifecycle_witness.opaque_subject_id, t.account.id)),
+						)
+						.where(eq(t.account.auth_user_id, found.user.id));
+					if (!current?.requestId) deny("proof_invalid");
+					const subject = { kind: "account" as const, id: accountId.parse(current.account) };
+					const session = await issueRestrictedDeletionSession(
+						tx,
+						{ subject, requestId: current.requestId },
+						async () => ({ accountId: current.account, provenAt }),
+					);
+					return { session, subject, requestId: current.requestId };
+				});
+				return { status: "ok" as const, value: opened };
+			} catch (e) {
+				if (e instanceof Refusal || e instanceof IdentityRefusal || e instanceof z.ZodError)
+					return { status: "refused" as const, code: e instanceof Refusal ? e.code : "proof_invalid" };
+				throw e;
 			}
 		},
 	};

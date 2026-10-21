@@ -1688,15 +1688,12 @@ test("INV-performance: photo, own time zone and deletion writes use a fixed smal
 		api.requestAccountDeletion(tx, c, command({ confirmed: true }, "4", deletionKey)),
 	);
 	assert.equal(deletion.value.status, "pending_deletion");
-	console.log(
-		JSON.stringify({
-			upload: upload.count,
-			finalized: finalized.count,
-			removed: removed.count,
-			preview: preview.count,
-			zone: zone.count,
-			deletion: deletion.count,
-		}),
+	// BEGIN, the bound actor and COMMIT, plus: the insert; the replay check, the file and the write; the replay check
+	// and the write; the insert; the replay check, the preview, the replan job and the write; the replay check, the
+	// witness read, the witness, the suspension and the write.
+	assert.deepEqual(
+		[upload.count, finalized.count, removed.count, preview.count, zone.count, deletion.count],
+		[4, 6, 5, 4, 7, 8],
 	);
 	for (const [key, field] of [
 		[finalizeKey, "avatar"],
@@ -1708,4 +1705,35 @@ test("INV-performance: photo, own time zone and deletion writes use a fixed smal
 		assert.deepEqual(rows[0].metadata, { section: "account", diff: { [field]: true } });
 	}
 	assert.equal((await auditOf(deletionKey)).rows.length, 1);
+});
+
+test("AC:DEL58-002 INV-performance: a fresh password proof opens only the account's current request; status and cancel stay small", async () => {
+	instrument(db);
+	const a = await credentialActor();
+	const [row] = await admin.select().from(t.account).where(eq(t.account.id, a.id));
+	const pending = ok(await call("requestAccountDeletion", a, command({ confirmed: true }, row.revision)));
+	const open = (password) => producerDeps.credentials.openAccountDeletion({ email: a.email, password }, null);
+	assert.deepEqual(await open("Wrong secret 1234!"), { status: "refused", code: "proof_invalid" });
+	const opened = await open(a.password);
+	assert.equal(opened.status, "ok");
+	assert.deepEqual(opened.value.subject, { kind: "account", id: a.id });
+	assert.equal(opened.value.requestId, pending.requestId);
+	const request = { subject: opened.value.subject, requestId: opened.value.requestId };
+	const measured = async (body) => {
+		statements.length = 0;
+		recording = true;
+		try {
+			return { value: ok(await db.transaction(body)), count: statements.length };
+		} finally {
+			recording = false;
+		}
+	};
+	const status = await measured((tx) => api.getAccountDeletionStatus(tx, opened.value.session, request));
+	assert.deepEqual(status.value, pending);
+	const cancelled = await measured((tx) =>
+		api.cancelAccountDeletion(tx, opened.value.session, command(request, pending.revision)),
+	);
+	assert.equal(cancelled.value.status, "cancelled");
+	// BEGIN, SAVEPOINT, the locking read, [the witness and audit write,] RELEASE, COMMIT.
+	assert.deepEqual([status.count, cancelled.count], [5, 6]);
 });

@@ -1,4 +1,4 @@
-import { WriteUnavailable, auditTransaction } from "../operations/writes.ts";
+import { WriteUnavailable, auditTransaction, executeWrites } from "../operations/writes.ts";
 import * as tables from "@everyfield/db/tables";
 import { and, desc, eq, gt, isNotNull, lte, sql } from "@everyfield/db/query";
 import "server-only";
@@ -57,91 +57,71 @@ export function attemptBudget(db: Database, key: string) {
 				: kind === "reset" || kind === "email_change"
 					? [60, 3, 10]
 					: [60, 0, 3];
+		const id = randomUUID();
 		try {
-			return await transaction(db, async (tx) => {
-				for (const axis of [identifierHash && `${kind}/id/${identifierHash}`, ipHash && `${kind}/ip/${ipHash}`]
-					.filter((v): v is string => !!v)
-					.sort()) {
-					await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${axis},505))`);
-				}
-				await tx.delete(tables.admission_attempt).where(
-					lte(
-						tables.admission_attempt.expires_at,
-						sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-					),
-				);
-				const [count] = await tx
-					.select({
-						identifiers: sql<number>`count(*) FILTER(WHERE ${tables.admission_attempt.identifier_hash}=${identifierHash} AND ${tables.admission_attempt.state}<>'cleared')::int`,
-						ips: sql<number>`count(*) FILTER(WHERE ${tables.admission_attempt.trusted_ip_hash}=${ipHash})::int`,
-					})
-					.from(tables.admission_attempt)
-					.where(
-						and(
-							eq(tables.admission_attempt.kind, kind),
-							gt(tables.admission_attempt.reserved_at, sql`clock_timestamp()-make_interval(mins=>${minutes})`),
-						),
-					);
-				if (!count) throw new Error("budget_unavailable");
-				if (
-					(identifierHash && identifierLimit && count.identifiers >= identifierLimit) ||
-					(ipHash && count.ips >= ipLimit)
-				)
-					throw new IdentityRefusal("rate_limited", 429);
-				const id = randomUUID();
-				await tx.insert(tables.admission_attempt).values({
-					id: id,
-					kind: kind,
-					identifier_hash: identifierHash,
-					trusted_ip_hash: ipHash,
-					reserved_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-					state: "reserved",
-					expires_at: sql<unknown>`(clock_timestamp() + ('24 hours')::interval)`,
-				});
-				return { id, kind, identifierHash };
-			});
+			const inserted = await locked(
+				[identifierHash && `${kind}/id/${identifierHash}`, ipHash && `${kind}/ip/${ipHash}`],
+				// One statement after the locks: drop expired rows, count this window and reserve within the limits.
+				// The expired rows are 24 hours old, outside every window, so the count does not depend on them.
+				(tx) =>
+					tx.execute(sql`WITH expired AS (DELETE FROM admission_attempt WHERE expires_at<=clock_timestamp() RETURNING 1),
+ counts AS (SELECT count(*) FILTER(WHERE identifier_hash=${identifierHash} AND state<>'cleared')::int AS identifiers,
+  count(*) FILTER(WHERE trusted_ip_hash=${ipHash})::int AS ips FROM admission_attempt
+  WHERE kind=${kind} AND reserved_at>clock_timestamp()-make_interval(mins=>${minutes}))
+ INSERT INTO admission_attempt(id,kind,identifier_hash,trusted_ip_hash,reserved_at,state,expires_at)
+ SELECT ${id}::uuid,${kind},${identifierHash},${ipHash},clock_timestamp(),'reserved',clock_timestamp()+interval '24 hours' FROM counts
+ WHERE NOT ((${identifierHash}::text IS NOT NULL AND ${identifierLimit}::int>0 AND identifiers>=${identifierLimit}::int)
+  OR (${ipHash}::text IS NOT NULL AND ips>=${ipLimit}::int))
+ RETURNING id`),
+			);
+			if (!inserted.rows.length) throw new IdentityRefusal("rate_limited", 429);
+			return { id, kind, identifierHash };
 		} catch (error) {
 			if (error instanceof IdentityRefusal) throw error;
 			throw new IdentityRefusal("admission_unavailable", 503);
 		}
 	}
+	/** One transaction that takes the axis locks, in a stable order, in the same statement as its time limits. */
+	async function locked<T>(axes: (string | null | false)[], body: (tx: Transaction) => Promise<T>) {
+		const keys = axes.filter((v): v is string => !!v).sort();
+		return auditTransaction(db, async (tx) => {
+			await tx.execute(
+				sql`SELECT set_config('statement_timeout','10s',true),set_config('lock_timeout','5s',true),(SELECT count(pg_advisory_xact_lock(hashtextextended(k,505))) FROM unnest(${sql.param(keys)}::text[]) WITH ORDINALITY AS a(k,n))`,
+			);
+			return body(tx);
+		}).catch((error) => rethrowWriteError(error));
+	}
 	async function finish(reservation: Awaited<ReturnType<typeof reserve>>, success: boolean) {
-		await transaction(db, async (tx) => {
-			const r = reservation;
-			if (success && (r.kind === "login" || r.kind === "password_change")) {
-				await tx.execute(
-					sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${r.kind}/id/${r.identifierHash}`},505))`,
-				);
-				// In-flight attempts keep their reservation. Another request's later failure is not cleared.
-				await tx
+		const r = reservation,
+			clears = success && (r.kind === "login" || r.kind === "password_change");
+		const settle = (tx: Pick<Transaction, "update">) =>
+			tx
+				.update(tables.admission_attempt)
+				.set({
+					state: clears ? "cleared" : r.kind === "login" || r.kind === "password_change" ? "failed" : "counted",
+					trusted_ip_hash: sql<unknown>`CASE WHEN ${clears} THEN NULL ELSE ${tables.admission_attempt.trusted_ip_hash} END`,
+				})
+				.where(eq(tables.admission_attempt.id, r.id));
+		// A failure or a counted attempt only settles its own row: one statement.
+		if (!clears) return void (await settle(db));
+		// A success clears this login's recent failures under its identifier lock. In-flight attempts keep their
+		// reservation, and another request's later failure is not cleared.
+		await locked([`${r.kind}/id/${r.identifierHash}`], (tx) =>
+			executeWrites(tx, [
+				tx
 					.update(tables.admission_attempt)
 					.set({ state: "cleared" })
 					.where(
 						and(
-							and(
-								and(
-									eq(tables.admission_attempt.kind, r.kind),
-									eq(tables.admission_attempt.identifier_hash, sql`${r.identifierHash}`),
-								),
-								eq(tables.admission_attempt.state, "failed"),
-							),
+							eq(tables.admission_attempt.kind, r.kind),
+							eq(tables.admission_attempt.identifier_hash, sql`${r.identifierHash}`),
+							eq(tables.admission_attempt.state, "failed"),
 							gt(tables.admission_attempt.reserved_at, sql<unknown>`(clock_timestamp() - ('15 minutes')::interval)`),
 						),
-					);
-			}
-			await tx
-				.update(tables.admission_attempt)
-				.set({
-					state:
-						success && (r.kind === "login" || r.kind === "password_change")
-							? "cleared"
-							: r.kind === "login" || r.kind === "password_change"
-								? "failed"
-								: "counted",
-					trusted_ip_hash: sql<unknown>`CASE WHEN ${success && (r.kind === "login" || r.kind === "password_change")} THEN NULL ELSE ${tables.admission_attempt.trusted_ip_hash} END`,
-				})
-				.where(eq(tables.admission_attempt.id, r.id));
-		});
+					),
+				settle(tx),
+			]),
+		);
 	}
 	async function rememberRegistration(id: string, email: string, kind: string, intent: string) {
 		await db
