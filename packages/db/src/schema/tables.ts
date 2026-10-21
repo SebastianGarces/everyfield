@@ -2169,6 +2169,12 @@ export const meeting = pgTable(
 		agenda_version: integer("agenda_version"),
 		kit_version: integer("kit_version"),
 		retired_at: timestamp("retired_at", { withTimezone: true, mode: "date" }),
+		evaluation_scores: integer("evaluation_scores").array(),
+		evaluation_notes: text("evaluation_notes"),
+		evaluated_on: date("evaluated_on", { mode: "string" }),
+		evaluated_at: timestamp("evaluated_at", { withTimezone: true, mode: "date" }),
+		evaluation_corrected_at: timestamp("evaluation_corrected_at", { withTimezone: true, mode: "date" }),
+		evaluation_revision: int64("evaluation_revision"),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "meeting_fk_0", columns: [table.plant_id], foreignColumns: [plant.id] })
@@ -2225,6 +2231,14 @@ export const meeting = pgTable(
 		check("meeting_timezone_iana", sql`(timezone = ANY (${canonicalZones7}))`),
 		check("meeting_ck_7", sql`((type = 'vision_meeting'::text) OR (kit_version IS NULL))`),
 		check("meeting_ck_8", sql`(jsonb_typeof(agenda) = 'array'::text)`),
+		check(
+			"meeting_ck_9",
+			sql`((evaluation_scores IS NULL) = (evaluated_at IS NULL) AND (evaluated_at IS NULL) = (evaluated_on IS NULL) AND (evaluated_at IS NULL) = (evaluation_revision IS NULL))`,
+		),
+		check(
+			"meeting_ck_10",
+			sql`((evaluation_scores IS NULL) OR ((type = 'vision_meeting'::text) AND (cardinality(evaluation_scores) = 8) AND (1 <= ALL (evaluation_scores)) AND (5 >= ALL (evaluation_scores)) AND (evaluation_revision >= 1)))`,
+		),
 		index("meeting_ref_1").using("btree", table.creator_id.asc().nullsLast()),
 		index("meeting_ref_2").using("btree", table.team_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
 		index("meeting_ref_3").using("btree", table.venue_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
