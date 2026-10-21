@@ -30,7 +30,7 @@ export async function readPipelinePerson(
 	const input = organizationPersonRequest.safeParse(raw);
 	const unavailable = () => pipelineAccessResult.parse({ status: "unavailable" });
 	if (!input.success || selected.kind !== "organization") return unavailable();
-	const actor = await currentActor(tx, session, selected);
+	const actor = await currentActor(tx, session, selected, false);
 	if (actor.status !== "active" || actor.context.kind !== "seat") return unavailable();
 	const person = await tx
 		.select({ id: tables.person.id })

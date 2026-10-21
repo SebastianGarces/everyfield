@@ -14,6 +14,7 @@ import {
 	live,
 	hash,
 	lockOwner,
+	lockedWrite,
 	mutation,
 	parse,
 	patchPerson,
@@ -98,7 +99,7 @@ export function columnsChanged(plantId: string, stages: readonly (string | null)
 
 async function output(tx: Tx, ctx: Context, p: Person, id: string, needsOwner: string[] = [], outcome = "changed") {
 	return {
-		person: await project(tx, ctx, p),
+		person: await project(tx, ctx, p, lockedWrite),
 		receiptId: id,
 		outcome,
 		needsOwner,
@@ -616,7 +617,7 @@ async function classify(tx: Tx, ctx: WriteContext, raw: unknown, correction: boo
 							adult_classification: input.input.classification,
 							revision: String(BigInt(before.revision) + 1n),
 						}),
-						dto = c.plantPerson.parse(await project(tx, ctx, after));
+						dto = c.plantPerson.parse(await project(tx, ctx, after, lockedWrite));
 					const first = await tx
 						.select({ id: tables.commitment.id, signed_on: tables.commitment.signed_on })
 						.from(tables.commitment)

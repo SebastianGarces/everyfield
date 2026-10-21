@@ -152,8 +152,15 @@
     {
       "idx": 22,
       "version": "7",
-      "when": 1792581302399,
-      "tag": "0022_four_cs_commitment_lifecycle",
+      "when": 1792581180287,
+      "tag": "0022_live_session",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792586352018,
+      "tag": "0023_four_cs_commitment_lifecycle",
       "breakpoints": true
     }
   ]
