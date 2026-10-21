@@ -352,7 +352,8 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 						Try again
 					</Button>
 				</div>
-			) : view === "unavailable" || !review ? null : view === "pending" && editing === review.revision ? (
+			) : view === "unavailable" || view === "withheld" || !review ? null : view === "pending" &&
+			  editing === review.revision ? (
 				<ReviseForm
 					review={review}
 					busy={r.busy === "revise"}
@@ -374,10 +375,8 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 						)}
 					>
 						<Affects review={review} />
-						{view === "withheld" ? null : <Changes review={review} />}
-						{view !== "withheld" && consequence(review) ? (
-							<p className="text-sm text-text-2">{consequence(review)}</p>
-						) : null}
+						<Changes review={review} />
+						{consequence(review) ? <p className="text-sm text-text-2">{consequence(review)}</p> : null}
 						{view === "pending" ? (
 							<p className="text-xs text-text-3">
 								Nothing changes until you approve. Approve by {clock(review.expiresAt)}.
@@ -497,7 +496,12 @@ function Footer({
 				Prepare again
 			</Button>
 		);
-	return body ? <div className="flex flex-wrap items-center gap-2 border-t border-line px-4 py-3">{body}</div> : null;
+	// Keyed by view: a control never turns into another one under the keyboard focus (Approve into Prepare again).
+	return body ? (
+		<div key={view} className="flex flex-wrap items-center gap-2 border-t border-line px-4 py-3">
+			{body}
+		</div>
+	) : null;
 }
 
 function CardHead({
