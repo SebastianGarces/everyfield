@@ -20,14 +20,15 @@ export const reminderSlot = z.enum(["announcement", "day_7", "day_3", "day_1"]);
 export const reason = z.string().trim().min(1).max(2000);
 
 /** Explicit status changes. Completing a practice goes through completePractice, which records when it was held. */
-export const statusTransitions: Readonly<Record<z.infer<typeof meetingStatus>, readonly z.infer<typeof meetingStatus>[]>> =
-	{
-		planning: ["ready", "in_progress", "cancelled"],
-		ready: ["planning", "in_progress", "cancelled"],
-		in_progress: ["ready", "completed", "cancelled"],
-		completed: ["in_progress"],
-		cancelled: ["planning"],
-	};
+export const statusTransitions: Readonly<
+	Record<z.infer<typeof meetingStatus>, readonly z.infer<typeof meetingStatus>[]>
+> = {
+	planning: ["ready", "in_progress", "cancelled"],
+	ready: ["planning", "in_progress", "cancelled"],
+	in_progress: ["ready", "completed", "cancelled"],
+	completed: ["in_progress"],
+	cancelled: ["planning"],
+};
 
 /** A wall-clock entry in the church's zone. A fold needs the chosen offset; a gap is refused. */
 export const enteredTime = {

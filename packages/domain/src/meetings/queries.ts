@@ -12,7 +12,8 @@ import { agendaOf, detail, meetingColumns, meetingRow, plantMeeting, summary } f
 // are only in Owner/Admin projections. Missing, foreign and deleted meetings read as unavailable.
 
 const one = async (db: Reader, query: SQL) => (await db.execute(query)).rows[0] as Record<string, unknown> | undefined;
-const current = (plantId: string, meetingId: string) => sql`${plantMeeting(plantId, meetingId)} AND m.retired_at IS NULL`;
+const current = (plantId: string, meetingId: string) =>
+	sql`${plantMeeting(plantId, meetingId)} AND m.retired_at IS NULL`;
 const guests = (where: SQL) =>
 	sql`(SELECT coalesce(json_agg(x ORDER BY x.person_name, x.id), '[]') FROM (SELECT ${guestColumns}
 		WHERE g.meeting_id = m.id AND g.removed_at IS NULL AND ${where}) x)`;
@@ -29,8 +30,7 @@ export const meetingsReader = {
 			const types = [...new Set(i.types)],
 				statuses = [...new Set(i.statuses)];
 			const unchecked = sql`EXISTS (SELECT FROM meeting_kit_item k WHERE k.meeting_id = m.id AND NOT k.checked)`;
-			const order =
-				i.window === "upcoming" ? sql`f.starts_at ASC, f.id ASC` : sql`f.starts_at DESC, f.id DESC`;
+			const order = i.window === "upcoming" ? sql`f.starts_at ASC, f.id ASC` : sql`f.starts_at DESC, f.id DESC`;
 			const row = await one(
 				db,
 				sql`WITH f AS (SELECT m.id, m.starts_at FROM meeting m WHERE m.plant_id = ${v.plantId}::uuid AND m.retired_at IS NULL
@@ -58,7 +58,9 @@ export const meetingsReader = {
 		return read(authority, async (v) => {
 			const i = parse(c.meetingRequest, raw);
 			const row = await one(db, sql`SELECT ${meetingColumns} FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`);
-			return c.meetingResult.parse(row ? { status: "available", meeting: detail(meetingRow.parse(row)) } : { status: "unavailable" });
+			return c.meetingResult.parse(
+				row ? { status: "available", meeting: detail(meetingRow.parse(row)) } : { status: "unavailable" },
+			);
 		});
 	},
 	/** Whether any current meeting of these types exists, whatever a window or filter shows (REQ-MTG-001). */
@@ -106,7 +108,10 @@ export const meetingsReader = {
 	async listGuests(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (v) => {
 			const i = parse(c.meetingRequest, raw);
-			const row = await one(db, sql`SELECT ${guests(sql`true`)} AS guests FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`);
+			const row = await one(
+				db,
+				sql`SELECT ${guests(sql`true`)} AS guests FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`,
+			);
 			if (!row) deny();
 			return c.guestList.parse({ meetingId: i.meetingId, guests: z.array(guestRow).parse(row.guests).map(guest) });
 		});
@@ -167,7 +172,10 @@ export const meetingsReader = {
 	async invitationAttribution(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (v) => {
 			const i = parse(c.meetingRequest, raw);
-			const row = await one(db, sql`SELECT ${guests(sql`true`)} AS guests FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`);
+			const row = await one(
+				db,
+				sql`SELECT ${guests(sql`true`)} AS guests FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`,
+			);
 			if (!row) deny();
 			return c.attribution.parse({
 				meetingId: i.meetingId,
@@ -212,7 +220,11 @@ export const meetingsReader = {
 					AND m.actual_occurrence_at <= clock_timestamp() AND m.occurrence_voided_at IS NULL`,
 			);
 			const ids = z.array(z.uuid()).parse(row?.ids);
-			return c.completedPractices.parse({ meetingIds: ids, count: ids.length, criterion: ids.length >= 3 ? "met" : "not_met" });
+			return c.completedPractices.parse({
+				meetingIds: ids,
+				count: ids.length,
+				criterion: ids.length >= 3 ? "met" : "not_met",
+			});
 		});
 	},
 	/** The signed-in member's own answer for a meeting they are a guest of, through their account-linked live Person. */

@@ -61,7 +61,9 @@ export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S>
 	const r = schema.safeParse(raw);
 	if (r.success) return r.data;
 	deny("invalid_input", {
-		issues: r.error.issues.slice(0, 50).map((i) => ({ path: i.path.join(".").slice(0, 200), problem: i.message.slice(0, 200) })),
+		issues: r.error.issues
+			.slice(0, 50)
+			.map((i) => ({ path: i.path.join(".").slice(0, 200), problem: i.message.slice(0, 200) })),
 	});
 }
 
@@ -87,11 +89,18 @@ export async function withMeetingsWrite<T>(
 	);
 }
 /** A read answers from the request's verified viewer; no statement re-resolves the session. */
-export async function read<T>(authority: RequestActor, body: (viewer: Viewer) => Promise<T>): Promise<MeetingsReply<T>> {
+export async function read<T>(
+	authority: RequestActor,
+	body: (viewer: Viewer) => Promise<T>,
+): Promise<MeetingsReply<T>> {
 	return settle(() => {
 		const actor = authority.actor;
 		if (actor.context.kind !== "seat" || actor.context.owner.kind !== "plant") deny();
-		return body({ plantId: actor.context.owner.id, accountId: actor.accountId, admin: actor.context.role !== "member" });
+		return body({
+			plantId: actor.context.owner.id,
+			accountId: actor.accountId,
+			admin: actor.context.role !== "member",
+		});
 	});
 }
 export type Viewer = { plantId: string; accountId: string; admin: boolean };

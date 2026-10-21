@@ -101,9 +101,10 @@ const cycle = (meetingId: string, personId: string, inviterId: string | null) =>
 		SELECT FROM chain WHERE pid = ${personId}::uuid)`;
 const rsvpFacts = (g: GuestRow) => ({ rsvp: g.rsvp, rsvpSource: g.rsvp_source, tokenOpen: g.rsvp_token_open });
 
-type GuestChange = { value: unknown; g: GuestRow; m: MeetingRow };
 function guestChange<T>(
-	{ value, g, m }: GuestChange & { value: T },
+	value: T,
+	g: GuestRow,
+	m: MeetingRow,
 	rest: Omit<Change<T>, "value" | "subject" | "subjectType" | "meetingId">,
 ): Change<T> {
 	return { value, subject: g.id, subjectType: "participation", meetingId: m.id, ...rest };
@@ -115,7 +116,14 @@ const answer = (receiptId: string, outcome: "changed" | "noop", g: GuestRow) =>
 function setRsvp(g: GuestRow, rsvp: z.infer<typeof c.rsvp>, source: z.infer<typeof c.rsvpSource>, now: Date) {
 	const at = rsvp === "pending" ? null : now.toISOString();
 	return {
-		after: { ...g, rsvp, rsvp_source: source, rsvp_at: at ? new Date(at) : null, rsvp_token_open: false, revision: next(g.revision) },
+		after: {
+			...g,
+			rsvp,
+			rsvp_source: source,
+			rsvp_at: at ? new Date(at) : null,
+			rsvp_token_open: false,
+			revision: next(g.revision),
+		},
 		write: sql`UPDATE participation SET rsvp = ${rsvp}, rsvp_source = ${source}, rsvp_at = ${at}::timestamptz,
 			rsvp_token_open = false, revision = revision + 1 WHERE id = ${g.id}::uuid AND revision = ${g.revision}::bigint`,
 	};
@@ -146,10 +154,11 @@ export const guestsWriter = {
 					})
 					.parse(extra);
 				if (g && !g.removed_at)
-					return guestChange(
-						{ value: answer(audit.id, "noop", g), g, m },
-						{ action: "meetings.changed", kind: "create", outcome: "noop" },
-					);
+					return guestChange(answer(audit.id, "noop", g), g, m, {
+						action: "meetings.changed",
+						kind: "create",
+						outcome: "noop",
+					});
 				if (f.person !== "live" || (inviterPersonId && f.inviter !== "live") || f.cycle) deny("invalid_subject");
 				const id = g?.id ?? randomUUID();
 				const after: GuestRow = {
@@ -181,15 +190,12 @@ export const guestsWriter = {
 							VALUES (${id}::uuid, ${w.plant.id}::uuid, ${m.id}::uuid, ${personId}::uuid, ${inviterPersonId}::uuid, false,
 								'pending', 'absent')`,
 				);
-				return guestChange(
-					{ value: answer(audit.id, "changed", after), g: after, m },
-					{
-						action: "meetings.changed",
-						kind: g ? "restore" : "create",
-						before: g ? { removed: true } : null,
-						after: { personId, inviterPersonId, rsvp: "pending" },
-					},
-				);
+				return guestChange(answer(audit.id, "changed", after), after, m, {
+					action: "meetings.changed",
+					kind: g ? "restore" : "create",
+					before: g ? { removed: true } : null,
+					after: { personId, inviterPersonId, rsvp: "pending" },
+				});
 			});
 		});
 	},
@@ -204,10 +210,11 @@ export const guestsWriter = {
 				const { m, g, now } = await lockGuest(tx, w, input.input.meetingId, sql`${input.input.personId}::uuid`);
 				if (!g) deny();
 				if (g.removed_at)
-					return guestChange(
-						{ value: answer(audit.id, "noop", g), g, m },
-						{ action: "meetings.changed", kind: "remove", outcome: "noop" },
-					);
+					return guestChange(answer(audit.id, "noop", g), g, m, {
+						action: "meetings.changed",
+						kind: "remove",
+						outcome: "noop",
+					});
 				expected(g, input.expectedRevision);
 				const after: GuestRow = {
 					...g,
@@ -219,18 +226,16 @@ export const guestsWriter = {
 					card_recorded_at: null,
 					revision: next(g.revision),
 				};
-				audit.writes.push(sql`UPDATE participation SET removed_at = ${now.toISOString()}::timestamptz, rsvp_token_open = false,
+				audit.writes
+					.push(sql`UPDATE participation SET removed_at = ${now.toISOString()}::timestamptz, rsvp_token_open = false,
 					card_response = NULL, card_notes = NULL, card_occurred_at = NULL, card_recorded_at = NULL, card_author_id = NULL,
 					revision = revision + 1 WHERE id = ${g.id}::uuid AND revision = ${g.revision}::bigint`);
-				return guestChange(
-					{ value: answer(audit.id, "changed", after), g: after, m },
-					{
-						action: "meetings.changed",
-						kind: "remove",
-						before: { removed: false, card: g.card_response },
-						after: { removed: true, card: null },
-					},
-				);
+				return guestChange(answer(audit.id, "changed", after), after, m, {
+					action: "meetings.changed",
+					kind: "remove",
+					before: { removed: false, card: g.card_response },
+					after: { removed: true, card: null },
+				});
 			});
 		});
 	},
@@ -240,7 +245,11 @@ export const guestsWriter = {
 			const input = parse(c.setInviterRequest, raw);
 			return command(tx, ctx, "meetings.setInviter", input, async (w, audit) => {
 				const { meetingId, personId, inviterPersonId } = input.input;
-				const { m, g: found, extra } = await lockGuest(
+				const {
+					m,
+					g: found,
+					extra,
+				} = await lockGuest(
 					tx,
 					w,
 					meetingId,
@@ -250,12 +259,15 @@ export const guestsWriter = {
 				);
 				const g = current(found);
 				expected(g, input.expectedRevision);
-				const f = z.object({ inviter: z.string().nullable(), cycle: z.boolean(), name: z.string().nullable() }).parse(extra);
+				const f = z
+					.object({ inviter: z.string().nullable(), cycle: z.boolean(), name: z.string().nullable() })
+					.parse(extra);
 				if (g.inviter_person_id === inviterPersonId)
-					return guestChange(
-						{ value: answer(audit.id, "noop", g), g, m },
-						{ action: "meetings.changed", kind: "assign", outcome: "noop" },
-					);
+					return guestChange(answer(audit.id, "noop", g), g, m, {
+						action: "meetings.changed",
+						kind: "assign",
+						outcome: "noop",
+					});
 				if (inviterPersonId && (f.inviter !== "live" || f.cycle)) deny("invalid_subject");
 				const after: GuestRow = {
 					...g,
@@ -264,17 +276,15 @@ export const guestsWriter = {
 					inviter_state: inviterPersonId ? "live" : null,
 					revision: next(g.revision),
 				};
-				audit.writes.push(sql`UPDATE participation SET inviter_person_id = ${inviterPersonId}::uuid, revision = revision + 1
+				audit.writes
+					.push(sql`UPDATE participation SET inviter_person_id = ${inviterPersonId}::uuid, revision = revision + 1
 					WHERE id = ${g.id}::uuid AND revision = ${g.revision}::bigint`);
-				return guestChange(
-					{ value: answer(audit.id, "changed", after), g: after, m },
-					{
-						action: "meetings.changed",
-						kind: "assign",
-						before: { inviterPersonId: g.inviter_person_id },
-						after: { inviterPersonId },
-					},
-				);
+				return guestChange(answer(audit.id, "changed", after), after, m, {
+					action: "meetings.changed",
+					kind: "assign",
+					before: { inviterPersonId: g.inviter_person_id },
+					after: { inviterPersonId },
+				});
 			});
 		});
 	},
@@ -291,16 +301,13 @@ export const guestsWriter = {
 				const set = setRsvp(g, rsvp, "admin", now);
 				if (!noop) audit.writes.push(set.write);
 				const after = noop ? g : set.after;
-				return guestChange(
-					{ value: answer(audit.id, noop ? "noop" : "changed", after), g: after, m },
-					{
-						action: "meetings.rsvp_recorded",
-						kind: "correct",
-						outcome: noop ? "noop" : "changed",
-						before: rsvpFacts(g),
-						after: rsvpFacts(after),
-					},
-				);
+				return guestChange(answer(audit.id, noop ? "noop" : "changed", after), after, m, {
+					action: "meetings.rsvp_recorded",
+					kind: "correct",
+					outcome: noop ? "noop" : "changed",
+					before: rsvpFacts(g),
+					after: rsvpFacts(after),
+				});
 			});
 		});
 	},
@@ -317,7 +324,11 @@ export const guestsWriter = {
 				"meetings.saveOwnRsvp",
 				input,
 				async (w, audit) => {
-					const { m, g: found, now } = await lockGuest(
+					const {
+						m,
+						g: found,
+						now,
+					} = await lockGuest(
 						tx,
 						w,
 						input.input.meetingId,
@@ -329,16 +340,13 @@ export const guestsWriter = {
 					const set = setRsvp(g, input.input.rsvp, "own", now);
 					if (!noop) audit.writes.push(set.write);
 					const after = noop ? g : set.after;
-					return guestChange(
-						{ value: answer(audit.id, noop ? "noop" : "changed", after), g: after, m },
-						{
-							action: "meetings.rsvp_recorded",
-							kind: "edit",
-							outcome: noop ? "noop" : "changed",
-							before: rsvpFacts(g),
-							after: rsvpFacts(after),
-						},
-					);
+					return guestChange(answer(audit.id, noop ? "noop" : "changed", after), after, m, {
+						action: "meetings.rsvp_recorded",
+						kind: "edit",
+						outcome: noop ? "noop" : "changed",
+						before: rsvpFacts(g),
+						after: rsvpFacts(after),
+					});
 				},
 				{ member: true },
 			);
@@ -371,7 +379,14 @@ export const guestsWriter = {
 					card_author_id = ${w.accountId}::uuid, revision = revision + 1
 					WHERE id = ${g.id}::uuid AND revision = ${g.revision}::bigint`);
 				return guestChange(
-					{ value: c.cardMutationResult.parse({ receiptId: audit.id, outcome: "changed", guestId: g.id, card: card(after, true) }), g: after, m },
+					c.cardMutationResult.parse({
+						receiptId: audit.id,
+						outcome: "changed",
+						guestId: g.id,
+						card: card(after, true),
+					}),
+					after,
+					m,
 					{
 						action: "meetings.response_recorded",
 						kind: g.card_response ? "correct" : "create",
@@ -394,12 +409,20 @@ export const guestsWriter = {
 				expected(g, input.expectedRevision);
 				const noop = g.card_response === null;
 				if (!noop)
-					audit.writes.push(sql`UPDATE participation SET card_response = NULL, card_notes = NULL, card_occurred_at = NULL,
+					audit.writes
+						.push(sql`UPDATE participation SET card_response = NULL, card_notes = NULL, card_occurred_at = NULL,
 						card_recorded_at = NULL, card_author_id = NULL, revision = revision + 1
 						WHERE id = ${g.id}::uuid AND revision = ${g.revision}::bigint`);
 				const after = noop ? g : { ...g, card_response: null, card_notes: null, revision: next(g.revision) };
 				return guestChange(
-					{ value: c.cardMutationResult.parse({ receiptId: audit.id, outcome: noop ? "noop" : "changed", guestId: g.id, card: null }), g: after, m },
+					c.cardMutationResult.parse({
+						receiptId: audit.id,
+						outcome: noop ? "noop" : "changed",
+						guestId: g.id,
+						card: null,
+					}),
+					after,
+					m,
 					{
 						action: "meetings.response_recorded",
 						kind: "correct",
@@ -445,7 +468,8 @@ function contact(
 					audit.writes,
 				);
 				const id = randomUUID();
-				audit.writes.push(sql`INSERT INTO participation (id, plant_id, meeting_id, person_id, roster_member, rsvp, presence)
+				audit.writes
+					.push(sql`INSERT INTO participation (id, plant_id, meeting_id, person_id, roster_member, rsvp, presence)
 					VALUES (${id}::uuid, ${w.plant.id}::uuid, ${m.id}::uuid, ${person.id}::uuid, false, 'pending',
 						${attended ? "attended" : "absent"})`);
 				const g: GuestRow = {
@@ -469,7 +493,12 @@ function contact(
 					inviter_state: null,
 				};
 				return {
-					value: c.guestContactResult.parse({ receiptId: audit.id, outcome: "changed", guest: guest(g), personCreated: true }),
+					value: c.guestContactResult.parse({
+						receiptId: audit.id,
+						outcome: "changed",
+						guest: guest(g),
+						personCreated: true,
+					}),
 					subject: person.id,
 					subjectType: "person",
 					meetingId: m.id,
@@ -489,4 +518,3 @@ function contact(
 			});
 		});
 }
-export type { GuestChange };

@@ -100,7 +100,12 @@ export const meetingsWriter = {
 						AND state = 'live' ORDER BY id FOR SHARE) AS guests,
 					clock_timestamp() AS now`);
 				const f = z
-					.object({ vision_number: z.number().int(), venue: venueFacts, guests: z.array(z.uuid()), now: z.coerce.date() })
+					.object({
+						vision_number: z.number().int(),
+						venue: venueFacts,
+						guests: z.array(z.uuid()),
+						now: z.coerce.date(),
+					})
 					.parse(r.rows[0]);
 				if (f.guests.length !== i.guests.length) deny("invalid_subject");
 				const vision = i.type === "vision_meeting",
@@ -144,7 +149,8 @@ export const meetingsWriter = {
 						${JSON.stringify(agenda)}::jsonb, ${m.agenda_version}::int, ${m.kit_version}::int)`);
 				if (vision) audit.writes.push(seedKit(w.plant.id, id));
 				if (i.guests.length)
-					audit.writes.push(sql`INSERT INTO participation (plant_id, meeting_id, person_id, roster_member, rsvp, presence)
+					audit.writes
+						.push(sql`INSERT INTO participation (plant_id, meeting_id, person_id, roster_member, rsvp, presence)
 						SELECT ${w.plant.id}::uuid, ${id}::uuid, p, false, 'pending', 'absent' FROM unnest(${sql.param(i.guests)}::uuid[]) p`);
 				audit.writes.push(...syncReminderJobs(m, f.now));
 				return {
@@ -165,7 +171,11 @@ export const meetingsWriter = {
 			const input = parse(c.editMeetingRequest, raw);
 			return command(tx, ctx, "meetings.edit", input, async (w, audit) => {
 				const p = input.input.patch;
-				const { m: before, extra, now } = await lockMeeting(tx, w, input.input.meetingId, chosenVenue(w.plant.id, p.venue));
+				const {
+					m: before,
+					extra,
+					now,
+				} = await lockMeeting(tx, w, input.input.meetingId, chosenVenue(w.plant.id, p.venue));
 				expected(before, input.expectedRevision);
 				const writes: SQLWrapper[] = [];
 				const place = p.venue ? location(w, p.venue, venueFacts.parse(extra), before, writes) : {};
@@ -216,7 +226,11 @@ export const meetingsWriter = {
 				const to = input.input.to,
 					noop = before.status === to;
 				// A practice is completed with when it was held, and reopened through its correction (REQ-KNOW-042).
-				if (!noop && (!c.statusTransitions[before.status].includes(to) || before.type === "prelaunch_practice" && (to === "completed" || before.status === "completed")))
+				if (
+					!noop &&
+					(!c.statusTransitions[before.status].includes(to) ||
+						(before.type === "prelaunch_practice" && (to === "completed" || before.status === "completed")))
+				)
 					deny("status_transition");
 				const m = noop ? before : changed(before, { status: to });
 				if (!noop) audit.writes.push(update(before, sql`status = ${to}`), ...syncReminderJobs(m, now));
@@ -286,14 +300,18 @@ export const meetingsWriter = {
 				expected(before, input.expectedRevision);
 				if (before.type !== "prelaunch_practice") deny("wrong_meeting_type");
 				const heldAt = input.input.occurredAt ? new Date(input.input.occurredAt) : null;
-				if (heldAt && heldAt > now) deny("invalid_input", { issues: [{ path: "occurredAt", problem: "in_the_future" }] });
+				if (heldAt && heldAt > now)
+					deny("invalid_input", { issues: [{ path: "occurredAt", problem: "in_the_future" }] });
 				// Not held reopens the practice to planning without a held time.
 				const patch = heldAt
 					? { status: "completed" as const, actual_occurrence_at: heldAt }
 					: { status: "planning" as const, actual_occurrence_at: null };
 				const m = changed(before, patch);
 				audit.writes.push(
-					update(before, sql`status = ${patch.status}, actual_occurrence_at = ${heldAt?.toISOString() ?? null}::timestamptz`),
+					update(
+						before,
+						sql`status = ${patch.status}, actual_occurrence_at = ${heldAt?.toISOString() ?? null}::timestamptz`,
+					),
 					...syncReminderJobs(m, now),
 				);
 				return {
@@ -374,7 +392,8 @@ export const meetingsWriter = {
 				const m = noop
 					? before
 					: changed(before, { kit_version: c.visionKit.version, kit_total: c.visionKit.items.length, kit_checked: 0 });
-				if (!noop) audit.writes.push(update(before, sql`kit_version = ${c.visionKit.version}::int`), seedKit(w.plant.id, m.id));
+				if (!noop)
+					audit.writes.push(update(before, sql`kit_version = ${c.visionKit.version}::int`), seedKit(w.plant.id, m.id));
 				return {
 					...meetingChange(m, result(m, noop ? "noop" : "changed", audit.id), before),
 					action: "meetings.changed",

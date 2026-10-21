@@ -1,7 +1,7 @@
 import * as c from "@everyfield/contracts/meetings";
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQLWrapper } from "@everyfield/db/query";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { deny, parse, writer, type MeetingsContext, type Reader, type Tx } from "./core.ts";
@@ -23,7 +23,8 @@ export async function createRsvpToken(tx: Tx, ctx: MeetingsContext, raw: unknown
 	const input = parse(c.createRsvpTokenRequest, raw);
 	const w = await writer(tx, ctx);
 	if (!w.admin) deny();
-	const r = await tx.execute(sql`SELECT g.id, g.revision::text AS revision, clock_timestamp() + make_interval(days => ${TOKEN_DAYS}) AS expires_at
+	const r =
+		await tx.execute(sql`SELECT g.id, g.revision::text AS revision, clock_timestamp() + make_interval(days => ${TOKEN_DAYS}) AS expires_at
 		FROM participation g JOIN meeting m ON m.id = g.meeting_id JOIN person p ON p.id = g.person_id
 		WHERE g.plant_id = ${w.plant.id}::uuid AND g.meeting_id = ${input.meetingId}::uuid AND g.person_id = ${input.personId}::uuid
 		AND g.removed_at IS NULL AND p.state = 'live' AND m.retired_at IS NULL AND m.status IN ('planning', 'ready', 'in_progress')
@@ -56,7 +57,8 @@ const viewRow = z.object({
 export async function describeRsvpToken(db: Reader, raw: unknown) {
 	const input = c.describeRsvpTokenRequest.safeParse(raw);
 	if (!input.success) return c.rsvpTokenView.parse({ state: "unavailable" });
-	const r = await db.execute(sql`SELECT g.rsvp_token_open AS open, g.rsvp_token_expires_at <= clock_timestamp() AS expired,
+	const r =
+		await db.execute(sql`SELECT g.rsvp_token_open AS open, g.rsvp_token_expires_at <= clock_timestamp() AS expired,
 			coalesce(g.rsvp, 'pending') AS rsvp, p.first_name, p.display_name, m.title, m.type, m.vision_number, m.starts_at,
 			m.local_date::text AS local_date, to_char(m.local_time, 'HH24:MI') AS local_time, m.timezone, m.venue_name, m.venue_address
 		FROM participation g JOIN meeting m ON m.id = g.meeting_id JOIN person p ON p.id = g.person_id
@@ -90,8 +92,12 @@ export async function answerRsvpToken(db: Database, raw: unknown) {
 			status: "refused" as const,
 			error: c.meetingsError.parse({
 				code: "invalid_input",
-				details: { issues: input.error.issues.slice(0, 50).map((i) => ({ path: i.path.join("."), problem: i.message.slice(0, 200) })) },
-				correlationId: crypto.randomUUID(),
+				details: {
+					issues: input.error.issues
+						.slice(0, 50)
+						.map((i) => ({ path: i.path.join("."), problem: i.message.slice(0, 200) })),
+				},
+				correlationId: randomUUID(),
 				retry: "never",
 			}),
 		};
@@ -111,16 +117,20 @@ export async function answerRsvpToken(db: Database, raw: unknown) {
 				jsonb_build_object('rsvp', t.rsvp, 'tokenOpen', true), jsonb_build_object('rsvp', ${rsvp}::text, 'tokenOpen', false),
 				jsonb_build_object('meetingId', t.meeting_id, 'source', 'token') FROM target t RETURNING 1
 		)
-		SELECT (SELECT rsvp FROM target) AS before, (SELECT count(*) FROM answered)::int AS answered,
-			(SELECT count(*) FROM audit)::int AS audited`);
-	const row = z.object({ before: c.rsvp.nullable(), answered: z.number().int() }).parse(r.rows[0]);
+		SELECT (SELECT count(*) FROM answered)::int AS answered`);
+	const row = z.object({ answered: z.number().int() }).parse(r.rows[0]);
 	if (!row.answered)
 		return {
 			status: "refused" as const,
-			error: c.meetingsError.parse({ code: "token_closed", details: {}, correlationId: crypto.randomUUID(), retry: "never" }),
+			error: c.meetingsError.parse({
+				code: "token_closed",
+				details: {},
+				correlationId: randomUUID(),
+				retry: "never",
+			}),
 		};
 	return {
 		status: "ok" as const,
-		value: c.rsvpTokenAnswer.parse({ rsvp, outcome: row.before === rsvp ? "noop" : "changed" }),
+		value: c.rsvpTokenAnswer.parse({ rsvp }),
 	};
 }

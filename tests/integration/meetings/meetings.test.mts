@@ -36,7 +36,11 @@ if (
 if (!localCi) source.searchParams.set("sslmode", "verify-full");
 const schema = "wp020_" + randomUUID().replaceAll("-", ""),
 	role = "wp020_" + randomBytes(8).toString("hex");
-const admin = createDatabase({ connectionString: source.href, max: 4, options: `-c search_path=${schema},pg_catalog,pg_temp` });
+const admin = createDatabase({
+	connectionString: source.href,
+	max: 4,
+	options: `-c search_path=${schema},pg_catalog,pg_temp`,
+});
 let db;
 let queries = [];
 
@@ -71,7 +75,11 @@ async function person(name, fields = {}) {
 }
 async function schedule(fields = {}, who = 0) {
 	return ok(
-		await run(meetings.schedule, { requestKey: key(), input: { type: "vision_meeting", date: day(30), time: "18:30", ...fields } }, who),
+		await run(
+			meetings.schedule,
+			{ requestKey: key(), input: { type: "vision_meeting", date: day(30), time: "18:30", ...fields } },
+			who,
+		),
 	).meeting;
 }
 async function retire(personId) {
@@ -146,7 +154,9 @@ after(async () => {
 });
 
 test("AC:TARGET-MTG-002 AC:GAP-MTG-003 AC:TARGET-MTG-005 AC:TARGET-MTG-006 schedule saves venue copy, agenda, kit and guests together with distinct Vision numbers", async (t) => {
-	const hall = ok(await run(venues.create, { requestKey: key(), input: { name: "Hall", address: "100 Main St", capacity: 80 } })).venue;
+	const hall = ok(
+		await run(venues.create, { requestKey: key(), input: { name: "Hall", address: "100 Main St", capacity: 80 } }),
+	).venue;
 	const alex = await person("Alex");
 	const [first, second] = await Promise.all([
 		schedule({ venue: { kind: "existing", venueId: hall.id }, guests: [alex] }),
@@ -178,7 +188,10 @@ test("AC:TARGET-MTG-002 AC:GAP-MTG-003 AC:TARGET-MTG-005 AC:TARGET-MTG-006 sched
 	assert.equal(first.guestCount, 1);
 	const kit = ok(await reads.listKit(db, await viewer(), { meetingId: first.id }));
 	assert.equal(kit.items.length, 23);
-	assert.deepEqual([...new Set(kit.items.map((i) => i.category))], ["essential", "materials", "av", "setup", "organization"]);
+	assert.deepEqual(
+		[...new Set(kit.items.map((i) => i.category))],
+		["essential", "materials", "av", "setup", "organization"],
+	);
 	const guest = await guestOf(first.id, alex);
 	assert.deepEqual([guest.rsvp, guest.presence, guest.inviter], ["pending", "absent", null]);
 
@@ -189,14 +202,23 @@ test("AC:TARGET-MTG-002 AC:GAP-MTG-003 AC:TARGET-MTG-005 AC:TARGET-MTG-006 sched
 	refused(
 		await run(meetings.schedule, {
 			requestKey: key(),
-			input: { type: "orientation", date: day(20), time: "10:00", venue: { kind: "new", venue: { name: "Ghost", address: "1 Nowhere" } }, guests: [foreign] },
+			input: {
+				type: "orientation",
+				date: day(20),
+				time: "10:00",
+				venue: { kind: "new", venue: { name: "Ghost", address: "1 Nowhere" } },
+				guests: [foreign],
+			},
 		}),
 		"invalid_subject",
 	);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM venue`), venuesBefore);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM meeting`), meetingsBefore);
 	// The picker venue joins the meeting's unit of work when the create succeeds.
-	const created = await schedule({ type: "orientation", venue: { kind: "new", venue: { name: "Annex", address: "2 Side St" } } });
+	const created = await schedule({
+		type: "orientation",
+		venue: { kind: "new", venue: { name: "Annex", address: "2 Side St" } },
+	});
 	assert.equal(created.venue.name, "Annex");
 	assert.equal(created.visionNumber, null);
 	assert.equal(created.kit, null);
@@ -208,7 +230,10 @@ test("AC:TARGET-MTG-002 AC:GAP-MTG-003 AC:TARGET-MTG-005 AC:TARGET-MTG-006 sched
 	queries = [];
 	ok(
 		await withMeetingsWrite(db, viewerP, (t, c) =>
-			meetings.schedule(t, c, { requestKey: key(), input: { type: "vision_meeting", date: day(40), time: "19:00", guests: [alex] } }),
+			meetings.schedule(t, c, {
+				requestKey: key(),
+				input: { type: "vision_meeting", date: day(40), time: "19:00", guests: [alex] },
+			}),
 		),
 	);
 	t.diagnostic(JSON.stringify({ schedule: queries.length }));
@@ -216,10 +241,16 @@ test("AC:TARGET-MTG-002 AC:GAP-MTG-003 AC:TARGET-MTG-005 AC:TARGET-MTG-006 sched
 });
 
 test("AC:B03-008 AC:B03-009 AC:TARGET-TSK-018 an entered spring-gap time refuses and a fall-fold time needs its offset", async () => {
-	const gap = await run(meetings.schedule, { requestKey: key(), input: { type: "orientation", date: "2026-03-08", time: "02:30" } });
+	const gap = await run(meetings.schedule, {
+		requestKey: key(),
+		input: { type: "orientation", date: "2026-03-08", time: "02:30" },
+	});
 	refused(gap, "nonexistent_local_time");
 	const fold = refused(
-		await run(meetings.schedule, { requestKey: key(), input: { type: "orientation", date: "2026-11-01", time: "01:30" } }),
+		await run(meetings.schedule, {
+			requestKey: key(),
+			input: { type: "orientation", date: "2026-11-01", time: "01:30" },
+		}),
 		"ambiguous_local_time",
 	);
 	assert.deepEqual(
@@ -233,16 +264,26 @@ test("AC:B03-008 AC:B03-009 AC:TARGET-TSK-018 an entered spring-gap time refuses
 		const m = await schedule({ type: "orientation", date: "2026-11-01", time: "01:30", offsetSeconds });
 		assert.equal(m.startsAt, expected);
 		const again = ok(await reads.get(db, await viewer(), { meetingId: m.id })).meeting;
-		assert.deepEqual([again.startsAt, again.localDate, again.localTime, again.zone], [expected, "2026-11-01", "01:30", "America/Chicago"]);
+		assert.deepEqual(
+			[again.startsAt, again.localDate, again.localTime, again.zone],
+			[expected, "2026-11-01", "01:30", "America/Chicago"],
+		);
 	}
 });
 
 test("AC:TARGET-MTG-001 AC:B02-007 windows, closed type filter, equal-start paging, empty filter with history and foreign detail", async () => {
 	const at = day(50);
 	const ids = [];
-	for (const type of ["orientation", "orientation", "orientation"]) ids.push((await schedule({ type, date: at, time: "07:00" })).id);
+	for (const type of ["orientation", "orientation", "orientation"])
+		ids.push((await schedule({ type, date: at, time: "07:00" })).id);
 	const cancelled = await schedule({ type: "orientation", date: at, time: "07:00" });
-	ok(await run(meetings.changeStatus, { requestKey: key(), expectedRevision: cancelled.revision, input: { meetingId: cancelled.id, to: "cancelled" } }));
+	ok(
+		await run(meetings.changeStatus, {
+			requestKey: key(),
+			expectedRevision: cancelled.revision,
+			input: { meetingId: cancelled.id, to: "cancelled" },
+		}),
+	);
 	const practice = await schedule({ type: "prelaunch_practice", date: at, time: "07:00" });
 	const v = await viewer(1);
 	const seen = [];
@@ -255,10 +296,19 @@ test("AC:TARGET-MTG-001 AC:B02-007 windows, closed type filter, equal-start pagi
 	}
 	assert.equal(new Set(seen).size, total, "no duplicates across pages");
 	assert.equal(seen.length, total, "no skips across pages");
-	assert.ok([...ids, cancelled.id].every((id) => seen.includes(id)), "every meeting of the equal start time is listed once");
+	assert.ok(
+		[...ids, cancelled.id].every((id) => seen.includes(id)),
+		"every meeting of the equal start time is listed once",
+	);
 	const listed = ok(await reads.list(db, v, { window: "upcoming", types: ["orientation"], limit: 100 })).items;
-	assert.equal(listed.find((m) => m.id === cancelled.id).status, "cancelled", "a cancelled future meeting stays distinguishable");
-	const practices = ok(await reads.list(db, v, { types: ["prelaunch_practice", "prelaunch_practice"], limit: 100 })).items;
+	assert.equal(
+		listed.find((m) => m.id === cancelled.id).status,
+		"cancelled",
+		"a cancelled future meeting stays distinguishable",
+	);
+	const practices = ok(
+		await reads.list(db, v, { types: ["prelaunch_practice", "prelaunch_practice"], limit: 100 }),
+	).items;
 	assert.ok(practices.every((m) => m.type === "prelaunch_practice"));
 	assert.ok(practices.some((m) => m.id === practice.id));
 	assert.equal(ok(await reads.get(db, v, { meetingId: practice.id })).meeting.displayTitle, "Pre-launch Practice");
@@ -270,34 +320,64 @@ test("AC:TARGET-MTG-001 AC:B02-007 windows, closed type filter, equal-start pagi
 	assert.deepEqual([far.items, far.total], [[], total], "a page past the end is empty, not an error");
 	// Another church's Admin cannot read or change the meeting.
 	assert.deepEqual(ok(await reads.get(db, await viewer(3), { meetingId: practice.id })), { status: "unavailable" });
-	refused(await run(meetings.delete, { requestKey: key(), expectedRevision: practice.revision, input: { meetingId: practice.id, reason: "x" } }, 3));
-	refused(await run(meetings.schedule, { requestKey: key(), input: { type: "team_meeting", date: at, time: "07:00" } }), "invalid_input");
+	refused(
+		await run(
+			meetings.delete,
+			{ requestKey: key(), expectedRevision: practice.revision, input: { meetingId: practice.id, reason: "x" } },
+			3,
+		),
+	);
+	refused(
+		await run(meetings.schedule, { requestKey: key(), input: { type: "team_meeting", date: at, time: "07:00" } }),
+		"invalid_input",
+	);
 });
 
 test("AC:B02-008 AC:B02-009 AC:B02-011 AC:B02-012 AC:B02-013 AC:B02-015 AC:B02-032 AC:TARGET-MTG-002 held practices count once and only when actually held", async () => {
 	const base = ok(await reads.listCompletedPreLaunchPractices(db, await viewer())).count;
 	const hours = (n) => new Date(Date.now() - n * 3_600_000).toISOString();
 	const practices = [];
-	for (let i = 0; i < 6; i++) practices.push(await schedule({ type: "prelaunch_practice", date: day(-10 + i), time: "09:00" }));
+	for (let i = 0; i < 6; i++)
+		practices.push(await schedule({ type: "prelaunch_practice", date: day(-10 + i), time: "09:00" }));
 	const complete = (m, occurredAt, who = 0) =>
-		run(meetings.completePractice, { requestKey: key(), expectedRevision: m.revision, input: { meetingId: m.id, occurredAt } }, who);
+		run(
+			meetings.completePractice,
+			{ requestKey: key(), expectedRevision: m.revision, input: { meetingId: m.id, occurredAt } },
+			who,
+		);
 	// Roles: Owner and Admin may complete a practice; a Member and another church's Admin may not.
 	refused(await complete(practices[0], hours(48), 1));
 	refused(await complete(practices[0], hours(48), 3));
 	const done = [];
 	done.push(ok(await complete(practices[0], hours(48))).meeting);
 	done.push(ok(await complete(practices[1], hours(36), 2)).meeting);
-	const thirdInput = { requestKey: key(), expectedRevision: practices[2].revision, input: { meetingId: practices[2].id, occurredAt: hours(24) } };
+	const thirdInput = {
+		requestKey: key(),
+		expectedRevision: practices[2].revision,
+		input: { meetingId: practices[2].id, occurredAt: hours(24) },
+	};
 	done.push(ok(await run(meetings.completePractice, thirdInput)).meeting);
 	const replay = ok(await run(meetings.completePractice, thirdInput));
-	assert.equal(replay.receiptId, ok(await run(meetings.completePractice, thirdInput)).receiptId, "a repeated request replays its receipt");
+	assert.equal(
+		replay.receiptId,
+		ok(await run(meetings.completePractice, thirdInput)).receiptId,
+		"a repeated request replays its receipt",
+	);
 	refused(await complete(practices[3], new Date(Date.now() + 3_600_000).toISOString()), "invalid_input");
 	const cancelled = ok(
-		await run(meetings.changeStatus, { requestKey: key(), expectedRevision: practices[4].revision, input: { meetingId: practices[4].id, to: "cancelled" } }),
+		await run(meetings.changeStatus, {
+			requestKey: key(),
+			expectedRevision: practices[4].revision,
+			input: { meetingId: practices[4].id, to: "cancelled" },
+		}),
 	).meeting;
 	refused(await complete(cancelled, hours(1)), "status_transition");
 	refused(
-		await run(meetings.changeStatus, { requestKey: key(), expectedRevision: practices[5].revision, input: { meetingId: practices[5].id, to: "completed" } }),
+		await run(meetings.changeStatus, {
+			requestKey: key(),
+			expectedRevision: practices[5].revision,
+			input: { meetingId: practices[5].id, to: "completed" },
+		}),
 		"status_transition",
 	);
 	let counted = ok(await reads.listCompletedPreLaunchPractices(db, await viewer(1)));
@@ -306,9 +386,19 @@ test("AC:B02-008 AC:B02-009 AC:B02-011 AC:B02-012 AC:B02-013 AC:B02-015 AC:B02-0
 	const fourth = ok(await complete(practices[5], hours(2))).meeting;
 	assert.equal(ok(await reads.listCompletedPreLaunchPractices(db, await viewer())).count - base, 4, "four still meet");
 	// Archive a genuine one (delete): still counted. Void an invalid one: no longer counted.
-	ok(await run(meetings.delete, { requestKey: key(), expectedRevision: fourth.revision, input: { meetingId: fourth.id, reason: "Tidy list" } }));
+	ok(
+		await run(meetings.delete, {
+			requestKey: key(),
+			expectedRevision: fourth.revision,
+			input: { meetingId: fourth.id, reason: "Tidy list" },
+		}),
+	);
 	const voided = ok(
-		await run(meetings.correctOccurrence, { requestKey: key(), expectedRevision: done[2].revision, input: { meetingId: done[2].id, voided: true, reason: "Duplicate entry" } }),
+		await run(meetings.correctOccurrence, {
+			requestKey: key(),
+			expectedRevision: done[2].revision,
+			input: { meetingId: done[2].id, voided: true, reason: "Duplicate entry" },
+		}),
 	).meeting;
 	assert.ok(voided.occurrence.voidedAt);
 	// Correct an occurrence as not held: reopened with history, not counted.
@@ -324,7 +414,9 @@ test("AC:B02-008 AC:B02-009 AC:B02-011 AC:B02-012 AC:B02-013 AC:B02-015 AC:B02-0
 	assert.ok(counted.meetingIds.includes(fourth.id) && counted.meetingIds.includes(done[0].id));
 	assert.equal(counted.criterion, base + 2 >= 3 ? "met" : "not_met");
 	const history = (
-		await admin.execute(sql`SELECT kind, before_value->>'heldAt' AS before FROM audit_event WHERE subject_id=${done[1].id} ORDER BY occurred_at`)
+		await admin.execute(
+			sql`SELECT kind, before_value->>'heldAt' AS before FROM audit_event WHERE subject_id=${done[1].id} ORDER BY occurred_at`,
+		)
 	).rows;
 	assert.deepEqual(
 		history.map((h) => h.kind),
@@ -339,13 +431,30 @@ test("AC:B02-008 AC:B02-009 AC:B02-011 AC:B02-012 AC:B02-013 AC:B02-015 AC:B02-0
 		await run(meetings.replaceAgenda, {
 			requestKey: key(),
 			expectedRevision: practice.revision,
-			input: { meetingId: practice.id, sections: [{ id: "a", title: "Welcome", minutes: 5 }, { id: "b", title: "Practice service", minutes: 60 }] },
+			input: {
+				meetingId: practice.id,
+				sections: [
+					{ id: "a", title: "Welcome", minutes: 5 },
+					{ id: "b", title: "Practice service", minutes: 60 },
+				],
+			},
 		}),
 	);
-	refused(await run(meetings.populateKit, { requestKey: key(), expectedRevision: practice.revision, input: { meetingId: practice.id } }), "wrong_meeting_type");
+	refused(
+		await run(meetings.populateKit, {
+			requestKey: key(),
+			expectedRevision: practice.revision,
+			input: { meetingId: practice.id },
+		}),
+		"wrong_meeting_type",
+	);
 	const g = await guestOf(practice.id, alex);
 	refused(
-		await run(guests.recordCard, { requestKey: key(), expectedRevision: g.revision, input: { meetingId: practice.id, personId: alex, response: "interested" } }),
+		await run(guests.recordCard, {
+			requestKey: key(),
+			expectedRevision: g.revision,
+			input: { meetingId: practice.id, personId: alex, response: "interested" },
+		}),
 		"wrong_meeting_type",
 	);
 	// The generated operation catalog names the native practice completion command (REQ-KNOW-065).
@@ -355,27 +464,61 @@ test("AC:B02-008 AC:B02-009 AC:B02-011 AC:B02-012 AC:B02-013 AC:B02-015 AC:B02-0
 });
 
 test("AC:TARGET-MTG-003 AC:TARGET-MTG-004 AC:GAP-MTG-004 venues keep meeting copies through edit, archive, restore and stale corrections", async () => {
-	const v = ok(await run(venues.create, { requestKey: key(), input: { name: "Old Hall", address: "1 First St", capacity: 50 } })).venue;
-	refused(await run(venues.create, { requestKey: key(), input: { name: "Zero", address: "0 St", capacity: 0 } }), "invalid_input");
-	refused(await run(venues.create, { requestKey: key(), input: { name: "Bad", address: "1 St", email: "not-an-email" } }), "invalid_input");
+	const v = ok(
+		await run(venues.create, { requestKey: key(), input: { name: "Old Hall", address: "1 First St", capacity: 50 } }),
+	).venue;
+	refused(
+		await run(venues.create, { requestKey: key(), input: { name: "Zero", address: "0 St", capacity: 0 } }),
+		"invalid_input",
+	);
+	refused(
+		await run(venues.create, { requestKey: key(), input: { name: "Bad", address: "1 St", email: "not-an-email" } }),
+		"invalid_input",
+	);
 	const m = await schedule({ type: "orientation", venue: { kind: "existing", venueId: v.id } });
 	const renamed = ok(
-		await run(venues.edit, { requestKey: key(), expectedRevision: v.revision, input: { venueId: v.id, patch: { name: "New Hall", address: "9 Ninth St" } } }),
+		await run(venues.edit, {
+			requestKey: key(),
+			expectedRevision: v.revision,
+			input: { venueId: v.id, patch: { name: "New Hall", address: "9 Ninth St" } },
+		}),
 	).venue;
-	assert.deepEqual(ok(await reads.get(db, await viewer(), { meetingId: m.id })).meeting.venue, { id: v.id, name: "Old Hall", address: "1 First St" });
+	assert.deepEqual(ok(await reads.get(db, await viewer(), { meetingId: m.id })).meeting.venue, {
+		id: v.id,
+		name: "Old Hall",
+		address: "1 First St",
+	});
 	// Stale second tab: no row change and no history.
 	const historyBefore = await count(sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${v.id}`);
-	refused(await run(venues.correct, { requestKey: key(), expectedRevision: v.revision, input: { venueId: v.id, patch: { capacity: 60 }, reason: "Typo" } }), "conflict");
+	refused(
+		await run(venues.correct, {
+			requestKey: key(),
+			expectedRevision: v.revision,
+			input: { venueId: v.id, patch: { capacity: 60 }, reason: "Typo" },
+		}),
+		"conflict",
+	);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${v.id}`), historyBefore);
 	const corrected = ok(
-		await run(venues.correct, { requestKey: key(), expectedRevision: renamed.revision, input: { venueId: v.id, patch: { capacity: 60 }, reason: "Typo" } }),
+		await run(venues.correct, {
+			requestKey: key(),
+			expectedRevision: renamed.revision,
+			input: { venueId: v.id, patch: { capacity: 60 }, reason: "Typo" },
+		}),
 	).venue;
 	const archive = { requestKey: key(), expectedRevision: corrected.revision, input: { venueId: v.id } };
 	const archived = ok(await run(venues.archive, archive)).venue;
 	assert.equal(archived.active, false);
-	assert.equal(ok(await run(venues.archive, { ...archive, requestKey: key(), expectedRevision: archived.revision })).outcome, "noop", "archiving twice converges");
+	assert.equal(
+		ok(await run(venues.archive, { ...archive, requestKey: key(), expectedRevision: archived.revision })).outcome,
+		"noop",
+		"archiving twice converges",
+	);
 	const vr = await viewer(1);
-	assert.ok(!ok(await venuesReader.list(db, vr, {})).items.some((x) => x.id === v.id), "archived venues are hidden by default");
+	assert.ok(
+		!ok(await venuesReader.list(db, vr, {})).items.some((x) => x.id === v.id),
+		"archived venues are hidden by default",
+	);
 	assert.ok(ok(await venuesReader.list(db, vr, { archived: "only" })).items.some((x) => x.id === v.id));
 	// The existing meeting keeps its unchanged archived selection; a new or changed selection is refused.
 	const current = ok(await reads.get(db, await viewer(), { meetingId: m.id })).meeting;
@@ -387,15 +530,31 @@ test("AC:TARGET-MTG-003 AC:TARGET-MTG-004 AC:GAP-MTG-004 venues keep meeting cop
 		}),
 	).meeting;
 	assert.deepEqual(kept.venue, { id: v.id, name: "Old Hall", address: "1 First St" });
-	refused(await run(meetings.schedule, { requestKey: key(), input: { type: "orientation", date: day(9), time: "10:00", venue: { kind: "existing", venueId: v.id } } }), "venue_archived");
-	const other = await schedule({ type: "orientation" });
 	refused(
-		await run(meetings.edit, { requestKey: key(), expectedRevision: other.revision, input: { meetingId: other.id, patch: { venue: { kind: "existing", venueId: v.id } } } }),
+		await run(meetings.schedule, {
+			requestKey: key(),
+			input: { type: "orientation", date: day(9), time: "10:00", venue: { kind: "existing", venueId: v.id } },
+		}),
 		"venue_archived",
 	);
-	const restored = ok(await run(venues.restore, { requestKey: key(), expectedRevision: archived.revision, input: { venueId: v.id } })).venue;
+	const other = await schedule({ type: "orientation" });
+	refused(
+		await run(meetings.edit, {
+			requestKey: key(),
+			expectedRevision: other.revision,
+			input: { meetingId: other.id, patch: { venue: { kind: "existing", venueId: v.id } } },
+		}),
+		"venue_archived",
+	);
+	const restored = ok(
+		await run(venues.restore, { requestKey: key(), expectedRevision: archived.revision, input: { venueId: v.id } }),
+	).venue;
 	assert.equal(restored.active, true);
-	assert.deepEqual(ok(await reads.get(db, await viewer(), { meetingId: m.id })).meeting.venue.name, "Old Hall", "restore never rewrites copies");
+	assert.deepEqual(
+		ok(await reads.get(db, await viewer(), { meetingId: m.id })).meeting.venue.name,
+		"Old Hall",
+		"restore never rewrites copies",
+	);
 	const detail = ok(await venuesReader.get(db, vr, { venueId: v.id }));
 	assert.deepEqual(
 		detail.history.map((h) => h.kind),
@@ -411,7 +570,13 @@ test("AC:TARGET-MTG-003 AC:TARGET-MTG-004 AC:GAP-MTG-004 venues keep meeting cop
 test("AC:TARGET-MTG-005 an agenda saves whole: reorder and retime round trip, invalid payloads are refused by name", async () => {
 	const m = await schedule();
 	const reversed = [...m.agenda.sections].reverse().map((s, i) => (i === 0 ? { ...s, minutes: s.minutes + 5 } : s));
-	const saved = ok(await run(meetings.replaceAgenda, { requestKey: key(), expectedRevision: m.revision, input: { meetingId: m.id, sections: reversed } })).agenda;
+	const saved = ok(
+		await run(meetings.replaceAgenda, {
+			requestKey: key(),
+			expectedRevision: m.revision,
+			input: { meetingId: m.id, sections: reversed },
+		}),
+	).agenda;
 	assert.deepEqual(saved.sections, reversed);
 	assert.equal(saved.totalMinutes, 95);
 	assert.equal(saved.defaultVersion, 1, "the copied default version stays with the edited agenda");
@@ -424,10 +589,26 @@ test("AC:TARGET-MTG-005 an agenda saves whole: reorder and retime round trip, in
 		[[{ id: "a", title: "  ", minutes: 1 }], "sections.0.title"],
 	];
 	for (const [sections, path] of bad) {
-		const e = refused(await run(meetings.replaceAgenda, { requestKey: key(), expectedRevision: saved.revision, input: { meetingId: m.id, sections } }), "invalid_input");
-		assert.ok(e.details.issues.some((i) => i.path === "input." + path), JSON.stringify(e.details.issues));
+		const e = refused(
+			await run(meetings.replaceAgenda, {
+				requestKey: key(),
+				expectedRevision: saved.revision,
+				input: { meetingId: m.id, sections },
+			}),
+			"invalid_input",
+		);
+		assert.ok(
+			e.details.issues.some((i) => i.path === "input." + path),
+			JSON.stringify(e.details.issues),
+		);
 	}
-	const empty = ok(await run(meetings.replaceAgenda, { requestKey: key(), expectedRevision: saved.revision, input: { meetingId: m.id, sections: [] } })).agenda;
+	const empty = ok(
+		await run(meetings.replaceAgenda, {
+			requestKey: key(),
+			expectedRevision: saved.revision,
+			input: { meetingId: m.id, sections: [] },
+		}),
+	).agenda;
 	assert.deepEqual([empty.sections, empty.totalMinutes], [[], 0]);
 });
 
@@ -440,7 +621,11 @@ test("AC:TARGET-MTG-006 AC:PERSONREF-MEETING-CHECKLIST-PERSON-RETIRE one kit, ow
 	const kit = ok(await reads.listKit(db, await viewer(), { meetingId: m.id }));
 	const [first, second] = kit.items;
 	const update = (item, patch, who = 0) =>
-		run(meetings.updateKitItem, { requestKey: key(), expectedRevision: item.revision, input: { meetingId: m.id, itemId: item.id, patch } }, who);
+		run(
+			meetings.updateKitItem,
+			{ requestKey: key(), expectedRevision: item.revision, input: { meetingId: m.id, itemId: item.id, patch } },
+			who,
+		);
 	const foreign = await person("Foreign", { plant: Q }),
 		gone = await person("Retired helper");
 	await retire(gone);
@@ -461,10 +646,24 @@ test("AC:TARGET-MTG-006 AC:PERSONREF-MEETING-CHECKLIST-PERSON-RETIRE one kit, ow
 	await retire(p2);
 	const after = ok(await reads.listKit(db, await viewer(), { meetingId: m.id })).items[0];
 	assert.deepEqual(after.assignee, { personId: p2, displayName: "Alex Chen", state: "retired" });
-	refused(await update(ok(await reads.listKit(db, await viewer(), { meetingId: m.id })).items[2], { assigneePersonId: p2 }), "invalid_subject");
+	refused(
+		await update(ok(await reads.listKit(db, await viewer(), { meetingId: m.id })).items[2], { assigneePersonId: p2 }),
+		"invalid_subject",
+	);
 	const orientation = await schedule({ type: "orientation" });
-	refused(await run(meetings.populateKit, { requestKey: key(), expectedRevision: orientation.revision, input: { meetingId: orientation.id } }), "wrong_meeting_type");
-	assert.deepEqual(ok(await reads.listKit(db, await viewer(), { meetingId: orientation.id })).items, [], "a read never seeds a kit");
+	refused(
+		await run(meetings.populateKit, {
+			requestKey: key(),
+			expectedRevision: orientation.revision,
+			input: { meetingId: orientation.id },
+		}),
+		"wrong_meeting_type",
+	);
+	assert.deepEqual(
+		ok(await reads.listKit(db, await viewer(), { meetingId: orientation.id })).items,
+		[],
+		"a read never seeds a kit",
+	);
 });
 
 test("AC:TARGET-MTG-007 AC:TARGET-MTG-019 AC:PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-RETIRE one guest row per Person, valid inviters, removal keeps history", async () => {
@@ -474,17 +673,30 @@ test("AC:TARGET-MTG-007 AC:TARGET-MTG-019 AC:PERSONREF-MEETING-INVITATION-RSVP-A
 		run(guests.inviteGuest, { requestKey, input: { meetingId: m.id, personId, inviterPersonId } });
 	const first = ok(await invite(alex, casey));
 	assert.equal(ok(await invite(alex)).outcome, "noop", "inviting a current guest again adds nothing");
-	assert.equal(await count(sql`SELECT count(*)::int AS n FROM participation WHERE meeting_id=${m.id} AND person_id=${alex}`), 1);
+	assert.equal(
+		await count(sql`SELECT count(*)::int AS n FROM participation WHERE meeting_id=${m.id} AND person_id=${alex}`),
+		1,
+	);
 	refused(await invite(casey, casey), "invalid_input");
 	refused(await invite(casey, await person("Elsewhere", { plant: Q })), "invalid_subject");
 	ok(await invite(casey));
 	// Casey was invited by nobody; Alex by Casey. Casey invited by Alex would be a referral cycle.
 	const caseyGuest = await guestOf(m.id, casey);
 	refused(
-		await run(guests.setInviter, { requestKey: key(), expectedRevision: caseyGuest.revision, input: { meetingId: m.id, personId: casey, inviterPersonId: alex } }),
+		await run(guests.setInviter, {
+			requestKey: key(),
+			expectedRevision: caseyGuest.revision,
+			input: { meetingId: m.id, personId: casey, inviterPersonId: alex },
+		}),
 		"invalid_subject",
 	);
-	ok(await run(guests.setInviter, { requestKey: key(), expectedRevision: caseyGuest.revision, input: { meetingId: m.id, personId: casey, inviterPersonId: jamie } }));
+	ok(
+		await run(guests.setInviter, {
+			requestKey: key(),
+			expectedRevision: caseyGuest.revision,
+			input: { meetingId: m.id, personId: casey, inviterPersonId: jamie },
+		}),
+	);
 	const attribution = ok(await reads.invitationAttribution(db, await viewer(1), { meetingId: m.id }));
 	assert.deepEqual(
 		attribution.guests.map((g) => [g.person.displayName, g.inviter?.displayName ?? null, g.rsvp]).sort(),
@@ -495,7 +707,13 @@ test("AC:TARGET-MTG-007 AC:TARGET-MTG-019 AC:PERSONREF-MEETING-INVITATION-RSVP-A
 	);
 	// Remove Alex after a card, a note and an open token: the card goes, the note and the history stay.
 	let g = await guestOf(m.id, alex);
-	g = ok(await run(guests.recordCard, { requestKey: key(), expectedRevision: g.revision, input: { meetingId: m.id, personId: alex, response: "interested" } }));
+	g = ok(
+		await run(guests.recordCard, {
+			requestKey: key(),
+			expectedRevision: g.revision,
+			input: { meetingId: m.id, personId: alex, response: "interested" },
+		}),
+	);
 	const note = ok(
 		await run(peopleWriter.addNote, {
 			requestKey: key(),
@@ -510,14 +728,25 @@ test("AC:TARGET-MTG-007 AC:TARGET-MTG-019 AC:PERSONREF-MEETING-INVITATION-RSVP-A
 		return issued;
 	});
 	g = await guestOf(m.id, alex);
-	const removed = ok(await run(guests.removeGuest, { requestKey: key(), expectedRevision: g.revision, input: { meetingId: m.id, personId: alex } }));
+	const removed = ok(
+		await run(guests.removeGuest, {
+			requestKey: key(),
+			expectedRevision: g.revision,
+			input: { meetingId: m.id, personId: alex },
+		}),
+	);
 	assert.equal(removed.guest.hasCard, false);
 	assert.equal(await guestOf(m.id, alex), undefined);
-	assert.equal(await count(sql`SELECT count(*)::int AS n FROM person_note WHERE id=${note.noteId} AND removed_at IS NULL`), 1);
+	assert.equal(
+		await count(sql`SELECT count(*)::int AS n FROM person_note WHERE id=${note.noteId} AND removed_at IS NULL`),
+		1,
+	);
 	assert.deepEqual(await describeRsvpToken(db, { token: token.token }), { state: "unavailable" });
 	refused(await answerRsvpToken(db, { token: token.token, rsvp: "confirmed" }), "token_closed");
 	assert.deepEqual(
-		(await admin.execute(sql`SELECT kind FROM audit_event WHERE subject_id=${first.guest.id} ORDER BY occurred_at`)).rows.map((r) => r.kind),
+		(
+			await admin.execute(sql`SELECT kind FROM audit_event WHERE subject_id=${first.guest.id} ORDER BY occurred_at`)
+		).rows.map((r) => r.kind),
 		["create", "noop", "create", "remove"],
 	);
 	// Retiring a guest keeps the guest row with the historical Person; reminders and links leave them out.
@@ -543,7 +772,17 @@ test("AC:TARGET-MTG-011 AC:GAP-MTG-011 AC:B02-023 AC:B02-024 quick-add contacts 
 	assert.equal(await people(), before + 1);
 	const mara = (await admin.execute(sql`SELECT * FROM person WHERE id=${created.guest.person.personId}`)).rows[0];
 	assert.deepEqual(
-		[mara.display_name, mara.last_name, mara.email, mara.phone, mara.linked_account_id, mara.stage, mara.source, mara.adult_classification, mara.commitment_state],
+		[
+			mara.display_name,
+			mara.last_name,
+			mara.email,
+			mara.phone,
+			mara.linked_account_id,
+			mara.stage,
+			mara.source,
+			mara.adult_classification,
+			mara.commitment_state,
+		],
 		["Mara", null, null, null, null, "prospect", "meeting_guest_list", "unknown", "unknown"],
 	);
 	assert.deepEqual([created.guest.presence, created.guest.rsvp], ["absent", "pending"]);
@@ -554,15 +793,32 @@ test("AC:TARGET-MTG-011 AC:GAP-MTG-011 AC:B02-023 AC:B02-024 quick-add contacts 
 	assert.equal(await people(), before + 2, "a replayed walk-in adds no Person");
 	// Same name as an existing Person: a new Person, never a silent merge; the existing one joins by explicit ID.
 	const existingAlex = await person("Alex");
-	const sameName = ok(await run(guests.createGuestContact, { requestKey: key(), input: { meetingId: m.id, displayName: "Alex" } }));
+	const sameName = ok(
+		await run(guests.createGuestContact, { requestKey: key(), input: { meetingId: m.id, displayName: "Alex" } }),
+	);
 	assert.notEqual(sameName.guest.person.personId, existingAlex);
-	assert.equal(ok(await run(guests.inviteGuest, { requestKey: key(), input: { meetingId: m.id, personId: existingAlex } })).guest.person.personId, existingAlex);
+	assert.equal(
+		ok(await run(guests.inviteGuest, { requestKey: key(), input: { meetingId: m.id, personId: existingAlex } })).guest
+			.person.personId,
+		existingAlex,
+	);
 	// A foreign or deleted meeting leaves no orphan contact.
 	const foreignMeeting = await schedule({ type: "orientation" }, 3);
 	const count1 = await people();
-	refused(await run(guests.createGuestContact, { requestKey: key(), input: { meetingId: foreignMeeting.id, displayName: "Orphan" } }));
+	refused(
+		await run(guests.createGuestContact, {
+			requestKey: key(),
+			input: { meetingId: foreignMeeting.id, displayName: "Orphan" },
+		}),
+	);
 	assert.equal(await people(), count1);
-	assert.equal(await count(sql`SELECT count(*)::int AS n FROM seat s JOIN person p ON p.linked_account_id=s.account_id WHERE p.id=${jamie.guest.person.personId}`), 0, "no login or seat");
+	assert.equal(
+		await count(
+			sql`SELECT count(*)::int AS n FROM seat s JOIN person p ON p.linked_account_id=s.account_id WHERE p.id=${jamie.guest.person.personId}`,
+		),
+		0,
+		"no login or seat",
+	);
 });
 
 test("AC:CASE-COM-010 AC:TARGET-MTG-008 AC:TARGET-MTG-009 AC:GAP-MTG-008 one current RSVP from link, own reply or Admin, never attendance", async () => {
@@ -576,39 +832,78 @@ test("AC:CASE-COM-010 AC:TARGET-MTG-008 AC:TARGET-MTG-009 AC:GAP-MTG-008 one cur
 			await executeWrites(t, writes);
 			return issued.token;
 		});
-	refused(await tx((t) => createRsvpToken(t, ctx(1), { meetingId: m.id, personId: alex }, [])).catch((e) => ({ status: "refused", error: { code: e.code } })));
+	refused(
+		await tx((t) => createRsvpToken(t, ctx(1), { meetingId: m.id, personId: alex }, [])).catch((e) => ({
+			status: "refused",
+			error: { code: e.code },
+		})),
+	);
 	const token = await issue(alex);
-	const totalWrites = () => count(sql`SELECT (SELECT count(*) FROM audit_event) + (SELECT coalesce(sum(revision),0) FROM participation)::int AS n`);
+	const totalWrites = () =>
+		count(
+			sql`SELECT (SELECT count(*) FROM audit_event) + (SELECT coalesce(sum(revision),0) FROM participation)::int AS n`,
+		);
 	const writesBefore = await totalWrites();
 	queries = [];
 	const view = await describeRsvpToken(db, { token });
 	assert.equal(queries.length, 1);
-	assert.deepEqual([view.state, view.guestFirstName, view.rsvp, view.meeting.displayTitle], ["pending", "Alex", "pending", m.displayTitle]);
+	assert.deepEqual(
+		[view.state, view.guestFirstName, view.rsvp, view.meeting.displayTitle],
+		["pending", "Alex", "pending", m.displayTitle],
+	);
 	assert.equal(await totalWrites(), writesBefore, "opening a link writes nothing");
 	assert.deepEqual(await describeRsvpToken(db, { token: "x".repeat(43) }), { state: "unavailable" });
-	const [a, b] = await Promise.all([answerRsvpToken(db, { token, rsvp: "confirmed" }), answerRsvpToken(db, { token, rsvp: "declined" })]);
+	const [a, b] = await Promise.all([
+		answerRsvpToken(db, { token, rsvp: "confirmed" }),
+		answerRsvpToken(db, { token, rsvp: "declined" }),
+	]);
 	const winners = [a, b].filter((r) => r.status === "ok");
 	assert.equal(winners.length, 1, "two concurrent answers: one current answer");
-	refused([a, b].find((r) => r.status === "refused"), "token_closed");
+	refused(
+		[a, b].find((r) => r.status === "refused"),
+		"token_closed",
+	);
 	let g = await guestOf(m.id, alex);
 	assert.deepEqual([g.rsvp, g.rsvpSource, g.presence], [winners[0].value.rsvp, "token", "absent"]);
 	assert.equal((await describeRsvpToken(db, { token })).state, "answered");
 	// Admin correction after a fresh pending link: the old link can no longer overwrite it.
 	const fresh = await issue(alex);
 	g = await guestOf(m.id, alex);
-	g = ok(await run(guests.correctRsvp, { requestKey: key(), expectedRevision: g.revision, input: { meetingId: m.id, personId: alex, rsvp: "confirmed" } })).guest;
+	g = ok(
+		await run(guests.correctRsvp, {
+			requestKey: key(),
+			expectedRevision: g.revision,
+			input: { meetingId: m.id, personId: alex, rsvp: "confirmed" },
+		}),
+	).guest;
 	refused(await answerRsvpToken(db, { token: fresh, rsvp: "declined" }), "token_closed");
 	assert.deepEqual([g.rsvp, g.rsvpSource, g.presence], ["confirmed", "admin", "absent"]);
-	assert.equal((await describeRsvpToken(db, { token: fresh })).rsvp, "confirmed", "the old link still shows the current answer");
-	g = ok(await run(guests.correctRsvp, { requestKey: key(), expectedRevision: g.revision, input: { meetingId: m.id, personId: alex, rsvp: null } })).guest;
+	assert.equal(
+		(await describeRsvpToken(db, { token: fresh })).rsvp,
+		"confirmed",
+		"the old link still shows the current answer",
+	);
+	g = ok(
+		await run(guests.correctRsvp, {
+			requestKey: key(),
+			expectedRevision: g.revision,
+			input: { meetingId: m.id, personId: alex, rsvp: null },
+		}),
+	).guest;
 	assert.equal(g.rsvp, "pending", "reset returns to Pending and does not reopen a link");
 	refused(await answerRsvpToken(db, { token: fresh, rsvp: "declined" }), "token_closed");
 	const renewed = await issue(alex);
-	assert.equal(ok(await answerRsvpToken(db, { token: renewed, rsvp: "declined" })).rsvp, "declined", "a new invitation mints a fresh link");
+	assert.equal(
+		ok(await answerRsvpToken(db, { token: renewed, rsvp: "declined" })).rsvp,
+		"declined",
+		"a new invitation mints a fresh link",
+	);
 	refused(await answerRsvpToken(db, { token: fresh, rsvp: "confirmed" }), "token_closed");
 	// An expired pending link refuses; renewal keeps the answered history.
 	const expiring = await issue(alex);
-	await admin.execute(sql`UPDATE participation SET rsvp_token_expires_at=clock_timestamp()-interval '1 second' WHERE meeting_id=${m.id} AND person_id=${alex}`);
+	await admin.execute(
+		sql`UPDATE participation SET rsvp_token_expires_at=clock_timestamp()-interval '1 second' WHERE meeting_id=${m.id} AND person_id=${alex}`,
+	);
 	assert.equal((await describeRsvpToken(db, { token: expiring })).state, "expired");
 	refused(await answerRsvpToken(db, { token: expiring, rsvp: "confirmed" }), "token_closed");
 	assert.equal((await guestOf(m.id, alex)).rsvp, "declined");
@@ -616,19 +911,49 @@ test("AC:CASE-COM-010 AC:TARGET-MTG-008 AC:TARGET-MTG-009 AC:GAP-MTG-008 one cur
 	// Own reply: the member answers for their own linked Person only.
 	const v1 = await viewer(1);
 	assert.deepEqual(ok(await reads.getOwnRsvp(db, v1, { meetingId: m.id })).rsvp, "pending");
-	const own = ok(await run(guests.saveOwnRsvp, { requestKey: key(), input: { meetingId: m.id, rsvp: "confirmed" } }, 1)).guest;
+	const own = ok(
+		await run(guests.saveOwnRsvp, { requestKey: key(), input: { meetingId: m.id, rsvp: "confirmed" } }, 1),
+	).guest;
 	assert.deepEqual([own.person.personId, own.rsvp, own.rsvpSource], [memberPerson, "confirmed", "own"]);
-	refused(await run(guests.saveOwnRsvp, { requestKey: key(), input: { meetingId: m.id, rsvp: "declined", personId: alex } }, 1), "invalid_input");
+	refused(
+		await run(
+			guests.saveOwnRsvp,
+			{ requestKey: key(), input: { meetingId: m.id, rsvp: "declined", personId: alex } },
+			1,
+		),
+		"invalid_input",
+	);
 	refused(await reads.getOwnRsvp(db, await viewer(2), { meetingId: m.id }), "unavailable");
 	refused(await run(guests.saveOwnRsvp, { requestKey: key(), input: { meetingId: m.id, rsvp: "declined" } }, 3));
-	refused(await run(guests.correctRsvp, { requestKey: key(), expectedRevision: own.revision, input: { meetingId: m.id, personId: memberPerson, rsvp: "declined" } }, 1));
-	assert.equal(await count(sql`SELECT count(*)::int AS n FROM participation WHERE meeting_id=${m.id} AND presence<>'absent'`), 0, "no RSVP path records attendance");
-	assert.equal(await count(sql`SELECT count(*)::int AS n FROM participation WHERE meeting_id=${m.id} AND card_response IS NOT NULL`), 0);
+	refused(
+		await run(
+			guests.correctRsvp,
+			{
+				requestKey: key(),
+				expectedRevision: own.revision,
+				input: { meetingId: m.id, personId: memberPerson, rsvp: "declined" },
+			},
+			1,
+		),
+	);
+	assert.equal(
+		await count(sql`SELECT count(*)::int AS n FROM participation WHERE meeting_id=${m.id} AND presence<>'absent'`),
+		0,
+		"no RSVP path records attendance",
+	);
+	assert.equal(
+		await count(
+			sql`SELECT count(*)::int AS n FROM participation WHERE meeting_id=${m.id} AND card_response IS NOT NULL`,
+		),
+		0,
+	);
 });
 
 test("AC:TARGET-MTG-013 cards: attended guests are the denominator, no card is unknown and notes stay with Owner/Admin", async () => {
 	const m = await schedule();
-	const alex = (await run(guests.createWalkInContact, { requestKey: key(), input: { meetingId: m.id, displayName: "Alex" } })).value.guest;
+	const alex = (
+		await run(guests.createWalkInContact, { requestKey: key(), input: { meetingId: m.id, displayName: "Alex" } })
+	).value.guest;
 	const casey = await person("Casey");
 	ok(await run(guests.inviteGuest, { requestKey: key(), input: { meetingId: m.id, personId: casey } }));
 	const g = await guestOf(m.id, casey);
@@ -641,21 +966,40 @@ test("AC:TARGET-MTG-013 cards: attended guests are the denominator, no card is u
 	);
 	assert.equal(recorded.card.notes, "PRAYER-CANARY");
 	refused(
-		await run(guests.recordCard, { requestKey: key(), expectedRevision: g.revision, input: { meetingId: m.id, personId: casey, response: "maybe" } }),
+		await run(guests.recordCard, {
+			requestKey: key(),
+			expectedRevision: g.revision,
+			input: { meetingId: m.id, personId: casey, response: "maybe" },
+		}),
 		"invalid_input",
 	);
 	const breakdown = ok(await reads.cardBreakdown(db, await viewer(1), { meetingId: m.id }));
 	assert.deepEqual(
-		[breakdown.attended.total, breakdown.attended.withCard, breakdown.attended.unknown, breakdown.absentWithCard.total, breakdown.absentWithCard.responses.not_interested],
+		[
+			breakdown.attended.total,
+			breakdown.attended.withCard,
+			breakdown.attended.unknown,
+			breakdown.absentWithCard.total,
+			breakdown.absentWithCard.responses.not_interested,
+		],
 		[1, 0, 1, 1, 1],
 	);
 	const memberCards = ok(await reads.listCards(db, await viewer(1), { meetingId: m.id })).cards;
-	assert.deepEqual(memberCards.map((c) => [c.personId, c.response, c.notes]), [[casey, "not_interested", null]]);
+	assert.deepEqual(
+		memberCards.map((c) => [c.personId, c.response, c.notes]),
+		[[casey, "not_interested", null]],
+	);
 	assert.equal(ok(await reads.listCards(db, await viewer(), { meetingId: m.id })).cards[0].notes, "PRAYER-CANARY");
-	const history = await count(sql`SELECT count(*)::int AS n FROM audit_event WHERE (before_value::text LIKE '%PRAYER-CANARY%' OR after_value::text LIKE '%PRAYER-CANARY%' OR result::text LIKE '%PRAYER-CANARY%')`);
+	const history = await count(
+		sql`SELECT count(*)::int AS n FROM audit_event WHERE (before_value::text LIKE '%PRAYER-CANARY%' OR after_value::text LIKE '%PRAYER-CANARY%' OR result::text LIKE '%PRAYER-CANARY%')`,
+	);
 	assert.equal(history, 1, "only the Admin's own receipt carries the note; history records that a note exists");
 	const cleared = ok(
-		await run(guests.clearCard, { requestKey: key(), expectedRevision: (await guestOf(m.id, casey)).revision, input: { meetingId: m.id, personId: casey, reason: "Wrong guest" } }),
+		await run(guests.clearCard, {
+			requestKey: key(),
+			expectedRevision: (await guestOf(m.id, casey)).revision,
+			input: { meetingId: m.id, personId: casey, reason: "Wrong guest" },
+		}),
 	);
 	assert.equal(cleared.card, null);
 	assert.equal(ok(await reads.cardBreakdown(db, await viewer(), { meetingId: m.id })).absentWithCard.total, 0);
@@ -676,44 +1020,94 @@ test("AC:TARGET-MTG-018 AC:CASE-NTF-006 AC:NOTIFY47-007 AC:B03-010 AC:B03-011 AC
 			["day_1", "2026-03-09T14:00:00.000Z", "planned"],
 		],
 	);
-	assert.deepEqual((await plan(march.id, "2026-03-08T00:00:00Z")).slots.map((s) => s.state), ["planned", "passed", "passed", "planned"]);
-	assert.equal(await count(sql`SELECT count(*)::int AS n FROM job WHERE subject_record_id=${march.id} AND state='ready'`), 0, "a past meeting queues nothing");
+	assert.deepEqual(
+		(await plan(march.id, "2026-03-08T00:00:00Z")).slots.map((s) => s.state),
+		["planned", "passed", "passed", "planned"],
+	);
+	assert.equal(
+		await count(sql`SELECT count(*)::int AS n FROM job WHERE subject_record_id=${march.id} AND state='ready'`),
+		0,
+		"a past meeting queues nothing",
+	);
 
 	// A future Vision meeting: creator (Owner), a linked guest (the Member), a CRM-only guest and the Core Group.
-	const memberPerson = (await admin.execute(sql`SELECT id FROM person WHERE linked_account_id=${actors[1].id}`)).rows[0]?.id ?? (await person("Morgan", { account: actors[1].id }));
+	const memberPerson =
+		(await admin.execute(sql`SELECT id FROM person WHERE linked_account_id=${actors[1].id}`)).rows[0]?.id ??
+		(await person("Morgan", { account: actors[1].id }));
 	const ownerPerson = await person("Owner as guest", { account: actors[0].id, stage: "core_group" });
 	const crmOnly = await person("CRM only");
 	await admin.execute(sql`UPDATE person SET email='crm@example.test' WHERE id=${crmOnly}`);
 	const m = await schedule({ date: day(20), time: "18:00", guests: [memberPerson, ownerPerson, crmOnly] });
 	const jobs = async () =>
-		(await admin.execute(sql`SELECT producer_key AS key, state, eligible_at FROM job WHERE subject_record_id=${m.id} ORDER BY producer_key`)).rows;
+		(
+			await admin.execute(
+				sql`SELECT producer_key AS key, state, eligible_at FROM job WHERE subject_record_id=${m.id} ORDER BY producer_key`,
+			)
+		).rows;
 	const first = await jobs();
-	assert.deepEqual(first.map((j) => j.key.split("/").slice(0, 2).join("/")), ["meeting/announcement", "meeting/day_1", "meeting/day_3", "meeting/day_7"]);
+	assert.deepEqual(
+		first.map((j) => j.key.split("/").slice(0, 2).join("/")),
+		["meeting/announcement", "meeting/day_1", "meeting/day_3", "meeting/day_7"],
+	);
 	const now = new Date().toISOString();
 	let current = await plan(m.id, now);
 	const reminder = current.slots.find((s) => s.slot === "day_3");
-	assert.deepEqual(reminder.recipients, [actors[0].id, actors[1].id].sort(), "creator once though also a guest; no CRM-only address");
+	assert.deepEqual(
+		reminder.recipients,
+		[actors[0].id, actors[1].id].sort(),
+		"creator once though also a guest; no CRM-only address",
+	);
 	assert.deepEqual(current.slots[0].recipients, [actors[0].id], "the announcement goes to the linked Core Group");
 	// Reschedule after the 7-day job was queued: old slots are superseded before they send, new ones queued once.
 	const moved = ok(
-		await run(meetings.edit, { requestKey: key(), expectedRevision: m.revision, input: { meetingId: m.id, patch: { date: day(21), time: "18:00" } } }),
+		await run(meetings.edit, {
+			requestKey: key(),
+			expectedRevision: m.revision,
+			input: { meetingId: m.id, patch: { date: day(21), time: "18:00" } },
+		}),
 	).meeting;
 	const afterMove = await jobs();
 	assert.equal(afterMove.filter((j) => j.state === "ready").length, 4);
 	assert.equal(afterMove.filter((j) => j.state === "superseded").length, 3);
-	assert.ok(afterMove.filter((j) => j.state === "ready" && j.key !== "meeting/announcement").every((j) => j.key.endsWith(moved.startsAt)));
-	const same = ok(await run(meetings.edit, { requestKey: key(), expectedRevision: moved.revision, input: { meetingId: m.id, patch: { date: day(21), time: "18:00" } } }));
+	assert.ok(
+		afterMove
+			.filter((j) => j.state === "ready" && j.key !== "meeting/announcement")
+			.every((j) => j.key.endsWith(moved.startsAt)),
+	);
+	const same = ok(
+		await run(meetings.edit, {
+			requestKey: key(),
+			expectedRevision: moved.revision,
+			input: { meetingId: m.id, patch: { date: day(21), time: "18:00" } },
+		}),
+	);
 	assert.equal(same.outcome, "noop");
 	assert.equal((await jobs()).length, afterMove.length, "the same time again queues nothing new");
 	// The member leaves the guest list: their queued reminder audience drops them when the job runs.
 	const g = await guestOf(m.id, memberPerson);
-	ok(await run(guests.removeGuest, { requestKey: key(), expectedRevision: g.revision, input: { meetingId: m.id, personId: memberPerson } }));
+	ok(
+		await run(guests.removeGuest, {
+			requestKey: key(),
+			expectedRevision: g.revision,
+			input: { meetingId: m.id, personId: memberPerson },
+		}),
+	);
 	current = await plan(m.id, new Date().toISOString());
 	assert.deepEqual(current.slots.find((s) => s.slot === "day_1").recipients, [actors[0].id]);
 	// Completing or cancelling stops every pending reminder; nothing obsolete is sent.
-	ok(await run(meetings.changeStatus, { requestKey: key(), expectedRevision: moved.revision, input: { meetingId: m.id, to: "cancelled" } }));
+	ok(
+		await run(meetings.changeStatus, {
+			requestKey: key(),
+			expectedRevision: moved.revision,
+			input: { meetingId: m.id, to: "cancelled" },
+		}),
+	);
 	assert.equal((await jobs()).filter((j) => j.state === "ready").length, 0);
-	assert.ok((await plan(m.id, new Date().toISOString())).slots.every((s) => s.state === "suppressed" && s.recipients.length === 0));
+	assert.ok(
+		(await plan(m.id, new Date().toISOString())).slots.every(
+			(s) => s.state === "suppressed" && s.recipients.length === 0,
+		),
+	);
 });
 
 test("INV-reads: meeting pages and details are one statement whatever their size, without locks", async () => {

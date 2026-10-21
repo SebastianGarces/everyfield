@@ -20,7 +20,8 @@ const error = <C extends string, D extends z.ZodRawShape>(
 	code: C,
 	details: D,
 	retry: "never" | "refresh" | "same_request",
-) => z.strictObject({ code: z.literal(code), details: z.strictObject(details), correlationId, retry: z.literal(retry) });
+) =>
+	z.strictObject({ code: z.literal(code), details: z.strictObject(details), correlationId, retry: z.literal(retry) });
 const occurrence = z.strictObject({ instant, offsetSeconds: z.int() });
 /** Every refusal a meetings operation can return. Missing, foreign and inaccessible records share "unavailable". */
 export const meetingsError = z.discriminatedUnion("code", [
@@ -137,7 +138,8 @@ export const rsvpTokenView = z.discriminatedUnion("state", [
 		rsvp,
 	}),
 ]);
-export const rsvpTokenAnswer = z.strictObject({ rsvp, outcome: z.enum(["changed", "noop"]) });
+/** A link answer always records the response and closes the link. */
+export const rsvpTokenAnswer = z.strictObject({ rsvp });
 
 export const kitItem = z.strictObject({
 	id: recordId,
@@ -180,13 +182,26 @@ const breakdown = z.record(cardResponse, z.int().min(0));
 /** Attended guests are the denominator; cards from absent guests are reported apart. No card is unknown, not negative. */
 export const cardBreakdown = z.strictObject({
 	meetingId,
-	attended: z.strictObject({ total: z.int().min(0), withCard: z.int().min(0), unknown: z.int().min(0), responses: breakdown }),
+	attended: z.strictObject({
+		total: z.int().min(0),
+		withCard: z.int().min(0),
+		unknown: z.int().min(0),
+		responses: breakdown,
+	}),
 	absentWithCard: z.strictObject({ total: z.int().min(0), responses: breakdown }),
 });
 export const cardMutationResult = z.strictObject({ ...receipt, guestId: recordId, card: card.nullable() });
 export const attribution = z.strictObject({
 	meetingId,
-	guests: z.array(z.strictObject({ guestId: recordId, person: personRef, inviter: personRef.nullable(), rsvp, rsvpSource: rsvpSource.nullable() })),
+	guests: z.array(
+		z.strictObject({
+			guestId: recordId,
+			person: personRef,
+			inviter: personRef.nullable(),
+			rsvp,
+			rsvpSource: rsvpSource.nullable(),
+		}),
+	),
 });
 export const communicationContext = z.strictObject({
 	meeting: meetingSummary,

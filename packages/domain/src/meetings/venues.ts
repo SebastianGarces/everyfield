@@ -3,7 +3,18 @@ import { sql } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { command, deny, next, parse, read, reply, type MeetingsContext, type Reader, type Tx, type Writer } from "./core.ts";
+import {
+	command,
+	deny,
+	next,
+	parse,
+	read,
+	reply,
+	type MeetingsContext,
+	type Reader,
+	type Tx,
+	type Writer,
+} from "./core.ts";
 import type { RequestActor } from "../access/session.ts";
 
 const columns = sql`v.id, v.revision::text AS revision, v.name, v.address, v.contact_name, v.phone, v.email,
@@ -37,10 +48,17 @@ const venue = (v: VenueRow) =>
 		active: v.active,
 	});
 /** The fields a venue change records before and after. */
-const fields = (v: z.infer<typeof c.venue>) => {
-	const { id: _id, revision: _revision, ...rest } = v;
-	return rest;
-};
+const fields = (v: z.infer<typeof c.venue>) => ({
+	name: v.name,
+	address: v.address,
+	contactName: v.contactName,
+	phone: v.phone,
+	email: v.email,
+	costDescription: v.costDescription,
+	capacity: v.capacity,
+	notes: v.notes,
+	active: v.active,
+});
 const historyColumns = sql`a.id, a.kind, a.occurred_at, a.actor_id, a.before_value, a.after_value, a.reason`;
 const historyRow = z.object({
 	id: z.uuid(),
@@ -69,9 +87,14 @@ async function lockVenue(tx: Tx, w: Writer, id: string) {
 	if (!r.rows[0]) deny();
 	return venue(venueRow.parse(r.rows[0]));
 }
-function patched(v: z.infer<typeof c.venue>, patch: Partial<Omit<z.infer<typeof c.venue>, "id" | "revision" | "active">>) {
-	return c.venue.parse({ ...v, ...Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)) });
-}
+type Venue = z.infer<typeof c.venue>;
+/** What every venue change request carries after parsing. */
+type VenueInput = { venueId: string; patch?: Partial<Omit<Venue, "id" | "revision" | "active">>; reason?: string };
+const patched = (v: Venue, i: VenueInput) =>
+	c.venue.parse({
+		...v,
+		...Object.fromEntries(Object.entries(i.patch ?? {}).filter(([, value]) => value !== undefined)),
+	});
 const update = (before: z.infer<typeof c.venue>, after: z.infer<typeof c.venue>) =>
 	sql`UPDATE venue SET name = ${after.name}, address = ${after.address}, contact_name = ${after.contactName},
 		phone = ${after.phone}, email = ${after.email}, cost_description = ${after.costDescription},
@@ -83,8 +106,8 @@ const update = (before: z.infer<typeof c.venue>, after: z.infer<typeof c.venue>)
 /** One venue change: the locked row, the expected revision, then the update and its history row together. */
 function change(
 	operation: string,
-	schema: z.ZodType<{ requestKey: string; expectedRevision: string; input: { venueId: string; reason?: string } }>,
-	apply: (v: z.infer<typeof c.venue>, input: never) => z.infer<typeof c.venue>,
+	schema: z.ZodType<{ requestKey: string; expectedRevision: string; input: VenueInput }>,
+	apply: (v: Venue, input: VenueInput) => Venue,
 	kind: "edit" | "correct" | "archive" | "restore",
 ) {
 	return async (tx: Tx, ctx: MeetingsContext, raw: unknown) =>
@@ -93,7 +116,7 @@ function change(
 			return command(tx, ctx, operation, input, async (w, audit) => {
 				const before = await lockVenue(tx, w, input.input.venueId);
 				if (before.revision !== input.expectedRevision) deny("conflict");
-				const target = apply(before, input.input as never);
+				const target = apply(before, input.input);
 				const noop = JSON.stringify(fields(target)) === JSON.stringify(fields(before));
 				const after = noop ? before : { ...target, revision: c.venue.shape.revision.parse(next(before.revision)) };
 				if (!noop) audit.writes.push(update(before, after));
@@ -120,7 +143,8 @@ export const venuesWriter = {
 				const v = input.input,
 					id = randomUUID();
 				const after = c.venue.parse({ id, revision: "1", ...v, active: true });
-				audit.writes.push(sql`INSERT INTO venue (id, plant_id, name, address, contact_name, phone, email, cost_description, capacity, notes)
+				audit.writes
+					.push(sql`INSERT INTO venue (id, plant_id, name, address, contact_name, phone, email, cost_description, capacity, notes)
 					VALUES (${id}::uuid, ${w.plant.id}::uuid, ${v.name}, ${v.address}, ${v.contactName}, ${v.phone}, ${v.email},
 						${v.costDescription}, ${v.capacity}::int, ${v.notes})`);
 				return {
@@ -135,14 +159,9 @@ export const venuesWriter = {
 			});
 		});
 	},
-	edit: change("venues.edit", c.editVenueRequest, (v, i: z.infer<typeof c.editVenueRequest>["input"]) => patched(v, i.patch), "edit"),
+	edit: change("venues.edit", c.editVenueRequest, patched, "edit"),
 	/** A reviewed correction of the current facts with a reason; old meeting snapshots keep their copies. */
-	correct: change(
-		"venues.correct",
-		c.correctVenueRequest,
-		(v, i: z.infer<typeof c.correctVenueRequest>["input"]) => patched(v, i.patch),
-		"correct",
-	),
+	correct: change("venues.correct", c.correctVenueRequest, patched, "correct"),
 	archive: change("venues.archive", c.archiveVenueRequest, (v) => ({ ...v, active: false }), "archive"),
 	restore: change("venues.restore", c.restoreVenueRequest, (v) => ({ ...v, active: true }), "restore"),
 };
