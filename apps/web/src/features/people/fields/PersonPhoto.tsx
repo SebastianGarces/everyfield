@@ -62,7 +62,21 @@ export function PersonPhoto({
 	const [busy, setBusy] = useState<"upload" | "remove" | null>(null);
 	useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview]);
 
-	const src = busy === "remove" ? undefined : (preview ?? photoSrc(photo));
+	// The saved photo shows only once its bytes have loaded; until then, or if the route refuses, the initials stay, so
+	// the header never shows a broken image (REQ-PPL-005).
+	const saved = photoSrc(photo);
+	const [loaded, setLoaded] = useState<string | null>(null);
+	useEffect(() => {
+		if (!saved) return;
+		let live = true;
+		const img = new Image();
+		img.onload = () => live && setLoaded(saved);
+		img.src = saved;
+		return () => {
+			live = false;
+		};
+	}, [saved]);
+	const src = busy === "remove" ? undefined : (preview ?? (saved && loaded === saved ? saved : undefined));
 	const label = src ? `Photo of ${person.displayName}` : person.displayName;
 
 	async function save(slot: string, call: (key: string) => Promise<Outcome<PhotoSaved>>) {
