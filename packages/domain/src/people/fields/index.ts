@@ -227,6 +227,9 @@ const signatures = [
 	["image/jpeg", [0xff, 0xd8, 0xff]],
 	["image/webp", [0x52, 0x49, 0x46, 0x46]],
 ] as const;
+/** The image type of verified person-photo bytes, read from their signature, or undefined for anything else. */
+export const photoMediaType = (bytes: Uint8Array) =>
+	signatures.find(([, magic]) => magic.every((b, i) => bytes[i] === b))?.[0];
 /** The exact current photo version of a live Person the reader can see, as bytes for the app's own route. */
 export async function readPersonPhoto(db: Database, storage: PrivateStorage, ctx: PeopleContext, raw: unknown) {
 	return readReply(async () => {
@@ -235,7 +238,7 @@ export async function readPersonPhoto(db: Database, storage: PrivateStorage, ctx
 		const bytes = await readAuthorizedObject(db, storage, photoAuthority(ctx, input), input.versionId).catch(() =>
 			deny(),
 		);
-		const mediaType = signatures.find(([, magic]) => magic.every((b, i) => bytes[i] === b))?.[0];
+		const mediaType = photoMediaType(bytes);
 		if (!mediaType) deny();
 		return { bytes, mediaType };
 	});
