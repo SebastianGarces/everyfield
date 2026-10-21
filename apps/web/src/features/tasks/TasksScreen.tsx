@@ -234,8 +234,8 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 		setProblem(null);
 		address(null);
 	};
-	/** A failure message: in the panel when it shows the task the change was for, else as a toast. */
-	const say = (subject: string, message: string, action?: PanelProblem["action"]) =>
+	/** A failure message: in the panel when it shows the task the change was for, else (or for a batch) as a toast. */
+	const say = (subject: string | null, message: string, action?: PanelProblem["action"]) =>
 		shownId.current === subject ? setProblem({ message, action }) : toast({ tone: "error", message, action });
 
 	/** A confirmed write: the row, the counts and an open panel show the saved task; its history gains the entry. */
@@ -405,7 +405,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	};
 	/** A refused or lost write that is not a status change: the message says what did not happen and why. */
 	const refused = (
-		subject: string,
+		subject: string | null,
 		what: string,
 		r: Exclude<Outcome<unknown>, { status: "ok" }>,
 		retry: () => void,
@@ -705,7 +705,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 			},
 			(r) => {
 				if (r.status !== "ok")
-					return refused("", kind === "complete" ? "No tasks were completed." : "No tasks were rescheduled.", r, () =>
+					return refused(null, kind === "complete" ? "No tasks were completed." : "No tasks were rescheduled.", r, () =>
 						runBulk(kind, due, chosen, intent),
 					);
 				const result = r.value;
@@ -735,8 +735,9 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				if (moved) setTotal((t) => Math.max(0, t - moved));
 				// A changed task's cached panel no longer matches; the open one reads again, the others on their next open.
 				const changed = new Set<string>(result.items.filter((i) => i.outcome === "changed").map((i) => i.taskId));
-				setDetails((d) => Object.fromEntries(Object.entries(d).filter(([id]) => !changed.has(id) || id === openId)));
-				if (openId && changed.has(openId)) refresh(openId);
+				const shownTask = shownId.current;
+				setDetails((d) => Object.fromEntries(Object.entries(d).filter(([id]) => !changed.has(id) || id === shownTask)));
+				if (shownTask && changed.has(shownTask)) refresh(shownTask);
 				for (const i of result.items) if (i.outcome === "stale") refresh(i.taskId);
 				setSelected(new Set(result.remaining));
 				const unchanged = result.items
@@ -1080,7 +1081,7 @@ function TaskRow({
 			className="group/row flex items-center gap-3.5 rounded-card border-t border-line px-3 py-3.5 first:border-t-0 data-selected:bg-surface-raised data-selected:shadow-[inset_0_0_0_1.5px_var(--ef-ink)] max-app-sm:gap-2 max-app-sm:px-2 [[data-selected]+&]:border-t-transparent"
 		>
 			{selected !== null ? (
-				<label className="-m-3 grid size-11 flex-none cursor-pointer place-items-center max-app-sm:-mx-3.5">
+				<label className="-m-3 grid size-11 flex-none cursor-pointer place-items-center">
 					<Checkbox aria-label={`Select ${task.title}`} checked={selected} onCheckedChange={onSelect} />
 				</label>
 			) : null}

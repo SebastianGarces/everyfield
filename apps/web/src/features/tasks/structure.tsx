@@ -196,15 +196,15 @@ function AddStep({
 	const [title, setTitle] = useState("");
 	const [who, setWho] = useState(INHERIT);
 	const [touched, setTouched] = useState(false);
-	const [seats, setSeats] = useState<{ value: string; label: string }[] | "failed" | null>(null);
+	const [seats, setSeats] = useState<{ value: string; label: string }[] | "loading" | "failed" | null>(null);
 	const input = useRef<HTMLInputElement>(null);
 	const form = useRef<HTMLFormElement>(null);
 	useInlineForm(form, onClose);
-	useEffect(() => {
-		if (!admin) return;
-		let live = true;
-		warmAssignees().then((r) => {
-			if (!live) return;
+	// The church's seats load on intent over Assigned to, so a step that keeps the task's assignee sends no read.
+	const warm = () => {
+		if (seats !== null && seats !== "failed") return;
+		setSeats("loading");
+		warmAssignees().then((r) =>
 			setSeats(
 				r.status === "ok"
 					? r.value.items.map((s) => ({
@@ -212,10 +212,9 @@ function AddStep({
 							label: s.accountId === you ? `${s.displayName} (you)` : s.displayName,
 						}))
 					: "failed",
-			);
-		});
-		return () => void (live = false);
-	}, [admin, you]);
+			),
+		);
+	};
 	const inherited = taskAssignee
 		? `Same as the task (${taskAssignee.accountId === you ? "you" : taskAssignee.displayName || "a former member"})`
 		: "Same as the task (no one yet)";
@@ -255,20 +254,26 @@ function AddStep({
 				/>
 			</Field>
 			{admin ? (
-				<Field
-					label="Assigned to"
-					hint={seats === "failed" ? "The list of people did not load. Close the panel and open it again." : undefined}
-				>
-					<Select
-						value={who}
-						onValueChange={setWho}
-						options={[
-							{ value: INHERIT, label: inherited },
-							{ value: NOBODY, label: "No one yet" },
-							...(Array.isArray(seats) ? seats : []),
-						]}
-					/>
-				</Field>
+				<span className="contents" onPointerOver={warm} onFocusCapture={warm}>
+					<Field
+						label="Assigned to"
+						hint={seats === "failed" ? "The list of people did not load. Open the list again to retry." : undefined}
+					>
+						<Select
+							value={who}
+							onValueChange={setWho}
+							options={[
+								{ value: INHERIT, label: inherited },
+								{ value: NOBODY, label: "No one yet" },
+								...(Array.isArray(seats)
+									? seats
+									: seats === "loading"
+										? [{ value: "loading", label: "Loading people…", disabled: true }]
+										: []),
+							]}
+						/>
+					</Field>
+				</span>
 			) : null}
 			<div className="flex justify-end gap-2">
 				<Button variant="ghost" size="sm" onClick={onClose}>
