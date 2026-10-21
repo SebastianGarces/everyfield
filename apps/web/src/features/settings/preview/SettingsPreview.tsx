@@ -57,9 +57,12 @@ export function SettingsPreview() {
 
 	const viewer = previewViewer(persona);
 	const navigate = (key: SectionKey | null) => router.push(key ? hrefFor(key) : `${BASE}${query()}`, { scroll: false });
-	const deleted = (status: DeletionStatus) => {
-		const plant = "subject" in status && status.subject.kind === "plant";
-		router.push(`/design/restricted/${plant ? "workspace-deletion" : "account-deletion"}?state=pending`);
+	// As in the product: a workspace request opens its status; an account request is signed out and asks for proof.
+	const deleted = (status: DeletionStatus | null) => {
+		if (status && "subject" in status && status.subject.kind === "plant")
+			return router.push("/design/restricted/workspace-deletion?state=pending");
+		const until = status?.status === "pending_deletion" ? `&until=${encodeURIComponent(status.cancelUntil)}` : "";
+		router.push(`/design/restricted/account-deletion?state=pending&step=proof${until}`);
 	};
 
 	return (

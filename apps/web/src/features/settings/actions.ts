@@ -11,7 +11,6 @@ import type {
 	GetSectionRequest,
 	PersonalTimezonePreview,
 	PersonalTimezoneResult,
-	TimezonePreference,
 	PlantTimezonePreview,
 	PlantTimezoneResult,
 	Reply,
@@ -142,22 +141,6 @@ function outcome(
 }
 
 // Your own time zone (REQ-IDN-033): a preview stores what it shows, then the save binds to it.
-
-export async function getPersonalTimezone(): Promise<Reply<TimezonePreference>> {
-	const reply = await readSection({ section: "account" });
-	if (reply.status !== "ok") return reply;
-	return reply.value.section === "account"
-		? { status: "ok", value: reply.value.personalTimezone }
-		: {
-				status: "refused",
-				error: S.settingsError.parse({
-					code: "unknown",
-					details: {},
-					correlationId: crypto.randomUUID(),
-					retry: "reconcile",
-				}),
-			};
-}
 
 export async function previewPersonalTimezone(
 	request: z.input<typeof N.previewPersonalTimezoneRequest>,
