@@ -3,7 +3,8 @@ import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
 import { getCommitmentDownload } from "@everyfield/domain/people";
 import { z } from "zod";
-import { peopleContext, privateStorage } from "../fields/server.ts";
+import { privateStorage } from "@everyfield/db/schema";
+import { peopleContext } from "../fields/server.ts";
 
 // GET /people/{personId}/commitments/{commitmentId}/document: the signed commitment card's private document (REQ-PPL-014,
 // REQ-KNOW-080). Each request checks the live session, seat and role for this exact card, then redirects to a

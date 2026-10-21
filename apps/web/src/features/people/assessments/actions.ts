@@ -13,7 +13,8 @@ import { z } from "zod";
 import { boundary, invalid, outcome, receipt, type Receipt } from "../boundary.ts";
 import type { Outcome } from "../model.ts";
 import { read, write } from "../server.ts";
-import { peopleContext, privateStorage } from "../fields/server.ts";
+import { privateStorage } from "@everyfield/db/schema";
+import { peopleContext } from "../fields/server.ts";
 import type {
 	Assessment,
 	Assessments,

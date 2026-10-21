@@ -2,6 +2,7 @@
 
 import * as S from "@everyfield/contracts/settings";
 import * as N from "@everyfield/contracts/settings/native";
+import { drainObjectCleanup } from "@/server/jobs/drain-object-cleanup";
 import type { z } from "zod";
 import type {
 	AvatarResult,
@@ -94,6 +95,7 @@ export async function requestAvatarUpload(
 }
 
 export async function finalizeAvatar(request: z.input<typeof S.finalizeAvatarRequest>): Promise<Reply<AvatarResult>> {
+	drainObjectCleanup(); // after the response: delete the bytes of the photo this change released
 	return run(
 		S.finalizeAvatarRequest,
 		request,
@@ -103,6 +105,7 @@ export async function finalizeAvatar(request: z.input<typeof S.finalizeAvatarReq
 }
 
 export async function removeAvatar(request: z.input<typeof S.removeAvatarRequest>): Promise<Reply<AvatarResult>> {
+	drainObjectCleanup(); // after the response: delete the bytes of the photo this change released
 	return run(
 		S.removeAvatarRequest,
 		request,
