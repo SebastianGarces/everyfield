@@ -7,6 +7,7 @@ import {
 	executeProposal,
 	prepareProposal,
 	readReview,
+	readStagedPhoto,
 	submitTurn,
 	type EvryActor,
 	type Proposal,
@@ -14,7 +15,21 @@ import {
 import { verifyPeople } from "../../../../../packages/evry/src/adapters/people/reads/index.ts";
 import { transaction } from "../../../../../apps/web/src/server/platform/database.ts";
 import { claimDue, finishClaim } from "../../../../../apps/web/src/server/jobs/queue.ts";
-import { actor, admin, db, people, plant, queries, setup, sql, teardown } from "../../../runtime/support.mts";
+import {
+	accounts,
+	actor,
+	admin,
+	bucket,
+	db,
+	people,
+	plant,
+	png,
+	queries,
+	setup,
+	sql,
+	teardown,
+} from "../../../runtime/support.mts";
+import type { PrivateStorage } from "../../../../../packages/db/src/schema/storage.ts";
 
 before(setup);
 after(teardown);
@@ -46,11 +61,12 @@ async function turn(who: EvryActor) {
 }
 
 /** The trusted approval of the exact revision shown, then the effect run once through the WP-031 queue. */
-async function approveAndRun(who: EvryActor, proposal: Proposal) {
-	await approveProposal(db, who, proposal.id, { revision: proposal.revision, digest: proposal.digest });
+async function approveAndRun(who: EvryActor, proposal: Proposal, storage: PrivateStorage | null = null) {
+	await approveProposal(db, who, proposal.id, { revision: proposal.revision, digest: proposal.digest }, storage);
 	// A double confirm queues nothing more.
 	assert.equal(
-		(await approveProposal(db, who, proposal.id, { revision: proposal.revision, digest: proposal.digest })).replayed,
+		(await approveProposal(db, who, proposal.id, { revision: proposal.revision, digest: proposal.digest }, storage))
+			.replayed,
 		true,
 	);
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
@@ -91,12 +107,6 @@ async function openTask(personId: string) {
 	const id = randomUUID();
 	await admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id)
 		VALUES(${id},${plant},'Call back','follow_up','medium','not_started',clock_timestamp(),'undated',${personId})`);
-	return id;
-}
-async function readyUpload() {
-	const id = randomUUID();
-	await admin.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,byte_count,sha256,state,upload_key,claim_generation,expires_at)
-		VALUES(${id},${plant},'person_photo',${"private/" + plant + "/" + randomUUID()},'image/png',100,100,${"0".repeat(64)},'ready',${id},0,clock_timestamp()+interval '15 minutes')`);
 	return id;
 }
 
@@ -246,7 +256,8 @@ test("AC:PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE a retirement runs 
 test("AC:PROVIDER48-002 a photo change uses only this church's own verified upload and runs once; removal releases it", async () => {
 	const owner = await actor("owner");
 	const t = await turn(owner);
-	const upload = await readyUpload();
+	const photos = bucket();
+	const upload = (await photos.upload(png)).id;
 	// Another church's verified upload is never proposed.
 	const foreign = randomUUID();
 	await admin.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,byte_count,sha256,state,upload_key,claim_generation,expires_at)
@@ -259,7 +270,7 @@ test("AC:PROVIDER48-002 a photo change uses only this church's own verified uplo
 	assert.ok(set);
 	assert.deepEqual(set.review.changes, [{ field: "photo", before: null, after: upload }]);
 	assert.equal((await personRow(people.alexRivera)).photo_object_id, null, "nothing changes before approval");
-	const first = await approveAndRun(owner, set);
+	const first = await approveAndRun(owner, set, photos.storage);
 	assert.equal(first.outcome, "completed");
 	assert.equal((await personRow(people.alexRivera)).photo_object_id, upload);
 
@@ -284,4 +295,99 @@ test("AC:PROVIDER48-002 a photo change uses only this church's own verified uplo
 		}),
 	);
 	assert.deepEqual([first.statements, second.statements], [7, 7]);
+});
+
+test("AC:UI45-003 a photo proposal's owner sees the exact staged upload while the review lasts; approval needs it", async () => {
+	const owner = await actor("owner");
+	const t = await turn(owner);
+	const photos = bucket();
+	const other = Buffer.concat([png, Buffer.from("second upload")]);
+	const [a, b] = [await photos.upload(png), await photos.upload(other)];
+	const target = await addPerson("Robin Photo");
+	const first = await t.propose("people.setPersonPhoto", { personId: target, uploadId: a.id });
+	const second = await t.propose("people.setPersonPhoto", { personId: target, uploadId: b.id });
+	assert.ok(first && second);
+
+	// The owner gets each proposal's exact bytes: the two uploads differ. One lookup, then the storage layer's two checks.
+	const start = queries.length;
+	const shown = await readStagedPhoto(db, photos.storage, owner, first.id);
+	console.log(JSON.stringify({ read: "evry.readStagedPhoto", statements: counted(start) }));
+	assert.equal(counted(start), 5);
+	assert.deepEqual([Buffer.from(shown.bytes), shown.mediaType], [png, "image/png"]);
+	assert.deepEqual(Buffer.from((await readStagedPhoto(db, photos.storage, owner, second.id)).bytes), other);
+
+	// Nobody else sees it: a member of the church, an admin of another church, a signed-out owner.
+	const refusal = (p: Promise<unknown>) =>
+		p.then(
+			() => "delivered",
+			(e: { code?: string }) => e.code,
+		);
+	for (const who of ["member", "foreign"] as const)
+		assert.equal(await refusal(readStagedPhoto(db, photos.storage, await actor(who), first.id)), "not_found", who);
+	await admin.execute(
+		sql`UPDATE auth_session SET expires_at=clock_timestamp()-interval '1 second' WHERE id=${accounts.owner.session}`,
+	);
+	try {
+		assert.equal(await refusal(readStagedPhoto(db, photos.storage, owner, first.id)), "not_found", "signed out");
+		assert.equal(
+			await refusal(
+				approveProposal(db, owner, first.id, { revision: first.revision, digest: first.digest }, photos.storage),
+			),
+			"not_found",
+		);
+	} finally {
+		await admin.execute(
+			sql`UPDATE auth_session SET expires_at=clock_timestamp()+interval '1 day' WHERE id=${accounts.owner.session}`,
+		);
+	}
+
+	// An upload whose bytes are gone cannot be shown, so it cannot be approved; nothing is queued.
+	photos.objects.delete(b.key);
+	assert.equal(await refusal(readStagedPhoto(db, photos.storage, owner, second.id)), "not_found");
+	const witness = { revision: second.revision, digest: second.digest };
+	assert.equal(await refusal(approveProposal(db, owner, second.id, witness, photos.storage)), "photo_unavailable");
+	assert.equal(await refusal(approveProposal(db, owner, second.id, witness, null)), "photo_unavailable");
+	assert.equal((await readReview(db, owner, second.id)).status, "pending");
+	// An upload the cleanup worker has taken is refused the same way.
+	const c = await photos.upload(png);
+	const third = await t.propose("people.setPersonPhoto", { personId: target, uploadId: c.id });
+	assert.ok(third);
+	await admin.execute(sql`UPDATE file_object SET state='cleanup' WHERE id=${c.id}`);
+	assert.equal(
+		await refusal(
+			approveProposal(db, owner, third.id, { revision: third.revision, digest: third.digest }, photos.storage),
+		),
+		"photo_unavailable",
+	);
+	const queued = await admin.execute(
+		sql`SELECT count(*)::int n FROM job WHERE kind='evry_effect' AND (producer_key LIKE ${second.id + ":%"} OR producer_key LIKE ${third.id + ":%"})`,
+	);
+	assert.equal(queued.rows[0]!.n, 0, "a refused approval queues nothing");
+
+	// A readable upload approves, bound to the upload just read: the first try, the review, the storage layer's four
+	// checks and the bound approval. Other operations still approve in one statement.
+	const begin = queries.length;
+	const approved = await approveProposal(
+		db,
+		owner,
+		first.id,
+		{ revision: first.revision, digest: first.digest },
+		photos.storage,
+	);
+	console.log(JSON.stringify({ write: "evry.approveProposal(people.setPersonPhoto)", statements: counted(begin) }));
+	assert.equal(counted(begin), 7);
+	assert.deepEqual([approved.replayed, approved.proposal.status], [false, "approved"]);
+	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
+	assert.ok(claim, "the approved photo change is queued");
+	const outcome = await executeProposal(db, {
+		jobId: claim.id,
+		tenantId: claim.tenant_id,
+		leaseOwner: claim.lease_owner,
+		generation: claim.claim_generation,
+	});
+	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
+	assert.equal(outcome, "completed");
+	assert.equal((await personRow(target)).photo_object_id, a.id, "approve saves that exact upload");
+	// Once it is the person's photo it is no longer a staged upload.
+	assert.equal(await refusal(readStagedPhoto(db, photos.storage, owner, first.id)), "not_found");
 });

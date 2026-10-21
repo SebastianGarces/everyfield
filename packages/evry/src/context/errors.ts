@@ -12,6 +12,7 @@ export type EvryErrorCode =
 	| "review_changed"
 	| "review_expired"
 	| "review_closed"
+	| "photo_unavailable"
 	| "unknown";
 
 export class EvryRefusal extends Error {
@@ -34,6 +35,8 @@ const retry: Record<EvryErrorCode, "never" | "same_request" | "new_turn"> = {
 	review_changed: "never",
 	review_expired: "never",
 	review_closed: "never",
+	// The staged upload of a photo proposal is gone or no longer readable; a new upload needs a new review.
+	photo_unavailable: "never",
 	unknown: "new_turn",
 };
 
