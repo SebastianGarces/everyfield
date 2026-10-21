@@ -19,8 +19,8 @@ import {
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { startTransition, useId, useOptimistic, useState, useTransition } from "react";
-import { runSave, STAGE_LABEL } from "../model.ts";
-import { fresh, LocalDay } from "../parts.tsx";
+import { type KeyedPayload, runSave, STAGE_LABEL } from "../model.ts";
+import { LocalDay } from "../parts.tsx";
 import { loadInterviews, recordInterview } from "./actions.ts";
 import {
 	advancedStage,
@@ -45,6 +45,7 @@ import {
 	ChoiceField,
 	codeOf,
 	FailedSave,
+	keptKey,
 	RecordDialog,
 	recorder,
 	ShowEarlier,
@@ -58,7 +59,7 @@ type Draft = {
 	result: Result | "";
 	nextSteps: string;
 } & Record<CriterionKey, { rating: Rating | ""; notes: string }>;
-type Editing = { draft: Draft; problem?: string };
+type Editing = { draft: Draft; problem?: string; key?: KeyedPayload };
 const RATING_OPTIONS = RATINGS.map((r) => ({ value: r, label: RATING_LABEL[r] }));
 const blank = (): Draft => ({
 	occurredOn: today(),
@@ -121,7 +122,9 @@ export function InterviewCard({
 			result: draft.result as Result,
 			nextSteps: draft.nextSteps.trim() || null,
 		};
-		const token = form.send();
+		const sent = form.send();
+		const token = sent.token;
+		const key = sent.keyFor(input);
 		start(async () => {
 			const now = new Date().toISOString();
 			expect({
@@ -132,13 +135,13 @@ export function InterviewCard({
 				revision: "0",
 			} as Interview);
 			expectPerson({ stage: advancedStage(stage, "interviewed") });
-			const r = await runSave(store, "interview", input, (key) => sendTwice(() => recordInterview(key, input)), {
-				fresh,
+			const r = await runSave(store, "interview", input, (k) => sendTwice(() => recordInterview(k, input)), {
+				fresh: () => key.key,
 				toPerson: (v) => ({ ...store.get().saved, stage: v.person.stage, revision: v.person.revision }) as PlantPerson,
 			});
 			if (r?.status !== "ok") {
 				const code = r?.status === "refused" && r.code === "invalid_input" ? "future_date" : codeOf(r);
-				return startTransition(() => form.fail(token, { draft, problem: code }));
+				return startTransition(() => form.fail(token, { draft, problem: code, key: keptKey(r, key) }));
 			}
 			const moved = r.value.person.stageChange;
 			startTransition(() => history.add(r.value.interview));

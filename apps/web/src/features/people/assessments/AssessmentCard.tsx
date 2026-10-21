@@ -16,8 +16,8 @@ import {
 } from "@everyfield/ui/controls";
 import { cn } from "@everyfield/ui/foundations";
 import { startTransition, useOptimistic, useState, useTransition } from "react";
-import { runSave } from "../model.ts";
-import { fresh, LocalDay } from "../parts.tsx";
+import { type KeyedPayload, runSave } from "../model.ts";
+import { LocalDay } from "../parts.tsx";
 import { loadAssessments, recordAssessment } from "./actions.ts";
 import {
 	firstName,
@@ -35,6 +35,7 @@ import {
 	ChoiceField,
 	codeOf,
 	FailedSave,
+	keptKey,
 	RecordDialog,
 	recorder,
 	ShowEarlier,
@@ -44,7 +45,7 @@ import {
 import type { PlantPerson, RecordProps } from "./RecordsSection.tsx";
 
 type Draft = { occurredOn: string } & Record<Lens, { score: string; notes: string }>;
-type Editing = { draft: Draft; problem?: string };
+type Editing = { draft: Draft; problem?: string; key?: KeyedPayload };
 const SCORES = ["1", "2", "3", "4", "5"].map((v) => ({ value: v, label: v }));
 const blank = (): Draft => ({
 	occurredOn: today(),
@@ -88,7 +89,9 @@ export function AssessmentCard({
 			contagious: lens("contagious"),
 			courageous: lens("courageous"),
 		};
-		const token = form.send();
+		const sent = form.send();
+		const token = sent.token;
+		const key = sent.keyFor(input);
 		start(async () => {
 			const now = new Date().toISOString();
 			expect({
@@ -99,13 +102,13 @@ export function AssessmentCard({
 				revision: "0",
 				total: LENSES.reduce((t, l) => t + input[l].score, 0),
 			} as Assessment);
-			const r = await runSave(store, "assessment", input, (key) => sendTwice(() => recordAssessment(key, input)), {
-				fresh,
+			const r = await runSave(store, "assessment", input, (k) => sendTwice(() => recordAssessment(k, input)), {
+				fresh: () => key.key,
 				toPerson: (v) => ({ ...store.get().saved, stage: v.person.stage, revision: v.person.revision }) as PlantPerson,
 			});
 			if (r?.status !== "ok") {
 				const code = r?.status === "refused" && r.code === "invalid_input" ? "future_date" : codeOf(r);
-				return startTransition(() => form.fail(token, { draft, problem: code }));
+				return startTransition(() => form.fail(token, { draft, problem: code, key: keptKey(r, key) }));
 			}
 			startTransition(() => history.add(r.value.assessment));
 			onSaved(r.value.receipt, { kind: "activity", action: "assessment_recorded", recordId: r.value.assessment.id });

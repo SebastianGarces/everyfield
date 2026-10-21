@@ -12,8 +12,8 @@ import {
 } from "@everyfield/ui/controls";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import { useId, useRef, useState, type ReactNode } from "react";
-import type { Outcome } from "../model.ts";
-import { problemText } from "../parts.tsx";
+import { keyFor, type KeyedPayload, type Outcome } from "../model.ts";
+import { fresh, problemText } from "../parts.tsx";
 import { withRecord } from "./model.ts";
 
 /** Why a record was not saved, or may not be, in words. `busy` means another change to this person is still saving. */
@@ -239,12 +239,16 @@ export function useHistory<R extends Dated>(
 	return { ...page, setPage, add, more, loading: state === "loading", failed: state === "failed" };
 }
 
+/** What a failed save keeps for its next try: its key after a lost answer, none after a refusal (a final answer). */
+export const keptKey = (r: Outcome<unknown> | null, key: KeyedPayload) =>
+	r === null || r.status === "lost" ? key : undefined;
+
 /**
  * One card's record form and the saves it sends. A save closes the form at once. When it fails, the form opens again
  * with the reason only if the person has not opened or closed a form since that save. Otherwise the newer form stays
  * as it is, and the failed one waits in the card's own notice, so a late reply never replaces newer work.
  */
-export function useRecordForm<E extends { problem?: string }>() {
+export function useRecordForm<E extends { problem?: string; key?: KeyedPayload }>() {
 	const [editing, setEditing] = useState<E | null>(null);
 	const [failed, setFailed] = useState<E | null>(null);
 	const intent = useRef(0);
@@ -256,10 +260,15 @@ export function useRecordForm<E extends { problem?: string }>() {
 		intent.current++;
 		setEditing(null);
 	};
-	/** Closes the form for a save; the token says whether the form is still the person's latest when it fails. */
+	/**
+	 * Closes the form for a save. The token says whether the form is still the person's latest when the save fails. The
+	 * key is this save intent's own request key: the one its earlier lost try used when the payload is the same, so a
+	 * failed save resumed later (even after another save succeeded) can never be saved twice.
+	 */
 	const send = () => {
+		const prior = editing?.key ?? null;
 		close();
-		return intent.current;
+		return { token: intent.current, prior, keyFor: (payload: unknown) => keyFor(prior, payload, fresh) };
 	};
 	const fail = (token: number, e: E) => {
 		if (token === intent.current) setEditing(e);
