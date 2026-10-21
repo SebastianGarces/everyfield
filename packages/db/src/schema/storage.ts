@@ -35,11 +35,12 @@ const PRODUCTION_BUCKET = "everyfield";
  * then refused and everything else works. A production bucket outside production throws, so the server does not start.
  */
 export function privateStorageFrom(env: Record<string, string | undefined>): PrivateStorage | null {
+	// The bucket name alone decides: a production bucket with incomplete settings is still refused.
+	if (env.AWS_BUCKET_NAME === PRODUCTION_BUCKET && env.VERCEL_ENV !== "production")
+		throw new Error(`The "${PRODUCTION_BUCKET}" bucket is for production only. Set AWS_BUCKET_NAME to everyfield-dev.`);
 	const parsed = storageEnv.safeParse(env);
 	if (!parsed.success) return null;
 	const v = parsed.data;
-	if (v.AWS_BUCKET_NAME === PRODUCTION_BUCKET && env.VERCEL_ENV !== "production")
-		throw new Error(`The "${PRODUCTION_BUCKET}" bucket is for production only. Set AWS_BUCKET_NAME to everyfield-dev.`);
 	return {
 		bucket: v.AWS_BUCKET_NAME,
 		client: new S3Client({

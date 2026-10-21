@@ -149,6 +149,11 @@ test("INV-storage: only a Vercel production deployment may use the production bu
 	// A local preview is a production build: NODE_ENV=production alone is not production.
 	for (const env of [{}, { NODE_ENV: "production" }, { VERCEL_ENV: "preview" }])
 		assert.throws(() => bucket({ ...env, AWS_BUCKET_NAME: "everyfield" }), /production only/);
+	// Incomplete settings with the production bucket are refused too, not read as "no bucket".
+	assert.throws(
+		() => privateStorageFrom({ AWS_BUCKET_NAME: "everyfield", AWS_ENDPOINT_URL_S3: "" }),
+		/production only/,
+	);
 	assert.equal(bucket({ AWS_BUCKET_NAME: "everyfield", VERCEL_ENV: "production" }), "everyfield");
 	assert.equal(bucket({ AWS_BUCKET_NAME: "everyfield-dev" }), "everyfield-dev");
 	assert.equal(bucket({}), null);

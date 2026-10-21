@@ -13,7 +13,6 @@ import { parseQuery, querySearch } from "./model.ts";
 import { PeopleFrame } from "./PeopleFrame.tsx";
 import { PeopleScreen } from "./PeopleScreen.tsx";
 import { PersonScreen } from "./PersonScreen.tsx";
-import { privateStorage } from "@everyfield/db/schema";
 import { canWrite, loadPeople, loadPerson, type Viewer } from "./server.ts";
 
 // The People routes. The files under apps/web/src/app/(product)/(frame)/people/ only re-export these, so the screens, their
@@ -117,7 +116,8 @@ export async function PersonPage({ params }: { params: Promise<{ personId: strin
 			accountId={viewer.accountId}
 			canWrite={canWrite(viewer)}
 			fields={loaded.value.fields}
-			photosEnabled={privateStorage() !== null}
+			// Photo uploads stay hidden until the photo UI task ships; stored photos still read through the photo route.
+			photosEnabled={false}
 		/>
 	);
 }
