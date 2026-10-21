@@ -1228,6 +1228,88 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 	}
 });
 
+test("INV-carry-approval: an approval carries only over clean merges of main on paths the PR never changed", () => {
+	const f = mergeFixture();
+	try {
+		const inWt = (...args: string[]) => execFileSync("git", ["-C", f.wt, ...args], { encoding: "utf8" }).trim();
+		const mainCommit = (path: string, text: string) => {
+			writeFileSync(join(f.root, path), text);
+			f.git("add", path);
+			f.git("commit", "-qm", `Main changes ${path}`);
+			f.git("push", "-q", "origin", "main");
+			inWt("fetch", "-q", "origin", "main");
+		};
+		writeFileSync(join(f.wt, "tools/evf/feature.ts"), "export const feature = 1;\n");
+		writeFileSync(join(f.wt, "README.md"), "Approved PR line.\n" + readFileSync(join(f.wt, "README.md"), "utf8"));
+		inWt("add", "tools/evf/feature.ts", "README.md");
+		inWt("commit", "-qm", "Approved work");
+		const approved = inWt("rev-parse", "HEAD");
+		mainCommit("docs/main-only.md", "Main only.\n");
+		inWt("merge", "-q", "--no-edit", "origin/main");
+		const clean = inWt("rev-parse", "HEAD");
+		const attempt = (head: string, edit: (s) => void = () => {}) => {
+			inWt("reset", "-q", "--hard", head);
+			const state = f.getState();
+			state.pr.headRefOid = head;
+			state.comments["77"] = [
+				{
+					body: `EVF-Review: ${JSON.stringify({ head: approved, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`,
+					html_url: "https://github.com/test/private/pull/77#issuecomment-2",
+				},
+			];
+			state.requiredChecks = [{ ...state.requiredChecks[0], bucket: "pass" }];
+			delete state.checksError;
+			state.calls = [];
+			edit(state);
+			f.setState(state);
+			return () => ship(f.root, f.taskRef);
+		};
+		const merges = () => f.getState().calls.filter((c) => c.args[0] === "pr" && c.args[1] === "merge");
+
+		assert.throws(attempt(clean), /fixture merge barrier/);
+		assert.deepEqual(merges()[0].args, ["pr", "merge", "77", "--squash", "--match-head-commit", clean]);
+		const posted = f.getState().calls.find((c) => c.args[0] === "pr" && c.args[1] === "comment");
+		const proof = JSON.parse(posted.args[posted.args.indexOf("--body") + 1].split("EVF-Carry: ")[1]);
+		assert.equal(proof.approvedHead, approved);
+		assert.equal(proof.head, clean);
+		assert.deepEqual(proof.overlap, []);
+		assert.deepEqual(
+			proof.merges.map((m) => [m.commit, m.branchParent]),
+			[[clean, approved]],
+		);
+
+		assert.throws(
+			attempt(clean, (s) => {
+				s.requiredChecks[0].bucket = "fail";
+				s.checksError = 1;
+			}),
+			/CI must be green/,
+		);
+		assert.deepEqual(merges(), []);
+
+		inWt("reset", "-q", "--hard", approved);
+		inWt("merge", "-q", "--no-commit", "origin/main");
+		writeFileSync(join(f.wt, "tools/evf/feature.ts"), "export const feature = 2;\n");
+		inWt("commit", "-qam", "Merge main with an edit");
+		assert.throws(attempt(inWt("rev-parse", "HEAD")), /does not carry: .* differs from the clean merge of its parents/);
+		assert.deepEqual(merges(), []);
+
+		inWt("reset", "-q", "--hard", clean);
+		writeFileSync(join(f.wt, "tools/evf/feature.ts"), "export const feature = 3;\n");
+		inWt("commit", "-qam", "New work after approval");
+		assert.throws(attempt(inWt("rev-parse", "HEAD")), /does not carry: .* is not a merge of main/);
+		assert.deepEqual(merges(), []);
+
+		inWt("reset", "-q", "--hard", approved);
+		mainCommit("README.md", readFileSync(join(f.root, "README.md"), "utf8") + "Main line.\n");
+		inWt("merge", "-q", "--no-edit", "origin/main");
+		assert.throws(attempt(inWt("rev-parse", "HEAD")), /main changed paths this PR also changes: README.md/);
+		assert.deepEqual(merges(), []);
+	} finally {
+		f.close();
+	}
+});
+
 test("INV-phase7-readiness: doctor reports workflow and preview setup without obsolete trust requirements", () => {
 	const f = fixture();
 	try {

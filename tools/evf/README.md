@@ -14,7 +14,16 @@ A verifier from another model family exercises the real branch, records an exact
 on the PR and runs `evf ship`. Ship reads the PR's required GitHub check status, refuses missing
 or nonpassing CI, verifies the recorded head and model families and checks the PR body against
 the PR standard template. It squash-merges only that head. Branch changes require fresh CI
-and review. The verifier or coordinator runs ship; never arm GitHub auto-merge.
+and review, with one exception: a merge-only head. The verifier or coordinator runs ship; never
+arm GitHub auto-merge.
+
+When the latest valid review approves an earlier head A and the PR head H has no review, ship
+carries A's approval to H only if every commit from A to H is a merge whose first parent is the
+previous head and whose second parent is on main, each merge tree equals the clean
+`git merge-tree` result, the PR's paths (A against its base on main) and main's paths since that
+base do not overlap, and required CI passes on H. Ship posts the proof as an `EVF-Carry:` comment
+before it merges and keeps it in the shipped record. Any other change refuses as before.
+Design tasks, P2/P3 feedback and every `evf approve` route keep exact-head review.
 The ship skill defines the review record and owner approval exceptions.
 
 Model families are `openai` and `anthropic`, not individual model names. Authors put

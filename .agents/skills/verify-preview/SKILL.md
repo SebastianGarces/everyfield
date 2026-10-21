@@ -246,7 +246,10 @@ The script appends `EVF-Review: {"head":...,"verifierFamily":...,"verdict":...,"
 comment. It refuses a head that is not the PR's current head, your own family, results captured on
 another head, and an approval when any results file or the report shows a failure. Use
 `--verdict changes_requested` when anything fails, then send the failures to the coordinator.
-A new head needs a new verification and a new comment. `ship` describes the merge.
+A new head needs a new verification and a new comment. One exception: do not re-review a head that
+only merges main after your approval. Run `bin/evf ship <task>` once required CI is green on it.
+Ship carries your approval when the merges are clean and touch no PR path, and refuses otherwise.
+Then verify the new head as usual. `ship` describes the merge.
 
 ## 7. Clean up
 
