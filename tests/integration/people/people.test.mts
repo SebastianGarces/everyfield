@@ -15,6 +15,7 @@ import {
 	getAccountLink,
 	readColumnOrders,
 	readPersonPage,
+	personFields as fields,
 } from "../../../packages/domain/src/people/index.ts";
 
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
@@ -1289,14 +1290,15 @@ test("INV-tenancy (C13): a seat ended, signed out, held or demoted after the vie
 		["getAccountLink", (t) => getAccountLink(t, v, { personId: orgPerson })],
 	];
 	const org = { kind: "organization", id: organization, organizationKind: "sending_church" };
-	const [removed, signedOut, held, churchHeld, demoted] = [
+	const [removed, reseated, signedOut, held, churchHeld, demoted] = [
 		await seated("admin"),
+		await seated("member"),
 		await seated("member"),
 		await seated("member"),
 		await seated("member"),
 		await seated("admin", org),
 	];
-	for (const who of [removed, signedOut, held, churchHeld])
+	for (const who of [removed, reseated, signedOut, held, churchHeld])
 		for (const [, run] of plantReads(who.reader)) ok(await tx(run));
 	for (const [, run] of orgReads(demoted.reader)) ok(await tx(run));
 	const hold = (kind, subject) =>
@@ -1305,6 +1307,11 @@ test("INV-tenancy (C13): a seat ended, signed out, held or demoted after the vie
 		);
 	// Each change lands after the viewer lookup, as in a request that already resolved its actor.
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${removed.seat}`);
+	// The actor's seat ends and a new one starts: the request's actor named the old seat.
+	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${reseated.seat}`);
+	await admin.execute(
+		sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${reseated.id},${plant},'member',clock_timestamp())`,
+	);
 	await admin.execute(sql`UPDATE auth_session SET expires_at=clock_timestamp() WHERE id=${signedOut.session}`);
 	await hold("account", held.id);
 	made.push(held.id);
@@ -1317,6 +1324,7 @@ test("INV-tenancy (C13): a seat ended, signed out, held or demoted after the vie
 		}
 	};
 	await expectRefused(removed, "seat ended:", plantReads(removed.reader));
+	await expectRefused(reseated, "seat replaced:", plantReads(reseated.reader));
 	await expectRefused(signedOut, "session expired:", plantReads(signedOut.reader));
 	await expectRefused(held, "account on hold:", plantReads(held.reader));
 	// A demoted organization Admin keeps no Admin-wide read of a person they have no duty for.
@@ -1334,6 +1342,9 @@ test("INV-reads (C22): a People read holds no lock on the reader's session, so s
 		["listPeople", (t) => read.listPeople(t, viewer, {})],
 		["getPerson", (t) => read.getPerson(t, viewer, { personId: p.id })],
 		["readPersonPage", (t) => readPersonPage(t, viewer, { personId: p.id }, 50)],
+		["listTags", (t) => fields.listTags(t, viewer, {})],
+		["listHouseholds", (t) => fields.listHouseholds(t, viewer, {})],
+		["getPersonSkills", (t) => fields.getPersonSkills(t, viewer, { personId: p.id })],
 	];
 	const waited = [];
 	for (const [op, run] of reads)
