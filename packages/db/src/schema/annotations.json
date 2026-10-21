@@ -1749,7 +1749,9 @@
 			"development_program.kind": ["apprenticeship", "residency"],
 			"development_enrollment.status": ["active", "completed", "withdrawn"],
 			"schema_migration.provenance": ["original", "adopted"],
-			"people_column.column_name": ["prospect", "attendee", "following_up", "interviewed", "core_group"]
+			"people_column.column_name": ["prospect", "attendee", "following_up", "interviewed", "core_group"],
+			"meeting_kit_item.category": ["essential", "materials", "setup", "av", "organization"],
+			"participation.rsvp_source": ["invitation", "token", "own", "admin"]
 		},
 		"auth_adapter_configuration": {
 			"session_storage": "PostgreSQL database sessions only; no secondary store",
@@ -5930,7 +5932,13 @@
 				"domain": "meetings",
 				"purpose": "Scheduled meeting, frozen civil-time facts and separately held occurrence.",
 				"library_owned": false,
-				"jsonb_keys": {},
+				"jsonb_keys": {
+					"agenda": [
+						"id: stable section ID, unique in the agenda",
+						"title: trimmed section title, 1-120 characters",
+						"minutes: whole minutes, 0-600"
+					]
+				},
 				"capabilities": ["CAP-B-001", "CAP-B-007", "CAP-A-042"],
 				"replaces": ["meeting"],
 				"producer_work_packages": ["WP-004", "WP-020", "WP-022"],
@@ -15509,13 +15517,12 @@
 				"purpose": "One canonical Vision kit checklist item per meeting with an optional same-plant assignee.",
 				"library_owned": false,
 				"jsonb_keys": {},
-				"capabilities": ["CAP-B-001"],
+				"capabilities": ["CAP-B-004"],
 				"replaces": ["meeting_checklist_item"],
-				"producer_work_packages": ["WP-020"],
+				"producer_work_packages": ["WP-004", "WP-020"],
 				"producer_derivation": {
 					"old_target_tables": ["meeting_checklist_item"],
-					"additional_producers": ["WP-020"],
-					"rule": "WP-020 meetings producer storage introduced by migration 0016; D72 package-owned schema."
+					"rule": "Union of producer packages of replaced tables."
 				},
 				"feature_ids": ["MTG-006"],
 				"acceptance_ids": ["AC-MTG-006--MTG-006"],
