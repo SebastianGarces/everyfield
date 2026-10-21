@@ -5,7 +5,6 @@ import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import {
-	authorize,
 	deny,
 	mutation,
 	parse,
