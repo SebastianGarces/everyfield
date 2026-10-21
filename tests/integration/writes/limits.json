@@ -331,6 +331,82 @@
 		"limit": 6,
 		"retry": 12
 	},
+	"people.addSkill": {
+		"limit": 7,
+		"retry": 14
+	},
+	"people.addToHousehold": {
+		"limit": 7,
+		"retry": 14
+	},
+	"people.assignTag": {
+		"limit": 8,
+		"retry": 16
+	},
+	"people.createHouseholdWithHead": {
+		"limit": 6,
+		"retry": 12
+	},
+	"people.createTag": {
+		"limit": 7,
+		"retry": 14
+	},
+	"people.deleteHousehold": {
+		"limit": 7,
+		"retry": 14
+	},
+	"people.deleteTag": {
+		"limit": 7,
+		"retry": 14
+	},
+	"people.propagateAddress": {
+		"limit": 6,
+		"retry": 12
+	},
+	"people.removeFromHousehold": {
+		"limit": 7,
+		"retry": 14
+	},
+	"people.removePersonPhoto": {
+		"limit": 6,
+		"retry": 12
+	},
+	"people.removeSkill": {
+		"limit": 7,
+		"retry": 14
+	},
+	"people.removeTag": {
+		"limit": 8,
+		"retry": 16
+	},
+	"people.requestPersonPhotoUpload": {
+		"limit": 3,
+		"retry": 6
+	},
+	"people.setHouseholdRole": {
+		"limit": 7,
+		"retry": 14
+	},
+	"people.setPersonPhoto": {
+		"limit": 7,
+		"retry": 14
+	},
+	"people.updateHousehold": {
+		"limit": 6,
+		"retry": 12
+	},
+	"people.updateSkill": {
+		"limit": 7,
+		"retry": 14
+	},
+	"people.updateTag": {
+		"limit": 7,
+		"retry": 14
+	},
+	"people/fields/index.uploadPersonPhoto": {
+		"limit": 16,
+		"retry": 32
+	},
 	"people/core.withPeopleWrite": {
 		"limit": 7,
 		"retry": 14
