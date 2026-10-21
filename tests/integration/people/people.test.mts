@@ -1345,6 +1345,10 @@ test("INV-reads (C22): a People read holds no lock on the reader's session, so s
 		["listTags", (t) => fields.listTags(t, viewer, {})],
 		["listHouseholds", (t) => fields.listHouseholds(t, viewer, {})],
 		["getPersonSkills", (t) => fields.getPersonSkills(t, viewer, { personId: p.id })],
+		// A plain { session, selected } context, as the photo route sends, resolves its actor in the read itself.
+		["plain listPeople", (t) => read.listPeople(t, ctx(), {})],
+		["plain getPerson", (t) => read.getPerson(t, ctx(), { personId: p.id })],
+		["plain getPersonPhoto", (t) => fields.getPersonPhoto(t, ctx(), { personId: p.id })],
 	];
 	const waited = [];
 	for (const [op, run] of reads)
