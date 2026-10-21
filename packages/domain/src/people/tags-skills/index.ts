@@ -9,7 +9,7 @@ import {
 	deny,
 	mutation,
 	parse,
-	readAuthority,
+	authorizeRead,
 	readReply,
 	reply,
 	type Context,
@@ -111,9 +111,9 @@ export const tagsAndSkills = {
 		return readReply(async () => {
 			const plant = plantId(ctx);
 			parse(f.listTagsRequest, raw);
-			await authorize(tx, ctx);
+			const { gate } = await authorizeRead(tx, ctx);
 			return f.tagsResult.parse({
-				items: (await readTags(tx, plant, undefined, readAuthority(ctx))).map((r) => r.tag),
+				items: (await readTags(tx, plant, undefined, gate)).map((r) => r.tag),
 			});
 		});
 	},
@@ -121,8 +121,8 @@ export const tagsAndSkills = {
 		return readReply(async () => {
 			const plant = plantId(ctx);
 			const input = parse(f.personFieldsRequest, raw);
-			await authorize(tx, ctx);
-			const p = await personFacts(tx, plant, input.personId, personTagsJson(plant), readAuthority(ctx));
+			const { gate } = await authorizeRead(tx, ctx);
+			const p = await personFacts(tx, plant, input.personId, personTagsJson(plant), gate);
 			return f.personTagsResult.parse({ personId: input.personId, tags: personTags(p.extra) });
 		});
 	},
@@ -250,7 +250,7 @@ export const tagsAndSkills = {
 		return readReply(async () => {
 			const plant = plantId(ctx);
 			const input = parse(f.personFieldsRequest, raw);
-			await authorize(tx, ctx);
+			const { gate } = await authorizeRead(tx, ctx);
 			const p = await personFacts(
 				tx,
 				plant,
@@ -258,7 +258,7 @@ export const tagsAndSkills = {
 				sql`coalesce((SELECT jsonb_agg(jsonb_build_object('id',s.id,'person_id',s.person_id,'name',s.name,'category',s.category,
  'proficiency',s.proficiency,'notes',s.notes,'revision',s.revision::text)) FROM person_skill s
  WHERE s.person_id=person.id AND s.plant_id=${plant}::uuid),'[]')`,
-				readAuthority(ctx),
+				gate,
 			);
 			return f.personSkillsResult.parse({
 				personId: input.personId,

@@ -6,7 +6,7 @@ import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { readPipelinePerson } from "../access/pipeline.ts";
-import { currentActor, RequestActor, requestWrite, writeVisibility } from "../access/session.ts";
+import { currentActor, liveRead, RequestActor, requestWrite } from "../access/session.ts";
 import {
 	auditSavepoint,
 	auditTransaction,
@@ -16,7 +16,7 @@ import {
 	type AuditWrite,
 } from "../operations/writes.ts";
 
-import { owner, revision, type Owner } from "@everyfield/contracts/common";
+import { owner, revision } from "@everyfield/contracts/common";
 import type { PeopleContext, PeopleReply, PeopleWriteContext } from "@everyfield/contracts/people";
 import * as c from "@everyfield/contracts/people";
 
@@ -137,26 +137,13 @@ export async function authorize(tx: Tx, context: Context, write = false) {
 	return actor;
 }
 /**
- * C13: the reader's access as it is now, as one condition inside each statement that returns church data. The session
- * is live, its account is active and holds an accepted, unended seat in this church (an Owner's or Admin's when
- * `admin`), and no lifecycle witness hides the account, the church or the seat. A seat ended, signed out, held or
- * demoted after the request resolved its actor reads nothing. live_session takes no row lock, so a sign-out never
- * waits for a running read (C22).
- */
-export function readAuthority(ctx: { session: string; selected: Owner }, admin = false): SQL {
-	const church = ctx.selected.kind === "organization" ? sql`s.organization_id` : sql`s.plant_id`;
-	return sql`EXISTS(SELECT FROM live_session(${ctx.session}::uuid) i JOIN seat s ON s.account_id=i.account_id
- WHERE i.registration_state='active' AND ${church}=${ctx.selected.id}::uuid AND s.ended_at IS NULL
- AND s.accepted_at<=clock_timestamp() ${admin ? sql`AND s.role<>'member'` : sql``}
- AND ${writeVisibility(sql`i.account_id`, ctx.selected)})`;
-}
-/**
- * The actor a read resolved and the C13 gate each of its statements repeats. An organization Admin reads every person,
- * so the gate keeps that Admin role; any other reader's role does not change what it reads.
+ * The actor a read resolved and the live access check (C13, C22) each of its statements repeats. An organization Admin
+ * reads every person, so the check keeps that Admin role; any other reader's role does not change what it reads.
  */
 export async function authorizeRead(tx: Tx, context: Context) {
 	const actor = await authorize(tx, context);
-	return { actor, gate: readAuthority(context, context.selected.kind === "organization" && isAdministrator(actor)) };
+	const admin = context.selected.kind === "organization" && isAdministrator(actor);
+	return { actor, gate: liveRead({ session: context.session, actor }, admin) };
 }
 /** A write's statements need no read gate: its locked authority holds until COMMIT (D70). */
 export const lockedWrite = sql`true`;

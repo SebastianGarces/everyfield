@@ -9,7 +9,7 @@ import {
 	deny,
 	mutation,
 	parse,
-	readAuthority,
+	authorizeRead,
 	readReply,
 	reply,
 	type Context,
@@ -120,10 +120,10 @@ export const households = {
 		return readReply(async () => {
 			const plant = plantId(ctx);
 			const input = parse(f.listHouseholdsRequest, raw);
-			await authorize(tx, ctx);
+			const { gate } = await authorizeRead(tx, ctx);
 			const term = input.search?.toLowerCase() ?? "";
 			// A refused reader gets the seed row only, so an empty page and a refusal stay distinct.
-			const result = await tx.execute(sql`SELECT g.allowed,x.* FROM (SELECT ${readAuthority(ctx)} AS allowed) g
+			const result = await tx.execute(sql`SELECT g.allowed,x.* FROM (SELECT ${gate} AS allowed) g
  LEFT JOIN LATERAL (SELECT h.id,h.name,h.revision::text AS revision,h.street,h.city,h.state_province,
  h.postal_code,h.country,(SELECT count(*) FROM person p WHERE p.household_id=h.id AND p.tenant_id=h.plant_id AND p.state='live')::int AS members,
  count(*) OVER ()::int AS total
@@ -151,15 +151,9 @@ export const households = {
 		return readReply(async () => {
 			const plant = plantId(ctx);
 			const input = parse(f.householdRequest, raw);
-			await authorize(tx, ctx);
-			if ("householdId" in input) return view(await readHousehold(tx, plant, input.householdId, readAuthority(ctx)));
-			const p = await personFacts(
-				tx,
-				plant,
-				input.personId,
-				householdJson(plant, sql`person.household_id`),
-				readAuthority(ctx),
-			);
+			const { gate } = await authorizeRead(tx, ctx);
+			if ("householdId" in input) return view(await readHousehold(tx, plant, input.householdId, gate));
+			const p = await personFacts(tx, plant, input.personId, householdJson(plant, sql`person.household_id`), gate);
 			return p.household_id ? view(household(p.extra)) : f.householdResult.parse({ status: "none" });
 		});
 	},

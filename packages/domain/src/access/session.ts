@@ -1,5 +1,5 @@
 import * as tables from "@everyfield/db/tables";
-import { and, eq, sql, getTableColumns, isNull, notExists, type SQLWrapper } from "@everyfield/db/query";
+import { and, eq, sql, getTableColumns, isNull, notExists, type SQL, type SQLWrapper } from "@everyfield/db/query";
 import { alias } from "@everyfield/db/query";
 import "server-only";
 import type { Transaction } from "@everyfield/db/client";
@@ -299,6 +299,24 @@ export function writeVisibility(actor: string | SQLWrapper, selected: Owner) {
   (w.kind='account' AND w.opaque_subject_id=${actor}::uuid) OR (w.kind=${selected.kind} AND w.opaque_subject_id=${selected.id}::uuid) OR
   (${selected.kind}<>'account' AND w.seat_id IN (SELECT id FROM seat WHERE account_id=${actor}::uuid
    AND coalesce(plant_id,organization_id)=${selected.id}::uuid AND ended_at IS NULL))))`;
+}
+/**
+ * C13 and C22: the request actor's access as it is now, as one condition for each statement of a tenant read. The
+ * session is live and its account active; a seat actor still holds the same accepted seat in the same plant or
+ * organization, not ended, and Owner or Admin when `admin`; no lifecycle witness hides the account, the owner or the
+ * seat. live_session takes no row lock, so a sign-out never waits for a running read. A write locks its authority
+ * instead (lockWriteAuthority).
+ */
+export function liveRead(authority: { session: string; actor: ActiveActor }, admin = false): SQL {
+	const { accountId, context } = authority.actor;
+	const seat =
+		context.kind === "seat"
+			? sql`EXISTS(SELECT FROM seat s WHERE s.id=${context.seatId}::uuid AND s.account_id=${accountId}::uuid
+ AND ${context.owner.kind === "organization" ? sql`s.organization_id` : sql`s.plant_id`}=${context.owner.id}::uuid
+ AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp() ${admin ? sql`AND s.role<>'member'` : sql``})`
+			: sql`true`;
+	return sql`(EXISTS(SELECT FROM live_session(${authority.session}::uuid) i WHERE i.account_id=${accountId}::uuid
+ AND i.registration_state='active') AND ${seat} AND ${writeVisibility(accountId, context.owner)})`;
 }
 export async function currentWriteAllowed(tx: Transaction, actor: string, selected: Owner) {
 	const result = await tx.execute(sql`SELECT ${writeVisibility(actor, selected)} AS allowed`);

@@ -19,7 +19,7 @@ import {
 	lockOwner,
 	mutation,
 	parse,
-	readAuthority,
+	authorizeRead,
 	readReply,
 	Refusal,
 	reply,
@@ -132,8 +132,8 @@ const photo = {
 		return readReply(async () => {
 			const plant = plantId(ctx);
 			const input = parse(f.personFieldsRequest, raw);
-			await authorize(tx, ctx);
-			const p = await personFacts(tx, plant, input.personId, undefined, readAuthority(ctx));
+			const { gate } = await authorizeRead(tx, ctx);
+			const p = await personFacts(tx, plant, input.personId, undefined, gate);
 			// A retired or merged Person's photo is unavailable (REQ-PPL-005).
 			livePerson(p);
 			return f.personPhotoResult.parse(
@@ -155,11 +155,13 @@ export const personFields = { ...households, ...tagsAndSkills, ...photo };
 function photoAuthority(ctx: PeopleContext, read?: { personId: string }): ResourceAuthorizer {
 	return async (tx, file, intent) => {
 		if (intent === "cleanup" || file.purpose !== "person_photo" || file.tenant_id !== ctx.selected.id) return null;
-		if (intent === "read") {
-			// C13: the live session, seat and lifecycle are checked in the same statement as the exact current photo, on
-			// every pass the storage layer makes, never taken from an actor resolved earlier in the request.
+		try {
+			if (intent !== "read") return { kind: "account", actorId: (await authorize(tx, ctx, true)).accountId };
+			// C13 and C22: the live access check runs in the same statement as the exact current photo, on every pass the
+			// storage layer makes, and holds no session lock.
+			const { actor, gate } = await authorizeRead(tx, ctx);
 			const [current] = await tx
-				.select({ actorId: sql<string>`(SELECT i.account_id FROM access_session(${ctx.session}::uuid) i)` })
+				.select({ id: tables.person.id })
 				.from(tables.person)
 				.where(
 					and(
@@ -167,13 +169,10 @@ function photoAuthority(ctx: PeopleContext, read?: { personId: string }): Resour
 						eq(tables.person.tenant_id, file.tenant_id),
 						eq(tables.person.state, "live"),
 						eq(tables.person.photo_object_id, file.id),
-						readAuthority(ctx),
+						gate,
 					),
 				);
-			return current ? { kind: "account", actorId: current.actorId } : null;
-		}
-		try {
-			return { kind: "account", actorId: (await authorize(tx, ctx, true)).accountId };
+			return current ? { kind: "account", actorId: actor.accountId } : null;
 		} catch (error) {
 			if (error instanceof Refusal) return null;
 			throw error;
