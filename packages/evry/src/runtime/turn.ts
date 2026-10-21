@@ -17,8 +17,9 @@ import { EvryRefusal, projectError, scrub } from "../context/errors.ts";
 import { LIMITS, type StopReason } from "../context/limits.ts";
 import { allowedWrites, prepareProposal } from "../proposals/store.ts";
 import type { QualifiedModel } from "./model.ts";
-import { appendEvent, loadHistory, loadTurn, savedResult, type RunLease } from "./run-store.ts";
+import { appendEvent, loadHistory, loadTurn, savedResult, type RunLease, type Turn } from "./run-store.ts";
 import { meteredModel } from "./spend.ts";
+import { traced, traceTurn, type Claimed } from "./trace.ts";
 
 export type RunDeps = {
 	db: Database;
@@ -60,10 +61,29 @@ function forModel(resultId: number, result: SourceResult) {
  * Runs one claimed turn to its saved end. Reads run under the actor's authority, re-read before each one; every saved
  * event is fenced by the run's job lease; the turn stops truthfully at the first limit, on cancel or on lost ownership.
  */
-export async function runTurn(deps: RunDeps, lease: RunLease): Promise<RunOutcome> {
-	const { db } = deps;
-	const turn = await loadTurn(db, lease);
+export async function runTurn(deps: RunDeps, lease: RunLease, claimed?: Claimed): Promise<RunOutcome> {
+	const turn = await loadTurn(deps.db, lease);
 	if (!turn) return "lost";
+	const { conversation_id: conversationId, message } = turn;
+	return traceTurn(
+		{
+			turnId: lease.turnId,
+			conversationId,
+			submittedAt: message.createdAt,
+			request: scrub(message.body.text),
+			claimed,
+		},
+		(report) => run(deps, lease, turn, report),
+	);
+}
+
+async function run(
+	deps: RunDeps,
+	lease: RunLease,
+	turn: Turn,
+	report: (output: Record<string, unknown>) => void,
+): Promise<RunOutcome> {
+	const { db } = deps;
 	const abort = new AbortController();
 	const wall = setTimeout(() => abort.abort("wall_time"), LIMITS.wallMs);
 	let lost = false;
@@ -75,8 +95,19 @@ export async function runTurn(deps: RunDeps, lease: RunLease): Promise<RunOutcom
 	const usage = { inputTokens: 0, outputTokens: 0 };
 	// A paid model reserves and settles each call in the month's spend counter (D77).
 	let meter: ReturnType<typeof meteredModel> | null = null;
+	let firstText = true;
 	const save = async (kind: "assistant_text" | "tool_result", body: Record<string, unknown>) => {
-		const sequence = lost ? null : await appendEvent(db, lease, turn.conversation_id, kind, body);
+		const append = () => appendEvent(db, lease, turn.conversation_id, kind, body);
+		// The first saved text is what an observer can first deliver: the end of the time to first token on our side.
+		const first = kind === "assistant_text" && firstText;
+		firstText &&= !first;
+		const sequence = lost
+			? null
+			: first
+				? await traced("first text saved", append, () => ({
+						submitToFirstTextMs: Date.now() - turn.message.createdAt.getTime(),
+					}))
+				: await append();
 		if (sequence === null && !lost) {
 			lost = true;
 			abort.abort("lost");
@@ -112,12 +143,13 @@ export async function runTurn(deps: RunDeps, lease: RunLease): Promise<RunOutcom
 			true,
 		);
 		if (sequence === null) return "lost";
+		report({ text, stop });
 		return failed ? "failed" : "succeeded";
 	};
 
 	try {
 		const session = turn.session_id;
-		const actor = session ? await deps.freshActor(session) : null;
+		const actor = session ? await traced("access check", () => deps.freshActor(session)) : null;
 		if (!session || !actor || actor.accountId !== turn.account_id || actor.owner.id !== turn.tenant_id)
 			throw new EvryRefusal("access_denied");
 		if (deps.model.status !== "qualified") throw new EvryRefusal("model_unavailable");
@@ -217,7 +249,7 @@ export async function runTurn(deps: RunDeps, lease: RunLease): Promise<RunOutcom
 				stop = "tool_budget";
 				return null;
 			}
-			const fresh = await deps.freshActor(session);
+			const fresh = await traced("access check", () => deps.freshActor(session));
 			if (!fresh || !sameContext(fresh, actor)) {
 				fail(new EvryRefusal("access_denied"));
 				return null;
@@ -384,6 +416,7 @@ export async function runTurn(deps: RunDeps, lease: RunLease): Promise<RunOutcom
 			// The stream's error part ends the turn with a projected error; the SDK's default logger would print the raw
 			// provider message, URL and payload.
 			onError: () => undefined,
+			telemetry: { functionId: "evry.answer" },
 		});
 		let flushed = Date.now();
 		for await (const part of stream.fullStream) {
