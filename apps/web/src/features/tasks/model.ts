@@ -97,6 +97,8 @@ export type TaskQuery = {
 	categories: Category[];
 	relation: (typeof RELATIONS)[number] | "any";
 	due: (typeof DUE_KINDS)[number] | "any";
+	/** One church team; a team the church does not have matches no task (the server decides). */
+	teamId: string | null;
 	sort: (typeof SORTS)[number];
 	direction: "asc" | "desc";
 	page: number;
@@ -110,11 +112,13 @@ export const DEFAULT_QUERY: TaskQuery = {
 	categories: [],
 	relation: "any",
 	due: "any",
+	teamId: null,
 	sort: "due",
 	direction: "asc",
 	page: 1,
 };
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const oneOf = <T extends string>(list: readonly T[], v: string | null): T | undefined =>
 	list.find((x) => x === v) as T | undefined;
 const manyOf = <T extends string>(list: readonly T[], vs: string[]): T[] => list.filter((x) => vs.includes(x));
@@ -132,6 +136,7 @@ export function parseQuery(p: URLSearchParams): TaskQuery {
 		categories: manyOf(CATEGORIES, p.getAll("category")),
 		relation: oneOf(RELATIONS, p.get("relation")) ?? "any",
 		due: oneOf(DUE_KINDS, p.get("due")) ?? "any",
+		teamId: UUID.test(p.get("team") ?? "") ? p.get("team")!.toLowerCase() : null,
 		sort: oneOf(SORTS, p.get("sort")) ?? "due",
 		direction: p.get("dir") === "desc" ? "desc" : "asc",
 		page: Number.isInteger(page) && page >= 1 && page <= 100_000 ? page : 1,
@@ -149,6 +154,7 @@ export function querySearch(q: TaskQuery): string {
 	for (const v of q.categories) p.append("category", v);
 	if (q.relation !== "any") p.set("relation", q.relation);
 	if (q.due !== "any") p.set("due", q.due);
+	if (q.teamId) p.set("team", q.teamId);
 	if (q.sort !== "due") p.set("sort", q.sort);
 	if (q.direction !== "asc") p.set("dir", q.direction);
 	if (q.page > 1) p.set("page", String(q.page));
@@ -168,7 +174,8 @@ export const isFiltered = (q: TaskQuery) =>
 	q.priorities.length > 0 ||
 	q.categories.length > 0 ||
 	q.relation !== "any" ||
-	q.due !== "any";
+	q.due !== "any" ||
+	q.teamId !== null;
 export const clearFilters = (q: TaskQuery): TaskQuery =>
 	withFilters(q, {
 		search: "",
@@ -177,6 +184,7 @@ export const clearFilters = (q: TaskQuery): TaskQuery =>
 		categories: [],
 		relation: "any",
 		due: "any",
+		teamId: null,
 	});
 
 /** The tasks.count request for the query: the same scope as the list. */
@@ -189,6 +197,7 @@ export function countRequest(q: TaskQuery) {
 		categories: q.categories,
 		relation: q.relation,
 		due: q.due,
+		...(q.teamId ? { teamId: q.teamId } : {}),
 	};
 }
 /** The tasks.list request for the query. */
@@ -380,4 +389,35 @@ export class RequestKeys {
 	settle(slot: string, outcome: Outcome<unknown>) {
 		if (outcome.status !== "lost") this.#keys.delete(slot);
 	}
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Changes in flight. Each one shows at once and falls away when its write settles; the confirmed answer then stands in
+// the rows (patterns.md, optimistic updates). A new task waits under a temporary ID until the server names it.
+
+export type Pending = {
+	status: Readonly<Record<string, Status>>;
+	/** A row as it will be after an edit, or null for a row being deleted. */
+	rows: Readonly<Record<string, TaskItem | null>>;
+	added: readonly TaskItem[];
+};
+export type Change =
+	| { kind: "status"; id: string; status: Status }
+	| { kind: "row"; id: string; row: TaskItem | null }
+	| { kind: "add"; row: TaskItem };
+export const NO_PENDING: Pending = { status: {}, rows: {}, added: [] };
+export const PENDING_PREFIX = "pending:";
+export function withChange(p: Pending, c: Change): Pending {
+	if (c.kind === "status") return { ...p, status: { ...p.status, [c.id]: c.status } };
+	if (c.kind === "row") return { ...p, rows: { ...p.rows, [c.id]: c.row } };
+	return { ...p, added: [c.row, ...p.added] };
+}
+/** The rows as the person sees them: new tasks first, edits applied, deletes hidden, statuses in flight shown. */
+export function shownRows(items: readonly TaskItem[], p: Pending): TaskItem[] {
+	return [...p.added, ...items].flatMap((r) => {
+		const row = r.id in p.rows ? p.rows[r.id] : r;
+		if (!row) return [];
+		const status = p.status[r.id];
+		return [status ? { ...row, status } : row];
+	});
 }

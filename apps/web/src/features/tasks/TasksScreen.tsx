@@ -39,8 +39,12 @@ import { cn, Icon } from "@everyfield/ui/foundations";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
 import { changeTaskStatus, deleteTask, type StatusAction } from "./actions.ts";
-import { loadTask } from "./fetch.ts";
+import { loadTask, relationOptions } from "./fetch.ts";
 import {
+	NO_PENDING,
+	PENDING_PREFIX,
+	shownRows,
+	withChange,
 	CATEGORIES,
 	CATEGORY_LABEL,
 	clearFilters,
@@ -77,7 +81,7 @@ import {
 	type TaskQuery,
 } from "./model.ts";
 import { Assignee, DoneBox, intentHandlers, MetaLine } from "./parts.tsx";
-import { TaskDialog, warmAssignees } from "./TaskDialog.tsx";
+import { TaskDialog, warmAssignees, type Commit, type Draft } from "./TaskDialog.tsx";
 import { TaskSheet, type DetailState } from "./TaskSheet.tsx";
 
 export type Viewer = { accountId: string; role: "owner" | "admin" | "member"; name: string | null };
@@ -134,14 +138,16 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 		setCounts(loaded.counts);
 		setTotal(loaded.page.total);
 	}
-	// Status changes in flight, by task or step ID. They show at once and fall away when the change settles.
-	const [overlay, setOverlay] = useOptimistic<Record<string, Status>, { id: string; status: Status }>({}, (o, p) => ({
-		...o,
-		[p.id]: p.status,
-	}));
-	const shown = items.map((r) => (overlay[r.id] ? { ...r, status: overlay[r.id]! } : r));
+	// Changes in flight (status, edit, delete, new task). They show at once and fall away when the write settles.
+	const [pending, setPending] = useOptimistic(NO_PENDING, withChange);
+	const shown = shownRows(items, pending);
+	// The confirmed rows, for writes that settle after a later render.
+	const listed = useRef(items);
+	useEffect(() => {
+		listed.current = items;
+	}, [items]);
 	const [busy, setBusy] = useState<ReadonlySet<string>>(() => new Set());
-	const [editing, setEditing] = useState<TaskDetail | "new" | null>(null);
+	const [editing, setEditing] = useState<{ task: TaskDetail | "new"; draft?: Draft } | null>(null);
 	const [deleting, setDeleting] = useState<TaskItem | null>(null);
 	const keys = useRef(new RequestKeys());
 	const loading = useRef(new Set<string>());
@@ -188,16 +194,20 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	/** A confirmed write: the row, the counts and an open panel show the saved task; its history gains the entry. */
 	const confirm = (before: TaskItem | null, saved: Saved) => {
 		const task = saved.task;
-		setItems((rows) =>
-			task.deleted
-				? rows.filter((r) => r.id !== task.id)
-				: rows.some((r) => r.id === task.id)
-					? rows.map((r) => (r.id === task.id ? task : r))
-					: [task, ...rows],
-		);
-		if (saved.changed) setCounts((c) => countsAfter(c, before, task.deleted ? null : task));
-		if (!before) setTotal((t) => t + 1);
-		if (task.deleted) setTotal((t) => Math.max(0, t - 1));
+		// A task opened from the address may be outside this list (a closed task in the open list): only its panel changes.
+		const inList = !before || listed.current.some((r) => r.id === task.id);
+		if (inList) {
+			setItems((rows) =>
+				task.deleted
+					? rows.filter((r) => r.id !== task.id)
+					: rows.some((r) => r.id === task.id)
+						? rows.map((r) => (r.id === task.id ? task : r))
+						: [task, ...rows],
+			);
+			if (saved.changed) setCounts((c) => countsAfter(c, before, task.deleted ? null : task));
+			if (!before) setTotal((t) => t + 1);
+			if (task.deleted) setTotal((t) => Math.max(0, t - 1));
+		}
 		setDetails((d) => {
 			const cur = d[task.id];
 			if (task.deleted) {
@@ -286,73 +296,171 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 		setCounts((c) => ({ ...c, childTaskComplete: c.childTaskComplete + delta }));
 	};
 
-	// One status change per task at a time, in the order the person asked: a second change waits for the first and
-	// sends the revision the first one saved, so a quick second click is neither dropped nor refused as out of date.
+	// One write per task at a time, in the order the person asked: a later change waits for the earlier one and sends
+	// the revision it saved, so a quick second change is neither dropped nor refused as out of date.
 	const queue = useRef(new Map<string, Promise<void>>());
 	const revisions = useRef(new Map<string, string>());
 	const revisionOf = (task: Pick<TaskItem, "id" | "revision">) => {
 		const known = revisions.current.get(task.id);
 		return known && BigInt(known) > BigInt(task.revision) ? known : task.revision;
 	};
-	const act = (
-		task: Pick<TaskItem, "id" | "revision" | "title" | "status">,
-		action: StatusAction,
-		parentId?: string,
+	/**
+	 * Runs one write for a task: `show` puts the change on screen, `send` makes the request, `settle` confirms or rolls
+	 * back. The optimistic change lasts exactly as long as the request.
+	 */
+	const serial = <T,>(
+		id: string,
+		show: () => void,
+		send: () => Promise<Outcome<T>>,
+		settle: (r: Outcome<T>) => void,
 	) => {
-		const slot = `status:${task.id}`;
-		setBusy((b) => new Set(b).add(task.id));
-		const run: Promise<void> = (queue.current.get(task.id) ?? Promise.resolve()).then(
+		setBusy((b) => new Set(b).add(id));
+		const run: Promise<void> = (queue.current.get(id) ?? Promise.resolve()).then(
 			() =>
 				new Promise<void>((resolve) =>
 					startAction(async () => {
-						setOverlay({ id: task.id, status: targetOf(action) });
-						const revision = revisionOf(task);
-						const key = keys.current.for(slot, { revision, action });
-						const r = await changeTaskStatus(key, revision, task.id, action).catch(() => lost);
-						keys.current.settle(slot, r);
-						if (r.status === "ok") revisions.current.set(task.id, r.value.task.revision);
+						show();
+						const r = await send().catch(() => lost);
 						resolve();
 						startAction(() => {
-							if (queue.current.get(task.id) === run) {
-								queue.current.delete(task.id);
+							if (queue.current.get(id) === run) {
+								queue.current.delete(id);
 								setBusy((b) => {
 									const n = new Set(b);
-									n.delete(task.id);
+									n.delete(id);
 									return n;
 								});
 							}
-							if (r.status === "ok") {
-								if (parentId) confirmStep(parentId, task, r.value);
-								else confirm(task as TaskItem, r.value);
-								if (action.kind === "waive")
-									toast({ tone: "success", message: `Closed “${task.title}” as no longer needed.` });
-							} else fail(task, r, () => act(task, action, parentId), parentId);
+							settle(r);
 						});
 					}),
 				),
 		);
-		queue.current.set(task.id, run);
+		queue.current.set(id, run);
+	};
+	/** One request with its retry-safe key: a lost answer resends the same key, so the writer replays. */
+	const keyed = (
+		id: string,
+		slot: string,
+		payload: unknown,
+		call: (key: string, revision: string) => Promise<Outcome<Saved>>,
+		revision: string,
+	) => {
+		const key = keys.current.for(slot, { revision, payload });
+		return call(key, revision).then((r) => {
+			keys.current.settle(slot, r);
+			if (r.status === "ok") revisions.current.set(id, r.value.task.revision);
+			return r;
+		});
+	};
+
+	const act = (task: Pick<TaskItem, "id" | "revision" | "title" | "status">, action: StatusAction, parentId?: string) =>
+		serial(
+			task.id,
+			() => setPending({ kind: "status", id: task.id, status: targetOf(action) }),
+			() =>
+				keyed(
+					task.id,
+					`status:${task.id}`,
+					action,
+					(key, rev) => changeTaskStatus(key, rev, task.id, action),
+					revisionOf(task),
+				),
+			(r) => {
+				if (r.status === "ok") {
+					if (parentId) confirmStep(parentId, task, r.value);
+					else confirm(task as TaskItem, r.value);
+					if (action.kind === "waive")
+						toast({ tone: "success", message: `Closed “${task.title}” as no longer needed.` });
+				} else fail(task, r, () => act(task, action, parentId), parentId);
+			},
+		);
+
+	/** New task or edit, shown at once. A refusal puts the row back and offers the form again with the person's text. */
+	const commit = (c: Commit) => {
+		const before = c.before;
+		const id = before?.id ?? c.preview.id;
+		serial(
+			id,
+			() => setPending(before ? { kind: "row", id, row: c.preview } : { kind: "add", row: c.preview }),
+			() => keyed(id, before ? `edit:${id}` : "create", c.payload, c.send, before ? revisionOf(before) : "0"),
+			(r) => {
+				if (r.status === "ok") return saved(before, r.value);
+				const what = before ? `“${before.title}” did not change.` : `“${c.preview.title}” was not added.`;
+				toast({
+					tone: "error",
+					message: `${what} ${problemText(r.status === "lost" ? "lost" : r.code)}`,
+					action:
+						r.status === "lost"
+							? { label: "Try again", altText: "Save the same change again", onSelect: () => commit(c) }
+							: {
+									label: "Open the form",
+									altText: "Open the task form with your changes",
+									onSelect: () => setEditing({ task: before ?? "new", draft: c.draft }),
+								},
+				});
+				if (before && r.status === "refused" && r.code === "conflict") refresh(before.id);
+			},
+		);
+	};
+	const saved = (before: TaskItem | null, value: Saved) => {
+		confirm(before, value);
+		const inView = query.view === "all" || value.task.assignee?.accountId === viewer.accountId;
+		toast({
+			tone: "success",
+			message: before ? `Saved “${value.task.title}”.` : `Added “${value.task.title}”.`,
+			action:
+				!before && !inView
+					? {
+							label: "Show all tasks",
+							altText: "Choose All above the list",
+							onSelect: () => go(withFilters(query, { view: "all" })),
+						}
+					: undefined,
+		});
 	};
 	const toggle = (task: TaskItem) => act(task, isSettled(task.status) ? { kind: "reopen" } : { kind: "complete" });
 	const canAct = (task: Pick<TaskItem, "assignee">) => admin || task.assignee?.accountId === viewer.accountId;
 
-	const remove = async (task: TaskItem) => {
-		const slot = `delete:${task.id}`;
-		const revision = revisionOf(task);
-		const key = keys.current.for(slot, { revision });
-		const r = await deleteTask(key, revision, task.id).catch(() => lost);
-		keys.current.settle(slot, r);
-		if (r.status !== "ok") {
-			if (r.status === "refused" && r.code === "conflict") refresh(task.id);
-			throw new Error(problemText(r.status === "lost" ? "lost" : r.code));
-		}
+	/** Delete, shown at once: the row leaves; a refusal brings it back with the reason. */
+	const remove = (task: TaskItem) => {
 		if (openId === task.id) close();
-		confirm(task, r.value);
-		toast({ tone: "success", message: `Deleted “${task.title}”. Its history is kept.` });
+		serial(
+			task.id,
+			() => setPending({ kind: "row", id: task.id, row: null }),
+			() => keyed(task.id, `delete:${task.id}`, null, (key, rev) => deleteTask(key, rev, task.id), revisionOf(task)),
+			(r) => {
+				if (r.status === "ok") {
+					confirm(task, r.value);
+					return toast({ tone: "success", message: `Deleted “${task.title}”. Its history is kept.` });
+				}
+				toast({
+					tone: "error",
+					message: `“${task.title}” was not deleted. ${problemText(r.status === "lost" ? "lost" : r.code)}`,
+					action:
+						r.status === "lost"
+							? { label: "Try again", altText: "Delete the task again", onSelect: () => remove(task) }
+							: undefined,
+				});
+				if (r.status === "refused" && r.code === "conflict") refresh(task.id);
+			},
+		);
+	};
+	/** Edit needs the description, which the list does not carry: one read, then the form. */
+	const edit = (task: TaskItem) => {
+		const d = details[task.id];
+		if (d?.status === "ok") return setEditing({ task: d.task });
+		warmAssignees();
+		loadTask(task.id).then((r) => (r.status === "ok" ? setEditing({ task: r.value.task }) : fail(task, r)));
 	};
 
-	const openTask = openId ? (shown.find((t) => t.id === openId) ?? null) : null;
 	const openState = openId ? (details[openId] ?? { status: "loading" }) : null;
+	// The open task is the row when it is listed, else its loaded detail (a link to a task outside these filters).
+	const openDetail = openState?.status === "ok" ? openState.task : null;
+	const openTask = openId
+		? (shown.find((t) => t.id === openId) ??
+			(openDetail ? { ...openDetail, status: pending.status[openDetail.id] ?? openDetail.status } : null))
+		: null;
 	const groups = groupsOf(shown, query.sort);
 	const filtered = isFiltered(query);
 
@@ -377,7 +485,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 							<Button
 								variant="primary"
 								icon={Add01Icon}
-								onClick={() => setEditing("new")}
+								onClick={() => setEditing({ task: "new" })}
 								{...intentHandlers(warmAssignees)}
 							>
 								New task
@@ -388,10 +496,16 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 			/>
 			<div className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)] items-start gap-5 max-app-md:grid-cols-1">
 				<Card className="gap-2 px-[18px] py-5 max-app-sm:px-3">
-					<Toolbar query={query} go={go} />
+					<Toolbar query={query} go={go} admin={admin} rows={items} />
 					<div aria-busy={navigating || undefined} className="transition-opacity duration-150 aria-busy:opacity-60">
 						{shown.length === 0 ? (
-							<Empty query={query} filtered={filtered} admin={admin} go={go} onNew={() => setEditing("new")} />
+							<Empty
+								query={query}
+								filtered={filtered}
+								admin={admin}
+								go={go}
+								onNew={() => setEditing({ task: "new" })}
+							/>
 						) : (
 							groups.map((g) => (
 								<section key={g.key} aria-labelledby={GROUP[g.key] ? `group-${g.key}` : undefined}>
@@ -417,17 +531,13 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 												year={year}
 												you={viewer.accountId}
 												admin={admin}
-												canAct={canAct(t)}
+												canAct={canAct(t) && !t.id.startsWith(PENDING_PREFIX)}
 												busy={busy.has(t.id)}
 												onToggle={() => toggle(t)}
 												onAction={(a) => act(t, a)}
-												onOpen={() => open(t.id)}
-												onWarm={() => warm(t.id)}
-												onEdit={() => {
-													const d = details[t.id];
-													if (d?.status === "ok") setEditing(d.task);
-													else loadTask(t.id).then((r) => (r.status === "ok" ? setEditing(r.value.task) : fail(t, r)));
-												}}
+												onOpen={() => !t.id.startsWith(PENDING_PREFIX) && open(t.id)}
+												onWarm={() => !t.id.startsWith(PENDING_PREFIX) && warm(t.id)}
+												onEdit={() => edit(t)}
 												onDelete={() => setDeleting(t)}
 											/>
 										))}
@@ -464,35 +574,27 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				canAct={openTask ? canAct(openTask) : false}
 				busy={openId ? busy.has(openId) : false}
 				onAction={(a) => openTask && act(openTask, a)}
-				onEdit={() => openState?.status === "ok" && setEditing(openState.task)}
+				onEdit={() => openState?.status === "ok" && setEditing({ task: openState.task })}
 				onDelete={() => openTask && setDeleting(openTask)}
 				onRetry={() => openId && warm(openId)}
 				onStep={(step, a) => openId && act(step, a, openId)}
-				overlay={overlay}
+				overlay={pending.status}
 				canActStep={(step) => canAct(step)}
 				stepBusy={(id) => busy.has(id)}
 			/>
 			{admin ? (
 				<TaskDialog
-					task={editing}
+					task={editing?.task ?? null}
+					draft={editing?.draft}
 					viewer={viewer}
 					onClose={() => setEditing(null)}
-					onSaved={(before, saved) => {
-						confirm(before, saved);
+					onCommit={(c) => {
 						setEditing(null);
-						const inView = query.view === "all" || saved.task.assignee?.accountId === viewer.accountId;
-						toast({
-							tone: "success",
-							message: before ? `Saved “${saved.task.title}”.` : `Added “${saved.task.title}”.`,
-							action:
-								!before && !inView
-									? {
-											label: "Show all tasks",
-											altText: "Choose All above the list",
-											onSelect: () => go(withFilters(query, { view: "all" })),
-										}
-									: undefined,
-						});
+						commit(c);
+					}}
+					onSaved={(before, value) => {
+						setEditing(null);
+						saved(before, value);
 					}}
 					onConflict={(id) => refresh(id)}
 				/>
@@ -513,7 +615,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				]}
 				confirmLabel="Delete task"
 				tone="danger"
-				onConfirm={() => (deleting ? remove(deleting) : undefined)}
+				onConfirm={() => void (deleting && remove(deleting))}
 			/>
 		</>
 	);
@@ -569,13 +671,7 @@ function TaskRow({
 			</div>
 			<Assignee task={task} you={you} />
 			{canAct ? (
-				<Menu
-					onOpenChange={(open) => {
-						if (!open) return;
-						onWarm();
-						if (admin) warmAssignees();
-					}}
-				>
+				<Menu>
 					<MenuTrigger asChild>
 						<IconButton icon={MoreHorizontalIcon} label={`More for ${task.title}`} size="sm" />
 					</MenuTrigger>
@@ -671,8 +767,38 @@ function SearchBox({ query, go }: { query: TaskQuery; go: (q: TaskQuery, replace
 	);
 }
 
-function Toolbar({ query, go }: { query: TaskQuery; go: (q: TaskQuery, replace?: boolean) => void }) {
+function Toolbar({
+	query,
+	go,
+	admin,
+	rows,
+}: {
+	query: TaskQuery;
+	go: (q: TaskQuery, replace?: boolean) => void;
+	admin: boolean;
+	rows: readonly TaskItem[];
+}) {
 	const single = <T extends string>(list: readonly T[], v: string[]) => list.find((x) => x === v.at(-1));
+	// Team names: an Owner or Admin reads the church's active teams when the chip shows intent; a Member's seat does not
+	// list teams, so a Member picks from the teams named on this page.
+	const [teams, setTeams] = useState<{ id: string; label: string }[] | "loading" | "failed" | null>(null);
+	const loadTeams = () => {
+		setTeams("loading");
+		relationOptions("team", "").then((r) => setTeams(r.status === "ok" ? r.value.items : "failed"));
+	};
+	const warmTeams = () => void (admin && teams === null && loadTeams());
+	const seen = rows.flatMap((r) =>
+		r.relation?.kind === "team" ? [{ id: r.relation.id, label: r.relation.label }] : [],
+	);
+	const known = [...(Array.isArray(teams) ? teams : []), ...seen].filter(
+		(t, i, all) => all.findIndex((x) => x.id === t.id) === i,
+	);
+	const teamOptions = [
+		...known.map((t) => ({ value: t.id, label: t.label })),
+		...(query.teamId && !known.some((t) => t.id === query.teamId)
+			? [{ value: query.teamId, label: "Chosen team" }]
+			: []),
+	];
 	return (
 		<div className="flex flex-wrap items-center gap-2.5 px-1.5 pb-1.5">
 			<SearchBox key={query.search === "" ? "empty" : "search"} query={query} go={go} />
@@ -707,6 +833,19 @@ function Toolbar({ query, go }: { query: TaskQuery; go: (q: TaskQuery, replace?:
 				value={query.relation === "any" ? [] : [query.relation]}
 				onValueChange={(v) => go(withFilters(query, { relation: single(RELATIONS, v) ?? "any" }))}
 			/>
+			<span className="contents" onPointerOver={warmTeams} onFocusCapture={warmTeams}>
+				<FilterChip
+					label="Team"
+					searchLabel="Search teams"
+					multiple={false}
+					loading={teams === "loading"}
+					error={teams === "failed" ? { message: "The teams did not load.", onRetry: loadTeams } : undefined}
+					emptyText={admin ? "No active teams" : "No team is named on this page"}
+					options={teamOptions}
+					value={query.teamId ? [query.teamId] : []}
+					onValueChange={(v) => go(withFilters(query, { teamId: v.at(-1) ?? null }))}
+				/>
+			</span>
 			<FilterChip
 				label="Due"
 				searchLabel="Search due kinds"

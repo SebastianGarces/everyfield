@@ -35,8 +35,11 @@ import {
 	RequestKeys,
 	sameDue,
 	timeText,
+	PENDING_PREFIX,
 	type Category,
+	type Due,
 	type DueDraft,
+	type Outcome,
 	type Priority,
 	type Saved,
 	type TaskDetail,
@@ -47,14 +50,27 @@ import type { Viewer } from "./TasksScreen.tsx";
 
 type RelationKind = "person" | "meeting" | "team";
 type Relation = { kind: RelationKind; id: string; label: string } | null;
-type Draft = {
+export type Draft = {
 	title: string;
 	description: string;
 	priority: Priority;
 	category: Category;
 	due: DueDraft;
 	assigneeId: string;
+	/** The assignee's name as the form shows it, for the row before the server answers. */
+	assigneeName: string | null;
 	relation: Relation;
+};
+/**
+ * A save the screen shows before the answer: the row as it will be, the request and the person's text (the form opens
+ * again with it after a refusal). `send` takes the request key and the revision the screen holds.
+ */
+export type Commit = {
+	before: TaskDetail | null;
+	preview: TaskItem;
+	payload: unknown;
+	send: (key: string, revision: string) => Promise<Outcome<Saved>>;
+	draft: Draft;
 };
 type Choices = Extract<TaskError, { code: "ambiguous_local_time" }>["details"]["choices"];
 const NOBODY = "nobody";
@@ -70,6 +86,7 @@ function draftOf(task: TaskDetail | null, viewer: Viewer): Draft {
 			category: "general",
 			due: { kind: "undated", date: "", time: "" },
 			assigneeId: viewer.accountId,
+			assigneeName: viewer.name,
 			relation: null,
 		};
 	return {
@@ -79,6 +96,7 @@ function draftOf(task: TaskDetail | null, viewer: Viewer): Draft {
 		category: task.category,
 		due: dueDraftOf(task.due),
 		assigneeId: task.assignee?.accountId ?? NOBODY,
+		assigneeName: task.assignee?.displayName ?? null,
 		relation: task.relation,
 	};
 }
@@ -96,14 +114,19 @@ export const warmAssignees = () => (seats ??= assigneeOptions().catch(() => ({ s
  */
 export function TaskDialog({
 	task,
+	draft,
 	viewer,
 	onClose,
+	onCommit,
 	onSaved,
 	onConflict,
 }: {
 	task: TaskDetail | "new" | null;
+	/** The person's text from a refused save, shown again. */
+	draft?: Draft;
 	viewer: Viewer;
 	onClose: () => void;
+	onCommit: (c: Commit) => void;
 	onSaved: (before: TaskItem | null, saved: Saved) => void;
 	onConflict: (id: string) => void;
 }) {
@@ -113,7 +136,7 @@ export function TaskDialog({
 				<Form
 					key={task === "new" ? "new" : `${task.id}:${task.revision}`}
 					task={task === "new" ? null : task}
-					{...{ viewer, onClose, onSaved, onConflict }}
+					{...{ restore: draft, viewer, onClose, onCommit, onSaved, onConflict }}
 				/>
 			) : null}
 		</Dialog>
@@ -122,19 +145,23 @@ export function TaskDialog({
 
 function Form({
 	task,
+	restore,
 	viewer,
 	onClose,
+	onCommit,
 	onSaved,
 	onConflict,
 }: {
 	task: TaskDetail | null;
+	restore?: Draft;
 	viewer: Viewer;
 	onClose: () => void;
+	onCommit: (c: Commit) => void;
 	onSaved: (before: TaskItem | null, saved: Saved) => void;
 	onConflict: (id: string) => void;
 }) {
 	const [initial] = useState(() => draftOf(task, viewer));
-	const [draft, setDraft] = useState(initial);
+	const [draft, setDraft] = useState(restore ?? initial);
 	const [pending, setPending] = useState(false);
 	const [touched, setTouched] = useState(false);
 	const [problem, setProblem] = useState<string | null>(null);
@@ -179,7 +206,7 @@ function Form({
 		const assigneeId = draft.assigneeId === NOBODY ? null : draft.assigneeId;
 		const relation = draft.relation ? { kind: draft.relation.kind, id: draft.relation.id } : null;
 		const description = draft.description.trim() === "" ? null : draft.description;
-		let call: (key: string) => ReturnType<typeof createTask>;
+		let send: Commit["send"];
 		let payload: unknown;
 		if (!task) {
 			payload = {
@@ -191,7 +218,7 @@ function Form({
 				assigneeId,
 				relation,
 			};
-			call = (key) => createTask(key, payload);
+			send = (key) => createTask(key, payload);
 		} else {
 			const patch: Record<string, unknown> = {};
 			if (title !== initial.title) patch.title = title;
@@ -203,9 +230,50 @@ function Form({
 			if (draft.relation?.id !== initial.relation?.id || draft.relation?.kind !== initial.relation?.kind)
 				patch.relation = relation;
 			if (Object.keys(patch).length === 0) return onClose();
-			payload = { revision: task.revision, patch };
-			call = (key) => editTask(key, task.revision, task.id, patch);
+			payload = patch;
+			send = (key, revision) => editTask(key, revision, task.id, patch);
 		}
+		// A deadline at a new time of day may need the person's answer (a time the clocks skip or repeat), so that save
+		// waits here. Every other save shows at once on the list and is confirmed or rolled back there.
+		const waits = due.due.kind === "resolved_instant" && (!task || !sameDue(draft.due, initial.due));
+		if (!waits) {
+			const shownDue: Due =
+				due.due.kind === "undated"
+					? { kind: "undated" }
+					: due.due.kind === "local_date"
+						? { kind: "local_date", date: due.due.date }
+						: task!.due;
+			const base: TaskItem = task ?? {
+				id: (PENDING_PREFIX + crypto.randomUUID()) as never,
+				revision: "0" as never,
+				title,
+				status: "not_started",
+				priority: draft.priority,
+				category: draft.category,
+				due: shownDue,
+				overdue: null,
+				assignee: null,
+				relation: null,
+				parentId: null,
+				checklist: { total: 0, complete: 0 },
+				managed: null,
+				createdAt: new Date().toISOString() as never,
+				completedAt: null,
+				deleted: false,
+			};
+			const preview: TaskItem = {
+				...base,
+				title,
+				priority: draft.priority,
+				category: draft.category,
+				due: shownDue,
+				overdue: task && sameDue(draft.due, initial.due) ? task.overdue : shownDue.kind === "undated" ? null : false,
+				assignee: assigneeId ? { accountId: assigneeId as never, displayName: draft.assigneeName ?? "" } : null,
+				relation: draft.relation as TaskItem["relation"],
+			};
+			return onCommit({ before: task, preview, payload, send, draft });
+		}
+		const call = (key: string) => send(key, task?.revision ?? "0");
 		const slot = task ? `edit:${task.id}` : "create";
 		const key = keys.current.for(slot, payload);
 		setPending(true);
@@ -318,7 +386,7 @@ function Form({
 							current={task?.assignee ?? null}
 							viewer={viewer}
 							disabled={pending}
-							onChange={(assigneeId) => set({ assigneeId })}
+							onChange={(assigneeId, assigneeName) => set({ assigneeId, assigneeName })}
 						/>
 						<Field label="Priority">
 							<Select
@@ -376,7 +444,7 @@ function AssigneeField({
 	current: TaskItem["assignee"];
 	viewer: Viewer;
 	disabled: boolean;
-	onChange: (v: string) => void;
+	onChange: (v: string, name: string | null) => void;
 }) {
 	const [options, setOptions] = useState<{ value: string; label: string }[] | "failed" | null>(null);
 	useEffect(() => {
@@ -421,7 +489,14 @@ function AssigneeField({
 						: undefined
 			}
 		>
-			<Select value={value} disabled={disabled} onValueChange={onChange} options={known} />
+			<Select
+				value={value}
+				disabled={disabled}
+				onValueChange={(v) =>
+					onChange(v, v === NOBODY ? null : (known.find((o) => o.value === v)?.label.replace(/ \(.*\)$/, "") ?? null))
+				}
+				options={known}
+			/>
 		</Field>
 	);
 }

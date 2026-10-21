@@ -7,12 +7,17 @@
 //   AC:B03-008 AC:B03-009 AC:TARGET-TSK-018: a deadline is sent as church-local wall time, with the chosen offset only
 //     after the person picks one occurrence of a repeated time; a missing day or time is caught before any request.
 //   INV-counts: a confirmed change moves one task between tallies; a deleted task only leaves.
+//   INV-optimistic: changes in flight show at once (new task first, edit applied, delete hidden, status shown) and the
+//     confirmed rows stand when they fall away.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
 	countsAfter,
 	dueInputOf,
 	listRequest,
+	NO_PENDING,
+	shownRows,
+	withChange,
 	parseQuery,
 	querySearch,
 	RequestKeys,
@@ -43,6 +48,13 @@ test("AC:TARGET-TSK-001 INV-url: filters live in the address, reset the page and
 		querySearch(next),
 		"?view=all&q=call&status=blocked&priority=high&category=follow_up&relation=person&sort=title",
 	);
+	// The Team filter (My and All) joins the others and survives a sibling change.
+	const team = "0b6c3f1e-2a7d-4c3b-9f5e-1d2c3b4a5f60";
+	const withTeam = withFilters(q, { teamId: team });
+	assert.equal(listRequest(withTeam).teamId, team);
+	assert.equal(withFilters(withTeam, { search: "x" }).teamId, team);
+	assert.equal(parse(querySearch(withTeam).slice(1)).teamId, team);
+	assert.equal(parse("team=not-a-uuid").teamId, null);
 	// No status in the address is the open list; status=any is every status. Both survive a round trip.
 	assert.deepEqual(parse("").statuses, ["not_started", "in_progress", "blocked"]);
 	assert.equal(querySearch(parse("")), "");
@@ -110,4 +122,22 @@ test("INV-counts: a confirmed change moves one task between tallies; a deleted t
 	const gone = countsAfter(done, { ...before, status: "complete" }, null);
 	assert.equal(gone.topLevelTotal, 1);
 	assert.deepEqual(gone.byStatus, [{ value: "not_started", count: 1 }]);
+});
+
+test("INV-optimistic: changes in flight show at once; the confirmed rows stand when they fall away", () => {
+	const row = (id, extra = {}) => ({ id, title: id, status: "not_started", ...extra });
+	const items = [row("a"), row("b"), row("c")];
+	let p = withChange(NO_PENDING, { kind: "add", row: row("pending:n", { title: "New" }) });
+	p = withChange(p, { kind: "row", id: "a", row: row("a", { title: "Renamed" }) });
+	p = withChange(p, { kind: "row", id: "b", row: null });
+	p = withChange(p, { kind: "status", id: "c", status: "complete" });
+	assert.deepEqual(
+		shownRows(items, p).map((r) => [r.id, r.title, r.status]),
+		[
+			["pending:n", "New", "not_started"],
+			["a", "Renamed", "not_started"],
+			["c", "c", "complete"],
+		],
+	);
+	assert.deepEqual(shownRows(items, NO_PENDING), items);
 });
