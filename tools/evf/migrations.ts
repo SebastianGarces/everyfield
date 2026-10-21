@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { baseRef, fail, git, gitOk, hasRemote, loadConfig, requireWorktree, run, type TaskRef } from "./lib.ts";
@@ -16,15 +16,13 @@ const show = (repo: string, rev: string, path: string) => {
 	const r = run("git", ["show", `${rev}:${path}`], { cwd: repo });
 	return r.code === 0 ? r.stdout : undefined;
 };
-const mainSql = (repo: string, main: string) =>
-	git(repo, "ls-tree", "--name-only", `${main}:${DIR}`)
-		.split("\n")
-		.filter((name) => SQL.test(name));
 
 /** SQL migrations in the checkout that main does not have, in their current order. */
 function branchSql(repo: string, main: string): { main: string[]; added: string[] } {
 	if (!existsSync(join(repo, DIR)) || !gitOk(repo, "cat-file", "-e", `${main}:${DIR}`)) return { main: [], added: [] };
-	const onMain = mainSql(repo, main);
+	const onMain = git(repo, "ls-tree", "--name-only", `${main}:${DIR}`)
+		.split("\n")
+		.filter((name) => SQL.test(name));
 	const added = readdirSync(join(repo, DIR))
 		.filter((name) => SQL.test(name) && !onMain.includes(name))
 		.sort();
