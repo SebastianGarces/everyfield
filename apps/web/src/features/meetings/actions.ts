@@ -2,6 +2,7 @@
 
 import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
+import { redirect } from "next/navigation";
 import { listPeopleRequest } from "@everyfield/contracts/people";
 import {
 	answerRsvpToken,
@@ -45,8 +46,14 @@ const command = (requestKey: string, expectedRevision: string, input: unknown) =
 
 // Meetings ------------------------------------------------------------------------------------------------------
 
+/**
+ * Plans a meeting and opens its page. The redirect returns the new page in the same response as the write, so the
+ * browser makes one round trip instead of a write and then a page load. A refusal comes back as an Outcome.
+ */
 export async function scheduleMeeting(requestKey: string, input: unknown) {
-	return act((tx, ctx) => meetingsWriter.schedule(tx, ctx, { requestKey, input }));
+	const r = await act((tx, ctx) => meetingsWriter.schedule(tx, ctx, { requestKey, input }));
+	if (r.status === "ok") redirect(`/meetings/${r.value.meeting.id}`);
+	return r;
 }
 export async function editMeeting(requestKey: string, expectedRevision: string, meetingId: string, patch: unknown) {
 	return act((tx, ctx) => meetingsWriter.edit(tx, ctx, command(requestKey, expectedRevision, { meetingId, patch })));
@@ -56,8 +63,13 @@ export async function changeStatus(requestKey: string, expectedRevision: string,
 		meetingsWriter.changeStatus(tx, ctx, command(requestKey, expectedRevision, { meetingId, to })),
 	);
 }
+/** Deletes a meeting and returns the meetings list in the same response (see scheduleMeeting). */
 export async function deleteMeeting(requestKey: string, expectedRevision: string, meetingId: string, reason: string) {
-	return act((tx, ctx) => meetingsWriter.delete(tx, ctx, command(requestKey, expectedRevision, { meetingId, reason })));
+	const r = await act((tx, ctx) =>
+		meetingsWriter.delete(tx, ctx, command(requestKey, expectedRevision, { meetingId, reason })),
+	);
+	if (r.status === "ok") redirect("/meetings");
+	return r;
 }
 export async function completePractice(
 	requestKey: string,

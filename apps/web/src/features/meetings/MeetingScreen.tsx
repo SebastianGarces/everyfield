@@ -39,7 +39,6 @@ import {
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
-import { useRouter } from "next/navigation";
 import { useOptimistic, useState, useTransition } from "react";
 import {
 	changeStatus,
@@ -79,7 +78,6 @@ type Reason = "delete" | "void" | "restore" | "not_held" | null;
  * nothing reloads the page. A change refused as out of date reads the meeting again and says so.
  */
 export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageData; canWrite: boolean }) {
-	const router = useRouter();
 	const toast = useToast();
 	const [server, setServer] = useState(loaded);
 	const [data, setData] = useState(loaded);
@@ -357,14 +355,12 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 										: await save({ reason, why }, (key) =>
 												correctOccurrence(key, m.revision, m.id, reason === "void", why),
 											);
+							// A delete that succeeds redirects to the list in the same answer, so no answer comes back here.
 							if (r?.status !== "ok") {
 								if (r?.status === "refused" && r.code === "conflict") stale();
 								return false;
 							}
-							if (reason === "delete") {
-								toast({ message: `${m.displayTitle} was deleted.`, tone: "success" });
-								router.push("/meetings");
-							} else setMeeting((r.value as { meeting: Detail }).meeting);
+							setMeeting((r.value as { meeting: Detail }).meeting);
 							return true;
 						}}
 					/>

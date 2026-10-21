@@ -15,7 +15,6 @@ import {
 	Select,
 	Textarea,
 } from "@everyfield/ui/controls";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { editMeeting, listVenues, scheduleMeeting } from "./actions.ts";
 import {
@@ -108,7 +107,6 @@ function Form({
 	onSaved?: (meeting: Detail) => void;
 	onPreview?: (meeting: Detail | null) => void;
 }) {
-	const router = useRouter();
 	const editing = meeting !== undefined;
 	const [draft, setDraft] = useState(() => initial(meeting));
 	const [touched, setTouched] = useState(false);
@@ -227,7 +225,7 @@ function Form({
 			setChoices(result.choices);
 			return;
 		}
-		if (result.status === "ok") router.push(`/meetings/${result.value.meeting.id}`);
+		// Success redirects in the action itself (one round trip), so only a refusal returns here.
 	}
 
 	const placeOptions = [

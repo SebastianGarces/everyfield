@@ -124,7 +124,9 @@ export function useSave() {
 		if (!last.current || last.current.body !== body) last.current = { key: crypto.randomUUID(), body };
 		setPending(true);
 		setProblem(null);
-		const result: Outcome<T> = await call(last.current.key).catch(() => ({ status: "lost" }) as const);
+		const result: Outcome<T> | undefined = await call(last.current.key).catch(() => ({ status: "lost" }) as const);
+		// No answer: the action redirected and the new page is on its way. Stay busy until it replaces this one.
+		if (result === undefined) return null;
 		setPending(false);
 		if (result.status !== "lost") last.current = null;
 		setProblem(problemOf(result));
