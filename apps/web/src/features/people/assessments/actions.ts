@@ -1,0 +1,183 @@
+"use server";
+
+import { requestDatabase } from "@/server/database";
+import * as c from "@everyfield/contracts/people";
+import {
+	assessments,
+	commitments,
+	interviews,
+	peopleReader,
+	uploadCommitmentDocument,
+} from "@everyfield/domain/people";
+import { z } from "zod";
+import { boundary, invalid, outcome, receipt, type Receipt } from "../boundary.ts";
+import type { Outcome } from "../model.ts";
+import { read, write } from "../server.ts";
+import { peopleContext, privateStorage } from "../fields/server.ts";
+import type {
+	Assessment,
+	Assessments,
+	Commitment,
+	Commitments,
+	CommitmentStatus,
+	Interview,
+	Interviews,
+} from "./model.ts";
+import { HISTORY_PAGE } from "./server.ts";
+
+// Server actions for the 4 C's, interviews and commitments (REQ-PPL-012, 013, 014, 026). Each parses the browser's input
+// with the WP-014 contract, runs one producer write in one transaction and answers with what changed, so the page shows
+// the record, the stage and the Activity entry from the answer and never reloads. A database failure reads as "lost":
+// the browser sends the same request key again, and the producer returns the first result instead of acting twice.
+
+type RecordedPerson = z.infer<typeof c.recordedPerson>;
+export type AssessmentSaved = { assessment: Assessment; person: RecordedPerson; receipt: Receipt };
+export type InterviewSaved = { interview: Interview; person: RecordedPerson; receipt: Receipt };
+export type CommitmentSaved = {
+	commitment: Commitment;
+	person: RecordedPerson;
+	current: CommitmentStatus;
+	receipt: Receipt;
+};
+export type LifecycleSaved = { current: CommitmentStatus; receipt: Receipt };
+export type CorrectionSaved = { commitments: Commitments; receipt: Receipt };
+
+export async function recordAssessment(requestKey: string, input: unknown): Promise<Outcome<AssessmentSaved>> {
+	return boundary(c.createAssessmentRequest, { requestKey, input }, async (v, request) =>
+		outcome(await write(v, (tx, ctx) => assessments.createAssessment(tx, ctx, request)), (r) => ({
+			assessment: r.assessment,
+			person: r.person,
+			receipt: receipt(r),
+		})),
+	);
+}
+
+export async function recordInterview(requestKey: string, input: unknown): Promise<Outcome<InterviewSaved>> {
+	return boundary(c.createInterviewRequest, { requestKey, input }, async (v, request) =>
+		outcome(await write(v, (tx, ctx) => interviews.createInterview(tx, ctx, request)), (r) => ({
+			interview: r.interview,
+			person: r.person,
+			receipt: receipt(r),
+		})),
+	);
+}
+
+const documentForm = z.object({ personId: c.personRequest.shape.personId, file: z.instanceof(File) });
+/**
+ * Stores a commitment document privately before the card is saved: ask for an upload, then verify and store the bytes
+ * (REQ-PPL-014, C29). The answer is the upload the card attaches. A failed upload attaches nothing; the pending object
+ * is cleaned up on its own. The browser keeps the upload, so a retried save never uploads the file twice.
+ */
+export async function uploadDocument(form: FormData): Promise<Outcome<{ uploadId: string }>> {
+	const parsed = documentForm.safeParse(Object.fromEntries(form));
+	if (!parsed.success) return invalid;
+	const { personId, file } = parsed.data;
+	const mime = c.commitmentMime.safeParse(file.type);
+	if (!mime.success || file.size < 1 || file.size > c.COMMITMENT_MAX_BYTES) return invalid;
+	return boundary(c.personRequest, { personId }, async (v) => {
+		const storage = privateStorage();
+		const db = requestDatabase();
+		if (!storage || !db) return { status: "refused", code: "storage_unavailable" };
+		const staged = outcome(
+			await write(v, (tx, ctx) =>
+				commitments.requestCommitmentUpload(tx, ctx, { personId, mime: mime.data, byteLength: file.size }),
+			),
+			(r) => r,
+		);
+		if (staged.status !== "ok") return staged;
+		const bytes = new Uint8Array(await file.arrayBuffer());
+		const stored = await uploadCommitmentDocument(db, storage, peopleContext(v), {
+			uploadId: staged.value.uploadId,
+			bytes,
+		}).catch(() => ({ status: "failed" }) as const);
+		if (stored.status === "failed") return { status: "lost" };
+		if (stored.status === "refused") return { status: "refused", code: stored.error.code };
+		return { status: "ok", value: { uploadId: staged.value.uploadId } };
+	});
+}
+
+export async function recordCommitment(requestKey: string, input: unknown): Promise<Outcome<CommitmentSaved>> {
+	return boundary(c.createCommitmentRequest, { requestKey, input }, async (v, request) =>
+		outcome(await write(v, (tx, ctx) => commitments.createCommitment(tx, ctx, request)), (r) => ({
+			commitment: r.commitment,
+			person: r.person,
+			current: r.current,
+			receipt: receipt(r),
+		})),
+	);
+}
+
+/** Withdraws or reactivates the person's commitment on a date. The stage stays (REQ-PPL-014). */
+export async function changeCommitment(
+	change: "withdraw" | "reactivate",
+	requestKey: string,
+	expectedRevision: string,
+	input: unknown,
+): Promise<Outcome<LifecycleSaved>> {
+	const schema = change === "withdraw" ? c.withdrawCommitmentRequest : c.reactivateCommitmentRequest;
+	return boundary(schema, { requestKey, expectedRevision, input }, async (v, request) =>
+		outcome(
+			await write(v, (tx, ctx) =>
+				change === "withdraw"
+					? commitments.withdrawCommitment(tx, ctx, request)
+					: commitments.reactivateCommitment(tx, ctx, request),
+			),
+			(r) => ({ current: r.current, receipt: receipt(r) }),
+		),
+	);
+}
+
+/**
+ * Corrects one card's date or kind, or voids it. A correction can move the first acquisition and the current state
+ * (REQ-PPL-026), and its answer names neither, so the first history page is read again in the same transaction.
+ */
+export async function correctCommitment(
+	requestKey: string,
+	expectedRevision: string,
+	personId: string,
+	input: unknown,
+): Promise<Outcome<CorrectionSaved>> {
+	const person = c.personRequest.safeParse({ personId });
+	if (!person.success) return invalid;
+	return boundary(c.correctCommitmentRequest, { requestKey, expectedRevision, input }, async (v, request) =>
+		outcome(
+			await write(v, async (tx, ctx) => {
+				const done = await commitments.correctCommitmentLifecycle(tx, ctx, request);
+				if (done.status !== "ok") return done;
+				const page = { personId: person.data.personId, limit: HISTORY_PAGE, page: 1 };
+				const now = await commitments.getCommitments(tx, ctx, page);
+				return now.status === "ok"
+					? { status: "ok", value: { commitments: now.value, receipt: receipt(done.value) } }
+					: now;
+			}),
+			(r) => r,
+		),
+	);
+}
+
+// History pages after the first, which loads with the person page.
+
+export async function loadAssessments(personId: string, page: number): Promise<Outcome<Assessments>> {
+	return boundary(c.personRecordsRequest, { personId, page, limit: HISTORY_PAGE }, async (v, request) =>
+		outcome(await read(v, (tx, ctx) => assessments.getAssessments(tx, ctx, request)), (r) => r),
+	);
+}
+export async function loadInterviews(personId: string, page: number): Promise<Outcome<Interviews>> {
+	return boundary(c.personRecordsRequest, { personId, page, limit: HISTORY_PAGE }, async (v, request) =>
+		outcome(await read(v, (tx, ctx) => interviews.getInterviews(tx, ctx, request)), (r) => r),
+	);
+}
+export async function loadCommitments(personId: string, page: number): Promise<Outcome<Commitments>> {
+	return boundary(c.personRecordsRequest, { personId, page, limit: HISTORY_PAGE }, async (v, request) =>
+		outcome(await read(v, (tx, ctx) => commitments.getCommitments(tx, ctx, request)), (r) => r),
+	);
+}
+
+/** Live people of this church whose name, email or phone match: the witness a card can name (REQ-PPL-014). */
+export async function findWitnesses(search: string): Promise<Outcome<{ id: string; name: string; detail: string }[]>> {
+	return boundary(c.listPeopleRequest, { search, limit: 8 }, async (v, request) =>
+		outcome(await read(v, (tx, ctx) => peopleReader.listPeople(tx, ctx, request)), (r) =>
+			r.items.map((p) => ({ id: p.id, name: p.displayName, detail: p.email ?? p.phone ?? "" })),
+		),
+	);
+}

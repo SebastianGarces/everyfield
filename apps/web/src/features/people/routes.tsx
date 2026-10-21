@@ -117,6 +117,7 @@ export async function PersonPage({ params }: { params: Promise<{ personId: strin
 			accountId={viewer.accountId}
 			canWrite={canWrite(viewer)}
 			fields={loaded.value.fields}
+			records={loaded.value.records}
 			photosEnabled={privateStorage() !== null}
 		/>
 	);
