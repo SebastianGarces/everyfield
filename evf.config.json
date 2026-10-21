@@ -518,11 +518,7 @@
 		},
 		"OPS-25": {
 			"title": "Live access check inside every tenant read",
-			"owningPaths": [
-				"docs/architecture/patterns.md",
-				"docs/architecture/decisions.md",
-				"evf.config.json"
-			],
+			"owningPaths": ["docs/architecture/patterns.md", "docs/architecture/decisions.md", "evf.config.json"],
 			"checks": [
 				{
 					"name": "documentation",
