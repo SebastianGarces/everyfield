@@ -21,6 +21,7 @@ export function CtaSection({ c }: { c: Cta }) {
 				<Reveal className="relative isolate flex flex-col items-center gap-[22px] overflow-hidden px-[clamp(20px,4vw,64px)] py-[clamp(48px,7vw,104px)] text-center text-cream shadow-mk-cta">
 					<Backdrop
 						bg="lake"
+						sizes="(max-width: 1440px) 100vw, 1440px"
 						shade={0.45}
 						className="absolute inset-0 -z-1 max-mk-cx:[--pos:50%_61%]! max-mk-cx:[--shade:.2]! max-mk-cx:[--zoom:1.9]!"
 					/>

@@ -1,6 +1,6 @@
 {
   "note": "Written by scripts/render-share-images.mjs. Do not edit.",
-  "inputs": "ef55e71ede50ce471dfe4882d11eaad8b6162fbfb4c6c54d89639fd637825486",
+  "inputs": "da4debc3b611069ad0907d69bdb6a4108e80d85041804edf2dcf126f7637ee7f",
   "outputs": {
     "../src/app/opengraph-image.png": "87aeaaf348283b43e3095c969574589ebc5ba1efaa9e1e877c4ffa091d229cc9",
     "../src/app/twitter-image.png": "87aeaaf348283b43e3095c969574589ebc5ba1efaa9e1e877c4ffa091d229cc9",

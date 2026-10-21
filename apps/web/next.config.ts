@@ -7,6 +7,9 @@ const config: NextConfig = {
 	turbopack: { root: path.join(import.meta.dirname, "../..") },
 	outputFileTracingRoot: path.join(import.meta.dirname, "../.."),
 	poweredByHeader: false,
+	// Marketing photos (next/image, static imports): AVIF first, WebP fallback, one quality, and a year of cache for the
+	// optimized copies (their URLs carry the content hash of the source file).
+	images: { formats: ["image/avif", "image/webp"], qualities: [70], minimumCacheTTL: 31536000 },
 	transpilePackages: ["@everyfield/domain", "@everyfield/db", "@everyfield/ui"],
 	// The Hugeicons free set is one barrel of about 6,000 icons; this rewrites its imports to the icons in use.
 	experimental: { optimizePackageImports: ["@hugeicons/core-free-icons"] },

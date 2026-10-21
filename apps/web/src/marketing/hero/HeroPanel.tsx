@@ -5,7 +5,7 @@ import { ButtonLink } from "@/components/ButtonLink";
 import { Display } from "@/components/Display";
 import { Icon } from "@/components/Icon";
 import { Reveal } from "@/components/motion/Reveal";
-import { HeroBackdrop } from "../photo/HeroBackdrop";
+import { Backdrop } from "../photo/Backdrop";
 import type { HeroPhoto } from "../photo/photos";
 
 type Props = {
@@ -43,7 +43,7 @@ export function HeroPanel({ headline, subhead, primary, secondary, children, ban
 						dash ? "pb-0" : "pb-[clamp(16px,2.2vw,32px)]",
 					)}
 				>
-					<HeroBackdrop photo={photo} className="hero-fade pointer-events-none absolute inset-0 -z-1" />
+					<Backdrop bg={photo} preload sizes="100vw" className="hero-fade pointer-events-none absolute inset-0 -z-1" />
 					<Display as="h1" size="hero" className="mx-auto max-w-[14ch]">
 						{headline}
 					</Display>

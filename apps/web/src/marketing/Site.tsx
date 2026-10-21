@@ -7,7 +7,6 @@ import { Icon } from "@/components/Icon";
 import { Logo, LogoSymbols } from "@/components/Logo";
 import { ACCESS_PATH } from "@/site";
 import { COPY } from "./copy";
-import { PhotoLoader } from "./photo/PhotoLoader";
 
 // Static frame pieces, rendered on the server and handed to the client nav as elements.
 const navLogo = <Logo variant="nav" />;
@@ -44,7 +43,6 @@ export function Site({
 				{children}
 			</main>
 			<SiteFooter headline={footerHeadline} />
-			<PhotoLoader />
 		</div>
 	);
 }

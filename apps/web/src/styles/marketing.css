@@ -6,8 +6,6 @@
    Values that equal a product token use the product token (ink, ink-2, text-2, green, green-600). */
 @import "tailwindcss";
 @import "../../../../design/handoff/tokens.css";
-/* The marketing photo files and crops (scripts/render-photo-css.mjs). */
-@import "./photos.generated.css";
 /* Product foundations (WP-088): scoped to the product root, so they never touch marketing pages. One build serves both:
    a second Tailwind build would re-declare utilities later in the cascade (see the comment in product.css). */
 @import "../../../../packages/ui/src/foundations/product.css";
@@ -374,41 +372,24 @@
 	--mk-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncG type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncB type='linear' slope='1.6' intercept='-.3'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* Photo surface (foundations.md, Brand: Marketing photos): the photo, a black overlay of --shade (20 % by default, as
-   brightness) and film grain. Backdrop renders <span class="mk-photo" data-photo="<name>">; photos.generated.css sets
-   the file (--photo-src), the focus point (--pos) and any zoom or deeper overlay. The photo draws once PhotoLoader marks
-   the slot data-seen (within half a viewport); without JavaScript it draws at once. The hero is an <img> inside. */
+/* Photo surface (foundations.md, Brand: Marketing photos): a next/image photo, a black overlay of --shade (20 % by
+   default, as brightness) and film grain. Backdrop renders it; the crop sets --pos and --zoom. Text on it is cream. */
 @utility mk-photo {
 	overflow: hidden;
 	isolation: isolate;
 	background-color: var(--color-mk-photo-base);
-	&::before,
+	& img {
+		object-fit: cover;
+		object-position: var(--pos, 50% 50%);
+		transform: scale(var(--zoom, 1));
+		transform-origin: var(--pos, 50% 50%);
+		filter: brightness(calc(1 - var(--shade, 0.2)));
+	}
 	&::after {
 		content: "";
 		position: absolute;
 		inset: 0;
 		pointer-events: none;
-	}
-	&::before {
-		background: var(--photo-src) var(--pos, 50% 50%) / cover no-repeat;
-		transform: scale(var(--zoom, 1));
-		transform-origin: var(--pos, 50% 50%);
-		filter: brightness(calc(1 - var(--shade, 0.2)));
-	}
-	html[data-js] &:not([data-seen])::before {
-		background-image: none;
-	}
-	& img {
-		position: absolute;
-		inset: 0;
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-		object-position: var(--pos, 50% 50%);
-		filter: brightness(calc(1 - var(--shade, 0.2)));
-	}
-	&::after {
-		z-index: 1;
 		background: var(--mk-grain) 0 0 / 260px 260px;
 		opacity: 0.34;
 		mix-blend-mode: overlay;

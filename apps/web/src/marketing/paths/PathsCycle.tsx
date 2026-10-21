@@ -160,6 +160,7 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos 
 						<Backdrop
 							key={photo}
 							bg={photo}
+							sizes="(max-width: 900px) 100vw, 700px"
 							className={cn("absolute inset-0 z-0", i === k ? "opacity-100" : "opacity-0")}
 							style={{ transition: reduced ? "none" : `opacity .7s ${EASE}` }}
 						/>

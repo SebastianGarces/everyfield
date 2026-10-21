@@ -59,7 +59,7 @@ export function SendingGlimpse({ title, body, link }: { title: string; body: str
 	return (
 		<section id="sending" aria-labelledby="sending-title" className="relative isolate overflow-hidden py-section">
 			{/* Cream text crosses the bright sunset band: a 55 % overlay keeps every glyph at 4.5:1 or more at every width. */}
-			<Backdrop bg="harvest" shade={0.55} className="absolute inset-0 -z-1" />
+			<Backdrop bg="harvest" sizes="100vw" shade={0.55} className="absolute inset-0 -z-1" />
 			<div className="mx-auto max-w-mk px-page">
 				<Reveal className="grid grid-cols-12 items-center gap-x-4 gap-y-8 px-[clamp(20px,4vw,64px)] py-[clamp(36px,5vw,72px)] text-cream">
 					<div className="col-span-6 min-w-0 max-mk-cx:col-span-12">

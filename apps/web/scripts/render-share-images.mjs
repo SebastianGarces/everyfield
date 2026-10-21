@@ -26,7 +26,7 @@ const IMAGES = [
 const alt = (h) => `EveryField: ${h.headline} ${h.subhead}`; // shareAlt in src/marketing/meta.ts
 
 const FONTS = ["../src/marketing/share-fonts/dm-serif-display-400.woff2", "../src/marketing/share-fonts/dm-sans-500.woff2"];
-const photoFile = (img) => `../public/photos/${img.photo}-1200.jpg`;
+const photoFile = (img) => `../src/marketing/photo/files/${img.photo}.jpg`;
 const INPUTS = ["./render-share-images.mjs", "../src/marketing/logo-symbols.ts", ...FONTS, ...IMAGES.map(photoFile)];
 const sha = (b) => createHash("sha256").update(b).digest("hex");
 const inputHash = () => sha(Buffer.concat([...INPUTS.map(read), Buffer.from(JSON.stringify(IMAGES))]));
