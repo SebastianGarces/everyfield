@@ -127,14 +127,11 @@ export async function authorize(tx: Tx, context: Context, write = false) {
 		!write && context instanceof PeopleReadContext
 			? context.authority.actor
 			: await currentActor(tx, context.session, context.selected);
-	if (
-		actor.status !== "active" ||
-		actor.context.kind !== "seat" ||
-		!["plant", "organization"].includes(context.selected.kind)
-	)
-		deny();
+	if (actor.status !== "active" || !["plant", "organization"].includes(context.selected.kind)) deny();
+	const seat = actor.context;
+	if (seat.kind !== "seat") deny();
 	if (write && !isAdministrator(actor)) deny();
-	return actor;
+	return { ...actor, context: seat };
 }
 /**
  * The actor a read resolved and the live access check (C13, C22) each of its statements repeats. An organization Admin
@@ -143,7 +140,10 @@ export async function authorize(tx: Tx, context: Context, write = false) {
 export async function authorizeRead(tx: Tx, context: Context) {
 	const actor = await authorize(tx, context);
 	const admin = context.selected.kind === "organization" && isAdministrator(actor);
-	return { actor, gate: liveRead({ session: context.session, actor }, admin) };
+	return {
+		actor,
+		gate: liveRead({ session: context.session, owner: context.selected, seatId: actor.context.seatId }, admin),
+	};
 }
 /** A write's statements need no read gate: its locked authority holds until COMMIT (D70). */
 export const lockedWrite = sql`true`;

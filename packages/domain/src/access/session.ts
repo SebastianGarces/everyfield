@@ -301,22 +301,23 @@ export function writeVisibility(actor: string | SQLWrapper, selected: Owner) {
    AND coalesce(plant_id,organization_id)=${selected.id}::uuid AND ended_at IS NULL))))`;
 }
 /**
- * C13 and C22: the request actor's access as it is now, as one condition for each statement of a tenant read. The
- * session is live and its account active; a seat actor still holds the same accepted seat in the same plant or
- * organization, not ended, and Owner or Admin when `admin`; no lifecycle witness hides the account, the owner or the
- * seat. live_session takes no row lock, so a sign-out never waits for a running read. A write locks its authority
- * instead (lockWriteAuthority).
+ * C13 and C22: access as it is now, as one condition for each statement of a tenant read. The session is live and its
+ * account active; for a plant or organization the account still holds an accepted seat there, not ended, Owner or Admin
+ * when `admin`, and the same seat as the request's actor when `seatId` names it; no lifecycle witness hides the
+ * account, the owner or the seat. live_session takes no row lock, so a sign-out never waits for a running read. A write
+ * locks its authority instead (lockWriteAuthority).
  */
-export function liveRead(authority: { session: string; actor: ActiveActor }, admin = false): SQL {
-	const { accountId, context } = authority.actor;
+export function liveRead(access: { session: string; owner: Owner; seatId?: string }, admin = false): SQL {
+	const { owner } = access;
 	const seat =
-		context.kind === "seat"
-			? sql`EXISTS(SELECT FROM seat s WHERE s.id=${context.seatId}::uuid AND s.account_id=${accountId}::uuid
- AND ${context.owner.kind === "organization" ? sql`s.organization_id` : sql`s.plant_id`}=${context.owner.id}::uuid
- AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp() ${admin ? sql`AND s.role<>'member'` : sql``})`
-			: sql`true`;
-	return sql`(EXISTS(SELECT FROM live_session(${authority.session}::uuid) i WHERE i.account_id=${accountId}::uuid
- AND i.registration_state='active') AND ${seat} AND ${writeVisibility(accountId, context.owner)})`;
+		owner.kind === "account"
+			? sql`i.account_id=${owner.id}::uuid`
+			: sql`EXISTS(SELECT FROM seat s WHERE s.account_id=i.account_id
+ AND ${owner.kind === "organization" ? sql`s.organization_id` : sql`s.plant_id`}=${owner.id}::uuid
+ AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp() ${access.seatId ? sql`AND s.id=${access.seatId}::uuid` : sql``}
+ ${admin ? sql`AND s.role<>'member'` : sql``})`;
+	return sql`EXISTS(SELECT FROM live_session(${access.session}::uuid) i WHERE i.registration_state='active'
+ AND ${seat} AND ${writeVisibility(sql`i.account_id`, owner)})`;
 }
 export async function currentWriteAllowed(tx: Transaction, actor: string, selected: Owner) {
 	const result = await tx.execute(sql`SELECT ${writeVisibility(actor, selected)} AS allowed`);

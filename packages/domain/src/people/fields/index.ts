@@ -10,6 +10,7 @@ import {
 	type ResourceAuthorizer,
 } from "@everyfield/db/schema";
 import * as tables from "@everyfield/db/tables";
+import { liveRead } from "../../access/session.ts";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
@@ -155,13 +156,11 @@ export const personFields = { ...households, ...tagsAndSkills, ...photo };
 function photoAuthority(ctx: PeopleContext, read?: { personId: string }): ResourceAuthorizer {
 	return async (tx, file, intent) => {
 		if (intent === "cleanup" || file.purpose !== "person_photo" || file.tenant_id !== ctx.selected.id) return null;
-		try {
-			if (intent !== "read") return { kind: "account", actorId: (await authorize(tx, ctx, true)).accountId };
+		if (intent === "read") {
 			// C13 and C22: the live access check runs in the same statement as the exact current photo, on every pass the
-			// storage layer makes, and holds no session lock.
-			const { actor, gate } = await authorizeRead(tx, ctx);
+			// storage layer makes, and holds no session lock. No actor from earlier in the request is trusted.
 			const [current] = await tx
-				.select({ id: tables.person.id })
+				.select({ actorId: sql<string>`(SELECT i.account_id FROM live_session(${ctx.session}::uuid) i)` })
 				.from(tables.person)
 				.where(
 					and(
@@ -169,10 +168,13 @@ function photoAuthority(ctx: PeopleContext, read?: { personId: string }): Resour
 						eq(tables.person.tenant_id, file.tenant_id),
 						eq(tables.person.state, "live"),
 						eq(tables.person.photo_object_id, file.id),
-						gate,
+						liveRead({ session: ctx.session, owner: ctx.selected }),
 					),
 				);
-			return current ? { kind: "account", actorId: actor.accountId } : null;
+			return current ? { kind: "account", actorId: current.actorId } : null;
+		}
+		try {
+			return { kind: "account", actorId: (await authorize(tx, ctx, true)).accountId };
 		} catch (error) {
 			if (error instanceof Refusal) return null;
 			throw error;
