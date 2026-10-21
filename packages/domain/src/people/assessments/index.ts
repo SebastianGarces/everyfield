@@ -6,7 +6,16 @@ import "server-only";
 import { z } from "zod";
 import { mutation, parse, readReply, reply, type Context, type Tx, type WriteContext } from "../core.ts";
 import { plantId } from "../fields/shared.ts";
-import { attribution, notFuture, readHistory, recordEvent, recorderSql, subject } from "./shared.ts";
+import {
+	attribution,
+	notFuture,
+	readHistory,
+	recordEvent,
+	recorderSql,
+	receiptOf,
+	replayed,
+	subject,
+} from "./shared.ts";
 
 const lens = z.object({ score: z.number(), notes: z.string().nullable() });
 const assessmentRow = z.object({
@@ -51,8 +60,13 @@ export const assessments = {
 		return reply(tx, async () => {
 			const plant = plantId(ctx);
 			const input = parse(c.createAssessmentRequest, raw);
-			return c.assessmentMutationResult.parse(
-				await mutation<unknown>(tx, ctx, "people.createAssessment", input, async (actor, receiptId, audit) => {
+			let fresh: unknown;
+			const stored = await mutation<unknown>(
+				tx,
+				ctx,
+				"people.createAssessment",
+				input,
+				async (actor, receiptId, audit) => {
 					const a = input.input;
 					const p = await subject(tx, ctx, a.personId);
 					notFuture(p, a.occurredOn);
@@ -92,15 +106,20 @@ export const assessments = {
 						outcome: "changed",
 						receiptId,
 					};
+					fresh = value;
 					return {
-						value,
+						value: receiptOf(value, "assessment", id),
 						subject: p.id,
 						action: "people.recorded",
 						before: { revision: p.revision },
 						after: { revision: p.revision },
 						metadata: recordEvent("assessment_recorded", id),
 					};
-				}),
+				},
+			);
+			// A retry rebuilds the private record from its row; central audit holds only the receipt.
+			return c.assessmentMutationResult.parse(
+				fresh ?? (await replayed(tx, plant, stored, "assessment", sql`four_cs`, assessmentJson, assessmentView)),
 			);
 		});
 	},

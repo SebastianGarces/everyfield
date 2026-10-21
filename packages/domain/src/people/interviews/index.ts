@@ -16,6 +16,8 @@ import {
 	recordEvent,
 	recorderSql,
 	subject,
+	receiptOf,
+	replayed,
 } from "../assessments/shared.ts";
 
 const criterion = z.object({ rating: c.criterionRating, notes: z.string().nullable() });
@@ -68,8 +70,13 @@ export const interviews = {
 		return reply(tx, async () => {
 			const plant = plantId(ctx);
 			const input = parse(c.createInterviewRequest, raw);
-			return c.interviewMutationResult.parse(
-				await mutation<unknown>(tx, ctx, "people.createInterview", input, async (actor, receiptId, audit) => {
+			let fresh: unknown;
+			const stored = await mutation<unknown>(
+				tx,
+				ctx,
+				"people.createInterview",
+				input,
+				async (actor, receiptId, audit) => {
 					const i = input.input;
 					const p = await subject(tx, ctx, i.personId);
 					notFuture(p, i.occurredOn);
@@ -119,15 +126,20 @@ export const interviews = {
 						outcome: "changed",
 						receiptId,
 					};
+					fresh = value;
 					return {
-						value,
+						value: receiptOf(value, "interview", id),
 						subject: p.id,
 						action: "people.recorded",
 						before: { revision: p.revision, stage: p.stage },
 						after: { revision, stage },
 						metadata: recordEvent("interview_recorded", id),
 					};
-				}),
+				},
+			);
+			// A retry rebuilds the private record from its row; central audit holds only the receipt.
+			return c.interviewMutationResult.parse(
+				fresh ?? (await replayed(tx, plant, stored, "interview", sql`interview`, interviewJson, interviewView)),
 			);
 		});
 	},

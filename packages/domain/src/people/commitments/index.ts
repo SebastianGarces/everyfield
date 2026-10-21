@@ -38,6 +38,8 @@ import {
 	recorderSql,
 	subject,
 	type Subject,
+	receiptOf,
+	replayed,
 } from "../assessments/shared.ts";
 
 const commitmentRow = z.object({
@@ -181,8 +183,13 @@ export const commitments = {
 		return reply(tx, async () => {
 			const plant = plantId(ctx);
 			const input = parse(c.createCommitmentRequest, raw);
-			return c.commitmentMutationResult.parse(
-				await mutation<unknown>(tx, ctx, "people.createCommitment", input, async (actor, receiptId, audit) => {
+			let fresh: unknown;
+			const stored = await mutation<unknown>(
+				tx,
+				ctx,
+				"people.createCommitment",
+				input,
+				async (actor, receiptId, audit) => {
 					const k = input.input;
 					const witnessId = k.witness && "personId" in k.witness ? k.witness.personId : null;
 					if (witnessId === k.personId) deny("invalid_subject");
@@ -254,15 +261,20 @@ export const commitments = {
 						outcome: "changed",
 						receiptId,
 					};
+					fresh = value;
 					return {
-						value,
+						value: receiptOf(value, "commitment", id),
 						subject: p.id,
 						action: "people.recorded",
 						before: { revision: p.revision, stage: p.stage, commitment: currentOf(p) },
 						after: { revision, stage, commitment: current },
 						metadata: recordEvent("commitment_recorded", id),
 					};
-				}),
+				},
+			);
+			// A retry rebuilds the private record from its row; central audit holds only the receipt.
+			return c.commitmentMutationResult.parse(
+				fresh ?? (await replayed(tx, plant, stored, "commitment", sql`commitment`, commitmentJson, commitmentView)),
 			);
 		});
 	},

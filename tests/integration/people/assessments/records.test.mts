@@ -65,8 +65,10 @@ const stageOf = async (id) => (await rows(sql`SELECT stage FROM person WHERE id=
 const feed = async (personId) =>
 	ok(await tx((t) => peopleReader.getActivities(t, ctx(), { personId }))).items.filter((a) => a.recordId);
 const audits = (personId) =>
-	rows(sql`SELECT action,before_value,after_value,metadata,reason FROM audit_event
- WHERE subject_id=${sql.param(personId)} AND command_id=id ORDER BY occurred_at,id`);
+	// Every column, the stored retry reply included: privacy checks read the whole audit row.
+	rows(
+		sql`SELECT * FROM audit_event WHERE subject_id=${sql.param(personId)} AND command_id=id ORDER BY occurred_at,id`,
+	);
 
 async function person(name, stage = "prospect") {
 	return ok(
@@ -511,7 +513,11 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 AC:PROVIDER48-
 		actions.filter((a) => a === "commitment_withdrawn" || a === "commitment_reactivated"),
 		["commitment_withdrawn", "commitment_reactivated"],
 	);
-	assert.ok(!JSON.stringify(await audits(alex.id)).match(/Signed after class|Pastor Lee|image\/png/));
+	assert.ok(
+		!JSON.stringify([...(await audits(alex.id)), ...(await audits(casey.id))]).match(
+			/Signed after class|Pastor Lee|image\/png/,
+		),
+	);
 	// Another church reads no commitments.
 	refused(await tx((t) => commitments.getCommitments(t, ctx(2), { personId: alex.id })));
 });

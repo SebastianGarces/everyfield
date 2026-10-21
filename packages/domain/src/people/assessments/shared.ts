@@ -132,3 +132,28 @@ export async function readHistory(
 	const { total, items, latest, extra: more } = found.data;
 	return { plant, total, items, latest, extra: more, next: input.page * input.limit < total ? input.page + 1 : null };
 }
+
+/**
+ * The reply central audit keeps for a retry: everything except the private record (scores, criteria, notes, witness,
+ * document), which audit must never hold (audit.md). It names the record instead.
+ */
+export function receiptOf(value: Record<string, unknown>, field: string, recordId: string) {
+	return { ...Object.fromEntries(Object.entries(value).filter(([k]) => k !== field)), recordId };
+}
+/** A retry rebuilds the private part of its reply from the record itself, under the write's own authority. */
+export async function replayed(
+	tx: Tx,
+	plant: string,
+	stored: unknown,
+	field: string,
+	from: SQL,
+	row: SQL,
+	view: (plant: string, raw: unknown) => unknown,
+) {
+	const { recordId, ...rest } = z.looseObject({ recordId: z.uuid() }).parse(stored);
+	const result = await tx.execute(
+		sql`SELECT ${row} AS j FROM ${from} r WHERE r.id=${recordId}::uuid AND r.plant_id=${plant}::uuid`,
+	);
+	if (!result.rows[0]) deny();
+	return { ...rest, [field]: view(plant, result.rows[0].j) };
+}
