@@ -2087,7 +2087,7 @@ export const meeting = pgTable(
 		plant_id: uuid("plant_id").notNull(),
 		type: text("type", { enum: ["vision_meeting", "orientation", "team_meeting", "prelaunch_practice"] }).notNull(),
 		subtype: text("subtype", { enum: ["regular", "training", "planning", "special", "rehearsal"] }),
-		title: text("title").notNull(),
+		title: text("title"),
 		notes: text("notes"),
 		creator_id: uuid("creator_id"),
 		local_date: date("local_date", { mode: "string" }).notNull(),
@@ -2110,6 +2110,10 @@ export const meeting = pgTable(
 		revision: int64("revision")
 			.notNull()
 			.default(sql`1`),
+		agenda: jsonb("agenda").notNull().default([]),
+		agenda_version: integer("agenda_version"),
+		kit_version: integer("kit_version"),
+		retired_at: timestamp("retired_at", { withTimezone: true, mode: "date" }),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "meeting_fk_0", columns: [table.plant_id], foreignColumns: [plant.id] })
@@ -2164,6 +2168,8 @@ export const meeting = pgTable(
 			sql`((type <> 'prelaunch_practice'::text) OR (status <> 'completed'::text) OR (actual_occurrence_at IS NOT NULL))`,
 		),
 		check("meeting_timezone_iana", sql`(timezone = ANY (${canonicalZones7}))`),
+		check("meeting_ck_7", sql`((type = 'vision_meeting'::text) OR (kit_version IS NULL))`),
+		check("meeting_ck_8", sql`(jsonb_typeof(agenda) = 'array'::text)`),
 		index("meeting_ref_1").using("btree", table.creator_id.asc().nullsLast()),
 		index("meeting_ref_2").using("btree", table.team_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
 		index("meeting_ref_3").using("btree", table.venue_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
@@ -2504,6 +2510,12 @@ export const participation = pgTable(
 		revision: int64("revision")
 			.notNull()
 			.default(sql`1`),
+		removed_at: timestamp("removed_at", { withTimezone: true, mode: "date" }),
+		rsvp_source: text("rsvp_source", { enum: ["invitation", "token", "own", "admin"] }),
+		rsvp_token_hash: text("rsvp_token_hash"),
+		rsvp_token_expires_at: timestamp("rsvp_token_expires_at", { withTimezone: true, mode: "date" }),
+		rsvp_token_open: boolean("rsvp_token_open").notNull().default(false),
+		card_occurred_at: timestamp("card_occurred_at", { withTimezone: true, mode: "date" }),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "participation_fk_0", columns: [table.plant_id], foreignColumns: [plant.id] })
@@ -2563,6 +2575,13 @@ export const participation = pgTable(
 		),
 		check("participation_ck_5", sql`((inviter_person_id IS NULL) OR (inviter_person_id <> person_id))`),
 		check("participation_ck_6", sql`((card_response IS NULL) = (card_recorded_at IS NULL))`),
+		check(
+			"participation_ck_7",
+			sql`(rsvp_source = ANY (ARRAY['invitation'::text, 'token'::text, 'own'::text, 'admin'::text]))`,
+		),
+		check("participation_ck_8", sql`((rsvp_token_hash IS NULL) = (rsvp_token_expires_at IS NULL))`),
+		check("participation_ck_9", sql`((NOT rsvp_token_open) OR (rsvp_token_hash IS NOT NULL))`),
+		uniqueIndex("participation_uq_2").using("btree", table.rsvp_token_hash.asc().nullsLast()),
 		index("participation_ref_0").using("btree", table.plant_id.asc().nullsLast()),
 		index("participation_ref_1").using("btree", table.meeting_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
 		index("participation_ref_2").using("btree", table.person_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
@@ -4454,6 +4473,61 @@ export const venue = pgTable(
 		check("venue_ck_0", sql`(revision >= 1)`),
 		check("venue_ck_1", sql`((capacity IS NULL) OR (capacity >= 1))`),
 		index("venue_ref_0").using("btree", table.plant_id.asc().nullsLast()),
+	],
+);
+export const meeting_kit_item = pgTable(
+	"meeting_kit_item",
+	{
+		id: uuid("id")
+			.notNull()
+			.default(sql`gen_random_uuid()`),
+		plant_id: uuid("plant_id").notNull(),
+		meeting_id: uuid("meeting_id").notNull(),
+		item_key: text("item_key").notNull(),
+		position: integer("position").notNull(),
+		category: text("category", { enum: ["essential", "materials", "setup", "av", "organization"] }).notNull(),
+		text: text("text").notNull(),
+		assignee_person_id: uuid("assignee_person_id"),
+		checked: boolean("checked").notNull().default(false),
+		checked_at: timestamp("checked_at", { withTimezone: true, mode: "date" }),
+		notes: text("notes"),
+		revision: int64("revision")
+			.notNull()
+			.default(sql`1`),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({ name: "meeting_kit_item_fk_0", columns: [table.plant_id], foreignColumns: [plant.id] })
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "meeting_kit_item_fk_1",
+			columns: [table.meeting_id, table.plant_id],
+			foreignColumns: [meeting.id, meeting.plant_id],
+		})
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "meeting_kit_item_fk_2",
+			columns: [table.assignee_person_id, table.plant_id],
+			foreignColumns: [person.id, person.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "meeting_kit_item_pkey", columns: [table.id] }),
+		unique("meeting_kit_item_uq_0").on(table.meeting_id, table.item_key),
+		check("meeting_kit_item_ck_0", sql`(revision >= 1)`),
+		check(
+			"meeting_kit_item_ck_1",
+			sql`(category = ANY (ARRAY['essential'::text, 'materials'::text, 'setup'::text, 'av'::text, 'organization'::text]))`,
+		),
+		check("meeting_kit_item_ck_2", sql`(checked = (checked_at IS NOT NULL))`),
+		check("meeting_kit_item_ck_3", sql`((char_length(text) >= 1) AND (char_length(text) <= 200))`),
+		check("meeting_kit_item_ck_4", sql`((notes IS NULL) OR (char_length(notes) <= 1000))`),
+		index("meeting_kit_item_ref_0").using(
+			"btree",
+			table.assignee_person_id.asc().nullsLast(),
+			table.plant_id.asc().nullsLast(),
+		),
 	],
 );
 
