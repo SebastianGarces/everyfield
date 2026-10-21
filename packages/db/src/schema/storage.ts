@@ -9,6 +9,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { and, eq, gt, inArray, sql } from "drizzle-orm";
+import { z } from "zod";
 import type { Database, Transaction } from "../client.ts";
 import { file_object, audit_event } from "./tables.ts";
 import { validateCommitment } from "./validate-file.ts";
@@ -18,6 +19,42 @@ export type FilePurpose = FileObjectRow["purpose"];
 export interface PrivateStorage {
 	client: S3Client;
 	bucket: string;
+}
+
+const storageEnv = z.object({
+	AWS_BUCKET_NAME: z.string().min(1),
+	AWS_ACCESS_KEY_ID: z.string().min(1),
+	AWS_SECRET_ACCESS_KEY: z.string().min(1),
+	AWS_ENDPOINT_URL_S3: z.url(),
+	AWS_REGION: z.string().min(1).default("auto"),
+});
+/** The production bucket. Only a Vercel production deployment may use it; development, tests and previews use their own. */
+const PRODUCTION_BUCKET = "everyfield";
+/**
+ * The private bucket from the deployment's AWS_* settings, or null when they are absent: photo and document calls are
+ * then refused and everything else works. A production bucket outside production throws, so the server does not start.
+ */
+export function privateStorageFrom(env: Record<string, string | undefined>): PrivateStorage | null {
+	const parsed = storageEnv.safeParse(env);
+	if (!parsed.success) return null;
+	const v = parsed.data;
+	if (v.AWS_BUCKET_NAME === PRODUCTION_BUCKET && env.VERCEL_ENV !== "production")
+		throw new Error(`The "${PRODUCTION_BUCKET}" bucket is for production only. Set AWS_BUCKET_NAME to everyfield-dev.`);
+	return {
+		bucket: v.AWS_BUCKET_NAME,
+		client: new S3Client({
+			endpoint: v.AWS_ENDPOINT_URL_S3,
+			region: v.AWS_REGION,
+			forcePathStyle: true,
+			credentials: { accessKeyId: v.AWS_ACCESS_KEY_ID, secretAccessKey: v.AWS_SECRET_ACCESS_KEY },
+		}),
+	};
+}
+let configured: PrivateStorage | null | undefined;
+/** This process's private bucket, read once from process.env. */
+export function privateStorage(): PrivateStorage | null {
+	if (configured === undefined) configured = privateStorageFrom(process.env);
+	return configured;
 }
 export type FileIdentity = Pick<FileObjectRow, "id" | "tenant_id" | "purpose">;
 // Native producers supply fresh current resource/session/lifecycle checks in this transaction.
