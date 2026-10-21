@@ -64,7 +64,11 @@ export function validate(form: Form): Errors {
 
 const nullable = (v: string) => (v.trim() === "" ? null : v.trim());
 
-export function ChurchSection({ onDeletionRequested }: { onDeletionRequested: (status: DeletionStatus) => void }) {
+export function ChurchSection({
+	onDeletionRequested,
+}: {
+	onDeletionRequested: (status: DeletionStatus | null) => void;
+}) {
 	const { viewer } = useSettings();
 	if (viewer.context !== "plant") return null;
 	return <ChurchLoaded plant={viewer.plant} onDeletionRequested={onDeletionRequested} />;
@@ -75,7 +79,7 @@ function ChurchLoaded({
 	onDeletionRequested,
 }: {
 	plant: PlantOwner;
-	onDeletionRequested: (status: DeletionStatus) => void;
+	onDeletionRequested: (status: DeletionStatus | null) => void;
 }) {
 	const { state, replace, reload } = useSection({ section: "plant", plant });
 	return (
@@ -109,7 +113,7 @@ function ChurchForm({
 	section: PlantSection;
 	replace: (value: SectionResult) => void;
 	reload: () => void;
-	onDeletionRequested: (status: DeletionStatus) => void;
+	onDeletionRequested: (status: DeletionStatus | null) => void;
 }) {
 	const { port, viewer } = useSettings();
 	const saved = formOf(section.values);
@@ -262,12 +266,16 @@ function ChurchForm({
 				<SettingRow label="Church digest" description="Open items sent to each seat that gets the digest.">
 					<DigestControl value={draft.digest} onChange={(digest) => set("digest", digest)} />
 				</SettingRow>
-				{port.flows && canDeleteWorkspace(viewer) ? (
+				{port.flows.requestWorkspaceDeletion && canDeleteWorkspace(viewer) ? (
 					<SettingRow
 						label="Delete church workspace"
 						description="Only the Owner can do this. You have 30 days to cancel."
 					>
-						<WorkspaceDeletionDialog section={section} onRequested={onDeletionRequested} />
+						<WorkspaceDeletionDialog
+							section={section}
+							request={port.flows.requestWorkspaceDeletion}
+							onRequested={onDeletionRequested}
+						/>
 					</SettingRow>
 				) : null}
 			</SectionBody>

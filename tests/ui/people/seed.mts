@@ -78,6 +78,12 @@ async function up(origin: string) {
 	const owner = await account("Daniel Reyes", "owner@people-preview.example.test");
 	const member = await account("Ruth Allen", "member@people-preview.example.test");
 	const seatless = await account("Sam Lee", "seatless@people-preview.example.test");
+	// Settings flows change their own password or ask for deletion and restore it, so they sign in with these through
+	// the form and leave every other seeded session alone (tests/ui/settings/account-flows.test.mjs).
+	const settings = [
+		await account("Lena Park", "settings-password@people-preview.example.test"),
+		await account("Omar Haddad", "settings-deletion@people-preview.example.test"),
+	];
 	// An Owner of a sending church: an organization seat, which has no plant People list.
 	const organizer = await account("Grace Moreno", "church@people-preview.example.test");
 	const organization = randomUUID();
@@ -185,6 +191,7 @@ async function up(origin: string) {
 		owner: { cookie: owner.cookie, accountId: owner.accountId },
 		member: { cookie: member.cookie, accountId: member.accountId },
 		seatless: { cookie: seatless.cookie },
+		settings: { password: PASSWORD, emails: settings.map((a) => a.email) },
 		organization: { cookie: organizer.cookie },
 		people: Object.fromEntries(Object.entries(people).map(([k, v]) => [k, v.id])),
 	});

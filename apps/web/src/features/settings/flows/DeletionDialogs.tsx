@@ -14,13 +14,17 @@ import {
 	Input,
 } from "@everyfield/ui/controls";
 import { useState } from "react";
-import type { DeletionStatus, SectionResult } from "../port";
+import type { DeletionStatus, FlowPort, SectionResult } from "../port";
 import { useWrite } from "../save";
 import { SaveError } from "../SettingsDialog";
 import { useFlows } from "../store";
 
 type PlantSection = Extract<SectionResult, { section: "plant" }>;
 type AccountSection = Extract<SectionResult, { section: "account" }>;
+
+// REQ-KNOW-074: what deletion cannot reach, said plainly (no promise of instant or total erasure).
+export const OUT_OF_REACH =
+	"Some copies are out of our reach. Emails already accepted for delivery still arrive. File links given out before the request work until they expire a short time later. Other services we use delete their copies on their own schedule. Copies someone downloaded or posted elsewhere stay where they are.";
 
 const WORKSPACE_CONSEQUENCES = [
 	"Everyone with a seat loses access at once, and every open session ends.",
@@ -37,12 +41,13 @@ const WORKSPACE_CONSEQUENCES = [
  */
 export function WorkspaceDeletionDialog({
 	section,
+	request,
 	onRequested,
 }: {
 	section: PlantSection;
+	request: NonNullable<FlowPort["requestWorkspaceDeletion"]>;
 	onRequested: (status: DeletionStatus) => void;
 }) {
-	const port = useFlows();
 	const [open, setOpen] = useState(false);
 	const [typed, setTyped] = useState("");
 	const write = useWrite("workspace-deletion");
@@ -62,7 +67,7 @@ export function WorkspaceDeletionDialog({
 		if (!matches) return;
 		const input = { plant: section.plant, confirmed: true as const };
 		const result = await write.run(input, (requestKey) =>
-			port.requestWorkspaceDeletion({ requestKey, expectedRevision: section.revision, input }),
+			request({ requestKey, expectedRevision: section.revision, input }),
 		);
 		if (result.ok) onRequested(result.value);
 	};
@@ -110,15 +115,16 @@ export function WorkspaceDeletionDialog({
 
 /**
  * Deleting your own login (REQ-IDN-032): self only. Church-owned records you wrote stay with the church under a
- * minimal attribution; your photo, private check-ins and your own documents follow the account. A refusal (for an
- * Owner whose church keeps running) is shown in the dialog.
+ * minimal attribution; your photo, private check-ins and your own documents follow the account. A refusal is shown in
+ * the dialog. A reply that never arrived may still have deleted the login and ended this session, so the restricted
+ * deletion page, which reads the request itself, answers it (onRequested with null).
  */
 export function AccountDeletionDialog({
 	section,
 	onRequested,
 }: {
 	section: AccountSection;
-	onRequested: (status: DeletionStatus) => void;
+	onRequested: (status: DeletionStatus | null) => void;
 }) {
 	const port = useFlows();
 	const [open, setOpen] = useState(false);
@@ -134,13 +140,13 @@ export function AccountDeletionDialog({
 			}
 			tone="danger"
 			title="Delete your account?"
-			description={`This deletes the login for ${section.email}. Your church workspace is not deleted.`}
+			description={`This deletes the login for ${section.email}. Your church workspace stays.`}
 			consequences={[
 				"You are signed out on every device at once.",
 				"Records you added for your church, such as people, notes and documents, stay with the church. Your name on them is removed.",
 				"Your photo, your private weekly check-ins and documents only you own are deleted after 30 days.",
-				"You can cancel for 30 days by signing in again. Backup copies expire within 7 days after the deletion finishes.",
-				"Some copies are out of our reach. Emails already accepted for delivery still arrive. File links given out before the request work until they expire a short time later. Other services we use delete their copies on their own schedule. Copies someone downloaded or posted elsewhere stay where they are.",
+				"For 30 days you can cancel on the account deletion page with your email and password. Backup copies expire within 7 days after the deletion finishes.",
+				OUT_OF_REACH,
 			]}
 			cancelLabel="Keep my account"
 			confirmLabel="Delete my account"
@@ -149,9 +155,13 @@ export function AccountDeletionDialog({
 				const result = await write.run(input, (requestKey) =>
 					port.requestAccountDeletion({ requestKey, expectedRevision: section.revision, input }),
 				);
-				if (!result.ok) throw new Error(`${result.refusal.message} Reference ${result.refusal.reference}.`);
-				onRequested(result.value);
+				if (result.ok) return onRequested(result.value);
+				if (UNCERTAIN.has(result.refusal.code)) return onRequested(null);
+				throw new Error(`${result.refusal.message} Reference ${result.refusal.reference}.`);
 			}}
 		/>
 	);
 }
+
+/** Outcomes that may hide a committed request: unknown, a lost reply, or a session the request already ended. */
+const UNCERTAIN = new Set(["unknown", "access_denied"]);
