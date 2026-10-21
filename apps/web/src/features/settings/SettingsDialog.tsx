@@ -53,7 +53,7 @@ export type SettingsDialogProps = {
 	/** Sections drawn by their caller inside this frame, such as Seats (WP-008/ui) and Sharing (WP-007). */
 	slots?: Partial<Record<SectionKey, ReactNode>>;
 	/** A deletion was requested: the session ends and the restricted status page takes over. */
-	onDeletionRequested: (status: DeletionStatus) => void;
+	onDeletionRequested: (status: DeletionStatus | null) => void;
 };
 
 /**
@@ -252,7 +252,7 @@ function SectionContent({
 }: {
 	section: SectionKey;
 	slots: Partial<Record<SectionKey, ReactNode>>;
-	onDeletionRequested: (status: DeletionStatus) => void;
+	onDeletionRequested: (status: DeletionStatus | null) => void;
 }) {
 	switch (section) {
 		case "church":
