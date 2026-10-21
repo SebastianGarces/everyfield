@@ -1,9 +1,6 @@
 import "server-only";
 import { Worker } from "node:worker_threads";
-import { createRequire } from "node:module";
-import { pathToFileURL } from "node:url";
 import sharp from "sharp";
-const require = createRequire(import.meta.url);
 
 // The parse limit is a security bound on parsing only. It starts when the worker has loaded the parser, so a slow
 // worker start (a loaded machine or a cold start) does not reject a valid PDF.
@@ -32,18 +29,11 @@ export async function validateCommitment(
 	}
 	if (mediaType !== "application/pdf" || Buffer.from(bytes.subarray(0, 5)).toString() !== "%PDF-")
 		throw new Error("invalid_file");
-	const entry = pdf.entry ?? pathToFileURL(require.resolve("pdfjs-dist/legacy/build/pdf.mjs")).href;
 	await new Promise<void>((resolve, reject) => {
-		const worker = new Worker(
-			`const {parentPort,workerData}=require('node:worker_threads');
-      (async()=>{const {getDocument}=await import(workerData.entry);parentPort.postMessage('ready');const task=getDocument({data:workerData.bytes,disableFontFace:true,useSystemFonts:false,maxImageSize:0,isEvalSupported:false,verbosity:0});
-      try {const pdf=await task.promise;if(pdf.numPages>100)throw Error('pages');let length=0;for(let i=1;i<=pdf.numPages;i++){const page=await pdf.getPage(i);const content=await page.getTextContent();length+=JSON.stringify(content).length;if(length>1000000)throw Error('expansion');}parentPort.postMessage(true);}finally{await task.destroy();}})().catch(()=>parentPort.postMessage(false));`,
-			{
-				eval: true,
-				workerData: { entry, bytes: Uint8Array.from(bytes) },
-				resourceLimits: { maxOldGenerationSizeMb: 96, maxYoungGenerationSizeMb: 16, stackSizeMb: 4 },
-			},
-		);
+		const worker = new Worker(new URL("./parse-pdf.worker.mjs", import.meta.url), {
+			workerData: { entry: pdf.entry, bytes: Uint8Array.from(bytes) },
+			resourceLimits: { maxOldGenerationSizeMb: 96, maxYoungGenerationSizeMb: 16, stackSizeMb: 4 },
+		});
 		let settled = false;
 		const finish = (valid: boolean) => {
 			if (settled) return;
