@@ -50,12 +50,8 @@ export type MeshTone = "field" | "sky" | "sage" | "rose";
  */
 export type Backdrop = PhotoName | `mesh:${MeshTone}`;
 
-/** The hero photos have a small hero copy (scripts/render-hero-photos.mjs): the page's LCP element, about 9 KB. */
+/** The hero photos: each has a small inlined hero copy (HeroBackdrop, scripts/render-hero-photos.mjs). */
 export type HeroPhoto = "wildflowers" | "bluebells";
-
-export function heroSources(name: HeroPhoto) {
-	return { avif: `/photos/${name}-640.avif`, src: `/photos/${name}-640.jpg`, crop: PHOTOS[name] as Crop };
-}
 
 export function photoSources(name: PhotoName) {
 	const c: Crop = PHOTOS[name];

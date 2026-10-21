@@ -5,7 +5,7 @@ import { ButtonLink } from "@/components/ButtonLink";
 import { Display } from "@/components/Display";
 import { Icon } from "@/components/Icon";
 import { Reveal } from "@/components/motion/Reveal";
-import { HeroBackdrop } from "../photo/Backdrop";
+import { HeroBackdrop } from "../photo/HeroBackdrop";
 import type { HeroPhoto } from "../photo/photos";
 
 type Props = {

@@ -1,12 +1,11 @@
 import type { CSSProperties, ReactNode } from "react";
-import { preload } from "react-dom";
 import { cn } from "@/components/cn";
-import { heroSources, photoSources, type Backdrop as Bg, type HeroPhoto, type MeshTone } from "./photos";
+import { photoSources, type Backdrop as Bg, type MeshTone } from "./photos";
 
 /** Full class names, so Tailwind finds them. */
 const MESH: Record<MeshTone, string> = { field: "g-field", sky: "g-sky", sage: "g-sage", rose: "g-rose" };
 
-type Layer = {
+export type Layer = {
 	/** Layout classes of the layer (position, inset, z-index, corners, mask). */
 	className?: string;
 	style?: CSSProperties;
@@ -61,20 +60,8 @@ export function Backdrop({
 	);
 }
 
-/** The page's hero photo: its small hero copy, loaded first and preloaded (the page's only preloaded image). */
-export function HeroBackdrop({ photo, ...layer }: Layer & { photo: HeroPhoto }) {
-	const { avif, src, crop } = heroSources(photo);
-	preload(avif, { as: "image", type: "image/avif", fetchPriority: "high" });
-	return (
-		<PhotoLayer {...layer} pos={crop.pos} cropShade={crop.shade} cropZoom={crop.zoom}>
-			<source type="image/avif" srcSet={avif} />
-			{/* eslint-disable-next-line @next/next/no-img-element -- the <picture> is in PhotoLayer; the files are web-sized AVIF and JPEG copies */}
-			<img src={src} alt="" fetchPriority="high" />
-		</PhotoLayer>
-	);
-}
-
-function PhotoLayer({
+/** The photo layer: the <picture> under the overlay and the grain (mk-photo). */
+export function PhotoLayer({
 	className,
 	style,
 	shade,
