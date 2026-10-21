@@ -14,6 +14,7 @@ import {
 	live,
 	hash,
 	lockOwner,
+	lockedWrite,
 	mutation,
 	parse,
 	patchPerson,
@@ -33,11 +34,24 @@ export function appendPerson(
 	writes: SQLWrapper[],
 	linkedAccountId: string | null = null,
 ) {
+	const row = newPerson(context, raw, linkedAccountId);
+	writes.push(
+		tx.insert(tables.person).values({ ...row, birth_date: row.birth_date?.toISOString().slice(0, 10) ?? null }),
+	);
+	if (context.selected.kind === "plant") writes.push(columnsChanged(context.selected.id, [row.stage]));
+	return row;
+}
+/** A new live Person row with the People defaults. The CSV import passes a stable ID and creation time per row. */
+export function newPerson(
+	context: Pick<Context, "selected">,
+	raw: z.infer<typeof c.createPersonRequest>["input"] | z.infer<typeof c.createOrganizationPersonRequest>["input"],
+	linkedAccountId: string | null = null,
+	id: string = randomUUID(),
+	at = new Date(),
+) {
 	const plant = context.selected.kind === "plant",
 		p = c.createPersonRequest.shape.input.parse(raw);
-	const id = randomUUID(),
-		at = new Date();
-	const row = personRow.parse({
+	return personRow.parse({
 		id,
 		tenant_id: context.selected.id,
 		plant_id: plant ? context.selected.id : null,
@@ -68,11 +82,6 @@ export function appendPerson(
 		pipeline_position: plant ? freshPosition(id, at) : null,
 		...contactValues(raw),
 	});
-	writes.push(
-		tx.insert(tables.person).values({ ...row, birth_date: row.birth_date?.toISOString().slice(0, 10) ?? null }),
-	);
-	if (plant) writes.push(columnsChanged(context.selected.id, [row.stage]));
-	return row;
 }
 
 /**
@@ -80,25 +89,25 @@ export function appendPerson(
  * ID so that two people never share a key. New people, a stage change into another column and a restore get one;
  * moves inside a column then always find a key strictly between two neighbours.
  */
-function freshPosition(id: string, at = new Date()): string {
+export function freshPosition(id: string, at = new Date()): string {
 	return `${at.getTime()}.${BigInt("0x" + id.replaceAll("-", "").slice(-12))
 		.toString()
 		.padStart(15, "0")}`;
 }
 const COMMITTED = ["core_group", "launch_team", "leader"];
-const sameColumn = (a: string, b: string) => a === b || (COMMITTED.includes(a) && COMMITTED.includes(b));
+export const sameColumn = (a: string, b: string) => a === b || (COMMITTED.includes(a) && COMMITTED.includes(b));
 /**
  * A person joining or leaving a pipeline column changes the order its viewers see, so the column's revision moves on
  * in the same write; a move based on the older view is then refused (REQ-PPL-007). One queued statement.
  */
-function columnsChanged(plantId: string, stages: readonly (string | null)[]): SQLWrapper {
+export function columnsChanged(plantId: string, stages: readonly (string | null)[]): SQLWrapper {
 	const columns = [...new Set(stages.filter((s) => s !== null).map((s) => (COMMITTED.includes(s) ? "core_group" : s)))];
 	return sql`INSERT INTO people_column(plant_id, column_name, revision) SELECT ${plantId}::uuid, c, 2 FROM unnest(${sql.param(columns)}::text[]) c ON CONFLICT (plant_id, column_name) DO UPDATE SET revision = people_column.revision + 1`;
 }
 
 async function output(tx: Tx, ctx: Context, p: Person, id: string, needsOwner: string[] = [], outcome = "changed") {
 	return {
-		person: await project(tx, ctx, p),
+		person: await project(tx, ctx, p, lockedWrite),
 		receiptId: id,
 		outcome,
 		needsOwner,
@@ -616,7 +625,7 @@ async function classify(tx: Tx, ctx: WriteContext, raw: unknown, correction: boo
 							adult_classification: input.input.classification,
 							revision: String(BigInt(before.revision) + 1n),
 						}),
-						dto = c.plantPerson.parse(await project(tx, ctx, after));
+						dto = c.plantPerson.parse(await project(tx, ctx, after, lockedWrite));
 					const first = await tx
 						.select({ id: tables.commitment.id, signed_on: tables.commitment.signed_on })
 						.from(tables.commitment)

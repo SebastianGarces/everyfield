@@ -3,6 +3,7 @@
 import {
 	Delete02Icon,
 	Edit02Icon,
+	Home01Icon,
 	Note01Icon,
 	Route01Icon,
 	TaskDone01Icon,
@@ -30,6 +31,7 @@ import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import { useState } from "react";
 import type { z } from "zod";
 import { addNote, deleteNote, editNote, loadActivities } from "./actions.ts";
+import { householdChange } from "./fields/model.ts";
 import { runSave, STAGE_LABEL, type Outcome, type PersonStore } from "./model.ts";
 import { FormProblem, fresh, isConflict, problemOf, useStore, When } from "./parts.tsx";
 import type { PersonDraft } from "./StageDialog.tsx";
@@ -50,6 +52,17 @@ const ACTION: Record<Extract<Item, { kind: "activity" }>["action"], string> = {
 	restored: "Restored",
 	classification_recorded: "Adult or child recorded",
 	classification_corrected: "Adult or child corrected",
+	assessment_recorded: "4 C's assessment recorded",
+	interview_recorded: "Interview recorded",
+	commitment_recorded: "Commitment recorded",
+	commitment_withdrawn: "Commitment withdrawn",
+	commitment_reactivated: "Commitment reactivated",
+	commitment_corrected: "Commitment corrected",
+	// C16: plain labels so the build accepts the WP-015 events; WP-015/ui owns their design.
+	assessment_corrected: "Assessment corrected",
+	interview_corrected: "Interview corrected",
+	person_merged: "Merged a duplicate",
+	person_unmerged: "Unmerged a duplicate",
 };
 const FOLLOW_UP: Record<Extract<Item, { kind: "follow_up" }>["outcome"], string> = {
 	contacted: "Follow-up: contacted",
@@ -376,7 +389,17 @@ function describe(item: Item, by: string): { title: string; icon: IconSvgElement
 				tone: "green",
 			};
 		case "activity":
-			return { title: ACTION[item.action], icon: UserEdit01Icon, tone: "blue" };
+			// A household join, leave or role change names the household as it was then (REQ-PPL-009).
+			return item.household
+				? { title: householdChange(item.household), icon: Home01Icon, tone: "teal" }
+				: {
+						// A record that advanced the stage says so in the same entry (REQ-PPL-020).
+						title: item.stage
+							? `${ACTION[item.action]}. Stage moved from ${STAGE_LABEL[item.stage.from].toLowerCase()} to ${STAGE_LABEL[item.stage.to].toLowerCase()}`
+							: ACTION[item.action],
+						icon: UserEdit01Icon,
+						tone: "blue",
+					};
 		case "follow_up":
 			return { title: FOLLOW_UP[item.outcome], icon: TaskDone01Icon, tone: "amber" };
 	}

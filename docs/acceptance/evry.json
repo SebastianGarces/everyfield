@@ -1161,10 +1161,6 @@
           "fixture_type": "session",
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
-        },
-        "calendar-inputs": {
-          "fixture_type": "calendar_fixture",
-          "entered_local": "2026-03-08T02:30:00"
         }
       },
       "actor": {
@@ -1247,14 +1243,6 @@
           "fixture_type": "session",
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
-        },
-        "calendar-inputs": {
-          "fixture_type": "calendar_fixture",
-          "entered_local": "2026-11-01T01:30:00",
-          "chosen_offsets": [
-            "-05:00",
-            "-06:00"
-          ]
         }
       },
       "actor": {
@@ -10698,15 +10686,7 @@
             "tasks.createSubtask",
             "tasks.setSubtaskCompletion",
             "tasks.removeSubtask"
-          ],
-          "parent_assignee": "B",
-          "child": "C",
-          "child_assignee": "A",
-          "child_state": "fixture-state-2",
-          "child_status": "not_started",
-          "caller": "A",
-          "other_child_assignee": "D",
-          "deleted_prerequisite": "Q"
+          ]
         }
       },
       "expected": {
@@ -10772,15 +10752,7 @@
                 "tasks.createSubtask",
                 "tasks.setSubtaskCompletion",
                 "tasks.removeSubtask"
-              ],
-              "parent_assignee": "B",
-              "child": "C",
-              "child_assignee": "A",
-              "child_state": "fixture-state-2",
-              "child_status": "not_started",
-              "caller": "A",
-              "other_child_assignee": "D",
-              "deleted_prerequisite": "Q"
+              ]
             }
           },
           "expected": {
@@ -10805,6 +10777,10 @@
               "observed_state": "fixture-state-7",
               "assessment_input_state": "fixture-state-11",
               "phase": "Phase1"
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "fault": "required_write_before_commit"
             }
           },
           "actor": {
@@ -10829,16 +10805,7 @@
                 "tasks.createSubtask",
                 "tasks.setSubtaskCompletion",
                 "tasks.removeSubtask"
-              ],
-              "parent_assignee": "B",
-              "child": "C",
-              "child_assignee": "A",
-              "child_state": "fixture-state-2",
-              "child_status": "not_started",
-              "caller": "A",
-              "other_child_assignee": "D",
-              "deleted_prerequisite": "Q",
-              "fault": "required_write_before_commit"
+              ]
             }
           },
           "expected": {
@@ -10853,6 +10820,9 @@
           },
           "name": "required-boundary-failure"
         }
+      ],
+      "requirement_ids": [
+        "REQ-KNOW-115"
       ]
     },
     {

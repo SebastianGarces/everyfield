@@ -119,3 +119,10 @@ export const updateOrganizationPersonRequest = commandEnvelope(
 );
 export const removeOrganizationPersonRequest = commandEnvelope(z.strictObject({ personId, reason }));
 export const exportOrganizationPersonRequest = z.strictObject({ personId, format: z.literal("csv") });
+/** Contact facts to check for likely duplicates before a create. Empty and short signals are ignored. */
+export const duplicateCheckRequest = z.strictObject({
+	displayName: z.string().max(255).optional(),
+	email: z.string().max(320).optional(),
+	phone: z.string().max(255).optional(),
+	excludePersonId: personId.optional(),
+});

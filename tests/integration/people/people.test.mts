@@ -15,6 +15,7 @@ import {
 	getAccountLink,
 	readColumnOrders,
 	readPersonPage,
+	personFields as fields,
 } from "../../../packages/domain/src/people/index.ts";
 
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
@@ -139,6 +140,28 @@ after(async () => {
 		await closeDatabase(admin);
 	}
 });
+
+/** A new account with one accepted seat, and the viewer a request resolves for it before any later change (D59). */
+async function seatedReader(role, selected) {
+	const a = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
+	await admin.execute(
+		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${a.user},${a.id + "@example.test"},true,'Synthetic')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${a.id},${a.user},'active','planter')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${a.session},${a.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
+	);
+	const seat = (
+		await admin.execute(
+			sql`INSERT INTO seat(account_id,plant_id,organization_id,role,accepted_at) VALUES(${a.id},${selected.kind === "plant" ? selected.id : null},${selected.kind === "organization" ? selected.id : null},${role},clock_timestamp()) RETURNING id`,
+		)
+	).rows[0].id;
+	// The request's viewer lookup, before the change lands (D59).
+	const reader = new PeopleReadContext(await tx((t) => RequestActor.resolve(t, a.session)));
+	return { ...a, seat, selected, reader };
+}
 
 test("AC:TARGET-PPL-002 AC:WP011-KNOW-099 AC:SEC-02 AC:TEN-002 minimal contact, explicit null, current tenancy and atomic retry", async () => {
 	const input = {
@@ -1215,7 +1238,7 @@ test("INV-reads: the person page and the status warnings use a fixed number of s
 	queries = [];
 	const warnings = ok(await tx((t) => read.getStatusWarnings(t, ctx(), { personId: p.id })));
 	const warningStatements = queries.length;
-	assert.deepEqual(warnings.warnings, ["interview_not_recorded", "commitment_not_recorded"]);
+	assert.deepEqual(warnings.warnings, ["assessment_not_recorded", "interview_not_recorded", "commitment_not_recorded"]);
 	assert.deepEqual(warnings.openDuties, []);
 	// BEGIN, actor, person, activities (or warnings), COMMIT; a commitment projection may add one.
 	assert.ok(pageStatements <= 6, `person page: ${pageStatements} statements`);
@@ -1225,4 +1248,159 @@ test("INV-reads: the person page and the status warnings use a fixed number of s
 		false,
 		"a dialog read must not lock rows",
 	);
+});
+
+test("INV-tenancy (C13): a seat ended, signed out, held or demoted after the viewer lookup reads no People data", async (t) => {
+	const plant = randomUUID(),
+		made = [];
+	t.after(async () => {
+		await admin.execute(sql`DELETE FROM lifecycle_witness WHERE opaque_subject_id=ANY(${sql.param(made)}::uuid[])`);
+	});
+	await admin.execute(
+		sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${plant},'Synthetic','America/New_York',7,14,1,8,1,1)`,
+	);
+	const seated = (role, selected = { kind: "plant", id: plant }) => seatedReader(role, selected);
+	const owner = await seated("owner");
+	const p = ok(
+		await tx((t) =>
+			write.createPerson(
+				t,
+				{ session: owner.session, selected: owner.selected },
+				{
+					requestKey: randomUUID(),
+					input: { displayName: "C13 private person" },
+				},
+			),
+		),
+	).person;
+	const orgPerson = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO person(id,tenant_id,organization_id,display_name,source,state,created_at,revision) VALUES(${orgPerson},${organization},${organization},'C13 organization person','other','live',clock_timestamp(),1)`,
+	);
+	const plantReads = (v) => [
+		["listPeople", (t) => read.listPeople(t, v, {})],
+		["getPipelineData", (t) => read.getPipelineData(t, v, {})],
+		["getPerson", (t) => read.getPerson(t, v, { personId: p.id })],
+		["readPersonPage", (t) => readPersonPage(t, v, { personId: p.id }, 50)],
+		["getStatusWarnings", (t) => read.getStatusWarnings(t, v, { personId: p.id })],
+		["getActivities", (t) => read.getActivities(t, v, { personId: p.id })],
+		["getAccountLink", (t) => getAccountLink(t, v, { personId: p.id })],
+		["getOwnAccountPerson", (t) => read.getOwnAccountPerson(t, v, {})],
+	];
+	const orgReads = (v) => [
+		["getPerson", (t) => read.getPerson(t, v, { personId: orgPerson })],
+		["readPersonPage", (t) => readPersonPage(t, v, { personId: orgPerson }, 50)],
+		["getAccountLink", (t) => getAccountLink(t, v, { personId: orgPerson })],
+	];
+	const org = { kind: "organization", id: organization, organizationKind: "sending_church" };
+	const [removed, reseated, signedOut, held, churchHeld, demoted] = [
+		await seated("admin"),
+		await seated("member"),
+		await seated("member"),
+		await seated("member"),
+		await seated("member"),
+		await seated("admin", org),
+	];
+	for (const who of [removed, reseated, signedOut, held, churchHeld])
+		for (const [, run] of plantReads(who.reader)) ok(await tx(run));
+	for (const [, run] of orgReads(demoted.reader)) ok(await tx(run));
+	const hold = (kind, subject) =>
+		admin.execute(
+			sql`INSERT INTO lifecycle_witness(kind,opaque_subject_id,plant_id,request_revision,state,witness_checkpoint,cleanup_state,request_id,requested_at,cancel_until) VALUES(${kind},${subject}::uuid,CASE WHEN ${kind}='plant' THEN ${subject}::uuid END,1,'pending_deletion',1,'not_started',${randomUUID()},statement_timestamp(),statement_timestamp()+interval '720 hours')`,
+		);
+	// Each change lands after the viewer lookup, as in a request that already resolved its actor.
+	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${removed.seat}`);
+	// The actor's seat ends and a new one starts: the request's actor named the old seat.
+	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${reseated.seat}`);
+	await admin.execute(
+		sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${reseated.id},${plant},'member',clock_timestamp())`,
+	);
+	await admin.execute(sql`UPDATE auth_session SET expires_at=clock_timestamp() WHERE id=${signedOut.session}`);
+	await hold("account", held.id);
+	made.push(held.id);
+	await admin.execute(sql`UPDATE seat SET role='member' WHERE id=${demoted.seat}`);
+	const failures = [];
+	const expectRefused = async (who, name, reads) => {
+		for (const [op, run] of reads) {
+			const result = await tx(run);
+			if (result.status !== "refused" || result.error.code !== "unavailable") failures.push(`${name} ${op}`);
+		}
+	};
+	await expectRefused(removed, "seat ended:", plantReads(removed.reader));
+	await expectRefused(reseated, "seat replaced:", plantReads(reseated.reader));
+	await expectRefused(signedOut, "session expired:", plantReads(signedOut.reader));
+	await expectRefused(held, "account on hold:", plantReads(held.reader));
+	// A demoted organization Admin keeps no Admin-wide read of a person they have no duty for.
+	await expectRefused(demoted, "Admin demoted:", orgReads(demoted.reader));
+	await hold("plant", plant);
+	made.push(plant);
+	await expectRefused(churchHeld, "church on hold:", plantReads(churchHeld.reader));
+	assert.deepEqual(failures, []);
+});
+
+test("INV-reads (C22): a People read holds no lock on the reader's session, so sign-out never waits for it", async () => {
+	const p = await create("C22 session lock");
+	const viewer = new PeopleReadContext(await tx((t) => RequestActor.resolve(t, actors[0].session)));
+	// An organization Member's person read resolves its pipeline duties in the read itself.
+	const member = await seatedReader("member", {
+		kind: "organization",
+		id: organization,
+		organizationKind: "sending_church",
+	});
+	const orgPerson = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO person(id,tenant_id,organization_id,display_name,source,state,created_at,revision) VALUES(${orgPerson},${organization},${organization},'C22 organization person','other','live',clock_timestamp(),1)`,
+	);
+	// Every People read operation, with the request's cached viewer and with a plain { session, selected } context (as
+	// the photo route sends), which resolves its actor inside the read.
+	const plantReads = (c) => [
+		["listPeople", (t) => read.listPeople(t, c, {})],
+		["getPipelineData", (t) => read.getPipelineData(t, c, {})],
+		["getPerson", (t) => read.getPerson(t, c, { personId: p.id })],
+		["readPersonPage", (t) => readPersonPage(t, c, { personId: p.id }, 50)],
+		["getStatusWarnings", (t) => read.getStatusWarnings(t, c, { personId: p.id })],
+		["getActivities", (t) => read.getActivities(t, c, { personId: p.id })],
+		["getAccountLink", (t) => getAccountLink(t, c, { personId: p.id })],
+		["getOwnAccountPerson", (t) => read.getOwnAccountPerson(t, c, {})],
+		["listTags", (t) => fields.listTags(t, c, {})],
+		["getPersonTags", (t) => fields.getPersonTags(t, c, { personId: p.id })],
+		["getPersonSkills", (t) => fields.getPersonSkills(t, c, { personId: p.id })],
+		["listHouseholds", (t) => fields.listHouseholds(t, c, {})],
+		["getHousehold", (t) => fields.getHousehold(t, c, { personId: p.id })],
+		["getHouseholdMembers", (t) => fields.getHouseholdMembers(t, c, { personId: p.id })],
+		["getPersonPhoto", (t) => fields.getPersonPhoto(t, c, { personId: p.id })],
+	];
+	// An organization Member has no pipeline duty for this person, so person reads refuse after resolving duties in the
+	// read itself; they must still not lock the session on the way. An organization Owner reads every person.
+	const orgReads = (c, person) => [
+		["getPerson", (t) => read.getPerson(t, c, { personId: orgPerson }), person],
+		["readPersonPage", (t) => readPersonPage(t, c, { personId: orgPerson }, 50), person],
+		["getAccountLink", (t) => getAccountLink(t, c, { personId: orgPerson }), person],
+		["getOwnAccountPerson", (t) => read.getOwnAccountPerson(t, c, {}), "ok"],
+	];
+	const label = (name, list) => list.map(([op, ...rest]) => [`${name} ${op}`, ...rest]);
+	const reads = [
+		...label("cached", plantReads(viewer)),
+		...label("plain", plantReads(ctx())),
+		...label("organization Member cached", orgReads(member.reader, "refused")),
+		...label("organization Member plain", orgReads({ session: member.session, selected: member.selected }, "refused")),
+		...label("organization Owner plain", orgReads(orgCtx(), "ok")),
+	];
+	const waited = [];
+	for (const [op, run, expected = "ok"] of reads)
+		await tx(async (t) => {
+			assert.equal((await run(t)).status, expected, op);
+			// The read's transaction is still open: a sign-out or session refresh must not wait for it.
+			try {
+				await admin.transaction(async (a) => {
+					await a.execute(sql`SET LOCAL lock_timeout='250ms'`);
+					await a.execute(
+						sql`UPDATE auth_session SET expires_at=expires_at WHERE id=ANY(${sql.param([actors[0].session, actors[3].session, member.session])}::uuid[])`,
+					);
+				});
+			} catch {
+				waited.push(op);
+			}
+		});
+	assert.deepEqual(waited, []);
 });

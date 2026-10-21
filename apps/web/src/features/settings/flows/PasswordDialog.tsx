@@ -12,7 +12,7 @@ import {
 	Field,
 	Input,
 } from "@everyfield/ui/controls";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { CredentialOutcome } from "../port";
 import { useFlows } from "../store";
 
@@ -49,6 +49,12 @@ export function PasswordDialog() {
 	const [failure, setFailure] = useState<Failure | null>(null);
 	const [done, setDone] = useState(false);
 	const problems = checked ? passwordProblems(form) : {};
+	const currentRef = useRef<HTMLInputElement>(null);
+	const newRef = useRef<HTMLInputElement>(null);
+	const confirmRef = useRef<HTMLInputElement>(null);
+	// The first field with a problem takes focus, so its message is read with it.
+	const focusFirst = (keys: (keyof Form)[]) =>
+		({ currentPassword: currentRef, newPassword: newRef, confirmPassword: confirmRef })[keys[0]!].current?.focus();
 
 	const change = (next: boolean) => {
 		if (pending) return;
@@ -60,7 +66,9 @@ export function PasswordDialog() {
 
 	const submit = async () => {
 		setChecked(true);
-		if (pending || Object.keys(passwordProblems(form)).length > 0) return;
+		if (pending) return;
+		const found = Object.keys(passwordProblems(form)) as (keyof Form)[];
+		if (found.length > 0) return focusFirst(found);
 		setPending(true);
 		// A lost connection is the same as an unknown outcome: the change may have happened.
 		let status: CredentialOutcome["status"];
@@ -77,6 +85,9 @@ export function PasswordDialog() {
 		}
 		setFailure(status);
 		setForm(status === "unknown" ? EMPTY : { ...form, currentPassword: "" });
+		// The alert explains the refusal; the emptied field shows no second message.
+		setChecked(false);
+		if (status === "refused") focusFirst(["currentPassword"]);
 	};
 
 	const set = (key: keyof Form) => (e: { target: { value: string } }) => setForm({ ...form, [key]: e.target.value });
@@ -106,6 +117,7 @@ export function PasswordDialog() {
 						<DialogBody className="flex flex-col gap-4">
 							<Field label="Current password" error={problems.currentPassword}>
 								<Input
+									ref={currentRef}
 									type="password"
 									autoComplete="current-password"
 									value={form.currentPassword}
@@ -114,6 +126,7 @@ export function PasswordDialog() {
 							</Field>
 							<Field label="New password" hint="At least 8 characters." error={problems.newPassword}>
 								<Input
+									ref={newRef}
 									type="password"
 									autoComplete="new-password"
 									value={form.newPassword}
@@ -122,6 +135,7 @@ export function PasswordDialog() {
 							</Field>
 							<Field label="Repeat new password" error={problems.confirmPassword}>
 								<Input
+									ref={confirmRef}
 									type="password"
 									autoComplete="new-password"
 									value={form.confirmPassword}

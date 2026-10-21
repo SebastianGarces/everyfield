@@ -12,7 +12,7 @@ import { alias, and, asc, eq, gt, isNull, lte, or, sql } from "@everyfield/db/qu
 import * as tables from "@everyfield/db/tables";
 import "server-only";
 import { z } from "zod";
-import { currentActor, liveOwner, observedActor } from "./session.ts";
+import { currentActor, liveOwner, liveRead, observedActor } from "./session.ts";
 
 const development_enrollment_e = alias(tables.development_enrollment, "e");
 const development_program_p = alias(tables.development_program, "p");
@@ -30,7 +30,7 @@ export async function readPipelinePerson(
 	const input = organizationPersonRequest.safeParse(raw);
 	const unavailable = () => pipelineAccessResult.parse({ status: "unavailable" });
 	if (!input.success || selected.kind !== "organization") return unavailable();
-	const actor = await currentActor(tx, session, selected);
+	const actor = await currentActor(tx, session, selected, false);
 	if (actor.status !== "active" || actor.context.kind !== "seat") return unavailable();
 	const person = await tx
 		.select({ id: tables.person.id })
@@ -164,15 +164,15 @@ export async function readOwnResidency(
 	const input = organizationPersonRequest.safeParse(raw);
 	if (!input.success || organization.kind !== "organization" || !(await liveOwner(tx, organization, false)))
 		return null;
-	// The request actor observed on this transaction names the account; otherwise one lock-free session read does.
+	// The request actor observed on this transaction names the account; otherwise one lock-free session read does. The
+	// link statement checks the account's live access itself (C13), without a session lock (C27).
 	const observed = observedActor(tx, session);
 	const accountId = observed
 		? observed.accountId
-		: (await tx.execute<{ account_id: string }>(sql`SELECT account_id FROM access_session(${session})`)).rows[0]
+		: (await tx.execute<{ account_id: string }>(sql`SELECT account_id FROM live_session(${session})`)).rows[0]
 				?.account_id;
 	if (!accountId) return null;
-	const actor = await currentActor(tx, session, owner.parse({ kind: "account", id: accountId }));
-	if (actor.status !== "active") return null;
+	const live = liveRead({ session, owner: owner.parse({ kind: "account", id: accountId }) });
 	const links = await tx
 		.select({ id: residency_link_l.id, revision: residency_link_l.revision })
 		.from(residency_link_l)
@@ -215,34 +215,37 @@ export async function readOwnResidency(
 											and(
 												and(
 													and(
-														eq(residency_link_l.organization_id, organization.id),
-														eq(residency_link_l.person_id, input.data.personId),
+														and(
+															eq(residency_link_l.organization_id, organization.id),
+															eq(residency_link_l.person_id, input.data.personId),
+														),
+														eq(residency_link_l.account_id, accountId),
 													),
-													eq(residency_link_l.account_id, actor.accountId),
+													isNull(residency_link_l.ended_at),
 												),
-												isNull(residency_link_l.ended_at),
+												lte(
+													residency_link_l.accepted_at,
+													sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+												),
 											),
-											lte(
-												residency_link_l.accepted_at,
-												sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-											),
+											isNull(affiliation_a.ended_at),
 										),
-										isNull(affiliation_a.ended_at),
+										lte(
+											affiliation_a.accepted_at,
+											sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+										),
 									),
-									lte(
-										affiliation_a.accepted_at,
-										sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-									),
+									eq(invitation_i.state, "accepted"),
 								),
-								eq(invitation_i.state, "accepted"),
+								eq(invitation_i.purpose, "residency_link"),
 							),
-							eq(invitation_i.purpose, "residency_link"),
+							eq(invitation_i.resident_person_id, residency_link_l.person_id),
 						),
-						eq(invitation_i.resident_person_id, residency_link_l.person_id),
+						eq(person_p.state, "live"),
 					),
-					eq(person_p.state, "live"),
+					sql<unknown>`(NOT EXISTS (SELECT  FROM lifecycle_witness  AS w  WHERE ((w .affiliation_id = a .id) AND (w .state NOT IN (('active'), ('cancelled'))))))`,
 				),
-				sql<unknown>`(NOT EXISTS (SELECT  FROM lifecycle_witness  AS w  WHERE ((w .affiliation_id = a .id) AND (w .state NOT IN (('active'), ('cancelled'))))))`,
+				live,
 			),
 		);
 

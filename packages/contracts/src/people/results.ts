@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { personId, recordId, accountId, operationId, revision, defineSafeError, safeError } from "../common/values.ts";
 import { instant, localDate, timeZone } from "../common/time.ts";
+import { csvError } from "./csv/index.ts";
+import { mergeErrors } from "./merge/errors.ts";
 import {
 	contactFields,
 	plantOwner,
@@ -15,6 +17,7 @@ import {
 	noteBody,
 	pipelineColumn,
 } from "./values.ts";
+import { householdMembership } from "./fields/index.ts";
 
 const identityFields = { id: personId, revision, createdAt: instant, ...contactFields, lifecycle: personLifecycle };
 export const plantPerson = z
@@ -94,7 +97,9 @@ export const pipelineResult = z
 export const statusWarningsResult = z.strictObject({
 	personId,
 	revision,
-	warnings: z.array(z.enum(["interview_not_recorded", "commitment_not_recorded", "open_duties"])).max(3),
+	warnings: z
+		.array(z.enum(["assessment_not_recorded", "interview_not_recorded", "commitment_not_recorded", "open_duties"]))
+		.max(4),
 	// Soft recorded-evidence guidance, never invented qualification or private detail.
 	allowedStages: z
 		.array(stage)
@@ -155,7 +160,23 @@ export const activity = z.discriminatedUnion("kind", [
 			"restored",
 			"classification_recorded",
 			"classification_corrected",
+			"assessment_recorded",
+			"interview_recorded",
+			"commitment_recorded",
+			"commitment_withdrawn",
+			"commitment_reactivated",
+			"commitment_corrected",
+			"assessment_corrected",
+			"interview_corrected",
+			"person_merged",
+			"person_unmerged",
 		]),
+		// An assessment, interview or commitment event names its record; the stage advance it caused shows with it.
+		recordId: recordId.optional(),
+		stage: z.strictObject({ from: stage, to: stage }).optional(),
+		// A household join, leave or role change: the membership before and after, with the household name recorded
+		// then, so the history still names a household after it is deleted (REQ-PPL-009).
+		household: z.strictObject({ from: householdMembership.nullable(), to: householdMembership.nullable() }).optional(),
 	}),
 	z.strictObject({
 		...activityBase,
@@ -224,4 +245,23 @@ export const peopleError = z.discriminatedUnion("code", [
 	defineSafeError("unsupported_field", {}, "never"),
 	defineSafeError("use_reviewed_unmerge", {}, "refresh"),
 	defineSafeError("source_unavailable", {}, "same_request"),
+	...csvError,
+	...mergeErrors,
 ]);
+/** Duplicate hints: an exact hint shares an email or phone, a potential hint only a name. Never proof of identity. */
+export const duplicateHints = z.strictObject({
+	items: z
+		.array(
+			z.strictObject({
+				personId,
+				displayName: z.string(),
+				match: z.enum(["exact", "potential"]),
+				signals: z
+					.array(z.enum(["email", "phone", "name"]))
+					.min(1)
+					.max(3),
+			}),
+		)
+		.max(25),
+	completeness: z.enum(["complete", "partial"]),
+});

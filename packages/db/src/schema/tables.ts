@@ -618,6 +618,8 @@ export const commitment = pgTable(
 			table.corrected_commitment_id.asc().nullsLast(),
 			table.plant_id.asc().nullsLast(),
 		),
+		// One private document belongs to one card.
+		uniqueIndex("commitment_object_uq").using("btree", table.object_id.asc().nullsLast()),
 	],
 );
 export const contact_outcome = pgTable(
@@ -1326,6 +1328,57 @@ export const file_object = pgTable(
 		index("file_object_ref_0").using("btree", table.tenant_id.asc().nullsLast()),
 	],
 );
+export const four_cs = pgTable(
+	"four_cs",
+	{
+		id: uuid("id")
+			.notNull()
+			.default(sql`gen_random_uuid()`),
+		plant_id: uuid("plant_id").notNull(),
+		person_id: uuid("person_id").notNull(),
+		assessed_on: date("assessed_on", { mode: "string" }).notNull(),
+		recorded_at: timestamp("recorded_at", { withTimezone: true, mode: "date" }).notNull(),
+		committed: integer("committed").notNull(),
+		compelled: integer("compelled").notNull(),
+		contagious: integer("contagious").notNull(),
+		courageous: integer("courageous").notNull(),
+		committed_notes: text("committed_notes"),
+		compelled_notes: text("compelled_notes"),
+		contagious_notes: text("contagious_notes"),
+		courageous_notes: text("courageous_notes"),
+		revision: int64("revision")
+			.notNull()
+			.default(sql`1`),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({ name: "four_cs_fk_0", columns: [table.plant_id], foreignColumns: [plant.id] })
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "four_cs_fk_1",
+			columns: [table.person_id, table.plant_id],
+			foreignColumns: [person.id, person.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "four_cs_fk_2",
+			columns: [table.id, table.plant_id],
+			foreignColumns: [record.id, record.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "four_cs_pkey", columns: [table.id] }),
+		unique("four_cs_uq_0").on(table.id, table.plant_id),
+		check("four_cs_ck_0", sql`(revision >= 1)`),
+		check("four_cs_ck_1", sql`((committed >= 1) AND (committed <= 5))`),
+		check("four_cs_ck_2", sql`((compelled >= 1) AND (compelled <= 5))`),
+		check("four_cs_ck_3", sql`((contagious >= 1) AND (contagious <= 5))`),
+		check("four_cs_ck_4", sql`((courageous >= 1) AND (courageous <= 5))`),
+		index("four_cs_ref_0").using("btree", table.plant_id.asc().nullsLast()),
+		index("four_cs_ref_1").using("btree", table.person_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
+	],
+);
 export const household = pgTable(
 	"household",
 	{
@@ -1563,6 +1616,8 @@ export const job = pgTable(
 				"lifecycle_purge",
 				"assistant_turn",
 				"document_render",
+				"people_import",
+				"evry_effect",
 			],
 		}).notNull(),
 		subject_record_id: uuid("subject_record_id"),
@@ -1605,7 +1660,7 @@ export const job = pgTable(
 		check("job_ck_0", sql`(revision >= 1)`),
 		check(
 			"job_ck_1",
-			sql`(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'assessment'::text, 'reference_generation'::text, 'feedback_publication'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'document_render'::text]))`,
+			sql`(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'assessment'::text, 'reference_generation'::text, 'feedback_publication'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'document_render'::text, 'people_import'::text, 'evry_effect'::text]))`,
 		),
 		check(
 			"job_ck_2",
@@ -2114,6 +2169,12 @@ export const meeting = pgTable(
 		agenda_version: integer("agenda_version"),
 		kit_version: integer("kit_version"),
 		retired_at: timestamp("retired_at", { withTimezone: true, mode: "date" }),
+		evaluation_scores: integer("evaluation_scores").array(),
+		evaluation_notes: text("evaluation_notes"),
+		evaluated_on: date("evaluated_on", { mode: "string" }),
+		evaluated_at: timestamp("evaluated_at", { withTimezone: true, mode: "date" }),
+		evaluation_corrected_at: timestamp("evaluation_corrected_at", { withTimezone: true, mode: "date" }),
+		evaluation_revision: int64("evaluation_revision"),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "meeting_fk_0", columns: [table.plant_id], foreignColumns: [plant.id] })
@@ -2170,6 +2231,14 @@ export const meeting = pgTable(
 		check("meeting_timezone_iana", sql`(timezone = ANY (${canonicalZones7}))`),
 		check("meeting_ck_7", sql`((type = 'vision_meeting'::text) OR (kit_version IS NULL))`),
 		check("meeting_ck_8", sql`(jsonb_typeof(agenda) = 'array'::text)`),
+		check(
+			"meeting_ck_9",
+			sql`((evaluation_scores IS NULL) = (evaluated_at IS NULL) AND (evaluated_at IS NULL) = (evaluated_on IS NULL) AND (evaluated_at IS NULL) = (evaluation_revision IS NULL))`,
+		),
+		check(
+			"meeting_ck_10",
+			sql`((evaluation_scores IS NULL) OR ((type = 'vision_meeting'::text) AND (cardinality(evaluation_scores) = 8) AND (1 <= ALL (evaluation_scores)) AND (5 >= ALL (evaluation_scores)) AND (evaluation_revision >= 1)))`,
+		),
 		index("meeting_ref_1").using("btree", table.creator_id.asc().nullsLast()),
 		index("meeting_ref_2").using("btree", table.team_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
 		index("meeting_ref_3").using("btree", table.venue_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
@@ -2719,6 +2788,7 @@ export const person = pgTable(
 		revision: int64("revision")
 			.notNull()
 			.default(sql`1`),
+		commitment_effective_on: date("commitment_effective_on", { mode: "string" }),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "person_fk_0", columns: [table.plant_id], foreignColumns: [plant.id] })
@@ -2880,6 +2950,58 @@ export const person_note = pgTable(
 			table.tenant_id.asc().nullsLast(),
 		),
 		index("person_note_ref_5").using("btree", table.tenant_id.asc().nullsLast()),
+	],
+);
+export const person_skill = pgTable(
+	"person_skill",
+	{
+		id: uuid("id")
+			.notNull()
+			.default(sql`gen_random_uuid()`),
+		plant_id: uuid("plant_id").notNull(),
+		person_id: uuid("person_id").notNull(),
+		name: text("name").notNull(),
+		category: text("category", {
+			enum: ["worship", "tech", "admin", "teaching", "hospitality", "leadership", "other"],
+		}).notNull(),
+		proficiency: text("proficiency", { enum: ["beginner", "intermediate", "advanced", "expert"] }),
+		notes: text("notes"),
+		revision: int64("revision")
+			.notNull()
+			.default(sql`1`),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({ name: "person_skill_fk_0", columns: [table.plant_id], foreignColumns: [plant.id] })
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "person_skill_fk_1",
+			columns: [table.person_id, table.plant_id],
+			foreignColumns: [person.id, person.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "person_skill_fk_2",
+			columns: [table.id, table.plant_id],
+			foreignColumns: [record.id, record.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "person_skill_pkey", columns: [table.id] }),
+		unique("person_skill_uq_0").on(table.id, table.plant_id),
+		check("person_skill_ck_0", sql`(revision >= 1)`),
+		check(
+			"person_skill_ck_1",
+			sql`(category = ANY (ARRAY['worship'::text, 'tech'::text, 'admin'::text, 'teaching'::text, 'hospitality'::text, 'leadership'::text, 'other'::text]))`,
+		),
+		check(
+			"person_skill_ck_2",
+			sql`(proficiency = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text, 'expert'::text]))`,
+		),
+		check("person_skill_ck_3", sql`((length(btrim(name)) >= 1) AND (length(btrim(name)) <= 100))`),
+		index("person_skill_ref_0").using("btree", table.plant_id.asc().nullsLast()),
+		index("person_skill_ref_1").using("btree", table.person_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
 	],
 );
 export const person_tag = pgTable(
@@ -4039,6 +4161,7 @@ export const task = pgTable(
 				"training",
 				"promotion",
 				"recurring",
+				"facilities",
 			],
 		}).notNull(),
 		priority: text("priority", { enum: ["low", "medium", "high", "urgent"] }).notNull(),
@@ -4073,6 +4196,10 @@ export const task = pgTable(
 		revision: int64("revision")
 			.notNull()
 			.default(sql`1`),
+		prerequisite_ids: uuid("prerequisite_ids")
+			.array()
+			.notNull()
+			.default(sql`'{}'::uuid[]`),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "task_fk_0", columns: [table.plant_id], foreignColumns: [plant.id] })
@@ -4179,7 +4306,11 @@ export const task = pgTable(
 		check("task_ck_8", sql`((status = 'complete'::text) = (completed_at IS NOT NULL))`),
 		check(
 			"task_ck_9",
-			sql`(category = ANY (ARRAY['administrative'::text, 'vision_meeting'::text, 'follow_up'::text, 'general'::text, 'ministry_team'::text, 'launch_prep'::text, 'training'::text, 'promotion'::text, 'recurring'::text]))`,
+			sql`(category = ANY (ARRAY['administrative'::text, 'vision_meeting'::text, 'follow_up'::text, 'general'::text, 'ministry_team'::text, 'launch_prep'::text, 'training'::text, 'promotion'::text, 'recurring'::text, 'facilities'::text]))`,
+		),
+		check(
+			"task_ck_11",
+			sql`((cardinality(prerequisite_ids) <= 50) AND (NOT (id = ANY (prerequisite_ids))) AND ((parent_id IS NULL) OR (cardinality(prerequisite_ids) = 0)))`,
 		),
 		check("task_timezone_iana", sql`(timezone = ANY (${canonicalZones7}))`),
 		index("task_ref_0").using("btree", table.plant_id.asc().nullsLast()),
@@ -4578,6 +4709,176 @@ export const settings_preview = pgTable(
 	],
 );
 
+/** One private Evry conversation of one account in one exact account, plant or organization context. */
+export const conversation = pgTable(
+	"conversation",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		tenant_id: uuid("tenant_id")
+			.notNull()
+			.references(() => tenant.id),
+		account_id: uuid("account_id")
+			.notNull()
+			.references(() => account.id),
+		context_kind: text("context_kind", {
+			enum: ["account", "plant", "sending_church", "sending_network"],
+		}).notNull(),
+		title: text("title").notNull(),
+		last_sequence: int64("last_sequence")
+			.notNull()
+			.default(sql`0`),
+		/** The assistant_turn job that is the conversation's one active run, if any. */
+		active_turn_id: uuid("active_turn_id"),
+		/** The session that submitted the active turn; the worker re-reads its authority before every read. A signed-out session clears it, which stops the turn. */
+		active_session_id: uuid("active_session_id").references(() => auth_session.id, { onDelete: "set null" }),
+		created_at: timestamp("created_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+		updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		check("conversation_title", sql`char_length(${t.title}) BETWEEN 1 AND 120`),
+		// The run is a job of the same tenant. Only the owner purge deletes jobs, after it deletes the conversations.
+		foreignKey({
+			name: "conversation_active_turn",
+			columns: [t.active_turn_id, t.tenant_id],
+			foreignColumns: [job.id, job.tenant_id],
+		}),
+		index("conversation_owner_recent").on(t.account_id, t.tenant_id, t.updated_at, t.id),
+		unique("conversation_identity").on(t.id, t.tenant_id),
+	],
+);
+/** The saved, ordered record of a conversation: submitted messages, assistant text, source-bound results and run states. */
+export const conversation_event = pgTable(
+	"conversation_event",
+	{
+		conversation_id: uuid("conversation_id")
+			.notNull()
+			.references(() => conversation.id, { onDelete: "cascade" }),
+		sequence: int64("sequence").notNull(),
+		turn_id: uuid("turn_id").references(() => job.id),
+		kind: text("kind", { enum: ["user_message", "assistant_text", "tool_result", "status"] }).notNull(),
+		body: jsonb("body").notNull(),
+		request_key: text("request_key"),
+		created_at: timestamp("created_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "conversation_event_pkey", columns: [t.conversation_id, t.sequence] }),
+		unique("conversation_event_request").on(t.conversation_id, t.request_key),
+		check("conversation_event_body", sql`jsonb_typeof(${t.body})='object'`),
+	],
+);
+
+/**
+ * What paid Evry model calls have committed this calendar month (UTC) in this database, in millionths of a US dollar
+ * (D77). Each paid call reserves its worst case here before the provider sees it and settles to its reported usage; a
+ * call that never reports usage keeps its reservation. It holds no personal data and outlives conversation deletion.
+ */
+export const model_spend = pgTable(
+	"model_spend",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		month: date("month", { mode: "string" }).notNull(),
+		charged_micro_usd: int64("charged_micro_usd").notNull(),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		unique("model_spend_month_key").on(t.month),
+		check("model_spend_month", sql`${t.month}=date_trunc('month',${t.month})::date`),
+		check("model_spend_charged", sql`${t.charged_micro_usd} >= 0`),
+	],
+);
+
+/**
+ * One People CSV import: its frozen plan, the uploaded file the server reviewed (gzip, base64) and the rows whose last
+ * write failed. The file is cleared when the import completes; the job's deletion removes the import.
+ */
+export const person_import = pgTable(
+	"person_import",
+	{
+		id: uuid("id").notNull(),
+		tenant_id: uuid("tenant_id")
+			.notNull()
+			.references(() => tenant.id),
+		job_id: uuid("job_id").notNull(),
+		// The importing account; account purge clears it and the job then stops at its next authority check.
+		actor_id: uuid("actor_id").references(() => account.id, { onDelete: "set null" }),
+		plan: jsonb("plan").notNull(),
+		upload: text("upload"),
+		failed: jsonb("failed")
+			.notNull()
+			.default(sql`'[]'::jsonb`),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "person_import_pkey", columns: [t.id] }),
+		unique("person_import_job").on(t.job_id),
+		// The job of the same church. Owner purge deletes the church's jobs, which removes their imports.
+		foreignKey({
+			name: "person_import_job_owner",
+			columns: [t.job_id, t.tenant_id],
+			foreignColumns: [job.id, job.tenant_id],
+		}).onDelete("cascade"),
+		check("person_import_plan", sql`jsonb_typeof(${t.plan})='object'`),
+		check("person_import_failed", sql`jsonb_typeof(${t.failed})='array'`),
+	],
+);
+/**
+ * One durable change Evry proposed in a conversation and its exact human review. A new revision replaces the reviewed
+ * arguments, digest and expiry and clears any approval. Once approved, one evry_effect job runs the owning domain
+ * write, whose own audit row is the effect's record; the outcome is saved here with it.
+ */
+export const proposal = pgTable(
+	"proposal",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		tenant_id: uuid("tenant_id")
+			.notNull()
+			.references(() => tenant.id),
+		account_id: uuid("account_id")
+			.notNull()
+			.references(() => account.id),
+		conversation_id: uuid("conversation_id").notNull(),
+		operation: text("operation", { enum: ["people.updatePerson"] }).notNull(),
+		revision: integer("revision").notNull().default(1),
+		/** The owning operation's exact arguments, including the expected revision of its target. */
+		input: jsonb("input").notNull(),
+		/** The exact review a person sees: the target and every changed field before and after. */
+		review: jsonb("review").notNull(),
+		digest: text("digest").notNull(),
+		state: text("state", { enum: ["pending", "approved", "cancelled", "expired"] }).notNull(),
+		expires_at: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+		approved_at: timestamp("approved_at", { withTimezone: true, mode: "date" }),
+		/** The approving session; execution reads its live authority. Signing out clears it, which refuses the effect. */
+		approved_session_id: uuid("approved_session_id").references(() => auth_session.id, { onDelete: "set null" }),
+		/** The evry_effect job that runs the approved revision. */
+		job_id: uuid("job_id"),
+		outcome: text("outcome", { enum: ["completed", "failed", "refused"] }),
+		receipt: jsonb("receipt"),
+		created_at: timestamp("created_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+		updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		check("proposal_revision", sql`${t.revision} >= 1`),
+		check("proposal_approval", sql`(${t.state}='approved') = (${t.approved_at} IS NOT NULL)`),
+		check("proposal_outcome", sql`${t.outcome} IS NULL OR ${t.state}='approved'`),
+		check("proposal_json", sql`jsonb_typeof(${t.input})='object' AND jsonb_typeof(${t.review})='object'`),
+		foreignKey({
+			name: "proposal_conversation_owner",
+			columns: [t.conversation_id, t.tenant_id],
+			foreignColumns: [conversation.id, conversation.tenant_id],
+		}).onDelete("cascade"),
+		foreignKey({ name: "proposal_job", columns: [t.job_id, t.tenant_id], foreignColumns: [job.id, job.tenant_id] }),
+		index("proposal_conversation").on(t.conversation_id),
+	],
+);
+
 /** Attributable domain changes and their optional exact-request reply. Ordinary writers append only. */
 export const audit_event = pgTable(
 	"audit_event",
@@ -4615,7 +4916,7 @@ export const audit_event = pgTable(
 		check(
 			"audit_action",
 			sql.raw(
-				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.send_intended','deletion.cancelled','deletion.live_purge_completed','documents.copied','documents.saved','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.hidden','wiki.published','wiki.source_order_changed'))",
+				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.send_intended','deletion.cancelled','deletion.live_purge_completed','documents.copied','documents.saved','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.hidden','wiki.published','wiki.source_order_changed'))",
 			),
 		),
 		check(
@@ -4643,5 +4944,90 @@ export const audit_event = pgTable(
 		),
 		index("audit_subject_history").on(table.tenant_id, table.subject_id, table.occurred_at, table.id),
 		index("audit_command").on(table.command_id),
+	],
+);
+/**
+ * One reviewed merge of a source Person into a survivor in the same church or organization (REQ-PPL-017, 025). It keeps
+ * what Unmerge needs to restore both people exactly: the survivor field values the merge replaced, the source facts it
+ * cleared, the references it moved or deduplicated and the revisions it left. These values are domain history, read only
+ * by Owners and Admins; central audit names the merge without them (audit.md). Rows go with their Person on purge.
+ */
+export const person_merge = pgTable(
+	"person_merge",
+	{
+		id: uuid("id").notNull(),
+		tenant_id: uuid("tenant_id")
+			.notNull()
+			.references(() => tenant.id),
+		source_id: uuid("source_id").notNull(),
+		survivor_id: uuid("survivor_id").notNull(),
+		merged_at: timestamp("merged_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+		prior: jsonb("prior").notNull(),
+		moved: jsonb("moved").notNull(),
+		source_revision: int64("source_revision").notNull(),
+		survivor_revision: int64("survivor_revision").notNull(),
+		references_digest: text("references_digest").notNull(),
+		unmerged_at: timestamp("unmerged_at", { withTimezone: true, mode: "date" }),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "person_merge_pkey", columns: [t.id] }),
+		foreignKey({
+			name: "person_merge_source",
+			columns: [t.source_id, t.tenant_id],
+			foreignColumns: [person.id, person.tenant_id],
+		}).onDelete("cascade"),
+		foreignKey({
+			name: "person_merge_survivor",
+			columns: [t.survivor_id, t.tenant_id],
+			foreignColumns: [person.id, person.tenant_id],
+		}).onDelete("cascade"),
+		check("person_merge_distinct", sql`${t.source_id}<>${t.survivor_id}`),
+		check("person_merge_prior", sql`jsonb_typeof(${t.prior})='object'`),
+		check("person_merge_moved", sql`jsonb_typeof(${t.moved})='object'`),
+		// A Person is merged away at most once at a time.
+		uniqueIndex("person_merge_open_source")
+			.on(t.source_id)
+			.where(sql`unmerged_at IS NULL`),
+		index("person_merge_survivor_ref").on(t.survivor_id, t.tenant_id),
+	],
+);
+/**
+ * One correction of an assessment, interview or commitment card (REQ-PPL-015): the changed fields with their old and new
+ * values and the reason. The record keeps its original recorder and recorded instant. The corrector is the audit row
+ * with the same ID. Values are private plant history, never central audit.
+ */
+export const record_correction = pgTable(
+	"record_correction",
+	{
+		id: uuid("id").notNull(),
+		plant_id: uuid("plant_id")
+			.notNull()
+			.references(() => plant.id),
+		person_id: uuid("person_id").notNull(),
+		record_type: text("record_type", { enum: ["assessment", "interview", "commitment"] }).notNull(),
+		record_id: uuid("record_id").notNull(),
+		corrected_at: timestamp("corrected_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+		before_value: jsonb("before_value").notNull(),
+		after_value: jsonb("after_value").notNull(),
+		reason: text("reason").notNull(),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "record_correction_pkey", columns: [t.id] }),
+		foreignKey({
+			name: "record_correction_person",
+			columns: [t.person_id, t.plant_id],
+			foreignColumns: [person.id, person.tenant_id],
+		}).onDelete("cascade"),
+		foreignKey({
+			name: "record_correction_target",
+			columns: [t.record_id, t.plant_id],
+			foreignColumns: [record.id, record.tenant_id],
+		}).onDelete("cascade"),
+		check("record_correction_type", sql`${t.record_type} IN ('assessment','interview','commitment')`),
+		index("record_correction_record").on(t.plant_id, t.record_id, t.corrected_at),
 	],
 );

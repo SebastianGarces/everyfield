@@ -13,13 +13,14 @@ import {
 	createAccountCredentials,
 	uploadAvatar,
 	readAvatar,
+	withSettingsWrite,
 } from "../../../packages/domain/src/settings/index.ts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { enqueueJob, queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
-import { currentActor } from "../../../packages/domain/src/access/session.ts";
+import { currentActor, readViewer } from "../../../packages/domain/src/access/session.ts";
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
 const ci =
 	process.env.CI === "true" &&
@@ -63,7 +64,24 @@ const ctx = (a, selected = { kind: "account", id: a.id }) => ({
 	session: a.session,
 	selected,
 });
-const call = (name, a, v, selected) => db.transaction((tx) => api[name](tx, ctx(a, selected), v));
+/** The credential operations take no app transaction, as the web mount calls them. */
+const CREDENTIALS = ["requestEmailChange", "confirmEmailChange", "changePassword"];
+const call = (name, a, v, selected) =>
+	CREDENTIALS.includes(name)
+		? api[name](ctx(a, selected), v)
+		: db.transaction((tx) => api[name](tx, ctx(a, selected), v));
+/** The viewer the settings mount passes: the request actor and the user row of the session's Better Auth lookup. */
+async function viewerOf(a) {
+	const v = await readViewer(db, a.session);
+	if (!v?.authority) return null;
+	const user = await admin.execute(
+		sql`SELECT u.name, u.email, u.email_verified FROM auth_session s JOIN auth_user u ON u.id=s.user_id WHERE s.id=${a.session}`,
+	);
+	const { name, email, email_verified } = user.rows[0];
+	return { authority: v.authority, principal: { display_name: name, email, verified: email_verified } };
+}
+/** One section read the way the settings mount runs it: on the pool, with the request's viewer. */
+const section = async (a, request) => api.getSection(db, await viewerOf(a), request);
 async function actor() {
 	const a = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
 	await admin.execute(
@@ -184,25 +202,35 @@ before(async () => {
 		request: async (c) => {
 			const request = ingress.get(c.session);
 			if (!request) throw Error("missing_native_request");
-			return { request, trustedIp: "198.51.100.21" };
+			const v = await viewerOf({ session: c.session });
+			const viewer = v && {
+				accountId: v.authority.actor.accountId,
+				email: v.principal.email,
+				verified: v.principal.verified,
+			};
+			return { request, trustedIp: "198.51.100.21", viewer };
 		},
 		responseCookies: async () => {},
-		deliverVerification: async (i) => {
+		deliverVerification: async (_tx, i) => {
 			deliveries.push(i);
 		},
-		securityNotice: async (tx, i) => {
+		securityNotice: async (tx, i, writes) => {
 			if (faults) throw Error("security_intent_fault");
-			return await mail.enqueue(tx, {
-				owner: { kind: "account", id: i.accountId },
-				purpose: "notification",
-				logicalKey: "security/" + i.correlationId,
-				recipient: i.accountId,
-				address: i.address,
-				content: { subject: "Security update", text: "Your sign-in details changed." },
-				operation: null,
-				notice: null,
-				eligibleAt: new Date().toISOString(),
-			});
+			return await mail.append(
+				tx,
+				{
+					owner: { kind: "account", id: i.accountId },
+					purpose: "notification",
+					logicalKey: "security/" + i.correlationId,
+					recipient: i.accountId,
+					address: i.address,
+					content: { subject: "Security update", text: "Your sign-in details changed." },
+					operation: null,
+					notice: null,
+					eligibleAt: new Date().toISOString(),
+				},
+				writes,
+			);
 		},
 	});
 	producerDeps = {
@@ -224,29 +252,33 @@ before(async () => {
 		},
 		suppression: async () => "unavailable",
 		avatarCleanup: {
-			enqueue: async (tx, i) => {
-				await enqueueJob(tx, {
-					tenant: i.accountId,
-					kind: "object_cleanup",
-					subject: i.fileId,
-					key: "avatar/" + i.fileId,
-					revision: "1",
-					eligibleAt: i.eligibleAt,
-				});
+			queue: (tx, i) => {
 				if (faults) throw Error("cleanup_intent_fault");
+				return queueJobs(tx, [
+					{
+						tenant: i.accountId,
+						kind: "object_cleanup",
+						subject: i.fileId,
+						key: "avatar/" + i.fileId,
+						revision: "1",
+						eligibleAt: i.eligibleAt,
+					},
+				]);
 			},
 		},
 		deletion: {
-			enqueue: async (tx, i) => {
-				await enqueueJob(tx, {
-					tenant: i.subject.id,
-					kind: "lifecycle_purge",
-					subject: i.witnessId,
-					key: "purge/" + i.requestId,
-					revision: i.revision,
-					eligibleAt: i.eligibleAt,
-				});
+			queue: (tx, i) => {
 				if (faults) throw Error("purge_intent_fault");
+				return queueJobs(tx, [
+					{
+						tenant: i.subject.id,
+						kind: "lifecycle_purge",
+						subject: i.witnessId,
+						key: "purge/" + i.requestId,
+						revision: i.revision,
+						eligibleAt: i.eligibleAt,
+					},
+				]);
 			},
 		},
 		credentials,
@@ -289,9 +321,8 @@ test("AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:ROLE43-002 AC:ROLE43-005 scoped set
 		other = await plant(),
 		adminActor = await seat(f.p),
 		member = await seat(f.p, "member");
-	denied(await call("getSection", f.a, { section: "account" }, f.p));
 	denied(await call("saveSection", f.a, command({ section: "account", name: "Wrong context" }), f.p));
-	const initial = ok(await call("getSection", f.a, { section: "plant", plant: f.p }, f.p));
+	const initial = ok(await section(f.a, { section: "plant", plant: f.p }));
 	assert.equal(initial.values.timeZone, "America/Chicago");
 	assert.deepEqual(initial.values.digest, { cadence: "weekly", weekday: 0, hour: 16 });
 	const v = command({
@@ -322,8 +353,8 @@ test("AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:ROLE43-002 AC:ROLE43-005 scoped set
 		/invalidate_fault/,
 	);
 	faults = false;
-	assert.equal(ok(await call("getSection", f.a, { section: "plant", plant: f.p }, f.p)).revision, "2");
-	const self = ok(await call("getSection", member, { section: "account" }));
+	assert.equal(ok(await section(f.a, { section: "plant", plant: f.p })).revision, "2");
+	const self = ok(await section(member, { section: "account" }));
 	assert.deepEqual(self.personalTimezone, { status: "unconfirmed" });
 	const name = ok(await call("saveSection", member, command({ section: "account", name: " Member Updated " })));
 	assert.equal(name.current.name, "Member Updated");
@@ -331,7 +362,7 @@ test("AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:ROLE43-002 AC:ROLE43-005 scoped set
 
 test("AC:WP010-IDN-012 account preferences keep exact category/channel choices independent and scoped", async () => {
 	const a = await actor();
-	let current = ok(await call("getSection", a, { section: "notifications" }));
+	let current = ok(await section(a, { section: "notifications" }));
 	assert.equal(current.values.choices.length, 19);
 	assert.equal(current.values.oversightCadence, null);
 	assert.equal(current.values.suppression, "unavailable");
@@ -365,7 +396,6 @@ test("AC:WP010-IDN-012 account preferences keep exact category/channel choices i
 		),
 	);
 	const f = await plant();
-	denied(await call("getSection", a, { section: "notifications" }, f.p));
 	const cadence = ok(
 		await call(
 			"saveSection",
@@ -389,9 +419,9 @@ test("AC:TARGET-IDN-031 AC:TARGET-IDN-032 AC:TARGET-TSK-018 personal zones canon
 		),
 	);
 	assert.deepEqual(s.preference, { status: "confirmed", timeZone: "America/Chicago", revision: "2" });
-	assert.deepEqual(ok(await call("getSection", a, { section: "account" })).personalTimezone, s.preference);
+	assert.deepEqual(ok(await section(a, { section: "account" })).personalTimezone, s.preference);
 	const f = await plant(a);
-	const church = ok(await call("getSection", a, { section: "plant", plant: f.p }, f.p));
+	const church = ok(await section(a, { section: "plant", plant: f.p }));
 	assert.equal(church.values.timeZone, "America/Chicago");
 	assert.deepEqual(church.values.digest, { cadence: "weekly", weekday: 0, hour: 16 });
 	const v = ok(await call("previewPersonalTimezone", a, { timeZone: "America/New_York" }));
@@ -414,7 +444,7 @@ test("AC:TARGET-IDN-031 AC:TARGET-IDN-032 AC:TARGET-TSK-018 personal zones canon
 		/intent_fault/,
 	);
 	faults = false;
-	assert.equal(ok(await call("getSection", a, { section: "account" })).personalTimezone.timeZone, "America/Chicago");
+	assert.equal(ok(await section(a, { section: "account" })).personalTimezone.timeZone, "America/Chicago");
 });
 
 test("INV-private-calendar: revoked seat keeps its personal preference but cannot invoke the author calendar", async () => {
@@ -518,7 +548,7 @@ test("AC:DEL58-001 AC:DEL58-002 AC:DEL58-003 AC:DEL58-005 AC:TARGET-IDN-026 AC:R
 	const pending = ok(await call("requestAccountDeletion", member, command({ confirmed: true })));
 	assert.equal(pending.status, "pending_deletion");
 	assert.equal(Date.parse(pending.cancelUntil) - Date.parse(pending.requestedAt), 30 * 86400_000);
-	denied(await call("getSection", member, { section: "account" }));
+	assert.equal(await viewerOf(member), null);
 	assert.equal((await admin.select().from(t.auth_session).where(eq(t.auth_session.id, member.session))).length, 0);
 	const proof = await restricted(member, { kind: "account", id: member.id }, pending);
 	const request = { subject: { kind: "account", id: member.id }, requestId: pending.requestId };
@@ -536,13 +566,13 @@ test("AC:DEL58-001 AC:DEL58-002 AC:DEL58-003 AC:DEL58-005 AC:TARGET-IDN-026 AC:R
 	assert.equal(cancelled.status, "cancelled");
 	assert.equal(cancelled.requestId, pending.requestId);
 	assert.equal(cancelled.cancelUntil, pending.cancelUntil);
-	denied(await call("getSection", member, { section: "account" }));
+	assert.equal(await viewerOf(member), null);
 	assert.equal((await admin.select().from(t.auth_session).where(eq(t.auth_session.id, member.session))).length, 0);
 	const repeat = ok(
 		await db.transaction((tx) => api.cancelAccountDeletion(tx, proof, command(request, pending.revision))),
 	);
 	assert.deepEqual(repeat, cancelled);
-	const user = ok(await call("getSection", f.a, { section: "plant", plant: f.p }, f.p));
+	const user = ok(await section(f.a, { section: "plant", plant: f.p }));
 	assert.equal(user.values.profile.name, "Harvest Point");
 });
 
@@ -615,7 +645,7 @@ test("INV-settings: concurrent account edits serialize before taking session sha
 		replies.find((r) => r.status === "refused"),
 		"conflict",
 	);
-	assert.equal(ok(await call("getSection", a, { section: "account" })).revision, "2");
+	assert.equal(ok(await section(a, { section: "account" })).revision, "2");
 });
 
 async function overdue(a, subject) {
@@ -733,11 +763,8 @@ test("AC:WP010-KNOW-072 AC:DEL58-005 workspace purge hides and removes only its 
 		presence: "absent",
 	});
 	const p = await overdue(f.a, subject);
-	denied(await call("getSection", f.a, { section: "plant", plant: f.p }, f.p));
-	assert.equal(
-		ok(await call("getSection", other.a, { section: "plant", plant: other.p }, other.p)).values.profile.name,
-		"Harvest Point",
-	);
+	assert.equal(await viewerOf(f.a), null);
+	assert.equal(ok(await section(other.a, { section: "plant", plant: other.p })).values.profile.name, "Harvest Point");
 	const purge = createLifecycleCleanup(cleanupDb, {
 		authorize: async () => true,
 		removeOwnedResources: async () => true,
@@ -801,6 +828,26 @@ test("AC:TARGET-IDN-006 AC:SEC-07 AC:PROVIDER48-002 avatar verifies private byte
 	const saved = ok(await call("finalizeAvatar", a, command({ uploadId: upload.uploadId })));
 	assert.deepEqual(saved, { status: "available", avatar: { accountId: a.id, versionId: upload.uploadId } });
 	assert.deepEqual(await readAvatar(db, storage, ctx(a), upload.uploadId), bytes);
+	// INV-C27: the photo read takes no session lock. It finishes while another transaction holds the session row.
+	let entered, release;
+	const locked = new Promise((r) => (entered = r)),
+		held = new Promise((r) => (release = r));
+	const holder = admin.transaction(async (tx) => {
+		await tx.execute(sql`SELECT 1 FROM auth_session WHERE id=${a.session} FOR UPDATE`);
+		entered();
+		await held;
+	});
+	await locked;
+	try {
+		const read = await Promise.race([
+			readAvatar(db, storage, ctx(a), upload.uploadId),
+			new Promise((_, reject) => setTimeout(() => reject(Error("photo read waited for the session lock")), 3000)),
+		]);
+		assert.deepEqual(read, bytes);
+	} finally {
+		release();
+		await holder;
+	}
 	denied(await call("getAvatar", foreign, { versionId: upload.uploadId }));
 	const clear = ok(await call("removeAvatar", a, command({}, "2")));
 	assert.deepEqual(clear, { status: "absent" });
@@ -910,7 +957,7 @@ test("AC:TARGET-IDN-008 AC:ROLE43-018 password proof precedes unchanged refusal;
 		false,
 	);
 	const fresh = await login({ ...a, password: input.newPassword });
-	assert.equal(ok(await call("getSection", fresh, { section: "account" })).email, a.email);
+	assert.equal(ok(await section(fresh, { section: "account" })).email, a.email);
 	const [count] = await admin
 		.select({ n: sql`count(*)::int` })
 		.from(t.audit_event)
@@ -1000,7 +1047,7 @@ test("AC:ORG55-001 AC:ORG55-007 AC:TARGET-IDN-026 organization profile and exact
 
 	assert.equal(noop.current.values.revision, "2");
 	const wrong = { ...org.o, organizationKind: "sending_church" };
-	denied(await call("getSection", org.a, { section: "organization", organization: wrong }, org.o));
+	denied(await section(org.a, { section: "organization", organization: wrong }));
 });
 
 test("INV-lifecycle: an account root read serializes first-witness deletion even before any witness exists", async () => {
@@ -1224,7 +1271,7 @@ test("AC:WP010-IDN-012 exact task preference reaches enqueue and dispatch; churc
 			return inputs.map((v, n) => (r.rows.some((r) => r.n === n) ? { address: "test@example.test" } : null));
 		},
 	});
-	const initialPreferences = ok(await call("getSection", f.a, { section: "notifications" }));
+	const initialPreferences = ok(await section(f.a, { section: "notifications" }));
 	const notice = (category, occurrence) => ({
 		owner: f.p,
 		recipient: f.a.id,
@@ -1276,7 +1323,7 @@ test("AC:WP010-IDN-012 exact task preference reaches enqueue and dispatch; churc
 	assert.equal(claim.kind, "mail");
 	assert.deepEqual(await sender.dispatch(claim), { kind: "not_dispatched" });
 	assert.deepEqual(sent, []);
-	const profile = ok(await call("getSection", f.a, { section: "plant", plant: f.p }, f.p));
+	const profile = ok(await section(f.a, { section: "plant", plant: f.p }));
 	ok(
 		await call("setDigestSchedule", f.a, command({ plant: f.p, schedule: { cadence: "off" } }, profile.revision), f.p),
 	);
@@ -1306,7 +1353,7 @@ test("AC:TARGET-IDN-007 AC:TARGET-IDN-008 native credential budgets use own logi
 	for (let i = 0; i < 5; i++) assert.equal((await call("changePassword", b, input)).status, "refused");
 	assert.equal((await call("changePassword", b, { ...input, currentPassword: b.password })).status, "refused");
 	const old = await login(b);
-	assert.equal(ok(await call("getSection", old, { section: "account" })).email, b.email);
+	assert.equal(ok(await section(old, { section: "account" })).email, b.email);
 });
 
 test("AC:WP005-KNOW-069 AC:WP005-KNOW-072 AC:WP010-KNOW-069 AC:WP010-KNOW-072 AC:TARGET-IDN-032 account purge removes personal bodies while preserving church documents", async () => {
@@ -1440,7 +1487,7 @@ test("INV-settings-preview: expiry is checked independently from actor, subject,
 		),
 		"stale_preview",
 	);
-	assert.deepEqual(ok(await call("getSection", f.a, { section: "account" })).personalTimezone, {
+	assert.deepEqual(ok(await section(f.a, { section: "account" })).personalTimezone, {
 		status: "unconfirmed",
 	});
 	const fresh = ok(await call("previewPersonalTimezone", f.a, { timeZone: "UTC" }));
@@ -1452,4 +1499,331 @@ test("INV-settings-preview: expiry is checked independently from actor, subject,
 		),
 	);
 	assert.deepEqual(saved.preference, { status: "confirmed", timeZone: "UTC", revision: "2" });
+});
+
+let recording = false;
+const statements = [];
+/** One section read the way the settings mount runs it, with every statement the database receives. */
+async function mountRead(a, request) {
+	const viewer = await viewerOf(a);
+	statements.length = 0;
+	recording = true;
+	try {
+		const value = await api.getSection(db, viewer, request);
+		return { value: ok(value), statements: [...statements] };
+	} finally {
+		recording = false;
+	}
+}
+const instrumented = new WeakSet();
+/** Records every statement the pools send while `recording` is on. */
+function instrument(...pools) {
+	for (const pool of pools)
+		pool.$client.on("acquire", (client) => {
+			if (instrumented.has(client)) return;
+			instrumented.add(client);
+			const query = client.query;
+			client.query = function (...args) {
+				if (recording) statements.push(typeof args[0] === "string" ? args[0] : args[0].text);
+				return Reflect.apply(query, this, args);
+			};
+		});
+}
+test("INV-performance: each settings section reads in one statement on the pool, without a transaction", async () => {
+	instrument(db);
+	const f = await plant(),
+		org = await organization();
+	const [team] = await admin
+		.insert(t.team)
+		.values({ plant_id: f.p.id, name: "Worship", state: "active", sort_order: 0 })
+		.returning();
+	await admin.insert(t.affiliation).values({
+		plant_id: f.p.id,
+		organization_id: org.o.id,
+		accepted_at: new Date(),
+		share_people: true,
+		share_meetings: false,
+		share_tasks: false,
+		share_ministry_teams: false,
+		share_wiki: false,
+		share_activity: false,
+		shared_findings: false,
+		consent_revision: "1",
+		revision: "1",
+	});
+	const sharing = { plant: f.p, organization: org.o };
+	// The notifications row adds one suppression lookup in the web mount; this test's suppression list reads nothing.
+	const reads = [
+		[f.a, { section: "account" }, (v) => [v.name, v.email], ["Synthetic", f.a.user + "@example.test"]],
+		[f.a, { section: "notifications" }, (v) => [v.values.planterCadence, v.values.oversightCadence], ["weekly", null]],
+		[
+			f.a,
+			{ section: "plant", plant: f.p },
+			(v) => [v.values.profile.name, v.values.timeZone],
+			["Harvest Point", "America/Chicago"],
+		],
+		[f.a, { section: "teams", plant: f.p, teamId: team.id }, (v) => [v.name, v.revision], ["Worship", "1"]],
+		[org.a, { section: "organization", organization: org.o }, (v) => [v.values.profile.name], ["Network"]],
+		[
+			f.a,
+			{ section: "affiliations", ...sharing },
+			(v) => [v.values.view, v.values.choices.people],
+			["plant_administration", true],
+		],
+		[
+			org.a,
+			{ section: "affiliations", ...sharing },
+			(v) => [v.values.view, v.values.availability.people],
+			["organization", true],
+		],
+	];
+	for (const [a, request, observe, expected] of reads) {
+		const read = await mountRead(a, request);
+		assert.deepEqual(observe(read.value), expected, request.section);
+		assert.equal(read.statements.length, 1, `${request.section}: ${read.statements.join("\n")}`);
+	}
+});
+test("INV-authority: a settings read checks seat, role, session and lifecycle again; a viewer that lost them since its lookup reads nothing", async () => {
+	const f = await plant(),
+		org = await organization();
+	const [team] = await admin
+		.insert(t.team)
+		.values({ plant_id: f.p.id, name: "Worship", state: "active", sort_order: 0 })
+		.returning();
+	await admin.insert(t.affiliation).values({
+		plant_id: f.p.id,
+		organization_id: org.o.id,
+		accepted_at: new Date(),
+		share_people: true,
+		share_meetings: false,
+		share_tasks: false,
+		share_ministry_teams: false,
+		share_wiki: false,
+		share_activity: false,
+		shared_findings: false,
+		consent_revision: "1",
+		revision: "1",
+	});
+	const church = [
+		{ section: "plant", plant: f.p },
+		{ section: "teams", plant: f.p, teamId: team.id },
+		{ section: "affiliations", plant: f.p, organization: org.o },
+	];
+	const seatOf = async (a) => (await admin.select().from(t.seat).where(eq(t.seat.account_id, a.id)))[0];
+	const cases = [
+		[
+			"admin downgraded to member",
+			() => seat(f.p),
+			church,
+			(a) => admin.update(t.seat).set({ role: "member", revision: "2" }).where(eq(t.seat.account_id, a.id)),
+		],
+		[
+			"admin seat removed",
+			() => seat(f.p),
+			church,
+			(a) => admin.update(t.seat).set({ ended_at: new Date(), revision: "2" }).where(eq(t.seat.account_id, a.id)),
+		],
+		[
+			"admin seat revoked by a lifecycle witness",
+			() => seat(f.p),
+			church,
+			async (a) => {
+				const s = await seatOf(a);
+				await admin.insert(t.lifecycle_witness).values({
+					kind: "seat",
+					opaque_subject_id: s.id,
+					seat_id: s.id,
+					request_revision: "1",
+					state: "revoked",
+					witness_checkpoint: "1",
+					cleanup_state: "not_started",
+				});
+			},
+		],
+		[
+			"organization seat removed",
+			async () => {
+				const a = await actor();
+				await admin
+					.insert(t.seat)
+					.values({ account_id: a.id, organization_id: org.o.id, role: "admin", accepted_at: new Date() });
+				return a;
+			},
+			[
+				{ section: "organization", organization: org.o },
+				{ section: "affiliations", plant: f.p, organization: org.o },
+			],
+			(a) => admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.account_id, a.id)),
+		],
+		[
+			"session signed out",
+			() => actor(),
+			[{ section: "account" }, { section: "notifications" }],
+			(a) => admin.delete(t.auth_session).where(eq(t.auth_session.id, a.session)),
+		],
+	];
+	for (const [change, make, requests, mutate] of cases) {
+		const a = await make();
+		const viewer = await viewerOf(a);
+		for (const request of requests) ok(await api.getSection(db, viewer, request));
+		await mutate(a);
+		for (const request of requests)
+			assert.equal((await api.getSection(db, viewer, request)).status, "refused", `${change}: ${request.section}`);
+	}
+});
+test("BUG-3213d18: notifications read the account's saved choices and an organization seat's digest", async () => {
+	const org = await organization();
+	await admin.execute(
+		sql`INSERT INTO notification_preference(account_id,category,channel,enabled,cadence,unsubscribe_revision) VALUES(${org.a.id},'task_due','email',false,null,1),(${org.a.id},'planter_digest','email',true,'daily',1),(${org.a.id},'oversight_digest','email',true,'daily',1)`,
+	);
+	const read = ok(await section(org.a, { section: "notifications" }));
+	const choice = (category, channel) =>
+		read.values.choices.find((c) => c.category === category && c.channel === channel)?.enabled;
+	assert.equal(choice("task_due", "email"), false);
+	assert.equal(choice("task_due", "in_app"), true);
+	assert.deepEqual(
+		read.values.choices.filter((c) => c.category === "oversight_digest").map((c) => [c.channel, c.enabled]),
+		[
+			["email", true],
+			["in_app", true],
+		],
+	);
+	assert.equal(read.values.planterCadence, "daily");
+	assert.equal(read.values.oversightCadence, "daily");
+	// A save compares with that read: turning the saved "off" back on must store it.
+	const patch = { kind: "channel", choice: { category: "task_due", channel: "email", enabled: true } };
+	ok(await call("saveSection", org.a, command({ section: "notifications", patch }, read.revision)));
+	const [stored] = await admin
+		.select()
+		.from(t.notification_preference)
+		.where(
+			and(
+				eq(t.notification_preference.account_id, org.a.id),
+				eq(t.notification_preference.category, "task_due"),
+				eq(t.notification_preference.channel, "email"),
+			),
+		);
+	assert.equal(stored.enabled, true);
+	const reload = ok(await section(org.a, { section: "notifications" }));
+	assert.equal(reload.values.choices.find((c) => c.category === "task_due" && c.channel === "email").enabled, true);
+});
+
+/** One write the way the web mount runs it: the request's actor bound in its own transaction, every statement recorded. */
+async function mountWrite(a, body) {
+	const viewer = await viewerOf(a),
+		context = { session: a.session, selected: { kind: "account", id: a.id } };
+	statements.length = 0;
+	recording = true;
+	try {
+		const value = ok(await withSettingsWrite(db, viewer.authority, context, (tx) => body(tx, context)));
+		return { value, count: statements.length };
+	} finally {
+		recording = false;
+	}
+}
+/** The audit rows of one command, by its request key. */
+const auditOf = (requestKey) =>
+	admin.execute(
+		sql`SELECT action, metadata, result FROM audit_event WHERE command_id=(SELECT id FROM audit_event WHERE request_key=${requestKey})`,
+	);
+test("INV-performance: photo, own time zone and deletion writes use a fixed small statement count and one audit row naming only fields", async () => {
+	instrument(db);
+	const a = await actor();
+	const upload = await mountWrite(a, (tx, c) => api.requestAvatarUpload(tx, c, { mime: "image/png", byteLength: 68 }));
+	// The byte adapter verified and stored the bytes.
+	await admin
+		.update(t.file_object)
+		.set({ state: "ready", byte_count: "68", sha256: "0".repeat(64) })
+		.where(eq(t.file_object.id, upload.value.uploadId));
+	const finalizeKey = randomUUID();
+	const finalized = await mountWrite(a, (tx, c) =>
+		api.finalizeAvatar(tx, c, command({ uploadId: upload.value.uploadId }, "1", finalizeKey)),
+	);
+	assert.deepEqual(finalized.value, {
+		status: "available",
+		avatar: { accountId: a.id, versionId: upload.value.uploadId },
+	});
+	const retriedPhoto = await mountWrite(a, (tx, c) =>
+		api.finalizeAvatar(tx, c, command({ uploadId: upload.value.uploadId }, "1", finalizeKey)),
+	);
+	assert.deepEqual(retriedPhoto.value, finalized.value);
+	const removeKey = randomUUID();
+	const removed = await mountWrite(a, (tx, c) => api.removeAvatar(tx, c, command({}, "2", removeKey)));
+	assert.deepEqual(removed.value, { status: "absent" });
+	const preview = await mountWrite(a, (tx, c) => api.previewPersonalTimezone(tx, c, { timeZone: "Europe/Paris" }));
+	const zoneKey = randomUUID();
+	const zone = await mountWrite(a, (tx, c) =>
+		api.setPersonalTimezone(
+			tx,
+			c,
+			command({ timeZone: "Europe/Paris", previewId: preview.value.previewId, confirmed: true }, "1", zoneKey),
+		),
+	);
+	assert.deepEqual(zone.value.preference, { status: "confirmed", timeZone: "Europe/Paris", revision: "2" });
+	// An exact retry returns the same reply from the replay record.
+	const retried = await mountWrite(a, (tx, c) =>
+		api.setPersonalTimezone(
+			tx,
+			c,
+			command({ timeZone: "Europe/Paris", previewId: preview.value.previewId, confirmed: true }, "1", zoneKey),
+		),
+	);
+	assert.deepEqual(retried.value, zone.value);
+	const deletionKey = randomUUID();
+	const deletion = await mountWrite(a, (tx, c) =>
+		api.requestAccountDeletion(tx, c, command({ confirmed: true }, "4", deletionKey)),
+	);
+	assert.equal(deletion.value.status, "pending_deletion");
+	// BEGIN, the bound actor and COMMIT, plus: the insert; the replay check, the file and the write; the replay check
+	// and the write; the insert; the replay check, the preview, the replan job and the write; the replay check, the
+	// witness read, the witness, the suspension and the write.
+	assert.deepEqual(
+		[upload.count, finalized.count, removed.count, preview.count, zone.count, deletion.count],
+		[4, 6, 5, 4, 7, 8],
+	);
+	for (const [key, field] of [
+		[finalizeKey, "avatar"],
+		[removeKey, "avatar"],
+		[zoneKey, "personalTimezone"],
+	]) {
+		const rows = (await auditOf(key)).rows;
+		assert.equal(rows.length, 1, field);
+		assert.deepEqual(rows[0].metadata, { section: "account", diff: { [field]: true } });
+	}
+	assert.equal((await auditOf(deletionKey)).rows.length, 1);
+	// The whole audit row, replay record included, holds no personal value: no zone, no photo reference.
+	assert.deepEqual((await auditOf(zoneKey)).rows[0].result, { revision: "2" });
+	assert.deepEqual((await auditOf(finalizeKey)).rows[0].result, {});
+	assert.deepEqual((await auditOf(removeKey)).rows[0].result, {});
+});
+
+test("AC:DEL58-002 INV-performance: a fresh password proof opens only the account's current request; status and cancel stay small", async () => {
+	instrument(db);
+	const a = await credentialActor();
+	const [row] = await admin.select().from(t.account).where(eq(t.account.id, a.id));
+	const pending = ok(await call("requestAccountDeletion", a, command({ confirmed: true }, row.revision)));
+	const open = (password) => producerDeps.credentials.openAccountDeletion({ email: a.email, password }, null);
+	assert.deepEqual(await open("Wrong secret 1234!"), { status: "refused", code: "proof_invalid" });
+	const opened = await open(a.password);
+	assert.equal(opened.status, "ok");
+	assert.deepEqual(opened.value.subject, { kind: "account", id: a.id });
+	assert.equal(opened.value.requestId, pending.requestId);
+	const request = { subject: opened.value.subject, requestId: opened.value.requestId };
+	const measured = async (body) => {
+		statements.length = 0;
+		recording = true;
+		try {
+			return { value: ok(await db.transaction(body)), count: statements.length };
+		} finally {
+			recording = false;
+		}
+	};
+	const status = await measured((tx) => api.getAccountDeletionStatus(tx, opened.value.session, request));
+	assert.deepEqual(status.value, pending);
+	const cancelled = await measured((tx) =>
+		api.cancelAccountDeletion(tx, opened.value.session, command(request, pending.revision)),
+	);
+	assert.equal(cancelled.value.status, "cancelled");
+	// BEGIN, SAVEPOINT, the locking read, [the witness and audit write,] RELEASE, COMMIT.
+	assert.deepEqual([status.count, cancelled.count], [5, 6]);
 });

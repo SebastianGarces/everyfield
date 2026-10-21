@@ -1,10 +1,11 @@
 "use client";
 
-import { Settings02Icon, UserMultipleIcon } from "@hugeicons/core-free-icons";
+import { Calendar03Icon, Settings02Icon, Task01Icon, UserMultipleIcon } from "@hugeicons/core-free-icons";
 import { ToastProvider, useToast } from "@everyfield/ui/controls";
 import { initials } from "@everyfield/ui/display";
 import { AppShell, RoleBanner, type ShellNav } from "@everyfield/ui/shell";
 import { createContext, use, useState, type ReactNode } from "react";
+import { useEvryPanel } from "../evry/conversation/EvryPanel.tsx";
 import { AccountMenu } from "../settings/AccountMenu";
 import { firstSection } from "../settings/model";
 import type { SectionSeed, SettingsViewer } from "../settings/port";
@@ -12,10 +13,20 @@ import { useProductSettings } from "../settings/ProductSettings";
 import type { Role } from "./server.ts";
 
 // The product frame around the People and Settings pages. Only destinations that exist are in the navigation; the full
-// product navigation, command palette, notifications and Evry come from their own packages and replace these when they
+// product navigation, command palette and notifications come from their own packages and replace these when they
 // ship. Settings sits at the bottom of the rail and in the user menu behind the name button (screens.md, Overlays).
 
 const PEOPLE = { kind: "link", key: "people", label: "People", href: "/people", icon: UserMultipleIcon } as const;
+// Meetings is a dynamic page; it loads when chosen, not whenever the frame renders.
+const MEETINGS = {
+	kind: "link",
+	key: "meetings",
+	label: "Meetings",
+	href: "/meetings",
+	icon: Calendar03Icon,
+	prefetch: false,
+} as const;
+const TASKS = { kind: "link", key: "tasks", label: "Tasks", href: "/tasks", icon: Task01Icon } as const;
 const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Member" };
 
 type FrameProps = {
@@ -60,17 +71,19 @@ export function PeopleFrame({ settings: initial, seed, ...props }: FrameProps) {
 function Frame({ name, settings, seed = null, children }: FrameProps) {
 	const toast = useToast();
 	const dialog = useProductSettings(settings, seed);
+	const evry = useEvryPanel({ inPlant: settings?.context === "plant" });
 	const role = settings && settings.context !== "account" ? settings.role : null;
-	// A plant Member reads People but does not change it; organization seats have no People list.
+	// A plant Member reads People and Tasks and works on their own tasks; organization seats have neither.
 	const banner =
 		settings?.context === "plant" && role === "member" ? (
 			<RoleBanner>
-				You have a Member seat. You can see people and their history; Owners and Admins change them.
+				You have a Member seat. You can read what your seat allows and work on tasks assigned to you. Other changes need
+				an Owner or Admin.
 			</RoleBanner>
 		) : null;
 	// The rail's Settings opens the dialog over the current page, as the user menu does; /settings is its address.
 	const nav: ShellNav = {
-		main: [PEOPLE],
+		main: [PEOPLE, MEETINGS, TASKS],
 		pages: [],
 		tools: [
 			{
@@ -104,11 +117,12 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 				else later("Search")();
 			}}
 			onNotifications={later("Notifications")}
-			onAskEvry={later("Evry")}
+			onAskEvry={evry.open}
 			banner={banner}
 		>
 			{children}
 			{dialog.element}
+			{evry.element}
 		</AppShell>
 	);
 }

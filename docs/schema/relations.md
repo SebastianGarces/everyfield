@@ -52,6 +52,12 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `contact_outcome(meeting_id, plant_id)` | `meeting(id, plant_id)` | restrict |  |
 | `contact_outcome(supersedes_id, plant_id)` | `contact_outcome(id, plant_id)` | restrict |  |
 | `contact_outcome(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
+| `conversation(account_id)` | `account(id)` | no_action |  |
+| `conversation(active_session_id)` | `auth_session(id)` | set_null |  |
+| `conversation(active_turn_id, tenant_id)` | `job(id, tenant_id)` | no_action |  |
+| `conversation(tenant_id)` | `tenant(id)` | no_action |  |
+| `conversation_event(conversation_id)` | `conversation(id)` | cascade |  |
+| `conversation_event(turn_id)` | `job(id)` | no_action |  |
 | `development_enrollment(organization_id)` | `organization(id)` | restrict |  |
 | `development_enrollment(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
 | `development_enrollment(person_id, organization_id)` | `person(id, tenant_id)` | restrict |  |
@@ -87,6 +93,9 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `document_revision(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `file_object(tenant_id)` | `tenant(id)` | restrict |  |
 | `file_object(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
+| `four_cs(plant_id)` | `plant(id)` | restrict |  |
+| `four_cs(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
+| `four_cs(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `household(plant_id)` | `plant(id)` | restrict |  |
 | `household(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `identity_proof(account_id)` | `account(id)` | restrict |  |
@@ -180,12 +189,21 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `person(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `person(tenant_id)` | `tenant(id)` | restrict |  |
 | `person(organization_id)` | `organization(id)` | restrict |  |
+| `person_import(actor_id)` | `account(id)` | set_null |  |
+| `person_import(job_id, tenant_id)` | `job(id, tenant_id)` | cascade |  |
+| `person_import(tenant_id)` | `tenant(id)` | no_action |  |
+| `person_merge(source_id, tenant_id)` | `person(id, tenant_id)` | cascade |  |
+| `person_merge(survivor_id, tenant_id)` | `person(id, tenant_id)` | cascade |  |
+| `person_merge(tenant_id)` | `tenant(id)` | no_action |  |
 | `person_note(plant_id)` | `plant(id)` | restrict |  |
 | `person_note(person_id, tenant_id)` | `person(id, tenant_id)` | restrict |  |
 | `person_note(author_id)` | `account(id)` | restrict |  |
 | `person_note(participation_id, tenant_id)` | `participation(id, plant_id)` | restrict |  |
 | `person_note(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `person_note(tenant_id)` | `tenant(id)` | restrict |  |
+| `person_skill(plant_id)` | `plant(id)` | restrict |  |
+| `person_skill(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
+| `person_skill(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `person_tag(plant_id)` | `plant(id)` | restrict |  |
 | `person_tag(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `person_tag(tag_id, plant_id)` | `tag(id, plant_id)` | restrict |  |
@@ -214,6 +232,11 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `plant_geography(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `platform_grant(account_id)` | `account(id)` | restrict |  |
 | `platform_grant(id, account_id)` | `record(id, tenant_id)` | restrict |  |
+| `proposal(account_id)` | `account(id)` | no_action |  |
+| `proposal(approved_session_id)` | `auth_session(id)` | set_null |  |
+| `proposal(conversation_id, tenant_id)` | `conversation(id, tenant_id)` | cascade |  |
+| `proposal(job_id, tenant_id)` | `job(id, tenant_id)` | no_action |  |
+| `proposal(tenant_id)` | `tenant(id)` | no_action |  |
 | `provider_event(mail_id)` | `mail(id)` | restrict | Signed external event may refer to mail in any tenant; restrict callback processing to its exact provider/message identity. |
 | `provider_event(id)` | `record(id)` | restrict |  |
 | `reading(account_id)` | `account(id)` | restrict |  |
@@ -223,6 +246,9 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `reading(completed_revision_id)` | `article_revision(id)` | restrict | Private completion evidence pins an entitled published source revision; completion boundary validates canonical article and exact reader/source rights. |
 | `reading(id, account_id)` | `record(id, tenant_id)` | restrict |  |
 | `record(tenant_id)` | `tenant(id)` | restrict |  |
+| `record_correction(person_id, plant_id)` | `person(id, tenant_id)` | cascade |  |
+| `record_correction(plant_id)` | `plant(id)` | no_action |  |
+| `record_correction(record_id, plant_id)` | `record(id, tenant_id)` | cascade |  |
 | `recurrence(plant_id)` | `plant(id)` | restrict |  |
 | `recurrence(source_task_id, plant_id)` | `task(id, plant_id)` | restrict |  |
 | `recurrence(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
@@ -306,7 +332,9 @@ Every declared Person FK has one registration in `target.json.person_references`
 | `invitation` | `resident_person_id, tenant_id` | WP-004, WP-006, WP-008, WP-009 |
 | `person` | `merged_into_person_id, tenant_id` | WP-004, WP-006, WP-011, WP-012 |
 | `person_note` | `person_id, tenant_id` | WP-004, WP-006, WP-014, WP-098 |
+| `person_skill` | `person_id, plant_id` | WP-004, WP-012 |
 | `person_tag` | `person_id, plant_id` | WP-004, WP-013 |
+| `four_cs` | `person_id, plant_id` | WP-004, WP-014 |
 | `interview` | `person_id, plant_id` | WP-004, WP-014 |
 | `commitment` | `person_id, plant_id` | WP-004, WP-014 |
 | `commitment` | `witness_person_id, plant_id` | WP-004, WP-014 |
@@ -323,3 +351,6 @@ Every declared Person FK has one registration in `target.json.person_references`
 | `development_enrollment` | `person_id, organization_id` | WP-004, WP-099 |
 | `residency_link` | `person_id, organization_id` | WP-004, WP-008 |
 | `meeting_kit_item` | `assignee_person_id, plant_id` | WP-020 |
+| `person_merge` | `source_id, tenant_id` | WP-015 |
+| `person_merge` | `survivor_id, tenant_id` | WP-015 |
+| `record_correction` | `person_id, plant_id` | WP-015 |

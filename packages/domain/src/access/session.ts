@@ -1,5 +1,5 @@
 import * as tables from "@everyfield/db/tables";
-import { and, eq, sql, getTableColumns, isNull, notExists, type SQLWrapper } from "@everyfield/db/query";
+import { and, eq, sql, getTableColumns, isNull, notExists, type SQL, type SQLWrapper } from "@everyfield/db/query";
 import { alias } from "@everyfield/db/query";
 import "server-only";
 import type { Transaction } from "@everyfield/db/client";
@@ -85,14 +85,16 @@ export async function liveOwner(tx: Transaction, selected: Owner, lock = true): 
 	return hidden.length === 0;
 }
 /**
- * One statement, no row locks: the session's account, its live seats, the selected owner, every lifecycle witness that
- * hides the account, the owner or the seat, the own Person of a plant seat and whether a seatless account still has a
- * Discovery profile. Authority for a write is re-checked by the write statement (D70), so a read observes only.
+ * One statement: the session's account, its live seats, the selected owner, every lifecycle witness that hides the
+ * account, the owner or the seat, the own Person of a plant seat and whether a seatless account still has a Discovery
+ * profile. With `lock`, access_session share-locks the session and account until COMMIT, so a revoke waits for an
+ * authority transaction (INV-revocation). A read passes `lock` false and takes no row lock (C22).
  */
-async function readSession(db: Executor, session: z.infer<typeof sessionId>, requested?: Owner) {
+async function readSession(db: Executor, session: z.infer<typeof sessionId>, requested?: Owner, lock = true) {
+	const handle = sessionId.parse(session);
 	const r = await db.execute(sql`
 		WITH identity AS MATERIALIZED (
-			SELECT * FROM access_session(${sessionId.parse(session)}) LIMIT 1
+			SELECT * FROM ${lock ? sql`access_session(${handle})` : sql`live_session(${handle})`} LIMIT 1
 		), seats AS MATERIALIZED (
 			SELECT s.id, s.plant_id, s.organization_id, s.role, s.revision::text, s.accepted_at
 			FROM seat s JOIN identity i ON i.account_id=s.account_id
@@ -158,8 +160,8 @@ function actorOf(row: SessionRow) {
 		context: { kind: "seat", owner: selected, seatId: seat.id, role: seat.role, revision: seat.revision },
 	});
 }
-async function resolveActor(tx: Executor, session: z.infer<typeof sessionId>, requested?: Owner) {
-	const row = await readSession(tx, session, requested);
+async function resolveActor(tx: Executor, session: z.infer<typeof sessionId>, requested?: Owner, lock = true) {
+	const row = await readSession(tx, session, requested, lock);
 	return row ? actorOf(row) : currentActorResult.parse({ status: "unavailable" });
 }
 
@@ -181,7 +183,8 @@ export async function readViewer(db: Executor, session: z.infer<typeof sessionId
 	};
 }
 
-export async function currentActor(tx: Transaction, session: z.infer<typeof sessionId>, selected: Owner) {
+/** The actor for this transaction. A read passes `lock` false, so resolving it takes no session lock (C22). */
+export async function currentActor(tx: Transaction, session: z.infer<typeof sessionId>, selected: Owner, lock = true) {
 	const bound = requestWrites.get(tx);
 	if (bound && bound.authority.session === session && sameOwner(bound.selected, selected)) return bound.actor;
 	const parsed = owner.safeParse(selected);
@@ -198,7 +201,7 @@ export async function currentActor(tx: Transaction, session: z.infer<typeof sess
 				context: { kind: "account", owner: parsed.data },
 			});
 	}
-	return resolveActor(tx, session, parsed.data);
+	return resolveActor(tx, session, parsed.data, lock);
 }
 const requestReads = new WeakMap<Transaction, RequestActor>();
 /** The actor a read transaction observed for this session, or null. */
@@ -299,6 +302,28 @@ export function writeVisibility(actor: string | SQLWrapper, selected: Owner) {
   (w.kind='account' AND w.opaque_subject_id=${actor}::uuid) OR (w.kind=${selected.kind} AND w.opaque_subject_id=${selected.id}::uuid) OR
   (${selected.kind}<>'account' AND w.seat_id IN (SELECT id FROM seat WHERE account_id=${actor}::uuid
    AND coalesce(plant_id,organization_id)=${selected.id}::uuid AND ended_at IS NULL))))`;
+}
+/**
+ * C13 and C22: access as it is now, as one condition for each statement of a tenant read. The session is live and its
+ * account active; for a plant or organization the account still holds an accepted seat there, not ended, Owner or Admin
+ * when `admin`, exactly `role` when it is named, and the same seat as the request's actor when `seatId` names it; no
+ * lifecycle witness hides the account, the owner or the seat. live_session takes no row lock, so a sign-out never waits
+ * for a running read. A write locks its authority instead (lockWriteAuthority, access_session).
+ */
+export function liveRead(
+	access: { session: string; owner: Owner; seatId?: string; role?: z.infer<typeof role> },
+	admin = false,
+): SQL {
+	const { owner } = access;
+	const seat =
+		owner.kind === "account"
+			? sql`i.account_id=${owner.id}::uuid`
+			: sql`EXISTS(SELECT FROM seat s WHERE s.account_id=i.account_id
+ AND ${owner.kind === "organization" ? sql`s.organization_id` : sql`s.plant_id`}=${owner.id}::uuid
+ AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp() ${access.seatId ? sql`AND s.id=${access.seatId}::uuid` : sql``}
+ ${access.role ? sql`AND s.role=${access.role}` : admin ? sql`AND s.role<>'member'` : sql``})`;
+	return sql`EXISTS(SELECT FROM live_session(${access.session}::uuid) i WHERE i.registration_state='active'
+ AND ${seat} AND ${writeVisibility(sql`i.account_id`, owner)})`;
 }
 export async function currentWriteAllowed(tx: Transaction, actor: string, selected: Owner) {
 	const result = await tx.execute(sql`SELECT ${writeVisibility(actor, selected)} AS allowed`);

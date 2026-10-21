@@ -40,7 +40,7 @@ export async function ProductFrameLayout({ children }: { children: ReactNode }) 
 }
 
 /** Signed out goes to sign-in and comes back; no seat in a plant sees a lock; a broken setup sees an error. */
-async function gate(returnTo: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
+export async function gate(returnTo: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
 	const v = await getViewer();
 	if (v?.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
 	if (v?.people) return { viewer: v.people };
@@ -115,6 +115,10 @@ export async function PersonPage({ params }: { params: Promise<{ personId: strin
 			}
 			accountId={viewer.accountId}
 			canWrite={canWrite(viewer)}
+			fields={loaded.value.fields}
+			records={loaded.value.records}
+			// Photo uploads stay hidden until the photo UI task ships; stored photos still read through the photo route.
+			photosEnabled={false}
 		/>
 	);
 }

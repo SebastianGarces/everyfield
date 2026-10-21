@@ -2578,6 +2578,7 @@
         "document",
         "document_revision",
         "file_object",
+        "four_cs",
         "household",
         "identity_proof",
         "interview",
@@ -2601,6 +2602,7 @@
         "passage",
         "person",
         "person_note",
+        "person_skill",
         "person_tag",
         "phase_transition",
         "pipeline_person",
@@ -2631,10 +2633,17 @@
       ],
       "consumer_table_names": [
         "admission_attempt",
+        "conversation",
+        "conversation_event",
         "early_access_attempt",
         "early_access_request",
+        "model_spend",
         "onboarding_setup",
         "people_column",
+        "person_import",
+        "person_merge",
+        "proposal",
+        "record_correction",
         "relationship_invitation",
         "schema_migration",
         "settings_preview"
@@ -5494,6 +5503,7 @@
       "producer_table_names": [
         "household",
         "person",
+        "person_skill",
         "record"
       ],
       "consumer_table_names": [
@@ -5582,6 +5592,7 @@
         "WP-090"
       ],
       "producer_table_names": [
+        "person_import",
         "person_tag",
         "record",
         "tag"
@@ -5774,6 +5785,7 @@
       "producer_table_names": [
         "audit_event",
         "commitment",
+        "four_cs",
         "interview",
         "person_note",
         "record"
@@ -6045,7 +6057,9 @@
         "WP-090"
       ],
       "producer_table_names": [
-        "audit_event"
+        "audit_event",
+        "person_merge",
+        "record_correction"
       ],
       "consumer_table_names": [
         "commitment",
@@ -6534,6 +6548,7 @@
         "person",
         "plant",
         "platform_grant",
+        "record_correction",
         "seat",
         "tenant"
       ],
@@ -6937,6 +6952,7 @@
         "meeting",
         "participation",
         "person",
+        "record_correction",
         "team",
         "team_tenure"
       ],
@@ -18646,11 +18662,16 @@
         "WP-089",
         "WP-090"
       ],
-      "producer_table_names": [],
+      "producer_table_names": [
+        "conversation",
+        "conversation_event",
+        "model_spend"
+      ],
       "consumer_table_names": [
         "audit_event",
         "file_object",
         "job",
+        "proposal",
         "record",
         "reference_item",
         "reference_release",
@@ -19568,9 +19589,11 @@
         "WP-090"
       ],
       "producer_table_names": [
-        "audit_event"
+        "audit_event",
+        "proposal"
       ],
       "consumer_table_names": [
+        "conversation_event",
         "record"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -19711,7 +19734,10 @@
         "file_object",
         "record"
       ],
-      "consumer_table_names": [],
+      "consumer_table_names": [
+        "conversation",
+        "conversation_event"
+      ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
@@ -20028,6 +20054,8 @@
       "producer_table_names": [],
       "consumer_table_names": [
         "audit_event",
+        "model_spend",
+        "proposal",
         "record",
         "reference_item",
         "reference_release",
@@ -25955,6 +25983,8 @@
         "auth_verification",
         "commitment",
         "contact_outcome",
+        "conversation",
+        "conversation_event",
         "development_enrollment",
         "development_program",
         "development_program_version",
@@ -25966,6 +25996,7 @@
         "early_access_attempt",
         "early_access_request",
         "file_object",
+        "four_cs",
         "household",
         "identity_proof",
         "interview",
@@ -25980,6 +26011,7 @@
         "mail_request_member",
         "meeting",
         "meeting_kit_item",
+        "model_spend",
         "notice",
         "notification_preference",
         "obligation",
@@ -25990,7 +26022,10 @@
         "passage",
         "people_column",
         "person",
+        "person_import",
+        "person_merge",
         "person_note",
+        "person_skill",
         "person_tag",
         "phase_transition",
         "pipeline_person",
@@ -25999,9 +26034,11 @@
         "plant",
         "plant_geography",
         "platform_grant",
+        "proposal",
         "provider_event",
         "reading",
         "record",
+        "record_correction",
         "recurrence",
         "reference_activation",
         "reference_item",
@@ -31939,6 +31976,8 @@
         "auth_verification",
         "commitment",
         "contact_outcome",
+        "conversation",
+        "conversation_event",
         "development_enrollment",
         "development_program",
         "development_program_version",
@@ -31950,6 +31989,7 @@
         "early_access_attempt",
         "early_access_request",
         "file_object",
+        "four_cs",
         "household",
         "interview",
         "invitation",
@@ -31962,6 +32002,7 @@
         "mail_request_member",
         "meeting",
         "meeting_kit_item",
+        "model_spend",
         "notice",
         "notification_preference",
         "obligation",
@@ -31972,7 +32013,10 @@
         "passage",
         "people_column",
         "person",
+        "person_import",
+        "person_merge",
         "person_note",
+        "person_skill",
         "person_tag",
         "phase_transition",
         "pipeline_person",
@@ -31981,8 +32025,10 @@
         "plant",
         "plant_geography",
         "platform_grant",
+        "proposal",
         "provider_event",
         "reading",
+        "record_correction",
         "recurrence",
         "reference_activation",
         "reference_item",
