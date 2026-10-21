@@ -96,7 +96,7 @@ function decorate(prefix, value) {
 	}
 	return value;
 }
-function observeDatabase(db) {
+export function observeDatabase(db) {
 	db.$client.on("connect", (client) => {
 		const query = client.query;
 		client.query = function (...args) {
