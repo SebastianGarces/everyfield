@@ -43,7 +43,10 @@ GRANT SELECT,INSERT,UPDATE ON person_merge TO everyfield_runtime;
 --> statement-breakpoint
 GRANT SELECT,UPDATE,DELETE ON person_merge TO everyfield_cleanup;
 --> statement-breakpoint
--- Corrections are append-only history for ordinary writers.
+-- Corrections are append-only history for ordinary writers. Only the Person they belong to may change, so a merge
+-- and its Unmerge move a correction with its record; old values, new values and reason stay as written.
 GRANT SELECT,INSERT ON record_correction TO everyfield_runtime;
+--> statement-breakpoint
+GRANT UPDATE (person_id) ON record_correction TO everyfield_runtime;
 --> statement-breakpoint
 GRANT SELECT,UPDATE,DELETE ON record_correction TO everyfield_cleanup;

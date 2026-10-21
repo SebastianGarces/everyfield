@@ -248,6 +248,21 @@ test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SK
 			}),
 		),
 	).assessment;
+	// A corrected record moves with its correction history (F1 at 9e1275b).
+	const correction = ok(
+		await tx((t) =>
+			recordCorrections.correctPersonRecord(t, ctx(), {
+				requestKey: key(),
+				expectedRevision: assessment.revision,
+				input: {
+					recordType: "assessment",
+					recordId: assessment.id,
+					reason: "Typo",
+					changes: { courageous: lens(5) },
+				},
+			}),
+		),
+	).correctionId;
 	const interview = ok(
 		await tx((t) =>
 			interviews.createInterview(t, ctx(), {
@@ -279,6 +294,7 @@ test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SK
 	assert.deepEqual(r.commitment, { result: "active", effectiveOn: day(3) });
 	assert.deepEqual(Object.fromEntries(r.references.map((x) => [x.kind, [x.count, x.treatment]])), {
 		assessment: [1, "move"],
+		correction: [1, "move"],
 		commitment: [1, "move"],
 		interview: [1, "move"],
 		merged_person: [1, "move"],
@@ -334,6 +350,8 @@ test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SK
 	assert.deepEqual(await tagIds(s.id), []);
 	assert.deepEqual(await skillsOf(d.id), ["Hospitality", "Sound"]);
 	assert.deepEqual(await owners("four_cs", [assessment.id]), [d.id]);
+	assert.deepEqual(await owners("record_correction", [correction]), [d.id]);
+	assert.equal(ok(await corrections(d.id)).items[0].reason, "Typo");
 	assert.deepEqual(await owners("interview", [interview.id]), [d.id]);
 	assert.deepEqual(await owners("commitment", [card.id]), [d.id]);
 	assert.deepEqual(await owners("person_note", [note.noteId]), [d.id]);
@@ -398,6 +416,7 @@ test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SK
 	assert.deepEqual([await tagIds(d.id), await tagIds(s.id)], [[shared], [shared, own].sort()]);
 	assert.deepEqual([await skillsOf(d.id), await skillsOf(s.id)], [["Hospitality"], ["Sound"]]);
 	assert.deepEqual(await owners("four_cs", [assessment.id]), [s.id]);
+	assert.deepEqual(await owners("record_correction", [correction]), [s.id]);
 	assert.deepEqual(await owners("person_note", [note.noteId]), [s.id]);
 	assert.equal((await personRow(earlier.id)).merged_into_person_id, s.id);
 	// A repeat changes nothing more; the merge stays in history as reversed.
@@ -659,6 +678,13 @@ test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 corrections keep the recorder, recompu
 		],
 	);
 	refused(await corrections(p.id, 1));
+	// The application role may move a correction to another Person on merge, never rewrite what it recorded.
+	await assert.rejects(
+		db.execute(
+			sql`UPDATE record_correction SET reason='Rewritten',after_value='{}' WHERE person_id=${sql.param(p.id)}`,
+		),
+		(error) => /permission denied for table record_correction/.test(error.cause?.message),
+	);
 	// Platform audit names each corrected record and holds no value, note or reason (audit.md).
 	const audit = JSON.stringify(
 		(await audits([p.id])).filter((r) => r.metadata.event !== "commitment_corrected" || r.reason === null),
