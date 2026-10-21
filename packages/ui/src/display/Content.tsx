@@ -115,7 +115,7 @@ export function FaqList({
 				<Accordion.Item key={item.id} value={item.id} className="border-t border-line first:border-t-0">
 					<Accordion.Header asChild>
 						<FaqHeading level={headingLevel}>
-							<Accordion.Trigger className="group/faq flex w-full cursor-pointer items-center gap-3 py-[15px] text-left font-medium text-ink">
+							<Accordion.Trigger className="group/faq flex w-full cursor-pointer items-center gap-3 py-[15px] text-left font-sans font-medium tracking-normal text-ink">
 								<span className="min-w-0 flex-1">{item.question}</span>
 								<Icon
 									icon={Add01Icon}
@@ -151,8 +151,8 @@ export function Prose({ size = "md", className, ...props }: { size?: "md" | "sm"
 				"[&_h3]:mt-[26px] [&_h3]:mb-2 [&_h3]:text-[19px] [&_h3]:text-ink [&_h3]:scroll-mt-28",
 				size === "sm" && "[&_h2]:mt-6 [&_h2]:mb-2 [&_h2]:font-title [&_h2]:text-[21px] [&_h3]:text-[17px]",
 				"[&_p]:mb-3.5 [&_ol]:mb-4 [&_ol]:list-decimal [&_ol]:pl-[22px] [&_ul]:mb-4 [&_ul]:list-disc [&_ul]:pl-[22px] [&_li]:my-1.5",
-				"[&_blockquote]:my-5 [&_blockquote]:rounded-[18px] [&_blockquote]:bg-surface-2 [&_blockquote]:px-5 [&_blockquote]:py-4 [&_blockquote]:font-title [&_blockquote]:text-[19px] [&_blockquote]:leading-[1.45] [&_blockquote]:text-ink",
-				"[&_cite]:mt-2 [&_cite]:block [&_cite]:font-body [&_cite]:text-[13px] [&_cite]:text-text-3 [&_cite]:not-italic",
+				"[&_blockquote]:my-5 [&_blockquote]:rounded-[18px] [&_blockquote]:bg-surface-2 [&_blockquote]:px-5 [&_blockquote]:py-4 [&_blockquote]:font-title [&_blockquote]:tracking-[-0.02em] [&_blockquote]:text-[19px] [&_blockquote]:leading-[1.45] [&_blockquote]:text-ink",
+				"[&_cite]:mt-2 [&_cite]:block [&_cite]:font-body [&_cite]:tracking-normal [&_cite]:text-[13px] [&_cite]:text-text-3 [&_cite]:not-italic",
 				"[&_a]:text-ink [&_a]:underline [&_a]:decoration-green-500 [&_a]:decoration-2 [&_a]:underline-offset-[3px]",
 				className,
 			)}

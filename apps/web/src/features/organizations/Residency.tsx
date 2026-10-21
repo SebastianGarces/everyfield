@@ -118,7 +118,7 @@ export function ResidencySharing({
 			<div className="flex items-center gap-3">
 				<CardIcon icon={UserGroupIcon} tone="teal" size={36} />
 				<div className="min-w-0 flex-1">
-					<h2 id={titleId} className="font-semibold text-ink">
+					<h2 id={titleId} className="font-sans font-semibold tracking-normal text-ink">
 						Residency with {organizationName}
 					</h2>
 					<p className="text-sm text-text-3">Only you can change what is shared.</p>

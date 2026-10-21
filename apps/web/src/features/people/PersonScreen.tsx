@@ -100,7 +100,7 @@ export function PersonScreen({
 						<Avatar name={p.displayName} size="xl" decorative />
 						<div className="min-w-0">
 							<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-								<h1 className="text-display-sm leading-[1.05] font-medium tracking-[-0.035em] text-ink text-balance max-app-sm:text-title-lg">
+								<h1 className="text-display-sm leading-[1.05] tracking-[-0.02em] text-ink text-balance max-app-sm:text-title-lg">
 									{p.displayName}
 								</h1>
 								<StageChip stage={STAGE_KEY[p.stage]} className="h-[30px] text-[13px]">

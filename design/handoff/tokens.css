@@ -250,6 +250,7 @@
   --font-display: var(--ef-font-display);
   --font-title: var(--ef-font-title);
   --font-sans: var(--ef-font-body);
+  --font-body: var(--ef-font-body);
   --color-ink: var(--ef-ink);
   --color-ink-2: var(--ef-ink-2);
   --color-cream: var(--ef-cream);

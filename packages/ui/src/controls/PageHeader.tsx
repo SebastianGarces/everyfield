@@ -64,7 +64,7 @@ export function PageHeader({ title, breadcrumb, subtitle, actions, size = "defau
 				{breadcrumb?.length ? <Breadcrumb items={breadcrumb} className="mb-2.5" /> : null}
 				<h1
 					className={cn(
-						"leading-[1.05] font-medium tracking-[-0.035em] text-ink text-balance",
+						"leading-[1.05] tracking-[-0.02em] text-ink text-balance",
 						size === "xl" ? "text-[52px] max-app-sm:text-[36px]" : "text-display-sm max-app-sm:text-title-lg",
 					)}
 				>

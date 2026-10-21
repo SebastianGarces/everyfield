@@ -55,9 +55,11 @@ for (const file of walk(SRC).filter((f) => /\.tsx?$/.test(f))) {
 }
 
 // The serif follows the size (foundations.md, Type): DM Serif Display (font-display) at 24px and up, DM Serif Text
-// (font-title) below 24px. A class string that sets a size and a serif must pair them, also per responsive variant.
-// Checked in the public site and in the product UI (packages/ui/src, src/features). Sizes in px; marketing roles that
-// step up through CSS variables list their steps.
+// (font-title) below 24px. Coverage: one class string literal at a time, and only where the same variant prefix sets
+// both a size and a serif ("font-title text-[18px] md:font-display md:text-[28px]" checks "" and "md:"). It does not
+// follow responsive inheritance, a family inherited from a parent or a size set in another string; the rendered
+// browser check covers those. Checked in apps/web/src and packages/ui/src. Marketing roles that step up through CSS
+// variables list their steps.
 const PX = {
 	...Object.fromEntries(
 		[...TOKENS.matchAll(/--ef-((?:text|title|display)-[a-z]+):\s*(\d+)px;/g)].map((m) => [
@@ -91,13 +93,12 @@ const serifProblems = (str) => {
 		}
 	}
 	const fam = new Map([...str.matchAll(FAMILY)].map(([, pre, f]) => [pre, f]));
-	if (!sizes.has("") || !fam.has("")) return [];
 	const out = [];
-	let current = fam.get("");
-	for (const [pre, px] of [...sizes].sort(([a], [b]) => (a === "" ? -1 : b === "" ? 1 : 0))) {
-		current = fam.get(pre) ?? (pre === "" ? current : fam.get(""));
+	for (const [pre, family] of fam) {
+		if (!sizes.has(pre)) continue;
+		const px = sizes.get(pre);
 		const want = px >= 24 ? "display" : "title";
-		if (current !== want) out.push(`${pre || ""}font-${current} at ${px}px; use ${pre}font-${want}`);
+		if (family !== want) out.push(`${pre}font-${family} at ${px}px; use ${pre}font-${want}`);
 	}
 	return out;
 };

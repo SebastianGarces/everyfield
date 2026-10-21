@@ -134,6 +134,7 @@ def render(css):
   --font-display: var(--ef-font-display);
   --font-title: var(--ef-font-title);
   --font-sans: var(--ef-font-body);
+  --font-body: var(--ef-font-body);
 {chr(10).join(color_map)}
 {chr(10).join(hue_map)}
   --color-background: var(--background);

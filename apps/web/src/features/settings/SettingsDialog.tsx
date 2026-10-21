@@ -200,7 +200,9 @@ export function SettingsDialog({ section, onNavigate, hrefFor, slots = {}, onDel
 							<DialogHeader
 								title={
 									// The prototype's section title is 26px (the dialog header default is smaller).
-									<span className="text-[26px] leading-[1.15]">{current ? SECTION_LABEL[current] : "Settings"}</span>
+									<span className="font-display text-[26px] leading-[1.15] tracking-[-0.02em]">
+										{current ? SECTION_LABEL[current] : "Settings"}
+									</span>
 								}
 								description={allowed && current ? DESCRIPTION[current] : undefined}
 							/>

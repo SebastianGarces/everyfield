@@ -112,11 +112,10 @@
 	font-size: --value(--text-*);
 }
 
-/* Display type: DM Serif Display 400 at -0.02em, balanced lines. Use it at 24px and up; below 24px use font-title.
-   Size and line height come from a text-* class (text-mk-h2 and the rest carry their line height), so this utility
-   sets neither. */
+/* Display type: serif 400 at -0.02em, balanced lines. It sets no family: the size decides it, so pair it with
+   font-display (24px and up) or font-title (below 24px). Size and line height come from a text-* class (text-mk-h2
+   and the rest carry their line height), so this utility sets neither. */
 @utility mk-display {
-	font-family: var(--font-display);
 	font-weight: 400;
 	letter-spacing: -0.02em;
 	text-wrap: balance;
