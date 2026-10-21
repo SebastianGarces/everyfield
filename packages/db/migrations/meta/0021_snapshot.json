@@ -1,5 +1,5 @@
 {
-  "id": "387f8ac0-1a56-412f-8e90-4c1aaf446ff1",
+  "id": "e7307e3b-7ad8-497c-8456-1e87996ca9e5",
   "prevId": "f3a608c4-ddbb-47ce-899e-6fb4cb4af189",
   "version": "7",
   "dialect": "postgresql",
@@ -6527,7 +6527,7 @@
         },
         "job_ck_1": {
           "name": "job_ck_1",
-          "value": "(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'assessment'::text, 'reference_generation'::text, 'feedback_publication'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'document_render'::text, 'people_import'::text]))"
+          "value": "(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'assessment'::text, 'reference_generation'::text, 'feedback_publication'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'document_render'::text]))"
         },
         "job_ck_2": {
           "name": "job_ck_2",
@@ -11423,128 +11423,6 @@
       },
       "isRLSEnabled": false
     },
-    "public.person_import": {
-      "name": "person_import",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "job_id": {
-          "name": "job_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "actor_id": {
-          "name": "actor_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "plan": {
-          "name": "plan",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "upload": {
-          "name": "upload",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "failed": {
-          "name": "failed",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "person_import_tenant_id_tenant_id_fk": {
-          "name": "person_import_tenant_id_tenant_id_fk",
-          "tableFrom": "person_import",
-          "tableTo": "tenant",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "person_import_actor_id_account_id_fk": {
-          "name": "person_import_actor_id_account_id_fk",
-          "tableFrom": "person_import",
-          "tableTo": "account",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "person_import_job_owner": {
-          "name": "person_import_job_owner",
-          "tableFrom": "person_import",
-          "tableTo": "job",
-          "columnsFrom": [
-            "job_id",
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id",
-            "tenant_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "person_import_pkey": {
-          "name": "person_import_pkey",
-          "columns": [
-            "id"
-          ]
-        }
-      },
-      "uniqueConstraints": {
-        "person_import_job": {
-          "name": "person_import_job",
-          "nullsNotDistinct": false,
-          "columns": [
-            "job_id"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "person_import_plan": {
-          "name": "person_import_plan",
-          "value": "jsonb_typeof(\"person_import\".\"plan\")='object'"
-        },
-        "person_import_failed": {
-          "name": "person_import_failed",
-          "value": "jsonb_typeof(\"person_import\".\"failed\")='array'"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "public.person_note": {
       "name": "person_note",
       "schema": "",
@@ -16427,6 +16305,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "1"
+        },
+        "prerequisite_ids": {
+          "name": "prerequisite_ids",
+          "type": "uuid[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::uuid[]"
         }
       },
       "indexes": {
@@ -17059,6 +16944,10 @@
         "task_ck_9": {
           "name": "task_ck_9",
           "value": "(category = ANY (ARRAY['administrative'::text, 'vision_meeting'::text, 'follow_up'::text, 'general'::text, 'ministry_team'::text, 'launch_prep'::text, 'training'::text, 'promotion'::text, 'recurring'::text, 'facilities'::text]))"
+        },
+        "task_ck_11": {
+          "name": "task_ck_11",
+          "value": "((cardinality(prerequisite_ids) <= 50) AND (NOT (id = ANY (prerequisite_ids))) AND ((parent_id IS NULL) OR (cardinality(prerequisite_ids) = 0)))"
         },
         "task_timezone_iana": {
           "name": "task_timezone_iana",
