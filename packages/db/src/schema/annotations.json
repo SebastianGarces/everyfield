@@ -1817,6 +1817,7 @@
 			"person": ["WP-004", "WP-011", "WP-012"],
 			"person_tag_definition": ["WP-004", "WP-013"],
 			"person_tag": ["WP-004", "WP-013"],
+			"person_skill": ["WP-004", "WP-012"],
 			"person_interview": ["WP-004", "WP-014"],
 			"person_commitment": ["WP-004", "WP-014"],
 			"person_activity": ["WP-004", "WP-014"],
@@ -1978,6 +1979,20 @@
 				"privacy_policy": "No transfer of account grants, private reading/documents/care or staff-note visibility.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
 				"future_case_ids": ["ADR1-001", "ADR1-005", "ADR1-017"]
+			},
+			{
+				"table": "person_skill",
+				"columns": ["person_id", "plant_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-004", "WP-012"],
+				"meaning": "Current relation with immutable original provenance",
+				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
+				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
+				"inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
+				"retirement_policy": "No new current references to retired or merged Persons; historical evidence remains under current permission.",
+				"privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
+				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
+				"future_case_ids": ["SCHEMA-009", "SCHEMA-010"]
 			},
 			{
 				"table": "person_tag",
@@ -5013,6 +5028,80 @@
 			},
 			"foreignKeys": {
 				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"id,plant_id->record(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				}
+			}
+		},
+		"person_skill": {
+			"table": {
+				"name": "person_skill",
+				"domain": "people",
+				"purpose": "Recorded skill and closed proficiency without inferred qualification.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-024"],
+				"replaces": ["person_skill"],
+				"producer_work_packages": ["WP-004", "WP-012"],
+				"producer_derivation": {
+					"old_target_tables": ["person_skill"],
+					"rule": "Union of producer packages of replaced tables."
+				},
+				"feature_ids": ["PPL-011"],
+				"acceptance_ids": ["AC-PPL-011--PPL-011"],
+				"future_case_ids": ["GAP-PPL-011", "TARGET-PPL-011"],
+				"scope": "people",
+				"invariants": [
+					"Category/proficiency values are closed and nullable clears are explicit.",
+					"Removing a skill deletes its current row; the audit record keeps its history. A skill cannot rewrite human interview testimony."
+				],
+				"revision": "Expected revision fences mutable updates; meaningful writes advance it atomically.",
+				"idempotency": "Replay and no-op behavior follow the named native producer and its exact receipt/unique-key contract. Private care remains isolated from shared operation receipts.",
+				"deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"plant_id": {
+					"note": ""
+				},
+				"person_id": {
+					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
+				},
+				"name": {
+					"note": ""
+				},
+				"category": {
+					"note": ""
+				},
+				"proficiency": {
+					"note": ""
+				},
+				"notes": {
+					"note": ""
+				},
+				"revision": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"person_id,plant_id->person(id,tenant_id)": {
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
@@ -12112,6 +12201,7 @@
 						"passage",
 						"person",
 						"person_note",
+						"person_skill",
 						"phase_transition",
 						"pipeline_person",
 						"pipeline_sharing",

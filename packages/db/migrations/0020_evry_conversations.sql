@@ -106,7 +106,7 @@ BEGIN
  END IF;
  -- Required FK dependencies determine which deletion can make progress. A
  -- surviving reference refuses completion, instead of cascading another owner.
- FOR pass IN 1..49 LOOP
+ FOR pass IN 1..50 LOOP
   removed=0;
   BEGIN
    DELETE FROM "affiliation" WHERE (w.kind='plant' AND (plant_id=s));
@@ -241,6 +241,10 @@ BEGIN
    GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;
   EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;
   BEGIN
+   DELETE FROM "person_skill" WHERE (w.kind='plant' AND (plant_id=s));
+   GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;
+  EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;
+  BEGIN
    DELETE FROM "person_tag" WHERE (w.kind='plant' AND (plant_id=s));
    GET DIAGNOSTICS n=ROW_COUNT; removed=removed+n;
   EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN NULL; END;
@@ -348,6 +352,7 @@ BEGIN
  IF EXISTS(SELECT FROM "people_column" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:people_column' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM "person" WHERE tenant_id=s OR (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:person' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM "person_note" WHERE tenant_id=s OR (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:person_note' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM "person_skill" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:person_skill' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM "person_tag" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:person_tag' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM "phase_transition" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:phase_transition' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM "plant_geography" WHERE (w.kind='plant' AND (plant_id=s))) THEN RAISE EXCEPTION 'incomplete_owned_cleanup:plant_geography' USING ERRCODE='23514'; END IF;

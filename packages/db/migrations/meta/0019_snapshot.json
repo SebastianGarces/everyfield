@@ -1,5 +1,5 @@
 {
-  "id": "10445946-5aee-48e6-8121-7e63129f6ff4",
+  "id": "d787b921-f340-4ada-b103-de9fb6af0ae0",
   "prevId": "6021bd24-aa6b-454b-bdbc-f62953e0d0a1",
   "version": "7",
   "dialect": "postgresql",
@@ -1800,7 +1800,7 @@
       "checkConstraints": {
         "audit_action": {
           "name": "audit_action",
-          "value": "(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.send_intended','deletion.cancelled','deletion.live_purge_completed','documents.copied','documents.saved','evry.conversation_created','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.hidden','wiki.published','wiki.source_order_changed'))"
+          "value": "(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.send_intended','deletion.cancelled','deletion.live_purge_completed','documents.copied','documents.saved','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.hidden','wiki.published','wiki.source_order_changed'))"
         },
         "audit_kind": {
           "name": "audit_kind",
@@ -2889,282 +2889,6 @@
         "contact_outcome_ck_3": {
           "name": "contact_outcome_ck_3",
           "value": "(contact_channel = ANY (ARRAY['email'::text, 'in_person'::text, 'other'::text, 'phone'::text, 'text'::text, 'video'::text]))"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.conversation": {
-      "name": "conversation",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "account_id": {
-          "name": "account_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "context_kind": {
-          "name": "context_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "last_sequence": {
-          "name": "last_sequence",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "0"
-        },
-        "active_turn_id": {
-          "name": "active_turn_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "active_session_id": {
-          "name": "active_session_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "clock_timestamp()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "clock_timestamp()"
-        }
-      },
-      "indexes": {
-        "conversation_owner_recent": {
-          "name": "conversation_owner_recent",
-          "columns": [
-            {
-              "expression": "account_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "updated_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "conversation_tenant_id_tenant_id_fk": {
-          "name": "conversation_tenant_id_tenant_id_fk",
-          "tableFrom": "conversation",
-          "tableTo": "tenant",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "conversation_account_id_account_id_fk": {
-          "name": "conversation_account_id_account_id_fk",
-          "tableFrom": "conversation",
-          "tableTo": "account",
-          "columnsFrom": [
-            "account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "conversation_active_session_id_auth_session_id_fk": {
-          "name": "conversation_active_session_id_auth_session_id_fk",
-          "tableFrom": "conversation",
-          "tableTo": "auth_session",
-          "columnsFrom": [
-            "active_session_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "conversation_active_turn": {
-          "name": "conversation_active_turn",
-          "tableFrom": "conversation",
-          "tableTo": "job",
-          "columnsFrom": [
-            "active_turn_id",
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id",
-            "tenant_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "conversation_title": {
-          "name": "conversation_title",
-          "value": "char_length(\"conversation\".\"title\") BETWEEN 1 AND 120"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.conversation_event": {
-      "name": "conversation_event",
-      "schema": "",
-      "columns": {
-        "conversation_id": {
-          "name": "conversation_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "sequence": {
-          "name": "sequence",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "turn_id": {
-          "name": "turn_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "body": {
-          "name": "body",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "request_key": {
-          "name": "request_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "clock_timestamp()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "conversation_event_conversation_id_conversation_id_fk": {
-          "name": "conversation_event_conversation_id_conversation_id_fk",
-          "tableFrom": "conversation_event",
-          "tableTo": "conversation",
-          "columnsFrom": [
-            "conversation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "conversation_event_turn_id_job_id_fk": {
-          "name": "conversation_event_turn_id_job_id_fk",
-          "tableFrom": "conversation_event",
-          "tableTo": "job",
-          "columnsFrom": [
-            "turn_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "conversation_event_pkey": {
-          "name": "conversation_event_pkey",
-          "columns": [
-            "conversation_id",
-            "sequence"
-          ]
-        }
-      },
-      "uniqueConstraints": {
-        "conversation_event_request": {
-          "name": "conversation_event_request",
-          "nullsNotDistinct": false,
-          "columns": [
-            "conversation_id",
-            "request_key"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "conversation_event_body": {
-          "name": "conversation_event_body",
-          "value": "jsonb_typeof(\"conversation_event\".\"body\")='object'"
         }
       },
       "isRLSEnabled": false
@@ -11720,6 +11444,183 @@
         "person_note_ck_3": {
           "name": "person_note_ck_3",
           "value": "((participation_id IS NULL) OR (plant_id IS NOT NULL))"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.person_skill": {
+      "name": "person_skill",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "plant_id": {
+          "name": "plant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "person_id": {
+          "name": "person_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "proficiency": {
+          "name": "proficiency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revision": {
+          "name": "revision",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "1"
+        }
+      },
+      "indexes": {
+        "person_skill_ref_0": {
+          "name": "person_skill_ref_0",
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "person_skill_ref_1": {
+          "name": "person_skill_ref_1",
+          "columns": [
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "person_skill_fk_0": {
+          "name": "person_skill_fk_0",
+          "tableFrom": "person_skill",
+          "tableTo": "plant",
+          "columnsFrom": [
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "person_skill_fk_1": {
+          "name": "person_skill_fk_1",
+          "tableFrom": "person_skill",
+          "tableTo": "person",
+          "columnsFrom": [
+            "person_id",
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "person_skill_fk_2": {
+          "name": "person_skill_fk_2",
+          "tableFrom": "person_skill",
+          "tableTo": "record",
+          "columnsFrom": [
+            "id",
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "person_skill_pkey": {
+          "name": "person_skill_pkey",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "person_skill_uq_0": {
+          "name": "person_skill_uq_0",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "plant_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "person_skill_ck_0": {
+          "name": "person_skill_ck_0",
+          "value": "(revision >= 1)"
+        },
+        "person_skill_ck_1": {
+          "name": "person_skill_ck_1",
+          "value": "(category = ANY (ARRAY['worship'::text, 'tech'::text, 'admin'::text, 'teaching'::text, 'hospitality'::text, 'leadership'::text, 'other'::text]))"
+        },
+        "person_skill_ck_2": {
+          "name": "person_skill_ck_2",
+          "value": "(proficiency = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text, 'expert'::text]))"
+        },
+        "person_skill_ck_3": {
+          "name": "person_skill_ck_3",
+          "value": "((length(btrim(name)) >= 1) AND (length(btrim(name)) <= 100))"
         }
       },
       "isRLSEnabled": false
