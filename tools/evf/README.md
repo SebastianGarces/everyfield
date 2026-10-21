@@ -147,6 +147,9 @@ exceptions stale and fail the check. Local-only suites remain acceptance work fo
 ## Task and case checks
 
 Briefs use the current catalog and context manifest. Missing context fails explicitly.
+A brief for a task that owns server paths (an api part or a single-part package) prints the
+Performance rule from `docs/architecture/patterns.md` and asks for statement-count tests before
+the PR opens (test-standard), so budget findings no longer wait for the verifier.
 Task starts retain kickoff gates and producer dependencies. OPS tasks use reviewed title,
 owning paths and tooling checks in `maintenanceTasks`; they cannot authorize application code.
 evf reads that entry from the commit under check, never from the home checkout's file: the task

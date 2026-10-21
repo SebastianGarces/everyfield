@@ -636,7 +636,15 @@ test("BUG-plan-context: plan and brief use the same manifest acceptance scope, i
 			() => renderBrief(f.root, parseTask("WP-005/contract"), {}),
 			/WP-005\/contract is retired\. The contract work is the first step of WP-005\/api\./,
 		);
+		// BUG-178: the api author sees the recorded budget before the PR opens, not from the verifier after.
+		const apiBrief = renderBrief(f.root, parseTask("WP-005/api"), {});
+		assert.match(
+			apiBrief,
+			/Performance budget \(docs\/architecture\/patterns\.md, D69, D70\):\nEvery simple read or write finishes in under one second end to end on a production build\.[^\n]* A simple write uses a fixed number of statements, about four to six including BEGIN and COMMIT/,
+		);
+		assert.match(apiBrief, /statement-count test at the production boundary for each new write and page read/);
 		const ui = renderBrief(f.root, parseTask("WP-005/ui"), {});
+		assert.doesNotMatch(ui, /Performance budget/);
 		assert.match(ui, /Design prototype: design\/everyfield-ui\.html/);
 		assert.match(ui, /Screen map: design\/handoff\/screens\.md/);
 		assert.match(ui, /screens\.md#L\d+: Sign in, with an invitation notice/);
