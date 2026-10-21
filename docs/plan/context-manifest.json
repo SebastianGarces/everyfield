@@ -2640,6 +2640,7 @@
         "onboarding_setup",
         "people_column",
         "person_import",
+        "proposal",
         "relationship_invitation",
         "schema_migration",
         "settings_preview"
@@ -18662,6 +18663,7 @@
         "audit_event",
         "file_object",
         "job",
+        "proposal",
         "record",
         "reference_item",
         "reference_release",
@@ -19579,7 +19581,8 @@
         "WP-090"
       ],
       "producer_table_names": [
-        "audit_event"
+        "audit_event",
+        "proposal"
       ],
       "consumer_table_names": [
         "conversation_event",
@@ -20043,6 +20046,7 @@
       "producer_table_names": [],
       "consumer_table_names": [
         "audit_event",
+        "proposal",
         "record",
         "reference_item",
         "reference_release",
@@ -26019,6 +26023,7 @@
         "plant",
         "plant_geography",
         "platform_grant",
+        "proposal",
         "provider_event",
         "reading",
         "record",
@@ -32006,6 +32011,7 @@
         "plant",
         "plant_geography",
         "platform_grant",
+        "proposal",
         "provider_event",
         "reading",
         "recurrence",

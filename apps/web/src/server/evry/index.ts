@@ -1,5 +1,13 @@
 import "server-only";
-import { EvryRefusal, evryActor, projectError, runTurn, selectQualifiedModel, type EvryActor } from "@everyfield/evry";
+import {
+	EvryRefusal,
+	evryActor,
+	executeProposal,
+	projectError,
+	runTurn,
+	selectQualifiedModel,
+	type EvryActor,
+} from "@everyfield/evry";
 import { readViewer } from "@everyfield/domain/access";
 import { sessionId } from "@everyfield/contracts/common";
 import { after } from "next/server";
@@ -26,7 +34,15 @@ export async function requestActor(): Promise<EvryActor> {
 	return evryActor(viewer.authority);
 }
 
-const status = { not_found: 404, access_denied: 403, invalid_input: 400, run_active: 409 } as const;
+const status = {
+	not_found: 404,
+	access_denied: 403,
+	invalid_input: 400,
+	run_active: 409,
+	review_changed: 409,
+	review_expired: 409,
+	review_closed: 409,
+} as const;
 /** Every failure leaves as a projected error only: a code, a correlation id and whether a retry helps. */
 export function errorResponse(error: unknown) {
 	const projected = projectError(error);
@@ -71,6 +87,32 @@ export function drainTurns() {
 					generation: claim.claim_generation,
 				},
 			);
+			if (outcome !== "lost")
+				await transaction(pool, (tx) =>
+					finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }),
+				);
+		}
+	});
+}
+
+const EFFECT_LEASE_SECONDS = 60;
+
+/**
+ * After the response, claims approved Evry effects through the WP-031 queue and runs each once. The executor saves
+ * the outcome with the change; the claim then ends.
+ */
+export function drainEffects() {
+	after(async () => {
+		const pool = evryDatabase();
+		for (let n = 0; n < 4; n++) {
+			const [claim] = await claimDue(pool, ["evry_effect"], 1, EFFECT_LEASE_SECONDS);
+			if (!claim) return;
+			const outcome = await executeProposal(pool, {
+				jobId: claim.id,
+				tenantId: claim.tenant_id,
+				leaseOwner: claim.lease_owner,
+				generation: claim.claim_generation,
+			});
 			if (outcome !== "lost")
 				await transaction(pool, (tx) =>
 					finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }),

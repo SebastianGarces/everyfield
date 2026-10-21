@@ -166,8 +166,15 @@
     {
       "idx": 24,
       "version": "7",
-      "when": 1792588063868,
-      "tag": "0024_four_cs_commitment_lifecycle",
+      "when": 1792587981352,
+      "tag": "0024_evry_proposals",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792589328928,
+      "tag": "0025_four_cs_commitment_lifecycle",
       "breakpoints": true
     }
   ]

@@ -13,7 +13,7 @@ import { eventRow, reference, type ConversationEvent } from "../conversations/st
  */
 export type RunLease = { turnId: string; tenantId: string; leaseOwner: string; generation: string };
 
-const fence = (lease: RunLease) =>
+export const fence = (lease: RunLease) =>
 	sql`EXISTS(SELECT FROM job j WHERE j.id=${lease.turnId}::uuid AND j.tenant_id=${lease.tenantId}::uuid AND j.state='claimed'
 		AND j.lease_owner=${lease.leaseOwner} AND j.claim_generation=${lease.generation}::bigint AND j.lease_until>clock_timestamp())`;
 

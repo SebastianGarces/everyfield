@@ -1509,7 +1509,8 @@
 				"lifecycle_purge",
 				"assistant_turn",
 				"document_render",
-				"people_import"
+				"people_import",
+				"evry_effect"
 			],
 			"job.state": ["ready", "claimed", "retry_wait", "reconcile", "succeeded", "failed", "cancelled", "superseded"],
 			"lifecycle_witness.kind": ["account", "plant", "seat", "affiliation"],
@@ -16040,6 +16041,138 @@
 					"deletion": {
 						"action": "cascade",
 						"policy": "The import goes with its job."
+					}
+				}
+			}
+		},
+		"proposal": {
+			"table": {
+				"name": "proposal",
+				"domain": "assistant",
+				"purpose": "One durable change Evry proposed in a conversation, its exact current review and approval, and the saved outcome of the approved revision.",
+				"library_owned": false,
+				"jsonb_keys": {
+					"input": ["personId", "patch", "expectedRevision"],
+					"review": ["target", "changes"],
+					"receipt": ["receiptId", "revision", "code"]
+				},
+				"capabilities": ["CAP-C-030", "CAP-C-031", "CAP-C-032"],
+				"replaces": [],
+				"producer_work_packages": ["WP-053"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-053"],
+					"rule": "WP-053 Evry review and execution storage through Drizzle Kit."
+				},
+				"feature_ids": [
+					"EVR-011",
+					"EVR-012",
+					"EVR-013",
+					"EVR-014",
+					"EVR-015",
+					"EVR-018",
+					"EVR-020",
+					"EVR-033",
+					"EVR-034"
+				],
+				"acceptance_ids": [],
+				"future_case_ids": [],
+				"scope": "assistant",
+				"invariants": [
+					"Only the initiating account in the same exact context reads, approves, cancels or revises it; others see no existence.",
+					"Approval covers one exact revision and digest and lapses 15 minutes after that revision was published.",
+					"An approved revision runs at most once: its owning domain write uses one effect key, and that write's audit row is the effect record."
+				],
+				"revision": "Each revision replaces the reviewed arguments, digest and expiry in place and clears any approval.",
+				"idempotency": "The effect key (proposal and revision) is the owning write's request key; a retry returns the saved receipt.",
+				"deletion": "Goes with its conversation; account or tenant purge removes both.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"tenant_id": {
+					"note": ""
+				},
+				"account_id": {
+					"note": ""
+				},
+				"conversation_id": {
+					"note": ""
+				},
+				"operation": {
+					"note": ""
+				},
+				"revision": {
+					"note": ""
+				},
+				"input": {
+					"note": ""
+				},
+				"review": {
+					"note": ""
+				},
+				"digest": {
+					"note": ""
+				},
+				"state": {
+					"note": ""
+				},
+				"expires_at": {
+					"note": ""
+				},
+				"approved_at": {
+					"note": ""
+				},
+				"approved_session_id": {
+					"note": ""
+				},
+				"job_id": {
+					"note": ""
+				},
+				"outcome": {
+					"note": ""
+				},
+				"receipt": {
+					"note": ""
+				},
+				"created_at": {
+					"note": ""
+				},
+				"updated_at": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"tenant_id->tenant(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Owner purge removes conversations, and their proposals, before owner rows."
+					}
+				},
+				"account_id->account(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Owner purge removes conversations, and their proposals, before owner rows."
+					}
+				},
+				"approved_session_id->auth_session(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Signing out clears the approving session; an effect that has not started is then refused."
+					}
+				},
+				"job_id,tenant_id->job(id,tenant_id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Owner purge deletes conversations and their proposals before jobs."
+					}
+				},
+				"conversation_id,tenant_id->conversation(id,tenant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "A proposal goes with its conversation, in the same tenant."
 					}
 				}
 			}
