@@ -126,7 +126,7 @@ export async function authorize(tx: Tx, context: Context, write = false) {
 	const actor =
 		!write && context instanceof PeopleReadContext
 			? context.authority.actor
-			: await currentActor(tx, context.session, context.selected);
+			: await currentActor(tx, context.session, context.selected, write);
 	if (actor.status !== "active" || !["plant", "organization"].includes(context.selected.kind)) deny();
 	const seat = actor.context;
 	if (seat.kind !== "seat") deny();

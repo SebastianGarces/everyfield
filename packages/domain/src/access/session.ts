@@ -85,14 +85,16 @@ export async function liveOwner(tx: Transaction, selected: Owner, lock = true): 
 	return hidden.length === 0;
 }
 /**
- * One statement, no row locks: the session's account, its live seats, the selected owner, every lifecycle witness that
- * hides the account, the owner or the seat, the own Person of a plant seat and whether a seatless account still has a
- * Discovery profile. Authority for a write is re-checked by the write statement (D70), so a read observes only.
+ * One statement: the session's account, its live seats, the selected owner, every lifecycle witness that hides the
+ * account, the owner or the seat, the own Person of a plant seat and whether a seatless account still has a Discovery
+ * profile. With `lock`, access_session share-locks the session and account until COMMIT, so a revoke waits for an
+ * authority transaction (INV-revocation). A read passes `lock` false and takes no row lock (C22).
  */
-async function readSession(db: Executor, session: z.infer<typeof sessionId>, requested?: Owner) {
+async function readSession(db: Executor, session: z.infer<typeof sessionId>, requested?: Owner, lock = true) {
+	const handle = sessionId.parse(session);
 	const r = await db.execute(sql`
 		WITH identity AS MATERIALIZED (
-			SELECT * FROM live_session(${sessionId.parse(session)}) LIMIT 1
+			SELECT * FROM ${lock ? sql`access_session(${handle})` : sql`live_session(${handle})`} LIMIT 1
 		), seats AS MATERIALIZED (
 			SELECT s.id, s.plant_id, s.organization_id, s.role, s.revision::text, s.accepted_at
 			FROM seat s JOIN identity i ON i.account_id=s.account_id
@@ -158,8 +160,8 @@ function actorOf(row: SessionRow) {
 		context: { kind: "seat", owner: selected, seatId: seat.id, role: seat.role, revision: seat.revision },
 	});
 }
-async function resolveActor(tx: Executor, session: z.infer<typeof sessionId>, requested?: Owner) {
-	const row = await readSession(tx, session, requested);
+async function resolveActor(tx: Executor, session: z.infer<typeof sessionId>, requested?: Owner, lock = true) {
+	const row = await readSession(tx, session, requested, lock);
 	return row ? actorOf(row) : currentActorResult.parse({ status: "unavailable" });
 }
 
@@ -181,7 +183,8 @@ export async function readViewer(db: Executor, session: z.infer<typeof sessionId
 	};
 }
 
-export async function currentActor(tx: Transaction, session: z.infer<typeof sessionId>, selected: Owner) {
+/** The actor for this transaction. A read passes `lock` false, so resolving it takes no session lock (C22). */
+export async function currentActor(tx: Transaction, session: z.infer<typeof sessionId>, selected: Owner, lock = true) {
 	const bound = requestWrites.get(tx);
 	if (bound && bound.authority.session === session && sameOwner(bound.selected, selected)) return bound.actor;
 	const parsed = owner.safeParse(selected);
@@ -198,7 +201,7 @@ export async function currentActor(tx: Transaction, session: z.infer<typeof sess
 				context: { kind: "account", owner: parsed.data },
 			});
 	}
-	return resolveActor(tx, session, parsed.data);
+	return resolveActor(tx, session, parsed.data, lock);
 }
 const requestReads = new WeakMap<Transaction, RequestActor>();
 /** The actor a read transaction observed for this session, or null. */
