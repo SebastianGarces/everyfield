@@ -21,7 +21,9 @@ const onInk = "text-on-ink hover:bg-on-ink-soft focus-visible:outline-on-ink";
 
 /**
  * The bar for the selected tasks: select every task on the page, complete them, give them one due date, or clear the
- * selection. Owner and Admin only.
+ * selection. Owner and Admin only. It sits in the page flow below the list, as the prototype draws it: a sticky bar
+ * covered row controls while scrolling (axe target-size), and a bar above the list would push the rows down under the
+ * pointer when the first task is selected.
  */
 export function BulkBar({
 	count,
@@ -44,7 +46,7 @@ export function BulkBar({
 		<div
 			role="toolbar"
 			aria-label="Selected tasks"
-			className="sticky bottom-4 z-10 mt-4 flex flex-wrap items-center gap-2 rounded-card bg-ink py-2 pr-2 pl-3 text-on-ink shadow-pop max-app-sm:bottom-2"
+			className="mt-4 flex flex-wrap items-center gap-2 rounded-card bg-ink py-2 pr-2 pl-3 text-on-ink shadow-pop"
 		>
 			<label className="-my-1 grid size-11 flex-none cursor-pointer place-items-center">
 				<Checkbox
