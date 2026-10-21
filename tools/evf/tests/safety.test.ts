@@ -102,6 +102,32 @@ test("BUG-OPS9-push: PR open refuses an unverified head before any push, and pre
 	}
 });
 
+test("BUG-164-ci-parity: OPS verify adds CI's format and unit checks; PR open refuses files CI would not see", () => {
+	const f = setup();
+	try {
+		const remote = f.bare(join(f.root, "fake-bin/origin.git"));
+		f.git("remote", "add", "origin", remote);
+		f.git("push", "-q", "origin", "main");
+		const report = verify(f.root, f.task, "author", "full");
+		assert.deepEqual(
+			report.checks.map((c) => [c.name, c.passed]),
+			[
+				["check", true],
+				["format", true],
+				["package-unit-tests", true],
+			],
+		);
+		git(f.wt, "config", "status.showUntrackedFiles", "no");
+		writeFileSync(join(f.wt, "tools/evf/photo.jpg"), "not committed");
+		assert.throws(() => prOpen(f.root, f.task), /not clean/);
+		git(f.wt, "add", "tools/evf/photo.jpg");
+		assert.throws(() => prOpen(f.root, f.task), /not clean/);
+		assert.equal(spawnSync("git", ["--git-dir", remote, "rev-parse", "--verify", "refs/heads/task/ops-1"]).status, 128);
+	} finally {
+		f.close();
+	}
+});
+
 // Captured from Next 16.4.1 acquireWithRetriesOrExit with a held .next/lock and FORCE_COLOR=1.
 const nextBuildLockOutput =
 	"\u001b[31m\u001b[1m⨯\u001b[22m\u001b[39m Another \u001b[36mnext build\u001b[39m process is already running.";
