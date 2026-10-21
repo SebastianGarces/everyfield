@@ -39,6 +39,8 @@ import type { HouseholdResult, PersonFields } from "./fields/model.ts";
 import { PersonPhoto } from "./fields/PersonPhoto.tsx";
 import { SkillsCard } from "./fields/SkillsCard.tsx";
 import { TagsField } from "./fields/TagsField.tsx";
+import type { PersonRecords } from "./assessments/model.ts";
+import { RecordsSection } from "./assessments/RecordsSection.tsx";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
 type Open = "stage" | "profile" | "classify" | "retire" | "restore" | null;
@@ -59,6 +61,7 @@ export function PersonScreen({
 	accountId,
 	canWrite,
 	fields,
+	records,
 	photosEnabled,
 }: {
 	person: PlantPerson;
@@ -72,7 +75,9 @@ export function PersonScreen({
 	canWrite: boolean;
 	/** Tags, skills, household and photo (WP-012). Null for a person they do not apply to. */
 	fields: PersonFields | null;
-	/** Private photo storage is configured, so photos can be added. */
+	/** The 4 C's, interviews and commitments (WP-014). Null for a viewer who is not an Owner or Admin. */
+	records: PersonRecords | null;
+	/** Private photo storage is configured, so photos and commitment documents can be added. */
 	photosEnabled: boolean;
 }) {
 	const [store, state] = usePersonStore<PlantPerson, PersonDraft>(person);
@@ -217,6 +222,21 @@ export function PersonScreen({
 
 			<div className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)] items-start gap-5 max-app-lg:grid-cols-1">
 				<div className="flex min-w-0 flex-col gap-5">
+					{records ? (
+						<RecordsSection
+							records={records}
+							documentsEnabled={photosEnabled}
+							personId={p.id}
+							personName={p.displayName}
+							stage={p.stage}
+							store={store}
+							expectPerson={expectPerson}
+							canEdit={canWrite && live}
+							accountId={accountId}
+							onSaved={saved}
+							onConflict={reload}
+						/>
+					) : null}
 					<ActivityCard
 						store={store}
 						activities={history}
@@ -310,7 +330,7 @@ export function PersonScreen({
 					<Card>
 						<CardHeader className="mb-2">
 							<CardHeading>
-								<CardTitle size="sm">Adult or child and commitment</CardTitle>
+								<CardTitle size="sm">{records ? "Adult or child" : "Adult or child and commitment"}</CardTitle>
 							</CardHeading>
 						</CardHeader>
 						<KeyValueList>
@@ -319,23 +339,25 @@ export function PersonScreen({
 								k="Adult or child"
 								value={p.adultClassification === "unknown" ? null : CLASSIFICATION_LABEL[p.adultClassification]}
 							/>
-							<KeyValue
-								size="sm"
-								k="Commitment"
-								value={
-									p.commitment.state === "unknown" ? null : (
-										<span className="flex items-center gap-2">
-											<StatusBadge status={p.commitment.state === "active" ? "positive" : "unknown"} size="sm">
-												{p.commitment.state === "active" ? "Committed" : "Withdrawn"}
-											</StatusBadge>
-											<span className="text-text-3">
-												{p.commitment.kind === "core_group" ? "Core group" : "Launch team"} ·{" "}
-												<LocalDay day={p.commitment.occurredOn} />
+							{records ? null : (
+								<KeyValue
+									size="sm"
+									k="Commitment"
+									value={
+										p.commitment.state === "unknown" ? null : (
+											<span className="flex items-center gap-2">
+												<StatusBadge status={p.commitment.state === "active" ? "positive" : "unknown"} size="sm">
+													{p.commitment.state === "active" ? "Committed" : "Withdrawn"}
+												</StatusBadge>
+												<span className="text-text-3">
+													{p.commitment.kind === "core_group" ? "Core group" : "Launch team"} ·{" "}
+													<LocalDay day={p.commitment.occurredOn} />
+												</span>
 											</span>
-										</span>
-									)
-								}
-							/>
+										)
+									}
+								/>
+							)}
 						</KeyValueList>
 						<p className="mt-3 text-xs text-text-3">
 							Recorded facts only. The stage alone never counts as a commitment or as adult.

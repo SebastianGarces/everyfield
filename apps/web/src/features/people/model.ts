@@ -333,10 +333,14 @@ export class PersonStore<P extends Saved, D> {
 		this.#state = next;
 		for (const l of this.#listeners) l();
 	};
-	/** Starts a save for `slot` and gives its request key, or null when another save is running. */
-	begin(slot: string, payload: unknown, fresh: () => string): KeyedPayload | null {
+	/**
+	 * Starts a save for `slot` and gives its request key, or null when another save is running. A caller that tracks its
+	 * own save intents passes `own`, the key of that intent; it wins over the slot's last key, so a new intent with the
+	 * same payload as an earlier lost one never replays the earlier one.
+	 */
+	begin(slot: string, payload: unknown, fresh: () => string, own?: KeyedPayload): KeyedPayload | null {
 		if (this.#state.pending !== null) return null;
-		const key = keyFor(this.#state.keys[slot] ?? null, payload, fresh);
+		const key = own ?? keyFor(this.#state.keys[slot] ?? null, payload, fresh);
 		this.dispatch({ type: "begin", slot, key });
 		return key;
 	}
@@ -351,9 +355,9 @@ export async function runSave<P extends Saved, D, T>(
 	slot: string,
 	payload: unknown,
 	call: (requestKey: string) => Promise<Outcome<T>>,
-	options: { fresh: () => string; toPerson?: (value: T) => P | null; keepDraft?: boolean },
+	options: { fresh: () => string; toPerson?: (value: T) => P | null; keepDraft?: boolean; key?: KeyedPayload },
 ): Promise<Outcome<T> | null> {
-	const key = store.begin(slot, payload, options.fresh);
+	const key = store.begin(slot, payload, options.fresh, options.key);
 	if (!key) return null;
 	let result: Outcome<T>;
 	try {
