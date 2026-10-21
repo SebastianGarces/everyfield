@@ -2,11 +2,12 @@
 
 import { getViewer } from "@/server/request-context";
 
-import { instant, recordId, revision } from "@everyfield/contracts/common";
+import { recordId, revision } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/people";
 import { peopleReader, peopleWriter, readColumnOrders } from "@everyfield/domain/people";
 import type { z } from "zod";
 import { columnOf, parseQuery, type Outcome } from "./model.ts";
+import { boundary, invalid, outcome, receipt, type Receipt } from "./boundary.ts";
 import { loadPeople, loadPerson, read, write, type PeopleView, type Viewer } from "./server.ts";
 
 // Server actions behind the People screens: the browser boundary. Each one rebuilds the viewer from the request,
@@ -16,43 +17,10 @@ import { loadPeople, loadPerson, read, write, type PeopleView, type Viewer } fro
 
 type PlantPerson = z.infer<typeof c.plantPerson>;
 type PersonId = z.infer<typeof c.personRequest>["personId"];
-type Reply<T> = Awaited<ReturnType<typeof read<T>>>;
-const denied = { status: "refused", code: "access_denied" } as const;
-const invalid = { status: "refused", code: "invalid_input" } as const;
-
-/**
- * What a saved change adds to the person's Activity: the write's audit record, when it was saved and whether it changed
- * anything. The screen shows the new entry from this answer instead of reloading the page.
- */
-export type Receipt = { id: z.infer<typeof recordId>; at: z.infer<typeof instant>; changed: boolean };
-const receipt = (r: { receiptId: string; outcome: "changed" | "noop" }): Receipt => ({
-	// The audit record's ID is the receipt's, and it is the entry's ID in Activity.
-	id: recordId.parse(r.receiptId),
-	at: instant.parse(new Date().toISOString()),
-	changed: r.outcome === "changed",
-});
 type Saved = { person: PlantPerson; receipt: Receipt };
 /** A note change: the person as saved now, the note's ID and revision, and the receipt. */
 type NoteSaved = Saved & { note: { id: z.infer<typeof recordId>; revision: z.infer<typeof revision> } };
-
-function outcome<T, U>(reply: Reply<T>, map: (value: T) => U): Outcome<U> {
-	if (reply.status === "failed") return { status: "lost" };
-	if (reply.status === "refused") return { status: "refused", code: reply.error.code };
-	return { status: "ok", value: map(reply.value) };
-}
-
-/** Rebuilds the viewer and parses the raw input; refuses before any database work when either fails. */
-async function boundary<S extends z.ZodType, T>(
-	schema: S,
-	raw: unknown,
-	run: (viewer: Viewer, input: z.output<S>) => Promise<Outcome<T>>,
-): Promise<Outcome<T>> {
-	const v = await getViewer();
-	if (!v?.people) return denied;
-	const input = schema.safeParse(raw);
-	if (!input.success) return invalid;
-	return run(v.people, input.data);
-}
+export type { Receipt };
 
 /** A fresh read of one plant person, for answers whose producer result has no person (classification, notes). */
 async function plantPerson(v: Viewer, personId: PersonId): Promise<Outcome<PlantPerson>> {
@@ -83,7 +51,7 @@ export async function reloadPerson(
 	personId: string,
 ): Promise<Outcome<{ person: PlantPerson; activities: z.infer<typeof c.activitiesResult> | null }>> {
 	return boundary(c.personRequest, { personId }, async (v, request) => {
-		const r = outcome(await loadPerson(v, request.personId), (page) => page);
+		const r = outcome(await loadPerson(v, request.personId, false), (page) => page);
 		if (r.status !== "ok") return r;
 		const { found, activities } = r.value;
 		if (found.status !== "available" || !("stage" in found.person)) return { status: "refused", code: "unavailable" };
