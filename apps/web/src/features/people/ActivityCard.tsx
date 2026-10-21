@@ -3,6 +3,7 @@
 import {
 	Delete02Icon,
 	Edit02Icon,
+	Home01Icon,
 	Note01Icon,
 	Route01Icon,
 	TaskDone01Icon,
@@ -30,6 +31,7 @@ import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import { useState } from "react";
 import type { z } from "zod";
 import { addNote, deleteNote, editNote, loadActivities } from "./actions.ts";
+import { householdChange } from "./fields/model.ts";
 import { runSave, STAGE_LABEL, type Outcome, type PersonStore } from "./model.ts";
 import { FormProblem, fresh, isConflict, problemOf, useStore, When } from "./parts.tsx";
 import type { PersonDraft } from "./StageDialog.tsx";
@@ -382,7 +384,10 @@ function describe(item: Item, by: string): { title: string; icon: IconSvgElement
 				tone: "green",
 			};
 		case "activity":
-			return { title: ACTION[item.action], icon: UserEdit01Icon, tone: "blue" };
+			// A household join, leave or role change names the household as it was then (REQ-PPL-009).
+			return item.household
+				? { title: householdChange(item.household), icon: Home01Icon, tone: "teal" }
+				: { title: ACTION[item.action], icon: UserEdit01Icon, tone: "blue" };
 		case "follow_up":
 			return { title: FOLLOW_UP[item.outcome], icon: TaskDone01Icon, tone: "amber" };
 	}
