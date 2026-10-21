@@ -72,7 +72,7 @@
   "implementation_authorized": false,
   "table_count": 83,
   "column_count": 952,
-  "foreign_key_count": 302,
+  "foreign_key_count": 304,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -24473,7 +24473,9 @@
           "reason"
         ]
       },
-      "capabilities": [],
+      "capabilities": [
+        "CAP-A-030"
+      ],
       "replaces": [],
       "producer_work_packages": [
         "WP-013"
@@ -24522,7 +24524,7 @@
           "note": "",
           "name": "actor_id",
           "type": "uuid",
-          "nullable": false
+          "nullable": true
         },
         {
           "note": "",
@@ -24557,19 +24559,53 @@
       "foreign_keys": [
         {
           "deletion": {
-            "action": "cascade",
-            "policy": "The import goes with its job."
+            "action": "set_null",
+            "policy": "Account purge clears the importer; the job then stops at its next authority check and created people keep their audit attribution."
           },
           "columns": [
-            "job_id"
+            "actor_id"
           ],
           "references": {
-            "table": "job",
+            "table": "account",
             "columns": [
               "id"
             ]
           },
+          "on_delete": "set_null"
+        },
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "The import goes with its job."
+          },
+          "columns": [
+            "job_id",
+            "tenant_id"
+          ],
+          "references": {
+            "table": "job",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
           "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "no_action",
+            "policy": "Owner purge deletes the church's jobs first, which removes their imports."
+          },
+          "columns": [
+            "tenant_id"
+          ],
+          "references": {
+            "table": "tenant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action"
         }
       ],
       "checks": [
@@ -24585,7 +24621,9 @@
           "person_import_job"
         ],
         "foreign": [
-          "person_import_job_id_job_id_fk"
+          "person_import_tenant_id_tenant_id_fk",
+          "person_import_actor_id_account_id_fk",
+          "person_import_job_owner"
         ],
         "checks": [
           "person_import_plan",

@@ -15865,7 +15865,7 @@
 					"plan": ["rows", "skip", "invalid", "create"],
 					"failed": ["row", "reason"]
 				},
-				"capabilities": [],
+				"capabilities": ["CAP-A-030"],
 				"replaces": [],
 				"producer_work_packages": ["WP-013"],
 				"producer_derivation": {
@@ -15910,7 +15910,19 @@
 				}
 			},
 			"foreignKeys": {
-				"job_id->job(id)": {
+				"tenant_id->tenant(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Owner purge deletes the church's jobs first, which removes their imports."
+					}
+				},
+				"actor_id->account(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Account purge clears the importer; the job then stops at its next authority check and created people keep their audit attribution."
+					}
+				},
+				"job_id,tenant_id->job(id,tenant_id)": {
 					"deletion": {
 						"action": "cascade",
 						"policy": "The import goes with its job."

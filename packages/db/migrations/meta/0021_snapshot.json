@@ -1,5 +1,5 @@
 {
-  "id": "93979420-0546-4d8f-b192-de4981e6149c",
+  "id": "387f8ac0-1a56-412f-8e90-4c1aaf446ff1",
   "prevId": "f3a608c4-ddbb-47ce-899e-6fb4cb4af189",
   "version": "7",
   "dialect": "postgresql",
@@ -11449,7 +11449,7 @@
           "name": "actor_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "plan": {
           "name": "plan",
@@ -11473,15 +11473,43 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "person_import_job_id_job_id_fk": {
-          "name": "person_import_job_id_job_id_fk",
+        "person_import_tenant_id_tenant_id_fk": {
+          "name": "person_import_tenant_id_tenant_id_fk",
           "tableFrom": "person_import",
-          "tableTo": "job",
+          "tableTo": "tenant",
           "columnsFrom": [
-            "job_id"
+            "tenant_id"
           ],
           "columnsTo": [
             "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "person_import_actor_id_account_id_fk": {
+          "name": "person_import_actor_id_account_id_fk",
+          "tableFrom": "person_import",
+          "tableTo": "account",
+          "columnsFrom": [
+            "actor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "person_import_job_owner": {
+          "name": "person_import_job_owner",
+          "tableFrom": "person_import",
+          "tableTo": "job",
+          "columnsFrom": [
+            "job_id",
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"

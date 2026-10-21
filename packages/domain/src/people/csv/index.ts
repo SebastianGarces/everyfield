@@ -402,7 +402,7 @@ export async function runPeopleImport(db: Database, lease: Lease): Promise<"succ
 	const loaded = z
 		.object({
 			id: z.uuid(),
-			actor_id: z.uuid(),
+			actor_id: z.uuid().nullable(),
 			upload: z.string().nullable(),
 			plan: z.unknown(),
 			created: z.array(z.int()),
@@ -417,6 +417,9 @@ export async function runPeopleImport(db: Database, lease: Lease): Promise<"succ
 			).rows[0],
 		);
 	if (!loaded?.upload) return "succeeded";
+	// Account purge cleared the importer: nobody holds authority for the remaining rows.
+	const actorId = loaded.actor_id;
+	if (!actorId) return "lost";
 	const file = readFile(gunzipSync(Buffer.from(loaded.upload, "base64")));
 	const values = new Map(file.rows.flatMap((r) => (r.status === "valid" ? [[r.row, r.values] as const] : [])));
 	const done = new Set(loaded.created);
@@ -429,7 +432,7 @@ export async function runPeopleImport(db: Database, lease: Lease): Promise<"succ
 	const write = async (batch: SavedRow[]): Promise<void> => {
 		if (lost || !batch.length) return;
 		try {
-			if (!(await writeBatch(db, lease, loaded.actor_id, loaded.id, batch))) lost = true;
+			if (!(await writeBatch(db, lease, actorId, loaded.id, batch))) lost = true;
 		} catch {
 			if (batch.length === 1) failed.push(batch[0]!.row);
 			else {

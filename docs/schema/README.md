@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 82 tables, 945 columns, 301 declared FKs and 16 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 83 tables, 952 columns, 304 declared FKs and 18 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -53,6 +53,7 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `onboarding_setup` | WP-009 additive onboarding storage. | WP-009 |
 | `organization_person_removal` | WP-011 owns removal and WP-050 synchronizes body-free witnesses into recovery; WP-004 installs the baseline. | WP-004, WP-011, WP-050 |
 | `people_column` | WP-011 People producer storage introduced by additive migration 0004; D30/D32 current-catalog registration. | WP-011 |
+| `person_import` | WP-013 People CSV import job payload through Drizzle Kit. | WP-013 |
 | `pipeline_person` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
 | `pipeline_sharing` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-007 |
 | `pipeline_stage` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |

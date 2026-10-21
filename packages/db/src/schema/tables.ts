@@ -4703,18 +4703,27 @@ export const person_import = pgTable(
 	"person_import",
 	{
 		id: uuid("id").notNull(),
-		tenant_id: uuid("tenant_id").notNull(),
-		job_id: uuid("job_id")
+		tenant_id: uuid("tenant_id")
 			.notNull()
-			.references(() => job.id, { onDelete: "cascade" }),
-		actor_id: uuid("actor_id").notNull(),
+			.references(() => tenant.id),
+		job_id: uuid("job_id").notNull(),
+		// The importing account; account purge clears it and the job then stops at its next authority check.
+		actor_id: uuid("actor_id").references(() => account.id, { onDelete: "set null" }),
 		plan: jsonb("plan").notNull(),
 		upload: text("upload"),
-		failed: jsonb("failed").notNull().default(sql`'[]'::jsonb`),
+		failed: jsonb("failed")
+			.notNull()
+			.default(sql`'[]'::jsonb`),
 	},
 	(t): PgTableExtraConfigValue[] => [
 		primaryKey({ name: "person_import_pkey", columns: [t.id] }),
 		unique("person_import_job").on(t.job_id),
+		// The job of the same church. Owner purge deletes the church's jobs, which removes their imports.
+		foreignKey({
+			name: "person_import_job_owner",
+			columns: [t.job_id, t.tenant_id],
+			foreignColumns: [job.id, job.tenant_id],
+		}).onDelete("cascade"),
 		check("person_import_plan", sql`jsonb_typeof(${t.plan})='object'`),
 		check("person_import_failed", sql`jsonb_typeof(${t.failed})='array'`),
 	],
