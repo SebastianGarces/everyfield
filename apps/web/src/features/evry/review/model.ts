@@ -1,0 +1,251 @@
+// The Evry review card's rules (WP-053/ui), as plain data and pure functions. The server's review is the only truth
+// about a prepared change: its review status (pending, approved, cancelled, expired) and the recorded outcome of the
+// approved revision are separate (REQ-EVR-033). The card derives what it shows from that review and the clock.
+
+import { SOURCE_LABEL, STAGE_LABEL, type SourceValue, type StageValue } from "../../people/model.ts";
+import type { ProjectedError } from "../conversation/model.ts";
+
+export type Operation =
+	| "people.createPerson"
+	| "people.updatePerson"
+	| "people.changeStatus"
+	| "people.deletePerson"
+	| "people.setPersonPhoto"
+	| "people.removePersonPhoto";
+
+export type Change = { field: string; before: unknown; after: unknown };
+
+/** evry.readReview, as the API sends it (packages/evry/src/proposals/store.ts, proposalRow). */
+export type Review = {
+	id: string;
+	conversationId: string;
+	operation: Operation;
+	revision: number;
+	digest: string;
+	expiresAt: string;
+	approvedAt: string | null;
+	status: "pending" | "approved" | "cancelled" | "expired";
+	review: {
+		target: { kind: "person"; id: string; label: string } | null;
+		changes: Change[];
+		withheld?: true;
+	};
+	outcome: "completed" | "failed" | "refused" | "unknown" | null;
+	executing: boolean;
+	receipt: { receiptId?: string; revision?: string; code?: string } | null;
+};
+
+/**
+ * What the card is now. pending can be approved, revised or cancelled until it expires; running means the approved
+ * change is queued or running in the background; the rest are final for this revision, except that a failed or
+ * unconfirmed run can be tried again while its approval lasts.
+ */
+export type Phase =
+	"pending" | "expired" | "cancelled" | "running" | "completed" | "refused" | "failed" | "unconfirmed" | "withheld";
+
+export function phaseOf(review: Review, now: number): Phase {
+	if (review.outcome === "completed") return "completed";
+	if (review.review.withheld) return "withheld";
+	if (review.status === "cancelled") return "cancelled";
+	if (review.status === "expired") return "expired";
+	if (review.status === "pending") return Date.parse(review.expiresAt) <= now ? "expired" : "pending";
+	if (review.outcome === "refused") return "refused";
+	if (review.outcome === "failed") return "failed";
+	if (review.outcome === "unknown") return "unconfirmed";
+	return "running";
+}
+
+/** A failed or unconfirmed run can go again under the same approval until it expires. */
+export const retryable = (review: Review, now: number) =>
+	(review.outcome === "failed" || review.outcome === "unknown") && Date.parse(review.expiresAt) > now;
+
+// ---------------------------------------------------------------------------------------------------------------
+// What will change: each field with its value before and after, in the words the People screens use.
+
+const FIELD_LABEL: Record<string, string> = {
+	displayName: "Name",
+	firstName: "First name",
+	lastName: "Last name",
+	email: "Email",
+	phone: "Phone",
+	street: "Street",
+	city: "City",
+	stateProvince: "State or province",
+	postalCode: "Postal code",
+	country: "Country",
+	source: "Source",
+	sourceDetails: "Source details",
+	summaryNotes: "Notes",
+	birthDate: "Birth date",
+	stage: "Stage",
+	adultClassification: "Age group",
+	reason: "Reason",
+	photo: "Photo",
+	state: "Status",
+};
+export const fieldLabel = (field: string) => FIELD_LABEL[field] ?? field;
+
+const CLASSIFICATION_LABEL: Record<string, string> = { adult: "Adult", child: "Child", unknown: "Not recorded" };
+const dateFormat = new Intl.DateTimeFormat(undefined, {
+	month: "short",
+	day: "numeric",
+	year: "numeric",
+	timeZone: "UTC",
+});
+
+/** A reviewed value as text. Empty values say so; an id (a photo upload) is never shown. */
+export function valueText(field: string, value: unknown): string | null {
+	if (value === null || value === undefined || value === "") return null;
+	if (field === "photo") return "New photo";
+	if (field === "stage") return STAGE_LABEL[value as StageValue] ?? String(value);
+	if (field === "source") return SOURCE_LABEL[value as SourceValue] ?? String(value);
+	if (field === "adultClassification") return CLASSIFICATION_LABEL[String(value)] ?? String(value);
+	if (field === "state") return value === "live" ? "Current" : value === "retired" ? "Removed" : String(value);
+	if (field === "birthDate" && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
+		return dateFormat.format(new Date(`${value}T00:00:00Z`));
+	return String(value);
+}
+
+/** The person's open tasks a stage change or removal hands back as needing an owner, from the review. */
+export const handedBack = (changes: readonly Change[]) =>
+	Number(changes.find((c) => c.field === "openTasksNeedingOwner")?.after ?? 0);
+
+/** The changes the card lists as before and after; the task count is said once in words instead. */
+export const shownChanges = (changes: readonly Change[]) => changes.filter((c) => c.field !== "openTasksNeedingOwner");
+
+const TITLE: Record<Operation, string> = {
+	"people.createPerson": "Add a person",
+	"people.updatePerson": "Update a person",
+	"people.changeStatus": "Change a stage",
+	"people.deletePerson": "Remove a person",
+	"people.setPersonPhoto": "Set a photo",
+	"people.removePersonPhoto": "Remove a photo",
+};
+export const operationTitle = (operation: Operation) => TITLE[operation];
+
+/** The one sentence under the target that says what happens to them beyond the listed fields. */
+export function consequence(review: Review): string | null {
+	const tasks = handedBack(review.review.changes);
+	const owner =
+		tasks > 0 ? `${tasks.toLocaleString()} open ${tasks === 1 ? "task" : "tasks"} will need a new owner.` : null;
+	if (review.operation === "people.deletePerson")
+		return ["They leave the current people list. Their history stays.", owner].filter(Boolean).join(" ");
+	return owner;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Revise: the owner changes a reviewed value. The native command's input is rebuilt from the review, so a revision
+// sends exactly the reviewed facts with only the edited values changed.
+
+export type FieldKind = "text" | "long" | "date" | "email" | "choice";
+const KIND: Record<string, FieldKind> = {
+	summaryNotes: "long",
+	sourceDetails: "long",
+	reason: "long",
+	birthDate: "date",
+	email: "email",
+	stage: "choice",
+	source: "choice",
+	adultClassification: "choice",
+};
+export const fieldKind = (field: string): FieldKind => KIND[field] ?? "text";
+
+export const CHOICES: Record<string, { value: string; label: string }[]> = {
+	stage: Object.entries(STAGE_LABEL).map(([value, label]) => ({ value, label })),
+	source: Object.entries(SOURCE_LABEL).map(([value, label]) => ({ value, label })),
+	adultClassification: Object.entries(CLASSIFICATION_LABEL).map(([value, label]) => ({ value, label })),
+};
+
+/** Fields a person may edit in a revision. Photos, the removal itself and the task count are fixed facts. */
+const FIXED = new Set(["photo", "state", "openTasksNeedingOwner"]);
+/** Values that may be empty. A name and a reason are required. */
+const REQUIRED = new Set(["displayName", "reason", "stage", "source", "adultClassification"]);
+export const isRequired = (field: string) => REQUIRED.has(field);
+
+export const editableChanges = (review: Review) =>
+	review.review.withheld ? [] : review.review.changes.filter((c) => !FIXED.has(c.field));
+
+/** The native command's input for this review with `edits` applied, or null when the review can't be rebuilt. */
+export function reviseInput(review: Review, edits: Record<string, string> = {}): unknown {
+	const { target, changes } = review.review;
+	const value = (c: Change) => {
+		if (!(c.field in edits)) return c.after;
+		const text = edits[c.field]!.trim();
+		return text === "" ? null : text;
+	};
+	const after = (field: string) => {
+		const c = changes.find((x) => x.field === field);
+		return c ? value(c) : undefined;
+	};
+	if (review.operation === "people.createPerson")
+		return Object.fromEntries(changes.map((c) => [c.field, value(c)]).filter(([, v]) => v !== null));
+	if (!target) return null;
+	const personId = target.id;
+	switch (review.operation) {
+		case "people.updatePerson":
+			return { personId, patch: Object.fromEntries(changes.map((c) => [c.field, value(c)])) };
+		case "people.changeStatus":
+			return { personId, stage: after("stage"), reason: after("reason") };
+		case "people.deletePerson":
+			return { personId, reason: after("reason") };
+		case "people.setPersonPhoto":
+			return { personId, uploadId: after("photo") };
+		case "people.removePersonPhoto":
+			return { personId };
+	}
+}
+
+/** The first required value left empty, for the form's own message before anything is sent. */
+export function missingRequired(review: Review, edits: Record<string, string>) {
+	return editableChanges(review).find((c) => isRequired(c.field) && (edits[c.field] ?? "").trim() === "") ?? null;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Words: refusals and notices say what happened and what to do next, and never more than the server said.
+
+/** Why a run was refused, from the saved receipt code. Nothing was changed in each case. */
+export function refusalText(code: string | undefined, target: string | null): string {
+	const who = target ?? "this person";
+	switch (code) {
+		case "revision_conflict":
+		case "conflict":
+			return `${who}'s record changed after Evry prepared this, so nothing was saved. Ask Evry to prepare it again.`;
+		case "access_denied":
+			return "Your seat no longer allows this change, so nothing was saved.";
+		case "invalid_input":
+		case "invalid_subject":
+		case "unsupported_field":
+			return "People did not accept these values, so nothing was saved. Ask Evry to prepare it again.";
+		case "not_found":
+		case "source_unavailable":
+			return `${who} is no longer available, so nothing was saved.`;
+		default:
+			return "People refused this change, so nothing was saved.";
+	}
+}
+
+/** What the card says after an action the server refused or never answered. */
+export function actionNotice(error: ProjectedError | "lost"): string {
+	if (error === "lost") return "Not confirmed. Check your connection, then try again.";
+	switch (error.code) {
+		case "review_changed":
+			return "This review changed in another window. Check it again before you approve.";
+		case "review_expired":
+			return "This review expired before it was approved. Nothing was changed.";
+		case "review_closed":
+			return "This review is already closed.";
+		case "invalid_input":
+			return "Some values are not valid. Check them, then update the review.";
+		case "access_denied":
+		case "not_found":
+			return "Your seat no longer allows this change. Nothing was changed.";
+		default:
+			return "Something went wrong. Nothing was changed. Try again.";
+	}
+}
+
+const time = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
+export const clock = (iso: string) => time.format(new Date(iso));
+
+/** The delay before the next read of a running change: quick at first, then every 2 seconds. */
+export const pollDelay = (attempt: number) => [300, 500, 800, 1200][attempt] ?? 2000;
