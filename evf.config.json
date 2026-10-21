@@ -571,6 +571,21 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-31": {
+			"title": "evf progress accepts a valid EVF-Carry ship",
+			"owningPaths": ["tools/evf/", "evf.config.json"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {

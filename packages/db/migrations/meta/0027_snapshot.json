@@ -1,5 +1,5 @@
 {
-  "id": "0ec77988-b9c8-453c-90f2-ee54183d12ee",
+  "id": "921009d3-b1e8-4b40-9acc-c80f275766ae",
   "prevId": "45f4ca63-554d-4131-b0a1-1c842ac8ec56",
   "version": "7",
   "dialect": "postgresql",
@@ -8729,42 +8729,6 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
-        },
-        "evaluation_scores": {
-          "name": "evaluation_scores",
-          "type": "integer[]",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "evaluation_notes": {
-          "name": "evaluation_notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "evaluated_on": {
-          "name": "evaluated_on",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "evaluated_at": {
-          "name": "evaluated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "evaluation_corrected_at": {
-          "name": "evaluation_corrected_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "evaluation_revision": {
-          "name": "evaluation_revision",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {
@@ -9008,14 +8972,6 @@
         "meeting_ck_8": {
           "name": "meeting_ck_8",
           "value": "(jsonb_typeof(agenda) = 'array'::text)"
-        },
-        "meeting_ck_9": {
-          "name": "meeting_ck_9",
-          "value": "((evaluation_scores IS NULL) = (evaluated_at IS NULL) AND (evaluated_at IS NULL) = (evaluated_on IS NULL) AND (evaluated_at IS NULL) = (evaluation_revision IS NULL))"
-        },
-        "meeting_ck_10": {
-          "name": "meeting_ck_10",
-          "value": "((evaluation_scores IS NULL) OR ((type = 'vision_meeting'::text) AND (cardinality(evaluation_scores) = 8) AND (1 <= ALL (evaluation_scores)) AND (5 >= ALL (evaluation_scores)) AND (evaluation_revision >= 1)))"
         }
       },
       "isRLSEnabled": false
@@ -9207,6 +9163,55 @@
         "meeting_kit_item_ck_4": {
           "name": "meeting_kit_item_ck_4",
           "value": "((notes IS NULL) OR (char_length(notes) <= 1000))"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.model_spend": {
+      "name": "model_spend",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "month": {
+          "name": "month",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "charged_micro_usd": {
+          "name": "charged_micro_usd",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "model_spend_month_key": {
+          "name": "model_spend_month_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "month"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "model_spend_month": {
+          "name": "model_spend_month",
+          "value": "\"model_spend\".\"month\"=date_trunc('month',\"model_spend\".\"month\")::date"
+        },
+        "model_spend_charged": {
+          "name": "model_spend_charged",
+          "value": "\"model_spend\".\"charged_micro_usd\" >= 0"
         }
       },
       "isRLSEnabled": false

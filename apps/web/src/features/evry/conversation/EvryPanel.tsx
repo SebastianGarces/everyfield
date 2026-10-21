@@ -36,7 +36,8 @@ import {
 	type Send,
 	type Turn,
 } from "./model.ts";
-import { ResultCard, ReviewSlot } from "./ResultCard.tsx";
+import { ReviewCard } from "../review/ReviewCard.tsx";
+import { ResultCard } from "./ResultCard.tsx";
 import { useConversation } from "./useConversation.ts";
 
 // The Evry panel (WP-051/ui; design/everyfield-ui.html, Evry panel): one private conversation beside any product page,
@@ -384,7 +385,7 @@ function TurnView({
 									originalTotal={block.originalTotal}
 								/>
 							) : (
-								<ReviewSlot key={block.sequence} proposalId={block.proposalId} target={block.target} />
+								<ReviewCard key={block.sequence} proposalId={block.proposalId} target={block.target} />
 							),
 						)}
 						{waiting ? (
