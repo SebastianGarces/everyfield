@@ -18,6 +18,9 @@ const table = z.object({
 const catalog = z.object({ tables: z.array(table) });
 const sort = (rows: unknown[]) => rows.map((row) => JSON.stringify(row)).sort();
 const typeNames: Record<string, string> = { int8: "bigint", int4: "integer", bool: "boolean" };
+// Postgres names an array type by its element with a leading underscore: _uuid is uuid[].
+const typeName = (udt: string): string =>
+	udt.startsWith("_") ? typeName(udt.slice(1)) + "[]" : (typeNames[udt] ?? udt);
 const deletionCodes: Record<string, string> = {
 	restrict: "r",
 	no_action: "a",
@@ -43,7 +46,7 @@ export async function assertCurrentCatalog(db: Database | Transaction, schema: s
 			columns.rows.map((c) => [
 				c.table_name,
 				c.column_name,
-				typeNames[c.udt_name] ?? c.udt_name,
+				typeName(c.udt_name),
 				c.is_nullable === "YES",
 			]),
 		),

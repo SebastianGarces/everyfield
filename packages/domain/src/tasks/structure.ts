@@ -62,6 +62,8 @@ export function structureWriter(reminders: TaskReminders) {
 					if (!admin && v.assigneeId !== undefined) deny("access_denied");
 					// One level only: a checklist row never has its own rows.
 					if (parent.parent_id) deny("invalid_subject");
+					// A task reads back with at most 500 checklist rows.
+					if (parent.child_total >= 500) deny("invalid_input");
 					if (parent.revision !== input.expectedRevision) deny("conflict");
 					const inherit = v.assigneeId === undefined;
 					const assigneeId = inherit ? (parent.assignee_seated ? parent.assignee_id : null) : v.assigneeId!;

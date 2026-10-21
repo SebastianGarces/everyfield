@@ -872,6 +872,14 @@ test("AC:TARGET-TSK-005 AC:EVRY-REAL-CHILD-TASK-PARITY checklist rows are one-le
 	);
 	await assert.rejects(f.admin.execute(sql`UPDATE task SET prerequisite_ids=ARRAY[${p.id}]::uuid[] WHERE id=${c.id}`));
 
+	// A parent holds at most the 500 rows a task reads back with; the next one refuses and the parent stays readable.
+	const full = await create(owner, { title: "Full" });
+	await f.admin.execute(sql`INSERT INTO task (id, plant_id, title, category, priority, status, created_at, due_kind, parent_id)
+		SELECT gen_random_uuid(), ${plant.id}, 'Row ' || n, 'general', 'medium', 'not_started', now(), 'undated', ${full.id}
+		FROM generate_series(1, 500) n`);
+	refused(await child(owner, full, {}), "invalid_input");
+	assert.equal((await get(owner, full.id)).checklistItems.length, 500);
+
 	// Removal retires the row with its history; the parent stays as it was. Owner/Admin only.
 	const remove = (who, row) =>
 		write(who, "removeSubtask", {
@@ -1207,6 +1215,16 @@ test("AC:TARGET-TSK-008 bulk changes report each task, commit all valid tasks or
 	assert.deepEqual([result.changed, result.remaining], [3, [others.id, changed.id]]);
 	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM task WHERE predecessor_id=${series.id}`), [{ n: 1 }]);
 	assert.equal((await get(foreign, theirs.id)).status, "not_started");
+
+	// A request where nothing changes still answers each task and replays from its stored receipt.
+	const quiet = [missing, w, stale, await get(owner, mine.id)];
+	const quietKey = randomUUID();
+	const nothing = ok(await bulk(owner, "bulkComplete", quiet, {}, quietKey));
+	assert.deepEqual(
+		[nothing.changed, nothing.items.map((i) => i.outcome)],
+		[0, ["not_found", "closed", "stale", "noop"]],
+	);
+	assert.deepEqual(ok(await bulk(owner, "bulkComplete", quiet, {}, quietKey)), nothing);
 
 	// Reschedule: Owner/Admin, open top-level tasks only, and an invalid date writes nothing.
 	const later = await create(owner, { title: "Later" });
