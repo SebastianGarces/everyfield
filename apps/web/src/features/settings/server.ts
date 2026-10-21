@@ -1,12 +1,11 @@
 import "server-only";
-import { S3Client } from "@aws-sdk/client-s3";
 import { owner, sessionId, type Owner } from "@everyfield/contracts/common";
 import { sectionResult, settingsError, type SettingsError } from "@everyfield/contracts/settings";
 import * as N from "@everyfield/contracts/settings/native";
 import type { SettingsReply } from "@everyfield/contracts/settings/server";
 import type { Transaction } from "@everyfield/db/client";
 import { and, eq, gt, inArray, isNull, sql } from "@everyfield/db/query";
-import type { PrivateStorage } from "@everyfield/db/schema";
+import { privateStorage } from "@everyfield/db/schema";
 import * as t from "@everyfield/db/tables";
 import type { RequestActor } from "@everyfield/domain/access";
 import { trustedIdentityIp } from "@everyfield/domain/identity";
@@ -37,7 +36,7 @@ import type { SettingsViewer } from "./port";
 // actor come from the request's getViewer. A section read uses that viewer on the pool, without a transaction; every
 // write binds that actor in its own transaction (withSettingsWrite) and the domain checks authority again. Changes
 // queue their jobs and mail in the same transaction; a worker acts on them. Email and password changes go through
-// Better Auth, outside any app transaction. Photo bytes need the private bucket (PRIVATE_STORAGE_*); without it the
+// Better Auth, outside any app transaction. Photo bytes need the private bucket (AWS_*); without it the
 // photo calls are refused and every other section still works.
 
 type Viewer = NonNullable<Awaited<ReturnType<typeof getViewer>>>;
@@ -53,14 +52,6 @@ const env = z.object({
 	IDENTITY_ADDRESS_KEY: z.string().regex(/^[a-f0-9]{64}$/),
 	IDENTITY_MAIL_FROM: z.email(),
 });
-const storageEnv = z.object({
-	PRIVATE_STORAGE_BUCKET: z.string().min(1),
-	PRIVATE_STORAGE_ENDPOINT: z.url(),
-	PRIVATE_STORAGE_REGION: z.string().min(1),
-	PRIVATE_STORAGE_ACCESS_KEY_ID: z.string().min(1),
-	PRIVATE_STORAGE_SECRET_ACCESS_KEY: z.string().min(1),
-});
-
 let mount: ReturnType<typeof create> | undefined;
 function create(v: z.infer<typeof env>) {
 	const organizations = organizationMount();
@@ -251,20 +242,6 @@ function create(v: z.infer<typeof env>) {
 				writes,
 			),
 	});
-	const storage = storageEnv.safeParse(process.env);
-	const privateStorage: PrivateStorage | null = storage.success
-		? {
-				bucket: storage.data.PRIVATE_STORAGE_BUCKET,
-				client: new S3Client({
-					endpoint: storage.data.PRIVATE_STORAGE_ENDPOINT,
-					region: storage.data.PRIVATE_STORAGE_REGION,
-					credentials: {
-						accessKeyId: storage.data.PRIVATE_STORAGE_ACCESS_KEY_ID,
-						secretAccessKey: storage.data.PRIVATE_STORAGE_SECRET_ACCESS_KEY,
-					},
-				}),
-			}
-		: null;
 	return {
 		db,
 		origin,
@@ -273,7 +250,7 @@ function create(v: z.infer<typeof env>) {
 		avatar,
 		deletion,
 		credentials,
-		storage: privateStorage,
+		storage: privateStorage(),
 	};
 }
 function settingsMount() {

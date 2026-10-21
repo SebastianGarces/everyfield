@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
 
 import { migrate } from "../../../../packages/db/src/schema/migrate.ts";
+import { runDueObjectCleanup } from "../../../../apps/web/src/server/jobs/object-cleanup.ts";
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import { PeopleReadContext } from "../../../../packages/domain/src/people/core.ts";
 import {
@@ -549,6 +550,7 @@ const png = Buffer.from(
 function privateStorage() {
 	const objects = new Map();
 	return {
+		objects,
 		bucket: "synthetic-only",
 		client: {
 			send: async (command) => {
@@ -565,6 +567,9 @@ function privateStorage() {
 						const body = objects.get(i.Key);
 						return { ContentLength: body.length, Body: { transformToByteArray: async () => body } };
 					}
+					case "DeleteObjectCommand":
+						objects.delete(i.Key);
+						return {};
 					default:
 						throw Error("unexpected provider operation");
 				}
@@ -667,6 +672,10 @@ test("AC:TARGET-PPL-005 AC:PROVIDER48-002 AC:PROVIDER48-003 person photo: verifi
 	);
 	assert.deepEqual(removed.photo, { status: "absent" });
 	refused(await readPersonPhoto(db, storage, ctx(), { personId: alex.id, versionId: second.pending.uploadId }));
+	// Cleanup deletes the replaced and removed photos' bytes. The failed upload waits for its expiry.
+	assert.equal(storage.objects.size, 2);
+	assert.equal(await runDueObjectCleanup(db, storage, 10), 2);
+	assert.equal(storage.objects.size, 0);
 	// A retired Person's photo is unavailable.
 	const third = await upload(png);
 	ok(await set(third.pending.uploadId));

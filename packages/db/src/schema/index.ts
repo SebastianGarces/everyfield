@@ -5,6 +5,8 @@ export {
 	readAuthorizedObject,
 	createAuthorizedDownload,
 	deleteUnreferencedObject,
+	privateStorage,
+	privateStorageFrom,
 } from "./storage.ts";
 export type { PrivateStorage, ResourceAuthorizer, FileAuthorization, FilePurpose, FileIdentity } from "./storage.ts";
 export { authStorage } from "./auth-storage.ts";
