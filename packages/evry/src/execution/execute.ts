@@ -17,9 +17,14 @@ export type EffectLease = { jobId: string; tenantId: string; leaseOwner: string;
  */
 export type EffectOutcome = "completed" | "refused" | "failed" | "expired" | "closed" | "lost";
 
-const fence = (lease: EffectLease) =>
+/**
+ * This exact claim is still current. Publication also share-locks the job row, so lease recovery cannot replace the
+ * claim between this check and the commit; it waits and then sees a finished effect.
+ */
+const fence = (lease: EffectLease, lock = false) =>
 	sql`EXISTS(SELECT FROM job j WHERE j.id=${lease.jobId}::uuid AND j.tenant_id=${lease.tenantId}::uuid AND j.state='claimed'
-		AND j.lease_owner=${lease.leaseOwner} AND j.claim_generation=${lease.generation}::bigint AND j.lease_until>clock_timestamp())`;
+		AND j.lease_owner=${lease.leaseOwner} AND j.claim_generation=${lease.generation}::bigint AND j.lease_until>clock_timestamp()
+		${lock ? sql`FOR SHARE` : sql``})`;
 
 const locked = z.object({
 	id: z.uuid(),
@@ -40,6 +45,9 @@ const locked = z.object({
 const refusalCode = (code: string) =>
 	code === "conflict" ? "revision_conflict" : code === "unavailable" ? "access_denied" : code;
 
+/** The claim stopped being current while the effect waited; the whole transaction rolls back. */
+class Lost extends Error {}
+
 class Refused extends Error {
 	readonly code: string;
 	constructor(code: string) {
@@ -52,8 +60,8 @@ class Refused extends Error {
  * evry.executeProposal and evry.expireProposal: runs one approved proposal revision once. One transaction locks the
  * proposal under the current job claim, refuses an approval that lapsed (expiresAt itself is too late), runs the
  * owning native command for the approving session (which checks its live seat and role) with the effect key as its
- * request key and saves the outcome. The native command writes its own audit row with the change, so the effect, its audit record and the
- * saved outcome commit together. A refusal rolls everything back and then saves the refusal under the same claim.
+ * request key and saves the outcome only if the claim is still current after every wait. The native command writes
+ * its own audit row with the change, so the effect, its audit record and the saved outcome commit together or not at all. A refusal rolls everything back and then saves the refusal under the same claim.
  */
 export async function executeProposal(db: Database, lease: EffectLease): Promise<EffectOutcome> {
 	try {
@@ -91,12 +99,16 @@ export async function executeProposal(db: Database, lease: EffectLease): Promise
 				`evry:${p.id}:${p.revision}`,
 			);
 			if ("refused" in result) throw new Refused(refusalCode(result.refused));
-			await tx.execute(
-				sql`UPDATE proposal SET outcome='completed',receipt=${JSON.stringify(result)}::jsonb,updated_at=clock_timestamp() WHERE id=${p.id}::uuid`,
+			// Publish only if this claim is still current after every lock wait above; otherwise the change and its audit
+			// row roll back with the transaction.
+			const published = await tx.execute(
+				sql`UPDATE proposal SET outcome='completed',receipt=${JSON.stringify(result)}::jsonb,updated_at=clock_timestamp() WHERE id=${p.id}::uuid AND ${fence(lease, true)}`,
 			);
+			if (!published.rowCount) throw new Lost();
 			return "completed";
 		});
 	} catch (error) {
+		if (error instanceof Lost) return "lost";
 		const refused =
 			error instanceof Refused
 				? error.code
@@ -110,7 +122,7 @@ export async function executeProposal(db: Database, lease: EffectLease): Promise
 		const outcome = refused ? "refused" : "failed";
 		const saved = await db.execute(sql`
 			UPDATE proposal SET outcome=${outcome},receipt=jsonb_build_object('code',${refused ?? "unknown"}::text),updated_at=clock_timestamp()
-			WHERE job_id=${lease.jobId}::uuid AND tenant_id=${lease.tenantId}::uuid AND state='approved' AND outcome IS NULL AND ${fence(lease)}`);
+			WHERE job_id=${lease.jobId}::uuid AND tenant_id=${lease.tenantId}::uuid AND state='approved' AND outcome IS NULL AND ${fence(lease, true)}`);
 		return saved.rowCount ? outcome : "lost";
 	}
 }

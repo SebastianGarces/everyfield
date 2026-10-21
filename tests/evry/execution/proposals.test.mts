@@ -16,8 +16,8 @@ import {
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { evryActor } from "../../../packages/evry/src/context/actor.ts";
 import { transaction } from "../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim, type Claim } from "../../../apps/web/src/server/jobs/queue.ts";
-import { accounts, actor, admin, db, people, queries, setup, sql, teardown, work } from "../runtime/support.mts";
+import { claimDue, finishClaim, recoverLease, type Claim } from "../../../apps/web/src/server/jobs/queue.ts";
+import { accounts, actor, admin, db, people, plant, queries, setup, sql, teardown, work } from "../runtime/support.mts";
 
 before(setup);
 after(teardown);
@@ -266,14 +266,30 @@ test("AC:INH-REGRESSION-REVOKED-SEAT AC:SEC-02 AC:B03-036 AC:SEC-12 INV-tenancy:
 	);
 });
 
-test("AC:EVRY-LEASE-FENCE AC:INH-REGRESSION-RETRY AC:INH-EDGES-12: a stalled executor cannot publish after another resumes; a retry never repeats a completed effect", async () => {
+test("AC:EVRY-LEASE-FENCE AC:INH-REGRESSION-RETRY AC:INH-EDGES-12: an executor stalled before or after its first check cannot publish once its claim is replaced; a retry never repeats a completed effect", async () => {
 	const owner = await actor("owner");
 	const { proposal } = await propose(owner, "Change Rivera's city to Naperville");
 	await approveProposal(db, owner, proposal.id, witness(proposal));
 	const [stalled] = await claimDue(db, ["evry_effect"], 1, 60);
 	assert.ok(stalled);
 	assert.equal((await readReview(db, owner, proposal.id)).executing, true);
-	await admin.execute(sql`UPDATE job SET lease_until=clock_timestamp()-interval '1 second' WHERE id=${stalled.id}`);
+	// The executor passes its first fence, then waits for the plant lock while its lease expires and recovery
+	// replaces the claim. When the lock frees, it must not publish the change, its audit row or an outcome.
+	let running: Promise<string> | undefined;
+	await admin.transaction(async (tx) => {
+		await tx.execute(sql`SELECT id FROM plant WHERE id=${plant} FOR UPDATE`);
+		running = executeProposal(db, lease(stalled));
+		for (let waiting = 0; !waiting;) {
+			const r = await admin.execute(
+				sql`SELECT count(*)::int n FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE '%write_gate%'`,
+			);
+			waiting = (r.rows[0] as { n: number }).n;
+		}
+		await admin.execute(sql`UPDATE job SET lease_until=clock_timestamp()-interval '1 second' WHERE id=${stalled.id}`);
+		assert.equal(await recoverLease(admin), 1);
+	});
+	assert.equal(await running, "lost");
+	assert.deepEqual([await effectAudits(proposal.id), (await person(people.alexRivera)).city], [[], "Chicago"]);
 	// The outcome is unknown, not failed: the retry resumes the same effect key.
 	assert.equal((await readReview(db, owner, proposal.id)).outcome, "unknown");
 	assert.equal((await retryUnresolvedEffects(db, owner, proposal.id)).retried, true);
