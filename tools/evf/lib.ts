@@ -415,8 +415,9 @@ export function evidenceDir(root: string, task: TaskRef, sha: string, label: str
 	return join(evfDataDir(root), "evidence", task.slug, sha, label);
 }
 
+/** Untracked files count even when the user's git config hides them: CI never sees them. */
 export function isClean(wt: string): boolean {
-	return git(wt, "status", "--porcelain") === "";
+	return git(wt, "status", "--porcelain", "--untracked-files=all") === "";
 }
 
 export function oneLine(text: string, max = 220): string {

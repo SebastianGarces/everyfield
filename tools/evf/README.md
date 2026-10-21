@@ -14,7 +14,20 @@ A verifier from another model family exercises the real branch, records an exact
 on the PR and runs `evf ship`. Ship reads the PR's required GitHub check status, refuses missing
 or nonpassing CI, verifies the recorded head and model families and checks the PR body against
 the PR standard template. It squash-merges only that head. Branch changes require fresh CI
-and review. The verifier or coordinator runs ship; never arm GitHub auto-merge.
+and review, with one exception: a merge-only head. The verifier or coordinator runs ship; never
+arm GitHub auto-merge.
+
+When the latest valid review approves an earlier head A and the PR head H has no review, ship
+carries A's approval to H only if every commit from A to H is a merge whose first parent is the
+previous head and whose second parent is on main, each merge tree equals the clean
+`git merge-tree` result, the PR's paths (A against its base on main) and main's paths since that
+base do not overlap, and required CI passes on H. Ship posts the proof as an `EVF-Carry:` comment
+before it merges and keeps it in the shipped record. Any other change refuses as before.
+Design tasks, P2/P3 feedback and every `evf approve` route keep exact-head review.
+
+Ship never merges on red main. Before it merges, it reads main's latest finished `ci.yml` push run,
+skipping cancelled and skipped runs. When that run failed, only a PR whose body says `Fixes #<n>`
+for the open `P0: CI failed on main` issue may merge. The gate reads the run, not the issue state.
 The ship skill defines the review record and owner approval exceptions.
 
 Model families are `openai` and `anthropic`, not individual model names. Authors put
@@ -73,6 +86,13 @@ Verifier mode always uses the caller's Git checkout, including its committed che
 A dirty checkout refuses before checks. Changes to the checked tree or base during checks print
 `INVALIDATED`, stop further checks and require a fresh run on stable inputs.
 
+Local checks see what CI sees. A clean checkout has no modified, staged or untracked files, even when
+the user's git config hides untracked files. OPS tasks run their own checks plus the configured
+`format` and `package-unit-tests` checks, which include the db schema check, because CI runs them
+on every PR. Task start installs dependencies for OPS tasks too. A full application verify also
+type-checks a fresh detached checkout of HEAD, so ignored local files such as Next's generated
+`next-env.d.ts` cannot hide a CI failure (PR #175).
+
 Before a manual push, run `bin/evf pre-push <task>`. It checks for a full passing author report at
 that exact clean HEAD. Quick checks and verifier reports do not satisfy this gate. `evf pr open`
 runs the same gate before its push. Plain `git push` is not intercepted; use the pre-push command
@@ -88,6 +108,16 @@ Child commands inherit the selected Node directory first on PATH, including shel
 its recorded head, no newer task start, no open PR, and no live Portless preview. A reused task
 records its new start outside the repository. Unavailable or malformed provider status keeps the
 worktree. Cleanup never stops previews itself.
+
+## Migration numbers
+
+A branch takes the next migration number on main when it generates a migration. When main gains a
+migration first, include main and run `bin/evf migrations renumber <task>`, during the merge or after
+committing it. It moves the branch's new migrations after main's last number, restores main's
+journal and snapshot bytes, and rebuilds each branch snapshot as main's latest schema plus the
+branch's own changes, chained to main's last snapshot. SQL bytes do not change. It refuses when
+main and the branch change the same table; generate those migrations again on current main.
+`evf verify`, `evf pr open` and `evf ship` refuse new migration numbers that main already uses (D76).
 
 ## Foreground checks and CI test coverage
 
@@ -117,6 +147,9 @@ exceptions stale and fail the check. Local-only suites remain acceptance work fo
 ## Task and case checks
 
 Briefs use the current catalog and context manifest. Missing context fails explicitly.
+A brief for a task that owns server paths (an api part or a single-part package) prints the
+Performance rule from `docs/architecture/patterns.md` and asks for statement-count tests before
+the PR opens (test-standard), so budget findings no longer wait for the verifier.
 Task starts retain kickoff gates and producer dependencies. OPS tasks use reviewed title,
 owning paths and tooling checks in `maintenanceTasks`; they cannot authorize application code.
 evf reads that entry from the commit under check, never from the home checkout's file: the task
