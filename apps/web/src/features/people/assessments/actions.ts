@@ -1,20 +1,11 @@
 "use server";
 
-import { requestDatabase } from "@/server/database";
 import * as c from "@everyfield/contracts/people";
-import {
-	assessments,
-	commitments,
-	interviews,
-	peopleReader,
-	uploadCommitmentDocument,
-} from "@everyfield/domain/people";
+import { assessments, commitments, interviews, peopleReader } from "@everyfield/domain/people";
 import { z } from "zod";
 import { boundary, invalid, outcome, receipt, type Receipt } from "../boundary.ts";
 import type { Outcome } from "../model.ts";
 import { read, write } from "../server.ts";
-import { privateStorage } from "@everyfield/db/schema";
-import { peopleContext } from "../fields/server.ts";
 import type {
 	Assessment,
 	Assessments,
@@ -61,40 +52,6 @@ export async function recordInterview(requestKey: string, input: unknown): Promi
 			receipt: receipt(r),
 		})),
 	);
-}
-
-const documentForm = z.object({ personId: c.personRequest.shape.personId, file: z.instanceof(File) });
-/**
- * Stores a commitment document privately before the card is saved: ask for an upload, then verify and store the bytes
- * (REQ-PPL-014, C29). The answer is the upload the card attaches. A failed upload attaches nothing; the pending object
- * is cleaned up on its own. The browser keeps the upload, so a retried save never uploads the file twice.
- */
-export async function uploadDocument(form: FormData): Promise<Outcome<{ uploadId: string }>> {
-	const parsed = documentForm.safeParse(Object.fromEntries(form));
-	if (!parsed.success) return invalid;
-	const { personId, file } = parsed.data;
-	const mime = c.commitmentMime.safeParse(file.type);
-	if (!mime.success || file.size < 1 || file.size > c.COMMITMENT_MAX_BYTES) return invalid;
-	return boundary(c.personRequest, { personId }, async (v) => {
-		const storage = privateStorage();
-		const db = requestDatabase();
-		if (!storage || !db) return { status: "refused", code: "storage_unavailable" };
-		const staged = outcome(
-			await write(v, (tx, ctx) =>
-				commitments.requestCommitmentUpload(tx, ctx, { personId, mime: mime.data, byteLength: file.size }),
-			),
-			(r) => r,
-		);
-		if (staged.status !== "ok") return staged;
-		const bytes = new Uint8Array(await file.arrayBuffer());
-		const stored = await uploadCommitmentDocument(db, storage, peopleContext(v), {
-			uploadId: staged.value.uploadId,
-			bytes,
-		}).catch(() => ({ status: "failed" }) as const);
-		if (stored.status === "failed") return { status: "lost" };
-		if (stored.status === "refused") return { status: "refused", code: stored.error.code };
-		return { status: "ok", value: { uploadId: staged.value.uploadId } };
-	});
 }
 
 export async function recordCommitment(requestKey: string, input: unknown): Promise<Outcome<CommitmentSaved>> {

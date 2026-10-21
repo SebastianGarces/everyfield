@@ -8,7 +8,17 @@ import {
 	UserRemove01Icon,
 	UserCheck01Icon,
 } from "@hugeicons/core-free-icons";
-import { Button, Field, Input, Radio, RadioGroup, SearchInput, Spinner, Textarea } from "@everyfield/ui/controls";
+import {
+	Button,
+	Field,
+	Input,
+	Radio,
+	RadioGroup,
+	SearchInput,
+	Spinner,
+	Textarea,
+	useFieldControl,
+} from "@everyfield/ui/controls";
 import { useEffect, useId, useRef, useState } from "react";
 import type { Outcome } from "../model.ts";
 import { LocalDay } from "../parts.tsx";
@@ -76,7 +86,6 @@ export function RecordCommitmentDialog({
 	const [draft, setDraft] = useState(initial);
 	const [touched, setTouched] = useState(false);
 	const set = (patch: Partial<CommitmentDraft>) => setDraft((d) => ({ ...d, ...patch }));
-	const fileInput = useRef<HTMLInputElement>(null);
 	const fileError = draft.file ? documentProblem(draft.file) : null;
 	const witnessMissing =
 		(draft.witness.kind === "person" && !draft.witness.id) ||
@@ -140,42 +149,72 @@ export function RecordCommitmentDialog({
 					hint="A PDF, JPG or PNG of 10 MB or less. Only Owners and Admins can open it."
 					error={fileError}
 				>
-					<div className="flex flex-wrap items-center gap-3">
-						<Button
-							type="button"
-							size="sm"
-							variant="secondary"
-							icon={File02Icon}
-							onClick={() => fileInput.current?.click()}
-						>
-							{draft.file ? "Choose another file" : "Choose a file"}
-						</Button>
-						{draft.file ? (
-							<span className="flex min-w-0 items-center gap-2 text-sm text-ink-2">
-								<span className="truncate [overflow-wrap:anywhere]">{draft.file.name}</span>
-								<span className="flex-none text-text-3">{fileSize(draft.file.size)}</span>
-								<Button type="button" size="sm" variant="ghost" onClick={() => set({ file: null })}>
-									Remove
-								</Button>
-							</span>
-						) : null}
-					</div>
-					<input
-						ref={fileInput}
-						type="file"
-						accept={DOCUMENT_TYPES.join(",")}
-						className="sr-only"
-						tabIndex={-1}
-						aria-hidden="true"
-						onChange={(e) => {
-							const file = e.target.files?.[0];
-							if (file) set({ file });
-							e.target.value = "";
-						}}
-					/>
+					<DocumentPicker file={draft.file} onChange={(file) => set({ file })} />
 				</Field>
 			) : null}
 		</RecordDialog>
+	);
+}
+
+/**
+ * The signed card's file inside its Field. The Field's label opens the picker; the button carries the field's hint,
+ * error and the chosen file as its description, so a screen reader hears what is attached and why it is refused.
+ */
+function DocumentPicker({ file, onChange }: { file: File | null; onChange: (file: File | null) => void }) {
+	const control = useFieldControl({});
+	const chosenId = useId();
+	const input = useRef<HTMLInputElement>(null);
+	const choose = useRef<HTMLButtonElement>(null);
+	return (
+		<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+			<Button
+				ref={choose}
+				type="button"
+				size="sm"
+				variant="secondary"
+				icon={File02Icon}
+				aria-describedby={[file ? chosenId : null, control["aria-describedby"]].filter(Boolean).join(" ") || undefined}
+				aria-invalid={control["aria-invalid"]}
+				onClick={() => input.current?.click()}
+			>
+				{file ? "Choose another file" : "Choose a file"}
+				<span className="sr-only"> for the signed card</span>
+			</Button>
+			{file ? (
+				<span className="flex min-w-0 items-center gap-2 text-sm text-ink-2">
+					<span id={chosenId} className="min-w-0 [overflow-wrap:anywhere]">
+						{file.name}
+						<span className="text-text-3"> · {fileSize(file.size)}</span>
+					</span>
+					<Button
+						type="button"
+						size="sm"
+						variant="ghost"
+						aria-label={`Remove ${file.name}`}
+						onClick={() => {
+							onChange(null);
+							choose.current?.focus();
+						}}
+					>
+						Remove
+					</Button>
+				</span>
+			) : null}
+			<input
+				ref={input}
+				id={control.id}
+				type="file"
+				accept={DOCUMENT_TYPES.join(",")}
+				className="sr-only"
+				tabIndex={-1}
+				aria-hidden="true"
+				onChange={(e) => {
+					const picked = e.target.files?.[0];
+					if (picked) onChange(picked);
+					e.target.value = "";
+				}}
+			/>
+		</div>
 	);
 }
 

@@ -36,7 +36,6 @@ import {
 	correctCommitment,
 	loadCommitments,
 	recordCommitment,
-	uploadDocument,
 	type CommitmentSaved,
 } from "./actions.ts";
 import {
@@ -74,6 +73,24 @@ type Editing =
 	| { form: "correct"; card: Commitment; draft: CorrectionDraft; problem?: string };
 /** What the card shows while a save runs: a new card, a state change or a corrected card. */
 type Expected = { card: Commitment } | { current: CommitmentStatus };
+
+/**
+ * Sends the file's bytes to the upload route (upload-route.ts). Only a JSON answer from it counts: a dropped connection,
+ * a 503 or any other reply reads as lost, so the card never says the document was refused when it may have arrived.
+ */
+async function uploadDocument(personId: string, file: File): Promise<Outcome<{ uploadId: string }>> {
+	try {
+		const r = await fetch(`/api/people/${personId}/commitment-document`, {
+			method: "POST",
+			headers: { "Content-Type": file.type },
+			body: file,
+		});
+		if (r.status !== 200) return { status: "lost" };
+		return (await r.json()) as Outcome<{ uploadId: string }>;
+	} catch {
+		return { status: "lost" };
+	}
+}
 
 const STATE_BADGE = {
 	active: { status: "positive", label: "Committed" },
@@ -188,10 +205,7 @@ export function CommitmentCard({
 	) {
 		const send = async (k: string): Promise<Outcome<CommitmentSaved>> => {
 			if (draft.file && !doc.uploadId) {
-				const form = new FormData();
-				form.set("personId", personId);
-				form.set("file", draft.file);
-				const stored = await uploadDocument(form).catch((): Outcome<{ uploadId: string }> => ({ status: "lost" }));
+				const stored = await uploadDocument(personId, draft.file);
 				if (stored.status !== "ok") {
 					const code =
 						stored.status === "lost"
@@ -592,16 +606,14 @@ function CardRow({
 				{card.document.status === "attached" && !pending ? (
 					<a
 						href={`/people/${personId}/commitments/${card.id}/document`}
-						target="_blank"
-						rel="noopener noreferrer"
+						rel="noreferrer"
 						className="mt-2 inline-flex min-h-6 items-center gap-1.5 rounded-xs text-sm font-medium text-ink underline underline-offset-[3px]"
 					>
 						<Icon icon={File02Icon} size={16} />
-						Open signed card
+						Download signed card
 						<span className="font-normal text-text-3">
 							({fileKind(card.document.mediaType)}, {fileSize(card.document.byteCount)})
 						</span>
-						<span className="sr-only">, opens in a new tab</span>
 					</a>
 				) : card.document.status === "attached" ? (
 					<p className="mt-2 text-sm text-text-3">Uploading the signed card…</p>
