@@ -24,12 +24,13 @@ import {
 	EmptyState,
 	IconButton,
 	Input,
+	useToast,
 } from "@everyfield/ui/controls";
-import { startTransition, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 import { replaceAgenda } from "./actions.ts";
-import { addMinutes, durationText, timeText, type AgendaSection, type Detail } from "./model.ts";
+import { addMinutes, durationText, problemText, timeText, type AgendaSection, type Detail } from "./model.ts";
 import type { Change } from "./page-state.ts";
-import { Problem, useSave, type SaveCall } from "./parts.tsx";
+import { Problem, problemOf, useSave, type SaveCall } from "./parts.tsx";
 
 /** The agenda (REQ-MTG-005): sections with their start times from the meeting's start, and the total length. */
 export function AgendaCard({
@@ -44,23 +45,34 @@ export function AgendaCard({
 	onSaved: (agenda: Detail["agenda"]) => void;
 }) {
 	// The editor stays mounted from opening until its save is confirmed, so a failed save reopens it with the rows.
+	// Opening the editor again while a save runs starts a fresh editor; the earlier save's answer never closes it.
+	const toast = useToast();
 	const [editor, setEditor] = useState<{ key: number; visible: boolean } | null>(null);
-	const setEditing = (on: boolean) => setEditor((e) => (on ? { key: e?.key ?? Date.now(), visible: true } : null));
-	/** The new agenda shows at once; the answer confirms it, or the old one comes back and the editor reopens. */
+	const current = useRef(editor);
+	useEffect(() => {
+		current.current = editor;
+	});
+	const setEditing = (on: boolean) => setEditor(on ? { key: Date.now(), visible: true } : null);
+	/** The new agenda shows at once; the answer confirms it, or the old one comes back and its editor reopens. */
 	function submit(sections: AgendaSection[], call: SaveCall<{ agenda: Detail["agenda"] }>) {
+		const key = current.current?.key;
+		// Outside the transition, so the editor closes now rather than when the answer arrives.
+		setEditor((e) => e && { ...e, visible: false });
 		startTransition(async () => {
 			project({
 				kind: "agenda",
 				agenda: { ...meeting.agenda, sections, totalMinutes: sections.reduce((n, s) => n + s.minutes, 0) },
 			});
-			setEditor((e) => e && { ...e, visible: false });
 			const r = await call();
 			if (r?.status === "ok")
 				startTransition(() => {
 					onSaved(r.value.agenda);
-					setEditor(null);
+					setEditor((e) => (e?.key === key ? null : e));
 				});
-			else if (r) setEditor((e) => e && { ...e, visible: true });
+			else if (r) {
+				if (current.current?.key === key) setEditor((e) => e && { ...e, visible: true });
+				else toast({ message: `The agenda was not saved. ${problemText(problemOf(r)!)}`, tone: "error" });
+			}
 		});
 	}
 	const { sections, totalMinutes } = meeting.agenda;

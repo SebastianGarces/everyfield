@@ -306,7 +306,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 					<PlanMeetingDialog
 						open={editing}
 						onOpenChange={setEditing}
-						meeting={data.meeting}
+						meeting={preview ?? data.meeting}
 						onSaved={setMeeting}
 						onPreview={setPreview}
 					/>
