@@ -6724,6 +6724,9 @@
 				"obligation_id": {
 					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
 				},
+				"prerequisite_ids": {
+					"note": "Advisory prerequisites of a top-level task, replaced as one set (WP-025). Each element names a task of the same plant; tasks.replacePrerequisites validates new elements and refuses cycles. The audit record keeps edge history."
+				},
 				"completed_at": {
 					"note": ""
 				},

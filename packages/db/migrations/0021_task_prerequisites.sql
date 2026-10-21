@@ -1,0 +1,2 @@
+ALTER TABLE "task" ADD COLUMN "prerequisite_ids" uuid[] DEFAULT '{}'::uuid[] NOT NULL;--> statement-breakpoint
+ALTER TABLE "task" ADD CONSTRAINT "task_ck_11" CHECK (((cardinality(prerequisite_ids) <= 50) AND (NOT (id = ANY (prerequisite_ids))) AND ((parent_id IS NULL) OR (cardinality(prerequisite_ids) = 0))));
