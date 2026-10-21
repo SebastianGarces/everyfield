@@ -44,6 +44,9 @@ export const taskRow = z.object({
 	team_id: z.uuid().nullable(),
 	parent_id: z.uuid().nullable(),
 	series_id: z.uuid().nullable(),
+	predecessor_id: z.uuid().nullable(),
+	prerequisite_ids: z.array(z.uuid()),
+	open_prerequisites: z.int(),
 	occurrence_key: z.string().nullable(),
 	obligation_id: z.uuid().nullable(),
 	obligation_kind: storedKind.nullable(),
@@ -62,10 +65,27 @@ export const taskRow = z.object({
 				status: c.taskStatus,
 				assignee_id: z.uuid().nullable(),
 				assignee_name: z.string().nullable(),
+				// The assignee still holds a seat in the church, so a recurrence copy may keep them.
+				seated: z.boolean(),
 			}),
 		)
 		.nullable()
 		.optional(),
+	// Single-task reads only: the series rule, whether a successor exists and whether the assignee is still seated.
+	rule: z
+		.object({
+			id: z.uuid(),
+			frequency: c.recurrenceFrequency,
+			until: z.string().nullable(),
+			local_time: z.string().nullable(),
+			stopped: z.boolean(),
+		})
+		.nullable()
+		.optional(),
+	has_successor: z.boolean().optional(),
+	assignee_seated: z.boolean().optional(),
+	// The related Person is live, the team active: a recurrence copy may name them again.
+	relation_live: z.boolean().optional(),
 	total: z.coerce.number().int().optional(),
 });
 export type TaskRow = z.infer<typeof taskRow>;
@@ -73,6 +93,9 @@ export type TaskRow = z.infer<typeof taskRow>;
 const columns = sql`t.id, t.revision::text AS revision, t.title, t.description, t.category, t.priority, t.status,
 	t.created_at, t.completed_at, t.deleted_at, t.assignee_id, t.due_kind, t.due_date::text AS due_date,
 	t.due_time::text AS due_time, t.timezone, t.due_at, t.person_id, t.meeting_id, t.team_id, t.parent_id, t.series_id,
+	t.predecessor_id, t.prerequisite_ids::text[] AS prerequisite_ids,
+	(SELECT count(*)::int FROM task q WHERE q.id=ANY(t.prerequisite_ids) AND q.plant_id=t.plant_id AND q.deleted_at IS NULL
+		AND q.status NOT IN ('complete','no_longer_needed')) AS open_prerequisites,
 	t.occurrence_key, t.obligation_id, o.kind AS obligation_kind, ai.display_name AS assignee_name,
 	coalesce(p.display_name, m.title, tm.name) AS relation_label, pl.timezone AS plant_zone,
 	(SELECT count(*)::int FROM task k WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL) AS child_total,
@@ -80,10 +103,18 @@ const columns = sql`t.id, t.revision::text AS revision, t.title, t.description, 
 		AND k.status='complete') AS child_complete,
 	(SELECT k.id FROM task k WHERE k.series_id=t.series_id AND k.plant_id=t.plant_id AND k.id<>t.id
 		AND k.deleted_at IS NULL AND k.status NOT IN ('complete','no_longer_needed') LIMIT 1) AS open_successor`;
+const seated = (account: SQL) => sql`EXISTS(SELECT FROM seat s WHERE s.account_id=${account} AND s.plant_id=t.plant_id
+	AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp())`;
 const checklist = sql`(SELECT jsonb_agg(jsonb_build_object('id',k.id,'revision',k.revision::text,'title',k.title,
-	'status',k.status,'assignee_id',k.assignee_id,'assignee_name',ki.display_name) ORDER BY k.created_at,k.id)
+	'status',k.status,'assignee_id',k.assignee_id,'assignee_name',ki.display_name,'seated',${seated(sql`k.assignee_id`)})
+	ORDER BY k.created_at,k.id)
 	FROM task k LEFT JOIN LATERAL seat_identity(k.assignee_id) ki ON true
-	WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL) AS checklist`;
+	WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL) AS checklist,
+	(SELECT jsonb_build_object('id',r.id,'frequency',r.interval,'until',r.end_date,'local_time',to_char(r.local_time,'HH24:MI'),
+		'stopped',r.stopped_at IS NOT NULL) FROM recurrence r WHERE r.id=t.series_id AND r.plant_id=t.plant_id) AS rule,
+	EXISTS(SELECT FROM task n WHERE n.predecessor_id=t.id AND n.plant_id=t.plant_id) AS has_successor,
+	${seated(sql`t.assignee_id`)} AS assignee_seated,
+	(t.person_id IS NULL OR p.state='live') AND (t.team_id IS NULL OR tm.archived_at IS NULL) AS relation_live`;
 const joins = sql`FROM task t JOIN plant pl ON pl.id=t.plant_id
 	LEFT JOIN obligation o ON o.id=t.obligation_id AND o.plant_id=t.plant_id
 	LEFT JOIN LATERAL seat_identity(t.assignee_id) ai ON true
@@ -99,6 +130,18 @@ export async function loadTask(tx: Tx, plantId: string, task: string | { obligat
 			: sql`t.obligation_id=${task.obligationId}::uuid AND t.deleted_at IS NULL`;
 	const r = await tx.execute(sql`${taskQuery(plantId, which)} ${lock ? sql`FOR UPDATE OF t` : sql``}`);
 	return r.rows[0] ? taskRow.parse(r.rows[0]) : null;
+}
+/** Several tasks of the plant, locked in ID order so two batches never wait on each other in a cycle. One statement. */
+export async function loadTasks(tx: Tx, plantId: string, ids: readonly string[]) {
+	const r = await tx.execute(
+		sql`${taskQuery(plantId, sql`t.id=ANY(${sql.param(ids)}::uuid[])`)} ORDER BY t.id FOR UPDATE OF t`,
+	);
+	return new Map(
+		z
+			.array(taskRow)
+			.parse(r.rows)
+			.map((row) => [row.id, row]),
+	);
 }
 const taskQuery = (plantId: string, which: SQL) =>
 	sql`SELECT ${columns}, ${checklist}, 1 AS ord ${joins} WHERE ${which} AND t.plant_id=${plantId}::uuid`;
@@ -149,6 +192,7 @@ export function itemOf(row: TaskRow, asOf: Instant) {
 					: null,
 		parentId: row.parent_id,
 		checklist: { total: row.child_total, complete: row.child_complete },
+		openPrerequisites: row.open_prerequisites,
 		managed:
 			row.obligation_id && row.obligation_kind ? { obligationId: row.obligation_id, kind: row.obligation_kind } : null,
 		createdAt: row.created_at.toISOString(),
@@ -167,9 +211,18 @@ export function detailOf(row: TaskRow, asOf: Instant) {
 			status: k.status,
 			assignee: k.assignee_id ? { accountId: k.assignee_id, displayName: k.assignee_name ?? "" } : null,
 		})),
-		prerequisiteIds: [],
+		prerequisiteIds: row.prerequisite_ids,
 		obligationId: row.obligation_id,
 		occurrenceId: row.occurrence_key,
+		recurrence: row.rule
+			? {
+					seriesId: row.rule.id,
+					frequency: row.rule.frequency,
+					until: row.rule.until,
+					localTime: row.rule.local_time,
+					stopped: row.rule.stopped,
+				}
+			: null,
 	});
 }
 
@@ -398,6 +451,159 @@ export const taskReader = {
 			);
 			return c.relationOptions.parse({
 				items: found.map((o) => z.object({ id: z.uuid(), label: z.string() }).parse(o)),
+			});
+		});
+	},
+	/** One page of a live task's checklist rows, oldest first (REQ-TSK-005). One statement. */
+	async listSubtasks(tx: Tx, authority: RequestActor, raw: unknown) {
+		return readReply(async () => {
+			const viewer = reader(authority),
+				v = parse(c.listSubtasksRequest, raw);
+			const found = await gated(
+				tx,
+				viewer,
+				sql`SELECT 0 AS ord, NULL::uuid AS id, NULL AS title, NULL AS status, NULL::text AS revision,
+					NULL::uuid AS assignee_id, NULL AS assignee_name, NULL::timestamptz AS completed_at,
+					(SELECT count(*)::int FROM task k WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL) AS total
+				FROM task t WHERE t.id=${v.parentId}::uuid AND t.plant_id=${viewer.plantId}::uuid AND t.deleted_at IS NULL
+				UNION ALL (SELECT row_number() OVER (ORDER BY k.created_at, k.id), k.id, k.title, k.status, k.revision::text,
+					k.assignee_id, ki.display_name, k.completed_at, NULL
+				FROM task k JOIN task t ON t.id=k.parent_id AND t.plant_id=k.plant_id AND t.deleted_at IS NULL
+				LEFT JOIN LATERAL seat_identity(k.assignee_id) ki ON true
+				WHERE k.parent_id=${v.parentId}::uuid AND k.plant_id=${viewer.plantId}::uuid AND k.deleted_at IS NULL
+				ORDER BY k.created_at, k.id LIMIT ${v.limit} OFFSET ${(v.page - 1) * v.limit})`,
+			);
+			// The parent's own row comes first and carries the count; without it the parent is not a live task here.
+			const [head, ...items] = found;
+			if (!head || Number(head.ord) !== 0) deny();
+			const total = z.int().parse(head.total);
+			const rows = z
+				.array(
+					z.object({
+						id: z.uuid(),
+						title: z.string(),
+						status: c.taskStatus,
+						revision,
+						assignee_id: z.uuid().nullable(),
+						assignee_name: z.string().nullable(),
+						completed_at: z.coerce.date().nullable(),
+					}),
+				)
+				.parse(items);
+			return c.subtaskPage.parse({
+				parentId: v.parentId,
+				items: rows.map((k) => ({
+					id: k.id,
+					revision: k.revision,
+					title: k.title,
+					status: k.status,
+					assignee: k.assignee_id ? { accountId: k.assignee_id, displayName: k.assignee_name ?? "" } : null,
+					completedAt: k.completed_at?.toISOString() ?? null,
+				})),
+				total,
+				page: v.page,
+				next: v.page * v.limit < total ? v.page + 1 : null,
+				completeness: "complete",
+			});
+		});
+	},
+	/**
+	 * A live task's prerequisites in the order saved, with whether each still blocks it: a deleted, complete or no
+	 * longer needed prerequisite does not (REQ-TSK-006). One statement.
+	 */
+	async listPrerequisites(tx: Tx, authority: RequestActor, raw: unknown) {
+		return readReply(async () => {
+			const viewer = reader(authority),
+				v = parse(c.listPrerequisitesRequest, raw);
+			const [found] = await gated(
+				tx,
+				viewer,
+				sql`SELECT 1 AS ord, coalesce((SELECT jsonb_agg(jsonb_build_object('id',q.id,'title',q.title,'status',q.status,
+					'deleted',q.deleted_at IS NOT NULL) ORDER BY u.n) FROM unnest(t.prerequisite_ids) WITH ORDINALITY u(id,n)
+					JOIN task q ON q.id=u.id AND q.plant_id=t.plant_id),'[]') AS items
+				FROM task t WHERE t.id=${v.taskId}::uuid AND t.plant_id=${viewer.plantId}::uuid AND t.deleted_at IS NULL`,
+			);
+			if (!found) deny();
+			const items = z
+				.array(z.object({ id: z.uuid(), title: z.string(), status: c.taskStatus, deleted: z.boolean() }))
+				.parse(found.items)
+				.map((q) => ({ ...q, blocking: !q.deleted && !(c.settledStatus as readonly string[]).includes(q.status) }));
+			return c.prerequisiteList.parse({
+				taskId: v.taskId,
+				items,
+				blocked: items.some((q) => q.blocking),
+				completeness: "complete",
+			});
+		});
+	},
+	/**
+	 * Live top-level tasks that may become prerequisites of a task, by title: not the task itself and none that already
+	 * depends on it, so a pick never closes a cycle. Open tasks first. Owner/Admin. One statement.
+	 */
+	async prerequisiteCandidates(tx: Tx, authority: RequestActor, raw: unknown) {
+		return readReply(async () => {
+			const viewer = reader(authority, true),
+				v = parse(c.prerequisiteCandidatesRequest, raw);
+			const plant = sql`${viewer.plantId}::uuid`;
+			const found = await gated(
+				tx,
+				viewer,
+				sql`WITH RECURSIVE dependents(id) AS (
+					SELECT id FROM task WHERE id=${v.taskId}::uuid AND plant_id=${plant} AND parent_id IS NULL
+						AND deleted_at IS NULL
+					UNION SELECT t.id FROM task t JOIN dependents d ON d.id=ANY(t.prerequisite_ids)
+						WHERE t.plant_id=${plant} AND t.deleted_at IS NULL)
+				SELECT o.id, o.title, o.status, row_number() OVER (ORDER BY o.status IN ('complete','no_longer_needed'),
+					lower(o.title), o.id) AS ord
+				FROM task o WHERE o.plant_id=${plant} AND o.parent_id IS NULL AND o.deleted_at IS NULL
+					AND EXISTS(SELECT FROM dependents) AND o.id NOT IN (SELECT id FROM dependents)
+					AND o.title ILIKE ${"%" + escapeLike(v.search) + "%"} ESCAPE '\\'
+				ORDER BY ord LIMIT 20`,
+				true,
+			);
+			return c.prerequisiteCandidates.parse({
+				items: z.array(z.object({ id: z.uuid(), title: z.string(), status: c.taskStatus })).parse(found),
+			});
+		});
+	},
+	/**
+	 * The open occurrence of a task's series, if any: its task, occurrence number, predecessor and revision
+	 * (REQ-TSK-007). A task outside any series reads not_recurring. One statement.
+	 */
+	async findOpenOccurrence(tx: Tx, authority: RequestActor, raw: unknown) {
+		return readReply(async () => {
+			const viewer = reader(authority),
+				v = parse(c.findOpenOccurrenceRequest, raw);
+			const [found] = await gated(
+				tx,
+				viewer,
+				sql`SELECT 1 AS ord, t.series_id, o.id AS open_id, o.occurrence_key, o.predecessor_id, o.revision::text AS revision
+				FROM task t LEFT JOIN task o ON o.series_id=t.series_id AND o.plant_id=t.plant_id AND o.deleted_at IS NULL
+					AND o.status NOT IN ('complete','no_longer_needed')
+				WHERE t.id=${v.taskId}::uuid AND t.plant_id=${viewer.plantId}::uuid`,
+			);
+			if (!found) deny();
+			const row = z
+				.object({
+					series_id: z.uuid().nullable(),
+					open_id: z.uuid().nullable(),
+					occurrence_key: z.string().nullable(),
+					predecessor_id: z.uuid().nullable(),
+					revision: revision.nullable(),
+				})
+				.parse(found);
+			if (!row.series_id) return c.openOccurrence.parse({ status: "not_recurring" });
+			return c.openOccurrence.parse({
+				status: "series",
+				seriesId: row.series_id,
+				open: row.open_id
+					? {
+							taskId: row.open_id,
+							occurrence: Number(row.occurrence_key),
+							predecessorId: row.predecessor_id,
+							revision: row.revision,
+						}
+					: null,
 			});
 		});
 	},

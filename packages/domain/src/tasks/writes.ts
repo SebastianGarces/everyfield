@@ -1,6 +1,6 @@
 import { instant, resolveCalendar, revision, type TimeZone } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/tasks";
-import { and, eq, isNull, sql } from "@everyfield/db/query";
+import { and, eq, isNull, sql, type SQLWrapper } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { randomUUID } from "node:crypto";
 import "server-only";
@@ -18,7 +18,10 @@ import {
 	type TaskContext,
 	type Tx,
 } from "./core.ts";
+import { lastWrite } from "../operations/writes.ts";
 import { detailOf, loadTask, type TaskRow } from "./queries.ts";
+import { successorOf } from "./recurrence.ts";
+import { structureWriter } from "./structure.ts";
 
 /** What a reminder needs about one task after a write. WP-031's sync replaces its owed due and overdue notices. */
 export type ReminderSource = {
@@ -35,7 +38,7 @@ export type TaskReminders = (tx: Tx, sources: readonly ReminderSource[]) => Prom
 
 type DueColumns = Pick<TaskRow, "due_kind" | "due_date" | "due_time" | "timezone" | "due_at">;
 /** The server resolves a deadline from the entered church-local time (REQ-TSK-018); the client never sends an instant. */
-function dueColumns(due: z.infer<typeof c.dueInput>, zone: TimeZone): DueColumns {
+export function dueColumns(due: z.infer<typeof c.dueInput>, zone: TimeZone): DueColumns {
 	if (due.kind === "undated")
 		return { due_kind: "undated", due_date: null, due_time: null, timezone: null, due_at: null };
 	if (due.kind === "local_date")
@@ -52,17 +55,17 @@ function dueColumns(due: z.infer<typeof c.dueInput>, zone: TimeZone): DueColumns
 		due_at: new Date(r.occurrence.instant),
 	};
 }
-const relationColumns = (r: z.infer<typeof c.relation> | null) => ({
+export const relationColumns = (r: z.infer<typeof c.relation> | null) => ({
 	person_id: r?.kind === "person" ? r.id : null,
 	meeting_id: r?.kind === "meeting" ? r.id : null,
 	team_id: r?.kind === "team" ? r.id : null,
 });
 
 /** Names for references a write is about to store, each checked against the church and its current state. */
-async function references(
+export async function references(
 	tx: Tx,
 	plantId: string,
-	input: { assigneeId?: string | null; relation?: z.infer<typeof c.relation> | null; parentId?: string | null },
+	input: { assigneeId?: string | null; relation?: z.infer<typeof c.relation> | null },
 ) {
 	const r = await tx.execute(sql`SELECT
 		(SELECT i.display_name FROM seat s CROSS JOIN LATERAL seat_identity(s.account_id) i
@@ -73,22 +76,18 @@ async function references(
 		(SELECT title FROM meeting WHERE id=${input.relation?.kind === "meeting" ? input.relation.id : null}::uuid
 			AND plant_id=${plantId}::uuid FOR SHARE) AS meeting,
 		(SELECT name FROM team WHERE id=${input.relation?.kind === "team" ? input.relation.id : null}::uuid
-			AND plant_id=${plantId}::uuid AND archived_at IS NULL FOR SHARE) AS team,
-		(SELECT jsonb_build_object('assignee',assignee_id) FROM task WHERE id=${input.parentId ?? null}::uuid
-			AND plant_id=${plantId}::uuid AND parent_id IS NULL AND deleted_at IS NULL FOR SHARE) AS parent`);
+			AND plant_id=${plantId}::uuid AND archived_at IS NULL FOR SHARE) AS team`);
 	const row = z
 		.object({
 			assignee: z.string().nullable(),
 			person: z.string().nullable(),
 			meeting: z.string().nullable(),
 			team: z.string().nullable(),
-			parent: z.unknown(),
 		})
 		.parse(r.rows[0]);
 	if (input.assigneeId && row.assignee === null) deny("invalid_subject");
 	const label = input.relation ? row[input.relation.kind] : null;
 	if (input.relation && label === null) deny("invalid_subject");
-	if (input.parentId && !row.parent) deny("invalid_subject");
 	return { assigneeName: row.assignee, relationLabel: label };
 }
 
@@ -127,6 +126,67 @@ export function syncReminders(
 	const change = reminderChange(plantId, before, after);
 	return change && (() => reminders(tx, [change]));
 }
+/** One reminder call for all tasks a command changed, or none: a fixed statement count for any batch size. */
+export function syncAll(reminders: TaskReminders, tx: Tx, changes: readonly (ReminderSource | undefined)[]) {
+	const all = changes.filter((s) => s !== undefined);
+	return all.length ? () => reminders(tx, all) : undefined;
+}
+
+/**
+ * Insert new task rows, a parent before its checklist rows. `after` names an earlier write of the same statement that
+ * must run first, such as the completion that frees its series' one open slot for the successor.
+ */
+export function insertTasks(plantId: string, creatorId: string, rows: readonly TaskRow[], after?: SQLWrapper) {
+	const values = rows.map((r) => ({
+		id: r.id,
+		title: r.title,
+		description: r.description,
+		category: r.category,
+		priority: r.priority,
+		status: r.status,
+		created_at: r.created_at.toISOString(),
+		assignee_id: r.assignee_id,
+		due_kind: r.due_kind,
+		due_date: r.due_date,
+		due_time: r.due_time,
+		timezone: r.timezone,
+		due_at: r.due_at?.toISOString() ?? null,
+		resolver_version: r.due_kind === "timed" ? "1" : null,
+		person_id: r.person_id,
+		meeting_id: r.meeting_id,
+		team_id: r.team_id,
+		parent_id: r.parent_id,
+		series_id: r.series_id,
+		occurrence_key: r.occurrence_key,
+		predecessor_id: r.predecessor_id,
+		completed_at: r.completed_at?.toISOString() ?? null,
+	}));
+	return sql`INSERT INTO task (id, plant_id, title, description, category, priority, status, creator_id, created_at,
+		assignee_id, due_kind, due_date, due_time, timezone, due_at, resolver_version, person_id, meeting_id, team_id,
+		parent_id, series_id, occurrence_key, predecessor_id, completed_at)
+	SELECT r.id, ${plantId}::uuid, r.title, r.description, r.category, r.priority, r.status, ${creatorId}::uuid,
+		r.created_at, r.assignee_id, r.due_kind, r.due_date, r.due_time, r.timezone, r.due_at, r.resolver_version,
+		r.person_id, r.meeting_id, r.team_id, r.parent_id, r.series_id, r.occurrence_key, r.predecessor_id, r.completed_at
+	FROM jsonb_to_recordset(${JSON.stringify(values)}::jsonb) AS r(id uuid, title text, description text, category text,
+		priority text, status text, created_at timestamptz, assignee_id uuid, due_kind text, due_date date, due_time time,
+		timezone text, due_at timestamptz, resolver_version text, person_id uuid, meeting_id uuid, team_id uuid,
+		parent_id uuid, series_id uuid, occurrence_key text, predecessor_id uuid, completed_at timestamptz)
+	${after ? sql`WHERE EXISTS(SELECT FROM ${after})` : sql``}`;
+}
+/** The audit rows of newly created tasks. */
+export function auditCreated(cmd: AuditCommand, rows: readonly TaskRow[], source?: z.infer<typeof c.historySource>) {
+	for (const r of rows)
+		auditRow(cmd, {
+			taskId: r.id,
+			action: "tasks.changed",
+			kind: "create",
+			before: null,
+			after: audited(r),
+			beforeRevision: null,
+			afterRevision: r.revision,
+			source,
+		});
+}
 
 /** The persisted fields a status or edit writes, also the values its audit row compares. */
 export const audited = (r: TaskRow) => ({
@@ -146,17 +206,17 @@ export const audited = (r: TaskRow) => ({
 	completed_at: r.completed_at?.toISOString() ?? null,
 	deleted_at: r.deleted_at?.toISOString() ?? null,
 });
-const bump = (r: string) => revision.parse(String(BigInt(r) + 1n));
+export const bump = (r: string) => revision.parse(String(BigInt(r) + 1n));
 
 /** The locked live task under the expected revision, or a refusal. Members act only on a task they hold (own duty). */
-async function current(tx: Tx, cmd: Command, taskId: string, expectedRevision: string, ownDuty: boolean) {
+export async function current(tx: Tx, cmd: Command, taskId: string, expectedRevision: string, ownDuty: boolean) {
 	const row = await loadTask(tx, cmd.actor.plantId, taskId, true);
 	if (!row || row.deleted_at) deny();
 	if (!administers(cmd.actor) && !(ownDuty && row.assignee_id === cmd.actor.accountId)) deny();
 	if (row.revision !== expectedRevision) deny("conflict");
 	return row;
 }
-function update(plantId: string, row: TaskRow, next: TaskRow) {
+export function update(plantId: string, row: TaskRow, next: TaskRow) {
 	const v = audited(next);
 	return sql`UPDATE task SET title=${v.title}, description=${v.description}, status=${v.status}, priority=${v.priority},
 		category=${v.category}, due_kind=${v.due_kind}, due_date=${v.due_date}::date, due_time=${v.due_time}::time,
@@ -168,13 +228,15 @@ function update(plantId: string, row: TaskRow, next: TaskRow) {
 }
 
 /**
- * One status change for every entry point: complete, reopen, waive and changeStatus share it, so each records the
- * same completion instant, waiver and history (REQ-TSK-003). The same status again is a no-op with no history entry.
+ * One status change for every entry point: complete, reopen, waive, changeStatus, checklist ticks and bulk completion
+ * share it, so each records the same completion instant, waiver and history (REQ-TSK-003). The same status again is a
+ * no-op with no history entry. Completing a recurring task also creates its one successor with fresh checklist rows in
+ * the same statement (REQ-TSK-007). The caller passes `changes` to the reminder port once for the whole command and
+ * builds the reply it needs from `row`; a bulk change needs only the new revision.
  */
-export async function setStatus(
+export function setStatus(
 	tx: Tx,
 	cmd: AuditCommand,
-	reminders: TaskReminders,
 	row: TaskRow,
 	input: { status: z.infer<typeof c.taskStatus>; reason?: string | null; source?: z.infer<typeof c.historySource> },
 ) {
@@ -190,7 +252,7 @@ export async function setStatus(
 				beforeRevision: row.revision,
 				afterRevision: row.revision,
 			});
-		return { value: mutation(cmd, row, "noop") };
+		return { row, outcome: "noop" as const, changes: [], successor: null };
 	}
 	const reopening = !OPEN(row.status) && OPEN(input.status);
 	if (reopening && row.open_successor) deny("open_successor", { successorId: row.open_successor });
@@ -237,9 +299,74 @@ export async function setStatus(
 		reason: input.reason ?? null,
 		source: input.source,
 	});
-	return { value: mutation(cmd, next, "changed"), after: syncReminders(reminders, tx, cmd.actor.plantId, row, next) };
+	const created = input.status === "complete" ? successorOf(row, at) : null;
+	if (created) {
+		// The successor follows the completion inside the statement: the series has one open task at a time.
+		cmd.writes.push(insertTasks(cmd.actor.plantId, cmd.actor.accountId, created, lastWrite(cmd)));
+		auditCreated(cmd, created, "recurrence");
+	}
+	const successor = created?.[0] ?? null;
+	return {
+		row: next,
+		outcome: "changed" as const,
+		changes: [
+			reminderChange(cmd.actor.plantId, row, next),
+			successor ? reminderChange(cmd.actor.plantId, null, successor) : undefined,
+		],
+		successor,
+	};
 }
-function mutation(cmd: AuditCommand, row: TaskRow, outcome: "changed" | "noop") {
+/** setStatus for one task command, with its reminder changes synced after the write. */
+export function changeTo(
+	tx: Tx,
+	cmd: AuditCommand,
+	reminders: TaskReminders,
+	row: TaskRow,
+	input: Parameters<typeof setStatus>[3],
+) {
+	const r = setStatus(tx, cmd, row, input);
+	return { value: mutation(cmd, r.row, r.outcome), after: syncAll(reminders, tx, r.changes) };
+}
+/** A new task row with no completion, deletion, source, series or checklist. */
+export function newTask(
+	zone: TimeZone,
+	fields: Pick<TaskRow, "title" | "category" | "priority" | "status" | "assignee_id" | "assignee_name"> &
+		Partial<TaskRow>,
+): TaskRow {
+	const at = new Date();
+	return {
+		id: randomUUID(),
+		revision: revision.parse("1"),
+		description: null,
+		created_at: at,
+		completed_at: fields.status === "complete" ? at : null,
+		deleted_at: null,
+		due_kind: "undated",
+		due_date: null,
+		due_time: null,
+		timezone: null,
+		due_at: null,
+		person_id: null,
+		meeting_id: null,
+		team_id: null,
+		relation_label: null,
+		parent_id: null,
+		series_id: null,
+		occurrence_key: null,
+		predecessor_id: null,
+		prerequisite_ids: [],
+		open_prerequisites: 0,
+		obligation_id: null,
+		obligation_kind: null,
+		child_total: 0,
+		child_complete: 0,
+		plant_zone: zone,
+		open_successor: null,
+		checklist: [],
+		...fields,
+	};
+}
+export function mutation(cmd: AuditCommand, row: TaskRow, outcome: "changed" | "noop") {
 	return c.taskMutation.parse({
 		task: detailOf(row, instant.parse(new Date().toISOString())),
 		receiptId: cmd.id,
@@ -251,83 +378,33 @@ function mutation(cmd: AuditCommand, row: TaskRow, outcome: "changed" | "noop") 
 export function createTaskWriter(deps: { reminders: TaskReminders }) {
 	const { reminders } = deps;
 	return {
-		/** Create a top-level task or one checklist row under a live top-level parent. Owner/Admin. */
+		...structureWriter(reminders),
+		/** Create a top-level task. Owner/Admin. Checklist rows come from createSubtask. */
 		async create(tx: Tx, context: TaskContext, raw: unknown) {
 			return reply(tx, async () => {
 				const input = parse(c.createTaskRequest, raw);
 				return command(tx, context, "tasks.create", input, async (cmd) => {
 					if (!administers(cmd.actor)) deny();
 					const v = input.input;
-					// A checklist row has no deadline, relation or source (one level only; WP-025 owns the rest).
-					if (v.parentId && (v.due.kind !== "undated" || v.relation)) deny("invalid_input");
 					const due = dueColumns(v.due, cmd.actor.zone);
 					const refs =
-						v.assigneeId || v.relation || v.parentId
+						v.assigneeId || v.relation
 							? await references(tx, cmd.actor.plantId, v)
 							: { assigneeName: null, relationLabel: null };
-					const id = randomUUID(),
-						at = new Date();
-					const row: TaskRow = {
-						id,
-						revision: revision.parse("1"),
+					const row = newTask(cmd.actor.zone, {
 						title: v.title,
 						description: v.description,
 						category: v.category,
 						priority: v.priority,
 						status: v.status,
-						created_at: at,
-						completed_at: v.status === "complete" ? at : null,
-						deleted_at: null,
 						assignee_id: v.assigneeId,
+						assignee_name: refs.assigneeName,
 						...due,
 						...relationColumns(v.relation),
-						parent_id: v.parentId,
-						series_id: null,
-						occurrence_key: null,
-						obligation_id: null,
-						obligation_kind: null,
-						assignee_name: refs.assigneeName,
 						relation_label: refs.relationLabel,
-						child_total: 0,
-						child_complete: 0,
-						plant_zone: cmd.actor.zone,
-						open_successor: null,
-						checklist: [],
-					};
-					cmd.writes.push(
-						tx.insert(tables.task).values({
-							id,
-							plant_id: cmd.actor.plantId,
-							title: row.title,
-							description: row.description,
-							category: row.category,
-							priority: row.priority,
-							status: row.status,
-							creator_id: cmd.actor.accountId,
-							created_at: at,
-							assignee_id: row.assignee_id,
-							due_kind: row.due_kind,
-							due_date: row.due_date,
-							due_time: row.due_time,
-							timezone: row.timezone,
-							due_at: row.due_at,
-							resolver_version: row.due_kind === "timed" ? "1" : null,
-							person_id: row.person_id,
-							meeting_id: row.meeting_id,
-							team_id: row.team_id,
-							parent_id: row.parent_id,
-							completed_at: row.completed_at,
-						}),
-					);
-					auditRow(cmd, {
-						taskId: id,
-						action: "tasks.changed",
-						kind: "create",
-						before: null,
-						after: audited(row),
-						beforeRevision: null,
-						afterRevision: "1",
 					});
+					cmd.writes.push(insertTasks(cmd.actor.plantId, cmd.actor.accountId, [row]));
+					auditCreated(cmd, [row]);
 					return {
 						value: mutation(cmd, row, "changed"),
 						after: syncReminders(reminders, tx, cmd.actor.plantId, null, row),
@@ -447,7 +524,7 @@ export function createTaskWriter(deps: { reminders: TaskReminders }) {
 			return reply(tx, async () => {
 				const input = parse(c.taskCommandRequest, raw);
 				return command(tx, context, "tasks.complete", input, async (cmd) =>
-					setStatus(tx, cmd, reminders, await current(tx, cmd, input.input.taskId, input.expectedRevision, true), {
+					changeTo(tx, cmd, reminders, await current(tx, cmd, input.input.taskId, input.expectedRevision, true), {
 						status: "complete",
 					}),
 				);
@@ -458,7 +535,7 @@ export function createTaskWriter(deps: { reminders: TaskReminders }) {
 			return reply(tx, async () => {
 				const input = parse(c.taskCommandRequest, raw);
 				return command(tx, context, "tasks.reopen", input, async (cmd) =>
-					setStatus(tx, cmd, reminders, await current(tx, cmd, input.input.taskId, input.expectedRevision, true), {
+					changeTo(tx, cmd, reminders, await current(tx, cmd, input.input.taskId, input.expectedRevision, true), {
 						status: "not_started",
 					}),
 				);
@@ -469,7 +546,7 @@ export function createTaskWriter(deps: { reminders: TaskReminders }) {
 			return reply(tx, async () => {
 				const input = parse(c.waiveTaskRequest, raw);
 				return command(tx, context, "tasks.waive", input, async (cmd) =>
-					setStatus(tx, cmd, reminders, await current(tx, cmd, input.input.taskId, input.expectedRevision, true), {
+					changeTo(tx, cmd, reminders, await current(tx, cmd, input.input.taskId, input.expectedRevision, true), {
 						status: "no_longer_needed",
 						reason: input.input.reason,
 					}),
@@ -481,7 +558,7 @@ export function createTaskWriter(deps: { reminders: TaskReminders }) {
 			return reply(tx, async () => {
 				const input = parse(c.changeStatusRequest, raw);
 				return command(tx, context, "tasks.changeStatus", input, async (cmd) =>
-					setStatus(tx, cmd, reminders, await current(tx, cmd, input.input.taskId, input.expectedRevision, true), {
+					changeTo(tx, cmd, reminders, await current(tx, cmd, input.input.taskId, input.expectedRevision, true), {
 						status: input.input.status,
 					}),
 				);

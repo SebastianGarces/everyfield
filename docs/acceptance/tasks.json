@@ -2264,7 +2264,7 @@
         "WP-025"
       ],
       "status": "future-not-run",
-      "description": "Child nesting/self/cycle, implicit versus explicit assignee, tick last child, parent delete and recurring reset checklist. Member creates under own parent with omitted/own/other/null assignments; direct SQL/API child due/recurrence/contact hook attempts.",
+      "description": "Checklist rows are one-level child tasks. Admin ticks the Member's row C under parent T: C completes, T stays open and unchanged. Nesting, a Member override or null assignee, and a Member ticking another account's row refuse. Removal keeps the row's history. Positive Member own-duty paths (create under own parent, tick own row) are covered by the regression test because the case checker derives only plant roles.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2293,51 +2293,62 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
-        "Q": {
-          "fixture_type": "plant",
-          "id": "Q",
-          "timezone": "America/New_York",
-          "observed_state": "fixture-state-3"
-        },
-        "B": {
+        "M": {
           "fixture_type": "account",
-          "id": "B",
-          "email": "casey@example.test"
+          "id": "M",
+          "email": "morgan@example.test",
+          "registration": "active"
         },
-        "seat-B": {
+        "seat-M": {
           "fixture_type": "seat",
-          "account": "B",
-          "tenant": "Q",
-          "role": "Admin",
+          "account": "M",
+          "tenant": "P",
+          "role": "Member",
           "active": true
         },
-        "Alex": {
-          "fixture_type": "person",
-          "id": "Alex",
-          "plant": "P",
-          "first_name": "Alex",
-          "age_classification": "adult",
-          "stage": "prospect",
-          "observed_state": "fixture-state-4"
+        "session-M": {
+          "fixture_type": "session",
+          "account": "M",
+          "expires_at": "2026-11-12T16:00:00Z"
         },
         "T": {
           "fixture_type": "task",
           "id": "T",
           "plant": "P",
+          "title": "Plan picnic",
           "assignee": "A",
           "status": "not_started",
           "due_date": "2026-10-13",
-          "observed_state": "fixture-state-4"
+          "revision": 1
         },
-        "case-input": {
-          "fixture_type": "domain_inputs",
+        "C": {
+          "fixture_type": "task",
+          "id": "C",
+          "plant": "P",
           "parent": "T",
-          "child": "C",
-          "child_parent": "T",
-          "last_child_tick": true,
-          "child_due": null,
-          "child_recurrence": null,
-          "child_contact_hook": null
+          "title": "Call venue",
+          "assignee": "M",
+          "status": "not_started",
+          "revision": 1
+        },
+        "K": {
+          "fixture_type": "task",
+          "id": "K",
+          "plant": "P",
+          "parent": "T",
+          "title": "Bring chairs",
+          "assignee": "A",
+          "status": "not_started",
+          "revision": 1
+        },
+        "PM": {
+          "fixture_type": "task",
+          "id": "PM",
+          "plant": "P",
+          "title": "Member plan",
+          "assignee": "M",
+          "status": "not_started",
+          "revision": 1
         }
       },
       "actor": {
@@ -2350,33 +2361,195 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "tasks.listSubtasks",
+        "operation": "tasks.setSubtaskCompletion",
         "arguments": {
-          "subject": "P",
-          "person": "Alex",
-          "reviewed_state": "fixture-state-4",
-          "task": "T",
+          "request_key": "TARGET-TSK-005-tick-C",
+          "expected_revision": "1",
           "parent": "T",
-          "child": "C",
-          "child_parent": "T",
-          "last_child_tick": true,
-          "child_due": null,
-          "child_recurrence": null,
-          "child_contact_hook": null
+          "task": "C",
+          "complete": true
         }
       },
       "expected": {
-        "state": {},
-        "result": {
-          "max_depth": 1,
-          "child_status": "completed",
-          "parent_auto_completed": false,
-          "contact_credit": 0,
-          "successor_child_status": "pending",
-          "child_completion_history_retained": true
+        "state": {
+          "C": {
+            "status": "complete"
+          },
+          "T": {
+            "status": "not_started",
+            "revision": 1
+          }
         },
-        "event": null
-      }
+        "result": {
+          "outcome": "changed",
+          "parent_auto_completed": false,
+          "contact_outcomes_added": 0
+        },
+        "event": {
+          "kind": "tasks.completed",
+          "subject": "C",
+          "count": 1
+        }
+      },
+      "subcases": [
+        {
+          "name": "nested-child-refused",
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "tasks.createSubtask",
+            "arguments": {
+              "request_key": "TARGET-TSK-005-nest",
+              "expected_revision": "1",
+              "parent": "C",
+              "title": "Nested"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "invalid_subject",
+              "writes": 0
+            },
+            "event": null
+          },
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1
+            }
+          }
+        },
+        {
+          "name": "admin-explicit-null",
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "tasks.createSubtask",
+            "arguments": {
+              "request_key": "TARGET-TSK-005-null",
+              "expected_revision": "1",
+              "parent": "T",
+              "title": "Unowned",
+              "assignee": null
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "assignee": null,
+              "due": "undated",
+              "recurrence": null,
+              "relation": null
+            },
+            "event": {
+              "kind": "tasks.changed",
+              "count": 1
+            }
+          },
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1
+            }
+          }
+        },
+        {
+          "name": "member-override-refused",
+          "actor": {
+            "account": "M",
+            "session": "session-M",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "tasks.createSubtask",
+            "arguments": {
+              "request_key": "TARGET-TSK-005-override",
+              "expected_revision": "1",
+              "parent": "PM",
+              "title": "Buy cups",
+              "assignee": "A"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "writes": 0
+            },
+            "event": null
+          },
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1
+            }
+          }
+        },
+        {
+          "name": "remove-keeps-history",
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "tasks.removeSubtask",
+            "arguments": {
+              "request_key": "TARGET-TSK-005-remove",
+              "expected_revision": "1",
+              "parent": "T",
+              "task": "K"
+            }
+          },
+          "expected": {
+            "state": {
+              "K": {
+                "deleted": true
+              },
+              "T": {
+                "revision": 1
+              }
+            },
+            "result": {
+              "history_retained": true
+            },
+            "event": {
+              "kind": "tasks.changed",
+              "subject": "K",
+              "count": 1
+            }
+          },
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1
+            }
+          }
+        }
+      ]
     },
     {
       "id": "TARGET-TSK-006",
@@ -2420,59 +2593,85 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
+        "TA": {
+          "fixture_type": "task",
+          "id": "TA",
+          "plant": "P",
+          "title": "TA",
+          "status": "not_started",
+          "revision": 2,
+          "prerequisites": [
+            "TB"
+          ]
+        },
+        "TB": {
+          "fixture_type": "task",
+          "id": "TB",
+          "plant": "P",
+          "title": "TB",
+          "status": "not_started",
+          "revision": 2,
+          "prerequisites": [
+            "TC"
+          ]
+        },
+        "TC": {
+          "fixture_type": "task",
+          "id": "TC",
+          "plant": "P",
+          "title": "TC",
+          "status": "not_started",
+          "revision": 1
+        },
+        "D": {
+          "fixture_type": "task",
+          "id": "D",
+          "plant": "P",
+          "title": "D",
+          "status": "not_started",
+          "revision": 2,
+          "prerequisites": [
+            "Open",
+            "Waived",
+            "Deleted"
+          ]
+        },
+        "Open": {
+          "fixture_type": "task",
+          "id": "Open",
+          "plant": "P",
+          "title": "Open",
+          "status": "not_started",
+          "revision": 1
+        },
+        "Waived": {
+          "fixture_type": "task",
+          "id": "Waived",
+          "plant": "P",
+          "title": "Waived",
+          "status": "no_longer_needed",
+          "revision": 2
+        },
+        "Deleted": {
+          "fixture_type": "task",
+          "id": "Deleted",
+          "plant": "P",
+          "title": "Deleted",
+          "status": "not_started",
+          "revision": 2,
+          "deleted": true
+        },
         "Q": {
           "fixture_type": "plant",
           "id": "Q",
-          "timezone": "America/New_York",
-          "observed_state": "fixture-state-3"
+          "timezone": "America/New_York"
         },
-        "B": {
-          "fixture_type": "account",
-          "id": "B",
-          "email": "casey@example.test"
-        },
-        "seat-B": {
-          "fixture_type": "seat",
-          "account": "B",
-          "tenant": "Q",
-          "role": "Admin",
-          "active": true
-        },
-        "Alex": {
-          "fixture_type": "person",
-          "id": "Alex",
-          "plant": "P",
-          "first_name": "Alex",
-          "age_classification": "adult",
-          "stage": "prospect",
-          "observed_state": "fixture-state-4"
-        },
-        "T": {
+        "Theirs": {
           "fixture_type": "task",
-          "id": "T",
-          "plant": "P",
-          "assignee": "A",
-          "status": "not_started",
-          "due_date": "2026-10-13",
-          "observed_state": "fixture-state-4"
-        },
-        "case-input": {
-          "fixture_type": "domain_inputs",
-          "edges": [
-            [
-              "A",
-              "B"
-            ],
-            [
-              "B",
-              "C"
-            ]
-          ],
-          "requested_edge": [
-            "C",
-            "A"
-          ],
-          "waived_predecessor": "B"
+          "id": "Theirs",
+          "plant": "Q",
+          "title": "Theirs",
+          "status": "not_started"
         }
       },
       "actor": {
@@ -2487,44 +2686,189 @@
       "action": {
         "operation": "tasks.replacePrerequisites",
         "arguments": {
-          "subject": "P",
-          "person": "Alex",
-          "reviewed_state": "fixture-state-4",
-          "task": "T",
-          "foreign_control": {
-            "actor": "B",
-            "context": "Q",
-            "subject": "P"
-          },
-          "edges": [
-            [
-              "A",
-              "B"
-            ],
-            [
-              "B",
-              "C"
-            ]
-          ],
-          "requested_edge": [
-            "C",
-            "A"
-          ],
-          "waived_predecessor": "B"
+          "request_key": "TARGET-TSK-006-cycle",
+          "expected_revision": "1",
+          "task": "TC",
+          "prerequisites": [
+            "TA"
+          ]
         }
       },
       "expected": {
-        "state": {},
+        "state": {
+          "TC": {
+            "prerequisites": []
+          }
+        },
         "result": {
           "error_code": "dependency_cycle",
-          "requested_edge_saved": false,
-          "waived_predecessor_blocks": false,
-          "waiver_success_credit": 0,
-          "soft_deleted_predecessor_blocks": false,
-          "badge_is_hard_completion_gate": false
+          "writes": 0
         },
         "event": null
-      }
+      },
+      "subcases": [
+        {
+          "name": "concurrent-opposite-edges",
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "concurrent_requests": [
+                [
+                  "TC",
+                  "TB"
+                ],
+                [
+                  "TB",
+                  "TC"
+                ]
+              ]
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "tasks.replacePrerequisites",
+            "arguments": {
+              "request_key": "TARGET-TSK-006-race",
+              "expected_revision": "1",
+              "task": "TC",
+              "prerequisites": [
+                "TB"
+              ]
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "saved": 1,
+              "dependency_cycle": 1
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "foreign-candidate-refused",
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "tasks.replacePrerequisites",
+            "arguments": {
+              "request_key": "TARGET-TSK-006-foreign",
+              "expected_revision": "1",
+              "task": "TC",
+              "prerequisites": [
+                "Theirs"
+              ]
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "invalid_subject",
+              "writes": 0
+            },
+            "event": null
+          },
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1
+            }
+          }
+        },
+        {
+          "name": "settled-or-deleted-stop-blocking",
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "tasks.listPrerequisites",
+            "arguments": {
+              "task": "D"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "blocking": [
+                "Open"
+              ],
+              "waived_blocks": false,
+              "deleted_blocks": false,
+              "manual_status": "not_started",
+              "waiver_success_credit": 0
+            },
+            "event": null
+          },
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1
+            }
+          }
+        },
+        {
+          "name": "badge-is-advisory",
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "tasks.complete",
+            "arguments": {
+              "request_key": "TARGET-TSK-006-complete",
+              "expected_revision": "2",
+              "task": "D"
+            }
+          },
+          "expected": {
+            "state": {
+              "D": {
+                "status": "complete"
+              }
+            },
+            "result": {
+              "outcome": "changed"
+            },
+            "event": {
+              "kind": "tasks.completed",
+              "subject": "D",
+              "count": 1
+            }
+          },
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1
+            }
+          }
+        }
+      ]
     },
     {
       "id": "TARGET-TSK-007",
@@ -2591,6 +2935,10 @@
           "parent": "T",
           "title": "Call venue",
           "status": "complete"
+        },
+        "execution": {
+          "fixture_type": "test_execution",
+          "repeat": 2
         }
       },
       "actor": {
@@ -2608,8 +2956,7 @@
           "task": "T",
           "completion_date": "2026-01-31",
           "reviewed_state": "fixture-state-4",
-          "request_key": "rec-month-end",
-          "repeat": 2
+          "request_key": "rec-month-end"
         }
       },
       "expected": {
@@ -2631,7 +2978,7 @@
           "open_series_tasks": 1
         },
         "event": {
-          "kind": "task_completed",
+          "kind": "tasks.completed",
           "subject": "T",
           "count": 1
         }
@@ -2689,6 +3036,10 @@
               "parent": "T",
               "title": "Call venue",
               "status": "complete"
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 2
             }
           },
           "actor": {
@@ -2706,8 +3057,7 @@
               "task": "T",
               "completion_date": "2024-02-29",
               "reviewed_state": "fixture-state-4",
-              "request_key": "rec-leap-year",
-              "repeat": 2
+              "request_key": "rec-leap-year"
             }
           },
           "expected": {
@@ -2729,7 +3079,7 @@
               "open_series_tasks": 1
             },
             "event": {
-              "kind": "task_completed",
+              "kind": "tasks.completed",
               "subject": "T",
               "count": 1
             }
@@ -2788,6 +3138,10 @@
               "parent": "T",
               "title": "Call venue",
               "status": "complete"
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 2
             }
           },
           "actor": {
@@ -2805,8 +3159,7 @@
               "task": "T",
               "completion_date": "2026-01-31",
               "reviewed_state": "fixture-state-4",
-              "request_key": "rec-inclusive-end",
-              "repeat": 2
+              "request_key": "rec-inclusive-end"
             }
           },
           "expected": {
@@ -2828,7 +3181,7 @@
               "open_series_tasks": 1
             },
             "event": {
-              "kind": "task_completed",
+              "kind": "tasks.completed",
               "subject": "T",
               "count": 1
             }
@@ -2887,6 +3240,10 @@
               "parent": "T",
               "title": "Call venue",
               "status": "complete"
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 2
             }
           },
           "actor": {
@@ -2904,8 +3261,7 @@
               "task": "T",
               "completion_date": "2026-01-31",
               "reviewed_state": "fixture-state-4",
-              "request_key": "rec-past-end",
-              "repeat": 2
+              "request_key": "rec-past-end"
             }
           },
           "expected": {
@@ -2921,7 +3277,7 @@
               "open_series_tasks": 0
             },
             "event": {
-              "kind": "task_completed",
+              "kind": "tasks.completed",
               "subject": "T",
               "count": 1
             }
@@ -2980,6 +3336,10 @@
               "parent": "T",
               "title": "Call venue",
               "status": "complete"
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 2
             }
           },
           "actor": {
@@ -2997,8 +3357,7 @@
               "task": "T",
               "completion_date": "2026-01-20",
               "reviewed_state": "fixture-state-4",
-              "request_key": "rec-late",
-              "repeat": 2
+              "request_key": "rec-late"
             }
           },
           "expected": {
@@ -3020,7 +3379,7 @@
               "open_series_tasks": 1
             },
             "event": {
-              "kind": "task_completed",
+              "kind": "tasks.completed",
               "subject": "T",
               "count": 1
             }
@@ -3079,6 +3438,10 @@
               "parent": "T",
               "title": "Call venue",
               "status": "complete"
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 2
             }
           },
           "actor": {
@@ -3096,8 +3459,7 @@
               "task": "T",
               "completion_date": "2026-01-20",
               "reviewed_state": "fixture-state-4",
-              "request_key": "rec-undated",
-              "repeat": 2
+              "request_key": "rec-undated"
             }
           },
           "expected": {
@@ -3119,7 +3481,7 @@
               "open_series_tasks": 1
             },
             "event": {
-              "kind": "task_completed",
+              "kind": "tasks.completed",
               "subject": "T",
               "count": 1
             }
@@ -3178,6 +3540,10 @@
               "parent": "T",
               "title": "Call venue",
               "status": "complete"
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "fault": "child_copy"
             }
           },
           "actor": {
@@ -3193,8 +3559,7 @@
             "operation": "tasks.completeOccurrence",
             "arguments": {
               "task": "T",
-              "reviewed_state": "fixture-state-4",
-              "fault": "child_copy"
+              "reviewed_state": "fixture-state-4"
             }
           },
           "expected": {
@@ -3205,7 +3570,7 @@
               "successor_count": 0
             },
             "result": {
-              "error_code": "required_write_failed"
+              "completed": false
             },
             "event": null
           },
@@ -3263,6 +3628,10 @@
               "parent": "T",
               "title": "Call venue",
               "status": "complete"
+            },
+            "execution": {
+              "fixture_type": "test_execution",
+              "concurrent_requests": 2
             }
           },
           "actor": {
@@ -3278,8 +3647,7 @@
             "operation": "tasks.completeOccurrence",
             "arguments": {
               "task": "T",
-              "reviewed_state": "fixture-state-4",
-              "concurrent_requests": 2
+              "reviewed_state": "fixture-state-4"
             }
           },
           "expected": {
@@ -3371,11 +3739,11 @@
           "expected": {
             "state": {
               "T2": {
-                "status": "pending"
+                "status": "not_started"
               }
             },
             "result": {
-              "error_code": "open_successor_collision"
+              "error_code": "open_successor"
             },
             "event": null
           },
@@ -3396,7 +3764,7 @@
         "WP-025"
       ],
       "status": "future-not-run",
-      "description": "100 IDs including duplicates/missing/foreign/waived/reassigned; fail after 3 commits and lost response; invalid date.",
+      "description": "Bulk complete with duplicates, missing, foreign, waived, unassigned and changed tasks; a fault before commit, then the same request again and its lost-reply retry; invalid shared date.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -3425,56 +3793,111 @@
           "account": "A",
           "expires_at": "2026-11-12T16:00:00Z"
         },
+        "M": {
+          "fixture_type": "account",
+          "id": "M",
+          "email": "morgan@example.test",
+          "registration": "active"
+        },
+        "seat-M": {
+          "fixture_type": "seat",
+          "account": "M",
+          "tenant": "P",
+          "role": "Member",
+          "active": true
+        },
+        "session-M": {
+          "fixture_type": "session",
+          "account": "M",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "T1": {
+          "fixture_type": "task",
+          "id": "T1",
+          "plant": "P",
+          "title": "T1",
+          "assignee": "M",
+          "status": "not_started",
+          "revision": 1
+        },
+        "T2": {
+          "fixture_type": "task",
+          "id": "T2",
+          "plant": "P",
+          "title": "T2",
+          "assignee": "M",
+          "status": "not_started",
+          "revision": 1
+        },
+        "T3": {
+          "fixture_type": "task",
+          "id": "T3",
+          "plant": "P",
+          "title": "T3",
+          "assignee": "M",
+          "status": "not_started",
+          "revision": 1,
+          "series": "S"
+        },
+        "Boom": {
+          "fixture_type": "task",
+          "id": "Boom",
+          "plant": "P",
+          "title": "Boom",
+          "assignee": "M",
+          "status": "not_started",
+          "revision": 1
+        },
+        "Waived": {
+          "fixture_type": "task",
+          "id": "Waived",
+          "plant": "P",
+          "title": "Waived",
+          "assignee": "M",
+          "status": "no_longer_needed",
+          "revision": 1
+        },
+        "Others": {
+          "fixture_type": "task",
+          "id": "Others",
+          "plant": "P",
+          "title": "Others",
+          "assignee": null,
+          "status": "not_started",
+          "revision": 1
+        },
+        "Changed": {
+          "fixture_type": "task",
+          "id": "Changed",
+          "plant": "P",
+          "title": "Changed",
+          "assignee": "M",
+          "status": "not_started",
+          "revision": 2
+        },
+        "S": {
+          "fixture_type": "recurrence",
+          "id": "S",
+          "interval": "weekly",
+          "end_date": null
+        },
         "Q": {
           "fixture_type": "plant",
           "id": "Q",
-          "timezone": "America/New_York",
-          "observed_state": "fixture-state-3"
+          "timezone": "America/New_York"
         },
-        "B": {
-          "fixture_type": "account",
-          "id": "B",
-          "email": "casey@example.test"
-        },
-        "seat-B": {
-          "fixture_type": "seat",
-          "account": "B",
-          "tenant": "Q",
-          "role": "Admin",
-          "active": true
-        },
-        "Alex": {
-          "fixture_type": "person",
-          "id": "Alex",
-          "plant": "P",
-          "first_name": "Alex",
-          "age_classification": "adult",
-          "stage": "prospect",
-          "observed_state": "fixture-state-4"
-        },
-        "T": {
+        "Theirs": {
           "fixture_type": "task",
-          "id": "T",
-          "plant": "P",
-          "assignee": "A",
-          "status": "not_started",
-          "due_date": "2026-10-13",
-          "observed_state": "fixture-state-4"
+          "id": "Theirs",
+          "plant": "Q",
+          "title": "Theirs",
+          "status": "not_started"
         },
-        "case-input": {
-          "fixture_type": "domain_inputs",
-          "task_ids": [
-            "T1",
-            "T2",
-            "T3",
-            "T3",
-            "T4",
-            "missing",
-            "foreign",
-            "waived"
-          ],
-          "fault_after_commits": 3,
-          "response_lost": true
+        "execution": {
+          "fixture_type": "test_execution",
+          "repeat": 2,
+          "fault": "before_transaction_commit",
+          "fault_runs": 1
         }
       },
       "actor": {
@@ -3489,50 +3912,134 @@
       "action": {
         "operation": "tasks.bulkComplete",
         "arguments": {
-          "subject": "P",
-          "person": "Alex",
-          "reviewed_state": "fixture-state-4",
-          "task": "T",
-          "foreign_control": {
-            "actor": "B",
-            "context": "Q",
-            "subject": "P"
-          },
           "request_key": "TARGET-TSK-008-request-1",
-          "repeat": 2,
-          "fault": "required_write_before_commit",
-          "task_ids": [
-            "T1",
-            "T2",
-            "T3",
-            "T3",
-            "T4",
-            "missing",
-            "foreign",
-            "waived"
-          ],
-          "fault_after_commits": 3,
-          "response_lost": true
+          "items": [
+            {
+              "task": "T1",
+              "expected_revision": "1"
+            },
+            {
+              "task": "T2",
+              "expected_revision": "1"
+            },
+            {
+              "task": "T3",
+              "expected_revision": "1"
+            },
+            {
+              "task": "T3",
+              "expected_revision": "1"
+            },
+            {
+              "task": "Waived",
+              "expected_revision": "1"
+            },
+            {
+              "task": "Changed",
+              "expected_revision": "1"
+            },
+            {
+              "task": "Theirs",
+              "expected_revision": "1"
+            },
+            {
+              "task": "missing",
+              "expected_revision": "1"
+            },
+            {
+              "task": "Others",
+              "expected_revision": "1"
+            },
+            {
+              "task": "Boom",
+              "expected_revision": "1"
+            }
+          ]
         }
       },
       "expected": {
-        "state": {},
+        "state": {
+          "T1": {
+            "status": "complete"
+          },
+          "T2": {
+            "status": "complete"
+          },
+          "T3": {
+            "status": "complete"
+          },
+          "Boom": {
+            "status": "complete"
+          },
+          "Changed": {
+            "status": "not_started"
+          },
+          "Others": {
+            "status": "complete"
+          }
+        },
         "result": {
-          "committed_ids": [
-            "T1",
-            "T2",
-            "T3"
+          "after_fault_committed_ids": [],
+          "outcomes": {
+            "T1": "changed",
+            "T2": "changed",
+            "T3": "changed",
+            "Waived": "closed",
+            "Changed": "stale",
+            "Theirs": "not_found",
+            "missing": "not_found",
+            "Others": "changed",
+            "Boom": "changed"
+          },
+          "remaining": [
+            "Changed"
           ],
-          "pending_ids": [
-            "T4"
-          ],
-          "duplicate_effects": 0,
-          "missing_status": "not_found",
-          "foreign_status": "not_found",
-          "waived_status": "ineligible"
+          "successors_of_T3": 1,
+          "duplicate_effects": 0
         },
         "event": null
-      }
+      },
+      "subcases": [
+        {
+          "name": "invalid-shared-date",
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "tasks.bulkReschedule",
+            "arguments": {
+              "request_key": "TARGET-TSK-008-reschedule",
+              "items": [
+                {
+                  "task": "T1",
+                  "expected_revision": "1"
+                }
+              ],
+              "due": "2026-02-30"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "invalid_input",
+              "writes": 0
+            },
+            "event": null
+          },
+          "given": {
+            "execution": {
+              "fixture_type": "test_execution",
+              "repeat": 1
+            }
+          }
+        }
+      ]
     },
     {
       "id": "TARGET-TSK-009",

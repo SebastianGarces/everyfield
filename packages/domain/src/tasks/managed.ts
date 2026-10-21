@@ -7,7 +7,7 @@ import "server-only";
 import { z } from "zod";
 import { auditRow, deny, parse, type AuditCommand, type Tx } from "./core.ts";
 import { loadTask, storageKind, storedKind, type TaskRow } from "./queries.ts";
-import { audited, reminderChange, setStatus, type TaskReminders } from "./writes.ts";
+import { audited, changeTo, reminderChange, type TaskReminders } from "./writes.ts";
 
 // Generated work for a finalized meeting (REQ-TSK-017). The caller is the meeting domain's own reviewed command: it
 // holds the meeting row lock and passes its audit command, so obligations, tasks and audit rows commit in its one
@@ -127,6 +127,9 @@ export async function ensureMeetingObligations(
 			parent_id: null,
 			series_id: null,
 			occurrence_key: null,
+			predecessor_id: null,
+			prerequisite_ids: [],
+			open_prerequisites: 0,
 			obligation_id: obligationId,
 			obligation_kind: w.kind,
 			assignee_name: w.assigneeId ? row.seats[w.assigneeId]! : null,
@@ -217,6 +220,6 @@ export async function applyManagedStatus(
 	const row = await loadTask(tx, cmd.actor.plantId, { obligationId: v.obligationId }, true);
 	if (!row || row.status === "no_longer_needed")
 		return { value: { outcome: "unchanged" as const, taskId: row?.id ?? null } };
-	const result = await setStatus(tx, cmd, reminders, row, { status: v.status, reason: v.reason, source: "generated" });
+	const result = changeTo(tx, cmd, reminders, row, { status: v.status, reason: v.reason, source: "generated" });
 	return { value: { outcome: result.value.outcome, taskId: row.id }, after: result.after };
 }
