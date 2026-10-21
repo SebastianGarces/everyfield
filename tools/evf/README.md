@@ -91,7 +91,8 @@ the user's git config hides untracked files. OPS tasks run their own checks plus
 `format` and `package-unit-tests` checks, which include the db schema check, because CI runs them
 on every PR. Task start installs dependencies for OPS tasks too. A full application verify also
 type-checks a fresh detached checkout of HEAD, so ignored local files such as Next's generated
-`next-env.d.ts` cannot hide a CI failure (PR #175).
+`next-env.d.ts` cannot hide a CI failure (PR #175). Each run uses its own temporary worktree under
+`.git/evf/fresh/` and removes only that one, so parallel author and verifier runs of one head cannot collide.
 
 Before a manual push, run `bin/evf pre-push <task>`. It checks for a full passing author report at
 that exact clean HEAD. Quick checks and verifier reports do not satisfy this gate. `evf pr open`
@@ -185,7 +186,7 @@ Use `AC:<case-id>` in passing test names or annotations. Each check gets its own
 (also `{testReport}`), `<position>-<name>.tests.json`, so names that slug alike never share a file. Case coverage runs only when some report has an `AC:` marker (D19):
 
 ```json
-{"tests":[{"name":"AC:CASE-ID observed behavior","status":"passed"}]}
+{ "tests": [{ "name": "AC:CASE-ID observed behavior", "status": "passed" }] }
 ```
 
 A supplied report must cover selected cases. The verifier independently checks real behavior,

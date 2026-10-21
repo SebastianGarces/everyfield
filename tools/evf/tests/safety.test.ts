@@ -1,8 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, mkdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+	chmodSync,
+	existsSync,
+	mkdirSync,
+	readdirSync,
+	readFileSync,
+	realpathSync,
+	rmSync,
+	symlinkSync,
+	writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { fixture, source } from "./fixtures.ts";
 import { evfDataDir, git, parseTask } from "../lib.ts";
 import { verify } from "../verify.ts";
@@ -311,6 +321,50 @@ test("BUG-home-registration: an OPS task registers on its own branch and verifie
 			git(wt, "reset", "-q", "--hard", "HEAD~1");
 		}
 		assert.deepEqual(readFileSync(join(f.root, "evf.config.json")), home);
+	} finally {
+		f.close();
+	}
+});
+
+test("BUG-OPS32-fresh: parallel fresh checks of one head both pass, and a crashed run's leftover blocks nothing", async () => {
+	const f = fixture();
+	try {
+		// The fake install marks its checkout, waits, then needs the mark: a run whose checkout another run removed
+		// or replaced fails, as PR #207's author and verifier did.
+		const fake = join(f.root, "fake-bin/fresh-step.cjs");
+		writeFileSync(
+			fake,
+			`const fs=require('node:fs');\n` +
+				`if(process.argv[2]==='install'){fs.writeFileSync('mark','');Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,1500);}\n` +
+				`process.exit(fs.existsSync('mark')&&fs.existsSync('evf.config.json')?0:1);\n`,
+		);
+		const steps = [
+			[process.execPath, fake, "install"],
+			[process.execPath, fake, "typecheck"],
+		];
+		const sha = git(f.root, "rev-parse", "HEAD"),
+			fresh = join(evfDataDir(f.root), "fresh");
+		const check = (role: string) => {
+			const dir = join(evfDataDir(f.root), "evidence", role);
+			mkdirSync(dir, { recursive: true });
+			const script = `import(${JSON.stringify(join(source, "tools/evf/verify.ts"))}).then(m=>process.exit(m.freshCheckoutTypecheck(${JSON.stringify(f.root)},${JSON.stringify(f.root)},${JSON.stringify(sha)},${JSON.stringify(dir)},${JSON.stringify(role)},${JSON.stringify(steps)}).passed?0:1))`;
+			return new Promise<number | null>((done) =>
+				spawn(process.execPath, ["--input-type=module", "-e", script], { stdio: "ignore" }).on("exit", done),
+			);
+		};
+		assert.deepEqual(await Promise.all([check("author"), check("verifier")]), [0, 0]);
+		// A crashed run leaves a folder, and a worktree whose folder was deleted stays registered until pruned.
+		mkdirSync(join(fresh, sha), { recursive: true });
+		writeFileSync(join(fresh, sha, "leftover"), "crashed run");
+		git(f.root, "worktree", "add", "--quiet", "--detach", join(fresh, "gone"), sha);
+		rmSync(join(fresh, "gone"), { recursive: true, force: true });
+		assert.equal(await check("verifier"), 0);
+		assert.deepEqual(readdirSync(fresh), [sha]);
+		// Runs remove only their own registration: an unrelated missing-folder registration stays for its owner.
+		const listed = git(f.root, "worktree", "list", "--porcelain");
+		assert.equal(listed.match(/^worktree /gm)?.length, 2);
+		assert.match(listed, new RegExp(`^worktree ${join(realpathSync(fresh), "gone")}$`, "m"));
+		assert.equal(readdirSync(join(git(f.root, "rev-parse", "--absolute-git-dir"), "worktrees")).length, 1);
 	} finally {
 		f.close();
 	}
