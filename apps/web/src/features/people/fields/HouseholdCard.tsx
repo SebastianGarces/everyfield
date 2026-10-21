@@ -98,6 +98,8 @@ export function HouseholdCard({
 	const toast = useToast();
 	const [open, setOpen] = useState<Open>(null);
 	const [saving, start] = useTransition();
+	// The last confirmed change, said in the card's status line instead of a toast that could cover the menu.
+	const [notice, setNotice] = useState<string | null>(null);
 	// The household as the screen expects it while a change saves; it falls back to the saved one if the change fails.
 	const [shown, expect] = useOptimistic(household, (_h, next: HouseholdResult) => next);
 	// A refused form change: the dialog opens again with what was entered and why it did not save.
@@ -118,6 +120,7 @@ export function HouseholdCard({
 		personPatch?: Partial<PlantPerson>,
 	) {
 		close();
+		setNotice(null);
 		start(async () => {
 			expect(next);
 			if (personPatch) onExpectPerson(personPatch);
@@ -187,6 +190,7 @@ export function HouseholdCard({
 	}
 
 	function changeRole(role: HouseholdRole) {
+		setNotice(null);
 		start(async () => {
 			if (household?.status === "available")
 				expect({
@@ -247,7 +251,7 @@ export function HouseholdCard({
 				}
 			/>
 			<p role="status" aria-live="polite" className="-mt-1 mb-2 text-xs text-text-3 empty:hidden">
-				{saving ? "Saving…" : null}
+				{saving ? "Saving…" : notice}
 			</p>
 			{h ? (
 				<>
@@ -397,7 +401,7 @@ export function HouseholdCard({
 								const problem = await membership("household-copy", members, (key) =>
 									propagateAddress(key, preview.household.revision, { householdId: preview.household.id, members }),
 								);
-								if (!problem) toast({ tone: "success", message: `Copied the address of ${preview.household.name}.` });
+								if (!problem) startTransition(() => setNotice("Address copied to every member."));
 								return problem;
 							},
 							// This person is one of the members, so Details shows the copied address at once too.
