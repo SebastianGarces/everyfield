@@ -9,7 +9,8 @@ const ITEM_ICONS: IconName[] = ["task", "eye", "flag", "users"];
 
 /**
  * "Why the numbers are true": four short reasons, with a still picture of what one plant shares (IDN-022). The heading
- * and the reasons sit left of the picture on wide screens; on phones the picture follows the reasons.
+ * and the reasons sit left of the picture on wide screens; on phones the picture follows the reasons. The picture sits on a
+ * flat cream panel: every photo already has a slot on this page (no repeats), and its white card is not colorful.
  */
 export function TrustSection({ headline, items }: { headline: string; items: { title: string; body: string }[] }) {
 	return (
