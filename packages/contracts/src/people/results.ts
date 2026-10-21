@@ -96,7 +96,9 @@ export const pipelineResult = z
 export const statusWarningsResult = z.strictObject({
 	personId,
 	revision,
-	warnings: z.array(z.enum(["interview_not_recorded", "commitment_not_recorded", "open_duties"])).max(3),
+	warnings: z
+		.array(z.enum(["assessment_not_recorded", "interview_not_recorded", "commitment_not_recorded", "open_duties"]))
+		.max(4),
 	// Soft recorded-evidence guidance, never invented qualification or private detail.
 	allowedStages: z
 		.array(stage)
@@ -157,7 +159,16 @@ export const activity = z.discriminatedUnion("kind", [
 			"restored",
 			"classification_recorded",
 			"classification_corrected",
+			"assessment_recorded",
+			"interview_recorded",
+			"commitment_recorded",
+			"commitment_withdrawn",
+			"commitment_reactivated",
+			"commitment_corrected",
 		]),
+		// An assessment, interview or commitment event names its record; the stage advance it caused shows with it.
+		recordId: recordId.optional(),
+		stage: z.strictObject({ from: stage, to: stage }).optional(),
 		// A household join, leave or role change: the membership before and after, with the household name recorded
 		// then, so the history still names a household after it is deleted (REQ-PPL-009).
 		household: z.strictObject({ from: householdMembership.nullable(), to: householdMembership.nullable() }).optional(),
