@@ -96,7 +96,8 @@ const dateFormat = new Intl.DateTimeFormat(undefined, {
 /** A reviewed value as text. Empty values say so; an id (a photo upload) is never shown. */
 export function valueText(field: string, value: unknown): string | null {
 	if (value === null || value === undefined || value === "") return null;
-	if (field === "photo") return "New photo";
+	// A photo is a stored file: its short reference tells two uploads apart. The card shows the image where People allows it.
+	if (field === "photo") return `Photo ${photoRef(value)}`;
 	if (field === "stage") return STAGE_LABEL[value as StageValue] ?? String(value);
 	if (field === "source") return SOURCE_LABEL[value as SourceValue] ?? String(value);
 	if (field === "adultClassification") return CLASSIFICATION_LABEL[String(value)] ?? String(value);
@@ -105,6 +106,9 @@ export function valueText(field: string, value: unknown): string | null {
 		return dateFormat.format(new Date(`${value}T00:00:00Z`));
 	return String(value);
 }
+
+/** The first 8 characters of a photo's file id, upper case, as people read a reference. */
+export const photoRef = (value: unknown) => String(value).slice(0, 8).toUpperCase();
 
 /** The person's open tasks a stage change or removal hands back as needing an owner, from the review. */
 export const handedBack = (changes: readonly Change[]) =>
@@ -238,9 +242,10 @@ export function actionNotice(error: ProjectedError | "lost"): string {
 			return "Some values are not valid. Check them, then update the review.";
 		case "access_denied":
 		case "not_found":
-			return "Your seat no longer allows this change. Nothing was changed.";
+			// An earlier approval may already have run, so this says nothing about the change itself.
+			return "Your seat no longer allows this, so Evry can't show the result.";
 		default:
-			return "Something went wrong. Nothing was changed. Try again.";
+			return "This did not go through. Try again.";
 	}
 }
 

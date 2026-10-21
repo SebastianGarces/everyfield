@@ -30,6 +30,7 @@ import {
 	missingRequired,
 	operationTitle,
 	phaseOf,
+	photoRef,
 	pollDelay,
 	refusalText,
 	retryable,
@@ -264,9 +265,13 @@ function note(view: View, review: Review | null, now: number): string | null {
 		case "cancelled":
 			return "You cancelled this change. Nothing was changed.";
 		case "withheld":
-			return "The person in this change is no longer available to you. Nothing was changed.";
+			// Nothing ran unless it was approved; after an approval the card can't see the result any more.
+			return review?.status === "approved"
+				? "The person in this change is no longer available to you, so Evry can't show this change or its result."
+				: "The person in this change is no longer available to you. Nothing was changed.";
 		case "unavailable":
-			return "You can't review this change now. Changes to people need an Owner or Admin seat in this church. Nothing was changed.";
+			// Access ended, so the card can't read the result: it says so and claims nothing about the change.
+			return "You can't see this change now, so Evry can't show its result. Changes to people need an Owner or Admin seat in this church.";
 		default:
 			return null;
 	}
@@ -347,7 +352,7 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 				</p>
 			) : view === "lost" ? (
 				<div className="flex flex-col items-start gap-3 px-4 py-3.5 text-sm text-text-2">
-					<p>The review did not load. Check your connection, then try again. Nothing changes until you approve it.</p>
+					<p>The review did not load. Check your connection, then try again.</p>
 					<Button size="sm" variant="outline" onClick={r.reload}>
 						Try again
 					</Button>
@@ -563,10 +568,49 @@ function Affects({ review }: { review: Review }) {
 
 function Value({ field, value, before }: { field: string; value: unknown; before?: boolean }) {
 	const text = valueText(field, value);
-	if (text === null) return <span className="text-text-3 italic">Empty</span>;
+	if (text === null) return <span className="text-text-3 italic">{field === "photo" ? "No photo" : "Empty"}</span>;
 	if (field === "stage" && typeof value === "string" && value in STAGE_KEY)
 		return <StageChip stage={STAGE_KEY[value as StageValue]}>{text}</StageChip>;
 	return <span className={cn("break-words", before ? "text-text-2" : "font-medium text-ink")}>{text}</span>;
+}
+
+/**
+ * A photo before and after. People serves only a person's current photo, so the card shows the current one, and the
+ * new one once it is saved. An upload that is not saved yet shows its file reference, so two uploads never look the same.
+ */
+function PhotoValue({
+	personId,
+	value,
+	image,
+	label,
+}: {
+	personId: string;
+	value: unknown;
+	image: boolean;
+	label: string;
+}) {
+	const [failed, setFailed] = useState(false);
+	if (value === null || value === undefined) return <span className="text-text-3 italic">No photo</span>;
+	const ref = photoRef(value);
+	return (
+		<span className="flex items-center gap-2">
+			{image && !failed ? (
+				// eslint-disable-next-line @next/next/no-img-element -- a private, per-request photo; next/image would cache it
+				<img
+					src={`/people/${personId}/photo/${String(value)}`}
+					alt={label}
+					width={40}
+					height={40}
+					onError={() => setFailed(true)}
+					className="size-10 rounded-md object-cover shadow-[inset_0_0_0_1px_var(--ef-line)]"
+				/>
+			) : null}
+			<span className="flex flex-col leading-tight">
+				<span className="font-medium text-ink">{label}</span>
+				<span className="text-xs text-text-3 tabular-nums">Ref {ref}</span>
+			</span>
+		</span>
+	);
 }
 
 /** Each changed field: its value now, then what it will be. A new person and a reason have no before. */
@@ -583,12 +627,25 @@ function Changes({ review }: { review: Review }) {
 						{create || c.field === "reason" ? null : (
 							<>
 								<span className="sr-only">from </span>
-								<Value field={c.field} value={c.before} before />
+								{c.field === "photo" && review.review.target ? (
+									<PhotoValue personId={review.review.target.id} value={c.before} image label="Current photo" />
+								) : (
+									<Value field={c.field} value={c.before} before />
+								)}
 								<Icon icon={ArrowRight02Icon} size={16} className="text-text-3" />
 								<span className="sr-only"> to </span>
 							</>
 						)}
-						<Value field={c.field} value={c.after} />
+						{c.field === "photo" && review.review.target ? (
+							<PhotoValue
+								personId={review.review.target.id}
+								value={c.after}
+								image={review.outcome === "completed"}
+								label={review.outcome === "completed" ? "New photo" : "Uploaded photo"}
+							/>
+						) : (
+							<Value field={c.field} value={c.after} />
+						)}
 					</dd>
 				</div>
 			))}
