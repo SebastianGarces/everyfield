@@ -3,6 +3,8 @@ import { randomBytes } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
+import { taskReminders } from "../../../apps/web/src/server/tasks/reminders.ts";
+import { authorizeTaskReminders, reminderRecipients } from "../../../packages/domain/src/tasks/index.ts";
 import { claimDue, enqueueJob, finishClaim, queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { deletionOperations, issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/deletion.ts";
 import assert from "node:assert/strict";
@@ -29,7 +31,12 @@ import {
 } from "../../../packages/domain/src/people/index.ts";
 import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/dist-cjs/index.js";
 import { readFile } from "node:fs/promises";
-import { guestsWriter, meetingsWriter, withMeetingsWrite } from "../../../packages/domain/src/meetings/index.ts";
+import {
+	createAttendanceWriter,
+	guestsWriter,
+	meetingsWriter,
+	withMeetingsWrite,
+} from "../../../packages/domain/src/meetings/index.ts";
 import { createOnboardingProducer, withOnboardingWrite } from "../../../packages/domain/src/onboarding/index.ts";
 import { withSettingsWrite } from "../../../packages/domain/src/settings/index.ts";
 import { sectionOperations } from "../../../packages/domain/src/settings/sections.ts";
@@ -650,6 +657,159 @@ try {
 		}),
 	);
 	assert.equal(answered.status, "ok");
+	// WP-022 at the same boundary: finalizing a held Vision with Needs-owner work and recording its evaluation. Unowned
+	// tasks owe no reminders, so the reminder port must not run.
+	const attendance = createAttendanceWriter({
+		reminders: async () => {
+			throw Error("unexpected_reminders");
+		},
+	});
+	const held = randomUUID();
+	await f.admin
+		.execute(sql`INSERT INTO meeting(id,plant_id,type,local_date,local_time,timezone,starts_at,resolver_version,
+		status,attendance_revision) VALUES(${held},${s.w.id},'vision_meeting','2026-10-01','18:00','UTC',
+		'2026-10-01T18:00:00Z','1','completed',1)`);
+	const finalized = await meetingWrite("finalizeAttendance", (tx, ctx) =>
+		attendance.finalizeAttendance(tx, ctx, {
+			requestKey: randomUUID(),
+			expectedRevision: "1",
+			input: { meetingId: held, attendeeIds: [created.value.person.id] },
+		}),
+	);
+	assert.equal(finalized.status, "ok");
+	const evaluated = await meetingWrite("recordEvaluation", (tx, ctx) =>
+		attendance.recordEvaluation(tx, ctx, {
+			requestKey: randomUUID(),
+			input: {
+				meetingId: held,
+				scores: {
+					attendanceScore: 4,
+					locationScore: 4,
+					logisticsScore: 4,
+					agendaScore: 4,
+					vibeScore: 4,
+					messageScore: 4,
+					closeScore: 4,
+					nextStepsScore: 3,
+				},
+			},
+		}),
+	);
+	assert.equal(evaluated.status, "ok");
+	// WP-022 with owned work: a Vision held an hour ago, finalized with an assigned follow-up and evaluation whose
+	// due and overdue notices are still in the future, through the real WP-031 reminder port.
+	const planned = createNotificationService({
+		mail: createMailService({
+			db: f.db,
+			encryptionKey: randomBytes(32),
+			addressKey: randomBytes(32),
+			from: "native@example.test",
+			authorize: authorizeTaskReminders,
+			transport: {
+				send: async () => ({ kind: "unknown" }),
+				lookup: async () => ({ kind: "accepted", id: "synthetic-provider" }),
+			},
+		}),
+		// The production recipient lookup and mail authorization, as the tasks mount runs them; only the mail transport
+		// is synthetic.
+		async eligible(tx, inputs) {
+			const found = await reminderRecipients(
+				tx,
+				s.w.id,
+				inputs.map((i) => i.recipient),
+			);
+			return inputs.map((i) => (found.has(i.recipient) ? { address: found.get(i.recipient) } : null));
+		},
+	});
+	const recent = randomUUID(),
+		heldAt = new Date(Date.now() - 3_600_000).toISOString();
+	await f.admin
+		.execute(sql`INSERT INTO meeting(id,plant_id,type,local_date,local_time,timezone,starts_at,resolver_version,
+		status,attendance_revision) VALUES(${recent},${s.w.id},'vision_meeting',${heldAt.slice(0, 10)},'00:00','UTC',
+		${heldAt},'1','completed',1)`);
+	// A Person with no earlier Vision, so the meeting owes them an owned first-Vision follow-up.
+	const newcomer = randomUUID();
+	await f.admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,
+		commitment_state,pipeline_position,state,created_at) VALUES(${newcomer},${s.w.id},${s.w.id},'Newcomer','other',
+		'prospect','unknown','unknown',0,'live',clock_timestamp())`);
+	const owned = await measure("native.meetings.finalizeAttendance.assigned", () =>
+		withMeetingsWrite(f.db, actor, (tx, ctx) =>
+			createAttendanceWriter({ reminders: taskReminders(planned) }).finalizeAttendance(tx, ctx, {
+				requestKey: randomUUID(),
+				expectedRevision: "1",
+				input: {
+					meetingId: recent,
+					attendeeIds: [newcomer],
+					followUpAssigneeId: s.sender.id,
+					evaluationAssigneeId: s.sender.id,
+				},
+			}),
+		),
+	);
+	assert.equal(owned.status, "ok", JSON.stringify(owned));
+	// Completing the assigned evaluation task cancels its future notices; reconciling to nobody closes the follow-ups,
+	// owned (notices cancelled) and unowned (no reminder work).
+	const attendanceWrite = (name, reminders, body) =>
+		measure("native.meetings." + name, () =>
+			withMeetingsWrite(f.db, actor, (tx, ctx) => body(createAttendanceWriter({ reminders }), tx, ctx)),
+		);
+	const reminded = taskReminders(planned),
+		quiet = async () => {
+			throw Error("unexpected_reminders");
+		};
+	for (const [name, reminders, body] of [
+		[
+			"recordEvaluation.assigned",
+			reminded,
+			(w, tx, ctx) =>
+				w.recordEvaluation(tx, ctx, {
+					requestKey: randomUUID(),
+					input: {
+						meetingId: recent,
+						scores: {
+							attendanceScore: 4,
+							locationScore: 4,
+							logisticsScore: 4,
+							agendaScore: 4,
+							vibeScore: 4,
+							messageScore: 4,
+							closeScore: 4,
+							nextStepsScore: 4,
+						},
+					},
+				}),
+		],
+		[
+			"reconcileAttendance.assigned",
+			reminded,
+			(w, tx, ctx) =>
+				w.reconcileAttendance(tx, ctx, {
+					requestKey: randomUUID(),
+					expectedRevision: "2",
+					input: { meetingId: recent, attendeeIds: [], reason: "Sign-in sheet checked" },
+				}),
+		],
+		[
+			"reconcileAttendance",
+			quiet,
+			(w, tx, ctx) =>
+				w.reconcileAttendance(tx, ctx, {
+					requestKey: randomUUID(),
+					expectedRevision: "2",
+					input: { meetingId: held, attendeeIds: [], reason: "Sign-in sheet checked" },
+				}),
+		],
+	]) {
+		const r = await attendanceWrite(name, reminders, body);
+		assert.equal(r.status, "ok", JSON.stringify(r));
+	}
+	assert.equal(
+		(
+			await f.admin.execute(sql`SELECT count(*)::int n FROM notice n JOIN task t ON t.id=n.source_record_id
+			JOIN obligation b ON b.id=t.obligation_id WHERE b.meeting_id=${recent}`)
+		).rows[0].n > 0,
+		true,
+	);
 	const ordinary = await f.account(),
 		ordinarySeat = await f.seat(ordinary, s.w, "admin");
 	const role = await f.seats.changeOrdinaryRole(actor, s.w, {

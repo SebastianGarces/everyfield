@@ -43,7 +43,7 @@ function refused(error: Refusal): MeetingsReply<never> {
 			code: error.code,
 			details: error.details,
 			correlationId: randomUUID(),
-			retry: error.code === "conflict" ? "refresh" : "never",
+			retry: error.code === "conflict" ? "refresh" : error.code === "required_write_failed" ? "same_request" : "never",
 		}),
 	};
 }
@@ -53,6 +53,20 @@ async function settle<T>(body: () => Promise<T>): Promise<MeetingsReply<T>> {
 	} catch (error) {
 		if (error instanceof WriteUnavailable) return refused(new Refusal("unavailable", {}));
 		if (error instanceof Refusal) return refused(error);
+		throw error;
+	}
+}
+/** A PostgreSQL error (SQLSTATE) under a write's rolled-back transaction or savepoint. */
+const databaseError = z.object({ cause: z.object({ code: z.string().regex(/^[0-9A-Z]{5}$/) }) });
+/**
+ * A write's reply: as settle, and a database failure of a required write (an insert, an update or its audit row) is
+ * required_write_failed after its transaction or savepoint rolled back, so nothing of the command remains.
+ */
+async function settleWrite<T>(body: () => Promise<T>): Promise<MeetingsReply<T>> {
+	try {
+		return await settle(body);
+	} catch (error) {
+		if (databaseError.safeParse(error).success) return refused(new Refusal("required_write_failed", {}));
 		throw error;
 	}
 }
@@ -70,7 +84,7 @@ export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S>
 /** Inside a native request the request transaction owns rollback; a direct caller gets a savepoint per command. */
 export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<MeetingsReply<T>> {
 	if (requestWrite(tx)) return { status: "ok", value: await body() };
-	return settle(() => auditSavepoint(tx, body));
+	return settleWrite(() => auditSavepoint(tx, body));
 }
 /** One native write: bind the request actor (one locking statement), run the command, roll back on refusal. */
 export async function withMeetingsWrite<T>(
@@ -78,7 +92,7 @@ export async function withMeetingsWrite<T>(
 	authority: RequestActor,
 	body: (tx: Tx, context: MeetingsContext) => Promise<MeetingsReply<T>>,
 ): Promise<MeetingsReply<T>> {
-	return settle(() =>
+	return settleWrite(() =>
 		auditTransaction(db, async (tx) => {
 			const selected = authority.actor.context.owner;
 			if (!(await authority.bind(tx, selected))) deny();

@@ -6348,6 +6348,24 @@
 				},
 				"retired_at": {
 					"note": "Deleted from current lists; history and held-occurrence evidence remain."
+				},
+				"evaluation_scores": {
+					"note": "The one human Vision evaluation: eight integer scores 1-5 in factor-version-1 order (attendance, location, logistics, agenda, vibe, message, close, next steps). The average is computed, never stored."
+				},
+				"evaluation_notes": {
+					"note": "Optional evaluation notes, Owner/Admin projection only."
+				},
+				"evaluated_on": {
+					"note": "Church-local date of the evaluation event."
+				},
+				"evaluated_at": {
+					"note": "Instant the evaluation was recorded; the evaluator and corrections are in audit history."
+				},
+				"evaluation_corrected_at": {
+					"note": "Latest reviewed correction instant; null when never corrected."
+				},
+				"evaluation_revision": {
+					"note": "Evaluation revision checked by a correction; starts at 1."
 				}
 			},
 			"foreignKeys": {
