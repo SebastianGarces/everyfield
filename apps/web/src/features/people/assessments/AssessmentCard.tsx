@@ -29,13 +29,12 @@ import {
 	type Assessment,
 	type Assessments,
 	type Lens,
-	keptKey,
 	sendTwice,
 } from "./model.ts";
 import {
 	ChoiceField,
 	codeOf,
-	FailedSave,
+	SaveNotice,
 	RecordDialog,
 	recorder,
 	ShowEarlier,
@@ -45,7 +44,7 @@ import {
 import type { PlantPerson, RecordProps } from "./RecordsSection.tsx";
 
 type Draft = { occurredOn: string } & Record<Lens, { score: string; notes: string }>;
-type Editing = { draft: Draft; problem?: string; key?: KeyedPayload };
+type Editing = { draft: Draft; problem?: string };
 const SCORES = ["1", "2", "3", "4", "5"].map((v) => ({ value: v, label: v }));
 const blank = (): Draft => ({
 	occurredOn: today(),
@@ -89,9 +88,7 @@ export function AssessmentCard({
 			contagious: lens("contagious"),
 			courageous: lens("courageous"),
 		};
-		const sent = form.send();
-		const token = sent.token;
-		const key = sent.keyFor(input);
+		const { token, key } = form.send();
 		start(async () => {
 			const now = new Date().toISOString();
 			expect({
@@ -102,19 +99,27 @@ export function AssessmentCard({
 				revision: "0",
 				total: LENSES.reduce((t, l) => t + input[l].score, 0),
 			} as Assessment);
-			const r = await runSave(store, "assessment", input, (k) => sendTwice(() => recordAssessment(k, input)), {
-				fresh,
-				key,
-				toPerson: (v) => ({ ...store.get().saved, stage: v.person.stage, revision: v.person.revision }) as PlantPerson,
-			});
-			if (r?.status !== "ok") {
-				const code = r?.status === "refused" && r.code === "invalid_input" ? "future_date" : codeOf(r);
-				return startTransition(() => form.fail(token, { draft, problem: code, key: keptKey(r, key) }));
-			}
-			startTransition(() => history.add(r.value.assessment));
-			onSaved(r.value.receipt, { kind: "activity", action: "assessment_recorded", recordId: r.value.assessment.id });
-			toast({ tone: "success", message: `4 C's saved for ${first}.` });
+			await commit(input, key, token, draft);
 		});
+	}
+
+	/** One save of one intent: its first send, or Check again with the same request and key (token -1). */
+	async function commit(input: unknown, key: KeyedPayload, token: number, draft: Draft) {
+		const r = await runSave(store, "assessment", input, (k) => sendTwice(() => recordAssessment(k, input)), {
+			fresh,
+			key,
+			toPerson: (v) => ({ ...store.get().saved, stage: v.person.stage, revision: v.person.revision }) as PlantPerson,
+		});
+		const what = "Your 4 C's assessment";
+		if (r?.status === "lost") return form.unknown(key.key, what, () => start(() => commit(input, key, -1, draft)));
+		if (r?.status !== "ok") {
+			const code = r?.status === "refused" && r.code === "invalid_input" ? "future_date" : codeOf(r);
+			return startTransition(() => form.refused(token, { draft, problem: code }, key.key, what));
+		}
+		form.settled(key.key);
+		startTransition(() => history.add(r.value.assessment));
+		onSaved(r.value.receipt, { kind: "activity", action: "assessment_recorded", recordId: r.value.assessment.id });
+		toast({ tone: "success", message: `4 C's saved for ${first}.` });
 	}
 
 	return (
@@ -143,11 +148,7 @@ export function AssessmentCard({
 					/>
 				) : null}
 			</CardHeader>
-			<FailedSave
-				notice={form.failed ? { what: "Your last 4 C's save needs a look.", problem: form.failed.problem } : null}
-				onResume={form.resume}
-				onDismiss={form.dismiss}
-			/>
+			<SaveNotice notice={form.notice} onDismiss={form.dismiss} />
 
 			{initial === null ? (
 				<p className="text-sm text-text-3">The 4 C&rsquo;s did not load. Reload the page to see them.</p>

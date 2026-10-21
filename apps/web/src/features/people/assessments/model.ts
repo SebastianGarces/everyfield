@@ -2,7 +2,7 @@
 // code, so the rules run the same in the browser, on the server and in node tests.
 import type * as c from "@everyfield/contracts/people";
 import type { z } from "zod";
-import { keyFor, STAGES, type KeyedPayload, type Outcome, type StageValue } from "../model.ts";
+import { STAGES, type Outcome, type StageValue } from "../model.ts";
 
 export type Assessment = z.infer<typeof c.assessment>;
 export type Interview = z.infer<typeof c.interview>;
@@ -114,36 +114,44 @@ export async function sendTwice<T>(call: () => Promise<Outcome<T>>): Promise<Out
 	return first.status === "lost" ? once() : first;
 }
 
-// One card's record form and its save intents (review F2, F4). A save closes the form. A failed save opens it again only
-// when no form was opened or closed since; otherwise it waits as `failed`, so a late reply never replaces newer work.
-// Each intent keeps its own request key: a failed draft carries the key its lost try used, and resuming it sends that
-// key again even after another save succeeded, so the producer replays instead of saving twice.
+// One card's record form and its saves (C58). Every opened form is one save intent with its own new request key and
+// current validation. A save closes the form. A lost answer is sent once more at once with the same key; when the result
+// is still unknown, the card says the record may already be saved and offers Check again, which sends the same request
+// with the same key once more. A refusal opens the form again with the reason while it is still the person's latest
+// form; after a newer form was opened or closed, the card says the record was not saved and why. No failed form waits to
+// be reopened later.
 
-/** A form's values, the reason it failed and the key of its last lost try. */
-export type Intent = { problem?: string; key?: KeyedPayload };
-export type FormState<E extends Intent> = { editing: E | null; failed: E | null; intent: number };
-export const formStart = <E extends Intent>(): FormState<E> => ({ editing: null, failed: null, intent: 0 });
-export const formOpen = <E extends Intent>(s: FormState<E>, e: E): FormState<E> => ({
-	...s,
-	editing: e,
-	intent: s.intent + 1,
-});
-export const formClose = <E extends Intent>(s: FormState<E>): FormState<E> => ({
-	...s,
-	editing: null,
-	intent: s.intent + 1,
-});
-/** Closes the form for a save: the token tells whether it is still the latest form when the save fails. */
-export function formSend<E extends Intent>(s: FormState<E>, fresh: () => string) {
-	const prior = s.editing?.key ?? null;
+export type Notice =
+	| { tone: "refused"; id: string; what: string; problem: string }
+	| { tone: "unknown"; id: string; what: string; check: () => void; checking: boolean };
+export type FormState<E> = { editing: E | null; notice: Notice | null; intent: number };
+export const formStart = <E>(): FormState<E> => ({ editing: null, notice: null, intent: 0 });
+export const formOpen = <E>(s: FormState<E>, e: E): FormState<E> => ({ ...s, editing: e, intent: s.intent + 1 });
+export const formClose = <E>(s: FormState<E>): FormState<E> => ({ ...s, editing: null, intent: s.intent + 1 });
+/** Closes the form for a save. The token tells whether it is still the latest form when the save is refused. */
+export function formSend<E>(s: FormState<E>) {
 	const state = formClose(s);
-	return { state, token: state.intent, prior, keyFor: (payload: unknown) => keyFor(prior, payload, fresh) };
+	return { state, token: state.intent };
 }
-export const formFail = <E extends Intent>(s: FormState<E>, token: number, e: E): FormState<E> =>
-	token === s.intent ? { ...s, editing: e } : { ...s, failed: e };
-export const formResume = <E extends Intent>(s: FormState<E>): FormState<E> =>
-	s.failed ? { ...formOpen(s, s.failed), failed: null } : s;
-export const formDismiss = <E extends Intent>(s: FormState<E>): FormState<E> => ({ ...s, failed: null });
-/** What a failed save keeps for its next try: its key after a lost answer, none after a refusal (a final answer). */
-export const keptKey = (r: Outcome<unknown> | null, key: KeyedPayload) =>
-	r === null || r.status === "lost" ? key : undefined;
+/** A refused save: its form opens again with the reason, unless the person opened or closed a form since. */
+export function formRefused<E extends { problem?: string }>(
+	s: FormState<E>,
+	token: number,
+	e: E,
+	notice: { id: string; what: string },
+): FormState<E> {
+	return token === s.intent
+		? { ...s, editing: e }
+		: { ...s, notice: { tone: "refused", ...notice, problem: e.problem ?? "" } };
+}
+/** A save whose answer is still unknown after the replay: the card offers Check again with the same request. */
+export const formUnknown = <E>(s: FormState<E>, id: string, what: string, check: () => void): FormState<E> => ({
+	...s,
+	notice: { tone: "unknown", id, what, check, checking: false },
+});
+export const formChecking = <E>(s: FormState<E>): FormState<E> =>
+	s.notice?.tone === "unknown" ? { ...s, notice: { ...s.notice, checking: true } } : s;
+/** A save that is now known to be saved clears its own notice, never another one. */
+export const formSettled = <E>(s: FormState<E>, id: string): FormState<E> =>
+	s.notice?.id === id ? { ...s, notice: null } : s;
+export const formDismiss = <E>(s: FormState<E>): FormState<E> => ({ ...s, notice: null });

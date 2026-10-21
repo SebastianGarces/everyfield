@@ -6,12 +6,13 @@ import { test } from "node:test";
 import {
 	advancedStage,
 	formClose,
-	formFail,
+	formDismiss,
 	formOpen,
-	formResume,
+	formRefused,
 	formSend,
+	formSettled,
 	formStart,
-	keptKey,
+	formUnknown,
 	sendTwice,
 	withCard,
 	withRecord,
@@ -69,59 +70,52 @@ test("INV-request-key: a lost answer is sent once more through the same call; a 
 	assert.equal(refused, 1);
 });
 
-test("INV-request-key (review F4): a lost save A, a newer save B, then A resumed: A sends its first key again", () => {
-	let n = 0;
-	const fresh = () => `key-${++n}`;
-	const A = { values: "A" };
-	const B = { values: "B" };
-	// A is sent; its answer is lost twice. B was opened meanwhile, so A waits.
-	let s = formOpen(formStart(), { draft: A });
-	const a = formSend(s, fresh);
-	const aKey = a.keyFor(A);
-	s = formOpen(a.state, { draft: B });
-	s = formFail(s, a.token, { draft: A, problem: "lost", key: keptKey({ status: "lost" }, aKey) });
-	assert.equal(s.editing.draft, B, "the newer form stays open");
-	assert.equal(s.failed.draft, A, "A waits in the card notice");
-	// B saves with its own key and succeeds.
-	const b = formSend(s, fresh);
-	assert.notEqual(b.keyFor(B).key, aKey.key);
-	s = b.state;
-	// A is opened again and saved with the same answers: the same key, so the producer replays it.
-	s = formResume(s);
-	assert.equal(s.failed, null);
-	assert.equal(formSend(s, fresh).keyFor(A).key, aKey.key);
-	// Changed answers or a refused try get a new key.
-	assert.notEqual(formSend(s, fresh).keyFor({ values: "A, changed" }).key, aKey.key);
-	assert.equal(keptKey({ status: "refused", code: "conflict" }, aKey), undefined);
+test("INV-form-intent (C58, review F2): a refusal reopens its form only while it is the latest form", () => {
+	const sent = formSend(formOpen(formStart(), { draft: "A" }));
+	const reopened = formRefused(sent.state, sent.token, { draft: "A", problem: "conflict" }, { id: "kA", what: "A" });
+	assert.equal(reopened.editing.draft, "A");
+	assert.equal(reopened.notice, null);
+	// A newer form opened (and then closed): the refusal never replaces it and never opens by itself; the card says why.
+	const newer = formOpen(sent.state, { draft: "B" });
+	const late = formRefused(newer, sent.token, { draft: "A", problem: "conflict" }, { id: "kA", what: "A" });
+	assert.equal(late.editing.draft, "B");
+	assert.deepEqual(late.notice, { tone: "refused", id: "kA", what: "A", problem: "conflict" });
+	const closed = formRefused(
+		formClose(newer),
+		sent.token,
+		{ draft: "A", problem: "conflict" },
+		{ id: "kA", what: "A" },
+	);
+	assert.equal(closed.editing, null);
+	assert.equal(formDismiss(closed).notice, null);
 });
 
-test("INV-form-intent (review F2): a failed save reopens its form only when no form was opened or closed since", () => {
-	const fresh = () => "k";
-	const sent = formSend(formOpen(formStart(), { draft: "A" }), fresh);
-	assert.equal(formFail(sent.state, sent.token, { draft: "A", problem: "conflict" }).editing.draft, "A");
-	const closed = formClose(formOpen(sent.state, { draft: "B" }));
-	const late = formFail(closed, sent.token, { draft: "A", problem: "conflict" });
-	assert.equal(late.editing, null, "no form opens by itself");
-	assert.equal(late.failed.draft, "A");
+test("INV-request-key (C58): an unknown result offers Check again; its answer clears only its own notice", () => {
+	const s = formUnknown(formStart(), "kA", "A", () => {});
+	assert.equal(s.notice.tone, "unknown");
+	assert.equal(formSettled(s, "kB").notice, s.notice, "another save never clears it");
+	assert.equal(formSettled(s, "kA").notice, null);
 });
 
-test("INV-request-key (review F4, round 3): a new intent with the same answers as a lost one gets its own key", async () => {
+test("INV-request-key (C58, review F4): Check again sends the same key; a new intent with the same answers gets its own", async () => {
 	const { PersonStore, runSave } = await import("../../../apps/web/src/features/people/model.ts");
 	const store = new PersonStore({ id: "p1", revision: "1" });
-	let n = 0;
-	const fresh = () => `key-${++n}`;
+	const fresh = () => "slot-key";
 	const same = { personId: "p1", occurredOn: "2026-10-01", committed: { score: 3, notes: "same" } };
 	const sent = [];
 	const call = (outcome) => (key) => (sent.push(key), Promise.resolve(outcome));
-	// A: its own intent key; the answer is lost, so the store keeps A's key for the slot.
-	const a = { key: "intent-A", body: "A" };
+	const a = { key: "intent-A", body: "" };
+	// A is lost; Check again sends A's request with A's key.
 	await runSave(store, "assessment", same, call({ status: "lost" }), { fresh, key: a });
-	// B: a new form with the same answers and its own intent key. It must not replay A.
-	const b = { key: "intent-B", body: "B" };
-	await runSave(store, "assessment", same, call({ status: "ok", value: null }), { fresh, key: b });
-	assert.deepEqual(sent, ["intent-A", "intent-B"]);
+	await runSave(store, "assessment", same, call({ status: "ok", value: null }), { fresh, key: a });
+	// B is a newly opened form with the same answers and its own key: it is saved, never a replay of A.
+	await runSave(store, "assessment", same, call({ status: "ok", value: null }), {
+		fresh,
+		key: { key: "intent-B", body: "" },
+	});
+	assert.deepEqual(sent, ["intent-A", "intent-A", "intent-B"]);
 	// A caller without its own key keeps the slot rule: a retry of the same payload after a loss replays the lost key.
-	await runSave(store, "other", same, call({ status: "lost" }), { fresh });
-	await runSave(store, "other", same, call({ status: "ok", value: null }), { fresh });
-	assert.equal(sent[2], sent[3]);
+	await runSave(store, "other", same, call({ status: "lost" }), { fresh: () => "k1" });
+	await runSave(store, "other", same, call({ status: "ok", value: null }), { fresh: () => "k2" });
+	assert.deepEqual(sent.slice(3), ["k1", "k1"]);
 });

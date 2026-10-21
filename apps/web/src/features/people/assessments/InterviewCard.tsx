@@ -39,13 +39,12 @@ import {
 	type Interviews,
 	type Rating,
 	type Result,
-	keptKey,
 	sendTwice,
 } from "./model.ts";
 import {
 	ChoiceField,
 	codeOf,
-	FailedSave,
+	SaveNotice,
 	RecordDialog,
 	recorder,
 	ShowEarlier,
@@ -59,7 +58,7 @@ type Draft = {
 	result: Result | "";
 	nextSteps: string;
 } & Record<CriterionKey, { rating: Rating | ""; notes: string }>;
-type Editing = { draft: Draft; problem?: string; key?: KeyedPayload };
+type Editing = { draft: Draft; problem?: string };
 const RATING_OPTIONS = RATINGS.map((r) => ({ value: r, label: RATING_LABEL[r] }));
 const blank = (): Draft => ({
 	occurredOn: today(),
@@ -122,9 +121,7 @@ export function InterviewCard({
 			result: draft.result as Result,
 			nextSteps: draft.nextSteps.trim() || null,
 		};
-		const sent = form.send();
-		const token = sent.token;
-		const key = sent.keyFor(input);
+		const { token, key } = form.send();
 		start(async () => {
 			const now = new Date().toISOString();
 			expect({
@@ -135,29 +132,37 @@ export function InterviewCard({
 				revision: "0",
 			} as Interview);
 			expectPerson({ stage: advancedStage(stage, "interviewed") });
-			const r = await runSave(store, "interview", input, (k) => sendTwice(() => recordInterview(k, input)), {
-				fresh,
-				key,
-				toPerson: (v) => ({ ...store.get().saved, stage: v.person.stage, revision: v.person.revision }) as PlantPerson,
-			});
-			if (r?.status !== "ok") {
-				const code = r?.status === "refused" && r.code === "invalid_input" ? "future_date" : codeOf(r);
-				return startTransition(() => form.fail(token, { draft, problem: code, key: keptKey(r, key) }));
-			}
-			const moved = r.value.person.stageChange;
-			startTransition(() => history.add(r.value.interview));
-			onSaved(r.value.receipt, {
-				kind: "activity",
-				action: "interview_recorded",
-				recordId: r.value.interview.id,
-				...(moved ? { stage: moved } : {}),
-			});
-			toast({
-				tone: "success",
-				message: moved
-					? `Interview saved. ${first} is now ${STAGE_LABEL[moved.to].toLowerCase()}.`
-					: `Interview saved for ${first}.`,
-			});
+			await commit(input, key, token, draft);
+		});
+	}
+
+	/** One save of one intent: its first send, or Check again with the same request and key (token -1). */
+	async function commit(input: unknown, key: KeyedPayload, token: number, draft: Draft) {
+		const r = await runSave(store, "interview", input, (k) => sendTwice(() => recordInterview(k, input)), {
+			fresh,
+			key,
+			toPerson: (v) => ({ ...store.get().saved, stage: v.person.stage, revision: v.person.revision }) as PlantPerson,
+		});
+		const what = "Your interview";
+		if (r?.status === "lost") return form.unknown(key.key, what, () => start(() => commit(input, key, -1, draft)));
+		if (r?.status !== "ok") {
+			const code = r?.status === "refused" && r.code === "invalid_input" ? "future_date" : codeOf(r);
+			return startTransition(() => form.refused(token, { draft, problem: code }, key.key, what));
+		}
+		form.settled(key.key);
+		const moved = r.value.person.stageChange;
+		startTransition(() => history.add(r.value.interview));
+		onSaved(r.value.receipt, {
+			kind: "activity",
+			action: "interview_recorded",
+			recordId: r.value.interview.id,
+			...(moved ? { stage: moved } : {}),
+		});
+		toast({
+			tone: "success",
+			message: moved
+				? `Interview saved. ${first} is now ${STAGE_LABEL[moved.to].toLowerCase()}.`
+				: `Interview saved for ${first}.`,
 		});
 	}
 
@@ -195,11 +200,7 @@ export function InterviewCard({
 					/>
 				) : null}
 			</CardHeader>
-			<FailedSave
-				notice={form.failed ? { what: "Your last interview save needs a look.", problem: form.failed.problem } : null}
-				onResume={form.resume}
-				onDismiss={form.dismiss}
-			/>
+			<SaveNotice notice={form.notice} onDismiss={form.dismiss} />
 
 			{initial === null ? (
 				<p className="text-sm text-text-3">Interviews did not load. Reload the page to see them.</p>

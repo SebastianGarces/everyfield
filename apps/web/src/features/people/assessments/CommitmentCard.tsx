@@ -61,27 +61,15 @@ import {
 	type Commitments,
 	type CommitmentStatus,
 	type FirstAcquisition,
-	keptKey,
 	sendTwice,
 } from "./model.ts";
-import { codeOf, FailedSave, recorder, ShowEarlier, useHistory, useRecordForm } from "./parts.tsx";
+import { codeOf, recorder, SaveNotice, ShowEarlier, useHistory, useRecordForm } from "./parts.tsx";
 import type { PlantPerson, RecordProps } from "./RecordsSection.tsx";
 
 type Editing =
-	| { form: "record"; draft: CommitmentDraft; problem?: string; key?: KeyedPayload }
-	| {
-			form: "withdraw" | "reactivate";
-			draft: LifecycleDraft;
-			problem?: string;
-			key?: KeyedPayload;
-			/**
-			 * A lost try's own context: the person revision it sent and the earliest date it allowed. Resuming it replays
-			 * that request, so it is not checked again against state that changed after it was sent.
-			 */
-			replay?: { revision: string; since: string | null };
-	  }
-	| { form: "correct"; card: Commitment; draft: CorrectionDraft; problem?: string; key?: KeyedPayload };
-type Replay = { revision: string; since: string | null };
+	| { form: "record"; draft: CommitmentDraft; problem?: string }
+	| { form: "withdraw" | "reactivate"; draft: LifecycleDraft; problem?: string }
+	| { form: "correct"; card: Commitment; draft: CorrectionDraft; problem?: string };
 /** What the card shows while a save runs: a new card, a state change or a corrected card. */
 type Expected = { card: Commitment } | { current: CommitmentStatus };
 
@@ -127,9 +115,10 @@ export function CommitmentCard({
 	const first = firstName(personName);
 	const moves = advancedStage(stage, "core_group") !== stage;
 	const state = view.current?.state ?? "unknown";
-	const reopen = (token: number, e: Editing, r: Outcome<unknown> | null, key: KeyedPayload) => {
+	/** A save that did not save: its form opens again with the reason, or the card says why (model.ts formRefused). */
+	const refused = (token: number, e: Editing, r: Outcome<unknown> | null, id: string, what: string) => {
 		const code = r?.status === "refused" && r.code === "invalid_input" ? "future_date" : codeOf(r);
-		startTransition(() => dialog.fail(token, { ...e, problem: code, key: keptKey(r, key) } as Editing));
+		startTransition(() => dialog.refused(token, { ...e, problem: code } as Editing, id, what));
 		if (isConflict(r)) onConflict();
 	};
 	/** The person as the write left them: its revision and, for a card, the stage it advanced to. */
@@ -137,7 +126,7 @@ export function CommitmentCard({
 		({ ...store.get().saved, stage: stageNow, revision }) as PlantPerson;
 
 	function record(draft: CommitmentDraft) {
-		const { token, prior, keyFor: keyOf } = dialog.send();
+		const { token, key } = dialog.send();
 		start(async () => {
 			const now = new Date().toISOString();
 			const witness =
@@ -169,9 +158,9 @@ export function CommitmentCard({
 				} as Commitment,
 			});
 			expectPerson({ stage: advancedStage(stage, "core_group") });
-			// The document is stored first, once per chosen file; a retried save sends the same upload.
-			let upload = draft.file && draft.upload?.file === draft.file ? draft.upload : null;
-			if (draft.file && !upload) {
+			// The document is stored first. A failed upload saves nothing, so the form opens again with the reason.
+			let uploadId: string | null = null;
+			if (draft.file) {
 				const form = new FormData();
 				form.set("personId", personId);
 				form.set("file", draft.file);
@@ -184,110 +173,121 @@ export function CommitmentCard({
 								? "storage_unavailable"
 								: "upload_failed";
 					return startTransition(() =>
-						dialog.fail(token, { form: "record", draft, problem: code, key: prior ?? undefined }),
+						dialog.refused(token, { form: "record", draft, problem: code }, key.key, "Your commitment card"),
 					);
 				}
-				upload = { file: draft.file, uploadId: stored.value.uploadId };
+				uploadId = stored.value.uploadId;
 			}
-			const kept = { ...draft, upload };
 			const input = {
 				personId,
 				kind: draft.kind,
 				occurredOn: draft.occurredOn,
 				witness,
 				notes: draft.notes.trim() || null,
-				documentUploadId: upload?.uploadId ?? null,
+				documentUploadId: uploadId,
 			};
-			const key = keyOf(input);
-			const r = await runSave(store, "commitment", input, (k) => sendTwice(() => recordCommitment(k, input)), {
-				fresh,
-				key,
-				toPerson: (v: CommitmentSaved) => personAfter(v.person.revision, v.person.stage),
-			});
-			if (r?.status !== "ok") {
-				// A refused save never attached the upload; a new try stores the file again in case it expired.
-				return reopen(
-					token,
-					{ form: "record", draft: r?.status === "lost" ? kept : { ...kept, upload: null } },
-					r,
-					key,
-				);
-			}
-			const { commitment, current: now2, person } = r.value;
-			startTransition(() => {
-				history.add(commitment);
-				setLatest(now2);
-				setFirstOn((f) => withCard(f, commitment));
-				if (draft.witness.kind === "person") {
-					const w = draft.witness;
-					setNames((n) => ({ ...n, [w.id]: w.name }));
-				}
-			});
-			onSaved(r.value.receipt, {
-				kind: "activity",
-				action: "commitment_recorded",
-				recordId: commitment.id,
-				...(person.stageChange ? { stage: person.stageChange } : {}),
-			});
-			toast({
-				tone: "success",
-				message: person.stageChange
-					? `Commitment saved. ${first} is now ${STAGE_LABEL[person.stageChange.to].toLowerCase()}.`
-					: `Commitment saved for ${first}.`,
-			});
+			await commitCard(input, key, token, draft);
 		});
 	}
 
-	function lifecycle(change: "withdraw" | "reactivate", draft: LifecycleDraft, replay?: Replay) {
+	/** One card save of one intent: its first send, or Check again with the same request and key (token -1). */
+	async function commitCard(
+		input: { personId: string } & Record<string, unknown>,
+		key: KeyedPayload,
+		token: number,
+		draft: CommitmentDraft,
+	) {
+		const r = await runSave(store, "commitment", input, (k) => sendTwice(() => recordCommitment(k, input)), {
+			fresh,
+			key,
+			toPerson: (v: CommitmentSaved) => personAfter(v.person.revision, v.person.stage),
+		});
+		const what = "Your commitment card";
+		if (r?.status === "lost")
+			return dialog.unknown(key.key, what, () => start(() => commitCard(input, key, -1, draft)));
+		if (r?.status !== "ok") return refused(token, { form: "record", draft }, r, key.key, what);
+		dialog.settled(key.key);
+		const { commitment, current: now, person } = r.value;
+		startTransition(() => {
+			history.add(commitment);
+			setLatest(now);
+			setFirstOn((f) => withCard(f, commitment));
+			if (draft.witness.kind === "person") {
+				const w = draft.witness;
+				setNames((n) => ({ ...n, [w.id]: w.name }));
+			}
+		});
+		onSaved(r.value.receipt, {
+			kind: "activity",
+			action: "commitment_recorded",
+			recordId: commitment.id,
+			...(person.stageChange ? { stage: person.stageChange } : {}),
+		});
+		toast({
+			tone: "success",
+			message: person.stageChange
+				? `Commitment saved. ${first} is now ${STAGE_LABEL[person.stageChange.to].toLowerCase()}.`
+				: `Commitment saved for ${first}.`,
+		});
+	}
+
+	function lifecycle(change: "withdraw" | "reactivate", draft: LifecycleDraft) {
 		if (!current) return;
-		const since = replay ? replay.since : current.effectiveOn;
-		const { token, keyFor: keyOf } = dialog.send();
+		const { token, key } = dialog.send();
 		start(async () => {
-			// A replay's result is already decided on the server; the card shows it once the answer says it is newer.
-			if (!replay)
-				expect({
-					current: {
-						...current,
-						state: change === "withdraw" ? "withdrawn" : "active",
-						effectiveOn: draft.effectiveOn as CommitmentStatus["effectiveOn"],
-					},
-				});
-			const revision = replay?.revision ?? store.get().saved.revision;
-			const input = { personId, effectiveOn: draft.effectiveOn, reason: draft.reason || null };
-			const key = keyOf({ input, revision });
-			const r = await runSave(
-				store,
-				change,
-				{ input, revision },
-				(k) => sendTwice(() => changeCommitment(change, k, revision, input)),
-				{ fresh, key, toPerson: (v) => personAfter(v.current.personRevision) },
-			);
-			if (r?.status !== "ok")
-				return reopen(
-					token,
-					{ form: change, draft, replay: r?.status === "lost" ? { revision, since } : undefined },
-					r,
-					key,
-				);
-			startTransition(() => setLatest(r.value.current));
-			onSaved(r.value.receipt, {
-				kind: "activity",
-				action: change === "withdraw" ? "commitment_withdrawn" : "commitment_reactivated",
+			expect({
+				current: {
+					...current,
+					state: change === "withdraw" ? "withdrawn" : "active",
+					effectiveOn: draft.effectiveOn as CommitmentStatus["effectiveOn"],
+				},
 			});
-			toast({
-				tone: "success",
-				// A replay saved an earlier change; a later change may have moved the state on since, so name the change only.
-				message: replay
-					? `Your earlier ${change === "withdraw" ? "withdrawal" : "reactivation"} is saved.`
+			const revision = store.get().saved.revision;
+			const input = { personId, effectiveOn: draft.effectiveOn, reason: draft.reason || null };
+			await commitLifecycle(change, input, revision, key, token, draft);
+		});
+	}
+
+	/** One withdrawal or reactivation: its first send, or Check again with the same request and key (token -1). */
+	async function commitLifecycle(
+		change: "withdraw" | "reactivate",
+		input: { personId: string; effectiveOn: string; reason: string | null },
+		revision: string,
+		key: KeyedPayload,
+		token: number,
+		draft: LifecycleDraft,
+	) {
+		const r = await runSave(
+			store,
+			change,
+			{ input, revision },
+			(k) => sendTwice(() => changeCommitment(change, k, revision, input)),
+			{ fresh, key, toPerson: (v) => personAfter(v.current.personRevision) },
+		);
+		const what = change === "withdraw" ? "Your withdrawal" : "Your reactivation";
+		if (r?.status === "lost")
+			return dialog.unknown(key.key, what, () => start(() => commitLifecycle(change, input, revision, key, -1, draft)));
+		if (r?.status !== "ok") return refused(token, { form: change, draft }, r, key.key, what);
+		dialog.settled(key.key);
+		startTransition(() => setLatest(r.value.current));
+		onSaved(r.value.receipt, {
+			kind: "activity",
+			action: change === "withdraw" ? "commitment_withdrawn" : "commitment_reactivated",
+		});
+		toast({
+			tone: "success",
+			// A checked-again save may land after a later change moved the state on, so it names the change only.
+			message:
+				token === -1
+					? `${what} is saved.`
 					: change === "withdraw"
 						? `${first}'s commitment is withdrawn.`
 						: `${first}'s commitment is active again.`,
-			});
 		});
 	}
 
 	function correct(card: Commitment, draft: CorrectionDraft) {
-		const { token, keyFor: keyOf } = dialog.send();
+		const { token, key } = dialog.send();
 		start(async () => {
 			const voiding = draft.action === "void";
 			expect({
@@ -302,26 +302,39 @@ export function CommitmentCard({
 						...(draft.occurredOn !== card.occurredOn ? { occurredOn: draft.occurredOn } : {}),
 						...(draft.kind !== card.kind ? { kind: draft.kind } : {}),
 					};
-			const input = { commitmentId: card.id, correction, reason: draft.reason };
-			const key = keyOf({ input, revision: card.revision });
-			const r = await runSave(
-				store,
-				`correct:${card.id}`,
-				{ input, revision: card.revision },
-				(k) => sendTwice(() => correctCommitment(k, card.revision, personId, input)),
-				{ fresh, key, toPerson: (v) => personAfter(v.commitments.current.personRevision) },
-			);
-			if (r?.status !== "ok") return reopen(token, { form: "correct", card, draft }, r, key);
-			const page = r.value.commitments;
-			startTransition(() => {
-				history.setPage({ items: page.items, next: page.next, total: page.total });
-				setLatest(page.current);
-				setFirstOn(page.firstAcquisition);
-				setNames(page.witnessNames);
-			});
-			onSaved(r.value.receipt, { kind: "activity", action: "commitment_corrected", recordId: card.id });
-			toast({ tone: "success", message: voiding ? "The card is voided." : "The card is corrected." });
+			await commitCorrection(card, { commitmentId: card.id, correction, reason: draft.reason }, key, token, draft);
 		});
+	}
+
+	/** One correction or void: its first send, or Check again with the same request and key (token -1). */
+	async function commitCorrection(
+		card: Commitment,
+		input: { commitmentId: string; correction: unknown; reason: string },
+		key: KeyedPayload,
+		token: number,
+		draft: CorrectionDraft,
+	) {
+		const r = await runSave(
+			store,
+			`correct:${card.id}`,
+			{ input, revision: card.revision },
+			(k) => sendTwice(() => correctCommitment(k, card.revision, personId, input)),
+			{ fresh, key, toPerson: (v) => personAfter(v.commitments.current.personRevision) },
+		);
+		const what = draft.action === "void" ? "Your void of the card" : "Your card correction";
+		if (r?.status === "lost")
+			return dialog.unknown(key.key, what, () => start(() => commitCorrection(card, input, key, -1, draft)));
+		if (r?.status !== "ok") return refused(token, { form: "correct", card, draft }, r, key.key, what);
+		dialog.settled(key.key);
+		const page = r.value.commitments;
+		startTransition(() => {
+			history.setPage({ items: page.items, next: page.next, total: page.total });
+			setLatest(page.current);
+			setFirstOn(page.firstAcquisition);
+			setNames(page.witnessNames);
+		});
+		onSaved(r.value.receipt, { kind: "activity", action: "commitment_corrected", recordId: card.id });
+		toast({ tone: "success", message: draft.action === "void" ? "The card is voided." : "The card is corrected." });
 	}
 
 	const badge = STATE_BADGE[state];
@@ -393,25 +406,7 @@ export function CommitmentCard({
 					</div>
 				) : null}
 			</CardHeader>
-			<FailedSave
-				notice={
-					dialog.failed
-						? {
-								what:
-									dialog.failed.form === "record"
-										? "Your last commitment card save needs a look."
-										: dialog.failed.form === "correct"
-											? "Your last card correction needs a look."
-											: dialog.failed.form === "withdraw"
-												? "Your last withdrawal needs a look."
-												: "Your last reactivation needs a look.",
-								problem: dialog.failed.problem,
-							}
-						: null
-				}
-				onResume={dialog.resume}
-				onDismiss={dialog.dismiss}
-			/>
+			<SaveNotice notice={dialog.notice} onDismiss={dialog.dismiss} />
 
 			{initial === null ? (
 				<p className="text-sm text-text-3">Commitments did not load. Reload the page to see them.</p>
@@ -498,9 +493,9 @@ export function CommitmentCard({
 					draft={editing.draft}
 					problem={editing.problem}
 					personName={first}
-					since={editing.replay ? editing.replay.since : (current?.effectiveOn ?? null)}
+					since={current?.effectiveOn ?? null}
 					onClose={dialog.close}
-					onSubmit={(d) => lifecycle(editing.form as "withdraw" | "reactivate", d, editing.replay)}
+					onSubmit={(d) => lifecycle(editing.form as "withdraw" | "reactivate", d)}
 				/>
 			) : editing?.form === "correct" ? (
 				<CorrectionDialog

@@ -33,14 +33,13 @@ export const fileKind = (mime: string) => (mime === "application/pdf" ? "PDF" : 
 
 export type Witness =
 	{ kind: "none" } | { kind: "person"; id: string; name: string } | { kind: "external"; text: string };
-/** A record form's values. `upload` is the stored document for `file`, kept so a retry never uploads it twice. */
+/** A record form's values. */
 export type CommitmentDraft = {
 	kind: Kind;
 	occurredOn: string;
 	witness: Witness;
 	notes: string;
 	file: File | null;
-	upload: { file: File; uploadId: string } | null;
 };
 export const blankCommitment = (): CommitmentDraft => ({
 	kind: "core_group",
@@ -48,7 +47,6 @@ export const blankCommitment = (): CommitmentDraft => ({
 	witness: { kind: "none" },
 	notes: "",
 	file: null,
-	upload: null,
 });
 
 /** Record a signed commitment card (REQ-PPL-014): kind, signed date, witness, notes and the private document. */

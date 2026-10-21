@@ -15,16 +15,18 @@ import { useId, useRef, useState, type ReactNode } from "react";
 import type { Outcome } from "../model.ts";
 import { fresh, problemText } from "../parts.tsx";
 import {
+	formChecking,
 	formClose,
 	formDismiss,
-	formFail,
 	formOpen,
-	formResume,
+	formRefused,
 	formSend,
+	formSettled,
 	formStart,
+	formUnknown,
 	withRecord,
 	type FormState,
-	type Intent,
+	type Notice,
 } from "./model.ts";
 
 /** Why a record was not saved, or may not be, in words. `busy` means another change to this person is still saving. */
@@ -32,8 +34,6 @@ export function recordProblem(code: string): string {
 	switch (code) {
 		case "busy":
 			return "Another change to this person is still saving. Try again in a moment.";
-		case "lost":
-			return "We did not hear back from the server, so this may already be saved. Save again: it will not be saved twice.";
 		case "future_date":
 			return "This date is after today at your church. Choose today or an earlier date.";
 		case "storage_unavailable":
@@ -251,10 +251,10 @@ export function useHistory<R extends Dated>(
 }
 
 /**
- * One card's record form and the saves it sends, over the rules in model.ts (formSend, formFail and the rest). The
- * ref is the latest state, read synchronously by a save or a late reply; the state copy renders the card.
+ * One card's record form and the notice of a save that failed or whose result is unknown, over the rules in model.ts.
+ * The ref is the latest state, read synchronously by a save or a late answer; the state copy renders the card.
  */
-export function useRecordForm<E extends Intent>() {
+export function useRecordForm<E extends { problem?: string }>() {
 	const state = useRef<FormState<E>>(formStart<E>());
 	const [view, setView] = useState<FormState<E>>(formStart<E>);
 	const apply = (next: FormState<E>) => {
@@ -263,34 +263,35 @@ export function useRecordForm<E extends Intent>() {
 	};
 	return {
 		editing: view.editing,
-		failed: view.failed,
+		notice: view.notice,
 		open: (e: E) => apply(formOpen(state.current, e)),
 		close: () => apply(formClose(state.current)),
+		/** Closes the form for a save and gives its token and its own new request key. */
 		send: () => {
-			const sent = formSend(state.current, fresh);
+			const sent = formSend(state.current);
 			apply(sent.state);
-			return sent;
+			return { token: sent.token, key: { key: fresh(), body: "" } };
 		},
-		fail: (token: number, e: E) => apply(formFail(state.current, token, e)),
-		resume: () => apply(formResume(state.current)),
+		refused: (token: number, e: E, id: string, what: string) =>
+			apply(formRefused(state.current, token, e, { id, what })),
+		unknown: (id: string, what: string, check: () => void) =>
+			apply(
+				formUnknown(state.current, id, what, () => {
+					apply(formChecking(state.current));
+					check();
+				}),
+			),
+		settled: (id: string) => apply(formSettled(state.current, id)),
 		dismiss: () => apply(formDismiss(state.current)),
 	};
 }
 
 /**
- * A save that failed while the person worked on something else: its reason and a way back to its form. The live region
- * is always on the page, so a newer dialog that opens later keeps it readable (the dialog hides everything else from
- * screen readers): the failure is announced without moving focus or changing the newer form.
+ * The card's notice of a save that was not saved, or whose result is unknown. The live region is always on the page, so
+ * a dialog opened later keeps it readable (the dialog hides everything else from screen readers): the notice is
+ * announced without moving focus or changing the open form.
  */
-export function FailedSave({
-	notice,
-	onResume,
-	onDismiss,
-}: {
-	notice: { what: string; problem?: string } | null;
-	onResume: () => void;
-	onDismiss: () => void;
-}) {
+export function SaveNotice({ notice, onDismiss }: { notice: Notice | null; onDismiss: () => void }) {
 	return (
 		<div aria-live="assertive" aria-atomic="true">
 			{notice ? (
@@ -298,13 +299,17 @@ export function FailedSave({
 					<p className="flex items-start gap-2">
 						<Icon icon={Alert02Icon} size={16} className="mt-px flex-none" />
 						<span>
-							{notice.what} {notice.problem ? recordProblem(notice.problem) : null}
+							{notice.tone === "unknown"
+								? `${notice.what} may already be saved. We did not hear back from the server. Check again to find out; it will not be saved twice.`
+								: `${notice.what} was not saved. ${recordProblem(notice.problem)}`}
 						</span>
 					</p>
 					<div className="flex flex-wrap gap-2">
-						<Button size="sm" variant="secondary" onClick={onResume}>
-							Open it again
-						</Button>
+						{notice.tone === "unknown" ? (
+							<Button size="sm" variant="secondary" loading={notice.checking} onClick={notice.check}>
+								Check again
+							</Button>
+						) : null}
 						<Button size="sm" variant="ghost" onClick={onDismiss}>
 							Dismiss
 						</Button>
