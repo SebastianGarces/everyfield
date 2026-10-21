@@ -318,6 +318,10 @@ test("AC:EVRY-CONTEXT-BOUNDS AC:UI45-006 a source retired after its turn is with
 						]
 					: n === 1
 						? [
+								// Text copied from the returned row, written while the source is being retired.
+								{ type: "text-start" as const, id: "found" },
+								{ type: "text-delta" as const, id: "found", delta: "I found Alex Chen." },
+								{ type: "text-end" as const, id: "found" },
 								{
 									type: "tool-call" as const,
 									toolCallId: randomUUID(),

@@ -28,6 +28,9 @@ export type RunDeps = {
 	flushMs?: number;
 };
 /** succeeded: the turn saved its final state. failed: it saved a failure. lost: it no longer owned the run. */
+/** Stands in for this turn's earlier assistant text once one of its sources is no longer available. */
+const WITHHELD_TEXT = "[An earlier part of this answer used a source that is no longer available.]";
+
 export type RunOutcome = "succeeded" | "failed" | "lost";
 
 const TRANSIENT_SQL = new Set(["40001", "40P01", "08000", "08003", "08006", "57P01", "53300"]);
@@ -146,7 +149,7 @@ export async function runTurn(deps: RunDeps, lease: RunLease): Promise<RunOutcom
 			});
 		};
 		const context = await compile();
-		/** This turn's tool results with rows whose source is no longer available removed. One read per model call. */
+		/** This turn's messages with sources that are no longer available withheld. One read per model call. */
 		const withLiveRows = async (messages: ModelMessage[]) => {
 			const ids = new Set<string>();
 			const rowsOf = (part: unknown) => {
@@ -162,33 +165,44 @@ export async function runTurn(deps: RunDeps, lease: RunLease): Promise<RunOutcom
 			const live = new Set(
 				(fresh && sameContext(fresh, actor) ? await verifyPeople(db, fresh, [...ids]) : []).map((r) => r.id),
 			);
-			return messages.map((m) =>
-				m.role !== "tool"
-					? m
-					: {
-							...m,
-							content: m.content.map((part) => {
-								const rows = rowsOf(part);
-								if (!rows) return part;
-								const kept = rows.filter((r) => live.has(r.id));
-								if (kept.length === rows.length) return part;
-								const output = (part as { output: { value: Record<string, unknown> } }).output;
-								return {
-									...part,
-									output: {
-										type: "json" as const,
-										value: {
-											...output.value,
-											rows: kept,
-											total: null,
-											completeness: "partial",
-											withheldRows: rows.length - kept.length,
-										},
-									},
-								} as typeof part;
-							}),
-						},
-			);
+			// The replay rule (retained.ts): when a source of this turn is withheld, so is this turn's assistant text,
+			// which may quote it. Tool calls and their results stay, so the call/result protocol holds.
+			const withheld = [...ids].some((id) => !live.has(id));
+			if (!withheld) return messages;
+			return messages.map((m): ModelMessage => {
+				if (m.role === "assistant")
+					return {
+						...m,
+						content:
+							typeof m.content === "string"
+								? WITHHELD_TEXT
+								: m.content.map((part) => (part.type === "text" ? { ...part, text: WITHHELD_TEXT } : part)),
+					};
+				if (m.role !== "tool") return m;
+				return {
+					...m,
+					content: m.content.map((part) => {
+						const rows = rowsOf(part);
+						if (!rows) return part;
+						const kept = rows.filter((r) => live.has(r.id));
+						if (kept.length === rows.length) return part;
+						const output = (part as { output: { value: Record<string, unknown> } }).output;
+						return {
+							...part,
+							output: {
+								type: "json" as const,
+								value: {
+									...output.value,
+									rows: kept,
+									total: null,
+									completeness: "partial",
+									withheldRows: rows.length - kept.length,
+								},
+							},
+						} as typeof part;
+					}),
+				};
+			});
 		};
 
 		// One budget gate for every tool: the 25th call runs nothing, and a changed context stops the turn.
