@@ -610,8 +610,8 @@ export function EvaluationCard({
 	const compare = analytics?.evaluation ?? null;
 	return (
 		<Card as="section" aria-labelledby="evaluation-title" aria-busy={saving || undefined}>
-			<CardHeader className="flex-wrap">
-				<CardHeading>
+			<CardHeader className="flex-wrap gap-y-3">
+				<CardHeading className="min-w-[240px] flex-1">
 					<CardTitle id="evaluation-title">Meeting evaluation</CardTitle>
 					<CardDescription>
 						{saving ? (
@@ -645,7 +645,7 @@ export function EvaluationCard({
 						</Button>
 						{canWrite ? (
 							<Button variant="secondary" size="sm" icon={Edit02Icon} onClick={onCorrect} disabled={saving}>
-								Correct
+								Correct scores
 							</Button>
 						) : null}
 					</div>
@@ -662,7 +662,7 @@ export function EvaluationCard({
 						</p>
 						<Comparison compare={compare} />
 					</div>
-					<ul className="mt-4 grid grid-cols-4 gap-3 max-app-lg:grid-cols-2 max-app-sm:grid-cols-1">
+					<ul className="mt-4 grid grid-cols-4 gap-3 max-app-lg:grid-cols-2">
 						{FACTORS.map((f) => (
 							<li key={f.key}>
 								<CardInset className="flex flex-col gap-2 px-3.5 py-3">

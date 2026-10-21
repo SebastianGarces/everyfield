@@ -288,7 +288,9 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 				);
 				setEvaluating(null);
 				toast({
-					message: saved ? "The evaluation is corrected." : "The evaluation is saved. Its task is complete.",
+					message: saved
+						? "The evaluation is corrected."
+						: `The evaluation is saved.${r.value.taskCompleted ? " Its task is complete." : ""}`,
 					tone: "success",
 				});
 				return;

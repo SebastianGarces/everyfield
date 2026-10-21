@@ -77,16 +77,18 @@ function Body({ report, thisYear }: { report: MeetingsReport; thisYear: number }
 	return (
 		<div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] items-start gap-6 max-app-md:grid-cols-1">
 			{s ? (
-				<KeyValueList>
-					<KeyValue k="Held" value={s.held} />
+				<KeyValueList className="self-start">
+					<KeyValue size="sm" k="Held" value={s.held} />
 					<KeyValue
+						size="sm"
 						k="Average attendance"
 						value={s.averageAttendance.status === "known" ? scoreText(s.averageAttendance.value) : "Unknown"}
 					/>
-					<KeyValue k="Different people" value={s.uniqueAttendees} />
-					<KeyValue k="First visits" value={s.firstTime} />
-					<KeyValue k="Returning visits" value={s.returning} />
+					<KeyValue size="sm" k="Different people" value={s.uniqueAttendees} />
+					<KeyValue size="sm" k="First visits" value={s.firstTime} />
+					<KeyValue size="sm" k="Returning visits" value={s.returning} />
 					<KeyValue
+						size="sm"
 						k="Average evaluation"
 						value={s.averageEvaluation.status === "known" ? `${scoreText(s.averageEvaluation.value)} of 5` : "Unknown"}
 					/>
@@ -104,7 +106,7 @@ function Body({ report, thisYear }: { report: MeetingsReport; thisYear: number }
 				<figure className="flex min-w-0 flex-col gap-3">
 					<div aria-hidden="true" className="flex h-[160px] items-end gap-1.5">
 						{points.map((p) => (
-							<div key={p.meetingId} className="flex h-full min-w-0 flex-1 flex-col justify-end gap-1">
+							<div key={p.meetingId} className="flex h-full max-w-14 min-w-0 flex-1 flex-col justify-end gap-1">
 								<span className="text-center text-xs text-text-2 tabular-nums">{p.attended}</span>
 								<span
 									className="flex flex-col-reverse overflow-hidden rounded-xs"
@@ -123,7 +125,7 @@ function Body({ report, thisYear }: { report: MeetingsReport; thisYear: number }
 						{points.map((p) => {
 							const e = scores.get(p.meetingId);
 							return (
-								<span key={p.meetingId} className="min-w-0 flex-1 text-center text-xs tabular-nums">
+								<span key={p.meetingId} className="max-w-14 min-w-0 flex-1 text-center text-xs tabular-nums">
 									<span className="block text-ink">{e ? scoreText(e.average) : "–"}</span>
 									<span className="block truncate text-text-3">{dateText(p.localDate, thisYear).slice(4)}</span>
 								</span>
