@@ -14,6 +14,9 @@ import {
 } from "./lib.ts";
 import { producerReady } from "./progress.ts";
 
+/** The approved prototype keeps its bytes: design/handoff/tokens.css, and through it the app, derive from it. */
+export const APPROVED_PROTOTYPE = "design/everyfield-ui.html";
+
 /** Local reviewed source policy is an operator boundary, never inferred from a role flag or severity. */
 export function requireImplementation(root: string, wp: string, part: Part = null): void {
 	const gates = readJson<{ gates: Array<{ id: string; status: string; scope?: string; work_packages: string[] }> }>(
@@ -69,7 +72,10 @@ export function requireTaskScope(root: string, task: TaskRef, wp?: string): void
 			"design/handoff/screens.md",
 		];
 		const directories = [".agents/", ".claude/", "docs/", "tools/evf/", ".github/"];
-		if (
+		if (scope.route === "design") {
+			if (scope.owningPaths.some((path) => !path.startsWith("design/") || path.split("/").includes("..")))
+				fail("A design task owns only design/ paths.");
+		} else if (
 			scope.owningPaths.some(
 				(path) =>
 					path.split("/").includes("..") || (!files.includes(path) && !directories.some((dir) => path.startsWith(dir))),
@@ -103,5 +109,6 @@ export function requireMaintenancePaths(root: string, wt: string, task: TaskRef)
 			.split("\n")
 			.filter(Boolean);
 		if (changed.some((p) => !owns(p))) fail("Maintenance candidate changes paths outside its reviewed owning paths.");
+		if (changed.includes(APPROVED_PROTOTYPE)) fail(`${APPROVED_PROTOTYPE} keeps its approved bytes.`);
 	}
 }

@@ -34,6 +34,8 @@ export type Config = {
 			owningPaths: string[];
 			checks: CheckDef[];
 			risk?: "ordinary" | "sensitive" | "security" | "privacy" | "irreversible";
+			/** A design task owns only design/ files and merges after the verifier and Sebastian's approval. */
+			route?: "design";
 		}
 	>;
 	taskRisks?: Record<string, "ordinary" | "sensitive" | "security" | "privacy" | "irreversible">;

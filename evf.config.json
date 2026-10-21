@@ -469,6 +469,21 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-21": {
+			"title": "Route design-only PRs",
+			"owningPaths": ["tools/evf/", "evf.config.json", ".agents/skills/ship/SKILL.md"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
