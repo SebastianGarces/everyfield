@@ -16,16 +16,16 @@
 		"retry": 20
 	},
 	"identity.budget.finish": {
-		"limit": 6,
-		"retry": 12
+		"limit": 1,
+		"retry": 2
 	},
 	"identity.budget.rememberRegistration": {
 		"limit": 1,
 		"retry": 2
 	},
 	"identity.budget.reserve": {
-		"limit": 8,
-		"retry": 16
+		"limit": 1,
+		"retry": 2
 	},
 	"identity.handle:get-session": {
 		"limit": 5,
@@ -564,48 +564,52 @@
 		"retry": 30
 	},
 	"settings.cancelAccountDeletion": {
-		"limit": 9,
-		"retry": 18
+		"limit": 4,
+		"retry": 8
 	},
 	"settings.cancelWorkspaceDeletion": {
 		"limit": 14,
 		"retry": 28
 	},
 	"settings.changePassword": {
-		"limit": 35,
-		"retry": 70
+		"limit": 13,
+		"retry": 26
 	},
 	"settings.confirmEmailChange": {
-		"limit": 21,
-		"retry": 42
-	},
-	"settings.finalizeAvatar": {
 		"limit": 8,
 		"retry": 16
 	},
+	"settings.finalizeAvatar": {
+		"limit": 6,
+		"retry": 12
+	},
+	"settings.openAccountDeletion": {
+		"limit": 10,
+		"retry": 20
+	},
 	"settings.previewPersonalTimezone": {
-		"limit": 9,
-		"retry": 18
+		"limit": 7,
+		"retry": 14
 	},
 	"settings.previewPlantTimezone": {
 		"limit": 7,
 		"retry": 14
 	},
 	"settings.removeAvatar": {
-		"limit": 9,
-		"retry": 18
+		"limit": 5,
+		"retry": 10
 	},
 	"settings.requestAccountDeletion": {
-		"limit": 12,
-		"retry": 24
+		"limit": 8,
+		"retry": 16
 	},
 	"settings.requestAvatarUpload": {
-		"limit": 7,
-		"retry": 14
+		"limit": 4,
+		"retry": 8
 	},
 	"settings.requestEmailChange": {
-		"limit": 28,
-		"retry": 56
+		"limit": 12,
+		"retry": 24
 	},
 	"settings.requestWorkspaceDeletion": {
 		"limit": 11,
@@ -640,8 +644,8 @@
 		"retry": 14
 	},
 	"settings.setPersonalTimezone": {
-		"limit": 12,
-		"retry": 24
+		"limit": 10,
+		"retry": 20
 	},
 	"settings.setPlantTimezone": {
 		"limit": 11,
@@ -652,16 +656,16 @@
 		"retry": 12
 	},
 	"settings/avatar.uploadAvatar": {
-		"limit": 23,
-		"retry": 46
+		"limit": 12,
+		"retry": 24
 	},
 	"settings/core.withSettingsWrite": {
 		"limit": 14,
 		"retry": 28
 	},
 	"settings/deletion.issueRestrictedDeletionSession": {
-		"limit": 7,
-		"retry": 14
+		"limit": 4,
+		"retry": 8
 	},
 	"tasks.bulkComplete": {
 		"limit": 13,
