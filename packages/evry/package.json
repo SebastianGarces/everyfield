@@ -3,7 +3,8 @@
 	"private": true,
 	"type": "module",
 	"exports": {
-		".": "./src/index.ts"
+		".": "./src/index.ts",
+		"./tracing": "./src/runtime/trace.ts"
 	},
 	"scripts": {
 		"typecheck": "tsc --noEmit",
@@ -17,6 +18,16 @@
 		"@everyfield/contracts": "workspace:*",
 		"@everyfield/db": "workspace:*",
 		"@everyfield/domain": "workspace:*",
+		"@langfuse/otel": "6.0.1",
+		"@langfuse/tracing": "6.0.1",
+		"@langfuse/vercel-ai-sdk": "6.0.1",
+		"@opentelemetry/api": "1.9.1",
+		"@opentelemetry/context-async-hooks": "2.12.0",
+		"@opentelemetry/core": "2.12.0",
+		"@opentelemetry/exporter-trace-otlp-http": "0.223.0",
+		"@opentelemetry/otlp-exporter-base": "0.223.0",
+		"@opentelemetry/sdk-trace": "2.12.0",
+		"@opentelemetry/sdk-trace-base": "2.12.0",
 		"ai": "7.0.148",
 		"server-only": "0.0.1",
 		"zod": "4.6.7"

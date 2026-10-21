@@ -64,11 +64,13 @@ export const scripted = () => selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" })
 
 /** Claims the next due turn through the WP-031 queue, runs it and finishes the claim, as the app worker does. */
 export async function work(model = scripted(), extra: Partial<Parameters<typeof runTurn>[0]> = {}) {
+	const claimStart = new Date();
 	const [claim] = await claimDue(db, ["assistant_turn"], 1, 240);
 	if (!claim) return null;
 	const outcome = await runTurn(
 		{ db, model, freshActor, ...extra },
 		{ turnId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },
+		{ claimStart, claimEnd: new Date() },
 	);
 	if (outcome !== "lost")
 		await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
