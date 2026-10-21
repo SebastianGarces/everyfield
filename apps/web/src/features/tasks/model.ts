@@ -14,8 +14,20 @@ export type TaskDetail = z.infer<typeof c.taskDetail>;
 export type TaskCounts = z.infer<typeof c.taskCounts>;
 export type TaskHistory = z.infer<typeof c.statusHistory>;
 export type TaskError = c.TaskError;
-/** A confirmed write: the task as saved, its audit record's ID (the history entry) and whether anything changed. */
-export type Saved = { task: TaskDetail; receiptId: string; changed: boolean };
+export type Step = TaskDetail["checklistItems"][number];
+export type Rule = z.infer<typeof c.recurrenceRule>;
+export type Frequency = Rule["frequency"];
+export type Prerequisites = z.infer<typeof c.prerequisiteList>;
+export type Prerequisite = Prerequisites["items"][number];
+export type Candidate = z.infer<typeof c.prerequisiteCandidates>["items"][number];
+export type Occurrence = z.infer<typeof c.openOccurrence>;
+export type BulkResult = z.infer<typeof c.bulkResult>;
+export type BulkOutcome = z.infer<typeof c.bulkOutcome>;
+/**
+ * A confirmed write: the task as saved, its audit record's ID (the history entry), whether anything changed and, for a
+ * completed recurring task, the next occurrence it created.
+ */
+export type Saved = { task: TaskDetail; receiptId: string; changed: boolean; successor?: TaskDetail | null };
 
 /** A screen action's answer. "lost" means no answer arrived: the same request key may be sent again. */
 export type Outcome<T> =
@@ -83,6 +95,100 @@ export const SORT_LABEL: Record<(typeof SORTS)[number], string> = {
 };
 
 export const isSettled = (s: Status) => s === "complete" || s === "no_longer_needed";
+
+// ---------------------------------------------------------------------------------------------------------------
+// Task structure (REQ-TSK-005 to 008): steps, what a task waits for, repeats and bulk changes.
+
+export const FREQUENCIES = ["daily", "weekly", "biweekly", "monthly", "quarterly", "yearly"] as const;
+export const FREQUENCY_LABEL: Record<Frequency, string> = {
+	daily: "Every day",
+	weekly: "Every week",
+	biweekly: "Every two weeks",
+	monthly: "Every month",
+	quarterly: "Every three months",
+	yearly: "Every year",
+};
+/** "Every week · 9:00 AM · until Thu Dec 31", or null when the task does not repeat. */
+export function repeatText(rule: Pick<Rule, "frequency" | "until" | "localTime"> | null, year?: number): string | null {
+	if (!rule) return null;
+	return [
+		FREQUENCY_LABEL[rule.frequency],
+		rule.localTime ? timeText(rule.localTime) : null,
+		rule.until ? `until ${dayText(rule.until, year)}` : null,
+	]
+		.filter(Boolean)
+		.join(" · ");
+}
+/** "Blocked by 2 tasks": the advisory badge from open prerequisites, never the manual Blocked status. */
+export const blockedText = (open: number) => `Blocked by ${open} ${open === 1 ? "task" : "tasks"}`;
+/** Whether a prerequisite still holds its task back: a deleted, done or no-longer-needed one does not. */
+export const blocks = (p: Pick<Prerequisite, "status" | "deleted">) => !p.deleted && !isSettled(p.status);
+
+/** A task that changed whether it holds others back: done, no longer needed, deleted, or reopened. */
+export type Blocker = { id: string; status: Status; deleted: boolean };
+/**
+ * A waiting task's prerequisites after some of them changed, with how many still hold it back, or null when none of
+ * the changed tasks is among them (REQ-TSK-006).
+ */
+export function withBlockers(items: readonly Prerequisite[], changed: readonly Blocker[]) {
+	const by = new Map(changed.map((c) => [c.id, c]));
+	if (!items.some((p) => by.has(p.id))) return null;
+	const next = items.map((p) => {
+		const c = by.get(p.id);
+		if (!c) return p;
+		const q = { ...p, status: c.status, deleted: p.deleted || c.deleted };
+		return { ...q, blocking: blocks(q) };
+	});
+	return { items: next, open: next.filter(blocks).length };
+}
+
+/**
+ * The page's "Blocked by" badge reads (REQ-TSK-006). Only the newest read for the list still on screen applies, also
+ * when it failed: a newer read or a new list (search, filters, page) ends every earlier read and its retries. Opening
+ * a task panel adds `task` to the address but does not change the list.
+ */
+export class BadgeReads {
+	#newest = 0;
+	start(search: string) {
+		return { n: ++this.#newest, scope: listScopeOf(search) };
+	}
+	/** A new list ends every read of the old one. */
+	end() {
+		this.#newest++;
+	}
+	applies(read: { n: number; scope: string }, search: string) {
+		return read.n === this.#newest && listScopeOf(search) === read.scope;
+	}
+}
+const listScopeOf = (search: string) => {
+	const p = new URLSearchParams(search);
+	p.delete("task");
+	return p.toString();
+};
+
+/** Why one task of a bulk change did not change, in words. The same request again changes nothing twice. */
+export function bulkOutcomeText(outcome: BulkOutcome, kind: "complete" | "reschedule"): string {
+	switch (outcome) {
+		case "changed":
+			return kind === "complete" ? "Done" : "Rescheduled";
+		case "noop":
+			return kind === "complete" ? "It was already done." : "It already had that due date.";
+		case "closed":
+			return kind === "complete"
+				? "It was closed as no longer needed, so it was not marked done."
+				: "It is closed, so its due date stays.";
+		case "deleted":
+			return "Someone deleted it.";
+		case "stale":
+			return "It changed after you selected it. We loaded the latest version; check it and try again.";
+		case "unauthorized":
+			return "Your seat cannot change it.";
+		case "ineligible":
+			return "It is a checklist step, and steps have no due date.";
+		default:
+			return "We could not find it. Reload the page.";
+	}
+}
 
 // ---------------------------------------------------------------------------------------------------------------
 // The address. View, search, filters, sort and page live in the URL (D67). A filter change goes back to page one and
@@ -281,6 +387,15 @@ export function dueInputOf(d: DueDraft): { ok: true; due: DueInput } | { ok: fal
 		},
 	};
 }
+/**
+ * Whether a due date the screen sets before the server answers is already past. A day is past when it is before today
+ * in this browser; the server's own answer in the church zone replaces it on the next read.
+ */
+export function previewOverdue(due: DueInput, today = new Date().toLocaleDateString("en-CA")): boolean | null {
+	if (due.kind === "undated") return null;
+	if (due.kind === "local_date") return due.date < today;
+	return null;
+}
 export const sameDue = (a: DueDraft, b: DueDraft) =>
 	a.kind === b.kind &&
 	(a.kind === "undated" ||
@@ -358,6 +473,8 @@ export function problemText(code: Outcome<unknown>["status"] | TaskError["code"]
 			return "That time happens twice on this day because the clocks move back. Choose which one you mean.";
 		case "open_successor":
 			return "A later occurrence of this task is still open. Close that one first, or work on it instead.";
+		case "dependency_cycle":
+			return "One of these tasks already waits for this one, directly or through other tasks. Remove it and save again.";
 		case "temporary":
 			return "The server is busy. Try again in a moment.";
 		case "unavailable":
@@ -397,20 +514,36 @@ export class RequestKeys {
 
 export type Pending = {
 	status: Readonly<Record<string, Status>>;
-	/** A row as it will be after an edit, or null for a row being deleted. */
+	/** A row as it will be after an edit, or null for a row being deleted. A step being removed is null here too. */
 	rows: Readonly<Record<string, TaskItem | null>>;
 	added: readonly TaskItem[];
+	/** New steps by parent, shown under it until the server names them. */
+	steps: Readonly<Record<string, readonly Step[]>>;
+	/** A task's panel facts as they will be: its repeat rule and what it waits for. */
+	panel: Readonly<Record<string, Partial<Panel>>>;
 };
+/** What the task panel shows beyond the task itself. */
+export type Panel = { recurrence: TaskDetail["recurrence"]; prerequisites: Prerequisite[] };
 export type Change =
 	| { kind: "status"; id: string; status: Status }
 	| { kind: "row"; id: string; row: TaskItem | null }
-	| { kind: "add"; row: TaskItem };
-export const NO_PENDING: Pending = { status: {}, rows: {}, added: [] };
+	| { kind: "add"; row: TaskItem }
+	| { kind: "step"; parentId: string; step: Step }
+	| { kind: "panel"; id: string; panel: Partial<Panel> };
+export const NO_PENDING: Pending = { status: {}, rows: {}, added: [], steps: {}, panel: {} };
 export const PENDING_PREFIX = "pending:";
 export function withChange(p: Pending, c: Change): Pending {
 	if (c.kind === "status") return { ...p, status: { ...p.status, [c.id]: c.status } };
 	if (c.kind === "row") return { ...p, rows: { ...p.rows, [c.id]: c.row } };
+	if (c.kind === "step") return { ...p, steps: { ...p.steps, [c.parentId]: [...(p.steps[c.parentId] ?? []), c.step] } };
+	if (c.kind === "panel") return { ...p, panel: { ...p.panel, [c.id]: { ...p.panel[c.id], ...c.panel } } };
 	return { ...p, added: [c.row, ...p.added] };
+}
+/** A parent's steps as the person sees them: saved ones with removals hidden and ticks shown, then new ones. */
+export function shownSteps(saved: readonly Step[], parentId: string, p: Pending): Step[] {
+	return [...saved, ...(p.steps[parentId] ?? [])]
+		.filter((s) => !(s.id in p.rows && p.rows[s.id] === null))
+		.map((s) => (p.status[s.id] ? { ...s, status: p.status[s.id]! } : s));
 }
 /** The rows as the person sees them: new tasks first, edits applied, deletes hidden, statuses in flight shown. */
 export function shownRows(items: readonly TaskItem[], p: Pending): TaskItem[] {
@@ -442,17 +575,17 @@ export function matches(q: TaskQuery, t: TaskItem, you: string): boolean {
 }
 
 /**
- * One save the person asked for. Its first send fixes the request key and the revision it was based on; every retry of
- * that save resends both, so the writer replays the first result instead of saving twice. Each intent has its own key,
- * so later saves never replace it.
+ * One save the person asked for. Its first send fixes the request key and the basis it was made on (the revision the
+ * person saw, or the reviewed tasks of a bulk change); every retry of that save resends both, so the writer replays the
+ * first result instead of saving twice. Each intent has its own key, so later saves never replace it.
  */
-export class Intent {
-	#sent: { key: string; revision: string } | null = null;
+export class Intent<T = string> {
+	#sent: { key: string; basis: T } | null = null;
 	readonly #fresh: () => string;
 	constructor(fresh: () => string = () => crypto.randomUUID()) {
 		this.#fresh = fresh;
 	}
-	send(revision: () => string): { key: string; revision: string } {
-		return (this.#sent ??= { key: this.#fresh(), revision: revision() });
+	send(basis: () => T): { key: string; basis: T } {
+		return (this.#sent ??= { key: this.#fresh(), basis: basis() });
 	}
 }
