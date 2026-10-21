@@ -151,7 +151,14 @@ export function InterviewCard({
 		<Card className="min-w-0">
 			<CardHeader className="mb-3">
 				<CardHeading>
-					<CardTitle size="sm">Interview</CardTitle>
+					<div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+						<CardTitle size="sm">Interview</CardTitle>
+						{latest ? (
+							<StatusBadge status={RESULT_STATUS[latest.result]} size="sm">
+								{RESULT_LABEL[latest.result]}
+							</StatusBadge>
+						) : null}
+					</div>
 					<CardDescription className="text-sm">
 						{latest ? (
 							<>
@@ -165,11 +172,6 @@ export function InterviewCard({
 						)}
 					</CardDescription>
 				</CardHeading>
-				{latest ? (
-					<StatusBadge status={RESULT_STATUS[latest.result]} size="sm" className="mt-0.5">
-						{RESULT_LABEL[latest.result]}
-					</StatusBadge>
-				) : null}
 				{canEdit && initial !== null && latest ? (
 					<IconButton
 						icon={Add01Icon}

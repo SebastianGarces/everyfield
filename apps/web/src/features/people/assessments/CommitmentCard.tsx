@@ -288,7 +288,14 @@ export function CommitmentCard({
 		<Card className="min-w-0">
 			<CardHeader className="mb-3">
 				<CardHeading>
-					<CardTitle size="sm">Commitment</CardTitle>
+					<div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+						<CardTitle size="sm">Commitment</CardTitle>
+						{initial !== null && view.items.length > 0 ? (
+							<StatusBadge status={badge.status} size="sm">
+								{badge.label}
+							</StatusBadge>
+						) : null}
+					</div>
 					<CardDescription className="text-sm">
 						{initial === null ? (
 							"Did not load"
@@ -307,11 +314,6 @@ export function CommitmentCard({
 						)}
 					</CardDescription>
 				</CardHeading>
-				{initial !== null && view.items.length > 0 ? (
-					<StatusBadge status={badge.status} size="sm" className="mt-0.5">
-						{badge.label}
-					</StatusBadge>
-				) : null}
 				{canEdit && initial !== null ? (
 					<div className="flex items-center gap-1.5">
 						{history.items.length > 0 ? (
