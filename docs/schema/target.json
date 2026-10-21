@@ -71,7 +71,7 @@
   "as_of": "2026-10-17",
   "implementation_authorized": false,
   "table_count": 86,
-  "column_count": 988,
+  "column_count": 989,
   "foreign_key_count": 312,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
@@ -21305,7 +21305,9 @@
       "purpose": "Paid Evry model spend committed per calendar month (UTC) in this database: reservations for runs in progress plus the settled cost of finished runs, checked against the monthly limit before any paid model call (D76).",
       "library_owned": false,
       "jsonb_keys": {},
-      "capabilities": [],
+      "capabilities": [
+        "CAP-C-035"
+      ],
       "replaces": [],
       "producer_work_packages": [
         "WP-051"
@@ -21318,7 +21320,10 @@
         "rule": "WP-051 Evry model qualification spend limit through Drizzle Kit."
       },
       "feature_ids": [
-        "EVR-004"
+        "EVR-004",
+        "EVR-019",
+        "EVR-027",
+        "EVR-030"
       ],
       "acceptance_ids": [],
       "future_case_ids": [],
@@ -21334,6 +21339,13 @@
       "columns": [
         {
           "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "",
           "name": "month",
           "type": "date",
           "nullable": false
@@ -21346,9 +21358,15 @@
         }
       ],
       "primary_key": [
-        "month"
+        "id"
       ],
-      "unique_keys": [],
+      "unique_keys": [
+        {
+          "columns": [
+            "month"
+          ]
+        }
+      ],
       "foreign_keys": [],
       "checks": [
         "\"model_spend\".\"charged_micro_usd\" >= 0",
@@ -21357,7 +21375,9 @@
       "indexes": {},
       "constraint_names": {
         "primary": [],
-        "unique": [],
+        "unique": [
+          "model_spend_month_key"
+        ],
         "foreign": [],
         "checks": [
           "model_spend_month",

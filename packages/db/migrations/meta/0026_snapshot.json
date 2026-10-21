@@ -1,5 +1,5 @@
 {
-  "id": "1af37f52-c7fc-4064-80c4-2b02097185f2",
+  "id": "36235d32-7b26-469d-8510-c3e720bf15f7",
   "prevId": "cdd8c465-7604-4e25-b843-31bdef229c0c",
   "version": "7",
   "dialect": "postgresql",
@@ -9171,10 +9171,17 @@
       "name": "model_spend",
       "schema": "",
       "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
         "month": {
           "name": "month",
           "type": "date",
-          "primaryKey": true,
+          "primaryKey": false,
           "notNull": true
         },
         "charged_micro_usd": {
@@ -9187,7 +9194,15 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "model_spend_month_key": {
+          "name": "model_spend_month_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "month"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {
         "model_spend_month": {

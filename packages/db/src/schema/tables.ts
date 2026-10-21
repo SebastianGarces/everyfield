@@ -4767,10 +4767,12 @@ export const conversation_event = pgTable(
 export const model_spend = pgTable(
 	"model_spend",
 	{
-		month: date("month", { mode: "string" }).primaryKey(),
+		id: uuid("id").primaryKey().defaultRandom(),
+		month: date("month", { mode: "string" }).notNull(),
 		charged_micro_usd: int64("charged_micro_usd").notNull(),
 	},
 	(t): PgTableExtraConfigValue[] => [
+		unique("model_spend_month_key").on(t.month),
 		check("model_spend_month", sql`${t.month}=date_trunc('month',${t.month})::date`),
 		check("model_spend_charged", sql`${t.charged_micro_usd} >= 0`),
 	],

@@ -16184,7 +16184,7 @@
 				"purpose": "Paid Evry model spend committed per calendar month (UTC) in this database: reservations for runs in progress plus the settled cost of finished runs, checked against the monthly limit before any paid model call (D76).",
 				"library_owned": false,
 				"jsonb_keys": {},
-				"capabilities": [],
+				"capabilities": ["CAP-C-035"],
 				"replaces": [],
 				"producer_work_packages": ["WP-051"],
 				"producer_derivation": {
@@ -16192,7 +16192,7 @@
 					"additional_producers": ["WP-051"],
 					"rule": "WP-051 Evry model qualification spend limit through Drizzle Kit."
 				},
-				"feature_ids": ["EVR-004"],
+				"feature_ids": ["EVR-004", "EVR-019", "EVR-027", "EVR-030"],
 				"acceptance_ids": [],
 				"future_case_ids": [],
 				"scope": "assistant",
@@ -16206,6 +16206,9 @@
 				"physical_verified": false
 			},
 			"columns": {
+				"id": {
+					"note": ""
+				},
 				"month": {
 					"note": ""
 				},

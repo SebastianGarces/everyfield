@@ -2637,6 +2637,7 @@
         "conversation_event",
         "early_access_attempt",
         "early_access_request",
+        "model_spend",
         "onboarding_setup",
         "people_column",
         "person_import",
@@ -18657,7 +18658,8 @@
       ],
       "producer_table_names": [
         "conversation",
-        "conversation_event"
+        "conversation_event",
+        "model_spend"
       ],
       "consumer_table_names": [
         "audit_event",
@@ -20046,6 +20048,7 @@
       "producer_table_names": [],
       "consumer_table_names": [
         "audit_event",
+        "model_spend",
         "proposal",
         "record",
         "reference_item",
@@ -26002,6 +26005,7 @@
         "mail_request_member",
         "meeting",
         "meeting_kit_item",
+        "model_spend",
         "notice",
         "notification_preference",
         "obligation",
@@ -31990,6 +31994,7 @@
         "mail_request_member",
         "meeting",
         "meeting_kit_item",
+        "model_spend",
         "notice",
         "notification_preference",
         "obligation",
