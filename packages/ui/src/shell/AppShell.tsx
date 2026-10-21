@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Menu, MenuContent, MenuTrigger } from "../controls";
-import { cn, EvryBot, HoverGroup, Icon, LogoMark, useHoverItem, Wordmark } from "../foundations";
+import { cn, EvryBot, HoverGroup, Icon, Lockup, LogoMark, useHoverItem } from "../foundations";
 import { currentKey, type ShellItem, type ShellLink, type ShellNav, type ShellUser } from "./nav";
 import { RailTip, ThemeToggle } from "./ThemeToggle";
 
@@ -109,15 +109,12 @@ function Topbar({
 			<Link
 				href={homeHref}
 				aria-label="Everyfield, Overview"
-				className={cn(
-					PILL,
-					"flex h-topbar items-center gap-3 pr-[22px] pl-2.5 text-ink max-app-lg:pr-2.5 app-2xl:justify-self-start",
-				)}
+				className={cn(PILL, "flex h-topbar items-center px-6 text-ink max-app-lg:px-2.5 app-2xl:justify-self-start")}
 			>
-				<span className="grid size-10 flex-none place-items-center text-green">
-					<LogoMark className="h-auto w-[26px]" />
+				<Lockup className="h-[26px] w-auto max-app-lg:hidden" />
+				<span className="grid size-10 flex-none place-items-center app-lg:hidden">
+					<LogoMark className="h-auto w-6" />
 				</span>
-				<Wordmark className="h-[21px] w-auto max-app-lg:hidden" />
 			</Link>
 
 			<nav

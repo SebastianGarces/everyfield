@@ -98,8 +98,8 @@ function HistoryRow({ item, name, nameOf, zone }: { item: HistoryItem; name: str
 				aria-hidden="true"
 				className={
 					approved
-						? "grid size-9 flex-none place-items-center rounded-full bg-green-100 text-green-700"
-						: "grid size-9 flex-none place-items-center rounded-full bg-surface-2 text-text-2"
+						? "grid size-9 flex-none place-items-center rounded-pill bg-green-100 text-green-700"
+						: "grid size-9 flex-none place-items-center rounded-pill bg-surface-2 text-text-2"
 				}
 			>
 				<Icon icon={approved ? Link01Icon : Unlink01Icon} size={16} />

@@ -72,7 +72,7 @@ export function Checkbox({ label, description, shape = "square", id, className, 
 				</svg>
 				<span
 					aria-hidden="true"
-					className="hidden h-0.5 w-[9px] rounded-full bg-current group-data-[state=indeterminate]/check:block"
+					className="hidden h-0.5 w-[9px] bg-current group-data-[state=indeterminate]/check:block"
 				/>
 			</CheckboxPrimitive.Indicator>
 		</CheckboxPrimitive.Root>
@@ -139,7 +139,7 @@ export function Switch({ label, description, tone = "green", id, className, ...p
 		<SwitchPrimitive.Root
 			id={switchId}
 			className={cn(
-				"relative h-7 w-12 flex-none cursor-pointer rounded-full bg-[var(--ef-switch-off)] p-0 shadow-[inset_0_0_0_1px_var(--ef-text-3)] transition-[background-color,box-shadow] duration-200 disabled:cursor-not-allowed disabled:opacity-45",
+				"relative h-7 w-12 flex-none cursor-pointer rounded-pill bg-[var(--ef-switch-off)] p-0 shadow-[inset_0_0_0_1px_var(--ef-text-3)] transition-[background-color,box-shadow] duration-200 disabled:cursor-not-allowed disabled:opacity-45",
 				tone === "blue"
 					? "data-[state=checked]:bg-blue-500 data-[state=checked]:shadow-[inset_0_0_0_1px_var(--ef-blue-600)]"
 					: "data-[state=checked]:bg-green-500 data-[state=checked]:shadow-[inset_0_0_0_1px_var(--ef-green-700)]",
@@ -147,7 +147,7 @@ export function Switch({ label, description, tone = "green", id, className, ...p
 			)}
 			{...props}
 		>
-			<SwitchPrimitive.Thumb className="absolute top-[3px] left-[3px] size-[22px] rounded-full bg-white shadow-raised transition-transform duration-200 data-[state=checked]:translate-x-5 motion-reduce:transition-none" />
+			<SwitchPrimitive.Thumb className="absolute top-[3px] left-[3px] size-[22px] rounded-pill bg-white shadow-raised transition-transform duration-200 data-[state=checked]:translate-x-5 motion-reduce:transition-none" />
 		</SwitchPrimitive.Root>
 	);
 	if (!label) return control;

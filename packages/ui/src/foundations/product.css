@@ -99,6 +99,16 @@
 }
 
 @layer components {
+	/* Brand specimens (Foundations preview): logo tiles, brand swatches and the field ramp show the fixed brand values in
+     both themes, like the prototype's .brand-fixed. Only the page chrome around them follows the theme. */
+	[data-product-root] .ef-brand-fixed {
+		--ef-ink: #181d19;
+		--ef-green-700: #0b5c38;
+		--ef-green-500: #1af197;
+		--ef-green-300: #80f3b3;
+		--ef-green-100: #cafbdc;
+	}
+
 	/* Page reveal (foundations.md, Motion): each block rises 14px and fades in over 0.4s. revealDelay() sets the order. */
 	[data-product-root] .reveal {
 		animation: ef-reveal-up 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;

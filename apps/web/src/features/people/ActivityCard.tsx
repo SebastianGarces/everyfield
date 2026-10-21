@@ -139,7 +139,7 @@ export function ActivityCard({
 				</CardHeading>
 			</CardHeader>
 			{writing ? (
-				<form onSubmit={saveNote} className="mb-4 flex flex-col gap-2.5 rounded-[18px] bg-surface p-4">
+				<form onSubmit={saveNote} className="mb-4 flex flex-col gap-2.5 rounded-card bg-surface p-4">
 					<Field label={`Add a note about ${first}`}>
 						<Textarea
 							rows={2}
@@ -318,7 +318,7 @@ function Row({
 		<li className="flex items-start gap-3.5 border-t border-line py-4 first:border-t-0">
 			<span
 				aria-hidden="true"
-				className={cn("grid size-10 flex-none place-items-center rounded-full", TINT[view.tone])}
+				className={cn("grid size-10 flex-none place-items-center rounded-pill", TINT[view.tone])}
 			>
 				<Icon icon={view.icon} size={18} />
 			</span>

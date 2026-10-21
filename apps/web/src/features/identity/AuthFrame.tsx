@@ -1,4 +1,4 @@
-import { cn, LogoMark, Wordmark } from "@everyfield/ui/foundations";
+import { cn, Lockup, LogoMark } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -16,7 +16,7 @@ export function AuthFrame({ children }: { children: ReactNode }) {
 		<div className="grid min-h-dvh grid-cols-2 max-app-md:grid-cols-1 max-app-md:grid-rows-[auto_1fr]">
 			<aside
 				aria-label="Everyfield"
-				className="relative m-4 mr-0 flex flex-col overflow-hidden rounded-[30px] bg-ink-fixed px-[52px] dark:shadow-[inset_0_0_0_1px_var(--ef-line)] py-11 text-cream max-app-md:m-3 max-app-md:rounded-[24px] max-app-md:px-6 max-app-md:py-6"
+				className="relative m-4 mr-0 flex flex-col overflow-hidden rounded-card bg-ink-fixed px-[52px] dark:shadow-[inset_0_0_0_1px_var(--ef-line)] py-11 text-cream max-app-md:m-3 max-app-md:px-6 max-app-md:py-6"
 			>
 				<div
 					aria-hidden="true"
@@ -27,8 +27,7 @@ export function AuthFrame({ children }: { children: ReactNode }) {
 					href="/"
 					className="relative z-10 flex w-fit items-center gap-3 rounded-sm text-cream focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cream"
 				>
-					<LogoMark className="w-[34px] max-app-sm:w-7" />
-					<Wordmark className="h-6 max-app-sm:h-5" />
+					<Lockup className="h-[30px] w-auto max-app-sm:h-6" />
 					<span className="sr-only">Everyfield home</span>
 				</Link>
 				<div className="relative z-10 mt-[110px] max-app-md:mt-8 max-app-md:max-w-[70%] max-app-sm:mt-6">
@@ -71,10 +70,7 @@ export function AuthFooter({ children }: { children: ReactNode }) {
 /** An inline text link in the ink color, underlined on hover, with the product focus ring. */
 export function AuthLink({ href, children, className }: { href: string; children: ReactNode; className?: string }) {
 	return (
-		<Link
-			href={href}
-			className={cn("rounded-[4px] font-semibold text-ink underline-offset-4 hover:underline", className)}
-		>
+		<Link href={href} className={cn("rounded-md font-semibold text-ink underline-offset-4 hover:underline", className)}>
 			{children}
 		</Link>
 	);

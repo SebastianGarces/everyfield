@@ -39,7 +39,7 @@ export function InsightTop({ className, ...props }: ComponentPropsWithRef<"div">
 
 export function InsightPill({ icon, children }: { icon?: IconSvgElement; children: ReactNode }) {
 	return (
-		<span className="inline-flex h-8 items-center gap-2 rounded-full bg-[var(--pill-bg)] px-3.5 text-sm font-medium shadow-[inset_0_0_0_1px_var(--pill-edge)] backdrop-blur-[8px]">
+		<span className="inline-flex h-8 items-center gap-2 rounded-pill bg-[var(--pill-bg)] px-3.5 text-sm font-medium shadow-[inset_0_0_0_1px_var(--pill-edge)] backdrop-blur-[8px]">
 			{icon ? <Icon icon={icon} size={16} /> : null}
 			{children}
 		</span>
@@ -98,10 +98,7 @@ export function InsightSpark({ values, label }: { values: number[]; label: strin
 				<span
 					key={i}
 					style={{ height: `${Math.max((v / max) * 100, 4)}%` }}
-					className={cn(
-						"flex-1 rounded-t-[4px] rounded-b-[2px]",
-						i === values.length - 1 ? "bg-[var(--spark-hi)]" : "bg-[var(--spark)]",
-					)}
+					className={cn("flex-1 rounded-md", i === values.length - 1 ? "bg-[var(--spark-hi)]" : "bg-[var(--spark)]")}
 				/>
 			))}
 		</div>

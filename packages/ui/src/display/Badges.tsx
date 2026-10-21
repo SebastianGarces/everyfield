@@ -25,7 +25,7 @@ const SOFT: Record<Status, string> = {
 };
 
 const badgeVariants = cva(
-	"inline-flex flex-none items-center gap-1.5 rounded-full font-semibold whitespace-nowrap text-ink",
+	"inline-flex flex-none items-center gap-1.5 rounded-pill font-semibold whitespace-nowrap text-ink",
 	{
 		variants: {
 			fill: {
@@ -86,7 +86,7 @@ export function DeltaChip({
 		<span
 			data-dir={dir}
 			className={cn(
-				"inline-flex flex-none items-center gap-1.5 rounded-full font-semibold whitespace-nowrap tabular-nums",
+				"inline-flex flex-none items-center gap-1.5 rounded-pill font-semibold whitespace-nowrap tabular-nums",
 				size === "sm" ? "h-6 px-2 text-xs" : "h-[30px] px-[11px] text-md",
 				onInk
 					? "bg-white/14 text-white shadow-[inset_0_0_0_1px_color-mix(in_srgb,white_22%,transparent)]"
@@ -123,7 +123,7 @@ export function Tag({
 	return (
 		<span
 			className={cn(
-				"inline-flex h-[26px] flex-none items-center gap-1.5 rounded-[8px] px-2.5 text-sm font-medium whitespace-nowrap",
+				"inline-flex h-[26px] flex-none items-center gap-1.5 rounded-md px-2.5 text-sm font-medium whitespace-nowrap",
 				tone ? TINT[tone] : "bg-surface-2 text-ink-2",
 				className,
 			)}
@@ -175,7 +175,7 @@ export function StageChip({ stage, className, children }: { stage: Stage; classN
 		<span
 			data-stage={stage}
 			className={cn(
-				"inline-flex h-[26px] flex-none items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold whitespace-nowrap",
+				"inline-flex h-[26px] flex-none items-center gap-1.5 rounded-pill px-2.5 text-xs font-semibold whitespace-nowrap",
 				STAGE_FILL[stage],
 				className,
 			)}

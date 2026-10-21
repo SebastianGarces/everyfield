@@ -171,7 +171,7 @@ export function SettingsDialog({ section, onNavigate, hrefFor, slots = {}, onDel
 												data-settings-nav={key}
 												aria-current={isCurrent ? "page" : undefined}
 												className={cn(
-													"flex h-[42px] items-center gap-2.5 rounded-sm px-3 font-medium transition-[background-color,box-shadow,color] duration-150 max-app-sm:h-9 max-app-sm:rounded-full max-app-sm:px-3 max-app-sm:text-sm",
+													"flex h-[42px] items-center gap-2.5 rounded-sm px-3 font-medium transition-[background-color,box-shadow,color] duration-150 max-app-sm:h-9 max-app-sm:px-3 max-app-sm:text-sm",
 													isCurrent ? "bg-surface-raised text-ink shadow-raised" : "text-ink-2 hover:bg-hover",
 												)}
 											>
