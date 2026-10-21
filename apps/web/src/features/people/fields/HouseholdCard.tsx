@@ -44,12 +44,17 @@ import {
 	JoinHouseholdDialog,
 	LeaveHouseholdDialog,
 	StartHouseholdDialog,
+	type EditValue,
+	type JoinValue,
+	type LeaveValue,
+	type StartValue,
 } from "./HouseholdDialogs.tsx";
 import {
 	addressLine,
 	membershipOf,
 	ROLE_LABEL,
 	ROLES,
+	type Household,
 	type HouseholdResult,
 	type HouseholdRole,
 	type Membership,
@@ -89,14 +94,45 @@ export function HouseholdCard({
 }) {
 	const toast = useToast();
 	const [open, setOpen] = useState<Open>(null);
-	const [, start] = useTransition();
-	const [shown, applyRole] = useOptimistic(household, (h, role: HouseholdRole) =>
-		h?.status === "available"
-			? { ...h, members: h.members.map((m) => (m.personId === person.id ? { ...m, role } : m)) }
-			: h,
-	);
+	const [saving, start] = useTransition();
+	// The household as the screen expects it while a change saves; it falls back to the saved one if the change fails.
+	const [shown, expect] = useOptimistic(household, (_h, next: HouseholdResult) => next);
+	// A refused form change: the dialog opens again with what was entered and why it did not save.
+	const [retry, setRetry] = useState<{ kind: Exclude<Open, null>; value: unknown; problem: string } | null>(null);
 	const first = person.displayName.split(" ")[0] ?? person.displayName;
-	const close = () => setOpen(null);
+	const close = () => {
+		setOpen(null);
+		setRetry(null);
+	};
+	const retryOf = <T,>(kind: Exclude<Open, null>) =>
+		retry?.kind === kind ? { value: retry.value as T, problem: retry.problem } : undefined;
+	/** Closes the dialog, shows the expected household at once, then confirms or rolls back and reopens the form. */
+	function optimistic(
+		kind: Exclude<Open, null>,
+		value: unknown,
+		next: HouseholdResult,
+		work: () => Promise<string | undefined>,
+	) {
+		close();
+		start(async () => {
+			expect(next);
+			const problem = await work();
+			if (problem) {
+				setRetry({ kind, value, problem });
+				setOpen(kind);
+			}
+		});
+	}
+	const me0 = { personId: person.id, displayName: person.displayName, revision: person.revision };
+	type AddressLike = { [K in "street" | "city" | "stateProvince" | "postalCode" | "country"]?: string | null };
+	const addressOf = (a: AddressLike) => ({
+		street: a.street ?? null,
+		city: a.city ?? null,
+		stateProvince: a.stateProvince ?? null,
+		postalCode: a.postalCode ?? null,
+		country: a.country ?? null,
+	});
+	const placeholder = { id: person.id as string, revision: person.revision } as Household["household"];
 
 	/** Reads the household again after a refusal, so the card and the next try use what is saved. */
 	async function refresh() {
@@ -136,7 +172,11 @@ export function HouseholdCard({
 
 	function changeRole(role: HouseholdRole) {
 		start(async () => {
-			applyRole(role);
+			if (household?.status === "available")
+				expect({
+					...household,
+					members: household.members.map((m) => (m.personId === person.id ? { ...m, role } : m)),
+				});
 			const problem = await membership("household-role", { role }, (key, rev) =>
 				setHouseholdRole(key, rev, { personId: person.id, role }),
 			);
@@ -160,7 +200,7 @@ export function HouseholdCard({
 			<Header
 				description={h ? h.household.name : undefined}
 				action={
-					canEdit && h && me ? (
+					canEdit && h && me && !saving ? (
 						<Menu>
 							<MenuTrigger asChild>
 								<IconButton icon={MoreHorizontalIcon} label="Household actions" size="sm" />
@@ -190,6 +230,9 @@ export function HouseholdCard({
 					) : null
 				}
 			/>
+			<p role="status" aria-live="polite" className="-mt-1 mb-2 text-xs text-text-3 empty:hidden">
+				{saving ? "Saving…" : null}
+			</p>
 			{h ? (
 				<>
 					{addressLine(h.household) ? (
@@ -241,8 +284,28 @@ export function HouseholdCard({
 				<StartHouseholdDialog
 					person={person}
 					onClose={close}
+					retry={retryOf<StartValue>("start")}
 					onSubmit={(v) =>
-						membership("household-start", v, (key, rev) => startHousehold(key, rev, { ...v, headPersonId: person.id }))
+						optimistic(
+							"start",
+							v,
+							{
+								status: "available",
+								// A stand-in until the answer: the card hides household actions while it saves, so this ID is never sent.
+								household: {
+									id: placeholder.id,
+									name: v.name,
+									...addressOf(v),
+									revision: placeholder.revision,
+									memberCount: 1,
+								},
+								members: [{ ...me0, role: "head", ...addressOf(v) }],
+							},
+							() =>
+								membership("household-start", v, (key, rev) =>
+									startHousehold(key, rev, { ...v, headPersonId: person.id }),
+								),
+						)
 					}
 				/>
 			) : null}
@@ -250,8 +313,22 @@ export function HouseholdCard({
 				<JoinHouseholdDialog
 					person={person}
 					onClose={close}
+					retry={retryOf<JoinValue>("join")}
 					onSubmit={(v) =>
-						membership("household-join", v, (key, rev) => joinHousehold(key, rev, { ...v, personId: person.id }))
+						optimistic(
+							"join",
+							v,
+							// The other members arrive with the answer; until then the card shows this person and "Saving…".
+							{
+								status: "available",
+								household: { ...v.household, memberCount: v.household.memberCount + 1 },
+								members: [{ ...me0, role: v.role, ...addressOf(person) }],
+							},
+							() =>
+								membership("household-join", v, (key, rev) =>
+									joinHousehold(key, rev, { householdId: v.householdId, role: v.role, personId: person.id }),
+								),
+						)
 					}
 				/>
 			) : null}
@@ -260,9 +337,12 @@ export function HouseholdCard({
 					person={person}
 					household={h}
 					onClose={close}
-					onSubmit={({ deleteEmpty }) =>
-						membership("household-leave", { deleteEmpty }, (key, rev) =>
-							leaveHousehold(key, rev, { personId: person.id, deleteEmpty: deleteEmpty ? h.household.id : null }),
+					retry={retryOf<LeaveValue>("leave")}
+					onSubmit={(v) =>
+						optimistic("leave", v, { status: "none" }, () =>
+							membership("household-leave", v, (key, rev) =>
+								leaveHousehold(key, rev, { personId: person.id, deleteEmpty: v.deleteEmpty ? h.household.id : null }),
+							),
 						)
 					}
 				/>
@@ -271,33 +351,45 @@ export function HouseholdCard({
 				<EditHouseholdDialog
 					household={h}
 					onClose={close}
-					onSubmit={async (patch) => {
-						const r = await updateHousehold(fresh(), h.household.revision, {
-							householdId: h.household.id,
-							patch,
-						}).catch(() => ({ status: "lost" }) as const);
-						if (r.status === "ok") return void onHousehold(r.value);
-						if (codeOf(r) === "conflict") void refresh();
-						return householdProblem(codeOf(r) ?? "lost", first);
-					}}
+					retry={retryOf<EditValue>("edit")}
+					onSubmit={(patch) =>
+						optimistic("edit", patch, { ...h, household: { ...h.household, ...patch } }, async () => {
+							const r = await updateHousehold(fresh(), h.household.revision, {
+								householdId: h.household.id,
+								patch,
+							}).catch(() => ({ status: "lost" }) as const);
+							if (r.status === "ok") return void onHousehold(r.value);
+							if (codeOf(r) === "conflict") void refresh();
+							return householdProblem(codeOf(r) ?? "lost", first);
+						})
+					}
 				/>
 			) : null}
 			{open === "copy" && h ? (
 				<CopyAddressDialog
 					personId={person.id}
 					onClose={close}
-					onSubmit={async (preview) => {
+					retry={retryOf<unknown>("copy")}
+					onSubmit={(preview) => {
 						const members = preview.members.map((m) => ({ personId: m.personId, revision: m.revision }));
-						const problem = await membership("household-copy", members, (key) =>
-							propagateAddress(
-								key,
-								preview.household.revision,
-								{ householdId: preview.household.id, members },
-								person.id,
-							),
+						const copied = addressOf(preview.household);
+						optimistic(
+							"copy",
+							preview,
+							{ ...preview, members: preview.members.map((m) => ({ ...m, ...copied })) },
+							async () => {
+								const problem = await membership("household-copy", members, (key) =>
+									propagateAddress(
+										key,
+										preview.household.revision,
+										{ householdId: preview.household.id, members },
+										person.id,
+									),
+								);
+								if (!problem) toast({ tone: "success", message: `Copied the address of ${preview.household.name}.` });
+								return problem;
+							},
 						);
-						if (!problem) toast({ tone: "success", message: `Copied the address of ${preview.household.name}.` });
-						return problem;
 					}}
 				/>
 			) : null}

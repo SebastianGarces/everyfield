@@ -36,8 +36,17 @@ import {
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
 type Address = { street: string; city: string; stateProvince: string; postalCode: string; country: string };
-/** What a household dialog sends; it answers with a refusal code to show, or nothing when saved. */
-type Submit<T> = (value: T) => Promise<string | undefined>;
+/**
+ * What a household dialog sends. The card closes the dialog at once and shows the expected result; a refused change
+ * opens the dialog again with the same values and the reason (`retry`).
+ */
+type Submit<T> = (value: T) => void;
+export type Retry<T> = { value: T; problem: string } | undefined;
+type AddressValue = { [K in keyof Address]: string | null };
+export type StartValue = { name: string } & AddressValue;
+export type EditValue = { name?: string } & AddressValue;
+export type JoinValue = { householdId: string; role: HouseholdRole; household: HouseholdSummary };
+export type LeaveValue = { deleteEmpty: boolean };
 
 const ADDRESS: (keyof Address)[] = ["street", "city", "stateProvince", "postalCode", "country"];
 const ADDRESS_LABEL: Record<keyof Address, string> = {
@@ -77,7 +86,7 @@ function Problem({ text }: { text: string | undefined }) {
 	);
 }
 
-/** One dialog frame for the household forms: header, body, Cancel and the action, with a pending state. */
+/** One dialog frame for the household forms: header, body, the reason a last try was refused, Cancel and the action. */
 function FormDialog({
 	icon,
 	title,
@@ -85,7 +94,6 @@ function FormDialog({
 	action,
 	onClose,
 	onSubmit,
-	pending,
 	problem,
 	disabled,
 	tone = "green",
@@ -97,21 +105,20 @@ function FormDialog({
 	action: string;
 	onClose: () => void;
 	onSubmit: () => void;
-	pending: boolean;
 	problem?: string;
 	disabled?: boolean;
 	tone?: "green" | "blue" | "magenta";
 	children: ReactNode;
 }) {
 	return (
-		<Dialog open onOpenChange={(next) => !next && !pending && onClose()}>
-			<DialogContent aria-busy={pending || undefined}>
+		<Dialog open onOpenChange={(next) => !next && onClose()}>
+			<DialogContent>
 				<form
 					noValidate
 					className="contents"
 					onSubmit={(e) => {
 						e.preventDefault();
-						if (!pending && !disabled) onSubmit();
+						if (!disabled) onSubmit();
 					}}
 				>
 					<DialogHeader icon={icon} tone={tone} title={title} description={description} />
@@ -120,15 +127,10 @@ function FormDialog({
 						<Problem text={problem} />
 					</DialogBody>
 					<DialogFooter>
-						<Button variant="secondary" type="button" onClick={onClose} disabled={pending}>
+						<Button variant="secondary" type="button" onClick={onClose}>
 							Cancel
 						</Button>
-						<Button
-							variant={tone === "magenta" ? "danger" : "primary"}
-							type="submit"
-							loading={pending}
-							disabled={disabled}
-						>
+						<Button variant={tone === "magenta" ? "danger" : "primary"} type="submit" disabled={disabled}>
 							{action}
 						</Button>
 					</DialogFooter>
@@ -138,33 +140,7 @@ function FormDialog({
 	);
 }
 
-/** Runs a dialog's submit: pending while it runs, the refusal text when refused; the caller closes it on success. */
-function useSubmit<T>(submit: Submit<T>, onClose: () => void) {
-	const [pending, setPending] = useState(false);
-	const [problem, setProblem] = useState<string>();
-	return {
-		pending,
-		problem,
-		run: async (value: T) => {
-			setPending(true);
-			setProblem(undefined);
-			const p = await submit(value);
-			setPending(false);
-			if (p) setProblem(p);
-			else onClose();
-		},
-	};
-}
-
-function AddressFields({
-	value,
-	onChange,
-	disabled,
-}: {
-	value: Address;
-	onChange: (a: Address) => void;
-	disabled: boolean;
-}) {
+function AddressFields({ value, onChange }: { value: Address; onChange: (a: Address) => void }) {
 	return (
 		<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
 			{ADDRESS.map((k) => (
@@ -177,7 +153,6 @@ function AddressFields({
 					<Input
 						value={value[k]}
 						maxLength={255}
-						readOnly={disabled}
 						autoComplete="off"
 						onChange={(e) => onChange({ ...value, [k]: e.target.value })}
 					/>
@@ -195,15 +170,16 @@ export function StartHouseholdDialog({
 	person,
 	onClose,
 	onSubmit,
+	retry,
 }: {
 	person: PlantPerson;
 	onClose: () => void;
-	onSubmit: Submit<{ name: string } & { [K in keyof Address]: string | null }>;
+	onSubmit: Submit<StartValue>;
+	retry?: Retry<StartValue>;
 }) {
-	const [name, setName] = useState(defaultName(person));
-	const [address, setAddress] = useState(addressDraft(person));
+	const [name, setName] = useState(retry?.value.name ?? defaultName(person));
+	const [address, setAddress] = useState(addressDraft(retry?.value ?? person));
 	const [touched, setTouched] = useState(false);
-	const s = useSubmit(onSubmit, onClose);
 	const missing = name.trim() === "";
 	return (
 		<FormDialog
@@ -212,17 +188,16 @@ export function StartHouseholdDialog({
 			description={`${person.displayName} will be its head. You can add the others next.`}
 			action="Start household"
 			onClose={onClose}
-			pending={s.pending}
-			problem={s.problem}
+			problem={retry?.problem}
 			onSubmit={() => {
 				setTouched(true);
-				if (!missing) void s.run({ name: name.trim(), ...addressValue(address) });
+				if (!missing) onSubmit({ name: name.trim(), ...addressValue(address) });
 			}}
 		>
 			<Field label="Household name" error={touched && missing ? "Name the household, such as Santos household." : null}>
-				<Input value={name} maxLength={255} readOnly={s.pending} autoFocus onChange={(e) => setName(e.target.value)} />
+				<Input value={name} maxLength={255} autoFocus onChange={(e) => setName(e.target.value)} />
 			</Field>
-			<AddressFields value={address} onChange={setAddress} disabled={s.pending} />
+			<AddressFields value={address} onChange={setAddress} />
 		</FormDialog>
 	);
 }
@@ -232,16 +207,17 @@ export function EditHouseholdDialog({
 	household,
 	onClose,
 	onSubmit,
+	retry,
 }: {
 	household: Household;
 	onClose: () => void;
-	onSubmit: Submit<{ name?: string } & { [K in keyof Address]: string | null }>;
+	onSubmit: Submit<EditValue>;
+	retry?: Retry<EditValue>;
 }) {
 	const h = household.household;
-	const [name, setName] = useState(h.name);
-	const [address, setAddress] = useState(addressDraft(h));
+	const [name, setName] = useState(retry?.value.name ?? h.name);
+	const [address, setAddress] = useState(addressDraft(retry?.value ?? h));
 	const [touched, setTouched] = useState(false);
-	const s = useSubmit(onSubmit, onClose);
 	const missing = name.trim() === "";
 	return (
 		<FormDialog
@@ -251,18 +227,17 @@ export function EditHouseholdDialog({
 			description="Members keep their own addresses. To give everyone this address, use Copy address to members."
 			action="Save household"
 			onClose={onClose}
-			pending={s.pending}
-			problem={s.problem}
+			problem={retry?.problem}
 			onSubmit={() => {
 				setTouched(true);
 				if (missing) return;
-				void s.run({ ...(name.trim() !== h.name ? { name: name.trim() } : {}), ...addressValue(address) });
+				onSubmit({ ...(name.trim() !== h.name ? { name: name.trim() } : {}), ...addressValue(address) });
 			}}
 		>
 			<Field label="Household name" error={touched && missing ? "Name the household." : null}>
-				<Input value={name} maxLength={255} readOnly={s.pending} autoFocus onChange={(e) => setName(e.target.value)} />
+				<Input value={name} maxLength={255} autoFocus onChange={(e) => setName(e.target.value)} />
 			</Field>
-			<AddressFields value={address} onChange={setAddress} disabled={s.pending} />
+			<AddressFields value={address} onChange={setAddress} />
 		</FormDialog>
 	);
 }
@@ -275,18 +250,19 @@ export function JoinHouseholdDialog({
 	person,
 	onClose,
 	onSubmit,
+	retry,
 }: {
 	person: PlantPerson;
 	onClose: () => void;
-	onSubmit: Submit<{ householdId: string; role: HouseholdRole }>;
+	onSubmit: Submit<JoinValue>;
+	retry?: Retry<JoinValue>;
 }) {
 	const first = person.displayName.split(" ")[0] ?? person.displayName;
 	const [search, setSearch] = useState("");
 	const [found, setFound] = useState<Outcome<{ items: HouseholdSummary[]; total: number }> | null>(null);
-	const [choice, setChoice] = useState<string>("");
-	const [role, setRole] = useState<HouseholdRole | "">("");
+	const [choice, setChoice] = useState<string>(retry?.value.householdId ?? "");
+	const [role, setRole] = useState<HouseholdRole | "">(retry?.value.role ?? "");
 	const [touched, setTouched] = useState(false);
-	const s = useSubmit(onSubmit, onClose);
 	const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 	const term = useRef("");
 
@@ -314,11 +290,10 @@ export function JoinHouseholdDialog({
 			}
 			action="Add to household"
 			onClose={onClose}
-			pending={s.pending}
-			problem={s.problem}
+			problem={retry?.problem}
 			onSubmit={() => {
 				setTouched(true);
-				if (choice && role) void s.run({ householdId: choice, role });
+				if (chosen && role) onSubmit({ householdId: chosen.id, role, household: chosen });
 			}}
 		>
 			<SearchInput
@@ -405,13 +380,14 @@ export function CopyAddressDialog({
 	personId,
 	onClose,
 	onSubmit,
+	retry,
 }: {
 	personId: string;
 	onClose: () => void;
 	onSubmit: Submit<Household>;
+	retry?: Retry<unknown>;
 }) {
 	const [preview, setPreview] = useState<Outcome<HouseholdResult> | null>(null);
-	const s = useSubmit(onSubmit, onClose);
 	useEffect(() => {
 		let live = true;
 		readHousehold(personId)
@@ -435,10 +411,9 @@ export function CopyAddressDialog({
 				changes.length ? `Copy to ${changes.length} ${changes.length === 1 ? "person" : "people"}` : "Copy address"
 			}
 			onClose={onClose}
-			pending={s.pending}
-			problem={s.problem}
+			problem={retry?.problem}
 			disabled={!h || !target || changes.length === 0}
-			onSubmit={() => h && void s.run(h)}
+			onSubmit={() => h && onSubmit(h)}
 		>
 			{preview === null ? (
 				<div aria-busy="true" className="flex flex-col gap-2">
@@ -495,16 +470,17 @@ export function LeaveHouseholdDialog({
 	household,
 	onClose,
 	onSubmit,
+	retry,
 }: {
 	person: PlantPerson;
 	household: Household;
 	onClose: () => void;
-	onSubmit: Submit<{ deleteEmpty: boolean }>;
+	onSubmit: Submit<LeaveValue>;
+	retry?: Retry<LeaveValue>;
 }) {
 	const first = person.displayName.split(" ")[0] ?? person.displayName;
 	const last = household.members.length === 1 && household.members[0]?.personId === person.id;
-	const [deleteEmpty, setDeleteEmpty] = useState(true);
-	const s = useSubmit(onSubmit, onClose);
+	const [deleteEmpty, setDeleteEmpty] = useState(retry?.value.deleteEmpty ?? true);
 	return (
 		<FormDialog
 			icon={Logout01Icon}
@@ -512,9 +488,8 @@ export function LeaveHouseholdDialog({
 			title={`Take ${first} out of ${household.household.name}?`}
 			action="Take out of household"
 			onClose={onClose}
-			pending={s.pending}
-			problem={s.problem}
-			onSubmit={() => void s.run({ deleteEmpty: last && deleteEmpty })}
+			problem={retry?.problem}
+			onSubmit={() => onSubmit({ deleteEmpty: last && deleteEmpty })}
 		>
 			<ul className="list-disc pl-5 text-sm text-text-2">
 				<li>{first} keeps their own address.</li>

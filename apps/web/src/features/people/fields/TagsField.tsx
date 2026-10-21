@@ -4,11 +4,10 @@ import { Add01Icon, Cancel01Icon, Settings01Icon, Tick02Icon } from "@hugeicons/
 import { Button, Input, Popover, PopoverContent, PopoverTrigger, Spinner, useToast } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
-import Link from "next/link";
 import { useOptimistic, useRef, useState, useTransition, type KeyboardEvent } from "react";
 import type { Receipt } from "../boundary.ts";
 import type { Outcome } from "../model.ts";
-import { fresh, problemText } from "../parts.tsx";
+import { fresh, PersonLink, problemText } from "../parts.tsx";
 import { addPersonTag, listChurchTags, removePersonTag } from "./actions.ts";
 import { ManageTagsDialog } from "./ManageTagsDialog.tsx";
 import { tagLook, type ChurchTag, type PersonTag } from "./model.ts";
@@ -165,7 +164,10 @@ export function TagsField({
 	);
 }
 
-/** One tag as a chip: its color, a link to People filtered by it and, for editors, a 24 px remove button. */
+/**
+ * One tag as a chip: its color, a link to People filtered by it (prefetched on intent, like person links) and, for
+ * editors, a 24 px remove button.
+ */
 export function TagChip({ tag, onRemove }: { tag: PersonTag; onRemove?: () => void }) {
 	const look = tagLook(tag.color);
 	const pending = tag.id.startsWith("new:");
@@ -176,16 +178,15 @@ export function TagChip({ tag, onRemove }: { tag: PersonTag; onRemove?: () => vo
 					<span className="truncate">{tag.name}</span>
 				</span>
 			) : (
-				<Link
+				<PersonLink
 					href={`/people?tag=${tag.id}`}
-					prefetch={false}
 					className={cn("flex h-full min-w-0 items-center gap-1.5 rounded-md px-2.5", onRemove && "pr-1")}
 				>
 					{look.dot ? (
 						<span aria-hidden="true" className="size-2 flex-none rounded-full" style={{ backgroundColor: look.dot }} />
 					) : null}
 					<span className="truncate">{tag.name}</span>
-				</Link>
+				</PersonLink>
 			)}
 			{onRemove && !pending ? (
 				<button
