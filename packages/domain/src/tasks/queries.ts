@@ -4,7 +4,17 @@ import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
-import { administers, deny, parse, readReply, viewerOf, type Tx, type Viewer } from "./core.ts";
+import {
+	administers,
+	deny,
+	liveReader,
+	parse,
+	readReply,
+	readerOf,
+	type Reader,
+	type Tx,
+	type Viewer,
+} from "./core.ts";
 
 // Storage keeps the shipped short kind names; the contract names say which duty it is.
 export const storedKind = z
@@ -87,9 +97,21 @@ export async function loadTask(tx: Tx, plantId: string, task: string | { obligat
 		typeof task === "string"
 			? sql`t.id=${task}::uuid`
 			: sql`t.obligation_id=${task.obligationId}::uuid AND t.deleted_at IS NULL`;
-	const r = await tx.execute(sql`SELECT ${columns}, ${checklist} ${joins}
-		WHERE ${which} AND t.plant_id=${plantId}::uuid ${lock ? sql`FOR UPDATE OF t` : sql``}`);
+	const r = await tx.execute(sql`${taskQuery(plantId, which)} ${lock ? sql`FOR UPDATE OF t` : sql``}`);
 	return r.rows[0] ? taskRow.parse(r.rows[0]) : null;
+}
+const taskQuery = (plantId: string, which: SQL) =>
+	sql`SELECT ${columns}, ${checklist}, 1 AS ord ${joins} WHERE ${which} AND t.plant_id=${plantId}::uuid`;
+
+/**
+ * One read statement: the reader's live authority (C13) and the rows of `query`, which numbers its rows in `ord`.
+ * A reader whose session, seat, role or lifecycle changed since the viewer lookup is refused and reads nothing.
+ */
+async function gated(tx: Tx, viewer: Reader, query: SQL, admin = false) {
+	const r = await tx.execute(sql`SELECT g.live, q.* FROM (SELECT ${liveReader(viewer, admin)} AS live) g
+		LEFT JOIN LATERAL (${query}) q ON g.live ORDER BY q.ord`);
+	if (r.rows[0]?.live !== true) deny();
+	return r.rows.filter((row) => row.ord !== null);
 }
 
 export function dueOf(row: Pick<TaskRow, "due_kind" | "due_date" | "due_time" | "timezone" | "due_at">): c.Due {
@@ -188,22 +210,27 @@ const sortKey = {
 	created: sql`t.created_at`,
 };
 
-function reader(viewer: Viewer, write = false) {
-	if (write && !administers(viewer)) deny();
+function reader(authority: RequestActor, admin = false) {
+	const viewer = readerOf(authority);
+	if (admin && !administers(viewer)) deny();
 	return viewer;
 }
 export const taskReader = {
 	/** One page in a stable order: the sort key, null due dates last, then the ID (D67 page numbers). One statement. */
 	async list(tx: Tx, authority: RequestActor, raw: unknown) {
 		return readReply(async () => {
-			const viewer = reader(viewerOf(authority)),
+			const viewer = reader(authority),
 				v = parse(c.listTasksRequest, raw);
 			const key = sortKey[v.sort],
 				direction = v.direction === "asc" ? sql`ASC` : sql`DESC`;
-			const r = await tx.execute(sql`SELECT ${columns}, count(*) OVER () AS total ${joins}
-				WHERE ${scope(viewer, v)} ORDER BY (${key}) IS NULL, ${key} ${direction}, t.id ${direction}
-				LIMIT ${v.limit} OFFSET ${(v.page - 1) * v.limit}`);
-			const rows = z.array(taskRow).parse(r.rows),
+			const order = sql`(${key}) IS NULL, ${key} ${direction}, t.id ${direction}`;
+			const found = await gated(
+				tx,
+				viewer,
+				sql`SELECT ${columns}, count(*) OVER () AS total, row_number() OVER (ORDER BY ${order}) AS ord ${joins}
+				WHERE ${scope(viewer, v)} ORDER BY ${order} LIMIT ${v.limit} OFFSET ${(v.page - 1) * v.limit}`,
+			);
+			const rows = z.array(taskRow).parse(found),
 				asOf = v.asOf ?? now();
 			// A page past the end has no rows to carry the total; the caller then reads the last page (D67).
 			const total = rows[0]?.total ?? (v.page > 1 ? await countTop(tx, viewer, v) : 0);
@@ -219,18 +246,22 @@ export const taskReader = {
 	/** Top-level tallies and checklist units over the list's scope. One statement. */
 	async count(tx: Tx, authority: RequestActor, raw: unknown) {
 		return readReply(async () => {
-			const viewer = reader(viewerOf(authority)),
+			const viewer = reader(authority),
 				v = parse(c.countTasksRequest, raw);
 			const tally = (column: SQL) =>
 				sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('value',x.v,'count',x.n) ORDER BY x.v),'[]') FROM
 					(SELECT ${column} v, count(*)::int n FROM scope GROUP BY 1) x)`;
-			const r = await tx.execute(sql`WITH scope AS MATERIALIZED (SELECT t.id, t.status, t.priority, t.category
+			const [found] = await gated(
+				tx,
+				viewer,
+				sql`WITH scope AS MATERIALIZED (SELECT t.id, t.status, t.priority, t.category
 				FROM task t WHERE ${scope(viewer, v)})
-				SELECT (SELECT count(*)::int FROM scope) AS total, ${tally(sql`status`)} AS by_status,
+				SELECT 1 AS ord, (SELECT count(*)::int FROM scope) AS total, ${tally(sql`status`)} AS by_status,
 					${tally(sql`priority`)} AS by_priority, ${tally(sql`category`)} AS by_category,
 					(SELECT count(*)::int FROM task k JOIN scope s ON k.parent_id=s.id WHERE k.deleted_at IS NULL) AS child_total,
 					(SELECT count(*)::int FROM task k JOIN scope s ON k.parent_id=s.id WHERE k.deleted_at IS NULL
-						AND k.status='complete') AS child_complete`);
+						AND k.status='complete') AS child_complete`,
+			);
 			const row = z
 				.object({
 					total: z.int(),
@@ -240,7 +271,7 @@ export const taskReader = {
 					child_total: z.int(),
 					child_complete: z.int(),
 				})
-				.parse(r.rows[0]);
+				.parse(found);
 			return c.taskCounts.parse({
 				topLevelTotal: row.total,
 				byStatus: row.by_status,
@@ -255,9 +286,10 @@ export const taskReader = {
 	/** One live task with its checklist. A missing, deleted or foreign task reads as unavailable. One statement. */
 	async get(tx: Tx, authority: RequestActor, raw: unknown) {
 		return readReply(async () => {
-			const viewer = reader(viewerOf(authority)),
+			const viewer = reader(authority),
 				v = parse(c.getTaskRequest, raw);
-			const row = await loadTask(tx, viewer.plantId, v.taskId, false);
+			const [found] = await gated(tx, viewer, taskQuery(viewer.plantId, sql`t.id=${v.taskId}::uuid`));
+			const row = found && taskRow.parse(found);
 			if (!row || row.deleted_at) return c.taskResult.parse({ status: "unavailable" });
 			return c.taskResult.parse({ status: "available", task: detailOf(row, v.asOf ?? now()) });
 		});
@@ -268,15 +300,20 @@ export const taskReader = {
 	 */
 	async statusHistory(tx: Tx, authority: RequestActor, raw: unknown) {
 		return readReply(async () => {
-			const viewer = reader(viewerOf(authority)),
+			const viewer = reader(authority),
 				v = parse(c.statusHistoryRequest, raw);
-			const r = await tx.execute(sql`SELECT a.id, a.occurred_at, a.before_value->>'status' AS "from",
+			const found = await gated(
+				tx,
+				viewer,
+				sql`SELECT a.id, a.occurred_at, a.before_value->>'status' AS "from",
 					a.after_value->>'status' AS "to", a.actor_id, a.actor_token, a.system_cause,
-					coalesce(a.metadata->>'source','person') AS source, ai.display_name, count(*) OVER () AS total
+					coalesce(a.metadata->>'source','person') AS source, ai.display_name, count(*) OVER () AS total,
+					row_number() OVER (ORDER BY a.occurred_at, a.id) AS ord
 				FROM task t JOIN audit_event a ON a.tenant_id=t.plant_id AND a.subject_id=t.id
 				LEFT JOIN LATERAL seat_identity(a.actor_id) ai ON true
 				WHERE t.id=${v.taskId}::uuid AND t.plant_id=${viewer.plantId}::uuid AND a.after_value ? 'status'
-				ORDER BY a.occurred_at, a.id LIMIT ${v.limit} OFFSET ${(v.page - 1) * v.limit}`);
+				ORDER BY a.occurred_at, a.id LIMIT ${v.limit} OFFSET ${(v.page - 1) * v.limit}`,
+			);
 			const rows = z
 				.array(
 					z.object({
@@ -292,8 +329,9 @@ export const taskReader = {
 						total: z.coerce.number().int(),
 					}),
 				)
-				.parse(r.rows);
-			if (!rows.length && !(await loadTask(tx, viewer.plantId, v.taskId, false))) deny();
+				.parse(found);
+			// Every task has its creation entry, so no rows on the first page means no such task in this church.
+			if (!rows.length && v.page === 1) deny();
 			const total = rows[0]?.total ?? 0;
 			return c.statusHistory.parse({
 				taskId: v.taskId,
@@ -318,14 +356,20 @@ export const taskReader = {
 	/** The church's current accepted seats, who may hold a task. Owner/Admin only. One statement. */
 	async eligibleAssignees(tx: Tx, authority: RequestActor) {
 		return readReply(async () => {
-			const viewer = reader(viewerOf(authority), true);
-			const r = await tx.execute(sql`SELECT s.account_id, s.role, i.display_name FROM seat s
+			const viewer = reader(authority, true);
+			const found = await gated(
+				tx,
+				viewer,
+				sql`SELECT s.account_id, s.role, i.display_name,
+					row_number() OVER (ORDER BY lower(i.display_name), s.account_id) AS ord FROM seat s
 				CROSS JOIN LATERAL seat_identity(s.account_id) i
 				WHERE s.plant_id=${viewer.plantId}::uuid AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp()
-				ORDER BY lower(i.display_name), s.account_id LIMIT 500`);
+				ORDER BY lower(i.display_name), s.account_id LIMIT 500`,
+				true,
+			);
 			const rows = z
 				.array(z.object({ account_id: z.uuid(), role: z.enum(["owner", "admin", "member"]), display_name: z.string() }))
-				.parse(r.rows);
+				.parse(found);
 			return c.assigneeOptions.parse({
 				items: rows.map((s) => ({ accountId: s.account_id, displayName: s.display_name, role: s.role })),
 			});
@@ -334,7 +378,7 @@ export const taskReader = {
 	/** Live People, meetings or active teams of the church a task may name, by name. Owner/Admin only. One statement. */
 	async relationOptions(tx: Tx, authority: RequestActor, raw: unknown) {
 		return readReply(async () => {
-			const viewer = reader(viewerOf(authority), true),
+			const viewer = reader(authority, true),
 				v = parse(c.relationOptionsRequest, raw);
 			const like = "%" + escapeLike(v.search) + "%";
 			const query = {
@@ -345,14 +389,24 @@ export const taskReader = {
 				team: sql`SELECT id, name AS label FROM team WHERE plant_id=${viewer.plantId}::uuid
 					AND archived_at IS NULL AND name ILIKE ${like} ESCAPE '\\'`,
 			}[v.kind];
-			const r = await tx.execute(sql`SELECT * FROM (${query}) o ORDER BY lower(o.label), o.id LIMIT 20`);
+			const found = await gated(
+				tx,
+				viewer,
+				sql`SELECT o.*, row_number() OVER (ORDER BY lower(o.label), o.id) AS ord FROM (${query}) o
+				ORDER BY lower(o.label), o.id LIMIT 20`,
+				true,
+			);
 			return c.relationOptions.parse({
-				items: z.array(z.object({ id: z.uuid(), label: z.string() })).parse(r.rows),
+				items: found.map((o) => z.object({ id: z.uuid(), label: z.string() }).parse(o)),
 			});
 		});
 	},
 };
-async function countTop(tx: Tx, viewer: Viewer, v: z.infer<typeof c.countTasksRequest>) {
-	const r = await tx.execute(sql`SELECT count(*)::int AS n FROM task t WHERE ${scope(viewer, v)}`);
-	return z.object({ n: z.int() }).parse(r.rows[0]).n;
+async function countTop(tx: Tx, viewer: Reader, v: z.infer<typeof c.countTasksRequest>) {
+	const [found] = await gated(
+		tx,
+		viewer,
+		sql`SELECT 1 AS ord, count(*)::int AS n FROM task t WHERE ${scope(viewer, v)}`,
+	);
+	return z.object({ n: z.int() }).parse(found).n;
 }

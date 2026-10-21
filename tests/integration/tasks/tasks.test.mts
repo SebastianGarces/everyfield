@@ -721,3 +721,31 @@ test("AC:TARGET-TSK-014 a delivered due reminder is not sent again after the dea
 		],
 	);
 });
+
+test("INV-tenancy: a seat ended, demoted or signed out after the viewer lookup reads no task data", async () => {
+	const t = await create(owner, { title: "Private plan" });
+	const seated = async (role) => {
+		const a = await f.account();
+		const seat = await f.seat(a, plant, role);
+		return { ...a, seat, actor: await f.actor(a.session) };
+	};
+	const reads = (who) => [
+		["get", { taskId: t.id }],
+		["list", {}],
+		["count", {}],
+		["statusHistory", { taskId: t.id }],
+		["eligibleAssignees", undefined],
+		["relationOptions", { kind: "person" }],
+	];
+	const [removed, demoted, signedOut] = [await seated("admin"), await seated("admin"), await seated("admin")];
+	for (const who of [removed, demoted, signedOut]) for (const [op, input] of reads(who)) ok(await read(who, op, input));
+	// Each change lands after the actor was resolved, as in a request that already looked up its viewer.
+	await f.admin.execute(sql`UPDATE seat SET ended_at=now() WHERE id=${removed.seat}`);
+	await f.admin.execute(sql`UPDATE seat SET role='member' WHERE id=${demoted.seat}`);
+	await f.admin.execute(sql`UPDATE auth_session SET expires_at=now() WHERE id=${signedOut.session}`);
+	for (const who of [removed, signedOut])
+		for (const [op, input] of reads(who)) refused(await read(who, op, input), "unavailable");
+	// A demoted Admin keeps Member reads and loses the Admin-only selectors.
+	assert.equal(ok(await read(demoted, "get", { taskId: t.id })).task.id, t.id);
+	for (const [op, input] of reads(demoted).slice(4)) refused(await read(demoted, op, input), "unavailable");
+});
