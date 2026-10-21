@@ -254,7 +254,9 @@ function PairReview({
 								value={
 									<span className="flex flex-wrap items-center justify-end gap-2">
 										<StageChip stage={STAGE_KEY[review.stage.result]}>{STAGE_LABEL[review.stage.result]}</StageChip>
-										<span className="font-normal text-text-3">the later of the two</span>
+										{review.stage.source !== review.stage.survivor ? (
+											<span className="font-normal text-text-3">the later of the two</span>
+										) : null}
 									</span>
 								}
 							/>
