@@ -1,4 +1,4 @@
-import { accountId, owner, sessionId } from "@everyfield/contracts/common";
+import { accountId, sessionId } from "@everyfield/contracts/common";
 import * as q from "@everyfield/contracts/settings";
 import * as n from "@everyfield/contracts/settings/native";
 import type {
@@ -7,12 +7,13 @@ import type {
 	SettingsWriteContext,
 } from "@everyfield/contracts/settings/server";
 import type { Database } from "@everyfield/db/client";
-import { and, eq, isNull, sql } from "@everyfield/db/query";
+import { alias, and, eq, getTableColumns, isNull, sql, type SQLWrapper } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import { randomBytes, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { lock as lockSeats } from "../identity/invitation-core.ts";
+import { executeWrites } from "../operations/writes.ts";
 import {
 	appendEvent,
 	begin,
@@ -28,10 +29,33 @@ import {
 	type Tx,
 } from "./core.ts";
 const requestRecord = z.object({ deletion: n.deletionStatus });
+const mintRow = z.object({
+	witness: z
+		.object({
+			id: z.uuid(),
+			request_id: z.uuid().nullable(),
+			request_revision: z.coerce.string(),
+			requester_opaque_id: z.uuid().nullable(),
+		})
+		.nullable(),
+	at: z.coerce.date(),
+});
+const currentWitness = z.object({
+	blocked: z.boolean(),
+	witness: z
+		.object({
+			id: z.uuid(),
+			state: z.string(),
+			request_revision: z.coerce.string(),
+			witness_checkpoint: z.coerce.string(),
+		})
+		.nullable(),
+});
 export type DeletionSubject = z.infer<typeof n.deletionSubject>;
 export type DeletionRequest = { subject: DeletionSubject; requestId: string; revision: string };
 export interface DeletionEffects {
-	enqueue(tx: Tx, input: DeletionRequest & { witnessId: string; eligibleAt: string }): Promise<void>;
+	/** The purge job for one request, as an insert the request adds to its own write statement (D70). */
+	queue(tx: Tx, input: DeletionRequest & { witnessId: string; eligibleAt: string }): SQLWrapper;
 }
 export function status(w: typeof t.lifecycle_witness.$inferSelect): n.DeletionStatus {
 	if (w.kind !== "account" && w.kind !== "plant") deny();
@@ -66,26 +90,68 @@ async function witness(tx: Tx, subject: DeletionSubject) {
 		.for("update");
 	return w;
 }
+/**
+ * The restricted session's proof, its account and the request witness, locked in that order in one statement, with
+ * the database clock. A handle that names no live proof for this exact request is refused.
+ */
+async function proven(tx: Tx, handle: string, subject: DeletionSubject) {
+	const proof = tx.$with("restricted_proof").as(
+		tx
+			.select(getTableColumns(t.identity_proof))
+			.from(t.identity_proof)
+			.where(and(eq(t.identity_proof.token_hash, hash(handle)), eq(t.identity_proof.purpose, "deletion_cancel")))
+			.for("share"),
+	);
+	const account = tx
+		.$with("restricted_account")
+		.as(
+			tx
+				.select({ id: t.account.id })
+				.from(t.account)
+				.innerJoin(proof, eq(t.account.id, proof.account_id))
+				.for("update", { of: t.account }),
+		);
+	const root = tx.$with("restricted_root").as(
+		tx
+			.select({ id: t.plant.id })
+			.from(t.plant)
+			.where(and(sql`${subject.kind}='plant'`, eq(t.plant.id, subject.id), sql`EXISTS(SELECT FROM ${account})`))
+			.for("update"),
+	);
+	const witness = tx.$with("restricted_witness").as(
+		tx
+			.select(getTableColumns(t.lifecycle_witness))
+			.from(t.lifecycle_witness)
+			.where(
+				and(
+					eq(t.lifecycle_witness.kind, subject.kind),
+					eq(t.lifecycle_witness.opaque_subject_id, subject.id),
+					sql`EXISTS(SELECT FROM ${account}) AND (${subject.kind}<>'plant' OR EXISTS(SELECT FROM ${root}))`,
+				),
+			)
+			.for("update"),
+	);
+	const p = alias(t.identity_proof, "restricted_proof"),
+		w = alias(t.lifecycle_witness, "restricted_witness");
+	const [row] = await tx
+		.with(proof, account, root, witness)
+		.select({ proof: p, witness: w, at: now })
+		.from(proof)
+		.leftJoin(witness, sql`true`);
+	return row;
+}
 async function restricted(tx: Tx, ctx: n.RestrictedDeletionContext, subject: DeletionSubject, requestId: string) {
 	if (ctx.kind !== "restricted_deletion") deny();
 	if (subject.kind === "plant") await lockSeats(tx, "workspace-seats/" + subject.id);
-	const [proof] = await tx
-		.select()
-		.from(t.identity_proof)
-		.where(and(eq(t.identity_proof.token_hash, hash(ctx.handle)), eq(t.identity_proof.purpose, "deletion_cancel")))
-		.for("share");
-	if (!proof) deny("proof_invalid");
-	// Match the shared order before holding the request witness.
-	await tx.select({ id: t.account.id }).from(t.account).where(eq(t.account.id, proof.account_id)).for("update");
-	await root(tx, subject);
-	const w = await witness(tx, subject);
-	const [clock] = await tx.select({ at: now }).from(t.account).where(eq(t.account.id, proof.account_id));
+	const row = await proven(tx, ctx.handle, subject);
+	if (!row) deny("proof_invalid");
+	const { proof, witness: w, at: clock } = row;
 	if (
 		!w ||
 		w.request_id !== requestId ||
 		proof.deletion_subject_id !== w.id ||
 		String(proof.request_revision) !== w.request_revision ||
-		proof.expires_at <= clock!.at ||
+		proof.expires_at <= clock ||
 		proof.superseded_at ||
 		proof.consumed_at
 	)
@@ -113,7 +179,7 @@ async function restricted(tx: Tx, ctx: n.RestrictedDeletionContext, subject: Del
 			.where(and(eq(t.lifecycle_witness.seat_id, s.id), eq(t.lifecycle_witness.state, "revoked")));
 		if (revoked.length) deny();
 	}
-	return { w, clock: clock!.at };
+	return { w, clock };
 }
 export function deletionOperations(effects: DeletionEffects): DeletionProducer<Tx> {
 	async function request(
@@ -123,49 +189,36 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 		kind: "account" | "plant",
 	) {
 		const v = kind === "account" ? parse(q.requestAccountDeletion, raw) : parse(q.requestWorkspaceDeletion, raw);
-
-		const subject =
-			kind === "account"
-				? owner.parse({ kind: "account", id: (await self(tx, ctx)).account.id })
-				: parse(q.requestWorkspaceDeletion, raw).input.plant;
-		if (subject.kind !== "account" && subject.kind !== "plant") deny();
-		const a = subject.kind === "account" ? await self(tx, ctx) : await plantAdmin(tx, ctx, subject, "command");
+		// The bound write locked the account, its open seats and, for a workspace, the plant.
+		const workspace = kind === "plant" ? parse(q.requestWorkspaceDeletion, raw).input.plant : null;
+		const a = workspace ? await plantAdmin(tx, ctx, workspace, "command") : await self(tx, ctx);
+		const subject: DeletionSubject = workspace ?? { kind: "account", id: accountId.parse(a.account.id) };
 		if (subject.kind === "plant" && (a.identity.context.kind !== "seat" || a.identity.context.role !== "owner")) deny();
-		if (subject.kind === "account") {
-			const owners = await tx
-				.select()
-				.from(t.seat)
-				.where(and(eq(t.seat.account_id, a.account.id), eq(t.seat.role, "owner"), isNull(t.seat.ended_at)))
-				.for("share");
-			if (owners.some((s) => s.organization_id !== null)) deny("manual_owner_exception_required");
-			if (owners.length) {
-				const hidden = await tx
-					.select({ id: t.lifecycle_witness.opaque_subject_id })
-					.from(t.lifecycle_witness)
-					.where(
-						sql`${t.lifecycle_witness.opaque_subject_id}=ANY(${sql.param(owners.map((s) => s.plant_id))}::uuid[]) AND ${t.lifecycle_witness.kind}='plant' AND ${t.lifecycle_witness.state} IN ('pending_deletion','purging','purged')`,
-					);
-				if (owners.some((s) => !hidden.some((w) => w.id === s.plant_id))) deny("manual_owner_exception_required");
-			}
-		}
-		const wctx: SettingsWriteContext = ctx;
 		const c = await begin(
 			tx,
-			wctx,
+			ctx,
 			a.account.id,
 			subject.kind === "account" ? "account.requestDeletion" : "churches.requestWorkspaceDeletion",
 			v,
 		);
 		if (c.kind === "replay") return requestRecord.parse(c.value).deletion;
-		revision(
-			v.expectedRevision,
-			subject.kind === "account" ? a.account.revision : (await plantAdmin(tx, ctx, subject, "command")).plant.revision,
+		// The bound write locks the plant only for an actor with one open seat.
+		if (subject.kind === "plant") await root(tx, subject);
+		// One statement: the current witness, locked, and whether an owner seat blocks personal deletion. An Owner of
+		// an organization, or of a workspace that is not itself being deleted, needs the manual exception.
+		const blocked =
+			subject.kind === "account"
+				? sql`EXISTS(SELECT FROM seat s WHERE s.account_id=${a.account.id}::uuid AND s.role='owner' AND s.ended_at IS NULL AND (s.organization_id IS NOT NULL OR NOT EXISTS(SELECT FROM lifecycle_witness h WHERE h.kind='plant' AND h.opaque_subject_id=s.plant_id AND h.state IN ('pending_deletion','purging','purged'))))`
+				: sql`false`;
+		const read = await tx.execute(
+			sql`SELECT ${blocked} AS blocked, (SELECT to_jsonb(w) FROM (SELECT id,state,request_revision,witness_checkpoint FROM lifecycle_witness WHERE kind=${subject.kind} AND opaque_subject_id=${subject.id}::uuid FOR UPDATE) w) AS witness`,
 		);
-		await root(tx, subject);
-		const old = await witness(tx, subject);
+		const found = currentWitness.parse(read.rows[0]);
+		if (found.blocked) deny("manual_owner_exception_required");
+		revision(v.expectedRevision, subject.kind === "account" ? a.account.revision : a.plant!.revision);
+		const old = found.witness;
 		if (old && old.state !== "active" && old.state !== "cancelled") deny("conflict");
-		const [clock] = await tx.select({ at: now }).from(t.account).where(eq(t.account.id, a.account.id));
-		const requestedAt = clock!.at,
+		const requestedAt = new Date(),
 			cancelUntil = new Date(requestedAt.getTime() + 30 * 86400_000),
 			requestId = randomUUID(),
 			next = old ? String(BigInt(old.request_revision) + 1n) : "1";
@@ -188,14 +241,17 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 		const [w] = old
 			? await tx.update(t.lifecycle_witness).set(values).where(eq(t.lifecycle_witness.id, old.id)).returning()
 			: await tx.insert(t.lifecycle_witness).values(values).returning();
+		// Sessions, pending mail and queued work stop in the same transaction as the witness.
 		await tx.execute(sql`SELECT settings_suspend_subject(${w!.id}::uuid,${requestId}::uuid)`);
-		await effects.enqueue(tx, {
-			subject,
-			requestId,
-			revision: next,
-			witnessId: w!.id,
-			eligibleAt: cancelUntil.toISOString(),
-		});
+		c.writes.push(
+			effects.queue(tx, {
+				subject,
+				requestId,
+				revision: next,
+				witnessId: w!.id,
+				eligibleAt: cancelUntil.toISOString(),
+			}),
+		);
 		await appendEvent(
 			tx,
 			c,
@@ -215,31 +271,33 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 		revision(v.expectedRevision, w.request_revision);
 		if (w.state === "cancelled") return status(w);
 		if (clock >= w.cancel_until! || w.state !== "pending_deletion") deny("deadline_passed");
-		const [next] = await tx
-			.update(t.lifecycle_witness)
-			.set({
-				state: "cancelled",
-				cancelled_at: clock,
-				witness_checkpoint: sql`${t.lifecycle_witness.witness_checkpoint}+1`,
-			})
-			.where(eq(t.lifecycle_witness.id, w.id))
-			.returning();
-		// No grant/session/mail restoration. Independent revocations remain authoritative.
-		await tx
-			.insert(t.audit_event)
-			.values({
-				tenant_id: v.input.subject.id,
-				subject_id: w.id,
-				actor_id: w.requester_id,
-				system_cause: w.requester_id ? null : "deletion_cancellation",
-				kind: "restore",
-				action: "deletion.cancelled",
-				occurred_at: clock,
-				recorded_at: clock,
-				event_key: w.request_id + "/cancelled",
-			})
-			.onConflictDoNothing({ target: [t.audit_event.subject_id, t.audit_event.event_key] });
-		return status(next!);
+		// The witness and its audit entry change in one statement. No grant, session or mail is restored:
+		// independent revocations stay authoritative.
+		await executeWrites(tx, [
+			tx
+				.update(t.lifecycle_witness)
+				.set({
+					state: "cancelled",
+					cancelled_at: clock,
+					witness_checkpoint: sql`${t.lifecycle_witness.witness_checkpoint}+1`,
+				})
+				.where(eq(t.lifecycle_witness.id, w.id)),
+			tx
+				.insert(t.audit_event)
+				.values({
+					tenant_id: v.input.subject.id,
+					subject_id: w.id,
+					actor_id: w.requester_id,
+					system_cause: w.requester_id ? null : "deletion_cancellation",
+					kind: "restore",
+					action: "deletion.cancelled",
+					occurred_at: clock,
+					recorded_at: clock,
+					event_key: w.request_id + "/cancelled",
+				})
+				.onConflictDoNothing({ target: [t.audit_event.subject_id, t.audit_event.event_key] }),
+		]);
+		return status({ ...w, state: "cancelled", cancelled_at: clock });
 	}
 	return {
 		requestAccountDeletion: (tx, ctx, v) => reply(tx, (s) => request(s, ctx, v, "account")),
@@ -267,15 +325,20 @@ export async function issueRestrictedDeletionSession(
 ) {
 	const proof = await prove();
 	if (input.subject.kind === "plant") await lockSeats(tx, "workspace-seats/" + input.subject.id);
-	const id = accountId.parse(proof.accountId);
-	await tx.select({ id: t.account.id }).from(t.account).where(eq(t.account.id, id)).for("update");
-	await root(tx, input.subject);
-	const w = await witness(tx, input.subject);
-	const [clock] = await tx.select({ at: now }).from(t.account).where(eq(t.account.id, id));
+	const id = accountId.parse(proof.accountId),
+		subject = input.subject;
+	// The proven account, the workspace root and the request witness, locked in that order, with the database clock.
+	const read = await tx.execute(
+		sql`WITH a AS (SELECT id FROM account WHERE id=${id}::uuid FOR UPDATE),
+ r AS (SELECT id FROM plant WHERE ${subject.kind}='plant' AND id=${subject.id}::uuid AND EXISTS(SELECT FROM a) FOR UPDATE),
+ w AS (SELECT id,request_id,request_revision,requester_opaque_id FROM lifecycle_witness WHERE kind=${subject.kind} AND opaque_subject_id=${subject.id}::uuid AND EXISTS(SELECT FROM a) AND (${subject.kind}<>'plant' OR EXISTS(SELECT FROM r)) FOR UPDATE)
+ SELECT (SELECT to_jsonb(w) FROM w) AS witness, clock_timestamp() AS at`,
+	);
+	const { witness: w, at } = mintRow.parse(read.rows[0]);
+	const clock = { at };
 	if (
 		!w ||
 		w.request_id !== input.requestId ||
-		!clock ||
 		proof.provenAt > clock.at ||
 		clock.at.getTime() - proof.provenAt.getTime() > 5 * 60_000 ||
 		(input.subject.kind === "account" ? id !== input.subject.id : w.requester_opaque_id !== id)

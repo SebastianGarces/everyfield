@@ -1,7 +1,7 @@
 import * as q from "@everyfield/contracts/settings";
 import type { NativeAccountProducer, NativeSettingsContext } from "@everyfield/contracts/settings/server";
 import type { Database } from "@everyfield/db/client";
-import { and, eq, sql } from "@everyfield/db/query";
+import { and, eq, sql, type SQLWrapper } from "@everyfield/db/query";
 import {
 	putPrivateObject,
 	readAuthorizedObject,
@@ -13,36 +13,81 @@ import * as t from "@everyfield/db/tables";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { appendEvent, begin, deny, finish, now, parse, reply, revision, self, type Tx } from "./core.ts";
+import { liveRead, writeVisibility } from "../access/session.ts";
+import { executeWrites } from "../operations/writes.ts";
+import {
+	appendEvent,
+	auditChange,
+	begin,
+	deny,
+	finish,
+	parse,
+	reply,
+	revision,
+	self,
+	type NewCommand,
+	type Tx,
+} from "./core.ts";
 export interface AvatarCleanup {
-	enqueue(tx: Tx, input: { accountId: string; fileId: string; eligibleAt: string }): Promise<void>;
+	/** The cleanup job for one avatar file, as an insert the caller adds to its own write statement (D70). */
+	queue(tx: Tx, input: { accountId: string; fileId: string; eligibleAt: string }): SQLWrapper;
 }
-const resultRecord = z.object({ result: q.avatarResult });
+// The replay record holds nothing: personal settings audit never keeps the photo reference. A replay has the same
+// request, so the reply is rebuilt from it.
+const resultRecord = z.strictObject({});
+/** The 15 minutes a staged upload stays open for its bytes and its finalize. */
+const STAGING_MS = 15 * 60_000;
 export function avatarOperations(
 	cleanup: AvatarCleanup,
 ): Pick<NativeAccountProducer<Tx>, "requestAvatarUpload" | "getAvatar" | "finalizeAvatar" | "removeAvatar"> {
+	/** The account's avatar reference changes from `before` to `after`: the account row, the old file's cleanup and the audit entry. */
+	async function change(s: Tx, c: NewCommand, account: typeof t.account.$inferSelect, after: string | null) {
+		const before = account.avatar_object_id;
+		if (before === after) return;
+		c.writes.push(
+			s
+				.update(t.account)
+				.set({ avatar_object_id: after, revision: sql`${t.account.revision}+1` })
+				.where(eq(t.account.id, account.id)),
+		);
+		// The old bytes are unreferenced once this commits; cleanup may start at once.
+		if (before)
+			c.writes.push(cleanup.queue(s, { accountId: account.id, fileId: before, eligibleAt: new Date().toISOString() }));
+		const event = await appendEvent(
+			s,
+			c,
+			account.id,
+			"edit",
+			"files.finalized",
+			account.revision,
+			String(BigInt(account.revision) + 1n),
+		);
+		auditChange(c, event, "account", { avatar: before }, { avatar: after });
+	}
 	return {
+		// The staged file and its orphan cleanup commit in one statement, so a later failed upload or finalize leaves
+		// no file without cleanup.
 		requestAvatarUpload: (tx, ctx, raw) =>
 			reply(tx, async (s) => {
 				const input = parse(q.requestAvatarUpload, raw);
-				const a = await self(s, ctx, "preview");
-				const [clock] = await s.select({ at: now }).from(t.account).where(eq(t.account.id, a.account.id));
+				const a = await self(s, ctx);
 				const id = randomUUID(),
-					expiresAt = new Date(clock!.at.getTime() + 15 * 60_000).toISOString();
-				await s.insert(t.file_object).values({
-					id,
-					tenant_id: a.account.id,
-					purpose: "avatar",
-					opaque_key: `private/${a.account.id}/${randomUUID()}`,
-					media_type: input.mime,
-					max_bytes: String(input.byteLength),
-					state: "pending",
-					upload_key: id,
-					claim_generation: "0",
-					expires_at: new Date(expiresAt),
-				});
-				// This intent already exists if a later upload/finalize response or SQL save fails.
-				await cleanup.enqueue(s, { accountId: a.account.id, fileId: id, eligibleAt: expiresAt });
+					expiresAt = new Date(Date.now() + STAGING_MS).toISOString();
+				await executeWrites(s, [
+					s.insert(t.file_object).values({
+						id,
+						tenant_id: a.account.id,
+						purpose: "avatar",
+						opaque_key: `private/${a.account.id}/${randomUUID()}`,
+						media_type: input.mime,
+						max_bytes: String(input.byteLength),
+						state: "pending",
+						upload_key: id,
+						claim_generation: "0",
+						expires_at: new Date(expiresAt),
+					}),
+					cleanup.queue(s, { accountId: a.account.id, fileId: id, eligibleAt: expiresAt }),
+				]);
 				return q.avatarUploadResult.parse({ uploadId: id, expiresAt });
 			}),
 		getAvatar: (tx, ctx, raw) =>
@@ -70,13 +115,15 @@ export function avatarOperations(
 				const v = parse(q.finalizeAvatarRequest, raw);
 				const a = await self(s, ctx);
 				const c = await begin(s, { ...ctx }, a.account.id, "account.finalizeAvatar", v);
-				if (c.kind === "replay") {
-					const prior = resultRecord.parse(c.value);
-					return prior.result;
-				}
+				const saved = q.avatarResult.parse({
+					status: "available",
+					avatar: { accountId: a.account.id, versionId: v.input.uploadId },
+				});
+				if (c.kind === "replay") return saved;
 				revision(v.expectedRevision, a.account.revision);
+				// The account's own uploaded, verified and unexpired file, locked until the reference commits.
 				const [f] = await s
-					.select()
+					.select({ id: t.file_object.id })
 					.from(t.file_object)
 					.where(
 						and(
@@ -84,86 +131,65 @@ export function avatarOperations(
 							eq(t.file_object.tenant_id, a.account.id),
 							eq(t.file_object.purpose, "avatar"),
 							eq(t.file_object.state, "ready"),
+							sql`${t.file_object.expires_at}>clock_timestamp()`,
 						),
 					)
 					.for("update");
-				const [clock] = await s.select({ at: now }).from(t.account).where(eq(t.account.id, a.account.id));
-				if (!f || !f.expires_at || f.expires_at <= clock!.at) deny();
-				const changed = a.account.avatar_object_id !== f.id;
-
-				if (changed) {
-					await s
-						.update(t.account)
-						.set({ avatar_object_id: f.id, revision: sql`${t.account.revision}+1` })
-						.where(eq(t.account.id, a.account.id));
-					await appendEvent(
-						s,
-						c,
-						a.account.id,
-						"edit",
-						"files.finalized",
-						a.account.revision,
-						String(BigInt(a.account.revision) + 1n),
-					);
-					if (a.account.avatar_object_id)
-						await cleanup.enqueue(s, {
-							accountId: a.account.id,
-							fileId: a.account.avatar_object_id,
-							eligibleAt: clock!.at.toISOString(),
-						});
-				}
-				const result = await finish(s, c, resultRecord, () => ({
-					result: { status: "available", avatar: { accountId: a.account.id, versionId: f.id } },
-				}));
-				return result.result;
+				if (!f) deny();
+				await change(s, c, a.account, f.id);
+				await finish(s, c, resultRecord, () => ({}));
+				return saved;
 			}),
 		removeAvatar: (tx, ctx, raw) =>
 			reply(tx, async (s) => {
 				const v = parse(q.removeAvatarRequest, raw);
 				const a = await self(s, ctx);
 				const c = await begin(s, { ...ctx }, a.account.id, "account.removeAvatar", v);
-				if (c.kind === "replay") return resultRecord.parse(c.value).result;
+				const absent = q.avatarResult.parse({ status: "absent" });
+				if (c.kind === "replay") return absent;
 				revision(v.expectedRevision, a.account.revision);
-				const changed = a.account.avatar_object_id !== null;
-
-				if (changed) {
-					await s
-						.update(t.account)
-						.set({ avatar_object_id: null, revision: sql`${t.account.revision}+1` })
-						.where(eq(t.account.id, a.account.id));
-					const [clock] = await s.select({ at: now }).from(t.account).where(eq(t.account.id, a.account.id));
-					await cleanup.enqueue(s, {
-						accountId: a.account.id,
-						fileId: a.account.avatar_object_id!,
-						eligibleAt: clock!.at.toISOString(),
-					});
-					await appendEvent(
-						s,
-						c,
-						a.account.id,
-						"edit",
-						"files.finalized",
-						a.account.revision,
-						String(BigInt(a.account.revision) + 1n),
-					);
-				}
-				return (await finish(s, c, resultRecord, () => ({ result: { status: "absent" } }))).result;
+				await change(s, c, a.account, null);
+				await finish(s, c, resultRecord, () => ({}));
+				return absent;
 			}),
 	};
 }
+/**
+ * This context's own account, when the session is live, the account is fully registered and no lifecycle witness
+ * hides it, in one statement. A read uses the lock-free live check (C27); the upload, a write, keeps the share locks of
+ * access_session.
+ */
+function liveSelf(ctx: NativeSettingsContext, read: boolean) {
+	if (ctx.selected.kind !== "account") return sql`false`;
+	const account = ctx.selected.id;
+	const live = read
+		? liveRead({ session: ctx.session, owner: ctx.selected })
+		: sql`EXISTS(SELECT FROM access_session(${ctx.session}::uuid) x WHERE x.account_id=${account}::uuid AND x.registration_state='active') AND ${writeVisibility(account, ctx.selected)}`;
+	return sql<boolean>`(${t.account.id}=${account}::uuid AND ${live})`;
+}
 function authorization(ctx: NativeSettingsContext, uploadId: string, upload: boolean): ResourceAuthorizer {
 	return async (tx, file, intent) => {
-		const a = await self(tx, ctx, "preview");
+		const [a] = await tx
+			.select({ id: t.account.id, avatar: t.account.avatar_object_id })
+			.from(t.account)
+			.where(liveSelf(ctx, !upload));
 		if (
+			!a ||
 			(!upload && file.id !== uploadId) ||
-			file.tenant_id !== a.account.id ||
+			file.tenant_id !== a.id ||
 			file.purpose !== "avatar" ||
 			intent === "cleanup" ||
-			(!upload && a.account.avatar_object_id !== file.id)
+			(!upload && a.avatar !== file.id)
 		)
 			return null;
-		return { kind: "account", actorId: a.account.id };
+		return { kind: "account", actorId: a.id };
 	};
+}
+/** The allowed type the bytes start with; the full check decodes them. */
+function signature(bytes: Uint8Array) {
+	if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "image/png";
+	if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
+	return "image/webp";
 }
 // Called by the native byte adapter, before the reference-finalizing transaction.
 export async function uploadAvatar(
@@ -173,34 +199,26 @@ export async function uploadAvatar(
 	raw: { uploadId: string; bytes: Uint8Array },
 ) {
 	const id = parse(z.uuid(), raw.uploadId);
-	const file = await db.transaction(async (tx) => {
-		const a = await self(tx, ctx, "preview");
-		const [f] = await tx
-			.select()
-			.from(t.file_object)
-			.where(
-				and(
-					eq(t.file_object.id, id),
-					eq(t.file_object.tenant_id, a.account.id),
-					eq(t.file_object.purpose, "avatar"),
-					eq(t.file_object.state, "pending"),
-				),
-			)
-			.for("update");
-		if (!f) deny();
-		return f;
-	});
-	await validateAvatar(raw.bytes, file.media_type);
-	if (raw.bytes.length !== Number(file.max_bytes)) deny("invalid_input");
+	// The bytes are decoded first; the staged upload must then have their exact type and size.
+	const mediaType = signature(raw.bytes);
+	await validateAvatar(raw.bytes, mediaType);
 	const digest = createHash("sha256").update(raw.bytes).digest("hex");
-	await db.transaction(async (tx) => {
-		const auth = authorization(ctx, id, true);
-		if (!(await auth(tx, file, "put"))) deny();
-		await tx
-			.update(t.file_object)
-			.set({ byte_count: String(raw.bytes.length), sha256: digest })
-			.where(and(eq(t.file_object.id, id), eq(t.file_object.state, "pending")));
-	});
+	// One statement: the live account's own pending upload of this type and size records the verified bytes.
+	const [file] = await db
+		.update(t.file_object)
+		.set({ byte_count: String(raw.bytes.length), sha256: digest })
+		.where(
+			and(
+				eq(t.file_object.id, id),
+				eq(t.file_object.purpose, "avatar"),
+				eq(t.file_object.state, "pending"),
+				eq(t.file_object.media_type, mediaType),
+				eq(t.file_object.max_bytes, String(raw.bytes.length)),
+				sql`${t.file_object.tenant_id} IN (SELECT ${t.account.id} FROM ${t.account} WHERE ${liveSelf(ctx, false)})`,
+			),
+		)
+		.returning();
+	if (!file) deny();
 	return putPrivateObject(db, storage, authorization(ctx, id, true), {
 		tenantId: file.tenant_id,
 		purpose: "avatar",
