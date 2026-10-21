@@ -609,6 +609,7 @@ function RepeatEditor({
 }) {
 	const [d, setD] = useState(initial);
 	const form = useRef<HTMLFormElement>(null);
+	const until = useRef<HTMLInputElement>(null);
 	useInlineForm(form, onCancel);
 	const [touched, setTouched] = useState(false);
 	const set = (patch: Partial<RuleDraft>) => setD((x) => ({ ...x, ...patch }));
@@ -617,7 +618,8 @@ function RepeatEditor({
 		e.preventDefault();
 		setTouched(true);
 		if (d.frequency === NEVER) return onSave(null);
-		if (d.ends === "on" && !/^\d{4}-\d{2}-\d{2}$/.test(d.until)) return;
+		// A refused save moves focus to the field that needs an answer.
+		if (d.ends === "on" && !/^\d{4}-\d{2}-\d{2}$/.test(d.until)) return until.current?.focus();
 		onSave({
 			frequency: d.frequency,
 			until: d.ends === "on" ? (d.until as Rule["until"]) : null,
@@ -652,7 +654,7 @@ function RepeatEditor({
 						</Field>
 						{d.ends === "on" ? (
 							<Field label="Last day" error={untilError} hint="An occurrence on this day still counts.">
-								<Input type="date" value={d.until} onChange={(e) => set({ until: e.target.value })} />
+								<Input ref={until} type="date" value={d.until} onChange={(e) => set({ until: e.target.value })} />
 							</Field>
 						) : null}
 					</div>

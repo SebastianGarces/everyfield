@@ -12,7 +12,7 @@ import {
 	PopoverTrigger,
 	Select,
 } from "@everyfield/ui/controls";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { bulkOutcomeText, type BulkOutcome, type DueInput } from "./model.ts";
 
 // Bulk changes (REQ-TSK-008): the bar over a selection and the report of what each selected task did.
@@ -94,12 +94,15 @@ function RescheduleForm({ count, onSubmit }: { count: number; onSubmit: (due: Du
 	const [kind, setKind] = useState<"local_date" | "undated">("local_date");
 	const [date, setDate] = useState("");
 	const [touched, setTouched] = useState(false);
+	const day = useRef<HTMLInputElement>(null);
 	const valid = /^\d{4}-\d{2}-\d{2}$/.test(date);
 	const submit = (e: FormEvent) => {
 		e.preventDefault();
 		setTouched(true);
 		if (kind === "undated") return onSubmit({ kind: "undated" });
-		if (valid) onSubmit({ kind: "local_date", date: date as never });
+		// A refused submit moves focus to the day that needs an answer.
+		if (!valid) return day.current?.focus();
+		onSubmit({ kind: "local_date", date: date as never });
 	};
 	return (
 		<form onSubmit={submit} noValidate className="flex flex-col gap-3">
@@ -115,7 +118,7 @@ function RescheduleForm({ count, onSubmit }: { count: number; onSubmit: (due: Du
 			</Field>
 			{kind === "local_date" ? (
 				<Field label="Day" error={touched && !valid ? "Pick a day." : null}>
-					<Input type="date" value={date} autoFocus onChange={(e) => setDate(e.target.value)} />
+					<Input ref={day} type="date" value={date} autoFocus onChange={(e) => setDate(e.target.value)} />
 				</Field>
 			) : null}
 			<p className="text-xs text-text-3">
