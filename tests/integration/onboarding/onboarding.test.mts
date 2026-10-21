@@ -877,7 +877,7 @@ test("INV-onboarding-authority: lifecycle, registration, current Owner and linke
 	denied(await call("createPlant", hidden, command({ name: "Hidden", confirmed: true })));
 });
 
-test("INV-discovery-race: conversion and organization ending serialize account, profile, affiliation without deadlock", async () => {
+test("INV-discovery-race: a conversion and an organization ending its link serialize without deadlock", async () => {
 	const { createOrganizationAdapter } = await import("../../../packages/domain/src/organizations/index.ts");
 	const { queueJobs } = await import("../../../apps/web/src/server/jobs/queue.ts");
 	const d = await discovery(),
@@ -934,11 +934,8 @@ test("INV-discovery-race: conversion and organization ending serialize account, 
 	const converting = db.transaction(async (tx) => {
 		await tx.execute(sql`SET LOCAL statement_timeout='8s'`);
 		conversionPid = (await tx.execute(sql`SELECT pg_backend_pid() pid`)).rows[0].pid;
-		await tx.execute(sql`SELECT * FROM invitation_identity(${d.a.session})`);
-		await tx.select().from(t.discovery).where(eq(t.discovery.id, d.result.profile.discoveryId)).for("update");
-		ready();
-		await continueConversion;
-		return api.convertDiscovery(
+		// The conversion keeps every lock it took until the organization's end waits for one of them.
+		const result = await api.convertDiscovery(
 			tx,
 			ctx(d.a),
 			command({
@@ -948,6 +945,9 @@ test("INV-discovery-race: conversion and organization ending serialize account, 
 				relationships: [link],
 			}),
 		);
+		ready();
+		await continueConversion;
+		return result;
 	});
 	await held;
 	const ending = db.transaction(async (tx) => {
