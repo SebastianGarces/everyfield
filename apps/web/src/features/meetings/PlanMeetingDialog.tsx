@@ -119,8 +119,10 @@ function Form({
 	// Each opening starts from the meeting as it is now, unless it reopens after a failed save.
 	const [wasOpen, setWasOpen] = useState(open);
 	const [keep, setKeep] = useState(false);
+	const [opening, setOpening] = useState(open ? 1 : 0);
 	if (open !== wasOpen) {
 		setWasOpen(open);
+		if (open) setOpening((n) => n + 1);
 		if (open && keep) setKeep(false);
 		else if (open) {
 			setDraft(initial(meeting));
@@ -139,20 +141,19 @@ function Form({
 		}
 	};
 
-	// Saved places load the first time the dialog opens, not with the page, and once only.
-	const [asked, setAsked] = useState(false);
-	if (open && !asked) setAsked(true);
+	// Saved places load each time the dialog opens (not with the page), so a place added in Places since the last
+	// opening is there. The last list stays on screen while the new one loads.
 	useEffect(() => {
-		if (!asked) return;
+		if (opening === 0) return;
 		let live = true;
 		listVenues({ limit: 100 }).then(
 			(r) => live && setVenues(r.status === "ok" ? r.value.items : []),
-			() => live && setVenues([]),
+			() => live && setVenues((v) => v ?? []),
 		);
 		return () => {
 			live = false;
 		};
-	}, [asked]);
+	}, [opening]);
 
 	const missing = {
 		date: draft.date === "",

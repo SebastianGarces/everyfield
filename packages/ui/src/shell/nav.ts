@@ -12,7 +12,7 @@ export type ShellLink = {
 	 * dialog over the current page; a new tab or a fresh load still follows `href`.
 	 * Such a link is never prefetched: a plain click does not load the route. */
 	onNavigate?: (event: { preventDefault: () => void }) => void;
-	/** false: never prefetched, for a dynamic page whose prefetch would be a request nobody asked for. */
+	/** false: not prefetched when it comes into view, only on intent (hover, touch or keyboard focus). */
 	prefetch?: false;
 };
 

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Menu, MenuContent, MenuTrigger } from "../controls";
 import { cn, EvryBot, HoverGroup, Icon, Lockup, LogoMark, useHoverItem } from "../foundations";
+import { both, useIntentPrefetch } from "../controls/IntentLink";
 import { currentKey, linkPrefetch, type ShellItem, type ShellLink, type ShellNav, type ShellUser } from "./nav";
 import { RailTip, ThemeToggle } from "./ThemeToggle";
 
@@ -194,13 +195,16 @@ function Topbar({
 
 function TopNavItem({ link, current }: { link: ShellLink; current: boolean }) {
 	const { handlers, indicator } = useHoverItem(link.key);
+	const intent = useIntentPrefetch(link.href, link.prefetch === false && !link.onNavigate);
 	return (
 		<Link
 			href={link.href}
 			aria-current={current ? "page" : undefined}
 			onNavigate={link.onNavigate}
 			prefetch={linkPrefetch(link)}
-			{...handlers}
+			onPointerEnter={both(handlers.onPointerEnter, intent.onPointerEnter)}
+			onFocus={both(handlers.onFocus, intent.onFocus)}
+			onTouchStart={intent.onTouchStart}
 			className="relative inline-flex h-11 items-center gap-2 rounded-nav-item px-4 text-nav text-ink-2 aria-[current=page]:bg-ink aria-[current=page]:text-on-ink aria-[current=page]:shadow-nav-active max-app-xl:px-[13px]"
 		>
 			{indicator}
@@ -270,6 +274,10 @@ const RAIL_ITEM =
 
 function RailItem({ item, current }: { item: ShellItem; current: boolean }) {
 	const { handlers, indicator } = useHoverItem(item.key);
+	const intent = useIntentPrefetch(
+		item.kind === "link" ? item.href : "",
+		item.kind === "link" && item.prefetch === false && !item.onNavigate,
+	);
 	const body = (
 		<>
 			{indicator}
@@ -284,7 +292,9 @@ function RailItem({ item, current }: { item: ShellItem; current: boolean }) {
 				aria-current={current ? "page" : undefined}
 				onNavigate={item.onNavigate}
 				prefetch={linkPrefetch(item)}
-				{...handlers}
+				onPointerEnter={both(handlers.onPointerEnter, intent.onPointerEnter)}
+				onFocus={both(handlers.onFocus, intent.onFocus)}
+				onTouchStart={intent.onTouchStart}
 				className={RAIL_ITEM}
 			>
 				{body}
@@ -382,6 +392,10 @@ const MENU_ROW =
 
 function MenuRow({ item, current, onChoose }: { item: ShellItem; current: boolean; onChoose: () => void }) {
 	const { handlers, indicator } = useHoverItem(item.key);
+	const intent = useIntentPrefetch(
+		item.kind === "link" ? item.href : "",
+		item.kind === "link" && item.prefetch === false && !item.onNavigate,
+	);
 	const body = (
 		<>
 			{indicator}
@@ -397,7 +411,9 @@ function MenuRow({ item, current, onChoose }: { item: ShellItem; current: boolea
 				onClick={onChoose}
 				onNavigate={item.onNavigate}
 				prefetch={linkPrefetch(item)}
-				{...handlers}
+				onPointerEnter={both(handlers.onPointerEnter, intent.onPointerEnter)}
+				onFocus={both(handlers.onFocus, intent.onFocus)}
+				onTouchStart={intent.onTouchStart}
 				className={MENU_ROW}
 			>
 				{body}
