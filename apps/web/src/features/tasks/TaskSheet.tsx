@@ -145,14 +145,14 @@ export function TaskSheet({
 								variant={isSettled(task.status) ? "secondary" : "primary"}
 								size="sm"
 								aria-busy={busy || undefined}
-								onClick={() => !busy && onAction(isSettled(task.status) ? { kind: "reopen" } : { kind: "complete" })}
+								onClick={() => onAction(isSettled(task.status) ? { kind: "reopen" } : { kind: "complete" })}
 							>
 								{isSettled(task.status) ? "Reopen" : "Mark done"}
 							</Button>
 							{isSettled(task.status) ? null : (
 								<Menu>
 									<MenuTrigger asChild>
-										<Button variant="outline" size="sm" disabled={busy}>
+										<Button variant="outline" size="sm">
 											Change status
 											<Icon icon={ArrowDown01Icon} size={16} className="-mr-1" />
 										</Button>

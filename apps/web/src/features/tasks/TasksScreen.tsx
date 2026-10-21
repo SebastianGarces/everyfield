@@ -285,41 +285,61 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 		setCounts((c) => ({ ...c, childTaskComplete: c.childTaskComplete + delta }));
 	};
 
+	// One status change per task at a time, in the order the person asked: a second change waits for the first and
+	// sends the revision the first one saved, so a quick second click is neither dropped nor refused as out of date.
+	const queue = useRef(new Map<string, Promise<void>>());
+	const revisions = useRef(new Map<string, string>());
+	const revisionOf = (task: Pick<TaskItem, "id" | "revision">) => {
+		const known = revisions.current.get(task.id);
+		return known && BigInt(known) > BigInt(task.revision) ? known : task.revision;
+	};
 	const act = (
 		task: Pick<TaskItem, "id" | "revision" | "title" | "status">,
 		action: StatusAction,
 		parentId?: string,
 	) => {
-		if (busy.has(task.id)) return;
 		const slot = `status:${task.id}`;
-		const key = keys.current.for(slot, { revision: task.revision, action });
 		setBusy((b) => new Set(b).add(task.id));
-		startAction(async () => {
-			setOverlay({ id: task.id, status: targetOf(action) });
-			const r = await changeTaskStatus(key, task.revision, task.id, action).catch(() => lost);
-			keys.current.settle(slot, r);
-			startAction(() => {
-				setBusy((b) => {
-					const n = new Set(b);
-					n.delete(task.id);
-					return n;
-				});
-				if (r.status === "ok") {
-					if (parentId) confirmStep(parentId, task, r.value);
-					else confirm(task as TaskItem, r.value);
-					if (action.kind === "waive")
-						toast({ tone: "success", message: `Closed “${task.title}” as no longer needed.` });
-				} else fail(task, r, () => act(task, action, parentId), parentId);
-			});
-		});
+		const run: Promise<void> = (queue.current.get(task.id) ?? Promise.resolve()).then(
+			() =>
+				new Promise<void>((resolve) =>
+					startAction(async () => {
+						setOverlay({ id: task.id, status: targetOf(action) });
+						const revision = revisionOf(task);
+						const key = keys.current.for(slot, { revision, action });
+						const r = await changeTaskStatus(key, revision, task.id, action).catch(() => lost);
+						keys.current.settle(slot, r);
+						if (r.status === "ok") revisions.current.set(task.id, r.value.task.revision);
+						resolve();
+						startAction(() => {
+							if (queue.current.get(task.id) === run) {
+								queue.current.delete(task.id);
+								setBusy((b) => {
+									const n = new Set(b);
+									n.delete(task.id);
+									return n;
+								});
+							}
+							if (r.status === "ok") {
+								if (parentId) confirmStep(parentId, task, r.value);
+								else confirm(task as TaskItem, r.value);
+								if (action.kind === "waive")
+									toast({ tone: "success", message: `Closed “${task.title}” as no longer needed.` });
+							} else fail(task, r, () => act(task, action, parentId), parentId);
+						});
+					}),
+				),
+		);
+		queue.current.set(task.id, run);
 	};
 	const toggle = (task: TaskItem) => act(task, isSettled(task.status) ? { kind: "reopen" } : { kind: "complete" });
 	const canAct = (task: Pick<TaskItem, "assignee">) => admin || task.assignee?.accountId === viewer.accountId;
 
 	const remove = async (task: TaskItem) => {
 		const slot = `delete:${task.id}`;
-		const key = keys.current.for(slot, { revision: task.revision });
-		const r = await deleteTask(key, task.revision, task.id).catch(() => lost);
+		const revision = revisionOf(task);
+		const key = keys.current.for(slot, { revision });
+		const r = await deleteTask(key, revision, task.id).catch(() => lost);
 		keys.current.settle(slot, r);
 		if (r.status !== "ok") {
 			if (r.status === "refused" && r.code === "conflict") refresh(task.id);

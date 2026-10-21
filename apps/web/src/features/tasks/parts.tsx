@@ -59,7 +59,7 @@ export function DoneBox({
 				aria-label={`${settled ? "Reopen" : "Complete"} ${task.title}`}
 				aria-busy={busy || undefined}
 				checked={task.status === "complete" ? true : task.status === "no_longer_needed" ? "indeterminate" : false}
-				onCheckedChange={() => !busy && onToggle()}
+				onCheckedChange={onToggle}
 			/>
 		</label>
 	);
