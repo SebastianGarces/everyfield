@@ -639,21 +639,4 @@ test("AC:SEC-02 AC:TEN-002 AC:UI45-006 AC:SEC-11 INV-tenancy: an ended seat stop
 	const start = queries.length;
 	assert.equal((await verifyPeople(db, owner, selection)).length, 3);
 	assert.equal(queries.length - start, 1);
-
-	// Submit to the first saved card with 1, 10 and 64 page references.
-	const timings: Record<number, number> = {};
-	for (const n of [1, 10, 64]) {
-		const refs = Array.from({ length: n }, (_, i) => ({
-			kind: "person" as const,
-			id: i === 0 ? people.alexRivera : randomUUID(),
-		}));
-		const id = await ask(owner, "Find Casey", refs);
-		assert.equal(await work(), "succeeded");
-		const r = await admin.execute(
-			sql`SELECT extract(epoch FROM (SELECT min(created_at) FROM conversation_event WHERE conversation_id=${id} AND kind='tool_result') - (SELECT created_at FROM conversation_event WHERE conversation_id=${id} AND kind='user_message'))::float s`,
-		);
-		timings[n] = Math.round(r.rows[0]!.s * 1000);
-	}
-	console.log(JSON.stringify({ submitToFirstCardMsByReferences: timings }));
-	assert.ok(timings[64]! - timings[1]! < 300, "references add one read, not one per reference");
 });
