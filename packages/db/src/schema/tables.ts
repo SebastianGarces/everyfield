@@ -4954,7 +4954,9 @@ export const person_merge = pgTable(
 		check("person_merge_prior", sql`jsonb_typeof(${t.prior})='object'`),
 		check("person_merge_moved", sql`jsonb_typeof(${t.moved})='object'`),
 		// A Person is merged away at most once at a time.
-		uniqueIndex("person_merge_open_source").on(t.source_id).where(sql`unmerged_at IS NULL`),
+		uniqueIndex("person_merge_open_source")
+			.on(t.source_id)
+			.where(sql`unmerged_at IS NULL`),
 		index("person_merge_survivor_ref").on(t.survivor_id, t.tenant_id),
 	],
 );
