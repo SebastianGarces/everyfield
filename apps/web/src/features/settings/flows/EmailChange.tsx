@@ -4,8 +4,19 @@ import { Mail01Icon } from "@hugeicons/core-free-icons";
 import { normalizedEmail } from "@everyfield/contracts/identity";
 import { Button, Field, Input } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
+import { useRef } from "react";
 import { refusalOf } from "../save";
+import type { SettingsError } from "../port";
 import { useFlowState, useFlows } from "../store";
+
+/** Why a link was not sent. A request that may have sent one says so: a new request replaces it safely. */
+function notSent(error: SettingsError | null): string {
+	if (!error || error.code === "unknown")
+		return "We could not confirm that the link was sent. Send it again: the new link replaces the old one.";
+	if (error.code === "temporary")
+		return "The link was not sent. You can ask 3 times in an hour, and the address must not already sign in to Everyfield. Wait, or use another address.";
+	return `The link was not sent. ${refusalOf(error).message}`;
+}
 
 type State =
 	| { step: "idle" }
@@ -22,14 +33,20 @@ export function EmailChange({ currentEmail }: { currentEmail: string }) {
 	const port = useFlows();
 	// Kept in the settings store: leaving Your account while a link sends, or after it was sent, keeps that step.
 	const [state, setState] = useFlowState<State>("email-change", { step: "idle" });
+	const field = useRef<HTMLInputElement>(null);
 	const start = () => setState({ step: "editing", value: "", sending: false });
+	// After a refusal the field takes focus, so the reason is read with it and the address can be corrected at once.
+	const refuse = (error: string) => {
+		setState((s) => (s.step === "editing" ? { ...s, sending: false, error } : s));
+		field.current?.focus();
+	};
 	const cancel = () => setState({ step: "idle" });
 
 	const send = async () => {
 		if (state.step !== "editing") return;
 		const parsed = normalizedEmail.safeParse(state.value);
-		if (!parsed.success) return setState({ ...state, error: "Enter a full email address, like name@church.org." });
-		if (parsed.data === currentEmail) return setState({ ...state, error: "This is already your email." });
+		if (!parsed.success) return refuse("Enter a full email address, like name@church.org.");
+		if (parsed.data === currentEmail) return refuse("This is already your email.");
 		setState({ ...state, error: undefined, sending: true });
 		let reply;
 		try {
@@ -40,17 +57,7 @@ export function EmailChange({ currentEmail }: { currentEmail: string }) {
 		if (reply?.status === "ok") return setState({ step: "sent", email: parsed.data });
 		// The form stays in the store while it sends (Cancel is disabled), so the reason lands even if another section
 		// was opened meanwhile.
-		setState((s) =>
-			s.step === "editing"
-				? {
-						...s,
-						sending: false,
-						error: reply
-							? `The link was not sent. ${refusalOf(reply.error).message}`
-							: "The link was not sent. Check your connection and try again.",
-					}
-				: s,
-		);
+		refuse(notSent(reply?.status === "refused" ? reply.error : null));
 	};
 
 	return (
@@ -75,6 +82,7 @@ export function EmailChange({ currentEmail }: { currentEmail: string }) {
 				>
 					<Field label="New email" error={state.error} className="min-w-[240px] flex-1">
 						<Input
+							ref={field}
 							type="email"
 							autoComplete="email"
 							autoFocus

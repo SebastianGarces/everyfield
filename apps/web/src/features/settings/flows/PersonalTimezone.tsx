@@ -1,19 +1,11 @@
 "use client";
 
 import { Clock01Icon } from "@hugeicons/core-free-icons";
-import {
-	Button,
-	Dialog,
-	DialogBody,
-	DialogContent,
-	DialogFooter,
-	DialogHeader,
-	Skeleton,
-} from "@everyfield/ui/controls";
+import { Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { PersonalTimezonePreview, TimezonePreference } from "../port";
-import { refusalOf, useWrite, type Refusal } from "../save";
+import { useWrite, type Outcome, type Refusal } from "../save";
 import { SaveError } from "../SettingsDialog";
 import { useFlows } from "../store";
 import { formatInstant, formatLocalDate, nextMonday, zoneLabel } from "../time";
@@ -21,77 +13,78 @@ import { ZonePicker } from "./ZonePicker";
 
 /**
  * Your own time zone (REQ-IDN-033), separate from the church's. Until you confirm one, it says so and asks; it never
- * takes the church, device or UTC zone for you. A change starts at the first Monday after now in the new zone.
+ * takes the church, device or UTC zone for you. A change starts at the first Monday after now in the new zone. The
+ * saved zone comes with Your account, so this row asks the server nothing until you choose a zone.
+ *
+ * Saving closes the dialog and shows the new zone at once. A refusal puts the saved zone back and says why, with a way
+ * back into the dialog, which keeps the choice and its request key, so a retry after a lost reply is not saved twice.
  */
-export function PersonalTimezone() {
-	const port = useFlows();
-	const [preference, setPreference] = useState<TimezonePreference | null>(null);
-	const [loadError, setLoadError] = useState<Refusal | null>(null);
+export function PersonalTimezone({
+	preference,
+	onSaved,
+}: {
+	preference: TimezonePreference;
+	onSaved: (preference: TimezonePreference) => void;
+}) {
 	const [open, setOpen] = useState(false);
 	const [session, setSession] = useState(0);
-	const [attempt, setAttempt] = useState(0);
-
-	useEffect(() => {
-		let live = true;
-		port.getPersonalTimezone().then((reply) => {
-			if (!live) return;
-			if (reply.status === "ok") setPreference(reply.value);
-			else setLoadError(refusalOf(reply.error));
-		});
-		return () => {
-			live = false;
-		};
-	}, [port, attempt]);
-
-	if (loadError) {
-		return (
-			<SaveError
-				message="Your time zone did not load."
-				reference={loadError.reference}
-				action={
-					<Button
-						size="sm"
-						variant="secondary"
-						onClick={() => {
-							setLoadError(null);
-							setAttempt((n) => n + 1);
-						}}
-					>
-						Try again
-					</Button>
-				}
-			/>
-		);
-	}
-	if (!preference) return <Skeleton shape="block" height={36} width={240} aria-label="Loading your time zone" />;
+	const [pending, setPending] = useState<TimezonePreference | null>(null);
+	const [failure, setFailure] = useState<Refusal | null>(null);
+	const shown = pending ?? preference;
 
 	return (
-		<div className="flex flex-wrap items-center gap-3">
-			{preference.status === "confirmed" ? (
-				<span className="font-medium text-ink" data-personal-zone>
-					{zoneLabel(preference.timeZone)}
+		<div className="flex flex-col gap-3">
+			<div className="flex flex-wrap items-center gap-3">
+				{shown.status === "confirmed" ? (
+					<span className="font-medium text-ink" data-personal-zone>
+						{zoneLabel(shown.timeZone)}
+					</span>
+				) : (
+					<StatusBadge status="attention" size="sm" data-personal-zone>
+						Not chosen yet
+					</StatusBadge>
+				)}
+				<Button
+					size="sm"
+					variant={shown.status === "confirmed" ? "secondary" : "primary"}
+					onClick={() => {
+						if (!failure) setSession((n) => n + 1);
+						setFailure(null);
+						setOpen(true);
+					}}
+				>
+					{shown.status === "confirmed" ? "Change" : "Choose your time zone"}
+				</Button>
+				<span role="status" className="text-sm text-text-3">
+					{pending ? "Saving…" : null}
 				</span>
-			) : (
-				<StatusBadge status="attention" size="sm" data-personal-zone>
-					Not chosen yet
-				</StatusBadge>
-			)}
-			<Button
-				size="sm"
-				variant={preference.status === "confirmed" ? "secondary" : "primary"}
-				onClick={() => {
-					setSession((n) => n + 1);
-					setOpen(true);
-				}}
-			>
-				{preference.status === "confirmed" ? "Change" : "Choose your time zone"}
-			</Button>
+			</div>
+			{failure ? (
+				<SaveError
+					message={`Your time zone was not saved. ${failure.message}`}
+					reference={failure.reference}
+					action={
+						<Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
+							Try again
+						</Button>
+					}
+				/>
+			) : null}
 			<PersonalTimezoneDialog
 				key={session}
 				open={open}
 				onOpenChange={setOpen}
 				current={preference}
-				onSaved={(next) => setPreference(next)}
+				onSaving={(next) => {
+					setFailure(null);
+					setPending(next);
+					setOpen(false);
+				}}
+				onSettled={(result) => {
+					setPending(null);
+					if (result.ok) onSaved(result.value);
+					else setFailure(result.refusal);
+				}}
 			/>
 		</div>
 	);
@@ -101,12 +94,15 @@ function PersonalTimezoneDialog({
 	open,
 	onOpenChange,
 	current,
-	onSaved,
+	onSaving,
+	onSettled,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	current: TimezonePreference;
-	onSaved: (preference: TimezonePreference) => void;
+	/** The zone being saved, shown in the row before the reply. */
+	onSaving: (preference: TimezonePreference) => void;
+	onSettled: (result: Outcome<TimezonePreference>) => void;
 }) {
 	const port = useFlows();
 	const [zone, setZone] = useState<string | null>(null);
@@ -129,12 +125,11 @@ function PersonalTimezoneDialog({
 	const save = async () => {
 		if (!preview) return;
 		const input = { timeZone: preview.newZone, previewId: preview.previewId, confirmed: true as const };
+		onSaving({ status: "confirmed", timeZone: preview.newZone, revision: preview.expectedRevision });
 		const result = await saving.run(input, (requestKey) =>
 			port.setPersonalTimezone({ requestKey, expectedRevision: preview.expectedRevision, input }),
 		);
-		if (!result.ok) return;
-		onSaved(result.value.preference);
-		onOpenChange(false);
+		onSettled(result.ok ? { ok: true, value: result.value.preference } : result);
 	};
 
 	const stale = saving.refusal?.code === "stale_preview" || saving.refusal?.code === "conflict";
