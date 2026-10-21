@@ -46,7 +46,7 @@ import {
 	type ValidRow,
 } from "./model.ts";
 
-import { LOST_CHECK, RECONNECTING, type FailedRow, type Notice, type Review } from "./model.ts";
+import { RECONNECTING, type FailedRow, type Notice, type Review } from "./model.ts";
 
 // The four steps of the People CSV import screen. ImportScreen owns the state; these only draw it.
 
@@ -526,13 +526,20 @@ export function ImportStep({
 					<p className="text-text-2 text-pretty">{trouble.text}</p>
 					<div className="flex flex-wrap gap-2">
 						{onRetry ? (
-							<Button variant="primary" onClick={onRetry}>
-								{trouble === LOST_CHECK ? "Check again" : "Send again"}
-							</Button>
-						) : null}
-						<Button variant="ghost" onClick={onStartOver}>
-							Start over
-						</Button>
+							<>
+								<Button variant="primary" onClick={onRetry}>
+									Check again
+								</Button>
+								<Button variant="ghost" onClick={onStartOver}>
+									Start over
+								</Button>
+							</>
+						) : (
+							// The outcome is unknown (UNCONFIRMED): People shows what was saved; nothing here sends the import again.
+							<IntentLink href="/people" className={buttonVariants({ variant: "primary" })}>
+								Go to People
+							</IntentLink>
+						)}
 					</div>
 				</>
 			) : (

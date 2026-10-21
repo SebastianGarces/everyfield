@@ -169,13 +169,12 @@ export const LOST_CHECK: Notice = {
 	text: "The connection dropped before the answer arrived. The import may be running. Check again to see where it stands.",
 };
 /**
- * The receipt was refused. "unavailable" covers both a missing import and a seat that lost access, so the screen
- * never says whether rows were saved. Sending again is safe: the same request key returns a saved import's receipt
- * and never adds a person twice.
+ * The receipt was refused. "unavailable" covers both a missing import and a seat that lost access, even when the seat
+ * changes during the request, so the screen never says whether rows were saved and offers no resend (ruling C34).
  */
 export const UNCONFIRMED: Notice = {
-	title: "We cannot tell whether the import started",
-	text: "Sending it again is safe: it is the same import, so nobody is added twice. If your seat changed, ask an Owner or Admin to check People.",
+	title: "We cannot show this import",
+	text: "We cannot tell whether it started or which rows were saved. Open People to see who is there. If your seat changed, ask an Owner or Admin to check.",
 };
 export const RECONNECTING: Notice = {
 	title: "Reconnecting",

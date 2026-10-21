@@ -137,7 +137,7 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 		setState({ step: "import", review, key, receipt: null, trouble: null });
 		const got = await readReceipt(key);
 		if (got.status === "ok") return settle(review, key, got.value);
-		// A refusal does not prove that nothing was saved (see UNCONFIRMED), so the screen only offers a safe resend.
+		// A refusal does not prove that nothing was saved (see UNCONFIRMED), so the screen sends nothing again.
 		setState({ step: "import", review, key, receipt: null, trouble: got.status === "lost" ? LOST_CHECK : UNCONFIRMED });
 	};
 
@@ -242,13 +242,7 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 					heading={heading}
 					receipt={state.receipt}
 					trouble={state.trouble}
-					onRetry={
-						state.trouble === UNCONFIRMED && state.review
-							? () => send(state.review!, state.key)
-							: state.trouble === LOST_CHECK
-								? () => confirm(state.review, state.key)
-								: null
-					}
+					onRetry={state.trouble === LOST_CHECK ? () => confirm(state.review, state.key) : null}
 					onStartOver={startOver}
 				/>
 			) : (

@@ -625,13 +625,13 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 
-	test(`AC:TARGET-PPL-018 BUG-198-unconfirmed (${name}): an unconfirmed import never claims nothing was saved and resends safely`, async () => {
+	test(`AC:TARGET-PPL-018 BUG-198-unconfirmed (${name}): an unconfirmed import never claims nothing was saved and sends nothing again`, async () => {
 		await withPage(engine, "owner", async (page, context) => {
 			let posts = 0;
-			// The first import never reaches the server; the receipt then answers "unavailable", which also covers a seat
-			// that lost access, so the screen must not say whether rows were saved.
+			// The import never reaches the server; the receipt then answers "unavailable", which also covers a seat that
+			// lost access, so the screen must not say whether rows were saved or offer to send it again (ruling C34).
 			await context.route("**/api/people/import", (route) =>
-				route.request().method() === "POST" && ++posts === 1 ? route.abort("failed") : route.fallback(),
+				route.request().method() === "POST" && ++posts ? route.abort("failed") : route.fallback(),
 			);
 			const tag = `${name}${Date.now().toString(36)}`;
 			await page.goto(`${BASE}/people/import`);
@@ -641,13 +641,11 @@ for (const [name, engine] of ENGINES) {
 				buffer: Buffer.from(`first_name,email\r\nUma,uma-${tag}@example.test\r\n`),
 			});
 			await page.getByRole("button", { name: "Import 1 person" }).click({ timeout: 30_000 });
-			await page
-				.getByRole("heading", { name: "We cannot tell whether the import started" })
-				.waitFor({ timeout: 30_000 });
+			await page.getByRole("heading", { name: "We cannot show this import" }).waitFor({ timeout: 30_000 });
 			assert.equal(await page.getByText("Nothing was saved").count(), 0);
-			await page.getByRole("button", { name: "Send again" }).click();
-			await page.getByRole("heading", { name: "1 person added" }).waitFor({ timeout: 60_000 });
-			assert.equal(posts, 2);
+			assert.equal(await page.getByRole("button", { name: /again/i }).count(), 0);
+			assert.equal(await page.getByRole("link", { name: "Go to People" }).count(), 1);
+			assert.equal(posts, 1);
 		});
 	});
 
