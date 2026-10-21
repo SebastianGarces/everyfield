@@ -10,7 +10,7 @@
 		"build": "pnpm --filter @everyfield/web build",
 		"lint": "pnpm -r --if-present lint",
 		"typecheck": "pnpm -r --if-present typecheck",
-		"check": "pnpm typecheck && pnpm lint && pnpm test:workflow && pnpm build",
+		"check": "pnpm typecheck && pnpm lint && pnpm test:workflow && pnpm test:logs && pnpm build",
 		"access:export": "pnpm --filter @everyfield/db export",
 		"db:migrate": "pnpm --filter @everyfield/db migrate",
 		"test:access": "pnpm --filter @everyfield/domain test",
@@ -19,6 +19,7 @@
 		"stack:down": "node scripts/stack.mjs down",
 		"stack:check": "node scripts/stack.mjs check",
 		"test:workflow": "node scripts/test-workflow.mjs",
+		"test:logs": "node --test tests/workflow/server-logs.test.mjs",
 		"test:ui": "node --test 'tests/ui/**/*.test.mjs'",
 		"format": "prettier --write \"{apps,packages,tools,scripts,tests}/**/*.{ts,tsx,js,mjs,cjs,css,json}\" \"*.{ts,tsx,js,mjs,cjs,css,json}\" \".prettierrc\"",
 		"format:check": "prettier --check \"{apps,packages,tools,scripts,tests}/**/*.{ts,tsx,js,mjs,cjs,css,json}\" \"*.{ts,tsx,js,mjs,cjs,css,json}\" \".prettierrc\""
