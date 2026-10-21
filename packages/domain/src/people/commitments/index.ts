@@ -5,7 +5,6 @@ import { and, eq, sql } from "@everyfield/db/query";
 import {
 	createAuthorizedDownload,
 	putPrivateObject,
-	validateCommitment,
 	type PrivateStorage,
 	type ResourceAuthorizer,
 } from "@everyfield/db/schema";
@@ -13,6 +12,7 @@ import * as tables from "@everyfield/db/tables";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
+import { writeVisibility } from "../../access/session.ts";
 import {
 	authorize,
 	deny,
@@ -20,7 +20,6 @@ import {
 	mutation,
 	parse,
 	readReply,
-	Refusal,
 	reply,
 	type Context,
 	type Tx,
@@ -400,20 +399,24 @@ export const commitments = {
 	},
 };
 
+type DocumentTarget = { commitmentId: string } | { upload: { id: string; byteCount: number; sha256: string } };
 /**
- * Current authority for one commitment document. Uploads need an administrator of the church. Reads need an Owner or
- * Admin whose session, seat and lifecycle are live in the same statement as the exact card that holds the object.
+ * Current authority for one commitment document. Reads need an Owner or Admin whose session, seat and lifecycle are
+ * live in the same statement as the exact card that holds the object. An upload's put records the verified size and
+ * hash on the church's own pending upload, with the locked Owner or Admin authority in the same statement (D70, C27).
+ * putPrivateObject calls it only after it has verified the file, so a rejected file never fixes the write-once hash.
  */
-function documentAuthority(ctx: PeopleContext, commitmentId?: string): ResourceAuthorizer {
+function documentAuthority(ctx: PeopleContext, target: DocumentTarget): ResourceAuthorizer {
 	return async (tx, file, intent) => {
 		if (intent === "cleanup" || file.purpose !== "commitment" || file.tenant_id !== ctx.selected.id) return null;
 		if (intent === "read") {
+			if (!("commitmentId" in target)) return null;
 			const [current] = await tx
 				.select({ actorId: sql<string>`(SELECT i.account_id FROM live_session(${ctx.session}::uuid) i)` })
 				.from(tables.commitment)
 				.where(
 					and(
-						eq(tables.commitment.id, commitmentId ?? ""),
+						eq(tables.commitment.id, target.commitmentId),
 						eq(tables.commitment.plant_id, file.tenant_id),
 						eq(tables.commitment.object_id, file.id),
 						adminRead(ctx),
@@ -421,16 +424,22 @@ function documentAuthority(ctx: PeopleContext, commitmentId?: string): ResourceA
 				);
 			return current ? { kind: "account", actorId: current.actorId } : null;
 		}
-		try {
-			return { kind: "account", actorId: (await authorize(tx, ctx, true)).accountId };
-		} catch (error) {
-			if (error instanceof Refusal) return null;
-			throw error;
-		}
+		if (!("upload" in target)) return null;
+		const { id, byteCount, sha256 } = target.upload;
+		const result = await tx.execute(sql`WITH a AS (SELECT i.account_id FROM access_session(${ctx.session}::uuid) i
+ JOIN seat s ON s.account_id=i.account_id WHERE i.registration_state='active' AND s.plant_id=${file.tenant_id}::uuid
+ AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp() AND s.role<>'member'
+ AND ${writeVisibility(sql`i.account_id`, ctx.selected)} LIMIT 1)
+ UPDATE file_object o SET byte_count=${String(byteCount)},sha256=${sha256} FROM a
+ WHERE o.id=${id}::uuid AND o.tenant_id=${file.tenant_id}::uuid AND o.purpose='commitment' AND o.state='pending'
+ AND o.expires_at>clock_timestamp() AND o.max_bytes=${String(byteCount)} AND (o.sha256 IS NULL OR o.sha256=${sha256})
+ RETURNING a.account_id`);
+		const actor = z.object({ account_id: z.uuid() }).optional().parse(result.rows[0]);
+		return actor ? { kind: "account", actorId: actor.account_id } : null;
 	};
 }
 
-/** The byte adapter: verify the PDF, JPG or PNG and store it privately before createCommitment attaches it. */
+/** The byte adapter: store the verified PDF, JPG or PNG privately before createCommitment attaches it. */
 export async function uploadCommitmentDocument(
 	db: Database,
 	storage: PrivateStorage,
@@ -440,37 +449,43 @@ export async function uploadCommitmentDocument(
 	return readReply(async () => {
 		const plant = plantId(ctx);
 		const input = parse(z.object({ uploadId: z.uuid(), bytes: z.instanceof(Uint8Array) }), raw);
-		const file = await db.transaction(async (tx) => {
-			await authorize(tx, ctx, true);
-			const [pending] = await tx
-				.select()
-				.from(tables.file_object)
-				.where(
-					and(
-						eq(tables.file_object.id, input.uploadId),
-						eq(tables.file_object.tenant_id, plant),
-						eq(tables.file_object.purpose, "commitment"),
-						eq(tables.file_object.state, "pending"),
-					),
-				)
-				.for("update");
-			if (!pending) deny();
-			// A failed upload changes nothing: the object stays pending and its cleanup removes it.
-			if (input.bytes.length !== Number(pending.max_bytes)) deny("invalid_input");
-			await validateCommitment(input.bytes, pending.media_type).catch(() => deny("invalid_input"));
-			await tx
-				.update(tables.file_object)
-				.set({ byte_count: String(input.bytes.length), sha256: createHash("sha256").update(input.bytes).digest("hex") })
-				.where(eq(tables.file_object.id, pending.id));
-			return pending;
-		});
-		await putPrivateObject(db, storage, documentAuthority(ctx), {
+		// A lock-free read finds this church's own pending upload; a wrong length writes nothing (C27).
+		const [file] = await db
+			.select({
+				id: tables.file_object.id,
+				media_type: tables.file_object.media_type,
+				upload_key: tables.file_object.upload_key,
+				max_bytes: tables.file_object.max_bytes,
+			})
+			.from(tables.file_object)
+			.where(
+				and(
+					eq(tables.file_object.id, input.uploadId),
+					eq(tables.file_object.tenant_id, plant),
+					eq(tables.file_object.purpose, "commitment"),
+					eq(tables.file_object.state, "pending"),
+					sql`${tables.file_object.expires_at}>clock_timestamp()`,
+					adminRead(ctx),
+				),
+			);
+		if (!file) deny();
+		if (input.bytes.length !== Number(file.max_bytes)) deny("invalid_input");
+		const upload = {
+			id: file.id,
+			byteCount: input.bytes.length,
+			sha256: createHash("sha256").update(input.bytes).digest("hex"),
+		};
+		// putPrivateObject verifies the file before its authority records the size and hash; a failed upload stays
+		// pending for its cleanup and can be retried.
+		await putPrivateObject(db, storage, documentAuthority(ctx, { upload }), {
 			tenantId: plant,
 			purpose: "commitment",
 			mediaType: file.media_type,
 			bytes: input.bytes,
 			uploadKey: file.upload_key,
-		}).catch(() => deny());
+		}).catch((error: unknown) =>
+			deny(error instanceof Error && error.message === "invalid_file" ? "invalid_input" : "unavailable"),
+		);
 		return { uploadId: file.id };
 	});
 }
@@ -491,7 +506,7 @@ export async function getCommitmentDownload(db: Database, storage: PrivateStorag
 		const link = await createAuthorizedDownload(
 			db,
 			storage,
-			documentAuthority(ctx, input.commitmentId),
+			documentAuthority(ctx, { commitmentId: input.commitmentId }),
 			card.objectId,
 		).catch(() => deny());
 		return c.commitmentDownloadResult.parse(link);
