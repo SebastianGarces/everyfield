@@ -440,11 +440,6 @@ export async function avatarBytes(accountId: string, versionId: string) {
 	}
 }
 
-/** Whether photo uploads work here: false when no private bucket is configured. */
-export function avatarStorageConfigured() {
-	return !!settingsMount()?.storage;
-}
-
 // The restricted deletion page (REQ-IDN-032). After a personal deletion request every normal session ends. A fresh
 // proof of the original login opens a ten-minute restricted session for that exact request; its handle lives in an
 // HttpOnly cookie and permits only the request's status and its cancellation.
@@ -457,10 +452,17 @@ export async function openRestrictedDeletion(raw: unknown) {
 	const ops = settingsMount();
 	if (!ops) return refusal("access_denied");
 	const request = new Request(`${ops.origin}/`, { headers: await headers() });
-	const opened = await ops.credentials.openAccountDeletion(raw, trustedIdentityIp(request, process.env.VERCEL === "1"));
+	const opened = await ops.credentials
+		.openAccountDeletion(raw, trustedIdentityIp(request, process.env.VERCEL === "1"))
+		.catch((error) => {
+			console.error(JSON.stringify({ component: "settings", outcome: "restricted_open_failed", error: String(error) }));
+			return { status: "refused" as const, code: "unknown" as const };
+		});
 	if (opened.status === "refused")
 		return refusal(
-			opened.code === "temporary" ? "temporary" : opened.code === "invalid_input" ? "invalid_input" : "proof_invalid",
+			opened.code === "temporary" || opened.code === "unknown" || opened.code === "invalid_input"
+				? opened.code
+				: "proof_invalid",
 		);
 	const value: Restricted = {
 		handle: opened.value.session.handle,
@@ -497,7 +499,9 @@ export async function restrictedStatus() {
 		session = await restricted();
 	if (!ops || !session) return refusal("proof_invalid");
 	const context = { kind: "restricted_deletion" as const, handle: session.handle };
-	return ops.db.transaction((tx) => ops.deletion.getAccountDeletionStatus(tx, context, session.request));
+	return logged("restricted_status_failed", () =>
+		ops.db.transaction((tx) => ops.deletion.getAccountDeletionStatus(tx, context, session.request)),
+	);
 }
 
 /** Cancels the exact request strictly before its deadline. A cancelled request ends the restricted session. */
@@ -512,9 +516,21 @@ export async function cancelRestrictedDeletion(expectedRevision: string) {
 	});
 	if (!request.success) return refusal("invalid_input");
 	const context = { kind: "restricted_deletion" as const, handle: session.handle };
-	const reply = await ops.db.transaction((tx) => ops.deletion.cancelAccountDeletion(tx, context, request.data));
+	const reply = await logged("restricted_cancel_failed", () =>
+		ops.db.transaction((tx) => ops.deletion.cancelAccountDeletion(tx, context, request.data)),
+	);
 	if (reply.status === "ok" && reply.value.status === "cancelled") (await cookies()).delete(DELETION_COOKIE);
 	return reply;
+}
+
+/** A thrown error is logged and reads as unknown: the page then offers to load the latest status. */
+async function logged<T>(outcome: string, body: () => Promise<SettingsReply<T>>): Promise<SettingsReply<T>> {
+	try {
+		return await body();
+	} catch (error) {
+		console.error(JSON.stringify({ component: "settings", outcome, error: String(error) }));
+		return refusal("unknown");
+	}
 }
 
 /** The active viewer with the user row Better Auth already read for this request's session. */
