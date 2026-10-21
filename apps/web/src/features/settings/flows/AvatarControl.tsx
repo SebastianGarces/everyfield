@@ -3,10 +3,8 @@
 import { Button } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
 import { useRef, useState } from "react";
-import { refusalOf } from "../save";
-import type { AvatarMime, AvatarResult, SectionResult } from "../port";
-import { newRequestKey } from "../port";
-import { useFlows } from "../store";
+import { refusalOf, useWrite } from "../save";
+import type { AvatarMime, AvatarPort, AvatarResult, SectionResult } from "../port";
 
 type Account = Extract<SectionResult, { section: "account" }>;
 
@@ -24,18 +22,20 @@ export function avatarProblem(file: { size: number; type: string }): string | nu
 /**
  * Your photo (REQ-IDN-006). The image shows only through the authenticated route for its version (port.avatarSrc),
  * never through a storage key or a signed URL. Upload is three steps: ask for an upload, send the bytes, then save.
- * Until the save succeeds the old photo stays.
+ * Until the save succeeds the old photo stays. A retry of the same save or removal reuses its request key, so a lost
+ * reply cannot apply it twice.
  */
 export function AvatarControl({
+	port,
 	account,
 	onChanged,
-	onReload,
 }: {
+	port: AvatarPort;
 	account: Account;
 	onChanged: (avatar: AvatarResult) => void;
-	onReload: () => void;
 }) {
-	const port = useFlows();
+	const saving = useWrite("avatar");
+	const removing = useWrite("avatar-remove");
 	const input = useRef<HTMLInputElement>(null);
 	const [busy, setBusy] = useState<"upload" | "remove" | null>(null);
 	const [message, setMessage] = useState<{ tone: "error" | "info"; text: string } | null>(null);
@@ -53,14 +53,12 @@ export function AvatarControl({
 			if (staged.status === "refused") return fail(`Your photo did not upload. ${refusalOf(staged.error).message}`);
 			const sent = await port.uploadAvatarBytes(staged.value.uploadId, file);
 			if (sent.status === "refused") return fail(`Your photo did not upload. ${refusalOf(sent.error).message}`);
-			const saved = await port.finalizeAvatar({
-				requestKey: newRequestKey("avatar"),
-				expectedRevision: account.revision,
-				input: { uploadId: staged.value.uploadId },
-			});
-			if (saved.status === "refused") return fail(`Your photo was not saved. ${refusalOf(saved.error).message}`);
+			const input = { uploadId: staged.value.uploadId };
+			const saved = await saving.run(input, (requestKey) =>
+				port.finalizeAvatar({ requestKey, expectedRevision: account.revision, input }),
+			);
+			if (!saved.ok) return fail(`Your photo was not saved. ${saved.refusal.message}`);
 			onChanged(saved.value);
-			onReload();
 			setMessage({ tone: "info", text: "Photo saved." });
 		} catch {
 			fail("Your photo did not upload. Check your connection and try again.");
@@ -74,14 +72,12 @@ export function AvatarControl({
 		setBusy("remove");
 		setMessage(null);
 		try {
-			const removed = await port.removeAvatar({
-				requestKey: newRequestKey("avatar-remove"),
-				expectedRevision: account.revision,
-				input: {},
-			});
-			if (removed.status === "refused") return fail(`Your photo was not removed. ${refusalOf(removed.error).message}`);
+			const input = {};
+			const removed = await removing.run(input, (requestKey) =>
+				port.removeAvatar({ requestKey, expectedRevision: account.revision, input }),
+			);
+			if (!removed.ok) return fail(`Your photo was not removed. ${removed.refusal.message}`);
 			onChanged(removed.value);
-			onReload();
 			setMessage({ tone: "info", text: "Photo removed." });
 		} catch {
 			fail("Your photo was not removed. Check your connection and try again.");
