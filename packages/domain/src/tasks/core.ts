@@ -5,7 +5,7 @@ import { sql, type SQL } from "@everyfield/db/query";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { RequestActor, requestWrite, writeVisibility } from "../access/session.ts";
+import { RequestActor, requestWrite } from "../access/session.ts";
 import {
 	auditSavepoint,
 	auditTransaction,
@@ -95,7 +95,7 @@ export async function withTaskWrite<T>(
 }
 
 export type Viewer = { accountId: string; plantId: string; role: "owner" | "admin" | "member" };
-export type Reader = Viewer & { session: string; seatId: string };
+export type Reader = Viewer & { session: string; seatId: string; owner: Owner };
 /** The reader's plant seat as the request's verified actor saw it; reads add no statement for it (D59/D60). */
 export function readerOf(authority: RequestActor): Reader {
 	const a = authority.actor;
@@ -106,22 +106,9 @@ export function readerOf(authority: RequestActor): Reader {
 		role: a.context.role,
 		session: authority.session,
 		seatId: a.context.seatId,
+		owner: a.context.owner,
 	};
 }
-/**
- * The reader's authority as it is now, as one SQL condition for the read statement itself (C13): a live session of
- * an active account, the same accepted seat in the plant, still not ended, Owner or Admin when the read needs it, and
- * no lifecycle witness hiding the account, plant or seat. A seat removed or demoted after the viewer lookup reads
- * nothing.
- */
-export function liveReader(r: Reader, admin: boolean): SQL {
-	return sql`(EXISTS(SELECT FROM access_session(${r.session}::uuid) x JOIN seat s ON s.account_id=x.account_id
-		WHERE x.account_id=${r.accountId}::uuid AND x.registration_state='active' AND s.id=${r.seatId}::uuid
-		AND s.plant_id=${r.plantId}::uuid AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp()
-		${admin ? sql`AND s.role IN ('owner','admin')` : sql``})
-		AND ${writeVisibility(r.accountId, owner.parse({ kind: "plant", id: r.plantId }))})`;
-}
-
 export type Writer = Viewer & { zone: z.infer<typeof timeZone> };
 /** Locks the actor's authority for this transaction once; a bound native request reuses its lock. */
 export async function writerOf(tx: Tx, context: TaskContext): Promise<Writer> {
