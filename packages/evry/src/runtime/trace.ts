@@ -60,8 +60,8 @@ const turnContext = (turnId: string) => ({
 });
 
 /** A span that already ended, under the active observation. */
-function past(name: string, start: Date, end: Date, metadata?: Metadata) {
-	quietly(() => startObservation(name, { metadata }, { startTime: start }).end(end));
+function past(name: string, start: Date, end: Date) {
+	quietly(() => startObservation(name, {}, { startTime: start }).end(end));
 }
 
 /**
@@ -119,7 +119,9 @@ export async function traceTurn<T>(
 
 /**
  * Called by an observer right after it delivered a turn's first saved text: a span in that turn's trace from the save to
- * the delivery (the poll), with the time from submit when the observer also saw the user's message.
+ * the delivery, with the time from submit when the observer also saw the user's message. The span starts on the database
+ * clock and ends on the app clock, so its length includes their offset. The poll is `submitToFirstSseMs` minus the
+ * turn's `submitToFirstTextMs`: both measure app time against the database's submit time, so the offset cancels.
  */
 export function traceDelivery(turnId: string, savedAt: Date, submittedAt: Date | null) {
 	const delivered = new Date();
@@ -127,10 +129,7 @@ export function traceDelivery(turnId: string, savedAt: Date, submittedAt: Date |
 		startObservation(
 			"first SSE delivery",
 			{
-				metadata: {
-					pollMs: delivered.getTime() - savedAt.getTime(),
-					...(submittedAt && { submitToFirstSseMs: delivered.getTime() - submittedAt.getTime() }),
-				},
+				metadata: submittedAt ? { submitToFirstSseMs: delivered.getTime() - submittedAt.getTime() } : {},
 			},
 			{ startTime: savedAt, parentSpanContext: turnContext(turnId) },
 		).end(delivered),
