@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
 import { currentAuthority } from "../context/authority.ts";
+import { retainedEvents } from "./retained.ts";
 import { EvryRefusal } from "../context/errors.ts";
 
 // Conversation commands are one statement each (D70): the current-authority check, the change, the run's job row and
@@ -123,7 +124,7 @@ export async function readConversation(db: Database, actor: EvryActor, id: strin
 		SELECT ${conversationJson("c")} AS conversation,
 			(SELECT j.state FROM job j WHERE j.id=c.active_turn_id) AS run_state,
 			coalesce((SELECT jsonb_agg(jsonb_build_object('sequence',e.sequence,'turnId',e.turn_id,'kind',e.kind,'body',e.body,'createdAt',e.created_at) ORDER BY e.sequence)
-				FROM (SELECT * FROM conversation_event WHERE conversation_id=c.id AND sequence>${cursor} ORDER BY sequence LIMIT ${EVENT_PAGE}) e), '[]'::jsonb) AS events
+				FROM (${retainedEvents(sql`SELECT * FROM conversation_event WHERE conversation_id=c.id AND sequence>${cursor} ORDER BY sequence LIMIT ${EVENT_PAGE}`)}) e), '[]'::jsonb) AS events
 		FROM conversation c WHERE c.id=${conversationId}::uuid AND ${owned(actor, "c")} AND ${currentAuthority(actor)}`);
 	if (!r.rows.length) throw new EvryRefusal("not_found");
 	const row = z

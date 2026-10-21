@@ -67,6 +67,8 @@ export async function resolveReferences(
 }
 
 const estimate = (text: string) => Math.ceil(text.length / 4);
+/** Estimated tokens of the read and selection tool definitions the model also receives. */
+const TOOL_ALLOWANCE = 1_000;
 
 /**
  * evry.compileContext: the bounded model input for one turn. At most 24 recent messages within 32,000 estimated
@@ -89,9 +91,6 @@ export function compileContext(input: {
 		if (e.kind === "status" && typeof e.body.text === "string" && e.body.text)
 			turns.push({ role: "assistant", content: scrub(e.body.text) });
 	}
-	let recent = turns.slice(-LIMITS.recentMessages);
-	const budget = LIMITS.contextTokens - estimate(input.text) - 2_000;
-	while (recent.length && estimate(recent.map((m) => String(m.content)).join("\n")) > budget) recent = recent.slice(1);
 	const refs = input.references.slice(0, LIMITS.references);
 	const system = [
 		"You are Evry, the assistant inside EveryField, a church planting application.",
@@ -105,9 +104,16 @@ export function compileContext(input: {
 	]
 		.filter(Boolean)
 		.join("\n\n");
+	// The whole prompt fits the context budget: system text, references, tool definitions and every message. At most 24
+	// messages reach the model, the new one included.
+	const current: ModelMessage = { role: "user", content: scrub(input.text) };
+	const size = (messages: readonly ModelMessage[]) =>
+		estimate(system) + TOOL_ALLOWANCE + estimate(messages.map((m) => String(m.content)).join("\n"));
+	let recent = turns.slice(-(LIMITS.recentMessages - 1));
+	while (recent.length && size([...recent, current]) > LIMITS.contextTokens) recent = recent.slice(1);
 	return {
 		system,
-		messages: [...recent, { role: "user", content: scrub(input.text) } satisfies ModelMessage],
+		messages: [...recent, current],
 		droppedMessages: turns.length - recent.length,
 		references: refs,
 	};

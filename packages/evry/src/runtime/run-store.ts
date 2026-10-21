@@ -2,6 +2,7 @@ import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { z } from "zod";
 import { LIMITS } from "../context/limits.ts";
+import { retainedEvents } from "../conversations/retained.ts";
 import { eventRow, reference, type ConversationEvent } from "../conversations/store.ts";
 
 /**
@@ -39,8 +40,8 @@ export async function loadTurn(db: Database, lease: RunLease): Promise<Turn | nu
 			(SELECT jsonb_build_object('sequence',m.sequence,'body',m.body) FROM conversation_event m
 				WHERE m.conversation_id=c.id AND m.turn_id=${lease.turnId}::uuid AND m.kind='user_message') AS message,
 			coalesce((SELECT jsonb_agg(jsonb_build_object('sequence',h.sequence,'turnId',h.turn_id,'kind',h.kind,'body',h.body,'createdAt',h.created_at) ORDER BY h.sequence)
-				FROM (SELECT * FROM conversation_event e WHERE e.conversation_id=c.id AND e.kind IN ('user_message','status')
-					AND e.turn_id IS DISTINCT FROM ${lease.turnId}::uuid ORDER BY e.sequence DESC LIMIT ${LIMITS.recentMessages * 2}) h), '[]'::jsonb) AS history
+				FROM (${retainedEvents(sql`SELECT * FROM conversation_event e WHERE e.conversation_id=c.id AND e.kind IN ('user_message','status')
+					AND e.turn_id IS DISTINCT FROM ${lease.turnId}::uuid ORDER BY e.sequence DESC LIMIT ${LIMITS.recentMessages * 2}`)}) h), '[]'::jsonb) AS history
 		FROM conversation c JOIN job j ON j.subject_record_id=c.id
 		WHERE j.id=${lease.turnId}::uuid AND c.active_turn_id=${lease.turnId}::uuid AND ${fence(lease)}`);
 	return r.rows.length ? turnRow.parse(r.rows[0]) : null;

@@ -214,29 +214,44 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 	);
 });
 
-test("AC:EVRY-CONTEXT-BOUNDS context keeps 24 recent messages within 32,000 tokens and 64 verified references", async () => {
+test("AC:EVRY-CONTEXT-BOUNDS the whole prompt keeps at most 24 messages, 32,000 tokens and 64 verified references", async () => {
 	const owner = await actor("owner");
-	const history = Array.from({ length: 25 }, (_, n) => ({
+	const history = Array.from({ length: 24 }, (_, n) => ({
 		sequence: n + 1,
 		turnId: null,
 		kind: n % 2 ? ("status" as const) : ("user_message" as const),
-		body: { text: `${n} ` + "x".repeat(5_200) },
+		body: { text: `${n} ` + "x".repeat(5_000) },
 		createdAt: new Date(),
 	}));
-	const references = Array.from({ length: 97 }, () => ({ kind: "person" as const, id: randomUUID(), label: "P" }));
-	const context = compileContext({
-		actor: owner,
-		catalog: readCatalog(owner),
-		history,
-		text: "Continue",
-		references,
-		now: new Date(),
-	});
-	const tokens = Math.ceil((context.system + JSON.stringify(context.messages)).length / 4);
-	assert.ok(context.messages.length - 1 <= 24);
+	const references = Array.from({ length: 97 }, () => ({ kind: "person" as const, id: randomUUID(), label: "L".repeat(255) }));
+	const context = compileContext({ actor: owner, catalog: readCatalog(owner), history, text: "Continue", references, now: new Date() });
+	// The same estimate the runtime uses (4 characters per token), plus its 1,000-token tool allowance.
+	const tokens = Math.ceil(context.system.length / 4) + 1_000 + Math.ceil(context.messages.map((m) => String(m.content)).join("\n").length / 4);
+	assert.ok(context.messages.length <= 24, String(context.messages.length));
 	assert.ok(tokens <= 32_000, String(tokens));
 	assert.equal(context.references.length, 64);
 	assert.equal(context.messages.at(-1)!.content, "Continue");
+	assert.equal(context.messages.length + context.droppedMessages, 25);
+});
+
+test("AC:EVRY-CONTEXT-BOUNDS AC:UI45-006 a source retired after its turn is withheld from replay and from later model calls", async () => {
+	const owner = await actor("owner");
+	const id = await ask(owner, "Find Casey");
+	assert.equal(await work(), "succeeded");
+	assert.match((await events(owner, id)).text, /Casey Reed/);
+	await admin.execute(sql`UPDATE person SET state='retired',retired_at=clock_timestamp() WHERE id=${people.casey}`);
+	try {
+		const replay = await events(owner, id);
+		const card = replay.cards[0]!.result;
+		assert.deepEqual([card.rows, card.withheldRows, card.total, card.completeness], [[], 1, null, "partial"]);
+		assert.ok(!JSON.stringify(replay).includes("Casey Reed"), "replay holds no retired body");
+		await submitTurn(db, owner, id, { requestKey: randomUUID(), text: "What did you find before?" });
+		const next = recorded();
+		assert.equal(await work(next.model), "succeeded");
+		assert.ok(!JSON.stringify(next.calls).includes("Casey Reed"), "no retired body in model input");
+	} finally {
+		await admin.execute(sql`UPDATE person SET state='live',retired_at=NULL WHERE id=${people.casey}`);
+	}
 });
 
 test("AC:GAP-EVR-400 selection reuses only rows the conversation returned and checks access again", async () => {
