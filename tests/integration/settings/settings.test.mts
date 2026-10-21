@@ -64,7 +64,12 @@ const ctx = (a, selected = { kind: "account", id: a.id }) => ({
 	session: a.session,
 	selected,
 });
-const call = (name, a, v, selected) => db.transaction((tx) => api[name](tx, ctx(a, selected), v));
+/** The credential operations run outside any app transaction in the web mount: they receive none here either. */
+const CREDENTIALS = ["requestEmailChange", "confirmEmailChange", "changePassword"];
+const call = (name, a, v, selected) =>
+	CREDENTIALS.includes(name)
+		? api[name](undefined, ctx(a, selected), v)
+		: db.transaction((tx) => api[name](tx, ctx(a, selected), v));
 /** The viewer the settings mount passes: the request actor and the user row of the session's Better Auth lookup. */
 async function viewerOf(a) {
 	const v = await readViewer(db, a.session);

@@ -12,7 +12,7 @@ import { executeWrites } from "../operations/writes.ts";
 import { attemptBudget, IdentityRefusal } from "../identity/budget.ts";
 import { accountId } from "@everyfield/contracts/common";
 import { readViewer, writeVisibility } from "../access/session.ts";
-import { now, hash, deny, Refusal, reply, parse, type Tx } from "./core.ts";
+import { now, hash, deny, Refusal, recover, parse, type Tx } from "./core.ts";
 import { issueRestrictedDeletionSession } from "./deletion.ts";
 export interface CredentialConfig {
 	db: Database;
@@ -163,8 +163,9 @@ export function createAccountCredentials(config: CredentialConfig): Pick<
 		}
 	}
 	return {
+		// No app transaction stays open while Better Auth runs; the transaction argument is unused.
 		requestEmailChange: async (_tx, ctx, raw) =>
-			reply(_tx, async () => {
+			recover(async () => {
 				const v = parse(n.requestEmailChange, raw);
 				const a = await prepare(ctx);
 				if (v.newEmail === a.principal.email) deny("invalid_input");
@@ -174,7 +175,7 @@ export function createAccountCredentials(config: CredentialConfig): Pick<
 				try {
 					await auth.api.changeEmail({ headers: a.ingress.request.headers, body: { newEmail: v.newEmail } });
 					await budget.finish(reservation, true);
-					return { status: "verification_requested" as const };
+					return { status: "ok" as const, value: { status: "verification_requested" as const } };
 				} catch {
 					await budget.finish(reservation, false);
 					deny("temporary");
