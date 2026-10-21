@@ -65,7 +65,7 @@ export const relationColumns = (r: z.infer<typeof c.relation> | null) => ({
 export async function references(
 	tx: Tx,
 	plantId: string,
-	input: { assigneeId?: string | null; relation?: z.infer<typeof c.relation> | null; parentId?: string | null },
+	input: { assigneeId?: string | null; relation?: z.infer<typeof c.relation> | null },
 ) {
 	const r = await tx.execute(sql`SELECT
 		(SELECT i.display_name FROM seat s CROSS JOIN LATERAL seat_identity(s.account_id) i
@@ -76,22 +76,18 @@ export async function references(
 		(SELECT title FROM meeting WHERE id=${input.relation?.kind === "meeting" ? input.relation.id : null}::uuid
 			AND plant_id=${plantId}::uuid FOR SHARE) AS meeting,
 		(SELECT name FROM team WHERE id=${input.relation?.kind === "team" ? input.relation.id : null}::uuid
-			AND plant_id=${plantId}::uuid AND archived_at IS NULL FOR SHARE) AS team,
-		(SELECT jsonb_build_object('assignee',assignee_id) FROM task WHERE id=${input.parentId ?? null}::uuid
-			AND plant_id=${plantId}::uuid AND parent_id IS NULL AND deleted_at IS NULL FOR SHARE) AS parent`);
+			AND plant_id=${plantId}::uuid AND archived_at IS NULL FOR SHARE) AS team`);
 	const row = z
 		.object({
 			assignee: z.string().nullable(),
 			person: z.string().nullable(),
 			meeting: z.string().nullable(),
 			team: z.string().nullable(),
-			parent: z.unknown(),
 		})
 		.parse(r.rows[0]);
 	if (input.assigneeId && row.assignee === null) deny("invalid_subject");
 	const label = input.relation ? row[input.relation.kind] : null;
 	if (input.relation && label === null) deny("invalid_subject");
-	if (input.parentId && !row.parent) deny("invalid_subject");
 	return { assigneeName: row.assignee, relationLabel: label };
 }
 
