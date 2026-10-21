@@ -224,8 +224,8 @@
 		"retry": 6
 	},
 	"native.people.getPersonSkills": {
-		"limit": 4,
-		"retry": 8
+		"limit": 3,
+		"retry": 6
 	},
 	"native.people.getPersonTags": {
 		"limit": 3,

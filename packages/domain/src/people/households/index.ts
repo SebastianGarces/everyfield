@@ -25,6 +25,7 @@ import {
 	next,
 	personFacts,
 	plantId,
+	readAuthority,
 	type Address,
 	type PersonFacts,
 } from "../fields/shared.ts";
@@ -63,8 +64,8 @@ function household(raw: unknown): Household {
 	if (!raw) deny();
 	return householdRow.parse(raw);
 }
-async function readHousehold(tx: Tx, plant: string, id: string): Promise<Household> {
-	const result = await tx.execute(sql`SELECT ${householdJson(plant, sql`${id}::uuid`)} AS h`);
+async function readHousehold(tx: Tx, plant: string, id: string, visible: SQL = sql`true`): Promise<Household> {
+	const result = await tx.execute(sql`SELECT ${householdJson(plant, sql`${id}::uuid`)} AS h WHERE ${visible}`);
 	return household(result.rows[0]?.h);
 }
 const memberOrder = (a: Member, b: Member) =>
@@ -121,15 +122,17 @@ export const households = {
 			const input = parse(f.listHouseholdsRequest, raw);
 			await authorize(tx, ctx);
 			const term = input.search?.toLowerCase() ?? "";
-			const result =
-				await tx.execute(sql`SELECT h.id,h.name,h.revision::text AS revision,h.street,h.city,h.state_province,
+			// A refused reader gets the seed row only, so an empty page and a refusal stay distinct.
+			const result = await tx.execute(sql`SELECT g.allowed,x.* FROM (SELECT ${readAuthority(ctx)} AS allowed) g
+ LEFT JOIN LATERAL (SELECT h.id,h.name,h.revision::text AS revision,h.street,h.city,h.state_province,
  h.postal_code,h.country,(SELECT count(*) FROM person p WHERE p.household_id=h.id AND p.tenant_id=h.plant_id AND p.state='live')::int AS members,
  count(*) OVER ()::int AS total
- FROM household h WHERE h.plant_id=${plant}::uuid AND strpos(lower(h.name),${term})>0
- ORDER BY lower(h.name),h.id LIMIT ${input.limit} OFFSET ${(input.page - 1) * input.limit}`);
+ FROM household h WHERE g.allowed AND h.plant_id=${plant}::uuid AND strpos(lower(h.name),${term})>0
+ ORDER BY lower(h.name),h.id LIMIT ${input.limit} OFFSET ${(input.page - 1) * input.limit}) x ON true`);
+			if (result.rows[0]?.allowed !== true) deny();
 			const rows = z
 				.array(householdRow.omit({ members: true }).extend({ members: z.number(), total: z.number() }))
-				.parse(result.rows);
+				.parse(result.rows.filter((row) => row.id !== null));
 			const total = rows[0]?.total ?? 0;
 			return f.householdsPage.parse({
 				items: rows.map((h) => ({
@@ -149,8 +152,14 @@ export const households = {
 			const plant = plantId(ctx);
 			const input = parse(f.householdRequest, raw);
 			await authorize(tx, ctx);
-			if ("householdId" in input) return view(await readHousehold(tx, plant, input.householdId));
-			const p = await personFacts(tx, plant, input.personId, householdJson(plant, sql`person.household_id`));
+			if ("householdId" in input) return view(await readHousehold(tx, plant, input.householdId, readAuthority(ctx)));
+			const p = await personFacts(
+				tx,
+				plant,
+				input.personId,
+				householdJson(plant, sql`person.household_id`),
+				readAuthority(ctx),
+			);
 			return p.household_id ? view(household(p.extra)) : f.householdResult.parse({ status: "none" });
 		});
 	},

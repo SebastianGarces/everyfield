@@ -4,7 +4,21 @@ import { and, eq, sql, type SQL } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import "server-only";
 import { z } from "zod";
+import { writeVisibility } from "../../access/session.ts";
 import { deny, type Tx } from "../core.ts";
+
+/**
+ * C13: the request's own read authority, checked inside the statement that returns church data. The session is live,
+ * its account is active and holds an accepted, unended seat in this church (an administrator's when `admin`), and no
+ * deletion hold covers the account, seat or church. A seat ended or demoted after the request resolved its actor gets
+ * nothing.
+ */
+export function readAuthority(ctx: { session: string; selected: Owner }, admin = false): SQL {
+	return sql`EXISTS(SELECT FROM access_session(${ctx.session}::uuid) i JOIN seat s ON s.account_id=i.account_id
+ WHERE i.registration_state='active' AND s.plant_id=${ctx.selected.id}::uuid AND s.ended_at IS NULL
+ AND s.accepted_at<=clock_timestamp() ${admin ? sql`AND s.role<>'member'` : sql``}
+ AND ${writeVisibility(sql`i.account_id`, ctx.selected)})`;
+}
 
 /** Households, tags, skills and photos belong to plant people only. */
 export function plantId(ctx: { selected: Owner }): string {
@@ -58,6 +72,7 @@ export async function personFacts(
 	plant: string,
 	id: string,
 	extra?: SQL,
+	visible?: SQL,
 ): Promise<PersonFacts & { extra: unknown }> {
 	const [row] = await tx
 		.select({
@@ -76,7 +91,9 @@ export async function personFacts(
 			extra: extra ? sql<unknown>`${extra}` : sql<unknown>`NULL`,
 		})
 		.from(tables.person)
-		.where(and(eq(tables.person.id, id), eq(tables.person.tenant_id, plant), eq(tables.person.plant_id, plant)));
+		.where(
+			and(eq(tables.person.id, id), eq(tables.person.tenant_id, plant), eq(tables.person.plant_id, plant), visible),
+		);
 	if (!row) deny();
 	return { ...factRow.parse(row), extra: row.extra };
 }

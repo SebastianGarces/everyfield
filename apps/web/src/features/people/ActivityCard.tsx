@@ -379,17 +379,6 @@ function describe(item: Item, by: string): { title: string; icon: IconSvgElement
 			return { title: ACTION[item.action], icon: UserEdit01Icon, tone: "blue" };
 		case "follow_up":
 			return { title: FOLLOW_UP[item.outcome], icon: TaskDone01Icon, tone: "amber" };
-		case "household_changed":
-			// WP-012/ui owns the final household presentation.
-			return {
-				title: !item.to
-					? `Left ${item.from?.name ?? "a household"}`
-					: item.from
-						? `Role in ${item.to.name} changed to ${item.to.role}`
-						: `Joined ${item.to.name} as ${item.to.role}`,
-				icon: UserEdit01Icon,
-				tone: "blue",
-			};
 	}
 }
 

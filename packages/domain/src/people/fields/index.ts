@@ -28,7 +28,7 @@ import {
 } from "../core.ts";
 import { households } from "../households/index.ts";
 import { tagsAndSkills } from "../tags-skills/index.ts";
-import { expectRevision, livePerson, next, personFacts, plantId, queueObjectCleanup } from "./shared.ts";
+import { expectRevision, livePerson, next, personFacts, plantId, queueObjectCleanup, readAuthority } from "./shared.ts";
 
 /**
  * The person photo (REQ-PPL-005) uses the shared private-object flow, like the account avatar: a pending object, verified
@@ -132,7 +132,7 @@ const photo = {
 			const plant = plantId(ctx);
 			const input = parse(f.personFieldsRequest, raw);
 			await authorize(tx, ctx);
-			const p = await personFacts(tx, plant, input.personId);
+			const p = await personFacts(tx, plant, input.personId, undefined, readAuthority(ctx));
 			// A retired or merged Person's photo is unavailable (REQ-PPL-005).
 			livePerson(p);
 			return f.personPhotoResult.parse(

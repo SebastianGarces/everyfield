@@ -146,13 +146,6 @@ export const activity = z.discriminatedUnion("kind", [
 	z.strictObject({ ...activityBase, kind: z.literal("note"), revision, body: noteBody, editedAt: instant.nullable() }),
 	z.strictObject({ ...activityBase, kind: z.literal("note_removed"), revision }),
 	z.strictObject({ ...activityBase, kind: z.literal("stage_changed"), from: stage, to: stage }),
-	// Joined, left or changed role in a household. The name is the one recorded then, so history survives deletion.
-	z.strictObject({
-		...activityBase,
-		kind: z.literal("household_changed"),
-		from: householdMembership.nullable(),
-		to: householdMembership.nullable(),
-	}),
 	z.strictObject({
 		...activityBase,
 		kind: z.literal("activity"),
@@ -164,6 +157,11 @@ export const activity = z.discriminatedUnion("kind", [
 			"classification_recorded",
 			"classification_corrected",
 		]),
+		// A household join, leave or role change: the membership before and after, with the household name recorded
+		// then, so the history still names a household after it is deleted (REQ-PPL-009).
+		household: z
+			.strictObject({ from: householdMembership.nullable(), to: householdMembership.nullable() })
+			.optional(),
 	}),
 	z.strictObject({
 		...activityBase,

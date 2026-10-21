@@ -5,6 +5,8 @@ import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
 
 import { migrate } from "../../../../packages/db/src/schema/migrate.ts";
+import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
+import { PeopleReadContext } from "../../../../packages/domain/src/people/core.ts";
 import {
 	peopleWriter as people,
 	peopleReader,
@@ -527,10 +529,12 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 	// The public history still names the household the retired person belonged to.
 	const history = ok(await tx((t) => peopleReader.getActivities(t, ctx(), { personId: jamie.id }))).items;
 	assert.deepEqual(
-		history.filter((a) => a.kind === "household_changed").map((a) => [a.from?.role ?? null, a.to?.name, a.to?.role]),
+		history
+			.filter((a) => a.household)
+			.map((a) => [a.action, a.household.from?.role ?? null, a.household.to?.name, a.household.to?.role]),
 		[
-			[null, "Rivera household", "child"],
-			["child", "Rivera household", "other"],
+			["updated", null, "Rivera household", "child"],
+			["updated", "child", "Rivera household", "other"],
 		],
 	);
 	assert.equal((await audit(h.id)).at(-1).action, "people.retired");
@@ -665,4 +669,41 @@ test("AC:TARGET-PPL-005 AC:PROVIDER48-002 AC:PROVIDER48-003 person photo: verifi
 	await retire({ id: alex.id, revision: await revisionOf(alex.id) });
 	refused(await tx((t) => fields.getPersonPhoto(t, ctx(), { personId: alex.id })));
 	refused(await readPersonPhoto(db, storage, ctx(), { personId: alex.id, versionId: third.pending.uploadId }));
+});
+
+test("INV-tenancy C13: a seat ended after the request resolved its actor reads no people-fields data", async () => {
+	const p = await person("Morgan Lee");
+	const home = ok(
+		await tx((t) =>
+			fields.createHouseholdWithHead(t, ctx(), {
+				requestKey: key(),
+				expectedRevision: p.revision,
+				input: { name: "Lee household", headPersonId: p.id },
+			}),
+		),
+	).result.household;
+	// The member's actor is resolved first, as the web request does once per request.
+	const actor = await db.transaction((t) => RequestActor.resolve(t, actors[1].session));
+	assert.ok(actor instanceof RequestActor);
+	const reads = {
+		listTags: (t, c) => fields.listTags(t, c, {}),
+		getPersonTags: (t, c) => fields.getPersonTags(t, c, { personId: p.id }),
+		getPersonSkills: (t, c) => fields.getPersonSkills(t, c, { personId: p.id }),
+		listHouseholds: (t, c) => fields.listHouseholds(t, c, {}),
+		getHousehold: (t, c) => fields.getHousehold(t, c, { householdId: home.id }),
+		getHouseholdByPerson: (t, c) => fields.getHousehold(t, c, { personId: p.id }),
+		getHouseholdMembers: (t, c) => fields.getHouseholdMembers(t, c, { householdId: home.id }),
+		getPersonPhoto: (t, c) => fields.getPersonPhoto(t, c, { personId: p.id }),
+	};
+	const run = (read) => db.transaction((t) => read(t, new PeopleReadContext(actor)));
+	for (const read of Object.values(reads)) ok(await run(read));
+	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${sql.param(actors[1].id)}`);
+	try {
+		for (const [name, read] of Object.entries(reads)) {
+			const result = await run(read);
+			assert.equal(result.status, "refused", name + " returned data after the seat ended");
+		}
+	} finally {
+		await admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE account_id=${sql.param(actors[1].id)}`);
+	}
 });

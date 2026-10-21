@@ -353,9 +353,9 @@ async function activities(tx: Tx, ctx: Context, p: Person, input: z.infer<typeof
 		else if (r.kind === "household_changed")
 			items.push({
 				...base,
-				kind: "household_changed",
-				from: r.before_value?.membership ?? null,
-				to: r.after_value?.membership ?? null,
+				kind: "activity",
+				action: actions[r.action ?? ""],
+				household: { from: r.before_value?.membership ?? null, to: r.after_value?.membership ?? null },
 			});
 		else if (r.kind === "follow_up")
 			items.push({

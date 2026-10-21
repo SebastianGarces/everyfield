@@ -1,5 +1,5 @@
 import * as f from "@everyfield/contracts/people";
-import { and, eq, sql } from "@everyfield/db/query";
+import { and, eq, sql, type SQL } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { randomUUID } from "node:crypto";
 import "server-only";
@@ -15,9 +15,8 @@ import {
 	type Tx,
 	type WriteContext,
 } from "../core.ts";
-import { expectRevision, livePerson, next, personFacts, plantId } from "../fields/shared.ts";
+import { expectRevision, livePerson, next, personFacts, plantId, readAuthority } from "../fields/shared.ts";
 
-type Tag = z.infer<typeof f.tag>;
 type Skill = z.infer<typeof f.skill>;
 
 const tagRow = z.object({
@@ -32,25 +31,23 @@ const tagRow = z.object({
  * Tags with the live people who carry them, in name order, and each tag's count of all current links (retired people
  * included), which deletion removes. One query.
  */
-async function readTags(tx: Tx, plant: string, id?: string): Promise<{ tag: Tag; links: number }[]> {
-	const rows = await tx
-		.select({
-			id: tables.tag.id,
-			name: tables.tag.name,
-			color: tables.tag.color,
-			revision: tables.tag.revision,
-			linked: sql<number>`(SELECT count(*) FROM person_tag pt JOIN person p ON p.id=pt.person_id AND p.tenant_id=pt.plant_id
-				WHERE pt.tag_id=tag.id AND pt.plant_id=tag.plant_id AND p.state='live')`,
-			links: sql<number>`(SELECT count(*) FROM person_tag pt WHERE pt.tag_id=tag.id AND pt.plant_id=tag.plant_id)`,
-		})
-		.from(tables.tag)
-		.where(and(eq(tables.tag.plant_id, plant), id ? eq(tables.tag.id, id) : undefined))
-		.orderBy(tables.tag.normalized_name, tables.tag.id);
-	return rows.map((row) => {
-		const r = tagRow.parse(row);
-		const tag = f.tag.parse({ id: r.id, name: r.name, color: r.color, revision: r.revision, linkedPeople: r.linked });
-		return { tag, links: r.links };
-	});
+async function readTags(tx: Tx, plant: string, id?: string, visible: SQL = sql`true`) {
+	// A refused reader gets the seed row only, so an empty church and a refusal stay distinct.
+	const result = await tx.execute(sql`SELECT g.allowed,t.id,t.name,t.color,t.revision::text AS revision,
+ (SELECT count(*) FROM person_tag pt JOIN person p ON p.id=pt.person_id AND p.tenant_id=pt.plant_id
+   WHERE pt.tag_id=t.id AND pt.plant_id=t.plant_id AND p.state='live') AS linked,
+ (SELECT count(*) FROM person_tag pt WHERE pt.tag_id=t.id AND pt.plant_id=t.plant_id) AS links
+ FROM (SELECT ${visible} AS allowed) g
+ LEFT JOIN tag t ON g.allowed AND t.plant_id=${plant}::uuid ${id ? sql`AND t.id=${id}::uuid` : sql``}
+ ORDER BY t.normalized_name,t.id`);
+	if (result.rows[0]?.allowed !== true) deny();
+	return result.rows
+		.filter((row) => row.id !== null)
+		.map((row) => {
+			const r = tagRow.parse(row);
+			const tag = f.tag.parse({ id: r.id, name: r.name, color: r.color, revision: r.revision, linkedPeople: r.linked });
+			return { tag, links: r.links };
+		});
 }
 async function oneTag(tx: Tx, plant: string, id: string) {
 	const [found] = await readTags(tx, plant, id);
@@ -114,7 +111,9 @@ export const tagsAndSkills = {
 			const plant = plantId(ctx);
 			parse(f.listTagsRequest, raw);
 			await authorize(tx, ctx);
-			return f.tagsResult.parse({ items: (await readTags(tx, plant)).map((r) => r.tag) });
+			return f.tagsResult.parse({
+				items: (await readTags(tx, plant, undefined, readAuthority(ctx))).map((r) => r.tag),
+			});
 		});
 	},
 	async getPersonTags(tx: Tx, ctx: Context, raw: unknown) {
@@ -122,7 +121,7 @@ export const tagsAndSkills = {
 			const plant = plantId(ctx);
 			const input = parse(f.personFieldsRequest, raw);
 			await authorize(tx, ctx);
-			const p = await personFacts(tx, plant, input.personId, personTagsJson(plant));
+			const p = await personFacts(tx, plant, input.personId, personTagsJson(plant), readAuthority(ctx));
 			return f.personTagsResult.parse({ personId: input.personId, tags: personTags(p.extra) });
 		});
 	},
@@ -251,10 +250,22 @@ export const tagsAndSkills = {
 			const plant = plantId(ctx);
 			const input = parse(f.personFieldsRequest, raw);
 			await authorize(tx, ctx);
-			await personFacts(tx, plant, input.personId);
+			const p = await personFacts(
+				tx,
+				plant,
+				input.personId,
+				sql`coalesce((SELECT jsonb_agg(jsonb_build_object('id',s.id,'person_id',s.person_id,'name',s.name,'category',s.category,
+ 'proficiency',s.proficiency,'notes',s.notes,'revision',s.revision::text)) FROM person_skill s
+ WHERE s.person_id=person.id AND s.plant_id=${plant}::uuid),'[]')`,
+				readAuthority(ctx),
+			);
 			return f.personSkillsResult.parse({
 				personId: input.personId,
-				skills: await skillsOf(tx, plant, { personId: input.personId }),
+				skills: z
+					.array(skillRow)
+					.parse(p.extra)
+					.map((r) => skillView(r))
+					.sort(skillOrder),
 			});
 		});
 	},
