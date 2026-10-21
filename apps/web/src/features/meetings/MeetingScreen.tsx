@@ -66,6 +66,7 @@ import {
 	whenText,
 	type Detail,
 	type MeetingStatus,
+	type Outcome,
 } from "./model.ts";
 import { MeetingStatusBadge, Problem, problemOf, RsvpBar, useSave } from "./parts.tsx";
 import { deletions } from "./deletions.ts";
@@ -351,19 +352,28 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 							if (reason === "delete") {
 								// The list opens at once without this meeting; the answer confirms it or brings it back.
 								const { id, displayTitle, revision } = m;
+								// One request key for every try: when an answer is lost, the same key makes the producer replay a
+								// delete that did commit instead of acting twice, so a lost answer becomes a confirmed one.
+								const key = crypto.randomUUID();
+								const send = async (tries: number): Promise<Outcome<unknown>> => {
+									const r = await deleteMeeting(key, revision, id, why).catch(() => ({ status: "lost" }) as const);
+									if (r.status !== "lost" || tries === 0) return r;
+									await new Promise((done) => setTimeout(done, 800));
+									return send(tries - 1);
+								};
 								deletions.queue(id, () =>
-									deleteMeeting(crypto.randomUUID(), revision, id, why)
-										.catch(() => ({ status: "lost" }) as const)
-										.then((r) => {
-											if (r.status === "ok") toast({ message: `${displayTitle} was deleted.`, tone: "success" });
-											else {
-												deletions.show(id);
-												toast({
-													message: `${displayTitle} was not deleted. ${problemText(problemOf(r)!)}`,
-													tone: "error",
-												});
-											}
-										}),
+									send(2).then((r) => {
+										if (r.status === "ok") return toast({ message: `${displayTitle} was deleted.`, tone: "success" });
+										// Not known to be deleted: show it again, and only say "not deleted" when the server said so.
+										deletions.show(id);
+										toast({
+											message:
+												r.status === "lost"
+													? `We could not confirm that ${displayTitle} was deleted. Reload the list to check.`
+													: `${displayTitle} was not deleted. ${problemText(problemOf(r)!)}`,
+											tone: "error",
+										});
+									}),
 								);
 								router.push("/meetings");
 								return true;
