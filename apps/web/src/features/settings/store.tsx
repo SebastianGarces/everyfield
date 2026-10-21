@@ -157,11 +157,9 @@ export function useSettings() {
 	return { port, viewer };
 }
 
-/** The flows a section shows only when the port supplies them (SettingsPort.flows). */
+/** Your photo, email, password, own time zone and deletion (SettingsPort.flows). */
 export function useFlows() {
-	const { flows } = useStore().port;
-	if (!flows) throw new Error("This settings flow needs a port with flows.");
-	return flows;
+	return useStore().port.flows;
 }
 
 /** The sections whose visible value differs from the server value. */

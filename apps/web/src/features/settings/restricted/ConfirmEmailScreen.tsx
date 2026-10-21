@@ -30,16 +30,17 @@ export function ConfirmEmailScreen({
 	confirm,
 	accountHref,
 }: {
-	proof: string;
+	/** The link's token; null when the link has none, which reads as a link that does not work. */
+	proof: string | null;
 	confirm: (request: { proof: string }) => Promise<CredentialOutcome>;
 	accountHref: string;
 }) {
-	const [outcome, setOutcome] = useState<CredentialOutcome["status"] | null>(null);
+	const [outcome, setOutcome] = useState<CredentialOutcome["status"] | null>(proof ? null : "refused");
 	const [pending, setPending] = useState(false);
 	const sent = useRef(false);
 
 	const run = async () => {
-		if (sent.current) return;
+		if (sent.current || !proof) return;
 		sent.current = true;
 		setPending(true);
 		try {
@@ -53,7 +54,7 @@ export function ConfirmEmailScreen({
 
 	const text = outcome ? TEXT[outcome] : null;
 	return (
-		<main className="grid min-h-dvh place-items-center bg-frame px-4 py-10">
+		<main id="main" className="grid min-h-dvh place-items-center bg-frame px-4 py-10">
 			<div className="w-full max-w-[480px]">
 				<LogoMark className="mb-6 size-9 text-ink" />
 				<Card className="flex flex-col gap-4 text-text-2">

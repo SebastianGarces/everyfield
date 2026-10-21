@@ -3,9 +3,20 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { loadPage } from "../identity/api";
-import { getSection, previewPlantTimezone, saveChurch, saveSection, setPlantTimezone } from "./actions";
+import {
+	changePassword,
+	getSection,
+	previewPersonalTimezone,
+	previewPlantTimezone,
+	requestAccountDeletion,
+	requestEmailChange,
+	saveChurch,
+	saveSection,
+	setPersonalTimezone,
+	setPlantTimezone,
+} from "./actions";
 import { sectionAt, type DialogSection } from "./model";
-import type { SectionKey, SectionSeed, SettingsPort, SettingsViewer } from "./port";
+import type { DeletionStatus, SectionKey, SectionSeed, SettingsPort, SettingsViewer } from "./port";
 import { SettingsDialog } from "./SettingsDialog";
 import { SettingsProvider } from "./store";
 
@@ -16,7 +27,16 @@ import { SettingsProvider } from "./store";
 // route (app/settings/[section]), and closing then goes to the viewer's home page. /settings shows the first section
 // the viewer is offered without changing the address.
 
-const PORT: SettingsPort = { getSection, saveSection, saveChurch, previewPlantTimezone, setPlantTimezone };
+// The photo stays out until a private bucket exists (Q2), and church workspace deletion until it has a server action:
+// their rows are then not shown at all.
+const PORT: SettingsPort = {
+	getSection,
+	saveSection,
+	saveChurch,
+	previewPlantTimezone,
+	setPlantTimezone,
+	flows: { requestEmailChange, changePassword, previewPersonalTimezone, setPersonalTimezone, requestAccountDeletion },
+};
 const hrefFor = (key: SectionKey) => `/settings/${key}`;
 
 /**
@@ -51,10 +71,17 @@ export function useProductSettings(viewer: SettingsViewer | null, seed: SectionS
 				section={section}
 				onNavigate={navigate}
 				hrefFor={hrefFor}
-				// A deletion request ends the session; deletion is not offered here yet (SettingsPort.flows).
-				onDeletionRequested={() => loadPage("/signin")}
+				// The request ended every session, so the next page is a full load of the restricted deletion page.
+				onDeletionRequested={(status) => loadPage(deletionPage(status))}
 			/>
 		</SettingsProvider>
 	) : null;
 	return { element, open: (key: DialogSection) => navigate(key) };
+}
+
+/** The restricted deletion page, with the deadline the request returned when the request is known to be pending. */
+export function deletionPage(status: DeletionStatus | null): string {
+	return status?.status === "pending_deletion"
+		? `/account-deletion?until=${encodeURIComponent(status.cancelUntil)}`
+		: "/account-deletion";
 }
