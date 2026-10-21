@@ -714,7 +714,8 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live 
 		}
 	}
 
-	// A seat end during a running read does not wait for it (reads take no locks, C22), and the next read refuses.
+	// A seat end during a running read does not wait for it (reads take no locks, C22). The native read's own statements
+	// then see the ended seat (C13), so that read and the next one refuse.
 	const racing = {
 		...listPeople,
 		async invoke(tx: Parameters<typeof listPeople.invoke>[0], who: EvryActor, input: typeof find) {
@@ -725,7 +726,10 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live 
 		},
 	};
 	try {
-		await invokeRead(db, owner, racing, find);
+		await assert.rejects(
+			() => invokeRead(db, owner, racing, find),
+			(e: { code?: string }) => e.code === "source_unavailable",
+		);
 		await assert.rejects(
 			() => invokeRead(db, owner, listPeople, find),
 			(e: { code?: string }) => e.code === "access_denied",
@@ -733,7 +737,7 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live 
 	} finally {
 		await admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE account_id=${owner.accountId}`);
 	}
-	// Signing out during a running read does not wait either.
+	// Signing out during a running read does not wait either, and the read refuses.
 	const signOut = {
 		...listPeople,
 		async invoke(tx: Parameters<typeof listPeople.invoke>[0], who: EvryActor, input: typeof find) {
@@ -744,7 +748,10 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live 
 		},
 	};
 	try {
-		await invokeRead(db, owner, signOut, find);
+		await assert.rejects(
+			() => invokeRead(db, owner, signOut, find),
+			(e: { code?: string }) => e.code === "source_unavailable",
+		);
 	} finally {
 		await admin.execute(
 			sql`INSERT INTO auth_session SELECT * FROM json_populate_record(null::auth_session, ${JSON.stringify(session)}::json)`,

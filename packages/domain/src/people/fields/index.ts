@@ -10,6 +10,7 @@ import {
 	type ResourceAuthorizer,
 } from "@everyfield/db/schema";
 import * as tables from "@everyfield/db/tables";
+import { liveRead } from "../../access/session.ts";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
@@ -19,6 +20,7 @@ import {
 	lockOwner,
 	mutation,
 	parse,
+	authorizeRead,
 	readReply,
 	Refusal,
 	reply,
@@ -28,7 +30,7 @@ import {
 } from "../core.ts";
 import { households } from "../households/index.ts";
 import { tagsAndSkills } from "../tags-skills/index.ts";
-import { expectRevision, livePerson, next, personFacts, plantId, queueObjectCleanup, readAuthority } from "./shared.ts";
+import { expectRevision, livePerson, next, personFacts, plantId, queueObjectCleanup } from "./shared.ts";
 
 /**
  * The person photo (REQ-PPL-005) uses the shared private-object flow, like the account avatar: a pending object, verified
@@ -131,8 +133,8 @@ const photo = {
 		return readReply(async () => {
 			const plant = plantId(ctx);
 			const input = parse(f.personFieldsRequest, raw);
-			await authorize(tx, ctx);
-			const p = await personFacts(tx, plant, input.personId, undefined, readAuthority(ctx));
+			const { gate } = await authorizeRead(tx, ctx);
+			const p = await personFacts(tx, plant, input.personId, undefined, gate);
 			// A retired or merged Person's photo is unavailable (REQ-PPL-005).
 			livePerson(p);
 			return f.personPhotoResult.parse(
@@ -155,10 +157,10 @@ function photoAuthority(ctx: PeopleContext, read?: { personId: string }): Resour
 	return async (tx, file, intent) => {
 		if (intent === "cleanup" || file.purpose !== "person_photo" || file.tenant_id !== ctx.selected.id) return null;
 		if (intent === "read") {
-			// C13: the live session, seat and lifecycle are checked in the same statement as the exact current photo, on
-			// every pass the storage layer makes, never taken from an actor resolved earlier in the request.
+			// C13 and C22: the live access check runs in the same statement as the exact current photo, on every pass the
+			// storage layer makes, and holds no session lock. No actor from earlier in the request is trusted.
 			const [current] = await tx
-				.select({ actorId: sql<string>`(SELECT i.account_id FROM access_session(${ctx.session}::uuid) i)` })
+				.select({ actorId: sql<string>`(SELECT i.account_id FROM live_session(${ctx.session}::uuid) i)` })
 				.from(tables.person)
 				.where(
 					and(
@@ -166,7 +168,7 @@ function photoAuthority(ctx: PeopleContext, read?: { personId: string }): Resour
 						eq(tables.person.tenant_id, file.tenant_id),
 						eq(tables.person.state, "live"),
 						eq(tables.person.photo_object_id, file.id),
-						readAuthority(ctx),
+						liveRead({ session: ctx.session, owner: ctx.selected }),
 					),
 				);
 			return current ? { kind: "account", actorId: current.actorId } : null;
