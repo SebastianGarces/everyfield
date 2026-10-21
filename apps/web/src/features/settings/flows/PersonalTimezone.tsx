@@ -5,7 +5,7 @@ import { Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader }
 import { StatusBadge } from "@everyfield/ui/display";
 import { useState } from "react";
 import type { PersonalTimezonePreview, TimezonePreference } from "../port";
-import { useWrite, type Outcome, type Refusal } from "../save";
+import { OFFLINE_REFERENCE, useWrite, type Outcome, type Refusal } from "../save";
 import { SaveError } from "../SettingsDialog";
 import { useFlows } from "../store";
 import { formatInstant, formatLocalDate, nextMonday, zoneLabel } from "../time";
@@ -126,9 +126,13 @@ function PersonalTimezoneDialog({
 		if (!preview) return;
 		const input = { timeZone: preview.newZone, previewId: preview.previewId, confirmed: true as const };
 		onSaving({ status: "confirmed", timeZone: preview.newZone, revision: preview.expectedRevision });
-		const result = await saving.run(input, (requestKey) =>
-			port.setPersonalTimezone({ requestKey, expectedRevision: preview.expectedRevision, input }),
-		);
+		const send = () =>
+			saving.run(input, (requestKey) =>
+				port.setPersonalTimezone({ requestKey, expectedRevision: preview.expectedRevision, input }),
+			);
+		// A lost reply may hide a saved zone. The same request key asks again, and the server answers from its record.
+		let result = await send();
+		if (!result.ok && result.refusal.reference === OFFLINE_REFERENCE) result = await send();
 		onSettled(result.ok ? { ok: true, value: result.value.preference } : result);
 	};
 

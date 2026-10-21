@@ -14,13 +14,14 @@ import { Suspense, use, useRef, useState, useSyncExternalStore, type ReactNode }
 import { FormMessage, PasswordInput } from "../../identity/parts";
 import { OUT_OF_REACH } from "../flows/DeletionDialogs";
 import type { DeletionPort, DeletionStatus, Reply } from "../port";
-import { refusalOf, type Refusal } from "../save";
+import { OFFLINE_REFERENCE, refusalOf, type Refusal } from "../save";
 import { SaveError } from "../SettingsDialog";
 import { formatMoment } from "../time";
 
 type Subject = { kind: "account" } | { kind: "workspace"; churchName: string };
 
-type View = { step: "proof" } | { step: "status"; status: DeletionStatus } | { step: "error"; refusal: Refusal };
+type View =
+	{ step: "proof"; notice?: string } | { step: "status"; status: DeletionStatus } | { step: "error"; refusal: Refusal };
 
 /** No restricted session (or an expired one) asks for proof; any other refusal is a loading problem. */
 function viewOf(reply: Reply<DeletionStatus>): View {
@@ -30,7 +31,7 @@ function viewOf(reply: Reply<DeletionStatus>): View {
 
 const OFFLINE: Refusal = {
 	message: "Everyfield could not be reached. Check your connection and try again.",
-	reference: "EF-OFFLINE",
+	reference: OFFLINE_REFERENCE,
 	code: "unknown",
 };
 
@@ -110,10 +111,12 @@ function Deletion({ subject, port, initial, requestedUntil = null, now, zone, si
 	const [cancelError, setCancelError] = useState<Refusal | null>(null);
 	const [cancelling, setCancelling] = useState(false);
 
-	const load = async () => {
+	/** Reads the status again. `notice` explains why the page asks for proof when the session ended meanwhile. */
+	const load = async (notice?: string) => {
 		setLoading(true);
 		try {
-			setView(viewOf(await port.getStatus()));
+			const next = viewOf(await port.getStatus());
+			setView(next.step === "proof" ? { step: "proof", notice } : next);
 		} catch {
 			setView({ step: "error", refusal: OFFLINE });
 		} finally {
@@ -132,11 +135,10 @@ function Deletion({ subject, port, initial, requestedUntil = null, now, zone, si
 			if (reply.error.code === "deadline_passed" || reply.error.code === "conflict") await load();
 		} catch {
 			// The cancellation may have happened. The status, read again, says whether it did.
-			setCancelError({
-				...OFFLINE,
-				message: "We could not confirm that the deletion was cancelled. The status below is the latest we have.",
-			});
-			await load();
+			const message = "We could not confirm that the deletion was cancelled.";
+			setCancelError({ ...OFFLINE, message: `${message} The status below is the latest we have.` });
+			// A cancellation that went through also ended the restricted session; proof then shows the outcome.
+			await load(`${message} Enter your email and password again to see the status.`);
 		} finally {
 			setCancelling(false);
 		}
@@ -148,6 +150,7 @@ function Deletion({ subject, port, initial, requestedUntil = null, now, zone, si
 		case "proof":
 			return (
 				<Proof
+					notice={view.notice}
 					port={port}
 					requestedUntil={requestedUntil}
 					zone={zone}
@@ -258,11 +261,13 @@ function Deletion({ subject, port, initial, requestedUntil = null, now, zone, si
  * refusal does not say which of the two was wrong.
  */
 function Proof({
+	notice,
 	port,
 	requestedUntil,
 	zone,
 	onOpened,
 }: {
+	notice?: string;
 	port: DeletionPort;
 	requestedUntil: string | null;
 	zone: string;
@@ -313,6 +318,11 @@ function Proof({
 						: "To see your deletion request or cancel it, enter the email and password of the account."}
 				</p>
 			</header>
+			{notice ? (
+				<p role="status" className="rounded-md bg-surface px-4 py-3 text-sm text-ink-2">
+					{notice}
+				</p>
+			) : null}
 			<form
 				noValidate
 				className="flex flex-col gap-4"
