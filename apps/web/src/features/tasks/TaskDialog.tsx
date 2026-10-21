@@ -141,6 +141,10 @@ function Form({
 	const [gap, setGap] = useState(false);
 	const [fold, setFold] = useState<Choices | null>(null);
 	const keys = useRef(new RequestKeys());
+	const foldBox = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		if (fold) foldBox.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+	}, [fold]);
 	const managed = task?.managed ?? null;
 	const set = (patch: Partial<Draft>) => {
 		setDraft((d) => ({ ...d, ...patch }));
@@ -168,7 +172,10 @@ function Form({
 		event.preventDefault();
 		setTouched(true);
 		if (!title || !due.ok || pending) return;
-		if (fold && draft.due.offsetSeconds === undefined) return setProblem("Choose which time you mean.");
+		if (fold && draft.due.offsetSeconds === undefined) {
+			foldBox.current?.scrollIntoView({ block: "nearest" });
+			return setProblem("Choose which time you mean.");
+		}
 		const assigneeId = draft.assigneeId === NOBODY ? null : draft.assigneeId;
 		const relation = draft.relation ? { kind: draft.relation.kind, id: draft.relation.id } : null;
 		const description = draft.description.trim() === "" ? null : draft.description;
@@ -208,8 +215,7 @@ function Form({
 		if (r.status === "ok") return onSaved(task, r.value);
 		if (r.status === "lost") return setProblem(problemText("lost"));
 		if (r.code === "ambiguous_local_time" && r.error?.code === "ambiguous_local_time") {
-			setFold([...r.error.details.choices].sort((a, b) => a.instant.localeCompare(b.instant)));
-			return setProblem(problemText("ambiguous_local_time"));
+			return setFold([...r.error.details.choices].sort((a, b) => a.instant.localeCompare(b.instant)));
 		}
 		if (r.code === "nonexistent_local_time") return setGap(true);
 		if (r.code === "conflict" && task) onConflict(task.id);
@@ -257,13 +263,6 @@ function Form({
 								}))}
 							/>
 						</Field>
-						<AssigneeField
-							value={draft.assigneeId}
-							current={task?.assignee ?? null}
-							viewer={viewer}
-							disabled={pending}
-							onChange={(assigneeId) => set({ assigneeId })}
-						/>
 						{draft.due.kind !== "undated" ? (
 							<Field label="Day" error={dateError}>
 								<Input
@@ -286,10 +285,15 @@ function Form({
 						) : null}
 					</div>
 					{fold && draft.due.kind === "resolved_instant" ? (
-						<fieldset className="flex flex-col gap-1 rounded-md bg-surface px-4 py-3">
-							<legend className="text-sm font-medium text-ink-2">Which {timeText(draft.due.time)}?</legend>
+						<div ref={foldBox} className="flex flex-col gap-1 rounded-md bg-surface px-4 pt-3 pb-1">
+							<p id="fold-question" className="text-sm font-medium text-ink">
+								Which {timeText(draft.due.time)}?
+							</p>
+							<p className="text-sm text-text-2">
+								The clocks go back that night, so {timeText(draft.due.time)} happens twice.
+							</p>
 							<RadioGroup
-								aria-label={`Which ${timeText(draft.due.time)}`}
+								aria-labelledby="fold-question"
 								value={draft.due.offsetSeconds === undefined ? "" : String(draft.due.offsetSeconds)}
 								onValueChange={(v) => {
 									setDraft((d) => ({ ...d, due: { ...d.due, offsetSeconds: Number(v) } }));
@@ -306,9 +310,16 @@ function Form({
 									/>
 								))}
 							</RadioGroup>
-						</fieldset>
+						</div>
 					) : null}
 					<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
+						<AssigneeField
+							value={draft.assigneeId}
+							current={task?.assignee ?? null}
+							viewer={viewer}
+							disabled={pending}
+							onChange={(assigneeId) => set({ assigneeId })}
+						/>
 						<Field label="Priority">
 							<Select
 								value={draft.priority}
