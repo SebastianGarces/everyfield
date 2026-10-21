@@ -4,12 +4,18 @@ import { peopleViewer } from "@everyfield/domain/people";
 import { sessionId } from "@everyfield/contracts/common";
 import { sessionResult } from "@everyfield/contracts/identity";
 import { requestDatabase } from "./database";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { cache } from "react";
 import { requestAuth } from "./identity";
 
-// Better Auth checks the session against the database once per render request.
-export const getSession = cache(async () => requestAuth().api.getSession({ headers: await headers() }));
+// Better Auth checks the session against the database once per render request. The cookie comes from cookies(), which
+// includes the cookies a server action set: after a password change replaces the session, the page that action
+// renders must read the new session, not the revoked one in the request's Cookie header.
+export const getSession = cache(async () => {
+	const request = new Headers(await headers());
+	request.set("cookie", (await cookies()).toString());
+	return requestAuth().api.getSession({ headers: request });
+});
 
 /** One identity, actor and own-Person observation shared by every mount in this request: two statements in total. */
 export const getViewer = cache(async () => {

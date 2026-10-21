@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, Field, Input, Skeleton } from "@everyfield/ui/controls";
-import { LoadableView } from "@everyfield/ui/display";
+import { Avatar, LoadableView } from "@everyfield/ui/display";
 import { useState } from "react";
 import { SessionActions } from "../../identity/SessionActions";
 import { AvatarControl } from "../flows/AvatarControl";
@@ -9,14 +9,18 @@ import { AccountDeletionDialog } from "../flows/DeletionDialogs";
 import { EmailChange } from "../flows/EmailChange";
 import { PasswordDialog } from "../flows/PasswordDialog";
 import { PersonalTimezone } from "../flows/PersonalTimezone";
-import type { DeletionStatus, SectionResult } from "../port";
+import type { DeletionStatus, SectionResult, SettingsViewer } from "../port";
 import { attempt } from "../save";
 import { SaveError, SaveFooter, SectionBody, SettingRow } from "../SettingsDialog";
 import { useDraft, useSection, useSettings } from "../store";
 
 type Account = Extract<SectionResult, { section: "account" }>;
 
-export function AccountSection({ onDeletionRequested }: { onDeletionRequested: (status: DeletionStatus) => void }) {
+export function AccountSection({
+	onDeletionRequested,
+}: {
+	onDeletionRequested: (status: DeletionStatus | null) => void;
+}) {
 	const { state, replace, reload } = useSection({ section: "account" });
 	return (
 		<LoadableView
@@ -49,11 +53,11 @@ function AccountForm({
 	account: Account;
 	replace: (value: SectionResult) => void;
 	reload: () => void;
-	onDeletionRequested: (status: DeletionStatus) => void;
+	onDeletionRequested: (status: DeletionStatus | null) => void;
 }) {
 	const { draft, setDraft, dirty, saving, refusal, save: runSave } = useDraft("account", { name: account.name });
 	const [showError, setShowError] = useState(false);
-	const { port } = useSettings();
+	const { port, viewer } = useSettings();
 	const nameError = !draft.name.trim()
 		? "Enter your name."
 		: draft.name.trim().length > 200
@@ -78,53 +82,55 @@ function AccountForm({
 	return (
 		<>
 			<SectionBody>
-				{port.flows ? (
+				{port.flows.avatar ? (
 					<SettingRow label="Photo" description="Shown next to your name to people in your church.">
 						<AvatarControl
+							port={port.flows.avatar}
 							account={account}
 							onChanged={(avatar) => replace({ ...account, avatar })}
-							onReload={reload}
 						/>
 					</SettingRow>
 				) : null}
 				<SettingRow label="Name">
-					<Field label={<span className="sr-only">Your name</span>} error={showError ? nameError : undefined}>
-						<Input
-							value={draft.name}
-							onChange={(e) => setDraft({ name: e.target.value })}
-							autoComplete="name"
-							invalid={showError && Boolean(nameError)}
-						/>
-					</Field>
+					<div className="flex items-start gap-4">
+						{/* Without photos (Q2) the initials stand in, as the prototype's Photo and name row draws them. */}
+						{port.flows.avatar ? null : (
+							<Avatar name={account.name} label={`${account.name}, no photo`} size="lg" tone="green" />
+						)}
+						<Field
+							label={<span className="sr-only">Your name</span>}
+							error={showError ? nameError : undefined}
+							className="min-w-0 flex-1"
+						>
+							<Input
+								value={draft.name}
+								onChange={(e) => setDraft({ name: e.target.value })}
+								autoComplete="name"
+								invalid={showError && Boolean(nameError)}
+							/>
+						</Field>
+					</div>
 				</SettingRow>
-				{port.flows ? (
-					<>
-						<SettingRow label="Email" description="We send a link to the new address to confirm it.">
-							<EmailChange currentEmail={account.email} />
-						</SettingRow>
-						<SettingRow label="Password" description="Changing it signs out your other devices.">
-							<PasswordDialog />
-						</SettingRow>
-						<SettingRow
-							label="Your time zone"
-							description="Sets when your own week starts, for things only you see. Your church's time zone is separate."
-						>
-							<PersonalTimezone />
-						</SettingRow>
-						<SettingRow
-							label="Delete your account"
-							description="Deletes your login only. You have 30 days to change your mind."
-						>
-							<AccountDeletionDialog section={account} onRequested={onDeletionRequested} />
-						</SettingRow>
-					</>
-				) : (
-					<SettingRow label="Email" description="The address you sign in with.">
-						<p className="pt-2 break-all text-ink-2">{account.email}</p>
-					</SettingRow>
-				)}
+				<SettingRow label="Email" description="You sign in with it. We send a link to a new address to confirm it.">
+					<EmailChange currentEmail={account.email} />
+				</SettingRow>
+				<SettingRow label="Password" description="Changing it signs you out on your other devices.">
+					<PasswordDialog />
+				</SettingRow>
+				<SettingRow
+					label="Your time zone"
+					description="Sets when your own week starts, for things only you see. Your church's time zone is separate."
+				>
+					<PersonalTimezone
+						preference={account.personalTimezone}
+						onSaved={(personalTimezone) => replace({ ...account, personalTimezone })}
+					/>
+				</SettingRow>
 				<SettingRow label="Sessions" description="Sign out here, or on every other device at once.">
 					<SessionActions />
+				</SettingRow>
+				<SettingRow label="Delete your account" description={deletionText(viewer)}>
+					{ownsSeat(viewer) ? null : <AccountDeletionDialog section={account} onRequested={onDeletionRequested} />}
 				</SettingRow>
 			</SectionBody>
 			<SaveFooter
@@ -150,4 +156,13 @@ function AccountForm({
 			/>
 		</>
 	);
+}
+
+/** An Owner's account keeps the church running, so it cannot be deleted here (manual_owner_exception_required). */
+const ownsSeat = (viewer: SettingsViewer) => viewer.context !== "account" && viewer.role === "owner";
+
+function deletionText(viewer: SettingsViewer): string {
+	return ownsSeat(viewer)
+		? "You are an Owner, so your church needs another Owner first. Write to Everyfield support to arrange it."
+		: "Deletes your login only, not your church. You have 30 days to change your mind.";
 }
