@@ -1603,4 +1603,20 @@ test("BUG-3213d18: notifications read the account's saved choices and an organiz
 	);
 	assert.equal(read.values.planterCadence, "daily");
 	assert.equal(read.values.oversightCadence, "daily");
+	// A save compares with that read: turning the saved "off" back on must store it.
+	const patch = { kind: "channel", choice: { category: "task_due", channel: "email", enabled: true } };
+	ok(await call("saveSection", org.a, command({ section: "notifications", patch }, read.revision)));
+	const [stored] = await admin
+		.select()
+		.from(t.notification_preference)
+		.where(
+			and(
+				eq(t.notification_preference.account_id, org.a.id),
+				eq(t.notification_preference.category, "task_due"),
+				eq(t.notification_preference.channel, "email"),
+			),
+		);
+	assert.equal(stored.enabled, true);
+	const reload = ok(await section(org.a, { section: "notifications" }));
+	assert.equal(reload.values.choices.find((c) => c.category === "task_due" && c.channel === "email").enabled, true);
 });
