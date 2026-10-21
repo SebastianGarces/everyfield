@@ -7,7 +7,7 @@ import { and, eq, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import "server-only";
 import { z } from "zod";
-import type { RequestActor } from "../access/session.ts";
+import { writeVisibility, type RequestActor } from "../access/session.ts";
 import {
 	active,
 	administrator,
@@ -61,7 +61,7 @@ export interface SectionDependencies {
 export type Principal = { display_name: string; email: string; verified: boolean };
 /** The request's verified viewer (D60): its actor and the user row its session lookup already read. */
 export type SectionViewer = { authority: RequestActor; principal: Principal };
-type Viewer = { actor: Actor; principal: Principal };
+type Viewer = { actor: Actor; principal: Principal; session: string };
 function accountValue(a: { account: typeof t.account.$inferSelect; principal: Principal }) {
 	return q.sectionResult.parse({
 		section: "account",
@@ -75,11 +75,28 @@ function accountValue(a: { account: typeof t.account.$inferSelect; principal: Pr
 		personalTimezone: preference(a.account),
 	});
 }
+/**
+ * The viewer's authority, checked again inside the statement that reads the section: the session is live, no lifecycle
+ * witness hides the account, the owner or the seat, and for a plant or organization the viewer's seat is still open
+ * with the same role. A viewer that lost any of these since the request began reads no row and is refused.
+ */
+function live(v: Viewer, owner: Owner) {
+	const account = v.actor.accountId,
+		c = v.actor.context;
+	const seat =
+		owner.kind === "account"
+			? sql`true`
+			: c.kind === "seat"
+				? sql`EXISTS(SELECT FROM ${t.seat} s WHERE s.id=${c.seatId}::uuid AND s.account_id=${account}::uuid AND coalesce(s.plant_id,s.organization_id)=${owner.id}::uuid AND s.role=${c.role} AND s.ended_at IS NULL)`
+				: sql`false`;
+	return sql<boolean>`(EXISTS(SELECT FROM access_session(${v.session}::uuid) x WHERE x.account_id=${account}::uuid) AND ${seat} AND ${writeVisibility(account, owner)})`;
+}
+const own = (v: Viewer): Owner => ({ kind: "account", id: v.actor.accountId });
 /** The viewer's own plant when its seat there is Owner or Admin; any other viewer is refused. */
 function administeredPlant(v: Viewer, plant: Owner) {
 	const c = v.actor.context;
 	if (c.kind !== "seat" || c.role === "member" || c.owner.kind !== "plant" || !sameOwner(c.owner, plant)) deny();
-	return plant.id;
+	return live(v, plant);
 }
 function plantValue(r: typeof t.plant.$inferSelect, p: Extract<q.GetSectionRequest, { section: "plant" }>["plant"]) {
 	return q.sectionResult.parse({
@@ -110,7 +127,7 @@ const preferenceRows = z.array(
 	z.object({ category: z.string(), channel: z.string(), enabled: z.boolean(), cadence: z.string().nullable() }),
 );
 /** The account's notification choices: one statement for its revision, stored choices and organization seat. */
-async function notifications(db: Reader, deps: SectionDependencies, accountId: string, email: string) {
+async function notifications(db: Reader, deps: SectionDependencies, v: Viewer) {
 	const [account] = await db
 		.select({
 			id: t.account.id,
@@ -119,7 +136,7 @@ async function notifications(db: Reader, deps: SectionDependencies, accountId: s
 			organization: sql<boolean>`EXISTS(SELECT FROM ${t.seat} s WHERE s.account_id=${t.account.id} AND s.ended_at IS NULL AND s.organization_id IS NOT NULL)`,
 		})
 		.from(t.account)
-		.where(eq(t.account.id, accountId));
+		.where(and(eq(t.account.id, v.actor.accountId), live(v, own(v))));
 	if (!account) deny();
 	const rows = preferenceRows.parse(account.rows);
 	const categories = q.notificationCategory.options.filter((c) => c !== "oversight_digest" || account.organization);
@@ -132,7 +149,7 @@ async function notifications(db: Reader, deps: SectionDependencies, accountId: s
 				!(category === "planter_digest" && channel === "in_app"),
 		})),
 	);
-	const suppression = await deps.suppression(db, email);
+	const suppression = await deps.suppression(db, v.principal.email);
 	return q.sectionResult.parse({
 		section: "notifications",
 		accountId: account.id,
@@ -156,17 +173,20 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 		const owner = v.actor.context.owner;
 		switch (r.section) {
 			case "account": {
-				const [account] = await db.select().from(t.account).where(eq(t.account.id, v.actor.accountId));
+				const [account] = await db
+					.select()
+					.from(t.account)
+					.where(and(eq(t.account.id, v.actor.accountId), live(v, own(v))));
 				if (!account) deny();
 				return accountValue({ account, principal: v.principal });
 			}
 			case "notifications":
-				return notifications(db, deps, v.actor.accountId, v.principal.email);
+				return notifications(db, deps, v);
 			case "plant": {
 				const [row] = await db
 					.select()
 					.from(t.plant)
-					.where(eq(t.plant.id, administeredPlant(v, r.plant)));
+					.where(and(eq(t.plant.id, r.plant.id), administeredPlant(v, r.plant)));
 				if (!row) deny();
 				return plantValue(row, r.plant);
 			}
@@ -174,7 +194,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 				const [team] = await db
 					.select()
 					.from(t.team)
-					.where(and(eq(t.team.id, r.teamId), eq(t.team.plant_id, administeredPlant(v, r.plant))));
+					.where(and(eq(t.team.id, r.teamId), eq(t.team.plant_id, r.plant.id), administeredPlant(v, r.plant)));
 				if (!team) deny();
 				return q.sectionResult.parse({
 					section: "teams",
@@ -186,7 +206,10 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 			}
 			case "organization": {
 				if (!sameOwner(owner, r.organization)) deny();
-				const [row] = await db.select().from(t.organization).where(eq(t.organization.id, r.organization.id));
+				const [row] = await db
+					.select()
+					.from(t.organization)
+					.where(and(eq(t.organization.id, r.organization.id), live(v, owner)));
 				if (!row) deny();
 				return {
 					section: "organization",
@@ -199,7 +222,11 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 				const side = sameOwner(owner, r.organization) ? "organization" : sameOwner(owner, r.plant) ? "plant" : deny();
 				const [a] = await loadAffiliations(
 					db,
-					and(eq(t.affiliation.plant_id, r.plant.id), eq(t.affiliation.organization_id, r.organization.id))!,
+					and(
+						eq(t.affiliation.plant_id, r.plant.id),
+						eq(t.affiliation.organization_id, r.organization.id),
+						live(v, owner),
+					)!,
 				);
 				if (!a || !active(a) || !sameOwner(pairOf(a).organization, r.organization)) deny();
 				const base = {
@@ -239,6 +266,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 				}
 			: parse(q.saveSectionRequest, raw);
 		const a = await actor(tx, ctx, "command");
+		const viewer = { actor: a.identity, principal: a.principal, session: ctx.session };
 		const i = v.input;
 		if (i.section === "account" || i.section === "notifications") {
 			if (ctx.selected.kind !== "account" || ctx.selected.id !== a.account.id) deny();
@@ -261,7 +289,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 		if (c.kind === "replay") {
 			// Replay receipts never restore stale projections or bypass current scope.
 			const old = q.savedSectionResult.parse(c.value);
-			const current = await read(tx, { actor: a.identity, principal: a.principal }, requestFor(i));
+			const current = await read(tx, viewer, requestFor(i));
 			return q.savedSectionResult.parse({ ...old, current });
 		}
 		let changed = false;
@@ -288,7 +316,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 			}
 			case "notifications": {
 				revision(v.expectedRevision, a.account.revision);
-				current = await notifications(tx, deps, a.account.id, a.principal.email);
+				current = await notifications(tx, deps, viewer);
 				if (current.section !== "notifications") deny();
 				const patch = i.patch;
 				const values = current.values;
@@ -523,7 +551,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 				if (!viewer.principal.verified) deny();
 				const value = await read(
 					db,
-					{ actor: viewer.authority.actor, principal: viewer.principal },
+					{ actor: viewer.authority.actor, principal: viewer.principal, session: viewer.authority.session },
 					parse(q.getSectionRequest, raw),
 				);
 				return { status: "ok", value };

@@ -1496,3 +1496,91 @@ test("INV-performance: each settings section reads in one statement on the pool,
 		assert.equal(read.statements.length, 1, `${request.section}: ${read.statements.join("\n")}`);
 	}
 });
+test("INV-authority: a settings read checks seat, role, session and lifecycle again; a viewer that lost them since its lookup reads nothing", async () => {
+	const f = await plant(),
+		org = await organization();
+	const [team] = await admin
+		.insert(t.team)
+		.values({ plant_id: f.p.id, name: "Worship", state: "active", sort_order: 0 })
+		.returning();
+	await admin.insert(t.affiliation).values({
+		plant_id: f.p.id,
+		organization_id: org.o.id,
+		accepted_at: new Date(),
+		share_people: true,
+		share_meetings: false,
+		share_tasks: false,
+		share_ministry_teams: false,
+		share_wiki: false,
+		share_activity: false,
+		shared_findings: false,
+		consent_revision: "1",
+		revision: "1",
+	});
+	const church = [
+		{ section: "plant", plant: f.p },
+		{ section: "teams", plant: f.p, teamId: team.id },
+		{ section: "affiliations", plant: f.p, organization: org.o },
+	];
+	const seatOf = async (a) => (await admin.select().from(t.seat).where(eq(t.seat.account_id, a.id)))[0];
+	const cases = [
+		[
+			"admin downgraded to member",
+			() => seat(f.p),
+			church,
+			(a) => admin.update(t.seat).set({ role: "member", revision: "2" }).where(eq(t.seat.account_id, a.id)),
+		],
+		[
+			"admin seat removed",
+			() => seat(f.p),
+			church,
+			(a) => admin.update(t.seat).set({ ended_at: new Date(), revision: "2" }).where(eq(t.seat.account_id, a.id)),
+		],
+		[
+			"admin seat revoked by a lifecycle witness",
+			() => seat(f.p),
+			church,
+			async (a) => {
+				const s = await seatOf(a);
+				await admin.insert(t.lifecycle_witness).values({
+					kind: "seat",
+					opaque_subject_id: s.id,
+					seat_id: s.id,
+					request_revision: "1",
+					state: "revoked",
+					witness_checkpoint: "1",
+					cleanup_state: "not_started",
+				});
+			},
+		],
+		[
+			"organization seat removed",
+			async () => {
+				const a = await actor();
+				await admin
+					.insert(t.seat)
+					.values({ account_id: a.id, organization_id: org.o.id, role: "admin", accepted_at: new Date() });
+				return a;
+			},
+			[
+				{ section: "organization", organization: org.o },
+				{ section: "affiliations", plant: f.p, organization: org.o },
+			],
+			(a) => admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.account_id, a.id)),
+		],
+		[
+			"session signed out",
+			() => actor(),
+			[{ section: "account" }, { section: "notifications" }],
+			(a) => admin.delete(t.auth_session).where(eq(t.auth_session.id, a.session)),
+		],
+	];
+	for (const [change, make, requests, mutate] of cases) {
+		const a = await make();
+		const viewer = await viewerOf(a);
+		for (const request of requests) ok(await api.getSection(db, viewer, request));
+		await mutate(a);
+		for (const request of requests)
+			assert.equal((await api.getSection(db, viewer, request)).status, "refused", `${change}: ${request.section}`);
+	}
+});
