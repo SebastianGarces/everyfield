@@ -187,7 +187,7 @@ const reads = new Set<keyof typeof api>([
 	"pipelineSharing.readConsent",
 	"pipelineSharing.checkAggregateAccess",
 ]);
-type Actor = Pick<Awaited<ReturnType<typeof identity>>, "session" | "selected">;
+export type Actor = Pick<Awaited<ReturnType<typeof identity>>, "session" | "selected">;
 /**
  * One command transaction as the production mounts run it (command() in apps/web/src/server/organizations): the write
  * gate locks the actor's account and selected owner before the body starts. A body that locks first hides lock-order
@@ -227,4 +227,30 @@ export async function affiliation(
 		await db.execute(sql`INSERT INTO affiliation(plant_id,account_id,sending_church_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
  VALUES(${sql.param(plant.kind === "plant" ? plant.id : null)},${sql.param(plant.kind === "account" ? plant.id : null)},${sql.param(plant.kind === "organization" ? plant.id : null)},${sql.param(org.id)},clock_timestamp(),${sql.param(share)},${sql.param(share)},${sql.param(share)},${sql.param(share)},${sql.param(share)},${sql.param(share)},${sql.param(share)}) RETURNING id`);
 	return r.rows[0].id;
+}
+/**
+ * The holder binds its write gate and waits until the rival transaction waits for a lock, then runs its body. Each
+ * side settles to its value, `{ refused: code }` for a domain refusal or `{ failed: code }` for a Postgres error such
+ * as a deadlock (40P01) or lock timeout (55P03).
+ */
+export async function race<A, B>(
+	holder: Actor,
+	held: (c: import("../../../packages/db/src/client.ts").Transaction) => Promise<A>,
+	rival: () => Promise<B>,
+) {
+	let bound!: () => void;
+	const gate = new Promise<void>((resolve) => (bound = resolve));
+	const first = write(holder, async (c) => {
+		bound();
+		await waitingOnLock();
+		return held(c);
+	});
+	await gate;
+	const second = rival();
+	const outcome = (r: PromiseSettledResult<unknown>) => {
+		if (r.status === "fulfilled") return r.value;
+		const e = r.reason as Error & { cause?: { code?: string } };
+		return /^[a-z_]{3,40}$/.test(e.message) ? { refused: e.message } : { failed: e.cause?.code ?? String(e) };
+	};
+	return (await Promise.allSettled([first, second])).map(outcome) as [unknown, unknown];
 }

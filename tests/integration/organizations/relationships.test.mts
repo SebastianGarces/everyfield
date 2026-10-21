@@ -354,32 +354,24 @@ test("AC:TARGET-IDN-021 a Discovery conversion and an organization ending that l
 	).rows as { id: string }[];
 	const link = await S.affiliation(d.selected, o);
 	const pair = { kind: "discovery", accountId: d.account, organization: o };
-	let bound!: () => void;
-	const gate = new Promise<void>((resolve) => (bound = resolve));
-	const end = S.write(oa, async (c) => {
-		bound();
-		await S.waitingOnLock();
-		return S.api["associations.end"](
-			c,
-			oa.session,
-			oa.selected,
-			S.command({ relationshipId: link, pair, confirmed: true, reason: null }),
-		);
-	});
-	await gate;
-	const conversion = S.tx((c) =>
-		onboarding.convertDiscovery(
-			c,
-			{ session: d.session, selected: d.selected },
-			S.command({ discoveryId: discovery!.id, name: "New plant", confirmed: true, relationships: [] }),
-		),
+	const [ended, converted] = await S.race(
+		oa,
+		(c) =>
+			S.api["associations.end"](
+				c,
+				oa.session,
+				oa.selected,
+				S.command({ relationshipId: link, pair, confirmed: true, reason: null }),
+			),
+		() =>
+			S.tx((c) =>
+				onboarding.convertDiscovery(
+					c,
+					{ session: d.session, selected: d.selected },
+					S.command({ discoveryId: discovery!.id, name: "New plant", confirmed: true, relationships: [] }),
+				),
+			),
 	);
-	// A deadlock or lock timeout rejects one side with its Postgres code (40P01 or 55P03).
-	const outcome = (r: PromiseSettledResult<unknown>) =>
-		r.status === "fulfilled"
-			? r.value
-			: { failed: (r.reason as { cause?: { code?: string } }).cause?.code ?? String(r.reason) };
-	const [ended, converted] = (await Promise.allSettled([end, conversion])).map(outcome);
 	assert.deepEqual(ended, { status: "committed" });
 	assert.equal((converted as { value?: { status?: string } }).value?.status, "converted", JSON.stringify(converted));
 	const rows = await S.db.execute(
@@ -388,4 +380,73 @@ test("AC:TARGET-IDN-021 a Discovery conversion and an organization ending that l
 		(SELECT converted_at IS NOT NULL FROM discovery WHERE id=${sql.param(discovery!.id)}) AS converted`,
 	);
 	assert.deepEqual(rows.rows[0], { ended: true, end_events: 1, converted: true });
+});
+
+test("INV-lock-order: a subject-side write and the organization ending that link at the same time both finish", async (t) => {
+	// The organization's gate holds the organization while the subject's command runs. On the old order the subject
+	// locked the link, then waited for the organization, and the end deadlocked waiting for the link (40P01).
+	const rows = [
+		{
+			name: "the plant ends the link too",
+			subject: "plant" as const,
+			organization: "sending_church" as const,
+			run: (a: S.Actor, link: string, pair: unknown) =>
+				S.call("associations.end", a, S.command({ relationshipId: link, pair, confirmed: true, reason: null })),
+			outcome: { status: "committed" },
+		},
+		{
+			name: "the sending church changes pipeline consent",
+			subject: "sending_church" as const,
+			organization: "sending_network" as const,
+			share: false,
+			run: (a: S.Actor, link: string) =>
+				S.call("pipelineSharing.setConsent", a, S.command({ relationshipId: link, sharePipelineTotals: true })),
+			outcome: { refused: "unavailable" },
+		},
+		{
+			name: "the plant changes a sharing choice",
+			subject: "plant" as const,
+			organization: "sending_church" as const,
+			run: (a: S.Actor, link: string, _pair: unknown, subject: S.Actor["selected"], organization: unknown) =>
+				S.call(
+					"privacy.setSharing",
+					a,
+					S.command({
+						plant: subject,
+						organization,
+						relationshipId: link,
+						expectedConsentRevision: "1",
+						category: "people",
+						enabled: false,
+					}),
+				),
+			outcome: { refused: "unavailable" },
+		},
+	];
+	for (const row of rows)
+		await t.test(row.name, async () => {
+			const subject = await S.tenant(row.subject),
+				sa = await S.identity(subject),
+				o = await S.tenant(row.organization),
+				oa = await S.identity(o),
+				link = await S.affiliation(subject, o, row.share ?? true),
+				pair = { kind: row.subject, subject, organization: o };
+			const [ended, rival] = await S.race(
+				oa,
+				(c) =>
+					S.api["associations.end"](
+						c,
+						oa.session,
+						oa.selected,
+						S.command({ relationshipId: link, pair, confirmed: true, reason: null }),
+					),
+				() => row.run(sa, link, pair, subject, o),
+			);
+			assert.deepEqual({ ended, rival }, { ended: { status: "committed" }, rival: row.outcome });
+			const facts = await S.db.execute(
+				sql`SELECT (SELECT ended_at IS NOT NULL FROM affiliation WHERE id=${sql.param(link)}) AS ended,
+			(SELECT count(*)::int FROM audit_event WHERE subject_id=${sql.param(link)} AND action='affiliation.ended') AS end_events`,
+			);
+			assert.deepEqual(facts.rows[0], { ended: true, end_events: 1 });
+		});
 });
