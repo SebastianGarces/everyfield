@@ -545,9 +545,10 @@ const png = Buffer.from(
 	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWPgEpH7DwABpAE8sdwFIwAAAABJRU5ErkJggg==",
 	"base64",
 );
-test("AC:TARGET-PPL-005 AC:PROVIDER48-002 AC:PROVIDER48-003 person photo: verified private bytes, exact-version reads, replace, remove and revoked or foreign access", async () => {
+/** A private bucket fake: it checks the private key and ACL on upload and serves exactly what was stored. */
+function privateStorage() {
 	const objects = new Map();
-	const storage = {
+	return {
 		bucket: "synthetic-only",
 		client: {
 			send: async (command) => {
@@ -570,6 +571,9 @@ test("AC:TARGET-PPL-005 AC:PROVIDER48-002 AC:PROVIDER48-003 person photo: verifi
 			},
 		},
 	};
+}
+test("AC:TARGET-PPL-005 AC:PROVIDER48-002 AC:PROVIDER48-003 person photo: verified private bytes, exact-version reads, replace, remove and revoked or foreign access", async () => {
+	const storage = privateStorage();
 	const alex = await person("Alex Rivera");
 	const upload = async (bytes, who = 0) => {
 		const pending = ok(
@@ -674,14 +678,30 @@ test("AC:TARGET-PPL-005 AC:PROVIDER48-002 AC:PROVIDER48-003 person photo: verifi
 test("INV-tenancy C13: a seat ended after the request resolved its actor reads no people-fields data", async () => {
 	const p = await person("Morgan Lee");
 	const home = ok(
-		await tx((t) =>
+		await tx(async (t) =>
 			fields.createHouseholdWithHead(t, ctx(), {
 				requestKey: key(),
-				expectedRevision: p.revision,
+				expectedRevision: await revisionOf(p.id),
 				input: { name: "Lee household", headPersonId: p.id },
 			}),
 		),
 	).result.household;
+	const storage = privateStorage();
+	const pending = ok(
+		await tx((t) =>
+			fields.requestPersonPhotoUpload(t, ctx(), { personId: p.id, mime: "image/png", byteLength: png.length }),
+		),
+	);
+	ok(await uploadPersonPhoto(db, storage, ctx(), { uploadId: pending.uploadId, bytes: png }));
+	ok(
+		await tx(async (t) =>
+			fields.setPersonPhoto(t, ctx(), {
+				requestKey: key(),
+				expectedRevision: await revisionOf(p.id),
+				input: { personId: p.id, uploadId: pending.uploadId },
+			}),
+		),
+	);
 	// The member's actor is resolved first, as the web request does once per request.
 	const actor = await db.transaction((t) => RequestActor.resolve(t, actors[1].session));
 	assert.ok(actor instanceof RequestActor);
@@ -694,6 +714,8 @@ test("INV-tenancy C13: a seat ended after the request resolved its actor reads n
 		getHouseholdByPerson: (t, c) => fields.getHousehold(t, c, { personId: p.id }),
 		getHouseholdMembers: (t, c) => fields.getHouseholdMembers(t, c, { householdId: home.id }),
 		getPersonPhoto: (t, c) => fields.getPersonPhoto(t, c, { personId: p.id }),
+		// The byte adapter, called with the same request context: no bytes after access ends.
+		readPersonPhoto: (_t, c) => readPersonPhoto(db, storage, c, { personId: p.id, versionId: pending.uploadId }),
 	};
 	const run = (read) => db.transaction((t) => read(t, new PeopleReadContext(actor)));
 	for (const read of Object.values(reads)) ok(await run(read));

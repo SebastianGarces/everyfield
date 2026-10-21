@@ -244,8 +244,8 @@
 		"retry": 12
 	},
 	"native.people.readPersonPhoto": {
-		"limit": 10,
-		"retry": 20
+		"limit": 8,
+		"retry": 16
 	},
 	"native.people.removeFromHousehold": {
 		"limit": 7,
