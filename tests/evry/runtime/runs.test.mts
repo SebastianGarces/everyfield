@@ -17,7 +17,7 @@ import { PASTORAL_BOUNDARY, compileContext } from "../../../packages/evry/src/co
 import { readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
 import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
 import { transientRetry, withTransientRetry } from "../../../packages/evry/src/runtime/model.ts";
-import { actor, admin, db, people, plant, otherPlant, setup, sql, teardown, work } from "./support.mts";
+import { accounts, actor, admin, db, people, plant, otherPlant, setup, sql, teardown, work } from "./support.mts";
 
 before(setup);
 after(teardown);
@@ -382,6 +382,18 @@ test("AC:INH-CROSS-08 AC:EVRY-RETRY-CANCEL INV-run-fence cancel stops model work
 	assert.ok(
 		saved.some((e) => e.kind === "assistant_text"),
 		"text saved before the cancel stays",
+	);
+
+	// Signing out clears the run's session: the turn reads nothing and ends as refused.
+	const member = await actor("member");
+	const signedOut = await ask(member, "Find Casey");
+	const session = (await admin.execute(sql`DELETE FROM auth_session WHERE id=${accounts.member.session} RETURNING *`))
+		.rows[0]!;
+	assert.equal(await work(), "failed");
+	const refusedRun = await events(member, signedOut);
+	assert.deepEqual([refusedRun.cards.length, refusedRun.status.error.code], [0, "access_denied"]);
+	await admin.execute(
+		sql`INSERT INTO auth_session SELECT * FROM json_populate_record(null::auth_session, ${JSON.stringify(session)}::json)`,
 	);
 
 	// A run whose lease expired cannot publish, and does not block the next turn.

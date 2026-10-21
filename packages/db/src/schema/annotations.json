@@ -15467,7 +15467,7 @@
 				"purpose": "Private Evry conversation of one initiating account in one exact account, plant or organization context.",
 				"library_owned": false,
 				"jsonb_keys": {},
-				"capabilities": [],
+				"capabilities": ["CAP-C-027", "CAP-C-033"],
 				"replaces": [],
 				"producer_work_packages": ["WP-051"],
 				"producer_derivation": {
@@ -15475,7 +15475,7 @@
 					"additional_producers": ["WP-051"],
 					"rule": "WP-051 Evry conversation storage through Drizzle Kit."
 				},
-				"feature_ids": ["EVR-005", "EVR-008", "EVR-016", "EVR-021", "EVR-029"],
+				"feature_ids": ["EVR-005", "EVR-008", "EVR-016", "EVR-021", "EVR-029", "EVR-031"],
 				"acceptance_ids": [],
 				"future_case_ids": [],
 				"scope": "assistant",
@@ -15533,10 +15533,16 @@
 						"policy": "Account or tenant purge removes the private conversation before its owner rows. A conversation never transfers to another account."
 					}
 				},
-				"active_turn_id->job(id)": {
+				"active_session_id->auth_session(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Signing out clears the run session; the turn then stops at its next authority check."
+					}
+				},
+				"active_turn_id,tenant_id->job(id,tenant_id)": {
 					"deletion": {
 						"action": "no_action",
-						"policy": "The run pointer clears when the run ends or is cancelled."
+						"policy": "The run pointer clears when the run ends or is cancelled; owner purge deletes conversations before jobs."
 					}
 				}
 			}
@@ -15550,7 +15556,7 @@
 				"jsonb_keys": {
 					"body": ["text", "tool", "operation", "result", "state", "reason", "usage", "error", "references"]
 				},
-				"capabilities": [],
+				"capabilities": ["CAP-C-027", "CAP-C-028", "CAP-C-033"],
 				"replaces": [],
 				"producer_work_packages": ["WP-051"],
 				"producer_derivation": {
@@ -15558,7 +15564,19 @@
 					"additional_producers": ["WP-051"],
 					"rule": "WP-051 Evry conversation storage through Drizzle Kit."
 				},
-				"feature_ids": ["EVR-005", "EVR-008", "EVR-016", "EVR-021", "EVR-029"],
+				"feature_ids": [
+					"EVR-005",
+					"EVR-006",
+					"EVR-008",
+					"EVR-009",
+					"EVR-010",
+					"EVR-016",
+					"EVR-020",
+					"EVR-021",
+					"EVR-024",
+					"EVR-029",
+					"EVR-031"
+				],
 				"acceptance_ids": [],
 				"future_case_ids": [],
 				"scope": "assistant",
@@ -15599,6 +15617,12 @@
 					"deletion": {
 						"action": "cascade",
 						"policy": "Events go with their conversation."
+					}
+				},
+				"turn_id->job(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Events go with their conversation, which owner purge deletes before jobs."
 					}
 				}
 			}

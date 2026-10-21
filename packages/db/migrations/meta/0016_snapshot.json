@@ -1,5 +1,5 @@
 {
-  "id": "2fcc5352-bdc3-4427-a21c-c6060bd89bf0",
+  "id": "afb43287-c707-4d45-a414-3788e414284c",
   "prevId": "5d5214ca-93f3-4aa4-b5a0-7b3b9e64cbf8",
   "version": "7",
   "dialect": "postgresql",
@@ -3024,17 +3024,32 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "conversation_active_turn_id_job_id_fk": {
-          "name": "conversation_active_turn_id_job_id_fk",
+        "conversation_active_session_id_auth_session_id_fk": {
+          "name": "conversation_active_session_id_auth_session_id_fk",
           "tableFrom": "conversation",
-          "tableTo": "job",
+          "tableTo": "auth_session",
           "columnsFrom": [
-            "active_turn_id"
+            "active_session_id"
           ],
           "columnsTo": [
             "id"
           ],
           "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "conversation_active_turn": {
+          "name": "conversation_active_turn",
+          "tableFrom": "conversation",
+          "tableTo": "job",
+          "columnsFrom": [
+            "active_turn_id",
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
+          ],
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
@@ -3110,6 +3125,19 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "conversation_event_turn_id_job_id_fk": {
+          "name": "conversation_event_turn_id_job_id_fk",
+          "tableFrom": "conversation_event",
+          "tableTo": "job",
+          "columnsFrom": [
+            "turn_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },

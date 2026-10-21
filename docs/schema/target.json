@@ -72,7 +72,7 @@
   "implementation_authorized": false,
   "table_count": 80,
   "column_count": 915,
-  "foreign_key_count": 293,
+  "foreign_key_count": 295,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -12186,7 +12186,10 @@
       "purpose": "Private Evry conversation of one initiating account in one exact account, plant or organization context.",
       "library_owned": false,
       "jsonb_keys": {},
-      "capabilities": [],
+      "capabilities": [
+        "CAP-C-027",
+        "CAP-C-033"
+      ],
       "replaces": [],
       "producer_work_packages": [
         "WP-051"
@@ -12203,7 +12206,8 @@
         "EVR-008",
         "EVR-016",
         "EVR-021",
-        "EVR-029"
+        "EVR-029",
+        "EVR-031"
       ],
       "acceptance_ids": [],
       "future_case_ids": [],
@@ -12305,19 +12309,37 @@
         },
         {
           "deletion": {
-            "action": "no_action",
-            "policy": "The run pointer clears when the run ends or is cancelled."
+            "action": "set_null",
+            "policy": "Signing out clears the run session; the turn then stops at its next authority check."
           },
           "columns": [
-            "active_turn_id"
+            "active_session_id"
           ],
           "references": {
-            "table": "job",
+            "table": "auth_session",
             "columns": [
               "id"
             ]
           },
           "on_delete": "set_null"
+        },
+        {
+          "deletion": {
+            "action": "no_action",
+            "policy": "The run pointer clears when the run ends or is cancelled; owner purge deletes conversations before jobs."
+          },
+          "columns": [
+            "active_turn_id",
+            "tenant_id"
+          ],
+          "references": {
+            "table": "job",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "no_action"
         },
         {
           "deletion": {
@@ -12380,7 +12402,8 @@
         "foreign": [
           "conversation_tenant_id_tenant_id_fk",
           "conversation_account_id_account_id_fk",
-          "conversation_active_turn_id_job_id_fk"
+          "conversation_active_session_id_auth_session_id_fk",
+          "conversation_active_turn"
         ],
         "checks": [
           "conversation_title"
@@ -12407,7 +12430,11 @@
           "references"
         ]
       },
-      "capabilities": [],
+      "capabilities": [
+        "CAP-C-027",
+        "CAP-C-028",
+        "CAP-C-033"
+      ],
       "replaces": [],
       "producer_work_packages": [
         "WP-051"
@@ -12421,10 +12448,16 @@
       },
       "feature_ids": [
         "EVR-005",
+        "EVR-006",
         "EVR-008",
+        "EVR-009",
+        "EVR-010",
         "EVR-016",
+        "EVR-020",
         "EVR-021",
-        "EVR-029"
+        "EVR-024",
+        "EVR-029",
+        "EVR-031"
       ],
       "acceptance_ids": [],
       "future_case_ids": [],
@@ -12510,6 +12543,22 @@
             ]
           },
           "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "no_action",
+            "policy": "Events go with their conversation, which owner purge deletes before jobs."
+          },
+          "columns": [
+            "turn_id"
+          ],
+          "references": {
+            "table": "job",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action"
         }
       ],
       "checks": [
@@ -12524,7 +12573,8 @@
           "conversation_event_request"
         ],
         "foreign": [
-          "conversation_event_conversation_id_conversation_id_fk"
+          "conversation_event_conversation_id_conversation_id_fk",
+          "conversation_event_turn_id_job_id_fk"
         ],
         "checks": [
           "conversation_event_body"

@@ -109,8 +109,9 @@ export async function runTurn(deps: RunDeps, lease: RunLease): Promise<RunOutcom
 	};
 
 	try {
-		const actor = await deps.freshActor(turn.session_id);
-		if (!actor || actor.accountId !== turn.account_id || actor.owner.id !== turn.tenant_id)
+		const session = turn.session_id;
+		const actor = session ? await deps.freshActor(session) : null;
+		if (!session || !actor || actor.accountId !== turn.account_id || actor.owner.id !== turn.tenant_id)
 			throw new EvryRefusal("access_denied");
 		if (deps.model.status !== "qualified") throw new EvryRefusal("model_unavailable");
 		const model = deps.model.model;
@@ -146,7 +147,7 @@ export async function runTurn(deps: RunDeps, lease: RunLease): Promise<RunOutcom
 				stop = "tool_budget";
 				return null;
 			}
-			const fresh = await deps.freshActor(turn.session_id);
+			const fresh = await deps.freshActor(session);
 			if (!fresh || !sameContext(fresh, actor)) {
 				fail(new EvryRefusal("access_denied"));
 				return null;

@@ -4519,11 +4519,13 @@ export const conversation = pgTable(
 			enum: ["account", "plant", "sending_church", "sending_network"],
 		}).notNull(),
 		title: text("title").notNull(),
-		last_sequence: int64("last_sequence").notNull().default(sql`0`),
+		last_sequence: int64("last_sequence")
+			.notNull()
+			.default(sql`0`),
 		/** The assistant_turn job that is the conversation's one active run, if any. */
-		active_turn_id: uuid("active_turn_id").references(() => job.id, { onDelete: "set null" }),
-		/** The session that submitted the active turn; meaningful only with active_turn_id. The worker re-reads its authority before every read. */
-		active_session_id: uuid("active_session_id"),
+		active_turn_id: uuid("active_turn_id"),
+		/** The session that submitted the active turn; the worker re-reads its authority before every read. A signed-out session clears it, which stops the turn. */
+		active_session_id: uuid("active_session_id").references(() => auth_session.id, { onDelete: "set null" }),
 		created_at: timestamp("created_at", { withTimezone: true, mode: "date" })
 			.notNull()
 			.default(sql`clock_timestamp()`),
@@ -4533,6 +4535,12 @@ export const conversation = pgTable(
 	},
 	(t): PgTableExtraConfigValue[] => [
 		check("conversation_title", sql`char_length(${t.title}) BETWEEN 1 AND 120`),
+		// The run is a job of the same tenant. Only the owner purge deletes jobs, after it deletes the conversations.
+		foreignKey({
+			name: "conversation_active_turn",
+			columns: [t.active_turn_id, t.tenant_id],
+			foreignColumns: [job.id, job.tenant_id],
+		}),
 		index("conversation_owner_recent").on(t.account_id, t.tenant_id, t.updated_at, t.id),
 	],
 );
@@ -4544,7 +4552,7 @@ export const conversation_event = pgTable(
 			.notNull()
 			.references(() => conversation.id, { onDelete: "cascade" }),
 		sequence: int64("sequence").notNull(),
-		turn_id: uuid("turn_id"),
+		turn_id: uuid("turn_id").references(() => job.id),
 		kind: text("kind", { enum: ["user_message", "assistant_text", "tool_result", "status"] }).notNull(),
 		body: jsonb("body").notNull(),
 		request_key: text("request_key"),

@@ -18,7 +18,8 @@ const turnRow = z.object({
 	conversation_id: z.uuid(),
 	tenant_id: z.uuid(),
 	account_id: z.uuid(),
-	session_id: z.uuid(),
+	/** Null once the submitting session signed out: the turn then has no authority. */
+	session_id: z.uuid().nullable(),
 	message: z.object({
 		sequence: z.coerce.number(),
 		body: z.object({ text: z.string(), references: z.array(reference).default([]) }),

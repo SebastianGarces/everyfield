@@ -87,7 +87,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-048 | Dashboard/navigation/settings integration | 3 | 6 | 5 | 2 | 1.5 |
 | WP-049 | Feedback and later public marketing | 19 | 10 | 12 | 0 | 2 |
 | WP-050 | Environment bootstrap/ops/observability | 37 | 35 | 69 | 9 | 3.5 |
-| WP-051 | Evry conversations, reads and runs | 21 | 17 | 57 | 0 | 2.5 |
+| WP-051 | Evry conversations, reads and runs | 21 | 17 | 57 | 2 | 2.5 |
 | WP-053 | Evry approval and execution | 27 | 9 | 37 | 1 | 2.5 |
 | WP-054 | Evry files, history and conversation extras | 7 | 8 | 14 | 2 | 1.5 |
 | WP-059 | Evry people adapters | 3 | 26 | 8 | 0 | 2 |
