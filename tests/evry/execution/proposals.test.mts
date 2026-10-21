@@ -462,3 +462,16 @@ test("AC:EVRY-LEASE-FENCE an executor whose lease expires while it waits for the
 		[[], before.city, "unknown"],
 	);
 });
+
+test("AC:SEC-02 INV-tenancy: a review read takes no lock that a sign-out or session update waits for (C32)", async () => {
+	const owner = await actor("owner");
+	const { proposal } = await propose(owner, "Change Casey's city to Wheaton");
+	await db.transaction(async (tx) => {
+		// The read's transaction stays open while another connection changes the reader's session.
+		assert.equal((await readReview(tx as unknown as typeof db, owner, proposal.id)).status, "pending");
+		await admin.transaction(async (other) => {
+			await other.execute(sql`SET LOCAL lock_timeout = '2s'`);
+			await other.execute(sql`UPDATE auth_session SET expires_at=expires_at WHERE id=${accounts.owner.session}`);
+		});
+	});
+});

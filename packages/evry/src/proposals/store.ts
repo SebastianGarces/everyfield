@@ -1,5 +1,6 @@
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
+import { liveRead } from "@everyfield/domain/access";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
@@ -37,9 +38,20 @@ function adapter(actor: EvryActor, op: Operation): ReviewedWrite<unknown> {
 	return write;
 }
 /** The actor's own proposal in this exact context, for an operation the actor may still use natively. */
-const owned = (actor: EvryActor) =>
+const mine = (actor: EvryActor) =>
 	sql`p.account_id=${actor.accountId}::uuid AND p.tenant_id=${actor.owner.id}::uuid
-		AND p.operation=ANY(${sql.param(allowedWrites(actor).map((w) => w.operation))}::text[]) AND ${currentAuthority(actor)}`;
+		AND p.operation=ANY(${sql.param(allowedWrites(actor).map((w) => w.operation))}::text[])`;
+/** Proposal commands: the actor's own proposal under write authority. */
+const owned = (actor: EvryActor) => sql`${mine(actor)} AND ${currentAuthority(actor)}`;
+/**
+ * The review read (C32): the actor's own proposal under the lock-free live check, so a sign-out or seat change never
+ * waits for it. Reviewed writes need Owner or Admin, the same floor as the native command.
+ */
+const readable = (actor: EvryActor) => {
+	const context = actor.authority.actor.context;
+	const seatId = context.kind === "seat" ? context.seatId : undefined;
+	return sql`${mine(actor)} AND ${liveRead({ session: actor.session, owner: actor.owner, seatId }, true)}`;
+};
 const digest = (revision: SQL) =>
 	sql`encode(sha256(convert_to(jsonb_build_object('operation',p.operation,'revision',${revision},'args',r.args,'review',r.review)::text,'UTF8')),'hex')`;
 const expiry = sql`clock_timestamp()+make_interval(mins=>${REVIEW_MINUTES})`;
@@ -91,11 +103,11 @@ export const proposalRow = z.object({
 });
 export type Proposal = z.infer<typeof proposalRow>;
 
-/** evry.readReview: the actor's proposal with its current review status and recorded outcome. One statement. */
+/** evry.readReview: the actor's proposal with its current review status and recorded outcome. One lock-free statement. */
 export async function readReview(db: Database, actor: EvryActor, id: string): Promise<Proposal> {
 	const proposalId = parse(z.uuid(), id);
 	const r = await db.execute(
-		sql`SELECT ${projection("p")} AS proposal FROM proposal p WHERE p.id=${proposalId}::uuid AND ${owned(actor)}`,
+		sql`SELECT ${projection("p")} AS proposal FROM proposal p WHERE p.id=${proposalId}::uuid AND ${readable(actor)}`,
 	);
 	if (!r.rows.length) throw new EvryRefusal("not_found");
 	return proposalRow.parse(r.rows[0]!.proposal);
