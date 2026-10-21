@@ -170,6 +170,8 @@ export const attendanceMutationResult = z.strictObject({
 });
 
 export const generatedWork = z.strictObject({
+	/** The meeting that owes the duty: this one, or a later Vision that a correction made a Person's first. */
+	meetingId,
 	kind: z.enum(["first_vision_follow_up", "meeting_evaluation"]),
 	personId: personId.nullable(),
 	obligationId: recordId,

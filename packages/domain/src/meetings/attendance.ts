@@ -6,7 +6,13 @@ import "server-only";
 import { z } from "zod";
 import type { AuditWrite } from "../operations/writes.ts";
 import { columnsChanged, freshPosition } from "../people/people.ts";
-import { applyManagedStatus, ensureMeetingObligations, type TaskReminders } from "../tasks/index.ts";
+import {
+	applyManagedStatus,
+	ensureMeetingObligations,
+	managedTasks,
+	obligationFacts,
+	type TaskReminders,
+} from "../tasks/index.ts";
 import { TaskRefusal } from "../tasks/core.ts";
 import { command, deny, parse, reply, type Change, type MeetingsContext, type Tx, type Writer } from "./core.ts";
 
@@ -47,9 +53,14 @@ const personRow = z.object({
 	display_name: z.string(),
 });
 /** Another meeting's attended row whose first-or-returning answer depends on this meeting (late history). */
-const laterRow = guestRow
-	.omit({ display_name: true, person_state: true, rsvp: true, has_card: true })
-	.extend({ meeting_id: z.uuid(), follow_up: z.uuid().nullable(), next_first: z.uuid().nullable() });
+const laterRow = guestRow.omit({ display_name: true, person_state: true, rsvp: true, has_card: true }).extend({
+	meeting_id: z.uuid(),
+	follow_up: z.uuid().nullable(),
+	next_first: z.uuid().nullable(),
+	meeting_date: z.string(),
+	meeting_zone: z.string(),
+	meeting_at: date,
+});
 const obligationRow = z.object({
 	id: z.uuid(),
 	kind: z.enum(["follow_up", "evaluation"]),
@@ -76,6 +87,9 @@ const factsRow = z.object({
 	earlier: z.record(z.string(), z.uuid()),
 	later: z.array(laterRow),
 	obligations: z.array(obligationRow),
+	// Settling only: WP-024's producer facts and the locked tasks of these People's follow-ups.
+	obligation_facts: z.unknown(),
+	tasks: z.unknown(),
 });
 type Facts = z.infer<typeof factsRow>;
 
@@ -90,10 +104,20 @@ const attendedOn = sql`g.presence = 'attended' AND g.removed_at IS NULL AND o.ty
  * returning, in one statement. A wait for the meeting lock leaves the statement's older snapshot in the subqueries;
  * the fresh meeting revision then differs from the snapshot's and the read runs once more under the lock it holds.
  */
-async function lockAttendance(tx: Tx, w: Writer, meetingId: string, personIds: readonly string[], forUpdate: boolean) {
+async function lockAttendance(
+	tx: Tx,
+	w: Writer,
+	meetingId: string,
+	personIds: readonly string[],
+	settling: { assignees: readonly string[] } | null,
+) {
+	const forUpdate = settling !== null;
 	const ids = sql`${sql.param([...personIds])}::uuid[]`;
+	// Parameters, not the outer alias `m`: these expressions also run inside the task producers' own queries.
+	const plant = sql`${w.plant.id}::uuid`,
+		meeting = sql`${meetingId}::uuid`;
 	const subjects = sql`(SELECT unnest(${ids}) UNION SELECT s.person_id FROM participation s
-		WHERE s.meeting_id = m.id AND s.presence = 'attended' AND s.removed_at IS NULL)`;
+		WHERE s.meeting_id = ${meeting} AND s.presence = 'attended' AND s.removed_at IS NULL)`;
 	const query = sql`SELECT m.id, m.type, m.status, m.local_date::text AS local_date, m.timezone,
 		${here} AS occurred_at, m.occurrence_voided_at IS NOT NULL AS voided,
 		m.attendance_revision::text AS attendance_revision,
@@ -111,7 +135,7 @@ async function lockAttendance(tx: Tx, w: Writer, meetingId: string, personIds: r
 			FOR UPDATE OF g) x) AS guests,
 		(SELECT coalesce(json_agg(x ORDER BY x.id), '[]') FROM (SELECT p.id, p.state, p.stage, p.revision::text AS revision,
 			p.pipeline_position::text AS pipeline_position, p.display_name FROM person p
-			WHERE p.id = ANY(${ids}) AND p.tenant_id = m.plant_id AND p.plant_id = m.plant_id ORDER BY p.id
+			WHERE p.id IN ${subjects} AND p.tenant_id = m.plant_id AND p.plant_id = m.plant_id ORDER BY p.id
 			${forUpdate ? sql`FOR UPDATE OF p` : sql`FOR SHARE OF p`}) x) AS people,
 		(SELECT coalesce(json_object_agg(x.person_id, x.first_id), '{}') FROM (SELECT DISTINCT ON (g.person_id) g.person_id,
 			o.id AS first_id FROM participation g JOIN meeting o ON o.id = g.meeting_id
@@ -120,7 +144,8 @@ async function lockAttendance(tx: Tx, w: Writer, meetingId: string, personIds: r
 		(SELECT coalesce(json_agg(x ORDER BY x.id), '[]') FROM (SELECT g.id, g.revision::text AS revision, g.person_id,
 			g.presence, g.removed_at, g.classification, g.classification_stage,
 			g.classification_person_revision::text AS classification_person_revision, g.classification_as_of,
-			g.prior_vision_id, g.actual_occurrence_at, g.meeting_id,
+			g.prior_vision_id, g.actual_occurrence_at, g.meeting_id, o.local_date::text AS meeting_date,
+			o.timezone AS meeting_zone, ${occurrence} AS meeting_at,
 			(SELECT b.id FROM obligation b WHERE b.meeting_id = o.id AND b.person_id = g.person_id AND b.kind = 'follow_up'
 				AND b.superseded_at IS NULL) AS follow_up,
 			(SELECT f.id FROM participation e JOIN meeting f ON f.id = e.meeting_id
@@ -137,7 +162,23 @@ async function lockAttendance(tx: Tx, w: Writer, meetingId: string, personIds: r
 		(SELECT coalesce(json_agg(json_build_object('id', b.id, 'kind', b.kind, 'person_id', b.person_id,
 			'assignee_id', t.assignee_id, 'task_status', t.status)), '[]')
 			FROM obligation b LEFT JOIN task t ON t.obligation_id = b.id AND t.deleted_at IS NULL
-			WHERE b.meeting_id = m.id AND b.plant_id = m.plant_id AND b.superseded_at IS NULL) AS obligations
+			WHERE b.meeting_id = m.id AND b.plant_id = m.plant_id AND b.superseded_at IS NULL) AS obligations,
+		${
+			settling
+				? sql`${obligationFacts(
+						w.plant.id,
+						sql`ARRAY(SELECT ${meeting} UNION SELECT s.meeting_id FROM participation s WHERE s.plant_id = ${plant}
+							AND s.person_id IN ${subjects})`,
+						sql`ARRAY${subjects}`,
+						sql`${sql.param([...settling.assignees])}::uuid[]`,
+					)} AS obligation_facts,
+					${managedTasks(
+						w.plant.id,
+						sql`ARRAY(SELECT b.id FROM obligation b WHERE b.plant_id = ${plant} AND b.kind = 'follow_up'
+							AND b.person_id IN ${subjects})`,
+					)} AS tasks`
+				: sql`NULL AS obligation_facts, NULL AS tasks`
+		}
 		FROM meeting m WHERE m.plant_id = ${w.plant.id}::uuid AND m.id = ${meetingId}::uuid AND m.retired_at IS NULL
 		FOR UPDATE OF m`;
 	for (let attempt = 0; ; attempt++) {
@@ -212,15 +253,28 @@ function updateRows(plantId: string, rows: readonly RowWrite[]): SQL {
 			classification_as_of timestamptz, prior_vision_id uuid, actual_occurrence_at timestamptz)
 		WHERE g.id = v.id AND g.revision = v.revision AND g.plant_id = ${plantId}::uuid`;
 }
-function insertRows(
-	plantId: string,
-	meetingId: string,
-	rows: readonly { id: string; personId: string; presence: Presence }[],
-) {
-	const values = rows.map((r) => ({ id: r.id, person_id: r.personId, presence: r.presence }));
-	return sql`INSERT INTO participation (id, plant_id, meeting_id, person_id, roster_member, rsvp, presence)
-		SELECT v.id, ${plantId}::uuid, ${meetingId}::uuid, v.person_id, false, 'pending', v.presence
-		FROM jsonb_to_recordset(${JSON.stringify(values)}::jsonb) AS v(id uuid, person_id uuid, presence text)`;
+/** New guest rows with the same full snapshot shape updateRows writes, so an insert never drops a classification. */
+function insertRows(plantId: string, meetingId: string, rows: readonly RowWrite[]) {
+	const values = rows.map((r) => ({
+		id: r.id,
+		person_id: r.person_id,
+		presence: r.presence,
+		classification: r.classification,
+		classification_stage: r.classification_stage,
+		classification_person_revision: r.classification_person_revision,
+		classification_as_of: r.classification_as_of?.toISOString() ?? null,
+		prior_vision_id: r.prior_vision_id,
+		actual_occurrence_at: r.actual_occurrence_at?.toISOString() ?? null,
+	}));
+	return sql`INSERT INTO participation (id, plant_id, meeting_id, person_id, roster_member, rsvp, presence,
+		classification, classification_stage, classification_person_revision, classification_as_of, prior_vision_id,
+		actual_occurrence_at)
+		SELECT v.id, ${plantId}::uuid, ${meetingId}::uuid, v.person_id, false, 'pending', v.presence, v.classification,
+			v.classification_stage, v.classification_person_revision, v.classification_as_of, v.prior_vision_id,
+			v.actual_occurrence_at
+		FROM jsonb_to_recordset(${JSON.stringify(values)}::jsonb) AS v(id uuid, person_id uuid, presence text,
+			classification text, classification_stage text, classification_person_revision bigint,
+			classification_as_of timestamptz, prior_vision_id uuid, actual_occurrence_at timestamptz)`;
 }
 const bumpAttendance = (f: Facts, finalize: boolean) =>
 	sql`UPDATE meeting SET attendance_revision = attendance_revision + 1
@@ -246,7 +300,7 @@ async function setPresence(
 		w,
 		meetingId,
 		entries.map((e) => e.personId),
-		false,
+		null,
 	);
 	if (f.finalized_at) deny("status_transition");
 	if (f.status === "cancelled") deny("status_transition");
@@ -263,7 +317,7 @@ async function setPresence(
 	);
 	const people = new Map(f.people.map((p) => [p.id, p]));
 	const updates: GuestRow[] = [],
-		inserts: { id: string; personId: string; presence: Presence }[] = [],
+		inserts: GuestRow[] = [],
 		after: GuestRow[] = [];
 	const before: Record<string, Presence | null> = {},
 		changedTo: Record<string, Presence> = {};
@@ -279,8 +333,7 @@ async function setPresence(
 		} else {
 			const id = randomUUID(),
 				p = people.get(e.personId)!;
-			inserts.push({ id, personId: e.personId, presence: e.presence });
-			after.push({
+			const row: GuestRow = {
 				id,
 				revision: "1",
 				person_id: p.id,
@@ -296,7 +349,9 @@ async function setPresence(
 				actual_occurrence_at: null,
 				display_name: p.display_name,
 				person_state: p.state,
-			});
+			};
+			inserts.push(row);
+			after.push(row);
 		}
 	}
 	const changed = after.length > 0;
@@ -347,7 +402,9 @@ async function settle(
 		reason: string | null;
 	},
 ) {
-	const f = await lockAttendance(tx, w, input.meetingId, input.attendeeIds, true);
+	const f = await lockAttendance(tx, w, input.meetingId, input.attendeeIds, {
+		assignees: [input.followUpAssigneeId, input.evaluationAssigneeId].filter((a) => a !== null),
+	});
 	if (f.status === "cancelled" || f.voided || f.occurred_at > f.now) deny("status_transition");
 	const vision = f.type === "vision_meeting";
 	const current = attendedIds(f),
@@ -368,8 +425,7 @@ async function settle(
 	const byPerson = new Map(f.guests.map((g) => [g.person_id, g]));
 	const occurredAt = f.occurred_at;
 	const rows: RowWrite[] = [],
-		inserted = new Set<string>(),
-		inserts: { id: string; personId: string; presence: Presence }[] = [];
+		inserts: RowWrite[] = [];
 	const classifications: z.infer<typeof c.finalizationResult>["classifications"] = [];
 	const stageChanges: { personId: string; from: Stage; to: Stage; revision: string; position: string }[] = [];
 	const closing = new Set<string>();
@@ -408,12 +464,7 @@ async function settle(
 			actual_occurrence_at: occurredAt,
 		};
 		if (g) rows.push({ ...g, ...snapshot });
-		else {
-			const id = randomUUID();
-			inserts.push({ id, personId, presence: "attended" });
-			inserted.add(id);
-			rows.push({ id, revision: "1", person_id: personId, ...snapshot });
-		}
+		else inserts.push({ id: randomUUID(), revision: "1", person_id: personId, ...snapshot });
 		if (vision && stage === "prospect" && !noop)
 			stageChanges.push({
 				personId,
@@ -432,8 +483,10 @@ async function settle(
 		const o = obligations.get(personId);
 		if (vision && o) closing.add(o.id);
 	}
-	// Later meetings this one now precedes, or no longer precedes.
+	// Later meetings this one now precedes, or no longer precedes. A later meeting that becomes a Person's first Vision
+	// owes that Person's follow-up, created in the same producer call; a duty that exists already stays as it is.
 	const laterRows: RowWrite[] = [];
+	const laterWork = new Map<string, { origin: { at: string; date: string; zone: string }; personIds: string[] }>();
 	for (const l of f.later) {
 		if (fresh.includes(l.person_id) && l.prior_vision_id !== f.id) {
 			laterRows.push({
@@ -448,12 +501,20 @@ async function settle(
 				prior_vision_id: l.next_first,
 				classification: l.classification === "core_group" ? "core_group" : l.next_first ? "returning" : "first_time",
 			});
+			if (vision && !l.next_first && people.get(l.person_id)?.state === "live") {
+				const entry = laterWork.get(l.meeting_id) ?? {
+					origin: { at: l.meeting_at.toISOString(), date: l.meeting_date, zone: l.meeting_zone },
+					personIds: [],
+				};
+				entry.personIds.push(l.person_id);
+				laterWork.set(l.meeting_id, entry);
+			}
 		}
 	}
 
 	const cmd = { ...audit, actor: { accountId: w.accountId, plantId: w.plant.id } };
 	if (!noop) {
-		const allRows = [...rows.filter((r) => !inserted.has(r.id)), ...laterRows];
+		const allRows = [...rows, ...laterRows];
 		if (allRows.length) audit.writes.push(updateRows(w.plant.id, allRows));
 		if (inserts.length) audit.writes.push(insertRows(w.plant.id, f.id, inserts));
 		audit.writes.push(bumpAttendance(f, true));
@@ -491,6 +552,7 @@ async function settle(
 		for (const o of f.obligations)
 			work.push(
 				c.generatedWork.parse({
+					meetingId: f.id,
 					kind: o.kind === "follow_up" ? "first_vision_follow_up" : "meeting_evaluation",
 					personId: o.person_id,
 					obligationId: o.id,
@@ -503,39 +565,69 @@ async function settle(
 	else if (vision) {
 		const evaluation = f.obligations.find((o) => o.kind === "evaluation");
 		const ensured = await generated(() =>
-			ensureMeetingObligations(tx, cmd, reminders, {
-				meetingId: f.id,
-				origin: { at: occurredAt.toISOString(), date: f.local_date, zone: f.timezone },
-				followUps: input.attendeeIds
-					.filter((id) => !f.earlier[id] && people.get(id)?.state === "live")
-					.map((personId) => ({ personId, assigneeId: obligations.has(personId) ? null : input.followUpAssigneeId })),
-				evaluation: { assigneeId: evaluation ? null : input.evaluationAssigneeId },
-			}),
+			ensureMeetingObligations(
+				tx,
+				cmd,
+				reminders,
+				{
+					meetings: [
+						{
+							meetingId: f.id,
+							origin: { at: occurredAt.toISOString(), date: f.local_date, zone: f.timezone },
+							followUps: input.attendeeIds
+								.filter((id) => !f.earlier[id] && people.get(id)?.state === "live")
+								.map((personId) => ({
+									personId,
+									assigneeId: obligations.has(personId) ? null : input.followUpAssigneeId,
+								})),
+							evaluation: { assigneeId: evaluation ? null : input.evaluationAssigneeId },
+						},
+						...[...laterWork].map(([meetingId, e]) => ({
+							meetingId,
+							origin: e.origin,
+							followUps: e.personIds.map((personId) => ({ personId, assigneeId: null })),
+							evaluation: null,
+						})),
+					],
+				},
+				f.obligation_facts,
+			),
 		);
 		after.push(ensured.after);
 		for (const e of ensured.value) {
 			const assigneeId =
 				e.outcome === "existing"
 					? (known(e.obligationId)?.assignee_id ?? null)
-					: e.kind === "meeting_evaluation"
-						? input.evaluationAssigneeId
-						: input.followUpAssigneeId;
+					: e.meetingId !== f.id
+						? null
+						: e.kind === "meeting_evaluation"
+							? input.evaluationAssigneeId
+							: input.followUpAssigneeId;
 			work.push(c.generatedWork.parse({ ...e, assigneeId, needsOwner: assigneeId === null }));
 		}
 	}
 	if (closing.size && !noop) {
 		const closed = await generated(() =>
-			applyManagedStatus(tx, cmd, reminders, {
-				obligationIds: [...closing],
-				status: "no_longer_needed",
-				reason: input.reason ?? "Source corrected: attendance changed",
-			}),
+			applyManagedStatus(
+				tx,
+				cmd,
+				reminders,
+				{
+					obligationIds: [...closing],
+					status: "no_longer_needed",
+					reason: input.reason ?? "Source corrected: attendance changed",
+				},
+				f.tasks,
+			),
 		);
 		if (closed.after) after.push(closed.after);
 		for (const t of closed.value.tasks)
 			if (t.outcome === "changed")
 				work.push(
 					c.generatedWork.parse({
+						meetingId: f.obligations.some((o) => o.id === t.obligationId)
+							? f.id
+							: f.later.find((l) => l.follow_up === t.obligationId)?.meeting_id,
 						kind: "first_vision_follow_up",
 						personId:
 							known(t.obligationId)?.person_id ?? f.later.find((l) => l.follow_up === t.obligationId)?.person_id,
@@ -630,11 +722,16 @@ export function evaluationOf(e: EvaluationFacts, notes: boolean): z.infer<typeof
 	});
 }
 export const parseEvaluationFacts = (row: unknown) => evaluationFacts.parse(row);
+/** The evaluation facts and the evaluation task (row lock), in one statement. */
 async function lockEvaluation(tx: Tx, w: Writer, meetingId: string) {
-	const r = await tx.execute(sql`SELECT ${evaluationColumns} FROM meeting m WHERE m.plant_id = ${w.plant.id}::uuid
+	const r = await tx.execute(sql`SELECT ${evaluationColumns}, ${managedTasks(
+		w.plant.id,
+		sql`ARRAY(SELECT b.id FROM obligation b WHERE b.meeting_id = ${meetingId}::uuid AND b.kind = 'evaluation')`,
+	)} AS tasks FROM meeting m WHERE m.plant_id = ${w.plant.id}::uuid
 		AND m.id = ${meetingId}::uuid AND m.retired_at IS NULL FOR UPDATE OF m`);
 	if (!r.rows[0]) deny();
-	return evaluationFacts.parse(r.rows[0]);
+	const row = r.rows[0] as Record<string, unknown>;
+	return { ...evaluationFacts.parse(row), tasks: row.tasks };
 }
 const scoreArray = (s: z.infer<typeof c.scores>) => sql`${sql.param(c.evaluationFactors.map((k) => s[k]))}::int[]`;
 
@@ -760,6 +857,7 @@ export function createAttendanceWriter(deps: { reminders: TaskReminders }) {
 								{ ...audit, actor: { accountId: w.accountId, plantId: w.plant.id } },
 								deps.reminders,
 								{ obligationIds: [e.obligation!], status: "complete" },
+								e.tasks,
 							),
 						);
 						taskCompleted = done.value.outcome === "changed";

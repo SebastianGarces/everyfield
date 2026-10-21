@@ -94,7 +94,7 @@ const finalize = (
 		});
 		const claim = await prepareWrite(tx, identity);
 		const cmd = { ...claim, actor: { accountId: owner.id, plantId: plant.id } };
-		const r = await ensureMeetingObligations(tx, cmd, reminders, { meetingId, origin, ...input });
+		const r = await ensureMeetingObligations(tx, cmd, reminders, { meetings: [{ meetingId, origin, ...input }] });
 		cmd.events.unshift({
 			id: cmd.id,
 			tenant_id: plant.id,

@@ -143,13 +143,13 @@ export async function loadTasks(tx: Tx, plantId: string, ids: readonly string[])
 			.map((row) => [row.id, row]),
 	);
 }
-/** The live tasks of generated duties, locked in ID order like loadTasks. One statement. */
-export async function loadManagedTasks(tx: Tx, plantId: string, obligationIds: readonly string[]) {
-	const r = await tx.execute(
-		sql`${taskQuery(plantId, sql`t.obligation_id=ANY(${sql.param(obligationIds)}::uuid[]) AND t.deleted_at IS NULL`)} ORDER BY t.id FOR UPDATE OF t`,
-	);
-	return z.array(taskRow).parse(r.rows);
-}
+/**
+ * The live tasks of generated duties, locked in ID order like loadTasks, as one JSON array expression. A caller puts it
+ * in its own locked fact read so settling the duties adds no statement; `obligations` is a uuid[] expression.
+ */
+export const managedTasks = (plantId: string, obligations: SQL) =>
+	sql`(SELECT coalesce(json_agg(x ORDER BY x.id), '[]') FROM (${taskQuery(plantId, sql`t.obligation_id=ANY(${obligations}) AND t.deleted_at IS NULL`)} ORDER BY t.id FOR UPDATE OF t) x)`;
+export const managedTaskRows = z.array(taskRow);
 const taskQuery = (plantId: string, which: SQL) =>
 	sql`SELECT ${columns}, ${checklist}, 1 AS ord ${joins} WHERE ${which} AND t.plant_id=${plantId}::uuid`;
 

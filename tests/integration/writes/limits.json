@@ -964,24 +964,24 @@
 		"retry": 12
 	},
 	"meetings.finalizeAttendance": {
-		"limit": 16,
-		"retry": 32
+		"limit": 10,
+		"retry": 20
 	},
 	"meetings.reconcileAttendance": {
-		"limit": 16,
-		"retry": 32
+		"limit": 10,
+		"retry": 20
 	},
 	"meetings.recordEvaluation": {
-		"limit": 12,
-		"retry": 24
+		"limit": 10,
+		"retry": 20
 	},
 	"native.meetings.finalizeAttendance": {
-		"limit": 8,
-		"retry": 16
+		"limit": 6,
+		"retry": 12
 	},
 	"native.meetings.recordEvaluation": {
-		"limit": 7,
-		"retry": 14
+		"limit": 6,
+		"retry": 12
 	},
 	"meetings.listAttendance": {
 		"limit": 1,

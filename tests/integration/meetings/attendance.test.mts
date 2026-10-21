@@ -222,7 +222,7 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 AC:TARGET-TSK-017 AC:GAP-PPL-020 AC:CA
 		sql.raw(`CREATE TRIGGER fail_finalize BEFORE INSERT ON audit_event FOR EACH ROW
 		WHEN (NEW.action = 'meetings.finalized' AND NEW.subject_id = '${v}') EXECUTE FUNCTION fail_finalize()`),
 	);
-	await assert.rejects(finalize(owner, v, [alex, casey]), /attendance_audit_insert|Failed query/);
+	refused(await finalize(owner, v, [alex, casey]), "required_write_failed");
 	await f.admin.execute(sql.raw(`DROP TRIGGER fail_finalize ON audit_event; DROP FUNCTION fail_finalize()`));
 	assert.deepEqual(await work(v), []);
 	assert.equal(await stageOf(alex), "prospect");
@@ -242,6 +242,27 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 AC:TARGET-TSK-017 AC:GAP-PPL-020 AC:CA
 		],
 	);
 	assert.deepEqual(first.stageChanges, [{ personId: alex, from: "prospect", to: "attendee" }]);
+	// The saved rows carry the same snapshot as the reply, also for People who had no guest row before.
+	assert.deepEqual(
+		await rows(sql`SELECT person_id, classification, classification_stage, prior_vision_id,
+			actual_occurrence_at IS NOT NULL AS held FROM participation WHERE meeting_id=${v} ORDER BY classification`),
+		[
+			{
+				person_id: casey,
+				classification: "core_group",
+				classification_stage: "leader",
+				prior_vision_id: null,
+				held: true,
+			},
+			{
+				person_id: alex,
+				classification: "first_time",
+				classification_stage: "prospect",
+				prior_vision_id: null,
+				held: true,
+			},
+		],
+	);
 	assert.equal(await stageOf(alex), "attendee");
 	assert.equal(await stageOf(casey), "leader");
 	// One follow-up each (a Leader's first Vision too) and one evaluation task, all Needs owner.
@@ -340,6 +361,30 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 AC:TARGET-TSK-017 AC:GAP-PPL-020 AC:CA
 	assert.equal((await work(earlier)).filter((w) => w.kind === "follow_up").length, 1);
 	const list = ok(await read(member, "listAttendance", { meetingId: v }));
 	assert.equal(list.items.find((i) => i.person.personId === jamie).priorVisionId, earlier);
+
+	// Removing Riley from an earlier Vision makes the later one Riley's first: it now owes Riley's follow-up.
+	const riley = await person("Riley");
+	const early = await meeting("vision_meeting", "2026-09-20T23:00:00Z"),
+		later = await meeting("vision_meeting", "2026-09-27T23:00:00Z");
+	ok(await finalize(owner, early, [riley]));
+	ok(await finalize(owner, later, [riley]));
+	assert.deepEqual(
+		(await work(later)).filter((w) => w.kind === "follow_up"),
+		[],
+	);
+	const corrected = ok(await reconcile(owner, early, []));
+	assert.deepEqual(await classOf(later, riley), {
+		presence: "attended",
+		classification: "first_time",
+		prior_vision_id: null,
+	});
+	assert.deepEqual(
+		(await work(later)).filter((w) => w.kind === "follow_up").map((w) => [w.person_id, w.status, w.assignee_id]),
+		[[riley, "not_started", null]],
+	);
+	assert.ok(corrected.work.some((w) => w.meetingId === later && w.personId === riley && w.outcome === "created"));
+	// The earlier meeting's open follow-up closes as no longer needed; it is not deleted or completed.
+	assert.equal((await work(early)).find((w) => w.person_id === riley).status, "no_longer_needed");
 });
 
 test("AC:TARGET-MTG-014 AC:GAP-MTG-015 AC:TARGET-MTG-015 one evaluation, computed average, reviewed corrections", async () => {
@@ -363,7 +408,10 @@ test("AC:TARGET-MTG-014 AC:GAP-MTG-015 AC:TARGET-MTG-015 one evaluation, compute
 	refused(await record(owner, v, { scores: { ...scores(1), attendanceScore: 6 } }), "invalid_input");
 
 	// Two people submit at once: one evaluation, the second sees the first. A forged average is ignored.
-	const [a, b] = await Promise.all([record(owner, v, { average: 5 }), record(owner, v, { scores: scores(5) })]);
+	const [a, b] = await Promise.all([
+		record(owner, v, { average: 5, notes: "Room was cold" }),
+		record(owner, v, { scores: scores(5), notes: "Room was cold" }),
+	]);
 	const kept = [ok(a), ok(b)].find((r) => r.outcome === "changed");
 	const seen = [ok(a), ok(b)].find((r) => r.outcome === "noop");
 	assert.deepEqual(seen.evaluation, kept.evaluation);
@@ -424,6 +472,14 @@ test("AC:TARGET-MTG-014 AC:GAP-MTG-015 AC:TARGET-MTG-015 one evaluation, compute
 	assert.equal(memberView.notes, null);
 	assert.deepEqual(memberView.corrections.count, 2);
 	refused(await read(member, "evaluationHistory", { meetingId: v }), "unavailable");
+	assert.equal(ok(await read(owner, "getEvaluation", { meetingId: v })).evaluation.notes, "Room was cold");
+	// C13: an Admin demoted to Member after the viewer lookup no longer sees the notes.
+	const a2 = await f.account();
+	const seat = await f.seat(a2, plant, "admin");
+	const admin2 = { ...a2, actor: await f.actor(a2.session) };
+	assert.equal(ok(await read(admin2, "getEvaluation", { meetingId: v })).evaluation.notes, "Room was cold");
+	await f.admin.execute(sql`UPDATE seat SET role='member' WHERE id=${seat}`);
+	assert.equal(ok(await read(admin2, "getEvaluation", { meetingId: v })).evaluation.notes, null);
 });
 
 test("AC:TARGET-MTG-016 reports count attended Persons and never show unknown as zero", async () => {

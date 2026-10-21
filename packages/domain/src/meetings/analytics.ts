@@ -31,12 +31,14 @@ function gated<S extends z.ZodType, T>(
 		const input = parse(schema, raw);
 		const a = authority.actor;
 		if (a.context.kind !== "seat") deny();
-		const gate = liveRead({ session: authority.session, owner: a.context.owner, seatId: a.context.seatId }, admin);
-		const r = await db.execute(sql`SELECT g.live, q.* FROM (SELECT ${gate} AS live) g
+		const access = { session: authority.session, owner: a.context.owner, seatId: a.context.seatId };
+		// The live role decides what a privileged field shows, not the role the viewer lookup saw (C13).
+		const r = await db.execute(sql`SELECT g.live, g.live_admin, q.* FROM (SELECT ${liveRead(access, admin)} AS live,
+			${liveRead(access, true)} AS live_admin) g
 			LEFT JOIN LATERAL (${query(sql`${v.plantId}::uuid`, input)}) q ON g.live`);
 		const row = r.rows[0] as Record<string, unknown> | undefined;
 		if (row?.live !== true || row.found !== true) deny();
-		return body(row, input, v);
+		return body(row, input, { admin: row.live_admin === true });
 	});
 }
 const meeting = (plant: SQL, meetingId: string) =>

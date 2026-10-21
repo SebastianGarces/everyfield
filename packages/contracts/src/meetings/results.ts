@@ -35,6 +35,8 @@ export const meetingsError = z.discriminatedUnion("code", [
 	error("nonexistent_local_time", {}, "never"),
 	error("ambiguous_local_time", { choices: z.array(occurrence).min(2).max(2) }, "never"),
 	error("token_closed", {}, "never"),
+	// A required write failed in the database; nothing of the command was kept, and the same request may be retried.
+	error("required_write_failed", {}, "same_request"),
 ]);
 export type MeetingsError = z.infer<typeof meetingsError>;
 export type MeetingsReply<T> = { status: "ok"; value: T } | { status: "refused"; error: MeetingsError };
