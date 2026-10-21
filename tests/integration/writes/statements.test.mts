@@ -5,9 +5,32 @@ import { spawn } from "node:child_process";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
+
+// pg-pool hands a freed client to a waiting request inside the release of the request before it.
+test("BUG-PR193: a pooled query counts in the request that issued it", async () => {
+	const output = join(await mkdtemp(join(tmpdir(), "evf-write-pool-")), "counts.jsonl");
+	process.env.EVF_WRITE_COUNTS = output;
+	const { measure, observeDatabase } = await import("./counter.mjs").finally(() => delete process.env.EVF_WRITE_COUNTS);
+	const pg = createRequire(join(root, "packages/db/package.json"))("pg");
+	const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
+	observeDatabase({ $client: pool });
+	try {
+		await Promise.all(["a", "b", "c"].map((name) => measure(name, () => pool.query("SELECT pg_sleep(0.05)"))));
+	} finally {
+		await pool.end();
+	}
+	const counts = (await readFile(output, "utf8"))
+		.trim()
+		.split("\n")
+		.map((line) => JSON.parse(line))
+		.filter((row) => row.kind === "sample")
+		.map((row) => [row.name, row.count]);
+	assert.deepEqual(Object.fromEntries(counts), { a: 1, b: 1, c: 1 });
+});
 
 // One regression checks real writes across the existing behavior suites. It records no SQL or parameters.
 test("D69/D70: every shipped write stays within its statement budget", { timeout: 30 * 60 * 1000 }, async () => {
@@ -101,6 +124,9 @@ test("D69/D70: every shipped write stays within its statement budget", { timeout
 			`${sample.name}: ${sample.count} statements, budget ${sample.rollbacks ? budget.retry : budget.limit}`,
 		);
 	}
+	// BUG-PR193: reserve always issues its one statement, so zero means another request took its count.
+	for (const sample of samples.filter((row) => row.name === "identity.budget.reserve"))
+		assert.ok(sample.count > 0, "identity.budget.reserve counted 0 statements");
 	const covered = new Set(samples.map((row) => row.name.split(":")[0]));
 	for (const row of rows.filter((row) => row.kind === "declaration" && row.write))
 		assert.ok(covered.has(row.name), "A declared write has no successful real-database exercise: " + row.name);
