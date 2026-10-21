@@ -124,6 +124,24 @@ export const blockedText = (open: number) => `Blocked by ${open} ${open === 1 ? 
 /** Whether a prerequisite still holds its task back: a deleted, done or no-longer-needed one does not. */
 export const blocks = (p: Pick<Prerequisite, "status" | "deleted">) => !p.deleted && !isSettled(p.status);
 
+/** A task that changed whether it holds others back: done, no longer needed, deleted, or reopened. */
+export type Blocker = { id: string; status: Status; deleted: boolean };
+/**
+ * A waiting task's prerequisites after some of them changed, with how many still hold it back, or null when none of
+ * the changed tasks is among them (REQ-TSK-006).
+ */
+export function withBlockers(items: readonly Prerequisite[], changed: readonly Blocker[]) {
+	const by = new Map(changed.map((c) => [c.id, c]));
+	if (!items.some((p) => by.has(p.id))) return null;
+	const next = items.map((p) => {
+		const c = by.get(p.id);
+		if (!c) return p;
+		const q = { ...p, status: c.status, deleted: p.deleted || c.deleted };
+		return { ...q, blocking: blocks(q) };
+	});
+	return { items: next, open: next.filter(blocks).length };
+}
+
 /** Why one task of a bulk change did not change, in words. The same request again changes nothing twice. */
 export function bulkOutcomeText(outcome: BulkOutcome, kind: "complete" | "reschedule"): string {
 	switch (outcome) {

@@ -9,6 +9,8 @@
 //   INV-counts: a confirmed change moves one task between tallies; a deleted task only leaves.
 //   AC:TARGET-TSK-001 INV-membership: a saved task joins the list only when it matches the query (view, search, status,
 //     priority, category, link, due kind, team), as the server's scope would.
+//   AC:TARGET-TSK-006 INV-blocking (WP-025/ui, BUG #196 review): a prerequisite that is done, no longer needed or
+//     deleted stops holding its waiting task back, a reopened one holds it again, and other changes leave it alone.
 //   INV-intent: each save keeps the key and revision of its first send; a retry resends both even after other saves
 //     (BUG #189 round 2: a retried lost create after another create sent a new key and saved twice).
 //   INV-optimistic: changes in flight show at once (new task first, edit applied, delete hidden, status shown) and the
@@ -25,6 +27,7 @@ import {
 	NO_PENDING,
 	shownRows,
 	shownSteps,
+	withBlockers,
 	withChange,
 	parseQuery,
 	querySearch,
@@ -216,5 +219,34 @@ test("INV-intent: a retry resends its own first key and revision, whatever other
 		a.send(() => "9"),
 		{ key: first.key, basis: "4" },
 		"the retry of A is identical to its first send",
+	);
+});
+
+test("AC:TARGET-TSK-006 INV-blocking: a settled or deleted prerequisite releases its task; a reopened one holds it again", () => {
+	const p = (id, status, deleted = false) => ({
+		id,
+		title: id,
+		status,
+		deleted,
+		blocking: !deleted && !["complete", "no_longer_needed"].includes(status),
+	});
+	const items = [p("a", "not_started"), p("b", "in_progress"), p("c", "complete")];
+	const open = (changed) => withBlockers(items, changed)?.open;
+	assert.equal(open([{ id: "a", status: "complete", deleted: false }]), 1, "done");
+	assert.equal(open([{ id: "a", status: "no_longer_needed", deleted: false }]), 1, "no longer needed");
+	assert.equal(open([{ id: "b", status: "in_progress", deleted: true }]), 1, "deleted");
+	assert.equal(open([{ id: "c", status: "not_started", deleted: false }]), 3, "reopened");
+	assert.equal(
+		open([
+			{ id: "a", status: "complete", deleted: false },
+			{ id: "b", status: "complete", deleted: false },
+		]),
+		0,
+		"a bulk completion releases both",
+	);
+	assert.equal(
+		withBlockers(items, [{ id: "z", status: "complete", deleted: false }]),
+		null,
+		"an unrelated task changes nothing",
 	);
 });

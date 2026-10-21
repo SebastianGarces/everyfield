@@ -52,9 +52,11 @@ import {
 	type StatusAction,
 } from "./actions.ts";
 import { BulkBar, BulkReport, type Report } from "./bulk.tsx";
-import { loadTask, relationOptions, type Loaded as TaskLoad } from "./fetch.ts";
+import { loadBlocking, loadTask, relationOptions, type Loaded as TaskLoad } from "./fetch.ts";
 import {
 	blocks,
+	withBlockers,
+	type Blocker,
 	dueText,
 	previewOverdue,
 	matches,
@@ -291,6 +293,67 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 						}
 					: cur.history;
 			return { ...d, [task.id]: { ...cur, task, history, occurrence } };
+		});
+		// A task that settled, reopened or left releases or restores the "Blocked by" badge of the tasks that wait for it.
+		if (before && (task.deleted || isSettled(before.status) !== isSettled(task.status)))
+			blockersChanged([{ id: task.id, status: task.status, deleted: task.deleted }]);
+	};
+
+	/**
+	 * Tasks changed whether they hold others back (REQ-TSK-006): done, no longer needed, deleted, or reopened. A
+	 * write's answer names only the changed task, so the screen reconciles the tasks that wait for it. A task whose
+	 * prerequisites this screen holds (its panel was read) gets its badge and list at once, with no request. Rows whose
+	 * prerequisites it does not hold may wait for a changed task too; one read of this page's badges settles them. A
+	 * newer read replaces an older one.
+	 */
+	const blocking = useRef(0);
+	const blockersChanged = (changed: Blocker[]) => {
+		const by = new Set(changed.map((c) => c.id));
+		const recount = (st: DetailState) =>
+			st.status === "ok" && st.prerequisites ? withBlockers(st.prerequisites.items, changed) : null;
+		const counts = new Map<string, number>();
+		for (const [id, st] of Object.entries(known.current)) {
+			const r = recount(st);
+			if (r) counts.set(id, r.open);
+		}
+		setDetails((d) =>
+			Object.fromEntries(
+				Object.entries(d).map(([id, st]) => {
+					const r = recount(st);
+					if (!r || st.status !== "ok") return [id, st];
+					return [
+						id,
+						{
+							...st,
+							task: { ...st.task, openPrerequisites: r.open },
+							prerequisites: { taskId: st.task.id, items: r.items, blocked: r.open > 0 },
+						},
+					];
+				}),
+			),
+		);
+		if (counts.size)
+			setItems((rows) => rows.map((r) => (counts.has(r.id) ? { ...r, openPrerequisites: counts.get(r.id)! } : r)));
+		// Rows this screen cannot reconcile itself: open ones whose prerequisites it has not read. After a release only a
+		// row with a badge can change; after a reopen any of them can.
+		const reopened = changed.some((c) => !c.deleted && !isSettled(c.status));
+		const unknown = listed.current.some((r) => {
+			const st = known.current[r.id];
+			const held = st?.status === "ok" && st.prerequisites !== null;
+			return !held && !by.has(r.id) && !isSettled(r.status) && (reopened || r.openPrerequisites > 0);
+		});
+		if (!unknown) return;
+		const n = ++blocking.current;
+		loadBlocking(window.location.search).then((r) => {
+			if (r.status !== "ok" || n !== blocking.current) return;
+			const fresh = new Map(r.value.map((t) => [t.id, t.openPrerequisites]));
+			setItems((rows) =>
+				rows.map((row) =>
+					fresh.has(row.id) && fresh.get(row.id) !== row.openPrerequisites
+						? { ...row, openPrerequisites: fresh.get(row.id)! }
+						: row,
+				),
+			);
 		});
 	};
 
@@ -735,6 +798,8 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				if (moved) setTotal((t) => Math.max(0, t - moved));
 				// A changed task's cached panel no longer matches; the open one reads again, the others on their next open.
 				const changed = new Set<string>(result.items.filter((i) => i.outcome === "changed").map((i) => i.taskId));
+				if (kind === "complete" && changed.size)
+					blockersChanged([...changed].map((id) => ({ id, status: "complete" as const, deleted: false })));
 				const shownTask = shownId.current;
 				setDetails((d) => Object.fromEntries(Object.entries(d).filter(([id]) => !changed.has(id) || id === shownTask)));
 				if (shownTask && changed.has(shownTask)) refresh(shownTask);
