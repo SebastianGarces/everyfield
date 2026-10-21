@@ -7,7 +7,7 @@ import type { EvryActor } from "../context/actor.ts";
 import { currentAuthority } from "../context/authority.ts";
 import { EvryRefusal } from "../context/errors.ts";
 import { fence, type RunLease } from "../runtime/run-store.ts";
-import { updatePerson } from "./people.ts";
+import { PEOPLE_COMMANDS } from "../adapters/people/commands/index.ts";
 import type { ReviewedWrite } from "./types.ts";
 
 // Proposal commands are one statement each (D70): live authority, the change, the effect job and one audit row commit
@@ -15,7 +15,7 @@ import type { ReviewedWrite } from "./types.ts";
 // say which, so a repeated approve or cancel returns the known state instead of failing.
 
 /** Every installed reviewed write. A model may propose only these, and only when the actor may use them natively. */
-export const REVIEWED_WRITES = { "people.updatePerson": updatePerson } as const;
+export const REVIEWED_WRITES = PEOPLE_COMMANDS;
 type Operation = keyof typeof REVIEWED_WRITES;
 const operation = z.enum(Object.keys(REVIEWED_WRITES) as [Operation]);
 
@@ -72,7 +72,7 @@ const projection = (alias: string) =>
 	sql.raw(`jsonb_build_object('id',${alias}.id,'conversationId',${alias}.conversation_id,'operation',${alias}.operation,
 		'revision',${alias}.revision,'digest',${alias}.digest,'expiresAt',${alias}.expires_at,'approvedAt',${alias}.approved_at,
 		'status',CASE WHEN ${alias}.state='pending' AND ${alias}.expires_at<=clock_timestamp() THEN 'expired' ELSE ${alias}.state END,
-		'review',CASE WHEN EXISTS(SELECT FROM person t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.tenant_id=${alias}.tenant_id AND t.state='live')
+		'review',CASE WHEN ${alias}.review->'target'='null'::jsonb OR EXISTS(SELECT FROM person t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.tenant_id=${alias}.tenant_id AND t.state='live')
 			THEN ${alias}.review ELSE jsonb_build_object('target',NULL,'changes','[]'::jsonb,'withheld',true) END,
 		'outcome',coalesce(${alias}.outcome,(SELECT 'unknown' FROM job j WHERE j.id=${alias}.job_id AND ${alias}.state='approved'
 			AND (j.state IN ('succeeded','failed','cancelled','superseded') OR (j.state='claimed' AND j.lease_until<=clock_timestamp())))),

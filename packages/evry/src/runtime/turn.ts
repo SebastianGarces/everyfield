@@ -3,7 +3,7 @@ import { streamText, tool, type ModelMessage, type StopCondition, type ToolSet }
 import { z } from "zod";
 import { READ_DOMAINS, readCatalog, SELECT_RETURNED_ROWS } from "../catalog/catalog.ts";
 import { invokeRead } from "../catalog/invoke.ts";
-import { verifyPeople } from "../catalog/people.ts";
+import { verifyPeople } from "../adapters/people/reads/index.ts";
 import type { ReadAdapter, SourceResult } from "../catalog/types.ts";
 import { sameContext, type EvryActor } from "../context/actor.ts";
 import {
