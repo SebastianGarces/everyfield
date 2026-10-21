@@ -39,8 +39,9 @@ import {
 	type Interviews,
 	type Rating,
 	type Result,
+	sendTwice,
 } from "./model.ts";
-import { ChoiceField, codeOf, RecordDialog, recorder, sendTwice, ShowEarlier, useHistory } from "./parts.tsx";
+import { ChoiceField, codeOf, RecordDialog, recorder, ShowEarlier, useHistory } from "./parts.tsx";
 import type { PlantPerson, RecordProps } from "./RecordsSection.tsx";
 
 type Draft = {

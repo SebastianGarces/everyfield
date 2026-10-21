@@ -16,16 +16,6 @@ import type { Outcome } from "../model.ts";
 import { problemText } from "../parts.tsx";
 import { withRecord } from "./model.ts";
 
-/**
- * Sends a save, and once more with the same request key when the answer is lost. The producer returns the first result
- * for a key it already saved, so the second try can never save twice. A second lost answer goes back to the person.
- */
-export async function sendTwice<T>(call: () => Promise<Outcome<T>>): Promise<Outcome<T>> {
-	const once = () => call().catch((): Outcome<T> => ({ status: "lost" }));
-	const first = await once();
-	return first.status === "lost" ? once() : first;
-}
-
 /** Why a record was not saved, or may not be, in words. `busy` means another change to this person is still saving. */
 export function recordProblem(code: string): string {
 	switch (code) {

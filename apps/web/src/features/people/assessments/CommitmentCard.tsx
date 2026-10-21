@@ -61,8 +61,9 @@ import {
 	type Commitments,
 	type CommitmentStatus,
 	type FirstAcquisition,
+	sendTwice,
 } from "./model.ts";
-import { codeOf, recorder, sendTwice, ShowEarlier, useHistory } from "./parts.tsx";
+import { codeOf, recorder, ShowEarlier, useHistory } from "./parts.tsx";
 import type { PlantPerson, RecordProps } from "./RecordsSection.tsx";
 
 type Editing =

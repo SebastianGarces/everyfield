@@ -2,7 +2,7 @@
 // code, so the rules run the same in the browser, on the server and in node tests.
 import type * as c from "@everyfield/contracts/people";
 import type { z } from "zod";
-import { STAGES, type StageValue } from "../model.ts";
+import { STAGES, type Outcome, type StageValue } from "../model.ts";
 
 export type Assessment = z.infer<typeof c.assessment>;
 export type Interview = z.infer<typeof c.interview>;
@@ -103,3 +103,13 @@ export const totalOf = (scores: readonly (number | null)[]) =>
 	scores.every((s) => s !== null) ? scores.reduce<number>((t, s) => t + (s ?? 0), 0) : null;
 
 export const firstName = (name: string) => name.split(" ")[0] || name;
+
+/**
+ * Sends a save, and once more with the same request key when the answer is lost. The producer returns the first result
+ * for a key it already saved, so the second try can never save twice. A second lost answer goes back to the person.
+ */
+export async function sendTwice<T>(call: () => Promise<Outcome<T>>): Promise<Outcome<T>> {
+	const once = () => call().catch((): Outcome<T> => ({ status: "lost" }));
+	const first = await once();
+	return first.status === "lost" ? once() : first;
+}

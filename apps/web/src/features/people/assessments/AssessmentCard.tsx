@@ -29,8 +29,9 @@ import {
 	type Assessment,
 	type Assessments,
 	type Lens,
+	sendTwice,
 } from "./model.ts";
-import { ChoiceField, codeOf, RecordDialog, recorder, sendTwice, ShowEarlier, useHistory } from "./parts.tsx";
+import { ChoiceField, codeOf, RecordDialog, recorder, ShowEarlier, useHistory } from "./parts.tsx";
 import type { PlantPerson, RecordProps } from "./RecordsSection.tsx";
 
 type Draft = { occurredOn: string } & Record<Lens, { score: string; notes: string }>;
