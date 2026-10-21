@@ -94,10 +94,12 @@ export const recordEvent = (event: string, recordId?: string): Record<string, st
 
 /**
  * The original recorder of a record, from its Person's audit history: the `people.recorded` event that names it. A
- * deleted account shows as a token local to the church and the record.
+ * deleted account shows as a token local to the church and the record. A record moved by a merge keeps its recorder:
+ * the event still names the merged Person.
  */
 export const recorderSql = (alias: string) =>
-	sql.raw(`(SELECT a.actor_id FROM audit_event a WHERE a.tenant_id=${alias}.plant_id AND a.subject_id=${alias}.person_id
+	sql.raw(`(SELECT a.actor_id FROM audit_event a WHERE a.tenant_id=${alias}.plant_id AND a.subject_id IN (SELECT ${alias}.person_id
+ UNION ALL SELECT m.id FROM person m WHERE m.merged_into_person_id=${alias}.person_id AND m.tenant_id=${alias}.plant_id)
  AND a.action='people.recorded' AND a.metadata->>'recordId'=${alias}.id::text ORDER BY a.occurred_at,a.id LIMIT 1)`);
 export function attribution(plant: string, recordId: string, actorId: string | null) {
 	return actorId

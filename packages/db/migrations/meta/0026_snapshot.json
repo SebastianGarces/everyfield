@@ -1,5 +1,5 @@
 {
-  "id": "4b446d17-fb5b-407f-96f1-3facdd3e8a5e",
+  "id": "45f4ca63-554d-4131-b0a1-1c842ac8ec56",
   "prevId": "cdd8c465-7604-4e25-b843-31bdef229c0c",
   "version": "7",
   "dialect": "postgresql",
@@ -8729,42 +8729,6 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
-        },
-        "evaluation_scores": {
-          "name": "evaluation_scores",
-          "type": "integer[]",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "evaluation_notes": {
-          "name": "evaluation_notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "evaluated_on": {
-          "name": "evaluated_on",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "evaluated_at": {
-          "name": "evaluated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "evaluation_corrected_at": {
-          "name": "evaluation_corrected_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "evaluation_revision": {
-          "name": "evaluation_revision",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {
@@ -9008,14 +8972,6 @@
         "meeting_ck_8": {
           "name": "meeting_ck_8",
           "value": "(jsonb_typeof(agenda) = 'array'::text)"
-        },
-        "meeting_ck_9": {
-          "name": "meeting_ck_9",
-          "value": "((evaluation_scores IS NULL) = (evaluated_at IS NULL) AND (evaluated_at IS NULL) = (evaluated_on IS NULL) AND (evaluated_at IS NULL) = (evaluation_revision IS NULL))"
-        },
-        "meeting_ck_10": {
-          "name": "meeting_ck_10",
-          "value": "((evaluation_scores IS NULL) OR ((type = 'vision_meeting'::text) AND (cardinality(evaluation_scores) = 8) AND (1 <= ALL (evaluation_scores)) AND (5 >= ALL (evaluation_scores)) AND (evaluation_revision >= 1)))"
         }
       },
       "isRLSEnabled": false
@@ -11836,6 +11792,188 @@
       },
       "isRLSEnabled": false
     },
+    "public.person_merge": {
+      "name": "person_merge",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "survivor_id": {
+          "name": "survivor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "merged_at": {
+          "name": "merged_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "clock_timestamp()"
+        },
+        "prior": {
+          "name": "prior",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "moved": {
+          "name": "moved",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_revision": {
+          "name": "source_revision",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "survivor_revision": {
+          "name": "survivor_revision",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "references_digest": {
+          "name": "references_digest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unmerged_at": {
+          "name": "unmerged_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "person_merge_open_source": {
+          "name": "person_merge_open_source",
+          "columns": [
+            {
+              "expression": "source_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "unmerged_at IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "person_merge_survivor_ref": {
+          "name": "person_merge_survivor_ref",
+          "columns": [
+            {
+              "expression": "survivor_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "person_merge_tenant_id_tenant_id_fk": {
+          "name": "person_merge_tenant_id_tenant_id_fk",
+          "tableFrom": "person_merge",
+          "tableTo": "tenant",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "person_merge_source": {
+          "name": "person_merge_source",
+          "tableFrom": "person_merge",
+          "tableTo": "person",
+          "columnsFrom": [
+            "source_id",
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "person_merge_survivor": {
+          "name": "person_merge_survivor",
+          "tableFrom": "person_merge",
+          "tableTo": "person",
+          "columnsFrom": [
+            "survivor_id",
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "person_merge_pkey": {
+          "name": "person_merge_pkey",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "person_merge_distinct": {
+          "name": "person_merge_distinct",
+          "value": "\"person_merge\".\"source_id\"<>\"person_merge\".\"survivor_id\""
+        },
+        "person_merge_prior": {
+          "name": "person_merge_prior",
+          "value": "jsonb_typeof(\"person_merge\".\"prior\")='object'"
+        },
+        "person_merge_moved": {
+          "name": "person_merge_moved",
+          "value": "jsonb_typeof(\"person_merge\".\"moved\")='object'"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.person_note": {
       "name": "person_note",
       "schema": "",
@@ -14568,6 +14706,158 @@
         "record_ck_1": {
           "name": "record_ck_1",
           "value": "((kind <> ALL (ARRAY['account'::text, 'plant'::text, 'organization'::text])) OR (tenant_id = id))"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.record_correction": {
+      "name": "record_correction",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plant_id": {
+          "name": "plant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "person_id": {
+          "name": "person_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "record_type": {
+          "name": "record_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "record_id": {
+          "name": "record_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "corrected_at": {
+          "name": "corrected_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "clock_timestamp()"
+        },
+        "before_value": {
+          "name": "before_value",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "after_value": {
+          "name": "after_value",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "record_correction_record": {
+          "name": "record_correction_record",
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "record_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "corrected_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "record_correction_plant_id_plant_id_fk": {
+          "name": "record_correction_plant_id_plant_id_fk",
+          "tableFrom": "record_correction",
+          "tableTo": "plant",
+          "columnsFrom": [
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "record_correction_person": {
+          "name": "record_correction_person",
+          "tableFrom": "record_correction",
+          "tableTo": "person",
+          "columnsFrom": [
+            "person_id",
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "record_correction_target": {
+          "name": "record_correction_target",
+          "tableFrom": "record_correction",
+          "tableTo": "record",
+          "columnsFrom": [
+            "record_id",
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "record_correction_pkey": {
+          "name": "record_correction_pkey",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "record_correction_type": {
+          "name": "record_correction_type",
+          "value": "\"record_correction\".\"record_type\" IN ('assessment','interview','commitment')"
         }
       },
       "isRLSEnabled": false

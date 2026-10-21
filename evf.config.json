@@ -560,6 +560,17 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-32": {
+			"title": "Each evf fresh-checkout run uses its own temporary worktree",
+			"owningPaths": ["tools/evf/", "evf.config.json"],
+			"checks": [
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {

@@ -2247,6 +2247,48 @@
 				"privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
 				"future_case_ids": ["PERSONREF-MEETING-CHECKLIST-PERSON-RETIRE"]
+			},
+			{
+				"table": "person_merge",
+				"columns": ["source_id", "tenant_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-015"],
+				"meaning": "Merge lineage: the source and survivor of one reviewed merge.",
+				"lock_order": "Lock owner and live same-owner source/survivor Persons in UUID order, then consumer rows; reference inserts take the same Person locks.",
+				"merge_policy": "Immutable lineage of an earlier merge; never moved. A chained merge changes the survivor revision, so the earlier Unmerge is refused.",
+				"inverse_policy": "Unmerge marks the row reversed; it is never rewritten to another Person.",
+				"retirement_policy": "Lineage stays while either Person exists and goes with it on purge.",
+				"privacy_policy": "Holds reviewed Person field values for Owners and Admins only; never in central audit.",
+				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
+				"future_case_ids": ["ADR1-017"]
+			},
+			{
+				"table": "person_merge",
+				"columns": ["survivor_id", "tenant_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-015"],
+				"meaning": "Merge lineage: the source and survivor of one reviewed merge.",
+				"lock_order": "Lock owner and live same-owner source/survivor Persons in UUID order, then consumer rows; reference inserts take the same Person locks.",
+				"merge_policy": "Immutable lineage of an earlier merge; never moved. A chained merge changes the survivor revision, so the earlier Unmerge is refused.",
+				"inverse_policy": "Unmerge marks the row reversed; it is never rewritten to another Person.",
+				"retirement_policy": "Lineage stays while either Person exists and goes with it on purge.",
+				"privacy_policy": "Holds reviewed Person field values for Owners and Admins only; never in central audit.",
+				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
+				"future_case_ids": ["ADR1-017"]
+			},
+			{
+				"table": "record_correction",
+				"columns": ["person_id", "plant_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-015"],
+				"meaning": "Correction history of a record of this Person.",
+				"lock_order": "Lock owner and live same-owner source/survivor Persons in UUID order, then consumer rows; reference inserts take the same Person locks.",
+				"merge_policy": "Moves with its record to the survivor; the correction keeps its original corrector and values.",
+				"inverse_policy": "Moves back with its record on a guarded Unmerge.",
+				"retirement_policy": "History stays under current permission and goes with the Person on purge.",
+				"privacy_policy": "Private qualification values stay in plant history; never in central audit.",
+				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
+				"future_case_ids": ["ADR1-017"]
 			}
 		],
 		"person_snapshot_references": [
@@ -2274,6 +2316,11 @@
 				"table": "audit_event",
 				"field": "subject_id/before_value/after_value/result",
 				"policy": "Protected changed-field Person history and exact replies retain original owner and actor attribution. Current Person removal scrubs bodies and request replies; record identity confers no current access."
+			},
+			{
+				"table": "record_correction",
+				"field": "record_id",
+				"policy": "The corrected assessment, interview or commitment record; never a Person. The record identity stays frozen on merge and Unmerge, and the correction moves with its record's Person."
 			}
 		],
 		"person_source_ruling": {
@@ -16191,6 +16238,203 @@
 					"deletion": {
 						"action": "cascade",
 						"policy": "A proposal goes with its conversation, in the same tenant."
+					}
+				}
+			}
+		},
+		"person_merge": {
+			"table": {
+				"name": "person_merge",
+				"domain": "people",
+				"purpose": "One reviewed merge of a source Person into a survivor of the same owner: the survivor values it replaced, the source facts it cleared, the references it moved and the revisions it left, so a guarded Unmerge restores both exactly.",
+				"library_owned": false,
+				"jsonb_keys": {
+					"prior": ["source", "survivor"],
+					"moved": ["tag", "tag_dropped", "skill", "note", "assessment", "interview", "commitment", "merged_person"]
+				},
+				"capabilities": ["CAP-A-029"],
+				"replaces": [],
+				"producer_work_packages": ["WP-015"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-015"],
+					"rule": "WP-015 People merge and record correction storage through Drizzle Kit."
+				},
+				"feature_ids": ["PPL-017"],
+				"acceptance_ids": [],
+				"future_case_ids": [],
+				"scope": "tenant",
+				"invariants": [
+					"Source and survivor share the owner.",
+					"At most one open merge names a source.",
+					"Unmerge proceeds only while both revisions and the survivor reference digest are unchanged."
+				],
+				"revision": "Unmerge sets unmerged_at once.",
+				"idempotency": "The merge audit row's request key returns the recorded result.",
+				"deletion": "Rows cascade with either Person, so church purge removes them.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"tenant_id": {
+					"note": ""
+				},
+				"source_id": {
+					"note": ""
+				},
+				"survivor_id": {
+					"note": ""
+				},
+				"merged_at": {
+					"note": ""
+				},
+				"prior": {
+					"note": ""
+				},
+				"moved": {
+					"note": ""
+				},
+				"source_revision": {
+					"note": ""
+				},
+				"survivor_revision": {
+					"note": ""
+				},
+				"references_digest": {
+					"note": ""
+				},
+				"unmerged_at": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"tenant_id->tenant(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Owner purge deletes the people first, which removes their merges."
+					}
+				},
+				"source_id,tenant_id->person(id,tenant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "A merge goes with its Person."
+					}
+				},
+				"survivor_id,tenant_id->person(id,tenant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "A merge goes with its Person."
+					}
+				}
+			}
+		},
+		"record_correction": {
+			"table": {
+				"name": "record_correction",
+				"domain": "people",
+				"purpose": "One correction of an assessment, interview or commitment card: the changed fields with old and new values and the reason. The audit row with the same ID names the corrector.",
+				"library_owned": false,
+				"jsonb_keys": {
+					"before_value": [
+						"occurredOn",
+						"committed",
+						"compelled",
+						"contagious",
+						"courageous",
+						"maturity",
+						"gifted",
+						"chemistry",
+						"rightReasons",
+						"season",
+						"result",
+						"nextSteps",
+						"notes"
+					],
+					"after_value": [
+						"occurredOn",
+						"committed",
+						"compelled",
+						"contagious",
+						"courageous",
+						"maturity",
+						"gifted",
+						"chemistry",
+						"rightReasons",
+						"season",
+						"result",
+						"nextSteps",
+						"notes"
+					]
+				},
+				"capabilities": ["CAP-A-028"],
+				"replaces": [],
+				"producer_work_packages": ["WP-015"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-015"],
+					"rule": "WP-015 People merge and record correction storage through Drizzle Kit."
+				},
+				"feature_ids": ["PPL-015", "TEAM-002", "TEAM-009"],
+				"acceptance_ids": [],
+				"future_case_ids": [],
+				"scope": "plant",
+				"invariants": [
+					"A correction names a record of its own Person and church.",
+					"Original recorder and recorded instant never change."
+				],
+				"revision": "Append-only.",
+				"idempotency": "The correction audit row's request key returns the recorded result.",
+				"deletion": "Rows cascade with their Person, so church purge removes them.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"plant_id": {
+					"note": ""
+				},
+				"person_id": {
+					"note": ""
+				},
+				"record_type": {
+					"note": ""
+				},
+				"record_id": {
+					"note": ""
+				},
+				"corrected_at": {
+					"note": ""
+				},
+				"before_value": {
+					"note": ""
+				},
+				"after_value": {
+					"note": ""
+				},
+				"reason": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Owner purge deletes the people first, which removes their corrections."
+					}
+				},
+				"person_id,plant_id->person(id,tenant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "A correction goes with its Person."
+					}
+				},
+				"record_id,plant_id->record(id,tenant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "A correction goes with its record."
 					}
 				}
 			}

@@ -939,6 +939,66 @@
 		"limit": 9,
 		"retry": 18
 	},
+	"native.people.getMergeReview": {
+		"limit": 3,
+		"retry": 6
+	},
+	"native.people.mergedPersonDestination": {
+		"limit": 3,
+		"retry": 6
+	},
+	"native.people.previewUnmerge": {
+		"limit": 3,
+		"retry": 6
+	},
+	"native.people.listRecordCorrections": {
+		"limit": 3,
+		"retry": 6
+	},
+	"native.people.mergePeople": {
+		"limit": 7,
+		"retry": 14
+	},
+	"native.people.unmergePeople": {
+		"limit": 7,
+		"retry": 14
+	},
+	"native.people.correctPersonRecord": {
+		"limit": 6,
+		"retry": 12
+	},
+	"people.getMergeReview": {
+		"limit": 2,
+		"retry": 4
+	},
+	"people.mergedPersonDestination": {
+		"limit": 2,
+		"retry": 4
+	},
+	"people.previewUnmerge": {
+		"limit": 2,
+		"retry": 4
+	},
+	"people.listRecordCorrections": {
+		"limit": 2,
+		"retry": 4
+	},
+	"people.findDuplicates": {
+		"limit": 2,
+		"retry": 4
+	},
+	"people.mergePeople": {
+		"limit": 7,
+		"retry": 14
+	},
+	"people.unmergePeople": {
+		"limit": 7,
+		"retry": 14
+	},
+	"people.correctPersonRecord": {
+		"limit": 7,
+		"retry": 14
+	},
 	"meetings.setAttendance": {
 		"limit": 6,
 		"retry": 12

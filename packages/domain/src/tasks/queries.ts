@@ -3,18 +3,8 @@ import * as c from "@everyfield/contracts/tasks";
 import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
-import type { RequestActor } from "../access/session.ts";
-import {
-	administers,
-	deny,
-	liveReader,
-	parse,
-	readReply,
-	readerOf,
-	type Reader,
-	type Tx,
-	type Viewer,
-} from "./core.ts";
+import { liveRead, type RequestActor } from "../access/session.ts";
+import { administers, deny, parse, readReply, readerOf, type Reader, type Tx, type Viewer } from "./core.ts";
 
 // Storage keeps the shipped short kind names; the contract names say which duty it is.
 export const storedKind = z
@@ -154,11 +144,13 @@ const taskQuery = (plantId: string, which: SQL) =>
 	sql`SELECT ${columns}, ${checklist}, 1 AS ord ${joins} WHERE ${which} AND t.plant_id=${plantId}::uuid`;
 
 /**
- * One read statement: the reader's live authority (C13) and the rows of `query`, which numbers its rows in `ord`.
+ * One read statement: the reader's live authority (C13, lock-free per C27) and the rows of `query`, which numbers its
+ * rows in `ord`.
  * A reader whose session, seat, role or lifecycle changed since the viewer lookup is refused and reads nothing.
  */
 async function gated(tx: Tx, viewer: Reader, query: SQL, admin = false) {
-	const r = await tx.execute(sql`SELECT g.live, q.* FROM (SELECT ${liveReader(viewer, admin)} AS live) g
+	const live = liveRead({ session: viewer.session, owner: viewer.owner, seatId: viewer.seatId }, admin);
+	const r = await tx.execute(sql`SELECT g.live, q.* FROM (SELECT ${live} AS live) g
 		LEFT JOIN LATERAL (${query}) q ON g.live ORDER BY q.ord`);
 	if (r.rows[0]?.live !== true) deny();
 	return r.rows.filter((row) => row.ord !== null);
