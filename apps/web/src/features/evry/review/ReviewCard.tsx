@@ -20,6 +20,7 @@ import type { Reply } from "../conversation/api.ts";
 import * as api from "./api.ts";
 import {
 	actionNotice,
+	approvable,
 	CHOICES,
 	clock,
 	consequence,
@@ -245,6 +246,8 @@ function note(view: View, review: Review | null, now: number): string | null {
 	const who = review?.review.target?.label ?? null;
 	switch (view) {
 		case "pending":
+			if (review && !approvable(review))
+				return `Evry can't show this uploaded photo, so you can't approve it here. Set the photo on ${who ?? "the person"}'s page, where you can see it.`;
 			return review && review.revision > 1
 				? `You revised this change. Only revision ${review.revision} can be approved.`
 				: null;
@@ -382,7 +385,7 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 						<Affects review={review} />
 						<Changes review={review} />
 						{consequence(review) ? <p className="text-sm text-text-2">{consequence(review)}</p> : null}
-						{view === "pending" ? (
+						{view === "pending" && approvable(review) ? (
 							<p className="text-xs text-text-3">
 								Nothing changes until you approve. Approve by {clock(review.expiresAt)}.
 							</p>
@@ -449,16 +452,22 @@ function Footer({
 	if (view === "pending")
 		body = (
 			<>
-				<Button
-					size="sm"
-					variant="primary"
-					icon={Tick02Icon}
-					loading={r.busy === "approve"}
-					disabled={other("approve")}
-					onClick={() => void r.approve()}
-				>
-					Approve
-				</Button>
+				{approvable(review) ? (
+					<Button
+						size="sm"
+						variant="primary"
+						icon={Tick02Icon}
+						loading={r.busy === "approve"}
+						disabled={other("approve")}
+						onClick={() => void r.approve()}
+					>
+						Approve
+					</Button>
+				) : who ? (
+					<Button size="sm" variant="secondary" asChild>
+						<IntentLink href={`/people/${who.id}`}>Open {who.label}</IntentLink>
+					</Button>
+				) : null}
 				{editableChanges(review).length ? (
 					<Button ref={reviseButton} size="sm" variant="secondary" disabled={r.busy !== null} onClick={onRevise}>
 						Revise

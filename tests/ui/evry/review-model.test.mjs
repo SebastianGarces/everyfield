@@ -7,7 +7,7 @@
 //     the edited values changed, for every People reviewed write.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { phaseOf, retryable, reviseInput } from "../../../apps/web/src/features/evry/review/model.ts";
+import { approvable, phaseOf, retryable, reviseInput } from "../../../apps/web/src/features/evry/review/model.ts";
 
 const NOW = Date.parse("2026-10-21T12:00:00Z");
 const later = "2026-10-21T12:10:00Z";
@@ -50,6 +50,9 @@ test("AC:UI45-004 AC:INH-REGRESSION-EXPIRED-APPROVAL INV-phase: each saved state
 	assert.equal(retryable(review({ status: "approved", outcome: "failed" }), NOW), true);
 	assert.equal(retryable(review({ status: "approved", outcome: "failed", expiresAt: earlier }), NOW), false);
 	assert.equal(retryable(review({ status: "approved", outcome: "refused" }), NOW), false);
+	// REQ-EVR-011: a new photo upload can't be shown before it is saved, so it can't be approved from the card.
+	assert.equal(approvable(review({ operation: "people.setPersonPhoto" })), false);
+	assert.equal(approvable(review({ operation: "people.removePersonPhoto" })), true);
 });
 
 test("AC:INH-REGRESSION-REVISED-APPROVAL INV-revise: a revision rebuilds the exact input with only the edits", () => {

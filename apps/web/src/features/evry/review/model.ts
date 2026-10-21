@@ -107,6 +107,12 @@ export function valueText(field: string, value: unknown): string | null {
 	return String(value);
 }
 
+/**
+ * REQ-EVR-011: approval applies only to content the person could inspect. People serves only a person's current photo,
+ * so a new upload can't be shown before it is saved, and the card offers no approval for it.
+ */
+export const approvable = (review: Pick<Review, "operation">) => review.operation !== "people.setPersonPhoto";
+
 /** The first 8 characters of a photo's file id, upper case, as people read a reference. */
 export const photoRef = (value: unknown) => String(value).slice(0, 8).toUpperCase();
 
