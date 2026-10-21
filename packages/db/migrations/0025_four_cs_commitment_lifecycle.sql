@@ -387,3 +387,13 @@ BEGIN
  END IF;
  UPDATE mail SET recipient_address_encrypted=NULL,frozen_payload=NULL,address_hash=NULL,recipient_account_id=NULL,state=CASE WHEN state IN ('pending','dispatched') THEN 'cancelled' ELSE state END WHERE recipient_account_id=s AND w.kind='account';
 END $function$;
+--> statement-breakpoint
+-- C36: in a SQL function a column name wins over a parameter of the same name, so "object_id" = object_id compared
+-- each commitment's column with itself and every object looked referenced once one card had a document. Each branch
+-- now compares with the argument by position; the signature and grants stay the same.
+CREATE OR REPLACE FUNCTION file_is_referenced(object_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE
+ SET search_path FROM CURRENT
+AS $function$ SELECT EXISTS (SELECT 1 FROM "account" WHERE "avatar_object_id" = $1 UNION ALL SELECT 1 FROM "person" WHERE "photo_object_id" = $1 UNION ALL SELECT 1 FROM "commitment" WHERE "object_id" = $1 UNION ALL SELECT 1 FROM "document_revision" WHERE "import_object_id" = $1) $function$;

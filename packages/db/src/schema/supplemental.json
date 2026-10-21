@@ -3021,7 +3021,7 @@
 		},
 		{
 			"arguments": "object_id uuid",
-			"definition": "CREATE OR REPLACE FUNCTION <schema>.file_is_referenced(object_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$ SELECT EXISTS (SELECT 1 FROM \"account\" WHERE \"avatar_object_id\" = object_id UNION ALL SELECT 1 FROM \"person\" WHERE \"photo_object_id\" = object_id UNION ALL SELECT 1 FROM \"commitment\" WHERE \"object_id\" = object_id UNION ALL SELECT 1 FROM \"document_revision\" WHERE \"import_object_id\" = object_id) $function$\n",
+			"definition": "CREATE OR REPLACE FUNCTION <schema>.file_is_referenced(object_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$ SELECT EXISTS (SELECT 1 FROM \"account\" WHERE \"avatar_object_id\" = $1 UNION ALL SELECT 1 FROM \"person\" WHERE \"photo_object_id\" = $1 UNION ALL SELECT 1 FROM \"commitment\" WHERE \"object_id\" = $1 UNION ALL SELECT 1 FROM \"document_revision\" WHERE \"import_object_id\" = $1) $function$\n",
 			"name": "file_is_referenced"
 		},
 		{

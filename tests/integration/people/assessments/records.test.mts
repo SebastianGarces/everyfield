@@ -535,6 +535,22 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 AC:PROVIDER48-
 			/Signed after class|Pastor Lee|image\/png/,
 		),
 	);
+	// BUG-193 (C36): once one card holds a document, later cards still attach their own new uploads, and the cleanup
+	// check sees only attached objects as referenced.
+	const second = await upload(png);
+	ok(second.stored);
+	const third = await upload(png);
+	ok(third.stored);
+	const unattached = async (id) =>
+		(await rows(sql`SELECT file_is_referenced(${sql.param(id)}::uuid) AS r`))[0].r === false;
+	assert.deepEqual([await unattached(second.id), await unattached(document.id)], [true, false]);
+	for (const next of [second, third])
+		assert.deepEqual(ok(await card({ occurredOn: day(1), documentUploadId: next.id })).commitment.document, {
+			status: "attached",
+			mediaType: "image/png",
+			byteCount: png.length,
+		});
+	assert.equal(await unattached(third.id), false);
 	// Another church reads no commitments.
 	refused(await tx((t) => commitments.getCommitments(t, ctx(2), { personId: alex.id })));
 });
