@@ -241,7 +241,7 @@ function Stat({ label, value, note, tone }: { label: string; value: number; note
 			<p className="text-md text-text-3">{label}</p>
 			<p
 				className={cn(
-					"mt-2.5 font-title text-display-sm leading-none tracking-[-0.02em] tabular-nums",
+					"mt-2.5 font-display text-display-sm leading-none tracking-[-0.02em] tabular-nums",
 					tone ?? "text-ink",
 				)}
 			>
