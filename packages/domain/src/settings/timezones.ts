@@ -40,7 +40,11 @@ import {
 	type Tx,
 } from "./core.ts";
 import type { SettingsEffects } from "./sections.ts";
-const personalRecord = z.object({ preference: n.personalTimezoneResult.shape.preference });
+// The replay record keeps only the preference revision: personal settings audit never holds the zone. A replay has
+// the same request, so its canonical zone rebuilds the reply.
+const personalRecord = z.object({ revision: n.personalTimezoneResult.shape.preference.shape.revision });
+const personalReply = (timeZone: string, revision: string) =>
+	n.personalTimezoneResult.parse({ preference: { status: "confirmed", timeZone, revision } });
 export interface PersonalCalendar {
 	// WP-039 owns private plan storage. These handles must never contain a body,
 	// calendar revision, author-existence flag or telemetry payload.
@@ -277,8 +281,7 @@ export function timezoneOperations(
 				const a = await self(s, ctx);
 				const zone = canonicalTimeZone(v.input.timeZone);
 				const c = await begin(s, { ...ctx }, a.account.id, "account.setPersonalTimezone", v);
-				if (c.kind === "replay")
-					return n.personalTimezoneResult.parse({ preference: personalRecord.parse(c.value).preference });
+				if (c.kind === "replay") return personalReply(zone, personalRecord.parse(c.value).revision);
 				revision(v.expectedRevision, a.account.personal_timezone_revision);
 				// The preview row and the database clock in one statement.
 				const [found] = await s
@@ -337,13 +340,12 @@ export function timezoneOperations(
 						{ personalTimezone: a.account.personal_timezone },
 						{ personalTimezone: zone },
 					);
-					const result = await finish(s, c, personalRecord, () => ({
-						preference: { status: "confirmed", timeZone: zone, revision: next },
-					}));
-					return n.personalTimezoneResult.parse({ preference: result.preference });
+					await finish(s, c, personalRecord, () => ({ revision: next }));
+					return personalReply(zone, next);
 				}
-				const result = await finish(s, c, personalRecord, () => ({ preference: preference(a.account) }));
-				return n.personalTimezoneResult.parse({ preference: result.preference });
+				// The account already has this zone: nothing changes.
+				await finish(s, c, personalRecord, () => ({ revision: a.account.personal_timezone_revision }));
+				return personalReply(zone, a.account.personal_timezone_revision);
 			}),
 	};
 }

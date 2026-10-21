@@ -1,5 +1,10 @@
 import type { Clock } from "@everyfield/contracts/common";
-import type { DeletionProducer, NativeAccountProducer, SettingsProducer } from "@everyfield/contracts/settings/server";
+import type {
+	CredentialProducer,
+	DeletionProducer,
+	NativeAccountProducer,
+	SettingsProducer,
+} from "@everyfield/contracts/settings/server";
 import "server-only";
 import { avatarOperations, type AvatarCleanup } from "./avatar.ts";
 import type { Tx } from "./core.ts";
@@ -10,13 +15,14 @@ export function createSettingsProducer(
 	deps: SectionDependencies & {
 		avatarCleanup: AvatarCleanup;
 		deletion: DeletionEffects;
-		credentials: Pick<NativeAccountProducer<Tx>, "requestEmailChange" | "confirmEmailChange" | "changePassword">;
+		credentials: CredentialProducer;
 		personalCalendar?: PersonalCalendar;
 		clock?: Clock;
 	},
 ): SettingsProducer<Tx> &
 	Pick<ReturnType<typeof sectionOperations>, "getSection"> &
 	NativeAccountProducer<Tx> &
+	CredentialProducer &
 	DeletionProducer<Tx> {
 	return {
 		...sectionOperations(deps),

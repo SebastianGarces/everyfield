@@ -117,18 +117,18 @@ export async function removeAvatar(request: z.input<typeof S.removeAvatarRequest
 export async function requestEmailChange(
 	request: z.input<typeof N.requestEmailChange>,
 ): Promise<Reply<{ status: "verification_requested" }>> {
-	return credential(N.requestEmailChange, request, (ops, tx, context, r) => ops.requestEmailChange(tx, context, r));
+	return credential(N.requestEmailChange, request, (ops, context, r) => ops.requestEmailChange(context, r));
 }
 
 export async function confirmEmailChange(request: z.input<typeof N.confirmEmailChange>): Promise<CredentialOutcome> {
 	return outcome(
-		await credential(N.confirmEmailChange, request, (ops, tx, context, r) => ops.confirmEmailChange(tx, context, r)),
+		await credential(N.confirmEmailChange, request, (ops, context, r) => ops.confirmEmailChange(context, r)),
 	);
 }
 
 export async function changePassword(request: z.input<typeof N.changePasswordRequest>): Promise<CredentialOutcome> {
 	return outcome(
-		await credential(N.changePasswordRequest, request, (ops, tx, context, r) => ops.changePassword(tx, context, r)),
+		await credential(N.changePasswordRequest, request, (ops, context, r) => ops.changePassword(context, r)),
 	);
 }
 

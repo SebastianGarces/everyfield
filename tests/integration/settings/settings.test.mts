@@ -64,11 +64,11 @@ const ctx = (a, selected = { kind: "account", id: a.id }) => ({
 	session: a.session,
 	selected,
 });
-/** The credential operations run outside any app transaction in the web mount: they receive none here either. */
+/** The credential operations take no app transaction, as the web mount calls them. */
 const CREDENTIALS = ["requestEmailChange", "confirmEmailChange", "changePassword"];
 const call = (name, a, v, selected) =>
 	CREDENTIALS.includes(name)
-		? api[name](undefined, ctx(a, selected), v)
+		? api[name](ctx(a, selected), v)
 		: db.transaction((tx) => api[name](tx, ctx(a, selected), v));
 /** The viewer the settings mount passes: the request actor and the user row of the session's Better Auth lookup. */
 async function viewerOf(a) {
@@ -1662,7 +1662,7 @@ async function mountWrite(a, body) {
 /** The audit rows of one command, by its request key. */
 const auditOf = (requestKey) =>
 	admin.execute(
-		sql`SELECT action, metadata FROM audit_event WHERE command_id=(SELECT id FROM audit_event WHERE request_key=${requestKey})`,
+		sql`SELECT action, metadata, result FROM audit_event WHERE command_id=(SELECT id FROM audit_event WHERE request_key=${requestKey})`,
 	);
 test("INV-performance: photo, own time zone and deletion writes use a fixed small statement count and one audit row naming only fields", async () => {
 	instrument(db);
@@ -1694,6 +1694,15 @@ test("INV-performance: photo, own time zone and deletion writes use a fixed smal
 		),
 	);
 	assert.deepEqual(zone.value.preference, { status: "confirmed", timeZone: "Europe/Paris", revision: "2" });
+	// An exact retry returns the same reply from the replay record.
+	const retried = await mountWrite(a, (tx, c) =>
+		api.setPersonalTimezone(
+			tx,
+			c,
+			command({ timeZone: "Europe/Paris", previewId: preview.value.previewId, confirmed: true }, "1", zoneKey),
+		),
+	);
+	assert.deepEqual(retried.value, zone.value);
 	const deletionKey = randomUUID();
 	const deletion = await mountWrite(a, (tx, c) =>
 		api.requestAccountDeletion(tx, c, command({ confirmed: true }, "4", deletionKey)),
@@ -1716,6 +1725,8 @@ test("INV-performance: photo, own time zone and deletion writes use a fixed smal
 		assert.deepEqual(rows[0].metadata, { section: "account", diff: { [field]: true } });
 	}
 	assert.equal((await auditOf(deletionKey)).rows.length, 1);
+	// The whole time zone audit row, replay record included, holds the revision and never the zone.
+	assert.deepEqual((await auditOf(zoneKey)).rows[0].result, { revision: "2" });
 });
 
 test("AC:DEL58-002 INV-performance: a fresh password proof opens only the account's current request; status and cancel stay small", async () => {

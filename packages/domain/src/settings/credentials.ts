@@ -6,13 +6,13 @@ import * as t from "@everyfield/db/tables";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { credentialOutcome, type CredentialOutcome } from "@everyfield/contracts/identity";
 import * as n from "@everyfield/contracts/settings/native";
-import type { NativeAccountProducer, NativeSettingsContext } from "@everyfield/contracts/settings/server";
+import type { CredentialProducer, NativeSettingsContext } from "@everyfield/contracts/settings/server";
 import { identityAuth } from "../identity/auth.ts";
 import { executeWrites } from "../operations/writes.ts";
 import { attemptBudget, IdentityRefusal } from "../identity/budget.ts";
 import { accountId } from "@everyfield/contracts/common";
 import { writeVisibility } from "../access/session.ts";
-import { now, hash, deny, Refusal, recover, parse, type Tx } from "./core.ts";
+import { now, hash, deny, Refusal, recover, parse } from "./core.ts";
 import { issueRestrictedDeletionSession } from "./deletion.ts";
 export interface CredentialConfig {
 	db: Database;
@@ -43,10 +43,7 @@ export interface CredentialConfig {
 		writes: SQLWrapper[],
 	): Promise<string>;
 }
-export function createAccountCredentials(config: CredentialConfig): Pick<
-	NativeAccountProducer<Tx>,
-	"requestEmailChange" | "confirmEmailChange" | "changePassword"
-> & {
+export function createAccountCredentials(config: CredentialConfig): CredentialProducer & {
 	openAccountDeletion(
 		raw: unknown,
 		trustedIp: string | null,
@@ -165,8 +162,7 @@ export function createAccountCredentials(config: CredentialConfig): Pick<
 		}
 	}
 	return {
-		// No app transaction stays open while Better Auth runs; the transaction argument is unused.
-		requestEmailChange: async (_tx, ctx, raw) =>
+		requestEmailChange: async (ctx, raw) =>
 			recover(async () => {
 				const v = parse(n.requestEmailChange, raw);
 				const a = await prepare(ctx);
@@ -183,7 +179,7 @@ export function createAccountCredentials(config: CredentialConfig): Pick<
 					deny("temporary");
 				}
 			}),
-		confirmEmailChange: async (_tx, ctx, raw) => {
+		confirmEmailChange: async (ctx, raw) => {
 			const correlationId = randomUUID();
 			let committedAccount: string | undefined;
 			try {
@@ -240,7 +236,7 @@ export function createAccountCredentials(config: CredentialConfig): Pick<
 				});
 			}
 		},
-		changePassword: async (_tx, ctx, raw) => {
+		changePassword: async (ctx, raw) => {
 			const correlationId = randomUUID();
 			let reservation: Awaited<ReturnType<typeof budget.reserve>> | undefined;
 			let committedAccount: string | undefined;

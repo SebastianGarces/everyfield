@@ -401,7 +401,7 @@ export async function run<S extends z.ZodType, T>(
 export async function credential<S extends z.ZodType, T>(
 	schema: S,
 	raw: unknown,
-	operation: (ops: Mount["credentials"], tx: Transaction, context: Context, input: z.output<S>) => Promise<T>,
+	operation: (ops: Mount["credentials"], context: Context, input: z.output<S>) => Promise<T>,
 ): Promise<T | { status: "refused"; error: SettingsError }> {
 	const viewer = await signedIn();
 	const ops = settingsMount();
@@ -413,14 +413,12 @@ export async function credential<S extends z.ZodType, T>(
 		selected: owner.parse({ kind: "account", id: viewer.accountId }),
 	};
 	try {
-		return await operation(ops.credentials, NO_TRANSACTION, context, input.data);
+		return await operation(ops.credentials, context, input.data);
 	} catch (error) {
 		console.error(JSON.stringify({ component: "settings", outcome: "credential_failed", error: String(error) }));
 		return refusal("unknown");
 	}
 }
-/** The credential operations open their own short transactions; the contract's transaction argument is unused. */
-const NO_TRANSACTION = undefined as unknown as Transaction;
 
 /** The photo bytes for one staged upload, verified by type and size again before they reach the private bucket. */
 export async function storeAvatarBytes(accountId: string, uploadId: string, bytes: Uint8Array) {

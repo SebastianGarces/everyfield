@@ -13,6 +13,7 @@ import * as t from "@everyfield/db/tables";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
+import { writeVisibility } from "../access/session.ts";
 import { executeWrites } from "../operations/writes.ts";
 import {
 	appendEvent,
@@ -147,19 +148,38 @@ export function avatarOperations(
 			}),
 	};
 }
+/**
+ * This context's own account with its current photo, when the session is live, the account is fully registered and
+ * no lifecycle witness hides it: one statement, no lock.
+ */
+function liveSelf(ctx: NativeSettingsContext) {
+	if (ctx.selected.kind !== "account") return sql`false`;
+	const account = ctx.selected.id;
+	return sql<boolean>`(${t.account.id}=${account}::uuid AND EXISTS(SELECT FROM access_session(${ctx.session}::uuid) x WHERE x.account_id=${account}::uuid AND x.registration_state='active') AND ${writeVisibility(account, ctx.selected)})`;
+}
 function authorization(ctx: NativeSettingsContext, uploadId: string, upload: boolean): ResourceAuthorizer {
 	return async (tx, file, intent) => {
-		const a = await self(tx, ctx, "preview");
+		const [a] = await tx
+			.select({ id: t.account.id, avatar: t.account.avatar_object_id })
+			.from(t.account)
+			.where(liveSelf(ctx));
 		if (
+			!a ||
 			(!upload && file.id !== uploadId) ||
-			file.tenant_id !== a.account.id ||
+			file.tenant_id !== a.id ||
 			file.purpose !== "avatar" ||
 			intent === "cleanup" ||
-			(!upload && a.account.avatar_object_id !== file.id)
+			(!upload && a.avatar !== file.id)
 		)
 			return null;
-		return { kind: "account", actorId: a.account.id };
+		return { kind: "account", actorId: a.id };
 	};
+}
+/** The allowed type the bytes start with; the full check decodes them. */
+function signature(bytes: Uint8Array) {
+	if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "image/png";
+	if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
+	return "image/webp";
 }
 // Called by the native byte adapter, before the reference-finalizing transaction.
 export async function uploadAvatar(
@@ -169,34 +189,26 @@ export async function uploadAvatar(
 	raw: { uploadId: string; bytes: Uint8Array },
 ) {
 	const id = parse(z.uuid(), raw.uploadId);
-	const file = await db.transaction(async (tx) => {
-		const a = await self(tx, ctx, "preview");
-		const [f] = await tx
-			.select()
-			.from(t.file_object)
-			.where(
-				and(
-					eq(t.file_object.id, id),
-					eq(t.file_object.tenant_id, a.account.id),
-					eq(t.file_object.purpose, "avatar"),
-					eq(t.file_object.state, "pending"),
-				),
-			)
-			.for("update");
-		if (!f) deny();
-		return f;
-	});
-	await validateAvatar(raw.bytes, file.media_type);
-	if (raw.bytes.length !== Number(file.max_bytes)) deny("invalid_input");
+	// The bytes are decoded first; the staged upload must then have their exact type and size.
+	const mediaType = signature(raw.bytes);
+	await validateAvatar(raw.bytes, mediaType);
 	const digest = createHash("sha256").update(raw.bytes).digest("hex");
-	await db.transaction(async (tx) => {
-		const auth = authorization(ctx, id, true);
-		if (!(await auth(tx, file, "put"))) deny();
-		await tx
-			.update(t.file_object)
-			.set({ byte_count: String(raw.bytes.length), sha256: digest })
-			.where(and(eq(t.file_object.id, id), eq(t.file_object.state, "pending")));
-	});
+	// One statement: the live account's own pending upload of this type and size records the verified bytes.
+	const [file] = await db
+		.update(t.file_object)
+		.set({ byte_count: String(raw.bytes.length), sha256: digest })
+		.where(
+			and(
+				eq(t.file_object.id, id),
+				eq(t.file_object.purpose, "avatar"),
+				eq(t.file_object.state, "pending"),
+				eq(t.file_object.media_type, mediaType),
+				eq(t.file_object.max_bytes, String(raw.bytes.length)),
+				sql`${t.file_object.tenant_id} IN (SELECT ${t.account.id} FROM ${t.account} WHERE ${liveSelf(ctx)})`,
+			),
+		)
+		.returning();
+	if (!file) deny();
 	return putPrivateObject(db, storage, authorization(ctx, id, true), {
 		tenantId: file.tenant_id,
 		purpose: "avatar",
