@@ -466,20 +466,8 @@ export function relationshipCommands(
 		return auditSavepoint(tx, async () => {
 			const q = Q.endRelationshipRequest.parse(raw),
 				pair = q.input.pair;
-			// Shared Discovery conversion order: account, profile, then affiliation. Organization actors take the subject
-			// account lock too; the pair alone cannot arbitrate conversion against an organization ending its link.
-			if (pair.kind === "discovery") {
-				await tx
-					.select({ id: tables.account.id })
-					.from(tables.account)
-					.where(eq(tables.account.id, pair.accountId))
-					.for("update");
-				await tx
-					.select({ id: tables.discovery.id })
-					.from(tables.discovery)
-					.where(eq(tables.discovery.account_id, pair.accountId))
-					.for("update");
-			}
+			// Lock order shared with Discovery conversion: the write gate (actor account, then owner root), then the link.
+			// Never lock the subject account here: a conversion holds it while it waits for this organization.
 			const actor = await writeActor(tx, session, selected);
 			const a = await loadAffiliation(tx, q.input.relationshipId, true);
 			if (
