@@ -8,6 +8,7 @@ import { migrate } from "../../../../packages/db/src/schema/migrate.ts";
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import { PeopleReadContext } from "../../../../packages/domain/src/people/core.ts";
 import { claimDue, finishClaim } from "../../../../apps/web/src/server/jobs/queue.ts";
+import { runDueImports } from "../../../../apps/web/src/server/people/run-imports.ts";
 import {
 	executeBulkImport,
 	peopleCsv as csv,
@@ -70,14 +71,8 @@ const submit = async (text, p, choices, requestKey = randomUUID(), who = 0) =>
 		choices,
 	});
 // The web mount's worker: claim each due import job through the queue and run it.
-const drain = async () => {
-	for (;;) {
-		const [claim] = await claimDue(db, ["people_import"]);
-		if (!claim) return;
-		const outcome = await runPeopleImport(db, claim);
-		await db.transaction((tx) => finishClaim(tx, claim, { state: outcome === "lost" ? "failed" : "succeeded" }));
-	}
-};
+// The web mount's drain: recover expired leases, then claim and run each due import job.
+const drain = () => runDueImports(db, 10);
 const receiptOf = (requestKey, who = 0) => read(who, (t, c) => csv.getImportReceipt(t, c, { requestKey }));
 /** Submit, let the job run, and read the receipt, as the screen does. */
 const importFile = async (text, p, choices, requestKey = randomUUID(), who = 0) => {
@@ -345,6 +340,45 @@ test("AC:TARGET-PPL-018 a partial import names its failed rows, survives a lost 
 	}
 	assert.deepEqual(big.remaining, [600]);
 	assert.deepEqual(big.counts, { created: 1200, skipped: 0, failed: 1, remaining: 1 });
+});
+
+test("AC:TARGET-PPL-018 INV-jobs an import whose worker loses its lease resumes once and creates every row once", async () => {
+	const file =
+		"first_name,email\r\n" +
+		Array.from({ length: 1001 }, (_, i) => `Lease${i + 1},lease${i + 1}@example.test\r\n`).join("");
+	const p = ok(await preview(file));
+	const requestKey = randomUUID(),
+		peopleBefore = await count("person");
+	ok(await submit(file, p, choose(p), requestKey));
+	// The lease expires as the first 500 rows commit, as when a worker stalls past its lease.
+	await admin.execute(
+		sql.raw(`CREATE FUNCTION ${schema}.expire_lease() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+ IF NEW.email='lease500@example.test' THEN UPDATE ${schema}.job SET lease_until=clock_timestamp()-interval '1 second'
+ WHERE kind='people_import' AND state='claimed'; END IF; RETURN NEW; END $$;
+ CREATE TRIGGER expire_lease AFTER INSERT ON ${schema}.person FOR EACH ROW EXECUTE FUNCTION ${schema}.expire_lease();`),
+	);
+	try {
+		const [claim] = await claimDue(db, ["people_import"]);
+		assert.equal(await runPeopleImport(db, claim), "lost");
+		assert.equal(await db.transaction((tx) => finishClaim(tx, claim, { state: "failed" })), false);
+	} finally {
+		await admin.execute(
+			sql.raw(`DROP TRIGGER expire_lease ON ${schema}.person; DROP FUNCTION ${schema}.expire_lease()`),
+		);
+	}
+	assert.equal(await count("person"), peopleBefore + 500);
+	assert.equal(ok(await receiptOf(requestKey)).status, "in_progress");
+	// The drain returns the expired lease to the queue; the job waits for the queue's retry delay, then resumes.
+	await drain();
+	assert.equal(await count("person"), peopleBefore + 500);
+	await admin.execute(
+		sql`UPDATE job SET next_attempt_at=clock_timestamp() WHERE kind='people_import' AND state='retry_wait'`,
+	);
+	await drain();
+	const done = ok(await receiptOf(requestKey));
+	assert.equal(done.status, "complete");
+	assert.deepEqual(done.counts, { created: 1001, skipped: 0, failed: 0, remaining: 0 });
+	assert.equal(await count("person"), peopleBefore + 1001);
 });
 
 test("AC:TARGET-PPL-018 INV-tenancy an import saves exactly the reviewed rows and refuses a changed file, review or authority", async () => {
