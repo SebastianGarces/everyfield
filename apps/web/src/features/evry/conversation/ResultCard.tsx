@@ -3,10 +3,10 @@
 import { Edit02Icon, UserIcon, UserMultipleIcon } from "@hugeicons/core-free-icons";
 import { Button, IntentLink } from "@everyfield/ui/controls";
 import { cn, Icon } from "@everyfield/ui/foundations";
-import { Avatar, StageChip } from "@everyfield/ui/display";
+import { Avatar, StageChip, Tag } from "@everyfield/ui/display";
 import { useState } from "react";
 import { STAGE_KEY, STAGE_LABEL } from "../../people/model.ts";
-import type { SourceResult } from "./model.ts";
+import type { SourceResult, SourceRow } from "./model.ts";
 
 // A source-bound result card (REQ-EVR-024): the rows Evry read, as they are now, with the count, whether more exist and
 // what the read leaves out. Rows link to their records, which load on intent only.
@@ -14,10 +14,44 @@ import type { SourceResult } from "./model.ts";
 const TITLE: Record<string, string> = {
 	"people.listPeople": "People",
 	"people.getPerson": "Person",
+	"people.getPersonPhoto": "Photo",
+	"people.checkForDuplicates": "Possible duplicates",
 	"evry.selectReturnedRows": "Selected people",
 };
 
 const isStage = (value: unknown): value is keyof typeof STAGE_KEY => typeof value === "string" && value in STAGE_KEY;
+
+/** What one row shows: the person, a short line under the name and a mark on the right, by the read that returned it. */
+function rowView(operation: string, row: SourceRow) {
+	const { fields } = row;
+	if (operation === "people.getPersonPhoto")
+		// The photo read names no person; the row says what it found and opens the person's page.
+		return {
+			name: fields.photo === "available" ? "Has a photo" : "No photo",
+			line: fields.photo === "available" ? "Open the person's page to see it" : null,
+			mark: null,
+			avatar: false,
+		};
+	if (operation === "people.checkForDuplicates")
+		return {
+			name: row.label,
+			line: null,
+			avatar: true,
+			mark: (
+				<Tag tone={fields.match === "exact" ? "amber" : undefined}>
+					{fields.match === "exact" ? "Same email or phone" : "Similar name"}
+				</Tag>
+			),
+		};
+	return {
+		name: row.label,
+		line: typeof fields.city === "string" ? fields.city : null,
+		avatar: true,
+		mark: isStage(fields.stage) ? (
+			<StageChip stage={STAGE_KEY[fields.stage]}>{STAGE_LABEL[fields.stage]}</StageChip>
+		) : null,
+	};
+}
 /** A long result starts with this many rows; the rest open on request. */
 const FIRST_ROWS = 6;
 const count = (n: number, one: string, many: string) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
@@ -35,24 +69,30 @@ export function ResultCard({
 	const title = TITLE[operation] ?? "Records";
 	const shown = result.rows.length;
 	const summary =
-		result.status === "not_found"
+		result.status === "not_found" || (operation === "people.getPersonPhoto" && !shown)
 			? "Not found"
-			: result.total === null || result.total === shown
-				? count(shown, "person", "people")
-				: `${shown.toLocaleString()} of ${result.total.toLocaleString()}`;
+			: operation === "people.getPersonPhoto"
+				? ""
+				: result.total === null || result.total === shown
+					? count(shown, "person", "people")
+					: `${shown.toLocaleString()} of ${result.total.toLocaleString()}`;
 	const facts: string[] = [];
-	if (result.status === "not_found") facts.push("No person in this church matches, or you can't see them.");
+	if (result.status === "not_found" || !shown) facts.push("No person in this church matches, or you can't see them.");
 	if (result.withheldRows)
 		facts.push(`${count(result.withheldRows, "row is", "rows are")} no longer available and not shown.`);
-	if (result.completeness === "partial" && result.next !== null)
-		facts.push(`More people match. Ask Evry for page ${result.next}.`);
+	if (result.completeness === "partial")
+		facts.push(
+			result.next !== null
+				? `More people match. Ask Evry for page ${result.next}.`
+				: "Only the first matches are shown.",
+		);
 	if (operation === "evry.selectReturnedRows") {
 		if (originalTotal !== null) facts.push(`Picked from ${count(originalTotal, "match", "matches")}.`);
 	} else if (result.exclusions.length) facts.push(`Not included: ${result.exclusions.join(", ")}.`);
 
 	return (
 		<section
-			aria-label={`${title}, ${summary}`}
+			aria-label={summary ? `${title}, ${summary}` : title}
 			className="overflow-hidden rounded-card bg-surface-raised shadow-[inset_0_0_0_1px_var(--ef-line),var(--ef-shadow-raised)]"
 		>
 			<header className="flex items-center gap-2.5 border-b border-line px-4 py-3 text-sm font-semibold text-ink">
@@ -63,7 +103,7 @@ export function ResultCard({
 			{shown ? (
 				<ul className="flex flex-col px-2 py-1.5">
 					{(all ? result.rows : result.rows.slice(0, FIRST_ROWS)).map((row) => {
-						const city = typeof row.fields.city === "string" ? row.fields.city : null;
+						const view = rowView(operation, row);
 						return (
 							<li key={row.id}>
 								<IntentLink
@@ -71,14 +111,12 @@ export function ResultCard({
 									data-focus-inset=""
 									className="flex min-h-11 items-center gap-3 rounded-md px-2 py-2 text-ink transition-[background-color] hover:bg-hover"
 								>
-									<Avatar name={row.label} size="sm" decorative />
+									{view.avatar ? <Avatar name={view.name} size="sm" decorative /> : null}
 									<span className="min-w-0 flex-1">
-										<span className="block truncate font-medium">{row.label}</span>
-										{city ? <span className="block truncate text-xs text-text-3">{city}</span> : null}
+										<span className="block truncate font-medium">{view.name}</span>
+										{view.line ? <span className="block truncate text-xs text-text-3">{view.line}</span> : null}
 									</span>
-									{isStage(row.fields.stage) ? (
-										<StageChip stage={STAGE_KEY[row.fields.stage]}>{STAGE_LABEL[row.fields.stage]}</StageChip>
-									) : null}
+									{view.mark}
 								</IntentLink>
 							</li>
 						);
