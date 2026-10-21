@@ -1,12 +1,12 @@
 import { requestIdentity } from "@everyfield/contracts/common";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { and, desc, eq, inArray, isNull, notExists, sql, type SQLWrapper } from "@everyfield/db/query";
+import { and, desc, eq, inArray, isNull, notExists, sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { readPipelinePerson } from "../access/pipeline.ts";
-import { currentActor, RequestActor, requestWrite } from "../access/session.ts";
+import { currentActor, liveRead, RequestActor, requestWrite } from "../access/session.ts";
 import {
 	auditSavepoint,
 	auditTransaction,
@@ -124,16 +124,27 @@ export async function authorize(tx: Tx, context: Context, write = false) {
 	const actor =
 		!write && context instanceof PeopleReadContext
 			? context.authority.actor
-			: await currentActor(tx, context.session, context.selected);
-	if (
-		actor.status !== "active" ||
-		actor.context.kind !== "seat" ||
-		!["plant", "organization"].includes(context.selected.kind)
-	)
-		deny();
+			: await currentActor(tx, context.session, context.selected, write);
+	if (actor.status !== "active" || !["plant", "organization"].includes(context.selected.kind)) deny();
+	const seat = actor.context;
+	if (seat.kind !== "seat") deny();
 	if (write && !isAdministrator(actor)) deny();
-	return actor;
+	return { ...actor, context: seat };
 }
+/**
+ * The actor a read resolved and the live access check (C13, C22) each of its statements repeats. An organization Admin
+ * reads every person, so the check keeps that Admin role; any other reader's role does not change what it reads.
+ */
+export async function authorizeRead(tx: Tx, context: Context) {
+	const actor = await authorize(tx, context);
+	const admin = context.selected.kind === "organization" && isAdministrator(actor);
+	return {
+		actor,
+		gate: liveRead({ session: context.session, owner: context.selected, seatId: actor.context.seatId }, admin),
+	};
+}
+/** A write's statements need no read gate: its locked authority holds until COMMIT (D70). */
+export const lockedWrite = sql`true`;
 export async function lockOwner(tx: Tx, context: Context) {
 	const locked = requestWrite(tx);
 	if (locked && locked.selected.id === context.selected.id && locked.selected.kind === context.selected.kind) return;
@@ -170,8 +181,13 @@ export const personRow = z.object({
 	pipeline_position: z.string().nullable(),
 });
 export type Person = z.infer<typeof personRow>;
-/** One Person row. A write locks it for update; a read observes it without a lock. */
-export async function person(tx: Tx, context: Pick<Context, "selected">, id: string, lock = false): Promise<Person> {
+/** One Person row. A write passes `true` and locks it for update; a read passes its C13 gate and takes no lock. */
+export async function person(
+	tx: Tx,
+	context: Pick<Context, "selected">,
+	id: string,
+	lock: true | SQL,
+): Promise<Person> {
 	const query = tx
 		.select()
 		.from(tables.person)
@@ -179,6 +195,7 @@ export async function person(tx: Tx, context: Pick<Context, "selected">, id: str
 			and(
 				eq(tables.person.id, id),
 				eq(tables.person.tenant_id, context.selected.id),
+				lock === true ? undefined : lock,
 				notExists(
 					tx
 						.select({ id: tables.organization_person_removal.id })
@@ -192,7 +209,7 @@ export async function person(tx: Tx, context: Pick<Context, "selected">, id: str
 				),
 			),
 		);
-	const rows = await (lock ? query.for("update", { of: tables.person }) : query);
+	const rows = await (lock === true ? query.for("update", { of: tables.person }) : query);
 	if (!rows[0]!) deny();
 	return personRow.parse(rows[0]!);
 }
@@ -207,10 +224,10 @@ export async function canReadPerson(tx: Tx, context: Context, p: Person, actor?:
 	}
 	return a;
 }
-export async function project(tx: Tx, context: Context, p: Person) {
-	return (await projectPeople(tx, context, [p]))[0]!;
+export async function project(tx: Tx, context: Context, p: Person, gate: SQL) {
+	return (await projectPeople(tx, context, [p], gate))[0]!;
 }
-export async function projectPeople(tx: Tx, context: Context, people: Person[]) {
+export async function projectPeople(tx: Tx, context: Context, people: Person[], gate: SQL) {
 	const evidence =
 		context.selected.kind === "plant" && people.some((p) => p.commitment_state !== "unknown")
 			? await tx
@@ -230,6 +247,7 @@ export async function projectPeople(tx: Tx, context: Context, people: Person[]) 
 								people.map((p) => p.id),
 							),
 							isNull(tables.commitment.voided_at),
+							gate,
 						),
 					)
 					.orderBy(tables.commitment.person_id, desc(tables.commitment.signed_on), desc(tables.commitment.id))

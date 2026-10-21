@@ -646,3 +646,37 @@ test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy
 		await admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE account_id=${sql.param(actors[0].id)}`);
 	}
 });
+
+test("INV-C32 a CSV read takes no session lock: a sign-out never waits for an open preview, receipt or export", async () => {
+	const file = "first_name\r\nLockfree\r\n";
+	const p = ok(await preview(file));
+	const requestKey = randomUUID();
+	ok(
+		await importFile(
+			file,
+			p,
+			choose(p, () => "create"),
+			requestKey,
+		),
+	);
+	const reads = {
+		previewImport: (t, c) => csv.previewImport(t, c, { file: bytes(file) }),
+		getImportReceipt: (t, c) => csv.getImportReceipt(t, c, { requestKey }),
+		exportPeople: (t, c) => csv.exportPeople(t, c, {}),
+	};
+	const waited = [];
+	for (const [name, run] of Object.entries(reads))
+		await read(0, async (t, c) => {
+			assert.equal((await run(t, c)).status, "ok", name);
+			// The read's transaction is still open.
+			try {
+				await admin.transaction(async (a) => {
+					await a.execute(sql`SET LOCAL lock_timeout='250ms'`);
+					await a.execute(sql`UPDATE auth_session SET expires_at=expires_at WHERE id=${sql.param(actors[0].session)}`);
+				});
+			} catch {
+				waited.push(name);
+			}
+		});
+	assert.deepEqual(waited, []);
+});

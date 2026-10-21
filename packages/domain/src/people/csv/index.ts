@@ -7,14 +7,18 @@ import { createHash, randomUUID } from "node:crypto";
 import { gunzipSync, gzipSync } from "node:zlib";
 import "server-only";
 import { z } from "zod";
-import { writeVisibility, type RequestActor } from "../../access/session.ts";
+import { liveRead, writeVisibility, type RequestActor } from "../../access/session.ts";
 import { deny, hash, parse, readReply, type Context, type Tx } from "../core.ts";
-import { plantId, readAuthority } from "../fields/shared.ts";
+import { plantId } from "../fields/shared.ts";
 import { newPerson } from "../people.ts";
 import { peopleFilters } from "../queries.ts";
 import { csvLine, parseCsv } from "./format.ts";
 
 // People CSV import (REQ-PPL-018) and export (REQ-PPL-019) for plant Owners and Admins.
+
+/** C13/C32: the request's live access in each statement, without locking its session (live_session). */
+const access = (ctx: { session: string; selected: Owner }, admin = false) =>
+	liveRead({ session: ctx.session, owner: ctx.selected }, admin);
 
 type ImportColumn = z.infer<typeof c.importColumn>;
 type Problem = z.infer<typeof c.rowProblem>;
@@ -302,7 +306,7 @@ export async function executeBulkImport(db: Database, authority: RequestActor, r
 			})
 			.parse(
 				(
-					await db.execute(sql`SELECT ${readAuthority(ctx, true)} AS allowed,
+					await db.execute(sql`SELECT ${access(ctx, true)} AS allowed,
  (SELECT jsonb_build_object('id',a.id,'identity',a.request_identity,'state',${importState(sql`a.id`)}) FROM audit_event a
   WHERE a.id=${known}) AS prior, ${existingPeople(plant, file.rows, sql`EXISTS${known}`)} AS people`)
 				).rows[0],
@@ -314,7 +318,7 @@ export async function executeBulkImport(db: Database, authority: RequestActor, r
 			const answer = receipt(state.prior.id, prior.plan, prior.created, prior.failed, prior.running);
 			if (answer.status !== "partial") return answer;
 			// A partial import runs again for its remaining rows; its last failures clear until the job reports again.
-			const requeued = await db.execute(sql`WITH ok AS (SELECT ${readAuthority(ctx, true)} AS ok),
+			const requeued = await db.execute(sql`WITH ok AS (SELECT ${access(ctx, true)} AS ok),
  imported AS (UPDATE person_import SET failed='[]'::jsonb WHERE id=${state.prior.id}::uuid AND (SELECT ok FROM ok) RETURNING job_id)
  UPDATE job SET state='ready',eligible_at=clock_timestamp(),next_attempt_at=NULL,attempt_count=0,error_code=NULL,
   finished_at=NULL,revision=revision+1 FROM imported WHERE job.id=imported.job_id AND job.state IN ('succeeded','failed')
@@ -330,7 +334,7 @@ export async function executeBulkImport(db: Database, authority: RequestActor, r
 		// The job keeps the exact reviewed bytes, compressed; it parses them again rather than trusting saved rows.
 		const upload = gzipSync(input.file).toString("base64");
 		// The audit intent, the job and its payload in one statement, under the live Owner/Admin check.
-		const saved = await db.execute(sql`WITH ok AS (SELECT ${readAuthority(ctx, true)} AS ok),
+		const saved = await db.execute(sql`WITH ok AS (SELECT ${access(ctx, true)} AS ok),
  intent AS (INSERT INTO audit_event(id,tenant_id,actor_id,actor_token,action,kind,subject_type,subject_id,command_id,
   request_key,request_identity)
   SELECT ${importId}::uuid,${plant}::uuid,${actorId}::uuid,${hash([plant, actorId])},'people.updated','edit','command',
@@ -468,11 +472,8 @@ export const peopleCsv = {
 			const state = z
 				.object({ allowed: z.boolean(), people: match })
 				.parse(
-					(
-						await tx.execute(
-							sql`SELECT ${readAuthority(ctx, true)} AS allowed, ${existingPeople(plant, file.rows)} AS people`,
-						)
-					).rows[0],
+					(await tx.execute(sql`SELECT ${access(ctx, true)} AS allowed, ${existingPeople(plant, file.rows)} AS people`))
+						.rows[0],
 				);
 			if (!state.allowed) deny();
 			const { findings, reviewDigest } = findDuplicates(file, state.people);
@@ -511,7 +512,7 @@ export const peopleCsv = {
 			const input = parse(c.importReceiptRequest, raw);
 			const row = z.object({ allowed: z.boolean(), id: z.uuid().nullable(), state: z.unknown() }).parse(
 				(
-					await tx.execute(sql`SELECT ${readAuthority(ctx, true)} AS allowed, a.id, ${importState(sql`a.id`)} AS state
+					await tx.execute(sql`SELECT ${access(ctx, true)} AS allowed, a.id, ${importState(sql`a.id`)} AS state
  FROM (SELECT 1) seed LEFT JOIN audit_event a ON a.tenant_id=${plant}::uuid AND a.request_key=${input.requestKey}
   AND a.request_identity->>'operation'=${OPERATION}`)
 				).rows[0],
@@ -529,13 +530,13 @@ export const peopleCsv = {
 		return readReply(async () => {
 			plantId(ctx);
 			const filters = parse(c.exportPeopleRequest, raw);
-			const result = await tx.execute(sql`SELECT ${readAuthority(ctx)} AS allowed,
+			const result = await tx.execute(sql`SELECT ${access(ctx)} AS allowed,
  coalesce((SELECT jsonb_agg(jsonb_build_array(first_name,last_name,email,phone,street,city,state_province,postal_code,
   country,stage,source,source_details,notes,tags,created) ORDER BY created_at,id) FROM (
   SELECT person.*,to_char(person.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS created,
   (SELECT string_agg(t.name,';' ORDER BY lower(t.name),t.id) FROM person_tag pt JOIN tag t ON t.id=pt.tag_id
    AND t.plant_id=pt.plant_id WHERE pt.person_id=person.id AND pt.plant_id=person.plant_id) AS tags
-  FROM person WHERE ${and(...peopleFilters(ctx, filters))} AND ${readAuthority(ctx)}) x),'[]'::jsonb) AS rows`);
+  FROM person WHERE ${and(...peopleFilters(ctx, filters, access(ctx)))}) x),'[]'::jsonb) AS rows`);
 			const state = z
 				.object({ allowed: z.boolean(), rows: z.array(z.array(z.string().nullable())) })
 				.parse(result.rows[0]);

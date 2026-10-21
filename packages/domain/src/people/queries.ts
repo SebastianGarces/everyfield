@@ -1,11 +1,12 @@
 import { inArray, ne, count, and, asc, eq, gt, lte, isNull, or, sql, getTableColumns } from "@everyfield/db/query";
+import type { SQL } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { alias } from "@everyfield/db/columns";
 import { z } from "zod";
 import * as c from "@everyfield/contracts/people";
 import type { PeopleReader, PeopleReply } from "@everyfield/contracts/people";
 import {
-	authorize,
+	authorizeRead,
 	canReadPerson,
 	deny,
 	hash,
@@ -50,12 +51,13 @@ const warningsRow = z.object({
 	committed: z.boolean(),
 	duties: z.array(z.object({ id: z.uuid(), revision: z.string() })),
 });
-/** Row filters for one People query. The list and the pipeline share them. */
+/** Row filters for one People query, with the reader's C13 gate. The list, the pipeline and the CSV export share them. */
 export function peopleFilters(
 	ctx: Pick<Context, "selected">,
 	input: Omit<z.infer<typeof c.listPeopleRequest>, "page" | "limit" | "view" | "sort">,
+	gate: SQL,
 ) {
-	const filters = [eq(tables.person.plant_id, ctx.selected.id)];
+	const filters = [eq(tables.person.plant_id, ctx.selected.id), gate];
 	if (input.archived === "exclude") filters.push(eq(tables.person.state, "live"));
 	else if (input.archived === "only") filters.push(ne(tables.person.state, "live"));
 	if (input.search) {
@@ -80,14 +82,16 @@ export function peopleFilters(
 async function list(tx: Tx, ctx: Context, raw: unknown) {
 	if (ctx.selected.kind !== "plant") deny();
 	const input = parse(c.listPeopleRequest, raw);
-	await authorize(tx, ctx);
-	const filters = peopleFilters(ctx, input);
-	const total = (
+	const { gate } = await authorizeRead(tx, ctx);
+	const filters = peopleFilters(ctx, input, gate);
+	// The count always returns one row, so it also says whether the reader still has access.
+	const { total, allowed } = (
 		await tx
-			.select({ total: count() })
+			.select({ total: count(), allowed: sql<boolean>`${gate}` })
 			.from(tables.person)
 			.where(and(...filters))
-	)[0]!.total;
+	)[0]!;
+	if (!allowed) deny();
 	const result = await tx
 		.select(getTableColumns(tables.person))
 		.from(tables.person)
@@ -101,7 +105,7 @@ async function list(tx: Tx, ctx: Context, raw: unknown) {
 		.offset((input.page - 1) * input.limit);
 
 	const rows = result.slice(0, input.limit).map((r) => personRow.parse(r));
-	const items = await projectPeople(tx, ctx, rows),
+	const items = await projectPeople(tx, ctx, rows, gate),
 		more = result.length > input.limit;
 	return c.peoplePage.parse({
 		owner: ctx.selected,
@@ -117,12 +121,12 @@ export const peopleReader: PeopleReader<Tx> = {
 	async getPerson(tx, ctx, raw) {
 		return readReply(async () => {
 			const input = parse(c.personRequest, raw);
-			const a = await authorize(tx, ctx);
-			const p = await person(tx, ctx, input.personId);
-			await canReadPerson(tx, ctx, p, a);
+			const { actor, gate } = await authorizeRead(tx, ctx);
+			const p = await person(tx, ctx, input.personId, gate);
+			await canReadPerson(tx, ctx, p, actor);
 			return c.personResult.parse({
 				status: "available",
-				person: await project(tx, ctx, p),
+				person: await project(tx, ctx, p, gate),
 			});
 		});
 	},
@@ -132,26 +136,23 @@ export const peopleReader: PeopleReader<Tx> = {
 	async getOwnAccountPerson(tx, ctx, raw) {
 		return readReply(async () => {
 			parse(c.ownAccountPersonRequest, raw);
-			const actor = await authorize(tx, ctx);
-			const r = await tx
-				.select({ id: tables.person.id })
-				.from(tables.person)
-				.where(
-					and(
-						and(eq(tables.person.tenant_id, ctx.selected.id), eq(tables.person.linked_account_id, actor.accountId)),
-						eq(tables.person.state, "live"),
-					),
-				);
-			return c.accountLinkResult.parse(r.length ? { status: "linked", personId: r[0]!.id } : { status: "unlinked" });
+			const { actor, gate } = await authorizeRead(tx, ctx);
+			// The gate row is always present, so a refused reader and an unlinked one stay distinct.
+			const r = await tx.execute(sql`SELECT g.allowed,p.id FROM (SELECT ${gate} AS allowed) g
+ LEFT JOIN person p ON g.allowed AND p.tenant_id=${ctx.selected.id}::uuid AND p.linked_account_id=${actor.accountId}::uuid
+ AND p.state='live'`);
+			const row = z.object({ allowed: z.boolean(), id: z.uuid().nullable() }).parse(r.rows[0]);
+			if (!row.allowed) deny();
+			return c.accountLinkResult.parse(row.id ? { status: "linked", personId: row.id } : { status: "unlinked" });
 		});
 	},
 	async getStatusWarnings(tx, ctx, raw) {
 		return readReply(async () => {
 			if (ctx.selected.kind !== "plant") deny();
 			const input = parse(c.personRequest, raw);
-			const a = await authorize(tx, ctx);
-			const p = await person(tx, ctx, input.personId);
-			await canReadPerson(tx, ctx, p, a);
+			const { actor, gate } = await authorizeRead(tx, ctx);
+			const p = await person(tx, ctx, input.personId, gate);
+			await canReadPerson(tx, ctx, p, actor);
 			// One read, no locks: the dialog needs three booleans, the review revision and the open duties.
 			const result = await tx.execute(sql`SELECT pl.material_revision::text AS review,
       EXISTS(SELECT FROM interview i WHERE i.person_id=${p.id} AND i.plant_id=${ctx.selected.id}) AS interview,
@@ -159,7 +160,8 @@ export const peopleReader: PeopleReader<Tx> = {
       coalesce((SELECT jsonb_agg(jsonb_build_object('id',t.id,'revision',t.revision::text) ORDER BY t.id) FROM task t
         WHERE t.plant_id=${ctx.selected.id} AND (t.person_id=${p.id} OR t.assignee_id=${p.linked_account_id}::uuid)
         AND t.deleted_at IS NULL AND t.status NOT IN ('complete','no_longer_needed')),'[]'::jsonb) AS duties
-      FROM plant pl WHERE pl.id=${ctx.selected.id}`);
+      FROM plant pl WHERE pl.id=${ctx.selected.id} AND ${gate}`);
+			if (!result.rows[0]) deny();
 			const row = warningsRow.parse(result.rows[0]);
 			return c.statusWarningsResult.parse({
 				personId: p.id,
@@ -180,7 +182,7 @@ export const peopleReader: PeopleReader<Tx> = {
 		return readReply(async () => {
 			const input = parse(c.listPeopleRequest, raw);
 			if (ctx.selected.kind !== "plant") deny();
-			await authorize(tx, ctx);
+			const { gate } = await authorizeRead(tx, ctx);
 			// The page read takes all five columns; "Show more" names one and reads only that one.
 			const columns: readonly z.infer<typeof c.pipelineColumn>[] = input.column
 				? [input.column]
@@ -188,10 +190,14 @@ export const peopleReader: PeopleReader<Tx> = {
 			const stages = columns.flatMap((column) =>
 				input.stages.length ? input.stages.filter((s) => columnStages(column).includes(s)) : columnStages(column),
 			);
-			const revisions = await tx
-				.select({ column: tables.people_column.column_name, revision: tables.people_column.revision })
-				.from(tables.people_column)
-				.where(eq(tables.people_column.plant_id, ctx.selected.id));
+			// The gate row is always present, so a refused reader and a church without saved columns stay distinct.
+			const saved = await tx.execute(sql`SELECT g.allowed,pc.column_name AS column,pc.revision::text AS revision
+ FROM (SELECT ${gate} AS allowed) g LEFT JOIN people_column pc ON g.allowed AND pc.plant_id=${ctx.selected.id}::uuid`);
+			if (saved.rows[0]?.allowed !== true) deny();
+			const revisions = z
+				.array(z.object({ column: z.string().nullable(), revision: z.string().nullable() }))
+				.parse(saved.rows)
+				.filter((r) => r.column !== null);
 			// One window over every read column: each row carries its column, its rank in that column and the column total.
 			const column = sql<string>`CASE WHEN ${tables.person.stage} IN ('core_group','launch_team','leader') THEN 'core_group' ELSE ${tables.person.stage} END`;
 			const window = tx
@@ -204,7 +210,7 @@ export const peopleReader: PeopleReader<Tx> = {
 					total: sql<number>`(count(*) OVER (PARTITION BY ${column}))::int`.as("total"),
 				})
 				.from(tables.person)
-				.where(and(...peopleFilters(ctx, { ...input, archived: "exclude", stages })))
+				.where(and(...peopleFilters(ctx, { ...input, archived: "exclude", stages }, gate)))
 				.as("w");
 			const offset = (input.page - 1) * input.limit,
 				last = offset + input.limit;
@@ -220,6 +226,7 @@ export const peopleReader: PeopleReader<Tx> = {
 				tx,
 				ctx,
 				rows.filter((r) => r.rank > offset && r.rank <= last).map((r) => personRow.parse(r)),
+				gate,
 			);
 			const projected = new Map<string, (typeof people)[number]>(people.map((p) => [p.id, p]));
 			const groups = c.pipelineColumn.options.map((name) => {
@@ -268,7 +275,7 @@ export const peopleReader: PeopleReader<Tx> = {
 						.from(tables.person)
 						.innerJoin(plant_p, eq(plant_p.id, tables.person.plant_id))
 						.innerJoinLateral(duties, sql`true`)
-						.where(and(eq(tables.person.plant_id, ctx.selected.id), inArray(tables.person.id, ids)))
+						.where(and(eq(tables.person.plant_id, ctx.selected.id), inArray(tables.person.id, ids), gate))
 						.orderBy(asc(duties.id))
 				: [];
 			const byPerson = new Map<string, typeof tasks>();
@@ -303,22 +310,22 @@ export const peopleReader: PeopleReader<Tx> = {
 		return readReply(async () => {
 			if (ctx.selected.kind !== "plant") deny();
 			const input = parse(c.activityRequest, raw);
-			const a = await authorize(tx, ctx);
-			const p = await person(tx, ctx, input.personId);
-			await canReadPerson(tx, ctx, p, a);
-			return activities(tx, ctx, p, input);
+			const { actor, gate } = await authorizeRead(tx, ctx);
+			const p = await person(tx, ctx, input.personId, gate);
+			await canReadPerson(tx, ctx, p, actor);
+			return activities(tx, ctx, p, input, gate);
 		});
 	},
 };
 /** One statement: notes, audit events and follow-ups in one window, with the actor account joined for attribution. */
-async function activities(tx: Tx, ctx: Context, p: Person, input: z.infer<typeof c.activityRequest>) {
+async function activities(tx: Tx, ctx: Context, p: Person, input: z.infer<typeof c.activityRequest>, gate: SQL) {
 	const result = await tx.execute(sql`SELECT a.*,EXISTS(SELECT FROM account WHERE id=a.actor_id) AS actor_exists FROM (
       SELECT id,occurred_at,recorded_at,author_id AS actor_id,revision,body,edited_at,removed_at,'note' AS category,'note' AS kind,NULL::text AS action,NULL::jsonb AS before_value,NULL::jsonb AS after_value,NULL::uuid AS obligation_id,NULL::text AS outcome FROM person_note WHERE tenant_id=${sql.param(ctx.selected.id)} AND person_id=${sql.param(p.id)}
       UNION ALL
       SELECT id,occurred_at,recorded_at,actor_id,after_revision AS revision,NULL,NULL,NULL,'activity',CASE WHEN action='people.stage_changed' THEN 'stage_changed' WHEN coalesce(before_value ? 'membership' OR after_value ? 'membership',false) THEN 'household_changed' ELSE 'activity' END,action,CASE WHEN action='people.stage_changed' AND NOT coalesce(before_value ? 'stage',false) THEN jsonb_build_object('stage',(SELECT prev.after_value->'stage' FROM audit_event prev WHERE prev.subject_id=h.subject_id AND prev.tenant_id=h.tenant_id AND prev.after_revision<=h.after_revision AND prev.after_value ? 'stage' ORDER BY prev.after_revision DESC,prev.occurred_at DESC,prev.id DESC LIMIT 1)) ELSE before_value END,CASE WHEN action='people.stage_changed' AND NOT coalesce(after_value ? 'stage',false) THEN jsonb_build_object('stage',(SELECT prev.after_value->'stage' FROM audit_event prev WHERE prev.subject_id=h.subject_id AND prev.tenant_id=h.tenant_id AND prev.after_revision<=h.after_revision AND prev.after_value ? 'stage' ORDER BY prev.after_revision DESC,prev.occurred_at DESC,prev.id DESC LIMIT 1)) ELSE after_value END,NULL,NULL FROM audit_event h WHERE metadata->>'category' IS DISTINCT FROM 'note' AND kind<>'noop' AND tenant_id=${sql.param(ctx.selected.id)} AND subject_id=${sql.param(p.id)} AND action IN ('people.created','people.updated','people.retired','people.restored','people.stage_changed','people.recorded','people.corrected')
       UNION ALL
       SELECT id,occurred_at,recorded_at,(SELECT actor_id FROM audit_event WHERE subject_id=contact_outcome.id ORDER BY recorded_at,id LIMIT 1),revision,NULL,NULL,NULL,'follow_up','follow_up',NULL,NULL,NULL,obligation_id,outcome FROM contact_outcome WHERE plant_id=${sql.param(ctx.selected.id)} AND person_id=${sql.param(p.id)} AND voided_at IS NULL
-    ) a WHERE category=ANY(${sql.param(input.kinds ?? ["note", "activity", "follow_up"])}) ORDER BY occurred_at,id LIMIT ${sql.param(input.limit + 1)} OFFSET ${sql.param((input.page - 1) * input.limit)}`);
+    ) a WHERE ${gate} AND category=ANY(${sql.param(input.kinds ?? ["note", "activity", "follow_up"])}) ORDER BY occurred_at,id LIMIT ${sql.param(input.limit + 1)} OFFSET ${sql.param((input.page - 1) * input.limit)}`);
 	const rows = result.rows.slice(0, input.limit).map((row) => activityRow.parse(row)),
 		items = [];
 	const actions: Record<string, string> = {
@@ -386,13 +393,13 @@ async function activities(tx: Tx, ctx: Context, p: Person, input: z.infer<typeof
 export async function readPersonPage(tx: Tx, ctx: Context, raw: unknown, limit: number) {
 	return readReply(async () => {
 		const input = parse(c.personRequest, raw);
-		const a = await authorize(tx, ctx);
-		const p = await person(tx, ctx, input.personId);
-		await canReadPerson(tx, ctx, p, a);
-		const found = c.personResult.parse({ status: "available", person: await project(tx, ctx, p) });
+		const { actor, gate } = await authorizeRead(tx, ctx);
+		const p = await person(tx, ctx, input.personId, gate);
+		await canReadPerson(tx, ctx, p, actor);
+		const found = c.personResult.parse({ status: "available", person: await project(tx, ctx, p, gate) });
 		const feed =
 			ctx.selected.kind === "plant"
-				? await activities(tx, ctx, p, parse(c.activityRequest, { personId: p.id, limit, page: 1 }))
+				? await activities(tx, ctx, p, parse(c.activityRequest, { personId: p.id, limit, page: 1 }), gate)
 				: null;
 		const link = c.accountLinkResult.parse(
 			p.linked_account_id ? { status: "linked", personId: p.id } : { status: "unlinked" },
@@ -408,9 +415,9 @@ export async function readPersonPage(tx: Tx, ctx: Context, raw: unknown, limit: 
 export async function getAccountLink(tx: Tx, ctx: Context, raw: unknown) {
 	return readReply(async () => {
 		const input = parse(c.personRequest, raw);
-		const a = await authorize(tx, ctx);
-		const p = await person(tx, ctx, input.personId);
-		await canReadPerson(tx, ctx, p, a);
+		const { actor, gate } = await authorizeRead(tx, ctx);
+		const p = await person(tx, ctx, input.personId, gate);
+		await canReadPerson(tx, ctx, p, actor);
 		return c.accountLinkResult.parse(
 			p.linked_account_id ? { status: "linked", personId: p.id } : { status: "unlinked" },
 		);
