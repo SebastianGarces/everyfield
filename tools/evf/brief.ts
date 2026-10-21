@@ -15,7 +15,8 @@ import {
 	type Case,
 	type TaskRef,
 } from "./lib.ts";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { maintenanceScope } from "./policy.ts";
 import { producerReady } from "./progress.ts";
 import { renderFeedbackBrief } from "./feedback.ts";
@@ -46,6 +47,7 @@ export function renderBrief(root: string, task: TaskRef, opts: { uiTier?: string
 		...(task.part === "api" && contractPathsOf(pkg).length
 			? [`Contract first: build ${contractPathsOf(pkg).join(", ")} before the server work that uses it.`]
 			: []),
+		...(pathsForPart(pkg, task.part).some((path) => !isUiPath(path)) ? [budget(root)] : []),
 		`Acceptance cases:\n${pkg.acceptance_gates.map((gate, index) => `${index + 1}. ${gate}`).join("\n")}`,
 		`Proof stage: ${pkg.context_scope.proof_stage}`,
 		`Integration and bounded ownership: ${pkg.integration_rule}`,
@@ -91,6 +93,17 @@ export function renderBrief(root: string, task: TaskRef, opts: { uiTier?: string
 	if (opts.full) for (const id of context.acceptance_ids) L.push(renderAc(root, id));
 	return L.join("\n\n");
 }
+/** The recorded budget, read from patterns.md so the brief never restates it (D69, D70, 2026-10-19 budget ruling). */
+function budget(root: string): string {
+	const rule = /^## Performance\n\n(.+)$/m.exec(readFileSync(join(root, "docs/architecture/patterns.md"), "utf8"))?.[1];
+	if (!rule) fail("docs/architecture/patterns.md has no Performance rule for the brief.");
+	return [
+		"Performance budget (docs/architecture/patterns.md, D69, D70):",
+		rule,
+		"Before the PR opens, add a statement-count test at the production boundary for each new write and page read (test-standard), and measure the changed actions on a production build.",
+	].join("\n");
+}
+
 export function renderAc(root: string, id: string): string {
 	const { registry, requirements, cases } = currentCatalog(root);
 	if (cases.has(id)) return renderCase(cases.get(id)!);

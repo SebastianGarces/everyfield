@@ -161,7 +161,7 @@ export function taskStart(
 	// An OPS registration is reviewed on its own branch, so it can be checked only once the worktree exists.
 	if (task.kind === "ops") requireTaskScope(root, wt, task);
 
-	if (task.kind !== "ops" && existsSync(join(wt, "package.json"))) {
+	if (existsSync(join(wt, "package.json"))) {
 		const result = run("corepack", ["pnpm", "install", "--frozen-lockfile"], { cwd: wt, inherit: true });
 		if (result.code !== 0)
 			fail(
