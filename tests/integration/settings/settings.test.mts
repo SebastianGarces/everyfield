@@ -19,7 +19,7 @@ import { createOnboardingProducer } from "../../../packages/domain/src/onboardin
 import { enqueueJob, queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
-import { currentActor } from "../../../packages/domain/src/access/session.ts";
+import { currentActor, readViewer } from "../../../packages/domain/src/access/session.ts";
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
 const ci =
 	process.env.CI === "true" &&
@@ -1410,4 +1410,84 @@ test("INV-settings-preview: expiry is checked independently from actor, subject,
 		),
 	);
 	assert.deepEqual(saved.preference, { status: "confirmed", timeZone: "UTC", revision: "2" });
+});
+
+let recording = false;
+const statements = [];
+/** One section read the way the settings mount runs it, with every statement the database receives. */
+async function mountRead(a, request) {
+	const viewer = await readViewer(db, a.session);
+	const self = ["account", "notifications"].includes(request.section);
+	const selected = self ? { kind: "account", id: a.id } : viewer.authority.actor.context.owner;
+	statements.length = 0;
+	recording = true;
+	try {
+		const value = await db.transaction((tx) => api.getSection(tx, { session: a.session, selected }, request));
+		return { value: ok(value), statements: [...statements] };
+	} finally {
+		recording = false;
+	}
+}
+test("INV-performance: each settings section reads in one statement on the pool, without a transaction", async () => {
+	const instrumented = new WeakSet();
+	db.$client.on("acquire", (client) => {
+		if (instrumented.has(client)) return;
+		instrumented.add(client);
+		const query = client.query;
+		client.query = function (...args) {
+			if (recording) statements.push(typeof args[0] === "string" ? args[0] : args[0].text);
+			return Reflect.apply(query, this, args);
+		};
+	});
+	const f = await plant(),
+		org = await organization();
+	const [team] = await admin
+		.insert(t.team)
+		.values({ plant_id: f.p.id, name: "Worship", state: "active", sort_order: 0 })
+		.returning();
+	await admin.insert(t.affiliation).values({
+		plant_id: f.p.id,
+		organization_id: org.o.id,
+		accepted_at: new Date(),
+		share_people: true,
+		share_meetings: false,
+		share_tasks: false,
+		share_ministry_teams: false,
+		share_wiki: false,
+		share_activity: false,
+		shared_findings: false,
+		consent_revision: "1",
+		revision: "1",
+	});
+	const sharing = { plant: f.p, organization: org.o };
+	// The notifications row adds one suppression lookup in the web mount; this test's suppression list reads nothing.
+	const reads = [
+		[f.a, { section: "account" }, (v) => [v.name, v.email], ["Synthetic", f.a.user + "@example.test"]],
+		[f.a, { section: "notifications" }, (v) => [v.values.planterCadence, v.values.oversightCadence], ["weekly", null]],
+		[
+			f.a,
+			{ section: "plant", plant: f.p },
+			(v) => [v.values.profile.name, v.values.timeZone],
+			["Harvest Point", "America/Chicago"],
+		],
+		[f.a, { section: "teams", plant: f.p, teamId: team.id }, (v) => [v.name, v.revision], ["Worship", "1"]],
+		[org.a, { section: "organization", organization: org.o }, (v) => [v.values.profile.name], ["Network"]],
+		[
+			f.a,
+			{ section: "affiliations", ...sharing },
+			(v) => [v.values.view, v.values.choices.people],
+			["plant_administration", true],
+		],
+		[
+			org.a,
+			{ section: "affiliations", ...sharing },
+			(v) => [v.values.view, v.values.availability.people],
+			["organization", true],
+		],
+	];
+	for (const [a, request, observe, expected] of reads) {
+		const read = await mountRead(a, request);
+		assert.deepEqual(observe(read.value), expected, request.section);
+		assert.equal(read.statements.length, 1, `${request.section}: ${read.statements.join("\n")}`);
+	}
 });
