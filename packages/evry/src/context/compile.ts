@@ -3,7 +3,7 @@ import type { Database } from "@everyfield/db/client";
 import { generateText, Output, type ModelMessage } from "ai";
 import { z } from "zod";
 import type { Catalog } from "../catalog/catalog.ts";
-import { verifyPeople } from "../catalog/people.ts";
+import { verifyPeople } from "../adapters/people/reads/index.ts";
 import type { ConversationEvent } from "../conversations/store.ts";
 import type { EvryActor } from "./actor.ts";
 import { scrub } from "./errors.ts";

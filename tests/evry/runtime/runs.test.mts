@@ -16,7 +16,7 @@ import {
 } from "../../../packages/evry/src/index.ts";
 import { PASTORAL_BOUNDARY, compileContext, resolveReferences } from "../../../packages/evry/src/context/compile.ts";
 import { readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
-import { getPerson, listPeople, verifyPeople } from "../../../packages/evry/src/catalog/people.ts";
+import { getPerson, listPeople, verifyPeople } from "../../../packages/evry/src/adapters/people/reads/index.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
 import { transientRetry, withTransientRetry } from "../../../packages/evry/src/runtime/model.ts";
@@ -114,8 +114,8 @@ test("AC:INH-CROSS-06 AC:INH-REGRESSION-BUDGET AC:EVRY-RETRY-CANCEL bounded page
 	assert.deepEqual([input.status.state, input.status.reason], ["stopped", "input_budget"]);
 	assert.ok(input.status.usage.inputTokens >= 128_000 && input.status.usage.toolCalls < 24);
 	assert.equal(input.cards.length, input.status.usage.toolCalls);
-	// Pages of 10 rows: the 24-tool budget is reached first, and the 25th read never runs.
-	const narrow = await ask(foreign, "Read every detail for all people, 10 at a time.");
+	// Pages of 5 rows: the 24-tool budget is reached first, and the 25th read never runs.
+	const narrow = await ask(foreign, "Read every detail for all people, 5 at a time.");
 	assert.equal(await work(), "succeeded");
 	const budget = await events(foreign, narrow);
 	assert.equal(budget.cards.length, 24);
@@ -151,16 +151,29 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 	assert.equal(await work(), "succeeded");
 	assert.match((await events(seatless, none)).text, /no application reads available/);
 	// No catalog offers direct writes, approvals, code, private care or coach tools to any context. Only a plant Owner or
-	// Admin may propose the reviewed People change, the same floor as the native command.
+	// Admin may propose the reviewed People changes, the same floor as the native commands.
 	for (const who of ["owner", "member", "orgOwner", "seatless"] as const) {
 		const catalog = readCatalog(await actor(who));
 		const operations = catalog.domains.flatMap((d) => d.operations.map((o) => o.operation));
 		assert.deepEqual(
 			catalog.reviewedWrites.map((w) => w.operation),
-			who === "owner" ? ["people.updatePerson"] : [],
+			who === "owner"
+				? [
+						"people.createPerson",
+						"people.updatePerson",
+						"people.changeStatus",
+						"people.deletePerson",
+						"people.setPersonPhoto",
+						"people.removePersonPhoto",
+					]
+				: [],
 		);
-		assert.ok(operations.every((o) => o === "people.listPeople" || o === "people.getPerson"));
-		assert.equal(operations.length, who === "owner" || who === "member" ? 2 : 0);
+		assert.deepEqual(
+			operations,
+			who === "owner" || who === "member"
+				? ["people.listPeople", "people.getPerson", "people.getPersonPhoto", "people.checkForDuplicates"]
+				: [],
+		);
 	}
 });
 

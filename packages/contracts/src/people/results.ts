@@ -242,3 +242,20 @@ export const peopleError = z.discriminatedUnion("code", [
 	defineSafeError("source_unavailable", {}, "same_request"),
 	...csvError,
 ]);
+/** Duplicate hints: an exact hint shares an email or phone, a potential hint only a name. Never proof of identity. */
+export const duplicateHints = z.strictObject({
+	items: z
+		.array(
+			z.strictObject({
+				personId,
+				displayName: z.string(),
+				match: z.enum(["exact", "potential"]),
+				signals: z
+					.array(z.enum(["email", "phone", "name"]))
+					.min(1)
+					.max(3),
+			}),
+		)
+		.max(25),
+	completeness: z.enum(["complete", "partial"]),
+});
