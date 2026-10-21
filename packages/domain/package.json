@@ -25,7 +25,7 @@
 		"test:identity:production": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/identity/timing.production.mts",
 		"test:organizations": "node --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/organizations/*.test.mts",
 		"test:access": "node --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/access/*.test.mts",
-		"test:people": "node --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/people/*.test.mts",
+		"test:people": "node --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/people/*.test.mts ../../tests/integration/people/fields/*.test.mts",
 		"test:meetings": "node --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/meetings/*.test.mts",
 		"test:db": "pnpm test:writes",
 		"test:onboarding": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/onboarding/*.test.mts",

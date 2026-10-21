@@ -1817,6 +1817,7 @@
 			"person": ["WP-004", "WP-011", "WP-012"],
 			"person_tag_definition": ["WP-004", "WP-013"],
 			"person_tag": ["WP-004", "WP-013"],
+			"person_skill": ["WP-004", "WP-012"],
 			"person_interview": ["WP-004", "WP-014"],
 			"person_commitment": ["WP-004", "WP-014"],
 			"person_activity": ["WP-004", "WP-014"],
@@ -1978,6 +1979,20 @@
 				"privacy_policy": "No transfer of account grants, private reading/documents/care or staff-note visibility.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
 				"future_case_ids": ["ADR1-001", "ADR1-005", "ADR1-017"]
+			},
+			{
+				"table": "person_skill",
+				"columns": ["person_id", "plant_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-004", "WP-012"],
+				"meaning": "Current relation with immutable original provenance",
+				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
+				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
+				"inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
+				"retirement_policy": "No new current references to retired or merged Persons; historical evidence remains under current permission.",
+				"privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
+				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
+				"future_case_ids": ["SCHEMA-009", "SCHEMA-010"]
 			},
 			{
 				"table": "person_tag",
@@ -5013,6 +5028,80 @@
 			},
 			"foreignKeys": {
 				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"id,plant_id->record(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				}
+			}
+		},
+		"person_skill": {
+			"table": {
+				"name": "person_skill",
+				"domain": "people",
+				"purpose": "Recorded skill and closed proficiency without inferred qualification.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-024"],
+				"replaces": ["person_skill"],
+				"producer_work_packages": ["WP-004", "WP-012"],
+				"producer_derivation": {
+					"old_target_tables": ["person_skill"],
+					"rule": "Union of producer packages of replaced tables."
+				},
+				"feature_ids": ["PPL-011"],
+				"acceptance_ids": ["AC-PPL-011--PPL-011"],
+				"future_case_ids": ["GAP-PPL-011", "TARGET-PPL-011"],
+				"scope": "people",
+				"invariants": [
+					"Category/proficiency values are closed and nullable clears are explicit.",
+					"Removing a skill deletes its current row; the audit record keeps its history. A skill cannot rewrite human interview testimony."
+				],
+				"revision": "Expected revision fences mutable updates; meaningful writes advance it atomically.",
+				"idempotency": "Replay and no-op behavior follow the named native producer and its exact receipt/unique-key contract. Private care remains isolated from shared operation receipts.",
+				"deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"plant_id": {
+					"note": ""
+				},
+				"person_id": {
+					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
+				},
+				"name": {
+					"note": ""
+				},
+				"category": {
+					"note": ""
+				},
+				"proficiency": {
+					"note": ""
+				},
+				"notes": {
+					"note": ""
+				},
+				"revision": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"person_id,plant_id->person(id,tenant_id)": {
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
@@ -12112,6 +12201,7 @@
 						"passage",
 						"person",
 						"person_note",
+						"person_skill",
 						"phase_transition",
 						"pipeline_person",
 						"pipeline_sharing",
@@ -15593,6 +15683,173 @@
 					"deletion": {
 						"action": "restrict",
 						"policy": "Dependency-ordered owner cleanup or witnessed attribution scrubbing; no retained private body or new retention exemption."
+					}
+				}
+			}
+		},
+		"conversation": {
+			"table": {
+				"name": "conversation",
+				"domain": "assistant",
+				"purpose": "Private Evry conversation of one initiating account in one exact account, plant or organization context.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-C-027", "CAP-C-033"],
+				"replaces": [],
+				"producer_work_packages": ["WP-051"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-051"],
+					"rule": "WP-051 Evry conversation storage through Drizzle Kit."
+				},
+				"feature_ids": ["EVR-005", "EVR-008", "EVR-016", "EVR-021", "EVR-029", "EVR-031"],
+				"acceptance_ids": [],
+				"future_case_ids": [],
+				"scope": "assistant",
+				"invariants": [
+					"Only the initiating account in the same exact context reads or writes it; others see no existence.",
+					"At most one active run (assistant_turn job) at a time."
+				],
+				"revision": "Append-only ordered events; one active run per conversation through active_turn_id.",
+				"idempotency": "A submitted message's request key is unique per conversation; a retry returns the saved turn.",
+				"deletion": "Account or tenant purge removes the conversation and its events; no other owner inherits them.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"tenant_id": {
+					"note": ""
+				},
+				"account_id": {
+					"note": ""
+				},
+				"context_kind": {
+					"note": ""
+				},
+				"title": {
+					"note": ""
+				},
+				"last_sequence": {
+					"note": ""
+				},
+				"active_turn_id": {
+					"note": ""
+				},
+				"active_session_id": {
+					"note": ""
+				},
+				"created_at": {
+					"note": ""
+				},
+				"updated_at": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"tenant_id->tenant(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Account or tenant purge removes the private conversation before its owner rows. A conversation never transfers to another account."
+					}
+				},
+				"account_id->account(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Account or tenant purge removes the private conversation before its owner rows. A conversation never transfers to another account."
+					}
+				},
+				"active_session_id->auth_session(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Signing out clears the run session; the turn then stops at its next authority check."
+					}
+				},
+				"active_turn_id,tenant_id->job(id,tenant_id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "The run pointer clears when the run ends or is cancelled; owner purge deletes conversations before jobs."
+					}
+				}
+			}
+		},
+		"conversation_event": {
+			"table": {
+				"name": "conversation_event",
+				"domain": "assistant",
+				"purpose": "Ordered saved record of one conversation: submitted messages, assistant text, source-bound result cards and run states. Replay reads only these rows.",
+				"library_owned": false,
+				"jsonb_keys": {
+					"body": ["text", "tool", "operation", "result", "state", "reason", "usage", "error", "references"]
+				},
+				"capabilities": ["CAP-C-027", "CAP-C-028", "CAP-C-033"],
+				"replaces": [],
+				"producer_work_packages": ["WP-051"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-051"],
+					"rule": "WP-051 Evry conversation storage through Drizzle Kit."
+				},
+				"feature_ids": [
+					"EVR-005",
+					"EVR-006",
+					"EVR-008",
+					"EVR-009",
+					"EVR-010",
+					"EVR-016",
+					"EVR-020",
+					"EVR-021",
+					"EVR-024",
+					"EVR-029",
+					"EVR-031"
+				],
+				"acceptance_ids": [],
+				"future_case_ids": [],
+				"scope": "assistant",
+				"invariants": [
+					"Workers append only while they hold the run's current job lease.",
+					"Private care, credentials and storage keys never enter a body."
+				],
+				"revision": "Append-only ordered events; one active run per conversation through active_turn_id.",
+				"idempotency": "A submitted message's request key is unique per conversation; a retry returns the saved turn.",
+				"deletion": "Account or tenant purge removes the conversation and its events; no other owner inherits them.",
+				"physical_verified": false
+			},
+			"columns": {
+				"conversation_id": {
+					"note": ""
+				},
+				"sequence": {
+					"note": ""
+				},
+				"turn_id": {
+					"note": ""
+				},
+				"kind": {
+					"note": ""
+				},
+				"body": {
+					"note": ""
+				},
+				"request_key": {
+					"note": ""
+				},
+				"created_at": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"conversation_id->conversation(id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Events go with their conversation."
+					}
+				},
+				"turn_id->job(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Events go with their conversation, which owner purge deletes before jobs."
 					}
 				}
 			}

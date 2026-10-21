@@ -2882,6 +2882,58 @@ export const person_note = pgTable(
 		index("person_note_ref_5").using("btree", table.tenant_id.asc().nullsLast()),
 	],
 );
+export const person_skill = pgTable(
+	"person_skill",
+	{
+		id: uuid("id")
+			.notNull()
+			.default(sql`gen_random_uuid()`),
+		plant_id: uuid("plant_id").notNull(),
+		person_id: uuid("person_id").notNull(),
+		name: text("name").notNull(),
+		category: text("category", {
+			enum: ["worship", "tech", "admin", "teaching", "hospitality", "leadership", "other"],
+		}).notNull(),
+		proficiency: text("proficiency", { enum: ["beginner", "intermediate", "advanced", "expert"] }),
+		notes: text("notes"),
+		revision: int64("revision")
+			.notNull()
+			.default(sql`1`),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({ name: "person_skill_fk_0", columns: [table.plant_id], foreignColumns: [plant.id] })
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "person_skill_fk_1",
+			columns: [table.person_id, table.plant_id],
+			foreignColumns: [person.id, person.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "person_skill_fk_2",
+			columns: [table.id, table.plant_id],
+			foreignColumns: [record.id, record.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "person_skill_pkey", columns: [table.id] }),
+		unique("person_skill_uq_0").on(table.id, table.plant_id),
+		check("person_skill_ck_0", sql`(revision >= 1)`),
+		check(
+			"person_skill_ck_1",
+			sql`(category = ANY (ARRAY['worship'::text, 'tech'::text, 'admin'::text, 'teaching'::text, 'hospitality'::text, 'leadership'::text, 'other'::text]))`,
+		),
+		check(
+			"person_skill_ck_2",
+			sql`(proficiency = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text, 'expert'::text]))`,
+		),
+		check("person_skill_ck_3", sql`((length(btrim(name)) >= 1) AND (length(btrim(name)) <= 100))`),
+		index("person_skill_ref_0").using("btree", table.plant_id.asc().nullsLast()),
+		index("person_skill_ref_1").using("btree", table.person_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
+	],
+);
 export const person_tag = pgTable(
 	"person_tag",
 	{
@@ -4579,6 +4631,69 @@ export const settings_preview = pgTable(
 	],
 );
 
+/** One private Evry conversation of one account in one exact account, plant or organization context. */
+export const conversation = pgTable(
+	"conversation",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		tenant_id: uuid("tenant_id")
+			.notNull()
+			.references(() => tenant.id),
+		account_id: uuid("account_id")
+			.notNull()
+			.references(() => account.id),
+		context_kind: text("context_kind", {
+			enum: ["account", "plant", "sending_church", "sending_network"],
+		}).notNull(),
+		title: text("title").notNull(),
+		last_sequence: int64("last_sequence")
+			.notNull()
+			.default(sql`0`),
+		/** The assistant_turn job that is the conversation's one active run, if any. */
+		active_turn_id: uuid("active_turn_id"),
+		/** The session that submitted the active turn; the worker re-reads its authority before every read. A signed-out session clears it, which stops the turn. */
+		active_session_id: uuid("active_session_id").references(() => auth_session.id, { onDelete: "set null" }),
+		created_at: timestamp("created_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+		updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		check("conversation_title", sql`char_length(${t.title}) BETWEEN 1 AND 120`),
+		// The run is a job of the same tenant. Only the owner purge deletes jobs, after it deletes the conversations.
+		foreignKey({
+			name: "conversation_active_turn",
+			columns: [t.active_turn_id, t.tenant_id],
+			foreignColumns: [job.id, job.tenant_id],
+		}),
+		index("conversation_owner_recent").on(t.account_id, t.tenant_id, t.updated_at, t.id),
+	],
+);
+/** The saved, ordered record of a conversation: submitted messages, assistant text, source-bound results and run states. */
+export const conversation_event = pgTable(
+	"conversation_event",
+	{
+		conversation_id: uuid("conversation_id")
+			.notNull()
+			.references(() => conversation.id, { onDelete: "cascade" }),
+		sequence: int64("sequence").notNull(),
+		turn_id: uuid("turn_id").references(() => job.id),
+		kind: text("kind", { enum: ["user_message", "assistant_text", "tool_result", "status"] }).notNull(),
+		body: jsonb("body").notNull(),
+		request_key: text("request_key"),
+		created_at: timestamp("created_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "conversation_event_pkey", columns: [t.conversation_id, t.sequence] }),
+		unique("conversation_event_request").on(t.conversation_id, t.request_key),
+		check("conversation_event_body", sql`jsonb_typeof(${t.body})='object'`),
+	],
+);
+
 /** Attributable domain changes and their optional exact-request reply. Ordinary writers append only. */
 export const audit_event = pgTable(
 	"audit_event",
@@ -4616,7 +4731,7 @@ export const audit_event = pgTable(
 		check(
 			"audit_action",
 			sql.raw(
-				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.send_intended','deletion.cancelled','deletion.live_purge_completed','documents.copied','documents.saved','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.hidden','wiki.published','wiki.source_order_changed'))",
+				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.send_intended','deletion.cancelled','deletion.live_purge_completed','documents.copied','documents.saved','evry.conversation_created','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.hidden','wiki.published','wiki.source_order_changed'))",
 			),
 		),
 		check(

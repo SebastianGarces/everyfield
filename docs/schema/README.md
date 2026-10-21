@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 79 tables, 920 columns, 292 declared FKs and 15 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 82 tables, 945 columns, 301 declared FKs and 16 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -38,6 +38,8 @@ Each replaced table inherits the union of producer packages from its previous ta
 
 | New table | Ownership basis and ruling | Producers |
 |---|---|---|
+| `conversation` | WP-051 Evry conversation storage through Drizzle Kit. | WP-051 |
+| `conversation_event` | WP-051 Evry conversation storage through Drizzle Kit. | WP-051 |
 | `development_enrollment` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
 | `development_program` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
 | `development_program_version` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
@@ -136,6 +138,7 @@ This mapping is generated from `replaces`; Fix 2 uses it to align architecture, 
 | `person_attestation` | `attestation` |
 | `person_commitment` | `commitment` |
 | `person_interview` | `interview` |
+| `person_skill` | `person_skill` |
 | `person_tag` | `person_tag` |
 | `person_tag_definition` | `tag` |
 | `phase_template_offer_response` | `phase_transition` |
