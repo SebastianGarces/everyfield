@@ -106,6 +106,20 @@
       "when": 1792475097824,
       "tag": "0015_unique_pipeline_positions",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1792563195619,
+      "tag": "0016_meetings",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792563207367,
+      "tag": "0017_meetings_privileges",
+      "breakpoints": true
     }
   ]
 }
