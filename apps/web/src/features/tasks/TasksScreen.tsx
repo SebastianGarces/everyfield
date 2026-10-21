@@ -38,7 +38,8 @@ import { KeyValue, KeyValueList, Pagination, StatusBadge } from "@everyfield/ui/
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
-import { changeTaskStatus, deleteTask, loadTask, type StatusAction } from "./actions.ts";
+import { changeTaskStatus, deleteTask, type StatusAction } from "./actions.ts";
+import { loadTask } from "./fetch.ts";
 import {
 	CATEGORIES,
 	CATEGORY_LABEL,
@@ -568,7 +569,13 @@ function TaskRow({
 			</div>
 			<Assignee task={task} you={you} />
 			{canAct ? (
-				<Menu>
+				<Menu
+					onOpenChange={(open) => {
+						if (!open) return;
+						onWarm();
+						if (admin) warmAssignees();
+					}}
+				>
 					<MenuTrigger asChild>
 						<IconButton icon={MoreHorizontalIcon} label={`More for ${task.title}`} size="sm" />
 					</MenuTrigger>

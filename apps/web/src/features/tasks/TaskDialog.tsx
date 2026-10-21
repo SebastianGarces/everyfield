@@ -20,7 +20,8 @@ import {
 import { Icon } from "@everyfield/ui/foundations";
 import { Alert02Icon } from "@hugeicons/core-free-icons";
 import { useEffect, useRef, useState } from "react";
-import { assigneeOptions, createTask, editTask, relationOptions } from "./actions.ts";
+import { createTask, editTask } from "./actions.ts";
+import { assigneeOptions, relationOptions } from "./fetch.ts";
 import {
 	CATEGORIES,
 	CATEGORY_LABEL,
@@ -82,7 +83,9 @@ function draftOf(task: TaskDetail | null, viewer: Viewer): Draft {
 	};
 }
 
-// The church's seats change rarely, so one read serves the dialog until it closes. Intent on New task starts it.
+// The church's seats change rarely, so one read serves every dialog on this page; a failed read is tried again on the
+// next open. Intent on New task or a row's menu starts it, so a save never waits behind it (Next runs one action at a
+// time).
 let seats: ReturnType<typeof assigneeOptions> | null = null;
 export const warmAssignees = () => (seats ??= assigneeOptions().catch(() => ({ status: "lost" }) as const));
 
@@ -160,8 +163,6 @@ function Form({
 		: touched && !due.ok && due.field === "time"
 			? "Pick a time."
 			: null;
-
-	useEffect(() => () => void (seats = null), []);
 
 	async function submit(event: React.FormEvent) {
 		event.preventDefault();

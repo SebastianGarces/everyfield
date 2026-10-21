@@ -1,12 +1,12 @@
 "use server";
 
 import * as c from "@everyfield/contracts/tasks";
-import { taskReader } from "@everyfield/domain/tasks";
 import type { z } from "zod";
-import type { Outcome, Saved, TaskDetail, TaskHistory } from "./model.ts";
-import { loadTask as readTask, read, reader, taskViewer, write, type TaskViewer } from "./server.ts";
+import type { Outcome, Saved } from "./model.ts";
+import { taskViewer, write, type TaskViewer } from "./server.ts";
 
-// Server actions behind the Tasks screens: the browser boundary. Each one rebuilds the viewer from the request and
+// Server actions behind the Tasks screens' writes: the browser boundary. Reads go through read.ts, a GET handler, because
+// Next runs one server action at a time and a read must never hold up a save. Each one rebuilds the viewer from the request and
 // parses the browser's input with the WP-024 contract, whose strict schemas refuse any owner, creator or authority
 // field. The writer then rechecks authority inside its statement. A lost answer may be retried with the same request
 // key: the writer replays a write that did commit instead of acting twice.
@@ -104,36 +104,4 @@ export async function changeTaskStatus(
 		default:
 			return invalid;
 	}
-}
-
-/** A task with its first history page, for the detail panel. */
-export async function loadTask(taskId: string): Promise<Outcome<{ task: TaskDetail; history: TaskHistory | null }>> {
-	return boundary(c.getTaskRequest, { taskId }, (v, request) => read(v, (tx) => readTask(tx, v, request.taskId)));
-}
-
-export async function loadHistory(taskId: string, page: number): Promise<Outcome<TaskHistory>> {
-	return boundary(c.statusHistoryRequest, { taskId, page, limit: 50 }, (v, request) =>
-		read(v, (tx) => reader.history(tx, v, request.taskId, request.page)),
-	);
-}
-
-export async function assigneeOptions(): Promise<Outcome<z.infer<typeof c.assigneeOptions>>> {
-	const v = await taskViewer();
-	if (!v) return denied;
-	return read(v, async (tx) => {
-		const r = await taskReader.eligibleAssignees(tx, v.authority);
-		return r.status === "ok" ? { status: "ok", value: r.value } : { status: "refused", code: r.error.code };
-	});
-}
-
-export async function relationOptions(
-	kind: unknown,
-	search: unknown,
-): Promise<Outcome<z.infer<typeof c.relationOptions>>> {
-	return boundary(c.relationOptionsRequest, { kind, search }, (v, request) =>
-		read(v, async (tx) => {
-			const r = await taskReader.relationOptions(tx, v.authority, request);
-			return r.status === "ok" ? { status: "ok", value: r.value } : { status: "refused", code: r.error.code };
-		}),
-	);
 }

@@ -6,7 +6,8 @@ import { KeyValue, KeyValueList, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { useState } from "react";
 import { PersonLink, When } from "../people/parts.tsx";
-import { loadHistory, type StatusAction } from "./actions.ts";
+import type { StatusAction } from "./actions.ts";
+import { loadHistory } from "./fetch.ts";
 import {
 	CATEGORY_LABEL,
 	isSettled,
