@@ -1,7 +1,7 @@
 // The Evry panel's core loop on a seeded preview (WP-051/ui), in both engines at phone width. It needs the People seed
 // (tests/ui/people/seed.mts) and a preview started with EVRY_SCRIPTED_MODEL=1 in its apps/web/.env.local.
 //   AC:UI45-005 AC:EVRY-RETRY-CANCEL INV-request-key: a message whose reply is lost after the server saved it is sent
-//     again with the same key and saved once; the streamed result card follows; Esc returns focus to Ask Evry and
+//     again with the same key and saved once, and focus stays in the composer (BUG #197 F2); the streamed card follows; Esc returns focus to Ask Evry and
 //     Ctrl+J reopens the same conversation.
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -41,6 +41,8 @@ for (const [engine, launcher] of ENGINES)
 				const card = panel.getByRole("region", { name: "People, 1 person" });
 				await card.getByRole("link", { name: /Maria Santos/ }).waitFor({ timeout: 30_000 });
 
+				// The Send again button is gone once the message is saved; focus stays in the composer, not on <body>.
+				assert.equal(await box.evaluate((el) => el === document.activeElement), true);
 				assert.equal(keys.length, 2);
 				assert.equal(keys[0], keys[1]);
 				const saved = await page.evaluate(

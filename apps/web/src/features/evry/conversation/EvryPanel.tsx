@@ -272,7 +272,15 @@ function Chat({ c, onEdit, focusComposer }: { c: Model; onEdit: (send: Send) => 
 					/>
 				))}
 				{state.sends.map((s) => (
-					<SendView key={s.key} send={s} onResend={() => c.resend(s)} onEdit={() => onEdit(s)} />
+					<SendView
+						key={s.key}
+						send={s}
+						onResend={() => {
+							c.resend(s);
+							focusComposer();
+						}}
+						onEdit={() => onEdit(s)}
+					/>
 				))}
 			</ol>
 			{c.stream === "reconnecting" ? (
@@ -284,7 +292,14 @@ function Chat({ c, onEdit, focusComposer }: { c: Model; onEdit: (send: Send) => 
 				<div role="alert" className="flex items-center gap-3 rounded-md bg-surface-2 px-4 py-3 text-sm text-text-2">
 					<Icon icon={WifiDisconnected01Icon} size={16} className="flex-none text-text-3" />
 					<span className="flex-1">The connection to Evry was lost. Evry keeps working on the answer.</span>
-					<Button size="sm" variant="outline" onClick={c.reconnect}>
+					<Button
+						size="sm"
+						variant="outline"
+						onClick={() => {
+							c.reconnect();
+							focusComposer();
+						}}
+					>
 						Reconnect
 					</Button>
 				</div>

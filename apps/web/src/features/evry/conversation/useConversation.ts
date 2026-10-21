@@ -61,11 +61,14 @@ export type Load = "idle" | "loading" | "ready" | "failed";
 /** live: following a run · reconnecting: the browser is reconnecting on its own · lost: it gave up. */
 export type Stream = "idle" | "live" | "reconnecting" | "lost";
 
-/** Reads a whole conversation, following its event pages. */
-async function readAll(id: string): Promise<api.Reply<ReadConversation>> {
-	const first = await api.readConversation(id);
-	if (first.status !== "ok") return first;
-	const read = first.value;
+/** Reads a whole conversation from its first page, following the remaining event pages. */
+async function readAll(id: string, first?: ReadConversation): Promise<api.Reply<ReadConversation>> {
+	let read = first;
+	if (!read) {
+		const r = await api.readConversation(id);
+		if (r.status !== "ok") return r;
+		read = r.value;
+	}
 	while (read.more) {
 		const next = await api.readConversation(id, read.events.at(-1)?.sequence ?? 0);
 		if (next.status !== "ok") return next;
@@ -102,7 +105,12 @@ export function useConversation(open: boolean) {
 	const reload = async () => {
 		const mine = ++shown.current;
 		setLoad("loading");
-		const r = await api.openLatest();
+		const latest = await api.openLatest();
+		// A long conversation answers in pages; the rest are read before it shows, so its newest messages are there.
+		const r =
+			latest.status === "ok" && latest.value.conversation
+				? await readAll(latest.value.conversation.id, latest.value as ReadConversation)
+				: latest;
 		if (mine !== shown.current) return;
 		if (r.status !== "ok") return setLoad("failed");
 		openState(r.value.conversation ? opened(r.value as ReadConversation) : EMPTY);
