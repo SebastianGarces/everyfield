@@ -92,6 +92,28 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 	const [reason, setReason] = useState<Reason>(null);
 	const [, startTransition] = useTransition();
 	const [status, setOptimisticStatus] = useOptimistic(data.meeting.status);
+	// The viewer's own answer shows at once in their card, their guest row and the RSVP summary; the answer confirms it
+	// or all three go back together.
+	const [view, answerOwn] = useOptimistic({ guests: data.guests, own: data.own }, (v, rsvp: Rsvp) => ({
+		guests: v.guests?.map((g) => (g.id === v.own?.guestId ? { ...g, rsvp, rsvpSource: "own" as const } : g)) ?? null,
+		own: v.own ? { ...v.own, rsvp } : null,
+	}));
+	function chooseOwn(rsvp: "confirmed" | "declined") {
+		startTransition(async () => {
+			answerOwn(rsvp);
+			const r = await saveOwnRsvp(crypto.randomUUID(), m.id, rsvp).catch(() => ({ status: "lost" }) as const);
+			if (r.status === "ok") {
+				const g = r.value.guest;
+				startTransition(() =>
+					setData((d) => ({
+						...d,
+						guests: d.guests?.map((x) => (x.id === g.id ? g : x)) ?? null,
+						own: d.own ? { ...d.own, rsvp: g.rsvp, revision: g.revision } : null,
+					})),
+				);
+			} else toast({ message: `Your answer was not saved. ${problemText(problemOf(r)!)}`, tone: "error" });
+		});
+	}
 	const m = { ...data.meeting, status };
 	const thisYear = Number(data.now.slice(0, 4));
 	const vision = m.type === "vision_meeting";
@@ -216,7 +238,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 			/>
 
 			<div className="flex flex-col gap-5">
-				{data.own ? <OwnRsvp key={data.own.revision} own={data.own} meetingId={m.id} title={m.displayTitle} /> : null}
+				{view.own ? <OwnRsvp own={view.own} title={m.displayTitle} onChoose={chooseOwn} /> : null}
 				<div
 					className={
 						vision
@@ -224,7 +246,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 							: "grid grid-cols-2 items-stretch gap-5 max-app-md:grid-cols-1"
 					}
 				>
-					<RsvpSummary guests={data.guests} />
+					<RsvpSummary guests={view.guests} />
 					{vision ? (
 						<KitCard
 							meeting={m}
@@ -252,7 +274,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 					</div>
 					<GuestList
 						meeting={m}
-						guests={data.guests}
+						guests={view.guests}
 						cards={data.cards}
 						canWrite={canWrite}
 						onGuest={(g) =>
@@ -394,7 +416,7 @@ function CardsSummary({ guests, cards }: { guests: MeetingPageData["guests"]; ca
 		);
 	const attended = new Set(guests.filter((g) => g.presence === "attended").map((g) => g.person.personId));
 	const fromAttended = cards.filter((c) => attended.has(c.personId));
-	const fromOthers = cards.length - fromAttended.length;
+	const fromOthers = cards.filter((c) => !attended.has(c.personId));
 	return (
 		<Card as="section" aria-labelledby="cards-title">
 			<CardHeader className="mb-3">
@@ -412,26 +434,17 @@ function CardsSummary({ guests, cards }: { guests: MeetingPageData["guests"]; ca
 					No cards yet. After the meeting, record each card from the guest list menu.
 				</p>
 			) : (
-				<dl className="flex flex-col">
-					{CARD_RESPONSES.map((r) => {
-						const n = cards.filter((c) => c.response === r).length;
-						return (
-							<div
-								key={r}
-								className="flex items-center justify-between gap-3 border-t border-line py-2 text-sm first:border-t-0"
-							>
-								<dt className="text-text-2">{CARD_LABEL[r]}</dt>
-								<dd className="font-semibold text-ink tabular-nums">{n}</dd>
-							</div>
-						);
-					})}
-				</dl>
+				<>
+					<Breakdown label="From attended guests" cards={fromAttended} />
+					{fromOthers.length > 0 ? (
+						<Breakdown
+							label={`From guests not recorded as attending · ${fromOthers.length}`}
+							cards={fromOthers}
+							className="mt-4"
+						/>
+					) : null}
+				</>
 			)}
-			{fromOthers > 0 ? (
-				<p className="mt-3 text-sm text-text-3">
-					{fromOthers} {fromOthers === 1 ? "card is" : "cards are"} from guests not recorded as attending.
-				</p>
-			) : null}
 		</Card>
 	);
 }
@@ -454,27 +467,45 @@ function NotesCard({ notes, hideEmpty }: { notes: string | null; hideEmpty?: boo
 	);
 }
 
+/** One response tally, every response listed, so zero counts show as zero. */
+function Breakdown({
+	label,
+	cards,
+	className,
+}: {
+	label: string;
+	cards: NonNullable<MeetingPageData["cards"]>;
+	className?: string;
+}) {
+	return (
+		<div className={className}>
+			<h3 className="mb-1 text-xs font-semibold tracking-[0.04em] text-text-3 uppercase">{label}</h3>
+			<dl className="flex flex-col">
+				{CARD_RESPONSES.map((r) => (
+					<div
+						key={r}
+						className="flex items-center justify-between gap-3 border-t border-line py-2 text-sm first:border-t-0"
+					>
+						<dt className="text-text-2">{CARD_LABEL[r]}</dt>
+						<dd className="font-semibold text-ink tabular-nums">{cards.filter((c) => c.response === r).length}</dd>
+					</div>
+				))}
+			</dl>
+		</div>
+	);
+}
+
 /** The signed-in guest's own answer (REQ-MTG-009). It shows at once; the answer confirms it or puts it back. */
 function OwnRsvp({
 	own,
-	meetingId,
 	title,
+	onChoose,
 }: {
 	own: NonNullable<MeetingPageData["own"]>;
-	meetingId: string;
 	title: string;
+	onChoose: (rsvp: "confirmed" | "declined") => void;
 }) {
-	const toast = useToast();
-	const [saved, setSaved] = useState<Rsvp>(own.rsvp);
-	const [answer, setAnswer] = useOptimistic(saved);
-	const [pending, startTransition] = useTransition();
-	const choose = (rsvp: "confirmed" | "declined") =>
-		startTransition(async () => {
-			setAnswer(rsvp);
-			const r = await saveOwnRsvp(crypto.randomUUID(), meetingId, rsvp).catch(() => ({ status: "lost" }) as const);
-			if (r.status === "ok") startTransition(() => setSaved(r.value.guest.rsvp));
-			else toast({ message: `Your answer was not saved. ${problemText(problemOf(r)!)}`, tone: "error" });
-		});
+	const answer = own.rsvp;
 	return (
 		<Card variant="callout" tone="green" as="section" aria-labelledby="own-rsvp">
 			<div className="flex flex-wrap items-center justify-between gap-4">
@@ -489,18 +520,18 @@ function OwnRsvp({
 					</p>
 				</div>
 				{own.responseAllowed ? (
-					<div className="flex flex-wrap gap-2.5" aria-busy={pending || undefined}>
+					<div className="flex flex-wrap gap-2.5">
 						<Button
 							variant={answer === "confirmed" ? "primary" : "secondary"}
 							aria-pressed={answer === "confirmed"}
-							onClick={() => choose("confirmed")}
+							onClick={() => onChoose("confirmed")}
 						>
 							Yes, I&apos;ll come
 						</Button>
 						<Button
 							variant={answer === "declined" ? "primary" : "secondary"}
 							aria-pressed={answer === "declined"}
-							onClick={() => choose("declined")}
+							onClick={() => onChoose("declined")}
 						>
 							Can&apos;t make it
 						</Button>

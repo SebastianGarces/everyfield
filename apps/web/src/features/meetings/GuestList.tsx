@@ -516,7 +516,7 @@ function AddGuestForm({
 										onChange={(e) => setContact((c) => ({ ...c, email: e.target.value }))}
 									/>
 								</Field>
-								<Field label="Phone" optional>
+								<Field label="Phone" optional hint="Country: United States (US). Change it later on their person page.">
 									<Input
 										type="tel"
 										value={contact.phone}
