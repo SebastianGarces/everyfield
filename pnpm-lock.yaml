@@ -32,6 +32,9 @@ importers:
       '@everyfield/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@everyfield/evry':
+        specifier: workspace:*
+        version: link:../../packages/evry
       '@everyfield/ui':
         specifier: workspace:*
         version: link:../../packages/ui
