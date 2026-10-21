@@ -1563,6 +1563,7 @@ export const job = pgTable(
 				"lifecycle_purge",
 				"assistant_turn",
 				"document_render",
+				"people_import",
 			],
 		}).notNull(),
 		subject_record_id: uuid("subject_record_id"),
@@ -1605,7 +1606,7 @@ export const job = pgTable(
 		check("job_ck_0", sql`(revision >= 1)`),
 		check(
 			"job_ck_1",
-			sql`(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'assessment'::text, 'reference_generation'::text, 'feedback_publication'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'document_render'::text]))`,
+			sql`(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'assessment'::text, 'reference_generation'::text, 'feedback_publication'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'document_render'::text, 'people_import'::text]))`,
 		),
 		check(
 			"job_ck_2",
@@ -4691,6 +4692,31 @@ export const conversation_event = pgTable(
 		primaryKey({ name: "conversation_event_pkey", columns: [t.conversation_id, t.sequence] }),
 		unique("conversation_event_request").on(t.conversation_id, t.request_key),
 		check("conversation_event_body", sql`jsonb_typeof(${t.body})='object'`),
+	],
+);
+
+/**
+ * One People CSV import: its frozen plan, the uploaded file the server reviewed (gzip, base64) and the rows whose last
+ * write failed. The file is cleared when the import completes; the job's deletion removes the import.
+ */
+export const person_import = pgTable(
+	"person_import",
+	{
+		id: uuid("id").notNull(),
+		tenant_id: uuid("tenant_id").notNull(),
+		job_id: uuid("job_id")
+			.notNull()
+			.references(() => job.id, { onDelete: "cascade" }),
+		actor_id: uuid("actor_id").notNull(),
+		plan: jsonb("plan").notNull(),
+		upload: text("upload"),
+		failed: jsonb("failed").notNull().default(sql`'[]'::jsonb`),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "person_import_pkey", columns: [t.id] }),
+		unique("person_import_job").on(t.job_id),
+		check("person_import_plan", sql`jsonb_typeof(${t.plan})='object'`),
+		check("person_import_failed", sql`jsonb_typeof(${t.failed})='array'`),
 	],
 );
 

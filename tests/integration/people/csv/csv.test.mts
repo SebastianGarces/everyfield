@@ -7,9 +7,11 @@ import { randomUUID, randomBytes } from "node:crypto";
 import { migrate } from "../../../../packages/db/src/schema/migrate.ts";
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import { PeopleReadContext } from "../../../../packages/domain/src/people/core.ts";
+import { claimDue, finishClaim } from "../../../../apps/web/src/server/jobs/queue.ts";
 import {
 	executeBulkImport,
 	peopleCsv as csv,
+	runPeopleImport,
 	peopleReader,
 	peopleWriter as people,
 	personFields as fields,
@@ -59,7 +61,7 @@ const preview = (text, who = 0) => read(who, (t, c) => csv.previewImport(t, c, {
 const header = "first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\n";
 const choose = (p, choice = (r) => r.suggested) =>
 	p.rows.filter((r) => r.status === "valid").map((r) => ({ row: r.row, choice: choice(r) }));
-const importFile = async (text, p, choices, requestKey = randomUUID(), who = 0) =>
+const submit = async (text, p, choices, requestKey = randomUUID(), who = 0) =>
 	executeBulkImport(db, await actor(who), {
 		requestKey,
 		file: bytes(text),
@@ -67,6 +69,23 @@ const importFile = async (text, p, choices, requestKey = randomUUID(), who = 0) 
 		reviewDigest: p.reviewDigest,
 		choices,
 	});
+// The web mount's worker: claim each due import job through the queue and run it.
+const drain = async () => {
+	for (;;) {
+		const [claim] = await claimDue(db, ["people_import"]);
+		if (!claim) return;
+		const outcome = await runPeopleImport(db, claim);
+		await db.transaction((tx) => finishClaim(tx, claim, { state: outcome === "lost" ? "failed" : "succeeded" }));
+	}
+};
+const receiptOf = (requestKey, who = 0) => read(who, (t, c) => csv.getImportReceipt(t, c, { requestKey }));
+/** Submit, let the job run, and read the receipt, as the screen does. */
+const importFile = async (text, p, choices, requestKey = randomUUID(), who = 0) => {
+	const submitted = await submit(text, p, choices, requestKey, who);
+	if (submitted.status !== "ok") return submitted;
+	await drain();
+	return receiptOf(requestKey, who);
+};
 async function person(name, input = {}) {
 	return ok(
 		await db.transaction((t) =>
@@ -211,131 +230,121 @@ test("AC:TARGET-PPL-018 the server reads the file honestly, previews duplicates 
 });
 
 test("AC:TARGET-PPL-018 a partial import names its failed rows, survives a lost reply and resumes without duplicates", async () => {
-	// Mara, Noah and Lia sit in the first, third and last batch. The third batch fails in the database.
-	const filler = (from, to) =>
-		Array.from(
-			{ length: to - from + 1 },
-			(_, i) => `Filler${from + i},Import,f${from + i}@example.test,,,,,,,,,\r\n`,
-		).join("");
+	// The literal case: Noah's row fails in the database before it commits; Mara and Lia are still saved.
 	const file =
+		"\ufeff" +
 		header +
-		'Mara,,mara.import@example.test,,,,,,,other,,"First line\r\nSecond line"\r\n' +
-		filler(2, 1000) +
+		'Mara,,mara.case@example.test,,,,,,,other,,"First line\r\nSecond line"\r\n' +
 		'Noah,,noah@example.test,,,,,,,other,,"He said ""hello"""\r\n' +
-		filler(1002, 2000) +
-		"Lia,,lia@example.test,,,,,,,website,,=1+1\r\n";
+		"Lia,,lia.case@example.test,,,,,,,website,,=1+1\r\n";
+	const failNoah = async (on) =>
+		admin.execute(
+			sql.raw(
+				on
+					? `CREATE FUNCTION ${schema}.fail_noah() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+ IF NEW.email='noah@example.test' THEN RAISE EXCEPTION 'synthetic row failure'; END IF; RETURN NEW; END $$;
+ CREATE TRIGGER fail_noah BEFORE INSERT ON ${schema}.person FOR EACH ROW EXECUTE FUNCTION ${schema}.fail_noah();`
+					: `DROP TRIGGER fail_noah ON ${schema}.person; DROP FUNCTION ${schema}.fail_noah()`,
+			),
+		);
 	const p = ok(await preview(file));
-	assert.equal(p.counts.valid, 2001);
-	const choices = choose(p),
+	const choices = [1, 2, 3].map((row) => ({ row, choice: "create" })),
 		requestKey = randomUUID();
 	const peopleBefore = await count("person");
-	await admin.execute(
-		sql.raw(`CREATE FUNCTION ${schema}.fail_noah() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
- IF NEW.email='noah@example.test' THEN RAISE EXCEPTION 'synthetic row failure'; END IF; RETURN NEW; END $$;
- CREATE TRIGGER fail_noah BEFORE INSERT ON ${schema}.person FOR EACH ROW EXECUTE FUNCTION ${schema}.fail_noah();`),
-	);
-	const step = () => importFile(file, p, choices, requestKey);
-	const steps = [];
+	const outcome = (receipt) =>
+		receipt.rows.map((r) => (r.status === "failed" ? [r.row, r.status, r.reason] : [r.row, r.status]));
+	await failNoah(true);
+	let first;
 	try {
-		for (let i = 0; i < 3; i++) steps.push(ok(await step()));
+		// The request saves the reviewed rows and returns at once; the job writes them.
+		const queued = ok(await submit(file, p, choices, requestKey));
+		assert.equal(queued.status, "in_progress");
+		assert.deepEqual(queued.remaining, [1, 2, 3]);
+		await drain();
+		// The reply is lost: the receipt read afterwards still names the failed row and why.
+		first = ok(await receiptOf(requestKey));
 	} finally {
-		await admin.execute(sql.raw(`DROP TRIGGER fail_noah ON ${schema}.person; DROP FUNCTION ${schema}.fail_noah()`));
+		await failNoah(false);
 	}
-	const byRow = (receipt) => new Map(receipt.rows.map((r) => [r.row, r]));
-	const outcome = (receipt, row) => {
-		const r = byRow(receipt).get(row);
-		return r.status === "failed" ? [row, r.status, r.reason] : [row, r.status];
-	};
-	const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
-	// Each request writes one batch; the third batch fails in the database and is named, row by row.
-	assert.deepEqual(
-		steps.map((s) => s.counts),
-		[
-			{ created: 500, skipped: 0, failed: 0, remaining: 1501 },
-			{ created: 1000, skipped: 0, failed: 0, remaining: 1001 },
-			{ created: 1000, skipped: 0, failed: 500, remaining: 1001 },
-		],
-	);
-	const failedStep = steps[2];
-	assert.equal(failedStep.status, "partial");
-	assert.deepEqual(
-		[1, 1000, 1001, 1500, 1501, 2001].map((row) => outcome(failedStep, row)),
-		[
-			[1, "created"],
-			[1000, "created"],
-			[1001, "failed", "row_write_failed"],
-			[1500, "failed", "row_write_failed"],
-			[1501, "remaining"],
-			[2001, "remaining"],
-		],
-	);
-	assert.deepEqual(failedStep.remaining, range(1001, 2001));
-	assert.equal(await count("person"), peopleBefore + 1000);
+	assert.deepEqual(outcome(first), [
+		[1, "created"],
+		[2, "failed", "row_write_failed"],
+		[3, "created"],
+	]);
+	assert.equal(first.status, "partial");
+	assert.deepEqual(first.remaining, [2]);
+	assert.deepEqual(first.counts, { created: 2, skipped: 0, failed: 1, remaining: 1 });
+	assert.equal(await count("person"), peopleBefore + 2);
 
-	// The reply is lost: the receipt still names every saved row and everything that remains.
-	const lost = ok(await read(0, (t, c) => csv.getImportReceipt(t, c, { requestKey })));
-	assert.deepEqual(lost.remaining, failedStep.remaining);
-	assert.deepEqual(
-		[1, 1001, 2001].map((row) => outcome(lost, row)),
-		[
-			[1, "created"],
-			[1001, "remaining"],
-			[2001, "remaining"],
-		],
+	// A changed review under the same key is refused; the same request retries only the unfinished row.
+	refused(
+		await submit(file, p, [{ row: 1, choice: "skip" }, ...choices.slice(1)], requestKey),
+		"review_digest_conflict",
 	);
-	assert.equal(byRow(lost).get(1).personId, byRow(failedStep).get(1).personId);
-
-	// The same request resumes only unfinished rows; a changed review under the same key is refused.
-	const changed = choices.map((c) => (c.row === 1 ? { row: 1, choice: "skip" } : c));
-	refused(await importFile(file, p, changed, requestKey), "review_digest_conflict");
-	let retry;
-	for (let i = 0; i < 5 && (!retry || retry.remaining.length); i++) retry = ok(await step());
+	const again = ok(await submit(file, p, choices, requestKey));
+	assert.equal(again.status, "in_progress");
+	assert.deepEqual(outcome(again), [
+		[1, "created"],
+		[2, "remaining"],
+		[3, "created"],
+	]);
+	await drain();
+	const retry = ok(await receiptOf(requestKey));
 	assert.equal(retry.status, "complete");
-	assert.deepEqual(retry.remaining, []);
-	assert.deepEqual(retry.counts, { created: 2001, skipped: 0, failed: 0, remaining: 0 });
-	assert.equal(retry.importId, failedStep.importId);
-	assert.equal(byRow(retry).get(1).personId, byRow(failedStep).get(1).personId);
-	assert.equal(await count("person"), peopleBefore + 2001);
-	assert.deepEqual(ok(await step()), retry);
-	assert.equal(await count("person"), peopleBefore + 2001);
-	assert.deepEqual(ok(await read(0, (t, c) => csv.getImportReceipt(t, c, { requestKey }))), retry);
+	assert.deepEqual(retry.counts, { created: 3, skipped: 0, failed: 0, remaining: 0 });
+	assert.equal(retry.importId, first.importId);
+	assert.equal(retry.rows[0].personId, first.rows[0].personId);
+	assert.equal(await count("person"), peopleBefore + 3);
+	assert.deepEqual(ok(await submit(file, p, choices, requestKey)), retry);
+	await drain();
+	assert.equal(await count("person"), peopleBefore + 3);
+	assert.equal(await count("job WHERE kind='people_import' AND state='ready'"), 0);
+	// A finished import keeps no copy of the uploaded file.
+	assert.deepEqual(await rows(sql`SELECT upload FROM person_import WHERE id=${sql.param(retry.importId)}`), [
+		{ upload: null },
+	]);
 
 	// The people hold the file's exact text, as Persons created by hand would: prospect, unknown classification.
-	const created = byRow(retry);
 	const saved = await rows(
-		sql`SELECT display_name,notes,source,stage,adult_classification,commitment_state FROM person WHERE id IN (${sql.param(created.get(1).personId)},${sql.param(created.get(1001).personId)},${sql.param(created.get(2001).personId)}) ORDER BY array_position(ARRAY['Mara','Noah','Lia'],display_name)`,
+		sql`SELECT display_name,notes,source,stage,adult_classification,commitment_state FROM person WHERE id=ANY(${sql.param(retry.rows.map((r) => r.personId))}::uuid[]) ORDER BY created_at`,
 	);
+	const plain = { stage: "prospect", adult_classification: "unknown", commitment_state: "unknown" };
 	assert.deepEqual(saved, [
-		{
-			display_name: "Mara",
-			notes: "First line\r\nSecond line",
-			source: "other",
-			stage: "prospect",
-			adult_classification: "unknown",
-			commitment_state: "unknown",
-		},
-		{
-			display_name: "Noah",
-			notes: 'He said "hello"',
-			source: "other",
-			stage: "prospect",
-			adult_classification: "unknown",
-			commitment_state: "unknown",
-		},
-		{
-			display_name: "Lia",
-			notes: "=1+1",
-			source: "website",
-			stage: "prospect",
-			adult_classification: "unknown",
-			commitment_state: "unknown",
-		},
+		{ display_name: "Mara", notes: "First line\r\nSecond line", source: "other", ...plain },
+		{ display_name: "Lia", notes: "=1+1", source: "website", ...plain },
+		{ display_name: "Noah", notes: 'He said "hello"', source: "other", ...plain },
 	]);
-	// One people.created history entry per Person, tied to the import.
-	const history = await rows(
-		sql`SELECT count(*)::int n, count(DISTINCT subject_id)::int people FROM audit_event WHERE command_id=${sql.param(retry.importId)} AND action='people.created'`,
+	// One people.created history entry per Person, tied to the import, with no contact values.
+	assert.deepEqual(
+		await rows(
+			sql`SELECT after_value, metadata FROM audit_event WHERE command_id=${sql.param(retry.importId)} AND action='people.created' ORDER BY (metadata->'import'->>'row')::int`,
+		),
+		[1, 2, 3].map((row) => ({ after_value: { stage: "prospect" }, metadata: { import: { row } } })),
 	);
-	assert.deepEqual(history, [{ n: 2001, people: 2001 }]);
+
+	// A large import: one failing row among 1,201 fails alone, across 500-row batches.
+	const filler = (i) => `Bulk${i},Import,bulk.import${i}@example.test,,,,,,,,,\r\n`;
+	const large =
+		header +
+		Array.from({ length: 1201 }, (_, i) =>
+			i === 599 ? "Noah,Again,noah@example.test,,,,,,,,,\r\n" : filler(i + 1),
+		).join("");
+	const lp = ok(await preview(large));
+	await failNoah(true);
+	let big;
+	try {
+		big = ok(
+			await importFile(
+				large,
+				lp,
+				choose(lp, () => "create"),
+			),
+		);
+	} finally {
+		await failNoah(false);
+	}
+	assert.deepEqual(big.remaining, [600]);
+	assert.deepEqual(big.counts, { created: 1200, skipped: 0, failed: 1, remaining: 1 });
 });
 
 test("AC:TARGET-PPL-018 INV-tenancy an import saves exactly the reviewed rows and refuses a changed file, review or authority", async () => {
@@ -514,11 +523,14 @@ test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy
 			directory,
 			JSON.stringify(filters),
 		);
-		assert.equal(file.receipt.count, body.length);
+		assert.deepEqual(
+			{ matched: file.receipt.matched, returned: file.receipt.returned, completeness: file.receipt.completeness },
+			{ matched: body.length, returned: body.length, completeness: "complete" },
+		);
 	}
 	const empty = ok(await exported({ search: "nobody-matches" }));
 	assert.equal(empty.text, "﻿" + columns.join(",") + "\r\n");
-	assert.equal(empty.receipt.count, 0);
+	assert.equal(empty.receipt.returned, 0);
 	assert.equal(empty.receipt.filters.search, "nobody-matches");
 
 	// Exact cells: RFC 4180 quoting, formula neutralization, semicolon tags and the UTC creation instant.
@@ -569,17 +581,18 @@ test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy
 
 	// More rows than a directory page come out in one file.
 	const many =
-		"first_name,email\r\n" + Array.from({ length: 150 }, (_, i) => `Bulk${i},bulk${i}@example.test\r\n`).join("");
+		"first_name,email\r\n" + Array.from({ length: 150 }, (_, i) => `Many${i},many${i}@example.test\r\n`).join("");
 	const p = ok(await preview(many));
 	ok(await importFile(many, p, choose(p)));
-	const big = ok(await exported({ search: "bulk" }));
-	assert.equal(big.receipt.count, 150);
+	const big = ok(await exported({ search: "many" }));
+	assert.equal(big.receipt.returned, 150);
 	assert.equal(parseCsv(big.text).length, 151);
 
-	// INV-tenancy: a member, another church's Admin and an organization context get no export.
-	refused(await exported({}, 1));
+	// INV-tenancy: a Member exports what the directory shows them; another church's Admin and an organization context
+	// get none of this church's people.
+	assert.equal(ok(await exported({}, 1)).text, ok(await exported({})).text);
 	const foreign = ok(await exported({}, 2));
-	assert.equal(foreign.receipt.count, 0);
+	assert.equal(foreign.receipt.returned, 0);
 	refused(
 		await db.transaction((t) =>
 			csv.exportPeople(t, { session: actors[0].session, selected: { kind: "plant", id: plants[1] } }, {}),

@@ -1,12 +1,14 @@
+import { owner, type Owner } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/people";
 import type { PeopleContext } from "@everyfield/contracts/people";
 import type { Database } from "@everyfield/db/client";
 import { and, sql, type SQL } from "@everyfield/db/query";
 import { createHash, randomUUID } from "node:crypto";
+import { gunzipSync, gzipSync } from "node:zlib";
 import "server-only";
 import { z } from "zod";
-import type { RequestActor } from "../../access/session.ts";
-import { deny, hash, parse, readReply, Refusal, type Context, type Tx } from "../core.ts";
+import { writeVisibility, type RequestActor } from "../../access/session.ts";
+import { deny, hash, parse, readReply, type Context, type Tx } from "../core.ts";
 import { plantId, readAuthority } from "../fields/shared.ts";
 import { newPerson } from "../people.ts";
 import { peopleFilters } from "../queries.ts";
@@ -22,11 +24,6 @@ type FileRow =
 	| { row: number; status: "invalid"; problems: Problem[] };
 type ReadFile = { fileDigest: string; used: ImportColumn[]; ignored: string[]; rows: FileRow[] };
 
-/**
- * Rows one import request writes, in one statement. A request stays under one second with a full 10,000-row file; the
- * caller repeats the request for the next batch.
- */
-const BATCH = 500;
 const OPERATION = "people.executeBulkImport";
 const media = "text/csv; charset=utf-8";
 
@@ -135,19 +132,28 @@ function existingPeople(plant: string, rows: FileRow[], unless: SQL = sql`false`
 		phones = valid.flatMap((r) => (r.phone ? [r.phone] : []));
 	return sql`coalesce((SELECT jsonb_agg(jsonb_build_object('id',p.id,'displayName',p.display_name,'email',lower(btrim(p.email)),
  'phone',regexp_replace(coalesce(p.phone,''),'\\D','','g')) ORDER BY p.created_at,p.id) FROM person p
- WHERE NOT ${unless} AND p.plant_id=${plant}::uuid AND p.state='live' AND (lower(btrim(p.email))=ANY(${sql.param(emails)}::text[])
- OR regexp_replace(coalesce(p.phone,''),'\\D','','g')=ANY(${sql.param(phones)}::text[]))),'[]'::jsonb)`;
+ WHERE NOT ${unless} AND p.plant_id=${plant}::uuid AND p.state='live'
+ AND (lower(btrim(p.email)) IN (SELECT unnest(${sql.param(emails)}::text[]))
+ OR regexp_replace(coalesce(p.phone,''),'\\D','','g') IN (SELECT unnest(${sql.param(phones)}::text[])))),'[]'::jsonb)`;
 }
 
 type Finding = { existing: Match[]; earlier: number | null };
 /** Existing and within-file duplicates per valid row, and the digest that freezes them for the import. */
 function findDuplicates(file: ReadFile, people: Match[]) {
 	const findings = new Map<number, Finding>(),
-		first = new Map<string, number>();
+		first = new Map<string, number>(),
+		known = new Map<string, Match[]>(),
+		order = new Map(people.map((p, i) => [p, i]));
+	for (const p of people)
+		for (const signal of new Set([p.email && "e:" + p.email, p.phone && "p:" + p.phone]))
+			if (signal) known.set(signal, [...(known.get(signal) ?? []), p]);
 	for (const r of file.rows) {
 		if (r.status !== "valid") continue;
 		const signals = [r.email && "e:" + r.email, r.phone && "p:" + r.phone].filter((s) => !!s) as string[];
-		const existing = people.filter((p) => (r.email && p.email === r.email) || (r.phone && p.phone === r.phone));
+		// Each existing Person once, in search order.
+		const existing = [...new Set(signals.flatMap((s) => known.get(s) ?? []))].sort(
+			(a, b) => order.get(a)! - order.get(b)!,
+		);
 		const earlier = signals.flatMap((s) => (first.has(s) ? [first.get(s)!] : []));
 		findings.set(r.row, { existing, earlier: earlier.length ? Math.min(...earlier) : null });
 		for (const s of signals) if (!first.has(s)) first.set(s, r.row);
@@ -206,9 +212,13 @@ function planImport(
 	return plan;
 }
 
+/** Absent keys load as NULL, so empty values stay out of the JSON a statement sends. */
+const dropNulls = (_key: string, value: unknown) => (value === null ? undefined : value);
+
 type Created = Map<number, { personId: string; reviewWith: string | null }>;
-/** Every row's outcome from the saved plan, the rows whose Person exists and the rows this request failed to write. */
-function receipt(importId: string, plan: Plan, created: Created, failed: ReadonlySet<number> = new Set()) {
+type Failed = Map<number, "row_write_failed">;
+/** Every row's outcome from the saved plan, the rows whose Person exists and the rows the job could not write. */
+function receipt(importId: string, plan: Plan, created: Created, failed: Failed, running: boolean) {
 	const outcomes = new Map<number, unknown>();
 	for (const row of plan.skip) outcomes.set(row, { row, status: "skipped" });
 	for (const { row, problems } of plan.invalid)
@@ -219,75 +229,53 @@ function receipt(importId: string, plan: Plan, created: Created, failed: Readonl
 		if (done) outcomes.set(row, { row, status: "created", ...done });
 		else {
 			remaining.push(row);
-			outcomes.set(
-				row,
-				failed.has(row)
-					? { row, status: "failed", reason: "row_write_failed", problems: [] }
-					: { row, status: "remaining" },
-			);
+			const reason = failed.get(row);
+			outcomes.set(row, reason ? { row, status: "failed", reason, problems: [] } : { row, status: "remaining" });
 		}
 	}
+	const writeFailures = remaining.filter((row) => failed.has(row)).length;
 	return c.importReceipt.parse({
 		importId,
-		status: remaining.length ? "partial" : "complete",
+		status: running ? "in_progress" : remaining.length ? "partial" : "complete",
 		rows: [...outcomes].sort(([a], [b]) => a - b).map(([, outcome]) => outcome),
 		remaining,
 		counts: {
 			created: created.size,
 			skipped: plan.skip.length,
-			failed: plan.invalid.length + failed.size,
+			failed: plan.invalid.length + writeFailures,
 			remaining: remaining.length,
 		},
 	});
 }
-/** The rows an import has created so far, from their people.created audit rows. */
-const createdRows = (
-	importId: SQL,
-) => sql`coalesce((SELECT jsonb_agg(jsonb_build_object('row',(e.metadata->'import'->>'row')::int,
- 'personId',e.subject_id,'reviewWith',e.metadata->'import'->'reviewWith')) FROM audit_event e
- WHERE e.command_id=${importId} AND e.action='people.created'),'[]'::jsonb)`;
-const createdList = z.array(z.object({ row: z.int(), personId: z.uuid(), reviewWith: z.uuid().nullable() }));
-const createdMap = (rows: z.infer<typeof createdList>): Created =>
-	new Map(rows.map((r) => [r.row, { personId: r.personId, reviewWith: r.reviewWith }]));
 
-type BatchRow = { id: string; row: number; reviewWith: string | null; person: object };
 /**
- * One batch in one statement: the live Owner/Admin check, the new people, one people.created audit row each tied to the
- * import, and the pipeline and church revisions. A Person that an earlier attempt already wrote is left alone.
+ * An import's saved state in one scalar subquery: the frozen plan, whether its job still runs, the rows the job could
+ * not write and the rows created so far, from their people.created audit rows.
  */
-async function writeBatch(
-	db: Database,
-	ctx: PeopleContext,
-	actor: { id: string; token: string },
-	importId: string,
-	batch: BatchRow[],
-): Promise<boolean> {
-	const plant = ctx.selected.id;
-	// Absent keys load as NULL, so empty values are left out of the payload.
-	const people = JSON.stringify(
-			batch.map((b) => b.person),
-			(_key, value) => (value === null ? undefined : value),
-		),
-		links = JSON.stringify(batch.map((b) => ({ id: b.id, row: b.row, review_with: b.reviewWith })));
-	const result = await db.execute(sql`WITH allowed AS (SELECT ${readAuthority(ctx, true)} AS ok),
- created AS (INSERT INTO person SELECT * FROM jsonb_populate_recordset(NULL::person,${people}::jsonb)
-  WHERE (SELECT ok FROM allowed) ON CONFLICT (id) DO NOTHING RETURNING *),
- audit AS (INSERT INTO audit_event(tenant_id,actor_id,actor_token,action,kind,subject_type,subject_id,after_revision,after_value,command_id,metadata)
-  SELECT ${plant}::uuid,${actor.id}::uuid,${actor.token},'people.created','create','person',p.id,1,
-  jsonb_strip_nulls(to_jsonb(p)-'revision'),${importId}::uuid,
-  jsonb_build_object('import',jsonb_strip_nulls(jsonb_build_object('row',l.row,'reviewWith',l.review_with)))
-  FROM created p JOIN jsonb_to_recordset(${links}::jsonb) l(id uuid,row int,review_with uuid) ON l.id=p.id),
- pipeline AS (INSERT INTO people_column(plant_id,column_name,revision) SELECT ${plant}::uuid,'prospect',2 WHERE EXISTS(SELECT FROM created)
-  ON CONFLICT (plant_id,column_name) DO UPDATE SET revision=people_column.revision+1),
- church AS (UPDATE plant SET material_revision=material_revision+1 WHERE id=${plant}::uuid AND EXISTS(SELECT FROM created))
- SELECT ok FROM allowed`);
-	return z.boolean().parse(result.rows[0]?.ok);
+const importState = (importId: SQL) => sql`(SELECT jsonb_build_object('plan',sp.plan,
+ 'running',sj.state IN ('ready','claimed','retry_wait'),'failed',sp.failed,
+ 'created',coalesce((SELECT jsonb_agg(jsonb_build_object('row',(e.metadata->'import'->>'row')::int,'personId',e.subject_id,
+  'reviewWith',e.metadata->'import'->'reviewWith')) FROM audit_event e WHERE e.command_id=si.id AND e.action='people.created'),'[]'::jsonb))
+ FROM audit_event si JOIN person_import sp ON sp.id=si.id JOIN job sj ON sj.id=sp.job_id WHERE si.id=${importId})`;
+const savedState = z.object({
+	plan: z.unknown(),
+	running: z.boolean(),
+	failed: z.array(z.object({ row: z.int(), reason: z.literal("row_write_failed") })),
+	created: z.array(z.object({ row: z.int(), personId: z.uuid(), reviewWith: z.uuid().nullable() })),
+});
+function loadState(raw: unknown) {
+	const state = savedState.parse(raw);
+	return {
+		plan: savedPlan.parse(state.plan),
+		created: new Map(state.created.map((r) => [r.row, { personId: r.personId, reviewWith: r.reviewWith }])) as Created,
+		failed: new Map(state.failed.map((f) => [f.row, f.reason])) as Failed,
+		running: state.running,
+	};
 }
 
 /**
- * Save the reviewed rows, one batch per request. The first request saves the import intent with its frozen review; each
- * request then writes the next batch of rows not created yet and returns every row's outcome. The caller repeats the
- * same request while rows remain. A failed batch leaves earlier batches saved and is named in the receipt.
+ * Save the reviewed rows and queue the job that writes them, in one statement, and return at once. Repeating the request
+ * returns the import's current receipt; after a partial import it queues the job again for the remaining rows.
  */
 export async function executeBulkImport(db: Database, authority: RequestActor, raw: unknown) {
 	return readReply(async () => {
@@ -305,76 +293,160 @@ export async function executeBulkImport(db: Database, authority: RequestActor, r
 			requestKey: input.requestKey,
 			digest: hash({ reviewDigest: input.reviewDigest, choices }),
 		};
+		const known = sql`(SELECT a.id FROM audit_event a WHERE a.tenant_id=${plant}::uuid AND a.request_key=${input.requestKey})`;
 		const state = z
 			.object({
 				allowed: z.boolean(),
-				prior: z.object({ id: z.uuid(), identity: z.unknown(), plan: z.unknown(), created: createdList }).nullable(),
+				prior: z.object({ id: z.uuid(), identity: z.unknown(), state: z.unknown() }).nullable(),
 				people: match,
 			})
 			.parse(
 				(
 					await db.execute(sql`SELECT ${readAuthority(ctx, true)} AS allowed,
- (SELECT jsonb_build_object('id',a.id,'identity',a.request_identity,'plan',a.result,'created',${createdRows(sql`a.id`)}) FROM audit_event a
-  WHERE a.tenant_id=${plant}::uuid AND a.request_key=${input.requestKey}) AS prior,
- ${existingPeople(plant, file.rows, sql`EXISTS(SELECT FROM audit_event a WHERE a.tenant_id=${plant}::uuid AND a.request_key=${input.requestKey})`)} AS people`)
+ (SELECT jsonb_build_object('id',a.id,'identity',a.request_identity,'state',${importState(sql`a.id`)}) FROM audit_event a
+  WHERE a.id=${known}) AS prior, ${existingPeople(plant, file.rows, sql`EXISTS${known}`)} AS people`)
 				).rows[0],
 			);
 		if (!state.allowed) deny();
-		let importId: string, plan: Plan;
 		if (state.prior) {
-			// A retry resumes the frozen plan; people it already created do not become new duplicates.
 			if (hash(state.prior.identity) !== hash(identity)) deny("review_digest_conflict");
-			importId = state.prior.id;
-			plan = savedPlan.parse(state.prior.plan);
-		} else {
-			const { findings, reviewDigest } = findDuplicates(file, state.people);
-			// The church's people may have changed since the preview; the review is only valid against today's findings.
-			if (reviewDigest !== input.reviewDigest) deny("review_stale");
-			importId = randomUUID();
-			plan = planImport(file, findings, choices, importId);
-			const inserted =
-				await db.execute(sql`INSERT INTO audit_event(id,tenant_id,actor_id,actor_token,action,kind,subject_type,
- subject_id,command_id,request_key,request_identity,result)
- SELECT ${importId}::uuid,${plant}::uuid,${actorId}::uuid,${hash([plant, actorId])},'people.updated','edit','command',
- ${plant}::uuid,${importId}::uuid,${input.requestKey},${JSON.stringify(identity)}::jsonb,${JSON.stringify(plan)}::jsonb
- WHERE ${readAuthority(ctx, true)} ON CONFLICT (tenant_id,request_key) DO NOTHING RETURNING id`);
-			// A lost seat refuses; so does a concurrent first attempt that won the key. A retry then resumes it.
-			if (!inserted.rows.length) deny("conflict");
+			const prior = loadState(state.prior.state);
+			const answer = receipt(state.prior.id, prior.plan, prior.created, prior.failed, prior.running);
+			if (answer.status !== "partial") return answer;
+			// A partial import runs again for its remaining rows; its last failures clear until the job reports again.
+			const requeued = await db.execute(sql`WITH ok AS (SELECT ${readAuthority(ctx, true)} AS ok),
+ imported AS (UPDATE person_import SET failed='[]'::jsonb WHERE id=${state.prior.id}::uuid AND (SELECT ok FROM ok) RETURNING job_id)
+ UPDATE job SET state='ready',eligible_at=clock_timestamp(),next_attempt_at=NULL,attempt_count=0,error_code=NULL,
+  finished_at=NULL,revision=revision+1 FROM imported WHERE job.id=imported.job_id AND job.state IN ('succeeded','failed')
+ RETURNING job.id`);
+			if (!requeued.rows.length) deny();
+			return receipt(state.prior.id, prior.plan, prior.created, new Map(), true);
 		}
-		const created = createdMap(state.prior?.created ?? []);
-		const values = new Map(file.rows.flatMap((r) => (r.status === "valid" ? [[r.row, r.values] as const] : [])));
-		const start = Date.now();
-		const batch: BatchRow[] = plan.create
-			.filter((r) => !created.has(r.row))
-			.slice(0, BATCH)
-			.map((r, i) => {
-				const id = rowPersonId(importId, r.row);
-				// Rows keep file order in the directory: each is recorded one millisecond after the one before it.
-				const person = newPerson(ctx, values.get(r.row)!, null, id, new Date(start + i));
-				return { id, row: r.row, reviewWith: r.reviewWith, person };
-			});
-		const failed = new Set<number>();
-		if (batch.length) {
-			const actor = { id: actorId, token: hash([plant, actorId]) };
-			try {
-				if (!(await writeBatch(db, ctx, actor, importId, batch))) deny();
-				for (const b of batch) created.set(b.row, { personId: b.id, reviewWith: b.reviewWith });
-			} catch (error) {
-				if (error instanceof Refusal) throw error;
-				// The batch rolled back as a whole. Its rows are named and stay remaining for the next request.
-				for (const b of batch) failed.add(b.row);
-			}
-		}
-		return receipt(importId, plan, created, failed);
+		const { findings, reviewDigest } = findDuplicates(file, state.people);
+		// The church's people may have changed since the preview; the review is only valid against today's findings.
+		if (reviewDigest !== input.reviewDigest) deny("review_stale");
+		const importId = randomUUID();
+		const plan = planImport(file, findings, choices, importId);
+		// The job keeps the exact reviewed bytes, compressed; it parses them again rather than trusting saved rows.
+		const upload = gzipSync(input.file).toString("base64");
+		// The audit intent, the job and its payload in one statement, under the live Owner/Admin check.
+		const saved = await db.execute(sql`WITH ok AS (SELECT ${readAuthority(ctx, true)} AS ok),
+ intent AS (INSERT INTO audit_event(id,tenant_id,actor_id,actor_token,action,kind,subject_type,subject_id,command_id,
+  request_key,request_identity)
+  SELECT ${importId}::uuid,${plant}::uuid,${actorId}::uuid,${hash([plant, actorId])},'people.updated','edit','command',
+  ${plant}::uuid,${importId}::uuid,${input.requestKey},${JSON.stringify(identity)}::jsonb
+  WHERE (SELECT ok FROM ok) ON CONFLICT (tenant_id,request_key) DO NOTHING RETURNING id),
+ queued AS (INSERT INTO job(tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,claim_generation)
+  SELECT ${plant}::uuid,'people_import',${plant}::uuid,'people-import/'||id,'ready',clock_timestamp(),0,4,0 FROM intent RETURNING id),
+ payload AS (INSERT INTO person_import(id,tenant_id,job_id,actor_id,plan,upload)
+  SELECT intent.id,${plant}::uuid,queued.id,${actorId}::uuid,${JSON.stringify(plan)}::jsonb,${upload} FROM intent,queued RETURNING id)
+ SELECT (SELECT ok FROM ok) AS ok, (SELECT id FROM payload) AS id`);
+		const result = z.object({ ok: z.boolean(), id: z.uuid().nullable() }).parse(saved.rows[0]);
+		if (!result.ok) deny();
+		// A concurrent first request with the same key won; repeating the request returns its receipt.
+		if (!result.id) deny("conflict");
+		return receipt(importId, plan, new Map(), new Map(), true);
 	});
 }
 
-const savedImport = z.object({
-	allowed: z.boolean(),
-	id: z.uuid().nullable(),
-	plan: z.unknown(),
-	created: createdList,
-});
+/** The importing account's current Owner/Admin seat in this church, for a worker that has no request session. */
+function actorAuthority(actorId: string, church: Owner): SQL {
+	return sql`EXISTS(SELECT FROM seat s JOIN account acc ON acc.id=s.account_id WHERE s.account_id=${actorId}::uuid
+ AND acc.registration_state='active' AND s.plant_id=${church.id}::uuid AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp()
+ AND s.role<>'member' AND ${writeVisibility(actorId, church)})`;
+}
+/** The worker's claim is still the job's current lease. */
+type Lease = { id: string; tenant_id: string; lease_owner: string; claim_generation: string };
+const holds = (lease: Lease) => sql`EXISTS(SELECT FROM job WHERE id=${lease.id}::uuid AND state='claimed'
+ AND lease_owner=${lease.lease_owner} AND claim_generation=${lease.claim_generation}::bigint AND lease_until>clock_timestamp())`;
+
+type SavedRow = { row: number; reviewWith: string | null; values: Values };
+/**
+ * One batch in one statement: the lease and the importer's live Owner/Admin seat, the new people, one people.created
+ * audit row each tied to the import, and the pipeline and church revisions. A Person an earlier run wrote is left alone.
+ */
+async function writeBatch(db: Database, lease: Lease, actorId: string, importId: string, batch: SavedRow[]) {
+	const plant = lease.tenant_id,
+		church = owner.parse({ kind: "plant", id: plant }),
+		start = Date.now();
+	// Rows keep file order in the directory: each is recorded one millisecond after the one before it.
+	const people = batch.map((r, i) =>
+		newPerson({ selected: church }, r.values, null, rowPersonId(importId, r.row), new Date(start + i)),
+	);
+	const links = batch.map((r, i) => ({ id: people[i]!.id, row: r.row, review_with: r.reviewWith }));
+	const result =
+		await db.execute(sql`WITH allowed AS (SELECT ${holds(lease)} AND ${actorAuthority(actorId, church)} AS ok),
+ created AS (INSERT INTO person SELECT * FROM jsonb_populate_recordset(NULL::person,${JSON.stringify(people, dropNulls)}::jsonb)
+  WHERE (SELECT ok FROM allowed) ON CONFLICT (id) DO NOTHING RETURNING id,stage),
+ audit AS (INSERT INTO audit_event(tenant_id,actor_id,actor_token,action,kind,subject_type,subject_id,after_revision,after_value,command_id,metadata)
+  SELECT ${plant}::uuid,${actorId}::uuid,${hash([plant, actorId])},'people.created','create','person',p.id,1,
+  jsonb_build_object('stage',p.stage),${importId}::uuid,
+  jsonb_build_object('import',jsonb_strip_nulls(jsonb_build_object('row',l.row,'reviewWith',l.review_with)))
+  FROM created p JOIN jsonb_to_recordset(${JSON.stringify(links)}::jsonb) l(id uuid,row int,review_with uuid) ON l.id=p.id),
+ pipeline AS (INSERT INTO people_column(plant_id,column_name,revision) SELECT ${plant}::uuid,'prospect',2 WHERE EXISTS(SELECT FROM created)
+  ON CONFLICT (plant_id,column_name) DO UPDATE SET revision=people_column.revision+1),
+ church AS (UPDATE plant SET material_revision=material_revision+1 WHERE id=${plant}::uuid AND EXISTS(SELECT FROM created))
+ SELECT ok FROM allowed`);
+	return z.boolean().parse(result.rows[0]?.ok);
+}
+
+/** Rows each import statement writes. Statements grow with batches, and with failures only while a batch is split. */
+const BATCH = 500;
+/**
+ * The people_import job: write every remaining reviewed row in batches of one statement each. A batch the database
+ * refuses is split in halves until each failing row stands alone, so one bad row never fails its neighbours. The run ends
+ * by saving the failed rows, or by clearing the payload when every row exists. "lost" means the lease or the importer's
+ * authority ended; nothing more was written.
+ */
+export async function runPeopleImport(db: Database, lease: Lease): Promise<"succeeded" | "lost"> {
+	const loaded = z
+		.object({
+			id: z.uuid(),
+			actor_id: z.uuid(),
+			upload: z.string().nullable(),
+			plan: z.unknown(),
+			created: z.array(z.int()),
+		})
+		.optional()
+		.parse(
+			(
+				await db.execute(sql`SELECT pi.id,pi.actor_id,pi.upload,pi.plan,
+ coalesce((SELECT jsonb_agg((e.metadata->'import'->>'row')::int) FROM audit_event e
+  WHERE e.command_id=pi.id AND e.action='people.created'),'[]'::jsonb) AS created
+ FROM person_import pi WHERE pi.job_id=${lease.id}::uuid AND pi.tenant_id=${lease.tenant_id}::uuid`)
+			).rows[0],
+		);
+	if (!loaded?.upload) return "succeeded";
+	const file = readFile(gunzipSync(Buffer.from(loaded.upload, "base64")));
+	const values = new Map(file.rows.flatMap((r) => (r.status === "valid" ? [[r.row, r.values] as const] : [])));
+	const done = new Set(loaded.created);
+	const pending: SavedRow[] = savedPlan
+		.parse(loaded.plan)
+		.create.filter((r) => !done.has(r.row))
+		.map((r) => ({ ...r, values: values.get(r.row)! }));
+	const failed: number[] = [];
+	let lost = false;
+	const write = async (batch: SavedRow[]): Promise<void> => {
+		if (lost || !batch.length) return;
+		try {
+			if (!(await writeBatch(db, lease, loaded.actor_id, loaded.id, batch))) lost = true;
+		} catch {
+			if (batch.length === 1) failed.push(batch[0]!.row);
+			else {
+				const half = Math.ceil(batch.length / 2);
+				await write(batch.slice(0, half));
+				await write(batch.slice(half));
+			}
+		}
+	};
+	for (let i = 0; i < pending.length && !lost; i += BATCH) await write(pending.slice(i, i + BATCH));
+	if (lost) return "lost";
+	const finished = await db.execute(sql`UPDATE person_import SET
+ failed=${JSON.stringify(failed.map((row) => ({ row, reason: "row_write_failed" })))}::jsonb,
+ upload=CASE WHEN ${failed.length === 0} THEN NULL ELSE upload END
+ WHERE id=${loaded.id}::uuid AND ${holds(lease)} RETURNING id`);
+	return finished.rows.length ? "succeeded" : "lost";
+}
 
 export const peopleCsv = {
 	/** The 12 import columns, header only. It holds no church data. */
@@ -429,47 +501,48 @@ export const peopleCsv = {
 			});
 		});
 	},
-	/** The import's saved outcome for each row, read again after a lost reply. */
+	/** The import's outcome for each row, read again after a lost reply or while its job runs. */
 	async getImportReceipt(tx: Tx, ctx: Context, raw: unknown) {
 		return readReply(async () => {
 			const plant = plantId(ctx);
 			const input = parse(c.importReceiptRequest, raw);
-			const row = savedImport.parse(
+			const row = z.object({ allowed: z.boolean(), id: z.uuid().nullable(), state: z.unknown() }).parse(
 				(
-					await tx.execute(sql`SELECT ${readAuthority(ctx, true)} AS allowed, a.id, a.result AS plan,
- ${createdRows(sql`a.id`)} AS created
+					await tx.execute(sql`SELECT ${readAuthority(ctx, true)} AS allowed, a.id, ${importState(sql`a.id`)} AS state
  FROM (SELECT 1) seed LEFT JOIN audit_event a ON a.tenant_id=${plant}::uuid AND a.request_key=${input.requestKey}
   AND a.request_identity->>'operation'=${OPERATION}`)
 				).rows[0],
 			);
-			if (!row.allowed || !row.id) deny();
-			return receipt(row.id, savedPlan.parse(row.plan), createdMap(row.created));
+			if (!row.allowed || !row.id || !row.state) deny();
+			const saved = loadState(row.state);
+			return receipt(row.id, saved.plan, saved.created, saved.failed, saved.running);
 		});
 	},
-	/** The directory's filtered people as formula-safe CSV, with the exact filters and count. */
+	/**
+	 * The directory's filtered people as formula-safe CSV, every matching row in one statement, with the exact filters and
+	 * counts. Members may export what the directory shows them.
+	 */
 	async exportPeople(tx: Tx, ctx: Context, raw: unknown) {
 		return readReply(async () => {
 			plantId(ctx);
 			const filters = parse(c.exportPeopleRequest, raw);
-			const result = await tx.execute(sql`SELECT ${readAuthority(ctx, true)} AS allowed,
+			const result = await tx.execute(sql`SELECT ${readAuthority(ctx)} AS allowed,
  coalesce((SELECT jsonb_agg(jsonb_build_array(first_name,last_name,email,phone,street,city,state_province,postal_code,
   country,stage,source,source_details,notes,tags,created) ORDER BY created_at,id) FROM (
   SELECT person.*,to_char(person.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS created,
   (SELECT string_agg(t.name,';' ORDER BY lower(t.name),t.id) FROM person_tag pt JOIN tag t ON t.id=pt.tag_id
    AND t.plant_id=pt.plant_id WHERE pt.person_id=person.id AND pt.plant_id=person.plant_id) AS tags
-  FROM person WHERE ${and(...peopleFilters(ctx, filters))} AND ${readAuthority(ctx, true)}
-  ORDER BY person.created_at,person.id LIMIT ${c.exportRowLimit + 1}) x),'[]'::jsonb) AS rows`);
+  FROM person WHERE ${and(...peopleFilters(ctx, filters))} AND ${readAuthority(ctx)}) x),'[]'::jsonb) AS rows`);
 			const state = z
 				.object({ allowed: z.boolean(), rows: z.array(z.array(z.string().nullable())) })
 				.parse(result.rows[0]);
 			if (!state.allowed) deny();
-			if (state.rows.length > c.exportRowLimit) deny("export_too_large");
 			return c.peopleExport.parse({
 				filename: `people-${new Date().toISOString().slice(0, 10)}.csv`,
 				mediaType: media,
 				// The byte order mark lets spreadsheets read the UTF-8 names correctly.
-				text: "﻿" + csvLine(c.exportColumns) + state.rows.map(csvLine).join(""),
-				receipt: { filters, count: state.rows.length },
+				text: "\ufeff" + csvLine(c.exportColumns) + state.rows.map(csvLine).join(""),
+				receipt: { filters, matched: state.rows.length, returned: state.rows.length, completeness: "complete" },
 			});
 		});
 	},

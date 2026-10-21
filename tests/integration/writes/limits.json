@@ -292,6 +292,10 @@
 		"retry": 6
 	},
 	"native.people.executeBulkImport": {
+		"limit": 2,
+		"retry": 4
+	},
+	"native.people.runPeopleImport": {
 		"limit": 3,
 		"retry": 6
 	},

@@ -1508,7 +1508,8 @@
 				"object_cleanup",
 				"lifecycle_purge",
 				"assistant_turn",
-				"document_render"
+				"document_render",
+				"people_import"
 			],
 			"job.state": ["ready", "claimed", "retry_wait", "reconcile", "succeeded", "failed", "cancelled", "superseded"],
 			"lifecycle_witness.kind": ["account", "plant", "seat", "affiliation"],
@@ -15850,6 +15851,69 @@
 					"deletion": {
 						"action": "no_action",
 						"policy": "Events go with their conversation, which owner purge deletes before jobs."
+					}
+				}
+			}
+		},
+		"person_import": {
+			"table": {
+				"name": "person_import",
+				"domain": "people",
+				"purpose": "One People CSV import: the frozen plan for every row, the uploaded file the server reviewed (compressed) and the rows whose last write failed. Its audit intent holds the request key and review digest.",
+				"library_owned": false,
+				"jsonb_keys": {
+					"plan": ["rows", "skip", "invalid", "create"],
+					"failed": ["row", "reason"]
+				},
+				"capabilities": [],
+				"replaces": [],
+				"producer_work_packages": ["WP-013"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-013"],
+					"rule": "WP-013 People CSV import job payload through Drizzle Kit."
+				},
+				"feature_ids": ["PPL-018"],
+				"acceptance_ids": [],
+				"future_case_ids": [],
+				"scope": "plant",
+				"invariants": [
+					"The upload holds the exact bytes the request parsed and the plan's digest names.",
+					"The upload is cleared when every reviewed row is created."
+				],
+				"revision": "The worker that holds the job lease replaces failed and clears the upload.",
+				"idempotency": "Person IDs derive from the import and row number; a resumed job never creates a row twice.",
+				"deletion": "Owner purge deletes the church's jobs, which removes their imports.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"tenant_id": {
+					"note": ""
+				},
+				"job_id": {
+					"note": ""
+				},
+				"actor_id": {
+					"note": ""
+				},
+				"plan": {
+					"note": ""
+				},
+				"upload": {
+					"note": ""
+				},
+				"failed": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"job_id->job(id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "The import goes with its job."
 					}
 				}
 			}

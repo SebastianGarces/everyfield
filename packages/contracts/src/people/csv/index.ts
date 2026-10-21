@@ -43,7 +43,6 @@ export const exportColumns = [
 	"created_at",
 ] as const;
 export const importLimits = { bytes: 10 * 1024 * 1024, rows: 10_000 } as const;
-export const exportRowLimit = 50_000;
 
 export const csvError = [
 	defineSafeError("file_too_large", {}, "never"),
@@ -58,7 +57,6 @@ export const csvError = [
 	defineSafeError("review_stale", {}, "refresh"),
 	// The request key already saved a different review.
 	defineSafeError("review_digest_conflict", {}, "never"),
-	defineSafeError("export_too_large", {}, "never"),
 ] as const;
 
 const sha256 = z.string().regex(/^[0-9a-f]{64}$/);
@@ -138,7 +136,7 @@ export const receiptRow = z.discriminatedUnion("status", [
 	z.strictObject({
 		row: rowNumber,
 		status: z.literal("failed"),
-		// row_write_failed: this request's batch failed. Its rows stay in remaining and the next request retries them.
+		// row_write_failed: the import job could not write this row. It stays in remaining; repeating the request retries it.
 		reason: z.enum(["invalid", "row_write_failed"]),
 		problems: z.array(rowProblem),
 	}),
@@ -146,12 +144,13 @@ export const receiptRow = z.discriminatedUnion("status", [
 	z.strictObject({ row: rowNumber, status: z.literal("remaining") }),
 ]);
 /**
- * An import's outcome for every row. Each executeBulkImport request writes at most one batch; the caller repeats the same
- * request while remaining is not empty. A repeated request never creates a row's Person twice.
+ * An import's outcome for every row. executeBulkImport saves the reviewed rows and queues a job that writes them;
+ * in_progress lasts until the job ends. Repeating the request after a partial import retries the remaining rows and
+ * never creates a row's Person twice.
  */
 export const importReceipt = z.strictObject({
 	importId: z.uuid(),
-	status: z.enum(["complete", "partial"]),
+	status: z.enum(["in_progress", "complete", "partial"]),
 	rows: z.array(receiptRow),
 	remaining: z.array(rowNumber),
 	counts: z.strictObject({ created: z.int(), skipped: z.int(), failed: z.int(), remaining: z.int() }),
@@ -174,6 +173,11 @@ export const csvFile = z.strictObject({
 	text: z.string(),
 });
 export const peopleExport = csvFile.extend({
-	// The exact filters and row count the bytes contain.
-	receipt: z.strictObject({ filters: exportPeopleRequest, count: z.int().min(0) }),
+	// The exact filters, how many people matched and how many rows the bytes contain. Every match is exported.
+	receipt: z.strictObject({
+		filters: exportPeopleRequest,
+		matched: z.int().min(0),
+		returned: z.int().min(0),
+		completeness: z.enum(["complete", "partial"]),
+	}),
 });

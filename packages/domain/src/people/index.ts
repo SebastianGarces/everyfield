@@ -12,4 +12,4 @@ export { detachAccountPersonLinks } from "./references.ts";
 
 export { PeopleReadContext, withPeopleWrite } from "./core.ts";
 export { personFields, readPersonPhoto, uploadPersonPhoto } from "./fields/index.ts";
-export { executeBulkImport, peopleCsv } from "./csv/index.ts";
+export { executeBulkImport, peopleCsv, runPeopleImport } from "./csv/index.ts";
