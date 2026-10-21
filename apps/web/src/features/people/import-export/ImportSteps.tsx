@@ -329,7 +329,7 @@ export function ReviewStep({
 			) : null}
 			<Card className="gap-5">
 				<CardHeader className="flex-wrap">
-					<CardHeading>
+					<CardHeading className="basis-80">
 						<StepHeading heading={heading}>Rows to check</StepHeading>
 						<CardDescription>
 							{duplicates || counts.invalid
