@@ -235,7 +235,8 @@ export function update(plantId: string, row: TaskRow, next: TaskRow) {
  * One status change for every entry point: complete, reopen, waive, changeStatus, checklist ticks and bulk completion
  * share it, so each records the same completion instant, waiver and history (REQ-TSK-003). The same status again is a
  * no-op with no history entry. Completing a recurring task also creates its one successor with fresh checklist rows in
- * the same statement (REQ-TSK-007). The caller passes `changes` to the reminder port once for the whole command.
+ * the same statement (REQ-TSK-007). The caller passes `changes` to the reminder port once for the whole command and
+ * builds the reply it needs from `row`; a bulk change needs only the new revision.
  */
 export function setStatus(
 	tx: Tx,
@@ -255,7 +256,7 @@ export function setStatus(
 				beforeRevision: row.revision,
 				afterRevision: row.revision,
 			});
-		return { value: mutation(cmd, row, "noop"), changes: [], successor: null };
+		return { row, outcome: "noop" as const, changes: [], successor: null };
 	}
 	const reopening = !OPEN(row.status) && OPEN(input.status);
 	if (reopening && row.open_successor) deny("open_successor", { successorId: row.open_successor });
@@ -310,7 +311,8 @@ export function setStatus(
 	}
 	const successor = created?.[0] ?? null;
 	return {
-		value: mutation(cmd, next, "changed"),
+		row: next,
+		outcome: "changed" as const,
 		changes: [
 			reminderChange(cmd.actor.plantId, row, next),
 			successor ? reminderChange(cmd.actor.plantId, null, successor) : undefined,
@@ -327,7 +329,7 @@ export function changeTo(
 	input: Parameters<typeof setStatus>[3],
 ) {
 	const r = setStatus(tx, cmd, row, input);
-	return { value: r.value, after: syncAll(reminders, tx, r.changes) };
+	return { value: mutation(cmd, r.row, r.outcome), after: syncAll(reminders, tx, r.changes) };
 }
 /** A new task row with no completion, deletion, source, series or checklist. */
 export function newTask(

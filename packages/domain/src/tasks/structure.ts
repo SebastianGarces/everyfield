@@ -272,7 +272,7 @@ export function structureWriter(reminders: TaskReminders) {
 					const r = setStatus(tx, cmd, row, { status: "complete" });
 					return {
 						value: c.occurrenceMutation.parse({
-							...r.value,
+							...mutation(cmd, r.row, r.outcome),
 							successor: r.successor && detailOf(r.successor, now()),
 						}),
 						after: syncAll(reminders, tx, r.changes),
@@ -295,7 +295,7 @@ export function structureWriter(reminders: TaskReminders) {
 						if (row.status === "no_longer_needed") return "closed";
 						if (row.status === "complete") return "noop";
 						const r = setStatus(tx, cmd, row, { status: "complete", source: "bulk" });
-						return { row: r.value.task.revision, changes: r.changes };
+						return { row: r.row.revision, changes: r.changes };
 					}),
 				);
 			});
