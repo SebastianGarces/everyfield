@@ -92,7 +92,7 @@ export async function liveOwner(tx: Transaction, selected: Owner, lock = true): 
 async function readSession(db: Executor, session: z.infer<typeof sessionId>, requested?: Owner) {
 	const r = await db.execute(sql`
 		WITH identity AS MATERIALIZED (
-			SELECT * FROM access_session(${sessionId.parse(session)}) LIMIT 1
+			SELECT * FROM live_session(${sessionId.parse(session)}) LIMIT 1
 		), seats AS MATERIALIZED (
 			SELECT s.id, s.plant_id, s.organization_id, s.role, s.revision::text, s.accepted_at
 			FROM seat s JOIN identity i ON i.account_id=s.account_id

@@ -2971,7 +2971,7 @@
 		},
 		{
 			"arguments": "handle uuid",
-			"definition": "CREATE OR REPLACE FUNCTION <schema>.live_session(handle uuid)\n RETURNS TABLE(account_id uuid, registration_state text)\n LANGUAGE sql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\n  SELECT a.id,a.registration_state FROM auth_session s\n  JOIN account a ON a.auth_user_id=s.user_id\n  WHERE s.id=handle AND s.expires_at>clock_timestamp()\n$function$\n",
+			"definition": "CREATE OR REPLACE FUNCTION <schema>.live_session(handle uuid)\n RETURNS TABLE(account_id uuid, registration_state text, expires_at timestamp with time zone)\n LANGUAGE sql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\n  SELECT a.id,a.registration_state,s.expires_at FROM auth_session s\n  JOIN account a ON a.auth_user_id=s.user_id\n  WHERE s.id=handle AND s.expires_at>clock_timestamp()\n$function$\n",
 			"name": "live_session"
 		},
 		{
