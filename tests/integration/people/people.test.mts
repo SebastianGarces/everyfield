@@ -1351,19 +1351,40 @@ test("INV-reads (C22): a People read holds no lock on the reader's session, so s
 	await admin.execute(
 		sql`INSERT INTO person(id,tenant_id,organization_id,display_name,source,state,created_at,revision) VALUES(${orgPerson},${organization},${organization},'C22 organization person','other','live',clock_timestamp(),1)`,
 	);
+	// Every People read operation, with the request's cached viewer and with a plain { session, selected } context (as
+	// the photo route sends), which resolves its actor inside the read.
+	const plantReads = (c) => [
+		["listPeople", (t) => read.listPeople(t, c, {})],
+		["getPipelineData", (t) => read.getPipelineData(t, c, {})],
+		["getPerson", (t) => read.getPerson(t, c, { personId: p.id })],
+		["readPersonPage", (t) => readPersonPage(t, c, { personId: p.id }, 50)],
+		["getStatusWarnings", (t) => read.getStatusWarnings(t, c, { personId: p.id })],
+		["getActivities", (t) => read.getActivities(t, c, { personId: p.id })],
+		["getAccountLink", (t) => getAccountLink(t, c, { personId: p.id })],
+		["getOwnAccountPerson", (t) => read.getOwnAccountPerson(t, c, {})],
+		["listTags", (t) => fields.listTags(t, c, {})],
+		["getPersonTags", (t) => fields.getPersonTags(t, c, { personId: p.id })],
+		["getPersonSkills", (t) => fields.getPersonSkills(t, c, { personId: p.id })],
+		["listHouseholds", (t) => fields.listHouseholds(t, c, {})],
+		["getHousehold", (t) => fields.getHousehold(t, c, { personId: p.id })],
+		["getHouseholdMembers", (t) => fields.getHouseholdMembers(t, c, { personId: p.id })],
+		["getPersonPhoto", (t) => fields.getPersonPhoto(t, c, { personId: p.id })],
+	];
+	// An organization Member has no pipeline duty for this person, so person reads refuse after resolving duties in the
+	// read itself; they must still not lock the session on the way. An organization Owner reads every person.
+	const orgReads = (c, person) => [
+		["getPerson", (t) => read.getPerson(t, c, { personId: orgPerson }), person],
+		["readPersonPage", (t) => readPersonPage(t, c, { personId: orgPerson }, 50), person],
+		["getAccountLink", (t) => getAccountLink(t, c, { personId: orgPerson }), person],
+		["getOwnAccountPerson", (t) => read.getOwnAccountPerson(t, c, {}), "ok"],
+	];
+	const label = (name, list) => list.map(([op, ...rest]) => [`${name} ${op}`, ...rest]);
 	const reads = [
-		["listPeople", (t) => read.listPeople(t, viewer, {})],
-		["getPerson", (t) => read.getPerson(t, viewer, { personId: p.id })],
-		["readPersonPage", (t) => readPersonPage(t, viewer, { personId: p.id }, 50)],
-		["listTags", (t) => fields.listTags(t, viewer, {})],
-		["listHouseholds", (t) => fields.listHouseholds(t, viewer, {})],
-		["getPersonSkills", (t) => fields.getPersonSkills(t, viewer, { personId: p.id })],
-		// A plain { session, selected } context, as the photo route sends, resolves its actor in the read itself.
-		["plain listPeople", (t) => read.listPeople(t, ctx(), {})],
-		["plain getPerson", (t) => read.getPerson(t, ctx(), { personId: p.id })],
-		["plain getPersonPhoto", (t) => fields.getPersonPhoto(t, ctx(), { personId: p.id })],
-		// No pipeline duty, so the read refuses; it must still not lock the session on the way.
-		["organization Member getPerson", (t) => read.getPerson(t, member.reader, { personId: orgPerson }), "refused"],
+		...label("cached", plantReads(viewer)),
+		...label("plain", plantReads(ctx())),
+		...label("organization Member cached", orgReads(member.reader, "refused")),
+		...label("organization Member plain", orgReads({ session: member.session, selected: member.selected }, "refused")),
+		...label("organization Owner plain", orgReads(orgCtx(), "ok")),
 	];
 	const waited = [];
 	for (const [op, run, expected = "ok"] of reads)
@@ -1374,7 +1395,7 @@ test("INV-reads (C22): a People read holds no lock on the reader's session, so s
 				await admin.transaction(async (a) => {
 					await a.execute(sql`SET LOCAL lock_timeout='250ms'`);
 					await a.execute(
-						sql`UPDATE auth_session SET expires_at=expires_at WHERE id=ANY(${sql.param([actors[0].session, member.session])}::uuid[])`,
+						sql`UPDATE auth_session SET expires_at=expires_at WHERE id=ANY(${sql.param([actors[0].session, actors[3].session, member.session])}::uuid[])`,
 					);
 				});
 			} catch {
