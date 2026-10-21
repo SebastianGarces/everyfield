@@ -43,6 +43,31 @@ async function effects() {
 	return { outcome, statements };
 }
 
+/**
+ * Runs the next approved effect while another transaction holds the plant row, so the executor passes its first
+ * check and then waits for write authority. `during` runs while it waits; then the plant row is released.
+ */
+async function stalledEffect(during: (claim: Claim) => Promise<void>) {
+	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
+	assert.ok(claim);
+	let running: Promise<string> | undefined;
+	await admin.transaction(async (tx) => {
+		await tx.execute(sql`SELECT id FROM plant WHERE id=${plant} FOR UPDATE`);
+		running = executeProposal(db, lease(claim));
+		for (let waiting = 0; !waiting;) {
+			const r = await admin.execute(
+				sql`SELECT count(*)::int n FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE '%write_gate%'`,
+			);
+			waiting = (r.rows[0] as { n: number }).n;
+		}
+		await during(claim);
+	});
+	const outcome = await running!;
+	if (outcome !== "lost")
+		await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
+	return outcome;
+}
+
 /** Asks Evry for a change in a new conversation, runs the turn and returns the proposal from its review card. */
 async function propose(who: EvryActor, text: string) {
 	const c = await createConversation(db, who, { requestKey: randomUUID() });
@@ -165,7 +190,7 @@ test("AC:UI45-004 AC:UI45-003 AC:INH-REGRESSION-REVISED-APPROVAL AC:INH-REGRESSI
 	assert.deepEqual([(await effectAudits(proposal.id)).length, await effectJobs(proposal.id)], [1, ["succeeded"]]);
 });
 
-test("AC:INH-REGRESSION-EXPIRED-APPROVAL AC:UI45-004 AC:SEC-12 an approval at or after expiry, or a cancelled one, starts nothing", async () => {
+test("AC:INH-REGRESSION-EXPIRED-APPROVAL AC:UI45-004 AC:SEC-12 an approval at or after expiry, even one that lapses while the effect waits, or a cancelled one, starts nothing", async () => {
 	const owner = await actor("owner");
 	const before = await person(people.casey);
 	const { proposal } = await propose(owner, "Change Casey's phone to 555-0100");
@@ -187,10 +212,34 @@ test("AC:INH-REGRESSION-EXPIRED-APPROVAL AC:UI45-004 AC:SEC-12 an approval at or
 	assert.deepEqual([lapsed.status, lapsed.outcome], ["expired", null]);
 	assert.equal(await refusal(retryUnresolvedEffects(db, owner, proposal.id)), "review_expired");
 
+	// An approval that lapses while the effect waits for write authority does not publish it either.
+	const late = await reviseProposal(db, owner, proposal.id, {
+		operation: "people.updatePerson",
+		revision: 2,
+		input: { personId: people.casey, patch: { phone: "555-0100" } },
+	});
+	await approveProposal(db, owner, proposal.id, witness(late));
+	await admin.execute(
+		sql`UPDATE proposal SET expires_at=clock_timestamp()+interval '1 second' WHERE id=${proposal.id}`,
+	);
+	const outcome = await stalledEffect(async () => {
+		for (let passed = false; !passed;) {
+			const r = await admin.execute(
+				sql`SELECT expires_at<=clock_timestamp() AS passed FROM proposal WHERE id=${proposal.id}`,
+			);
+			passed = (r.rows[0] as { passed: boolean }).passed;
+		}
+	});
+	const waited = await readReview(db, owner, proposal.id);
+	assert.deepEqual(
+		[outcome, waited.status, waited.outcome, await effectAudits(proposal.id)],
+		["expired", "expired", null, []],
+	);
+
 	// Cancel before the effect starts: the queued effect never runs.
 	const again = await reviseProposal(db, owner, proposal.id, {
 		operation: "people.updatePerson",
-		revision: 2,
+		revision: 3,
 		input: { personId: people.casey, patch: { phone: "555-0100" } },
 	});
 	await approveProposal(db, owner, proposal.id, witness(again));
@@ -200,7 +249,7 @@ test("AC:INH-REGRESSION-EXPIRED-APPROVAL AC:UI45-004 AC:SEC-12 an approval at or
 	assert.equal(await refusal(approveProposal(db, owner, proposal.id, witness(again))), "review_closed");
 	assert.deepEqual(
 		[await person(people.casey), await effectAudits(proposal.id), await effectJobs(proposal.id)],
-		[before, [], ["succeeded", "cancelled"]],
+		[before, [], ["succeeded", "succeeded", "cancelled"]],
 	);
 });
 
@@ -270,31 +319,22 @@ test("AC:EVRY-LEASE-FENCE AC:INH-REGRESSION-RETRY AC:INH-EDGES-12: an executor s
 	const owner = await actor("owner");
 	const { proposal } = await propose(owner, "Change Rivera's city to Naperville");
 	await approveProposal(db, owner, proposal.id, witness(proposal));
-	const [stalled] = await claimDue(db, ["evry_effect"], 1, 60);
-	assert.ok(stalled);
 	assert.equal((await readReview(db, owner, proposal.id)).executing, true);
-	// The executor passes its first fence, then waits for the plant lock while its lease expires and recovery
+	// The executor passes its first check, then waits for the plant lock while its lease expires and recovery
 	// replaces the claim. When the lock frees, it must not publish the change, its audit row or an outcome.
-	let running: Promise<string> | undefined;
-	await admin.transaction(async (tx) => {
-		await tx.execute(sql`SELECT id FROM plant WHERE id=${plant} FOR UPDATE`);
-		running = executeProposal(db, lease(stalled));
-		for (let waiting = 0; !waiting;) {
-			const r = await admin.execute(
-				sql`SELECT count(*)::int n FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE '%write_gate%'`,
-			);
-			waiting = (r.rows[0] as { n: number }).n;
-		}
-		await admin.execute(sql`UPDATE job SET lease_until=clock_timestamp()-interval '1 second' WHERE id=${stalled.id}`);
+	let stalled: Claim | undefined;
+	const outcome = await stalledEffect(async (claim) => {
+		stalled = claim;
+		await admin.execute(sql`UPDATE job SET lease_until=clock_timestamp()-interval '1 second' WHERE id=${claim.id}`);
 		assert.equal(await recoverLease(admin), 1);
 	});
-	assert.equal(await running, "lost");
+	assert.equal(outcome, "lost");
 	assert.deepEqual([await effectAudits(proposal.id), (await person(people.alexRivera)).city], [[], "Chicago"]);
 	// The outcome is unknown, not failed: the retry resumes the same effect key.
 	assert.equal((await readReview(db, owner, proposal.id)).outcome, "unknown");
 	assert.equal((await retryUnresolvedEffects(db, owner, proposal.id)).retried, true);
 	assert.equal((await effects())?.outcome, "completed");
-	assert.equal(await executeProposal(db, lease(stalled)), "lost");
+	assert.equal(await executeProposal(db, lease(stalled!)), "lost");
 	const retry = await retryUnresolvedEffects(db, owner, proposal.id);
 	assert.deepEqual([retry.retried, retry.proposal.outcome], [false, "completed"]);
 	assert.equal(await effects(), null);

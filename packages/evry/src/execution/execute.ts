@@ -45,8 +45,8 @@ const locked = z.object({
 const refusalCode = (code: string) =>
 	code === "conflict" ? "revision_conflict" : code === "unavailable" ? "access_denied" : code;
 
-/** The claim stopped being current while the effect waited; the whole transaction rolls back. */
-class Lost extends Error {}
+/** The approval lapsed or the claim stopped being current, possibly during a wait; the whole transaction rolls back. */
+class Unpublished extends Error {}
 
 class Refused extends Error {
 	readonly code: string;
@@ -75,12 +75,7 @@ export async function executeProposal(db: Database, lease: EffectLease): Promise
 			const p = locked.parse(r.rows[0]);
 			if (!p.fenced) return "lost";
 			if (p.state !== "approved" || p.outcome !== null) return "closed";
-			if (p.expired) {
-				await tx.execute(
-					sql`UPDATE proposal SET state='expired',approved_at=NULL,approved_session_id=NULL,updated_at=clock_timestamp() WHERE id=${p.id}::uuid`,
-				);
-				return "expired";
-			}
+			if (p.expired) throw new Unpublished();
 			// The approving session in the proposal's exact context: its live seat and lifecycle are locked and checked now,
 			// and the native command checks the role on that same lock. A signed-out session has no authority.
 			const session = sessionId.safeParse(p.approved_session_id);
@@ -99,16 +94,24 @@ export async function executeProposal(db: Database, lease: EffectLease): Promise
 				`evry:${p.id}:${p.revision}`,
 			);
 			if ("refused" in result) throw new Refused(refusalCode(result.refused));
-			// Publish only if this claim is still current after every lock wait above; otherwise the change and its audit
-			// row roll back with the transaction.
+			// Publish only if the approval is still unexpired and this claim still current after every lock wait above;
+			// otherwise the change and its audit row roll back with the transaction.
 			const published = await tx.execute(
-				sql`UPDATE proposal SET outcome='completed',receipt=${JSON.stringify(result)}::jsonb,updated_at=clock_timestamp() WHERE id=${p.id}::uuid AND ${fence(lease, true)}`,
+				sql`UPDATE proposal SET outcome='completed',receipt=${JSON.stringify(result)}::jsonb,updated_at=clock_timestamp()
+					WHERE id=${p.id}::uuid AND expires_at>clock_timestamp() AND ${fence(lease, true)}`,
 			);
-			if (!published.rowCount) throw new Lost();
+			if (!published.rowCount) throw new Unpublished();
 			return "completed";
 		});
 	} catch (error) {
-		if (error instanceof Lost) return "lost";
+		// evry.expireProposal: an approval that lapsed before the effect committed expires under the same claim.
+		if (error instanceof Unpublished) {
+			const expired = await db.execute(sql`
+				UPDATE proposal SET state='expired',approved_at=NULL,approved_session_id=NULL,updated_at=clock_timestamp()
+				WHERE job_id=${lease.jobId}::uuid AND tenant_id=${lease.tenantId}::uuid AND state='approved' AND outcome IS NULL
+					AND expires_at<=clock_timestamp() AND ${fence(lease, true)}`);
+			return expired.rowCount ? "expired" : "lost";
+		}
 		const refused =
 			error instanceof Refused
 				? error.code
