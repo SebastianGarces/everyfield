@@ -5,13 +5,15 @@
 //        (the "prefix" value in published.json is accepted as it is)
 // Key layout: evf-evidence/<task-id>/<random 32-hex prefix>/<file>.
 // Bucket: EVF_EVIDENCE_BUCKET (default everyfield-evidence). Objects are public-read; listing is refused,
-// so each link needs its random 128-bit prefix. Credentials: AWS_* from the environment, else from
-// EVF_EVIDENCE_ENV or <main checkout>/.env.prod. Only four AWS_* keys are read; no value is printed.
-// Upload refuses a text file that contains any value from the main checkout's env files.
+// so each link needs its random 128-bit prefix. Credentials: only the evidence env file, EVF_EVIDENCE_ENV
+// (default ~/.config/everyfield/evidence.env), which holds a key with Editor on the evidence bucket only.
+// It refuses .env.prod and the production key. Only four AWS_* keys are read; no value is printed.
+// Upload refuses a text file that contains any value from the evidence env file or the main checkout's env files.
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { dirname, extname, join, relative, resolve } from "node:path";
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { basename, dirname, extname, join, relative, resolve } from "node:path";
 
 const args = process.argv.slice(2);
 const target = args[args.indexOf("--delete") + 1]?.replace(/^evf-evidence\//, "");
@@ -26,17 +28,20 @@ const root = dirname(execFileSync("git", ["rev-parse", "--path-format=absolute",
 
 const KEYS = ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_ENDPOINT_URL_S3", "AWS_REGION"];
 const BUCKET = process.env.EVF_EVIDENCE_BUCKET ?? "everyfield-evidence";
+const ENV_FILE = resolve(process.env.EVF_EVIDENCE_ENV ?? join(homedir(), ".config/everyfield/evidence.env"));
+const envValues = (file) => Object.fromEntries(readFileSync(file, "utf8").split("\n").flatMap((line) => {
+  const m = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
+  return m ? [[m[1], m[2].replace(/^(['"])(.*)\1$/, "$2")]] : [];
+}));
 function credentials() {
-  const env = Object.fromEntries(KEYS.map((k) => [k, process.env[k]]));
-  if (KEYS.every((k) => env[k])) return env;
-  const file = process.env.EVF_EVIDENCE_ENV ?? join(root, ".env.prod");
-  if (!existsSync(file)) throw new Error(`No evidence credentials: set AWS_* or EVF_EVIDENCE_ENV (looked at ${file}).`);
-  for (const line of readFileSync(file, "utf8").split("\n")) {
-    const m = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
-    if (m && KEYS.includes(m[1]) && !env[m[1]]) env[m[1]] = m[2].replace(/^(['"])(.*)\1$/, "$2");
-  }
+  if (!existsSync(ENV_FILE)) throw new Error(`No evidence credentials at ${ENV_FILE}. Create it as .agents/skills/verify-preview/SKILL.md says, or set EVF_EVIDENCE_ENV.`);
+  if (basename(realpathSync(ENV_FILE)).startsWith(".env.prod")) throw new Error(`Refused: ${ENV_FILE} is a production env file. Use the evidence env file.`);
+  const all = envValues(ENV_FILE);
+  const env = Object.fromEntries(KEYS.map((k) => [k, all[k]]));
   const missing = KEYS.filter((k) => !env[k]);
-  if (missing.length) throw new Error(`Evidence credentials missing: ${missing.join(", ")} (values not shown).`);
+  if (missing.length) throw new Error(`Evidence credentials missing in ${ENV_FILE}: ${missing.join(", ")} (values not shown).`);
+  const prod = join(root, ".env.prod");
+  if (existsSync(prod) && envValues(prod).AWS_ACCESS_KEY_ID === env.AWS_ACCESS_KEY_ID) throw new Error(`Refused: ${ENV_FILE} holds the production key. Use the evidence-only key.`);
   return env;
 }
 
@@ -102,9 +107,8 @@ ${rows ? `<table><tr><th>Shot</th><th>Before (main)</th><th>After (branch)</th><
 <h2>Files</h2><ul>${files.map((f) => `<li><a href="${esc(f)}">${esc(f)}</a></li>`).join("")}</ul>`);
 
 // Refuse to publish any local env value (credentials, tokens, connection strings) found in a text file.
-const secrets = [".env.prod", ".env.local", ".env.development.local", "apps/web/.env.local"].map((f) => join(root, f)).filter(existsSync)
-  .flatMap((f) => readFileSync(f, "utf8").split("\n").map((l) => /^[A-Z0-9_]+=(.*)$/.exec(l.trim())?.[1]?.replace(/^(['"])(.*)\1$/, "$2") ?? ""))
-  .filter((v) => v.length >= 12);
+const secrets = [ENV_FILE, ...[".env.prod", ".env.local", ".env.development.local", "apps/web/.env.local"].map((f) => join(root, f))].filter(existsSync)
+  .flatMap((f) => Object.values(envValues(f))).filter((v) => v.length >= 12);
 const leaks = [...files, "index.html"].filter((f) => !/\.(png|jpg|webm|mp4|zip)$/.test(f)).filter((f) => {
   const text = readFileSync(join(dir, f), "utf8");
   return secrets.some((v) => text.includes(v)) || /postgres(ql)?:\/\/[^\s:@/]+:[^\s@/]{8,}@/.test(text);
