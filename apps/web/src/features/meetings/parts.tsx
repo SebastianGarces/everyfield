@@ -111,6 +111,20 @@ export const problemOf = (o: Outcome<unknown>): string | null =>
 	o.status === "ok" ? null : o.status === "lost" ? "lost" : o.code;
 
 /**
+ * Sends one write with its request key. When no answer arrives, it sends the same key once more: the producer replays
+ * a write that did commit, so the second answer is the true one. "lost" after that means nobody knows yet.
+ * `undefined` is a redirect on its way (the action answered with a new page).
+ */
+export async function sendOnce<T>(
+	key: string,
+	call: (key: string) => Promise<Outcome<T>>,
+): Promise<Outcome<T> | undefined> {
+	const attempt = () => call(key).catch(() => ({ status: "lost" }) as const);
+	const first = await attempt();
+	return first?.status === "lost" ? attempt() : first;
+}
+
+/**
  * One form's save. A request key belongs to one exact payload: a retry after a lost answer sends the same key, so the
  * producer replays a write that did commit; a changed payload gets a new key. `pending` blocks a double submit.
  */
@@ -124,7 +138,7 @@ export function useSave() {
 		if (!last.current || last.current.body !== body) last.current = { key: crypto.randomUUID(), body };
 		setPending(true);
 		setProblem(null);
-		const result: Outcome<T> | undefined = await call(last.current.key).catch(() => ({ status: "lost" }) as const);
+		const result = await sendOnce(last.current.key, call);
 		// No answer: the action redirected and the new page is on its way. Stay busy until it replaces this one.
 		if (result === undefined) return null;
 		setPending(false);

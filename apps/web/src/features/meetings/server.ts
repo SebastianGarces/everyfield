@@ -1,7 +1,7 @@
 import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
 import type { MeetingsContext } from "@everyfield/domain/meetings";
-import { meetingsReader, withMeetingsWrite } from "@everyfield/domain/meetings";
+import { attendanceReader, meetingsReader, withMeetingsWrite } from "@everyfield/domain/meetings";
 import type { MeetingsReply } from "@everyfield/contracts/meetings";
 import type { Database, Transaction } from "@everyfield/db/client";
 import "server-only";
@@ -105,15 +105,22 @@ export async function loadMeetings(viewer: Viewer, query: MeetingsQuery) {
  */
 export async function loadMeeting(viewer: Viewer, meetingId: string) {
 	const request = { meetingId };
-	const [meeting, guests, kit, cards, own] = await Promise.all([
+	const [meeting, guests, kit, cards, own, attendance, analytics, evaluation] = await Promise.all([
 		read(viewer, (db, a) => meetingsReader.get(db, a, request)),
 		read(viewer, (db, a) => meetingsReader.listGuests(db, a, request)),
 		read(viewer, (db, a) => meetingsReader.listKit(db, a, request)),
 		read(viewer, (db, a) => meetingsReader.listCards(db, a, request)),
 		read(viewer, (db, a) => meetingsReader.getOwnRsvp(db, a, request)),
+		readAttendance(viewer, meetingId),
+		// The meeting's report is for Owners and Admins; a Member's read would only be refused.
+		canWrite(viewer) ? readAnalytics(viewer, meetingId) : null,
+		// The type is not known before the meeting is read; waiting for it would add a round trip. Another type's
+		// answer is "none" and is dropped.
+		read(viewer, (db, a) => attendanceReader.getEvaluation(db, a, request)),
 	]);
 	if (meeting.status === "failed") return { status: "failed" } as const;
 	if (meeting.status === "refused" || meeting.value.status === "unavailable") return { status: "missing" } as const;
+	const vision = meeting.value.meeting.type === "vision_meeting";
 	return {
 		status: "found",
 		meeting: meeting.value.meeting,
@@ -121,7 +128,54 @@ export async function loadMeeting(viewer: Viewer, meetingId: string) {
 		kit: value(kit),
 		cards: value(cards)?.cards ?? null,
 		own: value(own),
+		attendance: value(attendance),
+		analytics: analytics ? value(analytics) : null,
+		evaluation: vision ? value(evaluation) : null,
 		now: new Date().toISOString(),
 	} as const;
 }
+
+/** Presence, classification and the attendance revision of every guest (up to the 500 a meeting can finalize). */
+export const readAttendance = (viewer: Viewer, meetingId: string) =>
+	read(viewer, (db, a) => attendanceReader.listAttendance(db, a, { meetingId, limit: 500 }));
+/** Attended, growth, the evaluation comparison and the generated work of one meeting. */
+export const readAnalytics = (viewer: Viewer, meetingId: string) =>
+	read(viewer, (db, a) => attendanceReader.readAnalytics(db, a, { meetingId }));
+
+export type MeetingsReport = Awaited<ReturnType<typeof loadReport>>;
+/**
+ * The Vision report on the meetings list (REQ-MTG-016): the summary, attendance and evaluation trends of the last 12
+ * finalized Vision meetings, read side by side. A report may take longer than a simple read; each part that fails
+ * shows its own error.
+ */
+export async function loadReport(viewer: Viewer) {
+	const window = { types: ["vision_meeting"], limit: 12 };
+	const [stats, attendance, evaluation] = await Promise.all([
+		read(viewer, (db, a) => attendanceReader.summaryStats(db, a, window)),
+		read(viewer, (db, a) => attendanceReader.attendanceTrend(db, a, window)),
+		read(viewer, (db, a) => attendanceReader.evaluationTrend(db, a, window)),
+	]);
+	return { stats: value(stats), attendance: value(attendance), evaluation: value(evaluation) };
+}
 export type MeetingPageData = Extract<Awaited<ReturnType<typeof loadMeeting>>, { status: "found" }>;
+
+/** Door check-in: the meeting, its guests and their attendance, read side by side. */
+export async function loadCheckIn(viewer: Viewer, meetingId: string) {
+	const request = { meetingId };
+	const [meeting, guests, attendance] = await Promise.all([
+		read(viewer, (db, a) => meetingsReader.get(db, a, request)),
+		read(viewer, (db, a) => meetingsReader.listGuests(db, a, request)),
+		readAttendance(viewer, meetingId),
+	]);
+	if (meeting.status === "failed" || guests.status === "failed") return { status: "failed" } as const;
+	if (meeting.status === "refused" || meeting.value.status === "unavailable") return { status: "missing" } as const;
+	if (guests.status !== "ok") return { status: "failed" } as const;
+	return {
+		status: "found",
+		meeting: meeting.value.meeting,
+		guests: guests.value.guests,
+		attendance: value(attendance),
+		now: new Date().toISOString(),
+	} as const;
+}
+export type CheckInData = Extract<Awaited<ReturnType<typeof loadCheckIn>>, { status: "found" }>;

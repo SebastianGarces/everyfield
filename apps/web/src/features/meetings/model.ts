@@ -14,6 +14,15 @@ export type Venue = z.infer<typeof c.venue>;
 export type AgendaSection = z.infer<typeof c.agendaSection>;
 export type Rsvp = z.infer<typeof c.rsvp>;
 export type CardResponse = z.infer<typeof c.cardResponse>;
+export type Presence = z.infer<typeof c.presence>;
+export type Attendee = z.infer<typeof c.attendee>;
+export type Attendance = z.infer<typeof c.attendanceList>;
+export type Analytics = z.infer<typeof c.meetingAnalytics>;
+export type Evaluation = z.infer<typeof c.evaluation>;
+export type Scores = z.infer<typeof c.scores>;
+export type Factor = keyof Scores;
+export type Classification = z.infer<typeof c.classification>;
+export type Finalization = z.infer<typeof c.finalizationResult>;
 
 /** A server action's answer. "lost" means no answer arrived: the same request key may be sent again. */
 export type Outcome<T> =
@@ -109,6 +118,36 @@ export const KIT_CATEGORY_LABEL = {
 	av: "Audio and video",
 	organization: "Organization",
 } as const;
+
+// -------------------------------------------------------------------------------------------------------------
+// Attendance and evaluation (WP-022).
+
+export const PRESENCE_LABEL: Record<Presence, string> = { attended: "Attended", excused: "Excused", absent: "Absent" };
+export const PRESENCE_TONE: Record<Presence, Status> = { attended: "positive", excused: "measured", absent: "unknown" };
+export const CLASSIFICATION_LABEL: Record<Classification, string> = {
+	first_time: "First visit",
+	returning: "Returning",
+	core_group: "Core group",
+};
+
+/** The eight Vision factors (REQ-MTG-014) in their stored order, with the question each one asks. */
+export const FACTORS: { key: Factor; label: string; hint: string }[] = [
+	{ key: "attendanceScore", label: "Attendance", hint: "The core group invited people actively" },
+	{ key: "locationScore", label: "Location", hint: "Easy to find, welcoming and free of distractions" },
+	{ key: "logisticsScore", label: "Logistics", hint: "Room, audio, video and materials were ready" },
+	{ key: "agendaScore", label: "Agenda", hint: "Detailed, and it ran on time" },
+	{ key: "vibeScore", label: "Vibe", hint: "Warm, inviting and enthusiastic" },
+	{ key: "messageScore", label: "Message", hint: "The vision was clear and compelling" },
+	{ key: "closeScore", label: "Close", hint: "A strong call that did not pressure anyone" },
+	{ key: "nextStepsScore", label: "Next steps", hint: "Clear dates and details" },
+];
+/** One decimal, always: "4.0", never "4". */
+export const scoreText = (n: number) => n.toFixed(1);
+/** "+0.4", "−0.3", "0.0". */
+export const deltaText = (n: number) => (n > 0 ? "+" : n < 0 ? "−" : "") + Math.abs(n).toFixed(1);
+
+/** People in a count: "1 person", "3 people". */
+export const peopleText = (n: number) => `${n} ${n === 1 ? "person" : "people"}`;
 
 // -------------------------------------------------------------------------------------------------------------
 // The list address. Filters live in the URL; a filter change returns to page one. Unknown or repeated values fall back
@@ -259,6 +298,10 @@ export function problemText(code: string): string {
 			return "That time happens twice on that day, because the clocks fall back. Choose which one you mean.";
 		case "token_closed":
 			return "This answer was already recorded, or the link has closed.";
+		case "unconfirmed":
+			return "We did not hear back from the server, so we cannot tell whether it saved. The page now shows what is saved.";
+		case "required_write_failed":
+			return "The server could not save this. Nothing changed. Try again in a moment.";
 		case "unavailable":
 			return "This is not available any more. It may have been deleted, or your seat may have changed. Reload the page.";
 		default:

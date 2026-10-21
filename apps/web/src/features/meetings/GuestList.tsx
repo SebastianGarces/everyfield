@@ -5,6 +5,7 @@ import {
 	Delete02Icon,
 	MoreHorizontalIcon,
 	Note01Icon,
+	Tick02Icon,
 	UserAdd01Icon,
 	UserMultipleIcon,
 	UserSwitchIcon,
@@ -48,6 +49,7 @@ import {
 	removeGuest,
 	setInviter,
 } from "./actions.ts";
+import { PresenceCell, type usePresence } from "./Attendance.tsx";
 import { PersonPicker, ReasonDialog, type PickedPerson } from "./dialogs.tsx";
 import {
 	CARD_LABEL,
@@ -56,11 +58,14 @@ import {
 	RSVP_LABEL,
 	RSVP_SOURCE_LABEL,
 	RSVP_TONE,
+	PRESENCE_LABEL,
 	rsvpCounts,
+	type Attendance,
 	type CardResponse,
 	type Detail,
 	type Guest,
 	type Outcome,
+	type Presence,
 	type Rsvp,
 } from "./model.ts";
 import { isPending, PENDING, type CardEntry, type Change } from "./page-state.ts";
@@ -80,12 +85,17 @@ const nextRevision = (r: string) => String(BigInt(r) + 1n) as Guest["revision"];
  * The guest list (REQ-MTG-007, REQ-MTG-019): each guest's RSVP, who invited them and, for Vision meetings, their
  * response card. Owners and Admins correct an RSVP from the row menu (REQ-MTG-008, not drawn: composed from Menu).
  * Every change shows at once in the row and the page's counts; the answer confirms it, or the page goes back and says
- * why. A form that fails reopens with what was entered.
+ * why. A form that fails reopens with what was entered. Before attendance is final, the row menu marks each guest
+ * attended, excused or absent (REQ-MTG-010); an attended guest can get a note in their history (REQ-MTG-017).
  */
 export function GuestList({
 	meeting,
 	guests,
 	cards,
+	attendance,
+	presence,
+	canMark,
+	onNote,
 	canWrite,
 	project,
 	onGuest,
@@ -96,6 +106,11 @@ export function GuestList({
 	meeting: Detail;
 	guests: Guest[] | null;
 	cards: CardEntry[] | null;
+	attendance: Attendance | null;
+	presence: ReturnType<typeof usePresence>;
+	/** Presence may change: an Owner or Admin, before attendance is final, on a meeting that is not cancelled. */
+	canMark: boolean;
+	onNote: (guest: Guest) => void;
 	canWrite: boolean;
 	project: (change: Change) => void;
 	onGuest: (guest: Guest) => void;
@@ -111,6 +126,7 @@ export function GuestList({
 	const vision = meeting.type === "vision_meeting";
 	const counts = rsvpCounts(shown);
 	const cardOf = new Map((cards ?? []).map((c) => [c.personId, c]));
+	const classOf = new Map((attendance?.items ?? []).map((a) => [a.person.personId, a.classification]));
 	const rows = filter === "all" ? shown : shown.filter((g) => g.rsvp === filter);
 	const open = ACCEPTS_REPLIES.includes(meeting.status);
 	const openForm = (f: Form) => setForm({ ...f, visible: true, key: Date.now() });
@@ -227,6 +243,18 @@ export function GuestList({
 				</div>
 			),
 		},
+		{
+			key: "attendance",
+			header: "Attendance",
+			cell: (g) => (
+				<PresenceCell
+					presence={g.presence}
+					classification={classOf.get(g.person.personId) ?? null}
+					final={attendance?.finalized != null}
+					saving={presence.busy.has(g.person.personId)}
+				/>
+			),
+		},
 		...(vision
 			? [
 					{
@@ -253,6 +281,23 @@ export function GuestList({
 										<IconButton icon={MoreHorizontalIcon} label={`Actions for ${g.person.displayName}`} size="sm" />
 									</MenuTrigger>
 									<MenuContent align="end">
+										<MenuLabel>Attendance</MenuLabel>
+										{(["attended", "excused", "absent"] as const satisfies Presence[]).map((p) => (
+											<MenuItem
+												key={p}
+												icon={Tick02Icon}
+												disabled={!canMark || g.presence === p || presence.busy.has(g.person.personId)}
+												onSelect={() => presence.set(g.person, p)}
+											>
+												Mark as {PRESENCE_LABEL[p].toLowerCase()}
+											</MenuItem>
+										))}
+										{g.presence === "attended" && g.person.state === "live" ? (
+											<MenuItem icon={Note01Icon} onSelect={() => onNote(g)}>
+												Add a note to their history
+											</MenuItem>
+										) : null}
+										<MenuSeparator />
 										<MenuLabel>Correct the RSVP</MenuLabel>
 										{(["confirmed", "declined", "pending"] as const).map((r) => (
 											<MenuItem
@@ -326,7 +371,7 @@ export function GuestList({
 					state={{ status: "ready", data: rows }}
 					rowId={(g) => g.id}
 					rowLabel={(g) => g.person.displayName}
-					minWidth={560}
+					minWidth={vision ? 760 : 640}
 					empty={{
 						icon: UserMultipleIcon,
 						title: filter === "all" ? "No guests yet" : `No guests with ${RSVP_LABEL[filter]}`,
