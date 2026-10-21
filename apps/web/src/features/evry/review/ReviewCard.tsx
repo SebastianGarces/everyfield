@@ -671,7 +671,7 @@ function PhotoTile({
 	const [failed, setFailed] = useState<string | null>(null);
 	const shown = state === "image" && src && failed !== src ? "image" : state === "image" ? "gone" : state;
 	return (
-		<figure className="flex w-20 flex-none flex-col gap-1.5" aria-busy={shown === "loading" || undefined}>
+		<figure className="flex min-w-20 flex-none flex-col gap-1.5" aria-busy={shown === "loading" || undefined}>
 			<span className="grid size-20 place-items-center overflow-hidden rounded-md bg-surface-raised text-text-3 shadow-[inset_0_0_0_1px_var(--ef-line)]">
 				{shown === "image" ? (
 					// eslint-disable-next-line @next/next/no-img-element -- private per-request bytes; next/image would cache them
@@ -697,7 +697,7 @@ function PhotoTile({
 			</span>
 			<figcaption className="flex flex-col text-xs leading-tight">
 				<span className="font-medium text-ink">{caption}</span>
-				{value ? <span className="text-text-3 tabular-nums">Ref {photoRef(value)}</span> : null}
+				{value ? <span className="whitespace-nowrap text-text-3 tabular-nums">Ref {photoRef(value)}</span> : null}
 			</figcaption>
 			{shown === "lost" && onRetry ? (
 				<Button size="sm" variant="ghost" className="-ml-2 self-start" onClick={onRetry}>
