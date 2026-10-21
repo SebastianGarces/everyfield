@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { instant } from "../common/time.ts";
-import { accountId, recordId, requestKey } from "../common/values.ts";
+import { accountId, recordId, requestKey, revision } from "../common/values.ts";
 import { commandEnvelope } from "../common/writes.ts";
-import { category, description, dueInput, priority, relation, taskStatus, title } from "./values.ts";
+import { category, description, dueInput, priority, recurrenceRule, relation, taskStatus, title } from "./values.ts";
 
-// No owner, creator, completion time, obligation or source identity in bodies: the server derives them.
+// No owner, creator, completion time, obligation or source identity in bodies: the server derives them. A checklist
+// row is created with createSubtaskRequest.
 export const createTaskRequest = z.strictObject({
 	requestKey,
 	input: z.strictObject({
@@ -16,7 +17,6 @@ export const createTaskRequest = z.strictObject({
 		due: dueInput.default({ kind: "undated" }),
 		assigneeId: accountId.nullable().default(null),
 		relation: relation.nullable().default(null),
-		parentId: recordId.nullable().default(null),
 	}),
 });
 // Omitted means unchanged; an explicit null clears a nullable field.
@@ -70,3 +70,50 @@ export const relationOptionsRequest = z.strictObject({
 	kind: z.enum(["person", "meeting", "team"]),
 	search: z.string().trim().max(200).default(""),
 });
+
+const page = {
+	limit: z.int().min(1).max(100).default(50),
+	page: z.int().min(1).max(100_000).default(1),
+};
+const unique = (ids: readonly string[]) => new Set(ids).size === ids.length;
+
+// One-level checklist rows (REQ-TSK-005). expectedRevision is the parent's revision for a create and the child's for a
+// tick or removal, so a concurrent parent change or child change refuses instead of acting on stale state.
+export const listSubtasksRequest = z.strictObject({ parentId: recordId, ...page });
+export const createSubtaskRequest = commandEnvelope(
+	z.strictObject({
+		parentId: recordId,
+		title,
+		// Omitted inherits the parent's assignee. Only an Owner or Admin may name another account or null.
+		assigneeId: accountId.nullable().optional(),
+	}),
+);
+export const setSubtaskCompletionRequest = commandEnvelope(
+	z.strictObject({ parentId: recordId, taskId: recordId, complete: z.boolean() }),
+);
+export const removeSubtaskRequest = commandEnvelope(z.strictObject({ parentId: recordId, taskId: recordId }));
+
+// Advisory prerequisites (REQ-TSK-006): the whole set is replaced at once.
+export const replacePrerequisitesRequest = commandEnvelope(
+	z.strictObject({ taskId: recordId, prerequisiteIds: z.array(recordId).max(50).refine(unique) }),
+);
+export const listPrerequisitesRequest = z.strictObject({ taskId: recordId });
+export const prerequisiteCandidatesRequest = z.strictObject({
+	taskId: recordId,
+	search: z.string().trim().max(200).default(""),
+});
+
+// Recurrence (REQ-TSK-007). A null rule stops the series; its tasks and history stay.
+export const configureRecurrenceRequest = commandEnvelope(
+	z.strictObject({ taskId: recordId, rule: recurrenceRule.nullable() }),
+);
+export const findOpenOccurrenceRequest = z.strictObject({ taskId: recordId });
+
+// Bulk changes (REQ-TSK-008): at most 100 reviewed tasks, each with the revision the person saw. A repeated task ID
+// counts once.
+const bulkItems = z
+	.array(z.strictObject({ taskId: recordId, expectedRevision: revision }))
+	.min(1)
+	.max(100);
+export const bulkCompleteRequest = z.strictObject({ requestKey, items: bulkItems });
+export const bulkRescheduleRequest = z.strictObject({ requestKey, items: bulkItems, due: dueInput });
