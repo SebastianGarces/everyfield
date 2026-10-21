@@ -466,14 +466,14 @@ function Footer({
 	else if (view === "running")
 		body = (
 			<>
-				<span className="flex-1 text-xs text-text-3">Approved by you</span>
+				<span className="flex-1 text-xs whitespace-nowrap text-text-3">Approved by you</span>
 				{cancel}
 			</>
 		);
 	else if (view === "completed")
 		body = (
 			<>
-				<span className="flex-1 text-xs text-text-3">Approved by you</span>
+				<span className="flex-1 text-xs whitespace-nowrap text-text-3">Approved by you</span>
 				{who && review.operation !== "people.deletePerson" && !review.review.withheld ? (
 					<Button size="sm" variant="ghost" asChild>
 						<IntentLink href={`/people/${who.id}`}>
