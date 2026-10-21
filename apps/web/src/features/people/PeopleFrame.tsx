@@ -1,6 +1,6 @@
 "use client";
 
-import { Settings02Icon, UserMultipleIcon } from "@hugeicons/core-free-icons";
+import { Settings02Icon, Task01Icon, UserMultipleIcon } from "@hugeicons/core-free-icons";
 import { ToastProvider, useToast } from "@everyfield/ui/controls";
 import { initials } from "@everyfield/ui/display";
 import { AppShell, RoleBanner, type ShellNav } from "@everyfield/ui/shell";
@@ -16,6 +16,7 @@ import type { Role } from "./server.ts";
 // ship. Settings sits at the bottom of the rail and in the user menu behind the name button (screens.md, Overlays).
 
 const PEOPLE = { kind: "link", key: "people", label: "People", href: "/people", icon: UserMultipleIcon } as const;
+const TASKS = { kind: "link", key: "tasks", label: "Tasks", href: "/tasks", icon: Task01Icon } as const;
 const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Member" };
 
 type FrameProps = {
@@ -61,16 +62,17 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 	const toast = useToast();
 	const dialog = useProductSettings(settings, seed);
 	const role = settings && settings.context !== "account" ? settings.role : null;
-	// A plant Member reads People but does not change it; organization seats have no People list.
+	// A plant Member reads People and Tasks and works on their own tasks; organization seats have neither.
 	const banner =
 		settings?.context === "plant" && role === "member" ? (
 			<RoleBanner>
-				You have a Member seat. You can see people and their history; Owners and Admins change them.
+				You have a Member seat. You can read what your seat allows and work on tasks assigned to you. Other changes
+				need an Owner or Admin.
 			</RoleBanner>
 		) : null;
 	// The rail's Settings opens the dialog over the current page, as the user menu does; /settings is its address.
 	const nav: ShellNav = {
-		main: [PEOPLE],
+		main: [PEOPLE, TASKS],
 		pages: [],
 		tools: [
 			{
