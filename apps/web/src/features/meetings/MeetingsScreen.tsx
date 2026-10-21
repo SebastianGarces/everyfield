@@ -16,7 +16,7 @@ import {
 import { DataTable, Pagination, StatusBadge, type Column } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
 	DEFAULT_QUERY,
 	isFiltered,
@@ -36,7 +36,7 @@ import {
 	type Window,
 } from "./model.ts";
 import { IntentLink, MeetingIcon, MeetingStatusBadge, RsvpBar } from "./parts.tsx";
-import { useDeleted } from "./deletions.ts";
+import { deletions, useDeleted } from "./deletions.ts";
 import { PlanMeetingDialog } from "./PlanMeetingDialog.tsx";
 import type { MeetingsView } from "./server.ts";
 import { VenuesSheet } from "./VenuesSheet.tsx";
@@ -56,6 +56,7 @@ export function MeetingsScreen({ view, canWrite }: { view: MeetingsView; canWrit
 	const { query, hasHistory, now } = view;
 	// A meeting deleted from its page leaves this list at once, while its delete is confirmed (deletions.ts).
 	const deleted = useDeleted();
+	useEffect(() => deletions.flush(), []);
 	const page = view.page && {
 		...view.page,
 		items: view.page.items.filter((m) => !deleted.has(m.id)),

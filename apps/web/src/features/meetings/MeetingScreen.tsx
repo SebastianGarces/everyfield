@@ -351,20 +351,21 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 							if (reason === "delete") {
 								// The list opens at once without this meeting; the answer confirms it or brings it back.
 								const { id, displayTitle, revision } = m;
-								deletions.hide(id);
+								deletions.queue(id, () =>
+									deleteMeeting(crypto.randomUUID(), revision, id, why)
+										.catch(() => ({ status: "lost" }) as const)
+										.then((r) => {
+											if (r.status === "ok") toast({ message: `${displayTitle} was deleted.`, tone: "success" });
+											else {
+												deletions.show(id);
+												toast({
+													message: `${displayTitle} was not deleted. ${problemText(problemOf(r)!)}`,
+													tone: "error",
+												});
+											}
+										}),
+								);
 								router.push("/meetings");
-								deleteMeeting(crypto.randomUUID(), revision, id, why)
-									.catch(() => ({ status: "lost" }) as const)
-									.then((r) => {
-										if (r.status === "ok") toast({ message: `${displayTitle} was deleted.`, tone: "success" });
-										else {
-											deletions.show(id);
-											toast({
-												message: `${displayTitle} was not deleted. ${problemText(problemOf(r)!)}`,
-												tone: "error",
-											});
-										}
-									});
 								return true;
 							}
 							const r =
