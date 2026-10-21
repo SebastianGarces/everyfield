@@ -64,6 +64,34 @@ export const relation = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("team"), id: recordId }),
 ]);
 
+// A recurring rule (REQ-TSK-007): the interval, an inclusive end date that is required but may be null for no end, and
+// an optional church-local time for successors. There is no occurrence count; the strict object refuses one.
+export const recurrenceFrequency = z.enum(["daily", "weekly", "biweekly", "monthly", "quarterly", "yearly"]);
+export const recurrenceRule = z.strictObject({
+	frequency: recurrenceFrequency,
+	until: localDate.nullable(),
+	localTime: z
+		.string()
+		.regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+		.nullable()
+		.default(null),
+});
+export type RecurrenceRule = z.infer<typeof recurrenceRule>;
+const months = { monthly: 1, quarterly: 3, yearly: 12 } as const;
+const days = { daily: 1, weekly: 7, biweekly: 14 } as const;
+/** One interval after `from`. A month or year step clamps to the last day of a shorter month: Jan 31 + 1 month = Feb 28. */
+export function nextOccurrenceDate(from: z.infer<typeof localDate>, frequency: z.infer<typeof recurrenceFrequency>) {
+	if (frequency in days) return addCivilDays(from, days[frequency as keyof typeof days]);
+	const [y, m, d] = from.split("-").map(Number) as [number, number, number];
+	const index = y * 12 + (m - 1) + months[frequency as keyof typeof months];
+	const year = Math.floor(index / 12),
+		month = (index % 12) + 1;
+	const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+	return localDate.parse(
+		`${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(Math.min(d, last)).padStart(2, "0")}`,
+	);
+}
+
 /**
  * Whether a task is overdue at asOf. A date-only task is due all through its church-local day and overdue from the
  * next local midnight, also on 23 and 25 hour days. A deadline is overdue once asOf is after it. Undated is unknown.

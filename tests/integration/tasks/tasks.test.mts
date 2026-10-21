@@ -34,6 +34,25 @@ const write = (who, op, input) => withTaskWrite(f.db, who.actor, (tx, ctx) => wr
 const read = (who, op, input) => f.db.transaction((tx) => taskReader[op](tx, who.actor, input));
 const create = async (who, input) =>
 	ok(await write(who, "create", { requestKey: randomUUID(), input: { title: "Task", ...input } })).task;
+// A weekly task, made recurring by the owner; returns it at its current revision.
+async function recurring(input, rule = { frequency: "weekly", until: null }) {
+	const t = await create(owner, input);
+	return ok(
+		await write(owner, "configureRecurrence", {
+			requestKey: randomUUID(),
+			expectedRevision: t.revision,
+			input: { taskId: t.id, rule },
+		}),
+	).task;
+}
+const subtask = async (who, parent, title) =>
+	ok(
+		await write(who, "createSubtask", {
+			requestKey: randomUUID(),
+			expectedRevision: parent.revision,
+			input: { parentId: parent.id, title },
+		}),
+	).task;
 const rows = async (q) => (await f.admin.execute(q)).rows;
 async function person(name, who = owner) {
 	const ctx = { session: who.actor.session, selected: who.actor.actor.context.owner };
@@ -176,7 +195,8 @@ test("AC:TARGET-TSK-002 AC:B03-007 AC:B03-008 AC:B03-009 AC:TARGET-TSK-018 creat
 		fold.details.choices.map((c) => c.offsetSeconds),
 		[-18000, -21600],
 	);
-	refused(await attempt({ parentId: randomUUID() }), "invalid_subject");
+	// A checklist row comes only from createSubtask.
+	refused(await attempt({ parentId: randomUUID() }), "invalid_input");
 	assert.deepEqual(
 		await rows(sql`SELECT (SELECT count(*)::int FROM task) t,(SELECT count(*)::int FROM audit_event) a`),
 		before,
@@ -246,7 +266,7 @@ test("AC:TARGET-TSK-002 AC:B03-007 AC:B03-008 AC:B03-009 AC:TARGET-TSK-018 creat
 	);
 
 	// Deleting a parent deletes its checklist rows too; both keep their history.
-	const child = await create(owner, { title: "Bring chairs", parentId: first.task.id });
+	const child = await subtask(owner, cleared, "Bring chairs");
 	const withChild = ok(await read(owner, "get", { taskId: first.task.id })).task;
 	assert.deepEqual(
 		withChild.checklistItems.map((k) => k.id),
@@ -293,7 +313,7 @@ test("AC:TARGET-TSK-001 AC:B03-001 AC:B03-002 AC:B03-003 views, stable pages, co
 			).id,
 		);
 	const dated = await create(me, { title: "Dated", due: { kind: "local_date", date: "2026-10-13" } });
-	for (const title of ["One", "Two"]) await create(me, { title, parentId: dated.id });
+	for (const title of ["One", "Two"]) await subtask(me, dated, title);
 
 	const pages = [1, 2].map(async (page) => ok(await read(me, "list", { sort: "due", page })));
 	const [one, two] = await Promise.all(pages);
@@ -657,16 +677,32 @@ test("INV-statements: page reads are one statement and generated work costs the 
 		await counted(() => read(owner, "count", {})),
 		await counted(() => read(owner, "get", { taskId: t.id })),
 		await counted(() => read(owner, "statusHistory", { taskId: t.id })),
+		await counted(() => read(owner, "listSubtasks", { parentId: t.id })),
+		await counted(() => read(owner, "listPrerequisites", { taskId: t.id })),
+		await counted(() => read(owner, "prerequisiteCandidates", { taskId: t.id })),
+		await counted(() => read(owner, "findOpenOccurrence", { taskId: t.id })),
 	];
 	const few = await reads();
 	for (let n = 0; n < 40; n++) await create(owner, { title: "More " + n, assigneeId: member.id });
-	assert.deepEqual(
-		[few, await reads()],
-		[
-			[3, 3, 3, 3],
-			[3, 3, 3, 3],
-		],
-	);
+	assert.deepEqual([few, await reads()], [Array(8).fill(3), Array(8).fill(3)]);
+
+	// A bulk completion costs the same statements for one task or twenty, each recurring, dated and assigned, so each
+	// also creates a successor with its reminders.
+	const bulkOf = async (n) => {
+		const items = [];
+		for (let i = 0; i < n; i++) {
+			const task = await recurring({ assigneeId: member.id, due: { kind: "local_date", date: "2099-02-01" } });
+			items.push({ taskId: task.id, expectedRevision: task.revision });
+		}
+		let result;
+		const count = await counted(async () => {
+			result = ok(await write(owner, "bulkComplete", { requestKey: randomUUID(), items }));
+		});
+		assert.equal(result.changed, n);
+		return count;
+	};
+	const [single, twenty] = [await bulkOf(1), await bulkOf(20)];
+	assert.equal(twenty, single);
 });
 
 test("AC:TARGET-TSK-014 a delivered due reminder is not sent again after the deadline moves", async () => {
@@ -734,8 +770,12 @@ test("INV-tenancy: a seat ended, demoted or signed out after the viewer lookup r
 		["list", {}],
 		["count", {}],
 		["statusHistory", { taskId: t.id }],
+		["listSubtasks", { parentId: t.id }],
+		["listPrerequisites", { taskId: t.id }],
+		["findOpenOccurrence", { taskId: t.id }],
 		["eligibleAssignees", undefined],
 		["relationOptions", { kind: "person" }],
+		["prerequisiteCandidates", { taskId: t.id }],
 	];
 	const [removed, demoted, signedOut] = [await seated("admin"), await seated("admin"), await seated("admin")];
 	for (const who of [removed, demoted, signedOut]) for (const [op, input] of reads(who)) ok(await read(who, op, input));
@@ -747,5 +787,447 @@ test("INV-tenancy: a seat ended, demoted or signed out after the viewer lookup r
 		for (const [op, input] of reads(who)) refused(await read(who, op, input), "unavailable");
 	// A demoted Admin keeps Member reads and loses the Admin-only selectors.
 	assert.equal(ok(await read(demoted, "get", { taskId: t.id })).task.id, t.id);
-	for (const [op, input] of reads(demoted).slice(4)) refused(await read(demoted, op, input), "unavailable");
+	for (const [op, input] of reads(demoted).slice(7)) refused(await read(demoted, op, input), "unavailable");
+});
+
+const get = async (who, taskId) => ok(await read(who, "get", { taskId })).task;
+const tick = (who, parent, child, complete) =>
+	write(who, "setSubtaskCompletion", {
+		requestKey: randomUUID(),
+		expectedRevision: child.revision,
+		input: { parentId: parent.id, taskId: child.id, complete },
+	});
+
+test("AC:TARGET-TSK-005 AC:EVRY-REAL-CHILD-TASK-PARITY checklist rows are one-level tasks with their own assignee and history", async () => {
+	const child = (who, parent, input) =>
+		write(who, "createSubtask", {
+			requestKey: randomUUID(),
+			expectedRevision: parent.revision,
+			input: { parentId: parent.id, title: "Item", ...input },
+		});
+	// Parent P is held by Admin B. Omitted inherits B; an Owner may also name an eligible account or null.
+	const p = await create(owner, { title: "Plan picnic", assigneeId: admin2.id });
+	const inherited = ok(await child(owner, p, {})).task;
+	const c = ok(await child(owner, p, { title: "Call venue", assigneeId: member.id })).task;
+	const unassigned = ok(await child(owner, p, { assigneeId: null })).task;
+	assert.deepEqual(
+		[inherited.assignee.accountId, c.assignee.accountId, unassigned.assignee],
+		[admin2.id, member.id, null],
+	);
+	refused(await child(owner, p, { assigneeId: foreign.id }), "invalid_subject");
+	// One level only: no row under a row, no parent from another church, no stale parent review.
+	refused(await child(owner, c, {}), "invalid_subject");
+	refused(await child(foreign, p, {}), "unavailable");
+	refused(await child(owner, { ...p, revision: "9" }, {}), "conflict");
+	// A Member adds only under a parent they hold, and the row is theirs: no other account, no null.
+	const pa = await create(owner, { title: "Member plan", assigneeId: member.id });
+	const l = ok(await child(member, pa, {})).task;
+	assert.equal(l.assignee.accountId, member.id);
+	for (const assigneeId of [owner.id, null, member.id])
+		refused(await child(member, pa, { assigneeId }), "access_denied");
+	refused(await child(member, p, {}), "unavailable");
+
+	// The child assignee ticks their row; holding the parent does not let a Member tick someone else's row.
+	const ticked = ok(await tick(member, p, c, true)).task;
+	assert.equal(ticked.status, "complete");
+	refused(await tick(member, p, inherited, true), "unavailable");
+	const pm = await create(owner, { title: "Member parent", assigneeId: member.id });
+	const x = await subtask(owner, pm, "Someone else's row");
+	await write(owner, "edit", {
+		requestKey: randomUUID(),
+		expectedRevision: x.revision,
+		input: { taskId: x.id, patch: { assigneeId: admin2.id } },
+	});
+	refused(await tick(member, pm, await get(owner, x.id), true), "unavailable");
+	refused(await tick(member, pa, ticked, false), "unavailable");
+	// The last row ticked leaves the parent open: no automatic completion.
+	for (const row of [inherited, unassigned]) ok(await tick(owner, p, row, true));
+	const parent = await get(owner, p.id);
+	assert.deepEqual([parent.status, parent.revision, parent.checklist], ["not_started", "1", { total: 3, complete: 3 }]);
+	const reopened = ok(await tick(member, p, ticked, false)).task;
+	assert.equal(reopened.status, "not_started");
+	const history = ok(await read(member, "statusHistory", { taskId: c.id })).items.map((h) => [h.from, h.to]);
+	assert.deepEqual(history, [
+		[null, "not_started"],
+		["not_started", "complete"],
+		["complete", "not_started"],
+	]);
+	const page = ok(await read(member, "listSubtasks", { parentId: p.id }));
+	assert.deepEqual(
+		page.items.map((k) => k.id),
+		[inherited.id, c.id, unassigned.id],
+	);
+
+	// A row has no deadline, recurrence, source or relation, through the API or directly in the database.
+	refused(
+		await write(owner, "edit", {
+			requestKey: randomUUID(),
+			expectedRevision: reopened.revision,
+			input: { taskId: c.id, patch: { due: { kind: "local_date", date: "2026-10-20" } } },
+		}),
+		"invalid_input",
+	);
+	await assert.rejects(
+		f.admin.execute(sql`UPDATE task SET due_kind='date_only', due_date='2026-10-20' WHERE id=${c.id}`),
+	);
+	await assert.rejects(f.admin.execute(sql`UPDATE task SET prerequisite_ids=ARRAY[${p.id}]::uuid[] WHERE id=${c.id}`));
+
+	// Removal retires the row with its history; the parent stays as it was. Owner/Admin only.
+	const remove = (who, row) =>
+		write(who, "removeSubtask", {
+			requestKey: randomUUID(),
+			expectedRevision: row.revision,
+			input: { parentId: p.id, taskId: row.id },
+		});
+	refused(await remove(member, reopened), "unavailable");
+	ok(await remove(owner, reopened));
+	const after = await get(owner, p.id);
+	assert.deepEqual([after.revision, after.checklist], ["1", { total: 2, complete: 2 }]);
+	assert.equal(ok(await read(owner, "statusHistory", { taskId: c.id })).items.length, 3);
+});
+
+test("AC:TARGET-TSK-006 prerequisites never form a cycle, even proposed at once, and settled or deleted ones stop blocking", async () => {
+	const replace = (who, task, ids, requestKey = randomUUID()) =>
+		write(who, "replacePrerequisites", {
+			requestKey,
+			expectedRevision: task.revision,
+			input: { taskId: task.id, prerequisiteIds: ids },
+		});
+	const [a, b, c] = [
+		await create(owner, { title: "A" }),
+		await create(owner, { title: "B" }),
+		await create(owner, { title: "C" }),
+	];
+	// A needs B, B needs C; C needing A would close A -> B -> C -> A.
+	const key = randomUUID();
+	const aNeedsB = ok(await replace(owner, a, [b.id], key));
+	assert.deepEqual(ok(await replace(owner, a, [b.id], key)), aNeedsB);
+	ok(await replace(owner, b, [c.id]));
+	refused(await replace(owner, c, [a.id]), "dependency_cycle");
+	assert.deepEqual((await get(owner, c.id)).prerequisiteIds, []);
+	// Self, foreign, deleted and checklist rows are not candidates.
+	const gone = await create(owner, { title: "Gone" });
+	ok(
+		await write(owner, "delete", {
+			requestKey: randomUUID(),
+			expectedRevision: gone.revision,
+			input: { taskId: gone.id },
+		}),
+	);
+	const row = await subtask(owner, c, "Row");
+	const theirs = await create(foreign, { title: "Theirs" });
+	const fresh = await get(owner, c.id);
+	for (const id of [c.id, theirs.id, gone.id, row.id]) refused(await replace(owner, fresh, [id]), "invalid_subject");
+	refused(await replace(member, fresh, [b.id]), "unavailable");
+	assert.deepEqual(
+		ok(await read(owner, "prerequisiteCandidates", { taskId: c.id })).items.filter((t) =>
+			[a.id, b.id, c.id].includes(t.id),
+		),
+		[],
+	);
+
+	// Opposite edges proposed at once: one saves, the other refuses. Also for two disjoint edges that close a
+	// four-task cycle, which no lock on the edge's own tasks would catch.
+	const both = async (pairs) => {
+		const results = await Promise.all(pairs.map(([from, to]) => replace(owner, from, [to.id])));
+		return results.map((r) => (r.status === "ok" ? "ok" : r.error.code)).sort();
+	};
+	const [x, y] = [await create(owner, { title: "X" }), await create(owner, { title: "Y" })];
+	assert.deepEqual(
+		await both([
+			[x, y],
+			[y, x],
+		]),
+		["dependency_cycle", "ok"],
+	);
+	const [p, q, r, s] = await Promise.all(["P", "Q", "R", "S"].map((title) => create(owner, { title })));
+	const pq = ok(await replace(owner, p, [q.id])).task,
+		rs = ok(await replace(owner, r, [s.id])).task;
+	assert.deepEqual(
+		await both([
+			[q, r],
+			[s, p],
+		]),
+		["dependency_cycle", "ok"],
+	);
+	assert.ok(pq && rs);
+
+	// The derived badge counts open live prerequisites, apart from the manual blocked status, and never stops completion.
+	const [open, waived, deleted] = [
+		await create(owner, { title: "Open" }),
+		await create(owner, { title: "Waived" }),
+		await create(owner, { title: "Deleted" }),
+	];
+	const t = ok(
+		await replace(owner, await create(owner, { title: "Dependent" }), [open.id, waived.id, deleted.id]),
+	).task;
+	assert.deepEqual([t.openPrerequisites, t.status], [3, "not_started"]);
+	ok(
+		await write(owner, "waive", {
+			requestKey: randomUUID(),
+			expectedRevision: waived.revision,
+			input: { taskId: waived.id },
+		}),
+	);
+	ok(
+		await write(owner, "delete", {
+			requestKey: randomUUID(),
+			expectedRevision: deleted.revision,
+			input: { taskId: deleted.id },
+		}),
+	);
+	const list = ok(await read(member, "listPrerequisites", { taskId: t.id }));
+	assert.deepEqual(
+		list.items.map((i) => [i.title, i.deleted, i.blocking]),
+		[
+			["Open", false, true],
+			["Waived", false, false],
+			["Deleted", true, false],
+		],
+	);
+	assert.equal((await get(owner, t.id)).openPrerequisites, 1);
+	const done = ok(
+		await write(owner, "complete", { requestKey: randomUUID(), expectedRevision: t.revision, input: { taskId: t.id } }),
+	);
+	assert.equal(done.task.status, "complete");
+	// No success credit for the waived or deleted prerequisite: neither has a completion.
+	assert.deepEqual(
+		await rows(
+			sql`SELECT count(*)::int n FROM task WHERE id IN (${waived.id},${deleted.id}) AND completed_at IS NOT NULL`,
+		),
+		[{ n: 0 }],
+	);
+	// The edge change is in the history record with the set before and after.
+	assert.deepEqual(
+		await rows(
+			sql`SELECT before_value, after_value FROM audit_event WHERE subject_id=${a.id} AND after_value ? 'prerequisite_ids'`,
+		),
+		[{ before_value: { prerequisite_ids: [] }, after_value: { prerequisite_ids: [b.id] } }],
+	);
+});
+
+test("AC:TARGET-TSK-007 AC:TARGET-TSK-018 completing a recurring task creates exactly one next task with a fresh checklist", async () => {
+	const complete = (who, task, requestKey = randomUUID()) =>
+		write(who, "completeOccurrence", { requestKey, expectedRevision: task.revision, input: { taskId: task.id } });
+	const due = (date) => ({ kind: "local_date", date });
+	// January 31 monthly: the next one is due February 28. A retry returns the same answer and creates nothing.
+	const t = await recurring(
+		{ title: "Pay rent", assigneeId: member.id, due: due("2026-01-31") },
+		{ frequency: "monthly", until: null },
+	);
+	const item = await subtask(owner, t, "Call venue");
+	ok(await tick(owner, t, item, true));
+	const key = randomUUID(),
+		reviewed = await get(owner, t.id);
+	const first = ok(await complete(member, reviewed, key));
+	assert.deepEqual(ok(await complete(member, reviewed, key)), first);
+	assert.deepEqual(
+		[first.task.status, first.successor.due, first.successor.assignee.accountId],
+		["complete", due("2026-02-28"), member.id],
+	);
+	assert.deepEqual(
+		first.successor.checklistItems.map((k) => [k.title, k.status]),
+		[["Call venue", "not_started"]],
+	);
+	// The completed occurrence keeps its own checked row; the copy has no due date or completion.
+	assert.equal((await get(owner, t.id)).checklistItems[0].status, "complete");
+	assert.deepEqual(
+		await rows(sql`SELECT due_kind, completed_at, series_id FROM task WHERE parent_id=${first.successor.id}`),
+		[{ due_kind: "undated", completed_at: null, series_id: null }],
+	);
+	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM task WHERE predecessor_id=${t.id}`), [{ n: 1 }]);
+	const open = ok(await read(member, "findOpenOccurrence", { taskId: t.id }));
+	assert.deepEqual(open.open, { taskId: first.successor.id, occurrence: 2, predecessorId: t.id, revision: "1" });
+	// The older occurrence cannot reopen while the next one is open.
+	refused(
+		await write(owner, "reopen", {
+			requestKey: randomUUID(),
+			expectedRevision: first.task.revision,
+			input: { taskId: t.id },
+		}),
+		"open_successor",
+	);
+
+	// Leap day yearly, the inclusive end date, and late completion (the next one is already overdue).
+	const cases = [
+		[due("2024-02-29"), { frequency: "yearly", until: null }, due("2025-02-28")],
+		[due("2026-01-31"), { frequency: "monthly", until: "2026-02-28" }, due("2026-02-28")],
+		[due("2026-01-28"), { frequency: "monthly", until: "2026-02-27" }, null],
+		[due("2026-01-05"), { frequency: "weekly", until: null }, due("2026-01-12")],
+		[due("2026-01-05"), { frequency: "biweekly", until: null }, due("2026-01-19")],
+		[due("2026-01-15"), { frequency: "quarterly", until: null }, due("2026-04-15")],
+		// Automatic wall time over the spring gap moves forward by the gap: 02:30 becomes 03:30 CDT.
+		[
+			due("2026-03-07"),
+			{ frequency: "daily", until: null, localTime: "02:30" },
+			{
+				kind: "resolved_instant",
+				local: "2026-03-08T03:30:00",
+				zone: "America/Chicago",
+				instant: "2026-03-08T08:30:00.000Z",
+				offsetSeconds: -18000,
+			},
+		],
+	];
+	for (const [from, rule, expected] of cases) {
+		const task = await recurring({ due: from }, rule);
+		const result = ok(await complete(owner, task));
+		assert.deepEqual(result.successor?.due ?? null, expected, JSON.stringify(rule));
+		if (rule.frequency === "weekly") assert.equal(result.successor.overdue, true);
+	}
+	// Undated: one interval from the church-local completion date.
+	const undated = ok(await complete(owner, await recurring({})));
+	const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Chicago" }).format(new Date());
+	const week = new Date(Date.parse(today + "T00:00:00Z") + 7 * 86_400_000).toISOString().slice(0, 10);
+	assert.deepEqual(undated.successor.due, due(week));
+
+	// Two completions at once: one completes and creates the next task, the other refuses.
+	const raced = await recurring({ due: due("2026-05-01") });
+	const results = await Promise.all([complete(owner, raced), complete(owner, raced)]);
+	assert.deepEqual(results.map((r) => (r.status === "ok" ? "ok" : r.error.code)).sort(), ["conflict", "ok"]);
+	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM task WHERE predecessor_id=${raced.id}`), [{ n: 1 }]);
+
+	// A failed checklist copy rolls back the completion too; the same request then completes once.
+	const failing = await recurring({ due: due("2026-06-01") });
+	await subtask(owner, failing, "Fail copy");
+	const fault = "tasks_fail_copy";
+	await f.admin.execute(
+		sql.raw(`CREATE FUNCTION ${fault}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+		IF NEW.title='Fail copy' AND NEW.parent_id IS NOT NULL AND TG_OP='INSERT' THEN RAISE EXCEPTION 'fault'; END IF; RETURN NEW; END $$`),
+	);
+	const retry = randomUUID();
+	try {
+		await f.admin.execute(
+			sql.raw(`CREATE TRIGGER ${fault} BEFORE INSERT ON task FOR EACH ROW EXECUTE FUNCTION ${fault}()`),
+		);
+		await assert.rejects(complete(owner, failing, retry));
+	} finally {
+		await f.admin.execute(sql.raw(`DROP TRIGGER IF EXISTS ${fault} ON task; DROP FUNCTION IF EXISTS ${fault}()`));
+	}
+	assert.equal((await get(owner, failing.id)).status, "not_started");
+	const recovered = ok(await complete(owner, failing, retry));
+	assert.deepEqual(
+		recovered.successor.checklistItems.map((k) => k.title),
+		["Fail copy"],
+	);
+
+	// Stopping keeps the series and its history; the next completion creates nothing.
+	const stopped = await recurring({ due: due("2026-07-01") });
+	const halted = ok(
+		await write(owner, "configureRecurrence", {
+			requestKey: randomUUID(),
+			expectedRevision: stopped.revision,
+			input: { taskId: stopped.id, rule: null },
+		}),
+	).task;
+	assert.equal(halted.recurrence.stopped, true);
+	assert.equal(ok(await complete(owner, halted)).successor, null);
+	// No occurrence count: the strict rule refuses it.
+	refused(
+		await write(owner, "configureRecurrence", {
+			requestKey: randomUUID(),
+			expectedRevision: halted.revision,
+			input: { taskId: stopped.id, rule: { frequency: "weekly", until: null, count: 3 } },
+		}),
+		"invalid_input",
+	);
+});
+
+test("AC:TARGET-TSK-008 bulk changes report each task, commit all valid tasks or none, and never repeat on retry", async () => {
+	const bulk = (who, op, tasks, extra = {}, requestKey = randomUUID()) =>
+		write(who, op, {
+			requestKey,
+			items: tasks.map((t) => ({ taskId: t.id, expectedRevision: t.revision })),
+			...extra,
+		});
+	const mine = await create(owner, { title: "Mine", assigneeId: member.id });
+	const others = await create(owner, { title: "Others" });
+	const series = await recurring({
+		title: "Weekly",
+		assigneeId: member.id,
+		due: { kind: "local_date", date: "2026-10-01" },
+	});
+	const waived = await create(owner, { title: "Waived", assigneeId: member.id });
+	const w = ok(
+		await write(owner, "waive", {
+			requestKey: randomUUID(),
+			expectedRevision: waived.revision,
+			input: { taskId: waived.id },
+		}),
+	).task;
+	const changed = await create(owner, { title: "Changed", assigneeId: member.id });
+	const stale = { ...changed };
+	await write(owner, "edit", {
+		requestKey: randomUUID(),
+		expectedRevision: changed.revision,
+		input: { taskId: changed.id, patch: { title: "Changed again" } },
+	});
+	const theirs = await create(foreign, { title: "Theirs" });
+	const missing = { id: randomUUID(), revision: "1" };
+	const boom = await create(owner, { title: "Boom", assigneeId: member.id });
+	const selection = [mine, others, series, series, w, stale, theirs, missing, boom];
+
+	// A fault before commit leaves every task as it was.
+	const fault = "tasks_fail_bulk";
+	await f.admin.execute(
+		sql.raw(`CREATE FUNCTION ${fault}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+		IF NEW.title='Boom' AND NEW.status='complete' THEN RAISE EXCEPTION 'fault'; END IF; RETURN NEW; END $$`),
+	);
+	const key = randomUUID();
+	try {
+		await f.admin.execute(
+			sql.raw(`CREATE TRIGGER ${fault} BEFORE UPDATE ON task FOR EACH ROW EXECUTE FUNCTION ${fault}()`),
+		);
+		await assert.rejects(bulk(member, "bulkComplete", selection, {}, key));
+	} finally {
+		await f.admin.execute(sql.raw(`DROP TRIGGER IF EXISTS ${fault} ON task; DROP FUNCTION IF EXISTS ${fault}()`));
+	}
+	assert.deepEqual(
+		await rows(
+			sql`SELECT count(*)::int n FROM task WHERE id IN (${mine.id},${series.id},${boom.id}) AND status='complete'`,
+		),
+		[{ n: 0 }],
+	);
+	// The same request then completes each valid task once; a retry returns the stored answer.
+	const result = ok(await bulk(member, "bulkComplete", selection, {}, key));
+	assert.deepEqual(ok(await bulk(member, "bulkComplete", selection, {}, key)), result);
+	assert.deepEqual(
+		result.items.map((i) => [i.taskId, i.outcome]),
+		[
+			[mine.id, "changed"],
+			[others.id, "unauthorized"],
+			[series.id, "changed"],
+			[w.id, "closed"],
+			[changed.id, "stale"],
+			[theirs.id, "not_found"],
+			[missing.id, "not_found"],
+			[boom.id, "changed"],
+		],
+	);
+	assert.deepEqual([result.changed, result.remaining], [3, [others.id, changed.id]]);
+	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM task WHERE predecessor_id=${series.id}`), [{ n: 1 }]);
+	assert.equal((await get(foreign, theirs.id)).status, "not_started");
+
+	// Reschedule: Owner/Admin, open top-level tasks only, and an invalid date writes nothing.
+	const later = await create(owner, { title: "Later" });
+	const row = await subtask(owner, later, "Row");
+	const done = await get(owner, mine.id);
+	refused(
+		await bulk(member, "bulkReschedule", [later], { due: { kind: "local_date", date: "2026-11-01" } }),
+		"unavailable",
+	);
+	refused(
+		await bulk(owner, "bulkReschedule", [later], { due: { kind: "local_date", date: "2026-02-30" } }),
+		"invalid_input",
+	);
+	refused(await bulk(owner, "bulkReschedule", Array(101).fill(later), { due: { kind: "undated" } }), "invalid_input");
+	const moved = ok(
+		await bulk(owner, "bulkReschedule", [later, row, done], { due: { kind: "local_date", date: "2026-11-01" } }),
+	);
+	assert.deepEqual(
+		moved.items.map((i) => i.outcome),
+		["changed", "ineligible", "closed"],
+	);
+	assert.deepEqual((await get(owner, later.id)).due, { kind: "local_date", date: "2026-11-01" });
+	assert.deepEqual((await get(owner, others.id)).due, { kind: "undated" });
 });

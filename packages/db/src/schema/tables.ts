@@ -4065,6 +4065,10 @@ export const task = pgTable(
 		occurrence_key: text("occurrence_key"),
 		predecessor_id: uuid("predecessor_id"),
 		obligation_id: uuid("obligation_id"),
+		prerequisite_ids: uuid("prerequisite_ids")
+			.array()
+			.notNull()
+			.default(sql`'{}'::uuid[]`),
 		completed_at: timestamp("completed_at", { withTimezone: true, mode: "date" }),
 		deleted_at: timestamp("deleted_at", { withTimezone: true, mode: "date" }),
 		source_template_id: uuid("source_template_id"),
@@ -4181,6 +4185,10 @@ export const task = pgTable(
 		check(
 			"task_ck_9",
 			sql`(category = ANY (ARRAY['administrative'::text, 'vision_meeting'::text, 'follow_up'::text, 'general'::text, 'ministry_team'::text, 'launch_prep'::text, 'training'::text, 'promotion'::text, 'recurring'::text, 'facilities'::text]))`,
+		),
+		check(
+			"task_ck_11",
+			sql`((cardinality(prerequisite_ids) <= 50) AND (NOT (id = ANY (prerequisite_ids))) AND ((parent_id IS NULL) OR (cardinality(prerequisite_ids) = 0)))`,
 		),
 		check("task_timezone_iana", sql`(timezone = ANY (${canonicalZones7}))`),
 		index("task_ref_0").using("btree", table.plant_id.asc().nullsLast()),
