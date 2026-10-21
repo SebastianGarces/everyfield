@@ -5,10 +5,12 @@ import { Badge, CardIcon, UiButton, type Tone } from "@/components/kit/kit";
 import { Reveal } from "@/components/motion/Reveal";
 import type { Copy } from "../copy";
 import { ICONS, type IconName } from "../icons";
+import type { PhotoName } from "../photo/photos";
 import { PathsCycle } from "./PathsCycle";
 
 type Paths = Copy["shared"]["oversight_page"]["paths"];
-const TONES = ["g-sky", "g-rose", "g-sun"];
+/* One photo per sending path; the product cards on them are white. */
+const PHOTOS: PhotoName[] = ["reeds", "lupins", "swirl"];
 
 /**
  * /oversight, Revision 28: the sending paths. One display sentence over one large card; PathsCycle moves both. The panes
@@ -44,7 +46,7 @@ export function SendingPaths({ p }: { p: Paths }) {
 					phrases={S.map((x) => x.phrase)}
 					panes={panes}
 					apps={APPS}
-					tones={TONES}
+					photos={PHOTOS}
 				/>
 				<p className="mx-auto mt-[clamp(24px,3vw,36px)] max-w-[720px] text-center text-mk-lead-sm leading-[1.55] text-pretty text-text-2">
 					{p.line}
@@ -56,7 +58,7 @@ export function SendingPaths({ p }: { p: Paths }) {
 
 function App({ children }: { children: ReactNode }) {
 	return (
-		<div className="w-[min(400px,100%)] rounded-[20px] bg-white px-[18px] pt-4 pb-[18px] type-sm leading-[1.4] text-text shadow-mk-panel-flat">
+		<div className="w-[min(400px,100%)] bg-white px-[18px] pt-4 pb-[18px] type-sm leading-[1.4] text-text shadow-mk-panel-flat">
 			{children}
 		</div>
 	);
@@ -73,7 +75,7 @@ function Head({ icon, tone, title, sub }: { icon: IconName; tone: Tone; title: s
 	);
 }
 const PILL =
-	"inline-flex h-[22px] items-center gap-1.5 rounded-full bg-surface-2 pr-[9px] pl-2 type-xs font-medium whitespace-nowrap text-ink-2";
+	"inline-flex h-[22px] items-center gap-1.5 bg-surface-2 pr-[9px] pl-2 type-xs font-medium whitespace-nowrap text-ink-2";
 const KV = "flex items-center justify-between gap-2.5 border-t border-line py-2.5 type-sm text-text-2";
 
 const APPS = [
@@ -138,7 +140,7 @@ const APPS = [
 		<Head icon="pin" tone="green" title="Mueller Hope Church" sub="Mueller, Austin · 0 · Discovery" />
 		<div className={KV}>
 			<span>Sent by</span>
-			<span className="inline-flex min-h-7 items-center gap-1.5 rounded-full bg-green-50 py-1 pr-[11px] pl-2 type-xs leading-[1.3] font-medium text-green-700 shadow-mk-chip-on">
+			<span className="inline-flex min-h-7 items-center gap-1.5 bg-green-50 py-1 pr-[11px] pl-2 type-xs leading-[1.3] font-medium text-green-700 shadow-mk-chip-on">
 				<Icon icon={ICONS.network} />
 				<span>
 					Sent by <b className="font-semibold text-ink">Austin Sending Network</b>

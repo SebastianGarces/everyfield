@@ -35,7 +35,7 @@ export function ScopeChip({
 			{label} <b className="font-semibold tabular-nums">{n}</b>
 		</>
 	);
-	const item = "col-start-1 row-start-1 inline-flex items-center gap-1.5 rounded-[12px] px-[11px]";
+	const item = "col-start-1 row-start-1 inline-flex items-center gap-1.5 px-[11px]";
 	const body = (
 		<>
 			<span className={cn(item, "[&>b]:text-ink")}>{inner}</span>
@@ -45,7 +45,7 @@ export function ScopeChip({
 		</>
 	);
 	const chip =
-		"relative inline-grid h-[30px] rounded-[12px] bg-surface type-sm font-medium whitespace-nowrap text-ink-2 shadow-[inset_0_0_0_1px_var(--color-line-2)] will-change-transform";
+		"relative inline-grid h-[30px] bg-surface type-sm font-medium whitespace-nowrap text-ink-2 shadow-[inset_0_0_0_1px_var(--color-line-2)] will-change-transform";
 	return press === undefined ? (
 		<span className={chip}>{body}</span>
 	) : (
@@ -80,7 +80,7 @@ export function ScopePanel() {
 					{STATS.map((l, k) => (
 						<div
 							key={l}
-							className="min-w-0 rounded-[14px] bg-white px-3 pt-2.5 pb-[11px] shadow-[inset_0_0_0_1px_var(--color-line)] max-mk-sm:px-2.5 max-mk-sm:pt-[9px] max-mk-sm:pb-2.5"
+							className="min-w-0 bg-white px-3 pt-2.5 pb-[11px] shadow-[inset_0_0_0_1px_var(--color-line)] max-mk-sm:px-2.5 max-mk-sm:pt-[9px] max-mk-sm:pb-2.5"
 						>
 							<Num className="block font-display type-title-lg leading-none max-mk-sm:font-title max-mk-sm:type-title-md">
 								<Count fx="scope.stat" n={k} max={SD_SCOPES[0][(k + 1) as 1 | 2 | 3]} />
@@ -140,12 +140,12 @@ export function PipePanel() {
 							<>
 								{k === 1 ? <Hl a={2450} b={1e9} /> : null}
 								<b className="font-semibold whitespace-nowrap">{r[0]}</b>
-								<span className="relative h-3.5 overflow-hidden rounded-full bg-surface-2">
+								<span className="relative h-3.5 overflow-hidden bg-surface-2">
 									<Tf
 										as="i"
 										fx="pipe.bar"
 										n={k}
-										className="absolute inset-0 origin-left rounded-full bg-[color-mix(in_srgb,var(--color-violet-500)_62%,var(--color-white))]"
+										className="absolute inset-0 origin-left bg-[color-mix(in_srgb,var(--color-violet-500)_62%,var(--color-white))]"
 									/>
 								</span>
 								<span className="justify-self-end font-title tracking-[-0.02em] whitespace-nowrap">
@@ -173,7 +173,7 @@ export function PipePanel() {
 				</St>
 				<St
 					i={2}
-					className="mt-3 flex items-center justify-between gap-2.5 rounded-[14px] bg-surface-2 px-3.5 py-[11px] type-sm font-semibold"
+					className="mt-3 flex items-center justify-between gap-2.5 bg-surface-2 px-3.5 py-[11px] type-sm font-semibold"
 				>
 					<span>Launches in the next 12 months</span>
 					<Num className="font-title type-title-md leading-none">
@@ -213,7 +213,7 @@ export function LensPanel() {
 						<St
 							key={l[0]}
 							i={i + 1}
-							className="flex min-w-0 flex-col gap-2 rounded-[14px] bg-white px-3.5 py-[13px] shadow-[inset_0_0_0_1px_var(--color-line)]"
+							className="flex min-w-0 flex-col gap-2 bg-white px-3.5 py-[13px] shadow-[inset_0_0_0_1px_var(--color-line)]"
 						>
 							<div className="flex items-center gap-2">
 								<span className={cn("grid size-7 flex-none place-items-center rounded-full", LI_TONE[l[2]])}>
@@ -227,7 +227,7 @@ export function LensPanel() {
 									<Tf
 										fx="lens.press"
 										target="t0"
-										className="grid size-7 flex-none place-items-center rounded-[9px] bg-surface-2 text-ink-2"
+										className="grid size-7 flex-none place-items-center bg-surface-2 text-ink-2"
 									>
 										<Icon icon={ICONS.arrow} className="-rotate-45" />
 									</Tf>
@@ -254,7 +254,7 @@ export function LensPanel() {
 				</div>
 				<Move
 					fx="lens.sheet"
-					className="absolute right-3 bottom-3 left-3 z-6 rounded-2xl bg-white px-3.5 pt-3 pb-1.5 opacity-0 shadow-mk-sheet"
+					className="absolute right-3 bottom-3 left-3 z-6 bg-white px-3.5 pt-3 pb-1.5 opacity-0 shadow-mk-sheet"
 				>
 					<div className="flex items-center justify-between gap-2 pb-1.5 type-sm font-semibold">
 						<span>Emerging leadership</span>
@@ -286,7 +286,7 @@ export function LensPanel() {
 export function TopPanel() {
 	return (
 		<NetworkFx>
-			<PanelCard kind="top" variant={{ kind: "insight", tone: "rose" }}>
+			<PanelCard kind="top" variant={{ kind: "insight", tone: "sky" }}>
 				<InsightTop i={0} icon={ICONS.sparkle} label="Top network finding" count="From 11 of 14 plants" />
 				<InsightMetric
 					i={1}

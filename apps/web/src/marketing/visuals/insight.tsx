@@ -21,7 +21,7 @@ export function Insight({
 	className,
 }: {
 	className?: string;
-	tone: "g-sage" | "g-rose";
+	tone: "g-field" | "g-sky";
 	icon: IconSvgElement;
 	label: string;
 	count: string;
@@ -35,13 +35,13 @@ export function Insight({
 	return (
 		<div
 			className={cn(
-				"mk-gsurf relative flex flex-col rounded-[22px] px-6 py-[22px] text-[var(--on)] shadow-[0_18px_36px_-24px_var(--g-shadow)]",
+				"mk-gsurf relative flex flex-col px-6 py-[22px] text-[var(--on)] shadow-[0_18px_36px_-24px_var(--color-mk-ink-55)]",
 				tone,
 				className,
 			)}
 		>
 			<div className="flex items-center justify-between gap-2.5">
-				<span className="inline-flex h-[30px] items-center gap-[7px] rounded-full bg-[var(--pill-bg)] px-3 type-sm font-semibold shadow-[inset_0_0_0_1px_var(--pill-edge)]">
+				<span className="inline-flex h-[30px] items-center gap-[7px] bg-[var(--pill-bg)] px-3 type-sm font-semibold shadow-[inset_0_0_0_1px_var(--pill-edge)]">
 					<Icon icon={icon} />
 					{label}
 				</span>

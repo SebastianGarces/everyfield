@@ -15,7 +15,7 @@ const IT = "truncate type-sm font-semibold";
 
 function Vignette({ children }: { children: ReactNode }) {
 	return (
-		<div className="rounded-[18px] bg-white px-[15px] pt-3.5 pb-[15px] type-sm leading-[1.4] text-text shadow-mk-vignette">
+		<div className="bg-white px-[15px] pt-3.5 pb-[15px] type-sm leading-[1.4] text-text shadow-mk-vignette">
 			{children}
 		</div>
 	);
@@ -46,7 +46,7 @@ function Head({
 }
 function Delta({ children }: { children: ReactNode }) {
 	return (
-		<span className="inline-flex h-[26px] items-center gap-1.5 rounded-full bg-white px-2.5 type-sm font-semibold whitespace-nowrap shadow-[inset_0_0_0_1px_var(--color-line)] before:border-x-[5px] before:border-b-[7px] before:border-x-transparent before:border-b-green-500 before:content-['']">
+		<span className="inline-flex h-[26px] items-center gap-1.5 bg-white px-2.5 type-sm font-semibold whitespace-nowrap shadow-[inset_0_0_0_1px_var(--color-line)] before:border-x-[5px] before:border-b-[7px] before:border-x-transparent before:border-b-green-500 before:content-['']">
 			{children}
 		</span>
 	);
@@ -61,7 +61,7 @@ function Stat({ n, children }: { n: string; children: ReactNode }) {
 }
 function Inset({ icon, tone, title, sub }: { icon: IconName; tone: Tone; title: string; sub: string }) {
 	return (
-		<div className="mt-3 flex items-center gap-2.5 rounded-[12px] bg-surface px-3 py-2.5 shadow-[inset_0_0_0_1px_var(--color-line)]">
+		<div className="mt-3 flex items-center gap-2.5 bg-surface px-3 py-2.5 shadow-[inset_0_0_0_1px_var(--color-line)]">
 			<CardIcon tone={tone} icon={ICONS[icon]} size={30} glyph={16} />
 			<div className="min-w-0 flex-1">
 				<div className={IT}>{title}</div>
@@ -73,9 +73,9 @@ function Inset({ icon, tone, title, sub }: { icon: IconName; tone: Tone; title: 
 /** A thin meter; the fill is hatched or solid. */
 function Meter({ pct, color, hatch }: { pct: string; color: string; hatch?: boolean }) {
 	return (
-		<div className="relative mt-1.5 h-2.5 overflow-hidden rounded-full bg-white shadow-[inset_0_0_0_1px_var(--color-line)]">
+		<div className="relative mt-1.5 h-2.5 overflow-hidden bg-white shadow-[inset_0_0_0_1px_var(--color-line)]">
 			<span
-				className={cn("absolute inset-y-0.5 left-0.5 rounded-full", hatch && "mk-hatch")}
+				className={cn("absolute inset-y-0.5 left-0.5", hatch && "mk-hatch")}
 				style={
 					{ width: `calc(${pct} - 4px)`, ...(hatch ? { "--hatch": color } : { background: color }) } as CSSProperties
 				}
@@ -112,31 +112,26 @@ export function PhaseVignette({ i, demo }: { i: number; demo: PhaseDemo }) {
 						<div
 							key={k}
 							className={cn(
-								"flex items-center gap-2.5 rounded-[12px] px-2.5 py-[9px]",
+								"flex items-center gap-2.5 px-2.5 py-[9px]",
 								on ? "bg-green-50 shadow-mk-chip-on" : "bg-surface shadow-[inset_0_0_0_1px_var(--color-line)]",
 							)}
 						>
 							<span
 								className={cn(
-									"grid size-[26px] flex-none place-items-center rounded-[8px]",
+									"grid size-[26px] flex-none place-items-center",
 									on ? "bg-green-500 text-ink" : "bg-surface-2 text-ink-2",
 								)}
 							>
 								<Icon icon={on ? ICONS.book : ICONS.check} size={14} />
 							</span>
 							<span className="min-w-0 flex-1">
+								<i className={cn("block h-1.5", on ? "bg-mk-green-600-24" : "bg-mk-bar")} style={{ width: a + "%" }} />
 								<i
-									className={cn("block h-1.5 rounded-[9px]", on ? "bg-mk-green-600-24" : "bg-mk-bar")}
-									style={{ width: a + "%" }}
-								/>
-								<i
-									className={cn("mt-1.5 block h-1.5 rounded-[9px] opacity-60", on ? "bg-mk-green-600-24" : "bg-mk-bar")}
+									className={cn("mt-1.5 block h-1.5 opacity-60", on ? "bg-mk-green-600-24" : "bg-mk-bar")}
 									style={{ width: b + "%" }}
 								/>
 							</span>
-							{on ? (
-								<span className="flex-none rounded-full bg-ink px-2 py-1 type-xs font-semibold text-white">Now</span>
-							) : null}
+							{on ? <span className="flex-none bg-ink px-2 py-1 type-xs font-semibold text-white">Now</span> : null}
 						</div>
 					))}
 				</div>
@@ -238,7 +233,7 @@ export function PhaseVignette({ i, demo }: { i: number; demo: PhaseDemo }) {
 						>
 							<span
 								className={cn(
-									"grid size-5 flex-none place-items-center rounded-[7px]",
+									"grid size-5 flex-none place-items-center",
 									done ? "bg-ink text-white" : "shadow-[inset_0_0_0_1.5px_var(--color-line-2)]",
 								)}
 							>
@@ -293,10 +288,7 @@ export function PlantVignette({ i }: { i: number }) {
 				/>
 				<div className="mt-3.5 grid grid-cols-7 gap-1">
 					{[1, 1, 1, 2, 0, 0, 0].map((s, k) => (
-						<span
-							key={k}
-							className={cn("h-2 rounded-[9px]", s === 1 ? "bg-ink" : s === 2 ? "bg-green-500" : "bg-surface-2")}
-						/>
+						<span key={k} className={cn("h-2", s === 1 ? "bg-ink" : s === 2 ? "bg-green-500" : "bg-surface-2")} />
 					))}
 				</div>
 				<div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 type-xs text-text-2">

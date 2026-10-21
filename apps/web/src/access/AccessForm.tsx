@@ -82,12 +82,12 @@ const CARD =
 	"relative mx-auto w-full max-w-[600px] rounded-card border border-mk-ink-06 bg-white p-[clamp(24px,4vw,40px)] shadow-mk-card";
 const EYEBROW = "type-sm leading-[1.3] font-semibold tracking-[0.09em] text-text-2 uppercase";
 const CONTROL =
-	"w-full rounded-[12px] border border-mk-line-strong bg-mk-canvas px-3.5 py-3 type-lg text-ink placeholder:text-text-3 placeholder:opacity-100 " +
+	"w-full border border-mk-line-strong bg-mk-canvas px-3.5 py-3 type-lg text-ink placeholder:text-text-3 placeholder:opacity-100 " +
 	"focus:outline-2 focus:outline-offset-1 focus:outline-green-600 disabled:opacity-60 aria-[invalid=true]:border-magenta-600 aria-[invalid=true]:shadow-[inset_0_0_0_1px_var(--color-magenta-600)]";
 const ERROR =
 	"flex items-baseline gap-1.5 type-md leading-[1.4] font-medium text-magenta-600 before:inline-grid before:size-4 before:flex-none before:translate-y-0.5 before:place-items-center before:rounded-full before:bg-magenta-600 before:type-xs before:font-bold before:text-white before:content-['!']";
 const MSG =
-	"rounded-[12px] type-md focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink [&_p+p]:mt-1";
+	"type-md focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink [&_p+p]:mt-1";
 const FAIL = "px-4 py-3.5 bg-magenta-100 text-mk-danger-ink [&_a]:font-semibold [&_a]:text-inherit [&_a]:underline";
 const LINK = "text-green-600 underline";
 /* React adds hidden inputs at the start of a form with a server action, so the grid is a wrapper, not the form. */
@@ -407,10 +407,7 @@ export function AccessForm({ paths, text }: Props) {
 						{Array.from({ length: STEP_COUNT }, (_, i) => (
 							<span
 								key={i}
-								className={cn(
-									"h-1.5 w-6 rounded-full transition-colors duration-150 motion-reduce:transition-none",
-									segment(i),
-								)}
+								className={cn("h-1.5 w-6 transition-colors duration-150 motion-reduce:transition-none", segment(i))}
 							/>
 						))}
 					</div>
@@ -433,7 +430,7 @@ export function AccessForm({ paths, text }: Props) {
 								<label
 									key={w}
 									className={cn(
-										"flex min-h-14 cursor-pointer items-center gap-3 rounded-[12px] border border-mk-line-strong bg-mk-canvas px-4 type-lg font-semibold text-ink",
+										"flex min-h-14 cursor-pointer items-center gap-3 border border-mk-line-strong bg-mk-canvas px-4 type-lg font-semibold text-ink",
 										"[transition:border-color_.15s,background-color_.15s,box-shadow_.15s] hover:border-ink/40 motion-reduce:transition-none",
 										"has-checked:border-ink has-checked:bg-white has-checked:shadow-[inset_0_0_0_1px_var(--color-ink)]",
 										"has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-green-600",

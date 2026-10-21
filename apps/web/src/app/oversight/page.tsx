@@ -26,6 +26,7 @@ export default function Oversight() {
 	return (
 		<Site path="/oversight" footerHeadline={S.footer.headline_home_oversight}>
 			<HeroPanel
+				photo="bluebells"
 				headline={O.hero.headline}
 				subhead={O.hero.subhead}
 				primary={{ label: O.hero.cta_primary, href: ACCESS_PATH }}

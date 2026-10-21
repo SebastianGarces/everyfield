@@ -5,6 +5,7 @@ import { Icon } from "@/components/Icon";
 import { CardIcon, NUM, StageChip, type Tone } from "@/components/kit/kit";
 import { Count, Move, Tf } from "@/components/motion/fx";
 import { ICONS } from "../icons";
+import { Backdrop } from "../photo/Backdrop";
 import { VisionScene } from "./vision-fx";
 
 // "The vision, down to this week": four levels of the demo church (Harvest Point, as in the Monday overview): Launch
@@ -29,7 +30,7 @@ function LineOut({ n, from = 33, gap }: { n: number; from?: keyof typeof OUT; ga
 	);
 }
 
-const CARD = "relative rounded-[20px] border border-[color:var(--ef-card-edge)] bg-surface shadow-card";
+const CARD = "relative border border-[color:var(--ef-card-edge)] bg-surface shadow-card";
 const LABEL = "type-sm leading-[1.3] text-text-3";
 const VALUE = "mt-0.5 type-lg leading-[1.3] font-semibold text-ink";
 
@@ -76,7 +77,7 @@ function PhaseTrack() {
 				<i
 					key={i}
 					className={cn(
-						"h-1.5 w-[9px] rounded-full",
+						"h-1.5 w-[9px]",
 						i === 0
 							? "bg-green-500"
 							: i === 1
@@ -101,10 +102,10 @@ function Meter({ fx, fill, color }: { fx: string; fill: string; color: string })
 	return (
 		<div
 			aria-hidden="true"
-			className="relative mt-2 h-2 overflow-hidden rounded-full bg-surface-2 shadow-[inset_0_0_0_1px_var(--color-line)]"
+			className="relative mt-2 h-2 overflow-hidden bg-surface-2 shadow-[inset_0_0_0_1px_var(--color-line)]"
 		>
-			<span className={cn("absolute inset-y-0 left-0 overflow-hidden rounded-full", fill)}>
-				<Tf fx={fx} as="span" layer={false} className={cn("absolute inset-0 origin-left rounded-full", color)} />
+			<span className={cn("absolute inset-y-0 left-0 overflow-hidden", fill)}>
+				<Tf fx={fx} as="span" layer={false} className={cn("absolute inset-0 origin-left", color)} />
 			</span>
 		</div>
 	);
@@ -112,8 +113,8 @@ function Meter({ fx, fill, color }: { fx: string; fill: string; color: string })
 
 export function VisionZoom() {
 	return (
-		<VisionScene className="ef-ui relative isolate overflow-hidden rounded-frame px-[clamp(16px,3vw,40px)] py-[clamp(20px,3.2vw,44px)] shadow-mk-frame">
-			<span aria-hidden="true" className="mk-gsurf g-sage absolute inset-0 z-0 [--grain:.3]" />
+		<VisionScene className="ef-ui relative isolate overflow-hidden px-[clamp(16px,3vw,40px)] py-[clamp(20px,3.2vw,44px)] shadow-mk-frame">
+			<Backdrop bg="blossom" sizes="(max-width: 900px) 100vw, 50vw" className="absolute inset-0 z-0" />
 			<div className="relative mx-auto flex max-w-[500px] flex-col gap-3">
 				{/* Launch Sunday: the date the whole plan leads to. */}
 				<Move fx="vision.card" n={0} className={cn(CARD, "px-5 pt-5 pb-5")}>
@@ -166,15 +167,10 @@ export function VisionZoom() {
 					end={<span className="pt-1 type-sm whitespace-nowrap text-text-3">1 of 2 tasks done</span>}
 				>
 					<div className="mt-3 ml-[50px] grid grid-cols-2 gap-1.5" aria-hidden="true">
-						<span className="relative h-2 overflow-hidden rounded-full bg-surface-2 shadow-[inset_0_0_0_1px_var(--color-line)]">
-							<Tf
-								fx="vision.ms"
-								as="span"
-								layer={false}
-								className="absolute inset-0 origin-left rounded-full bg-green-500"
-							/>
+						<span className="relative h-2 overflow-hidden bg-surface-2 shadow-[inset_0_0_0_1px_var(--color-line)]">
+							<Tf fx="vision.ms" as="span" layer={false} className="absolute inset-0 origin-left bg-green-500" />
 						</span>
-						<span className="h-2 rounded-full bg-surface-2 shadow-[inset_0_0_0_1px_var(--color-line)]" />
+						<span className="h-2 bg-surface-2 shadow-[inset_0_0_0_1px_var(--color-line)]" />
 					</div>
 				</Level>
 

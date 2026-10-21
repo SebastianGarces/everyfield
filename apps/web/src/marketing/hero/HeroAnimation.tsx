@@ -12,7 +12,7 @@ import { ApproveButton, Draft, HeroStage, Roll, TypedName } from "./hero-fx";
 const label = (name: string) =>
 	`Example: ${name} is added, comes to a vision meeting, gets a follow-up that Evry drafted and you approved, commits, and joins the core group.`;
 const CARD =
-	"relative col-start-1 row-start-1 w-[min(440px,calc(100%-32px))] rounded-[22px] px-5 pt-[18px] pb-5 opacity-0 max-mk-sm:w-[calc(100%-24px)] max-mk-sm:px-4 max-mk-sm:pt-4 max-mk-sm:pb-[18px]";
+	"relative col-start-1 row-start-1 w-[min(440px,calc(100%-32px))] px-5 pt-[18px] pb-5 opacity-0 max-mk-sm:w-[calc(100%-24px)] max-mk-sm:px-4 max-mk-sm:pt-4 max-mk-sm:pb-[18px]";
 
 /** Card text the page passes (home/demo.ts): the meeting, the person and the core group count. */
 export type HeroDemo = {
@@ -35,8 +35,8 @@ export function HeroAnimation({ demo }: { demo: HeroDemo }) {
 				</>
 			}
 		>
-			<div className="col-start-1 row-start-1 w-[min(440px,calc(100%-32px))] self-stretch rounded-[22px] shadow-mk-hero-card max-mk-sm:w-[calc(100%-24px)]" />
-			<div className="col-start-1 row-start-1 w-[min(440px,calc(100%-32px))] self-stretch rounded-[22px] bg-white max-mk-sm:w-[calc(100%-24px)]" />
+			<div className="col-start-1 row-start-1 w-[min(440px,calc(100%-32px))] self-stretch shadow-mk-hero-card max-mk-sm:w-[calc(100%-24px)]" />
+			<div className="col-start-1 row-start-1 w-[min(440px,calc(100%-32px))] self-stretch bg-white max-mk-sm:w-[calc(100%-24px)]" />
 			<Move fx="card" n={0} className={CARD}>
 				<Head
 					i={0}
@@ -47,13 +47,13 @@ export function HeroAnimation({ demo }: { demo: HeroDemo }) {
 				<St i={0} k={1} className="flex items-end gap-2">
 					<div className="min-w-0 flex-1">
 						<Lab>Name</Lab>
-						<div className="flex h-10 items-center overflow-hidden rounded-[12px] bg-white px-3 type-md whitespace-nowrap text-ink shadow-mk-input-focus">
+						<div className="flex h-10 items-center overflow-hidden bg-white px-3 type-md whitespace-nowrap text-ink shadow-mk-input-focus">
 							<TypedName name={person.name} />
 						</div>
 					</div>
 					<Tf
 						fx="add"
-						className="relative inline-grid h-10 flex-none place-items-center overflow-hidden rounded-[12px] bg-ink px-4 type-sm font-semibold whitespace-nowrap text-white shadow-pill"
+						className="relative inline-grid h-10 flex-none place-items-center overflow-hidden bg-ink px-4 type-sm font-semibold whitespace-nowrap text-white shadow-pill"
 					>
 						<span className="col-start-1 row-start-1 inline-flex items-center gap-1.5">Add</span>
 					</Tf>
@@ -101,7 +101,7 @@ export function HeroAnimation({ demo }: { demo: HeroDemo }) {
 				<St
 					i={2}
 					k={2}
-					className="relative mt-3 h-[88px] overflow-hidden rounded-[14px] bg-surface px-[13px] py-[11px] type-md leading-[1.5] text-ink-2 shadow-[inset_0_0_0_1px_var(--color-line)]"
+					className="relative mt-3 h-[88px] overflow-hidden bg-surface px-[13px] py-[11px] type-md leading-[1.5] text-ink-2 shadow-[inset_0_0_0_1px_var(--color-line)]"
 				>
 					<Draft />
 				</St>
@@ -236,7 +236,7 @@ function Kv({ k, label, children }: { k: number; label: string; children: ReactN
 function Slot({ i, person }: { i: number; person: HeroPerson }) {
 	return (
 		<Target name={"s" + i} className="invisible inline-flex">
-			<span className="inline-flex h-[30px] items-center gap-[7px] rounded-full bg-white pr-3 pl-1 type-sm font-semibold whitespace-nowrap text-ink shadow-mk-chip">
+			<span className="inline-flex h-[30px] items-center gap-[7px] bg-white pr-3 pl-1 type-sm font-semibold whitespace-nowrap text-ink shadow-mk-chip">
 				<Av>{person.initials}</Av>
 				{person.name}
 			</span>
@@ -262,18 +262,15 @@ function Row({
 	return (
 		<St i={4} k={k + 1} className="relative">
 			{hl ? (
-				<Fade
-					fx="hl"
-					className="absolute -inset-x-2.5 -inset-y-1.5 -z-1 rounded-[14px] bg-green-50 opacity-0 shadow-mk-green-edge"
-				/>
+				<Fade fx="hl" className="absolute -inset-x-2.5 -inset-y-1.5 -z-1 bg-green-50 opacity-0 shadow-mk-green-edge" />
 			) : null}
 			<div className="flex min-h-[30px] items-center gap-2">
 				{chip}
 				{slot}
 				<span className={cn(NUM, "ml-auto font-title type-title-sm")}>{num}</span>
 			</div>
-			<div className="relative mt-1.5 h-2.5 overflow-hidden rounded-full bg-surface-2">
-				<Tf fx="meter" n={k} className={cn("absolute inset-0 rounded-full", METER[k])} />
+			<div className="relative mt-1.5 h-2.5 overflow-hidden bg-surface-2">
+				<Tf fx="meter" n={k} className={cn("absolute inset-0", METER[k])} />
 			</div>
 		</St>
 	);

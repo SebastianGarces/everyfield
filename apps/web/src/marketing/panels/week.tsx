@@ -26,9 +26,9 @@ const tone = (k: string) => TONE[k] ?? "ink";
 /** A thin meter (8 px in the chapters) whose fill slides in. */
 function Meter({ fx, n, color }: { fx: string; n: number; color: string }) {
 	return (
-		<div className="relative mt-[5px] h-2 overflow-hidden rounded-full bg-surface-2">
-			<Tf fx={fx} n={n} className="absolute inset-0 rounded-full">
-				<span className="absolute inset-0 rounded-full" style={{ background: color }} />
+		<div className="relative mt-[5px] h-2 overflow-hidden bg-surface-2">
+			<Tf fx={fx} n={n} className="absolute inset-0">
+				<span className="absolute inset-0 " style={{ background: color }} />
 			</Tf>
 		</div>
 	);
@@ -55,7 +55,7 @@ export function PeoplePanel({ title, note }: { title: string; note: string }) {
 					<Move
 						as="span"
 						fx="people.added"
-						className="inline-flex h-[30px] items-center gap-[7px] rounded-[16px] bg-green-50 pr-3 pl-2 type-sm font-semibold whitespace-nowrap text-green-700 opacity-0 shadow-mk-green-edge"
+						className="inline-flex h-[30px] items-center gap-[7px] bg-green-50 pr-3 pl-2 type-sm font-semibold whitespace-nowrap text-green-700 opacity-0 shadow-mk-green-edge"
 					>
 						<Icon icon={ICONS.check} />
 						24 people added from the sign-up form
@@ -77,7 +77,7 @@ export function PeoplePanel({ title, note }: { title: string; note: string }) {
 				<St i={7}>
 					<Move
 						fx="people.note"
-						className="mt-3.5 rounded-[14px] bg-white px-4 py-3.5 type-sm font-semibold opacity-0 shadow-mk-hairline"
+						className="mt-3.5 bg-white px-4 py-3.5 type-sm font-semibold opacity-0 shadow-mk-hairline"
 					>
 						{note}
 					</Move>
@@ -172,7 +172,7 @@ export function MeetPanel({ when }: { when: string }) {
 }
 function BadgeSm({ children }: { children: ReactNode }) {
 	return (
-		<span className="inline-flex h-[22px] items-center gap-1.5 rounded-full bg-white px-2 type-xs font-semibold whitespace-nowrap text-text shadow-mk-badge before:size-[7px] before:rounded-full before:bg-blue-500 before:content-['']">
+		<span className="inline-flex h-[22px] items-center gap-1.5 bg-white px-2 type-xs font-semibold whitespace-nowrap text-text shadow-mk-badge before:size-[7px] before:rounded-full before:bg-blue-500 before:content-['']">
 			{children}
 		</span>
 	);
@@ -211,7 +211,7 @@ export function FollowPanel({ demo }: { demo: FollowDemo }) {
 		<WeekFx>
 			<PanelCard kind="follow">
 				<Head lead={<MoodBot fx="follow.mood" />} title="Evry" sub={demo.after} />
-				<St i={1} className="rounded-[14px] bg-surface px-3.5 py-3 shadow-[inset_0_0_0_1px_var(--color-line)]">
+				<St i={1} className="bg-surface px-3.5 py-3 shadow-[inset_0_0_0_1px_var(--color-line)]">
 					<Typed text={demo.says} fx="follow.type" className="type-sm leading-[1.45] text-ink-2" />
 					<div className="mt-2.5 flex flex-wrap gap-1.5">
 						{FGUESTS.map((g, k) => (
@@ -263,7 +263,7 @@ export function FollowPanel({ demo }: { demo: FollowDemo }) {
 									as="span"
 									fx="follow.slot"
 									n={k}
-									className="pointer-events-none absolute inset-x-0 inset-y-2 rounded-[10px] border border-dashed border-line-2"
+									className="pointer-events-none absolute inset-x-0 inset-y-2 border border-dashed border-line-2"
 								/>
 								<Target name={"fdst" + k} className="grid size-[22px] flex-none place-items-center">
 									<Move as="span" fx="follow.row" n={k} className="grid opacity-0">
@@ -275,7 +275,7 @@ export function FollowPanel({ demo }: { demo: FollowDemo }) {
 										<L1>Follow up with {g[1]}</L1>
 										<L2>{demo.due}</L2>
 									</span>
-									<span className="inline-flex h-[22px] flex-none items-center rounded-full bg-green-50 px-2 type-xs font-semibold text-green-700 shadow-mk-green-edge">
+									<span className="inline-flex h-[22px] flex-none items-center bg-green-50 px-2 type-xs font-semibold text-green-700 shadow-mk-green-edge">
 										New
 									</span>
 								</Move>

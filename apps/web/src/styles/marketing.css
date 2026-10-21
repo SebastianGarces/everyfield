@@ -28,13 +28,14 @@
 }
 
 @theme {
-	/* Marketing surfaces. Canvas #FCFBF8 is marketing only. Linen is the warm secondary surface and the site's hover fill. */
+	/* Marketing surfaces. Canvas #FCFBF8 is marketing only; cream (--color-cream, tokens.css) is the secondary surface. */
 	--color-mk-canvas: #fcfbf8;
-	--color-linen: #f5f3ee;
 	--color-mk-line: rgb(from var(--color-ink) r g b / 0.08);
 	--color-mk-line-strong: rgb(from var(--color-ink) r g b / 0.14);
-	/* Secondary text on the ink footer card: 8.5:1 on #181D19. */
-	--color-mk-on-ink-2: #b1b7c2;
+	/* Secondary text on the ink footer card: cream at 72 % on ink, 8.4:1 on #181D19. */
+	--color-mk-on-ink-2: #b8b5af;
+	/* Under a photo while it loads. */
+	--color-mk-photo-base: #3a3529;
 
 	--spacing-page: clamp(16px, 3vw, 40px);
 	--spacing-section: clamp(72px, 8vw, 120px);
@@ -172,14 +173,6 @@
 :root {
 	--ui-ring: 0 0 0 6px var(--color-mk-white-25);
 }
-:root {
-	--mk-paths-highlight: linear-gradient(
-		100deg,
-		var(--color-mk-paths-hl-1) 0%,
-		var(--color-mk-paths-hl-2) 55%,
-		var(--color-mk-paths-hl-3) 100%
-	);
-}
 
 @theme {
 	/* Colours of the product visuals. A colour that is a product token at some alpha derives from the token (relative
@@ -195,6 +188,7 @@
 	--color-mk-ink-40: rgb(from var(--color-ink) r g b / 0.4);
 	--color-mk-ink-42: rgb(from var(--color-ink) r g b / 0.42);
 	--color-mk-ink-45: rgb(from var(--color-ink) r g b / 0.45);
+	--color-mk-ink-46: rgb(from var(--color-ink) r g b / 0.46);
 	--color-mk-ink-50: rgb(from var(--color-ink) r g b / 0.5);
 	--color-mk-ink-60: rgb(from var(--color-ink) r g b / 0.6);
 	--color-mk-white-0: rgb(from var(--color-white) r g b / 0);
@@ -211,30 +205,27 @@
 	--color-mk-amber-500-18: rgb(from var(--color-amber-500) r g b / 0.18);
 	/* Marketing only (the prototype's values). */
 	--color-mk-surface-3: #eae7e0;
-	--color-mk-hero-title: #2a332c;
-	--color-mk-hero-shade: rgb(16 120 56 / 0.6);
-	--color-mk-card-shade: #105028;
-	--color-mk-done-top: #2be46c;
-	--color-mk-done-ink: #0b3d1e;
-	--color-mk-bot-shade: #0a3c1e;
+	--color-mk-card-shade: #01502f;
+	--color-mk-done-top: #07e38d;
+	--color-mk-done-bottom: #01c278;
+	--color-mk-done-ink: #003e23;
+	--color-mk-bot-shade: #013c22;
 	--color-mk-bot-shade-18: rgb(from var(--color-mk-bot-shade) r g b / 0.18);
 	--color-mk-bot-shade-35: rgb(from var(--color-mk-bot-shade) r g b / 0.35);
-	--color-mk-focus-blue: #5096ff;
-	--color-mk-focus-blue-16: rgb(from var(--color-mk-focus-blue) r g b / 0.16);
+	--color-mk-focus-blue-20: rgb(from var(--color-blue-500) r g b / 0.2);
 	--color-mk-bar: #e3e7ec;
 	--color-mk-bar-muted: #b9c0bb;
 	--color-mk-skeleton: #eceff2;
 	--color-mk-skeleton-hi: #f7f8fa;
-	/* Text on the field-gradient CTA box; the half-white secondary button on it. */
-	--color-mk-ink-78: rgb(from var(--color-ink) r g b / 0.78);
-	--color-mk-white-75: rgb(from var(--color-white) r g b / 0.75);
+	/* Cream text and the ink-backed secondary button on photos (the CTA box). */
+	--color-mk-cream-90: rgb(from var(--color-cream) r g b / 0.9);
+	--color-mk-cream-70: rgb(from var(--color-cream) r g b / 0.7);
+	--color-mk-ink-55: rgb(from var(--color-ink) r g b / 0.55);
+	--color-mk-ink-56: rgb(from var(--color-ink) r g b / 0.56);
+	--color-mk-ink-66: rgb(from var(--color-ink) r g b / 0.66);
 	/* Access form: the failure message's text on magenta-100, and the check on the accent green. */
 	--color-mk-danger-ink: #6e1a2e;
 	--color-mk-accent-ink: #111318;
-	/* The sending-paths phrase highlight (the prototype's .ovs-roll gradient). */
-	--color-mk-paths-hl-1: #bff5d3;
-	--color-mk-paths-hl-2: #dcfae7;
-	--color-mk-paths-hl-3: #eefcd9;
 
 	/* Panel and card shadows. Each one starts with the white ring. */
 	--shadow-mk-panel-body:
@@ -249,17 +240,17 @@
 		0 1px 2px rgb(from var(--color-mk-card-shade) r g b / 0.08),
 		0 24px 48px -24px rgb(from var(--color-mk-card-shade) r g b / 0.45);
 	--shadow-mk-vignette: var(--ui-ring), 0 1px 2px var(--color-mk-ink-06), 0 22px 40px -22px var(--color-mk-ink-42);
-	--shadow-mk-insight: var(--ui-ring), 0 18px 36px -24px var(--g-shadow, var(--color-mk-ink-45));
+	--shadow-mk-insight: var(--ui-ring), 0 18px 36px -24px var(--color-mk-ink-55);
 	--shadow-mk-chip: 0 0 0 1px var(--color-line-2), 0 4px 10px -6px var(--color-mk-ink-30);
 	--shadow-mk-badge: inset 0 0 0 1px var(--color-line), 0 1px 2px var(--color-mk-ink-05);
 	/* The large product pictures (app frames in the proof and /oversight hero) and the field-gradient CTA box. */
 	--shadow-mk-app:
 		var(--ui-ring), 0 2px 6px var(--color-mk-ink-06), 0 24px 48px -16px rgb(from var(--color-ink) r g b / 0.22);
-	--shadow-mk-cta: 0 30px 60px -36px var(--color-mk-hero-shade);
+	--shadow-mk-cta: 0 30px 60px -36px var(--color-mk-ink-55);
 	/* The animated panel frames, the hero panel and smaller parts. */
 	--shadow-mk-frame: inset 0 0 0 1px var(--color-mk-ink-06), 0 30px 60px -40px var(--color-mk-ink-30);
 	--shadow-mk-frame-flat: inset 0 0 0 1px var(--color-mk-ink-06);
-	--shadow-mk-hero-panel: 0 30px 60px -40px var(--color-mk-hero-shade);
+	--shadow-mk-hero-panel: 0 30px 60px -40px var(--color-mk-ink-50);
 	--shadow-mk-icon-tile: inset 0 0 0 1px var(--color-mk-line);
 	--shadow-mk-btn-light: 0 8px 18px -10px var(--color-mk-ink-60);
 	--shadow-mk-ring-sides: -6px 0 0 0 var(--color-mk-white-25), 6px 0 0 0 var(--color-mk-white-25);
@@ -267,7 +258,7 @@
 	--shadow-mk-knob: 0 1px 2px var(--color-mk-black-20);
 	--shadow-mk-sheet: 0 0 0 1px var(--color-line), 0 22px 44px -20px var(--color-mk-ink-50);
 	--shadow-mk-input-focus: inset 0 0 0 1.5px var(--color-green-500), 0 0 0 3px var(--color-mk-green-16);
-	--shadow-mk-field-focus: inset 0 0 0 1.5px var(--color-blue-500), 0 0 0 3px var(--color-mk-focus-blue-16);
+	--shadow-mk-field-focus: inset 0 0 0 1.5px var(--color-blue-500), 0 0 0 3px var(--color-mk-focus-blue-20);
 	--shadow-mk-green-edge: inset 0 0 0 1px var(--color-mk-green-35);
 	--shadow-mk-chip-on: inset 0 0 0 1px var(--color-mk-green-600-20);
 	--shadow-mk-row-on: inset 0 0 0 1px var(--color-mk-green-600-22);
@@ -376,6 +367,35 @@
 	font-stretch: 100%;
 }
 
+/* Film grain (SVG fractal noise), shared by the photo and gradient surfaces. Overlay blend at 0.34 to 0.42. */
+:root {
+	--mk-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncG type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncB type='linear' slope='1.6' intercept='-.3'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Photo surface (foundations.md, Brand: Marketing photos): a next/image photo, a black overlay of --shade (20 % by
+   default, as brightness) and film grain. Backdrop renders it; the crop sets --pos and --zoom. Text on it is cream. */
+@utility mk-photo {
+	overflow: hidden;
+	isolation: isolate;
+	background-color: var(--color-mk-photo-base);
+	& img {
+		object-fit: cover;
+		object-position: var(--pos, 50% 50%);
+		transform: scale(var(--zoom, 1));
+		transform-origin: var(--pos, 50% 50%);
+		filter: brightness(calc(1 - var(--shade, 0.2)));
+	}
+	&::after {
+		content: "";
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		background: var(--mk-grain) 0 0 / 260px 260px;
+		opacity: 0.34;
+		mix-blend-mode: overlay;
+	}
+}
+
 /* Gradient surface (InsightCard recipe): a base colour, a blurred OKLCH mesh and film grain. A g-* utility picks the tone.
    The caller sets the position (relative or absolute) and may set --grain.
    The mesh is an SVG image per tone (public/mesh, rendered by scripts/render-mesh-images.mjs from these tones): five radial
@@ -404,14 +424,14 @@
 		inset: 0;
 		z-index: -1;
 		pointer-events: none;
-		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncG type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncB type='linear' slope='1.6' intercept='-.3'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+		background-image: var(--mk-grain);
 		background-size: 260px 260px;
 		opacity: var(--grain, 0.42);
 		mix-blend-mode: overlay;
 	}
 }
-/* The six gradient tones. field, sky, sage and rose come from the product tokens; sea and sun are marketing only
-   (Revision 19; slate and the marketing pink rose retired in the rebrand). --g-shadow tints the InsightCard shadow. */
+/* The four gradient tones from the product tokens (foundations.md, Muted palette and gradient tones). A slot gets one
+   only when it holds a colorful UI card; every other slot gets a photo. */
 @utility g-field {
 	--g-mesh: url("/mesh/field.svg");
 	--g-base: var(--ef-grad-field-base);
@@ -420,7 +440,6 @@
 	--g3: var(--ef-grad-field-g3);
 	--g4: var(--ef-grad-field-g4);
 	--g5: var(--ef-grad-field-g5);
-	--g-shadow: rgb(from var(--ef-green-600) r g b / 0.5);
 }
 @utility g-sky {
 	--g-mesh: url("/mesh/sky.svg");
@@ -430,7 +449,6 @@
 	--g3: var(--ef-grad-sky-g3);
 	--g4: var(--ef-grad-sky-g4);
 	--g5: var(--ef-grad-sky-g5);
-	--g-shadow: rgb(from var(--ef-sky-700) r g b / 0.45);
 }
 @utility g-sage {
 	--g-mesh: url("/mesh/sage.svg");
@@ -440,7 +458,6 @@
 	--g3: var(--ef-grad-sage-g3);
 	--g4: var(--ef-grad-sage-g4);
 	--g5: var(--ef-grad-sage-g5);
-	--g-shadow: rgb(from var(--ef-sage-700) r g b / 0.45);
 }
 @utility g-rose {
 	--g-mesh: url("/mesh/rose.svg");
@@ -450,27 +467,16 @@
 	--g3: var(--ef-grad-rose-g3);
 	--g4: var(--ef-grad-rose-g4);
 	--g5: var(--ef-grad-rose-g5);
-	--g-shadow: rgb(from var(--ef-rose-700) r g b / 0.45);
 }
-@utility g-sea {
-	--g-mesh: url("/mesh/sea.svg");
-	--g-base: #7fdccb;
-	--g1: #96e6d7;
-	--g2: #63cfbc;
-	--g3: #bdf1e6;
-	--g4: #4fbfab;
-	--g5: #f2fffb;
-	--g-shadow: rgba(30, 140, 120, 0.45);
-}
-@utility g-sun {
-	--g-mesh: url("/mesh/sun.svg");
-	--g-base: #ffdd7a;
-	--g1: #ffe69a;
-	--g2: #ffd25a;
-	--g3: #fff0c2;
-	--g4: #f5c443;
-	--g5: #fffbeb;
-	--g-shadow: rgba(180, 130, 20, 0.5);
+
+/* The ink corner shade under a cream rail number on a photo: 3:1 or more on every glyph of the lightest crops at 390 px. */
+@utility mk-corner-shade {
+	background: radial-gradient(
+		130% 100% at 0% 0%,
+		rgb(from var(--color-ink) r g b / 0.82),
+		rgb(from var(--color-ink) r g b / 0.5) 40%,
+		rgb(from var(--color-ink) r g b / 0) 72%
+	);
 }
 
 /* Diagonal hatch fill for meters and bars. --hatch sets the colour. */
@@ -502,10 +508,10 @@
 	}
 }
 
-/* The hero panel's gradient layer fades to the page at the top (Revision 7). The stops follow an ease-in curve. */
+/* The hero photo fades up from the page (the fade style): clear to 8 %, full from 70 %. The stops follow an ease-in curve. */
 @utility hero-fade {
-	--a: 0%;
-	--d: 58%;
+	--a: 8%;
+	--d: 62%;
 	mask-image: linear-gradient(
 		to bottom,
 		rgba(0, 0, 0, 0) var(--a),

@@ -66,9 +66,9 @@ export function StagesPanel() {
 					{STAGES.map((s, k) => (
 						<div
 							key={s}
-							className="relative isolate min-w-0 rounded-[12px] bg-white px-2 pt-2 pb-2.5 shadow-[inset_0_0_0_1px_var(--color-line)] max-mk-sm:px-1.5"
+							className="relative isolate min-w-0 bg-white px-2 pt-2 pb-2.5 shadow-[inset_0_0_0_1px_var(--color-line)] max-mk-sm:px-1.5"
 						>
-							{k === 2 ? <Hl a={2850} b={1e9} box="inset-0 rounded-[12px] bg-green-50 shadow-mk-group-on" /> : null}
+							{k === 2 ? <Hl a={2850} b={1e9} box="inset-0 bg-green-50 shadow-mk-group-on" /> : null}
 							<Num className="block font-title type-title-md leading-none">
 								<Count fx="stages.n" n={k} max={9} />
 							</Num>
@@ -78,7 +78,7 @@ export function StagesPanel() {
 						</div>
 					))}
 				</St>
-				<St i={2} className="mt-3.5 rounded-[14px] px-3 pt-3 pb-3 shadow-[inset_0_0_0_1px_var(--color-line)]">
+				<St i={2} className="mt-3.5 px-3 pt-3 pb-3 shadow-[inset_0_0_0_1px_var(--color-line)]">
 					<div className={ROW}>
 						<Avatar tone="violet" small>
 							HC
@@ -121,12 +121,12 @@ export function GoalsPanel() {
 						const cells = (
 							<>
 								<b className="truncate font-semibold">{s}</b>
-								<span className="relative h-3 overflow-hidden rounded-full bg-surface-2">
+								<span className="relative h-3 overflow-hidden bg-surface-2">
 									<Tf
 										as="i"
 										fx="goals.bar"
 										n={k}
-										className="absolute inset-0 origin-left rounded-full bg-[color-mix(in_srgb,var(--color-green-500)_70%,var(--color-white))]"
+										className="absolute inset-0 origin-left bg-[color-mix(in_srgb,var(--color-green-500)_70%,var(--color-white))]"
 									/>
 								</span>
 								<span className="justify-self-end font-title tracking-[-0.02em]">
@@ -148,7 +148,7 @@ export function GoalsPanel() {
 						);
 					})}
 				</St>
-				<St i={3} className="mt-3 rounded-[14px] bg-surface-2 px-3.5 py-[11px] type-sm text-text-2">
+				<St i={3} className="mt-3 bg-surface-2 px-3.5 py-[11px] type-sm text-text-2">
 					2 residents are in the residency program now.
 				</St>
 			</PanelCard>
@@ -173,13 +173,13 @@ export function TalksPanel() {
 				<St i={2} className="mt-3.5 grid h-[104px] grid-cols-4 items-end gap-3 px-1">
 					{TALK_MONTHS.map((m, k) => (
 						<div key={m[0]} className="grid h-full grid-rows-[1fr_auto] justify-items-center gap-1.5">
-							<span className="relative w-full max-w-11 self-stretch overflow-hidden rounded-[8px]">
+							<span className="relative w-full max-w-11 self-stretch overflow-hidden">
 								<Tf
 									as="i"
 									fx="talks.bar"
 									n={k}
 									className={cn(
-										"absolute inset-0 origin-bottom rounded-[8px]",
+										"absolute inset-0 origin-bottom",
 										k === 3 ? "bg-amber-500" : "bg-[color-mix(in_srgb,var(--color-amber-500)_45%,var(--color-white))]",
 									)}
 								/>
@@ -230,10 +230,7 @@ export function ProgramPanel() {
 				<St i={1}>
 					<div className="grid grid-cols-4 gap-1">
 						{RES_STAGES.map((s, k) => (
-							<span
-								key={s[0]}
-								className={cn("h-2 rounded-full", k === 0 ? "bg-ink" : k === 1 ? "bg-green-500" : "bg-surface-2")}
-							/>
+							<span key={s[0]} className={cn("h-2", k === 0 ? "bg-ink" : k === 1 ? "bg-green-500" : "bg-surface-2")} />
 						))}
 					</div>
 					<div className="mt-2 flex items-baseline justify-between gap-2 type-xs">
@@ -274,7 +271,7 @@ export function ProgramPanel() {
 						)}
 					</St>
 				))}
-				<St i={6} className="mt-1 flex items-center gap-2.5 rounded-[14px] bg-surface-2 px-3.5 py-[11px] type-sm">
+				<St i={6} className="mt-1 flex items-center gap-2.5 bg-surface-2 px-3.5 py-[11px] type-sm">
 					<Icon icon={ICONS.book} size={16} />
 					<span className="flex-1 font-semibold">Reading list</span>
 					<span className="text-text-3">6 articles</span>

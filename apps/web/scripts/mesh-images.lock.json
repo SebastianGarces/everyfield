@@ -1,11 +1,9 @@
 {
-  "inputs": "cee0204b20c73a0b23e95ba0c12c473beb0b1d17557d0f5b2b9bcf403afb888d",
+  "inputs": "2b4ac107fc0b48fe62d367457bb9071ea7dd0287a175be9622c2acd50c8e371a",
   "outputs": {
     "../public/mesh/field.svg": "96a7c20bd87a192a27f2215461f434403aecfd7c6872130ea86f9a2df0bcd55a",
     "../public/mesh/sky.svg": "09d6685ca4cf10b42d27635b86d62e06bf4b362623d7b9a79c3da9ab6676c1c6",
     "../public/mesh/sage.svg": "78878caaa1c99a0b38debb77cd52a4b2e1a78166ba431a61942b03276247aa29",
-    "../public/mesh/rose.svg": "419dc07559be34eea988b5e2bb3f0507af211efa14b3e1060bfbd1a473741005",
-    "../public/mesh/sea.svg": "ab06a9824d17c9fb20d09f82a07341f0dd1ab116018f5e6ea87dabf917c30133",
-    "../public/mesh/sun.svg": "97f6f6de1a34a70c853a9761ef2ee7399ea572c1dc7e7f9cf9a5045e0179ceaf"
+    "../public/mesh/rose.svg": "419dc07559be34eea988b5e2bb3f0507af211efa14b3e1060bfbd1a473741005"
   }
 }

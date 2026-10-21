@@ -79,7 +79,7 @@ export function InsightTop({
 }) {
 	return (
 		<St i={i} className="flex flex-wrap items-center justify-between gap-x-2.5 gap-y-1.5">
-			<span className="inline-flex h-[30px] flex-none items-center gap-[7px] rounded-full bg-[var(--pill-bg)] px-3 type-sm font-semibold whitespace-nowrap shadow-[inset_0_0_0_1px_var(--pill-edge)]">
+			<span className="inline-flex h-[30px] flex-none items-center gap-[7px] bg-[var(--pill-bg)] px-3 type-sm font-semibold whitespace-nowrap shadow-[inset_0_0_0_1px_var(--pill-edge)]">
 				<Icon icon={icon} />
 				{label}
 			</span>
