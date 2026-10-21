@@ -141,6 +141,28 @@ after(async () => {
 	}
 });
 
+/** A new account with one accepted seat, and the viewer a request resolves for it before any later change (D59). */
+async function seatedReader(role, selected) {
+	const a = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
+	await admin.execute(
+		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${a.user},${a.id + "@example.test"},true,'Synthetic')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${a.id},${a.user},'active','planter')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${a.session},${a.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
+	);
+	const seat = (
+		await admin.execute(
+			sql`INSERT INTO seat(account_id,plant_id,organization_id,role,accepted_at) VALUES(${a.id},${selected.kind === "plant" ? selected.id : null},${selected.kind === "organization" ? selected.id : null},${role},clock_timestamp()) RETURNING id`,
+		)
+	).rows[0].id;
+	// The request's viewer lookup, before the change lands (D59).
+	const reader = new PeopleReadContext(await tx((t) => RequestActor.resolve(t, a.session)));
+	return { ...a, seat, selected, reader };
+}
+
 test("AC:TARGET-PPL-002 AC:WP011-KNOW-099 AC:SEC-02 AC:TEN-002 minimal contact, explicit null, current tenancy and atomic retry", async () => {
 	const input = {
 		requestKey: randomUUID(),
@@ -1237,26 +1259,7 @@ test("INV-tenancy (C13): a seat ended, signed out, held or demoted after the vie
 	await admin.execute(
 		sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${plant},'Synthetic','America/New_York',7,14,1,8,1,1)`,
 	);
-	const seated = async (role, selected = { kind: "plant", id: plant }) => {
-		const a = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
-		await admin.execute(
-			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${a.user},${a.id + "@example.test"},true,'Synthetic')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${a.id},${a.user},'active','planter')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${a.session},${a.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
-		);
-		const seat = (
-			await admin.execute(
-				sql`INSERT INTO seat(account_id,plant_id,organization_id,role,accepted_at) VALUES(${a.id},${selected.kind === "plant" ? selected.id : null},${selected.kind === "organization" ? selected.id : null},${role},clock_timestamp()) RETURNING id`,
-			)
-		).rows[0].id;
-		// The request's viewer lookup, before the change lands (D59).
-		const reader = new PeopleReadContext(await tx((t) => RequestActor.resolve(t, a.session)));
-		return { ...a, seat, selected, reader };
-	};
+	const seated = (role, selected = { kind: "plant", id: plant }) => seatedReader(role, selected);
 	const owner = await seated("owner");
 	const p = ok(
 		await tx((t) =>
@@ -1338,6 +1341,16 @@ test("INV-tenancy (C13): a seat ended, signed out, held or demoted after the vie
 test("INV-reads (C22): a People read holds no lock on the reader's session, so sign-out never waits for it", async () => {
 	const p = await create("C22 session lock");
 	const viewer = new PeopleReadContext(await tx((t) => RequestActor.resolve(t, actors[0].session)));
+	// An organization Member's person read resolves its pipeline duties in the read itself.
+	const member = await seatedReader("member", {
+		kind: "organization",
+		id: organization,
+		organizationKind: "sending_church",
+	});
+	const orgPerson = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO person(id,tenant_id,organization_id,display_name,source,state,created_at,revision) VALUES(${orgPerson},${organization},${organization},'C22 organization person','other','live',clock_timestamp(),1)`,
+	);
 	const reads = [
 		["listPeople", (t) => read.listPeople(t, viewer, {})],
 		["getPerson", (t) => read.getPerson(t, viewer, { personId: p.id })],
@@ -1349,16 +1362,20 @@ test("INV-reads (C22): a People read holds no lock on the reader's session, so s
 		["plain listPeople", (t) => read.listPeople(t, ctx(), {})],
 		["plain getPerson", (t) => read.getPerson(t, ctx(), { personId: p.id })],
 		["plain getPersonPhoto", (t) => fields.getPersonPhoto(t, ctx(), { personId: p.id })],
+		// No pipeline duty, so the read refuses; it must still not lock the session on the way.
+		["organization Member getPerson", (t) => read.getPerson(t, member.reader, { personId: orgPerson }), "refused"],
 	];
 	const waited = [];
-	for (const [op, run] of reads)
+	for (const [op, run, expected = "ok"] of reads)
 		await tx(async (t) => {
-			ok(await run(t));
+			assert.equal((await run(t)).status, expected, op);
 			// The read's transaction is still open: a sign-out or session refresh must not wait for it.
 			try {
 				await admin.transaction(async (a) => {
 					await a.execute(sql`SET LOCAL lock_timeout='250ms'`);
-					await a.execute(sql`UPDATE auth_session SET expires_at=expires_at WHERE id=${actors[0].session}`);
+					await a.execute(
+						sql`UPDATE auth_session SET expires_at=expires_at WHERE id=ANY(${sql.param([actors[0].session, member.session])}::uuid[])`,
+					);
 				});
 			} catch {
 				waited.push(op);
