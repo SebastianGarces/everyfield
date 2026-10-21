@@ -5,8 +5,8 @@ import { ButtonLink } from "@/components/ButtonLink";
 import { Display } from "@/components/Display";
 import { Icon } from "@/components/Icon";
 import { Reveal } from "@/components/motion/Reveal";
-import { Backdrop } from "../photo/Backdrop";
-import type { PhotoName } from "../photo/photos";
+import { HeroBackdrop } from "../photo/Backdrop";
+import type { HeroPhoto } from "../photo/photos";
 
 type Props = {
 	headline: string;
@@ -19,7 +19,7 @@ type Props = {
 	 *  dashboard that runs to the panel's bottom edge. */
 	band?: "dashboard";
 	/** The page's hero photo (foundations.md: home = wildflowers, /oversight = bluebells). The page's only preloaded image. */
-	photo: PhotoName;
+	photo: HeroPhoto;
 };
 
 const arrow = <Icon icon={ArrowRight02Icon} size={17} />;
@@ -43,7 +43,7 @@ export function HeroPanel({ headline, subhead, primary, secondary, children, ban
 						dash ? "pb-0" : "pb-[clamp(16px,2.2vw,32px)]",
 					)}
 				>
-					<Backdrop bg={photo} priority sizes="100vw" className="hero-fade pointer-events-none absolute inset-0 -z-1" />
+					<HeroBackdrop photo={photo} className="hero-fade pointer-events-none absolute inset-0 -z-1" />
 					<Display as="h1" size="hero" className="mx-auto max-w-[14ch]">
 						{headline}
 					</Display>
