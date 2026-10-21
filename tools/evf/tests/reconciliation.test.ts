@@ -68,7 +68,7 @@ import {
 } from "../feedback.ts";
 import { verify } from "../verify.ts";
 import { taskStart } from "../task.ts";
-import { readFileSync, writeFileSync, mkdirSync, realpathSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync, mkdirSync, realpathSync } from "node:fs";
 
 test("INV-authorization: unready override and unopened application gate cannot mutate worktrees", () => {
 	const f = fixture();
@@ -298,6 +298,7 @@ test("INV-workflow-routing: Next server paths stay with implementor and presenta
 });
 
 import { ship, listShipped, prOpen, checkPr } from "../ship.ts";
+import { renumberMigrations } from "../migrations.ts";
 import { approve } from "../approve.ts";
 import { requireImplementation, requireSpend, requireTaskScope } from "../policy.ts";
 test("INV-gate-phases: local evidence producers can start before runtime completion; paid commitment remains gated", () => {
@@ -635,7 +636,15 @@ test("BUG-plan-context: plan and brief use the same manifest acceptance scope, i
 			() => renderBrief(f.root, parseTask("WP-005/contract"), {}),
 			/WP-005\/contract is retired\. The contract work is the first step of WP-005\/api\./,
 		);
+		// BUG-178: the api author sees the recorded budget before the PR opens, not from the verifier after.
+		const apiBrief = renderBrief(f.root, parseTask("WP-005/api"), {});
+		assert.match(
+			apiBrief,
+			/Performance budget \(docs\/architecture\/patterns\.md, D69, D70\):\nEvery simple read or write finishes in under one second end to end on a production build\.[^\n]* A simple write uses a fixed number of statements, about four to six including BEGIN and COMMIT/,
+		);
+		assert.match(apiBrief, /statement-count test at the production boundary for each new write and page read/);
 		const ui = renderBrief(f.root, parseTask("WP-005/ui"), {});
+		assert.doesNotMatch(ui, /Performance budget/);
 		assert.match(ui, /Design prototype: design\/everyfield-ui\.html/);
 		assert.match(ui, /Screen map: design\/handoff\/screens\.md/);
 		assert.match(ui, /screens\.md#L\d+: Sign in, with an invitation notice/);
@@ -1222,6 +1231,261 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 		assert.deepEqual(
 			f.getState().calls.filter((c) => c.args[0] === "api" && c.args.includes("POST")),
 			[],
+		);
+	} finally {
+		f.close();
+	}
+});
+
+test("INV-carry-approval: an approval carries only over clean merges of main on paths the PR never changed", () => {
+	const f = mergeFixture();
+	try {
+		const inWt = (...args: string[]) => execFileSync("git", ["-C", f.wt, ...args], { encoding: "utf8" }).trim();
+		const mainCommit = (path: string, text: string) => {
+			writeFileSync(join(f.root, path), text);
+			f.git("add", path);
+			f.git("commit", "-qm", `Main changes ${path}`);
+			f.git("push", "-q", "origin", "main");
+			inWt("fetch", "-q", "origin", "main");
+		};
+		writeFileSync(join(f.wt, "tools/evf/feature.ts"), "export const feature = 1;\n");
+		writeFileSync(join(f.wt, "README.md"), "Approved PR line.\n" + readFileSync(join(f.wt, "README.md"), "utf8"));
+		inWt("add", "tools/evf/feature.ts", "README.md");
+		inWt("commit", "-qm", "Approved work");
+		const approved = inWt("rev-parse", "HEAD");
+		mainCommit("docs/main-only.md", "Main only.\n");
+		inWt("merge", "-q", "--no-edit", "origin/main");
+		const clean = inWt("rev-parse", "HEAD");
+		const attempt = (head: string, edit: (s) => void = () => {}) => {
+			inWt("reset", "-q", "--hard", head);
+			const state = f.getState();
+			state.pr.headRefOid = head;
+			state.comments["77"] = [
+				{
+					body: `EVF-Review: ${JSON.stringify({ head: approved, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`,
+					html_url: "https://github.com/test/private/pull/77#issuecomment-2",
+				},
+			];
+			state.requiredChecks = [{ ...state.requiredChecks[0], bucket: "pass" }];
+			delete state.checksError;
+			state.calls = [];
+			edit(state);
+			f.setState(state);
+			return () => ship(f.root, f.taskRef);
+		};
+		const merges = () => f.getState().calls.filter((c) => c.args[0] === "pr" && c.args[1] === "merge");
+
+		assert.throws(attempt(clean), /fixture merge barrier/);
+		assert.deepEqual(merges()[0].args, ["pr", "merge", "77", "--squash", "--match-head-commit", clean]);
+		const posted = f.getState().calls.find((c) => c.args[0] === "pr" && c.args[1] === "comment");
+		const proof = JSON.parse(posted.args[posted.args.indexOf("--body") + 1].split("EVF-Carry: ")[1]);
+		assert.equal(proof.approvedHead, approved);
+		assert.equal(proof.head, clean);
+		assert.deepEqual(proof.overlap, []);
+		assert.deepEqual(
+			proof.merges.map((m) => [m.commit, m.branchParent]),
+			[[clean, approved]],
+		);
+
+		assert.throws(
+			attempt(clean, (s) => {
+				s.requiredChecks[0].bucket = "fail";
+				s.checksError = 1;
+			}),
+			/CI must be green/,
+		);
+		assert.deepEqual(merges(), []);
+
+		inWt("reset", "-q", "--hard", approved);
+		inWt("merge", "-q", "--no-commit", "origin/main");
+		writeFileSync(join(f.wt, "tools/evf/feature.ts"), "export const feature = 2;\n");
+		inWt("commit", "-qam", "Merge main with an edit");
+		assert.throws(attempt(inWt("rev-parse", "HEAD")), /does not carry: .* differs from the clean merge of its parents/);
+		assert.deepEqual(merges(), []);
+
+		inWt("reset", "-q", "--hard", clean);
+		writeFileSync(join(f.wt, "tools/evf/feature.ts"), "export const feature = 3;\n");
+		inWt("commit", "-qam", "New work after approval");
+		assert.throws(attempt(inWt("rev-parse", "HEAD")), /does not carry: .* is not a merge of main/);
+		assert.deepEqual(merges(), []);
+
+		inWt("reset", "-q", "--hard", approved);
+		mainCommit("README.md", readFileSync(join(f.root, "README.md"), "utf8") + "Main line.\n");
+		inWt("merge", "-q", "--no-edit", "origin/main");
+		assert.throws(attempt(inWt("rev-parse", "HEAD")), /main changed paths this PR also changes: README.md/);
+		assert.deepEqual(merges(), []);
+	} finally {
+		f.close();
+	}
+});
+
+test("BUG-179-red-main: ship refuses while main's latest CI run failed, unless the PR fixes the open P0 issue", () => {
+	const f = mergeFixture();
+	try {
+		const run = (conclusion: string) => ({ conclusion, headSha: "c".repeat(40), url: "https://example.invalid/run" });
+		const attempt = (edit: (s) => void) => {
+			const state = f.getState();
+			state.mainRuns = [run("cancelled"), run("failure"), run("success")];
+			state.issues = [
+				...state.issues.filter((i) => i.number !== 176),
+				{ number: 176, title: "P0: CI failed on main", state: "open" },
+			];
+			state.calls = [];
+			edit(state);
+			f.setState(state);
+			return () => ship(f.root, f.taskRef);
+		};
+		const merges = () => f.getState().calls.filter((c) => c.args[0] === "pr" && c.args[1] === "merge");
+		const fixes = (n: number) => (s) => {
+			s.pr.body = s.pr.body.replace("EVF-Author:", `Fixes #${n}\n\nEVF-Author:`);
+		};
+		assert.throws(
+			attempt(() => {}),
+			/Main CI is red \(failure at cccccccccc/,
+		);
+		assert.deepEqual(merges(), []);
+		assert.throws(attempt(fixes(3)), /Main CI is red/);
+		assert.throws(
+			attempt((s) => {
+				fixes(176)(s);
+				s.issues.at(-1).state = "closed";
+			}),
+			/Main CI is red/,
+		);
+		assert.deepEqual(merges(), []);
+		assert.throws(attempt(fixes(176)), /fixture merge barrier/);
+		assert.equal(merges().length, 1);
+		assert.throws(
+			attempt((s) => {
+				s.mainRuns = [run("skipped"), run("success"), run("failure")];
+			}),
+			/fixture merge barrier/,
+		);
+	} finally {
+		f.close();
+	}
+});
+
+test("BUG-wave1-0016: renumber a migration that collides with main and keep the journal and snapshot chain valid", () => {
+	const f = mergeFixture();
+	try {
+		const dir = "packages/db/migrations";
+		const inWt = (...args: string[]) => execFileSync("git", ["-C", f.wt, ...args], { encoding: "utf8" }).trim();
+		const snapshot = (id: string, prevId: string, tables: string[]) =>
+			JSON.stringify({
+				id,
+				prevId,
+				version: "7",
+				dialect: "postgresql",
+				tables: Object.fromEntries(
+					tables
+						.map((t) => t.split(":"))
+						.map(([t, column]) => [`public.${t}`, { name: t, columns: column ? { [column]: { name: column } } : {} }]),
+				),
+				enums: {},
+			});
+		const add = (repo: string, name: string, tables: string[], prevId: string, id: string) => {
+			mkdirSync(join(repo, dir, "meta"), { recursive: true });
+			const journalPath = join(repo, dir, "meta/_journal.json");
+			const journal = existsSync(journalPath)
+				? JSON.parse(readFileSync(journalPath, "utf8"))
+				: { version: "7", dialect: "postgresql", entries: [] };
+			const idx = Number(name.slice(0, 4));
+			journal.entries.push({ idx, version: "7", when: 1000 + idx, tag: name, breakpoints: true });
+			writeFileSync(journalPath, JSON.stringify(journal, null, 2));
+			writeFileSync(join(repo, dir, `${name}.sql`), `CREATE TABLE ${tables.at(-1)!.split(":")[0]} ();\n`);
+			writeFileSync(join(repo, dir, `meta/${name.slice(0, 4)}_snapshot.json`), snapshot(id, prevId, tables));
+			execFileSync("git", ["-C", repo, "add", dir]);
+			execFileSync("git", ["-C", repo, "commit", "-qm", `Add ${name}`]);
+		};
+		add(f.root, "0001_a", ["a"], "00000000-0000-0000-0000-000000000000", "s1");
+		add(f.root, "0002_main", ["a", "main_table"], "s1", "s2-main");
+		f.git("push", "-q", "origin", "main");
+		inWt("reset", "-q", "--hard", "HEAD");
+		execFileSync("git", ["-C", f.wt, "merge", "-q", "--ff-only", "main~1"]);
+		add(f.wt, "0002_branch", ["a", "branch_table"], "s1", "s2-branch");
+		const branchTip = inWt("rev-parse", "HEAD");
+		inWt("fetch", "-q", "origin", "main");
+		const mainSnapshot = f.git("show", `origin/main:${dir}/meta/0002_snapshot.json`);
+
+		// The author resolves the merge by hand: both 0002 migrations stay and ship refuses the collision.
+		assert.notEqual(spawnSync("git", ["-C", f.wt, "merge", "-q", "--no-edit", "origin/main"]).status, 0);
+		inWt("checkout", "--ours", "--", `${dir}/meta`);
+		inWt("commit", "-qam", "Merge main");
+		assert.throws(() => ship(f.root, f.taskRef), /New migrations 0002_branch.sql reuse numbers main already has/);
+		assert.deepEqual(
+			f.getState().calls.filter((c) => c.args[0] === "pr" && c.args[1] === "merge"),
+			[],
+		);
+
+		const expectValid = () => {
+			const read = (path: string) => readFileSync(join(f.wt, dir, path), "utf8");
+			const journal = JSON.parse(read("meta/_journal.json"));
+			assert.deepEqual(
+				journal.entries.map((e) => [e.idx, e.tag]),
+				[
+					[1, "0001_a"],
+					[2, "0002_main"],
+					[3, "0003_branch"],
+				],
+			);
+			assert.ok(journal.entries.every((e, i) => i === 0 || e.when > journal.entries[i - 1].when));
+			assert.deepEqual(
+				readdirSync(join(f.wt, dir)).filter((n) => n.endsWith(".sql")),
+				["0001_a.sql", "0002_main.sql", "0003_branch.sql"],
+			);
+			assert.equal(read("meta/0002_snapshot.json"), mainSnapshot);
+			const moved = JSON.parse(read("meta/0003_snapshot.json"));
+			assert.deepEqual([moved.id, moved.prevId], ["s2-branch", "s2-main"]);
+			assert.deepEqual(Object.keys(moved.tables), ["public.a", "public.main_table", "public.branch_table"]);
+			assert.equal(read("0003_branch.sql"), "CREATE TABLE branch_table ();\n");
+		};
+		assert.deepEqual(renumberMigrations(f.wt, "origin/main"), ["0002_branch.sql -> 0003_branch.sql"]);
+		inWt("commit", "-qm", "Renumber migrations after main");
+		expectValid();
+		const repaired = inWt("rev-parse", "HEAD^{tree}");
+		renumberMigrations(f.wt, "origin/main");
+		assert.equal(inWt("status", "--porcelain"), "");
+
+		// Inside a conflicted merge, the command resolves the migration files to the same result.
+		inWt("reset", "-q", "--hard", branchTip);
+		assert.notEqual(spawnSync("git", ["-C", f.wt, "merge", "-q", "--no-edit", "origin/main"]).status, 0);
+		renumberMigrations(f.wt, "origin/main");
+		inWt("commit", "-q", "--no-edit");
+		expectValid();
+		assert.equal(inWt("rev-parse", "HEAD^{tree}"), repaired);
+
+		// BUG-6cdb381: consecutive branch migrations with one suffix move without overwriting each other.
+		inWt("reset", "-q", "--hard", branchTip);
+		add(f.wt, "0003_branch", ["a", "branch_table", "extra"], "s2-branch", "s3-branch");
+		assert.notEqual(spawnSync("git", ["-C", f.wt, "merge", "-q", "--no-edit", "origin/main"]).status, 0);
+		assert.deepEqual(renumberMigrations(f.wt, "origin/main"), [
+			"0002_branch.sql -> 0003_branch.sql",
+			"0003_branch.sql -> 0004_branch.sql",
+		]);
+		assert.equal(readFileSync(join(f.wt, dir, "0003_branch.sql"), "utf8"), "CREATE TABLE branch_table ();\n");
+		assert.equal(readFileSync(join(f.wt, dir, "0004_branch.sql"), "utf8"), "CREATE TABLE extra ();\n");
+		assert.deepEqual(
+			JSON.parse(readFileSync(join(f.wt, dir, "meta/_journal.json"), "utf8")).entries.map((e) => e.tag),
+			["0001_a", "0002_main", "0003_branch", "0004_branch"],
+		);
+		const fourth = JSON.parse(readFileSync(join(f.wt, dir, "meta/0004_snapshot.json"), "utf8"));
+		assert.deepEqual([fourth.id, fourth.prevId], ["s3-branch", "s2-branch"]);
+		assert.deepEqual(Object.keys(fourth.tables), [
+			"public.a",
+			"public.main_table",
+			"public.branch_table",
+			"public.extra",
+		]);
+		inWt("merge", "--abort");
+
+		// Both sides change the same table: no silent merge.
+		inWt("reset", "-q", "--hard", branchTip);
+		add(f.wt, "0003_branch_more", ["a", "main_table:x", "branch_table"], "s2-branch", "s3-branch");
+		assert.notEqual(spawnSync("git", ["-C", f.wt, "merge", "-q", "--no-edit", "origin/main"]).status, 0);
+		assert.throws(
+			() => renumberMigrations(f.wt, "origin/main"),
+			/Main and this branch both change snapshot.tables.public.main_table/,
 		);
 	} finally {
 		f.close();

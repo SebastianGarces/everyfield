@@ -20,6 +20,11 @@ the repository only when a silent break would cost us. Suite size is not evidenc
    `INV-tenancy: member cannot read another plant's people`.
 3. An escaped bug. Name it `BUG-<short-sha or PR>: ...`. Reproduce the failure first, then fix it.
 
+4. The performance budget. Each new write and page read gets a statement-count test at the production
+   boundary: call the public operation against real Postgres, as the app does, and assert the exact
+   number of statements it sends. The budget is the recorded rule in `docs/architecture/patterns.md`
+   (Performance; D69, D70), not a new number. Write it before the PR opens.
+
 Prefer an added row or assertion in an existing test over another test. Use table-driven tests for
 combinatorial behavior. Count case IDs covered per test, never require one test per case.
 
