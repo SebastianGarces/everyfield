@@ -862,5 +862,81 @@
 	"meetings/notifications.syncNotifications": {
 		"limit": 2,
 		"retry": 4
+	},
+	"native.people.createAssessment": {
+		"limit": 6,
+		"retry": 12
+	},
+	"native.people.createInterview": {
+		"limit": 6,
+		"retry": 12
+	},
+	"native.people.createCommitment": {
+		"limit": 6,
+		"retry": 12
+	},
+	"native.people.correctCommitmentLifecycle": {
+		"limit": 6,
+		"retry": 12
+	},
+	"native.people.withdrawCommitment": {
+		"limit": 7,
+		"retry": 14
+	},
+	"native.people.reactivateCommitment": {
+		"limit": 7,
+		"retry": 14
+	},
+	"native.people.requestCommitmentUpload": {
+		"limit": 5,
+		"retry": 10
+	},
+	"native.people.getAssessments": {
+		"limit": 3,
+		"retry": 6
+	},
+	"native.people.getInterviews": {
+		"limit": 3,
+		"retry": 6
+	},
+	"native.people.getCommitments": {
+		"limit": 3,
+		"retry": 6
+	},
+	"people.createAssessment": {
+		"limit": 7,
+		"retry": 14
+	},
+	"people.createInterview": {
+		"limit": 7,
+		"retry": 14
+	},
+	"people.createCommitment": {
+		"limit": 7,
+		"retry": 14
+	},
+	"people.correctCommitmentLifecycle": {
+		"limit": 7,
+		"retry": 14
+	},
+	"people.withdrawCommitment": {
+		"limit": 7,
+		"retry": 14
+	},
+	"people.reactivateCommitment": {
+		"limit": 7,
+		"retry": 14
+	},
+	"people.requestCommitmentUpload": {
+		"limit": 5,
+		"retry": 10
+	},
+	"people/commitments/index.uploadCommitmentDocument": {
+		"limit": 16,
+		"retry": 32
+	},
+	"people/commitments/index.getCommitmentDownload": {
+		"limit": 9,
+		"retry": 18
 	}
 }

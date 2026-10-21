@@ -618,6 +618,8 @@ export const commitment = pgTable(
 			table.corrected_commitment_id.asc().nullsLast(),
 			table.plant_id.asc().nullsLast(),
 		),
+		// One private document belongs to one card.
+		uniqueIndex("commitment_object_uq").using("btree", table.object_id.asc().nullsLast()),
 	],
 );
 export const contact_outcome = pgTable(
@@ -1324,6 +1326,57 @@ export const file_object = pgTable(
 		check("opaque_private_key", sql`(opaque_key ~ '^private/[0-9a-f-]{36}/[0-9a-f-]{36}$'::text)`),
 		check("private_key_owner", sql`((split_part(opaque_key, '/'::text, 2))::uuid = tenant_id)`),
 		index("file_object_ref_0").using("btree", table.tenant_id.asc().nullsLast()),
+	],
+);
+export const four_cs = pgTable(
+	"four_cs",
+	{
+		id: uuid("id")
+			.notNull()
+			.default(sql`gen_random_uuid()`),
+		plant_id: uuid("plant_id").notNull(),
+		person_id: uuid("person_id").notNull(),
+		assessed_on: date("assessed_on", { mode: "string" }).notNull(),
+		recorded_at: timestamp("recorded_at", { withTimezone: true, mode: "date" }).notNull(),
+		committed: integer("committed").notNull(),
+		compelled: integer("compelled").notNull(),
+		contagious: integer("contagious").notNull(),
+		courageous: integer("courageous").notNull(),
+		committed_notes: text("committed_notes"),
+		compelled_notes: text("compelled_notes"),
+		contagious_notes: text("contagious_notes"),
+		courageous_notes: text("courageous_notes"),
+		revision: int64("revision")
+			.notNull()
+			.default(sql`1`),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({ name: "four_cs_fk_0", columns: [table.plant_id], foreignColumns: [plant.id] })
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "four_cs_fk_1",
+			columns: [table.person_id, table.plant_id],
+			foreignColumns: [person.id, person.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "four_cs_fk_2",
+			columns: [table.id, table.plant_id],
+			foreignColumns: [record.id, record.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "four_cs_pkey", columns: [table.id] }),
+		unique("four_cs_uq_0").on(table.id, table.plant_id),
+		check("four_cs_ck_0", sql`(revision >= 1)`),
+		check("four_cs_ck_1", sql`((committed >= 1) AND (committed <= 5))`),
+		check("four_cs_ck_2", sql`((compelled >= 1) AND (compelled <= 5))`),
+		check("four_cs_ck_3", sql`((contagious >= 1) AND (contagious <= 5))`),
+		check("four_cs_ck_4", sql`((courageous >= 1) AND (courageous <= 5))`),
+		index("four_cs_ref_0").using("btree", table.plant_id.asc().nullsLast()),
+		index("four_cs_ref_1").using("btree", table.person_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
 	],
 );
 export const household = pgTable(
@@ -2721,6 +2774,7 @@ export const person = pgTable(
 		revision: int64("revision")
 			.notNull()
 			.default(sql`1`),
+		commitment_effective_on: date("commitment_effective_on", { mode: "string" }),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "person_fk_0", columns: [table.plant_id], foreignColumns: [plant.id] })
