@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 80 tables, 915 columns, 295 declared FKs and 15 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 81 tables, 937 columns, 298 declared FKs and 16 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -56,7 +56,7 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `pipeline_person` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
 | `pipeline_sharing` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-007 |
 | `pipeline_stage` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
-| `record` | Referenceable subtype writers must bind their own actual identity and owner; inherit the union of those writers, with WP-004 owning trigger/DDL proof. | WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-012, WP-013, WP-014, WP-016, WP-017, WP-018, WP-020, WP-021, WP-022, WP-023, WP-024, WP-026, WP-028, WP-030, WP-031, WP-032, WP-033, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-041, WP-045, WP-046, WP-047, WP-048, WP-050, WP-054, WP-057, WP-098, WP-099 |
+| `record` | Referenceable subtype writers must bind their own actual identity and owner; inherit the union of those writers, with WP-004 owning trigger/DDL proof. | WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-012, WP-013, WP-014, WP-017, WP-018, WP-020, WP-022, WP-023, WP-024, WP-026, WP-028, WP-030, WP-031, WP-032, WP-033, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-041, WP-045, WP-046, WP-047, WP-048, WP-050, WP-054, WP-057, WP-098, WP-099 |
 | `relationship_invitation` | WP-007 native organization adapter storage introduced by forward migration 0005; D29/D32 current-catalog authority. | WP-007 |
 | `residency_link` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-008 |
 | `schema_migration` | WP-097 installs the migration runner ledger with its physical text primary key. | WP-097 |
@@ -111,7 +111,7 @@ This mapping is generated from `replaces`; Fix 2 uses it to align architecture, 
 | `launch_milestone_task` | `launch_milestone` |
 | `launch_person_attendance` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
 | `meeting` | `meeting` |
-| `meeting_checklist_item` | Dropped under D72: no shipped feature reads or writes it; the owning feature designs its own schema when it is built. |
+| `meeting_checklist_item` | `meeting_kit_item` |
 | `meeting_event` | `audit_event` |
 | `meeting_invitation` | `participation` |
 | `meeting_location` | `venue` |

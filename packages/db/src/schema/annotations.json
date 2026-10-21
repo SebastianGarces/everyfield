@@ -1749,7 +1749,9 @@
 			"development_program.kind": ["apprenticeship", "residency"],
 			"development_enrollment.status": ["active", "completed", "withdrawn"],
 			"schema_migration.provenance": ["original", "adopted"],
-			"people_column.column_name": ["prospect", "attendee", "following_up", "interviewed", "core_group"]
+			"people_column.column_name": ["prospect", "attendee", "following_up", "interviewed", "core_group"],
+			"meeting_kit_item.category": ["essential", "materials", "setup", "av", "organization"],
+			"participation.rsvp_source": ["invitation", "token", "own", "admin"]
 		},
 		"auth_adapter_configuration": {
 			"session_storage": "PostgreSQL database sessions only; no secondary store",
@@ -1819,16 +1821,16 @@
 			"person_commitment": ["WP-004", "WP-014"],
 			"person_activity": ["WP-004", "WP-014"],
 			"record_correction": ["WP-004", "WP-015"],
-			"ministry_team": ["WP-004", "WP-016"],
+			"ministry_team": ["WP-004", "WP-017"],
 			"team_role": ["WP-004", "WP-017"],
 			"team_membership": ["WP-004", "WP-017"],
 			"team_responsibility": ["WP-004", "WP-018"],
 			"training_assignment_event": ["WP-004", "WP-019"],
 			"meeting_location": ["WP-004", "WP-020"],
 			"meeting": ["WP-004", "WP-020", "WP-022"],
-			"meeting_participation": ["WP-004", "WP-021", "WP-022"],
-			"meeting_invitation": ["WP-004", "WP-021"],
-			"vision_response": ["WP-004", "WP-021"],
+			"meeting_participation": ["WP-004", "WP-020", "WP-022"],
+			"meeting_invitation": ["WP-004", "WP-020"],
+			"vision_response": ["WP-004", "WP-020"],
 			"meeting_event": ["WP-004", "WP-022"],
 			"recurrence_series": ["WP-004", "WP-024"],
 			"follow_up_obligation": ["WP-004", "WP-024"],
@@ -1877,7 +1879,7 @@
 			"training_requirement_version": ["WP-004", "WP-019"],
 			"training_assignment_episode": ["WP-004", "WP-019"],
 			"training_completion": ["WP-004", "WP-019"],
-			"meeting_rsvp_token": ["WP-004", "WP-021", "WP-028"],
+			"meeting_rsvp_token": ["WP-004", "WP-020", "WP-028"],
 			"meeting_checklist_item": ["WP-004", "WP-020"],
 			"launch_person_attendance": ["WP-004", "WP-046"],
 			"planter_checkin": ["WP-004", "WP-039"],
@@ -2037,7 +2039,7 @@
 				"table": "team",
 				"columns": ["leader_person_id", "plant_id"],
 				"target_columns": ["id", "tenant_id"],
-				"consumer_work_packages": ["WP-004", "WP-016"],
+				"consumer_work_packages": ["WP-004", "WP-017"],
 				"meaning": "Current relation with immutable original provenance",
 				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
 				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
@@ -2065,7 +2067,7 @@
 				"table": "participation",
 				"columns": ["person_id", "plant_id"],
 				"target_columns": ["id", "tenant_id"],
-				"consumer_work_packages": ["WP-004", "WP-021", "WP-022"],
+				"consumer_work_packages": ["WP-004", "WP-020", "WP-022"],
 				"meaning": "Current relation with immutable original provenance",
 				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
 				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
@@ -2079,7 +2081,7 @@
 				"table": "participation",
 				"columns": ["inviter_person_id", "plant_id"],
 				"target_columns": ["id", "tenant_id"],
-				"consumer_work_packages": ["WP-004", "WP-021", "WP-022"],
+				"consumer_work_packages": ["WP-004", "WP-020", "WP-022"],
 				"meaning": "Current relation with immutable original provenance",
 				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
 				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
@@ -2200,6 +2202,20 @@
 				"privacy_policy": "No transfer of account grants, private reading/documents/care or staff-note visibility.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
 				"future_case_ids": ["ADR1-001", "ADR1-005", "ADR1-017"]
+			},
+			{
+				"table": "meeting_kit_item",
+				"columns": ["assignee_person_id", "plant_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-020"],
+				"meaning": "Current kit-item assignee; a retired or merged Person drops out of operational selection while history keeps the original reference.",
+				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
+				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
+				"inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
+				"retirement_policy": "No new current references to retired or merged Persons; historical evidence remains under current permission.",
+				"privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
+				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
+				"future_case_ids": ["PERSONREF-MEETING-CHECKLIST-PERSON-RETIRE"]
 			}
 		],
 		"person_snapshot_references": [
@@ -5360,7 +5376,7 @@
 				"jsonb_keys": {},
 				"capabilities": ["CAP-A-032", "CAP-A-034", "CAP-A-036", "CAP-A-037"],
 				"replaces": ["ministry_team"],
-				"producer_work_packages": ["WP-004", "WP-016"],
+				"producer_work_packages": ["WP-004", "WP-017"],
 				"producer_derivation": {
 					"old_target_tables": ["ministry_team"],
 					"rule": "Union of producer packages of replaced tables."
@@ -5916,7 +5932,13 @@
 				"domain": "meetings",
 				"purpose": "Scheduled meeting, frozen civil-time facts and separately held occurrence.",
 				"library_owned": false,
-				"jsonb_keys": {},
+				"jsonb_keys": {
+					"agenda": [
+						"id: stable section ID, unique in the agenda",
+						"title: trimmed section title, 1-120 characters",
+						"minutes: whole minutes, 0-600"
+					]
+				},
 				"capabilities": ["CAP-B-001", "CAP-B-007", "CAP-A-042"],
 				"replaces": ["meeting"],
 				"producer_work_packages": ["WP-004", "WP-020", "WP-022"],
@@ -6066,6 +6088,18 @@
 				},
 				"revision": {
 					"note": ""
+				},
+				"agenda": {
+					"note": "Ordered agenda sections copied at creation; never rewritten by later reference versions."
+				},
+				"agenda_version": {
+					"note": "Copied default agenda version; null when the agenda did not start from a default."
+				},
+				"kit_version": {
+					"note": "Canonical Vision kit version seeded for this meeting; null until populated."
+				},
+				"retired_at": {
+					"note": "Deleted from current lists; history and held-occurrence evidence remain."
 				}
 			},
 			"foreignKeys": {
@@ -6116,7 +6150,7 @@
 				"jsonb_keys": {},
 				"capabilities": ["CAP-B-005", "CAP-B-006", "CAP-B-008", "CAP-A-042"],
 				"replaces": ["meeting_participation", "meeting_invitation", "vision_response"],
-				"producer_work_packages": ["WP-004", "WP-021", "WP-022"],
+				"producer_work_packages": ["WP-004", "WP-020", "WP-022"],
 				"producer_derivation": {
 					"old_target_tables": ["meeting_participation", "meeting_invitation", "vision_response"],
 					"rule": "Union of producer packages of replaced tables."
@@ -6248,6 +6282,24 @@
 				},
 				"revision": {
 					"note": ""
+				},
+				"removed_at": {
+					"note": "Guest removed from the current list; the row stays for history and references."
+				},
+				"rsvp_source": {
+					"note": "Provenance of the current RSVP answer."
+				},
+				"rsvp_token_hash": {
+					"note": "SHA-256 of the one live public RSVP token for this meeting/Person pair; the token itself is never stored."
+				},
+				"rsvp_token_expires_at": {
+					"note": "Expiry of the current public RSVP token."
+				},
+				"rsvp_token_open": {
+					"note": "Whether the current token may still answer; any later answer closes it."
+				},
+				"card_occurred_at": {
+					"note": "When the response card was filled in."
 				}
 			},
 			"foreignKeys": {
@@ -11994,11 +12046,9 @@
 					"WP-012",
 					"WP-013",
 					"WP-014",
-					"WP-016",
 					"WP-017",
 					"WP-018",
 					"WP-020",
-					"WP-021",
 					"WP-022",
 					"WP-023",
 					"WP-024",
@@ -15457,6 +15507,93 @@
 						"policy": "Restricted policy cleanup only; ordinary writers can append but cannot change or delete audit evidence."
 					},
 					"scope_exception": "D70 audit subject or original-command correlation may name an authorized bilateral endpoint or retained identity; pair/source checks and current authority remain mandatory. Operator projections omit protected history and retry content."
+				}
+			}
+		},
+		"meeting_kit_item": {
+			"table": {
+				"name": "meeting_kit_item",
+				"domain": "meetings",
+				"purpose": "One canonical Vision kit checklist item per meeting with an optional same-plant assignee.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-B-004"],
+				"replaces": ["meeting_checklist_item"],
+				"producer_work_packages": ["WP-004", "WP-020"],
+				"producer_derivation": {
+					"old_target_tables": ["meeting_checklist_item"],
+					"rule": "Union of producer packages of replaced tables."
+				},
+				"feature_ids": ["MTG-006"],
+				"acceptance_ids": ["AC-MTG-006--MTG-006"],
+				"future_case_ids": ["TARGET-MTG-006", "PERSONREF-MEETING-CHECKLIST-PERSON-RETIRE"],
+				"scope": "meetings",
+				"invariants": [
+					"Every item and its assignee belong to the meeting's plant.",
+					"A new assignee names a live Person.",
+					"Population converges on one row per canonical item key."
+				],
+				"revision": "Expected revision fences each item update; meaningful writes advance it atomically.",
+				"idempotency": "Populate converges through the unique meeting/item key; updates use request keys and expected revisions.",
+				"deletion": "Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"plant_id": {
+					"note": ""
+				},
+				"meeting_id": {
+					"note": ""
+				},
+				"item_key": {
+					"note": ""
+				},
+				"position": {
+					"note": ""
+				},
+				"category": {
+					"note": ""
+				},
+				"text": {
+					"note": ""
+				},
+				"assignee_person_id": {
+					"note": ""
+				},
+				"checked": {
+					"note": ""
+				},
+				"checked_at": {
+					"note": ""
+				},
+				"notes": {
+					"note": ""
+				},
+				"revision": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Dependency-ordered owner cleanup or witnessed attribution scrubbing; no retained private body or new retention exemption."
+					}
+				},
+				"meeting_id,plant_id->meeting(id,plant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Kit items are part of their meeting and go with it."
+					}
+				},
+				"assignee_person_id,plant_id->person(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Dependency-ordered owner cleanup or witnessed attribution scrubbing; no retained private body or new retention exemption."
+					}
 				}
 			}
 		},

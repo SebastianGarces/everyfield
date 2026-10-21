@@ -39,7 +39,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-001 | Current source references and version identity | 0 | 0 | 0 | 0 | 1 |
 | WP-002 | Shared identity, access, time and change-history behavior | 5 | 2 | 8 | 0 | 1.5 |
 | WP-003 | Secure sign-in, private files and streamed responses | 12 | 0 | 11 | 2 | 1.5 |
-| WP-004 | Data storage for shipped features with tenant isolation | 20 | 4 | 46 | 70 | 4 |
+| WP-004 | Data storage for shipped features with tenant isolation | 20 | 4 | 46 | 71 | 4 |
 | WP-031 | Reliable background work and delivery recovery | 17 | 17 | 22 | 7 | 2 |
 | WP-088 | Product design foundations, dark mode and application shell | 0 | 0 | 0 | 0 | 2 |
 | WP-089 | Shared controls, surfaces and overlays | 0 | 0 | 0 | 0 | 3 |
@@ -56,7 +56,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-014 | Assessments interviews commitments | 8 | 10 | 13 | 5 | 2 |
 | WP-015 | Corrections duplicate resolution and merge | 9 | 10 | 36 | 1 | 2 |
 | WP-032 | Canonical reference/template manifest | 7 | 12 | 15 | 2 | 1.5 |
-| WP-020 | Meetings, venues, list and detail, invitations and RSVP | 29 | 48 | 35 | 4 | 3 |
+| WP-020 | Meetings, venues, list and detail, invitations and RSVP | 29 | 48 | 35 | 5 | 3 |
 | WP-017 | Teams, roster, roles, leader appointments and org chart | 11 | 41 | 26 | 4 | 2.5 |
 | WP-018 | Responsibilities canonical offer | 3 | 7 | 3 | 2 | 1.5 |
 | WP-019 | Training programs completion revoke/correct | 14 | 10 | 27 | 1 | 2 |

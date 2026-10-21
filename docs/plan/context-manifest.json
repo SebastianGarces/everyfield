@@ -2591,6 +2591,7 @@
         "mail_request",
         "mail_request_member",
         "meeting",
+        "meeting_kit_item",
         "notice",
         "notification_preference",
         "obligation",
@@ -7299,6 +7300,7 @@
       ],
       "producer_table_names": [
         "meeting",
+        "meeting_kit_item",
         "participation",
         "record",
         "venue"
@@ -25988,6 +25990,7 @@
         "mail_request",
         "mail_request_member",
         "meeting",
+        "meeting_kit_item",
         "notice",
         "notification_preference",
         "obligation",
@@ -31971,6 +31974,7 @@
         "mail_request",
         "mail_request_member",
         "meeting",
+        "meeting_kit_item",
         "notice",
         "notification_preference",
         "obligation",
