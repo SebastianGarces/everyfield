@@ -64,6 +64,18 @@ const ctx = (a, selected = { kind: "account", id: a.id }) => ({
 	selected,
 });
 const call = (name, a, v, selected) => db.transaction((tx) => api[name](tx, ctx(a, selected), v));
+/** The viewer the settings mount passes: the request actor and the user row of the session's Better Auth lookup. */
+async function viewerOf(a) {
+	const v = await readViewer(db, a.session);
+	if (!v?.authority) return null;
+	const user = await admin.execute(
+		sql`SELECT u.name, u.email, u.email_verified FROM auth_session s JOIN auth_user u ON u.id=s.user_id WHERE s.id=${a.session}`,
+	);
+	const { name, email, email_verified } = user.rows[0];
+	return { authority: v.authority, principal: { display_name: name, email, verified: email_verified } };
+}
+/** One section read the way the settings mount runs it: on the pool, with the request's viewer. */
+const section = async (a, request) => api.getSection(db, await viewerOf(a), request);
 async function actor() {
 	const a = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
 	await admin.execute(
@@ -289,9 +301,8 @@ test("AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:ROLE43-002 AC:ROLE43-005 scoped set
 		other = await plant(),
 		adminActor = await seat(f.p),
 		member = await seat(f.p, "member");
-	denied(await call("getSection", f.a, { section: "account" }, f.p));
 	denied(await call("saveSection", f.a, command({ section: "account", name: "Wrong context" }), f.p));
-	const initial = ok(await call("getSection", f.a, { section: "plant", plant: f.p }, f.p));
+	const initial = ok(await section(f.a, { section: "plant", plant: f.p }));
 	assert.equal(initial.values.timeZone, "America/Chicago");
 	assert.deepEqual(initial.values.digest, { cadence: "weekly", weekday: 0, hour: 16 });
 	const v = command({
@@ -322,8 +333,8 @@ test("AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:ROLE43-002 AC:ROLE43-005 scoped set
 		/invalidate_fault/,
 	);
 	faults = false;
-	assert.equal(ok(await call("getSection", f.a, { section: "plant", plant: f.p }, f.p)).revision, "2");
-	const self = ok(await call("getSection", member, { section: "account" }));
+	assert.equal(ok(await section(f.a, { section: "plant", plant: f.p })).revision, "2");
+	const self = ok(await section(member, { section: "account" }));
 	assert.deepEqual(self.personalTimezone, { status: "unconfirmed" });
 	const name = ok(await call("saveSection", member, command({ section: "account", name: " Member Updated " })));
 	assert.equal(name.current.name, "Member Updated");
@@ -331,7 +342,7 @@ test("AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:ROLE43-002 AC:ROLE43-005 scoped set
 
 test("AC:WP010-IDN-012 account preferences keep exact category/channel choices independent and scoped", async () => {
 	const a = await actor();
-	let current = ok(await call("getSection", a, { section: "notifications" }));
+	let current = ok(await section(a, { section: "notifications" }));
 	assert.equal(current.values.choices.length, 19);
 	assert.equal(current.values.oversightCadence, null);
 	assert.equal(current.values.suppression, "unavailable");
@@ -365,7 +376,6 @@ test("AC:WP010-IDN-012 account preferences keep exact category/channel choices i
 		),
 	);
 	const f = await plant();
-	denied(await call("getSection", a, { section: "notifications" }, f.p));
 	const cadence = ok(
 		await call(
 			"saveSection",
@@ -389,9 +399,9 @@ test("AC:TARGET-IDN-031 AC:TARGET-IDN-032 AC:TARGET-TSK-018 personal zones canon
 		),
 	);
 	assert.deepEqual(s.preference, { status: "confirmed", timeZone: "America/Chicago", revision: "2" });
-	assert.deepEqual(ok(await call("getSection", a, { section: "account" })).personalTimezone, s.preference);
+	assert.deepEqual(ok(await section(a, { section: "account" })).personalTimezone, s.preference);
 	const f = await plant(a);
-	const church = ok(await call("getSection", a, { section: "plant", plant: f.p }, f.p));
+	const church = ok(await section(a, { section: "plant", plant: f.p }));
 	assert.equal(church.values.timeZone, "America/Chicago");
 	assert.deepEqual(church.values.digest, { cadence: "weekly", weekday: 0, hour: 16 });
 	const v = ok(await call("previewPersonalTimezone", a, { timeZone: "America/New_York" }));
@@ -414,7 +424,7 @@ test("AC:TARGET-IDN-031 AC:TARGET-IDN-032 AC:TARGET-TSK-018 personal zones canon
 		/intent_fault/,
 	);
 	faults = false;
-	assert.equal(ok(await call("getSection", a, { section: "account" })).personalTimezone.timeZone, "America/Chicago");
+	assert.equal(ok(await section(a, { section: "account" })).personalTimezone.timeZone, "America/Chicago");
 });
 
 test("INV-private-calendar: revoked seat keeps its personal preference but cannot invoke the author calendar", async () => {
@@ -518,7 +528,7 @@ test("AC:DEL58-001 AC:DEL58-002 AC:DEL58-003 AC:DEL58-005 AC:TARGET-IDN-026 AC:R
 	const pending = ok(await call("requestAccountDeletion", member, command({ confirmed: true })));
 	assert.equal(pending.status, "pending_deletion");
 	assert.equal(Date.parse(pending.cancelUntil) - Date.parse(pending.requestedAt), 30 * 86400_000);
-	denied(await call("getSection", member, { section: "account" }));
+	assert.equal(await viewerOf(member), null);
 	assert.equal((await admin.select().from(t.auth_session).where(eq(t.auth_session.id, member.session))).length, 0);
 	const proof = await restricted(member, { kind: "account", id: member.id }, pending);
 	const request = { subject: { kind: "account", id: member.id }, requestId: pending.requestId };
@@ -536,13 +546,13 @@ test("AC:DEL58-001 AC:DEL58-002 AC:DEL58-003 AC:DEL58-005 AC:TARGET-IDN-026 AC:R
 	assert.equal(cancelled.status, "cancelled");
 	assert.equal(cancelled.requestId, pending.requestId);
 	assert.equal(cancelled.cancelUntil, pending.cancelUntil);
-	denied(await call("getSection", member, { section: "account" }));
+	assert.equal(await viewerOf(member), null);
 	assert.equal((await admin.select().from(t.auth_session).where(eq(t.auth_session.id, member.session))).length, 0);
 	const repeat = ok(
 		await db.transaction((tx) => api.cancelAccountDeletion(tx, proof, command(request, pending.revision))),
 	);
 	assert.deepEqual(repeat, cancelled);
-	const user = ok(await call("getSection", f.a, { section: "plant", plant: f.p }, f.p));
+	const user = ok(await section(f.a, { section: "plant", plant: f.p }));
 	assert.equal(user.values.profile.name, "Harvest Point");
 });
 
@@ -615,7 +625,7 @@ test("INV-settings: concurrent account edits serialize before taking session sha
 		replies.find((r) => r.status === "refused"),
 		"conflict",
 	);
-	assert.equal(ok(await call("getSection", a, { section: "account" })).revision, "2");
+	assert.equal(ok(await section(a, { section: "account" })).revision, "2");
 });
 
 async function overdue(a, subject) {
@@ -695,11 +705,8 @@ test("AC:WP010-KNOW-072 AC:DEL58-005 workspace purge hides and removes only its 
 		other = await plant();
 	const subject = { kind: "plant", id: f.p.id };
 	const p = await overdue(f.a, subject);
-	denied(await call("getSection", f.a, { section: "plant", plant: f.p }, f.p));
-	assert.equal(
-		ok(await call("getSection", other.a, { section: "plant", plant: other.p }, other.p)).values.profile.name,
-		"Harvest Point",
-	);
+	assert.equal(await viewerOf(f.a), null);
+	assert.equal(ok(await section(other.a, { section: "plant", plant: other.p })).values.profile.name, "Harvest Point");
 	const purge = createLifecycleCleanup(cleanupDb, {
 		authorize: async () => true,
 		removeOwnedResources: async () => true,
@@ -868,7 +875,7 @@ test("AC:TARGET-IDN-008 AC:ROLE43-018 password proof precedes unchanged refusal;
 		false,
 	);
 	const fresh = await login({ ...a, password: input.newPassword });
-	assert.equal(ok(await call("getSection", fresh, { section: "account" })).email, a.email);
+	assert.equal(ok(await section(fresh, { section: "account" })).email, a.email);
 	const [count] = await admin
 		.select({ n: sql`count(*)::int` })
 		.from(t.audit_event)
@@ -958,7 +965,7 @@ test("AC:ORG55-001 AC:ORG55-007 AC:TARGET-IDN-026 organization profile and exact
 
 	assert.equal(noop.current.values.revision, "2");
 	const wrong = { ...org.o, organizationKind: "sending_church" };
-	denied(await call("getSection", org.a, { section: "organization", organization: wrong }, org.o));
+	denied(await section(org.a, { section: "organization", organization: wrong }));
 });
 
 test("INV-lifecycle: an account root read serializes first-witness deletion even before any witness exists", async () => {
@@ -1182,7 +1189,7 @@ test("AC:WP010-IDN-012 exact task preference reaches enqueue and dispatch; churc
 			return inputs.map((v, n) => (r.rows.some((r) => r.n === n) ? { address: "test@example.test" } : null));
 		},
 	});
-	const initialPreferences = ok(await call("getSection", f.a, { section: "notifications" }));
+	const initialPreferences = ok(await section(f.a, { section: "notifications" }));
 	const notice = (category, occurrence) => ({
 		owner: f.p,
 		recipient: f.a.id,
@@ -1234,7 +1241,7 @@ test("AC:WP010-IDN-012 exact task preference reaches enqueue and dispatch; churc
 	assert.equal(claim.kind, "mail");
 	assert.deepEqual(await sender.dispatch(claim), { kind: "not_dispatched" });
 	assert.deepEqual(sent, []);
-	const profile = ok(await call("getSection", f.a, { section: "plant", plant: f.p }, f.p));
+	const profile = ok(await section(f.a, { section: "plant", plant: f.p }));
 	ok(
 		await call("setDigestSchedule", f.a, command({ plant: f.p, schedule: { cadence: "off" } }, profile.revision), f.p),
 	);
@@ -1264,7 +1271,7 @@ test("AC:TARGET-IDN-007 AC:TARGET-IDN-008 native credential budgets use own logi
 	for (let i = 0; i < 5; i++) assert.equal((await call("changePassword", b, input)).status, "refused");
 	assert.equal((await call("changePassword", b, { ...input, currentPassword: b.password })).status, "refused");
 	const old = await login(b);
-	assert.equal(ok(await call("getSection", old, { section: "account" })).email, b.email);
+	assert.equal(ok(await section(old, { section: "account" })).email, b.email);
 });
 
 test("AC:WP005-KNOW-069 AC:WP005-KNOW-072 AC:WP010-KNOW-069 AC:WP010-KNOW-072 AC:TARGET-IDN-032 account purge removes personal bodies while preserving church documents", async () => {
@@ -1398,7 +1405,7 @@ test("INV-settings-preview: expiry is checked independently from actor, subject,
 		),
 		"stale_preview",
 	);
-	assert.deepEqual(ok(await call("getSection", f.a, { section: "account" })).personalTimezone, {
+	assert.deepEqual(ok(await section(f.a, { section: "account" })).personalTimezone, {
 		status: "unconfirmed",
 	});
 	const fresh = ok(await call("previewPersonalTimezone", f.a, { timeZone: "UTC" }));
@@ -1416,13 +1423,11 @@ let recording = false;
 const statements = [];
 /** One section read the way the settings mount runs it, with every statement the database receives. */
 async function mountRead(a, request) {
-	const viewer = await readViewer(db, a.session);
-	const self = ["account", "notifications"].includes(request.section);
-	const selected = self ? { kind: "account", id: a.id } : viewer.authority.actor.context.owner;
+	const viewer = await viewerOf(a);
 	statements.length = 0;
 	recording = true;
 	try {
-		const value = await db.transaction((tx) => api.getSection(tx, { session: a.session, selected }, request));
+		const value = await api.getSection(db, viewer, request);
 		return { value: ok(value), statements: [...statements] };
 	} finally {
 		recording = false;
