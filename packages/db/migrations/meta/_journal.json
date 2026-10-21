@@ -141,6 +141,13 @@
       "when": 1792574275607,
       "tag": "0020_evry_conversations",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1792575928865,
+      "tag": "0021_evry_proposals",
+      "breakpoints": true
     }
   ]
 }

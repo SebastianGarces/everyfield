@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 82 tables, 945 columns, 301 declared FKs and 16 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 83 tables, 963 columns, 306 declared FKs and 19 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -56,6 +56,7 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `pipeline_person` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
 | `pipeline_sharing` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-007 |
 | `pipeline_stage` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
+| `proposal` | WP-053 Evry review and execution storage through Drizzle Kit. | WP-053 |
 | `record` | Referenceable subtype writers must bind their own actual identity and owner; inherit the union of those writers, with WP-004 owning trigger/DDL proof. | WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-012, WP-013, WP-014, WP-017, WP-018, WP-020, WP-022, WP-023, WP-024, WP-026, WP-028, WP-030, WP-031, WP-032, WP-033, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-041, WP-045, WP-046, WP-047, WP-048, WP-050, WP-054, WP-057, WP-098, WP-099 |
 | `relationship_invitation` | WP-007 native organization adapter storage introduced by forward migration 0005; D29/D32 current-catalog authority. | WP-007 |
 | `residency_link` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-008 |

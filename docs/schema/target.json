@@ -70,9 +70,9 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 82,
-  "column_count": 945,
-  "foreign_key_count": 301,
+  "table_count": 83,
+  "column_count": 963,
+  "foreign_key_count": 306,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -296,7 +296,8 @@
       "object_cleanup",
       "lifecycle_purge",
       "assistant_turn",
-      "document_render"
+      "document_render",
+      "evry_effect"
     ],
     "job.state": [
       "ready",
@@ -585,6 +586,20 @@
       "feedback_triage",
       "reference_publish",
       "recovery_operator"
+    ],
+    "proposal.operation": [
+      "people.updatePerson"
+    ],
+    "proposal.state": [
+      "pending",
+      "approved",
+      "cancelled",
+      "expired"
+    ],
+    "proposal.outcome": [
+      "completed",
+      "failed",
+      "refused"
     ],
     "provider_event.kind": [
       "accepted",
@@ -1239,6 +1254,11 @@
       "documents.copied",
       "documents.saved",
       "evry.conversation_created",
+      "evry.proposal_approved",
+      "evry.proposal_cancelled",
+      "evry.proposal_prepared",
+      "evry.proposal_retried",
+      "evry.proposal_revised",
       "evry.turn_cancelled",
       "evry.turn_retried",
       "evry.turn_submitted",
@@ -10528,7 +10548,7 @@
         }
       ],
       "checks": [
-        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.send_intended','deletion.cancelled','deletion.live_purge_completed','documents.copied','documents.saved','evry.conversation_created','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.hidden','wiki.published','wiki.source_order_changed')",
+        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.send_intended','deletion.cancelled','deletion.live_purge_completed','documents.copied','documents.saved','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.hidden','wiki.published','wiki.source_order_changed')",
         "num_nonnulls(actor_id,actor_token,system_cause)>=1",
         "kind in ('create','edit','correct','retire','restore','merge','unmerge','stage_change','classification_change','commitment_change','assign','remove','accept','revoke','resend','role_change','leader_change','tick','untick','archive','earn','revoke_credit','offer_answer','publish','hide','read','progress','complete','reopen','waive','supersede','finalize','reconcile','noop','triage','suppress','suppression_clear','preference','model_attempt','tool_attempt','effect_result','mail_member','outcome','declaration','movement')",
         "jsonb_typeof(metadata)='object' AND (metadata->'diff' IS NULL OR (jsonb_typeof(metadata->'diff')='object' AND octet_length(convert_to((metadata->'diff')::text,'UTF8'))<=2048))"
@@ -12372,7 +12392,14 @@
       "primary_key": [
         "id"
       ],
-      "unique_keys": [],
+      "unique_keys": [
+        {
+          "columns": [
+            "id",
+            "tenant_id"
+          ]
+        }
+      ],
       "foreign_keys": [
         {
           "deletion": {
@@ -12481,7 +12508,9 @@
       },
       "constraint_names": {
         "primary": [],
-        "unique": [],
+        "unique": [
+          "conversation_identity"
+        ],
         "foreign": [
           "conversation_tenant_id_tenant_id_fk",
           "conversation_account_id_account_id_fk",
@@ -17527,7 +17556,7 @@
       ],
       "checks": [
         "(revision >= 1)",
-        "kind in ('mail', 'notification', 'digest', 'assessment', 'reference_generation', 'feedback_publication', 'object_cleanup', 'lifecycle_purge', 'assistant_turn', 'document_render')",
+        "kind in ('mail', 'notification', 'digest', 'assessment', 'reference_generation', 'feedback_publication', 'object_cleanup', 'lifecycle_purge', 'assistant_turn', 'document_render', 'evry_effect')",
         "state in ('ready', 'claimed', 'retry_wait', 'reconcile', 'succeeded', 'failed', 'cancelled', 'superseded')",
         "((attempt_count >= 0) AND (max_attempts >= 1))",
         "(claim_generation >= 0)",
@@ -27318,6 +27347,313 @@
         "checks": [
           "platform_grant_ck_0",
           "platform_grant_ck_1"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "proposal",
+      "domain": "assistant",
+      "purpose": "One durable change Evry proposed in a conversation, its exact current review and approval, and the saved outcome of the approved revision.",
+      "library_owned": false,
+      "jsonb_keys": {
+        "input": [
+          "personId",
+          "patch",
+          "expectedRevision"
+        ],
+        "review": [
+          "target",
+          "changes"
+        ],
+        "receipt": [
+          "receiptId",
+          "revision",
+          "code"
+        ]
+      },
+      "capabilities": [
+        "CAP-C-030",
+        "CAP-C-031",
+        "CAP-C-032"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-053"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-053"
+        ],
+        "rule": "WP-053 Evry review and execution storage through Drizzle Kit."
+      },
+      "feature_ids": [
+        "EVR-011",
+        "EVR-012",
+        "EVR-013",
+        "EVR-014",
+        "EVR-015",
+        "EVR-018",
+        "EVR-020",
+        "EVR-033",
+        "EVR-034"
+      ],
+      "acceptance_ids": [],
+      "future_case_ids": [],
+      "scope": "assistant",
+      "invariants": [
+        "Only the initiating account in the same exact context reads, approves, cancels or revises it; others see no existence.",
+        "Approval covers one exact revision and digest and lapses 15 minutes after that revision was published.",
+        "An approved revision runs at most once: its owning domain write uses one effect key, and that write's audit row is the effect record."
+      ],
+      "revision": "Each revision replaces the reviewed arguments, digest and expiry in place and clears any approval.",
+      "idempotency": "The effect key (proposal and revision) is the owning write's request key; a retry returns the saved receipt.",
+      "deletion": "Goes with its conversation; account or tenant purge removes both.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "",
+          "name": "tenant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "account_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "conversation_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "operation",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "revision",
+          "type": "integer",
+          "nullable": false,
+          "default": 1
+        },
+        {
+          "note": "",
+          "name": "input",
+          "type": "jsonb",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "review",
+          "type": "jsonb",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "digest",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "state",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "expires_at",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "approved_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "approved_session_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "job_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "outcome",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "receipt",
+          "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        },
+        {
+          "note": "",
+          "name": "updated_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "no_action",
+            "policy": "Owner purge removes conversations, and their proposals, before owner rows."
+          },
+          "columns": [
+            "account_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action"
+        },
+        {
+          "deletion": {
+            "action": "set_null",
+            "policy": "Signing out clears the approving session; an effect that has not started is then refused."
+          },
+          "columns": [
+            "approved_session_id"
+          ],
+          "references": {
+            "table": "auth_session",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null"
+        },
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "A proposal goes with its conversation, in the same tenant."
+          },
+          "columns": [
+            "conversation_id",
+            "tenant_id"
+          ],
+          "references": {
+            "table": "conversation",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "no_action",
+            "policy": "Owner purge deletes conversations and their proposals before jobs."
+          },
+          "columns": [
+            "job_id",
+            "tenant_id"
+          ],
+          "references": {
+            "table": "job",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "no_action"
+        },
+        {
+          "deletion": {
+            "action": "no_action",
+            "policy": "Owner purge removes conversations, and their proposals, before owner rows."
+          },
+          "columns": [
+            "tenant_id"
+          ],
+          "references": {
+            "table": "tenant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action"
+        }
+      ],
+      "checks": [
+        "(\"proposal\".\"state\"='approved') = (\"proposal\".\"approved_at\" IS NOT NULL)",
+        "jsonb_typeof(\"proposal\".\"input\")='object' AND jsonb_typeof(\"proposal\".\"review\")='object'",
+        "\"proposal\".\"outcome\" IS NULL OR \"proposal\".\"state\"='approved'",
+        "\"proposal\".\"revision\" >= 1"
+      ],
+      "indexes": {
+        "proposal_conversation": {
+          "name": "proposal_conversation",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "conversation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [],
+        "unique": [],
+        "foreign": [
+          "proposal_tenant_id_tenant_id_fk",
+          "proposal_account_id_account_id_fk",
+          "proposal_approved_session_id_auth_session_id_fk",
+          "proposal_conversation_owner",
+          "proposal_job"
+        ],
+        "checks": [
+          "proposal_revision",
+          "proposal_approval",
+          "proposal_outcome",
+          "proposal_json"
         ]
       },
       "policies": {},
