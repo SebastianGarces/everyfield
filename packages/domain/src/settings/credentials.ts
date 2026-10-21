@@ -38,7 +38,7 @@ export interface CredentialConfig {
 	): Promise<void>;
 	/** Adds the security notice to the old address to `writes`, which commit with the app security event. */
 	securityNotice(
-		tx: Transaction,
+		tx: Pick<Transaction, "insert">,
 		input: { accountId: string; address: string; action: "password_changed" | "email_changed"; correlationId: string },
 		writes: SQLWrapper[],
 	): Promise<string>;
@@ -133,26 +133,26 @@ export function createAccountCredentials(config: CredentialConfig): Pick<
 		correlationId: string,
 	): Promise<CredentialOutcome> {
 		try {
-			// The security event and the notice to the old address commit together in one statement.
-			const reporting = await config.db.transaction(async (tx) => {
-				const eventId = randomUUID();
-				const writes: SQLWrapper[] = [
-					tx.insert(t.audit_event).values({
-						id: eventId,
-						tenant_id: accountId,
-						subject_id: accountId,
-						actor_id: accountId,
-						kind: "edit",
-						action: action === "email_changed" ? "identity.email_changed" : "identity.credential_changed",
-						occurred_at: now,
-						recorded_at: now,
-						event_key: correlationId,
-					}),
-				];
-				const mailIntentId = await config.securityNotice(tx, { accountId, address, action, correlationId }, writes);
-				await executeWrites(tx, writes);
-				return { status: "recorded" as const, eventId, mailIntentId };
-			});
+			// The security event and the notice to the old address commit together in one statement, which needs no
+			// transaction around it.
+			const db = config.db,
+				eventId = randomUUID();
+			const writes: SQLWrapper[] = [
+				db.insert(t.audit_event).values({
+					id: eventId,
+					tenant_id: accountId,
+					subject_id: accountId,
+					actor_id: accountId,
+					kind: "edit",
+					action: action === "email_changed" ? "identity.email_changed" : "identity.credential_changed",
+					occurred_at: now,
+					recorded_at: now,
+					event_key: correlationId,
+				}),
+			];
+			const mailIntentId = await config.securityNotice(db, { accountId, address, action, correlationId }, writes);
+			await executeWrites(db, writes);
+			const reporting = { status: "recorded" as const, eventId, mailIntentId };
 			return credentialOutcome.parse({ status: "succeeded", accountId, action, correlationId, reporting });
 		} catch {
 			return credentialOutcome.parse({

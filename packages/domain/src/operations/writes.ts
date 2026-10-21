@@ -77,9 +77,9 @@ export async function finishAudit(tx: Transaction, command: AuditWrite, request:
 	);
 }
 
-/** Independent changes and their audit entries execute in one statement. */
+/** Independent changes and their audit entries execute in one statement, on a transaction or alone on the pool. */
 export async function executeWrites(
-	tx: Transaction,
+	tx: Pick<Transaction, "execute">,
 	writes: readonly SQLWrapper[],
 	request?: RequestIdentity,
 ): Promise<void> {
