@@ -132,8 +132,8 @@ async function notifications(db: Reader, deps: SectionDependencies, v: Viewer) {
 		.select({
 			id: t.account.id,
 			revision: t.account.revision,
-			rows: sql`(SELECT coalesce(json_agg(json_build_object('category',p.category,'channel',p.channel,'enabled',p.enabled,'cadence',p.cadence)),'[]') FROM ${t.notification_preference} p WHERE p.account_id=${t.account.id})`,
-			organization: sql<boolean>`EXISTS(SELECT FROM ${t.seat} s WHERE s.account_id=${t.account.id} AND s.ended_at IS NULL AND s.organization_id IS NOT NULL)`,
+			rows: sql`(SELECT coalesce(json_agg(json_build_object('category',p.category,'channel',p.channel,'enabled',p.enabled,'cadence',p.cadence)),'[]') FROM ${t.notification_preference} p WHERE p.account_id=${v.actor.accountId}::uuid)`,
+			organization: sql<boolean>`EXISTS(SELECT FROM ${t.seat} s WHERE s.account_id=${v.actor.accountId}::uuid AND s.ended_at IS NULL AND s.organization_id IS NOT NULL)`,
 		})
 		.from(t.account)
 		.where(and(eq(t.account.id, v.actor.accountId), live(v, own(v))));

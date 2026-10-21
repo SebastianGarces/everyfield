@@ -1584,3 +1584,23 @@ test("INV-authority: a settings read checks seat, role, session and lifecycle ag
 			assert.equal((await api.getSection(db, viewer, request)).status, "refused", `${change}: ${request.section}`);
 	}
 });
+test("BUG-3213d18: notifications read the account's saved choices and an organization seat's digest", async () => {
+	const org = await organization();
+	await admin.execute(
+		sql`INSERT INTO notification_preference(account_id,category,channel,enabled,cadence,unsubscribe_revision) VALUES(${org.a.id},'task_due','email',false,null,1),(${org.a.id},'planter_digest','email',true,'daily',1),(${org.a.id},'oversight_digest','email',true,'daily',1)`,
+	);
+	const read = ok(await section(org.a, { section: "notifications" }));
+	const choice = (category, channel) =>
+		read.values.choices.find((c) => c.category === category && c.channel === channel)?.enabled;
+	assert.equal(choice("task_due", "email"), false);
+	assert.equal(choice("task_due", "in_app"), true);
+	assert.deepEqual(
+		read.values.choices.filter((c) => c.category === "oversight_digest").map((c) => [c.channel, c.enabled]),
+		[
+			["email", true],
+			["in_app", true],
+		],
+	);
+	assert.equal(read.values.planterCadence, "daily");
+	assert.equal(read.values.oversightCadence, "daily");
+});
