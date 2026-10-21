@@ -15,6 +15,30 @@
 		"limit": 10,
 		"retry": 20
 	},
+	"followups.assignFollowUp": {
+		"limit": 14,
+		"retry": 28
+	},
+	"followups.correctOutcome": {
+		"limit": 4,
+		"retry": 8
+	},
+	"followups.createFollowUp": {
+		"limit": 13,
+		"retry": 26
+	},
+	"followups.executeHandoff": {
+		"limit": 13,
+		"retry": 26
+	},
+	"followups.recordOutcome": {
+		"limit": 13,
+		"retry": 26
+	},
+	"followups/core.withFollowUpWrite": {
+		"limit": 18,
+		"retry": 36
+	},
 	"identity.budget.finish": {
 		"limit": 1,
 		"retry": 2
