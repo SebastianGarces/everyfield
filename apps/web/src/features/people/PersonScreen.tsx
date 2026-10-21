@@ -63,6 +63,7 @@ export function PersonScreen({
 	fields,
 	records,
 	photosEnabled,
+	documentsEnabled,
 }: {
 	person: PlantPerson;
 	activities: Outcome<Activities>;
@@ -77,8 +78,10 @@ export function PersonScreen({
 	fields: PersonFields | null;
 	/** The 4 C's, interviews and commitments (WP-014). Null for a viewer who is not an Owner or Admin. */
 	records: PersonRecords | null;
-	/** Private photo storage is configured, so photos and commitment documents can be added. */
+	/** Photos can be added (private storage is configured and the photo UI has shipped). */
 	photosEnabled: boolean;
+	/** Private storage is configured, so a commitment card can carry its signed document. */
+	documentsEnabled: boolean;
 }) {
 	const [store, state] = usePersonStore<PlantPerson, PersonDraft>(person);
 	const [history, setHistory] = useState(activities);
@@ -225,7 +228,7 @@ export function PersonScreen({
 					{records ? (
 						<RecordsSection
 							records={records}
-							documentsEnabled={photosEnabled}
+							documentsEnabled={documentsEnabled}
 							personId={p.id}
 							personName={p.displayName}
 							stage={p.stage}
