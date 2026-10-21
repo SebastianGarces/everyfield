@@ -4,7 +4,7 @@ import { Add01Icon, Cancel01Icon, Link04Icon, RepeatIcon } from "@hugeicons/core
 import { Button, Field, IconButton, Input, SearchInput, Select, Spinner } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
 import { prerequisiteCandidates } from "./fetch.ts";
 import {
 	blocks,
@@ -41,6 +41,37 @@ export function Section({ title, action, children }: { title: string; action?: R
 	);
 }
 
+/**
+ * An inline form: Escape inside it closes the form, not the panel around it, and focus goes back to the button that
+ * opened it. The panel closes on Escape from a document listener, so this one listens on the window first.
+ */
+function useInlineForm(form: RefObject<HTMLElement | null>, onClose: () => void) {
+	const close = useRef(onClose);
+	useEffect(() => {
+		close.current = onClose;
+	});
+	useEffect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key !== "Escape" || !form.current?.contains(document.activeElement)) return;
+			e.stopPropagation();
+			close.current();
+		};
+		window.addEventListener("keydown", onKey, true);
+		return () => window.removeEventListener("keydown", onKey, true);
+	}, [form]);
+}
+/** Focus returns to a section's button when its form closes and focus would otherwise be lost. */
+function useReturnFocus(editing: boolean) {
+	const opener = useRef<HTMLButtonElement>(null);
+	const was = useRef(editing);
+	useEffect(() => {
+		if (was.current && !editing && (!document.activeElement || document.activeElement === document.body))
+			opener.current?.focus();
+		was.current = editing;
+	}, [editing]);
+	return opener;
+}
+
 /** A step's assignee choice: the task's own assignee, no one, or a seat. */
 export type StepAssignee = { kind: "inherit" } | { kind: "nobody" } | { kind: "seat"; accountId: string; name: string };
 const INHERIT = "inherit",
@@ -75,6 +106,7 @@ export function Steps({
 	onAdd: (title: string, assignee: StepAssignee) => void;
 }) {
 	const [adding, setAdding] = useState(false);
+	const opener = useReturnFocus(adding);
 	const done = steps.filter((s) => s.status === "complete").length;
 	if (!steps.length && !canAdd) return null;
 	return (
@@ -82,7 +114,7 @@ export function Steps({
 			title={steps.length ? `Steps · ${done} of ${steps.length} done` : "Steps"}
 			action={
 				canAdd && !adding ? (
-					<Button variant="ghost" size="sm" icon={Add01Icon} onClick={() => setAdding(true)}>
+					<Button ref={opener} variant="ghost" size="sm" icon={Add01Icon} onClick={() => setAdding(true)}>
 						Add a step
 					</Button>
 				) : null
@@ -160,6 +192,8 @@ function AddStep({
 	const [touched, setTouched] = useState(false);
 	const [seats, setSeats] = useState<{ value: string; label: string }[] | "failed" | null>(null);
 	const input = useRef<HTMLInputElement>(null);
+	const form = useRef<HTMLFormElement>(null);
+	useInlineForm(form, onClose);
 	useEffect(() => {
 		if (!admin) return;
 		let live = true;
@@ -199,12 +233,7 @@ function AddStep({
 		input.current?.focus();
 	};
 	return (
-		<form
-			onSubmit={submit}
-			onKeyDown={(e) => e.key === "Escape" && (e.stopPropagation(), onClose())}
-			className="flex flex-col gap-3 rounded-md bg-surface p-3"
-			noValidate
-		>
+		<form ref={form} onSubmit={submit} className="flex flex-col gap-3 rounded-md bg-surface p-3" noValidate>
 			<Field
 				label="New step"
 				error={touched && !title.trim() ? "Say what the step is." : null}
@@ -274,6 +303,7 @@ export function BlockedBy({
 	onSave: (items: Prerequisite[]) => void;
 	onOpen: (id: string) => void;
 }) {
+	const opener = useReturnFocus(editing);
 	if (!items) {
 		return (
 			<Section title="Blocked by">
@@ -288,7 +318,7 @@ export function BlockedBy({
 			title="Blocked by"
 			action={
 				admin && !editing ? (
-					<Button variant="ghost" size="sm" onClick={onEdit}>
+					<Button ref={opener} variant="ghost" size="sm" onClick={onEdit}>
 						{items.length ? "Change" : "Add a task"}
 					</Button>
 				) : null
@@ -367,6 +397,8 @@ function PrerequisiteEditor({
 	onSave: (items: Prerequisite[]) => void;
 }) {
 	const [chosen, setChosen] = useState(initial);
+	const form = useRef<HTMLDivElement>(null);
+	useInlineForm(form, onCancel);
 	const [search, setSearch] = useState("");
 	const [found, setFound] = useState<Candidate[] | "loading" | "failed">("loading");
 	const seq = useRef(0);
@@ -387,10 +419,7 @@ function PrerequisiteEditor({
 	const full = chosen.length >= 50;
 	const changed = chosen.length !== initial.length || chosen.some((p, i) => initial[i]?.id !== p.id);
 	return (
-		<div
-			className="flex flex-col gap-3 rounded-md bg-surface p-3"
-			onKeyDown={(e) => e.key === "Escape" && (e.stopPropagation(), onCancel())}
-		>
+		<div ref={form} className="flex flex-col gap-3 rounded-md bg-surface p-3">
 			{chosen.length ? (
 				<ul aria-label="Tasks it waits for">
 					{chosen.map((p) => (
@@ -504,6 +533,7 @@ export function Repeats({
 	onSave: (rule: Rule | null) => void;
 	onOpen: (id: string) => void;
 }) {
+	const opener = useReturnFocus(editing);
 	const r = task.recurrence;
 	if (!r && !canEdit) return null;
 	const live = r && !r.stopped;
@@ -514,7 +544,7 @@ export function Repeats({
 			title="Repeats"
 			action={
 				canEdit && !editing ? (
-					<Button variant="ghost" size="sm" onClick={onEdit}>
+					<Button ref={opener} variant="ghost" size="sm" onClick={onEdit}>
 						{live ? "Change" : "Make it repeat"}
 					</Button>
 				) : null
@@ -566,6 +596,8 @@ function RepeatEditor({
 	onSave: (rule: Rule | null) => void;
 }) {
 	const [d, setD] = useState(initial);
+	const form = useRef<HTMLFormElement>(null);
+	useInlineForm(form, onCancel);
 	const [touched, setTouched] = useState(false);
 	const set = (patch: Partial<RuleDraft>) => setD((x) => ({ ...x, ...patch }));
 	const untilError = touched && d.ends === "on" && !/^\d{4}-\d{2}-\d{2}$/.test(d.until) ? "Pick the last day." : null;
@@ -582,12 +614,7 @@ function RepeatEditor({
 	};
 	const repeats = d.frequency !== NEVER;
 	return (
-		<form
-			onSubmit={submit}
-			onKeyDown={(e) => e.key === "Escape" && (e.stopPropagation(), onCancel())}
-			className="flex flex-col gap-3 rounded-md bg-surface p-3"
-			noValidate
-		>
+		<form ref={form} onSubmit={submit} className="flex flex-col gap-3 rounded-md bg-surface p-3" noValidate>
 			<Field label="How often">
 				<Select
 					value={d.frequency}
