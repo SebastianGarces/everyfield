@@ -4,6 +4,7 @@ import { sql } from "../../../packages/db/src/query.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
 import { taskReminders } from "../../../apps/web/src/server/tasks/reminders.ts";
+import { reminderRecipients } from "../../../packages/domain/src/tasks/index.ts";
 import { claimDue, enqueueJob, finishClaim, queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { deletionOperations, issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/deletion.ts";
 import assert from "node:assert/strict";
@@ -594,7 +595,15 @@ try {
 				lookup: async () => ({ kind: "accepted", id: "synthetic-provider" }),
 			},
 		}),
-		eligible: async (_tx, values) => values.map(() => ({ address: s.sender.email })),
+		// The production recipient lookup, as the tasks mount runs it; only the mail transport is synthetic.
+		async eligible(tx, inputs) {
+			const found = await reminderRecipients(
+				tx,
+				s.w.id,
+				inputs.map((i) => i.recipient),
+			);
+			return inputs.map((i) => (found.has(i.recipient) ? { address: found.get(i.recipient) } : null));
+		},
 	});
 	const recent = randomUUID(),
 		heldAt = new Date(Date.now() - 3_600_000).toISOString();
