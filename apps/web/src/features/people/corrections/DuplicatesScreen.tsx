@@ -90,7 +90,7 @@ export function DuplicatesScreen({ initial, query }: { initial: PairView; query:
 				n,
 				text:
 					r.status === "lost"
-						? "The review did not load again. Nothing was merged by this. Try again in a moment."
+						? "The review did not load. Try again in a moment."
 						: "You cannot review these people. Your seat may have changed; reload the page.",
 			});
 	}
@@ -157,7 +157,7 @@ export function DuplicatesScreen({ initial, query }: { initial: PairView; query:
 							</Button>
 						}
 					>
-						This is a loading problem. Nothing was merged. Try again in a moment.
+						This is a loading problem. Try again in a moment to see where these people stand.
 					</StatePanel>
 				</Card>
 			)}

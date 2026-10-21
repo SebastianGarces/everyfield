@@ -23,7 +23,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { z } from "zod";
 import type { Receipt } from "../boundary.ts";
 import { runSave, type Outcome, type PersonStore } from "../model.ts";
-import { fresh, LocalDay, When } from "../parts.tsx";
+import { fresh, LocalDay, useStore, When } from "../parts.tsx";
 import type { PersonDraft } from "../StageDialog.tsx";
 import { correctRecord, loadRecords } from "./actions.ts";
 import {
@@ -115,6 +115,11 @@ export function CorrectRecordDialog({
 	const [reason, setReason] = useState("");
 	const [pending, setPending] = useState(false);
 	const seq = useRef(0);
+	// Corrections whose answer was lost. Only a server answer may say what happened, never a failed read.
+	const errors = useStore(store).errors;
+	const uncertain = new Set(
+		Object.entries(errors).flatMap(([k, v]) => (k.startsWith("correct:") && v === "lost" ? [k.slice(8)] : [])),
+	);
 
 	async function load() {
 		const n = ++seq.current;
@@ -174,7 +179,9 @@ export function CorrectRecordDialog({
 						<DialogBody>
 							<Problem>
 								{records.status === "lost"
-									? "The records did not load. Nothing was changed. Try again in a moment."
+									? uncertain.size
+										? "The records did not load, so this page cannot tell whether your last correction was saved. Try again to see the current values."
+										: "The records did not load. Try again in a moment."
 									: "You cannot correct these records. Only Owners and Admins can; your seat may have changed."}
 							</Problem>
 						</DialogBody>
@@ -253,7 +260,7 @@ export function CorrectRecordDialog({
 				) : (
 					<>
 						<DialogBody className="pb-2">
-							<RecordList data={list} onChoose={(type, id) => setChosen({ type, id })} />
+							<RecordList data={list} uncertain={uncertain} onChoose={(type, id) => setChosen({ type, id })} />
 						</DialogBody>
 						<DialogFooter>
 							<Button variant="secondary" onClick={onClose}>
@@ -284,7 +291,16 @@ function SavedNote({ type }: { type: RecordType }) {
 }
 
 /** Every record the person has, grouped by kind. A voided card stays listed but cannot be corrected. */
-function RecordList({ data, onChoose }: { data: Records; onChoose: (type: RecordType, id: string) => void }) {
+function RecordList({
+	data,
+	uncertain,
+	onChoose,
+}: {
+	data: Records;
+	/** Records whose last correction got no answer: it may have been saved. */
+	uncertain: ReadonlySet<string>;
+	onChoose: (type: RecordType, id: string) => void;
+}) {
 	const count = (id: string) => data.corrections.filter((c) => c.recordId === id).length;
 	const groups: {
 		type: RecordType;
@@ -348,6 +364,11 @@ function RecordList({ data, onChoose }: { data: Records; onChoose: (type: Record
 													{r.text}
 													{r.voided ? " · Voided, kept in the history" : null}
 												</span>
+												{uncertain.has(r.id) ? (
+													<span className="mt-0.5 block text-sm text-amber-600">
+														Your last correction got no answer and may be saved. Open it to check the values.
+													</span>
+												) : null}
 											</span>
 											{n ? (
 												<StatusBadge status="unknown" size="sm">
@@ -426,6 +447,8 @@ function useCorrection(
 			changes,
 		};
 		const rev = chosen.record.revision;
+		// An earlier answer for this record was lost, in this form or before the dialog was reopened.
+		if (store.get().errors[slot] === "lost") lost.current = true;
 		busy(true);
 		setProblem(null);
 		const r = await runSave(store, slot, { input, rev }, (key) => correctRecord(key, rev, input), { fresh });

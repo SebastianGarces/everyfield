@@ -17,7 +17,7 @@ import { Avatar, KeyValue, KeyValueList } from "@everyfield/ui/display";
 import { useEffect, useRef, useState } from "react";
 import type { z } from "zod";
 import { runSave, type Outcome, type PersonStore } from "../model.ts";
-import { fresh, When } from "../parts.tsx";
+import { fresh, useStore, When } from "../parts.tsx";
 import type { PersonDraft } from "../StageDialog.tsx";
 import { unmergePair, unmergePreview, type Unmerged } from "./actions.ts";
 import { conflictText, counted, FIELD_LABEL, kindTitle, listText } from "./model.ts";
@@ -55,6 +55,8 @@ export function UnmergeDialog({
 	const seq = useRef(0);
 	const lost = useRef(false);
 	const slot = `unmerge:${mergeId}`;
+	// An earlier Unmerge of this merge whose answer was lost: only a server answer may say what happened, never a failed read.
+	const uncertain = useStore(store).errors[slot] === "lost";
 
 	async function load() {
 		const n = ++seq.current;
@@ -147,7 +149,9 @@ export function UnmergeDialog({
 					) : !view || !p || !names ? (
 						<Problem>
 							{preview.status === "lost"
-								? "The Unmerge preview did not load. Nothing was changed. Try again in a moment."
+								? uncertain
+									? "The Unmerge preview did not load, so this page cannot tell whether your last Unmerge went through. Try again to see where they stand."
+									: "The Unmerge preview did not load. Try again in a moment."
 								: "You cannot see this Unmerge. Only Owners and Admins can unmerge people."}
 						</Problem>
 					) : finished ? (
@@ -191,8 +195,8 @@ export function UnmergeDialog({
 										))}
 									</ul>
 									<p className="mt-2 text-sm">
-										An Unmerge would lose those changes, so EveryField will not run it. Nothing was changed. Correct{" "}
-										{first(names.survivor)}&rsquo;s details by hand instead; each change is kept in the history.
+										An Unmerge would lose those changes, so EveryField will not run it. Correct {first(names.survivor)}
+										&rsquo;s details by hand instead; each change is kept in the history.
 									</p>
 								</div>
 							) : (
