@@ -41,6 +41,7 @@ import { createOnboardingProducer, withOnboardingWrite } from "../../../packages
 import { withSettingsWrite } from "../../../packages/domain/src/settings/index.ts";
 import { sectionOperations } from "../../../packages/domain/src/settings/sections.ts";
 import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/notifications.ts";
+import { readPersonRecords } from "../../../apps/web/src/features/people/assessments/server.ts";
 import { readPair, readRecords, readUnmerge } from "../../../apps/web/src/features/people/corrections/server.ts";
 import { measure } from "./counter.mjs";
 
@@ -405,6 +406,14 @@ try {
 		value(await view("getAssessments", (tx, ctx) => assessments.getAssessments(tx, ctx, { personId })));
 		value(await view("getInterviews", (tx, ctx) => interviews.getInterviews(tx, ctx, { personId })));
 		const held = value(await view("getCommitments", (tx, ctx) => commitments.getCommitments(tx, ctx, { personId })));
+		// The Person page reads all three histories in its own transaction (WP-014/ui): one statement each.
+		const records = value(
+			await view("personRecords", async (tx, ctx) => ({
+				status: "ok",
+				value: await readPersonRecords(tx, ctx, personId),
+			})),
+		);
+		assert.ok(records.assessments && records.interviews && records.commitments, "every history reads");
 		value(
 			await run("withdrawCommitment", async (tx, ctx) =>
 				commitments.withdrawCommitment(tx, ctx, {
@@ -444,6 +453,7 @@ try {
 		"getAssessments",
 		"getInterviews",
 		"getCommitments",
+		"personRecords",
 		"withdrawCommitment",
 		"reactivateCommitment",
 		"correctCommitmentLifecycle",

@@ -55,7 +55,7 @@ const ACTION: Record<Extract<Item, { kind: "activity" }>["action"], string> = {
 	restored: "Restored",
 	classification_recorded: "Adult or child recorded",
 	classification_corrected: "Adult or child corrected",
-	assessment_recorded: "Four Cs assessment recorded",
+	assessment_recorded: "4 C's assessment recorded",
 	interview_recorded: "Interview recorded",
 	commitment_recorded: "Commitment recorded",
 	commitment_withdrawn: "Commitment withdrawn",
@@ -427,7 +427,14 @@ function describe(item: Item, by: string): { title: string; icon: IconSvgElement
 			if (item.household) return { title: householdChange(item.household), icon: Home01Icon, tone: "teal" };
 			if (item.action === "person_merged" || item.action === "person_unmerged")
 				return { title: ACTION[item.action], icon: GitMergeIcon, tone: "violet" };
-			return { title: ACTION[item.action], icon: UserEdit01Icon, tone: "blue" };
+			return {
+				// A record that advanced the stage says so in the same entry (REQ-PPL-020).
+				title: item.stage
+					? `${ACTION[item.action]}. Stage moved from ${STAGE_LABEL[item.stage.from].toLowerCase()} to ${STAGE_LABEL[item.stage.to].toLowerCase()}`
+					: ACTION[item.action],
+				icon: UserEdit01Icon,
+				tone: "blue",
+			};
 		case "follow_up":
 			return { title: FOLLOW_UP[item.outcome], icon: TaskDone01Icon, tone: "amber" };
 	}

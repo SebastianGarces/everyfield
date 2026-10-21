@@ -43,6 +43,8 @@ import type { HouseholdResult, PersonFields } from "./fields/model.ts";
 import { PersonPhoto } from "./fields/PersonPhoto.tsx";
 import { SkillsCard } from "./fields/SkillsCard.tsx";
 import { TagsField } from "./fields/TagsField.tsx";
+import type { PersonRecords } from "./assessments/model.ts";
+import { RecordsSection, type CorrectedRecord } from "./assessments/RecordsSection.tsx";
 import { CorrectRecordDialog } from "./corrections/CorrectRecordDialog.tsx";
 import { DuplicateHints } from "./corrections/DuplicateHints.tsx";
 import { recordsIntent } from "./corrections/intent.ts";
@@ -68,6 +70,7 @@ export function PersonScreen({
 	accountId,
 	canWrite,
 	fields,
+	records,
 	photosEnabled,
 	duplicates = null,
 	followedMerge = false,
@@ -83,7 +86,9 @@ export function PersonScreen({
 	canWrite: boolean;
 	/** Tags, skills, household and photo (WP-012). Null for a person they do not apply to. */
 	fields: PersonFields | null;
-	/** Private photo storage is configured, so photos can be added. */
+	/** The 4 C's, interviews and commitments (WP-014). Null for a viewer who is not an Owner or Admin. */
+	records: PersonRecords | null;
+	/** Private photo storage is configured, so photos and commitment documents can be added. */
 	photosEnabled: boolean;
 	/** Possible duplicates of this live person (WP-015). Null when they do not apply or could not be read. */
 	duplicates?: Hints | null;
@@ -121,6 +126,8 @@ export function PersonScreen({
 		...patch,
 	}));
 	const [open, setOpen] = useState<Open>(null);
+	/** The last record Correct a record saved, so its card shows the corrected values. */
+	const [corrected, setCorrected] = useState<CorrectedRecord | null>(null);
 	const busy = state.pending !== null;
 	const lifecycle = p.lifecycle;
 	const live = lifecycle.state === "live";
@@ -247,6 +254,22 @@ export function PersonScreen({
 
 			<div className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)] items-start gap-5 max-app-lg:grid-cols-1">
 				<div className="flex min-w-0 flex-col gap-5">
+					{records ? (
+						<RecordsSection
+							records={records}
+							documentsEnabled={photosEnabled}
+							personId={p.id}
+							personName={p.displayName}
+							stage={p.stage}
+							store={store}
+							expectPerson={expectPerson}
+							canEdit={canWrite && live}
+							accountId={accountId}
+							onSaved={saved}
+							onConflict={reload}
+							corrected={corrected}
+						/>
+					) : null}
 					<ActivityCard
 						store={store}
 						activities={history}
@@ -342,7 +365,7 @@ export function PersonScreen({
 					<Card>
 						<CardHeader className="mb-2">
 							<CardHeading>
-								<CardTitle size="sm">Adult or child and commitment</CardTitle>
+								<CardTitle size="sm">{records ? "Adult or child" : "Adult or child and commitment"}</CardTitle>
 							</CardHeading>
 						</CardHeader>
 						<KeyValueList>
@@ -351,23 +374,25 @@ export function PersonScreen({
 								k="Adult or child"
 								value={p.adultClassification === "unknown" ? null : CLASSIFICATION_LABEL[p.adultClassification]}
 							/>
-							<KeyValue
-								size="sm"
-								k="Commitment"
-								value={
-									p.commitment.state === "unknown" ? null : (
-										<span className="flex items-center gap-2">
-											<StatusBadge status={p.commitment.state === "active" ? "positive" : "unknown"} size="sm">
-												{p.commitment.state === "active" ? "Committed" : "Withdrawn"}
-											</StatusBadge>
-											<span className="text-text-3">
-												{p.commitment.kind === "core_group" ? "Core group" : "Launch team"} ·{" "}
-												<LocalDay day={p.commitment.occurredOn} />
+							{records ? null : (
+								<KeyValue
+									size="sm"
+									k="Commitment"
+									value={
+										p.commitment.state === "unknown" ? null : (
+											<span className="flex items-center gap-2">
+												<StatusBadge status={p.commitment.state === "active" ? "positive" : "unknown"} size="sm">
+													{p.commitment.state === "active" ? "Committed" : "Withdrawn"}
+												</StatusBadge>
+												<span className="text-text-3">
+													{p.commitment.kind === "core_group" ? "Core group" : "Launch team"} ·{" "}
+													<LocalDay day={p.commitment.occurredOn} />
+												</span>
 											</span>
-										</span>
-									)
-								}
-							/>
+										)
+									}
+								/>
+							)}
 						</KeyValueList>
 						<p className="mt-3 text-xs text-text-3">
 							Recorded facts only. The stage alone never counts as a commitment or as adult.
@@ -429,9 +454,15 @@ export function PersonScreen({
 							store={store}
 							accountId={accountId}
 							onClose={close}
-							onCorrected={(receipt, type, recordId) =>
-								saved(receipt, { kind: "activity", action: `${type}_corrected`, recordId } as EntryFields)
-							}
+							onCorrected={(receipt, next) => {
+								setCorrected(next);
+								if (receipt)
+									saved(receipt, {
+										kind: "activity",
+										action: `${next.type}_corrected`,
+										recordId: next.record.id,
+									} as EntryFields);
+							}}
 						/>
 					) : null}
 					{open && typeof open === "object" ? (

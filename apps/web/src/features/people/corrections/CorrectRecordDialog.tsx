@@ -108,7 +108,8 @@ export function CorrectRecordDialog({
 	accountId: string;
 	onClose: () => void;
 	/** A saved correction: Activity adds its entry. */
-	onCorrected: (receipt: Receipt, recordType: RecordType, recordId: string) => void;
+	/** A saved correction: its card shows the record as saved now, and Activity adds its entry when the receipt is known. */
+	onCorrected: (receipt: Receipt | null, corrected: Chosen) => void;
 }) {
 	const [records, setRecords] = useState<Outcome<Records> | null>(null);
 	const [chosen, setChosen] = useState<{ type: RecordType; id: string } | null>(null);
@@ -258,7 +259,7 @@ export function CorrectRecordDialog({
 							});
 							setSaved({ type: next.type, id: next.record.id });
 							setReason("");
-							if (receipt) onCorrected(receipt, next.type, next.record.id);
+							onCorrected(receipt, next);
 						}}
 					/>
 				) : (
