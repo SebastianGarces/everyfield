@@ -41,7 +41,16 @@ import {
 	type Result,
 	sendTwice,
 } from "./model.ts";
-import { ChoiceField, codeOf, RecordDialog, recorder, ShowEarlier, useHistory } from "./parts.tsx";
+import {
+	ChoiceField,
+	codeOf,
+	FailedSave,
+	RecordDialog,
+	recorder,
+	ShowEarlier,
+	useHistory,
+	useRecordForm,
+} from "./parts.tsx";
 import type { PlantPerson, RecordProps } from "./RecordsSection.tsx";
 
 type Draft = {
@@ -89,7 +98,7 @@ export function InterviewCard({
 	const history = useHistory(initial, (page) => loadInterviews(personId, page));
 	const [shown, expect] = useOptimistic(history.items, withRecord<Interview>);
 	const [, start] = useTransition();
-	const [editing, setEditing] = useState<Editing | null>(null);
+	const form = useRecordForm<Editing>();
 	const [open, setOpen] = useState(false);
 	const first = firstName(personName);
 	const latest = shown[0] ?? null;
@@ -112,7 +121,7 @@ export function InterviewCard({
 			result: draft.result as Result,
 			nextSteps: draft.nextSteps.trim() || null,
 		};
-		setEditing(null);
+		const token = form.send();
 		start(async () => {
 			const now = new Date().toISOString();
 			expect({
@@ -129,7 +138,7 @@ export function InterviewCard({
 			});
 			if (r?.status !== "ok") {
 				const code = r?.status === "refused" && r.code === "invalid_input" ? "future_date" : codeOf(r);
-				return startTransition(() => setEditing({ draft, problem: code }));
+				return startTransition(() => form.fail(token, { draft, problem: code }));
 			}
 			const moved = r.value.person.stageChange;
 			startTransition(() => history.add(r.value.interview));
@@ -178,10 +187,18 @@ export function InterviewCard({
 						icon={Add01Icon}
 						label={`Record an interview with ${first}`}
 						size="sm"
-						onClick={() => setEditing({ draft: blank() })}
+						onClick={() => form.open({ draft: blank() })}
 					/>
 				) : null}
 			</CardHeader>
+			{form.failed ? (
+				<FailedSave
+					what="Your last interview save needs a look."
+					problem={form.failed.problem}
+					onResume={form.resume}
+					onDismiss={form.dismiss}
+				/>
+			) : null}
 
 			{initial === null ? (
 				<p className="text-sm text-text-3">Interviews did not load. Reload the page to see them.</p>
@@ -193,7 +210,7 @@ export function InterviewCard({
 							: `No interview is recorded for ${first}.`}
 					</p>
 					{canEdit ? (
-						<Button size="sm" variant="secondary" icon={Add01Icon} onClick={() => setEditing({ draft: blank() })}>
+						<Button size="sm" variant="secondary" icon={Add01Icon} onClick={() => form.open({ draft: blank() })}>
 							Record an interview
 						</Button>
 					) : null}
@@ -251,12 +268,12 @@ export function InterviewCard({
 				</>
 			)}
 			<p className="mt-4 text-xs text-text-3">Next steps are notes. They do not create tasks.</p>
-			{editing ? (
+			{form.editing ? (
 				<InterviewDialog
-					editing={editing}
+					editing={form.editing}
 					personName={first}
 					moves={moves}
-					onClose={() => setEditing(null)}
+					onClose={form.close}
 					onSubmit={submit}
 				/>
 			) : null}

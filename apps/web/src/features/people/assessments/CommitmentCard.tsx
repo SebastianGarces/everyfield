@@ -63,7 +63,7 @@ import {
 	type FirstAcquisition,
 	sendTwice,
 } from "./model.ts";
-import { codeOf, recorder, ShowEarlier, useHistory } from "./parts.tsx";
+import { codeOf, FailedSave, recorder, ShowEarlier, useHistory, useRecordForm } from "./parts.tsx";
 import type { PlantPerson, RecordProps } from "./RecordsSection.tsx";
 
 type Editing =
@@ -107,13 +107,14 @@ export function CommitmentCard({
 		"card" in e ? { ...v, items: withRecord(v.items, e.card) } : { ...v, current: e.current },
 	);
 	const [, start] = useTransition();
-	const [editing, setEditing] = useState<Editing | null>(null);
+	const dialog = useRecordForm<Editing>();
+	const editing = dialog.editing;
 	const first = firstName(personName);
 	const moves = advancedStage(stage, "core_group") !== stage;
 	const state = view.current?.state ?? "unknown";
-	const reopen = (e: Editing, r: Outcome<unknown> | null) => {
+	const reopen = (token: number, e: Editing, r: Outcome<unknown> | null) => {
 		const code = r?.status === "refused" && r.code === "invalid_input" ? "future_date" : codeOf(r);
-		startTransition(() => setEditing({ ...e, problem: code } as Editing));
+		startTransition(() => dialog.fail(token, { ...e, problem: code } as Editing));
 		if (isConflict(r)) onConflict();
 	};
 	/** The person as the write left them: its revision and, for a card, the stage it advanced to. */
@@ -121,7 +122,7 @@ export function CommitmentCard({
 		({ ...store.get().saved, stage: stageNow, revision }) as PlantPerson;
 
 	function record(draft: CommitmentDraft) {
-		setEditing(null);
+		const token = dialog.send();
 		start(async () => {
 			const now = new Date().toISOString();
 			const witness =
@@ -167,7 +168,7 @@ export function CommitmentCard({
 							: stored.code === "storage_unavailable"
 								? "storage_unavailable"
 								: "upload_failed";
-					return startTransition(() => setEditing({ form: "record", draft, problem: code }));
+					return startTransition(() => dialog.fail(token, { form: "record", draft, problem: code }));
 				}
 				upload = { file: draft.file, uploadId: stored.value.uploadId };
 			}
@@ -186,7 +187,7 @@ export function CommitmentCard({
 			});
 			if (r?.status !== "ok") {
 				// A refused save never attached the upload; a new try stores the file again in case it expired.
-				return reopen({ form: "record", draft: r?.status === "lost" ? kept : { ...kept, upload: null } }, r);
+				return reopen(token, { form: "record", draft: r?.status === "lost" ? kept : { ...kept, upload: null } }, r);
 			}
 			const { commitment, current: now2, person } = r.value;
 			startTransition(() => {
@@ -215,7 +216,7 @@ export function CommitmentCard({
 
 	function lifecycle(change: "withdraw" | "reactivate", draft: LifecycleDraft) {
 		if (!current) return;
-		setEditing(null);
+		const token = dialog.send();
 		start(async () => {
 			expect({
 				current: {
@@ -233,7 +234,7 @@ export function CommitmentCard({
 				(key) => sendTwice(() => changeCommitment(change, key, revision, input)),
 				{ fresh, toPerson: (v) => personAfter(v.current.personRevision) },
 			);
-			if (r?.status !== "ok") return reopen({ form: change, draft }, r);
+			if (r?.status !== "ok") return reopen(token, { form: change, draft }, r);
 			startTransition(() => setCurrent(r.value.current));
 			onSaved(r.value.receipt, {
 				kind: "activity",
@@ -248,7 +249,7 @@ export function CommitmentCard({
 	}
 
 	function correct(card: Commitment, draft: CorrectionDraft) {
-		setEditing(null);
+		const token = dialog.send();
 		start(async () => {
 			const voiding = draft.action === "void";
 			expect({
@@ -271,7 +272,7 @@ export function CommitmentCard({
 				(key) => sendTwice(() => correctCommitment(key, card.revision, personId, input)),
 				{ fresh, toPerson: (v) => personAfter(v.commitments.current.personRevision) },
 			);
-			if (r?.status !== "ok") return reopen({ form: "correct", card, draft }, r);
+			if (r?.status !== "ok") return reopen(token, { form: "correct", card, draft }, r);
 			const page = r.value.commitments;
 			startTransition(() => {
 				history.setPage({ items: page.items, next: page.next, total: page.total });
@@ -322,7 +323,7 @@ export function CommitmentCard({
 								icon={Add01Icon}
 								label={`Record a commitment card for ${first}`}
 								size="sm"
-								onClick={() => setEditing({ form: "record", draft: blankCommitment() })}
+								onClick={() => dialog.open({ form: "record", draft: blankCommitment() })}
 							/>
 						) : null}
 						{current && current.state !== "unknown" ? (
@@ -335,14 +336,14 @@ export function CommitmentCard({
 										<MenuItem
 											icon={UserRemove01Icon}
 											danger
-											onSelect={() => setEditing({ form: "withdraw", draft: { effectiveOn: today(), reason: "" } })}
+											onSelect={() => dialog.open({ form: "withdraw", draft: { effectiveOn: today(), reason: "" } })}
 										>
 											Withdraw commitment
 										</MenuItem>
 									) : (
 										<MenuItem
 											icon={UserCheck01Icon}
-											onSelect={() => setEditing({ form: "reactivate", draft: { effectiveOn: today(), reason: "" } })}
+											onSelect={() => dialog.open({ form: "reactivate", draft: { effectiveOn: today(), reason: "" } })}
 										>
 											Reactivate commitment
 										</MenuItem>
@@ -353,6 +354,22 @@ export function CommitmentCard({
 					</div>
 				) : null}
 			</CardHeader>
+			{dialog.failed ? (
+				<FailedSave
+					what={
+						dialog.failed.form === "record"
+							? "Your last commitment card save needs a look."
+							: dialog.failed.form === "correct"
+								? "Your last card correction needs a look."
+								: dialog.failed.form === "withdraw"
+									? "Your last withdrawal needs a look."
+									: "Your last reactivation needs a look."
+					}
+					problem={dialog.failed.problem}
+					onResume={dialog.resume}
+					onDismiss={dialog.dismiss}
+				/>
+			) : null}
 
 			{initial === null ? (
 				<p className="text-sm text-text-3">Commitments did not load. Reload the page to see them.</p>
@@ -385,7 +402,7 @@ export function CommitmentCard({
 									size="sm"
 									variant="secondary"
 									icon={SignatureIcon}
-									onClick={() => setEditing({ form: "record", draft: blankCommitment() })}
+									onClick={() => dialog.open({ form: "record", draft: blankCommitment() })}
 								>
 									Record commitment
 								</Button>
@@ -404,7 +421,7 @@ export function CommitmentCard({
 										by={recorder(card.actor, accountId)}
 										canEdit={canEdit}
 										onCorrect={(action) =>
-											setEditing({
+											dialog.open({
 												form: "correct",
 												card,
 												draft: { action, occurredOn: card.occurredOn, kind: card.kind, reason: "" },
@@ -430,7 +447,7 @@ export function CommitmentCard({
 					personName={first}
 					moves={moves}
 					documentsEnabled={documentsEnabled}
-					onClose={() => setEditing(null)}
+					onClose={dialog.close}
 					onSubmit={record}
 				/>
 			) : editing?.form === "withdraw" || editing?.form === "reactivate" ? (
@@ -440,7 +457,7 @@ export function CommitmentCard({
 					problem={editing.problem}
 					personName={first}
 					since={current?.effectiveOn ?? null}
-					onClose={() => setEditing(null)}
+					onClose={dialog.close}
 					onSubmit={(d) => lifecycle(editing.form as "withdraw" | "reactivate", d)}
 				/>
 			) : editing?.form === "correct" ? (
@@ -448,7 +465,7 @@ export function CommitmentCard({
 					card={editing.card}
 					draft={editing.draft}
 					problem={editing.problem}
-					onClose={() => setEditing(null)}
+					onClose={dialog.close}
 					onSubmit={(d) => correct(editing.card, d)}
 				/>
 			) : null}

@@ -31,7 +31,16 @@ import {
 	type Lens,
 	sendTwice,
 } from "./model.ts";
-import { ChoiceField, codeOf, RecordDialog, recorder, ShowEarlier, useHistory } from "./parts.tsx";
+import {
+	ChoiceField,
+	codeOf,
+	FailedSave,
+	RecordDialog,
+	recorder,
+	ShowEarlier,
+	useHistory,
+	useRecordForm,
+} from "./parts.tsx";
 import type { PlantPerson, RecordProps } from "./RecordsSection.tsx";
 
 type Draft = { occurredOn: string } & Record<Lens, { score: string; notes: string }>;
@@ -63,7 +72,7 @@ export function AssessmentCard({
 	const history = useHistory(initial, (page) => loadAssessments(personId, page));
 	const [shown, expect] = useOptimistic(history.items, withRecord<Assessment>);
 	const [, start] = useTransition();
-	const [editing, setEditing] = useState<Editing | null>(null);
+	const form = useRecordForm<Editing>();
 	const [open, setOpen] = useState(false);
 	const first = firstName(personName);
 	const latest = shown[0] ?? null;
@@ -79,7 +88,7 @@ export function AssessmentCard({
 			contagious: lens("contagious"),
 			courageous: lens("courageous"),
 		};
-		setEditing(null);
+		const token = form.send();
 		start(async () => {
 			const now = new Date().toISOString();
 			expect({
@@ -96,7 +105,7 @@ export function AssessmentCard({
 			});
 			if (r?.status !== "ok") {
 				const code = r?.status === "refused" && r.code === "invalid_input" ? "future_date" : codeOf(r);
-				return startTransition(() => setEditing({ draft, problem: code }));
+				return startTransition(() => form.fail(token, { draft, problem: code }));
 			}
 			startTransition(() => history.add(r.value.assessment));
 			onSaved(r.value.receipt, { kind: "activity", action: "assessment_recorded", recordId: r.value.assessment.id });
@@ -126,10 +135,18 @@ export function AssessmentCard({
 						icon={Add01Icon}
 						label={`Record a 4 C's assessment for ${first}`}
 						size="sm"
-						onClick={() => setEditing({ draft: blank() })}
+						onClick={() => form.open({ draft: blank() })}
 					/>
 				) : null}
 			</CardHeader>
+			{form.failed ? (
+				<FailedSave
+					what="Your last 4 C's save needs a look."
+					problem={form.failed.problem}
+					onResume={form.resume}
+					onDismiss={form.dismiss}
+				/>
+			) : null}
 
 			{initial === null ? (
 				<p className="text-sm text-text-3">The 4 C&rsquo;s did not load. Reload the page to see them.</p>
@@ -141,7 +158,7 @@ export function AssessmentCard({
 							: `No 4 C's are recorded for ${first}.`}
 					</p>
 					{canEdit ? (
-						<Button size="sm" variant="secondary" icon={Add01Icon} onClick={() => setEditing({ draft: blank() })}>
+						<Button size="sm" variant="secondary" icon={Add01Icon} onClick={() => form.open({ draft: blank() })}>
 							Record the 4 C&rsquo;s
 						</Button>
 					) : null}
@@ -194,8 +211,8 @@ export function AssessmentCard({
 				</>
 			)}
 			<p className="mt-4 text-xs text-text-3">Human judgment. Evry and Plant Intelligence never set these.</p>
-			{editing ? (
-				<AssessmentDialog editing={editing} personName={first} onClose={() => setEditing(null)} onSubmit={submit} />
+			{form.editing ? (
+				<AssessmentDialog editing={form.editing} personName={first} onClose={form.close} onSubmit={submit} />
 			) : null}
 		</Card>
 	);
@@ -209,21 +226,21 @@ function Scores({ assessment: a }: { assessment: Assessment }) {
 		<div className={cn("flex flex-col gap-3.5", pending && "opacity-70")} aria-busy={pending || undefined}>
 			<dl className="flex flex-col gap-3.5">
 				{LENSES.map((l) => (
-					<div key={l}>
-						<div className="flex items-baseline justify-between gap-3">
-							<dt className="font-medium text-ink">{LENS_LABEL[l]}</dt>
-							<dd className="text-sm text-text-2 tabular-nums">
-								<span className="font-semibold text-ink">{a[l].score}</span> of 5
-							</dd>
-						</div>
-						<div aria-hidden="true" className="mt-2 h-1.5 overflow-hidden rounded-pill bg-surface-2">
-							<span className="block h-full rounded-pill bg-green-500" style={{ width: `${a[l].score * 20}%` }} />
-						</div>
-						{a[l].notes ? (
-							<p className="mt-1.5 line-clamp-3 text-sm whitespace-pre-wrap text-text-2 [overflow-wrap:anywhere]">
-								{a[l].notes}
-							</p>
-						) : null}
+					<div key={l} className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3">
+						<dt className="font-medium text-ink">{LENS_LABEL[l]}</dt>
+						<dd className="text-sm text-text-2 tabular-nums">
+							<span className="font-semibold text-ink">{a[l].score}</span> of 5
+						</dd>
+						<dd className="col-span-2">
+							<div aria-hidden="true" className="mt-2 h-1.5 overflow-hidden rounded-pill bg-surface-2">
+								<span className="block h-full rounded-pill bg-green-500" style={{ width: `${a[l].score * 20}%` }} />
+							</div>
+							{a[l].notes ? (
+								<p className="mt-1.5 line-clamp-3 text-sm whitespace-pre-wrap text-text-2 [overflow-wrap:anywhere]">
+									{a[l].notes}
+								</p>
+							) : null}
+						</dd>
 					</div>
 				))}
 			</dl>

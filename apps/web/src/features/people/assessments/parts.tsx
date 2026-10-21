@@ -238,3 +238,72 @@ export function useHistory<R extends Dated>(
 	}
 	return { ...page, setPage, add, more, loading: state === "loading", failed: state === "failed" };
 }
+
+/**
+ * One card's record form and the saves it sends. A save closes the form at once. When it fails, the form opens again
+ * with the reason only if the person has not opened or closed a form since that save. Otherwise the newer form stays
+ * as it is, and the failed one waits in the card's own notice, so a late reply never replaces newer work.
+ */
+export function useRecordForm<E extends { problem?: string }>() {
+	const [editing, setEditing] = useState<E | null>(null);
+	const [failed, setFailed] = useState<E | null>(null);
+	const intent = useRef(0);
+	const open = (e: E) => {
+		intent.current++;
+		setEditing(e);
+	};
+	const close = () => {
+		intent.current++;
+		setEditing(null);
+	};
+	/** Closes the form for a save; the token says whether the form is still the person's latest when it fails. */
+	const send = () => {
+		close();
+		return intent.current;
+	};
+	const fail = (token: number, e: E) => {
+		if (token === intent.current) setEditing(e);
+		else setFailed(e);
+	};
+	const resume = () => {
+		if (!failed) return;
+		open(failed);
+		setFailed(null);
+	};
+	return { editing, open, close, send, fail, failed, resume, dismiss: () => setFailed(null) };
+}
+
+/** A save that failed while the person worked on something else: its reason and a way back to its form. */
+export function FailedSave({
+	what,
+	problem,
+	onResume,
+	onDismiss,
+}: {
+	what: string;
+	problem?: string;
+	onResume: () => void;
+	onDismiss: () => void;
+}) {
+	return (
+		<div
+			role="alert"
+			className="mb-4 flex flex-col items-start gap-2.5 rounded-md bg-magenta-50 px-3.5 py-3 text-sm text-magenta-600"
+		>
+			<p className="flex items-start gap-2">
+				<Icon icon={Alert02Icon} size={16} className="mt-px flex-none" />
+				<span>
+					{what} {problem ? recordProblem(problem) : null}
+				</span>
+			</p>
+			<div className="flex flex-wrap gap-2">
+				<Button size="sm" variant="secondary" onClick={onResume}>
+					Open it again
+				</Button>
+				<Button size="sm" variant="ghost" onClick={onDismiss}>
+					Dismiss
+				</Button>
+			</div>
+		</div>
+	);
+}
