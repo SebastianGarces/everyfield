@@ -62,8 +62,15 @@ export type Load = "idle" | "loading" | "ready" | "failed";
 /** live: following a run · reconnecting: the browser is reconnecting on its own · lost: it gave up. */
 export type Stream = "idle" | "live" | "reconnecting" | "lost";
 
-/** Reads a whole conversation from its first page, following the remaining event pages. */
-async function readAll(id: string, first?: ReadConversation): Promise<api.Reply<ReadConversation>> {
+/**
+ * Reads a whole conversation from its first page, following the remaining event pages while `wanted()` holds. Once the
+ * person has moved on, it asks for nothing more and answers lost; the caller drops it anyway.
+ */
+async function readAll(
+	id: string,
+	wanted: () => boolean,
+	first?: ReadConversation,
+): Promise<api.Reply<ReadConversation>> {
 	let read = first;
 	if (!read) {
 		const r = await api.readConversation(id);
@@ -71,6 +78,7 @@ async function readAll(id: string, first?: ReadConversation): Promise<api.Reply<
 		read = r.value;
 	}
 	while (read.more) {
+		if (!wanted()) return { status: "lost" };
 		const next = await api.readConversation(id, read.events.at(-1)?.sequence ?? 0);
 		if (next.status !== "ok") return next;
 		read.events.push(...next.value.events);
@@ -110,7 +118,7 @@ export function useConversation(open: boolean) {
 		// A long conversation answers in pages; the rest are read before it shows, so its newest messages are there.
 		const r =
 			latest.status === "ok" && latest.value.conversation
-				? await readAll(latest.value.conversation.id, latest.value as ReadConversation)
+				? await readAll(latest.value.conversation.id, () => mine === shown.current, latest.value as ReadConversation)
 				: latest;
 		if (mine !== shown.current) return;
 		if (r.status !== "ok") return setLoad("failed");
@@ -276,7 +284,7 @@ export function useConversation(open: boolean) {
 		if (conversationId === latest.current.conversation?.id) return;
 		const mine = ++shown.current;
 		setLoad("loading");
-		const r = await readAll(conversationId);
+		const r = await readAll(conversationId, () => mine === shown.current);
 		if (mine !== shown.current) return;
 		setLoad("ready");
 		if (r.status !== "ok") return setProblem("That conversation could not open. Check your connection and try again.");
