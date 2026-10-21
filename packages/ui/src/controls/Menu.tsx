@@ -65,7 +65,7 @@ type MenuItemProps = Omit<ComponentPropsWithRef<typeof DropdownMenu.Item>, "chil
 
 /** Radix moves focus to the highlighted item; the HoverGroup highlight follows the pointer and keyboard focus. */
 const ITEM =
-	"relative flex h-[38px] cursor-pointer items-center gap-2.5 rounded-[10px] px-2.5 text-md outline-none select-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-45";
+	"relative flex h-[38px] cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-md outline-none select-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-45";
 
 export function MenuItem({ icon, shortcut, danger, className, children, textValue, ...props }: MenuItemProps) {
 	const key = useId();

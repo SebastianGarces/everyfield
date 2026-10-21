@@ -7,7 +7,7 @@ import { usePortalContainer } from "./overlay-portal";
 
 /** The floating surface shared by Popover, Menu, Select and Combobox lists (prototype .popover). */
 export const popSurface =
-	"ef-pop z-50 rounded-[18px] bg-surface-raised p-1.5 text-md text-ink shadow-[var(--ef-shadow-pop),0_0_0_1px_var(--ef-line)] outline-none";
+	"ef-pop z-50 rounded-card bg-surface-raised p-1.5 text-md text-ink shadow-[var(--ef-shadow-pop),0_0_0_1px_var(--ef-line)] outline-none";
 
 export const Popover = PopoverPrimitive.Root;
 export const PopoverTrigger = PopoverPrimitive.Trigger;
@@ -78,8 +78,8 @@ export function Tooltip({ content, tone = "dark", side = "top", delay = 300, chi
 						className={cn(
 							"ef-pop z-50 inline-flex items-center gap-2.5 text-md whitespace-nowrap",
 							tone === "dark"
-								? "rounded-[8px] bg-ink px-2.5 py-1.5 text-sm font-medium text-on-ink shadow-pop"
-								: "rounded-full bg-surface-raised px-4 py-2 text-ink shadow-[var(--ef-shadow-pop),0_0_0_1px_var(--ef-line)]",
+								? "rounded-md bg-ink px-2.5 py-1.5 text-sm font-medium text-on-ink shadow-pop"
+								: "rounded-pill bg-surface-raised px-4 py-2 text-ink shadow-[var(--ef-shadow-pop),0_0_0_1px_var(--ef-line)]",
 						)}
 					>
 						{content}

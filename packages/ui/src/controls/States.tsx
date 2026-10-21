@@ -26,7 +26,7 @@ export function EmptyState({
 		<div className={cn("flex flex-col items-center gap-2.5 px-6 py-10 text-center", className)}>
 			<div
 				aria-hidden="true"
-				className="relative mb-1.5 grid size-[72px] place-items-center rounded-[22px] bg-surface-2 after:absolute after:-inset-2 after:rounded-[28px] after:border-[1.5px] after:border-dashed after:border-line-2"
+				className="relative mb-1.5 grid size-[72px] place-items-center rounded-card bg-surface-2 after:absolute after:-inset-2 after:rounded-card after:border-[1.5px] after:border-dashed after:border-line-2"
 			>
 				<Icon icon={icon} size={24} className="scale-125 text-text-2" />
 			</div>
@@ -84,7 +84,7 @@ export function StatePanel({
 			className={cn("flex flex-col items-center gap-2.5 px-6 py-16 text-center max-app-sm:py-10", className)}
 		>
 			{art ? (
-				<div aria-hidden="true" className={cn("mb-1.5 grid size-16 place-items-center rounded-[20px]", ART[tone])}>
+				<div aria-hidden="true" className={cn("mb-1.5 grid size-16 place-items-center rounded-card", ART[tone])}>
 					<Icon icon={art} size={24} className="scale-[1.15]" />
 				</div>
 			) : null}
@@ -118,11 +118,7 @@ export function Skeleton({
 		<div
 			aria-hidden="true"
 			style={{ width, height: height ?? (shape === "line" ? 14 : undefined), ...style }}
-			className={cn(
-				"ef-skel",
-				shape === "circle" ? "rounded-full" : shape === "block" ? "rounded-md" : "rounded-[8px]",
-				className,
-			)}
+			className={cn("ef-skel", shape === "circle" ? "rounded-full" : "rounded-md", className)}
 			{...props}
 		/>
 	);

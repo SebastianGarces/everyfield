@@ -62,7 +62,7 @@ export function DateRangePicker({ value, onValueChange, presets, compareLabel, c
 					}
 				}}
 			>
-				<PopoverTrigger className="inline-flex h-[38px] cursor-pointer items-center gap-2 rounded-[11px] bg-surface-raised px-3 text-[15px] font-medium whitespace-nowrap text-ink shadow-raised">
+				<PopoverTrigger className="inline-flex h-[38px] cursor-pointer items-center gap-2 rounded-md bg-surface-raised px-3 text-[15px] font-medium whitespace-nowrap text-ink shadow-raised">
 					<Icon icon={Calendar03Icon} size={18} />
 					<span>
 						<span className="sr-only">Date range: </span>

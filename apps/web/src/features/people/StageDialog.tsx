@@ -139,7 +139,7 @@ export function StageDialog({
 					description={`Now ${STAGE_LABEL[person.stage].toLowerCase()}`}
 				/>
 				<DialogBody className="flex flex-col gap-5">
-					<div className="rounded-[18px] bg-surface p-4">
+					<div className="rounded-card bg-surface p-4">
 						<div className="flex flex-wrap items-end gap-4">
 							<div>
 								<div className="text-sm text-text-3">Now</div>
@@ -241,7 +241,7 @@ function Guidance({
 				</ul>
 			) : null}
 			{handoffs ? (
-				<div className="rounded-[14px] bg-amber-50 px-4 py-3 text-sm text-ink-2">
+				<div className="rounded-card bg-amber-50 px-4 py-3 text-sm text-ink-2">
 					<p className="font-medium text-ink">
 						{handoffs === 1 ? "1 open duty needs an owner" : `${handoffs} open duties need an owner`}
 					</p>

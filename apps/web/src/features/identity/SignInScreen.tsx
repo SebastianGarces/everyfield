@@ -129,7 +129,7 @@ export function SignInForm({
 				</Field>
 				<Link
 					href="/recover-password"
-					className="absolute top-0 right-0 rounded-[4px] text-sm text-blue-600 underline-offset-4 hover:underline"
+					className="absolute top-0 right-0 rounded-md text-sm text-blue-600 underline-offset-4 hover:underline"
 				>
 					Forgot password?
 				</Link>

@@ -43,7 +43,7 @@ export function SegmentedControl<V extends string>({
 			<HoverGroup
 				current={value}
 				className={cn(
-					"inline-flex max-w-full gap-0.5 overflow-x-auto rounded-[13px] [scrollbar-width:none] bg-surface-2 p-1",
+					"inline-flex max-w-full gap-0.5 overflow-x-auto rounded-md [scrollbar-width:none] bg-surface-2 p-1",
 					className,
 				)}
 			>
@@ -62,7 +62,7 @@ function Segment<V extends string>({ option, size }: { option: SegmentOption<V>;
 			value={option.value}
 			{...handlers}
 			className={cn(
-				"relative inline-flex flex-none cursor-pointer items-center gap-1.5 rounded-[10px] font-medium whitespace-nowrap text-text-2 transition-colors duration-150 hover:text-ink data-[state=on]:text-ink",
+				"relative inline-flex flex-none cursor-pointer items-center gap-1.5 rounded-md font-medium whitespace-nowrap text-text-2 transition-colors duration-150 hover:text-ink data-[state=on]:text-ink",
 				size === "sm" ? "h-[30px] px-3 text-sm" : "h-[34px] px-3.5 text-md",
 			)}
 		>
@@ -77,7 +77,7 @@ function Segment<V extends string>({ option, size }: { option: SegmentOption<V>;
 /** The small count after a tab or segment label. */
 export function CountChip({ children }: { children: ReactNode }) {
 	return (
-		<span className="num rounded-full bg-surface-2 px-[7px] py-px font-title text-xs tracking-[-0.02em] text-text-2">
+		<span className="num rounded-pill bg-surface-2 px-[7px] py-px font-title text-xs tracking-[-0.02em] text-text-2">
 			{children}
 		</span>
 	);
@@ -148,7 +148,7 @@ export function Tab({
 					layoutId={tabs?.indicator}
 					transition={SLIDE}
 					aria-hidden="true"
-					className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-ink"
+					className="absolute inset-x-0 -bottom-px h-0.5 bg-ink"
 				/>
 			) : null}
 		</TabsPrimitive.Trigger>

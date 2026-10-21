@@ -164,7 +164,7 @@ export function Kbd({ className, ...props }: ComponentPropsWithRef<"kbd">) {
 	return (
 		<kbd
 			className={cn(
-				"flex-none rounded-[7px] bg-surface-2 px-[7px] py-[3px] font-sans text-xs font-medium text-text-2 shadow-[inset_0_0_0_1px_var(--ef-line)]",
+				"flex-none rounded-md bg-surface-2 px-[7px] py-[3px] font-sans text-xs font-medium text-text-2 shadow-[inset_0_0_0_1px_var(--ef-line)]",
 				className,
 			)}
 			{...props}

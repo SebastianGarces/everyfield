@@ -101,7 +101,7 @@ export function ListRow({
 		>
 			{leading ??
 				(icon ? (
-					<span aria-hidden="true" className={cn("grid size-11 flex-none place-items-center rounded-full", TINT[tone])}>
+					<span aria-hidden="true" className={cn("grid size-11 flex-none place-items-center rounded-pill", TINT[tone])}>
 						<Icon icon={icon} size={20} />
 					</span>
 				) : null)}

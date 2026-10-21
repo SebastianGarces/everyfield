@@ -53,11 +53,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 						type={tone === "error" ? "foreground" : "background"}
 						duration={duration ?? (tone === "error" ? Infinity : 5000)}
 						onOpenChange={(open) => !open && setTimeout(() => remove(id), 200)}
-						className="ef-toast flex w-full items-center gap-3 rounded-[16px] bg-ink py-3 pr-3 pl-4 text-md text-on-ink shadow-pop"
+						className="ef-toast flex w-full items-center gap-3 rounded-card bg-ink py-3 pr-3 pl-4 text-md text-on-ink shadow-pop"
 					>
 						<span
 							aria-hidden="true"
-							className={cn("grid size-7 flex-none place-items-center rounded-full bg-on-ink-soft", ICON_TONE[tone])}
+							className={cn("grid size-7 flex-none place-items-center rounded-pill bg-on-ink-soft", ICON_TONE[tone])}
 						>
 							<Icon icon={ICON[tone]} size={16} />
 						</span>

@@ -87,7 +87,7 @@ function SelectItem({ option }: { option: SelectOption }) {
 		<SelectPrimitive.Item
 			value={option.value}
 			disabled={option.disabled}
-			className="relative flex h-[38px] cursor-pointer items-center gap-2.5 rounded-[10px] px-2.5 text-md text-ink outline-none select-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-45 transition-[background-color] duration-150 data-[highlighted]:bg-surface-2"
+			className="relative flex h-[38px] cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-md text-ink outline-none select-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-45 transition-[background-color] duration-150 data-[highlighted]:bg-surface-2"
 		>
 			<SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
 			<SelectPrimitive.ItemIndicator className="ml-auto">
