@@ -51,7 +51,10 @@ const warningsRow = z.object({
 	duties: z.array(z.object({ id: z.uuid(), revision: z.string() })),
 });
 /** Row filters for one People query. The list and the pipeline share them. */
-function peopleFilters(ctx: Context, input: z.infer<typeof c.listPeopleRequest>) {
+export function peopleFilters(
+	ctx: Pick<Context, "selected">,
+	input: Omit<z.infer<typeof c.listPeopleRequest>, "page" | "limit" | "view" | "sort">,
+) {
 	const filters = [eq(tables.person.plant_id, ctx.selected.id)];
 	if (input.archived === "exclude") filters.push(eq(tables.person.state, "live"));
 	else if (input.archived === "only") filters.push(ne(tables.person.state, "live"));

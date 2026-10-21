@@ -9,7 +9,9 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { fixture } from "../identity/invitations-support.mts";
 import {
+	executeBulkImport,
 	PeopleReadContext,
+	peopleCsv,
 	peopleWriter,
 	personFields,
 	readPersonPhoto,
@@ -309,6 +311,33 @@ try {
 			}),
 		),
 	);
+	// WP-013 people CSV: preview, one import request, its receipt and the export each use the same statements at two sizes.
+	for (const [n, tag] of [
+		[2, "a"],
+		[40, "b"],
+	]) {
+		const file = new TextEncoder().encode(
+			"first_name,email\r\n" +
+				Array.from({ length: n }, (_, i) => `Csv${tag}${i},csv${tag}${i}@example.test\r\n`).join(""),
+		);
+		const preview = value(await view("previewImport", (tx, ctx) => peopleCsv.previewImport(tx, ctx, { file })));
+		const requestKey = key();
+		const imported = value(
+			await measure("native.people.executeBulkImport", () =>
+				executeBulkImport(f.db, actor, {
+					requestKey,
+					file,
+					fileDigest: preview.fileDigest,
+					reviewDigest: preview.reviewDigest,
+					choices: preview.rows.map((r) => ({ row: r.row, choice: "create" })),
+				}),
+			),
+		);
+		assert.equal(imported.counts.created, n);
+		value(await view("getImportReceipt", (tx, ctx) => peopleCsv.getImportReceipt(tx, ctx, { requestKey })));
+		value(await view("exportPeople", (tx, ctx) => peopleCsv.exportPeople(tx, ctx, {})));
+	}
+	for (const name of ["previewImport", "executeBulkImport", "getImportReceipt", "exportPeople"]) await fixed(name);
 	// Meetings at the native boundary: the bound actor, one replay check, one locked read and one write statement.
 	const meetingWrite = (name, body) => measure("native.meetings." + name, () => withMeetingsWrite(f.db, actor, body));
 	const scheduled = await meetingWrite("schedule", (tx, ctx) =>
