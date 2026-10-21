@@ -390,7 +390,7 @@ export function LifecycleDialog({
 					onChange={(e) => setDraft((d) => ({ ...d, effectiveOn: e.target.value }))}
 				/>
 			</Field>
-			<Field label="Reason" optional>
+			<Field label="Reason" optional hint="Your reason is saved in this person's history.">
 				<Textarea
 					rows={2}
 					maxLength={5000}
@@ -482,7 +482,11 @@ export function CorrectionDialog({
 					</Field>
 				</div>
 			)}
-			<Field label="Reason" error={touched && draft.reason.trim() === "" ? "Say why this card is wrong." : null}>
+			<Field
+				label="Reason"
+				hint="Your reason is saved in this person's history."
+				error={touched && draft.reason.trim() === "" ? "Say why this card is wrong." : null}
+			>
 				<Textarea rows={2} maxLength={5000} value={draft.reason} onChange={(e) => set({ reason: e.target.value })} />
 			</Field>
 		</RecordDialog>
