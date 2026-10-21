@@ -1,11 +1,20 @@
 "use client";
 
 import { Alert02Icon, ArrowDown01Icon, Delete02Icon, Link04Icon, PencilEdit02Icon } from "@hugeicons/core-free-icons";
-import { Button, Menu, MenuContent, MenuTrigger, Sheet, Skeleton, StatePanel } from "@everyfield/ui/controls";
+import {
+	Button,
+	IntentLink,
+	Menu,
+	MenuContent,
+	MenuTrigger,
+	Sheet,
+	Skeleton,
+	StatePanel,
+} from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { useState } from "react";
-import { PersonLink, When } from "../people/parts.tsx";
+import { When } from "../people/parts.tsx";
 import type { StatusAction } from "./actions.ts";
 import { loadHistory, type Loaded } from "./fetch.ts";
 import {
@@ -265,9 +274,9 @@ export function TaskSheet({
 								!task.relation ? (
 									<span className="text-text-3">Nothing</span>
 								) : task.relation.kind === "person" ? (
-									<PersonLink href={`/people/${task.relation.id}`} className="underline underline-offset-[3px]">
+									<IntentLink href={`/people/${task.relation.id}`} className="underline underline-offset-[3px]">
 										{task.relation.label}
-									</PersonLink>
+									</IntentLink>
 								) : (
 									task.relation.label
 								)
