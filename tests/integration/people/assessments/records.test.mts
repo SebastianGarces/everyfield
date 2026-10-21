@@ -568,3 +568,44 @@ test("INV-tenancy C13: a seat ended after the request resolved its actor reads n
 		await admin.execute(sql`UPDATE seat SET role='admin' WHERE account_id=${sql.param(actors[3].id)}`);
 	}
 });
+
+test("INV-reads (C22, C32): assessment, interview and commitment reads hold no lock on the reader's session, so sign-out never waits", async () => {
+	const p = await person("Riley Session");
+	ok(await assess(p.id, day(1)));
+	ok(await interview(p.id, "qualified"));
+	ok(
+		await tx((t) =>
+			commitments.createCommitment(t, ctx(), {
+				requestKey: key(),
+				input: { personId: p.id, kind: "core_group", occurredOn: day(1) },
+			}),
+		),
+	);
+	const viewer = new PeopleReadContext(await tx((t) => RequestActor.resolve(t, actors[0].session)));
+	const reads = (c) => [
+		["getAssessments", (t) => assessments.getAssessments(t, c, { personId: p.id })],
+		["getInterviews", (t) => interviews.getInterviews(t, c, { personId: p.id })],
+		["getCommitments", (t) => commitments.getCommitments(t, c, { personId: p.id })],
+	];
+	const waited = [];
+	for (const [name, c] of [
+		["cached", viewer],
+		["plain", ctx()],
+	])
+		for (const [op, run] of reads(c))
+			await tx(async (t) => {
+				ok(await run(t));
+				// The read's transaction is still open: a sign-out or session refresh must not wait for it.
+				try {
+					await admin.transaction(async (a) => {
+						await a.execute(sql`SET LOCAL lock_timeout='250ms'`);
+						await a.execute(
+							sql`UPDATE auth_session SET expires_at=expires_at WHERE id=${sql.param(actors[0].session)}`,
+						);
+					});
+				} catch {
+					waited.push(`${name} ${op}`);
+				}
+			});
+	assert.deepEqual(waited, []);
+});

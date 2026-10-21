@@ -26,8 +26,9 @@ import {
 	type Tx,
 	type WriteContext,
 } from "../core.ts";
-import { expectRevision, plantId, queueObjectCleanup, readAuthority } from "../fields/shared.ts";
+import { expectRevision, plantId, queueObjectCleanup } from "../fields/shared.ts";
 import {
+	adminRead,
 	advance,
 	attribution,
 	nextRevision,
@@ -408,14 +409,14 @@ function documentAuthority(ctx: PeopleContext, commitmentId?: string): ResourceA
 		if (intent === "cleanup" || file.purpose !== "commitment" || file.tenant_id !== ctx.selected.id) return null;
 		if (intent === "read") {
 			const [current] = await tx
-				.select({ actorId: sql<string>`(SELECT i.account_id FROM access_session(${ctx.session}::uuid) i)` })
+				.select({ actorId: sql<string>`(SELECT i.account_id FROM live_session(${ctx.session}::uuid) i)` })
 				.from(tables.commitment)
 				.where(
 					and(
 						eq(tables.commitment.id, commitmentId ?? ""),
 						eq(tables.commitment.plant_id, file.tenant_id),
 						eq(tables.commitment.object_id, file.id),
-						readAuthority(ctx, true),
+						adminRead(ctx),
 					),
 				);
 			return current ? { kind: "account", actorId: current.actorId } : null;
@@ -485,13 +486,7 @@ export async function getCommitmentDownload(db: Database, storage: PrivateStorag
 		const [card] = await db
 			.select({ objectId: tables.commitment.object_id })
 			.from(tables.commitment)
-			.where(
-				and(
-					eq(tables.commitment.id, input.commitmentId),
-					eq(tables.commitment.plant_id, plant),
-					readAuthority(ctx, true),
-				),
-			);
+			.where(and(eq(tables.commitment.id, input.commitmentId), eq(tables.commitment.plant_id, plant), adminRead(ctx)));
 		if (!card?.objectId) deny();
 		const link = await createAuthorizedDownload(
 			db,

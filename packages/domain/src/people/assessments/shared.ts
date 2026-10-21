@@ -4,7 +4,8 @@ import * as tables from "@everyfield/db/tables";
 import "server-only";
 import { z } from "zod";
 import { deny, hash, type Context, type Tx } from "../core.ts";
-import { plantId, readAuthority } from "../fields/shared.ts";
+import { liveRead } from "../../access/session.ts";
+import { plantId } from "../fields/shared.ts";
 import { columnsChanged, freshPosition, sameColumn } from "../people.ts";
 
 type Stage = z.infer<typeof c.stage>;
@@ -48,6 +49,13 @@ export async function subject(
 export function notFuture(p: Subject, date: string) {
 	if (date > p.today) deny("invalid_input");
 }
+
+/**
+ * C13, C32: the live Owner or Admin read check, inside each statement that returns these records. live_session takes no
+ * lock, so a sign-out never waits for a running read.
+ */
+export const adminRead = (ctx: Pick<Context, "session" | "selected">) =>
+	liveRead({ session: ctx.session, owner: ctx.selected }, true);
 
 const order = c.stage.options;
 /**
@@ -117,7 +125,7 @@ export async function readHistory(
  (SELECT coalesce(jsonb_agg(x.j ORDER BY x.n),'[]') FROM (SELECT ${row} AS j,row_number() OVER (ORDER BY ${order}) AS n
    FROM ${from} r WHERE ${where} ORDER BY ${order} LIMIT ${input.limit} OFFSET ${(input.page - 1) * input.limit}) x) AS items,
  (SELECT ${row} FROM ${from} r WHERE ${where} ORDER BY ${order} LIMIT 1) AS latest
- FROM person p WHERE ${readAuthority(ctx, true)} AND p.id=${input.personId}::uuid AND p.tenant_id=${plant}::uuid
+ FROM person p WHERE ${adminRead(ctx)} AND p.id=${input.personId}::uuid AND p.tenant_id=${plant}::uuid
  AND p.plant_id=${plant}::uuid`);
 	const found = z
 		.object({
