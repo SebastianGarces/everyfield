@@ -46,13 +46,17 @@ export async function write<T>(
 
 export type { PeopleData, PeopleView } from "./page-data.ts";
 
-/** The person page: the person, their first Activity page and their WP-012 fields, in one read transaction. */
-export async function loadPerson(viewer: Viewer, personId: Parameters<typeof readPersonPage>[2]) {
+/**
+ * The person page: the person, their first Activity page and, for the page itself, their WP-012 fields, in one read
+ * transaction. A conflict reload passes `withFields: false`: it needs only the person and Activity, and each field card
+ * reads its own part again when its own save is refused.
+ */
+export async function loadPerson(viewer: Viewer, personId: Parameters<typeof readPersonPage>[2], withFields = true) {
 	return read(viewer, async (tx, ctx) => {
 		const page = await readPersonPage(tx, ctx, personId);
 		if (page.status !== "ok") return page;
 		const { found } = page.value;
-		const plant = found.status === "available" && "stage" in found.person;
+		const plant = withFields && found.status === "available" && "stage" in found.person;
 		return {
 			status: "ok" as const,
 			value: { ...page.value, fields: plant ? await readPersonFields(tx, ctx, personId) : null },

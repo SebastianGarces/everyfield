@@ -51,7 +51,7 @@ export async function reloadPerson(
 	personId: string,
 ): Promise<Outcome<{ person: PlantPerson; activities: z.infer<typeof c.activitiesResult> | null }>> {
 	return boundary(c.personRequest, { personId }, async (v, request) => {
-		const r = outcome(await loadPerson(v, request.personId), (page) => page);
+		const r = outcome(await loadPerson(v, request.personId, false), (page) => page);
 		if (r.status !== "ok") return r;
 		const { found, activities } = r.value;
 		if (found.status !== "available" || !("stage" in found.person)) return { status: "refused", code: "unavailable" };
