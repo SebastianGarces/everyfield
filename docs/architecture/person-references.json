@@ -93,6 +93,32 @@
       ]
     },
     {
+      "table": "person_skill",
+      "columns": [
+        "person_id",
+        "plant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-004",
+        "WP-012"
+      ],
+      "meaning": "Current relation with immutable original provenance",
+      "lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
+      "merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
+      "inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
+      "retirement_policy": "No new current references to retired or merged Persons; historical evidence remains under current permission.",
+      "privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
+      "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
+      "future_case_ids": [
+        "SCHEMA-009",
+        "SCHEMA-010"
+      ]
+    },
+    {
       "table": "person_tag",
       "columns": [
         "person_id",
