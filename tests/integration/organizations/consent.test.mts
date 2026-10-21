@@ -194,7 +194,7 @@ test("INV-atomicity: required outbox failure rolls back sharing, revision, audit
 		{ candidates: async () => [] },
 	);
 	await assert.rejects(
-		S.tx((c) =>
+		S.write(pa, (c) =>
 			bad["privacy.setSharing"](
 				c,
 				pa.session,
