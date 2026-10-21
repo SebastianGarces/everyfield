@@ -499,6 +499,22 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-23": {
+			"title": "Raise the preview limit to four",
+			"owningPaths": [
+				".agents/skills/portless-preview/SKILL.md",
+				".agents/skills/verify-preview/SKILL.md",
+				"docs/architecture/decisions.md",
+				"evf.config.json"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {

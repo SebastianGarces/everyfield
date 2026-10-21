@@ -64,7 +64,7 @@ Sebastian confirmed that the product has no customers yet. Until launch to real 
 
 ## D74, 2026-10-20: preview slots
 
-Builders and verifiers get preview slots first. The coordinator may stop Sebastian's review preview at any time to free a slot and restarts it later on main. No agent stops a preview that belongs to another workspace. This keeps build and verification work moving without losing anyone else's running preview.
+The preview supervisor runs four previews at a time. The managed portless launcher in the home bin folder sets the preview limit environment variable to 4. The supervisor reads it when it starts. Builders and verifiers get preview slots first. The coordinator may stop Sebastian's review preview at any time to free a slot and restarts it later on main. No agent stops a preview that belongs to another workspace. This keeps build and verification work moving without losing anyone else's running preview.
 
 ## D75, 2026-10-20: S1 plan review
 
