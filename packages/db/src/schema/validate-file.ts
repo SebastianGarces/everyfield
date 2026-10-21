@@ -5,14 +5,9 @@ import { pathToFileURL } from "node:url";
 import sharp from "sharp";
 const require = createRequire(import.meta.url);
 
-/**
- * The PDF parser module and the parse limit. The limit is a security bound on parsing only: it starts when the worker
- * has loaded the parser, so a slow worker start (a loaded machine or a cold start) does not reject a valid PDF.
- */
-export const pdfParsing = {
-	entry: pathToFileURL(require.resolve("pdfjs-dist/legacy/build/pdf.mjs")).href,
-	parseMs: 3000,
-};
+// The parse limit is a security bound on parsing only. It starts when the worker has loaded the parser, so a slow
+// worker start (a loaded machine or a cold start) does not reject a valid PDF.
+const PARSE_MS = 3000;
 // A worker that never loads the parser is stopped here.
 const STARTUP_MS = 30_000;
 
@@ -20,7 +15,8 @@ const STARTUP_MS = 30_000;
 export async function validateCommitment(
 	bytes: Uint8Array,
 	mediaType: string,
-	pdf: typeof pdfParsing = pdfParsing,
+	// Tests only: a different parser module or parse limit.
+	pdf: { entry?: string; parseMs?: number } = {},
 ): Promise<void> {
 	if (!bytes.length || bytes.length > 10 * 1024 * 1024) throw new Error("invalid_file");
 	if (mediaType === "image/jpeg" || mediaType === "image/png") {
@@ -36,6 +32,7 @@ export async function validateCommitment(
 	}
 	if (mediaType !== "application/pdf" || Buffer.from(bytes.subarray(0, 5)).toString() !== "%PDF-")
 		throw new Error("invalid_file");
+	const entry = pdf.entry ?? pathToFileURL(require.resolve("pdfjs-dist/legacy/build/pdf.mjs")).href;
 	await new Promise<void>((resolve, reject) => {
 		const worker = new Worker(
 			`const {parentPort,workerData}=require('node:worker_threads');
@@ -43,7 +40,7 @@ export async function validateCommitment(
       try {const pdf=await task.promise;if(pdf.numPages>100)throw Error('pages');let length=0;for(let i=1;i<=pdf.numPages;i++){const page=await pdf.getPage(i);const content=await page.getTextContent();length+=JSON.stringify(content).length;if(length>1000000)throw Error('expansion');}parentPort.postMessage(true);}finally{await task.destroy();}})().catch(()=>parentPort.postMessage(false));`,
 			{
 				eval: true,
-				workerData: { entry: pdf.entry, bytes: Uint8Array.from(bytes) },
+				workerData: { entry, bytes: Uint8Array.from(bytes) },
 				resourceLimits: { maxOldGenerationSizeMb: 96, maxYoungGenerationSizeMb: 16, stackSizeMb: 4 },
 			},
 		);
@@ -60,7 +57,7 @@ export async function validateCommitment(
 		worker.on("message", (value) => {
 			if (value !== "ready") return finish(value === true);
 			clearTimeout(timer);
-			timer = setTimeout(() => finish(false), pdf.parseMs);
+			timer = setTimeout(() => finish(false), pdf.parseMs ?? PARSE_MS);
 		});
 		worker.once("error", () => finish(false));
 		worker.once("exit", () => finish(false));
