@@ -23,6 +23,7 @@ import { listShipped, prOpen, ship, checkPr } from "./ship.ts";
 import { approve } from "./approve.ts";
 import { debugCmd, stack, taskStart } from "./task.ts";
 import { requireVerifiedHead, verify } from "./verify.ts";
+import { migrationsRenumber } from "./migrations.ts";
 
 const HELP = `evf: EveryField v3 workflow CLI
 
@@ -38,6 +39,7 @@ Task loop (implementor, ui-designer)
   evf stack up|down|status <task>
   evf traces <task> [args...]        evf logs <task> [args...]
   evf verify <task> [--head <sha>] [--quick]                  local checks
+  evf migrations renumber <task>                              move new migrations after main's last number
   evf pr open <task> --body-file <file>                       push and open/update the PR
   evf pr check <PR> [--head <sha>]                            read-only Phase 7 merge checks
   evf pr body <PR> | --body-file <file>                       body-only standard check
@@ -286,6 +288,9 @@ function main(argv: string[]): number | Promise<number> {
 			}
 			break;
 		}
+		case "migrations":
+			if (args[0] === "renumber") return migrationsRenumber(root, parseTask(args[1]));
+			break;
 		case "ship": {
 			return ship(root, parseTask(args[0]));
 		}

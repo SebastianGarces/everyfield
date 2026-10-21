@@ -5,6 +5,7 @@ import { stripVTControlCharacters } from "node:util";
 import {
 	baseRef,
 	command,
+	evfDataDir,
 	evidenceDir,
 	fail,
 	fill,
@@ -17,6 +18,7 @@ import {
 	requireWorktree,
 	run,
 	runtimeDir,
+	type CheckDef,
 	type TaskRef,
 } from "./lib.ts";
 import { stackEnv, stackInfo } from "./task.ts";
@@ -24,6 +26,7 @@ import { cachedTriage } from "./feedback.ts";
 import { maintenanceScope, requireSpend, requireTaskScope, requireMaintenancePaths } from "./policy.ts";
 import { caseCoverage, caseGrep, hasCaseMarkers, testsOf } from "./coverage.ts";
 import { formatScope, wpScope, type ScopeReport } from "./scope.ts";
+import { requireFreeMigrationNumbers } from "./migrations.ts";
 
 export type Role = "author" | "verifier";
 export type Mode = "full" | "quick";
@@ -64,6 +67,7 @@ export function verify(root: string, task: TaskRef, role: Role, mode: Mode, head
 		fail(`Checkout HEAD ${sha} does not match requested SHA ${head}.`);
 	if (!isClean(wt)) fail(`The checked checkout ${wt} is not clean. Commit the task changes before verification.`);
 	if (!gitOk(wt, "merge-base", "--is-ancestor", baseSha, "HEAD")) fail("Include current main before verification.");
+	requireFreeMigrationNumbers(wt, baseSha, task);
 	const cases = wp ? packageContext(wt, wp).case_ids : [];
 	const dir = evidenceDir(root, task, sha, `${role}-${mode}`);
 	mkdirSync(dir, { recursive: true });
@@ -91,7 +95,7 @@ export function verify(root: string, task: TaskRef, role: Role, mode: Mode, head
 		EVF_MODE: mode,
 		EVF_BASE_URL: vars.baseUrl,
 	};
-	const definitions = task.kind === "ops" ? maintenanceScope(wt, task).checks : cfg.checks;
+	const definitions = task.kind === "ops" ? withCiParity(maintenanceScope(wt, task).checks, cfg.checks) : cfg.checks;
 	if (task.kind !== "ops" && cfg.stack?.usesPaidProviders) requireSpend(root);
 	const reports: string[] = [];
 	const inputsUnchanged = () => git(wt, "rev-parse", "HEAD") === sha && isClean(wt);
@@ -133,6 +137,11 @@ export function verify(root: string, task: TaskRef, role: Role, mode: Mode, head
 			treeUnchanged = false;
 			break;
 		}
+	}
+	if (treeUnchanged && task.kind !== "ops" && mode === "full" && existsSync(join(wt, "package.json"))) {
+		console.error("evf verify: running fresh-checkout-typecheck.");
+		checks.push(freshCheckoutTypecheck(root, wt, sha, dir));
+		treeUnchanged = inputsUnchanged();
 	}
 	// Coverage runs only when some report carries AC: markers; tooling-only reports never opt a task in (D19).
 	// Real acceptance remains the verifier's job.
@@ -179,6 +188,50 @@ export function verify(root: string, task: TaskRef, role: Role, mode: Mode, head
 		`${!unchanged ? "INVALIDATED: checked tree or base changed during verification; rerun on stable inputs." : report.passed ? "PASSED" : "FAILED"} local ${report.kind} checks: ${join(dir, "checks.json")}. Independent real verification and GitHub CI are separate.`,
 	);
 	return report;
+}
+
+/**
+ * CI runs Prettier and every package's unit tests, including the db schema check, on every PR. An OPS task's
+ * own checks never replace them: OPS-18, OPS-17 and OPS-20 passed locally and failed CI on exactly these.
+ */
+const CI_PARITY = ["format", "package-unit-tests"];
+function withCiParity(own: CheckDef[], configured: CheckDef[]): CheckDef[] {
+	const parity = CI_PARITY.map((name) => {
+		const check = configured.find((c) => c.name === name);
+		if (!check) fail(`evf.config.json checks must define "${name}", which CI runs on every PR.`);
+		return check;
+	});
+	return [...own, ...parity.filter((p) => !own.some((c) => c.name === p.name))];
+}
+
+/**
+ * CI type-checks a fresh clone. Ignored files in the task worktree, such as Next's generated next-env.d.ts, made
+ * WP-097's local typecheck pass while CI failed (PR #175), so the typecheck also runs on a clean checkout of HEAD.
+ */
+function freshCheckoutTypecheck(root: string, wt: string, sha: string, dir: string): CheckResult {
+	const fresh = join(evfDataDir(root), "fresh", sha),
+		log = join(dir, "fresh-checkout-typecheck.log"),
+		steps = [
+			["corepack", "pnpm", "install", "--frozen-lockfile", "--prefer-offline"],
+			["corepack", "pnpm", "typecheck"],
+		];
+	run("git", ["worktree", "remove", "--force", fresh], { cwd: wt });
+	git(wt, "worktree", "add", "--quiet", "--detach", fresh, sha);
+	let output = "",
+		exitCode = 0;
+	try {
+		for (const argv of steps) {
+			const result = run(argv[0], argv.slice(1), { cwd: fresh });
+			output += `$ ${argv.join(" ")}\n\n${result.stdout}\n${result.stderr}\n`;
+			exitCode = result.code;
+			if (exitCode !== 0) break;
+		}
+	} finally {
+		run("git", ["worktree", "remove", "--force", fresh], { cwd: wt });
+	}
+	writeFileSync(log, output);
+	console.error(`evf verify: fresh-checkout-typecheck ${exitCode === 0 ? "passed" : "failed"}.`);
+	return { name: "fresh-checkout-typecheck", command: steps.flat(), exitCode, log, passed: exitCode === 0 };
 }
 
 /** Read-only gate shared by PR open and the explicit pre-push check. */
