@@ -15,3 +15,4 @@ export { personFields, readPersonPhoto, uploadPersonPhoto } from "./fields/index
 export { assessments } from "./assessments/index.ts";
 export { interviews } from "./interviews/index.ts";
 export { commitments, getCommitmentDownload, uploadCommitmentDocument } from "./commitments/index.ts";
+export { executeBulkImport, peopleCsv, runPeopleImport } from "./csv/index.ts";

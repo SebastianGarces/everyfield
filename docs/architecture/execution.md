@@ -28,6 +28,7 @@ The inventory below defines ordinary work and the logical identity that must not
 | lifecycle_purge | Complete the exact eligible deletion request. Interrupted cleanup stays hidden until coherent completion. |
 | assistant_turn | Resume the initiating account's authorized turn. Reconnect cannot approve or execute new effects. |
 | document_render | Produce the reviewed artifact from frozen inputs, template and rendering profile. Retry preserves output identity; failure leaves the prior artifact intact. |
+| people_import | Write the reviewed People CSV rows from the frozen plan and saved upload. Each row's Person identity is fixed, so a resumed or repeated run never creates it twice; a failing row fails alone. |
 
 Authenticated mail callbacks retain and apply actual provider delivery evidence. Duplicate or out-of-order events never resend mail or rewind facts. Dispatch and reconciliation stay correlated with the original reviewed mail and its known outcome. Restricted backup, witness sync, copy expiry and restore are outside ordinary job dispatch and ordinary application secrets.
 

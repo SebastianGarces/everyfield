@@ -52,7 +52,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-009 | Onboarding and discovery conversion | 7 | 8 | 23 | 5 | 2 |
 | WP-010 | Account and settings surfaces | 20 | 21 | 39 | 7 | 2.5 |
 | WP-012 | Households tags skills and person fields | 8 | 21 | 10 | 4 | 2 |
-| WP-013 | People CSV import/export | 2 | 5 | 3 | 3 | 1.5 |
+| WP-013 | People CSV import/export | 2 | 5 | 3 | 4 | 1.5 |
 | WP-014 | Assessments interviews commitments | 8 | 10 | 13 | 6 | 2 |
 | WP-015 | Corrections duplicate resolution and merge | 9 | 10 | 36 | 1 | 2 |
 | WP-032 | Canonical reference/template manifest | 7 | 12 | 15 | 2 | 1.5 |

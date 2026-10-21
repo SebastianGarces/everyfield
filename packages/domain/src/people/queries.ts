@@ -53,8 +53,12 @@ const warningsRow = z.object({
 	committed: z.boolean(),
 	duties: z.array(z.object({ id: z.uuid(), revision: z.string() })),
 });
-/** Row filters for one People query, with the reader's C13 gate. The list and the pipeline share them. */
-function peopleFilters(ctx: Context, input: z.infer<typeof c.listPeopleRequest>, gate: SQL) {
+/** Row filters for one People query, with the reader's C13 gate. The list, the pipeline and the CSV export share them. */
+export function peopleFilters(
+	ctx: Pick<Context, "selected">,
+	input: Omit<z.infer<typeof c.listPeopleRequest>, "page" | "limit" | "view" | "sort">,
+	gate: SQL,
+) {
 	const filters = [eq(tables.person.plant_id, ctx.selected.id), gate];
 	if (input.archived === "exclude") filters.push(eq(tables.person.state, "live"));
 	else if (input.archived === "only") filters.push(ne(tables.person.state, "live"));

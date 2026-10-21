@@ -52,26 +52,24 @@ function stable(v: unknown): string {
 }
 export class Refusal extends Error {
 	readonly code: z.infer<typeof c.peopleError>["code"];
-	constructor(code: z.infer<typeof c.peopleError>["code"]) {
+	readonly details: object;
+	constructor(code: z.infer<typeof c.peopleError>["code"], details: object = {}) {
 		super(code);
 		this.code = code;
+		this.details = details;
 	}
 }
-export function deny(code: Refusal["code"] = "unavailable"): never {
-	throw new Refusal(code);
+export function deny(code: Refusal["code"] = "unavailable", details?: object): never {
+	throw new Refusal(code, details);
 }
 function refused(error: Refusal): PeopleReply<never> {
-	const retry =
-		error.code === "conflict" || error.code === "use_reviewed_unmerge"
-			? "refresh"
-			: error.code === "source_unavailable"
-				? "same_request"
-				: "never";
+	// Each refusal code declares its own retry eligibility.
+	const retry = c.peopleError.options.find((o) => o.shape.code.value === error.code)!.shape.retry.value;
 	return {
 		status: "refused",
 		error: c.peopleError.parse({
 			code: error.code,
-			details: {},
+			details: error.details,
 			correlationId: randomUUID(),
 			retry,
 		}),

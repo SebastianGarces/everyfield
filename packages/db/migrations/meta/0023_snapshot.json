@@ -1,5 +1,5 @@
 {
-  "id": "212cc8de-44ad-42b9-8a5d-6d124961d105",
+  "id": "35c7a64f-4d2e-455e-a706-b10de65a5e74",
   "prevId": "5dd6e077-53f7-4025-9c16-9ebd8bda7a14",
   "version": "7",
   "dialect": "postgresql",
@@ -2406,21 +2406,6 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "commitment_object_uq": {
-          "name": "commitment_object_uq",
-          "columns": [
-            {
-              "expression": "object_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -5449,223 +5434,6 @@
       },
       "isRLSEnabled": false
     },
-    "public.four_cs": {
-      "name": "four_cs",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "plant_id": {
-          "name": "plant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "person_id": {
-          "name": "person_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "assessed_on": {
-          "name": "assessed_on",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "recorded_at": {
-          "name": "recorded_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "committed": {
-          "name": "committed",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "compelled": {
-          "name": "compelled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "contagious": {
-          "name": "contagious",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "courageous": {
-          "name": "courageous",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "committed_notes": {
-          "name": "committed_notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "compelled_notes": {
-          "name": "compelled_notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "contagious_notes": {
-          "name": "contagious_notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "courageous_notes": {
-          "name": "courageous_notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "revision": {
-          "name": "revision",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "1"
-        }
-      },
-      "indexes": {
-        "four_cs_ref_0": {
-          "name": "four_cs_ref_0",
-          "columns": [
-            {
-              "expression": "plant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "four_cs_ref_1": {
-          "name": "four_cs_ref_1",
-          "columns": [
-            {
-              "expression": "person_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "plant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "four_cs_fk_0": {
-          "name": "four_cs_fk_0",
-          "tableFrom": "four_cs",
-          "tableTo": "plant",
-          "columnsFrom": [
-            "plant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "four_cs_fk_1": {
-          "name": "four_cs_fk_1",
-          "tableFrom": "four_cs",
-          "tableTo": "person",
-          "columnsFrom": [
-            "person_id",
-            "plant_id"
-          ],
-          "columnsTo": [
-            "id",
-            "tenant_id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "four_cs_fk_2": {
-          "name": "four_cs_fk_2",
-          "tableFrom": "four_cs",
-          "tableTo": "record",
-          "columnsFrom": [
-            "id",
-            "plant_id"
-          ],
-          "columnsTo": [
-            "id",
-            "tenant_id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "four_cs_pkey": {
-          "name": "four_cs_pkey",
-          "columns": [
-            "id"
-          ]
-        }
-      },
-      "uniqueConstraints": {
-        "four_cs_uq_0": {
-          "name": "four_cs_uq_0",
-          "nullsNotDistinct": false,
-          "columns": [
-            "id",
-            "plant_id"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "four_cs_ck_0": {
-          "name": "four_cs_ck_0",
-          "value": "(revision >= 1)"
-        },
-        "four_cs_ck_1": {
-          "name": "four_cs_ck_1",
-          "value": "((committed >= 1) AND (committed <= 5))"
-        },
-        "four_cs_ck_2": {
-          "name": "four_cs_ck_2",
-          "value": "((compelled >= 1) AND (compelled <= 5))"
-        },
-        "four_cs_ck_3": {
-          "name": "four_cs_ck_3",
-          "value": "((contagious >= 1) AND (contagious <= 5))"
-        },
-        "four_cs_ck_4": {
-          "name": "four_cs_ck_4",
-          "value": "((courageous >= 1) AND (courageous <= 5))"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "public.household": {
       "name": "household",
       "schema": "",
@@ -6759,7 +6527,7 @@
         },
         "job_ck_1": {
           "name": "job_ck_1",
-          "value": "(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'assessment'::text, 'reference_generation'::text, 'feedback_publication'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'document_render'::text]))"
+          "value": "(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'assessment'::text, 'reference_generation'::text, 'feedback_publication'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'document_render'::text, 'people_import'::text]))"
         },
         "job_ck_2": {
           "name": "job_ck_2",
@@ -11309,12 +11077,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "1"
-        },
-        "commitment_effective_on": {
-          "name": "commitment_effective_on",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {
@@ -11657,6 +11419,128 @@
         "person_ck_9": {
           "name": "person_ck_9",
           "value": "(source = ANY (ARRAY['personal_referral'::text, 'social_media'::text, 'vision_meeting'::text, 'website'::text, 'event'::text, 'partner_church'::text, 'meeting_guest_list'::text, 'other'::text]))"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.person_import": {
+      "name": "person_import",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "job_id": {
+          "name": "job_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_id": {
+          "name": "actor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "plan": {
+          "name": "plan",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "upload": {
+          "name": "upload",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "failed": {
+          "name": "failed",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "person_import_tenant_id_tenant_id_fk": {
+          "name": "person_import_tenant_id_tenant_id_fk",
+          "tableFrom": "person_import",
+          "tableTo": "tenant",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "person_import_actor_id_account_id_fk": {
+          "name": "person_import_actor_id_account_id_fk",
+          "tableFrom": "person_import",
+          "tableTo": "account",
+          "columnsFrom": [
+            "actor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "person_import_job_owner": {
+          "name": "person_import_job_owner",
+          "tableFrom": "person_import",
+          "tableTo": "job",
+          "columnsFrom": [
+            "job_id",
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "person_import_pkey": {
+          "name": "person_import_pkey",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "person_import_job": {
+          "name": "person_import_job",
+          "nullsNotDistinct": false,
+          "columns": [
+            "job_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "person_import_plan": {
+          "name": "person_import_plan",
+          "value": "jsonb_typeof(\"person_import\".\"plan\")='object'"
+        },
+        "person_import_failed": {
+          "name": "person_import_failed",
+          "value": "jsonb_typeof(\"person_import\".\"failed\")='array'"
         }
       },
       "isRLSEnabled": false

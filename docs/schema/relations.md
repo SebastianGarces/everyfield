@@ -189,6 +189,9 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `person(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `person(tenant_id)` | `tenant(id)` | restrict |  |
 | `person(organization_id)` | `organization(id)` | restrict |  |
+| `person_import(actor_id)` | `account(id)` | set_null |  |
+| `person_import(job_id, tenant_id)` | `job(id, tenant_id)` | cascade |  |
+| `person_import(tenant_id)` | `tenant(id)` | no_action |  |
 | `person_note(plant_id)` | `plant(id)` | restrict |  |
 | `person_note(person_id, tenant_id)` | `person(id, tenant_id)` | restrict |  |
 | `person_note(author_id)` | `account(id)` | restrict |  |
