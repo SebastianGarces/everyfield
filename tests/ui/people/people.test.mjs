@@ -560,4 +560,114 @@ for (const [name, engine] of ENGINES) {
 			await one("a retire", () => confirm.click(), "Retired");
 		});
 	});
+
+	// WebKit's request interception cannot replay a multipart file body, so the lost reply is simulated in Chromium only.
+	test(
+		`AC:TARGET-PPL-018 INV-lost-reply (${name}): an import whose reply is lost reads its receipt and never sends twice`,
+		{ skip: name !== "chromium" && "WebKit cannot replay the multipart body" },
+		async () => {
+			await withPage(engine, "owner", async (page, context) => {
+				const tag = `${name}${Date.now().toString(36)}`;
+				const csv =
+					"\ufefffirst_name,last_name,email,notes\r\n" +
+					`Mara,${tag},mara-${tag}@example.test,"First line\r\nSecond line"\r\n` +
+					`Lia,${tag},lia-${tag}@example.test,=1+1\r\n` +
+					`Lee,${tag},lee@,\r\n`;
+				let posts = 0;
+				// The server saves the import; the browser never sees the answer.
+				await context.route("**/api/people/import", async (route) => {
+					if (route.request().method() !== "POST") return route.fallback();
+					posts++;
+					await route.fetch({ postData: route.request().postDataBuffer() });
+					await route.abort("failed");
+				});
+				await page.goto(`${BASE}/people/import`);
+				await page
+					.locator("input[type=file]")
+					.setInputFiles({ name: "people.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
+				await page.getByRole("heading", { name: "Rows to check" }).waitFor({ timeout: 30_000 });
+				await page.getByRole("button", { name: "Import 2 people" }).click();
+				await page.getByRole("heading", { name: "2 people added" }).waitFor({ timeout: 60_000 });
+				assert.equal(posts, 1, "a lost reply is checked through the receipt, not sent again");
+				assert.match(page.url(), /\/people\/import\?import=[0-9a-f-]{36}$/);
+				const failed = page.getByRole("list", { name: "Rows not imported" });
+				assert.equal(await failed.getByRole("listitem").count(), 1);
+				assert.match(await failed.innerText(), /Email is not a complete address/);
+				// A reload of the same address shows the same receipt and starts nothing.
+				await page.reload();
+				await page.getByRole("heading", { name: "2 people added" }).waitFor({ timeout: 30_000 });
+				assert.equal(posts, 1);
+			});
+		},
+	);
+
+	test(`AC:TARGET-PPL-018 BUG-198-focus (${name}): a refused import moves focus to the alert, not the step heading`, async () => {
+		await withPage(engine, "owner", async (page, context) => {
+			await context.route("**/api/people/import", (route) =>
+				route.request().method() === "POST"
+					? route.fulfill({ json: { status: "refused", code: "review_stale" } })
+					: route.fallback(),
+			);
+			const tag = `${name}${Date.now().toString(36)}`;
+			await page.goto(`${BASE}/people/import`);
+			await page.locator("input[type=file]").setInputFiles({
+				name: "people.csv",
+				mimeType: "text/csv",
+				buffer: Buffer.from(`first_name,email\r\nZed,zed-${tag}@example.test\r\n`),
+			});
+			await page.getByRole("button", { name: "Import 1 person" }).click({ timeout: 30_000 });
+			await page.locator("[data-import-problem]").waitFor();
+			await page.waitForTimeout(500);
+			assert.match(
+				await page.evaluate(() => document.activeElement?.textContent ?? ""),
+				/^People changed since you checked this file/,
+			);
+		});
+	});
+
+	test(`AC:TARGET-PPL-018 BUG-198-unconfirmed (${name}): an unconfirmed import never claims nothing was saved and sends nothing again`, async () => {
+		await withPage(engine, "owner", async (page, context) => {
+			let posts = 0;
+			// The import never reaches the server; the receipt then answers "unavailable", which also covers a seat that
+			// lost access, so the screen must not say whether rows were saved or offer to send it again (ruling C34).
+			await context.route("**/api/people/import", (route) =>
+				route.request().method() === "POST" && ++posts ? route.abort("failed") : route.fallback(),
+			);
+			const tag = `${name}${Date.now().toString(36)}`;
+			await page.goto(`${BASE}/people/import`);
+			await page.locator("input[type=file]").setInputFiles({
+				name: "people.csv",
+				mimeType: "text/csv",
+				buffer: Buffer.from(`first_name,email\r\nUma,uma-${tag}@example.test\r\n`),
+			});
+			await page.getByRole("button", { name: "Import 1 person" }).click({ timeout: 30_000 });
+			await page.getByRole("heading", { name: "We cannot show this import" }).waitFor({ timeout: 30_000 });
+			assert.equal(await page.getByText("Nothing was saved").count(), 0);
+			assert.equal(await page.getByRole("button", { name: /again/i }).count(), 0);
+			assert.equal(await page.getByRole("link", { name: "Go to People" }).count(), 1);
+			assert.equal(posts, 1);
+		});
+	});
+
+	test(`AC:TARGET-PPL-019 INV-filters (${name}): a Member's export holds exactly the people the filtered directory counts`, async () => {
+		await withPage(engine, "member", async (page) => {
+			await page.goto(`${BASE}/people?stage=prospect`);
+			const shown = Number(
+				(await page.getByText(/^Showing .* of \d+ (people|person)$/).innerText()).match(/of (\d+)/)[1],
+			);
+			await page.getByRole("button", { name: "Export CSV" }).click();
+			const dialog = page.getByRole("dialog", { name: "Export people" });
+			assert.match(await dialog.innerText(), /Stage: Prospect/);
+			const download = page.waitForEvent("download");
+			await dialog.getByRole("button", { name: "Download CSV" }).click();
+			await dialog.getByText(`has ${shown} ${shown === 1 ? "person" : "people"}.`).waitFor({ timeout: 30_000 });
+			const text = (await (await download).createReadStream()).toArray();
+			const lines = Buffer.concat(await text)
+				.toString("utf8")
+				.split("\r\n")
+				.filter((l) => /^[^,]*,[^,]*,/.test(l));
+			assert.ok(lines[0].startsWith("\ufefffirst_name,last_name,email"));
+			assert.equal(lines.filter((l) => l.includes(",prospect,")).length, shown, "every exported row is a prospect");
+		});
+	});
 }
