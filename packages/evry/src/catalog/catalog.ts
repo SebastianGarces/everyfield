@@ -9,7 +9,7 @@ import type { ReadAdapter } from "./types.ts";
  */
 export const READ_DOMAINS = {
 	people: [listPeople, getPerson],
-} as const satisfies Record<string, readonly ReadAdapter<any>[]>; // eslint-disable-line @typescript-eslint/no-explicit-any
+} as const satisfies Record<string, readonly Pick<ReadAdapter<unknown>, "operation" | "description" | "allowed">[]>;
 
 /** The runtime's own model tool: pick rows from a result this conversation already returned. */
 export const SELECT_RETURNED_ROWS = "evry.selectReturnedRows";

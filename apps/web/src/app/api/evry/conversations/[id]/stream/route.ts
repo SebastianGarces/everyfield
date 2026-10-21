@@ -1,6 +1,5 @@
 import { observeConversation, projectError, readConversation } from "@everyfield/evry";
-import { evryResponse, requestActor } from "@/server/evry";
-import { requestDatabase } from "@/server/database";
+import { errorResponse, evryDatabase, requestActor } from "@/server/evry";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -12,21 +11,21 @@ export const maxDuration = 300;
 export const GET = async (request: Request, { params }: { params: Promise<{ id: string }> }) => {
 	const { id } = await params;
 	const after = Number(request.headers.get("last-event-id") ?? new URL(request.url).searchParams.get("after") ?? 0);
-	const db = requestDatabase();
-	let actor;
+	let db, actor;
 	try {
+		db = evryDatabase();
 		actor = await requestActor();
 		// A foreign or missing conversation answers like any other refused read, before the stream opens.
-		await readConversation(db!, actor, id, Number.isInteger(after) && after >= 0 ? after : 0);
+		await readConversation(db, actor, id, Number.isInteger(after) && after >= 0 ? after : 0);
 	} catch (error) {
-		return evryResponse(() => Promise.reject(error));
+		return errorResponse(error);
 	}
 	const encoder = new TextEncoder();
 	const stream = new ReadableStream({
 		async start(controller) {
 			const heartbeat = setInterval(() => controller.enqueue(encoder.encode(": keep-alive\n\n")), 15_000);
 			try {
-				for await (const event of observeConversation(db!, actor, id, after, request.signal))
+				for await (const event of observeConversation(db, actor, id, after, request.signal))
 					controller.enqueue(
 						encoder.encode(`id: ${event.sequence}\nevent: ${event.kind}\ndata: ${JSON.stringify(event)}\n\n`),
 					);
