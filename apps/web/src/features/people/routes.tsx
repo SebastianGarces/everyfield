@@ -116,6 +116,7 @@ export async function PersonPage({ params }: { params: Promise<{ personId: strin
 			accountId={viewer.accountId}
 			canWrite={canWrite(viewer)}
 			fields={loaded.value.fields}
+			records={loaded.value.records}
 			// Photo uploads stay hidden until the photo UI task ships; stored photos still read through the photo route.
 			photosEnabled={false}
 		/>
