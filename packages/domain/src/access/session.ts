@@ -306,11 +306,14 @@ export function writeVisibility(actor: string | SQLWrapper, selected: Owner) {
 /**
  * C13 and C22: access as it is now, as one condition for each statement of a tenant read. The session is live and its
  * account active; for a plant or organization the account still holds an accepted seat there, not ended, Owner or Admin
- * when `admin`, and the same seat as the request's actor when `seatId` names it; no lifecycle witness hides the
- * account, the owner or the seat. live_session takes no row lock, so a sign-out never waits for a running read. A write
- * locks its authority instead (lockWriteAuthority).
+ * when `admin`, exactly `role` when it is named, and the same seat as the request's actor when `seatId` names it; no
+ * lifecycle witness hides the account, the owner or the seat. live_session takes no row lock, so a sign-out never waits
+ * for a running read. A write locks its authority instead (lockWriteAuthority, access_session).
  */
-export function liveRead(access: { session: string; owner: Owner; seatId?: string }, admin = false): SQL {
+export function liveRead(
+	access: { session: string; owner: Owner; seatId?: string; role?: z.infer<typeof role> },
+	admin = false,
+): SQL {
 	const { owner } = access;
 	const seat =
 		owner.kind === "account"
@@ -318,7 +321,7 @@ export function liveRead(access: { session: string; owner: Owner; seatId?: strin
 			: sql`EXISTS(SELECT FROM seat s WHERE s.account_id=i.account_id
  AND ${owner.kind === "organization" ? sql`s.organization_id` : sql`s.plant_id`}=${owner.id}::uuid
  AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp() ${access.seatId ? sql`AND s.id=${access.seatId}::uuid` : sql``}
- ${admin ? sql`AND s.role<>'member'` : sql``})`;
+ ${access.role ? sql`AND s.role=${access.role}` : admin ? sql`AND s.role<>'member'` : sql``})`;
 	return sql`EXISTS(SELECT FROM live_session(${access.session}::uuid) i WHERE i.registration_state='active'
  AND ${seat} AND ${writeVisibility(sql`i.account_id`, owner)})`;
 }
