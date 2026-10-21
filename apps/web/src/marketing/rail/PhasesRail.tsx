@@ -11,11 +11,12 @@ type Props = { headline: string; items: Item[] } & (
 	{ id: "features"; vignettes: "phases"; demo: PhaseDemo } | { id: "plants"; vignettes: "plants" }
 );
 
-/* Every card shows a blurred colorful photo with a cream number (Sebastian, R3 review). Five colorful photos fill six
-   cards, so a rail may reuse a photo shown elsewhere on its page, and one card uses a second crop. */
+/* Every card shows its own blurred colorful photo with a cream number (Sebastian, R3 review). None repeats a photo used
+   elsewhere on its page: home uses wildflowers (hero), blossom (vision) and meadow (sending); /oversight uses bluebells
+   (hero), lupins and swirl (sending paths). */
 const ART: Record<Props["vignettes"], PhotoName[]> = {
-	phases: ["bluebells", "poppies", "blossom", "meadow", "wildflowers", "bluebellsClose"],
-	plants: ["meadow", "poppies", "wildflowers", "blossom", "bluebells", "poppiesWide"],
+	phases: ["bluebells", "poppies", "marigolds", "lilies", "lupins", "swirl"],
+	plants: ["wildflowers", "poppies", "blossom", "meadow", "marigolds", "lilies"],
 };
 const num = (i: number) => String(i + 1).padStart(2, "0");
 

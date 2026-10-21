@@ -6,10 +6,14 @@ import blossom from "./files/blossom.jpg";
 import bluebells from "./files/bluebells.jpg";
 import field from "./files/field.jpg";
 import lake from "./files/lake.jpg";
+import lilies from "./files/lilies.jpg";
+import lupins from "./files/lupins.jpg";
+import marigolds from "./files/marigolds.jpg";
 import meadow from "./files/meadow.jpg";
 import plain from "./files/plain.jpg";
 import poppies from "./files/poppies.jpg";
 import reeds from "./files/reeds.jpg";
+import swirl from "./files/swirl.jpg";
 import wheat from "./files/wheat.jpg";
 import wildflowers from "./files/wildflowers.jpg";
 
@@ -37,10 +41,12 @@ export const PHOTOS = {
 	wildflowers: { src: wildflowers, pos: "60% 45%" },
 	blossom: { src: blossom, pos: "50% 40%" },
 	meadow: { src: meadow, pos: "40% 50%" },
-	// Second crops for the six-card rails: five colorful photos fill six cards (Sebastian's pick pending, see the task
-	// note). A rail may reuse a photo shown elsewhere on its page; other sections never repeat one.
-	bluebellsClose: { src: bluebells, pos: "80% 70%", zoom: 1.6 },
-	poppiesWide: { src: poppies, pos: "20% 60%", zoom: 1.2 },
+	// Added 2026-10-21 (Sebastian, R3 review). Unsplash: marigolds, lilies and lupins by Eugene Golovesov
+	// (S3XiypCkad8, o3rQjpUQZag, zUuJz_idfqM), swirl by Sydney Moore (qp4kjAjqtKs).
+	marigolds: { src: marigolds, pos: "50% 40%" },
+	lilies: { src: lilies, pos: "50% 45%" },
+	lupins: { src: lupins, pos: "50% 50%" },
+	swirl: { src: swirl, pos: "40% 50%" },
 } as const satisfies Record<string, Crop>;
 
 export type PhotoName = keyof typeof PHOTOS;

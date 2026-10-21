@@ -62,6 +62,10 @@
   --photo-wildflowers: image-set(url("assets/photos/wildflowers-1200.avif") type("image/avif"), url("assets/photos/wildflowers-1200.jpg") type("image/jpeg"));
   --photo-blossom: image-set(url("assets/photos/blossom-1200.avif") type("image/avif"), url("assets/photos/blossom-1200.jpg") type("image/jpeg"));
   --photo-meadow: image-set(url("assets/photos/meadow-1200.avif") type("image/avif"), url("assets/photos/meadow-1200.jpg") type("image/jpeg"));
+  --photo-marigolds: image-set(url("assets/photos/marigolds-1200.avif") type("image/avif"), url("assets/photos/marigolds-1200.jpg") type("image/jpeg"));
+  --photo-lilies: image-set(url("assets/photos/lilies-1200.avif") type("image/avif"), url("assets/photos/lilies-1200.jpg") type("image/jpeg"));
+  --photo-lupins: image-set(url("assets/photos/lupins-1200.avif") type("image/avif"), url("assets/photos/lupins-1200.jpg") type("image/jpeg"));
+  --photo-swirl: image-set(url("assets/photos/swirl-1200.avif") type("image/avif"), url("assets/photos/swirl-1200.jpg") type("image/jpeg"));
   --photo-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncG type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncB type='linear' slope='1.6' intercept='-.3'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 @media (max-width: 900px) {
@@ -75,6 +79,10 @@
     --photo-wildflowers: image-set(url("assets/photos/wildflowers-600.avif") type("image/avif"), url("assets/photos/wildflowers-600.jpg") type("image/jpeg"));
     --photo-blossom: image-set(url("assets/photos/blossom-600.avif") type("image/avif"), url("assets/photos/blossom-600.jpg") type("image/jpeg"));
     --photo-meadow: image-set(url("assets/photos/meadow-600.avif") type("image/avif"), url("assets/photos/meadow-600.jpg") type("image/jpeg"));
+    --photo-marigolds: image-set(url("assets/photos/marigolds-600.avif") type("image/avif"), url("assets/photos/marigolds-600.jpg") type("image/jpeg"));
+    --photo-lilies: image-set(url("assets/photos/lilies-600.avif") type("image/avif"), url("assets/photos/lilies-600.jpg") type("image/jpeg"));
+    --photo-lupins: image-set(url("assets/photos/lupins-600.avif") type("image/avif"), url("assets/photos/lupins-600.jpg") type("image/jpeg"));
+    --photo-swirl: image-set(url("assets/photos/swirl-600.avif") type("image/avif"), url("assets/photos/swirl-600.jpg") type("image/jpeg"));
   }
 }
 .photo { position: relative; isolation: isolate; overflow: hidden; background-color: #3A3529; color: #F6F0E9;
@@ -97,6 +105,10 @@
 [data-photo="wildflowers"] { --photo-src: var(--photo-wildflowers); --photo-pos: 60% 45%; }
 [data-photo="blossom"]     { --photo-src: var(--photo-blossom); --photo-pos: 50% 40%; }
 [data-photo="meadow"]      { --photo-src: var(--photo-meadow); --photo-pos: 40% 50%; }
+[data-photo="marigolds"]   { --photo-src: var(--photo-marigolds); --photo-pos: 50% 40%; }
+[data-photo="lilies"]      { --photo-src: var(--photo-lilies); --photo-pos: 50% 45%; }
+[data-photo="lupins"]      { --photo-src: var(--photo-lupins); --photo-pos: 50% 50%; }
+[data-photo="swirl"]       { --photo-src: var(--photo-swirl); --photo-pos: 40% 50%; }
 /* Small tiles and light crops that carry cream text or icons use a deeper overlay. */
 .photo-text { --photo-shade: .55; }
 
