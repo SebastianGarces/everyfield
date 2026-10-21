@@ -23,7 +23,8 @@ if (
 if (!localCi) source.searchParams.set("sslmode", "verify-full");
 
 const schema = "wp051_" + randomUUID().replaceAll("-", "");
-const role = "wp051_" + randomBytes(8).toString("hex");
+/** The suite's own runtime login; tests scope lock-wait checks to its sessions. */
+export const role = "wp051_" + randomBytes(8).toString("hex");
 export const admin = createDatabase({
 	connectionString: source.href,
 	max: 4,

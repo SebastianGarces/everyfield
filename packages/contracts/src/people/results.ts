@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { personId, recordId, accountId, operationId, revision, defineSafeError, safeError } from "../common/values.ts";
 import { instant, localDate, timeZone } from "../common/time.ts";
+import { csvError } from "./csv/index.ts";
 import {
 	contactFields,
 	plantOwner,
@@ -228,4 +229,5 @@ export const peopleError = z.discriminatedUnion("code", [
 	defineSafeError("unsupported_field", {}, "never"),
 	defineSafeError("use_reviewed_unmerge", {}, "refresh"),
 	defineSafeError("source_unavailable", {}, "same_request"),
+	...csvError,
 ]);
