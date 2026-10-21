@@ -209,7 +209,7 @@ test("AC:UI45-004 AC:UI45-003 AC:INH-REGRESSION-REVISED-APPROVAL AC:INH-REGRESSI
 		runs.map((r) => r.outcome),
 		["completed"],
 	);
-	assert.equal(runs[0]!.statements, 6);
+	assert.equal(runs[0]!.statements, 7);
 	const audits = await effectAudits(proposal.id);
 	const done = await readReview(db, owner, proposal.id);
 	assert.deepEqual(
@@ -421,5 +421,42 @@ test("AC:UI45-006 AC:EVRY-CONTEXT-BOUNDS a review's fields leave model input onc
 	assert.equal(
 		(await readReview(db, owner, (card.body.result as { proposalId: string }).proposalId)).review.withheld,
 		true,
+	);
+});
+
+test("AC:EVRY-LEASE-FENCE an executor whose lease expires while it waits for the publication locks does not publish", async () => {
+	const owner = await actor("owner");
+	const { proposal } = await propose(owner, "Change Chen's city to Aurora");
+	await approveProposal(db, owner, proposal.id, witness(proposal));
+	const before = await person(people.alexChen);
+	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
+	assert.ok(claim);
+	await admin.execute(
+		sql`UPDATE job SET lease_until=clock_timestamp()+interval '2000 milliseconds' WHERE id=${claim.id}`,
+	);
+	let running: Promise<string> | undefined;
+	// Another transaction holds the job row unchanged; the executor reaches publication and waits for its share lock
+	// until the lease has passed.
+	await admin.transaction(async (tx) => {
+		await tx.execute(sql`SELECT id FROM job WHERE id=${claim.id} FOR UPDATE`);
+		running = executeProposal(db, lease(claim));
+		// The executor's session (the test runtime role) waits on a lock; its query text is too long to match reliably.
+		for (let waiting = 0, deadline = Date.now() + 20_000; !waiting;) {
+			assert.ok(Date.now() < deadline, "the executor never waited for the job row");
+			const r = await admin.execute(
+				sql`SELECT count(*)::int n FROM pg_stat_activity WHERE wait_event_type='Lock' AND usename LIKE 'wp051\_%'`,
+			);
+			waiting = (r.rows[0] as { n: number }).n;
+		}
+		for (let passed = false; !passed;) {
+			const r = await admin.execute(sql`SELECT lease_until<=clock_timestamp() AS passed FROM job WHERE id=${claim.id}`);
+			passed = (r.rows[0] as { passed: boolean }).passed;
+		}
+	});
+	assert.equal(await running!, "lost");
+	const after = await readReview(db, owner, proposal.id);
+	assert.deepEqual(
+		[await effectAudits(proposal.id), (await person(people.alexChen)).city, after.outcome],
+		[[], before.city, "unknown"],
 	);
 });
