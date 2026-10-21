@@ -1022,5 +1022,13 @@
 	"meetings.readAnalytics": {
 		"limit": 1,
 		"retry": 2
+	},
+	"native.meetings.finalizeAttendance.assigned": {
+		"limit": 12,
+		"retry": 24
+	},
+	"meetings/core.withMeetingsWrite:native.meetings.finalizeAttendance.assigned": {
+		"limit": 12,
+		"retry": 24
 	}
 }

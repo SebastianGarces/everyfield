@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
+import { taskReminders } from "../../../apps/web/src/server/tasks/reminders.ts";
 import { claimDue, enqueueJob, finishClaim, queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { deletionOperations, issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/deletion.ts";
 import assert from "node:assert/strict";
@@ -579,6 +580,50 @@ try {
 		}),
 	);
 	assert.equal(evaluated.status, "ok");
+	// WP-022 with owned work: a Vision held an hour ago, finalized with an assigned follow-up and evaluation whose
+	// due and overdue notices are still in the future, through the real WP-031 reminder port.
+	const planned = createNotificationService({
+		mail: createMailService({
+			db: f.db,
+			encryptionKey: randomBytes(32),
+			addressKey: randomBytes(32),
+			from: "native@example.test",
+			authorize: async (_tx, values) => new Set(values.map((v) => v.id)),
+			transport: {
+				send: async () => ({ kind: "unknown" }),
+				lookup: async () => ({ kind: "accepted", id: "synthetic-provider" }),
+			},
+		}),
+		eligible: async (_tx, values) => values.map(() => ({ address: s.sender.email })),
+	});
+	const recent = randomUUID(),
+		heldAt = new Date(Date.now() - 3_600_000).toISOString();
+	await f.admin
+		.execute(sql`INSERT INTO meeting(id,plant_id,type,local_date,local_time,timezone,starts_at,resolver_version,
+		status,attendance_revision) VALUES(${recent},${s.w.id},'vision_meeting',${heldAt.slice(0, 10)},'00:00','UTC',
+		${heldAt},'1','completed',1)`);
+	const owned = await measure("native.meetings.finalizeAttendance.assigned", () =>
+		withMeetingsWrite(f.db, actor, (tx, ctx) =>
+			createAttendanceWriter({ reminders: taskReminders(planned) }).finalizeAttendance(tx, ctx, {
+				requestKey: randomUUID(),
+				expectedRevision: "1",
+				input: {
+					meetingId: recent,
+					attendeeIds: [created.value.person.id],
+					followUpAssigneeId: s.sender.id,
+					evaluationAssigneeId: s.sender.id,
+				},
+			}),
+		),
+	);
+	assert.equal(owned.status, "ok", JSON.stringify(owned));
+	assert.equal(
+		(
+			await f.admin.execute(sql`SELECT count(*)::int n FROM notice n JOIN task t ON t.id=n.source_record_id
+			JOIN obligation b ON b.id=t.obligation_id WHERE b.meeting_id=${recent}`)
+		).rows[0].n > 0,
+		true,
+	);
 	const ordinary = await f.account(),
 		ordinarySeat = await f.seat(ordinary, s.w, "admin");
 	const role = await f.seats.changeOrdinaryRole(actor, s.w, {

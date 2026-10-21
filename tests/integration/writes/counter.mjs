@@ -112,7 +112,15 @@ function observeDatabase(db) {
 	});
 	return db;
 }
-globalThis.__evfWriteCounts = { measure, decorate, observeDatabase };
+/**
+ * A shared native wrapper measured inside a named boundary check takes that check's name as its variant, so an
+ * operation with a larger reviewed budget gets its own limit and every other call keeps the wrapper's own budget.
+ */
+const within = () => {
+	const outer = frames.getStore()?.at(-1);
+	return outer ? ":" + outer.name : "";
+};
+globalThis.__evfWriteCounts = { measure, decorate, observeDatabase, within };
 
 registerHooks({
 	load(url, context, next) {
@@ -176,7 +184,7 @@ registerHooks({
 					edits.push(
 						[
 							n.body.getStart(ast) + 1,
-							`return await globalThis.__evfWriteCounts.measure(${JSON.stringify(name)},async()=>{`,
+							`return await globalThis.__evfWriteCounts.measure(${JSON.stringify(name)}+globalThis.__evfWriteCounts.within(),async()=>{`,
 						],
 						[n.body.end - 1, "});"],
 					);
