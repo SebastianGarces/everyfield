@@ -186,6 +186,9 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `person(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `person(tenant_id)` | `tenant(id)` | restrict |  |
 | `person(organization_id)` | `organization(id)` | restrict |  |
+| `person_import(actor_id)` | `account(id)` | set_null |  |
+| `person_import(job_id, tenant_id)` | `job(id, tenant_id)` | cascade |  |
+| `person_import(tenant_id)` | `tenant(id)` | no_action |  |
 | `person_note(plant_id)` | `plant(id)` | restrict |  |
 | `person_note(person_id, tenant_id)` | `person(id, tenant_id)` | restrict |  |
 | `person_note(author_id)` | `account(id)` | restrict |  |
@@ -223,6 +226,11 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `plant_geography(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `platform_grant(account_id)` | `account(id)` | restrict |  |
 | `platform_grant(id, account_id)` | `record(id, tenant_id)` | restrict |  |
+| `proposal(account_id)` | `account(id)` | no_action |  |
+| `proposal(approved_session_id)` | `auth_session(id)` | set_null |  |
+| `proposal(conversation_id, tenant_id)` | `conversation(id, tenant_id)` | cascade |  |
+| `proposal(job_id, tenant_id)` | `job(id, tenant_id)` | no_action |  |
+| `proposal(tenant_id)` | `tenant(id)` | no_action |  |
 | `provider_event(mail_id)` | `mail(id)` | restrict | Signed external event may refer to mail in any tenant; restrict callback processing to its exact provider/message identity. |
 | `provider_event(id)` | `record(id)` | restrict |  |
 | `reading(account_id)` | `account(id)` | restrict |  |

@@ -287,6 +287,26 @@
 		"limit": 6,
 		"retry": 12
 	},
+	"native.people.previewImport": {
+		"limit": 3,
+		"retry": 6
+	},
+	"native.people.executeBulkImport": {
+		"limit": 2,
+		"retry": 4
+	},
+	"native.people.runPeopleImport": {
+		"limit": 3,
+		"retry": 6
+	},
+	"native.people.getImportReceipt": {
+		"limit": 3,
+		"retry": 6
+	},
+	"native.people.exportPeople": {
+		"limit": 3,
+		"retry": 6
+	},
 	"native.settings.account": {
 		"limit": 5,
 		"retry": 10
