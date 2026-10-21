@@ -4,14 +4,15 @@ import { motionValue } from "motion/react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useReduced, useTicker } from "@/components/motion/scene";
 import { DeskBg, DeskPanel, sel } from "../chapters/ScrollChapter";
+import type { Backdrop } from "../photo/photos";
 import { SCENES, type PanelKind } from "../scene-data";
 
 /**
- * One product panel on its gradient frame, outside a chapter (the Evry section). It plays once to its end when it first
+ * One product panel on its photo frame, outside a chapter (the Evry section). It plays once to its end when it first
  * comes on screen and holds there, as a step of an auto list does. Reduced motion shows the still frame. The panel is a
  * picture (aria-hidden); the section's text carries the meaning.
  */
-export function SoloPanel({ kind, tone, children }: { kind: PanelKind; tone: string; children: ReactNode }) {
+export function SoloPanel({ kind, bg, children }: { kind: PanelKind; bg: Backdrop; children: ReactNode }) {
 	const reduced = useReduced();
 	const root = useRef<HTMLDivElement>(null);
 	const [c] = useState(() => ({
@@ -63,7 +64,7 @@ export function SoloPanel({ kind, tone, children }: { kind: PanelKind; tone: str
 			data-idle={on && !reduced ? undefined : ""}
 			className="ef-ui relative isolate grid h-[560px] place-items-center overflow-hidden rounded-frame shadow-mk-frame max-mk-cx:h-auto max-mk-cx:grid-cols-[minmax(0,1fr)] max-mk-cx:rounded-card max-mk-cx:px-4 max-mk-cx:pt-11 max-mk-cx:pb-7"
 		>
-			<DeskBg tone={tone} sw={c.sw} sel={c.sel} i={0} />
+			<DeskBg bg={bg} sw={c.sw} sel={c.sel} i={0} />
 			<div aria-hidden="true" className="contents">
 				<DeskPanel sw={c.sw} sel={c.sel} i={0} t={c.t} since={c.since} place="auto">
 					{children}

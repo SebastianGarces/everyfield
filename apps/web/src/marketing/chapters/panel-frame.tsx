@@ -74,8 +74,8 @@ export function useGeo() {
 }
 
 export type CardVariant =
-	{ kind: "card" } | { kind: "insight"; tone: "sage" | "rose" | "sky" } | { kind: "evry" } | { kind: "clip" };
-const INSIGHT_TONE = { sage: "g-sage", rose: "g-rose", sky: "g-sky" } as const;
+	{ kind: "card" } | { kind: "insight"; tone: "field" | "rose" | "sky" } | { kind: "evry" } | { kind: "clip" };
+const INSIGHT_TONE = { field: "g-field", rose: "g-rose", sky: "g-sky" } as const;
 
 /**
  * The white product card a chapter shows (or a gradient InsightCard, the Evry chat, or the follow-up card whose shell
@@ -122,7 +122,7 @@ export function PanelCard({
 			ref={ref}
 			data-k={kind}
 			className={cn(
-				"relative z-[2] col-start-1 row-start-1 rounded-[22px] will-change-[transform,opacity]",
+				"relative z-[2] col-start-1 row-start-1 will-change-[transform,opacity]",
 				slot.place === "vis"
 					? "w-[min(400px,calc(100%-48px))] opacity-0"
 					: slot.place === "mob"

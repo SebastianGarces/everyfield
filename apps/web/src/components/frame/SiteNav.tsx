@@ -132,14 +132,14 @@ type BarProps = {
 };
 
 const LINK =
-	"whitespace-nowrap rounded-nav-item px-[11px] py-2 text-text-2 no-underline hover:bg-linen hover:text-ink " +
+	"whitespace-nowrap rounded-nav-item px-[11px] py-2 text-text-2 no-underline hover:bg-mk-line hover:text-ink " +
 	"aria-[current=page]:font-semibold aria-[current=page]:text-ink max-mk-nav:px-2 max-mk-nav:py-3 max-mk-nav:type-lg";
 const MENU = {
 	inflow:
 		"max-mk-nav:absolute max-mk-nav:inset-x-0 max-mk-nav:top-[70px] max-mk-nav:flex-col max-mk-nav:border-b max-mk-nav:border-mk-line " +
 		"max-mk-nav:bg-mk-canvas max-mk-nav:px-page max-mk-nav:pt-3 max-mk-nav:pb-5 max-mk-nav:shadow-mk-menu max-mk-sm:top-16",
 	pill:
-		"max-mk-nav:absolute max-mk-nav:inset-x-0 max-mk-nav:top-[calc(100%_+_8px)] max-mk-nav:flex-col max-mk-nav:rounded-[24px] max-mk-nav:border " +
+		"max-mk-nav:absolute max-mk-nav:inset-x-0 max-mk-nav:top-[calc(100%_+_8px)] max-mk-nav:flex-col max-mk-nav:border " +
 		"max-mk-nav:border-mk-line max-mk-nav:bg-white max-mk-nav:px-4 max-mk-nav:pt-3 max-mk-nav:pb-4 max-mk-nav:shadow-mk-menu",
 };
 
@@ -173,7 +173,7 @@ function NavBar({ which, links, cta, logo, arrow, menuIcon, open, toggleRef, onT
 					<Link
 						href={cta.href}
 						aria-current={cta.current ? "page" : undefined}
-						className="mt-2 hidden h-12 items-center self-start whitespace-nowrap rounded-md bg-ink px-5 type-lg font-semibold text-white no-underline hover:bg-ink-2 active:translate-y-px max-mk-xs:inline-flex"
+						className="mt-2 hidden h-12 items-center self-start whitespace-nowrap bg-ink px-5 type-lg font-semibold text-cream no-underline hover:bg-ink-2 active:translate-y-px max-mk-xs:inline-flex"
 					>
 						{cta.label}
 					</Link>
@@ -196,7 +196,7 @@ function NavBar({ which, links, cta, logo, arrow, menuIcon, open, toggleRef, onT
 					aria-controls={menuId}
 					onClick={onToggle}
 					className={cn(
-						"hidden cursor-pointer place-items-center rounded-nav-item border-0 bg-linen text-ink hover:bg-mk-surface-3 max-mk-nav:grid",
+						"hidden cursor-pointer place-items-center rounded-nav-item border-0 bg-cream text-ink hover:bg-mk-surface-3 max-mk-nav:grid",
 						pill ? "size-11 max-mk-sm:size-[42px]" : "size-[42px]",
 					)}
 				>

@@ -147,7 +147,7 @@ export function HelpPanel() {
 	const n = EASTSIDE_DAYS;
 	return (
 		<OversightFx>
-			<PanelCard kind="help" variant={{ kind: "insight", tone: "sky" }} className="min-w-0">
+			<PanelCard kind="help" variant={{ kind: "insight", tone: "rose" }} className="min-w-0">
 				<InsightTop i={0} icon={ICONS.compass} label="Where help could matter" count="Eastside Commons" />
 				<InsightMetric i={1} num={<Count fx="help.days" max={n} />} unit="days to Launch Sunday" unitMax={150} />
 				<St i={2} className={INSIGHT_TITLE}>{`Two leader roles are open, ${n} days before launch`}</St>

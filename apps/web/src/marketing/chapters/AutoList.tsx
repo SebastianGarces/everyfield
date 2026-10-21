@@ -6,10 +6,11 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type Reac
 import { cn } from "@/components/cn";
 import { clamp } from "@/components/motion/curves";
 import { useTicker, useReduced } from "@/components/motion/scene";
+import type { Backdrop as Bg } from "../photo/photos";
 import { SCENES, type PanelKind } from "../scene-data";
 import { DeskBg, DeskPanel, useStepReveal, sel } from "./ScrollChapter";
 
-export type AutoStep = { kind: PanelKind; panel: ReactNode; tone: string; title: string; body: string };
+export type AutoStep = { kind: PanelKind; panel: ReactNode; bg: Bg; title: string; body: string };
 type Props = {
 	id: string;
 	/** The section heading block (h2 with id `${id}-title`), rendered on the server. */
@@ -215,7 +216,7 @@ export function AutoList({ id, head, mirror, steps }: Props) {
 							className="ef-ui relative isolate grid h-[560px] place-items-center overflow-hidden rounded-frame shadow-mk-frame max-mk-cx:h-auto max-mk-cx:grid-cols-[minmax(0,1fr)] max-mk-cx:rounded-card max-mk-cx:px-4 max-mk-cx:pt-11 max-mk-cx:pb-7"
 						>
 							{steps.map((st, i) => (
-								<DeskBg key={i} tone={st.tone} sw={c.sw} sel={c.sel} i={i} />
+								<DeskBg key={i} bg={st.bg} sw={c.sw} sel={c.sel} i={i} />
 							))}
 							{steps.map((st, i) => (
 								<div key={i} aria-hidden="true" className="contents">

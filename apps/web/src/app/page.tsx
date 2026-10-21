@@ -27,6 +27,7 @@ export default function Home() {
 	return (
 		<Site path="/" footerHeadline={S.footer.headline_home_oversight}>
 			<HeroPanel
+				photo="wildflowers"
 				headline={J.hero.headline}
 				subhead={J.hero.subhead}
 				primary={{ label: J.hero.cta_primary, href: ACCESS_PATH }}

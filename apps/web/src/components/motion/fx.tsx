@@ -231,7 +231,7 @@ export function Hl({
 	const r = (R ? reg[R] : ONE) as ((t: number, n: number) => number) | undefined;
 	if (!r) throw new Error(`no frame function "${R}" in this panel's registry`);
 	const opacity = useTransform(useT(), (v) => +flash(v, a, b, r(v, 0)).toFixed(3));
-	return <m.span className={cn("absolute -z-1 rounded-[14px] opacity-0", box)} style={{ opacity }} />;
+	return <m.span className={cn("absolute -z-1 opacity-0", box)} style={{ opacity }} />;
 }
 
 /** A confirm button that is also a cursor target. R names the scene's loop reset, if it has one. */
@@ -261,14 +261,11 @@ export function Field({ fx, n, children, className }: Leaf) {
 	return (
 		<div
 			className={cn(
-				"relative flex h-[38px] items-center gap-2 overflow-hidden rounded-[11px] bg-surface px-3 type-md font-medium whitespace-nowrap text-ink shadow-[inset_0_0_0_1px_var(--color-line-2)]",
+				"relative flex h-[38px] items-center gap-2 overflow-hidden bg-surface px-3 type-md font-medium whitespace-nowrap text-ink shadow-[inset_0_0_0_1px_var(--color-line-2)]",
 				className,
 			)}
 		>
-			<m.span
-				className="pointer-events-none absolute inset-0 rounded-[11px] opacity-0 shadow-mk-field-focus"
-				style={{ opacity }}
-			/>
+			<m.span className="pointer-events-none absolute inset-0 opacity-0 shadow-mk-field-focus" style={{ opacity }} />
 			{children}
 		</div>
 	);

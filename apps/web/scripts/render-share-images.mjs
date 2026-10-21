@@ -1,10 +1,11 @@
 // Renders the share images (Open Graph and X cards) for / and /oversight into src/app as static metadata files.
 // Run from apps/web: `node scripts/render-share-images.mjs`. `--check` exits 1 when an image is out of date
-// (copy, styles, logo, fonts or this script changed since the last render, or a PNG was edited by hand).
+// (copy, styles, logo, fonts, photos or this script changed since the last render, or a PNG was edited by hand).
 //
-// Why a browser: each image is the site's card surface (base colour, blurred OKLCH mesh, film grain with
-// mix-blend-mode: overlay; CARD_CSS below). next/og cannot blur, interpolate in OKLCH or blend, so Chromium renders
-// the real CSS once and the PNGs are committed. Vercel builds have no browser, so this runs locally, not in `next build`.
+// Why a browser: each image is the page's hero in the fade style (foundations.md, Brand): the treated hero photo (20 %
+// black overlay, film grain with mix-blend-mode: overlay) fading up from the canvas under the ink lockup and the hero
+// copy. next/og cannot mask or blend, so Chromium renders the CSS once and the PNGs are committed. Vercel builds have no
+// browser, so this runs locally, not in `next build`.
 // Why sharp: grain does not compress; a palette PNG keeps each image under 300 KB, the limit WhatsApp and similar
 // apps are reported to apply to link previews. Next.js already depends on sharp; it is declared here as a dev tool.
 import { createHash } from "node:crypto";
@@ -19,13 +20,14 @@ const SIZE = { width: 1200, height: 630 };
 // Copy: the approved hero copy in design/marketing-copy.json (the same fields src/marketing/meta.ts uses).
 const copy = JSON.parse(read("../../../design/marketing-copy.json").toString().replace(/Everyfield/g, "EveryField"));
 const IMAGES = [
-  { dir: "../src/app", tone: "field", hero: copy.directions[0].sections.hero },
-  { dir: "../src/app/oversight", tone: "sky", hero: copy.shared.oversight_page.hero },
+  { dir: "../src/app", photo: "wildflowers", hero: copy.directions[0].sections.hero },
+  { dir: "../src/app/oversight", photo: "bluebells", hero: copy.shared.oversight_page.hero },
 ];
 const alt = (h) => `EveryField: ${h.headline} ${h.subhead}`; // shareAlt in src/marketing/meta.ts
 
-const INPUTS = ["./render-share-images.mjs", "../src/marketing/logo-symbols.ts",
-  "../src/marketing/share-fonts/bricolage-grotesque-500.woff", "../src/marketing/share-fonts/instrument-sans-500.woff"];
+const FONTS = ["../src/marketing/share-fonts/dm-serif-display-400.woff2", "../src/marketing/share-fonts/dm-sans-500.woff2"];
+const photoFile = (img) => `../public/photos/${img.photo}-1200.jpg`;
+const INPUTS = ["./render-share-images.mjs", "../src/marketing/logo-symbols.ts", ...FONTS, ...IMAGES.map(photoFile)];
 const sha = (b) => createHash("sha256").update(b).digest("hex");
 const inputHash = () => sha(Buffer.concat([...INPUTS.map(read), Buffer.from(JSON.stringify(IMAGES))]));
 const LOCK = "./share-images.lock.json";
@@ -34,7 +36,7 @@ const outputs = (img) => ["opengraph-image.png", "twitter-image.png"].map((f) =>
 if (process.argv.includes("--check")) {
   const lock = JSON.parse(read(LOCK).toString());
   const stale = [];
-  if (lock.inputs !== inputHash()) stale.push("copy, styles, logo, fonts or the script changed");
+  if (lock.inputs !== inputHash()) stale.push("copy, styles, logo, fonts, photos or the script changed");
   for (const img of IMAGES) {
     for (const f of outputs(img)) if (lock.outputs[f] !== sha(read(f))) stale.push(`${f} differs from the last render`);
     for (const f of outputs(img).map((p) => p.replace(".png", ".alt.txt"))) if (read(f).toString() !== alt(img.hero)) stale.push(`${f} is out of date`);
@@ -52,56 +54,34 @@ const sharp = (await import("sharp")).default;
 const literal = read("../src/marketing/logo-symbols.ts").toString().match(/LOGO_SYMBOLS =\s*(".*");/s)?.[1];
 if (!literal) throw new Error("logo-symbols.ts: LOGO_SYMBOLS not found");
 const symbols = JSON.parse(literal);
-const fontUrl = (f) => "data:font/woff;base64," + read(`../src/marketing/share-fonts/${f}`).toString("base64");
+const dataUrl = (p, type) => `data:${type};base64,` + read(p).toString("base64");
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-const CARD_CSS = `/* The site's card surface as it was when the images were approved (the blurred OKLCH mesh, not the mesh image the
-   pages use since R2): copied from the prototype CSS, rules the card matches only. */
-:root { --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif; --font-body: var(--font-instrument), ui-sans-serif, system-ui, sans-serif; }
-*, *::before, *::after { box-sizing: border-box; }
-body { margin: 0; background: #FCFBF8; color: #181D19; font-family: var(--font-body); font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
-svg { display: block; }
-p { margin: 0; }
-h1 { margin: 0; font-weight: inherit; }
-.gsurf { position: relative; overflow: hidden; isolation: isolate; background: var(--g-base); --on: #181D19; }
-.gsurf::before {
-  content: ""; position: absolute; inset: -25%; z-index: -2; pointer-events: none;
-  background:
-    radial-gradient(in oklch circle at 82% 18%, var(--g5) 0%, transparent 22%),
-    radial-gradient(in oklch 38% 44% at 24% 26%, var(--g1) 0%, transparent 72%),
-    radial-gradient(in oklch 44% 48% at 74% 38%, var(--g2) 0%, transparent 72%),
-    radial-gradient(in oklch 46% 42% at 64% 80%, var(--g3) 0%, transparent 72%),
-    radial-gradient(in oklch 36% 38% at 26% 78%, var(--g4) 0%, transparent 72%);
-  filter: blur(52px) saturate(1.1);
-}
-.gsurf::after {
-  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncG type='linear' slope='1.6' intercept='-.3'/%3E%3CfeFuncB type='linear' slope='1.6' intercept='-.3'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size: 260px 260px; opacity: .42; mix-blend-mode: overlay;
-}
-[data-tone="field"] { --g-base: #1CD25E; --g1: #1CE362; --g2: #4BEC86; --g3: #12C456; --g4: #0FA94A; --g5: #EFFFD9; }
-[data-tone="sky"] { --g-base: #93C6FF; --g1: #A6D1FF; --g2: #7DB6FF; --g3: #C5E3FF; --g4: #6AA6F7; --g5: #F5FAFF; }
-.display { font-family: var(--font-display); font-weight: 500; letter-spacing: -0.035em; line-height: 1.04; font-stretch: 100%; text-wrap: balance; }
-.logo { display: inline-flex; align-items: center; gap: 10px; color: #181D19; flex: none; }
-.logo .lw { overflow: visible; }`;
+const GRAIN = read("../src/styles/marketing.css").toString().match(/--mk-grain: (url\("data:image\/svg\+xml[^"]+"\));/)?.[1];
+if (!GRAIN) throw new Error("marketing.css: --mk-grain not found");
 
+// The hero in the fade style (HeroPanel, the mk-photo and hero-fade utilities in marketing.css), at share-card size: the
+// photo is clear to 40 % of the height and full from 100 %, so the ink copy sits on the canvas.
 const page = (img) => `<!doctype html><html><head><meta charset="utf-8">
-<style>${CARD_CSS}</style>
 <style>
-@font-face { font-family: "Share Bricolage"; src: url(${fontUrl("bricolage-grotesque-500.woff")}) format("woff"); font-weight: 500; }
-@font-face { font-family: "Share Instrument"; src: url(${fontUrl("instrument-sans-500.woff")}) format("woff"); font-weight: 500; }
-:root { --font-bricolage: "Share Bricolage"; --font-instrument: "Share Instrument"; }
-html, body { margin: 0; background: #FCFBF8; }
-#card { width: ${SIZE.width}px; height: ${SIZE.height}px; box-sizing: border-box; padding: 64px 80px 60px; display: flex; flex-direction: column; justify-content: space-between; }
-#card .logo { gap: 20px; }
-#card .logo .lm { width: 54px; height: 44px; color: #181D19; }
-#card .logo .lw { width: 224px; height: 47px; color: #181D19; }
-#card h1 { margin: 0; font-size: 88px; max-width: 1000px; color: var(--on); }
-#card p { margin: 28px 0 0; font-family: var(--font-body); font-weight: 500; font-size: 28px; line-height: 1.35; max-width: 1000px; color: var(--on); text-wrap: balance; }
+@font-face { font-family: "Share Serif"; src: url(${dataUrl(FONTS[0], "font/woff2")}) format("woff2"); font-weight: 400; }
+@font-face { font-family: "Share Sans"; src: url(${dataUrl(FONTS[1], "font/woff2")}) format("woff2"); font-weight: 500; }
+html, body { margin: 0; background: #FCFBF8; color: #181D19; -webkit-font-smoothing: antialiased; }
+svg { display: block; }
+#card { position: relative; isolation: isolate; width: ${SIZE.width}px; height: ${SIZE.height}px; box-sizing: border-box; padding: 64px 80px; display: flex; flex-direction: column; gap: 56px; overflow: hidden; }
+.bg { position: absolute; inset: 0; z-index: -1; --a: 40%; --d: 60%;
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,0) var(--a), rgba(0,0,0,.03) calc(var(--a) + var(--d) * .15), rgba(0,0,0,.1) calc(var(--a) + var(--d) * .3), rgba(0,0,0,.22) calc(var(--a) + var(--d) * .45), rgba(0,0,0,.4) calc(var(--a) + var(--d) * .6), rgba(0,0,0,.62) calc(var(--a) + var(--d) * .75), rgba(0,0,0,.85) calc(var(--a) + var(--d) * .9), #000 calc(var(--a) + var(--d))); }
+.bg img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: brightness(.8); }
+.bg::after { content: ""; position: absolute; inset: 0; background: ${GRAIN} 0 0 / 260px 260px; opacity: .34; mix-blend-mode: overlay; }
+.lockup { align-self: flex-start; width: auto; height: 44px; aspect-ratio: 1308 / 241; color: #181D19; }
+h1 { margin: 0; font-family: "Share Serif", serif; font-weight: 400; font-size: 76px; line-height: 1.04; letter-spacing: -0.02em; max-width: 1000px; text-wrap: balance; }
+p { margin: 24px 0 0; font-family: "Share Sans", sans-serif; font-weight: 500; font-size: 28px; line-height: 1.35; max-width: 960px; text-wrap: balance; }
 </style></head>
-<body><svg width="0" height="0" style="position:absolute" aria-hidden="true">${symbols}</svg>
-<div id="card" class="gsurf" data-tone="${img.tone}">
-  <span class="logo"><svg class="lm" viewBox="0 0 657 530"><use href="#ef-mark"/></svg><svg class="lw" viewBox="0 0 890 186"><use href="#ef-wordmark"/></svg></span>
-  <div><h1 class="display">${esc(img.hero.headline)}</h1><p>${esc(img.hero.subhead)}</p></div>
+<body><svg width="0" height="0" style="position:absolute" aria-hidden="true">${symbols}
+<symbol id="ef-lockup" viewBox="0 0 1308 241"><use href="#ef-symbol" x="0" y="23.668" width="192.33" height="192.33"/><use href="#ef-wordmark" x="256.489" y="0" width="1052" height="241"/></symbol></svg>
+<div id="card">
+  <span class="bg"><img src="${dataUrl(photoFile(img), "image/jpeg")}" alt=""></span>
+  <svg class="lockup" viewBox="0 0 1308 241"><use href="#ef-lockup"/></svg>
+  <div><h1>${esc(img.hero.headline)}</h1><p>${esc(img.hero.subhead)}</p></div>
 </div></body></html>`;
 
 const browser = await chromium.launch();

@@ -32,11 +32,11 @@ export function AppFrame({
 	return (
 		<div className={cn("ef-ui overflow-hidden rounded-frame border border-line bg-frame shadow-mk-app", className)}>
 			<div className="flex items-center gap-3 px-4 py-3">
-				<span className="grid size-10 flex-none place-items-center rounded-[12px] bg-green-500 text-ink">
-					<Mark className="h-4 w-5" />
+				<span className="grid size-10 flex-none place-items-center bg-green-500 text-ink">
+					<Mark className="size-5" />
 				</span>
 				{tabs ? (
-					<span className="flex gap-0.5 rounded-[13px] bg-surface-raised p-1 shadow-[0_0_0_1px_var(--color-line)]">
+					<span className="flex gap-0.5 bg-surface-raised p-1 shadow-[0_0_0_1px_var(--color-line)]">
 						{["Overview", "People", "Meetings", "Tasks"].map((x, i) => (
 							<span
 								key={x}
@@ -75,7 +75,7 @@ export function DashCard({ className, children }: { className?: string; children
 	return (
 		<div
 			className={cn(
-				"relative flex min-w-0 flex-col rounded-[22px] border border-[color:var(--ef-card-edge)] bg-surface px-[22px] py-5 shadow-card",
+				"relative flex min-w-0 flex-col border border-[color:var(--ef-card-edge)] bg-surface px-[22px] py-5 shadow-card",
 				className,
 			)}
 		>
@@ -114,7 +114,7 @@ export function Delta({ dir, children }: { dir: "up" | "down"; children: ReactNo
 	return (
 		<span
 			className={cn(
-				"inline-flex h-[26px] items-center gap-1.5 rounded-full bg-surface-raised px-2.5 type-sm font-semibold whitespace-nowrap shadow-[inset_0_0_0_1px_var(--color-line)]",
+				"inline-flex h-[26px] items-center gap-1.5 bg-surface-raised px-2.5 type-sm font-semibold whitespace-nowrap shadow-[inset_0_0_0_1px_var(--color-line)]",
 				"before:border-x-[5px] before:border-x-transparent before:content-['']",
 				dir === "up"
 					? "before:border-b-[7px] before:border-b-green-500"

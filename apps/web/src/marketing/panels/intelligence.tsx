@@ -106,21 +106,18 @@ export function EvryPanel({ demo }: { demo: EvryDemo }) {
 						<div className="type-xs text-text-3">Reads and drafts. You approve every change.</div>
 					</div>
 				</St>
-				<St
-					i={1}
-					className="max-w-[86%] self-end rounded-2xl rounded-br-xs bg-ink px-3.5 py-[11px] type-sm leading-[1.45] text-on-ink"
-				>
+				<St i={1} className="max-w-[86%] self-end bg-ink px-3.5 py-[11px] type-sm leading-[1.45] text-on-ink">
 					<Typed text={demo.q} fx="evry.q" />
 				</St>
 				<Move
 					fx="evry.aIn"
-					className="max-w-[86%] self-start rounded-2xl rounded-bl-xs bg-surface-2 px-3.5 py-[11px] type-sm leading-[1.45] opacity-0"
+					className="max-w-[86%] self-start bg-surface-2 px-3.5 py-[11px] type-sm leading-[1.45] opacity-0"
 				>
 					<Typed text={demo.a} fx="evry.a" />
 				</Move>
 				<Move
 					fx="evry.card"
-					className="overflow-hidden rounded-[18px] bg-white opacity-0 shadow-[inset_0_0_0_1px_var(--color-line),var(--shadow-raised)]"
+					className="overflow-hidden bg-white opacity-0 shadow-[inset_0_0_0_1px_var(--color-line),var(--shadow-raised)]"
 				>
 					<div className="flex items-center gap-2.5 border-b border-mk-amber-500-18 bg-amber-50 px-4 py-3 type-sm font-semibold text-amber-600">
 						<Icon icon={ICONS.edit} />
@@ -187,7 +184,7 @@ export function SharePanel({ unshared }: { unshared: string }) {
 						{i === 1 ? <ShareSwitch /> : <Switch on={!!r[1]} lock={!!r[2]} />}
 					</St>
 				))}
-				<St i={5} className="mt-3 rounded-[14px] bg-surface-2 px-3.5 py-3">
+				<St i={5} className="mt-3 bg-surface-2 px-3.5 py-3">
 					<div className="type-xs text-text-3">What Grace Church sees</div>
 					<div className="mt-1.5 flex items-center justify-between gap-2 type-sm font-semibold">
 						<span>Harvest Point · Phase 1</span>

@@ -56,8 +56,8 @@ export function Wipe({ fx, n, children }: { fx: string; n?: number; children: Re
 	const win = useTransform(t, (v) => "translate3d(" + (-(1 - p(v)) * 100).toFixed(2) + "%,0,0)");
 	const back = useTransform(t, (v) => "translate3d(" + ((1 - p(v)) * 100).toFixed(2) + "%,0,0)");
 	return (
-		<div className="h-2 overflow-hidden rounded-full">
-			<m.div className="h-full overflow-hidden rounded-full will-change-transform" style={{ transform: win }}>
+		<div className="h-2 overflow-hidden">
+			<m.div className="h-full overflow-hidden will-change-transform" style={{ transform: win }}>
 				<m.div className="flex h-full gap-0.5 will-change-transform" style={{ transform: back }}>
 					{children}
 				</m.div>

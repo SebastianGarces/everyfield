@@ -5,6 +5,8 @@ import { ButtonLink } from "@/components/ButtonLink";
 import { Display } from "@/components/Display";
 import { Icon } from "@/components/Icon";
 import { Reveal } from "@/components/motion/Reveal";
+import { Backdrop } from "../photo/Backdrop";
+import type { PhotoName } from "../photo/photos";
 
 type Props = {
 	headline: string;
@@ -16,16 +18,18 @@ type Props = {
 	/** "dashboard" (/oversight, Revision 24): a wider lead, and the band is a window of fixed height onto a large
 	 *  dashboard that runs to the panel's bottom edge. */
 	band?: "dashboard";
+	/** The page's hero photo (foundations.md: home = wildflowers, /oversight = bluebells). The page's only preloaded image. */
+	photo: PhotoName;
 };
 
 const arrow = <Icon icon={ArrowRight02Icon} size={17} />;
 
 /**
- * The page hero (Revision 3): one rounded panel with the field gradient, which fades to the page at the top (Revision 7).
+ * The page hero (Revision 3): one panel with a treated photo, which fades up from the page (the fade style, 2026-10-20 rebrand).
  * It is wider than the page column: 8 to 24 px window margins, and at most the nav width plus 56 px on each side (Revision 23).
- * Headline, lead and buttons are centred; the product visual sits on the green below them.
+ * Headline, lead and buttons are centred in ink on the faded top; the product visual sits on the photo below them.
  */
-export function HeroPanel({ headline, subhead, primary, secondary, children, band }: Props) {
+export function HeroPanel({ headline, subhead, primary, secondary, children, band, photo }: Props) {
 	const dash = band === "dashboard";
 	return (
 		<section
@@ -35,23 +39,17 @@ export function HeroPanel({ headline, subhead, primary, secondary, children, ban
 			<div className="px-[clamp(8px,1.67vw,24px)]">
 				<div
 					className={cn(
-						"relative isolate mx-auto max-w-[calc(var(--container-mk)+112px)] rounded-frame px-[clamp(14px,4vw,64px)] pt-[clamp(56px,9vw,128px)] text-ink shadow-mk-hero-panel",
+						"relative isolate mx-auto max-w-[calc(var(--container-mk)+112px)] px-[clamp(14px,4vw,64px)] pt-[clamp(56px,9vw,128px)] text-ink shadow-mk-hero-panel",
 						dash ? "pb-0" : "pb-[clamp(16px,2.2vw,32px)]",
 					)}
 				>
-					<span
-						aria-hidden="true"
-						className="mk-gsurf g-field hero-fade pointer-events-none absolute inset-0 -z-1 rounded-[inherit]"
-					/>
-					<Display as="h1" size="hero" className="mx-auto max-w-[14ch] text-mk-hero-title">
+					<Backdrop bg={photo} priority sizes="100vw" className="hero-fade pointer-events-none absolute inset-0 -z-1" />
+					<Display as="h1" size="hero" className="mx-auto max-w-[14ch]">
 						{headline}
 					</Display>
 					<div className="mt-[clamp(18px,2.1vw,30px)] flex flex-col items-center gap-[clamp(24px,2.8vw,40px)]">
 						<p
-							className={cn(
-								"mx-auto text-mk-lead-sm leading-[1.5] text-ink/72",
-								dash ? "max-w-[700px]" : "max-w-[560px]",
-							)}
+							className={cn("mx-auto text-mk-lead-sm leading-[1.5] text-ink", dash ? "max-w-[700px]" : "max-w-[560px]")}
 						>
 							{subhead}
 						</p>
