@@ -1681,6 +1681,10 @@ test("INV-performance: photo, own time zone and deletion writes use a fixed smal
 		status: "available",
 		avatar: { accountId: a.id, versionId: upload.value.uploadId },
 	});
+	const retriedPhoto = await mountWrite(a, (tx, c) =>
+		api.finalizeAvatar(tx, c, command({ uploadId: upload.value.uploadId }, "1", finalizeKey)),
+	);
+	assert.deepEqual(retriedPhoto.value, finalized.value);
 	const removeKey = randomUUID();
 	const removed = await mountWrite(a, (tx, c) => api.removeAvatar(tx, c, command({}, "2", removeKey)));
 	assert.deepEqual(removed.value, { status: "absent" });
@@ -1725,8 +1729,10 @@ test("INV-performance: photo, own time zone and deletion writes use a fixed smal
 		assert.deepEqual(rows[0].metadata, { section: "account", diff: { [field]: true } });
 	}
 	assert.equal((await auditOf(deletionKey)).rows.length, 1);
-	// The whole time zone audit row, replay record included, holds the revision and never the zone.
+	// The whole audit row, replay record included, holds no personal value: no zone, no photo reference.
 	assert.deepEqual((await auditOf(zoneKey)).rows[0].result, { revision: "2" });
+	assert.deepEqual((await auditOf(finalizeKey)).rows[0].result, {});
+	assert.deepEqual((await auditOf(removeKey)).rows[0].result, {});
 });
 
 test("AC:DEL58-002 INV-performance: a fresh password proof opens only the account's current request; status and cancel stay small", async () => {

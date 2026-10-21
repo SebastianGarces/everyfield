@@ -32,7 +32,9 @@ export interface AvatarCleanup {
 	/** The cleanup job for one avatar file, as an insert the caller adds to its own write statement (D70). */
 	queue(tx: Tx, input: { accountId: string; fileId: string; eligibleAt: string }): SQLWrapper;
 }
-const resultRecord = z.object({ result: q.avatarResult });
+// The replay record holds nothing: personal settings audit never keeps the photo reference. A replay has the same
+// request, so the reply is rebuilt from it.
+const resultRecord = z.strictObject({});
 /** The 15 minutes a staged upload stays open for its bytes and its finalize. */
 const STAGING_MS = 15 * 60_000;
 export function avatarOperations(
@@ -113,7 +115,11 @@ export function avatarOperations(
 				const v = parse(q.finalizeAvatarRequest, raw);
 				const a = await self(s, ctx);
 				const c = await begin(s, { ...ctx }, a.account.id, "account.finalizeAvatar", v);
-				if (c.kind === "replay") return resultRecord.parse(c.value).result;
+				const saved = q.avatarResult.parse({
+					status: "available",
+					avatar: { accountId: a.account.id, versionId: v.input.uploadId },
+				});
+				if (c.kind === "replay") return saved;
 				revision(v.expectedRevision, a.account.revision);
 				// The account's own uploaded, verified and unexpired file, locked until the reference commits.
 				const [f] = await s
@@ -131,20 +137,20 @@ export function avatarOperations(
 					.for("update");
 				if (!f) deny();
 				await change(s, c, a.account, f.id);
-				const result = await finish(s, c, resultRecord, () => ({
-					result: { status: "available", avatar: { accountId: a.account.id, versionId: f.id } },
-				}));
-				return result.result;
+				await finish(s, c, resultRecord, () => ({}));
+				return saved;
 			}),
 		removeAvatar: (tx, ctx, raw) =>
 			reply(tx, async (s) => {
 				const v = parse(q.removeAvatarRequest, raw);
 				const a = await self(s, ctx);
 				const c = await begin(s, { ...ctx }, a.account.id, "account.removeAvatar", v);
-				if (c.kind === "replay") return resultRecord.parse(c.value).result;
+				const absent = q.avatarResult.parse({ status: "absent" });
+				if (c.kind === "replay") return absent;
 				revision(v.expectedRevision, a.account.revision);
 				await change(s, c, a.account, null);
-				return (await finish(s, c, resultRecord, () => ({ result: { status: "absent" } }))).result;
+				await finish(s, c, resultRecord, () => ({}));
+				return absent;
 			}),
 	};
 }
