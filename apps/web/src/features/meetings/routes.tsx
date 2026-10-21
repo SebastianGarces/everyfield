@@ -2,10 +2,17 @@ import { requestDatabase } from "@/server/database";
 import { Calendar03Icon, LockKeyIcon } from "@hugeicons/core-free-icons";
 import { meetingId as meetingIdSchema, rsvpToken } from "@everyfield/contracts/meetings";
 import { describeRsvpToken } from "@everyfield/domain/meetings";
-import { buttonVariants, Card, EmptyState, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
+import {
+	buttonVariants,
+	Card,
+	EmptyState,
+	IntentLink,
+	PageHeader,
+	Skeleton,
+	StatePanel,
+} from "@everyfield/ui/controls";
 import { TableSkeleton } from "@everyfield/ui/display";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { MeetingScreen } from "./MeetingScreen.tsx";
@@ -95,9 +102,9 @@ export function MeetingNotFound() {
 					title="This meeting is not here"
 					headingLevel="h2"
 					action={
-						<Link href="/meetings" className={buttonVariants({ variant: "primary" })}>
+						<IntentLink href="/meetings" className={buttonVariants({ variant: "primary" })}>
 							Back to Meetings
-						</Link>
+						</IntentLink>
 					}
 				>
 					The link may be old, the meeting may have been deleted, or it belongs to another church.
