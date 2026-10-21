@@ -375,8 +375,9 @@ export function CommitmentCard({
 					{view.items.length === 0 ? (
 						<div className="flex flex-col items-start gap-3">
 							<p className="text-sm text-text-2">
-								Record the commitment card {first} signed.
-								{moves ? ` Saving it moves ${first} to Core group.` : ""}
+								{canEdit
+									? `Record the commitment card ${first} signed.${moves ? ` Saving it moves ${first} to Core group.` : ""}`
+									: `No commitment card is recorded for ${first}.`}
 							</p>
 							{canEdit ? (
 								<Button

@@ -187,8 +187,9 @@ export function InterviewCard({
 			) : !latest ? (
 				<div className="flex flex-col items-start gap-3">
 					<p className="text-sm text-text-2">
-						Rate maturity, giftedness, chemistry, right reasons and season of life, then give a result.
-						{moves ? ` Saving it moves ${first} to Interviewed.` : ""}
+						{canEdit
+							? `Rate maturity, giftedness, chemistry, right reasons and season of life, then give a result.${moves ? ` Saving it moves ${first} to Interviewed.` : ""}`
+							: `No interview is recorded for ${first}.`}
 					</p>
 					{canEdit ? (
 						<Button size="sm" variant="secondary" icon={Add01Icon} onClick={() => setEditing({ draft: blank() })}>

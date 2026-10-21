@@ -135,7 +135,9 @@ export function AssessmentCard({
 			) : !latest ? (
 				<div className="flex flex-col items-start gap-3">
 					<p className="text-sm text-text-2">
-						Score how committed, compelled, contagious and courageous {first} is, each from 1 to 5.
+						{canEdit
+							? `Score how committed, compelled, contagious and courageous ${first} is, each from 1 to 5.`
+							: `No 4 C's are recorded for ${first}.`}
 					</p>
 					{canEdit ? (
 						<Button size="sm" variant="secondary" icon={Add01Icon} onClick={() => setEditing({ draft: blank() })}>
