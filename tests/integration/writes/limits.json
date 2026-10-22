@@ -928,16 +928,16 @@
 		"reason": "RT-6 outlier. Its largest first run: 4 transaction, 6 locked read, 7 read, 7 write."
 	},
 	"seats.appointAdmin": {
-		"limit": 8,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 2 read, 1 write."
+		"limit": 7,
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
 	},
 	"seats.changeOrdinaryRole": {
-		"limit": 8,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 2 read, 1 write."
+		"limit": 7,
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
 	},
 	"seats.demote": {
-		"limit": 8,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 2 read, 1 write."
+		"limit": 7,
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
 	},
 	"seats.remove": {
 		"limit": 23,
