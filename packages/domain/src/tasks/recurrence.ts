@@ -2,7 +2,8 @@ import { localDate, localDateTime, resolveCalendar, revision, type TimeZone } fr
 import * as c from "@everyfield/contracts/tasks";
 import { randomUUID } from "node:crypto";
 import "server-only";
-import type { TaskRow } from "./queries.ts";
+import type { LockedTask, TaskRow } from "./queries.ts";
+import { newTask } from "./writes.ts";
 
 const localDateOf = (at: Date, zone: TimeZone) =>
 	localDate.parse(new Intl.DateTimeFormat("en-CA", { timeZone: zone }).format(at));
@@ -15,7 +16,7 @@ const localDateOf = (at: Date, zone: TimeZone) =>
  * The successor keeps the task's fields, keeps its assignee only while that account still holds a seat, and gets fresh
  * copies of the live checklist rows: not started, no completion facts, no due date, no prerequisites.
  */
-export function successorOf(row: TaskRow, at: Date): TaskRow[] | null {
+export function successorOf(row: LockedTask, at: Date): TaskRow[] | null {
 	const rule = row.rule;
 	if (!rule || rule.stopped || row.has_successor || row.parent_id) return null;
 	const zone = row.plant_zone;
@@ -39,7 +40,7 @@ export function successorOf(row: TaskRow, at: Date): TaskRow[] | null {
 		};
 	} else due = { due_kind: "date_only", due_date: date, due_time: null, timezone: null, due_at: null };
 	const id = randomUUID();
-	const keep = row.relation_live === true;
+	const keep = row.relation_live;
 	const fresh = {
 		revision: revision.parse("1"),
 		status: "not_started" as const,
@@ -55,29 +56,18 @@ export function successorOf(row: TaskRow, at: Date): TaskRow[] | null {
 		open_successor: null,
 		plant_zone: zone,
 	};
-	const children: TaskRow[] = (row.checklist ?? []).map((k) => ({
-		...fresh,
-		id: randomUUID(),
-		title: k.title,
-		description: null,
-		category: row.category,
-		priority: row.priority,
-		assignee_id: k.seated ? k.assignee_id : null,
-		assignee_name: k.seated ? k.assignee_name : null,
-		due_kind: "undated",
-		due_date: null,
-		due_time: null,
-		timezone: null,
-		due_at: null,
-		person_id: null,
-		meeting_id: null,
-		team_id: null,
-		relation_label: null,
-		parent_id: id,
-		series_id: null,
-		occurrence_key: null,
-		predecessor_id: null,
-	}));
+	const children = row.checklist.map((k) =>
+		newTask(zone, {
+			title: k.title,
+			category: row.category,
+			priority: row.priority,
+			status: "not_started",
+			created_at: at,
+			assignee_id: k.seated ? k.assignee_id : null,
+			assignee_name: k.seated ? k.assignee_name : null,
+			parent_id: id,
+		}),
+	);
 	const successor: TaskRow = {
 		...row,
 		...fresh,
@@ -98,7 +88,6 @@ export function successorOf(row: TaskRow, at: Date): TaskRow[] | null {
 			assignee_name: k.assignee_name,
 			seated: true,
 		})),
-		has_successor: false,
 	};
 	return [successor, ...children];
 }

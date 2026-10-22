@@ -1016,13 +1016,16 @@
 		"limit": 2
 	},
 	"tasks.complete": {
-		"limit": 6
+		"limit": 12,
+		"reason": "Completing a dated, assigned recurring task cancels its reminders and plans the successor's; RT-6 reviews the reminder sync cost. Its largest first run: 6 locked read, 6 write."
 	},
 	"tasks.completeOccurrence": {
-		"limit": 6
+		"limit": 12,
+		"reason": "Completing a dated, assigned recurring occurrence cancels its reminders and plans the successor's; the shared reminder sync (notifications.syncTaskReminders) sends 10 of them: 1 owed-slot read, 3 cancels (notice, mail, job) and 6 to plan the new due and overdue notices and mail; RT-6 reviews that sync. Its largest first run: 6 locked read, 6 write."
 	},
 	"tasks.configureRecurrence": {
-		"limit": 2
+		"limit": 12,
+		"reason": "Replans the task's due and overdue reminders after the revision moves (R4-1, REQ-TSK-014), like tasks.edit; RT-6 reviews the reminder sync cost. Its largest first run: 6 locked read, 6 write."
 	},
 	"tasks.create": {
 		"limit": 8,
@@ -1042,10 +1045,12 @@
 		"limit": 2
 	},
 	"tasks.reopen": {
-		"limit": 2
+		"limit": 12,
+		"reason": "Reopening a dated, assigned task with a future due date plans its reminders again; the shared reminder sync (notifications.syncTaskReminders) sends 10 of them: 1 owed-slot read, 3 cancels (notice, mail, job) and 6 to plan the new due and overdue notices and mail; RT-6 reviews that sync. Its largest first run: 6 locked read, 6 write."
 	},
 	"tasks.replacePrerequisites": {
-		"limit": 3
+		"limit": 13,
+		"reason": "Replans the task's due and overdue reminders after the revision moves (R4-1, REQ-TSK-014), like tasks.edit; RT-6 reviews the reminder sync cost. Its largest first run: 6 locked read, 1 read, 6 write."
 	},
 	"tasks.setSubtaskCompletion": {
 		"limit": 2
