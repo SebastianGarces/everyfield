@@ -99,7 +99,7 @@ export async function withPeopleWrite<T>(
 				session: authority.session,
 				selected,
 			});
-			if (result.status === "refused") throw new Refusal(result.error.code);
+			if (result.status === "refused") throw new Refusal(result.error.code, result.error.details);
 			return result.value;
 		}),
 	);
@@ -130,6 +130,13 @@ function seated(context: Context, actor: Awaited<ReturnType<typeof currentActor>
  */
 export async function authorizeRead(tx: Tx, context: Context) {
 	return readGate(context, await authorize(tx, context));
+}
+/**
+ * The request's cached viewer may write: no statement. A write that first does costly work outside its transaction
+ * (reading a file back from the bucket) refuses a Member here; the write checks live authority again (C13).
+ */
+export function authorizeCachedWrite(context: PeopleReadContext) {
+	return seated(context, context.authority.actor, true);
 }
 /** `authorizeRead` for the request's cached viewer, which needs no statement and so no transaction. */
 export function authorizeCachedRead(context: PeopleReadContext) {
@@ -498,7 +505,9 @@ export async function mutation<T>(
 	if (claim.kind === "conflict") deny("conflict");
 	if (claim.kind === "unavailable") deny();
 	if (claim.kind === "replay") {
+		// Only an organization removes people from its view; a plant replay has nothing to check.
 		if (
+			context.selected.kind === "organization" &&
 			name !== "orgPeople.remove" &&
 			(
 				await tx

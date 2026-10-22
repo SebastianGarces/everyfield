@@ -47,7 +47,7 @@ export async function subject(
 }
 /** A recorded event happened on or before today in the church's time zone. */
 export function notFuture(p: Subject, date: string) {
-	if (date > p.today) deny("invalid_input");
+	if (date > p.today) deny("invalid_input", { reason: "future_date" });
 }
 
 /**

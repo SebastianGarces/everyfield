@@ -47,7 +47,7 @@ export const createInterviewRequest = z.strictObject({
 });
 
 // REQ-PPL-014: a signed card, its actual signed date, an optional same-church witness or external witness text,
-// notes and a private document uploaded through requestCommitmentUpload first.
+// notes and an optional private document (saveCommitmentDocumentRequest).
 export const commitmentKind = z.enum(["core_group", "launch_team"]);
 export const commitmentMime = z.enum(["application/pdf", "image/jpeg", "image/png"]);
 export const COMMITMENT_MAX_BYTES = 10 * 1024 * 1024;
@@ -63,17 +63,15 @@ export const createCommitmentRequest = z.strictObject({
 		occurredOn: localDate,
 		witness: witnessInput.nullable().default(null),
 		notes: notes.nullable().default(null),
-		documentUploadId: recordId.nullable().default(null),
 	}),
 });
-export const requestCommitmentUploadRequest = z.strictObject({
+// The document upload (RT-2 design B): sign a five-minute PUT URL for one pending upload, let the browser put the bytes
+// straight into the private bucket, then save the card with that upload in one request. The save checks the bytes.
+export const signCommitmentDocumentRequest = z.strictObject({
 	personId,
 	mime: commitmentMime,
 	byteLength: z.int().min(1).max(COMMITMENT_MAX_BYTES),
 });
-// The document upload (RT-2 design B): sign a five-minute PUT URL for one pending upload, let the browser put the bytes
-// straight into the private bucket, then save the card with that upload in one request. The save checks the bytes.
-export const signCommitmentDocumentRequest = requestCommitmentUploadRequest;
 export const commitmentDocumentUpload = z.strictObject({
 	uploadId: recordId,
 	// The browser PUTs the file's exact bytes to this URL with exactly these headers; it works until expiresAt.
@@ -229,7 +227,6 @@ export const commitmentLifecycleResult = z.strictObject({
 	outcome,
 	receiptId: recordId,
 });
-export const commitmentUploadResult = z.strictObject({ uploadId: recordId, expiresAt: instant });
 export const commitmentDownloadResult = z.strictObject({
 	url: z.url(),
 	expiresAt: instant,

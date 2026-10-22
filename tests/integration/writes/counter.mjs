@@ -47,7 +47,6 @@ const standalone = {
 	"/packages/domain/src/people/fields/index.ts": ["uploadPersonPhoto"],
 	"/packages/domain/src/people/csv/index.ts": ["executeBulkImport"],
 	"/packages/domain/src/people/commitments/index.ts": [
-		"uploadCommitmentDocument",
 		"getCommitmentDownload",
 		"signCommitmentDocument",
 		"saveCommitmentDocument",
