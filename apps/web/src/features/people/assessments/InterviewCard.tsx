@@ -96,9 +96,14 @@ export function InterviewCard({
 	canEdit,
 	accountId,
 	onSaved,
+	corrected,
 }: RecordProps<Interviews>) {
 	const toast = useToast();
-	const history = useHistory(initial, (page) => loadInterviews(personId, page));
+	const history = useHistory(
+		initial,
+		(page) => loadInterviews(personId, page),
+		corrected?.flatMap((c) => (c.type === "interview" ? [c.record] : [])),
+	);
 	const [shown, expect] = useOptimistic(history.items, withRecord<Interview>);
 	const [, start] = useTransition();
 	const form = useRecordForm<Editing>();
