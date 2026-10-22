@@ -5,9 +5,10 @@
 //   AC:INH-REGRESSION-CONFIRM-REPLAY INV-lost-approval: an approval whose reply is lost after the server saved it shows
 //     as saved, never as "not approved"; the same request is sent once more and no more (C58), the person changed
 //     once, and focus stays in the card.
-//   AC:INH-REGRESSION-CONFIRM-REPLAY INV-unknown-approval: when the approval, its replay and the read after them all get
-//     no answer, the card says it may already be saved and offers only Check again; Revise and Cancel stay disabled.
-//     Check again sends the same request key and the change saves once.
+//   AC:INH-REGRESSION-CONFIRM-REPLAY INV-unknown-approval: an update the server saved whose reply and read are lost
+//     keeps the form and its values, offers only Check again, and Check again shows revision 2. Then an approval,
+//     its replay and the read all get no answer: the card says it may already be saved and offers only Check again,
+//     with Revise and Cancel disabled. Check again sends the same request key and the change saves once.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
@@ -72,7 +73,14 @@ for (const [engine, launcher] of ENGINES)
 				const people = fixture("people");
 				await signIn(context, people.owner.cookie);
 				const approvals = [];
-				let lose = true;
+				let lose = false;
+				let revised = 0;
+				// The update reaches the server, but its reply and the read after it are lost.
+				await context.route("**/api/evry/proposals/*/revise", async (route) => {
+					revised++;
+					await route.fetch();
+					await route.abort("connectionreset");
+				});
 				// The approval and its replay never reach the server; the read after them gets no answer either.
 				await context.route("**/api/evry/proposals/*/approve", async (route) => {
 					approvals.push(route.request().postData());
@@ -80,7 +88,7 @@ for (const [engine, launcher] of ENGINES)
 					else await route.continue();
 				});
 				await context.route("**/api/evry/proposals/*", (route) =>
-					lose && approvals.length ? route.abort("connectionreset") : route.continue(),
+					lose ? route.abort("connectionreset") : route.continue(),
 				);
 				await page.goto(`${BASE}/people`);
 				await hydrated(page);
@@ -94,7 +102,24 @@ for (const [engine, launcher] of ENGINES)
 				await box.press("Enter");
 
 				const card = panel.getByRole("region", { name: "Review before saving" });
-				await card.getByRole("button", { name: "Approve" }).click({ timeout: 60_000 });
+				await card.getByRole("button", { name: "Revise" }).click({ timeout: 60_000 });
+				const typed = `${city} revised`;
+				await card.getByLabel("City").fill(typed);
+				lose = true;
+				await card.getByRole("button", { name: "Update review" }).click();
+				const form = panel.getByRole("region", { name: "Not confirmed" });
+				await form.getByRole("button", { name: "Check again" }).waitFor({ timeout: 15_000 });
+				assert.equal(await form.getByLabel("City").inputValue(), typed);
+				assert.equal(await form.getByRole("button", { name: "Update review" }).isDisabled(), true);
+				assert.equal(await form.getByRole("button", { name: "Keep as it is" }).isDisabled(), true);
+				assert.equal(revised, 1);
+				lose = false;
+				await form.getByRole("button", { name: "Check again" }).click();
+				await card.getByText("Revision 2", { exact: true }).waitFor();
+				assert.equal(revised, 1);
+
+				lose = true;
+				await card.getByRole("button", { name: "Approve" }).click();
 				const unknown = panel.getByRole("region", { name: "Not confirmed" });
 				await unknown.waitFor({ timeout: 15_000 });
 				assert.match(await unknown.innerText(), /may already be saved/);
@@ -109,7 +134,8 @@ for (const [engine, launcher] of ENGINES)
 				await saved.waitFor({ timeout: 15_000 });
 				assert.equal(approvals.length, 3);
 				assert.ok(approvals.every((body) => body === approvals[0]));
-				assert.match(await saved.innerText(), new RegExp(city));
+				assert.match(await saved.innerText(), new RegExp(typed));
+				assert.equal(JSON.parse(approvals[0]).revision, 2);
 			},
 			{ width: 390, height: 844 },
 		));

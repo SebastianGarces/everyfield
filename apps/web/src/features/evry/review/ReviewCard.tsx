@@ -51,23 +51,31 @@ import {
 // was refused, expired or closed. Nothing changes in People until the owner approves.
 
 type Action = "approve" | "revise" | "cancel" | "retry";
+/** An action whose result is not known: no reply, and no read after it. It may have been saved. */
+type Unknown = { action: Action; revision: number };
 type Notice = { text: string; tone: "error" | "neutral" };
 /**
  * What the card shows: the review's phase, or why there is no review to show. photo_unavailable is a pending set-photo
- * review whose upload is gone: it stays on screen, but can't be approved. approval_unknown is a pending review whose
- * approval got no answer, even after one replay and one read: it may already be saved, so only Check again is offered.
+ * review whose upload is gone: it stays on screen, but can't be approved. unknown is a review whose last action got no
+ * answer, even after the read that follows it: it may already be saved, so only Check again is offered (C58, C68).
  */
-type View = Phase | "loading" | "lost" | "unavailable" | "photo_unavailable" | "approval_unknown";
+type View = Phase | "loading" | "lost" | "unavailable" | "photo_unavailable" | "unknown";
 
 function useReview(proposalId: string) {
 	const [review, setReview] = useState<Review | null>(null);
 	const [load, setLoad] = useState<"loading" | "ready" | "lost" | "unavailable">("loading");
-	const [busy, setBusy] = useState<Action | null>(null);
+	const [busy, setBusy] = useState<Action | "check" | null>(null);
 	const [notice, setNotice] = useState<Notice | null>(null);
 	/** The server's last refusal of an action, for the revision it refused. */
 	const [refused, setRefused] = useState<{ code: string; revision: number } | null>(null);
-	/** The revision whose approval has no known result: no reply to the approval or its replay, and no read after. */
-	const [unknown, setUnknown] = useState<number | null>(null);
+	/** The action with no known result. While it lasts, nothing else on the card can be sent. */
+	const [unknown, setUnknown] = useState<Unknown | null>(null);
+	/** What Check again needs to settle the unknown action: the review it started from and what success looks like. */
+	const open = useRef<{
+		before: Review;
+		done: (now: Review, before: Review) => boolean;
+		settled: (now: Review) => Notice | null;
+	} | null>(null);
 	const [now, setNow] = useState(() => Date.now());
 	// Every action takes a new generation; a read that started before it is dropped when it answers late.
 	const generation = useRef(0);
@@ -103,7 +111,7 @@ function useReview(proposalId: string) {
 		};
 	}, [proposalId]);
 
-	const view: Exclude<View, "photo_unavailable" | "approval_unknown"> =
+	const view: Exclude<View, "photo_unavailable" | "unknown"> =
 		load === "ready" && review ? phaseOf(review, now) : load === "ready" ? "loading" : load;
 
 	// The clock only matters at the expiry: one timer flips a pending review to expired, with no request.
@@ -166,10 +174,11 @@ function useReview(proposalId: string) {
 		if (g !== generation.current) return false;
 		setBusy(null);
 		setRefused(reply.status === "refused" ? { code: reply.error.code, revision: before.revision } : null);
-		// Only an approval can be unknown: its replay sends the same key, so Check again can never approve twice.
-		const lostApproval = action === "approve" && reply.status === "lost" && !current && !refused;
-		setUnknown(lostApproval ? before.revision : null);
-		if (lostApproval) return false;
+		// No reply and no read: the action may have been saved. Check again settles it; nothing else can be sent.
+		const lost = reply.status === "lost" && !current && !refused;
+		setUnknown(lost ? { action, revision: before.revision } : null);
+		open.current = lost ? { before, done, settled } : null;
+		if (lost) return false;
 		if (refused) {
 			gone();
 			return false;
@@ -187,10 +196,47 @@ function useReview(proposalId: string) {
 		return false;
 	}
 
+	const approve = () =>
+		act(
+			"approve",
+			// The witness is the request key: the same revision and digest, sent once more after a lost reply.
+			(r) => api.approve(r),
+			(v) => v.proposal,
+			(now, before) => now.revision === before.revision && now.status === "approved",
+		);
+
+	/**
+	 * Check again after an unknown result. An approval sends the same request and key again, which the server
+	 * replays. Other actions read the review: the server's answer says whether the action was saved.
+	 */
+	async function check() {
+		const u = open.current;
+		if (!u || !unknown || inFlight.current) return;
+		if (unknown.action === "approve") return void (await approve());
+		inFlight.current = true;
+		setBusy("check");
+		setNotice(null);
+		const g = ++generation.current;
+		const reread = await api.readReview(u.before.id);
+		inFlight.current = false;
+		if (g !== generation.current) return;
+		setBusy(null);
+		if (reread.status === "lost")
+			return setNotice({ text: "Still no answer. Check your connection, then check again.", tone: "neutral" });
+		setUnknown(null);
+		open.current = null;
+		if (reread.status === "refused") return gone();
+		show(reread.value);
+		setNotice(
+			u.done(reread.value, u.before) ? u.settled(reread.value) : { text: NOT_DONE[unknown.action], tone: "error" },
+		);
+	}
+
 	return {
 		review,
 		view,
 		busy,
+		check,
 		notice,
 		refused,
 		unknown,
@@ -199,14 +245,7 @@ function useReview(proposalId: string) {
 			setLoad("loading");
 			void read().then((reply) => reply?.status === "lost" && setLoad("lost"));
 		},
-		approve: () =>
-			act(
-				"approve",
-				// The witness is the request key: the same revision and digest, sent once more after a lost reply.
-				(r) => api.approve(r),
-				(v) => v.proposal,
-				(now, before) => now.revision === before.revision && now.status === "approved",
-			),
+		approve,
 		cancel: () =>
 			act(
 				"cancel",
@@ -237,6 +276,21 @@ function useReview(proposalId: string) {
 		clearNotice: () => setNotice(null),
 	};
 }
+
+/** What a read after Check again says when the unknown action did not happen. Only the server's read says it. */
+const NOT_DONE: Record<Action, string> = {
+	approve: "This change was not approved. Nothing was changed.",
+	revise: "Your update was not saved. Update the review again.",
+	cancel: "This change was not cancelled. It is still waiting for your review.",
+	retry: "Evry did not try this again. Try again.",
+};
+const UNKNOWN_TEXT: Record<Action, string> = {
+	approve:
+		"Evry got no answer to your approval, so it may already be saved. Check again to find out. Checking never saves it twice.",
+	revise: "Evry got no answer to your update, so it may already be saved. Check again to find out.",
+	cancel: "Evry got no answer to your cancel, so this change may already be cancelled. Check again to find out.",
+	retry: "Evry got no answer when it tried again, so the change may already be running. Check again to find out.",
+};
 
 type Staged = { upload: string; status: "ready"; src: string } | { upload: string; status: "gone" | "lost" };
 /** What the card knows about a set-photo review's upload: shown, being read, gone, not read (lost) or not asked for. */
@@ -285,7 +339,7 @@ const HEAD: Record<Exclude<View, "loading" | "lost">, { icon: IconSvgElement; ti
 	expired: { icon: Clock01Icon, title: "Expired", tone: "gray" },
 	cancelled: { icon: Cancel01Icon, title: "Cancelled", tone: "gray" },
 	withheld: { icon: SquareLock02Icon, title: "No longer available", tone: "gray" },
-	approval_unknown: { icon: Alert02Icon, title: "Not confirmed", tone: "amber" },
+	unknown: { icon: Alert02Icon, title: "Not confirmed", tone: "amber" },
 	photo_unavailable: { icon: ImageNotFound01Icon, title: "Photo not available", tone: "gray" },
 	unavailable: { icon: SquareLock02Icon, title: "Not available to you", tone: "gray" },
 };
@@ -297,7 +351,7 @@ const HEAD_TONE: Record<Tone, string> = {
 };
 
 /** The note under the head: why the card is in this state, when that needs saying. Also what is announced. */
-function note(view: View, review: Review | null, now: number): string | null {
+function note(view: View, review: Review | null, now: number, unknown?: Action): string | null {
 	const who = review?.review.target?.label ?? null;
 	switch (view) {
 		case "pending":
@@ -316,8 +370,8 @@ function note(view: View, review: Review | null, now: number): string | null {
 			return review && retryable(review, now)
 				? "Evry can't confirm that this was saved. Try again. A change that was saved is not saved twice."
 				: "Evry can't confirm that this was saved, and the approval expired. Open the person to check.";
-		case "approval_unknown":
-			return "Evry got no answer to your approval, so it may already be saved. Check again to find out. Checking never saves it twice.";
+		case "unknown":
+			return UNKNOWN_TEXT[unknown ?? "approve"];
 		case "photo_unavailable":
 			return `The uploaded photo is no longer available, so you can't approve this change. Nothing was changed. Upload the photo again on ${who ?? "the person"}'s page.`;
 		case "expired":
@@ -338,13 +392,13 @@ function note(view: View, review: Review | null, now: number): string | null {
 }
 
 /** What a screen reader hears when the card changes after it loaded. */
-function announcement(view: View, review: Review | null, now: number) {
+function announcement(view: View, review: Review | null, now: number, unknown?: Action) {
 	const head = view === "loading" || view === "lost" ? "" : HEAD[view].title.replace("…", "");
 	if (view === "pending" && !(review && review.revision > 1)) return "";
 	if (view === "running") return "Approved. Saving in the background.";
 	if (view === "completed")
 		return review?.review.target ? `Saved. ${review.review.target.label} is updated.` : "Saved.";
-	return [head, note(view, review, now)].filter(Boolean).join(". ");
+	return [head, note(view, review, now, unknown)].filter(Boolean).join(". ");
 }
 
 export function ReviewCard({ proposalId, target }: { proposalId: string; target: string | null }) {
@@ -366,12 +420,9 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 	const photoGone =
 		staged.photo.status === "gone" ||
 		(r.refused?.code === "photo_unavailable" && r.refused.revision === review?.revision);
-	const view: View =
-		r.view === "pending" && r.unknown === review?.revision
-			? "approval_unknown"
-			: r.view === "pending" && photoGone
-				? "photo_unavailable"
-				: r.view;
+	// An unknown result wins over the clock: a review that may have been approved never says "nothing was changed".
+	const unknown = r.unknown && r.unknown.revision === review?.revision ? r.unknown.action : undefined;
+	const view: View = unknown ? "unknown" : r.view === "pending" && photoGone ? "photo_unavailable" : r.view;
 
 	// A change of view after the card loaded is announced once (the previous-value pattern, no effect).
 	const key = `${view}:${review?.revision ?? 0}`;
@@ -379,7 +430,7 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 	const [announce, setAnnounce] = useState("");
 	if (seen !== key) {
 		setSeen(key);
-		setAnnounce(seen.startsWith("loading") ? "" : announcement(view, review, r.now));
+		setAnnounce(seen.startsWith("loading") ? "" : announcement(view, review, r.now, unknown));
 	}
 	// Focus that was on a control the change removed goes to the card's head, so keyboard users stay in the card
 	// (PR 197, finding F2).
@@ -392,7 +443,7 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 		if (notice?.tone === "error") noticeRef.current?.focus();
 	}, [notice]);
 
-	const why = note(view, review, r.now);
+	const why = note(view, review, r.now, unknown);
 	const h = view === "loading" || view === "lost" ? HEAD.pending : HEAD[view];
 	const title = view === "loading" || view === "lost" ? (target ? `Change for ${target}` : "Prepared change") : h.title;
 	const meta =
@@ -431,11 +482,15 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 						Try again
 					</Button>
 				</div>
-			) : view === "unavailable" || view === "withheld" || !review ? null : view === "pending" &&
+			) : view === "unavailable" || view === "withheld" || !review ? null : (view === "pending" ||
+					unknown === "revise") &&
 			  editing === review.revision ? (
 				<ReviseForm
 					review={review}
 					busy={r.busy === "revise"}
+					unknown={unknown === "revise"}
+					checking={r.busy === "check"}
+					onCheck={() => void r.check()}
 					notice={notice}
 					noticeRef={noticeRef}
 					onSubmit={(edits) => void r.revise(edits)}
@@ -502,7 +557,7 @@ function Footer({
 	reviseButton,
 	onRevise,
 }: {
-	view: Phase | "photo_unavailable" | "approval_unknown";
+	view: Phase | "photo_unavailable" | "unknown";
 	review: Review;
 	/** False while a new photo is not shown yet: the owner approves only what the card shows. */
 	canApprove: boolean;
@@ -547,10 +602,15 @@ function Footer({
 				{r.busy ? <Hint>One change at a time. Wait for this one to finish.</Hint> : null}
 			</>
 		);
-	else if (view === "approval_unknown")
+	else if (view === "unknown")
 		body = (
 			<>
-				<Button size="sm" variant="primary" loading={r.busy === "approve"} onClick={() => void r.approve()}>
+				<Button
+					size="sm"
+					variant="primary"
+					loading={r.busy === "approve" || r.busy === "check"}
+					onClick={() => void r.check()}
+				>
 					Check again
 				</Button>
 				{editableChanges(review).length ? (
@@ -838,6 +898,9 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 function ReviseForm({
 	review,
 	busy,
+	unknown,
+	checking,
+	onCheck,
 	notice,
 	noticeRef,
 	onSubmit,
@@ -845,6 +908,10 @@ function ReviseForm({
 }: {
 	review: Review;
 	busy: boolean;
+	/** The last update got no answer: the form keeps its values but can't send or close until Check again settles it. */
+	unknown: boolean;
+	checking: boolean;
+	onCheck: () => void;
 	notice: Notice | null;
 	noticeRef: Ref<HTMLParagraphElement>;
 	onSubmit: (edits: Record<string, string>) => void;
@@ -863,8 +930,10 @@ function ReviseForm({
 			)
 			?.focus();
 	useEffect(() => focusField(), []);
+	const locked = busy || unknown || checking;
 	const submit = (e: FormEvent) => {
 		e.preventDefault();
+		if (locked) return;
 		const empty = missingRequired(review, edits);
 		setMissing(empty?.field ?? null);
 		if (empty) return focusField(empty.field);
@@ -890,15 +959,15 @@ function ReviseForm({
 								optional={!isRequired(c.field)}
 							>
 								{kind === "choice" ? (
-									<Select options={CHOICES[c.field]!} value={edits[c.field]} onValueChange={set} disabled={busy} />
+									<Select options={CHOICES[c.field]!} value={edits[c.field]} onValueChange={set} disabled={locked} />
 								) : kind === "long" ? (
-									<Textarea value={edits[c.field]} onChange={(e) => set(e.target.value)} rows={3} disabled={busy} />
+									<Textarea value={edits[c.field]} onChange={(e) => set(e.target.value)} rows={3} disabled={locked} />
 								) : (
 									<Input
 										type={kind === "date" ? "date" : kind === "email" ? "email" : "text"}
 										value={edits[c.field]}
 										onChange={(e) => set(e.target.value)}
-										disabled={busy}
+										disabled={locked}
 									/>
 								)}
 							</Field>
@@ -911,18 +980,33 @@ function ReviseForm({
 				<p
 					ref={noticeRef}
 					tabIndex={-1}
-					className="mx-4 mb-3 rounded-md bg-magenta-50 px-3 py-2 text-sm text-magenta-600 outline-none focus-visible:ring-2 focus-visible:ring-focus"
+					className={cn(
+						"mx-4 mb-3 rounded-md px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-focus",
+						notice.tone === "error" ? "bg-magenta-50 text-magenta-600" : "bg-surface-2 text-text-2",
+					)}
 				>
 					{notice.text}
 				</p>
 			) : null}
 			<div className="flex flex-wrap items-center gap-2 border-t border-line px-4 py-3">
-				<Button size="sm" variant="primary" type="submit" loading={busy}>
+				{unknown || checking ? (
+					<Button size="sm" variant="primary" type="button" loading={checking} onClick={onCheck}>
+						Check again
+					</Button>
+				) : null}
+				<Button
+					size="sm"
+					variant={unknown || checking ? "secondary" : "primary"}
+					type="submit"
+					loading={busy}
+					disabled={unknown || checking}
+				>
 					Update review
 				</Button>
-				<Button size="sm" variant="ghost" type="button" disabled={busy} onClick={onClose}>
+				<Button size="sm" variant="ghost" type="button" disabled={locked} onClick={onClose}>
 					Keep as it is
 				</Button>
+				{unknown || checking ? <Hint>Check again before you update or close this.</Hint> : null}
 			</div>
 		</form>
 	);
