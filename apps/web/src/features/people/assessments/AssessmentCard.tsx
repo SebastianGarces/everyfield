@@ -15,8 +15,10 @@ import {
 	useToast,
 } from "@everyfield/ui/controls";
 import { startTransition, useOptimistic, useState, useTransition } from "react";
-import { runSave, type KeyedPayload } from "../model.ts";
-import { fresh, LocalDay, useStore } from "../parts.tsx";
+import type { Wait } from "../../../components/save/model.ts";
+import { NoticeInDialog, RecordDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
+import { throughStore } from "../model.ts";
+import { LocalDay, useStore } from "../parts.tsx";
 import { loadAssessments, recordAssessment } from "./actions.ts";
 import {
 	firstName,
@@ -28,22 +30,8 @@ import {
 	type Assessment,
 	type Assessments,
 	type Lens,
-	sendTwice,
-	stillUnknown,
-	waitOf,
-	type Wait,
 } from "./model.ts";
-import {
-	ChoiceField,
-	codeOf,
-	NoticeInDialog,
-	SaveNotice,
-	RecordDialog,
-	recorder,
-	ShowEarlier,
-	useHistory,
-	useRecordForm,
-} from "./parts.tsx";
+import { ChoiceField, recorder, recordProblem, ShowEarlier, useHistory } from "./parts.tsx";
 import type { PlantPerson, RecordProps } from "./RecordsSection.tsx";
 
 type Draft = { occurredOn: string } & Record<Lens, { score: string; notes: string }>;
@@ -80,10 +68,10 @@ export function AssessmentCard({
 	);
 	const [shown, expect] = useOptimistic(history.items, withRecord<Assessment>);
 	const [, start] = useTransition();
-	const form = useRecordForm<Editing>();
-	/** Another change to this person is saving; Check again waits for it, so it never reads as refused. */
-	const saving = useStore(store).pending !== null;
-	const wait = waitOf(saving, form.notice);
+	// Another change to this person is saving: the card waits, and Check again waits for it (C65, C68).
+	useStore(store);
+	const form = useSaveIntent<Editing>({ explain: recordProblem, busy: () => store.get().pending !== null });
+	const wait = form.wait;
 	const [open, setOpen] = useState(false);
 	const first = firstName(personName);
 	const latest = shown[0] ?? null;
@@ -99,7 +87,6 @@ export function AssessmentCard({
 			contagious: lens("contagious"),
 			courageous: lens("courageous"),
 		};
-		const { token, key } = form.send();
 		start(async () => {
 			const now = new Date().toISOString();
 			expect({
@@ -110,27 +97,24 @@ export function AssessmentCard({
 				revision: "0",
 				total: LENSES.reduce((t, l) => t + input[l].score, 0),
 			} as Assessment);
-			await commit(input, key, token, draft);
+			await form.save({
+				what: "Your 4 C's assessment",
+				form: { draft },
+				send: (key) => recordAssessment(key, input),
+				through: throughStore(
+					store,
+					"assessment",
+					(v: { person: { stage: PlantPerson["stage"]; revision: string } }) =>
+						({ ...store.get().saved, stage: v.person.stage, revision: v.person.revision }) as PlantPerson,
+				),
+				code: (code) => (code === "invalid_input" ? "future_date" : code),
+				ok: (value) => {
+					startTransition(() => history.add(value.assessment));
+					onSaved(value.receipt, { kind: "activity", action: "assessment_recorded", recordId: value.assessment.id });
+					toast({ tone: "success", message: `4 C's saved for ${first}.` });
+				},
+			});
 		});
-	}
-
-	/** One save of one intent: its first send, or Check again with the same request and key (token -1). */
-	async function commit(input: unknown, key: KeyedPayload, token: number, draft: Draft) {
-		const r = await runSave(store, "assessment", input, (k) => sendTwice(() => recordAssessment(k, input)), {
-			fresh,
-			key,
-			toPerson: (v) => ({ ...store.get().saved, stage: v.person.stage, revision: v.person.revision }) as PlantPerson,
-		});
-		const what = "Your 4 C's assessment";
-		if (stillUnknown(r, token)) return form.unknown(key.key, what, () => start(() => commit(input, key, -1, draft)));
-		if (r?.status !== "ok") {
-			const code = r?.status === "refused" && r.code === "invalid_input" ? "future_date" : codeOf(r);
-			return startTransition(() => form.refused(token, { draft, problem: code }, key.key, what));
-		}
-		form.settled(key.key);
-		startTransition(() => history.add(r.value.assessment));
-		onSaved(r.value.receipt, { kind: "activity", action: "assessment_recorded", recordId: r.value.assessment.id });
-		toast({ tone: "success", message: `4 C's saved for ${first}.` });
 	}
 
 	return (
@@ -159,7 +143,7 @@ export function AssessmentCard({
 					/>
 				) : null}
 			</CardHeader>
-			<SaveNotice notice={form.notice} busy={saving} onDismiss={form.dismiss} dialogOpen={form.editing !== null} />
+			<SaveNotice {...form.noticeProps} dialogOpen={form.editing !== null} />
 
 			{initial === null ? (
 				<p className="text-sm text-text-3">The 4 C&rsquo;s did not load. Reload the page to see them.</p>
@@ -224,7 +208,7 @@ export function AssessmentCard({
 				</>
 			)}
 			<p className="mt-4 text-xs text-text-3">Human judgment. Evry and Plant Intelligence never set these.</p>
-			<NoticeInDialog notice={form.notice} busy={saving} onDismiss={form.dismiss}>
+			<NoticeInDialog {...form.noticeProps}>
 				{form.editing ? (
 					<AssessmentDialog
 						editing={form.editing}
@@ -303,7 +287,7 @@ function AssessmentDialog({
 			title={`Record the 4 C's for ${personName}`}
 			description="Your own judgment, from 1 (not yet) to 5 (clearly). Recording this never changes the stage."
 			action="Save assessment"
-			problem={editing.problem}
+			problem={editing.problem && recordProblem(editing.problem)}
 			onClose={onClose}
 			onSubmit={() => {
 				setTouched(true);

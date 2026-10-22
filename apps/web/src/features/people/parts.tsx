@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore, type ComponentProps
 import type * as people from "@everyfield/contracts/people";
 import type { z } from "zod";
 import { statusWarnings } from "./actions.ts";
-import type { Outcome } from "./model.ts";
+import type { Outcome } from "../../components/save/model.ts";
 import { PersonStore, type PersonState, type Saved } from "./model.ts";
 
 /** What a refusal or lost answer means for the person, in words. Nothing here reveals another tenant's records. */

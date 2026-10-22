@@ -12,7 +12,7 @@ import {
 } from "@everyfield/domain/people";
 import { z } from "zod";
 import { boundary, invalid, outcome, receipt, type Receipt } from "../boundary.ts";
-import type { Outcome } from "../model.ts";
+import type { Outcome } from "../../../components/save/model.ts";
 import { read, write } from "../server.ts";
 import { privateStorage } from "@everyfield/db/schema";
 import { peopleContext } from "../fields/server.ts";
