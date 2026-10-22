@@ -70,9 +70,14 @@ export function AssessmentCard({
 	canEdit,
 	accountId,
 	onSaved,
+	corrected,
 }: RecordProps<Assessments>) {
 	const toast = useToast();
-	const history = useHistory(initial, (page) => loadAssessments(personId, page));
+	const history = useHistory(
+		initial,
+		(page) => loadAssessments(personId, page),
+		corrected?.flatMap((c) => (c.type === "assessment" ? [c.record] : [])),
+	);
 	const [shown, expect] = useOptimistic(history.items, withRecord<Assessment>);
 	const [, start] = useTransition();
 	const form = useRecordForm<Editing>();
