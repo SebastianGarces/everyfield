@@ -1,12 +1,12 @@
 import { requestIdentity, sameOwner, type Owner, type sessionId } from "@everyfield/contracts/common";
 import { meetingsError, type MeetingsError, type MeetingsReply } from "@everyfield/contracts/meetings";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { eq, sql } from "@everyfield/db/query";
+import { eq, sql, type SQL } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { boundWrite, RequestActor, type requestWrite } from "../access/session.ts";
+import { boundWrite, liveRead, RequestActor, type requestWrite } from "../access/session.ts";
 import { canonical } from "../organizations/core.ts";
 import {
 	auditSavepoint,
@@ -106,7 +106,40 @@ export async function withMeetingsWrite<T>(
 		}),
 	);
 }
-/** A read answers from the request's verified viewer; no statement re-resolves the session. */
+/** Carries a previewed write's answer out of its transaction, so the transaction rolls back. */
+class Preview extends Error {
+	constructor(readonly value: unknown) {
+		super("preview");
+	}
+}
+/**
+ * One meetings write run once and rolled back: the answer the same command gives now, with nothing saved (C73). The
+ * request actor binds in one transaction as in withMeetingsWrite's established run; no first attempt runs it again.
+ */
+export async function previewMeetingsWrite<T>(
+	db: Database,
+	authority: RequestActor,
+	body: (tx: Tx, context: MeetingsContext) => Promise<MeetingsReply<T>>,
+): Promise<MeetingsReply<T>> {
+	const selected = authority.actor.context.owner;
+	return settleWrite(() =>
+		db
+			.transaction(async (tx) => {
+				if (!(await authority.bind(tx, selected))) throw new WriteUnavailable();
+				const result = await body(tx, { session: authority.session, selected });
+				if (result.status === "refused") throw new Refusal(result.error.code, result.error.details);
+				throw new Preview(result.value);
+			})
+			.catch((error: unknown) => {
+				if (error instanceof Preview) return error.value as T;
+				throw error;
+			}),
+	);
+}
+/**
+ * A read names its actor from the request's verified viewer; no statement re-resolves the session. That lookup proves
+ * nothing about access when a later statement runs, so each statement goes through `one` (C13).
+ */
 export async function read<T>(
 	authority: RequestActor,
 	body: (viewer: Viewer) => Promise<T>,
@@ -117,11 +150,25 @@ export async function read<T>(
 		return body({
 			plantId: actor.context.owner.id,
 			accountId: actor.accountId,
-			admin: actor.context.role !== "member",
+			access: { session: authority.session, owner: actor.context.owner, seatId: actor.context.seatId },
 		});
 	});
 }
-export type Viewer = { plantId: string; accountId: string; admin: boolean };
+export type Viewer = { plantId: string; accountId: string; access: Parameters<typeof liveRead>[0] };
+/**
+ * One statement of a tenant read: the first row of `query`, returned only while the reader's session, seat, role
+ * (Owner or Admin when `admin`) and lifecycle are live in that same statement (C13, C27). A reader who lost access
+ * reads nothing. `admin` is the live role, which decides what a privileged field shows; `row` is undefined when the
+ * query finds nothing.
+ */
+export async function one(db: Reader, v: Viewer, query: SQL, admin = false) {
+	const r = await db.execute(sql`SELECT a.access_live, a.access_admin, q.* FROM (SELECT ${liveRead(v.access, admin)}
+		AS access_live, ${liveRead(v.access, true)} AS access_admin) a
+		LEFT JOIN LATERAL (SELECT true AS access_found, x.* FROM (${query}) x LIMIT 1) q ON a.access_live`);
+	const row = r.rows[0] as Record<string, unknown>;
+	if (row.access_live !== true) deny();
+	return { row: row.access_found === true ? row : undefined, admin: row.access_admin === true };
+}
 
 export type Writer = {
 	accountId: string;

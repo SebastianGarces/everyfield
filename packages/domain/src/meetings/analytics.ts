@@ -2,10 +2,10 @@ import * as c from "@everyfield/contracts/meetings";
 import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
-import { liveRead, type RequestActor } from "../access/session.ts";
+import type { RequestActor } from "../access/session.ts";
 import { attendee, evaluationColumns, evaluationOf, guestRow, parseEvaluationFacts } from "./attendance.ts";
 import type { MeetingsReply } from "@everyfield/contracts/meetings";
-import { deny, parse, read, type Reader } from "./core.ts";
+import { deny, one, parse, read, type Reader } from "./core.ts";
 import { displayTitle } from "./rows.ts";
 
 // Attendance reads, the evaluation and its history, and the meeting reports (REQ-MTG-010/014/015/016). Each read is
@@ -29,16 +29,10 @@ function gated<S extends z.ZodType, T>(
 ): Promise<MeetingsReply<T>> {
 	return read(authority, async (v) => {
 		const input = parse(schema, raw);
-		const a = authority.actor;
-		if (a.context.kind !== "seat") deny();
-		const access = { session: authority.session, owner: a.context.owner, seatId: a.context.seatId };
 		// The live role decides what a privileged field shows, not the role the viewer lookup saw (C13).
-		const r = await db.execute(sql`SELECT g.live, g.live_admin, q.* FROM (SELECT ${liveRead(access, admin)} AS live,
-			${liveRead(access, true)} AS live_admin) g
-			LEFT JOIN LATERAL (${query(sql`${v.plantId}::uuid`, input)}) q ON g.live`);
-		const row = r.rows[0] as Record<string, unknown> | undefined;
-		if (row?.live !== true || row.found !== true) deny();
-		return body(row, input, { admin: row.live_admin === true });
+		const { row, admin: live } = await one(db, v, query(sql`${v.plantId}::uuid`, input), admin);
+		if (!row) deny();
+		return body(row, input, { admin: live });
 	});
 }
 const meeting = (plant: SQL, meetingId: string) =>
@@ -164,7 +158,7 @@ export const attendanceReader = {
 			false,
 			c.attendanceListRequest,
 			raw,
-			(plant, i) => sql`SELECT true AS found, m.attendance_revision::text AS attendance_revision, m.finalized_at,
+			(plant, i) => sql`SELECT m.attendance_revision::text AS attendance_revision, m.finalized_at,
 				(m.type = 'team_meeting' AND EXISTS (SELECT FROM team t JOIN person lp ON lp.id = t.leader_person_id
 					WHERE t.id = m.team_id AND t.plant_id = m.plant_id AND t.archived_at IS NULL AND lp.state = 'live'
 					AND lp.linked_account_id = ${authority.actor.accountId}::uuid)) AS leads,
@@ -213,7 +207,7 @@ export const attendanceReader = {
 			true,
 			c.meetingRequest,
 			raw,
-			(plant, i) => sql`SELECT true AS found, m.attendance_revision::text AS attendance_revision, m.finalized_at,
+			(plant, i) => sql`SELECT m.attendance_revision::text AS attendance_revision, m.finalized_at,
 				m.finalized_revision::text AS finalized_revision, ${tally} AS tally,
 				(SELECT json_build_object('guests', count(*), 'absent', count(*) FILTER (WHERE g.presence = 'absent'),
 					'excused', count(*) FILTER (WHERE g.presence = 'excused'))
@@ -250,7 +244,7 @@ export const attendanceReader = {
 			false,
 			c.meetingRequest,
 			raw,
-			(plant, i) => sql`SELECT true AS found, ${evaluationColumns} FROM meeting m WHERE ${meeting(plant, i.meetingId)}`,
+			(plant, i) => sql`SELECT ${evaluationColumns} FROM meeting m WHERE ${meeting(plant, i.meetingId)}`,
 			(row, i, v) => {
 				const e = evaluationOf(parseEvaluationFacts(row), v.admin);
 				return c.evaluationResult.parse(
@@ -267,7 +261,7 @@ export const attendanceReader = {
 			true,
 			c.meetingRequest,
 			raw,
-			(plant, i) => sql`SELECT true AS found, (SELECT coalesce(json_agg(json_build_object('event', a.metadata->>'event',
+			(plant, i) => sql`SELECT (SELECT coalesce(json_agg(json_build_object('event', a.metadata->>'event',
 					'at', a.occurred_at, 'actor', a.actor_id, 'before', a.before_value, 'after', a.after_value,
 					'reason', a.reason, 'notes_changed', coalesce((a.metadata->>'notesChanged')::boolean, false))
 					ORDER BY a.occurred_at, a.id), '[]') FROM audit_event a WHERE a.tenant_id = m.plant_id
@@ -315,7 +309,7 @@ export const attendanceReader = {
 			true,
 			c.reportRequest,
 			raw,
-			(plant, i) => sql`SELECT true AS found, (SELECT coalesce(json_agg(x ORDER BY x.occurred_at, x.id), '[]') FROM
+			(plant, i) => sql`SELECT (SELECT coalesce(json_agg(x ORDER BY x.occurred_at, x.id), '[]') FROM
 				(SELECT ${pointColumns}, m.evaluation_scores AS scores, m.evaluation_corrected_at IS NOT NULL AS corrected
 				FROM meeting m WHERE m.plant_id = ${plant} AND ${window(i)} AND m.evaluation_scores IS NOT NULL
 				AND m.retired_at IS NULL ORDER BY ${here} DESC, m.id DESC LIMIT ${i.limit}) x) AS points`,
@@ -337,7 +331,7 @@ export const attendanceReader = {
 			true,
 			c.meetingRequest,
 			raw,
-			(plant, i) => sql`SELECT true AS found, m.evaluation_scores AS scores,
+			(plant, i) => sql`SELECT m.evaluation_scores AS scores,
 				m.evaluation_corrected_at IS NOT NULL AS corrected, ${baselineSql} AS earlier
 				FROM meeting m WHERE ${meeting(plant, i.meetingId)}`,
 			(row, i) => {
@@ -360,7 +354,7 @@ export const attendanceReader = {
 			true,
 			c.reportRequest,
 			raw,
-			(plant, i) => sql`SELECT true AS found, (SELECT coalesce(json_agg(x ORDER BY x.occurred_at, x.id), '[]') FROM
+			(plant, i) => sql`SELECT (SELECT coalesce(json_agg(x ORDER BY x.occurred_at, x.id), '[]') FROM
 				(SELECT ${pointColumns}, ${tally} AS tally, ${previousSql} AS previous FROM meeting m
 				WHERE m.plant_id = ${plant} AND ${window(i)} AND ${counted}
 				ORDER BY ${here} DESC, m.id DESC LIMIT ${i.limit}) x) AS points`,
@@ -392,7 +386,7 @@ export const attendanceReader = {
 					AND ${here} <= clock_timestamp()),
 				a AS (SELECT g.person_id, g.classification FROM w m JOIN participation g ON g.meeting_id = m.id
 					WHERE m.finalized_at IS NOT NULL AND g.presence = 'attended' AND g.removed_at IS NULL)
-				SELECT true AS found, (SELECT count(*)::int FROM w) AS held,
+				SELECT (SELECT count(*)::int FROM w) AS held,
 				(SELECT count(*)::int FROM w WHERE finalized_at IS NOT NULL) AS finalized,
 				(SELECT count(*)::int FROM a) AS attendances, (SELECT count(DISTINCT person_id)::int FROM a) AS unique_attendees,
 				(SELECT count(*)::int FROM a WHERE classification = 'first_time') AS first_time,
@@ -440,8 +434,7 @@ export const attendanceReader = {
 			true,
 			c.meetingRequest,
 			raw,
-			(plant, i) =>
-				sql`SELECT true AS found, ${progressSql} AS progress FROM meeting m WHERE ${meeting(plant, i.meetingId)}`,
+			(plant, i) => sql`SELECT ${progressSql} AS progress FROM meeting m WHERE ${meeting(plant, i.meetingId)}`,
 			(row, i) => progress(i.meetingId, progressRow.parse(row.progress)),
 		);
 	},
@@ -453,7 +446,7 @@ export const attendanceReader = {
 			true,
 			c.meetingRequest,
 			raw,
-			(plant, i) => sql`SELECT true AS found, m.type, m.finalized_at IS NOT NULL AS finalized, ${tally} AS tally,
+			(plant, i) => sql`SELECT m.type, m.finalized_at IS NOT NULL AS finalized, ${tally} AS tally,
 				${previousSql} AS previous, m.evaluation_scores AS scores, m.evaluation_corrected_at IS NOT NULL AS corrected,
 				${baselineSql} AS earlier, ${progressSql} AS progress
 				FROM meeting m WHERE ${meeting(plant, i.meetingId)}`,
