@@ -162,3 +162,49 @@ test("BUG-OPS10-ci: follow recursive scripts, filters and file globs; fail an un
 		f.close();
 	}
 });
+
+test("INV-ci-db-matrix: a package-name matrix covers its packages' tests and must list every package with the script", () => {
+	const f = fixture();
+	try {
+		mkdirSync(join(f.root, ".github/workflows"), { recursive: true });
+		mkdirSync(join(f.root, "tests/integration/db"), { recursive: true });
+		mkdirSync(join(f.root, "tests/integration/writes"), { recursive: true });
+		writeFileSync(join(f.root, "package.json"), JSON.stringify({ scripts: {} }));
+		writeFileSync(join(f.root, "tests/integration/writes/suites.json"), "[]");
+		for (const [name, test] of [
+			["db", "db/baseline.test.mts"],
+			["domain", "writes/statements.test.mts"],
+		]) {
+			mkdirSync(join(f.root, `packages/${name}`), { recursive: true });
+			writeFileSync(
+				join(f.root, `packages/${name}/package.json`),
+				JSON.stringify({
+					name: `@everyfield/${name}`,
+					scripts: { "test:db": `node --test ../../tests/integration/${test}` },
+				}),
+			);
+			writeFileSync(join(f.root, "tests/integration", test), "");
+		}
+		const workflow = (packages: string[]) =>
+			writeFileSync(
+				join(f.root, ".github/workflows/ci.yml"),
+				"jobs:\n  db:\n    name: db (${{ matrix.package }})\n    strategy:\n      matrix:\n        include:\n" +
+					packages.map((p) => `          - package: "${p}"\n            build: true\n`).join("") +
+					'    steps:\n      - run: pnpm --filter "${{ matrix.package }}" test:db\n',
+			);
+		workflow(["@everyfield/db", "@everyfield/domain"]);
+		let result = cli(f.root, ["ci-tests"]);
+		assert.equal(result.status, 0, result.stderr);
+		assert.match(result.stdout, /CI includes all 2 test files/);
+		workflow(["@everyfield/db"]);
+		result = cli(f.root, ["ci-tests"]);
+		assert.equal(result.status, 1);
+		assert.match(result.stderr, /must list exactly the packages that define it\. Missing: @everyfield\/domain\./);
+		workflow(["@everyfield/db", "@everyfield/domain", "@everyfield/gone"]);
+		result = cli(f.root, ["ci-tests"]);
+		assert.equal(result.status, 1);
+		assert.match(result.stderr, /Unknown: @everyfield\/gone\./);
+	} finally {
+		f.close();
+	}
+});
