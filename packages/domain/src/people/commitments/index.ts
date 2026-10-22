@@ -588,8 +588,9 @@ const pgCode = (error: unknown) =>
  * it locks and rereads the session, the seat, the church, the upload, the Person and any witness Person; checks the live
  * Owner or Admin authority; makes the upload ready with its size and hash; advances an earlier stage to Core Group with
  * the column revisions; sets the commitment; inserts the card; moves the church revision on; and writes one
- * `people.recorded` audit row with the request key and the reply. Zero rows means refused. A sign-out or a revoked seat
- * while the bytes moved refuses here, and the upload stays pending for its cleanup.
+ * `people.recorded` audit row with the request key and the reply. Zero rows means refused. The upload becomes ready
+ * only from the row that passed every check, so any refusal (a sign-out or a revoked seat while the bytes moved, a
+ * foreign witness, a future date) leaves it pending: a corrected save can still use it, and otherwise its cleanup runs.
  *
  * C88: the statement never waits for a lock, because its snapshot is older than a lock it waited for. A held lock runs
  * the established locked path instead: BEGIN, the write gate (which waits), the same statement, COMMIT. A retry with
@@ -663,16 +664,15 @@ export async function saveCommitmentDocument(
  pl AS MATERIALIZED (SELECT pl.id,(clock_timestamp() AT TIME ZONE pl.timezone)::date AS today,clock_timestamp() AS now
   FROM plant pl WHERE pl.id=${plant}::uuid AND EXISTS(SELECT FROM s)
   AND ${writeVisibility(actorId, ctx.selected)} FOR UPDATE OF pl),
- f AS (UPDATE file_object o SET state='ready',byte_count=${String(bytes.length)}::bigint,
-  sha256=${createHash("sha256").update(bytes).digest("hex")}::text,revision=o.revision+1 FROM pl
+ fl AS MATERIALIZED (SELECT o.id FROM file_object o, pl
   WHERE o.id=${k.documentUploadId}::uuid AND o.tenant_id=${plant}::uuid AND o.purpose='commitment' AND o.state='pending'
   AND o.opaque_key=${documentKey(plant, k.documentUploadId)}::text AND o.expires_at>clock_timestamp()
   AND o.max_bytes=${String(bytes.length)}::bigint AND o.media_type=${mime.data}::text AND NOT file_is_referenced(o.id)
-  RETURNING o.id,o.media_type,o.byte_count),
+  FOR UPDATE OF o),
  w AS MATERIALIZED (SELECT w.id FROM person w, pl WHERE w.id=${witnessId}::uuid AND w.tenant_id=${plant}::uuid
   AND w.plant_id=${plant}::uuid AND w.state='live' FOR SHARE OF w),
- prev AS MATERIALIZED (SELECT p.id,p.stage,p.revision,p.commitment_state,p.commitment_effective_on,pl.now
-  FROM person p, pl, f WHERE p.id=${k.personId}::uuid AND p.tenant_id=${plant}::uuid AND p.plant_id=${plant}::uuid
+ prev AS MATERIALIZED (SELECT p.id,p.stage,p.revision,p.commitment_state,p.commitment_effective_on,pl.now,fl.id AS file_id
+  FROM person p, pl, fl WHERE p.id=${k.personId}::uuid AND p.tenant_id=${plant}::uuid AND p.plant_id=${plant}::uuid
   AND p.state='live' AND ${k.occurredOn}::date<=pl.today AND (${witnessId}::uuid IS NULL OR EXISTS(SELECT FROM w))
   FOR UPDATE OF p),
  n AS (SELECT prev.*,
@@ -683,6 +683,9 @@ export async function saveCommitmentDocument(
   n.revision+CASE WHEN n.new_stage<>n.stage OR n.activates THEN 1 ELSE 0 END AS new_revision,
   CASE WHEN n.activates THEN 'active' ELSE n.commitment_state END AS new_state,
   CASE WHEN n.activates THEN ${k.occurredOn}::date ELSE n.commitment_effective_on END AS new_effective FROM n),
+ f AS (UPDATE file_object o SET state='ready',byte_count=${String(bytes.length)}::bigint,
+  sha256=${createHash("sha256").update(bytes).digest("hex")}::text,revision=o.revision+1 FROM m
+  WHERE o.id=m.file_id RETURNING o.id,o.media_type,o.byte_count),
  up AS (UPDATE person p SET stage=m.new_stage,
   pipeline_position=CASE WHEN m.moves THEN ${freshPosition(k.personId)}::numeric ELSE p.pipeline_position END,
   commitment_state=m.new_state,commitment_effective_on=m.new_effective,revision=m.new_revision

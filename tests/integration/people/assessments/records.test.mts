@@ -658,6 +658,10 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 RT-2 design B: the browser puts the docum
 			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${sql.param(actors[0].session)},${sql.param(actors[0].user)},${sql.param(randomUUID())},clock_timestamp()+interval '1 day') ON CONFLICT (id) DO NOTHING`,
 		);
 	}
+	// A refused card never uses up its upload: a foreign witness or a future date leaves it pending for the corrected save.
+	refused(await save(0, signed.uploadId, { witness: { personId: foreign.id } }));
+	refused(await save(0, signed.uploadId, { occurredOn: day(-1) }), "invalid_input");
+	assert.deepEqual([await stateOf(signed.uploadId), await count("commitment", sam.id)], ["pending", 0]);
 	// A member and another church cannot save it.
 	refused(await save(1, signed.uploadId));
 	refused(await save(2, signed.uploadId));
