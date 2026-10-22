@@ -30,6 +30,8 @@ export type ReadDisclosure = (pair: RelationshipPair) => Promise<Disclosure | nu
 
 const REFUSED: Record<string, string> = {
 	pending_invitation: "A request to this organization is already waiting. Resend it from the list instead.",
+	address_pending:
+		"An invitation to this email address is already waiting for an answer. Enter another Owner or Admin's email.",
 	already_active: "You are already connected with this organization.",
 	invitation_limit: "This address has had 3 invitations in the last 30 days. Ask another Owner or Admin there.",
 	stale_revision: "Your details changed since this page loaded. Close this, then try again.",
@@ -63,6 +65,8 @@ export function InviteDialog({
 	const [targetId, setTargetId] = useState<string>("");
 	const [email, setEmail] = useState("");
 	const [checked, setChecked] = useState(false);
+	// The address of the last send, so an address_pending refusal marks the field only while it still holds that address.
+	const [sentEmail, setSentEmail] = useState("");
 	// `failed`: the read did not answer. A plant must see its disclosure before it can send (REQ-IDN-022); other
 	// subjects have none, so `value: null` with no failure lets them send. Each opening of the dialog is a new
 	// `attempt`, and a disclosure read in an earlier attempt never counts.
@@ -115,6 +119,7 @@ export function InviteDialog({
 	const submit = async () => {
 		setChecked(true);
 		if (!target || errors.email || !ready) return;
+		setSentEmail(email);
 		const result = await send.run(
 			"dialog",
 			(requestKey) =>
@@ -177,7 +182,7 @@ export function InviteDialog({
 								value={email}
 								readOnly={locked}
 								onChange={(e) => setEmail(e.target.value)}
-								invalid={Boolean(shown.email)}
+								invalid={Boolean(shown.email) || (send.code === "address_pending" && email === sentEmail)}
 							/>
 						</Field>
 						<ProblemLine
