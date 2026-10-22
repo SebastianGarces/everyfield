@@ -396,8 +396,11 @@ test("AC:TARGET-TSK-003 AC:TARGET-TSK-015 own-duty completion, one result per re
 	refused(await command(member, "complete", started), "conflict");
 	const reopened = ok(await command(member, "reopen", done.task)).task;
 	assert.deepEqual([reopened.status, reopened.completedAt], ["not_started", null]);
-	const again = ok(await command(member, "reopen", reopened));
+	const same = { requestKey: randomUUID(), expectedRevision: reopened.revision, input: { taskId: t.id } };
+	const again = ok(await write(member, "reopen", same));
 	assert.equal(again.outcome, "noop");
+	// A retried no-op returns the same answer.
+	assert.deepEqual(ok(await write(member, "reopen", same)), again);
 
 	const history = ok(await read(member, "statusHistory", { taskId: t.id }));
 	assert.deepEqual(

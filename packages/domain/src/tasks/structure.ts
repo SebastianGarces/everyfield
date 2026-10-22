@@ -16,7 +16,7 @@ import {
 	type TaskContext,
 	type Tx,
 } from "./core.ts";
-import { detailOf, loadTask, loadTasks, type TaskRow } from "./queries.ts";
+import { detailOf, loadTask, loadTasks, type LockedTask, type TaskRow } from "./queries.ts";
 import {
 	audited,
 	auditCreated,
@@ -140,19 +140,8 @@ export function structureWriter(reminders: TaskReminders) {
 					const ids = v.prerequisiteIds as string[];
 					const added = ids.filter((id) => !row.prerequisite_ids.includes(id));
 					if (added.includes(row.id)) deny("invalid_subject");
-					const same = added.length === 0 && ids.length === row.prerequisite_ids.length;
-					if (same) {
-						auditRow(cmd, {
-							taskId: row.id,
-							action: "tasks.changed",
-							kind: "noop",
-							before: null,
-							after: null,
-							beforeRevision: row.revision,
-							afterRevision: row.revision,
-						});
+					if (added.length === 0 && ids.length === row.prerequisite_ids.length)
 						return { value: mutation(cmd, row, "noop") };
-					}
 					const plant = cmd.actor.plantId;
 					const r = await tx.execute(sql`SELECT
 						(SELECT count(*)::int FROM task WHERE id=ANY(${sql.param(added)}::uuid[]) AND plant_id=${plant}::uuid
@@ -206,18 +195,7 @@ export function structureWriter(reminders: TaskReminders) {
 					const before = ruleOf(row),
 						after = v.rule;
 					const plant = cmd.actor.plantId;
-					if (JSON.stringify(before) === JSON.stringify(after)) {
-						auditRow(cmd, {
-							taskId: row.id,
-							action: "tasks.changed",
-							kind: "noop",
-							before: null,
-							after: null,
-							beforeRevision: row.revision,
-							afterRevision: row.revision,
-						});
-						return { value: mutation(cmd, row, "noop") };
-					}
+					if (JSON.stringify(before) === JSON.stringify(after)) return { value: mutation(cmd, row, "noop") };
 					let next: TaskRow = { ...row, revision: bump(row.revision) };
 					if (!after) {
 						cmd.writes.push(
@@ -341,7 +319,7 @@ export function structureWriter(reminders: TaskReminders) {
 		cmd: Command,
 		items: readonly { taskId: string; expectedRevision: string }[],
 		apply: (
-			row: TaskRow,
+			row: LockedTask,
 		) => z.infer<typeof c.bulkOutcome> | { row: string; changes: readonly ReturnType<typeof reminderChange>[] },
 	) {
 		const selected = [...new Map(items.map((i) => [i.taskId, i])).values()];

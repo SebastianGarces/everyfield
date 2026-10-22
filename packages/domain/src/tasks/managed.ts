@@ -1,4 +1,4 @@
-import { accountId, instant, localDate, personId, recordId, revision, timeZone } from "@everyfield/contracts/common";
+import { accountId, instant, localDate, personId, recordId, timeZone } from "@everyfield/contracts/common";
 import { meetingType } from "@everyfield/contracts/meetings";
 import * as c from "@everyfield/contracts/tasks";
 import { sql, type SQL } from "@everyfield/db/query";
@@ -9,7 +9,7 @@ import { z } from "zod";
 import { displayTitle } from "../meetings/rows.ts";
 import { auditRow, deny, parse, type AuditCommand, type Tx } from "./core.ts";
 import { managedTaskRows, managedTasks, storageKind, storedKind, type TaskRow } from "./queries.ts";
-import { audited, reminderChange, setStatus, syncAll, type TaskReminders } from "./writes.ts";
+import { audited, insertTasks, newTask, reminderChange, setStatus, syncAll, type TaskReminders } from "./writes.ts";
 
 // Generated work for finalized meetings (REQ-TSK-017). The caller is the meeting domain's own reviewed command: it
 // holds the meeting row locks and passes its audit command, so obligations, tasks and audit rows commit in its one
@@ -144,42 +144,25 @@ export async function ensureMeetingObligations(
 			}
 			const obligationId = randomUUID(),
 				taskId = randomUUID();
-			created.push({
-				id: taskId,
-				revision: revision.parse("1"),
-				title: w.title,
-				description: null,
-				category: w.kind === "first_vision_follow_up" ? "follow_up" : "vision_meeting",
-				priority: "medium",
-				status: "not_started",
-				created_at: at,
-				completed_at: null,
-				deleted_at: null,
-				assignee_id: w.assigneeId,
-				due_kind: "date_only",
-				due_date: due,
-				due_time: null,
-				timezone: null,
-				due_at: null,
-				person_id: w.personId,
-				meeting_id: w.personId ? null : m.meetingId,
-				team_id: null,
-				parent_id: null,
-				series_id: null,
-				occurrence_key: null,
-				predecessor_id: null,
-				prerequisite_ids: [],
-				open_prerequisites: 0,
-				obligation_id: obligationId,
-				obligation_kind: w.kind,
-				assignee_name: w.assigneeId ? row.seats[w.assigneeId]! : null,
-				relation_label: w.personId ? row.people[w.personId]! : title,
-				child_total: 0,
-				child_complete: 0,
-				plant_zone: row.zone,
-				open_successor: null,
-				checklist: [],
-			});
+			created.push(
+				newTask(row.zone, {
+					id: taskId,
+					title: w.title,
+					category: w.kind === "first_vision_follow_up" ? "follow_up" : "vision_meeting",
+					priority: "medium",
+					status: "not_started",
+					created_at: at,
+					assignee_id: w.assigneeId,
+					assignee_name: w.assigneeId ? row.seats[w.assigneeId]! : null,
+					due_kind: "date_only",
+					due_date: due,
+					person_id: w.personId,
+					meeting_id: w.personId ? null : m.meetingId,
+					obligation_id: obligationId,
+					obligation_kind: w.kind,
+					relation_label: w.personId ? row.people[w.personId]! : title,
+				}),
+			);
 			meetingOf.set(taskId, m.meetingId);
 			results.push({
 				meetingId: m.meetingId,
@@ -211,24 +194,7 @@ export async function ensureMeetingObligations(
 					};
 				}),
 			),
-			tx.insert(tables.task).values(
-				created.map((t) => ({
-					id: t.id,
-					plant_id: plant,
-					title: t.title,
-					category: t.category,
-					priority: t.priority,
-					status: t.status,
-					creator_id: cmd.actor.accountId,
-					created_at: at,
-					assignee_id: t.assignee_id,
-					due_kind: t.due_kind,
-					due_date: t.due_date,
-					person_id: t.person_id,
-					meeting_id: t.meeting_id,
-					obligation_id: t.obligation_id,
-				})),
-			),
+			insertTasks(plant, cmd.actor.accountId, created),
 		);
 		for (const t of created)
 			auditRow(cmd, {

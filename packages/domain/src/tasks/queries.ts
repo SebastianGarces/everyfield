@@ -59,9 +59,7 @@ export const taskRow = z.object({
 				seated: z.boolean(),
 			}),
 		)
-		.nullable()
 		.optional(),
-	// Single-task reads only: the series rule, whether a successor exists and whether the assignee is still seated.
 	rule: z
 		.object({
 			id: z.uuid(),
@@ -72,13 +70,26 @@ export const taskRow = z.object({
 		})
 		.nullable()
 		.optional(),
-	has_successor: z.boolean().optional(),
-	assignee_seated: z.boolean().optional(),
-	// The related Person is live, the team active: a recurrence copy may name them again.
-	relation_live: z.boolean().optional(),
 	total: z.coerce.number().int().optional(),
 });
+/** A list row, or a task a write builds. */
 export type TaskRow = z.infer<typeof taskRow>;
+/**
+ * One task as a single-task read returns it: its checklist, its series rule, whether a live successor exists, whether
+ * the assignee is still seated and whether the relation is live. A status change needs all of them (REQ-TSK-007).
+ */
+export const lockedTask = taskRow.extend({
+	checklist: taskRow.shape.checklist
+		.unwrap()
+		.nullable()
+		.transform((k) => k ?? []),
+	rule: taskRow.shape.rule.unwrap(),
+	has_successor: z.boolean(),
+	assignee_seated: z.boolean(),
+	// The related Person is live, the team active: a recurrence copy may name them again.
+	relation_live: z.boolean(),
+});
+export type LockedTask = z.infer<typeof lockedTask>;
 
 const columns = sql`t.id, t.revision::text AS revision, t.title, t.description, t.category, t.priority, t.status,
 	t.created_at, t.completed_at, t.deleted_at, t.assignee_id, t.due_kind, t.due_date::text AS due_date,
@@ -120,7 +131,7 @@ export async function loadTask(tx: Tx, plantId: string, task: string | { obligat
 			? sql`t.id=${task}::uuid`
 			: sql`t.obligation_id=${task.obligationId}::uuid AND t.deleted_at IS NULL`;
 	const r = await tx.execute(sql`${taskQuery(plantId, which)} ${lock ? sql`FOR UPDATE OF t` : sql``}`);
-	return r.rows[0] ? taskRow.parse(r.rows[0]) : null;
+	return r.rows[0] ? lockedTask.parse(r.rows[0]) : null;
 }
 /** Several tasks of the plant, locked in ID order so two batches never wait on each other in a cycle. One statement. */
 export async function loadTasks(tx: Tx, plantId: string, ids: readonly string[]) {
@@ -129,7 +140,7 @@ export async function loadTasks(tx: Tx, plantId: string, ids: readonly string[])
 	);
 	return new Map(
 		z
-			.array(taskRow)
+			.array(lockedTask)
 			.parse(r.rows)
 			.map((row) => [row.id, row]),
 	);
@@ -140,7 +151,7 @@ export async function loadTasks(tx: Tx, plantId: string, ids: readonly string[])
  */
 export const managedTasks = (plantId: string, obligations: SQL) =>
 	sql`(SELECT coalesce(json_agg(x ORDER BY x.id), '[]') FROM (${taskQuery(plantId, sql`t.obligation_id=ANY(${obligations}) AND t.deleted_at IS NULL`)} ORDER BY t.id FOR UPDATE OF t) x)`;
-export const managedTaskRows = z.array(taskRow);
+export const managedTaskRows = z.array(lockedTask);
 const taskQuery = (plantId: string, which: SQL) =>
 	sql`SELECT ${columns}, ${checklist}, 1 AS ord ${joins} WHERE ${which} AND t.plant_id=${plantId}::uuid`;
 
@@ -342,7 +353,7 @@ export const taskReader = {
 			const viewer = reader(authority),
 				v = parse(c.getTaskRequest, raw);
 			const [found] = await gated(tx, viewer, taskQuery(viewer.plantId, sql`t.id=${v.taskId}::uuid`));
-			const row = found && taskRow.parse(found);
+			const row = found && lockedTask.parse(found);
 			if (!row || row.deleted_at) return c.taskResult.parse({ status: "unavailable" });
 			return c.taskResult.parse({ status: "available", task: detailOf(row, v.asOf ?? now()) });
 		});

@@ -14,7 +14,7 @@ import {
 	type TaskContext,
 	type Tx,
 } from "../tasks/core.ts";
-import { loadTask, type TaskRow } from "../tasks/queries.ts";
+import { loadTask, type LockedTask } from "../tasks/queries.ts";
 import { mutation, setStatus, syncAll, type TaskReminders } from "../tasks/writes.ts";
 import { answer, refuse } from "./core.ts";
 
@@ -189,7 +189,7 @@ export function outcomeWriter(reminders: TaskReminders) {
 					const v = input.input,
 						plant = cmd.actor.plantId,
 						clock = new Date();
-					let task: TaskRow | null = null;
+					let task: LockedTask | null = null;
 					if (v.target.kind === "task") {
 						task = await loadTask(tx, plant, v.target.taskId, true);
 						// A checklist row or a task with no Person has no follow-up outcome.
