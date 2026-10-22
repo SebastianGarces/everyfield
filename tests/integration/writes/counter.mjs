@@ -44,7 +44,12 @@ const standalone = {
 	"/packages/domain/src/followups/core.ts": ["withFollowUpWrite"],
 	"/packages/domain/src/settings/avatar.ts": ["uploadAvatar"],
 	"/packages/domain/src/people/fields/index.ts": ["uploadPersonPhoto"],
-	"/packages/domain/src/people/commitments/index.ts": ["uploadCommitmentDocument", "getCommitmentDownload"],
+	"/packages/domain/src/people/commitments/index.ts": [
+		"uploadCommitmentDocument",
+		"getCommitmentDownload",
+		"signCommitmentDocument",
+		"saveCommitmentDocument",
+	],
 	"/packages/domain/src/settings/deletion.ts": ["issueRestrictedDeletionSession"],
 	"/packages/domain/src/people/references.ts": ["detachAccountPersonLinks"],
 	"/packages/domain/src/phases/creation-entry/index.ts": ["recordCreationEntry"],

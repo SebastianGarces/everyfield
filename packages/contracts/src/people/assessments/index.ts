@@ -71,6 +71,24 @@ export const requestCommitmentUploadRequest = z.strictObject({
 	mime: commitmentMime,
 	byteLength: z.int().min(1).max(COMMITMENT_MAX_BYTES),
 });
+// The document upload (RT-2 design B): sign a five-minute PUT URL for one pending upload, let the browser put the bytes
+// straight into the private bucket, then save the card with that upload in one request. The save checks the bytes.
+export const signCommitmentDocumentRequest = requestCommitmentUploadRequest;
+export const commitmentDocumentUpload = z.strictObject({
+	uploadId: recordId,
+	// The browser PUTs the file's exact bytes to this URL with exactly these headers; it works until expiresAt.
+	url: z.url(),
+	headers: z.strictObject({
+		"content-type": commitmentMime,
+		"if-none-match": z.literal("*"),
+		"cache-control": z.literal("private, no-store"),
+	}),
+	expiresAt: instant,
+});
+export const saveCommitmentDocumentRequest = z.strictObject({
+	requestKey,
+	input: z.strictObject({ ...createCommitmentRequest.shape.input.shape, documentUploadId: recordId }),
+});
 // Withdrawal and reactivation change the Person's current commitment, never its stage. The expected revision is the
 // Person's.
 const lifecycleChange = z.strictObject({
