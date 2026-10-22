@@ -54,9 +54,10 @@ type Action = "approve" | "revise" | "cancel" | "retry";
 type Notice = { text: string; tone: "error" | "neutral" };
 /**
  * What the card shows: the review's phase, or why there is no review to show. photo_unavailable is a pending set-photo
- * review whose upload is gone: it stays on screen, but can't be approved.
+ * review whose upload is gone: it stays on screen, but can't be approved. approval_unknown is a pending review whose
+ * approval got no answer, even after one replay and one read: it may already be saved, so only Check again is offered.
  */
-type View = Phase | "loading" | "lost" | "unavailable" | "photo_unavailable";
+type View = Phase | "loading" | "lost" | "unavailable" | "photo_unavailable" | "approval_unknown";
 
 function useReview(proposalId: string) {
 	const [review, setReview] = useState<Review | null>(null);
@@ -65,6 +66,8 @@ function useReview(proposalId: string) {
 	const [notice, setNotice] = useState<Notice | null>(null);
 	/** The server's last refusal of an action, for the revision it refused. */
 	const [refused, setRefused] = useState<{ code: string; revision: number } | null>(null);
+	/** The revision whose approval has no known result: no reply to the approval or its replay, and no read after. */
+	const [unknown, setUnknown] = useState<number | null>(null);
 	const [now, setNow] = useState(() => Date.now());
 	// Every action takes a new generation; a read that started before it is dropped when it answers late.
 	const generation = useRef(0);
@@ -100,7 +103,7 @@ function useReview(proposalId: string) {
 		};
 	}, [proposalId]);
 
-	const view: Exclude<View, "photo_unavailable"> =
+	const view: Exclude<View, "photo_unavailable" | "approval_unknown"> =
 		load === "ready" && review ? phaseOf(review, now) : load === "ready" ? "loading" : load;
 
 	// The clock only matters at the expiry: one timer flips a pending review to expired, with no request.
@@ -163,6 +166,10 @@ function useReview(proposalId: string) {
 		if (g !== generation.current) return false;
 		setBusy(null);
 		setRefused(reply.status === "refused" ? { code: reply.error.code, revision: before.revision } : null);
+		// Only an approval can be unknown: its replay sends the same key, so Check again can never approve twice.
+		const lostApproval = action === "approve" && reply.status === "lost" && !current && !refused;
+		setUnknown(lostApproval ? before.revision : null);
+		if (lostApproval) return false;
 		if (refused) {
 			gone();
 			return false;
@@ -186,6 +193,7 @@ function useReview(proposalId: string) {
 		busy,
 		notice,
 		refused,
+		unknown,
 		now,
 		reload: () => {
 			setLoad("loading");
@@ -277,6 +285,7 @@ const HEAD: Record<Exclude<View, "loading" | "lost">, { icon: IconSvgElement; ti
 	expired: { icon: Clock01Icon, title: "Expired", tone: "gray" },
 	cancelled: { icon: Cancel01Icon, title: "Cancelled", tone: "gray" },
 	withheld: { icon: SquareLock02Icon, title: "No longer available", tone: "gray" },
+	approval_unknown: { icon: Alert02Icon, title: "Not confirmed", tone: "amber" },
 	photo_unavailable: { icon: ImageNotFound01Icon, title: "Photo not available", tone: "gray" },
 	unavailable: { icon: SquareLock02Icon, title: "Not available to you", tone: "gray" },
 };
@@ -307,6 +316,8 @@ function note(view: View, review: Review | null, now: number): string | null {
 			return review && retryable(review, now)
 				? "Evry can't confirm that this was saved. Try again. A change that was saved is not saved twice."
 				: "Evry can't confirm that this was saved, and the approval expired. Open the person to check.";
+		case "approval_unknown":
+			return "Evry got no answer to your approval, so it may already be saved. Check again to find out. Checking never saves it twice.";
 		case "photo_unavailable":
 			return `The uploaded photo is no longer available, so you can't approve this change. Nothing was changed. Upload the photo again on ${who ?? "the person"}'s page.`;
 		case "expired":
@@ -355,7 +366,12 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 	const photoGone =
 		staged.photo.status === "gone" ||
 		(r.refused?.code === "photo_unavailable" && r.refused.revision === review?.revision);
-	const view: View = r.view === "pending" && photoGone ? "photo_unavailable" : r.view;
+	const view: View =
+		r.view === "pending" && r.unknown === review?.revision
+			? "approval_unknown"
+			: r.view === "pending" && photoGone
+				? "photo_unavailable"
+				: r.view;
 
 	// A change of view after the card loaded is announced once (the previous-value pattern, no effect).
 	const key = `${view}:${review?.revision ?? 0}`;
@@ -486,7 +502,7 @@ function Footer({
 	reviseButton,
 	onRevise,
 }: {
-	view: Phase | "photo_unavailable";
+	view: Phase | "photo_unavailable" | "approval_unknown";
 	review: Review;
 	/** False while a new photo is not shown yet: the owner approves only what the card shows. */
 	canApprove: boolean;
@@ -528,6 +544,25 @@ function Footer({
 				) : null}
 				<span className="flex-1" />
 				{cancel}
+				{r.busy ? <Hint>One change at a time. Wait for this one to finish.</Hint> : null}
+			</>
+		);
+	else if (view === "approval_unknown")
+		body = (
+			<>
+				<Button size="sm" variant="primary" loading={r.busy === "approve"} onClick={() => void r.approve()}>
+					Check again
+				</Button>
+				{editableChanges(review).length ? (
+					<Button size="sm" variant="secondary" disabled>
+						Revise
+					</Button>
+				) : null}
+				<span className="flex-1" />
+				<Button size="sm" variant="ghost" disabled>
+					Cancel
+				</Button>
+				<Hint>Check again before you change or cancel this.</Hint>
 			</>
 		);
 	else if (view === "photo_unavailable")
@@ -581,6 +616,11 @@ function Footer({
 			{body}
 		</div>
 	) : null;
+}
+
+/** A short reason under the footer's buttons for a control that is disabled. */
+function Hint({ children }: { children: ReactNode }) {
+	return <p className="w-full text-xs text-text-3">{children}</p>;
 }
 
 function CardHead({
