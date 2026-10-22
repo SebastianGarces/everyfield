@@ -13,9 +13,9 @@
 // It runs only as the committed file inside a checkout of this repository, never as a copy or an edited file.
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, dirname, extname, join, relative, resolve } from "node:path";
+import { basename, dirname, extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const args = process.argv.slice(2);
@@ -114,6 +114,15 @@ if (deleting) {
 const files = (function walk(d) {
   return readdirSync(d).flatMap((n) => (statSync(join(d, n)).isDirectory() ? walk(join(d, n)) : [join(d, n)]));
 })(dir).map((f) => relative(dir, f)).filter((f) => !/^(published\.json|index\.html)$/.test(f) && !f.split("/").some((p) => p.startsWith(".")));
+// Read or write only real files inside the folder: a symlink out of it, for example to .env.prod, is refused unopened.
+const inside = realpathSync(dir) + sep;
+for (const f of files) {
+  const real = realpathSync(join(dir, f));
+  if (!real.startsWith(inside) || basename(real).startsWith(".env.prod")) throw new Error(`Refused: ${f} resolves outside the evidence folder or to a production env file. Copy the file into the folder instead.`);
+}
+for (const f of ["index.html", "published.json"]) {
+  if (lstatSync(join(dir, f), { throwIfNoEntry: false })?.isSymbolicLink()) throw new Error(`Refused: ${f} in the evidence folder is a symlink. Delete it; publish.mjs writes this file itself.`);
+}
 
 // A gallery page so the PR comment needs one link: before and after side by side, then every file.
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);

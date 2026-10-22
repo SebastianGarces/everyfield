@@ -1,7 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
-import { appendFileSync, chmodSync, copyFileSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+	appendFileSync,
+	chmodSync,
+	copyFileSync,
+	mkdirSync,
+	mkdtempSync,
+	rmSync,
+	symlinkSync,
+	writeFileSync,
+} from "node:fs";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -33,7 +42,13 @@ async function setup(listing: Record<string, number>) {
 		const virtual = req.headers.host?.startsWith("everyfield-evidence.");
 		requests.push(`${req.method} ${virtual ? "virtual" : ""}${req.url}`);
 		const bucket = req.url!.split(/[/?]/)[1];
-		const status = virtual ? (req.url!.startsWith("/?") ? 403 : 200) : req.method === "GET" && bucket in listing ? listing[bucket] : 200;
+		const status = virtual
+			? req.url!.startsWith("/?")
+				? 403
+				: 200
+			: req.method === "GET" && bucket in listing
+				? listing[bucket]
+				: 200;
 		req.resume().on("end", () => res.writeHead(status).end(""));
 	});
 	await new Promise<void>((r) => server.listen(0, r));
@@ -87,10 +102,10 @@ test("OPS-33 publish: an evidence-only key uploads and the script never opens .e
 		assert.match(r.err, new RegExp(`key file ${join(t.dir, "evidence.env")}\\.`));
 		assert.doesNotMatch(r.err + r.out, /EACCES|\.env\.prod/);
 		assert.deepEqual(JSON.parse(r.out).files, 3);
-		assert.deepEqual(
-			t.requests.filter((q) => !q.startsWith("PUT")).slice(0, 2),
-			["GET /everyfield?list-type=2&max-keys=1", "GET /everyfield-dev?list-type=2&max-keys=1"],
-		);
+		assert.deepEqual(t.requests.filter((q) => !q.startsWith("PUT")).slice(0, 2), [
+			"GET /everyfield?list-type=2&max-keys=1",
+			"GET /everyfield-dev?list-type=2&max-keys=1",
+		]);
 		assert.equal(t.requests.filter((q) => q.startsWith("PUT /everyfield-evidence/evf-evidence/OPS-33/")).length, 3);
 	} finally {
 		t.close();
@@ -104,7 +119,10 @@ test("OPS-33 publish: a key that can list everyfield-dev is refused before any u
 			assert.notEqual(r.code, 0);
 			assert.match(r.err, /Refused: listing everyfield-dev with the key in .* returned HTTP 200, not 403/);
 		}
-		assert.deepEqual(t.requests.filter((q) => !q.startsWith("GET /everyfield")), []);
+		assert.deepEqual(
+			t.requests.filter((q) => !q.startsWith("GET /everyfield")),
+			[],
+		);
 	} finally {
 		t.close();
 	}
@@ -136,7 +154,10 @@ test("OPS-33 publish: an evidence file with a development env value is blocked",
 		assert.notEqual(r.code, 0);
 		assert.match(r.err, /Refused: server\.log contain a credential/);
 		assert.doesNotMatch(r.err, new RegExp(DEV_SECRET));
-		assert.deepEqual(t.requests.filter((q) => q.startsWith("PUT")), []);
+		assert.deepEqual(
+			t.requests.filter((q) => q.startsWith("PUT")),
+			[],
+		);
 	} finally {
 		t.close();
 	}
@@ -156,7 +177,41 @@ test("OPS-33 publish: an evidence or dev env file that resolves to .env.prod is 
 		assert.notEqual(key.code, 0);
 		assert.match(key.err, /Refused: .*evidence\.env resolves to a production env file/);
 		for (const r of [dev, key]) assert.doesNotMatch(r.err, /EACCES/);
-		assert.deepEqual(t.requests.filter((q) => q.startsWith("PUT")), []);
+		assert.deepEqual(
+			t.requests.filter((q) => q.startsWith("PUT")),
+			[],
+		);
+	} finally {
+		t.close();
+	}
+});
+
+test("OPS-33 publish: an evidence file that links to .env.prod or out of the folder is refused unopened", async () => {
+	const t = await setup(evidenceOnly);
+	try {
+		const outside = join(t.dir, "outside.txt");
+		writeFileSync(outside, "outside the evidence folder\n");
+		for (const [name, targetPath] of [
+			["notes.txt", join(t.repo, ".env.prod")],
+			["other.txt", outside],
+			["index.html", join(t.repo, ".env.prod")],
+		]) {
+			symlinkSync(targetPath, join(t.evidence, name));
+			const r = await t.publish();
+			rmSync(join(t.evidence, name));
+			assert.notEqual(r.code, 0);
+			assert.match(
+				r.err,
+				new RegExp(
+					`Refused: ${name.replace(".", "\\.")} (resolves outside the evidence folder|in the evidence folder is a symlink)`,
+				),
+			);
+			assert.doesNotMatch(r.err, /EACCES/);
+		}
+		assert.deepEqual(
+			t.requests.filter((q) => q.startsWith("PUT")),
+			[],
+		);
 	} finally {
 		t.close();
 	}
