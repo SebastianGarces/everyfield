@@ -31,6 +31,7 @@ import {
 	references,
 	setStatus,
 	syncAll,
+	syncReminders,
 	update,
 	type TaskReminders,
 } from "./writes.ts";
@@ -185,7 +186,7 @@ export function structureWriter(reminders: TaskReminders) {
 						beforeRevision: row.revision,
 						afterRevision: next.revision,
 					});
-					return { value: mutation(cmd, next, "changed") };
+					return { value: mutation(cmd, next, "changed"), after: syncReminders(reminders, tx, plant, row, next) };
 				});
 			});
 		},
@@ -256,7 +257,7 @@ export function structureWriter(reminders: TaskReminders) {
 						beforeRevision: row.revision,
 						afterRevision: next.revision,
 					});
-					return { value: mutation(cmd, next, "changed") };
+					return { value: mutation(cmd, next, "changed"), after: syncReminders(reminders, tx, plant, row, next) };
 				});
 			});
 		},
