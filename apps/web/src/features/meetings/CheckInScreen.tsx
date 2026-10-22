@@ -42,15 +42,19 @@ import type { CheckInData } from "./server.ts";
  * someone in People or someone new. Each tap shows at once; one save per person runs at a time. Finish reviews and
  * finalizes the attendance. The list never reloads while people arrive.
  */
-export function CheckInScreen({ data }: { data: CheckInData }) {
+export function CheckInScreen({ data, admin }: { data: CheckInData; admin: boolean }) {
 	return (
 		<ToastProvider>
-			<CheckIn loaded={data} />
+			<CheckIn loaded={data} admin={admin} />
 		</ToastProvider>
 	);
 }
 
-function CheckIn({ loaded }: { loaded: CheckInData }) {
+/**
+ * `admin` is an Owner or Admin. A team meeting's leader (not admin) marks people here and checks in someone already in
+ * People; adding a new person and finalizing stay with Owners and Admins (C74).
+ */
+function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 	const toast = useToast();
 	const [data, setData] = useState(loaded);
 	const [filter, setFilter] = useState<"waiting" | "here">("waiting");
@@ -276,7 +280,12 @@ function CheckIn({ loaded }: { loaded: CheckInData }) {
 							You can finish after the meeting starts at {timeText(m.localTime)}.
 						</p>
 					) : null}
-					<div className="grid grid-cols-2 gap-2">
+					{admin ? null : (
+						<p className="text-center text-sm text-text-2">
+							An Owner or Admin finalizes attendance on the meeting page.
+						</p>
+					)}
+					<div className={admin ? "grid grid-cols-2 gap-2" : "grid grid-cols-1 gap-2"}>
 						<Button
 							variant="secondary"
 							icon={UserAdd01Icon}
@@ -286,19 +295,21 @@ function CheckIn({ loaded }: { loaded: CheckInData }) {
 						>
 							Add a walk-in
 						</Button>
-						<Button
-							variant="primary"
-							icon={CheckListIcon}
-							className="h-12"
-							loading={door.state === "pending" && settle !== null}
-							disabled={doorBusy || presence.busy}
-							onClick={finish}
-							onPointerEnter={seats.load}
-							onFocus={seats.load}
-							onTouchStart={seats.load}
-						>
-							Finish check-in
-						</Button>
+						{admin ? (
+							<Button
+								variant="primary"
+								icon={CheckListIcon}
+								className="h-12"
+								loading={door.state === "pending" && settle !== null}
+								disabled={doorBusy || presence.busy}
+								onClick={finish}
+								onPointerEnter={seats.load}
+								onFocus={seats.load}
+								onTouchStart={seats.load}
+							>
+								Finish check-in
+							</Button>
+						) : null}
 					</div>
 				</footer>
 			)}
@@ -309,6 +320,7 @@ function CheckIn({ loaded }: { loaded: CheckInData }) {
 					initial={walkIn.input}
 					problem={walkIn.problem}
 					exclude={guests.map((g) => g.person.personId)}
+					allowNew={admin}
 					onClose={() => setWalkIn(null)}
 					onSubmit={submitWalkIn}
 				/>
@@ -401,6 +413,7 @@ function WalkInDialog({
 	initial,
 	problem,
 	exclude,
+	allowNew,
 	onClose,
 	onSubmit,
 }: {
@@ -408,6 +421,8 @@ function WalkInDialog({
 	initial: WalkInInput | null;
 	problem: string | null;
 	exclude: string[];
+	/** Only an Owner or Admin adds someone new to People; a team leader picks someone already there. */
+	allowNew: boolean;
 	onClose: () => void;
 	onSubmit: (input: WalkInInput) => void;
 }) {
@@ -438,16 +453,18 @@ function WalkInDialog({
 				>
 					<DialogHeader icon={UserAdd01Icon} tone="green" title="Add a walk-in" />
 					<DialogBody ref={body} className="flex flex-col gap-4">
-						<SegmentedControl
-							label="Who"
-							value={mode}
-							onValueChange={setMode}
-							className="flex w-full [&>*]:flex-1 [&>*]:justify-center"
-							options={[
-								{ value: "existing", label: "In People" },
-								{ value: "new", label: "Someone new" },
-							]}
-						/>
+						{allowNew ? (
+							<SegmentedControl
+								label="Who"
+								value={mode}
+								onValueChange={setMode}
+								className="flex w-full [&>*]:flex-1 [&>*]:justify-center"
+								options={[
+									{ value: "existing", label: "In People" },
+									{ value: "new", label: "Someone new" },
+								]}
+							/>
+						) : null}
 						{mode === "existing" ? (
 							<div data-field="person" className="contents">
 								<Field label="Person" error={touched && !input.person ? "Choose who came." : null}>

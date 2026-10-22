@@ -126,6 +126,7 @@ export function GuestList({
 	const vision = meeting.type === "vision_meeting";
 	const counts = rsvpCounts(shown);
 	const cardOf = new Map((cards ?? []).map((c) => [c.personId, c]));
+	const marker = attendance?.viewerCanMarkAttendance === true;
 	const classOf = new Map((attendance?.items ?? []).map((a) => [a.person.personId, a.classification]));
 	const rows = filter === "all" ? shown : shown.filter((g) => g.rsvp === filter);
 	const open = ACCEPTS_REPLIES.includes(meeting.status);
@@ -267,7 +268,8 @@ export function GuestList({
 					},
 				]
 			: []),
-		...(canWrite
+		// An Owner or Admin gets the whole menu; the leader of a team meeting gets only attendance (C74).
+		...(canWrite || marker
 			? [
 					{
 						key: "actions",
@@ -292,43 +294,47 @@ export function GuestList({
 												Mark as {PRESENCE_LABEL[p].toLowerCase()}
 											</MenuItem>
 										))}
-										{g.presence === "attended" && g.person.state === "live" ? (
+										{canWrite && g.presence === "attended" && g.person.state === "live" ? (
 											<MenuItem icon={Note01Icon} onSelect={() => onNote(g)}>
 												Add a note to their history
 											</MenuItem>
 										) : null}
-										<MenuSeparator />
-										<MenuLabel>Correct the RSVP</MenuLabel>
-										{(["confirmed", "declined", "pending"] as const).map((r) => (
-											<MenuItem
-												key={r}
-												icon={CheckmarkCircle02Icon}
-												disabled={g.rsvp === r || !open}
-												onSelect={() => correct(g, r)}
-											>
-												{r === "pending" ? "Reset to Pending" : `Set to ${RSVP_LABEL[r]}`}
-											</MenuItem>
-										))}
-										<MenuSeparator />
-										<MenuItem icon={UserSwitchIcon} onSelect={() => openForm({ kind: "inviter", guest: g })}>
-											Change who invited them
-										</MenuItem>
-										{vision ? (
+										{canWrite ? (
 											<>
-												<MenuItem icon={Note01Icon} onSelect={() => openForm({ kind: "card", guest: g })}>
-													{cardOf.has(g.person.personId) ? "Correct response card" : "Record response card"}
-												</MenuItem>
-												{cardOf.has(g.person.personId) ? (
-													<MenuItem icon={Note01Icon} onSelect={() => setConfirm({ kind: "clear", guest: g })}>
-														Clear response card
+												<MenuSeparator />
+												<MenuLabel>Correct the RSVP</MenuLabel>
+												{(["confirmed", "declined", "pending"] as const).map((r) => (
+													<MenuItem
+														key={r}
+														icon={CheckmarkCircle02Icon}
+														disabled={g.rsvp === r || !open}
+														onSelect={() => correct(g, r)}
+													>
+														{r === "pending" ? "Reset to Pending" : `Set to ${RSVP_LABEL[r]}`}
 													</MenuItem>
+												))}
+												<MenuSeparator />
+												<MenuItem icon={UserSwitchIcon} onSelect={() => openForm({ kind: "inviter", guest: g })}>
+													Change who invited them
+												</MenuItem>
+												{vision ? (
+													<>
+														<MenuItem icon={Note01Icon} onSelect={() => openForm({ kind: "card", guest: g })}>
+															{cardOf.has(g.person.personId) ? "Correct response card" : "Record response card"}
+														</MenuItem>
+														{cardOf.has(g.person.personId) ? (
+															<MenuItem icon={Note01Icon} onSelect={() => setConfirm({ kind: "clear", guest: g })}>
+																Clear response card
+															</MenuItem>
+														) : null}
+													</>
 												) : null}
+												<MenuSeparator />
+												<MenuItem icon={Delete02Icon} danger onSelect={() => setConfirm({ kind: "remove", guest: g })}>
+													Remove from guest list
+												</MenuItem>
 											</>
 										) : null}
-										<MenuSeparator />
-										<MenuItem icon={Delete02Icon} danger onSelect={() => setConfirm({ kind: "remove", guest: g })}>
-											Remove from guest list
-										</MenuItem>
 									</MenuContent>
 								</Menu>
 							),

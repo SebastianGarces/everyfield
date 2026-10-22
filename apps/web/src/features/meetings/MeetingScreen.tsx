@@ -183,6 +183,8 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 	});
 	const seats = useSeats();
 	const final = data.attendance?.finalized != null;
+	// Owners, Admins and the leader of a team meeting mark attendance (C74); the server read says who may.
+	const marker = data.attendance?.viewerCanMarkAttendance === true;
 	type Form<I> = { visible: boolean; input: I | null; problem: string | null };
 	// Finalize and correction share one save slot; the evaluation has its own (C68).
 	const settleSlot = useSlot();
@@ -314,7 +316,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 	const moves = (statusTransitions[m.status] ?? []).filter((to) => !(practice && to === "completed"));
 	const held = m.occurrence.heldAt !== null;
 	const checkIn =
-		canWrite && !final && m.status !== "cancelled" && !m.occurrence.voidedAt ? (
+		marker && !final && m.status !== "cancelled" && !m.occurrence.voidedAt ? (
 			<IntentLink href={`/meetings/${m.id}/check-in`} className={buttonVariants({ variant: "primary" })}>
 				Start check-in
 			</IntentLink>
@@ -378,7 +380,9 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 				</MenuContent>
 			</Menu>
 		</>
-	) : null;
+	) : (
+		checkIn
+	);
 
 	return (
 		<>
@@ -469,7 +473,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 						cards={view.cards}
 						attendance={view.attendance}
 						presence={presence}
-						canMark={canWrite && !final && m.status !== "cancelled"}
+						canMark={marker && !final && m.status !== "cancelled"}
 						onNote={setNoteFor}
 						canWrite={canWrite}
 						project={project}

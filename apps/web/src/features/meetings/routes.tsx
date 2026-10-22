@@ -91,8 +91,8 @@ export async function MeetingPage({ params: route }: { params: Promise<{ meeting
 
 export const checkInMetadata: Metadata = { title: "Check-in", robots: { index: false, follow: false } };
 /**
- * Door check-in (phone layout, outside the app frame). Owners and Admins check people in; anyone else sees the
- * meeting page, which says what their seat allows.
+ * Door check-in (phone layout, outside the app frame). Owners and Admins check people in, and so does the leader of a
+ * team meeting for that meeting; anyone else sees the meeting page, which says what their seat allows.
  */
 export async function CheckInPage({ params: route }: { params: Promise<{ meetingId: string }> }) {
 	const raw = (await route).meetingId;
@@ -100,9 +100,12 @@ export async function CheckInPage({ params: route }: { params: Promise<{ meeting
 	if (v.signedOut) redirect(`/signin?returnTo=${encodeURIComponent(`/meetings/${raw}/check-in`)}`);
 	const id = meetingIdSchema.safeParse(raw);
 	if (!id.success) notFound();
-	if (!v.viewer || !canWrite(v.viewer)) redirect(`/meetings/${id.data}`);
+	if (!v.viewer) redirect(`/meetings/${id.data}`);
 	const loaded = await loadCheckIn(v.viewer, id.data);
 	if (loaded.status === "missing") notFound();
+	// Owners and Admins, or the leader of this team meeting (C74); anyone else sees the meeting page.
+	if (loaded.status === "found" && !canWrite(v.viewer) && !loaded.attendance?.viewerCanMarkAttendance)
+		redirect(`/meetings/${id.data}`);
 	if (loaded.status === "failed")
 		return (
 			<main className="mx-auto flex min-h-dvh max-w-[560px] flex-col justify-center px-4">
@@ -111,7 +114,7 @@ export async function CheckInPage({ params: route }: { params: Promise<{ meeting
 				</StatePanel>
 			</main>
 		);
-	return <CheckInScreen key={loaded.meeting.id} data={loaded} />;
+	return <CheckInScreen key={loaded.meeting.id} data={loaded} admin={canWrite(v.viewer)} />;
 }
 
 /** A meeting that is not here: missing, deleted, in another church or a malformed link all read the same. */
