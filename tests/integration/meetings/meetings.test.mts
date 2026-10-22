@@ -8,7 +8,7 @@ import { randomUUID, randomBytes } from "node:crypto";
 import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { executeWrites } from "../../../packages/domain/src/operations/writes.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
-import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
+import { peopleReader, peopleWriter, readPersonPage } from "../../../packages/domain/src/people/index.ts";
 import {
 	answerRsvpToken,
 	createRsvpToken,
@@ -820,6 +820,22 @@ test("AC:TARGET-MTG-011 AC:GAP-MTG-011 AC:B02-023 AC:B02-024 quick-add contacts 
 		0,
 		"no login or seat",
 	);
+});
+
+test("BUG-WP-020-guest-history: a Person created from a guest list or at the door opens with their history", async () => {
+	const m = await schedule();
+	for (const op of [guests.createGuestContact, guests.createWalkInContact]) {
+		const made = ok(await run(op, { requestKey: key(), input: { meetingId: m.id, displayName: "Robin" } }));
+		const personId = made.guest.person.personId;
+		const page = ok(await tx((t) => readPersonPage(t, ctx(), { personId }, 50)));
+		assert.equal(page.found.person.id, personId);
+		assert.deepEqual(
+			page.activities.value.items.map((a) => [a.kind, a.action, a.actor.kind]),
+			[["activity", "created", "current_account"]],
+		);
+		const feed = ok(await tx((t) => peopleReader.getActivities(t, ctx(), { personId })));
+		assert.deepEqual(feed.items, page.activities.value.items);
+	}
 });
 
 test("AC:CASE-COM-010 AC:TARGET-MTG-008 AC:TARGET-MTG-009 AC:GAP-MTG-008 one current RSVP from link, own reply or Admin, never attendance", async () => {
