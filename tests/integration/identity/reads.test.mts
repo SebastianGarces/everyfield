@@ -58,6 +58,27 @@ test("INV-reads: viewer, roster, invitation list, sharing history, sharing choic
 	assert.equal(viewer.value.registration, "active");
 	assert.deepEqual(viewer.value.authority.actor.context.owner, s.w);
 	assert.equal(viewer.value.person, null);
+	// The viewer read waits for no write: an open update of the session row (a sign-out, an expiry extension) does not
+	// hold it up (C27).
+	let release, locked;
+	const ready = new Promise((resolve) => (locked = resolve)),
+		done = new Promise((resolve) => (release = resolve));
+	const holder = f.admin.transaction(async (a) => {
+		await a.execute(sql`UPDATE auth_session SET expires_at=expires_at WHERE id=${s.sender.session}`);
+		locked();
+		await done;
+	});
+	await ready;
+	try {
+		const during = await f.db.transaction(async (tx) => {
+			await tx.execute(sql`SET LOCAL lock_timeout='250ms'`);
+			return readViewer(tx, sessionId.parse(s.sender.session));
+		});
+		assert.equal(during.registration, "active");
+	} finally {
+		release();
+		await holder;
+	}
 	const authority = viewer.value.authority;
 	const roster = await count(() => f.seats.list(authority, { workspace: s.w }));
 	assert.equal(roster.statements.length, 1);
