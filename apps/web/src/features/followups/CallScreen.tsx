@@ -16,9 +16,10 @@ import { useRef, useState, useSyncExternalStore } from "react";
 import { dueText } from "../tasks/model.ts";
 import { recordOutcome } from "./actions.ts";
 import { loadCall } from "./fetch.ts";
-import { focusFirstProblem, OutcomeFields } from "./fields.tsx";
+import { OutcomeFields } from "./fields.tsx";
 import {
 	emptyDraft,
+	problemText,
 	OUTCOME_LABEL,
 	OUTCOMES,
 	outcomeInput,
@@ -28,7 +29,7 @@ import {
 	type OutcomeMutation,
 } from "./model.ts";
 import { EntryFacts, LastContact, OutcomeBadge } from "./parts.tsx";
-import { LaneNotice, SaveButton, useLane } from "./save.tsx";
+import { focusFirstProblem, SaveButton, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
 import type { CallData } from "./server.ts";
 
 const OPEN = new Set(["not_started", "in_progress", "blocked"]);
@@ -42,9 +43,8 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 	const [call, setCall] = useState(initial);
 	const [draft, setDraft] = useState<Draft>(emptyDraft);
 	const [errors, setErrors] = useState<DraftErrors>({});
-	const [sent, setSent] = useState(false);
 	const [saved, setSaved] = useState<OutcomeMutation | null>(null);
-	const lane = useLane();
+	const lane = useSaveIntent({ explain: problemText });
 	const notice = useRef<HTMLDivElement>(null);
 	const done = useRef<HTMLHeadingElement>(null);
 	const { task, person, obligation } = call;
@@ -53,7 +53,7 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 	const canAct = (admin || mine) && person.live;
 	// After a refusal or an unknown result the form stays, with the person's answers and the notice, even when a reload
 	// shows the follow-up was finished in the meantime (C58 rules 5 and 6).
-	const held = lane.lane.refused !== null || lane.lane.unknown !== null;
+	const held = lane.notice !== null;
 	const now = useNow();
 	const left48 =
 		now !== null && obligation?.kind === "first_vision_follow_up" && open ? windowAt(obligation.origin.at, now) : null;
@@ -70,39 +70,35 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 			return;
 		}
 		setErrors({});
-		setSent(true);
 		const input = { target: { kind: "task", taskId: task.id, expectedRevision: task.revision }, ...parsed.input };
-		await lane.save(
-			"The outcome",
-			(key) => recordOutcome(key, input),
-			async (r) => {
-				setSent(false);
-				if (r.status === "ok") {
-					setSaved(r.value);
-					setDraft(emptyDraft());
-					setCall((c) => ({
-						...c,
-						task: r.value.task ?? c.task,
-						recent: c.recent
-							? {
-									...c.recent,
-									lastConfirmedContactAt: r.value.lastConfirmedContactAt,
-									items: [r.value.record, ...c.recent.items].slice(0, 3),
-								}
-							: c.recent,
-					}));
-					requestAnimationFrame(() => done.current?.focus());
-					return;
-				}
-				// The answers stay. Out of date: read the follow-up again so the next save uses its latest revision.
-				if (r.code === "conflict") {
+		await lane.save({
+			what: "The outcome",
+			send: (key) => recordOutcome(key, input),
+			ok: (value) => {
+				setSaved(value);
+				setDraft(emptyDraft());
+				setCall((c) => ({
+					...c,
+					task: value.task ?? c.task,
+					recent: c.recent
+						? {
+								...c.recent,
+								lastConfirmedContactAt: value.lastConfirmedContactAt,
+								items: [value.record, ...c.recent.items].slice(0, 3),
+							}
+						: c.recent,
+				}));
+				requestAnimationFrame(() => done.current?.focus());
+			},
+			// The answers stay. Out of date: read the follow-up again so the next save uses its latest revision.
+			refused: async (code) => {
+				if (code === "conflict") {
 					const fresh = await loadCall(task.id);
 					if (fresh.status === "ok" && fresh.value.kind === "call") setCall(fresh.value.call);
 				}
 				requestAnimationFrame(() => notice.current?.focus());
 			},
-		);
-		setSent(false);
+		});
 	}
 
 	return (
@@ -234,10 +230,10 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 							personName={person.label.split(" ")[0] || person.label}
 						/>
 						<div ref={notice} tabIndex={-1} className="outline-none">
-							<LaneNotice control={lane} />
+							<SaveNotice {...lane.noticeProps} dialogOpen={false} className="" />
 						</div>
 						<div className="flex flex-wrap items-center justify-end gap-3">
-							<SaveButton wait={lane.wait} saving={sent} className="max-app-sm:w-full">
+							<SaveButton wait={lane.wait} saving={lane.saving} className="max-app-sm:w-full">
 								Save
 							</SaveButton>
 						</div>

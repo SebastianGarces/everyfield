@@ -13,10 +13,10 @@ import {
 	EmptyState,
 	useToast,
 } from "@everyfield/ui/controls";
-import { useOptimistic, useState, useTransition } from "react";
+import { useOptimistic, useTransition } from "react";
 import { populateKit, updateKitItem } from "./actions.ts";
 import { KIT_CATEGORY_LABEL, problemText, type Detail, type KitItem } from "./model.ts";
-import { Problem, problemOf, useSave } from "./parts.tsx";
+import { RowNotices, SaveNotice, useRowLanes, useSaveIntent } from "../../components/save/parts.tsx";
 
 export type Kit = { version: number | null; items: KitItem[] };
 
@@ -45,34 +45,38 @@ export function KitCard({
 	const [items, tick] = useOptimistic(kit?.items ?? [], (all: KitItem[], change: { id: string; checked: boolean }) =>
 		all.map((k) => (k.id === change.id ? { ...k, checked: change.checked } : k)),
 	);
-	const adding = useSave();
-	// One save per item at a time: a second tick waits for the first answer and its new revision.
-	const [busy, setBusy] = useState<ReadonlySet<string>>(new Set());
-	const mark = (id: string, on: boolean) =>
-		setBusy((b) => {
-			const next = new Set(b);
-			if (on) next.add(id);
-			else next.delete(id);
-			return next;
-		});
+	// Ticks save side by side, one save per item at a time (a second tick waits for the first answer and its new
+	// revision); adding the kit has the card's own lane (components/save).
+	const ticks = useRowLanes(problemText);
+	const adding = useSaveIntent({ explain: problemText });
 	const checked = items.filter((k) => k.checked).length;
 
 	function toggle(item: KitItem, on: boolean) {
-		if (busy.has(item.id)) return;
-		mark(item.id, true);
+		if (ticks.stateOf(item.id)) return;
 		startTransition(async () => {
 			tick({ id: item.id, checked: on });
-			const patch = { checked: on };
-			const r = await updateKitItem(crypto.randomUUID(), item.revision, meeting.id, item.id, patch).catch(
-				() => ({ status: "lost" }) as const,
-			);
-			if (r.status === "ok") startTransition(() => onKit({ version: kit?.version ?? null, items: r.value.items }));
-			else {
-				const code = problemOf(r)!;
-				toast({ message: `${item.text} was not ${on ? "ticked" : "unticked"}. ${problemText(code)}`, tone: "error" });
-				if (code === "conflict") onStale();
-			}
-			mark(item.id, false);
+			await ticks.save(item.id, {
+				what: item.text,
+				done: on ? "ticked" : "unticked",
+				send: (key) => updateKitItem(key, item.revision, meeting.id, item.id, { checked: on }),
+				ok: (value) => startTransition(() => onKit({ version: kit?.version ?? null, items: value.items })),
+				refused: (code) => {
+					toast({ message: `${item.text} was not ${on ? "ticked" : "unticked"}. ${problemText(code)}`, tone: "error" });
+					if (code === "conflict") onStale();
+				},
+			});
+		});
+	}
+	function populate() {
+		void adding.save({
+			what: "The Vision kit",
+			done: "added",
+			send: (key) => populateKit(key, meeting.revision, meeting.id),
+			ok: (value) => {
+				onMeeting(value.meeting);
+				onKit({ version: value.kit.version, items: value.kit.items });
+			},
+			refused: (code) => code === "conflict" && onStale(),
 		});
 	}
 
@@ -85,6 +89,7 @@ export function KitCard({
 						<CardDescription>Not added yet</CardDescription>
 					</CardHeading>
 				</CardHeader>
+				<SaveNotice {...adding.noticeProps} dialogOpen={false} />
 				<EmptyState
 					icon={Package01Icon}
 					title="No kit for this meeting"
@@ -94,16 +99,9 @@ export function KitCard({
 							<Button
 								variant="secondary"
 								size="sm"
-								loading={adding.pending}
-								onClick={async () => {
-									const r = await adding.save({ meetingId: meeting.id }, (key) =>
-										populateKit(key, meeting.revision, meeting.id),
-									);
-									if (r?.status === "ok") {
-										onMeeting(r.value.meeting);
-										onKit({ version: r.value.kit.version, items: r.value.kit.items });
-									} else if (r) toast({ message: problemText(problemOf(r)!), tone: "error" });
-								}}
+								loading={adding.saving}
+								disabled={adding.wait !== null}
+								onClick={populate}
 							>
 								Add the Vision kit
 							</Button>
@@ -111,7 +109,6 @@ export function KitCard({
 					}
 				>
 					The reviewed checklist: sign-in sheets, response cards, banners, cables and the rest.
-					<Problem {...adding.problemProps} className="mt-3" />
 				</EmptyState>
 			</Card>
 		);
@@ -130,6 +127,7 @@ export function KitCard({
 				</CardHeading>
 				<KitRing done={checked} total={items.length} />
 			</CardHeader>
+			<RowNotices lanes={ticks} className="mb-3" />
 			<CardScrollArea label="Vision kit items" maxHeight={300}>
 				{groups.map((g) => (
 					<fieldset key={g.label} className="mt-3 first:mt-0">
@@ -142,7 +140,7 @@ export function KitCard({
 								label={<span className={k.checked ? "text-text-3 line-through" : undefined}>{k.text}</span>}
 								description={k.assignee ? k.assignee.displayName : undefined}
 								checked={k.checked}
-								disabled={!canWrite}
+								disabled={!canWrite || ticks.stateOf(k.id) !== undefined}
 								onCheckedChange={(on) => toggle(k, on === true)}
 							/>
 						))}

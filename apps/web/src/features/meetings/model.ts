@@ -284,8 +284,6 @@ export function problemText(code: string): string {
 			return "Someone else changed this while you were working. The form now shows their version with your changes on top. Check it and save again.";
 		case "conflict_unloaded":
 			return "Someone else changed this while you were working, and the latest version did not load. Close this and reload the page before you try again.";
-		case "lost":
-			return "We did not hear back from the server. Try again. It will not save twice.";
 		case "invalid_input":
 			return "Some details are not valid. Check them and try again.";
 		case "invalid_subject":
@@ -300,10 +298,6 @@ export function problemText(code: string): string {
 			return "That time does not exist on that day, because the clocks spring forward. Choose another time.";
 		case "ambiguous_local_time":
 			return "That time happens twice on that day, because the clocks fall back. Choose which one you mean.";
-		case "token_closed":
-			return "This answer was already recorded, or the link has closed.";
-		case "unconfirmed":
-			return "We did not hear back from the server, so we cannot tell whether it saved. Check again before you change anything else here.";
 		case "required_write_failed":
 			return "The server could not save this. Nothing changed. Try again in a moment.";
 		case "unavailable":
