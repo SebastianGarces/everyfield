@@ -34,6 +34,8 @@ import {
 	SearchInput,
 	SegmentedControl,
 	useToast,
+	buttonVariants,
+	IntentLink,
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, Pagination, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
@@ -975,6 +977,9 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 								{ value: "all", label: "All" },
 							]}
 						/>
+						<IntentLink href="/tasks/follow-ups" className={buttonVariants({ variant: "secondary" })}>
+							Follow-ups
+						</IntentLink>
 						{admin ? (
 							<Button
 								variant="primary"

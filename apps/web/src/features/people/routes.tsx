@@ -129,6 +129,7 @@ export async function PersonPage({
 			duplicates={loaded.value.duplicates}
 			followedMerge={followed}
 			records={loaded.value.records}
+			followUps={loaded.value.followUps}
 			// Photo uploads stay hidden until the photo UI task ships; stored photos still read through the photo route.
 			photosEnabled={false}
 		/>

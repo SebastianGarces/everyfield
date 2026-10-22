@@ -52,6 +52,8 @@ import type { DuplicateHints as Hints } from "./corrections/server.ts";
 import { UnmergeDialog } from "./corrections/UnmergeDialog.tsx";
 import { loadPersonPage, type PersonPage, type Unmerged } from "./corrections/actions.ts";
 import { Problem } from "./corrections/parts.tsx";
+import { PersonFollowUps } from "../followups/PersonFollowUps.tsx";
+import type { PersonFollowUps as FollowUpsData } from "../followups/server.ts";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
 type Open = "stage" | "profile" | "classify" | "retire" | "restore" | "correct" | { unmerge: string } | null;
@@ -73,6 +75,7 @@ export function PersonScreen({
 	canWrite,
 	fields: initialFields,
 	records: initialRecords,
+	followUps,
 	photosEnabled,
 	duplicates: initialDuplicates = null,
 	followedMerge = false,
@@ -90,6 +93,8 @@ export function PersonScreen({
 	fields: PersonFields | null;
 	/** The 4 C's, interviews and commitments (WP-014). Null for a viewer who is not an Owner or Admin. */
 	records: PersonRecords | null;
+	/** Follow-ups, Vision follow-ups and the contact log (WP-023). Null for a person they do not apply to. */
+	followUps: FollowUpsData | null;
 	/** Private photo storage is configured, so photos and commitment documents can be added. */
 	photosEnabled: boolean;
 	/** Possible duplicates of this live person (WP-015). Null when they do not apply or could not be read. */
@@ -337,6 +342,15 @@ export function PersonScreen({
 							onSaved={saved}
 							onConflict={reload}
 							corrected={corrected}
+						/>
+					) : null}
+					{followUps ? (
+						<PersonFollowUps
+							initial={followUps}
+							person={{ id: p.id, label: p.displayName }}
+							accountId={accountId}
+							admin={canWrite}
+							live={live}
 						/>
 					) : null}
 					<ActivityCard
