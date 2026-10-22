@@ -74,8 +74,8 @@ async function effects() {
  * Runs the next approved effect while another transaction holds the plant row, so the executor passes its first
  * check and then waits for write authority. `during` runs while it waits; then the plant row is released.
  */
-async function stalledEffect(during: (claim: Claim) => Promise<void>) {
-	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
+async function stalledEffect(during: (claim: Claim) => Promise<void>, leaseSeconds = 60) {
+	const [claim] = await claimDue(db, ["evry_effect"], 1, leaseSeconds);
 	assert.ok(claim);
 	let running: Promise<string> | undefined;
 	await admin.transaction(async (tx) => {
@@ -216,7 +216,7 @@ test("AC:UI45-004 AC:UI45-003 AC:INH-REGRESSION-REVISED-APPROVAL AC:INH-REGRESSI
 		runs.map((r) => r.outcome),
 		["completed"],
 	);
-	assert.equal(runs[0]!.statements, 7);
+	assert.equal(runs[0]!.statements, 6);
 	const audits = await effectAudits(proposal.id);
 	const done = await readReview(db, owner, proposal.id);
 	assert.deepEqual(
@@ -370,15 +370,20 @@ test("AC:EVRY-LEASE-FENCE AC:INH-REGRESSION-RETRY AC:INH-EDGES-12: an executor s
 	const { proposal } = await propose(owner, "Change Rivera's city to Naperville");
 	await approveProposal(db, owner, proposal.id, witness(proposal), null);
 	assert.equal((await readReview(db, owner, proposal.id)).executing, true);
-	// The executor passes its first check, then waits for the plant lock while its lease expires and recovery
-	// replaces the claim. When the lock frees, it must not publish the change, its audit row or an outcome.
+	// The executor passes its first check, then waits for the plant lock while its 2-second lease runs out. It holds
+	// the job's share lock from its first read, so recovery skips the claim while it runs. When the lock frees, it
+	// must not publish the change, its audit row or an outcome; recovery then replaces the claim.
 	let stalled: Claim | undefined;
 	const outcome = await stalledEffect(async (claim) => {
 		stalled = claim;
-		await admin.execute(sql`UPDATE job SET lease_until=clock_timestamp()-interval '1 second' WHERE id=${claim.id}`);
-		assert.equal(await recoverLease(admin), 1);
-	});
+		for (let passed = false; !passed;) {
+			const r = await admin.execute(sql`SELECT lease_until<=clock_timestamp() AS passed FROM job WHERE id=${claim.id}`);
+			passed = (r.rows[0] as { passed: boolean }).passed;
+		}
+		assert.equal(await recoverLease(admin), 0);
+	}, 2);
 	assert.equal(outcome, "lost");
+	assert.equal(await recoverLease(admin), 1);
 	assert.deepEqual([await effectAudits(proposal.id), (await person(people.alexRivera)).city], [[], "Chicago"]);
 	// The outcome is unknown, not failed: the retry resumes the same effect key.
 	assert.equal((await readReview(db, owner, proposal.id)).outcome, "unknown");
@@ -504,7 +509,13 @@ test("INV-effect-recovery: an approved effect that no worker took within 60 s re
 	assert.equal(counted(start), 1);
 	// The old job no worker took is superseded, so the next claim takes the new job at once, not the old one first.
 	assert.deepEqual(await effectJobs(proposal.id), ["superseded", "ready"]);
-	assert.deepEqual([(await effects())?.outcome, await effects()], ["completed", null]);
+	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
+	assert.equal(await executeProposal(db, lease(claim!), noReminders), "completed");
+	// The review reports the saved outcome before the job finishes: nothing the person sees waits for finishClaim.
+	const shown = await readReview(db, owner, proposal.id);
+	assert.deepEqual([shown.outcome, shown.executing], ["completed", false]);
+	assert.equal(await transaction(db, (tx) => finishClaim(tx, claim!, { state: "succeeded" })), true);
+	assert.equal(await effects(), null);
 	assert.deepEqual([(await effectAudits(proposal.id)).length, (await person(people.casey)).city], [1, "Elgin"]);
 });
 
