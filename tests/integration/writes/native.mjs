@@ -51,11 +51,18 @@ try {
 	const s = await f.setup(),
 		actor = await f.actor(s.sender.session);
 	const run = (name, body) => measure("native.people." + name, () => withPeopleWrite(f.db, actor, body));
+	const createKey = randomUUID();
 	const created = await run("createPerson", (tx, ctx) =>
-		peopleWriter.createPerson(tx, ctx, { requestKey: randomUUID(), input: { displayName: "Synthetic native" } }),
+		peopleWriter.createPerson(tx, ctx, { requestKey: createKey, input: { displayName: "Synthetic native" } }),
 	);
 	assert.equal(created.status, "ok");
 	if (created.status !== "ok") throw Error("create_refused");
+	// A lost reply: the same request again. The first attempt's write meets the stored key, and the established run
+	// replays the first answer (RT-3); the budget counts both as one retry.
+	const replayed = await run("createPerson", (tx, ctx) =>
+		peopleWriter.createPerson(tx, ctx, { requestKey: createKey, input: { displayName: "Synthetic native" } }),
+	);
+	assert.deepEqual(JSON.parse(JSON.stringify(replayed)), JSON.parse(JSON.stringify(created)));
 	const changed = await run("updatePerson", (tx, ctx) =>
 		peopleWriter.updatePerson(tx, ctx, {
 			requestKey: randomUUID(),

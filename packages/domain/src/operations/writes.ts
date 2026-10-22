@@ -177,11 +177,26 @@ export async function nativeWrite<T>(
 ): Promise<T> {
 	const first = await firstAttempt(db, authority, selected, body);
 	if (first.done) return first.value;
-	return auditTransaction(db, async (tx) => {
-		if (!(await authority.bind(tx, selected))) throw new WriteUnavailable();
-		return body(tx);
-	});
+	// The established run names itself a retry on the wire, so statement budgets count it with the first attempt.
+	const { client, db: bound } = await checkoutClient(db);
+	const own = Object.getOwnPropertyDescriptor(client, "query");
+	const send = client.query.bind(client) as (config: unknown, values?: unknown) => Promise<unknown>;
+	const retry = (config: string | { text: string }, values?: unknown) =>
+		send(/^\s*begin\s*$/i.test(typeof config === "string" ? config : config.text) ? RETRY : config, values);
+	Object.defineProperty(client, "query", { value: retry, configurable: true, writable: true });
+	try {
+		return await auditTransaction(bound, async (tx) => {
+			if (!(await authority.bind(tx, selected))) throw new WriteUnavailable();
+			return body(tx);
+		});
+	} finally {
+		if (own) Object.defineProperty(client, "query", own);
+		else delete (client as { query?: unknown }).query;
+		client.release();
+	}
 }
+/** The BEGIN of a native write's established run, after its first attempt changed nothing. */
+const RETRY = "BEGIN /* evf:retry */";
 
 /** A statement after a native write committed on its own: the command must declare `more` before its final write. */
 export class WriteOrderError extends Error {}

@@ -201,7 +201,7 @@
 	},
 	"native.people.createPerson": {
 		"limit": 1,
-		"retry": 2
+		"retry": 6
 	},
 	"native.people.updatePerson": {
 		"limit": 2,
