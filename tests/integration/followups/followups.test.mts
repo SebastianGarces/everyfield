@@ -682,7 +682,43 @@ test("AC:TARGET-TSK-013 INV-statements handoff moves reviewed open follow-ups or
 		[{ status: "complete" }, { status: "no_longer_needed" }],
 	);
 
-	// Each page read is BEGIN, one query and COMMIT, with 104 tasks or two.
+	// A departed account: its seat ended with two open follow-ups. They read as Needs owner and still name it as the
+	// former owner, so the Follow-ups page can start its handoff (REQ-TSK-013); the handoff moves them all.
+	const departed = await c.seated("member");
+	await committed(c, departed);
+	await f.admin
+		.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id,assignee_id)
+		SELECT gen_random_uuid(),${c.w.id},'Visit Alex '||g,'follow_up','medium','not_started',now(),'undated',${alex},${departed.id}
+		FROM generate_series(1,2) g`);
+	await f.admin.execute(sql`UPDATE seat SET ended_at=now() WHERE account_id=${departed.id} AND plant_id=${c.w.id}`);
+	const coverage = ok(await read(c.admin, "followUpCoverage", { personId: alex }));
+	assert.deepEqual(
+		coverage.formerOwners.map((o) => [o.accountId, o.open]),
+		[[departed.id, 2]],
+	);
+	const waiting = ok(await read(c.admin, "listFollowUpOwners", { owner: "needs_owner", personId: alex })).items;
+	assert.deepEqual(
+		waiting.map((d) => [d.owner, d.formerOwner?.accountId]),
+		[
+			[null, departed.id],
+			[null, departed.id],
+		],
+	);
+	const gone = ok(await read(c.admin, "planHandoff", { fromAccountId: departed.id }));
+	assert.deepEqual([gone.from.eligible, gone.total], [false, 2]);
+	const out = ok(
+		await handoff(
+			recipient.id,
+			gone.duties.map((d) => ({ taskId: d.taskId, expectedRevision: d.revision })),
+			key(),
+			departed.id,
+		),
+	);
+	assert.deepEqual([out.moved.length, out.remainingTotal], [2, 0]);
+	assert.deepEqual(ok(await read(c.admin, "followUpCoverage", { personId: alex })).formerOwners, []);
+
+	// Each page read is BEGIN, one query and COMMIT, with 104 tasks or two. The former owner's name and the "waiting for
+	// a handoff" tally are part of the same duty statement, so coverage still costs one query.
 	const reads = async () => [
 		await counted(() => read(c.owner, "listFollowUpOwners", { limit: 100 })),
 		await counted(() => read(c.owner, "followUpCoverage", { limit: 100 })),

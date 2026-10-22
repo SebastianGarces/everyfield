@@ -2,7 +2,7 @@
 // committed Person linked to their account (REQ-TSK-012), so the seed links the Owner and the Member to committed
 // People. It finalizes two Vision meetings through the task producer's generated-work command, as meeting finalization
 // does: a first-time guest whose 48 hours are still running and owned by the Member, and one past 48 hours with no
-// owner. It adds a manual follow-up and a contact through the WP-023 producer.
+// owner. It adds a manual follow-up and a contact through the WP-023 producer, and a departed account's follow-ups.
 //
 //   up:   node --env-file=<home apps/web/.env.local> --conditions=react-server --import tsx tests/ui/followups/seed.mts up
 //   down: node --env-file=<home apps/web/.env.local> --conditions=react-server --import tsx tests/ui/followups/seed.mts down
@@ -107,7 +107,19 @@ async function up() {
 	);
 	if (contact.status !== "ok") throw Error("recordOutcome: " + JSON.stringify(contact));
 
+	// A departed account (REQ-TSK-013): Grace Moreno once held a Member seat here, which has ended, and still holds two
+	// open follow-ups. Seat removal belongs to WP-007; the seed writes the ended seat and the tasks it left behind.
+	const grace = await admin.execute(sql`SELECT a.id FROM account a JOIN auth_user u ON u.id=a.auth_user_id
+		WHERE u.email='church@people-preview.example.test'`);
+	const departed = grace.rows[0]!.id as string;
+	await admin.execute(sql`INSERT INTO seat(account_id,plant_id,role,accepted_at,ended_at)
+		VALUES(${departed},${plant.id},'member',clock_timestamp() - interval '30 days',clock_timestamp())`);
+	await admin.execute(sql`INSERT INTO task(plant_id,title,category,priority,status,created_at,due_kind,person_id,assignee_id)
+		VALUES (${plant.id},'Visit Eli','follow_up','medium','not_started',clock_timestamp(),'undated',${people.people["Eli Park"]},${departed}),
+		       (${plant.id},'Call Leo back','follow_up','medium','not_started',clock_timestamp(),'undated',${people.people["Leo Pratt"]},${departed})`);
+
 	const fixture = writeFixture("followups", env.schema, {
+		departed,
 		tasks: { sara, leo, maria: (created.value as { task: { id: string } }).task.id },
 	});
 	await env.close();

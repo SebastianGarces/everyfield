@@ -154,13 +154,14 @@ test("AC:TARGET-TSK-012 AC:TARGET-TSK-013 owners include the viewer only when el
 test("AC:TARGET-TSK-012 AC:TARGET-TSK-013 owner totals follow confirmed assignments, new follow-ups and handoffs", () => {
 	const ruth = { accountId: "r", displayName: "Ruth Allen" };
 	const daniel = { accountId: "d", displayName: "Daniel Reyes" };
-	const start = { owners: [{ ...ruth, open: 2 }], needsOwner: 1, uncovered: 5 };
+	const start = { owners: [{ ...ruth, open: 2 }], formerOwners: [], needsOwner: 1, uncovered: 5 };
 	// Needs owner -> Daniel: Daniel appears with one, Needs owner drops to zero.
 	assert.deepEqual(totalsAfter(start, [{ from: null, to: daniel }]), {
 		owners: [
 			{ ...daniel, open: 1 },
 			{ ...ruth, open: 2 },
 		],
+		formerOwners: [],
 		needsOwner: 0,
 		uncovered: 5,
 	});
@@ -177,6 +178,16 @@ test("AC:TARGET-TSK-012 AC:TARGET-TSK-013 owner totals follow confirmed assignme
 			{ from: ruth, to: daniel },
 		]).owners,
 		[{ ...daniel, open: 2 }],
+	);
+	// A departed account's two follow-ups move to Daniel: they leave Needs owner and the former owner's count.
+	const sam = { accountId: "s", displayName: "Sam Lee" };
+	const left = { owners: [], formerOwners: [{ ...sam, open: 2 }], needsOwner: 2, uncovered: 0 };
+	assert.deepEqual(
+		totalsAfter(left, [
+			{ from: null, to: daniel, former: sam },
+			{ from: null, to: daniel, former: sam },
+		]),
+		{ owners: [{ ...daniel, open: 2 }], formerOwners: [], needsOwner: 0, uncovered: 0 },
 	);
 	assert.equal(coverageOf([]), "uncovered");
 	assert.equal(coverageOf([{ owner: ruth }, { owner: null }]), "needs_owner");

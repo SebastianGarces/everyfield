@@ -18,7 +18,14 @@ import { useEffect, useState } from "react";
 import { executeHandoff } from "./actions.ts";
 import { DutyFacts } from "./duties.tsx";
 import { loadPlan, prefetchSeats } from "./fetch.ts";
-import { HANDOFF_LIMIT, keepSelection, type HandoffPlan, type HandoffResult, type Outcome } from "./model.ts";
+import {
+	HANDOFF_LIMIT,
+	keepSelection,
+	type Account,
+	type HandoffPlan,
+	type HandoffResult,
+	type Outcome,
+} from "./model.ts";
 import { LaneNotice, SaveButton, useLane } from "./save.tsx";
 
 type Seat = { accountId: string; displayName: string; role: string };
@@ -80,6 +87,13 @@ export function useHandoff(onMoved: (r: HandoffResult, plan: HandoffPlan) => voi
 		);
 		setSent(false);
 	}
+	/** Opens the review for one account, as the "Waiting for a handoff" list does. */
+	function start(account: string) {
+		if (lane.wait || lane.lane.refused) return;
+		setResult(null);
+		setFrom(account);
+		void preview(account, false);
+	}
 	/** Opens the dialog: the seats come from the intent prefetch, read again only when that copy is old or failed. */
 	function opened() {
 		void prefetchSeats().then(setSeats);
@@ -118,6 +132,7 @@ export function useHandoff(onMoved: (r: HandoffResult, plan: HandoffPlan) => voi
 		opened,
 		closed,
 		sourceName,
+		start,
 	};
 }
 export type Handoff = ReturnType<typeof useHandoff>;
@@ -127,7 +142,16 @@ export type Handoff = ReturnType<typeof useHandoff>;
  * recipient, then move up to 100 at once, all or nothing. Cancel changes nothing; follow-ups left behind read as Needs
  * owner while their stored owner cannot own them. The save's notice shows inside the dialog while it is open.
  */
-export function HandoffDialog({ h, onClose }: { h: Handoff; onClose: () => void }) {
+export function HandoffDialog({
+	h,
+	former,
+	onClose,
+}: {
+	h: Handoff;
+	/** Accounts that still hold open follow-ups they can no longer own, including ones whose seat ended. */
+	former: readonly (Account & { open: number })[];
+	onClose: () => void;
+}) {
 	const { seats, from, setFrom, plan, p, selected, setSelected, to, setTo, toError, sent, result, setResult, lane } = h;
 	const { chosen, preview, submit, sourceName } = h;
 	useEffect(h.opened, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -171,17 +195,15 @@ export function HandoffDialog({ h, onClose }: { h: Handoff; onClose: () => void 
 											setFrom(v);
 											void preview(v, false);
 										}}
-										placeholder={seats === null ? "Loading seats" : "Choose a person"}
-										disabled={seats?.status !== "ok"}
-										options={
-											seats?.status === "ok"
-												? seats.value.items.map((s) => ({ value: s.accountId, label: s.displayName }))
-												: []
-										}
+										placeholder={seats === null && !former.length ? "Loading seats" : "Choose a person"}
+										disabled={seats?.status !== "ok" && !former.length}
+										options={sourceOptions(seats?.status === "ok" ? seats.value.items : [], former)}
 									/>
 								</Field>
 								{seats?.status === "refused" || seats?.status === "lost" ? (
-									<p className="text-sm text-text-2">The seats did not load. Close this and try again.</p>
+									<p className="text-sm text-text-2">
+										The current seats did not load. People who can no longer own follow-ups are still listed.
+									</p>
 								) : null}
 								{from && plan === null ? (
 									<p role="status" className="flex items-center gap-2 text-sm text-text-2">
@@ -312,4 +334,21 @@ function Review({
 			</p>
 		</div>
 	);
+}
+
+/**
+ * Whose follow-ups can move: everyone who can no longer own the follow-ups they hold, including an account whose seat
+ * ended, first, then every current seat (a demoted one included).
+ */
+function sourceOptions(seats: readonly Seat[], former: readonly (Account & { open: number })[]) {
+	const left = former.map((f) => ({
+		value: f.accountId,
+		label: `${f.displayName || "A former member"} · can no longer own · ${f.open} open`,
+	}));
+	return [
+		...left,
+		...seats
+			.filter((s) => !former.some((f) => f.accountId === s.accountId))
+			.map((s) => ({ value: s.accountId, label: s.displayName })),
+	];
 }

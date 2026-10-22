@@ -96,12 +96,17 @@ function Coverage({ coverage, filter }: { coverage: Coverage; filter: Filter }) 
 		setRows((all) =>
 			all.map((row) => {
 				const duties = row.duties.map((d) =>
-					revisions.has(d.taskId) ? { ...d, owner: r.to, revision: revisions.get(d.taskId) ?? d.revision } : d,
+					revisions.has(d.taskId)
+						? { ...d, owner: r.to, formerOwner: null, revision: revisions.get(d.taskId) ?? d.revision }
+						: d,
 				);
 				return { ...row, duties, coverage: coverageOf(duties) };
 			}),
 		);
-		confirmed(r.moved.map((m) => ({ from: byId.get(m.taskId)?.owner ?? null, to: r.to })));
+		const former = plan.from.eligible
+			? null
+			: { accountId: plan.from.accountId, displayName: plan.from.displayName ?? "" };
+		confirmed(r.moved.map((m) => ({ from: byId.get(m.taskId)?.owner ?? null, to: r.to, former })));
 	});
 	const pageCount = Math.max(1, Math.ceil(coverage.total / 24));
 	return (
@@ -205,7 +210,9 @@ function Coverage({ coverage, filter }: { coverage: Coverage; filter: Filter }) 
 														lane={lane}
 														canAssign
 														onChange={change}
-														onSaved={(before, after) => confirmed([{ from: before.owner, to: after.owner }])}
+														onSaved={(before, after) =>
+															confirmed([{ from: before.owner, to: after.owner, former: before.formerOwner }])
+														}
 														onConflict={() => router.refresh()}
 													/>
 												</li>
@@ -244,6 +251,40 @@ function Coverage({ coverage, filter }: { coverage: Coverage; filter: Filter }) 
 							))}
 						</ul>
 					)}
+					{totals.formerOwners.length ? (
+						<div className="mt-2 border-t border-line pt-3">
+							<h3 className="text-sm font-semibold text-ink-2">Waiting for a handoff</h3>
+							<p className="mt-0.5 text-xs text-text-3">
+								They hold open follow-ups but can no longer own them. Their follow-ups show as Needs owner.
+							</p>
+							<ul className="mt-1 flex flex-col">
+								{totals.formerOwners.map((o) => (
+									<li
+										key={o.accountId}
+										className="flex items-center justify-between gap-3 border-t border-line py-2.5 first:border-t-0"
+									>
+										<span className="min-w-0">
+											<span className="block text-ink">{o.displayName || "A former member"}</span>
+											<span className="text-sm text-text-2 tabular-nums">{o.open} open</span>
+										</span>
+										<Button
+											size="sm"
+											variant="outline"
+											aria-label={`Hand off ${o.displayName || "a former member"}’s follow-ups`}
+											disabled={handoff.lane.wait !== null}
+											onClick={() => {
+												handoff.start(o.accountId);
+												setHandoffOpen(true);
+											}}
+											{...warmOn(prefetchSeats)}
+										>
+											Hand off
+										</Button>
+									</li>
+								))}
+							</ul>
+						</div>
+					) : null}
 					<p className="text-xs text-text-3">
 						Owners need a seat and a core group, launch team or leader stage. Anyone who loses that shows as Needs
 						owner.
@@ -265,6 +306,7 @@ function Coverage({ coverage, filter }: { coverage: Coverage; filter: Filter }) 
 			{handoffOpen ? (
 				<HandoffDialog
 					h={handoff}
+					former={totals.formerOwners}
 					onClose={() => {
 						setHandoffOpen(false);
 						handoff.closed();

@@ -50,6 +50,8 @@ export function dutyFrom(task: TaskDetail, previous?: DutyItem): DutyItem {
 			? { id: personId.parse(task.relation.id), label: task.relation.label }
 			: (previous?.person ?? { id: personId.parse(task.id), label: "" }),
 		owner: task.assignee,
+		// The answer names the stored assignee only when it is a current owner; a former owner is not repeated here.
+		formerOwner: task.assignee ? null : (previous?.formerOwner ?? null),
 		lastOutcome: previous?.lastOutcome ?? null,
 	};
 }
@@ -186,6 +188,7 @@ export function DutyFacts({ duty }: { duty: DutyItem }) {
 			) : (
 				<span>No due date</span>
 			)}
+			{!duty.owner && duty.formerOwner ? <span>· Was {duty.formerOwner.displayName || "a former owner"}</span> : null}
 			{duty.obligationId ? <span>· After a Vision meeting</span> : null}
 			{duty.lastOutcome ? <span>· Last: {OUTCOME_LABEL[duty.lastOutcome].toLowerCase()}</span> : null}
 		</span>

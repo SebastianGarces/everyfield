@@ -157,3 +157,32 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 }
+
+for (const [name, engine] of ENGINES) {
+	test(`AC:TARGET-TSK-013 (${name}): a departed account's follow-ups wait for a handoff and move to a current owner`, async () => {
+		await withPage(engine, async (page, context) => {
+			await signIn(context, people().owner.cookie);
+			await page.goto(`${BASE}/tasks/follow-ups`);
+			await hydrated(page);
+			const waiting = page.locator("li", { hasText: "Grace Moreno" }).filter({ hasText: /\d+ open/ });
+			const before = Number((await waiting.innerText()).match(/(\d+) open/)[1]);
+			await waiting.getByRole("button", { name: "Hand off Grace Moreno’s follow-ups" }).click();
+			const dialog = page.getByRole("dialog", { name: "Hand off follow-ups" });
+			await dialog.getByText("Grace Moreno can no longer own follow-ups", { exact: false }).waitFor();
+			// Review: move one, leave the rest as Needs owner.
+			const boxes = dialog.getByRole("checkbox");
+			for (let i = 1; i < (await boxes.count()); i++) await boxes.nth(i).click();
+			await dialog.getByRole("combobox", { name: "Give them to" }).click();
+			await page.getByRole("option", { name: "Daniel Reyes" }).click();
+			await dialog.getByRole("button", { name: "Move 1 follow-up" }).click();
+			await dialog.getByText("Moved 1 follow-up to Daniel Reyes.").waitFor();
+			await dialog.getByRole("button", { name: "Done" }).click();
+			if (before === 1) await waiting.waitFor({ state: "detached" });
+			else
+				await page
+					.locator("li", { hasText: "Grace Moreno" })
+					.filter({ hasText: `${before - 1} open` })
+					.waitFor();
+		});
+	});
+}
