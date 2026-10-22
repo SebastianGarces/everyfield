@@ -301,7 +301,7 @@ export function InterviewCard({
 function Criteria({ interview: i }: { interview: Interview }) {
 	const pending = i.id.startsWith("new:");
 	return (
-		<ul className={cn("flex flex-col", pending && "opacity-70")} aria-busy={pending || undefined}>
+		<ul className="flex flex-col" aria-busy={pending || undefined}>
 			{CRITERIA.map((k) => {
 				const { rating, notes } = i[k];
 				return (

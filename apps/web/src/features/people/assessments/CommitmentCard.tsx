@@ -556,15 +556,14 @@ function CardRow({
 	const pending = card.id.startsWith("new:");
 	const voided = card.voidedAt !== null;
 	return (
-		<li
-			className={cn("flex items-start gap-3 border-t border-line py-3 first:border-t-0", pending && "opacity-70")}
-			aria-busy={pending || undefined}
-		>
+		<li className="flex items-start gap-3 border-t border-line py-3 first:border-t-0" aria-busy={pending || undefined}>
 			<span
 				aria-hidden="true"
 				className={cn(
 					"mt-0.5 grid size-8 flex-none place-items-center rounded-md",
 					voided ? "bg-surface-2 text-text-3" : "bg-green-100 text-green-700",
+					// Only the decorative tile fades while the card saves; text keeps full contrast (WCAG 1.4.3).
+					pending && "opacity-60",
 				)}
 			>
 				<Icon icon={SignatureIcon} size={16} />
