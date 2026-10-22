@@ -3,7 +3,17 @@
 import { Alert02Icon } from "@hugeicons/core-free-icons";
 import { Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from "@everyfield/ui/controls";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
-import { createContext, use, useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import {
+	createContext,
+	use,
+	useEffect,
+	useId,
+	useRef,
+	useState,
+	useSyncExternalStore,
+	type ReactNode,
+	type RefObject,
+} from "react";
 import { SaveLane, waitOf, type LaneOptions, type Notice, type SaveSpec, type Wait } from "./model.ts";
 
 /**
@@ -86,18 +96,13 @@ export function RecordDialog({
 	children: ReactNode;
 }) {
 	const alert = useRef<HTMLDivElement>(null);
+	const form = useRef<HTMLFormElement>(null);
 	const busyId = useId();
 	return (
 		<Dialog open onOpenChange={(next) => !next && onClose()}>
-			<DialogContent
-				size={size}
-				onOpenAutoFocus={(e) => {
-					if (!alert.current) return;
-					e.preventDefault();
-					(firstProblem(e.currentTarget as HTMLElement) ?? alert.current).focus();
-				}}
-			>
+			<DialogContent size={size}>
 				<form
+					ref={form}
 					noValidate
 					className="contents"
 					onSubmit={(e) => {
@@ -121,6 +126,7 @@ export function RecordDialog({
 							</div>
 						) : null}
 						{children}
+						{problem ? <FocusProblem key={problem} form={form} alert={alert} /> : null}
 					</DialogBody>
 					<DialogFooter>
 						{wait ? (
@@ -144,6 +150,24 @@ export function RecordDialog({
 			</DialogContent>
 		</Dialog>
 	);
+}
+
+/**
+ * Moves focus to the field a refusal names, or to the reason, when the reason appears. It mounts after the form's fields
+ * and runs before the dialog's own focus step, so it also wins over a field that focuses itself on mount (autoFocus).
+ */
+function FocusProblem({
+	form,
+	alert,
+}: {
+	form: RefObject<HTMLFormElement | null>;
+	alert: RefObject<HTMLDivElement | null>;
+}) {
+	useEffect(() => {
+		const field = form.current && firstProblem(form.current);
+		(field ?? alert.current)?.focus();
+	}, [form, alert]);
+	return null;
 }
 
 /** The notice in words. Only a server answer says "not saved". */

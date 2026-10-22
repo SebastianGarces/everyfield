@@ -236,9 +236,6 @@ function WitnessField({
 	onChange: (w: Witness) => void;
 }) {
 	const id = useId();
-	// The witness input takes focus only when the person picks its option. A form reopened after a refusal keeps its
-	// witness, and focus goes to the field the refusal names (RecordDialog).
-	const [picked, setPicked] = useState(false);
 	return (
 		<div className="flex flex-col gap-2">
 			<span id={id} className="text-sm font-medium text-ink-2">
@@ -248,16 +245,15 @@ function WitnessField({
 				aria-labelledby={id}
 				orientation="horizontal"
 				value={value.kind}
-				onValueChange={(kind) => {
-					setPicked(true);
+				onValueChange={(kind) =>
 					onChange(
 						kind === "person"
 							? { kind: "person", id: "", name: "" }
 							: kind === "external"
 								? { kind: "external", text: "" }
 								: { kind: "none" },
-					);
-				}}
+					)
+				}
 				className="flex-wrap gap-x-6"
 			>
 				<Radio value="none" label="No witness" className="py-1.5" />
@@ -269,7 +265,6 @@ function WitnessField({
 					exclude={personId}
 					value={value.id ? value : null}
 					invalid={touched && !value.id}
-					autoFocus={picked}
 					onChange={(p) => onChange({ kind: "person", id: p.id, name: p.name })}
 				/>
 			) : value.kind === "external" ? (
@@ -277,7 +272,7 @@ function WitnessField({
 					<Input
 						value={value.text}
 						maxLength={200}
-						autoFocus={picked}
+						autoFocus
 						onChange={(e) => onChange({ kind: "external", text: e.target.value })}
 					/>
 				</Field>
@@ -291,14 +286,11 @@ function WitnessPicker({
 	exclude,
 	value,
 	invalid,
-	autoFocus,
 	onChange,
 }: {
 	exclude: string;
 	value: { id: string; name: string } | null;
 	invalid: boolean;
-	/** The person just chose to name a church member as the witness. */
-	autoFocus: boolean;
 	onChange: (p: { id: string; name: string }) => void;
 }) {
 	const errorId = useId();
@@ -331,7 +323,7 @@ function WitnessPicker({
 				placeholder="Search name, email or phone"
 				value={search}
 				maxLength={255}
-				autoFocus={autoFocus}
+				autoFocus
 				aria-invalid={invalid || undefined}
 				aria-describedby={invalid ? errorId : undefined}
 				onChange={(e) => {
