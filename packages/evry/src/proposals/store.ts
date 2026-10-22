@@ -307,8 +307,9 @@ export async function cancelProposal(db: Database, actor: EvryActor, id: string)
 /**
  * evry.retryUnresolvedEffects: runs the approved revision again after a failed or unknown attempt, under the same
  * still-valid approval and the same effect key, so an effect that did commit returns its saved receipt. Unknown means
- * its job can no longer make progress (runtime/job.ts); the old job then finds the proposal on the new job and cannot
- * publish. A completed or refused effect is never repeated, and an expired approval needs a new review. One statement.
+ * its job can no longer make progress (runtime/job.ts). An old job that no worker took is superseded, so the next drain
+ * claims the new job first; an old job a worker already holds finds the proposal on the new job and cannot publish. A
+ * completed or refused effect is never repeated, and an expired approval needs a new review. One statement.
  */
 export async function retryUnresolvedEffects(db: Database, actor: EvryActor, id: string) {
 	const proposalId = parse(z.uuid(), id);
@@ -316,10 +317,15 @@ export async function retryUnresolvedEffects(db: Database, actor: EvryActor, id:
 	const r = await db.execute(sql`
 		WITH x AS (
 			UPDATE proposal p SET outcome=NULL,receipt=NULL,job_id=${job}::uuid,approved_session_id=${actor.session}::uuid,updated_at=clock_timestamp()
-			WHERE p.id=${proposalId}::uuid AND ${owned(actor)} AND p.state='approved' AND p.expires_at>clock_timestamp()
+			FROM (SELECT id,job_id FROM proposal WHERE id=${proposalId}::uuid) old
+			WHERE p.id=old.id AND ${owned(actor)} AND p.state='approved' AND p.expires_at>clock_timestamp()
 				AND (p.outcome='failed' OR (p.outcome IS NULL AND NOT EXISTS(SELECT FROM job j WHERE j.id=p.job_id AND ${sql.raw(liveJob("j"))})))
-			RETURNING p.*
+			RETURNING p.*,old.job_id AS old_job_id
 		), run AS (${effectJob(job, "x")}),
+		superseded AS (
+			UPDATE job j SET state='superseded',error_code='retried',finished_at=clock_timestamp(),revision=j.revision+1
+			FROM x WHERE j.id=x.old_job_id AND j.state='ready'
+		),
 		audit AS (${audit("evry.proposal_retried", "reopen", "x")})
 		SELECT ${projection("x")} AS proposal FROM x`);
 	if (r.rows.length) return { proposal: proposalRow.parse(r.rows[0]!.proposal), retried: true };

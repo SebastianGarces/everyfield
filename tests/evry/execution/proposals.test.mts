@@ -488,7 +488,7 @@ test("AC:SEC-02 INV-tenancy: a review read takes no lock that a sign-out or sess
 	});
 });
 
-test("INV-effect-recovery: an approved effect that no worker took within 60 s reads as unconfirmed, not as saving; Try again runs it once and the old job cannot publish", async () => {
+test("INV-effect-recovery: an approved effect that no worker took within 60 s reads as unconfirmed, not as saving; Try again's job is claimed first and runs it once", async () => {
 	const owner = await actor("owner");
 	const { proposal } = await propose(owner, "Change Casey's city to Elgin");
 	await approveProposal(db, owner, proposal.id, witness(proposal), null);
@@ -502,8 +502,9 @@ test("INV-effect-recovery: an approved effect that no worker took within 60 s re
 	const start = queries.length;
 	assert.equal((await retryUnresolvedEffects(db, owner, proposal.id)).retried, true);
 	assert.equal(counted(start), 1);
-	// The old job is claimed first (it is older) and finds the effect moved on; the new one saves it once.
-	assert.deepEqual([(await effects())?.outcome, (await effects())?.outcome], ["lost", "completed"]);
+	// The old job no worker took is superseded, so the next claim takes the new job at once, not the old one first.
+	assert.deepEqual(await effectJobs(proposal.id), ["superseded", "ready"]);
+	assert.deepEqual([(await effects())?.outcome, await effects()], ["completed", null]);
 	assert.deepEqual([(await effectAudits(proposal.id)).length, (await person(people.casey)).city], [1, "Elgin"]);
 });
 
