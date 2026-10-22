@@ -71,7 +71,7 @@
   "as_of": "2026-10-17",
   "implementation_authorized": false,
   "table_count": 88,
-  "column_count": 1015,
+  "column_count": 1016,
   "foreign_key_count": 318,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
@@ -12119,6 +12119,13 @@
           "type": "bigint",
           "nullable": false,
           "default": "1"
+        },
+        {
+          "note": "The person completed the outcome's task with this outcome. A first-Vision follow-up's 48-hour measure uses the earliest effective completing outcome; a correction keeps the flag.",
+          "name": "completes_task",
+          "type": "boolean",
+          "nullable": false,
+          "default": false
         }
       ],
       "primary_key": [

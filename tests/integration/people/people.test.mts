@@ -1081,6 +1081,8 @@ test("BUG-FB-review-1: full People pages and pipeline use fixed database round t
 		person: projected.items[0],
 		activeParentDuties: duties.map((id) => ({ id, dueOn: null, warning: "missing_due_date" })),
 		coverage: "covered",
+		// Created on October 1 with no later activity: past the church's alert days (REQ-PPL-007).
+		inactivity: { lastActivityAt: "2026-10-01T12:00:00.123Z", level: "alert" },
 	});
 	assert.deepEqual(cards[1].activeParentDuties, [{ id: overdue, dueOn: "2000-01-01", warning: "overdue" }]);
 	assert.equal(cards[1].coverage, "covered");
