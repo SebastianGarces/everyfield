@@ -94,7 +94,8 @@ jobs:
   db:
     name: db (domain tests on Postgres 17)
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    # The statement census also builds the app once and counts real HTTP requests on it.
+    timeout-minutes: 15
     services:
       postgres:
         image: pgvector/pgvector:0.8.7-pg17
@@ -123,6 +124,15 @@ jobs:
         run: pnpm db:migrate
       - name: Current catalog against a fresh full migration chain
         run: python3 packages/db/src/schema/generate.py --check
+      - uses: actions/cache/restore@v6
+        with:
+          path: apps/web/.next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/web/**/*.ts', 'apps/web/**/*.tsx', 'apps/web/**/*.css') }}
+          restore-keys: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+      - name: Production build for the per-request statement budgets
+        run: pnpm build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
       - name: Domain tests
         run: pnpm -r --if-present test:db
 

@@ -14,17 +14,11 @@ import {
 	finishAudit,
 	prepareWrite,
 	WriteUnavailable,
-	type WritePath,
 	type AuditWrite,
 } from "../operations/writes.ts";
 
 export type Tx = Transaction;
 export type TaskContext = { session: RequestActor["session"]; selected: Owner };
-/**
- * The path of every task write (C88, operations/writes.ts): each reads other rows, counts or the church's settings. The
- * first write that only checks rows its final statement locks needs a per-operation table here.
- */
-const taskWritePath: WritePath = "established";
 export type TaskReply<T> = { status: "ok"; value: T } | { status: "refused"; error: c.TaskError };
 type Code = c.TaskError["code"];
 
@@ -94,7 +88,8 @@ export async function withTaskWrite<T>(
 	const selected = authority.actor.context.owner;
 	return readReply(() =>
 		nativeWrite(db, authority, selected, async (tx) => {
-			await declareWrite(tx, taskWritePath);
+			// Every write of this module reads other rows, counts or the church's settings (C88).
+			await declareWrite(tx, "established");
 			const result = await body(tx, { session: authority.session, selected });
 			if (result.status === "refused") throw new TaskRefusal(result.error.code, result.error.details);
 			return result.value;
@@ -151,6 +146,7 @@ export const hash = (v: unknown) => createHash("sha256").update(stable(v)).diges
 export type Command = AuditWrite & { actor: Writer };
 /** Any command that may append task changes: a task command, or another domain's command that generates tasks. */
 export type AuditCommand = AuditWrite & { actor: { accountId: string; plantId: string } };
+/** Every task and follow-up write name. The wrapper declares each write established (C88), so one declaration decides the path. */
 export type TaskWrite =
 	| "followups.correctOutcome"
 	| "followups.recordOutcome"
