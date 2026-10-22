@@ -180,6 +180,25 @@ test("AC:TARGET-MTG-010 AC:B02-010 AC:PERSONREF-MEETING-INVITATION-RSVP-ATTENDAN
 		await write(foreign, "checkIn", { requestKey: key(), input: { meetingId: m, personId: casey } }),
 		"unavailable",
 	);
+	// The attendance read says who may mark attendance, by the write's rule (C74, C79): an Owner yes, a Member who leads
+	// no team no; the current leader of a team meeting's team yes, and that leader's write then succeeds.
+	const may = async (who, meetingId) => ok(await read(who, "listAttendance", { meetingId })).viewerCanMarkAttendance;
+	assert.equal(await may(owner, m), true);
+	assert.equal(await may(member, m), false);
+	const leader = await person("Lee");
+	await f.admin.execute(sql`UPDATE person SET linked_account_id=${member.actor.actor.accountId} WHERE id=${leader}`);
+	const team = randomUUID();
+	await f.admin.execute(sql`INSERT INTO team(id,plant_id,name,state,sort_order,leader_person_id,leader_source)
+		VALUES(${team},${plant.id},'Hosts','active',1,${leader},'explicit')`);
+	// A team meeting needs its team in the same row, so the plain meeting becomes one in a single update.
+	const teamMeeting = await meeting("orientation");
+	await f.admin.execute(sql`UPDATE meeting SET type='team_meeting', team_id=${team} WHERE id=${teamMeeting}`);
+	assert.equal(await may(member, teamMeeting), true);
+	assert.equal(await may(member, m), false);
+	ok(await write(member, "checkIn", { requestKey: key(), input: { meetingId: teamMeeting, personId: casey } }));
+	await f.admin.execute(sql`UPDATE team SET archived_at=clock_timestamp() WHERE id=${team}`);
+	assert.equal(await may(member, teamMeeting), false);
+
 	const checked = ok(await write(owner, "checkIn", { requestKey: key(), input: { meetingId: m, personId: casey } }));
 	assert.equal(checked.attendees[0].presence, "attended");
 	const summary = ok(await read(owner, "attendanceSummary", { meetingId: m }));
