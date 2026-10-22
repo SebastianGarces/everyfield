@@ -41,6 +41,8 @@ import { SkillsCard } from "./fields/SkillsCard.tsx";
 import { TagsField } from "./fields/TagsField.tsx";
 import type { PersonRecords } from "./assessments/model.ts";
 import { RecordsSection } from "./assessments/RecordsSection.tsx";
+import { PersonFollowUps } from "../followups/PersonFollowUps.tsx";
+import type { PersonFollowUps as FollowUpsData } from "../followups/server.ts";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
 type Open = "stage" | "profile" | "classify" | "retire" | "restore" | null;
@@ -62,6 +64,7 @@ export function PersonScreen({
 	canWrite,
 	fields,
 	records,
+	followUps,
 	photosEnabled,
 }: {
 	person: PlantPerson;
@@ -77,6 +80,8 @@ export function PersonScreen({
 	fields: PersonFields | null;
 	/** The 4 C's, interviews and commitments (WP-014). Null for a viewer who is not an Owner or Admin. */
 	records: PersonRecords | null;
+	/** Follow-ups, Vision follow-ups and the contact log (WP-023). Null for a person they do not apply to. */
+	followUps: FollowUpsData | null;
 	/** Private photo storage is configured, so photos and commitment documents can be added. */
 	photosEnabled: boolean;
 }) {
@@ -235,6 +240,15 @@ export function PersonScreen({
 							accountId={accountId}
 							onSaved={saved}
 							onConflict={reload}
+						/>
+					) : null}
+					{followUps ? (
+						<PersonFollowUps
+							initial={followUps}
+							person={{ id: p.id, label: p.displayName }}
+							accountId={accountId}
+							admin={canWrite}
+							live={live}
 						/>
 					) : null}
 					<ActivityCard

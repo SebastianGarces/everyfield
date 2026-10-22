@@ -6,6 +6,7 @@ import "server-only";
 import type { PeopleQuery } from "./model.ts";
 import { readPersonFields } from "./fields/server.ts";
 import { readPersonRecords } from "./assessments/server.ts";
+import { readPersonFollowUps } from "../followups/server.ts";
 import { readPeoplePage, readPersonPage } from "./page-data.ts";
 
 // Layout, pages and actions share this request's native session and actor.
@@ -51,7 +52,7 @@ export type { PeopleData, PeopleView } from "./page-data.ts";
  * The person page: the person, their first Activity page and, for the page itself, their WP-012 fields, in one read
  * transaction. A conflict reload passes `withFields: false`: it needs only the person and Activity, and each field card
  * reads its own part again when its own save is refused. An Owner or Admin's page also reads the person's 4 C's,
- * interviews and commitments in the same transaction.
+ * interviews and commitments in the same transaction, and every plant seat reads the follow-ups and contact log.
  */
 export async function loadPerson(viewer: Viewer, personId: Parameters<typeof readPersonPage>[2], withFields = true) {
 	return read(viewer, async (tx, ctx) => {
@@ -62,7 +63,9 @@ export async function loadPerson(viewer: Viewer, personId: Parameters<typeof rea
 		const fields = plant ? await readPersonFields(tx, ctx, personId) : null;
 		// The 4 C's, interviews and commitments are for Owners and Admins only; no one else's page asks for them.
 		const records = plant && canWrite(viewer) ? await readPersonRecords(tx, ctx, personId) : null;
-		return { status: "ok" as const, value: { ...page.value, fields, records } };
+		// Follow-ups and the contact log (WP-023): three statements, for every plant seat.
+		const followUps = plant ? await readPersonFollowUps(tx, viewer.authority, personId) : null;
+		return { status: "ok" as const, value: { ...page.value, fields, records, followUps } };
 	});
 }
 
