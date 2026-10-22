@@ -7,6 +7,7 @@ import {
 	command,
 	deny,
 	next,
+	one,
 	parse,
 	read,
 	reply,
@@ -174,7 +175,10 @@ export const venuesReader = {
 		return read(authority, async (viewer) => {
 			const input = parse(c.listVenuesRequest, raw);
 			const search = input.search ? "%" + input.search.replace(/[\\%_]/g, (ch) => "\\" + ch) + "%" : null;
-			const r = await db.execute(sql`WITH f AS (
+			const { row } = await one(
+				db,
+				viewer,
+				sql`WITH f AS (
 					SELECT ${columns} FROM venue v WHERE v.plant_id = ${viewer.plantId}::uuid
 					AND (${input.archived} = 'include' OR (v.archived_at IS NULL) = (${input.archived} = 'exclude'))
 					AND (${search}::text IS NULL OR v.name ILIKE ${search} OR v.address ILIKE ${search})
@@ -182,8 +186,9 @@ export const venuesReader = {
 				)
 				SELECT (SELECT count(*) FROM f)::int AS total,
 					(SELECT json_agg(p) FROM (SELECT * FROM f ORDER BY lower(name), id LIMIT ${input.limit}
-						OFFSET ${(input.page - 1) * input.limit}) p) AS items`);
-			const page = pageRow.parse(r.rows[0]);
+						OFFSET ${(input.page - 1) * input.limit}) p) AS items`,
+			);
+			const page = pageRow.parse(row);
 			return c.venuePage.parse({
 				items: (page.items ?? []).map(venue),
 				page: input.page,
@@ -196,23 +201,32 @@ export const venuesReader = {
 	async get(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
 			const input = parse(c.venueRequest, raw);
-			const r = await db.execute(sql`SELECT ${columns},
+			const { row: found } = await one(
+				db,
+				viewer,
+				sql`SELECT ${columns},
 					(SELECT json_agg(h ORDER BY h.occurred_at DESC, h.id DESC) FROM (SELECT ${historyColumns} FROM audit_event a
 						WHERE a.tenant_id = v.plant_id AND a.subject_id = v.id ORDER BY a.occurred_at DESC, a.id DESC LIMIT 100) h) AS history
-				FROM venue v WHERE v.id = ${input.venueId}::uuid AND v.plant_id = ${viewer.plantId}::uuid`);
-			if (!r.rows[0]) return c.venueResult.parse({ status: "unavailable" });
-			const row = venueRow.extend({ history: z.array(historyRow).nullable() }).parse(r.rows[0]);
+				FROM venue v WHERE v.id = ${input.venueId}::uuid AND v.plant_id = ${viewer.plantId}::uuid`,
+			);
+			if (!found) return c.venueResult.parse({ status: "unavailable" });
+			const row = venueRow.extend({ history: z.array(historyRow).nullable() }).parse(found);
 			return c.venueResult.parse({ status: "available", venue: venue(row), history: (row.history ?? []).map(entry) });
 		});
 	},
 	async history(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
 			const input = parse(c.venueHistoryRequest, raw);
-			const r = await db.execute(sql`SELECT ${historyColumns} FROM audit_event a
-				WHERE a.tenant_id = ${viewer.plantId}::uuid AND a.subject_id = ${input.venueId}::uuid
-				AND EXISTS (SELECT FROM venue v WHERE v.id = a.subject_id AND v.plant_id = a.tenant_id)
-				ORDER BY a.occurred_at DESC, a.id DESC LIMIT ${input.limit + 1} OFFSET ${(input.page - 1) * input.limit}`);
-			const rows = r.rows.map((row) => historyRow.parse(row));
+			const { row } = await one(
+				db,
+				viewer,
+				sql`SELECT coalesce(json_agg(h ORDER BY h.occurred_at DESC, h.id DESC), '[]') AS items FROM (
+					SELECT ${historyColumns} FROM audit_event a
+					WHERE a.tenant_id = ${viewer.plantId}::uuid AND a.subject_id = ${input.venueId}::uuid
+					AND EXISTS (SELECT FROM venue v WHERE v.id = a.subject_id AND v.plant_id = a.tenant_id)
+					ORDER BY a.occurred_at DESC, a.id DESC LIMIT ${input.limit + 1} OFFSET ${(input.page - 1) * input.limit}) h`,
+			);
+			const rows = z.array(historyRow).parse(row?.items);
 			return c.venueHistory.parse({
 				venueId: input.venueId,
 				items: rows.slice(0, input.limit).map(entry),

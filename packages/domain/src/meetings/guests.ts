@@ -5,6 +5,7 @@ import "server-only";
 import { z } from "zod";
 import { personChanges } from "../people/core.ts";
 import { appendPerson } from "../people/people.ts";
+import type { AuditWrite } from "../operations/writes.ts";
 import { command, deny, next, parse, reply, type Change, type MeetingsContext, type Tx, type Writer } from "./core.ts";
 import { meetingColumns, meetingRow, plantMeeting, type MeetingRow } from "./rows.ts";
 
@@ -73,7 +74,7 @@ async function lockGuest(tx: Tx, w: Writer, meetingId: string, person: SQL, extr
 	const r = await tx.execute(sql`SELECT ${meetingColumns},
 			(SELECT row_to_json(x) FROM (SELECT ${guestColumns} WHERE g.meeting_id = m.id AND g.person_id = ${person}
 				FOR UPDATE OF g) x) AS guest,
-			${extra} AS extra, clock_timestamp() AS now
+			${extra} AS extra, m.finalized_at IS NOT NULL AS finalized, clock_timestamp() AS now
 		FROM meeting m WHERE ${plantMeeting(w.plant.id, meetingId)} AND m.retired_at IS NULL FOR SHARE OF m`);
 	if (!r.rows[0]) deny();
 	const row = r.rows[0] as Record<string, unknown>;
@@ -81,8 +82,20 @@ async function lockGuest(tx: Tx, w: Writer, meetingId: string, person: SQL, extr
 		m: meetingRow.parse(row),
 		g: guestRow.nullable().parse(row.guest),
 		extra: row.extra,
+		finalized: z.boolean().parse(row.finalized),
 		now: z.coerce.date().parse(row.now),
 	};
+}
+/**
+ * A guest write that puts an attended Person on the current list or takes one off changes the attended set. Before
+ * finalization it moves the attendance revision, so a finalize reviewed earlier conflicts; after finalization only
+ * reconcileAttendance changes that set, with its classifications and follow-ups (REQ-MTG-012, REQ-MTG-020).
+ */
+function changeAttended(audit: AuditWrite, meetingId: string, finalized: boolean) {
+	if (finalized) deny("status_transition");
+	audit.writes.push(
+		sql`UPDATE meeting SET attendance_revision = attendance_revision + 1 WHERE id = ${meetingId}::uuid`,
+	);
 }
 const current = (g: GuestRow | null) => {
 	if (!g || g.removed_at) deny();
@@ -137,7 +150,7 @@ export const guestsWriter = {
 			const input = parse(c.inviteGuestRequest, raw);
 			return command(tx, ctx, "meetings.inviteGuest", input, async (w, audit) => {
 				const { meetingId, personId, inviterPersonId } = input.input;
-				const { m, g, extra } = await lockGuest(
+				const { m, g, extra, finalized } = await lockGuest(
 					tx,
 					w,
 					meetingId,
@@ -161,6 +174,8 @@ export const guestsWriter = {
 						outcome: "noop",
 					});
 				if (f.person !== "live" || (inviterPersonId && f.inviter !== "live") || f.cycle) deny("invalid_subject");
+				// A restored guest keeps the presence it had when removed.
+				if (g?.presence === "attended") changeAttended(audit, m.id, finalized);
 				const id = g?.id ?? randomUUID();
 				const after: GuestRow = {
 					id,
@@ -208,7 +223,12 @@ export const guestsWriter = {
 		return reply(tx, async () => {
 			const input = parse(c.removeGuestRequest, raw);
 			return command(tx, ctx, "meetings.removeGuest", input, async (w, audit) => {
-				const { m, g, now } = await lockGuest(tx, w, input.input.meetingId, sql`${input.input.personId}::uuid`);
+				const { m, g, now, finalized } = await lockGuest(
+					tx,
+					w,
+					input.input.meetingId,
+					sql`${input.input.personId}::uuid`,
+				);
 				if (!g) deny();
 				if (g.removed_at)
 					return guestChange(answer(audit.id, "noop", g), g, m, {
@@ -217,6 +237,7 @@ export const guestsWriter = {
 						outcome: "noop",
 					});
 				expected(g, input.expectedRevision);
+				if (g.presence === "attended") changeAttended(audit, m.id, finalized);
 				const after: GuestRow = {
 					...g,
 					removed_at: now,
@@ -453,10 +474,11 @@ function contact(
 			return command(tx, ctx, operation, input, async (w, audit) => {
 				const i = input.input;
 				const attended = "attendance" in i ? i.attendance === "attended" : true;
-				const { m } = await lockGuest(tx, w, i.meetingId, sql`NULL::uuid`);
+				const { m, finalized } = await lockGuest(tx, w, i.meetingId, sql`NULL::uuid`);
+				if (attended) changeAttended(audit, m.id, finalized);
 				const person = appendPerson(
 					tx,
-					{ selected: { kind: "plant", id: w.plant.id } as never },
+					ctx,
 					{
 						displayName: i.displayName,
 						email: i.email,

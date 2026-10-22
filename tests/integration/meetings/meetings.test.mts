@@ -1159,3 +1159,65 @@ test("INV-reads: meeting pages and details are one statement whatever their size
 	])
 		assert.deepEqual([r.statements, r.locks], [1, false]);
 });
+
+test("INV-tenancy C13: meeting and venue reads check access in their own statement, so a seat that changes mid-request reads only what it still may", async () => {
+	// A second Admin of P whose seat changes after the request's viewer lookup; their own Person is a guest.
+	const a = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
+	await admin.execute(
+		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${a.user},${a.id + "@example.test"},true,'Synthetic')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${a.id},${a.user},'active','planter')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${a.session},${a.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
+	);
+	const seat = (
+		await admin.execute(
+			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${a.id},${P},'admin',clock_timestamp()) RETURNING id`,
+		)
+	).rows[0].id;
+	const m = await schedule();
+	const own = await person("Admin Two", { account: a.id });
+	ok(await run(guests.inviteGuest, { requestKey: key(), input: { meetingId: m.id, personId: own } }));
+	ok(
+		await run(guests.recordCard, {
+			requestKey: key(),
+			expectedRevision: (await guestOf(m.id, own)).revision,
+			input: { meetingId: m.id, personId: own, response: "interested", notes: "LIVE-CANARY" },
+		}),
+	);
+	const hall = ok(
+		await run(venues.create, { requestKey: key(), input: { name: "Live Hall", address: "1 Live St" } }),
+	).venue;
+	const v = await RequestActor.resolve(db, a.session);
+	const meetingId = m.id;
+	const reads13 = () =>
+		Promise.all([
+			reads.list(db, v, {}),
+			reads.get(db, v, { meetingId }),
+			reads.hasHistory(db, v, {}),
+			reads.readAgenda(db, v, { meetingId }),
+			reads.listKit(db, v, { meetingId }),
+			reads.listGuests(db, v, { meetingId }),
+			reads.listCards(db, v, { meetingId }),
+			reads.cardBreakdown(db, v, { meetingId }),
+			reads.invitationAttribution(db, v, { meetingId }),
+			reads.listCompletedPreLaunchPractices(db, v),
+			reads.getOwnRsvp(db, v, { meetingId }),
+			venuesReader.list(db, v, {}),
+			venuesReader.get(db, v, { venueId: hall.id }),
+			venuesReader.history(db, v, { venueId: hall.id }),
+		]);
+	const notes = async () => ok(await reads.listCards(db, v, { meetingId })).cards[0].notes;
+	assert.equal(await notes(), "LIVE-CANARY");
+	ok(await reads.communicationContext(db, v, { meetingId }));
+	// Demoted to Member after the lookup: the same viewer loses the notes and the Admin-only composer context.
+	await admin.execute(sql`UPDATE seat SET role='member' WHERE id=${seat}`);
+	assert.equal(await notes(), null);
+	refused(await reads.communicationContext(db, v, { meetingId }));
+	(await reads13()).forEach(ok);
+	// The seat ends: every read refuses and returns nothing of the church.
+	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${seat}`);
+	for (const r of await reads13()) refused(r);
+});
