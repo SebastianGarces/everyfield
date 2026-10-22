@@ -32,8 +32,31 @@ function answer<T>(reply: PeopleReply<T> | { status: "failed" }, ok: (value: T) 
 async function viewer(): Promise<Viewer | null> {
 	return (await getViewer())?.people ?? null;
 }
-/** A body larger than the file limit plus form overhead is refused before it is read into memory. */
-const tooLarge = (request: Request) => Number(request.headers.get("content-length") ?? 0) > MAX_BYTES + 64 * 1024;
+/** The file limit plus form overhead. */
+const BODY_LIMIT = MAX_BYTES + 64 * 1024;
+/**
+ * The request body, read from its stream and counted as it arrives: null once it passes `limit`, before the rest is
+ * read into memory. A declared Content-Length above the limit is refused without reading at all.
+ */
+export async function boundedBody(request: Request, limit = BODY_LIMIT): Promise<Uint8Array<ArrayBuffer> | null> {
+	if (Number(request.headers.get("content-length") ?? 0) > limit) return null;
+	const chunks: Uint8Array[] = [];
+	let size = 0;
+	if (request.body)
+		for await (const chunk of request.body) {
+			size += chunk.byteLength;
+			// Leaving the loop early cancels the stream: the rest of the body is never read.
+			if (size > limit) return null;
+			chunks.push(chunk);
+		}
+	const body = new Uint8Array(size);
+	let at = 0;
+	for (const chunk of chunks) {
+		body.set(chunk, at);
+		at += chunk.byteLength;
+	}
+	return body;
+}
 
 /** GET /api/people/import/template: the 12 import columns, header only. It holds no church data. */
 export async function templateRoute() {
@@ -52,8 +75,8 @@ export async function templateRoute() {
 export async function previewRoute(request: Request) {
 	const v = await viewer();
 	if (!v) return refused("access_denied");
-	if (tooLarge(request)) return json({ status: "refused", code: "file_too_large" });
-	const file = new Uint8Array(await request.arrayBuffer());
+	const file = await boundedBody(request);
+	if (!file) return json({ status: "refused", code: "file_too_large" });
 	return answer(await read(v, (tx, ctx) => peopleCsv.previewImport(tx, ctx, { file })));
 }
 
@@ -65,8 +88,10 @@ export async function importRoute(request: Request) {
 	const v = await viewer();
 	const db = requestDatabase();
 	if (!v || !db) return refused("access_denied");
-	if (tooLarge(request)) return json({ status: "refused", code: "file_too_large" });
-	const form = await request.formData().catch(() => null);
+	const body = await boundedBody(request);
+	if (!body) return json({ status: "refused", code: "file_too_large" });
+	const type = request.headers.get("content-type") ?? "";
+	const form = await new Response(body, { headers: { "content-type": type } }).formData().catch(() => null);
 	const file = form?.get("file");
 	const review = form?.get("review");
 	if (!(file instanceof Blob) || typeof review !== "string") return json({ status: "refused", code: "invalid_input" });
