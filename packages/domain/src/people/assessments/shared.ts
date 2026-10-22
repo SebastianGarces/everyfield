@@ -22,6 +22,8 @@ const subjectRow = z.object({
 	extra: z.unknown(),
 });
 export type Subject = z.infer<typeof subjectRow>;
+/** Today's date in the time zone of the church row `pl`, the one source of "today" for recorded events. */
+export const churchToday = sql`(clock_timestamp() AT TIME ZONE pl.timezone)::date::text`;
 
 /**
  * The live plant Person a record names (by ID, or a subquery such as a card's Person), locked for the write, with the church-local date and the database time the
@@ -37,7 +39,7 @@ export async function subject(
 	const plant = plantId(ctx);
 	const result = await tx.execute(sql`SELECT p.id,p.state,p.stage,p.revision::text AS revision,
  p.pipeline_position::text AS pipeline_position,p.commitment_state,p.commitment_effective_on::text AS commitment_effective_on,
- (clock_timestamp() AT TIME ZONE pl.timezone)::date::text AS today,clock_timestamp() AS now,${extra ?? sql`NULL`} AS extra
+ ${churchToday} AS today,clock_timestamp() AS now,${extra ?? sql`NULL`} AS extra
  FROM person p JOIN plant pl ON pl.id=p.plant_id WHERE p.id=${typeof person === "string" ? sql`${person}::uuid` : person} AND p.tenant_id=${plant}::uuid AND p.plant_id=${plant}::uuid
  FOR UPDATE OF p`);
 	if (!result.rows[0]) deny();
@@ -46,7 +48,7 @@ export async function subject(
 	return p;
 }
 /** A recorded event happened on or before today in the church's time zone. */
-export function notFuture(p: Subject, date: string) {
+export function notFuture(p: Pick<Subject, "today">, date: string) {
 	if (date > p.today) deny("invalid_input", { reason: "future_date" });
 }
 
