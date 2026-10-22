@@ -7,10 +7,10 @@ import {
 	UserGroupIcon,
 	UserMultipleIcon,
 } from "@hugeicons/core-free-icons";
-import { CardIcon } from "@everyfield/ui/controls";
+import { Button, CardIcon } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { PersonLink } from "../people/parts.tsx";
 import {
 	problemText,
@@ -147,4 +147,75 @@ export function useSave() {
 		return result;
 	}
 	return { save, pending, problem, setProblem };
+}
+
+/**
+ * A save slot's state (C68): free, a save on its way, a save whose answer never came, or that save sent again by
+ * Check again. Every state but idle refuses a new save.
+ */
+export type Slot = "idle" | "pending" | "unknown" | "checking";
+type Answer<T> = Exclude<Outcome<T>, { status: "lost" }>;
+
+/**
+ * One save at a time for one card, dialog or row (C68). A save keeps its request key. When no answer arrives, sendOnce
+ * sends it once more; when that answer is lost too, the slot stays "unknown" and refuses new saves. Check again sends
+ * the same request key again: the server returns what it recorded, or saves it now if it never arrived. Only that
+ * answer frees the slot, so the page never claims a result it has not heard.
+ */
+export function useSlot() {
+	const [state, setState] = useState<Slot>("idle");
+	const held = useRef<(() => Promise<void>) | null>(null);
+	/** Starts a save, or returns false when the slot is busy or unknown. `answered` gets only a server answer. */
+	function run<T>(call: (key: string) => Promise<Outcome<T>>, answered: (r: Answer<T>) => void): boolean {
+		if (held.current) return false;
+		const key = crypto.randomUUID();
+		const send = async (again: boolean) => {
+			setState(again ? "checking" : "pending");
+			const r = await sendOnce(key, call);
+			if (r === undefined) return;
+			if (r.status === "lost") return setState("unknown");
+			held.current = null;
+			setState("idle");
+			answered(r);
+		};
+		held.current = () => send(true);
+		void send(false);
+		return true;
+	}
+	function checkAgain() {
+		if (state === "unknown" && held.current) void held.current();
+	}
+	return { state, run, checkAgain };
+}
+
+/**
+ * The notice for a save whose answer is unknown, with Check again. A polite live region, so a screen reader hears it
+ * when it appears, also inside an open dialog.
+ */
+export function Unconfirmed({
+	state,
+	onCheck,
+	children,
+	className,
+}: {
+	state: Slot;
+	onCheck: () => void;
+	children?: ReactNode;
+	className?: string;
+}) {
+	return (
+		<div aria-live="polite" className={cn("empty:hidden", className)}>
+			{state === "unknown" || state === "checking" ? (
+				<div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-amber-50 px-3.5 py-2.5 text-sm text-ink">
+					<p className="min-w-0 flex-1 basis-[200px]">
+						{children ?? "We did not hear back from the server, so we cannot tell whether it saved."} Nothing else here
+						can change until it is checked.
+					</p>
+					<Button variant="secondary" size="sm" onClick={onCheck} loading={state === "checking"}>
+						Check again
+					</Button>
+				</div>
+			) : null}
+		</div>
+	);
 }

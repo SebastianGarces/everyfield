@@ -90,7 +90,7 @@ import {
 	type MeetingStatus,
 	type Scores,
 } from "./model.ts";
-import { MeetingStatusBadge, Problem, problemOf, RsvpBar, sendOnce, useSave } from "./parts.tsx";
+import { MeetingStatusBadge, Problem, problemOf, RsvpBar, useSave, useSlot } from "./parts.tsx";
 import { deleteFromList } from "./deletions.ts";
 import { applyChange, withAttendees, type Change, type PageView } from "./page-state.ts";
 import { PlanMeetingDialog } from "./PlanMeetingDialog.tsx";
@@ -173,32 +173,31 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 	// Attendance (WP-022) ------------------------------------------------------------------------------------------
 	const presence = usePresence({
 		meetingId: data.meeting.id,
-		project,
 		onSaved: (a) => setData((d) => withAttendees(d, a.attendees, a.attendanceRevision)),
 		onStale: () => stale(),
 	});
 	const seats = useSeats();
 	const final = data.attendance?.finalized != null;
 	type Form<I> = { visible: boolean; input: I | null; problem: string | null };
+	// Finalize and correction share one save slot; the evaluation has its own (C68).
+	const settleSlot = useSlot();
 	const [settle, setSettle] = useState<(Form<SettleInput> & { mode: "finalize" | "reconcile" }) | null>(null);
-	const [settling, setSettling] = useState(false);
 	function submitSettle(input: SettleInput) {
 		const mode = settle!.mode;
 		const attendance = data.attendance!;
-		setSettle((s) => s && { ...s, visible: false, input, problem: null });
-		setSettling(true);
 		const body = {
 			meetingId: m.id,
 			attendeeIds: input.attendeeIds,
 			followUpAssigneeId: input.followUpAssigneeId,
 			...(mode === "finalize" ? { evaluationAssigneeId: input.evaluationAssigneeId } : { reason: input.reason }),
 		};
-		startTransition(async () => {
-			const r = await sendOnce(crypto.randomUUID(), (key) =>
-				settleAttendance(mode, key, attendance.attendanceRevision, body),
-			);
-			setSettling(false);
-			if (r?.status === "ok") {
+		const started = settleSlot.run(
+			(key) => settleAttendance(mode, key, attendance.attendanceRevision, body),
+			(r) => {
+				if (r.status !== "ok") {
+					if (r.code === "conflict") stale();
+					return setSettle((s) => s && { ...s, visible: true, problem: r.code });
+				}
 				const { result, analytics } = r.value;
 				setData((d) => {
 					const next = d.attendance ? attendanceAfter(d.attendance, result) : null;
@@ -216,91 +215,79 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 				});
 				setSettle(null);
 				toast({ message: settledText(result, m.displayTitle, mode), tone: "success" });
-				return;
-			}
-			const code = r ? problemOf(r)! : "lost";
-			if (code === "lost" || code === "conflict") stale();
-			if (code === "lost") {
-				setSettle(null);
-				toast({ message: problemText("unconfirmed"), tone: "error" });
-			} else setSettle((s) => s && { ...s, visible: true, problem: code });
-		});
+			},
+		);
+		if (started) setSettle((s) => s && { ...s, visible: false, input, problem: null });
 	}
 
+	const evaluationSlot = useSlot();
 	const [evaluating, setEvaluating] = useState<Form<EvaluationInput> | null>(null);
-	const [shownEvaluation, setShownEvaluation] = useOptimistic<Evaluation | null>(
-		data.evaluation?.status === "available" ? data.evaluation.evaluation : null,
-	);
-	const [evaluationSaving, setEvaluationSaving] = useState(false);
 	const saved = data.evaluation?.status === "available" ? data.evaluation.evaluation : null;
+	// What the person asked for, shown while its save is on its way or unknown; the answer replaces it.
+	const [draft, setDraft] = useState<Evaluation | null>(null);
+	const shownEvaluation = evaluationSlot.state !== "idle" && draft ? draft : saved;
 	function submitEvaluation(input: EvaluationInput) {
-		setEvaluating((f) => f && { ...f, visible: false, input, problem: null });
-		setEvaluationSaving(true);
 		const scores = { ...saved?.scores, ...input.scores } as Scores;
-		const today = data.now.slice(0, 10);
-		startTransition(async () => {
-			setShownEvaluation({
-				...(saved ??
-					({
-						evaluationId: "pending",
-						meetingId: m.id,
-						factorVersion: 1,
-						evaluatedOn: today,
-						recordedAt: data.now,
-						evaluator: { kind: "former_account" },
-						revision: "0",
-						corrections: { count: 0, lastAt: null },
-					} as unknown as Evaluation)),
-				scores,
-				average: averageOf(scores),
-				notes: input.notes || null,
-			});
-			const r = await sendOnce(crypto.randomUUID(), (key) =>
-				saved
-					? correctEvaluation(key, saved.revision, {
+		const before = saved;
+		const started = evaluationSlot.run(
+			(key) =>
+				before
+					? correctEvaluation(key, before.revision, {
 							meetingId: m.id,
 							changes: Object.fromEntries(
-								Object.entries(input.scores).filter(([k, v]) => saved.scores[k as keyof Scores] !== v),
+								Object.entries(input.scores).filter(([k, v]) => before.scores[k as keyof Scores] !== v),
 							),
-							...(input.notes !== (saved.notes ?? "") ? { notes: input.notes || null } : {}),
+							...(input.notes !== (before.notes ?? "") ? { notes: input.notes || null } : {}),
 							reason: input.reason,
 						})
 					: recordEvaluation(key, { meetingId: m.id, scores: input.scores, notes: input.notes || null }),
-			);
-			setEvaluationSaving(false);
-			if (r?.status === "ok") {
+			(r) => {
+				setDraft(null);
+				if (r.status !== "ok") {
+					if (r.code === "conflict") stale();
+					return setEvaluating((f) => f && { ...f, visible: true, problem: r.code });
+				}
 				const e = r.value.evaluation;
-				startTransition(() =>
-					setData((d) => ({
-						...d,
-						evaluation: { status: "available", evaluation: e },
-						analytics: d.analytics && {
-							...d.analytics,
-							evaluation: d.analytics.evaluation && compareWith(d.analytics.evaluation, e.average, saved !== null),
-							tasks: r.value.taskCompleted
-								? {
-										...d.analytics.tasks,
-										evaluation: d.analytics.tasks.evaluation && { ...d.analytics.tasks.evaluation, status: "complete" },
-									}
-								: d.analytics.tasks,
-						},
-					})),
-				);
+				setData((d) => ({
+					...d,
+					evaluation: { status: "available", evaluation: e },
+					analytics: d.analytics && {
+						...d.analytics,
+						evaluation: d.analytics.evaluation && compareWith(d.analytics.evaluation, e.average, before !== null),
+						tasks: r.value.taskCompleted
+							? {
+									...d.analytics.tasks,
+									evaluation: d.analytics.tasks.evaluation && { ...d.analytics.tasks.evaluation, status: "complete" },
+								}
+							: d.analytics.tasks,
+					},
+				}));
 				setEvaluating(null);
 				toast({
-					message: saved
+					message: before
 						? "The evaluation is corrected."
 						: `The evaluation is saved.${r.value.taskCompleted ? " Its task is complete." : ""}`,
 					tone: "success",
 				});
-				return;
-			}
-			const code = r ? problemOf(r)! : "lost";
-			if (code === "lost" || code === "conflict") stale();
-			if (code === "lost") {
-				setEvaluating(null);
-				toast({ message: problemText("unconfirmed"), tone: "error" });
-			} else setEvaluating((f) => f && { ...f, visible: true, problem: code });
+			},
+		);
+		if (!started) return;
+		setEvaluating((f) => f && { ...f, visible: false, input, problem: null });
+		setDraft({
+			...(before ??
+				({
+					evaluationId: "pending",
+					meetingId: m.id,
+					factorVersion: 1,
+					evaluatedOn: data.now.slice(0, 10),
+					recordedAt: data.now,
+					evaluator: { kind: "former_account" },
+					revision: "0",
+					corrections: { count: 0, lastAt: null },
+				} as unknown as Evaluation)),
+			scores,
+			average: averageOf(scores),
+			notes: input.notes || null,
 		});
 	}
 	const history = useEvaluationHistory(m.id);
@@ -435,12 +422,18 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 					<div className="flex min-w-0 flex-col gap-5">
 						<AttendanceCard
 							meeting={m}
-							attendance={view.attendance}
+							attendance={view.attendance && { ...view.attendance, items: presence.shown(view.attendance.items) }}
 							analytics={data.analytics}
 							canWrite={canWrite}
-							settling={settling}
+							slot={settleSlot.state}
+							blocked={presence.busy}
+							onCheck={settleSlot.checkAgain}
 							now={data.now}
-							onSettle={(mode) => setSettle({ mode, visible: true, input: null, problem: null })}
+							onSettle={(mode) =>
+								settleSlot.state === "idle" &&
+								!presence.busy &&
+								setSettle({ mode, visible: true, input: null, problem: null })
+							}
 							onPrefetch={seats.load}
 						/>
 						<AgendaCard
@@ -455,7 +448,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 					</div>
 					<GuestList
 						meeting={m}
-						guests={view.guests}
+						guests={view.guests && presence.shown(view.guests)}
 						cards={view.cards}
 						attendance={view.attendance}
 						presence={presence}
@@ -487,9 +480,14 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 						analytics={data.analytics}
 						finalized={final}
 						canWrite={canWrite}
-						saving={evaluationSaving}
-						onRecord={() => setEvaluating({ visible: true, input: null, problem: null })}
-						onCorrect={() => setEvaluating({ visible: true, input: null, problem: null })}
+						slot={evaluationSlot.state}
+						onCheck={evaluationSlot.checkAgain}
+						onRecord={() =>
+							evaluationSlot.state === "idle" && setEvaluating({ visible: true, input: null, problem: null })
+						}
+						onCorrect={() =>
+							evaluationSlot.state === "idle" && setEvaluating({ visible: true, input: null, problem: null })
+						}
 						onHistory={() => {
 							if (saved) history.load(saved.revision);
 							setHistoryOpen(true);

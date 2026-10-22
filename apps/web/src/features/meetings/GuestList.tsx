@@ -49,7 +49,7 @@ import {
 	removeGuest,
 	setInviter,
 } from "./actions.ts";
-import { PresenceCell, type usePresence } from "./Attendance.tsx";
+import { PresenceCell, PresenceUnconfirmed, type usePresence } from "./Attendance.tsx";
 import { PersonPicker, ReasonDialog, type PickedPerson } from "./dialogs.tsx";
 import {
 	CARD_LABEL,
@@ -251,7 +251,7 @@ export function GuestList({
 					presence={g.presence}
 					classification={classOf.get(g.person.personId) ?? null}
 					final={attendance?.finalized != null}
-					saving={presence.busy.has(g.person.personId)}
+					state={presence.stateOf(g.person.personId)}
 				/>
 			),
 		},
@@ -286,7 +286,7 @@ export function GuestList({
 											<MenuItem
 												key={p}
 												icon={Tick02Icon}
-												disabled={!canMark || g.presence === p || presence.busy.has(g.person.personId)}
+												disabled={!canMark || g.presence === p || presence.stateOf(g.person.personId) !== undefined}
 												onSelect={() => presence.set(g.person, p)}
 											>
 												Mark as {PRESENCE_LABEL[p].toLowerCase()}
@@ -360,6 +360,7 @@ export function GuestList({
 					/>
 				) : null}
 			</CardHeader>
+			<PresenceUnconfirmed presence={presence} className="mb-3" />
 			{guests === null ? (
 				<StatePanel tone="error" title="Guests did not load" headingLevel="h3" className="py-8">
 					Nothing was changed. Reload the page in a moment.

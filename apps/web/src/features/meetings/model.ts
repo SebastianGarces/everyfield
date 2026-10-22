@@ -299,7 +299,7 @@ export function problemText(code: string): string {
 		case "token_closed":
 			return "This answer was already recorded, or the link has closed.";
 		case "unconfirmed":
-			return "We did not hear back from the server, so we cannot tell whether it saved. The page now shows what is saved.";
+			return "We did not hear back from the server, so we cannot tell whether it saved. Check again before you change anything else here.";
 		case "required_write_failed":
 			return "The server could not save this. Nothing changed. Try again in a moment.";
 		case "unavailable":

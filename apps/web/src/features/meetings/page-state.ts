@@ -1,6 +1,6 @@
 import type * as c from "@everyfield/contracts/meetings";
 import type { z } from "zod";
-import type { Attendance, Attendee, Detail, Guest, Presence, Rsvp } from "./model.ts";
+import type { Attendance, Attendee, Detail, Guest, Rsvp } from "./model.ts";
 import type { MeetingPageData } from "./server.ts";
 
 // The meeting page's optimistic changes. A write projects its change here at once; the page shows it in every place it
@@ -20,8 +20,7 @@ export type Change =
 	| { kind: "guest"; guest: Guest }
 	| { kind: "removeGuest"; guestId: string }
 	| { kind: "card"; personId: string; card: CardEntry | null }
-	| { kind: "agenda"; agenda: Detail["agenda"] }
-	| { kind: "presence"; personId: string; presence: Presence };
+	| { kind: "agenda"; agenda: Detail["agenda"] };
 
 /** The guest list and the attendance list after a presence answer: each confirmed row and the new revision. */
 export function withAttendees<V extends { guests: Guest[] | null; attendance: Attendance | null }>(
@@ -94,18 +93,5 @@ export function applyChange(v: PageView, change: Change): PageView {
 			};
 		case "agenda":
 			return { ...v, agenda: change.agenda };
-		case "presence":
-			return {
-				...v,
-				guests:
-					v.guests?.map((g) => (g.person.personId === change.personId ? { ...g, presence: change.presence } : g)) ??
-					null,
-				attendance: v.attendance && {
-					...v.attendance,
-					items: v.attendance.items.map((a) =>
-						a.person.personId === change.personId ? { ...a, presence: change.presence } : a,
-					),
-				},
-			};
 	}
 }

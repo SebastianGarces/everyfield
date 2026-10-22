@@ -19,11 +19,12 @@ import {
 } from "@everyfield/ui/controls";
 import { Avatar, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
-import { startTransition, useOptimistic, useState } from "react";
+import { useState } from "react";
 import { addWalkIn, reloadCheckIn, setPresence, settleAttendance } from "./actions.ts";
 import {
 	attendanceAfter,
 	canSettle,
+	PresenceUnconfirmed,
 	settledText,
 	SettleDialog,
 	usePresence,
@@ -31,25 +32,10 @@ import {
 	type SettleInput,
 } from "./Attendance.tsx";
 import { PersonPicker, type PickedPerson } from "./dialogs.tsx";
-import { problemText, RSVP_LABEL, timeText, type Guest } from "./model.ts";
-import { attendeeOf, withAttendees, type Change } from "./page-state.ts";
-import { Problem, problemOf, sendOnce } from "./parts.tsx";
+import { RSVP_LABEL, timeText, type Guest } from "./model.ts";
+import { attendeeOf, withAttendees } from "./page-state.ts";
+import { Problem, Unconfirmed, useSlot, type Slot } from "./parts.tsx";
 import type { CheckInData } from "./server.ts";
-
-type View = Pick<CheckInData, "guests" | "attendance">;
-type Local = Change | { kind: "walkIn"; guest: Guest };
-
-function apply(v: View, c: Local): View {
-	if (c.kind === "walkIn") return { ...v, guests: [...v.guests, c.guest] };
-	if (c.kind !== "presence") return v;
-	return {
-		guests: v.guests.map((g) => (g.person.personId === c.personId ? { ...g, presence: c.presence } : g)),
-		attendance: v.attendance && {
-			...v.attendance,
-			items: v.attendance.items.map((a) => (a.person.personId === c.personId ? { ...a, presence: c.presence } : a)),
-		},
-	};
-}
 
 /**
  * Door check-in (REQ-MTG-010, phone layout): one tap marks a guest here, a second tap takes it back. A walk-in is
@@ -67,7 +53,6 @@ export function CheckInScreen({ data }: { data: CheckInData }) {
 function CheckIn({ loaded }: { loaded: CheckInData }) {
 	const toast = useToast();
 	const [data, setData] = useState(loaded);
-	const [view, project] = useOptimistic<View, Local>({ guests: data.guests, attendance: data.attendance }, apply);
 	const [filter, setFilter] = useState<"waiting" | "here">("waiting");
 	const [search, setSearch] = useState("");
 	const [walkIn, setWalkIn] = useState<{ visible: boolean; problem: string | null; input: WalkInInput | null } | null>(
@@ -76,9 +61,12 @@ function CheckIn({ loaded }: { loaded: CheckInData }) {
 	const [settle, setSettle] = useState<{ visible: boolean; input: SettleInput | null; problem: string | null } | null>(
 		null,
 	);
-	const [settling, setSettling] = useState(false);
 	const [early, setEarly] = useState(false);
 	const seats = useSeats();
+	// A walk-in and Finish both change who attended, so they share one save slot (C68). Presence taps have one per person.
+	const door = useSlot();
+	// The walk-in row as the person asked for it, shown while its save is on its way or unknown.
+	const [draft, setDraft] = useState<Guest | null>(null);
 	const m = data.meeting;
 	const final = data.attendance?.finalized != null;
 	const stale = () =>
@@ -87,20 +75,25 @@ function CheckIn({ loaded }: { loaded: CheckInData }) {
 		});
 	const presence = usePresence({
 		meetingId: m.id,
-		project,
 		onSaved: (a) => setData((d) => withAttendees(d, a.attendees, a.attendanceRevision)),
 		onStale: stale,
 	});
 
-	const here = view.guests.filter((g) => g.presence === "attended");
-	const waiting = view.guests.filter((g) => g.presence !== "attended");
+	const guests = [...presence.shown(data.guests), ...(door.state !== "idle" && draft ? [draft] : [])];
+	// A row whose save is unknown stays in the list where it was tapped, marked Not confirmed, so it is easy to find.
+	const before = new Map(data.guests.map((g) => [g.person.personId, g.presence]));
+	const listed = (g: Guest) => {
+		const st = presence.stateOf(g.person.personId);
+		return st === "unknown" || st === "checking" ? (before.get(g.person.personId) ?? g.presence) : g.presence;
+	};
+	const here = guests.filter((g) => listed(g) === "attended");
+	const waiting = guests.filter((g) => listed(g) !== "attended");
 	const q = search.trim().toLowerCase();
 	const rows = (filter === "here" ? here : waiting)
 		.filter((g) => !q || g.person.displayName.toLowerCase().includes(q))
 		.sort((a, b) => rank(a) - rank(b) || a.person.displayName.localeCompare(b.person.displayName));
 
 	function submitWalkIn(input: WalkInInput) {
-		setWalkIn((w) => w && { ...w, visible: false, input, problem: null });
 		const pending = {
 			id: `pending-${crypto.randomUUID()}`,
 			revision: "0",
@@ -112,50 +105,45 @@ function CheckIn({ loaded }: { loaded: CheckInData }) {
 			presence: "attended",
 			hasCard: false,
 		} as unknown as Guest;
-		startTransition(async () => {
-			project({ kind: "walkIn", guest: pending });
-			setFilter("here");
-			const body = {
-				meetingId: m.id,
-				displayName: input.name.trim(),
-				email: input.email.trim() || null,
-				phone: input.phone.trim() || null,
-				country: "US",
-			};
-			const p = input.person;
-			const r = p
-				? await sendOnce(crypto.randomUUID(), (key) => setPresence(key, m.id, p.id, "attended"))
-				: await sendOnce(crypto.randomUUID(), (key) => addWalkIn(key, body));
-			if (r?.status === "ok") {
-				startTransition(() =>
-					setData((d) => {
-						if ("guest" in r.value) {
-							const g = r.value.guest as Guest;
-							return {
-								...d,
-								guests: [...d.guests, g],
-								attendance: d.attendance && { ...d.attendance, items: [...d.attendance.items, attendeeOf(g)] },
-							};
-						}
-						const a = r.value.attendees[0]!;
-						const g = { ...pending, id: a.guestId, revision: a.revision, person: a.person } as Guest;
-						return withAttendees({ ...d, guests: [...d.guests, g] }, r.value.attendees, r.value.attendanceRevision);
-					}),
-				);
-				setWalkIn(null);
-				toast({ message: `${pending.person.displayName} is checked in.`, tone: "success" });
-				return;
-			}
-			const code = r ? problemOf(r)! : "lost";
-			if (code === "lost") {
-				stale();
-				setWalkIn(null);
-				toast({ message: problemText("unconfirmed"), tone: "error" });
-			} else setWalkIn((w) => w && { ...w, visible: true, problem: code });
-		});
+		const body = {
+			meetingId: m.id,
+			displayName: input.name.trim(),
+			email: input.email.trim() || null,
+			phone: input.phone.trim() || null,
+			country: "US",
+		};
+		const p = input.person;
+		const answered = (r: Awaited<ReturnType<typeof setPresence>> | Awaited<ReturnType<typeof addWalkIn>>) => {
+			setDraft(null);
+			if (r.status === "lost") return;
+			if (r.status !== "ok") return setWalkIn((w) => w && { ...w, visible: true, problem: r.code });
+			setData((d) => {
+				if ("guest" in r.value) {
+					const g = r.value.guest as Guest;
+					return {
+						...d,
+						guests: [...d.guests, g],
+						attendance: d.attendance && { ...d.attendance, items: [...d.attendance.items, attendeeOf(g)] },
+					};
+				}
+				const a = r.value.attendees[0]!;
+				const g = { ...pending, id: a.guestId, revision: a.revision, person: a.person } as Guest;
+				return withAttendees({ ...d, guests: [...d.guests, g] }, r.value.attendees, r.value.attendanceRevision);
+			});
+			setWalkIn(null);
+			toast({ message: `${pending.person.displayName} is checked in.`, tone: "success" });
+		};
+		const started = p
+			? door.run((key) => setPresence(key, m.id, p.id, "attended"), answered)
+			: door.run((key) => addWalkIn(key, body), answered);
+		if (!started) return;
+		setWalkIn((w) => w && { ...w, visible: false, input, problem: null });
+		setDraft(pending);
+		setFilter("here");
 	}
 
 	function finish() {
+		if (door.state !== "idle" || presence.busy) return;
 		// The meeting must have started before attendance can be final; the time is read when the person asks.
 		if (!canSettle(m, new Date().toISOString())) return setEarly(true);
 		setEarly(false);
@@ -164,32 +152,27 @@ function CheckIn({ loaded }: { loaded: CheckInData }) {
 	}
 	function submitSettle(input: SettleInput) {
 		const attendance = data.attendance!;
-		setSettle((s) => s && { ...s, visible: false, input, problem: null });
-		setSettling(true);
-		startTransition(async () => {
-			const r = await sendOnce(crypto.randomUUID(), (key) =>
+		const started = door.run(
+			(key) =>
 				settleAttendance("finalize", key, attendance.attendanceRevision, {
 					meetingId: m.id,
 					attendeeIds: input.attendeeIds,
 					followUpAssigneeId: input.followUpAssigneeId,
 					evaluationAssigneeId: input.evaluationAssigneeId,
 				}),
-			);
-			setSettling(false);
-			if (r?.status === "ok") {
+			(r) => {
+				if (r.status !== "ok") {
+					if (r.code === "conflict") stale();
+					return setSettle((s) => s && { ...s, visible: true, problem: r.code });
+				}
 				setData((d) => ({ ...d, attendance: d.attendance && attendanceAfter(d.attendance, r.value.result) }));
 				setSettle(null);
 				toast({ message: settledText(r.value.result, m.displayTitle, "finalize"), tone: "success" });
-				return;
-			}
-			const code = r ? problemOf(r)! : "lost";
-			if (code === "lost" || code === "conflict") stale();
-			if (code === "lost") {
-				setSettle(null);
-				toast({ message: problemText("unconfirmed"), tone: "error" });
-			} else setSettle((s) => s && { ...s, visible: true, problem: code });
-		});
+			},
+		);
+		if (started) setSettle((s) => s && { ...s, visible: false, input, problem: null });
 	}
+	const doorBusy = door.state !== "idle";
 
 	return (
 		<div className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col bg-frame">
@@ -242,6 +225,11 @@ function CheckIn({ loaded }: { loaded: CheckInData }) {
 			</header>
 
 			<main className="flex flex-1 flex-col px-4 pb-4">
+				<Unconfirmed state={door.state} onCheck={door.checkAgain} className="mb-3">
+					{settle ? "Finalizing attendance" : `Checking in ${draft?.person.displayName ?? "the walk-in"}`}: we did not
+					hear back from the server, so we cannot tell whether it saved.
+				</Unconfirmed>
+				<PresenceUnconfirmed presence={presence} className="mb-3" />
 				<h2 className="sr-only">{filter === "here" ? "Here" : "Not here yet"}</h2>
 				{rows.length === 0 ? (
 					<p className="px-1 py-8 text-center text-md text-text-3" aria-live="polite">
@@ -249,7 +237,7 @@ function CheckIn({ loaded }: { loaded: CheckInData }) {
 							? "No one on the list matches. Add them as a walk-in."
 							: filter === "here"
 								? "Nobody is checked in yet."
-								: view.guests.length === 0
+								: guests.length === 0
 									? "The guest list is empty. Add people as they arrive."
 									: "Everyone on the list is here."}
 					</p>
@@ -260,7 +248,7 @@ function CheckIn({ loaded }: { loaded: CheckInData }) {
 								<Row
 									guest={g}
 									disabled={final || g.id.startsWith("pending-") || g.person.state !== "live"}
-									saving={g.id.startsWith("pending-") || presence.busy.has(g.person.personId)}
+									state={g.id.startsWith("pending-") ? door.state : presence.stateOf(g.person.personId)}
 									onToggle={() => presence.set(g.person, g.presence === "attended" ? "absent" : "attended")}
 								/>
 							</li>
@@ -281,7 +269,8 @@ function CheckIn({ loaded }: { loaded: CheckInData }) {
 							variant="secondary"
 							icon={UserAdd01Icon}
 							className="h-12"
-							onClick={() => setWalkIn({ visible: true, problem: null, input: null })}
+							disabled={doorBusy}
+							onClick={() => !doorBusy && setWalkIn({ visible: true, problem: null, input: null })}
 						>
 							Add a walk-in
 						</Button>
@@ -289,7 +278,8 @@ function CheckIn({ loaded }: { loaded: CheckInData }) {
 							variant="primary"
 							icon={CheckListIcon}
 							className="h-12"
-							loading={settling}
+							loading={door.state === "pending" && settle !== null}
+							disabled={doorBusy || presence.busy}
 							onClick={finish}
 							onPointerEnter={seats.load}
 							onFocus={seats.load}
@@ -306,7 +296,7 @@ function CheckIn({ loaded }: { loaded: CheckInData }) {
 					open={walkIn.visible}
 					initial={walkIn.input}
 					problem={walkIn.problem}
-					exclude={view.guests.map((g) => g.person.personId)}
+					exclude={guests.map((g) => g.person.personId)}
 					onClose={() => setWalkIn(null)}
 					onSubmit={submitWalkIn}
 				/>
@@ -337,17 +327,19 @@ const rank = (g: Guest) => (g.rsvp === "confirmed" ? 0 : g.rsvp === "pending" ? 
 function Row({
 	guest: g,
 	disabled,
-	saving,
+	state,
 	onToggle,
 }: {
 	guest: Guest;
 	disabled: boolean;
-	saving: boolean;
+	/** This row's save: on its way, unknown or being checked again. Undefined when the row takes a tap. */
+	state: Slot | undefined;
 	onToggle: () => void;
 }) {
 	const here = g.presence === "attended";
+	const saving = state !== undefined && state !== "idle";
 	const detail = [
-		g.id.startsWith("pending-") ? "Saving…" : null,
+		state === "unknown" ? "Not confirmed" : saving ? "Saving…" : null,
 		g.person.state !== "live" ? (g.person.state === "merged" ? "Merged" : "Retired") : null,
 		g.rsvp !== "pending" ? `RSVP ${RSVP_LABEL[g.rsvp]}` : null,
 		g.inviter ? `invited by ${g.inviter.displayName}` : null,
@@ -358,8 +350,8 @@ function Row({
 		<button
 			type="button"
 			aria-pressed={here}
-			aria-busy={saving || undefined}
-			aria-disabled={disabled || undefined}
+			aria-busy={state === "pending" || state === "checking" || undefined}
+			aria-disabled={disabled || saving || undefined}
 			onClick={() => !saving && !disabled && onToggle()}
 			className={cn(
 				"flex min-h-[58px] w-full cursor-pointer items-center gap-3 rounded-card px-3.5 py-2 text-left transition-[background-color,box-shadow] duration-150 focus-visible:shadow-[0_0_0_2px_var(--ef-ink)] focus-visible:outline-none aria-disabled:cursor-default",

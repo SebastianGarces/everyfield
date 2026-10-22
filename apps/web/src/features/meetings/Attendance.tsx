@@ -26,7 +26,7 @@ import {
 	useToast,
 } from "@everyfield/ui/controls";
 import { DeltaChip, StatusBadge } from "@everyfield/ui/display";
-import { startTransition, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { assigneeOptions } from "../tasks/fetch.ts";
 import { addAttendeeNote, evaluationHistory, setPresence } from "./actions.ts";
 import {
@@ -50,8 +50,7 @@ import {
 	type Presence,
 	type Scores,
 } from "./model.ts";
-import type { Change } from "./page-state.ts";
-import { Problem, problemOf, sendOnce, useSave } from "./parts.tsx";
+import { Problem, problemOf, sendOnce, Unconfirmed, useSlot, type Slot } from "./parts.tsx";
 
 // Attendance, finalization and the Vision evaluation on the meeting page (WP-022). Every save shows its change at once.
 // A form closes as it saves and opens again with what was entered when the server refuses. A lost answer is sent once
@@ -66,47 +65,85 @@ export const canSettle = (m: Detail, now: string) =>
 	!m.occurrence.voidedAt &&
 	Date.parse(m.occurrence.heldAt ?? m.startsAt) <= Date.parse(now);
 
+type Held = { who: Who; presence: Presence; state: Exclude<Slot, "idle">; resend: () => void };
+
 /**
- * One presence save per person at a time (C68). The row shows the new presence at once; the answer confirms the row
- * and the attendance revision, or the row goes back and a message says why.
+ * One presence save per person at a time (C68). The row shows the new presence at once and keeps showing it while the
+ * save is on its way or its answer is unknown; meanwhile that person takes no other change. An unknown save waits for
+ * Check again, which sends the same request key, so only a server answer settles the row. A refusal puts the row back
+ * and says why.
  */
 export function usePresence({
 	meetingId,
-	project,
 	onSaved,
 	onStale,
 }: {
 	meetingId: string;
-	project: (change: Change) => void;
 	onSaved: (answer: PresenceAnswer) => void;
 	onStale: () => void;
 }) {
 	const toast = useToast();
-	const [busy, setBusy] = useState<ReadonlySet<string>>(() => new Set());
-	const saving = useRef(new Set<string>());
+	const ref = useRef(new Map<string, Held>());
+	const [held, setHeld] = useState<ReadonlyMap<string, Held>>(() => new Map());
+	const put = (id: string, h: Held | null) => {
+		if (h) ref.current.set(id, h);
+		else ref.current.delete(id);
+		setHeld(new Map(ref.current));
+	};
 	function set(who: Who, presence: Presence) {
-		if (saving.current.has(who.personId)) return;
-		saving.current.add(who.personId);
-		setBusy(new Set(saving.current));
-		startTransition(async () => {
-			project({ kind: "presence", personId: who.personId, presence });
-			const r = await sendOnce(crypto.randomUUID(), (key) => setPresence(key, meetingId, who.personId, presence));
-			saving.current.delete(who.personId);
-			setBusy(new Set(saving.current));
-			if (r?.status === "ok") return startTransition(() => onSaved(r.value));
-			const code = r ? problemOf(r)! : "lost";
-			if (code === "lost") {
-				onStale();
-				return toast({ message: `${who.displayName}: ${problemText("unconfirmed")}`, tone: "error" });
-			}
+		const id = who.personId;
+		if (ref.current.has(id)) return;
+		const key = crypto.randomUUID();
+		const send = async (again: boolean) => {
+			const h: Held = { who, presence, state: again ? "checking" : "pending", resend: () => void send(true) };
+			put(id, h);
+			const r = await sendOnce(key, (k) => setPresence(k, meetingId, id, presence));
+			if (!r || r.status === "lost") return put(id, { ...h, state: "unknown" });
+			put(id, null);
+			if (r.status === "ok") return onSaved(r.value);
+			const code = problemOf(r)!;
 			if (code === "conflict" || code === "status_transition") onStale();
-			toast({
-				message: `${who.displayName}: the attendance was not saved. ${problemText(code)}`,
-				tone: "error",
-			});
-		});
+			toast({ message: `${who.displayName}: the attendance was not saved. ${problemText(code)}`, tone: "error" });
+		};
+		void send(false);
 	}
-	return { set, busy };
+	const unknown = [...held.values()].filter((h) => h.state === "unknown" || h.state === "checking");
+	return {
+		set,
+		/** The save state of one person, or undefined when they take changes. */
+		stateOf: (personId: string) => held.get(personId)?.state,
+		/** Guests as the person sees them: a save on its way or unknown shows what was asked. */
+		shown: <G extends { person: { personId: string }; presence: Presence }>(rows: G[]) =>
+			rows.map((g) => {
+				const h = held.get(g.person.personId);
+				return h ? { ...g, presence: h.presence } : g;
+			}),
+		unknown,
+		/** A presence save is on its way or unknown: the attended set is not settled, so finalizing waits. */
+		busy: held.size > 0,
+		checkAgain: () => unknown.forEach((h) => h.state === "unknown" && h.resend()),
+	};
+}
+
+/** The notice for presence saves whose answer is unknown, with Check again for all of them. */
+export function PresenceUnconfirmed({
+	presence,
+	className,
+}: {
+	presence: ReturnType<typeof usePresence>;
+	className?: string;
+}) {
+	const u = presence.unknown;
+	return (
+		<Unconfirmed
+			state={u.length === 0 ? "idle" : u.some((h) => h.state === "checking") ? "checking" : "unknown"}
+			onCheck={presence.checkAgain}
+			className={className}
+		>
+			Attendance of {u.map((h) => h.who.displayName).join(", ")}: we did not hear back from the server, so we cannot
+			tell whether it saved.
+		</Unconfirmed>
+	);
 }
 
 const attendedOf = (a: Attendance | null) => a?.items.filter((x) => x.presence === "attended") ?? [];
@@ -125,7 +162,9 @@ export function AttendanceCard({
 	attendance,
 	analytics,
 	canWrite,
-	settling,
+	slot,
+	blocked,
+	onCheck,
 	now,
 	onSettle,
 	onPrefetch,
@@ -134,7 +173,11 @@ export function AttendanceCard({
 	attendance: Attendance | null;
 	analytics: Analytics | null;
 	canWrite: boolean;
-	settling: boolean;
+	/** The finalize or correction save: while it is on its way or unknown, nothing here starts another. */
+	slot: Slot;
+	/** Presence saves are on their way or unknown; finalizing waits for them. */
+	blocked: boolean;
+	onCheck: () => void;
 	now: string;
 	onSettle: (mode: "finalize" | "reconcile") => void;
 	onPrefetch: () => void;
@@ -153,6 +196,8 @@ export function AttendanceCard({
 	const open = canSettle(m, now);
 	const vision = m.type === "vision_meeting";
 	const intent = { onPointerEnter: onPrefetch, onFocus: onPrefetch, onTouchStart: onPrefetch };
+	const settling = slot === "pending";
+	const held = slot !== "idle" || blocked;
 	return (
 		<Card as="section" aria-labelledby="attendance-title" aria-busy={settling || undefined}>
 			<CardHeader className="mb-3.5">
@@ -200,14 +245,31 @@ export function AttendanceCard({
 				</dl>
 			) : null}
 			{final && vision && analytics ? <Work tasks={analytics.tasks} /> : null}
+			<Unconfirmed state={slot} onCheck={onCheck} className="mt-4">
+				Attendance: we did not hear back from the server, so we cannot tell whether it saved.
+			</Unconfirmed>
 			{canWrite ? (
 				<div className="mt-auto flex flex-wrap items-center gap-2.5 pt-4">
 					{final ? (
-						<Button variant="secondary" size="sm" icon={Edit02Icon} onClick={() => onSettle("reconcile")} {...intent}>
+						<Button
+							variant="secondary"
+							size="sm"
+							icon={Edit02Icon}
+							disabled={held}
+							onClick={() => onSettle("reconcile")}
+							{...intent}
+						>
 							Correct attendance
 						</Button>
 					) : open ? (
-						<Button variant="primary" size="sm" icon={CheckListIcon} onClick={() => onSettle("finalize")} {...intent}>
+						<Button
+							variant="primary"
+							size="sm"
+							icon={CheckListIcon}
+							disabled={held}
+							onClick={() => onSettle("finalize")}
+							{...intent}
+						>
 							Finalize attendance
 						</Button>
 					) : (
@@ -591,7 +653,8 @@ export function EvaluationCard({
 	analytics,
 	finalized,
 	canWrite,
-	saving,
+	slot,
+	onCheck,
 	onRecord,
 	onCorrect,
 	onHistory,
@@ -601,13 +664,17 @@ export function EvaluationCard({
 	analytics: Analytics | null;
 	finalized: boolean;
 	canWrite: boolean;
-	saving: boolean;
+	/** The evaluation save: while it is on its way or unknown, nothing here starts another. */
+	slot: Slot;
+	onCheck: () => void;
 	onRecord: () => void;
 	onCorrect: () => void;
 	onHistory: () => void;
 	onPrefetchHistory: () => void;
 }) {
 	const compare = analytics?.evaluation ?? null;
+	const saving = slot === "pending";
+	const held = slot !== "idle";
 	return (
 		<Card as="section" aria-labelledby="evaluation-title" aria-busy={saving || undefined}>
 			<CardHeader className="flex-wrap gap-y-3">
@@ -644,7 +711,7 @@ export function EvaluationCard({
 							History
 						</Button>
 						{canWrite ? (
-							<Button variant="secondary" size="sm" icon={Edit02Icon} onClick={onCorrect} disabled={saving}>
+							<Button variant="secondary" size="sm" icon={Edit02Icon} onClick={onCorrect} disabled={held}>
 								Correct scores
 							</Button>
 						) : null}
@@ -687,13 +754,16 @@ export function EvaluationCard({
 			) : canWrite ? (
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<p className="text-md text-text-2">Score the meeting while it is fresh. It completes the evaluation task.</p>
-					<Button variant="primary" size="sm" icon={StarIcon} onClick={onRecord}>
+					<Button variant="primary" size="sm" icon={StarIcon} onClick={onRecord} disabled={held}>
 						Record evaluation
 					</Button>
 				</div>
 			) : (
 				<p className="text-md text-text-3">Nobody has evaluated this meeting yet.</p>
 			)}
+			<Unconfirmed state={slot} onCheck={onCheck} className="mt-4">
+				The evaluation: we did not hear back from the server, so we cannot tell whether it saved.
+			</Unconfirmed>
 		</Card>
 	);
 }
@@ -985,36 +1055,57 @@ export function NoteDialog({
 	meeting: Detail;
 	onOpenChange: (open: boolean) => void;
 }) {
+	// The save belongs to the dialog: while it is on its way or unknown, the dialog stays open with its Check again.
+	const slot = useSlot();
+	const close = (open: boolean) => !open && slot.state === "idle" && onOpenChange(false);
 	return (
-		<Dialog open={guest !== null} onOpenChange={onOpenChange}>
-			{guest ? <NoteForm key={guest.id} guest={guest} meeting={meeting} onClose={() => onOpenChange(false)} /> : null}
+		<Dialog open={guest !== null} onOpenChange={close}>
+			{guest ? (
+				<NoteForm key={guest.id} guest={guest} meeting={meeting} slot={slot} onClose={() => onOpenChange(false)} />
+			) : null}
 		</Dialog>
 	);
 }
 
-function NoteForm({ guest, meeting, onClose }: { guest: Guest; meeting: Detail; onClose: () => void }) {
+function NoteForm({
+	guest,
+	meeting,
+	slot,
+	onClose,
+}: {
+	guest: Guest;
+	meeting: Detail;
+	slot: ReturnType<typeof useSlot>;
+	onClose: () => void;
+}) {
 	const toast = useToast();
 	const [text, setText] = useState("");
 	const [touched, setTouched] = useState(false);
-	const { save, pending, problem } = useSave();
+	const [problem, setProblem] = useState<string | null>(null);
 	const missing = text.trim() === "";
+	const held = slot.state !== "idle";
 	return (
-		<DialogContent size="sm" aria-busy={pending || undefined}>
+		<DialogContent size="sm" aria-busy={slot.state === "pending" || undefined}>
 			<form
 				noValidate
 				className="contents"
-				onSubmit={async (e) => {
+				onSubmit={(e) => {
 					e.preventDefault();
 					setTouched(true);
-					if (missing) return;
+					if (missing || held) return;
 					const body = text.trim();
-					const r = await save({ body }, (key) => addAttendeeNote(key, meeting.id, guest.person.personId, body));
-					if (r?.status !== "ok") return;
-					onClose();
-					toast({ message: `The note is in ${guest.person.displayName}'s history.`, tone: "success" });
+					setProblem(null);
+					slot.run(
+						(key) => addAttendeeNote(key, meeting.id, guest.person.personId, body),
+						(r) => {
+							if (r.status !== "ok") return setProblem(r.code);
+							onClose();
+							toast({ message: `The note is in ${guest.person.displayName}'s history.`, tone: "success" });
+						},
+					);
 				}}
 			>
-				<DialogHeader icon={Note01Icon} title="Add a note" description={guest.person.displayName} />
+				<DialogHeader icon={Note01Icon} title="Add a note" description={guest.person.displayName} closable={!held} />
 				<DialogBody className="flex flex-col gap-4">
 					<Field
 						label="Note"
@@ -1026,17 +1117,20 @@ function NoteForm({ guest, meeting, onClose }: { guest: Guest; meeting: Detail; 
 							onChange={(e) => setText(e.target.value)}
 							maxLength={5000}
 							rows={4}
-							readOnly={pending}
+							readOnly={held}
 							autoFocus
 						/>
 					</Field>
-					<Problem code={problem === "lost" ? "unconfirmed" : problem} />
+					<Problem code={problem} />
+					<Unconfirmed state={slot.state} onCheck={slot.checkAgain}>
+						The note: we did not hear back from the server, so we cannot tell whether it saved.
+					</Unconfirmed>
 				</DialogBody>
 				<DialogFooter>
-					<Button variant="secondary" type="button" onClick={onClose} disabled={pending}>
+					<Button variant="secondary" type="button" onClick={onClose} disabled={held}>
 						Cancel
 					</Button>
-					<Button variant="primary" type="submit" loading={pending}>
+					<Button variant="primary" type="submit" loading={slot.state === "pending"} disabled={held}>
 						Add note
 					</Button>
 				</DialogFooter>
@@ -1053,21 +1147,23 @@ export function PresenceCell({
 	presence,
 	classification,
 	final,
-	saving,
+	state,
 }: {
 	presence: Presence;
 	classification: Classification | null;
 	/** Before attendance is final, absent only means nobody marked them yet. */
 	final: boolean;
-	saving: boolean;
+	state: Slot | undefined;
 }) {
 	return (
 		<div className="flex flex-col items-start gap-1">
 			<StatusBadge status={PRESENCE_TONE[presence]} size="sm">
 				{presence === "absent" && !final ? "Not marked" : PRESENCE_LABEL[presence]}
 			</StatusBadge>
-			{saving ? (
+			{state === "pending" || state === "checking" ? (
 				<span className="text-xs text-text-3">Saving…</span>
+			) : state === "unknown" ? (
+				<span className="text-xs font-medium text-ink">Not confirmed</span>
 			) : classification ? (
 				<span className="text-xs text-text-3">{CLASSIFICATION_LABEL[classification]}</span>
 			) : null}
