@@ -29,7 +29,7 @@ import { createMailService } from "@/server/jobs/mail";
 import { enqueueJob, queueJobs } from "@/server/jobs/queue";
 import { protectedTemplate } from "@/server/jobs/templates";
 import { current as organizationMount } from "@/server/organizations";
-import { getSession, getViewer } from "@/server/request-context";
+import { getViewer } from "@/server/request-context";
 import type { SettingsViewer } from "./port";
 
 // The settings mount (WP-010): the one door from the settings server actions to the settings domain. The session and
@@ -520,14 +520,10 @@ async function logged<T>(outcome: string, body: () => Promise<SettingsReply<T>>)
 	}
 }
 
-/** The active viewer with the user row Better Auth already read for this request's session. */
+/** The active viewer with the user row the request's session lookup already read. */
 async function signedIn(): Promise<Signed | null> {
-	const [v, session] = await Promise.all([getViewer(), getSession()]);
-	if (v?.status !== "active" || !v.authority || !session) return null;
-	const principal = {
-		display_name: session.user.name,
-		email: session.user.email,
-		verified: session.user.emailVerified,
-	};
+	const v = await getViewer();
+	if (v?.status !== "active" || !v.authority) return null;
+	const principal = { display_name: v.displayName, email: v.email, verified: v.verified };
 	return { authority: v.authority, principal, accountId: v.accountId };
 }
