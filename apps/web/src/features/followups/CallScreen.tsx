@@ -20,6 +20,7 @@ import { focusFirstProblem, OutcomeFields } from "./fields.tsx";
 import {
 	emptyDraft,
 	OUTCOME_LABEL,
+	OUTCOMES,
 	outcomeInput,
 	windowAt,
 	type Draft,
@@ -50,13 +51,19 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 	const open = OPEN.has(task.status);
 	const mine = task.assignee?.accountId === accountId;
 	const canAct = (admin || mine) && person.live;
+	// After a refusal or an unknown result the form stays, with the person's answers and the notice, even when a reload
+	// shows the follow-up was finished in the meantime (C58 rules 5 and 6).
+	const held = lane.lane.refused !== null || lane.lane.unknown !== null;
 	const now = useNow();
 	const left48 =
 		now !== null && obligation?.kind === "first_vision_follow_up" && open ? windowAt(obligation.origin.at, now) : null;
 	const due = dueText(task.due);
 
 	async function submit(form: HTMLFormElement) {
-		const parsed = outcomeInput(draft, { completable: true });
+		const parsed =
+			!open && draft.outcome === "no_longer_needed"
+				? ({ ok: false, errors: { outcome: "This follow-up is already finished. Choose what happened." } } as const)
+				: outcomeInput(draft, { completable: open });
 		if (!parsed.ok) {
 			setErrors(parsed.errors);
 			focusFirstProblem(form);
@@ -196,13 +203,19 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 				</Card>
 			) : null}
 
-			{open && canAct ? (
+			{canAct && (open || held) ? (
 				<Card className="gap-4">
 					<CardHeader>
 						<CardHeading>
 							<CardTitle size="sm">{saved ? "Record another try" : "How did it go?"}</CardTitle>
 						</CardHeading>
 					</CardHeader>
+					{open ? null : (
+						<p className="text-sm text-text-2">
+							This follow-up was finished in the meantime. Your answers are kept: save them as an extra entry, or leave
+							this page.
+						</p>
+					)}
 					<form
 						noValidate
 						className="flex flex-col gap-5"
@@ -216,7 +229,8 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 							draft={draft}
 							onDraft={setDraft}
 							errors={errors}
-							completable
+							completable={open}
+							outcomes={open ? OUTCOMES : OUTCOMES.filter((o) => o !== "no_longer_needed")}
 							personName={person.label.split(" ")[0] || person.label}
 						/>
 						<div ref={notice} tabIndex={-1} className="outline-none">
