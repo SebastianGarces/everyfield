@@ -36,13 +36,14 @@ import { LocalDay, When } from "../people/parts.tsx";
 import { correctOutcome, recordOutcome } from "./actions.ts";
 import { AddFollowUpDialog, AssignMenu, DutyFacts } from "./duties.tsx";
 import { loadDuties, loadHistory, loadObligations, loadPersonFollowUps, prefetchOwners, warmOn } from "./fetch.ts";
-import { focusFirstProblem, OutcomeFields } from "./fields.tsx";
+import { OutcomeFields } from "./fields.tsx";
 import {
 	draftOf,
 	emptyDraft,
 	measurementText,
 	OUTCOMES,
 	outcomeInput,
+	problemText,
 	reasonOf,
 	withOutcome,
 	type ContactHistory,
@@ -55,7 +56,15 @@ import {
 	type Outcome,
 } from "./model.ts";
 import { actorName, EntryFacts, LastContact, OutcomeBadge, useOpener } from "./parts.tsx";
-import { LaneNotice, SaveButton, useLane, type LaneControl } from "./save.tsx";
+import {
+	DialogNotice,
+	focusFirstProblem,
+	NoticeInDialog,
+	SaveButton,
+	SaveNotice,
+	useSaveIntent,
+	type SaveIntent,
+} from "../../components/save/parts.tsx";
 import type { PersonFollowUps } from "./server.ts";
 
 /**
@@ -107,7 +116,7 @@ function FollowUpsCard({
 	const [obligations, setObligations] = useState(initial.obligations?.items ?? []);
 	const [adding, setAdding] = useState(false);
 	const addOpener = useOpener();
-	const lane = useLane();
+	const lane = useSaveIntent({ explain: problemText });
 	const failed = initial.duties === null;
 	const moreDuties = useMore(
 		initial.duties?.next ?? null,
@@ -162,7 +171,7 @@ function FollowUpsCard({
 					</Button>
 				) : null}
 			</CardHeader>
-			{adding ? null : <LaneNotice control={lane} className="mb-3 empty:hidden" />}
+			<SaveNotice {...lane.noticeProps} dialogOpen={adding} className="mb-3" />
 			{failed ? (
 				<p className="text-sm text-text-2">Follow-ups did not load. Reload the page to try again.</p>
 			) : duties.length === 0 ? (
@@ -270,7 +279,7 @@ function ContactLogCard({
 	const [editing, setEditing] = useState<Editing | null>(null);
 	const opener = useOpener();
 	const [more, setMore] = useState<"idle" | "loading" | "failed">("idle");
-	const lane = useLane();
+	const lane = useSaveIntent({ explain: problemText });
 	const first = person.label.split(" ")[0] || person.label;
 	const saved = (m: OutcomeMutation) =>
 		setLog((l) =>
@@ -346,7 +355,7 @@ function ContactLogCard({
 						<LastContact at={log.lastConfirmedContactAt} />. Only a recorded conversation counts. Emails, tries and
 						finished tasks do not.
 					</p>
-					{editing ? null : <LaneNotice control={lane} className="mb-3 empty:hidden" />}
+					<SaveNotice {...lane.noticeProps} dialogOpen={editing !== null} className="mb-3" />
 					{log.items.length === 0 ? (
 						<p className="text-sm text-text-3">Nothing recorded yet.</p>
 					) : (
@@ -461,7 +470,7 @@ function OutcomeDialog({
 	returnFocus: (e: Event) => void;
 	personId: string;
 	first: string;
-	lane: LaneControl;
+	lane: SaveIntent;
 	onClose: () => void;
 	onSaved: (m: OutcomeMutation) => void;
 	onConflict: (item: OutcomeItem) => Promise<void>;
@@ -469,7 +478,6 @@ function OutcomeDialog({
 	const [draft, setDraft] = useState<Draft>(() => (editing.kind === "correct" ? draftOf(editing.item) : emptyDraft()));
 	const [reason, setReason] = useState("");
 	const [errors, setErrors] = useState<DraftErrors & { reason?: string }>({});
-	const [sent, setSent] = useState(false);
 	const outcomes =
 		editing.kind === "correct" && editing.item.taskId !== null
 			? OUTCOMES
@@ -508,86 +516,93 @@ function OutcomeDialog({
 			const input = { outcomeId: item.id, correction, reason: reasonText };
 			send = (key) => correctOutcome(key, item.revision, input);
 		}
-		setSent(true);
-		await lane.save(
-			editing.kind === "record" ? "The contact" : editing.kind === "correct" ? "The correction" : "The withdrawal",
+		await lane.save({
+			what:
+				editing.kind === "record" ? "The contact" : editing.kind === "correct" ? "The correction" : "The withdrawal",
 			send,
-			async (r) => {
-				setSent(false);
-				if (r.status === "ok") {
-					onSaved(r.value);
-					onClose();
-				} else if (r.code === "conflict" && editing.kind !== "record") await onConflict(editing.item);
+			ok: (value) => {
+				onSaved(value);
+				onClose();
 			},
-		);
-		setSent(false);
+			refused: async (code) => {
+				if (code === "conflict" && editing.kind !== "record") await onConflict(editing.item);
+			},
+		});
 	}
 
 	return (
-		<Dialog open onOpenChange={(open) => !open && onClose()}>
-			<DialogContent size="md" onCloseAutoFocus={returnFocus}>
-				<form
-					noValidate
-					className="contents"
-					onSubmit={(e) => {
-						e.preventDefault();
-						if (!lane.wait) void submit(e.currentTarget);
-					}}
-				>
-					<DialogHeader
-						icon={editing.kind === "withdraw" ? Delete02Icon : editing.kind === "correct" ? Edit02Icon : TaskDone01Icon}
-						tone={editing.kind === "withdraw" ? "magenta" : "green"}
-						title={TITLE[editing.kind]}
-						description={
-							editing.kind === "record"
-								? `A contact with ${first} that has no follow-up task.`
-								: "The earlier entry stays in the log with who changed it and why."
-						}
-					/>
-					<DialogBody className="flex flex-col gap-5 pb-1">
-						<LaneNotice control={lane} />
-						{editing.kind === "withdraw" ? (
-							<p className="text-sm text-text-2">
-								Withdraw this entry when it should not count, for example when it was recorded on the wrong person. If
-								it was their latest contact, the date before it counts again.
-							</p>
-						) : (
-							<OutcomeFields
-								draft={draft}
-								onDraft={setDraft}
-								errors={errors}
-								completable={false}
-								outcomes={outcomes}
-								personName={first}
-							/>
-						)}
-						{editing.kind !== "record" ? (
-							<Field label="Reason" error={errors.reason} hint="Kept in the log with your name.">
-								<Textarea
-									value={reason}
-									maxLength={500}
-									rows={2}
-									className="min-h-16"
-									onChange={(e) => setReason(e.target.value)}
+		<NoticeInDialog {...lane.noticeProps}>
+			<Dialog open onOpenChange={(open) => !open && onClose()}>
+				<DialogContent size="md" onCloseAutoFocus={returnFocus}>
+					<form
+						noValidate
+						className="contents"
+						onSubmit={(e) => {
+							e.preventDefault();
+							if (!lane.wait) void submit(e.currentTarget);
+						}}
+					>
+						<DialogHeader
+							icon={
+								editing.kind === "withdraw" ? Delete02Icon : editing.kind === "correct" ? Edit02Icon : TaskDone01Icon
+							}
+							tone={editing.kind === "withdraw" ? "magenta" : "green"}
+							title={TITLE[editing.kind]}
+							description={
+								editing.kind === "record"
+									? `A contact with ${first} that has no follow-up task.`
+									: "The earlier entry stays in the log with who changed it and why."
+							}
+						/>
+						<DialogBody className="flex flex-col gap-5 pb-1">
+							<DialogNotice />
+							{editing.kind === "withdraw" ? (
+								<p className="text-sm text-text-2">
+									Withdraw this entry when it should not count, for example when it was recorded on the wrong person. If
+									it was their latest contact, the date before it counts again.
+								</p>
+							) : (
+								<OutcomeFields
+									draft={draft}
+									onDraft={setDraft}
+									errors={errors}
+									completable={false}
+									outcomes={outcomes}
+									personName={first}
 								/>
-							</Field>
-						) : null}
-					</DialogBody>
-					<DialogFooter>
-						<Button variant="secondary" type="button" onClick={onClose}>
-							Cancel
-						</Button>
-						<SaveButton wait={lane.wait} saving={sent} variant={editing.kind === "withdraw" ? "danger" : "primary"}>
-							{editing.kind === "withdraw"
-								? "Withdraw entry"
-								: editing.kind === "correct"
-									? "Save correction"
-									: "Save contact"}
-						</SaveButton>
-					</DialogFooter>
-				</form>
-			</DialogContent>
-		</Dialog>
+							)}
+							{editing.kind !== "record" ? (
+								<Field label="Reason" error={errors.reason} hint="Kept in the log with your name.">
+									<Textarea
+										value={reason}
+										maxLength={500}
+										rows={2}
+										className="min-h-16"
+										onChange={(e) => setReason(e.target.value)}
+									/>
+								</Field>
+							) : null}
+						</DialogBody>
+						<DialogFooter>
+							<Button variant="secondary" type="button" onClick={onClose}>
+								Cancel
+							</Button>
+							<SaveButton
+								wait={lane.wait}
+								saving={lane.saving}
+								variant={editing.kind === "withdraw" ? "danger" : "primary"}
+							>
+								{editing.kind === "withdraw"
+									? "Withdraw entry"
+									: editing.kind === "correct"
+										? "Save correction"
+										: "Save contact"}
+							</SaveButton>
+						</DialogFooter>
+					</form>
+				</DialogContent>
+			</Dialog>
+		</NoticeInDialog>
 	);
 }
 

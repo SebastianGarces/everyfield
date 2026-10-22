@@ -21,13 +21,22 @@ import {
 	defaultTitle,
 	NEW_TYPES,
 	offsetText,
+	problemText,
 	timeText,
 	TYPE_LABEL,
 	type Detail,
 	type MeetingType,
+	type Outcome,
 	type Venue,
 } from "./model.ts";
-import { Problem, useSave } from "./parts.tsx";
+import {
+	DialogNotice,
+	focusFirstProblem,
+	NoticeInDialog,
+	SaveButton,
+	type SaveIntent,
+} from "../../components/save/parts.tsx";
+import { Problem } from "./parts.tsx";
 
 type Choice = { instant: string; offsetSeconds: number };
 type Draft = {
@@ -61,15 +70,18 @@ function initial(meeting: Detail | undefined): Draft {
  * later change to the saved place does not rewrite this meeting. A new place is created in the same save. A time that
  * happens twice when the clocks fall back asks which one; a time that does not exist is refused with a reason.
  */
-export function PlanMeetingDialog({
+export function PlanMeetingDialog<E extends { problem?: string }>({
 	open,
 	onOpenChange,
+	lane,
 	meeting,
 	onSaved,
 	onPreview,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
+	/** The page's save lane: its notice shows on the page while the dialog is closed, and inside it while open. */
+	lane: SaveIntent<E>;
 	/** The meeting to edit. Without it the dialog plans a new one. */
 	meeting?: Detail;
 	onSaved?: (meeting: Detail) => void;
@@ -79,21 +91,25 @@ export function PlanMeetingDialog({
 	// The form stays mounted while the dialog is closed, so an edit that fails after the dialog closed reopens with
 	// the person's input and the reason.
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
-			<Form
-				open={open}
-				meeting={meeting}
-				onClose={() => onOpenChange(false)}
-				onReopen={() => onOpenChange(true)}
-				onSaved={onSaved}
-				onPreview={onPreview}
-			/>
-		</Dialog>
+		<NoticeInDialog {...lane.noticeProps}>
+			<Dialog open={open} onOpenChange={onOpenChange}>
+				<Form
+					open={open}
+					lane={lane}
+					meeting={meeting}
+					onClose={() => onOpenChange(false)}
+					onReopen={() => onOpenChange(true)}
+					onSaved={onSaved}
+					onPreview={onPreview}
+				/>
+			</Dialog>
+		</NoticeInDialog>
 	);
 }
 
-function Form({
+function Form<E extends { problem?: string }>({
 	open,
+	lane,
 	meeting,
 	onClose,
 	onReopen,
@@ -101,6 +117,7 @@ function Form({
 	onPreview,
 }: {
 	open: boolean;
+	lane: SaveIntent<E>;
 	meeting?: Detail;
 	onClose: () => void;
 	onReopen: () => void;
@@ -113,7 +130,9 @@ function Form({
 	const [choices, setChoices] = useState<Choice[] | null>(null);
 	const [offset, setOffset] = useState<number | null>(null);
 	const [venues, setVenues] = useState<Venue[] | null>(null);
-	const { save, pending, setProblem, problemProps } = useSave();
+	// A problem found before sending (which of two times); the server's refusals show in the lane's notice.
+	const [problem, setProblem] = useState<string | null>(null);
+	const pending = lane.saving;
 	// Each opening starts from the meeting as it is now, unless it reopens after a failed save.
 	const [wasOpen, setWasOpen] = useState(open);
 	const [keep, setKeep] = useState(false);
@@ -172,7 +191,10 @@ function Form({
 	async function submit(event: React.FormEvent) {
 		event.preventDefault();
 		setTouched(true);
-		if (Object.values(missing).some(Boolean)) return;
+		setProblem(null);
+		if (lane.wait) return;
+		// Focus goes to the first field to fix once React has drawn the errors; the entered values stay.
+		if (Object.values(missing).some(Boolean)) return focusFirstProblem(event.currentTarget as HTMLFormElement);
 		if (choices && offset === null) return setProblem("ambiguous_local_time");
 		if (editing) {
 			const moved = draft.date !== meeting.localDate || draft.time !== meeting.localTime;
@@ -203,13 +225,20 @@ function Form({
 									: meeting.venue,
 			});
 			onClose();
-			const result = await save(patch, (key) => editMeeting(key, meeting.revision, meeting.id, patch));
-			onPreview?.(null);
-			if (!result) return;
-			if (result.status === "ok") return onSaved?.(result.value.meeting);
-			if (result.status === "refused" && result.choices) setChoices(result.choices);
-			setKeep(true);
-			onReopen();
+			await lane.save({
+				what: "The meeting",
+				send: (key) => editMeeting(key, meeting.revision, meeting.id, patch).then((r) => keepChoices(r)),
+				ok: (value: { meeting: Detail }) => {
+					onPreview?.(null);
+					onSaved?.(value.meeting);
+				},
+				// The page goes back, and the dialog opens again with the person's input and the refusal.
+				refused: () => {
+					onPreview?.(null);
+					setKeep(true);
+					onReopen();
+				},
+			});
 			return;
 		}
 		const input = {
@@ -219,13 +248,19 @@ function Form({
 			...when,
 			venue: venue ?? { kind: "none" },
 		};
-		const result = await save(input, (key) => scheduleMeeting(key, input));
-		if (!result) return;
-		if (result.status === "refused" && result.choices) {
-			setChoices(result.choices);
-			return;
-		}
-		// Success redirects in the action itself (one round trip), so only a refusal returns here.
+		await lane.save({
+			what: "The meeting",
+			done: "planned",
+			// Success redirects in the action itself (one round trip): no answer comes back, and the save stays on its way
+			// until the meeting's page opens.
+			send: (key) => scheduleMeeting(key, input).then((r) => (r ? keepChoices(r) : new Promise<never>(() => {}))),
+			ok: () => {},
+		});
+	}
+	/** A time that happens twice comes back with its two choices: the form asks which one. */
+	function keepChoices<T extends Outcome<unknown>>(r: T): T {
+		if (r.status === "refused" && r.choices) setChoices(r.choices);
+		return r;
 	}
 
 	const placeOptions = [
@@ -368,15 +403,16 @@ function Form({
 							onChange={(e) => set({ notes: e.target.value })}
 						/>
 					</Field>
-					<Problem {...problemProps} />
+					<DialogNotice />
+					<Problem text={problem ? problemText(problem) : undefined} />
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" type="button" onClick={onClose} disabled={pending}>
 						Cancel
 					</Button>
-					<Button variant="primary" type="submit" loading={pending}>
+					<SaveButton wait={lane.wait} saving={pending}>
 						{editing ? "Save changes" : "Plan meeting"}
-					</Button>
+					</SaveButton>
 				</DialogFooter>
 			</form>
 		</DialogContent>
