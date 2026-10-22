@@ -1,7 +1,7 @@
 # Deterministic checks for every pull request and for main.
 # The required status check is the `ci` job. It passes only when every other job passed.
-# The domain tests run against a throwaway Postgres 17 service container with a synthetic
-# password, never against Neon. CI uses no secrets.
+# The domain tests run against throwaway Postgres 17 service containers, one per package, with a
+# synthetic password, never against Neon. CI uses no secrets.
 name: CI
 
 on:
@@ -92,10 +92,23 @@ jobs:
         run: node --test .github/scripts/*.test.cjs
 
   db:
-    name: db (domain tests on Postgres 17)
+    # One job per package with a test:db script, each with its own Postgres service, so the
+    # longest package suite sets the critical path instead of the sum of all suites.
+    # `evf ci-tests` fails when a package with test:db is missing from this matrix.
+    name: db (${{ matrix.package }})
     runs-on: ubuntu-24.04
-    # The statement census also builds the app once and counts real HTTP requests on it.
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package: "@everyfield/db"
+            schema: true
+          - package: "@everyfield/domain"
+            # The statement census counts real HTTP requests on the production build.
+            build: true
+          - package: "@everyfield/evry"
+          - package: "@everyfield/reference"
     services:
       postgres:
         image: pgvector/pgvector:0.8.7-pg17
@@ -123,18 +136,21 @@ jobs:
       - name: Migrate the throwaway database
         run: pnpm db:migrate
       - name: Current catalog against a fresh full migration chain
+        if: matrix.schema
         run: python3 packages/db/src/schema/generate.py --check
       - uses: actions/cache/restore@v6
+        if: matrix.build
         with:
           path: apps/web/.next/cache
           key: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/web/**/*.ts', 'apps/web/**/*.tsx', 'apps/web/**/*.css') }}
           restore-keys: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
       - name: Production build for the per-request statement budgets
+        if: matrix.build
         run: pnpm build
         env:
           NEXT_TELEMETRY_DISABLED: "1"
       - name: Domain tests
-        run: pnpm -r --if-present test:db
+        run: pnpm --filter "${{ matrix.package }}" test:db
 
   wiki:
     name: wiki (tooling tests)
