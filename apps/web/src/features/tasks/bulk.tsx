@@ -12,7 +12,8 @@ import {
 	PopoverTrigger,
 	Select,
 } from "@everyfield/ui/controls";
-import { useRef, useState, type FormEvent } from "react";
+import { useId, useRef, useState, type FormEvent } from "react";
+import type { Wait } from "../../components/save/model.ts";
 import { bulkOutcomeText, type BulkOutcome, type DueInput } from "./model.ts";
 
 // Bulk changes (REQ-TSK-008): the bar over a selection and the report of what each selected task did.
@@ -30,10 +31,13 @@ export function BulkBar({
 	all,
 	onAll,
 	onClear,
+	wait,
 	onComplete,
 	onReschedule,
 }: {
 	count: number;
+	/** A save of a selected task or of the last bulk change is in flight or unknown: no bulk change starts (C68). */
+	wait: Wait;
 	/** Whether every task on this page is selected. */
 	all: boolean;
 	onAll: () => void;
@@ -42,6 +46,7 @@ export function BulkBar({
 	onReschedule: (due: DueInput) => void;
 }) {
 	const [open, setOpen] = useState(false);
+	const hint = useId();
 	return (
 		<div
 			role="toolbar"
@@ -56,17 +61,39 @@ export function BulkBar({
 					className="bg-on-ink-soft shadow-[inset_0_0_0_1.5px_var(--ef-on-ink)] data-[state=checked]:bg-on-ink-soft data-[state=indeterminate]:bg-on-ink-soft"
 				/>
 			</label>
-			<span className="grow font-medium" aria-live="polite">
-				{count} selected
+			<span className="flex grow flex-col">
+				<span className="font-medium" aria-live="polite">
+					{count} selected
+				</span>
+				{wait ? (
+					<span id={hint} className="text-xs">
+						{wait === "saving" ? "Waiting for the last save." : "Check the last save first."}
+					</span>
+				) : null}
 			</span>
 			{/* On a phone the actions take their own row, so the labels never wrap. */}
 			<div className="flex gap-2 max-app-sm:order-last max-app-sm:grid max-app-sm:basis-full max-app-sm:grid-cols-2">
-				<Button variant="ghost" size="sm" icon={Tick02Icon} className={onInk} onClick={onComplete}>
+				<Button
+					variant="ghost"
+					size="sm"
+					icon={Tick02Icon}
+					className={onInk}
+					disabled={wait !== null}
+					aria-describedby={wait ? hint : undefined}
+					onClick={onComplete}
+				>
 					Complete
 				</Button>
 				<Popover open={open} onOpenChange={setOpen}>
 					<PopoverTrigger asChild>
-						<Button variant="ghost" size="sm" icon={Calendar03Icon} className={onInk}>
+						<Button
+							variant="ghost"
+							size="sm"
+							icon={Calendar03Icon}
+							className={onInk}
+							disabled={wait !== null}
+							aria-describedby={wait ? hint : undefined}
+						>
 							Reschedule
 						</Button>
 					</PopoverTrigger>

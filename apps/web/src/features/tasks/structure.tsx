@@ -5,6 +5,7 @@ import { Button, Field, IconButton, Input, SearchInput, Select, Spinner } from "
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
+import type { Wait } from "../../components/save/model.ts";
 import { prerequisiteCandidates } from "./fetch.ts";
 import {
 	blocks,
@@ -95,7 +96,7 @@ export function Steps({
 	admin,
 	you,
 	canTick,
-	busy,
+	wait,
 	onTick,
 	onRemove,
 	onAdd,
@@ -106,7 +107,8 @@ export function Steps({
 	admin: boolean;
 	you: string;
 	canTick: (s: Step) => boolean;
-	busy: (id: string) => boolean;
+	/** A step's last save in flight or unknown (C68). */
+	wait: (id: string) => Wait;
 	onTick: (s: Step, complete: boolean) => void;
 	onRemove: (s: Step) => void;
 	onAdd: (title: string, assignee: StepAssignee) => void;
@@ -135,7 +137,7 @@ export function Steps({
 								<DoneBox
 									task={s}
 									canAct={canTick(s) && !pending}
-									busy={busy(s.id) || pending}
+									wait={pending ? "saving" : wait(s.id)}
 									onToggle={() => onTick(s, !isSettled(s.status))}
 								/>
 								<span
@@ -160,7 +162,7 @@ export function Steps({
 										label={`Remove step ${s.title}`}
 										size="sm"
 										className="shadow-none"
-										disabled={pending}
+										disabled={pending || wait(s.id) !== null}
 										onClick={() => onRemove(s)}
 									/>
 								) : null}
@@ -297,6 +299,7 @@ export function BlockedBy({
 	items,
 	admin,
 	editing,
+	locked,
 	draft,
 	onEdit,
 	onCancel,
@@ -304,6 +307,8 @@ export function BlockedBy({
 	onOpen,
 }: {
 	task: Pick<TaskDetail, "id" | "status">;
+	/** The task's last save is in flight or unknown: the list cannot change now (C68). */
+	locked: boolean;
 	/** Null when the list did not load. */
 	items: Prerequisite[] | null;
 	admin: boolean;
@@ -329,7 +334,7 @@ export function BlockedBy({
 			title="Blocked by"
 			action={
 				admin && !editing ? (
-					<Button ref={opener} variant="ghost" size="sm" onClick={onEdit}>
+					<Button ref={opener} variant="ghost" size="sm" disabled={locked} onClick={onEdit}>
 						{items.length ? "Change" : "Add a task"}
 					</Button>
 				) : null
@@ -527,6 +532,7 @@ export function Repeats({
 	occurrence,
 	canEdit,
 	editing,
+	locked,
 	draft,
 	year,
 	onEdit,
@@ -534,10 +540,12 @@ export function Repeats({
 	onSave,
 	onOpen,
 }: {
-	task: Pick<TaskDetail, "id" | "recurrence">;
+	task: Pick<TaskDetail, "id" | "recurrence" | "status">;
 	occurrence: Occurrence | null;
 	canEdit: boolean;
 	editing: boolean;
+	/** The task's last save is in flight or unknown: the rule cannot change now (C68). */
+	locked: boolean;
 	draft?: Rule | null;
 	year: number;
 	onEdit: () => void;
@@ -551,12 +559,21 @@ export function Repeats({
 	const live = r && !r.stopped;
 	const other =
 		occurrence?.status === "series" && occurrence.open && occurrence.open.taskId !== task.id ? occurrence.open : null;
+	// Only the open occurrence adds the next one. When none is open (it was deleted, or closed as no longer needed),
+	// the series goes on once the latest occurrence is done again (#241).
+	const next = !isSettled(task.status)
+		? "Marking it done adds the next one, with fresh steps."
+		: other
+			? null
+			: occurrence?.status === "series"
+				? "No occurrence is open now. Reopen the latest one and mark it done to add the next."
+				: null;
 	return (
 		<Section
 			title="Repeats"
 			action={
 				canEdit && !editing ? (
-					<Button ref={opener} variant="ghost" size="sm" onClick={onEdit}>
+					<Button ref={opener} variant="ghost" size="sm" disabled={locked} onClick={onEdit}>
 						{live ? "Change" : "Make it repeat"}
 					</Button>
 				) : null
@@ -575,12 +592,8 @@ export function Repeats({
 						<Icon icon={RepeatIcon} size={16} className={live ? "text-ink-2" : "text-text-3"} />
 						{live ? repeatText(r, year) : r ? "Stopped repeating" : "Does not repeat"}
 					</p>
-					<p className="text-sm text-text-3">
-						{live
-							? "Marking it done adds the next one, with fresh steps."
-							: r
-								? "Earlier occurrences and their history stay."
-								: null}
+					<p className="text-sm text-text-3 empty:hidden">
+						{live ? next : r ? "Earlier occurrences and their history stay." : null}
 					</p>
 					{other ? (
 						<p className="flex flex-wrap items-center gap-x-2 text-sm text-text-2">

@@ -12,6 +12,7 @@ import { Checkbox } from "@everyfield/ui/controls";
 import { Avatar, StatusBadge, type Status as Tone } from "@everyfield/ui/display";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import type { PointerEvent, ReactNode } from "react";
+import type { Wait } from "../../components/save/model.ts";
 import { When } from "../people/parts.tsx";
 import { blockedText, dueText, isSettled, PRIORITY_LABEL, STATUS_LABEL, type Status, type TaskItem } from "./model.ts";
 
@@ -49,22 +50,26 @@ export function intentHandlers(warm: () => void) {
 export function DoneBox({
 	task,
 	canAct,
-	busy,
+	wait,
 	onToggle,
 }: {
 	task: Pick<TaskItem, "title" | "status">;
 	canAct: boolean;
-	busy: boolean;
+	/** The task's last save is in flight or unknown: the box waits (C68). */
+	wait: Wait;
 	onToggle: () => void;
 }) {
 	if (!canAct) return <span aria-hidden="true" className="size-11 flex-none" />;
 	const settled = isSettled(task.status);
 	return (
-		<label className="-m-3 grid size-11 flex-none cursor-pointer place-items-center rounded-full">
+		<label className="-m-3 grid size-11 flex-none cursor-pointer place-items-center rounded-full has-[:disabled]:cursor-default">
 			<Checkbox
 				shape="round"
 				aria-label={`${settled ? "Reopen" : "Complete"} ${task.title}`}
-				aria-busy={busy || undefined}
+				aria-busy={wait === "saving" || undefined}
+				disabled={wait !== null}
+				// A save takes a moment: the box keeps its new state at full strength instead of flashing dim.
+				className={wait === "saving" ? "disabled:cursor-progress disabled:opacity-100" : undefined}
 				checked={task.status === "complete" ? true : task.status === "no_longer_needed" ? "indeterminate" : false}
 				onCheckedChange={onToggle}
 			/>

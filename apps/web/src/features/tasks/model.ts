@@ -485,30 +485,6 @@ export function problemText(code: Outcome<unknown>["status"] | TaskError["code"]
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// Request keys. One key per action slot ("status:<task>", "edit:<task>", "create"). A retry after a lost answer sends
-// the same payload with the same key, so the server replays a write that did commit. A refusal, a success or a
-// changed payload starts a new key.
-
-export class RequestKeys {
-	#keys = new Map<string, { key: string; payload: string }>();
-	readonly #fresh: () => string;
-	constructor(fresh: () => string = () => crypto.randomUUID()) {
-		this.#fresh = fresh;
-	}
-	for(slot: string, payload: unknown): string {
-		const p = JSON.stringify(payload);
-		const known = this.#keys.get(slot);
-		if (known && known.payload === p) return known.key;
-		const key = this.#fresh();
-		this.#keys.set(slot, { key, payload: p });
-		return key;
-	}
-	settle(slot: string, outcome: Outcome<unknown>) {
-		if (outcome.status !== "lost") this.#keys.delete(slot);
-	}
-}
-
-// ---------------------------------------------------------------------------------------------------------------
 // Changes in flight. Each one shows at once and falls away when its write settles; the confirmed answer then stands in
 // the rows (patterns.md, optimistic updates). A new task waits under a temporary ID until the server names it.
 
@@ -575,17 +551,13 @@ export function matches(q: TaskQuery, t: TaskItem, you: string): boolean {
 }
 
 /**
- * One save the person asked for. Its first send fixes the request key and the basis it was made on (the revision the
- * person saw, or the reviewed tasks of a bulk change); every retry of that save resends both, so the writer replays the
- * first result instead of saving twice. Each intent has its own key, so later saves never replace it.
+ * A refused form's values on top of a newer copy of the record (C58, R4-2): a field the person changed keeps their
+ * value; a field they did not change takes the newer value, so saving again never writes back what someone else
+ * changed in the meantime.
  */
-export class Intent<T = string> {
-	#sent: { key: string; basis: T } | null = null;
-	readonly #fresh: () => string;
-	constructor(fresh: () => string = () => crypto.randomUUID()) {
-		this.#fresh = fresh;
-	}
-	send(basis: () => T): { key: string; basis: T } {
-		return (this.#sent ??= { key: this.#fresh(), basis: basis() });
-	}
+export function rebase<T extends object>(mine: T, base: T, latest: T): T {
+	const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+	const out = { ...latest };
+	for (const k of Object.keys(mine) as (keyof T)[]) if (!same(mine[k], base[k])) out[k] = mine[k];
+	return out;
 }
