@@ -12,6 +12,7 @@ import {
 	DialogHeader,
 	IntentLink,
 	Skeleton,
+	Spinner,
 } from "@everyfield/ui/controls";
 import { Avatar, KeyValue, KeyValueList } from "@everyfield/ui/display";
 import { useEffect, useRef, useState } from "react";
@@ -45,7 +46,11 @@ export function UnmergeDialog({
 	mergeId: string;
 	store: PersonStore<PlantPerson, PersonDraft>;
 	onClose: () => void;
-	onUnmerged: (done: Unmerged) => void;
+	/**
+	 * The Unmerge is saved (`done`, or null when an earlier lost attempt turned out to have run): the page reads itself
+	 * again. Resolves true when that read succeeded. The dialog stays open until it settles (C80).
+	 */
+	onUnmerged: (done: Unmerged | null) => Promise<boolean>;
 }) {
 	const [preview, setPreview] = useState<Outcome<UnmergeView> | null>(null);
 	const [problem, setProblem] = useState<{ n: number; text: string; retry?: boolean } | null>(null);
@@ -53,6 +58,12 @@ export function UnmergeDialog({
 	const say = (p: { text: string; retry?: boolean }) => setProblem((old) => ({ ...p, n: (old?.n ?? 0) + 1 }));
 	const [done, setDone] = useState<{ restored: Restored; names: UnmergeView["names"] } | null>(null);
 	const [pending, setPending] = useState(false);
+	/** After a saved Unmerge: the page is reading itself again, has done so, or could not (C80). */
+	const [page, setPage] = useState<"updating" | "updated" | "stale" | null>(null);
+	async function refreshPage(done: Unmerged | null) {
+		setPage("updating");
+		setPage((await onUnmerged(done).catch(() => false)) ? "updated" : "stale");
+	}
 	const seq = useRef(0);
 	const slot = `unmerge:${mergeId}`;
 	// An earlier Unmerge of this merge whose answer was lost: only a server answer may say what happened, never a failed read.
@@ -85,7 +96,7 @@ export function UnmergeDialog({
 		if (r.status === "ok") {
 			setPending(false);
 			setDone({ restored: r.value.result.restored, names: view.names });
-			return onUnmerged(r.value);
+			return refreshPage(r.value);
 		}
 		if (r.status === "lost") {
 			setPending(false);
@@ -99,7 +110,7 @@ export function UnmergeDialog({
 		setPending(false);
 		if (again.status === "ok" && again.value.preview.state === "unmerged") {
 			setDone({ restored: view.preview.restores, names: again.value.names });
-			return;
+			return refreshPage(null);
 		}
 		say({
 			text:
@@ -123,7 +134,7 @@ export function UnmergeDialog({
 			: null;
 
 	return (
-		<Dialog open onOpenChange={(open) => !open && !pending && onClose()}>
+		<Dialog open onOpenChange={(open) => !open && !pending && page !== "updating" && onClose()}>
 			<DialogContent size="md" aria-busy={pending || preview === null || undefined}>
 				<DialogHeader
 					icon={ArrowTurnBackwardIcon}
@@ -156,7 +167,20 @@ export function UnmergeDialog({
 								: "You cannot see this Unmerge. Only Owners and Admins can unmerge people."}
 						</Problem>
 					) : finished ? (
-						<Finished restored={finished.restored} names={finished.names} preview={p} earlier={finished.earlier} />
+						<>
+							<Finished restored={finished.restored} names={finished.names} preview={p} earlier={finished.earlier} />
+							{page === "updating" ? (
+								<p role="status" className="flex items-center gap-2 text-sm text-text-2">
+									<Spinner size={16} />
+									Updating the page
+								</p>
+							) : page === "stale" ? (
+								<Problem>
+									The Unmerge is saved, but this page could not update to show it. Reload the page to see both people as
+									they are now.
+								</Problem>
+							) : null}
+						</>
 					) : (
 						<>
 							<p>
@@ -224,8 +248,13 @@ export function UnmergeDialog({
 							Try again
 						</Button>
 					) : null}
+					{finished && page === "stale" ? (
+						<Button variant="secondary" onClick={() => location.reload()}>
+							Reload page
+						</Button>
+					) : null}
 					{finished || blocked || !view ? (
-						<Button variant={finished ? "primary" : "secondary"} onClick={onClose}>
+						<Button variant={finished ? "primary" : "secondary"} disabled={page === "updating"} onClick={onClose}>
 							{finished ? "Done" : "Close"}
 						</Button>
 					) : (

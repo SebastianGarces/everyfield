@@ -30,7 +30,7 @@ import {
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, StageChip, StatusBadge } from "@everyfield/ui/display";
 import Link from "next/link";
-import { useOptimistic, useState } from "react";
+import { useOptimistic, useRef, useState } from "react";
 import type { z } from "zod";
 import { reloadPerson, type Receipt } from "./actions.ts";
 import { ActivityCard, type Activities, type EntryFields, type Item } from "./ActivityCard.tsx";
@@ -50,7 +50,7 @@ import { DuplicateHints } from "./corrections/DuplicateHints.tsx";
 import { recordsIntent } from "./corrections/intent.ts";
 import type { DuplicateHints as Hints } from "./corrections/server.ts";
 import { UnmergeDialog } from "./corrections/UnmergeDialog.tsx";
-import { loadPersonPage, type Unmerged } from "./corrections/actions.ts";
+import { loadPersonPage, type PersonPage } from "./corrections/actions.ts";
 import { Problem } from "./corrections/parts.tsx";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
@@ -139,28 +139,36 @@ export function PersonScreen({
 	const [open, setOpen] = useState<Open>(null);
 	/** The page parts did not read again after an Unmerge: say so, and offer the reload that shows them. */
 	const [stale, setStale] = useState(false);
-	/** The page parts are reading again after an Unmerge; the sections say so with aria-busy until they show the result. */
-	const [refreshing, setRefreshing] = useState(false);
+	/** The page as the Unmerge left it, read while the Unmerge dialog is still open and shown when it closes (C80). */
+	const fresh = useRef<{ receipt: Receipt | null; page: PersonPage | null } | null>(null);
 	/**
 	 * After an Unmerge the records, tags, skills, household and hints on this page may belong to the other person again.
-	 * One read brings the whole page as Unmerge left it; the cards that hold their own copy restart from it.
+	 * One read brings the whole page as Unmerge left it. The dialog stays open until this read settles, so nothing on the
+	 * page can start behind it, and it says itself when the read failed.
 	 */
-	async function afterUnmerge(done: Unmerged) {
-		saved(done.receipt, { kind: "activity", action: "person_unmerged" });
-		setRefreshing(true);
+	async function readAfterUnmerge(receipt: Receipt | null): Promise<boolean> {
 		const r = await loadPersonPage(person.id).catch(() => ({ status: "lost" }) as const);
-		setRefreshing(false);
-		if (r.status !== "ok") return setStale(true);
-		const fresh = r.value;
-		store.dispatch({ type: "server", person: fresh.person });
-		if (fresh.activities) setHistory({ status: "ok", value: fresh.activities });
+		fresh.current = { receipt: receipt ?? fresh.current?.receipt ?? null, page: r.status === "ok" ? r.value : null };
+		return r.status === "ok";
+	}
+	/** The Unmerge dialog closed: show what it read, or keep the page and say it is out of date. */
+	function closeUnmerge() {
+		const got = fresh.current;
+		fresh.current = null;
+		setOpen(null);
+		if (!got) return;
+		if (got.receipt) saved(got.receipt, { kind: "activity", action: "person_unmerged" });
+		const page = got.page;
+		if (!page) return setStale(true);
+		store.dispatch({ type: "server", person: page.person });
+		if (page.activities) setHistory({ status: "ok", value: page.activities });
 		setParts((old) => ({
-			fields: fresh.fields,
-			records: fresh.records,
-			duplicates: fresh.duplicates,
+			fields: page.fields,
+			records: page.records,
+			duplicates: page.duplicates,
 			generation: old.generation + 1,
 		}));
-		setHousehold(fresh.fields?.household ?? null);
+		setHousehold(page.fields?.household ?? null);
 		setCorrected([]);
 		setStale(false);
 	}
@@ -307,10 +315,7 @@ export function PersonScreen({
 				</Card>
 			) : null}
 
-			<div
-				aria-busy={refreshing || undefined}
-				className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)] items-start gap-5 max-app-lg:grid-cols-1"
-			>
+			<div className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)] items-start gap-5 max-app-lg:grid-cols-1">
 				<div className="flex min-w-0 flex-col gap-5">
 					{records ? (
 						<RecordsSection
@@ -532,8 +537,8 @@ export function PersonScreen({
 						<UnmergeDialog
 							mergeId={open.unmerge}
 							store={store}
-							onClose={close}
-							onUnmerged={(done) => void afterUnmerge(done)}
+							onClose={closeUnmerge}
+							onUnmerged={(done) => readAfterUnmerge(done?.receipt ?? null)}
 						/>
 					) : null}
 				</>
