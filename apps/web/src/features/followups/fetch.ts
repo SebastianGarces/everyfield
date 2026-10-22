@@ -1,6 +1,6 @@
 import type * as tc from "@everyfield/contracts/tasks";
 import type { z } from "zod";
-import type { Account, ContactHistory, HandoffPlan, ObligationPage, Outcome, Owners } from "./model.ts";
+import type { Account, ContactHistory, Coverage, HandoffPlan, ObligationPage, Outcome, Owners } from "./model.ts";
 import type { CallRead, PersonFollowUps } from "./server.ts";
 
 // The browser side of read.ts. A network failure or a server error reads as lost, so the screen can offer a retry.
@@ -19,6 +19,8 @@ export const loadPersonFollowUps = (person: string) => get<PersonFollowUps>({ wh
 export const loadDuties = (person: string, page: number) => get<Owners>({ what: "duties", person, page: String(page) });
 export const loadObligations = (person: string, page: number) =>
 	get<ObligationPage>({ what: "obligations", person, page: String(page) });
+export const loadCoverage = (show: string, page: number) =>
+	get<Coverage>({ what: "coverage", show, page: String(page) });
 export const loadCall = (id: string) => get<CallRead>({ what: "call", id });
 export const loadPlan = (from: string) => get<HandoffPlan>({ what: "plan", from });
 

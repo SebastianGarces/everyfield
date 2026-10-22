@@ -16,6 +16,7 @@ import "server-only";
 import type { TaskDetail } from "../tasks/model.ts";
 import { taskViewer, type TaskViewer } from "../tasks/server.ts";
 import {
+	COVERAGE_PAGE,
 	ownersOf,
 	type Account,
 	type ContactHistory,
@@ -29,7 +30,7 @@ import {
 // (D59/D60), every read statement rechecks the live seat itself (C13), and every write rechecks authority inside its
 // own statement (D70). The writer reuses the tasks mount's database and reminder port, as tasks does.
 
-export { taskViewer, type TaskViewer };
+export { COVERAGE_PAGE, taskViewer, type TaskViewer };
 
 /** One short read transaction. A database failure reads as lost, never as a crash or an empty list. */
 export async function read<T>(viewer: TaskViewer, run: (tx: Transaction) => Promise<Outcome<T>>): Promise<Outcome<T>> {

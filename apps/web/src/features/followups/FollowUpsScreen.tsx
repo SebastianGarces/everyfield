@@ -18,11 +18,20 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { STAGE_KEY, STAGE_LABEL, type StageValue } from "../people/model.ts";
 import { AddFollowUpDialog, AssignMenu, DutyFacts } from "./duties.tsx";
-import { forgetOwners, prefetchOwners, prefetchSeats, warmOn } from "./fetch.ts";
+import { forgetOwners, loadCoverage, prefetchOwners, prefetchSeats, warmOn } from "./fetch.ts";
 import { HandoffDialog, useHandoff } from "./HandoffDialog.tsx";
-import { coverageOf, totalsAfter, type Coverage, type DutyItem, type Owners, type Totals } from "./model.ts";
+import {
+	COVERAGE_PAGE,
+	coverageOf,
+	totalsAfter,
+	type Coverage,
+	type DutyItem,
+	type Owners,
+	type Totals,
+} from "./model.ts";
 
 const COVERAGE_LABEL = { owned: "Owned", needs_owner: "Needs owner", uncovered: "No follow-up" } as const;
+import { useOpener } from "./parts.tsx";
 import { LaneNotice, useLane } from "./save.tsx";
 
 export type Filter = "needs_owner" | "uncovered" | "owned" | "any";
@@ -55,6 +64,7 @@ function Coverage({ coverage, filter }: { coverage: Coverage; filter: Filter }) 
 	const [moved, setMoved] = useState("");
 	const [adding, setAdding] = useState<Row["person"] | null>(null);
 	const [handoffOpen, setHandoffOpen] = useState(false);
+	const opener = useOpener();
 	const lane = useLane();
 	const go = (show: Filter, page = 1) => {
 		const q = new URLSearchParams();
@@ -89,6 +99,16 @@ function Coverage({ coverage, filter }: { coverage: Coverage; filter: Filter }) 
 			return all.filter((r) => coverageOf(r.duties) === filter);
 		});
 	}
+	/**
+	 * After a refusal because a row was out of date: this view's rows, revisions and totals as the server has them now
+	 * (C58 rule 6). A failed read leaves the screen as it is; the refusal notice already says what happened.
+	 */
+	async function reload() {
+		const r = await loadCoverage(filter, coverage.page);
+		if (r.status !== "ok") return;
+		setRows(r.value.items);
+		setTotals(r.value);
+	}
 	const handoff = useHandoff((r, plan) => {
 		forgetOwners();
 		const byId = new Map(plan.duties.map((d) => [d.taskId, d]));
@@ -108,7 +128,7 @@ function Coverage({ coverage, filter }: { coverage: Coverage; filter: Filter }) 
 			: { accountId: plan.from.accountId, displayName: plan.from.displayName ?? "" };
 		confirmed(r.moved.map((m) => ({ from: byId.get(m.taskId)?.owner ?? null, to: r.to, former })));
 	});
-	const pageCount = Math.max(1, Math.ceil(coverage.total / 24));
+	const pageCount = Math.max(1, Math.ceil(coverage.total / COVERAGE_PAGE));
 	return (
 		<>
 			<PageHeader
@@ -119,7 +139,10 @@ function Coverage({ coverage, filter }: { coverage: Coverage; filter: Filter }) 
 					<Button
 						variant="secondary"
 						icon={ArrowDataTransferHorizontalIcon}
-						onClick={() => setHandoffOpen(true)}
+						onClick={(e) => {
+							opener.mark(e);
+							setHandoffOpen(true);
+						}}
 						{...warmOn(prefetchSeats)}
 					>
 						Hand off follow-ups
@@ -183,7 +206,10 @@ function Coverage({ coverage, filter }: { coverage: Coverage; filter: Filter }) 
 												variant="ghost"
 												icon={Add01Icon}
 												disabled={lane.wait !== null}
-												onClick={() => setAdding(r.person)}
+												onClick={(e) => {
+													opener.mark(e);
+													setAdding(r.person);
+												}}
 												{...warmOn(prefetchOwners)}
 											>
 												Add follow-up
@@ -213,7 +239,7 @@ function Coverage({ coverage, filter }: { coverage: Coverage; filter: Filter }) 
 														onSaved={(before, after) =>
 															confirmed([{ from: before.owner, to: after.owner, former: before.formerOwner }])
 														}
-														onConflict={() => router.refresh()}
+														onConflict={reload}
 													/>
 												</li>
 											))}
@@ -272,7 +298,8 @@ function Coverage({ coverage, filter }: { coverage: Coverage; filter: Filter }) 
 											variant="outline"
 											aria-label={`Hand off ${o.displayName || "a former member"}’s follow-ups`}
 											disabled={handoff.lane.wait !== null}
-											onClick={() => {
+											onClick={(e) => {
+												opener.mark(e);
 												handoff.start(o.accountId);
 												setHandoffOpen(true);
 											}}
@@ -293,6 +320,7 @@ function Coverage({ coverage, filter }: { coverage: Coverage; filter: Filter }) 
 			</div>
 			{adding ? (
 				<AddFollowUpDialog
+					returnFocus={opener.returnFocus}
 					person={adding}
 					lane={lane}
 					onClose={() => setAdding(null)}
@@ -305,6 +333,7 @@ function Coverage({ coverage, filter }: { coverage: Coverage; filter: Filter }) 
 			) : null}
 			{handoffOpen ? (
 				<HandoffDialog
+					returnFocus={opener.returnFocus}
 					h={handoff}
 					former={totals.formerOwners}
 					onClose={() => {

@@ -203,6 +203,8 @@ export function ownersOf(plan: Pick<HandoffPlan, "from" | "recipients">): Accoun
 	);
 }
 
+/** Contacts per page on the Follow-ups page. */
+export const COVERAGE_PAGE = 24;
 /** The most follow-ups one handoff request may move (REQ-TSK-013). */
 export const HANDOFF_LIMIT = 100;
 /**

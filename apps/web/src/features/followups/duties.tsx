@@ -206,11 +206,14 @@ export function AddFollowUpDialog({
 	lane,
 	onClose,
 	onCreated,
+	returnFocus,
 }: {
 	person: { id: string; label: string };
 	lane: LaneControl;
 	onClose: () => void;
 	onCreated: (duty: DutyItem) => void;
+	/** Focus back to the button that opened the dialog (useOpener). */
+	returnFocus?: (e: Event) => void;
 }) {
 	const [draft, setDraft] = useState<AddDraft>({ title: "", dated: "undated", date: "", owner: NEEDS_OWNER });
 	const [dateError, setDateError] = useState<string | null>(null);
@@ -247,7 +250,7 @@ export function AddFollowUpDialog({
 
 	return (
 		<Dialog open onOpenChange={(next) => !next && onClose()}>
-			<DialogContent size="sm">
+			<DialogContent size="sm" onCloseAutoFocus={returnFocus}>
 				<form
 					noValidate
 					className="contents"

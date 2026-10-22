@@ -10,7 +10,7 @@ import type { ReactNode } from "react";
 import { CallScreen } from "./CallScreen.tsx";
 import { FollowUpsScreen, type Data, type Filter } from "./FollowUpsScreen.tsx";
 import type { Outcome } from "./model.ts";
-import { administers, loadCall, outcomeOf, read, taskViewer, type TaskViewer } from "./server.ts";
+import { administers, COVERAGE_PAGE, loadCall, outcomeOf, read, taskViewer, type TaskViewer } from "./server.ts";
 
 // The follow-up routes. The files under apps/web/src/app/(product)/(frame)/ only re-export these, so the screens, their
 // data loading and their states stay in this feature folder.
@@ -110,13 +110,17 @@ export async function FollowUpsPage({ searchParams }: { searchParams: Search }) 
 			return mine.status === "ok" ? { status: "ok", value: { kind: "mine", owners: mine.value } } : mine;
 		}
 		let r = outcomeOf(
-			await followUpReader.followUpCoverage(tx, viewer.authority, { coverage: filter, page, limit: 24 }),
+			await followUpReader.followUpCoverage(tx, viewer.authority, { coverage: filter, page, limit: COVERAGE_PAGE }),
 		);
 		// A page past the end shows the last page (D67).
 		if (r.status === "ok" && r.value.items.length === 0 && page > 1) {
-			const last = Math.max(1, Math.ceil(r.value.total / 24));
+			const last = Math.max(1, Math.ceil(r.value.total / COVERAGE_PAGE));
 			r = outcomeOf(
-				await followUpReader.followUpCoverage(tx, viewer.authority, { coverage: filter, page: last, limit: 24 }),
+				await followUpReader.followUpCoverage(tx, viewer.authority, {
+					coverage: filter,
+					page: last,
+					limit: COVERAGE_PAGE,
+				}),
 			);
 		}
 		return r.status === "ok" ? { status: "ok", value: { kind: "coverage", coverage: r.value } } : r;

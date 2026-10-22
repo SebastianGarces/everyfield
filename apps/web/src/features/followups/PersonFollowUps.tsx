@@ -31,7 +31,7 @@ import {
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { LocalDay, When } from "../people/parts.tsx";
 import { correctOutcome, recordOutcome } from "./actions.ts";
 import { AddFollowUpDialog, AssignMenu, DutyFacts } from "./duties.tsx";
@@ -54,7 +54,7 @@ import {
 	type OutcomeMutation,
 	type Outcome,
 } from "./model.ts";
-import { actorName, EntryFacts, LastContact, OutcomeBadge } from "./parts.tsx";
+import { actorName, EntryFacts, LastContact, OutcomeBadge, useOpener } from "./parts.tsx";
 import { LaneNotice, SaveButton, useLane, type LaneControl } from "./save.tsx";
 import type { PersonFollowUps } from "./server.ts";
 
@@ -106,6 +106,7 @@ function FollowUpsCard({
 	const [duties, setDuties] = useState<DutyItem[]>(initial.duties?.items ?? []);
 	const [obligations, setObligations] = useState(initial.obligations?.items ?? []);
 	const [adding, setAdding] = useState(false);
+	const addOpener = useOpener();
 	const lane = useLane();
 	const failed = initial.duties === null;
 	const moreDuties = useMore(
@@ -119,11 +120,22 @@ function FollowUpsCard({
 		(items) => setObligations((all) => [...all, ...items.filter((x) => !all.some((y) => y.id === x.id))]),
 	);
 	const change = (d: DutyItem) => setDuties((all) => all.map((x) => (x.taskId === d.taskId ? d : x)));
+	/**
+	 * After a refusal because a follow-up was out of date: both lists start again from their first page as the server has
+	 * them now, each with its own "Show more" position, so nothing loaded earlier is shown stale or skipped (C58 rule 6).
+	 */
 	async function reload() {
 		const r = await loadPersonFollowUps(person.id);
 		if (r.status !== "ok") return;
-		if (r.value.duties) setDuties(r.value.duties.items);
-		if (r.value.obligations) setObligations(r.value.obligations.items);
+		const { duties: d, obligations: o } = r.value;
+		if (d) {
+			setDuties(d.items);
+			moreDuties.reset(d.next);
+		}
+		if (o) {
+			setObligations(o.items);
+			moreVision.reset(o.next);
+		}
 	}
 	const vision = obligations.filter((o) => o.kind === "first_vision_follow_up");
 	return (
@@ -140,7 +152,10 @@ function FollowUpsCard({
 						variant="secondary"
 						icon={Add01Icon}
 						disabled={lane.wait !== null}
-						onClick={() => setAdding(true)}
+						onClick={(e) => {
+							addOpener.mark(e);
+							setAdding(true);
+						}}
 						{...warmOn(prefetchOwners)}
 					>
 						Add follow-up
@@ -225,6 +240,7 @@ function FollowUpsCard({
 			) : null}
 			{adding ? (
 				<AddFollowUpDialog
+					returnFocus={addOpener.returnFocus}
 					person={person}
 					lane={lane}
 					onClose={() => setAdding(false)}
@@ -252,6 +268,7 @@ function ContactLogCard({
 }) {
 	const [log, setLog] = useState(initial);
 	const [editing, setEditing] = useState<Editing | null>(null);
+	const opener = useOpener();
 	const [more, setMore] = useState<"idle" | "loading" | "failed">("idle");
 	const lane = useLane();
 	const first = person.label.split(" ")[0] || person.label;
@@ -312,7 +329,10 @@ function ContactLogCard({
 						variant="secondary"
 						icon={Call02Icon}
 						disabled={lane.wait !== null}
-						onClick={() => setEditing({ kind: "record" })}
+						onClick={(e) => {
+							opener.mark(e);
+							setEditing({ kind: "record" });
+						}}
 					>
 						Record contact
 					</Button>
@@ -366,6 +386,8 @@ function ContactLogCard({
 												<IconButton
 													icon={MoreHorizontalIcon}
 													label="Change this entry"
+													onPointerDown={opener.mark}
+													onKeyDown={opener.mark}
 													size="sm"
 													disabled={lane.wait !== null}
 												/>
@@ -398,6 +420,7 @@ function ContactLogCard({
 			)}
 			{editing ? (
 				<OutcomeDialog
+					returnFocus={opener.returnFocus}
 					editing={editing}
 					personId={person.id}
 					first={first}
@@ -431,8 +454,11 @@ function OutcomeDialog({
 	onClose,
 	onSaved,
 	onConflict,
+	returnFocus,
 }: {
 	editing: Editing;
+	/** Focus back to the button that opened the dialog, or its menu's button (useOpener). */
+	returnFocus: (e: Event) => void;
 	personId: string;
 	first: string;
 	lane: LaneControl;
@@ -499,7 +525,7 @@ function OutcomeDialog({
 
 	return (
 		<Dialog open onOpenChange={(open) => !open && onClose()}>
-			<DialogContent size="md">
+			<DialogContent size="md" onCloseAutoFocus={returnFocus}>
 				<form
 					noValidate
 					className="contents"
@@ -565,7 +591,13 @@ function OutcomeDialog({
 	);
 }
 
-type More = { next: number | null; loading: boolean; failed: boolean; more: () => void };
+type More = {
+	next: number | null;
+	loading: boolean;
+	failed: boolean;
+	more: () => void;
+	reset: (next: number | null) => void;
+};
 /** The next page of a list on "Show more": its items join the list once, and a failed read can be tried again. */
 function useMore<T>(
 	first: number | null,
@@ -573,17 +605,27 @@ function useMore<T>(
 	add: (items: T[]) => void,
 ): More {
 	const [next, setNext] = useState(first);
+	const generation = useRef(0);
 	const [state, setState] = useState<"idle" | "loading" | "failed">("idle");
 	async function more() {
 		if (next === null || state === "loading") return;
 		setState("loading");
+		const started = generation.current;
 		const r = await load(next);
+		// A page that arrives after the list started again belongs to the old list: drop it.
+		if (started !== generation.current) return;
 		if (r.status !== "ok") return setState("failed");
 		add(r.value.items);
 		setNext(r.value.next);
 		setState("idle");
 	}
-	return { next, loading: state === "loading", failed: state === "failed", more };
+	/** Starts the list again: its first page was just replaced, and `next` is that page's continuation. */
+	function reset(first: number | null) {
+		generation.current++;
+		setNext(first);
+		setState("idle");
+	}
+	return { next, loading: state === "loading", failed: state === "failed", more, reset };
 }
 function ShowMore({ more, what }: { more: More; what: string }) {
 	if (more.next === null) return null;

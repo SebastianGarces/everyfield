@@ -1,6 +1,7 @@
 "use client";
 
 import { StatusBadge } from "@everyfield/ui/display";
+import { useRef } from "react";
 import { When } from "../people/parts.tsx";
 import { CHANNEL_LABEL, OUTCOME_LABEL, OUTCOME_STATUS, type OutcomeItem } from "./model.ts";
 
@@ -45,4 +46,25 @@ export function LastContact({ at }: { at: string | null }) {
 	) : (
 		<>Last contact unknown</>
 	);
+}
+
+/**
+ * The element that opened a dialog, for returning focus when it closes. WebKit does not focus a button on a mouse click,
+ * so the shared dialog would only see <main> as the opener; this keeps the button itself. Mark the button that opens the
+ * dialog, or the button of the menu whose item opens it (WAI-ARIA dialog and menu button patterns).
+ */
+export function useOpener() {
+	const el = useRef<HTMLElement | null>(null);
+	return {
+		mark: (e: { currentTarget: HTMLElement }) => {
+			el.current = e.currentTarget;
+		},
+		/** For DialogContent's onCloseAutoFocus: focus the opener when it is still on the page. */
+		returnFocus: (e: Event) => {
+			const target = el.current;
+			if (!target?.isConnected) return;
+			e.preventDefault();
+			target.focus({ preventScroll: true });
+		},
+	};
 }

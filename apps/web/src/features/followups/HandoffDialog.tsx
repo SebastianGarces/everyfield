@@ -146,8 +146,11 @@ export function HandoffDialog({
 	h,
 	former,
 	onClose,
+	returnFocus,
 }: {
 	h: Handoff;
+	/** Focus back to the button that opened the dialog (useOpener). */
+	returnFocus?: (e: Event) => void;
 	/** Accounts that still hold open follow-ups they can no longer own, including ones whose seat ended. */
 	former: readonly (Account & { open: number })[];
 	onClose: () => void;
@@ -157,7 +160,7 @@ export function HandoffDialog({
 	useEffect(h.opened, []); // eslint-disable-line react-hooks/exhaustive-deps
 	return (
 		<Dialog open onOpenChange={(next) => !next && onClose()}>
-			<DialogContent size="lg">
+			<DialogContent size="lg" onCloseAutoFocus={returnFocus}>
 				<form
 					noValidate
 					className="contents"

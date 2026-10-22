@@ -6,6 +6,7 @@ import "server-only";
 import type { z } from "zod";
 import type { Outcome } from "./model.ts";
 import {
+	COVERAGE_PAGE,
 	HISTORY_PAGE,
 	PERSON_PAGE,
 	loadCall,
@@ -68,6 +69,15 @@ export async function GET(request: Request) {
 					c.readObligationsRequest,
 					{ personId: p.get("person"), page: Number(p.get("page")), limit: PERSON_PAGE },
 					(v) => read(viewer, async (tx) => outcomeOf(await followUpReader.readObligations(tx, viewer.authority, v))),
+				),
+			);
+		// The Follow-ups page's current view again, after a refusal because a row was out of date.
+		case "coverage":
+			return answer(
+				await parsed(
+					c.followUpCoverageRequest,
+					{ coverage: p.get("show") ?? "any", page: Number(p.get("page") ?? "1"), limit: COVERAGE_PAGE },
+					(v) => read(viewer, async (tx) => outcomeOf(await followUpReader.followUpCoverage(tx, viewer.authority, v))),
 				),
 			);
 		case "call":
