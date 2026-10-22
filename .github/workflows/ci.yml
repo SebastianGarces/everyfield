@@ -31,6 +31,8 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
+      - name: pnpm in the corepack cache (retries registry errors)
+        run: .github/scripts/corepack-install.sh
       - run: pnpm install --frozen-lockfile
       - uses: actions/cache@v6
         with:
@@ -76,6 +78,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
+      - name: pnpm in the corepack cache (retries registry errors)
+        run: .github/scripts/corepack-install.sh
       - name: Git identity for test fixtures
         run: |
           git config --global user.name "evf ci"
@@ -112,6 +116,8 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
+      - name: pnpm in the corepack cache (retries registry errors)
+        run: .github/scripts/corepack-install.sh
       - run: pnpm install --frozen-lockfile
       - name: Migrate the throwaway database
         run: pnpm db:migrate

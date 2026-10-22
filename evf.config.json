@@ -604,7 +604,12 @@
 		},
 		"OPS-34": {
 			"title": "Node.js October 2026 security release in the project",
-			"owningPaths": [".github/workflows/ci.yml", ".github/workflows/pr-body.yml", "evf.config.json"],
+			"owningPaths": [
+				".github/workflows/ci.yml",
+				".github/workflows/pr-body.yml",
+				".github/scripts/corepack-install.sh",
+				"evf.config.json"
+			],
 			"checks": [
 				{
 					"name": "documentation",
