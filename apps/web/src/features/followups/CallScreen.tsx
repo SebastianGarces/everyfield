@@ -174,7 +174,7 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 			</Card>
 
 			{saved ? (
-				<Card className="gap-3" aria-labelledby="followup-saved">
+				<Card as="section" className="gap-3" aria-labelledby="followup-saved">
 					<h2
 						id="followup-saved"
 						ref={done}

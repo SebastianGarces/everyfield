@@ -1,6 +1,6 @@
 import type * as tc from "@everyfield/contracts/tasks";
 import type { z } from "zod";
-import type { Account, ContactHistory, HandoffPlan, Outcome } from "./model.ts";
+import type { Account, ContactHistory, HandoffPlan, ObligationPage, Outcome, Owners } from "./model.ts";
 import type { CallRead, PersonFollowUps } from "./server.ts";
 
 // The browser side of read.ts. A network failure or a server error reads as lost, so the screen can offer a retry.
@@ -16,28 +16,48 @@ async function get<T>(params: Record<string, string>): Promise<Outcome<T>> {
 export const loadHistory = (person: string, page: number) =>
 	get<ContactHistory>({ what: "history", person, page: String(page) });
 export const loadPersonFollowUps = (person: string) => get<PersonFollowUps>({ what: "person", person });
+export const loadDuties = (person: string, page: number) => get<Owners>({ what: "duties", person, page: String(page) });
+export const loadObligations = (person: string, page: number) =>
+	get<ObligationPage>({ what: "obligations", person, page: String(page) });
 export const loadCall = (id: string) => get<CallRead>({ what: "call", id });
 export const loadPlan = (from: string) => get<HandoffPlan>({ what: "plan", from });
-export const loadSeats = () => get<z.infer<typeof tc.assigneeOptions>>({ what: "seats" });
+
+/** One read kept for 30 seconds and shared by every caller; a failed read is forgotten so the next intent retries. */
+function cached<T>(read: () => Promise<Outcome<T>>) {
+	let entry: { at: number; value: Promise<Outcome<T>> } | null = null;
+	return {
+		get(): Promise<Outcome<T>> {
+			if (!entry || Date.now() - entry.at > 30_000) {
+				const value = read().then((r) => {
+					if (r.status !== "ok") entry = null;
+					return r;
+				});
+				entry = { at: Date.now(), value };
+			}
+			return entry.value;
+		},
+		forget() {
+			entry = null;
+		},
+	};
+}
 
 /**
- * The eligible owners, read once per page on the first sign of intent (a pointer over, a touch on or keyboard focus
- * reaching an Assign control), so the list is there when the menu opens (C76). A copy older than 30 seconds or a failed
- * read is read again on the next intent.
+ * The eligible owners and the seats a handoff can start from, read on the first sign of intent (a pointer over, a touch
+ * on or keyboard focus reaching the control that needs them), so the list is there when the menu or dialog opens (C76).
  */
-let owners: { at: number; list: Promise<Outcome<Account[]>> } | null = null;
-const OWNERS_FRESH_MS = 30_000;
-export function prefetchOwners(): Promise<Outcome<Account[]>> {
-	if (!owners || Date.now() - owners.at > OWNERS_FRESH_MS) {
-		const list = get<Account[]>({ what: "owners" }).then((r) => {
-			if (r.status !== "ok") owners = null;
-			return r;
-		});
-		owners = { at: Date.now(), list };
-	}
-	return owners.list;
-}
-/** After a save names an owner as not eligible, the next read asks again. */
-export function forgetOwners() {
-	owners = null;
+const owners = cached(() => get<Account[]>({ what: "owners" }));
+const seats = cached(() => get<z.infer<typeof tc.assigneeOptions>>({ what: "seats" }));
+export const prefetchOwners = owners.get;
+/** After a save names an owner as not eligible, or owners changed, the next read asks again. */
+export const forgetOwners = owners.forget;
+export const prefetchSeats = seats.get;
+
+/** Intent handlers that warm `read` before a click: mouse hover, touch, or keyboard focus (not a mouse click's focus). */
+export function warmOn(read: () => unknown) {
+	return {
+		onPointerEnter: (e: { pointerType: string }) => void (e.pointerType === "mouse" && read()),
+		onTouchStart: () => void read(),
+		onFocus: (e: { currentTarget: Element }) => void (e.currentTarget.matches(":focus-visible") && read()),
+	};
 }

@@ -101,9 +101,12 @@ export async function FollowUpsPage({ searchParams }: { searchParams: Search }) 
 	const admin = administers(viewer);
 	const loaded = await read(viewer, async (tx): Promise<Outcome<Data>> => {
 		if (!admin) {
-			const mine = outcomeOf(
-				await followUpReader.listFollowUpOwners(tx, viewer.authority, { owner: viewer.accountId, page, limit: 50 }),
-			);
+			const own = (p: number) =>
+				followUpReader.listFollowUpOwners(tx, viewer.authority, { owner: viewer.accountId, page: p, limit: 50 });
+			let mine = outcomeOf(await own(page));
+			// A page past the end shows the last page (D67).
+			if (mine.status === "ok" && mine.value.items.length === 0 && page > 1)
+				mine = outcomeOf(await own(Math.max(1, Math.ceil(mine.value.matched / 50))));
 			return mine.status === "ok" ? { status: "ok", value: { kind: "mine", owners: mine.value } } : mine;
 		}
 		let r = outcomeOf(

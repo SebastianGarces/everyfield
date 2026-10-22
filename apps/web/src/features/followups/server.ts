@@ -74,6 +74,8 @@ export async function readOwners(tx: Transaction, viewer: TaskViewer): Promise<O
 
 /** Contact log entries per page on the Person page; "Show earlier" reads the next one. */
 export const HISTORY_PAGE = 20;
+/** Open follow-ups and Vision follow-ups per page on the Person page; "Show more" reads the next one. */
+export const PERSON_PAGE = 20;
 const okOrNull = <T>(r: FollowUpReply<T>) => (r.status === "ok" ? r.value : null);
 
 /** The Person page's follow-up part. Each piece reads as null when refused or failed, so the rest still shows. */
@@ -92,8 +94,8 @@ export async function readPersonFollowUps(
 	personId: string,
 ): Promise<PersonFollowUps> {
 	const history = await followUpReader.listContactHistory(tx, authority, { personId, limit: HISTORY_PAGE, page: 1 });
-	const obligations = await followUpReader.readObligations(tx, authority, { personId, limit: 20 });
-	const duties = await followUpReader.listFollowUpOwners(tx, authority, { personId, limit: 20 });
+	const obligations = await followUpReader.readObligations(tx, authority, { personId, limit: PERSON_PAGE });
+	const duties = await followUpReader.listFollowUpOwners(tx, authority, { personId, limit: PERSON_PAGE });
 	return { history: okOrNull(history), obligations: okOrNull(obligations), duties: okOrNull(duties) };
 }
 

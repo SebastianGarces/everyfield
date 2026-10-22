@@ -18,9 +18,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { STAGE_KEY, STAGE_LABEL, type StageValue } from "../people/model.ts";
 import { AddFollowUpDialog, AssignMenu, DutyFacts } from "./duties.tsx";
-import { forgetOwners } from "./fetch.ts";
-import { HandoffDialog } from "./HandoffDialog.tsx";
-import type { Coverage, DutyItem, Owners } from "./model.ts";
+import { forgetOwners, prefetchOwners, prefetchSeats, warmOn } from "./fetch.ts";
+import { HandoffDialog, useHandoff } from "./HandoffDialog.tsx";
+import { coverageOf, totalsAfter, type Coverage, type DutyItem, type Owners, type Totals } from "./model.ts";
+
+const COVERAGE_LABEL = { owned: "Owned", needs_owner: "Needs owner", uncovered: "No follow-up" } as const;
 import { LaneNotice, useLane } from "./save.tsx";
 
 export type Filter = "needs_owner" | "uncovered" | "owned" | "any";
@@ -49,8 +51,10 @@ function Coverage({ coverage, filter }: { coverage: Coverage; filter: Filter }) 
 	const router = useRouter();
 	const path = usePathname();
 	const [rows, setRows] = useState<Row[]>(coverage.items);
+	const [totals, setTotals] = useState<Totals>(coverage);
+	const [moved, setMoved] = useState("");
 	const [adding, setAdding] = useState<Row["person"] | null>(null);
-	const [handoff, setHandoff] = useState(false);
+	const [handoffOpen, setHandoffOpen] = useState(false);
 	const lane = useLane();
 	const go = (show: Filter, page = 1) => {
 		const q = new URLSearchParams();
@@ -58,6 +62,7 @@ function Coverage({ coverage, filter }: { coverage: Coverage; filter: Filter }) 
 		if (page > 1) q.set("page", String(page));
 		router.push(`${path}${q.size ? `?${q}` : ""}`);
 	};
+	/** A follow-up as shown in its contact's row: at once, from an answer, or back after a refusal. */
 	const change = (d: DutyItem) =>
 		setRows((all) =>
 			all.map((r) => {
@@ -65,9 +70,39 @@ function Coverage({ coverage, filter }: { coverage: Coverage; filter: Filter }) 
 				const duties = r.duties.some((x) => x.taskId === d.taskId)
 					? r.duties.map((x) => (x.taskId === d.taskId ? d : x))
 					: [...r.duties, d];
-				return { ...r, duties, coverage: duties.some((x) => !x.owner) ? "needs_owner" : "owned" };
+				return { ...r, duties, coverage: coverageOf(duties) };
 			}),
 		);
+	/**
+	 * After the server confirmed a change: the totals follow it, and a contact that no longer matches the chosen view
+	 * leaves the list, with a status line that says where it went.
+	 */
+	function confirmed(moves: Parameters<typeof totalsAfter>[1]) {
+		setTotals((t) => totalsAfter(t, moves));
+		if (filter === "any") return;
+		setRows((all) => {
+			const gone = all.filter((r) => coverageOf(r.duties) !== filter);
+			if (gone.length)
+				setMoved(
+					`${gone.map((r) => r.person.label).join(", ")} moved to ${COVERAGE_LABEL[coverageOf(gone[0]!.duties)]}.`,
+				);
+			return all.filter((r) => coverageOf(r.duties) === filter);
+		});
+	}
+	const handoff = useHandoff((r, plan) => {
+		forgetOwners();
+		const byId = new Map(plan.duties.map((d) => [d.taskId, d]));
+		const revisions = new Map(r.moved.map((m) => [m.taskId, m.revision]));
+		setRows((all) =>
+			all.map((row) => {
+				const duties = row.duties.map((d) =>
+					revisions.has(d.taskId) ? { ...d, owner: r.to, revision: revisions.get(d.taskId) ?? d.revision } : d,
+				);
+				return { ...row, duties, coverage: coverageOf(duties) };
+			}),
+		);
+		confirmed(r.moved.map((m) => ({ from: byId.get(m.taskId)?.owner ?? null, to: r.to })));
+	});
 	const pageCount = Math.max(1, Math.ceil(coverage.total / 24));
 	return (
 		<>
@@ -76,7 +111,12 @@ function Coverage({ coverage, filter }: { coverage: Coverage; filter: Filter }) 
 				title="Follow-ups"
 				subtitle="Who reaches out to whom. A contact with no follow-up is not late work."
 				actions={
-					<Button variant="secondary" icon={ArrowDataTransferHorizontalIcon} onClick={() => setHandoff(true)}>
+					<Button
+						variant="secondary"
+						icon={ArrowDataTransferHorizontalIcon}
+						onClick={() => setHandoffOpen(true)}
+						{...warmOn(prefetchSeats)}
+					>
 						Hand off follow-ups
 					</Button>
 				}
@@ -89,13 +129,17 @@ function Coverage({ coverage, filter }: { coverage: Coverage; filter: Filter }) 
 						onValueChange={(v) => go(v)}
 						options={[
 							{ value: "any", label: "All" },
-							{ value: "needs_owner", label: "Needs owner", count: coverage.needsOwner },
-							{ value: "uncovered", label: "No follow-up", count: coverage.uncovered },
+							{ value: "needs_owner", label: "Needs owner", count: totals.needsOwner },
+							{ value: "uncovered", label: "No follow-up", count: totals.uncovered },
 							{ value: "owned", label: "Owned" },
 						]}
 						className="max-app-sm:w-full"
 					/>
 					{adding ? null : <LaneNotice control={lane} className="empty:hidden" />}
+					{handoffOpen ? null : <LaneNotice control={handoff.lane} className="empty:hidden" />}
+					<p role="status" className="text-sm text-text-2 empty:hidden">
+						{moved}
+					</p>
 					{rows.length === 0 ? (
 						<p className="py-6 text-center text-sm text-text-3">
 							{filter === "needs_owner"
@@ -135,6 +179,7 @@ function Coverage({ coverage, filter }: { coverage: Coverage; filter: Filter }) 
 												icon={Add01Icon}
 												disabled={lane.wait !== null}
 												onClick={() => setAdding(r.person)}
+												{...warmOn(prefetchOwners)}
 											>
 												Add follow-up
 											</Button>
@@ -160,6 +205,7 @@ function Coverage({ coverage, filter }: { coverage: Coverage; filter: Filter }) 
 														lane={lane}
 														canAssign
 														onChange={change}
+														onSaved={(before, after) => confirmed([{ from: before.owner, to: after.owner }])}
 														onConflict={() => router.refresh()}
 													/>
 												</li>
@@ -183,11 +229,11 @@ function Coverage({ coverage, filter }: { coverage: Coverage; filter: Filter }) 
 							<CardTitle size="sm">Owners</CardTitle>
 						</CardHeading>
 					</CardHeader>
-					{coverage.owners.length === 0 ? (
+					{totals.owners.length === 0 ? (
 						<p className="text-sm text-text-3">No one owns an open follow-up yet.</p>
 					) : (
 						<ul className="flex flex-col">
-							{coverage.owners.map((o) => (
+							{totals.owners.map((o) => (
 								<li
 									key={o.accountId}
 									className="flex items-center justify-between border-t border-line py-2.5 first:border-t-0"
@@ -205,26 +251,23 @@ function Coverage({ coverage, filter }: { coverage: Coverage; filter: Filter }) 
 				</Card>
 			</div>
 			{adding ? (
-				<AddFollowUpDialog person={adding} lane={lane} onClose={() => setAdding(null)} onCreated={change} />
+				<AddFollowUpDialog
+					person={adding}
+					lane={lane}
+					onClose={() => setAdding(null)}
+					onCreated={(d) => {
+						const first = rows.find((r) => r.person.id === d.person.id)?.duties.length === 0;
+						change(d);
+						confirmed([{ from: "new", to: d.owner, firstForContact: first }]);
+					}}
+				/>
 			) : null}
-			{handoff ? (
+			{handoffOpen ? (
 				<HandoffDialog
-					onClose={() => setHandoff(false)}
-					onMoved={(r) => {
-						forgetOwners();
-						const moved = new Map(r.moved.map((m) => [m.taskId, m.revision]));
-						setRows((all) =>
-							all.map((row) => {
-								const duties = row.duties.map((d) =>
-									moved.has(d.taskId) ? { ...d, owner: r.to, revision: moved.get(d.taskId) ?? d.revision } : d,
-								);
-								return {
-									...row,
-									duties,
-									coverage: duties.length === 0 ? "uncovered" : duties.some((d) => !d.owner) ? "needs_owner" : "owned",
-								};
-							}),
-						);
+					h={handoff}
+					onClose={() => {
+						setHandoffOpen(false);
+						handoff.closed();
 					}}
 				/>
 			) : null}
@@ -232,7 +275,11 @@ function Coverage({ coverage, filter }: { coverage: Coverage; filter: Filter }) 
 	);
 }
 
+/** The follow-ups a Member owns, 50 to a page, with the pages in the address (D67). */
 function Mine({ owners }: { owners: Owners; accountId: string }) {
+	const router = useRouter();
+	const path = usePathname();
+	const pageCount = Math.max(1, Math.ceil(owners.matched / 50));
 	return (
 		<>
 			<PageHeader size="xl" title="Your follow-ups" subtitle="The people you are asked to reach out to." />
@@ -256,6 +303,16 @@ function Mine({ owners }: { owners: Owners; accountId: string }) {
 						))}
 					</ul>
 				)}
+				<div className="flex flex-wrap items-center justify-between gap-3">
+					<span className="text-sm text-text-3">
+						{owners.matched} open {owners.matched === 1 ? "follow-up" : "follow-ups"}
+					</span>
+					<Pagination
+						page={owners.page}
+						pageCount={pageCount}
+						onPageChange={(p) => router.push(p > 1 ? `${path}?page=${p}` : path)}
+					/>
+				</div>
 			</Card>
 		</>
 	);

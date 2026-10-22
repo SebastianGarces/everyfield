@@ -7,6 +7,7 @@ import type { z } from "zod";
 import type { Outcome } from "./model.ts";
 import {
 	HISTORY_PAGE,
+	PERSON_PAGE,
 	loadCall,
 	outcomeOf,
 	read,
@@ -49,6 +50,24 @@ export async function GET(request: Request) {
 			return answer(
 				await parsed(c.listContactHistoryRequest.pick({ personId: true }), { personId: p.get("person") }, (v) =>
 					read(viewer, async (tx) => ok(await readPersonFollowUps(tx, viewer.authority, v.personId))),
+				),
+			);
+		// The next page of a Person's open follow-ups or Vision follow-ups, after the first page of the person page.
+		case "duties":
+			return answer(
+				await parsed(
+					c.listFollowUpOwnersRequest,
+					{ personId: p.get("person"), page: Number(p.get("page")), limit: PERSON_PAGE },
+					(v) =>
+						read(viewer, async (tx) => outcomeOf(await followUpReader.listFollowUpOwners(tx, viewer.authority, v))),
+				),
+			);
+		case "obligations":
+			return answer(
+				await parsed(
+					c.readObligationsRequest,
+					{ personId: p.get("person"), page: Number(p.get("page")), limit: PERSON_PAGE },
+					(v) => read(viewer, async (tx) => outcomeOf(await followUpReader.readObligations(tx, viewer.authority, v))),
 				),
 			);
 		case "call":

@@ -28,7 +28,7 @@ import { useEffect, useState } from "react";
 import type { z } from "zod";
 import { dueText } from "../tasks/model.ts";
 import { assignFollowUp, createFollowUp } from "./actions.ts";
-import { forgetOwners, prefetchOwners } from "./fetch.ts";
+import { forgetOwners, prefetchOwners, warmOn } from "./fetch.ts";
 import { focusFirstProblem } from "./fields.tsx";
 import { OUTCOME_LABEL, type Account, type DutyItem, type Outcome } from "./model.ts";
 import { LaneNotice, SaveButton, type LaneControl } from "./save.tsx";
@@ -77,12 +77,16 @@ export function AssignMenu({
 	lane,
 	canAssign,
 	onChange,
+	onSaved,
 	onConflict,
 }: {
 	duty: DutyItem;
 	lane: LaneControl;
 	canAssign: boolean;
+	/** The follow-up as shown: at once when chosen, again from the server's answer, or back on a refusal. */
 	onChange: (duty: DutyItem) => void;
+	/** The server confirmed the change, from `before` to the saved follow-up. Totals update from this, never earlier. */
+	onSaved?: (before: DutyItem, after: DutyItem) => void;
 	onConflict: () => void;
 }) {
 	const [open, setOpen] = useState(false);
@@ -96,7 +100,6 @@ export function AssignMenu({
 				Needs owner
 			</StatusBadge>
 		);
-	const warm = () => void prefetchOwners();
 	async function assign(value: string) {
 		const assigneeId = value === NEEDS_OWNER ? null : value;
 		if (assigneeId === (duty.owner?.accountId ?? null)) return;
@@ -107,7 +110,11 @@ export function AssignMenu({
 			`The owner of ${duty.title}`,
 			(key) => assignFollowUp(key, duty.revision, { taskId: duty.taskId, assigneeId }),
 			(r) => {
-				if (r.status === "ok") return onChange(dutyFrom(r.value.task, before));
+				if (r.status === "ok") {
+					const after = dutyFrom(r.value.task, before);
+					onChange(after);
+					return onSaved?.(before, after);
+				}
 				onChange(before);
 				if (r.code === "owner_ineligible") forgetOwners();
 				if (r.code === "conflict") onConflict();
@@ -124,9 +131,7 @@ export function AssignMenu({
 					icon={duty.owner ? undefined : UserAdd01Icon}
 					disabled={lane.wait !== null}
 					aria-label={`Owner of ${duty.title}: ${label}. Change owner`}
-					onPointerEnter={(e) => e.pointerType === "mouse" && warm()}
-					onTouchStart={warm}
-					onFocus={(e) => e.currentTarget.matches(":focus-visible") && warm()}
+					{...warmOn(prefetchOwners)}
 					className="max-w-[200px] truncate"
 				>
 					{duty.owner ? label : "Assign"}

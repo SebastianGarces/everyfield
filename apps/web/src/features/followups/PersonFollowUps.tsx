@@ -35,7 +35,7 @@ import { useState } from "react";
 import { LocalDay, When } from "../people/parts.tsx";
 import { correctOutcome, recordOutcome } from "./actions.ts";
 import { AddFollowUpDialog, AssignMenu, DutyFacts } from "./duties.tsx";
-import { loadHistory, loadPersonFollowUps } from "./fetch.ts";
+import { loadDuties, loadHistory, loadObligations, loadPersonFollowUps, prefetchOwners, warmOn } from "./fetch.ts";
 import { focusFirstProblem, OutcomeFields } from "./fields.tsx";
 import {
 	draftOf,
@@ -52,6 +52,7 @@ import {
 	type ObligationItem,
 	type OutcomeItem,
 	type OutcomeMutation,
+	type Outcome,
 } from "./model.ts";
 import { actorName, EntryFacts, LastContact, OutcomeBadge } from "./parts.tsx";
 import { LaneNotice, SaveButton, useLane, type LaneControl } from "./save.tsx";
@@ -107,6 +108,16 @@ function FollowUpsCard({
 	const [adding, setAdding] = useState(false);
 	const lane = useLane();
 	const failed = initial.duties === null;
+	const moreDuties = useMore(
+		initial.duties?.next ?? null,
+		(page) => loadDuties(person.id, page),
+		(items) => setDuties((all) => [...all, ...items.filter((x) => !all.some((y) => y.taskId === x.taskId))]),
+	);
+	const moreVision = useMore(
+		initial.obligations?.next ?? null,
+		(page) => loadObligations(person.id, page),
+		(items) => setObligations((all) => [...all, ...items.filter((x) => !all.some((y) => y.id === x.id))]),
+	);
 	const change = (d: DutyItem) => setDuties((all) => all.map((x) => (x.taskId === d.taskId ? d : x)));
 	async function reload() {
 		const r = await loadPersonFollowUps(person.id);
@@ -116,7 +127,7 @@ function FollowUpsCard({
 	}
 	const vision = obligations.filter((o) => o.kind === "first_vision_follow_up");
 	return (
-		<Card aria-labelledby="followups-title">
+		<Card as="section" aria-labelledby="followups-title">
 			<CardHeader className="mb-2">
 				<CardHeading>
 					<CardTitle size="sm" id="followups-title">
@@ -130,6 +141,7 @@ function FollowUpsCard({
 						icon={Add01Icon}
 						disabled={lane.wait !== null}
 						onClick={() => setAdding(true)}
+						{...warmOn(prefetchOwners)}
 					>
 						Add follow-up
 					</Button>
@@ -166,7 +178,8 @@ function FollowUpsCard({
 					))}
 				</ul>
 			)}
-			{vision.length ? (
+			<ShowMore more={moreDuties} what="follow-ups" />
+			{vision.length || moreVision.next ? (
 				<div className="mt-4 border-t border-line pt-4">
 					<h3 className="mb-1 text-sm font-semibold text-ink-2">After Vision meetings</h3>
 					<p className="mb-2 text-xs text-text-3">
@@ -207,6 +220,7 @@ function FollowUpsCard({
 							);
 						})}
 					</ul>
+					<ShowMore more={moreVision} what="Vision follow-ups" />
 				</div>
 			) : null}
 			{adding ? (
@@ -285,7 +299,7 @@ function ContactLogCard({
 		(admin || (i.actor.kind === "account" && i.actor.accountId === accountId && i.taskId !== null));
 
 	return (
-		<Card aria-labelledby="contact-log-title" id="contact-log" className="scroll-mt-24">
+		<Card as="section" aria-labelledby="contact-log-title" id="contact-log" className="scroll-mt-24">
 			<CardHeader className="mb-1">
 				<CardHeading>
 					<CardTitle size="sm" id="contact-log-title">
@@ -548,5 +562,39 @@ function OutcomeDialog({
 				</form>
 			</DialogContent>
 		</Dialog>
+	);
+}
+
+type More = { next: number | null; loading: boolean; failed: boolean; more: () => void };
+/** The next page of a list on "Show more": its items join the list once, and a failed read can be tried again. */
+function useMore<T>(
+	first: number | null,
+	load: (page: number) => Promise<Outcome<{ items: T[]; next: number | null }>>,
+	add: (items: T[]) => void,
+): More {
+	const [next, setNext] = useState(first);
+	const [state, setState] = useState<"idle" | "loading" | "failed">("idle");
+	async function more() {
+		if (next === null || state === "loading") return;
+		setState("loading");
+		const r = await load(next);
+		if (r.status !== "ok") return setState("failed");
+		add(r.value.items);
+		setNext(r.value.next);
+		setState("idle");
+	}
+	return { next, loading: state === "loading", failed: state === "failed", more };
+}
+function ShowMore({ more, what }: { more: More; what: string }) {
+	if (more.next === null) return null;
+	return (
+		<div className="mt-2 flex flex-wrap items-center gap-3">
+			<Button size="sm" variant="ghost" loading={more.loading} onClick={more.more}>
+				Show more {what}
+			</Button>
+			<span aria-live="polite" className="text-xs text-text-3 empty:hidden">
+				{more.failed ? `More ${what} did not load. Try again.` : ""}
+			</span>
+		</div>
 	);
 }

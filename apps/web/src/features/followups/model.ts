@@ -237,3 +237,40 @@ export function problemText(code: string): string {
 			return "The server could not make this change. Try again in a moment.";
 	}
 }
+
+/** The Follow-ups page's totals: open follow-ups per current owner, how many need an owner, contacts with none. */
+export type Totals = Pick<Coverage, "owners" | "needsOwner" | "uncovered">;
+/**
+ * The totals after follow-ups changed owner, from the server's answers (REQ-TSK-012): each move takes one open
+ * follow-up from `from` (an owner, Needs owner, or "new" for a follow-up just created) and gives it to `to`. A new
+ * follow-up for a contact that had none also takes that contact out of "no follow-up".
+ */
+export function totalsAfter(
+	t: Totals,
+	moves: readonly { from: Account | null | "new"; to: Account | null; firstForContact?: boolean }[],
+): Totals {
+	const owners = new Map(t.owners.map((o) => [o.accountId, { ...o }]));
+	let { needsOwner, uncovered } = t;
+	const add = (who: Account | null, n: number) => {
+		if (!who) return void (needsOwner += n);
+		const o = owners.get(who.accountId) ?? { ...who, open: 0 };
+		o.open += n;
+		if (o.open > 0) owners.set(who.accountId, o);
+		else owners.delete(who.accountId);
+	};
+	for (const m of moves) {
+		if (m.from !== "new") add(m.from, -1);
+		add(m.to, 1);
+		if (m.firstForContact) uncovered -= 1;
+	}
+	return {
+		owners: [...owners.values()].sort(
+			(a, b) => a.displayName.localeCompare(b.displayName) || a.accountId.localeCompare(b.accountId),
+		),
+		needsOwner: Math.max(0, needsOwner),
+		uncovered: Math.max(0, uncovered),
+	};
+}
+/** A contact's coverage from its open follow-ups: none is "uncovered", any without an owner is "needs_owner". */
+export const coverageOf = (duties: readonly Pick<DutyItem, "owner">[]): "owned" | "needs_owner" | "uncovered" =>
+	duties.length === 0 ? "uncovered" : duties.some((d) => !d.owner) ? "needs_owner" : "owned";

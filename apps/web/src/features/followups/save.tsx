@@ -41,7 +41,11 @@ export function useLane() {
 		done: (r: Answer<T>) => void,
 	): Promise<boolean> {
 		const started = laneStart(ref.current, what);
-		if (!started) return false;
+		if (!started) {
+			// Save is disabled while the lane waits (C68), so a save that cannot start is a programming error (C69).
+			console.error(JSON.stringify({ component: "followups", outcome: "save_not_started", what }));
+			return false;
+		}
 		apply(started);
 		const key = crypto.randomUUID();
 		const run = () => send(key);

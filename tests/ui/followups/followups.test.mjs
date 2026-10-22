@@ -108,3 +108,49 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 }
+
+for (const [name, engine] of ENGINES) {
+	test(`AC:TARGET-TSK-013 (${name}): a handoff whose result is unknown survives Cancel and reopen until Check again`, async () => {
+		await withPage(engine, async (page, context) => {
+			await signIn(context, people().owner.cookie);
+			// One more open follow-up owned by Ruth, so this run has something to move.
+			await page.goto(`${BASE}/people/${people().people["Eli Park"]}`);
+			await hydrated(page);
+			await page.getByRole("button", { name: "Add follow-up" }).click();
+			const add = page.getByRole("dialog", { name: "Add a follow-up" });
+			await add.getByRole("combobox", { name: "Owner" }).click();
+			await page.getByRole("option", { name: "Ruth Allen" }).click();
+			await add.getByRole("button", { name: "Add follow-up" }).click();
+			await add.waitFor({ state: "detached" });
+
+			await page.goto(`${BASE}/tasks/follow-ups`);
+			await hydrated(page);
+			const posts = await loseReplies(context, 2);
+			await page.getByRole("button", { name: "Hand off follow-ups" }).click();
+			const dialog = page.getByRole("dialog", { name: "Hand off follow-ups" });
+			await dialog.getByRole("combobox", { name: "Whose follow-ups" }).click();
+			await page.getByRole("option", { name: "Ruth Allen" }).click();
+			await dialog.getByText(/selected/).waitFor();
+			await dialog.getByRole("combobox", { name: "Give them to" }).click();
+			await page.getByRole("option", { name: "Daniel Reyes" }).click();
+			await dialog.getByRole("button", { name: /^Move \d+ follow-up/ }).click();
+			await dialog.getByText("may already be saved", { exact: false }).waitFor();
+			assert.equal(posts(), 2);
+			await dialog.getByRole("button", { name: "Cancel" }).click();
+			// The page keeps the unknown result; it has no Dismiss.
+			const check = page.getByRole("button", { name: "Check again" });
+			await check.waitFor();
+			assert.equal(await page.getByRole("button", { name: "Dismiss" }).count(), 0);
+			// Reopening shows the same pending move, with its selection, and cannot send another.
+			await page.getByRole("button", { name: "Hand off follow-ups" }).click();
+			await dialog.getByText("may already be saved", { exact: false }).waitFor();
+			assert.equal(await dialog.getByRole("button", { name: /^Move \d+ follow-up/ }).isDisabled(), true);
+			await dialog.getByRole("button", { name: "Check again" }).click();
+			await dialog.getByText(/^Moved \d+ follow-up/).waitFor();
+			assert.equal(posts(), 3);
+			await dialog.getByRole("button", { name: "Done" }).click();
+			// The owners tally follows the move without a reload.
+			await page.getByText("Daniel Reyes", { exact: true }).waitFor();
+		});
+	});
+}

@@ -18,6 +18,8 @@ import {
 	outcomeInput,
 	ownersOf,
 	pickOutcome,
+	totalsAfter,
+	coverageOf,
 	windowAt,
 	withOutcome,
 } from "../../../apps/web/src/features/followups/model.ts";
@@ -147,4 +149,36 @@ test("AC:TARGET-TSK-012 AC:TARGET-TSK-013 owners include the viewer only when el
 	);
 	const kept = keepSelection(new Set(["t1", "t2", "gone"]), [{ taskId: "t1" }, { taskId: "t2" }, { taskId: "new" }]);
 	assert.deepEqual([...kept], ["t1", "t2"]);
+});
+
+test("AC:TARGET-TSK-012 AC:TARGET-TSK-013 owner totals follow confirmed assignments, new follow-ups and handoffs", () => {
+	const ruth = { accountId: "r", displayName: "Ruth Allen" };
+	const daniel = { accountId: "d", displayName: "Daniel Reyes" };
+	const start = { owners: [{ ...ruth, open: 2 }], needsOwner: 1, uncovered: 5 };
+	// Needs owner -> Daniel: Daniel appears with one, Needs owner drops to zero.
+	assert.deepEqual(totalsAfter(start, [{ from: null, to: daniel }]), {
+		owners: [
+			{ ...daniel, open: 1 },
+			{ ...ruth, open: 2 },
+		],
+		needsOwner: 0,
+		uncovered: 5,
+	});
+	// A first follow-up for a contact with none, left as Needs owner.
+	assert.deepEqual(totalsAfter(start, [{ from: "new", to: null, firstForContact: true }]), {
+		...start,
+		needsOwner: 2,
+		uncovered: 4,
+	});
+	// Ruth hands both to Daniel: Ruth leaves the tally.
+	assert.deepEqual(
+		totalsAfter(start, [
+			{ from: ruth, to: daniel },
+			{ from: ruth, to: daniel },
+		]).owners,
+		[{ ...daniel, open: 2 }],
+	);
+	assert.equal(coverageOf([]), "uncovered");
+	assert.equal(coverageOf([{ owner: ruth }, { owner: null }]), "needs_owner");
+	assert.equal(coverageOf([{ owner: ruth }]), "owned");
 });

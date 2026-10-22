@@ -17,24 +17,18 @@ import {
 import { useEffect, useState } from "react";
 import { executeHandoff } from "./actions.ts";
 import { DutyFacts } from "./duties.tsx";
-import { loadPlan, loadSeats } from "./fetch.ts";
+import { loadPlan, prefetchSeats } from "./fetch.ts";
 import { HANDOFF_LIMIT, keepSelection, type HandoffPlan, type HandoffResult, type Outcome } from "./model.ts";
 import { LaneNotice, SaveButton, useLane } from "./save.tsx";
 
 type Seat = { accountId: string; displayName: string; role: string };
 
 /**
- * Hand an account's open follow-ups to an eligible owner (REQ-TSK-013). Choose whose follow-ups, review them and the
- * recipient, then move up to 100 at once, all or nothing. Cancel changes nothing; follow-ups left behind read as Needs
- * owner while their stored owner cannot own them. The dialog has its own save lane, and its notice is inside it.
+ * The handoff's state and its save lane (REQ-TSK-013), held by the page, not the dialog. Closing the dialog while a
+ * move is saving or its result is unknown keeps the lane, the selection and Check again on the page (C58, C68): only a
+ * server answer settles it. A plain Cancel with nothing pending changes nothing and starts the next opening afresh.
  */
-export function HandoffDialog({
-	onClose,
-	onMoved,
-}: {
-	onClose: () => void;
-	onMoved: (r: HandoffResult, plan: HandoffPlan) => void;
-}) {
+export function useHandoff(onMoved: (r: HandoffResult, plan: HandoffPlan) => void) {
 	const [seats, setSeats] = useState<Outcome<{ items: Seat[] }> | null>(null);
 	const [from, setFrom] = useState("");
 	const [plan, setPlan] = useState<Outcome<HandoffPlan> | null>(null);
@@ -44,10 +38,6 @@ export function HandoffDialog({
 	const [sent, setSent] = useState(false);
 	const [result, setResult] = useState<HandoffResult | null>(null);
 	const lane = useLane();
-
-	useEffect(() => {
-		void loadSeats().then(setSeats);
-	}, []);
 
 	/** Reads the preview. `keep` keeps the person's selection and recipient for follow-ups still in it. */
 	async function preview(account: string, keep: boolean) {
@@ -90,10 +80,57 @@ export function HandoffDialog({
 		);
 		setSent(false);
 	}
-
+	/** Opens the dialog: the seats come from the intent prefetch, read again only when that copy is old or failed. */
+	function opened() {
+		void prefetchSeats().then(setSeats);
+	}
+	/** Closes the dialog. With nothing saving, unknown or refused, the next opening starts afresh (Cancel changes nothing). */
+	function closed() {
+		if (lane.wait || lane.lane.refused) return;
+		setFrom("");
+		setPlan(null);
+		setSelected(new Set());
+		setTo("");
+		setToError(null);
+		setResult(null);
+	}
 	const sourceName =
 		p?.from.displayName ??
 		(seats?.status === "ok" ? (seats.value.items.find((s) => s.accountId === from)?.displayName ?? null) : null);
+	return {
+		seats,
+		from,
+		setFrom,
+		plan,
+		p,
+		selected,
+		setSelected,
+		to,
+		setTo,
+		toError,
+		sent,
+		result,
+		setResult,
+		lane,
+		chosen,
+		preview,
+		submit,
+		opened,
+		closed,
+		sourceName,
+	};
+}
+export type Handoff = ReturnType<typeof useHandoff>;
+
+/**
+ * Hand an account's open follow-ups to an eligible owner (REQ-TSK-013). Choose whose follow-ups, review them and the
+ * recipient, then move up to 100 at once, all or nothing. Cancel changes nothing; follow-ups left behind read as Needs
+ * owner while their stored owner cannot own them. The save's notice shows inside the dialog while it is open.
+ */
+export function HandoffDialog({ h, onClose }: { h: Handoff; onClose: () => void }) {
+	const { seats, from, setFrom, plan, p, selected, setSelected, to, setTo, toError, sent, result, setResult, lane } = h;
+	const { chosen, preview, submit, sourceName } = h;
+	useEffect(h.opened, []); // eslint-disable-line react-hooks/exhaustive-deps
 	return (
 		<Dialog open onOpenChange={(next) => !next && onClose()}>
 			<DialogContent size="lg">
