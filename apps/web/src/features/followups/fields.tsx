@@ -151,11 +151,10 @@ function WhenField({
 	errors: DraftErrors;
 	required: boolean;
 }) {
-	const label = useId();
 	const error = useId();
 	return (
 		<div className="flex flex-col gap-1.5">
-			<span id={label} className="text-sm font-medium text-ink-2">
+			<span aria-hidden="true" className="text-sm font-medium text-ink-2">
 				{required ? "When did you talk?" : "When did it happen?"}
 				{required ? null : <span className="font-normal text-text-3"> · Optional, now if left blank</span>}
 			</span>
