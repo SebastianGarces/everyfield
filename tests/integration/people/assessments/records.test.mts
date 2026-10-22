@@ -17,7 +17,6 @@ import {
 	commitmentCacheBackfill,
 	mergeReferencesBackfill,
 } from "../../../../packages/domain/src/people/commitments/backfill.ts";
-import { factsOf, parseFacts, referencesDigest } from "../../../../packages/domain/src/people/merge/index.ts";
 import { backfill } from "../../../../packages/db/src/schema/migrate.ts";
 import {
 	assessments,
@@ -858,17 +857,22 @@ test("INV-commitment (C100): after every command sequence the cached commitment 
 			expect: { a: ["active", 10], b: ["active", 2] },
 		},
 		{
-			name: "a merge made before C100 unmerges after the merge backfill and gives the source its withdrawal back",
+			name: "verifier: nested merges made before C100 give each Person its own withdrawal back after the merge backfill",
 			steps: [
-				["card", "a", 6],
-				["card", "b", 8],
-				["withdraw", "b", 4],
+				["card", "a", 20],
+				["card", "b", 15],
+				["card", "c", 10],
+				["withdraw", "c", 5],
+				["merge", "c", "b"],
 				["merge", "b", "a"],
+				["legacy", "b"],
 				["legacy", "a"],
-				["merge backfill", "a"],
+				["merge backfill", 2],
 				["unmerge", "a"],
+				// The inner merge stays refused after the outer one is undone, as on main: both Persons changed since.
+				["unmerge refused", "b"],
 			],
-			expect: { a: ["active", 6], b: ["withdrawn", 4] },
+			expect: { a: ["active", 20], b: ["withdrawn", 5] },
 		},
 	];
 	const merged = new Map(),
@@ -878,7 +882,7 @@ test("INV-commitment (C100): after every command sequence the cached commitment 
 	for (const { name, steps, expect } of cases) {
 		const people = {},
 			cards = {};
-		for (const letter of new Set(steps.flatMap((s) => s.slice(1).filter((x) => /^[ab]$/.test(x)))))
+		for (const letter of new Set(steps.flatMap((s) => s.slice(1).filter((x) => /^[abc]$/.test(x)))))
 			everyone.push((people[letter] = (await person("Inv " + letter + " " + name.slice(0, 20))).id));
 		const current = async (personId) => ok(await tx((t) => commitments.getCommitments(t, ctx(), { personId }))).current;
 		const card = async (id) =>
@@ -956,21 +960,18 @@ test("INV-commitment (C100): after every command sequence the cached commitment 
 				edited.add(people[a]);
 				continue;
 			} else if (op === "legacy") {
-				// The merge as main recorded it: no commitment_change in its moved list or reviewed digest.
-				const mergeId = merged.get(people[a]);
-				const [f] = await rows(sql`SELECT ${factsOf(sql`${sql.param(people[a])}::uuid`, plants[0])} AS f`);
-				const before = parseFacts(f.f).refs.filter((r) => r.kind !== "commitment_change");
-				await admin.execute(sql`UPDATE person_merge SET moved=moved-'commitment_change',
- references_digest=${sql.param(referencesDigest(before))} WHERE id=${sql.param(mergeId)}`);
-				// Without the merge backfill this merge could never be undone.
-				assert.deepEqual(ok(await tx((t) => peopleUnmerge.previewUnmerge(t, ctx(), { mergeId }))).conflicts, [
-					"references_changed",
-				]);
+				// The merge as main recorded it: its moved list names no commitment change.
+				await admin.execute(sql`UPDATE person_merge SET moved=moved-'commitment_change'
+ WHERE id=${sql.param(merged.get(people[a]))}`);
 				continue;
 			} else if (op === "merge backfill") {
 				assert.deepEqual(await backfill(admin, [mergeReferencesBackfill(1)], schema), [
-					{ name: "merge_references_c100", changed: 1 },
+					{ name: "merge_references_c100", changed: a },
 				]);
+			} else if (op === "unmerge refused") {
+				const mergeId = merged.get(people[a]);
+				const preview = ok(await tx((t) => peopleUnmerge.previewUnmerge(t, ctx(), { mergeId })));
+				assert.deepEqual(preview.conflicts, ["source_changed", "survivor_changed", "references_changed"], at);
 			}
 			// The invariant: every live Person's cache equals the function of its inputs, after every step.
 			if (op === "unmerge") edited.clear();

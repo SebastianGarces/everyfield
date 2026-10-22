@@ -86,9 +86,18 @@ export const factsOf = (id: SQL, owner: string | SQL) =>
  'refs',${referencesOf(sql`p.id`, owner)},'commitment_inputs',${commitmentInputsJson(sql`p.id`, sql`${owner}::uuid`)}) FROM person p WHERE p.id=${id} AND p.tenant_id=${owner}::uuid
  AND NOT EXISTS(SELECT FROM organization_person_removal w WHERE w.person_record_id=p.id AND w.organization_id=p.tenant_id))`;
 
-/** The hash of an exact set of references, independent of read order. */
+/**
+ * The hash of an exact set of references, independent of read order. Commitment changes are left out: each one also
+ * moves its Person's revision, which the review and Unmerge already compare, and merges reviewed before the change
+ * table existed keep a digest without them (C100).
+ */
 export const referencesDigest = (refs: readonly Reference[]) =>
-	hash([...refs].map((x) => [x.kind, x.id, x.revision]).sort((a, b) => (a.join() < b.join() ? -1 : 1)));
+	hash(
+		refs
+			.filter((x) => x.kind !== "commitment_change")
+			.map((x) => [x.kind, x.id, x.revision])
+			.sort((a, b) => (a.join() < b.join() ? -1 : 1)),
+	);
 
 const order = c.stage.options;
 
