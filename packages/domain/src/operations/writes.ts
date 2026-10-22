@@ -326,7 +326,7 @@ class WriteSession {
 		const entries = [...(authority ? [writeAuthority(authority)] : []), writeEntries(writes)];
 		// The CASE result depends on the rows, so the planner cannot fold the failing cast; the error aborts the statement.
 		await this.tx!.execute(
-			sql`${sql.raw(FINAL)}WITH ${sql.join(entries, sql`, `)} SELECT (CASE WHEN NOT ${allowed} THEN 'evf_refused'
+			sql`${sql.raw(FINAL)}WITH ${sql.join(entries, sql`, `)} SELECT (CASE WHEN ${allowed} IS NOT TRUE THEN 'evf_refused'
  WHEN ${current} THEN 'true' ELSE 'evf_stale' END)::boolean AS allowed`,
 		);
 		if (!this.begun) this.done = true;
@@ -334,6 +334,10 @@ class WriteSession {
 }
 
 /**
+ * Use it only for a read whose rows the final statement locks again (`lock`), or whose other rows change only together
+ * with the owner root: a write that commits between the final statement's snapshot and its locks is seen only through
+ * those locked rows and the root's version check (writeAuthority).
+ *
  * A read a native write's first attempt runs without a lock: `read` is the query, `lock` the locking clause the
  * established way adds (FOR UPDATE OF t). The final statement runs `read` again with `lock` NOWAIT and requires the
  * same rows, ignoring `volatile` columns such as clock readings. Null once the command holds the gate: run the read

@@ -1512,3 +1512,59 @@ test("INV-date (RT-3): a church time zone change between a native write's read a
 		await zone("America/New_York");
 	}
 });
+
+test("INV-date (RT-3): a church change that commits after the final statement's snapshot and before its locks is not missed", async () => {
+	const seated = await seatedReader("admin", { kind: "plant", id: plants[0] });
+	const p = await create("Zone window", { adultClassification: "adult" });
+	const zone = (name) => admin.execute(sql`UPDATE plant SET timezone=${name} WHERE id=${plants[0]}::uuid`);
+	// The session lookup at the start of the final statement pauses for this one session, after the statement took its
+	// snapshot and before it locks the account and the church.
+	const identity = (pause) =>
+		admin.execute(
+			sql.raw(`CREATE OR REPLACE FUNCTION invitation_identity(handle uuid)
+RETURNS TABLE(account_id uuid,email text,display_name text,verified boolean,registration_state text)
+LANGUAGE sql SECURITY DEFINER SET search_path FROM CURRENT AS $$
+ SELECT a.id,u.email,u.name,u.email_verified,a.registration_state
+ FROM auth_session s JOIN auth_user u ON u.id=s.user_id JOIN account a ON a.auth_user_id=u.id
+ WHERE s.id=handle AND s.expires_at>clock_timestamp()
+ ${pause ? `AND (handle<>'${seated.session}'::uuid OR (SELECT true FROM pg_sleep(1.5)))` : ""}
+ FOR UPDATE OF a FOR SHARE OF s,u
+$$`),
+		);
+	const lens = { score: 1, notes: null };
+	await zone("Pacific/Kiritimati");
+	await identity(true);
+	let changed = null;
+	try {
+		const day = (
+			await admin.execute(sql`SELECT (clock_timestamp() AT TIME ZONE 'Pacific/Kiritimati')::date::text AS d`)
+		).rows[0].d;
+		beforeSend = async (text) => {
+			if (!text.startsWith("/* evf:final */")) return;
+			beforeSend = null;
+			changed = new Promise((resolve) => setTimeout(resolve, 400)).then(() => zone("Pacific/Pago_Pago"));
+		};
+		const result = await withPeopleWrite(db, seated.reader.authority, (t, c) =>
+			assessments.createAssessment(t, c, {
+				requestKey: randomUUID(),
+				input: {
+					personId: p.id,
+					occurredOn: day,
+					committed: lens,
+					compelled: lens,
+					contagious: lens,
+					courageous: lens,
+				},
+			}),
+		);
+		await changed;
+		refused(result, "invalid_input");
+		const stored = await admin.execute(sql`SELECT count(*)::int AS n FROM four_cs WHERE person_id=${p.id}::uuid`);
+		assert.equal(stored.rows[0].n, 0);
+	} finally {
+		beforeSend = null;
+		await changed;
+		await identity(false);
+		await zone("America/New_York");
+	}
+});

@@ -81,8 +81,8 @@ export async function personFacts(
 		.where(
 			and(eq(tables.person.id, id), eq(tables.person.tenant_id, plant), eq(tables.person.plant_id, plant), visible),
 		);
-	// A native write's first attempt checks this read again in its final statement.
-	const [row] = (await checkedRead(tx, query.getSQL(), null)) ?? (await query);
+	// A native write's first attempt checks this read again in its final statement, with the Person row locked.
+	const [row] = (await checkedRead(tx, query.getSQL(), sql`FOR UPDATE OF ${tables.person}`)) ?? (await query);
 	if (!row) deny();
 	return { ...factRow.parse(row), extra: row.extra };
 }

@@ -263,7 +263,9 @@ export function deferWrite(tx: Transaction, authority: RequestActor, selected: O
  * The same lock order as lockWriteAuthority: session and account, seats, then the owner root. The observed seat must
  * still be the actor's one live seat with the same role and revision. The statement never waits for a lock: its
  * snapshot is taken before its locks, so after a wait it could miss what the lock holder committed. A held lock fails
- * the statement at once, and the command runs the established way, which waits.
+ * the statement at once, and the command runs the established way, which waits. A writer that changed the account or
+ * the root and committed between the snapshot and the lock leaves a newer version than the snapshot sees: the locked
+ * row's `xmin` then differs from the snapshot's, and the statement refuses too.
  */
 export function writeAuthority(write: DeferredWrite): SQL {
 	const { authority, selected, actor } = write;
@@ -285,21 +287,28 @@ export function writeAuthority(write: DeferredWrite): SQL {
  SELECT i.account_id, i.verified FROM (SELECT set_config('lock_timeout','1ms',true)) g
  CROSS JOIN LATERAL invitation_identity(${authority.session}::uuid) i LIMIT 1
 ), evf_account AS MATERIALIZED (
- SELECT a.id, a.registration_state FROM account a JOIN evf_principal p ON a.id=p.account_id FOR UPDATE OF a NOWAIT
+ SELECT a.id, a.registration_state, a.xmin::text AS version FROM account a JOIN evf_principal p ON a.id=p.account_id
+ FOR UPDATE OF a NOWAIT
 ), evf_seats AS MATERIALIZED (
  SELECT s.id, s.plant_id, s.organization_id, s.role, s.revision::text AS revision, s.accepted_at
  FROM seat s JOIN evf_account a ON s.account_id=a.id WHERE s.ended_at IS NULL ORDER BY s.id FOR SHARE OF s NOWAIT
 ), evf_root AS MATERIALIZED (${
 		root
-			? sql`SELECT r.id FROM ${root} r WHERE r.id=${selected.id}::uuid AND EXISTS(SELECT FROM evf_account)
+			? sql`SELECT r.id, r.xmin::text AS version FROM ${root} r WHERE r.id=${selected.id}::uuid AND EXISTS(SELECT FROM evf_account)
  AND (SELECT count(*) FROM evf_seats)<=1 FOR UPDATE OF r NOWAIT`
-			: sql`SELECT NULL::uuid AS id WHERE false`
+			: sql`SELECT NULL::uuid AS id, NULL::text AS version WHERE false`
 	}), evf_auth AS MATERIALIZED (SELECT (
  EXISTS(SELECT FROM evf_principal p JOIN evf_account a ON a.id=p.account_id
   WHERE p.verified AND a.id=${actor.accountId}::uuid AND a.registration_state='active')
  AND (SELECT count(*) FROM evf_seats)<=1
  AND EXISTS(SELECT FROM tenant t WHERE t.id=${selected.id}::uuid AND t.kind=${selected.kind})
- AND ${seat} AND ${writeVisibility(actor.accountId, selected)}) AS allowed)`;
+ AND ${seat} AND ${writeVisibility(actor.accountId, selected)}
+ AND (SELECT version FROM evf_account)=(SELECT xmin::text FROM account WHERE id=${actor.accountId}::uuid)
+ ${
+		root
+			? sql`AND (SELECT version FROM evf_root)=(SELECT xmin::text FROM ${root} WHERE id=${selected.id}::uuid)`
+			: sql``
+ }) AS allowed)`;
 }
 
 /** Server-only authority for one request. Constructed from a live session, never from JSON. */
