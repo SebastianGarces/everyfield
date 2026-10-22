@@ -640,9 +640,9 @@ test("BUG-plan-context: plan and brief use the same manifest acceptance scope, i
 		const apiBrief = renderBrief(f.root, parseTask("WP-005/api"), {});
 		assert.match(
 			apiBrief,
-			/Performance budget \(docs\/architecture\/patterns\.md, D69, D70\):\nEvery simple read or write finishes in under one second end to end on a production build\.[^\n]* A simple write uses a fixed number of statements, about four to six including BEGIN and COMMIT/,
+			/Performance budget \(docs\/architecture\/patterns\.md, D69, D70\):\nEvery simple read or write finishes in under one second end to end on a production build\.[^\n]* A simple write request sends at most six statements, independent of data size: the session lookup, then the write\./,
 		);
-		assert.match(apiBrief, /statement-count test at the production boundary for each new write and page read/);
+		assert.match(apiBrief, /its measured budget in tests\/integration\/writes\/limits\.json/);
 		const ui = renderBrief(f.root, parseTask("WP-005/ui"), {});
 		assert.doesNotMatch(ui, /Performance budget/);
 		assert.match(ui, /Design prototype: design\/everyfield-ui\.html/);

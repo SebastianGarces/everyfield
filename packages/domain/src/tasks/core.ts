@@ -14,7 +14,6 @@ import {
 	finishAudit,
 	prepareWrite,
 	WriteUnavailable,
-	type WritePath,
 	type AuditWrite,
 } from "../operations/writes.ts";
 
@@ -147,34 +146,28 @@ export const hash = (v: unknown) => createHash("sha256").update(stable(v)).diges
 export type Command = AuditWrite & { actor: Writer };
 /** Any command that may append task changes: a task command, or another domain's command that generates tasks. */
 export type AuditCommand = AuditWrite & { actor: { accountId: string; plantId: string } };
-/**
- * Each task and follow-up write's path (C88, operations/writes.ts). All are established: each reads
- * other rows, counts or the church's settings. A write that only checks rows its final statement locks may declare
- * "single" here.
- */
-export const taskWritePaths = {
-	"followups.correctOutcome": "established",
-	"followups.recordOutcome": "established",
-	"tasks.assignFollowUp": "established",
-	"tasks.bulkComplete": "established",
-	"tasks.bulkReschedule": "established",
-	"tasks.changeStatus": "established",
-	"tasks.complete": "established",
-	"tasks.completeOccurrence": "established",
-	"tasks.configureRecurrence": "established",
-	"tasks.create": "established",
-	"tasks.createFollowUp": "established",
-	"tasks.createSubtask": "established",
-	"tasks.delete": "established",
-	"tasks.edit": "established",
-	"tasks.executeHandoff": "established",
-	"tasks.removeSubtask": "established",
-	"tasks.reopen": "established",
-	"tasks.replacePrerequisites": "established",
-	"tasks.setSubtaskCompletion": "established",
-	"tasks.waive": "established",
-} as const satisfies Record<string, WritePath>;
-export type TaskWrite = keyof typeof taskWritePaths;
+/** Every task and follow-up write name. The wrapper declares each write established (C88), so one declaration decides the path. */
+export type TaskWrite =
+	| "followups.correctOutcome"
+	| "followups.recordOutcome"
+	| "tasks.assignFollowUp"
+	| "tasks.bulkComplete"
+	| "tasks.bulkReschedule"
+	| "tasks.changeStatus"
+	| "tasks.complete"
+	| "tasks.completeOccurrence"
+	| "tasks.configureRecurrence"
+	| "tasks.create"
+	| "tasks.createFollowUp"
+	| "tasks.createSubtask"
+	| "tasks.delete"
+	| "tasks.edit"
+	| "tasks.executeHandoff"
+	| "tasks.removeSubtask"
+	| "tasks.reopen"
+	| "tasks.replacePrerequisites"
+	| "tasks.setSubtaskCompletion"
+	| "tasks.waive";
 /**
  * One retry-safe command (D70): the request key replays the stored answer, the body queues its changes and audit rows
  * on the command, and finishAudit runs them in one statement. `after` runs in the same transaction once the changes
@@ -187,7 +180,6 @@ export async function command<T>(
 	input: { requestKey: string },
 	body: (command: Command) => Promise<{ value: T; after?: () => Promise<unknown> }>,
 ): Promise<T> {
-	await declareWrite(tx, taskWritePaths[operation]);
 	const actor = await writerOf(tx, context);
 	const identity = requestIdentity.parse({
 		owner: context.selected,
