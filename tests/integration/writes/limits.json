@@ -508,7 +508,7 @@
 		"limit": 5
 	},
 	"native.people.executeBulkImport": {
-		"limit": 2
+		"limit": 5
 	},
 	"native.people.exportPeople": {
 		"limit": 3
@@ -904,6 +904,14 @@
 	"people/core.withPeopleWrite": {
 		"limit": 6,
 		"retry": 8
+	},
+	"people/core.withPeopleWrite:people/csv/index.executeBulkImport": {
+		"limit": 5,
+		"retry": 10
+	},
+	"people/csv/index.executeBulkImport": {
+		"limit": 5,
+		"retry": 10
 	},
 	"people/fields/index.uploadPersonPhoto": {
 		"limit": 16,
