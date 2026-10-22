@@ -71,8 +71,8 @@
   "as_of": "2026-10-17",
   "implementation_authorized": false,
   "table_count": 90,
-  "column_count": 1025,
-  "foreign_key_count": 320,
+  "column_count": 1026,
+  "foreign_key_count": 321,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -12006,7 +12006,7 @@
     {
       "name": "commitment_change",
       "domain": "people",
-      "purpose": "One explicit dated withdrawal or reactivation of a Person's commitment. With the valid cards it is the whole input of the current commitment; person.commitment_state and commitment_effective_on cache that one function. The audit row with the same ID names the actor.",
+      "purpose": "One explicit dated withdrawal or reactivation of a Person's commitment, with the account that recorded it. With the valid cards it is the whole input of the current commitment; person.commitment_state and commitment_effective_on cache that one function. The audit row with the same ID holds the history entry.",
       "library_owned": false,
       "jsonb_keys": {},
       "capabilities": [
@@ -12073,6 +12073,12 @@
           "nullable": false
         },
         {
+          "note": "The account that recorded the change; null once that account is deleted.",
+          "name": "actor_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
           "note": "",
           "name": "recorded_at",
           "type": "timestamptz",
@@ -12085,6 +12091,22 @@
       ],
       "unique_keys": [],
       "foreign_keys": [
+        {
+          "deletion": {
+            "action": "set_null",
+            "policy": "Account deletion keeps the change and clears its actor, as audit does."
+          },
+          "columns": [
+            "actor_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null"
+        },
         {
           "deletion": {
             "action": "cascade",
@@ -12165,6 +12187,7 @@
         "unique": [],
         "foreign": [
           "commitment_change_plant_id_plant_id_fk",
+          "commitment_change_actor_id_account_id_fk",
           "commitment_change_person"
         ],
         "checks": [

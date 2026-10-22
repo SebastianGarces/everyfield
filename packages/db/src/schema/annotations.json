@@ -16501,7 +16501,7 @@
 			"table": {
 				"name": "commitment_change",
 				"domain": "people",
-				"purpose": "One explicit dated withdrawal or reactivation of a Person's commitment. With the valid cards it is the whole input of the current commitment; person.commitment_state and commitment_effective_on cache that one function. The audit row with the same ID names the actor.",
+				"purpose": "One explicit dated withdrawal or reactivation of a Person's commitment, with the account that recorded it. With the valid cards it is the whole input of the current commitment; person.commitment_state and commitment_effective_on cache that one function. The audit row with the same ID holds the history entry.",
 				"library_owned": false,
 				"jsonb_keys": {},
 				"capabilities": ["CAP-A-027", "CAP-A-028"],
@@ -16541,6 +16541,9 @@
 				"effective_on": {
 					"note": ""
 				},
+				"actor_id": {
+					"note": "The account that recorded the change; null once that account is deleted."
+				},
 				"recorded_at": {
 					"note": ""
 				}
@@ -16556,6 +16559,12 @@
 					"deletion": {
 						"action": "cascade",
 						"policy": "A commitment change goes with its Person."
+					}
+				},
+				"actor_id->account(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Account deletion keeps the change and clears its actor, as audit does."
 					}
 				}
 			}

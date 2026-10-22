@@ -1,10 +1,10 @@
 import { closeDatabase, database } from "@everyfield/db/client";
 import { backfill, migrate } from "@everyfield/db/migrate";
-import { commitmentCacheBackfill } from "../src/people/commitments/backfill.ts";
+import { commitmentCacheBackfill, mergeReferencesBackfill } from "../src/people/commitments/backfill.ts";
 
 // db:migrate, the only migration runner (C102): the SQL migrations, then the registered one-time backfills, which use
 // domain rules and so live here rather than in packages/db.
-const backfills = [commitmentCacheBackfill()];
+const backfills = [commitmentCacheBackfill(), mergeReferencesBackfill()];
 
 const db = database();
 try {

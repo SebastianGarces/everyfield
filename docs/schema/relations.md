@@ -45,6 +45,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `commitment(object_id, plant_id)` | `file_object(id, tenant_id)` | restrict |  |
 | `commitment(corrected_commitment_id, plant_id)` | `commitment(id, plant_id)` | restrict |  |
 | `commitment(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
+| `commitment_change(actor_id)` | `account(id)` | set_null |  |
 | `commitment_change(person_id, plant_id)` | `person(id, tenant_id)` | cascade |  |
 | `commitment_change(plant_id)` | `plant(id)` | no_action |  |
 | `contact_outcome(plant_id)` | `plant(id)` | restrict |  |

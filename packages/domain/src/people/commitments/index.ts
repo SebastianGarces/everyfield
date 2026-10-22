@@ -132,7 +132,7 @@ async function lifecycle(tx: Tx, ctx: WriteContext, raw: unknown, to: "withdrawn
 		const name = to === "withdrawn" ? "people.withdrawCommitment" : "people.reactivateCommitment";
 		const input = parse(to === "withdrawn" ? c.withdrawCommitmentRequest : c.reactivateCommitmentRequest, raw);
 		return c.commitmentLifecycleResult.parse(
-			await mutation<unknown>(tx, ctx, name, input, async (_actor, receiptId, audit) => {
+			await mutation<unknown>(tx, ctx, name, input, async (actor, receiptId, audit) => {
 				const { personId, effectiveOn, reason } = input.input;
 				const p = await subject(tx, ctx, personId, inputsOf(sql`${personId}::uuid`, plant));
 				expectRevision(p.revision, input.expectedRevision);
@@ -162,6 +162,7 @@ async function lifecycle(tx: Tx, ctx: WriteContext, raw: unknown, to: "withdrawn
 						person_id: p.id,
 						kind,
 						effective_on: effectiveOn,
+						actor_id: actor,
 					}),
 					...personUpdate(tx, plant, p, set),
 				);

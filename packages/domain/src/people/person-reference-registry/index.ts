@@ -78,7 +78,7 @@ const kindOf = new Map(tracked.map((e) => [`${e.table}.${e.column}`, e.kind]));
  * Every tracked reference to `person` in one owner, as one JSON array: kind, row key and revision. One scalar subquery
  * per registration over its Person index, so the statement count never grows with data size.
  */
-export function referencesOf(person: SQL, owner: string): SQL {
+export function referencesOf(person: SQL, owner: string | SQL): SQL {
 	const parts = tracked.map(
 		(e) =>
 			sql`SELECT ${`${e.table}.${e.column}`}::text AS k,x.${sql.identifier(e.key)} AS id,${e.revision ? sql`x.revision::text` : sql`NULL::text`} AS r

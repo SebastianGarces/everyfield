@@ -5054,8 +5054,8 @@ export const record_correction = pgTable(
 /**
  * One explicit dated change of a Person's commitment (REQ-PPL-014, REQ-PPL-026): a withdrawal or a reactivation, with
  * its effective church-local date. With the valid cards it is the whole input of the current commitment (C100); the
- * Person's commitment columns are a cache of that one function. The audit row with the same ID names the actor; the
- * recorded instant orders events on the same date.
+ * Person's commitment columns are a cache of that one function. The actor is the account that recorded it (null once
+ * that account is deleted); the recorded instant orders events on the same date. The audit row has the same ID.
  */
 export const commitment_change = pgTable(
 	"commitment_change",
@@ -5067,6 +5067,7 @@ export const commitment_change = pgTable(
 		person_id: uuid("person_id").notNull(),
 		kind: text("kind", { enum: ["withdrawn", "reactivated"] }).notNull(),
 		effective_on: date("effective_on", { mode: "string" }).notNull(),
+		actor_id: uuid("actor_id").references(() => account.id, { onDelete: "set null" }),
 		recorded_at: timestamp("recorded_at", { withTimezone: true, mode: "date" })
 			.notNull()
 			.default(sql`clock_timestamp()`),

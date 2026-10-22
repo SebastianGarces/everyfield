@@ -81,7 +81,7 @@ export function parseFacts(raw: unknown): Facts | null {
  * One Person with every tracked reference, read in the statement that holds `gate`. Removed organization people are
  * missing, like every other People read.
  */
-export const factsOf = (id: SQL, owner: string) =>
+export const factsOf = (id: SQL, owner: string | SQL) =>
 	sql`(SELECT to_jsonb(p)||jsonb_build_object('revision',p.revision::text,'pipeline_position',p.pipeline_position::text,
  'refs',${referencesOf(sql`p.id`, owner)},'commitment_inputs',${commitmentInputsJson(sql`p.id`, sql`${owner}::uuid`)}) FROM person p WHERE p.id=${id} AND p.tenant_id=${owner}::uuid
  AND NOT EXISTS(SELECT FROM organization_person_removal w WHERE w.person_record_id=p.id AND w.organization_id=p.tenant_id))`;

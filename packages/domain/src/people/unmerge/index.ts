@@ -7,6 +7,7 @@ import { deny, mutation, parse, readReply, reply, type Context, type Tx, type Wr
 import { factsOf, moveRefs, parseFacts, referencesDigest, updatePerson, type Facts } from "../merge/index.ts";
 import { columnsChanged, freshPosition, sameColumn } from "../people.ts";
 import { lockPair } from "../person-reference-registry/index.ts";
+import { commitmentOf, type CommitmentInputs } from "../commitments/lifecycle.ts";
 
 type Kind = z.infer<typeof c.referenceKind>;
 const mergeRow = z.object({
@@ -70,6 +71,26 @@ function inverse(merge: Merge, source: Facts, survivor: Facts) {
 		Object.keys(merge.prior.survivor).some((col) => fieldOf(col) === f),
 	);
 	return { conflicts, restores, fields };
+}
+/**
+ * C100: after Unmerge each Person's commitment is the one function of its own valid cards and dated changes again: the
+ * ones the merge moved go back to the source. Recomputed rather than restored, so a value cached before C100 never
+ * comes back.
+ */
+function commitments(merge: Merge, source: Facts, survivor: Facts) {
+	const back = new Set([...(merge.moved.commitment ?? []), ...(merge.moved.commitment_change ?? [])]);
+	const cache = (c: CommitmentInputs) => {
+		const next = commitmentOf(c);
+		return { commitment_state: next.state, commitment_effective_on: next.effectiveOn };
+	};
+	const { cards, changes } = survivor.commitment;
+	return {
+		survivor: cache({ cards: cards.filter((x) => !back.has(x.id)), changes: changes.filter((x) => !back.has(x.id)) }),
+		source: cache({
+			cards: [...source.commitment.cards, ...cards.filter((x) => back.has(x.id))],
+			changes: [...source.commitment.changes, ...changes.filter((x) => back.has(x.id))],
+		}),
+	};
 }
 const fieldColumns: Record<string, z.infer<typeof c.mergeField>> = {
 	display_name: "displayName",
@@ -167,6 +188,7 @@ export const peopleUnmerge = {
 						);
 					const stage = survivor.stage;
 					const restoredStage = (merge.prior.survivor.stage as string | undefined) ?? stage;
+					const split = kind === "plant" ? commitments(merge, source, survivor) : null;
 					audit.writes.push(
 						updatePerson(owner, source.id, {
 							state: "live",
@@ -174,8 +196,9 @@ export const peopleUnmerge = {
 							retired_at: null,
 							...merge.prior.source,
 							...(kind === "plant" ? { pipeline_position: freshPosition(source.id) } : {}),
+							...split?.source,
 						}),
-						updatePerson(owner, survivor.id, merge.prior.survivor),
+						updatePerson(owner, survivor.id, { ...merge.prior.survivor, ...split?.survivor }),
 					);
 					if (kind === "plant")
 						audit.writes.push(

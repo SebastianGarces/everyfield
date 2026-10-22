@@ -1,5 +1,5 @@
 {
-  "id": "53767e60-d899-4c2f-b7fc-659a77527049",
+  "id": "66f3b14a-b524-45f5-9a5e-ee59f115584f",
   "prevId": "93a22037-6887-43f7-98f7-658f25403868",
   "version": "7",
   "dialect": "postgresql",
@@ -2585,6 +2585,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "actor_id": {
+          "name": "actor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "recorded_at": {
           "name": "recorded_at",
           "type": "timestamp with time zone",
@@ -2640,6 +2646,19 @@
             "id"
           ],
           "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "commitment_change_actor_id_account_id_fk": {
+          "name": "commitment_change_actor_id_account_id_fk",
+          "tableFrom": "commitment_change",
+          "tableTo": "account",
+          "columnsFrom": [
+            "actor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         },
         "commitment_change_person": {

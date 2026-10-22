@@ -13,7 +13,11 @@ import {
 	commitmentInputsJson,
 	commitmentOf,
 } from "../../../../packages/domain/src/people/commitments/lifecycle.ts";
-import { commitmentCacheBackfill } from "../../../../packages/domain/src/people/commitments/backfill.ts";
+import {
+	commitmentCacheBackfill,
+	mergeReferencesBackfill,
+} from "../../../../packages/domain/src/people/commitments/backfill.ts";
+import { factsOf, parseFacts, referencesDigest } from "../../../../packages/domain/src/people/merge/index.ts";
 import { backfill } from "../../../../packages/db/src/schema/migrate.ts";
 import {
 	assessments,
@@ -830,9 +834,47 @@ test("INV-commitment (C100): after every command sequence the cached commitment 
 			],
 			expect: { a: ["withdrawn", 5] },
 		},
+		{
+			name: "verifier: a cache written before C100 never comes back on unmerge (empty source)",
+			steps: [
+				["card", "a", 6],
+				["card", "a", 10],
+				["stale", "a", 6],
+				["merge", "b", "a"],
+				["unmerge", "a"],
+			],
+			expect: { a: ["active", 10], b: ["unknown", null] },
+		},
+		{
+			name: "verifier: a cache written before C100 never comes back on unmerge (source with a card)",
+			steps: [
+				["card", "a", 6],
+				["card", "a", 10],
+				["stale", "a", 6],
+				["card", "b", 2],
+				["merge", "b", "a"],
+				["unmerge", "a"],
+			],
+			expect: { a: ["active", 10], b: ["active", 2] },
+		},
+		{
+			name: "a merge made before C100 unmerges after the merge backfill and gives the source its withdrawal back",
+			steps: [
+				["card", "a", 6],
+				["card", "b", 8],
+				["withdraw", "b", 4],
+				["merge", "b", "a"],
+				["legacy", "a"],
+				["merge backfill", "a"],
+				["unmerge", "a"],
+			],
+			expect: { a: ["active", 6], b: ["withdrawn", 4] },
+		},
 	];
 	const merged = new Map(),
-		everyone = [];
+		everyone = [],
+		// People made stale by hand, until a merge or Unmerge recomputes them.
+		edited = new Set();
 	for (const { name, steps, expect } of cases) {
 		const people = {},
 			cards = {};
@@ -894,6 +936,7 @@ test("INV-commitment (C100): after every command sequence the cached commitment 
 					),
 				);
 				merged.set(people[b], done.mergeId);
+				edited.delete(people[b]);
 			} else if (op === "unmerge") {
 				const mergeId = merged.get(people[a]);
 				const preview = ok(await tx((t) => peopleUnmerge.previewUnmerge(t, ctx(), { mergeId })));
@@ -906,9 +949,32 @@ test("INV-commitment (C100): after every command sequence the cached commitment 
 						}),
 					),
 				);
+			} else if (op === "stale") {
+				// A value cached by main before C100: the first recorded card's date.
+				await admin.execute(sql`UPDATE person SET commitment_state='active',commitment_effective_on=${sql.param(day(b))}
+ WHERE id=${sql.param(people[a])}`);
+				edited.add(people[a]);
+				continue;
+			} else if (op === "legacy") {
+				// The merge as main recorded it: no commitment_change in its moved list or reviewed digest.
+				const mergeId = merged.get(people[a]);
+				const [f] = await rows(sql`SELECT ${factsOf(sql`${sql.param(people[a])}::uuid`, plants[0])} AS f`);
+				const before = parseFacts(f.f).refs.filter((r) => r.kind !== "commitment_change");
+				await admin.execute(sql`UPDATE person_merge SET moved=moved-'commitment_change',
+ references_digest=${sql.param(referencesDigest(before))} WHERE id=${sql.param(mergeId)}`);
+				// Without the merge backfill this merge could never be undone.
+				assert.deepEqual(ok(await tx((t) => peopleUnmerge.previewUnmerge(t, ctx(), { mergeId }))).conflicts, [
+					"references_changed",
+				]);
+				continue;
+			} else if (op === "merge backfill") {
+				assert.deepEqual(await backfill(admin, [mergeReferencesBackfill(1)], schema), [
+					{ name: "merge_references_c100", changed: 1 },
+				]);
 			}
 			// The invariant: every live Person's cache equals the function of its inputs, after every step.
-			for (const personId of Object.values(people)) {
+			if (op === "unmerge") edited.clear();
+			for (const personId of Object.values(people).filter((id) => !edited.has(id))) {
 				const [row] = await rows(sql`SELECT p.state,p.commitment_state,p.commitment_effective_on::text AS on,
  ${commitmentInputsJson(sql`p.id`, sql`p.plant_id`)} AS inputs FROM person p WHERE p.id=${sql.param(personId)}`);
 				if (row.state !== "live") continue;
@@ -921,7 +987,7 @@ test("INV-commitment (C100): after every command sequence the cached commitment 
 		}
 		for (const [letter, [state, n]] of Object.entries(expect)) {
 			const { state: s, effectiveOn } = await current(people[letter]);
-			assert.deepEqual([s, effectiveOn], [state, day(n)], name);
+			assert.deepEqual([s, effectiveOn], [state, n === null ? null : day(n)], name);
 		}
 	}
 	// C101: db:migrate's one-time backfill makes stale caches (written before C100) equal the function. It changes only
