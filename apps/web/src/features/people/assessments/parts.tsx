@@ -362,7 +362,12 @@ function DialogNotice() {
  */
 function NoticeRegion({ notice, busy, onDismiss, className }: NoticeProps & { className?: string }) {
 	const key = notice ? noticeKey(notice) : null;
-	const isNew = key !== null && !announced.has(key);
+	// Decided once, when this region first shows the notice: later renders keep the same wrapper, so the notice is
+	// neither moved nor silenced while it stays here.
+	const [shown, setShown] = useState<{ key: string | null; isNew: boolean }>({ key: null, isNew: false });
+	const now = shown.key === key ? shown : { key, isNew: key !== null && !announced.has(key) };
+	if (now !== shown) setShown(now);
+	const isNew = now.isNew;
 	useEffect(() => {
 		if (key) announced.add(key);
 	}, [key]);
