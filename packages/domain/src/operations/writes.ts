@@ -234,11 +234,13 @@ class WriteSession {
 	private readonly checks: Check[] = [];
 	private readonly send: PoolClient["query"];
 	private readonly own: PropertyDescriptor | undefined;
-	constructor(
-		private readonly client: PoolClient,
-		private readonly authority: RequestActor,
-		private readonly selected: Owner,
-	) {
+	private readonly client: PoolClient;
+	private readonly authority: RequestActor;
+	private readonly selected: Owner;
+	constructor(client: PoolClient, authority: RequestActor, selected: Owner) {
+		this.client = client;
+		this.authority = authority;
+		this.selected = selected;
 		this.own = Object.getOwnPropertyDescriptor(client, "query");
 		this.send = client.query.bind(client);
 		const route = (config: string | { text: string }, values?: unknown) =>
