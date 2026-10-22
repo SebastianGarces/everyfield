@@ -100,6 +100,21 @@ export async function readPersonFollowUps(
 	return { history: okOrNull(history), obligations: okOrNull(obligations), duties: okOrNull(duties) };
 }
 
+/**
+ * The Person page's follow-up part in its own short read transaction, so the person page can run it beside its own read.
+ * A database failure reads as null; each card then says it did not load.
+ */
+export async function loadPersonFollowUps(authority: RequestActor, personId: string): Promise<PersonFollowUps | null> {
+	const db = requestDatabase();
+	if (!db) return null;
+	try {
+		return await db.transaction((tx) => readPersonFollowUps(tx, authority, personId));
+	} catch (error) {
+		console.error(JSON.stringify({ component: "followups", outcome: "read_failed", error: String(error) }));
+		return null;
+	}
+}
+
 /** The follow-up call page's data (REQ-MTG-022): the task, its Person's ways to reach them and the 48-hour origin. */
 export type CallData = {
 	task: TaskDetail;
