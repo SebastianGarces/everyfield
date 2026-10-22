@@ -9,11 +9,18 @@ import { migrate } from "../../../../packages/db/src/schema/migrate.ts";
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import { PeopleReadContext } from "../../../../packages/domain/src/people/core.ts";
 import {
+	commitmentInputs,
+	commitmentInputsJson,
+	commitmentOf,
+} from "../../../../packages/domain/src/people/commitments/lifecycle.ts";
+import {
 	assessments,
 	commitments,
 	getCommitmentDownload,
 	interviews,
+	peopleMerge,
 	peopleReader,
+	peopleUnmerge,
 	peopleWriter as people,
 	recordCorrections,
 	saveCommitmentDocument,
@@ -726,6 +733,194 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 RT-2 
 			byteCount: png.length,
 		});
 	assert.equal(await unattached(later[1]), false);
+});
+
+test("INV-commitment (C100): after every command sequence the cached commitment equals the one function of the valid cards and dated changes", async () => {
+	// Each step names a Person by letter. Expected values come from the rules: the earliest valid signed date starts the
+	// commitment, a withdrawal ends it, only a later card or an explicit reactivation restarts it.
+	const cases = [
+		{
+			name: "late-recorded earlier card moves the start date",
+			steps: [
+				["card", "a", 6],
+				["card", "a", 4],
+				["card", "a", 2],
+			],
+			expect: { a: ["active", 6] },
+		},
+		{
+			name: "correct and void the starting card",
+			steps: [
+				["card", "a", 6, "k1"],
+				["correct", "k1", 8],
+				["card", "a", 4],
+				["void", "k1"],
+			],
+			expect: { a: ["active", 4] },
+		},
+		{
+			name: "void a card that restarted a withdrawn commitment",
+			steps: [
+				["card", "a", 6],
+				["withdraw", "a", 3],
+				["card", "a", 1, "k2"],
+				["void", "k2"],
+			],
+			expect: { a: ["withdrawn", 3] },
+		},
+		{
+			name: "verifier: explicit reactivation survives voiding a same-date repeat card",
+			steps: [
+				["card", "a", 10],
+				["withdraw", "a", 8],
+				["reactivate", "a", 6],
+				["card", "a", 6, "k3"],
+				["void", "k3"],
+			],
+			expect: { a: ["active", 6] },
+		},
+		{
+			name: "an older signature never overrides a withdrawal",
+			steps: [
+				["card", "a", 5],
+				["withdraw", "a", 2],
+				["card", "a", 9],
+			],
+			expect: { a: ["withdrawn", 2] },
+		},
+		{
+			name: "a withdrawal dated before a later card is refused",
+			steps: [
+				["card", "a", 6],
+				["card", "a", 2],
+				["withdraw!", "a", 4],
+			],
+			expect: { a: ["active", 6] },
+		},
+		{
+			name: "verifier: merge, then void the survivor's card; the source's card remains",
+			steps: [
+				["card", "a", 1, "k4"],
+				["card", "b", 10],
+				["merge", "b", "a"],
+				["void", "k4"],
+			],
+			expect: { a: ["active", 10] },
+		},
+		{
+			name: "merge combines both histories; unmerge gives each Person its own again",
+			steps: [
+				["card", "a", 6],
+				["withdraw", "a", 3],
+				["card", "b", 2],
+				["merge", "b", "a"],
+				["unmerge", "a"],
+			],
+			expect: { a: ["withdrawn", 3], b: ["active", 2] },
+		},
+		{
+			name: "merge of a withdrawn source into an active survivor",
+			steps: [
+				["card", "a", 9],
+				["card", "b", 8],
+				["withdraw", "b", 5],
+				["merge", "b", "a"],
+			],
+			expect: { a: ["withdrawn", 5] },
+		},
+	];
+	const merged = new Map();
+	for (const { name, steps, expect } of cases) {
+		const people = {},
+			cards = {};
+		for (const letter of new Set(steps.flatMap((s) => s.slice(1).filter((x) => /^[ab]$/.test(x)))))
+			people[letter] = (await person("Inv " + letter + " " + name.slice(0, 20))).id;
+		const current = async (personId) => ok(await tx((t) => commitments.getCommitments(t, ctx(), { personId }))).current;
+		const card = async (id) =>
+			(await rows(sql`SELECT revision::text r FROM commitment WHERE id=${sql.param(id)}`))[0].r;
+		for (const [op, a, b, c] of steps) {
+			const at = `${name}: ${op} ${a} ${b ?? ""}`;
+			if (op === "card") {
+				const saved = ok(
+					await tx((t) =>
+						commitments.createCommitment(t, ctx(), {
+							requestKey: key(),
+							input: { personId: people[a], kind: "core_group", occurredOn: day(b) },
+						}),
+					),
+				);
+				if (c) cards[c] = saved.commitment.id;
+			} else if (op === "correct" || op === "void") {
+				const correction = op === "void" ? { action: "void" } : { action: "correct", occurredOn: day(b) };
+				ok(
+					await tx(async (t) =>
+						commitments.correctCommitmentLifecycle(t, ctx(), {
+							requestKey: key(),
+							expectedRevision: await card(cards[a]),
+							input: { commitmentId: cards[a], correction, reason: "Sequence " + op },
+						}),
+					),
+					at,
+				);
+			} else if (op === "withdraw" || op === "withdraw!" || op === "reactivate") {
+				const change = op === "reactivate" ? commitments.reactivateCommitment : commitments.withdrawCommitment;
+				const result = await tx(async (t) =>
+					change(t, ctx(), {
+						requestKey: key(),
+						expectedRevision: (await current(people[a])).personRevision,
+						input: { personId: people[a], effectiveOn: day(b) },
+					}),
+				);
+				if (op === "withdraw!") refused(result, "invalid_input");
+				else ok(result, at);
+			} else if (op === "merge") {
+				const review = ok(
+					await tx((t) => peopleMerge.getMergeReview(t, ctx(), { sourceId: people[a], survivorId: people[b] })),
+				);
+				const done = ok(
+					await tx((t) =>
+						peopleMerge.mergePeople(t, ctx(), {
+							requestKey: key(),
+							input: {
+								sourceId: people[a],
+								survivorId: people[b],
+								reviewDigest: review.reviewDigest,
+								fieldChoices: {},
+							},
+						}),
+					),
+				);
+				merged.set(people[b], done.mergeId);
+			} else if (op === "unmerge") {
+				const mergeId = merged.get(people[a]);
+				const preview = ok(await tx((t) => peopleUnmerge.previewUnmerge(t, ctx(), { mergeId })));
+				ok(
+					await tx((t) =>
+						peopleUnmerge.unmergePeople(t, ctx(), {
+							requestKey: key(),
+							expectedRevision: preview.reviewRevision,
+							input: { mergeId },
+						}),
+					),
+				);
+			}
+			// The invariant: every live Person's cache equals the function of its inputs, after every step.
+			for (const personId of Object.values(people)) {
+				const [row] = await rows(sql`SELECT p.state,p.commitment_state,p.commitment_effective_on::text AS on,
+ ${commitmentInputsJson(sql`p.id`, sql`p.plant_id`)} AS inputs FROM person p WHERE p.id=${sql.param(personId)}`);
+				if (row.state !== "live") continue;
+				assert.deepEqual(
+					{ state: row.commitment_state, effectiveOn: row.on },
+					commitmentOf(commitmentInputs.parse(row.inputs)),
+					at,
+				);
+			}
+		}
+		for (const [letter, [state, n]] of Object.entries(expect)) {
+			const { state: s, effectiveOn } = await current(people[letter]);
+			assert.deepEqual([s, effectiveOn], [state, day(n)], name);
+		}
+	}
 });
 
 test("C88 RT-2: a save that meets a held lock waits the established way and sees what the holder committed", async () => {

@@ -43,6 +43,8 @@ export const registry: readonly Registration[] = [
 	r("interview", "interview", "person_id", "plant_id", "move"),
 	r("commitment", "commitment", "person_id", "plant_id", "move"),
 	r("correction", "record_correction", "person_id", "plant_id", "move", "id", false),
+	// A withdrawal or reactivation moves with its Person; the survivor's commitment is recomputed from both (C100).
+	r("commitment_change", "commitment_change", "person_id", "plant_id", "move", "id", false),
 	// People merged into the source earlier now redirect to the survivor, so lineage stays one step and acyclic.
 	r("merged_person", "person", "merged_into_person_id", "tenant_id", "move"),
 	// A witness is evidence of who signed with the card; it stays the Person it was.

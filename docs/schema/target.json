@@ -70,9 +70,9 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 88,
-  "column_count": 1016,
-  "foreign_key_count": 318,
+  "table_count": 89,
+  "column_count": 1022,
+  "foreign_key_count": 320,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -138,6 +138,10 @@
     "commitment.kind": [
       "core_group",
       "launch_team"
+    ],
+    "commitment_change.kind": [
+      "withdrawn",
+      "reactivated"
     ],
     "contact_outcome.outcome": [
       "contacted",
@@ -5738,6 +5742,9 @@
       "WP-050",
       "WP-057",
       "WP-058"
+    ],
+    "commitment_change": [
+      "WP-014"
     ]
   },
   "retired_tables": {
@@ -6425,6 +6432,30 @@
       "inverse_policy": "Moves back with its record on a guarded Unmerge.",
       "retirement_policy": "History stays under current permission and goes with the Person on purge.",
       "privacy_policy": "Private qualification values stay in plant history; never in central audit.",
+      "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
+      "future_case_ids": [
+        "ADR1-017"
+      ]
+    },
+    {
+      "table": "commitment_change",
+      "columns": [
+        "person_id",
+        "plant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-014"
+      ],
+      "meaning": "An explicit dated withdrawal or reactivation of this Person's commitment.",
+      "lock_order": "Lock owner and live same-owner source/survivor Persons in UUID order, then consumer rows; reference inserts take the same Person locks.",
+      "merge_policy": "Moves to the survivor, whose commitment is recomputed from both Persons' cards and changes.",
+      "inverse_policy": "Moves back on a guarded Unmerge; each Person's commitment is its own again.",
+      "retirement_policy": "No new change for a retired or merged Person; history stays under current permission and goes with the Person on purge.",
+      "privacy_policy": "Holds only the kind and date; the actor stays in the audit row.",
       "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
       "future_case_ids": [
         "ADR1-017"
@@ -11970,6 +12001,174 @@
           "commitment_ck_0",
           "commitment_ck_1",
           "commitment_ck_2"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "commitment_change",
+      "domain": "people",
+      "purpose": "One explicit dated withdrawal or reactivation of a Person's commitment. With the valid cards it is the whole input of the current commitment; person.commitment_state and commitment_effective_on cache that one function. The audit row with the same ID names the actor.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-028"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-014"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-014"
+        ],
+        "rule": "WP-014 commitment lifecycle storage through Drizzle Kit (C100)."
+      },
+      "feature_ids": [
+        "PPL-014",
+        "PPL-015"
+      ],
+      "acceptance_ids": [],
+      "future_case_ids": [],
+      "scope": "plant",
+      "invariants": [
+        "A change names a Person of its own church.",
+        "Effective date and kind never change; a merge and its Unmerge move the row with its Person."
+      ],
+      "revision": "Append-only.",
+      "idempotency": "The withdrawal or reactivation audit row's request key returns the recorded result.",
+      "deletion": "Rows cascade with their Person, so church purge removes them.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "person_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "kind",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "effective_on",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "recorded_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "A commitment change goes with its Person."
+          },
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "person",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "no_action",
+            "policy": "Owner purge deletes the people first, which removes their commitment changes."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action"
+        }
+      ],
+      "checks": [
+        "\"commitment_change\".\"kind\" IN ('withdrawn','reactivated')"
+      ],
+      "indexes": {
+        "commitment_change_person_order": {
+          "name": "commitment_change_person_order",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "effective_on",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "recorded_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "commitment_change_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "commitment_change_plant_id_plant_id_fk",
+          "commitment_change_person"
+        ],
+        "checks": [
+          "commitment_change_kind"
         ]
       },
       "policies": {},

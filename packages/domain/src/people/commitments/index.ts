@@ -1,7 +1,7 @@
 import * as c from "@everyfield/contracts/people";
 import type { PeopleContext } from "@everyfield/contracts/people";
 import type { Database } from "@everyfield/db/client";
-import { and, eq, sql } from "@everyfield/db/query";
+import { and, eq, sql, type SQL } from "@everyfield/db/query";
 import {
 	createAuthorizedDownload,
 	readPrivateObject,
@@ -31,6 +31,7 @@ import {
 	type WriteContext,
 } from "../core.ts";
 import { expectRevision, plantId } from "../fields/shared.ts";
+import { commitmentInputs, commitmentInputsJson, commitmentOf, type CurrentCommitment } from "./lifecycle.ts";
 import {
 	adminRead,
 	advance,
@@ -106,36 +107,13 @@ function asSaved(replay: Record<string, unknown>) {
 type State = Subject["commitment_state"];
 const status = (state: State, effectiveOn: string | null, personRevision: string) =>
 	c.commitmentStatus.parse({ state, effectiveOn, personRevision });
-/**
- * REQ-PPL-014 and REQ-PPL-026: a card makes an unknown commitment active. After a withdrawal only a card signed after
- * the withdrawal date makes it active again; an older signature never overrides the withdrawal.
- */
-function afterCard(p: Subject, signedOn: string): { state: State; effectiveOn: string | null } {
-	if (p.commitment_state === "unknown") return { state: "active", effectiveOn: signedOn };
-	if (p.commitment_state === "withdrawn" && signedOn > (p.commitment_effective_on ?? ""))
-		return { state: "active", effectiveOn: signedOn };
-	return { state: p.commitment_state, effectiveOn: p.commitment_effective_on };
-}
 const currentOf = (p: Subject) => ({ state: p.commitment_state, effectiveOn: p.commitment_effective_on });
-
-const commitmentState = z.object({
-	state: z.enum(["active", "withdrawn", "unknown"]),
-	effectiveOn: z.string().nullable(),
-});
-/** A card's activation: the card that made the commitment active and the commitment it replaced. */
-const activation = z.object({ cardId: z.uuid(), replaced: commitmentState });
-/**
- * The record of what set the Person's current commitment: the audit row that last changed it. A card's recording
- * names the card and holds the commitment it replaced; a recomputing correction names the card it chose
- * (`activation`); an explicit withdrawal or reactivation names no card.
- */
-const commitmentSource = z.object({
-	event: z.enum(["commitment_recorded", "commitment_withdrawn", "commitment_reactivated", "commitment_corrected"]),
-	recordId: z.uuid().nullable(),
-	before: z.looseObject({ commitment: z.unknown().optional() }),
-	after: z.looseObject({ activation: activation.optional() }),
-});
-/** The card, the Person's other valid cards and the source of the current commitment. */
+/** The Person's commitment columns that cache `next`, if it differs from what they hold. */
+const cacheOf = (p: Subject, next: CurrentCommitment) =>
+	next.state !== p.commitment_state || next.effectiveOn !== p.commitment_effective_on
+		? { commitment_state: next.state, commitment_effective_on: next.effectiveOn }
+		: {};
+/** The card being corrected and its Person's commitment inputs, read with the locked Person. */
 const cardRow = z.object({
 	id: z.uuid(),
 	person_id: z.uuid(),
@@ -143,29 +121,10 @@ const cardRow = z.object({
 	signed_on: z.string(),
 	revision: z.string(),
 	voided: z.boolean(),
-	others: z.array(z.object({ id: z.uuid(), on: z.string() })),
-	source: commitmentSource.nullable(),
+	inputs: commitmentInputs,
 });
-type Activation = z.infer<typeof activation>;
-/** The activation that set the current commitment, if a card set it; none after an explicit withdrawal or reactivation. */
-function activationOf(p: Subject, source: z.infer<typeof commitmentSource> | null): Activation | null {
-	if (!source || p.commitment_state !== "active") return null;
-	if (source.event === "commitment_recorded" && source.recordId)
-		return { cardId: source.recordId, replaced: commitmentState.parse(source.before.commitment) };
-	return source.event === "commitment_corrected" ? (source.after.activation ?? null) : null;
-}
-/**
- * REQ-PPL-015 and REQ-PPL-026: the current commitment after the card that made it active is corrected or voided. The
- * earliest valid card that still makes it active decides; without one, the commitment that card replaced comes back.
- */
-function reactivatedBy(replaced: Activation["replaced"], valid: { id: string; on: string }[]) {
-	const since = valid
-		.filter((card) => replaced.state !== "withdrawn" || card.on > (replaced.effectiveOn ?? ""))
-		.sort((a, b) => a.on.localeCompare(b.on) || a.id.localeCompare(b.id))[0];
-	if (since)
-		return { current: { state: "active" as const, effectiveOn: since.on }, activation: { cardId: since.id, replaced } };
-	return { current: replaced.state === "withdrawn" ? replaced : { state: "unknown" as const, effectiveOn: null } };
-}
+/** The commitment inputs of the subject Person, read with it. */
+const inputsOf = (person: SQL, plant: string) => commitmentInputsJson(person, sql`${plant}::uuid`);
 
 async function lifecycle(tx: Tx, ctx: WriteContext, raw: unknown, to: "withdrawn" | "active") {
 	return reply(tx, async () => {
@@ -175,31 +134,44 @@ async function lifecycle(tx: Tx, ctx: WriteContext, raw: unknown, to: "withdrawn
 		return c.commitmentLifecycleResult.parse(
 			await mutation<unknown>(tx, ctx, name, input, async (_actor, receiptId, audit) => {
 				const { personId, effectiveOn, reason } = input.input;
-				const p = await subject(tx, ctx, personId);
+				const p = await subject(tx, ctx, personId, inputsOf(sql`${personId}::uuid`, plant));
 				expectRevision(p.revision, input.expectedRevision);
+				const inputs = commitmentInputs.parse(p.extra);
+				const current = commitmentOf(inputs);
 				const from = to === "withdrawn" ? "active" : "withdrawn";
-				if (p.commitment_state === to) {
-					const value = {
-						personId,
-						current: status(to, p.commitment_effective_on, p.revision),
-						outcome: "noop",
-						receiptId,
-					};
+				if (current.state === to) {
+					const value = { personId, current: status(to, current.effectiveOn, p.revision), outcome: "noop", receiptId };
 					return { value, subject: p.id, action: "people.updated", outcome: "noop" };
 				}
-				if (p.commitment_state !== from) deny("invalid_subject");
+				if (current.state !== from) deny("invalid_subject");
 				// A dated change happens after the state it ends began, and not in the future. Stage never changes.
 				notFuture(p, effectiveOn);
-				if (effectiveOn < (p.commitment_effective_on ?? "")) deny("invalid_input");
-				const set = { commitment_state: to, commitment_effective_on: effectiveOn };
-				audit.writes.push(...personUpdate(tx, plant, p, set));
+				if (effectiveOn < (current.effectiveOn ?? "")) deny("invalid_input");
+				const kind = to === "withdrawn" ? "withdrawn" : "reactivated";
+				const next = commitmentOf({
+					...inputs,
+					changes: [...inputs.changes, { id: receiptId, kind, on: effectiveOn, at: Number.POSITIVE_INFINITY }],
+				});
+				// A card signed after this date already makes the commitment active again: the change would not take effect.
+				if (next.state !== to) deny("invalid_input");
+				const set = cacheOf(p, next);
+				audit.writes.push(
+					tx.insert(tables.commitment_change).values({
+						id: receiptId,
+						plant_id: plant,
+						person_id: p.id,
+						kind,
+						effective_on: effectiveOn,
+					}),
+					...personUpdate(tx, plant, p, set),
+				);
 				const revision = nextRevision(p, set);
 				return {
-					value: { personId, current: status(to, effectiveOn, revision), outcome: "changed", receiptId },
+					value: { personId, current: status(next.state, next.effectiveOn, revision), outcome: "changed", receiptId },
 					subject: p.id,
 					action: "people.updated",
 					before: { revision: p.revision, commitment: currentOf(p) },
-					after: { revision, commitment: { state: to, effectiveOn } },
+					after: { revision, commitment: next },
 					reason,
 					metadata: recordEvent(to === "withdrawn" ? "commitment_withdrawn" : "commitment_reactivated"),
 				};
@@ -255,22 +227,20 @@ export const commitments = {
    AND f.expires_at>clock_timestamp() AND f.max_bytes=${String(document.byteCount)}::bigint
    AND f.media_type=${document.mediaType}::text AND NOT file_is_referenced(f.id) FOR UPDATE OF f)`
 			: sql`NULL`
- })`,
+ },'commitment',${inputsOf(sql`${k.personId}::uuid`, plant)})`,
 					);
 					notFuture(p, k.occurredOn);
-					const found = z.object({ witness: z.string().nullable(), upload: z.uuid().nullable() }).parse(p.extra);
+					const found = z
+						.object({ witness: z.string().nullable(), upload: z.uuid().nullable(), commitment: commitmentInputs })
+						.parse(p.extra);
 					// Only a live same-church witness, and only this church's own pending upload.
 					if (witnessId && found.witness === null) deny();
 					if (document && !found.upload) deny();
 					const id = randomUUID();
 					const step = advance(p, "core_group");
-					const current = afterCard(p, k.occurredOn);
-					const set = {
-						...step.set,
-						...(current.state !== p.commitment_state || current.effectiveOn !== p.commitment_effective_on
-							? { commitment_state: current.state, commitment_effective_on: current.effectiveOn }
-							: {}),
-					};
+					const inputs = found.commitment;
+					const current = commitmentOf({ ...inputs, cards: [...inputs.cards, { id, on: k.occurredOn }] });
+					const set = { ...step.set, ...cacheOf(p, current) };
 					if (document)
 						audit.writes.push(sql`UPDATE file_object SET state='ready',byte_count=${String(document.byteCount)}::bigint,
  sha256=${document.sha256}::text,revision=revision+1 WHERE id=${document.uploadId}::uuid AND tenant_id=${plant}::uuid`);
@@ -333,9 +303,9 @@ export const commitments = {
 	},
 	/**
 	 * REQ-PPL-015 and REQ-PPL-026: correct a card's signed date or kind, or void a card that was never genuine, with a
-	 * reason and its old and new values in the history. First acquisition follows the valid cards. Voiding the last valid
-	 * card makes the current commitment unknown; correcting or voiding the card that made it active recomputes its date.
-	 * A correction to the values the card already has changes nothing. Stage never changes.
+	 * reason and its old and new values in the history. First acquisition and the current commitment follow the valid
+	 * cards and the dated withdrawals and reactivations (commitmentOf). A correction to the values the card already has
+	 * changes nothing. Stage never changes.
 	 */
 	async correctCommitmentLifecycle(tx: Tx, ctx: WriteContext, raw: unknown) {
 		return reply(tx, async () => {
@@ -350,14 +320,7 @@ export const commitments = {
 						ctx,
 						card,
 						sql`(SELECT jsonb_build_object('id',k.id,'person_id',k.person_id,'kind',k.kind,'signed_on',k.signed_on::text,
- 'revision',k.revision::text,'voided',k.voided_at IS NOT NULL,'others',(SELECT coalesce(jsonb_agg(jsonb_build_object('id',o.id,'on',o.signed_on::text)),'[]')
- FROM commitment o WHERE o.person_id=k.person_id AND o.plant_id=k.plant_id AND o.id<>k.id AND o.voided_at IS NULL),
- 'source',(SELECT jsonb_build_object('event',a.metadata->>'event','recordId',a.metadata->>'recordId',
- 'before',a.before_value,'after',a.after_value) FROM audit_event a WHERE a.tenant_id=k.plant_id AND a.subject_id IN
- (SELECT k.person_id UNION ALL SELECT m.id FROM person m WHERE m.merged_into_person_id=k.person_id AND m.tenant_id=k.plant_id)
- AND ((a.metadata->>'event' IN ('commitment_recorded','commitment_withdrawn','commitment_reactivated') AND a.before_value ? 'commitment')
- OR (a.metadata->>'event'='commitment_corrected' AND (a.before_value ? 'current' OR a.after_value ? 'activation')))
- ORDER BY a.occurred_at DESC,a.id DESC LIMIT 1))
+ 'revision',k.revision::text,'voided',k.voided_at IS NOT NULL,'inputs',${commitmentInputsJson(sql`k.person_id`, sql`k.plant_id`)})
  FROM commitment k WHERE k.id=${commitmentId}::uuid AND k.plant_id=${plant}::uuid)`,
 					);
 					const k = cardRow.parse(p.extra);
@@ -389,19 +352,12 @@ export const commitments = {
 							})
 							.where(and(eq(tables.commitment.id, k.id), eq(tables.commitment.plant_id, plant))),
 					);
-					const valid = after.voided ? k.others : [...k.others, { id: k.id, on: after.occurredOn }];
-					// Only the card the record names as the activator recomputes the commitment (never a date match).
-					const activated = activationOf(p, k.source);
-					const next = !valid.length
-						? { current: { state: "unknown" as const, effectiveOn: null } }
-						: activated?.cardId === k.id
-							? reactivatedBy(activated.replaced, valid)
-							: { current: currentOf(p) };
-					const current = next.current;
-					const set =
-						current.state !== p.commitment_state || current.effectiveOn !== p.commitment_effective_on
-							? { commitment_state: current.state, commitment_effective_on: current.effectiveOn }
-							: {};
+					const others = k.inputs.cards.filter((x) => x.id !== k.id);
+					const current = commitmentOf({
+						...k.inputs,
+						cards: after.voided ? others : [...others, { id: k.id, on: after.occurredOn }],
+					});
+					const set = cacheOf(p, current);
 					audit.writes.push(...personUpdate(tx, plant, p, set));
 					const revision = nextRevision(p, set);
 					return {
@@ -414,13 +370,7 @@ export const commitments = {
 						subject: p.id,
 						action: "people.corrected",
 						before: { revision: p.revision, commitment: before, current: currentOf(p) },
-						// A recomputed commitment records the card it chose and what that card replaced, for later corrections.
-						after: {
-							revision,
-							commitment: after,
-							current,
-							...("activation" in next ? { activation: next.activation } : {}),
-						},
+						after: { revision, commitment: after, current },
 						reason,
 						metadata: recordEvent("commitment_corrected", k.id),
 					};
@@ -461,8 +411,8 @@ export function commitmentsOf(personId: string, h: History) {
 	const extra = currentRow.parse(h.extra);
 	return c.commitmentsResult.parse({
 		personId,
-		// Without a valid card the current commitment is unknown, whatever was recorded before.
-		current: status(extra.first ? extra.state : "unknown", extra.first ? extra.effective_on : null, extra.revision),
+		// The Person's columns cache commitmentOf over the valid cards and dated changes; every input write keeps them.
+		current: status(extra.state, extra.effective_on, extra.revision),
 		firstAcquisition: extra.first
 			? { status: "known", occurredOn: extra.first.on, evidenceId: extra.first.id }
 			: { status: "none" },
