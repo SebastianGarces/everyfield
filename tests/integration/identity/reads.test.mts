@@ -2,13 +2,20 @@ import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { fixture } from "./invitations-support.mts";
 import { sql } from "../../../packages/db/src/query.ts";
-import { currentActor, readOwnResidency, readViewer } from "../../../packages/domain/src/access/index.ts";
+import {
+	currentActor,
+	readOwnResidency,
+	readRequestViewer,
+	readViewer,
+} from "../../../packages/domain/src/access/index.ts";
 import {
 	readHistory,
 	readPlantSharing,
 	readSharingDisclosure,
 } from "../../../packages/domain/src/organizations/index.ts";
 import { sessionId } from "../../../packages/contracts/src/common/index.ts";
+import { signedSessionToken } from "../../../packages/domain/src/identity/index.ts";
+import { createHmac } from "node:crypto";
 let f;
 let recording = false;
 let statements = [];
@@ -120,6 +127,46 @@ test("INV-reads: viewer, roster, invitation list, sharing history, sharing choic
 		false,
 		"page reads must not lock rows",
 	);
+});
+
+test("RT-1: one lock-free statement reads the request session, its user and the viewer; a revoked session reads nothing", async () => {
+	const s = await f.setup();
+	const [{ token }] = (await f.admin.execute(sql`SELECT token FROM auth_session WHERE id=${s.sender.session}`)).rows;
+	const request = await count(() => readRequestViewer(f.db, token));
+	assert.equal(request.statements.length, 1);
+	assert.doesNotMatch(request.statements[0], /access_session|for\s+(update|share)/i);
+	assert.equal(request.value.session.id, s.sender.session);
+	assert.deepEqual(request.value.user, { name: "Synthetic person", email: s.sender.email, emailVerified: true });
+	const viewer = await readViewer(f.db, sessionId.parse(s.sender.session));
+	const plain = (v) => ({ ...v, authority: v.authority.actor });
+	assert.deepEqual(plain(request.value.viewer), plain(viewer));
+	assert.equal(await readRequestViewer(f.db, token + "0"), null);
+	await f.admin.execute(sql`DELETE FROM auth_session WHERE id=${s.sender.session}`);
+	assert.equal(await readRequestViewer(f.db, token), null);
+});
+
+test("BUG-RT1-cookie: only Better Auth's exact signed session cookie yields a token; malformed values are refused, never thrown", () => {
+	const secret = "s".repeat(32),
+		token = "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6";
+	const signature = createHmac("sha256", secret).update(token).digest("base64");
+	// The value as Next.js cookies() hands it over: already percent-decoded.
+	assert.equal(signedSessionToken(`${token}.${signature}`, secret), token);
+	for (const bad of [
+		`${token}.${signature}!`,
+		`${token}.${signature.slice(0, -1)}`,
+		`${token}.${signature.replace("=", "")}`,
+		`${token}.!${signature.slice(1)}`,
+		`${token}.${createHmac("sha256", "t".repeat(32)).update(token).digest("base64")}`,
+		encodeURIComponent(`${token}.${signature}`),
+		"%",
+		"%25",
+		"%E0%A4%A",
+		`${token}.${signature.slice(0, -1)}%`,
+		signature,
+		"",
+	])
+		assert.equal(signedSessionToken(bad, secret), null, JSON.stringify(bad.slice(-6)));
+	assert.equal(signedSessionToken(undefined, secret), null);
 });
 
 test("INV-reads: a resident's own residency read reuses the observed actor and takes no lock", async (t) => {
