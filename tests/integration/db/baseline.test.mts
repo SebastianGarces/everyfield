@@ -140,14 +140,23 @@ after(async () => {
 	await closeDatabase(admin);
 });
 
-test("BUG-176: a valid PDF passes when the parse worker starts late; a parse past its limit still fails", async () => {
+test("BUG-176 RT-2: a valid PDF passes when the parse worker starts late; a parse past its limit still fails", async () => {
 	// The worker's parser import takes 3.5 s, longer than the 3-second parse limit, as on a loaded runner or a cold start.
 	const parser = pathToFileURL(require.resolve("pdfjs-dist/legacy/build/pdf.mjs")).href;
 	const slowStart = `await new Promise((r) => setTimeout(r, 3500)); export * from ${JSON.stringify(parser)};`;
 	await validateCommitment(pdf(), "application/pdf", {
 		entry: "data:text/javascript," + encodeURIComponent(slowStart),
 	});
-	await assert.rejects(validateCommitment(pdf(), "application/pdf", { parseMs: 1 }), /invalid_file/);
+	// A parse that never ends fails at its limit; the warm worker is replaced and the next file still parses.
+	const endless = `export const getDocument = () => ({ promise: new Promise(() => {}), destroy: async () => {} });`;
+	await assert.rejects(
+		validateCommitment(pdf(), "application/pdf", {
+			entry: "data:text/javascript," + encodeURIComponent(endless),
+			parseMs: 200,
+		}),
+		/invalid_file/,
+	);
+	await validateCommitment(pdf(), "application/pdf");
 });
 
 test("INV-storage: only a Vercel production deployment may use the production bucket", () => {

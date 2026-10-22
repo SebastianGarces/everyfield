@@ -25,6 +25,8 @@ import {
 	commitments,
 	uploadCommitmentDocument,
 	getCommitmentDownload,
+	signCommitmentDocument,
+	saveCommitmentDocument,
 	peopleMerge,
 	peopleUnmerge,
 	recordCorrections,
@@ -286,7 +288,11 @@ try {
 				if (command.constructor.name === "PutObjectCommand") return objects.set(i.Key, Buffer.from(i.Body)) && {};
 				if (command.constructor.name === "GetObjectCommand") {
 					const body = objects.get(i.Key);
-					return { ContentLength: body.length, Body: { transformToByteArray: async () => body } };
+					return {
+						ContentLength: body.length,
+						ContentType: "image/png",
+						Body: { transformToByteArray: async () => body },
+					};
 				}
 				throw Error("unexpected provider operation");
 			},
@@ -482,6 +488,38 @@ try {
 				},
 			}),
 		),
+	);
+	// RT-2 design B: sign is one statement, the browser puts the bytes, and the save is one statement. The URL is signed
+	// locally by the real AWS signer; the fake bucket answers the save's read.
+	const bucket = {
+		bucket: storage.bucket,
+		client: Object.assign(
+			new S3Client({
+				region: "auto",
+				endpoint: "https://storage.example.test",
+				credentials: { accessKeyId: "synthetic", secretAccessKey: "synthetic" },
+			}),
+			{ send: storage.client.send },
+		),
+	};
+	const direct = value(
+		await signCommitmentDocument(f.db, bucket, plantContext0, actor.actor.accountId, {
+			personId: holders[1].id,
+			mime: "image/png",
+			byteLength: png.length,
+		}),
+	);
+	objects.set(`private/${plantContext0.selected.id}/${direct.uploadId}`, png);
+	value(
+		await saveCommitmentDocument(f.db, bucket, plantContext0, actor.actor.accountId, {
+			requestKey: key(),
+			input: {
+				personId: holders[1].id,
+				kind: "core_group",
+				occurredOn: daysAgo(1),
+				documentUploadId: direct.uploadId,
+			},
+		}),
 	);
 	const signing = {
 		bucket: storage.bucket,

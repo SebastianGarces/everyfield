@@ -967,6 +967,14 @@
 		"limit": 9,
 		"retry": 18
 	},
+	"people/commitments/index.signCommitmentDocument": {
+		"limit": 1,
+		"retry": 2
+	},
+	"people/commitments/index.saveCommitmentDocument": {
+		"limit": 5,
+		"retry": 5
+	},
 	"native.people.getMergeReview": {
 		"limit": 3,
 		"retry": 6
