@@ -5,10 +5,12 @@ import { sql, type SQL } from "@everyfield/db/query";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { RequestActor, requestWrite } from "../access/session.ts";
+import { boundWrite, RequestActor, requestWrite } from "../access/session.ts";
 import {
 	auditSavepoint,
-	auditTransaction,
+	checkedRead,
+	lockedWrite,
+	nativeWrite,
 	finishAudit,
 	prepareWrite,
 	WriteUnavailable,
@@ -68,7 +70,7 @@ export async function readReply<T>(body: () => Promise<T>): Promise<TaskReply<T>
 }
 /** A tool or test caller without a bound native request gets its own savepoint, so a refusal rolls back alone. */
 export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<TaskReply<T>> {
-	if (requestWrite(tx)) return { status: "ok", value: await body() };
+	if (boundWrite(tx)) return { status: "ok", value: await body() };
 	return readReply(() => auditSavepoint(tx, body));
 }
 export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
@@ -83,10 +85,9 @@ export async function withTaskWrite<T>(
 	authority: RequestActor,
 	body: (tx: Tx, context: TaskContext) => Promise<TaskReply<T>>,
 ): Promise<TaskReply<T>> {
+	const selected = authority.actor.context.owner;
 	return readReply(() =>
-		auditTransaction(db, async (tx) => {
-			const selected = authority.actor.context.owner;
-			if (!(await authority.bind(tx, selected))) deny();
+		nativeWrite(db, authority, selected, async (tx) => {
 			const result = await body(tx, { session: authority.session, selected });
 			if (result.status === "refused") throw new TaskRefusal(result.error.code, result.error.details);
 			return result.value;
@@ -109,20 +110,41 @@ export function readerOf(authority: RequestActor): Reader {
 		owner: a.context.owner,
 	};
 }
-export type Writer = Viewer & { zone: z.infer<typeof timeZone> };
-/** Locks the actor's authority for this transaction once; a bound native request reuses its lock. */
+/** `zone` reads the church's time zone once, for the commands that place a due date. */
+export type Writer = Viewer & { zone: () => Promise<z.infer<typeof timeZone>> };
+/**
+ * Locks the actor's authority for this transaction once; a bound native request reuses its lock. A native write's
+ * first attempt leaves the authority to its final statement and reads the time zone only when a command asks.
+ */
 export async function writerOf(tx: Tx, context: TaskContext): Promise<Writer> {
+	const deferred = boundWrite(tx);
+	if (deferred && !requestWrite(tx) && sameOwner(deferred.selected, context.selected)) {
+		if (deferred.actor.context.kind !== "seat" || context.selected.kind !== "plant") deny();
+		const plantId = context.selected.id;
+		let zone: Promise<z.infer<typeof timeZone>> | undefined;
+		return {
+			accountId: deferred.actor.accountId,
+			plantId,
+			role: deferred.actor.context.role,
+			zone: () =>
+				(zone ??= (async () => {
+					const rows = await checkedRead(tx, sql`SELECT timezone FROM plant WHERE id=${plantId}::uuid`, null);
+					return timeZone.parse(rows ? rows[0]?.timezone : (await lockedWrite(tx))?.plant?.timezone);
+				})()),
+		};
+	}
 	const bound = requestWrite(tx);
 	const write =
 		bound && sameOwner(bound.selected, context.selected)
 			? bound
 			: await RequestActor.claimWrite(tx, context.session, owner.parse(context.selected));
 	if (!write || write.actor.context.kind !== "seat" || !write.plant || context.selected.kind !== "plant") deny();
+	const zone = timeZone.parse(write.plant.timezone);
 	return {
 		accountId: write.actor.accountId,
 		plantId: write.plant.id,
 		role: write.actor.context.role,
-		zone: timeZone.parse(write.plant.timezone),
+		zone: async () => zone,
 	};
 }
 export const administers = (v: Viewer) => v.role !== "member";
@@ -168,7 +190,7 @@ export async function command<T>(
 	if (claim.kind === "unavailable") deny();
 	if (claim.kind === "replay") return claim.value as T;
 	const result = await body({ ...claim, actor });
-	await finishAudit(tx, claim, identity, result.value);
+	await finishAudit(tx, claim, identity, result.value, { more: !!result.after });
 	await result.after?.();
 	return result.value;
 }

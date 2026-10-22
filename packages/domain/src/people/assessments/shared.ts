@@ -2,6 +2,7 @@ import * as c from "@everyfield/contracts/people";
 import { and, eq, sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import "server-only";
+import { readRows } from "../../operations/writes.ts";
 import { z } from "zod";
 import { deny, hash, type Context, type Tx } from "../core.ts";
 import { liveRead } from "../../access/session.ts";
@@ -35,13 +36,18 @@ export async function subject(
 	extra?: SQL,
 ): Promise<Subject> {
 	const plant = plantId(ctx);
-	const result = await tx.execute(sql`SELECT p.id,p.state,p.stage,p.revision::text AS revision,
+	const [row] = await readRows(
+		tx,
+		sql`SELECT p.id,p.state,p.stage,p.revision::text AS revision,
  p.pipeline_position::text AS pipeline_position,p.commitment_state,p.commitment_effective_on::text AS commitment_effective_on,
  (clock_timestamp() AT TIME ZONE pl.timezone)::date::text AS today,clock_timestamp() AS now,${extra ?? sql`NULL`} AS extra
- FROM person p JOIN plant pl ON pl.id=p.plant_id WHERE p.id=${typeof person === "string" ? sql`${person}::uuid` : person} AND p.tenant_id=${plant}::uuid AND p.plant_id=${plant}::uuid
- FOR UPDATE OF p`);
-	if (!result.rows[0]) deny();
-	const p = subjectRow.parse(result.rows[0]);
+ FROM person p JOIN plant pl ON pl.id=p.plant_id WHERE p.id=${typeof person === "string" ? sql`${person}::uuid` : person} AND p.tenant_id=${plant}::uuid AND p.plant_id=${plant}::uuid`,
+		sql`FOR UPDATE OF p`,
+		// The clock readings differ between the read and its check in the final statement.
+		["today", "now"],
+	);
+	if (!row) deny();
+	const p = subjectRow.parse(row);
 	if (p.state !== "live") deny();
 	return p;
 }

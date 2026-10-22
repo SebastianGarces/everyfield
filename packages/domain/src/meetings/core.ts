@@ -6,11 +6,12 @@ import * as tables from "@everyfield/db/tables";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { RequestActor, requestWrite } from "../access/session.ts";
+import { boundWrite, RequestActor, requestWrite } from "../access/session.ts";
 import { canonical } from "../organizations/core.ts";
 import {
 	auditSavepoint,
-	auditTransaction,
+	nativeWrite,
+	readRows,
 	finishAudit,
 	prepareWrite,
 	WriteUnavailable,
@@ -83,7 +84,7 @@ export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S>
 
 /** Inside a native request the request transaction owns rollback; a direct caller gets a savepoint per command. */
 export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<MeetingsReply<T>> {
-	if (requestWrite(tx)) return { status: "ok", value: await body() };
+	if (boundWrite(tx)) return { status: "ok", value: await body() };
 	return settleWrite(() => auditSavepoint(tx, body));
 }
 /** One native write: bind the request actor (one locking statement), run the command, roll back on refusal. */
@@ -92,10 +93,9 @@ export async function withMeetingsWrite<T>(
 	authority: RequestActor,
 	body: (tx: Tx, context: MeetingsContext) => Promise<MeetingsReply<T>>,
 ): Promise<MeetingsReply<T>> {
+	const selected = authority.actor.context.owner;
 	return settleWrite(() =>
-		auditTransaction(db, async (tx) => {
-			const selected = authority.actor.context.owner;
-			if (!(await authority.bind(tx, selected))) deny();
+		nativeWrite(db, authority, selected, async (tx) => {
 			const result = await body(tx, { session: authority.session, selected });
 			if (result.status === "refused") throw new Refusal(result.error.code, result.error.details);
 			return result.value;
@@ -119,18 +119,45 @@ export async function read<T>(
 }
 export type Viewer = { plantId: string; accountId: string; admin: boolean };
 
-export type Writer = {
-	accountId: string;
-	admin: boolean;
-	plant: NonNullable<NonNullable<ReturnType<typeof requestWrite>>["plant"]>;
-};
-/** The locked request actor for this plant: bound by the native request, or claimed here by a direct caller. */
+/** `zone` reads the church's time zone once, for the commands that place a meeting in time. */
+export type Writer = { accountId: string; admin: boolean; plant: { id: string }; zone: () => Promise<string> };
+/**
+ * The locked request actor for this plant: bound by the native request, or claimed here by a direct caller. A native
+ * write's first attempt leaves the authority to its final statement and reads the time zone only when asked.
+ */
 export async function writer(tx: Tx, ctx: MeetingsContext): Promise<Writer> {
+	const deferred = boundWrite(tx);
+	if (
+		deferred &&
+		!requestWrite(tx) &&
+		deferred.authority.session === ctx.session &&
+		sameOwner(deferred.selected, ctx.selected)
+	) {
+		if (deferred.actor.context.kind !== "seat" || ctx.selected.kind !== "plant") deny();
+		const plant = { id: ctx.selected.id };
+		let zone: Promise<string> | undefined;
+		return {
+			accountId: deferred.actor.accountId,
+			admin: deferred.actor.context.role !== "member",
+			plant,
+			zone: () =>
+				(zone ??= (async () => {
+					const [row] = await readRows(tx, sql`SELECT timezone FROM plant WHERE id=${plant.id}::uuid`);
+					return z.string().parse(row?.timezone);
+				})()),
+		};
+	}
 	let bound = requestWrite(tx);
 	if (!bound || bound.authority.session !== ctx.session || !sameOwner(bound.selected, ctx.selected))
 		bound = (await RequestActor.claimWrite(tx, ctx.session, ctx.selected)) ?? undefined;
 	if (!bound?.plant || bound.actor.context.kind !== "seat") deny();
-	return { accountId: bound.actor.accountId, admin: bound.actor.context.role !== "member", plant: bound.plant };
+	const zone = bound.plant.timezone;
+	return {
+		accountId: bound.actor.accountId,
+		admin: bound.actor.context.role !== "member",
+		plant: { id: bound.plant.id },
+		zone: async () => zone,
+	};
 }
 
 export const hash = (value: unknown) => createHash("sha256").update(canonical(value)).digest("hex");

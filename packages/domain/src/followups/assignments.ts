@@ -49,14 +49,14 @@ export function assignmentWriter(reminders: TaskReminders) {
 					if (!administers(cmd.actor)) deny();
 					const v = input.input,
 						plant = cmd.actor.plantId;
-					const due = dueColumns(v.due, cmd.actor.zone);
+					const due = dueColumns(v.due, await cmd.actor.zone());
 					const r = await tx.execute(sql`SELECT (SELECT display_name FROM person WHERE id=${v.personId}::uuid
 						AND tenant_id=${plant}::uuid AND plant_id IS NOT NULL AND state='live' FOR SHARE) AS person,
 						${ownerName(plant, v.assigneeId)} AS owner`);
 					const facts = z.object({ person: z.string().nullable(), owner: z.string().nullable() }).parse(r.rows[0]);
 					if (facts.person === null) deny("invalid_subject");
 					if (v.assigneeId && facts.owner === null) refuse("owner_ineligible");
-					const row = newTask(cmd.actor.zone, {
+					const row = newTask(await cmd.actor.zone(), {
 						title: v.title ?? `Follow up with ${facts.person}`,
 						description: v.description,
 						category: "follow_up",

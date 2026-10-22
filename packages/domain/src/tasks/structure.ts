@@ -309,7 +309,7 @@ export function structureWriter(reminders: TaskReminders) {
 				const input = parse(c.bulkRescheduleRequest, raw);
 				return command(tx, context, "tasks.bulkReschedule", input, async (cmd) => {
 					if (!administers(cmd.actor)) deny();
-					const due = dueColumns(input.due, cmd.actor.zone);
+					const due = dueColumns(input.due, await cmd.actor.zone());
 					return bulk(tx, cmd, input.items, (row) => {
 						if (!OPEN(row.status)) return "closed";
 						if (row.parent_id) return "ineligible";

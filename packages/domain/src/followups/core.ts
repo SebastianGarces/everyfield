@@ -4,8 +4,8 @@ import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
-import { liveRead, requestWrite, type RequestActor } from "../access/session.ts";
-import { auditSavepoint, auditTransaction, WriteUnavailable } from "../operations/writes.ts";
+import { boundWrite, liveRead, type RequestActor } from "../access/session.ts";
+import { auditSavepoint, nativeWrite, WriteUnavailable } from "../operations/writes.ts";
 import { TaskRefusal, type Reader, type TaskContext, type Tx } from "../tasks/core.ts";
 
 export type FollowUpReply<T> = { status: "ok"; value: T } | { status: "refused"; error: c.FollowUpError };
@@ -47,7 +47,7 @@ export async function readAnswer<T>(body: () => Promise<T>): Promise<FollowUpRep
 }
 /** A tool or test caller without a bound native request gets its own savepoint, so a refusal rolls back alone. */
 export async function answer<T>(tx: Tx, body: () => Promise<T>): Promise<FollowUpReply<T>> {
-	if (requestWrite(tx)) return { status: "ok", value: await body() };
+	if (boundWrite(tx)) return { status: "ok", value: await body() };
 	return readAnswer(() => auditSavepoint(tx, body));
 }
 /** The native request owns rollback: bind the verified actor once, then run the command in the same transaction. */
@@ -56,10 +56,9 @@ export async function withFollowUpWrite<T>(
 	authority: RequestActor,
 	body: (tx: Tx, context: TaskContext) => Promise<FollowUpReply<T>>,
 ): Promise<FollowUpReply<T>> {
+	const selected = authority.actor.context.owner;
 	return readAnswer(() =>
-		auditTransaction(db, async (tx) => {
-			const selected = authority.actor.context.owner;
-			if (!(await authority.bind(tx, selected))) refuse("unavailable");
+		nativeWrite(db, authority, selected, async (tx) => {
 			const result = await body(tx, { session: authority.session, selected });
 			if (result.status === "refused") throw new FollowUpRefusal(result.error.code, result.error.details);
 			return result.value;

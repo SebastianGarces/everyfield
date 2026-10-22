@@ -3,6 +3,7 @@ import { and, eq, ne, sql, type SQL } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { randomUUID } from "node:crypto";
 import "server-only";
+import { readRows } from "../../operations/writes.ts";
 import { z } from "zod";
 import {
 	deny,
@@ -64,8 +65,8 @@ function household(raw: unknown): Household {
 	return householdRow.parse(raw);
 }
 async function readHousehold(tx: Tx, plant: string, id: string, visible: SQL = sql`true`): Promise<Household> {
-	const result = await tx.execute(sql`SELECT ${householdJson(plant, sql`${id}::uuid`)} AS h WHERE ${visible}`);
-	return household(result.rows[0]?.h);
+	const [row] = await readRows(tx, sql`SELECT ${householdJson(plant, sql`${id}::uuid`)} AS h WHERE ${visible}`);
+	return household(row?.h);
 }
 const memberOrder = (a: Member, b: Member) =>
 	roleOrder.indexOf(a.household_role) - roleOrder.indexOf(b.household_role) ||

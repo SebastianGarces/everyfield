@@ -4,6 +4,7 @@ import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { liveRead, type RequestActor } from "../access/session.ts";
+import { checkedRead } from "../operations/writes.ts";
 import { administers, deny, parse, readReply, readerOf, type Reader, type Tx, type Viewer } from "./core.ts";
 
 // Storage keeps the shipped short kind names; the contract names say which duty it is.
@@ -118,18 +119,21 @@ export async function loadTask(tx: Tx, plantId: string, task: string | { obligat
 		typeof task === "string"
 			? sql`t.id=${task}::uuid`
 			: sql`t.obligation_id=${task.obligationId}::uuid AND t.deleted_at IS NULL`;
+	// A native write's first attempt reads without the lock; its final statement repeats the read with the lock.
+	const checked = lock ? await checkedRead(tx, taskQuery(plantId, which), sql`FOR UPDATE OF t`) : null;
+	if (checked) return checked[0] ? taskRow.parse(checked[0]) : null;
 	const r = await tx.execute(sql`${taskQuery(plantId, which)} ${lock ? sql`FOR UPDATE OF t` : sql``}`);
 	return r.rows[0] ? taskRow.parse(r.rows[0]) : null;
 }
 /** Several tasks of the plant, locked in ID order so two batches never wait on each other in a cycle. One statement. */
 export async function loadTasks(tx: Tx, plantId: string, ids: readonly string[]) {
-	const r = await tx.execute(
-		sql`${taskQuery(plantId, sql`t.id=ANY(${sql.param(ids)}::uuid[])`)} ORDER BY t.id FOR UPDATE OF t`,
-	);
+	const read = sql`${taskQuery(plantId, sql`t.id=ANY(${sql.param(ids)}::uuid[])`)} ORDER BY t.id`;
+	const rows =
+		(await checkedRead(tx, read, sql`FOR UPDATE OF t`)) ?? (await tx.execute(sql`${read} FOR UPDATE OF t`)).rows;
 	return new Map(
 		z
 			.array(taskRow)
-			.parse(r.rows)
+			.parse(rows)
 			.map((row) => [row.id, row]),
 	);
 }

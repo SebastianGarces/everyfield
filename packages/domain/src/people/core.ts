@@ -6,11 +6,12 @@ import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { readPipelinePerson } from "../access/pipeline.ts";
-import { currentActor, liveRead, RequestActor, requestWrite } from "../access/session.ts";
+import { boundWrite, currentActor, liveRead, RequestActor } from "../access/session.ts";
 import {
 	auditSavepoint,
-	auditTransaction,
 	finishAudit,
+	nativeWrite,
+	checkedRead,
 	prepareWrite,
 	WriteUnavailable,
 	type AuditWrite,
@@ -85,7 +86,7 @@ export async function readReply<T>(body: () => Promise<T>): Promise<PeopleReply<
 	}
 }
 export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<PeopleReply<T>> {
-	if (requestWrite(tx)) return { status: "ok", value: await body() };
+	if (boundWrite(tx)) return { status: "ok", value: await body() };
 	try {
 		return { status: "ok", value: await auditSavepoint(tx, async () => body()) };
 	} catch (error) {
@@ -101,10 +102,9 @@ export async function withPeopleWrite<T>(
 	authority: RequestActor,
 	body: (tx: Tx, context: PeopleWriteContext) => Promise<PeopleReply<T>>,
 ): Promise<PeopleReply<T>> {
+	const selected = authority.actor.context.owner;
 	return readReply(() =>
-		auditTransaction(db, async (tx) => {
-			const selected = authority.actor.context.owner;
-			if (!(await authority.bind(tx, selected))) deny();
+		nativeWrite(db, authority, selected, async (tx) => {
 			const result = await body(tx, {
 				session: authority.session,
 				selected,
@@ -146,7 +146,7 @@ export async function authorizeRead(tx: Tx, context: Context) {
 /** A write's statements need no read gate: its locked authority holds until COMMIT (D70). */
 export const lockedWrite = sql`true`;
 export async function lockOwner(tx: Tx, context: Context) {
-	const locked = requestWrite(tx);
+	const locked = boundWrite(tx);
 	if (locked && locked.selected.id === context.selected.id && locked.selected.kind === context.selected.kind) return;
 	if (!(await RequestActor.claimWrite(tx, context.session, context.selected))) deny();
 }
@@ -196,23 +196,32 @@ export async function person(
 				eq(tables.person.id, id),
 				eq(tables.person.tenant_id, context.selected.id),
 				lock === true ? undefined : lock,
-				notExists(
-					tx
-						.select({ id: tables.organization_person_removal.id })
-						.from(tables.organization_person_removal)
-						.where(
-							and(
-								eq(tables.organization_person_removal.person_record_id, tables.person.id),
-								eq(tables.organization_person_removal.organization_id, tables.person.tenant_id),
-							),
-						),
-				),
+				unremoved(tx),
 			),
 		);
+	// A native write's first attempt reads without the lock; its final statement repeats the read with the lock.
+	const checked = lock === true ? await checkedRead(tx, query.getSQL(), sql`FOR UPDATE OF ${tables.person}`) : null;
+	if (checked) {
+		if (!checked[0]) deny();
+		return personRow.parse(checked[0]);
+	}
 	const rows = await (lock === true ? query.for("update", { of: tables.person }) : query);
 	if (!rows[0]!) deny();
 	return personRow.parse(rows[0]!);
 }
+/** The Person is not removed from its organization (C13). */
+const unremoved = (tx: Tx) =>
+	notExists(
+		tx
+			.select({ id: tables.organization_person_removal.id })
+			.from(tables.organization_person_removal)
+			.where(
+				and(
+					eq(tables.organization_person_removal.person_record_id, tables.person.id),
+					eq(tables.organization_person_removal.organization_id, tables.person.tenant_id),
+				),
+			),
+	);
 /** The reader's authority over one Person. Pass the actor a reader already resolved to avoid a second lookup. */
 export async function canReadPerson(tx: Tx, context: Context, p: Person, actor?: ActiveActor) {
 	const a = actor ?? (await authorize(tx, context));

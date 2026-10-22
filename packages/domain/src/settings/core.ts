@@ -7,8 +7,16 @@ import * as t from "@everyfield/db/tables";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { currentActor, currentWriteAllowed, liveOwner, RequestActor, requestWrite } from "../access/session.ts";
-import { auditSavepoint, auditTransaction, finishAudit, prepareWrite, WriteUnavailable } from "../operations/writes.ts";
+import { boundWrite, currentActor, currentWriteAllowed, liveOwner, RequestActor } from "../access/session.ts";
+import {
+	auditSavepoint,
+	auditTransaction,
+	finishAudit,
+	lockedWrite,
+	nativeWrite,
+	prepareWrite,
+	WriteUnavailable,
+} from "../operations/writes.ts";
 import { appendEvent, canonical } from "../organizations/core.ts";
 export { appendEvent, canonical, sameOwner };
 export type Tx = Transaction;
@@ -33,7 +41,7 @@ export function revision(expected: string, actual: string) {
 	if (expected !== actual) deny("conflict");
 }
 export async function reply<T>(tx: Tx, body: (tx: Tx) => Promise<T>): Promise<SettingsReply<T>> {
-	if (requestWrite(tx)) return { status: "ok", value: await body(tx) };
+	if (boundWrite(tx)) return { status: "ok", value: await body(tx) };
 	return recover(async () => ({ status: "ok", value: await auditSavepoint(tx, body) }));
 }
 export async function recover<T>(body: () => Promise<SettingsReply<T>>): Promise<SettingsReply<T>> {
@@ -57,7 +65,7 @@ export async function recover<T>(body: () => Promise<SettingsReply<T>>): Promise
 	}
 }
 export async function actor(tx: Tx, ctx: Context, use: "read" | "command" | "preview" = "read") {
-	const bound = requestWrite(tx);
+	const bound = await lockedWrite(tx);
 	if (
 		bound &&
 		bound.authority.session === ctx.session &&
@@ -183,12 +191,10 @@ export async function withSettingsWrite<T>(
 	context: WriteContext,
 	body: (tx: Tx) => Promise<SettingsReply<T>>,
 ): Promise<SettingsReply<T>> {
-	return recover(() =>
-		auditTransaction(db, async (tx) => {
-			if (authority && !(await authority.bind(tx, context.selected))) deny();
-			const result = await body(tx);
-			if (result.status === "refused") throw new Refusal(result.error.code);
-			return result;
-		}),
-	);
+	const run = async (tx: Tx) => {
+		const result = await body(tx);
+		if (result.status === "refused") throw new Refusal(result.error.code);
+		return result;
+	};
+	return recover(() => (authority ? nativeWrite(db, authority, context.selected, run) : auditTransaction(db, run)));
 }

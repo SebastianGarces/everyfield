@@ -389,12 +389,12 @@ export function createTaskWriter(deps: { reminders: TaskReminders }) {
 				return command(tx, context, "tasks.create", input, async (cmd) => {
 					if (!administers(cmd.actor)) deny();
 					const v = input.input;
-					const due = dueColumns(v.due, cmd.actor.zone);
+					const due = dueColumns(v.due, await cmd.actor.zone());
 					const refs =
 						v.assigneeId || v.relation
 							? await references(tx, cmd.actor.plantId, v)
 							: { assigneeName: null, relationLabel: null };
-					const row = newTask(cmd.actor.zone, {
+					const row = newTask(await cmd.actor.zone(), {
 						title: v.title,
 						description: v.description,
 						category: v.category,
@@ -447,7 +447,7 @@ export function createTaskWriter(deps: { reminders: TaskReminders }) {
 						...(p.description !== undefined ? { description: p.description } : {}),
 						...(p.priority !== undefined ? { priority: p.priority } : {}),
 						...(p.category !== undefined ? { category: p.category } : {}),
-						...(p.due !== undefined ? dueColumns(p.due, cmd.actor.zone) : {}),
+						...(p.due !== undefined ? dueColumns(p.due, await cmd.actor.zone()) : {}),
 						...(p.assigneeId !== undefined
 							? {
 									assignee_id: p.assigneeId,
