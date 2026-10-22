@@ -89,8 +89,10 @@ corepack pnpm --filter @everyfield/db generate --name descriptive_custom_change 
 corepack pnpm --filter @everyfield/db generate --normalize
 ```
 
-Do not run raw `drizzle-kit generate`, `push` or `migrate`. The command generates
-SQL and snapshot metadata, removes Kit's default `public` qualifier only from
+Do not run raw `drizzle-kit generate`, `push` or `migrate`. The command diffs
+`migrations/meta/current.json` against the declarations with the pinned Kit's API.
+It writes `migrations/<UTC YYYYMMDDHHMMSS>_<name>.sql` and the new `current.json`,
+removes Kit's default `public` qualifier only from
 references to our own tables, then qualifies vector type positions as
 `public.vector`. It preserves extension and cross-schema references, comments,
 identifiers and string literals. Both steps are deterministic and idempotent and
@@ -103,13 +105,23 @@ changes that Kit cannot model. Review those statements and update their explicit
 supplemental expectations alongside the migration. Apply all SQL through
 `db:migrate`: `schema_migration` remains the only database ledger, with the same
 advisory lock, atomic batches, exact-byte SHA-256 checks and explicit adoption.
-Kit's file journal describes generation history; it is not a second database ledger.
 
-The initial snapshot describes the exact database after frozen migrations 0001–0005.
-`migrations/frozen.json` pins their original bytes. Snapshot and file-journal metadata
-live in `migrations/meta/`; no baseline CREATE statements are applied to existing objects.
-The next generated migration number is 0006. Runtime SQL goes through the existing
-checksum ledger; neither Kit push nor its database migrator is used.
+The runner applies migrations by name (D78). Every ledger row must name a file with
+the same SHA-256, so an edited or deleted applied migration stops the run. Every file
+the ledger lacks then applies in name order. Two branches that each add a migration
+therefore apply in either merge order, and a branch never renames its migration.
+After you include main, change the branch only when both sides changed the same
+table. Then take main's `current.json`, remove the branch migration, resolve
+`tables.ts` and generate again. The generated schema docs in `docs/schema/` can
+still need `catalog` and their render scripts after a merge.
+
+The numbered migrations from 0001 keep their numbers, their Kit journal entries and their
+snapshot chain in `migrations/meta/`. A branch that already has a numbered migration
+may still extend that chain until the first timestamped migration reaches main. After
+that, `current.json` is the only base, and such a branch generates its migration again.
+The first snapshot describes the exact database after frozen migrations 0001 to 0005.
+`migrations/frozen.json` pins their original bytes; no baseline CREATE statements run
+on existing objects. Neither Kit push nor its database migrator is used.
 
 `annotations.json` retains documentary notes separately from physical declarations.
 Before generating a migration for a new table, add its table, column and foreign-key
