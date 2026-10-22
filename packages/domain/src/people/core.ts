@@ -127,6 +127,9 @@ export async function authorize(tx: Tx, context: Context, write = false) {
 		!write && context instanceof PeopleReadContext
 			? context.authority.actor
 			: await currentActor(tx, context.session, context.selected, write);
+	return seated(context, actor, write);
+}
+function seated(context: Context, actor: Awaited<ReturnType<typeof currentActor>>, write: boolean) {
 	if (actor.status !== "active" || !["plant", "organization"].includes(context.selected.kind)) deny();
 	const seat = actor.context;
 	if (seat.kind !== "seat") deny();
@@ -138,7 +141,13 @@ export async function authorize(tx: Tx, context: Context, write = false) {
  * reads every person, so the check keeps that Admin role; any other reader's role does not change what it reads.
  */
 export async function authorizeRead(tx: Tx, context: Context) {
-	const actor = await authorize(tx, context);
+	return readGate(context, await authorize(tx, context));
+}
+/** `authorizeRead` for the request's cached viewer, which needs no statement and so no transaction. */
+export function authorizeCachedRead(context: PeopleReadContext) {
+	return readGate(context, seated(context, context.authority.actor, false));
+}
+function readGate(context: Context, actor: ActiveActor) {
 	const admin = context.selected.kind === "organization" && isAdministrator(actor);
 	return {
 		actor,
@@ -265,6 +274,22 @@ export async function projectPeople(tx: Tx, context: Context, people: Person[], 
 				)
 				.orderBy(tables.commitment.person_id, desc(tables.commitment.signed_on), desc(tables.commitment.id))
 		: [];
+	return projectWith(context, people, evidence);
+}
+/** The commitment card a plant Person's projection names: the latest valid one. */
+export type Evidence = {
+	person_id: string;
+	id: string;
+	kind: "core_group" | "launch_team";
+	signed_on: string;
+	revision: string;
+};
+/** The latest valid card of one Person (`person` may name an outer row) as one JSON value, for a read that projects it in its own statement. */
+export const evidenceJson = (plant: string, person: SQL) =>
+	sql`(SELECT jsonb_build_object('person_id',k.person_id,'id',k.id,'kind',k.kind,'signed_on',k.signed_on::text,'revision',k.revision::text)
+ FROM commitment k WHERE k.plant_id=${plant}::uuid AND k.person_id=${person} AND k.voided_at IS NULL ORDER BY k.signed_on DESC,k.id DESC LIMIT 1)`;
+/** People projected with the cards their caller already read. */
+export function projectWith(context: Pick<Context, "selected">, people: Person[], evidence: Evidence[]) {
 	const byPerson = new Map(evidence.map((e) => [e.person_id, e]));
 	return people.map((p) => {
 		const base = {
