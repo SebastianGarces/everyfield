@@ -17619,7 +17619,7 @@
             }
           ],
           "isUnique": true,
-          "where": "(series_id IS NOT NULL)",
+          "where": "((series_id IS NOT NULL) AND (deleted_at IS NULL))",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -17635,7 +17635,7 @@
             }
           ],
           "isUnique": true,
-          "where": "(predecessor_id IS NOT NULL)",
+          "where": "((predecessor_id IS NOT NULL) AND (deleted_at IS NULL))",
           "concurrently": false,
           "method": "btree",
           "with": {}
