@@ -36,6 +36,7 @@ import {
 	adminRead,
 	advance,
 	attribution,
+	churchToday,
 	historyJson,
 	nextRevision,
 	notFuture,
@@ -192,6 +193,22 @@ type CheckedDocument = {
 	sha256: string;
 };
 
+type CardInput = z.output<typeof c.createCommitmentRequest>["input"];
+const witnessOf = (k: CardInput) => (k.witness && "personId" in k.witness ? k.witness.personId : null);
+/** The witness's name when it is a live Person of this church, else NULL (also for no witness). */
+const liveWitness = (witnessId: string | null, plant: string) =>
+	sql`(SELECT w.display_name FROM person w WHERE w.id=${witnessId}::uuid AND w.tenant_id=${plant}::uuid AND w.plant_id=${plant}::uuid AND w.state='live')`;
+/**
+ * The card's rules that need no document bytes: the witness is not the Person, the date is not in the church's future
+ * and a named Person witness is live in this church (`witness` from liveWitness). Refusals keep their reasons.
+ */
+function checkCard(k: CardInput, today: string, witness: string | null) {
+	const witnessId = witnessOf(k);
+	if (witnessId === k.personId) deny("invalid_subject");
+	notFuture({ today }, k.occurredOn);
+	if (witnessId && witness === null) deny();
+}
+
 export const commitments = {
 	/**
 	 * REQ-PPL-014: the card, its witness and checked document, the Core Group advance of an earlier stage and the
@@ -211,16 +228,15 @@ export const commitments = {
 				input,
 				async (actor, receiptId, audit) => {
 					const k = input.input;
-					const witnessId = k.witness && "personId" in k.witness ? k.witness.personId : null;
+					const witnessId = witnessOf(k);
 					const external = k.witness && "external" in k.witness ? k.witness.external : null;
-					if (witnessId === k.personId) deny("invalid_subject");
 					// The upload row stays locked until COMMIT, so no other save or cleanup can take it meanwhile.
 					const p = await subject(
 						tx,
 						ctx,
 						k.personId,
 						sql`jsonb_build_object(
- 'witness',(SELECT w.display_name FROM person w WHERE w.id=${witnessId}::uuid AND w.tenant_id=${plant}::uuid AND w.plant_id=${plant}::uuid AND w.state='live'),
+ 'witness',${liveWitness(witnessId, plant)},
  'upload',${
 		document
 			? sql`(SELECT f.id FROM file_object f WHERE f.id=${document.uploadId}::uuid AND f.tenant_id=${plant}::uuid
@@ -230,12 +246,11 @@ export const commitments = {
 			: sql`NULL`
  },'commitment',${inputsOf(sql`${k.personId}::uuid`, plant)})`,
 					);
-					notFuture(p, k.occurredOn);
 					const found = z
 						.object({ witness: z.string().nullable(), upload: z.uuid().nullable(), commitment: commitmentInputs })
 						.parse(p.extra);
-					// Only a live same-church witness, and only this church's own pending upload.
-					if (witnessId && found.witness === null) deny();
+					checkCard(k, p.today, found.witness);
+					// Only this church's own pending upload.
 					if (document && !found.upload) deny();
 					const id = randomUUID();
 					const step = advance(p, "core_group");
@@ -517,10 +532,12 @@ export async function signCommitmentDocument(
 	});
 }
 
+const earlyRow = z.object({ today: z.string(), witness: z.string().nullable(), attached: z.boolean() });
 /**
  * Save a commitment card with the document the browser put into the bucket (RT-2 design B, REQ-PPL-014). The request's
- * viewer must be an Owner or Admin before the server reads the bucket. With no transaction open, the server reads the
- * object back and checks its type, size and content; then createCommitment saves the card and attaches the upload
+ * viewer must be an Owner or Admin, and the card's inputs must pass checkCard, before the server reads the bucket.
+ * With no transaction open, the server reads the object back and checks its type, size and content; then
+ * createCommitment saves the card and attaches the upload
  * through the shared native write (D70, C88), which checks live authority again and answers a retry from its key.
  */
 export async function saveCommitmentDocument(
@@ -533,8 +550,18 @@ export async function saveCommitmentDocument(
 		const request = parse(c.saveCommitmentDocumentRequest, raw);
 		const ctx = new PeopleReadContext(authority);
 		authorizeCachedWrite(ctx);
+		const plant = plantId(ctx);
 		const uploadId = request.input.documentUploadId;
-		const object = await readPrivateObject(storage, documentKey(plantId(ctx), uploadId), c.COMMITMENT_MAX_BYTES);
+		// F4c: one statement checks the inputs that need no bytes, so a refused card costs no bucket read. A retry of a
+		// saved card (its upload already attached) skips them: the write answers it from its key.
+		const [early] = (
+			await db.execute(sql`SELECT ${churchToday} AS today,${liveWitness(witnessOf(request.input), plant)} AS witness,
+ EXISTS(SELECT FROM file_object f WHERE f.id=${uploadId}::uuid AND f.tenant_id=${plant}::uuid AND file_is_referenced(f.id)) AS attached
+ FROM plant pl WHERE pl.id=${plant}::uuid`)
+		).rows.map((r) => earlyRow.parse(r));
+		if (!early) deny();
+		if (!early.attached) checkCard(request.input, early.today, early.witness);
+		const object = await readPrivateObject(storage, documentKey(plant, uploadId), c.COMMITMENT_MAX_BYTES);
 		const mime = c.commitmentMime.safeParse(object?.mediaType);
 		// Not uploaded (or not completely): nothing to save. A retry of a saved card still finds its object.
 		if (!object || !mime.success) deny();
