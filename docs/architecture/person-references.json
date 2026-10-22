@@ -662,6 +662,30 @@
       "future_case_ids": [
         "ADR1-017"
       ]
+    },
+    {
+      "table": "commitment_change",
+      "columns": [
+        "person_id",
+        "plant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-014"
+      ],
+      "meaning": "An explicit dated withdrawal or reactivation of this Person's commitment.",
+      "lock_order": "Lock owner and live same-owner source/survivor Persons in UUID order, then consumer rows; reference inserts take the same Person locks.",
+      "merge_policy": "Moves to the survivor, whose commitment is recomputed from both Persons' cards and changes.",
+      "inverse_policy": "Moves back on a guarded Unmerge; each Person's commitment is its own again.",
+      "retirement_policy": "No new change for a retired or merged Person; history stays under current permission and goes with the Person on purge.",
+      "privacy_policy": "Holds only the kind and date; the actor stays in the audit row.",
+      "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
+      "future_case_ids": [
+        "ADR1-017"
+      ]
     }
   ],
   "person_snapshot_references": [

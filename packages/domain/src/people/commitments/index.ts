@@ -1,10 +1,9 @@
 import * as c from "@everyfield/contracts/people";
 import type { PeopleContext } from "@everyfield/contracts/people";
 import type { Database } from "@everyfield/db/client";
-import { and, eq, sql } from "@everyfield/db/query";
+import { and, eq, sql, type SQL } from "@everyfield/db/query";
 import {
 	createAuthorizedDownload,
-	putPrivateObject,
 	readPrivateObject,
 	signPrivatePut,
 	validateCommitment,
@@ -16,23 +15,23 @@ import * as tables from "@everyfield/db/tables";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { lockWriteAuthority, writeVisibility } from "../../access/session.ts";
-import { isAuditRetry } from "../../operations/writes.ts";
-import { freshPosition } from "../people.ts";
+import { writeVisibility, type RequestActor } from "../../access/session.ts";
+import { lastWrite } from "../../operations/writes.ts";
 import {
-	authorize,
+	authorizeCachedWrite,
 	deny,
-	hash,
-	lockOwner,
 	mutation,
 	parse,
+	PeopleReadContext,
 	readReply,
 	reply,
+	withPeopleWrite,
 	type Context,
 	type Tx,
 	type WriteContext,
 } from "../core.ts";
-import { expectRevision, plantId, queueObjectCleanup } from "../fields/shared.ts";
+import { expectRevision, plantId } from "../fields/shared.ts";
+import { commitmentInputs, commitmentInputsJson, commitmentOf, type CurrentCommitment } from "./lifecycle.ts";
 import {
 	adminRead,
 	advance,
@@ -108,19 +107,13 @@ function asSaved(replay: Record<string, unknown>) {
 type State = Subject["commitment_state"];
 const status = (state: State, effectiveOn: string | null, personRevision: string) =>
 	c.commitmentStatus.parse({ state, effectiveOn, personRevision });
-/**
- * REQ-PPL-014 and REQ-PPL-026: a card makes an unknown commitment active. After a withdrawal only a card signed after
- * the withdrawal date makes it active again; an older signature never overrides the withdrawal.
- */
-function afterCard(p: Subject, signedOn: string): { state: State; effectiveOn: string | null } {
-	if (p.commitment_state === "unknown") return { state: "active", effectiveOn: signedOn };
-	if (p.commitment_state === "withdrawn" && signedOn > (p.commitment_effective_on ?? ""))
-		return { state: "active", effectiveOn: signedOn };
-	return { state: p.commitment_state, effectiveOn: p.commitment_effective_on };
-}
 const currentOf = (p: Subject) => ({ state: p.commitment_state, effectiveOn: p.commitment_effective_on });
-
-/** The card and the Person's other valid cards, read with the locked Person. */
+/** The Person's commitment columns that cache `next`, if it differs from what they hold. */
+const cacheOf = (p: Subject, next: CurrentCommitment) =>
+	next.state !== p.commitment_state || next.effectiveOn !== p.commitment_effective_on
+		? { commitment_state: next.state, commitment_effective_on: next.effectiveOn }
+		: {};
+/** The card being corrected and its Person's commitment inputs, read with the locked Person. */
 const cardRow = z.object({
 	id: z.uuid(),
 	person_id: z.uuid(),
@@ -128,8 +121,10 @@ const cardRow = z.object({
 	signed_on: z.string(),
 	revision: z.string(),
 	voided: z.boolean(),
-	others: z.number(),
+	inputs: commitmentInputs,
 });
+/** The commitment inputs of the subject Person, read with it. */
+const inputsOf = (person: SQL, plant: string) => commitmentInputsJson(person, sql`${plant}::uuid`);
 
 async function lifecycle(tx: Tx, ctx: WriteContext, raw: unknown, to: "withdrawn" | "active") {
 	return reply(tx, async () => {
@@ -137,33 +132,47 @@ async function lifecycle(tx: Tx, ctx: WriteContext, raw: unknown, to: "withdrawn
 		const name = to === "withdrawn" ? "people.withdrawCommitment" : "people.reactivateCommitment";
 		const input = parse(to === "withdrawn" ? c.withdrawCommitmentRequest : c.reactivateCommitmentRequest, raw);
 		return c.commitmentLifecycleResult.parse(
-			await mutation<unknown>(tx, ctx, name, input, async (_actor, receiptId, audit) => {
+			await mutation<unknown>(tx, ctx, name, input, async (actor, receiptId, audit) => {
 				const { personId, effectiveOn, reason } = input.input;
-				const p = await subject(tx, ctx, personId);
+				const p = await subject(tx, ctx, personId, inputsOf(sql`${personId}::uuid`, plant));
 				expectRevision(p.revision, input.expectedRevision);
+				const inputs = commitmentInputs.parse(p.extra);
+				const current = commitmentOf(inputs);
 				const from = to === "withdrawn" ? "active" : "withdrawn";
-				if (p.commitment_state === to) {
-					const value = {
-						personId,
-						current: status(to, p.commitment_effective_on, p.revision),
-						outcome: "noop",
-						receiptId,
-					};
+				if (current.state === to) {
+					const value = { personId, current: status(to, current.effectiveOn, p.revision), outcome: "noop", receiptId };
 					return { value, subject: p.id, action: "people.updated", outcome: "noop" };
 				}
-				if (p.commitment_state !== from) deny("invalid_subject");
+				if (current.state !== from) deny("invalid_subject");
 				// A dated change happens after the state it ends began, and not in the future. Stage never changes.
 				notFuture(p, effectiveOn);
-				if (effectiveOn < (p.commitment_effective_on ?? "")) deny("invalid_input");
-				const set = { commitment_state: to, commitment_effective_on: effectiveOn };
-				audit.writes.push(...personUpdate(tx, plant, p, set));
+				if (effectiveOn < (current.effectiveOn ?? "")) deny("invalid_input");
+				const kind = to === "withdrawn" ? "withdrawn" : "reactivated";
+				const next = commitmentOf({
+					...inputs,
+					changes: [...inputs.changes, { id: receiptId, kind, on: effectiveOn, at: Number.POSITIVE_INFINITY }],
+				});
+				// A card signed after this date already makes the commitment active again: the change would not take effect.
+				if (next.state !== to) deny("invalid_input");
+				const set = cacheOf(p, next);
+				audit.writes.push(
+					tx.insert(tables.commitment_change).values({
+						id: receiptId,
+						plant_id: plant,
+						person_id: p.id,
+						kind,
+						effective_on: effectiveOn,
+						actor_id: actor,
+					}),
+					...personUpdate(tx, plant, p, set),
+				);
 				const revision = nextRevision(p, set);
 				return {
-					value: { personId, current: status(to, effectiveOn, revision), outcome: "changed", receiptId },
+					value: { personId, current: status(next.state, next.effectiveOn, revision), outcome: "changed", receiptId },
 					subject: p.id,
 					action: "people.updated",
 					before: { revision: p.revision, commitment: currentOf(p) },
-					after: { revision, commitment: { state: to, effectiveOn } },
+					after: { revision, commitment: next },
 					reason,
 					metadata: recordEvent(to === "withdrawn" ? "commitment_withdrawn" : "commitment_reactivated"),
 				};
@@ -172,33 +181,28 @@ async function lifecycle(tx: Tx, ctx: WriteContext, raw: unknown, to: "withdrawn
 	});
 }
 
+/**
+ * A commitment document the server read back from the private bucket and verified (saveCommitmentDocument): its
+ * upload, type, size and hash. Only a checked document attaches to a card.
+ */
+type CheckedDocument = {
+	uploadId: string;
+	mediaType: z.infer<typeof c.commitmentMime>;
+	byteCount: number;
+	sha256: string;
+};
+
 export const commitments = {
-	/** The pending private object a commitment document uploads into, with its orphan cleanup, in one statement. */
-	async requestCommitmentUpload(tx: Tx, ctx: WriteContext, raw: unknown) {
-		return readReply(async () => {
-			const plant = plantId(ctx);
-			const input = parse(c.requestCommitmentUploadRequest, raw);
-			await lockOwner(tx, ctx);
-			await authorize(tx, ctx, true);
-			await subject(tx, ctx, input.personId);
-			const id = randomUUID();
-			const result = await tx.execute(sql`WITH upload AS (
- INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,state,upload_key,claim_generation,expires_at)
- VALUES (${id}::uuid,${plant}::uuid,'commitment',${`private/${plant}/${randomUUID()}`},${input.mime},${input.byteLength},'pending',${id},0,clock_timestamp()+interval '15 minutes')
- RETURNING id,expires_at), cleanup AS (${queueObjectCleanup(tx, plant, id, "upload", sql`(SELECT expires_at FROM upload)`).getSQL()})
- SELECT expires_at FROM upload`);
-			const expiresAt = z.coerce.date().parse(result.rows[0]?.expires_at).toISOString();
-			return c.commitmentUploadResult.parse({ uploadId: id, expiresAt });
-		});
-	},
 	/**
-	 * REQ-PPL-014: the card, its witness and document, the Core Group advance of an earlier stage and the commitment state
-	 * change are one statement with one audit row. A missing, failed, expired or already attached upload records nothing.
+	 * REQ-PPL-014: the card, its witness and checked document, the Core Group advance of an earlier stage and the
+	 * commitment state change are one write with one audit row. A missing, expired or already attached upload, a foreign
+	 * witness or a future date records nothing and leaves the upload pending.
 	 */
-	async createCommitment(tx: Tx, ctx: WriteContext, raw: unknown) {
+	async createCommitment(tx: Tx, ctx: WriteContext, raw: unknown, document: CheckedDocument | null = null) {
 		return reply(tx, async () => {
 			const plant = plantId(ctx);
-			const input = parse(c.createCommitmentRequest, raw);
+			// A document's request names its upload, so a retry with another upload is a conflict, not a replay.
+			const input = parse(document ? c.saveCommitmentDocumentRequest : c.createCommitmentRequest, raw);
 			let fresh: unknown;
 			const stored = await mutation<unknown>(
 				tx,
@@ -208,49 +212,45 @@ export const commitments = {
 				async (actor, receiptId, audit) => {
 					const k = input.input;
 					const witnessId = k.witness && "personId" in k.witness ? k.witness.personId : null;
+					const external = k.witness && "external" in k.witness ? k.witness.external : null;
 					if (witnessId === k.personId) deny("invalid_subject");
+					// The upload row stays locked until COMMIT, so no other save or cleanup can take it meanwhile.
 					const p = await subject(
 						tx,
 						ctx,
 						k.personId,
 						sql`jsonb_build_object(
  'witness',(SELECT w.display_name FROM person w WHERE w.id=${witnessId}::uuid AND w.tenant_id=${plant}::uuid AND w.plant_id=${plant}::uuid AND w.state='live'),
- 'upload',(SELECT jsonb_build_object('media_type',f.media_type,'byte_count',f.byte_count) FROM file_object f
-   WHERE f.id=${k.documentUploadId}::uuid AND f.tenant_id=${plant}::uuid AND f.purpose='commitment' AND f.state='ready'
-   AND f.expires_at>clock_timestamp() AND NOT file_is_referenced(f.id)))`,
+ 'upload',${
+		document
+			? sql`(SELECT f.id FROM file_object f WHERE f.id=${document.uploadId}::uuid AND f.tenant_id=${plant}::uuid
+   AND f.purpose='commitment' AND f.state='pending' AND f.opaque_key=${documentKey(plant, document.uploadId)}::text
+   AND f.expires_at>clock_timestamp() AND f.max_bytes=${String(document.byteCount)}::bigint
+   AND f.media_type=${document.mediaType}::text AND NOT file_is_referenced(f.id) FOR UPDATE OF f)`
+			: sql`NULL`
+ },'commitment',${inputsOf(sql`${k.personId}::uuid`, plant)})`,
 					);
 					notFuture(p, k.occurredOn);
 					const found = z
-						.object({
-							witness: z.string().nullable(),
-							upload: z.object({ media_type: c.commitmentMime, byte_count: z.coerce.number() }).nullable(),
-						})
+						.object({ witness: z.string().nullable(), upload: z.uuid().nullable(), commitment: commitmentInputs })
 						.parse(p.extra);
-					// Only a live same-church witness, and only this church's own verified upload.
+					// Only a live same-church witness, and only this church's own pending upload.
 					if (witnessId && found.witness === null) deny();
-					if (k.documentUploadId && !found.upload) deny();
+					if (document && !found.upload) deny();
 					const id = randomUUID();
 					const step = advance(p, "core_group");
-					const current = afterCard(p, k.occurredOn);
-					const set = {
-						...step.set,
-						...(current.state !== p.commitment_state || current.effectiveOn !== p.commitment_effective_on
-							? { commitment_state: current.state, commitment_effective_on: current.effectiveOn }
-							: {}),
-					};
+					const inputs = found.commitment;
+					const current = commitmentOf({ ...inputs, cards: [...inputs.cards, { id, on: k.occurredOn }] });
+					const set = { ...step.set, ...cacheOf(p, current) };
+					if (document)
+						audit.writes.push(sql`UPDATE file_object SET state='ready',byte_count=${String(document.byteCount)}::bigint,
+ sha256=${document.sha256}::text,revision=revision+1 WHERE id=${document.uploadId}::uuid AND tenant_id=${plant}::uuid`);
+					// The card follows the upload's update: its trigger requires a ready object.
 					audit.writes.push(
-						tx.insert(tables.commitment).values({
-							id,
-							plant_id: plant,
-							person_id: p.id,
-							kind: k.kind,
-							signed_on: k.occurredOn,
-							recorded_at: p.now,
-							witness_person_id: witnessId,
-							external_witness: k.witness && "external" in k.witness ? k.witness.external : null,
-							object_id: k.documentUploadId,
-							notes: k.notes,
-						}),
+						sql`INSERT INTO commitment(id,plant_id,person_id,kind,signed_on,recorded_at,witness_person_id,external_witness,object_id,notes)
+ SELECT ${id}::uuid,${plant}::uuid,${p.id}::uuid,${k.kind}::text,${k.occurredOn}::date,${p.now.toISOString()}::timestamptz,
+ ${witnessId}::uuid,${external}::text,${document?.uploadId ?? null}::uuid,${k.notes}::text
+ ${document ? sql`WHERE EXISTS(SELECT FROM ${lastWrite(audit)})` : sql``}`,
 						...personUpdate(tx, plant, p, set),
 					);
 					const revision = nextRevision(p, set);
@@ -265,10 +265,10 @@ export const commitments = {
 							revision: "1",
 							kind: k.kind,
 							witness_id: witnessId,
-							external_witness: k.witness && "external" in k.witness ? k.witness.external : null,
+							external_witness: external,
 							notes: k.notes,
-							media_type: found.upload?.media_type ?? null,
-							byte_count: found.upload?.byte_count ?? null,
+							media_type: document?.mediaType ?? null,
+							byte_count: document?.byteCount ?? null,
 							voided_at: null,
 						}),
 						person: { personId: p.id, stage, revision, stageChange: step.change },
@@ -304,8 +304,9 @@ export const commitments = {
 	},
 	/**
 	 * REQ-PPL-015 and REQ-PPL-026: correct a card's signed date or kind, or void a card that was never genuine, with a
-	 * reason and its old and new values in the history. First acquisition follows the valid cards. Voiding the last valid
-	 * card makes the current commitment unknown. Stage never changes.
+	 * reason and its old and new values in the history. First acquisition and the current commitment follow the valid
+	 * cards and the dated withdrawals and reactivations (commitmentOf). A correction to the values the card already has
+	 * changes nothing. Stage never changes.
 	 */
 	async correctCommitmentLifecycle(tx: Tx, ctx: WriteContext, raw: unknown) {
 		return reply(tx, async () => {
@@ -320,8 +321,7 @@ export const commitments = {
 						ctx,
 						card,
 						sql`(SELECT jsonb_build_object('id',k.id,'person_id',k.person_id,'kind',k.kind,'signed_on',k.signed_on::text,
- 'revision',k.revision::text,'voided',k.voided_at IS NOT NULL,'others',(SELECT count(*)::int FROM commitment o
- WHERE o.person_id=k.person_id AND o.plant_id=k.plant_id AND o.id<>k.id AND o.voided_at IS NULL))
+ 'revision',k.revision::text,'voided',k.voided_at IS NOT NULL,'inputs',${commitmentInputsJson(sql`k.person_id`, sql`k.plant_id`)})
  FROM commitment k WHERE k.id=${commitmentId}::uuid AND k.plant_id=${plant}::uuid)`,
 					);
 					const k = cardRow.parse(p.extra);
@@ -333,6 +333,15 @@ export const commitments = {
 							? { ...before, voided: true }
 							: { ...before, occurredOn: correction.occurredOn ?? k.signed_on, kind: correction.kind ?? k.kind };
 					if (correction.action === "correct") notFuture(p, after.occurredOn);
+					if (!after.voided && after.occurredOn === before.occurredOn && after.kind === before.kind) {
+						const value = {
+							personId: p.id,
+							current: status(p.commitment_state, p.commitment_effective_on, p.revision),
+							outcome: "noop",
+							receiptId,
+						};
+						return { value, subject: p.id, action: "people.corrected", outcome: "noop" };
+					}
 					audit.writes.push(
 						tx
 							.update(tables.commitment)
@@ -344,11 +353,14 @@ export const commitments = {
 							})
 							.where(and(eq(tables.commitment.id, k.id), eq(tables.commitment.plant_id, plant))),
 					);
-					const none = after.voided && k.others === 0;
-					const set = none ? { commitment_state: "unknown" as const, commitment_effective_on: null } : {};
+					const others = k.inputs.cards.filter((x) => x.id !== k.id);
+					const current = commitmentOf({
+						...k.inputs,
+						cards: after.voided ? others : [...others, { id: k.id, on: after.occurredOn }],
+					});
+					const set = cacheOf(p, current);
 					audit.writes.push(...personUpdate(tx, plant, p, set));
 					const revision = nextRevision(p, set);
-					const current = none ? { state: "unknown" as const, effectiveOn: null } : currentOf(p);
 					return {
 						value: {
 							personId: p.id,
@@ -400,8 +412,8 @@ export function commitmentsOf(personId: string, h: History) {
 	const extra = currentRow.parse(h.extra);
 	return c.commitmentsResult.parse({
 		personId,
-		// Without a valid card the current commitment is unknown, whatever was recorded before.
-		current: status(extra.first ? extra.state : "unknown", extra.first ? extra.effective_on : null, extra.revision),
+		// The Person's columns cache commitmentOf over the valid cards and dated changes; every input write keeps them.
+		current: status(extra.state, extra.effective_on, extra.revision),
 		firstAcquisition: extra.first
 			? { status: "known", occurredOn: extra.first.on, evidenceId: extra.first.id }
 			: { status: "none" },
@@ -413,95 +425,26 @@ export function commitmentsOf(personId: string, h: History) {
 	});
 }
 
-type DocumentTarget = { commitmentId: string } | { upload: { id: string; byteCount: number; sha256: string } };
 /**
- * Current authority for one commitment document. Reads need an Owner or Admin whose session, seat and lifecycle are
- * live in the same statement as the exact card that holds the object. An upload's put records the verified size and
- * hash on the church's own pending upload, with the locked Owner or Admin authority in the same statement (D70, C27).
- * putPrivateObject calls it only after it has verified the file, so a rejected file never fixes the write-once hash.
+ * Current authority to read one commitment document: an Owner or Admin whose session, seat and lifecycle are live in
+ * the same statement as the exact card that holds the object (C13, C27).
  */
-function documentAuthority(ctx: PeopleContext, target: DocumentTarget): ResourceAuthorizer {
+function documentAuthority(ctx: PeopleContext, commitmentId: string): ResourceAuthorizer {
 	return async (tx, file, intent) => {
-		if (intent === "cleanup" || file.purpose !== "commitment" || file.tenant_id !== ctx.selected.id) return null;
-		if (intent === "read") {
-			if (!("commitmentId" in target)) return null;
-			const [current] = await tx
-				.select({ actorId: sql<string>`(SELECT i.account_id FROM live_session(${ctx.session}::uuid) i)` })
-				.from(tables.commitment)
-				.where(
-					and(
-						eq(tables.commitment.id, target.commitmentId),
-						eq(tables.commitment.plant_id, file.tenant_id),
-						eq(tables.commitment.object_id, file.id),
-						adminRead(ctx),
-					),
-				);
-			return current ? { kind: "account", actorId: current.actorId } : null;
-		}
-		if (!("upload" in target)) return null;
-		const { id, byteCount, sha256 } = target.upload;
-		const result = await tx.execute(sql`WITH a AS (SELECT i.account_id FROM access_session(${ctx.session}::uuid) i
- JOIN seat s ON s.account_id=i.account_id WHERE i.registration_state='active' AND s.plant_id=${file.tenant_id}::uuid
- AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp() AND s.role<>'member'
- AND ${writeVisibility(sql`i.account_id`, ctx.selected)} LIMIT 1)
- UPDATE file_object o SET byte_count=${String(byteCount)},sha256=${sha256} FROM a
- WHERE o.id=${id}::uuid AND o.tenant_id=${file.tenant_id}::uuid AND o.purpose='commitment' AND o.state='pending'
- AND o.expires_at>clock_timestamp() AND o.max_bytes=${String(byteCount)} AND (o.sha256 IS NULL OR o.sha256=${sha256})
- RETURNING a.account_id`);
-		const actor = z.object({ account_id: z.uuid() }).optional().parse(result.rows[0]);
-		return actor ? { kind: "account", actorId: actor.account_id } : null;
-	};
-}
-
-/** The byte adapter: store the verified PDF, JPG or PNG privately before createCommitment attaches it. */
-export async function uploadCommitmentDocument(
-	db: Database,
-	storage: PrivateStorage,
-	ctx: PeopleContext,
-	raw: unknown,
-) {
-	return readReply(async () => {
-		const plant = plantId(ctx);
-		const input = parse(z.object({ uploadId: z.uuid(), bytes: z.instanceof(Uint8Array) }), raw);
-		// A lock-free read finds this church's own pending upload; a wrong length writes nothing (C27).
-		const [file] = await db
-			.select({
-				id: tables.file_object.id,
-				media_type: tables.file_object.media_type,
-				upload_key: tables.file_object.upload_key,
-				max_bytes: tables.file_object.max_bytes,
-			})
-			.from(tables.file_object)
+		if (intent !== "read" || file.purpose !== "commitment" || file.tenant_id !== ctx.selected.id) return null;
+		const [current] = await tx
+			.select({ actorId: sql<string>`(SELECT i.account_id FROM live_session(${ctx.session}::uuid) i)` })
+			.from(tables.commitment)
 			.where(
 				and(
-					eq(tables.file_object.id, input.uploadId),
-					eq(tables.file_object.tenant_id, plant),
-					eq(tables.file_object.purpose, "commitment"),
-					eq(tables.file_object.state, "pending"),
-					sql`${tables.file_object.expires_at}>clock_timestamp()`,
+					eq(tables.commitment.id, commitmentId),
+					eq(tables.commitment.plant_id, file.tenant_id),
+					eq(tables.commitment.object_id, file.id),
 					adminRead(ctx),
 				),
 			);
-		if (!file) deny();
-		if (input.bytes.length !== Number(file.max_bytes)) deny("invalid_input");
-		const upload = {
-			id: file.id,
-			byteCount: input.bytes.length,
-			sha256: createHash("sha256").update(input.bytes).digest("hex"),
-		};
-		// putPrivateObject verifies the file before its authority records the size and hash; a failed upload stays
-		// pending for its cleanup and can be retried.
-		await putPrivateObject(db, storage, documentAuthority(ctx, { upload }), {
-			tenantId: plant,
-			purpose: "commitment",
-			mediaType: file.media_type,
-			bytes: input.bytes,
-			uploadKey: file.upload_key,
-		}).catch((error: unknown) =>
-			deny(error instanceof Error && error.message === "invalid_file" ? "invalid_input" : "unavailable"),
-		);
-		return { uploadId: file.id };
-	});
+		return current ? { kind: "account", actorId: current.actorId } : null;
+	};
 }
 
 /**
@@ -520,15 +463,15 @@ export async function getCommitmentDownload(db: Database, storage: PrivateStorag
 		const link = await createAuthorizedDownload(
 			db,
 			storage,
-			documentAuthority(ctx, { commitmentId: input.commitmentId }),
+			documentAuthority(ctx, input.commitmentId),
 			card.objectId,
 		).catch(() => deny());
 		return c.commitmentDownloadResult.parse(link);
 	});
 }
 
-// RT-2 design B: the browser puts a commitment document straight into the private bucket; the card is saved with it in
-// one statement. The bytes never pass through our server on the way in, and no SQL runs while they move.
+// RT-2 design B: the browser puts a commitment document straight into the private bucket; the card is saved with it
+// through createCommitment. The bytes never pass through our server on the way in, and no SQL runs while they move.
 
 /** A document's object key: the church comes from the verified viewer, so another church's upload cannot be named. */
 const documentKey = (plant: string, uploadId: string) => `private/${plant}/${uploadId}`;
@@ -574,209 +517,39 @@ export async function signCommitmentDocument(
 	});
 }
 
-const savedCard = z.object({
-	stage: c.stage,
-	new_stage: c.stage,
-	revision: z.string(),
-	new_revision: z.string(),
-	new_state: z.enum(["active", "withdrawn", "unknown"]),
-	new_effective: z.string().nullable(),
-	now: z.coerce.date(),
-	media_type: c.commitmentMime,
-	byte_count: z.coerce.number(),
-});
-const pgCode = (error: unknown) =>
-	z.object({ cause: z.object({ code: z.string() }) }).safeParse(error).data?.cause.code ??
-	z.object({ code: z.string() }).safeParse(error).data?.code;
-
 /**
- * Save a commitment card with its uploaded document (REQ-PPL-014, D70, C88). First the server reads the object back and
- * checks its type, size and content with no transaction open. Then one statement does everything the card needs:
- * it locks and rereads the session, the seat, the church, the upload, the Person and any witness Person; checks the live
- * Owner or Admin authority; makes the upload ready with its size and hash; advances an earlier stage to Core Group with
- * the column revisions; sets the commitment; inserts the card; moves the church revision on; and writes one
- * `people.recorded` audit row with the request key and the reply. Zero rows means refused. The upload becomes ready
- * only from the row that passed every check, so any refusal (a sign-out or a revoked seat while the bytes moved, a
- * foreign witness, a future date) leaves it pending: a corrected save can still use it, and otherwise its cleanup runs.
- *
- * C88: the statement never waits for a lock, because its snapshot is older than a lock it waited for. A held lock runs
- * the established locked path instead: BEGIN, the write gate (which waits), the same statement, COMMIT. A retry with
- * the same request key, or a lost race for it, reads the saved card once and returns the same reply.
+ * Save a commitment card with the document the browser put into the bucket (RT-2 design B, REQ-PPL-014). The request's
+ * viewer must be an Owner or Admin before the server reads the bucket. With no transaction open, the server reads the
+ * object back and checks its type, size and content; then createCommitment saves the card and attaches the upload
+ * through the shared native write (D70, C88), which checks live authority again and answers a retry from its key.
  */
 export async function saveCommitmentDocument(
 	db: Database,
 	storage: PrivateStorage,
-	ctx: PeopleContext,
-	actorId: string,
+	authority: RequestActor,
 	raw: unknown,
 ) {
-	return readReply(async () => {
-		const plant = plantId(ctx);
+	const checked = await readReply(async () => {
 		const request = parse(c.saveCommitmentDocumentRequest, raw);
-		const { requestKey, input: k } = request;
-		const witnessId = k.witness && "personId" in k.witness ? k.witness.personId : null;
-		const external = k.witness && "external" in k.witness ? k.witness.external : null;
-		if (witnessId === k.personId) deny("invalid_subject");
-		const operation = "people.createCommitment";
-		const identity = {
-			owner: ctx.selected,
-			actorId,
-			operation,
-			requestKey,
-			digest: hash({ name: operation, input: request, origin: { kind: "native" } }),
-		};
-		/** An earlier save with this request key: the same request gets its first reply, another one is a conflict. */
-		const prior = sql`(SELECT jsonb_build_object('identity',e.request_identity,'result',e.result,
- 'card',(SELECT ${commitmentJson} FROM commitment r WHERE r.id=(e.result->>'recordId')::uuid AND r.plant_id=e.tenant_id))
- FROM audit_event e WHERE e.tenant_id=${plant}::uuid AND e.request_key=${requestKey}::text)`;
-		const replay = (raw: unknown) => {
-			const found = z
-				.object({
-					identity: z.object({ actorId: z.string(), operation: z.string(), digest: z.string() }),
-					result: z.object({ recordId: z.uuid() }).loose(),
-					card: z.unknown(),
-				})
-				.safeParse(raw);
-			if (!found.success) deny();
-			const was = found.data.identity;
-			if (was.actorId !== actorId || was.operation !== operation || was.digest !== identity.digest) deny("conflict");
-			if (found.data.card === null) deny();
-			// The receipt names the card; the card itself comes from its row, as in the established replay.
-			const receipt = Object.fromEntries(Object.entries(found.data.result).filter(([field]) => field !== "recordId"));
-			return c.commitmentMutationResult.parse(
-				asSaved({ ...receipt, commitment: commitmentView(plant, found.data.card) }),
-			);
-		};
-
-		const object = await readPrivateObject(storage, documentKey(plant, k.documentUploadId), c.COMMITMENT_MAX_BYTES);
+		const ctx = new PeopleReadContext(authority);
+		authorizeCachedWrite(ctx);
+		const uploadId = request.input.documentUploadId;
+		const object = await readPrivateObject(storage, documentKey(plantId(ctx), uploadId), c.COMMITMENT_MAX_BYTES);
 		const mime = c.commitmentMime.safeParse(object?.mediaType);
 		// Not uploaded (or not completely): nothing to save. A retry of a saved card still finds its object.
 		if (!object || !mime.success) deny();
-		try {
-			await validateCommitment(object.bytes, mime.data);
-		} catch {
-			deny("invalid_input");
-		}
-		const bytes = object.bytes;
-		const cardId = randomUUID();
-		const auditId = randomUUID();
-		const order = sql`${sql.param(c.stage.options)}::text[]`;
-		const save = (first: boolean) => sql`WITH
- ${first ? sql`g AS MATERIALIZED (SELECT set_config('lock_timeout','1ms',true) AS t),` : sql``}
- a AS MATERIALIZED (SELECT i.account_id FROM ${first ? sql`g CROSS JOIN LATERAL ` : sql``}access_session(
-  ${first ? sql`CASE WHEN g.t IS NULL THEN NULL ELSE ${ctx.session}::uuid END` : sql`${ctx.session}::uuid`}) i
-  WHERE i.account_id=${actorId}::uuid AND i.registration_state='active'),
- s AS MATERIALIZED (SELECT s.id FROM seat s JOIN a ON s.account_id=a.account_id WHERE s.plant_id=${plant}::uuid
-  AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp() AND s.role<>'member' ORDER BY s.id FOR SHARE OF s),
- pl AS MATERIALIZED (SELECT pl.id,(clock_timestamp() AT TIME ZONE pl.timezone)::date AS today,clock_timestamp() AS now
-  FROM plant pl WHERE pl.id=${plant}::uuid AND EXISTS(SELECT FROM s)
-  AND ${writeVisibility(actorId, ctx.selected)} FOR UPDATE OF pl),
- fl AS MATERIALIZED (SELECT o.id FROM file_object o, pl
-  WHERE o.id=${k.documentUploadId}::uuid AND o.tenant_id=${plant}::uuid AND o.purpose='commitment' AND o.state='pending'
-  AND o.opaque_key=${documentKey(plant, k.documentUploadId)}::text AND o.expires_at>clock_timestamp()
-  AND o.max_bytes=${String(bytes.length)}::bigint AND o.media_type=${mime.data}::text AND NOT file_is_referenced(o.id)
-  FOR UPDATE OF o),
- w AS MATERIALIZED (SELECT w.id FROM person w, pl WHERE w.id=${witnessId}::uuid AND w.tenant_id=${plant}::uuid
-  AND w.plant_id=${plant}::uuid AND w.state='live' FOR SHARE OF w),
- prev AS MATERIALIZED (SELECT p.id,p.stage,p.revision,p.commitment_state,p.commitment_effective_on,pl.now,fl.id AS file_id
-  FROM person p, pl, fl WHERE p.id=${k.personId}::uuid AND p.tenant_id=${plant}::uuid AND p.plant_id=${plant}::uuid
-  AND p.state='live' AND ${k.occurredOn}::date<=pl.today AND (${witnessId}::uuid IS NULL OR EXISTS(SELECT FROM w))
-  FOR UPDATE OF p),
- n AS (SELECT prev.*,
-  CASE WHEN array_position(${order},prev.stage)<array_position(${order},'core_group') THEN 'core_group' ELSE prev.stage END AS new_stage,
-  (prev.commitment_state='unknown' OR (prev.commitment_state='withdrawn'
-   AND ${k.occurredOn}::date>coalesce(prev.commitment_effective_on,'-infinity'::date))) AS activates FROM prev),
- m AS (SELECT n.*,n.new_stage<>n.stage AS moves,
-  n.revision+CASE WHEN n.new_stage<>n.stage OR n.activates THEN 1 ELSE 0 END AS new_revision,
-  CASE WHEN n.activates THEN 'active' ELSE n.commitment_state END AS new_state,
-  CASE WHEN n.activates THEN ${k.occurredOn}::date ELSE n.commitment_effective_on END AS new_effective FROM n),
- f AS (UPDATE file_object o SET state='ready',byte_count=${String(bytes.length)}::bigint,
-  sha256=${createHash("sha256").update(bytes).digest("hex")}::text,revision=o.revision+1 FROM m
-  WHERE o.id=m.file_id RETURNING o.id,o.media_type,o.byte_count),
- up AS (UPDATE person p SET stage=m.new_stage,
-  pipeline_position=CASE WHEN m.moves THEN ${freshPosition(k.personId)}::numeric ELSE p.pipeline_position END,
-  commitment_state=m.new_state,commitment_effective_on=m.new_effective,revision=m.new_revision
-  FROM m WHERE p.id=m.id AND m.new_revision<>m.revision RETURNING 1),
- col AS (INSERT INTO people_column(plant_id,column_name,revision)
-  SELECT ${plant}::uuid,x,2 FROM m, unnest(ARRAY[m.stage,'core_group']) x WHERE m.moves
-  ON CONFLICT (plant_id,column_name) DO UPDATE SET revision=people_column.revision+1 RETURNING 1),
- card AS (INSERT INTO commitment(id,plant_id,person_id,kind,signed_on,recorded_at,witness_person_id,external_witness,object_id,notes)
-  SELECT ${cardId}::uuid,${plant}::uuid,m.id,${k.kind}::text,${k.occurredOn}::date,m.now,${witnessId}::uuid,${external}::text,
-  f.id,${k.notes}::text FROM m,f RETURNING id),
- pr AS (UPDATE plant SET material_revision=plant.material_revision+1 FROM card WHERE plant.id=${plant}::uuid RETURNING 1),
- audit AS (INSERT INTO audit_event(id,tenant_id,actor_id,actor_token,action,kind,subject_type,subject_id,before_revision,
-  after_revision,before_value,after_value,metadata,request_key,request_identity,result,command_id)
-  SELECT ${auditId}::uuid,${plant}::uuid,${actorId}::uuid,${hash([plant, actorId])}::text,'people.recorded','edit','person',
-  m.id,m.revision,m.new_revision,
-  CASE WHEN m.moves THEN jsonb_build_object('stage',m.stage) ELSE '{}' END
-   ||CASE WHEN m.activates THEN jsonb_build_object('commitment',jsonb_build_object('state',m.commitment_state,
-   'effectiveOn',m.commitment_effective_on::text)) ELSE '{}' END,
-  CASE WHEN m.moves THEN jsonb_build_object('stage',m.new_stage) ELSE '{}' END
-   ||CASE WHEN m.activates THEN jsonb_build_object('commitment',jsonb_build_object('state',m.new_state,
-   'effectiveOn',m.new_effective::text)) ELSE '{}' END,
-  jsonb_build_object('event','commitment_recorded','recordId',${cardId}::text),
-  ${requestKey}::text,${JSON.stringify(identity)}::jsonb,
-  jsonb_build_object('person',jsonb_build_object('personId',m.id,'stage',m.new_stage,'revision',m.new_revision::text,
-   'stageChange',CASE WHEN m.moves THEN jsonb_build_object('from',m.stage,'to',m.new_stage) END),
-   'current',jsonb_build_object('state',m.new_state,'effectiveOn',m.new_effective::text,'personRevision',m.new_revision::text),
-   'outcome','changed','receiptId',${auditId}::text,'recordId',${cardId}::text,
-   'card',jsonb_build_object('occurredOn',${k.occurredOn}::text,'kind',${k.kind}::text)),
-  ${auditId}::uuid FROM m,card RETURNING id)
- SELECT r.*,${k.occurredOn}::date>(SELECT today FROM pl) AS future,
- CASE WHEN EXISTS(SELECT FROM pl) THEN ${prior} END AS prior FROM (SELECT 1) seed LEFT JOIN (
-  SELECT m.stage,m.new_stage,m.revision::text AS revision,m.new_revision::text AS new_revision,m.new_state,
-  m.new_effective::text AS new_effective,m.now,f.media_type,f.byte_count FROM audit,m,f,pr) r ON true`;
-
-		let row: Record<string, unknown> | undefined;
-		try {
-			try {
-				row = (await db.execute(save(true))).rows[0];
-			} catch (error) {
-				// lock_not_available: another writer holds a row this save depends on. Wait for it the established way.
-				if (pgCode(error) !== "55P03") throw error;
-				row = await db.transaction(async (tx) => {
-					const locked = await lockWriteAuthority(tx, ctx.session, ctx.selected);
-					if (!locked || locked.identity.status !== "active") return undefined;
-					return (await tx.execute(save(false))).rows[0];
-				});
-			}
-		} catch (error) {
-			if (!isAuditRetry(error)) throw error;
-			// Another request with this key committed after this statement's snapshot: read its reply once.
-			const found = await db.execute(sql`SELECT ${prior} AS prior WHERE ${adminRead(ctx)}`);
-			return replay(found.rows[0]?.prior);
-		}
-		if (row?.future === true) deny("invalid_input");
-		const saved = savedCard.safeParse(row);
-		// Zero rows: refused, or a retry of a saved card, which the same statement read under the same authority.
-		if (!saved.success) return replay(row?.prior);
-		const r = saved.data;
-		const current = status(r.new_state, r.new_effective, r.new_revision);
-		return c.commitmentMutationResult.parse({
-			commitment: commitmentView(plant, {
-				id: cardId,
-				person_id: k.personId,
-				occurred_on: k.occurredOn,
-				recorded_at: r.now,
-				actor_id: actorId,
-				revision: "1",
-				kind: k.kind,
-				witness_id: witnessId,
-				external_witness: external,
-				notes: k.notes,
-				media_type: r.media_type,
-				byte_count: r.byte_count,
-				voided_at: null,
-			}),
-			person: {
-				personId: k.personId,
-				stage: r.new_stage,
-				revision: r.new_revision,
-				stageChange: r.new_stage !== r.stage ? { from: r.stage, to: r.new_stage } : null,
-			},
-			current,
-			outcome: "changed",
-			receiptId: auditId,
-		});
+		await validateCommitment(object.bytes, mime.data).catch(() =>
+			deny("invalid_input", { reason: "unreadable_document" }),
+		);
+		const document: CheckedDocument = {
+			uploadId,
+			mediaType: mime.data,
+			byteCount: object.bytes.length,
+			sha256: createHash("sha256").update(object.bytes).digest("hex"),
+		};
+		return { request, document };
 	});
+	if (checked.status !== "ok") return checked;
+	const { request, document } = checked.value;
+	return withPeopleWrite(db, authority, (tx, ctx) => commitments.createCommitment(tx, ctx, request, document));
 }

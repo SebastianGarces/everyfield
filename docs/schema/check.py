@@ -155,9 +155,11 @@ def validate_schema(schema, label, authority=False, documented_exceptions=None):
                     errors.append(f'{prefix}: incomplete column definition {column.get("name")}')
                 if not isinstance(column['nullable'], bool):
                     errors.append(f'{prefix}: nullable must be boolean')
-            migration_key = (name == 'schema_migration' and pk == ['name']
+            # The migration ledger and its backfill sibling (C102) are keyed by the applied name.
+            ledger = name in ('schema_migration', 'schema_backfill')
+            migration_key = (ledger and pk == ['name']
                              and columns.get('name', {}).get('type') == 'text')
-            if name == 'schema_migration' and not migration_key:
+            if ledger and not migration_key:
                 errors.append(f'{prefix}: migration ledger needs its applied text primary key')
             if len(pk) == 1 and columns.get(pk[0], {}).get('type') != 'uuid' and not migration_key:
                 errors.append(f'{prefix}: single-column PK must be UUID')

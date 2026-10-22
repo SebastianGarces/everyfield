@@ -1,25 +1,10 @@
 "use client";
 
 import { Task01Icon, PencilEdit02Icon } from "@hugeicons/core-free-icons";
-import {
-	Button,
-	Dialog,
-	DialogBody,
-	DialogContent,
-	DialogFooter,
-	DialogHeader,
-	Field,
-	Input,
-	Radio,
-	RadioGroup,
-	SearchInput,
-	Select,
-	Spinner,
-	Textarea,
-} from "@everyfield/ui/controls";
-import { Icon } from "@everyfield/ui/foundations";
-import { Alert02Icon } from "@hugeicons/core-free-icons";
+import { Field, Input, Radio, RadioGroup, SearchInput, Select, Spinner, Textarea } from "@everyfield/ui/controls";
 import { useEffect, useRef, useState } from "react";
+import { RecordDialog } from "../../components/save/parts.tsx";
+import type { Wait } from "../../components/save/model.ts";
 import { createTask, editTask } from "./actions.ts";
 import { assigneeOptions, relationOptions } from "./fetch.ts";
 import {
@@ -31,8 +16,8 @@ import {
 	offsetText,
 	PRIORITIES,
 	PRIORITY_LABEL,
-	problemText,
-	RequestKeys,
+	previewOverdue,
+	rebase,
 	sameDue,
 	timeText,
 	PENDING_PREFIX,
@@ -63,15 +48,15 @@ export type Draft = {
 };
 /**
  * A save the screen shows before the answer: the row as it will be, the request and the person's text (the form opens
- * again with it after a refusal). `send` takes the request key and the revision the screen holds.
+ * again with it after a refusal). `send` takes the save intent's request key; the revision is the one the form showed.
  */
 export type Commit = {
 	before: TaskDetail | null;
 	preview: TaskItem;
-	send: (key: string, revision: string) => Promise<Outcome<Saved>>;
+	send: (key: string) => Promise<Outcome<Saved>>;
 	draft: Draft;
 };
-type Choices = Extract<TaskError, { code: "ambiguous_local_time" }>["details"]["choices"];
+export type Choices = Extract<TaskError, { code: "ambiguous_local_time" }>["details"]["choices"];
 const NOBODY = "nobody";
 const RELATION_NAME = { person: "person", meeting: "meeting", team: "team" } as const;
 const RELATION_PLURAL = { person: "people", meeting: "meetings", team: "teams" } as const;
@@ -113,70 +98,84 @@ export const warmAssignees = () =>
 		}));
 
 /**
+ * The task form on its card's save lane (C58): the task it was opened on, or null for a new task, and after a refused
+ * save the person's values with the server's question, so the form opens again where they left it.
+ */
+export type EditForm = {
+	kind: "edit";
+	task: TaskDetail | null;
+	draft?: Draft;
+	/** The two occurrences of a time the clocks repeat, from the server's refusal. */
+	choices?: Choices;
+	problem?: string;
+};
+
+/**
  * New task and Edit task (REQ-TSK-002, REQ-TSK-018). A due date is a day, a church-local time or nothing. A time the
  * clocks skip is refused with a request for another time; a time the clocks repeat shows both occurrences and saves
- * only after the person picks one (B03-008, B03-009). A task a meeting created keeps its category and link.
+ * only after the person picks one (B03-008, B03-009). A task a meeting created keeps its category and link. Every save
+ * closes the form and shows at once on the list; a refusal opens the form again on the newest copy of the task with
+ * the person's own changes on top (R4-2).
  */
 export function TaskDialog({
-	task,
-	draft,
+	form,
+	latest,
 	viewer,
+	wait,
+	problem,
 	onClose,
 	onCommit,
-	onSaved,
-	onConflict,
 }: {
-	task: TaskDetail | "new" | null;
-	/** The person's text from a refused save, shown again. */
-	draft?: Draft;
+	form: EditForm | null;
+	/** The newest copy of the edited task this screen holds (a conflict reads it again), or null for a new task. */
+	latest: TaskDetail | null;
 	viewer: Viewer;
+	/** The card's save in flight or unknown: the form keeps its values and cannot submit (C68). */
+	wait: Wait;
+	/** Why the last save of this form was refused, in words. */
+	problem?: string;
 	onClose: () => void;
 	onCommit: (c: Commit) => void;
-	onSaved: (before: TaskItem | null, saved: Saved) => void;
-	onConflict: (id: string) => void;
 }) {
+	if (!form) return null;
+	const task = form.task ? (latest ?? form.task) : null;
 	return (
-		<Dialog open={task !== null} onOpenChange={(o) => !o && onClose()}>
-			{task !== null ? (
-				<Form
-					key={task === "new" ? "new" : `${task.id}:${task.revision}`}
-					task={task === "new" ? null : task}
-					{...{ restore: draft, viewer, onClose, onCommit, onSaved, onConflict }}
-				/>
-			) : null}
-		</Dialog>
+		<Form
+			key={task ? `${task.id}:${task.revision}` : "new"}
+			{...{ form, task, viewer, wait, problem, onClose, onCommit }}
+		/>
 	);
 }
 
 function Form({
+	form,
 	task,
-	restore,
 	viewer,
+	wait,
+	problem: refusal,
 	onClose,
 	onCommit,
-	onSaved,
-	onConflict,
 }: {
+	form: EditForm;
 	task: TaskDetail | null;
-	restore?: Draft;
 	viewer: Viewer;
+	wait: Wait;
+	problem?: string;
 	onClose: () => void;
 	onCommit: (c: Commit) => void;
-	onSaved: (before: TaskItem | null, saved: Saved) => void;
-	onConflict: (id: string) => void;
 }) {
 	const [initial] = useState(() => draftOf(task, viewer));
-	const [draft, setDraft] = useState(restore ?? initial);
-	const [pending, setPending] = useState(false);
+	// The person's changes from a refused save, on top of the newest copy: a field they did not touch shows its new value.
+	const [draft, setDraft] = useState(() =>
+		form.draft ? rebase(form.draft, draftOf(form.task, viewer), initial) : initial,
+	);
 	const [touched, setTouched] = useState(false);
-	const [problem, setProblem] = useState<string | null>(null);
-	const [gap, setGap] = useState(false);
-	const [fold, setFold] = useState<Choices | null>(null);
-	const keys = useRef(new RequestKeys());
+	const [problem, setProblem] = useState(refusal ?? null);
+	const [gap, setGap] = useState(form.problem === "nonexistent_local_time");
+	const [fold, setFold] = useState<Choices | null>(() =>
+		form.choices ? [...form.choices].sort((a, b) => a.instant.localeCompare(b.instant)) : null,
+	);
 	const foldBox = useRef<HTMLDivElement>(null);
-	useEffect(() => {
-		if (fold) foldBox.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-	}, [fold]);
 	const managed = task?.managed ?? null;
 	const set = (patch: Partial<Draft>) => {
 		setDraft((d) => ({ ...d, ...patch }));
@@ -194,27 +193,23 @@ function Form({
 	const due = dueInputOf(draft.due);
 	const titleError = touched && !title ? "Enter what needs doing." : null;
 	const dateError = touched && !due.ok && due.field === "date" ? "Pick a day." : null;
-	const timeError = gap
-		? problemText("nonexistent_local_time")
-		: touched && !due.ok && due.field === "time"
-			? "Pick a time."
-			: null;
+	const timeError = gap ? "Pick another time." : touched && !due.ok && due.field === "time" ? "Pick a time." : null;
 
-	async function submit(event: React.FormEvent) {
-		event.preventDefault();
+	/** Returns false when the form has missing answers. */
+	function submit(): boolean {
 		setTouched(true);
-		if (!title || !due.ok || pending) return;
+		if (!title || !due.ok) return false;
 		if (fold && draft.due.offsetSeconds === undefined) {
-			foldBox.current?.scrollIntoView({ block: "nearest" });
-			return setProblem("Choose which time you mean.");
+			setProblem("Choose which time you mean.");
+			foldBox.current?.querySelector<HTMLElement>("button")?.focus();
+			return true;
 		}
 		const assigneeId = draft.assigneeId === NOBODY ? null : draft.assigneeId;
 		const relation = draft.relation ? { kind: draft.relation.kind, id: draft.relation.id } : null;
 		const description = draft.description.trim() === "" ? null : draft.description;
 		let send: Commit["send"];
-		let payload: unknown;
 		if (!task) {
-			payload = {
+			const payload = {
 				title,
 				description,
 				priority: draft.priority,
@@ -234,208 +229,158 @@ function Form({
 			if (draft.assigneeId !== initial.assigneeId) patch.assigneeId = assigneeId;
 			if (draft.relation?.id !== initial.relation?.id || draft.relation?.kind !== initial.relation?.kind)
 				patch.relation = relation;
-			if (Object.keys(patch).length === 0) return onClose();
-			payload = patch;
-			send = (key, revision) => editTask(key, revision, task.id, patch);
+			if (Object.keys(patch).length === 0) {
+				onClose();
+				return true;
+			}
+			const revision = task.revision;
+			send = (key) => editTask(key, revision, task.id, patch);
 		}
-		// A deadline at a new time of day may need the person's answer (a time the clocks skip or repeat), so that save
-		// waits here. Every other save shows at once on the list and is confirmed or rolled back there.
-		const waits = due.due.kind === "resolved_instant" && (!task || !sameDue(draft.due, initial.due));
-		if (!waits) {
-			const shownDue: Due =
-				due.due.kind === "undated"
-					? { kind: "undated" }
-					: due.due.kind === "local_date"
-						? { kind: "local_date", date: due.due.date }
-						: task!.due;
-			const base: TaskItem = task ?? {
-				id: (PENDING_PREFIX + crypto.randomUUID()) as never,
-				revision: "0" as never,
-				title,
-				status: "not_started",
-				priority: draft.priority,
-				category: draft.category,
-				due: shownDue,
-				overdue: null,
-				assignee: null,
-				relation: null,
-				parentId: null,
-				checklist: { total: 0, complete: 0 },
-				openPrerequisites: 0,
-				managed: null,
-				createdAt: new Date().toISOString() as never,
-				completedAt: null,
-				deleted: false,
-			};
-			const preview: TaskItem = {
-				...base,
-				title,
-				priority: draft.priority,
-				category: draft.category,
-				due: shownDue,
-				overdue: task && sameDue(draft.due, initial.due) ? task.overdue : shownDue.kind === "undated" ? null : false,
-				assignee: assigneeId ? { accountId: assigneeId as never, displayName: draft.assigneeName ?? "" } : null,
-				relation: draft.relation as TaskItem["relation"],
-			};
-			return onCommit({ before: task, preview, send, draft });
-		}
-		const call = (key: string) => send(key, task?.revision ?? "0");
-		const slot = task ? `edit:${task.id}` : "create";
-		const key = keys.current.for(slot, payload);
-		setPending(true);
-		const r = await call(key).catch(() => ({ status: "lost" }) as const);
-		keys.current.settle(slot, r);
-		setPending(false);
-		if (r.status === "ok") return onSaved(task, r.value);
-		if (r.status === "lost") return setProblem(problemText("lost"));
-		if (r.code === "ambiguous_local_time" && r.error?.code === "ambiguous_local_time") {
-			return setFold([...r.error.details.choices].sort((a, b) => a.instant.localeCompare(b.instant)));
-		}
-		if (r.code === "nonexistent_local_time") return setGap(true);
-		if (r.code === "conflict" && task) onConflict(task.id);
-		setProblem(problemText(r.code));
+		// A new time of day shows its day until the server resolves the instant in the church's time zone.
+		const shownDue: Due =
+			due.due.kind === "undated"
+				? { kind: "undated" }
+				: due.due.kind === "local_date"
+					? { kind: "local_date", date: due.due.date }
+					: task && sameDue(draft.due, initial.due)
+						? task.due
+						: { kind: "local_date", date: due.due.local.slice(0, 10) as never };
+		const base: TaskItem = task ?? {
+			id: (PENDING_PREFIX + crypto.randomUUID()) as never,
+			revision: "0" as never,
+			title,
+			status: "not_started",
+			priority: draft.priority,
+			category: draft.category,
+			due: shownDue,
+			overdue: null,
+			assignee: null,
+			relation: null,
+			parentId: null,
+			checklist: { total: 0, complete: 0 },
+			openPrerequisites: 0,
+			managed: null,
+			createdAt: new Date().toISOString() as never,
+			completedAt: null,
+			deleted: false,
+		};
+		const preview: TaskItem = {
+			...base,
+			title,
+			priority: draft.priority,
+			category: draft.category,
+			due: shownDue,
+			overdue: task && sameDue(draft.due, initial.due) ? task.overdue : previewOverdue(due.due),
+			assignee: assigneeId ? { accountId: assigneeId as never, displayName: draft.assigneeName ?? "" } : null,
+			relation: draft.relation as TaskItem["relation"],
+		};
+		onCommit({ before: task, preview, send, draft });
+		return true;
 	}
 
 	return (
-		<DialogContent size="md" aria-busy={pending || undefined}>
-			<form onSubmit={submit} noValidate className="contents">
-				<DialogHeader
-					icon={task ? PencilEdit02Icon : Task01Icon}
-					tone="green"
-					title={task ? "Edit task" : "New task"}
-					description={task ? undefined : "Say what needs doing. Everything else is optional."}
+		<RecordDialog
+			icon={task ? PencilEdit02Icon : Task01Icon}
+			tone="green"
+			title={task ? "Edit task" : "New task"}
+			description={task ? undefined : "Say what needs doing. Everything else is optional."}
+			action={task ? "Save changes" : "Add task"}
+			problem={problem ?? undefined}
+			wait={wait}
+			onClose={onClose}
+			onSubmit={submit}
+		>
+			<Field label="Title" error={titleError}>
+				<Input
+					value={draft.title}
+					maxLength={500}
+					autoComplete="off"
+					autoFocus
+					onChange={(e) => set({ title: e.target.value })}
 				/>
-				<DialogBody className="flex flex-col gap-4">
-					<Field label="Title" error={titleError}>
-						<Input
-							value={draft.title}
-							readOnly={pending}
-							maxLength={500}
-							autoComplete="off"
-							autoFocus
-							onChange={(e) => set({ title: e.target.value })}
-						/>
-					</Field>
-					<Field label="Description" optional>
-						<Textarea
-							value={draft.description}
-							readOnly={pending}
-							maxLength={10_000}
-							rows={3}
-							onChange={(e) => set({ description: e.target.value })}
-						/>
-					</Field>
-					<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
-						<Field label="Due">
-							<Select
-								value={draft.due.kind}
-								disabled={pending}
-								onValueChange={(kind) => setDue({ kind: kind as DueDraft["kind"] })}
-								options={(["undated", "local_date", "resolved_instant"] as const).map((k) => ({
-									value: k,
-									label: DUE_KIND_LABEL[k],
-								}))}
-							/>
-						</Field>
-						{draft.due.kind !== "undated" ? (
-							<Field label="Day" error={dateError}>
-								<Input
-									type="date"
-									value={draft.due.date}
-									readOnly={pending}
-									onChange={(e) => setDue({ date: e.target.value })}
-								/>
-							</Field>
-						) : null}
-						{draft.due.kind === "resolved_instant" ? (
-							<Field label="Time" hint="In the church’s time zone." error={timeError}>
-								<Input
-									type="time"
-									value={draft.due.time}
-									readOnly={pending}
-									onChange={(e) => setDue({ time: e.target.value })}
-								/>
-							</Field>
-						) : null}
-					</div>
-					{fold && draft.due.kind === "resolved_instant" ? (
-						<div ref={foldBox} className="flex flex-col gap-1 rounded-md bg-surface px-4 pt-3 pb-1">
-							<p id="fold-question" className="text-sm font-medium text-ink">
-								Which {timeText(draft.due.time)}?
-							</p>
-							<p className="text-sm text-text-2">
-								The clocks go back that night, so {timeText(draft.due.time)} happens twice.
-							</p>
-							<RadioGroup
-								aria-labelledby="fold-question"
-								value={draft.due.offsetSeconds === undefined ? "" : String(draft.due.offsetSeconds)}
-								onValueChange={(v) => {
-									setDraft((d) => ({ ...d, due: { ...d.due, offsetSeconds: Number(v) } }));
-									setProblem(null);
-								}}
-							>
-								{fold.map((c, i) => (
-									<Radio
-										key={c.offsetSeconds}
-										value={String(c.offsetSeconds)}
-										disabled={pending}
-										label={`${i === 0 ? "The first" : "The second"} ${timeText(draft.due.time)}`}
-										description={`${i === 0 ? "Before" : "After"} the clocks go back (${offsetText(c.offsetSeconds)})`}
-									/>
-								))}
-							</RadioGroup>
-						</div>
-					) : null}
-					<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
-						<AssigneeField
-							value={draft.assigneeId}
-							current={task?.assignee ?? null}
-							viewer={viewer}
-							disabled={pending}
-							onChange={(assigneeId, assigneeName) => set({ assigneeId, assigneeName })}
-						/>
-						<Field label="Priority">
-							<Select
-								value={draft.priority}
-								disabled={pending}
-								onValueChange={(v) => set({ priority: v as Priority })}
-								options={PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABEL[p] }))}
-							/>
-						</Field>
-						<Field label="Category" hint={managed ? "Set by the meeting that created this task." : undefined}>
-							<Select
-								value={draft.category}
-								disabled={pending || Boolean(managed)}
-								onValueChange={(v) => set({ category: v as Category })}
-								options={CATEGORIES.map((c) => ({ value: c, label: CATEGORY_LABEL[c] }))}
-							/>
-						</Field>
-					</div>
-					<RelationField
-						value={draft.relation}
-						locked={Boolean(managed)}
-						disabled={pending}
-						onChange={(relation) => set({ relation })}
+			</Field>
+			<Field label="Description" optional>
+				<Textarea
+					value={draft.description}
+					maxLength={10_000}
+					rows={3}
+					onChange={(e) => set({ description: e.target.value })}
+				/>
+			</Field>
+			<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
+				<Field label="Due">
+					<Select
+						value={draft.due.kind}
+						onValueChange={(kind) => setDue({ kind: kind as DueDraft["kind"] })}
+						options={(["undated", "local_date", "resolved_instant"] as const).map((k) => ({
+							value: k,
+							label: DUE_KIND_LABEL[k],
+						}))}
 					/>
-					<div aria-live="assertive" className="empty:hidden">
-						{problem ? (
-							<p className="flex items-start gap-2 rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600">
-								<Icon icon={Alert02Icon} size={16} className="mt-px flex-none" />
-								{problem}
-							</p>
-						) : null}
-					</div>
-				</DialogBody>
-				<DialogFooter>
-					<Button variant="secondary" type="button" onClick={onClose} disabled={pending}>
-						Cancel
-					</Button>
-					<Button variant="primary" type="submit" loading={pending}>
-						{task ? "Save changes" : "Add task"}
-					</Button>
-				</DialogFooter>
-			</form>
-		</DialogContent>
+				</Field>
+				{draft.due.kind !== "undated" ? (
+					<Field label="Day" error={dateError}>
+						<Input type="date" value={draft.due.date} onChange={(e) => setDue({ date: e.target.value })} />
+					</Field>
+				) : null}
+				{draft.due.kind === "resolved_instant" ? (
+					<Field label="Time" hint="In the church’s time zone." error={timeError}>
+						<Input type="time" value={draft.due.time} onChange={(e) => setDue({ time: e.target.value })} />
+					</Field>
+				) : null}
+			</div>
+			{fold && draft.due.kind === "resolved_instant" ? (
+				<div ref={foldBox} className="flex flex-col gap-1 rounded-md bg-surface px-4 pt-3 pb-1">
+					<p id="fold-question" className="text-sm font-medium text-ink">
+						Which {timeText(draft.due.time)}?
+					</p>
+					<p className="text-sm text-text-2">
+						The clocks go back that night, so {timeText(draft.due.time)} happens twice.
+					</p>
+					<RadioGroup
+						aria-labelledby="fold-question"
+						value={draft.due.offsetSeconds === undefined ? "" : String(draft.due.offsetSeconds)}
+						onValueChange={(v) => {
+							setDraft((d) => ({ ...d, due: { ...d.due, offsetSeconds: Number(v) } }));
+							setProblem(null);
+						}}
+					>
+						{fold.map((c, i) => (
+							<Radio
+								key={c.offsetSeconds}
+								value={String(c.offsetSeconds)}
+								label={`${i === 0 ? "The first" : "The second"} ${timeText(draft.due.time)}`}
+								description={`${i === 0 ? "Before" : "After"} the clocks go back (${offsetText(c.offsetSeconds)})`}
+							/>
+						))}
+					</RadioGroup>
+				</div>
+			) : null}
+			<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
+				<AssigneeField
+					value={draft.assigneeId}
+					current={task?.assignee ?? null}
+					viewer={viewer}
+					onChange={(assigneeId, assigneeName) => set({ assigneeId, assigneeName })}
+				/>
+				<Field label="Priority">
+					<Select
+						value={draft.priority}
+						onValueChange={(v) => set({ priority: v as Priority })}
+						options={PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABEL[p] }))}
+					/>
+				</Field>
+				<Field label="Category" hint={managed ? "Set by the meeting that created this task." : undefined}>
+					<Select
+						value={draft.category}
+						disabled={Boolean(managed)}
+						onValueChange={(v) => set({ category: v as Category })}
+						options={CATEGORIES.map((c) => ({ value: c, label: CATEGORY_LABEL[c] }))}
+					/>
+				</Field>
+			</div>
+			<RelationField value={draft.relation} locked={Boolean(managed)} onChange={(relation) => set({ relation })} />
+		</RecordDialog>
 	);
 }
 
@@ -443,13 +388,11 @@ function AssigneeField({
 	value,
 	current,
 	viewer,
-	disabled,
 	onChange,
 }: {
 	value: string;
 	current: TaskItem["assignee"];
 	viewer: Viewer;
-	disabled: boolean;
 	onChange: (v: string, name: string | null) => void;
 }) {
 	const [options, setOptions] = useState<{ value: string; label: string }[] | "failed" | null>(null);
@@ -494,7 +437,6 @@ function AssigneeField({
 		>
 			<Select
 				value={value}
-				disabled={disabled}
 				onValueChange={(v) =>
 					onChange(v, v === NOBODY ? null : (known.find((o) => o.value === v)?.label.replace(/ \(.*\)$/, "") ?? null))
 				}
@@ -508,12 +450,10 @@ function AssigneeField({
 function RelationField({
 	value,
 	locked,
-	disabled,
 	onChange,
 }: {
 	value: Relation;
 	locked: boolean;
-	disabled: boolean;
 	onChange: (v: Relation) => void;
 }) {
 	const [kind, setKind] = useState<RelationKind | "none">(value?.kind ?? "none");
@@ -548,7 +488,6 @@ function RelationField({
 			<Field label="Linked to" optional>
 				<Select
 					value={kind}
-					disabled={disabled}
 					onValueChange={(k) => {
 						setKind(k as RelationKind | "none");
 						setSearch("");
@@ -569,7 +508,6 @@ function RelationField({
 						placeholder={`Search ${RELATION_PLURAL[kind]}`}
 						value={search}
 						maxLength={200}
-						disabled={disabled}
 						onChange={(e) => setSearch(e.target.value)}
 					/>
 					{found === "loading" && listed.length === 0 ? (
@@ -593,7 +531,7 @@ function RelationField({
 							className="max-h-[220px] gap-0 overflow-y-auto px-1"
 						>
 							{listed.map((c) => (
-								<Radio key={c.id} value={c.id} label={c.label} disabled={disabled} className="py-2" />
+								<Radio key={c.id} value={c.id} label={c.label} className="py-2" />
 							))}
 						</RadioGroup>
 					)}

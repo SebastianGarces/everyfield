@@ -2,8 +2,6 @@
 // at the wrong instant. They run in node against the real module the screens use; no browser.
 //   AC:TARGET-TSK-001 INV-url (D67): view, search, filters, sort and page live in the address; a change goes back to
 //     page one and keeps the sibling filters; values outside the closed lists are ignored.
-//   INV-request-key: a retry after a lost answer reuses the key (the server replays); a refusal, a success or a changed
-//     payload gets a new key.
 //   AC:B03-008 AC:B03-009 AC:TARGET-TSK-018: a deadline is sent as church-local wall time, with the chosen offset only
 //     after the person picks one occurrence of a repeated time; a missing day or time is caught before any request.
 //   INV-counts: a confirmed change moves one task between tallies; a deleted task only leaves.
@@ -13,8 +11,8 @@
 //     deleted stops holding its waiting task back, a reopened one holds it again, and other changes leave it alone.
 //   AC:TARGET-TSK-006 INV-badge-reads (BUG #196 round 3): only the newest badge read for the list still on screen
 //     applies; a newer read or a new list ends older reads and their retries; opening a task panel does not.
-//   INV-intent: each save keeps the key and revision of its first send; a retry resends both even after other saves
-//     (BUG #189 round 2: a retried lost create after another create sent a new key and saved twice).
+//   BUG-31d611e R4-2: a refused edit opens again on the newest copy of the task with only the person's own changes on
+//     top. Request keys, replays and one save per card are the shared save lane's (tests/ui/save/model.test.mjs).
 //   INV-optimistic: changes in flight show at once (new task first, edit applied, delete hidden, status shown) and the
 //     confirmed rows stand when they fall away. AC:TARGET-TSK-005 (WP-025/ui): the same holds for a task's steps: a new
 //     step shows under its own task, a removed one hides and a tick shows.
@@ -23,7 +21,6 @@ import { test } from "node:test";
 import {
 	countsAfter,
 	dueInputOf,
-	Intent,
 	listRequest,
 	matches,
 	NO_PENDING,
@@ -33,8 +30,8 @@ import {
 	withBlockers,
 	withChange,
 	parseQuery,
+	rebase,
 	querySearch,
-	RequestKeys,
 	withFilters,
 } from "../../../apps/web/src/features/tasks/model.ts";
 
@@ -78,21 +75,6 @@ test("AC:TARGET-TSK-001 INV-url: filters live in the address, reset the page and
 	assert.deepEqual(listRequest(parse("view=team&status=lost&priority=x&sort=owner&page=-2&relation=facility")), {
 		...listRequest(parse("")),
 	});
-});
-
-test("INV-request-key: a lost answer keeps the key; a refusal, success or new payload starts a new one", () => {
-	let n = 0;
-	const keys = new RequestKeys(() => `k${++n}`);
-	const first = keys.for("status:t1", { revision: "4", action: { kind: "complete" } });
-	keys.settle("status:t1", { status: "lost" });
-	assert.equal(keys.for("status:t1", { revision: "4", action: { kind: "complete" } }), first);
-	assert.notEqual(keys.for("status:t1", { revision: "4", action: { kind: "reopen" } }), first);
-	const third = keys.for("status:t1", { revision: "4", action: { kind: "reopen" } });
-	keys.settle("status:t1", { status: "refused", code: "conflict" });
-	assert.notEqual(keys.for("status:t1", { revision: "4", action: { kind: "reopen" } }), third);
-	const fifth = keys.for("create", { title: "Call Kim" });
-	keys.settle("create", { status: "ok", value: null });
-	assert.notEqual(keys.for("create", { title: "Call Kim" }), fifth);
 });
 
 test("AC:B03-008 AC:B03-009 AC:TARGET-TSK-018: a deadline is church wall time with the chosen occurrence", () => {
@@ -211,18 +193,19 @@ test("AC:TARGET-TSK-001 INV-membership: a saved task joins the list only when it
 	assert.equal(matches(parse("view=all&due=local_date"), task(), me), false, "due kind");
 });
 
-test("INV-intent: a retry resends its own first key and revision, whatever other saves happened since", () => {
-	let n = 0;
-	const fresh = () => `k${++n}`;
-	const a = new Intent(fresh);
-	const first = a.send(() => "4");
-	const b = new Intent(fresh);
-	assert.notEqual(b.send(() => "5").key, first.key, "another save has its own key");
-	assert.deepEqual(
-		a.send(() => "9"),
-		{ key: first.key, basis: "4" },
-		"the retry of A is identical to its first send",
-	);
+test("BUG-31d611e R4-2: a refused edit opens again on the newest task with only the person's changes", () => {
+	// Admin A opened the task at revision 4 and changed the title; Admin B saved a description and a new assignee.
+	const seen = { title: "Call Kim", description: "", assigneeId: "a1", due: { kind: "undated", date: "", time: "" } };
+	const mine = { ...seen, title: "Call Kim today" };
+	const latest = { ...seen, description: "She asked for Tuesday.", assigneeId: "b2" };
+	assert.deepEqual(rebase(mine, seen, latest), {
+		title: "Call Kim today",
+		description: "She asked for Tuesday.",
+		assigneeId: "b2",
+		due: { kind: "undated", date: "", time: "" },
+	});
+	// A field both changed keeps the person's value: they see it and may change it before saving again.
+	assert.equal(rebase({ ...mine, assigneeId: "c3" }, seen, latest).assigneeId, "c3");
 });
 
 test("AC:TARGET-TSK-006 INV-blocking: a settled or deleted prerequisite releases its task; a reopened one holds it again", () => {

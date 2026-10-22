@@ -3424,6 +3424,27 @@
 			"grantee": "everyfield_cleanup",
 			"is_grantable": false,
 			"kind": "table",
+			"object": "commitment_change",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "commitment_change",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "commitment_change",
+			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
 			"object": "commitment",
 			"privilege_type": "DELETE"
 		},
@@ -5175,6 +5196,20 @@
 			"is_grantable": false,
 			"kind": "table",
 			"object": "audit_event",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "commitment_change",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "commitment_change",
 			"privilege_type": "SELECT"
 		},
 		{
