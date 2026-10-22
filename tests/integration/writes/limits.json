@@ -197,7 +197,7 @@
 	},
 	"native.people.addNote": {
 		"limit": 2,
-		"retry": 4
+		"retry": 8
 	},
 	"native.people.createPerson": {
 		"limit": 1,
@@ -205,7 +205,7 @@
 	},
 	"native.people.updatePerson": {
 		"limit": 2,
-		"retry": 4
+		"retry": 8
 	},
 	"native.people.addSkill": {
 		"limit": 6,
@@ -692,8 +692,8 @@
 		"retry": 8
 	},
 	"tasks.bulkComplete": {
-		"limit": 14,
-		"retry": 28
+		"limit": 12,
+		"retry": 26
 	},
 	"tasks.bulkReschedule": {
 		"limit": 4,
@@ -704,24 +704,24 @@
 		"retry": 16
 	},
 	"tasks.configureRecurrence": {
-		"limit": 4,
-		"retry": 8
+		"limit": 2,
+		"retry": 6
 	},
 	"tasks.createSubtask": {
-		"limit": 5,
-		"retry": 10
+		"limit": 3,
+		"retry": 8
 	},
 	"tasks.removeSubtask": {
-		"limit": 4,
-		"retry": 8
+		"limit": 2,
+		"retry": 6
 	},
 	"tasks.replacePrerequisites": {
-		"limit": 5,
-		"retry": 10
+		"limit": 3,
+		"retry": 8
 	},
 	"tasks.setSubtaskCompletion": {
-		"limit": 4,
-		"retry": 8
+		"limit": 2,
+		"retry": 6
 	},
 	"tasks.changeStatus": {
 		"limit": 4,
@@ -736,12 +736,12 @@
 		"retry": 20
 	},
 	"tasks.delete": {
-		"limit": 8,
-		"retry": 16
+		"limit": 6,
+		"retry": 14
 	},
 	"tasks.edit": {
-		"limit": 15,
-		"retry": 30
+		"limit": 13,
+		"retry": 28
 	},
 	"tasks.reopen": {
 		"limit": 4,
