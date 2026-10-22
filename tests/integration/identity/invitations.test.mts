@@ -1,7 +1,7 @@
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { fixture, key } from "./invitations-support.mts";
+import { fixture, key, noReminders } from "./invitations-support.mts";
 import { and, eq, isNull, sql } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 let f;
@@ -299,7 +299,7 @@ test("AC:TARGET-IDN-019 AC:ROLE43-009 AC:ROLE43-017 roster and ordinary role cha
 			requestKey: key(),
 			expectedRevision: "1",
 			input: { seatId: owner.seatId, expectedRole: "admin", handoffs: [] },
-		}),
+		}, noReminders),
 		"protected_owner",
 	);
 	const demoted = await f.seats.demote(await f.actor(s.recipient.session), s.w, {
@@ -346,7 +346,7 @@ test("AC:TARGET-IDN-019 INV-removal: exact open-duty handoff retains Person and 
 		expectedRevision: "1",
 		input: { seatId: a.seat.seatId, expectedRole: "member", handoffs: [] },
 	};
-	await denied(f.seats.remove(await f.actor(s.sender.session), s.w, cmd), "conflict");
+	await denied(f.seats.remove(await f.actor(s.sender.session), s.w, cmd, noReminders), "conflict");
 	const result = await f.seats.remove(await f.actor(s.sender.session), s.w, {
 		...cmd,
 		requestKey: key(),
@@ -354,7 +354,7 @@ test("AC:TARGET-IDN-019 INV-removal: exact open-duty handoff retains Person and 
 			...cmd.input,
 			handoffs: [{ kind: "assign", dutyId: open, expectedRevision: "1", recipientAccountId: s.sender.id }],
 		},
-	});
+	}, noReminders);
 	assert.deepEqual(result.duties, [{ status: "moved", dutyId: open, recipientAccountId: s.sender.id }]);
 	assert.equal((await f.admin.select().from(t.task).where(eq(t.task.id, open)))[0].assignee_id, s.sender.id);
 	assert.equal((await f.admin.select().from(t.task).where(eq(t.task.id, closed)))[0].status, "complete");
@@ -424,7 +424,7 @@ test("AC:TARGET-IDN-019 INV-removal-review: the review names exactly the duties 
 				recipientAccountId: review.recipients[0].accountId,
 			})),
 		},
-	});
+	}, noReminders);
 	assert.deepEqual(result.duties, [{ status: "moved", dutyId: open, recipientAccountId: s.sender.id }]);
 	await denied(f.seats.readRemoval(s.sender.session, s.w, target));
 });
@@ -469,10 +469,10 @@ test("AC:TARGET-IDN-019 INV-removal-bound: 101 and 250 open duties are all revie
 			.update(t.task)
 			.set({ revision: "2" })
 			.where(eq(t.task.id, ids[n - 1]));
-		await denied(f.seats.remove(await f.actor(s.sender.session), s.w, command(stale)), "conflict");
+		await denied(f.seats.remove(await f.actor(s.sender.session), s.w, command(stale), noReminders), "conflict");
 		assert.equal(await count(t.task, eq(t.task.assignee_id, s.sender.id)), 0);
 		const fresh = await f.seats.readRemoval(s.sender.session, s.w, target);
-		const result = await f.seats.remove(await f.actor(s.sender.session), s.w, command(fresh));
+		const result = await f.seats.remove(await f.actor(s.sender.session), s.w, command(fresh), noReminders);
 		assert.equal(result.duties.filter((d) => d.status === "moved").length, n);
 		assert.equal(await count(t.task, and(eq(t.task.plant_id, s.w.id), eq(t.task.assignee_id, s.sender.id))), n);
 	}

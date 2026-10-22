@@ -850,23 +850,25 @@ test("AC:TARGET-TSK-014 a delivered due reminder is not sent again after the dea
 	);
 });
 
+// A plant-local wall time for an instant, as the task form sends a deadline.
+const local = (ms) =>
+	new Intl.DateTimeFormat("sv-SE", {
+		timeZone: "America/Chicago",
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+		hour: "2-digit",
+		minute: "2-digit",
+		second: "2-digit",
+	})
+		.format(ms)
+		.replace(" ", "T");
+// The mail worker: claim the due mail jobs and send each one through the reminder authorization.
+const dispatch = async () => {
+	for (const claim of await claimDue(f.db, ["mail"], 10)) await mail.dispatch(claim);
+};
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, ms - Date.now()) + 200));
 test("AC:TARGET-TSK-014 a duty handed off when its person leaves reminds its new assignee", async () => {
-	const local = (ms) =>
-		new Intl.DateTimeFormat("sv-SE", {
-			timeZone: "America/Chicago",
-			year: "numeric",
-			month: "2-digit",
-			day: "2-digit",
-			hour: "2-digit",
-			minute: "2-digit",
-			second: "2-digit",
-		})
-			.format(ms)
-			.replace(" ", "T");
-	const dispatch = async () => {
-		for (const claim of await claimDue(f.db, ["mail"], 10)) await mail.dispatch(claim);
-	};
-	const wait = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, ms - Date.now()) + 200));
 	// Team members with their own Person records, as account links make them.
 	const linked = async (name) => {
 		const a = await f.account();
@@ -951,6 +953,58 @@ test("AC:TARGET-TSK-014 a duty handed off when its person leaves reminds its new
 				[from, true, "cancelled"],
 			],
 		);
+});
+
+test("AC:TARGET-TSK-014 AC:TARGET-IDN-019 a duty handed off when a seat is removed reminds its new assignee", async () => {
+	const seated = async () => {
+		const a = await f.account();
+		return { ...a, seat: await f.seat(a, plant, "member") };
+	};
+	const [leaving, taking] = [await seated(), await seated()];
+	const due = Date.now() + 4000;
+	const dated = (title) =>
+		create(owner, { title, assigneeId: leaving.id, due: { kind: "resolved_instant", local: local(due) } });
+	const [handed, unowned] = [await dated("Print bulletins"), await dated("Order supplies")];
+	// Removing the seat hands one duty to another member and leaves the other needing an owner.
+	const review = await f.seats.readRemoval(owner.session, plant, { seatId: leaving.seat });
+	const result = await f.seats.remove(
+		owner.actor,
+		plant,
+		{
+			requestKey: randomUUID(),
+			expectedRevision: review.expectedRevision,
+			input: {
+				seatId: review.seatId,
+				expectedRole: review.expectedRole,
+				handoffs: review.duties.map((d) =>
+					d.dutyId === handed.id
+						? { kind: "assign", dutyId: d.dutyId, expectedRevision: d.expectedRevision, recipientAccountId: taking.id }
+						: { kind: "needs_owner", dutyId: d.dutyId, expectedRevision: d.expectedRevision },
+				),
+			},
+		},
+		reminders,
+	);
+	assert.equal(result.outcome, "changed");
+	await wait(due);
+	await dispatch();
+	// The handed duty's due reminder went to its new assignee and was sent, and the overdue one waits for them. The
+	// removed member's reminders were withdrawn from both duties; the duty without an owner reminds nobody.
+	const delivered = async (task) =>
+		(
+			await rows(sql`SELECT n.recipient_id, n.cancelled_at IS NOT NULL cancelled, m.state FROM notice n LEFT JOIN mail m ON m.notice_id=n.id
+			WHERE n.source_record_id=${task} ORDER BY n.cancelled_at IS NOT NULL, n.eligible_at`)
+		).map((n) => [n.recipient_id, n.cancelled, n.state]);
+	assert.deepEqual(await delivered(handed.id), [
+		[taking.id, false, "accepted"],
+		[taking.id, false, "pending"],
+		[leaving.id, true, "cancelled"],
+		[leaving.id, true, "cancelled"],
+	]);
+	assert.deepEqual(await delivered(unowned.id), [
+		[leaving.id, true, "cancelled"],
+		[leaving.id, true, "cancelled"],
+	]);
 });
 
 test("INV-tenancy: a seat ended, demoted or signed out after the viewer lookup reads no task data", async () => {

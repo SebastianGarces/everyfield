@@ -1,4 +1,4 @@
-import { sameOwner, sessionId, type Owner } from "@everyfield/contracts/common";
+import { revision, sameOwner, sessionId, type Owner } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/identity";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { and, asc, eq, inArray, isNull, notInArray, or, sql } from "@everyfield/db/query";
@@ -6,6 +6,8 @@ import * as t from "@everyfield/db/tables";
 import "server-only";
 import { z } from "zod";
 import { type RequestActor } from "../access/session.ts";
+import { lockTasks, readTasks } from "../tasks/queries.ts";
+import { reminderChange, syncAll, type TaskReminders } from "../tasks/writes.ts";
 import { transaction } from "./budget.ts";
 import * as d from "./invitation-core.ts";
 const seatListRow = z.object({
@@ -124,22 +126,10 @@ export function createSeatService(db: Database) {
 	async function openDuties(tx: Transaction, selected: Owner, s: { id: string; account_id: string }, lock: boolean) {
 		const locked = <T>(q: PromiseLike<T> & { for(strength: "update"): PromiseLike<T> }) => (lock ? q.for("update") : q);
 		const plant = selected.kind === "plant";
-		const tasks = plant
-			? await locked(
-					tx
-						.select()
-						.from(t.task)
-						.where(
-							and(
-								eq(t.task.plant_id, selected.id),
-								eq(t.task.assignee_id, s.account_id),
-								isNull(t.task.deleted_at),
-								notInArray(t.task.status, ["complete", "no_longer_needed"]),
-							),
-						)
-						.orderBy(asc(t.task.id)),
-				)
-			: [];
+		// Task rows as the task domain reads them, so a moved task's owed reminders can follow it.
+		const open = sql`t.assignee_id=${s.account_id}::uuid AND t.deleted_at IS NULL
+ AND t.status NOT IN ('complete','no_longer_needed')`;
+		const tasks = plant ? await (lock ? lockTasks : readTasks)(tx, selected.id, open) : [];
 		const obligations = plant
 			? await locked(
 					tx
@@ -267,6 +257,7 @@ export function createSeatService(db: Database) {
 		selected: Owner,
 		raw: unknown,
 		mode: "role" | "remove" | "appoint" | "demote",
+		reminders?: TaskReminders,
 	) {
 		const v = (
 			mode === "remove"
@@ -314,6 +305,8 @@ export function createSeatService(db: Database) {
 					{ status: "moved"; dutyId: string; recipientAccountId: string } | { status: "needs_owner"; dutyId: string }
 				> = [],
 				events: string[] = [];
+			// Each moved task's owed reminders follow it: the new assignee's are planned, the removed member's withdrawn.
+			const replan: Array<ReturnType<typeof reminderChange>> = [];
 			if (mode === "remove" && "handoffs" in v.input) {
 				const handoffs = v.input.handoffs;
 				const { tasks, obligations, bare, pipeline, programs } = await openDuties(tx, selected, s, true);
@@ -362,6 +355,13 @@ export function createSeatService(db: Database) {
 						program = programs.find((x) => x.id === h.dutyId);
 					if (task) {
 						taskMoves.set(task.id, recipient);
+						replan.push(
+							reminderChange(selected.id, task, {
+								...task,
+								assignee_id: recipient,
+								revision: revision.parse(d.bump(task.revision)),
+							}),
+						);
 						if (task.obligation_id) {
 							const o = obligations.find((x) => x.id === task.obligation_id);
 							if (!o) d.refuse("conflict");
@@ -494,7 +494,7 @@ export function createSeatService(db: Database) {
 						after,
 					),
 				);
-			return d.finish(tx, cmd, () =>
+			const result = await d.finish(tx, cmd, () =>
 				c.seatMutationResult.parse({
 					seatId: s.id,
 					revision: after,
@@ -502,6 +502,9 @@ export function createSeatService(db: Database) {
 					duties,
 				}),
 			);
+			// The sync reads each task at its new revision, so it runs after the final write moved them.
+			await syncAll(reminders!, tx, replan)?.();
+			return result;
 		});
 	}
 	return {
@@ -511,6 +514,7 @@ export function createSeatService(db: Database) {
 		changeOrdinaryRole: (s: RequestActor, o: Owner, v: unknown) => mutation(s, o, v, "role"),
 		appointAdmin: (s: RequestActor, o: Owner, v: unknown) => mutation(s, o, v, "appoint"),
 		demote: (s: RequestActor, o: Owner, v: unknown) => mutation(s, o, v, "demote"),
-		remove: (s: RequestActor, o: Owner, v: unknown) => mutation(s, o, v, "remove"),
+		/** Moved tasks replan their owed reminders through `reminders` in the same transaction (REQ-TSK-014). */
+		remove: (s: RequestActor, o: Owner, v: unknown, reminders: TaskReminders) => mutation(s, o, v, "remove", reminders),
 	};
 }
