@@ -80,10 +80,10 @@ function duplicateHints(people: z.infer<typeof found>["people"]) {
  * `nameSignal` normalize them in TypeScript.
  */
 export const personDuplicatesJson = (owner: string) => {
-	const trim = (v: SQL) => sql`regexp_replace(${v},'^\s+|\s+$','','g')`;
+	const trim = (v: SQL) => sql`regexp_replace(${v},'^\\s+|\\s+$','','g')`;
 	const email = sql`lower(${trim(sql`person.email`)})`;
-	const phone = sql`regexp_replace(coalesce(person.phone,''),'\D','','g')`;
-	const name = sql`lower(regexp_replace(${trim(sql`person.display_name`)},'\s+',' ','g'))`;
+	const phone = sql`regexp_replace(coalesce(person.phone,''),'\\D','','g')`;
+	const name = sql`lower(regexp_replace(${trim(sql`person.display_name`)},'\\s+',' ','g'))`;
 	return matchJson(
 		owner,
 		{

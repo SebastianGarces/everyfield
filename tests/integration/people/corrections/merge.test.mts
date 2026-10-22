@@ -17,6 +17,7 @@ import {
 	peopleUnmerge,
 	peopleWriter as people,
 	personFields,
+	readPersonPage,
 	recordCorrections,
 } from "../../../../packages/domain/src/people/index.ts";
 
@@ -553,6 +554,35 @@ test("AC:PERSONREF-ACCOUNT-LINK-CONFLICT AC:TARGET-PPL-017 AC:TARGET-PPL-016 mer
 	assert.equal(
 		(await rows(sql`SELECT count(*)::int n FROM person WHERE display_name LIKE 'Avery%' AND state='live'`))[0].n,
 		3,
+	);
+});
+
+test("REQ-PPL-016: the person page shows the duplicate hints checkForDuplicates gives for that person's own facts", async () => {
+	const p = await person("  Jordan   Lee ", { email: " Jordan@Example.test ", phone: "(512) 555-0199" });
+	const name = await person("jordan lee"),
+		email = await person("J. Lee", { email: "jordan@example.test" }),
+		phone = await person("Phone twin", { phone: "512.555.0199" });
+	await person("Jordan Leeds", { phone: "555-0199" });
+	const page = ok(await tx((t) => readPersonPage(t, ctx(1), { personId: p.id }, 50, { duplicates: true })));
+	const own = page.found.person;
+	const hints = ok(
+		await tx((t) =>
+			checkForDuplicates(t, ctx(1), {
+				displayName: own.displayName,
+				email: own.email,
+				phone: own.phone,
+				excludePersonId: p.id,
+			}),
+		),
+	);
+	assert.deepEqual(page.duplicates, hints);
+	assert.deepEqual(
+		new Map(hints.items.map((h) => [h.personId, [h.match, h.signals]])),
+		new Map([
+			[email.id, ["exact", ["email"]]],
+			[phone.id, ["exact", ["phone"]]],
+			[name.id, ["potential", ["name"]]],
+		]),
 	);
 });
 
