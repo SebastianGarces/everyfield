@@ -100,7 +100,7 @@ function budget(root: string): string {
 	return [
 		"Performance budget (docs/architecture/patterns.md, D69, D70):",
 		rule,
-		"Before the PR opens, add a statement-count test at the production boundary for each new write and page read (test-standard), and measure the changed actions on a production build.",
+		"Before the PR opens, give each new write and page read its measured budget in tests/integration/writes/limits.json (HTTP requests in requests.mjs), and measure the changed actions on a production build.",
 	].join("\n");
 }
 

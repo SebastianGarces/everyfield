@@ -3,6 +3,7 @@ import { AsyncLocalStorage, AsyncResource } from "node:async_hooks";
 import { appendFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
+import { statementKind } from "./kinds.cjs";
 
 const root = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
 const require = createRequire(root + "/packages/domain/package.json");
@@ -68,7 +69,7 @@ const standalone = {
 };
 
 export async function measure(name, body, options = {}) {
-	const frame = { name, count: 0, writes: 0, rollbacks: 0 };
+	const frame = { name, count: 0, writes: 0, rollbacks: 0, kinds: {} };
 	const parent = frames.getStore()?.at(-1);
 	if (parent && parent.first === undefined) parent.first = name;
 	return frames.run([...(frames.getStore() ?? []), frame], async () => {
@@ -119,9 +120,11 @@ export function observeDatabase(db) {
 		const query = client.query;
 		client.query = function (...args) {
 			const text = typeof args[0] === "string" ? args[0] : (args[0]?.text ?? "");
+			const kind = statementKind(text);
 			for (const frame of frames.getStore() ?? []) {
 				frame.count++;
-				if (/\b(?:INSERT\s+INTO|DELETE\s+FROM|UPDATE\s+(?:"?[\w]+"?)(?:\s+\w+)?\s+SET)\b/i.test(text)) frame.writes++;
+				frame.kinds[kind] = (frame.kinds[kind] ?? 0) + 1;
+				if (kind === "write") frame.writes++;
 				// A native write's established run follows a first attempt that changed nothing: it counts as a retry.
 				if (/^\s*ROLLBACK|^BEGIN \/\* evf:retry \*\//i.test(text)) frame.rollbacks++;
 			}

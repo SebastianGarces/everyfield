@@ -74,8 +74,16 @@ const classOf = async (meetingId, personId) =>
 		sql`SELECT presence, classification, prior_vision_id FROM participation WHERE meeting_id=${meetingId} AND person_id=${personId}`,
 	);
 
+let statements = 0;
 before(async () => {
 	f = await fixture();
+	f.db.$client.on("connect", (client) => {
+		const query = client.query;
+		client.query = function (...args) {
+			statements++;
+			return Reflect.apply(query, this, args);
+		};
+	});
 	const mail = createMailService({
 		db: f.db,
 		encryptionKey: randomBytes(32),
@@ -116,6 +124,26 @@ before(async () => {
 	foreign = await seated(other, "owner");
 });
 after(() => f?.close());
+
+// D69 (R3-6): finalize writes attendance, progression and generated work with set-based statements, so 500 attendees
+// send exactly the statements one attendee does. The census holds that number to its budget in limits.json.
+test("INV-statements: finalizing 500 attendees sends the same statements as finalizing one", async () => {
+	const counted = async (meetingId, attendeeIds) => {
+		const start = statements;
+		ok(await finalize(owner, meetingId, attendeeIds));
+		return statements - start;
+	};
+	const many = await rows(sql`INSERT INTO person(tenant_id,plant_id,display_name,source,stage,adult_classification,
+		commitment_state,pipeline_position,state,created_at) SELECT ${plant.id},${plant.id},'Guest '||n,'other','prospect',
+		'unknown','unknown',0,'live',clock_timestamp() FROM generate_series(1,500) n RETURNING id`);
+	const one = await counted(await meeting("vision_meeting", "2026-09-10T23:00:00Z"), [await person("Solo")]);
+	const fiveHundred = await counted(
+		await meeting("vision_meeting", "2026-09-17T23:00:00Z"),
+		many.map((r) => r.id),
+	);
+	assert.ok(one > 0, "no statements counted");
+	assert.equal(fiveHundred, one);
+});
 
 test("AC:TARGET-MTG-010 AC:B02-010 AC:PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-RETIRE draft attendance is all or nothing and keeps RSVP and card", async () => {
 	const m = await meeting();
