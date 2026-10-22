@@ -14,7 +14,17 @@ import {
 	type TaskReminders,
 } from "../tasks/index.ts";
 import { TaskRefusal } from "../tasks/core.ts";
-import { command, deny, parse, reply, type Change, type MeetingsContext, type Tx, type Writer } from "./core.ts";
+import {
+	command,
+	deny,
+	parse,
+	reply,
+	type Change,
+	type MeetingWrite,
+	type MeetingsContext,
+	type Tx,
+	type Writer,
+} from "./core.ts";
 
 // Attendance, finalization, evaluation and attendee notes (WP-022). Each command is one meetings command (D70): the
 // locked actor, the request key, one locked fact read, then one write statement with the change and its audit rows.
@@ -744,7 +754,7 @@ const scoreArray = (s: z.infer<typeof c.scores>) => sql`${sql.param(c.evaluation
 /** The attendance, finalization, evaluation and attendee-note commands. `reminders` is WP-031's task reminder port. */
 export function createAttendanceWriter(deps: { reminders: TaskReminders }) {
 	const presence = (
-		operation: string,
+		operation: MeetingWrite,
 		schema: z.ZodType<{ requestKey: string; input: { meetingId: string } }>,
 		entries: (input: never) => { personId: string; presence: Presence }[],
 		join: boolean,

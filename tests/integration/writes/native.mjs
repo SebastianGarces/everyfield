@@ -51,29 +51,97 @@ try {
 	const s = await f.setup(),
 		actor = await f.actor(s.sender.session);
 	const run = (name, body) => measure("native.people." + name, () => withPeopleWrite(f.db, actor, body));
+	const createKey = randomUUID();
 	const created = await run("createPerson", (tx, ctx) =>
-		peopleWriter.createPerson(tx, ctx, { requestKey: randomUUID(), input: { displayName: "Synthetic native" } }),
+		peopleWriter.createPerson(tx, ctx, { requestKey: createKey, input: { displayName: "Synthetic native" } }),
 	);
 	assert.equal(created.status, "ok");
 	if (created.status !== "ok") throw Error("create_refused");
-	const changed = await run("updatePerson", (tx, ctx) =>
-		peopleWriter.updatePerson(tx, ctx, {
-			requestKey: randomUUID(),
-			expectedRevision: created.value.person.revision,
-			input: { personId: created.value.person.id, patch: { displayName: "Changed" } },
-		}),
+	// A lost reply: the same request again. The first attempt's write meets the stored key, and the established run
+	// replays the first answer (RT-3); the budget counts both as one retry.
+	const replayed = await run("createPerson", (tx, ctx) =>
+		peopleWriter.createPerson(tx, ctx, { requestKey: createKey, input: { displayName: "Synthetic native" } }),
 	);
+	assert.deepEqual(JSON.parse(JSON.stringify(replayed)), JSON.parse(JSON.stringify(created)));
+	// The single-statement writes also run their two fallbacks (RT-3): a lost reply with the same request key, and a
+	// first attempt that finds the church row locked by another writer and then succeeds the established way.
+	const same = (a, b) => assert.deepEqual(JSON.parse(JSON.stringify(a)), JSON.parse(JSON.stringify(b)));
+	const plantId = actor.actor.context.owner.id;
+	// Another writer holds the church row. The write's first attempt fails at once on its NOWAIT lock; the established
+	// run then waits for the gate's lock, and the holder lets go only once a backend waits on it.
+	const whileChurchBusy = async (body) => {
+		let held, release;
+		const locked = new Promise((resolve) => (held = resolve)),
+			done = new Promise((resolve) => (release = resolve));
+		const holder = f.db.transaction(async (t) => {
+			const r = await t.execute(sql`SELECT pg_backend_pid() AS pid FROM plant WHERE id=${plantId}::uuid FOR UPDATE`);
+			held(r.rows[0].pid);
+			await done;
+		});
+		const pid = await locked;
+		try {
+			const result = body();
+			for (let waited = 0; ; waited++) {
+				const r = await f.db.execute(
+					sql`SELECT count(*)::int AS n FROM pg_stat_activity WHERE ${pid}::int = ANY(pg_blocking_pids(pid))`,
+				);
+				if (r.rows[0].n > 0) break;
+				if (waited > 200) throw Error("no write waited for the church row");
+				await new Promise((resolve) => setTimeout(resolve, 25));
+			}
+			release();
+			return await result;
+		} finally {
+			release();
+			await holder;
+		}
+	};
+	const currentRevision = async (id) =>
+		(await f.db.execute(sql`SELECT revision::text AS r FROM person WHERE id=${id}::uuid`)).rows[0].r;
+	const rename = (requestKey, expectedRevision, displayName) =>
+		run("updatePerson", (tx, ctx) =>
+			peopleWriter.updatePerson(tx, ctx, {
+				requestKey,
+				expectedRevision,
+				input: { personId: created.value.person.id, patch: { displayName } },
+			}),
+		);
+	const renameKey = randomUUID();
+	const changed = await rename(renameKey, created.value.person.revision, "Changed");
 	assert.equal(changed.status, "ok");
 	if (changed.status !== "ok") throw Error("update_refused");
 	assert.equal(changed.value.person.displayName, "Changed");
-	const note = await run("addNote", (tx, ctx) =>
-		peopleWriter.addNote(tx, ctx, {
-			requestKey: randomUUID(),
-			expectedRevision: changed.value.person.revision,
-			input: { personId: changed.value.person.id, body: "Synthetic note" },
-		}),
+	same(await rename(renameKey, created.value.person.revision, "Changed"), changed);
+	const busy = await whileChurchBusy(() => rename(randomUUID(), changed.value.person.revision, "Changed while busy"));
+	assert.equal(busy.status, "ok", JSON.stringify(busy));
+	if (busy.status !== "ok") throw Error("busy_update_refused");
+	const addNote = (requestKey, expectedRevision, body) =>
+		run("addNote", (tx, ctx) =>
+			peopleWriter.addNote(tx, ctx, {
+				requestKey,
+				expectedRevision,
+				input: { personId: created.value.person.id, body },
+			}),
+		);
+	const noteKey = randomUUID();
+	const noteRevision = await currentRevision(created.value.person.id);
+	const note = await addNote(noteKey, noteRevision, "Synthetic note");
+	assert.equal(note.status, "ok", JSON.stringify(note));
+	same(await addNote(noteKey, noteRevision, "Synthetic note"), note);
+	const busyNote = await whileChurchBusy(async () =>
+		addNote(randomUUID(), await currentRevision(created.value.person.id), "Synthetic note while busy"),
 	);
-	assert.equal(note.status, "ok");
+	assert.equal(busyNote.status, "ok", JSON.stringify(busyNote));
+	// Each busy write and each replay ran the established way after its first attempt: the counter saw the retry.
+	const retries = (await readFile(process.env.EVF_WRITE_COUNTS, "utf8"))
+		.trim()
+		.split("\n")
+		.map((line) => JSON.parse(line))
+		.filter(
+			(row) => row.kind === "sample" && ["native.people.updatePerson", "native.people.addNote"].includes(row.name),
+		)
+		.filter((row) => row.rollbacks > 0).length;
+	assert.equal(retries, 4, "two replays and two busy writes count as retries");
 
 	// WP-012 people fields, as the web mount runs them: writes in withPeopleWrite, reads in one read transaction with the
 	// request's actor. Reads and writes whose work could grow with rows run at two sizes and must use the same count.

@@ -16,28 +16,28 @@
 		"retry": 20
 	},
 	"followups.assignFollowUp": {
-		"limit": 14,
-		"retry": 28
+		"limit": 5,
+		"retry": 10
 	},
 	"followups.correctOutcome": {
 		"limit": 4,
 		"retry": 8
 	},
 	"followups.createFollowUp": {
-		"limit": 13,
-		"retry": 26
+		"limit": 10,
+		"retry": 20
 	},
 	"followups.executeHandoff": {
-		"limit": 13,
-		"retry": 26
+		"limit": 5,
+		"retry": 10
 	},
 	"followups.recordOutcome": {
-		"limit": 13,
-		"retry": 26
+		"limit": 5,
+		"retry": 10
 	},
 	"followups/core.withFollowUpWrite": {
-		"limit": 18,
-		"retry": 36
+		"limit": 11,
+		"retry": 22
 	},
 	"identity.budget.finish": {
 		"limit": 1,
@@ -196,44 +196,44 @@
 		"retry": 22
 	},
 	"native.people.addNote": {
+		"limit": 2,
+		"retry": 8
+	},
+	"native.people.createPerson": {
+		"limit": 1,
+		"retry": 6
+	},
+	"native.people.updatePerson": {
+		"limit": 2,
+		"retry": 8
+	},
+	"native.people.addSkill": {
 		"limit": 6,
 		"retry": 12
 	},
-	"native.people.createPerson": {
+	"native.people.addToHousehold": {
+		"limit": 6,
+		"retry": 12
+	},
+	"native.people.assignTag": {
 		"limit": 5,
 		"retry": 10
 	},
-	"native.people.updatePerson": {
-		"limit": 6,
-		"retry": 12
-	},
-	"native.people.addSkill": {
-		"limit": 7,
-		"retry": 14
-	},
-	"native.people.addToHousehold": {
-		"limit": 7,
-		"retry": 14
-	},
-	"native.people.assignTag": {
-		"limit": 6,
-		"retry": 12
-	},
 	"native.people.createHouseholdWithHead": {
-		"limit": 7,
-		"retry": 14
+		"limit": 6,
+		"retry": 12
 	},
 	"native.people.createTag": {
-		"limit": 6,
-		"retry": 12
+		"limit": 5,
+		"retry": 10
 	},
 	"native.people.deleteHousehold": {
-		"limit": 6,
-		"retry": 12
+		"limit": 5,
+		"retry": 10
 	},
 	"native.people.deleteTag": {
-		"limit": 6,
-		"retry": 12
+		"limit": 5,
+		"retry": 10
 	},
 	"native.people.getHousehold": {
 		"limit": 3,
@@ -264,52 +264,52 @@
 		"retry": 6
 	},
 	"native.people.propagateAddress": {
-		"limit": 6,
-		"retry": 12
+		"limit": 5,
+		"retry": 10
 	},
 	"native.people.readPersonPhoto": {
 		"limit": 8,
 		"retry": 16
 	},
 	"native.people.removeFromHousehold": {
-		"limit": 7,
-		"retry": 14
-	},
-	"native.people.removePersonPhoto": {
-		"limit": 7,
-		"retry": 14
-	},
-	"native.people.removeSkill": {
-		"limit": 7,
-		"retry": 14
-	},
-	"native.people.removeTag": {
 		"limit": 6,
 		"retry": 12
+	},
+	"native.people.removePersonPhoto": {
+		"limit": 6,
+		"retry": 12
+	},
+	"native.people.removeSkill": {
+		"limit": 6,
+		"retry": 12
+	},
+	"native.people.removeTag": {
+		"limit": 5,
+		"retry": 10
 	},
 	"native.people.requestPersonPhotoUpload": {
 		"limit": 5,
 		"retry": 10
 	},
 	"native.people.setHouseholdRole": {
-		"limit": 7,
-		"retry": 14
+		"limit": 6,
+		"retry": 12
 	},
 	"native.people.setPersonPhoto": {
-		"limit": 7,
-		"retry": 14
+		"limit": 6,
+		"retry": 12
 	},
 	"native.people.updateHousehold": {
-		"limit": 6,
-		"retry": 12
+		"limit": 5,
+		"retry": 10
 	},
 	"native.people.updateSkill": {
-		"limit": 7,
-		"retry": 14
-	},
-	"native.people.updateTag": {
 		"limit": 6,
 		"retry": 12
+	},
+	"native.people.updateTag": {
+		"limit": 5,
+		"retry": 10
 	},
 	"native.people.previewImport": {
 		"limit": 3,
@@ -332,8 +332,8 @@
 		"retry": 6
 	},
 	"native.settings.account": {
-		"limit": 5,
-		"retry": 10
+		"limit": 4,
+		"retry": 8
 	},
 	"notifications.cancelForEntity": {
 		"limit": 4,
@@ -436,8 +436,8 @@
 		"retry": 18
 	},
 	"people.addNote": {
-		"limit": 9,
-		"retry": 18
+		"limit": 7,
+		"retry": 14
 	},
 	"people.changeStatus": {
 		"limit": 6,
@@ -464,8 +464,8 @@
 		"retry": 18
 	},
 	"people.reorderPipeline": {
-		"limit": 8,
-		"retry": 16
+		"limit": 7,
+		"retry": 14
 	},
 	"people.restorePerson": {
 		"limit": 7,
@@ -528,8 +528,8 @@
 		"retry": 12
 	},
 	"people.requestPersonPhotoUpload": {
-		"limit": 3,
-		"retry": 6
+		"limit": 4,
+		"retry": 8
 	},
 	"people.setHouseholdRole": {
 		"limit": 6,
@@ -556,8 +556,8 @@
 		"retry": 32
 	},
 	"people/core.withPeopleWrite": {
-		"limit": 7,
-		"retry": 14
+		"limit": 6,
+		"retry": 12
 	},
 	"people/references.detachAccountPersonLinks": {
 		"limit": 4,
@@ -592,8 +592,8 @@
 		"retry": 8
 	},
 	"settings.cancelWorkspaceDeletion": {
-		"limit": 14,
-		"retry": 28
+		"limit": 9,
+		"retry": 18
 	},
 	"settings.changePassword": {
 		"limit": 13,
@@ -636,28 +636,28 @@
 		"retry": 24
 	},
 	"settings.requestWorkspaceDeletion": {
-		"limit": 11,
-		"retry": 22
+		"limit": 8,
+		"retry": 16
 	},
 	"settings.saveChurch": {
-		"limit": 6,
-		"retry": 12
+		"limit": 5,
+		"retry": 10
 	},
 	"settings.saveSection:account": {
 		"limit": 5,
 		"retry": 10
 	},
 	"settings.saveSection:affiliations": {
-		"limit": 16,
-		"retry": 32
-	},
-	"settings.saveSection:notifications": {
-		"limit": 7,
-		"retry": 14
-	},
-	"settings.saveSection:organization": {
 		"limit": 6,
 		"retry": 12
+	},
+	"settings.saveSection:notifications": {
+		"limit": 6,
+		"retry": 12
+	},
+	"settings.saveSection:organization": {
+		"limit": 5,
+		"retry": 10
 	},
 	"settings.saveSection:plant": {
 		"limit": 6,
@@ -672,88 +672,88 @@
 		"retry": 20
 	},
 	"settings.setPlantTimezone": {
-		"limit": 11,
-		"retry": 22
+		"limit": 9,
+		"retry": 18
 	},
 	"settings.updatePlantProfile": {
-		"limit": 6,
-		"retry": 12
+		"limit": 5,
+		"retry": 10
 	},
 	"settings/avatar.uploadAvatar": {
 		"limit": 12,
 		"retry": 24
 	},
 	"settings/core.withSettingsWrite": {
-		"limit": 14,
-		"retry": 28
+		"limit": 8,
+		"retry": 16
 	},
 	"settings/deletion.issueRestrictedDeletionSession": {
 		"limit": 4,
 		"retry": 8
 	},
 	"tasks.bulkComplete": {
-		"limit": 13,
+		"limit": 12,
 		"retry": 26
 	},
 	"tasks.bulkReschedule": {
-		"limit": 13,
-		"retry": 26
+		"limit": 4,
+		"retry": 8
 	},
 	"tasks.completeOccurrence": {
-		"limit": 13,
-		"retry": 26
+		"limit": 8,
+		"retry": 16
 	},
 	"tasks.configureRecurrence": {
-		"limit": 3,
+		"limit": 2,
 		"retry": 6
 	},
 	"tasks.createSubtask": {
-		"limit": 4,
+		"limit": 3,
 		"retry": 8
 	},
 	"tasks.removeSubtask": {
-		"limit": 3,
+		"limit": 2,
 		"retry": 6
 	},
 	"tasks.replacePrerequisites": {
-		"limit": 4,
+		"limit": 3,
 		"retry": 8
 	},
 	"tasks.setSubtaskCompletion": {
-		"limit": 3,
+		"limit": 2,
 		"retry": 6
 	},
 	"tasks.changeStatus": {
-		"limit": 13,
-		"retry": 26
+		"limit": 4,
+		"retry": 8
 	},
 	"tasks.complete": {
-		"limit": 13,
-		"retry": 26
+		"limit": 8,
+		"retry": 16
 	},
 	"tasks.create": {
-		"limit": 13,
-		"retry": 26
+		"limit": 10,
+		"retry": 20
 	},
 	"tasks.delete": {
-		"limit": 7,
+		"limit": 6,
 		"retry": 14
 	},
 	"tasks.edit": {
-		"limit": 14,
+		"limit": 13,
 		"retry": 28
 	},
 	"tasks.reopen": {
-		"limit": 13,
-		"retry": 26
+		"limit": 4,
+		"retry": 8
 	},
 	"tasks.waive": {
-		"limit": 13,
-		"retry": 26
+		"limit": 4,
+		"retry": 8
 	},
 	"tasks/core.withTaskWrite": {
-		"limit": 18,
-		"retry": 36
+		"limit": 16,
+		"retry": 32
 	},
 	"native.organizations.profile": {
 		"limit": 5,
@@ -848,20 +848,20 @@
 		"retry": 12
 	},
 	"meetings/core.withMeetingsWrite": {
-		"limit": 6,
-		"retry": 12
+		"limit": 5,
+		"retry": 10
 	},
 	"meetings/tokens.answerRsvpToken": {
 		"limit": 1,
 		"retry": 2
 	},
 	"native.meetings.correctRsvp": {
-		"limit": 6,
-		"retry": 12
+		"limit": 5,
+		"retry": 10
 	},
 	"native.meetings.schedule": {
-		"limit": 6,
-		"retry": 12
+		"limit": 5,
+		"retry": 10
 	},
 	"venues.archive": {
 		"limit": 6,
@@ -888,28 +888,28 @@
 		"retry": 4
 	},
 	"native.people.createAssessment": {
-		"limit": 6,
-		"retry": 12
+		"limit": 5,
+		"retry": 10
 	},
 	"native.people.createInterview": {
-		"limit": 6,
-		"retry": 12
+		"limit": 5,
+		"retry": 10
 	},
 	"native.people.createCommitment": {
-		"limit": 6,
-		"retry": 12
+		"limit": 5,
+		"retry": 10
 	},
 	"native.people.correctCommitmentLifecycle": {
+		"limit": 5,
+		"retry": 10
+	},
+	"native.people.withdrawCommitment": {
 		"limit": 6,
 		"retry": 12
 	},
-	"native.people.withdrawCommitment": {
-		"limit": 7,
-		"retry": 14
-	},
 	"native.people.reactivateCommitment": {
-		"limit": 7,
-		"retry": 14
+		"limit": 6,
+		"retry": 12
 	},
 	"native.people.requestCommitmentUpload": {
 		"limit": 5,
@@ -932,32 +932,32 @@
 		"retry": 10
 	},
 	"people.createAssessment": {
-		"limit": 7,
-		"retry": 14
+		"limit": 6,
+		"retry": 12
 	},
 	"people.createInterview": {
-		"limit": 7,
-		"retry": 14
+		"limit": 6,
+		"retry": 12
 	},
 	"people.createCommitment": {
-		"limit": 7,
-		"retry": 14
+		"limit": 6,
+		"retry": 12
 	},
 	"people.correctCommitmentLifecycle": {
-		"limit": 7,
-		"retry": 14
+		"limit": 6,
+		"retry": 12
 	},
 	"people.withdrawCommitment": {
-		"limit": 7,
-		"retry": 14
+		"limit": 6,
+		"retry": 12
 	},
 	"people.reactivateCommitment": {
-		"limit": 7,
-		"retry": 14
+		"limit": 6,
+		"retry": 12
 	},
 	"people.requestCommitmentUpload": {
-		"limit": 5,
-		"retry": 10
+		"limit": 4,
+		"retry": 8
 	},
 	"people/commitments/index.uploadCommitmentDocument": {
 		"limit": 12,
@@ -984,16 +984,16 @@
 		"retry": 6
 	},
 	"native.people.mergePeople": {
-		"limit": 7,
-		"retry": 14
-	},
-	"native.people.unmergePeople": {
-		"limit": 7,
-		"retry": 14
-	},
-	"native.people.correctPersonRecord": {
 		"limit": 6,
 		"retry": 12
+	},
+	"native.people.unmergePeople": {
+		"limit": 6,
+		"retry": 12
+	},
+	"native.people.correctPersonRecord": {
+		"limit": 5,
+		"retry": 10
 	},
 	"native.people.duplicatePair": {
 		"limit": 5,
@@ -1036,52 +1036,52 @@
 		"retry": 14
 	},
 	"people.correctPersonRecord": {
-		"limit": 7,
-		"retry": 14
+		"limit": 6,
+		"retry": 12
 	},
 	"meetings.setAttendance": {
-		"limit": 6,
-		"retry": 12
+		"limit": 4,
+		"retry": 8
 	},
 	"meetings.checkIn": {
-		"limit": 6,
-		"retry": 12
+		"limit": 4,
+		"retry": 8
 	},
 	"meetings.clearAttendance": {
-		"limit": 6,
-		"retry": 12
+		"limit": 4,
+		"retry": 8
 	},
 	"meetings.captureAttendanceBatch": {
-		"limit": 6,
-		"retry": 12
+		"limit": 4,
+		"retry": 8
 	},
 	"meetings.correctEvaluation": {
-		"limit": 6,
-		"retry": 12
+		"limit": 4,
+		"retry": 8
 	},
 	"meetings.addAttendeeNote": {
-		"limit": 6,
-		"retry": 12
+		"limit": 4,
+		"retry": 8
 	},
 	"meetings.finalizeAttendance": {
 		"limit": 10,
 		"retry": 20
 	},
 	"meetings.reconcileAttendance": {
-		"limit": 10,
-		"retry": 20
+		"limit": 8,
+		"retry": 16
 	},
 	"meetings.recordEvaluation": {
-		"limit": 10,
-		"retry": 20
+		"limit": 8,
+		"retry": 16
 	},
 	"native.meetings.finalizeAttendance": {
-		"limit": 6,
-		"retry": 12
+		"limit": 5,
+		"retry": 10
 	},
 	"native.meetings.recordEvaluation": {
-		"limit": 6,
-		"retry": 12
+		"limit": 5,
+		"retry": 10
 	},
 	"meetings.listAttendance": {
 		"limit": 1,
@@ -1124,55 +1124,55 @@
 		"retry": 2
 	},
 	"native.meetings.finalizeAttendance.assigned": {
-		"limit": 12,
-		"retry": 24
+		"limit": 11,
+		"retry": 22
 	},
 	"meetings/core.withMeetingsWrite:native.meetings.finalizeAttendance.assigned": {
-		"limit": 12,
-		"retry": 24
+		"limit": 11,
+		"retry": 22
 	},
 	"meetings/core.withMeetingsWrite:native.meetings.finalizeAttendance": {
-		"limit": 6,
-		"retry": 12
+		"limit": 5,
+		"retry": 10
 	},
 	"meetings/core.withMeetingsWrite:native.meetings.recordEvaluation": {
-		"limit": 6,
-		"retry": 12
+		"limit": 5,
+		"retry": 10
 	},
 	"native.meetings.recordEvaluation.assigned": {
-		"limit": 10,
-		"retry": 20
+		"limit": 9,
+		"retry": 18
 	},
 	"meetings/core.withMeetingsWrite:native.meetings.recordEvaluation.assigned": {
-		"limit": 10,
-		"retry": 20
+		"limit": 9,
+		"retry": 18
 	},
 	"native.meetings.reconcileAttendance": {
-		"limit": 6,
-		"retry": 12
+		"limit": 5,
+		"retry": 10
 	},
 	"meetings/core.withMeetingsWrite:native.meetings.reconcileAttendance": {
-		"limit": 6,
-		"retry": 12
+		"limit": 5,
+		"retry": 10
 	},
 	"native.meetings.reconcileAttendance.assigned": {
-		"limit": 10,
-		"retry": 20
+		"limit": 9,
+		"retry": 18
 	},
 	"meetings/core.withMeetingsWrite:native.meetings.reconcileAttendance.assigned": {
-		"limit": 10,
-		"retry": 20
+		"limit": 9,
+		"retry": 18
 	},
 	"meetings/core.withMeetingsWrite:meetings.finalizeAttendance": {
-		"limit": 12,
-		"retry": 24
+		"limit": 9,
+		"retry": 18
 	},
 	"meetings/core.withMeetingsWrite:meetings.reconcileAttendance": {
-		"limit": 10,
-		"retry": 20
+		"limit": 5,
+		"retry": 10
 	},
 	"meetings/core.withMeetingsWrite:meetings.recordEvaluation": {
-		"limit": 10,
-		"retry": 20
+		"limit": 5,
+		"retry": 10
 	}
 }
