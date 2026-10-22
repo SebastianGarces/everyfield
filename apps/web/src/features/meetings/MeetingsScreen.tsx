@@ -27,6 +27,7 @@ import {
 	TYPE_LABEL,
 	TYPE_SHORT,
 	TYPES,
+	problemText,
 	untilText,
 	whenText,
 	WINDOW_LABEL,
@@ -38,6 +39,7 @@ import {
 import { IntentLink, MeetingIcon, MeetingStatusBadge, RsvpBar } from "./parts.tsx";
 import { deletions, useDeleted } from "./deletions.ts";
 import { PlanMeetingDialog } from "./PlanMeetingDialog.tsx";
+import { SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
 import { VisionReport } from "./Report.tsx";
 import type { MeetingsView } from "./server.ts";
 import { VenuesSheet } from "./VenuesSheet.tsx";
@@ -53,6 +55,7 @@ export function MeetingsScreen({ view, canWrite }: { view: MeetingsView; canWrit
 	const pathname = usePathname();
 	const [navigating, startTransition] = useTransition();
 	const [planning, setPlanning] = useState(false);
+	const planLane = useSaveIntent({ explain: problemText });
 	const [places, setPlaces] = useState(false);
 	const { query, hasHistory, now } = view;
 	// A meeting deleted from its page leaves this list at once, while its delete is confirmed (deletions.ts).
@@ -89,6 +92,7 @@ export function MeetingsScreen({ view, canWrite }: { view: MeetingsView; canWrit
 					</>
 				}
 			/>
+			<SaveNotice {...planLane.noticeProps} dialogOpen={planning} />
 			{!hasHistory && page ? (
 				<Card>
 					<EmptyState icon={Calendar03Icon} title="No meetings yet" headingLevel="h2" action={plan}>
@@ -176,7 +180,7 @@ export function MeetingsScreen({ view, canWrite }: { view: MeetingsView; canWrit
 					</Card>
 				</div>
 			)}
-			{canWrite ? <PlanMeetingDialog open={planning} onOpenChange={setPlanning} /> : null}
+			{canWrite ? <PlanMeetingDialog open={planning} onOpenChange={setPlanning} lane={planLane} /> : null}
 			<VenuesSheet open={places} onOpenChange={setPlaces} canWrite={canWrite} />
 		</>
 	);

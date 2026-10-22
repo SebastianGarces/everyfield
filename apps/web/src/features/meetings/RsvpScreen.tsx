@@ -6,9 +6,8 @@ import { Button } from "@everyfield/ui/controls";
 import { Icon, LogoMark } from "@everyfield/ui/foundations";
 import { useOptimistic, useState, useTransition, type ReactNode } from "react";
 import type { z } from "zod";
-import { answerRsvp } from "./actions.ts";
+import { answerRsvp, readRsvpLink } from "./actions.ts";
 import { longDateText, problemText, timeText } from "./model.ts";
-import { problemOf } from "./parts.tsx";
 
 type View = z.infer<typeof c.rsvpTokenView>;
 type Open = Extract<View, { meeting: unknown }>;
@@ -17,6 +16,8 @@ type Answer = "confirmed" | "declined";
 /**
  * The public RSVP page (COM-010, REQ-MTG-009), opened from an invitation email on a phone. It shows only the meeting
  * basics and the guest's own answer. Opening it never answers: only a tap does, and the link closes after one answer.
+ * When the answer's reply is lost, or the link says it is already closed, the page reads the link once and shows the
+ * answer the server kept (C58, R3-5); it never asks to tap again for an answer that may be saved.
  */
 export function RsvpScreen({ token, view }: { token: string; view: View }) {
 	if (view.state === "unavailable")
@@ -35,18 +36,40 @@ function Invitation({ token, view }: { token: string; view: Open }) {
 		state: view.state,
 		rsvp: view.rsvp,
 	});
-	const [shown, show] = useOptimistic(saved);
+	const [optimistic, show] = useOptimistic(saved);
+	/** A refusal code, "not_recorded" (the read found no answer) or "unknown" (the read failed too: Check again). */
 	const [problem, setProblem] = useState<string | null>(null);
+	/** The answer whose result is unknown. It stays on screen, and nothing else can be sent, until Check again. */
+	const [asked, setAsked] = useState<Answer | null>(null);
+	const shown = asked ? { state: "answered" as const, rsvp: asked } : optimistic;
 	const [pending, startTransition] = useTransition();
 	const { meeting: m, guestFirstName: name } = view;
 
+	/** Reads what the link holds now and shows it. The optimistic answer stays on screen while this runs. */
+	async function settle() {
+		const r = await readRsvpLink(token).catch(() => ({ status: "lost" }) as const);
+		if (r.status !== "ok") return setProblem("unknown");
+		setAsked(null);
+		const v = r.value;
+		if (v.state === "unavailable") return setProblem("unavailable");
+		startTransition(() => setSaved({ state: v.state, rsvp: v.rsvp }));
+		if (v.state === "pending") setProblem("not_recorded");
+	}
 	const answer = (rsvp: Answer) =>
 		startTransition(async () => {
 			setProblem(null);
 			show({ state: "answered", rsvp });
 			const r = await answerRsvp(token, rsvp).catch(() => ({ status: "lost" }) as const);
-			if (r.status === "ok") startTransition(() => setSaved({ state: "answered", rsvp }));
-			else setProblem(problemOf(r));
+			if (r.status === "ok") return startTransition(() => setSaved({ state: "answered", rsvp }));
+			if (r.status === "refused" && r.code !== "token_closed") return setProblem(r.code);
+			// The reply was lost, or the link is closed (perhaps by this same answer): the link's record decides.
+			setAsked(rsvp);
+			await settle();
+		});
+	const checkAgain = () =>
+		startTransition(async () => {
+			setProblem(null);
+			await settle();
 		});
 
 	return (
@@ -106,7 +129,9 @@ function Invitation({ token, view }: { token: string; view: Open }) {
 						<p className="text-sm text-text-3">
 							{pending
 								? "Saving…"
-								: "This link is now closed. To change your answer, contact the person who invited you."}
+								: asked
+									? "Not confirmed yet."
+									: "This link is now closed. To change your answer, contact the person who invited you."}
 						</p>
 					</div>
 				) : (
@@ -121,15 +146,20 @@ function Invitation({ token, view }: { token: string; view: Open }) {
 					</div>
 				)}
 				{problem ? (
-					<p
+					<div
 						role="alert"
-						className="flex items-start gap-2 rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600"
+						className="flex flex-col items-start gap-2.5 rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600"
 					>
-						<Icon icon={Alert02Icon} size={16} className="mt-px flex-none" />
-						{problem === "token_closed"
-							? "This link already has an answer, or it has closed. Ask the person who invited you if you need to change it."
-							: problemText(problem)}
-					</p>
+						<p className="flex items-start gap-2">
+							<Icon icon={Alert02Icon} size={16} className="mt-px flex-none" />
+							{LINK_PROBLEM[problem] ?? problemText(problem)}
+						</p>
+						{problem === "unknown" ? (
+							<Button variant="secondary" size="sm" loading={pending} onClick={checkAgain}>
+								Check again
+							</Button>
+						) : null}
+					</div>
 				) : null}
 				<p className="text-center text-xs text-text-3">
 					No account needed. This link is only for you, so please do not share it.
@@ -138,6 +168,14 @@ function Invitation({ token, view }: { token: string; view: Open }) {
 		</Shell>
 	);
 }
+
+/** What the link page says when an answer did not settle. Other codes use the shared words. */
+const LINK_PROBLEM: Record<string, string> = {
+	not_recorded: "Your answer did not reach us. Choose again.",
+	unknown:
+		"Your answer may already be saved. We did not hear back from the server. Check again to find out; it will not be saved twice.",
+	unavailable: "This link no longer works. Ask the person who invited you for a new link.",
+};
 
 function Shell({ children }: { children: ReactNode }) {
 	return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckListIcon, Clock01Icon, Edit02Icon, Note01Icon, StarIcon } from "@hugeicons/core-free-icons";
+import { CheckListIcon, Clock01Icon, Edit02Icon, StarIcon } from "@hugeicons/core-free-icons";
 import { averageOf } from "@everyfield/contracts/meetings";
 import {
 	Button,
@@ -27,8 +27,9 @@ import {
 } from "@everyfield/ui/controls";
 import { DeltaChip, StatusBadge } from "@everyfield/ui/display";
 import { useEffect, useRef, useState } from "react";
+import { DialogNotice, SaveNotice, useRowLanes, type RowSave, type SaveIntent } from "../../components/save/parts.tsx";
 import { assigneeOptions } from "../tasks/fetch.ts";
-import { addAttendeeNote, evaluationHistory, previewSettlement, setPresence } from "./actions.ts";
+import { evaluationHistory, previewSettlement, setPresence } from "./actions.ts";
 import {
 	CLASSIFICATION_LABEL,
 	dateText,
@@ -50,7 +51,7 @@ import {
 	type Presence,
 	type Scores,
 } from "./model.ts";
-import { Problem, problemOf, sendOnce, Unconfirmed, useSlot, type Slot } from "./parts.tsx";
+import { Problem } from "./parts.tsx";
 
 // Attendance, finalization and the Vision evaluation on the meeting page (WP-022). Every save shows its change at once.
 // A form closes as it saves and opens again with what was entered when the server refuses. A lost answer is sent once
@@ -71,13 +72,11 @@ export const canSettle = (m: Detail, now: string) =>
 	!m.occurrence.voidedAt &&
 	Date.parse(m.occurrence.heldAt ?? m.startsAt) <= Date.parse(now);
 
-type Held = { who: Who; presence: Presence; state: Exclude<Slot, "idle">; resend: () => void };
-
 /**
- * One presence save per person at a time (C68). The row shows the new presence at once and keeps showing it while the
- * save is on its way or its answer is unknown; meanwhile that person takes no other change. An unknown save waits for
- * Check again, which sends the same request key, so only a server answer settles the row. A refusal puts the row back
- * and says why.
+ * Presence saves, one save lane per person (components/save useRowLanes, C68): marking people at the door never waits
+ * for anyone else's answer, and one person takes no other change while their save is on its way or unknown. The row
+ * shows the new presence at once and keeps it until the server answers; a lost answer is sent once more with the same
+ * key, then Check again sends it again. A refusal puts the row back and says why.
  */
 export function usePresence({
 	meetingId,
@@ -89,67 +88,36 @@ export function usePresence({
 	onStale: () => void;
 }) {
 	const toast = useToast();
-	const ref = useRef(new Map<string, Held>());
-	const [held, setHeld] = useState<ReadonlyMap<string, Held>>(() => new Map());
-	const put = (id: string, h: Held | null) => {
-		if (h) ref.current.set(id, h);
-		else ref.current.delete(id);
-		setHeld(new Map(ref.current));
-	};
+	const lanes = useRowLanes(problemText);
+	// The presence each person asked for last; shown while their save is on its way or unknown.
+	const [asked] = useState(() => new Map<string, Presence>());
 	function set(who: Who, presence: Presence) {
-		const id = who.personId;
-		if (ref.current.has(id)) return;
-		const key = crypto.randomUUID();
-		const send = async (again: boolean) => {
-			const h: Held = { who, presence, state: again ? "checking" : "pending", resend: () => void send(true) };
-			put(id, h);
-			const r = await sendOnce(key, (k) => setPresence(k, meetingId, id, presence));
-			if (!r || r.status === "lost") return put(id, { ...h, state: "unknown" });
-			put(id, null);
-			if (r.status === "ok") return onSaved(r.value);
-			const code = problemOf(r)!;
-			if (code === "conflict" || code === "status_transition") onStale();
-			toast({ message: `${who.displayName}: the attendance was not saved. ${problemText(code)}`, tone: "error" });
-		};
-		void send(false);
+		if (lanes.stateOf(who.personId)) return;
+		asked.set(who.personId, presence);
+		void lanes.save(who.personId, {
+			what: `Attendance of ${who.displayName}`,
+			send: (key) => setPresence(key, meetingId, who.personId, presence),
+			ok: onSaved,
+			refused: (code) => {
+				if (code === "conflict" || code === "status_transition") onStale();
+				toast({ message: `${who.displayName}: the attendance was not saved. ${problemText(code)}`, tone: "error" });
+			},
+		});
 	}
-	const unknown = [...held.values()].filter((h) => h.state === "unknown" || h.state === "checking");
 	return {
 		set,
+		lanes,
 		/** The save state of one person, or undefined when they take changes. */
-		stateOf: (personId: string) => held.get(personId)?.state,
+		stateOf: lanes.stateOf,
 		/** Guests as the person sees them: a save on its way or unknown shows what was asked. */
-		shown: <G extends { person: { personId: string }; presence: Presence }>(rows: G[]) =>
-			rows.map((g) => {
-				const h = held.get(g.person.personId);
-				return h ? { ...g, presence: h.presence } : g;
+		shown: <G extends { person: { personId: string | null }; presence: Presence }>(list: G[]) =>
+			list.map((g) => {
+				const id = g.person.personId;
+				return id && lanes.stateOf(id) ? { ...g, presence: asked.get(id) ?? g.presence } : g;
 			}),
-		unknown,
 		/** A presence save is on its way or unknown: the attended set is not settled, so finalizing waits. */
-		busy: held.size > 0,
-		checkAgain: () => unknown.forEach((h) => h.state === "unknown" && h.resend()),
+		busy: lanes.busy,
 	};
-}
-
-/** The notice for presence saves whose answer is unknown, with Check again for all of them. */
-export function PresenceUnconfirmed({
-	presence,
-	className,
-}: {
-	presence: ReturnType<typeof usePresence>;
-	className?: string;
-}) {
-	const u = presence.unknown;
-	return (
-		<Unconfirmed
-			state={u.length === 0 ? "idle" : u.some((h) => h.state === "checking") ? "checking" : "unknown"}
-			onCheck={presence.checkAgain}
-			className={className}
-		>
-			Attendance of {u.map((h) => h.who.displayName).join(", ")}: we did not hear back from the server, so we cannot
-			tell whether it saved.
-		</Unconfirmed>
-	);
 }
 
 const attendedOf = (a: Attendance | null) => a?.items.filter((x) => x.presence === "attended") ?? [];
@@ -168,9 +136,8 @@ export function AttendanceCard({
 	attendance,
 	analytics,
 	canWrite,
-	slot,
+	lane,
 	blocked,
-	onCheck,
 	now,
 	onSettle,
 	onPrefetch,
@@ -179,11 +146,10 @@ export function AttendanceCard({
 	attendance: Attendance | null;
 	analytics: Analytics | null;
 	canWrite: boolean;
-	/** The finalize or correction save: while it is on its way or unknown, nothing here starts another. */
-	slot: Slot;
+	/** The finalize and correction lane: while its save is on its way or unknown, nothing here starts another. */
+	lane: SaveIntent<SettleEditing>;
 	/** Presence saves are on their way or unknown; finalizing waits for them. */
 	blocked: boolean;
-	onCheck: () => void;
 	now: string;
 	onSettle: (mode: "finalize" | "reconcile") => void;
 	onPrefetch: () => void;
@@ -202,8 +168,8 @@ export function AttendanceCard({
 	const open = canSettle(m, now);
 	const vision = m.type === "vision_meeting";
 	const intent = { onPointerEnter: onPrefetch, onFocus: onPrefetch, onTouchStart: onPrefetch };
-	const settling = slot === "pending";
-	const held = slot !== "idle" || blocked;
+	const settling = lane.saving;
+	const held = lane.wait !== null || blocked;
 	return (
 		<Card as="section" aria-labelledby="attendance-title" aria-busy={settling || undefined}>
 			<CardHeader className="mb-3.5">
@@ -251,9 +217,7 @@ export function AttendanceCard({
 				</dl>
 			) : null}
 			{final && vision && analytics ? <Work tasks={analytics.tasks} /> : null}
-			<Unconfirmed state={slot} onCheck={onCheck} className="mt-4">
-				Attendance: we did not hear back from the server, so we cannot tell whether it saved.
-			</Unconfirmed>
+			<SaveNotice {...lane.noticeProps} dialogOpen={lane.editing !== null} className="mt-4" />
 			{canWrite ? (
 				<div className="mt-auto flex flex-wrap items-center gap-2.5 pt-4">
 					{final ? (
@@ -377,6 +341,8 @@ export type SettleInput = {
 	reason: string;
 };
 export type Settled = { result: Finalization; analytics: Analytics | null };
+/** The open finalize or correction form, with what was chosen when a refusal opens it again. */
+export type SettleEditing = { mode: "finalize" | "reconcile"; input: SettleInput | null; problem?: string };
 
 /**
  * Finalize attendance (REQ-MTG-012, REQ-MTG-020) or correct it after it is final. The review names the exact people
@@ -404,7 +370,8 @@ export function SettleDialog({
 	seats: Seats | null;
 	onSeats: () => void;
 	initial: SettleInput | null;
-	problem: string | null;
+	/** Why the last finalize or correction was refused, in words. */
+	problem: string | undefined;
 	onClose: () => void;
 	onSubmit: (input: SettleInput) => void;
 }) {
@@ -533,6 +500,7 @@ function SettleForm({
 					description={meeting.displayTitle}
 				/>
 				<DialogBody className="flex flex-col gap-5">
+					<DialogNotice />
 					{reconcile ? (
 						<fieldset ref={listRef} className="flex flex-col">
 							<legend className="mb-1 text-sm font-medium text-ink-2">Who attended</legend>
@@ -636,7 +604,7 @@ function SettleForm({
 							/>
 						</Field>
 					) : null}
-					<Problem code={problem} />
+					<Problem text={problem} />
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" type="button" onClick={onClose}>
@@ -747,28 +715,26 @@ export function EvaluationCard({
 	analytics,
 	finalized,
 	canWrite,
-	slot,
-	onCheck,
+	lane,
 	onRecord,
 	onCorrect,
 	onHistory,
 	onPrefetchHistory,
 }: {
-	evaluation: Evaluation | null;
+	evaluation: ShownEvaluation | null;
 	analytics: Analytics | null;
 	finalized: boolean;
 	canWrite: boolean;
-	/** The evaluation save: while it is on its way or unknown, nothing here starts another. */
-	slot: Slot;
-	onCheck: () => void;
+	/** The evaluation lane: while its save is on its way or unknown, nothing here starts another. */
+	lane: SaveIntent<EvaluationEditing>;
 	onRecord: () => void;
 	onCorrect: () => void;
 	onHistory: () => void;
 	onPrefetchHistory: () => void;
 }) {
 	const compare = analytics?.evaluation ?? null;
-	const saving = slot === "pending";
-	const held = slot !== "idle";
+	const saving = lane.saving;
+	const held = lane.wait !== null;
 	return (
 		<Card as="section" aria-labelledby="evaluation-title" aria-busy={saving || undefined}>
 			<CardHeader className="flex-wrap gap-y-3">
@@ -869,9 +835,7 @@ export function EvaluationCard({
 			) : (
 				<p className="text-md text-text-3">Nobody has evaluated this meeting yet.</p>
 			)}
-			<Unconfirmed state={slot} onCheck={onCheck} className="mt-4">
-				The evaluation: we did not hear back from the server, so we cannot tell whether it saved.
-			</Unconfirmed>
+			<SaveNotice {...lane.noticeProps} dialogOpen={lane.editing !== null} className="mt-4" />
 		</Card>
 	);
 }
@@ -908,6 +872,10 @@ function ScoreBar({ score }: { score: number }) {
 }
 
 export type EvaluationInput = { scores: Partial<Scores>; notes: string; reason: string };
+/** The open evaluation form, with what was entered when a refusal opens it again. */
+export type EvaluationEditing = { input: EvaluationInput | null; problem?: string };
+/** What the evaluation card shows: the saved evaluation, or the scores asked for while their save is on its way. */
+export type ShownEvaluation = Pick<Evaluation, "scores" | "average" | "notes" | "evaluatedOn" | "corrections">;
 
 /**
  * Record or correct the evaluation. The average shows as the scores are chosen; the server computes the one it keeps.
@@ -926,7 +894,8 @@ export function EvaluationDialog({
 	evaluation: Evaluation | null;
 	title: string;
 	initial: EvaluationInput | null;
-	problem: string | null;
+	/** Why the last save was refused, in words. */
+	problem: string | undefined;
 	onClose: () => void;
 	onSubmit: (input: EvaluationInput) => void;
 }) {
@@ -992,6 +961,7 @@ function EvaluationForm({
 					description={title}
 				/>
 				<DialogBody className="flex flex-col gap-5">
+					<DialogNotice />
 					<div ref={first} className="flex flex-col">
 						{FACTORS.map((f) => {
 							const bad = touched && scores[f.key] === undefined;
@@ -1052,7 +1022,7 @@ function EvaluationForm({
 							/>
 						</Field>
 					) : null}
-					<Problem code={problem} />
+					<Problem text={problem} />
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" type="button" onClick={onClose}>
@@ -1160,103 +1130,6 @@ export function HistoryDialog({
 // -------------------------------------------------------------------------------------------------------------
 // Attendee note
 
-/**
- * A note about one attendee (REQ-MTG-017). It goes to their history with this meeting as its source. The dialog keeps
- * its own save state, so a refusal shows inside it where a screen reader hears it.
- */
-export function NoteDialog({
-	guest,
-	meeting,
-	onOpenChange,
-}: {
-	guest: Guest | null;
-	meeting: Detail;
-	onOpenChange: (open: boolean) => void;
-}) {
-	// The save belongs to the dialog: while it is on its way or unknown, the dialog stays open with its Check again.
-	const slot = useSlot();
-	const close = (open: boolean) => !open && slot.state === "idle" && onOpenChange(false);
-	return (
-		<Dialog open={guest !== null} onOpenChange={close}>
-			{guest ? (
-				<NoteForm key={guest.id} guest={guest} meeting={meeting} slot={slot} onClose={() => onOpenChange(false)} />
-			) : null}
-		</Dialog>
-	);
-}
-
-function NoteForm({
-	guest,
-	meeting,
-	slot,
-	onClose,
-}: {
-	guest: Guest;
-	meeting: Detail;
-	slot: ReturnType<typeof useSlot>;
-	onClose: () => void;
-}) {
-	const toast = useToast();
-	const [text, setText] = useState("");
-	const [touched, setTouched] = useState(false);
-	const [problem, setProblem] = useState<string | null>(null);
-	const missing = text.trim() === "";
-	const held = slot.state !== "idle";
-	return (
-		<DialogContent size="sm" aria-busy={slot.state === "pending" || undefined}>
-			<form
-				noValidate
-				className="contents"
-				onSubmit={(e) => {
-					e.preventDefault();
-					setTouched(true);
-					if (missing || held) return;
-					const body = text.trim();
-					setProblem(null);
-					slot.run(
-						(key) => addAttendeeNote(key, meeting.id, guest.person.personId, body),
-						(r) => {
-							if (r.status !== "ok") return setProblem(r.code);
-							onClose();
-							toast({ message: `The note is in ${guest.person.displayName}'s history.`, tone: "success" });
-						},
-					);
-				}}
-			>
-				<DialogHeader icon={Note01Icon} title="Add a note" description={guest.person.displayName} closable={!held} />
-				<DialogBody className="flex flex-col gap-4">
-					<Field
-						label="Note"
-						hint={`It goes to their history, marked as from ${meeting.displayTitle}.`}
-						error={touched && missing ? "Write the note first." : null}
-					>
-						<Textarea
-							value={text}
-							onChange={(e) => setText(e.target.value)}
-							maxLength={5000}
-							rows={4}
-							readOnly={held}
-							autoFocus
-						/>
-					</Field>
-					<Problem code={problem} />
-					<Unconfirmed state={slot.state} onCheck={slot.checkAgain}>
-						The note: we did not hear back from the server, so we cannot tell whether it saved.
-					</Unconfirmed>
-				</DialogBody>
-				<DialogFooter>
-					<Button variant="secondary" type="button" onClick={onClose} disabled={held}>
-						Cancel
-					</Button>
-					<Button variant="primary" type="submit" loading={slot.state === "pending"} disabled={held}>
-						Add note
-					</Button>
-				</DialogFooter>
-			</form>
-		</DialogContent>
-	);
-}
-
 // -------------------------------------------------------------------------------------------------------------
 // Small parts used by the guest list and the check-in screen
 
@@ -1271,14 +1144,14 @@ export function PresenceCell({
 	classification: Classification | null;
 	/** Before attendance is final, absent only means nobody marked them yet. */
 	final: boolean;
-	state: Slot | undefined;
+	state: RowSave | undefined;
 }) {
 	return (
 		<div className="flex flex-col items-start gap-1">
 			<StatusBadge status={PRESENCE_TONE[presence]} size="sm">
 				{presence === "absent" && !final ? "Not marked" : PRESENCE_LABEL[presence]}
 			</StatusBadge>
-			{state === "pending" || state === "checking" ? (
+			{state === "saving" || state === "checking" ? (
 				<span className="text-xs text-text-3">Saving…</span>
 			) : state === "unknown" ? (
 				<span className="text-xs font-medium text-ink">Not confirmed</span>
