@@ -261,5 +261,10 @@ export function actionNotice(error: ProjectedError | "lost"): string {
 const time = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
 export const clock = (iso: string) => time.format(new Date(iso));
 
-/** The delay before the next read of a running change: quick at first, then every 2 seconds. */
-export const pollDelay = (attempt: number) => [300, 500, 800, 1200][attempt] ?? 2000;
+/**
+ * The delay before the next read of a running change, counted from the previous reply. An approved change is first
+ * readable as saved about 0.5 to 0.75 s after the click (production build, 20 runs), so the first read waits for that
+ * and the next reads follow 50 ms apart: Saved shows within the one-second budget. A slower change backs off to one
+ * read every 2 seconds.
+ */
+export const pollDelay = (attempt: number) => [350, 50, 50, 50, 50, 800, 1200][attempt] ?? 2000;

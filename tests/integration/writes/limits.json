@@ -874,8 +874,8 @@
 		"limit": 9
 	},
 	"people/commitments/index.saveCommitmentDocument": {
-		"limit": 5,
-		"retry": 9
+		"limit": 6,
+		"retry": 10
 	},
 	"people/commitments/index.signCommitmentDocument": {
 		"limit": 1

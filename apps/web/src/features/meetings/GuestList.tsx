@@ -671,6 +671,9 @@ function AddGuestForm({
 	const set = (patch: Partial<AddDraft>) => setDraft((d) => ({ ...d, ...patch }));
 	const setContact = (patch: Partial<AddDraft["contact"]>) => set({ contact: { ...contact, ...patch } });
 	const nameMissing = contact.displayName.trim() === "";
+	// The field for the chosen kind of guest takes focus only when the person switches it; RecordDialog decides where
+	// focus starts when the form opens (F4b).
+	const [switched, setSwitched] = useState(false);
 	const emailBad = contact.email.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email.trim());
 	return (
 		<RecordDialog
@@ -692,7 +695,10 @@ function AddGuestForm({
 			<SegmentedControl
 				label="Who"
 				value={mode}
-				onValueChange={(m) => set({ mode: m })}
+				onValueChange={(m) => {
+					setSwitched(true);
+					set({ mode: m });
+				}}
 				options={[
 					{ value: "existing", label: "Someone in People" },
 					{ value: "new", label: "Someone new" },
@@ -706,7 +712,7 @@ function AddGuestForm({
 							value={person}
 							onChange={(p) => set({ person: p })}
 							exclude={guestIds}
-							autoFocus
+							autoFocus={switched}
 						/>
 					</Field>
 					<Field label="Invited by" optional>
@@ -727,7 +733,7 @@ function AddGuestForm({
 							maxLength={255}
 							autoComplete="off"
 							onChange={(e) => setContact({ displayName: e.target.value })}
-							autoFocus
+							autoFocus={switched}
 						/>
 					</Field>
 					<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
@@ -791,7 +797,6 @@ function InviterForm({
 				onChange={setChoice}
 				exclude={[guest.person.personId]}
 				none="Not recorded"
-				autoFocus
 			/>
 		</RecordDialog>
 	);
@@ -896,7 +901,7 @@ function NoteForm({
 				hint={`It goes to their history, marked as from ${meetingTitle}.`}
 				error={touched && missing ? "Write the note first." : null}
 			>
-				<Textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={5000} rows={4} autoFocus />
+				<Textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={5000} rows={4} />
 			</Field>
 		</RecordDialog>
 	);

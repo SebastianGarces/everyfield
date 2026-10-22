@@ -128,23 +128,10 @@ export function CommitmentCard({
 	const first = firstName(personName);
 	const moves = advancedStage(stage, "core_group") !== stage;
 	const state = view.current?.state ?? "unknown";
-	/** A refused save's code: an invalid date or file named as well as the answer allows; a conflict reads the person. */
-	const refusal = (e: Editing) => ({
-		code: (code: string) => (code === "invalid_input" ? invalidInput(e) : code),
-		refused: (code: string) => {
-			if (code === "conflict") onConflict();
-		},
-	});
-	/**
-	 * The save answers invalid_input for a date after the church's today and for a file it cannot read. A card signed
-	 * before yesterday cannot be in the future anywhere, so with a file that answer means the file.
-	 */
-	const invalidInput = (e: Editing) =>
-		e.form !== "record" || !e.draft.file
-			? "future_date"
-			: e.draft.occurredOn < today(new Date(Date.now() - 86_400_000))
-				? "upload_unreadable"
-				: "date_or_file";
+	/** A refused save opens its form with the server's reason; a conflict also reads the person again. */
+	const refused = (code: string) => {
+		if (code === "conflict") onConflict();
+	};
 	/** The person as the write left them: its revision and, for a card, the stage it advanced to. */
 	const personAfter = (revision: string, stageNow = store.get().saved.stage): PlantPerson =>
 		({ ...store.get().saved, stage: stageNow, revision }) as PlantPerson;
@@ -205,18 +192,15 @@ export function CommitmentCard({
 		upload: DocumentUpload | null,
 		draft: CommitmentDraft,
 	) {
-		const form: Editing = { form: "record", draft };
-		const { code, refused } = refusal(form);
 		await dialog.save({
 			what: "Your commitment card",
-			form,
+			form: { form: "record", draft },
 			send: (k): Promise<Outcome<CommitmentSaved>> =>
 				upload ? saveWithDocument(k, base, upload, setProgress) : recordCommitment(k, base),
 			replay: upload === null,
 			through: throughStore(store, "commitment", (v: CommitmentSaved) =>
 				personAfter(v.person.revision, v.person.stage),
 			),
-			code,
 			refused: (c) => {
 				if (upload) uploads.current.set(upload.file, upload);
 				refused(c);
@@ -269,7 +253,7 @@ export function CommitmentCard({
 				through: throughStore(store, change, (v: { current: CommitmentStatus }) =>
 					personAfter(v.current.personRevision),
 				),
-				...refusal({ form: change, draft }),
+				refused,
 				ok: (value, checked) => {
 					startTransition(() => setLatest(value.current));
 					onSaved(value.receipt, {
@@ -306,15 +290,14 @@ export function CommitmentCard({
 						...(draft.kind !== card.kind ? { kind: draft.kind } : {}),
 					};
 			const input = { commitmentId: card.id, correction, reason: draft.reason };
-			const form: Editing = { form: "correct", card, draft };
 			await dialog.save({
 				what: voiding ? "Your void of the card" : "Your card correction",
-				form,
+				form: { form: "correct", card, draft },
 				send: (k) => correctCommitment(k, card.revision, personId, input),
 				through: throughStore(store, `correct:${card.id}`, (v: { commitments: { current: CommitmentStatus } }) =>
 					personAfter(v.commitments.current.personRevision),
 				),
-				...refusal(form),
+				refused,
 				ok: (value) => {
 					const page = value.commitments;
 					startTransition(() => {
