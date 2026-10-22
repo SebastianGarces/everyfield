@@ -38,6 +38,7 @@ import {
 import { IntentLink, MeetingIcon, MeetingStatusBadge, RsvpBar } from "./parts.tsx";
 import { deletions, useDeleted } from "./deletions.ts";
 import { PlanMeetingDialog } from "./PlanMeetingDialog.tsx";
+import { VisionReport } from "./Report.tsx";
 import type { MeetingsView } from "./server.ts";
 import { VenuesSheet } from "./VenuesSheet.tsx";
 
@@ -99,6 +100,7 @@ export function MeetingsScreen({ view, canWrite }: { view: MeetingsView; canWrit
 			) : (
 				<div className="flex flex-col gap-5">
 					{next ? <NextMeeting meeting={next} now={now} thisYear={thisYear} /> : null}
+					{canWrite ? <VisionReport thisYear={thisYear} /> : null}
 					<Card as="section" aria-labelledby="all-meetings">
 						<CardHeader className="flex-wrap items-center gap-3">
 							<CardHeading>
