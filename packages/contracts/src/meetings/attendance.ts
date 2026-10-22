@@ -149,6 +149,8 @@ export const attendanceList = z.strictObject({
 	page: z.int().min(1),
 	next: z.int().min(2).nullable(),
 	completeness: z.literal("complete"),
+	/** The viewer may mark attendance: a current Owner or Admin, or the current leader of this team meeting's team. */
+	viewerCanMarkAttendance: z.boolean(),
 });
 const counts = z.strictObject({ first_time: z.int().min(0), returning: z.int().min(0), core_group: z.int().min(0) });
 export const attendanceSummary = z.strictObject({
