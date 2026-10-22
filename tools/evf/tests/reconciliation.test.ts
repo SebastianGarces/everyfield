@@ -56,7 +56,7 @@ test("INV-context: load current acceptance and fail when its required input is m
 });
 
 import { fixture } from "./fixtures.ts";
-import { parseTask, evfDataDir, loadConfig, runtimeDir } from "../lib.ts";
+import { parseTask, evfDataDir, evidenceDir, loadConfig, runtimeDir } from "../lib.ts";
 import {
 	feedbackTriage,
 	startFeedbackTask,
@@ -299,6 +299,8 @@ test("INV-workflow-routing: Next server paths stay with implementor and presenta
 
 import { ship, listShipped, prOpen, checkPr } from "../ship.ts";
 import { withShipQueue } from "../ship-queue.ts";
+import { awaitLoad } from "../load.ts";
+import { availableParallelism } from "node:os";
 import { spawn } from "node:child_process";
 import { renumberMigrations } from "../migrations.ts";
 import { approve } from "../approve.ts";
@@ -1490,6 +1492,72 @@ test("INV-ship-queue-update: a behind PR is updated by a merge of main, waits fo
 		assert.equal(existsSync(lock), false);
 	} finally {
 		console.log = log;
+		f.close();
+	}
+});
+
+test("INV-load-limit: heavy commands wait above the machine limit with one line per minute, run below it and log overrides", () => {
+	const f = mergeFixture(),
+		error = console.error,
+		lines: string[] = [];
+	try {
+		const setLimit = (maxPerCore: number, maxWaitMinutes: number) => {
+			f.cfg.machineLoad = { maxPerCore, maxWaitMinutes };
+			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+		};
+		setLimit(2, 3);
+		const limit = 2 * availableParallelism();
+		// A fake clock: each sleep advances it; the load falls below the limit after `busyMs`.
+		const probe = (busyMs: number) => {
+			let now = 0;
+			return { read: () => (now < busyMs ? limit + 5 : limit - 1), sleep: (ms: number) => (now += ms), now: () => now };
+		};
+		console.error = (...args) => lines.push(args.join(" "));
+
+		awaitLoad(f.root, "verify", undefined, probe(150_000));
+		assert.deepEqual(
+			lines.map((l) => l.match(/waiting, (\d) of 3 min/)?.[1]),
+			["0", "1", "2"],
+		);
+		assert.match(lines[0], new RegExp(`^evf verify: load ${limit + 5}\\.0, limit ${limit} \\(2 × \\d+ cores\\)`));
+		lines.length = 0;
+		awaitLoad(f.root, "verify", undefined, probe(0));
+		assert.deepEqual(lines, [], "below the limit runs at once and prints nothing");
+		assert.throws(
+			() => awaitLoad(f.root, "task start", undefined, probe(Infinity)),
+			/stayed above its load limit for 3 min/,
+		);
+		assert.equal(lines.length, 3);
+
+		const overrides = join(evfDataDir(f.root), "load-overrides.jsonl");
+		assert.throws(() => awaitLoad(f.root, "verify", " ", probe(Infinity)), /--ignore-load needs a reason/);
+		lines.length = 0;
+		awaitLoad(f.root, "browser run", "release blocker", probe(Infinity));
+		assert.match(lines[0], /load override logged .*: release blocker/);
+		assert.deepEqual(
+			readFileSync(overrides, "utf8")
+				.trim()
+				.split("\n")
+				.map((l) => {
+					const { command, limit: logged, reason } = JSON.parse(l);
+					return [command, logged, reason];
+				}),
+			[["browser run", limit, "release blocker"]],
+		);
+
+		// evf verify itself: refuses above the limit before any check, runs with a logged override and below it.
+		console.error = () => {};
+		const reports = () => (existsSync(evidenceDir(f.root, f.taskRef, f.sha, "author-full")) ? 1 : 0);
+		setLimit(1e-9, 0);
+		assert.throws(() => verify(f.root, f.taskRef, "author", "full"), /stayed above its load limit for 0 min/);
+		assert.equal(reports(), 0, "no check ran");
+		assert.equal(verify(f.root, f.taskRef, "author", "full", undefined, "owner asked for this run").passed, true);
+		assert.equal(readFileSync(overrides, "utf8").trim().split("\n").length, 2);
+		setLimit(1e6, 0);
+		assert.equal(verify(f.root, f.taskRef, "author", "quick").passed, true);
+		assert.equal(readFileSync(overrides, "utf8").trim().split("\n").length, 2);
+	} finally {
+		console.error = error;
 		f.close();
 	}
 });

@@ -26,6 +26,7 @@ start (D35). These rules apply to every role that opens a browser.
   command in its own process group with a timeout (default 900 s). When the command ends, fails,
   times out or evf gets a signal, it closes the run's agent-browser session, stops every process
   the run started and deletes the run's temporary directory, where Playwright keeps its profiles.
+  It first waits while the machine is above its load limit (see `tools/evf/README.md`).
 - Interactive checks use agent-browser (D36), never the Playwright MCP. Give each job its own
   session and a short idle timeout, and close it when you finish, also after a failure:
 

@@ -57,6 +57,7 @@ export function fixture() {
 	writeFileSync(progressPath, JSON.stringify(progress));
 	const cfg = JSON.parse(readFileSync(join(source, "evf.config.json"), "utf8"));
 	cfg.stack = null; // Tests that need a stack declare their own; never run the live stack command.
+	cfg.machineLoad = { maxPerCore: 1_000_000, maxWaitMinutes: 0 }; // Tooling tests never wait for this machine's load.
 	cfg.checks = [
 		{ name: "fixture-check", run: [process.execPath, "-e", 'process.stdout.write("checked disposable fixture")'] },
 		...["format", "package-unit-tests"].map((name) => ({

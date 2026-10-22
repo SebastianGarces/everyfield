@@ -2,6 +2,7 @@ import { requireForeground } from "./foreground.ts";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderBrief } from "./brief.ts";
+import { awaitLoad } from "./load.ts";
 import { maintenanceScope, requireImplementation, requireSpend, requireTaskRisk, requireTaskScope } from "./policy.ts";
 import { reviewedMilestone } from "./progress.ts";
 import { startFeedbackTask, cachedTriage } from "./feedback.ts";
@@ -93,7 +94,7 @@ export function debugCmd(root: string, task: TaskRef, name: "traces" | "logs", e
 export function taskStart(
 	root: string,
 	task: TaskRef,
-	opts: { allowUnready: boolean; noStack: boolean; uiTier?: string; overLimit?: boolean },
+	opts: { allowUnready: boolean; noStack: boolean; uiTier?: string; overLimit?: boolean; ignoreLoad?: string },
 ): number {
 	const cfg = loadConfig(root);
 	if (opts.allowUnready)
@@ -135,6 +136,7 @@ export function taskStart(
 		}
 	}
 
+	awaitLoad(root, "task start", opts.ignoreLoad);
 	if (hasRemote(root, cfg)) git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
 	const base = baseRef(root, cfg);
 	const wt = worktreePath(root, cfg, task);

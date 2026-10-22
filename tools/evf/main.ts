@@ -24,6 +24,7 @@ import { approve } from "./approve.ts";
 import { debugCmd, stack, taskStart } from "./task.ts";
 import { requireVerifiedHead, verify } from "./verify.ts";
 import { migrationsRenumber } from "./migrations.ts";
+import { awaitLoad } from "./load.ts";
 
 const HELP = `evf: EveryField v3 workflow CLI
 
@@ -35,10 +36,10 @@ Planning (coordinator)
   evf shipped --fast-track WP-097 --evidence <file>           record owner-approved completion on main
 
 Task loop (implementor, ui-designer)
-  evf task start <task> [--ui-tier UI-n] [--no-stack] [--over-limit]
+  evf task start <task> [--ui-tier UI-n] [--no-stack] [--over-limit] [--ignore-load "<reason>"]
   evf stack up|down|status <task>
   evf traces <task> [args...]        evf logs <task> [args...]
-  evf verify <task> [--head <sha>] [--quick]                  local checks
+  evf verify <task> [--head <sha>] [--quick] [--ignore-load "<reason>"]   local checks
   evf migrations renumber <task>                              move new migrations after main's last number
   evf pr open <task> --body-file <file>                       push and open/update the PR
   evf pr check <PR> [--head <sha>]                            read-only Phase 7 merge checks
@@ -70,12 +71,15 @@ Upkeep
   evf principles --apply <OPS-n> [--ref <sha>]                sync them into that task's worktree
 
 Browser checks (any role)
-  evf browser run [--timeout <seconds>] [--session <name>] -- <command> [args...]
+  evf browser run [--timeout <seconds>] [--session <name>] [--ignore-load "<reason>"] -- <command> [args...]
         runs a browser check in its own process group (default timeout 900 s), then closes its
         agent-browser session and stops every process it started, also on failure or timeout
 
 <task> is WP-NNN for a single-part package, WP-NNN/api (contract first), WP-NNN/ui,
-FB-<n> for public feedback issue n, or OPS-<n> for reviewed tooling maintenance.`;
+FB-<n> for public feedback issue n, or OPS-<n> for reviewed tooling maintenance.
+
+task start, verify and browser run wait while the 1-minute load average is above machineLoad in
+evf.config.json (C51, C81). --ignore-load "<reason>" runs at once and logs the override.`;
 
 function flag(args: string[], name: string): boolean {
 	const i = args.indexOf(name);
@@ -124,9 +128,11 @@ function main(argv: string[]): number | Promise<number> {
 			if (args[0] !== "run" || sep < 0 || sep === args.length - 1) break;
 			const opts = args.slice(1, sep),
 				timeout = Number(option(opts, "--timeout") ?? 900),
-				session = option(opts, "--session");
+				session = option(opts, "--session"),
+				ignoreLoad = option(opts, "--ignore-load");
 			if (opts.length) break;
 			if (!Number.isFinite(timeout) || timeout <= 0) throw new EvfError("--timeout takes a number of seconds.");
+			awaitLoad(root, "browser run", ignoreLoad);
 			return browserRun(args.slice(sep + 1), { timeoutSeconds: timeout, session });
 		}
 		case "feedback": {
@@ -215,7 +221,8 @@ function main(argv: string[]): number | Promise<number> {
 				const allowUnready = flag(args, "--allow-unready");
 				const noStack = flag(args, "--no-stack");
 				const overLimit = flag(args, "--over-limit");
-				return taskStart(root, parseTask(args[0]), { allowUnready, noStack, uiTier, overLimit });
+				const ignoreLoad = option(args, "--ignore-load");
+				return taskStart(root, parseTask(args[0]), { allowUnready, noStack, uiTier, overLimit, ignoreLoad });
 			}
 			break;
 		}
@@ -231,8 +238,9 @@ function main(argv: string[]): number | Promise<number> {
 			const role = option(args, "--role") ?? "author";
 			if (role !== "author" && role !== "verifier") break;
 			const quick = flag(args, "--quick"),
-				head = option(args, "--head");
-			return verify(root, parseTask(args[0]), role, quick ? "quick" : "full", head).passed ? 0 : 1;
+				head = option(args, "--head"),
+				ignoreLoad = option(args, "--ignore-load");
+			return verify(root, parseTask(args[0]), role, quick ? "quick" : "full", head, ignoreLoad).passed ? 0 : 1;
 		}
 		case "pre-push": {
 			const sha = requireVerifiedHead(root, parseTask(args[0]));

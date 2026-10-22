@@ -220,6 +220,16 @@ ordering with docs/acceptance/check.py and docs/package-context.py --check-case-
 Run tooling regressions with `bin/evf test`. Disposable repositories and fake GitHub responses
 exercise workflow behavior only. Tests contact no real GitHub or application database.
 
+## Machine load limit
+
+Agents share one Mac. `evf task start`, `evf verify` and `evf browser run` wait while the 1-minute
+load average is above `machineLoad.maxPerCore` × CPU cores in `evf.config.json` (2 × 12 = 24 on
+Sebastian's Mac, rulings C51 and C81). A waiting command prints one line per minute with the load
+and the limit, and gives up after `machineLoad.maxWaitMinutes` (30) without starting work.
+`--ignore-load "<reason>"` runs at once and appends the time, command, load, limit and reason to
+`load-overrides.jsonl` under the Git common directory's `evf/` folder. `evf doctor` shows the
+current load and limit. CI runners use the same rule with their own core count.
+
 ## Browser checks and process hygiene
 
 `evf browser run [--timeout <s>] [--session <name>] -- <command>` runs a browser check in its own

@@ -25,6 +25,8 @@ export type Config = {
 	worktreeDir: string;
 	statusContext: string;
 	maxAgentsMdLines: number;
+	/** C51, C81: task start, verify and browser run wait while the 1-minute load is above maxPerCore × CPU cores. */
+	machineLoad?: { maxPerCore: number; maxWaitMinutes: number };
 	stack: StackDef | null;
 	checks: CheckDef[];
 	maintenanceTasks?: Record<string, MaintenanceScope>;
