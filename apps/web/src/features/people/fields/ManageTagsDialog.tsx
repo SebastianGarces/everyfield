@@ -70,7 +70,8 @@ export function ManageTagsDialog({
 	/** A delete whose fresh read of the tags failed: nothing was sent. */
 	const [rowProblem, setRowProblem] = useState<{ id: string; text: string } | null>(null);
 	const wait = lane.wait;
-	const [renaming, setRenaming] = useState<string | null>(null);
+	/** The tag whose rename row is open, and the name it starts with (a refused rename keeps what was typed). */
+	const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
 	const [deleting, setDeleting] = useState<ChurchTag | null>(null);
 	// The list as last saved. Saves that finish out of order each start from it, so none brings back an older tag.
 	const latest = useRef<ChurchTag[]>([]);
@@ -127,6 +128,16 @@ export function ManageTagsDialog({
 			});
 		});
 	}
+	/**
+	 * A refused change: a conflict means the tag changed elsewhere, so the list (and the chips on the page) take the
+	 * church's tags as saved now, and the next change sends the current revision.
+	 */
+	async function reload(code: string) {
+		if (code !== "conflict") return;
+		const r = await listChurchTags().catch(() => null);
+		if (r?.status === "ok") save(() => r.value);
+	}
+
 	function remove(tag: ChurchTag) {
 		setDeleting(null);
 		setRowProblem(null);
@@ -136,6 +147,7 @@ export function ManageTagsDialog({
 				what: tag.name,
 				done: "deleted",
 				send: (key) => deleteChurchTag(key, tag.revision, tag.id),
+				refused: reload,
 				ok: () => save((all) => all.filter((t) => t.id !== tag.id)),
 			});
 		});
@@ -149,6 +161,11 @@ export function ManageTagsDialog({
 				what: tag.name,
 				done: "changed",
 				send: (key) => updateChurchTag(key, tag.revision, { tagId: tag.id, ...patch }),
+				refused: (code) => {
+					// A refused rename opens its row again with the typed name.
+					if (patch.name !== undefined) setRenaming({ id: tag.id, name: patch.name });
+					void reload(code);
+				},
 				ok: (next) => save((all) => all.map((t) => (t.id === tag.id ? next : t))),
 			});
 		});
@@ -193,9 +210,10 @@ export function ManageTagsDialog({
 						<ul className="flex flex-col" aria-label="Tags">
 							{shown.map((t) => (
 								<li key={t.id} className="border-t border-line py-2 first:border-t-0">
-									{renaming === t.id ? (
+									{renaming?.id === t.id ? (
 										<RenameRow
 											tag={t}
+											initial={renaming.name}
 											disabled={wait !== null}
 											onCancel={() => setRenaming(null)}
 											onSave={(next) => {
@@ -226,7 +244,11 @@ export function ManageTagsDialog({
 														<IconButton icon={MoreHorizontalIcon} label={`Actions for ${t.name}`} size="sm" />
 													</MenuTrigger>
 													<MenuContent align="end">
-														<MenuItem icon={Edit02Icon} disabled={wait !== null} onSelect={() => setRenaming(t.id)}>
+														<MenuItem
+															icon={Edit02Icon}
+															disabled={wait !== null}
+															onSelect={() => setRenaming({ id: t.id, name: t.name })}
+														>
 															Rename
 														</MenuItem>
 														<MenuSeparator />
@@ -281,17 +303,20 @@ export function ManageTagsDialog({
 
 function RenameRow({
 	tag,
+	initial,
 	disabled,
 	onSave,
 	onCancel,
 }: {
 	tag: ChurchTag;
+	/** The name the row starts with: the tag's name, or the name a refused rename sent. */
+	initial: string;
 	/** The card's last save is in flight or unknown (C68). */
 	disabled: boolean;
 	onSave: (name: string) => void;
 	onCancel: () => void;
 }) {
-	const [value, setValue] = useState(tag.name);
+	const [value, setValue] = useState(initial);
 	const term = value.trim();
 	return (
 		<form
