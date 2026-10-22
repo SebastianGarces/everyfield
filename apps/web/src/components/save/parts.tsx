@@ -3,7 +3,17 @@
 import { Alert02Icon } from "@hugeicons/core-free-icons";
 import { Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from "@everyfield/ui/controls";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
-import { createContext, use, useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import {
+	createContext,
+	use,
+	useEffect,
+	useId,
+	useReducer,
+	useRef,
+	useState,
+	useSyncExternalStore,
+	type ReactNode,
+} from "react";
 import { SaveLane, waitOf, type LaneOptions, type Notice, type SaveSpec, type Wait } from "./model.ts";
 
 /**
@@ -33,8 +43,57 @@ export function useSaveIntent<E extends { problem?: string }>(options: Pick<Lane
 	};
 }
 
+/** A row's save: on its way, its answer unknown, or that answer being checked again. */
+export type RowSave = "saving" | "unknown" | "checking";
+
+/**
+ * One save lane per row, for lists where people change many rows quickly (a door check-in, a checklist): rows save
+ * side by side, and each row takes one save at a time (C68). A refusal is final and frees the row; the caller says
+ * why in its `refused`. Unknown answers are listed for RowNotices, each with its own Check again.
+ */
+export function useRowLanes(explain: (code: string) => string) {
+	const [lanes] = useState(() => new Map<string, SaveLane<{ problem?: string }>>());
+	const [, render] = useReducer((n: number) => n + 1, 0);
+	const stateOf = (row: string): RowSave | undefined => {
+		const s = lanes.get(row)?.get();
+		const unknown = s?.notice?.tone === "unknown";
+		if (s?.saving) return unknown ? "checking" : "saving";
+		return unknown ? "unknown" : undefined;
+	};
+	return {
+		/** Starts a save on one row; resolves when it has an answer or is unknown. Nothing is sent while the row waits. */
+		async save<T>(row: string, spec: SaveSpec<{ problem?: string }, T>): Promise<void> {
+			let lane = lanes.get(row);
+			if (!lane) {
+				lane = new SaveLane({ explain, report: (line) => console.error(line) });
+				lane.subscribe(render);
+				lanes.set(row, lane);
+			}
+			if (lane.wait() !== null) return;
+			const l = lane;
+			await l.save({ ...spec, refused: (code) => (l.dismiss(), spec.refused?.(code)) });
+		},
+		stateOf,
+		/** The notices of rows whose answer is unknown. */
+		unknown: [...lanes.values()].flatMap((l) => {
+			const n = l.get().notice;
+			return n?.tone === "unknown" ? [n] : [];
+		}),
+		/** Some row's save is on its way or unknown. */
+		busy: [...lanes.keys()].some((row) => stateOf(row) !== undefined),
+	};
+}
+export type RowLanes = ReturnType<typeof useRowLanes>;
+
+/** The notices of rows whose answer is unknown, each with its own Check again. */
+export function RowNotices({ lanes, className = "mb-4" }: { lanes: RowLanes; className?: string }) {
+	return lanes.unknown.map((n) => (
+		<NoticeRegion key={n.id} notice={n} busy={false} onDismiss={() => {}} className={className} />
+	));
+}
+
 /** One card's save lane as a hook gives it, for a dialog that shares the card's lane. */
-export type SaveIntent<E extends { problem?: string }> = ReturnType<typeof useSaveIntent<E>>;
+export type SaveIntent<E extends { problem?: string } = { problem?: string }> = ReturnType<typeof useSaveIntent<E>>;
 
 /**
  * After a submit with missing answers, moves focus to the first control marked invalid, or into the first invalid
@@ -57,7 +116,7 @@ export function focusFirstProblem(form: HTMLFormElement) {
  */
 export function RecordDialog({
 	icon,
-	tone,
+	tone = "ink",
 	title,
 	description,
 	action,
@@ -69,14 +128,14 @@ export function RecordDialog({
 	onSubmit,
 	children,
 }: {
-	icon: IconSvgElement;
-	tone: "green" | "blue" | "violet" | "amber" | "magenta";
+	icon?: IconSvgElement;
+	tone?: "ink" | "green" | "blue" | "violet" | "amber" | "magenta";
 	title: string;
 	description?: ReactNode;
 	action: string;
 	/** Why the last save of this form was refused, in words. */
 	problem?: string;
-	size?: "md" | "lg";
+	size?: "sm" | "md" | "lg";
 	wait?: Wait;
 	/** The form has nothing to save (an address copy with no changes). */
 	disabled?: boolean;
@@ -86,7 +145,6 @@ export function RecordDialog({
 	children: ReactNode;
 }) {
 	const alert = useRef<HTMLDivElement>(null);
-	const busyId = useId();
 	return (
 		<Dialog open onOpenChange={(next) => !next && onClose()}>
 			<DialogContent
@@ -123,26 +181,64 @@ export function RecordDialog({
 						{children}
 					</DialogBody>
 					<DialogFooter>
-						{wait ? (
-							<p id={busyId} className="mr-auto text-xs text-text-2 max-app-sm:basis-full">
-								{wait === "saving" ? "Waiting for the last save." : "Check the last save first."}
-							</p>
-						) : null}
 						<Button variant="secondary" type="button" onClick={onClose}>
 							Cancel
 						</Button>
-						<Button
-							variant={tone === "magenta" ? "danger" : "primary"}
-							type="submit"
-							disabled={wait !== null || disabled}
-							aria-describedby={wait ? busyId : undefined}
-						>
+						<SaveButton wait={wait} disabled={disabled} variant={tone === "magenta" ? "danger" : "primary"}>
 							{action}
-						</Button>
+						</SaveButton>
 					</DialogFooter>
 				</form>
 			</DialogContent>
 		</Dialog>
+	);
+}
+
+const WAIT_HINT = { saving: "Waiting for the last save.", unknown: "Check the last save first." } as const;
+
+/**
+ * A form's submit button while its card waits (C68): disabled, with the reason before it. `saving` is this form's own
+ * save on its way (a spinner, no hint); `blocked` is a local reason the form cannot be sent yet ("Choose at least one").
+ * Neither is ever shown as a refusal. Put it last in a dialog footer: the hint takes the free space before the buttons.
+ */
+export function SaveButton({
+	wait,
+	saving = false,
+	blocked = null,
+	disabled = false,
+	variant = "primary",
+	className,
+	children,
+}: {
+	wait: Wait;
+	saving?: boolean;
+	blocked?: string | null;
+	/** Nothing to save, with no reason to show (an address copy with no changes). */
+	disabled?: boolean;
+	variant?: "primary" | "danger";
+	className?: string;
+	children: ReactNode;
+}) {
+	const hint = useId();
+	const why = saving ? null : wait ? WAIT_HINT[wait] : blocked;
+	return (
+		<>
+			{why ? (
+				<p id={hint} className="mr-auto text-xs text-text-2 max-app-sm:basis-full">
+					{why}
+				</p>
+			) : null}
+			<Button
+				type="submit"
+				variant={variant}
+				loading={saving}
+				disabled={wait !== null || blocked !== null || disabled}
+				aria-describedby={why ? hint : undefined}
+				className={className}
+			>
+				{children}
+			</Button>
+		</>
 	);
 }
 
