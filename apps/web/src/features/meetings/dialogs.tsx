@@ -1,127 +1,73 @@
 "use client";
 
 import { Alert02Icon } from "@hugeicons/core-free-icons";
-import {
-	Button,
-	Dialog,
-	DialogBody,
-	DialogContent,
-	DialogFooter,
-	DialogHeader,
-	Field,
-	Radio,
-	RadioGroup,
-	SearchInput,
-	Spinner,
-	Textarea,
-} from "@everyfield/ui/controls";
+import { Field, Radio, RadioGroup, SearchInput, Spinner, Textarea } from "@everyfield/ui/controls";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { searchPeople } from "./actions.ts";
+import type { Wait } from "../../components/save/model.ts";
+import { RecordDialog } from "../../components/save/parts.tsx";
 import type { Outcome } from "./model.ts";
-import { Problem, useSave } from "./parts.tsx";
 
 /**
  * A change that needs a reason in the history: delete a meeting, clear a card, void an occurrence. The reason is
- * required; the dialog stays open with the problem when the save is refused.
+ * required. The caller's save lane owns the dialog: a save closes it, and a refusal opens it again with the reason
+ * kept (`initial`) and the problem in words.
  */
 export function ReasonDialog({
-	open,
-	onOpenChange,
 	title,
 	description,
 	consequences,
 	confirmLabel,
 	danger,
-	onConfirm,
+	initial = "",
+	problem,
+	wait = null,
+	onClose,
+	onSubmit,
 }: {
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
 	title: string;
 	description?: ReactNode;
 	consequences?: string[];
 	confirmLabel: string;
 	danger?: boolean;
-	/** Saves with the reason; `save` keeps the request key across a retry. Resolves true when done. */
-	onConfirm: (reason: string, save: ReturnType<typeof useSave>["save"]) => Promise<boolean>;
+	initial?: string;
+	problem?: string;
+	wait?: Wait;
+	onClose: () => void;
+	onSubmit: (reason: string) => void;
 }) {
-	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
-			{open ? (
-				<ReasonForm
-					title={title}
-					description={description}
-					consequences={consequences}
-					confirmLabel={confirmLabel}
-					danger={danger}
-					onConfirm={onConfirm}
-					onClose={() => onOpenChange(false)}
-				/>
-			) : null}
-		</Dialog>
-	);
-}
-
-function ReasonForm({
-	title,
-	description,
-	consequences,
-	confirmLabel,
-	danger,
-	onConfirm,
-	onClose,
-}: Omit<Parameters<typeof ReasonDialog>[0], "open" | "onOpenChange"> & { onClose: () => void }) {
-	const [reason, setReason] = useState("");
+	const [reason, setReason] = useState(initial);
 	const [touched, setTouched] = useState(false);
-	const saving = useSave();
 	const missing = reason.trim() === "";
 	return (
-		<DialogContent size="sm" aria-busy={saving.pending || undefined}>
-			<form
-				noValidate
-				className="contents"
-				onSubmit={async (e) => {
-					e.preventDefault();
-					setTouched(true);
-					if (missing) return;
-					if (await onConfirm(reason.trim(), saving.save)) onClose();
-				}}
-			>
-				<DialogHeader
-					title={title}
-					description={description}
-					icon={danger ? Alert02Icon : undefined}
-					tone={danger ? "magenta" : "ink"}
-				/>
-				<DialogBody className="flex flex-col gap-4">
-					{consequences?.length ? (
-						<ul className="flex list-disc flex-col gap-1 pl-5 text-md text-text-2">
-							{consequences.map((c) => (
-								<li key={c}>{c}</li>
-							))}
-						</ul>
-					) : null}
-					<Field label="Reason" hint="It stays in the history." error={touched && missing ? "Enter a reason." : null}>
-						<Textarea
-							value={reason}
-							onChange={(e) => setReason(e.target.value)}
-							maxLength={2000}
-							rows={2}
-							readOnly={saving.pending}
-							autoFocus
-						/>
-					</Field>
-					<Problem {...saving.problemProps} />
-				</DialogBody>
-				<DialogFooter>
-					<Button variant="secondary" type="button" onClick={onClose} disabled={saving.pending}>
-						Cancel
-					</Button>
-					<Button variant={danger ? "danger" : "primary"} type="submit" loading={saving.pending}>
-						{confirmLabel}
-					</Button>
-				</DialogFooter>
-			</form>
-		</DialogContent>
+		<RecordDialog
+			icon={danger ? Alert02Icon : undefined}
+			tone={danger ? "magenta" : "ink"}
+			size="sm"
+			title={title}
+			description={description}
+			action={confirmLabel}
+			problem={problem}
+			wait={wait}
+			onClose={onClose}
+			onSubmit={() => {
+				setTouched(true);
+				if (missing) return false;
+				onSubmit(reason.trim());
+				return true;
+			}}
+		>
+			{consequences?.length ? (
+				<ul className="flex list-disc flex-col gap-1 pl-5 text-md text-text-2">
+					{consequences.map((c) => (
+						<li key={c}>{c}</li>
+					))}
+				</ul>
+			) : null}
+			<Field label="Reason" hint="It stays in the history." error={touched && missing ? "Enter a reason." : null}>
+				<Textarea value={reason} onChange={(e) => setReason(e.target.value)} maxLength={2000} rows={2} autoFocus />
+			</Field>
+		</RecordDialog>
 	);
 }
 

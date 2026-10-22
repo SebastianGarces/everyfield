@@ -2,6 +2,7 @@ import type { Database, Transaction } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { RequestActor } from "@everyfield/domain/access";
 import { Refusal } from "@everyfield/domain/people";
+import type { TaskReminders } from "@everyfield/domain/tasks";
 import { owner, sessionId } from "@everyfield/contracts/common";
 import { z } from "zod";
 import { EvryRefusal } from "../context/errors.ts";
@@ -75,9 +76,13 @@ class Refused extends Error {
  * request key and saves the outcome only if the approval is unexpired and the claim still current once the publication
  * locks are held. The native command writes its own audit row with the change, so the effect, its audit record and the
  * saved outcome commit together or not at all. A refusal rolls everything back and then saves the refusal under the
- * same claim.
+ * same claim. `reminders` is the task reminder port for a command that hands tasks to someone else.
  */
-export async function executeProposal(db: Database, lease: EffectLease): Promise<EffectOutcome> {
+export async function executeProposal(
+	db: Database,
+	lease: EffectLease,
+	reminders: TaskReminders,
+): Promise<EffectOutcome> {
 	try {
 		return await db.transaction(async (tx) => {
 			const r = await tx.execute(sql`
@@ -106,6 +111,7 @@ export async function executeProposal(db: Database, lease: EffectLease): Promise
 				{ session: session.data, selected },
 				p.input,
 				`evry:${p.id}:${p.revision}`,
+				reminders,
 			);
 			if ("refused" in result) throw new Refused(refusalCode(result.refused));
 			// Publish only if the approval is still unexpired and this claim still current once every lock is held;

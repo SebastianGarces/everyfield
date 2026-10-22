@@ -133,17 +133,15 @@ export async function loadTask(tx: Tx, plantId: string, task: string | { obligat
 	const r = await tx.execute(sql`${taskQuery(plantId, which)} ${lock ? sql`FOR UPDATE OF t` : sql``}`);
 	return r.rows[0] ? lockedTask.parse(r.rows[0]) : null;
 }
-/** Several tasks of the plant, locked in ID order so two batches never wait on each other in a cycle. One statement. */
+/** The plant's tasks that match `which`, locked in ID order so two batches never wait on each other in a cycle. One statement. */
+export async function lockTasks(tx: Tx, plantId: string, which: SQL) {
+	const r = await tx.execute(sql`${taskQuery(plantId, which)} ORDER BY t.id FOR UPDATE OF t`);
+	return z.array(lockedTask).parse(r.rows);
+}
+/** Several tasks of the plant by ID, locked as lockTasks locks them. */
 export async function loadTasks(tx: Tx, plantId: string, ids: readonly string[]) {
-	const r = await tx.execute(
-		sql`${taskQuery(plantId, sql`t.id=ANY(${sql.param(ids)}::uuid[])`)} ORDER BY t.id FOR UPDATE OF t`,
-	);
-	return new Map(
-		z
-			.array(lockedTask)
-			.parse(r.rows)
-			.map((row) => [row.id, row]),
-	);
+	const rows = await lockTasks(tx, plantId, sql`t.id=ANY(${sql.param(ids)}::uuid[])`);
+	return new Map(rows.map((row) => [row.id, row]));
 }
 /**
  * The live tasks of generated duties, locked in ID order like loadTasks, as one JSON array expression. A caller puts it

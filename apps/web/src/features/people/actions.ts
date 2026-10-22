@@ -1,6 +1,7 @@
 "use server";
 
 import { getViewer } from "@/server/request-context";
+import { tasksMount } from "@/server/tasks";
 
 import { recordId, revision } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/people";
@@ -17,6 +18,12 @@ import { loadPeople, loadPerson, read, write, type PeopleView, type Viewer } fro
 // with the same request key, and the producer replays a write that did commit instead of acting twice.
 
 type PlantPerson = z.infer<typeof c.plantPerson>;
+/**
+ * A stage change or a retirement hands the person's open tasks to someone else, and their owed reminders follow them
+ * through the tasks mount in the same transaction. A deployment without it cannot replan reminders, so these writes
+ * are refused there and nothing is saved.
+ */
+const unplanned = { status: "refused", code: "unavailable" } as const;
 type PersonId = z.infer<typeof c.personRequest>["personId"];
 type Saved = { person: PlantPerson; receipt: Receipt };
 /** A note change: the person as saved now, the note's ID and revision, and the receipt. */
@@ -119,10 +126,12 @@ export async function changeStatus(
 	from?: unknown,
 ): Promise<Outcome<Saved & { columns: ColumnOrder[] }>> {
 	const left = c.pipelineColumn.safeParse(from);
-	return boundary(c.changeStatusRequest, { requestKey, expectedRevision, input }, async (v, request) =>
-		outcome(
+	return boundary(c.changeStatusRequest, { requestKey, expectedRevision, input }, async (v, request) => {
+		const reminders = tasksMount()?.reminders;
+		if (!reminders) return unplanned;
+		return outcome(
 			await write(v, async (tx, ctx) => {
-				const done = await peopleWriter.changeStatus(tx, ctx, request);
+				const done = await peopleWriter.changeStatus(tx, ctx, request, reminders);
 				if (done.status !== "ok") return done;
 				const joined = columnOf(done.value.person.stage);
 				const touched = left.success && left.data !== joined ? [joined, left.data] : [joined];
@@ -136,8 +145,8 @@ export async function changeStatus(
 				};
 			}),
 			(r) => r,
-		),
-	);
+		);
+	});
 }
 
 export async function retirePerson(
@@ -145,12 +154,14 @@ export async function retirePerson(
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<Saved>> {
-	return boundary(c.retirePersonRequest, { requestKey, expectedRevision, input }, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => peopleWriter.retirePerson(tx, ctx, request)), (r) => ({
+	return boundary(c.retirePersonRequest, { requestKey, expectedRevision, input }, async (v, request) => {
+		const reminders = tasksMount()?.reminders;
+		if (!reminders) return unplanned;
+		return outcome(await write(v, (tx, ctx) => peopleWriter.retirePerson(tx, ctx, request, reminders)), (r) => ({
 			person: r.person,
 			receipt: receipt(r),
-		})),
-	);
+		}));
+	});
 }
 
 export async function restorePerson(
