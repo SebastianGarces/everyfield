@@ -255,10 +255,7 @@ function columns(thisYear: number): Column<Summary>[] {
 function NextMeeting({ meeting: m, now, thisYear }: { meeting: Summary; now: string; thisYear: number }) {
 	const until = untilText(m.startsAt, now);
 	return (
-		<IntentLink
-			href={`/meetings/${m.id}`}
-			className="group rounded-card focus-visible:outline-none"
-		>
+		<IntentLink href={`/meetings/${m.id}`} className="group rounded-card focus-visible:outline-none">
 			<Card className="flex-row flex-wrap items-center gap-x-8 gap-y-4 transition-shadow group-hover:shadow-raised group-focus-visible:shadow-[0_0_0_2px_var(--ef-ink)]">
 				<div className="flex min-w-0 flex-1 items-center gap-4">
 					<MeetingIcon type={m.type} size={44} />
