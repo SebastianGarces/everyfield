@@ -1,10 +1,10 @@
 import "server-only";
 import { readRequestViewer } from "@everyfield/domain/access";
+import { signedSessionToken } from "@everyfield/domain/identity";
 import { peopleViewer } from "@everyfield/domain/people";
 import { sessionResult } from "@everyfield/contracts/identity";
 import { requestDatabase } from "./database";
 import { cookies, headers } from "next/headers";
-import { createHmac, timingSafeEqual } from "node:crypto";
 import { cache } from "react";
 import { requestAuth } from "./identity";
 
@@ -18,18 +18,6 @@ const getSession = cache(async () => {
 	request.set("cookie", (await cookies()).toString());
 	return requestAuth().api.getSession({ headers: request });
 });
-
-/** The token of a session cookie that Better Auth signed with this secret (HMAC-SHA256, base64), else null. */
-function signedToken(value: string | undefined, secret: string) {
-	if (!value) return null;
-	const cookie = value.includes("%") ? decodeURIComponent(value) : value;
-	const dot = cookie.lastIndexOf(".");
-	if (dot < 1) return null;
-	const token = cookie.slice(0, dot);
-	const signature = Buffer.from(cookie.slice(dot + 1), "base64");
-	const expected = createHmac("sha256", secret).update(token).digest();
-	return signature.length === expected.length && timingSafeEqual(signature, expected) ? token : null;
-}
 
 /**
  * One identity, actor and own-Person observation shared by every mount in this request: one statement reads the
@@ -49,7 +37,7 @@ export const getViewer = cache(async () => {
 	} as const;
 	const auth = await requestAuth().$context;
 	const jar = await cookies();
-	const token = signedToken(jar.get(auth.authCookies.sessionToken.name)?.value, auth.secret);
+	const token = signedSessionToken(jar.get(auth.authCookies.sessionToken.name)?.value, auth.secret);
 	if (!token) return unauthenticated;
 	const found = await readRequestViewer(db, token);
 	if (!found) {

@@ -14,6 +14,8 @@ import {
 	readSharingDisclosure,
 } from "../../../packages/domain/src/organizations/index.ts";
 import { sessionId } from "../../../packages/contracts/src/common/index.ts";
+import { signedSessionToken } from "../../../packages/domain/src/identity/index.ts";
+import { createHmac } from "node:crypto";
 let f;
 let recording = false;
 let statements = [];
@@ -141,6 +143,25 @@ test("RT-1: one lock-free statement reads the request session, its user and the 
 	assert.equal(await readRequestViewer(f.db, token + "0"), null);
 	await f.admin.execute(sql`DELETE FROM auth_session WHERE id=${s.sender.session}`);
 	assert.equal(await readRequestViewer(f.db, token), null);
+});
+
+test("RT-1: the session cookie is accepted only with Better Auth's exact signature", () => {
+	const secret = "s".repeat(32),
+		token = "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6";
+	const signature = createHmac("sha256", secret).update(token).digest("base64");
+	const cookie = (sig) => encodeURIComponent(`${token}.${sig}`);
+	assert.equal(signedSessionToken(cookie(signature), secret), token);
+	assert.equal(signedSessionToken(`${token}.${signature}`, secret), token);
+	for (const bad of [
+		signature + "!",
+		signature.slice(0, -1),
+		signature.replace("=", ""),
+		"!" + signature.slice(1),
+		createHmac("sha256", "t".repeat(32)).update(token).digest("base64"),
+	])
+		assert.equal(signedSessionToken(cookie(bad), secret), null, bad.length + " " + bad.slice(-2));
+	assert.equal(signedSessionToken(undefined, secret), null);
+	assert.equal(signedSessionToken(signature, secret), null);
 });
 
 test("INV-reads: a resident's own residency read reuses the observed actor and takes no lock", async (t) => {
