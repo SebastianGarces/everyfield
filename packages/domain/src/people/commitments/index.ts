@@ -122,18 +122,20 @@ const commitmentState = z.object({
 	state: z.enum(["active", "withdrawn", "unknown"]),
 	effectiveOn: z.string().nullable(),
 });
+/** A card's activation: the card that made the commitment active and the commitment it replaced. */
+const activation = z.object({ cardId: z.uuid(), replaced: commitmentState });
 /**
- * The audit row that last changed the Person's current commitment: a card that made it active (with the commitment it
- * replaced), an explicit withdrawal or reactivation, or a correction that recomputed it (with the commitment the
- * activating card replaced).
+ * The record of what set the Person's current commitment: the audit row that last changed it. A card's recording
+ * names the card and holds the commitment it replaced; a recomputing correction names the card it chose
+ * (`activation`); an explicit withdrawal or reactivation names no card.
  */
 const commitmentSource = z.object({
 	event: z.enum(["commitment_recorded", "commitment_withdrawn", "commitment_reactivated", "commitment_corrected"]),
 	recordId: z.uuid().nullable(),
 	before: z.looseObject({ commitment: z.unknown().optional() }),
-	after: z.looseObject({ current: commitmentState.optional(), replaced: commitmentState.optional() }),
+	after: z.looseObject({ activation: activation.optional() }),
 });
-/** The card, the signed dates of the Person's other valid cards and the source of the current commitment. */
+/** The card, the Person's other valid cards and the source of the current commitment. */
 const cardRow = z.object({
 	id: z.uuid(),
 	person_id: z.uuid(),
@@ -141,31 +143,28 @@ const cardRow = z.object({
 	signed_on: z.string(),
 	revision: z.string(),
 	voided: z.boolean(),
-	others: z.array(z.string()),
+	others: z.array(z.object({ id: z.uuid(), on: z.string() })),
 	source: commitmentSource.nullable(),
 });
-/**
- * The commitment this card's activation replaced, when this card is what made the current commitment active: its own
- * recording did, or a correction chose it. Null when the commitment came from an explicit withdrawal or reactivation,
- * or from another card.
- */
-function replacedBy(p: Subject, k: z.infer<typeof cardRow>) {
-	const s = k.source;
-	if (!s || p.commitment_state !== "active" || p.commitment_effective_on !== k.signed_on) return null;
-	const unknown = { state: "unknown" as const, effectiveOn: null };
-	if (s.event === "commitment_recorded" && s.recordId === k.id) return commitmentState.parse(s.before.commitment);
-	if (s.event === "commitment_corrected" && s.after.current?.effectiveOn === k.signed_on)
-		return s.after.replaced ?? unknown;
-	return null;
+type Activation = z.infer<typeof activation>;
+/** The activation that set the current commitment, if a card set it; none after an explicit withdrawal or reactivation. */
+function activationOf(p: Subject, source: z.infer<typeof commitmentSource> | null): Activation | null {
+	if (!source || p.commitment_state !== "active") return null;
+	if (source.event === "commitment_recorded" && source.recordId)
+		return { cardId: source.recordId, replaced: commitmentState.parse(source.before.commitment) };
+	return source.event === "commitment_corrected" ? (source.after.activation ?? null) : null;
 }
 /**
  * REQ-PPL-015 and REQ-PPL-026: the current commitment after the card that made it active is corrected or voided. The
  * earliest valid card that still makes it active decides; without one, the commitment that card replaced comes back.
  */
-function reactivatedBy(replaced: z.infer<typeof commitmentState>, valid: string[]) {
-	const since = valid.filter((d) => replaced.state !== "withdrawn" || d > (replaced.effectiveOn ?? "")).sort()[0];
-	if (since) return { state: "active" as const, effectiveOn: since };
-	return replaced.state === "withdrawn" ? replaced : { state: "unknown" as const, effectiveOn: null };
+function reactivatedBy(replaced: Activation["replaced"], valid: { id: string; on: string }[]) {
+	const since = valid
+		.filter((card) => replaced.state !== "withdrawn" || card.on > (replaced.effectiveOn ?? ""))
+		.sort((a, b) => a.on.localeCompare(b.on) || a.id.localeCompare(b.id))[0];
+	if (since)
+		return { current: { state: "active" as const, effectiveOn: since.on }, activation: { cardId: since.id, replaced } };
+	return { current: replaced.state === "withdrawn" ? replaced : { state: "unknown" as const, effectiveOn: null } };
 }
 
 async function lifecycle(tx: Tx, ctx: WriteContext, raw: unknown, to: "withdrawn" | "active") {
@@ -351,13 +350,13 @@ export const commitments = {
 						ctx,
 						card,
 						sql`(SELECT jsonb_build_object('id',k.id,'person_id',k.person_id,'kind',k.kind,'signed_on',k.signed_on::text,
- 'revision',k.revision::text,'voided',k.voided_at IS NOT NULL,'others',(SELECT coalesce(jsonb_agg(o.signed_on::text),'[]')
+ 'revision',k.revision::text,'voided',k.voided_at IS NOT NULL,'others',(SELECT coalesce(jsonb_agg(jsonb_build_object('id',o.id,'on',o.signed_on::text)),'[]')
  FROM commitment o WHERE o.person_id=k.person_id AND o.plant_id=k.plant_id AND o.id<>k.id AND o.voided_at IS NULL),
  'source',(SELECT jsonb_build_object('event',a.metadata->>'event','recordId',a.metadata->>'recordId',
  'before',a.before_value,'after',a.after_value) FROM audit_event a WHERE a.tenant_id=k.plant_id AND a.subject_id IN
  (SELECT k.person_id UNION ALL SELECT m.id FROM person m WHERE m.merged_into_person_id=k.person_id AND m.tenant_id=k.plant_id)
  AND ((a.metadata->>'event' IN ('commitment_recorded','commitment_withdrawn','commitment_reactivated') AND a.before_value ? 'commitment')
- OR (a.metadata->>'event'='commitment_corrected' AND a.before_value ? 'current'))
+ OR (a.metadata->>'event'='commitment_corrected' AND (a.before_value ? 'current' OR a.after_value ? 'activation')))
  ORDER BY a.occurred_at DESC,a.id DESC LIMIT 1))
  FROM commitment k WHERE k.id=${commitmentId}::uuid AND k.plant_id=${plant}::uuid)`,
 					);
@@ -390,13 +389,15 @@ export const commitments = {
 							})
 							.where(and(eq(tables.commitment.id, k.id), eq(tables.commitment.plant_id, plant))),
 					);
-					const valid = after.voided ? k.others : [...k.others, after.occurredOn];
-					const replaced = replacedBy(p, k);
-					const current = !valid.length
-						? { state: "unknown" as const, effectiveOn: null }
-						: replaced
-							? reactivatedBy(replaced, valid)
-							: currentOf(p);
+					const valid = after.voided ? k.others : [...k.others, { id: k.id, on: after.occurredOn }];
+					// Only the card the record names as the activator recomputes the commitment (never a date match).
+					const activated = activationOf(p, k.source);
+					const next = !valid.length
+						? { current: { state: "unknown" as const, effectiveOn: null } }
+						: activated?.cardId === k.id
+							? reactivatedBy(activated.replaced, valid)
+							: { current: currentOf(p) };
+					const current = next.current;
 					const set =
 						current.state !== p.commitment_state || current.effectiveOn !== p.commitment_effective_on
 							? { commitment_state: current.state, commitment_effective_on: current.effectiveOn }
@@ -413,12 +414,12 @@ export const commitments = {
 						subject: p.id,
 						action: "people.corrected",
 						before: { revision: p.revision, commitment: before, current: currentOf(p) },
-						// A recomputed commitment keeps what its activating card replaced, for a later correction of that card.
+						// A recomputed commitment records the card it chose and what that card replaced, for later corrections.
 						after: {
 							revision,
 							commitment: after,
 							current,
-							...(replaced && Object.keys(set).length ? { replaced } : {}),
+							...("activation" in next ? { activation: next.activation } : {}),
 						},
 						reason,
 						metadata: recordEvent("commitment_corrected", k.id),
