@@ -50,9 +50,10 @@ test("AC:UI45-004 AC:INH-REGRESSION-EXPIRED-APPROVAL INV-phase: each saved state
 	assert.equal(retryable(review({ status: "approved", outcome: "failed" }), NOW), true);
 	assert.equal(retryable(review({ status: "approved", outcome: "failed", expiresAt: earlier }), NOW), false);
 	assert.equal(retryable(review({ status: "approved", outcome: "refused" }), NOW), false);
-	// REQ-EVR-011: a new photo upload can't be shown before it is saved, so it can't be approved from the card.
-	assert.equal(approvable(review({ operation: "people.setPersonPhoto" })), false);
-	assert.equal(approvable(review({ operation: "people.removePersonPhoto" })), true);
+	// REQ-EVR-011: a new photo is approvable only while the card shows its exact upload.
+	assert.equal(approvable(review({ operation: "people.setPersonPhoto" }), false), false);
+	assert.equal(approvable(review({ operation: "people.setPersonPhoto" }), true), true);
+	assert.equal(approvable(review({ operation: "people.removePersonPhoto" }), false), true);
 });
 
 test("AC:INH-REGRESSION-REVISED-APPROVAL INV-revise: a revision rebuilds the exact input with only the edits", () => {
