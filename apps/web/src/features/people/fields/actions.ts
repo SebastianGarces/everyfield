@@ -9,7 +9,7 @@ import type { Transaction } from "@everyfield/db/client";
 import { peopleReader, personFields as f, uploadPersonPhoto } from "@everyfield/domain/people";
 import { z } from "zod";
 import { boundary, invalid, outcome, receipt, type Receipt } from "../boundary.ts";
-import type { Outcome } from "../model.ts";
+import type { Outcome } from "../../../components/save/model.ts";
 import { read, write } from "../server.ts";
 import type { ChurchTag, HouseholdResult, PersonTag, PhotoResult, Skill } from "./model.ts";
 import { privateStorage } from "@everyfield/db/schema";
@@ -131,6 +131,13 @@ const skillsSaved = (r: { skills: Skill[]; receiptId: string; outcome: "changed"
 	skills: r.skills,
 	receipt: receipt(r),
 });
+
+/** The person's skills as saved now: a refused edit or removal reads them again, so the next try starts from them. */
+export async function readSkills(personId: string): Promise<Outcome<Skill[]>> {
+	return boundary(c.personFieldsRequest, { personId }, async (v, request) =>
+		outcome(await read(v, (tx, ctx) => f.getPersonSkills(tx, ctx, request)), (r) => r.skills),
+	);
+}
 
 export async function addSkill(requestKey: string, input: unknown): Promise<Outcome<SkillsSaved>> {
 	return boundary(c.addSkillRequest, { requestKey, input }, async (v, request) =>
@@ -330,6 +337,13 @@ export async function uploadPhoto(form: FormData): Promise<Outcome<PhotoSaved>> 
 			(r) => ({ photo: r.photo, personRevision: r.personRevision, receipt: receipt(r) }),
 		);
 	});
+}
+
+/** The person's photo as saved now: a refused photo change reads it again, so the header shows the current one. */
+export async function readPhoto(personId: string): Promise<Outcome<PhotoResult>> {
+	return boundary(c.personFieldsRequest, { personId }, async (v, request) =>
+		outcome(await read(v, (tx, ctx) => f.getPersonPhoto(tx, ctx, request)), (r) => r),
+	);
 }
 
 export async function removePhoto(

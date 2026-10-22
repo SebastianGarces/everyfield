@@ -5,7 +5,7 @@ import * as c from "@everyfield/contracts/people";
 import { peopleMerge, peopleUnmerge, recordCorrections } from "@everyfield/domain/people";
 import { z } from "zod";
 import { boundary, outcome, receipt, type Receipt } from "../boundary.ts";
-import type { Outcome } from "../model.ts";
+import type { Outcome } from "../../../components/save/model.ts";
 import { read, readPersonView, write, type Viewer } from "../server.ts";
 import type { PersonFields } from "../fields/model.ts";
 import type { PersonRecords } from "../assessments/model.ts";

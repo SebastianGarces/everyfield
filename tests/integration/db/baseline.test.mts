@@ -198,9 +198,8 @@ test("BUG-112: a Kit column-drop migration passes the drift gate on fresh and up
 	};
 	try {
 		const frozen = (await migrationArtifact()).map(({ name }) => name);
-		const next = Number(frozen.at(-1)?.slice(0, 4) ?? "0") + 1;
-		const createName = String(next).padStart(4, "0") + "_drop_probe.sql";
-		const dropName = String(next + 1).padStart(4, "0") + "_drop_column.sql";
+		const createName = "99990101000000_drop_probe.sql";
+		const dropName = "99990101000001_drop_column.sql";
 		for (const name of frozen)
 			await copyFile(new URL("../../../packages/db/migrations/" + name, import.meta.url), new URL(name, migrations));
 		const create = await generateMigration(generateDrizzleJson(declarations), generateDrizzleJson(before));
@@ -270,6 +269,53 @@ test("INV-schema: full ordered migrations match the current catalog and reject a
 		(await migrationArtifact()).map((m) => ({ name: m.name })),
 	);
 	assert.equal((await admin.execute(querySql`SELECT count(*)::int AS n FROM early_access_request`)).rows[0].n, 0);
+});
+test("INV-migration: two branches' migrations apply by name in either merge order; an edited applied one fails", async () => {
+	const directory = await mkdtemp(tmpdir() + "/evf-merge-order-");
+	const migrations = pathToFileURL(directory + "/");
+	const main = (await migrationArtifact()).map(({ name }) => name);
+	for (const name of main)
+		await copyFile(new URL("../../../packages/db/migrations/" + name, import.meta.url), new URL(name, migrations));
+	// Both branches generated their migration on the same main. A has the earlier timestamp but may merge second.
+	const a = { name: "20261022150000_branch_a.sql", sql: "CREATE TABLE branch_a_probe(id integer NOT NULL)" };
+	const b = { name: "20261022160000_branch_b.sql", sql: "CREATE TABLE branch_b_probe(id integer NOT NULL)" };
+	const schemas = [];
+	const schema = async () => {
+		const name = "merge_order_" + randomUUID().replaceAll("-", "");
+		schemas.push(name);
+		await admin.execute(querySql`CREATE SCHEMA ${querySql.identifier(name)}`);
+		return name;
+	};
+	const tables = async (name) =>
+		(
+			await admin.execute(
+				querySql`SELECT to_regclass(${name + ".branch_a_probe"}) IS NOT NULL AS a, to_regclass(${name + ".branch_b_probe"}) IS NOT NULL AS b`,
+			)
+		).rows[0];
+	try {
+		for (const [first, second] of [
+			[a, b],
+			[b, a],
+		]) {
+			const upgraded = await schema();
+			await writeFile(new URL(first.name, migrations), first.sql);
+			assert.deepEqual(await migrate(admin, upgraded, migrations), [...main, first.name]);
+			await writeFile(new URL(second.name, migrations), second.sql);
+			assert.deepEqual(await migrate(admin, upgraded, migrations), [second.name]);
+			assert.deepEqual(await migrate(admin, upgraded, migrations), []);
+			assert.deepEqual(await tables(upgraded), { a: true, b: true });
+			for (const file of [a, b]) await rm(new URL(file.name, migrations));
+		}
+		for (const file of [a, b]) await writeFile(new URL(file.name, migrations), file.sql);
+		const fresh = await schema();
+		assert.deepEqual(await migrate(admin, fresh, migrations), [...main, a.name, b.name]);
+		await writeFile(new URL(a.name, migrations), a.sql + ";\nSELECT 1");
+		await assert.rejects(migrate(admin, fresh, migrations), /migration_checksum_conflict/);
+	} finally {
+		for (const name of schemas)
+			await admin.execute(querySql`DROP SCHEMA IF EXISTS ${querySql.identifier(name)} CASCADE`);
+		await rm(directory, { recursive: true, force: true });
+	}
 });
 test("INV-migration: preserves applied 0001 bytes and ledger; retries and failed batches roll back", async () => {
 	const other = "wp004_test_" + randomUUID().replaceAll("-", "");

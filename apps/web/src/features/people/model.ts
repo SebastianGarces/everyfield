@@ -1,6 +1,8 @@
 // Pure rules of the People screens: URL state, stage vocabulary and the one-save-per-person store. No React, no
 // server code and no runtime imports, so the rules run the same in the browser, on the server and in node tests.
 
+import type { Outcome } from "../../components/save/model.ts";
+
 export const STAGES = [
 	"prospect",
 	"attendee",
@@ -227,12 +229,6 @@ export function newerRevision(a: string, b: string): boolean {
 // The person store (R3). It owns the saved person, the drafts and the one mutation in flight. Every person action goes
 // through it, so two actions cannot race on one revision and a draft never disappears unless its save succeeded.
 
-export type Outcome<T> =
-	| { status: "ok"; value: T }
-	| { status: "refused"; code: string }
-	/** The answer was lost (network, server restart). The same request may be sent again with the same key. */
-	| { status: "lost" };
-
 export type Saved = { revision: string };
 export type PersonState<P extends Saved, D> = {
 	saved: P;
@@ -373,6 +369,16 @@ export async function runSave<P extends Saved, D, T>(
 	});
 	return result;
 }
+
+/**
+ * A save lane's `through` (components/save) for a write that changes the Person: the save runs in the person store, one
+ * save per person, with the intent's own key, and the store takes the saved Person from the answer. Null when another
+ * save to this person is running.
+ */
+export const throughStore =
+	<P extends Saved, D, V>(store: PersonStore<P, D>, slot: string, toPerson?: (value: V) => P | null) =>
+	<T extends V>(key: string, send: () => Promise<Outcome<T>>): Promise<Outcome<T> | null> =>
+		runSave(store, slot, null, send, { fresh: () => key, key: { key, body: "" }, toPerson });
 
 /**
  * Activity after a saved change, without reading it again: an entry with a new ID joins the end of the list (Activity

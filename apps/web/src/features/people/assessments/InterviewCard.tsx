@@ -19,8 +19,10 @@ import {
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { startTransition, useId, useOptimistic, useState, useTransition } from "react";
-import { runSave, STAGE_LABEL, type KeyedPayload } from "../model.ts";
-import { fresh, LocalDay, useStore } from "../parts.tsx";
+import type { Wait } from "../../../components/save/model.ts";
+import { NoticeInDialog, RecordDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
+import { STAGE_LABEL, throughStore } from "../model.ts";
+import { LocalDay, useStore } from "../parts.tsx";
 import { loadInterviews, recordInterview } from "./actions.ts";
 import {
 	advancedStage,
@@ -39,22 +41,8 @@ import {
 	type Interviews,
 	type Rating,
 	type Result,
-	sendTwice,
-	stillUnknown,
-	waitOf,
-	type Wait,
 } from "./model.ts";
-import {
-	ChoiceField,
-	codeOf,
-	NoticeInDialog,
-	SaveNotice,
-	RecordDialog,
-	recorder,
-	ShowEarlier,
-	useHistory,
-	useRecordForm,
-} from "./parts.tsx";
+import { ChoiceField, recorder, recordProblem, ShowEarlier, useHistory } from "./parts.tsx";
 import type { PlantPerson, RecordProps } from "./RecordsSection.tsx";
 
 type Draft = {
@@ -107,10 +95,10 @@ export function InterviewCard({
 	);
 	const [shown, expect] = useOptimistic(history.items, withRecord<Interview>);
 	const [, start] = useTransition();
-	const form = useRecordForm<Editing>();
-	/** Another change to this person is saving; Check again waits for it, so it never reads as refused. */
-	const saving = useStore(store).pending !== null;
-	const wait = waitOf(saving, form.notice);
+	// Another change to this person is saving: the card waits, and Check again waits for it (C65, C68).
+	useStore(store);
+	const form = useSaveIntent<Editing>({ explain: recordProblem, busy: () => store.get().pending !== null });
+	const wait = form.wait;
 	const [open, setOpen] = useState(false);
 	const first = firstName(personName);
 	const latest = shown[0] ?? null;
@@ -133,7 +121,6 @@ export function InterviewCard({
 			result: draft.result as Result,
 			nextSteps: draft.nextSteps.trim() || null,
 		};
-		const { token, key } = form.send();
 		start(async () => {
 			const now = new Date().toISOString();
 			expect({
@@ -144,37 +131,34 @@ export function InterviewCard({
 				revision: "0",
 			} as Interview);
 			expectPerson({ stage: advancedStage(stage, "interviewed") });
-			await commit(input, key, token, draft);
-		});
-	}
-
-	/** One save of one intent: its first send, or Check again with the same request and key (token -1). */
-	async function commit(input: unknown, key: KeyedPayload, token: number, draft: Draft) {
-		const r = await runSave(store, "interview", input, (k) => sendTwice(() => recordInterview(k, input)), {
-			fresh,
-			key,
-			toPerson: (v) => ({ ...store.get().saved, stage: v.person.stage, revision: v.person.revision }) as PlantPerson,
-		});
-		const what = "Your interview";
-		if (stillUnknown(r, token)) return form.unknown(key.key, what, () => start(() => commit(input, key, -1, draft)));
-		if (r?.status !== "ok") {
-			const code = r?.status === "refused" && r.code === "invalid_input" ? "future_date" : codeOf(r);
-			return startTransition(() => form.refused(token, { draft, problem: code }, key.key, what));
-		}
-		form.settled(key.key);
-		const moved = r.value.person.stageChange;
-		startTransition(() => history.add(r.value.interview));
-		onSaved(r.value.receipt, {
-			kind: "activity",
-			action: "interview_recorded",
-			recordId: r.value.interview.id,
-			...(moved ? { stage: moved } : {}),
-		});
-		toast({
-			tone: "success",
-			message: moved
-				? `Interview saved. ${first} is now ${STAGE_LABEL[moved.to].toLowerCase()}.`
-				: `Interview saved for ${first}.`,
+			await form.save({
+				what: "Your interview",
+				form: { draft },
+				send: (key) => recordInterview(key, input),
+				through: throughStore(
+					store,
+					"interview",
+					(v: { person: { stage: PlantPerson["stage"]; revision: string } }) =>
+						({ ...store.get().saved, stage: v.person.stage, revision: v.person.revision }) as PlantPerson,
+				),
+				code: (code) => (code === "invalid_input" ? "future_date" : code),
+				ok: (value) => {
+					const moved = value.person.stageChange;
+					startTransition(() => history.add(value.interview));
+					onSaved(value.receipt, {
+						kind: "activity",
+						action: "interview_recorded",
+						recordId: value.interview.id,
+						...(moved ? { stage: moved } : {}),
+					});
+					toast({
+						tone: "success",
+						message: moved
+							? `Interview saved. ${first} is now ${STAGE_LABEL[moved.to].toLowerCase()}.`
+							: `Interview saved for ${first}.`,
+					});
+				},
+			});
 		});
 	}
 
@@ -212,7 +196,7 @@ export function InterviewCard({
 					/>
 				) : null}
 			</CardHeader>
-			<SaveNotice notice={form.notice} busy={saving} onDismiss={form.dismiss} dialogOpen={form.editing !== null} />
+			<SaveNotice {...form.noticeProps} dialogOpen={form.editing !== null} />
 
 			{initial === null ? (
 				<p className="text-sm text-text-3">Interviews did not load. Reload the page to see them.</p>
@@ -282,7 +266,7 @@ export function InterviewCard({
 				</>
 			)}
 			<p className="mt-4 text-xs text-text-3">Next steps are notes. They do not create tasks.</p>
-			<NoticeInDialog notice={form.notice} busy={saving} onDismiss={form.dismiss}>
+			<NoticeInDialog {...form.noticeProps}>
 				{form.editing ? (
 					<InterviewDialog
 						wait={wait}
@@ -363,7 +347,7 @@ function InterviewDialog({
 					: "Rate each criterion and give a result. The stage stays as it is."
 			}
 			action="Save interview"
-			problem={editing.problem}
+			problem={editing.problem && recordProblem(editing.problem)}
 			onClose={onClose}
 			onSubmit={() => {
 				setTouched(true);

@@ -34,7 +34,8 @@ import { useOptimistic, useRef, useState } from "react";
 import type { z } from "zod";
 import { reloadPerson, type Receipt } from "./actions.ts";
 import { ActivityCard, type Activities, type EntryFields, type Item } from "./ActivityCard.tsx";
-import { CLASSIFICATION_LABEL, SOURCE_LABEL, STAGE_KEY, STAGE_LABEL, withEntry, type Outcome } from "./model.ts";
+import { CLASSIFICATION_LABEL, SOURCE_LABEL, STAGE_KEY, STAGE_LABEL, withEntry } from "./model.ts";
+import type { Outcome } from "../../components/save/model.ts";
 import { ClassificationDialog, EditProfileDialog, RestoreDialog, RetireDialog } from "./PersonDialogs.tsx";
 import { LocalDay, usePersonStore, When } from "./parts.tsx";
 import { StageDialog, type PersonDraft } from "./StageDialog.tsx";
@@ -208,6 +209,7 @@ export function PersonScreen({
 							canEdit={canWrite && live}
 							enabled={photosEnabled}
 							onSaved={changed}
+							onConflict={reload}
 						/>
 						<div className="min-w-0">
 							<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
