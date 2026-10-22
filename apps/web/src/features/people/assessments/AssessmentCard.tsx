@@ -14,7 +14,6 @@ import {
 	Textarea,
 	useToast,
 } from "@everyfield/ui/controls";
-import { cn } from "@everyfield/ui/foundations";
 import { startTransition, useOptimistic, useState, useTransition } from "react";
 import { runSave, type KeyedPayload } from "../model.ts";
 import { fresh, LocalDay, useStore } from "../parts.tsx";
@@ -37,6 +36,7 @@ import {
 import {
 	ChoiceField,
 	codeOf,
+	NoticeInDialog,
 	SaveNotice,
 	RecordDialog,
 	recorder,
@@ -159,7 +159,7 @@ export function AssessmentCard({
 					/>
 				) : null}
 			</CardHeader>
-			<SaveNotice notice={form.notice} busy={saving} onDismiss={form.dismiss} />
+			<SaveNotice notice={form.notice} busy={saving} onDismiss={form.dismiss} dialogOpen={form.editing !== null} />
 
 			{initial === null ? (
 				<p className="text-sm text-text-3">The 4 C&rsquo;s did not load. Reload the page to see them.</p>
@@ -224,15 +224,17 @@ export function AssessmentCard({
 				</>
 			)}
 			<p className="mt-4 text-xs text-text-3">Human judgment. Evry and Plant Intelligence never set these.</p>
-			{form.editing ? (
-				<AssessmentDialog
-					editing={form.editing}
-					personName={first}
-					wait={wait}
-					onClose={form.close}
-					onSubmit={submit}
-				/>
-			) : null}
+			<NoticeInDialog notice={form.notice} busy={saving} onDismiss={form.dismiss}>
+				{form.editing ? (
+					<AssessmentDialog
+						editing={form.editing}
+						personName={first}
+						wait={wait}
+						onClose={form.close}
+						onSubmit={submit}
+					/>
+				) : null}
+			</NoticeInDialog>
 		</Card>
 	);
 }
@@ -242,7 +244,7 @@ const pendingOr = (r: { id: string }, text: string) => (r.id.startsWith("new:") 
 function Scores({ assessment: a }: { assessment: Assessment }) {
 	const pending = a.id.startsWith("new:");
 	return (
-		<div className={cn("flex flex-col gap-3.5", pending && "opacity-70")} aria-busy={pending || undefined}>
+		<div className="flex flex-col gap-3.5" aria-busy={pending || undefined}>
 			<dl className="flex flex-col gap-3.5">
 				{LENSES.map((l) => (
 					<div key={l} className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3">

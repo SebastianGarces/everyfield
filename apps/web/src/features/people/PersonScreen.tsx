@@ -77,6 +77,7 @@ export function PersonScreen({
 	records: initialRecords,
 	followUps,
 	photosEnabled,
+	documentsEnabled,
 	duplicates: initialDuplicates = null,
 	followedMerge = false,
 }: {
@@ -95,8 +96,10 @@ export function PersonScreen({
 	records: PersonRecords | null;
 	/** Follow-ups, Vision follow-ups and the contact log (WP-023). Null for a person they do not apply to. */
 	followUps: FollowUpsData | null;
-	/** Private photo storage is configured, so photos and commitment documents can be added. */
+	/** Photos can be added (private storage is configured and the photo UI has shipped). */
 	photosEnabled: boolean;
+	/** Private storage is configured, so a commitment card can carry its signed document. */
+	documentsEnabled: boolean;
 	/** Possible duplicates of this live person (WP-015). Null when they do not apply or could not be read. */
 	duplicates?: Hints | null;
 	/** The page opened from a link to a person who was merged into this one. */
@@ -331,7 +334,7 @@ export function PersonScreen({
 						<RecordsSection
 							key={generation}
 							records={records}
-							documentsEnabled={photosEnabled}
+							documentsEnabled={documentsEnabled}
 							personId={p.id}
 							personName={p.displayName}
 							stage={p.stage}

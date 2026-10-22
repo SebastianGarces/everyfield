@@ -1,4 +1,5 @@
 import { getViewer } from "@/server/request-context";
+import { privateStorage } from "@everyfield/db/schema";
 import { LockKeyIcon, UserSearch01Icon } from "@hugeicons/core-free-icons";
 import { personRequest } from "@everyfield/contracts/people";
 import { buttonVariants, Card, EmptyState, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
@@ -132,6 +133,7 @@ export async function PersonPage({
 			followUps={loaded.value.followUps}
 			// Photo uploads stay hidden until the photo UI task ships; stored photos still read through the photo route.
 			photosEnabled={false}
+			documentsEnabled={privateStorage() !== null}
 		/>
 	);
 }
