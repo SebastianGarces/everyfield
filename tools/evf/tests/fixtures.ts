@@ -57,6 +57,7 @@ export function fixture() {
 	writeFileSync(progressPath, JSON.stringify(progress));
 	const cfg = JSON.parse(readFileSync(join(source, "evf.config.json"), "utf8"));
 	cfg.stack = null; // Tests that need a stack declare their own; never run the live stack command.
+	cfg.machineLoad = { maxPerCore: 1_000_000, maxWaitMinutes: 0 }; // Tooling tests never wait for this machine's load.
 	cfg.checks = [
 		{ name: "fixture-check", run: [process.execPath, "-e", 'process.stdout.write("checked disposable fixture")'] },
 		...["format", "package-unit-tests"].map((name) => ({
@@ -136,7 +137,15 @@ else if(a[0]==='repo'&&a[1]==='view')result=a.includes('-q')||a.includes('--jq')
 else if(a[0]==='pr'&&a[1]==='view')result=a.includes('mergeCommit')?s.mergeCommit:opt('--json')==='body'&&a.includes('--jq')?s.pr.body:s.pr||{number:77,url:'https://github.com/test/private/pull/77',state:'OPEN'};
 else if(a[0]==='pr'&&a[1]==='list')result=s.openPrs??[];
 else if(a[0]==='run'&&a[1]==='list')result=s.mainRuns??[{conclusion:'success',headSha:'f'.repeat(40),url:'https://github.com/test/private/actions/runs/1'}];
-else if(a[0]==='pr'&&a[1]==='checks'){result=s.requiredChecks??[];if(s.checksError){fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(JSON.stringify(result));process.exit(s.checksError);}}
+else if(a[0]==='pr'&&a[1]==='checks'){result=s.checksQueue?.length?s.checksQueue.shift():s.requiredChecks??[];if(s.checksError){fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(JSON.stringify(result));process.exit(s.checksError);}}
+else if(a[0]==='pr'&&a[1]==='update-branch'){
+ const cp=require('node:child_process'),os=require('node:os'),path=require('node:path');
+ const g=(...x)=>cp.execFileSync('git',x,{encoding:'utf8'}).trim();
+ const branch=g('-C',process.cwd(),'branch','--show-current'),tmp=fs.mkdtempSync(path.join(os.tmpdir(),'evf-update-branch-'));
+ g('clone','-q','-b',branch,g('-C',process.cwd(),'remote','get-url','origin'),tmp);
+ g('-C',tmp,'-c','user.name=GitHub','-c','user.email=noreply@github.invalid','merge','-q','--no-ff','--no-edit','origin/main');
+ g('-C',tmp,'push','-q','origin',branch);s.pr.headRefOid=g('-C',tmp,'rev-parse','HEAD');fs.rmSync(tmp,{recursive:true,force:true});result='';
+}
 else if(a[0]==='pr'&&a[1]==='edit'){if(body&&s.pr)s.pr.body=body;result='';}
 else if(a[0]==='pr'&&a[1]==='create')result='https://github.com/test/private/pull/78';
 else if(a[0]==='gist'&&a[1]==='create')result='https://gist.github.com/fixture-owner/a1b2c3';

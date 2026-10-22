@@ -34,6 +34,10 @@ GitHub auto-merge. A branch update requires fresh CI and review, except a merge-
 every commit after the approved head is a clean merge of main and main changed no path the PR
 changes, ship carries the approval once required CI is green on the new head and posts the proof
 (`EVF-Carry:`). `tools/evf/README.md` lists the exact rule. Ship refuses anything else.
+Run `evf ship` as soon as a PR is approved; do not order ships by hand or wait for another ship.
+Ship waits in a machine-wide queue, merges main into a behind branch with `gh pr update-branch`,
+waits for required CI on the new head and carries the approval. When main changed the PR's paths
+or CI fails, it refuses with "Fresh gate needed" and the branch needs a new review.
 While main's latest finished CI run is red, ship merges only the PR whose body says `Fixes #<n>`
 for the open "P0: CI failed on main" issue.
 Ordinary builds and P0/P1 feedback fixes use this route. P2/P3 feedback fixes get the same checks,

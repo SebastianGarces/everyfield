@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, 
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { leftoverBrowsers } from "../browser.ts";
+import { fixture } from "./fixtures.ts";
 
 const source = resolve(import.meta.dirname, "../../..");
 const evf = join(source, "bin/evf");
@@ -30,7 +31,8 @@ const alive = (pid: number) => {
 test("BUG-ops8-browser-run: no browser process or temporary profile is left after a pass, a throw or a timeout", () => {
 	const dir = mkdtempSync(join(tmpdir(), "evf-browser-test-")),
 		bin = fakeBrowserBinary(dir),
-		check = join(dir, "check.mjs");
+		check = join(dir, "check.mjs"),
+		f = fixture(); // Its evf.config.json never waits for this machine's load.
 	// The check launches a detached browser like Playwright does, records it, then ends as told.
 	writeFileSync(
 		check,
@@ -57,6 +59,7 @@ if (mode === "hang") setInterval(() => {}, 1000);
 		] as const) {
 			const out = join(dir, `${mode}.json`);
 			const r = spawnSync(evf, ["browser", "run", "--timeout", "3", "--", process.execPath, check, mode, out], {
+				cwd: f.root,
 				encoding: "utf8",
 			});
 			const { pid, profile } = JSON.parse(readFileSync(out, "utf8"));
@@ -68,6 +71,7 @@ if (mode === "hang") setInterval(() => {}, 1000);
 			assert.match(r.stderr, /no browser process from this run is left/);
 		}
 	} finally {
+		f.close();
 		rmSync(dir, { recursive: true, force: true });
 	}
 });
