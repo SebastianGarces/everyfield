@@ -637,10 +637,35 @@ test("AC:TARGET-TSK-014 due and overdue reminders follow the current assignee an
 		before.some((id) => allowed.has(id)),
 		false,
 	);
+	// Every write that moves the revision replans the reminders, so the assignee's mail still goes out.
+	const prerequisite = await create(owner, { title: "Sign the lease" });
+	const blocked = ok(
+		await write(owner, "replacePrerequisites", {
+			requestKey: randomUUID(),
+			expectedRevision: moved.revision,
+			input: { taskId: t.id, prerequisiteIds: [prerequisite.id] },
+		}),
+	).task;
+	const repeating = ok(
+		await write(owner, "configureRecurrence", {
+			requestKey: randomUUID(),
+			expectedRevision: blocked.revision,
+			input: { taskId: t.id, rule: { frequency: "weekly", until: null } },
+		}),
+	).task;
+	const replanned = await rows(
+		sql`SELECT m.id, m.recipient_account_id recipient, m.notice_id notice FROM mail m JOIN notice n ON n.id=m.notice_id
+			WHERE n.source_record_id=${t.id} AND n.cancelled_at IS NULL`,
+	);
+	const sendable = await f.db.transaction((tx) => authorizeTaskReminders(tx, replanned));
+	assert.deepEqual(
+		replanned.filter((m) => sendable.has(m.id)).map((m) => m.recipient),
+		[admin2.id, admin2.id],
+	);
 	ok(
 		await write(admin2, "complete", {
 			requestKey: randomUUID(),
-			expectedRevision: moved.revision,
+			expectedRevision: repeating.revision,
 			input: { taskId: t.id },
 		}),
 	);
@@ -1056,6 +1081,29 @@ test("AC:TARGET-TSK-007 AC:TARGET-TSK-018 completing a recurring task creates ex
 		}),
 		"open_successor",
 	);
+	// Deleting the open occurrence keeps the series: reopen and complete the older one, and the next task returns.
+	ok(
+		await write(owner, "delete", {
+			requestKey: randomUUID(),
+			expectedRevision: first.successor.revision,
+			input: { taskId: first.successor.id },
+		}),
+	);
+	const reopened = ok(
+		await write(owner, "reopen", {
+			requestKey: randomUUID(),
+			expectedRevision: first.task.revision,
+			input: { taskId: t.id },
+		}),
+	).task;
+	const again = ok(await complete(owner, reopened));
+	assert.deepEqual([again.successor?.due, again.successor?.occurrenceId], [due("2026-02-28"), "2"]);
+	assert.deepEqual(ok(await read(member, "findOpenOccurrence", { taskId: t.id })).open, {
+		taskId: again.successor.id,
+		occurrence: 2,
+		predecessorId: t.id,
+		revision: "1",
+	});
 
 	// Leap day yearly, the inclusive end date, and late completion (the next one is already overdue).
 	const cases = [
