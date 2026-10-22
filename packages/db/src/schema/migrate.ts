@@ -66,6 +66,37 @@ export async function migrate(db: Database, schema = "public", directory?: URL):
 	});
 }
 
+/**
+ * A one-time data step db:migrate runs after the SQL files (C102). `run` changes rows inside the given transaction and
+ * returns how many it changed.
+ */
+export type Backfill = { name: string; run: (tx: Transaction) => Promise<number> };
+
+/**
+ * Run each backfill not yet recorded, in order, each in one transaction under the migration lock. The name and its
+ * change count are recorded in schema_backfill in that same transaction, so a rerun skips a completed backfill and a
+ * failure leaves it pending for the next run. Returns the backfills this call completed.
+ */
+export async function backfill(
+	db: Database,
+	backfills: readonly Backfill[],
+	schema = "public",
+): Promise<{ name: string; changed: number }[]> {
+	if (new Set(backfills.map((b) => b.name)).size !== backfills.length) throw Error("duplicate_backfill_name");
+	const done: { name: string; changed: number }[] = [];
+	for (const b of backfills) {
+		const changed = await locked(db, schema, async (tx) => {
+			const recorded = await tx.execute(sql`SELECT 1 FROM schema_backfill WHERE name=${b.name}`);
+			if (recorded.rows.length) return null;
+			const count = await b.run(tx);
+			await tx.execute(sql`INSERT INTO schema_backfill(name,changed) VALUES (${b.name},${count})`);
+			return count;
+		});
+		if (changed !== null) done.push({ name: b.name, changed });
+	}
+	return done;
+}
+
 // Explicit reviewed adoption only. Current-byte agreement cannot prove which bytes
 // originally ran. Preserve timestamps and mark that limitation in every adopted row.
 export async function adoptMigrationHistory(

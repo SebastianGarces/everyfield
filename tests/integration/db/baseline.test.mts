@@ -13,7 +13,12 @@ import { verifySchemaDrift, verifySnapshotBaseline } from "../../../packages/db/
 import * as declarations from "../../../packages/db/src/schema/tables.ts";
 import { pgTable, integer, text } from "../../../packages/db/src/columns.ts";
 import { assertCurrentCatalog } from "../../../packages/db/src/schema/catalog.ts";
-import { migrate, adoptMigrationHistory, migrationArtifact } from "../../../packages/db/src/schema/migrate.ts";
+import {
+	migrate,
+	adoptMigrationHistory,
+	migrationArtifact,
+	backfill,
+} from "../../../packages/db/src/schema/migrate.ts";
 import { pdf } from "../platform/fixtures.mjs";
 import { validateCommitment } from "../../../packages/db/src/schema/validate-file.ts";
 import { auth_user, auth_account, auth_session, auth_verification } from "../../../packages/db/src/schema/tables.ts";
@@ -327,6 +332,60 @@ test("INV-migration: preserves applied 0001 bytes and ledger; retries and failed
 	} finally {
 		await closeDatabase(pool);
 		await admin.execute(querySql.raw(`DROP SCHEMA ${other} CASCADE`));
+	}
+});
+test("INV-backfill (C102): db:migrate's backfills run once each; a failure records nothing and the next run completes", async () => {
+	await admin.execute(querySql`CREATE TABLE backfill_probe(name text, n integer)`);
+	const runs = [];
+	let failAfterFirstBatch = true;
+	const step = (name) => ({
+		name,
+		async run(tx) {
+			runs.push(name);
+			// Two batches; the first run of the first step fails after its first batch.
+			await tx.execute(querySql`INSERT INTO backfill_probe VALUES(${name},1)`);
+			if (name === "probe_one" && failAfterFirstBatch) {
+				failAfterFirstBatch = false;
+				throw Error("probe failure");
+			}
+			await tx.execute(querySql`INSERT INTO backfill_probe VALUES(${name},2)`);
+			return 2;
+		},
+	});
+	const names = async () =>
+		(await admin.execute(querySql`SELECT name,changed FROM schema_backfill ORDER BY name`)).rows.map((r) => [
+			r.name,
+			r.changed,
+		]);
+	const probe = async () => (await admin.execute(querySql`SELECT count(*)::int n FROM backfill_probe`)).rows[0].n;
+	try {
+		await assert.rejects(backfill(admin, [step("probe_one"), step("probe_two")], schema), /probe failure/);
+		// The failed backfill left no ledger name and no rows; the next one never started.
+		assert.deepEqual([await names(), await probe(), runs], [[], 0, ["probe_one"]]);
+		assert.deepEqual(await backfill(admin, [step("probe_one"), step("probe_two")], schema), [
+			{ name: "probe_one", changed: 2 },
+			{ name: "probe_two", changed: 2 },
+		]);
+		// A rerun skips both; a new name runs once.
+		assert.deepEqual(await backfill(admin, [step("probe_one"), step("probe_two"), step("probe_three")], schema), [
+			{ name: "probe_three", changed: 2 },
+		]);
+		assert.deepEqual(await backfill(admin, [step("probe_one"), step("probe_two"), step("probe_three")], schema), []);
+		assert.deepEqual(
+			[await names(), await probe(), runs],
+			[
+				[
+					["probe_one", 2],
+					["probe_three", 2],
+					["probe_two", 2],
+				],
+				6,
+				["probe_one", "probe_one", "probe_two", "probe_three"],
+			],
+		);
+	} finally {
+		await admin.execute(querySql`DROP TABLE backfill_probe`);
+		await admin.execute(querySql`DELETE FROM schema_backfill WHERE name LIKE 'probe_%'`);
 	}
 });
 test("AC:C0-PERSON-001 AC:TEN-001 INV-subtype: real same-owner FKs, root kinds and record bindings reject forged identities", async () => {

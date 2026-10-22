@@ -34,7 +34,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 
 | Package | Task | Clauses | Operations | Cases | Tables | Days |
 |---|---|---:|---:|---:|---:|---:|
-| WP-097 | Early access site | 1 | 7 | 1 | 3 | 2.5 |
+| WP-097 | Early access site | 1 | 7 | 1 | 4 | 2.5 |
 | WP-087 | Local development and repository workflow | 0 | 0 | 0 | 0 | 2 |
 | WP-001 | Current source references and version identity | 0 | 0 | 0 | 0 | 1 |
 | WP-002 | Shared identity, access, time and change-history behavior | 5 | 2 | 8 | 0 | 1.5 |

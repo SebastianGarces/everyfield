@@ -1743,6 +1743,7 @@
       "producer_table_names": [
         "early_access_attempt",
         "early_access_request",
+        "schema_backfill",
         "schema_migration"
       ],
       "consumer_table_names": [],
@@ -2646,6 +2647,7 @@
         "proposal",
         "record_correction",
         "relationship_invitation",
+        "schema_backfill",
         "schema_migration",
         "settings_preview"
       ],
@@ -26053,6 +26055,7 @@
         "relationship_invitation",
         "residency_link",
         "responsibility",
+        "schema_backfill",
         "schema_migration",
         "seat",
         "settings_preview",
@@ -32044,6 +32047,7 @@
         "relationship_invitation",
         "residency_link",
         "responsibility",
+        "schema_backfill",
         "schema_migration",
         "seat",
         "settings_preview",

@@ -1,5 +1,5 @@
 {
-  "id": "27994be0-bc75-45bd-b257-0e56c5f47225",
+  "id": "53767e60-d899-4c2f-b7fc-659a77527049",
   "prevId": "93a22037-6887-43f7-98f7-658f25403868",
   "version": "7",
   "dialect": "postgresql",
@@ -16618,6 +16618,54 @@
         "responsibility_ck_0": {
           "name": "responsibility_ck_0",
           "value": "(revision >= 1)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.schema_backfill": {
+      "name": "schema_backfill",
+      "schema": "",
+      "columns": {
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "applied_at": {
+          "name": "applied_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "changed": {
+          "name": "changed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "schema_backfill_pkey": {
+          "name": "schema_backfill_pkey",
+          "columns": [
+            "name"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "schema_backfill_name": {
+          "name": "schema_backfill_name",
+          "value": "\"schema_backfill\".\"name\" ~ '^[a-z][a-z0-9_]{0,62}$'"
+        },
+        "schema_backfill_changed": {
+          "name": "schema_backfill_changed",
+          "value": "\"schema_backfill\".\"changed\" >= 0"
         }
       },
       "isRLSEnabled": false

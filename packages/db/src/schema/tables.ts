@@ -4030,6 +4030,25 @@ export const schema_migration = pgTable(
 		check("schema_migration_sha256_check", sql`(sha256 ~ '^[a-f0-9]{64}$'::text)`),
 	],
 );
+/**
+ * The one-time data backfills db:migrate ran after the SQL files (C102). A name is recorded only in the transaction
+ * that completed its backfill, so a rerun skips it and a failed run leaves it pending.
+ */
+export const schema_backfill = pgTable(
+	"schema_backfill",
+	{
+		name: text("name").notNull(),
+		applied_at: timestamp("applied_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`now()`),
+		changed: integer("changed").notNull(),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "schema_backfill_pkey", columns: [table.name] }),
+		check("schema_backfill_name", sql`${table.name} ~ '^[a-z][a-z0-9_]{0,62}$'`),
+		check("schema_backfill_changed", sql`${table.changed} >= 0`),
+	],
+);
 export const seat = pgTable(
 	"seat",
 	{

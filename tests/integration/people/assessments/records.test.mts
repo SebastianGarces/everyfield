@@ -13,6 +13,8 @@ import {
 	commitmentInputsJson,
 	commitmentOf,
 } from "../../../../packages/domain/src/people/commitments/lifecycle.ts";
+import { commitmentCacheBackfill } from "../../../../packages/domain/src/people/commitments/backfill.ts";
+import { backfill } from "../../../../packages/db/src/schema/migrate.ts";
 import {
 	assessments,
 	commitments,
@@ -829,12 +831,13 @@ test("INV-commitment (C100): after every command sequence the cached commitment 
 			expect: { a: ["withdrawn", 5] },
 		},
 	];
-	const merged = new Map();
+	const merged = new Map(),
+		everyone = [];
 	for (const { name, steps, expect } of cases) {
 		const people = {},
 			cards = {};
 		for (const letter of new Set(steps.flatMap((s) => s.slice(1).filter((x) => /^[ab]$/.test(x)))))
-			people[letter] = (await person("Inv " + letter + " " + name.slice(0, 20))).id;
+			everyone.push((people[letter] = (await person("Inv " + letter + " " + name.slice(0, 20))).id));
 		const current = async (personId) => ok(await tx((t) => commitments.getCommitments(t, ctx(), { personId }))).current;
 		const card = async (id) =>
 			(await rows(sql`SELECT revision::text r FROM commitment WHERE id=${sql.param(id)}`))[0].r;
@@ -921,6 +924,33 @@ test("INV-commitment (C100): after every command sequence the cached commitment 
 			assert.deepEqual([s, effectiveOn], [state, day(n)], name);
 		}
 	}
+	// C101: db:migrate's one-time backfill makes stale caches (written before C100) equal the function. It changes only
+	// the rows that differ, in batches, and a rerun does nothing.
+	const [late, corrected] = everyone;
+	await admin.execute(
+		sql`UPDATE person SET commitment_state='unknown',commitment_effective_on=NULL WHERE id=${sql.param(late)}`,
+	);
+	await admin.execute(
+		sql`UPDATE person SET commitment_effective_on=${sql.param(day(30))} WHERE id=${sql.param(corrected)}`,
+	);
+	assert.deepEqual(await backfill(admin, [commitmentCacheBackfill(2)], schema), [
+		{ name: "commitment_cache_c100", changed: 2 },
+	]);
+	const stale = await rows(sql`SELECT p.id,p.commitment_state AS state,p.commitment_effective_on::text AS on,
+ ${commitmentInputsJson(sql`p.id`, sql`p.plant_id`)} AS inputs FROM person p WHERE p.plant_id IS NOT NULL AND p.state<>'merged'`);
+	assert.deepEqual(
+		stale.filter(
+			(p) =>
+				JSON.stringify({ state: p.state, effectiveOn: p.on }) !==
+				JSON.stringify(commitmentOf(commitmentInputs.parse(p.inputs))),
+		),
+		[],
+	);
+	assert.deepEqual(
+		ok(await tx((t) => commitments.getCommitments(t, ctx(), { personId: late }))).current.effectiveOn,
+		day(6),
+	);
+	assert.deepEqual(await backfill(admin, [commitmentCacheBackfill(2)], schema), []);
 });
 
 test("C88 RT-2: a save that meets a held lock waits the established way and sees what the holder committed", async () => {

@@ -18,6 +18,16 @@ From the worktree root, apply the current schema with the existing command:
 corepack pnpm db:migrate
 ```
 
+`db:migrate` is the only runner. It applies the SQL migrations, then runs the
+registered one-time backfills (C102) in `packages/domain/scripts/migrate.ts`. Those
+backfills use domain rules, so they are registered in the domain package, not here.
+Each backfill runs in one transaction under the migration advisory lock. Its name and
+the number of rows it changed go into `schema_backfill` in that same transaction. A
+rerun skips a recorded name, and a failed backfill records nothing, so the next run
+retries it. Add a backfill by appending a `Backfill` (`@everyfield/db/migrate`) with a
+new name to that list. Never rename or reuse a recorded name. The command prints each
+backfill it completed with its changed-row count.
+
 To wipe and reseed the shared development data:
 
 ```sh

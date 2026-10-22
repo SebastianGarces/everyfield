@@ -9,6 +9,15 @@ CREATE TABLE "commitment_change" (
 	CONSTRAINT "commitment_change_kind" CHECK ("commitment_change"."kind" IN ('withdrawn','reactivated'))
 );
 --> statement-breakpoint
+CREATE TABLE "schema_backfill" (
+	"name" text NOT NULL,
+	"applied_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"changed" integer NOT NULL,
+	CONSTRAINT "schema_backfill_pkey" PRIMARY KEY("name"),
+	CONSTRAINT "schema_backfill_name" CHECK ("schema_backfill"."name" ~ '^[a-z][a-z0-9_]{0,62}$'),
+	CONSTRAINT "schema_backfill_changed" CHECK ("schema_backfill"."changed" >= 0)
+);
+--> statement-breakpoint
 ALTER TABLE "commitment_change" ADD CONSTRAINT "commitment_change_plant_id_plant_id_fk" FOREIGN KEY ("plant_id") REFERENCES "plant"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "commitment_change" ADD CONSTRAINT "commitment_change_person" FOREIGN KEY ("person_id","plant_id") REFERENCES "person"("id","tenant_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "commitment_change_person_order" ON "commitment_change" USING btree ("person_id","plant_id","effective_on","recorded_at");--> statement-breakpoint

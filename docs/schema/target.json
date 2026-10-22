@@ -70,8 +70,8 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 89,
-  "column_count": 1022,
+  "table_count": 90,
+  "column_count": 1025,
   "foreign_key_count": 320,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
@@ -33196,6 +33196,89 @@
         ],
         "checks": [
           "responsibility_ck_0"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "schema_backfill",
+      "domain": "operations",
+      "purpose": "Private ledger of the one-time data backfills db:migrate ran after the SQL migrations, with how many rows each changed.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-048"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-097"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-097"
+        ],
+        "rule": "The migration runner ledger's backfill sibling (C102)."
+      },
+      "feature_ids": [
+        "ADM-006"
+      ],
+      "acceptance_ids": [
+        "AC-ADM-006--ADM-006"
+      ],
+      "future_case_ids": [
+        "CASE-ADM-006"
+      ],
+      "scope": "operations",
+      "invariants": [
+        "A backfill name is recorded only in the transaction that completed the backfill.",
+        "A recorded backfill never runs again."
+      ],
+      "revision": "Append-only committed backfill receipts.",
+      "idempotency": "The text primary key on name prevents a second receipt; the runner serializes backfills under the migration lock.",
+      "deletion": "Retain receipts for safe repeat execution; they contain no personal data.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "Backfill name and physical primary key.",
+          "name": "name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "Committed backfill receipt time.",
+          "name": "applied_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "note": "Rows the backfill changed.",
+          "name": "changed",
+          "type": "integer",
+          "nullable": false
+        }
+      ],
+      "primary_key": [
+        "name"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [],
+      "checks": [
+        "\"schema_backfill\".\"changed\" >= 0",
+        "\"schema_backfill\".\"name\" ~ '^[a-z][a-z0-9_]{0,62}$'"
+      ],
+      "indexes": {},
+      "constraint_names": {
+        "primary": [
+          "schema_backfill_pkey"
+        ],
+        "unique": [],
+        "foreign": [],
+        "checks": [
+          "schema_backfill_name",
+          "schema_backfill_changed"
         ]
       },
       "policies": {},

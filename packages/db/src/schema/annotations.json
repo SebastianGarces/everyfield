@@ -16559,6 +16559,47 @@
 					}
 				}
 			}
+		},
+		"schema_backfill": {
+			"table": {
+				"name": "schema_backfill",
+				"domain": "operations",
+				"purpose": "Private ledger of the one-time data backfills db:migrate ran after the SQL migrations, with how many rows each changed.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-048"],
+				"replaces": [],
+				"producer_work_packages": ["WP-097"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-097"],
+					"rule": "The migration runner ledger's backfill sibling (C102)."
+				},
+				"feature_ids": ["ADM-006"],
+				"acceptance_ids": ["AC-ADM-006--ADM-006"],
+				"future_case_ids": ["CASE-ADM-006"],
+				"scope": "operations",
+				"invariants": [
+					"A backfill name is recorded only in the transaction that completed the backfill.",
+					"A recorded backfill never runs again."
+				],
+				"revision": "Append-only committed backfill receipts.",
+				"idempotency": "The text primary key on name prevents a second receipt; the runner serializes backfills under the migration lock.",
+				"deletion": "Retain receipts for safe repeat execution; they contain no personal data.",
+				"physical_verified": false
+			},
+			"columns": {
+				"name": {
+					"note": "Backfill name and physical primary key."
+				},
+				"applied_at": {
+					"note": "Committed backfill receipt time."
+				},
+				"changed": {
+					"note": "Rows the backfill changed."
+				}
+			},
+			"foreignKeys": {}
 		}
 	}
 }
