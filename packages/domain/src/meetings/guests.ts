@@ -3,6 +3,7 @@ import { sql, type SQL } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
+import { personChanges } from "../people/core.ts";
 import { appendPerson } from "../people/people.ts";
 import { command, deny, next, parse, reply, type Change, type MeetingsContext, type Tx, type Writer } from "./core.ts";
 import { meetingColumns, meetingRow, plantMeeting, type MeetingRow } from "./rows.ts";
@@ -505,14 +506,9 @@ function contact(
 					action: "people.created",
 					kind: "create",
 					before: null,
-					after: {
-						displayName: person.display_name,
-						email: person.email,
-						phone: person.phone,
-						country: person.country,
-						stage: person.stage,
-						source: person.source,
-					},
+					// The People create shape (D70): the after revision and the new Person's fields.
+					revision: { before: null, after: person.revision },
+					after: personChanges(undefined, person).after,
 					metadata: { guestId: id, attended },
 				};
 			});
