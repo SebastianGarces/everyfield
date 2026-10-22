@@ -138,11 +138,6 @@ export async function lockTasks(tx: Tx, plantId: string, which: SQL) {
 	const r = await tx.execute(sql`${taskQuery(plantId, which)} ORDER BY t.id FOR UPDATE OF t`);
 	return z.array(lockedTask).parse(r.rows);
 }
-/** The plant's tasks that match `which` in ID order, without locks: a review that a later write repeats with lockTasks. */
-export async function readTasks(tx: Tx, plantId: string, which: SQL) {
-	const r = await tx.execute(sql`${taskQuery(plantId, which)} ORDER BY t.id`);
-	return z.array(lockedTask).parse(r.rows);
-}
 /** Several tasks of the plant by ID, locked as lockTasks locks them. */
 export async function loadTasks(tx: Tx, plantId: string, ids: readonly string[]) {
 	const rows = await lockTasks(tx, plantId, sql`t.id=ANY(${sql.param(ids)}::uuid[])`);

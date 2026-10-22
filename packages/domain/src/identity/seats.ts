@@ -1,4 +1,4 @@
-import { revision, sameOwner, sessionId, type Owner } from "@everyfield/contracts/common";
+import { sameOwner, sessionId, type Owner } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/identity";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { and, asc, eq, getTableColumns, inArray, isNull, notInArray, or, sql } from "@everyfield/db/query";
@@ -6,7 +6,6 @@ import * as t from "@everyfield/db/tables";
 import "server-only";
 import { z } from "zod";
 import { type RequestActor } from "../access/session.ts";
-import { lockTasks, readTasks } from "../tasks/queries.ts";
 import { reminderChange, syncAll, type TaskReminders } from "../tasks/writes.ts";
 import { transaction } from "./budget.ts";
 import * as d from "./invitation-core.ts";
@@ -126,10 +125,27 @@ export function createSeatService(db: Database) {
 	async function openDuties(tx: Transaction, selected: Owner, s: { id: string; account_id: string }, lock: boolean) {
 		const locked = <T>(q: PromiseLike<T> & { for(strength: "update"): PromiseLike<T> }) => (lock ? q.for("update") : q);
 		const plant = selected.kind === "plant";
-		// Task rows as the task domain reads them, so a moved task's owed reminders can follow it.
-		const open = sql`t.assignee_id=${s.account_id}::uuid AND t.deleted_at IS NULL
- AND t.status NOT IN ('complete','no_longer_needed')`;
-		const tasks = plant ? await (lock ? lockTasks : readTasks)(tx, selected.id, open) : [];
+		// Only the task table: a moved task's reminders need its own columns and the plant's zone. The task domain's full
+		// row query costs about 700 ms for 250 tasks, and remove would hold the account and seat locks meanwhile (BUG-127).
+		const tasks = plant
+			? await locked(
+					tx
+						.select({
+							...getTableColumns(t.task),
+							plant_zone: sql<string>`(SELECT timezone FROM plant WHERE id=${selected.id}::uuid)`,
+						})
+						.from(t.task)
+						.where(
+							and(
+								eq(t.task.plant_id, selected.id),
+								eq(t.task.assignee_id, s.account_id),
+								isNull(t.task.deleted_at),
+								notInArray(t.task.status, ["complete", "no_longer_needed"]),
+							),
+						)
+						.orderBy(asc(t.task.id)),
+				)
+			: [];
 		// `linked`: a task carries this obligation (open or closed), so the task is the one reviewed duty.
 		const obligations = plant
 			? await locked(
@@ -366,7 +382,7 @@ export function createSeatService(db: Database) {
 							reminderChange(selected.id, task, {
 								...task,
 								assignee_id: recipient,
-								revision: revision.parse(d.bump(task.revision)),
+								revision: d.bump(task.revision),
 							}),
 						);
 						if (task.obligation_id) {
