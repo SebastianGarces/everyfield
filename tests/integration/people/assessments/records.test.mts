@@ -15,6 +15,8 @@ import {
 	interviews,
 	peopleReader,
 	peopleWriter as people,
+	saveCommitmentDocument,
+	signCommitmentDocument,
 	uploadCommitmentDocument,
 } from "../../../../packages/domain/src/people/index.ts";
 
@@ -281,6 +283,9 @@ const png = Buffer.from(
 /** A private bucket: uploads keep their bytes; download links are signed locally by the real AWS signer. */
 function privateStorage() {
 	const objects = new Map();
+	// What a browser PUT with a signed URL leaves in the bucket, and an optional hook while the server reads it back.
+	const uploads = new Map();
+	const reads = { during: null };
 	const signer = new S3Client({
 		region: "auto",
 		endpoint: "https://storage.example.test",
@@ -295,11 +300,21 @@ function privateStorage() {
 				assert.match(i.Key, new RegExp(`^private/${plants[0]}/[a-f0-9-]{36}$`));
 				objects.set(i.Key, Buffer.from(i.Body));
 				return {};
+			case "GetObjectCommand": {
+				const found = uploads.get(i.Key);
+				if (!found) throw Object.assign(Error("NoSuchKey"), { name: "NoSuchKey" });
+				await reads.during?.();
+				return {
+					ContentLength: found.bytes.length,
+					ContentType: found.type,
+					Body: { transformToByteArray: async () => found.bytes },
+				};
+			}
 			default:
 				throw Error("unexpected provider operation");
 		}
 	};
-	return { bucket: "synthetic-only", client: signer, objects };
+	return { bucket: "synthetic-only", client: signer, objects, uploads, reads };
 }
 
 test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 AC:PROVIDER48-002 AC:PROVIDER48-003 commitments: card, document and Core Group together; dated withdrawal and reactivation keep stage and first acquisition; corrections with history", async () => {
@@ -569,6 +584,221 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 AC:PROVIDER48-
 	assert.equal(await unattached(third.id), false);
 	// Another church reads no commitments.
 	refused(await tx((t) => commitments.getCommitments(t, ctx(2), { personId: alex.id })));
+});
+
+test("AC:GAP-PPL-014 AC:TARGET-PPL-014 RT-2 design B: the browser puts the document straight into the bucket; one save statement checks authority and attaches it with one audit row", async () => {
+	const storage = privateStorage();
+	const sam = await person("Sam Direct"),
+		witness = await person("Jordan Witness", "leader"),
+		foreign = ok(
+			await tx((t) => people.createPerson(t, ctx(2), { requestKey: key(), input: { displayName: "Foreign Sam" } })),
+		).person;
+	const sign = (who, personId, bytes, mime) =>
+		signCommitmentDocument(db, storage, ctx(who), actors[who].id, { personId, mime, byteLength: bytes.length });
+	// The browser's PUT: the bucket keeps the bytes under the signed key with the signed type.
+	const keyOf = (uploadId) => `private/${plants[0]}/${uploadId}`;
+	const put = (signed, bytes) =>
+		storage.uploads.set(keyOf(signed.uploadId), { bytes, type: signed.headers["content-type"] });
+	const save = (who, uploadId, input = {}, requestKey = key()) =>
+		saveCommitmentDocument(db, storage, ctx(who), actors[who].id, {
+			requestKey,
+			input: { personId: sam.id, kind: "core_group", occurredOn: day(2), documentUploadId: uploadId, ...input },
+		});
+	const stateOf = async (id) => (await rows(sql`SELECT state FROM file_object WHERE id=${sql.param(id)}`))[0].state;
+
+	// Only a live Owner or Admin of the Person's church can sign, and only up to 10 MiB. The card's document is a PNG:
+	// the census runs this suite with loader flags that a PDF parse worker inherits (the PDF check has its own test).
+	const document = png;
+	refused(await sign(1, sam.id, document, "image/png"));
+	refused(await sign(0, foreign.id, document, "image/png"));
+	refused(
+		await signCommitmentDocument(db, storage, ctx(), actors[0].id, {
+			personId: sam.id,
+			mime: "application/pdf",
+			byteLength: 10 * 1024 * 1024 + 1,
+		}),
+		"invalid_input",
+	);
+	// The URL binds the exact key, type and length, writes once and works for five minutes.
+	const signed = ok(await sign(0, sam.id, document, "image/png"));
+	const url = new URL(signed.url);
+	assert.ok(url.pathname.endsWith("/" + keyOf(signed.uploadId)), url.pathname);
+	assert.equal(url.searchParams.get("X-Amz-Expires"), "300");
+	assert.deepEqual(url.searchParams.get("X-Amz-SignedHeaders").split(";"), [
+		"cache-control",
+		"content-length",
+		"content-type",
+		"host",
+		"if-none-match",
+	]);
+	assert.deepEqual(signed.headers, {
+		"content-type": "image/png",
+		"if-none-match": "*",
+		"cache-control": "private, no-store",
+	});
+	assert.equal(await stateOf(signed.uploadId), "pending");
+
+	// Nothing in the bucket yet: the save is refused and records nothing.
+	refused(await save(0, signed.uploadId));
+	put(signed, document);
+
+	// A sign-out that lands while the server checks the uploaded bytes refuses the save in its one statement. The upload
+	// stays pending, so a live Owner or Admin can still save the same upload.
+	const signOut = async () => {
+		storage.reads.during = null;
+		await admin.execute(sql`DELETE FROM auth_session WHERE id=${sql.param(actors[0].session)}`);
+	};
+	storage.reads.during = signOut;
+	try {
+		refused(await save(0, signed.uploadId));
+		assert.deepEqual([await stateOf(signed.uploadId), await count("commitment", sam.id)], ["pending", 0]);
+	} finally {
+		storage.reads.during = null;
+		await admin.execute(
+			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${sql.param(actors[0].session)},${sql.param(actors[0].user)},${sql.param(randomUUID())},clock_timestamp()+interval '1 day') ON CONFLICT (id) DO NOTHING`,
+		);
+	}
+	// A refused card never uses up its upload: a foreign witness or a future date leaves it pending for the corrected save.
+	refused(await save(0, signed.uploadId, { witness: { personId: foreign.id } }));
+	refused(await save(0, signed.uploadId, { occurredOn: day(-1) }), "invalid_input");
+	assert.deepEqual([await stateOf(signed.uploadId), await count("commitment", sam.id)], ["pending", 0]);
+	// A member and another church cannot save it.
+	refused(await save(1, signed.uploadId));
+	refused(await save(2, signed.uploadId));
+
+	// The card, the document, the Core Group advance and the active commitment, in the established reply shape.
+	const requestKey = key();
+	const input = { witness: { personId: witness.id }, notes: "Signed at the picnic" };
+	const auditsBefore = (await rows(sql`SELECT count(*)::int n FROM audit_event`))[0].n;
+	const saved = ok(await save(3, signed.uploadId, input, requestKey));
+	assert.deepEqual(
+		[
+			saved.person.stageChange,
+			saved.person.stage,
+			saved.current.state,
+			saved.current.effectiveOn,
+			saved.current.personRevision,
+			saved.commitment.document,
+			saved.commitment.witness,
+			saved.commitment.actor,
+			saved.commitment.revision,
+			saved.outcome,
+		],
+		[
+			{ from: "prospect", to: "core_group" },
+			"core_group",
+			"active",
+			day(2),
+			String(BigInt(sam.revision) + 1n),
+			{ status: "attached", mediaType: "image/png", byteCount: document.length },
+			{ kind: "person", personId: witness.id },
+			{ kind: "current_account", accountId: actors[3].id },
+			"1",
+			"changed",
+		],
+	);
+	// One audit row for the whole action, and the history and Activity read it as any card.
+	assert.equal((await rows(sql`SELECT count(*)::int n FROM audit_event`))[0].n, auditsBefore + 1);
+	assert.equal(await stateOf(signed.uploadId), "ready");
+	const history = ok(await tx((t) => commitments.getCommitments(t, ctx(), { personId: sam.id })));
+	assert.deepEqual(history.latest, saved.commitment);
+	assert.deepEqual(
+		(await feed(sam.id)).map((a) => [a.action, a.recordId, a.stage ?? null]),
+		[["commitment_recorded", saved.commitment.id, { from: "prospect", to: "core_group" }]],
+	);
+	assert.ok(!JSON.stringify(await audits(sam.id)).match(/Signed at the picnic|image\/png/));
+	// A retry with the same request key returns the same reply and writes nothing; the upload attaches to one card only.
+	assert.deepEqual(ok(await save(3, signed.uploadId, input, requestKey)), saved);
+	refused(await save(3, signed.uploadId, input));
+	assert.equal(await count("commitment", sam.id), 1);
+	// The document opens for an Owner or Admin from its card.
+	assert.equal(
+		ok(await getCommitmentDownload(db, storage, ctx(), { commitmentId: saved.commitment.id })).expiresInSeconds,
+		300,
+	);
+
+	// Bytes that are not a real PDF are refused and stay pending for their cleanup.
+	const fake = Buffer.from("%PDF-1.7 not really a document");
+	const bad = ok(await sign(0, sam.id, fake, "application/pdf"));
+	put(bad, fake);
+	refused(await save(0, bad.uploadId, { occurredOn: day(1) }), "invalid_input");
+	assert.deepEqual([await stateOf(bad.uploadId), await count("commitment", sam.id)], ["pending", 1]);
+});
+
+test("C88 RT-2: a save that meets a held lock waits the established way and sees what the holder committed", async () => {
+	const storage = privateStorage();
+	const lee = await person("Lee Concurrent", "attendee");
+	const signed = ok(
+		await signCommitmentDocument(db, storage, ctx(), actors[0].id, {
+			personId: lee.id,
+			mime: "image/png",
+			byteLength: png.length,
+		}),
+	);
+	storage.uploads.set(`private/${plants[0]}/${signed.uploadId}`, { bytes: png, type: "image/png" });
+	// Another writer moves Lee to the Launch Team and holds the row until it commits.
+	let release;
+	const held = new Promise((r) => (release = r));
+	let locked;
+	const lockTaken = new Promise((r) => (locked = r));
+	const other = admin.transaction(async (a) => {
+		await a.execute(sql`UPDATE person SET stage='launch_team',revision=revision+1 WHERE id=${sql.param(lee.id)}`);
+		locked();
+		await held;
+	});
+	await lockTaken;
+	const saving = saveCommitmentDocument(db, storage, ctx(), actors[0].id, {
+		requestKey: key(),
+		input: { personId: lee.id, kind: "core_group", occurredOn: day(1), documentUploadId: signed.uploadId },
+	});
+	await new Promise((r) => setTimeout(r, 300));
+	release();
+	await other;
+	const saved = ok(await saving);
+	// The save saw the committed Launch Team stage: no move back to Core Group, and its revision follows the other write.
+	assert.deepEqual(
+		[saved.person.stage, saved.person.stageChange, saved.person.revision, await stageOf(lee.id)],
+		["launch_team", null, String(BigInt(lee.revision) + 2n), "launch_team"],
+	);
+	// A row the save only reads, not locks: an account deletion recorded by a writer that holds the account row. The
+	// save never reads it from a snapshot older than that writer's commit, so it is refused and attaches nothing.
+	const next = ok(
+		await signCommitmentDocument(db, storage, ctx(3), actors[3].id, {
+			personId: lee.id,
+			mime: "image/png",
+			byteLength: png.length,
+		}),
+	);
+	storage.uploads.set(`private/${plants[0]}/${next.uploadId}`, { bytes: png, type: "image/png" });
+	let commit;
+	const committed = new Promise((r) => (commit = r));
+	let started;
+	const deleting = new Promise((r) => (started = r));
+	const deletion = admin.transaction(async (a) => {
+		await a.execute(sql`SELECT id FROM account WHERE id=${sql.param(actors[3].id)} FOR UPDATE`);
+		await a.execute(sql`INSERT INTO lifecycle_witness(kind,opaque_subject_id,request_revision,state,witness_checkpoint,
+ cleanup_state,request_id,requested_at,cancel_until) VALUES('account',${sql.param(actors[3].id)},1,'pending_deletion',1,
+ 'not_started',${sql.param(randomUUID())},statement_timestamp(),statement_timestamp()+interval '720 hours')`);
+		started();
+		await committed;
+	});
+	await deleting;
+	const refusedSave = saveCommitmentDocument(db, storage, ctx(3), actors[3].id, {
+		requestKey: key(),
+		input: { personId: lee.id, kind: "launch_team", occurredOn: day(1), documentUploadId: next.uploadId },
+	});
+	await new Promise((r) => setTimeout(r, 300));
+	commit();
+	await deletion;
+	refused(await refusedSave);
+	assert.deepEqual(
+		[
+			await count("commitment", lee.id),
+			(await rows(sql`SELECT state FROM file_object WHERE id=${sql.param(next.uploadId)}`))[0].state,
+		],
+		[1, "pending"],
+	);
+	await admin.execute(sql`DELETE FROM lifecycle_witness WHERE opaque_subject_id=${sql.param(actors[3].id)}`);
 });
 
 test("INV-tenancy C13: a seat ended after the request resolved its actor reads no assessments, interviews or commitments", async () => {

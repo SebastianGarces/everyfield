@@ -4,8 +4,10 @@ import type { Transaction } from "@everyfield/db/client";
 import { type readPeopleViewer, PeopleReadContext, withPeopleWrite } from "@everyfield/domain/people";
 import "server-only";
 import type { PeopleQuery } from "./model.ts";
+import { readDuplicateHints } from "./corrections/server.ts";
 import { readPersonFields } from "./fields/server.ts";
 import { readPersonRecords } from "./assessments/server.ts";
+import { loadPersonFollowUps } from "../followups/server.ts";
 import { readPeoplePage, readPersonPage } from "./page-data.ts";
 
 // Layout, pages and actions share this request's native session and actor.
@@ -48,22 +50,30 @@ export async function write<T>(
 export type { PeopleData, PeopleView } from "./page-data.ts";
 
 /**
- * The person page: the person, their first Activity page and, for the page itself, their WP-012 fields, in one read
- * transaction. A conflict reload passes `withFields: false`: it needs only the person and Activity, and each field card
- * reads its own part again when its own save is refused. An Owner or Admin's page also reads the person's 4 C's,
- * interviews and commitments in the same transaction.
+ * The person page: the person, their first Activity page and, for the page itself, their WP-012 fields and duplicate
+ * hints (WP-015), in one read transaction. A conflict reload passes `withFields: false`: it needs only the person and
+ * Activity, and each field card reads its own part again when its own save is refused. An Owner or Admin's page also
+ * reads the person's 4 C's, interviews and commitments in the same transaction. The follow-ups and contact log (WP-023)
+ * read in their own short transaction at the same time, on a second connection: they need nothing from the person
+ * read, and running beside it keeps the page within its one-second budget (C77). They show only for a plant person.
  */
 export async function loadPerson(viewer: Viewer, personId: Parameters<typeof readPersonPage>[2], withFields = true) {
-	return read(viewer, async (tx, ctx) => {
+	const followUps = withFields ? loadPersonFollowUps(viewer.authority, personId) : Promise.resolve(null);
+	const loaded = await read(viewer, async (tx, ctx) => {
 		const page = await readPersonPage(tx, ctx, personId);
 		if (page.status !== "ok") return page;
 		const { found } = page.value;
-		const plant = withFields && found.status === "available" && "stage" in found.person;
-		const fields = plant ? await readPersonFields(tx, ctx, personId) : null;
+		const person = withFields && found.status === "available" && "stage" in found.person ? found.person : null;
+		const fields = person ? await readPersonFields(tx, ctx, personId) : null;
 		// The 4 C's, interviews and commitments are for Owners and Admins only; no one else's page asks for them.
-		const records = plant && canWrite(viewer) ? await readPersonRecords(tx, ctx, personId) : null;
-		return { status: "ok" as const, value: { ...page.value, fields, records } };
+		const records = person && canWrite(viewer) ? await readPersonRecords(tx, ctx, personId) : null;
+		const duplicates = person?.lifecycle.state === "live" ? await readDuplicateHints(tx, ctx, person) : null;
+		return { status: "ok" as const, value: { ...page.value, fields, records, duplicates, plant: person !== null } };
 	});
+	const parts = await followUps;
+	if (loaded.status !== "ok") return loaded;
+	const { plant, ...value } = loaded.value;
+	return { status: "ok" as const, value: { ...value, followUps: plant ? parts : null } };
 }
 
 export async function loadPeople(viewer: Viewer, query: PeopleQuery) {

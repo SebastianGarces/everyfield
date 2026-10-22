@@ -25,6 +25,7 @@ export type ErrorCode =
 	| "review_changed"
 	| "review_expired"
 	| "review_closed"
+	| "photo_unavailable"
 	| "unknown";
 
 /** The only error shape Evry sends: a code, a correlation id and whether a retry helps. */

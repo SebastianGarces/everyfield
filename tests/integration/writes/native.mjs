@@ -25,6 +25,8 @@ import {
 	commitments,
 	uploadCommitmentDocument,
 	getCommitmentDownload,
+	signCommitmentDocument,
+	saveCommitmentDocument,
 	peopleMerge,
 	peopleUnmerge,
 	recordCorrections,
@@ -42,6 +44,7 @@ import { withSettingsWrite } from "../../../packages/domain/src/settings/index.t
 import { sectionOperations } from "../../../packages/domain/src/settings/sections.ts";
 import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/notifications.ts";
 import { readPersonRecords } from "../../../apps/web/src/features/people/assessments/server.ts";
+import { readPair, readRecords, readUnmerge } from "../../../apps/web/src/features/people/corrections/server.ts";
 import { measure } from "./counter.mjs";
 
 // Exercise the outer request boundary too; the existing suites also cover tool producers and races.
@@ -285,7 +288,11 @@ try {
 				if (command.constructor.name === "PutObjectCommand") return objects.set(i.Key, Buffer.from(i.Body)) && {};
 				if (command.constructor.name === "GetObjectCommand") {
 					const body = objects.get(i.Key);
-					return { ContentLength: body.length, Body: { transformToByteArray: async () => body } };
+					return {
+						ContentLength: body.length,
+						ContentType: "image/png",
+						Body: { transformToByteArray: async () => body },
+					};
 				}
 				throw Error("unexpected provider operation");
 			},
@@ -482,6 +489,38 @@ try {
 			}),
 		),
 	);
+	// RT-2 design B: sign is one statement, the browser puts the bytes, and the save is one statement. The URL is signed
+	// locally by the real AWS signer; the fake bucket answers the save's read.
+	const bucket = {
+		bucket: storage.bucket,
+		client: Object.assign(
+			new S3Client({
+				region: "auto",
+				endpoint: "https://storage.example.test",
+				credentials: { accessKeyId: "synthetic", secretAccessKey: "synthetic" },
+			}),
+			{ send: storage.client.send },
+		),
+	};
+	const direct = value(
+		await signCommitmentDocument(f.db, bucket, plantContext0, actor.actor.accountId, {
+			personId: holders[1].id,
+			mime: "image/png",
+			byteLength: png.length,
+		}),
+	);
+	objects.set(`private/${plantContext0.selected.id}/${direct.uploadId}`, png);
+	value(
+		await saveCommitmentDocument(f.db, bucket, plantContext0, actor.actor.accountId, {
+			requestKey: key(),
+			input: {
+				personId: holders[1].id,
+				kind: "core_group",
+				occurredOn: daysAgo(1),
+				documentUploadId: direct.uploadId,
+			},
+		}),
+	);
 	const signing = {
 		bucket: storage.bucket,
 		client: new S3Client({
@@ -554,6 +593,14 @@ try {
 				),
 			);
 		const ids = { sourceId: merging.id, survivorId: kept.id };
+		// The duplicates page reads both people and the review in its own transaction (WP-015/ui).
+		const page = value(
+			await view("duplicatePair", async (tx, ctx) => ({
+				status: "ok",
+				value: await readPair(tx, ctx, { person: kept.id, with: merging.id, keep: kept.id }),
+			})),
+		);
+		assert.equal(page.kind, "ready");
 		const reviewed = value(await view("getMergeReview", (tx, ctx) => peopleMerge.getMergeReview(tx, ctx, ids)));
 		const merged = value(
 			await run("mergePeople", (tx, ctx) =>
@@ -572,6 +619,8 @@ try {
 			await view("previewUnmerge", (tx, ctx) => peopleUnmerge.previewUnmerge(tx, ctx, { mergeId: merged.mergeId })),
 		);
 		assert.deepEqual(preview.conflicts, []);
+		// The Unmerge dialog reads the preview and both names in one transaction (WP-015/ui).
+		value(await view("unmergeView", (tx, ctx) => readUnmerge(tx, ctx, merged.mergeId)));
 		value(
 			await run("unmergePeople", (tx, ctx) =>
 				peopleUnmerge.unmergePeople(tx, ctx, {
@@ -616,6 +665,8 @@ try {
 				recordCorrections.listRecordCorrections(tx, ctx, { personId: merging.id }),
 			),
 		);
+		// The correction dialog reads the three histories and the corrections in one transaction (WP-015/ui).
+		value(await view("correctionRecords", (tx, ctx) => readRecords(tx, ctx, merging.id)));
 	}
 	for (const name of [
 		"getMergeReview",
@@ -625,6 +676,9 @@ try {
 		"unmergePeople",
 		"correctPersonRecord",
 		"listRecordCorrections",
+		"duplicatePair",
+		"unmergeView",
+		"correctionRecords",
 	])
 		await fixed(name);
 	// Meetings at the native boundary: the bound actor, one replay check, one locked read and one write statement.

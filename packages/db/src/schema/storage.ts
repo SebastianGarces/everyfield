@@ -212,6 +212,66 @@ export async function putPrivateObject(
 		return { id: file.id };
 	});
 }
+// Direct uploads (RT-2, design B): the browser puts the bytes straight into the private bucket with a short signed URL,
+// and the save reads them back to check them. No SQL runs here, so no lock is held during any bucket call.
+
+const privateChecks = new WeakMap<PrivateStorage, Promise<void>>();
+/** The bucket's privacy, checked once per process and bucket instead of once per upload. A failed check is retried. */
+export function assertPrivateBucket(storage: PrivateStorage): Promise<void> {
+	const known = privateChecks.get(storage);
+	if (known) return known;
+	const check = storage.client
+		.send(new GetBucketAclCommand({ Bucket: storage.bucket }))
+		.catch(providerFailure)
+		.then((acl) => {
+			if (!acl.Grants?.length || acl.Grants.some((g) => /AllUsers|AuthenticatedUsers/.test(g.Grantee?.URI ?? "")))
+				throw new Error("private_bucket_required");
+		});
+	privateChecks.set(storage, check);
+	check.catch(() => privateChecks.delete(storage));
+	return check;
+}
+/** How long a signed upload URL works. The pending file row lives longer (15 minutes), so the save can follow. */
+export const UPLOAD_URL_SECONDS = 300;
+/**
+ * A five-minute PUT URL for one exact key, content type and length. If-None-Match makes the object write-once, so a
+ * second PUT to the same URL gets 412. Signed locally: no network call after the first privacy check. The browser must
+ * send the returned headers unchanged; a body of another length or type is refused by the bucket.
+ */
+export async function signPrivatePut(storage: PrivateStorage, key: string, mediaType: string, byteLength: number) {
+	await assertPrivateBucket(storage);
+	const issuedAt = new Date();
+	const url = await getSignedUrl(
+		storage.client,
+		new PutObjectCommand({
+			Bucket: storage.bucket,
+			Key: key,
+			ContentType: mediaType,
+			ContentLength: byteLength,
+			IfNoneMatch: "*",
+			CacheControl: "private, no-store",
+		}),
+		{
+			expiresIn: UPLOAD_URL_SECONDS,
+			signingDate: issuedAt,
+			signableHeaders: new Set(["content-type", "content-length", "if-none-match", "cache-control"]),
+		},
+	).catch(providerFailure);
+	return {
+		url,
+		headers: { "content-type": mediaType, "if-none-match": "*", "cache-control": "private, no-store" },
+		expiresAt: new Date(issuedAt.getTime() + UPLOAD_URL_SECONDS * 1000).toISOString(),
+	};
+}
+/** An uploaded object's bytes and stored type, or null when it is missing, larger than `maxBytes` or incomplete. */
+export async function readPrivateObject(storage: PrivateStorage, key: string, maxBytes: number) {
+	const object = await storage.client
+		.send(new GetObjectCommand({ Bucket: storage.bucket, Key: key }))
+		.catch(() => null);
+	if (!object?.Body || !object.ContentLength || object.ContentLength > maxBytes) return null;
+	const bytes = await object.Body.transformToByteArray().catch(() => null);
+	return bytes && bytes.length === object.ContentLength ? { bytes, mediaType: object.ContentType ?? "" } : null;
+}
 export async function readAuthorizedObject(
 	db: Database,
 	storage: PrivateStorage,

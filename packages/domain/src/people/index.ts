@@ -18,5 +18,11 @@ export { contactColumns, PeopleReadContext, Refusal, withPeopleWrite } from "./c
 export { personFields, photoMediaType, readPersonPhoto, uploadPersonPhoto } from "./fields/index.ts";
 export { assessments } from "./assessments/index.ts";
 export { interviews } from "./interviews/index.ts";
-export { commitments, getCommitmentDownload, uploadCommitmentDocument } from "./commitments/index.ts";
+export {
+	commitments,
+	getCommitmentDownload,
+	saveCommitmentDocument,
+	signCommitmentDocument,
+	uploadCommitmentDocument,
+} from "./commitments/index.ts";
 export { executeBulkImport, peopleCsv, runPeopleImport } from "./csv/index.ts";

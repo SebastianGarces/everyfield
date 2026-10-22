@@ -296,16 +296,17 @@ function Place({
 						Change details
 					</Button>
 					{isActive ? (
-						<Button variant="ghost" size="sm" onClick={() => setArchiving(true)}>
+						<Button variant="ghost" size="sm" onClick={() => setArchiving(true)} disabled={archive.pending}>
 							Archive
 						</Button>
 					) : (
-						<Button variant="secondary" size="sm" onClick={() => toggle("restore")}>
+						<Button variant="secondary" size="sm" onClick={() => toggle("restore")} disabled={archive.pending}>
 							Restore
 						</Button>
 					)}
 				</div>
 			) : null}
+			<Problem slot={archive.problemProps.slot} onCheck={archive.problemProps.onCheck} code={null} />
 			{canWrite ? (
 				<ConfirmDialog
 					open={archiving}
@@ -396,7 +397,7 @@ function VenueForm({ venue, onDone }: { venue?: Venue; onDone: (id: string | nul
 		reason: "",
 	});
 	const [touched, setTouched] = useState(false);
-	const { save, pending, problem } = useSave();
+	const { save, pending, problemProps } = useSave();
 	const set = (k: keyof VenueDraft) => (e: { target: { value: string } }) =>
 		setDraft((d) => ({ ...d, [k]: e.target.value }));
 	const capacity = draft.capacity.trim() === "" ? null : Number(draft.capacity);
@@ -521,7 +522,7 @@ function VenueForm({ venue, onDone }: { venue?: Venue; onDone: (id: string | nul
 					<Input value={draft.reason} onChange={set("reason")} maxLength={2000} autoComplete="off" readOnly={pending} />
 				</Field>
 			) : null}
-			<Problem code={problem} />
+			<Problem {...problemProps} />
 			<div className="flex flex-wrap justify-end gap-2.5">
 				<Button variant="secondary" type="button" onClick={() => onDone(venue?.id ?? null)} disabled={pending}>
 					Cancel

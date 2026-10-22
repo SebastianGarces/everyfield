@@ -64,6 +64,8 @@ const pipelineCard = z.strictObject({
 		)
 		.max(100),
 	coverage: z.enum(["covered", "uncovered"]),
+	// No recorded activity for longer than the church's warning or alert days in Settings (REQ-PPL-007).
+	inactivity: z.strictObject({ lastActivityAt: instant, level: z.enum(["none", "warning", "alert"]) }),
 });
 export const pipelineResult = z
 	.strictObject({
@@ -182,7 +184,8 @@ export const activity = z.discriminatedUnion("kind", [
 		...activityBase,
 		kind: z.literal("follow_up"),
 		outcome: z.enum(["contacted", "attempted_no_contact", "administrative_completion", "no_longer_needed"]),
-		obligationId: recordId,
+		// Null for a manual follow-up or a contact recorded with no task: only generated duties have one (REQ-TSK-012).
+		obligationId: recordId.nullable(),
 	}),
 ]);
 export const activitiesResult = z.strictObject({

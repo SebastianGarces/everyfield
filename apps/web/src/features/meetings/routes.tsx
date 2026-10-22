@@ -15,11 +15,12 @@ import { TableSkeleton } from "@everyfield/ui/display";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import { CheckInScreen } from "./CheckInScreen.tsx";
 import { MeetingScreen } from "./MeetingScreen.tsx";
 import { MeetingsScreen } from "./MeetingsScreen.tsx";
 import { parseQuery, querySearch } from "./model.ts";
 import { RsvpScreen } from "./RsvpScreen.tsx";
-import { canWrite, loadMeeting, loadMeetings, plantViewer, type Viewer } from "./server.ts";
+import { canWrite, loadCheckIn, loadMeeting, loadMeetings, plantViewer, type Viewer } from "./server.ts";
 
 // The meetings routes. The files under apps/web/src/app/ only re-export these, so the screens, their data loading and
 // their states stay in this feature folder.
@@ -86,6 +87,34 @@ export async function MeetingPage({ params: route }: { params: Promise<{ meeting
 			</>
 		);
 	return <MeetingScreen key={loaded.meeting.id} data={loaded} canWrite={canWrite(g.viewer)} />;
+}
+
+export const checkInMetadata: Metadata = { title: "Check-in", robots: { index: false, follow: false } };
+/**
+ * Door check-in (phone layout, outside the app frame). Owners and Admins check people in, and so does the leader of a
+ * team meeting for that meeting; anyone else sees the meeting page, which says what their seat allows.
+ */
+export async function CheckInPage({ params: route }: { params: Promise<{ meetingId: string }> }) {
+	const raw = (await route).meetingId;
+	const v = await plantViewer();
+	if (v.signedOut) redirect(`/signin?returnTo=${encodeURIComponent(`/meetings/${raw}/check-in`)}`);
+	const id = meetingIdSchema.safeParse(raw);
+	if (!id.success) notFound();
+	if (!v.viewer) redirect(`/meetings/${id.data}`);
+	const loaded = await loadCheckIn(v.viewer, id.data);
+	if (loaded.status === "missing") notFound();
+	// Owners and Admins, or the leader of this team meeting (C74); anyone else sees the meeting page.
+	if (loaded.status === "found" && !canWrite(v.viewer) && !loaded.attendance?.viewerCanMarkAttendance)
+		redirect(`/meetings/${id.data}`);
+	if (loaded.status === "failed")
+		return (
+			<main className="mx-auto flex min-h-dvh max-w-[560px] flex-col justify-center px-4">
+				<StatePanel tone="error" title="Check-in did not load" headingLevel="h1">
+					This is a loading problem. Nothing was changed. Reload the page in a moment.
+				</StatePanel>
+			</main>
+		);
+	return <CheckInScreen key={loaded.meeting.id} data={loaded} admin={canWrite(v.viewer)} />;
 }
 
 /** A meeting that is not here: missing, deleted, in another church or a malformed link all read the same. */

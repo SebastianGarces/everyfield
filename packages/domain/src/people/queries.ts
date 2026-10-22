@@ -269,20 +269,35 @@ export const peopleReader: PeopleReader<Tx> = {
 				.orderBy(asc(task_t.id))
 				.limit(101)
 				.as("duties");
-			const tasks = ids.length
+			// REQ-PPL-007 (WP-023): the latest recorded activity the Person's history shows, against the church's
+			// inactivity days in Settings. New activity clears the warning.
+			const lastActivity = sql`greatest(${tables.person.created_at},
+				(SELECT max(n.occurred_at) FROM person_note n WHERE n.tenant_id=${tables.person.tenant_id} AND n.person_id=${tables.person.id}),
+				(SELECT max(a.occurred_at) FROM audit_event a WHERE a.tenant_id=${tables.person.tenant_id} AND a.subject_id=${tables.person.id} AND a.kind<>'noop'),
+				(SELECT max(x.occurred_at) FROM contact_outcome x WHERE x.plant_id=${tables.person.tenant_id} AND x.person_id=${tables.person.id} AND x.voided_at IS NULL))`;
+			const cards = ids.length
 				? await tx
 						.select({
 							personId: tables.person.id,
 							id: duties.id,
 							due_date: duties.due_date,
 							today: sql<string>`(clock_timestamp() AT TIME ZONE ${plant_p.timezone})::date`,
+							lastActivity: sql<string>`to_json(${lastActivity})#>>'{}'`,
+							inactivity: sql<"none" | "warning" | "alert">`CASE
+								WHEN clock_timestamp()-${lastActivity} > make_interval(days => ${plant_p.alert_days}) THEN 'alert'
+								WHEN clock_timestamp()-${lastActivity} > make_interval(days => ${plant_p.warning_days}) THEN 'warning'
+								ELSE 'none' END`,
 						})
 						.from(tables.person)
 						.innerJoin(plant_p, eq(plant_p.id, tables.person.plant_id))
-						.innerJoinLateral(duties, sql`true`)
+						.leftJoinLateral(duties, sql`true`)
 						.where(and(eq(tables.person.plant_id, ctx.selected.id), inArray(tables.person.id, ids), gate))
 						.orderBy(asc(duties.id))
 				: [];
+			const activity = new Map(
+				cards.map((r) => [r.personId, { lastActivityAt: new Date(r.lastActivity).toISOString(), level: r.inactivity }]),
+			);
+			const tasks = cards.flatMap((r) => (r.id === null ? [] : [{ ...r, id: r.id }]));
 			const byPerson = new Map<string, typeof tasks>();
 			for (const task of tasks) {
 				const own = byPerson.get(task.personId) ?? [];
@@ -304,6 +319,7 @@ export const peopleReader: PeopleReader<Tx> = {
 								warning: !t.due_date ? "missing_due_date" : t.due_date < t.today ? "overdue" : "none",
 							})),
 							coverage: tasks.length ? "covered" : "uncovered",
+							inactivity: activity.get(person.id)!,
 						};
 					}),
 				})),

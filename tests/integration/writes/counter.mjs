@@ -29,6 +29,7 @@ const factories = {
 	referenceService: "reference",
 	attemptBudget: "identity.budget",
 	createTaskWriter: "tasks",
+	createFollowUpWriter: "followups",
 	createAttendanceWriter: "meetings",
 };
 const standalone = {
@@ -40,9 +41,15 @@ const standalone = {
 	"/packages/domain/src/onboarding/core.ts": ["withOnboardingWrite"],
 	"/packages/domain/src/settings/core.ts": ["withSettingsWrite"],
 	"/packages/domain/src/tasks/core.ts": ["withTaskWrite"],
+	"/packages/domain/src/followups/core.ts": ["withFollowUpWrite"],
 	"/packages/domain/src/settings/avatar.ts": ["uploadAvatar"],
 	"/packages/domain/src/people/fields/index.ts": ["uploadPersonPhoto"],
-	"/packages/domain/src/people/commitments/index.ts": ["uploadCommitmentDocument", "getCommitmentDownload"],
+	"/packages/domain/src/people/commitments/index.ts": [
+		"uploadCommitmentDocument",
+		"getCommitmentDownload",
+		"signCommitmentDocument",
+		"saveCommitmentDocument",
+	],
 	"/packages/domain/src/settings/deletion.ts": ["issueRestrictedDeletionSession"],
 	"/packages/domain/src/people/references.ts": ["detachAccountPersonLinks"],
 	"/packages/domain/src/phases/creation-entry/index.ts": ["recordCreationEntry"],

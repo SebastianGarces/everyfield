@@ -1,11 +1,21 @@
 "use server";
 
+import { requestDatabase } from "@/server/database";
 import * as c from "@everyfield/contracts/people";
-import { assessments, commitments, interviews, peopleReader } from "@everyfield/domain/people";
+import {
+	assessments,
+	commitments,
+	interviews,
+	peopleReader,
+	saveCommitmentDocument,
+	signCommitmentDocument,
+} from "@everyfield/domain/people";
 import { z } from "zod";
 import { boundary, invalid, outcome, receipt, type Receipt } from "../boundary.ts";
 import type { Outcome } from "../model.ts";
 import { read, write } from "../server.ts";
+import { privateStorage } from "@everyfield/db/schema";
+import { peopleContext } from "../fields/server.ts";
 import type {
 	Assessment,
 	Assessments,
@@ -64,6 +74,60 @@ export async function recordCommitment(requestKey: string, input: unknown): Prom
 		})),
 	);
 }
+
+/**
+ * Design B, step 1 (RT-2): a five-minute URL that puts this one file straight into the private bucket. The browser sends
+ * the file's exact bytes to `url` with `headers` and then calls saveCommitmentWithDocument. No bytes reach this server.
+ */
+export async function signCommitmentUpload(
+	input: unknown,
+): Promise<Outcome<z.infer<typeof c.commitmentDocumentUpload>>> {
+	return boundary(c.signCommitmentDocumentRequest, input, async (v, request) => {
+		const storage = privateStorage();
+		const db = requestDatabase();
+		if (!storage || !db) return { status: "refused", code: "storage_unavailable" };
+		const signed = await signCommitmentDocument(
+			db,
+			storage,
+			peopleContext(v),
+			v.authority.actor.accountId,
+			request,
+		).catch(lost);
+		return outcome(signed, (r) => r);
+	});
+}
+
+/**
+ * Design B, step 2 (RT-2): the card with the document the browser uploaded, saved in one statement after the server has
+ * checked the file. A lost answer is retried with the same request key; the first saved card answers.
+ */
+export async function saveCommitmentWithDocument(
+	requestKey: string,
+	input: unknown,
+): Promise<Outcome<CommitmentSaved>> {
+	return boundary(c.saveCommitmentDocumentRequest, { requestKey, input }, async (v, request) => {
+		const storage = privateStorage();
+		const db = requestDatabase();
+		if (!storage || !db) return { status: "refused", code: "storage_unavailable" };
+		const saved = await saveCommitmentDocument(
+			db,
+			storage,
+			peopleContext(v),
+			v.authority.actor.accountId,
+			request,
+		).catch(lost);
+		return outcome(saved, (r) => ({
+			commitment: r.commitment,
+			person: r.person,
+			current: r.current,
+			receipt: receipt(r),
+		}));
+	});
+}
+const lost = (error: unknown) => {
+	console.error(JSON.stringify({ component: "people", outcome: "write_failed", error: String(error) }));
+	return { status: "failed" } as const;
+};
 
 /** Withdraws or reactivates the person's commitment on a date. The stage stays (REQ-PPL-014). */
 export async function changeCommitment(

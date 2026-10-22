@@ -15,6 +15,30 @@
 		"limit": 10,
 		"retry": 20
 	},
+	"followups.assignFollowUp": {
+		"limit": 14,
+		"retry": 28
+	},
+	"followups.correctOutcome": {
+		"limit": 4,
+		"retry": 8
+	},
+	"followups.createFollowUp": {
+		"limit": 13,
+		"retry": 26
+	},
+	"followups.executeHandoff": {
+		"limit": 13,
+		"retry": 26
+	},
+	"followups.recordOutcome": {
+		"limit": 13,
+		"retry": 26
+	},
+	"followups/core.withFollowUpWrite": {
+		"limit": 18,
+		"retry": 36
+	},
 	"identity.budget.finish": {
 		"limit": 1,
 		"retry": 2
@@ -943,6 +967,14 @@
 		"limit": 9,
 		"retry": 18
 	},
+	"people/commitments/index.signCommitmentDocument": {
+		"limit": 1,
+		"retry": 2
+	},
+	"people/commitments/index.saveCommitmentDocument": {
+		"limit": 5,
+		"retry": 5
+	},
 	"native.people.getMergeReview": {
 		"limit": 3,
 		"retry": 6
@@ -968,6 +1000,18 @@
 		"retry": 14
 	},
 	"native.people.correctPersonRecord": {
+		"limit": 6,
+		"retry": 12
+	},
+	"native.people.duplicatePair": {
+		"limit": 5,
+		"retry": 10
+	},
+	"native.people.unmergeView": {
+		"limit": 5,
+		"retry": 10
+	},
+	"native.people.correctionRecords": {
 		"limit": 6,
 		"retry": 12
 	},

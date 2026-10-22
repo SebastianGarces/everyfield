@@ -108,10 +108,11 @@ export function valueText(field: string, value: unknown): string | null {
 }
 
 /**
- * REQ-EVR-011: approval applies only to content the person could inspect. People serves only a person's current photo,
- * so a new upload can't be shown before it is saved, and the card offers no approval for it.
+ * REQ-EVR-011: approval applies only to content the person could inspect. A new photo is approvable once the card
+ * shows its exact upload (GET /api/evry/proposals/{id}/photo); until then, or when the upload is gone, it is not.
  */
-export const approvable = (review: Pick<Review, "operation">) => review.operation !== "people.setPersonPhoto";
+export const approvable = (review: Pick<Review, "operation">, uploadShown: boolean) =>
+	review.operation !== "people.setPersonPhoto" || uploadShown;
 
 /** The first 8 characters of a photo's file id, upper case, as people read a reference. */
 export const photoRef = (value: unknown) => String(value).slice(0, 8).toUpperCase();
@@ -244,6 +245,8 @@ export function actionNotice(error: ProjectedError | "lost"): string {
 			return "This review expired before it was approved. Nothing was changed.";
 		case "review_closed":
 			return "This review is already closed.";
+		case "photo_unavailable":
+			return "The uploaded photo is no longer available, so nothing was saved.";
 		case "invalid_input":
 			return "Some values are not valid. Check them, then update the review.";
 		case "access_denied":

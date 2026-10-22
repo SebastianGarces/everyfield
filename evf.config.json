@@ -586,6 +586,41 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-33": {
+			"title": "Evidence publisher never reads .env.prod",
+			"owningPaths": [".agents/skills/verify-preview/", "tools/evf/tests/publish.test.ts", "evf.config.json"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		},
+		"OPS-34": {
+			"title": "Node.js October 2026 security release in the project",
+			"owningPaths": [
+				".github/workflows/ci.yml",
+				".github/workflows/pr-body.yml",
+				".github/scripts/corepack-install.sh",
+				"evf.config.json"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
