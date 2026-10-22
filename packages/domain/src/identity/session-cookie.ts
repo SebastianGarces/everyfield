@@ -5,14 +5,16 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 // standard base64 with padding, so always 43 characters and "=". Anything else is refused, as better-call refuses it.
 const SIGNATURE = /^[A-Za-z0-9+/]{43}=$/;
 
-/** The token of a session cookie value that Better Auth signed with `secret`, else null. */
+/**
+ * The token of a session cookie that Better Auth signed with `secret`, else null. `value` is the cookie value as the
+ * framework already decoded it (Next.js cookies()); it is not decoded again, so a stray "%" is refused, never thrown.
+ */
 export function signedSessionToken(value: string | undefined, secret: string): string | null {
 	if (!value) return null;
-	const cookie = value.includes("%") ? decodeURIComponent(value) : value;
-	const dot = cookie.lastIndexOf(".");
+	const dot = value.lastIndexOf(".");
 	if (dot < 1) return null;
-	const token = cookie.slice(0, dot);
-	const signature = cookie.slice(dot + 1);
+	const token = value.slice(0, dot);
+	const signature = value.slice(dot + 1);
 	if (!SIGNATURE.test(signature)) return null;
 	const given = Buffer.from(signature, "base64");
 	const expected = createHmac("sha256", secret).update(token).digest();

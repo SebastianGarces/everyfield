@@ -145,23 +145,28 @@ test("RT-1: one lock-free statement reads the request session, its user and the 
 	assert.equal(await readRequestViewer(f.db, token), null);
 });
 
-test("RT-1: the session cookie is accepted only with Better Auth's exact signature", () => {
+test("BUG-RT1-cookie: only Better Auth's exact signed session cookie yields a token; malformed values are refused, never thrown", () => {
 	const secret = "s".repeat(32),
 		token = "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6";
 	const signature = createHmac("sha256", secret).update(token).digest("base64");
-	const cookie = (sig) => encodeURIComponent(`${token}.${sig}`);
-	assert.equal(signedSessionToken(cookie(signature), secret), token);
+	// The value as Next.js cookies() hands it over: already percent-decoded.
 	assert.equal(signedSessionToken(`${token}.${signature}`, secret), token);
 	for (const bad of [
-		signature + "!",
-		signature.slice(0, -1),
-		signature.replace("=", ""),
-		"!" + signature.slice(1),
-		createHmac("sha256", "t".repeat(32)).update(token).digest("base64"),
+		`${token}.${signature}!`,
+		`${token}.${signature.slice(0, -1)}`,
+		`${token}.${signature.replace("=", "")}`,
+		`${token}.!${signature.slice(1)}`,
+		`${token}.${createHmac("sha256", "t".repeat(32)).update(token).digest("base64")}`,
+		encodeURIComponent(`${token}.${signature}`),
+		"%",
+		"%25",
+		"%E0%A4%A",
+		`${token}.${signature.slice(0, -1)}%`,
+		signature,
+		"",
 	])
-		assert.equal(signedSessionToken(cookie(bad), secret), null, bad.length + " " + bad.slice(-2));
+		assert.equal(signedSessionToken(bad, secret), null, JSON.stringify(bad.slice(-6)));
 	assert.equal(signedSessionToken(undefined, secret), null);
-	assert.equal(signedSessionToken(signature, secret), null);
 });
 
 test("INV-reads: a resident's own residency read reuses the observed actor and takes no lock", async (t) => {
