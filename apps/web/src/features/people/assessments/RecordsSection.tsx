@@ -30,7 +30,13 @@ export type RecordProps<T> = {
 	onSaved: (receipt: Receipt, fields: EntryFields) => void;
 	/** A refusal because this page's copy of the person is out of date. */
 	onConflict: () => void;
+	/** Every record corrected elsewhere on this page (Correct a record, WP-015): each card shows its own as saved now. */
+	corrected?: readonly CorrectedRecord[];
 };
+export type CorrectedRecord =
+	| { type: "assessment"; record: z.infer<typeof people.assessment> }
+	| { type: "interview"; record: z.infer<typeof people.interview> }
+	| { type: "commitment"; record: z.infer<typeof people.commitment> };
 
 /**
  * The person's 4 C's, interview and commitment (REQ-PPL-012, 013, 014), for an Owner or Admin. The 4 C's and the
