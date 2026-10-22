@@ -43,27 +43,58 @@ export async function matchPeople(
 ) {
 	const { email, phone } = contactSignals(input);
 	const name = nameSignal(input.displayName ?? undefined);
-	const r =
-		await tx.execute(sql`SELECT g.allowed,coalesce((SELECT jsonb_agg(jsonb_build_object('id',m.id,'displayName',m.display_name,
- 'email',m.e,'phone',m.ph,'name',m.n) ORDER BY m.exact DESC,m.created_at,m.id) FROM (
-  SELECT p.id,p.display_name,p.created_at,coalesce(${personEmail}=${email}::text,false) e,coalesce(${personPhone}=${phone}::text,false) ph,
-   coalesce(${personName}=${name}::text,false) n,coalesce(${personEmail}=${email}::text OR ${personPhone}=${phone}::text,false) exact
-  FROM person p WHERE g.allowed AND p.tenant_id=${owner}::uuid AND p.state='live'
-   AND p.id IS DISTINCT FROM ${exclude ?? null}::uuid
-   AND NOT EXISTS(SELECT FROM organization_person_removal w WHERE w.person_record_id=p.id AND w.organization_id=p.tenant_id)
-   AND (${personEmail}=${email}::text OR ${personPhone}=${phone}::text OR ${personName}=${name}::text)
-  ORDER BY exact DESC,p.created_at,p.id LIMIT ${LIMIT + 1}) m),'[]'::jsonb) AS people
- FROM (SELECT ${gate} AS allowed) g`);
+	const r = await tx.execute(
+		sql`SELECT g.allowed,${matchJson(owner, { email: sql`${email}::text`, phone: sql`${phone}::text`, name: sql`${name}::text` }, sql`${exclude ?? null}::uuid`)} AS people FROM (SELECT ${gate} AS allowed) g`,
+	);
 	const row = found.parse(r.rows[0]);
 	if (!row.allowed) deny();
-	const items = row.people.slice(0, LIMIT).map((p) => ({
+	return duplicateHints(row.people);
+}
+/**
+ * The matching live people as one JSON array, a scalar subquery inside the caller's statement and its live access check.
+ * The signals are SQL text values; a null signal matches nothing.
+ */
+function matchJson(owner: string, signal: { email: SQL; phone: SQL; name: SQL }, exclude: SQL) {
+	return sql`coalesce((SELECT jsonb_agg(jsonb_build_object('id',m.id,'displayName',m.display_name,
+ 'email',m.e,'phone',m.ph,'name',m.n) ORDER BY m.exact DESC,m.created_at,m.id) FROM (
+  SELECT p.id,p.display_name,p.created_at,coalesce(${personEmail}=${signal.email},false) e,coalesce(${personPhone}=${signal.phone},false) ph,
+   coalesce(${personName}=${signal.name},false) n,coalesce(${personEmail}=${signal.email} OR ${personPhone}=${signal.phone},false) exact
+  FROM person p WHERE p.tenant_id=${owner}::uuid AND p.state='live'
+   AND p.id IS DISTINCT FROM ${exclude}
+   AND NOT EXISTS(SELECT FROM organization_person_removal w WHERE w.person_record_id=p.id AND w.organization_id=p.tenant_id)
+   AND (${personEmail}=${signal.email} OR ${personPhone}=${signal.phone} OR ${personName}=${signal.name})
+  ORDER BY exact DESC,p.created_at,p.id LIMIT ${LIMIT + 1}) m),'[]'::jsonb)`;
+}
+function duplicateHints(people: z.infer<typeof found>["people"]) {
+	const items = people.slice(0, LIMIT).map((p) => ({
 		personId: p.id,
 		displayName: p.displayName,
 		match: p.email || p.phone ? ("exact" as const) : ("potential" as const),
 		signals: (["email", "phone", "name"] as const).filter((s) => p[s]),
 	}));
-	return c.duplicateHints.parse({ items, completeness: row.people.length > LIMIT ? "partial" : "complete" });
+	return c.duplicateHints.parse({ items, completeness: people.length > LIMIT ? "partial" : "complete" });
 }
+/**
+ * The duplicate hints for the outer `person` row itself, among the other live people of its church, as one JSON array:
+ * the person page reads them in its own statement. Its contact signals are normalized in SQL as `contactSignals` and
+ * `nameSignal` normalize them in TypeScript.
+ */
+export const personDuplicatesJson = (owner: string) => {
+	const trim = (v: SQL) => sql`regexp_replace(${v},'^\s+|\s+$','','g')`;
+	const email = sql`lower(${trim(sql`person.email`)})`;
+	const phone = sql`regexp_replace(coalesce(person.phone,''),'\D','','g')`;
+	const name = sql`lower(regexp_replace(${trim(sql`person.display_name`)},'\s+',' ','g'))`;
+	return matchJson(
+		owner,
+		{
+			email: sql`(CASE WHEN strpos(${email},'@')>0 THEN ${email} END)`,
+			phone: sql`(CASE WHEN length(${phone})>=7 THEN ${phone} END)`,
+			name: sql`(CASE WHEN char_length(${name})>=2 THEN ${name} END)`,
+		},
+		sql`person.id`,
+	);
+};
+export const personDuplicates = (raw: unknown) => duplicateHints(found.shape.people.parse(raw));
 /**
  * people.checkForDuplicates (REQ-PPL-016): live people of this church who share a normalized email or phone (an exact
  * hint) or the same name (a potential hint). Hints only: they never prove identity or merge anyone. Equality lookups,

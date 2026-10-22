@@ -1225,9 +1225,19 @@ test("INV-reads: the person page and the status warnings use a fixed number of s
 			}),
 		),
 	);
+	// The page reads with the request's cached viewer on the pool, as the web does: one statement for every part.
+	const viewer = new PeopleReadContext(await tx((t) => RequestActor.resolve(t, actors[0].session)));
 	queries = [];
-	const page = ok(await tx((t) => readPersonPage(t, ctx(), { personId: p.id }, 50)));
+	const page = ok(
+		await readPersonPage(db, viewer, { personId: p.id }, 50, { fields: true, records: 10, duplicates: true }),
+	);
 	const pageStatements = queries.length;
+	assert.deepEqual(page.fields, { tags: [], skills: [], household: { status: "none" }, photo: { status: "absent" } });
+	assert.deepEqual(
+		[page.records.assessments.total, page.records.interviews.total, page.records.commitments.total],
+		[0, 0, 0],
+	);
+	assert.deepEqual(page.duplicates, { items: [], completeness: "complete" });
 	assert.equal(page.found.person.id, p.id);
 	assert.deepEqual(page.link, { status: "ok", value: { status: "unlinked" } });
 	assert.deepEqual(
@@ -1242,8 +1252,8 @@ test("INV-reads: the person page and the status warnings use a fixed number of s
 	const warningStatements = queries.length;
 	assert.deepEqual(warnings.warnings, ["assessment_not_recorded", "interview_not_recorded", "commitment_not_recorded"]);
 	assert.deepEqual(warnings.openDuties, []);
-	// BEGIN, actor, person, activities (or warnings), COMMIT; a commitment projection may add one.
-	assert.ok(pageStatements <= 6, `person page: ${pageStatements} statements`);
+	assert.equal(pageStatements, 1, `person page: ${pageStatements} statements`);
+	// Status warnings: BEGIN, actor, person, warnings, COMMIT; a commitment projection may add one.
 	assert.ok(warningStatements <= 5, `status warnings: ${warningStatements} statements`);
 	assert.equal(
 		queries.some((q) => /for\s+(update|share)/i.test(q)),

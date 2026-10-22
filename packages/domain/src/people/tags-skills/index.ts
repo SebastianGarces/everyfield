@@ -55,10 +55,10 @@ async function oneTag(tx: Tx, plant: string, id: string) {
 	return found;
 }
 /** One Person's tags in name order, as a scalar subquery read with the Person row (it names the outer `person`). */
-const personTagsJson = (plant: string) =>
+export const personTagsJson = (plant: string) =>
 	sql`coalesce((SELECT jsonb_agg(jsonb_build_object('id',t.id,'name',t.name,'color',t.color) ORDER BY t.normalized_name,t.id)
  FROM person_tag pt JOIN tag t ON t.id=pt.tag_id AND t.plant_id=pt.plant_id WHERE pt.person_id=person.id AND pt.plant_id=${plant}::uuid),'[]')`;
-const personTags = (raw: unknown) => z.array(f.personTag).parse(raw);
+export const personTags = (raw: unknown) => z.array(f.personTag).parse(raw);
 const tagFacts = (t: { revision: string; name: string; color: string | null }) => ({
 	revision: t.revision,
 	name: t.name,
@@ -90,6 +90,18 @@ const skillView = (r: z.infer<typeof skillRow>): Skill =>
 		notes: r.notes,
 		revision: r.revision,
 	});
+/** One Person's skills, as a scalar subquery read with the Person row (it names the outer `person`). */
+export const personSkillsJson = (plant: string) =>
+	sql`coalesce((SELECT jsonb_agg(jsonb_build_object('id',s.id,'person_id',s.person_id,'name',s.name,'category',s.category,
+ 'proficiency',s.proficiency,'notes',s.notes,'revision',s.revision::text)) FROM person_skill s
+ WHERE s.person_id=person.id AND s.plant_id=${plant}::uuid),'[]')`;
+/** The skills of `personSkillsJson` in REQ-PPL-011 order. */
+export const personSkills = (raw: unknown) =>
+	z
+		.array(skillRow)
+		.parse(raw)
+		.map((r) => skillView(r))
+		.sort(skillOrder);
 /** Every current skill of one Person, found by the Person or by one of its skills. One query. */
 async function skillsOf(tx: Tx, plant: string, by: { personId: string } | { skillId: string }) {
 	const person =
@@ -250,23 +262,8 @@ export const tagsAndSkills = {
 			const plant = plantId(ctx);
 			const input = parse(f.personFieldsRequest, raw);
 			const { gate } = await authorizeRead(tx, ctx);
-			const p = await personFacts(
-				tx,
-				plant,
-				input.personId,
-				sql`coalesce((SELECT jsonb_agg(jsonb_build_object('id',s.id,'person_id',s.person_id,'name',s.name,'category',s.category,
- 'proficiency',s.proficiency,'notes',s.notes,'revision',s.revision::text)) FROM person_skill s
- WHERE s.person_id=person.id AND s.plant_id=${plant}::uuid),'[]')`,
-				gate,
-			);
-			return f.personSkillsResult.parse({
-				personId: input.personId,
-				skills: z
-					.array(skillRow)
-					.parse(p.extra)
-					.map((r) => skillView(r))
-					.sort(skillOrder),
-			});
+			const p = await personFacts(tx, plant, input.personId, personSkillsJson(plant), gate);
+			return f.personSkillsResult.parse({ personId: input.personId, skills: personSkills(p.extra) });
 		});
 	},
 	async addSkill(tx: Tx, ctx: WriteContext, raw: unknown) {

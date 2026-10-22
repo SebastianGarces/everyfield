@@ -107,40 +107,54 @@ export function attribution(plant: string, recordId: string, actorId: string | n
 		: { kind: "former_account" as const, scopeLocalToken: hash([plant, recordId]) };
 }
 
+export type HistoryPage = { page: number; limit: number };
 /**
- * One Person's records in one statement: the live reader check (C13, Owner and Admin only), the Person, one page latest
- * first, the latest record and the total. `row` builds one record's JSON from alias `r`; `order` sorts alias `r`.
+ * One Person's records as one JSON value: one page latest first, the latest record and the total. A scalar expression
+ * over the Person alias `p`. `row` builds one record's JSON from alias `r`; `order` sorts alias `r`.
  */
-export async function readHistory(
-	tx: Tx,
-	ctx: Context,
-	input: { personId: string; page: number; limit: number },
+export function historyJson(
+	plant: string,
+	input: HistoryPage,
 	from: SQL,
 	row: SQL,
 	order: SQL,
 	extra: SQL = sql`NULL`,
 ) {
-	const plant = plantId(ctx);
 	const where = sql`r.person_id=p.id AND r.plant_id=${plant}::uuid`;
-	const result = await tx.execute(sql`SELECT p.id AS person_id,${extra} AS extra,
- (SELECT count(*)::int FROM ${from} r WHERE ${where}) AS total,
- (SELECT coalesce(jsonb_agg(x.j ORDER BY x.n),'[]') FROM (SELECT ${row} AS j,row_number() OVER (ORDER BY ${order}) AS n
-   FROM ${from} r WHERE ${where} ORDER BY ${order} LIMIT ${input.limit} OFFSET ${(input.page - 1) * input.limit}) x) AS items,
- (SELECT ${row} FROM ${from} r WHERE ${where} ORDER BY ${order} LIMIT 1) AS latest
+	return sql`jsonb_build_object('extra',${extra},'total',(SELECT count(*)::int FROM ${from} r WHERE ${where}),
+ 'items',(SELECT coalesce(jsonb_agg(x.j ORDER BY x.n),'[]') FROM (SELECT ${row} AS j,row_number() OVER (ORDER BY ${order}) AS n
+   FROM ${from} r WHERE ${where} ORDER BY ${order} LIMIT ${input.limit} OFFSET ${(input.page - 1) * input.limit}) x),
+ 'latest',(SELECT ${row} FROM ${from} r WHERE ${where} ORDER BY ${order} LIMIT 1))`;
+}
+const historyRow = z.object({
+	extra: z.unknown(),
+	total: z.number(),
+	items: z.array(z.unknown()),
+	latest: z.unknown(),
+});
+/** The page of a `historyJson` value. */
+export function history(plant: string, input: HistoryPage, raw: unknown) {
+	const { total, items, latest, extra } = historyRow.parse(raw);
+	return { plant, total, items, latest, extra, next: input.page * input.limit < total ? input.page + 1 : null };
+}
+export type History = ReturnType<typeof history>;
+
+/**
+ * One Person's records in one statement: the live reader check (C13, Owner and Admin only), the Person and its
+ * `historyJson`.
+ */
+export async function readHistory(
+	tx: Tx,
+	ctx: Context,
+	input: { personId: string } & HistoryPage,
+	json: (plant: string) => SQL,
+) {
+	const plant = plantId(ctx);
+	const result = await tx.execute(sql`SELECT ${json(plant)} AS h
  FROM person p WHERE ${adminRead(ctx)} AND p.id=${input.personId}::uuid AND p.tenant_id=${plant}::uuid
  AND p.plant_id=${plant}::uuid`);
-	const found = z
-		.object({
-			person_id: z.uuid(),
-			extra: z.unknown(),
-			total: z.number(),
-			items: z.array(z.unknown()),
-			latest: z.unknown(),
-		})
-		.safeParse(result.rows[0]);
-	if (!found.success) deny();
-	const { total, items, latest, extra: more } = found.data;
-	return { plant, total, items, latest, extra: more, next: input.page * input.limit < total ? input.page + 1 : null };
+	if (!result.rows[0]) deny();
+	return history(plant, input, result.rows[0].h);
 }
 
 /**

@@ -27,6 +27,7 @@ import {
 	getCommitmentDownload,
 	peopleMerge,
 	peopleUnmerge,
+	readPersonPage,
 	recordCorrections,
 } from "../../../packages/domain/src/people/index.ts";
 import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/dist-cjs/index.js";
@@ -41,7 +42,6 @@ import { createOnboardingProducer, withOnboardingWrite } from "../../../packages
 import { withSettingsWrite } from "../../../packages/domain/src/settings/index.ts";
 import { sectionOperations } from "../../../packages/domain/src/settings/sections.ts";
 import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/notifications.ts";
-import { readPersonRecords } from "../../../apps/web/src/features/people/assessments/server.ts";
 import { readPair, readRecords, readUnmerge } from "../../../apps/web/src/features/people/corrections/server.ts";
 import { measure } from "./counter.mjs";
 
@@ -406,12 +406,11 @@ try {
 		value(await view("getAssessments", (tx, ctx) => assessments.getAssessments(tx, ctx, { personId })));
 		value(await view("getInterviews", (tx, ctx) => interviews.getInterviews(tx, ctx, { personId })));
 		const held = value(await view("getCommitments", (tx, ctx) => commitments.getCommitments(tx, ctx, { personId })));
-		// The Person page reads all three histories in its own transaction (WP-014/ui): one statement each.
-		const records = value(
-			await view("personRecords", async (tx, ctx) => ({
-				status: "ok",
-				value: await readPersonRecords(tx, ctx, personId),
-			})),
+		// The Person page reads all three histories with the person, its fields and hints in one statement (RT-5).
+		const { records } = value(
+			await view("personPage", (tx, ctx) =>
+				readPersonPage(tx, ctx, { personId }, 50, { fields: true, records: 10, duplicates: true }),
+			),
 		);
 		assert.ok(records.assessments && records.interviews && records.commitments, "every history reads");
 		value(
@@ -453,7 +452,7 @@ try {
 		"getAssessments",
 		"getInterviews",
 		"getCommitments",
-		"personRecords",
+		"personPage",
 		"withdrawCommitment",
 		"reactivateCommitment",
 		"correctCommitmentLifecycle",

@@ -6,15 +6,14 @@ import { peopleMerge, peopleUnmerge, recordCorrections } from "@everyfield/domai
 import { z } from "zod";
 import { boundary, outcome, receipt, type Receipt } from "../boundary.ts";
 import type { Outcome } from "../model.ts";
-import { canWrite, read, write, type Viewer } from "../server.ts";
-import { readPersonPage } from "../page-data.ts";
-import { readPersonFields } from "../fields/server.ts";
-import { readPersonRecords } from "../assessments/server.ts";
+import { loadPerson, read, write, type Viewer } from "../server.ts";
+import type { PersonFields } from "../fields/model.ts";
+import type { PersonRecords } from "../assessments/model.ts";
 import {
-	readDuplicateHints,
 	readPair,
 	readRecords,
 	readUnmerge,
+	type DuplicateHints,
 	type PairView,
 	type Records,
 	type UnmergeView,
@@ -63,38 +62,26 @@ type PersonId = z.infer<typeof c.personRequest>["personId"];
 export type PersonPage = {
 	person: PlantPerson;
 	activities: z.infer<typeof c.activitiesResult> | null;
-	fields: Awaited<ReturnType<typeof readPersonFields>> | null;
-	records: Awaited<ReturnType<typeof readPersonRecords>> | null;
-	duplicates: Awaited<ReturnType<typeof readDuplicateHints>>;
+	fields: PersonFields | null;
+	records: PersonRecords | null;
+	duplicates: DuplicateHints | null;
 };
 /**
- * The whole person page again, after an Unmerge moved records, tags, skills and the household back to the other person.
- * The three independent parts read in parallel, each in its own short read transaction, so the wait is the slowest part
- * rather than all of them in a row (C84: Unmerge with its refresh stays under one second). Null when a part did not read.
+ * The whole person page again, after an Unmerge moved records, tags, skills and the household back to the other person:
+ * the same one-statement read as the page itself (C84: Unmerge with its refresh stays under one second). Null when it
+ * did not read.
  */
 async function readPersonPageNow(v: Viewer, personId: PersonId): Promise<PersonPage | null> {
-	const ok = <T>(value: T) => ({ status: "ok" as const, value });
-	const [base, fields, records] = await Promise.all([
-		// The person, their first Activity page and their duplicate hints, which need the person's current facts.
-		read(v, async (tx, ctx) => {
-			const page = await readPersonPage(tx, ctx, personId);
-			if (page.status !== "ok") return page;
-			const found = page.value.found;
-			const person = found.status === "available" && "stage" in found.person ? found.person : null;
-			const duplicates = person?.lifecycle.state === "live" ? await readDuplicateHints(tx, ctx, person) : null;
-			return ok({ person, activities: page.value.activities, duplicates });
-		}),
-		read(v, async (tx, ctx) => ok(await readPersonFields(tx, ctx, personId))),
-		canWrite(v) ? read(v, async (tx, ctx) => ok(await readPersonRecords(tx, ctx, personId))) : null,
-	]);
-	if (base.status !== "ok" || !base.value?.person || fields.status !== "ok" || (records && records.status !== "ok"))
-		return null;
+	const r = await loadPerson(v, personId);
+	if (r.status !== "ok") return null;
+	const { found, activities, fields, records, duplicates } = r.value;
+	if (found.status !== "available" || !("stage" in found.person)) return null;
 	return {
-		person: base.value.person,
-		activities: base.value.activities?.status === "ok" ? base.value.activities.value : null,
-		fields: fields.value ?? null,
-		records: records?.status === "ok" ? (records.value ?? null) : null,
-		duplicates: base.value.duplicates,
+		person: found.person,
+		activities: activities?.status === "ok" ? activities.value : null,
+		fields,
+		records,
+		duplicates,
 	};
 }
 

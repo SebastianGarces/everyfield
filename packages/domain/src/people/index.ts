@@ -1,13 +1,7 @@
 import "server-only";
 export { accountPersonProducer, peopleWriter } from "./people.ts";
-export {
-	getAccountLink,
-	peopleReader,
-	peopleViewer,
-	readColumnOrders,
-	readPeopleViewer,
-	readPersonPage,
-} from "./queries.ts";
+export { getAccountLink, peopleReader, peopleViewer, readColumnOrders, readPeopleViewer } from "./queries.ts";
+export { readPersonPage, type PersonPageParts } from "./page.ts";
 export { detachAccountPersonLinks } from "./references.ts";
 export { checkForDuplicates } from "./duplicates.ts";
 export { peopleMerge } from "./merge/index.ts";
