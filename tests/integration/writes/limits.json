@@ -696,36 +696,36 @@
 		"retry": 28
 	},
 	"tasks.bulkReschedule": {
-		"limit": 3,
-		"retry": 6
+		"limit": 5,
+		"retry": 10
 	},
 	"tasks.completeOccurrence": {
 		"limit": 8,
 		"retry": 16
 	},
 	"tasks.configureRecurrence": {
-		"limit": 2,
-		"retry": 4
+		"limit": 4,
+		"retry": 8
 	},
 	"tasks.createSubtask": {
 		"limit": 5,
 		"retry": 10
 	},
 	"tasks.removeSubtask": {
-		"limit": 2,
-		"retry": 4
+		"limit": 4,
+		"retry": 8
 	},
 	"tasks.replacePrerequisites": {
 		"limit": 5,
 		"retry": 10
 	},
 	"tasks.setSubtaskCompletion": {
-		"limit": 2,
-		"retry": 4
+		"limit": 4,
+		"retry": 8
 	},
 	"tasks.changeStatus": {
-		"limit": 2,
-		"retry": 4
+		"limit": 4,
+		"retry": 8
 	},
 	"tasks.complete": {
 		"limit": 8,
@@ -744,12 +744,12 @@
 		"retry": 30
 	},
 	"tasks.reopen": {
-		"limit": 2,
-		"retry": 4
+		"limit": 4,
+		"retry": 8
 	},
 	"tasks.waive": {
-		"limit": 2,
-		"retry": 4
+		"limit": 4,
+		"retry": 8
 	},
 	"tasks/core.withTaskWrite": {
 		"limit": 16,
