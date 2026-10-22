@@ -51,10 +51,13 @@ export function DoneBox({
 	task,
 	canAct,
 	wait,
+	describedBy,
 	onToggle,
 }: {
 	task: Pick<TaskItem, "title" | "status">;
 	canAct: boolean;
+	/** The ID of the text that says why the box waits. */
+	describedBy?: string;
 	/** The task's last save is in flight or unknown: the box waits (C68). */
 	wait: Wait;
 	onToggle: () => void;
@@ -67,6 +70,7 @@ export function DoneBox({
 				shape="round"
 				aria-label={`${settled ? "Reopen" : "Complete"} ${task.title}`}
 				aria-busy={wait === "saving" || undefined}
+				aria-describedby={describedBy}
 				disabled={wait !== null}
 				// A save takes a moment: the box keeps its new state at full strength instead of flashing dim.
 				className={wait === "saving" ? "disabled:cursor-progress disabled:opacity-100" : undefined}

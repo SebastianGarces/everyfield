@@ -40,7 +40,16 @@ import {
 import { KeyValue, KeyValueList, Pagination, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useOptimistic, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
+import {
+	useEffect,
+	useId,
+	useOptimistic,
+	useRef,
+	useState,
+	useSyncExternalStore,
+	useTransition,
+	type ReactNode,
+} from "react";
 import { SaveLane, type LaneOptions, type SaveSpec, type Wait } from "../../components/save/model.ts";
 import { NoticeInDialog, SaveNotice } from "../../components/save/parts.tsx";
 import {
@@ -1127,6 +1136,9 @@ function TaskRow({
 	onDelete: () => void;
 }) {
 	const settled = isSettled(task.status);
+	// While the task's save is in flight or unknown, its controls wait (C68) and say why next to the title.
+	const hint = useId();
+	const waiting = canAct && wait !== null;
 	return (
 		<li
 			data-done={settled || undefined}
@@ -1138,7 +1150,7 @@ function TaskRow({
 					<Checkbox aria-label={`Select ${task.title}`} checked={selected} onCheckedChange={onSelect} />
 				</label>
 			) : null}
-			<DoneBox task={task} canAct={canAct} wait={wait} onToggle={onToggle} />
+			<DoneBox task={task} canAct={canAct} wait={wait} describedBy={waiting ? hint : undefined} onToggle={onToggle} />
 			<div className="min-w-0 flex-1">
 				<button
 					type="button"
@@ -1151,13 +1163,23 @@ function TaskRow({
 				>
 					{task.title}
 				</button>
+				{waiting ? (
+					<span id={hint} className="ml-2 text-xs whitespace-nowrap text-text-2">
+						{wait === "saving" ? "Saving…" : "Check the last save first."}
+					</span>
+				) : null}
 				<MetaLine task={task} year={year} />
 			</div>
 			<Assignee task={task} you={you} />
 			{canAct ? (
 				<Menu>
 					<MenuTrigger asChild>
-						<IconButton icon={MoreHorizontalIcon} label={`More for ${task.title}`} size="sm" />
+						<IconButton
+							icon={MoreHorizontalIcon}
+							label={`More for ${task.title}`}
+							size="sm"
+							aria-describedby={waiting ? hint : undefined}
+						/>
 					</MenuTrigger>
 					<MenuContent align="end">
 						<StatusItems task={task} disabled={wait !== null} onAction={onAction} />
