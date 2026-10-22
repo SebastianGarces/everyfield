@@ -2,7 +2,7 @@ import "server-only";
 import { getViewer } from "@/server/request-context";
 import { instant, recordId } from "@everyfield/contracts/common";
 import type { z } from "zod";
-import type { Outcome } from "./model.ts";
+import type { Outcome } from "../../components/save/model.ts";
 import type { read, Viewer } from "./server.ts";
 
 // The browser boundary every People server action shares: rebuild the viewer, parse the input, map the producer's reply.

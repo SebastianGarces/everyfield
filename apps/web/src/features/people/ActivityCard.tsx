@@ -35,7 +35,8 @@ import type { z } from "zod";
 import { addNote, deleteNote, editNote, loadActivities } from "./actions.ts";
 import { unmergeIntent } from "./corrections/intent.ts";
 import { householdChange } from "./fields/model.ts";
-import { runSave, STAGE_LABEL, type Outcome, type PersonStore } from "./model.ts";
+import { runSave, STAGE_LABEL, type PersonStore } from "./model.ts";
+import type { Outcome } from "../../components/save/model.ts";
 import { FormProblem, fresh, isConflict, problemOf, useStore, When } from "./parts.tsx";
 import type { PersonDraft } from "./StageDialog.tsx";
 

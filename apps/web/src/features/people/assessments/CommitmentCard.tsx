@@ -29,8 +29,10 @@ import {
 import { KeyValue, KeyValueList, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { startTransition, useOptimistic, useRef, useState, useTransition } from "react";
-import { newerRevision, runSave, STAGE_LABEL, type KeyedPayload, type Outcome } from "../model.ts";
-import { fresh, isConflict, LocalDay, useStore } from "../parts.tsx";
+import type { Outcome } from "../../../components/save/model.ts";
+import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
+import { newerRevision, STAGE_LABEL, throughStore } from "../model.ts";
+import { LocalDay, useStore } from "../parts.tsx";
 import {
 	changeCommitment,
 	correctCommitment,
@@ -60,11 +62,8 @@ import {
 	type Commitments,
 	type CommitmentStatus,
 	type FirstAcquisition,
-	sendTwice,
-	stillUnknown,
-	waitOf,
 } from "./model.ts";
-import { codeOf, recorder, NoticeInDialog, SaveNotice, ShowEarlier, useHistory, useRecordForm } from "./parts.tsx";
+import { recorder, recordProblem, ShowEarlier, useHistory } from "./parts.tsx";
 import type { PlantPerson, RecordProps } from "./RecordsSection.tsx";
 import { newUpload, reusable, saveWithDocument, type DocumentUpload } from "./upload.ts";
 
@@ -117,24 +116,25 @@ export function CommitmentCard({
 		"card" in e ? { ...v, items: withRecord(v.items, e.card) } : { ...v, current: e.current },
 	);
 	const [, start] = useTransition();
-	const dialog = useRecordForm<Editing>();
+	// Another change to this person is saving: the card waits, and Check again waits for it (C65, C68).
+	useStore(store);
+	const dialog = useSaveIntent<Editing>({ explain: recordProblem, busy: () => store.get().pending !== null });
 	/** How much of the pending card's document the bucket has received, 0 to 1, or null when no bytes are moving. */
 	const [progress, setProgress] = useState<number | null>(null);
 	/** Uploads a refused save left pending, by file: a corrected form with the same file does not send it again. */
 	const uploads = useRef(new WeakMap<File, DocumentUpload>());
-	/** Another change to this person is saving; Check again waits for it, so it never reads as refused. */
-	const saving = useStore(store).pending !== null;
-	const wait = waitOf(saving, dialog.notice);
+	const wait = dialog.wait;
 	const editing = dialog.editing;
 	const first = firstName(personName);
 	const moves = advancedStage(stage, "core_group") !== stage;
 	const state = view.current?.state ?? "unknown";
-	/** A save that did not save: its form opens again with the reason, or the card says why (model.ts formRefused). */
-	const refused = (token: number, e: Editing, r: Outcome<unknown> | null, id: string, what: string) => {
-		const code = r?.status === "refused" && r.code === "invalid_input" ? invalidInput(e) : codeOf(r);
-		startTransition(() => dialog.refused(token, { ...e, problem: code } as Editing, id, what));
-		if (isConflict(r)) onConflict();
-	};
+	/** A refused save's code: an invalid date or file named as well as the answer allows; a conflict reads the person. */
+	const refusal = (e: Editing) => ({
+		code: (code: string) => (code === "invalid_input" ? invalidInput(e) : code),
+		refused: (code: string) => {
+			if (code === "conflict") onConflict();
+		},
+	});
 	/**
 	 * The save answers invalid_input for a date after the church's today and for a file it cannot read. A card signed
 	 * before yesterday cannot be in the future anywhere, so with a file that answer means the file.
@@ -150,7 +150,6 @@ export function CommitmentCard({
 		({ ...store.get().saved, stage: stageNow, revision }) as PlantPerson;
 
 	function record(draft: CommitmentDraft) {
-		const { token, key } = dialog.send();
 		start(async () => {
 			const now = new Date().toISOString();
 			const witness =
@@ -191,66 +190,67 @@ export function CommitmentCard({
 			};
 			const file = draft.file;
 			const known = file ? uploads.current.get(file) : undefined;
-			await commitCard(base, file ? (reusable(known) ? known : newUpload(file)) : null, key, token, draft);
+			await commitCard(base, file ? (reusable(known) ? known : newUpload(file)) : null, draft);
 		});
 	}
 
 	/**
-	 * One card save of one intent: its first send, or Check again with the same request and key (token -1). The document
-	 * moves inside the save, so the card counts as saving from the first byte (C68). Check again keeps the intent's
-	 * upload, so it never signs or sends the file again before the save has checked it (upload.ts). A refused save keeps
-	 * the upload pending for a corrected form with the same file; a saved card takes it.
+	 * One card save of one intent. The document moves inside the save, so the card counts as saving from the first byte
+	 * (C68). Check again keeps the intent's upload, so it never signs or sends the file again before the save has checked
+	 * it (upload.ts, C97); that upload replays on its own, so the lane does not. A refused save keeps the upload pending
+	 * for a corrected form with the same file; a saved card takes it.
 	 */
 	async function commitCard(
 		base: { personId: string } & Record<string, unknown>,
 		upload: DocumentUpload | null,
-		key: KeyedPayload,
-		token: number,
 		draft: CommitmentDraft,
 	) {
-		const send = (k: string): Promise<Outcome<CommitmentSaved>> =>
-			upload ? saveWithDocument(k, base, upload, setProgress) : sendTwice(() => recordCommitment(k, base));
-		const r = await runSave(store, "commitment", base, send, {
-			fresh,
-			key,
-			toPerson: (v: CommitmentSaved) => personAfter(v.person.revision, v.person.stage),
-		});
-		const what = "Your commitment card";
-		if (stillUnknown(r, token))
-			return dialog.unknown(key.key, what, () => start(() => commitCard(base, upload, key, -1, draft)));
-		if (upload) {
-			if (r?.status === "ok") uploads.current.delete(upload.file);
-			else uploads.current.set(upload.file, upload);
-		}
-		if (r?.status !== "ok") return refused(token, { form: "record", draft }, r, key.key, what);
-		dialog.settled(key.key);
-		const { commitment, current: now, person } = r.value;
-		startTransition(() => {
-			history.add(commitment);
-			setLatest(now);
-			setFirstOn((f) => withCard(f, commitment));
-			if (draft.witness.kind === "person") {
-				const w = draft.witness;
-				setNames((n) => ({ ...n, [w.id]: w.name }));
-			}
-		});
-		onSaved(r.value.receipt, {
-			kind: "activity",
-			action: "commitment_recorded",
-			recordId: commitment.id,
-			...(person.stageChange ? { stage: person.stageChange } : {}),
-		});
-		toast({
-			tone: "success",
-			message: person.stageChange
-				? `Commitment saved. ${first} is now ${STAGE_LABEL[person.stageChange.to].toLowerCase()}.`
-				: `Commitment saved for ${first}.`,
+		const form: Editing = { form: "record", draft };
+		const { code, refused } = refusal(form);
+		await dialog.save({
+			what: "Your commitment card",
+			form,
+			send: (k): Promise<Outcome<CommitmentSaved>> =>
+				upload ? saveWithDocument(k, base, upload, setProgress) : recordCommitment(k, base),
+			replay: upload === null,
+			through: throughStore(store, "commitment", (v: CommitmentSaved) =>
+				personAfter(v.person.revision, v.person.stage),
+			),
+			code,
+			refused: (c) => {
+				if (upload) uploads.current.set(upload.file, upload);
+				refused(c);
+			},
+			ok: (value) => {
+				if (upload) uploads.current.delete(upload.file);
+				const { commitment, current: now, person } = value;
+				startTransition(() => {
+					history.add(commitment);
+					setLatest(now);
+					setFirstOn((f) => withCard(f, commitment));
+					if (draft.witness.kind === "person") {
+						const w = draft.witness;
+						setNames((n) => ({ ...n, [w.id]: w.name }));
+					}
+				});
+				onSaved(value.receipt, {
+					kind: "activity",
+					action: "commitment_recorded",
+					recordId: commitment.id,
+					...(person.stageChange ? { stage: person.stageChange } : {}),
+				});
+				toast({
+					tone: "success",
+					message: person.stageChange
+						? `Commitment saved. ${first} is now ${STAGE_LABEL[person.stageChange.to].toLowerCase()}.`
+						: `Commitment saved for ${first}.`,
+				});
+			},
 		});
 	}
 
 	function lifecycle(change: "withdraw" | "reactivate", draft: LifecycleDraft) {
 		if (!current) return;
-		const { token, key } = dialog.send();
 		start(async () => {
 			expect({
 				current: {
@@ -261,50 +261,36 @@ export function CommitmentCard({
 			});
 			const revision = store.get().saved.revision;
 			const input = { personId, effectiveOn: draft.effectiveOn, reason: draft.reason || null };
-			await commitLifecycle(change, input, revision, key, token, draft);
-		});
-	}
-
-	/** One withdrawal or reactivation: its first send, or Check again with the same request and key (token -1). */
-	async function commitLifecycle(
-		change: "withdraw" | "reactivate",
-		input: { personId: string; effectiveOn: string; reason: string | null },
-		revision: string,
-		key: KeyedPayload,
-		token: number,
-		draft: LifecycleDraft,
-	) {
-		const r = await runSave(
-			store,
-			change,
-			{ input, revision },
-			(k) => sendTwice(() => changeCommitment(change, k, revision, input)),
-			{ fresh, key, toPerson: (v) => personAfter(v.current.personRevision) },
-		);
-		const what = change === "withdraw" ? "Your withdrawal" : "Your reactivation";
-		if (stillUnknown(r, token))
-			return dialog.unknown(key.key, what, () => start(() => commitLifecycle(change, input, revision, key, -1, draft)));
-		if (r?.status !== "ok") return refused(token, { form: change, draft }, r, key.key, what);
-		dialog.settled(key.key);
-		startTransition(() => setLatest(r.value.current));
-		onSaved(r.value.receipt, {
-			kind: "activity",
-			action: change === "withdraw" ? "commitment_withdrawn" : "commitment_reactivated",
-		});
-		toast({
-			tone: "success",
-			// A checked-again save may land after a later change moved the state on, so it names the change only.
-			message:
-				token === -1
-					? `${what} is saved.`
-					: change === "withdraw"
-						? `${first}'s commitment is withdrawn.`
-						: `${first}'s commitment is active again.`,
+			const what = change === "withdraw" ? "Your withdrawal" : "Your reactivation";
+			await dialog.save({
+				what,
+				form: { form: change, draft },
+				send: (k) => changeCommitment(change, k, revision, input),
+				through: throughStore(store, change, (v: { current: CommitmentStatus }) =>
+					personAfter(v.current.personRevision),
+				),
+				...refusal({ form: change, draft }),
+				ok: (value, checked) => {
+					startTransition(() => setLatest(value.current));
+					onSaved(value.receipt, {
+						kind: "activity",
+						action: change === "withdraw" ? "commitment_withdrawn" : "commitment_reactivated",
+					});
+					toast({
+						tone: "success",
+						// A checked-again save may land after a later change moved the state on, so it names the change only.
+						message: checked
+							? `${what} is saved.`
+							: change === "withdraw"
+								? `${first}'s commitment is withdrawn.`
+								: `${first}'s commitment is active again.`,
+					});
+				},
+			});
 		});
 	}
 
 	function correct(card: Commitment, draft: CorrectionDraft) {
-		const { token, key } = dialog.send();
 		start(async () => {
 			const voiding = draft.action === "void";
 			expect({
@@ -319,39 +305,29 @@ export function CommitmentCard({
 						...(draft.occurredOn !== card.occurredOn ? { occurredOn: draft.occurredOn } : {}),
 						...(draft.kind !== card.kind ? { kind: draft.kind } : {}),
 					};
-			await commitCorrection(card, { commitmentId: card.id, correction, reason: draft.reason }, key, token, draft);
+			const input = { commitmentId: card.id, correction, reason: draft.reason };
+			const form: Editing = { form: "correct", card, draft };
+			await dialog.save({
+				what: voiding ? "Your void of the card" : "Your card correction",
+				form,
+				send: (k) => correctCommitment(k, card.revision, personId, input),
+				through: throughStore(store, `correct:${card.id}`, (v: { commitments: { current: CommitmentStatus } }) =>
+					personAfter(v.commitments.current.personRevision),
+				),
+				...refusal(form),
+				ok: (value) => {
+					const page = value.commitments;
+					startTransition(() => {
+						history.setPage({ items: page.items, next: page.next, total: page.total });
+						setLatest(page.current);
+						setFirstOn(page.firstAcquisition);
+						setNames(page.witnessNames);
+					});
+					onSaved(value.receipt, { kind: "activity", action: "commitment_corrected", recordId: card.id });
+					toast({ tone: "success", message: voiding ? "The card is voided." : "The card is corrected." });
+				},
+			});
 		});
-	}
-
-	/** One correction or void: its first send, or Check again with the same request and key (token -1). */
-	async function commitCorrection(
-		card: Commitment,
-		input: { commitmentId: string; correction: unknown; reason: string },
-		key: KeyedPayload,
-		token: number,
-		draft: CorrectionDraft,
-	) {
-		const r = await runSave(
-			store,
-			`correct:${card.id}`,
-			{ input, revision: card.revision },
-			(k) => sendTwice(() => correctCommitment(k, card.revision, personId, input)),
-			{ fresh, key, toPerson: (v) => personAfter(v.commitments.current.personRevision) },
-		);
-		const what = draft.action === "void" ? "Your void of the card" : "Your card correction";
-		if (stillUnknown(r, token))
-			return dialog.unknown(key.key, what, () => start(() => commitCorrection(card, input, key, -1, draft)));
-		if (r?.status !== "ok") return refused(token, { form: "correct", card, draft }, r, key.key, what);
-		dialog.settled(key.key);
-		const page = r.value.commitments;
-		startTransition(() => {
-			history.setPage({ items: page.items, next: page.next, total: page.total });
-			setLatest(page.current);
-			setFirstOn(page.firstAcquisition);
-			setNames(page.witnessNames);
-		});
-		onSaved(r.value.receipt, { kind: "activity", action: "commitment_corrected", recordId: card.id });
-		toast({ tone: "success", message: draft.action === "void" ? "The card is voided." : "The card is corrected." });
 	}
 
 	const badge = STATE_BADGE[state];
@@ -423,7 +399,7 @@ export function CommitmentCard({
 					</div>
 				) : null}
 			</CardHeader>
-			<SaveNotice notice={dialog.notice} busy={saving} onDismiss={dialog.dismiss} dialogOpen={editing !== null} />
+			<SaveNotice {...dialog.noticeProps} dialogOpen={editing !== null} />
 
 			{initial === null ? (
 				<p className="text-sm text-text-3">Commitments did not load. Reload the page to see them.</p>
@@ -494,7 +470,7 @@ export function CommitmentCard({
 			)}
 			<p className="mt-4 text-xs text-text-3">A stage alone never counts as a commitment. Only a signed card does.</p>
 
-			<NoticeInDialog notice={dialog.notice} busy={saving} onDismiss={dialog.dismiss}>
+			<NoticeInDialog {...dialog.noticeProps}>
 				{editing?.form === "record" ? (
 					<RecordCommitmentDialog
 						wait={wait}
