@@ -30,8 +30,7 @@
 		"limit": 2
 	},
 	"POST people.createPerson (replay)": {
-		"limit": 7,
-		"reason": "A replay: the first attempt meets the stored request key, so the command reruns the established way (BEGIN, gate, request-key read, locked read, COMMIT) to answer the stored result (RT-3). RT-6 reviews it."
+		"limit": 6
 	},
 	"POST people.updatePerson": {
 		"limit": 3
@@ -769,10 +768,10 @@
 		"limit": 2
 	},
 	"people.getMergeReview": {
-		"limit": 2
+		"limit": 1
 	},
 	"people.listRecordCorrections": {
-		"limit": 2
+		"limit": 1
 	},
 	"people.mergePeople": {
 		"limit": 7,
@@ -783,7 +782,7 @@
 		"limit": 2
 	},
 	"people.previewUnmerge": {
-		"limit": 2
+		"limit": 1
 	},
 	"people.propagateAddress": {
 		"limit": 6,
@@ -864,7 +863,8 @@
 		"limit": 9
 	},
 	"people/commitments/index.saveCommitmentDocument": {
-		"limit": 5
+		"limit": 5,
+		"retry": 9
 	},
 	"people/commitments/index.signCommitmentDocument": {
 		"limit": 1
