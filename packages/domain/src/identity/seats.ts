@@ -1,7 +1,7 @@
 import { revision, sameOwner, sessionId, type Owner } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/identity";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { and, asc, eq, inArray, isNull, notInArray, or, sql } from "@everyfield/db/query";
+import { and, asc, eq, getTableColumns, inArray, isNull, notInArray, or, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import "server-only";
 import { z } from "zod";
@@ -130,10 +130,14 @@ export function createSeatService(db: Database) {
 		const open = sql`t.assignee_id=${s.account_id}::uuid AND t.deleted_at IS NULL
  AND t.status NOT IN ('complete','no_longer_needed')`;
 		const tasks = plant ? await (lock ? lockTasks : readTasks)(tx, selected.id, open) : [];
+		// `linked`: a task carries this obligation (open or closed), so the task is the one reviewed duty.
 		const obligations = plant
 			? await locked(
 					tx
-						.select()
+						.select({
+							...getTableColumns(t.obligation),
+							linked: sql<boolean>`EXISTS(SELECT FROM task k WHERE k.plant_id=${selected.id}::uuid AND k.obligation_id=${t.obligation.id})`,
+						})
 						.from(t.obligation)
 						.where(
 							and(
@@ -147,13 +151,7 @@ export function createSeatService(db: Database) {
 				)
 			: [];
 		// A task's linked obligation is one reviewed duty. Closed tasks keep their outcome.
-		const linkedTasks = plant
-			? await tx
-					.select({ obligation_id: t.task.obligation_id })
-					.from(t.task)
-					.where(and(eq(t.task.plant_id, selected.id), sql`${t.task.obligation_id} IS NOT NULL`))
-			: [];
-		const bare = obligations.filter((o) => !linkedTasks.some((k) => k.obligation_id === o.id));
+		const bare = obligations.filter((o) => !o.linked);
 		const organization = selected.kind === "organization";
 		const pipeline = organization
 			? await locked(
@@ -284,12 +282,21 @@ export function createSeatService(db: Database) {
 				v,
 			);
 			if (cmd.kind === "replay") return c.seatMutationResult.parse(cmd.result);
+			// The seat's account is locked before the seat, in one statement that finds it.
 			const [target] = await tx
-				.select({ account_id: t.seat.account_id })
-				.from(t.seat)
-				.where(and(eq(t.seat.id, v.input.seatId), inWorkspace(selected)));
+				.select({ id: t.account.id })
+				.from(t.account)
+				.where(
+					eq(
+						t.account.id,
+						tx
+							.select({ account_id: t.seat.account_id })
+							.from(t.seat)
+							.where(and(eq(t.seat.id, v.input.seatId), inWorkspace(selected))),
+					),
+				)
+				.for("update");
 			if (!target) d.refuse();
-			await tx.select({ id: t.account.id }).from(t.account).where(eq(t.account.id, target.account_id)).for("update");
 			const [s] = await tx
 				.select()
 				.from(t.seat)
