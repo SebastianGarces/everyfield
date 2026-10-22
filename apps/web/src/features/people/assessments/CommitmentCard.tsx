@@ -28,7 +28,7 @@ import {
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
-import { startTransition, useOptimistic, useState, useTransition } from "react";
+import { startTransition, useOptimistic, useRef, useState, useTransition } from "react";
 import { newerRevision, runSave, STAGE_LABEL, type KeyedPayload, type Outcome } from "../model.ts";
 import { fresh, isConflict, LocalDay, useStore } from "../parts.tsx";
 import {
@@ -66,6 +66,7 @@ import {
 } from "./model.ts";
 import { codeOf, recorder, SaveNotice, ShowEarlier, useHistory, useRecordForm } from "./parts.tsx";
 import type { PlantPerson, RecordProps } from "./RecordsSection.tsx";
+import { newUpload, reusable, saveWithDocument, type DocumentUpload } from "./upload.ts";
 
 type Editing =
 	| { form: "record"; draft: CommitmentDraft; problem?: string }
@@ -73,24 +74,6 @@ type Editing =
 	| { form: "correct"; card: Commitment; draft: CorrectionDraft; problem?: string };
 /** What the card shows while a save runs: a new card, a state change or a corrected card. */
 type Expected = { card: Commitment } | { current: CommitmentStatus };
-
-/**
- * Sends the file's bytes to the upload route (upload-route.ts). Only a JSON answer from it counts: a dropped connection,
- * a 503 or any other reply reads as lost, so the card never says the document was refused when it may have arrived.
- */
-async function uploadDocument(personId: string, file: File): Promise<Outcome<{ uploadId: string }>> {
-	try {
-		const r = await fetch(`/api/people/${personId}/commitment-document`, {
-			method: "POST",
-			headers: { "Content-Type": file.type },
-			body: file,
-		});
-		if (r.status !== 200) return { status: "lost" };
-		return (await r.json()) as Outcome<{ uploadId: string }>;
-	} catch {
-		return { status: "lost" };
-	}
-}
 
 const STATE_BADGE = {
 	active: { status: "positive", label: "Committed" },
@@ -135,6 +118,10 @@ export function CommitmentCard({
 	);
 	const [, start] = useTransition();
 	const dialog = useRecordForm<Editing>();
+	/** How much of the pending card's document the bucket has received, 0 to 1, or null when no bytes are moving. */
+	const [progress, setProgress] = useState<number | null>(null);
+	/** Uploads a refused save left pending, by file: a corrected form with the same file does not send it again. */
+	const uploads = useRef(new WeakMap<File, DocumentUpload>());
 	/** Another change to this person is saving; Check again waits for it, so it never reads as refused. */
 	const saving = useStore(store).pending !== null;
 	const wait = waitOf(saving, dialog.notice);
@@ -144,10 +131,20 @@ export function CommitmentCard({
 	const state = view.current?.state ?? "unknown";
 	/** A save that did not save: its form opens again with the reason, or the card says why (model.ts formRefused). */
 	const refused = (token: number, e: Editing, r: Outcome<unknown> | null, id: string, what: string) => {
-		const code = r?.status === "refused" && r.code === "invalid_input" ? "future_date" : codeOf(r);
+		const code = r?.status === "refused" && r.code === "invalid_input" ? invalidInput(e) : codeOf(r);
 		startTransition(() => dialog.refused(token, { ...e, problem: code } as Editing, id, what));
 		if (isConflict(r)) onConflict();
 	};
+	/**
+	 * The save answers invalid_input for a date after the church's today and for a file it cannot read. A card signed
+	 * before yesterday cannot be in the future anywhere, so with a file that answer means the file.
+	 */
+	const invalidInput = (e: Editing) =>
+		e.form !== "record" || !e.draft.file
+			? "future_date"
+			: e.draft.occurredOn < today(new Date(Date.now() - 86_400_000))
+				? "upload_unreadable"
+				: "date_or_file";
 	/** The person as the write left them: its revision and, for a card, the stage it advanced to. */
 	const personAfter = (revision: string, stageNow = store.get().saved.stage): PlantPerson =>
 		({ ...store.get().saved, stage: stageNow, revision }) as PlantPerson;
@@ -192,41 +189,29 @@ export function CommitmentCard({
 				witness,
 				notes: draft.notes.trim() || null,
 			};
-			await commitCard(base, { uploadId: null }, key, token, draft);
+			const file = draft.file;
+			const known = file ? uploads.current.get(file) : undefined;
+			await commitCard(base, file ? (reusable(known) ? known : newUpload(file)) : null, key, token, draft);
 		});
 	}
 
 	/**
 	 * One card save of one intent: its first send, or Check again with the same request and key (token -1). The document
-	 * uploads inside the save, so the card counts as saving from the first byte (C68). Check again reuses that upload, so
-	 * its request stays the same. A failed upload saves nothing: no card exists without its document.
+	 * moves inside the save, so the card counts as saving from the first byte (C68). Check again keeps the intent's
+	 * upload, so it never signs or sends the file again before the save has checked it (upload.ts). A refused save keeps
+	 * the upload pending for a corrected form with the same file; a saved card takes it.
 	 */
 	async function commitCard(
 		base: { personId: string } & Record<string, unknown>,
-		doc: { uploadId: string | null },
+		upload: DocumentUpload | null,
 		key: KeyedPayload,
 		token: number,
 		draft: CommitmentDraft,
 	) {
-		const send = async (k: string): Promise<Outcome<CommitmentSaved>> => {
-			if (draft.file && !doc.uploadId) {
-				const stored = await uploadDocument(personId, draft.file);
-				if (stored.status !== "ok") {
-					const code =
-						stored.status === "lost"
-							? "upload_lost"
-							: stored.code === "storage_unavailable"
-								? "storage_unavailable"
-								: stored.code === "invalid_input"
-									? "upload_unreadable"
-									: "upload_failed";
-					return { status: "refused", code };
-				}
-				doc.uploadId = stored.value.uploadId;
-			}
-			const input = { ...base, documentUploadId: doc.uploadId };
-			return sendTwice(() => recordCommitment(k, input));
-		};
+		const send = (k: string): Promise<Outcome<CommitmentSaved>> =>
+			upload
+				? saveWithDocument(k, base, upload, setProgress)
+				: sendTwice(() => recordCommitment(k, { ...base, documentUploadId: null }));
 		const r = await runSave(store, "commitment", base, send, {
 			fresh,
 			key,
@@ -234,7 +219,11 @@ export function CommitmentCard({
 		});
 		const what = "Your commitment card";
 		if (stillUnknown(r, token))
-			return dialog.unknown(key.key, what, () => start(() => commitCard(base, doc, key, -1, draft)));
+			return dialog.unknown(key.key, what, () => start(() => commitCard(base, upload, key, -1, draft)));
+		if (upload) {
+			if (r?.status === "ok") uploads.current.delete(upload.file);
+			else uploads.current.set(upload.file, upload);
+		}
 		if (r?.status !== "ok") return refused(token, { form: "record", draft }, r, key.key, what);
 		dialog.settled(key.key);
 		const { commitment, current: now, person } = r.value;
@@ -487,6 +476,7 @@ export function CommitmentCard({
 										witnessName={card.witness?.kind === "person" ? names[card.witness.personId] : undefined}
 										by={recorder(card.actor, accountId)}
 										canEdit={canEdit}
+										progress={progress}
 										onCorrect={(action) =>
 											dialog.open({
 												form: "correct",
@@ -549,6 +539,7 @@ function CardRow({
 	witnessName,
 	by,
 	canEdit,
+	progress,
 	onCorrect,
 }: {
 	card: Commitment;
@@ -556,6 +547,8 @@ function CardRow({
 	witnessName: string | undefined;
 	by: string;
 	canEdit: boolean;
+	/** The pending card's upload, 0 to 1, while its bytes move; null before and after. */
+	progress: number | null;
 	onCorrect: (action: "correct" | "void") => void;
 }) {
 	const pending = card.id.startsWith("new:");
@@ -623,7 +616,21 @@ function CardRow({
 						</span>
 					</a>
 				) : card.document.status === "attached" ? (
-					<p className="mt-2 text-sm text-text-3">Uploading the signed card…</p>
+					<p className="mt-2 flex items-center gap-2 text-sm text-text-3">
+						{progress === null ? (
+							"Saving the signed card…"
+						) : (
+							<>
+								<progress
+									value={progress}
+									max={1}
+									aria-label="Uploading the signed card"
+									className="h-1.5 w-28 flex-none appearance-none overflow-hidden rounded-full bg-line [&::-moz-progress-bar]:bg-ink [&::-webkit-progress-bar]:bg-line [&::-webkit-progress-value]:bg-ink"
+								/>
+								<span className="tabular-nums">Uploading the signed card… {Math.round(progress * 100)}%</span>
+							</>
+						)}
+					</p>
 				) : null}
 			</div>
 			{canEdit && !pending && !voided ? (
