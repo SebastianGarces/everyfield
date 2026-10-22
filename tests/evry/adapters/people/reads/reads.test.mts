@@ -53,8 +53,8 @@ test("AC:PROVIDER48-002 AC:PROVIDER48-003 a photo read names only the current pr
 		const reader = await actor(who);
 		const start = queries.length;
 		const result = await invokeRead(db, reader, getPersonPhoto, { personId: people.alexChen });
-		// The live check, the read timeout and one native statement.
-		assert.equal(counted(start), 3);
+		// The read timeout and one native statement, which checks live access itself.
+		assert.equal(counted(start), 2);
 		assert.deepEqual(result, {
 			operation: "people.getPersonPhoto",
 			status: "available",
@@ -170,10 +170,10 @@ test("AC:AC-EVR-108--EVR-108 AC:AC-EVR-READ--EVR-108 duplicate hints match norma
 	// The person being edited is not its own duplicate.
 	assert.deepEqual(await hints({ email: "lakes@example.test", excludePersonId: sibling } as never), []);
 
-	// One native statement, behind the live check and the read timeout.
+	// One native statement, which checks live access itself, behind the read timeout.
 	let start = queries.length;
 	await invokeRead(db, member, checkForDuplicates, { email: "jordan@example.test" });
-	assert.equal(counted(start), 3);
+	assert.equal(counted(start), 2);
 	start = queries.length;
 	await db.transaction((tx) =>
 		checkForDuplicates.invoke(tx, member, { email: "jordan@example.test", displayName: "Jordan Lake" }),

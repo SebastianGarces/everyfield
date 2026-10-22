@@ -12,8 +12,10 @@ import type { ReviewedWrite } from "../proposals/types.ts";
 export type EffectLease = { jobId: string; tenantId: string; leaseOwner: string; generation: string };
 
 /**
- * completed, refused or failed: the outcome saved with this attempt. expired: the approval lapsed before the effect
- * started, so nothing ran. closed: the review was cancelled or revised first. lost: this claim is no longer current.
+ * completed or refused: the outcome saved with this attempt. failed: the attempt ended with an error that is not a
+ * domain refusal, so nothing is saved and the review reads as unknown (the change may have committed). expired: the
+ * approval lapsed before the effect started, so nothing ran. closed: the review was cancelled or revised first. lost:
+ * this claim is no longer current.
  */
 export type EffectOutcome = "completed" | "refused" | "failed" | "expired" | "closed" | "lost";
 
@@ -75,7 +77,7 @@ class Refused extends Error {
  * request key and saves the outcome only if the approval is unexpired and the claim still current once the publication
  * locks are held. The native command writes its own audit row with the change, so the effect, its audit record and the
  * saved outcome commit together or not at all. A refusal rolls everything back and then saves the refusal under the
- * same claim.
+ * same claim. Any other error saves nothing: only a server answer may say that nothing was changed (C58).
  */
 export async function executeProposal(db: Database, lease: EffectLease): Promise<EffectOutcome> {
 	try {
@@ -137,16 +139,14 @@ export async function executeProposal(db: Database, lease: EffectLease): Promise
 					? refusalCode(error.code)
 					: error instanceof EvryRefusal
 						? error.code
-						: error instanceof Error && error.message === "unavailable"
-							? "access_denied"
-							: null;
-		const outcome = refused ? "refused" : "failed";
+						: null;
+		if (!refused) return "failed";
 		const saved = await db.transaction(async (tx) => {
 			await holdPublicationLocks(tx, lease);
 			return tx.execute(sql`
-				UPDATE proposal SET outcome=${outcome},receipt=jsonb_build_object('code',${refused ?? "unknown"}::text),updated_at=clock_timestamp()
+				UPDATE proposal SET outcome='refused',receipt=jsonb_build_object('code',${refused}::text),updated_at=clock_timestamp()
 				WHERE job_id=${lease.jobId}::uuid AND tenant_id=${lease.tenantId}::uuid AND state='approved' AND outcome IS NULL AND ${fence(lease)}`);
 		});
-		return saved.rowCount ? outcome : "lost";
+		return saved.rowCount ? "refused" : "lost";
 	}
 }

@@ -9,7 +9,8 @@ export const POST = async (request: Request, { params }: { params: Promise<{ id:
 	const { id } = await params;
 	return evryResponse(async (db, actor) => {
 		const approved = await approveProposal(db, actor, id, await request.json().catch(() => null), privateStorage());
-		if (!approved.replayed) drainEffects();
+		// A replayed approval drains too: the first request's drain may never have run.
+		if (approved.proposal.executing) drainEffects();
 		return approved;
 	});
 };

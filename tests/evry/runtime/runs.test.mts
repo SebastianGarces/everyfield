@@ -765,7 +765,7 @@ test("AC:SEC-02 AC:TEN-002 AC:UI45-006 AC:SEC-11 INV-tenancy: an ended seat or c
 			owner,
 			ids.map((id) => ({ kind: "person" as const, id })),
 		);
-		return { verified: result.verified.length, statements: queries.length - start };
+		return { verified: result.length, statements: queries.length - start };
 	};
 	const ten = [
 		people.alexRivera,
@@ -783,13 +783,13 @@ test("AC:SEC-02 AC:TEN-002 AC:UI45-006 AC:SEC-11 INV-tenancy: an ended seat or c
 	assert.equal(queries.length - start, 1);
 });
 
-test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live seat, role, session and lifecycle first, without locks (C13, C22)", async () => {
+test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live seat, session and lifecycle inside their own statements, without locks or an extra statement (C13, C27)", async () => {
 	const owner = await actor("owner");
 	const find = { search: "Alex" };
 	const names = async () => (await invokeRead(db, owner, listPeople, find)).rows.map((r) => r.label).sort();
 	assert.deepEqual(await names(), ["Alex Chen", "Alex Rivera"]);
 
-	// A stale actor, after each kind of change, reads nothing through either adapter.
+	// A stale actor, after each change that ends access, reads no tenant data through either adapter.
 	const session = (await admin.execute(sql`SELECT * FROM auth_session WHERE id=${accounts.owner.session}`)).rows[0]!;
 	const witness = randomUUID();
 	const changes: [string, () => Promise<unknown>, () => Promise<unknown>][] = [
@@ -797,11 +797,6 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live 
 			"seat ended",
 			() => admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${owner.accountId}`),
 			() => admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE account_id=${owner.accountId}`),
-		],
-		[
-			"role changed",
-			() => admin.execute(sql`UPDATE seat SET role='admin' WHERE account_id=${owner.accountId}`),
-			() => admin.execute(sql`UPDATE seat SET role='owner' WHERE account_id=${owner.accountId}`),
 		],
 		[
 			"session revoked",
@@ -823,21 +818,27 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live 
 	for (const [name, change, undo] of changes) {
 		await change();
 		try {
-			for (const [adapter, input] of [
-				[listPeople, find],
-				[getPerson, { personId: people.alexRivera }],
-			] as const)
-				await assert.rejects(
-					() => invokeRead(db, owner, adapter as never, input as never),
-					(e: { code?: string }) => e.code === "access_denied",
-					name,
-				);
+			await assert.rejects(
+				() => invokeRead(db, owner, listPeople, find),
+				(e: { code?: string }) => e.code === "source_unavailable",
+				name,
+			);
+			const one = await invokeRead(db, owner, getPerson, { personId: people.alexRivera });
+			assert.deepEqual([one.status, one.rows], ["not_found", []], name);
 		} finally {
 			await undo();
 		}
 	}
 
-	// A seat end during a running read does not wait for it (reads take no locks, C22). The native read's own statements
+	// A role that still permits People reads keeps reading (C13: the role still permits the read).
+	await admin.execute(sql`UPDATE seat SET role='admin' WHERE account_id=${owner.accountId}`);
+	try {
+		assert.deepEqual(await names(), ["Alex Chen", "Alex Rivera"]);
+	} finally {
+		await admin.execute(sql`UPDATE seat SET role='owner' WHERE account_id=${owner.accountId}`);
+	}
+
+	// A seat end during a running read does not wait for it (reads take no locks, C27). The native read's own statements
 	// then see the ended seat (C13), so that read and the next one refuse.
 	const racing = {
 		...listPeople,
@@ -855,7 +856,7 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live 
 		);
 		await assert.rejects(
 			() => invokeRead(db, owner, listPeople, find),
-			(e: { code?: string }) => e.code === "access_denied",
+			(e: { code?: string }) => e.code === "source_unavailable",
 		);
 	} finally {
 		await admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE account_id=${owner.accountId}`);
@@ -881,14 +882,13 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live 
 		);
 	}
 
-	// The live check is one statement before the native read's transaction.
+	// The live check adds no statement: only the read timeout comes before the adapter's own statements.
 	const start = queries.length;
 	await invokeRead(db, owner, listPeople, find);
 	const sent = queries.slice(start).filter((q) => !/^(BEGIN|COMMIT)/i.test(q.trim()));
 	const plain = queries.length;
 	await db.transaction((tx) => listPeople.invoke(tx, owner, find));
-	// One live check and the read timeout, then the adapter's own statements.
-	assert.equal(sent.length, queries.slice(plain).filter((q) => !/^(BEGIN|COMMIT)/i.test(q.trim())).length + 2);
+	assert.equal(sent.length, queries.slice(plain).filter((q) => !/^(BEGIN|COMMIT)/i.test(q.trim())).length + 1);
 });
 
 test("INV-run-recovery: a run whose worker was lost, that no worker took within 60 s or whose job ended without its end is closed once as interrupted by the open stream; a live run is not", async () => {
@@ -910,7 +910,8 @@ test("INV-run-recovery: a run whose worker was lost, that no worker took within 
 		],
 		[
 			"never claimed",
-			(id) => admin.execute(sql`UPDATE job SET eligible_at=clock_timestamp()-interval '61 seconds' WHERE ${turnJob(id)}`),
+			(id) =>
+				admin.execute(sql`UPDATE job SET eligible_at=clock_timestamp()-interval '61 seconds' WHERE ${turnJob(id)}`),
 		],
 		[
 			"job ended without the turn's end",
@@ -960,7 +961,12 @@ test("AC:SEC-02 INV-tenancy: the turn's history read before each model call take
 	const id = await ask(owner, "Find Casey");
 	const [claim] = await claimDue(db, ["assistant_turn"], 1, 240);
 	assert.equal(claim?.subject_record_id, id);
-	const lease = { turnId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation };
+	const lease = {
+		turnId: claim.id,
+		tenantId: claim.tenant_id,
+		leaseOwner: claim.lease_owner,
+		generation: claim.claim_generation,
+	};
 	try {
 		await db.transaction(async (tx) => {
 			assert.ok(await loadHistory(tx as unknown as typeof db, lease, id, owner));

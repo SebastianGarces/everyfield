@@ -30,7 +30,6 @@ import {
 	actor,
 	admin,
 	db,
-	freshActor,
 	people,
 	plant,
 	queries,
@@ -399,15 +398,22 @@ test("AC:UI45-006 AC:EVRY-CONTEXT-BOUNDS a review's fields leave model input onc
 		model: scriptedModel(),
 		middleware: { specificationVersion: "v4", transformParams: async ({ params }) => (calls.push(params), params) },
 	}) as LanguageModelV4;
-	// Robin is retired right after the review is saved, before the next model call reads its input.
-	const retiring = async (session: string) => {
-		await admin.execute(sql`UPDATE person SET state='retired',retired_at=clock_timestamp()
-			WHERE id=${robin} AND state='live' AND EXISTS(SELECT FROM proposal WHERE review->'target'->>'id'=${robin})`);
-		return freshActor(session);
-	};
+	// Robin is retired as the review is saved, before the next model call reads its input.
+	await admin.execute(
+		sql.raw(`CREATE FUNCTION f6_retire() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN
+			UPDATE person SET state='retired',retired_at=clock_timestamp() WHERE id='${robin}' AND id::text=NEW.review->'target'->>'id';
+			RETURN NULL; END$$`),
+	);
+	await admin.execute(
+		sql.raw(`CREATE TRIGGER f6_retire AFTER INSERT ON proposal FOR EACH ROW EXECUTE FUNCTION f6_retire()`),
+	);
 	const c = await createConversation(db, owner, { requestKey: randomUUID() });
 	await submitTurn(db, owner, c.id, { requestKey: randomUUID(), text: "Change Robin's city to Newtown" });
-	assert.equal(await work({ status: "qualified", id: "test", model }, { freshActor: retiring }), "succeeded");
+	try {
+		assert.equal(await work({ status: "qualified", id: "test", model }), "succeeded");
+	} finally {
+		await admin.execute(sql.raw(`DROP TRIGGER f6_retire ON proposal; DROP FUNCTION f6_retire()`));
+	}
 	const page = await readConversation(db, owner, c.id);
 	const card = page.events.find((e) => e.kind === "tool_result" && e.body.operation === "evry.prepareProposal");
 	assert.ok(card, "a review was prepared before the retirement");
@@ -502,7 +508,9 @@ test("BUG-R5-3: an effect that ends with an error Evry cannot classify stays unc
 	await admin.execute(
 		sql.raw(`CREATE FUNCTION f6_fail() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RAISE EXCEPTION 'synthetic'; END$$`),
 	);
-	await admin.execute(sql.raw(`CREATE TRIGGER f6_fail BEFORE UPDATE ON person FOR EACH ROW EXECUTE FUNCTION f6_fail()`));
+	await admin.execute(
+		sql.raw(`CREATE TRIGGER f6_fail BEFORE UPDATE ON person FOR EACH ROW EXECUTE FUNCTION f6_fail()`),
+	);
 	try {
 		assert.equal((await effects())?.outcome, "failed");
 	} finally {
