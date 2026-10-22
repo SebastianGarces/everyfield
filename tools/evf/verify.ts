@@ -18,6 +18,7 @@ import {
 	requireWorktree,
 	run,
 	runtimeDir,
+	sleep,
 	type CheckDef,
 	type TaskRef,
 } from "./lib.ts";
@@ -27,6 +28,7 @@ import { maintenanceScope, requireSpend, requireTaskScope, requireMaintenancePat
 import { caseCoverage, caseGrep, hasCaseMarkers, testsOf } from "./coverage.ts";
 import { formatScope, wpScope, type ScopeReport } from "./scope.ts";
 import { requireFreeMigrationNumbers } from "./migrations.ts";
+import { awaitLoad } from "./load.ts";
 
 export type Role = "author" | "verifier";
 export type Mode = "full" | "quick";
@@ -49,7 +51,14 @@ export type CheckReport = {
 };
 
 /** Local deterministic checks aid review. They never grant verifier approval or replace GitHub CI. */
-export function verify(root: string, task: TaskRef, role: Role, mode: Mode, head?: string): CheckReport {
+export function verify(
+	root: string,
+	task: TaskRef,
+	role: Role,
+	mode: Mode,
+	head?: string,
+	ignoreLoad?: string,
+): CheckReport {
 	requireForeground("verify", "2-15 minutes");
 	const wt =
 		role === "verifier"
@@ -68,6 +77,7 @@ export function verify(root: string, task: TaskRef, role: Role, mode: Mode, head
 	if (!isClean(wt)) fail(`The checked checkout ${wt} is not clean. Commit the task changes before verification.`);
 	if (!gitOk(wt, "merge-base", "--is-ancestor", baseSha, "HEAD")) fail("Include current main before verification.");
 	requireFreeMigrationNumbers(wt, baseSha, task);
+	awaitLoad(root, "verify", ignoreLoad);
 	const cases = wp ? packageContext(wt, wp).case_ids : [];
 	const dir = evidenceDir(root, task, sha, `${role}-${mode}`);
 	mkdirSync(dir, { recursive: true });
@@ -123,7 +133,7 @@ export function verify(root: string, task: TaskRef, role: Role, mode: Mode, head
 		) {
 			const notice = `Retry ${retry}/3: held Next build lock; waiting 10 seconds.`;
 			console.error(notice);
-			Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10_000);
+			sleep(10_000);
 			if (!inputsUnchanged()) break;
 			if (existsSync(testReport)) unlinkSync(testReport);
 			result = run(argv[0], argv.slice(1), { cwd: wt, env: { ...env, EVF_TEST_REPORT: testReport } });
