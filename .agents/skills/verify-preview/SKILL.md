@@ -161,10 +161,12 @@ public-read and the bucket refuses listing, so only the link opens them. It prin
 repository, mode 600, and holds `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ENDPOINT_URL_S3`
 and `AWS_REGION` for the `everyfield-evidence-upload` key. That key has the Editor role on
 `everyfield-evidence` only and default permissions disabled, so it cannot list or write
-`everyfield` or `everyfield-dev`. `publish.mjs` ignores `AWS_*` in the shell. It refuses
-`.env.prod` (also through a symlink) and any file that holds the production key. To create the
-file on a new machine, sign in to the Tigris CLI and run this. It writes the secret to the file
-and prints nothing:
+`everyfield` or `everyfield-dev`. `publish.mjs` ignores `AWS_*` in the shell and never opens
+`.env.prod`: it refuses any env file whose path or symlink resolves to it. At start it prints the key file path and what it checks. Before any upload or delete
+it lists `everyfield` and `everyfield-dev` with the key and refuses unless both return 403.
+Run it as `$S/publish.mjs` from a checkout of this repo. It refuses a copy or an uncommitted
+edit, so commit a change to it first. To create the file on a new machine, sign in to the
+Tigris CLI and run this. It writes the secret to the file and prints nothing:
 
 ```bash
 umask 077; mkdir -p ~/.config/everyfield
@@ -183,8 +185,9 @@ the shared development database. Never upload:
 
 Before you publish, open every screenshot and video and read every log and JSON file in `$E`.
 Remove or redact anything in the list above, then capture again if a screenshot shows it.
-`publish.mjs` refuses a text file that contains a value from the local env files or a connection
-string with a password. It cannot read images or video, so the visual check is yours.
+`publish.mjs` refuses a text file that contains a value from the evidence env file, the dev env
+files (`.env.local`, `.env.development.local`, `apps/web/.env.local`) or a connection string with
+a password. It cannot read images or video, so the visual check is yours.
 
 To delete evidence, run from any checkout of this repo:
 
