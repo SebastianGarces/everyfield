@@ -525,6 +525,27 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 	assert.deepEqual(await since(), ["active", day(1)]);
 	ok(await correct(back.commitment.id, "1", { action: "void" }, "Never signed"));
 	assert.deepEqual(await since(), ["withdrawn", day(3)]);
+	// BUG-R2-4 (verifier, 618ddc7): an explicit reactivation is not a card. Voiding a repeat card signed on the
+	// reactivation date keeps the reactivation.
+	const quinn = await person("Quinn Rejoined");
+	const quinnSince = async () => {
+		const { state, effectiveOn } = (await commitmentsOf(quinn.id)).current;
+		return [state, effectiveOn];
+	};
+	ok(await card({ occurredOn: day(10) }, key(), quinn.id));
+	ok(await withdraw((await commitmentsOf(quinn.id)).current.personRevision, day(8), quinn.id));
+	ok(
+		await tx(async (t) =>
+			commitments.reactivateCommitment(t, ctx(), {
+				requestKey: key(),
+				expectedRevision: (await commitmentsOf(quinn.id)).current.personRevision,
+				input: { personId: quinn.id, effectiveOn: day(6) },
+			}),
+		),
+	);
+	const repeatCard = ok(await card({ occurredOn: day(6) }, key(), quinn.id));
+	ok(await correct(repeatCard.commitment.id, "1", { action: "void" }, "Never signed"));
+	assert.deepEqual(await quinnSince(), ["active", day(6)]);
 
 	// Another church reads no commitments.
 	refused(await tx((t) => commitments.getCommitments(t, ctx(2), { personId: alex.id })));
