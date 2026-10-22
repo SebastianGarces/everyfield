@@ -211,9 +211,7 @@ export function CommitmentCard({
 			what: "Your commitment card",
 			form,
 			send: (k): Promise<Outcome<CommitmentSaved>> =>
-				upload
-					? saveWithDocument(k, base, upload, setProgress)
-					: recordCommitment(k, { ...base, documentUploadId: null }),
+				upload ? saveWithDocument(k, base, upload, setProgress) : recordCommitment(k, base),
 			replay: upload === null,
 			through: throughStore(store, "commitment", (v: CommitmentSaved) =>
 				personAfter(v.person.revision, v.person.stage),

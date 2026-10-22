@@ -243,8 +243,15 @@ export const pipelineMetricsResult = z
 			.refine((v) => new Set(v.map((r) => r.from)).size === v.length),
 	})
 	.refine((v) => v.from <= v.through);
+type SafeError = (typeof safeError.options)[number];
+type GenericInvalidInput = Extract<SafeError, { shape: { code: z.ZodLiteral<"invalid_input"> } }>;
 export const peopleError = z.discriminatedUnion("code", [
-	...safeError.options,
+	// A record's input names its reason where a person can fix one field: a date after today in the church's time zone, or
+	// a document file that is not a readable PDF, JPG or PNG.
+	defineSafeError("invalid_input", { reason: z.enum(["future_date", "unreadable_document"]).optional() }, "never"),
+	...safeError.options.filter(
+		(o): o is Exclude<SafeError, GenericInvalidInput> => o.shape.code.value !== "invalid_input",
+	),
 	defineSafeError("unsupported_field", {}, "never"),
 	defineSafeError("use_reviewed_unmerge", {}, "refresh"),
 	defineSafeError("source_unavailable", {}, "same_request"),

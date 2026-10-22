@@ -218,6 +218,13 @@
       "when": 1792672627787,
       "tag": "0031_task_live_series",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1792683092127,
+      "tag": "0032_commitment_change",
+      "breakpoints": true
     }
   ]
 }

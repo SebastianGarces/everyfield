@@ -45,6 +45,7 @@ export type ReferenceKind =
 	| "commitment"
 	| "merged_person"
 	| "correction"
+	| "commitment_change"
 	| "commitment_witness"
 	| "merge_record"
 	| "attestation"
@@ -72,6 +73,7 @@ export const KIND_LABEL: Record<ReferenceKind, [one: string, many: string]> = {
 	commitment: ["commitment card", "commitment cards"],
 	merged_person: ["earlier merged person", "earlier merged people"],
 	correction: ["record correction", "record corrections"],
+	commitment_change: ["commitment withdrawal or reactivation", "commitment withdrawals and reactivations"],
 	commitment_witness: ["card they witnessed", "cards they witnessed"],
 	merge_record: ["earlier merge", "earlier merges"],
 	attestation: ["attestation", "attestations"],

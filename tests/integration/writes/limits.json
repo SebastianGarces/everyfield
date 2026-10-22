@@ -30,15 +30,14 @@
 		"limit": 2
 	},
 	"POST people.createPerson (replay)": {
-		"limit": 7,
-		"reason": "A replay: the first attempt meets the stored request key, so the command reruns the established way (BEGIN, gate, request-key read, locked read, COMMIT) to answer the stored result (RT-3). RT-6 reviews it."
+		"limit": 6
 	},
 	"POST people.fields.addPersonTag": {
 		"limit": 8,
 		"reason": "A new tag name creates the church tag and puts it on the person in one transaction: two producer writes (people.createTag, people.assignTag). Above the pattern today; RT-6 reviews it."
 	},
 	"POST people.fields.addPersonTag (replay)": {
-		"limit": 14,
+		"limit": 12,
 		"reason": "A replay of the same request key after a lost answer (the save lane sends it once more): the first attempt meets the stored key, so the command reruns the established way to answer the stored result, as POST people.createPerson (replay) does (RT-3). RT-6 reviews it."
 	},
 	"POST people.fields.addSkill": {
@@ -46,7 +45,7 @@
 		"reason": "The same statements as people.addSkill (limit 7): 2 transaction, 1 locked read, 3 read, 1 write. Above the pattern today; RT-6 reviews it."
 	},
 	"POST people.fields.addSkill (replay)": {
-		"limit": 12,
+		"limit": 11,
 		"reason": "A replay of the same request key after a lost answer (the save lane sends it once more): the first attempt meets the stored key, so the command reruns the established way to answer the stored result, as POST people.createPerson (replay) does (RT-3). RT-6 reviews it."
 	},
 	"POST people.fields.readPhoto": {
@@ -588,9 +587,6 @@
 	"native.people.removeTag": {
 		"limit": 5
 	},
-	"native.people.requestCommitmentUpload": {
-		"limit": 5
-	},
 	"native.people.requestPersonPhotoUpload": {
 		"limit": 5
 	},
@@ -794,10 +790,10 @@
 		"limit": 2
 	},
 	"people.getMergeReview": {
-		"limit": 2
+		"limit": 1
 	},
 	"people.listRecordCorrections": {
-		"limit": 2
+		"limit": 1
 	},
 	"people.mergePeople": {
 		"limit": 7,
@@ -808,7 +804,7 @@
 		"limit": 2
 	},
 	"people.previewUnmerge": {
-		"limit": 2
+		"limit": 1
 	},
 	"people.propagateAddress": {
 		"limit": 6,
@@ -838,9 +834,6 @@
 		"limit": 7,
 		"retry": 6,
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 1 read, 2 write."
-	},
-	"people.requestCommitmentUpload": {
-		"limit": 4
 	},
 	"people.requestPersonPhotoUpload": {
 		"limit": 4
@@ -892,14 +885,11 @@
 		"limit": 9
 	},
 	"people/commitments/index.saveCommitmentDocument": {
-		"limit": 5
+		"limit": 5,
+		"retry": 9
 	},
 	"people/commitments/index.signCommitmentDocument": {
 		"limit": 1
-	},
-	"people/commitments/index.uploadCommitmentDocument": {
-		"limit": 12,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 4 transaction, 2 locked read, 1 read, 5 write."
 	},
 	"people/core.withPeopleWrite": {
 		"limit": 6,

@@ -15,6 +15,7 @@ export const referenceKind = z.enum([
 	"commitment",
 	"merged_person",
 	"correction",
+	"commitment_change",
 	"commitment_witness",
 	"merge_record",
 	"attestation",

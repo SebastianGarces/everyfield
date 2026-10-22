@@ -4030,6 +4030,25 @@ export const schema_migration = pgTable(
 		check("schema_migration_sha256_check", sql`(sha256 ~ '^[a-f0-9]{64}$'::text)`),
 	],
 );
+/**
+ * The one-time data backfills db:migrate ran after the SQL files (C102). A name is recorded only in the transaction
+ * that completed its backfill, so a rerun skips it and a failed run leaves it pending.
+ */
+export const schema_backfill = pgTable(
+	"schema_backfill",
+	{
+		name: text("name").notNull(),
+		applied_at: timestamp("applied_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`now()`),
+		changed: integer("changed").notNull(),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "schema_backfill_pkey", columns: [table.name] }),
+		check("schema_backfill_name", sql`${table.name} ~ '^[a-z][a-z0-9_]{0,62}$'`),
+		check("schema_backfill_changed", sql`${table.changed} >= 0`),
+	],
+);
 export const seat = pgTable(
 	"seat",
 	{
@@ -5030,5 +5049,37 @@ export const record_correction = pgTable(
 		}).onDelete("cascade"),
 		check("record_correction_type", sql`${t.record_type} IN ('assessment','interview','commitment')`),
 		index("record_correction_record").on(t.plant_id, t.record_id, t.corrected_at),
+	],
+);
+/**
+ * One explicit dated change of a Person's commitment (REQ-PPL-014, REQ-PPL-026): a withdrawal or a reactivation, with
+ * its effective church-local date. With the valid cards it is the whole input of the current commitment (C100); the
+ * Person's commitment columns are a cache of that one function. The actor is the account that recorded it (null once
+ * that account is deleted); the recorded instant orders events on the same date. The audit row has the same ID.
+ */
+export const commitment_change = pgTable(
+	"commitment_change",
+	{
+		id: uuid("id").notNull(),
+		plant_id: uuid("plant_id")
+			.notNull()
+			.references(() => plant.id),
+		person_id: uuid("person_id").notNull(),
+		kind: text("kind", { enum: ["withdrawn", "reactivated"] }).notNull(),
+		effective_on: date("effective_on", { mode: "string" }).notNull(),
+		actor_id: uuid("actor_id").references(() => account.id, { onDelete: "set null" }),
+		recorded_at: timestamp("recorded_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "commitment_change_pkey", columns: [t.id] }),
+		foreignKey({
+			name: "commitment_change_person",
+			columns: [t.person_id, t.plant_id],
+			foreignColumns: [person.id, person.tenant_id],
+		}).onDelete("cascade"),
+		check("commitment_change_kind", sql`${t.kind} IN ('withdrawn','reactivated')`),
+		index("commitment_change_person_order").on(t.person_id, t.plant_id, t.effective_on, t.recorded_at),
 	],
 );

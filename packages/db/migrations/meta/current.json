@@ -2549,6 +2549,150 @@
       },
       "isRLSEnabled": false
     },
+    "public.commitment_change": {
+      "name": "commitment_change",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plant_id": {
+          "name": "plant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "person_id": {
+          "name": "person_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effective_on": {
+          "name": "effective_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_id": {
+          "name": "actor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "clock_timestamp()"
+        }
+      },
+      "indexes": {
+        "commitment_change_person_order": {
+          "name": "commitment_change_person_order",
+          "columns": [
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "effective_on",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "recorded_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "commitment_change_plant_id_plant_id_fk": {
+          "name": "commitment_change_plant_id_plant_id_fk",
+          "tableFrom": "commitment_change",
+          "tableTo": "plant",
+          "columnsFrom": [
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "commitment_change_actor_id_account_id_fk": {
+          "name": "commitment_change_actor_id_account_id_fk",
+          "tableFrom": "commitment_change",
+          "tableTo": "account",
+          "columnsFrom": [
+            "actor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "commitment_change_person": {
+          "name": "commitment_change_person",
+          "tableFrom": "commitment_change",
+          "tableTo": "person",
+          "columnsFrom": [
+            "person_id",
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "commitment_change_pkey": {
+          "name": "commitment_change_pkey",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "commitment_change_kind": {
+          "name": "commitment_change_kind",
+          "value": "\"commitment_change\".\"kind\" IN ('withdrawn','reactivated')"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.contact_outcome": {
       "name": "contact_outcome",
       "schema": "",
@@ -16491,6 +16635,54 @@
         "responsibility_ck_0": {
           "name": "responsibility_ck_0",
           "value": "(revision >= 1)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.schema_backfill": {
+      "name": "schema_backfill",
+      "schema": "",
+      "columns": {
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "applied_at": {
+          "name": "applied_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "changed": {
+          "name": "changed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "schema_backfill_pkey": {
+          "name": "schema_backfill_pkey",
+          "columns": [
+            "name"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "schema_backfill_name": {
+          "name": "schema_backfill_name",
+          "value": "\"schema_backfill\".\"name\" ~ '^[a-z][a-z0-9_]{0,62}$'"
+        },
+        "schema_backfill_changed": {
+          "name": "schema_backfill_changed",
+          "value": "\"schema_backfill\".\"changed\" >= 0"
         }
       },
       "isRLSEnabled": false
