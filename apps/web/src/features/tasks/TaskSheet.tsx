@@ -14,7 +14,8 @@ import {
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
-import { useState } from "react";
+import { useId, useState, type ReactNode } from "react";
+import type { Wait } from "../../components/save/model.ts";
 import { When } from "../people/parts.tsx";
 import type { StatusAction } from "./actions.ts";
 import { loadHistory, type Loaded } from "./fetch.ts";
@@ -38,10 +39,12 @@ import { BlockedBy, Repeats, Section, Steps, type StepAssignee } from "./structu
 import { StatusItems, type Viewer } from "./TasksScreen.tsx";
 
 export type DetailState = { status: "loading" } | { status: "failed"; code: string } | ({ status: "ok" } & Loaded);
-/** The panel section being edited, with the person's choice from a refused save to show again. */
-export type PanelEdit = { kind: "prerequisites"; draft?: Prerequisite[] } | { kind: "repeat"; draft?: Rule | null };
-/** A failed change made from this panel, told here with its next step. */
-export type PanelProblem = { message: string; action?: { label: string; altText: string; onSelect: () => void } };
+/**
+ * The panel section being edited, with the person's choice and the refusal code from a refused save to show again.
+ */
+export type PanelEdit =
+	| { kind: "prerequisites"; draft?: Prerequisite[]; problem?: string }
+	| { kind: "repeat"; draft?: Rule | null; problem?: string };
 type Entry = TaskHistory["items"][number];
 
 const SOURCE: Record<Entry["source"], string> = {
@@ -78,14 +81,14 @@ export function TaskSheet({
 	year,
 	viewer,
 	canAct,
-	busy,
+	wait,
 	onAction,
 	onEdit,
 	onDelete,
 	onRetry,
 	pending,
 	canActStep,
-	stepBusy,
+	stepWait,
 	onStep,
 	onAddStep,
 	onRemoveStep,
@@ -94,8 +97,7 @@ export function TaskSheet({
 	onPrerequisites,
 	onRepeat,
 	onOpenTask,
-	problem,
-	onDismissProblem,
+	notices,
 }: {
 	task: TaskItem | null;
 	state: DetailState | null;
@@ -104,7 +106,8 @@ export function TaskSheet({
 	year: number;
 	viewer: Viewer;
 	canAct: boolean;
-	busy: boolean;
+	/** The task's last save is in flight or unknown: its status actions and Delete wait (C68). */
+	wait: Wait;
 	onAction: (a: StatusAction) => void;
 	onEdit: () => void;
 	onDelete: () => void;
@@ -112,7 +115,7 @@ export function TaskSheet({
 	/** Changes still in flight, shown before they are confirmed. */
 	pending: Pending;
 	canActStep: (step: Step) => boolean;
-	stepBusy: (id: string) => boolean;
+	stepWait: (id: string) => Wait;
 	onStep: (step: Step, complete: boolean) => void;
 	onAddStep: (title: string, assignee: StepAssignee) => void;
 	onRemoveStep: (step: Step) => void;
@@ -121,9 +124,11 @@ export function TaskSheet({
 	onPrerequisites: (items: Prerequisite[]) => void;
 	onRepeat: (rule: Rule | null) => void;
 	onOpenTask: (id: string) => void;
-	problem: PanelProblem | null;
-	onDismissProblem: () => void;
+	/** The cards' notices: while the panel is open, they show here (C69). */
+	notices: ReactNode;
 }) {
+	const hint = useId();
+	const locked = wait !== null;
 	const detail = state?.status === "ok" ? state.task : null;
 	const panel = detail ? pending.panel[detail.id] : undefined;
 	// The row is the latest confirmed or optimistic state; the detail adds description, steps and history.
@@ -157,7 +162,15 @@ export function TaskSheet({
 							Edit
 						</Button>
 						<span className="grow" />
-						<Button variant="ghost" size="sm" icon={Delete02Icon} onClick={onDelete} className="text-magenta-600">
+						<Button
+							variant="ghost"
+							size="sm"
+							icon={Delete02Icon}
+							disabled={locked}
+							aria-describedby={locked ? hint : undefined}
+							onClick={onDelete}
+							className="text-magenta-600"
+						>
 							Delete
 						</Button>
 					</>
@@ -181,32 +194,18 @@ export function TaskSheet({
 				<Loading />
 			) : (
 				<div className="flex flex-col gap-6">
-					<div role="alert" className="empty:hidden">
-						{problem ? (
-							<div className="flex flex-col gap-2 rounded-md bg-magenta-50 px-3.5 py-3 text-sm text-magenta-600">
-								<p className="flex items-start gap-2">
-									<Icon icon={Alert02Icon} size={16} className="mt-px flex-none" />
-									{problem.message}
-								</p>
-								<div className="flex gap-2 pl-6">
-									{problem.action ? (
-										<Button
-											variant="secondary"
-											size="sm"
-											aria-label={problem.action.altText}
-											onClick={() => {
-												onDismissProblem();
-												problem.action!.onSelect();
-											}}
-										>
-											{problem.action.label}
-										</Button>
-									) : null}
-									<Button variant="ghost" size="sm" onClick={onDismissProblem}>
-										Dismiss
-									</Button>
-								</div>
-							</div>
+					<div className="empty:hidden">
+						{notices}
+						{edit?.problem ? (
+							<p
+								role="alert"
+								className="flex items-start gap-2 rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600"
+							>
+								<Icon icon={Alert02Icon} size={16} className="mt-px flex-none" />
+								{edit.kind === "prerequisites"
+									? `What this task waits for was not saved. ${problemText(edit.problem as never)}`
+									: `How this task repeats was not saved. ${problemText(edit.problem as never)}`}
+							</p>
 						) : null}
 					</div>
 					{canAct ? (
@@ -214,7 +213,9 @@ export function TaskSheet({
 							<Button
 								variant={isSettled(task.status) ? "secondary" : "primary"}
 								size="sm"
-								aria-busy={busy || undefined}
+								aria-busy={wait === "saving" || undefined}
+								disabled={locked}
+								aria-describedby={locked ? hint : undefined}
 								onClick={() => onAction(isSettled(task.status) ? { kind: "reopen" } : { kind: "complete" })}
 							>
 								{isSettled(task.status) ? "Reopen" : "Mark done"}
@@ -222,7 +223,7 @@ export function TaskSheet({
 							{isSettled(task.status) ? null : (
 								<Menu>
 									<MenuTrigger asChild>
-										<Button variant="outline" size="sm">
+										<Button variant="outline" size="sm" disabled={locked} aria-describedby={locked ? hint : undefined}>
 											Change status
 											<Icon icon={ArrowDown01Icon} size={16} className="-mr-1" />
 										</Button>
@@ -232,6 +233,11 @@ export function TaskSheet({
 									</MenuContent>
 								</Menu>
 							)}
+							{locked ? (
+								<p id={hint} className="text-xs text-text-2">
+									{wait === "saving" ? "Waiting for the last save." : "Check the last save first."}
+								</p>
+							) : null}
 						</div>
 					) : null}
 					{task.managed ? (
@@ -313,7 +319,7 @@ export function TaskSheet({
 								admin={admin}
 								you={viewer.accountId}
 								canTick={canActStep}
-								busy={stepBusy}
+								wait={stepWait}
 								onTick={onStep}
 								onRemove={onRemoveStep}
 								onAdd={onAddStep}
@@ -327,6 +333,7 @@ export function TaskSheet({
 										}
 										admin={admin}
 										editing={edit?.kind === "prerequisites"}
+										locked={locked}
 										draft={edit?.kind === "prerequisites" ? edit.draft : undefined}
 										onEdit={() => onEditPanel({ kind: "prerequisites" })}
 										onCancel={() => onEditPanel(null)}
@@ -336,11 +343,13 @@ export function TaskSheet({
 									<Repeats
 										task={{
 											id: detail.id,
+											status: task.status,
 											recurrence: panel && "recurrence" in panel ? (panel.recurrence ?? null) : detail.recurrence,
 										}}
 										occurrence={state?.status === "ok" ? state.occurrence : null}
 										canEdit={admin && !detail.managed && !detail.deleted}
 										editing={edit?.kind === "repeat"}
+										locked={locked}
 										draft={edit?.kind === "repeat" ? edit.draft : undefined}
 										year={year}
 										onEdit={() => onEditPanel({ kind: "repeat" })}
