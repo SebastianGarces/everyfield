@@ -116,6 +116,18 @@ for (const [name, engine] of ENGINES) {
 		];
 		await withPage(engine, "owner", async (page) => {
 			await addPerson(page, unique(name));
+			// Escape returns the focus to the button that opened the dialog (F4b-V4): the dialog's own focus step must
+			// capture the opener before the form takes the focus.
+			const opener = page.getByRole("button", { name: cards[0].open }).first();
+			await opener.focus();
+			await page.keyboard.press("Enter");
+			await page.getByRole("dialog").waitFor();
+			await page.keyboard.press("Escape");
+			await page.getByRole("dialog").waitFor({ state: "detached" });
+			await page
+				.waitForFunction(() => document.activeElement !== document.body, null, { timeout: 5_000 })
+				.catch(() => {});
+			assert.ok(await opener.evaluate((e) => e === document.activeElement), "Escape returns the focus to the opener");
 			for (const c of cards) {
 				await page.getByRole("button", { name: c.open }).first().click();
 				const d = page.getByRole("dialog");
