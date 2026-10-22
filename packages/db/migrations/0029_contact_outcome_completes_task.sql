@@ -1,0 +1,1 @@
+ALTER TABLE "contact_outcome" ADD COLUMN "completes_task" boolean DEFAULT false NOT NULL;

@@ -64,6 +64,8 @@ const pipelineCard = z.strictObject({
 		)
 		.max(100),
 	coverage: z.enum(["covered", "uncovered"]),
+	// No recorded activity for longer than the church's warning or alert days in Settings (REQ-PPL-007).
+	inactivity: z.strictObject({ lastActivityAt: instant, level: z.enum(["none", "warning", "alert"]) }),
 });
 export const pipelineResult = z
 	.strictObject({
