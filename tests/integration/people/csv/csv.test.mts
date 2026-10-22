@@ -481,6 +481,41 @@ test("AC:TARGET-PPL-018 INV-tenancy an import saves exactly the reviewed rows an
 	);
 	// Another church's Admin cannot read the receipt.
 	refused(await read(2, (t, c) => csv.getImportReceipt(t, c, { requestKey: randomUUID() })));
+
+	// INV-revocation: the import holds the importer's seat like every other write. A seat that ends while the import
+	// waits for it refuses the import, and nothing is queued.
+	const late = "first_name\r\nLate\r\n",
+		lp = ok(await preview(late)),
+		lateKey = randomUUID();
+	const jobsBefore = await count("job");
+	let release, locked;
+	const ready = new Promise((resolve) => (locked = resolve)),
+		done = new Promise((resolve) => (release = resolve));
+	const holder = admin.transaction(async (a) => {
+		const r = await a.execute(
+			sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${sql.param(actors[0].id)} RETURNING pg_backend_pid() pid`,
+		);
+		locked(r.rows[0].pid);
+		await done;
+	});
+	const pid = await ready;
+	const pending = submit(late, lp, choose(lp, () => "create"), lateKey);
+	let settled = false;
+	pending.finally(() => (settled = true)).catch(() => {});
+	// Release the seat once the import waits on it, or once it answered without waiting.
+	for (let waited = 0; !settled; waited++) {
+		const [{ n }] = await rows(sql`SELECT count(*)::int n FROM pg_stat_activity WHERE ${pid}::int=ANY(pg_blocking_pids(pid))`);
+		if (n > 0 || waited > 200) break;
+		await new Promise((resolve) => setTimeout(resolve, 25));
+	}
+	release();
+	await holder;
+	try {
+		refused(await pending);
+		assert.equal(await count("job"), jobsBefore);
+	} finally {
+		await admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE account_id=${sql.param(actors[0].id)}`);
+	}
 });
 
 test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy the export matches the directory's filters as formula-safe CSV without private fields", async () => {
