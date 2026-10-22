@@ -312,7 +312,8 @@ test("INV-migration: two branches' migrations apply by name in either merge orde
 		await writeFile(new URL(a.name, migrations), a.sql + ";\nSELECT 1");
 		await assert.rejects(migrate(admin, fresh, migrations), /migration_checksum_conflict/);
 	} finally {
-		for (const name of schemas) await admin.execute(querySql`DROP SCHEMA IF EXISTS ${querySql.identifier(name)} CASCADE`);
+		for (const name of schemas)
+			await admin.execute(querySql`DROP SCHEMA IF EXISTS ${querySql.identifier(name)} CASCADE`);
 		await rm(directory, { recursive: true, force: true });
 	}
 });

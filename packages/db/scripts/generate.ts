@@ -2,12 +2,7 @@ import { parseArgs } from "node:util";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { generateDrizzleJson, generateMigration } from "drizzle-kit/api";
 import * as declarations from "../src/schema/tables.ts";
-import {
-	checkMigrationArtifacts,
-	migrationDirectory,
-	migrationName,
-	ownTableNames,
-} from "../src/schema/artifacts.ts";
+import { checkMigrationArtifacts, migrationDirectory, migrationName, ownTableNames } from "../src/schema/artifacts.ts";
 import { currentSnapshot, definitions } from "../src/schema/drift.ts";
 import { normalizeOwnTableReferences, qualifyVectorTypes } from "../src/schema/normalize.ts";
 
@@ -49,7 +44,9 @@ if (values.name) {
 	const file = `${stamp}_${values.name}.sql`;
 	await writeFile(
 		new URL(file, migrationDirectory),
-		values.custom ? "-- Custom SQL migration file, put your code below! --" : statements.join("--> statement-breakpoint\n"),
+		values.custom
+			? "-- Custom SQL migration file, put your code below! --"
+			: statements.join("--> statement-breakpoint\n"),
 		{ flag: "wx" },
 	);
 	// A custom migration changes nothing Kit models, so the base carries forward unchanged.

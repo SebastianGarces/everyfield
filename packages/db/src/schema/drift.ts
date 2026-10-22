@@ -86,7 +86,10 @@ export async function currentSnapshot(): Promise<Record<string, unknown>> {
 	const timestamped = (await readdir(migrationDirectory)).some((name) => /^\d{14}_/.test(name));
 	const name = timestamped
 		? "current.json"
-		: (await readdir(meta)).filter((name) => /^\d{4}_snapshot\.json$/.test(name)).sort().at(-1);
+		: (await readdir(meta))
+				.filter((name) => /^\d{4}_snapshot\.json$/.test(name))
+				.sort()
+				.at(-1);
 	if (!name) throw Error("Missing Drizzle baseline snapshot");
 	return definitions(JSON.parse(await readFile(new URL(name, meta), "utf8")));
 }
